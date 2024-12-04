@@ -1,0 +1,25 @@
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <!-- 渐变属性 -->
+    <gradient
+        android:startColor="#00FBFF"
+        android:endColor="#97A297"
+        android:angle="45" />
+
+    <!-- 圆角属性 -->
+    <corners
+        android:radius="8dp" />
+
+    <!-- 内边距 (可选) -->
+    <padding
+        android:left="8dp"
+        android:right="8dp"
+        android:top="8dp"
+        android:bottom="8dp" />
+
+    <!-- 描边 (可选) -->
+    <stroke
+        android:width="2dp"
+        android:color="#388E3C" />
+</shape>
