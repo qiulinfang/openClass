@@ -47,8 +47,12 @@ public class LoginActivity extends AppCompatActivity {
                 textView.setText(fullText.substring(0, index)); // 更新显示的文字
                 index++; // 更新索引
                 // 每个字符显示的间隔时间，单位：毫秒
-                long delay = 150;
+                long delay = 200;
                 handler.postDelayed(this, delay); // 延迟后继续执行
+            } else {
+                long delay = 200;
+                handler.postDelayed(this, delay); // 延迟后继续执行
+                index = 0;
             }
         }
     };

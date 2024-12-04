@@ -15,7 +15,7 @@
     <string name="lorem_ipsum">Lorem Ipsum is simply placeholder text of the printing and         typesetting industry. Lorem Ipsum has been the industry\\\'s standard placeholder text ever         since the 1500s, when an unknown printer took a galley of type and scrambled it to make a         type specimen book</string>
     <string name="fab_content_description">Represents a view to invoke an action</string>
     <string name="image_view_item_transform_content_description">"Represents an image view in the         item     "</string>
-    <string name="login_moto">Never give up, just do it!</string>
+    <string name="login_moto">Never give up\njust do it!</string>
     <string name="login_tip_user_name">Your user name</string>
     <string name="login_tip_passwd">Your password</string>
     <string name="login_button_text">Login</string>
