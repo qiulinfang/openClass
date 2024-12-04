@@ -36,7 +36,7 @@ public class LoginActivity extends AppCompatActivity {
     private LoginViewModel loginViewModel;
 
     private TextView textView;
-    private final String fullText = null;
+    private String fullText = null;
     private int index = 0; // 当前显示的字符索引
     private final Handler handler = new Handler(); // 用于更新 UI
 
@@ -145,6 +145,7 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
 
+        fullText = getString(R.string.login_moto);
         textView = findViewById(R.id.moto); // 获取 TextView
         startTypingEffect(); // 启动打字机效果
     }
