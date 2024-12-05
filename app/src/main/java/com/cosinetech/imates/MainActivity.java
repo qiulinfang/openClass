@@ -13,6 +13,7 @@ import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.navigation.NavigationView;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
@@ -64,7 +65,6 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onTabSelected(TabLayout.Tab tab) {
                 // 处理选项卡选中事件
-                Toast.makeText(MainActivity.this, String.valueOf(tab.getPosition()), Toast.LENGTH_SHORT).show();
                 switch (tab.getPosition()) {
                     case 0:
                         // 处理"语文"选项
@@ -92,6 +92,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onTabUnselected(TabLayout.Tab tab) {
+                //updateTabAppearance(tab, false);
                 // 可以在这里处理选项卡取消选中的事件
             }
 

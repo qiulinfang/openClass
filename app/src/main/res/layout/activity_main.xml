@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="#1a1c37">
+    android:background="@color/app_dark">
 
     <com.google.android.material.navigation.NavigationView
         android:id="@+id/nav_view"
@@ -259,7 +259,7 @@
         android:id="@+id/bottomNavigation"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#232547"
+        android:background="@color/app_light"
         android:scrollbars="none"
         app:layout_constraintBottom_toBottomOf="parent">
 
@@ -267,15 +267,15 @@
             android:id="@+id/tabLayout"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:tabBackground="@android:color/transparent"
             app:tabGravity="center"
-            app:tabIconTint="@color/tab_color_selector"
             app:tabIndicatorHeight="0dp"
             app:tabMode="scrollable"
             app:tabPaddingEnd="16dp"
             app:tabPaddingStart="16dp"
-            app:tabRippleColor="@android:color/white"
-            app:tabTextColor="@color/tab_color_selector">
+            app:tabIconTint="@color/tab_text_selector"
+            app:tabRippleColor="@android:color/transparent"
+            app:tabBackground="@color/tab_background_selector"
+            app:tabTextColor="@color/tab_text_selector">
 
             <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"
