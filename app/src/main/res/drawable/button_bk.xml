@@ -3,8 +3,8 @@
 
     <!-- 渐变属性 -->
     <gradient
-        android:startColor="#00FBFF"
-        android:endColor="#97A297"
+        android:startColor="#363557"
+        android:endColor="#2b2c47"
         android:angle="45" />
 
     <!-- 圆角属性 -->

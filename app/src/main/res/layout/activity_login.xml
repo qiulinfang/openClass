@@ -20,7 +20,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintWidth_percent="0.33"
         android:text="@string/login_moto"
-        android:textColor="@color/black"
+        android:textColor="@color/lb_grey"
         android:textStyle="italic"
         android:textSize="@dimen/reflow_text_title_size" />
 
@@ -108,7 +108,7 @@
             android:layout_marginBottom="16dp"
             android:background="@drawable/button_bk"
             android:text="@string/login_button_text"
-            android:textColor="@color/black"
+            android:textColor="@color/white"
             android:textSize="@dimen/login_input_text_size" />
 
         <ProgressBar
