@@ -14,4 +14,9 @@
     <color name="selected_background">#ffaa3f</color>
     <color name="default_background">#3d3d3d</color>
 
+    <color name="tab_selected">#3949AB</color>
+    <color name="tab_unselected">#CCCCCC</color>
+    <color name="tab_text_selected">#FFFFFF</color>
+    <color name="tab_text_unselected">#CCCCCC</color>
+
 </resources>

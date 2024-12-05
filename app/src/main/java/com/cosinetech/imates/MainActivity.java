@@ -3,6 +3,10 @@ package com.cosinetech.imates;
 import android.os.Bundle;
 import android.view.MenuItem;
 import android.view.Menu;
+import android.view.View;
+import android.widget.ImageView;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
@@ -17,6 +21,7 @@ import androidx.navigation.ui.NavigationUI;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.cosinetech.imates.databinding.ActivityMainBinding;
+import com.google.android.material.tabs.TabLayout;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -29,33 +34,101 @@ public class MainActivity extends AppCompatActivity {
         ActivityMainBinding binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        setSupportActionBar(binding.appBarMain.toolbar);
-        if (binding.appBarMain.fab != null) {
-            binding.appBarMain.fab.setOnClickListener(view -> Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                    .setAction("Action", null).setAnchorView(R.id.fab).show());
-        }
-        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment_content_main);
-        assert navHostFragment != null;
-        NavController navController = navHostFragment.getNavController();
+        // 设置全屏并不遮挡导航栏
+        View decorView = getWindow().getDecorView();
+        decorView.setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+        );
 
-        NavigationView navigationView = binding.navView;
-        if (navigationView != null) {
-            mAppBarConfiguration = new AppBarConfiguration.Builder(
-                    R.id.nav_transform, R.id.nav_reflow, R.id.nav_slideshow, R.id.nav_settings)
-                    .setOpenableLayout(binding.drawerLayout)
-                    .build();
-            NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
-            NavigationUI.setupWithNavController(navigationView, navController);
+        TabLayout tabLayout = findViewById(R.id.tabLayout);
+
+        // 设置选项卡的样式
+        for (int i = 0; i < tabLayout.getTabCount(); i++) {
+            TabLayout.Tab tab = tabLayout.getTabAt(i);
+            if (tab != null) {
+                tab.setCustomView(R.layout.custom_tab);
+                View customView = tab.getCustomView();
+                if (customView != null) {
+                    ImageView tabIcon = customView.findViewById(R.id.tab_icon);
+                    TextView tabText = customView.findViewById(R.id.tab_text);
+                    tabIcon.setImageDrawable(tab.getIcon());
+                    tabText.setText(tab.getText());
+                }
+            }
         }
 
-        BottomNavigationView bottomNavigationView = binding.appBarMain.contentMain.bottomNavView;
-        if (bottomNavigationView != null) {
-            mAppBarConfiguration = new AppBarConfiguration.Builder(
-                    R.id.nav_transform, R.id.nav_reflow, R.id.nav_slideshow)
-                    .build();
-            NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
-            NavigationUI.setupWithNavController(bottomNavigationView, navController);
-        }
+        // 设置选项卡选中监听器
+        tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                // 处理选项卡选中事件
+                Toast.makeText(MainActivity.this, String.valueOf(tab.getPosition()), Toast.LENGTH_SHORT).show();
+                switch (tab.getPosition()) {
+                    case 0:
+                        // 处理"语文"选项
+                        break;
+                    case 1:
+                        // 处理"数学"选项
+                        break;
+                    case 2:
+                        // 处理"英语"选项
+                        break;
+                    case 3:
+                        // 处理"科学"选项
+                        break;
+                    case 4:
+                        // 处理"视频课"选项
+                        break;
+                    case 5:
+                        // 处理"阅读"选项
+                        break;
+                    case 6:
+                        // 处理"AI题拟人"选项
+                        break;
+                }
+            }
+
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {
+                // 可以在这里处理选项卡取消选中的事件
+            }
+
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {
+                // 可以在这里处理选项卡重新选中的事件
+            }
+        });
+
+
+//        setSupportActionBar(binding.appBarMain.toolbar);
+//        if (binding.appBarMain.fab != null) {
+//            binding.appBarMain.fab.setOnClickListener(view -> Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
+//                    .setAction("Action", null).setAnchorView(R.id.fab).show());
+//        }
+//        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment_content_main);
+//        assert navHostFragment != null;
+//        NavController navController = navHostFragment.getNavController();
+//
+//        NavigationView navigationView = binding.navView;
+//        if (navigationView != null) {
+//            mAppBarConfiguration = new AppBarConfiguration.Builder(
+//                    R.id.nav_transform, R.id.nav_reflow, R.id.nav_slideshow, R.id.nav_settings)
+//                    .setOpenableLayout(binding.drawerLayout)
+//                    .build();
+//            NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
+//            NavigationUI.setupWithNavController(navigationView, navController);
+//        }
+//
+//        BottomNavigationView bottomNavigationView = binding.appBarMain.contentMain.bottomNavView;
+//        if (bottomNavigationView != null) {
+//            mAppBarConfiguration = new AppBarConfiguration.Builder(
+//                    R.id.nav_transform, R.id.nav_reflow, R.id.nav_slideshow)
+//                    .build();
+//            NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
+//            NavigationUI.setupWithNavController(bottomNavigationView, navController);
+//        }
     }
 
     @Override

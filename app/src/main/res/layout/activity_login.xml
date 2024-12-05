@@ -4,7 +4,25 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:background="@drawable/login_bk">
+
+    <!-- 标题 -->
+    <TextView
+        android:id="@+id/moto"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:gravity="center_horizontal"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.9"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_percent="0.33"
+        android:text="@string/login_moto"
+        android:textColor="@color/black"
+        android:textStyle="italic"
+        android:textSize="@dimen/reflow_text_title_size" />
 
     <LinearLayout
         android:id="@+id/child_layout"
@@ -14,22 +32,11 @@
         android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHeight_percent="0.9"
+        app:layout_constraintHeight_percent="0.7"
         app:layout_constraintHorizontal_bias="0.9"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintWidth_percent="0.33">
-
-        <!-- 标题 -->
-        <TextView
-            android:id="@+id/moto"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="32dp"
-            android:text="@string/login_moto"
-            android:textColor="@color/black"
-            android:textStyle="italic"
-            android:textSize="@dimen/reflow_text_title_size" />
 
         <!-- 用户名输入框 -->
         <LinearLayout
@@ -46,7 +53,6 @@
                 android:drawableStart="@android:drawable/ic_menu_info_details"
                 android:drawablePadding="8dp"
                 android:hint="@string/login_tip_user_name"
-                android:layout_marginBottom="@dimen/activity_vertical_margin"
                 android:padding="12dp"
                 android:textColor="@color/black"
                 android:textColorHint="#AAAAAA" />
@@ -66,7 +72,6 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
             android:orientation="vertical">
 
             <!-- 输入框 -->
@@ -79,7 +84,7 @@
                 android:drawablePadding="8dp"
                 android:hint="@string/login_tip_passwd"
                 android:inputType="textPassword"
-                android:padding="12sp"
+                android:padding="12dp"
                 android:textColor="#FFFFFF"
                 android:textColorHint="#AAAAAA" />
 
@@ -104,17 +109,14 @@
             android:background="@drawable/button_bk"
             android:text="@string/login_button_text"
             android:textColor="@color/black"
-            android:textSize="16sp" />
+            android:textSize="@dimen/login_input_text_size" />
 
         <ProgressBar
             android:id="@+id/loading"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_marginTop="64dp"
-            android:layout_marginBottom="64dp"
+            android:layout_gravity="center_horizontal"
             android:visibility="invisible"/>
-
     </LinearLayout>
 
 
