@@ -259,7 +259,7 @@
         android:id="@+id/bottomNavigation"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/app_light"
+        android:background="@color/app_dark"
         android:scrollbars="none"
         app:layout_constraintBottom_toBottomOf="parent">
 
@@ -270,8 +270,6 @@
             app:tabGravity="center"
             app:tabIndicatorHeight="0dp"
             app:tabMode="scrollable"
-            app:tabPaddingEnd="16dp"
-            app:tabPaddingStart="16dp"
             app:tabIconTint="@color/tab_text_selector"
             app:tabRippleColor="@android:color/transparent"
             app:tabBackground="@color/tab_background_selector"
@@ -280,43 +278,43 @@
             <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:icon="@drawable/avatar_1"
-                android:text="我的" />
+                android:icon="@drawable/ic_robot"
+                android:text="我的主页" />
 
             <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:icon="@drawable/avatar_2"
+                android:icon="@drawable/ic_literature"
                 android:text="语文" />
 
             <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:icon="@drawable/avatar_3"
+                android:icon="@drawable/ic_brain"
                 android:text="数学" />
 
             <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:icon="@drawable/avatar_4"
+                android:icon="@drawable/ic_message_circle"
                 android:text="英语" />
 
             <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:icon="@drawable/avatar_5"
+                android:icon="@drawable/ic_flask"
                 android:text="物理" />
 
             <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:icon="@drawable/avatar_6"
+                android:icon="@drawable/ic_laptop"
                 android:text="化学" />
 
             <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:icon="@drawable/avatar_7"
+                android:icon="@drawable/ic_biology"
                 android:text="生物" />
 
         </com.google.android.material.tabs.TabLayout>

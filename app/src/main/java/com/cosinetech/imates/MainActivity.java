@@ -46,19 +46,19 @@ public class MainActivity extends AppCompatActivity {
         TabLayout tabLayout = findViewById(R.id.tabLayout);
 
         // 设置选项卡的样式
-        for (int i = 0; i < tabLayout.getTabCount(); i++) {
-            TabLayout.Tab tab = tabLayout.getTabAt(i);
-            if (tab != null) {
-                tab.setCustomView(R.layout.custom_tab);
-                View customView = tab.getCustomView();
-                if (customView != null) {
-                    ImageView tabIcon = customView.findViewById(R.id.tab_icon);
-                    TextView tabText = customView.findViewById(R.id.tab_text);
-                    tabIcon.setImageDrawable(tab.getIcon());
-                    tabText.setText(tab.getText());
-                }
-            }
-        }
+//        for (int i = 0; i < tabLayout.getTabCount(); i++) {
+//            TabLayout.Tab tab = tabLayout.getTabAt(i);
+//            if (tab != null) {
+//                tab.setCustomView(R.layout.custom_tab);
+//                View customView = tab.getCustomView();
+//                if (customView != null) {
+//                    ImageView tabIcon = customView.findViewById(R.id.tab_icon);
+//                    TextView tabText = customView.findViewById(R.id.tab_text);
+//                    tabIcon.setImageDrawable(tab.getIcon());
+//                    tabText.setText(tab.getText());
+//                }
+//            }
+//        }
 
         // 设置选项卡选中监听器
         tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
