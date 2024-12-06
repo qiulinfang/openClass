@@ -299,6 +299,12 @@
             <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:icon="@drawable/ic_biology"
+                android:text="生物" />
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:icon="@drawable/ic_physics"
                 android:text="物理" />
 
@@ -307,12 +313,6 @@
                 android:layout_height="wrap_content"
                 android:icon="@drawable/ic_chemical"
                 android:text="化学" />
-
-            <com.google.android.material.tabs.TabItem
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:icon="@drawable/ic_biology"
-                android:text="生物" />
 
         </com.google.android.material.tabs.TabLayout>
 
