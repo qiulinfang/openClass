@@ -27,6 +27,7 @@
             android:theme="@style/Theme.IMatesApp.FullScreen">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.MONKEY" />
@@ -39,8 +40,7 @@
             android:resizeableActivity="true"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen"
-            tools:ignore="DiscouragedApi">
-        </activity>
+            tools:ignore="DiscouragedApi"></activity>
     </application>
 
 </manifest>

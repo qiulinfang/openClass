@@ -6,20 +6,14 @@ import android.view.MenuItem;
 import android.view.Menu;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.ImageView;
-import android.widget.TextView;
-import android.widget.Toast;
 
 import com.airbnb.lottie.LottieAnimationView;
-import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.navigation.NavigationView;
 
 import androidx.annotation.NonNull;
-import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentTransaction;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
-import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 import androidx.appcompat.app.AppCompatActivity;
@@ -102,6 +96,7 @@ public class MainActivity extends AppCompatActivity {
                 // 处理点击事件
                 // 在这里你可以处理点击事件，比如播放或暂停动画等
                 //lottieAnimationView.pauseAnimation();
+                showFloatingFragment();
             }
         });
 
@@ -174,6 +169,17 @@ public class MainActivity extends AppCompatActivity {
 //            NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
 //            NavigationUI.setupWithNavController(bottomNavigationView, navController);
 //        }
+    }
+
+    private void showFloatingFragment() {
+        // 创建悬浮 Fragment 实例
+        ChatAiFragment floatingFragment = new ChatAiFragment();
+
+        // 使用 FragmentTransaction 显示悬浮 Fragment
+        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+        transaction.replace(R.id.fragmentChatAiContainer, floatingFragment);
+        transaction.addToBackStack(null);
+        transaction.commit();
     }
 
     @Override
