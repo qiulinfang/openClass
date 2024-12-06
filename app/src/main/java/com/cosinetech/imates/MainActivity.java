@@ -1,13 +1,16 @@
 package com.cosinetech.imates;
 
+import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.view.MenuItem;
 import android.view.Menu;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.airbnb.lottie.LottieAnimationView;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.navigation.NavigationView;
@@ -26,8 +29,12 @@ import com.google.android.material.tabs.TabLayout;
 
 public class MainActivity extends AppCompatActivity {
 
+    private float dX, dY;
+    private float initialX, initialY;
+    private static final int CLICK_THRESHOLD = 10; // 拖动的阈值
     private AppBarConfiguration mAppBarConfiguration;
 
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -86,6 +93,59 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        LottieAnimationView lottieAnimationView = findViewById(R.id.lottieAnimationView);
+
+        // 设置点击事件
+        lottieAnimationView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                // 处理点击事件
+                // 在这里你可以处理点击事件，比如播放或暂停动画等
+                //lottieAnimationView.pauseAnimation();
+            }
+        });
+
+        // 设置拖动监听器
+        lottieAnimationView.setOnTouchListener(new View.OnTouchListener() {
+            @SuppressLint("ClickableViewAccessibility")
+            @Override
+            public boolean onTouch(View view, MotionEvent motionEvent) {
+                switch (motionEvent.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        // 记录触摸的初始位置
+                        initialX = motionEvent.getRawX();
+                        initialY = motionEvent.getRawY();
+                        dX = view.getX() - motionEvent.getRawX();
+                        dY = view.getY() - motionEvent.getRawY();
+                        return true;
+
+                    case MotionEvent.ACTION_MOVE:
+                        // 如果触摸点移动的距离超过阈值，认为是拖动
+                        if (Math.abs(motionEvent.getRawX() - initialX) > CLICK_THRESHOLD ||
+                                Math.abs(motionEvent.getRawY() - initialY) > CLICK_THRESHOLD) {
+                            // 更新位置
+                            view.animate()
+                                    .x(motionEvent.getRawX() + dX)
+                                    .y(motionEvent.getRawY() + dY)
+                                    .setDuration(0)
+                                    .start();
+                        }
+                        return true;
+
+                    case MotionEvent.ACTION_UP:
+                        // 在这里可以判断是否是点击（可以放置额外的条件判断）
+                        if (Math.abs(motionEvent.getRawX() - initialX) <= CLICK_THRESHOLD &&
+                                Math.abs(motionEvent.getRawY() - initialY) <= CLICK_THRESHOLD) {
+                            // 如果触摸的移动距离小于阈值，认为是点击
+                            lottieAnimationView.performClick();
+                        }
+                        return true;
+
+                    default:
+                        return false;
+                }
+            }
+        });
 
 //        setSupportActionBar(binding.appBarMain.toolbar);
 //        if (binding.appBarMain.fab != null) {
