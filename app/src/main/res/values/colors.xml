@@ -18,6 +18,7 @@
 
     <color name="tab_text_selected">#FFFFFF</color>
     <color name="tab_text_unselected">#CCCCCC</color>
+
     <color name="tab_selected_background">#1a1c37</color>
-    <color name="tab_unselected_background">#232547</color>
+    <color name="tab_unselected_background">#80ffffff</color>
 </resources>

@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="@color/app_dark">
+    android:background="@drawable/app_main_background">
 
     <com.google.android.material.navigation.NavigationView
         android:id="@+id/nav_view"
@@ -259,7 +259,6 @@
         android:id="@+id/bottomNavigation"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/app_dark"
         android:scrollbars="none"
         app:layout_constraintBottom_toBottomOf="parent">
 
@@ -273,7 +272,7 @@
             app:tabIndicatorHeight="2dp"
             app:tabMode="scrollable"
             app:tabIconTint="@color/tab_text_selector"
-            app:tabRippleColor="@android:color/transparent"
+            app:tabRippleColor="@color/tab_background_selector"
             app:tabBackground="@color/tab_background_selector"
             app:tabTextColor="@color/tab_text_selector">
 
