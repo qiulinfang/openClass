@@ -268,7 +268,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             app:tabGravity="center"
-            app:tabIndicatorHeight="0dp"
+            app:tabIndicatorFullWidth="true"
+            app:tabIndicatorColor="@android:color/white"
+            app:tabIndicatorHeight="2dp"
             app:tabMode="scrollable"
             app:tabIconTint="@color/tab_text_selector"
             app:tabRippleColor="@android:color/transparent"
@@ -279,7 +281,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:icon="@drawable/ic_robot"
-                android:text="我的主页" />
+                android:text="我的" />
 
             <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"

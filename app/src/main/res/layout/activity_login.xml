@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="@drawable/login_bk">
+    android:background="@drawable/login_bg">
 
     <!-- 标题 -->
     <TextView
@@ -20,7 +20,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintWidth_percent="0.33"
         android:text="@string/login_moto"
-        android:textColor="@color/lb_grey"
+        android:textColor="@android:color/white"
         android:textStyle="italic"
         android:textSize="@dimen/reflow_text_title_size" />
 
@@ -49,10 +49,12 @@
                 android:id="@+id/username"
                 android:layout_width="match_parent"
                 android:layout_height="50dp"
+                android:autofillHints=""
                 android:background="@drawable/edit_text_background"
                 android:drawableStart="@android:drawable/ic_menu_info_details"
                 android:drawablePadding="8dp"
                 android:hint="@string/login_tip_user_name"
+                android:inputType="text"
                 android:padding="12dp"
                 android:textColor="@color/black"
                 android:textColorHint="#AAAAAA" />
