@@ -11,6 +11,7 @@ import com.airbnb.lottie.LottieAnimationView;
 import com.google.android.material.navigation.NavigationView;
 
 import androidx.annotation.NonNull;
+import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
@@ -141,42 +142,20 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-
-//        setSupportActionBar(binding.appBarMain.toolbar);
-//        if (binding.appBarMain.fab != null) {
-//            binding.appBarMain.fab.setOnClickListener(view -> Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-//                    .setAction("Action", null).setAnchorView(R.id.fab).show());
-//        }
-//        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment_content_main);
-//        assert navHostFragment != null;
-//        NavController navController = navHostFragment.getNavController();
-//
-//        NavigationView navigationView = binding.navView;
-//        if (navigationView != null) {
-//            mAppBarConfiguration = new AppBarConfiguration.Builder(
-//                    R.id.nav_transform, R.id.nav_reflow, R.id.nav_slideshow, R.id.nav_settings)
-//                    .setOpenableLayout(binding.drawerLayout)
-//                    .build();
-//            NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
-//            NavigationUI.setupWithNavController(navigationView, navController);
-//        }
-//
-//        BottomNavigationView bottomNavigationView = binding.appBarMain.contentMain.bottomNavView;
-//        if (bottomNavigationView != null) {
-//            mAppBarConfiguration = new AppBarConfiguration.Builder(
-//                    R.id.nav_transform, R.id.nav_reflow, R.id.nav_slideshow)
-//                    .build();
-//            NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
-//            NavigationUI.setupWithNavController(bottomNavigationView, navController);
-//        }
     }
 
     private void showFloatingFragment() {
+        FragmentManager fragmentManager = getSupportFragmentManager();
+        FragmentTransaction transaction = fragmentManager.beginTransaction();
+        transaction.setCustomAnimations(
+                R.anim.fragment_enter, // enter animation
+                R.anim.fragment_exit,  // exit animation
+                R.anim.fragment_enter, // popEnter animation
+                R.anim.fragment_exit   // popExit animation
+        );
+
         // 创建悬浮 Fragment 实例
         ChatAiFragment floatingFragment = new ChatAiFragment();
-
-        // 使用 FragmentTransaction 显示悬浮 Fragment
-        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
         transaction.replace(R.id.fragmentChatAiContainer, floatingFragment);
         transaction.addToBackStack(null);
         transaction.commit();
