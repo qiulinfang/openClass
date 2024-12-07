@@ -28,7 +28,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private List<ChatMessage> messageList;
 
     public ChatAdapter(List<ChatMessage> messageList) {
-        this.messageList = groupMessagesWithDate(messageList);
+        this.messageList = messageList; //groupMessagesWithDate(messageList);
     }
 
     private List<ChatMessage> groupMessagesWithDate(List<ChatMessage> messages) {

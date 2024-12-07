@@ -9,10 +9,9 @@
 
     <TextView
         android:id="@+id/ai_name"
-        android:layout_marginTop="@dimen/min_margin_size"
-        android:layout_marginHorizontal="@dimen/min_margin_size"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginHorizontal="@dimen/min_margin_size"
         android:layout_alignParentTop="true"
         android:layout_alignParentStart="true"
         android:textAlignment="center"
@@ -26,15 +25,15 @@
         android:id="@+id/split_line"
         android:layout_width="match_parent"
         android:layout_height="2dp"
+        android:layout_marginHorizontal="@dimen/min_margin_size"
         android:background="@color/gray3"
         android:layout_below="@id/ai_name" />
 
     <com.scwang.smart.refresh.layout.SmartRefreshLayout
         android:id="@+id/chat_message_session"
-        android:layout_alignTop="@id/split_line"
-        android:layout_marginBottom="@id/chat_input_area"
+        android:layout_below="@id/split_line"
+        android:layout_above="@id/chat_input_area"
         android:layout_marginHorizontal="@dimen/min_margin_size"
-        android:background="@color/white"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
@@ -51,8 +50,8 @@
         android:id="@+id/chat_input_area"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/chat_ai_input_background"
         android:layout_marginHorizontal="@dimen/min_margin_size"
+        android:background="@drawable/chat_ai_input_background"
         android:layout_alignParentBottom="true">
 
         <!-- 左侧的键盘按钮 -->
@@ -61,6 +60,7 @@
             android:layout_width="50dp"
             android:layout_height="50dp"
             android:background="@drawable/ic_keyboard"
+            android:stateListAnimator="@animator/button_click_scale"
             android:scaleType="center"
             android:layout_alignParentStart="true"
             android:layout_centerVertical="true"
@@ -72,6 +72,7 @@
             android:layout_width="50dp"
             android:layout_height="50dp"
             android:background="@drawable/ic_mic"
+            android:stateListAnimator="@animator/button_click_scale"
             android:scaleType="center"
             android:layout_alignParentStart="true"
             android:layout_centerVertical="true" />
@@ -102,6 +103,7 @@
             android:layout_marginHorizontal="8dp"
             android:autofillHints=" "
             android:background="@drawable/chat_ai_edit_background"
+            android:stateListAnimator="@animator/button_click_scale"
             android:padding="10dp"
             android:text="按住 说话"
             android:textAlignment="center"
@@ -118,6 +120,7 @@
             android:src="@mipmap/ic_cheat_add"
             android:scaleType="center"
             android:layout_toStartOf="@id/btn_send"
+            android:stateListAnimator="@animator/button_click_scale"
             android:layout_centerVertical="true"
             android:visibility="gone"/>
 
@@ -127,6 +130,7 @@
             android:layout_width="50dp"
             android:layout_height="50dp"
             android:background="@drawable/ic_send"
+            android:stateListAnimator="@animator/button_click_scale"
             android:scaleType="center"
             android:textColor="@color/white"
             android:textSize="13sp"

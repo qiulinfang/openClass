@@ -12,6 +12,7 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
@@ -94,6 +95,7 @@ public class ChatAiFragment extends Fragment {
             // Handle refresh
             loadMessages();
             refreshLayout.finishRefresh();
+            Toast.makeText(getContext(),"refreshing", Toast.LENGTH_SHORT).show();
         });
 
         // Send button click
