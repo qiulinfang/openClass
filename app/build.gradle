@@ -59,6 +59,9 @@ dependencies {
     implementation libs.glide
     implementation libs.activity
     implementation libs.lottie
+    implementation libs.refresh.layout.kernel // 核心库
+    implementation libs.refresh.header.classics // 经典 Header
+    implementation libs.refresh.footer.classics // 经典 Footer
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core

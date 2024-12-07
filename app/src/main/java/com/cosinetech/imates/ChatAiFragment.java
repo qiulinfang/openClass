@@ -3,10 +3,20 @@ package com.cosinetech.imates;
 import android.os.Bundle;
 
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageView;
+
+import com.scwang.smart.refresh.layout.SmartRefreshLayout;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -19,6 +29,15 @@ public class ChatAiFragment extends Fragment {
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
+
+    private RecyclerView recyclerView;
+    private SmartRefreshLayout refreshLayout;
+    private EditText etMessage;
+    private Button btnSend;
+    private ChatAdapter chatAdapter;
+    private List<ChatMessage> messageList = new ArrayList<>();
+
+
 
     // TODO: Rename and change types of parameters
     private String mParam1;
@@ -59,6 +78,47 @@ public class ChatAiFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_chat_ai, container, false);
+        View view = inflater.inflate(R.layout.fragment_chat_ai, container, false);
+        recyclerView = view.findViewById(R.id.recyclerView);
+        refreshLayout = view.findViewById(R.id.chat_message_session);
+        etMessage = view.findViewById(R.id.et_message);
+        btnSend = view.findViewById(R.id.btn_send);
+
+        // Initialize RecyclerView
+        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        chatAdapter = new ChatAdapter(messageList);
+        recyclerView.setAdapter(chatAdapter);
+
+        // Set up SmartRefreshLayout for pull-to-refresh
+        refreshLayout.setOnRefreshListener(refreshLayout -> {
+            // Handle refresh
+            loadMessages();
+            refreshLayout.finishRefresh();
+        });
+
+        // Send button click
+        btnSend.setOnClickListener(v -> sendMessage());
+
+        return view;
+    }
+
+    private void sendMessage() {
+        String messageText = etMessage.getText().toString().trim();
+        if (!messageText.isEmpty()) {
+            // Add message to the list and notify the adapter
+            ChatMessage message = new ChatMessage(messageText, true, 0, ChatMessage.TYPE_TEXT);
+            messageList.add(message);
+            chatAdapter.notifyItemInserted(messageList.size() - 1);
+            etMessage.setText("");
+            recyclerView.scrollToPosition(messageList.size() - 1);
+        }
+    }
+
+    private void loadMessages() {
+        // Example: Load previous messages from database or network
+        // Simulate adding a message
+        ChatMessage message = new ChatMessage("Hello, how are you?", false, 0, ChatMessage.TYPE_TEXT);
+        messageList.add(0, message);
+        chatAdapter.notifyItemInserted(0);
     }
 }

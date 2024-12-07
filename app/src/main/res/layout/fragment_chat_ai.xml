@@ -10,6 +10,7 @@
     <TextView
         android:id="@+id/ai_name"
         android:layout_marginTop="@dimen/min_margin_size"
+        android:layout_marginHorizontal="@dimen/min_margin_size"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
@@ -22,16 +23,36 @@
 
     <!-- 下边框 -->
     <View
+        android:id="@+id/split_line"
         android:layout_width="match_parent"
         android:layout_height="2dp"
         android:background="@color/gray3"
         android:layout_below="@id/ai_name" />
 
+    <com.scwang.smart.refresh.layout.SmartRefreshLayout
+        android:id="@+id/chat_message_session"
+        android:layout_alignTop="@id/split_line"
+        android:layout_marginBottom="@id/chat_input_area"
+        android:layout_marginHorizontal="@dimen/min_margin_size"
+        android:background="@color/white"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="8dp"
+            android:clipToPadding="false" />
+    </com.scwang.smart.refresh.layout.SmartRefreshLayout>
+
     <!-- 聊天输入区域 -->
     <RelativeLayout
+        android:id="@+id/chat_input_area"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@drawable/chat_ai_input_background"
+        android:layout_marginHorizontal="@dimen/min_margin_size"
         android:layout_alignParentBottom="true">
 
         <!-- 左侧的键盘按钮 -->
