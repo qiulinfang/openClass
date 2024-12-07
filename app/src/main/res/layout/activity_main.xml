@@ -341,8 +341,8 @@
     <!-- Fragment 容器 -->
     <FrameLayout
         android:id="@+id/fragmentChatAiContainer"
-        android:layout_width="400dp"
-        android:layout_height="600dp"
+        android:layout_width="600dp"
+        android:layout_height="800dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
