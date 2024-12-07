@@ -10,5 +10,5 @@
     <dimen name="activity_horizontal_margin">16dp</dimen>
     <dimen name="activity_vertical_margin">16dp</dimen>
     <dimen name="login_input_text_size">16sp</dimen>
-    <dimen name="min_margin_size">4sp</dimen>
+    <dimen name="min_margin_size">8sp</dimen>
 </resources>

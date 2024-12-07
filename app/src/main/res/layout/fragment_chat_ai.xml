@@ -14,7 +14,6 @@
         android:layout_alignParentTop="true"
         android:layout_alignParentStart="true"
         android:textAlignment="center"
-        android:background="#E7E7E7"
         android:text="大聪明"
         android:textSize="@dimen/reflow_text_title_size"
         android:textColor="@color/black"
@@ -25,14 +24,13 @@
         android:id="@+id/split_line"
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="@color/black"
+        android:background="@color/gray3"
         android:layout_below="@id/ai_name" />
 
     <com.scwang.smart.refresh.layout.SmartRefreshLayout
         android:id="@+id/chat_message_session"
         android:layout_below="@id/split_line"
         android:layout_above="@id/chat_input_area"
-        android:background="#E7E7E7"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
@@ -44,20 +42,13 @@
             android:clipToPadding="false" />
     </com.scwang.smart.refresh.layout.SmartRefreshLayout>
 
-    <View
-        android:id="@+id/split_line_bottom"
-        android:layout_width="match_parent"
-        android:layout_height="2dp"
-        android:background="@color/black"
-        android:layout_below="@id/chat_message_session" />
-
     <!-- 聊天输入区域 -->
     <RelativeLayout
         android:id="@+id/chat_input_area"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="100dp"
-        android:background="#F3F6F5"
+        android:background="#80FFFFFF"
         android:layout_alignParentBottom="true">
 
         <!-- 左侧的键盘按钮 -->
@@ -79,6 +70,7 @@
             android:layout_height="50dp"
             android:background="@drawable/ic_mic"
             android:stateListAnimator="@animator/button_click_scale"
+            android:layout_marginHorizontal="@dimen/min_margin_size"
             android:scaleType="center"
             android:layout_alignParentStart="true"
             android:layout_centerVertical="true" />
@@ -90,7 +82,7 @@
             android:layout_height="wrap_content"
             android:layout_toEndOf="@id/btn_voice"
             android:layout_toStartOf="@id/btn_more"
-            android:layout_marginHorizontal="8dp"
+            android:layout_marginHorizontal="@dimen/min_margin_size"
             android:autofillHints=" "
             android:background="@drawable/chat_ai_edit_background"
             android:padding="10dp"
@@ -106,7 +98,7 @@
             android:layout_height="wrap_content"
             android:layout_toEndOf="@id/btn_voice"
             android:layout_toStartOf="@id/btn_more"
-            android:layout_marginHorizontal="8dp"
+            android:layout_marginHorizontal="@dimen/min_margin_size"
             android:autofillHints=" "
             android:background="@drawable/chat_ai_edit_background"
             android:stateListAnimator="@animator/button_click_scale"
@@ -123,6 +115,7 @@
             android:id="@+id/btn_more"
             android:layout_width="40dp"
             android:layout_height="40dp"
+            android:layout_marginHorizontal="@dimen/min_margin_size"
             android:src="@mipmap/ic_cheat_add"
             android:scaleType="center"
             android:layout_toStartOf="@id/btn_send"
@@ -135,6 +128,7 @@
             android:id="@+id/btn_send"
             android:layout_width="50dp"
             android:layout_height="50dp"
+            android:layout_marginHorizontal="@dimen/min_margin_size"
             android:background="@drawable/ic_send"
             android:stateListAnimator="@animator/button_click_scale"
             android:scaleType="center"
