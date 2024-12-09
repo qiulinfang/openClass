@@ -56,15 +56,25 @@ dependencies {
     implementation libs.material3
     implementation libs.annotation
     implementation libs.leanback
-    implementation libs.glide
     implementation libs.activity
     implementation libs.lottie
     implementation libs.refresh.layout.kernel // 核心库
     implementation libs.refresh.header.classics // 经典 Header
     implementation libs.refresh.footer.classics // 经典 Footer
-    implementation libs.core // Markwon 核心库
-    implementation libs.ext.latex // LaTeX 插件
-    implementation libs.image // 图片支持
+    // Markwon dependencies
+    implementation libs.core
+    implementation libs.image
+    implementation libs.image.glide
+    implementation libs.ext.latex
+    implementation libs.glide.v4120
+    implementation libs.compiler
+//    implementation libs.jlatexmath
+    // http/https请求库
+    implementation platform(libs.okhttp.bom)
+    // define any required OkHttp artifacts without version
+    implementation libs.okhttp
+    implementation libs.logging.interceptor
+    // ========
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
