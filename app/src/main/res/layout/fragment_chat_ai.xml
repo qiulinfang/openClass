@@ -51,7 +51,7 @@
         android:id="@+id/chat_input_area"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:minHeight="100dp"
+        android:minHeight="80dp"
         android:background="#80FFFFFF"
         android:layout_alignParentBottom="true">
 
