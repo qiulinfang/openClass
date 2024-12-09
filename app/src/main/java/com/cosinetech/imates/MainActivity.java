@@ -172,7 +172,6 @@ public class MainActivity extends AppCompatActivity {
         TextView textView = findViewById(R.id.markdownTextView);
 
 // 创建 Markwon 实例并添加插件
-
         Markwon markwon = Markwon.builder(this)
                 // automatically create Glide instance
                 .usePlugin(MarkwonInlineParserPlugin.create())
