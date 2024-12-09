@@ -78,6 +78,7 @@
                             android:layout_marginStart="8dp"
                             android:text="幼小衔接专项计划"
                             android:textColor="#FFFFFF"
+                            android:textAlignment="center"
                             android:textSize="14sp" />
 
                     </LinearLayout>
@@ -159,6 +160,23 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:padding="16dp">
+
+                    <androidx.camera.view.PreviewView
+                        android:id="@+id/previewView"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"/>
+
+                    <Button
+                        android:id="@+id/captureButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Capture"/>
+
+                    <ImageView
+                        android:id="@+id/photo"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:contentDescription="TODO" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -316,6 +334,11 @@
                 android:text="化学" />
 
         </com.google.android.material.tabs.TabLayout>
+
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/viewPager"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent" />
 
     </HorizontalScrollView>
 

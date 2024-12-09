@@ -1,6 +1,8 @@
 package com.cosinetech.imates;
 
 import android.annotation.SuppressLint;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -47,12 +49,46 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
+
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureException;
+import androidx.camera.core.Preview;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.view.PreviewView;
+import androidx.core.content.ContextCompat;
+
+import com.google.android.material.tabs.TabLayoutMediator;
+import com.google.common.util.concurrent.ListenableFuture;
+
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Bundle;
+import android.util.Log;
+import android.widget.Button;
+import android.widget.ImageView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.FileProvider;
+import androidx.viewpager2.widget.ViewPager2;
+
+import java.io.File;
+import java.util.concurrent.ExecutionException;
+
 public class MainActivity extends AppCompatActivity {
 
     private float dX, dY;
     private float initialX, initialY;
     private static final int CLICK_THRESHOLD = 10; // 拖动的阈值
     private AppBarConfiguration mAppBarConfiguration;
+
+    private PreviewView previewView;
+    private Button captureButton;
+    private ImageView imageView;
+    private ImageCapture imageCapture;
 
     @SuppressLint("ClickableViewAccessibility")
     @Override
@@ -168,6 +204,18 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        ViewPager2 viewPager = findViewById(R.id.viewPager);
+
+        // 创建并设置适配器
+        MyAdapter adapter = new MyAdapter(this);
+        viewPager.setAdapter(adapter);
+
+        // 将 TabLayout 与 ViewPager2 关联
+        new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
+            // 设置 Tab 的标题（可以根据位置来动态设置标题）
+            tab.setText("Tab " + (position + 1));
+        }).attach();
+
 
         TextView textView = findViewById(R.id.markdownTextView);
 
@@ -200,6 +248,79 @@ public class MainActivity extends AppCompatActivity {
 
         // Set Markdown text to TextView
         markwon.setMarkdown(textView, markdown);
+        previewView = findViewById(R.id.previewView);
+        captureButton = findViewById(R.id.captureButton);
+        imageView = findViewById(R.id.photo);
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.CAMERA}, 1001);
+        } else {
+            startCamera();
+        }
+
+        captureButton.setOnClickListener(v -> takePhoto());
+    }
+
+    private void startCamera() {
+        ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
+
+        cameraProviderFuture.addListener(() -> {
+            try {
+                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+
+                Preview preview = new Preview.Builder().build();
+                preview.setSurfaceProvider(previewView.getSurfaceProvider());
+
+                imageCapture = new ImageCapture.Builder().build();
+
+                CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
+
+                cameraProvider.unbindAll();
+                cameraProvider.bindToLifecycle(MainActivity.this, cameraSelector, preview, imageCapture);
+
+            } catch (ExecutionException | InterruptedException e) {
+                // Handle any errors
+                Log.e("CameraXApp", "Error starting camera", e);
+            }
+        }, ContextCompat.getMainExecutor(this));
+    }
+
+    private void takePhoto() {
+        File photoFile = new File(getExternalFilesDir(null), System.currentTimeMillis() + ".jpg");
+
+        ImageCapture.OutputFileOptions outputOptions =
+                new ImageCapture.OutputFileOptions.Builder(photoFile).build();
+
+        imageCapture.takePicture(outputOptions, ContextCompat.getMainExecutor(this),
+                new ImageCapture.OnImageSavedCallback() {
+                    @Override
+                    public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
+                        runOnUiThread(() -> {
+                            Bitmap bitmap = BitmapFactory.decodeFile(photoFile.getAbsolutePath());
+                            imageView.setImageBitmap(bitmap);
+                            Toast.makeText(MainActivity.this, "Photo captured", Toast.LENGTH_SHORT).show();
+                        });
+                    }
+
+                    @Override
+                    public void onError(@NonNull ImageCaptureException exception) {
+                        Log.e("CameraXApp", "Photo capture failed: " + exception.getMessage(), exception);
+                    }
+                });
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 1001) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startCamera();
+            } else {
+                Toast.makeText(this, "Camera permission denied", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     private void showFloatingFragment() {

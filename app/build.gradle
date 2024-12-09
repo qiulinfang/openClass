@@ -58,16 +58,21 @@ dependencies {
     implementation libs.annotation
     implementation libs.leanback
     implementation libs.activity
+
+    // ======== lottie animate ========
     implementation libs.lottie
+
+    // ======== smartrefreshlayout ========
     implementation libs.refresh.layout.kernel // 核心库
     implementation libs.refresh.header.classics // 经典 Header
     implementation libs.refresh.footer.classics // 经典 Footer
-    // Markwon dependencies
-    implementation 'com.atlassian.commonmark:commonmark:0.13.0'
-    implementation 'com.atlassian.commonmark:commonmark-parent:0.13.0'
-    implementation 'ru.noties:jlatexmath-android:0.2.0'
-    implementation 'ru.noties:jlatexmath-android-font-cyrillic:0.2.0'
-    implementation 'ru.noties:jlatexmath-android-font-greek:0.2.0'
+
+    // ======== markdown dependencies ========
+    implementation libs.commonmark
+    implementation libs.commonmark.parent
+    implementation libs.jlatexmath.android
+    implementation libs.jlatexmath.android.font.cyrillic
+    implementation libs.jlatexmath.android.font.greek
     implementation files('libs/markwon-core.aar')
     implementation files('libs/markwon-html.aar')
     implementation files('libs/markwon-image.aar')
@@ -75,21 +80,30 @@ dependencies {
     implementation files('libs/markwon-inline-parser.aar')
     implementation files('libs/markwon-syntax-highlight.aar')
     implementation files('libs/markwon-ext-latex.aar')
-
 //    implementation libs.core
 //    implementation libs.image
 //    implementation libs.image.glide
 //    implementation libs.ext.latex
-
     implementation libs.glide.v4120
     implementation libs.compiler
 
-    // http/https请求库
+    // ======== CameraX core library ========
+    def camerax_version = "1.4.0" // 使用最新版本号
+    implementation libs.camera.core
+    implementation libs.camera.camera2
+    implementation libs.camera.lifecycle
+    implementation libs.camera.view // 如果需要使用CameraView
+
+    // ======== http/https请求库 ========
     implementation platform(libs.okhttp.bom)
     // define any required OkHttp artifacts without version
     implementation libs.okhttp
     implementation libs.logging.interceptor
-    // ========
+
+    // ======== Viewer pager for tab layout
+    implementation libs.viewpager2
+    implementation libs.material.v175
+
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
