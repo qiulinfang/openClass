@@ -15,7 +15,7 @@
         android:layout_alignParentStart="true"
         android:textAlignment="center"
         android:text="大聪明"
-        android:textSize="@dimen/reflow_text_title_size"
+        android:textSize="12sp"
         android:textColor="@color/black"
         />
 
@@ -51,15 +51,15 @@
         android:id="@+id/chat_input_area"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:minHeight="80dp"
+        android:minHeight="40dp"
         android:background="#80FFFFFF"
         android:layout_alignParentBottom="true">
 
         <!-- 左侧的键盘按钮 -->
         <Button
             android:id="@+id/btn_kbd"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
             android:background="@drawable/ic_keyboard"
             android:stateListAnimator="@animator/button_click_scale"
             android:scaleType="center"
@@ -70,8 +70,8 @@
         <!-- 左侧的语音按钮 -->
         <Button
             android:id="@+id/btn_voice"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
             android:background="@drawable/ic_mic"
             android:stateListAnimator="@animator/button_click_scale"
             android:layout_marginHorizontal="@dimen/min_margin_size"
@@ -89,12 +89,12 @@
             android:layout_marginHorizontal="@dimen/min_margin_size"
             android:autofillHints=" "
             android:background="@drawable/chat_ai_edit_background"
-            android:padding="10dp"
+            android:padding="2dp"
+            android:textSize="12sp"
             android:gravity="center_vertical"
             android:inputType="textMultiLine"
             android:layout_centerVertical="true"
-            android:maxLines="4"
-            android:minHeight="40dp"/>
+            android:minHeight="12sp"/>
 
         <Button
             android:id="@+id/voice_message"
@@ -111,14 +111,14 @@
             android:textAlignment="center"
             android:layout_centerVertical="true"
             android:maxLines="4"
-            android:minHeight="40dp"
+            android:minHeight="20dp"
             android:visibility="invisible"/>
 
         <!-- 扩展功能按钮 -->
         <Button
             android:id="@+id/btn_more"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
             android:layout_marginHorizontal="@dimen/min_margin_size"
             android:src="@mipmap/ic_cheat_add"
             android:scaleType="center"
@@ -130,14 +130,13 @@
         <!-- 发送按钮 -->
         <Button
             android:id="@+id/btn_send"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
             android:layout_marginHorizontal="@dimen/min_margin_size"
             android:background="@drawable/ic_send"
             android:stateListAnimator="@animator/button_click_scale"
             android:scaleType="center"
             android:textColor="@color/white"
-            android:textSize="13sp"
             android:layout_alignParentEnd="true"
             android:layout_centerVertical="true" />
     </RelativeLayout>
@@ -175,4 +174,5 @@
                 android:textSize="16sp" />
         </LinearLayout>
     </FrameLayout>
+
 </RelativeLayout>

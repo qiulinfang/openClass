@@ -14,7 +14,7 @@
         android:background="@drawable/bg_message_right"
         android:padding="10dp"
         android:textColor="#ffffff"
-        android:textSize="16sp" />
+        android:textSize="12sp" />
 
     <ImageView
         android:id="@+id/iv_avatar"
