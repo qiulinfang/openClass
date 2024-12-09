@@ -38,6 +38,7 @@ android {
 }
 
 dependencies {
+    implementation fileTree(dir: "libs", include: [".jar", ".aar"])
 
     implementation libs.appcompat
     implementation libs.material
@@ -62,13 +63,26 @@ dependencies {
     implementation libs.refresh.header.classics // 经典 Header
     implementation libs.refresh.footer.classics // 经典 Footer
     // Markwon dependencies
-    implementation libs.core
-    implementation libs.image
-    implementation libs.image.glide
-    implementation libs.ext.latex
+    implementation 'com.atlassian.commonmark:commonmark:0.13.0'
+    implementation 'com.atlassian.commonmark:commonmark-parent:0.13.0'
+    implementation 'ru.noties:jlatexmath-android:0.2.0'
+    implementation 'ru.noties:jlatexmath-android-font-cyrillic:0.2.0'
+    implementation 'ru.noties:jlatexmath-android-font-greek:0.2.0'
+    implementation files('libs/markwon-core.aar')
+    implementation files('libs/markwon-html.aar')
+    implementation files('libs/markwon-image.aar')
+    implementation files('libs/markwon-image-glide.aar')
+    implementation files('libs/markwon-inline-parser.aar')
+    implementation files('libs/markwon-syntax-highlight.aar')
+    implementation files('libs/markwon-ext-latex.aar')
+
+//    implementation libs.core
+//    implementation libs.image
+//    implementation libs.image.glide
+//    implementation libs.ext.latex
+
     implementation libs.glide.v4120
     implementation libs.compiler
-//    implementation libs.jlatexmath
 
     // http/https请求库
     implementation platform(libs.okhttp.bom)

@@ -179,6 +179,7 @@ public class MainActivity extends AppCompatActivity {
                 .usePlugin(JLatexMathPlugin.create(textView.getTextSize(), builder -> {
                     // enable inlines (require `MarkwonInlineParserPlugin`), by default `false`
                     builder.inlinesEnabled(true);
+                    builder.allowInlinesSingleDollar(true);
 //
                 }))
                 .build();
