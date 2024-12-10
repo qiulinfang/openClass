@@ -20,6 +20,7 @@ import com.bumptech.glide.RequestBuilder;
 import com.google.android.material.navigation.NavigationView;
 
 import androidx.annotation.NonNull;
+import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.navigation.NavController;
@@ -76,6 +77,8 @@ import androidx.core.content.FileProvider;
 import androidx.viewpager2.widget.ViewPager2;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 public class MainActivity extends AppCompatActivity {
@@ -206,14 +209,23 @@ public class MainActivity extends AppCompatActivity {
 
         ViewPager2 viewPager = findViewById(R.id.viewPager);
 
+        // 创建 Fragment 列表
+        List<Fragment> fragmentList = new ArrayList<>();
+        fragmentList.add(FragmentStudentStatus.newInstance("", ""));
+        fragmentList.add(FragmentSubjectChinese.newInstance("", ""));
+        fragmentList.add(FragmentSubjectMath.newInstance("", ""));
+        fragmentList.add(FragmentSubjectEnglish.newInstance("", ""));
+        fragmentList.add(FragmentSubjectPhysics.newInstance("", ""));
+        fragmentList.add(FragmentSubjectChemistry.newInstance("", ""));
+        fragmentList.add(FragmentSubjectBiology.newInstance("", ""));
+
         // 创建并设置适配器
-        MyAdapter adapter = new MyAdapter(this);
+        SubjectViewAdapter adapter = new SubjectViewAdapter(this, fragmentList);
         viewPager.setAdapter(adapter);
 
         // 将 TabLayout 与 ViewPager2 关联
         new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
-            // 设置 Tab 的标题（可以根据位置来动态设置标题）
-            tab.setText("Tab " + (position + 1));
+            tab.setText("Tab " + (position + 1));  // 设置 Tab 的名称
         }).attach();
 
 
