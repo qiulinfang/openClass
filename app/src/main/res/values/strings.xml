@@ -35,24 +35,17 @@
     <string name="login_tip_user_name">请输入账号</string>
     <string name="login_tip_passwd">请输入密码</string>
     <string name="login_button_text">登 录</string>
-    <string name="title_activity_main2">Leanback MainActivity2</string>
-    <string name="browse_title">Videos by Your Company</string>
-    <string name="related_movies">Related Videos</string>
-    <string name="grid_view">Grid View</string>
-    <string name="error_fragment">Error Fragment</string>
-    <string name="personal_settings">Personal Settings</string>
-    <string name="watch_trailer_1">Watch trailer</string>
-    <string name="watch_trailer_2">FREE</string>
-    <string name="rent_1">Rent By Day</string>
-    <string name="rent_2">From $1.99</string>
-    <string name="buy_1">Buy and Own</string>
-    <string name="buy_2">AT $9.99</string>
-    <string name="movie">Movie</string>
 
     <!-- Error messages -->
     <string name="error_fragment_message">An error occurred</string>
     <string name="dismiss_error">Dismiss</string>
-    <string name="title_activity_login111">LoginActivity111</string>
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="subject_name_chinese">语文</string>
+    <string name="subject_name_math">数学</string>
+    <string name="subject_name_english">英语</string>
+    <string name="subject_name_physics">物理</string>
+    <string name="subject_name_chemistry">化学</string>
+    <string name="subject_name_biology">生物</string>
+    <string name="student_status_title">我的</string>
 </resources>

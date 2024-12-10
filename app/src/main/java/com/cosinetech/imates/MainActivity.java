@@ -7,6 +7,7 @@ import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.text.Spanned;
+import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.Menu;
 import android.view.MotionEvent;
@@ -64,7 +65,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
-import android.os.Bundle;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -78,6 +78,7 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -209,6 +210,7 @@ public class MainActivity extends AppCompatActivity {
 
         ViewPager2 viewPager = findViewById(R.id.viewPager);
 
+
         // 创建 Fragment 列表
         List<Fragment> fragmentList = new ArrayList<>();
         fragmentList.add(FragmentStudentStatus.newInstance("", ""));
@@ -219,13 +221,34 @@ public class MainActivity extends AppCompatActivity {
         fragmentList.add(FragmentSubjectChemistry.newInstance("", ""));
         fragmentList.add(FragmentSubjectBiology.newInstance("", ""));
 
+        List<TabItemAttribute> tabItems = new ArrayList<>(
+                Arrays.asList(new TabItemAttribute(getString(R.string.student_status_title), R.drawable.ic_student_status),
+                        new TabItemAttribute(getString(R.string.subject_name_chinese), R.drawable.ic_subject_chinese),
+                        new TabItemAttribute(getString(R.string.subject_name_math), R.drawable.ic_subject_math),
+                        new TabItemAttribute(getString(R.string.subject_name_english), R.drawable.ic_subject_english),
+                        new TabItemAttribute(getString(R.string.subject_name_physics), R.drawable.ic_subject_physics),
+                        new TabItemAttribute(getString(R.string.subject_name_chemistry), R.drawable.ic_subject_chemistryl),
+                        new TabItemAttribute(getString(R.string.subject_name_biology), R.drawable.ic_subject_biology)));
+
         // 创建并设置适配器
         SubjectViewAdapter adapter = new SubjectViewAdapter(this, fragmentList);
         viewPager.setAdapter(adapter);
 
         // 将 TabLayout 与 ViewPager2 关联
         new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
-            tab.setText("Tab " + (position + 1));  // 设置 Tab 的名称
+            View customView = LayoutInflater.from(this).inflate(R.layout.custom_tab, null);
+
+            // 获取布局中的视图组件
+            ImageView tabIcon = customView.findViewById(R.id.tab_icon);
+            TextView tabTitle = customView.findViewById(R.id.tab_text);
+
+            // 设置 tab 的标题和图标
+            tabTitle.setText(tabItems.get(position).getTitle());  // 设置标签文本
+            // 设置图标，根据 position 设置不同的图标
+            tabIcon.setImageResource(tabItems.get(position).getIconResId());  // 根据 position 返回不同的图标
+
+            // 设置自定义视图到 Tab
+            tab.setCustomView(customView);
         }).attach();
 
 
@@ -269,7 +292,7 @@ public class MainActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.CAMERA}, 1001);
         } else {
-            startCamera();
+            //startCamera();
         }
 
         captureButton.setOnClickListener(v -> takePhoto());
