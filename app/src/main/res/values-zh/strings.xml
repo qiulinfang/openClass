@@ -23,7 +23,7 @@
     <string name="invalid_username">用户名不可用</string>
     <string name="invalid_password">密码至少5个字符</string>
     <string name="login_failed">登录失败</string>
-    <string name="login_moto">长风破浪会有时\\n直挂云帆济沧海</string>
+    <string name="login_moto">长风破浪会有时\n直挂云帆济沧海</string>
     <string name="login_tip_user_name">请输入账号</string>
     <string name="login_tip_passwd">请输入密码</string>
     <string name="login_button_text">登 录</string>
@@ -44,4 +44,7 @@
     <string name="history_archive">历史档案</string>
     <string name="todo_list_title"><![CDATA[清单 >]]></string>
     <string name="todo_add_item">+待办</string>
+    <string name="Capture">拍照</string>
+    <string name="crop_done">裁剪好了</string>
+    <string name="finish">返回</string>
 </resources>

@@ -46,6 +46,7 @@ public class FragmentCamera extends Fragment {
     private Button btnExit;
     private View scanLine;
     private Executor executor = Executors.newSingleThreadExecutor();
+    private ProcessCameraProvider cameraProvider;
     private SharedViewModel viewModel;
 
     @Nullable
@@ -82,9 +83,10 @@ public class FragmentCamera extends Fragment {
         btnDone.setOnClickListener(v -> processCroppedImage());
 
         btnExit.setOnClickListener(v -> {
-            Object objectToPass = new Object(); // 或者任何你想要传递的对象
-            viewModel.setSharedObject(objectToPass); // 将对象传递给ParentFragment
-            getParentFragmentManager().popBackStack(); // 移除ChildFragment并恢复到ParentFragment
+            stopCamera();
+            Object objectToPass = new Object();
+            viewModel.setSharedObject(objectToPass);
+            getParentFragmentManager().popBackStack();
         });
     }
 
@@ -93,13 +95,26 @@ public class FragmentCamera extends Fragment {
 
         cameraProviderFuture.addListener(() -> {
             try {
-                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+                cameraProvider = cameraProviderFuture.get();
                 bindPreview(cameraProvider);
             } catch (ExecutionException | InterruptedException e) {
                 // Handle any errors
                 Toast.makeText(requireContext(), "Error starting camera: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         }, ContextCompat.getMainExecutor(requireContext()));
+    }
+
+    public void stopCamera() {
+        if (cameraProvider != null) {
+            cameraProvider.unbindAll(); // 解绑所有用例，停止相机预览
+            cameraProvider = null;
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        stopCamera(); // 确保在活动销毁时停止相机
     }
 
     private void bindPreview(@NonNull ProcessCameraProvider cameraProvider) {
@@ -151,7 +166,6 @@ public class FragmentCamera extends Fragment {
         Bitmap croppedBitmap = cropImageView.getCroppedImage();
         if (croppedBitmap != null) {
             showFinalImage(croppedBitmap);
-            //saveImage(croppedBitmap);
             startScanAnimation(cropImageView, scanLine);
         } else {
             Toast.makeText(requireContext(), "Failed to crop image", Toast.LENGTH_SHORT).show();
@@ -188,7 +202,12 @@ public class FragmentCamera extends Fragment {
         cropImageView.setVisibility(View.GONE);
         ivPreview.setVisibility(View.VISIBLE);
         ivPreview.setImageBitmap(bitmap);
+//        ViewGroup.LayoutParams param = ivPreview.getLayoutParams();
+//        param.height = scanLine.getLayoutParams().height;
+//        scanLine.setLayoutParams(param);
         scanLine.setVisibility(View.VISIBLE);
+        ivPreview.requestLayout();
+        scanLine.requestLayout();
     }
 
     private void saveImage(Bitmap bitmap) {

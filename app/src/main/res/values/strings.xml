@@ -55,4 +55,7 @@
     <string name="todo_add_item">+待办</string>
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="Capture">拍照</string>
+    <string name="crop_done">裁剪好了</string>
+    <string name="finish">返回</string>
 </resources>

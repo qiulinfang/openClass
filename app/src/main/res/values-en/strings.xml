@@ -43,4 +43,7 @@
     <string name="history_archive">Rencent Acvitity</string>
     <string name="todo_list_title"><![CDATA[Your Tasks >]]></string>
     <string name="todo_add_item">Add item</string>
+    <string name="Capture">Capture</string>
+    <string name="crop_done">Crop Done</string>
+    <string name="finish">Back</string>
 </resources>
