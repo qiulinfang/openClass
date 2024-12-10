@@ -1,9 +1,9 @@
 package com.cosinetech.imates;
 
 import android.Manifest;
+import android.animation.ObjectAnimator;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class FragmentCamera extends Fragment {
     private PreviewView viewFinder;
@@ -42,6 +43,8 @@ public class FragmentCamera extends Fragment {
     private ImageView ivPreview;
     private Button btnCapture;
     private Button btnDone;
+    private Button btnExit;
+    private View scanLine;
     private Executor executor = Executors.newSingleThreadExecutor();
     private SharedViewModel viewModel;
 
@@ -60,6 +63,8 @@ public class FragmentCamera extends Fragment {
         ivPreview = view.findViewById(R.id.ivPreview);
         btnCapture = view.findViewById(R.id.btnCapture);
         btnDone = view.findViewById(R.id.btnDone);
+        btnExit = view.findViewById(R.id.btnExit);
+        scanLine = view.findViewById(R.id.scanLine);
 
         if (allPermissionsGranted()) {
             startCamera();
@@ -67,8 +72,20 @@ public class FragmentCamera extends Fragment {
             requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CODE_PERMISSIONS);
         }
 
-        btnCapture.setOnClickListener(v -> takePhoto());
+        btnCapture.setOnClickListener(v -> {
+            try {
+                takePhoto();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
         btnDone.setOnClickListener(v -> processCroppedImage());
+
+        btnExit.setOnClickListener(v -> {
+            Object objectToPass = new Object(); // 或者任何你想要传递的对象
+            viewModel.setSharedObject(objectToPass); // 将对象传递给ParentFragment
+            getParentFragmentManager().popBackStack(); // 移除ChildFragment并恢复到ParentFragment
+        });
     }
 
     private void startCamera() {
@@ -98,8 +115,8 @@ public class FragmentCamera extends Fragment {
         cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture);
     }
 
-    private void takePhoto() {
-        File photoFile = new File(requireContext().getExternalCacheDir(), "photo.jpg");
+    private void takePhoto() throws IOException {
+        File photoFile = File.createTempFile("prefix_", ".jpg", requireContext().getCacheDir());
 
         ImageCapture.OutputFileOptions outputOptions = new ImageCapture.OutputFileOptions.Builder(photoFile).build();
 
@@ -125,36 +142,53 @@ public class FragmentCamera extends Fragment {
         btnDone.setVisibility(View.VISIBLE);
 
         cropImageView.setImageUriAsync(Uri.fromFile(photoFile));
-        cropImageView.setAspectRatio(1, 1); // You can adjust this as needed
+        cropImageView.setFixedAspectRatio(false); // 取消固定纵横比
+//        cropImageView.setAspectRatio(1, 1);
         cropImageView.setGuidelines(CropImageView.Guidelines.ON);
     }
 
     private void processCroppedImage() {
         Bitmap croppedBitmap = cropImageView.getCroppedImage();
         if (croppedBitmap != null) {
-            Bitmap scannedBitmap = applyScannerEffect(croppedBitmap);
-            showFinalImage(scannedBitmap);
-            saveImage(scannedBitmap);
-
-            Object objectToPass = new Object(); // 或者任何你想要传递的对象
-            viewModel.setSharedObject(objectToPass); // 将对象传递给ParentFragment
-            getParentFragmentManager().popBackStack(); // 移除ChildFragment并恢复到ParentFragment
-
+            showFinalImage(croppedBitmap);
+            //saveImage(croppedBitmap);
+            startScanAnimation(cropImageView, scanLine);
         } else {
             Toast.makeText(requireContext(), "Failed to crop image", Toast.LENGTH_SHORT).show();
         }
     }
 
-    private Bitmap applyScannerEffect(Bitmap source) {
-        // Apply a custom shader for scanner effect
-        // This is a placeholder. You should implement your own shader effect here.
-        return ScannerShader.applyEffect(source);
+    private void startScanAnimation(CropImageView imageView, View scanLine) {
+        // 获取ImageView的高度
+        AtomicInteger height = new AtomicInteger(imageView.getHeight());
+
+        // 如果ImageView的高度为0（可能是因为视图尚未测量），则设置一个监听器并在视图准备好时启动动画
+        if (height.get() == 0) {
+            imageView.post(() -> {
+                height.set(imageView.getHeight());
+                animateScanLine(scanLine, height.get());
+            });
+        } else {
+            animateScanLine(scanLine, height.get());
+        }
+    }
+
+    private void animateScanLine(View scanLine, int height) {
+        // 创建并配置ObjectAnimator
+        ObjectAnimator animator = ObjectAnimator.ofFloat(scanLine, "translationY", 0f, height);
+        animator.setDuration(2000); // 动画持续时间2秒
+        animator.setRepeatCount(ObjectAnimator.INFINITE); // 无限循环
+        animator.setRepeatMode(ObjectAnimator.RESTART);   // 每次重复时重新开始
+
+        // 开始动画
+        animator.start();
     }
 
     private void showFinalImage(Bitmap bitmap) {
         cropImageView.setVisibility(View.GONE);
         ivPreview.setVisibility(View.VISIBLE);
         ivPreview.setImageBitmap(bitmap);
+        scanLine.setVisibility(View.VISIBLE);
     }
 
     private void saveImage(Bitmap bitmap) {

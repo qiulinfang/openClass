@@ -33,15 +33,6 @@ public class FragmentSubjectBiology extends Fragment {
         // Required empty public constructor
     }
 
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment FragmentSubjectBiology.
-     */
-    // TODO: Rename and change types and number of parameters
     public static FragmentSubjectBiology newInstance(String param1, String param2) {
         FragmentSubjectBiology fragment = new FragmentSubjectBiology();
         Bundle args = new Bundle();
@@ -82,9 +73,9 @@ public class FragmentSubjectBiology extends Fragment {
                 // 处理从子Fragment传来的对象
                 Toast.makeText(getContext(), "Received object from ChildFragment", Toast.LENGTH_SHORT).show();
                 // 销毁ParentFragment
-                getParentFragmentManager().beginTransaction()
-                        .remove(this)
-                        .commit();
+//                getParentFragmentManager().beginTransaction()
+//                        .remove(this)
+//                        .commit();
             }
         });
     }

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:startColor="#FF00FF00"
+        android:centerColor="#8000FF00"
+        android:endColor="#0100FF00"
+        android:angle="90"
+        android:type="linear" />
+        <!-- 如果需要，可以添加边角圆滑等其他属性 -->
+</shape>
