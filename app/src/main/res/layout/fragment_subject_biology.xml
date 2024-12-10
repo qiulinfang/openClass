@@ -73,7 +73,7 @@
             app:layout_constraintBottom_toBottomOf="parent">
 
             <androidx.cardview.widget.CardView
-                android:id="@+id/menuJoinClass"
+                android:id="@+id/photo_to_solve"
                 android:backgroundTint="@android:color/holo_purple"
                 android:clickable="true"
                 android:focusable="true"
@@ -134,4 +134,14 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         app:layout_constraintGuide_percent="0.6" />
+
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/camera_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>
