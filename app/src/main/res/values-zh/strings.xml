@@ -31,7 +31,6 @@
     <string name="prompt_email">邮件</string>
     <string name="error_fragment_message">出现了错误</string>
     <string name="dismiss_error">忽略</string>
-    <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="subject_name_chinese">语文</string>
     <string name="subject_name_math">数学</string>
     <string name="subject_name_english">英语</string>
@@ -39,4 +38,10 @@
     <string name="subject_name_chemistry">化学</string>
     <string name="subject_name_biology">生物</string>
     <string name="student_status_title">我的</string>
+    <string name="take_photo_solve_question">拍照解题</string>
+    <string name="my_favorite">收藏中心</string>
+    <string name="question_list">习题列表</string>
+    <string name="history_archive">历史档案</string>
+    <string name="todo_list_title"><![CDATA[清单 >]]></string>
+    <string name="todo_add_item">+待办</string>
 </resources>

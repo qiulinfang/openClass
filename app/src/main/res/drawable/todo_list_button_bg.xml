@@ -10,5 +10,5 @@
     <!-- 可选：设置边框 -->
     <stroke
         android:width="2dp"
-        android:color="#000000" />
+        android:color="#808080" />
 </shape>

@@ -30,7 +30,6 @@
     <string name="invalid_password">Password must be >5 characters</string>
     <string name="error_fragment_message">An error occurred</string>
     <string name="dismiss_error">Dismiss</string>
-    <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="subject_name_chinese">Chinese</string>
     <string name="subject_name_math">Math</string>
     <string name="subject_name_english">English</string>
@@ -38,4 +37,10 @@
     <string name="subject_name_chemistry">Chemistry</string>
     <string name="subject_name_biology">Biology</string>
     <string name="student_status_title">My</string>
+    <string name="take_photo_solve_question">Photo To Solve</string>
+    <string name="my_favorite">My Favorite</string>
+    <string name="question_list">Question List</string>
+    <string name="history_archive">Rencent Acvitity</string>
+    <string name="todo_list_title"><![CDATA[Your Tasks >]]></string>
+    <string name="todo_add_item">Add item</string>
 </resources>
