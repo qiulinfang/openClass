@@ -106,7 +106,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if(message.isSelf) {
                 ((TextViewHolder) holder).tvMessage.setText(message.content);
             } else {
-                ((TextViewHolder) holder).tvMessage.appendContent(message.content);
+                ((TextViewHolder) holder).tvMessage.setChatMessage(message);
                 ((TextViewHolder) holder).tvMessage.startStreaming();
             }
         } else if (holder instanceof ImageViewHolder) {
@@ -140,7 +140,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public void updateLastMessage(String newContent) {
         if (!messageList.isEmpty()) {
             ChatMessage lastMessage = messageList.get(messageList.size() - 1);
-            lastMessage.updateContent(newContent);
+            lastMessage.appendContent(newContent);
             notifyItemChanged(messageList.size() - 1); // 更新最后一个消息
         }
     }

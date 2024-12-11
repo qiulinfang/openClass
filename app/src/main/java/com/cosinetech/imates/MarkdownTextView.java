@@ -13,13 +13,13 @@ import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin;
 import io.noties.markwon.ext.latex.JLatexMathPlugin;
 
 public class MarkdownTextView extends AppCompatTextView {
+    private final Object sync = new  Object();
+
+    private ChatMessage chatMsg;
     private Markwon markwon;
-    private final StringBuffer contentBuffer = new StringBuffer();
     private Handler mainHandler;
     private static final long UPDATE_DELAY = 100; // 延迟更新时间，单位毫秒
     private boolean isStreaming;
-    private String fullContent;
-    private int currentIndex = 0;
 
     public MarkdownTextView(Context context) {
         this(context, null);
@@ -49,18 +49,18 @@ public class MarkdownTextView extends AppCompatTextView {
                 .build();
     }
 
-    public void appendContent(String newContent) {
-        synchronized (contentBuffer) {
-            contentBuffer.append(newContent);
-            Log.d("########Thread-" + Thread.currentThread().getName(), newContent);
-            Log.d("$$$$$$$$Thread-" + Thread.currentThread().getName(), contentBuffer.toString());
+    public void setChatMessage(ChatMessage msg) {
+        synchronized (sync) {
+            chatMsg = msg;
+//            Log.d("########Thread-" + Thread.currentThread().getName(), newContent);
+//            Log.d("$$$$$$$$Thread-" + Thread.currentThread().getName(), contentBuffer.toString());
         }
         // 如果正在流式显示，则继续流式显示
         if (isStreaming) {
             startStreaming();
         } else {
             // 否则，直接渲染当前内容
-            markwon.setMarkdown(this, contentBuffer.toString());
+            markwon.setMarkdown(this, chatMsg.content);
         }
     }
 
@@ -73,12 +73,12 @@ public class MarkdownTextView extends AppCompatTextView {
         Runnable runnable = new Runnable() {
             @Override
             public void run() {
-                synchronized (contentBuffer) {
-                    fullContent = contentBuffer.toString();
-                }
-                if (currentIndex < fullContent.length()) {
+//                synchronized (sync) {
+//                    fullContent = contentBuffer.toString();
+//                }
+                if (chatMsg.currentDisplayCharIndex < chatMsg.content.length()) {
                     // 逐字拼接内容
-                    String displayContent = fullContent.substring(0, ++currentIndex);
+                    String displayContent = chatMsg.content.substring(0, ++chatMsg.currentDisplayCharIndex);
                     markwon.setMarkdown(MarkdownTextView.this, displayContent);
                     mainHandler.postDelayed(this, UPDATE_DELAY); // 每 100ms 更新一次
                 } else {
@@ -92,12 +92,5 @@ public class MarkdownTextView extends AppCompatTextView {
 
     public boolean isStreaming() {
         return isStreaming;
-    }
-
-    public void clearContent() {
-        synchronized (contentBuffer) {
-            contentBuffer.setLength(0);
-            setText("");
-        }
     }
 }

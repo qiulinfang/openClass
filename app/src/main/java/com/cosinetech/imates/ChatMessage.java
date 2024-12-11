@@ -13,16 +13,19 @@ public class ChatMessage {
     public long timestamp;  // 消息时间戳
     public int type;        // 消息类型
 
-    public ChatMessage(String initialContent, boolean isSelf, long timestamp, int type, boolean isHistory) {
-        this.content = initialContent;
+    public int currentDisplayCharIndex;  //流式显示的字符索引
+
+    public ChatMessage(String content, boolean isSelf, long timestamp, int type, boolean isHistory) {
+        this.content = content;
         this.isSelf = isSelf;
         this.timestamp = timestamp;
         this.type = type;
         this.isHistory = isHistory;
+        this.currentDisplayCharIndex = 0;
     }
 
-    public void updateContent(String newContent) {
-        content = newContent;
+    public void appendContent(String newContent) {
+        content += newContent;
     }
 }
 
