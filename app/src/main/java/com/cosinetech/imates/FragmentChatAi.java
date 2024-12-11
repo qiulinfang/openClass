@@ -27,6 +27,7 @@ import java.util.List;
  * create an instance of this fragment.
  */
 public class FragmentChatAi extends Fragment {
+    ChatMessage responseMessage;
     private UserViewModel userViewModel;
     private static final String CHATBOT_URL = "";
 
@@ -104,9 +105,7 @@ public class FragmentChatAi extends Fragment {
             requireActivity().runOnUiThread(() -> {
                 if (success) {
                     if(!response.trim().isEmpty() && !response.equals("end")) {
-                        ChatMessage message = new ChatMessage(response, false, 0, ChatMessage.TYPE_TEXT, false);
-                        messageList.add(message);
-                        chatAdapter.notifyItemInserted(messageList.size() - 1);
+                        chatAdapter.updateLastMessage(response);
                     }
                     if(!response.equals("end")) {
                         messageVO.setReason("continue");
@@ -122,10 +121,15 @@ public class FragmentChatAi extends Fragment {
         String messageText = etMessage.getText().toString().trim();
         if (!messageText.isEmpty()) {
             // Add message to the list and notify the adapter
-            ChatMessage message = new ChatMessage(messageText, true, 0, ChatMessage.TYPE_TEXT, false);
+            ChatMessage message = new ChatMessage(new StringBuffer(messageText), true, 0, ChatMessage.TYPE_TEXT, false);
             messageList.add(message);
             chatAdapter.notifyItemInserted(messageList.size() - 1);
             etMessage.setText("");
+
+            responseMessage = new ChatMessage(new StringBuffer(), false, 0, ChatMessage.TYPE_TEXT, false);
+            messageList.add(responseMessage);
+            chatAdapter.notifyItemInserted(messageList.size() - 1);
+
             recyclerView.scrollToPosition(messageList.size() - 1);
 
             messageVO.setReason("start");
@@ -135,8 +139,8 @@ public class FragmentChatAi extends Fragment {
     }
 
     private void loadMessages() {
-        ChatMessage message = new ChatMessage("Hello, how are you?", false, 0, ChatMessage.TYPE_TEXT, false);
-        messageList.add(0, message);
-        chatAdapter.notifyItemInserted(0);
+//        ChatMessage message = new ChatMessage("Hello, how are you?", false, 0, ChatMessage.TYPE_TEXT, false);
+//        messageList.add(0, message);
+//        chatAdapter.notifyItemInserted(0);
     }
 }

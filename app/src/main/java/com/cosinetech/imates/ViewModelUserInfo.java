@@ -4,7 +4,7 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
-public class AppViewModel extends ViewModel {
+public class ViewModelUserInfo extends ViewModel {
     private MutableLiveData<String> authToken = new MutableLiveData<>();
     private MutableLiveData<String> userInfo = new MutableLiveData<>();
 

@@ -38,7 +38,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         for (ChatMessage message : messages) {
             if (message.type != ChatMessage.TYPE_DATE && message.timestamp - lastTimestamp > 5 * 60 * 1000) {
                 groupedMessages.add(new ChatMessage(
-                        new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date(message.timestamp)),
+                        new StringBuffer(new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date(message.timestamp))),
                         false,
                         message.timestamp,
                         ChatMessage.TYPE_DATE,
@@ -104,7 +104,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (holder instanceof DateViewHolder) {
             ((DateViewHolder) holder).tvDate.setText(message.content);
         } else if (holder instanceof TextViewHolder) {
-            ((TextViewHolder) holder).tvMessage.setText(message.content);
+            if(message.isSelf) {
+                ((TextViewHolder) holder).tvMessage.setText(message.content);
+            } else {
+                ((TextViewHolder) holder).tvMessage.appendContent(message.content.toString());
+                ((TextViewHolder) holder).tvMessage.startStreaming();
+            }
         } else if (holder instanceof ImageViewHolder) {
             Glide.with(holder.itemView.getContext())
                     .load(message.content)
@@ -118,7 +123,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             ((VoiceViewHolder) holder).ivVoiceIcon.setOnClickListener(v -> {
                 MediaPlayer mediaPlayer = new MediaPlayer();
                 try {
-                    mediaPlayer.setDataSource(message.content);
+                    mediaPlayer.setDataSource(message.content.toString());
                     mediaPlayer.prepare();
                     mediaPlayer.start();
                 } catch (Exception e) {
@@ -133,6 +138,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         return messageList.size();
     }
 
+    public void updateLastMessage(String newContent) {
+        if (!messageList.isEmpty()) {
+            ChatMessage lastMessage = messageList.get(messageList.size() - 1);
+            lastMessage.appendContent(newContent);
+            notifyItemChanged(messageList.size() - 1); // 更新最后一个消息
+        }
+    }
+
     static class DateViewHolder extends RecyclerView.ViewHolder {
         TextView tvDate;
         public DateViewHolder(@NonNull View itemView) {
@@ -142,7 +155,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     static class TextViewHolder extends RecyclerView.ViewHolder {
-        TextView tvMessage;
+//        TextView tvMessage;
+//        public TextViewHolder(@NonNull View itemView) {
+//            super(itemView);
+//            tvMessage = itemView.findViewById(R.id.tv_message);
+//        }
+
+        private MarkdownTextView tvMessage;
+
         public TextViewHolder(@NonNull View itemView) {
             super(itemView);
             tvMessage = itemView.findViewById(R.id.tv_message);

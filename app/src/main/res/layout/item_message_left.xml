@@ -11,7 +11,7 @@
         android:layout_height="40dp"
         android:src="@drawable/avatar_7" />
 
-    <TextView
+    <com.cosinetech.imates.MarkdownTextView
         android:id="@+id/tv_message"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

@@ -6,7 +6,7 @@ import androidx.annotation.NonNull;
 import androidx.lifecycle.ViewModelStore;
 import androidx.lifecycle.ViewModelStoreOwner;
 
-public class ModelSharedApplication extends Application implements ViewModelStoreOwner {
+public class ApplicationModelShared extends Application implements ViewModelStoreOwner {
     private final ViewModelStore viewModelStore = new ViewModelStore();
 
     @NonNull
