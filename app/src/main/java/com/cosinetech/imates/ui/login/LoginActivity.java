@@ -28,13 +28,8 @@ import android.widget.Toast;
 
 import com.cosinetech.imates.MainActivity;
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.ui.login.LoggedInUserView;
-import com.cosinetech.imates.ui.login.LoginFormState;
-import com.cosinetech.imates.ui.login.LoginResult;
-import com.cosinetech.imates.ui.login.LoginViewModel;
-import com.cosinetech.imates.ui.login.LoginViewModelFactory;
 import com.cosinetech.imates.databinding.ActivityLoginBinding;
-import com.cosinetech.imates.util.WindowUtil;
+import com.cosinetech.imates.util.WindowUtils;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -71,7 +66,7 @@ public class LoginActivity extends AppCompatActivity {
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
         // 隐藏系统导航栏
-        WindowUtil.hideSystemUI(this);
+        WindowUtils.hideSystemUI(this);
 
         com.cosinetech.imates.databinding.ActivityLoginBinding binding = ActivityLoginBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -179,7 +174,7 @@ public class LoginActivity extends AppCompatActivity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
-            WindowUtil.hideSystemUI(this);
+            WindowUtils.hideSystemUI(this);
         }
     }
     private void startTypingEffect() {

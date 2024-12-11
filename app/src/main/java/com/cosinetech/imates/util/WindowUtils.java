@@ -3,7 +3,7 @@ package com.cosinetech.imates.util;
 import android.app.Activity;
 import android.view.View;
 
-public class WindowUtil {
+public class WindowUtils {
     public static void hideSystemUI(Activity activity) {
         // 设置全屏模式并隐藏系统UI元素
         View decorView = activity.getWindow().getDecorView();

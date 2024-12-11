@@ -1,89 +1,35 @@
 package com.cosinetech.imates;
 
 import android.annotation.SuppressLint;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Color;
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.text.Spanned;
 import android.view.LayoutInflater;
-import android.view.MenuItem;
-import android.view.Menu;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.airbnb.lottie.LottieAnimationView;
-import com.bumptech.glide.Glide;
-import com.bumptech.glide.RequestBuilder;
-import com.cosinetech.imates.util.WindowUtil;
-import com.google.android.material.navigation.NavigationView;
+import com.cosinetech.imates.util.WindowUtils;
 
-import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
-import androidx.navigation.NavController;
-import androidx.navigation.Navigation;
-import androidx.navigation.ui.AppBarConfiguration;
-import androidx.navigation.ui.NavigationUI;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.cosinetech.imates.databinding.ActivityMainBinding;
 import com.google.android.material.tabs.TabLayout;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-
-import io.noties.markwon.Markwon;
-import io.noties.markwon.ext.latex.JLatexMathPlugin;
-import io.noties.markwon.image.AsyncDrawable;
-import io.noties.markwon.image.ImagesPlugin;
-import io.noties.markwon.image.glide.GlideImagesPlugin;
-import io.noties.markwon.image.network.NetworkSchemeHandler;
-import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin;
-import okhttp3.Call;
-import okhttp3.Callback;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-
-
-import androidx.camera.core.CameraSelector;
-import androidx.camera.core.ImageCapture;
-import androidx.camera.core.ImageCaptureException;
-import androidx.camera.core.Preview;
-import androidx.camera.lifecycle.ProcessCameraProvider;
-import androidx.camera.view.PreviewView;
-import androidx.core.content.ContextCompat;
 
 import com.google.android.material.tabs.TabLayoutMediator;
-import com.google.common.util.concurrent.ListenableFuture;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
-import android.util.Log;
-import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.Toast;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.FileProvider;
 import androidx.viewpager2.widget.ViewPager2;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -102,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
         // 隐藏系统导航栏
-        WindowUtil.hideSystemUI(this);
+        WindowUtils.hideSystemUI(this);
 
         ActivityMainBinding binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -294,7 +240,7 @@ public class MainActivity extends AppCompatActivity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
-            WindowUtil.hideSystemUI(this);
+            WindowUtils.hideSystemUI(this);
         }
     }
 
