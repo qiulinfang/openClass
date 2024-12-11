@@ -52,11 +52,9 @@ public class MarkdownTextView extends AppCompatTextView {
     public void setChatMessage(ChatMessage msg) {
         synchronized (sync) {
             chatMsg = msg;
-//            Log.d("########Thread-" + Thread.currentThread().getName(), newContent);
-//            Log.d("$$$$$$$$Thread-" + Thread.currentThread().getName(), contentBuffer.toString());
         }
         // 如果正在流式显示，则继续流式显示
-        if (isStreaming) {
+        if (!isStreaming) {
             startStreaming();
         } else {
             // 否则，直接渲染当前内容

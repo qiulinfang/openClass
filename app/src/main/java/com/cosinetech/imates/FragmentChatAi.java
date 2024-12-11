@@ -107,12 +107,15 @@ public class FragmentChatAi extends Fragment {
                 if (success) {
                     if(!response.trim().isEmpty() && !response.equals("end")) {
                         chatAdapter.updateLastMessage(response);
+                        Log.d("%%%%%%%%", response);
                     }
                     if(!response.equals("end")) {
                         messageVO.setReason("continue");
                         pollChat();
+                    } else {
                     }
                 } else {
+
                 }
             });
         });
