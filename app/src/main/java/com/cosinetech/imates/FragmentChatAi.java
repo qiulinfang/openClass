@@ -11,7 +11,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
@@ -21,10 +20,10 @@ import java.util.List;
 
 /**
  * A simple {@link Fragment} subclass.
- * Use the {@link ChatAiFragment#newInstance} factory method to
+ * Use the {@link FragmentChatAi#newInstance} factory method to
  * create an instance of this fragment.
  */
-public class ChatAiFragment extends Fragment {
+public class FragmentChatAi extends Fragment {
 
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
@@ -37,14 +36,10 @@ public class ChatAiFragment extends Fragment {
     private Button btnSend;
     private ChatAdapter chatAdapter;
     private List<ChatMessage> messageList = new ArrayList<>();
-
-
-
-    // TODO: Rename and change types of parameters
     private String mParam1;
     private String mParam2;
 
-    public ChatAiFragment() {
+    public FragmentChatAi() {
         // Required empty public constructor
     }
 
@@ -54,11 +49,11 @@ public class ChatAiFragment extends Fragment {
      *
      * @param param1 Parameter 1.
      * @param param2 Parameter 2.
-     * @return A new instance of fragment ChatAiFragment.
+     * @return A new instance of fragment FragmentChatAi.
      */
     // TODO: Rename and change types and number of parameters
-    public static ChatAiFragment newInstance(String param1, String param2) {
-        ChatAiFragment fragment = new ChatAiFragment();
+    public static FragmentChatAi newInstance(String param1, String param2) {
+        FragmentChatAi fragment = new FragmentChatAi();
         Bundle args = new Bundle();
         args.putString(ARG_PARAM1, param1);
         args.putString(ARG_PARAM2, param2);
@@ -100,6 +95,12 @@ public class ChatAiFragment extends Fragment {
 
         // Send button click
         btnSend.setOnClickListener(v -> sendMessage());
+
+        Button btnExit = view.findViewById(R.id.back_exit);
+
+        btnExit.setOnClickListener(v -> {
+            getParentFragmentManager().popBackStack();
+        });
 
         return view;
     }

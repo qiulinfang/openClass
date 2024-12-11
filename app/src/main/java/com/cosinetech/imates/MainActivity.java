@@ -255,7 +255,7 @@ public class MainActivity extends AppCompatActivity {
         );
 
         // 创建悬浮 Fragment 实例
-        ChatAiFragment floatingFragment = new ChatAiFragment();
+        FragmentChatAi floatingFragment = new FragmentChatAi();
         transaction.replace(R.id.fragmentChatAiContainer, floatingFragment);
         transaction.addToBackStack(null);
         transaction.commit();
