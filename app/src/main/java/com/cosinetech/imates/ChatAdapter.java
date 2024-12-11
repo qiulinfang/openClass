@@ -41,7 +41,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date(message.timestamp)),
                         false,
                         message.timestamp,
-                        ChatMessage.TYPE_DATE
+                        ChatMessage.TYPE_DATE,
+                        true
                 ));
                 lastTimestamp = message.timestamp;
             }

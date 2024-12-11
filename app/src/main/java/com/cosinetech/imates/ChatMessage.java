@@ -8,14 +8,16 @@ public class ChatMessage {
 
     public String content;  // 消息内容、图片路径或语音路径
     public boolean isSelf;  // 是否是自己发送的消息
+    public boolean isHistory; // 是否是加载的历史消息
     public long timestamp;  // 消息时间戳
     public int type;        // 消息类型
 
-    public ChatMessage(String content, boolean isSelf, long timestamp, int type) {
+    public ChatMessage(String content, boolean isSelf, long timestamp, int type, boolean isHistory) {
         this.content = content;
         this.isSelf = isSelf;
         this.timestamp = timestamp;
         this.type = type;
+        this.isHistory = isHistory;
     }
 }
 

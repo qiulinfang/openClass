@@ -17,7 +17,10 @@
         android:name="android.hardware.camera"
         android:required="false" />
 
+
+
     <application
+        android:name=".ModelSharedApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -29,7 +32,7 @@
         android:networkSecurityConfig="@xml/network_sec_conf"
         tools:targetApi="31">
         <activity
-            android:name=".ui.login.LoginActivity"
+            android:name=".LoginActivity"
             android:exported="true"
             android:theme="@style/Theme.IMatesApp.FullScreen">
             <intent-filter>

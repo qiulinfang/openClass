@@ -10,6 +10,7 @@ import android.view.WindowManager;
 import android.widget.TextView;
 
 import com.airbnb.lottie.LottieAnimationView;
+import com.cosinetech.imates.model.UserViewModel;
 import com.cosinetech.imates.util.WindowUtils;
 
 import androidx.fragment.app.Fragment;
@@ -24,7 +25,9 @@ import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 
 import android.widget.ImageView;
+import android.widget.Toast;
 
+import androidx.lifecycle.ViewModelProvider;
 import androidx.viewpager2.widget.ViewPager2;
 
 import java.util.ArrayList;
@@ -32,7 +35,6 @@ import java.util.Arrays;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
-
     private float dX, dY;
     private float initialX, initialY;
     private static final int CLICK_THRESHOLD = 10; // 拖动的阈值
@@ -61,61 +63,10 @@ public class MainActivity extends AppCompatActivity {
                         | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
         );
 
-        TabLayout tabLayout = findViewById(R.id.tabLayout);
-
-        // 设置选项卡选中监听器
-        tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
-            @Override
-            public void onTabSelected(TabLayout.Tab tab) {
-                // 处理选项卡选中事件
-                switch (tab.getPosition()) {
-                    case 0:
-                        // 处理"语文"选项
-                        break;
-                    case 1:
-                        // 处理"数学"选项
-                        break;
-                    case 2:
-                        // 处理"英语"选项
-                        break;
-                    case 3:
-                        // 处理"科学"选项
-                        break;
-                    case 4:
-                        // 处理"视频课"选项
-                        break;
-                    case 5:
-                        // 处理"阅读"选项
-                        break;
-                    case 6:
-                        // 处理"AI题拟人"选项
-                        break;
-                }
-            }
-
-            @Override
-            public void onTabUnselected(TabLayout.Tab tab) {
-                // 可以在这里处理选项卡取消选中的事件
-            }
-
-            @Override
-            public void onTabReselected(TabLayout.Tab tab) {
-                // 可以在这里处理选项卡重新选中的事件
-            }
-        });
-
         LottieAnimationView lottieAnimationView = findViewById(R.id.lottieAnimationView);
 
         // 设置点击事件
-        lottieAnimationView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                // 处理点击事件
-                // 在这里你可以处理点击事件，比如播放或暂停动画等
-                //lottieAnimationView.pauseAnimation();
-                showFloatingFragment();
-            }
-        });
+        lottieAnimationView.setOnClickListener(view -> showFloatingFragment());
 
         // 设置拖动监听器
         lottieAnimationView.setOnTouchListener(new View.OnTouchListener() {
@@ -186,6 +137,7 @@ public class MainActivity extends AppCompatActivity {
         viewPager.setAdapter(adapter);
 
         // 将 TabLayout 与 ViewPager2 关联
+        TabLayout tabLayout = findViewById(R.id.tabLayout);
         new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
             View customView = LayoutInflater.from(this).inflate(R.layout.custom_tab, null);
 
@@ -201,7 +153,6 @@ public class MainActivity extends AppCompatActivity {
             // 设置自定义视图到 Tab
             tab.setCustomView(customView);
         }).attach();
-
 
 //        TextView textView = findViewById(R.id.markdownTextView);
 //
@@ -255,7 +206,7 @@ public class MainActivity extends AppCompatActivity {
         );
 
         // 创建悬浮 Fragment 实例
-        FragmentChatAi floatingFragment = new FragmentChatAi();
+        FragmentChatAi floatingFragment = FragmentChatAi.newInstance(ApiUrl.URL_CHAT_GENERAL);
         transaction.replace(R.id.fragmentChatAiContainer, floatingFragment);
         transaction.addToBackStack(null);
         transaction.commit();

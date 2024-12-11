@@ -3,6 +3,8 @@ package com.cosinetech.imates;
 import android.os.Bundle;
 
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -13,6 +15,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.cosinetech.imates.model.UserViewModel;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
 import java.util.ArrayList;
@@ -24,39 +27,24 @@ import java.util.List;
  * create an instance of this fragment.
  */
 public class FragmentChatAi extends Fragment {
+    private UserViewModel userViewModel;
+    private static final String CHATBOT_URL = "";
 
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
-
+    private MessageVO messageVO = new MessageVO("", "", "", "", "", "", "start");
     private RecyclerView recyclerView;
     private SmartRefreshLayout refreshLayout;
     private EditText etMessage;
-    private Button btnSend;
     private ChatAdapter chatAdapter;
     private List<ChatMessage> messageList = new ArrayList<>();
-    private String mParam1;
-    private String mParam2;
+    private String chatBotUrl;
 
-    public FragmentChatAi() {
-        // Required empty public constructor
+    private FragmentChatAi() {
     }
 
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment FragmentChatAi.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static FragmentChatAi newInstance(String param1, String param2) {
+    public static FragmentChatAi newInstance(String chatBotUrl) {
         FragmentChatAi fragment = new FragmentChatAi();
         Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
+        args.putString(CHATBOT_URL, chatBotUrl);
         fragment.setArguments(args);
         return fragment;
     }
@@ -65,8 +53,7 @@ public class FragmentChatAi extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
+            chatBotUrl = getArguments().getString(CHATBOT_URL);
         }
     }
 
@@ -78,7 +65,7 @@ public class FragmentChatAi extends Fragment {
         recyclerView = view.findViewById(R.id.recyclerView);
         refreshLayout = view.findViewById(R.id.chat_message_session);
         etMessage = view.findViewById(R.id.et_message);
-        btnSend = view.findViewById(R.id.btn_send);
+        Button btnSend = view.findViewById(R.id.btn_send);
 
         // Initialize RecyclerView
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -102,25 +89,53 @@ public class FragmentChatAi extends Fragment {
             getParentFragmentManager().popBackStack();
         });
 
+        // Required empty public constructor
+        ViewModelStoreOwner owner = (ViewModelStoreOwner) requireActivity().getApplication();
+        userViewModel = new ViewModelProvider(
+                owner,
+                new ViewModelProvider.AndroidViewModelFactory(requireActivity().getApplication())
+        ).get(UserViewModel.class);
+
         return view;
+    }
+
+    private void pollChat() {
+        MessagePoster.postMessage(messageVO, chatBotUrl, userViewModel.token.getValue(), (success, response) -> {
+            requireActivity().runOnUiThread(() -> {
+                if (success) {
+                    if(!response.trim().isEmpty() && !response.equals("end")) {
+                        ChatMessage message = new ChatMessage(response, false, 0, ChatMessage.TYPE_TEXT, false);
+                        messageList.add(message);
+                        chatAdapter.notifyItemInserted(messageList.size() - 1);
+                    }
+                    if(!response.equals("end")) {
+                        messageVO.setReason("continue");
+                        pollChat();
+                    }
+                } else {
+                }
+            });
+        });
     }
 
     private void sendMessage() {
         String messageText = etMessage.getText().toString().trim();
         if (!messageText.isEmpty()) {
             // Add message to the list and notify the adapter
-            ChatMessage message = new ChatMessage(messageText, true, 0, ChatMessage.TYPE_TEXT);
+            ChatMessage message = new ChatMessage(messageText, true, 0, ChatMessage.TYPE_TEXT, false);
             messageList.add(message);
             chatAdapter.notifyItemInserted(messageList.size() - 1);
             etMessage.setText("");
             recyclerView.scrollToPosition(messageList.size() - 1);
+
+            messageVO.setReason("start");
+            messageVO.setCoversation(messageText);
+            pollChat();
         }
     }
 
     private void loadMessages() {
-        // Example: Load previous messages from database or network
-        // Simulate adding a message
-        ChatMessage message = new ChatMessage("Hello, how are you?", false, 0, ChatMessage.TYPE_TEXT);
+        ChatMessage message = new ChatMessage("Hello, how are you?", false, 0, ChatMessage.TYPE_TEXT, false);
         messageList.add(0, message);
         chatAdapter.notifyItemInserted(0);
     }
