@@ -110,21 +110,21 @@ public class MainActivity extends AppCompatActivity {
         // 创建 Fragment 列表
         List<Fragment> fragmentList = new ArrayList<>();
         fragmentList.add(FragmentStudentStatus.newInstance("", ""));
-        fragmentList.add(FragmentSubjectChinese.newInstance("", ""));
+        fragmentList.add(FragmentSubjectBiology.newInstance("", ""));
         fragmentList.add(FragmentSubjectMath.newInstance("", ""));
+        fragmentList.add(FragmentSubjectChinese.newInstance("", ""));
         fragmentList.add(FragmentSubjectEnglish.newInstance("", ""));
         fragmentList.add(FragmentSubjectPhysics.newInstance("", ""));
         fragmentList.add(FragmentSubjectChemistry.newInstance("", ""));
-        fragmentList.add(FragmentSubjectBiology.newInstance("", ""));
 
         List<TabItemAttribute> tabItems = new ArrayList<>(
                 Arrays.asList(new TabItemAttribute(getString(R.string.student_status_title), R.drawable.ic_student_status),
-                        new TabItemAttribute(getString(R.string.subject_name_chinese), R.drawable.ic_subject_chinese),
+                        new TabItemAttribute(getString(R.string.subject_name_biology), R.drawable.ic_subject_biology),
                         new TabItemAttribute(getString(R.string.subject_name_math), R.drawable.ic_subject_math),
+                        new TabItemAttribute(getString(R.string.subject_name_chinese), R.drawable.ic_subject_chinese),
                         new TabItemAttribute(getString(R.string.subject_name_english), R.drawable.ic_subject_english),
                         new TabItemAttribute(getString(R.string.subject_name_physics), R.drawable.ic_subject_physics),
-                        new TabItemAttribute(getString(R.string.subject_name_chemistry), R.drawable.ic_subject_chemistryl),
-                        new TabItemAttribute(getString(R.string.subject_name_biology), R.drawable.ic_subject_biology)));
+                        new TabItemAttribute(getString(R.string.subject_name_chemistry), R.drawable.ic_subject_chemistryl)));
 
         // 创建并设置适配器
         SubjectViewAdapter adapter = new SubjectViewAdapter(this, fragmentList);

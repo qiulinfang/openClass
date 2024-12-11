@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -121,12 +122,12 @@ public class FragmentChatAi extends Fragment {
         String messageText = etMessage.getText().toString().trim();
         if (!messageText.isEmpty()) {
             // Add message to the list and notify the adapter
-            ChatMessage message = new ChatMessage(new StringBuffer(messageText), true, 0, ChatMessage.TYPE_TEXT, false);
+            ChatMessage message = new ChatMessage(messageText, true, 0, ChatMessage.TYPE_TEXT, false);
             messageList.add(message);
             chatAdapter.notifyItemInserted(messageList.size() - 1);
             etMessage.setText("");
 
-            responseMessage = new ChatMessage(new StringBuffer(), false, 0, ChatMessage.TYPE_TEXT, false);
+            responseMessage = new ChatMessage("", false, 0, ChatMessage.TYPE_TEXT, false);
             messageList.add(responseMessage);
             chatAdapter.notifyItemInserted(messageList.size() - 1);
 

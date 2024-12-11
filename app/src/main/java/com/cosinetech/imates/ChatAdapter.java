@@ -37,8 +37,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         for (ChatMessage message : messages) {
             if (message.type != ChatMessage.TYPE_DATE && message.timestamp - lastTimestamp > 5 * 60 * 1000) {
-                groupedMessages.add(new ChatMessage(
-                        new StringBuffer(new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date(message.timestamp))),
+                groupedMessages.add(new ChatMessage(new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date(message.timestamp)),
                         false,
                         message.timestamp,
                         ChatMessage.TYPE_DATE,
@@ -107,7 +106,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if(message.isSelf) {
                 ((TextViewHolder) holder).tvMessage.setText(message.content);
             } else {
-                ((TextViewHolder) holder).tvMessage.appendContent(message.content.toString());
+                ((TextViewHolder) holder).tvMessage.appendContent(message.content);
                 ((TextViewHolder) holder).tvMessage.startStreaming();
             }
         } else if (holder instanceof ImageViewHolder) {
@@ -141,7 +140,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public void updateLastMessage(String newContent) {
         if (!messageList.isEmpty()) {
             ChatMessage lastMessage = messageList.get(messageList.size() - 1);
-            lastMessage.appendContent(newContent);
+            lastMessage.updateContent(newContent);
             notifyItemChanged(messageList.size() - 1); // 更新最后一个消息
         }
     }
@@ -155,12 +154,6 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     static class TextViewHolder extends RecyclerView.ViewHolder {
-//        TextView tvMessage;
-//        public TextViewHolder(@NonNull View itemView) {
-//            super(itemView);
-//            tvMessage = itemView.findViewById(R.id.tv_message);
-//        }
-
         private MarkdownTextView tvMessage;
 
         public TextViewHolder(@NonNull View itemView) {
