@@ -12,12 +12,15 @@ import android.view.MenuItem;
 import android.view.Menu;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.airbnb.lottie.LottieAnimationView;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestBuilder;
+import com.cosinetech.imates.util.WindowUtil;
 import com.google.android.material.navigation.NavigationView;
 
 import androidx.annotation.NonNull;
@@ -87,17 +90,19 @@ public class MainActivity extends AppCompatActivity {
     private float dX, dY;
     private float initialX, initialY;
     private static final int CLICK_THRESHOLD = 10; // 拖动的阈值
-    private AppBarConfiguration mAppBarConfiguration;
-
-    private PreviewView previewView;
-    private Button captureButton;
-    private ImageView imageView;
-    private ImageCapture imageCapture;
 
     @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // 设置全屏模式
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN);
+
+        // 隐藏系统导航栏
+        WindowUtil.hideSystemUI(this);
 
         ActivityMainBinding binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -283,78 +288,13 @@ public class MainActivity extends AppCompatActivity {
 //
 //        // Set Markdown text to TextView
 //        markwon.setMarkdown(textView, markdown);
-//        previewView = findViewById(R.id.previewView);
-//        captureButton = findViewById(R.id.captureButton);
-//        imageView = findViewById(R.id.photo);
-//
-//        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-//                != PackageManager.PERMISSION_GRANTED) {
-//            ActivityCompat.requestPermissions(this,
-//                    new String[]{Manifest.permission.CAMERA}, 1001);
-//        } else {
-//            //startCamera();
-//        }
-//
-//        captureButton.setOnClickListener(v -> takePhoto());
-    }
-
-    private void startCamera() {
-        ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
-
-        cameraProviderFuture.addListener(() -> {
-            try {
-                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-
-                Preview preview = new Preview.Builder().build();
-                preview.setSurfaceProvider(previewView.getSurfaceProvider());
-
-                imageCapture = new ImageCapture.Builder().build();
-
-                CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
-
-                cameraProvider.unbindAll();
-                cameraProvider.bindToLifecycle(MainActivity.this, cameraSelector, preview, imageCapture);
-
-            } catch (ExecutionException | InterruptedException e) {
-                // Handle any errors
-                Log.e("CameraXApp", "Error starting camera", e);
-            }
-        }, ContextCompat.getMainExecutor(this));
-    }
-
-    private void takePhoto() {
-        File photoFile = new File(getExternalFilesDir(null), System.currentTimeMillis() + ".jpg");
-
-        ImageCapture.OutputFileOptions outputOptions =
-                new ImageCapture.OutputFileOptions.Builder(photoFile).build();
-
-        imageCapture.takePicture(outputOptions, ContextCompat.getMainExecutor(this),
-                new ImageCapture.OnImageSavedCallback() {
-                    @Override
-                    public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-                        runOnUiThread(() -> {
-                            Bitmap bitmap = BitmapFactory.decodeFile(photoFile.getAbsolutePath());
-                            imageView.setImageBitmap(bitmap);
-                            Toast.makeText(MainActivity.this, "Photo captured", Toast.LENGTH_SHORT).show();
-                        });
-                    }
-
-                    @Override
-                    public void onError(@NonNull ImageCaptureException exception) {
-                        Log.e("CameraXApp", "Photo capture failed: " + exception.getMessage(), exception);
-                    }
-                });
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 1001) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startCamera();
-            } else {
-                Toast.makeText(this, "Camera permission denied", Toast.LENGTH_SHORT).show();
-            }
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            WindowUtil.hideSystemUI(this);
         }
     }
 
@@ -373,35 +313,5 @@ public class MainActivity extends AppCompatActivity {
         transaction.replace(R.id.fragmentChatAiContainer, floatingFragment);
         transaction.addToBackStack(null);
         transaction.commit();
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        boolean result = super.onCreateOptionsMenu(menu);
-        // Using findViewById because NavigationView exists in different layout files
-        // between w600dp and w1240dp
-        NavigationView navView = findViewById(R.id.nav_view);
-        if (navView == null) {
-            // The navigation drawer already has the items including the items in the overflow menu
-            // We only inflate the overflow menu if the navigation drawer isn't visible
-            getMenuInflater().inflate(R.menu.overflow, menu);
-        }
-        return result;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        if (item.getItemId() == R.id.nav_settings) {
-            NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
-            navController.navigate(R.id.nav_settings);
-        }
-        return super.onOptionsItemSelected(item);
-    }
-
-    @Override
-    public boolean onSupportNavigateUp() {
-        NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
-        return NavigationUI.navigateUp(navController, mAppBarConfiguration)
-                || super.onSupportNavigateUp();
     }
 }

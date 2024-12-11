@@ -17,6 +17,8 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
@@ -32,6 +34,7 @@ import com.cosinetech.imates.ui.login.LoginResult;
 import com.cosinetech.imates.ui.login.LoginViewModel;
 import com.cosinetech.imates.ui.login.LoginViewModelFactory;
 import com.cosinetech.imates.databinding.ActivityLoginBinding;
+import com.cosinetech.imates.util.WindowUtil;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -41,7 +44,6 @@ public class LoginActivity extends AppCompatActivity {
     private String fullText = null;
     private int index = 0; // 当前显示的字符索引
     private final Handler handler = new Handler(); // 用于更新 UI
-
     private final Runnable typeWriterRunnable = new Runnable() {
         @Override
         public void run() {
@@ -62,6 +64,14 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // 设置全屏模式
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN);
+
+        // 隐藏系统导航栏
+        WindowUtil.hideSystemUI(this);
 
         com.cosinetech.imates.databinding.ActivityLoginBinding binding = ActivityLoginBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -165,6 +175,13 @@ public class LoginActivity extends AppCompatActivity {
         startTypingEffect(); // 启动打字机效果
     }
 
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            WindowUtil.hideSystemUI(this);
+        }
+    }
     private void startTypingEffect() {
         index = 0; // 重置索引
         handler.post(typeWriterRunnable); // 启动打字机效果
