@@ -9,19 +9,26 @@
         android:id="@+id/viewFinder"
         android:background="#000000"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="0dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/toolbar_bottom"/>
 
     <com.canhub.cropper.CropImageView
         xmlns:custom="http://schemas.android.com/apk/res-auto"
         android:id="@+id/cropImageView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/toolbar_bottom"
         android:visibility="gone"
         custom:cropGuidelines="on"
         custom:cropShape="rectangle"
-        custom:cropBorderLineColor="@android:color/holo_red_dark"
+        custom:cropBorderLineColor="@android:color/holo_blue_light"
         custom:cropGuidelinesColor="@android:color/holo_green_dark"
-        custom:cropBorderLineThickness="5dp"/>
+        custom:cropBorderLineThickness="2dp"
+        />
 
     <ImageView
         android:id="@+id/ivPreview"
@@ -54,26 +61,43 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.9" />
 
-    <Button
-        android:id="@+id/btnDone"
-        android:layout_width="64dp"
-        android:layout_height="64dp"
-        android:background="@drawable/ok"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/toolbar_bottom"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#80FFFFFF"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.9" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
 
-    <Button
-        android:id="@+id/btnExit"
-        android:layout_width="64dp"
-        android:layout_height="64dp"
-        android:background="@drawable/back"
-        android:visibility="visible"
-        android:layout_margin="4dp"
-        app:layout_constraintStart_toEndOf="@id/btnDone"
-        app:layout_constraintTop_toTopOf="@id/btnDone" />
+        <Button
+            android:id="@+id/btnDone"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:background="@drawable/ok"
+            android:layout_marginHorizontal="16dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"/>
+
+        <!-- Guideline -->
+        <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/guideline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.5" />
+
+        <Button
+            android:id="@+id/btnExit"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:background="@drawable/back"
+            android:visibility="visible"
+            android:layout_marginHorizontal="16dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
