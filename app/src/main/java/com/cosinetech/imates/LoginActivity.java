@@ -37,6 +37,7 @@ public class LoginActivity extends AppCompatActivity {
     private UserViewModel userViewModel;
     private TextView textView;
     private String fullText = null;
+    private ProgressBar loadingProgressBar;
     private int index = 0; // 当前显示的字符索引
     private final Handler handler = new Handler(); // 用于更新 UI
     private final Runnable typeWriterRunnable = new Runnable() {
@@ -85,14 +86,22 @@ public class LoginActivity extends AppCompatActivity {
         final EditText usernameEditText = binding.username;
         final EditText passwordEditText = binding.password;
         final Button loginButton = binding.login;
-        final ProgressBar loadingProgressBar = binding.loading;
+        loadingProgressBar = binding.loading;
 
-        loginButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                loadingProgressBar.setVisibility(View.VISIBLE);
-                performLogin(usernameEditText.getText().toString(), passwordEditText.getText().toString());
+        loginButton.setOnClickListener(v -> {
+            if(usernameEditText.getText().toString().trim().isEmpty()) {
+                binding.usernameError.setVisibility(View.VISIBLE);
+                return;
             }
+            if(passwordEditText.getText().toString().trim().isEmpty()) {
+                binding.usernameError.setVisibility(View.INVISIBLE);
+                binding.passwordError.setVisibility(View.VISIBLE);
+                return;
+            }
+            binding.usernameError.setVisibility(View.INVISIBLE);
+            binding.passwordError.setVisibility(View.INVISIBLE);
+            performLogin(usernameEditText.getText().toString(), passwordEditText.getText().toString());
+            loadingProgressBar.setVisibility(View.VISIBLE);
         });
 
         fullText = getString(R.string.login_moto);
@@ -120,8 +129,10 @@ public class LoginActivity extends AppCompatActivity {
                     finish(); // Close LoginActivity
                 });
             } catch (Exception e) {
-                e.printStackTrace();
-                runOnUiThread(() -> Toast.makeText(LoginActivity.this, getText(R.string.tip_login_fail), Toast.LENGTH_SHORT).show());
+                runOnUiThread(() -> {
+                    Toast.makeText(LoginActivity.this, getText(R.string.tip_login_fail), Toast.LENGTH_SHORT).show();
+                    loadingProgressBar.setVisibility(View.INVISIBLE);
+                });
             }
         }).start();
     }

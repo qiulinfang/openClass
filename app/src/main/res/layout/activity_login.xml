@@ -64,7 +64,7 @@
                 android:id="@+id/username_error"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text=""
+                android:text="@string/invalid_username"
                 android:textColor="#FF0000"
                 android:textSize="@dimen/login_input_text_size"
                 android:visibility="invisible" />
@@ -95,7 +95,7 @@
                 android:id="@+id/password_error"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text=""
+                android:text="@string/invalid_password"
                 android:textColor="#FF0000"
                 android:textSize="@dimen/login_input_text_size"
                 android:visibility="invisible" />
