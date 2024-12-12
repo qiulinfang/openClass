@@ -10,7 +10,7 @@ public class ChatMessage {
 
     public boolean isSelf;  // 是否是自己发送的消息
     public boolean isHistory; // 是否是加载的历史消息
-    public long timestamp;  // 消息时间戳
+    public long timestamp;  // 消息时间戳 毫秒
     public int type;        // 消息类型
 
     public int currentDisplayCharIndex;  //流式显示的字符索引

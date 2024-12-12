@@ -1,12 +1,13 @@
 package com.cosinetech.imates.model;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class UserInfo {
-    private List<String> permissionValueList;
-    private List<String> roles;
-    private String name;
-    private String avatar;
+    private List<String> permissionValueList = new ArrayList<>();
+    private List<String> roles = new ArrayList<>();
+    private String name = "";
+    private String avatar = "";
 
     // Getters and Setters
     public List<String> getPermissionValueList() {

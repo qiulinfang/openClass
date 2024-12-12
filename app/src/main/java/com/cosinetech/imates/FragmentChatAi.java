@@ -21,6 +21,7 @@ import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -109,6 +110,8 @@ public class FragmentChatAi extends Fragment {
             view.findViewById(R.id.ai_name).setVisibility(View.INVISIBLE);
         }
 
+        messageVO.setName(Objects.requireNonNull(userViewModel.userInfo.getValue()).getName());
+
         return view;
     }
 
@@ -137,12 +140,12 @@ public class FragmentChatAi extends Fragment {
         String messageText = etMessage.getText().toString().trim();
         if (!messageText.isEmpty()) {
             // Add message to the list and notify the adapter
-            ChatMessage message = new ChatMessage(messageText, true, 0, ChatMessage.TYPE_TEXT, false);
+            ChatMessage message = new ChatMessage(messageText, true, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
             messageList.add(message);
             chatAdapter.notifyItemInserted(messageList.size() - 1);
             etMessage.setText("");
 
-            responseMessage = new ChatMessage("", false, 0, ChatMessage.TYPE_TEXT, false);
+            responseMessage = new ChatMessage("", false, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
             messageList.add(responseMessage);
             chatAdapter.notifyItemInserted(messageList.size() - 1);
 
