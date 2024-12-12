@@ -210,19 +210,6 @@ public class FragmentCamera extends Fragment {
         scanLine.requestLayout();
     }
 
-    private void saveImage(Bitmap bitmap) {
-        File outputFile = new File(requireContext().getExternalFilesDir(null), "scanned_image.jpg");
-        try {
-            FileOutputStream fos = new FileOutputStream(outputFile);
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
-            fos.close();
-            Toast.makeText(requireContext(), "Image saved: " + outputFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(requireContext(), "Failed to save image: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
-    }
-
     private boolean allPermissionsGranted() {
         return ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
     }

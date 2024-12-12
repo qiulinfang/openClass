@@ -69,14 +69,6 @@ public class FragmentSubjectBiology extends Fragment {
 
         // 监听来自ChildFragment的消息
         viewModel.getSharedObject().observe(getViewLifecycleOwner(), object -> {
-            if (object != null) {
-                // 处理从子Fragment传来的对象
-                Toast.makeText(getContext(), "Received object from ChildFragment", Toast.LENGTH_SHORT).show();
-                // 销毁ParentFragment
-//                getParentFragmentManager().beginTransaction()
-//                        .remove(this)
-//                        .commit();
-            }
         });
     }
 
