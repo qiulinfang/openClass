@@ -30,7 +30,8 @@ import java.util.List;
 public class FragmentChatAi extends Fragment {
     ChatMessage responseMessage;
     private UserViewModel userViewModel;
-    private static final String CHATBOT_URL = "";
+    private static final String PARAM_CHATBOT_URL = "CHAT_URL";
+    private static final String PARAM_SHOW_HEADER = "SHOW_HEADER";
 
     private MessageVO messageVO = new MessageVO("", "", "", "", "", "", "start");
     private RecyclerView recyclerView;
@@ -39,14 +40,18 @@ public class FragmentChatAi extends Fragment {
     private ChatAdapter chatAdapter;
     private List<ChatMessage> messageList = new ArrayList<>();
     private String chatBotUrl;
+    private Button btnSend;
+
+    private boolean showHeader;
 
     private FragmentChatAi() {
     }
 
-    public static FragmentChatAi newInstance(String chatBotUrl) {
+    public static FragmentChatAi newInstance(String chatBotUrl, boolean showHeader) {
         FragmentChatAi fragment = new FragmentChatAi();
         Bundle args = new Bundle();
-        args.putString(CHATBOT_URL, chatBotUrl);
+        args.putString(PARAM_CHATBOT_URL, chatBotUrl);
+        args.putBoolean(PARAM_SHOW_HEADER, showHeader);
         fragment.setArguments(args);
         return fragment;
     }
@@ -55,7 +60,8 @@ public class FragmentChatAi extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            chatBotUrl = getArguments().getString(CHATBOT_URL);
+            chatBotUrl = getArguments().getString(PARAM_CHATBOT_URL);
+            showHeader = getArguments().getBoolean(PARAM_SHOW_HEADER);
         }
     }
 
@@ -67,7 +73,7 @@ public class FragmentChatAi extends Fragment {
         recyclerView = view.findViewById(R.id.recyclerView);
         refreshLayout = view.findViewById(R.id.chat_message_session);
         etMessage = view.findViewById(R.id.et_message);
-        Button btnSend = view.findViewById(R.id.btn_send);
+        btnSend = view.findViewById(R.id.btn_send);
 
         // Initialize RecyclerView
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -98,6 +104,11 @@ public class FragmentChatAi extends Fragment {
                 new ViewModelProvider.AndroidViewModelFactory(requireActivity().getApplication())
         ).get(UserViewModel.class);
 
+        if(!showHeader) {
+            btnExit.setVisibility(View.INVISIBLE);
+            view.findViewById(R.id.ai_name).setVisibility(View.INVISIBLE);
+        }
+
         return view;
     }
 
@@ -113,9 +124,10 @@ public class FragmentChatAi extends Fragment {
                         messageVO.setReason("continue");
                         pollChat();
                     } else {
+                        btnSend.setEnabled(true);
                     }
                 } else {
-
+                    btnSend.setEnabled(true);
                 }
             });
         });
@@ -138,6 +150,8 @@ public class FragmentChatAi extends Fragment {
 
             messageVO.setReason("start");
             messageVO.setCoversation(messageText);
+
+            btnSend.setEnabled(false);
             pollChat();
         }
     }

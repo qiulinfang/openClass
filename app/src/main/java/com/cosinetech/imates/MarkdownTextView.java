@@ -49,6 +49,10 @@ public class MarkdownTextView extends AppCompatTextView {
                 .build();
     }
 
+    public void setChatContent(String content) {
+        markwon.setMarkdown(this, content);
+    }
+
     public void setChatMessage(ChatMessage msg) {
         synchronized (sync) {
             chatMsg = msg;

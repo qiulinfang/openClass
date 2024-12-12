@@ -47,4 +47,7 @@
     <string name="Capture">拍照</string>
     <string name="crop_done">裁剪好了</string>
     <string name="finish">返回</string>
+    <string name="chatbot_name">学伴</string>
+    <string name="tip_login_success">登录成功</string>
+    <string name="tip_login_fail">登录失败</string>
 </resources>

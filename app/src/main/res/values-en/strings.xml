@@ -46,4 +46,7 @@
     <string name="Capture">Capture</string>
     <string name="crop_done">Crop Done</string>
     <string name="finish">Back</string>
+    <string name="chatbot_name">iMates - Chatbot</string>
+    <string name="tip_login_success">Login success</string>
+    <string name="tip_login_fail">Login failed</string>
 </resources>

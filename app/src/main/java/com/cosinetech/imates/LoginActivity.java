@@ -114,14 +114,14 @@ public class LoginActivity extends AppCompatActivity {
 
                 // Navigate to MainActivity
                 runOnUiThread(() -> {
-                    Toast.makeText(LoginActivity.this, "Login successful", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(LoginActivity.this, getText(R.string.tip_login_success), Toast.LENGTH_SHORT).show();
                     Intent intent = new Intent(LoginActivity.this, MainActivity.class);
                     startActivity(intent);
                     finish(); // Close LoginActivity
                 });
             } catch (Exception e) {
                 e.printStackTrace();
-                runOnUiThread(() -> Toast.makeText(LoginActivity.this, "Login failed", Toast.LENGTH_SHORT).show());
+                runOnUiThread(() -> Toast.makeText(LoginActivity.this, getText(R.string.tip_login_fail), Toast.LENGTH_SHORT).show());
             }
         }).start();
     }

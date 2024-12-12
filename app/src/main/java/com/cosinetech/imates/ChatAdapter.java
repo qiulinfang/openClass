@@ -104,7 +104,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             ((DateViewHolder) holder).tvDate.setText(message.content);
         } else if (holder instanceof TextViewHolder) {
             if(message.isSelf) {
-                ((TextViewHolder) holder).tvMessage.setText(message.content);
+                ((TextViewHolder) holder).tvMessage.setChatContent(message.content);
             } else {
                 ((TextViewHolder) holder).tvMessage.setChatMessage(message);
                 ((TextViewHolder) holder).tvMessage.startStreaming();
