@@ -64,10 +64,11 @@ public class FragmentSubjectBiology extends Fragment {
     }
 
     private void loadChildFragment() {
-        FragmentCamera childFragment = new FragmentCamera();
+        FragmentCamera childFragment = new FragmentCamera(EnumSubject.SUBJECT_BIOLOGY);
         getChildFragmentManager().beginTransaction()
                 .replace(R.id.camera_container, childFragment)
                 .addToBackStack(null) // 添加到回退栈以便用户可以返回
                 .commit();
     }
 }
+

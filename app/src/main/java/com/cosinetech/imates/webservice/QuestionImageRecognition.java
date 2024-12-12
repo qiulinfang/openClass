@@ -1,7 +1,7 @@
 package com.cosinetech.imates.webservice;
 
 import android.graphics.Bitmap;
-import com.cosinetech.imates.ApiUrl;
+import com.cosinetech.imates.EnumApiUrl;
 import okhttp3.*;
 
 import java.io.ByteArrayOutputStream;
@@ -41,7 +41,7 @@ public class QuestionImageRecognition {
 
                 // 构建请求
                 Request request = new Request.Builder()
-                        .url(ApiUrl.URL_QUESTION_IMAGE_RECOGNISE)
+                        .url(EnumApiUrl.URL_QUESTION_IMAGE_RECOGNISE)
                         .addHeader("token", token)
                         .post(requestBody)
                         .build();

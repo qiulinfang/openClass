@@ -30,7 +30,11 @@ import androidx.lifecycle.ViewModelStoreOwner;
 import com.canhub.cropper.CropImageView;
 import com.cosinetech.imates.model.UserInfoViewModel;
 import com.cosinetech.imates.webservice.QuestionImageRecognition;
+import com.cosinetech.imates.webservice.QuestionImageResponseBiology;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.Strictness;
 
 import java.io.File;
 import java.util.concurrent.ExecutionException;
@@ -54,6 +58,12 @@ public class FragmentCamera extends Fragment {
     private ProcessCameraProvider cameraProvider;
     private MarkdownTextView questionView;
     private UserInfoViewModel userInfoViewModel;
+
+    private EnumSubject subject;
+
+    public FragmentCamera(EnumSubject subject) {
+        this.subject = subject;
+    }
 
     @Nullable
     @Override
@@ -198,8 +208,24 @@ public class FragmentCamera extends Fragment {
                 public void onSuccess(String response) {
                     requireActivity().runOnUiThread(() -> {
                         stopScanAnimation(scanLine);
+                        String questionString = "";
+                        Gson gson = new GsonBuilder()
+                                .setStrictness(Strictness.LENIENT)
+                                .create();
+
+                        switch (subject) {
+                            case SUBJECT_BIOLOGY: {
+                                QuestionImageResponseBiology question = gson.fromJson(response, QuestionImageResponseBiology.class);
+                                questionString = question.getQuestion();
+                            }
+                                break;
+                            case SUBJECT_MATH:
+                                break;
+                            default:
+                                return;
+                        }
                         splitLine.setVisibility(View.VISIBLE);
-                        questionView.setContent(response);
+                        questionView.setContent(questionString);
                         btnAddToList.setVisibility(View.VISIBLE);
                     });
                 }

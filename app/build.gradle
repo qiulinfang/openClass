@@ -59,6 +59,8 @@ dependencies {
     implementation libs.leanback
     implementation libs.activity
 
+    implementation libs.gson
+
     // ======== lottie animate ========
     implementation libs.lottie
 
