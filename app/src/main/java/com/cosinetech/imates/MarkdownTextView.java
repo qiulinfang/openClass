@@ -4,7 +4,6 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
-import android.util.Log;
 
 import androidx.appcompat.widget.AppCompatTextView;
 import io.noties.markwon.Markwon;
@@ -49,7 +48,7 @@ public class MarkdownTextView extends AppCompatTextView {
                 .build();
     }
 
-    public void setChatContent(String content) {
+    public void setContent(String content) {
         markwon.setMarkdown(this, content);
     }
 

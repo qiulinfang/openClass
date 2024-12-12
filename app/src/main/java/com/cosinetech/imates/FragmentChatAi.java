@@ -16,7 +16,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
-import com.cosinetech.imates.model.UserViewModel;
+import com.cosinetech.imates.model.UserInfoViewModel;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
 import java.util.ArrayList;
@@ -30,7 +30,7 @@ import java.util.Objects;
  */
 public class FragmentChatAi extends Fragment {
     ChatMessage responseMessage;
-    private UserViewModel userViewModel;
+    private UserInfoViewModel userInfoViewModel;
     private static final String PARAM_CHATBOT_URL = "CHAT_URL";
     private static final String PARAM_SHOW_HEADER = "SHOW_HEADER";
 
@@ -100,23 +100,23 @@ public class FragmentChatAi extends Fragment {
 
         // Required empty public constructor
         ViewModelStoreOwner owner = (ViewModelStoreOwner) requireActivity().getApplication();
-        userViewModel = new ViewModelProvider(
+        userInfoViewModel = new ViewModelProvider(
                 owner,
                 new ViewModelProvider.AndroidViewModelFactory(requireActivity().getApplication())
-        ).get(UserViewModel.class);
+        ).get(UserInfoViewModel.class);
 
         if(!showHeader) {
             btnExit.setVisibility(View.INVISIBLE);
             view.findViewById(R.id.ai_name).setVisibility(View.INVISIBLE);
         }
 
-        messageVO.setName(Objects.requireNonNull(userViewModel.userInfo.getValue()).getName());
+        messageVO.setName(Objects.requireNonNull(userInfoViewModel.userInfo.getValue()).getName());
 
         return view;
     }
 
     private void pollChat() {
-        MessagePoster.postMessage(messageVO, chatBotUrl, userViewModel.token.getValue(), (success, response) -> {
+        MessagePoster.postMessage(messageVO, chatBotUrl, userInfoViewModel.token.getValue(), (success, response) -> {
             requireActivity().runOnUiThread(() -> {
                 if (success) {
                     if(!response.trim().isEmpty() && !response.equals("end")) {

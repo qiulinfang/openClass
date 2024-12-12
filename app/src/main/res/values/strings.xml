@@ -60,4 +60,8 @@
     <string name="chatbot_name">学伴</string>
     <string name="tip_login_success">登录成功</string>
     <string name="tip_login_fail">登录失败</string>
+    <string name="question_recognize_fail">识别题目失败</string>
+    <string name="crop_image_fail">图片剪切失败</string>
+    <string name="network_error">网络错误</string>
+    <string name="server_responce_error">服务器出现问题</string>
 </resources>

@@ -49,4 +49,8 @@
     <string name="chatbot_name">iMates - Chatbot</string>
     <string name="tip_login_success">Login success</string>
     <string name="tip_login_fail">Login failed</string>
+    <string name="question_recognize_fail">Failed to recognize image</string>
+    <string name="crop_image_fail">Failde to crop image</string>
+    <string name="network_error">Network error</string>
+    <string name="server_responce_error">Server resonse error</string>
 </resources>

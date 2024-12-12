@@ -11,7 +11,6 @@ import androidx.lifecycle.ViewModelProvider;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Toast;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -19,7 +18,6 @@ import android.widget.Toast;
  * create an instance of this fragment.
  */
 public class FragmentSubjectBiology extends Fragment {
-    private SharedViewModel viewModel;
 
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
@@ -61,15 +59,8 @@ public class FragmentSubjectBiology extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-
-        viewModel = new ViewModelProvider(requireActivity()).get(SharedViewModel.class);
-
         CardView button = view.findViewById(R.id.photo_to_solve);
         button.setOnClickListener(v -> loadChildFragment());
-
-        // 监听来自ChildFragment的消息
-        viewModel.getSharedObject().observe(getViewLifecycleOwner(), object -> {
-        });
     }
 
     private void loadChildFragment() {

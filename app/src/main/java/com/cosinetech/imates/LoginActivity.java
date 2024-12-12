@@ -1,27 +1,18 @@
 package com.cosinetech.imates;
 
-import android.app.Activity;
-
-import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 
-import android.app.Application;
 import android.content.Intent;
 import android.os.Bundle;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelStoreOwner;
 
 import android.os.Handler;
-import android.text.Editable;
-import android.text.TextWatcher;
-import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
@@ -30,11 +21,11 @@ import android.widget.Toast;
 
 import com.cosinetech.imates.databinding.ActivityLoginBinding;
 import com.cosinetech.imates.model.UserInfo;
-import com.cosinetech.imates.model.UserViewModel;
+import com.cosinetech.imates.model.UserInfoViewModel;
 import com.cosinetech.imates.util.WindowUtils;
 
 public class LoginActivity extends AppCompatActivity {
-    private UserViewModel userViewModel;
+    private UserInfoViewModel userInfoViewModel;
     private TextView textView;
     private String fullText = null;
     private ProgressBar loadingProgressBar;
@@ -60,10 +51,10 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        userViewModel = new ViewModelProvider(
+        userInfoViewModel = new ViewModelProvider(
                 (ViewModelStoreOwner) getApplication(),
                 new ViewModelProvider.AndroidViewModelFactory(getApplication())
-        ).get(UserViewModel.class);
+        ).get(UserInfoViewModel.class);
         // 设置全屏模式
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
@@ -115,11 +106,11 @@ public class LoginActivity extends AppCompatActivity {
                 LoginRepository loginRepository = new LoginRepository();
                 // Perform login
                 String token = loginRepository.login(userName, passwd);
-                userViewModel.token.postValue(token);
+                userInfoViewModel.token.postValue(token);
 
                 // Fetch user info
                 UserInfo userInfo = loginRepository.getUserInfo(token);
-                userViewModel.userInfo.postValue(userInfo);
+                userInfoViewModel.userInfo.postValue(userInfo);
 
                 // Navigate to MainActivity
                 runOnUiThread(() -> {

@@ -4,6 +4,7 @@ import android.Manifest;
 import android.animation.ObjectAnimator;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.RectF;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -24,13 +25,14 @@ import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModelStoreOwner;
 
 import com.canhub.cropper.CropImageView;
+import com.cosinetech.imates.model.UserInfoViewModel;
+import com.cosinetech.imates.webservice.QuestionImageRecognition;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -42,12 +44,16 @@ public class FragmentCamera extends Fragment {
     private CropImageView cropImageView;
     private ImageView ivPreview;
     private Button btnCapture;
-    private Button btnDone;
+    private Button btnSearch;
+    private Button btnAddToList;
     private Button btnExit;
+    private Button btnShotAgain;
     private View scanLine;
+    private View splitLine;
     private Executor executor = Executors.newSingleThreadExecutor();
     private ProcessCameraProvider cameraProvider;
-    private SharedViewModel viewModel;
+    private MarkdownTextView questionView;
+    private UserInfoViewModel userInfoViewModel;
 
     @Nullable
     @Override
@@ -58,14 +64,24 @@ public class FragmentCamera extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        viewModel = new ViewModelProvider(requireActivity()).get(SharedViewModel.class);
+
+        ViewModelStoreOwner owner = (ViewModelStoreOwner) requireActivity().getApplication();
+        userInfoViewModel = new ViewModelProvider(
+                owner,
+                new ViewModelProvider.AndroidViewModelFactory(requireActivity().getApplication())
+        ).get(com.cosinetech.imates.model.UserInfoViewModel.class);
+
         viewFinder = view.findViewById(R.id.viewFinder);
         cropImageView = view.findViewById(R.id.cropImageView);
         ivPreview = view.findViewById(R.id.ivPreview);
         btnCapture = view.findViewById(R.id.btnCapture);
-        btnDone = view.findViewById(R.id.btnDone);
+        btnSearch = view.findViewById(R.id.btnSearch);
+        btnAddToList = view.findViewById(R.id.addToList);
         btnExit = view.findViewById(R.id.btnExit);
+        btnShotAgain = view.findViewById(R.id.btnTakeShotAgain);
         scanLine = view.findViewById(R.id.scanLine);
+        questionView = view.findViewById(R.id.questionView);
+        splitLine = view.findViewById(R.id.split_line);
 
         if (allPermissionsGranted()) {
             startCamera();
@@ -74,19 +90,25 @@ public class FragmentCamera extends Fragment {
         }
 
         btnCapture.setOnClickListener(v -> {
-            try {
-                takePhoto();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            takePhoto();
         });
-        btnDone.setOnClickListener(v -> processCroppedImage());
+        btnSearch.setOnClickListener(v -> processCroppedImage());
 
         btnExit.setOnClickListener(v -> {
             stopCamera();
-            Object objectToPass = new Object();
-            viewModel.setSharedObject(objectToPass);
             getParentFragmentManager().popBackStack();
+        });
+
+        btnShotAgain.setOnClickListener( v-> {
+            viewFinder.setVisibility(View.VISIBLE);
+            btnCapture.setVisibility(View.VISIBLE);
+            btnSearch.setVisibility(View.GONE);
+            btnShotAgain.setVisibility(View.GONE);
+            cropImageView.setVisibility(View.GONE);
+            ivPreview.setVisibility(View.GONE);
+            questionView.setContent("");
+            btnAddToList.setVisibility(View.INVISIBLE);
+            splitLine.setVisibility(View.GONE);
         });
     }
 
@@ -98,7 +120,6 @@ public class FragmentCamera extends Fragment {
                 cameraProvider = cameraProviderFuture.get();
                 bindPreview(cameraProvider);
             } catch (ExecutionException | InterruptedException e) {
-                // Handle any errors
                 Toast.makeText(requireContext(), "Error starting camera: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         }, ContextCompat.getMainExecutor(requireContext()));
@@ -130,46 +151,75 @@ public class FragmentCamera extends Fragment {
         cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture);
     }
 
-    private void takePhoto() throws IOException {
-        File photoFile = File.createTempFile("prefix_", ".jpg", requireContext().getCacheDir());
+    private void takePhoto() {
+        try {
+            File photoFile = File.createTempFile("prefix_", ".jpg", requireContext().getCacheDir());
+            ImageCapture.OutputFileOptions outputOptions = new ImageCapture.OutputFileOptions.Builder(photoFile).build();
 
-        ImageCapture.OutputFileOptions outputOptions = new ImageCapture.OutputFileOptions.Builder(photoFile).build();
+            imageCapture.takePicture(outputOptions, executor, new ImageCapture.OnImageSavedCallback() {
+                @Override
+                public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
+                    requireActivity().runOnUiThread(() -> showCropView(photoFile));
+                }
 
-        imageCapture.takePicture(outputOptions, executor, new ImageCapture.OnImageSavedCallback() {
-            @Override
-            public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-                requireActivity().runOnUiThread(() -> showCropView(photoFile));
-            }
-
-            @Override
-            public void onError(@NonNull ImageCaptureException exception) {
-                requireActivity().runOnUiThread(() ->
-                        Toast.makeText(requireContext(), "Error taking photo: " + exception.getMessage(), Toast.LENGTH_SHORT).show()
-                );
-            }
-        });
+                @Override
+                public void onError(@NonNull ImageCaptureException exception) {
+                    requireActivity().runOnUiThread(() ->
+                            Toast.makeText(requireContext(), "Error taking photo: " + exception.getMessage(), Toast.LENGTH_SHORT).show()
+                    );
+                }
+            });
+        } catch (Exception e) {
+            Toast.makeText(requireContext(), "Error taking photo: " +e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void showCropView(File photoFile) {
         viewFinder.setVisibility(View.GONE);
         cropImageView.setVisibility(View.VISIBLE);
         btnCapture.setVisibility(View.GONE);
-        btnDone.setVisibility(View.VISIBLE);
+        btnSearch.setVisibility(View.VISIBLE);
+        btnShotAgain.setVisibility(View.VISIBLE);
 
         cropImageView.setImageUriAsync(Uri.fromFile(photoFile));
         cropImageView.setFixedAspectRatio(false); // 取消固定纵横比
-//        cropImageView.setAspectRatio(1, 1);
         cropImageView.setGuidelines(CropImageView.Guidelines.ON);
     }
 
     private void processCroppedImage() {
-        Bitmap croppedBitmap = cropImageView.getCroppedImage();
+        RectF cropRect = cropImageView.getCropWindowRect();
+        Bitmap croppedBitmap = cropImageView.getCroppedImage((int) cropRect.width(), (int) cropRect.height());
         if (croppedBitmap != null) {
+            // 创建一个字节输出流
             showFinalImage(croppedBitmap);
             startScanAnimation(cropImageView, scanLine);
+            QuestionImageRecognition.recognizeImage(croppedBitmap, userInfoViewModel.token.getValue(), new QuestionImageRecognition.QuestionImageRecognitionCallback() {
+                @Override
+                public void onSuccess(String response) {
+                    requireActivity().runOnUiThread(() -> {
+                        stopScanAnimation(scanLine);
+                        splitLine.setVisibility(View.VISIBLE);
+                        questionView.setContent(response);
+                        btnAddToList.setVisibility(View.VISIBLE);
+                    });
+                }
+
+                @Override
+                public void onFailure(String msg, int code) {
+                    requireActivity().runOnUiThread(() -> {
+                        Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+                        stopScanAnimation(scanLine);
+                    });
+
+                }
+            });
         } else {
-            Toast.makeText(requireContext(), "Failed to crop image", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), getString(R.string.crop_image_fail), Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void stopScanAnimation(View scanLine) {
+        scanLine.setVisibility(View.INVISIBLE);
     }
 
     private void startScanAnimation(CropImageView imageView, View scanLine) {
