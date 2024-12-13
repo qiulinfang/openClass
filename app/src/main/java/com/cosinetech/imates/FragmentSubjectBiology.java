@@ -71,7 +71,7 @@ public class FragmentSubjectBiology extends Fragment  implements  CaptureQuesiti
     }
 
     private void loadCameraFragment() {
-        FragmentCamera childFragment = new FragmentCamera(EnumSubject.SUBJECT_BIOLOGY, this);
+        FragmentCamera childFragment = FragmentCamera.newInstance(EnumSubject.SUBJECT_BIOLOGY, this);
         getChildFragmentManager().beginTransaction()
                 .replace(R.id.container, childFragment)
                 .addToBackStack(null) // 添加到回退栈以便用户可以返回

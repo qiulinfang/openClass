@@ -61,9 +61,24 @@ public class FragmentCamera extends Fragment {
 
     private EnumSubject subject;
     private CaptureQuesitionSuccessListener mListener;
-    public FragmentCamera(EnumSubject subject, CaptureQuesitionSuccessListener listener) {
+
+
+    public static FragmentCamera newInstance(EnumSubject subject, CaptureQuesitionSuccessListener listener) {
+        FragmentCamera fragmentCamera = new FragmentCamera();
+        fragmentCamera.setListener(listener);
+        fragmentCamera.setSubject(subject);
+        return fragmentCamera;
+    }
+
+    public FragmentCamera() {
+    }
+
+    public void setListener(CaptureQuesitionSuccessListener listener) {
+        mListener = listener;
+    }
+
+    public void setSubject(EnumSubject subject) {
         this.subject = subject;
-        this.mListener = listener;
     }
 
     @Nullable
