@@ -1,5 +1,8 @@
 package com.cosinetech.imates;
 
+import static com.cosinetech.imates.FragmentCamera.ACTION_OPEN_EXERCISE;
+import static com.cosinetech.imates.FragmentCamera.KEY_ACTION;
+
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -53,7 +56,6 @@ public class FragmentSubjectBiology extends Fragment implements CaptureQuestionR
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
         return inflater.inflate(R.layout.fragment_subject_biology, container, false);
     }
 
@@ -67,12 +69,13 @@ public class FragmentSubjectBiology extends Fragment implements CaptureQuestionR
         btnExercise.setOnClickListener(v-> loadExerciseListFragment());
 
         // 监听子 Fragment 的退出事件
-        getChildFragmentManager().setFragmentResultListener("ACCEPT", this, (requestKey, bundle) -> {
-//                // 获取子 Fragment 传递的字符串
-//                String message = bundle.getString("exit_message");
-//                Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
-            getChildFragmentManager().popBackStack();
-            loadExerciseListFragment();
+        getChildFragmentManager().setFragmentResultListener(KEY_ACTION, this, (requestKey, bundle) -> {
+            // 获取子 Fragment 传递的字符串
+            String action = bundle.getString(KEY_ACTION);
+            if(action != null && action.equals(ACTION_OPEN_EXERCISE)) {
+                getChildFragmentManager().popBackStack();
+                loadExerciseListFragment();
+            }
         });
     }
 

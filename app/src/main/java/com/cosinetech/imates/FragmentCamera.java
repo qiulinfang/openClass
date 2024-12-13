@@ -24,8 +24,6 @@ import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentManager;
-import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 
@@ -42,6 +40,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class FragmentCamera extends Fragment {
+    public static final String KEY_ACTION = "ACTION";
+    public static final String ACTION_OPEN_EXERCISE = "OPEN_EXERCISE";
     private PreviewView viewFinder;
     private ImageCapture imageCapture;
     private CropImageView cropImageView;
@@ -120,18 +120,20 @@ public class FragmentCamera extends Fragment {
 
         btnExit.setOnClickListener(v -> {
             stopCamera();
+
             // 创建一个 Bundle 对象，用于传递数据
-            Bundle result = new Bundle();
-            result.putString("ACCEPT", "Message from ChildFragment");
+//            Bundle result = new Bundle();
+//            result.putString(KEY_ACTION, ACTION_OPEN_EXERCISE);
+//            getParentFragmentManager().setFragmentResult(KEY_ACTION, result);
 
             // 使用 setArguments 传递数据
-            getParentFragmentManager().setFragmentResult("ACCEPT", result);
-//            getParentFragmentManager().popBackStack();
-//            final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(EnumApiUrl.URL_CHAT_BIOLOGY, EnumSubject.SUBJECT_BIOLOGY);
-//            getParentFragmentManager().beginTransaction()
-//                    .addToBackStack(null)
-//                    .replace(R.id.container, fragmentExerciseList)
-//                    .commit();
+//            getParentFragmentManager().setFragmentResult(KEY_ACTION, result);
+            getParentFragmentManager().popBackStack();
+            final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(EnumApiUrl.URL_CHAT_BIOLOGY, EnumSubject.SUBJECT_BIOLOGY);
+            getParentFragmentManager().beginTransaction()
+                    .addToBackStack(null)
+                    .replace(R.id.container, fragmentExerciseList)
+                    .commit();
         });
 
         btnAddToList.setOnClickListener(v -> {
@@ -181,8 +183,8 @@ public class FragmentCamera extends Fragment {
 
     @Override
     public void onDestroy() {
-        super.onDestroy();
         stopCamera(); // 确保在活动销毁时停止相机
+        super.onDestroy();
     }
 
     private void bindPreview(@NonNull ProcessCameraProvider cameraProvider) {
