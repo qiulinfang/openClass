@@ -42,12 +42,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class FragmentCamera extends Fragment {
-    public static final String CAPTURE_RESULT_ACCEPT = "ACCEPT";
-    public static final String CAPTURE_RESULT_REJECT = "REJECT";
-
-    private FragmentManager manager;
-    private FragmentTransaction ft;
-    private CaptureResultViewModel captureResult;
     private PreviewView viewFinder;
     private ImageCapture imageCapture;
     private CropImageView cropImageView;
@@ -59,7 +53,7 @@ public class FragmentCamera extends Fragment {
     private Button btnShotAgain;
     private View scanLine;
     private View splitLine;
-    private Executor executor = Executors.newSingleThreadExecutor();
+    private final Executor executor = Executors.newSingleThreadExecutor();
     private ProcessCameraProvider cameraProvider;
     private MarkdownTextView questionView;
     private UserInfoViewModel userInfoViewModel;
@@ -82,7 +76,6 @@ public class FragmentCamera extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        manager = getFragmentManager();
     }
 
 
@@ -101,9 +94,6 @@ public class FragmentCamera extends Fragment {
                 owner,
                 new ViewModelProvider.AndroidViewModelFactory(requireActivity().getApplication())
         ).get(com.cosinetech.imates.model.UserInfoViewModel.class);
-
-        // 初始化 ViewModel
-        captureResult = new ViewModelProvider(requireActivity()).get(CaptureResultViewModel.class);
 
         viewFinder = view.findViewById(R.id.viewFinder);
         cropImageView = view.findViewById(R.id.cropImageView);
@@ -130,10 +120,9 @@ public class FragmentCamera extends Fragment {
 
         btnExit.setOnClickListener(v -> {
             stopCamera();
-            // 写入 "ACCEPT" 结果
             // captureResult.result.setValue(CAPTURE_RESULT_REJECT);
             final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(EnumApiUrl.URL_CHAT_BIOLOGY, EnumSubject.SUBJECT_BIOLOGY);
-            getFragmentManager().beginTransaction()
+            getParentFragmentManager().beginTransaction()
                     .addToBackStack(null)
                     .replace(R.id.container, fragmentExerciseList)
                     .commit();
@@ -141,7 +130,6 @@ public class FragmentCamera extends Fragment {
 
         btnAddToList.setOnClickListener(v -> {
             stopCamera();
-            captureResult.result.setValue(CAPTURE_RESULT_ACCEPT);
         });
 
         btnShotAgain.setOnClickListener( v-> {
