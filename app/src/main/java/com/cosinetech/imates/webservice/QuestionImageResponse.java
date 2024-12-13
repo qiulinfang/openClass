@@ -3,16 +3,13 @@ import com.cosinetech.imates.EnumApiUrl;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.Strictness;
-import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
-import com.google.gson.stream.JsonWriter;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
-public class QuestionImageResponseBiology implements QuestionObject{
+public class QuestionImageResponse implements QuestionObject{
     @Expose
     @SerializedName("success")
     public boolean success = false;
@@ -145,11 +142,11 @@ public class QuestionImageResponseBiology implements QuestionObject{
         return result;
     }
 
-    public static QuestionImageResponseBiology fromJson(String json) {
+    public static QuestionImageResponse fromJson(String json) {
         Gson gson = new GsonBuilder()
                 .setStrictness(Strictness.LENIENT)
                 .create();
-        QuestionImageResponseBiology question = gson.fromJson(json, QuestionImageResponseBiology.class);
+        QuestionImageResponse question = gson.fromJson(json, QuestionImageResponse.class);
         if(question.message == null) {
             question.message = "";
         }

@@ -28,9 +28,10 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 
 import com.canhub.cropper.CropImageView;
+import com.cosinetech.imates.model.ExerciseToAddList;
 import com.cosinetech.imates.model.UserInfoViewModel;
-import com.cosinetech.imates.webservice.QuestionImageRecognition;
-import com.cosinetech.imates.webservice.QuestionImageResponseBiology;
+import com.cosinetech.imates.webservice.ExerciseImageRecognition;
+import com.cosinetech.imates.webservice.QuestionImageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;
@@ -56,6 +57,7 @@ public class FragmentCamera extends Fragment {
     private MarkdownTextView questionView;
     private UserInfoViewModel userInfoViewModel;
     private EnumSubject subject;
+    private QuestionImageResponse question;
 
 
     public static FragmentCamera newInstance(EnumSubject subject) {
@@ -122,6 +124,7 @@ public class FragmentCamera extends Fragment {
         });
 
         btnAddToList.setOnClickListener(v -> {
+            addExerciseToList();
             stopCamera();
             final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(EnumApiUrl.URL_CHAT_BIOLOGY, subject);
             getParentFragmentManager().beginTransaction()
@@ -169,6 +172,31 @@ public class FragmentCamera extends Fragment {
     public void onDestroy() {
         stopCamera(); // 确保在活动销毁时停止相机
         super.onDestroy();
+    }
+
+    private void addExerciseToList() {
+        if(question == null || question.data.item.questionsConfirm.isEmpty()) {
+            return;
+        }
+        QuestionImageResponse.Data.Item.Question q = question.data.item.questionsConfirm.get(0);
+        ExerciseToAddList item = new ExerciseToAddList();
+        item.setTitle(q.title);
+        item.setImgName(q.titleImg);
+        item.setImgTitleUrl(q.titleImg);
+        item.setOptions(q.options);
+        item.setSelect(q.options1);
+        item.setImgUrl(q.optionsImg);
+        item.setAnswer(q.answer);
+        item.setExplanation(q.explanation);
+        item.setExercisesId("");
+        item.setBmNo(q.bmNo);
+
+        if(subject == EnumSubject.SUBJECT_BIOLOGY) {
+            item.setType("biology");
+        } else if(subject == EnumSubject.SUBJECT_MATH) {
+            item.setType("math");
+        }
+        ExerciseImageRecognition.addExerciseToList(item, EnumApiUrl.URL_UPLOAD_EXERCISE, userInfoViewModel.token.getValue());
     }
 
     private void bindPreview(@NonNull ProcessCameraProvider cameraProvider) {
@@ -226,7 +254,7 @@ public class FragmentCamera extends Fragment {
             // 创建一个字节输出流
             showFinalImage(croppedBitmap);
             startScanAnimation(cropImageView, scanLine);
-            QuestionImageRecognition.recognizeImage(croppedBitmap, userInfoViewModel.token.getValue(), new QuestionImageRecognition.QuestionImageRecognitionCallback() {
+            ExerciseImageRecognition.recognizeImage(croppedBitmap, userInfoViewModel.token.getValue(), new ExerciseImageRecognition.ExerciseImageRecognitionCallback() {
                 @Override
                 public void onSuccess(String response) {
                     requireActivity().runOnUiThread(() -> {
@@ -234,12 +262,10 @@ public class FragmentCamera extends Fragment {
                         String questionString = "";
 
                         switch (subject) {
-                            case SUBJECT_BIOLOGY: {
-                                QuestionImageResponseBiology question = QuestionImageResponseBiology.fromJson(response);
-                                questionString = question.getQuestion();
-                            }
-                                break;
+                            case SUBJECT_BIOLOGY:
                             case SUBJECT_MATH:
+                                question = QuestionImageResponse.fromJson(response);
+                                questionString = question.getQuestion();
                                 break;
                             default:
                                 return;

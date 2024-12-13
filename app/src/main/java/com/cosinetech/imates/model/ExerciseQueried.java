@@ -4,7 +4,8 @@ import com.google.gson.annotations.SerializedName;
 
 import java.util.List;
 
-public class BiologyQuestion {
+// 查询习题列表得到的习题结构
+public class ExerciseQueried {
     @SerializedName("bmNo")
     private String bmNo;
 
