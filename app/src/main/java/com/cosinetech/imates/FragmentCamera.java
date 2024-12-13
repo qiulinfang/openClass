@@ -40,8 +40,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class FragmentCamera extends Fragment {
-    public static final String KEY_ACTION = "ACTION";
-    public static final String ACTION_OPEN_EXERCISE = "OPEN_EXERCISE";
     private PreviewView viewFinder;
     private ImageCapture imageCapture;
     private CropImageView cropImageView;
@@ -120,28 +118,14 @@ public class FragmentCamera extends Fragment {
 
         btnExit.setOnClickListener(v -> {
             stopCamera();
-
-            // 创建一个 Bundle 对象，用于传递数据
-//            Bundle result = new Bundle();
-//            result.putString(KEY_ACTION, ACTION_OPEN_EXERCISE);
-//            getParentFragmentManager().setFragmentResult(KEY_ACTION, result);
-
-            // 使用 setArguments 传递数据
-//            getParentFragmentManager().setFragmentResult(KEY_ACTION, result);
             getParentFragmentManager().popBackStack();
-            final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(EnumApiUrl.URL_CHAT_BIOLOGY, EnumSubject.SUBJECT_BIOLOGY);
-            getParentFragmentManager().beginTransaction()
-                    .addToBackStack(null)
-                    .replace(R.id.container, fragmentExerciseList)
-                    .commit();
         });
 
         btnAddToList.setOnClickListener(v -> {
             stopCamera();
-            // captureResult.result.setValue(CAPTURE_RESULT_REJECT);
-            final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(EnumApiUrl.URL_CHAT_BIOLOGY, EnumSubject.SUBJECT_BIOLOGY);
+            final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(EnumApiUrl.URL_CHAT_BIOLOGY, subject);
             getParentFragmentManager().beginTransaction()
-                    //.addToBackStack(null)
+                    .addToBackStack(null)
                     .replace(R.id.container, fragmentExerciseList)
                     .commit();
         });

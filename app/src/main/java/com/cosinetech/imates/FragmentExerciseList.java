@@ -1,7 +1,5 @@
 package com.cosinetech.imates;
 
-import static com.cosinetech.imates.FragmentCamera.KEY_ACTION;
-
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
