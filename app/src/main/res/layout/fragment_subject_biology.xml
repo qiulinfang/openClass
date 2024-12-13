@@ -99,7 +99,7 @@
             </androidx.cardview.widget.CardView>
 
             <androidx.cardview.widget.CardView
-                android:id="@+id/menuMaterials"
+                android:id="@+id/exercise"
                 android:clickable="true"
                 android:focusable="true"
                 android:foreground="?android:attr/selectableItemBackgroundBorderless"
@@ -136,7 +136,7 @@
         app:layout_constraintGuide_percent="0.6" />
 
     <androidx.fragment.app.FragmentContainerView
-        android:id="@+id/camera_container"
+        android:id="@+id/container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_constraintBottom_toBottomOf="parent"

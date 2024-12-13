@@ -4,10 +4,7 @@ import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentManager;
-import androidx.fragment.app.FragmentTransaction;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -19,27 +16,20 @@ import android.view.ViewGroup;
  * create an instance of this fragment.
  */
 public class FragmentExerciseList extends Fragment {
-
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
-
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
-
-    private FragmentChatAi fragmentChatAi;
+    private static final String KEY_CHATBOT_URL = "KEY_CHAT_BOT_URL";
+    private static final String KEY_SUBJECT = "KEY_SUBJECT";
+    private String chatBotUrl;
+    private EnumSubject subject;
 
     public FragmentExerciseList() {
         // Required empty public constructor
     }
 
-    public static FragmentExerciseList newInstance(String param1, String param2) {
+    public static FragmentExerciseList newInstance(String chatBotUrl, Enum subject) {
         FragmentExerciseList fragment = new FragmentExerciseList();
         Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
+        args.putString(KEY_CHATBOT_URL,  chatBotUrl);
+        args.putString(KEY_SUBJECT, subject.name());
         fragment.setArguments(args);
         return fragment;
     }
@@ -48,8 +38,8 @@ public class FragmentExerciseList extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
+            chatBotUrl = getArguments().getString(KEY_CHATBOT_URL);
+            subject = EnumSubject.valueOf(getArguments().getString(KEY_SUBJECT));
         }
     }
 
@@ -63,10 +53,16 @@ public class FragmentExerciseList extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        fragmentChatAi = FragmentChatAi.newInstance(EnumApiUrl.URL_CHAT_BIOLOGY, false);
+        FragmentChatAi fragmentChatAi = FragmentChatAi.newInstance(chatBotUrl, false);
         getChildFragmentManager().beginTransaction()
                 .replace(R.id.fragmentChatAiContainer, fragmentChatAi)
                 .addToBackStack(null) // 添加到回退栈以便用户可以返回
                 .commit();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        getChildFragmentManager().popBackStack();
     }
 }

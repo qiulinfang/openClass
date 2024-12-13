@@ -53,4 +53,8 @@
     <string name="crop_image_fail">Failde to crop image</string>
     <string name="network_error">Network error</string>
     <string name="server_responce_error">Server resonse error</string>
+    <string name="check_answer">Answer</string>
+    <string name="similar_questions">Similars</string>
+    <string name="shoot_question">Captrue</string>
+    <string name="ai_guide_question">Guide</string>
 </resources>

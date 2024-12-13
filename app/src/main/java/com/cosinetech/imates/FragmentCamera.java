@@ -1,5 +1,8 @@
 package com.cosinetech.imates;
 
+import static com.cosinetech.imates.EnumSubject.SUBJECT_BIOLOGY;
+import static com.cosinetech.imates.EnumSubject.SUBJECT_MATH;
+
 import android.Manifest;
 import android.animation.ObjectAnimator;
 import android.content.pm.PackageManager;
@@ -57,9 +60,10 @@ public class FragmentCamera extends Fragment {
     private UserInfoViewModel userInfoViewModel;
 
     private EnumSubject subject;
-
-    public FragmentCamera(EnumSubject subject) {
+    private CaptureQuesitionSuccessListener mListener;
+    public FragmentCamera(EnumSubject subject, CaptureQuesitionSuccessListener listener) {
         this.subject = subject;
+        this.mListener = listener;
     }
 
     @Nullable
@@ -104,6 +108,13 @@ public class FragmentCamera extends Fragment {
         btnExit.setOnClickListener(v -> {
             stopCamera();
             getParentFragmentManager().popBackStack();
+        });
+
+        btnAddToList.setOnClickListener(v -> {
+            if(mListener != null) {
+                getParentFragmentManager().popBackStack();
+                mListener.onCaptureQuesitionSuccess();
+            }
         });
 
         btnShotAgain.setOnClickListener( v-> {
@@ -209,7 +220,6 @@ public class FragmentCamera extends Fragment {
                         stopScanAnimation(scanLine);
                         String questionString = "";
 
-
                         switch (subject) {
                             case SUBJECT_BIOLOGY: {
                                 QuestionImageResponseBiology question = QuestionImageResponseBiology.fromJson(response);
@@ -275,9 +285,6 @@ public class FragmentCamera extends Fragment {
         cropImageView.setVisibility(View.GONE);
         ivPreview.setVisibility(View.VISIBLE);
         ivPreview.setImageBitmap(bitmap);
-//        ViewGroup.LayoutParams param = ivPreview.getLayoutParams();
-//        param.height = scanLine.getLayoutParams().height;
-//        scanLine.setLayoutParams(param);
         scanLine.setVisibility(View.VISIBLE);
         ivPreview.requestLayout();
         scanLine.requestLayout();

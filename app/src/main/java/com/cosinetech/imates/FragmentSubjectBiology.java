@@ -6,7 +6,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.ViewModelProvider;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -17,7 +16,7 @@ import android.view.ViewGroup;
  * Use the {@link FragmentSubjectBiology#newInstance} factory method to
  * create an instance of this fragment.
  */
-public class FragmentSubjectBiology extends Fragment {
+public class FragmentSubjectBiology extends Fragment  implements  CaptureQuesitionSuccessListener {
 
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
@@ -60,13 +59,29 @@ public class FragmentSubjectBiology extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         CardView button = view.findViewById(R.id.photo_to_solve);
-        button.setOnClickListener(v -> loadChildFragment());
+        button.setOnClickListener(v -> loadCameraFragment());
+
+        CardView btnExercise = view.findViewById(R.id.exercise);
+        btnExercise.setOnClickListener(v-> loadExerciseListFragment());
     }
 
-    private void loadChildFragment() {
-        FragmentCamera childFragment = new FragmentCamera(EnumSubject.SUBJECT_BIOLOGY);
+    @Override
+    public void onCaptureQuesitionSuccess() {
+        loadExerciseListFragment();
+    }
+
+    private void loadCameraFragment() {
+        FragmentCamera childFragment = new FragmentCamera(EnumSubject.SUBJECT_BIOLOGY, this);
         getChildFragmentManager().beginTransaction()
-                .replace(R.id.camera_container, childFragment)
+                .replace(R.id.container, childFragment)
+                .addToBackStack(null) // 添加到回退栈以便用户可以返回
+                .commit();
+    }
+
+    private void loadExerciseListFragment() {
+        FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(EnumApiUrl.URL_CHAT_BIOLOGY, EnumSubject.SUBJECT_BIOLOGY);
+        getChildFragmentManager().beginTransaction()
+                .replace(R.id.container, fragmentExerciseList)
                 .addToBackStack(null) // 添加到回退栈以便用户可以返回
                 .commit();
     }
