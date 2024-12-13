@@ -1,8 +1,5 @@
 package com.cosinetech.imates;
 
-import static com.cosinetech.imates.FragmentCamera.ACTION_OPEN_EXERCISE;
-import static com.cosinetech.imates.FragmentCamera.KEY_ACTION;
-
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -67,16 +64,6 @@ public class FragmentSubjectBiology extends Fragment implements CaptureQuestionR
 
         CardView btnExercise = view.findViewById(R.id.exercise);
         btnExercise.setOnClickListener(v-> loadExerciseListFragment());
-
-        // 监听子 Fragment 的退出事件
-        getChildFragmentManager().setFragmentResultListener(KEY_ACTION, this, (requestKey, bundle) -> {
-            // 获取子 Fragment 传递的字符串
-            String action = bundle.getString(KEY_ACTION);
-            if(action != null && action.equals(ACTION_OPEN_EXERCISE)) {
-                getChildFragmentManager().popBackStack();
-                loadExerciseListFragment();
-            }
-        });
     }
 
     public void loadCameraFragment() {
