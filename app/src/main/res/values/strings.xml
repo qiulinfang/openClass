@@ -64,4 +64,6 @@
     <string name="crop_image_fail">图片剪切失败</string>
     <string name="network_error">网络错误</string>
     <string name="server_responce_error">服务器出现问题</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
 </resources>
