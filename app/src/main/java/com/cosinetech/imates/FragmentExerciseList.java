@@ -54,6 +54,7 @@ public class FragmentExerciseList extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         FragmentChatAi fragmentChatAi = FragmentChatAi.newInstance(chatBotUrl, false);
+        fragmentChatAi.setAiName("解题助手");
         getChildFragmentManager().beginTransaction()
                 .replace(R.id.fragmentChatAiContainer, fragmentChatAi)
                 .addToBackStack(null) // 添加到回退栈以便用户可以返回

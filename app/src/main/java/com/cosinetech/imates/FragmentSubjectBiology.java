@@ -6,7 +6,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,9 +19,9 @@ import android.view.ViewGroup;
  * Use the {@link FragmentSubjectBiology#newInstance} factory method to
  * create an instance of this fragment.
  */
-public class FragmentSubjectBiology extends Fragment  implements  CaptureQuesitionSuccessListener {
+public class FragmentSubjectBiology extends Fragment implements CaptureQuestionResultListener {
 
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
+    private CaptureResultViewModel captureResultViewModel;
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
 
@@ -63,27 +66,62 @@ public class FragmentSubjectBiology extends Fragment  implements  CaptureQuesiti
 
         CardView btnExercise = view.findViewById(R.id.exercise);
         btnExercise.setOnClickListener(v-> loadExerciseListFragment());
+
+        captureResultViewModel = new ViewModelProvider(requireActivity()).get(CaptureResultViewModel.class);
+        captureResultViewModel.result.observe(getViewLifecycleOwner(), result -> {
+            if (result != null) {
+                if (result.equals("ACCEPT")) {
+                    // 处理 "ACCEPT" 逻辑
+                    loadExerciseListFragment();
+                } else if (result.equals("REJECT")) {
+                    // 处理 "REJECT" 逻辑
+                    getChildFragmentManager().popBackStack();
+                }
+            }
+            //new Handler(Looper.getMainLooper()).post(() -> loadExerciseListFragment());
+        });
+
+        // 监听 subject 的变化
+        captureResultViewModel.subject.observe(getViewLifecycleOwner(), subject -> {
+            if (subject != null) {
+                // 处理 subject 逻辑
+                System.out.println("Subject changed: " + subject);
+            }
+        });
+
+        // 监听 url 的变化
+        captureResultViewModel.url.observe(getViewLifecycleOwner(), url -> {
+            if (url != null) {
+                // 处理 url 逻辑
+                System.out.println("URL changed: " + url);
+            }
+        });
+    }
+
+    public void loadCameraFragment() {
+        final FragmentCamera childFragment = FragmentCamera.newInstance(EnumSubject.SUBJECT_BIOLOGY);
+        getChildFragmentManager().beginTransaction()
+                .replace(R.id.container, childFragment)
+                .addToBackStack(null)
+                .commit();
+    }
+
+    public void loadExerciseListFragment() {
+        final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(EnumApiUrl.URL_CHAT_BIOLOGY, EnumSubject.SUBJECT_BIOLOGY);
+        getChildFragmentManager().beginTransaction()
+                .replace(R.id.container, fragmentExerciseList)
+                .addToBackStack(null)
+                .commit();
     }
 
     @Override
-    public void onCaptureQuesitionSuccess() {
+    public void onCaptureAccepted() {
         loadExerciseListFragment();
     }
 
-    private void loadCameraFragment() {
-        FragmentCamera childFragment = FragmentCamera.newInstance(EnumSubject.SUBJECT_BIOLOGY, this);
-        getChildFragmentManager().beginTransaction()
-                .replace(R.id.container, childFragment)
-                .addToBackStack(null) // 添加到回退栈以便用户可以返回
-                .commit();
-    }
-
-    private void loadExerciseListFragment() {
-        FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(EnumApiUrl.URL_CHAT_BIOLOGY, EnumSubject.SUBJECT_BIOLOGY);
-        getChildFragmentManager().beginTransaction()
-                .replace(R.id.container, fragmentExerciseList)
-                .addToBackStack(null) // 添加到回退栈以便用户可以返回
-                .commit();
+    @Override
+    public void onCaptureRejected() {
+        getChildFragmentManager().popBackStack();
     }
 }
 

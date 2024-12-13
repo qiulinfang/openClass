@@ -14,6 +14,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.cosinetech.imates.model.UserInfoViewModel;
@@ -42,6 +43,8 @@ public class FragmentChatAi extends Fragment {
     private List<ChatMessage> messageList = new ArrayList<>();
     private String chatBotUrl;
     private Button btnSend;
+
+    private String aiName = "";
 
     private boolean showHeader;
 
@@ -107,12 +110,18 @@ public class FragmentChatAi extends Fragment {
 
         if(!showHeader) {
             btnExit.setVisibility(View.INVISIBLE);
-            view.findViewById(R.id.ai_name).setVisibility(View.INVISIBLE);
+        }
+        if(!aiName.isEmpty()) {
+            ((TextView)view.findViewById(R.id.ai_name)).setText(aiName);
         }
 
         messageVO.setName(Objects.requireNonNull(userInfoViewModel.userInfo.getValue()).getName());
 
         return view;
+    }
+
+    public void setAiName(String name) {
+        aiName = name;
     }
 
     private void pollChat() {

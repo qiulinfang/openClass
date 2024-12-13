@@ -1,8 +1,5 @@
 package com.cosinetech.imates;
 
-import static com.cosinetech.imates.EnumSubject.SUBJECT_BIOLOGY;
-import static com.cosinetech.imates.EnumSubject.SUBJECT_MATH;
-
 import android.Manifest;
 import android.animation.ObjectAnimator;
 import android.content.pm.PackageManager;
@@ -27,6 +24,8 @@ import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 
@@ -43,6 +42,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class FragmentCamera extends Fragment {
+    public static final String CAPTURE_RESULT_ACCEPT = "ACCEPT";
+    public static final String CAPTURE_RESULT_REJECT = "REJECT";
+
+    private FragmentManager manager;
+    private FragmentTransaction ft;
+    private CaptureResultViewModel captureResult;
     private PreviewView viewFinder;
     private ImageCapture imageCapture;
     private CropImageView cropImageView;
@@ -58,14 +63,11 @@ public class FragmentCamera extends Fragment {
     private ProcessCameraProvider cameraProvider;
     private MarkdownTextView questionView;
     private UserInfoViewModel userInfoViewModel;
-
     private EnumSubject subject;
-    private CaptureQuesitionSuccessListener mListener;
 
 
-    public static FragmentCamera newInstance(EnumSubject subject, CaptureQuesitionSuccessListener listener) {
+    public static FragmentCamera newInstance(EnumSubject subject) {
         FragmentCamera fragmentCamera = new FragmentCamera();
-        fragmentCamera.setListener(listener);
         fragmentCamera.setSubject(subject);
         return fragmentCamera;
     }
@@ -73,13 +75,16 @@ public class FragmentCamera extends Fragment {
     public FragmentCamera() {
     }
 
-    public void setListener(CaptureQuesitionSuccessListener listener) {
-        mListener = listener;
-    }
-
-    public void setSubject(EnumSubject subject) {
+    private void setSubject(EnumSubject subject) {
         this.subject = subject;
     }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        manager = getFragmentManager();
+    }
+
 
     @Nullable
     @Override
@@ -96,6 +101,9 @@ public class FragmentCamera extends Fragment {
                 owner,
                 new ViewModelProvider.AndroidViewModelFactory(requireActivity().getApplication())
         ).get(com.cosinetech.imates.model.UserInfoViewModel.class);
+
+        // 初始化 ViewModel
+        captureResult = new ViewModelProvider(requireActivity()).get(CaptureResultViewModel.class);
 
         viewFinder = view.findViewById(R.id.viewFinder);
         cropImageView = view.findViewById(R.id.cropImageView);
@@ -122,14 +130,18 @@ public class FragmentCamera extends Fragment {
 
         btnExit.setOnClickListener(v -> {
             stopCamera();
-            getParentFragmentManager().popBackStack();
+            // 写入 "ACCEPT" 结果
+            // captureResult.result.setValue(CAPTURE_RESULT_REJECT);
+            final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(EnumApiUrl.URL_CHAT_BIOLOGY, EnumSubject.SUBJECT_BIOLOGY);
+            getFragmentManager().beginTransaction()
+                    .addToBackStack(null)
+                    .replace(R.id.container, fragmentExerciseList)
+                    .commit();
         });
 
         btnAddToList.setOnClickListener(v -> {
-            if(mListener != null) {
-                getParentFragmentManager().popBackStack();
-                mListener.onCaptureQuesitionSuccess();
-            }
+            stopCamera();
+            captureResult.result.setValue(CAPTURE_RESULT_ACCEPT);
         });
 
         btnShotAgain.setOnClickListener( v-> {
