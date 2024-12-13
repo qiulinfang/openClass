@@ -38,7 +38,7 @@ public class FragmentChatAi extends Fragment {
     private RecyclerView recyclerView;
     private SmartRefreshLayout refreshLayout;
     private EditText etMessage;
-    private ChatAdapter chatAdapter;
+    private AdapterChatAi adapterChatAi;
     private List<ChatMessage> messageList = new ArrayList<>();
     private String chatBotUrl;
     private Button btnSend;
@@ -78,8 +78,8 @@ public class FragmentChatAi extends Fragment {
 
         // Initialize RecyclerView
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        chatAdapter = new ChatAdapter(messageList);
-        recyclerView.setAdapter(chatAdapter);
+        adapterChatAi = new AdapterChatAi(messageList);
+        recyclerView.setAdapter(adapterChatAi);
 
         // Set up SmartRefreshLayout for pull-to-refresh
         refreshLayout.setOnRefreshListener(refreshLayout -> {
@@ -120,7 +120,7 @@ public class FragmentChatAi extends Fragment {
             requireActivity().runOnUiThread(() -> {
                 if (success) {
                     if(!response.trim().isEmpty() && !response.equals("end")) {
-                        chatAdapter.updateLastMessage(response);
+                        adapterChatAi.updateLastMessage(response);
                         Log.d("%%%%%%%%", response);
                     }
                     if(!response.equals("end")) {
@@ -142,12 +142,12 @@ public class FragmentChatAi extends Fragment {
             // Add message to the list and notify the adapter
             ChatMessage message = new ChatMessage(messageText, true, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
             messageList.add(message);
-            chatAdapter.notifyItemInserted(messageList.size() - 1);
+            adapterChatAi.notifyItemInserted(messageList.size() - 1);
             etMessage.setText("");
 
             responseMessage = new ChatMessage("", false, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
             messageList.add(responseMessage);
-            chatAdapter.notifyItemInserted(messageList.size() - 1);
+            adapterChatAi.notifyItemInserted(messageList.size() - 1);
 
             recyclerView.scrollToPosition(messageList.size() - 1);
 
@@ -162,6 +162,6 @@ public class FragmentChatAi extends Fragment {
     private void loadMessages() {
 //        ChatMessage message = new ChatMessage("Hello, how are you?", false, 0, ChatMessage.TYPE_TEXT, false);
 //        messageList.add(0, message);
-//        chatAdapter.notifyItemInserted(0);
+//        adapterChatAi.notifyItemInserted(0);
     }
 }
