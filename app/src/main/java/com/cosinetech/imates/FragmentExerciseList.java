@@ -59,11 +59,14 @@ public class FragmentExerciseList extends Fragment {
                 .replace(R.id.fragmentChatAiContainer, fragmentChatAi)
                 .addToBackStack(null) // 添加到回退栈以便用户可以返回
                 .commit();
+        view.findViewById(R.id.back_exit).setOnClickListener(v->{
+            getChildFragmentManager().popBackStack();
+            getParentFragmentManager().popBackStack();
+        });
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        getChildFragmentManager().popBackStack();
     }
 }

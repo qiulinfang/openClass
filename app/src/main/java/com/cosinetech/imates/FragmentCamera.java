@@ -120,16 +120,22 @@ public class FragmentCamera extends Fragment {
 
         btnExit.setOnClickListener(v -> {
             stopCamera();
+            getParentFragmentManager().popBackStack();
+//            final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(EnumApiUrl.URL_CHAT_BIOLOGY, EnumSubject.SUBJECT_BIOLOGY);
+//            getParentFragmentManager().beginTransaction()
+//                    .addToBackStack(null)
+//                    .replace(R.id.container, fragmentExerciseList)
+//                    .commit();
+        });
+
+        btnAddToList.setOnClickListener(v -> {
+            stopCamera();
             // captureResult.result.setValue(CAPTURE_RESULT_REJECT);
             final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(EnumApiUrl.URL_CHAT_BIOLOGY, EnumSubject.SUBJECT_BIOLOGY);
             getParentFragmentManager().beginTransaction()
                     .addToBackStack(null)
                     .replace(R.id.container, fragmentExerciseList)
                     .commit();
-        });
-
-        btnAddToList.setOnClickListener(v -> {
-            stopCamera();
         });
 
         btnShotAgain.setOnClickListener( v-> {
