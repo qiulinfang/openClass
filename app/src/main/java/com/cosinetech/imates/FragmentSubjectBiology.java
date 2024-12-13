@@ -6,6 +6,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentResultListener;
 import androidx.lifecycle.ViewModelProvider;
 
 import android.os.Handler;
@@ -64,6 +65,15 @@ public class FragmentSubjectBiology extends Fragment implements CaptureQuestionR
 
         CardView btnExercise = view.findViewById(R.id.exercise);
         btnExercise.setOnClickListener(v-> loadExerciseListFragment());
+
+        // 监听子 Fragment 的退出事件
+        getChildFragmentManager().setFragmentResultListener("ACCEPT", this, (requestKey, bundle) -> {
+//                // 获取子 Fragment 传递的字符串
+//                String message = bundle.getString("exit_message");
+//                Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+            getChildFragmentManager().popBackStack();
+            loadExerciseListFragment();
+        });
     }
 
     public void loadCameraFragment() {
