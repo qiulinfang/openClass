@@ -32,9 +32,6 @@ import com.cosinetech.imates.model.UserInfoViewModel;
 import com.cosinetech.imates.webservice.QuestionImageRecognition;
 import com.cosinetech.imates.webservice.QuestionImageResponseBiology;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.Strictness;
 
 import java.io.File;
 import java.util.concurrent.ExecutionException;
@@ -88,7 +85,7 @@ public class FragmentCamera extends Fragment {
         btnSearch = view.findViewById(R.id.btnSearch);
         btnAddToList = view.findViewById(R.id.addToList);
         btnExit = view.findViewById(R.id.btnExit);
-        btnShotAgain = view.findViewById(R.id.btnTakeShotAgain);
+        btnShotAgain = view.findViewById(R.id.btnReshoot);
         scanLine = view.findViewById(R.id.scanLine);
         questionView = view.findViewById(R.id.questionView);
         splitLine = view.findViewById(R.id.split_line);
@@ -119,6 +116,8 @@ public class FragmentCamera extends Fragment {
             questionView.setContent("");
             btnAddToList.setVisibility(View.INVISIBLE);
             splitLine.setVisibility(View.GONE);
+            stopCamera();
+            startCamera();
         });
     }
 
@@ -209,13 +208,11 @@ public class FragmentCamera extends Fragment {
                     requireActivity().runOnUiThread(() -> {
                         stopScanAnimation(scanLine);
                         String questionString = "";
-                        Gson gson = new GsonBuilder()
-                                .setStrictness(Strictness.LENIENT)
-                                .create();
+
 
                         switch (subject) {
                             case SUBJECT_BIOLOGY: {
-                                QuestionImageResponseBiology question = gson.fromJson(response, QuestionImageResponseBiology.class);
+                                QuestionImageResponseBiology question = QuestionImageResponseBiology.fromJson(response);
                                 questionString = question.getQuestion();
                             }
                                 break;
