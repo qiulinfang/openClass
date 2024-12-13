@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 选中状态 -->
+    <item android:state_selected="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#6F91F5"/> <!-- 选中时的背景颜色 -->
+            <corners android:radius="10dp"/> <!-- 圆角半径 -->
+        </shape>
+    </item>
+
+    <!-- 按钮禁用状态 -->
+    <item android:state_enabled="false">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF"/> <!-- 禁用时的背景颜色 -->
+            <corners android:radius="10dp"/> <!-- 圆角半径 -->
+        </shape>
+    </item>
+
+    <!-- 默认状态 -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF"/> <!-- 默认背景颜色 -->
+            <corners android:radius="10dp"/> <!-- 圆角半径 -->
+        </shape>
+    </item>
+
+</selector>
