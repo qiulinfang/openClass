@@ -54,12 +54,12 @@ public class AdapterExerciseList extends RecyclerView.Adapter<AdapterExerciseLis
         if (selectedPosition == position) {
             holder.itemView.setSelected(true);
             holder.btnDelete.setVisibility(View.VISIBLE);
-            holder.btnOnTop.setVisibility(View.VISIBLE);
+            holder.btnMoveToTop.setVisibility(View.VISIBLE);
             holder.btnAiGuide.setVisibility(View.VISIBLE);
         } else {
             holder.itemView.setSelected(false);
             holder.btnDelete.setVisibility(View.INVISIBLE);
-            holder.btnOnTop.setVisibility(View.INVISIBLE);
+            holder.btnMoveToTop.setVisibility(View.INVISIBLE);
             holder.btnAiGuide.setVisibility(View.INVISIBLE);
         }
 
@@ -71,7 +71,7 @@ public class AdapterExerciseList extends RecyclerView.Adapter<AdapterExerciseLis
             setSelectedPosition(holder.getBindingAdapterPosition());
         });
 
-        holder.btnOnTop.setOnClickListener(v -> {
+        holder.btnMoveToTop.setOnClickListener(v -> {
             if(listener != null)  {
                 listener.onExerciseToTop(holder.getBindingAdapterPosition());
             }
@@ -106,20 +106,20 @@ public class AdapterExerciseList extends RecyclerView.Adapter<AdapterExerciseLis
     }
 
     // ViewHolder静态内部类
-    public class ExerciseItemViewHolder extends RecyclerView.ViewHolder {
+    public static class ExerciseItemViewHolder extends RecyclerView.ViewHolder {
         LinearLayout container;
         MarkdownTextView itemText;
         TextView itemNo;
-        Button btnOnTop;
+        Button btnMoveToTop;
         Button btnDelete;
 
         Button btnAiGuide;
         ExerciseItemViewHolder(View view) {
             super(view);
             container = view.findViewById(R.id.container);
-            itemText = view.findViewById(R.id.exercise);
+            itemText = view.findViewById(R.id.exercise_text);
             itemNo = view.findViewById(R.id.item_number);
-            btnOnTop = view.findViewById(R.id.ontop);
+            btnMoveToTop = view.findViewById(R.id.move_to_top);
             btnDelete = view.findViewById(R.id.delete);
             btnAiGuide = view.findViewById(R.id.ai_guide);
         }

@@ -99,10 +99,10 @@ public class AdapterSimilarQuestionList extends RecyclerView.Adapter<AdapterSimi
         SimilarExerciseItemViewHolder(View view) {
             super(view);
             container = view.findViewById(R.id.container);
-            itemText = view.findViewById(R.id.exercise);
+            itemText = view.findViewById(R.id.exercise_text);
             itemNo = view.findViewById(R.id.item_number);
-            btnAddToList = view.findViewById(R.id.add_my_list);
-            btnAddMyFavor = view.findViewById(R.id.add_my_favor);
+            btnAddToList = view.findViewById(R.id.add_to_list);
+            btnAddMyFavor = view.findViewById(R.id.add_to_favor);
         }
     }
 }

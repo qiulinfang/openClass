@@ -10,7 +10,7 @@
     android:focusable="true">
 
     <com.cosinetech.imates.widgets.MarkdownTextView
-        android:id="@+id/exercise"
+        android:id="@+id/exercise_text"
         android:clickable="true"
         android:focusable="false"
         android:layout_width="wrap_content"
@@ -23,14 +23,14 @@
         android:orientation="horizontal">
 
         <Button
-            android:id="@+id/add_my_list"
+            android:id="@+id/add_to_list"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="16dp"
             android:text = "加入习题列表"/>
 
         <Button
-            android:id="@+id/add_my_favor"
+            android:id="@+id/add_to_favor"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="16dp"

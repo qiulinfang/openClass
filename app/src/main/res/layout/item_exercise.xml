@@ -34,7 +34,7 @@
             android:layout_marginEnd="8dp"/>
 
         <Button
-            android:id="@+id/ontop"
+            android:id="@+id/move_to_top"
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:background="@drawable/ontop"
@@ -54,7 +54,7 @@
     </LinearLayout>
 
     <com.cosinetech.imates.widgets.MarkdownTextView
-        android:id="@+id/exercise"
+        android:id="@+id/exercise_text"
         android:clickable="true"
         android:focusable="false"
         android:layout_width="wrap_content"
