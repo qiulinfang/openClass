@@ -28,7 +28,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 
 import com.canhub.cropper.CropImageView;
-import com.cosinetech.imates.EnumSubject;
+import com.cosinetech.imates.Subject;
 import com.cosinetech.imates.widgets.MarkdownTextView;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.ExerciseToAddList;
@@ -60,11 +60,11 @@ public class FragmentCamera extends Fragment {
     private ProcessCameraProvider cameraProvider;
     private MarkdownTextView questionView;
     private UserInfoViewModel userInfoViewModel;
-    private EnumSubject subject;
+    private Subject subject;
     private Question question;
 
 
-    public static FragmentCamera newInstance(EnumSubject subject) {
+    public static FragmentCamera newInstance(Subject subject) {
         FragmentCamera fragmentCamera = new FragmentCamera();
         fragmentCamera.setSubject(subject);
         return fragmentCamera;
@@ -73,7 +73,7 @@ public class FragmentCamera extends Fragment {
     public FragmentCamera() {
     }
 
-    private void setSubject(EnumSubject subject) {
+    private void setSubject(Subject subject) {
         this.subject = subject;
     }
 
@@ -195,9 +195,9 @@ public class FragmentCamera extends Fragment {
         item.setExercisesId("");
         item.setBmNo(q.id);
 
-        if(subject == EnumSubject.SUBJECT_BIOLOGY) {
+        if(subject == Subject.SUBJECT_BIOLOGY) {
             item.setType("biology");
-        } else if(subject == EnumSubject.SUBJECT_MATH) {
+        } else if(subject == Subject.SUBJECT_MATH) {
             item.setType("math");
         }
         ApiGateWayService.addExerciseToList(item, ApiUrl.URL_ADD_EXERCISE_TO_LIST, userInfoViewModel.token.getValue());

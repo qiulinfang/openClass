@@ -8,7 +8,7 @@ import com.google.gson.annotations.SerializedName;
 import java.util.ArrayList;
 import java.util.List;
 
-public class QueryExerciseListResponse {
+public class QueryQuestionListResponse {
     @SerializedName("success")
     private boolean success;
 
@@ -54,17 +54,17 @@ public class QueryExerciseListResponse {
         this.data = data;
     }
 
-    public static QueryExerciseListResponse fromJson(String json) {
+    public static QueryQuestionListResponse fromJson(String json) {
         Gson gson = new GsonBuilder()
                 .setStrictness(Strictness.LENIENT)
                 .create();
-        QueryExerciseListResponse question = gson.fromJson(json, QueryExerciseListResponse.class);
+        QueryQuestionListResponse question = gson.fromJson(json, QueryQuestionListResponse.class);
         if(question.message == null) {
             question.message = "";
         }
 
         if(question.data == null) {
-            question.data = new QueryExerciseListResponse.Data();
+            question.data = new QueryQuestionListResponse.Data();
         }
 
         if(question.data.getQuestionsList() == null) {

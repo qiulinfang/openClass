@@ -17,7 +17,7 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.cosinetech.imates.adapters.AdapterChatAi;
+import com.cosinetech.imates.adapters.AdapterAiChatMessageList;
 import com.cosinetech.imates.ChatMessage;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.UserInfoViewModel;
@@ -48,7 +48,7 @@ public class FragmentChatAi extends Fragment {
     private RecyclerView recyclerView;
     private SmartRefreshLayout refreshLayout;
     private EditText etMessage;
-    private AdapterChatAi adapterChatAi;
+    private AdapterAiChatMessageList adapterAiChatMesssageList;
     private List<ChatMessage> messageList = new ArrayList<>();
     private String chatBotUrl;
     private Button btnSend;
@@ -83,15 +83,15 @@ public class FragmentChatAi extends Fragment {
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         View view = inflater.inflate(R.layout.fragment_chat_ai, container, false);
-        recyclerView = view.findViewById(R.id.recyclerView);
+        recyclerView = view.findViewById(R.id.chat_msg_view);
         refreshLayout = view.findViewById(R.id.chat_message_session);
         etMessage = view.findViewById(R.id.et_message);
         btnSend = view.findViewById(R.id.btn_send);
 
         // Initialize RecyclerView
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        adapterChatAi = new AdapterChatAi(messageList);
-        recyclerView.setAdapter(adapterChatAi);
+        adapterAiChatMesssageList = new AdapterAiChatMessageList(messageList);
+        recyclerView.setAdapter(adapterAiChatMesssageList);
 
         // Set up SmartRefreshLayout for pull-to-refresh
         refreshLayout.setOnRefreshListener(refreshLayout -> {
@@ -138,7 +138,7 @@ public class FragmentChatAi extends Fragment {
             requireActivity().runOnUiThread(() -> {
                 if (success) {
                     if(!response.trim().isEmpty() && !response.equals("end")) {
-                        adapterChatAi.updateLastMessage(response);
+                        adapterAiChatMesssageList.updateLastMessage(response);
                         Log.d("%%%%%%%%", response);
                     }
                     if(!response.equals("end")) {
@@ -165,8 +165,8 @@ public class FragmentChatAi extends Fragment {
 
             responseMessage = new ChatMessage("", false, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
             messageList.add(responseMessage);
-            adapterChatAi.notifyItemInserted(messageList.size() - 2);
-            adapterChatAi.notifyItemInserted(messageList.size() - 1);
+            adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 2);
+            adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
 
             recyclerView.scrollToPosition(messageList.size() - 1);
 
@@ -183,12 +183,12 @@ public class FragmentChatAi extends Fragment {
         this.aiChatMessageRequest.setReason("start");
         ChatMessage message = new ChatMessage(aiChatMessageRequest.getCoversation(), true, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
         messageList.add(message);
-        adapterChatAi.notifyItemInserted(messageList.size() - 1);
+        adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
         etMessage.setText("");
 
         responseMessage = new ChatMessage("", false, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
         messageList.add(responseMessage);
-        adapterChatAi.notifyItemInserted(messageList.size() - 1);
+        adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
 
         recyclerView.scrollToPosition(messageList.size() - 1);
 

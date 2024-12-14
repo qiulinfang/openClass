@@ -10,7 +10,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.cosinetech.imates.EnumSubject;
+import com.cosinetech.imates.Subject;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.webservice.ApiUrl;
 
@@ -66,7 +66,7 @@ public class FragmentSubjectBiology extends Fragment {
     }
 
     public void loadCameraFragment() {
-        final FragmentCamera childFragment = FragmentCamera.newInstance(EnumSubject.SUBJECT_BIOLOGY);
+        final FragmentCamera childFragment = FragmentCamera.newInstance(Subject.SUBJECT_BIOLOGY);
         getChildFragmentManager().beginTransaction()
                 .replace(R.id.container, childFragment)
                 .addToBackStack(null)
@@ -74,7 +74,7 @@ public class FragmentSubjectBiology extends Fragment {
     }
 
     public void loadExerciseListFragment() {
-        final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(ApiUrl.URL_CHAT_BIOLOGY, EnumSubject.SUBJECT_BIOLOGY);
+        final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(ApiUrl.URL_CHAT_BIOLOGY, Subject.SUBJECT_BIOLOGY);
         getChildFragmentManager().beginTransaction()
                 .replace(R.id.container, fragmentExerciseList)
                 .addToBackStack(null)

@@ -213,7 +213,7 @@ public class ApiGateWayService {
                 try (Response response = client.newCall(request).execute();) {
                     if (response.isSuccessful()) {
                         if (callback != null && response.body() != null) {
-                            QueryExerciseListResponse q = QueryExerciseListResponse.fromJson(response.body().string());
+                            QueryQuestionListResponse q = QueryQuestionListResponse.fromJson(response.body().string());
                             if(!q.getData().getQuestionsList().isEmpty()) {
                                 callback.onSuccess(q.getData().getQuestionsList());
                             } else {

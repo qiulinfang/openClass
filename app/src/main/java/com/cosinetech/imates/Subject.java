@@ -1,6 +1,6 @@
 package com.cosinetech.imates;
 
-public enum EnumSubject {
+public enum Subject {
     SUBJECT_BIOLOGY,
     SUBJECT_MATH,
     SUBJECT_CHINESE,

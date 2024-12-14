@@ -16,33 +16,33 @@ import com.cosinetech.imates.widgets.MarkdownTextView;
 
 import java.util.List;
 
-public class AdapterSimilarQuestionList extends RecyclerView.Adapter<AdapterSimilarQuestionList.SimilarExerciseItemViewHolder> {
-    public interface SimilarExerciseListChangedListener {
+public class AdapterSimilarQuestionList extends RecyclerView.Adapter<AdapterSimilarQuestionList.SimilarQuestionItemViewHolder> {
+    public interface SimilarQuestionListChangedListener {
         void onExerciseAddToMyList(int pos, Question q);
         void onExerciseAddToMyFavor(int pos, Question q);
     }
     private final List<Question> dataList;
     private int selectedPosition = -1;
 
-    private SimilarExerciseListChangedListener listener;
+    private SimilarQuestionListChangedListener listener;
 
     // 构造函数接收数据列表
-    public AdapterSimilarQuestionList(List<Question> dataList, SimilarExerciseListChangedListener listener) {
+    public AdapterSimilarQuestionList(List<Question> dataList, SimilarQuestionListChangedListener listener) {
         this.dataList = dataList;
         this.listener = listener;
     }
 
     @NonNull
     @Override
-    public SimilarExerciseItemViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+    public SimilarQuestionItemViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         View itemView = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_exercise_similar, parent, false);
 
-        return new SimilarExerciseItemViewHolder(itemView);
+        return new SimilarQuestionItemViewHolder(itemView);
     }
 
     @Override
-    public void onBindViewHolder(SimilarExerciseItemViewHolder holder, int position) {
+    public void onBindViewHolder(SimilarQuestionItemViewHolder holder, int position) {
         Question data = dataList.get(position);
         holder.itemNo.setText(position + 1 + ".");
         holder.itemText.setContent(data.getQuestion());
@@ -69,7 +69,7 @@ public class AdapterSimilarQuestionList extends RecyclerView.Adapter<AdapterSimi
             }
         });
 
-        holder.btnAddMyFavor.setOnClickListener(v -> {
+        holder.btnAddToFavor.setOnClickListener(v -> {
             if(listener != null)  {
                 int pos = holder.getBindingAdapterPosition();
                 listener.onExerciseAddToMyFavor(pos, dataList.get(pos));
@@ -90,19 +90,19 @@ public class AdapterSimilarQuestionList extends RecyclerView.Adapter<AdapterSimi
     }
 
     // ViewHolder静态内部类
-    public class SimilarExerciseItemViewHolder extends RecyclerView.ViewHolder {
+    public static class SimilarQuestionItemViewHolder extends RecyclerView.ViewHolder {
         LinearLayout container;
         MarkdownTextView itemText;
         TextView itemNo;
         Button btnAddToList;
-        Button btnAddMyFavor;
-        SimilarExerciseItemViewHolder(View view) {
+        Button btnAddToFavor;
+        SimilarQuestionItemViewHolder(View view) {
             super(view);
             container = view.findViewById(R.id.container);
             itemText = view.findViewById(R.id.exercise_text);
             itemNo = view.findViewById(R.id.item_number);
             btnAddToList = view.findViewById(R.id.add_to_list);
-            btnAddMyFavor = view.findViewById(R.id.add_to_favor);
+            btnAddToFavor = view.findViewById(R.id.add_to_favor);
         }
     }
 }

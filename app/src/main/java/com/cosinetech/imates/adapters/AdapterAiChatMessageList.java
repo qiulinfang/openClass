@@ -19,7 +19,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-public class AdapterChatAi extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private static final int TYPE_DATE = 0;
     private static final int TYPE_TEXT_LEFT = 1;
@@ -31,7 +31,7 @@ public class AdapterChatAi extends RecyclerView.Adapter<RecyclerView.ViewHolder>
 
     private List<ChatMessage> messageList;
 
-    public AdapterChatAi(List<ChatMessage> messageList) {
+    public AdapterAiChatMessageList(List<ChatMessage> messageList) {
         this.messageList = messageList; //groupMessagesWithDate(messageList);
     }
 

@@ -16,7 +16,7 @@ import com.cosinetech.imates.widgets.MarkdownTextView;
 
 import java.util.List;
 
-public class AdapterExerciseList extends RecyclerView.Adapter<AdapterExerciseList.ExerciseItemViewHolder> {
+public class AdapterQuestionList extends RecyclerView.Adapter<AdapterQuestionList.ExerciseItemViewHolder> {
     public interface ExerciseListChangedListener {
         void onExerciseDelete(int position);
         void onExerciseToTop(int position);
@@ -30,7 +30,7 @@ public class AdapterExerciseList extends RecyclerView.Adapter<AdapterExerciseLis
     private ExerciseListChangedListener listener;
 
     // 构造函数接收数据列表
-    public AdapterExerciseList(List<Question> dataList, ExerciseListChangedListener listener) {
+    public AdapterQuestionList(List<Question> dataList, ExerciseListChangedListener listener) {
         this.dataList = dataList;
         this.listener = listener;
     }

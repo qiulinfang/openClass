@@ -16,9 +16,9 @@ import android.view.ViewGroup;
 import android.widget.RadioGroup;
 import android.widget.Toast;
 
-import com.cosinetech.imates.adapters.AdapterExerciseList;
+import com.cosinetech.imates.adapters.AdapterQuestionList;
 import com.cosinetech.imates.adapters.AdapterSimilarQuestionList;
-import com.cosinetech.imates.EnumSubject;
+import com.cosinetech.imates.Subject;
 import com.cosinetech.imates.widgets.MarkdownTextView;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.ExerciseToAddList;
@@ -40,9 +40,9 @@ public class FragmentExerciseList extends Fragment {
     private static final String KEY_CHATBOT_URL = "KEY_CHAT_BOT_URL";
     private static final String KEY_SUBJECT = "KEY_SUBJECT";
     private String chatBotUrl;
-    private EnumSubject subject;
+    private Subject subject;
     private UserInfoViewModel userInfoViewModel;
-    private AdapterExerciseList adapterExerciseList;
+    private AdapterQuestionList adapterQuestionList;
     private AdapterSimilarQuestionList adapterSimilarQuestionList;
     private final AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start");
     private Question mCurrentQuestion = null;
@@ -58,7 +58,7 @@ public class FragmentExerciseList extends Fragment {
         // Required empty public constructor
     }
 
-    public static FragmentExerciseList newInstance(String chatBotUrl, EnumSubject subject) {
+    public static FragmentExerciseList newInstance(String chatBotUrl, Subject subject) {
         FragmentExerciseList fragment = new FragmentExerciseList();
         Bundle args = new Bundle();
         args.putString(KEY_CHATBOT_URL,  chatBotUrl);
@@ -72,7 +72,7 @@ public class FragmentExerciseList extends Fragment {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
             chatBotUrl = getArguments().getString(KEY_CHATBOT_URL);
-            subject = EnumSubject.valueOf(getArguments().getString(KEY_SUBJECT));
+            subject = Subject.valueOf(getArguments().getString(KEY_SUBJECT));
         }
     }
 
@@ -112,9 +112,9 @@ public class FragmentExerciseList extends Fragment {
         ).get(com.cosinetech.imates.models.UserInfoViewModel.class);
 
         String url;
-        if(subject == EnumSubject.SUBJECT_BIOLOGY) {
+        if(subject == Subject.SUBJECT_BIOLOGY) {
             url = ApiUrl.URL_GET_EXERCISE_BIOLOGY;
-        } else if (subject == EnumSubject.SUBJECT_MATH) {
+        } else if (subject == Subject.SUBJECT_MATH) {
             url = ApiUrl.URL_GET_EXERCISE_MATH;
         } else {
             url = "";
@@ -122,14 +122,14 @@ public class FragmentExerciseList extends Fragment {
 
         RecyclerView recyclerView = view.findViewById(R.id.exerciseList);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        adapterExerciseList = new AdapterExerciseList(mQuestions, new AdapterExerciseList.ExerciseListChangedListener() {
+        adapterQuestionList = new AdapterQuestionList(mQuestions, new AdapterQuestionList.ExerciseListChangedListener() {
             @Override
             public void onExerciseDelete(int position) {
                 String url;
                 Question q = mQuestions.get(position);
-                if(subject == EnumSubject.SUBJECT_BIOLOGY) {
+                if(subject == Subject.SUBJECT_BIOLOGY) {
                     url = ApiUrl.URL_DELETE_EXERCISE_BASE + "/" + q.id + "/biology";
-                } else if(subject == EnumSubject.SUBJECT_MATH) {
+                } else if(subject == Subject.SUBJECT_MATH) {
                     url = ApiUrl.URL_DELETE_EXERCISE_BASE + "/" + q.id + "/math";
                 } else {
                     return;
@@ -139,7 +139,7 @@ public class FragmentExerciseList extends Fragment {
                     public void onDeleteSuccess() {
                         requireActivity().runOnUiThread(() -> {
                             Question q = mQuestions.remove(position);
-                            adapterExerciseList.notifyItemRemoved(position);
+                            adapterQuestionList.notifyItemRemoved(position);
                         });
 
                     }
@@ -154,9 +154,9 @@ public class FragmentExerciseList extends Fragment {
             public void onExerciseToTop(int position) {
                 Question q = mQuestions.remove(position);
                 mQuestions.add(0, q);
-//                adapterExerciseList.notifyItemRemoved(position);
-//                adapterExerciseList.notifyItemInserted(0);
-                adapterExerciseList.notifyDataSetChanged();
+//                adapterQuestionList.notifyItemRemoved(position);
+//                adapterQuestionList.notifyItemInserted(0);
+                adapterQuestionList.notifyDataSetChanged();
                 recyclerView.smoothScrollToPosition(0);
             }
 
@@ -185,11 +185,11 @@ public class FragmentExerciseList extends Fragment {
                 });
             }
         }) ;
-        recyclerView.setAdapter(adapterExerciseList);
+        recyclerView.setAdapter(adapterQuestionList);
 
         RecyclerView recyclerViewSimilarQuestion = view.findViewById(R.id.similarExerciseView);
         recyclerViewSimilarQuestion.setLayoutManager(new LinearLayoutManager(getContext()));
-        adapterSimilarQuestionList = new AdapterSimilarQuestionList(mSimilarQuestion, new AdapterSimilarQuestionList.SimilarExerciseListChangedListener() {
+        adapterSimilarQuestionList = new AdapterSimilarQuestionList(mSimilarQuestion, new AdapterSimilarQuestionList.SimilarQuestionListChangedListener() {
             @Override
             public void onExerciseAddToMyList(int pos, Question q) {
                 ExerciseToAddList item = new ExerciseToAddList();
@@ -204,15 +204,15 @@ public class FragmentExerciseList extends Fragment {
                 item.setExercisesId("");
                 item.setBmNo(q.id);
 
-                if(subject == EnumSubject.SUBJECT_BIOLOGY) {
+                if(subject == Subject.SUBJECT_BIOLOGY) {
                     item.setType("biology");
-                } else if(subject == EnumSubject.SUBJECT_MATH) {
+                } else if(subject == Subject.SUBJECT_MATH) {
                     item.setType("math");
                 }
                 ApiGateWayService.addExerciseToList(item, ApiUrl.URL_ADD_EXERCISE_TO_LIST, userInfoViewModel.token.getValue());
 
                 mQuestions.add(q);
-                adapterExerciseList.notifyItemInserted(mQuestions.size() - 1);
+                adapterQuestionList.notifyItemInserted(mQuestions.size() - 1);
 
                 mSimilarQuestion.remove(pos);
                 adapterSimilarQuestionList.notifyDataSetChanged();
@@ -232,7 +232,7 @@ public class FragmentExerciseList extends Fragment {
                     requireActivity().runOnUiThread(() -> {
                         mQuestions.clear();
                         mQuestions.addAll(q);
-                        adapterExerciseList.notifyItemInserted(0);
+                        adapterQuestionList.notifyItemInserted(0);
                     });
                 }
 
@@ -274,9 +274,9 @@ public class FragmentExerciseList extends Fragment {
                     item.setExercisesId("");
                     item.setBmNo(q.id);
 
-                    if(subject == EnumSubject.SUBJECT_BIOLOGY) {
+                    if(subject == Subject.SUBJECT_BIOLOGY) {
                         item.setType("biology");
-                    } else if(subject == EnumSubject.SUBJECT_MATH) {
+                    } else if(subject == Subject.SUBJECT_MATH) {
                         item.setType("math");
                     }
                     ApiGateWayService.querySimilarExerciseList(item, ApiUrl.URL_QUERY_SIMILAR_EXERCISE, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
