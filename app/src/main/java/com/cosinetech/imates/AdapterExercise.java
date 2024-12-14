@@ -3,6 +3,8 @@ package com.cosinetech.imates;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -34,24 +36,34 @@ public class AdapterExercise extends RecyclerView.Adapter<AdapterExercise.Exerci
     @Override
     public void onBindViewHolder(ExerciseItemViewHolder holder, int position) {
         Question data = dataList.get(position);
-        holder.itemNo.setText(String.valueOf(position + 1));
+        holder.itemNo.setText(String.valueOf(position + 1) + ".");
         holder.itemText.setContent(data.getQuestion());
 
         // 设置选中状态
         if (selectedPosition == position) {
             holder.itemView.setSelected(true);
+            holder.btnDelete.setVisibility(View.VISIBLE);
+            holder.btnOnTop.setVisibility(View.VISIBLE);
         } else {
             holder.itemView.setSelected(false);
+            holder.btnDelete.setVisibility(View.INVISIBLE);
+            holder.btnOnTop.setVisibility(View.INVISIBLE);
         }
 
         // 设置点击监听器
-        holder.itemView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                // 处理点击事件
-                //Toast.makeText(v.getContext(), "Clicked on item " + position, Toast.LENGTH_SHORT).show();
-                setSelectedPosition(holder.getBindingAdapterPosition());
-            }
+        holder.container.setOnClickListener(v -> {
+            setSelectedPosition(holder.getBindingAdapterPosition());
+        });
+        holder.itemText.setOnClickListener(v -> {
+            setSelectedPosition(holder.getBindingAdapterPosition());
+        });
+
+        holder.btnOnTop.setOnClickListener(v -> {
+
+        });
+
+        holder.btnDelete.setOnClickListener(v -> {
+
         });
 
     }
@@ -70,12 +82,18 @@ public class AdapterExercise extends RecyclerView.Adapter<AdapterExercise.Exerci
 
     // ViewHolder静态内部类
     public class ExerciseItemViewHolder extends RecyclerView.ViewHolder {
+        LinearLayout container;
         MarkdownTextView itemText;
         TextView itemNo;
+        Button btnOnTop;
+        Button btnDelete;
         ExerciseItemViewHolder(View view) {
             super(view);
+            container = view.findViewById(R.id.container);
             itemText = view.findViewById(R.id.exercise);
             itemNo = view.findViewById(R.id.item_number);
+            btnOnTop = view.findViewById(R.id.ontop);
+            btnDelete = view.findViewById(R.id.delete);
         }
     }
 }

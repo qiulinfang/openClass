@@ -116,9 +116,9 @@ public class Question {
         StringBuilder result = new StringBuilder();
         emitNull();
         try {
-            result.append(title).append("\n");
+            result.append(title).append("\n\n");
             if (!titleImg.trim().isEmpty()) {
-                result.append("![alt 图片](").append(ApiUrl.URL_RESOURCE_BASE).append("/").append(titleImg.replace("\\", "/")).append(")").append("\n");
+                result.append("![alt 图片](").append(ApiUrl.URL_RESOURCE_BASE).append("/").append(titleImg.replace("\\", "/")).append(")").append("\n\n");
             }
 
             for (int i = 0; i < options.size(); i++) {
@@ -127,7 +127,7 @@ public class Question {
                 if (optImg.size() >= i + 1 && !optImg.get(i).trim().isEmpty()) { // 选项中的图片
                     result.append("![alt 图片](").append(ApiUrl.URL_RESOURCE_BASE).append("/").append(optImg.get(i).replace("\\", "/")).append(")");
                 }
-                result.append("\n");
+                result.append("\n\n");
             }
         } catch (Exception e) {
             e.printStackTrace();
