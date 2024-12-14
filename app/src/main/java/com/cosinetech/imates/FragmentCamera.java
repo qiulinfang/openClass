@@ -190,7 +190,7 @@ public class FragmentCamera extends Fragment {
         item.setAnswer(q.answer);
         item.setExplanation(q.explanation);
         item.setExercisesId("");
-        item.setBmNo(q.bmNo);
+        item.setBmNo(q.id);
 
         if(subject == EnumSubject.SUBJECT_BIOLOGY) {
             item.setType("biology");

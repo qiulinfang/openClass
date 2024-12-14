@@ -99,7 +99,6 @@ public class ApiGateWayService {
         void onSuccess(Question q);
         void onFailure(String msg, int code);
     }
-
     public static void recognizeImage(Bitmap bitmap, String token, ExerciseImageRecognitionCallback callback) {
         Runnable task = () -> {
             try {
@@ -158,7 +157,7 @@ public class ApiGateWayService {
         executor.submit(task);
     }
 
-    // ========添加练习题接口========
+    // ========添加习题接口========
     public static void addExerciseToList(ExerciseToAddList item, String Url, String token) {
         Runnable task = () -> {
             try {
@@ -283,8 +282,6 @@ public class ApiGateWayService {
 
         executor.submit(task);
     }
-
-
 
     public interface ExerciseDeleteLister{
         void onDeleteSuccess();
