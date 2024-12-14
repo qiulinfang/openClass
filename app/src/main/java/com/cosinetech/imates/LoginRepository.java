@@ -1,6 +1,6 @@
 package com.cosinetech.imates;
 
-import com.cosinetech.imates.model.UserInfo;
+import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.webservice.ApiUrl;
 
 import okhttp3.MediaType;
@@ -12,7 +12,8 @@ import org.json.JSONObject;
 
 public class LoginRepository {
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
-    private OkHttpClient client = new OkHttpClient();
+
+    private final OkHttpClient client = new OkHttpClient();
 
     public String login(String account, String password) throws Exception {
         JSONObject json = new JSONObject();

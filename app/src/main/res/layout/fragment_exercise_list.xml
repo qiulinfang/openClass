@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="#FFFFFF"
     xmlns:tools="http://schemas.android.com/tools"
-    tools:context=".FragmentSubjectBiology">
+    tools:context=".fragments.FragmentSubjectBiology">
 
     <Button
         android:id="@+id/back_exit"
@@ -53,7 +53,7 @@
         android:orientation="vertical"
         app:layout_constraintGuide_percent="0.6" />
 
-    <com.cosinetech.imates.MarkdownTextView
+    <com.cosinetech.imates.widgets.MarkdownTextView
         android:id="@+id/answerView"
         android:layout_width="0dp"
         android:layout_height="0dp"
@@ -140,7 +140,7 @@
             android:layout_marginHorizontal="4dp" />
 
         <Button
-            android:id="@+id/btnCapture"
+            android:id="@+id/btn_capture"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/shoot_question"

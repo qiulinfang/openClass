@@ -9,7 +9,7 @@
     android:clickable="true"
     android:focusable="true">
 
-    <com.cosinetech.imates.MarkdownTextView
+    <com.cosinetech.imates.widgets.MarkdownTextView
         android:id="@+id/exercise"
         android:clickable="true"
         android:focusable="false"

@@ -2,7 +2,7 @@ package com.cosinetech.imates.webservice;
 
 import android.graphics.Bitmap;
 
-import com.cosinetech.imates.model.ExerciseToAddList;
+import com.cosinetech.imates.models.ExerciseToAddList;
 
 import org.json.JSONObject;
 
@@ -25,9 +25,8 @@ public class ApiGateWayService {
 
     // ========ai聊天接口========
     public interface ChatMessageCallback {
-        void onResponse(boolean success, String response);
+        void onChatResponse(boolean success, String response);
     }
-
     public static String parseChatMessageResult(String jsonString) {
         String message = "";
         try {
@@ -50,20 +49,19 @@ public class ApiGateWayService {
 
         return message;
     }
-
-    public static void sendChatMessage(final MessageVO messageVO, String URL, String token, final ChatMessageCallback callback) {
+    public static void sendChatMessage(final AiChatMessageRequest aiChatMessageRequest, String URL, String token, final ChatMessageCallback callback) {
         Runnable task = () -> {
             try {
                 OkHttpClient client = new OkHttpClient();
 
                 JSONObject json = new JSONObject();
-                json.put("sessionId", messageVO.getSessionId());
-                json.put("newValue", messageVO.getNewValue());
-                json.put("coversation", messageVO.getCoversation());
-                json.put("question", messageVO.getQuestion());
-                json.put("answer", messageVO.getAnswer());
-                json.put("name", messageVO.getName());
-                json.put("reason", messageVO.getReason());
+                json.put("sessionId", aiChatMessageRequest.getSessionId());
+                json.put("newValue", aiChatMessageRequest.getNewValue());
+                json.put("coversation", aiChatMessageRequest.getCoversation());
+                json.put("question", aiChatMessageRequest.getQuestion());
+                json.put("answer", aiChatMessageRequest.getAnswer());
+                json.put("name", aiChatMessageRequest.getName());
+                json.put("reason", aiChatMessageRequest.getReason());
 
                 RequestBody body = RequestBody.create(
                         MediaType.parse("application/json; charset=utf-8"),
@@ -83,11 +81,11 @@ public class ApiGateWayService {
                 assert response.body() != null;
                 final String message = parseChatMessageResult(response.body().string());
 
-                callback.onResponse(true, message);
+                callback.onChatResponse(true, message);
 
             } catch (Exception e) {
                 e.printStackTrace();
-                callback.onResponse(false, e.getMessage());
+                callback.onChatResponse(false, e.getMessage());
             }
         };
 

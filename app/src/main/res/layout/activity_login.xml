@@ -9,7 +9,7 @@
 
     <!-- 标题 -->
     <TextView
-        android:id="@+id/moto"
+        android:id="@+id/moto_text"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:gravity="center_horizontal"
@@ -25,7 +25,6 @@
         android:textSize="@dimen/reflow_text_title_size" />
 
     <LinearLayout
-        android:id="@+id/child_layout"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:gravity="center"

@@ -6,7 +6,7 @@
      android:layout_height="match_parent"
      android:background="#80FFFFFF"
      xmlns:tools="http://schemas.android.com/tools"
-     tools:context=".FragmentSubjectBiology">
+     tools:context=".fragments.FragmentSubjectBiology">
 
     <LinearLayout
         android:id="@+id/todo"

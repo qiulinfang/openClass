@@ -6,7 +6,7 @@
     android:padding="10dp"
     android:gravity="end">
 
-    <com.cosinetech.imates.MarkdownTextView
+    <com.cosinetech.imates.widgets.MarkdownTextView
         android:id="@+id/tv_message"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
