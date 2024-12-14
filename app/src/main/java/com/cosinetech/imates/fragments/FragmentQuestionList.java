@@ -79,7 +79,7 @@ public class FragmentQuestionList extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_exercise_list, container, false);
+        return inflater.inflate(R.layout.fragment_question_list, container, false);
     }
 
     @Override
@@ -91,12 +91,12 @@ public class FragmentQuestionList extends Fragment {
                 .replace(R.id.fragmentChatAiContainer, fragmentChatAi)
                 .addToBackStack(null) // 添加到回退栈以便用户可以返回
                 .commit();
-        view.findViewById(R.id.back_exit).setOnClickListener(v->{
+        view.findViewById(R.id.btn_exit).setOnClickListener(v->{
             getChildFragmentManager().popBackStack();
             getParentFragmentManager().popBackStack();
         });
 
-        view.findViewById(R.id.btn_search).setOnClickListener(v-> {
+        view.findViewById(R.id.btn_capture).setOnClickListener(v-> {
             getParentFragmentManager().popBackStack();
             final FragmentCamera fragment = FragmentCamera.newInstance(subject);
             getParentFragmentManager().beginTransaction()
