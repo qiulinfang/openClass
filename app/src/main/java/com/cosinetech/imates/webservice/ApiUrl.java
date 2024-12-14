@@ -14,7 +14,7 @@ public class ApiUrl {
     public static final String URL_CHAT_BIOLOGY = baseUrl + "/chat";
 
     //上传生物 数学练习
-    public static final String URL_UPLOAD_EXERCISE = baseUrl + "/exercises";
+    public static final String URL_ADD_EXERCISE_TO_LIST = baseUrl + "/exercises";
 
     // 查询生物习题列表
     public static final String URL_GET_EXERCISE_BIOLOGY = baseUrl + "/selectExercises/biology";
@@ -23,4 +23,6 @@ public class ApiUrl {
     public static final String URL_GET_EXERCISE_MATH = baseUrl + "/selectExercises/math";
 
     public static final String URL_DELETE_EXERCISE_BASE = baseUrl + "/deleteExercises";
+
+    public static final String URL_QUERY_SIMILAR_EXERCISE = baseUrl + "/topicAndAck";
 }

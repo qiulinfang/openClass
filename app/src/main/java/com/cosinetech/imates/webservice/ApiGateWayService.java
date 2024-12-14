@@ -239,6 +239,53 @@ public class ApiGateWayService {
         executor.submit(task);
     }
 
+    // ========查询相似题接口========
+    public static void querySimilarExerciseList(ExerciseToAddList item, String url, String token, QueryExerciseListCallback callback) {
+        Runnable task = () -> {
+            try {
+                OkHttpClient client = new OkHttpClient();
+
+                // 创建请求体
+                RequestBody body = RequestBody.create(
+                        MediaType.parse("application/json; charset=utf-8"),
+                        item.toString()
+                );
+
+                // 创建请求
+                Request request = new Request.Builder()
+                        .url(url) // 替换为你的 API 地址
+                        .post(body)
+                        .addHeader("Token", token)
+                        .build();
+
+                try (Response response = client.newCall(request).execute();) {
+                    if (response.isSuccessful()) {
+                        if (callback != null && response.body() != null) {
+                            SimilarExerciseResponse q = SimilarExerciseResponse.fromJson(response.body().string());
+                            if(!q.getData().getQuestions().isEmpty()) {
+                                callback.onSuccess(q.getData().getQuestions());
+                            } else {
+                                callback.onFailure(response.message(), response.code());
+                            }
+                        }
+                    } else {
+                        if (callback != null) {
+                            callback.onFailure(response.message(), response.code());
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        };
+
+        executor.submit(task);
+    }
+
+
+
     public interface ExerciseDeleteLister{
         void onDeleteSuccess();
         void onDeleteFailed(String msg);

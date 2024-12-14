@@ -132,7 +132,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/similar_questions"
-            android:enabled="false"
+            android:enabled="true"
             android:button="@null"
             android:layout_marginEnd="10dp"
             android:background="@drawable/button_background"

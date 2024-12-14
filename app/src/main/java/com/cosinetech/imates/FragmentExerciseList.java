@@ -16,6 +16,7 @@ import android.view.ViewGroup;
 import android.widget.RadioGroup;
 import android.widget.Toast;
 
+import com.cosinetech.imates.model.ExerciseToAddList;
 import com.cosinetech.imates.model.UserInfoViewModel;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.ApiUrl;
@@ -37,12 +38,15 @@ public class FragmentExerciseList extends Fragment {
     private EnumSubject subject;
     private UserInfoViewModel userInfoViewModel;
     private AdapterExerciseList adapterExerciseList;
+    private AdapterSimilarQuestionList adapterSimilarQuestionList;
     private MessageVO messageVO = new MessageVO("", "", "", "", "", "", "start", "");
     private Question mCurrentQuestion = null;
 
     private FragmentChatAi fragmentChatAi;
 
     private final List<Question> mQuestions = new ArrayList<>();
+
+    private final List<Question> mSimilarQuestion = new ArrayList<>();
 
 
     public FragmentExerciseList() {
@@ -176,8 +180,45 @@ public class FragmentExerciseList extends Fragment {
                 });
             }
         }) ;
-
         recyclerView.setAdapter(adapterExerciseList);
+
+        RecyclerView recyclerViewSimilarQuestion = view.findViewById(R.id.similarExerciseView);
+        recyclerViewSimilarQuestion.setLayoutManager(new LinearLayoutManager(getContext()));
+        adapterSimilarQuestionList = new AdapterSimilarQuestionList(mSimilarQuestion, new AdapterSimilarQuestionList.SimilarExerciseListChangedListener() {
+            @Override
+            public void onExerciseAddToMyList(int pos, Question q) {
+                ExerciseToAddList item = new ExerciseToAddList();
+                item.setTitle(q.title);
+                item.setImgName(q.titleImg);
+                item.setImgTitleUrl(q.titleImg);
+                item.setOptions(q.options);
+                item.setSelect(q.options1);
+                item.setImgUrl("");
+                item.setAnswer(q.answer);
+                item.setExplanation(q.explanation);
+                item.setExercisesId("");
+                item.setBmNo(q.bmNo);
+
+                if(subject == EnumSubject.SUBJECT_BIOLOGY) {
+                    item.setType("biology");
+                } else if(subject == EnumSubject.SUBJECT_MATH) {
+                    item.setType("math");
+                }
+                ApiGateWayService.addExerciseToList(item, ApiUrl.URL_ADD_EXERCISE_TO_LIST, userInfoViewModel.token.getValue());
+
+                mQuestions.add(q);
+                adapterExerciseList.notifyItemInserted(mQuestions.size() - 1);
+
+                mSimilarQuestion.remove(pos);
+                adapterSimilarQuestionList.notifyDataSetChanged();
+            }
+
+            @Override
+            public void onExerciseAddToMyFavor(int pos, Question q) {
+
+            }
+        });
+        recyclerViewSimilarQuestion.setAdapter(adapterSimilarQuestionList);
 
         if(!url.isEmpty()) {
             ApiGateWayService.queryExerciseList(url, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
@@ -213,6 +254,44 @@ public class FragmentExerciseList extends Fragment {
                 view.findViewById(R.id.similarExerciseView).setVisibility(View.VISIBLE);
                 view.findViewById(R.id.answerView).setVisibility(View.INVISIBLE);
                 view.findViewById(R.id.fragmentChatAiContainer).setVisibility(View.INVISIBLE);
+
+                if(mCurrentQuestion != null) {
+                    ExerciseToAddList item = new ExerciseToAddList();
+                    Question q = mCurrentQuestion;
+                    item.setTitle(q.title);
+                    item.setImgName(q.titleImg);
+                    item.setImgTitleUrl(q.titleImg);
+                    item.setOptions(q.options);
+                    item.setSelect(q.options1);
+                    item.setImgUrl("");
+                    item.setAnswer(q.answer);
+                    item.setExplanation(q.explanation);
+                    item.setExercisesId("");
+                    item.setBmNo(q.bmNo);
+
+                    if(subject == EnumSubject.SUBJECT_BIOLOGY) {
+                        item.setType("biology");
+                    } else if(subject == EnumSubject.SUBJECT_MATH) {
+                        item.setType("math");
+                    }
+                    ApiGateWayService.querySimilarExerciseList(item, ApiUrl.URL_QUERY_SIMILAR_EXERCISE, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
+                        @Override
+                        public void onSuccess(List<Question> q) {
+                            requireActivity().runOnUiThread(() -> {
+                                mSimilarQuestion.clear();
+                                mSimilarQuestion.addAll(q);
+                                adapterSimilarQuestionList.notifyItemInserted(0);
+                            });
+                        }
+
+                        @Override
+                        public void onFailure(String msg, int code) {
+                            requireActivity().runOnUiThread(() -> {
+                                Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+                            });
+                        }
+                    });
+                }
             }
         });
     }

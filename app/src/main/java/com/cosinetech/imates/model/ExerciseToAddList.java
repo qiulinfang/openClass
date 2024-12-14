@@ -26,7 +26,7 @@ public class ExerciseToAddList {
     private List<String> select;
 
     @SerializedName("imgUrl")
-    private List<String> imgUrl;
+    private String imgUrl;
 
     @SerializedName("answer")
     private String answer;
@@ -84,11 +84,11 @@ public class ExerciseToAddList {
         this.select = select;
     }
 
-    public List<String> getImgUrl() {
+    public String getImgUrl() {
         return imgUrl;
     }
 
-    public void setImgUrl(List<String> imgUrl) {
+    public void setImgUrl(String imgUrl) {
         this.imgUrl = imgUrl;
     }
 
@@ -151,7 +151,7 @@ public class ExerciseToAddList {
             select = new ArrayList<>();
         }
         if(imgUrl == null) {
-            imgUrl = new ArrayList<>();
+            imgUrl = "";
         }
         if(answer == null) {
             answer = "";

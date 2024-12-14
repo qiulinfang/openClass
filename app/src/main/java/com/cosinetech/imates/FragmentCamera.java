@@ -33,7 +33,6 @@ import com.cosinetech.imates.model.UserInfoViewModel;
 import com.cosinetech.imates.webservice.ApiUrl;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.Question;
-import com.cosinetech.imates.webservice.QuestionImageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;
@@ -187,7 +186,7 @@ public class FragmentCamera extends Fragment {
         item.setImgTitleUrl(q.titleImg);
         item.setOptions(q.options);
         item.setSelect(q.options1);
-        item.setImgUrl(q.optionsImg);
+        item.setImgUrl("");
         item.setAnswer(q.answer);
         item.setExplanation(q.explanation);
         item.setExercisesId("");
@@ -198,7 +197,7 @@ public class FragmentCamera extends Fragment {
         } else if(subject == EnumSubject.SUBJECT_MATH) {
             item.setType("math");
         }
-        ApiGateWayService.addExerciseToList(item, ApiUrl.URL_UPLOAD_EXERCISE, userInfoViewModel.token.getValue());
+        ApiGateWayService.addExerciseToList(item, ApiUrl.URL_ADD_EXERCISE_TO_LIST, userInfoViewModel.token.getValue());
     }
 
     private void bindPreview(@NonNull ProcessCameraProvider cameraProvider) {
