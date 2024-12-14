@@ -18,7 +18,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.cosinetech.imates.model.UserInfoViewModel;
-import com.cosinetech.imates.webservice.MessagePoster;
+import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.MessageVO;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
@@ -127,7 +127,7 @@ public class FragmentChatAi extends Fragment {
     }
 
     private void pollChat() {
-        MessagePoster.postMessage(messageVO, chatBotUrl, userInfoViewModel.token.getValue(), (success, response) -> {
+        ApiGateWayService.postMessage(messageVO, chatBotUrl, userInfoViewModel.token.getValue(), (success, response) -> {
             requireActivity().runOnUiThread(() -> {
                 if (success) {
                     if(!response.trim().isEmpty() && !response.equals("end")) {

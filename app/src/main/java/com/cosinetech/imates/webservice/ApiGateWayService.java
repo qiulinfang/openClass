@@ -53,8 +53,7 @@ public class ApiGateWayService {
         return message;
     }
 
-    public static void postMessage(final MessageVO messageVO, String URL, String token, final MessagePoster.PostCallback callback) {
-        ExecutorService executor = Executors.newSingleThreadExecutor();
+    public static void postMessage(final MessageVO messageVO, String URL, String token, final PostCallback callback) {
         Runnable task = () -> {
             try {
                 OkHttpClient client = new OkHttpClient();
