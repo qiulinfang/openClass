@@ -127,7 +127,7 @@ public class FragmentChatAi extends Fragment {
     }
 
     private void pollChat() {
-        ApiGateWayService.postMessage(messageVO, chatBotUrl, userInfoViewModel.token.getValue(), (success, response) -> {
+        ApiGateWayService.sendChatMessage(messageVO, chatBotUrl, userInfoViewModel.token.getValue(), (success, response) -> {
             requireActivity().runOnUiThread(() -> {
                 if (success) {
                     if(!response.trim().isEmpty() && !response.equals("end")) {

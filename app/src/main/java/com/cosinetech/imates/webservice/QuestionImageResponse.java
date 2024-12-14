@@ -8,7 +8,7 @@ import com.google.gson.annotations.SerializedName;
 import java.util.ArrayList;
 import java.util.List;
 
-public class QuestionImageResponse implements QuestionObject{
+public class QuestionImageResponse {
     @Expose
     @SerializedName("success")
     public boolean success = false;
@@ -35,110 +35,7 @@ public class QuestionImageResponse implements QuestionObject{
             @Expose
             @SerializedName("questionsConfirm")
             public List<Question> questionsConfirm = new ArrayList<>();
-
-            public class Question {
-                @Expose
-                @SerializedName("bmNo")
-                public String bmNo = "";
-
-                @Expose
-                @SerializedName("titleImg")
-                public String titleImg = "";
-
-                @Expose
-                @SerializedName("ref")
-                public String ref = "";
-
-                @Expose
-                @SerializedName("answer")
-                public String answer = "";
-
-                @Expose
-                @SerializedName("imgPath")
-                public String imgPath = "";
-
-                @Expose
-                @SerializedName("optionsFileName")
-                public List<String> optionsFileName = new ArrayList<>();
-
-                @Expose
-                @SerializedName("options")
-                public List<String> options = new ArrayList<>();
-
-                @Expose
-                @SerializedName("options1")
-                public List<String> options1 = new ArrayList<>();
-
-                @Expose
-                @SerializedName("optionsImg")
-                public List<String> optionsImg = new ArrayList<>();
-
-                @Expose
-                @SerializedName("fullText")
-                public String fullText = "";
-
-                @Expose
-                @SerializedName("title")
-                public String title = "";
-
-                @Expose
-                @SerializedName("explanation")
-                public String explanation = "";
-
-                @Expose
-                @SerializedName("reasonData")
-                public String reasonData = "";
-            }
         }
-    }
-
-    @Override
-    public String getQuestion() {
-        StringBuilder result = new StringBuilder();
-        try {
-            for (Data.Item.Question q : data.item.questionsConfirm
-            ) {
-                result.append(q.title).append("\n\n");
-                if (!q.titleImg.trim().isEmpty()) {
-                    result.append("![alt 图片](").append(ApiUrl.URL_RESOURCE_BASE).append("/").append(q.titleImg.replace("\\", "/")).append(")").append("\n\n");
-                }
-
-                for (int i = 0; i < q.options.size(); i++) {
-                    result.append(q.options.get(i));
-                    if (q.optionsImg.size() >= i + 1 && !q.optionsImg.get(i).trim().isEmpty()) { // 选项中的图片
-                        result.append("![alt 图片](").append(ApiUrl.URL_RESOURCE_BASE).append("/").append(q.optionsImg.get(i).replace("\\", "/")).append(")");
-                    }
-                    result.append("\n\n");
-                }
-
-                break;
-            }
-
-            return result.toString();
-        } catch (Exception e) {
-        }
-        return "";
-    }
-
-    @Override
-    public String getAnswer() {
-        String result = "";
-        for (Data.Item.Question q: data.item.questionsConfirm) {
-            result = q.answer;
-            break;
-        }
-
-        return result;
-    }
-
-    @Override
-    public String getAnalysis() {
-        String result = "";
-        for (Data.Item.Question q: data.item.questionsConfirm) {
-            result = q.explanation;
-            break;
-        }
-        return result;
     }
 
     public static QuestionImageResponse fromJson(String json) {
@@ -161,7 +58,7 @@ public class QuestionImageResponse implements QuestionObject{
             question.data.item.questionsConfirm = new ArrayList<>();
         }
 
-        for(Data.Item.Question q : question.data.item.questionsConfirm) {
+        for(Question q : question.data.item.questionsConfirm) {
             if(q.bmNo == null) {
                 q.bmNo = "";
             }
@@ -205,9 +102,6 @@ public class QuestionImageResponse implements QuestionObject{
                 q.reasonData = "";
             }
         }
-
-
-
         return question;
     }
 }

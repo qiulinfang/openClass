@@ -5,10 +5,16 @@ import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModelStoreOwner;
 
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
+import com.cosinetech.imates.model.UserInfoViewModel;
+import com.cosinetech.imates.webservice.ApiGateWayService;
+import com.cosinetech.imates.webservice.ApiUrl;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -20,12 +26,14 @@ public class FragmentExerciseList extends Fragment {
     private static final String KEY_SUBJECT = "KEY_SUBJECT";
     private String chatBotUrl;
     private EnumSubject subject;
+    private UserInfoViewModel userInfoViewModel;
+
 
     public FragmentExerciseList() {
         // Required empty public constructor
     }
 
-    public static FragmentExerciseList newInstance(String chatBotUrl, Enum subject) {
+    public static FragmentExerciseList newInstance(String chatBotUrl, EnumSubject subject) {
         FragmentExerciseList fragment = new FragmentExerciseList();
         Bundle args = new Bundle();
         args.putString(KEY_CHATBOT_URL,  chatBotUrl);
@@ -46,7 +54,6 @@ public class FragmentExerciseList extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
         return inflater.inflate(R.layout.fragment_exercise_list, container, false);
     }
 
@@ -72,10 +79,23 @@ public class FragmentExerciseList extends Fragment {
                     .replace(R.id.container, fragment)
                     .commit();
         });
+
+        ViewModelStoreOwner owner = (ViewModelStoreOwner) requireActivity().getApplication();
+        userInfoViewModel = new ViewModelProvider(
+                owner,
+                new ViewModelProvider.AndroidViewModelFactory(requireActivity().getApplication())
+        ).get(com.cosinetech.imates.model.UserInfoViewModel.class);
+
+        if(subject == EnumSubject.SUBJECT_BIOLOGY) {
+            ApiGateWayService.queryExerciseList(ApiUrl.URL_GET_EXERCISE_BIOLOGY, userInfoViewModel.token.getValue());
+        } else if(subject == EnumSubject.SUBJECT_MATH) {
+            ApiGateWayService.queryExerciseList(ApiUrl.URL_GET_EXERCISE_MATH, userInfoViewModel.token.getValue());
+        }
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
     }
+
 }

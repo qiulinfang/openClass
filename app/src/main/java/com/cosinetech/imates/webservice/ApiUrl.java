@@ -17,8 +17,8 @@ public class ApiUrl {
     public static final String URL_UPLOAD_EXERCISE = baseUrl + "/exercises";
 
     // 查询生物习题列表
-    public static final String URL_QUERY_EXERCISE_BIOLOGY = baseUrl + "/selectExercises/biology";
+    public static final String URL_GET_EXERCISE_BIOLOGY = baseUrl + "/selectExercises/biology";
 
     //查询数学习题列表
-    public static final String URL_QUERY_EXERCISE_MATH = baseUrl + "/selectExercises/math";
+    public static final String URL_GET_EXERCISE_MATH = baseUrl + "/selectExercises/math";
 }

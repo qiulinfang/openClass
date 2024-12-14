@@ -32,6 +32,7 @@ import com.cosinetech.imates.model.ExerciseToAddList;
 import com.cosinetech.imates.model.UserInfoViewModel;
 import com.cosinetech.imates.webservice.ApiUrl;
 import com.cosinetech.imates.webservice.ApiGateWayService;
+import com.cosinetech.imates.webservice.Question;
 import com.cosinetech.imates.webservice.QuestionImageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -58,7 +59,7 @@ public class FragmentCamera extends Fragment {
     private MarkdownTextView questionView;
     private UserInfoViewModel userInfoViewModel;
     private EnumSubject subject;
-    private QuestionImageResponse question;
+    private Question question;
 
 
     public static FragmentCamera newInstance(EnumSubject subject) {
@@ -176,10 +177,10 @@ public class FragmentCamera extends Fragment {
     }
 
     private void addExerciseToList() {
-        if(question == null || question.data.item.questionsConfirm.isEmpty()) {
+        if(question == null) {
             return;
         }
-        QuestionImageResponse.Data.Item.Question q = question.data.item.questionsConfirm.get(0);
+        Question q = question;
         ExerciseToAddList item = new ExerciseToAddList();
         item.setTitle(q.title);
         item.setImgName(q.titleImg);
@@ -257,7 +258,7 @@ public class FragmentCamera extends Fragment {
             startScanAnimation(cropImageView, scanLine);
             ApiGateWayService.recognizeImage(croppedBitmap, userInfoViewModel.token.getValue(), new ApiGateWayService.ExerciseImageRecognitionCallback() {
                 @Override
-                public void onSuccess(String response) {
+                public void onSuccess(Question q) {
                     requireActivity().runOnUiThread(() -> {
                         stopScanAnimation(scanLine);
                         String questionString = "";
@@ -265,7 +266,7 @@ public class FragmentCamera extends Fragment {
                         switch (subject) {
                             case SUBJECT_BIOLOGY:
                             case SUBJECT_MATH:
-                                question = QuestionImageResponse.fromJson(response);
+                                question = q;
                                 questionString = question.getQuestion();
                                 break;
                             default:

@@ -20,17 +20,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class ApiGateWayService {
-    public interface ExerciseImageRecognitionCallback {
-        void onSuccess(String msg);
-        void onFailure(String msg, int code);
-    }
-    public interface PostCallback {
+    private static final ExecutorService executor = Executors.newSingleThreadExecutor();
+
+    // ========ai聊天接口========
+    public interface ChatMessageCallback {
         void onResponse(boolean success, String response);
     }
 
-    private static final ExecutorService executor = Executors.newSingleThreadExecutor();
-
-    public static String parseResult(String jsonString) {
+    public static String parseChatMessageResult(String jsonString) {
         String message = "";
         try {
             JSONObject jsonObject = new JSONObject(jsonString);
@@ -53,7 +50,7 @@ public class ApiGateWayService {
         return message;
     }
 
-    public static void postMessage(final MessageVO messageVO, String URL, String token, final PostCallback callback) {
+    public static void sendChatMessage(final MessageVO messageVO, String URL, String token, final ChatMessageCallback callback) {
         Runnable task = () -> {
             try {
                 OkHttpClient client = new OkHttpClient();
@@ -83,7 +80,7 @@ public class ApiGateWayService {
 
                 // 读取响应并调用回调
                 assert response.body() != null;
-                final String message = parseResult(response.body().string());
+                final String message = parseChatMessageResult(response.body().string());
 
                 callback.onResponse(true, message);
 
@@ -96,13 +93,18 @@ public class ApiGateWayService {
         executor.submit(task);
     }
 
+    // ========图像识别接口========
+    public interface ExerciseImageRecognitionCallback {
+        void onSuccess(Question q);
+        void onFailure(String msg, int code);
+    }
     public static void recognizeImage(Bitmap bitmap, String token, ExerciseImageRecognitionCallback callback) {
         Runnable task = () -> {
             try {
                 ByteArrayOutputStream stream = new ByteArrayOutputStream();
                 if(!bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)) {
                     if (callback != null) {
-                        callback.onFailure("", 0);
+                        callback.onFailure("压缩图片失败", 0);
                     }
                 }
 
@@ -131,7 +133,12 @@ public class ApiGateWayService {
                 try (Response response = client. newCall(request).execute()) {
                     if (response.isSuccessful()) {
                         if (callback != null && response.body() != null) {
-                            callback.onSuccess(response.body().string());
+                            QuestionImageResponse q = QuestionImageResponse.fromJson(response.body().string());
+                            if(!q.data.item.questionsConfirm.isEmpty()) {
+                                callback.onSuccess(q.data.item.questionsConfirm.get(0));
+                            } else {
+                                callback.onFailure(response.message(), response.code());
+                            }
                         }
                     } else {
                         if (callback != null) {
@@ -149,6 +156,7 @@ public class ApiGateWayService {
         executor.submit(task);
     }
 
+    // ========添加练习题接口========
     public static void addExerciseToList(ExerciseToAddList item, String Url, String token) {
         Runnable task = () -> {
             try {
@@ -164,6 +172,38 @@ public class ApiGateWayService {
                 Request request = new Request.Builder()
                         .url(Url) // 替换为你的 API 地址
                         .post(body)
+                        .addHeader("token", token)
+                        .build();
+
+                try (Response response = client.newCall(request).execute();) {
+                    if (response.isSuccessful()) {
+                        // 获取响应体
+                        String responseBody = response.body().string();
+                        System.out.println("Response: " + responseBody);
+                    } else {
+                        System.out.println("Request failed: " + response.code());
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        };
+
+        executor.submit(task);
+    }
+
+    // ========查询练习题接口========
+    public static void queryExerciseList(String url, String token) {
+        Runnable task = () -> {
+            try {
+                OkHttpClient client = new OkHttpClient();
+
+                // 创建请求
+                Request request = new Request.Builder()
+                        .url(url) // 替换为你的 API 地址
+                        .get()
                         .addHeader("token", token)
                         .build();
 
