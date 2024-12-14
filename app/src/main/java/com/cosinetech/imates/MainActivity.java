@@ -19,7 +19,7 @@ import androidx.fragment.app.FragmentTransaction;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.cosinetech.imates.databinding.ActivityMainBinding;
-import com.cosinetech.imates.webservice.EnumApiUrl;
+import com.cosinetech.imates.webservice.ApiUrl;
 import com.google.android.material.tabs.TabLayout;
 
 import com.google.android.material.tabs.TabLayoutMediator;
@@ -171,7 +171,7 @@ public class MainActivity extends AppCompatActivity {
         );
 
         // 创建悬浮 Fragment 实例
-        FragmentChatAi floatingFragment = FragmentChatAi.newInstance(EnumApiUrl.URL_CHAT_GENERAL, true);
+        FragmentChatAi floatingFragment = FragmentChatAi.newInstance(ApiUrl.URL_CHAT_GENERAL, true);
         transaction.replace(R.id.fragmentChatAiContainer, floatingFragment);
         transaction.addToBackStack(null);
         transaction.commit();

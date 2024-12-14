@@ -4,6 +4,8 @@ import android.graphics.Bitmap;
 
 import com.cosinetech.imates.model.ExerciseToAddList;
 
+import org.json.JSONObject;
+
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
@@ -12,17 +14,89 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class ExerciseImageRecognition {
+public class ApiGateWayService {
     public interface ExerciseImageRecognitionCallback {
         void onSuccess(String msg);
         void onFailure(String msg, int code);
     }
+    public interface PostCallback {
+        void onResponse(boolean success, String response);
+    }
 
     private static final ExecutorService executor = Executors.newSingleThreadExecutor();
+
+    public static String parseResult(String jsonString) {
+        String message = "";
+        try {
+            JSONObject jsonObject = new JSONObject(jsonString);
+
+            // 解析 success
+            boolean success = jsonObject.getBoolean("success");
+            if(success) {
+                // 解析 code
+                //int code = jsonObject.getInt("code");
+                // 解析 message
+                message = jsonObject.getString("message");
+
+                // 解析 data
+                //JSONObject dataObject = jsonObject.getJSONObject("data");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return message;
+    }
+
+    public static void postMessage(final MessageVO messageVO, String URL, String token, final MessagePoster.PostCallback callback) {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Runnable task = () -> {
+            try {
+                OkHttpClient client = new OkHttpClient();
+
+                JSONObject json = new JSONObject();
+                json.put("sessionId", messageVO.getSessionId());
+                json.put("newValue", messageVO.getNewValue());
+                json.put("coversation", messageVO.getCoversation());
+                json.put("question", messageVO.getQuestion());
+                json.put("answer", messageVO.getAnswer());
+                json.put("name", messageVO.getName());
+                json.put("reason", messageVO.getReason());
+
+                RequestBody body = RequestBody.create(
+                        MediaType.parse("application/json; charset=utf-8"),
+                        json.toString()
+                );
+
+                Request request = new Request.Builder()
+                        .url(URL)
+                        .addHeader("Token", token)
+                        .post(body)
+                        .build();
+
+                Response response = client.newCall(request).execute();
+                if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
+
+                // 读取响应并调用回调
+                assert response.body() != null;
+                final String message = parseResult(response.body().string());
+
+                callback.onResponse(true, message);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                callback.onResponse(false, e.getMessage());
+            }
+        };
+
+        executor.submit(task);
+    }
+
     public static void recognizeImage(Bitmap bitmap, String token, ExerciseImageRecognitionCallback callback) {
         Runnable task = () -> {
             try {
@@ -49,7 +123,7 @@ public class ExerciseImageRecognition {
 
                 // 构建请求
                 Request request = new Request.Builder()
-                        .url(EnumApiUrl.URL_QUESTION_IMAGE_RECOGNISE)
+                        .url(ApiUrl.URL_QUESTION_IMAGE_RECOGNISE)
                         .addHeader("token", token)
                         .post(requestBody)
                         .build();

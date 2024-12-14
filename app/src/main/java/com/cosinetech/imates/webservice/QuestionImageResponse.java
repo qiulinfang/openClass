@@ -100,13 +100,13 @@ public class QuestionImageResponse implements QuestionObject{
             ) {
                 result.append(q.title).append("\n\n");
                 if (!q.titleImg.trim().isEmpty()) {
-                    result.append("![alt 图片](").append(EnumApiUrl.URL_RESOURCE_BASE).append("/").append(q.titleImg.replace("\\", "/")).append(")").append("\n\n");
+                    result.append("![alt 图片](").append(ApiUrl.URL_RESOURCE_BASE).append("/").append(q.titleImg.replace("\\", "/")).append(")").append("\n\n");
                 }
 
                 for (int i = 0; i < q.options.size(); i++) {
                     result.append(q.options.get(i));
                     if (q.optionsImg.size() >= i + 1 && !q.optionsImg.get(i).trim().isEmpty()) { // 选项中的图片
-                        result.append("![alt 图片](").append(EnumApiUrl.URL_RESOURCE_BASE).append("/").append(q.optionsImg.get(i).replace("\\", "/")).append(")");
+                        result.append("![alt 图片](").append(ApiUrl.URL_RESOURCE_BASE).append("/").append(q.optionsImg.get(i).replace("\\", "/")).append(")");
                     }
                     result.append("\n\n");
                 }

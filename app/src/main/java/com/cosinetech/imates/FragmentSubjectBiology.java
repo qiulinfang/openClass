@@ -10,7 +10,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.cosinetech.imates.webservice.EnumApiUrl;
+import com.cosinetech.imates.webservice.ApiUrl;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -72,7 +72,7 @@ public class FragmentSubjectBiology extends Fragment {
     }
 
     public void loadExerciseListFragment() {
-        final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(EnumApiUrl.URL_CHAT_BIOLOGY, EnumSubject.SUBJECT_BIOLOGY);
+        final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(ApiUrl.URL_CHAT_BIOLOGY, EnumSubject.SUBJECT_BIOLOGY);
         getChildFragmentManager().beginTransaction()
                 .replace(R.id.container, fragmentExerciseList)
                 .addToBackStack(null)

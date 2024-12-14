@@ -1,6 +1,6 @@
 package com.cosinetech.imates.webservice;
 
-public class EnumApiUrl {
+public class ApiUrl {
     // private static final String baseUrl = "http://192.168.40.10:8222/blw-edu-service-alc/permission";
     // public static final String URL_LOGIN = "http://192.168.40.10:8222/blw-edu-service-alc/admin/login";
     // public static final String URL_USER_INFO = "http://192.168.40.10:8222/blw-edu-service-alc/admin/info";

@@ -30,8 +30,8 @@ import androidx.lifecycle.ViewModelStoreOwner;
 import com.canhub.cropper.CropImageView;
 import com.cosinetech.imates.model.ExerciseToAddList;
 import com.cosinetech.imates.model.UserInfoViewModel;
-import com.cosinetech.imates.webservice.EnumApiUrl;
-import com.cosinetech.imates.webservice.ExerciseImageRecognition;
+import com.cosinetech.imates.webservice.ApiUrl;
+import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.QuestionImageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -127,7 +127,7 @@ public class FragmentCamera extends Fragment {
         btnAddToList.setOnClickListener(v -> {
             addExerciseToList();
             stopCamera();
-            final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(EnumApiUrl.URL_CHAT_BIOLOGY, subject);
+            final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(ApiUrl.URL_CHAT_BIOLOGY, subject);
             getParentFragmentManager().beginTransaction()
                     .addToBackStack(null)
                     .replace(R.id.container, fragmentExerciseList)
@@ -197,7 +197,7 @@ public class FragmentCamera extends Fragment {
         } else if(subject == EnumSubject.SUBJECT_MATH) {
             item.setType("math");
         }
-        ExerciseImageRecognition.addExerciseToList(item, EnumApiUrl.URL_UPLOAD_EXERCISE, userInfoViewModel.token.getValue());
+        ApiGateWayService.addExerciseToList(item, ApiUrl.URL_UPLOAD_EXERCISE, userInfoViewModel.token.getValue());
     }
 
     private void bindPreview(@NonNull ProcessCameraProvider cameraProvider) {
@@ -255,7 +255,7 @@ public class FragmentCamera extends Fragment {
             // 创建一个字节输出流
             showFinalImage(croppedBitmap);
             startScanAnimation(cropImageView, scanLine);
-            ExerciseImageRecognition.recognizeImage(croppedBitmap, userInfoViewModel.token.getValue(), new ExerciseImageRecognition.ExerciseImageRecognitionCallback() {
+            ApiGateWayService.recognizeImage(croppedBitmap, userInfoViewModel.token.getValue(), new ApiGateWayService.ExerciseImageRecognitionCallback() {
                 @Override
                 public void onSuccess(String response) {
                     requireActivity().runOnUiThread(() -> {

@@ -1,7 +1,7 @@
 package com.cosinetech.imates;
 
 import com.cosinetech.imates.model.UserInfo;
-import com.cosinetech.imates.webservice.EnumApiUrl;
+import com.cosinetech.imates.webservice.ApiUrl;
 
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -21,7 +21,7 @@ public class LoginRepository {
 
         RequestBody body = RequestBody.create(json.toString(), JSON);
         Request request = new Request.Builder()
-                .url(EnumApiUrl.URL_LOGIN)
+                .url(ApiUrl.URL_LOGIN)
                 .post(body)
                 .build();
 
@@ -37,7 +37,7 @@ public class LoginRepository {
 
     public UserInfo getUserInfo(String token) throws Exception {
         Request request = new Request.Builder()
-                .url(EnumApiUrl.URL_USER_INFO + "?token=" + token)
+                .url(ApiUrl.URL_USER_INFO + "?token=" + token)
                 .get()
                 .addHeader("Token", token)
                 .build();
