@@ -7,16 +7,21 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
+import android.speech.RecognizerIntent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
 import com.cosinetech.imates.model.UserInfoViewModel;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.ApiUrl;
 import com.cosinetech.imates.webservice.Question;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -30,6 +35,9 @@ public class FragmentExerciseList extends Fragment {
     private String chatBotUrl;
     private EnumSubject subject;
     private UserInfoViewModel userInfoViewModel;
+    private AdapterExercise adapterExercise;
+
+    private final List<Question> mQuestions = new ArrayList<>();
 
 
     public FragmentExerciseList() {
@@ -98,16 +106,27 @@ public class FragmentExerciseList extends Fragment {
             url = "";
         }
 
+        RecyclerView recyclerView = view.findViewById(R.id.exerciseList);
+        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        adapterExercise = new AdapterExercise(mQuestions);
+        recyclerView.setAdapter(adapterExercise);
+
         if(!url.isEmpty()) {
             ApiGateWayService.queryExerciseList(url, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
                 @Override
-                public void onSuccess(List<Question> questions) {
-
+                public void onSuccess(List<Question> q) {
+                    requireActivity().runOnUiThread(() -> {
+                        mQuestions.clear();
+                        mQuestions.addAll(q);
+                        adapterExercise.notifyItemInserted(0);
+                    });
                 }
 
                 @Override
                 public void onFailure(String msg, int code) {
-
+                    requireActivity().runOnUiThread(() -> {
+                        Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+                    });
                 }
             });
         }

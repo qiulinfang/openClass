@@ -62,6 +62,7 @@ public class QueryExerciseListResponse {
         if(question.message == null) {
             question.message = "";
         }
+
         if(question.data == null) {
             question.data = new QueryExerciseListResponse.Data();
         }
@@ -70,50 +71,6 @@ public class QueryExerciseListResponse {
             question.data.setQuestionsList(new ArrayList<>());
         }
 
-        for(Question q : question.data.getQuestionsList()) {
-            if(q.bmNo == null) {
-                q.bmNo = "";
-            }
-
-            if(q.titleImg == null) {
-                q.titleImg = "";
-            }
-
-            if(q.ref == null) {
-                q.ref  ="";
-            }
-
-            if(q.answer == null) {
-                q.answer = "";
-            }
-            if(q.imgPath == null) {
-                q.imgPath = "";
-            }
-            if(q.options == null) {
-                q.options = new ArrayList<>();
-            }
-            if(q.optionsImg == null) {
-                q.optionsImg = new ArrayList<>();
-            }
-            if(q.optionsFileName == null) {
-                q.optionsFileName = new ArrayList<>();
-            }
-            if(q.options1 == null) {
-                q.options1 = new ArrayList<>();
-            }
-            if(q.fullText == null) {
-                q.fullText = "";
-            }
-            if(q.title == null) {
-                q.title = "";
-            }
-            if(q.explanation == null) {
-                q.explanation = "";
-            }
-            if(q.reasonData == null) {
-                q.reasonData = "";
-            }
-        }
         return question;
     }
 
