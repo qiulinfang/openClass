@@ -20,10 +20,10 @@ public class ExerciseToAddList {
     private String imgTitleUrl;
 
     @SerializedName("options")
-    private List<String> options;
+    private String options;
 
     @SerializedName("select")
-    private List<String> select;
+    private String select;
 
     @SerializedName("imgUrl")
     private String imgUrl;
@@ -68,19 +68,19 @@ public class ExerciseToAddList {
         this.imgTitleUrl = imgTitleUrl;
     }
 
-    public List<String> getOptions() {
+    public String getOptions() {
         return options;
     }
 
-    public void setOptions(List<String> options) {
+    public void setOptions(String options) {
         this.options = options;
     }
 
-    public List<String> getSelect() {
+    public String getSelect() {
         return select;
     }
 
-    public void setSelect(List<String> select) {
+    public void setSelect(String select) {
         this.select = select;
     }
 
@@ -145,10 +145,10 @@ public class ExerciseToAddList {
             imgTitleUrl = "";
         }
         if(options == null) {
-            options = new ArrayList<>();
+            options = "";
         }
         if(select == null) {
-            select = new ArrayList<>();
+            select = "";
         }
         if(imgUrl == null) {
             imgUrl = "";

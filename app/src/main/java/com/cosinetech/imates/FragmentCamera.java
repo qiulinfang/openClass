@@ -184,8 +184,8 @@ public class FragmentCamera extends Fragment {
         item.setTitle(q.title);
         item.setImgName(q.titleImg);
         item.setImgTitleUrl(q.titleImg);
-        item.setOptions(q.options);
-        item.setSelect(q.options1);
+        item.setOptions(q.title);
+        item.setSelect(q.title);
         item.setImgUrl("");
         item.setAnswer(q.answer);
         item.setExplanation(q.explanation);
