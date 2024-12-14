@@ -54,7 +54,7 @@
     </LinearLayout>
 
     <com.cosinetech.imates.widgets.MarkdownTextView
-        android:id="@+id/exercise_text"
+        android:id="@+id/question_text"
         android:clickable="true"
         android:focusable="false"
         android:layout_width="wrap_content"

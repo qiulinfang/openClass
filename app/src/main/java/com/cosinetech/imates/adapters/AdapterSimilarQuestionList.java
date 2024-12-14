@@ -36,7 +36,7 @@ public class AdapterSimilarQuestionList extends RecyclerView.Adapter<AdapterSimi
     @Override
     public SimilarQuestionItemViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         View itemView = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_exercise_similar, parent, false);
+                .inflate(R.layout.item_similar_question, parent, false);
 
         return new SimilarQuestionItemViewHolder(itemView);
     }
@@ -99,7 +99,7 @@ public class AdapterSimilarQuestionList extends RecyclerView.Adapter<AdapterSimi
         SimilarQuestionItemViewHolder(View view) {
             super(view);
             container = view.findViewById(R.id.container);
-            itemText = view.findViewById(R.id.exercise_text);
+            itemText = view.findViewById(R.id.question_text);
             itemNo = view.findViewById(R.id.item_number);
             btnAddToList = view.findViewById(R.id.add_to_list);
             btnAddToFavor = view.findViewById(R.id.add_to_favor);

@@ -39,7 +39,7 @@ public class FragmentChatAi extends Fragment {
     public interface AiChatResponseLister {
         void onAiChatResponce();
     }
-    private ChatMessage responseMessage;
+//    private ChatMessage responseMessage;
     private UserInfoViewModel userInfoViewModel;
     private static final String PARAM_CHATBOT_URL = "CHAT_URL";
     private static final String PARAM_SHOW_HEADER = "SHOW_HEADER";
@@ -163,11 +163,12 @@ public class FragmentChatAi extends Fragment {
 
             etMessage.setText("");
 
-            responseMessage = new ChatMessage("", false, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
+            ChatMessage responseMessage = new ChatMessage("", false, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
             messageList.add(responseMessage);
-            adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 2);
-            adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
 
+            // 一次性通知 Adapter 插入两条消息
+            adapterAiChatMesssageList.notifyItemRangeInserted(messageList.size() - 2, 2);
+            // 滚动到最新位置
             recyclerView.scrollToPosition(messageList.size() - 1);
 
             aiChatMessageRequest.setReason("start");
@@ -178,7 +179,7 @@ public class FragmentChatAi extends Fragment {
         }
     }
 
-    public void sendDirectly(AiChatMessageRequest mo) {
+    public void sendMessageDirectly(AiChatMessageRequest mo) {
         this.aiChatMessageRequest = mo;
         this.aiChatMessageRequest.setReason("start");
         ChatMessage message = new ChatMessage(aiChatMessageRequest.getCoversation(), true, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
@@ -186,7 +187,7 @@ public class FragmentChatAi extends Fragment {
         adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
         etMessage.setText("");
 
-        responseMessage = new ChatMessage("", false, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
+        ChatMessage responseMessage = new ChatMessage("", false, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
         messageList.add(responseMessage);
         adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
 

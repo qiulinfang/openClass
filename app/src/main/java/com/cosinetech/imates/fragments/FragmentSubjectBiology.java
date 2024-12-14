@@ -74,9 +74,9 @@ public class FragmentSubjectBiology extends Fragment {
     }
 
     public void loadExerciseListFragment() {
-        final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(ApiUrl.URL_CHAT_BIOLOGY, Subject.SUBJECT_BIOLOGY);
+        final FragmentQuestionList fragmentQuestionList = FragmentQuestionList.newInstance(ApiUrl.URL_CHAT_BIOLOGY, Subject.SUBJECT_BIOLOGY);
         getChildFragmentManager().beginTransaction()
-                .replace(R.id.container, fragmentExerciseList)
+                .replace(R.id.container, fragmentQuestionList)
                 .addToBackStack(null)
                 .commit();
     }

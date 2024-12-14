@@ -33,10 +33,10 @@ import java.util.List;
 
 /**
  * A simple {@link Fragment} subclass.
- * Use the {@link FragmentExerciseList#newInstance} factory method to
+ * Use the {@link FragmentQuestionList#newInstance} factory method to
  * create an instance of this fragment.
  */
-public class FragmentExerciseList extends Fragment {
+public class FragmentQuestionList extends Fragment {
     private static final String KEY_CHATBOT_URL = "KEY_CHAT_BOT_URL";
     private static final String KEY_SUBJECT = "KEY_SUBJECT";
     private String chatBotUrl;
@@ -54,12 +54,12 @@ public class FragmentExerciseList extends Fragment {
     private final List<Question> mSimilarQuestion = new ArrayList<>();
 
 
-    public FragmentExerciseList() {
+    public FragmentQuestionList() {
         // Required empty public constructor
     }
 
-    public static FragmentExerciseList newInstance(String chatBotUrl, Subject subject) {
-        FragmentExerciseList fragment = new FragmentExerciseList();
+    public static FragmentQuestionList newInstance(String chatBotUrl, Subject subject) {
+        FragmentQuestionList fragment = new FragmentQuestionList();
         Bundle args = new Bundle();
         args.putString(KEY_CHATBOT_URL,  chatBotUrl);
         args.putString(KEY_SUBJECT, subject.name());
@@ -180,7 +180,7 @@ public class FragmentExerciseList extends Fragment {
             public void onBeginGuideToSolveQuestion(int pos) {
                 String url;
                 requireActivity().runOnUiThread(() -> {
-                    fragmentChatAi.sendDirectly(aiChatMessageRequest);
+                    fragmentChatAi.sendMessageDirectly(aiChatMessageRequest);
                     fragmentChatAi.setChatEnable(true);
                 });
             }

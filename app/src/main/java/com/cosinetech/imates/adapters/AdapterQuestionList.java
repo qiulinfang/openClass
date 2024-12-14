@@ -39,7 +39,7 @@ public class AdapterQuestionList extends RecyclerView.Adapter<AdapterQuestionLis
     @Override
     public ExerciseItemViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         View itemView = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_exercise, parent, false);
+                .inflate(R.layout.item_question, parent, false);
 
         return new ExerciseItemViewHolder(itemView);
     }
@@ -117,7 +117,7 @@ public class AdapterQuestionList extends RecyclerView.Adapter<AdapterQuestionLis
         ExerciseItemViewHolder(View view) {
             super(view);
             container = view.findViewById(R.id.container);
-            itemText = view.findViewById(R.id.exercise_text);
+            itemText = view.findViewById(R.id.question_text);
             itemNo = view.findViewById(R.id.item_number);
             btnMoveToTop = view.findViewById(R.id.move_to_top);
             btnDelete = view.findViewById(R.id.delete);

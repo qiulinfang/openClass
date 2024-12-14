@@ -1,6 +1,7 @@
 package com.cosinetech.imates.adapters;
 
 import android.media.MediaPlayer;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -101,8 +102,8 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
     }
 
     @Override
-    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
-        ChatMessage message = messageList.get(position);
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int pos) {
+        ChatMessage message = messageList.get(pos);
 
         if (holder instanceof DateViewHolder) {
             ((DateViewHolder) holder).tvDate.setText(message.content);
@@ -111,7 +112,11 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
                 ((TextViewHolder) holder).tvMessage.setContent(message.content);
             } else {
                 ((TextViewHolder) holder).tvMessage.setChatMessage(message);
+                if(message.content.isEmpty()) {
+                    ((TextViewHolder) holder).tvMessage.clearContent();
+                }
                 ((TextViewHolder) holder).tvMessage.startStreaming();
+                Log.d("@@@@@@@@", pos + "-" + message.content);
             }
         } else if (holder instanceof ImageViewHolder) {
             Glide.with(holder.itemView.getContext())

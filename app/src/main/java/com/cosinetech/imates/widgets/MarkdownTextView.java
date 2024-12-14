@@ -80,9 +80,6 @@ public class MarkdownTextView extends AppCompatTextView {
         Runnable runnable = new Runnable() {
             @Override
             public void run() {
-//                synchronized (sync) {
-//                    fullContent = contentBuffer.toString();
-//                }
                 if (chatMsg.currentDisplayCharIndex < chatMsg.content.length()) {
                     // 逐字拼接内容
                     String displayContent = chatMsg.content.substring(0, ++chatMsg.currentDisplayCharIndex);
@@ -99,5 +96,9 @@ public class MarkdownTextView extends AppCompatTextView {
 
     public boolean isStreaming() {
         return isStreaming;
+    }
+
+    public void clearContent() {
+        setText("");
     }
 }

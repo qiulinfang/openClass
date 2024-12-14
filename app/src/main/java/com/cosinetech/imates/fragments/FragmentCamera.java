@@ -130,10 +130,10 @@ public class FragmentCamera extends Fragment {
         btnAddToList.setOnClickListener(v -> {
             addExerciseToList();
             stopCamera();
-            final FragmentExerciseList fragmentExerciseList = FragmentExerciseList.newInstance(ApiUrl.URL_CHAT_BIOLOGY, subject);
+            final FragmentQuestionList fragmentQuestionList = FragmentQuestionList.newInstance(ApiUrl.URL_CHAT_BIOLOGY, subject);
             getParentFragmentManager().beginTransaction()
                     .addToBackStack(null)
-                    .replace(R.id.container, fragmentExerciseList)
+                    .replace(R.id.container, fragmentQuestionList)
                     .commit();
         });
 
