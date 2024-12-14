@@ -1,4 +1,4 @@
-package com.cosinetech.imates;
+package com.cosinetech.imates.webservice;
 
 public class EnumApiUrl {
     // private static final String baseUrl = "http://192.168.40.10:8222/blw-edu-service-alc/permission";

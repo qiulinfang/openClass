@@ -1,6 +1,7 @@
 package com.cosinetech.imates;
 
 import com.cosinetech.imates.model.UserInfo;
+import com.cosinetech.imates.webservice.EnumApiUrl;
 
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;

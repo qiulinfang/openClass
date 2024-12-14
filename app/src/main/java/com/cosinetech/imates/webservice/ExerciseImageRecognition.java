@@ -1,7 +1,7 @@
 package com.cosinetech.imates.webservice;
 
 import android.graphics.Bitmap;
-import com.cosinetech.imates.EnumApiUrl;
+
 import com.cosinetech.imates.model.ExerciseToAddList;
 
 import okhttp3.MediaType;

@@ -10,12 +10,14 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.cosinetech.imates.webservice.EnumApiUrl;
+
 /**
  * A simple {@link Fragment} subclass.
  * Use the {@link FragmentSubjectBiology#newInstance} factory method to
  * create an instance of this fragment.
  */
-public class FragmentSubjectBiology extends Fragment implements CaptureQuestionResultListener {
+public class FragmentSubjectBiology extends Fragment {
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
 
@@ -75,16 +77,6 @@ public class FragmentSubjectBiology extends Fragment implements CaptureQuestionR
                 .replace(R.id.container, fragmentExerciseList)
                 .addToBackStack(null)
                 .commit();
-    }
-
-    @Override
-    public void onCaptureAccepted() {
-        loadExerciseListFragment();
-    }
-
-    @Override
-    public void onCaptureRejected() {
-        getChildFragmentManager().popBackStack();
     }
 }
 

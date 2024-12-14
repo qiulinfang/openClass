@@ -1,4 +1,4 @@
-package com.cosinetech.imates;
+package com.cosinetech.imates.webservice;
 
 import okhttp3.*;
 import org.json.JSONObject;

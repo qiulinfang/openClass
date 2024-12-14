@@ -18,6 +18,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.cosinetech.imates.model.UserInfoViewModel;
+import com.cosinetech.imates.webservice.MessagePoster;
+import com.cosinetech.imates.webservice.MessageVO;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
 import java.util.ArrayList;

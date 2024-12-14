@@ -1,4 +1,4 @@
-package com.cosinetech.imates;
+package com.cosinetech.imates.webservice;
 
 public class MessageVO {
     private String sessionId;

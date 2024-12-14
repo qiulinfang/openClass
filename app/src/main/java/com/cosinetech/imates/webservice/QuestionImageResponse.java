@@ -1,5 +1,4 @@
 package com.cosinetech.imates.webservice;
-import com.cosinetech.imates.EnumApiUrl;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.Strictness;
