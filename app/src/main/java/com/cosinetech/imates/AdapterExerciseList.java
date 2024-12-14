@@ -6,7 +6,6 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -15,13 +14,23 @@ import com.cosinetech.imates.webservice.Question;
 
 import java.util.List;
 
-public class AdapterExercise extends RecyclerView.Adapter<AdapterExercise.ExerciseItemViewHolder> {
-    private List<Question> dataList;
+public class AdapterExerciseList extends RecyclerView.Adapter<AdapterExerciseList.ExerciseItemViewHolder> {
+    public interface ExerciseListChangedListener {
+        void onExerciseDelete(int position);
+        void onExerciseToTop(int position);
+        void onSelectExerciseChange(int previous, int pos);
+
+        void onBeginGuideToSolveQuestion(int pos);
+    }
+    private final List<Question> dataList;
     private int selectedPosition = -1;
 
+    private ExerciseListChangedListener listener;
+
     // 构造函数接收数据列表
-    public AdapterExercise(List<Question> dataList) {
+    public AdapterExerciseList(List<Question> dataList, ExerciseListChangedListener listener) {
         this.dataList = dataList;
+        this.listener = listener;
     }
 
     @NonNull
@@ -36,7 +45,7 @@ public class AdapterExercise extends RecyclerView.Adapter<AdapterExercise.Exerci
     @Override
     public void onBindViewHolder(ExerciseItemViewHolder holder, int position) {
         Question data = dataList.get(position);
-        holder.itemNo.setText(String.valueOf(position + 1) + ".");
+        holder.itemNo.setText(position + 1 + ".");
         holder.itemText.setContent(data.getQuestion());
 
         // 设置选中状态
@@ -44,10 +53,12 @@ public class AdapterExercise extends RecyclerView.Adapter<AdapterExercise.Exerci
             holder.itemView.setSelected(true);
             holder.btnDelete.setVisibility(View.VISIBLE);
             holder.btnOnTop.setVisibility(View.VISIBLE);
+            holder.btnAiGuide.setVisibility(View.VISIBLE);
         } else {
             holder.itemView.setSelected(false);
             holder.btnDelete.setVisibility(View.INVISIBLE);
             holder.btnOnTop.setVisibility(View.INVISIBLE);
+            holder.btnAiGuide.setVisibility(View.INVISIBLE);
         }
 
         // 设置点击监听器
@@ -59,13 +70,22 @@ public class AdapterExercise extends RecyclerView.Adapter<AdapterExercise.Exerci
         });
 
         holder.btnOnTop.setOnClickListener(v -> {
-
+            if(listener != null)  {
+                listener.onExerciseToTop(holder.getBindingAdapterPosition());
+            }
         });
 
         holder.btnDelete.setOnClickListener(v -> {
-
+            if(listener != null)  {
+                listener.onExerciseDelete(holder.getBindingAdapterPosition());
+            }
         });
 
+        holder.btnAiGuide.setOnClickListener(v -> {
+            if(listener != null)  {
+                listener.onBeginGuideToSolveQuestion(holder.getBindingAdapterPosition());
+            }
+        });
     }
 
     public void setSelectedPosition(int position) {
@@ -73,6 +93,9 @@ public class AdapterExercise extends RecyclerView.Adapter<AdapterExercise.Exerci
         selectedPosition = position;
         notifyItemChanged(previousPosition);
         notifyItemChanged(selectedPosition);
+        if(listener != null) {
+            listener.onSelectExerciseChange(previousPosition, position);
+        }
     }
 
     @Override
@@ -87,6 +110,8 @@ public class AdapterExercise extends RecyclerView.Adapter<AdapterExercise.Exerci
         TextView itemNo;
         Button btnOnTop;
         Button btnDelete;
+
+        Button btnAiGuide;
         ExerciseItemViewHolder(View view) {
             super(view);
             container = view.findViewById(R.id.container);
@@ -94,6 +119,7 @@ public class AdapterExercise extends RecyclerView.Adapter<AdapterExercise.Exerci
             itemNo = view.findViewById(R.id.item_number);
             btnOnTop = view.findViewById(R.id.ontop);
             btnDelete = view.findViewById(R.id.delete);
+            btnAiGuide = view.findViewById(R.id.ai_guide);
         }
     }
 }

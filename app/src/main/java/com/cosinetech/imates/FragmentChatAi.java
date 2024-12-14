@@ -32,12 +32,16 @@ import java.util.Objects;
  * create an instance of this fragment.
  */
 public class FragmentChatAi extends Fragment {
-    ChatMessage responseMessage;
+
+    public interface AiChatResponseLister {
+        void onAiChatResponce();
+    }
+    private ChatMessage responseMessage;
     private UserInfoViewModel userInfoViewModel;
     private static final String PARAM_CHATBOT_URL = "CHAT_URL";
     private static final String PARAM_SHOW_HEADER = "SHOW_HEADER";
 
-    private MessageVO messageVO = new MessageVO("", "", "", "", "", "", "start");
+    private MessageVO messageVO = new MessageVO("", "", "", "", "", "", "start", "");
     private RecyclerView recyclerView;
     private SmartRefreshLayout refreshLayout;
     private EditText etMessage;
@@ -50,7 +54,7 @@ public class FragmentChatAi extends Fragment {
 
     private boolean showHeader;
 
-    private FragmentChatAi() {
+    public FragmentChatAi() {
     }
 
     public static FragmentChatAi newInstance(String chatBotUrl, boolean showHeader) {
@@ -153,11 +157,12 @@ public class FragmentChatAi extends Fragment {
             // Add message to the list and notify the adapter
             ChatMessage message = new ChatMessage(messageText, true, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
             messageList.add(message);
-            adapterChatAi.notifyItemInserted(messageList.size() - 1);
+
             etMessage.setText("");
 
             responseMessage = new ChatMessage("", false, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
             messageList.add(responseMessage);
+            adapterChatAi.notifyItemInserted(messageList.size() - 2);
             adapterChatAi.notifyItemInserted(messageList.size() - 1);
 
             recyclerView.scrollToPosition(messageList.size() - 1);
@@ -170,9 +175,34 @@ public class FragmentChatAi extends Fragment {
         }
     }
 
+    public void sendDirectly(MessageVO mo) {
+        this.messageVO = mo;
+        this.messageVO.setReason("start");
+        ChatMessage message = new ChatMessage(messageVO.getCoversation(), true, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
+        messageList.add(message);
+        adapterChatAi.notifyItemInserted(messageList.size() - 1);
+        etMessage.setText("");
+
+        responseMessage = new ChatMessage("", false, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
+        messageList.add(responseMessage);
+        adapterChatAi.notifyItemInserted(messageList.size() - 1);
+
+        recyclerView.scrollToPosition(messageList.size() - 1);
+
+//        messageVO.setReason("start");
+//        messageVO.setCoversation(messageText);
+
+        btnSend.setEnabled(false);
+        pollChat();
+    }
+
     private void loadMessages() {
 //        ChatMessage message = new ChatMessage("Hello, how are you?", false, 0, ChatMessage.TYPE_TEXT, false);
 //        messageList.add(0, message);
 //        adapterChatAi.notifyItemInserted(0);
+    }
+
+    public void setChatEnable(boolean b) {
+        btnSend.setVisibility(b ? View.VISIBLE : View.INVISIBLE);
     }
 }

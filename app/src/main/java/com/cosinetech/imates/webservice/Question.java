@@ -63,6 +63,14 @@ public class Question {
     @SerializedName("reasonData")
     public String reasonData = "";
 
+    @Expose
+    @SerializedName("id")
+    public String id = "";
+
+    @Expose
+    @SerializedName("DAJX")
+    public String DAJX = "";
+
     private void emitNull() {
         if(this.bmNo == null) {
             this.bmNo = "";
@@ -110,6 +118,14 @@ public class Question {
         if(this.reasonData == null) {
             this.reasonData = "";
         }
+        if(this.id == null) {
+            this.id = "";
+        }
+
+        if(this.DAJX == null) {
+            this.DAJX = "";
+        }
+
     }
 
     public String getQuestion() {

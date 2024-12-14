@@ -10,15 +10,16 @@ import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import android.speech.RecognizerIntent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.RadioGroup;
 import android.widget.Toast;
 
 import com.cosinetech.imates.model.UserInfoViewModel;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.ApiUrl;
+import com.cosinetech.imates.webservice.MessageVO;
 import com.cosinetech.imates.webservice.Question;
 
 import java.util.ArrayList;
@@ -35,7 +36,11 @@ public class FragmentExerciseList extends Fragment {
     private String chatBotUrl;
     private EnumSubject subject;
     private UserInfoViewModel userInfoViewModel;
-    private AdapterExercise adapterExercise;
+    private AdapterExerciseList adapterExerciseList;
+    private MessageVO messageVO = new MessageVO("", "", "", "", "", "", "start", "");
+    private Question mCurrentQuestion = null;
+
+    private FragmentChatAi fragmentChatAi;
 
     private final List<Question> mQuestions = new ArrayList<>();
 
@@ -71,7 +76,7 @@ public class FragmentExerciseList extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        FragmentChatAi fragmentChatAi = FragmentChatAi.newInstance(chatBotUrl, false);
+        fragmentChatAi = FragmentChatAi.newInstance(chatBotUrl, false);
         fragmentChatAi.setAiName("AI解题助手");
         getChildFragmentManager().beginTransaction()
                 .replace(R.id.fragmentChatAiContainer, fragmentChatAi)
@@ -108,8 +113,71 @@ public class FragmentExerciseList extends Fragment {
 
         RecyclerView recyclerView = view.findViewById(R.id.exerciseList);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        adapterExercise = new AdapterExercise(mQuestions);
-        recyclerView.setAdapter(adapterExercise);
+        adapterExerciseList = new AdapterExerciseList(mQuestions, new AdapterExerciseList.ExerciseListChangedListener() {
+            @Override
+            public void onExerciseDelete(int position) {
+                String url;
+                Question q = mQuestions.get(position);
+                if(subject == EnumSubject.SUBJECT_BIOLOGY) {
+                    url = ApiUrl.URL_DELETE_EXERCISE_BASE + "/" + q.id + "/biology";
+                } else if(subject == EnumSubject.SUBJECT_MATH) {
+                    url = ApiUrl.URL_DELETE_EXERCISE_BASE + "/" + q.id + "/math";
+                } else {
+                    return;
+                }
+                ApiGateWayService.deleteExercise(url, userInfoViewModel.token.getValue(), new ApiGateWayService.ExerciseDeleteLister() {
+                    @Override
+                    public void onDeleteSuccess() {
+                        requireActivity().runOnUiThread(() -> {
+                            Question q = mQuestions.remove(position);
+                            adapterExerciseList.notifyItemRemoved(position);
+                        });
+
+                    }
+
+                    @Override
+                    public void onDeleteFailed(String msg) {
+                    }
+                });
+            }
+
+            @Override
+            public void onExerciseToTop(int position) {
+                Question q = mQuestions.remove(position);
+                mQuestions.add(0, q);
+//                adapterExerciseList.notifyItemRemoved(position);
+//                adapterExerciseList.notifyItemInserted(0);
+                adapterExerciseList.notifyDataSetChanged();
+                recyclerView.smoothScrollToPosition(0);
+            }
+
+            @Override
+            public void onSelectExerciseChange(int previous, int pos) {
+                mCurrentQuestion = mQuestions.get(pos);
+                MarkdownTextView answer = view.findViewById(R.id.answerView);
+                answer.setContent(mCurrentQuestion.answer + mCurrentQuestion.explanation);
+
+                messageVO.setName(userInfoViewModel.userInfo.getValue().getName());
+                messageVO.setNewValue("1");
+                messageVO.setSessionId(String.valueOf(System.currentTimeMillis()));
+                messageVO.setQuestion(mCurrentQuestion.title);
+                messageVO.setAnswer(mCurrentQuestion.DAJX + mCurrentQuestion.explanation);
+                messageVO.setCoversation("请开始引导");
+                messageVO.setReason("start");
+                fragmentChatAi.setChatEnable(false);
+            }
+
+            @Override
+            public void onBeginGuideToSolveQuestion(int pos) {
+                String url;
+                requireActivity().runOnUiThread(() -> {
+                    fragmentChatAi.sendDirectly(messageVO);
+                    fragmentChatAi.setChatEnable(true);
+                });
+            }
+        }) ;
+
+        recyclerView.setAdapter(adapterExerciseList);
 
         if(!url.isEmpty()) {
             ApiGateWayService.queryExerciseList(url, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
@@ -118,7 +186,7 @@ public class FragmentExerciseList extends Fragment {
                     requireActivity().runOnUiThread(() -> {
                         mQuestions.clear();
                         mQuestions.addAll(q);
-                        adapterExercise.notifyItemInserted(0);
+                        adapterExerciseList.notifyItemInserted(0);
                     });
                 }
 
@@ -130,6 +198,23 @@ public class FragmentExerciseList extends Fragment {
                 }
             });
         }
+
+        RadioGroup radioGroup = view.findViewById(R.id.radioGroup);
+        radioGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            if(checkedId == R.id.optChatAi) {
+                view.findViewById(R.id.similarExerciseView).setVisibility(View.INVISIBLE);
+                view.findViewById(R.id.answerView).setVisibility(View.INVISIBLE);
+                view.findViewById(R.id.fragmentChatAiContainer).setVisibility(View.VISIBLE);
+            } else if(checkedId == R.id.optAnswer) {
+                view.findViewById(R.id.similarExerciseView).setVisibility(View.INVISIBLE);
+                view.findViewById(R.id.answerView).setVisibility(View.VISIBLE);
+                view.findViewById(R.id.fragmentChatAiContainer).setVisibility(View.INVISIBLE);
+            } else if(checkedId == R.id.optSimilar) {
+                view.findViewById(R.id.similarExerciseView).setVisibility(View.VISIBLE);
+                view.findViewById(R.id.answerView).setVisibility(View.INVISIBLE);
+                view.findViewById(R.id.fragmentChatAiContainer).setVisibility(View.INVISIBLE);
+            }
+        });
     }
 
     @Override

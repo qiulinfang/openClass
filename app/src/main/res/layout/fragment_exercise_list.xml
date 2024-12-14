@@ -53,6 +53,34 @@
         android:orientation="vertical"
         app:layout_constraintGuide_percent="0.6" />
 
+    <com.cosinetech.imates.MarkdownTextView
+        android:id="@+id/answerView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginHorizontal="8dp"
+        android:layout_marginBottom="8dp"
+        android:layout_marginTop="1dp"
+        app:layout_constraintTop_toBottomOf="@id/spliter"
+        app:layout_constraintStart_toStartOf="@id/verticalGuide"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:visibility="gone"/>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/similarExerciseView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginHorizontal="8dp"
+        android:layout_marginBottom="8dp"
+        android:layout_marginTop="1dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/spliter"
+        app:layout_constraintStart_toStartOf="@id/verticalGuide"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+    </androidx.recyclerview.widget.RecyclerView>
+
     <FrameLayout
         android:id="@+id/fragmentChatAiContainer"
         android:layout_width="0dp"
@@ -72,26 +100,27 @@
         android:orientation="horizontal"
         android:gravity="bottom"
         android:paddingHorizontal="10dp"
-        android:layout_marginHorizontal="16dp"
+        android:layout_marginHorizontal="8dp"
         app:layout_constraintTop_toBottomOf="@id/title"
         app:layout_constraintStart_toStartOf="@id/verticalGuide">
 
         <RadioButton
-            android:id="@+id/btnChatAi"
+            android:id="@+id/optChatAi"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/ai_guide_question"
             android:button="@null"
+            android:checked="true"
             android:layout_marginEnd="10dp"
             android:background="@drawable/button_background"
             android:textColor="@drawable/button_text_color" />
 
         <RadioButton
-            android:id="@+id/btnAnswer"
+            android:id="@+id/optAnswer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/check_answer"
-            android:enabled="false"
+            android:enabled="true"
             android:button="@null"
             android:layout_marginEnd="10dp"
             android:background="@drawable/button_background"
@@ -99,7 +128,7 @@
             android:layout_marginHorizontal="4dp" />
 
         <RadioButton
-            android:id="@+id/btnSimilar"
+            android:id="@+id/optSimilar"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/similar_questions"
@@ -124,7 +153,7 @@
         android:id="@+id/spliter"
         android:layout_width="0dp"
         android:layout_height="2dp"
-        android:layout_marginHorizontal="16dp"
+        android:layout_marginHorizontal="8dp"
         android:layout_marginVertical="2dp"
         app:layout_constraintTop_toBottomOf="@id/radioGroup"
         app:layout_constraintStart_toStartOf="@id/verticalGuide"

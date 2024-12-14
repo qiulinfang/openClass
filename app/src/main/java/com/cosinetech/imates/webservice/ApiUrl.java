@@ -21,4 +21,6 @@ public class ApiUrl {
 
     //查询数学习题列表
     public static final String URL_GET_EXERCISE_MATH = baseUrl + "/selectExercises/math";
+
+    public static final String URL_DELETE_EXERCISE_BASE = baseUrl + "/deleteExercises";
 }

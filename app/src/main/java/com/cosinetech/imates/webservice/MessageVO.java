@@ -10,7 +10,7 @@ public class MessageVO {
     private String reason;
 
     // 构造函数
-    public MessageVO(String sessionId, String newValue, String coversation, String question, String answer, String name, String reason) {
+    public MessageVO(String sessionId, String newValue, String coversation, String question, String answer, String name, String reason, String bmNo) {
         this.sessionId = sessionId;
         this.newValue = newValue;
         this.coversation = coversation;

@@ -238,4 +238,46 @@ public class ApiGateWayService {
 
         executor.submit(task);
     }
+
+    public interface ExerciseDeleteLister{
+        void onDeleteSuccess();
+        void onDeleteFailed(String msg);
+    }
+
+    public static void deleteExercise(String url, String token, ExerciseDeleteLister callback) {
+        Runnable task = () -> {
+            try {
+                OkHttpClient client = new OkHttpClient();
+
+                // 创建请求
+                Request request = new Request.Builder()
+                        .url(url) // 替换为你的 API 地址
+                        .delete()
+                        .addHeader("token", token)
+                        .build();
+
+                try (Response response = client.newCall(request).execute();) {
+                    if (response.isSuccessful()) {
+                        if (callback != null) {
+                            callback.onDeleteSuccess();
+                        }
+                    } else {
+                        if (callback != null) {
+                            callback.onDeleteFailed(response.body().string());
+                        }
+                    }
+                } catch (Exception e) {
+                    if (callback != null) {
+                        callback.onDeleteFailed(e.getMessage());
+                    }
+                }
+            } catch (Exception e) {
+                if (callback != null) {
+                    callback.onDeleteFailed(e.getMessage());
+                }
+            }
+        };
+
+        executor.submit(task);
+    }
 }

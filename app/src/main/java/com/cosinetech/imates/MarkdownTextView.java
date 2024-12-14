@@ -7,6 +7,7 @@ import android.util.AttributeSet;
 
 import androidx.appcompat.widget.AppCompatTextView;
 import io.noties.markwon.Markwon;
+import io.noties.markwon.html.HtmlPlugin;
 import io.noties.markwon.image.glide.GlideImagesPlugin;
 import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin;
 import io.noties.markwon.ext.latex.JLatexMathPlugin;
@@ -40,6 +41,7 @@ public class MarkdownTextView extends AppCompatTextView {
         markwon = Markwon.builder(getContext())
                 .usePlugin(MarkwonInlineParserPlugin.create())
                 .usePlugin(GlideImagesPlugin.create(getContext()))
+                .usePlugin(HtmlPlugin.create())
                 .usePlugin(JLatexMathPlugin.create(this.getTextSize(), builder -> {
                     // enable inlines (require `MarkwonInlineParserPlugin`), by default `false`
                     builder.inlinesEnabled(true);
@@ -59,10 +61,11 @@ public class MarkdownTextView extends AppCompatTextView {
         // 如果正在流式显示，则继续流式显示
         if (!isStreaming) {
             startStreaming();
-        } else {
-            // 否则，直接渲染当前内容
-            markwon.setMarkdown(this, chatMsg.content);
         }
+//        else {
+//            // 否则，直接渲染当前内容
+//            markwon.setMarkdown(this, chatMsg.content);
+//        }
     }
 
     public void startStreaming() {
