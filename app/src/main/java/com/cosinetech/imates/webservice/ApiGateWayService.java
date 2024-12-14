@@ -15,6 +15,7 @@ import okhttp3.Response;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -98,6 +99,7 @@ public class ApiGateWayService {
         void onSuccess(Question q);
         void onFailure(String msg, int code);
     }
+
     public static void recognizeImage(Bitmap bitmap, String token, ExerciseImageRecognitionCallback callback) {
         Runnable task = () -> {
             try {
@@ -195,7 +197,11 @@ public class ApiGateWayService {
     }
 
     // ========查询练习题接口========
-    public static void queryExerciseList(String url, String token) {
+    public interface QueryExerciseListCallback {
+        void onSuccess(List<Question> questions);
+        void onFailure(String msg, int code);
+    }
+    public static void queryExerciseList(String url, String token, QueryExerciseListCallback callback) {
         Runnable task = () -> {
             try {
                 OkHttpClient client = new OkHttpClient();
@@ -209,11 +215,18 @@ public class ApiGateWayService {
 
                 try (Response response = client.newCall(request).execute();) {
                     if (response.isSuccessful()) {
-                        // 获取响应体
-                        String responseBody = response.body().string();
-                        System.out.println("Response: " + responseBody);
+                        if (callback != null && response.body() != null) {
+                            QueryExerciseListResponse q = QueryExerciseListResponse.fromJson(response.body().string());
+                            if(!q.getData().getQuestionsList().isEmpty()) {
+                                callback.onSuccess(q.getData().getQuestionsList());
+                            } else {
+                                callback.onFailure(response.message(), response.code());
+                            }
+                        }
                     } else {
-                        System.out.println("Request failed: " + response.code());
+                        if (callback != null) {
+                            callback.onFailure(response.message(), response.code());
+                        }
                     }
                 } catch (Exception e) {
                     e.printStackTrace();

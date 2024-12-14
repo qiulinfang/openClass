@@ -7,16 +7,16 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.cosinetech.imates.model.ExerciseQueried;
+import com.cosinetech.imates.webservice.Question;
 
 import java.util.List;
 
 public class AdapterExercise extends RecyclerView.Adapter<AdapterExercise.ExerciseItemViewHolder> {
 
-    private List<ExerciseQueried> dataList;
+    private List<Question> dataList;
 
     // 构造函数接收数据列表
-    public AdapterExercise(List<ExerciseQueried> dataList) {
+    public AdapterExercise(List<Question> dataList) {
         this.dataList = dataList;
     }
 
@@ -31,7 +31,7 @@ public class AdapterExercise extends RecyclerView.Adapter<AdapterExercise.Exerci
 
     @Override
     public void onBindViewHolder(ExerciseItemViewHolder holder, int position) {
-        ExerciseQueried data = dataList.get(position);
+        Question data = dataList.get(position);
         holder.itemText.setContent(data.getQuestion());
 
         // 设置点击监听器

@@ -15,6 +15,9 @@ import android.view.ViewGroup;
 import com.cosinetech.imates.model.UserInfoViewModel;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.ApiUrl;
+import com.cosinetech.imates.webservice.Question;
+
+import java.util.List;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -86,10 +89,27 @@ public class FragmentExerciseList extends Fragment {
                 new ViewModelProvider.AndroidViewModelFactory(requireActivity().getApplication())
         ).get(com.cosinetech.imates.model.UserInfoViewModel.class);
 
+        String url;
         if(subject == EnumSubject.SUBJECT_BIOLOGY) {
-            ApiGateWayService.queryExerciseList(ApiUrl.URL_GET_EXERCISE_BIOLOGY, userInfoViewModel.token.getValue());
-        } else if(subject == EnumSubject.SUBJECT_MATH) {
-            ApiGateWayService.queryExerciseList(ApiUrl.URL_GET_EXERCISE_MATH, userInfoViewModel.token.getValue());
+            url = ApiUrl.URL_GET_EXERCISE_BIOLOGY;
+        } else if (subject == EnumSubject.SUBJECT_MATH) {
+            url = ApiUrl.URL_GET_EXERCISE_MATH;
+        } else {
+            url = "";
+        }
+
+        if(!url.isEmpty()) {
+            ApiGateWayService.queryExerciseList(url, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
+                @Override
+                public void onSuccess(List<Question> questions) {
+
+                }
+
+                @Override
+                public void onFailure(String msg, int code) {
+
+                }
+            });
         }
     }
 
