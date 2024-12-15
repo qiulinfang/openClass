@@ -4,6 +4,7 @@ androidImageCropper = "4.6.0"
 cameraCore = "1.4.0"
 commonmark = "0.13.0"
 glideVersion = "4.12.0"
+gsCore = "2.0"
 gson = "2.11.0"
 jlatexmathAndroid = "0.2.0"
 junit = "4.13.2"
@@ -41,6 +42,8 @@ commonmark = { module = "com.atlassian.commonmark:commonmark", version.ref = "co
 commonmark-parent = { module = "com.atlassian.commonmark:commonmark-parent", version.ref = "commonmark" }
 compiler = { module = "com.github.bumptech.glide:compiler", version.ref = "glideVersion" }
 glide-v4120 = { module = "com.github.bumptech.glide:glide", version.ref = "glideVersion" }
+gs-core = { module = "org.graphstream:gs-core", version.ref = "gsCore" }
+gs-ui-android = { module = "org.graphstream:gs-ui-android", version.ref = "gsCore" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 jlatexmath-android = { module = "ru.noties:jlatexmath-android", version.ref = "jlatexmathAndroid" }
 jlatexmath-android-font-cyrillic = { module = "ru.noties:jlatexmath-android-font-cyrillic", version.ref = "jlatexmathAndroid" }

@@ -107,6 +107,10 @@ dependencies {
     implementation libs.viewpager2
     implementation libs.material.v175
 
+    // ======== graphstream
+    implementation libs.gs.core
+    implementation libs.gs.ui.android
+
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
