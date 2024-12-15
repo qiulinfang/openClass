@@ -108,8 +108,7 @@ dependencies {
     implementation libs.material.v175
 
     // ======== graphstream
-    implementation libs.gs.core
-    implementation libs.gs.ui.android
+    implementation 'com.jjoe64:graphview:4.2.2'
 
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
