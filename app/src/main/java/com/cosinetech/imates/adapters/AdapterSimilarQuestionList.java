@@ -77,6 +77,10 @@ public class AdapterSimilarQuestionList extends RecyclerView.Adapter<AdapterSimi
         });
     }
 
+    public void resetSelection(){
+        selectedPosition = -1;
+    }
+
     public void setSelectedPosition(int position) {
         int previousPosition = selectedPosition;
         selectedPosition = position;

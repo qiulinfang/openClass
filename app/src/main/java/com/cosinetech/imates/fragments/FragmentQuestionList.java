@@ -270,6 +270,7 @@ public class FragmentQuestionList extends Fragment {
                     requireActivity().runOnUiThread(() -> {
                         mQuestions.clear();
                         mQuestions.addAll(q);
+                        adapterQuestionList.resetSelection();
                         adapterQuestionList.notifyItemInserted(0);
                     });
                 }
@@ -327,7 +328,8 @@ public class FragmentQuestionList extends Fragment {
                             requireActivity().runOnUiThread(() -> {
                                 mSimilarQuestion.clear();
                                 mSimilarQuestion.addAll(q);
-                                adapterSimilarQuestionList.notifyItemInserted(0);
+                                adapterSimilarQuestionList.resetSelection();
+                                adapterSimilarQuestionList.notifyDataSetChanged();
                             });
                         }
 

@@ -90,11 +90,21 @@ public class AdapterQuestionList extends RecyclerView.Adapter<AdapterQuestionLis
         });
     }
 
+    public void resetSelection() {
+        selectedPosition = -1;
+    }
+
     public void setSelectedPosition(int position) {
         int previousPosition = selectedPosition;
         selectedPosition = position;
-        notifyItemChanged(previousPosition);
-        notifyItemChanged(selectedPosition);
+        if(previousPosition >= 0 && previousPosition < dataList.size()) {
+            notifyItemChanged(previousPosition);
+        }
+        if(selectedPosition >= 0 && selectedPosition < dataList.size()) {
+            notifyItemChanged(selectedPosition);
+        }
+        //notifyDataSetChanged();
+
         if(listener != null) {
             listener.onSelectExerciseChange(previousPosition, position);
         }
