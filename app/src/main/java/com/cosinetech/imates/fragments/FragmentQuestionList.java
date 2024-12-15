@@ -21,7 +21,7 @@ import com.cosinetech.imates.adapters.AdapterSimilarQuestionList;
 import com.cosinetech.imates.Subject;
 import com.cosinetech.imates.widgets.MarkdownTextView;
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.models.ExerciseToAddList;
+import com.cosinetech.imates.models.FindSimilarQuestionRequest;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.ApiUrl;
@@ -192,7 +192,7 @@ public class FragmentQuestionList extends Fragment {
         adapterSimilarQuestionList = new AdapterSimilarQuestionList(mSimilarQuestion, new AdapterSimilarQuestionList.SimilarQuestionListChangedListener() {
             @Override
             public void onExerciseAddToMyList(int pos, Question q) {
-                ExerciseToAddList item = new ExerciseToAddList();
+                FindSimilarQuestionRequest item = new FindSimilarQuestionRequest();
                 item.setTitle(q.title);
                 item.setImgName(q.titleImg);
                 item.setImgTitleUrl(q.titleImg);
@@ -261,18 +261,22 @@ public class FragmentQuestionList extends Fragment {
                 view.findViewById(R.id.fragmentChatAiContainer).setVisibility(View.INVISIBLE);
 
                 if(mCurrentQuestion != null) {
-                    ExerciseToAddList item = new ExerciseToAddList();
+                    FindSimilarQuestionRequest item = new FindSimilarQuestionRequest();
                     Question q = mCurrentQuestion;
                     item.setTitle(q.title);
                     item.setImgName(q.titleImg);
                     item.setImgTitleUrl(q.titleImg);
                     item.setOptions(q.title);
-                    item.setSelect(q.title);
+                    item.setSelect("");
                     item.setImgUrl("");
                     item.setAnswer(q.answer);
                     item.setExplanation(q.explanation);
-                    item.setExercisesId("");
-                    item.setBmNo(q.id);
+                    StringBuilder ids = new StringBuilder();
+                    for (Question qq:mQuestions) {
+                        ids.append(qq.bmNo).append(",");
+                    }
+                    item.setExercisesId(ids.toString());
+                    item.setBmNo(q.bmNo);
 
                     if(subject == Subject.SUBJECT_BIOLOGY) {
                         item.setType("biology");

@@ -31,7 +31,7 @@ import com.canhub.cropper.CropImageView;
 import com.cosinetech.imates.Subject;
 import com.cosinetech.imates.widgets.MarkdownTextView;
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.models.ExerciseToAddList;
+import com.cosinetech.imates.models.FindSimilarQuestionRequest;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.webservice.ApiUrl;
 import com.cosinetech.imates.webservice.ApiGateWayService;
@@ -183,7 +183,7 @@ public class FragmentCamera extends Fragment {
             return;
         }
         Question q = question;
-        ExerciseToAddList item = new ExerciseToAddList();
+        FindSimilarQuestionRequest item = new FindSimilarQuestionRequest();
         item.setTitle(q.title);
         item.setImgName(q.titleImg);
         item.setImgTitleUrl(q.titleImg);
@@ -192,9 +192,9 @@ public class FragmentCamera extends Fragment {
         item.setImgUrl("");
         item.setAnswer(q.answer);
         item.setExplanation(q.explanation);
+
         item.setExercisesId("");
         item.setBmNo(q.id);
-
         if(subject == Subject.SUBJECT_BIOLOGY) {
             item.setType("biology");
         } else if(subject == Subject.SUBJECT_MATH) {

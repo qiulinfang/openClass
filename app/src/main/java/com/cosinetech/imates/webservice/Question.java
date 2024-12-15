@@ -27,9 +27,9 @@ public class Question {
     @SerializedName("imgPath")
     public String imgPath = "";
 
-    @Expose
-    @SerializedName("optionsFileName")
-    public List<String> optionsFileName = new ArrayList<>();
+//    @Expose
+//    @SerializedName("optionsFileName")
+//    public List<String> optionsFileName = new ArrayList<>();
 
     @Expose
     @SerializedName("options")
@@ -100,9 +100,10 @@ public class Question {
             this.imgUrl = new ArrayList<>();
         }
 
-        if(this.optionsFileName == null) {
-            this.optionsFileName = new ArrayList<>();
-        }
+//        if(this.optionsFileName == null) {
+//            this.optionsFileName = new ArrayList<>();
+//        }
+
         if(this.options1 == null) {
             this.options1 = new ArrayList<>();
         }

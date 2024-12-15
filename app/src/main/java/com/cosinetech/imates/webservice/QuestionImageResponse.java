@@ -83,9 +83,9 @@ public class QuestionImageResponse {
             if(q.optionsImg == null) {
                 q.optionsImg = new ArrayList<>();
             }
-            if(q.optionsFileName == null) {
-                q.optionsFileName = new ArrayList<>();
-            }
+//            if(q.optionsFileName == null) {
+//                q.optionsFileName = new ArrayList<>();
+//            }
             if(q.options1 == null) {
                 q.options1 = new ArrayList<>();
             }

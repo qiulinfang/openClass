@@ -6,7 +6,7 @@ import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 
 // 添加到习题列表的结构
-public class ExerciseToAddList {
+public class FindSimilarQuestionRequest {
     @SerializedName("title")
     private String title;
 

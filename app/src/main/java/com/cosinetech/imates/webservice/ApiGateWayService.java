@@ -2,7 +2,7 @@ package com.cosinetech.imates.webservice;
 
 import android.graphics.Bitmap;
 
-import com.cosinetech.imates.models.ExerciseToAddList;
+import com.cosinetech.imates.models.FindSimilarQuestionRequest;
 
 import org.json.JSONObject;
 
@@ -156,7 +156,7 @@ public class ApiGateWayService {
     }
 
     // ========添加习题接口========
-    public static void addExerciseToList(ExerciseToAddList item, String Url, String token) {
+    public static void addExerciseToList(FindSimilarQuestionRequest item, String Url, String token) {
         Runnable task = () -> {
             try {
                 OkHttpClient client = new OkHttpClient();
@@ -237,7 +237,7 @@ public class ApiGateWayService {
     }
 
     // ========查询相似题接口========
-    public static void querySimilarExerciseList(ExerciseToAddList item, String url, String token, QueryExerciseListCallback callback) {
+    public static void querySimilarExerciseList(FindSimilarQuestionRequest item, String url, String token, QueryExerciseListCallback callback) {
         Runnable task = () -> {
             try {
                 OkHttpClient client = new OkHttpClient();

@@ -76,7 +76,7 @@ public class SimilarExerciseResponse {
     }
 
     public static class Data {
-        @SerializedName("questionsList")
+        @SerializedName("questions")
         private List<Question> questions;
 
         // Getters and Setters
