@@ -71,13 +71,18 @@ public class FragmentSubjectBiology extends Fragment {
 
         CardView btnHistory = view.findViewById(R.id.history);
         btnHistory.setOnClickListener(v -> {
-            showPopup(view, R.drawable.history_biology);
+            showMyHistory(view, R.drawable.history_biology);
+        });
+
+        CardView btnMyFavor = view.findViewById(R.id.card_my_favor);
+        btnMyFavor.setOnClickListener( v-> {
+            showMyFavor(view);
         });
     }
 
-    public void showPopup(View anchorView, int imageResId) {
+    public void showMyHistory(View anchorView, int imageResId) {
         // 加载布局
-        View popupView = LayoutInflater.from(getActivity()).inflate(R.layout.history_image_popup_window, null);
+        View popupView = LayoutInflater.from(getActivity()).inflate(R.layout.popup_window_history_image, null);
 
         // 初始化 PopupWindow
         PopupWindow popupWindow = new PopupWindow(popupView,
@@ -101,6 +106,96 @@ public class FragmentSubjectBiology extends Fragment {
 
         // 显示 PopupWindow
         popupWindow.showAtLocation(anchorView, Gravity.CENTER, 0, 0);
+    }
+
+    public void showMyFavor(View anchorView) {
+// 加载布局
+        View popupView = LayoutInflater.from(getActivity()).inflate(R.layout.popup_window_my_favor, null);
+
+        // 初始化 PopupWindow
+        PopupWindow popupWindow = new PopupWindow(popupView,
+                ViewGroup.LayoutParams.MATCH_PARENT, // 宽度
+                ViewGroup.LayoutParams.MATCH_PARENT); // 高度
+
+        // 设置背景
+        //popupWindow.setBackgroundDrawable(new ColorDrawable(android.R.color.white));
+
+        // 设置点击外部区域关闭
+        popupWindow.setOutsideTouchable(true);
+        popupWindow.setFocusable(true);
+
+        // 关闭按钮点击事件
+        Button closeButton = popupView.findViewById(R.id.close);
+        closeButton.setOnClickListener(v -> popupWindow.dismiss());
+
+        CardView btnShowNotes = popupView.findViewById(R.id.my_note);
+        btnShowNotes.setOnClickListener(v->{
+            showMyFavorNotes(anchorView);
+        });
+
+        CardView btnShowMind = popupView.findViewById(R.id.my_mind);
+        btnShowMind.setOnClickListener(v->{
+            showMyFavorMind(anchorView);
+        });
+
+        // 显示 PopupWindow
+        popupWindow.showAtLocation(anchorView, Gravity.CENTER, 0, 0);
+    }
+
+    public void showMyFavorNotes(View view) {
+        // 加载布局
+        View popupView = LayoutInflater.from(getActivity()).inflate(R.layout.popup_window_my_notes, null);
+
+        // 初始化 PopupWindow
+        PopupWindow popupWindow = new PopupWindow(popupView,
+                ViewGroup.LayoutParams.MATCH_PARENT, // 宽度
+                ViewGroup.LayoutParams.MATCH_PARENT); // 高度
+
+        // 设置背景
+        //popupWindow.setBackgroundDrawable(new ColorDrawable(android.R.color.white));
+
+        // 设置点击外部区域关闭
+        popupWindow.setOutsideTouchable(true);
+        popupWindow.setFocusable(true);
+
+        // 设置图片
+        ImageView imageView = popupView.findViewById(R.id.img_view);
+        imageView.setImageResource(R.drawable.notes_biology);
+
+        // 关闭按钮点击事件
+        Button closeButton = popupView.findViewById(R.id.close);
+        closeButton.setOnClickListener(v -> popupWindow.dismiss());
+
+        // 显示 PopupWindow
+        popupWindow.showAtLocation(view, Gravity.CENTER, 0, 0);
+    }
+
+    public void showMyFavorMind(View view) {
+// 加载布局
+        View popupView = LayoutInflater.from(getActivity()).inflate(R.layout.popup_window_my_mind, null);
+
+        // 初始化 PopupWindow
+        PopupWindow popupWindow = new PopupWindow(popupView,
+                ViewGroup.LayoutParams.MATCH_PARENT, // 宽度
+                ViewGroup.LayoutParams.MATCH_PARENT); // 高度
+
+        // 设置背景
+        //popupWindow.setBackgroundDrawable(new ColorDrawable(android.R.color.white));
+
+        // 设置点击外部区域关闭
+        popupWindow.setOutsideTouchable(true);
+        popupWindow.setFocusable(true);
+
+        // 设置图片
+        ImageView imageView = popupView.findViewById(R.id.img_view);
+        imageView.setImageResource(R.drawable.notes_biology);
+
+        // 关闭按钮点击事件
+        Button closeButton = popupView.findViewById(R.id.close);
+        closeButton.setOnClickListener(v -> popupWindow.dismiss());
+
+        // 显示 PopupWindow
+        popupWindow.showAtLocation(view, Gravity.CENTER, 0, 0);
     }
 
     public void loadCameraFragment() {

@@ -69,22 +69,25 @@ public class FragmentCamera extends Fragment {
 
     private List<Question> mQuestions = new ArrayList<>();
 
+    private final static String KEY_PARAM_SUBJECT = "SUBJECT";
+
 
     public static FragmentCamera newInstance(Subject subject) {
         FragmentCamera fragmentCamera = new FragmentCamera();
-        fragmentCamera.setSubject(subject);
+        Bundle args = new Bundle();
+        args.putString(KEY_PARAM_SUBJECT, subject.name());
+        fragmentCamera.setArguments(args);
         return fragmentCamera;
     }
 
     public FragmentCamera() {
     }
 
-    private void setSubject(Subject subject) {
-        this.subject = subject;
-    }
-
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        if(savedInstanceState != null) {
+            this.subject = Subject.valueOf(savedInstanceState.getString(KEY_PARAM_SUBJECT));
+        }
         super.onCreate(savedInstanceState);
     }
 

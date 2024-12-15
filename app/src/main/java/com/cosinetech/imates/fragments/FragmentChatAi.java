@@ -41,8 +41,8 @@ public class FragmentChatAi extends Fragment {
     }
 //    private ChatMessage responseMessage;
     private UserInfoViewModel userInfoViewModel;
-    private static final String PARAM_CHATBOT_URL = "CHAT_URL";
-    private static final String PARAM_SHOW_HEADER = "SHOW_HEADER";
+    private static final String KEY_PARAM_CHATBOT_URL = "CHAT_URL";
+    private static final String KEY_PARAM_SHOW_HEADER = "SHOW_HEADER";
 
     private AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start");
     private RecyclerView recyclerView;
@@ -63,8 +63,8 @@ public class FragmentChatAi extends Fragment {
     public static FragmentChatAi newInstance(String chatBotUrl, boolean showHeader) {
         FragmentChatAi fragment = new FragmentChatAi();
         Bundle args = new Bundle();
-        args.putString(PARAM_CHATBOT_URL, chatBotUrl);
-        args.putBoolean(PARAM_SHOW_HEADER, showHeader);
+        args.putString(KEY_PARAM_CHATBOT_URL, chatBotUrl);
+        args.putBoolean(KEY_PARAM_SHOW_HEADER, showHeader);
         fragment.setArguments(args);
         return fragment;
     }
@@ -73,8 +73,8 @@ public class FragmentChatAi extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            chatBotUrl = getArguments().getString(PARAM_CHATBOT_URL);
-            showHeader = getArguments().getBoolean(PARAM_SHOW_HEADER);
+            chatBotUrl = getArguments().getString(KEY_PARAM_CHATBOT_URL);
+            showHeader = getArguments().getBoolean(KEY_PARAM_SHOW_HEADER);
         }
     }
 
