@@ -18,7 +18,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.cosinetech.imates.adapters.AdapterAiChatMessageList;
-import com.cosinetech.imates.ChatMessage;
+import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;

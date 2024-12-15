@@ -7,7 +7,7 @@ import android.util.AttributeSet;
 
 import androidx.appcompat.widget.AppCompatTextView;
 
-import com.cosinetech.imates.ChatMessage;
+import com.cosinetech.imates.models.ChatMessage;
 
 import io.noties.markwon.Markwon;
 import io.noties.markwon.html.HtmlPlugin;

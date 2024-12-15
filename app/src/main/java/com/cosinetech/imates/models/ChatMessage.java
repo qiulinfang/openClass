@@ -1,4 +1,4 @@
-package com.cosinetech.imates;
+package com.cosinetech.imates.models;
 
 public class ChatMessage {
     public static final int TYPE_TEXT = 0;

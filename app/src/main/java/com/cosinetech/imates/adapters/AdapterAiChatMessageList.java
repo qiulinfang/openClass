@@ -10,7 +10,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
-import com.cosinetech.imates.ChatMessage;
+import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.widgets.MarkdownTextView;
 
