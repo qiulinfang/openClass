@@ -29,6 +29,7 @@ import androidx.lifecycle.ViewModelStoreOwner;
 
 import com.canhub.cropper.CropImageView;
 import com.cosinetech.imates.Subject;
+import com.cosinetech.imates.models.AddQuestionRequest;
 import com.cosinetech.imates.widgets.MarkdownTextView;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.FindSimilarQuestionRequest;
@@ -39,6 +40,9 @@ import com.cosinetech.imates.webservice.Question;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -62,6 +66,8 @@ public class FragmentCamera extends Fragment {
     private UserInfoViewModel userInfoViewModel;
     private Subject subject;
     private Question question;
+
+    private List<Question> mQuestions = new ArrayList<>();
 
 
     public static FragmentCamera newInstance(Subject subject) {
@@ -150,6 +156,8 @@ public class FragmentCamera extends Fragment {
             stopCamera();
             startCamera();
         });
+
+        fetchQuestionList();
     }
 
     private void startCamera() {
@@ -183,18 +191,54 @@ public class FragmentCamera extends Fragment {
             return;
         }
         Question q = question;
-        FindSimilarQuestionRequest item = new FindSimilarQuestionRequest();
+        AddQuestionRequest item = new AddQuestionRequest();
+
         item.setTitle(q.title);
         item.setImgName(q.titleImg);
         item.setImgTitleUrl(q.titleImg);
-        item.setOptions(q.title);
-        item.setSelect(q.title);
-        item.setImgUrl("");
+
+        final List<String> optImgs = q.optionsImg.isEmpty() ? q.imgUrl : q.optionsImg;
+        StringBuilder optionImgs = new StringBuilder();
+
+        for(int i = 0; i< optImgs.size(); i++) {
+            if(i == 0) {
+                optionImgs.append("[");
+            }
+
+            optionImgs.append("\"").append(optImgs.get(i)).append("\"");
+            if(i != optImgs.size() - 1) {
+                optionImgs.append(",");
+            } else {
+                optionImgs.append("]");
+            }
+        }
+
+        item.setImgUrl(optionImgs.toString());
+
+        StringBuilder opts = new StringBuilder();
+        for(int i = 0; i < q.options.size(); i++) {
+            if(i == 0) {
+                opts.append("[");
+            }
+
+            opts.append("\"").append(q.options.get(i)).append("\"");
+            if(i != q.options.size() - 1) {
+                opts.append(",");
+            } else {
+                opts.append("]");
+            }
+        }
+        item.setOptions(opts.toString());
         item.setAnswer(q.answer);
         item.setExplanation(q.explanation);
 
-        item.setExercisesId("");
-        item.setBmNo(q.id);
+        StringBuilder ids = new StringBuilder();
+        for (Question qq:mQuestions) {
+            ids.append(qq.bmNo).append(",");
+        }
+        item.setExercisesId(ids.toString());
+        item.setBmNo(q.bmNo);
+
         if(subject == Subject.SUBJECT_BIOLOGY) {
             item.setType("biology");
         } else if(subject == Subject.SUBJECT_MATH) {
@@ -251,6 +295,35 @@ public class FragmentCamera extends Fragment {
         cropImageView.setGuidelines(CropImageView.Guidelines.ON);
     }
 
+    private void fetchQuestionList() {
+        String url;
+        if(subject == Subject.SUBJECT_BIOLOGY) {
+            url = ApiUrl.URL_GET_EXERCISE_BIOLOGY;
+        } else if (subject == Subject.SUBJECT_MATH) {
+            url = ApiUrl.URL_GET_EXERCISE_MATH;
+        } else {
+            url = "";
+        }
+        if(!url.isEmpty()) {
+            ApiGateWayService.queryExerciseList(url, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
+                @Override
+                public void onSuccess(List<Question> q) {
+                    requireActivity().runOnUiThread(() -> {
+                        mQuestions.clear();
+                        mQuestions.addAll(q);
+                    });
+                }
+
+                @Override
+                public void onFailure(String msg, int code) {
+                    requireActivity().runOnUiThread(() -> {
+                        Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+                    });
+                }
+            });
+        }
+    }
+
     private void processCroppedImage() {
         RectF cropRect = cropImageView.getCropWindowRect();
         Bitmap croppedBitmap = cropImageView.getCroppedImage((int) cropRect.width(), (int) cropRect.height());
@@ -258,6 +331,9 @@ public class FragmentCamera extends Fragment {
             // 创建一个字节输出流
             showFinalImage(croppedBitmap);
             startScanAnimation(cropImageView, scanLine);
+            if(mQuestions.isEmpty()) {
+                fetchQuestionList();
+            }
             ApiGateWayService.recognizeImage(croppedBitmap, userInfoViewModel.token.getValue(), new ApiGateWayService.ExerciseImageRecognitionCallback() {
                 @Override
                 public void onSuccess(Question q) {

@@ -19,6 +19,7 @@ import android.widget.Toast;
 import com.cosinetech.imates.adapters.AdapterQuestionList;
 import com.cosinetech.imates.adapters.AdapterSimilarQuestionList;
 import com.cosinetech.imates.Subject;
+import com.cosinetech.imates.models.AddQuestionRequest;
 import com.cosinetech.imates.widgets.MarkdownTextView;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.FindSimilarQuestionRequest;
@@ -30,6 +31,7 @@ import com.cosinetech.imates.webservice.Question;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -192,17 +194,53 @@ public class FragmentQuestionList extends Fragment {
         adapterSimilarQuestionList = new AdapterSimilarQuestionList(mSimilarQuestion, new AdapterSimilarQuestionList.SimilarQuestionListChangedListener() {
             @Override
             public void onExerciseAddToMyList(int pos, Question q) {
-                FindSimilarQuestionRequest item = new FindSimilarQuestionRequest();
+                AddQuestionRequest item = new AddQuestionRequest();
+
                 item.setTitle(q.title);
                 item.setImgName(q.titleImg);
                 item.setImgTitleUrl(q.titleImg);
-                item.setOptions(q.title);
-                item.setSelect(q.title);
-                item.setImgUrl("");
+
+                final List<String> optImgs = q.optionsImg.isEmpty() ? q.imgUrl : q.optionsImg;
+                StringBuilder optionImgs = new StringBuilder();
+
+                for(int i = 0; i< optImgs.size(); i++) {
+                    if(i == 0) {
+                        optionImgs.append("[");
+                    }
+
+                    optionImgs.append("\"").append(optImgs.get(i)).append("\"");
+                    if(i != optImgs.size() - 1) {
+                        optionImgs.append(",");
+                    } else {
+                        optionImgs.append("]");
+                    }
+                }
+
+                item.setImgUrl(optionImgs.toString());
+
+                StringBuilder opts = new StringBuilder();
+                for(int i = 0; i < q.options.size(); i++) {
+                    if(i == 0) {
+                        opts.append("[");
+                    }
+
+                    opts.append("\"").append(q.options.get(i)).append("\"");
+                    if(i != q.options.size() - 1) {
+                        opts.append(",");
+                    } else {
+                        opts.append("]");
+                    }
+                }
+                item.setOptions(opts.toString());
                 item.setAnswer(q.answer);
                 item.setExplanation(q.explanation);
-                item.setExercisesId("");
-                item.setBmNo(q.id);
+
+                StringBuilder ids = new StringBuilder();
+                for (Question qq:mQuestions) {
+                    ids.append(qq.bmNo).append(",");
+                }
+                item.setExercisesId(ids.toString());
+                item.setBmNo(q.bmNo);
 
                 if(subject == Subject.SUBJECT_BIOLOGY) {
                     item.setType("biology");
