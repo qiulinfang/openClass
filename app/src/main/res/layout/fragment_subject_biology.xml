@@ -113,7 +113,7 @@
             </androidx.cardview.widget.CardView>
 
             <androidx.cardview.widget.CardView
-                android:id="@+id/menuWrongQuestions"
+                android:id="@+id/history"
                 android:clickable="true"
                 android:focusable="true"
                 android:foreground="?android:attr/selectableItemBackgroundBorderless"

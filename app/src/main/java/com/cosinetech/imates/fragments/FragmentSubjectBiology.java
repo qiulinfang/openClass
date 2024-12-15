@@ -6,9 +6,14 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
+
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.ImageView;
+import android.widget.PopupWindow;
 
 import com.cosinetech.imates.Subject;
 import com.cosinetech.imates.R;
@@ -63,6 +68,39 @@ public class FragmentSubjectBiology extends Fragment {
 
         CardView btnExercise = view.findViewById(R.id.exercise);
         btnExercise.setOnClickListener(v-> loadExerciseListFragment());
+
+        CardView btnHistory = view.findViewById(R.id.history);
+        btnHistory.setOnClickListener(v -> {
+            showPopup(view, R.drawable.history_biology);
+        });
+    }
+
+    public void showPopup(View anchorView, int imageResId) {
+        // 加载布局
+        View popupView = LayoutInflater.from(getActivity()).inflate(R.layout.history_image_popup_window, null);
+
+        // 初始化 PopupWindow
+        PopupWindow popupWindow = new PopupWindow(popupView,
+                ViewGroup.LayoutParams.MATCH_PARENT, // 宽度
+                ViewGroup.LayoutParams.MATCH_PARENT); // 高度
+
+        // 设置背景
+        //popupWindow.setBackgroundDrawable(new ColorDrawable(android.R.color.white));
+
+        // 设置点击外部区域关闭
+        popupWindow.setOutsideTouchable(true);
+        popupWindow.setFocusable(true);
+
+        // 设置图片
+        ImageView imageView = popupView.findViewById(R.id.img_view);
+        imageView.setImageResource(imageResId);
+
+        // 关闭按钮点击事件
+        Button closeButton = popupView.findViewById(R.id.close);
+        closeButton.setOnClickListener(v -> popupWindow.dismiss());
+
+        // 显示 PopupWindow
+        popupWindow.showAtLocation(anchorView, Gravity.CENTER, 0, 0);
     }
 
     public void loadCameraFragment() {
