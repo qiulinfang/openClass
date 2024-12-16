@@ -70,6 +70,14 @@
     // 显示上下文菜单的函数
     function showContextMenu(event, node) {
         event.preventDefault(); // 阻止默认的右键菜单
+        var nodeId = node.getAttribute('nodeid');
+        var nodeName = node.textContent.trim();
+        if (nodeId.startsWith("section")) {
+            console.log("字符串以 'section' 开头");
+        } else {
+            console.log("字符串不以 'section' 开头");
+            return;
+        }
         try {
             // 如果已经有菜单存在，先移除它
             if (currentContextMenu) {
@@ -96,21 +104,17 @@
 
         // 添加菜单项
         var menuItem1 = document.createElement('div');
-        menuItem1.innerText = '复习';
+        menuItem1.innerText = '去练习';
         menuItem1.style.padding = '5px 10px';
         menuItem1.addEventListener('click', function() {
-            var nodeId = node.getAttribute('nodeid');
-            var nodeName = node.textContent.trim();
             document.body.removeChild(contextMenu);
             window.Android.onReviewLesson(nodeId, nodeName);
         });
 
         var menuItem2 = document.createElement('div');
-        menuItem2.innerText = '预习';
+        menuItem2.innerText = '去学习';
         menuItem2.style.padding = '5px 10px';
         menuItem2.addEventListener('click', function() {
-            var nodeId = node.getAttribute('nodeid');
-            var nodeName = node.textContent.trim();
             document.body.removeChild(contextMenu);
             window.Android.onPrepareLesson(nodeId, nodeName);
         });
