@@ -16,6 +16,10 @@ public class Question {
     public String titleImg = "";
 
     @Expose
+    @SerializedName("imgTitleUrl")
+    public String imgTitleUrl = "";
+
+    @Expose
     @SerializedName("ref")
     public String ref = "";
 
@@ -79,6 +83,9 @@ public class Question {
         if(this.titleImg == null) {
             this.titleImg = "";
         }
+        if(this.imgTitleUrl == null) {
+            this.imgTitleUrl = "";
+        }
 
         if(this.ref == null) {
             this.ref  ="";
@@ -135,7 +142,10 @@ public class Question {
         try {
             result.append(title).append("\n\n");
             if (!titleImg.trim().isEmpty()) {
-                result.append("![alt 图片](").append(ApiUrl.URL_RESOURCE_BASE).append("/").append(titleImg.replace("\\", "/")).append(")").append("\n\n");
+                result.append("![alt 图片](").append(ApiUrl.URL_RESOURCE_BASE).append("/").append(titleImg.replace("\\", "/")).append(")").append("  \n");
+            }
+            if(!imgTitleUrl.trim().isEmpty()) {
+                result.append("![alt 图片](").append(ApiUrl.URL_RESOURCE_BASE).append("/").append(imgTitleUrl.replace("\\", "/")).append(")").append("  \n");
             }
 
             for (int i = 0; i < options.size(); i++) {
@@ -144,7 +154,7 @@ public class Question {
                 if (optImg.size() >= i + 1 && !optImg.get(i).trim().isEmpty()) { // 选项中的图片
                     result.append("![alt 图片](").append(ApiUrl.URL_RESOURCE_BASE).append("/").append(optImg.get(i).replace("\\", "/")).append(")");
                 }
-                result.append("\n\n");
+                result.append("  \n");
             }
         } catch (Exception e) {
             e.printStackTrace();

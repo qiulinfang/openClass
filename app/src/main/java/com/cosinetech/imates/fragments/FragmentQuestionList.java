@@ -271,7 +271,7 @@ public class FragmentQuestionList extends Fragment {
                         mQuestions.clear();
                         mQuestions.addAll(q);
                         adapterQuestionList.resetSelection();
-                        adapterQuestionList.notifyItemInserted(0);
+                        adapterQuestionList.notifyDataSetChanged();
                     });
                 }
 

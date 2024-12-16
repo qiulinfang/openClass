@@ -85,12 +85,18 @@ public class FragmentCamera extends Fragment {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        if(savedInstanceState != null) {
-            this.subject = Subject.valueOf(savedInstanceState.getString(KEY_PARAM_SUBJECT));
-        }
         super.onCreate(savedInstanceState);
+        if (getArguments() != null) {
+            this.subject = Subject.valueOf(getArguments().getString(KEY_PARAM_SUBJECT));
+        }
     }
 
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        // 在此处保存需要的状态数据到outState中
+        outState.putString(KEY_PARAM_SUBJECT, subject.name());
+    }
 
     @Nullable
     @Override
