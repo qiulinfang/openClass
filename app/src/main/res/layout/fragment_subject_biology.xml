@@ -7,14 +7,133 @@
      android:background="#80FFFFFF"
      xmlns:tools="http://schemas.android.com/tools"
      tools:context=".fragments.FragmentSubjectBiology">
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/tool_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
 
-    <ScrollView
+        <androidx.appcompat.widget.Toolbar
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="#71c9f6"
+            android:minHeight="50dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <TextView
+                    android:id="@+id/music_menu"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="🎵"
+                    android:textSize="36dp"
+                    android:textColor="#FFFFFF"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="10dp"
+                    android:text="服务器:"
+                    android:textSize="20dp"
+                    android:gravity="center"
+                    android:textColor="#FFFFFF"/>
+                <TextView
+                    android:id="@+id/svr_ip"
+                    android:text="--"
+                    android:textSize="20dp"
+                    android:textColor="#FFB300"
+                    android:layout_marginRight="10dp"
+                    android:gravity="center"
+                    android:layout_gravity="center_vertical"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="10dp"
+                    android:text="网络："
+                    android:textSize="20dp"
+                    android:gravity="center"
+                    android:textColor="#FFFFFF"/>
+                <TextView
+                    android:id="@+id/net_state"
+                    android:text="●"
+                    android:textSize="36dp"
+                    android:textColor="#FF0000"
+                    android:gravity="center"
+                    android:layout_marginRight="10dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"/>
+
+                <TextView
+                    android:id="@+id/txt_current"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_marginLeft="10dp"
+                    android:gravity="center"
+                    android:text="当前:"
+                    android:textSize="20dp"
+                    android:textColor="#FFFFFF"
+                    android:visibility="gone"/>
+                <TextView
+                    android:id="@+id/line_indicate"
+                    android:text=""
+                    android:textSize="20dp"
+                    android:textColor="#D0FF0F"
+                    android:layout_marginRight="10dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:visibility="gone"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:text="已选条目："
+                    android:textSize="20dp"
+                    android:gravity="center"
+                    android:textColor="#FFFFFF"/>
+                <TextView
+                    android:id="@+id/sel_music_name"
+                    android:text="-- --"
+                    android:textSize="20dp"
+                    android:gravity="center"
+                    android:textColor="#D0FF0F"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"/>
+
+                <TextView
+                    android:id="@+id/my_record"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_marginLeft="10dp"
+                    android:text="⏺"
+                    android:textSize="36dp"
+                    android:visibility="visible"
+                    android:textColor="#FFFFFF"/>
+                <TextView
+                    android:id="@+id/my_record_list"
+                    android:text="录音列表"
+                    android:textSize="20dp"
+                    android:gravity="center"
+                    android:textColor="#D0FF0F"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"/>
+
+            </LinearLayout>
+        </androidx.appcompat.widget.Toolbar>
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <LinearLayout
         android:id="@+id/todo"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@+id/guideline"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tool_bar"
         app:layout_constraintBottom_toBottomOf="parent"
         android:layout_margin="16dp"
         android:orientation="vertical"
@@ -23,10 +142,10 @@
         <WebView
             android:id="@+id/knowledge_view"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_margin="24dp"/>
 
-    </ScrollView>
+    </LinearLayout>
 
     <GridLayout
             android:id="@+id/menuLayout"
@@ -37,7 +156,7 @@
             android:layout_height="match_parent"
             app:layout_constraintStart_toEndOf="@+id/guideline"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tool_bar"
             app:layout_constraintBottom_toBottomOf="parent">
 
             <androidx.cardview.widget.CardView

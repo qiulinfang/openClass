@@ -10,24 +10,44 @@
 <script type="text/javascript">
     var graph = {
         "meta": {
-        "name": "example",
-        "author": "上减肥",
-        "version": "0.2"
+            "name": "生物第5章知识导图",
+            "author": "imates",
+            "version": "0.1"
         },
         "format": "node_tree",
         "data": {
-        "id": "root",
-        "topic": "水电费",
-        "children": [
-            {"id": "sub1", "topic": "sub1"},
-            {"id": "sub2", "topic": "sub2"}
-        ]
+            "id": "chapter5",
+            "topic": "第五章植物生命活动的调节",
+            "children": [
+                {
+                    "id": "section5.1",
+                    "topic": "5.1 植物生长激素",
+                    "direction":"left",
+
+                },
+                {
+                    "id": "section5.2",
+                    "topic": "5.2 其他植物激素",
+                    "direction":"right",
+                },
+                {
+                    "id": "section5.3",
+                    "topic": "5.3 植物生长调节剂的应用",
+                    "direction":"right",
+                },
+                {
+                    "id": "section5.4",
+                    "topic": "5.3 环境因素参与调节植物的生命活动",
+                    "direction":"left",
+                }
+            ]
         }
     };
     var options = {
         container: 'jsmind_container',
         theme: 'primary',
         editable: false,
+        support_html: true,
         view:{
             engine: 'svg',
             draggable: true,
