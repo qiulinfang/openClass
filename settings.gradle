@@ -16,8 +16,13 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        gradlePluginPortal()
+        maven { url 'https://jitpack.io' }
+        maven { url "https://repository.liferay.com/nexus/content/repositories/public/" }
     }
 }
 
 rootProject.name = "iMatesApp"
 include ':app'
+include ':android-pdf-viewer'
+include ':android-pdf-viewer'

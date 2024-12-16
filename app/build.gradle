@@ -107,8 +107,14 @@ dependencies {
     implementation libs.viewpager2
     implementation libs.material.v175
 
-    // ======== graphstream
+    // ======== graph view
     implementation 'com.jjoe64:graphview:4.2.2'
+
+    // ======== pdf
+    implementation 'com.github.mhiew:android-pdf-viewer:3.2.0-beta.1'
+
+    // ======== rating
+    implementation 'com.github.spareyaya:SimpleRatingView:v1.0.5-beta'
 
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
