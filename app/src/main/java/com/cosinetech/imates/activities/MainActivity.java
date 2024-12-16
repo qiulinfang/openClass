@@ -45,6 +45,7 @@ public class MainActivity extends AppCompatActivity {
     private float dX, dY;
     private float initialX, initialY;
     private static final int CLICK_THRESHOLD = 10; // 拖动的阈值
+    private FragmentChatAi fragmentChatAi;
 
     @SuppressLint("ClickableViewAccessibility")
     @Override
@@ -182,9 +183,14 @@ public class MainActivity extends AppCompatActivity {
         );
 
         // 创建悬浮 Fragment 实例
-        FragmentChatAi floatingFragment = FragmentChatAi.newInstance(ApiUrl.URL_CHAT_GENERAL, true);
-        transaction.replace(R.id.fragmentChatAiContainer, floatingFragment);
-        transaction.addToBackStack(null);
-        transaction.commit();
+        if(fragmentChatAi != null){
+            fragmentChatAi.getParentFragmentManager().popBackStack();
+            fragmentChatAi = null;
+        } else {
+            fragmentChatAi = FragmentChatAi.newInstance(ApiUrl.URL_CHAT_GENERAL, true);
+            transaction.replace(R.id.fragmentChatAiContainer, fragmentChatAi);
+            transaction.addToBackStack(null);
+            transaction.commit();
+        }
     }
 }
