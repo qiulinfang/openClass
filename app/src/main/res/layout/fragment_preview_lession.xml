@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFFFF"
+    tools:context=".FragmentPreviewLesson">
+
+    <TextView
+        android:id="@+id/label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:text="预习"
+        android:clickable="true"
+        android:stateListAnimator="@animator/button_click_scale"
+        android:textColor="#000000"
+        android:textSize="@dimen/head1_size"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/sign_split"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=" > "
+        android:textColor="#000000"
+        android:textSize="@dimen/head1_size"
+        android:textStyle="bold"
+        app:layout_constraintStart_toEndOf="@id/label"
+        app:layout_constraintTop_toTopOf="@id/label" />
+
+    <TextView
+        android:id="@+id/preview_section_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="预习内容"
+        android:textColor="#000000"
+        android:textSize="@dimen/head1_size"
+        android:textStyle="bold"
+        app:layout_constraintStart_toEndOf="@id/sign_split"
+        app:layout_constraintTop_toTopOf="@id/sign_split" />
+
+    <LinearLayout
+        android:id="@+id/tool_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#71c9f6"
+        android:minHeight="80dp"
+        android:orientation="vertical"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/preview_section_name">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:text="待办事项"
+            android:textColor="#000000"
+            android:textSize="@dimen/reflow_text_title_size"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:background="@android:color/transparent"
+            android:text="①复习5.1学过的内容"
+            android:textColor="#000000" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:background="@android:color/transparent"
+            android:text="②预习5.2的内容"
+            android:textColor="#000000" />
+
+    </LinearLayout>
+
+    <RadioButton
+        android:id="@+id/opt_scheme_1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="48dp"
+        android:button="@null"
+        android:background="@drawable/prepare_lesson_radio_bg"
+        android:text="方案一"
+        android:textSize="@dimen/head0_size"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tool_bar" />
+
+    <RadioButton
+        android:id="@+id/opt_scheme_2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="48dp"
+        android:button="@null"
+        android:background="@drawable/prepare_lesson_radio_bg"
+        android:text="方案二"
+        android:textSize="@dimen/head0_size"
+        app:layout_constraintStart_toEndOf="@id/opt_scheme_1"
+        app:layout_constraintTop_toBottomOf="@id/tool_bar" />
+
+    <RadioButton
+        android:id="@+id/opt_scheme_3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="24dp"
+        android:button="@null"
+        android:background="@drawable/prepare_lesson_radio_bg"
+        android:text="方案三"
+        android:textSize="@dimen/head0_size"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/opt_scheme_1" />
+
+    <RadioButton
+        android:id="@+id/opt_scheme_4"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:button="@null"
+        android:background="@drawable/prepare_lesson_radio_bg"
+        android:text="方案四"
+        android:textSize="@dimen/head0_size"
+        app:layout_constraintStart_toStartOf="@id/opt_scheme_2"
+        app:layout_constraintTop_toBottomOf="@id/opt_scheme_2" />
+
+    <RadioButton
+        android:id="@+id/opt_scheme_5"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="24dp"
+        android:button="@null"
+        android:background="@drawable/prepare_lesson_radio_bg"
+        android:text="方案五"
+        android:textSize="@dimen/head0_size"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/opt_scheme_3" />
+
+    <RadioButton
+        android:id="@+id/opt_scheme_6"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:button="@null"
+        android:background="@drawable/prepare_lesson_radio_bg"
+        android:text="方案六"
+        android:textSize="@dimen/head0_size"
+        app:layout_constraintStart_toStartOf="@id/opt_scheme_4"
+        app:layout_constraintTop_toBottomOf="@id/opt_scheme_4" />
+
+    <com.cosinetech.imates.widgets.ConstraintRadioGroup
+        android:id="@+id/group"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:constraint_referenced_ids="opt_scheme_1, opt_scheme_2, opt_scheme_3,opt_scheme_4,opt_scheme_5,opt_scheme_6"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tool_bar" />
+
+    <Button
+        android:id="@+id/btn_go_prepare"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="24dp"
+        android:textSize="@dimen/head0_size"
+        android:background="@drawable/round_corner"
+        android:textColor="#ffffff"
+        android:text="去预习"
+        android:stateListAnimator="@animator/button_click_scale"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/opt_scheme_5"
+        app:layout_constraintEnd_toEndOf="@id/guideline"/>
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideline"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.35" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

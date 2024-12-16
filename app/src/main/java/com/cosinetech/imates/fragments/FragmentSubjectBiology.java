@@ -24,6 +24,7 @@ import android.widget.ImageView;
 import android.widget.PopupWindow;
 import android.widget.Toast;
 
+import com.cosinetech.imates.FragmentPreviewLesson;
 import com.cosinetech.imates.Subject;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.webservice.ApiUrl;
@@ -127,7 +128,8 @@ public class FragmentSubjectBiology extends Fragment {
 
         @JavascriptInterface
         public void onPrepareLesson(String nodeId, String nodeName) {
-            Toast.makeText(context, "Prepare clicked: " + nodeId + nodeName, Toast.LENGTH_SHORT).show();
+            //Toast.makeText(context, "Prepare clicked: " + nodeId + nodeName, Toast.LENGTH_SHORT).show();
+            loadPrepareLessonFragment(nodeName);
         }
 
         @JavascriptInterface
@@ -265,6 +267,14 @@ public class FragmentSubjectBiology extends Fragment {
         final FragmentQuestionList fragmentQuestionList = FragmentQuestionList.newInstance(ApiUrl.URL_CHAT_BIOLOGY, Subject.SUBJECT_BIOLOGY);
         getChildFragmentManager().beginTransaction()
                 .replace(R.id.container, fragmentQuestionList)
+                .addToBackStack(null)
+                .commit();
+    }
+
+    public void loadPrepareLessonFragment(String sectionName) {
+        final FragmentPreviewLesson fragmentPreviewLesson = FragmentPreviewLesson.newInstance(sectionName, "");
+        getChildFragmentManager().beginTransaction()
+                .replace(R.id.container, fragmentPreviewLesson)
                 .addToBackStack(null)
                 .commit();
     }

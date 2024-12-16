@@ -68,4 +68,6 @@
     <string name="similar_questions">举一反三</string>
     <string name="shoot_question">拍照识题</string>
     <string name="ai_guide_question">解题分析</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
 </resources>

@@ -5,6 +5,8 @@
     <dimen name="reflow_text_block_max_percent">1</dimen>
     <dimen name="reflow_text_block_horizontal_gap">8dp</dimen>
     <dimen name="reflow_text_title_size">18sp</dimen>
+    <dimen name="head0_size">48sp</dimen>
+    <dimen name="head1_size">24sp</dimen>
     <dimen name="reflow_text_description_size">13sp</dimen>
     <!-- Default screen margins, per the Android Design guidelines. -->
     <dimen name="activity_horizontal_margin">16dp</dimen>
