@@ -21,23 +21,23 @@
             "children": [
                 {
                     "id": "section5.1",
-                    "topic": "5.1 植物生长激素",
+                    "topic": "5.1<br/>植物生长激素",
                     "direction":"left",
 
                 },
                 {
                     "id": "section5.2",
-                    "topic": "5.2 其他植物激素",
+                    "topic": "5.2<br/>其他植物激素",
                     "direction":"right",
                 },
                 {
                     "id": "section5.3",
-                    "topic": "5.3 植物生长调节剂的应用",
+                    "topic": "5.3<br/>植物生长调节剂的应用",
                     "direction":"right",
                 },
                 {
                     "id": "section5.4",
-                    "topic": "5.3 环境因素参与调节植物的生命活动",
+                    "topic": "5.3<br/>环境因素参与调节<br/>植物的生命活动",
                     "direction":"left",
                 }
             ]
@@ -56,6 +56,9 @@
     var mind = new jsMind(options);
     mind.show(graph);
 
+    // 全局变量保存当前上下文菜单
+    var currentContextMenu = null;
+
     document.addEventListener('contextmenu', function(event) {
         var nodeElement = event.target.closest('jmnode'); // 使用自定义标签 jmnode
         if (nodeElement) {
@@ -67,6 +70,16 @@
     // 显示上下文菜单的函数
     function showContextMenu(event, node) {
         event.preventDefault(); // 阻止默认的右键菜单
+        try {
+            // 如果已经有菜单存在，先移除它
+            if (currentContextMenu) {
+                document.body.removeChild(currentContextMenu);
+                currentContextMenu = null;
+            }
+        } catch (e) {
+            // 捕获并处理异常
+            console.log(e.toString()); // 输出：UserException: "Value too high"
+        }
 
         // 创建一个简单的上下文菜单
         var contextMenu = document.createElement('div');
@@ -76,6 +89,9 @@
         contextMenu.style.backgroundColor = 'white';
         contextMenu.style.border = '1px solid #ccc';
         contextMenu.style.boxShadow = '2px 2px 5px rgba(0, 0, 0, 0.2)';
+        contextMenu.style.fontSize = '18pt'
+        contextMenu.style.color = '#1d85ce'
+        contextMenu.style.borderRadius = '4pt';
         contextMenu.style.zIndex = '1000';
 
         // 添加菜单项
@@ -103,7 +119,23 @@
         contextMenu.appendChild(menuItem2);
 
         document.body.appendChild(contextMenu);
+
+        // 保存当前菜单
+        currentContextMenu = contextMenu;
     }
+
+    // 全局作用域中添加document的click事件监听器
+    document.addEventListener('click', function(e) {
+        try {
+            if (currentContextMenu && !currentContextMenu.contains(e.target)) {
+                document.body.removeChild(currentContextMenu);
+                currentContextMenu = null;
+            }
+                } catch (e) {
+            // 捕获并处理异常
+            console.log(e.toString());
+        }
+    });
 </script>
 </body>
 </html>
