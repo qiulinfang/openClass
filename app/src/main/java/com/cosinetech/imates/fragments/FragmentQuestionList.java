@@ -176,6 +176,7 @@ public class FragmentQuestionList extends Fragment {
                 aiChatMessageRequest.setCoversation("请开始引导");
                 aiChatMessageRequest.setReason("start");
                 fragmentChatAi.setChatEnable(false);
+                fragmentChatAi.clearChatHistory();
             }
 
             @Override

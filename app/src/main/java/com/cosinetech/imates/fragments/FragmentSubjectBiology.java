@@ -128,7 +128,6 @@ public class FragmentSubjectBiology extends Fragment {
 
         @JavascriptInterface
         public void onPrepareLesson(String nodeId, String nodeName) {
-            //Toast.makeText(context, "Prepare clicked: " + nodeId + nodeName, Toast.LENGTH_SHORT).show();
             loadPrepareLessonFragment(nodeName);
         }
 

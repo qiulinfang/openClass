@@ -129,6 +129,11 @@ public class FragmentChatAi extends Fragment {
         return view;
     }
 
+    public void clearChatHistory() {
+        messageList.clear();
+        adapterAiChatMesssageList.notifyDataSetChanged();
+    }
+
     public void setAiName(String name) {
         aiName = name;
     }
