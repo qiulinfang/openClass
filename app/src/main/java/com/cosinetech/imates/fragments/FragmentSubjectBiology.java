@@ -1,5 +1,6 @@
 package com.cosinetech.imates.fragments;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Bundle;
 
@@ -12,6 +13,7 @@ import androidx.fragment.app.Fragment;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
@@ -67,6 +69,7 @@ public class FragmentSubjectBiology extends Fragment {
         return inflater.inflate(R.layout.fragment_subject_biology, container, false);
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -95,6 +98,15 @@ public class FragmentSubjectBiology extends Fragment {
         webView.addJavascriptInterface(new WebAppInterface(getContext()), "Android");
         // Load the local HTML file
         webView.loadUrl("file:///android_asset/knowledge_graph_biology.html");
+        webView.setOnTouchListener((v, event) -> {
+            // 禁止ViewPager2拦截触摸事件
+            if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_MOVE) {
+                v.getParent().requestDisallowInterceptTouchEvent(true);
+            } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
+                v.getParent().requestDisallowInterceptTouchEvent(false);
+            }
+            return false; // 返回false，让HScrollView继续处理触摸事件
+        });
 
 //        class JsObject {
 //            @JavascriptInterface
