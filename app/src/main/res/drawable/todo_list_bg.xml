@@ -3,6 +3,7 @@
     android:shape="rectangle">
     <!-- 设置圆角半径 -->
     <corners android:radius="16dp" />
+    <solid android:color="#ffffff" />
 
     <!-- 可选：设置边框 -->
     <stroke
