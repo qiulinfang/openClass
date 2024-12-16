@@ -1,19 +1,26 @@
 package com.cosinetech.imates.fragments;
 
+import android.content.Context;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.PopupMenu;
 import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
 
 import android.view.Gravity;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.PopupWindow;
+import android.widget.Toast;
 
 import com.cosinetech.imates.Subject;
 import com.cosinetech.imates.R;
@@ -78,6 +85,43 @@ public class FragmentSubjectBiology extends Fragment {
         btnMyFavor.setOnClickListener( v-> {
             showMyFavor(view);
         });
+
+        WebView webView = view.findViewById(R.id.knowledge_view);
+        webView.getSettings().setJavaScriptEnabled(true);
+        webView.getSettings().setDomStorageEnabled(true); // 启用 DOM storage
+        // 设置WebViewClient以防止外部浏览器打开链接
+        webView.setWebViewClient(new WebViewClient());
+        // Add JavaScript interface
+        webView.addJavascriptInterface(new WebAppInterface(getContext()), "Android");
+        // Load the local HTML file
+        webView.loadUrl("file:///android_asset/knowledge_graph_biology.html");
+
+//        class JsObject {
+//            @JavascriptInterface
+//            public String toString() { return "injectedObject"; }
+//        }
+//        webView.getSettings().setJavaScriptEnabled(true);
+//        webView.addJavascriptInterface(new JsObject(), "injectedObject");
+//        webView.loadData("  ", "text/ html", null);
+//        webView.loadUrl("javascript:alert(injectedObject. toString())");
+    }
+
+    public class WebAppInterface {
+        private Context context;
+
+        WebAppInterface(Context context) {
+            this.context = context;
+        }
+
+        @JavascriptInterface
+        public void onPrepareLesson(String nodeId, String nodeName) {
+            Toast.makeText(context, "Prepare clicked: " + nodeId + nodeName, Toast.LENGTH_SHORT).show();
+        }
+
+        @JavascriptInterface
+        public void onReviewLesson(String nodeId, String nodeName) {
+            Toast.makeText(context, "Review press: " + nodeId + nodeName, Toast.LENGTH_SHORT).show();
+        }
     }
 
     public void showMyHistory(View anchorView, int imageResId) {
@@ -109,7 +153,6 @@ public class FragmentSubjectBiology extends Fragment {
     }
 
     public void showMyFavor(View anchorView) {
-// 加载布局
         View popupView = LayoutInflater.from(getActivity()).inflate(R.layout.popup_window_my_favor, null);
 
         // 初始化 PopupWindow

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <link type="text/css" rel="stylesheet" href="jsmind.css" />
+    <script type="text/javascript" src="jsmind.js"></script>
+</head>
+<body>
+<div id="jsmind_container" style="width: 800px; height: 500px;"></div>
+<script type="text/javascript">
+    var graph = {
+        "meta": {
+        "name": "example",
+        "author": "上减肥",
+        "version": "0.2"
+        },
+        "format": "node_tree",
+        "data": {
+        "id": "root",
+        "topic": "水电费",
+        "children": [
+            {"id": "sub1", "topic": "sub1"},
+            {"id": "sub2", "topic": "sub2"}
+        ]
+        }
+    };
+    var options = {
+        container: 'jsmind_container',
+        theme: 'primary',
+        editable: false,
+        view:{
+            engine: 'svg',
+            draggable: true,
+        },
+    };
+    var mind = new jsMind(options);
+    mind.show(graph);
+
+    document.addEventListener('contextmenu', function(event) {
+        var nodeElement = event.target.closest('jmnode'); // 使用自定义标签 jmnode
+        if (nodeElement) {
+            event.preventDefault(); // 阻止默认上下文菜单
+            showContextMenu(event, nodeElement)
+        }
+    }, false);
+
+    // 显示上下文菜单的函数
+    function showContextMenu(event, node) {
+        event.preventDefault(); // 阻止默认的右键菜单
+
+        // 创建一个简单的上下文菜单
+        var contextMenu = document.createElement('div');
+        contextMenu.style.position = 'absolute';
+        contextMenu.style.left = event.pageX + 'px';
+        contextMenu.style.top = event.pageY + 'px';
+        contextMenu.style.backgroundColor = 'white';
+        contextMenu.style.border = '1px solid #ccc';
+        contextMenu.style.boxShadow = '2px 2px 5px rgba(0, 0, 0, 0.2)';
+        contextMenu.style.zIndex = '1000';
+
+        // 添加菜单项
+        var menuItem1 = document.createElement('div');
+        menuItem1.innerText = '复习';
+        menuItem1.style.padding = '5px 10px';
+        menuItem1.addEventListener('click', function() {
+            var nodeId = node.getAttribute('nodeid');
+            var nodeName = node.textContent.trim();
+            document.body.removeChild(contextMenu);
+            window.Android.onReviewLesson(nodeId, nodeName);
+        });
+
+        var menuItem2 = document.createElement('div');
+        menuItem2.innerText = '预习';
+        menuItem2.style.padding = '5px 10px';
+        menuItem2.addEventListener('click', function() {
+            var nodeId = node.getAttribute('nodeid');
+            var nodeName = node.textContent.trim();
+            document.body.removeChild(contextMenu);
+            window.Android.onPrepareLesson(nodeId, nodeName);
+        });
+
+        contextMenu.appendChild(menuItem1);
+        contextMenu.appendChild(menuItem2);
+
+        document.body.appendChild(contextMenu);
+    }
+</script>
+</body>
+</html>
