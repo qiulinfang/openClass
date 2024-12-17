@@ -1,0 +1,142 @@
+{
+  "chapter": "5",
+  "title":"第5章",
+  "sections": [
+    {
+      "section":"section5.1",
+      "title":"生长激素",
+      "schemas": [
+        {
+          "comments": "李硕",
+          "introduction":"biology/chapter5/section5_1/schema1_intro.txt",
+          "textBook":"biology/chapter5/text_book.pdf",
+          "bookPageStart": 3,
+          "lecture":"biology/chapter5/section5_1/schema1_lecture.pdf",
+          "learnGuide":""
+        },
+        {
+          "comments": "吴婧",
+          "introduction":"biology/chapter5/section5_1/schema2_intro.txt",
+          "textBook":"biology/chapter5/text_book.pdf",
+          "bookPageStart": 3,
+          "lecture":"biology/chapter5/section5_1/schema2_lecture.pdf",
+          "learnGuide":"biology/chapter5/section5_1/schema2_guide.pdf"
+        },
+        {
+          "comments": "柳忠烈",
+          "introduction":"biology/chapter5/section5_1/schema3_intro.txt",
+          "textBook":"biology/chapter5/text_book.pdf",
+          "bookPageStart": 3,
+          "lecture":"biology/chapter5/section5_1/schema3_lecture.pdf",
+          "learnGuide":""
+        }
+      ]
+    },
+    {
+      "section":"section5.2",
+      "title":"其他植物激素",
+      "schemas": [
+        {
+          "comments": "刘木举",
+          "introduction":"biology/chapter5/section5_2/schema1_intro.txt",
+          "textBook":"biology/chapter5/text_book.pdf",
+          "bookPageStart": 3,
+          "lecture":"biology/chapter5/section5_2/schema1_lecture.pdf",
+          "learnGuide":""
+        },
+        {
+          "comments": "李赛楠",
+          "introduction":"biology/chapter5/section5_2/schema2_intro.txt",
+          "textBook":"biology/chapter5/text_book.pdf",
+          "bookPageStart": 3,
+          "lecture":"biology/chapter5/section5_2/schema2_lecture.pdf",
+          "learnGuide":"biology/chapter5/section5_2/schema2_guide.pdf"
+        },
+        {
+          "comments": "陈希",
+          "introduction":"biology/chapter5/section5_2/schema3_intro.txt",
+          "textBook":"biology/chapter5/text_book.pdf",
+          "bookPageStart": 3,
+          "lecture":"biology/chapter5/section5_2/schema3_lecture.pdf",
+          "learnGuide":""
+        }
+      ]
+    },
+    {
+      "section":"section5.3",
+      "title":"植物生长调节剂",
+      "schemas": [
+        {
+          "comments": "吴盼盼",
+          "introduction":"biology/chapter5/section5_3/schema1_intro.txt",
+          "textBook":"biology/chapter5/text_book.pdf",
+          "bookPageStart": 3,
+          "lecture":"biology/chapter5/section5_3/schema1_lecture.pdf",
+          "learnGuide":"biology/chapter5/section_3/schema1_guide.pdf"
+        },
+        {
+          "comments": "李磊",
+          "introduction":"biology/chapter5/section5_3/schema2_intro.txt",
+          "textBook":"biology/chapter5/text_book.pdf",
+          "bookPageStart": 3,
+          "lecture":"biology/chapter5/section5_3/schema2_lecture.pdf",
+          "learnGuide":"biology/chapter5/section5_3/schema2_guide.pdf"
+        },
+        {
+          "comments": "王爱丽",
+          "introduction":"biology/chapter5/section5_3/schema3_intro.txt",
+          "textBook":"biology/chapter5/text_book.pdf",
+          "bookPageStart": 3,
+          "lecture":"biology/chapter5/section5_3/schema3_lecture.pdf",
+          "learnGuide":""
+        },
+        {
+          "comments": "陈康",
+          "introduction":"biology/chapter5/section5_3/schema4_intro.txt",
+          "textBook":"biology/chapter5/text_book.pdf",
+          "bookPageStart": 3,
+          "lecture":"biology/chapter5/section5_3/schema4_lecture.pdf",
+          "learnGuide":"biology/chapter5/section5_3/schema4_guide.pdf"
+        }
+      ]
+    },
+    {
+      "section":"section5.4",
+      "title":"环境因素参与调节植物的生命活动",
+      "schemas": [
+        {
+          "comments": "吴婧",
+          "introduction":"biology/chapter5/section5_4/schema1_intro.txt",
+          "textBook":"biology/chapter5/text_book.pdf",
+          "bookPageStart": 3,
+          "lecture":"",
+          "learnGuide":"biology/chapter5/section5_4/schema1_guide.pdf"
+        },
+        {
+          "comments": "王魏然",
+          "introduction":"biology/chapter5/section5_4/schema2_intro.txt",
+          "textBook":"biology/chapter5/text_book.pdf",
+          "bookPageStart": 3,
+          "lecture":"biology/chapter5/section5_4/schema2_lecture.pdf",
+          "learnGuide":""
+        },
+        {
+          "comments": "苗雪鹏",
+          "introduction":"biology/chapter5/section5_4/schema3_intro.txt",
+          "textBook":"biology/chapter5/text_book.pdf",
+          "bookPageStart": 3,
+          "lecture":"biology/chapter5/section5_4/schema3_lecture.pdf",
+          "learnGuide":""
+        },
+        {
+          "comments": "陈希",
+          "introduction":"biology/chapter5/section5_4/schema4_intro.txt",
+          "textBook":"biology/chapter5/text_book.pdf",
+          "bookPageStart": 3,
+          "lecture":"",
+          "learnGuide":"biology/chapter5/section5_4/schema4_guide.pdf"
+        }
+      ]
+    }
+  ]
+}
