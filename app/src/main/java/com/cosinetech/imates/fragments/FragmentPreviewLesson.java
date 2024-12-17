@@ -1,5 +1,6 @@
 package com.cosinetech.imates.fragments;
 
+import android.annotation.SuppressLint;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -7,6 +8,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -15,6 +17,7 @@ import android.widget.Toast;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.activities.MainActivity;
 import com.github.barteksc.pdfviewer.PDFView;
+import com.github.barteksc.pdfviewer.scroll.DefaultScrollHandle;
 import com.github.barteksc.pdfviewer.util.FitPolicy;
 import com.github.spareyaya.SimpleRatingView;
 
@@ -72,6 +75,7 @@ public class FragmentPreviewLesson extends Fragment {
         return inflater.inflate(R.layout.fragment_preview_lession, container, false);
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);

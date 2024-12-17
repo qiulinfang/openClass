@@ -120,6 +120,8 @@ public class MainActivity extends AppCompatActivity {
         });
 
         ViewPager2 viewPager = findViewById(R.id.view_pager);
+        // 禁止滑动翻页
+        viewPager.setUserInputEnabled(false);
 
 
         // 创建 Fragment 列表

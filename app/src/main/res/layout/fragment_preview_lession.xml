@@ -253,6 +253,7 @@
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_margin="24dp"
+        android:focusable="true"
         app:layout_constraintStart_toStartOf="@id/guideline"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/rating_difficulty"
