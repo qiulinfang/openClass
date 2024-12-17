@@ -255,15 +255,19 @@
         app:layout_constraintTop_toBottomOf="@id/rate_title"
         app:layout_constraintEnd_toStartOf="@id/rating_difficulty"/>
 
-    <TextView
-        android:id="@+id/schema_intro"
+    <ScrollView
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_margin="12dp"
-        android:textColor="#000000"
         app:layout_constraintStart_toStartOf="@id/guideline"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/rating_difficulty"
-        app:layout_constraintBottom_toBottomOf="parent"/>
+        app:layout_constraintBottom_toBottomOf="parent">
+        <TextView
+            android:id="@+id/schema_intro"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:textColor="#000000"/>
+    </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
