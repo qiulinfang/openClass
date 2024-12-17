@@ -57,6 +57,11 @@
             android:theme="@style/Theme.IMatesApp.FullScreen"
             android:windowSoftInputMode="adjustPan"
             tools:ignore="DiscouragedApi" />
+
+        <service
+            android:name=".service.FloatingWindowService"
+            android:enabled="true"
+            android:exported="false"/>
     </application>
 
 </manifest>

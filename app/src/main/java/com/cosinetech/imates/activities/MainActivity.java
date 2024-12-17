@@ -1,24 +1,18 @@
 package com.cosinetech.imates.activities;
 
-import android.annotation.SuppressLint;
-import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ActivityInfo;
-import android.graphics.PixelFormat;
 import android.os.Bundle;
-import android.view.Gravity;
 import android.view.LayoutInflater;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.TextView;
 
-import com.airbnb.lottie.LottieAnimationView;
+import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.AdapterSubjectViewPager;
 import com.cosinetech.imates.TabItemAttribute;
-import com.cosinetech.imates.fragments.FragmentChatAi;
 import com.cosinetech.imates.fragments.FragmentMyStatus;
 import com.cosinetech.imates.fragments.FragmentSubjectBiology;
 import com.cosinetech.imates.fragments.FragmentSubjectChemistry;
@@ -26,31 +20,33 @@ import com.cosinetech.imates.fragments.FragmentSubjectChinese;
 import com.cosinetech.imates.fragments.FragmentSubjectEnglish;
 import com.cosinetech.imates.fragments.FragmentSubjectMath;
 import com.cosinetech.imates.fragments.FragmentSubjectPhysics;
+import com.cosinetech.imates.service.FloatingWindowService;
 import com.cosinetech.imates.util.WindowUtils;
 
 import androidx.fragment.app.Fragment;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.cosinetech.imates.databinding.ActivityMainBinding;
-import com.cosinetech.imates.widgets.FloatingWindow;
 import com.google.android.material.tabs.TabLayout;
 
 import com.google.android.material.tabs.TabLayoutMediator;
 import android.widget.ImageView;
+
+import androidx.fragment.app.FragmentManager;
 import androidx.viewpager2.widget.ViewPager2;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity {
-    private FloatingWindow floatingView;
+public class MainActivity extends AppCompatActivity implements FloatingWindowService.FragmentManagerProvider {
+    private View floatingView;
 
-    @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+        ApplicationModelShared  myapp = (ApplicationModelShared)(getApplication());
+        myapp.setMainActivity(this);
         // 设置全屏模式
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
@@ -72,7 +68,7 @@ public class MainActivity extends AppCompatActivity {
         );
 
         // 显示悬浮窗
-        showFloatingWindow();
+        //showFloatingWindow();
 
         ViewPager2 viewPager = findViewById(R.id.view_pager);
         // 禁止滑动翻页
@@ -119,7 +115,10 @@ public class MainActivity extends AppCompatActivity {
             // 设置自定义视图到 Tab
             tab.setCustomView(customView);
         }).attach();
+
+        startFloatingWindowService();
     }
+
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
@@ -129,30 +128,31 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    @Override
-    public <T extends View> T findViewById(int id) {
-        View view = floatingView.findView(id);
-        if (view != null) {
-            return (T) view;
-        }
-        return super.findViewById(id);
-    }
-    @SuppressLint("ClickableViewAccessibility")
-    private void showFloatingWindow() {
-        floatingView = new FloatingWindow(MainActivity.this);
-    }
-
-    private void hideFloatingWindow() {
-        if (floatingView != null) {
-            floatingView.remove();
-            floatingView = null;
-        }
+    private void startFloatingWindowService() {
+        Intent intent = new Intent(this, FloatingWindowService.class);
+        startService(intent);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // 确保在 Activity 销毁时移除悬浮窗
-        hideFloatingWindow();
+    }
+
+    @Override
+    public <T extends View> T findViewById(int id) {
+        View view;
+        if(floatingView != null) {
+            view = floatingView.findViewById(id);
+            if (view != null) {
+                return (T) view;
+            }
+        }
+        return super.findViewById(id);
+    }
+
+    @Override
+    public FragmentManager getFragmentManagerForFloatingWindow(View view) {
+        floatingView = view;
+        return getSupportFragmentManager();
     }
 }

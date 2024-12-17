@@ -5,19 +5,19 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <!-- Fragment 容器 -->
-    <androidx.fragment.app.FragmentContainerView
-        android:id="@+id/float_chat_container"
-        android:layout_width="600dp"
-        android:layout_height="match_parent"
-        android:layout_margin="16dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+<!--    <androidx.fragment.app.FragmentContainerView-->
+<!--        android:id="@+id/float_chat_container"-->
+<!--        android:layout_width="600dp"-->
+<!--        android:layout_height="match_parent"-->
+<!--        android:layout_margin="16dp"-->
+<!--        app:layout_constraintBottom_toBottomOf="parent"-->
+<!--        app:layout_constraintStart_toStartOf="parent"-->
+<!--        app:layout_constraintEnd_toEndOf="parent" />-->
 
     <FrameLayout
         android:id="@+id/lottie_container"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 

@@ -125,9 +125,9 @@ public class FragmentPreviewLesson extends Fragment {
             if(mCurrentSchema == null) {
                 Toast.makeText(getContext(), "先选择一个学习方案", Toast.LENGTH_SHORT).show();
             } else {
-//                Intent intent = new Intent(getContext(), PDFActivity.class);
-//                intent.putExtra("AssetsPdf","biology/chapter5/text_book.pdf");
-//                getContext().startActivity(intent);
+                Intent intent = new Intent(getContext(), PDFActivity.class);
+                intent.putExtra("AssetsPdf","biology/chapter5/text_book.pdf");
+                getContext().startActivity(intent);
 
 
             }
