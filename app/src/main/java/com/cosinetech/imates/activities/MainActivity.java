@@ -185,14 +185,14 @@ public class MainActivity extends AppCompatActivity {
         );
 
         // 创建悬浮 Fragment 实例
-        if(fragmentChatAi != null){
-            fragmentChatAi.getParentFragmentManager().popBackStack();
-            fragmentChatAi = null;
-        } else {
+//        if(fragmentChatAi != null){
+//            fragmentChatAi.getParentFragmentManager().popBackStack();
+//            fragmentChatAi = null;
+//        } else {
             fragmentChatAi = FragmentChatAi.newInstance(ApiUrl.URL_CHAT_GENERAL, true);
             transaction.replace(R.id.fragmentChatAiContainer, fragmentChatAi);
             transaction.addToBackStack(null);
             transaction.commit();
-        }
+        //}
     }
 }
