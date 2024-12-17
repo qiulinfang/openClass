@@ -1,13 +1,17 @@
 package com.cosinetech.imates.activities;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.pm.ActivityInfo;
+import android.graphics.PixelFormat;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.TextView;
 
 import com.airbnb.lottie.LottieAnimationView;
@@ -25,12 +29,10 @@ import com.cosinetech.imates.fragments.FragmentSubjectPhysics;
 import com.cosinetech.imates.util.WindowUtils;
 
 import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentManager;
-import androidx.fragment.app.FragmentTransaction;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.cosinetech.imates.databinding.ActivityMainBinding;
-import com.cosinetech.imates.webservice.ApiUrl;
+import com.cosinetech.imates.widgets.FloatingWindow;
 import com.google.android.material.tabs.TabLayout;
 
 import com.google.android.material.tabs.TabLayoutMediator;
@@ -42,10 +44,7 @@ import java.util.Arrays;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
-    private float dX, dY;
-    private float initialX, initialY;
-    private static final int CLICK_THRESHOLD = 10; // 拖动的阈值
-    private FragmentChatAi fragmentChatAi;
+    private FloatingWindow floatingView;
 
     @SuppressLint("ClickableViewAccessibility")
     @Override
@@ -72,56 +71,12 @@ public class MainActivity extends AppCompatActivity {
                         | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
         );
 
-        LottieAnimationView lottieAnimationView = findViewById(R.id.lottie_animation_view);
-
-        // 设置点击事件
-        lottieAnimationView.setOnClickListener(view -> showFloatingFragment());
-
-        // 设置拖动监听器
-        lottieAnimationView.setOnTouchListener(new View.OnTouchListener() {
-            @SuppressLint("ClickableViewAccessibility")
-            @Override
-            public boolean onTouch(View view, MotionEvent motionEvent) {
-                switch (motionEvent.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        // 记录触摸的初始位置
-                        initialX = motionEvent.getRawX();
-                        initialY = motionEvent.getRawY();
-                        dX = view.getX() - motionEvent.getRawX();
-                        dY = view.getY() - motionEvent.getRawY();
-                        return true;
-
-                    case MotionEvent.ACTION_MOVE:
-                        // 如果触摸点移动的距离超过阈值，认为是拖动
-                        if (Math.abs(motionEvent.getRawX() - initialX) > CLICK_THRESHOLD ||
-                                Math.abs(motionEvent.getRawY() - initialY) > CLICK_THRESHOLD) {
-                            // 更新位置
-                            view.animate()
-                                    .x(motionEvent.getRawX() + dX)
-                                    .y(motionEvent.getRawY() + dY)
-                                    .setDuration(0)
-                                    .start();
-                        }
-                        return true;
-
-                    case MotionEvent.ACTION_UP:
-                        // 在这里可以判断是否是点击（可以放置额外的条件判断）
-                        if (Math.abs(motionEvent.getRawX() - initialX) <= CLICK_THRESHOLD &&
-                                Math.abs(motionEvent.getRawY() - initialY) <= CLICK_THRESHOLD) {
-                            // 如果触摸的移动距离小于阈值，认为是点击
-                            lottieAnimationView.performClick();
-                        }
-                        return true;
-
-                    default:
-                        return false;
-                }
-            }
-        });
+        // 显示悬浮窗
+        showFloatingWindow();
 
         ViewPager2 viewPager = findViewById(R.id.view_pager);
         // 禁止滑动翻页
-        viewPager.setUserInputEnabled(false);
+        //viewPager.setUserInputEnabled(false);
 
 
         // 创建 Fragment 列表
@@ -174,25 +129,30 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void showFloatingFragment() {
-        FragmentManager fragmentManager = getSupportFragmentManager();
-        FragmentTransaction transaction = fragmentManager.beginTransaction();
-        transaction.setCustomAnimations(
-                R.anim.fragment_enter, // enter animation
-                R.anim.fragment_exit,  // exit animation
-                R.anim.fragment_enter, // popEnter animation
-                R.anim.fragment_exit   // popExit animation
-        );
+    @Override
+    public <T extends View> T findViewById(int id) {
+        View view = floatingView.findView(id);
+        if (view != null) {
+            return (T) view;
+        }
+        return super.findViewById(id);
+    }
+    @SuppressLint("ClickableViewAccessibility")
+    private void showFloatingWindow() {
+        floatingView = new FloatingWindow(MainActivity.this);
+    }
 
-        // 创建悬浮 Fragment 实例
-//        if(fragmentChatAi != null){
-//            fragmentChatAi.getParentFragmentManager().popBackStack();
-//            fragmentChatAi = null;
-//        } else {
-            fragmentChatAi = FragmentChatAi.newInstance(ApiUrl.URL_CHAT_GENERAL, true);
-            transaction.replace(R.id.fragmentChatAiContainer, fragmentChatAi);
-            transaction.addToBackStack(null);
-            transaction.commit();
-        //}
+    private void hideFloatingWindow() {
+        if (floatingView != null) {
+            floatingView.remove();
+            floatingView = null;
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // 确保在 Activity 销毁时移除悬浮窗
+        hideFloatingWindow();
     }
 }

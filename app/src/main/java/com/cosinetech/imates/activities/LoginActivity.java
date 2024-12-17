@@ -1,8 +1,12 @@
 package com.cosinetech.imates.activities;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.lifecycle.ViewModelProvider;
 
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 
 import androidx.annotation.StringRes;
@@ -10,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelStoreOwner;
 
 import android.os.Handler;
+import android.provider.Settings;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -27,6 +32,7 @@ import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.util.WindowUtils;
 
 public class LoginActivity extends AppCompatActivity {
+    private static final int REQUEST_CODE_DRAW_OVERLAY = 1001;
     private UserInfoViewModel userInfoViewModel;
     private TextView textView;
     private String fullText = null;
@@ -102,6 +108,22 @@ public class LoginActivity extends AppCompatActivity {
         startTypingEffect(); // 启动打字机效果
     }
 
+
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 检查权限
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!Settings.canDrawOverlays(this)) {
+                // 如果没有权限，请求权限
+                showPermissionDialog();
+            } else {
+                // 有权限
+            }
+        }
+    }
+
     private void performLogin(String userName, String passwd) {
         new Thread(() -> {
             try {
@@ -150,5 +172,57 @@ public class LoginActivity extends AppCompatActivity {
 
     private void showLoginFailed(@StringRes Integer errorString) {
         Toast.makeText(getApplicationContext(), errorString, Toast.LENGTH_SHORT).show();
+    }
+
+    private void showPermissionDialog() {
+        // 创建 AlertDialog
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("权限提示");
+        builder.setMessage("需要悬浮窗权限才能正常使用此功能。是否前往设置页面授权？");
+
+        // 设置“前往设置”按钮
+        builder.setPositiveButton("前往设置", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                // 跳转到系统设置页面
+                Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:" + getPackageName()));
+                startActivityForResult(intent, REQUEST_CODE_DRAW_OVERLAY);
+            }
+        });
+
+        // 设置“取消”按钮
+        builder.setNegativeButton("取消", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                // 用户取消，提示用户
+                Toast.makeText(LoginActivity.this, "您拒绝了权限，功能无法使用", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // 显示对话框
+        builder.show();
+    }
+
+    private void requestOverlayPermission() {
+        Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:" + getPackageName()));
+        startActivityForResult(intent, REQUEST_CODE_DRAW_OVERLAY);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE_DRAW_OVERLAY) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (Settings.canDrawOverlays(this)) {
+                    // 权限已授予
+                } else {
+                    // 权限未授予
+                    Toast.makeText(this, "需要悬浮窗权限", Toast.LENGTH_SHORT).show();
+                    showPermissionDialog();
+                }
+            }
+        }
     }
 }

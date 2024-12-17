@@ -20,6 +20,8 @@
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"
+        android:required="true" />
 
     <application
         android:name=".ApplicationModelShared"
