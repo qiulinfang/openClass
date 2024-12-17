@@ -24,7 +24,14 @@ import android.widget.Toast;
 
 import com.cosinetech.imates.Subject;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.webservice.ApiUrl;
+import com.google.gson.Gson;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -125,7 +132,7 @@ public class FragmentSubjectBiology extends Fragment {
 
         @JavascriptInterface
         public void onPrepareLesson(String nodeId, String nodeName) {
-            loadPrepareLessonFragment(nodeName);
+            loadPrepareLessonFragment(nodeId, nodeName);
         }
 
         @JavascriptInterface
@@ -267,12 +274,37 @@ public class FragmentSubjectBiology extends Fragment {
                 .commit();
     }
 
-    public void loadPrepareLessonFragment(String sectionName) {
-        final FragmentPreviewLesson fragmentPreviewLesson = FragmentPreviewLesson.newInstance(sectionName, "");
-        getChildFragmentManager().beginTransaction()
-                .replace(R.id.container, fragmentPreviewLesson)
-                .addToBackStack(null)
-                .commit();
+    public void loadPrepareLessonFragment(String sectionId, String sectionName) {
+        StringBuilder newstringBuilder = new StringBuilder();
+        InputStream inputStream = null;
+        try {
+            inputStream = getResources().getAssets().open("biology_learn_schema.json");
+            InputStreamReader isr = new InputStreamReader(inputStream);
+            BufferedReader reader = new BufferedReader(isr);
+            String jsonLine;
+            while ((jsonLine = reader.readLine()) != null) {
+                newstringBuilder.append(jsonLine);
+            }
+            reader.close();
+            isr.close();
+            inputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        Gson gson = new Gson();
+        Chapter chapter = gson.fromJson(newstringBuilder.toString(), Chapter.class);
+        for (Chapter.Section s: chapter.getSections()) {
+            if(s.getSection().equals(sectionId)) {
+                final FragmentPreviewLesson fragmentPreviewLesson = FragmentPreviewLesson.newInstance(sectionName, s);
+                getChildFragmentManager().beginTransaction()
+                        .replace(R.id.container, fragmentPreviewLesson)
+                        .addToBackStack(null)
+                        .commit();
+                break;
+            }
+        }
+
     }
 }
 
