@@ -35,11 +35,6 @@
         android:theme="@style/Theme.IMatesApp.FullScreen"
         tools:targetApi="31">
         <activity
-            android:name=".activities.LessonPrepareActivity"
-            android:exported="false"
-            android:label="@string/title_activity_lesson_prepare"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <activity
             android:name=".activities.LoginActivity"
             android:exported="true"
             android:theme="@style/Theme.IMatesApp.FullScreen">
