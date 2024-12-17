@@ -49,6 +49,11 @@ public class FloatingWindowService extends Service {
     public void onCreate() {
         super.onCreate();
 
+        // 获取 FragmentManagerProvider
+        ApplicationModelShared myapp = (ApplicationModelShared)(getApplication());
+        fragmentManagerProvider = myapp.getMainActivity();
+        myapp.setFloatingWindowService(this);
+
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         layoutParams = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -64,10 +69,6 @@ public class FloatingWindowService extends Service {
         layoutParams.y = ScreenUtils.getScreenHeight(this) - floatingView.getHeight() - 10;
 //        layoutParams.gravity = Gravity.BOTTOM | Gravity.END;
         windowManager.addView(floatingView, layoutParams);
-
-        // 获取 FragmentManagerProvider
-        ApplicationModelShared myapp = (ApplicationModelShared)(getApplication());
-        fragmentManagerProvider = myapp.getMainActivity();
 
         LottieAnimationView lottieAnimationView = floatingView.findViewById(R.id.lottie_animation_view);
         lottieAnimationView.setOnTouchListener(new View.OnTouchListener() {
@@ -104,7 +105,7 @@ public class FloatingWindowService extends Service {
                         float deltaY = event.getRawY() - initialTouchY;
                         if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
                             // 如果移动距离小于阈值，认为是点击事件
-                            showPopupWindow();
+                            popupChatBot();
                         }
                         return true;
                 }
@@ -139,7 +140,7 @@ public class FloatingWindowService extends Service {
         });
     }
 
-    private void showPopupWindow() {
+    public FragmentChatAi popupChatBot() {
         // 加载 PopupWindow 的布局
         View popupView = LayoutInflater.from(this).inflate(R.layout.popup_window_chat, null);
 
@@ -167,14 +168,17 @@ public class FloatingWindowService extends Service {
                 R.anim.fragment_exit   // popExit animation
         );
 
+        FragmentChatAi fragmentChatAi;
         try {
-            FragmentChatAi fragmentChatAi = FragmentChatAi.newInstance(ApiUrl.URL_CHAT_GENERAL, true);
+            fragmentChatAi = FragmentChatAi.newInstance(ApiUrl.URL_CHAT_GENERAL, true);
             transaction.replace(R.id.popup_container, fragmentChatAi);
             transaction.addToBackStack(null);
             transaction.commitAllowingStateLoss();
         }catch (Exception e) {
             e.printStackTrace();
+            return null;
         }
+        return fragmentChatAi;
     }
 
     @Override
