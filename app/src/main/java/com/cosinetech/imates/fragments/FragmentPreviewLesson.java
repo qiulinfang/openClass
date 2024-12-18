@@ -20,7 +20,6 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.widgets.ConstraintRadioGroup;
 import com.github.spareyaya.SimpleRatingView;
-import com.xhh.pdfui.PDFActivity;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -125,11 +124,9 @@ public class FragmentPreviewLesson extends Fragment {
             if(mCurrentSchema == null) {
                 Toast.makeText(getContext(), "先选择一个学习方案", Toast.LENGTH_SHORT).show();
             } else {
-                Intent intent = new Intent(getContext(), PDFActivity.class);
+                Intent intent = new Intent(getContext(), com.cosinetech.imates.pdfui.PDFActivity.class);
                 intent.putExtra("AssetsPdf","biology/chapter5/text_book.pdf");
                 getContext().startActivity(intent);
-
-
             }
         });
     }

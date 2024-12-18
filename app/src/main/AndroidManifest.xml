@@ -58,6 +58,10 @@
             android:windowSoftInputMode="adjustPan"
             tools:ignore="DiscouragedApi" />
 
+        <activity android:name=".pdfui.PDFPreviewActivity"/>
+        <activity android:name=".pdfui.PDFCatelogueActivity" />
+        <activity android:name=".pdfui.PDFActivity" />
+
         <service
             android:name=".service.FloatingWindowService"
             android:enabled="true"
