@@ -27,7 +27,6 @@ public class PaintView extends View {
     private int brushSize;
     private float touchTolerance;
     private Bitmap mBitmap;
-    private Bitmap mBackgroundBitmap;
     private Canvas mCanvas;
     private Paint mBitmapPaint = new Paint(Paint.DITHER_FLAG);
     private DrawingChangeListener drawingChangeListener;
@@ -57,8 +56,18 @@ public class PaintView extends View {
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
-        mBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        if (mBitmap == null) {
+            mBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+            mCanvas = new Canvas(mBitmap);
+        }
+    }
+
+    public void setBitmap(Bitmap bitmap) {
+        paths.clear();
+        undoPaths.clear();
+        mBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
         mCanvas = new Canvas(mBitmap);
+        invalidate();
     }
 
     public void setBrushColor(int color){
@@ -81,14 +90,6 @@ public class PaintView extends View {
         backgroundColor = color;
     }
 
-    public void setBackgroundBitmap(Bitmap bitmap) {
-        this.mBackgroundBitmap = bitmap;
-    }
-
-    public Bitmap getBackgroundBitmap() {
-        return mBackgroundBitmap;
-    }
-
     public int getBackgroundColor() {
         return backgroundColor;
     }
@@ -103,6 +104,7 @@ public class PaintView extends View {
 
     public void clearCanvas(){
         paths.clear();
+        mCanvas.drawColor(backgroundColor);
         invalidate();
     }
 
@@ -113,20 +115,22 @@ public class PaintView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         canvas.save();
-        if (mBackgroundBitmap != null) {
-            canvas.drawBitmap(mBackgroundBitmap, 0, 0, null);
-        } else {
-            mCanvas.drawColor(backgroundColor);
-        }
+        // Draw the bitmap as the base layer
+        canvas.drawBitmap(mBitmap, 0, 0, mBitmapPaint);
 
-        for(DrawingPath drawingPath:paths){
+// Draw all the paths on top
+        for (DrawingPath drawingPath : paths) {
             mPaint.setColor(drawingPath.color);
             mPaint.setStrokeWidth(drawingPath.strokeWidth);
-            mCanvas.drawPath(drawingPath.path,mPaint);
+            canvas.drawPath(drawingPath.path, mPaint);
         }
-
-        canvas.drawBitmap(mBitmap,0,0,mBitmapPaint);
         canvas.restore();
+    }
+
+    private void savePathToBitmap(DrawingPath drawingPath) {
+        mPaint.setColor(drawingPath.color);
+        mPaint.setStrokeWidth(drawingPath.strokeWidth);
+        mCanvas.drawPath(drawingPath.path, mPaint);
     }
 
     public void startTouch(float x, float y){
@@ -153,6 +157,8 @@ public class PaintView extends View {
 
     private void touchUp(){
         mPath.lineTo(mX, mY);
+        savePathToBitmap(paths.get(paths.size() - 1));
+        invalidate();
     }
 
     public void drawToCanvas(float x, float y){
@@ -163,6 +169,7 @@ public class PaintView extends View {
     public void undoDrawing(){
         if(paths.size() > 0){
             undoPaths.add(paths.remove(paths.size()-1));
+            redrawToBitmap();
             invalidate();
         }
     }
@@ -170,7 +177,21 @@ public class PaintView extends View {
     public void redoDrawing(){
         if(undoPaths.size() > 0){
             paths.add(undoPaths.remove(undoPaths.size()-1));
+            redrawToBitmap();
             invalidate();
+        }
+    }
+
+    private void redrawToBitmap() {
+        if (mBitmap != null) {
+            // 清空画布，但保留现有的 Bitmap 内容
+            mBitmap.eraseColor(Color.TRANSPARENT);
+        } else {
+            mCanvas.drawColor(backgroundColor); // 没有自定义背景图时使用纯色背景
+        }
+
+        for (DrawingPath path : paths) {
+            savePathToBitmap(path);
         }
     }
 

@@ -213,9 +213,8 @@ public class PDFActivity extends AppCompatActivity implements
                             btnScratch.setOnClickListener(v->{
                                 Bitmap bmp = WindowUtils.getScreenshot2Bitmap(PDFActivity.this, pdfView);
                                 EasyFloat.hide();
-                                 paintView.setBackgroundColor(Color.TRANSPARENT);
-                                 paintView.setBackgroundBitmap(bmp);
-                                 paintToolView.setVisibility(View.VISIBLE);
+                                paintView.setBitmap(bmp);
+                                paintToolView.setVisibility(View.VISIBLE);
                             });
                         }
                     }
