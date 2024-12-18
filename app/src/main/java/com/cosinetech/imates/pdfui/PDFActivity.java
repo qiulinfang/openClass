@@ -55,6 +55,14 @@ public class PDFActivity extends AppCompatActivity implements
         loadPdf();//加载PDF文件
     }
 
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            WindowUtils.hideSystemUI(this);
+        }
+    }
+
     /**
      * 初始化view
      */

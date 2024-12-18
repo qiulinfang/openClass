@@ -43,6 +43,14 @@ public class PDFPreviewActivity extends AppCompatActivity implements GridAdapter
         loadData();
     }
 
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            WindowUtils.hideSystemUI(this);
+        }
+    }
+
     /**
      * 初始化控件
      */

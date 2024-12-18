@@ -34,6 +34,14 @@ public class PDFCatelogueActivity extends AppCompatActivity implements TreeAdapt
         loadData();//加载数据
     }
 
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            WindowUtils.hideSystemUI(this);
+        }
+    }
+
     /**
      * 初始化控件
      */
