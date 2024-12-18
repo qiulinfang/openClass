@@ -4,12 +4,15 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PointF;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
+import android.graphics.Rect;
+import android.graphics.RectF;
 import android.util.AttributeSet;
-import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.View;
 import androidx.annotation.Nullable;
@@ -21,8 +24,19 @@ public class PaintView extends View {
     public static final int DEFAULT_BG_COLOR = Color.WHITE;
     private static final float DEFAULT_TOUCH_TOLERANCE = 4;
     private float mX, mY;
+    private boolean mIsTouching = false;
+
+    // 区域选取功能相关
+    private boolean mIsSelecing = false;
+    private Paint dashedPaint;
+    private Path dashedPath;
+    private PointF startPoint;
+    private PointF endPoint;
+
+
     private Path mPath;
     private Paint mPaint;
+    private Paint mCursorPaint;
     private ArrayList<DrawingPath> paths = new ArrayList<>();
     private ArrayList<DrawingPath> undoPaths = new ArrayList<>();
     private int brushColor;
@@ -33,14 +47,18 @@ public class PaintView extends View {
     private Canvas mCanvas;
     private Paint mBitmapPaint = new Paint(Paint.DITHER_FLAG);
     private DrawingChangeListener drawingChangeListener;
-    private int tempBrushColor;
 
     public PaintView(Context context) {
         this(context, null);
+        init();
     }
 
     public PaintView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
+        init();
+    }
+
+    public void init()  {
         mPaint = new Paint();
         mPaint.setAntiAlias(true);
         mPaint.setDither(true);
@@ -50,13 +68,33 @@ public class PaintView extends View {
         mPaint.setStrokeCap(Paint.Cap.ROUND);
         mPaint.setXfermode(null);
         mPaint.setAlpha(0xff);
+
+        mCursorPaint = new Paint();
+        mCursorPaint.setAntiAlias(true);
+        mCursorPaint.setDither(true);
+        mCursorPaint.setColor(DEFAULT_BRUSH_COLOR);
+        mCursorPaint.setStyle(Paint.Style.STROKE);
+        mCursorPaint.setStrokeJoin(Paint.Join.ROUND);
+        mCursorPaint.setStrokeCap(Paint.Cap.ROUND);
+        mCursorPaint.setXfermode(null);
+        mCursorPaint.setAlpha(0xff);
+
         brushColor = DEFAULT_BRUSH_COLOR;
         backgroundColor = DEFAULT_BG_COLOR;
         brushSize = DEFAULT_BRUSH_SIZE;
         touchTolerance = DEFAULT_TOUCH_TOLERANCE;
         setLayerType(LAYER_TYPE_SOFTWARE, null);
-    }
 
+        dashedPaint = new Paint();
+        dashedPaint.setStyle(Paint.Style.STROKE);
+        dashedPaint.setStrokeWidth(4);
+        dashedPaint.setColor(0xFF0000FF); // Blue color
+        dashedPaint.setPathEffect(new DashPathEffect(new float[]{10, 10}, 0));
+
+        dashedPath = new Path();
+        startPoint = new PointF();
+        endPoint = new PointF();
+    }
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
@@ -64,6 +102,11 @@ public class PaintView extends View {
             mBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
             mCanvas = new Canvas(mBitmap);
         }
+        startPoint.x = 0;
+        startPoint.y = 0;
+
+        endPoint.x = w;
+        endPoint.y = h;
     }
 
     public void setBitmap(Bitmap bitmap) {
@@ -112,6 +155,22 @@ public class PaintView extends View {
         invalidate();
     }
 
+    public  Bitmap getSelectedBitmap() {
+        // 获取矩形区域
+        RectF rect = new RectF(
+                Math.min(startPoint.x, endPoint.x),
+                Math.min(startPoint.y, endPoint.y),
+                Math.max(startPoint.x, endPoint.x),
+                Math.max(startPoint.y, endPoint.y)
+        );
+
+        // 裁剪出矩形区域的 Bitmap
+        return Bitmap.createBitmap(mBitmap,
+                (int) rect.left,
+                (int) rect.top,
+                (int) rect.width(),
+                (int) rect.height());
+    }
     public Bitmap getCanvasBitmap(){
         return mBitmap;
     }
@@ -130,6 +189,23 @@ public class PaintView extends View {
             }
             canvas.drawPath(drawingPath.path, mPaint);
         }
+
+        if(mIsTouching) {
+            mCursorPaint.setColor(mPaint.getColor());
+            canvas.drawCircle(mX, mY, mPaint.getStrokeWidth(), mCursorPaint);
+        }
+
+        if(mIsSelecing) {
+            if (startPoint.x != 0 || startPoint.y != 0 || endPoint.x != 0 || endPoint.y != 0) {
+                dashedPath.reset();
+                dashedPath.moveTo(startPoint.x, startPoint.y);
+                dashedPath.lineTo(endPoint.x, startPoint.y);
+                dashedPath.lineTo(endPoint.x, endPoint.y);
+                dashedPath.lineTo(startPoint.x, endPoint.y);
+                dashedPath.close();
+                canvas.drawPath(dashedPath, dashedPaint);
+            }
+        }
     }
 
     private void savePathToBitmap(DrawingPath drawingPath) {
@@ -147,35 +223,50 @@ public class PaintView extends View {
     }
 
     public void startTouch(float x, float y){
-        mPath = new Path();
-        boolean isEraser = mPaint.getXfermode() != null;
-        DrawingPath drawingPath = new DrawingPath(brushColor, brushSize, mPath, isEraser);
-        paths.add(drawingPath);
-        mPath.reset();
-        mPath.moveTo(x,y);
-        mX = x;
-        mY = y;
+        if(mIsSelecing) {
+            startPoint.set(x, y);
+            endPoint.set(x, y);
+        } else {
+            mPath = new Path();
+            boolean isEraser = mPaint.getXfermode() != null;
+            DrawingPath drawingPath = new DrawingPath(brushColor, brushSize, mPath, isEraser);
+            paths.add(drawingPath);
+            mPath.reset();
+            mPath.moveTo(x, y);
+            mX = x;
+            mY = y;
+        }
+        mIsTouching = true;
         invalidate();
     }
 
     private void touchMove(float x, float y){
-        float dx = Math.abs(x - mX);
-        float dy = Math.abs(y - mY);
+        if(mIsSelecing) {
+            endPoint.set(x, y);
+        } else {
+            float dx = Math.abs(x - mX);
+            float dy = Math.abs(y - mY);
 
-        if(dx >= touchTolerance || dy >= touchTolerance){
-            if (mPaint.getXfermode() != null) {
-                mPath.quadTo(mX, mY, (x + mX) / 2, (y + mY) / 2);  // 如果是橡皮擦，绘制透明路径
-            } else {
-                mPath.lineTo(x, y);  // 正常绘制路径
+            if (dx >= touchTolerance || dy >= touchTolerance) {
+                if (mPaint.getXfermode() != null) {
+                    mPath.quadTo(mX, mY, (x + mX) / 2, (y + mY) / 2);  // 如果是橡皮擦，绘制透明路径
+                } else {
+                    mPath.lineTo(x, y);  // 正常绘制路径
+                }
+                mX = x;
+                mY = y;
             }
-            mX = x;
-            mY = y;
         }
     }
 
-    private void touchUp(){
-        mPath.lineTo(mX, mY);
-        savePathToBitmap(paths.get(paths.size() - 1));
+    private void touchUp(float x, float y){
+        mIsTouching = false;
+        if(mIsSelecing) {
+            endPoint.set(x, y);
+        } else {
+            mPath.lineTo(mX, mY);
+            savePathToBitmap(paths.get(paths.size() - 1));
+        }
         invalidate();
     }
 
@@ -198,6 +289,19 @@ public class PaintView extends View {
             redrawToBitmap();
             invalidate();
         }
+    }
+
+    public void enableSelection() {
+        mIsSelecing = true;
+    }
+
+    public void disableSelection() {
+        mIsSelecing = false;
+        startPoint.x = 0;
+        startPoint.y = 0;
+
+        endPoint.x = getWidth();
+        endPoint.y = getHeight();
     }
 
     private void redrawToBitmap() {
@@ -243,7 +347,7 @@ public class PaintView extends View {
                 invalidate();
                 break;
             case MotionEvent.ACTION_UP:
-                touchUp();
+                touchUp(x, y);
                 if(drawingChangeListener != null){
                     drawingChangeListener.onDrawingChange(x,y);
                 }

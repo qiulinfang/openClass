@@ -128,6 +128,7 @@ public class PDFActivity extends AppCompatActivity implements
             v -> {
                 resetPaintToolSelect();
                 paintView.disableEraser();
+                paintView.disableSelection();
                 btnUseBrush.setBackgroundColor(getColor(selectionColorId));
             }
         );
@@ -136,9 +137,20 @@ public class PDFActivity extends AppCompatActivity implements
                v-> {
                    resetPaintToolSelect();
                    paintView.enableEraser();
+                   paintView.disableSelection();
                    btnUseEraser.setBackgroundColor(getColor(selectionColorId));
                }
         );
+
+        btnSelectArea.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                resetPaintToolSelect();
+                paintView.enableSelection();
+                paintView.disableEraser();
+                btnSelectArea.setBackgroundColor(getColor(selectionColorId));
+            }
+        });
 
         btnUndo.setOnClickListener(
                 v -> paintView.undoDrawing()
@@ -147,16 +159,6 @@ public class PDFActivity extends AppCompatActivity implements
         btnRedo.setOnClickListener(
                 v -> paintView.redoDrawing()
         );
-
-        btnSelectArea.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                resetPaintToolSelect();
-                btnSelectArea.setBackgroundColor(getColor(selectionColorId));
-                // 实现选择区域的逻辑
-                //Toast.makeText(PhotoEditorActivity.this, "选择区域功能待实现", Toast.LENGTH_SHORT).show();
-            }
-        });
 
         btnOk.setOnClickListener(v -> {
         });
