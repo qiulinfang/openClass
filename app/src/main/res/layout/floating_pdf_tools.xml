@@ -24,15 +24,16 @@
 
         <Button
             android:id="@+id/btn_back"
-            android:text = "返回"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
+            android:background="@drawable/ic_back1"
+            android:layout_marginEnd="16dp"
+            android:layout_width="42dp"
+            android:layout_height="42dp"/>
 
         <Button
             android:id="@+id/btn_contents"
-            android:text = "目录"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/ic_contents" />
 
         <Button
             android:id="@+id/btn_thumbnail"
@@ -43,28 +44,29 @@
 
         <Button
             android:id="@+id/btn_note"
-            android:text = "笔记"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
+            android:background="@drawable/ic_note"
+            android:layout_width="48dp"
+            android:layout_height="48dp"/>
 
         <Button
             android:id="@+id/btn_scratch"
-            android:text = "涂鸦"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="16dp"/>
+            android:background="@drawable/ic_scribble"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="32dp"/>
 
         <Button
             android:id="@+id/btn_to_schema"
-            android:text = "方案"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+
+            android:background="@drawable/ic_schema"
+            android:layout_width="48dp"
+            android:layout_height="48dp" />
 
         <Button
             android:id="@+id/btn_to_textbook"
-            android:text = "教材"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
+            android:background="@drawable/ic_book"
+            android:layout_width="48dp"
+            android:layout_height="48dp"/>
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
