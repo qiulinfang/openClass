@@ -3,7 +3,9 @@ agp = "8.7.3"
 androidImageCropper = "4.6.0"
 cameraCore = "1.4.0"
 commonmark = "0.13.0"
+easyfloat = "2.0.4"
 glideVersion = "4.12.0"
+graphview = "4.2.2"
 gson = "2.11.0"
 jlatexmathAndroid = "0.2.0"
 junit = "4.13.2"
@@ -29,6 +31,7 @@ leanback = "1.0.0"
 glide = "4.11.0"
 activity = "1.9.3"
 refreshLayoutKernel = "2.0.5"
+simpleratingview = "v1.0.5-beta"
 viewpager2 = "1.1.0"
 
 [libraries]
@@ -40,7 +43,9 @@ camera-view = { module = "androidx.camera:camera-view", version.ref = "cameraCor
 commonmark = { module = "com.atlassian.commonmark:commonmark", version.ref = "commonmark" }
 commonmark-parent = { module = "com.atlassian.commonmark:commonmark-parent", version.ref = "commonmark" }
 compiler = { module = "com.github.bumptech.glide:compiler", version.ref = "glideVersion" }
+easyfloat = { module = "com.github.princekin-f:EasyFloat", version.ref = "easyfloat" }
 glide-v4120 = { module = "com.github.bumptech.glide:glide", version.ref = "glideVersion" }
+graphview = { module = "com.jjoe64:graphview", version.ref = "graphview" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 jlatexmath-android = { module = "ru.noties:jlatexmath-android", version.ref = "jlatexmathAndroid" }
 jlatexmath-android-font-cyrillic = { module = "ru.noties:jlatexmath-android-font-cyrillic", version.ref = "jlatexmathAndroid" }
@@ -67,6 +72,7 @@ compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = 
 refresh-footer-classics = { module = "io.github.scwang90:refresh-footer-classics", version.ref = "refreshLayoutKernel" }
 refresh-header-classics = { module = "io.github.scwang90:refresh-header-classics", version.ref = "refreshLayoutKernel" }
 refresh-layout-kernel = { module = "io.github.scwang90:refresh-layout-kernel", version.ref = "refreshLayoutKernel" }
+simpleratingview = { module = "com.github.spareyaya:SimpleRatingView", version.ref = "simpleratingview" }
 ui = { group = "androidx.compose.ui", name = "ui" }
 ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
