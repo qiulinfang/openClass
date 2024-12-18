@@ -214,6 +214,7 @@ public class PDFActivity extends AppCompatActivity implements
                                 Bitmap bmp = WindowUtils.getScreenshot2Bitmap(PDFActivity.this, pdfView);
                                 EasyFloat.hide();
                                 paintView.setBitmap(bmp);
+                                //paintView.setBackgroundColor(Color.TRANSPARENT);
                                 paintToolView.setVisibility(View.VISIBLE);
                             });
                         }

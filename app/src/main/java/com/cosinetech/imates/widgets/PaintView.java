@@ -6,6 +6,8 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
@@ -114,28 +116,40 @@ public class PaintView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        canvas.save();
-        // Draw the bitmap as the base layer
         canvas.drawBitmap(mBitmap, 0, 0, mBitmapPaint);
 
-// Draw all the paths on top
         for (DrawingPath drawingPath : paths) {
             mPaint.setColor(drawingPath.color);
             mPaint.setStrokeWidth(drawingPath.strokeWidth);
+            if (drawingPath.isEraser) {
+                mPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
+            } else {
+                mPaint.setXfermode(null);
+            }
             canvas.drawPath(drawingPath.path, mPaint);
         }
-        canvas.restore();
+        // 确保最后一次绘制后 Xfermode 被重置
+        mPaint.setXfermode(null);
     }
 
     private void savePathToBitmap(DrawingPath drawingPath) {
+        if (drawingPath.isEraser) {
+            // Use clear mode for eraser paths
+            mPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
+        } else {
+            // Use normal brush mode
+            mPaint.setXfermode(null);
+        }
         mPaint.setColor(drawingPath.color);
         mPaint.setStrokeWidth(drawingPath.strokeWidth);
         mCanvas.drawPath(drawingPath.path, mPaint);
+        mPaint.setXfermode(null); // Restore the normal Xfermode
     }
 
     public void startTouch(float x, float y){
         mPath = new Path();
-        DrawingPath drawingPath = new DrawingPath(brushColor,brushSize,mPath);
+        boolean isEraser = mPaint.getXfermode() != null;
+        DrawingPath drawingPath = new DrawingPath(brushColor, brushSize, mPath, isEraser);
         paths.add(drawingPath);
         mPath.reset();
         mPath.moveTo(x,y);
@@ -149,7 +163,11 @@ public class PaintView extends View {
         float dy = Math.abs(y - mY);
 
         if(dx >= touchTolerance || dy >= touchTolerance){
-            mPath.quadTo(mX, mY, (x + mX)/2, (y + mY)/2);
+            if (mPaint.getXfermode() != null) {
+                mPath.quadTo(mX, mY, (x + mX) / 2, (y + mY) / 2);  // 如果是橡皮擦，绘制透明路径
+            } else {
+                mPath.lineTo(x, y);  // 正常绘制路径
+            }
             mX = x;
             mY = y;
         }
@@ -195,15 +213,14 @@ public class PaintView extends View {
         }
     }
 
+    int layerid = -1;
     public void enableEraser(){
-        tempBrushColor = brushColor;
-        brushColor = backgroundColor;
+        mPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
     }
 
+
     public void disableEraser(){
-        if(tempBrushColor != 0){
-            brushColor = tempBrushColor;
-        }
+        mPaint.setXfermode(null);
     }
 
     @Override
