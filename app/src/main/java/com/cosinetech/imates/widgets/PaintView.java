@@ -9,6 +9,7 @@ import android.graphics.Path;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.util.AttributeSet;
+import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.View;
 import androidx.annotation.Nullable;
@@ -53,6 +54,7 @@ public class PaintView extends View {
         backgroundColor = DEFAULT_BG_COLOR;
         brushSize = DEFAULT_BRUSH_SIZE;
         touchTolerance = DEFAULT_TOUCH_TOLERANCE;
+        setLayerType(LAYER_TYPE_SOFTWARE, null);
     }
 
     @Override
@@ -128,8 +130,6 @@ public class PaintView extends View {
             }
             canvas.drawPath(drawingPath.path, mPaint);
         }
-        // 确保最后一次绘制后 Xfermode 被重置
-        mPaint.setXfermode(null);
     }
 
     private void savePathToBitmap(DrawingPath drawingPath) {
