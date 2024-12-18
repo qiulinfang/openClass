@@ -38,8 +38,8 @@ public class PDFCatelogueActivity extends AppCompatActivity implements TreeAdapt
      * 初始化控件
      */
     private void initView() {
-        btn_back = findViewById(com.xhh.pdfui.R.id.btn_back);
-        recyclerView = findViewById(com.xhh.pdfui.R.id.rv_tree);
+        btn_back = findViewById(R.id.btn_back);
+        recyclerView = findViewById(R.id.rv_tree);
     }
 
     /**

@@ -9,9 +9,9 @@ import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.cosinetech.imates.R;
 import com.shockwave.pdfium.PdfDocument;
 import com.shockwave.pdfium.PdfiumCore;
-import com.xhh.pdfui.R;
 
 public class GridAdapter extends RecyclerView.Adapter<GridAdapter.GridViewHolder> {
 

@@ -19,7 +19,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.cosinetech.imates.R;
-import com.xhh.pdfui.PDFActivity;
+import com.cosinetech.imates.pdfui.PDFActivity;
 
 public class LessonPrepareActivity extends AppCompatActivity {
 

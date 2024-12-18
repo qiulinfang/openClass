@@ -116,7 +116,6 @@ dependencies {
     // ======== rating
     implementation 'com.github.spareyaya:SimpleRatingView:v1.0.5-beta'
 
-    implementation project(':pdfui')
 
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit

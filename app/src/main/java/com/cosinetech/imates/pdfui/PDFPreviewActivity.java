@@ -47,8 +47,8 @@ public class PDFPreviewActivity extends AppCompatActivity implements GridAdapter
      * 初始化控件
      */
     private void initView() {
-        btn_back = findViewById(com.xhh.pdfui.R.id.btn_back);
-        recyclerView = findViewById(com.xhh.pdfui.R.id.rv_grid);
+        btn_back = findViewById(R.id.btn_back);
+        recyclerView = findViewById(R.id.rv_grid);
     }
 
     /**

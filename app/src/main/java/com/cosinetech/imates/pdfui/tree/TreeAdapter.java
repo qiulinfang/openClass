@@ -10,8 +10,8 @@ import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.cosinetech.imates.R;
 import com.cosinetech.imates.pdfui.UIUtils;
-import com.xhh.pdfui.R;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -25,4 +25,3 @@ dependencyResolutionManagement {
 rootProject.name = "iMatesApp"
 include ':app'
 include ':android-pdf-viewer'
-include ':pdfui'

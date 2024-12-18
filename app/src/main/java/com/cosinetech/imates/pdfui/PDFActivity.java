@@ -59,10 +59,10 @@ public class PDFActivity extends AppCompatActivity implements
      * 初始化view
      */
     private void initView() {
-        pdfView = findViewById(com.xhh.pdfui.R.id.pdfView);
-        btn_back = findViewById(com.xhh.pdfui.R.id.btn_back);
-        btn_catalogue = findViewById(com.xhh.pdfui.R.id.btn_catalogue);
-        btn_preview = findViewById(com.xhh.pdfui.R.id.btn_preview);
+        pdfView = findViewById(R.id.pdfView);
+        btn_back = findViewById(R.id.btn_back);
+        btn_catalogue = findViewById(R.id.btn_catalogue);
+        btn_preview = findViewById(R.id.btn_preview);
     }
 
     /**
