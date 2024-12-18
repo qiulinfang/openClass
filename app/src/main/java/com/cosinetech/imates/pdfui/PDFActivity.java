@@ -1,28 +1,36 @@
 package com.cosinetech.imates.pdfui;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.ImageView;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.colorpicker.ColorListener;
+import com.cosinetech.imates.colorpicker.ColorPickerDialog;
 import com.cosinetech.imates.pdfui.tree.TreeNodeData;
 import com.cosinetech.imates.util.WindowUtils;
+import com.cosinetech.imates.widgets.PaintView;
 import com.github.barteksc.pdfviewer.PDFView;
 import com.github.barteksc.pdfviewer.listener.OnLoadCompleteListener;
 import com.github.barteksc.pdfviewer.listener.OnPageChangeListener;
 import com.github.barteksc.pdfviewer.listener.OnPageErrorListener;
 import com.github.barteksc.pdfviewer.scroll.DefaultScrollHandle;
 import com.github.barteksc.pdfviewer.util.FitPolicy;
+import com.litao.slider.NiftySlider;
 import com.lzf.easyfloat.EasyFloat;
 import com.lzf.easyfloat.enums.SidePattern;
-import com.lzf.easyfloat.interfaces.FloatCallbacks;
 import com.lzf.easyfloat.interfaces.OnFloatCallbacks;
 import com.shockwave.pdfium.PdfDocument;
 
@@ -32,13 +40,23 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import kotlin.Unit;
-import kotlin.jvm.functions.Function1;
-
 public class PDFActivity extends AppCompatActivity implements
         OnPageChangeListener,
         OnLoadCompleteListener,
         OnPageErrorListener {
+    private ImageView btnBrushSize;
+    private ImageView btnPalatte;
+    private ImageView btnUseBrush;
+    private ImageView btnUseEraser;
+    private ImageView btnUndo;
+    private ImageView btnRedo;
+    private ImageView btnSelectArea;
+    private ImageView btnOk;
+    private ImageView btnCancel;
+    private TextView textColorIndicator;
+    private PaintView paintView;
+    private View paintToolView;
+    private int selectionColorId = R.color.assist_blue;
     //PDF控件
     PDFView pdfView;
     //按钮控件：返回、目录、缩略图
@@ -60,8 +78,97 @@ public class PDFActivity extends AppCompatActivity implements
         WindowUtils.setFullScreenMode(this);
         setContentView(R.layout.activity_pdf);
 
+        paintView = findViewById(R.id.paint_view);
+
+        btnBrushSize = findViewById(R.id.imgBrushSize);
+        btnPalatte = findViewById(R.id.imgPalette);
+        btnUseBrush = findViewById(R.id.imgBrush);
+        btnUseEraser = findViewById(R.id.imgErase);
+        btnUndo = findViewById(R.id.imgUndo);
+        btnRedo = findViewById(R.id.imgRedo);
+        btnSelectArea = findViewById(R.id.imgSelectArea);
+        btnOk = findViewById(R.id.imgOK);
+        btnCancel = findViewById(R.id.imgCancel);
+        textColorIndicator = findViewById(R.id.colorIndicator);
+        paintToolView = findViewById(R.id.img_edit_layout);
+        paintToolView.setVisibility(View.GONE);
+
+        //默认选择画笔
+        btnUseBrush.setBackgroundColor(getColor(selectionColorId));
+
+        com.litao.slider.NiftySlider slider = findViewById(R.id.niftySlider);
+        btnBrushSize.setOnClickListener(v -> {
+            if(slider.getVisibility() == View.VISIBLE) {
+                btnBrushSize.setBackgroundColor(getColor(R.color.semi_black_transparent));
+                slider.setVisibility(View.GONE);
+            } else {
+                slider.setVisibility(View.VISIBLE);
+                btnBrushSize.setBackgroundColor(getColor(selectionColorId));
+            }
+        });
+
+        slider.setOnIntValueChangeListener(new NiftySlider.OnIntValueChangeListener() {
+            @Override
+            public void onValueChange(@NonNull NiftySlider niftySlider, int i, boolean b) {
+                paintView.setBrushSize(i);
+            }
+        });
+
+        btnPalatte.setOnClickListener(v->{
+            new ColorPickerDialog.Builder(this)
+                    .setTitle("选择颜色")
+                    .setPositiveButton("确定", (ColorListener) (colorInfo, fromUser) -> {
+                        textColorIndicator.setTextColor(colorInfo.getColor());
+                        paintView.setBrushColor(colorInfo.getColor());
+                    })
+                    .show();
+        });
+
+        btnUseBrush.setOnClickListener(
+            v -> {
+                resetPaintToolSelect();
+                paintView.disableEraser();
+                btnUseBrush.setBackgroundColor(getColor(selectionColorId));
+            }
+        );
+
+        btnUseEraser.setOnClickListener(
+               v-> {
+                   resetPaintToolSelect();
+                   paintView.enableEraser();
+                   btnUseEraser.setBackgroundColor(getColor(selectionColorId));
+               }
+        );
+
+        btnUndo.setOnClickListener(
+                v -> paintView.undoDrawing()
+        );
+
+        btnRedo.setOnClickListener(
+                v -> paintView.redoDrawing()
+        );
+
+        btnSelectArea.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                resetPaintToolSelect();
+                btnSelectArea.setBackgroundColor(getColor(selectionColorId));
+                // 实现选择区域的逻辑
+                //Toast.makeText(PhotoEditorActivity.this, "选择区域功能待实现", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        btnOk.setOnClickListener(v -> {
+        });
+
+        btnCancel.setOnClickListener( v -> {
+            paintToolView.setVisibility(View.GONE);
+            EasyFloat.show();
+
+        });
+
         EasyFloat.with(this).setLayout(R.layout.floating_pdf_tools)
-                .setSidePattern(SidePattern.DEFAULT)
+                .setSidePattern(SidePattern.AUTO_SIDE)
                 .registerCallbacks(new OnFloatCallbacks() {
                     @Override
                     public void createdResult(boolean isCreated, @Nullable String msg, @Nullable View view) {
@@ -92,6 +199,24 @@ public class PDFActivity extends AppCompatActivity implements
                                 intent.setData(uri);
                                 PDFActivity.this.startActivityForResult(intent, 201);
                             });
+
+                            CheckBox checkBoxColl = view.findViewById(R.id.btn_collapse);
+                            checkBoxColl.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                                if(isChecked) {
+                                    view.findViewById(R.id.tools_layout).setVisibility(View.GONE);
+                                } else {
+                                    view.findViewById(R.id.tools_layout).setVisibility(View.VISIBLE);
+                                }
+                            });
+
+                            Button btnScratch = view.findViewById(R.id.btn_scratch);
+                            btnScratch.setOnClickListener(v->{
+                                Bitmap bmp = WindowUtils.getScreenshot2Bitmap(PDFActivity.this, pdfView);
+                                EasyFloat.hide();
+                                 paintView.setBackgroundColor(Color.TRANSPARENT);
+                                 paintView.setBackgroundBitmap(bmp);
+                                 paintToolView.setVisibility(View.VISIBLE);
+                            });
                         }
                     }
 
@@ -117,6 +242,12 @@ public class PDFActivity extends AppCompatActivity implements
 
         initView();//初始化view
         loadPdf();//加载PDF文件
+    }
+
+    private void resetPaintToolSelect() {
+        btnUseBrush.setBackgroundColor(getColor(R.color.semi_black_transparent));
+        btnUseEraser.setBackgroundColor(getColor(R.color.semi_black_transparent));
+        btnSelectArea.setBackgroundColor(getColor(R.color.semi_black_transparent));
     }
 
     @Override

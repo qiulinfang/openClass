@@ -31,4 +31,13 @@
     <style name="Theme.IMatesApp.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
 
     <style name="Theme.IMatesApp.PopupOverlay" parent="ThemeOverlay.AppCompat.Light" />
+
+    <style name="Base.Theme.CustomColorPicker" parent="Theme.AppCompat.DayNight">
+    </style>
+
+    <style name="Theme.CustomColorPicker" parent="Base.Theme.CustomColorPicker" />
+
+    <style name="CustomDialog" parent="Theme.AppCompat.DayNight.Dialog.Alert">
+        <item name="android:dialogCornerRadius" tools:targetApi="p">32dp</item>
+    </style>
 </resources>

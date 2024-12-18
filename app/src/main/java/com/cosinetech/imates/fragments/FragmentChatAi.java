@@ -3,6 +3,7 @@ package com.cosinetech.imates.fragments;
 import android.os.Bundle;
 
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -25,6 +26,7 @@ import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -79,6 +81,25 @@ public class FragmentChatAi extends Fragment {
     }
 
     @Override
+    public void onSaveInstanceState(Bundle outState) {
+        //super.onSaveInstanceState(outState);
+        // 在此处保存需要的状态数据到outState中
+        outState.putString(KEY_PARAM_CHATBOT_URL, chatBotUrl);
+        outState.putBoolean(KEY_PARAM_SHOW_HEADER, showHeader);
+    }
+
+    private void fixBug(FragmentManager fragmentManager) {
+        try {
+            Class<? extends FragmentManager> aClass = fragmentManager.getClass();
+            Method method = aClass.getMethod("noteStateNotSaved");
+            method.setAccessible(true);
+            method.invoke(fragmentManager);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
@@ -107,7 +128,9 @@ public class FragmentChatAi extends Fragment {
         Button btnExit = view.findViewById(R.id.back_exit);
 
         btnExit.setOnClickListener(v -> {
-            getParentFragmentManager().popBackStack();
+            FragmentManager fragmentManager = getParentFragmentManager();
+            fixBug(fragmentManager);
+            fragmentManager.popBackStackImmediate();
         });
 
         // Required empty public constructor
