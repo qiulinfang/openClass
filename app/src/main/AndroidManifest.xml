@@ -58,9 +58,12 @@
             android:windowSoftInputMode="adjustPan"
             tools:ignore="DiscouragedApi" />
 
-        <activity android:name=".pdfui.PDFPreviewActivity"/>
-        <activity android:name=".pdfui.PDFCatelogueActivity" />
-        <activity android:name=".pdfui.PDFActivity" />
+        <activity android:name=".pdfui.PDFPreviewActivity"
+            android:theme="@style/Theme.IMatesApp.FullScreen"/>
+        <activity android:name=".pdfui.PDFCatelogueActivity"
+            android:theme="@style/Theme.IMatesApp.FullScreen"/>
+        <activity android:name=".pdfui.PDFActivity"
+            android:theme="@style/Theme.IMatesApp.FullScreen"/>
 
         <service
             android:name=".service.FloatingWindowService"

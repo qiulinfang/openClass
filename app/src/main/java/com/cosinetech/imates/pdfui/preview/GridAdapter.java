@@ -13,11 +13,6 @@ import com.shockwave.pdfium.PdfDocument;
 import com.shockwave.pdfium.PdfiumCore;
 import com.xhh.pdfui.R;
 
-/**
- * grid列表适配器
- * 作者：齐行超
- * 日期：2019.08.08
- */
 public class GridAdapter extends RecyclerView.Adapter<GridAdapter.GridViewHolder> {
 
     Context context;

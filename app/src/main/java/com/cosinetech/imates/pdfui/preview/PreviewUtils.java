@@ -17,16 +17,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-/**
- * 预览缩略图工具类
- *
- * 1、pdf页面转为缩略图
- * 2、图片缓存管理（仅保存到内存，可使用LruCache，注意空间大小控制）
- * 3、多线程管理（线程并发、阻塞、Future任务取消）
- *
- * 作者：齐行超
- * 日期：2019.08.08
- */
 public class PreviewUtils {
     //图片缓存管理
     private ImageCache imageCache;

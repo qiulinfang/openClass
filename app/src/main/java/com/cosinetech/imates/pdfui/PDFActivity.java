@@ -8,7 +8,9 @@ import android.widget.Button;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.cosinetech.imates.R;
 import com.cosinetech.imates.pdfui.tree.TreeNodeData;
+import com.cosinetech.imates.util.WindowUtils;
 import com.github.barteksc.pdfviewer.PDFView;
 import com.github.barteksc.pdfviewer.listener.OnLoadCompleteListener;
 import com.github.barteksc.pdfviewer.listener.OnPageChangeListener;
@@ -21,17 +23,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * UI页面：PDF阅读
- * <p>
- * 主要功能：
- * 1、接收传递过来的pdf文件（包括assets中的文件名、文件uri）
- * 2、显示PDF文件
- * 3、接收目录页面、预览页面返回的PDF页码，跳转到指定的页面
- * <p>
- * 作者：齐行超
- * 日期：2019.08.07
- */
 public class PDFActivity extends AppCompatActivity implements
         OnPageChangeListener,
         OnLoadCompleteListener,
@@ -54,8 +45,10 @@ public class PDFActivity extends AppCompatActivity implements
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        UIUtils.initWindowStyle(getWindow(), getSupportActionBar());//设置沉浸式
-        setContentView(com.xhh.pdfui.R.layout.activity_pdf);
+        //UIUtils.initWindowStyle(getWindow(), getSupportActionBar());//设置沉浸式
+        WindowUtils.hideSystemUI(this);
+        WindowUtils.setFullScreenMode(this);
+        setContentView(R.layout.activity_pdf);
 
         initView();//初始化view
         setEvent();//设置事件

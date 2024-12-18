@@ -10,11 +10,6 @@ import android.view.WindowManager;
 
 import androidx.appcompat.app.ActionBar;
 
-/**
- * UI工具类
- * 作者：齐行超
- * 日期：2019.08.07
- */
 public class UIUtils {
     //屏幕密度（做成全局变量，目的：只获取一次）
     private static float density;

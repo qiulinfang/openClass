@@ -12,23 +12,16 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.cosinetech.imates.R;
 import com.cosinetech.imates.pdfui.preview.GridAdapter;
 import com.cosinetech.imates.pdfui.preview.PreviewUtils;
+import com.cosinetech.imates.util.WindowUtils;
 import com.github.barteksc.pdfviewer.util.FileUtils;
 import com.shockwave.pdfium.PdfDocument;
 import com.shockwave.pdfium.PdfiumCore;
 
 import java.io.File;
 
-/**
- * UI页面：PDF预览缩略图（注意：此页面，需多关注内存管控）
- * <p>
- * 1、用于显示Pdf缩略图信息
- * 2、点击缩略图，带回Pdf页码到前一个页面
- * <p>
- * 作者：齐行超
- * 日期：2019.08.07
- */
 public class PDFPreviewActivity extends AppCompatActivity implements GridAdapter.GridEvent {
 
     RecyclerView recyclerView;
@@ -40,8 +33,10 @@ public class PDFPreviewActivity extends AppCompatActivity implements GridAdapter
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        UIUtils.initWindowStyle(getWindow(), getSupportActionBar());
-        setContentView(com.xhh.pdfui.R.layout.activity_preview);
+        WindowUtils.hideSystemUI(this);
+        WindowUtils.setFullScreenMode(this);
+        //UIUtils.initWindowStyle(getWindow(), getSupportActionBar());
+        setContentView(R.layout.activity_preview);
 
         initView();//初始化控件
         setEvent();

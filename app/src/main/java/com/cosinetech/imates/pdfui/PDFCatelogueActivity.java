@@ -10,30 +10,24 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.cosinetech.imates.R;
 import com.cosinetech.imates.pdfui.tree.TreeAdapter;
 import com.cosinetech.imates.pdfui.tree.TreeNodeData;
+import com.cosinetech.imates.util.WindowUtils;
 
 import java.util.List;
 
-/**
- * UI页面：PDF目录
- * <p>
- * 1、用于显示Pdf目录信息
- * 2、点击tree item，带回Pdf页码到前一个页面
- * <p>
- * 作者：齐行超
- * 日期：2019.08.07
- */
 public class PDFCatelogueActivity extends AppCompatActivity implements TreeAdapter.TreeEvent {
-
     RecyclerView recyclerView;
     Button btn_back;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        UIUtils.initWindowStyle(getWindow(), getSupportActionBar());
-        setContentView(com.xhh.pdfui.R.layout.activity_catelogue);
+        WindowUtils.hideSystemUI(this);
+        WindowUtils.setFullScreenMode(this);
+        //UIUtils.initWindowStyle(getWindow(), getSupportActionBar());
+        setContentView(R.layout.activity_catelogue);
 
         initView();//初始化控件
         setEvent();//设置事件
