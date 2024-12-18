@@ -67,12 +67,9 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
                         | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
         );
 
-        // 显示悬浮窗
-        //showFloatingWindow();
-
         ViewPager2 viewPager = findViewById(R.id.view_pager);
         // 禁止滑动翻页
-        //viewPager.setUserInputEnabled(false);
+        viewPager.setUserInputEnabled(false);
 
 
         // 创建 Fragment 列表

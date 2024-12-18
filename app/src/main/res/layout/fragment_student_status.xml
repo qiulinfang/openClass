@@ -1,266 +1,154 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    tools:context=".fragments.FragmentMyStatus"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true">
+    android:orientation="vertical"
+    android:background="#ffffff"
+    android:padding="16dp">
 
-    <ImageView
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@drawable/status"
-        />
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
 
-<!--    <ScrollView-->
-<!--        android:layout_width="match_parent"-->
-<!--        android:layout_height="0dp"-->
-<!--        app:layout_constraintEnd_toEndOf="parent"-->
-<!--        app:layout_constraintStart_toStartOf="parent"-->
-<!--        app:layout_constraintTop_toTopOf="parent">-->
+        <!-- Left side - Graph -->
+        <com.jjoe64.graphview.GraphView
+            android:id="@+id/stat_graph"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"/>
 
-<!--        <LinearLayout-->
-<!--            android:layout_width="match_parent"-->
-<!--            android:layout_height="wrap_content"-->
-<!--            android:orientation="vertical"-->
-<!--            android:padding="16dp">-->
+        <!-- Right side - Checklist -->
+        <ScrollView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="#F5F5F5">
 
-<!--            &lt;!&ndash; Left Panel &ndash;&gt;-->
-<!--            <androidx.cardview.widget.CardView-->
-<!--                android:layout_width="match_parent"-->
-<!--                android:layout_height="wrap_content"-->
-<!--                android:layout_marginBottom="16dp"-->
-<!--                app:cardBackgroundColor="#232547"-->
-<!--                app:cardCornerRadius="8dp"-->
-<!--                app:cardElevation="4dp">-->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-<!--                <LinearLayout-->
-<!--                    android:layout_width="match_parent"-->
-<!--                    android:layout_height="wrap_content"-->
-<!--                    android:orientation="vertical"-->
-<!--                    android:padding="16dp">-->
+                <!-- Math Section -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="数学"
+                    android:textStyle="bold"
+                    android:textSize="18sp"
+                    android:layout_marginBottom="8dp"/>
 
-<!--                    <TextView-->
-<!--                        android:layout_width="wrap_content"-->
-<!--                        android:layout_height="wrap_content"-->
-<!--                        android:layout_marginBottom="16dp"-->
-<!--                        android:text="我的计划"-->
-<!--                        android:textColor="#FFFFFF"-->
-<!--                        android:textSize="18sp" />-->
+                <CheckBox
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="订正周测"/>
 
-<!--                    <LinearLayout-->
-<!--                        android:layout_width="match_parent"-->
-<!--                        android:layout_height="wrap_content"-->
-<!--                        android:background="#2b2d5a"-->
-<!--                        android:orientation="horizontal"-->
-<!--                        android:padding="12dp">-->
+                <CheckBox
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="4.2练习册下"/>
 
-<!--                        <ImageView-->
-<!--                            android:layout_width="16dp"-->
-<!--                            android:layout_height="16dp"-->
-<!--                            android:src="@drawable/avatar_1" />-->
+                <CheckBox
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="整理笔记"/>
 
-<!--                        <TextView-->
-<!--                            android:id="@+id/markdownTextView"-->
-<!--                            android:layout_width="wrap_content"-->
-<!--                            android:layout_height="wrap_content"-->
-<!--                            android:layout_marginStart="8dp"-->
-<!--                            android:text="幼小衔接专项计划"-->
-<!--                            android:textAlignment="center"-->
-<!--                            android:textColor="#FFFFFF"-->
-<!--                            android:textSize="14sp" />-->
+                <CheckBox
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="数列举一反三"/>
 
-<!--                    </LinearLayout>-->
+                <!-- Biology Section -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="生物"
+                    android:textStyle="bold"
+                    android:textSize="18sp"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="8dp"/>
 
-<!--                    <LinearLayout-->
-<!--                        android:layout_width="match_parent"-->
-<!--                        android:layout_height="wrap_content"-->
-<!--                        android:layout_marginTop="12dp"-->
-<!--                        android:background="#2b2d5a"-->
-<!--                        android:orientation="vertical"-->
-<!--                        android:padding="12dp">-->
+                <CheckBox
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="5.2练习册下"/>
 
-<!--                        <LinearLayout-->
-<!--                            android:layout_width="match_parent"-->
-<!--                            android:layout_height="wrap_content"-->
-<!--                            android:orientation="horizontal">-->
+                <CheckBox
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="5.2实验报告"/>
+                <CheckBox
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="订正周测"/>
+                <CheckBox
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="整理笔记"/>
+                <CheckBox
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="绘制激素调节导图"/>
 
-<!--                            <ImageView-->
-<!--                                android:layout_width="16dp"-->
-<!--                                android:layout_height="16dp"-->
-<!--                                android:src="@drawable/avatar_1" />-->
+                <!-- Biology Section -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="物理"
+                    android:textStyle="bold"
+                    android:textSize="18sp"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="8dp"/>
 
-<!--                            <TextView-->
-<!--                                android:layout_width="wrap_content"-->
-<!--                                android:layout_height="wrap_content"-->
-<!--                                android:layout_marginStart="8dp"-->
-<!--                                android:text="小学语文阅读计划1期-2024秋季"-->
-<!--                                android:textColor="#FFFFFF"-->
-<!--                                android:textSize="14sp" />-->
+                <CheckBox
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="订正周测"/>
 
-<!--                        </LinearLayout>-->
+                <CheckBox
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="4.2练习册下"/>
+                <CheckBox
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="整理笔记"/>
+                <CheckBox
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="电磁力举一反三"/>
 
-<!--                        <ProgressBar-->
-<!--                            style="?android:attr/progressBarStyleHorizontal"-->
-<!--                            android:layout_width="match_parent"-->
-<!--                            android:layout_height="wrap_content"-->
-<!--                            android:layout_marginTop="8dp"-->
-<!--                            android:progress="33" />-->
+            </LinearLayout>
+        </ScrollView>
+    </LinearLayout>
 
-<!--                    </LinearLayout>-->
+    <!-- Bottom - Comments -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="16dp">
 
-<!--                    <LinearLayout-->
-<!--                        android:layout_width="match_parent"-->
-<!--                        android:layout_height="wrap_content"-->
-<!--                        android:layout_marginTop="12dp"-->
-<!--                        android:background="#2b2d5a"-->
-<!--                        android:orientation="horizontal"-->
-<!--                        android:padding="12dp">-->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="学伴评语:"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_marginBottom="8dp"/>
 
-<!--                        <ImageView-->
-<!--                            android:layout_width="16dp"-->
-<!--                            android:layout_height="16dp"-->
-<!--                            android:src="@drawable/avatar_1" />-->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="100dp"
+            android:text="上周你学会了7分数运算，记住了一些常用英语句型和语法规则，还掌握了中国古代朝代的更替知识。你在完成作业时专注目律，能按时完成预习。数学正确率提升明显，特别是分数计算更准确，语文阅读理解也有进步。下周希望你多花时间记英语单词，做些练习巩固，并每天复习本周学习的内容。"
+            android:textSize="14sp"
+            android:background="#F5F5F5"
+            android:padding="8dp"/>
+    </LinearLayout>
+</LinearLayout>
 
-<!--                        <TextView-->
-<!--                            android:layout_width="wrap_content"-->
-<!--                            android:layout_height="wrap_content"-->
-<!--                            android:layout_marginStart="8dp"-->
-<!--                            android:text="英语分级阅读专项计划"-->
-<!--                            android:textColor="#FFFFFF"-->
-<!--                            android:textSize="14sp" />-->
-
-<!--                    </LinearLayout>-->
-
-<!--                </LinearLayout>-->
-
-<!--            </androidx.cardview.widget.CardView>-->
-
-<!--            &lt;!&ndash; Right Panel &ndash;&gt;-->
-<!--            <androidx.cardview.widget.CardView-->
-<!--                android:layout_width="match_parent"-->
-<!--                android:layout_height="wrap_content"-->
-<!--                app:cardBackgroundColor="#232547"-->
-<!--                app:cardCornerRadius="8dp"-->
-<!--                app:cardElevation="4dp">-->
-
-<!--                <LinearLayout-->
-<!--                    android:layout_width="match_parent"-->
-<!--                    android:layout_height="wrap_content"-->
-<!--                    android:orientation="vertical"-->
-<!--                    android:padding="16dp">-->
-
-<!--                    <androidx.camera.view.PreviewView-->
-<!--                        android:id="@+id/previewView"-->
-<!--                        android:layout_width="match_parent"-->
-<!--                        android:layout_height="match_parent" />-->
-
-<!--                    <Button-->
-<!--                        android:id="@+id/captureButton"-->
-<!--                        android:layout_width="wrap_content"-->
-<!--                        android:layout_height="wrap_content"-->
-<!--                        android:text="Capture" />-->
-
-<!--                    <ImageView-->
-<!--                        android:id="@+id/photo"-->
-<!--                        android:layout_width="wrap_content"-->
-<!--                        android:layout_height="wrap_content"-->
-<!--                        android:contentDescription="TODO" />-->
-
-<!--                    <LinearLayout-->
-<!--                        android:layout_width="match_parent"-->
-<!--                        android:layout_height="wrap_content"-->
-<!--                        android:orientation="horizontal">-->
-
-<!--                        <TextView-->
-<!--                            android:layout_width="wrap_content"-->
-<!--                            android:layout_height="wrap_content"-->
-<!--                            android:text="10月15号 周二"-->
-<!--                            android:textColor="#FFFFFF"-->
-<!--                            android:textSize="18sp" />-->
-
-<!--                        <TextView-->
-<!--                            android:layout_width="wrap_content"-->
-<!--                            android:layout_height="wrap_content"-->
-<!--                            android:layout_marginStart="16dp"-->
-<!--                            android:text="今日待办"-->
-<!--                            android:textColor="#CCCCCC"-->
-<!--                            android:textSize="14sp" />-->
-
-<!--                        <View-->
-<!--                            android:layout_width="0dp"-->
-<!--                            android:layout_height="0dp"-->
-<!--                            android:layout_weight="1" />-->
-
-<!--                        <Button-->
-<!--                            android:layout_width="wrap_content"-->
-<!--                            android:layout_height="wrap_content"-->
-<!--                            android:text="+ 添加待办"-->
-<!--                            android:textColor="#4287f5"-->
-<!--                            android:textSize="12sp"-->
-<!--                            app:backgroundTint="#232547" />-->
-
-<!--                    </LinearLayout>-->
-
-<!--                    <LinearLayout-->
-<!--                        android:layout_width="match_parent"-->
-<!--                        android:layout_height="wrap_content"-->
-<!--                        android:layout_marginTop="16dp"-->
-<!--                        android:background="#2b2d5a"-->
-<!--                        android:orientation="horizontal"-->
-<!--                        android:padding="8dp">-->
-
-<!--                        <TextView-->
-<!--                            android:layout_width="0dp"-->
-<!--                            android:layout_height="wrap_content"-->
-<!--                            android:layout_weight="1"-->
-<!--                            android:text="望庐山瀑布"-->
-<!--                            android:textColor="#FFFFFF"-->
-<!--                            android:textSize="14sp" />-->
-
-<!--                        <Button-->
-<!--                            android:layout_width="wrap_content"-->
-<!--                            android:layout_height="wrap_content"-->
-<!--                            android:text="完成"-->
-<!--                            android:textColor="#FFA500"-->
-<!--                            android:textSize="12sp"-->
-<!--                            app:backgroundTint="#33FFA500" />-->
-
-<!--                    </LinearLayout>-->
-
-<!--                    <LinearLayout-->
-<!--                        android:layout_width="match_parent"-->
-<!--                        android:layout_height="wrap_content"-->
-<!--                        android:layout_marginTop="8dp"-->
-<!--                        android:background="#2b2d5a"-->
-<!--                        android:orientation="horizontal"-->
-<!--                        android:padding="8dp">-->
-
-<!--                        <TextView-->
-<!--                            android:layout_width="0dp"-->
-<!--                            android:layout_height="wrap_content"-->
-<!--                            android:layout_weight="1"-->
-<!--                            android:text="古诗二首"-->
-<!--                            android:textColor="#FFFFFF"-->
-<!--                            android:textSize="14sp" />-->
-
-<!--                        <Button-->
-<!--                            android:layout_width="wrap_content"-->
-<!--                            android:layout_height="wrap_content"-->
-<!--                            android:text="完成"-->
-<!--                            android:textColor="#FFA500"-->
-<!--                            android:textSize="12sp"-->
-<!--                            app:backgroundTint="#33FFA500" />-->
-
-<!--                    </LinearLayout>-->
-
-<!--                </LinearLayout>-->
-
-<!--            </androidx.cardview.widget.CardView>-->
-
-<!--        </LinearLayout>-->
-
-<!--    </ScrollView>-->
-
-</androidx.constraintlayout.widget.ConstraintLayout>
