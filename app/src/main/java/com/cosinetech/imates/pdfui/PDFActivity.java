@@ -3,9 +3,12 @@ package com.cosinetech.imates.pdfui;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.cosinetech.imates.R;
@@ -17,11 +20,20 @@ import com.github.barteksc.pdfviewer.listener.OnPageChangeListener;
 import com.github.barteksc.pdfviewer.listener.OnPageErrorListener;
 import com.github.barteksc.pdfviewer.scroll.DefaultScrollHandle;
 import com.github.barteksc.pdfviewer.util.FitPolicy;
+import com.lzf.easyfloat.EasyFloat;
+import com.lzf.easyfloat.enums.SidePattern;
+import com.lzf.easyfloat.interfaces.FloatCallbacks;
+import com.lzf.easyfloat.interfaces.OnFloatCallbacks;
 import com.shockwave.pdfium.PdfDocument;
+
+import org.jetbrains.annotations.NotNull;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+
+import kotlin.Unit;
+import kotlin.jvm.functions.Function1;
 
 public class PDFActivity extends AppCompatActivity implements
         OnPageChangeListener,
@@ -30,7 +42,6 @@ public class PDFActivity extends AppCompatActivity implements
     //PDF控件
     PDFView pdfView;
     //按钮控件：返回、目录、缩略图
-    Button btn_back, btn_catalogue, btn_preview;
     //页码
     Integer pageNumber = 0;
     //PDF目录集合
@@ -41,7 +52,6 @@ public class PDFActivity extends AppCompatActivity implements
     //pdf文件uri
     Uri uri;
 
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -50,8 +60,62 @@ public class PDFActivity extends AppCompatActivity implements
         WindowUtils.setFullScreenMode(this);
         setContentView(R.layout.activity_pdf);
 
+        EasyFloat.with(this).setLayout(R.layout.floating_pdf_tools)
+                .setSidePattern(SidePattern.DEFAULT)
+                .registerCallbacks(new OnFloatCallbacks() {
+                    @Override
+                    public void createdResult(boolean isCreated, @Nullable String msg, @Nullable View view) {
+                        if (isCreated && view != null) {
+                            // 获取浮动窗口中的按钮
+                            Button btnClose = view.findViewById(R.id.btn_back);
+                            btnClose.setOnClickListener(new View.OnClickListener() {
+                                @Override
+                                public void onClick(View v) {
+                                    // 点击按钮时退出当前 Activity
+                                    PDFActivity.this.finish();
+                                }
+                            });
+
+                            Button btnContent = view.findViewById(R.id.btn_contents);
+                            btnContent.setOnClickListener(v -> {
+                                //跳转目录页面
+                                Intent intent = new Intent(PDFActivity.this, PDFCatelogueActivity.class);
+                                intent.putExtra("catelogues", (Serializable) catelogues);
+                                PDFActivity.this.startActivityForResult(intent, 200);
+                            });
+
+                            Button btnThumbnail = view.findViewById(R.id.btn_thumbnail);
+                            btnThumbnail.setOnClickListener( v->{
+                                //跳转缩略图页面
+                                Intent intent = new Intent(PDFActivity.this, PDFPreviewActivity.class);
+                                intent.putExtra("AssetsPdf", assetsFileName);
+                                intent.setData(uri);
+                                PDFActivity.this.startActivityForResult(intent, 201);
+                            });
+                        }
+                    }
+
+                    @Override
+                    public void show(@NotNull View view) { }
+
+                    @Override
+                    public void hide(@NotNull View view) { }
+
+                    @Override
+                    public void dismiss() { }
+
+                    @Override
+                    public void touchEvent(@NotNull View view, @NotNull MotionEvent event) { }
+
+                    @Override
+                    public void drag(@NotNull View view, @NotNull MotionEvent event) { }
+
+                    @Override
+                    public void dragEnd(@NotNull View view) { }
+                })
+                .show();
+
         initView();//初始化view
-        setEvent();//设置事件
         loadPdf();//加载PDF文件
     }
 
@@ -68,41 +132,6 @@ public class PDFActivity extends AppCompatActivity implements
      */
     private void initView() {
         pdfView = findViewById(R.id.pdfView);
-        btn_back = findViewById(R.id.btn_back);
-        btn_catalogue = findViewById(R.id.btn_catalogue);
-        btn_preview = findViewById(R.id.btn_preview);
-    }
-
-    /**
-     * 设置事件
-     */
-    private void setEvent() {
-        //返回
-        btn_back.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                PDFActivity.this.finish();
-            }
-        });
-        //跳转目录页面
-        btn_catalogue.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(PDFActivity.this, PDFCatelogueActivity.class);
-                intent.putExtra("catelogues", (Serializable) catelogues);
-                PDFActivity.this.startActivityForResult(intent, 200);
-            }
-        });
-        //跳转缩略图页面
-        btn_preview.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(PDFActivity.this, PDFPreviewActivity.class);
-                intent.putExtra("AssetsPdf", assetsFileName);
-                intent.setData(uri);
-                PDFActivity.this.startActivityForResult(intent, 201);
-            }
-        });
     }
 
     /**
