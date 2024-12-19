@@ -4,6 +4,7 @@
   "sections": [
     {
       "section":"section5.1",
+      "knowledgeNo":"5_1_9fee9917,5_1_a00db40e,5_1_a014f507,5_1_a01a9b2e,5_1_a01f2444,5_1_a02ca281,5_1_a031c616,5_1_a03cc127,5_1_a04486a0,5_1_a04c4ee8",
       "title":"生长激素",
       "schemas": [
         {
@@ -35,6 +36,7 @@
     {
       "section":"section5.2",
       "title":"其他植物激素",
+      "knowledgeNo": "5_2_a05046c9,5_2_a0583286,5_2_a05d4bff,5_2_a0613dcd,5_2_a0657042,5_2_a0696a00",
       "schemas": [
         {
           "comments": "刘木举",
@@ -65,6 +67,7 @@
     {
       "section":"section5.3",
       "title":"植物生长调节剂",
+      "knowledgeNo":"5_3_a0711e97,5_3_a079e857",
       "schemas": [
         {
           "comments": "吴盼盼",
@@ -103,6 +106,7 @@
     {
       "section":"section5.4",
       "title":"环境因素参与调节植物的生命活动",
+      "knowledgeNo": "5_4_a07e17cf",
       "schemas": [
         {
           "comments": "吴婧",

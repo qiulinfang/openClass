@@ -73,6 +73,16 @@ public class Chapter implements Parcelable {
     public static class Section implements Parcelable {
         private String section;
         private String title;
+
+        public String getKnowledgeNo() {
+            return knowledgeNo;
+        }
+
+        public void setKnowledgeNo(String knowledgeNo) {
+            this.knowledgeNo = knowledgeNo;
+        }
+
+        private String knowledgeNo;
         private List<Schema> schemas;
 
         // 构造方法
@@ -83,6 +93,7 @@ public class Chapter implements Parcelable {
         protected Section(Parcel in) {
             section = in.readString();
             title = in.readString();
+            knowledgeNo = in.readString();
             schemas = in.createTypedArrayList(Schema.CREATOR);
         }
 
@@ -90,6 +101,7 @@ public class Chapter implements Parcelable {
         public void writeToParcel(Parcel dest, int flags) {
             dest.writeString(section);
             dest.writeString(title);
+            dest.writeString(knowledgeNo);
             dest.writeTypedList(schemas);
         }
 
