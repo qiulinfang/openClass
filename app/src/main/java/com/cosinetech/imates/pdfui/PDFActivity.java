@@ -43,6 +43,8 @@ public class PDFActivity extends AppCompatActivity implements
         OnPageChangeListener,
         OnLoadCompleteListener,
         OnPageErrorListener {
+
+    /// edit tools
     private ImageView btnBrushSize;
     private ImageView btnPalatte;
     private ImageView btnUseBrush;
@@ -52,6 +54,7 @@ public class PDFActivity extends AppCompatActivity implements
     private ImageView btnSelectArea;
     private ImageView btnOk;
     private ImageView btnCancel;
+
     private TextView textColorIndicator;
     private PaintView paintView;
     private View paintToolView;
@@ -59,6 +62,9 @@ public class PDFActivity extends AppCompatActivity implements
     //PDF控件
     PDFView pdfView;
     //按钮控件：返回、目录、缩略图
+    FitPolicy pdfFitPolicy = FitPolicy.BOTH;
+    boolean pdfSwipeHorizontal = false;
+
     //页码
     Integer pageNumber = 0;
     //PDF目录集合
@@ -88,6 +94,7 @@ public class PDFActivity extends AppCompatActivity implements
         btnSelectArea = findViewById(R.id.imgSelectArea);
         btnOk = findViewById(R.id.imgOK);
         btnCancel = findViewById(R.id.imgCancel);
+
         textColorIndicator = findViewById(R.id.colorIndicator);
         paintToolView = findViewById(R.id.img_edit_layout);
         paintToolView.setVisibility(View.GONE);
@@ -218,6 +225,26 @@ public class PDFActivity extends AppCompatActivity implements
                                 //paintView.setBackgroundColor(Color.TRANSPARENT);
                                 paintToolView.setVisibility(View.VISIBLE);
                             });
+
+                            // tool bar
+                            Button btnFitWidth = view.findViewById(R.id.btn_fit_width);
+                            btnFitWidth.setOnClickListener(v->{
+                                pdfFitPolicy = FitPolicy.WIDTH;
+                                pdfSwipeHorizontal = false;
+                                loadPdf();
+                            });
+                            Button btnFitHeight = view.findViewById(R.id.btn_fit_height);
+                            btnFitHeight.setOnClickListener(v->{
+                                pdfFitPolicy = FitPolicy.BOTH;
+                                pdfSwipeHorizontal = false;
+                                loadPdf();
+                            });
+                            Button btnScrollMode = view.findViewById(R.id.btn_hscroll);
+                            btnScrollMode.setOnClickListener(v->{
+                                pdfFitPolicy = FitPolicy.HEIGHT;
+                                pdfSwipeHorizontal = true;
+                                loadPdf();
+                            });
                         }
                     }
 
@@ -270,6 +297,9 @@ public class PDFActivity extends AppCompatActivity implements
      * 加载PDF文件
      */
     private void loadPdf() {
+        if(pdfView != null) {
+            pdfView.recycle();
+        }
         Intent intent = getIntent();
         if (intent != null) {
             assetsFileName = intent.getStringExtra("AssetsPdf");
@@ -298,7 +328,8 @@ public class PDFActivity extends AppCompatActivity implements
                 .scrollHandle(new DefaultScrollHandle(this))
                 .spacing(10) // 单位 dp
                 .onPageError(this)
-                .pageFitPolicy(FitPolicy.BOTH)
+                .pageFitPolicy(pdfFitPolicy)
+                .swipeHorizontal(pdfSwipeHorizontal)
                 .load();
     }
 
@@ -315,6 +346,8 @@ public class PDFActivity extends AppCompatActivity implements
                 .onLoad(this)
                 .scrollHandle(new DefaultScrollHandle(this))
                 .spacing(10) // 单位 dp
+                .pageFitPolicy(pdfFitPolicy)
+                .swipeHorizontal(pdfSwipeHorizontal)
                 .onPageError(this)
                 .load();
     }
