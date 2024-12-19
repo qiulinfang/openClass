@@ -326,7 +326,8 @@ public class PDFActivity extends AppCompatActivity implements
                 .enableAnnotationRendering(true)
                 .onLoad(this)
                 .scrollHandle(new DefaultScrollHandle(this))
-                .spacing(10) // 单位 dp
+                .spacing(20) // 单位 dp
+                //.autoSpacing(true)
                 .onPageError(this)
                 .pageFitPolicy(pdfFitPolicy)
                 .swipeHorizontal(pdfSwipeHorizontal)
@@ -345,7 +346,8 @@ public class PDFActivity extends AppCompatActivity implements
                 .enableAnnotationRendering(true)
                 .onLoad(this)
                 .scrollHandle(new DefaultScrollHandle(this))
-                .spacing(10) // 单位 dp
+                .spacing(20) // 单位 dp
+                //.autoSpacing(true)
                 .pageFitPolicy(pdfFitPolicy)
                 .swipeHorizontal(pdfSwipeHorizontal)
                 .onPageError(this)
