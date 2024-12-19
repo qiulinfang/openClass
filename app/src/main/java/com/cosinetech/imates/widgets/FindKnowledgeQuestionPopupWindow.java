@@ -60,11 +60,12 @@ public class FindKnowledgeQuestionPopupWindow {
         for (Question qq:mQuestions) {
             ids.append(qq.bmNo).append(",");
         }
-        String url = "";
-        String subjectName = "";
+        String url = ApiUrl.URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE;
+        String subjectName;
         if(mSubject == Subject.SUBJECT_BIOLOGY) {
-            url = ApiUrl.URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE_BIOLOGY;
             subjectName = "biology";
+        } else if(mSubject == Subject.SUBJECT_MATH){
+            subjectName = "math";
         } else {
             return;
         }

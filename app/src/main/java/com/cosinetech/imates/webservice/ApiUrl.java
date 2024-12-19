@@ -1,14 +1,20 @@
 package com.cosinetech.imates.webservice;
 
 public class ApiUrl {
-    // private static final String baseUrl = "http://192.168.40.10:8222/blw-edu-service-alc/permission";
-    // public static final String URL_LOGIN = "http://192.168.40.10:8222/blw-edu-service-alc/admin/login";
-    // public static final String URL_USER_INFO = "http://192.168.40.10:8222/blw-edu-service-alc/admin/info";
+//     private static final String baseUrl = "http://192.168.40.10:8222/blw-edu-service-alc/permission";
+//    public static final String URL_RESOURCE_BASE = "https://192.168.40.10";
+//     public static final String URL_LOGIN = "http://192.168.40.10:8222/blw-edu-service-alc/admin/login";
+//     public static final String URL_USER_INFO = "http://192.168.40.10:8222/blw-edu-service-alc/admin/info";
+//    public static final  String URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE = "http://192.168.40.10:8222/blw-edu-service-alc/biologyTopicKnowledge/knowledgeTopicAndAck";
+
     // public static final String baseUrl = "https://imates.com.cn/blw-edu-service-alc/permission";
+
+    private static final String baseUrl = "https://api.showcode.xyz/blw-edu-service-alc/permission";
+
     public static final String URL_RESOURCE_BASE = "https://study.showcode.xyz";
     public static final String URL_LOGIN = "https://api.showcode.xyz/blw-edu-service-alc/admin/login";
     public static final String URL_USER_INFO = "https://api.showcode.xyz/blw-edu-service-alc/admin/info";
-    private static final String baseUrl = "https://api.showcode.xyz/blw-edu-service-alc/permission";
+
     public static final String URL_QUESTION_IMAGE_RECOGNISE = baseUrl + "/img";
     public static final String URL_CHAT_GENERAL = baseUrl + "/chats";
     public static final String URL_CHAT_BIOLOGY = baseUrl + "/chat";
@@ -26,7 +32,7 @@ public class ApiUrl {
 
     public static final String URL_QUERY_SIMILAR_EXERCISE = baseUrl + "/topicAndAck";
 
-    public static final  String URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE_BIOLOGY = "https://api.showcode.xyz/blw-edu-service-alc/biologyTopicKnowledge/knowledgeTopicAndAck";
+    public static final  String URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE = "https://api.showcode.xyz/blw-edu-service-alc/biologyTopicKnowledge/knowledgeTopicAndAck";
 
     // public static final  String URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE_MATH = baseUrl + "/biologyTopicKnowledge/knowledgeTopicAndAck";
 }
