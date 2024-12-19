@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.Toast;
 
@@ -41,6 +42,8 @@ import java.util.Optional;
 public class FragmentQuestionList extends Fragment {
     private static final String KEY_CHATBOT_URL = "KEY_CHAT_BOT_URL";
     private static final String KEY_SUBJECT = "KEY_SUBJECT";
+
+    private int chatResponceTimes = 0;
     private String chatBotUrl;
     private Subject subject;
     private UserInfoViewModel userInfoViewModel;
@@ -48,6 +51,8 @@ public class FragmentQuestionList extends Fragment {
     private AdapterSimilarQuestionList adapterSimilarQuestionList;
     private final AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start");
     private Question mCurrentQuestion = null;
+    private RadioButton mRdoViewAnswer;
+    private RadioButton mRdoSimilarQuestion;
 
     private FragmentChatAi fragmentChatAi;
 
@@ -87,7 +92,12 @@ public class FragmentQuestionList extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        fragmentChatAi = FragmentChatAi.newInstance(chatBotUrl, false);
+        fragmentChatAi = FragmentChatAi.newInstance(chatBotUrl, false, success -> {
+            chatResponceTimes++;
+            if(chatResponceTimes >= 2) {
+                setViewAnswer(true);
+            }
+        });
         fragmentChatAi.setAiName("AI解题助手");
         getChildFragmentManager().beginTransaction()
                 .replace(R.id.fragmentChatAiContainer, fragmentChatAi)
@@ -106,6 +116,9 @@ public class FragmentQuestionList extends Fragment {
                     .replace(R.id.container, fragment)
                     .commit();
         });
+
+        mRdoViewAnswer = view.findViewById(R.id.optAnswer);
+        mRdoSimilarQuestion = view.findViewById(R.id.optSimilar);
 
         ViewModelStoreOwner owner = (ViewModelStoreOwner) requireActivity().getApplication();
         userInfoViewModel = new ViewModelProvider(
@@ -176,7 +189,9 @@ public class FragmentQuestionList extends Fragment {
                 aiChatMessageRequest.setCoversation("请开始引导");
                 aiChatMessageRequest.setReason("start");
                 fragmentChatAi.setChatEnable(false);
-                fragmentChatAi.clearChatHistory();
+                chatResponceTimes = 0;
+                setViewAnswer(false);
+                //fragmentChatAi.clearChatHistory();
             }
 
             @Override
@@ -344,6 +359,11 @@ public class FragmentQuestionList extends Fragment {
                 }
             }
         });
+    }
+
+    public void setViewAnswer(boolean b) {
+        mRdoViewAnswer.setEnabled(b);
+        mRdoSimilarQuestion.setEnabled(b);
     }
 
     @Override

@@ -37,11 +37,10 @@ import java.util.Objects;
  * create an instance of this fragment.
  */
 public class FragmentChatAi extends Fragment {
-
-    public interface AiChatResponseLister {
-        void onAiChatResponce();
+    public interface AiChatResponseListener {
+        void onAiChatResponced(boolean success);
     }
-//    private ChatMessage responseMessage;
+
     private UserInfoViewModel userInfoViewModel;
     private static final String KEY_PARAM_CHATBOT_URL = "CHAT_URL";
     private static final String KEY_PARAM_SHOW_HEADER = "SHOW_HEADER";
@@ -59,15 +58,18 @@ public class FragmentChatAi extends Fragment {
 
     private boolean showHeader;
 
+    private AiChatResponseListener mListener;
+
     public FragmentChatAi() {
     }
 
-    public static FragmentChatAi newInstance(String chatBotUrl, boolean showHeader) {
+    public static FragmentChatAi newInstance(String chatBotUrl, boolean showHeader, AiChatResponseListener l) {
         FragmentChatAi fragment = new FragmentChatAi();
         Bundle args = new Bundle();
         args.putString(KEY_PARAM_CHATBOT_URL, chatBotUrl);
         args.putBoolean(KEY_PARAM_SHOW_HEADER, showHeader);
         fragment.setArguments(args);
+        fragment.setAiChatListener(l);
         return fragment;
     }
 
@@ -78,6 +80,7 @@ public class FragmentChatAi extends Fragment {
             chatBotUrl = getArguments().getString(KEY_PARAM_CHATBOT_URL);
             showHeader = getArguments().getBoolean(KEY_PARAM_SHOW_HEADER);
         }
+        setRetainInstance(true);
     }
 
     @Override
@@ -86,6 +89,10 @@ public class FragmentChatAi extends Fragment {
         // 在此处保存需要的状态数据到outState中
         outState.putString(KEY_PARAM_CHATBOT_URL, chatBotUrl);
         outState.putBoolean(KEY_PARAM_SHOW_HEADER, showHeader);
+    }
+
+    private void setAiChatListener(AiChatResponseListener l) {
+        this.mListener = l;
     }
 
     private void fixBug(FragmentManager fragmentManager) {
@@ -174,9 +181,15 @@ public class FragmentChatAi extends Fragment {
                         pollChat();
                     } else {
                         btnSend.setEnabled(true);
+                        if(mListener != null) {
+                            mListener.onAiChatResponced(true);
+                        }
                     }
                 } else {
                     btnSend.setEnabled(true);
+                    if(mListener != null) {
+                        mListener.onAiChatResponced(false);
+                    }
                 }
             });
         });
@@ -235,6 +248,7 @@ public class FragmentChatAi extends Fragment {
     }
 
     public void setChatEnable(boolean b) {
-        btnSend.setVisibility(b ? View.VISIBLE : View.INVISIBLE);
+        //btnSend.setVisibility(b ? View.VISIBLE : View.INVISIBLE);
+        btnSend.setEnabled(b);
     }
 }
