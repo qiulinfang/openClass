@@ -25,4 +25,8 @@ public class ApiUrl {
     public static final String URL_DELETE_EXERCISE_BASE = baseUrl + "/deleteExercises";
 
     public static final String URL_QUERY_SIMILAR_EXERCISE = baseUrl + "/topicAndAck";
+
+    public static final  String URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE_BIOLOGY = "https://api.showcode.xyz/blw-edu-service-alc/biologyTopicKnowledge/knowledgeTopicAndAck";
+
+    // public static final  String URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE_MATH = baseUrl + "/biologyTopicKnowledge/knowledgeTopicAndAck";
 }

@@ -126,15 +126,6 @@ public class FragmentQuestionList extends Fragment {
                 new ViewModelProvider.AndroidViewModelFactory(requireActivity().getApplication())
         ).get(com.cosinetech.imates.models.UserInfoViewModel.class);
 
-        String url;
-        if(subject == Subject.SUBJECT_BIOLOGY) {
-            url = ApiUrl.URL_GET_EXERCISE_BIOLOGY;
-        } else if (subject == Subject.SUBJECT_MATH) {
-            url = ApiUrl.URL_GET_EXERCISE_MATH;
-        } else {
-            url = "";
-        }
-
         RecyclerView recyclerView = view.findViewById(R.id.exerciseList);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         adapterQuestionList = new AdapterQuestionList(mQuestions, new AdapterQuestionList.ExerciseListChangedListener() {
@@ -279,26 +270,7 @@ public class FragmentQuestionList extends Fragment {
         });
         recyclerViewSimilarQuestion.setAdapter(adapterSimilarQuestionList);
 
-        if(!url.isEmpty()) {
-            ApiGateWayService.queryExerciseList(url, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
-                @Override
-                public void onSuccess(List<Question> q) {
-                    requireActivity().runOnUiThread(() -> {
-                        mQuestions.clear();
-                        mQuestions.addAll(q);
-                        adapterQuestionList.resetSelection();
-                        adapterQuestionList.notifyDataSetChanged();
-                    });
-                }
-
-                @Override
-                public void onFailure(String msg, int code) {
-                    requireActivity().runOnUiThread(() -> {
-                        Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
-                    });
-                }
-            });
-        }
+        fetchQuestionList();
 
         RadioGroup radioGroup = view.findViewById(R.id.radioGroup);
         radioGroup.setOnCheckedChangeListener((group, checkedId) -> {
@@ -314,39 +286,73 @@ public class FragmentQuestionList extends Fragment {
                 view.findViewById(R.id.similarExerciseView).setVisibility(View.VISIBLE);
                 view.findViewById(R.id.answerView).setVisibility(View.INVISIBLE);
                 view.findViewById(R.id.fragmentChatAiContainer).setVisibility(View.INVISIBLE);
+                findSimilarQuestion();
+            }
+        });
+    }
 
-                if(mCurrentQuestion != null) {
-                    StringBuilder ids = new StringBuilder();
-                    for (Question qq:mQuestions) {
-                        ids.append(qq.bmNo).append(",");
-                    }
-                    String subjectName = "";
-                    if(subject == Subject.SUBJECT_BIOLOGY) {
-                        subjectName = "biology";
-                    } else if(subject == Subject.SUBJECT_MATH) {
-                        subjectName = "math";
-                    }
+    private void findSimilarQuestion() {
+        if(mCurrentQuestion == null) {
+            return;
+        }
+        StringBuilder ids = new StringBuilder();
+        for (Question qq:mQuestions) {
+            ids.append(qq.bmNo).append(",");
+        }
+        String subjectName = "";
+        if(subject == Subject.SUBJECT_BIOLOGY) {
+            subjectName = "biology";
+        } else if(subject == Subject.SUBJECT_MATH) {
+            subjectName = "math";
+        }
 
-                    FindSimilarQuestionRequest item = FindSimilarQuestionRequest.fromQuestion(mCurrentQuestion, ids.toString(), subjectName);
-                    ApiGateWayService.querySimilarExerciseList(item, ApiUrl.URL_QUERY_SIMILAR_EXERCISE, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
-                        @Override
-                        public void onSuccess(List<Question> q) {
-                            requireActivity().runOnUiThread(() -> {
-                                mSimilarQuestion.clear();
-                                mSimilarQuestion.addAll(q);
-                                adapterSimilarQuestionList.resetSelection();
-                                adapterSimilarQuestionList.notifyDataSetChanged();
-                            });
-                        }
+        FindSimilarQuestionRequest item = FindSimilarQuestionRequest.fromQuestion(mCurrentQuestion, ids.toString(), subjectName);
+        ApiGateWayService.querySimilarExerciseList(item, ApiUrl.URL_QUERY_SIMILAR_EXERCISE, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
+            @Override
+            public void onSuccess(List<Question> q) {
+                requireActivity().runOnUiThread(() -> {
+                    mSimilarQuestion.clear();
+                    mSimilarQuestion.addAll(q);
+                    adapterSimilarQuestionList.resetSelection();
+                    adapterSimilarQuestionList.notifyDataSetChanged();
+                });
+            }
 
-                        @Override
-                        public void onFailure(String msg, int code) {
-                            requireActivity().runOnUiThread(() -> {
-                                Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
-                            });
-                        }
-                    });
-                }
+            @Override
+            public void onFailure(String msg, int code) {
+                requireActivity().runOnUiThread(() -> {
+                    Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
+    }
+
+    private void fetchQuestionList() {
+        String url;
+        if(subject == Subject.SUBJECT_BIOLOGY) {
+            url = ApiUrl.URL_GET_EXERCISE_BIOLOGY;
+        } else if (subject == Subject.SUBJECT_MATH) {
+            url = ApiUrl.URL_GET_EXERCISE_MATH;
+        } else {
+            return;
+        }
+
+        ApiGateWayService.queryExerciseList(url, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
+            @Override
+            public void onSuccess(List<Question> q) {
+                requireActivity().runOnUiThread(() -> {
+                    mQuestions.clear();
+                    mQuestions.addAll(q);
+                    adapterQuestionList.resetSelection();
+                    adapterQuestionList.notifyDataSetChanged();
+                });
+            }
+
+            @Override
+            public void onFailure(String msg, int code) {
+                requireActivity().runOnUiThread(() -> {
+                    Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+                });
             }
         });
     }
@@ -360,5 +366,4 @@ public class FragmentQuestionList extends Fragment {
     public void onDestroy() {
         super.onDestroy();
     }
-
 }

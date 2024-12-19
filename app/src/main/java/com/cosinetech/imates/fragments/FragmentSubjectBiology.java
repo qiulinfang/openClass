@@ -26,6 +26,7 @@ import com.cosinetech.imates.Subject;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.webservice.ApiUrl;
+import com.cosinetech.imates.widgets.FindKnowledgeQuestionPopupWindow;
 import com.google.gson.Gson;
 
 import java.io.BufferedReader;
@@ -137,7 +138,19 @@ public class FragmentSubjectBiology extends Fragment {
 
         @JavascriptInterface
         public void onReviewLesson(String nodeId, String nodeName) {
-            Toast.makeText(context, "Review press: " + nodeId + nodeName, Toast.LENGTH_SHORT).show();
+            Chapter.Section s = getSection(nodeId);
+            if(s == null) {
+                Toast.makeText(getContext(), "未查询到相关的练习资料", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            FindKnowledgeQuestionPopupWindow win = new FindKnowledgeQuestionPopupWindow(requireActivity(), Subject.SUBJECT_BIOLOGY,
+                   s.getKnowledgeNo() , new FindKnowledgeQuestionPopupWindow.OnSimilarQuestionSelectionListener() {
+                @Override
+                public void onQuestionSelected() {
+                    loadExerciseListFragment();
+                }
+            });
+            win.show();
         }
     }
 
@@ -274,9 +287,9 @@ public class FragmentSubjectBiology extends Fragment {
                 .commit();
     }
 
-    public void loadPrepareLessonFragment(String sectionId, String sectionName) {
+    public Chapter.Section getSection(String sectionId) {
         StringBuilder newstringBuilder = new StringBuilder();
-        InputStream inputStream = null;
+        InputStream inputStream;
         try {
             inputStream = getResources().getAssets().open("biology_learn_schema.json");
             InputStreamReader isr = new InputStreamReader(inputStream);
@@ -296,15 +309,23 @@ public class FragmentSubjectBiology extends Fragment {
         Chapter chapter = gson.fromJson(newstringBuilder.toString(), Chapter.class);
         for (Chapter.Section s: chapter.getSections()) {
             if(s.getSection().equals(sectionId)) {
-                final FragmentPreviewLesson fragmentPreviewLesson = FragmentPreviewLesson.newInstance(sectionName, s);
-                getChildFragmentManager().beginTransaction()
-                        .replace(R.id.container, fragmentPreviewLesson)
-                        .addToBackStack(null)
-                        .commit();
-                break;
+                return s;
             }
         }
+        return null;
+    }
 
+    public void loadPrepareLessonFragment(String sectionId, String sectionName) {
+        Chapter.Section s = getSection(sectionId);
+        if(s != null) {
+            final FragmentPreviewLesson fragmentPreviewLesson = FragmentPreviewLesson.newInstance(sectionName, s);
+            getChildFragmentManager().beginTransaction()
+                    .replace(R.id.container, fragmentPreviewLesson)
+                    .addToBackStack(null)
+                    .commit();
+        } else {
+            Toast.makeText(this.getContext(), "未查询到相关的课程", Toast.LENGTH_SHORT).show();
+        }
     }
 }
 
