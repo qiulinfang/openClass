@@ -54,7 +54,10 @@ public class MarkdownTextView extends AppCompatTextView {
     }
 
     public void setContent(String content) {
-        markwon.setMarkdown(this, content);
+        String preFilterLatex = content.replace("\\(", "$")
+                .replace("\\)", "$")
+                .replace("$$", "$$\n");
+        markwon.setMarkdown(this, preFilterLatex);
     }
 
     public void setChatMessage(ChatMessage msg) {
