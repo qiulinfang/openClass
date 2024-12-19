@@ -109,7 +109,7 @@ public class FloatingWindowService extends Service {
                         }
                         return true;
                 }
-                return false;
+                return true;
             }
         });
 
@@ -135,7 +135,7 @@ public class FloatingWindowService extends Service {
                         windowManager.updateViewLayout(floatingView, layoutParams);
                         return true;
                 }
-                return false;
+                return true;
             }
         });
     }

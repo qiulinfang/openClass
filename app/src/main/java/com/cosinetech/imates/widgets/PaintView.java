@@ -10,7 +10,6 @@ import android.graphics.Path;
 import android.graphics.PointF;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
-import android.graphics.Rect;
 import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
@@ -32,8 +31,6 @@ public class PaintView extends View {
     private Path dashedPath;
     private PointF startPoint;
     private PointF endPoint;
-
-
     private Path mPath;
     private Paint mPaint;
     private Paint mCursorPaint;
@@ -263,6 +260,9 @@ public class PaintView extends View {
         mIsTouching = false;
         if(mIsSelecing) {
             endPoint.set(x, y);
+            if(drawingChangeListener != null) {
+                drawingChangeListener.onSelectionEnd(x, y);
+            }
         } else {
             mPath.lineTo(mX, mY);
             savePathToBitmap(paths.get(paths.size() - 1));

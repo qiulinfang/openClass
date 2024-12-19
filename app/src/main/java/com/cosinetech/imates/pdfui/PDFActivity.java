@@ -4,23 +4,32 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.PopupWindow;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.PopupMenu;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.colorpicker.ColorListener;
 import com.cosinetech.imates.colorpicker.ColorPickerDialog;
+import com.cosinetech.imates.notes.NoteManager;
 import com.cosinetech.imates.notes.NotePopupWindow;
 import com.cosinetech.imates.pdfui.tree.TreeNodeData;
+import com.cosinetech.imates.util.ImageUtils;
 import com.cosinetech.imates.util.WindowUtils;
+import com.cosinetech.imates.widgets.DrawingChangeListener;
 import com.cosinetech.imates.widgets.PaintView;
 import com.github.barteksc.pdfviewer.PDFView;
 import com.github.barteksc.pdfviewer.listener.OnLoadCompleteListener;
@@ -102,6 +111,47 @@ public class PDFActivity extends AppCompatActivity implements
 
         //默认选择画笔
         btnUseBrush.setBackgroundColor(getColor(selectionColorId));
+
+        paintView.addDrawingChangeListener(new DrawingChangeListener() {
+            @Override
+            public void onTouchStart(float x, float y) {
+
+            }
+
+            @Override
+            public void onDrawingChange(float x, float y) {
+
+            }
+
+            @Override
+            public void onSelectionEnd(float x, float y) {
+                // 加载自定义布局
+                View popupView = LayoutInflater.from(PDFActivity.this).inflate(R.layout.pdf_scribble_menu, null);
+
+                // 创建 PopupWindow
+                PopupWindow popupWindow = new PopupWindow(popupView,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        true);
+
+                // 设置点击事件
+                popupView.findViewById(R.id.menu_chat).setOnClickListener(view -> {
+                    //Toast.makeText(this, "复制", Toast.LENGTH_SHORT).show();
+                    popupWindow.dismiss();
+                });
+
+                popupView.findViewById(R.id.menu_note).setOnClickListener(view -> {
+                    Bitmap bmp = paintView.getSelectedBitmap();
+                    String base64 = ImageUtils.bitmapToHtmlJpgString(bmp);
+                    NoteManager manager = new NoteManager(getBaseContext());
+                    manager.addNote(base64);
+                    popupWindow.dismiss();
+                });
+
+                // 显示 PopupWindow 在指定位置 (例如屏幕中央)
+                popupWindow.showAtLocation(paintView, Gravity.NO_GRAVITY, (int)x, (int)y); // x=300, y=500
+            }
+        });
 
         com.litao.slider.NiftySlider slider = findViewById(R.id.niftySlider);
         btnBrushSize.setOnClickListener(v -> {

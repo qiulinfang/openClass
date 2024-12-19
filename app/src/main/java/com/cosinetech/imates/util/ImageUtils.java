@@ -19,36 +19,6 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public class ImageUtils {
-
-    /**
-     * 将图片文件转换为Base64编码的字符串
-     *
-     * @param imagePath 图片文件的路径
-     * @return Base64编码的字符串
-     */
-
-    public static String convertImageToBase64(String imagePath) {
-        // 加载图片
-        Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
-        if (bitmap == null) {
-            return null;
-        }
-
-        // 将Bitmap压缩为字节数组
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream);
-        byte[] byteArray = byteArrayOutputStream.toByteArray();
-
-        // 将字节数组转换为Base64字符串
-        String base64String = Base64.encodeToString(byteArray, Base64.DEFAULT);
-
-        // 释放Bitmap资源
-        bitmap.recycle();
-
-        return base64String;
-    }
-
-
     public static Bitmap getBitmapFromBase64(String imgBase64) {
         String base64Str=imgBase64.replace("data:image/jpeg;base64,","");
         byte[] decodedString = Base64.decode(base64Str, Base64.DEFAULT);
@@ -155,16 +125,16 @@ public class ImageUtils {
      * @param filePath
      * @return
      */
-    public static String bitmapToString(String filePath) {
-
-        Bitmap bm = getSmallBitmap(filePath, 480, 800);
-
+    public static String bitmapToHtmlJpgString(Bitmap bm) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         bm.compress(Bitmap.CompressFormat.JPEG, 40, baos);
         byte[] b = baos.toByteArray();
 
-        return Base64.encodeToString(b, Base64.DEFAULT);
+        String img =  Base64.encodeToString(b, Base64.DEFAULT);
 
+        StringBuilder builder = new StringBuilder();
+        builder.append("<img src=\"data:image/jpg;base64,").append(img).append("/>");
+        return builder.toString();
     }
 
     /**

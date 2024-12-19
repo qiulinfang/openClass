@@ -1,0 +1,25 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#ffffff"
+    android:padding="8dp">
+
+    <TextView
+        android:id="@+id/menu_chat"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:focusable="true"
+        android:text="问AI"
+        android:clickable="true"
+        android:padding="8dp" />
+
+    <TextView
+        android:id="@+id/menu_note"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:focusable="true"
+        android:text="记笔记"
+        android:clickable="true"
+        android:padding="8dp" />
+</LinearLayout>
