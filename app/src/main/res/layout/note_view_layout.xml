@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="#ffffff"
+    android:orientation="horizontal">
+
+    <ListView
+        android:id="@+id/noteListView"
+        android:background="@android:color/holo_blue_light"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1" />
+
+    <LinearLayout
+        android:background="#808080"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="2"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/newNoteButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="新建" />
+
+            <Button
+                android:id="@+id/saveNoteButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="保存" />
+        </LinearLayout>
+
+        <com.sendtion.xrichtext.RichTextEditor
+            android:id="@+id/text_area"
+            android:background="#ffffff"
+            android:layout_margin="16dp"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:focusable="true"
+            android:clickable="true"
+            android:gravity="top|start"
+            android:padding="10dp"
+            app:rt_editor_text_line_space="6dp"
+            app:rt_editor_image_height="500"
+            app:rt_editor_image_bottom="10"
+            app:rt_editor_text_init_hint="在这里输入内容"
+            app:rt_editor_text_size="16sp"
+            app:rt_editor_text_color="#000000"/>
+    </LinearLayout>
+</LinearLayout>
+

@@ -18,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.colorpicker.ColorListener;
 import com.cosinetech.imates.colorpicker.ColorPickerDialog;
+import com.cosinetech.imates.notes.NotePopupWindow;
 import com.cosinetech.imates.pdfui.tree.TreeNodeData;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.widgets.PaintView;
@@ -167,6 +168,7 @@ public class PDFActivity extends AppCompatActivity implements
         );
 
         btnOk.setOnClickListener(v -> {
+
         });
 
         btnCancel.setOnClickListener( v -> {
@@ -244,6 +246,12 @@ public class PDFActivity extends AppCompatActivity implements
                                 pdfFitPolicy = FitPolicy.HEIGHT;
                                 pdfSwipeHorizontal = true;
                                 loadPdf();
+                            });
+
+                            Button btnNote = view.findViewById(R.id.btn_note);
+                            btnNote.setOnClickListener(v -> {
+                                NotePopupWindow win = new NotePopupWindow(view.getContext());
+                                win.showAsDropDown(view);
                             });
                         }
                     }
