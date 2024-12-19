@@ -170,7 +170,7 @@ public class FloatingWindowService extends Service {
 
         FragmentChatAi fragmentChatAi;
         try {
-            fragmentChatAi = FragmentChatAi.newInstance(ApiUrl.URL_CHAT_GENERAL, true, null);
+            fragmentChatAi = FragmentChatAi.newInstance(ApiUrl.URL_CHAT_GENERAL, false, null);
             transaction.replace(R.id.popup_container, fragmentChatAi);
             transaction.addToBackStack(null);
             transaction.commitAllowingStateLoss();
