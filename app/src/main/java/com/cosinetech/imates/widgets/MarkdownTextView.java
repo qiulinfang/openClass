@@ -54,9 +54,7 @@ public class MarkdownTextView extends AppCompatTextView {
     }
 
     public void setContent(String content) {
-        String preFilterLatex = content.replace("\\(", "$")
-                .replace("\\)", "$")
-                .replace("$$", "$$\n");
+        String preFilterLatex = filterLatexString(content);
         markwon.setMarkdown(this, preFilterLatex);
     }
 
@@ -74,6 +72,13 @@ public class MarkdownTextView extends AppCompatTextView {
 //        }
     }
 
+    private String filterLatexString(String src) {
+        String preFilterLatex = src.replace("\\(", "$")
+                .replace("\\)", "$")
+                .replace("$$", "$$\n");
+        return preFilterLatex;
+    }
+
     public void startStreaming() {
         if (isStreaming) {
             return; // 如果已经在流式显示，则直接返回
@@ -86,7 +91,8 @@ public class MarkdownTextView extends AppCompatTextView {
                 if (chatMsg.currentDisplayCharIndex < chatMsg.content.length()) {
                     // 逐字拼接内容
                     String displayContent = chatMsg.content.substring(0, ++chatMsg.currentDisplayCharIndex);
-                    markwon.setMarkdown(MarkdownTextView.this, displayContent);
+                    String filterString = filterLatexString(displayContent);
+                    markwon.setMarkdown(MarkdownTextView.this, filterString);
                     mainHandler.postDelayed(this, UPDATE_DELAY); // 每 100ms 更新一次
                 } else {
                     isStreaming = false; // 流式显示结束
