@@ -117,6 +117,7 @@ public class FindKnowledgeQuestionPopupWindow {
                 mContext.runOnUiThread(() -> {
                     Toast.makeText(mContext, msg, Toast.LENGTH_SHORT).show();
                 });
+                findSimilarKnowledgeQuestion();
             }
         });
     }

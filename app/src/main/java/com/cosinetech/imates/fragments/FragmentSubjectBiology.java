@@ -113,15 +113,6 @@ public class FragmentSubjectBiology extends Fragment {
             }
             return false; // 返回false，让HScrollView继续处理触摸事件
         });
-
-//        class JsObject {
-//            @JavascriptInterface
-//            public String toString() { return "injectedObject"; }
-//        }
-//        webView.getSettings().setJavaScriptEnabled(true);
-//        webView.addJavascriptInterface(new JsObject(), "injectedObject");
-//        webView.loadData("  ", "text/ html", null);
-//        webView.loadUrl("javascript:alert(injectedObject. toString())");
     }
 
     public class WebAppInterface {
