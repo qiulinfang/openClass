@@ -246,7 +246,7 @@ public class ApiGateWayService {
                 // 创建请求体
                 RequestBody body = RequestBody.create(
                         MediaType.parse("application/json; charset=utf-8"),
-                        item.toString()
+                        item.toJsonString()
                 );
 
                 // 创建请求

@@ -316,28 +316,18 @@ public class FragmentQuestionList extends Fragment {
                 view.findViewById(R.id.fragmentChatAiContainer).setVisibility(View.INVISIBLE);
 
                 if(mCurrentQuestion != null) {
-                    FindSimilarQuestionRequest item = new FindSimilarQuestionRequest();
-                    Question q = mCurrentQuestion;
-                    item.setTitle(q.title);
-                    item.setImgName(q.titleImg);
-                    item.setImgTitleUrl(q.titleImg);
-                    item.setOptions(q.title);
-                    item.setSelect("");
-                    item.setImgUrl("");
-                    item.setAnswer(q.answer);
-                    item.setExplanation(q.explanation);
                     StringBuilder ids = new StringBuilder();
                     for (Question qq:mQuestions) {
                         ids.append(qq.bmNo).append(",");
                     }
-                    item.setExercisesId(ids.toString());
-                    item.setBmNo(q.bmNo);
-
+                    String subjectName = "";
                     if(subject == Subject.SUBJECT_BIOLOGY) {
-                        item.setType("biology");
+                        subjectName = "biology";
                     } else if(subject == Subject.SUBJECT_MATH) {
-                        item.setType("math");
+                        subjectName = "math";
                     }
+
+                    FindSimilarQuestionRequest item = FindSimilarQuestionRequest.fromQuestion(mCurrentQuestion, ids.toString(), subjectName);
                     ApiGateWayService.querySimilarExerciseList(item, ApiUrl.URL_QUERY_SIMILAR_EXERCISE, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
                         @Override
                         public void onSuccess(List<Question> q) {

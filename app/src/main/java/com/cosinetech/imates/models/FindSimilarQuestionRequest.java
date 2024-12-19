@@ -2,6 +2,8 @@ package com.cosinetech.imates.models;
 
 import androidx.annotation.NonNull;
 
+import com.cosinetech.imates.Subject;
+import com.cosinetech.imates.webservice.Question;
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 
@@ -39,6 +41,17 @@ public class FindSimilarQuestionRequest {
 
     @SerializedName("type")
     private String type;
+
+    public String getKnowledgeNo() {
+        return knowledgeNo;
+    }
+
+    public void setKnowledgeNo(String knowledgeNo) {
+        this.knowledgeNo = knowledgeNo;
+    }
+
+    @SerializedName("knowledgeNo")
+    private String knowledgeNo;
 
     // Getters and Setters
     public String getTitle() {
@@ -129,9 +142,7 @@ public class FindSimilarQuestionRequest {
         this.type = type;
     }
 
-    @NonNull
-    @Override
-    public String toString() {
+    private void emitNull() {
         if(title == null){
             title = "";
         }
@@ -165,6 +176,46 @@ public class FindSimilarQuestionRequest {
         if(type == null) {
             type = "";
         }
+
+        if(knowledgeNo == null) {
+            knowledgeNo = "";
+        }
+    }
+
+    @NonNull
+    @Override
+    @Deprecated
+    public String toString() {
+        emitNull();
         return new Gson().toJson(this);
+    }
+
+    public String toJsonString() {
+        emitNull();
+        return new Gson().toJson(this);
+    }
+
+    public static FindSimilarQuestionRequest fromQuestion(Question q, String existingBMids, String subject) {
+        FindSimilarQuestionRequest item = new FindSimilarQuestionRequest();
+        item.setTitle(q.title);
+        item.setImgName(q.titleImg);
+        item.setImgTitleUrl(q.titleImg);
+        item.setOptions(q.title);
+        item.setSelect("");
+        item.setImgUrl("");
+        item.setAnswer(q.answer);
+        item.setExplanation(q.explanation);
+        item.setExercisesId(existingBMids);
+        item.setBmNo(q.bmNo);
+        item.setType(subject);
+        return item;
+    }
+
+    public static FindSimilarQuestionRequest fromKnowledgeId(String knowledgeNos, String existingBMids, String subject) {
+        FindSimilarQuestionRequest item = new FindSimilarQuestionRequest();
+        item.setKnowledgeNo(knowledgeNos);
+        item.setExercisesId(existingBMids);
+        item.setType(subject);
+        return item;
     }
 }
