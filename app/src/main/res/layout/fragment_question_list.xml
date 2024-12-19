@@ -90,7 +90,7 @@
         android:layout_marginHorizontal="8dp"
         android:layout_marginBottom="8dp"
         android:layout_marginTop="1dp"
-        app:layout_constraintTop_toBottomOf="@id/spliter"
+        app:layout_constraintTop_toBottomOf="@id/btn_capture"
         app:layout_constraintStart_toStartOf="@id/verticalGuide"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent" />
@@ -101,6 +101,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="bottom"
+        android:minHeight="36dp"
         android:paddingHorizontal="10dp"
         android:layout_marginHorizontal="8dp"
         app:layout_constraintTop_toBottomOf="@id/title"
@@ -122,7 +123,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/check_answer"
-            android:enabled="true"
+            android:enabled="false"
             android:button="@null"
             android:layout_marginEnd="32dp"
             android:background="@drawable/button_background"
@@ -134,22 +135,24 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/similar_questions"
-            android:enabled="true"
+            android:enabled="false"
             android:button="@null"
             android:layout_marginEnd="32dp"
             android:background="@drawable/button_background"
             android:textColor="@drawable/button_text_color"
             android:layout_marginHorizontal="4dp" />
-
-        <Button
-            android:id="@+id/btn_capture"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/shoot_question"
-            android:background="@drawable/button_background"
-            android:textColor="@drawable/button_text_color"
-            android:layout_marginHorizontal="10dp" />
     </RadioGroup>
+
+    <Button
+        android:id="@+id/btn_capture"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/shoot_question"
+        android:background="@drawable/button_background"
+        android:textColor="@drawable/button_text_color"
+        android:layout_marginHorizontal="10dp"
+        app:layout_constraintTop_toBottomOf="@id/spliter0"
+        app:layout_constraintStart_toEndOf="@id/radioGroup"/>
 
     <View
         android:id="@+id/spliter"
@@ -157,7 +160,7 @@
         android:layout_height="2dp"
         android:layout_marginHorizontal="8dp"
         android:layout_marginVertical="2dp"
-        app:layout_constraintTop_toBottomOf="@id/radioGroup"
+        app:layout_constraintTop_toBottomOf="@id/btn_capture"
         app:layout_constraintStart_toStartOf="@id/verticalGuide"
         app:layout_constraintEnd_toEndOf="parent"
         android:background="#80808080"/>
