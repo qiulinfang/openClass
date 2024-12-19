@@ -24,6 +24,7 @@ import androidx.appcompat.widget.PopupMenu;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.colorpicker.ColorListener;
 import com.cosinetech.imates.colorpicker.ColorPickerDialog;
+import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.notes.NoteManager;
 import com.cosinetech.imates.notes.NotePopupWindow;
 import com.cosinetech.imates.pdfui.tree.TreeNodeData;
@@ -45,9 +46,14 @@ import com.shockwave.pdfium.PdfDocument;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.Serializable;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class PDFActivity extends AppCompatActivity implements
         OnPageChangeListener,
@@ -69,6 +75,7 @@ public class PDFActivity extends AppCompatActivity implements
     private PaintView paintView;
     private View paintToolView;
     private int selectionColorId = R.color.assist_blue;
+    private Chapter.Schema mSchema;
     //PDF控件
     PDFView pdfView;
     //按钮控件：返回、目录、缩略图
@@ -92,6 +99,7 @@ public class PDFActivity extends AppCompatActivity implements
         WindowUtils.hideSystemUI(this);
         WindowUtils.setFullScreenMode(this);
         setContentView(R.layout.activity_pdf);
+        mSchema = getIntent().getParcelableExtra("Schema");
 
         paintView = findViewById(R.id.paint_view);
 
@@ -142,9 +150,13 @@ public class PDFActivity extends AppCompatActivity implements
 
                 popupView.findViewById(R.id.menu_note).setOnClickListener(view -> {
                     Bitmap bmp = paintView.getSelectedBitmap();
-                    String base64 = ImageUtils.bitmapToHtmlJpgString(bmp);
+                    byte [] data = ImageUtils.compressBitmapToJpg(bmp);
+                    URI fileName = makeNoteFullFilePath();
+                    writeJpgToExternalStorage(data, fileName);
                     NoteManager manager = new NoteManager(getBaseContext());
-                    manager.addNote(base64);
+                    StringBuilder htmlContentBuilder = new StringBuilder();
+                    htmlContentBuilder.append("<img src=\"").append(fileName.toString()).append("\"/>");
+                    manager.addNote(htmlContentBuilder.toString(), "");
                     popupWindow.dismiss();
                 });
 
@@ -224,7 +236,6 @@ public class PDFActivity extends AppCompatActivity implements
         btnCancel.setOnClickListener( v -> {
             paintToolView.setVisibility(View.GONE);
             EasyFloat.show();
-
         });
 
         EasyFloat.with(this).setLayout(R.layout.floating_pdf_tools)
@@ -303,6 +314,45 @@ public class PDFActivity extends AppCompatActivity implements
                                 NotePopupWindow win = new NotePopupWindow(view.getContext());
                                 win.showAsDropDown(view);
                             });
+
+                            Button btnToTextBook = view.findViewById(R.id.btn_to_textbook);
+                            btnToTextBook.setOnClickListener(v->{
+                                if(mSchema != null && !mSchema.getTextBook().isEmpty()) {
+                                    Intent intent = getIntent();
+                                    intent.putExtra("AssetsPdf", mSchema.getTextBook());
+                                    pdfFitPolicy = FitPolicy.BOTH;
+                                    pdfSwipeHorizontal = false;
+                                    loadPdf();
+                                }
+                            });
+
+                            Button btnToPpt = view.findViewById(R.id.btn_to_ppt);
+                            btnToPpt.setOnClickListener(new View.OnClickListener() {
+                                @Override
+                                public void onClick(View v) {
+                                    if(mSchema != null && !mSchema.getLecture().isEmpty()) {
+                                        Intent intent = getIntent();
+                                        intent.putExtra("AssetsPdf", mSchema.getLecture());
+                                        pdfFitPolicy = FitPolicy.WIDTH;
+                                        pdfSwipeHorizontal = false;
+                                        loadPdf();
+                                    }
+                                }
+                            });
+
+                            Button btnToGuide= view.findViewById(R.id.btn_to_guide);
+                            btnToGuide.setOnClickListener(new View.OnClickListener() {
+                                @Override
+                                public void onClick(View v) {
+                                    if(mSchema != null && !mSchema.getLearnGuide().isEmpty()) {
+                                        Intent intent = getIntent();
+                                        intent.putExtra("AssetsPdf", mSchema.getLearnGuide());
+                                        pdfFitPolicy = FitPolicy.BOTH;
+                                        pdfSwipeHorizontal = false;
+                                        loadPdf();
+                                    }
+                                }
+                            });
                         }
                     }
 
@@ -328,6 +378,45 @@ public class PDFActivity extends AppCompatActivity implements
 
         initView();//初始化view
         loadPdf();//加载PDF文件
+    }
+
+    private URI makeNoteFullFilePath() {
+        // 获取应用的私有外部存储目录
+        File externalFilesDir = getExternalFilesDir(null);
+        if (externalFilesDir == null) {
+            Toast.makeText(this, "无法访问外部存储目录", Toast.LENGTH_SHORT).show();
+            return null; // 返回 null 表示失败
+        }
+
+        // 创建一个子目录（可选）
+        File customDirectory = new File(externalFilesDir, "MyNotes");
+        if (!customDirectory.exists()) {
+            customDirectory.mkdirs(); // 如果目录不存在，创建它
+        }
+
+        // 生成 GUID 作为文件名
+        String guid = UUID.randomUUID().toString();
+        String fileName = guid + ".jpg";
+
+        // 创建文件对象
+        File file = new File(customDirectory, fileName);
+
+        // 将文件路径转换为 URI
+        return file.toURI();
+    }
+
+    private void writeJpgToExternalStorage(byte [] data , URI filePath) {
+        File file = new File(filePath);
+
+        try {
+            // 创建文件并写入内容
+            FileOutputStream fos = new FileOutputStream(file);
+            fos.write(data);
+            fos.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "写入文件失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void resetPaintToolSelect() {

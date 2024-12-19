@@ -8,12 +8,14 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.util.ImageUtils;
+import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.util.StringUtils;
 import com.sendtion.xrichtext.RichTextEditor;
 
@@ -23,6 +25,7 @@ import java.util.List;
 public class NoteView extends LinearLayout {
     private ListView noteListView;
     private RichTextEditor xRichText;
+    private EditText etTitle;
     private Button newNoteButton;
     private Button saveNoteButton;
     private NoteManager noteManager;
@@ -50,6 +53,7 @@ public class NoteView extends LinearLayout {
         xRichText = view.findViewById(R.id.text_area);
         newNoteButton = view.findViewById(R.id.newNoteButton);
         saveNoteButton = view.findViewById(R.id.saveNoteButton);
+        etTitle = view.findViewById(R.id.et_title);
 
         noteManager = new NoteManager(context);
         List<String> noteTitles = noteManager.getNoteTitles();
@@ -65,16 +69,16 @@ public class NoteView extends LinearLayout {
                 String text = textList.get(i);
                 if (text.contains("<img")) {
                     String imagePath = StringUtils.getImgSrc(text);
+                    int width = getWidth();
+                    int height = getHeight();
                     xRichText.measure(0,0);
-                    Bitmap bitmap = ImageUtils.getBitmapFromBase64(text);
-                    if (bitmap != null){
-                        ImageView imageView  = new ImageView(getContext());
-                        imageView.setImageBitmap(bitmap);
-                        xRichText.addView(imageView, xRichText.getLastIndex());
-                    } else {
-                        xRichText.addEditTextAtIndex(xRichText.getLastIndex(), text);
-                    }
-                    xRichText.addEditTextAtIndex(xRichText.getLastIndex(), text);
+                    //Bitmap bitmap = ImageUtils.getDecodeBitmap(imagePath); //ImageUtils.getSmallBitmap(imagePath, width, height);
+                    //if (bitmap != null){
+                        xRichText.addImageViewAtIndex(xRichText.getLastIndex(), imagePath);
+//                    } else {
+//                        xRichText.addEditTextAtIndex(xRichText.getLastIndex(), text);
+//                    }
+                    //xRichText.addEditTextAtIndex(xRichText.getLastIndex(), text);
                 }
             }
         });
@@ -90,6 +94,7 @@ public class NoteView extends LinearLayout {
         saveNoteButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                String title = etTitle.getText().toString().trim();
                 List<RichTextEditor.EditData> editList = xRichText.buildEditData();
                 StringBuffer contentBuilder = new StringBuffer();
                 for (RichTextEditor.EditData itemData : editList) {
@@ -102,10 +107,10 @@ public class NoteView extends LinearLayout {
 
                 String content = contentBuilder.toString();
                 if (currentNoteId == -1) {
-                    long id = noteManager.addNote(content);
+                    long id = noteManager.addNote(content, title);
                     currentNoteId = (int) id;
                 } else {
-                    noteManager.updateNote(currentNoteId, content);
+                    noteManager.updateNote(currentNoteId, content, title);
                 }
                 refreshNoteList();
             }

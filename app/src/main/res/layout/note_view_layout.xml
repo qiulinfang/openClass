@@ -14,10 +14,10 @@
         android:layout_weight="1" />
 
     <LinearLayout
-        android:background="#808080"
+        android:background="#CECECE"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:layout_weight="2"
+        android:layout_weight="4"
         android:orientation="vertical">
 
         <LinearLayout
@@ -27,24 +27,44 @@
 
             <Button
                 android:id="@+id/newNoteButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="新建" />
+                android:background="@drawable/ic_new"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginVertical="16dp"
+                android:layout_marginHorizontal="16dp"
+                />
 
             <Button
                 android:id="@+id/saveNoteButton"
+                android:background="@drawable/ic_save"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginVertical="16dp"
+                />
+
+            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="保存" />
+                android:text="标题:"
+                android:layout_marginVertical="16dp"
+                android:layout_marginStart="32dp"
+                android:textSize="@dimen/head1_size"
+                android:textColor="#000000"/>
+            <EditText
+                android:id="@+id/et_title"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginVertical="16dp"
+                android:background="#ffffff"
+                android:textColor="#000000"/>
         </LinearLayout>
 
         <com.sendtion.xrichtext.RichTextEditor
             android:id="@+id/text_area"
             android:background="#ffffff"
-            android:layout_margin="16dp"
+            android:layout_margin="8dp"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_weight="1"
             android:focusable="true"
             android:clickable="true"
             android:gravity="top|start"
@@ -55,6 +75,7 @@
             app:rt_editor_text_init_hint="在这里输入内容"
             app:rt_editor_text_size="16sp"
             app:rt_editor_text_color="#000000"/>
+
     </LinearLayout>
 </LinearLayout>
 

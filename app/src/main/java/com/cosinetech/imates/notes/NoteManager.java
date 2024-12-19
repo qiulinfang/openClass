@@ -1,7 +1,10 @@
 package com.cosinetech.imates.notes;
 
 import android.content.Context;
+
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 public class NoteManager {
@@ -36,8 +39,10 @@ public class NoteManager {
         return noteList.get(position);
     }
 
-    public long addNote(String content) {
-        String title = generateTitle(content);
+    public long addNote(String content, String title) {
+        if(title.trim().isEmpty()) {
+            title = generateTitle(content);
+        }
         Note newNote = new Note(0, title, content);
         long id = dbHelper.addNote(newNote);
         newNote.setId((int) id);
@@ -46,8 +51,10 @@ public class NoteManager {
         return id;
     }
 
-    public void updateNote(int id, String content) {
-        String title = generateTitle(content);
+    public void updateNote(int id, String content, String title) {
+        if(title.isEmpty()) {
+            title = generateTitle(content);
+        }
         Note updatedNote = new Note(id, title, content);
         dbHelper.updateNote(updatedNote);
         int position = findNotePositionById(id);
@@ -58,7 +65,13 @@ public class NoteManager {
     }
 
     private String generateTitle(String content) {
-        return content.length() > 20 ? content.substring(0, 20) + "..." : content;
+        //return content.length() > 20 ? content.substring(0, 20) + "..." : content;
+        // 获取当前日期和时间
+        Date now = new Date();
+
+        // 格式化日期和时间
+        SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+        return dateTimeFormat.format(now);
     }
 
     private int findNotePositionById(int id) {

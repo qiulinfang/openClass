@@ -126,6 +126,7 @@ public class FragmentPreviewLesson extends Fragment {
             } else {
                 Intent intent = new Intent(getContext(), com.cosinetech.imates.pdfui.PDFActivity.class);
                 intent.putExtra("AssetsPdf","biology/chapter5/text_book.pdf");
+                intent.putExtra("Schema", mCurrentSchema);
                 getContext().startActivity(intent);
             }
         });

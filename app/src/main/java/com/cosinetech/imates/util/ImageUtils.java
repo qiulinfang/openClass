@@ -20,13 +20,32 @@ import java.io.InputStream;
 
 public class ImageUtils {
     public static Bitmap getBitmapFromBase64(String imgBase64) {
-        String base64Str=imgBase64.replace("data:image/jpeg;base64,","");
+        String base64Str=imgBase64.replace("<img src=\"","").replace("\"/>", "");
         byte[] decodedString = Base64.decode(base64Str, Base64.DEFAULT);
 
         Bitmap bmp = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
 
         return bmp;
     }
+
+    public static byte[] compressBitmapToJpg(Bitmap bmp) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        bmp.compress(Bitmap.CompressFormat.JPEG, 40, baos);
+        byte[] b = baos.toByteArray();
+        return b;
+    }
+    public static String bitmapToHtmlJpgString(Bitmap bm) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        bm.compress(Bitmap.CompressFormat.JPEG, 40, baos);
+        byte[] b = baos.toByteArray();
+
+        String img =  Base64.encodeToString(b, Base64.DEFAULT);
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("<img src=\"data:image/jpg;base64,").append(img).append("\"/>");
+        return builder.toString();
+    }
+
     /**
      * 将 Bitmap 转换为 JPEG 文件并保存到指定路径。
      *
@@ -118,25 +137,6 @@ public class ImageUtils {
         return result;
     }
 
-
-    /**
-     * 把bitmap转换成String
-     *
-     * @param filePath
-     * @return
-     */
-    public static String bitmapToHtmlJpgString(Bitmap bm) {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        bm.compress(Bitmap.CompressFormat.JPEG, 40, baos);
-        byte[] b = baos.toByteArray();
-
-        String img =  Base64.encodeToString(b, Base64.DEFAULT);
-
-        StringBuilder builder = new StringBuilder();
-        builder.append("<img src=\"data:image/jpg;base64,").append(img).append("/>");
-        return builder.toString();
-    }
-
     /**
      * 计算图片的缩放值
      *
@@ -167,6 +167,11 @@ public class ImageUtils {
         }
 
         return inSampleSize;
+    }
+
+
+    public static Bitmap getDecodeBitmap(String filePath) {
+        return BitmapFactory.decodeFile(filePath);
     }
 
     /**
