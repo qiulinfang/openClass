@@ -14,7 +14,7 @@
         android:id="@+id/img_edit_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:visibility="gone">
+        android:visibility="visible">
 
         <com.cosinetech.imates.widgets.PaintView
             android:id="@+id/paint_view"
@@ -28,7 +28,7 @@
         <ImageView
             android:id="@+id/imgBrushSize"
             android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="wrap_content"
+            android:layout_height="@dimen/top_tool_icon_width"
             android:background="@color/semi_black_transparent"
             android:padding="8dp"
             android:clickable="true"
@@ -39,8 +39,9 @@
 
         <TextView
             android:id="@+id/colorIndicator"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="@dimen/top_tool_icon_width"
+            android:layout_height="@dimen/top_tool_icon_width"
+            android:gravity="center"
             android:text="❁"
             android:textSize="28dp"
             android:textColor="#000000"
@@ -69,7 +70,8 @@
         <ImageView
             android:id="@+id/imgPalette"
             android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="wrap_content"
+            android:layout_height="@dimen/top_tool_icon_width"
+            android:gravity="center"
             android:background="@color/semi_black_transparent"
             android:padding="8dp"
             android:clickable="true"
@@ -81,7 +83,8 @@
         <ImageView
             android:id="@+id/imgBrush"
             android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="wrap_content"
+            android:layout_height="@dimen/top_tool_icon_width"
+            android:gravity="center"
             android:background="@color/semi_black_transparent"
             android:padding="8dp"
             android:clickable="true"
@@ -92,7 +95,8 @@
         <ImageView
             android:id="@+id/imgErase"
             android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="wrap_content"
+            android:layout_height="@dimen/top_tool_icon_width"
+            android:gravity="center"
             android:background="@color/semi_black_transparent"
             android:padding="8dp"
             android:clickable="true"
@@ -104,7 +108,8 @@
         <ImageView
             android:id="@+id/imgSelectArea"
             android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="wrap_content"
+            android:layout_height="@dimen/top_tool_icon_width"
+            android:gravity="center"
             android:background="@color/semi_black_transparent"
             android:padding="8dp"
             android:clickable="true"
@@ -115,7 +120,8 @@
         <ImageView
             android:id="@+id/imgUndo"
             android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="wrap_content"
+            android:layout_height="@dimen/top_tool_icon_width"
+            android:gravity="center"
             android:background="@color/semi_black_transparent"
             android:padding="8dp"
             android:clickable="true"
@@ -127,7 +133,8 @@
         <ImageView
             android:id="@+id/imgRedo"
             android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="wrap_content"
+            android:layout_height="@dimen/top_tool_icon_width"
+            android:gravity="center"
             android:background="@color/semi_black_transparent"
             android:padding="8dp"
             android:clickable="true"
@@ -138,7 +145,8 @@
         <ImageView
             android:id="@+id/imgOK"
             android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="wrap_content"
+            android:layout_height="@dimen/top_tool_icon_width"
+            android:gravity="center"
             android:background="@color/semi_black_transparent"
             android:padding="8dp"
             android:clickable="true"
@@ -150,7 +158,8 @@
         <ImageView
             android:id="@+id/imgCancel"
             android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="wrap_content"
+            android:layout_height="@dimen/top_tool_icon_width"
+            android:gravity="center"
             android:background="@color/semi_black_transparent"
             android:padding="8dp"
             android:clickable="true"
