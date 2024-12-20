@@ -5,17 +5,14 @@ import android.graphics.Bitmap;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.util.ImageUtils;
-import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.util.StringUtils;
 import com.sendtion.xrichtext.RichTextEditor;
 
@@ -70,12 +67,8 @@ public class NoteView extends LinearLayout {
                 String text = textList.get(i);
                 if (text.contains("<img")) {
                     String imagePath = StringUtils.getImgSrc(text);
-//                    int width = ScreenUtils.getScreenWidth(this);
-//                    int height = ScreenUtils.getScreenHeight(this);
                     xRichText.measure(0,0);
                     Bitmap bitmap = ImageUtils.getDecodeBitmap(imagePath);//ImageUtils.getSmallBitmap(imagePath, width, height);
-//                    int width = bitmap.getWidth();
-//                    int height = bitmap.getHeight();
                     if (bitmap != null){
                         xRichText.addImageViewAtIndex(xRichText.getLastIndex(), imagePath);
                     } else {
