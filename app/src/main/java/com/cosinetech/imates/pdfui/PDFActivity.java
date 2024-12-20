@@ -33,6 +33,7 @@ import com.cosinetech.imates.pdfui.tree.TreeNodeData;
 import com.cosinetech.imates.util.ImageUtils;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
+import com.cosinetech.imates.webservice.ApiUrl;
 import com.cosinetech.imates.widgets.DrawingChangeListener;
 import com.cosinetech.imates.widgets.PaintView;
 import com.github.barteksc.pdfviewer.PDFView;
@@ -416,7 +417,7 @@ public class PDFActivity extends AppCompatActivity implements
                     "",
                     "",
                     "",
-                    "",
+                    "start",
                     "");
             try {
                 chatRequest.setQuestion(ImageUtils.bitmapToHtmlJpgBase64(bmp));
@@ -424,7 +425,7 @@ public class PDFActivity extends AppCompatActivity implements
                 chatRequest.setAnswer(mSection.getTitle()); //当前章节
                 app.chatRequest = chatRequest;
 
-                app.getFloatingWindowService().popupChatBot();
+                app.getFloatingWindowService().popupChatBot(ApiUrl.URL_CHAT_PREVIEW_PICTURE);
             } catch (Exception e) {
                 Toast.makeText(PDFActivity.this, "请输入要问的问题", Toast.LENGTH_SHORT).show();
             }

@@ -1,6 +1,7 @@
 package com.cosinetech.imates.service;
 
 import android.annotation.SuppressLint;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -11,7 +12,6 @@ import android.os.IBinder;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Button;
 import android.widget.PopupWindow;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
@@ -98,6 +98,7 @@ public class FloatingWindowService extends Service {
                         layoutParams.x = initialX + offsetX;
                         layoutParams.y = initialY + offsetY;
                         windowManager.updateViewLayout(floatingView, layoutParams);
+                        Log.d("?????????", "onTouch: " + layoutParams.x  + "," + layoutParams.y);
                         return true;
 
                     case MotionEvent.ACTION_UP:
@@ -106,7 +107,7 @@ public class FloatingWindowService extends Service {
                         float deltaY = event.getRawY() - initialTouchY;
                         if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
                             // 如果移动距离小于阈值，认为是点击事件
-                            popupChatBot();
+                            popupChatBot(ApiUrl.URL_CHAT_GENERAL);
                         }
                         return true;
                 }
@@ -141,7 +142,7 @@ public class FloatingWindowService extends Service {
         });
     }
 
-    public void popupChatBot() {
+    public FragmentChatAi popupChatBot(String url) {
         // 加载 PopupWindow 的布局
         View popupView = LayoutInflater.from(this).inflate(R.layout.popup_window_chat, null);
 
@@ -153,23 +154,11 @@ public class FloatingWindowService extends Service {
                 true
         );
 
-        //popupWindow.setFocusable(false);
-        popupWindow.setOutsideTouchable(false);
-
-        // 设置 SoftInputMode 为适当的模式
-        popupWindow.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
-
-        Button btnExit = popupView.findViewById(R.id.btn_exit);
-        btnExit.setOnClickListener(v->{
-            windowManager.removeView(popupWindow.getContentView());
-            popupWindow.dismiss();
-        });
-
         // 设置 PopupWindow 的背景
-        //popupWindow.setBackgroundDrawable(ContextCompat.getDrawable(this, android.R.color.transparent));
+        popupWindow.setBackgroundDrawable(ContextCompat.getDrawable(this, android.R.color.transparent));
 
-//        // 显示 PopupWindow
-//        popupWindow.showAtLocation(wsd, Gravity.CENTER, 0, 0);
+        // 显示 PopupWindow
+        popupWindow.showAtLocation(floatingView, Gravity.CENTER, 0, 0);
 
         // 加载 Fragment
         FragmentManager fragmentManager = fragmentManagerProvider.getFragmentManagerForFloatingWindow(popupView);
@@ -183,30 +172,15 @@ public class FloatingWindowService extends Service {
 
         FragmentChatAi fragmentChatAi;
         try {
-            fragmentChatAi = FragmentChatAi.newInstance(ApiUrl.URL_CHAT_GENERAL, false, null);
+            fragmentChatAi = FragmentChatAi.newInstance(url, false, null);
             transaction.replace(R.id.popup_container, fragmentChatAi);
             transaction.addToBackStack(null);
             transaction.commitAllowingStateLoss();
         }catch (Exception e) {
             e.printStackTrace();
+            return null;
         }
-
-        // 使用 WindowManager 显示 PopupWindow
-        WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, // 使用悬浮窗类型
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-                PixelFormat.TRANSLUCENT
-        );
-
-        // 设置位置
-        layoutParams.gravity = Gravity.CENTER;
-        layoutParams.x = 0;
-        layoutParams.y = 0;
-
-        // 添加到 WindowManager
-        windowManager.addView(popupWindow.getContentView(), layoutParams);
+        return fragmentChatAi;
     }
 
     @Override

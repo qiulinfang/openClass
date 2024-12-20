@@ -7,8 +7,8 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.net.Uri;
+import android.os.Build;
 import android.text.TextUtils;
-import android.util.Base64;
 import android.util.Log;
 
 import java.io.ByteArrayInputStream;
@@ -17,16 +17,17 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Base64;
 
 public class ImageUtils {
-    public static Bitmap getBitmapFromBase64(String imgBase64) {
-        String base64Str=imgBase64.replace("<img src=\"","").replace("\"/>", "");
-        byte[] decodedString = Base64.decode(base64Str, Base64.DEFAULT);
-
-        Bitmap bmp = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
-
-        return bmp;
-    }
+//    public static Bitmap getBitmapFromBase64(String imgBase64) {
+//        String base64Str=imgBase64.replace("<img src=\"","").replace("\"/>", "");
+//        byte[] decodedString = Base64.decode(base64Str, Base64.DEFAULT);
+//
+//        Bitmap bmp = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
+//
+//        return bmp;
+//    }
 
     public static byte[] compressBitmapToJpg(Bitmap bmp) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -39,7 +40,11 @@ public class ImageUtils {
         bm.compress(Bitmap.CompressFormat.JPEG, 40, baos);
         byte[] b = baos.toByteArray();
 
-        String img =  Base64.encodeToString(b, Base64.DEFAULT);
+
+        String img = null;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            img = Base64.getEncoder().encodeToString(b);
+        }
 
         StringBuilder builder = new StringBuilder();
         builder.append("data:image/jpg;base64,").append(img);

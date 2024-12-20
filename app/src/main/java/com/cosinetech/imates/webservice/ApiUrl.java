@@ -10,13 +10,13 @@ public class ApiUrl {
     // public static final String baseUrl = "https://imates.com.cn/blw-edu-service-alc/permission";
 
     private static final String baseUrl = "https://api.showcode.xyz/blw-edu-service-alc/permission";
-
     public static final String URL_RESOURCE_BASE = "https://study.showcode.xyz";
     public static final String URL_LOGIN = "https://api.showcode.xyz/blw-edu-service-alc/admin/login";
     public static final String URL_USER_INFO = "https://api.showcode.xyz/blw-edu-service-alc/admin/info";
 
     public static final String URL_QUESTION_IMAGE_RECOGNISE = baseUrl + "/img";
     public static final String URL_CHAT_GENERAL = baseUrl + "/chats";
+    public static final String URL_CHAT_PREVIEW_PICTURE = baseUrl + "/previewPictureQA";
     public static final String URL_CHAT_BIOLOGY = baseUrl + "/chat";
 
     //上传生物 数学练习
@@ -34,5 +34,4 @@ public class ApiUrl {
 
     public static final  String URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE = "https://api.showcode.xyz/blw-edu-service-alc/biologyTopicKnowledge/knowledgeTopicAndAck";
 
-    // public static final  String URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE_MATH = baseUrl + "/biologyTopicKnowledge/knowledgeTopicAndAck";
 }
