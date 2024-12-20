@@ -59,22 +59,10 @@
                 android:textColor="#000000"/>
         </LinearLayout>
 
-        <com.sendtion.xrichtext.RichTextEditor
-            android:id="@+id/text_area"
-            android:background="#ffffff"
-            android:layout_margin="8dp"
+        <WebView
+            android:id="@+id/webView"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:focusable="true"
-            android:clickable="true"
-            android:gravity="top|start"
-            android:padding="10dp"
-            app:rt_editor_text_line_space="6dp"
-            app:rt_editor_image_height="500"
-            app:rt_editor_image_bottom="10"
-            app:rt_editor_text_init_hint="在这里输入内容"
-            app:rt_editor_text_size="16sp"
-            app:rt_editor_text_color="#000000"/>
+            android:layout_height="match_parent" />
 
     </LinearLayout>
 </LinearLayout>

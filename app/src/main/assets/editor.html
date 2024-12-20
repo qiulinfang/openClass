@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple HTML Editor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        #editor {
+            border: 1px solid #ccc;
+            min-height: 300px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        #toolbar {
+            margin-bottom: 10px;
+        }
+        button {
+            margin-right: 5px;
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+<div id="toolbar">
+    <button onclick="formatText('bold')" aria-label="Bold">B</button>
+    <button onclick="formatText('italic')" aria-label="Italic">I</button>
+    <button onclick="formatText('underline')" aria-label="Underline">U</button>
+    <input type="color" onchange="changeColor(this.value)" aria-label="Change text color">
+    <button onclick="insertImage()" aria-label="Insert image">Insert Image</button>
+    <button onclick="saveContent()" aria-label="Save content">Save</button>
+    <button onclick="loadContent()" aria-label="Load content">Load</button>
+</div>
+<div id="editor" contenteditable="true" aria-label="Text editor"></div>
+
+<script>
+    function formatText(command) {
+        document.execCommand(command, false, null);
+    }
+
+    function changeColor(color) {
+        document.execCommand('foreColor', false, color);
+    }
+
+    function insertImage() {
+        const url = prompt('Enter image URL:');
+        if (url) {
+            document.execCommand('insertImage', false, url);
+        }
+    }
+
+    function saveContent() {
+        const content = document.getElementById('editor').innerHTML;
+        // Call Android interface to save content
+        if (typeof Android !== 'undefined' && Android.saveContent) {
+            Android.saveContent(content);
+        } else {
+            console.log('Saved content:', content);
+        }
+    }
+
+    function loadContent() {
+        // Call Android interface to load content
+        if (typeof Android !== 'undefined' && Android.loadContent) {
+            Android.loadContent();
+        } else {
+            console.log('Load content called');
+        }
+    }
+
+    // Function to be called by Android to set loaded content
+    function setLoadedContent(content) {
+        document.getElementById('editor').innerHTML = content;
+    }
+</script>
+</body>
+</html>
+
