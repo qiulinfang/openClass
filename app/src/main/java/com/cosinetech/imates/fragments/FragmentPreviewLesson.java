@@ -82,7 +82,7 @@ public class FragmentPreviewLesson extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-
+        String sectionId = mPreviewSection.getSection();
         TextView textPreview = view.findViewById(R.id.label);
         textPreview.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -96,13 +96,26 @@ public class FragmentPreviewLesson extends Fragment {
 
         SimpleRatingView ratingView = view.findViewById(R.id.rating);
         ratingView.setOnRatingChangeListener((oldRating, newRating) ->  {
-            Toast.makeText(getContext(), "oldRating:" + oldRating + " newRating:" + newRating, Toast.LENGTH_SHORT).show();
+            //Toast.makeText(getContext(), "oldRating:" + oldRating + " newRating:" + newRating, Toast.LENGTH_SHORT).show();
+            if(mCurrentSchemaIndex >= 0) {
+                SharedPreferences.Editor editor = sharedPreferences.edit();
+                editor.putInt(sectionId + "schema_rating" + mCurrentSchemaIndex, newRating);
+                editor.apply();
+            }
         });
 
         SimpleRatingView ratingDifficult = view.findViewById(R.id.rating_difficulty);
         ratingDifficult.setOnRatingChangeListener((oldRating, newRating) -> {
-            Toast.makeText(getContext(), "diff: oldRating:" + oldRating + " newRating:" + newRating, Toast.LENGTH_SHORT).show();
+            //Toast.makeText(getContext(), "diff: oldRating:" + oldRating + " newRating:" + newRating, Toast.LENGTH_SHORT).show();
+            if(mCurrentSchemaIndex >= 0) {
+                SharedPreferences.Editor editor = sharedPreferences.edit();
+                editor.putInt(sectionId + "schema_rating_difficulty" + mCurrentSchemaIndex, newRating);
+                editor.apply();
+            }
         });
+
+        ratingView.setEnabled(false);
+        ratingDifficult.setEnabled(false);
 
         sharedPreferences = requireActivity().getSharedPreferences(CONFIG_NAME, Context.MODE_PRIVATE);
 
@@ -131,7 +144,6 @@ public class FragmentPreviewLesson extends Fragment {
             v.setVisibility(View.VISIBLE);
         }
 
-        String sectionId = mPreviewSection.getSection();
         for(int i = 0; i < textViewSchemaStat.length; i++) {
             TextView v = view.findViewById(textViewSchemaStat[i]);
             boolean learned = sharedPreferences.getBoolean(sectionId + "_schema" + i, false);
@@ -146,9 +158,18 @@ public class FragmentPreviewLesson extends Fragment {
 
         ConstraintRadioGroup schemaGroup = view.findViewById(R.id.schema_group);
         schemaGroup.SetOnCheckedChangeListener((rg, nCheckedId) -> {
+            ratingView.setEnabled(true);
+            ratingDifficult.setEnabled(true);
+
             for(int i = 0; i < mPreviewSection.getSchemas().size() && i < rdoButonIds.length; i++) {
                 if(nCheckedId == rdoButonIds[i]) {
                     mCurrentSchemaIndex = i;
+                    int rating = sharedPreferences.getInt(sectionId + "schema_rating_difficulty" + i, 0);
+                    ratingDifficult.setRating(rating);
+
+                    rating = sharedPreferences.getInt(sectionId + "schema_rating" + i, 0);
+                    ratingView.setRating(rating);
+
                     updateSchemaIntroduction(view.findViewById(R.id.schema_intro));
                     break;
                 }
