@@ -64,21 +64,24 @@ public class NoteView extends LinearLayout {
         noteListView.setOnItemClickListener((parent, view1, position, id) -> {
             currentNoteId = noteManager.getNoteByPosition(position).getId();
             Note selectedNote = noteManager.getNoteById(currentNoteId);
+            xRichText.clearAllLayout();
             List<String> textList = StringUtils.cutStringByImgTag(selectedNote.getContent());
             for (int i = 0; i < textList.size(); i++) {
                 String text = textList.get(i);
                 if (text.contains("<img")) {
                     String imagePath = StringUtils.getImgSrc(text);
-                    int width = getWidth();
-                    int height = getHeight();
+//                    int width = ScreenUtils.getScreenWidth(this);
+//                    int height = ScreenUtils.getScreenHeight(this);
                     xRichText.measure(0,0);
-                    //Bitmap bitmap = ImageUtils.getDecodeBitmap(imagePath); //ImageUtils.getSmallBitmap(imagePath, width, height);
-                    //if (bitmap != null){
+                    Bitmap bitmap = ImageUtils.getDecodeBitmap(imagePath);//ImageUtils.getSmallBitmap(imagePath, width, height);
+//                    int width = bitmap.getWidth();
+//                    int height = bitmap.getHeight();
+                    if (bitmap != null){
                         xRichText.addImageViewAtIndex(xRichText.getLastIndex(), imagePath);
-//                    } else {
-//                        xRichText.addEditTextAtIndex(xRichText.getLastIndex(), text);
-//                    }
-                    //xRichText.addEditTextAtIndex(xRichText.getLastIndex(), text);
+                    } else {
+                        xRichText.addEditTextAtIndex(xRichText.getLastIndex(), text);
+                    }
+                    xRichText.addEditTextAtIndex(xRichText.getLastIndex(), text);
                 }
             }
         });

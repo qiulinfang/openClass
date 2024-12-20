@@ -50,7 +50,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
+import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -151,13 +153,20 @@ public class PDFActivity extends AppCompatActivity implements
                 popupView.findViewById(R.id.menu_note).setOnClickListener(view -> {
                     Bitmap bmp = paintView.getSelectedBitmap();
                     byte [] data = ImageUtils.compressBitmapToJpg(bmp);
-                    URI fileName = makeNoteFullFilePath();
-                    writeJpgToExternalStorage(data, fileName);
-                    NoteManager manager = new NoteManager(getBaseContext());
-                    StringBuilder htmlContentBuilder = new StringBuilder();
-                    htmlContentBuilder.append("<img src=\"").append(fileName.toString()).append("\"/>");
-                    manager.addNote(htmlContentBuilder.toString(), "");
-                    popupWindow.dismiss();
+                    try {
+                        String fileName = makeNoteFullFilePath();
+                        if(!writeJpgToExternalStorage(data, fileName)) {
+                            Toast.makeText(PDFActivity.this, "保存图片失败", Toast.LENGTH_SHORT).show();
+                        } else {
+                            NoteManager manager = new NoteManager(getBaseContext());
+                            StringBuilder htmlContentBuilder = new StringBuilder();
+                            htmlContentBuilder.append("<img src=\"").append(fileName.toString()).append("\"/>");
+                            manager.addNote(htmlContentBuilder.toString(), "");
+                            popupWindow.dismiss();
+                        }
+                    }catch (Exception ex) {
+                        Toast.makeText(PDFActivity.this, "创建笔记失败", Toast.LENGTH_SHORT).show();
+                    }
                 });
 
                 // 显示 PopupWindow 在指定位置 (例如屏幕中央)
@@ -380,7 +389,7 @@ public class PDFActivity extends AppCompatActivity implements
         loadPdf();//加载PDF文件
     }
 
-    private URI makeNoteFullFilePath() {
+    private String makeNoteFullFilePath() {
         // 获取应用的私有外部存储目录
         File externalFilesDir = getExternalFilesDir(null);
         if (externalFilesDir == null) {
@@ -401,21 +410,21 @@ public class PDFActivity extends AppCompatActivity implements
         // 创建文件对象
         File file = new File(customDirectory, fileName);
 
-        // 将文件路径转换为 URI
-        return file.toURI();
+        return file.getAbsolutePath();
     }
 
-    private void writeJpgToExternalStorage(byte [] data , URI filePath) {
-        File file = new File(filePath);
-
+    private boolean writeJpgToExternalStorage(byte [] data , String filePath) {
         try {
+            File file = new File(filePath);
             // 创建文件并写入内容
             FileOutputStream fos = new FileOutputStream(file);
             fos.write(data);
             fos.close();
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
             Toast.makeText(this, "写入文件失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            return false;
         }
     }
 
