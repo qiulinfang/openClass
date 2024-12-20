@@ -34,7 +34,7 @@ public class ImageUtils {
         byte[] b = baos.toByteArray();
         return b;
     }
-    public static String bitmapToHtmlJpgString(Bitmap bm) {
+    public static String bitmapToHtmlJpgBase64(Bitmap bm) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         bm.compress(Bitmap.CompressFormat.JPEG, 40, baos);
         byte[] b = baos.toByteArray();
@@ -42,7 +42,7 @@ public class ImageUtils {
         String img =  Base64.encodeToString(b, Base64.DEFAULT);
 
         StringBuilder builder = new StringBuilder();
-        builder.append("<img src=\"data:image/jpg;base64,").append(img).append("\"/>");
+        builder.append("data:image/jpg;base64,").append(img);
         return builder.toString();
     }
 

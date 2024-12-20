@@ -9,8 +9,22 @@ public class AiChatMessageRequest {
     private String name;
     private String reason;
 
+    public String getBmNo() {
+        return bmNo;
+    }
+
+    public void setBmNo(String bmNo) {
+        this.bmNo = bmNo;
+    }
+
+    private String bmNo;
+
     // 构造函数
-    public AiChatMessageRequest(String sessionId, String newValue, String coversation, String question, String answer, String name, String reason) {
+    public AiChatMessageRequest(String sessionId, String newValue,
+                                String coversation, String question,
+                                String answer,
+                                String name, String reason,
+                                String bmNo) {
         this.sessionId = sessionId;
         this.newValue = newValue;
         this.coversation = coversation;
@@ -18,6 +32,7 @@ public class AiChatMessageRequest {
         this.answer = answer;
         this.name = name;
         this.reason = reason;
+        this.bmNo = bmNo;
     }
 
     // Getters 和 Setters 方法

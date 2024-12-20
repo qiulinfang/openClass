@@ -193,6 +193,7 @@ public class FragmentPreviewLesson extends Fragment {
                 Intent intent = new Intent(getContext(), com.cosinetech.imates.pdfui.PDFActivity.class);
                 intent.putExtra("AssetsPdf","biology/chapter5/text_book.pdf");
                 intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
+                intent.putExtra("Section", mPreviewSection);
                 getContext().startActivity(intent);
             }
         });

@@ -10,6 +10,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
@@ -19,17 +20,19 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.PopupMenu;
 
+import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.colorpicker.ColorListener;
 import com.cosinetech.imates.colorpicker.ColorPickerDialog;
+import com.cosinetech.imates.fragments.FragmentChatAi;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.notes.NoteManager;
 import com.cosinetech.imates.notes.NotePopupWindow;
 import com.cosinetech.imates.pdfui.tree.TreeNodeData;
 import com.cosinetech.imates.util.ImageUtils;
 import com.cosinetech.imates.util.WindowUtils;
+import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.widgets.DrawingChangeListener;
 import com.cosinetech.imates.widgets.PaintView;
 import com.github.barteksc.pdfviewer.PDFView;
@@ -72,6 +75,7 @@ public class PDFActivity extends AppCompatActivity implements
     private View paintToolView;
     private int selectionColorId = R.color.assist_blue;
     private Chapter.Schema mSchema;
+    private Chapter.Section mSection;
     //PDF控件
     PDFView pdfView;
     //按钮控件：返回、目录、缩略图
@@ -96,6 +100,7 @@ public class PDFActivity extends AppCompatActivity implements
         WindowUtils.setFullScreenMode(this);
         setContentView(R.layout.activity_pdf);
         mSchema = getIntent().getParcelableExtra("Schema");
+        mSection = getIntent().getParcelableExtra("Section");
 
         paintView = findViewById(R.id.paint_view);
 
@@ -140,8 +145,9 @@ public class PDFActivity extends AppCompatActivity implements
 
                 // 设置点击事件
                 popupView.findViewById(R.id.menu_chat).setOnClickListener(view -> {
-                    //Toast.makeText(this, "复制", Toast.LENGTH_SHORT).show();
+                    Bitmap bmp = paintView.getSelectedBitmap();
                     popupWindow.dismiss();
+                    askQuestionForPicture(bmp, (int)x, (int)y);
                 });
 
                 popupView.findViewById(R.id.menu_note).setOnClickListener(view -> {
@@ -164,7 +170,7 @@ public class PDFActivity extends AppCompatActivity implements
                 });
 
                 // 显示 PopupWindow 在指定位置 (例如屏幕中央)
-                popupWindow.showAtLocation(paintView, Gravity.NO_GRAVITY, (int)x, (int)y); // x=300, y=500
+                popupWindow.showAtLocation(paintView, Gravity.NO_GRAVITY, (int)x, (int)y);
             }
         });
 
@@ -381,6 +387,55 @@ public class PDFActivity extends AppCompatActivity implements
 
         initView();//初始化view
         loadPdf();//加载PDF文件
+    }
+
+    private void askQuestionForPicture(Bitmap bmp, int x, int y) {
+// 加载自定义布局
+        View popupView = LayoutInflater.from(PDFActivity.this).inflate(R.layout.pdf_ask_ai, null);
+        ImageView imageView = popupView.findViewById(R.id.ask_picture_src);
+        EditText editText = popupView.findViewById(R.id.ask_content);
+        // 创建 PopupWindow
+        PopupWindow popupWindow = new PopupWindow(popupView,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                true);
+
+        imageView.setImageBitmap(bmp);
+
+        // 设置点击事件
+        popupView.findViewById(R.id.btn_ok).setOnClickListener(view -> {
+            if(editText.getText().toString().trim().isEmpty()) {
+                Toast.makeText(PDFActivity.this, "请输入要问的问题", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            popupWindow.dismiss();
+            ApplicationModelShared app = (ApplicationModelShared)getApplication();
+            AiChatMessageRequest chatRequest = new AiChatMessageRequest("",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "");
+            try {
+                chatRequest.setQuestion(ImageUtils.bitmapToHtmlJpgBase64(bmp));
+                chatRequest.setCoversation(editText.getText().toString());
+                chatRequest.setAnswer(mSection.getTitle()); //当前章节
+                app.chatRequest = chatRequest;
+
+                app.getFloatingWindowService().popupChatBot();
+            } catch (Exception e) {
+                Toast.makeText(PDFActivity.this, "请输入要问的问题", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        popupView.findViewById(R.id.btn_cancel).setOnClickListener(view -> {
+            popupWindow.dismiss();
+        });
+
+        // 显示 PopupWindow 在指定位置 (例如屏幕中央)
+        popupWindow.showAtLocation(paintView, Gravity.NO_GRAVITY, (int)x, (int)y);
     }
 
     private String makeNoteFullFilePath() {

@@ -11,6 +11,7 @@ import android.os.IBinder;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.Button;
 import android.widget.PopupWindow;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
@@ -140,7 +141,7 @@ public class FloatingWindowService extends Service {
         });
     }
 
-    public FragmentChatAi popupChatBot() {
+    public void popupChatBot() {
         // 加载 PopupWindow 的布局
         View popupView = LayoutInflater.from(this).inflate(R.layout.popup_window_chat, null);
 
@@ -152,11 +153,23 @@ public class FloatingWindowService extends Service {
                 true
         );
 
-        // 设置 PopupWindow 的背景
-        popupWindow.setBackgroundDrawable(ContextCompat.getDrawable(this, android.R.color.transparent));
+        //popupWindow.setFocusable(false);
+        popupWindow.setOutsideTouchable(false);
 
-        // 显示 PopupWindow
-        popupWindow.showAtLocation(floatingView, Gravity.CENTER, 0, 0);
+        // 设置 SoftInputMode 为适当的模式
+        popupWindow.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+
+        Button btnExit = popupView.findViewById(R.id.btn_exit);
+        btnExit.setOnClickListener(v->{
+            windowManager.removeView(popupWindow.getContentView());
+            popupWindow.dismiss();
+        });
+
+        // 设置 PopupWindow 的背景
+        //popupWindow.setBackgroundDrawable(ContextCompat.getDrawable(this, android.R.color.transparent));
+
+//        // 显示 PopupWindow
+//        popupWindow.showAtLocation(wsd, Gravity.CENTER, 0, 0);
 
         // 加载 Fragment
         FragmentManager fragmentManager = fragmentManagerProvider.getFragmentManagerForFloatingWindow(popupView);
@@ -176,9 +189,24 @@ public class FloatingWindowService extends Service {
             transaction.commitAllowingStateLoss();
         }catch (Exception e) {
             e.printStackTrace();
-            return null;
         }
-        return fragmentChatAi;
+
+        // 使用 WindowManager 显示 PopupWindow
+        WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, // 使用悬浮窗类型
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                PixelFormat.TRANSLUCENT
+        );
+
+        // 设置位置
+        layoutParams.gravity = Gravity.CENTER;
+        layoutParams.x = 0;
+        layoutParams.y = 0;
+
+        // 添加到 WindowManager
+        windowManager.addView(popupWindow.getContentView(), layoutParams);
     }
 
     @Override

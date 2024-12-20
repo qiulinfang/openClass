@@ -17,6 +17,7 @@ import com.bumptech.glide.request.target.SimpleTarget;
 import com.bumptech.glide.request.transition.Transition;
 import com.cosinetech.imates.activities.MainActivity;
 import com.cosinetech.imates.service.FloatingWindowService;
+import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.sendtion.xrichtext.IImageLoader;
 import com.sendtion.xrichtext.XRichText;
 
@@ -24,6 +25,8 @@ public class ApplicationModelShared extends Application implements ViewModelStor
     private final ViewModelStore viewModelStore = new ViewModelStore();
     private MainActivity mainActivity;
     private FloatingWindowService floatingWindowService;
+
+    public AiChatMessageRequest chatRequest;
 
     @Override
     public void onCreate() {

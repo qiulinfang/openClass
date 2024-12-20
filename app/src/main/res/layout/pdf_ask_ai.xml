@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="#CECECE"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#000000"
+        android:minWidth="250dp"
+        android:layout_margin="16dp"
+        android:text="输入你想问的问题:"/>
+
+    <EditText
+        android:id="@+id/ask_content"
+        android:inputType="text"
+        android:background="#ffffff"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:minWidth="250dp"
+        android:minHeight="48dp"/>
+
+    <ImageView
+        android:id="@+id/ask_picture_src"
+        android:background="#ffffff"
+        android:layout_width="250dp"
+        android:layout_height="250dp"
+        android:layout_margin="16dp"/>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_ok"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#ffffff"
+            android:background="@drawable/button_bk"
+            android:layout_margin="16dp"
+            android:text="确定"/>
+
+        <Button
+            android:id="@+id/btn_cancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#ffffff"
+            android:background="@drawable/button_bk"
+            android:layout_margin="16dp"
+            android:text="取消"/>
+    </LinearLayout>
+</LinearLayout>

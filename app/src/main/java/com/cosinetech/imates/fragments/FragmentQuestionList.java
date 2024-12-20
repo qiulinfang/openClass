@@ -49,7 +49,7 @@ public class FragmentQuestionList extends Fragment {
     private UserInfoViewModel userInfoViewModel;
     private AdapterQuestionList adapterQuestionList;
     private AdapterSimilarQuestionList adapterSimilarQuestionList;
-    private final AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start");
+    private final AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "");
     private Question mCurrentQuestion = null;
     private RadioButton mRdoViewAnswer;
     private RadioButton mRdoSimilarQuestion;
@@ -177,8 +177,9 @@ public class FragmentQuestionList extends Fragment {
                 aiChatMessageRequest.setSessionId(String.valueOf(System.currentTimeMillis()));
                 aiChatMessageRequest.setQuestion(mCurrentQuestion.title);
                 aiChatMessageRequest.setAnswer(mCurrentQuestion.DAJX + mCurrentQuestion.explanation);
-                aiChatMessageRequest.setCoversation("请开始引导");
+                aiChatMessageRequest.setCoversation("我们开始吧");
                 aiChatMessageRequest.setReason("start");
+                aiChatMessageRequest.setBmNo(mCurrentQuestion.bmNo);
                 fragmentChatAi.setChatEnable(false);
                 chatResponceTimes = 0;
                 setViewAnswer(false);

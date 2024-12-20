@@ -75,7 +75,9 @@ public class MarkdownTextView extends AppCompatTextView {
     private String filterLatexString(String src) {
         String preFilterLatex = src.replace("\\(", "$")
                 .replace("\\)", "$")
-                .replace("$$", "$$\n");
+                .replace("$$", "$$\n")
+                .replace("\\[", "$")
+                .replace("\\]", "$");
         return preFilterLatex;
     }
 

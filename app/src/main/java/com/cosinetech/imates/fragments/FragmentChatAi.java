@@ -1,7 +1,13 @@
 package com.cosinetech.imates.fragments;
 
+import static android.content.Context.INPUT_METHOD_SERVICE;
+import static androidx.core.content.ContextCompat.getSystemService;
+
+import android.content.Context;
 import android.os.Bundle;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.ViewModelProvider;
@@ -9,15 +15,19 @@ import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.adapters.AdapterAiChatMessageList;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.R;
@@ -45,7 +55,7 @@ public class FragmentChatAi extends Fragment {
     private static final String KEY_PARAM_CHATBOT_URL = "CHAT_URL";
     private static final String KEY_PARAM_SHOW_HEADER = "SHOW_HEADER";
 
-    private AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start");
+    private AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "");
     private RecyclerView recyclerView;
     private SmartRefreshLayout refreshLayout;
     private EditText etMessage;
@@ -116,6 +126,16 @@ public class FragmentChatAi extends Fragment {
         etMessage = view.findViewById(R.id.et_message);
         btnSend = view.findViewById(R.id.btn_send);
 
+        etMessage.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    Context context = etMessage.getContext();
+                    InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
+                    imm.showSoftInput(etMessage, InputMethodManager.SHOW_IMPLICIT);
+                }, 500); // 延迟 200 毫秒
+            }
+        });
+
         // Initialize RecyclerView
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         adapterAiChatMesssageList = new AdapterAiChatMessageList(messageList);
@@ -157,6 +177,15 @@ public class FragmentChatAi extends Fragment {
         aiChatMessageRequest.setName(Objects.requireNonNull(userInfoViewModel.userInfo.getValue()).getName());
 
         return view;
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        ApplicationModelShared app = (ApplicationModelShared) requireActivity().getApplication();
+        if(app.chatRequest != null) {
+            sendMessageDirectly(app.chatRequest);
+            app.chatRequest = null;
+        }
     }
 
     public void clearChatHistory() {
@@ -221,24 +250,29 @@ public class FragmentChatAi extends Fragment {
     }
 
     public void sendMessageDirectly(AiChatMessageRequest mo) {
-        this.aiChatMessageRequest = mo;
-        this.aiChatMessageRequest.setReason("start");
-        ChatMessage message = new ChatMessage(aiChatMessageRequest.getCoversation(), true, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
-        messageList.add(message);
-        adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
-        etMessage.setText("");
+        etMessage.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                aiChatMessageRequest = mo;
+                aiChatMessageRequest.setReason("start");
+                ChatMessage message = new ChatMessage(aiChatMessageRequest.getCoversation(), true, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
+                messageList.add(message);
+                adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
+                etMessage.setText("");
 
-        ChatMessage responseMessage = new ChatMessage("", false, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
-        messageList.add(responseMessage);
-        adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
+                ChatMessage responseMessage = new ChatMessage("", false, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
+                messageList.add(responseMessage);
+                adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
 
-        recyclerView.scrollToPosition(messageList.size() - 1);
+                recyclerView.scrollToPosition(messageList.size() - 1);
 
 //        aiChatMessageRequest.setReason("start");
 //        aiChatMessageRequest.setCoversation(messageText);
 
-        btnSend.setEnabled(false);
-        pollChat();
+                btnSend.setEnabled(false);
+                pollChat();
+            }
+        }, 3000);
     }
 
     private void loadMessages() {
