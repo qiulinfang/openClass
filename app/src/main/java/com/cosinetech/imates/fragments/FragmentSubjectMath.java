@@ -8,6 +8,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
 
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -42,6 +43,7 @@ import java.io.InputStreamReader;
 public class FragmentSubjectMath extends Fragment {
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
+    private int previousBackStackCount = 0;
 
     // TODO: Rename and change types of parameters
     private String mParam1;
@@ -89,6 +91,7 @@ public class FragmentSubjectMath extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        initPopStackListner(view);
         CardView button = view.findViewById(R.id.photo_to_solve);
         button.setOnClickListener(v -> loadCameraFragment());
 
@@ -318,5 +321,36 @@ public class FragmentSubjectMath extends Fragment {
 
     public void loadPrepareLessonFragment(String sectionId, String sectionName) {
         Toast.makeText(this.getContext(), "暂无相关课程", Toast.LENGTH_SHORT).show();
+    }
+
+    private void initPopStackListner(View view) {
+        // 添加 OnBackStackChangedListener
+        getChildFragmentManager().addOnBackStackChangedListener(new FragmentManager.OnBackStackChangedListener() {
+            @Override
+            public void onBackStackChanged() {
+                // 获取当前 BackStack 中的数量
+                int currentBackStackCount = getChildFragmentManager().getBackStackEntryCount();
+
+                // 如果 BackStack 数量减少，说明有 Fragment 被 pop
+                if (currentBackStackCount < previousBackStackCount) {
+                    onChildFragmentPopped();
+                }
+
+                // 更新记录的 BackStack 数量
+                previousBackStackCount = currentBackStackCount;
+                if(currentBackStackCount > 0) {
+                    view.findViewById(R.id.container).setClickable(true);
+                    view.findViewById(R.id.container).setFocusable(true);
+                } else {
+                    view.findViewById(R.id.container).setClickable(false);
+                    view.findViewById(R.id.container).setFocusable(false);
+                }
+            }
+        });
+
+        // 初始化记录的 BackStack 数量
+        previousBackStackCount = getChildFragmentManager().getBackStackEntryCount();
+    }
+    private void onChildFragmentPopped() {
     }
 }
