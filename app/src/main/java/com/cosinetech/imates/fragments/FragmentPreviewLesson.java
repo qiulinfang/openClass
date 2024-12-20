@@ -1,7 +1,10 @@
 package com.cosinetech.imates.fragments;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -38,9 +41,12 @@ public class FragmentPreviewLesson extends Fragment {
     // TODO: Rename and change types of parameters
     private String mPreviewSectionName;
 
-    private Chapter.Schema mCurrentSchema = null;
+    private int mCurrentSchemaIndex = -1;
 
     private Chapter.Section mPreviewSection;
+
+    private SharedPreferences sharedPreferences;
+    private final String CONFIG_NAME = "SCHEMA_LEARN_STAT";
 
     public FragmentPreviewLesson() {
         // Required empty public constructor
@@ -98,20 +104,51 @@ public class FragmentPreviewLesson extends Fragment {
             Toast.makeText(getContext(), "diff: oldRating:" + oldRating + " newRating:" + newRating, Toast.LENGTH_SHORT).show();
         });
 
+        sharedPreferences = requireActivity().getSharedPreferences(CONFIG_NAME, Context.MODE_PRIVATE);
+
         int [] rdoButonIds = new int[] {
-                R.id.opt_scheme_1, R.id.opt_scheme_2, R.id.opt_scheme_3, R.id.opt_scheme_4, R.id.opt_scheme_5, R.id.opt_scheme_6
+                R.id.opt_scheme_1, R.id.opt_scheme_2, R.id.opt_scheme_3,
+                R.id.opt_scheme_4, R.id.opt_scheme_5, R.id.opt_scheme_6
         };
+
+
+        int [] textViewSchemaStat = new int[] {
+                R.id.schema_1_stat, R.id.schema_2_stat, R.id.schema_3_stat,
+                R.id.schema_4_stat, R.id.schema_5_stat, R.id.schema_6_stat
+        };
+
+        for(int i = 0; i < rdoButonIds.length; i++) {
+            RadioButton rdoButton = view.findViewById(rdoButonIds[i]);
+            TextView v = view.findViewById(textViewSchemaStat[i]);
+            rdoButton.setVisibility(View.INVISIBLE);
+            v.setVisibility(View.INVISIBLE);
+        }
 
         for(int i = 0; i < mPreviewSection.getSchemas().size() && i < rdoButonIds.length; i++) {
             RadioButton rdoButton = view.findViewById(rdoButonIds[i]);
+            TextView v = view.findViewById(textViewSchemaStat[i]);
             rdoButton.setVisibility(View.VISIBLE);
+            v.setVisibility(View.VISIBLE);
+        }
+
+        String sectionId = mPreviewSection.getSection();
+        for(int i = 0; i < textViewSchemaStat.length; i++) {
+            TextView v = view.findViewById(textViewSchemaStat[i]);
+            boolean learned = sharedPreferences.getBoolean(sectionId + "_schema" + i, false);
+            if(learned) {
+                v.setText("已学习");
+                v.setTextColor(Color.GREEN);
+            } else {
+                v.setText("未学习");
+                v.setTextColor(Color.GRAY);
+            }
         }
 
         ConstraintRadioGroup schemaGroup = view.findViewById(R.id.schema_group);
         schemaGroup.SetOnCheckedChangeListener((rg, nCheckedId) -> {
             for(int i = 0; i < mPreviewSection.getSchemas().size() && i < rdoButonIds.length; i++) {
                 if(nCheckedId == rdoButonIds[i]) {
-                    mCurrentSchema = mPreviewSection.getSchemas().get(i);
+                    mCurrentSchemaIndex = i;
                     updateSchemaIntroduction(view.findViewById(R.id.schema_intro));
                     break;
                 }
@@ -121,12 +158,20 @@ public class FragmentPreviewLesson extends Fragment {
 
         Button goPreview = view.findViewById(R.id.btn_go_prepare);
         goPreview.setOnClickListener(v -> {
-            if(mCurrentSchema == null) {
+            if(mCurrentSchemaIndex < 0) {
                 Toast.makeText(getContext(), "先选择一个学习方案", Toast.LENGTH_SHORT).show();
             } else {
+                SharedPreferences.Editor editor = sharedPreferences.edit();
+                editor.putBoolean(sectionId + "_schema" + mCurrentSchemaIndex, true);
+                editor.apply();
+
+                TextView textView = view.findViewById(textViewSchemaStat[mCurrentSchemaIndex]);
+                textView.setText("已学习");
+                textView.setTextColor(Color.GREEN);
+
                 Intent intent = new Intent(getContext(), com.cosinetech.imates.pdfui.PDFActivity.class);
                 intent.putExtra("AssetsPdf","biology/chapter5/text_book.pdf");
-                intent.putExtra("Schema", mCurrentSchema);
+                intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
                 getContext().startActivity(intent);
             }
         });
@@ -136,7 +181,7 @@ public class FragmentPreviewLesson extends Fragment {
         StringBuilder stringBuilder = new StringBuilder();
         InputStream inputStream = null;
         try {
-            inputStream = getResources().getAssets().open(mCurrentSchema.getIntroduction());
+            inputStream = getResources().getAssets().open(mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getIntroduction());
             InputStreamReader isr = new InputStreamReader(inputStream);
             BufferedReader reader = new BufferedReader(isr);
             String line;

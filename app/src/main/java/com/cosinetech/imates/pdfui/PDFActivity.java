@@ -43,16 +43,10 @@ import com.lzf.easyfloat.EasyFloat;
 import com.lzf.easyfloat.enums.SidePattern;
 import com.lzf.easyfloat.interfaces.OnFloatCallbacks;
 import com.shockwave.pdfium.PdfDocument;
-
 import org.jetbrains.annotations.NotNull;
-
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.Serializable;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
