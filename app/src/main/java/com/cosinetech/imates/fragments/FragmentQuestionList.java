@@ -182,7 +182,7 @@ public class FragmentQuestionList extends Fragment {
                 fragmentChatAi.setChatEnable(false);
                 chatResponceTimes = 0;
                 setViewAnswer(false);
-                //fragmentChatAi.clearChatHistory();
+                fragmentChatAi.clearChatHistory();
             }
 
             @Override
