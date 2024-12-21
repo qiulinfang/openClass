@@ -18,13 +18,13 @@ public class ChatMessage {
     public boolean isHistory; // 是否是加载的历史消息
     public int currentDisplayCharIndex;  //流式显示的字符索引
 
-    public ChatMessage(String content, boolean isSelf, int type, boolean isHistory, String sessionId, String tag) {
+    public ChatMessage(String content, boolean isSelf, int type, boolean isHistory, String sessionId, String tag, long timestamp) {
         this.content = content;
         this.isSelf = isSelf;
         this.type = type;
         this.isHistory = isHistory;
         this.currentDisplayCharIndex = 0;
-        this.timestamp =  System.currentTimeMillis();
+        this.timestamp =  timestamp;
         this.date = TimeUtils.timestampToDateString(timestamp);
         this.sessionId = sessionId;
         this.tag = tag;

@@ -235,7 +235,8 @@ public class FragmentChatAi extends Fragment {
                     ChatMessage.TYPE_TEXT,
                     false,
                     "",
-                    tag);
+                    tag,
+                    System.currentTimeMillis());
             messageList.add(message);
 
             etMessage.setText("");
@@ -245,7 +246,8 @@ public class FragmentChatAi extends Fragment {
                     ChatMessage.TYPE_TEXT,
                     false,
                     "",
-                    tag);
+                    tag,
+                    System.currentTimeMillis());
             messageList.add(responseMessage);
 
             // 一次性通知 Adapter 插入两条消息
@@ -272,7 +274,8 @@ public class FragmentChatAi extends Fragment {
                         ChatMessage.TYPE_TEXT,
                         false,
                         "",
-                        tag);
+                        tag,
+                        System.currentTimeMillis());
                 messageList.add(message);
                 adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
                 etMessage.setText("");
@@ -283,7 +286,8 @@ public class FragmentChatAi extends Fragment {
                         ChatMessage.TYPE_TEXT,
                         false,
                         "",
-                        tag);
+                        tag,
+                        System.currentTimeMillis());
                 messageList.add(responseMessage);
                 adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
 

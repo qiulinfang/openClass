@@ -47,7 +47,8 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
                         ChatMessage.TYPE_DATE,
                         true,
                         message.sessionId,
-                        message.tag
+                        message.tag,
+                        message.timestamp
                 ));
                 lastTimestamp = message.timestamp;
             }
