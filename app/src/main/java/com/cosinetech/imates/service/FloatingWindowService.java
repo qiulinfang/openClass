@@ -22,6 +22,7 @@ import com.airbnb.lottie.LottieAnimationView;
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.fragments.FragmentChatAi;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.webservice.ApiUrl;
 
@@ -107,7 +108,7 @@ public class FloatingWindowService extends Service {
                         float deltaY = event.getRawY() - initialTouchY;
                         if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
                             // 如果移动距离小于阈值，认为是点击事件
-                            popupChatBot(ApiUrl.URL_CHAT_GENERAL);
+                            popupChatBot(ApiUrl.URL_CHAT_GENERAL, Subject.SUBJECT_ALL.name());
                         }
                         return true;
                 }
@@ -142,7 +143,7 @@ public class FloatingWindowService extends Service {
         });
     }
 
-    public FragmentChatAi popupChatBot(String url) {
+    public FragmentChatAi popupChatBot(String url, String tag) {
         // 加载 PopupWindow 的布局
         View popupView = LayoutInflater.from(this).inflate(R.layout.popup_window_chat, null);
 
@@ -172,7 +173,7 @@ public class FloatingWindowService extends Service {
 
         FragmentChatAi fragmentChatAi;
         try {
-            fragmentChatAi = FragmentChatAi.newInstance(url, false, null);
+            fragmentChatAi = FragmentChatAi.newInstance(url, tag, false, null);
             transaction.replace(R.id.popup_container, fragmentChatAi);
             transaction.addToBackStack(null);
             transaction.commitAllowingStateLoss();

@@ -18,7 +18,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
     // MessageCatalogue table
     private static final String TABLE_CATALOGUE = "message_catalogue";
     private static final String COLUMN_DATE = "date";
-    private static final String COLUMN_SUBJECT = "subject";
+    private static final String COLUMN_TAG = "tag";
     private static final String COLUMN_SESSION_ID = "session_id";
 
     // MessageDetail table
@@ -36,13 +36,13 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
     public void onCreate(SQLiteDatabase db) {
         String createCatalogueTable = "CREATE TABLE " + TABLE_CATALOGUE + "("
                 + COLUMN_DATE + " TEXT, "
-                + COLUMN_SUBJECT + " TEXT, "
+                + COLUMN_TAG + " TEXT, "
                 + COLUMN_SESSION_ID + " TEXT, "
-                + "PRIMARY KEY (" + COLUMN_DATE + ", " + COLUMN_SUBJECT + "))";
+                + "PRIMARY KEY (" + COLUMN_DATE + ", " + COLUMN_TAG + "))";
 
         String createDetailTable = "CREATE TABLE " + TABLE_DETAIL + "("
                 + COLUMN_DATE + " TEXT, "
-                + COLUMN_SUBJECT + " TEXT, "
+                + COLUMN_TAG + " TEXT, "
                 + COLUMN_CONTENT + " TEXT, "
                 + COLUMN_SESSION_ID + " TEXT, "
                 + COLUMN_TYPE + " INTEGER, "
@@ -62,26 +62,27 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
 
     // MessageCatalogue CRUD operations
 
-    public long addMessageCatalogue(MessageCatalogue catalogue) {
+    public long addMessageCatalogue(ChatMessageCatalogue catalogue) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_DATE, catalogue.date);
-        values.put(COLUMN_SUBJECT, catalogue.subject);
+        values.put(COLUMN_TAG, catalogue.tag);
         values.put(COLUMN_SESSION_ID, catalogue.sessionId);
         return db.insert(TABLE_CATALOGUE, null, values);
     }
 
-    public MessageCatalogue getMessageCatalogue(String date, String subject) {
+    @SuppressLint("Range")
+    public ChatMessageCatalogue getMessageCatalogue(String date, String subject) {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.query(TABLE_CATALOGUE,
-                new String[]{COLUMN_DATE, COLUMN_SUBJECT, COLUMN_SESSION_ID},
-                COLUMN_DATE + "=? AND " + COLUMN_SUBJECT + "=?",
+                new String[]{COLUMN_DATE, COLUMN_TAG, COLUMN_SESSION_ID},
+                COLUMN_DATE + "=? AND " + COLUMN_TAG + "=?",
                 new String[]{date, subject}, null, null, null);
 
         if (cursor != null && cursor.moveToFirst()) {
-            MessageCatalogue catalogue = new MessageCatalogue();
+            ChatMessageCatalogue catalogue = new ChatMessageCatalogue();
             catalogue.date = cursor.getString(cursor.getColumnIndex(COLUMN_DATE));
-            catalogue.subject = cursor.getString(cursor.getColumnIndex(COLUMN_SUBJECT));
+            catalogue.tag = cursor.getString(cursor.getColumnIndex(COLUMN_TAG));
             catalogue.sessionId = cursor.getString(cursor.getColumnIndex(COLUMN_SESSION_ID));
             cursor.close();
             return catalogue;
@@ -89,19 +90,19 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         return null;
     }
 
-    public int updateMessageCatalogue(MessageCatalogue catalogue) {
+    public int updateMessageCatalogue(ChatMessageCatalogue catalogue) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_SESSION_ID, catalogue.sessionId);
         return db.update(TABLE_CATALOGUE, values,
-                COLUMN_DATE + "=? AND " + COLUMN_SUBJECT + "=?",
-                new String[]{catalogue.date, catalogue.subject});
+                COLUMN_DATE + "=? AND " + COLUMN_TAG + "=?",
+                new String[]{catalogue.date, catalogue.tag});
     }
 
     public void deleteMessageCatalogue(String date, String subject) {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_CATALOGUE,
-                COLUMN_DATE + "=? AND " + COLUMN_SUBJECT + "=?",
+                COLUMN_DATE + "=? AND " + COLUMN_TAG + "=?",
                 new String[]{date, subject});
     }
 
@@ -111,7 +112,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_DATE, detail.date);
-        values.put(COLUMN_SUBJECT, detail.subject);
+        values.put(COLUMN_TAG, detail.tag);
         values.put(COLUMN_CONTENT, detail.content);
         values.put(COLUMN_SESSION_ID, detail.sessionId);
         values.put(COLUMN_TYPE, detail.type);
@@ -120,17 +121,18 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         return db.insert(TABLE_DETAIL, null, values);
     }
 
+    @SuppressLint("Range")
     public MessageDetail getMessageDetail(long timestamp) {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.query(TABLE_DETAIL,
-                new String[]{COLUMN_DATE, COLUMN_SUBJECT, COLUMN_CONTENT, COLUMN_SESSION_ID, COLUMN_TYPE, COLUMN_IS_SELF, COLUMN_TIMESTAMP},
+                new String[]{COLUMN_DATE, COLUMN_TAG, COLUMN_CONTENT, COLUMN_SESSION_ID, COLUMN_TYPE, COLUMN_IS_SELF, COLUMN_TIMESTAMP},
                 COLUMN_TIMESTAMP + "=?",
                 new String[]{String.valueOf(timestamp)}, null, null, null);
 
         if (cursor != null && cursor.moveToFirst()) {
             MessageDetail detail = new MessageDetail();
             detail.date = cursor.getString(cursor.getColumnIndex(COLUMN_DATE));
-            detail.subject = cursor.getString(cursor.getColumnIndex(COLUMN_SUBJECT));
+            detail.tag = cursor.getString(cursor.getColumnIndex(COLUMN_TAG));
             detail.content = cursor.getString(cursor.getColumnIndex(COLUMN_CONTENT));
             detail.sessionId = cursor.getString(cursor.getColumnIndex(COLUMN_SESSION_ID));
             detail.type = cursor.getInt(cursor.getColumnIndex(COLUMN_TYPE));
@@ -146,7 +148,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_DATE, detail.date);
-        values.put(COLUMN_SUBJECT, detail.subject);
+        values.put(COLUMN_TAG, detail.tag);
         values.put(COLUMN_CONTENT, detail.content);
         values.put(COLUMN_SESSION_ID, detail.sessionId);
         values.put(COLUMN_TYPE, detail.type);
@@ -170,12 +172,12 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         long result = -1;
         try {
             // Check if the MessageCatalogue entry exists
-            MessageCatalogue existingCatalogue = getMessageCatalogue(detail.date, detail.subject);
+            ChatMessageCatalogue existingCatalogue = getMessageCatalogue(detail.date, detail.tag);
             if (existingCatalogue == null) {
                 // If it doesn't exist, create a new MessageCatalogue entry
-                MessageCatalogue newCatalogue = new MessageCatalogue();
+                ChatMessageCatalogue newCatalogue = new ChatMessageCatalogue();
                 newCatalogue.date = detail.date;
-                newCatalogue.subject = detail.subject;
+                newCatalogue.tag = detail.tag;
                 newCatalogue.sessionId = detail.sessionId;
                 addMessageCatalogue(newCatalogue);
             }
@@ -191,8 +193,9 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
     }
 
     // New method: Get all MessageCatalogue entries
-    public List<MessageCatalogue> getAllMessageCatalogue() {
-        List<MessageCatalogue> catalogueList = new ArrayList<>();
+    @SuppressLint("Range")
+    public List<ChatMessageCatalogue> getAllMessageCatalogue() {
+        List<ChatMessageCatalogue> catalogueList = new ArrayList<>();
         String selectQuery = "SELECT * FROM " + TABLE_CATALOGUE;
 
         SQLiteDatabase db = this.getReadableDatabase();
@@ -200,9 +203,9 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
 
         if (cursor.moveToFirst()) {
             do {
-                MessageCatalogue catalogue = new MessageCatalogue();
+                ChatMessageCatalogue catalogue = new ChatMessageCatalogue();
                 catalogue.date = cursor.getString(cursor.getColumnIndex(COLUMN_DATE));
-                catalogue.subject = cursor.getString(cursor.getColumnIndex(COLUMN_SUBJECT));
+                catalogue.tag = cursor.getString(cursor.getColumnIndex(COLUMN_TAG));
                 catalogue.sessionId = cursor.getString(cursor.getColumnIndex(COLUMN_SESSION_ID));
                 catalogueList.add(catalogue);
             } while (cursor.moveToNext());
@@ -226,7 +229,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
             do {
                 MessageDetail detail = new MessageDetail();
                 detail.date = cursor.getString(cursor.getColumnIndex(COLUMN_DATE));
-                detail.subject = cursor.getString(cursor.getColumnIndex(COLUMN_SUBJECT));
+                detail.tag = cursor.getString(cursor.getColumnIndex(COLUMN_TAG));
                 detail.content = cursor.getString(cursor.getColumnIndex(COLUMN_CONTENT));
                 detail.sessionId = cursor.getString(cursor.getColumnIndex(COLUMN_SESSION_ID));
                 detail.type = cursor.getInt(cursor.getColumnIndex(COLUMN_TYPE));

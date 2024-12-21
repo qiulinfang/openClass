@@ -15,7 +15,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.Subject;
+import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.adapters.AdapterSimilarQuestionList;
 import com.cosinetech.imates.models.AddQuestionRequest;
 import com.cosinetech.imates.models.FindSimilarQuestionRequest;

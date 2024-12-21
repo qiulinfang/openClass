@@ -1,4 +1,4 @@
-package com.cosinetech.imates;
+package com.cosinetech.imates.models;
 
 public enum Subject {
     SUBJECT_BIOLOGY,
@@ -7,4 +7,6 @@ public enum Subject {
     SUBJECT_ENGLISH,
     SUBJECT_PHYSICS,
     SUBJECT_CHEMISTRY,
+    SUBJECT_ALL,
 }
+

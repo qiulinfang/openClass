@@ -1,7 +1,7 @@
 package com.cosinetech.imates.models;
 
-public class MessageCatalogue {
+public class ChatMessageCatalogue {
     public String date;
-    public String subject;
+    public String tag;
     public String sessionId;
 }

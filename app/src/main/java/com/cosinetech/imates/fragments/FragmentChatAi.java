@@ -50,6 +50,8 @@ public class FragmentChatAi extends Fragment {
 
     private UserInfoViewModel userInfoViewModel;
     private static final String KEY_PARAM_CHATBOT_URL = "CHAT_URL";
+
+    private static final String KEY_PARAM_CHATBOT_TAG = "CHAT_TAG";
     private static final String KEY_PARAM_SHOW_HEADER = "SHOW_HEADER";
 
     private AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "");
@@ -62,6 +64,7 @@ public class FragmentChatAi extends Fragment {
     private Button btnSend;
 
     private String aiName = "";
+    private String tag = "";
 
     private boolean showHeader;
 
@@ -70,11 +73,12 @@ public class FragmentChatAi extends Fragment {
     public FragmentChatAi() {
     }
 
-    public static FragmentChatAi newInstance(String chatBotUrl, boolean showHeader, AiChatResponseListener l) {
+    public static FragmentChatAi newInstance(String chatBotUrl, String tag, boolean showHeader, AiChatResponseListener l) {
         FragmentChatAi fragment = new FragmentChatAi();
         Bundle args = new Bundle();
         args.putString(KEY_PARAM_CHATBOT_URL, chatBotUrl);
         args.putBoolean(KEY_PARAM_SHOW_HEADER, showHeader);
+        args.putString(KEY_PARAM_CHATBOT_TAG, tag);
         fragment.setArguments(args);
         fragment.setAiChatListener(l);
         return fragment;
@@ -85,6 +89,7 @@ public class FragmentChatAi extends Fragment {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
             chatBotUrl = getArguments().getString(KEY_PARAM_CHATBOT_URL);
+            tag = getArguments().getString(KEY_PARAM_CHATBOT_TAG);
             showHeader = getArguments().getBoolean(KEY_PARAM_SHOW_HEADER);
         }
         setRetainInstance(true);
@@ -229,7 +234,8 @@ public class FragmentChatAi extends Fragment {
                     true,
                     ChatMessage.TYPE_TEXT,
                     false,
-                    "");
+                    "",
+                    tag);
             messageList.add(message);
 
             etMessage.setText("");
@@ -238,7 +244,8 @@ public class FragmentChatAi extends Fragment {
                     false,
                     ChatMessage.TYPE_TEXT,
                     false,
-                    "");
+                    "",
+                    tag);
             messageList.add(responseMessage);
 
             // 一次性通知 Adapter 插入两条消息
@@ -264,7 +271,8 @@ public class FragmentChatAi extends Fragment {
                         true,
                         ChatMessage.TYPE_TEXT,
                         false,
-                        "");
+                        "",
+                        tag);
                 messageList.add(message);
                 adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
                 etMessage.setText("");
@@ -273,7 +281,9 @@ public class FragmentChatAi extends Fragment {
                         "",
                         false,
                         ChatMessage.TYPE_TEXT,
-                        false, "");
+                        false,
+                        "",
+                        tag);
                 messageList.add(responseMessage);
                 adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
 

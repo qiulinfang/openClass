@@ -23,7 +23,7 @@ import android.widget.ImageView;
 import android.widget.PopupWindow;
 import android.widget.Toast;
 
-import com.cosinetech.imates.Subject;
+import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.webservice.ApiUrl;

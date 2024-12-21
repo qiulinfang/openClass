@@ -2,7 +2,6 @@ package com.cosinetech.imates.models;
 
 import androidx.annotation.NonNull;
 
-import com.cosinetech.imates.Subject;
 import com.cosinetech.imates.webservice.Question;
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;

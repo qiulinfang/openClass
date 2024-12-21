@@ -26,6 +26,7 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.colorpicker.ColorListener;
 import com.cosinetech.imates.colorpicker.ColorPickerDialog;
 import com.cosinetech.imates.models.Chapter;
+import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.notes.NoteManager;
 import com.cosinetech.imates.notes.NotePopupWindow;
 import com.cosinetech.imates.pdfui.tree.TreeNodeData;
@@ -424,7 +425,7 @@ public class PDFActivity extends AppCompatActivity implements
                 chatRequest.setAnswer(mSection.getTitle()); //当前章节
                 app.chatRequest = chatRequest;
 
-                app.getFloatingWindowService().popupChatBot(ApiUrl.URL_CHAT_PREVIEW_PICTURE);
+                app.getFloatingWindowService().popupChatBot(ApiUrl.URL_CHAT_PREVIEW_PICTURE, Subject.SUBJECT_ALL.name());
             } catch (Exception e) {
                 Toast.makeText(PDFActivity.this, "请输入要问的问题", Toast.LENGTH_SHORT).show();
             }

@@ -19,7 +19,7 @@ import android.widget.Toast;
 
 import com.cosinetech.imates.adapters.AdapterQuestionList;
 import com.cosinetech.imates.adapters.AdapterSimilarQuestionList;
-import com.cosinetech.imates.Subject;
+import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.AddQuestionRequest;
 import com.cosinetech.imates.widgets.MarkdownTextView;
 import com.cosinetech.imates.R;
@@ -91,7 +91,7 @@ public class FragmentQuestionList extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        fragmentChatAi = FragmentChatAi.newInstance(chatBotUrl, false, success -> {
+        fragmentChatAi = FragmentChatAi.newInstance(chatBotUrl, subject.name(), false, success -> {
             chatResponceTimes++;
             if(chatResponceTimes >= 2) {
                 setViewAnswer(true);
