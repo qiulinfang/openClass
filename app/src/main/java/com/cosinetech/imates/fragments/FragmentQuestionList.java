@@ -32,7 +32,6 @@ import com.cosinetech.imates.webservice.Question;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * A simple {@link Fragment} subclass.

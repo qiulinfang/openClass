@@ -1,8 +1,5 @@
 package com.cosinetech.imates.fragments;
 
-import static android.content.Context.INPUT_METHOD_SERVICE;
-import static androidx.core.content.ContextCompat.getSystemService;
-
 import android.content.Context;
 import android.os.Bundle;
 
@@ -228,12 +225,20 @@ public class FragmentChatAi extends Fragment {
         String messageText = etMessage.getText().toString().trim();
         if (!messageText.isEmpty()) {
             // Add message to the list and notify the adapter
-            ChatMessage message = new ChatMessage(messageText, true, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
+            ChatMessage message = new ChatMessage(messageText,
+                    true,
+                    ChatMessage.TYPE_TEXT,
+                    false,
+                    "");
             messageList.add(message);
 
             etMessage.setText("");
 
-            ChatMessage responseMessage = new ChatMessage("", false, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
+            ChatMessage responseMessage = new ChatMessage("",
+                    false,
+                    ChatMessage.TYPE_TEXT,
+                    false,
+                    "");
             messageList.add(responseMessage);
 
             // 一次性通知 Adapter 插入两条消息
@@ -255,12 +260,20 @@ public class FragmentChatAi extends Fragment {
             public void run() {
                 aiChatMessageRequest = mo;
                 aiChatMessageRequest.setReason("start");
-                ChatMessage message = new ChatMessage(aiChatMessageRequest.getCoversation(), true, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
+                ChatMessage message = new ChatMessage(aiChatMessageRequest.getCoversation(),
+                        true,
+                        ChatMessage.TYPE_TEXT,
+                        false,
+                        "");
                 messageList.add(message);
                 adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
                 etMessage.setText("");
 
-                ChatMessage responseMessage = new ChatMessage("", false, System.currentTimeMillis(), ChatMessage.TYPE_TEXT, false);
+                ChatMessage responseMessage = new ChatMessage(
+                        "",
+                        false,
+                        ChatMessage.TYPE_TEXT,
+                        false, "");
                 messageList.add(responseMessage);
                 adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
 

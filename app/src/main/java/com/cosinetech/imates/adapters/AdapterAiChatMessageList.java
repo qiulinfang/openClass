@@ -44,9 +44,9 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             if (message.type != ChatMessage.TYPE_DATE && message.timestamp - lastTimestamp > 5 * 60 * 1000) {
                 groupedMessages.add(new ChatMessage(new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date(message.timestamp)),
                         false,
-                        message.timestamp,
                         ChatMessage.TYPE_DATE,
-                        true
+                        true,
+                        ""
                 ));
                 lastTimestamp = message.timestamp;
             }
