@@ -8,7 +8,6 @@ import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -39,15 +38,12 @@ import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.adapters.ChatCatalogueAdapter;
 import com.cosinetech.imates.widgets.FlowTagLayout;
-import com.cosinetech.imates.adapters.TagAdapter;
+import com.cosinetech.imates.adapters.AdapterChatMessageTag;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -83,7 +79,7 @@ public class FragmentChatAi extends Fragment {
     private AiChatResponseListener mListener;
 
     // chat message tags
-    private TagAdapter<String> mChatTagAdapter;
+    private AdapterChatMessageTag<String> mChatAdapterChatMessageTag;
 
     // chat message catalog list by tag
     private final List<ChatMessageCatalogue> mChatCatalogs = new ArrayList<>();
@@ -173,13 +169,13 @@ public class FragmentChatAi extends Fragment {
         aiChatMessageRequest.setName(Objects.requireNonNull(userInfoViewModel.userInfo.getValue()).getName());
 
         FlowTagLayout layout = view.findViewById(R.id.chat_tags);
-        mChatTagAdapter = new TagAdapter<>(requireActivity());
+        mChatAdapterChatMessageTag = new AdapterChatMessageTag<>(requireActivity());
         layout.setTagCheckedMode(FLOW_TAG_CHECKED_SINGLE);
         layout.setTagCheckedMode(FlowTagLayout.FLOW_TAG_CHECKED_SINGLE);
-        layout.setAdapter(mChatTagAdapter);
+        layout.setAdapter(mChatAdapterChatMessageTag);
         layout.setOnTagSelectListener((parent, selectedList) -> {
             if (selectedList != null && !selectedList.isEmpty()) {
-                String tag = mChatTagAdapter.getItem(selectedList.get(0)).toString();
+                String tag = mChatAdapterChatMessageTag.getItem(selectedList.get(0)).toString();
                 List<ChatMessageCatalogue> catalogues = ChatMessageHistoryDB.getInstance(requireContext()).getMessageCatalogueByTag(tag);
                 mChatCatalogs.clear();
                 mChatCatalogs.addAll(catalogues);
@@ -197,7 +193,7 @@ public class FragmentChatAi extends Fragment {
                 view.findViewById(R.id.chat_input_area).setVisibility(View.GONE);
 
                 List<String> tags = ChatMessageHistoryDB.getInstance(requireActivity()).getAllMessageTags();
-                mChatTagAdapter.clearAndAddAll(tags);
+                mChatAdapterChatMessageTag.clearAndAddAll(tags);
             } else {
                 view.findViewById(R.id.history_layout).setVisibility(View.GONE);
                 view.findViewById(R.id.chat_input_area).setVisibility(View.VISIBLE);

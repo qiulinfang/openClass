@@ -41,7 +41,7 @@ public class ChatCatalogueAdapter extends BaseAdapter {
     public View getView(int position, View convertView, ViewGroup parent) {
         // 重用 convertView，提升性能
         if (convertView == null) {
-            convertView = LayoutInflater.from(context).inflate(R.layout.tag_item, parent, false);
+            convertView = LayoutInflater.from(context).inflate(R.layout.chat_msg_catalog_item, parent, false);
         }
 
         // 获取 TextView 并设置数据

@@ -8,18 +8,18 @@ import android.widget.BaseAdapter;
 import android.widget.TextView;
 
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.models.ChatMessageCatalogue;
+import com.cosinetech.imates.models.SubjectUtils;
 import com.cosinetech.imates.widgets.OnInitSelectedPosition;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class TagAdapter<T> extends BaseAdapter implements OnInitSelectedPosition {
+public class AdapterChatMessageTag<T> extends BaseAdapter implements OnInitSelectedPosition {
 
     private final Context mContext;
     private final List<String> mDataList;
 
-    public TagAdapter(Context context) {
+    public AdapterChatMessageTag(Context context) {
         this.mContext = context;
         mDataList = new ArrayList<>();
     }
@@ -42,12 +42,12 @@ public class TagAdapter<T> extends BaseAdapter implements OnInitSelectedPosition
     @Override
     public View getView(int position, View convertView, ViewGroup parent) {
 
-        View view = LayoutInflater.from(mContext).inflate(R.layout.tag_item, null);
+        View view = LayoutInflater.from(mContext).inflate(R.layout.chat_msg_tag_item, null);
 
-        TextView textView = (TextView) view.findViewById(R.id.tv_tag);
+        TextView textView =  view.findViewById(R.id.tv_tag);
         String t = mDataList.get(position);
 
-        textView.setText(t);
+        textView.setText(SubjectUtils.getSubjectDisplayName(t));
         return view;
     }
 
