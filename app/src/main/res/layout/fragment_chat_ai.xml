@@ -18,6 +18,15 @@
         android:layout_alignParentTop="true"
         android:layout_alignParentStart="true"/>
 
+    <CheckBox
+        android:id="@+id/btn_view_history"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:gravity="center_vertical"
+        android:text="历史记录"
+        android:layout_toEndOf="@id/back_exit"/>
+
     <TextView
         android:id="@+id/ai_name"
         android:layout_width="match_parent"
@@ -39,10 +48,32 @@
         android:layout_alignStart="@id/back_exit"
         android:layout_below="@id/back_exit" />
 
+    <LinearLayout
+        android:id="@+id/history_layout"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:layout_margin="8dp"
+        android:layout_alignParentStart="true"
+        android:layout_alignTop="@id/split_line">
+
+        <com.cosinetech.imates.widgets.FlowTagLayout
+            android:id="@+id/chat_tags"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <ListView
+            android:id="@+id/chat_catalog"
+            android:layout_width="150dp"
+            android:layout_height="match_parent" />
+    </LinearLayout>
+
     <com.scwang.smart.refresh.layout.SmartRefreshLayout
         android:id="@+id/chat_message_session"
         android:layout_below="@id/split_line"
         android:layout_above="@id/chat_input_area"
+        android:layout_alignParentEnd="true"
+        android:layout_toEndOf="@id/history_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
@@ -65,6 +96,7 @@
         android:layout_height="wrap_content"
         android:minHeight="40dp"
         android:background="#80FFFFFF"
+        android:layout_toEndOf="@id/history_layout"
         android:layout_alignParentBottom="true">
 
         <!-- 左侧的键盘按钮 -->

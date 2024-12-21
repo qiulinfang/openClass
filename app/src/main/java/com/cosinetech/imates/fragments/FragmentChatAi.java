@@ -1,5 +1,7 @@
 package com.cosinetech.imates.fragments;
 
+import static com.cosinetech.imates.widgets.FlowTagLayout.FLOW_TAG_CHECKED_SINGLE;
+
 import android.content.Context;
 import android.os.Bundle;
 
@@ -10,6 +12,7 @@ import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.os.Handler;
@@ -19,8 +22,13 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.SimpleAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -28,15 +36,22 @@ import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.adapters.AdapterAiChatMessageList;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.models.ChatMessageCatalogue;
+import com.cosinetech.imates.models.ChatMessageHistoryDB;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
+import com.cosinetech.imates.widgets.ChatCatalogueAdapter;
+import com.cosinetech.imates.widgets.FlowTagLayout;
+import com.cosinetech.imates.widgets.TagAdapter;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -62,6 +77,7 @@ public class FragmentChatAi extends Fragment {
     private List<ChatMessage> messageList = new ArrayList<>();
     private String chatBotUrl;
     private Button btnSend;
+    private CheckBox chkViewHistory;
 
     private String aiName = "";
     private String tag = "";
@@ -69,6 +85,15 @@ public class FragmentChatAi extends Fragment {
     private boolean showHeader;
 
     private AiChatResponseListener mListener;
+
+    // chat message tags
+    private TagAdapter<String> mChatTagAdapter;
+    private List<String> mChatTags = new ArrayList<>();
+
+    // chat message catalog list by tag
+    private List<ChatMessageCatalogue> mChatCatalogs = new ArrayList<>();
+    private ChatCatalogueAdapter mChatCatalogAdapter;
+
 
     public FragmentChatAi() {
     }
@@ -169,14 +194,69 @@ public class FragmentChatAi extends Fragment {
                 new ViewModelProvider.AndroidViewModelFactory(requireActivity().getApplication())
         ).get(UserInfoViewModel.class);
 
+        aiChatMessageRequest.setName(Objects.requireNonNull(userInfoViewModel.userInfo.getValue()).getName());
+
+        FlowTagLayout layout = view.findViewById(R.id.chat_tags);
+        mChatTagAdapter = new TagAdapter<>(requireActivity());
+        layout.setTagCheckedMode(FLOW_TAG_CHECKED_SINGLE);
+        layout.setTagCheckedMode(FlowTagLayout.FLOW_TAG_CHECKED_SINGLE);
+        layout.setAdapter(mChatTagAdapter);
+        layout.setOnTagSelectListener((parent, selectedList) -> {
+            if (selectedList != null && selectedList.size() > 0) {
+//                StringBuilder sb = new StringBuilder();
+//                for (int i : selectedList) {
+//                    sb.append(parent.getAdapter().getItem(i));
+//                    sb.append(":");
+//                }
+//                Snackbar.make(parent, "移动研发:" + sb.toString(), Snackbar.LENGTH_LONG)
+//                            .setAction("Action", null).show();
+            }else{
+//                Snackbar.make(parent, "没有选择标签", Snackbar.LENGTH_LONG)
+//                            .setAction("Action", null).show();
+            }
+        });
+
+        chkViewHistory = view.findViewById(R.id.btn_view_history);
+        chkViewHistory.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if(isChecked) {
+                view.findViewById(R.id.history_layout).setVisibility(View.VISIBLE);
+                view.findViewById(R.id.chat_input_area).setVisibility(View.GONE);
+                mChatCatalogs =  ChatMessageHistoryDB.getInstance(requireActivity()).getAllMessageCatalogue();
+                List<String> tags = new ArrayList<>();
+                for(ChatMessageCatalogue c : mChatCatalogs) {
+                    tags.add(c.tag);
+                }
+
+                Set<String> setWithoutDuplicates = new HashSet<>(tags);
+                mChatTags = new ArrayList<>(setWithoutDuplicates);
+                mChatTagAdapter.clearAndAddAll(mChatTags);
+                mChatCatalogAdapter.notifyDataSetChanged();
+            } else {
+                view.findViewById(R.id.history_layout).setVisibility(View.GONE);
+                view.findViewById(R.id.chat_input_area).setVisibility(View.VISIBLE);
+            }
+        });
+
+        mChatCatalogAdapter = new ChatCatalogueAdapter(requireContext(), mChatCatalogs);
+        ListView listView = view.findViewById(R.id.chat_catalog);
+        listView.setAdapter(mChatCatalogAdapter);
+        listView.setOnItemClickListener((parent, view1, position, id) -> {
+//            String selectedItem = (String) parent.getItemAtPosition(position);
+//            Toast.makeText(MainActivity.this, "Clicked: " + selectedItem, Toast.LENGTH_SHORT).show();
+            ChatMessageCatalogue catalog = mChatCatalogs.get(position);
+            List<ChatMessage> msgs = ChatMessageHistoryDB.getInstance(requireContext()).getMessageDetail(catalog.date, catalog.tag);
+            messageList = msgs;
+            adapterAiChatMesssageList.notifyDataSetChanged();
+        });
+
         if(!showHeader) {
             btnExit.setVisibility(View.INVISIBLE);
+            chkViewHistory.setVisibility(View.INVISIBLE);
+            view.findViewById(R.id.history_layout).setVisibility(View.GONE);
         }
         if(!aiName.isEmpty()) {
             ((TextView)view.findViewById(R.id.ai_name)).setText(aiName);
         }
-
-        aiChatMessageRequest.setName(Objects.requireNonNull(userInfoViewModel.userInfo.getValue()).getName());
 
         return view;
     }
@@ -240,7 +320,7 @@ public class FragmentChatAi extends Fragment {
             messageList.add(message);
 
             etMessage.setText("");
-
+            ChatMessageHistoryDB.getInstance(requireContext()).easyAddMessageDetail(message);
             ChatMessage responseMessage = new ChatMessage("",
                     false,
                     ChatMessage.TYPE_TEXT,
@@ -280,6 +360,7 @@ public class FragmentChatAi extends Fragment {
                 adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
                 etMessage.setText("");
 
+                ChatMessageHistoryDB.getInstance(requireContext()).easyAddMessageDetail(message);
                 ChatMessage responseMessage = new ChatMessage(
                         "",
                         false,
@@ -311,5 +392,6 @@ public class FragmentChatAi extends Fragment {
     public void setChatEnable(boolean b) {
         //btnSend.setVisibility(b ? View.VISIBLE : View.INVISIBLE);
         btnSend.setEnabled(b);
+        chkViewHistory.setEnabled(b);
     }
 }
