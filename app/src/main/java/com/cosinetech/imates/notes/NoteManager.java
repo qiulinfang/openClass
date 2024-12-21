@@ -8,12 +8,12 @@ import java.util.Date;
 import java.util.List;
 
 public class NoteManager {
-    private DatabaseHelper dbHelper;
+    private NoteDatabaseHelper dbHelper;
     private List<Note> noteList;
     private List<String> noteTitles;
 
     public NoteManager(Context context) {
-        dbHelper = new DatabaseHelper(context);
+        dbHelper = new NoteDatabaseHelper(context);
         noteList = new ArrayList<>();
         noteTitles = new ArrayList<>();
         loadNotes();

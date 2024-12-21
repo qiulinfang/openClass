@@ -9,7 +9,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DatabaseHelper extends SQLiteOpenHelper {
+public class NoteDatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "NotesDB";
     private static final int DATABASE_VERSION = 1;
     private static final String TABLE_NOTES = "notes";
@@ -17,7 +17,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String KEY_TITLE = "title";
     private static final String KEY_CONTENT = "content";
 
-    public DatabaseHelper(Context context) {
+    public NoteDatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
     }
 
