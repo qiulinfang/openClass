@@ -302,15 +302,39 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         }
     }
 
-    @SuppressLint("Range")
-    public List<ChatMessageCatalogue> getAllMessageCatalogue() {
+    public List<String> getAllMessageTags() {
         readLock.lock();
         try {
-            List<ChatMessageCatalogue> catalogueList = new ArrayList<>();
-            String selectQuery = "SELECT * FROM " + TABLE_CATALOGUE;
+            List<String> tags = new ArrayList<>();
+            String selectQuery = "SELECT DISTINCT " + COLUMN_TAG + " FROM " + TABLE_CATALOGUE;
 
             SQLiteDatabase db = this.getReadableDatabase();
             Cursor cursor = db.rawQuery(selectQuery, null);
+
+            if (cursor.moveToFirst()) {
+                do {
+                    @SuppressLint("Range") String tag = cursor.getString(cursor.getColumnIndex(COLUMN_TAG));
+                    tags.add(tag);
+                } while (cursor.moveToNext());
+            }
+
+            cursor.close();
+            return tags;
+        } finally {
+            readLock.unlock();
+        }
+    }
+
+    @SuppressLint("Range")
+    public List<ChatMessageCatalogue> getMessageCatalogueByTag(String tag) {
+        readLock.lock();
+        try {
+            List<ChatMessageCatalogue> catalogueList = new ArrayList<>();
+            String selectQuery = "SELECT * FROM " + TABLE_CATALOGUE +
+                    " WHERE " + COLUMN_TAG + "  = ?";
+
+            SQLiteDatabase db = this.getReadableDatabase();
+            Cursor cursor = db.rawQuery(selectQuery, new String[]{tag});
 
             if (cursor.moveToFirst()) {
                 do {

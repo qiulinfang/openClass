@@ -1,4 +1,4 @@
-package com.cosinetech.imates.widgets;
+package com.cosinetech.imates.adapters;
 
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -8,6 +8,8 @@ import android.widget.BaseAdapter;
 import android.widget.TextView;
 
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.models.ChatMessageCatalogue;
+import com.cosinetech.imates.widgets.OnInitSelectedPosition;
 
 import java.util.ArrayList;
 import java.util.List;

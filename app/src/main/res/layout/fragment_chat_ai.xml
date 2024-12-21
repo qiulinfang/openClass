@@ -7,17 +7,6 @@
     android:background="#F7EAEAEA"
     android:padding="8dp">
 
-    <Button
-        android:id="@+id/back_exit"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
-        android:background="@drawable/ic_back"
-        android:stateListAnimator="@animator/button_click_scale"
-        android:layout_marginHorizontal="@dimen/min_margin_size"
-        android:scaleType="center"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentStart="true"/>
-
     <CheckBox
         android:id="@+id/btn_view_history"
         android:layout_width="wrap_content"
@@ -25,7 +14,7 @@
         android:layout_marginStart="16dp"
         android:gravity="center_vertical"
         android:text="历史记录"
-        android:layout_toEndOf="@id/back_exit"/>
+        android:layout_alignParentEnd="true"/>
 
     <TextView
         android:id="@+id/ai_name"
@@ -45,8 +34,8 @@
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:background="@color/gray3"
-        android:layout_alignStart="@id/back_exit"
-        android:layout_below="@id/back_exit" />
+        android:layout_alignParentStart="true"
+        android:layout_below="@id/btn_view_history" />
 
     <LinearLayout
         android:id="@+id/history_layout"
@@ -54,13 +43,18 @@
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:layout_margin="8dp"
+        android:background="#ffffff"
+        android:minWidth="80dp"
+        android:visibility="gone"
         android:layout_alignParentStart="true"
         android:layout_alignTop="@id/split_line">
 
         <com.cosinetech.imates.widgets.FlowTagLayout
             android:id="@+id/chat_tags"
+            android:background="#8090e0"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="100dp"
+            android:minHeight="80dp"/>
 
         <ListView
             android:id="@+id/chat_catalog"

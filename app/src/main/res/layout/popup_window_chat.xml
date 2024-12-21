@@ -1,9 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/popup_container"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:background="@android:color/white">
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
-    <!-- 这里是一个容器，用于加载 Fragment -->
-</FrameLayout>
+    <FrameLayout
+        android:id="@+id/popup_container"
+        android:layout_width="600dp"
+        android:layout_height="match_parent"
+        android:background="@android:color/white">
+
+        <!-- 这里是一个容器，用于加载 Fragment -->
+    </FrameLayout>
+
+    <Button
+        android:id="@+id/btn_exit"
+        android:background="@drawable/ic_back"
+        android:layout_width="36dp"
+        android:layout_height="36dp"/>
+
+</RelativeLayout>

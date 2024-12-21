@@ -12,6 +12,7 @@ import android.os.IBinder;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.Button;
 import android.widget.PopupWindow;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
@@ -161,6 +162,13 @@ public class FloatingWindowService extends Service {
         // 显示 PopupWindow
         popupWindow.showAtLocation(floatingView, Gravity.CENTER, 0, 0);
 
+        popupWindow.setOutsideTouchable(false);
+
+        Button btnExit = popupView.findViewById(R.id.btn_exit);
+        btnExit.setOnClickListener(v-> {
+            popupWindow.dismiss();
+        });
+
         // 加载 Fragment
         FragmentManager fragmentManager = fragmentManagerProvider.getFragmentManagerForFloatingWindow(popupView);
         FragmentTransaction transaction = fragmentManager.beginTransaction();
@@ -173,7 +181,7 @@ public class FloatingWindowService extends Service {
 
         FragmentChatAi fragmentChatAi;
         try {
-            fragmentChatAi = FragmentChatAi.newInstance(url, tag, false, null);
+            fragmentChatAi = FragmentChatAi.newInstance(url, tag, true, null);
             transaction.replace(R.id.popup_container, fragmentChatAi);
             transaction.addToBackStack(null);
             transaction.commitAllowingStateLoss();

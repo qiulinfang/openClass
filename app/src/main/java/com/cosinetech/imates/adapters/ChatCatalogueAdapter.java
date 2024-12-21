@@ -1,4 +1,4 @@
-package com.cosinetech.imates.widgets;
+package com.cosinetech.imates.adapters;
 
 import android.content.Context;
 import android.view.LayoutInflater;

@@ -110,7 +110,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         if (holder instanceof DateViewHolder) {
             ((DateViewHolder) holder).tvDate.setText(message.content);
         } else if (holder instanceof TextViewHolder) {
-            if(message.isSelf) {
+            if(message.isSelf || message.isHistory) {
                 ((TextViewHolder) holder).tvMessage.setContent(message.content);
             } else {
                 ((TextViewHolder) holder).tvMessage.setChatMessage(message);

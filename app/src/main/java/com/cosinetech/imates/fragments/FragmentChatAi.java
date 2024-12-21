@@ -12,7 +12,6 @@ import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.os.Handler;
@@ -22,13 +21,10 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ListView;
-import android.widget.SimpleAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -41,9 +37,9 @@ import com.cosinetech.imates.models.ChatMessageHistoryDB;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
-import com.cosinetech.imates.widgets.ChatCatalogueAdapter;
+import com.cosinetech.imates.adapters.ChatCatalogueAdapter;
 import com.cosinetech.imates.widgets.FlowTagLayout;
-import com.cosinetech.imates.widgets.TagAdapter;
+import com.cosinetech.imates.adapters.TagAdapter;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
 import java.lang.reflect.Method;
@@ -74,7 +70,7 @@ public class FragmentChatAi extends Fragment {
     private SmartRefreshLayout refreshLayout;
     private EditText etMessage;
     private AdapterAiChatMessageList adapterAiChatMesssageList;
-    private List<ChatMessage> messageList = new ArrayList<>();
+    private final List<ChatMessage> messageList = new ArrayList<>();
     private String chatBotUrl;
     private Button btnSend;
     private CheckBox chkViewHistory;
@@ -88,10 +84,9 @@ public class FragmentChatAi extends Fragment {
 
     // chat message tags
     private TagAdapter<String> mChatTagAdapter;
-    private List<String> mChatTags = new ArrayList<>();
 
     // chat message catalog list by tag
-    private List<ChatMessageCatalogue> mChatCatalogs = new ArrayList<>();
+    private final List<ChatMessageCatalogue> mChatCatalogs = new ArrayList<>();
     private ChatCatalogueAdapter mChatCatalogAdapter;
 
 
@@ -132,17 +127,6 @@ public class FragmentChatAi extends Fragment {
         this.mListener = l;
     }
 
-    private void fixBug(FragmentManager fragmentManager) {
-        try {
-            Class<? extends FragmentManager> aClass = fragmentManager.getClass();
-            Method method = aClass.getMethod("noteStateNotSaved");
-            method.setAccessible(true);
-            method.invoke(fragmentManager);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -179,14 +163,6 @@ public class FragmentChatAi extends Fragment {
         // Send button click
         btnSend.setOnClickListener(v -> sendMessage());
 
-        Button btnExit = view.findViewById(R.id.back_exit);
-
-        btnExit.setOnClickListener(v -> {
-            FragmentManager fragmentManager = getParentFragmentManager();
-            fixBug(fragmentManager);
-            fragmentManager.popBackStackImmediate();
-        });
-
         // Required empty public constructor
         ViewModelStoreOwner owner = (ViewModelStoreOwner) requireActivity().getApplication();
         userInfoViewModel = new ViewModelProvider(
@@ -202,17 +178,15 @@ public class FragmentChatAi extends Fragment {
         layout.setTagCheckedMode(FlowTagLayout.FLOW_TAG_CHECKED_SINGLE);
         layout.setAdapter(mChatTagAdapter);
         layout.setOnTagSelectListener((parent, selectedList) -> {
-            if (selectedList != null && selectedList.size() > 0) {
-//                StringBuilder sb = new StringBuilder();
-//                for (int i : selectedList) {
-//                    sb.append(parent.getAdapter().getItem(i));
-//                    sb.append(":");
-//                }
-//                Snackbar.make(parent, "移动研发:" + sb.toString(), Snackbar.LENGTH_LONG)
-//                            .setAction("Action", null).show();
+            if (selectedList != null && !selectedList.isEmpty()) {
+                String tag = mChatTagAdapter.getItem(selectedList.get(0)).toString();
+                List<ChatMessageCatalogue> catalogues = ChatMessageHistoryDB.getInstance(requireContext()).getMessageCatalogueByTag(tag);
+                mChatCatalogs.clear();
+                mChatCatalogs.addAll(catalogues);
+                mChatCatalogAdapter.notifyDataSetChanged();
             }else{
-//                Snackbar.make(parent, "没有选择标签", Snackbar.LENGTH_LONG)
-//                            .setAction("Action", null).show();
+                mChatCatalogs.clear();
+                mChatCatalogAdapter.notifyDataSetChanged();
             }
         });
 
@@ -221,16 +195,9 @@ public class FragmentChatAi extends Fragment {
             if(isChecked) {
                 view.findViewById(R.id.history_layout).setVisibility(View.VISIBLE);
                 view.findViewById(R.id.chat_input_area).setVisibility(View.GONE);
-                mChatCatalogs =  ChatMessageHistoryDB.getInstance(requireActivity()).getAllMessageCatalogue();
-                List<String> tags = new ArrayList<>();
-                for(ChatMessageCatalogue c : mChatCatalogs) {
-                    tags.add(c.tag);
-                }
 
-                Set<String> setWithoutDuplicates = new HashSet<>(tags);
-                mChatTags = new ArrayList<>(setWithoutDuplicates);
-                mChatTagAdapter.clearAndAddAll(mChatTags);
-                mChatCatalogAdapter.notifyDataSetChanged();
+                List<String> tags = ChatMessageHistoryDB.getInstance(requireActivity()).getAllMessageTags();
+                mChatTagAdapter.clearAndAddAll(tags);
             } else {
                 view.findViewById(R.id.history_layout).setVisibility(View.GONE);
                 view.findViewById(R.id.chat_input_area).setVisibility(View.VISIBLE);
@@ -245,12 +212,13 @@ public class FragmentChatAi extends Fragment {
 //            Toast.makeText(MainActivity.this, "Clicked: " + selectedItem, Toast.LENGTH_SHORT).show();
             ChatMessageCatalogue catalog = mChatCatalogs.get(position);
             List<ChatMessage> msgs = ChatMessageHistoryDB.getInstance(requireContext()).getMessageDetail(catalog.date, catalog.tag);
-            messageList = msgs;
+            messageList.clear();
+            messageList.addAll(msgs);
             adapterAiChatMesssageList.notifyDataSetChanged();
         });
 
         if(!showHeader) {
-            btnExit.setVisibility(View.INVISIBLE);
+            //btnExit.setVisibility(View.INVISIBLE);
             chkViewHistory.setVisibility(View.INVISIBLE);
             view.findViewById(R.id.history_layout).setVisibility(View.GONE);
         }
@@ -295,12 +263,14 @@ public class FragmentChatAi extends Fragment {
                         if(mListener != null) {
                             mListener.onAiChatResponced(true);
                         }
+                        ChatMessageHistoryDB.getInstance(requireContext()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
                     }
                 } else {
                     btnSend.setEnabled(true);
                     if(mListener != null) {
                         mListener.onAiChatResponced(false);
                     }
+                    ChatMessageHistoryDB.getInstance(requireContext()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
                 }
             });
         });
