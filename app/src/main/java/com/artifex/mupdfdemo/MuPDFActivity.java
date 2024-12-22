@@ -1498,7 +1498,7 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
                 "");
         try {
             chatRequest.setQuestion("");
-            chatRequest.setCoversation("解释一下:" + text.trim().replace("\n", ""));
+            chatRequest.setCoversation("解释一下:" + text.trim().replace("\n", "  \n"));
             chatRequest.setAnswer(mSection.getTitle()); //当前章节
             app.chatRequest = chatRequest;
 
