@@ -98,8 +98,6 @@ public class LoginActivity extends AppCompatActivity {
         startTypingEffect(); // 启动打字机效果
     }
 
-
-
     @Override
     protected void onResume() {
         super.onResume();

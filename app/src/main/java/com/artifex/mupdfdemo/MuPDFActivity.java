@@ -1,6 +1,11 @@
 package com.artifex.mupdfdemo;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.Serializable;
+import java.util.UUID;
 import java.util.concurrent.Executor;
+import java.util.zip.Inflater;
 
 import com.artifex.mupdfdemo.ReaderView.ViewMapper;
 
@@ -13,6 +18,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
@@ -20,33 +26,69 @@ import android.os.Handler;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.text.method.PasswordTransformationMethod;
+import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.Menu;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.TranslateAnimation;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.PopupWindow;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 import android.widget.ViewAnimator;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.colorpicker.ColorListener;
+import com.cosinetech.imates.colorpicker.ColorPickerDialog;
+import com.cosinetech.imates.models.Chapter;
+import com.cosinetech.imates.models.Subject;
+import com.cosinetech.imates.notes.NoteManager;
+import com.cosinetech.imates.notes.NotePopupWindow;
+import com.cosinetech.imates.pdfui.PDFActivity;
+import com.cosinetech.imates.pdfui.PDFCatelogueActivity;
+import com.cosinetech.imates.pdfui.PDFPreviewActivity;
+import com.cosinetech.imates.util.ImageUtils;
 import com.cosinetech.imates.util.WindowUtils;
+import com.cosinetech.imates.webservice.AiChatMessageRequest;
+import com.cosinetech.imates.webservice.ApiUrl;
+import com.cosinetech.imates.widgets.DrawingChangeListener;
+import com.cosinetech.imates.widgets.PaintView;
+import com.github.barteksc.pdfviewer.util.FitPolicy;
+import com.litao.slider.NiftySlider;
+import com.lzf.easyfloat.EasyFloat;
+import com.lzf.easyfloat.enums.SidePattern;
+import com.lzf.easyfloat.interfaces.OnFloatCallbacks;
+
+import org.jetbrains.annotations.NotNull;
+
 class ThreadPerTaskExecutor implements Executor {
     public void execute(Runnable r) {
         new Thread(r).start();
     }
 }
 
-public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupport
-{
+public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupport  {
 	/* The core rendering instance */
 	enum TopBarMode {Main, Search, Annot, Delete, More, Accept};
 	enum AcceptMode {Highlight, Underline, StrikeOut, Ink, CopyText};
-
+	private Chapter.Schema mSchema;
+	private Chapter.Section mSection;
 	private final int    OUTLINE_REQUEST=0;
 	private final int    PRINT_REQUEST=1;
 	private final int    FILEPICK_REQUEST=2;
@@ -241,16 +283,15 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
 	}
 	/** Called when the activity is first created. */
 	@Override
-	public void onCreate(Bundle savedInstanceState)
-	{
+	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		WindowUtils.hideSystemUI(this);
 		WindowUtils.setFullScreenMode(this);
+		mSchema = getIntent().getParcelableExtra("Schema");
+		mSection = getIntent().getParcelableExtra("Section");
 		mAlertBuilder = new AlertDialog.Builder(this);
-
 		if (core == null) {
 			core = (MuPDFCore)getLastNonConfigurationInstance();
-
 			if (savedInstanceState != null && savedInstanceState.containsKey("FileName")) {
 				mFileName = savedInstanceState.getString("FileName");
 			}
@@ -595,12 +636,14 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
 
 		if(savedInstanceState != null && savedInstanceState.getBoolean("ReflowMode", false))
 			reflowModeSet(true);
-
 		// Stick the document view and the buttons overlay into a parent view
-		RelativeLayout layout = new RelativeLayout(this);
+		LayoutInflater inflater = getLayoutInflater();
+		View rootView = inflater.inflate(R.layout.activity_mupdf, null);
+		RelativeLayout layout = rootView.findViewById(R.id.pdfView);
 		layout.addView(mDocView);
 		layout.addView(mButtonsView);
-		setContentView(layout);
+		setContentView(rootView);
+		initFloatingTool(rootView);
 	}
 
 	@Override
@@ -1136,4 +1179,402 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
 			WindowUtils.hideSystemUI(this);
 		}
 	}
+
+	private void initFloatingTool(View view) {
+		ImageView btnBrushSize;
+		ImageView btnPalatte;
+		ImageView btnUseBrush;
+		ImageView btnUseEraser;
+		ImageView btnUndo;
+		ImageView btnRedo;
+		ImageView btnSelectArea;
+		ImageView btnOk;
+		ImageView btnCancel;
+
+		TextView textColorIndicator;
+		PaintView paintView;
+		View paintToolView;
+		int selectionColorId = R.color.assist_blue;
+		paintView = findViewById(R.id.paint_view);
+		btnBrushSize = findViewById(R.id.imgBrushSize);
+		btnPalatte = findViewById(R.id.imgPalette);
+		btnUseBrush = findViewById(R.id.imgBrush);
+		btnUseEraser = findViewById(R.id.imgErase);
+		btnUndo = findViewById(R.id.imgUndo);
+		btnRedo = findViewById(R.id.imgRedo);
+		btnSelectArea = findViewById(R.id.imgSelectArea);
+		btnOk = findViewById(R.id.imgOK);
+		btnCancel = findViewById(R.id.imgCancel);
+
+		textColorIndicator = findViewById(R.id.colorIndicator);
+		paintToolView = findViewById(R.id.img_edit_layout);
+		paintToolView.setVisibility(View.GONE);
+
+		//默认选择画笔
+		btnUseBrush.setBackgroundColor(getColor(selectionColorId));
+
+		paintView.addDrawingChangeListener(new DrawingChangeListener() {
+			@Override
+			public void onTouchStart(float x, float y) {
+
+			}
+
+			@Override
+			public void onDrawingChange(float x, float y) {
+
+			}
+
+			@Override
+			public void onSelectionEnd(float x, float y) {
+				// 加载自定义布局
+				View popupView = LayoutInflater.from(MuPDFActivity.this).inflate(R.layout.pdf_scribble_menu, null);
+
+				// 创建 PopupWindow
+				PopupWindow popupWindow = new PopupWindow(popupView,
+						LinearLayout.LayoutParams.WRAP_CONTENT,
+						LinearLayout.LayoutParams.WRAP_CONTENT,
+						true);
+
+				// 设置点击事件
+				popupView.findViewById(R.id.menu_chat).setOnClickListener(view -> {
+					Bitmap bmp = paintView.getSelectedBitmap();
+					popupWindow.dismiss();
+					askQuestionForPicture(bmp, (int)x, (int)y);
+				});
+
+				popupView.findViewById(R.id.menu_note).setOnClickListener(view -> {
+					Bitmap bmp = paintView.getSelectedBitmap();
+					byte [] data = ImageUtils.compressBitmapToJpg(bmp);
+					try {
+						String fileName = makeNoteFullFilePath();
+						if(!writeJpgToExternalStorage(data, fileName)) {
+							Toast.makeText(MuPDFActivity.this, "保存图片失败", Toast.LENGTH_SHORT).show();
+						} else {
+							NoteManager manager = new NoteManager(getBaseContext());
+							StringBuilder htmlContentBuilder = new StringBuilder();
+							htmlContentBuilder.append("<img src=\"").append(fileName.toString()).append("\"/>");
+							manager.addNote(htmlContentBuilder.toString(), "");
+							popupWindow.dismiss();
+						}
+					}catch (Exception ex) {
+						Toast.makeText(MuPDFActivity.this, "创建笔记失败", Toast.LENGTH_SHORT).show();
+					}
+				});
+
+				// 显示 PopupWindow 在指定位置 (例如屏幕中央)
+				popupWindow.showAtLocation(paintView, Gravity.NO_GRAVITY, (int)x, (int)y);
+			}
+		});
+
+		com.litao.slider.NiftySlider slider = findViewById(R.id.niftySlider);
+		btnBrushSize.setOnClickListener(v -> {
+			if(slider.getVisibility() == View.VISIBLE) {
+				btnBrushSize.setBackgroundColor(getColor(R.color.semi_black_transparent));
+				slider.setVisibility(View.GONE);
+			} else {
+				slider.setVisibility(View.VISIBLE);
+				btnBrushSize.setBackgroundColor(getColor(selectionColorId));
+			}
+		});
+
+		slider.setOnIntValueChangeListener(new NiftySlider.OnIntValueChangeListener() {
+			@Override
+			public void onValueChange(@NonNull NiftySlider niftySlider, int i, boolean b) {
+				paintView.setBrushSize(i);
+			}
+		});
+
+		btnPalatte.setOnClickListener(v->{
+			new ColorPickerDialog.Builder(this)
+					.setTitle("选择颜色")
+					.setPositiveButton("确定", (ColorListener) (colorInfo, fromUser) -> {
+						textColorIndicator.setTextColor(colorInfo.getColor());
+						paintView.setBrushColor(colorInfo.getColor());
+					})
+					.show();
+		});
+
+		btnUseBrush.setOnClickListener(
+				v -> {
+					resetPaintToolSelect();
+					paintView.disableEraser();
+					paintView.disableSelection();
+					btnUseBrush.setBackgroundColor(getColor(selectionColorId));
+				}
+		);
+
+		btnUseEraser.setOnClickListener(
+				v-> {
+					resetPaintToolSelect();
+					paintView.enableEraser();
+					paintView.disableSelection();
+					btnUseEraser.setBackgroundColor(getColor(selectionColorId));
+				}
+		);
+
+		btnSelectArea.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				resetPaintToolSelect();
+				paintView.enableSelection();
+				paintView.disableEraser();
+				btnSelectArea.setBackgroundColor(getColor(selectionColorId));
+			}
+		});
+
+		btnUndo.setOnClickListener(
+				v -> paintView.undoDrawing()
+		);
+
+		btnRedo.setOnClickListener(
+				v -> paintView.redoDrawing()
+		);
+
+		btnOk.setOnClickListener(v -> {
+
+		});
+
+		btnCancel.setOnClickListener( v -> {
+			paintToolView.setVisibility(View.GONE);
+			EasyFloat.show();
+		});
+
+		EasyFloat.with(this).setLayout(R.layout.floating_pdf_tools)
+				.setSidePattern(SidePattern.AUTO_SIDE)
+				.registerCallbacks(new OnFloatCallbacks() {
+					@Override
+					public void createdResult(boolean isCreated, @Nullable String msg, @Nullable View view) {
+						if (isCreated && view != null) {
+							// 获取浮动窗口中的按钮
+							Button btnClose = view.findViewById(R.id.btn_back);
+							btnClose.setOnClickListener(new View.OnClickListener() {
+								@Override
+								public void onClick(View v) {
+									// 点击按钮时退出当前 Activity
+									MuPDFActivity.this.finish();
+								}
+							});
+
+//							Button btnContent = view.findViewById(R.id.btn_contents);
+//							btnContent.setOnClickListener(v -> {
+//								//跳转目录页面
+//								Intent intent = new Intent(PDFActivity.this, PDFCatelogueActivity.class);
+//								intent.putExtra("catelogues", (Serializable) catelogues);
+//								PDFActivity.this.startActivityForResult(intent, 200);
+//							});
+//
+//							Button btnThumbnail = view.findViewById(R.id.btn_thumbnail);
+//							btnThumbnail.setOnClickListener( v->{
+//								//跳转缩略图页面
+//								Intent intent = new Intent(PDFActivity.this, PDFPreviewActivity.class);
+//								intent.putExtra("AssetsPdf", assetsFileName);
+//								intent.setData(uri);
+//								PDFActivity.this.startActivityForResult(intent, 201);
+//							});
+
+							CheckBox checkBoxColl = view.findViewById(R.id.btn_collapse);
+							checkBoxColl.setOnCheckedChangeListener((buttonView, isChecked) -> {
+								if(isChecked) {
+									view.findViewById(R.id.tools_layout).setVisibility(View.GONE);
+								} else {
+									view.findViewById(R.id.tools_layout).setVisibility(View.VISIBLE);
+								}
+							});
+
+							Button btnScratch = view.findViewById(R.id.btn_scratch);
+							btnScratch.setOnClickListener(v->{
+								Bitmap bmp = WindowUtils.getScreenshot2Bitmap(MuPDFActivity.this, mDocView);
+								EasyFloat.hide();
+								paintView.setBitmap(bmp);
+								//paintView.setBackgroundColor(Color.TRANSPARENT);
+								paintToolView.setVisibility(View.VISIBLE);
+							});
+
+//							// tool bar
+//							Button btnFitWidth = view.findViewById(R.id.btn_fit_width);
+//							btnFitWidth.setOnClickListener(v->{
+//								pdfFitPolicy = FitPolicy.WIDTH;
+//								pdfSwipeHorizontal = false;
+//								loadPdf();
+//							});
+//							Button btnFitHeight = view.findViewById(R.id.btn_fit_height);
+//							btnFitHeight.setOnClickListener(v->{
+//								pdfFitPolicy = FitPolicy.BOTH;
+//								pdfSwipeHorizontal = false;
+//								loadPdf();
+//							});
+//							Button btnScrollMode = view.findViewById(R.id.btn_hscroll);
+//							btnScrollMode.setOnClickListener(v->{
+//								pdfFitPolicy = FitPolicy.HEIGHT;
+//								pdfSwipeHorizontal = true;
+//								loadPdf();
+//							});
+
+							Button btnNote = view.findViewById(R.id.btn_note);
+							btnNote.setOnClickListener(v -> {
+								NotePopupWindow win = new NotePopupWindow(view.getContext());
+								win.showAsDropDown(view);
+							});
+
+//							Button btnToTextBook = view.findViewById(R.id.btn_to_textbook);
+//							btnToTextBook.setOnClickListener(v->{
+//								if(mSchema != null && !mSchema.getTextBook().isEmpty()) {
+//									Intent intent = getIntent();
+//									intent.putExtra("AssetsPdf", mSchema.getTextBook());
+//									pdfFitPolicy = FitPolicy.BOTH;
+//									pdfSwipeHorizontal = false;
+//									loadPdf();
+//								}
+//							});
+//
+//							Button btnToPpt = view.findViewById(R.id.btn_to_ppt);
+//							btnToPpt.setOnClickListener(new View.OnClickListener() {
+//								@Override
+//								public void onClick(View v) {
+//									if(mSchema != null && !mSchema.getLecture().isEmpty()) {
+//										Intent intent = getIntent();
+//										intent.putExtra("AssetsPdf", mSchema.getLecture());
+//										pdfFitPolicy = FitPolicy.WIDTH;
+//										pdfSwipeHorizontal = false;
+//										loadPdf();
+//									}
+//								}
+//							});
+//
+//							Button btnToGuide= view.findViewById(R.id.btn_to_guide);
+//							btnToGuide.setOnClickListener(new View.OnClickListener() {
+//								@Override
+//								public void onClick(View v) {
+//									if(mSchema != null && !mSchema.getLearnGuide().isEmpty()) {
+//										Intent intent = getIntent();
+//										intent.putExtra("AssetsPdf", mSchema.getLearnGuide());
+//										pdfFitPolicy = FitPolicy.BOTH;
+//										pdfSwipeHorizontal = false;
+//										loadPdf();
+//									}
+//								}
+//							});
+						}
+					}
+
+					@Override
+					public void show(@NotNull View view) { }
+
+					@Override
+					public void hide(@NotNull View view) { }
+
+					@Override
+					public void dismiss() { }
+
+					@Override
+					public void touchEvent(@NotNull View view, @NotNull MotionEvent event) { }
+
+					@Override
+					public void drag(@NotNull View view, @NotNull MotionEvent event) { }
+
+					@Override
+					public void dragEnd(@NotNull View view) { }
+				})
+				.show();
+	}
+
+	private void resetPaintToolSelect() {
+		ImageView btnUseBrush = findViewById(R.id.imgBrush);
+		ImageView btnUseEraser = findViewById(R.id.imgErase);
+		ImageView btnSelectArea = findViewById(R.id.imgSelectArea);
+
+		btnUseBrush.setBackgroundColor(getColor(R.color.semi_black_transparent));
+		btnUseEraser.setBackgroundColor(getColor(R.color.semi_black_transparent));
+		btnSelectArea.setBackgroundColor(getColor(R.color.semi_black_transparent));
+	}
+
+	private void askQuestionForPicture(Bitmap bmp, int x, int y) {
+// 加载自定义布局
+		View popupView = LayoutInflater.from(MuPDFActivity.this).inflate(R.layout.pdf_ask_ai, null);
+		ImageView imageView = popupView.findViewById(R.id.ask_picture_src);
+		EditText editText = popupView.findViewById(R.id.ask_content);
+		// 创建 PopupWindow
+		PopupWindow popupWindow = new PopupWindow(popupView,
+				LinearLayout.LayoutParams.WRAP_CONTENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT,
+				true);
+
+		imageView.setImageBitmap(bmp);
+
+		// 设置点击事件
+		popupView.findViewById(R.id.btn_ok).setOnClickListener(view -> {
+			if(editText.getText().toString().trim().isEmpty()) {
+				Toast.makeText(MuPDFActivity.this, "请输入要问的问题", Toast.LENGTH_SHORT).show();
+				return;
+			}
+			popupWindow.dismiss();
+			ApplicationModelShared app = (ApplicationModelShared)getApplication();
+			AiChatMessageRequest chatRequest = new AiChatMessageRequest("",
+					"",
+					"",
+					"",
+					"",
+					"",
+					"start",
+					"");
+			try {
+				chatRequest.setQuestion(ImageUtils.bitmapToHtmlJpgBase64(bmp));
+				chatRequest.setCoversation(editText.getText().toString());
+				chatRequest.setAnswer(mSection.getTitle()); //当前章节
+				app.chatRequest = chatRequest;
+
+				app.getFloatingWindowService().popupChatBot(ApiUrl.URL_CHAT_PREVIEW_PICTURE, Subject.SUBJECT_ALL.name());
+			} catch (Exception e) {
+				Toast.makeText(MuPDFActivity.this, "请输入要问的问题", Toast.LENGTH_SHORT).show();
+			}
+		});
+
+		popupView.findViewById(R.id.btn_cancel).setOnClickListener(view -> {
+			popupWindow.dismiss();
+		});
+
+		// 显示 PopupWindow 在指定位置 (例如屏幕中央)
+		PaintView paintView = findViewById(R.id.paint_view);
+		popupWindow.showAtLocation(paintView, Gravity.NO_GRAVITY, (int)x, (int)y);
+	}
+
+	private String makeNoteFullFilePath() {
+		// 获取应用的私有外部存储目录
+		File externalFilesDir = getExternalFilesDir(null);
+		if (externalFilesDir == null) {
+			Toast.makeText(this, "无法访问外部存储目录", Toast.LENGTH_SHORT).show();
+			return null; // 返回 null 表示失败
+		}
+
+		// 创建一个子目录（可选）
+		File customDirectory = new File(externalFilesDir, "MyNotes");
+		if (!customDirectory.exists()) {
+			customDirectory.mkdirs(); // 如果目录不存在，创建它
+		}
+
+		// 生成 GUID 作为文件名
+		String guid = UUID.randomUUID().toString();
+		String fileName = guid + ".jpg";
+
+		// 创建文件对象
+		File file = new File(customDirectory, fileName);
+
+		return file.getAbsolutePath();
+	}
+
+	private boolean writeJpgToExternalStorage(byte [] data , String filePath) {
+		try {
+			File file = new File(filePath);
+			// 创建文件并写入内容
+			FileOutputStream fos = new FileOutputStream(file);
+			fos.write(data);
+			fos.close();
+			return true;
+		} catch (Exception e) {
+			e.printStackTrace();
+			Toast.makeText(this, "写入文件失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+			return false;
+		}
+	}
+
 }

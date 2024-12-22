@@ -200,10 +200,8 @@ public class FragmentPreviewLesson extends Fragment {
 
                 Uri uri = Uri.parse(getContext().getExternalFilesDir(null) + "/biology/chapter5/text_book.pdf");
                 Intent intent = new Intent(getContext(), MuPDFActivity.class);
-                //intent.putExtra("AssetsPdf","biology/chapter5/text_book.pdf");
-//                intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
-//                intent.putExtra("Section", mPreviewSection);
-
+                intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
+                intent.putExtra("Section", mPreviewSection);
                 intent.setAction(Intent.ACTION_VIEW);
                 intent.setData(uri);
 

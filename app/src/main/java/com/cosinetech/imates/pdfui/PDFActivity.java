@@ -100,6 +100,7 @@ public class PDFActivity extends AppCompatActivity implements
         WindowUtils.hideSystemUI(this);
         WindowUtils.setFullScreenMode(this);
         setContentView(R.layout.activity_pdf);
+
         mSchema = getIntent().getParcelableExtra("Schema");
         mSection = getIntent().getParcelableExtra("Section");
 

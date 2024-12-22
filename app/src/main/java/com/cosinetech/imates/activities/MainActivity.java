@@ -104,6 +104,7 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
         startFloatingWindowService();
     }
 
+
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
