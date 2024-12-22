@@ -1,5 +1,4 @@
 package com.artifex.mupdfdemo;
-
 import java.io.InputStream;
 import java.util.concurrent.Executor;
 
@@ -35,7 +34,7 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.ViewAnimator;
 import com.cosinetech.imates.R;
-
+import com.cosinetech.imates.util.WindowUtils;
 class ThreadPerTaskExecutor implements Executor {
     public void execute(Runnable r) {
         new Thread(r).start();
@@ -240,13 +239,13 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
 		}
 		return core;
 	}
-
 	/** Called when the activity is first created. */
 	@Override
 	public void onCreate(Bundle savedInstanceState)
 	{
 		super.onCreate(savedInstanceState);
-
+		WindowUtils.hideSystemUI(this);
+		WindowUtils.setFullScreenMode(this);
 		mAlertBuilder = new AlertDialog.Builder(this);
 
 		if (core == null) {
@@ -1128,5 +1127,13 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
 		Intent intent = new Intent(this, ChoosePDFActivity.class);
 		intent.setAction(ChoosePDFActivity.PICK_KEY_FILE);
 		startActivityForResult(intent, FILEPICK_REQUEST);
+	}
+
+	@Override
+	public void onWindowFocusChanged(boolean hasFocus) {
+		super.onWindowFocusChanged(hasFocus);
+		if (hasFocus) {
+			WindowUtils.hideSystemUI(this);
+		}
 	}
 }
