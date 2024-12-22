@@ -445,6 +445,36 @@ public class MuPDFPageView extends PageView implements MuPDFView {
 		return true;
 	}
 
+	public String getSelection() {
+		final StringBuilder text = new StringBuilder();
+
+		processSelectedText(new TextProcessor() {
+			StringBuilder line;
+
+			public void onStartLine() {
+				line = new StringBuilder();
+			}
+
+			public void onWord(TextWord word) {
+				if (line.length() > 0)
+					line.append(' ');
+				line.append(word.w);
+			}
+
+			public void onEndLine() {
+				if (text.length() > 0)
+					text.append('\n');
+				text.append(line);
+			}
+		});
+
+		if (text.length() == 0)
+			return "";
+
+		deselectText();
+
+		return text.toString();
+	}
 	public boolean markupSelection(final Annotation.Type type) {
 		final ArrayList<PointF> quadPoints = new ArrayList<PointF>();
 		processSelectedText(new TextProcessor() {

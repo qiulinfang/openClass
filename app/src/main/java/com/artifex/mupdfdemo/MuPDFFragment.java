@@ -925,7 +925,7 @@ public class MuPDFFragment extends Fragment implements FilePicker.FilePickerSupp
 	}
 
 	private void makeButtonsView() {
-		mButtonsView = getActivity().getLayoutInflater().inflate(R.layout.buttons,null);
+		mButtonsView = getActivity().getLayoutInflater().inflate(R.layout.mupdf_buttons,null);
 		mFilenameView = (TextView)mButtonsView.findViewById(R.id.docNameText);
 		mPageSlider = (SeekBar)mButtonsView.findViewById(R.id.pageSlider);
 		mPageNumberView = (TextView)mButtonsView.findViewById(R.id.pageNumber);

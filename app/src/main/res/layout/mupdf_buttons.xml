@@ -15,7 +15,108 @@
 			android:id="@+id/topBar0Main"
 			android:layout_width="match_parent"
 			android:layout_height="wrap_content"
-			android:background="@color/toolbar" >
+			android:background="#80808080" >
+
+			<Button
+				android:id="@+id/btn_back"
+				android:background="@drawable/ic_back1"
+				android:layout_marginStart="16dp"
+				android:layout_width="42dp"
+				android:layout_height="42dp"
+				android:layout_alignParentStart="true"/>
+
+			<Button
+				android:id="@+id/btn_contents"
+				android:layout_width="48dp"
+				android:layout_height="48dp"
+				android:layout_marginStart="16dp"
+				android:background="@drawable/ic_contents"
+				android:layout_toEndOf="@id/btn_back"/>
+
+			<Button
+				android:id="@+id/btn_fit_width"
+				android:layout_width="48dp"
+				android:layout_height="48dp"
+				android:visibility="gone"
+				android:layout_marginStart="8dp"
+				android:background="@drawable/ic_width"
+				android:layout_toEndOf="@id/btn_contents"/>
+			<Button
+				android:id="@+id/btn_fit_height"
+				android:layout_width="48dp"
+				android:layout_height="48dp"
+				android:visibility="gone"
+				android:background="@drawable/ic_height"
+				android:layout_marginStart="8dp"
+				android:layout_toEndOf="@id/btn_fit_width"/>
+
+			<Button
+				android:id="@+id/btn_hscroll"
+				android:layout_width="48dp"
+				android:layout_height="48dp"
+				android:layout_marginStart="8dp"
+				android:visibility="gone"
+				android:background="@drawable/ic_scroll"
+				android:layout_toEndOf="@id/btn_fit_height"/>
+
+
+			<Button
+				android:id="@+id/btn_thumbnail"
+				android:text = "缩略图"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:visibility="gone"
+				android:layout_toEndOf="@id/btn_hscroll"/>
+
+			<Button
+				android:id="@+id/btn_note"
+				android:background="@drawable/ic_note"
+				android:layout_width="48dp"
+				android:layout_height="48dp"
+				android:layout_marginStart="8dp"
+				android:layout_toEndOf="@id/btn_contents"/>
+
+			<Button
+				android:id="@+id/btn_selection"
+				android:background="@drawable/ic_cursor_text"
+				android:layout_width="48dp"
+				android:layout_height="48dp"
+				android:layout_marginStart="8dp"
+				android:onClick="OnCopyTextButtonClick"
+				android:layout_toEndOf="@id/btn_note"/>
+
+			<Button
+				android:id="@+id/btn_scratch"
+				android:background="@drawable/ic_scribble"
+				android:layout_width="48dp"
+				android:layout_height="48dp"
+				android:layout_marginStart="8dp"
+				android:layout_toEndOf="@id/btn_selection"/>
+
+			<Button
+				android:id="@+id/btn_to_guide"
+				android:background="@drawable/ic_schema"
+				android:layout_width="48dp"
+				android:layout_height="48dp"
+				android:layout_marginStart="8dp"
+				android:layout_toEndOf="@id/btn_scratch"/>
+
+			<Button
+				android:id="@+id/btn_to_ppt"
+				android:background="@drawable/ic_ppt"
+				android:layout_width="48dp"
+				android:layout_height="48dp"
+				android:layout_marginStart="8dp"
+				android:layout_toEndOf="@id/btn_to_guide"/>
+
+			<Button
+				android:id="@+id/btn_to_textbook"
+				android:background="@drawable/ic_book"
+				android:layout_width="48dp"
+				android:layout_height="48dp"
+				android:layout_marginStart="8dp"
+				android:layout_toEndOf="@id/btn_to_ppt"/>
+
 
 			<TextView
 				android:id="@+id/docNameText"
@@ -28,6 +129,7 @@
 				android:singleLine="true"
 				android:textColor="#FFFFFF"
 				android:textStyle="bold"
+				android:visibility="gone"
 				android:textAppearance="?android:attr/textAppearanceMedium" />
 
 			<ImageButton
@@ -59,6 +161,7 @@
 				android:layout_centerVertical="true"
 				android:layout_toLeftOf="@+id/searchButton"
 				android:contentDescription="@string/outline_title"
+				android:visibility="gone"
 				android:background="@drawable/button"
 				android:src="@drawable/ic_list" />
 
@@ -69,6 +172,7 @@
 				android:layout_centerVertical="true"
 				android:layout_toLeftOf="@+id/moreButton"
 				android:contentDescription="@string/search_document"
+				android:visibility="gone"
 				android:background="@drawable/button"
 				android:src="@drawable/ic_magnifying_glass" />
 
@@ -79,6 +183,7 @@
 				android:layout_centerVertical="true"
 				android:layout_alignParentRight="true"
 				android:contentDescription="@string/more"
+				android:visibility="gone"
 				android:background="@drawable/button"
 				android:onClick="OnMoreButtonClick"
 				android:src="@drawable/ic_more" />

@@ -6,7 +6,7 @@
 
     <FrameLayout
         android:id="@+id/popup_container"
-        android:layout_width="600dp"
+        android:layout_width="800dp"
         android:layout_height="match_parent"
         android:background="@android:color/white">
 
