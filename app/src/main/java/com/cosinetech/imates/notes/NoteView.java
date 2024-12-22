@@ -103,6 +103,7 @@ public class NoteView extends LinearLayout {
             public void onClick(View v) {
                 currentNoteId = -1;
                 xRichText.clearAllLayout();
+                xRichText.addEditTextAtIndex(0, "");
             }
         });
 
