@@ -98,7 +98,7 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
 	private View         mButtonsView;
 	private boolean      mButtonsVisible;
 	private EditText     mPasswordView;
-	private TextView     mFilenameView;
+	//private TextView     mFilenameView;
 	private SeekBar      mPageSlider;
 	private int          mPageSliderRes;
 	private TextView     mPageNumberView;
@@ -290,6 +290,7 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
 		mSchema = getIntent().getParcelableExtra("Schema");
 		mSection = getIntent().getParcelableExtra("Section");
 		mAlertBuilder = new AlertDialog.Builder(this);
+
 		if (core == null) {
 			core = (MuPDFCore)getLastNonConfigurationInstance();
 			if (savedInstanceState != null && savedInstanceState.containsKey("FileName")) {
@@ -427,6 +428,15 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
 		if (core == null)
 			return;
 
+		// Stick the document view and the buttons overlay into a parent view
+		LayoutInflater inflater = getLayoutInflater();
+		View rootView = inflater.inflate(R.layout.activity_mupdf, null);
+		RelativeLayout layout = rootView.findViewById(R.id.pdfView);
+		if(mDocView != null) {
+			layout.removeView(mDocView);
+			mDocView = null;
+		}
+
 		// Now create the UI.
 		// First create the document view
 		mDocView = new MuPDFReaderView(this) {
@@ -504,7 +514,7 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
 		mPageSliderRes = ((10 + smax - 1)/smax) * 2;
 
 		// Set the file-name text
-		mFilenameView.setText(mFileName);
+		//mFilenameView.setText(mFileName);
 
 		// Activate the seekbar
 		mPageSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -636,10 +646,7 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
 
 		if(savedInstanceState != null && savedInstanceState.getBoolean("ReflowMode", false))
 			reflowModeSet(true);
-		// Stick the document view and the buttons overlay into a parent view
-		LayoutInflater inflater = getLayoutInflater();
-		View rootView = inflater.inflate(R.layout.activity_mupdf, null);
-		RelativeLayout layout = rootView.findViewById(R.id.pdfView);
+
 		layout.addView(mDocView);
 		layout.addView(mButtonsView);
 		setContentView(rootView);
@@ -733,20 +740,7 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
 
 	public void onDestroy()
 	{
-		if (mDocView != null) {
-			mDocView.applyToChildren(new ViewMapper() {
-				void applyToView(View view) {
-					((MuPDFView)view).releaseBitmaps();
-				}
-			});
-		}
-		if (core != null)
-			core.onDestroy();
-		if (mAlertTask != null) {
-			mAlertTask.cancel(true);
-			mAlertTask = null;
-		}
-		core = null;
+		releaseResource();
 		super.onDestroy();
 	}
 
@@ -903,7 +897,7 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
 
 	private void makeButtonsView() {
 		mButtonsView = getLayoutInflater().inflate(R.layout.buttons,null);
-		mFilenameView = (TextView)mButtonsView.findViewById(R.id.docNameText);
+		//mFilenameView = (TextView)mButtonsView.findViewById(R.id.docNameText);
 		mPageSlider = (SeekBar)mButtonsView.findViewById(R.id.pageSlider);
 		mPageNumberView = (TextView)mButtonsView.findViewById(R.id.pageNumber);
 		mInfoView = (TextView)mButtonsView.findViewById(R.id.info);
@@ -1355,23 +1349,6 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
 								}
 							});
 
-//							Button btnContent = view.findViewById(R.id.btn_contents);
-//							btnContent.setOnClickListener(v -> {
-//								//跳转目录页面
-//								Intent intent = new Intent(PDFActivity.this, PDFCatelogueActivity.class);
-//								intent.putExtra("catelogues", (Serializable) catelogues);
-//								PDFActivity.this.startActivityForResult(intent, 200);
-//							});
-//
-//							Button btnThumbnail = view.findViewById(R.id.btn_thumbnail);
-//							btnThumbnail.setOnClickListener( v->{
-//								//跳转缩略图页面
-//								Intent intent = new Intent(PDFActivity.this, PDFPreviewActivity.class);
-//								intent.putExtra("AssetsPdf", assetsFileName);
-//								intent.setData(uri);
-//								PDFActivity.this.startActivityForResult(intent, 201);
-//							});
-
 							CheckBox checkBoxColl = view.findViewById(R.id.btn_collapse);
 							checkBoxColl.setOnCheckedChangeListener((buttonView, isChecked) -> {
 								if(isChecked) {
@@ -1386,7 +1363,6 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
 								Bitmap bmp = WindowUtils.getScreenshot2Bitmap(MuPDFActivity.this, mDocView);
 								EasyFloat.hide();
 								paintView.setBitmap(bmp);
-								//paintView.setBackgroundColor(Color.TRANSPARENT);
 								paintToolView.setVisibility(View.VISIBLE);
 							});
 
@@ -1416,44 +1392,59 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
 								win.showAsDropDown(view);
 							});
 
-//							Button btnToTextBook = view.findViewById(R.id.btn_to_textbook);
-//							btnToTextBook.setOnClickListener(v->{
-//								if(mSchema != null && !mSchema.getTextBook().isEmpty()) {
-//									Intent intent = getIntent();
-//									intent.putExtra("AssetsPdf", mSchema.getTextBook());
-//									pdfFitPolicy = FitPolicy.BOTH;
-//									pdfSwipeHorizontal = false;
-//									loadPdf();
-//								}
-//							});
-//
-//							Button btnToPpt = view.findViewById(R.id.btn_to_ppt);
-//							btnToPpt.setOnClickListener(new View.OnClickListener() {
-//								@Override
-//								public void onClick(View v) {
-//									if(mSchema != null && !mSchema.getLecture().isEmpty()) {
-//										Intent intent = getIntent();
-//										intent.putExtra("AssetsPdf", mSchema.getLecture());
-//										pdfFitPolicy = FitPolicy.WIDTH;
-//										pdfSwipeHorizontal = false;
-//										loadPdf();
-//									}
-//								}
-//							});
-//
-//							Button btnToGuide= view.findViewById(R.id.btn_to_guide);
-//							btnToGuide.setOnClickListener(new View.OnClickListener() {
-//								@Override
-//								public void onClick(View v) {
-//									if(mSchema != null && !mSchema.getLearnGuide().isEmpty()) {
-//										Intent intent = getIntent();
-//										intent.putExtra("AssetsPdf", mSchema.getLearnGuide());
-//										pdfFitPolicy = FitPolicy.BOTH;
-//										pdfSwipeHorizontal = false;
-//										loadPdf();
-//									}
-//								}
-//							});
+							Button btnToTextBook = view.findViewById(R.id.btn_to_textbook);
+							btnToTextBook.setOnClickListener(v->{
+								if(mSchema != null && !mSchema.getTextBook().isEmpty()) {
+									Uri uri = Uri.parse(MuPDFActivity.this.getExternalFilesDir(null) + "/" + mSchema.getTextBook());
+									Intent intent = new Intent(MuPDFActivity.this, MuPDFActivity.class);
+									intent.putExtra("Schema", mSchema);
+									intent.putExtra("Section", mSection);
+									intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+									intent.setAction(Intent.ACTION_VIEW);
+									intent.setData(uri);
+
+									MuPDFActivity.this.startActivity(intent);
+									finish();
+								}
+							});
+
+							Button btnToPpt = view.findViewById(R.id.btn_to_ppt);
+							btnToPpt.setOnClickListener(new View.OnClickListener() {
+								@Override
+								public void onClick(View v) {
+									if(mSchema != null && !mSchema.getLecture().isEmpty()) {
+										Uri uri = Uri.parse(MuPDFActivity.this.getExternalFilesDir(null) + "/" + mSchema.getLecture());
+										Intent intent = new Intent(MuPDFActivity.this, MuPDFActivity.class);
+										intent.putExtra("Schema", mSchema);
+										intent.putExtra("Section", mSection);
+										intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+										intent.setAction(Intent.ACTION_VIEW);
+										intent.setData(uri);
+
+										MuPDFActivity.this.startActivity(intent);
+										finish();
+									}
+								}
+							});
+
+							Button btnToGuide= view.findViewById(R.id.btn_to_guide);
+							btnToGuide.setOnClickListener(new View.OnClickListener() {
+								@Override
+								public void onClick(View v) {
+									if(mSchema != null && !mSchema.getLearnGuide().isEmpty()) {
+										Uri uri = Uri.parse(MuPDFActivity.this.getExternalFilesDir(null) + "/" + mSchema.getLearnGuide());
+										Intent intent = new Intent(MuPDFActivity.this, MuPDFActivity.class);
+										intent.putExtra("Schema", mSchema);
+										intent.putExtra("Section", mSection);
+										intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+										intent.setAction(Intent.ACTION_VIEW);
+										intent.setData(uri);
+
+										MuPDFActivity.this.startActivity(intent);
+										finish();
+									}
+								}
+							});
 						}
 					}
 
@@ -1476,6 +1467,23 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
 					public void dragEnd(@NotNull View view) { }
 				})
 				.show();
+	}
+
+	private void releaseResource() {
+		if (mDocView != null) {
+			mDocView.applyToChildren(new ViewMapper() {
+				void applyToView(View view) {
+					((MuPDFView)view).releaseBitmaps();
+				}
+			});
+		}
+		if (core != null)
+			core.onDestroy();
+		if (mAlertTask != null) {
+			mAlertTask.cancel(true);
+			mAlertTask = null;
+		}
+		core = null;
 	}
 
 	private void resetPaintToolSelect() {
