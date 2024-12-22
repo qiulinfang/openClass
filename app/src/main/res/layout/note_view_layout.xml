@@ -6,9 +6,9 @@
     android:background="#ffffff"
     android:orientation="horizontal">
 
-    <ListView
+    <com.cosinetech.imates.widgets.SwipeListView
         android:id="@+id/noteListView"
-        android:background="@android:color/holo_blue_light"
+        android:background="#ffffff"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1" />

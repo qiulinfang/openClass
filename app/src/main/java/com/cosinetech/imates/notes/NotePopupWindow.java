@@ -4,6 +4,8 @@ import android.content.Context;
 import android.view.ViewGroup;
 import android.widget.PopupWindow;
 
+import com.cosinetech.imates.widgets.SwipeListView;
+
 public class NotePopupWindow extends PopupWindow {
     private NoteView noteView;
 

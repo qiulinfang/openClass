@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -12,21 +13,23 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.adapters.SwipeAdapter;
 import com.cosinetech.imates.util.ImageUtils;
 import com.cosinetech.imates.util.StringUtils;
+import com.cosinetech.imates.widgets.SwipeListView;
 import com.sendtion.xrichtext.RichTextEditor;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class NoteView extends LinearLayout {
-    private ListView noteListView;
+    private SwipeListView noteListView;
     private RichTextEditor xRichText;
     private EditText etTitle;
     private Button newNoteButton;
     private Button saveNoteButton;
     private NoteManager noteManager;
-    private ArrayAdapter<String> adapter;
+    private SwipeAdapter  adapter;
     private int currentNoteId = -1;
 
     public NoteView(Context context) {
@@ -54,33 +57,52 @@ public class NoteView extends LinearLayout {
 
         noteManager = new NoteManager(context);
         List<String> noteTitles = noteManager.getNoteTitles();
-
-        adapter = new ArrayAdapter<>(context, android.R.layout.simple_list_item_1, noteTitles);
-        noteListView.setAdapter(adapter);
-
-        noteListView.setOnItemClickListener((parent, view1, position, id) -> {
-            currentNoteId = noteManager.getNoteByPosition(position).getId();
-            Note selectedNote = noteManager.getNoteById(currentNoteId);
-            xRichText.clearAllLayout();
-            List<String> textList = StringUtils.cutStringByImgTag(selectedNote.getContent());
-            for (int i = 0; i < textList.size(); i++) {
-                String text = textList.get(i);
-                if (text.contains("<img")) {
-                    String imagePath = StringUtils.getImgSrc(text);
-                    xRichText.measure(0,0);
-                    Bitmap bitmap = ImageUtils.getDecodeBitmap(imagePath);//ImageUtils.getSmallBitmap(imagePath, width, height);
-                    if (bitmap != null){
-                        xRichText.addImageViewAtIndex(xRichText.getLastIndex(), imagePath);
-                    } else {
-                        xRichText.addEditTextAtIndex(xRichText.getLastIndex(), text);
+        {
+            adapter = new SwipeAdapter(getContext(), noteListView.getRightViewWidth(),
+                    new SwipeAdapter.IOnItemRightClickListener() {
+                        @Override
+                        public void onRightClick(View v, int position) {
+//                            // TODO Auto-generated method stub
+//                            Toast.makeText(MainActivity.this, "right onclick " + position,
+//                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }, noteTitles);
+//            noteListView.addHeaderView(LayoutInflater.from(this).inflate(R.layout.list_footer, null));
+//            noteListView.addHeaderView(LayoutInflater.from(this).inflate(R.layout.list_footer, null));
+//            noteListView.addHeaderView(LayoutInflater.from(this).inflate(R.layout.list_footer, null));
+//            noteListView.addFooterView(LayoutInflater.from(this).inflate(R.layout.list_footer, null));
+//            noteListView.addFooterView(LayoutInflater.from(this).inflate(R.layout.list_footer, null));
+//            noteListView.addFooterView(LayoutInflater.from(this).inflate(R.layout.list_footer, null));
+//            noteListView.addFooterView(LayoutInflater.from(this).inflate(R.layout.list_footer, null));
+//            noteListView.addFooterView(LayoutInflater.from(this).inflate(R.layout.list_footer, null));
+            noteListView.setAdapter(adapter);
+            noteListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                @Override
+                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                    currentNoteId = noteManager.getNoteByPosition(position).getId();
+                    Note selectedNote = noteManager.getNoteById(currentNoteId);
+                    xRichText.clearAllLayout();
+                    List<String> textList = StringUtils.cutStringByImgTag(selectedNote.getContent());
+                    for (int i = 0; i < textList.size(); i++) {
+                        String text = textList.get(i);
+                        if (text.contains("<img")) {
+                            String imagePath = StringUtils.getImgSrc(text);
+                            xRichText.measure(0,0);
+                            Bitmap bitmap = ImageUtils.getDecodeBitmap(imagePath);//ImageUtils.getSmallBitmap(imagePath, width, height);
+                            if (bitmap != null){
+                                xRichText.addImageViewAtIndex(xRichText.getLastIndex(), imagePath);
+                            } else {
+                                xRichText.addEditTextAtIndex(xRichText.getLastIndex(), text);
+                            }
+                            xRichText.addEditTextAtIndex(xRichText.getLastIndex(), "");
+                        }
+                        else {
+                            xRichText.addEditTextAtIndex(xRichText.getLastIndex(), text);
+                        }
                     }
-                    xRichText.addEditTextAtIndex(xRichText.getLastIndex(), "");
                 }
-                else {
-                    xRichText.addEditTextAtIndex(xRichText.getLastIndex(), text);
-                }
-            }
-        });
+            });
+        }
 
         newNoteButton.setOnClickListener(new View.OnClickListener() {
             @Override
