@@ -160,7 +160,7 @@ public class FloatingWindowService extends Service {
         popupWindow.setBackgroundDrawable(ContextCompat.getDrawable(this, android.R.color.transparent));
 
         // 显示 PopupWindow
-        popupWindow.showAtLocation(floatingView, Gravity.CENTER, 0, 0);
+        popupWindow.showAtLocation(floatingView, Gravity.START, 0, 0);
 
         popupWindow.setOutsideTouchable(false);
 
