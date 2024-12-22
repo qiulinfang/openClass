@@ -1373,17 +1373,23 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
             }
         });
 
-        CheckBox checkBoxColl = view.findViewById(R.id.btn_collapse);
-        checkBoxColl.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked) {
-                view.findViewById(R.id.tools_layout).setVisibility(View.GONE);
-            } else {
-                view.findViewById(R.id.tools_layout).setVisibility(View.VISIBLE);
-            }
-        });
-
+        Button btnContents = view.findViewById(R.id.btn_contents);
+        btnContents.setOnClickListener(new View.OnClickListener() {
+           @Override
+           public void onClick(View v) {
+               if(core.hasOutline()) {
+                   OutlineItem outline[] = core.getOutline();
+                   if (outline != null) {
+                       OutlineActivityData.get().items = outline;
+                       Intent intent = new Intent(MuPDFActivity.this, OutlineActivity.class);
+                       startActivityForResult(intent, OUTLINE_REQUEST);
+                   }
+               }
+           }
+       });
         Button btnScratch = view.findViewById(R.id.btn_scratch);
         btnScratch.setOnClickListener(v -> {
+            hideButtons();
             Bitmap bmp = WindowUtils.getScreenshot2Bitmap(MuPDFActivity.this, mDocView);
             //EasyFloat.hide();
             PaintView paintView = findViewById(R.id.paint_view);
@@ -1492,11 +1498,11 @@ public class MuPDFActivity extends Activity implements FilePicker.FilePickerSupp
                 "");
         try {
             chatRequest.setQuestion("");
-            chatRequest.setCoversation("解释一下:  \n" + text);
+            chatRequest.setCoversation("解释一下:" + text.trim().replace("\n", ""));
             chatRequest.setAnswer(mSection.getTitle()); //当前章节
             app.chatRequest = chatRequest;
 
-            app.getFloatingWindowService().popupChatBot(ApiUrl.URL_CHAT_PREVIEW_PICTURE, Subject.SUBJECT_ALL.name());
+            app.getFloatingWindowService().popupChatBot(ApiUrl.URL_CHAT_GENERAL, Subject.SUBJECT_ALL.name());
         } catch (Exception e) {
             Toast.makeText(MuPDFActivity.this, "请输入要问的问题", Toast.LENGTH_SHORT).show();
         }
