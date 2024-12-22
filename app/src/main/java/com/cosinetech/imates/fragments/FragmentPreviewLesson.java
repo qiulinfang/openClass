@@ -10,7 +10,6 @@ import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.camera.core.processing.SurfaceProcessorNode;
 import androidx.fragment.app.Fragment;
 
 import android.view.LayoutInflater;
@@ -21,6 +20,7 @@ import android.widget.RadioButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.artifex.mupdfdemo.MuPDFActivity;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.widgets.ConstraintRadioGroup;
@@ -199,7 +199,7 @@ public class FragmentPreviewLesson extends Fragment {
 //                getContext().startActivity(intent);
 
                 Uri uri = Uri.parse(getContext().getExternalFilesDir(null) + "/biology/chapter5/text_book.pdf");
-                Intent intent = new Intent(getContext(), com.cosinetech.imates.mupdf.mupdfdemo.MuPDFActivity.class);
+                Intent intent = new Intent(getContext(), MuPDFActivity.class);
                 //intent.putExtra("AssetsPdf","biology/chapter5/text_book.pdf");
 //                intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
 //                intent.putExtra("Section", mPreviewSection);

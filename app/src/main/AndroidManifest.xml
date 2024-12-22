@@ -58,16 +58,16 @@
             android:windowSoftInputMode="adjustPan"
             tools:ignore="DiscouragedApi" />
 
-        <activity android:name=".mupdf.mupdfdemo.ChoosePDFActivity"
+        <activity android:name="com.artifex.mupdfdemo.ChoosePDFActivity"
             android:theme="@style/Theme.IMatesApp.FullScreen"/>
 
-        <activity android:name=".mupdf.mupdfdemo.MuPDFActivity"
+        <activity android:name="com.artifex.mupdfdemo.MuPDFActivity"
             android:theme="@style/Theme.IMatesApp.FullScreen"/>
 
-        <activity android:name=".mupdf.mupdfdemo.OutlineActivity"
+        <activity android:name="com.artifex.mupdfdemo.OutlineActivity"
             android:theme="@style/Theme.IMatesApp.FullScreen"/>
 
-        <activity android:name=".mupdf.mupdfdemo.PrintDialogActivity"
+        <activity android:name="com.artifex.mupdfdemo.PrintDialogActivity"
             android:theme="@style/Theme.IMatesApp.FullScreen"/>
 
         <activity android:name=".pdfui.PDFPreviewActivity"
