@@ -71,6 +71,8 @@ public class SwipeAdapter extends BaseAdapter {
             convertView.setTag(item);
         } else {// 有直接获得ViewHolder
             item = (ViewHolder)convertView.getTag();
+            // Reset scroll state
+            convertView.scrollTo(0, 0);
         }
         LayoutParams lp1 = new LayoutParams(LayoutParams.MATCH_PARENT,
                 LayoutParams.MATCH_PARENT);

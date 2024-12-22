@@ -42,13 +42,15 @@ public class AdapterChatMessageTag<T> extends BaseAdapter implements OnInitSelec
     @Override
     public View getView(int position, View convertView, ViewGroup parent) {
 
-        View view = LayoutInflater.from(mContext).inflate(R.layout.chat_msg_tag_item, null);
+        if(convertView == null) {
+            convertView = LayoutInflater.from(mContext).inflate(R.layout.chat_msg_tag_item, null);
+        }
 
-        TextView textView =  view.findViewById(R.id.tv_tag);
+        TextView textView =  convertView.findViewById(R.id.tv_tag);
         String t = mDataList.get(position);
 
         textView.setText(SubjectUtils.getSubjectDisplayName(t));
-        return view;
+        return convertView;
     }
 
     public void onlyAddAll(List<String> datas) {
