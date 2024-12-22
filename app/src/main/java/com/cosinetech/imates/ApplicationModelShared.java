@@ -17,6 +17,7 @@ import com.bumptech.glide.request.target.SimpleTarget;
 import com.bumptech.glide.request.transition.Transition;
 import com.cosinetech.imates.activities.MainActivity;
 import com.cosinetech.imates.service.FloatingWindowService;
+import com.cosinetech.imates.util.AssetsCopyUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.sendtion.xrichtext.IImageLoader;
 import com.sendtion.xrichtext.XRichText;
@@ -31,6 +32,8 @@ public class ApplicationModelShared extends Application implements ViewModelStor
     @Override
     public void onCreate() {
         super.onCreate();
+        // 拷贝文件到 Documents 目录
+        AssetsCopyUtils.copyAssetsToDocuments(this);
 
         // 在任意地方，调用以下方法即可，崩溃发生后，会在下一次App启动的时候使用Service异步打包日志，
         // 然后上传日志，发送成功与否，Service都会自动退出释放内存
