@@ -28,6 +28,7 @@ public class NoteManager {
     }
 
     public List<String> getNoteTitles() {
+        loadNotes();
         return noteTitles;
     }
 
@@ -37,6 +38,10 @@ public class NoteManager {
 
     public Note getNoteByPosition(int position) {
         return noteList.get(position);
+    }
+
+    public void deleteNoteByPosition(int position) {
+        dbHelper.deleteNode(noteList.get(position));
     }
 
     public long addNote(String content, String title) {

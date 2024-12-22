@@ -19,6 +19,7 @@ import com.cosinetech.imates.util.StringUtils;
 import com.cosinetech.imates.widgets.SwipeListView;
 import com.sendtion.xrichtext.RichTextEditor;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -62,19 +63,12 @@ public class NoteView extends LinearLayout {
                     new SwipeAdapter.IOnItemRightClickListener() {
                         @Override
                         public void onRightClick(View v, int position) {
-//                            // TODO Auto-generated method stub
-//                            Toast.makeText(MainActivity.this, "right onclick " + position,
-//                                    Toast.LENGTH_SHORT).show();
+                            Note note = noteManager.getNoteByPosition(position);
+                            deleteNoteFiles(note);
+                            noteManager.deleteNoteByPosition(position);
+                            refreshNoteList();
                         }
                     }, noteTitles);
-//            noteListView.addHeaderView(LayoutInflater.from(this).inflate(R.layout.list_footer, null));
-//            noteListView.addHeaderView(LayoutInflater.from(this).inflate(R.layout.list_footer, null));
-//            noteListView.addHeaderView(LayoutInflater.from(this).inflate(R.layout.list_footer, null));
-//            noteListView.addFooterView(LayoutInflater.from(this).inflate(R.layout.list_footer, null));
-//            noteListView.addFooterView(LayoutInflater.from(this).inflate(R.layout.list_footer, null));
-//            noteListView.addFooterView(LayoutInflater.from(this).inflate(R.layout.list_footer, null));
-//            noteListView.addFooterView(LayoutInflater.from(this).inflate(R.layout.list_footer, null));
-//            noteListView.addFooterView(LayoutInflater.from(this).inflate(R.layout.list_footer, null));
             noteListView.setAdapter(adapter);
             noteListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
                 @Override
@@ -136,6 +130,22 @@ public class NoteView extends LinearLayout {
                 refreshNoteList();
             }
         });
+    }
+
+    private void deleteNoteFiles(Note note) {
+        List<String> textList = StringUtils.cutStringByImgTag(note.getContent());
+        for (int i = 0; i < textList.size(); i++) {
+            String text = textList.get(i);
+            if (text.contains("<img")) {
+                String imagePath = StringUtils.getImgSrc(text);
+                try {
+                    File file = new File(imagePath);
+                    file.deleteOnExit();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 
     public void refreshNoteList() {

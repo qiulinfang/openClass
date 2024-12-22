@@ -89,4 +89,11 @@ public class NoteDatabaseHelper extends SQLiteOpenHelper {
         return db.update(TABLE_NOTES, values, KEY_ID + " = ?",
                 new String[]{String.valueOf(note.getId())});
     }
+
+    public void deleteNode(Note note) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        int res = db.delete(TABLE_NOTES, KEY_ID + " = ?",
+                new String[]{String.valueOf(note.getId())});
+        System.out.println(res);
+    }
 }
