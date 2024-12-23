@@ -91,7 +91,8 @@ public class FragmentQuestionList extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        fragmentChatAi = FragmentChatAi.newInstance(chatBotUrl, subject.name(), false, success -> {
+        fragmentChatAi = FragmentChatAi.newInstance(chatBotUrl, subject.name(), false, subject == Subject.SUBJECT_BIOLOGY,
+                success -> {
             chatResponceTimes++;
             if(chatResponceTimes >= 2) {
                 setViewAnswer(true);

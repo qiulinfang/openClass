@@ -192,20 +192,20 @@ public class FragmentPreviewLesson extends Fragment {
                 textView.setText("已学习");
                 textView.setTextColor(Color.GREEN);
 
-//                Intent intent = new Intent(getContext(), com.cosinetech.imates.pdfui.PDFActivity.class);
-//                intent.putExtra("AssetsPdf","biology/chapter5/text_book.pdf");
-//                intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
-//                intent.putExtra("Section", mPreviewSection);
-//                getContext().startActivity(intent);
-
-                Uri uri = Uri.parse(getContext().getExternalFilesDir(null) + "/biology/chapter5/text_book.pdf");
-                Intent intent = new Intent(getContext(), MuPDFActivity.class);
+                Intent intent = new Intent(getContext(), com.cosinetech.imates.pdfui.PDFActivity.class);
+                intent.putExtra("AssetsPdf","biology/chapter5/text_book.pdf");
                 intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
                 intent.putExtra("Section", mPreviewSection);
-                intent.setAction(Intent.ACTION_VIEW);
-                intent.setData(uri);
-
                 getContext().startActivity(intent);
+
+//                Uri uri = Uri.parse(getContext().getExternalFilesDir(null) + "/biology/chapter5/text_book.pdf");
+//                Intent intent = new Intent(getContext(), MuPDFActivity.class);
+//                intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
+//                intent.putExtra("Section", mPreviewSection);
+//                intent.setAction(Intent.ACTION_VIEW);
+//                intent.setData(uri);
+//
+//                getContext().startActivity(intent);
             }
         });
     }

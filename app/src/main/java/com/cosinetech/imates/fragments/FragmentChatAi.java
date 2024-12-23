@@ -61,6 +61,8 @@ public class FragmentChatAi extends Fragment {
     private static final String KEY_PARAM_CHATBOT_TAG = "CHAT_TAG";
     private static final String KEY_PARAM_SHOW_HEADER = "SHOW_HEADER";
 
+    private static final String KEY_PARAM_STREAM_RESPONSE = "STREAM_RESPONSE";
+
     private AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "");
     private RecyclerView recyclerView;
     private SmartRefreshLayout refreshLayout;
@@ -75,6 +77,7 @@ public class FragmentChatAi extends Fragment {
     private String tag = "";
 
     private boolean showHeader;
+    private boolean streamResponse;
 
     private AiChatResponseListener mListener;
 
@@ -89,12 +92,13 @@ public class FragmentChatAi extends Fragment {
     public FragmentChatAi() {
     }
 
-    public static FragmentChatAi newInstance(String chatBotUrl, String tag, boolean showHeader, AiChatResponseListener l) {
+    public static FragmentChatAi newInstance(String chatBotUrl, String tag, boolean showHeader, boolean streamResponse, AiChatResponseListener l) {
         FragmentChatAi fragment = new FragmentChatAi();
         Bundle args = new Bundle();
         args.putString(KEY_PARAM_CHATBOT_URL, chatBotUrl);
         args.putBoolean(KEY_PARAM_SHOW_HEADER, showHeader);
         args.putString(KEY_PARAM_CHATBOT_TAG, tag);
+        args.putBoolean(KEY_PARAM_STREAM_RESPONSE, streamResponse);
         fragment.setArguments(args);
         fragment.setAiChatListener(l);
         return fragment;
@@ -107,6 +111,7 @@ public class FragmentChatAi extends Fragment {
             chatBotUrl = getArguments().getString(KEY_PARAM_CHATBOT_URL);
             tag = getArguments().getString(KEY_PARAM_CHATBOT_TAG);
             showHeader = getArguments().getBoolean(KEY_PARAM_SHOW_HEADER);
+            streamResponse = getArguments().getBoolean(KEY_PARAM_STREAM_RESPONSE);
         }
         setRetainInstance(true);
     }
@@ -248,7 +253,7 @@ public class FragmentChatAi extends Fragment {
             requireActivity().runOnUiThread(() -> {
                 if (success) {
                     if(!response.trim().isEmpty() && !response.equals("end")) {
-                        adapterAiChatMesssageList.updateLastMessage(response);
+                        adapterAiChatMesssageList.updateLastMessage(response, streamResponse);
                         Log.d("%%%%%%%%", response);
                     }
                     if(!response.equals("end")) {
@@ -346,7 +351,7 @@ public class FragmentChatAi extends Fragment {
                 btnSend.setEnabled(false);
                 pollChat();
             }
-        }, 3000);
+        }, 1000);
     }
 
     private void loadMessages() {

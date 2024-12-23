@@ -148,6 +148,14 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         return messageList.size();
     }
 
+    public void updateLastMessage(String newContent, boolean isStream) {
+        if (!messageList.isEmpty()) {
+            ChatMessage lastMessage = messageList.get(messageList.size() - 1);
+            lastMessage.appendContent(newContent);
+            lastMessage.isHistory = !isStream;
+            notifyItemChanged(messageList.size() - 1); // 更新最后一个消息
+        }
+    }
     public void updateLastMessage(String newContent) {
         if (!messageList.isEmpty()) {
             ChatMessage lastMessage = messageList.get(messageList.size() - 1);
