@@ -98,7 +98,7 @@ public class ApiGateWayService {
         void onSuccess(Question q);
         void onFailure(String msg, int code);
     }
-    public static void recognizeImage(Bitmap bitmap, String token, ExerciseImageRecognitionCallback callback) {
+    public static void recognizeImage(String url, Bitmap bitmap, String token, ExerciseImageRecognitionCallback callback) {
         Runnable task = () -> {
             try {
                 ByteArrayOutputStream stream = new ByteArrayOutputStream();
@@ -124,7 +124,7 @@ public class ApiGateWayService {
 
                 // 构建请求
                 Request request = new Request.Builder()
-                        .url(ApiUrl.URL_QUESTION_IMAGE_RECOGNISE)
+                        .url(url)
                         .addHeader("token", token)
                         .post(requestBody)
                         .build();

@@ -14,7 +14,8 @@ public class ApiUrl {
     public static final String URL_LOGIN = "https://api.showcode.xyz/blw-edu-service-alc/admin/login";
     public static final String URL_USER_INFO = "https://api.showcode.xyz/blw-edu-service-alc/admin/info";
 
-    public static final String URL_QUESTION_IMAGE_RECOGNISE = baseUrl + "/img";
+    public static final String URL_QUESTION_IMAGE_RECOGNISE_BIOLOGY = baseUrl + "/img";
+    public static final String URL_QUESTION_IMAGE_RECOGNISE_MATH = baseUrl + "/imgMath";
     public static final String URL_CHAT_GENERAL = baseUrl + "/chats";
     public static final String URL_CHAT_PREVIEW_PICTURE = baseUrl + "/previewPictureQA";
     public static final String URL_CHAT_BIOLOGY = baseUrl + "/chat";

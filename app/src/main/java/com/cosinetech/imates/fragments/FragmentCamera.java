@@ -341,7 +341,13 @@ public class FragmentCamera extends Fragment {
             if(mQuestions.isEmpty()) {
                 fetchQuestionList();
             }
-            ApiGateWayService.recognizeImage(croppedBitmap, userInfoViewModel.token.getValue(), new ApiGateWayService.ExerciseImageRecognitionCallback() {
+            String url;
+            if(subject == Subject.SUBJECT_BIOLOGY) {
+                url = ApiUrl.URL_QUESTION_IMAGE_RECOGNISE_BIOLOGY;
+            } else {
+                url = ApiUrl.URL_QUESTION_IMAGE_RECOGNISE_MATH;
+            }
+            ApiGateWayService.recognizeImage(url, croppedBitmap, userInfoViewModel.token.getValue(), new ApiGateWayService.ExerciseImageRecognitionCallback() {
                 @Override
                 public void onSuccess(Question q) {
                     requireActivity().runOnUiThread(() -> {
