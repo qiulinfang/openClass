@@ -1,7 +1,10 @@
 package com.cosinetech.imates;
 
+import static com.xuexiang.xupdate.entity.UpdateError.ERROR.CHECK_NO_NEW_VERSION;
+
 import android.app.Activity;
 import android.app.Application;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;
@@ -9,6 +12,7 @@ import android.util.Log;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -24,6 +28,8 @@ import com.cosinetech.imates.util.AssetsCopyUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.sendtion.xrichtext.IImageLoader;
 import com.sendtion.xrichtext.XRichText;
+import com.xuexiang.xupdate.XUpdate;
+import com.xuexiang.xupdate.utils.UpdateUtils;
 
 public class ApplicationModelShared extends Application implements ViewModelStoreOwner {
     private final ViewModelStore viewModelStore = new ViewModelStore();
@@ -167,6 +173,28 @@ public class ApplicationModelShared extends Application implements ViewModelStor
                 }
             }
         });
+
+    }
+
+    @Override
+    protected void attachBaseContext(Context base) {
+        // 实现自定义配置
+//        XUpdate.get()
+//                .debug(true)
+//                .isWifiOnly(true)                                               //默认设置只在wifi下检查版本更新
+//                .isGet(true)                                                    //默认设置使用get请求检查版本
+//                .isAutoMode(false)                                              //默认设置非自动模式，可根据具体使用配置
+//                .param("versionCode", UpdateUtils.getVersionCode(this))         //设置默认公共请求参数
+//                .param("appKey", getPackageName())
+//                .setOnUpdateFailureListener(error -> {
+//                    // 更新出错时的回调
+//                    if (error.getCode() != CHECK_NO_NEW_VERSION) {
+//                        Toast.makeText(getApplicationContext(), error.toString(), Toast.LENGTH_SHORT).show();
+//                    }
+//                })
+//                .init(this);
+
+        super.attachBaseContext(base);
     }
 
     public void setMainActivity(MainActivity activity) {

@@ -30,6 +30,8 @@ import com.cosinetech.imates.databinding.ActivityMainBinding;
 import com.google.android.material.tabs.TabLayout;
 
 import com.google.android.material.tabs.TabLayoutMediator;
+import com.xuexiang.xupdate.XUpdate;
+
 import android.widget.ImageView;
 
 import androidx.fragment.app.FragmentManager;
@@ -104,6 +106,13 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
         startFloatingWindowService();
     }
 
+    @Override
+    protected  void onStart() {
+        super.onStart();
+//        XUpdate.newBuild(this)
+//                .updateUrl("https://www.imates.com.cn/appupdate") // 设置更新接口地址
+//                .update();
+    }
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {

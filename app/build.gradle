@@ -127,6 +127,9 @@ dependencies {
     implementation 'io.github.litao0621:nifty-slider:2.0.2'
     implementation 'androidx.webkit:webkit:1.4.0'
 
+    implementation 'com.github.xuexiangjys:XUpdate:2.1.2'
+
+
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core

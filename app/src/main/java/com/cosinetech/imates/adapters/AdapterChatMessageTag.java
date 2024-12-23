@@ -65,6 +65,7 @@ public class AdapterChatMessageTag<T> extends BaseAdapter implements OnInitSelec
 
     @Override
     public boolean isSelectedPosition(int position) {
-        return position % 2 == 0;
+        //return position % 2 == 0;
+        return false;
     }
 }

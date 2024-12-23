@@ -7,7 +7,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.inputmethodservice.Keyboard;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -19,11 +18,7 @@ import androidx.lifecycle.ViewModelStoreOwner;
 import android.os.Handler;
 import android.provider.Settings;
 import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.CheckBox;
-import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -78,39 +73,40 @@ public class LoginActivity extends AppCompatActivity {
                 new ViewModelProvider.AndroidViewModelFactory(getApplication())
         ).get(UserInfoViewModel.class);
 
-        com.cosinetech.imates.databinding.ActivityLoginBinding binding = ActivityLoginBinding.inflate(getLayoutInflater());
-        setContentView(binding.getRoot());
+            com.cosinetech.imates.databinding.ActivityLoginBinding binding = ActivityLoginBinding.inflate(getLayoutInflater());
+            setContentView(binding.getRoot());
 
-        String userName = sharedPreferences.getString(KEY_USER_NAME, "");
-        String passwd = sharedPreferences.getString(KEY_PASSWD, "");
+            String userName = sharedPreferences.getString(KEY_USER_NAME, "");
+            String passwd = sharedPreferences.getString(KEY_PASSWD, "");
 
-        final EditText usernameEditText = binding.username;
-        final EditText passwordEditText = binding.password;
-        final Button loginButton = binding.login;
-        loadingProgressBar = binding.loading;
+            final EditText usernameEditText = binding.username;
+            final EditText passwordEditText = binding.password;
+            final Button loginButton = binding.login;
+            loadingProgressBar = binding.loading;
 
-        usernameEditText.setText(userName);
-        passwordEditText.setText(passwd);
+            usernameEditText.setText(userName);
+            passwordEditText.setText(passwd);
 
-        loginButton.setOnClickListener(v -> {
-            if(usernameEditText.getText().toString().trim().isEmpty()) {
-                binding.usernameError.setVisibility(View.VISIBLE);
-                return;
-            }
-            if(passwordEditText.getText().toString().trim().isEmpty()) {
+            loginButton.setOnClickListener(v -> {
+                if (usernameEditText.getText().toString().trim().isEmpty()) {
+                    binding.usernameError.setVisibility(View.VISIBLE);
+                    return;
+                }
+                if (passwordEditText.getText().toString().trim().isEmpty()) {
+                    binding.usernameError.setVisibility(View.INVISIBLE);
+                    binding.passwordError.setVisibility(View.VISIBLE);
+                    return;
+                }
                 binding.usernameError.setVisibility(View.INVISIBLE);
-                binding.passwordError.setVisibility(View.VISIBLE);
-                return;
-            }
-            binding.usernameError.setVisibility(View.INVISIBLE);
-            binding.passwordError.setVisibility(View.INVISIBLE);
-            performLogin(usernameEditText.getText().toString(), passwordEditText.getText().toString());
-            loadingProgressBar.setVisibility(View.VISIBLE);
-        });
+                binding.passwordError.setVisibility(View.INVISIBLE);
+                performLogin(usernameEditText.getText().toString(), passwordEditText.getText().toString());
+                loadingProgressBar.setVisibility(View.VISIBLE);
+            });
 
-        fullText = getString(R.string.login_moto);
-        textView = findViewById(R.id.moto_text); // 获取 TextView
-        startTypingEffect(); // 启动打字机效果
+            fullText = getString(R.string.login_moto);
+            textView = findViewById(R.id.moto_text); // 获取 TextView
+            startTypingEffect(); // 启动打字机效果
+
     }
 
     @Override
@@ -124,6 +120,11 @@ public class LoginActivity extends AppCompatActivity {
             } else {
                 // 有权限
             }
+        }
+
+        if(userInfoViewModel.token.getValue() != null && !userInfoViewModel.token.getValue().isEmpty()) {
+            // 跳转到 MainActivity
+            startMainActivityAndFinish();
         }
     }
 
@@ -147,9 +148,7 @@ public class LoginActivity extends AppCompatActivity {
                 // Navigate to MainActivity
                 runOnUiThread(() -> {
                     Toast.makeText(LoginActivity.this, getText(R.string.tip_login_success), Toast.LENGTH_SHORT).show();
-                    Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-                    startActivity(intent);
-                    finish(); // Close LoginActivity
+                    startMainActivityAndFinish();
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
@@ -166,6 +165,13 @@ public class LoginActivity extends AppCompatActivity {
         if (hasFocus) {
             WindowUtils.hideSystemUI(this);
         }
+    }
+
+    private void startMainActivityAndFinish() {
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
+        finish();
     }
     private void startTypingEffect() {
         index = 0;

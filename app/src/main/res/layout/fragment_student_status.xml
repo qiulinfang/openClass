@@ -145,6 +145,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:minHeight="100dp"
+            android:textColor="#000000"
             android:text="上周你学会了7分数运算，记住了一些常用英语句型和语法规则，还掌握了中国古代朝代的更替知识。你在完成作业时专注目律，能按时完成预习。数学正确率提升明显，特别是分数计算更准确，语文阅读理解也有进步。下周希望你多花时间记英语单词，做些练习巩固，并每天复习本周学习的内容。"
             android:textSize="14sp"
             android:background="#F5F5F5"
