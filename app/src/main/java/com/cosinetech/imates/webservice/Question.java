@@ -75,6 +75,8 @@ public class Question {
     @SerializedName("DAJX")
     public String DAJX = "";
 
+    public boolean atUserList = false;
+
     private void emitNull() {
         if(this.bmNo == null) {
             this.bmNo = "";

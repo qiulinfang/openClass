@@ -1,7 +1,10 @@
 package com.cosinetech.imates;
 
+import android.app.Activity;
 import android.app.Application;
+import android.content.Intent;
 import android.graphics.Bitmap;
+import android.os.Bundle;
 import android.util.Log;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -28,6 +31,7 @@ public class ApplicationModelShared extends Application implements ViewModelStor
     private FloatingWindowService floatingWindowService;
 
     public AiChatMessageRequest chatRequest;
+    private int activityCount = 0;
 
     @Override
     public void onCreate() {
@@ -81,6 +85,85 @@ public class ApplicationModelShared extends Application implements ViewModelStor
 
                     Glide.with(getApplicationContext()).asBitmap().load(imagePath)
                             .placeholder(R.mipmap.img_load_fail).error(R.mipmap.img_load_fail).fitCenter().into(imageView);
+                }
+            }
+        });
+
+        registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks(){
+
+            /**
+             * Called when the Activity calls {@link Activity#onCreate super.onCreate()}.
+             *
+             * @param activity
+             * @param savedInstanceState
+             */
+            @Override
+            public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {
+                activityCount++;
+            }
+
+            /**
+             * Called when the Activity calls {@link Activity#onStart super.onStart()}.
+             *
+             * @param activity
+             */
+            @Override
+            public void onActivityStarted(@NonNull Activity activity) {
+
+            }
+
+            /**
+             * Called when the Activity calls {@link Activity#onResume super.onResume()}.
+             *
+             * @param activity
+             */
+            @Override
+            public void onActivityResumed(@NonNull Activity activity) {
+
+            }
+
+            /**
+             * Called when the Activity calls {@link Activity#onPause super.onPause()}.
+             *
+             * @param activity
+             */
+            @Override
+            public void onActivityPaused(@NonNull Activity activity) {
+
+            }
+
+            /**
+             * Called when the Activity calls {@link Activity#onStop super.onStop()}.
+             *
+             * @param activity
+             */
+            @Override
+            public void onActivityStopped(@NonNull Activity activity) {
+
+            }
+
+            /**
+             * Called when the Activity calls
+             * {@link Activity#onSaveInstanceState super.onSaveInstanceState()}.
+             *
+             * @param activity
+             * @param outState
+             */
+            @Override
+            public void onActivitySaveInstanceState(@NonNull Activity activity, @NonNull Bundle outState) {
+            }
+
+            /**
+             * Called when the Activity calls {@link Activity#onDestroy super.onDestroy()}.
+             *
+             * @param activity
+             */
+            @Override
+            public void onActivityDestroyed(@NonNull Activity activity) {
+                activityCount--;
+                if (activityCount == 0) {
+                    // 应用完全退出，停止服务
+                    stopService(new Intent(ApplicationModelShared.this, FloatingWindowService.class));
                 }
             }
         });

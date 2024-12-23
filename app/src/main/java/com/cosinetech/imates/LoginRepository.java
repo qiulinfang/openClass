@@ -29,10 +29,17 @@ public class LoginRepository {
         try (Response response = client.newCall(request).execute()) {
             if (response.isSuccessful()) {
                 JSONObject responseJson = new JSONObject(response.body().string());
-                return responseJson.getJSONObject("data").getString("token");
+                if(responseJson.getBoolean("success")) {
+                    return responseJson.getJSONObject("data").getString("token");
+                } else {
+                    throw new Exception(responseJson.getString("message"));
+                }
+
             } else {
-                throw new Exception("Login failed");
+                throw new Exception("登录失败, 请检查网络连接:" + response.message());
             }
+        } catch (Exception e) {
+            throw new Exception("无法连接到服务器, 请检查网络");
         }
     }
 
@@ -46,14 +53,18 @@ public class LoginRepository {
         try (Response response = client.newCall(request).execute()) {
             if (response.isSuccessful()) {
                 JSONObject responseJson = new JSONObject(response.body().string());
-                JSONObject data = responseJson.getJSONObject("data");
+                if(responseJson.getBoolean("success")) {
+                    JSONObject data = responseJson.getJSONObject("data");
 
-                UserInfo userInfo = new UserInfo();
-                userInfo.setPermissionValueList(null); // Assuming empty list
-                //userInfo.setRoles(data.getJSONArray("roles").());
-                userInfo.setName(data.getString("name"));
-                userInfo.setAvatar(data.getString("avatar"));
-                return userInfo;
+                    UserInfo userInfo = new UserInfo();
+                    userInfo.setPermissionValueList(null); // Assuming empty list
+                    //userInfo.setRoles(data.getJSONArray("roles").());
+                    userInfo.setName(data.getString("name"));
+                    userInfo.setAvatar(data.getString("avatar"));
+                    return userInfo;
+                } else {
+                    throw new Exception(responseJson.getString("message"));
+                }
             } else {
                 throw new Exception("Failed to get user info");
             }

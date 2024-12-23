@@ -54,6 +54,12 @@ public class AdapterSimilarQuestionList extends RecyclerView.Adapter<AdapterSimi
             holder.itemView.setSelected(false);
         }
 
+        if(data.atUserList) {
+            holder.btnAddToList.setEnabled(false);
+        } else {
+            holder.btnAddToList.setEnabled(true);
+        }
+
         // 设置点击监听器
         holder.container.setOnClickListener(v -> {
             setSelectedPosition(holder.getBindingAdapterPosition());

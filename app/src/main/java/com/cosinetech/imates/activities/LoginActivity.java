@@ -3,8 +3,11 @@ package com.cosinetech.imates.activities;
 import androidx.appcompat.app.AlertDialog;
 import androidx.lifecycle.ViewModelProvider;
 
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.inputmethodservice.Keyboard;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -19,6 +22,8 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -37,6 +42,10 @@ public class LoginActivity extends AppCompatActivity {
     private TextView textView;
     private String fullText = null;
     private ProgressBar loadingProgressBar;
+    private SharedPreferences sharedPreferences;
+    private final String CONFIG_NAME = "LOGIN_USER";
+    private final String KEY_USER_NAME = "USER_NAME";
+    private final String KEY_PASSWD = "PASSWORD";
     private int index = 0; // 当前显示的字符索引
     private final Handler handler = new Handler(); // 用于更新 UI
     private final Runnable typeWriterRunnable = new Runnable() {
@@ -59,7 +68,7 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+        sharedPreferences = getSharedPreferences(CONFIG_NAME, Context.MODE_PRIVATE);
         // 隐藏系统导航栏
         WindowUtils.hideSystemUI(this);
         WindowUtils.setFullScreenMode(this);
@@ -72,10 +81,16 @@ public class LoginActivity extends AppCompatActivity {
         com.cosinetech.imates.databinding.ActivityLoginBinding binding = ActivityLoginBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
+        String userName = sharedPreferences.getString(KEY_USER_NAME, "");
+        String passwd = sharedPreferences.getString(KEY_PASSWD, "");
+
         final EditText usernameEditText = binding.username;
         final EditText passwordEditText = binding.password;
         final Button loginButton = binding.login;
         loadingProgressBar = binding.loading;
+
+        usernameEditText.setText(userName);
+        passwordEditText.setText(passwd);
 
         loginButton.setOnClickListener(v -> {
             if(usernameEditText.getText().toString().trim().isEmpty()) {
@@ -113,6 +128,11 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void performLogin(String userName, String passwd) {
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString(KEY_USER_NAME, userName);
+        editor.putString(KEY_PASSWD, passwd);
+        editor.apply();
+
         new Thread(() -> {
             try {
                 LoginRepository loginRepository = new LoginRepository();
@@ -133,7 +153,7 @@ public class LoginActivity extends AppCompatActivity {
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
-                    Toast.makeText(LoginActivity.this, getText(R.string.tip_login_fail), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(LoginActivity.this, e.getMessage().toString(), Toast.LENGTH_SHORT).show();
                     loadingProgressBar.setVisibility(View.INVISIBLE);
                 });
             }

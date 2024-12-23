@@ -1,25 +1,8 @@
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-
-    <!-- 渐变属性 -->
-    <gradient
-        android:startColor="#299afd"
-        android:endColor="#1e60f7"
-        android:angle="45" />
-
-    <!-- 圆角属性 -->
-    <corners
-        android:radius="8dp" />
-
-    <!-- 内边距 (可选) -->
-    <padding
-        android:left="8dp"
-        android:right="8dp"
-        android:top="8dp"
-        android:bottom="8dp" />
-
-    <!-- 描边 (可选) -->
-    <stroke
-        android:width="2dp"
-        android:color="#388E3C" />
-</shape>
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/button_disabled"  android:state_enabled="false"/>
+    <!-- 正常状态 -->
+    <item android:drawable="@drawable/button_normal" android:state_pressed="false"/>
+    <!-- 按下状态 -->
+    <item android:drawable="@drawable/button_pressed" android:state_pressed="true"/>
+</selector>

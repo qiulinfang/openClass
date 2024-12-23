@@ -183,7 +183,7 @@ public class FindKnowledgeQuestionPopupWindow {
                 }
                 ApiGateWayService.addExerciseToList(item, ApiUrl.URL_ADD_EXERCISE_TO_LIST, userInfoViewModel.token.getValue());
 
-                mSimilarQuestion.remove(pos);
+                mSimilarQuestion.get(pos).atUserList = true;
                 adapterSimilarQuestionList.notifyDataSetChanged();
             }
 
