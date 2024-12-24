@@ -66,7 +66,7 @@ public class LoginRepository {
                     throw new Exception(responseJson.getString("message"));
                 }
             } else {
-                throw new Exception("Failed to get user info");
+                throw new Exception("获取用户信息失败");
             }
         }
     }

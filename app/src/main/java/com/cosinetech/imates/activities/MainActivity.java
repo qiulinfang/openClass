@@ -27,10 +27,12 @@ import androidx.fragment.app.Fragment;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.cosinetech.imates.databinding.ActivityMainBinding;
+import com.cosinetech.imates.webservice.ApiUrl;
 import com.google.android.material.tabs.TabLayout;
 
 import com.google.android.material.tabs.TabLayoutMediator;
 import com.xuexiang.xupdate.XUpdate;
+import com.xuexiang.xupdate.easy.EasyUpdate;
 
 import android.widget.ImageView;
 
@@ -109,9 +111,9 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
     @Override
     protected  void onStart() {
         super.onStart();
-//        XUpdate.newBuild(this)
-//                .updateUrl("https://www.imates.com.cn/appupdate") // 设置更新接口地址
-//                .update();
+        EasyUpdate.create(this, ApiUrl.URL_APP_UPDATE)
+                .isAutoMode(false)
+                .update();
     }
 
     @Override

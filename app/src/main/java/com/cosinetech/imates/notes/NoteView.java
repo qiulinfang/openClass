@@ -58,45 +58,44 @@ public class NoteView extends LinearLayout {
 
         noteManager = new NoteManager(context);
         List<String> noteTitles = noteManager.getNoteTitles();
-        {
-            adapter = new SwipeAdapter(getContext(), noteListView.getRightViewWidth(),
-                    new SwipeAdapter.IOnItemRightClickListener() {
-                        @Override
-                        public void onRightClick(View v, int position) {
-                            Note note = noteManager.getNoteByPosition(position);
-                            deleteNoteFiles(note);
-                            noteManager.deleteNoteByPosition(position);
-                            refreshNoteList();
-                        }
-                    }, noteTitles);
-            noteListView.setAdapter(adapter);
-            noteListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-                @Override
-                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                    currentNoteId = noteManager.getNoteByPosition(position).getId();
-                    Note selectedNote = noteManager.getNoteById(currentNoteId);
-                    xRichText.clearAllLayout();
-                    List<String> textList = StringUtils.cutStringByImgTag(selectedNote.getContent());
-                    for (int i = 0; i < textList.size(); i++) {
-                        String text = textList.get(i);
-                        if (text.contains("<img")) {
-                            String imagePath = StringUtils.getImgSrc(text);
-                            xRichText.measure(0,0);
-                            Bitmap bitmap = ImageUtils.getDecodeBitmap(imagePath);//ImageUtils.getSmallBitmap(imagePath, width, height);
-                            if (bitmap != null){
-                                xRichText.addImageViewAtIndex(xRichText.getLastIndex(), imagePath);
-                            } else {
-                                xRichText.addEditTextAtIndex(xRichText.getLastIndex(), text);
-                            }
-                            xRichText.addEditTextAtIndex(xRichText.getLastIndex(), "");
-                        }
-                        else {
+        adapter = new SwipeAdapter(getContext(), noteListView.getRightViewWidth(),
+                new SwipeAdapter.IOnItemRightClickListener() {
+                    @Override
+                    public void onRightClick(View v, int position) {
+                        Note note = noteManager.getNoteByPosition(position);
+                        deleteNoteFiles(note);
+                        noteManager.deleteNoteByPosition(position);
+                        refreshNoteList();
+                    }
+                }, noteTitles);
+        noteListView.setAdapter(adapter);
+        noteListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                currentNoteId = noteManager.getNoteByPosition(position).getId();
+                Note selectedNote = noteManager.getNoteById(currentNoteId);
+                etTitle.setText(selectedNote.getTitle());
+                xRichText.clearAllLayout();
+                List<String> textList = StringUtils.cutStringByImgTag(selectedNote.getContent());
+                for (int i = 0; i < textList.size(); i++) {
+                    String text = textList.get(i);
+                    if (text.contains("<img")) {
+                        String imagePath = StringUtils.getImgSrc(text);
+                        xRichText.measure(0,0);
+                        Bitmap bitmap = ImageUtils.getDecodeBitmap(imagePath);//ImageUtils.getSmallBitmap(imagePath, width, height);
+                        if (bitmap != null){
+                            xRichText.addImageViewAtIndex(xRichText.getLastIndex(), imagePath);
+                        } else {
                             xRichText.addEditTextAtIndex(xRichText.getLastIndex(), text);
                         }
+                        xRichText.addEditTextAtIndex(xRichText.getLastIndex(), "");
+                    }
+                    else {
+                        xRichText.addEditTextAtIndex(xRichText.getLastIndex(), text);
                     }
                 }
-            });
-        }
+            }
+        });
 
         newNoteButton.setOnClickListener(new View.OnClickListener() {
             @Override

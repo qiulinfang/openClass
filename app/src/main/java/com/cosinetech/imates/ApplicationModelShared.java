@@ -176,27 +176,6 @@ public class ApplicationModelShared extends Application implements ViewModelStor
 
     }
 
-    @Override
-    protected void attachBaseContext(Context base) {
-        // 实现自定义配置
-//        XUpdate.get()
-//                .debug(true)
-//                .isWifiOnly(true)                                               //默认设置只在wifi下检查版本更新
-//                .isGet(true)                                                    //默认设置使用get请求检查版本
-//                .isAutoMode(false)                                              //默认设置非自动模式，可根据具体使用配置
-//                .param("versionCode", UpdateUtils.getVersionCode(this))         //设置默认公共请求参数
-//                .param("appKey", getPackageName())
-//                .setOnUpdateFailureListener(error -> {
-//                    // 更新出错时的回调
-//                    if (error.getCode() != CHECK_NO_NEW_VERSION) {
-//                        Toast.makeText(getApplicationContext(), error.toString(), Toast.LENGTH_SHORT).show();
-//                    }
-//                })
-//                .init(this);
-
-        super.attachBaseContext(base);
-    }
-
     public void setMainActivity(MainActivity activity) {
         mainActivity = activity;
     }
