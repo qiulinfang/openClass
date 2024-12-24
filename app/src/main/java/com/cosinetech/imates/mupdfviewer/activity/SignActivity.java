@@ -20,16 +20,14 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.artifex.mupdf.FilePicker;
-import com.artifex.mupdf.Hit;
-import com.artifex.mupdf.MuPDFCore;
-import com.artifex.mupdf.MuPDFPageAdapter;
-import com.artifex.mupdf.MuPDFReaderView;
-import com.artifex.mupdf.MuPDFReaderViewListener;
-import com.artifex.mupdf.MuPDFView;
-import com.artifex.mupdf.ReaderView;
-import com.artifex.mupdf.SavePdf;
-import com.artifex.mupdf.widget.VDHDeepLayout;
+import com.artifex.mupdfdemo.FilePicker;
+import com.artifex.mupdfdemo.MuPDFCore;
+import com.artifex.mupdfdemo.MuPDFPageAdapter;
+import com.artifex.mupdfdemo.MuPDFReaderView;
+import com.artifex.mupdfdemo.MuPDFView;
+import com.artifex.mupdfdemo.ReaderView;
+import com.artifex.mupdfdemo.SavePdf;
+import com.artifex.mupdfdemo.widget.VDHDeepLayout;
 import com.cosinetech.imates.R;
 
 /**

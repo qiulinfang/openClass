@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     tools:context=".mupdfviewer.activity.MoreSetActivity">
 
-    <com.artifex.mupdf.MuPDFReaderView
+    <com.artifex.mupdfdemo.MuPDFReaderView
         android:id="@+id/mupdfreaderview"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />

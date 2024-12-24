@@ -1,7 +1,7 @@
 apply plugin: 'com.android.library'
 
 android {
-    namespace 'com.artifex.mupdf'
+    namespace 'com.artifex.mupdfdemo'
     compileSdk 34
 
     defaultConfig {

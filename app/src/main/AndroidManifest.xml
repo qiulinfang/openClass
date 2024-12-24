@@ -59,17 +59,23 @@
             android:launchMode="singleTask"
             tools:ignore="DiscouragedApi" />
 
-        <activity android:name="com.artifex.mupdf.ChoosePDFActivity"
+        <activity android:name="com.cosinetech.imates.mupdfviewer.activity.MuPDFActivity"
+            android:theme="@style/Theme.IMatesApp.FullScreen"/>
+        <activity android:name="com.cosinetech.imates.mupdfviewer.activity.OutlineActivity"
+            android:theme="@style/Theme.IMatesApp.FullScreen"/>
+        <activity android:name="com.cosinetech.imates.mupdfviewer.activity.AllPDFActivity"
+            android:theme="@style/Theme.IMatesApp.FullScreen"/>
+        <activity android:name="com.cosinetech.imates.mupdfviewer.activity.BasePDFActivity"
+            android:theme="@style/Theme.IMatesApp.FullScreen"/>
+        <activity android:name="com.cosinetech.imates.mupdfviewer.activity.MoreSetActivity"
+            android:theme="@style/Theme.IMatesApp.FullScreen"/>
+        <activity android:name="com.cosinetech.imates.mupdfviewer.activity.SignActivity"
             android:theme="@style/Theme.IMatesApp.FullScreen"/>
 
-        <activity android:name="com.artifex.mupdf.MuPDFActivity"
-            android:theme="@style/Theme.IMatesApp.FullScreen"/>
-
-        <activity android:name="com.artifex.mupdf.OutlineActivity"
-            android:theme="@style/Theme.IMatesApp.FullScreen"/>
-
-        <activity android:name="com.artifex.mupdf.PrintDialogActivity"
-            android:theme="@style/Theme.IMatesApp.FullScreen"/>
+<!--        <activity android:name="com.artifex.mupdfdemo.ChoosePDFActivity"-->
+<!--            android:theme="@style/Theme.IMatesApp.FullScreen"/>-->
+<!--        <activity android:name="com.artifex.mupdfdemo.PrintDialogActivity"-->
+<!--            android:theme="@style/Theme.IMatesApp.FullScreen"/>-->
 
         <activity android:name=".pdfui.PDFPreviewActivity"
             android:theme="@style/Theme.IMatesApp.FullScreen"/>

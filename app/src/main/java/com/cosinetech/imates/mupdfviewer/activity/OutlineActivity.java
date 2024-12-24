@@ -6,8 +6,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.artifex.mupdf.OutlineActivityData;
-import com.artifex.mupdf.OutlineItem;
+import com.artifex.mupdfdemo.OutlineActivityData;
+import com.artifex.mupdfdemo.OutlineItem;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.mupdfviewer.adapter.OutlineAdapter;
 import com.cosinetech.imates.mupdfviewer.widget.OnRecyclerItemClickListener;
