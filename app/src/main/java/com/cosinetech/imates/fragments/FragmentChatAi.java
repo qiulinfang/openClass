@@ -276,14 +276,14 @@ public class FragmentChatAi extends Fragment {
                         if(mListener != null) {
                             mListener.onAiChatResponced(true);
                         }
-                        ChatMessageHistoryDB.getInstance(requireContext()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
+                        //ChatMessageHistoryDB.getInstance(requireContext()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
                     }
                 } else {
                     btnSend.setEnabled(true);
                     if(mListener != null) {
                         mListener.onAiChatResponced(false);
                     }
-                    ChatMessageHistoryDB.getInstance(requireContext()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
+                    //ChatMessageHistoryDB.getInstance(requireContext()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
                 }
             });
         });

@@ -106,14 +106,15 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
         }).attach();
 
         startFloatingWindowService();
+
+        EasyUpdate.create(this, ApiUrl.URL_APP_UPDATE)
+                .isAutoMode(false)
+                .update();
     }
 
     @Override
     protected  void onStart() {
         super.onStart();
-        EasyUpdate.create(this, ApiUrl.URL_APP_UPDATE)
-                .isAutoMode(false)
-                .update();
     }
 
     @Override

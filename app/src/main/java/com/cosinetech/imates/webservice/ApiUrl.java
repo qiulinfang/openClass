@@ -2,7 +2,7 @@ package com.cosinetech.imates.webservice;
 
 public class ApiUrl {
     // ========test local
-//     private static final String baseUrl = "http://192.168.1.153:8222/blw-edu-service-alc/permission";
+//     private static final String baseUrl = "http://192.168.1.153:8222/blw-edu-service-alc";
 //     public static final String URL_RESOURCE_BASE = "https://192.168.1.153";
 //     public static final String URL_LOGIN = "http://192.168.1.153:8222/blw-edu-service-alc/admin/login";
 //     public static final String URL_USER_INFO = "http://192.168.1.153:8222/blw-edu-service-alc/admin/info";
@@ -41,5 +41,5 @@ public class ApiUrl {
 
     public static final  String URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE = baseUrl + "/biologyTopicKnowledge/knowledgeTopicAndAck";
 
-    public static final String URL_APP_UPDATE = URL_RESOURCE_BASE + "/appupdate";
+    public static final String URL_APP_UPDATE = URL_RESOURCE_BASE + "/appupdate.json";
 }

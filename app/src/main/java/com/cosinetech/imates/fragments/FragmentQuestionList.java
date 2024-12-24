@@ -91,7 +91,11 @@ public class FragmentQuestionList extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        fragmentChatAi = FragmentChatAi.newInstance(chatBotUrl, subject.name(), false,false, subject == Subject.SUBJECT_BIOLOGY,
+        fragmentChatAi = FragmentChatAi.newInstance(chatBotUrl,
+                subject.name(),
+                false,
+                true,
+                false,
                 success -> {
             chatResponceTimes++;
             if(chatResponceTimes >= 2) {
@@ -175,7 +179,7 @@ public class FragmentQuestionList extends Fragment {
                 aiChatMessageRequest.setName(userInfoViewModel.userInfo.getValue().getName());
                 aiChatMessageRequest.setNewValue("1");
                 aiChatMessageRequest.setSessionId(String.valueOf(System.currentTimeMillis()));
-                aiChatMessageRequest.setQuestion(mCurrentQuestion.title);
+                aiChatMessageRequest.setQuestion(mCurrentQuestion.getQuestion());
                 aiChatMessageRequest.setAnswer(mCurrentQuestion.DAJX + mCurrentQuestion.explanation);
                 aiChatMessageRequest.setCoversation("我们开始吧");
                 aiChatMessageRequest.setReason("start");
