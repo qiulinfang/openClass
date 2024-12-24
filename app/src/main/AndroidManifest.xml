@@ -59,16 +59,16 @@
             android:launchMode="singleTask"
             tools:ignore="DiscouragedApi" />
 
-        <activity android:name="com.artifex.mupdfdemo.ChoosePDFActivity"
+        <activity android:name="com.artifex.mupdf.ChoosePDFActivity"
             android:theme="@style/Theme.IMatesApp.FullScreen"/>
 
-        <activity android:name="com.artifex.mupdfdemo.MuPDFActivity"
+        <activity android:name="com.artifex.mupdf.MuPDFActivity"
             android:theme="@style/Theme.IMatesApp.FullScreen"/>
 
-        <activity android:name="com.artifex.mupdfdemo.OutlineActivity"
+        <activity android:name="com.artifex.mupdf.OutlineActivity"
             android:theme="@style/Theme.IMatesApp.FullScreen"/>
 
-        <activity android:name="com.artifex.mupdfdemo.PrintDialogActivity"
+        <activity android:name="com.artifex.mupdf.PrintDialogActivity"
             android:theme="@style/Theme.IMatesApp.FullScreen"/>
 
         <activity android:name=".pdfui.PDFPreviewActivity"
