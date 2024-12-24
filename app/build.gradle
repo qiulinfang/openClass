@@ -130,6 +130,7 @@ dependencies {
     implementation 'com.github.xuexiangjys:XUpdate:2.1.2'
     implementation 'com.github.xuexiangjys.XUpdateAPI:xupdate-easy:1.0.1'
 
+    implementation project(path: ':pdflibrary')
 
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
