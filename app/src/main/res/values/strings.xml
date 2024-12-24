@@ -1,44 +1,14 @@
 <resources>
     <string name="app_name">iMates</string>
-    <string name="navigation_drawer_open">Open navigation drawer</string>
-    <string name="navigation_drawer_close">Close navigation drawer</string>
-    <string name="nav_header_title">Android Studio</string>
-    <string name="nav_header_subtitle">android.studio@android.com</string>
-    <string name="nav_header_desc">Navigation header</string>
-    <string name="action_settings">Settings</string>
 
-    <string name="menu_transform">Transform</string>
-    <string name="menu_reflow">Reflow</string>
-    <string name="menu_slideshow">Slideshow</string>
-    <string name="menu_settings">Settings</string>
-
-    <string name="lorem_ipsum_title">Lorem Ipsum"</string>
-    <string name="lorem_ipsum">Lorem Ipsum is simply placeholder text of the printing and
-        typesetting industry. Lorem Ipsum has been the industry\'s standard placeholder text ever
-        since the 1500s, when an unknown printer took a galley of type and scrambled it to make a
-        type specimen book"
-    </string>
-    <string name="fab_content_description">Represents a view to invoke an action</string>
-    <string name="image_view_item_transform_content_description">Represents an image view in the
-        item
-    </string>
-    <string name="title_activity_login">LoginActivity</string>
-    <string name="prompt_email">Email</string>
-    <string name="prompt_password">Password</string>
-    <string name="action_sign_in">Sign in or register</string>
-    <string name="action_sign_in_short">Sign in</string>
-    <string name="welcome">"Welcome !"</string>
     <string name="invalid_username">Not a valid username</string>
     <string name="invalid_password">Password must be >5 characters</string>
-    <string name="login_failed">"Login failed"</string>
     <string name="login_moto">长风破浪会有时\n直挂云帆济沧海</string>
     <string name="login_tip_user_name">请输入账号</string>
     <string name="login_tip_passwd">请输入密码</string>
     <string name="login_button_text">登 录</string>
 
     <!-- Error messages -->
-    <string name="error_fragment_message">An error occurred</string>
-    <string name="dismiss_error">Dismiss</string>
     <!-- TODO: Remove or change this placeholder text -->
     <string name="subject_name_chinese">语文</string>
     <string name="subject_name_math">数学</string>
@@ -51,85 +21,19 @@
     <string name="my_favorite">收藏中心</string>
     <string name="question_list">习题列表</string>
     <string name="history_archive">历史档案</string>
-    <string name="todo_list_title"><![CDATA[清单 >]]></string>
-    <string name="todo_add_item">+待办</string>
     <!-- TODO: Remove or change this placeholder text -->
-    <string name="Capture">拍照</string>
-    <string name="crop_done">裁剪好了</string>
-    <string name="finish">返回</string>
     <string name="chatbot_name">学伴</string>
     <string name="tip_login_success">登录成功</string>
-    <string name="tip_login_fail">登录失败</string>
-    <string name="question_recognize_fail">识别题目失败</string>
     <string name="crop_image_fail">图片剪切失败</string>
-    <string name="network_error">网络错误</string>
-    <string name="server_responce_error">服务器出现问题</string>
     <string name="check_answer">查看答案</string>
     <string name="similar_questions">举一反三</string>
     <string name="shoot_question">拍照识题</string>
     <string name="ai_guide_question">解题分析</string>
     <!-- TODO: Remove or change this placeholder text -->
-    <string name="hello_blank_fragment">Hello blank fragment</string>
-    <string name="title_activity_lesson_prepare">LessonPrepareActivity</string>
 
-<!--    mupdf -->
-    <string name="mupdf_title">MuPDF</string>
-    <string name="version">1.6 (git build)</string>
-    <string name="no_media_warning">存储介质不存在</string>
-    <string name="no_media_hint">与PC共享存储介质可能会使其无法访问</string>
-    <string name="cancel">取消</string>
-    <string name="search_backwards">向后搜索</string>
-    <string name="search_forwards">向前搜索</string>
-    <string name="search_document">搜索文档</string>
-    <string name="picker_title_App_Ver_Dir">%1$s %2$s: %3$s</string>
-    <string name="outline_title">目录</string>
-    <string name="enter_password">输入密码</string>
-    <string name="text_not_found">未搜索到文本</string>
-    <string name="searching_">搜索&#8230;</string>
-    <string name="toggle_links">启用高亮链接</string>
-    <string name="no_further_occurrences_found">No further occurrences found</string>
+    <!--    mupdf -->
     <string name="select">选择</string>
-    <string name="search">搜索</string>
     <string name="copy">拷贝</string>
-    <string name="strike_out">删除线</string>
-    <string name="delete">删除</string>
-    <string name="highlight">高亮</string>
-    <string name="underline">下划线</string>
-    <string name="edit_annotations">编辑注释</string>
-    <string name="ink">墨迹</string>
     <string name="save">保存</string>
-    <string name="print">打印</string>
-    <string name="dismiss">Dismiss</string>
-    <string name="parent_directory">[上一级]</string>
-    <string name="yes">是</string>
-    <string name="no">否</string>
-    <string name="entering_reflow_mode">进入重拍模式</string>
-    <string name="leaving_reflow_mode">退出重拍模式</string>
-    <string name="print_failed">打印失败</string>
-    <string name="select_text">选择文本</string>
-    <string name="copied_to_clipboard">复制到剪贴板</string>
-    <string name="no_text_selected">没有选择文本</string>
-    <string name="draw_annotation">绘制注释</string>
-    <string name="nothing_to_save">没什么可保存的</string>
-    <string name="document_has_changes_save_them_">文档已修改, 是否保存?</string>
-    <string name="cannot_open_document">无法打开文档</string>
-    <string name="cannot_open_document_Reason">无法打开文档: %1$s</string>
-    <string name="cannot_open_file_Path">无法打开文件: %1$s</string>
-    <string name="cannot_open_buffer">打开Buffer失败</string>
-    <string name="fill_out_text_field">填写文本区域</string>
-    <string name="okay">好的</string>
-    <string name="choose_value">选择值</string>
-    <string name="not_supported">不支持</string>
-    <string name="copy_text_to_the_clipboard">拷贝到剪贴板</string>
-    <string name="more">更多</string>
-    <string name="accept">接受</string>
-    <string name="copy_text">拷贝文本</string>
-    <string name="format_currently_not_supported">不支持当前格式</string>
-    <string name="toggle_reflow_mode">切换重排模式</string>
 
-    <string name="open_failed">无法打开文件</string>
-    <string name="helpPutSign">双击您想要放置签名的位置</string>
-    <string name="noSignOnPdfTitle">警告</string>
-    <string name="noSignOnPdf">该文件尚未签署。请双击您要放置签名的位置</string>
-    <string name="OkKey">好的</string>
 </resources>

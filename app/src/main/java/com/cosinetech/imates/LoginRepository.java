@@ -38,8 +38,6 @@ public class LoginRepository {
             } else {
                 throw new Exception("登录失败, 请检查网络连接:" + response.message());
             }
-        } catch (Exception e) {
-            throw new Exception("无法连接到服务器, 请检查网络");
         }
     }
 

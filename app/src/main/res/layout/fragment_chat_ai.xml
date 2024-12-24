@@ -95,7 +95,6 @@
 
         <!-- 左侧的键盘按钮 -->
         <Button
-            android:id="@+id/btn_kbd"
             android:layout_width="30dp"
             android:layout_height="30dp"
             android:background="@drawable/ic_keyboard"
@@ -136,7 +135,6 @@
             android:minHeight="12sp"/>
 
         <Button
-            android:id="@+id/voice_message"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_toEndOf="@id/btn_voice"
@@ -182,7 +180,6 @@
 
     <!-- 全屏灰色背景 + 录音动画 -->
     <FrameLayout
-        android:id="@+id/voice_record_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#80000000"
@@ -197,14 +194,12 @@
             android:layout_gravity="center">
 
             <ImageView
-                android:id="@+id/iv_mic_animation"
                 android:layout_width="80dp"
                 android:layout_height="80dp"
                 android:src="@drawable/ic_voice"
                 android:layout_gravity="center" />
 
             <TextView
-                android:id="@+id/tv_recording_hint"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"

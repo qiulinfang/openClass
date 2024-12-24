@@ -1,22 +1,11 @@
 <resources>
-    <dimen name="fab_margin">16dp</dimen>
-    <dimen name="fragment_horizontal_margin">16dp</dimen>
-    <dimen name="item_transform_image_length">48dp</dimen>
-    <dimen name="reflow_text_block_max_percent">1</dimen>
-    <dimen name="reflow_text_block_horizontal_gap">8dp</dimen>
     <dimen name="reflow_text_title_size">18sp</dimen>
     <dimen name="head0_size">48sp</dimen>
     <dimen name="head1_size">24sp</dimen>
-    <dimen name="reflow_text_description_size">13sp</dimen>
     <!-- Default screen margins, per the Android Design guidelines. -->
-    <dimen name="activity_horizontal_margin">16dp</dimen>
-    <dimen name="activity_vertical_margin">16dp</dimen>
     <dimen name="login_input_text_size">16sp</dimen>
     <dimen name="min_margin_size">8sp</dimen>
 
 <!--    photo editor -->
-    <dimen name="editor_size">35dp</dimen>
-    <dimen name="normal_margin">8dp</dimen>
-    <dimen name="large_margin">16dp</dimen>
     <dimen name="top_tool_icon_width">48dp</dimen>
 </resources>
