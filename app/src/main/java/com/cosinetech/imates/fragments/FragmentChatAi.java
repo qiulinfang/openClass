@@ -34,6 +34,7 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.ChatMessageCatalogue;
 import com.cosinetech.imates.models.ChatMessageHistoryDB;
 import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.util.TimeUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.adapters.ChatCatalogueAdapter;
@@ -62,6 +63,7 @@ public class FragmentChatAi extends Fragment {
     private static final String KEY_PARAM_SHOW_HEADER = "SHOW_HEADER";
 
     private static final String KEY_PARAM_STREAM_RESPONSE = "STREAM_RESPONSE";
+    private static final String KEY_PARAM_SHOW_HISTORY = "SHOW_HISTORY";
 
     private AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "");
     private RecyclerView recyclerView;
@@ -78,6 +80,7 @@ public class FragmentChatAi extends Fragment {
 
     private boolean showHeader;
     private boolean streamResponse;
+    private boolean showHistory;
 
     private AiChatResponseListener mListener;
 
@@ -92,13 +95,14 @@ public class FragmentChatAi extends Fragment {
     public FragmentChatAi() {
     }
 
-    public static FragmentChatAi newInstance(String chatBotUrl, String tag, boolean showHeader, boolean streamResponse, AiChatResponseListener l) {
+    public static FragmentChatAi newInstance(String chatBotUrl, String tag, boolean showHeader, boolean streamResponse, boolean showHistory, AiChatResponseListener l) {
         FragmentChatAi fragment = new FragmentChatAi();
         Bundle args = new Bundle();
         args.putString(KEY_PARAM_CHATBOT_URL, chatBotUrl);
         args.putBoolean(KEY_PARAM_SHOW_HEADER, showHeader);
         args.putString(KEY_PARAM_CHATBOT_TAG, tag);
         args.putBoolean(KEY_PARAM_STREAM_RESPONSE, streamResponse);
+        args.putBoolean(KEY_PARAM_SHOW_HISTORY, showHistory);
         fragment.setArguments(args);
         fragment.setAiChatListener(l);
         return fragment;
@@ -112,6 +116,7 @@ public class FragmentChatAi extends Fragment {
             tag = getArguments().getString(KEY_PARAM_CHATBOT_TAG);
             showHeader = getArguments().getBoolean(KEY_PARAM_SHOW_HEADER);
             streamResponse = getArguments().getBoolean(KEY_PARAM_STREAM_RESPONSE);
+            showHistory = getArguments().getBoolean(KEY_PARAM_SHOW_HISTORY);
         }
         setRetainInstance(true);
     }
@@ -225,6 +230,13 @@ public class FragmentChatAi extends Fragment {
         }
         if(!aiName.isEmpty()) {
             ((TextView)view.findViewById(R.id.ai_name)).setText(aiName);
+        }
+
+        if(showHistory) {
+            List<ChatMessage> msgs = ChatMessageHistoryDB.getInstance(requireContext()).getMessageDetail(TimeUtils.timestampToDateString(System.currentTimeMillis()), tag);
+            messageList.addAll(msgs);
+            adapterAiChatMesssageList.notifyDataSetChanged();
+            recyclerView.scrollToPosition(messageList.size() - 1);
         }
 
         return view;
