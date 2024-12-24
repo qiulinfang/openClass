@@ -1,9 +1,11 @@
 package com.cosinetech.imates.pdfui;
 
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -44,6 +46,7 @@ import com.github.barteksc.pdfviewer.scroll.DefaultScrollHandle;
 import com.github.barteksc.pdfviewer.util.FitPolicy;
 import com.litao.slider.NiftySlider;
 import com.lzf.easyfloat.EasyFloat;
+import com.lzf.easyfloat.enums.ShowPattern;
 import com.lzf.easyfloat.enums.SidePattern;
 import com.lzf.easyfloat.interfaces.OnFloatCallbacks;
 import com.shockwave.pdfium.PdfDocument;
@@ -249,20 +252,23 @@ public class PDFActivity extends AppCompatActivity implements
             EasyFloat.show();
         });
 
-        showFloatPDFTools();
-
         initView();//初始化view
         loadPdf();//加载PDF文件
+
+        showFloatPDFTools();
+
+        pdfView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                closeFloatPDFTools();
+                showFloatPDFTools();
+            }
+        });
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        hideFloatPDFTools();
-        showFloatPDFTools();
-    }
     private void showFloatPDFTools() {
         EasyFloat.with(this).setLayout(R.layout.floating_pdf_tools)
+                .setShowPattern(ShowPattern.CURRENT_ACTIVITY)
                 .setSidePattern(SidePattern.AUTO_SIDE)
                 .registerCallbacks(new OnFloatCallbacks() {
                     @Override
@@ -381,13 +387,19 @@ public class PDFActivity extends AppCompatActivity implements
                     }
 
                     @Override
-                    public void show(@NotNull View view) { }
+                    public void show(@NotNull View view) {
+                        Log.d("aaaaaaaaaaaa", "show");
+                    }
 
                     @Override
-                    public void hide(@NotNull View view) { }
+                    public void hide(@NotNull View view) {
+                        Log.d("aaaaaaaaaaaa", "hide");
+                    }
 
                     @Override
-                    public void dismiss() { }
+                    public void dismiss() {
+                        Log.d("aaaaaaaaaaaa", "dismiss");
+                    }
 
                     @Override
                     public void touchEvent(@NotNull View view, @NotNull MotionEvent event) { }
@@ -401,7 +413,7 @@ public class PDFActivity extends AppCompatActivity implements
                 .show();
     }
 
-    private void hideFloatPDFTools() {
+    private void closeFloatPDFTools() {
         EasyFloat.dismiss();
     }
 
@@ -651,5 +663,7 @@ public class PDFActivity extends AppCompatActivity implements
         if (pdfView != null) {
             pdfView.recycle();
         }
+
+        closeFloatPDFTools();
     }
 }
