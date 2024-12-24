@@ -463,7 +463,7 @@ public class PDFActivity extends AppCompatActivity implements
         });
 
         // 显示 PopupWindow 在指定位置 (例如屏幕中央)
-        popupWindow.showAtLocation(paintView, Gravity.NO_GRAVITY, (int)x, (int)y);
+        popupWindow.showAtLocation(paintView, Gravity.NO_GRAVITY, (int)x, 0);
     }
 
     private String makeNoteFullFilePath() {

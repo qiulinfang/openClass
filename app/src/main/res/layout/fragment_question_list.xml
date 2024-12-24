@@ -35,6 +35,19 @@
         app:layout_constraintTop_toBottomOf="@id/btn_exit"
         app:layout_constraintStart_toStartOf="parent"/>
 
+    <TextView
+        android:id="@+id/txt_empty_question"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#800000"
+        android:textSize="18sp"
+        android:layout_marginStart="8dp"
+        android:visibility="gone"
+        android:text="没有习题? 可以拍照搜题或者从练习知识点获取题目."
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/spliter0"/>
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/exerciseList"
         android:layout_width="0dp"
@@ -45,7 +58,7 @@
         app:layout_constraintEnd_toEndOf="@id/verticalGuide"
         app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/spliter0"
+        app:layout_constraintTop_toBottomOf="@id/txt_empty_question"
         app:layout_constraintVertical_bias="1.0" />
 
     <androidx.constraintlayout.widget.Guideline

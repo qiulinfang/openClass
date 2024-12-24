@@ -15,6 +15,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.cosinetech.imates.adapters.AdapterQuestionList;
@@ -52,6 +53,7 @@ public class FragmentQuestionList extends Fragment {
     private Question mCurrentQuestion = null;
     private RadioButton mRdoViewAnswer;
     private RadioButton mRdoSimilarQuestion;
+    private TextView mTextEmptyQuestionTip;
 
     private FragmentChatAi fragmentChatAi;
 
@@ -96,6 +98,7 @@ public class FragmentQuestionList extends Fragment {
                 false,
                 true,
                 false,
+                false,
                 success -> {
             chatResponceTimes++;
             if(chatResponceTimes >= 2) {
@@ -113,7 +116,6 @@ public class FragmentQuestionList extends Fragment {
         });
 
         view.findViewById(R.id.btn_capture).setOnClickListener(v-> {
-            getParentFragmentManager().popBackStack();
             final FragmentCamera fragment = FragmentCamera.newInstance(subject);
             getParentFragmentManager().beginTransaction()
                     .addToBackStack(null)
@@ -123,6 +125,7 @@ public class FragmentQuestionList extends Fragment {
 
         mRdoViewAnswer = view.findViewById(R.id.optAnswer);
         mRdoSimilarQuestion = view.findViewById(R.id.optSimilar);
+        mTextEmptyQuestionTip = view.findViewById(R.id.txt_empty_question);
 
         ViewModelStoreOwner owner = (ViewModelStoreOwner) requireActivity().getApplication();
         userInfoViewModel = new ViewModelProvider(
@@ -350,16 +353,26 @@ public class FragmentQuestionList extends Fragment {
                     mQuestions.addAll(q);
                     adapterQuestionList.resetSelection();
                     adapterQuestionList.notifyDataSetChanged();
+                    updateQuestionListTip();
                 });
             }
 
             @Override
             public void onFailure(String msg, int code) {
                 requireActivity().runOnUiThread(() -> {
+                    updateQuestionListTip();
                     Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
                 });
             }
         });
+    }
+
+    private void updateQuestionListTip() {
+        if(mQuestions.isEmpty()) {
+            mTextEmptyQuestionTip.setVisibility(View.VISIBLE);
+        } else {
+            mTextEmptyQuestionTip.setVisibility(View.GONE);
+        }
     }
 
     public void setViewAnswer(boolean b) {

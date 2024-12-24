@@ -1,9 +1,17 @@
 package com.cosinetech.imates.webservice;
 
-import android.graphics.Bitmap;
+import static androidx.camera.core.impl.utils.ContextUtil.getApplicationContext;
 
+import android.graphics.Bitmap;
+import android.os.Handler;
+import android.os.Looper;
+import android.widget.Toast;
+
+import com.cosinetech.imates.ApplicationModelShared;
+import com.cosinetech.imates.activities.MainActivity;
 import com.cosinetech.imates.models.AddQuestionRequest;
 import com.cosinetech.imates.models.FindSimilarQuestionRequest;
+import com.cosinetech.imates.util.AppUtils;
 
 import org.json.JSONObject;
 
@@ -22,12 +30,38 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class ApiGateWayService {
+    private static final int HTTP_STATE_UNAUTHORIZED = 401;
+    private static final int HTTP_STATE_FORBIDDEN = 403;
     private static final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     // ========ai聊天接口========
     public interface ChatMessageCallback {
         void onChatResponse(boolean success, String response);
     }
+
+    public static OkHttpClient createClient() {
+        OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(120, TimeUnit.SECONDS)
+                .readTimeout(120, TimeUnit.SECONDS)
+                .writeTimeout(120, TimeUnit.SECONDS)
+                .build();
+        return client;
+    }
+
+    public static void fileterFailedResponse(Response response) {
+        if(response.code() == HTTP_STATE_UNAUTHORIZED || response.code() == HTTP_STATE_FORBIDDEN) {
+            Handler handler = new Handler(Looper.getMainLooper());
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    // 更新UI
+                    Toast.makeText(ApplicationModelShared.getInstance(), "账号已在其他设备登录!", Toast.LENGTH_LONG).show();
+                    AppUtils.restartApp(ApplicationModelShared.getInstance());
+                }
+            });
+        }
+    }
+
     public static String parseChatMessageResult(String jsonString) {
         String message = "";
         try {
@@ -53,7 +87,7 @@ public class ApiGateWayService {
     public static void sendChatMessage(final AiChatMessageRequest aiChatMessageRequest, String URL, String token, final ChatMessageCallback callback) {
         Runnable task = () -> {
             try {
-                OkHttpClient client = new OkHttpClient();
+                OkHttpClient client = createClient();
 
                 JSONObject json = new JSONObject();
                 json.put("sessionId", aiChatMessageRequest.getSessionId());
@@ -77,7 +111,10 @@ public class ApiGateWayService {
                         .build();
 
                 Response response = client.newCall(request).execute();
-                if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
+                if (!response.isSuccessful())  {
+                    fileterFailedResponse(response);
+                    throw new IOException("Unexpected code " + response);
+                }
 
                 // 读取响应并调用回调
                 assert response.body() != null;
@@ -109,11 +146,7 @@ public class ApiGateWayService {
                     }
                 }
 
-                OkHttpClient client = new OkHttpClient.Builder()
-                        .connectTimeout(10, TimeUnit.SECONDS)
-                        .readTimeout(20, TimeUnit.SECONDS)
-                        .writeTimeout(10, TimeUnit.SECONDS)
-                        .build();
+                OkHttpClient client = createClient();
 
 
                 // 构建请求体
@@ -145,6 +178,7 @@ public class ApiGateWayService {
                         if (callback != null) {
                             callback.onFailure(response.message(), response.code());
                         }
+                        fileterFailedResponse(response);
                     }
                 }
             } catch (Exception e) {
@@ -161,7 +195,7 @@ public class ApiGateWayService {
     public static void addExerciseToList(AddQuestionRequest item, String Url, String token) {
         Runnable task = () -> {
             try {
-                OkHttpClient client = new OkHttpClient();
+                OkHttpClient client = createClient();
 
                 // 创建请求体
                 RequestBody body = RequestBody.create(
@@ -180,9 +214,8 @@ public class ApiGateWayService {
                     if (response.isSuccessful()) {
                         // 获取响应体
                         String responseBody = response.body().string();
-                        System.out.println("Response: " + responseBody);
                     } else {
-                        System.out.println("Request failed: " + response.code());
+                        fileterFailedResponse(response);
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -203,7 +236,7 @@ public class ApiGateWayService {
     public static void queryExerciseList(String url, String token, QueryExerciseListCallback callback) {
         Runnable task = () -> {
             try {
-                OkHttpClient client = new OkHttpClient();
+                OkHttpClient client = createClient();
 
                 // 创建请求
                 Request request = new Request.Builder()
@@ -226,6 +259,7 @@ public class ApiGateWayService {
                         if (callback != null) {
                             callback.onFailure(response.message(), response.code());
                         }
+                        fileterFailedResponse(response);
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -242,7 +276,7 @@ public class ApiGateWayService {
     public static void querySimilarExerciseList(FindSimilarQuestionRequest item, String url, String token, QueryExerciseListCallback callback) {
         Runnable task = () -> {
             try {
-                OkHttpClient client = new OkHttpClient();
+                OkHttpClient client = createClient();
 
                 // 创建请求体
                 RequestBody body = RequestBody.create(
@@ -271,6 +305,7 @@ public class ApiGateWayService {
                         if (callback != null) {
                             callback.onFailure(response.message(), response.code());
                         }
+                        fileterFailedResponse(response);
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -291,7 +326,7 @@ public class ApiGateWayService {
     public static void deleteExercise(String url, String token, ExerciseDeleteLister callback) {
         Runnable task = () -> {
             try {
-                OkHttpClient client = new OkHttpClient();
+                OkHttpClient client = createClient();
 
                 // 创建请求
                 Request request = new Request.Builder()
@@ -309,6 +344,7 @@ public class ApiGateWayService {
                         if (callback != null) {
                             callback.onDeleteFailed(response.body().string());
                         }
+                        fileterFailedResponse(response);
                     }
                 } catch (Exception e) {
                     if (callback != null) {

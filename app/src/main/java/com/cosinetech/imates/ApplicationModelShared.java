@@ -39,11 +39,15 @@ public class ApplicationModelShared extends Application implements ViewModelStor
     public AiChatMessageRequest chatRequest;
     private int activityCount = 0;
 
+    private static ApplicationModelShared appInstance = null;
+
     @Override
     public void onCreate() {
         super.onCreate();
+        appInstance = this;
         // 拷贝文件到 Documents 目录
         AssetsCopyUtils.copyAssetsToDocuments(this);
+
 
         // 在任意地方，调用以下方法即可，崩溃发生后，会在下一次App启动的时候使用Service异步打包日志，
         // 然后上传日志，发送成功与否，Service都会自动退出释放内存
@@ -174,6 +178,10 @@ public class ApplicationModelShared extends Application implements ViewModelStor
             }
         });
 
+    }
+
+    public static ApplicationModelShared getInstance() {
+            return appInstance;
     }
 
     public void setMainActivity(MainActivity activity) {

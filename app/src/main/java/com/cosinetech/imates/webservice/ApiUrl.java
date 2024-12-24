@@ -17,6 +17,8 @@ public class ApiUrl {
     // =========imates
     private static final String baseUrl = "http://www.imates.com.cn:8222/blw-edu-service-alc";
     public static final String URL_RESOURCE_BASE = "https://www.imates.com.cn";
+    // public static final String URL_APP_UPDATE = URL_RESOURCE_BASE + "/appupdate.json";
+    public static final String URL_APP_UPDATE = "https://study.showcode.xyz/appupdate.json";
     public static final String URL_LOGIN = "http://www.imates.com.cn:8222/blw-edu-service-alc/admin/login";
     public static final String URL_USER_INFO = "http://www.imates.com.cn:8222/blw-edu-service-alc/admin/info";
 
@@ -24,7 +26,12 @@ public class ApiUrl {
     public static final String URL_QUESTION_IMAGE_RECOGNISE_MATH = baseUrl + "/permission/imgMath";
     public static final String URL_CHAT_GENERAL = baseUrl + "/permission/chats";
     public static final String URL_CHAT_PREVIEW_PICTURE = baseUrl + "/permission/previewPictureQA";
+
+    //生物引导解题
     public static final String URL_CHAT_BIOLOGY = baseUrl + "/permission/chat";
+
+    //数学引导解题
+    public static final String URL_CHAT_MATH = baseUrl + "/permission/chatMath";
 
     //上传生物 数学练习
     public static final String URL_ADD_EXERCISE_TO_LIST = baseUrl + "/permission/exercises";
@@ -41,5 +48,4 @@ public class ApiUrl {
 
     public static final  String URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE = baseUrl + "/biologyTopicKnowledge/knowledgeTopicAndAck";
 
-    public static final String URL_APP_UPDATE = URL_RESOURCE_BASE + "/appupdate.json";
 }

@@ -312,7 +312,7 @@ public class FragmentSubjectMath extends Fragment {
     }
 
     public void loadExerciseListFragment() {
-        final FragmentQuestionList fragmentQuestionList = FragmentQuestionList.newInstance(ApiUrl.URL_CHAT_BIOLOGY, Subject.SUBJECT_MATH);
+        final FragmentQuestionList fragmentQuestionList = FragmentQuestionList.newInstance(ApiUrl.URL_CHAT_MATH, Subject.SUBJECT_MATH);
         getChildFragmentManager().beginTransaction()
                 .replace(R.id.container, fragmentQuestionList)
                 .addToBackStack(null)

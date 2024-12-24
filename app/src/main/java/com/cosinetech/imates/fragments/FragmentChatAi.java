@@ -65,6 +65,8 @@ public class FragmentChatAi extends Fragment {
     private static final String KEY_PARAM_STREAM_RESPONSE = "STREAM_RESPONSE";
     private static final String KEY_PARAM_SHOW_HISTORY = "SHOW_HISTORY";
 
+    private static final String KEY_PARAM_INITIAL_SEND = "INITIAL_SEND_ENABLE";
+
     private AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "");
     private RecyclerView recyclerView;
     private SmartRefreshLayout refreshLayout;
@@ -81,6 +83,7 @@ public class FragmentChatAi extends Fragment {
     private boolean showHeader;
     private boolean streamResponse;
     private boolean showHistory;
+    private boolean initialSendEnable;
 
     private AiChatResponseListener mListener;
 
@@ -95,7 +98,13 @@ public class FragmentChatAi extends Fragment {
     public FragmentChatAi() {
     }
 
-    public static FragmentChatAi newInstance(String chatBotUrl, String tag, boolean showHeader, boolean streamResponse, boolean showHistory, AiChatResponseListener l) {
+    public static FragmentChatAi newInstance(String chatBotUrl,
+                                             String tag,
+                                             boolean showHeader,
+                                             boolean streamResponse,
+                                             boolean showHistory,
+                                             boolean initialSendEnable,
+                                             AiChatResponseListener l) {
         FragmentChatAi fragment = new FragmentChatAi();
         Bundle args = new Bundle();
         args.putString(KEY_PARAM_CHATBOT_URL, chatBotUrl);
@@ -103,6 +112,7 @@ public class FragmentChatAi extends Fragment {
         args.putString(KEY_PARAM_CHATBOT_TAG, tag);
         args.putBoolean(KEY_PARAM_STREAM_RESPONSE, streamResponse);
         args.putBoolean(KEY_PARAM_SHOW_HISTORY, showHistory);
+        args.putBoolean(KEY_PARAM_INITIAL_SEND, initialSendEnable);
         fragment.setArguments(args);
         fragment.setAiChatListener(l);
         return fragment;
@@ -117,6 +127,7 @@ public class FragmentChatAi extends Fragment {
             showHeader = getArguments().getBoolean(KEY_PARAM_SHOW_HEADER);
             streamResponse = getArguments().getBoolean(KEY_PARAM_STREAM_RESPONSE);
             showHistory = getArguments().getBoolean(KEY_PARAM_SHOW_HISTORY);
+            initialSendEnable = getArguments().getBoolean(KEY_PARAM_INITIAL_SEND);
         }
         setRetainInstance(true);
     }
@@ -238,6 +249,8 @@ public class FragmentChatAi extends Fragment {
             adapterAiChatMesssageList.notifyDataSetChanged();
             recyclerView.scrollToPosition(messageList.size() - 1);
         }
+
+        btnSend.setEnabled(initialSendEnable);
 
         return view;
     }
