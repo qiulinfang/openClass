@@ -21,6 +21,7 @@ import com.cosinetech.imates.fragments.FragmentSubjectEnglish;
 import com.cosinetech.imates.fragments.FragmentSubjectMath;
 import com.cosinetech.imates.fragments.FragmentSubjectPhysics;
 import com.cosinetech.imates.service.FloatingWindowService;
+import com.cosinetech.imates.util.VersionUtils;
 import com.cosinetech.imates.util.WindowUtils;
 
 import androidx.fragment.app.Fragment;
@@ -110,6 +111,9 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
         EasyUpdate.create(this, ApiUrl.URL_APP_UPDATE)
                 .isAutoMode(false)
                 .update();
+
+        TextView versionText = findViewById(R.id.version);
+        versionText.setText(VersionUtils.getVersionName(this) + "_" + VersionUtils.getVersionCode(this));
     }
 
     @Override
