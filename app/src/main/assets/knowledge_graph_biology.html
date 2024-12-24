@@ -186,6 +186,7 @@
         contextMenu.style.zIndex = '1000';
 
         // 添加菜单项
+
         var menuItem1 = document.createElement('div');
         menuItem1.innerText = '去练习';
         menuItem1.style.padding = '5px 10px';
@@ -202,8 +203,9 @@
             window.Android.onPrepareLesson(nodeId, nodeName);
         });
 
-        contextMenu.appendChild(menuItem1);
+
         contextMenu.appendChild(menuItem2);
+        contextMenu.appendChild(menuItem1);
 
         document.body.appendChild(contextMenu);
 

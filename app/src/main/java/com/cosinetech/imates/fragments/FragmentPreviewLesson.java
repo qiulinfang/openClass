@@ -181,6 +181,13 @@ public class FragmentPreviewLesson extends Fragment {
 
         Button goPreview = view.findViewById(R.id.btn_go_prepare);
         goPreview.setOnClickListener(v -> {
+            for(int i = 0; i < rdoButonIds.length; i++) {
+                RadioButton rdoButton = view.findViewById(rdoButonIds[i]);
+                if(rdoButton.isChecked()) {
+                    mCurrentSchemaIndex = i;
+                    break;
+                }
+            }
             if(mCurrentSchemaIndex < 0) {
                 Toast.makeText(getContext(), "先选择一个学习方案", Toast.LENGTH_SHORT).show();
             } else {

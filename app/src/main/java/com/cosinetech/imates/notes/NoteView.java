@@ -6,12 +6,9 @@ import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.ListView;
-
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.SwipeAdapter;
 import com.cosinetech.imates.util.ImageUtils;

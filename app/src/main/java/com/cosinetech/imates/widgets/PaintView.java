@@ -26,7 +26,7 @@ public class PaintView extends View {
     private boolean mIsTouching = false;
 
     // 区域选取功能相关
-    private boolean mIsSelecing = false;
+    private boolean mInSelectMode = false;
     private Paint dashedPaint;
     private Path dashedPath;
     private PointF startPoint;
@@ -192,15 +192,17 @@ public class PaintView extends View {
             canvas.drawCircle(mX, mY, mPaint.getStrokeWidth(), mCursorPaint);
         }
 
-        if(mIsSelecing) {
-            if (startPoint.x != 0 || startPoint.y != 0 || endPoint.x != 0 || endPoint.y != 0) {
-                dashedPath.reset();
-                dashedPath.moveTo(startPoint.x, startPoint.y);
-                dashedPath.lineTo(endPoint.x, startPoint.y);
-                dashedPath.lineTo(endPoint.x, endPoint.y);
-                dashedPath.lineTo(startPoint.x, endPoint.y);
-                dashedPath.close();
-                canvas.drawPath(dashedPath, dashedPaint);
+        if(mInSelectMode) {
+            if(isSelectAreaValid()) {
+                if (startPoint.x != 0 || startPoint.y != 0 || endPoint.x != 0 || endPoint.y != 0) {
+                    dashedPath.reset();
+                    dashedPath.moveTo(startPoint.x, startPoint.y);
+                    dashedPath.lineTo(endPoint.x, startPoint.y);
+                    dashedPath.lineTo(endPoint.x, endPoint.y);
+                    dashedPath.lineTo(startPoint.x, endPoint.y);
+                    dashedPath.close();
+                    canvas.drawPath(dashedPath, dashedPaint);
+                }
             }
         }
     }
@@ -220,7 +222,7 @@ public class PaintView extends View {
     }
 
     public void startTouch(float x, float y){
-        if(mIsSelecing) {
+        if(mInSelectMode) {
             startPoint.set(x, y);
             endPoint.set(x, y);
         } else {
@@ -238,7 +240,7 @@ public class PaintView extends View {
     }
 
     private void touchMove(float x, float y){
-        if(mIsSelecing) {
+        if(mInSelectMode) {
             endPoint.set(x, y);
         } else {
             float dx = Math.abs(x - mX);
@@ -256,12 +258,22 @@ public class PaintView extends View {
         }
     }
 
+    private boolean isSelectAreaValid() {
+        if(Math.abs(endPoint.x - startPoint.x) >= 10 && Math.abs(endPoint.y - startPoint.y) >= 10) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     private void touchUp(float x, float y){
         mIsTouching = false;
-        if(mIsSelecing) {
+        if(mInSelectMode ) {
             endPoint.set(x, y);
-            if(drawingChangeListener != null) {
-                drawingChangeListener.onSelectionEnd(x, y);
+            if(isSelectAreaValid()) {
+                if (drawingChangeListener != null) {
+                    drawingChangeListener.onSelectionEnd(x, y);
+                }
             }
         } else {
             mPath.lineTo(mX, mY);
@@ -292,11 +304,11 @@ public class PaintView extends View {
     }
 
     public void enableSelection() {
-        mIsSelecing = true;
+        mInSelectMode = true;
     }
 
     public void disableSelection() {
-        mIsSelecing = false;
+        mInSelectMode = false;
         startPoint.x = 0;
         startPoint.y = 0;
 

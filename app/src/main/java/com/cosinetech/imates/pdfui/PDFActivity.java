@@ -249,6 +249,19 @@ public class PDFActivity extends AppCompatActivity implements
             EasyFloat.show();
         });
 
+        showFloatPDFTools();
+
+        initView();//初始化view
+        loadPdf();//加载PDF文件
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        hideFloatPDFTools();
+        showFloatPDFTools();
+    }
+    private void showFloatPDFTools() {
         EasyFloat.with(this).setLayout(R.layout.floating_pdf_tools)
                 .setSidePattern(SidePattern.AUTO_SIDE)
                 .registerCallbacks(new OnFloatCallbacks() {
@@ -386,9 +399,10 @@ public class PDFActivity extends AppCompatActivity implements
                     public void dragEnd(@NotNull View view) { }
                 })
                 .show();
+    }
 
-        initView();//初始化view
-        loadPdf();//加载PDF文件
+    private void hideFloatPDFTools() {
+        EasyFloat.dismiss();
     }
 
     private void askQuestionForPicture(Bitmap bmp, int x, int y) {
