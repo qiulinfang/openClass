@@ -1,0 +1,138 @@
+package com.cosinetech.imates.mupdfviewer.activity;
+
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.os.Bundle;
+import android.os.Environment;
+import android.util.Log;
+import android.view.View;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.artifex.mupdf.FilePicker;
+import com.artifex.mupdf.Hit;
+import com.artifex.mupdf.MuPDFCore;
+import com.artifex.mupdf.MuPDFPageAdapter;
+import com.artifex.mupdf.MuPDFReaderView;
+import com.artifex.mupdf.MuPDFReaderViewListener;
+import com.artifex.mupdf.MuPDFView;
+import com.artifex.mupdf.OutlineActivityData;
+import com.artifex.mupdf.ReaderView;
+import com.cosinetech.imates.R;
+
+import java.util.concurrent.Executor;
+
+/**
+ * @Description: 基础功能仅显示pdf
+ * @author: ZhangYW
+ * @time: 2019/3/11 15:56
+ */
+public class BasePDFActivity extends AppCompatActivity {
+    private static final String TAG = BasePDFActivity.class.getSimpleName();
+
+    private String filePath = Environment.getExternalStorageDirectory() + "/pdf_t1.pdf"; // 文件路径
+
+    private MuPDFCore muPDFCore;// 加载mupdf.so文件
+    private MuPDFReaderView muPDFReaderView;// 显示pdf的view
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_base_pdf);
+
+        initView();
+    }
+
+    /**
+     * 初始化
+     */
+    private void initView() {
+
+        muPDFReaderView = (MuPDFReaderView) findViewById(R.id.open_pdf_mupdfreaderview);
+        // 通过MuPDFCore打开pdf文件
+        muPDFCore = openFile(filePath);
+        // 判断如果core为空，提示不能打开文件
+        if (muPDFCore == null) {
+            AlertDialog alert = new AlertDialog.Builder(this).create();
+            alert.setTitle(R.string.cannot_open_document);
+            alert.setButton(AlertDialog.BUTTON_POSITIVE, getString(R.string.dismiss),
+                    new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            finish();
+                        }
+                    });
+            alert.setOnCancelListener(new DialogInterface.OnCancelListener() {
+
+                @Override
+                public void onCancel(DialogInterface dialog) {
+                    finish();
+                }
+            });
+            alert.show();
+            return;
+        }
+        // 显示
+        muPDFReaderView.setAdapter(new MuPDFPageAdapter(this, new FilePicker.FilePickerSupport() {
+            @Override
+            public void performPickFor(FilePicker picker) {
+            }
+        }, muPDFCore));
+    }
+
+    /**
+     * 打开文件
+     *
+     * @param path 文件路径
+     * @return
+     */
+    private MuPDFCore openFile(String path) {
+        Log.e(TAG, "Trying to open " + path);
+        try {
+            muPDFCore = new MuPDFCore(this, path);
+        } catch (Exception e) {
+            Log.e(TAG, "openFile catch:" + e.toString());
+            return null;
+        } catch (OutOfMemoryError e) {
+            //  out of memory is not an Exception, so we catch it separately.
+            Log.e(TAG, "openFile catch: OutOfMemoryError " + e.toString());
+            return null;
+        }
+        return muPDFCore;
+    }
+
+    @Override
+    protected void onStart() {
+        if (muPDFCore != null) {
+            muPDFCore.startAlerts();
+        }
+        super.onStart();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+    }
+
+    @Override
+    protected void onStop() {
+        if (muPDFCore != null) {
+            muPDFCore.stopAlerts();
+        }
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (muPDFReaderView != null) {
+            muPDFReaderView.applyToChildren(new ReaderView.ViewMapper() {
+                public void applyToView(View view) {
+                    ((MuPDFView) view).releaseBitmaps();
+                }
+            });
+        }
+        if (muPDFCore != null)
+            muPDFCore.onDestroy();
+        muPDFCore = null;
+        super.onDestroy();
+    }
+}
