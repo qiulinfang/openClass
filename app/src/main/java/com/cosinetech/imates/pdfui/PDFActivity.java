@@ -450,9 +450,10 @@ public class PDFActivity extends AppCompatActivity implements
                 chatRequest.setQuestion(ImageUtils.bitmapToHtmlJpgBase64(bmp));
                 chatRequest.setCoversation(editText.getText().toString());
                 chatRequest.setAnswer(mSection.getTitle()); //当前章节
+                chatRequest.setDstUrl(ApiUrl.URL_CHAT_PREVIEW_PICTURE);
                 app.chatRequest = chatRequest;
 
-                app.getFloatingWindowService().popupChatBot(ApiUrl.URL_CHAT_PREVIEW_PICTURE, Subject.SUBJECT_ALL.name());
+                app.getFloatingWindowService().popupChatBot(ApiUrl.URL_CHAT_GENERAL, Subject.SUBJECT_ALL.name());
             } catch (Exception e) {
                 Toast.makeText(PDFActivity.this, "请输入要问的问题", Toast.LENGTH_SHORT).show();
             }

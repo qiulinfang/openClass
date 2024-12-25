@@ -260,7 +260,6 @@ public class FragmentChatAi extends Fragment {
         ApplicationModelShared app = (ApplicationModelShared) requireActivity().getApplication();
         if(app.chatRequest != null) {
             sendMessageDirectly(app.chatRequest);
-            app.chatRequest = null;
         }
     }
 
@@ -274,7 +273,12 @@ public class FragmentChatAi extends Fragment {
     }
 
     private void pollChat() {
-        ApiGateWayService.sendChatMessage(aiChatMessageRequest, chatBotUrl, userInfoViewModel.token.getValue(), (success, response) -> {
+        String url = chatBotUrl;
+        //优先使用Request里自带的url, 没有就用默认的
+        if(aiChatMessageRequest.getDstUrl() != null && !aiChatMessageRequest.getDstUrl().isEmpty()) {
+            url = aiChatMessageRequest.getDstUrl();
+        }
+        ApiGateWayService.sendChatMessage(aiChatMessageRequest, url, userInfoViewModel.token.getValue(), (success, response) -> {
             requireActivity().runOnUiThread(() -> {
                 if (success) {
                     if(!response.trim().isEmpty() && !response.equals("end")) {
@@ -292,6 +296,12 @@ public class FragmentChatAi extends Fragment {
                         if(!messageList.isEmpty()) {
                             ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
                         }
+
+                        ApplicationModelShared app = (ApplicationModelShared) requireActivity().getApplication();
+                        if(app.chatRequest != null) {
+                            app.chatRequest = null;
+                        }
+                        aiChatMessageRequest.setDstUrl("");
                     }
                 } else {
                     adapterAiChatMesssageList.updateLastMessage("‼️消息接收失败", false);
@@ -302,6 +312,12 @@ public class FragmentChatAi extends Fragment {
                     if(!messageList.isEmpty()) {
                         ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
                     }
+
+                    ApplicationModelShared app = (ApplicationModelShared) requireActivity().getApplication();
+                    if(app.chatRequest != null) {
+                        app.chatRequest = null;
+                    }
+                    aiChatMessageRequest.setDstUrl("");
                 }
             });
         });

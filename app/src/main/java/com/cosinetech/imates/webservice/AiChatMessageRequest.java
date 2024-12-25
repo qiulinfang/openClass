@@ -9,6 +9,8 @@ public class AiChatMessageRequest {
     private String name;
     private String reason;
 
+    private String dstUrl;
+
     public String getBmNo() {
         return bmNo;
     }
@@ -90,5 +92,13 @@ public class AiChatMessageRequest {
 
     public void setReason(String reason) {
         this.reason = reason;
+    }
+
+    public String getDstUrl() {
+        return dstUrl;
+    }
+
+    public void setDstUrl(String dstUrl) {
+        this.dstUrl = dstUrl;
     }
 }

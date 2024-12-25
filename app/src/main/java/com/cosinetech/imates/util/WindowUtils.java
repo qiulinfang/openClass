@@ -3,6 +3,7 @@ package com.cosinetech.imates.util;
 import android.app.Activity;
 import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -46,7 +47,7 @@ public class WindowUtils {
      */
     public static Bitmap getScreenshot2Bitmap(Activity activity, View view) {
         View screenView = activity.getWindow().getDecorView();
-        screenView.setDrawingCacheEnabled(false);
+        screenView.setDrawingCacheEnabled(true);
         screenView.buildDrawingCache();
         //获取屏幕整张图片
         Bitmap screenBitmap = screenView.getDrawingCache();
@@ -65,6 +66,33 @@ public class WindowUtils {
         //记得加上，不然重复生成时 返回的还是第一次生成的bitmap截图
         screenView.destroyDrawingCache();
         return bitmap ;
+    }
+
+    public static Bitmap getScreenshot2BitmapV2(Activity activity, View view) {
+        // 获取屏幕内容到 Bitmap
+        View screenView = activity.getWindow().getDecorView();
+        Bitmap screenBitmap = Bitmap.createBitmap(screenView.getWidth(), screenView.getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(screenBitmap);
+        screenView.draw(canvas);
+
+        // 获取 View 的坐标和大小
+        int outWidth = view.getWidth();
+        int outHeight = view.getHeight();
+        int[] viewLocationArray = new int[2];
+        view.getLocationOnScreen(viewLocationArray);
+
+        // 截取部分屏幕内容
+        int x = viewLocationArray[0];
+        int y = viewLocationArray[1];
+        if (x + outWidth > screenBitmap.getWidth()) outWidth = screenBitmap.getWidth() - x;
+        if (y + outHeight > screenBitmap.getHeight()) outHeight = screenBitmap.getHeight() - y;
+
+        if (x < 0 || y < 0 || outWidth <= 0 || outHeight <= 0) {
+            // 无效区域，返回 null
+            return null;
+        }
+
+        return Bitmap.createBitmap(screenBitmap, x, y, outWidth, outHeight);
     }
 
 }
