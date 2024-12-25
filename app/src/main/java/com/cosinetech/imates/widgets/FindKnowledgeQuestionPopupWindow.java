@@ -87,8 +87,14 @@ public class FindKnowledgeQuestionPopupWindow {
 
             @Override
             public void onFailure(String msg, int code) {
-                mContext.runOnUiThread(() -> {
-                    Toast.makeText(mContext, msg, Toast.LENGTH_SHORT).show();
+                mView.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        mSimilarQuestion.clear();
+                        adapterSimilarQuestionList.resetSelection();
+                        adapterSimilarQuestionList.notifyDataSetChanged();
+                        Toast.makeText(mContext, "没有查到对应的题目", Toast.LENGTH_SHORT).show();
+                    }
                 });
             }
         });
