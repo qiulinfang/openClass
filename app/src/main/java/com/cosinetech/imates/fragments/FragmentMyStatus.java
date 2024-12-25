@@ -4,12 +4,16 @@ import android.graphics.Color;
 import android.os.Bundle;
 
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModelStoreOwner;
 
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.models.UserInfoViewModel;
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.helper.StaticLabelsFormatter;
 import com.jjoe64.graphview.series.BarGraphSeries;
@@ -21,8 +25,7 @@ import com.jjoe64.graphview.series.DataPoint;
  * create an instance of this fragment.
  */
 public class FragmentMyStatus extends Fragment {
-
-    // TODO: Rename parameter arguments, choose names that match
+    private UserInfoViewModel userInfoViewModel;
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
@@ -58,6 +61,15 @@ public class FragmentMyStatus extends Fragment {
         // Inflate the layout for this fragment
         View v=  inflater.inflate(R.layout.fragment_student_status, container, false);
         setupGraph(v);
+        TextView textView = v.findViewById(R.id.ai_summarize);
+        // Required empty public constructor
+        ViewModelStoreOwner owner = (ViewModelStoreOwner) requireActivity().getApplication();
+        userInfoViewModel = new ViewModelProvider(
+                owner,
+                new ViewModelProvider.AndroidViewModelFactory(requireActivity().getApplication())
+        ).get(UserInfoViewModel.class);
+        String tip = "嘿," + userInfoViewModel.userInfo.getValue().getName() + "同学！ 我是你的智能学习小伙伴，超开心能陪你一起学习、一起嗨皮！ 不管是脑洞大开的问题，还是小菜一碟的疑惑，随时戳我，我立马变身你的专属解题小能手！ 让我们一起快乐学习，天天向上吧！";
+        textView.setText(tip);
         return v;
     }
 

@@ -3,6 +3,7 @@ package com.cosinetech.imates.activities;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
@@ -106,6 +107,7 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
             tab.setCustomView(customView);
         }).attach();
 
+        stopFloatingWndowService();
         startFloatingWindowService();
 
         EasyUpdate.create(this, ApiUrl.URL_APP_UPDATE)
@@ -114,11 +116,36 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
 
         TextView versionText = findViewById(R.id.version);
         versionText.setText(VersionUtils.getVersionName(this) + "_" + VersionUtils.getVersionCode(this));
+
+        Log.e("++++++++++++++++", "onCreate");    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Log.e("++++++++++++++++", "onPause");
+    }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Log.e("++++++++++++++++", "onResume");
     }
 
     @Override
-    protected  void onStart() {
+    protected void onStart() {
         super.onStart();
+        Log.e("++++++++++++++++", "onStart");
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        Log.e("++++++++++++++++", "onStop");
+    }
+
+    @Override
+    protected  void onRestart() {
+        super.onRestart();
+        Log.e("++++++++++++++++", "onRestart");
     }
 
     @Override
@@ -134,9 +161,16 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
         startService(intent);
     }
 
+    private void stopFloatingWndowService() {
+        Intent intent = new Intent(this, FloatingWindowService.class);
+        stopService(intent);
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        stopFloatingWndowService();
+        Log.e("++++++++++++++++", "onDestroy");
     }
 
     @Override

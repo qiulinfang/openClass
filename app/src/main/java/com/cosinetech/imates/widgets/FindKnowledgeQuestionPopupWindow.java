@@ -218,6 +218,14 @@ public class FindKnowledgeQuestionPopupWindow {
             }
         });
 
+        Button btnExit = mView.findViewById(R.id.btn_back);
+        btnExit.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                popupWindow.dismiss();
+            }
+        });
+
         Button btnRefresh = mView.findViewById(R.id.btn_refresh);
         btnRefresh.setOnClickListener( v-> {
             fetchQuestionList();

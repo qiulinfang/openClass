@@ -99,84 +99,84 @@ public class ApplicationModelShared extends Application implements ViewModelStor
             }
         });
 
-        registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks(){
-
-            /**
-             * Called when the Activity calls {@link Activity#onCreate super.onCreate()}.
-             *
-             * @param activity
-             * @param savedInstanceState
-             */
-            @Override
-            public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {
-                activityCount++;
-            }
-
-            /**
-             * Called when the Activity calls {@link Activity#onStart super.onStart()}.
-             *
-             * @param activity
-             */
-            @Override
-            public void onActivityStarted(@NonNull Activity activity) {
-
-            }
-
-            /**
-             * Called when the Activity calls {@link Activity#onResume super.onResume()}.
-             *
-             * @param activity
-             */
-            @Override
-            public void onActivityResumed(@NonNull Activity activity) {
-
-            }
-
-            /**
-             * Called when the Activity calls {@link Activity#onPause super.onPause()}.
-             *
-             * @param activity
-             */
-            @Override
-            public void onActivityPaused(@NonNull Activity activity) {
-
-            }
-
-            /**
-             * Called when the Activity calls {@link Activity#onStop super.onStop()}.
-             *
-             * @param activity
-             */
-            @Override
-            public void onActivityStopped(@NonNull Activity activity) {
-
-            }
-
-            /**
-             * Called when the Activity calls
-             * {@link Activity#onSaveInstanceState super.onSaveInstanceState()}.
-             *
-             * @param activity
-             * @param outState
-             */
-            @Override
-            public void onActivitySaveInstanceState(@NonNull Activity activity, @NonNull Bundle outState) {
-            }
-
-            /**
-             * Called when the Activity calls {@link Activity#onDestroy super.onDestroy()}.
-             *
-             * @param activity
-             */
-            @Override
-            public void onActivityDestroyed(@NonNull Activity activity) {
-                activityCount--;
-                if (activityCount == 0) {
-                    // 应用完全退出，停止服务
-                    stopService(new Intent(ApplicationModelShared.this, FloatingWindowService.class));
-                }
-            }
-        });
+//        registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks(){
+//
+//            /**
+//             * Called when the Activity calls {@link Activity#onCreate super.onCreate()}.
+//             *
+//             * @param activity
+//             * @param savedInstanceState
+//             */
+//            @Override
+//            public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {
+//                activityCount++;
+//            }
+//
+//            /**
+//             * Called when the Activity calls {@link Activity#onStart super.onStart()}.
+//             *
+//             * @param activity
+//             */
+//            @Override
+//            public void onActivityStarted(@NonNull Activity activity) {
+//
+//            }
+//
+//            /**
+//             * Called when the Activity calls {@link Activity#onResume super.onResume()}.
+//             *
+//             * @param activity
+//             */
+//            @Override
+//            public void onActivityResumed(@NonNull Activity activity) {
+//
+//            }
+//
+//            /**
+//             * Called when the Activity calls {@link Activity#onPause super.onPause()}.
+//             *
+//             * @param activity
+//             */
+//            @Override
+//            public void onActivityPaused(@NonNull Activity activity) {
+//
+//            }
+//
+//            /**
+//             * Called when the Activity calls {@link Activity#onStop super.onStop()}.
+//             *
+//             * @param activity
+//             */
+//            @Override
+//            public void onActivityStopped(@NonNull Activity activity) {
+//
+//            }
+//
+//            /**
+//             * Called when the Activity calls
+//             * {@link Activity#onSaveInstanceState super.onSaveInstanceState()}.
+//             *
+//             * @param activity
+//             * @param outState
+//             */
+//            @Override
+//            public void onActivitySaveInstanceState(@NonNull Activity activity, @NonNull Bundle outState) {
+//            }
+//
+//            /**
+//             * Called when the Activity calls {@link Activity#onDestroy super.onDestroy()}.
+//             *
+//             * @param activity
+//             */
+//            @Override
+//            public void onActivityDestroyed(@NonNull Activity activity) {
+//                activityCount--;
+//                if (activityCount == 0) {
+//                    // 应用完全退出，停止服务
+//                    stopService(new Intent(ApplicationModelShared.this, FloatingWindowService.class));
+//                }
+//            }
+//        });
 
     }
 
