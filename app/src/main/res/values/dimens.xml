@@ -6,6 +6,7 @@
     <dimen name="login_input_text_size">16sp</dimen>
     <dimen name="min_margin_size">8sp</dimen>
 
-<!--    photo editor -->
+    <!--    photo editor -->
     <dimen name="top_tool_icon_width">48dp</dimen>
+    <dimen name="fab_margin">16dp</dimen>
 </resources>

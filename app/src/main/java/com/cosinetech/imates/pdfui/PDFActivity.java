@@ -264,6 +264,45 @@ public class PDFActivity extends AppCompatActivity implements
                 showFloatPDFTools();
             }
         });
+
+        Button btnToTextBook = findViewById(R.id.btn_to_textbook);
+        btnToTextBook.setOnClickListener(v->{
+            if(mSchema != null && !mSchema.getTextBook().isEmpty()) {
+                Intent intent = getIntent();
+                intent.putExtra("AssetsPdf", mSchema.getTextBook());
+                pdfFitPolicy = FitPolicy.BOTH;
+                pdfSwipeHorizontal = false;
+                loadPdf();
+            }
+        });
+
+        Button btnToPpt = findViewById(R.id.btn_to_ppt);
+        btnToPpt.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(mSchema != null && !mSchema.getLecture().isEmpty()) {
+                    Intent intent = getIntent();
+                    intent.putExtra("AssetsPdf", mSchema.getLecture());
+                    pdfFitPolicy = FitPolicy.WIDTH;
+                    pdfSwipeHorizontal = false;
+                    loadPdf();
+                }
+            }
+        });
+
+        Button btnToGuide= findViewById(R.id.btn_to_guide);
+        btnToGuide.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(mSchema != null && !mSchema.getLearnGuide().isEmpty()) {
+                    Intent intent = getIntent();
+                    intent.putExtra("AssetsPdf", mSchema.getLearnGuide());
+                    pdfFitPolicy = FitPolicy.BOTH;
+                    pdfSwipeHorizontal = false;
+                    loadPdf();
+                }
+            }
+        });
     }
 
     private void showFloatPDFTools() {
@@ -344,45 +383,44 @@ public class PDFActivity extends AppCompatActivity implements
                                 NotePopupWindow win = new NotePopupWindow(view.getContext());
                                 win.showAsDropDown(view);
                             });
-
-                            Button btnToTextBook = view.findViewById(R.id.btn_to_textbook);
-                            btnToTextBook.setOnClickListener(v->{
-                                if(mSchema != null && !mSchema.getTextBook().isEmpty()) {
-                                    Intent intent = getIntent();
-                                    intent.putExtra("AssetsPdf", mSchema.getTextBook());
-                                    pdfFitPolicy = FitPolicy.BOTH;
-                                    pdfSwipeHorizontal = false;
-                                    loadPdf();
-                                }
-                            });
-
-                            Button btnToPpt = view.findViewById(R.id.btn_to_ppt);
-                            btnToPpt.setOnClickListener(new View.OnClickListener() {
-                                @Override
-                                public void onClick(View v) {
-                                    if(mSchema != null && !mSchema.getLecture().isEmpty()) {
-                                        Intent intent = getIntent();
-                                        intent.putExtra("AssetsPdf", mSchema.getLecture());
-                                        pdfFitPolicy = FitPolicy.WIDTH;
-                                        pdfSwipeHorizontal = false;
-                                        loadPdf();
-                                    }
-                                }
-                            });
-
-                            Button btnToGuide= view.findViewById(R.id.btn_to_guide);
-                            btnToGuide.setOnClickListener(new View.OnClickListener() {
-                                @Override
-                                public void onClick(View v) {
-                                    if(mSchema != null && !mSchema.getLearnGuide().isEmpty()) {
-                                        Intent intent = getIntent();
-                                        intent.putExtra("AssetsPdf", mSchema.getLearnGuide());
-                                        pdfFitPolicy = FitPolicy.BOTH;
-                                        pdfSwipeHorizontal = false;
-                                        loadPdf();
-                                    }
-                                }
-                            });
+//                            Button btnToTextBook = view.findViewById(R.id.btn_to_textbook);
+//                            btnToTextBook.setOnClickListener(v->{
+//                                if(mSchema != null && !mSchema.getTextBook().isEmpty()) {
+//                                    Intent intent = getIntent();
+//                                    intent.putExtra("AssetsPdf", mSchema.getTextBook());
+//                                    pdfFitPolicy = FitPolicy.BOTH;
+//                                    pdfSwipeHorizontal = false;
+//                                    loadPdf();
+//                                }
+//                            });
+//
+//                            Button btnToPpt = view.findViewById(R.id.btn_to_ppt);
+//                            btnToPpt.setOnClickListener(new View.OnClickListener() {
+//                                @Override
+//                                public void onClick(View v) {
+//                                    if(mSchema != null && !mSchema.getLecture().isEmpty()) {
+//                                        Intent intent = getIntent();
+//                                        intent.putExtra("AssetsPdf", mSchema.getLecture());
+//                                        pdfFitPolicy = FitPolicy.WIDTH;
+//                                        pdfSwipeHorizontal = false;
+//                                        loadPdf();
+//                                    }
+//                                }
+//                            });
+//
+//                            Button btnToGuide= view.findViewById(R.id.btn_to_guide);
+//                            btnToGuide.setOnClickListener(new View.OnClickListener() {
+//                                @Override
+//                                public void onClick(View v) {
+//                                    if(mSchema != null && !mSchema.getLearnGuide().isEmpty()) {
+//                                        Intent intent = getIntent();
+//                                        intent.putExtra("AssetsPdf", mSchema.getLearnGuide());
+//                                        pdfFitPolicy = FitPolicy.BOTH;
+//                                        pdfSwipeHorizontal = false;
+//                                        loadPdf();
+//                                    }
+//                                }
+//                            });
                         }
                     }
 

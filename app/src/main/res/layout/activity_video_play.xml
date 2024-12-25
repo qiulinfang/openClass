@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/video_area"
+    android:background="#000000"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:visibility="visible">
+    <VideoView
+        android:id="@+id/video_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentBottom="true"
+        android:layout_gravity="center_vertical" />
+    <Button
+        android:id="@+id/btn_exit_video"
+        android:background="@drawable/ic_back"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_margin="16dp"/>
+
+</RelativeLayout>
