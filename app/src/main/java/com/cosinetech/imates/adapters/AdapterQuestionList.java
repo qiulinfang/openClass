@@ -63,6 +63,8 @@ public class AdapterQuestionList extends RecyclerView.Adapter<AdapterQuestionLis
             holder.btnAiGuide.setVisibility(View.INVISIBLE);
         }
 
+        holder.btnAiGuide.setEnabled(!data.isAiGuiding);
+
         // 设置点击监听器
         holder.container.setOnClickListener(v -> {
             setSelectedPosition(holder.getBindingAdapterPosition());

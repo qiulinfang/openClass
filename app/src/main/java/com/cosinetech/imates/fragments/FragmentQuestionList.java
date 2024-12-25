@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -50,7 +51,9 @@ public class FragmentQuestionList extends Fragment {
     private AdapterQuestionList adapterQuestionList;
     private AdapterSimilarQuestionList adapterSimilarQuestionList;
     private final AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "");
-    private Question mCurrentQuestion = null;
+    private int mCurrentQuestionIndex = -1;
+
+    private RadioButton mRdoChatAi;
     private RadioButton mRdoViewAnswer;
     private RadioButton mRdoSimilarQuestion;
     private TextView mTextEmptyQuestionTip;
@@ -100,6 +103,10 @@ public class FragmentQuestionList extends Fragment {
                 false,
                 false,
                 success -> {
+            if(mCurrentQuestionIndex >= 0 && mCurrentQuestionIndex < mQuestions.size()) {
+                mQuestions.get(mCurrentQuestionIndex).isAiGuiding = false;
+                adapterQuestionList.notifyItemChanged(mCurrentQuestionIndex);
+            }
             chatResponceTimes++;
             if(chatResponceTimes >= 2) {
                 setViewAnswer(true);
@@ -123,6 +130,7 @@ public class FragmentQuestionList extends Fragment {
                     .commit();
         });
 
+        mRdoChatAi = view.findViewById(R.id.optChatAi);
         mRdoViewAnswer = view.findViewById(R.id.optAnswer);
         mRdoSimilarQuestion = view.findViewById(R.id.optSimilar);
         mTextEmptyQuestionTip = view.findViewById(R.id.txt_empty_question);
@@ -175,7 +183,11 @@ public class FragmentQuestionList extends Fragment {
 
             @Override
             public void onSelectExerciseChange(int previous, int pos) {
-                mCurrentQuestion = mQuestions.get(pos);
+                mCurrentQuestionIndex = pos;
+                Question mCurrentQuestion = mQuestions.get(pos);
+                mCurrentQuestion.isAiGuiding = false;
+                adapterQuestionList.notifyItemChanged(pos);
+
                 MarkdownTextView answer = view.findViewById(R.id.answerView);
                 answer.setContent(mCurrentQuestion.answer + mCurrentQuestion.explanation);
 
@@ -195,7 +207,15 @@ public class FragmentQuestionList extends Fragment {
 
             @Override
             public void onBeginGuideToSolveQuestion(int pos) {
-                String url;
+                if(!mRdoChatAi.isChecked()) {
+                    mRdoChatAi.setChecked(true);
+                }
+
+                if(mCurrentQuestionIndex >= 0 && mCurrentQuestionIndex < mQuestions.size()) {
+                    mQuestions.get(mCurrentQuestionIndex).isAiGuiding = true;
+                    adapterQuestionList.notifyItemChanged(mCurrentQuestionIndex);
+                }
+
                 requireActivity().runOnUiThread(() -> {
                     fragmentChatAi.sendMessageDirectly(aiChatMessageRequest);
                     fragmentChatAi.setChatEnable(true);
@@ -300,7 +320,7 @@ public class FragmentQuestionList extends Fragment {
     }
 
     private void findSimilarQuestion() {
-        if(mCurrentQuestion == null) {
+        if(mCurrentQuestionIndex < 0 || mCurrentQuestionIndex >= mQuestions.size()) {
             return;
         }
         StringBuilder ids = new StringBuilder();
@@ -314,7 +334,7 @@ public class FragmentQuestionList extends Fragment {
             subjectName = "math";
         }
 
-        FindSimilarQuestionRequest item = FindSimilarQuestionRequest.fromQuestion(mCurrentQuestion, ids.toString(), subjectName);
+        FindSimilarQuestionRequest item = FindSimilarQuestionRequest.fromQuestion(mQuestions.get(mCurrentQuestionIndex), ids.toString(), subjectName);
         ApiGateWayService.querySimilarExerciseList(item, ApiUrl.URL_QUERY_SIMILAR_EXERCISE, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
             @Override
             public void onSuccess(List<Question> q) {

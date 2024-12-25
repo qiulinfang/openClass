@@ -81,7 +81,7 @@ public class FragmentChatAi extends Fragment {
     private String tag = "";
 
     private boolean showHeader;
-    private boolean streamResponse;
+    private boolean streamDisplay;
     private boolean showHistory;
     private boolean initialSendEnable;
 
@@ -125,7 +125,7 @@ public class FragmentChatAi extends Fragment {
             chatBotUrl = getArguments().getString(KEY_PARAM_CHATBOT_URL);
             tag = getArguments().getString(KEY_PARAM_CHATBOT_TAG);
             showHeader = getArguments().getBoolean(KEY_PARAM_SHOW_HEADER);
-            streamResponse = getArguments().getBoolean(KEY_PARAM_STREAM_RESPONSE);
+            streamDisplay = getArguments().getBoolean(KEY_PARAM_STREAM_RESPONSE);
             showHistory = getArguments().getBoolean(KEY_PARAM_SHOW_HISTORY);
             initialSendEnable = getArguments().getBoolean(KEY_PARAM_INITIAL_SEND);
         }
@@ -197,7 +197,7 @@ public class FragmentChatAi extends Fragment {
         layout.setOnTagSelectListener((parent, selectedList) -> {
             if (selectedList != null && !selectedList.isEmpty()) {
                 String tag = mChatAdapterChatMessageTag.getItem(selectedList.get(0)).toString();
-                List<ChatMessageCatalogue> catalogues = ChatMessageHistoryDB.getInstance(requireContext()).getMessageCatalogueByTag(tag);
+                List<ChatMessageCatalogue> catalogues = ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).getMessageCatalogueByTag(tag);
                 mChatCatalogs.clear();
                 mChatCatalogs.addAll(catalogues);
                 mChatCatalogAdapter.notifyDataSetChanged();
@@ -213,7 +213,7 @@ public class FragmentChatAi extends Fragment {
                 view.findViewById(R.id.history_layout).setVisibility(View.VISIBLE);
                 view.findViewById(R.id.chat_input_area).setVisibility(View.GONE);
 
-                List<String> tags = ChatMessageHistoryDB.getInstance(requireActivity()).getAllMessageTags();
+                List<String> tags = ChatMessageHistoryDB.getInstance(requireActivity(), userInfoViewModel.userId.getValue()).getAllMessageTags();
                 mChatAdapterChatMessageTag.clearAndAddAll(tags);
             } else {
                 view.findViewById(R.id.history_layout).setVisibility(View.GONE);
@@ -228,7 +228,7 @@ public class FragmentChatAi extends Fragment {
 //            String selectedItem = (String) parent.getItemAtPosition(position);
 //            Toast.makeText(MainActivity.this, "Clicked: " + selectedItem, Toast.LENGTH_SHORT).show();
             ChatMessageCatalogue catalog = mChatCatalogs.get(position);
-            List<ChatMessage> msgs = ChatMessageHistoryDB.getInstance(requireContext()).getMessageDetail(catalog.date, catalog.tag);
+            List<ChatMessage> msgs = ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).getMessageDetail(catalog.date, catalog.tag);
             messageList.clear();
             messageList.addAll(msgs);
             adapterAiChatMesssageList.notifyDataSetChanged();
@@ -244,7 +244,7 @@ public class FragmentChatAi extends Fragment {
         }
 
         if(showHistory) {
-            List<ChatMessage> msgs = ChatMessageHistoryDB.getInstance(requireContext()).getMessageDetail(TimeUtils.timestampToDateString(System.currentTimeMillis()), tag);
+            List<ChatMessage> msgs = ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).getMessageDetail(TimeUtils.timestampToDateString(System.currentTimeMillis()), tag);
             messageList.addAll(msgs);
             adapterAiChatMesssageList.notifyDataSetChanged();
             recyclerView.scrollToPosition(messageList.size() - 1);
@@ -278,7 +278,7 @@ public class FragmentChatAi extends Fragment {
             requireActivity().runOnUiThread(() -> {
                 if (success) {
                     if(!response.trim().isEmpty() && !response.equals("end")) {
-                        adapterAiChatMesssageList.updateLastMessage(response, streamResponse);
+                        adapterAiChatMesssageList.updateLastMessage(response, streamDisplay);
                         Log.d("%%%%%%%%", response);
                     }
                     if(!response.equals("end")) {
@@ -289,14 +289,19 @@ public class FragmentChatAi extends Fragment {
                         if(mListener != null) {
                             mListener.onAiChatResponced(true);
                         }
-                        //ChatMessageHistoryDB.getInstance(requireContext()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
+                        if(!messageList.isEmpty()) {
+                            ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
+                        }
                     }
                 } else {
+                    adapterAiChatMesssageList.updateLastMessage("‼️消息接收失败", false);
                     btnSend.setEnabled(true);
                     if(mListener != null) {
                         mListener.onAiChatResponced(false);
                     }
-                    //ChatMessageHistoryDB.getInstance(requireContext()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
+                    if(!messageList.isEmpty()) {
+                        ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
+                    }
                 }
             });
         });
@@ -316,7 +321,7 @@ public class FragmentChatAi extends Fragment {
             messageList.add(message);
 
             etMessage.setText("");
-            ChatMessageHistoryDB.getInstance(requireContext()).easyAddMessageDetail(message);
+            ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).easyAddMessageDetail(message);
             ChatMessage responseMessage = new ChatMessage("",
                     false,
                     ChatMessage.TYPE_TEXT,
@@ -356,7 +361,7 @@ public class FragmentChatAi extends Fragment {
                 adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
                 etMessage.setText("");
 
-                ChatMessageHistoryDB.getInstance(requireContext()).easyAddMessageDetail(message);
+                ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).easyAddMessageDetail(message);
                 ChatMessage responseMessage = new ChatMessage(
                         "",
                         false,

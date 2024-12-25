@@ -137,6 +137,7 @@ public class LoginActivity extends AppCompatActivity {
         new Thread(() -> {
             try {
                 LoginRepository loginRepository = new LoginRepository();
+                userInfoViewModel.userId.postValue(userName);
                 // Perform login
                 String token = loginRepository.login(userName, passwd);
                 userInfoViewModel.token.postValue(token);

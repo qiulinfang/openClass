@@ -5,6 +5,12 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 
+import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModelStoreOwner;
+
+import com.cosinetech.imates.ApplicationModelShared;
+import com.cosinetech.imates.models.UserInfoViewModel;
+
 public class AppUtils {
     public static void restartApp(Context context) {
         Intent intent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
@@ -31,5 +37,12 @@ public class AppUtils {
         // 结束当前进程
         android.os.Process.killProcess(android.os.Process.myPid());
         System.exit(0);
+    }
+    public static String getUserId() {
+        UserInfoViewModel userInfoViewModel = new ViewModelProvider(
+                ApplicationModelShared.getInstance(),
+                new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance())
+        ).get(UserInfoViewModel.class);
+        return userInfoViewModel.userId.getValue();
     }
 }

@@ -37,15 +37,16 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
     private final ReentrantReadWriteLock.WriteLock writeLock = rwLock.writeLock();
     private SQLiteDatabase database;
 
-    private ChatMessageHistoryDB(Context context) {
-        super(context, DATABASE_NAME, null, DATABASE_VERSION);
-    }
-
-    public static synchronized ChatMessageHistoryDB getInstance(Context context) {
+    public static synchronized ChatMessageHistoryDB getInstance(Context context, String userId) {
         if (instance == null) {
-            instance = new ChatMessageHistoryDB(context.getApplicationContext());
+            String dbName = userId + DATABASE_NAME;
+            instance = new ChatMessageHistoryDB(context.getApplicationContext(), dbName);
         }
         return instance;
+    }
+
+    private ChatMessageHistoryDB(Context context, String dbName) {
+        super(context, dbName, null, DATABASE_VERSION);
     }
 
     @Override

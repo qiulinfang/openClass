@@ -28,24 +28,24 @@
             android:id="@+id/ai_guide"
             android:layout_width="32dp"
             android:layout_height="32dp"
-            android:background="@drawable/chatbot"
+            android:background="@drawable/button_chat_question"
             android:layout_gravity="center"
             android:stateListAnimator="@animator/button_click_scale"
-            android:layout_marginEnd="8dp"/>
+            android:layout_marginEnd="24dp"/>
 
         <Button
             android:id="@+id/move_to_top"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:background="@drawable/ontop"
             android:layout_gravity="center"
             android:stateListAnimator="@animator/button_click_scale"
-            android:layout_marginEnd="8dp"/>
+            android:layout_marginEnd="24dp"/>
 
         <Button
             android:id="@+id/delete"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:background="@drawable/delete"
             android:layout_gravity="center"
             android:stateListAnimator="@animator/button_click_scale"

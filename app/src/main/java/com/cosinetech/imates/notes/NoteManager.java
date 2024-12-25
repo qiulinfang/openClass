@@ -2,6 +2,8 @@ package com.cosinetech.imates.notes;
 
 import android.content.Context;
 
+import com.cosinetech.imates.util.AppUtils;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -13,7 +15,8 @@ public class NoteManager {
     private List<String> noteTitles;
 
     public NoteManager(Context context) {
-        dbHelper = new NoteDatabaseHelper(context);
+        String userId = AppUtils.getUserId();
+        dbHelper = NoteDatabaseHelper.getInstance(context, userId);
         noteList = new ArrayList<>();
         noteTitles = new ArrayList<>();
         loadNotes();

@@ -6,6 +6,11 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
+import androidx.lifecycle.ViewModelProvider;
+
+import com.cosinetech.imates.ApplicationModelShared;
+import com.cosinetech.imates.models.UserInfoViewModel;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,8 +22,21 @@ public class NoteDatabaseHelper extends SQLiteOpenHelper {
     private static final String KEY_TITLE = "title";
     private static final String KEY_CONTENT = "content";
 
-    public NoteDatabaseHelper(Context context) {
-        super(context, DATABASE_NAME, null, DATABASE_VERSION);
+    private static NoteDatabaseHelper instance = null;
+
+    public static NoteDatabaseHelper getInstance(Context context, String userId) {
+        String dbName = userId + DATABASE_NAME;
+        instance = new  NoteDatabaseHelper(context, dbName);
+        return instance;
+    }
+
+    private NoteDatabaseHelper(Context context, String dbName) {
+        super(context, dbName, null, DATABASE_VERSION);
+//        UserInfoViewModel userInfoViewModel = new ViewModelProvider(
+//                ApplicationModelShared.getInstance(),
+//                new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance())
+//        ).get(UserInfoViewModel.class);
+//        String userId = userInfoViewModel.userId.getValue().toString();
     }
 
     @Override

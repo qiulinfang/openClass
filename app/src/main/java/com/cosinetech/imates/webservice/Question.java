@@ -75,7 +75,13 @@ public class Question {
     @SerializedName("DAJX")
     public String DAJX = "";
 
+    /// 和显示相关的属性
+
+    // 题目是否已经加入了用户题库表
     public boolean atUserList = false;
+
+    // 此题目是否已经开始引导
+    public boolean isAiGuiding = false;
 
     private void emitNull() {
         if(this.bmNo == null) {
