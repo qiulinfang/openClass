@@ -16,19 +16,23 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.RadioButton;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.VideoView;
 
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.activities.MainActivity;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.widgets.ConstraintRadioGroup;
 import com.github.spareyaya.SimpleRatingView;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-
+import android.widget.MediaController;
 /**
  * A simple {@link Fragment} subclass.
  * Use the {@link FragmentPreviewLesson#newInstance} factory method to
@@ -82,6 +86,10 @@ public class FragmentPreviewLesson extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        if(!mPreviewSectionName.contains("5.1")) {
+            view.findViewById(R.id.teacher_video1).setVisibility(View.GONE);
+            view.findViewById(R.id.teacher_video2).setVisibility(View.GONE);
+        }
         String sectionId = mPreviewSection.getSection();
         TextView textPreview = view.findViewById(R.id.label);
         textPreview.setOnClickListener(new View.OnClickListener() {
@@ -212,6 +220,63 @@ public class FragmentPreviewLesson extends Fragment {
 //
 //                getContext().startActivity(intent);
             }
+        });
+
+
+        VideoView videoView = view.findViewById(R.id.video_view);
+        View video_layout = view.findViewById(R.id.video_area);
+        TextView textView1 = view.findViewById(R.id.teacher_video1);
+        TextView textView2 = view.findViewById(R.id.teacher_video2);
+
+        textView1.setOnClickListener(v->{
+            String path = requireActivity().getExternalFilesDir(null) + "/videos/1.mp4";
+            File file = new File(path);
+            if(file.exists()) {
+                video_layout.setVisibility(View.VISIBLE);
+                videoView.setVideoPath(path);
+                videoView.start();
+            } else {
+                Toast.makeText(requireContext(), "视频文件不存在", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        textView2.setOnClickListener(v->{
+            String path = requireActivity().getExternalFilesDir(null) + "/videos/2.mp4";
+            File file = new File(path);
+            if(file.exists()) {
+                video_layout.setVisibility(View.VISIBLE);
+                videoView.setVideoPath(path);
+                videoView.start();
+            } else {
+                Toast.makeText(requireContext(), "视频文件不存在", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        MediaController mediaController = new MediaController(requireContext());
+        mediaController.setAnchorView(videoView);
+        // 控制 MediaController 显示时间
+        mediaController.setVisibility(View.VISIBLE);
+        videoView.setMediaController(mediaController);
+
+        videoView.setOnPreparedListener(mp -> {
+            float videoRatio = mp.getVideoWidth() / (float) mp.getVideoHeight();
+            float screenRatio = videoView.getWidth() / (float) videoView.getHeight();
+            float scaleX = videoRatio / screenRatio;
+            if (scaleX >= 1f) {
+                videoView.setScaleX(scaleX);
+            } else {
+                videoView.setScaleY(1f / scaleX);
+            }
+        });
+
+        videoView.setOnCompletionListener(mp-> {
+
+        });
+
+        Button buttonExitVideo = view.findViewById(R.id.btn_exit_video);
+        buttonExitVideo.setOnClickListener(v->{
+            videoView.stopPlayback();
+            video_layout.setVisibility(View.GONE);
         });
     }
 

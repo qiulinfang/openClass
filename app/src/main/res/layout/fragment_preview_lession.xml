@@ -96,6 +96,31 @@
         app:layout_constraintEnd_toStartOf="@id/guideline"
         app:layout_constraintTop_toBottomOf="@id/tool_bar" />
 
+    <TextView
+        android:id="@+id/teacher_video1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="18sp"
+        android:textColor="#0000FF"
+        android:text="第一课时视频课"
+        android:clickable="true"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/schema_tip"/>
+    <TextView
+        android:id="@+id/teacher_video2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="18sp"
+        android:textColor="#0000FF"
+        android:text="第二课时视频课"
+        android:clickable="true"
+        android:layout_marginStart="36dp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintStart_toEndOf="@id/teacher_video1"
+        app:layout_constraintTop_toBottomOf="@id/schema_tip"/>
+
     <RadioButton
         android:id="@+id/opt_scheme_1"
         android:layout_width="wrap_content"
@@ -107,7 +132,7 @@
         android:text="方案一"
         android:textSize="@dimen/head0_size"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/schema_tip" />
+        app:layout_constraintTop_toBottomOf="@id/teacher_video1" />
 
     <TextView
         android:id="@+id/schema_1_stat"
@@ -129,7 +154,7 @@
         android:text="方案二"
         android:textSize="@dimen/head0_size"
         app:layout_constraintStart_toEndOf="@id/opt_scheme_1"
-        app:layout_constraintTop_toBottomOf="@id/schema_tip" />
+        app:layout_constraintTop_toBottomOf="@id/teacher_video1" />
 
     <TextView
         android:id="@+id/schema_2_stat"
@@ -331,5 +356,29 @@
             android:layout_height="match_parent"
             android:textColor="#000000"/>
     </ScrollView>
+
+    <RelativeLayout
+        android:id="@+id/video_area"
+        android:background="#000000"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:visibility="gone">
+        <VideoView
+            android:id="@+id/video_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentBottom="true"
+            android:layout_gravity="center_vertical" />
+        <Button
+            android:id="@+id/btn_exit_video"
+            android:background="@drawable/ic_back"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_margin="16dp"/>
+    </RelativeLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
