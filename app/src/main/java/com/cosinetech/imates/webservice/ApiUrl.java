@@ -4,24 +4,18 @@ public class ApiUrl {
     // ========test local
 //     private static final String baseUrl = "http://192.168.1.153:8222/blw-edu-service-alc";
 //     public static final String URL_RESOURCE_BASE = "https://192.168.1.153";
-//     public static final String URL_LOGIN = "http://192.168.1.153:8222/blw-edu-service-alc/admin/login";
-//     public static final String URL_USER_INFO = "http://192.168.1.153:8222/blw-edu-service-alc/admin/info";
-//     public static final  String URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE = "http://192.168.1.153:8222/blw-edu-service-alc/biologyTopicKnowledge/knowledgeTopicAndAck";
 
     // ========test shocode
 //    private static final String baseUrl = "https://api.showcode.xyz/blw-edu-service-alc/permission";
 //    public static final String URL_RESOURCE_BASE = "https://study.showcode.xyz";
-//    public static final String URL_LOGIN = "https://api.showcode.xyz/blw-edu-service-alc/admin/login";
-//    public static final String URL_USER_INFO = "https://api.showcode.xyz/blw-edu-service-alc/admin/info";
 
     // =========imates
     private static final String baseUrl = "http://www.imates.com.cn:8222/blw-edu-service-alc";
     public static final String URL_RESOURCE_BASE = "https://www.imates.com.cn";
     // public static final String URL_APP_UPDATE = URL_RESOURCE_BASE + "/appupdate.json";
     public static final String URL_APP_UPDATE = "https://www.imates.com.cn/appupdate.json";
-    public static final String URL_LOGIN = "http://www.imates.com.cn:8222/blw-edu-service-alc/admin/login";
-    public static final String URL_USER_INFO = "http://www.imates.com.cn:8222/blw-edu-service-alc/admin/info";
-
+    public static final String URL_LOGIN = baseUrl + "/admin/login";
+    public static final String URL_USER_INFO = baseUrl + "/admin/info";
     public static final String URL_QUESTION_IMAGE_RECOGNISE_BIOLOGY = baseUrl + "/permission/img";
     public static final String URL_QUESTION_IMAGE_RECOGNISE_MATH = baseUrl + "/permission/imgMath";
     public static final String URL_CHAT_GENERAL = baseUrl + "/permission/chats";
