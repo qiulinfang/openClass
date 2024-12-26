@@ -206,12 +206,12 @@ public class FragmentPreviewLesson extends Fragment {
                 textView.setTextColor(Color.GREEN);
 
                 Intent intent = new Intent(getContext(), com.cosinetech.imates.pdfui.PDFActivity.class);
-                intent.putExtra("AssetsPdf","biology/chapter5/text_book.pdf");
+                intent.putExtra("AssetsPdf", mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getTextBook());
                 intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
                 intent.putExtra("Section", mPreviewSection);
                 getContext().startActivity(intent);
 
-//                Uri uri = Uri.parse(getContext().getExternalFilesDir(null) + "/biology/chapter5/text_book.pdf");
+//                Uri uri = Uri.parse(getContext().getExternalFilesDir(null) + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getTextBook());
 //                Intent intent = new Intent(getContext(), MuPDFActivity.class);
 //                intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
 //                intent.putExtra("Section", mPreviewSection);
