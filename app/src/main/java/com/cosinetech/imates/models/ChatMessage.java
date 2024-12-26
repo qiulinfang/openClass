@@ -18,6 +18,10 @@ public class ChatMessage {
     public boolean isHistory; // 是否是加载的历史消息
     public int currentDisplayCharIndex;  //流式显示的字符索引
 
+    public boolean chatEnd = false; //是否已经接收完
+
+    public boolean isSpeaking; //是否正在语音播放
+
     public ChatMessage(String content, boolean isSelf, int type, boolean isHistory, String sessionId, String tag, long timestamp) {
         this.content = content;
         this.isSelf = isSelf;

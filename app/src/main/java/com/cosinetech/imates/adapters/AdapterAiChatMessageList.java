@@ -1,6 +1,8 @@
 package com.cosinetech.imates.adapters;
 
+import android.graphics.drawable.AnimationDrawable;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,10 +12,14 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
+import com.cosinetech.imates.ApplicationModelShared;
+import com.cosinetech.imates.SingleAudioPlayer;
+import com.cosinetech.imates.Tts2File;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.widgets.MarkdownTextView;
 
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -110,16 +116,46 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         if (holder instanceof DateViewHolder) {
             ((DateViewHolder) holder).tvDate.setText(message.content);
         } else if (holder instanceof TextViewHolder) {
-            if(message.isSelf || message.isHistory) {
+            if(message.isSelf) {
                 ((TextViewHolder) holder).tvMessage.setContent(message.content);
             } else {
-                ((TextViewHolder) holder).tvMessage.setChatMessage(message);
-                if(message.content.isEmpty()) {
-                    ((TextViewHolder) holder).tvMessage.clearContent();
+                ImageView imageView = ((TextViewHolder) holder).imgSpeak;
+                if(message.isHistory) {
+                    ((TextViewHolder) holder).tvMessage.setContent(message.content);
+                    imageView.setVisibility(View.VISIBLE);
+                } else {
+                    ((TextViewHolder) holder).tvMessage.setChatMessage(message);
+                    if (message.content.isEmpty()) {
+                        ((TextViewHolder) holder).tvMessage.clearContent();
+                    }
+                    ((TextViewHolder) holder).tvMessage.startStreaming();
+                    Log.d("@@@@@@@@", pos + "-" + message.content);
                 }
-                ((TextViewHolder) holder).tvMessage.startStreaming();
-                Log.d("@@@@@@@@", pos + "-" + message.content);
+
+                if(message.isHistory || message.chatEnd) {
+                    imageView.setVisibility(View.VISIBLE);
+                } else {
+                    imageView.setVisibility(View.GONE);
+                }
+
+                imageView.setOnClickListener(v -> {
+                    if(message.isSpeaking) {
+                        String fileName = Tts2File.StreamAuidoDataToSpeaker(ApplicationModelShared.getInstance(),
+                                message.content);
+                        if(fileName != null && !fileName.isEmpty()) {
+                            File file = new File(fileName);
+                            Uri uri = Uri.fromFile(file);
+                            SingleAudioPlayer.getInstance((ApplicationModelShared.getInstance())).play(uri);
+                            imageView.setBackgroundResource(R.drawable.speak_stop);
+                        }
+                    } else {
+                        SingleAudioPlayer.getInstance(ApplicationModelShared.getInstance()).stop();
+                        imageView.setBackgroundResource(R.drawable.speaker_s3);
+                    }
+                    message.isSpeaking = !message.isSpeaking;
+                });
             }
+
         } else if (holder instanceof ImageViewHolder) {
             Glide.with(holder.itemView.getContext())
                     .load(message.content)
@@ -156,6 +192,14 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             notifyItemChanged(messageList.size() - 1); // 更新最后一个消息
         }
     }
+
+    public void lastMessageChatEnd() {
+        if (!messageList.isEmpty()) {
+            ChatMessage lastMessage = messageList.get(messageList.size() - 1);
+            lastMessage.chatEnd = true;
+            notifyItemChanged(messageList.size() - 1); // 更新最后一个消息
+        }
+    }
     public void updateLastMessage(String newContent) {
         if (!messageList.isEmpty()) {
             ChatMessage lastMessage = messageList.get(messageList.size() - 1);
@@ -174,10 +218,12 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
 
     static class TextViewHolder extends RecyclerView.ViewHolder {
         private MarkdownTextView tvMessage;
+        private ImageView imgSpeak;
 
         public TextViewHolder(@NonNull View itemView) {
             super(itemView);
             tvMessage = itemView.findViewById(R.id.tv_message);
+            imgSpeak = itemView.findViewById(R.id.speak_it);
         }
     }
 

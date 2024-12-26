@@ -302,9 +302,12 @@ public class FragmentChatAi extends Fragment {
                             app.chatRequest = null;
                         }
                         aiChatMessageRequest.setDstUrl("");
+                        adapterAiChatMesssageList.lastMessageChatEnd();
                     }
                 } else {
                     adapterAiChatMesssageList.updateLastMessage("‼️消息接收失败", false);
+                    adapterAiChatMesssageList.lastMessageChatEnd();
+
                     btnSend.setEnabled(true);
                     if(mListener != null) {
                         mListener.onAiChatResponced(false);
