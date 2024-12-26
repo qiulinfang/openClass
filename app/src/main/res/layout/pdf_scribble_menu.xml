@@ -1,8 +1,8 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:background="#ffffff"
+    android:orientation="horizontal"
+    android:background="#EFEFCF"
     android:padding="8dp">
 
     <TextView
@@ -11,6 +11,7 @@
         android:layout_height="wrap_content"
         android:focusable="true"
         android:text="问AI"
+        android:textSize="24sp"
         android:clickable="true"
         android:padding="8dp" />
 
@@ -20,6 +21,8 @@
         android:layout_height="wrap_content"
         android:focusable="true"
         android:text="记笔记"
+        android:textSize="24sp"
         android:clickable="true"
+        android:layout_marginStart="16dp"
         android:padding="8dp" />
 </LinearLayout>
