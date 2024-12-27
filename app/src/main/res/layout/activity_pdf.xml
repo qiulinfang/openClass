@@ -25,161 +25,159 @@
             android:layout_alignParentBottom="true"
             android:layout_marginEnd="0dp"
             android:layout_marginBottom="0dp" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <ImageView
-            android:id="@+id/imgBrushSize"
-            android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="@dimen/top_tool_icon_width"
-            android:background="@color/semi_black_transparent"
-            android:focusable="true"
-            android:padding="8dp"
-            android:clickable="true"
-            android:layout_marginEnd="16dp"
-            android:src="@drawable/ic_pen_circle"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/colorIndicator"/>
-
-        <TextView
-            android:id="@+id/colorIndicator"
-            android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="@dimen/top_tool_icon_width"
-            android:gravity="center"
-            android:text="❁"
-            android:textSize="28dp"
-            android:textColor="#000000"
-            android:background="@color/semi_black_transparent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/imgPalette"/>
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:layout_marginTop="150dp"
+        android:layout_alignParentEnd="true">
 
         <com.litao.slider.NiftySlider
             android:id="@+id/niftySlider"
-            android:layout_width="0dp"
+            android:layout_width="200dp"
             android:layout_height="wrap_content"
-            android:padding="16dp"
             android:value="10"
             android:valueFrom="1"
             android:valueTo="100"
             android:visibility="gone"
-            app:layout_constraintStart_toStartOf="@id/imgBrushSize"
-            app:layout_constraintTop_toBottomOf="@id/imgBrushSize"
-            app:layout_constraintEnd_toEndOf="@id/imgRedo"
             app:trackColor="@color/m3_demo_track_color"
             app:trackColorInactive="@color/m3_demo_track_inactive_color"
             app:thumbColor="@color/m3_demo_thumb_color"
             app:thumbShadowColor="@color/white"
             app:haloColor="@color/m3_demo_halo_color"/>
 
-        <ImageView
-            android:id="@+id/imgPalette"
-            android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="@dimen/top_tool_icon_width"
-            android:gravity="center"
-            android:background="@color/semi_black_transparent"
-            android:padding="8dp"
-            android:clickable="true"
-            android:layout_marginEnd="16dp"
-            android:src="@drawable/ic_palette"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/imgBrush"/>
-
-        <ImageView
-            android:id="@+id/imgBrush"
-            android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="@dimen/top_tool_icon_width"
-            android:gravity="center"
-            android:background="@color/semi_black_transparent"
-            android:padding="8dp"
-            android:clickable="true"
-            android:src="@drawable/ic_brush"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toEndOf="@id/guideline2"/>
-
-        <ImageView
-            android:id="@+id/imgErase"
-            android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="@dimen/top_tool_icon_width"
-            android:gravity="center"
-            android:background="@color/semi_black_transparent"
-            android:padding="8dp"
-            android:clickable="true"
-            android:src="@drawable/ic_eraser"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toEndOf="@id/imgBrush"/>
-
-
-        <ImageView
-            android:id="@+id/imgSelectArea"
-            android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="@dimen/top_tool_icon_width"
-            android:gravity="center"
-            android:background="@color/semi_black_transparent"
-            android:padding="8dp"
-            android:clickable="true"
-            android:src="@drawable/ic_area"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toEndOf="@id/imgErase" />
-
-        <ImageView
-            android:id="@+id/imgUndo"
-            android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="@dimen/top_tool_icon_width"
-            android:gravity="center"
-            android:background="@color/semi_black_transparent"
-            android:padding="8dp"
-            android:clickable="true"
-            android:src="@drawable/undo"
-            android:layout_marginStart="16dp"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toEndOf="@id/imgSelectArea"/>
-
-        <ImageView
-            android:id="@+id/imgRedo"
-            android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="@dimen/top_tool_icon_width"
-            android:gravity="center"
-            android:background="@color/semi_black_transparent"
-            android:padding="8dp"
-            android:clickable="true"
-            android:src="@drawable/redo"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toEndOf="@id/imgUndo" />
-
-        <ImageView
-            android:id="@+id/imgOK"
-            android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="@dimen/top_tool_icon_width"
-            android:gravity="center"
-            android:background="@color/semi_black_transparent"
-            android:padding="8dp"
-            android:clickable="true"
-            android:src="@drawable/ic_ok2"
-            android:visibility="gone"
-            android:layout_marginStart="32dp"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toEndOf="@id/imgRedo" />
-
-        <ImageView
-            android:id="@+id/imgCancel"
-            android:layout_width="@dimen/top_tool_icon_width"
-            android:layout_height="@dimen/top_tool_icon_width"
-            android:focusable="true"
-            android:gravity="center"
-            android:background="@color/semi_black_transparent"
-            android:padding="8dp"
-            android:clickable="true"
-            android:src="@drawable/ic_cancel"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toEndOf="@id/imgOK" />
-
-        <androidx.constraintlayout.widget.Guideline
-            android:id="@+id/guideline2"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            app:layout_constraintGuide_percent="0.6" />
+            android:orientation="vertical">
+            <ImageView
+                android:id="@+id/imgBrushSize"
+                android:layout_width="@dimen/top_tool_icon_width"
+                android:layout_height="@dimen/top_tool_icon_width"
+                android:background="@color/semi_black_transparent"
+                android:focusable="true"
+                android:padding="8dp"
+                android:clickable="true"
+                android:layout_marginEnd="48dp"
+                android:src="@drawable/ic_pen_circle"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/colorIndicator"/>
 
+            <TextView
+                android:id="@+id/colorIndicator"
+                android:layout_width="@dimen/top_tool_icon_width"
+                android:layout_height="@dimen/top_tool_icon_width"
+                android:gravity="center"
+                android:text="❁"
+                android:textSize="28dp"
+                android:textColor="#000000"
+                android:background="@color/semi_black_transparent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/imgPalette"/>
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+            <ImageView
+                android:id="@+id/imgPalette"
+                android:layout_width="@dimen/top_tool_icon_width"
+                android:layout_height="@dimen/top_tool_icon_width"
+                android:gravity="center"
+                android:background="@color/semi_black_transparent"
+                android:padding="8dp"
+                android:clickable="true"
+                android:layout_marginEnd="16dp"
+                android:src="@drawable/ic_palette"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/imgBrush"/>
+
+            <ImageView
+                android:id="@+id/imgBrush"
+                android:layout_width="@dimen/top_tool_icon_width"
+                android:layout_height="@dimen/top_tool_icon_width"
+                android:gravity="center"
+                android:background="@color/semi_black_transparent"
+                android:padding="8dp"
+                android:clickable="true"
+                android:src="@drawable/ic_brush" />
+
+            <ImageView
+                android:id="@+id/imgErase"
+                android:layout_width="@dimen/top_tool_icon_width"
+                android:layout_height="@dimen/top_tool_icon_width"
+                android:gravity="center"
+                android:background="@color/semi_black_transparent"
+                android:padding="8dp"
+                android:clickable="true"
+                android:src="@drawable/ic_eraser"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toEndOf="@id/imgBrush"/>
+
+            <ImageView
+                android:id="@+id/imgSelectArea"
+                android:layout_width="@dimen/top_tool_icon_width"
+                android:layout_height="@dimen/top_tool_icon_width"
+                android:gravity="center"
+                android:background="@color/semi_black_transparent"
+                android:padding="8dp"
+                android:clickable="true"
+                android:src="@drawable/ic_area"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toEndOf="@id/imgErase" />
+
+            <ImageView
+                android:id="@+id/imgUndo"
+                android:layout_width="@dimen/top_tool_icon_width"
+                android:layout_height="@dimen/top_tool_icon_width"
+                android:gravity="center"
+                android:background="@color/semi_black_transparent"
+                android:padding="8dp"
+                android:clickable="true"
+                android:src="@drawable/undo"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toEndOf="@id/imgSelectArea"/>
+
+            <ImageView
+                android:id="@+id/imgRedo"
+                android:layout_width="@dimen/top_tool_icon_width"
+                android:layout_height="@dimen/top_tool_icon_width"
+                android:gravity="center"
+                android:background="@color/semi_black_transparent"
+                android:padding="8dp"
+                android:clickable="true"
+                android:src="@drawable/redo"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toEndOf="@id/imgUndo" />
+
+            <ImageView
+                android:id="@+id/imgOK"
+                android:layout_width="@dimen/top_tool_icon_width"
+                android:layout_height="@dimen/top_tool_icon_width"
+                android:gravity="center"
+                android:background="@color/semi_black_transparent"
+                android:padding="8dp"
+                android:clickable="true"
+                android:src="@drawable/ic_ok2"
+                android:visibility="gone"
+                android:layout_marginStart="32dp"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toEndOf="@id/imgRedo" />
+
+            <ImageView
+                android:id="@+id/imgCancel"
+                android:layout_width="@dimen/top_tool_icon_width"
+                android:layout_height="@dimen/top_tool_icon_width"
+                android:focusable="true"
+                android:gravity="center"
+                android:background="@color/semi_black_transparent"
+                android:padding="8dp"
+                android:clickable="true"
+                android:src="@drawable/ic_cancel"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toEndOf="@id/imgOK" />
+
+        </LinearLayout>
+
+    </LinearLayout>
 
 
 </RelativeLayout>

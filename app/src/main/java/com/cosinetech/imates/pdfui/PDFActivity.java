@@ -1,7 +1,6 @@
 package com.cosinetech.imates.pdfui;
 
 import android.content.Intent;
-import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
@@ -123,8 +122,8 @@ public class PDFActivity extends AppCompatActivity implements
         paintToolView = findViewById(R.id.img_edit_layout);
         paintToolView.setVisibility(View.GONE);
 
-        //默认选择画笔
-        btnUseBrush.setBackgroundColor(getColor(selectionColorId));
+        // 默认选择画笔
+        // btnUseBrush.setBackgroundColor(getColor(selectionColorId));
 
         paintView.addDrawingChangeListener(new DrawingChangeListener() {
             @Override
@@ -209,6 +208,7 @@ public class PDFActivity extends AppCompatActivity implements
 
         btnUseBrush.setOnClickListener(
             v -> {
+                enterScratchMode();
                 resetPaintToolSelect();
                 paintView.disableEraser();
                 paintView.disableSelection();
@@ -218,6 +218,7 @@ public class PDFActivity extends AppCompatActivity implements
 
         btnUseEraser.setOnClickListener(
                v-> {
+                   enterScratchMode();
                    resetPaintToolSelect();
                    paintView.enableEraser();
                    paintView.disableSelection();
@@ -228,6 +229,7 @@ public class PDFActivity extends AppCompatActivity implements
         btnSelectArea.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                enterScratchMode();
                 resetPaintToolSelect();
                 paintView.enableSelection();
                 paintView.disableEraser();
@@ -248,8 +250,7 @@ public class PDFActivity extends AppCompatActivity implements
         });
 
         btnCancel.setOnClickListener( v -> {
-            paintToolView.setVisibility(View.GONE);
-            EasyFloat.show();
+            exitScratchMode();
         });
 
         initView();//初始化view
@@ -312,11 +313,7 @@ public class PDFActivity extends AppCompatActivity implements
 
                             Button btnScratch = view.findViewById(R.id.btn_scratch);
                             btnScratch.setOnClickListener(v->{
-                                Bitmap bmp = WindowUtils.getScreenshot2Bitmap(PDFActivity.this, pdfView);
-                                EasyFloat.hide();
-                                paintView.setBitmap(bmp);
-                                //paintView.setBackgroundColor(Color.TRANSPARENT);
-                                paintToolView.setVisibility(View.VISIBLE);
+                                enterScratchMode();
                             });
 
                             // tool bar
@@ -411,6 +408,24 @@ public class PDFActivity extends AppCompatActivity implements
                     public void dragEnd(@NotNull View view) { }
                 })
                 .show();
+    }
+
+    private void enterScratchMode() {
+        if(paintToolView.getVisibility() != View.VISIBLE) {
+            Bitmap bmp = WindowUtils.getScreenshot2Bitmap(PDFActivity.this, pdfView);
+            EasyFloat.hide();
+            paintView.setBitmap(bmp);
+            //paintView.setBackgroundColor(Color.TRANSPARENT);
+            paintToolView.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void exitScratchMode() {
+        if(paintToolView.getVisibility() == View.VISIBLE) {
+            paintToolView.setVisibility(View.GONE);
+            EasyFloat.show();
+        }
+        resetPaintToolSelect();
     }
 
     private void closeFloatPDFTools() {
