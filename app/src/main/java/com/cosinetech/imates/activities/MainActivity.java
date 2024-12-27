@@ -8,6 +8,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.cosinetech.imates.ApplicationModelShared;
@@ -25,6 +26,8 @@ import com.cosinetech.imates.service.FloatingWindowService;
 import com.cosinetech.imates.util.VersionUtils;
 import com.cosinetech.imates.util.WindowUtils;
 
+import androidx.compose.ui.unit.Dp;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -60,7 +63,6 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
         ActivityMainBinding binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-
         ViewPager2 viewPager = findViewById(R.id.view_pager);
         // 禁止滑动翻页
         viewPager.setUserInputEnabled(false);
@@ -77,13 +79,13 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
         fragmentList.add(FragmentSubjectChemistry.newInstance("", ""));
 
         List<TabItemAttribute> tabItems = new ArrayList<>(
-                Arrays.asList(new TabItemAttribute(getString(R.string.student_status_title), R.drawable.ic_student_status),
-                        new TabItemAttribute(getString(R.string.subject_name_biology), R.drawable.ic_subject_biology),
-                        new TabItemAttribute(getString(R.string.subject_name_math), R.drawable.ic_subject_math),
-                        new TabItemAttribute(getString(R.string.subject_name_chinese), R.drawable.ic_subject_chinese),
-                        new TabItemAttribute(getString(R.string.subject_name_english), R.drawable.ic_subject_english),
-                        new TabItemAttribute(getString(R.string.subject_name_physics), R.drawable.ic_subject_physics),
-                        new TabItemAttribute(getString(R.string.subject_name_chemistry), R.drawable.ic_subject_chemistryl)));
+                Arrays.asList(new TabItemAttribute(getString(R.string.student_status_title), R.drawable.main_ic_my),
+                        new TabItemAttribute(getString(R.string.subject_name_biology), R.drawable.main_ic_biology),
+                        new TabItemAttribute(getString(R.string.subject_name_math), R.drawable.main_ic_math),
+                        new TabItemAttribute(getString(R.string.subject_name_chinese), R.drawable.main_ic_chinese),
+                        new TabItemAttribute(getString(R.string.subject_name_english), R.drawable.main_ic_english),
+                        new TabItemAttribute(getString(R.string.subject_name_physics), R.drawable.main_ic_physics),
+                        new TabItemAttribute(getString(R.string.subject_name_chemistry), R.drawable.main_ic_chemistry)));
 
         // 创建并设置适配器
         AdapterSubjectViewPager adapter = new AdapterSubjectViewPager(this, fragmentList);
@@ -106,6 +108,52 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
             // 设置自定义视图到 Tab
             tab.setCustomView(customView);
         }).attach();
+
+        tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                // 获取当前选中的 Tab 的自定义 View
+                View tabView = tab.getCustomView();
+                if (tabView == null)
+                    return;
+
+                // 调整选中 Tab 的高度
+                ImageView icon = tabView.findViewById(R.id.tab_icon);
+                LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) icon.getLayoutParams();
+                params.bottomMargin = 20; // 选中时距离底部的高度
+                icon.setLayoutParams(params);
+
+                // 改变文字颜色或其他样式
+                TextView text = tabView.findViewById(R.id.tab_text);
+                text.setTextColor(ContextCompat.getColor(MainActivity.this, R.color.black));
+                text.setTextSize(24);
+            }
+
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {
+                // 恢复未选中状态的高度
+                View tabView = tab.getCustomView();
+                if (tabView == null) return;
+
+                // 调整选中 Tab 的高度
+                ImageView icon = tabView.findViewById(R.id.tab_icon);
+                LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) icon.getLayoutParams();
+                params.bottomMargin = 0; // 选中时距离底部的高度
+                icon.setLayoutParams(params);
+
+                // 改变文字颜色或其他样式
+                TextView text = tabView.findViewById(R.id.tab_text);
+                text.setTextColor(ContextCompat.getColor(MainActivity.this, R.color.gray3));
+                text.setTextSize(16);
+            }
+
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {
+                // 可根据需要处理重复选中事件
+            }
+        });
+
+        viewPager.setCurrentItem(0, true);
 
         stopFloatingWndowService();
         startFloatingWindowService();

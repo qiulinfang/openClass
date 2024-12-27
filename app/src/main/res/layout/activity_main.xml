@@ -16,18 +16,28 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
+    <ImageView
+        android:layout_width="0dp"
+        android:layout_height="64dp"
+        android:src="@drawable/main_ic_tab_bg"
+        app:layout_constraintStart_toStartOf="@id/tab_layout"
+        app:layout_constraintEnd_toEndOf="@id/tab_layout"
+        app:layout_constraintBottom_toBottomOf="@id/tab_layout"/>
+
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tab_layout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:layout_height="128dp"
         app:tabGravity="center"
-        app:tabIndicatorFullWidth="true"
+        app:tabIndicatorFullWidth="false"
         app:tabIndicatorColor="@android:color/white"
-        app:tabIndicatorHeight="2dp"
+        app:tabIndicatorHeight="0dp"
         app:tabMode="scrollable"
+
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        style="@style/CustomTabLayout">
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
     </com.google.android.material.tabs.TabLayout>
     <TextView
         android:id="@+id/version"
