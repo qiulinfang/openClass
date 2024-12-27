@@ -153,7 +153,29 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
             }
         });
 
-        viewPager.setCurrentItem(0, true);
+        tabLayout.post(new Runnable() {
+            @Override
+            public void run() {
+                TabLayout.Tab firstTab = tabLayout.getTabAt(0); // 获取第一个 Tab
+                if (firstTab != null) {
+                    firstTab.select(); // 选中第一个 Tab
+
+                    // 调整选中状态的高度
+                    View tabView = firstTab.getCustomView();
+                    if (tabView != null) {
+                        ImageView icon = tabView.findViewById(R.id.tab_icon);
+                        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) icon.getLayoutParams();
+                        params.bottomMargin = 20; // 设置选中状态的高度
+                        icon.setLayoutParams(params);
+
+                        // 改变文字颜色
+                        TextView text = tabView.findViewById(R.id.tab_text);
+                        text.setTextColor(ContextCompat.getColor(MainActivity.this, R.color.black));
+                        text.setTextSize(24);
+                    }
+                }
+            }
+        });
 
         stopFloatingWndowService();
         startFloatingWindowService();
