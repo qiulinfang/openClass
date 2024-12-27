@@ -35,7 +35,8 @@ public class FloatingWindowService extends Service {
     private FragmentManagerProvider fragmentManagerProvider;
     private WindowManager windowManager;
     private WindowManager.LayoutParams layoutParams;
-    private View floatingView;
+    private View floatingRobotView;
+    private View popupChatView;
 
     public FloatingWindowService() {
     }
@@ -59,21 +60,21 @@ public class FloatingWindowService extends Service {
 
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         layoutParams = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT);
 
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
-        floatingView = inflater.inflate(R.layout.floating_robot, null);
+        floatingRobotView = inflater.inflate(R.layout.floating_robot, null);
         // 初始位置
-        layoutParams.x = ScreenUtils.getScreenWidth(this) - floatingView.getWidth() - 10;
-        layoutParams.y = ScreenUtils.getScreenHeight(this) - floatingView.getHeight() - 10;
+        layoutParams.x = ScreenUtils.getScreenWidth(this) - floatingRobotView.getWidth() - 10;
+        layoutParams.y = ScreenUtils.getScreenHeight(this) - floatingRobotView.getHeight() - 10;
 //        layoutParams.gravity = Gravity.BOTTOM | Gravity.END;
-        windowManager.addView(floatingView, layoutParams);
+        windowManager.addView(floatingRobotView, layoutParams);
 
-        LottieAnimationView lottieAnimationView = floatingView.findViewById(R.id.lottie_animation_view);
+        LottieAnimationView lottieAnimationView = floatingRobotView.findViewById(R.id.lottie_animation_view);
         lottieAnimationView.setOnTouchListener(new View.OnTouchListener() {
             private int initialX;
             private int initialY;
@@ -99,7 +100,7 @@ public class FloatingWindowService extends Service {
                         // 更新悬浮窗的位置
                         layoutParams.x = initialX + offsetX;
                         layoutParams.y = initialY + offsetY;
-                        windowManager.updateViewLayout(floatingView, layoutParams);
+                        windowManager.updateViewLayout(floatingRobotView, layoutParams);
                         Log.d("?????????", "onTouch: " + layoutParams.x  + "," + layoutParams.y);
                         return true;
 
@@ -118,7 +119,7 @@ public class FloatingWindowService extends Service {
         });
 
         // 使悬浮窗可拖动
-        floatingView.setOnTouchListener(new View.OnTouchListener() {
+        floatingRobotView.setOnTouchListener(new View.OnTouchListener() {
             private int initialX;
             private int initialY;
             private float initialTouchX;
@@ -136,7 +137,7 @@ public class FloatingWindowService extends Service {
                     case MotionEvent.ACTION_MOVE:
                         layoutParams.x = initialX + (int) (event.getRawX() - initialTouchX);
                         layoutParams.y = initialY + (int) (event.getRawY() - initialTouchY);
-                        windowManager.updateViewLayout(floatingView, layoutParams);
+                        windowManager.updateViewLayout(floatingRobotView, layoutParams);
                         return true;
                 }
                 return true;
@@ -144,15 +145,102 @@ public class FloatingWindowService extends Service {
         });
     }
 
-    public FragmentChatAi popupChatBot(String url, String tag) {
+    public void popupChatBot1(String url, String tag) {
+        int screenWidth = ScreenUtils.getScreenWidth(this);
+        int screenHeight = ScreenUtils.getScreenHeight(this);
+
+        // 配置 LayoutParams
+        WindowManager.LayoutParams layoutPopup = new WindowManager.LayoutParams(
+                screenWidth / 2 + screenWidth / 4,
+                screenHeight,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, // 确保权限
+                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM, // 根据需要调整 FLAG
+                PixelFormat.TRANSLUCENT
+        );
+
+        layoutParams.flags &= ~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+        layoutParams.flags |= WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM;
+
+        layoutPopup.gravity = Gravity.TOP | Gravity.START; // 显示位置
+        layoutPopup.x = screenWidth / 2;
+        layoutPopup.y = 0;
+
+        // 初始化并加载布局
+        popupChatView = LayoutInflater.from(this).inflate(R.layout.popup_window_chat, null);
+        windowManager.addView(popupChatView, layoutPopup);
+
+        // 添加交互事件
+        popupChatView.setOnTouchListener(new View.OnTouchListener() {
+            private int initialX;
+            private int initialY;
+            private float initialTouchX;
+            private float initialTouchY;
+
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        initialX = layoutPopup.x;
+                        initialY = layoutPopup.y;
+                        initialTouchX = event.getRawX();
+                        initialTouchY = event.getRawY();
+                        return true;
+
+                    case MotionEvent.ACTION_MOVE:
+                        layoutPopup.x = initialX + (int) (event.getRawX() - initialTouchX);
+                        layoutPopup.y = initialY + (int) (event.getRawY() - initialTouchY);
+                        windowManager.updateViewLayout(popupChatView, layoutPopup);
+                        return true;
+                }
+                return false;
+            }
+        });
+
+        Button btnExit = popupChatView.findViewById(R.id.btn_exit);
+        btnExit.setOnClickListener(v-> {
+            windowManager.removeView(popupChatView);
+            popupChatView = null;
+        });
+
+        // 加载 Fragment
+        FragmentManager fragmentManager = fragmentManagerProvider.getFragmentManagerForFloatingWindow(popupChatView);
+        FragmentTransaction transaction = fragmentManager.beginTransaction();
+        transaction.setCustomAnimations(
+                R.anim.fragment_enter, // enter animation
+                R.anim.fragment_exit,  // exit animation
+                R.anim.fragment_enter, // popEnter animation
+                R.anim.fragment_exit   // popExit animation
+        );
+
+        FragmentChatAi fragmentChatAi;
+        try {
+            fragmentChatAi = FragmentChatAi.newInstance(url,
+                    tag,
+                    true,
+                    true,
+                    true,
+                    true,
+                    null);
+            transaction.replace(R.id.popup_container, fragmentChatAi);
+            transaction.addToBackStack(null);
+            transaction.commitAllowingStateLoss();
+        }catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void popupChatBot(String url, String tag) {
         // 加载 PopupWindow 的布局
         View popupView = LayoutInflater.from(this).inflate(R.layout.popup_window_chat, null);
+
+        int screenWidth = ScreenUtils.getScreenWidth(this);
+        int screenHeight = ScreenUtils.getScreenHeight(this);
 
         // 初始化 PopupWindow
         PopupWindow popupWindow = new PopupWindow(
                 popupView,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
+                screenWidth / 2,
+                screenHeight,
                 true
         );
 
@@ -160,7 +248,7 @@ public class FloatingWindowService extends Service {
         popupWindow.setBackgroundDrawable(ContextCompat.getDrawable(this, android.R.color.transparent));
 
         // 显示 PopupWindow
-        popupWindow.showAtLocation(floatingView, Gravity.START, 0, 0);
+        popupWindow.showAtLocation(floatingRobotView, Gravity.START, 0, 0);
 
         popupWindow.setOutsideTouchable(false);
 
@@ -193,14 +281,20 @@ public class FloatingWindowService extends Service {
             transaction.commitAllowingStateLoss();
         }catch (Exception e) {
             e.printStackTrace();
-            return null;
         }
-        return fragmentChatAi;
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (floatingView != null) windowManager.removeView(floatingView);
+        if (floatingRobotView != null) {
+            windowManager.removeView(floatingRobotView);
+            floatingRobotView = null;
+        }
+
+        if(popupChatView != null) {
+            windowManager.removeView(popupChatView);
+            popupChatView = null;
+        }
     }
 }
