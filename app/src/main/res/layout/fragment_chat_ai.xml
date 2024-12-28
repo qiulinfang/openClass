@@ -7,6 +7,19 @@
     android:layout_height="match_parent"
     android:background="@drawable/chat_ai_dialog_bg">
 
+    <TextView
+        android:id="@+id/ai_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="20dp"
+        android:textAlignment="center"
+        android:clickable="true"
+        android:text="@string/chatbot_name"
+        android:textColor="#ffffff"
+        />
+
     <CheckBox
         android:id="@+id/btn_view_history"
         android:layout_width="wrap_content"
@@ -17,18 +30,6 @@
         android:minHeight="60dp"
         android:textColor="#ffffff"
         android:layout_alignParentStart="true"/>
-
-    <TextView
-        android:id="@+id/ai_name"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentStart="true"
-        android:layout_marginTop="20dp"
-        android:textAlignment="center"
-        android:text="@string/chatbot_name"
-        android:textColor="#ffffff"
-        />
 
     <!-- 下边框 -->
     <View

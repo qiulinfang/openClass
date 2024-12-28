@@ -81,6 +81,8 @@ public class FragmentChatAi extends Fragment {
     private Button btnSend;
     private CheckBox chkViewHistory;
 
+    private TextView textViewTitle;
+
     private String aiName = "";
     private String tag = "";
 
@@ -99,6 +101,16 @@ public class FragmentChatAi extends Fragment {
     private ChatCatalogueAdapter mChatCatalogAdapter;
 
     private RelativeLayout rootLayout;  // 用于调整布局的父布局
+
+    private int clickCount = 0; // 记录点击次数
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable resetClickCountRunnable = new Runnable() {
+        @Override
+        public void run() {
+            clickCount = 0; // 重置点击次数
+            handler.postDelayed(this, 2000);
+        }
+    };
 
 
     public FragmentChatAi() {
@@ -159,6 +171,7 @@ public class FragmentChatAi extends Fragment {
         refreshLayout = view.findViewById(R.id.chat_message_session);
         etMessage = view.findViewById(R.id.et_message);
         btnSend = view.findViewById(R.id.btn_send);
+        textViewTitle = ((TextView)view.findViewById(R.id.ai_name));
 
         etMessage.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
@@ -221,9 +234,11 @@ public class FragmentChatAi extends Fragment {
 
                 List<String> tags = ChatMessageHistoryDB.getInstance(requireActivity(), userInfoViewModel.userId.getValue()).getAllMessageTags();
                 mChatAdapterChatMessageTag.clearAndAddAll(tags);
+                textViewTitle.setEnabled(false);
             } else {
                 view.findViewById(R.id.history_layout).setVisibility(View.GONE);
                 view.findViewById(R.id.chat_input_area).setVisibility(View.VISIBLE);
+                textViewTitle.setEnabled(true);
             }
         });
 
@@ -246,7 +261,7 @@ public class FragmentChatAi extends Fragment {
             view.findViewById(R.id.history_layout).setVisibility(View.GONE);
         }
         if(!aiName.isEmpty()) {
-            ((TextView)view.findViewById(R.id.ai_name)).setText(aiName);
+            textViewTitle.setText(aiName);
         }
 
         if(showHistory) {
@@ -269,6 +284,22 @@ public class FragmentChatAi extends Fragment {
             }
         });
 
+        textViewTitle.setOnClickListener(v -> {
+            messageList.clear();
+            adapterAiChatMesssageList.notifyDataSetChanged();
+            clickCount++;
+
+            // 如果点击次数达到
+            if(clickCount >= 5) {
+
+            }
+            if (clickCount >= 10) {
+                clickCount = 0;
+            }
+        });
+
+        handler.postDelayed(resetClickCountRunnable, 2000);
+
         return view;
     }
 
@@ -278,6 +309,8 @@ public class FragmentChatAi extends Fragment {
         if(app.chatRequest != null) {
             sendMessageDirectly(app.chatRequest);
         }
+
+
 
         rootLayout = view.findViewById(R.id.layout_chat);  // 父布局
 
@@ -450,6 +483,7 @@ public class FragmentChatAi extends Fragment {
         //btnSend.setVisibility(b ? View.VISIBLE : View.INVISIBLE);
         btnSend.setEnabled(b);
         chkViewHistory.setEnabled(b);
+        textViewTitle.setEnabled(b);
     }
 
     private void adjustLayoutForKeyboard(int keyboardHeight) {

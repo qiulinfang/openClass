@@ -434,6 +434,10 @@ public class PDFActivity extends AppCompatActivity implements
         View popupView = LayoutInflater.from(PDFActivity.this).inflate(R.layout.pdf_ask_ai, null);
         ImageView imageView = popupView.findViewById(R.id.ask_picture_src);
         EditText editText = popupView.findViewById(R.id.ask_content);
+        editText.setSingleLine(false); // 设置为多行
+        editText.setLines(2); // 设置行数
+        //editText.setMaxLines(10);
+        editText.setHorizontallyScrolling(false); // 允许水平滚动
         // 创建 PopupWindow
         PopupWindow popupWindow = new PopupWindow(popupView,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
