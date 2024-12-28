@@ -3,6 +3,7 @@ package com.cosinetech.imates.fragments;
 import static com.cosinetech.imates.widgets.FlowTagLayout.FLOW_TAG_CHECKED_SINGLE;
 
 import android.content.Context;
+import android.graphics.Rect;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -19,10 +20,12 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -93,6 +96,8 @@ public class FragmentChatAi extends Fragment {
     // chat message catalog list by tag
     private final List<ChatMessageCatalogue> mChatCatalogs = new ArrayList<>();
     private ChatCatalogueAdapter mChatCatalogAdapter;
+
+    private LinearLayout layout;  // 用于调整布局的父布局
 
 
     public FragmentChatAi() {
@@ -252,6 +257,17 @@ public class FragmentChatAi extends Fragment {
 
         btnSend.setEnabled(initialSendEnable);
 
+        // 监听 EditText 的焦点变化
+        etMessage.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                // EditText 获取焦点时，可以执行布局调整或其他操作
+                //showKeyboardAndAdjustLayout(etMessage);
+            } else {
+                // EditText 失去焦点时，可以恢复布局
+                //hideKeyboardAndRestoreLayout(etMessage);
+            }
+        });
+
         return view;
     }
 
@@ -261,6 +277,29 @@ public class FragmentChatAi extends Fragment {
         if(app.chatRequest != null) {
             sendMessageDirectly(app.chatRequest);
         }
+
+        layout = view.findViewById(R.id.layout_chat);  // 父布局
+
+        // 监听视图变化，获取软键盘的高度
+        view.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                // 获取当前屏幕可见区域的高度
+                Rect rect = new Rect();
+                view.getWindowVisibleDisplayFrame(rect);
+                int screenHeight = view.getHeight();
+
+                // 计算软键盘的高度
+                int keypadHeight = screenHeight - rect.bottom;
+
+                // 如果软键盘显示，调整布局
+                if (keypadHeight > screenHeight * 0.15) {
+                    adjustLayoutForKeyboard(keypadHeight);
+                } else {
+                    adjustLayoutForKeyboard(0);
+                }
+            }
+        });
     }
 
     public void clearChatHistory() {
@@ -410,5 +449,33 @@ public class FragmentChatAi extends Fragment {
         //btnSend.setVisibility(b ? View.VISIBLE : View.INVISIBLE);
         btnSend.setEnabled(b);
         chkViewHistory.setEnabled(b);
+    }
+
+    private void adjustLayoutForKeyboard(int keyboardHeight) {
+        if (keyboardHeight > 0) {
+            // 设置 padding 使布局留出足够的空间以防止软键盘遮挡
+            layout.setPadding(0, 0, 0, keyboardHeight);  // 设置 padding 底部为软键盘的高度
+        } else {
+            // 隐藏软键盘时，恢复布局
+            layout.setPadding(0, 0, 0, 0);  // 恢复 padding
+        }
+    }
+    // 获取焦点时，弹出软键盘并调整布局
+    private void showKeyboardAndAdjustLayout(View view) {
+        InputMethodManager imm = (InputMethodManager) getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+        imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT);
+
+        // 调整布局，确保 EditText 不会被软键盘遮挡
+        refreshLayout.setVisibility(View.GONE);
+    }
+//
+//    // 失去焦点时，隐藏软键盘并恢复布局
+    private void hideKeyboardAndRestoreLayout(View view) {
+        InputMethodManager imm = (InputMethodManager) getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+        imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+
+        // 恢复布局，取消软键盘预留的空间
+        //refreshLayout.setPadding(0, 0, 0, 0);
+        refreshLayout.setVisibility(View.VISIBLE);
     }
 }
