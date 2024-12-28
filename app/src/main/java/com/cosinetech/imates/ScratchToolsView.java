@@ -143,8 +143,7 @@ public class ScratchToolsView extends RelativeLayout {
                     if(mListener == null) {
                         return;
                     }
-                    Bitmap bmp = mListener.onGetScratchCanvasBitmap();
-                    enterScratchMode(bmp);
+                    enterScratchMode();
                     resetPaintToolSelect();
                     paintView.disableEraser();
                     paintView.disableSelection();
@@ -157,8 +156,7 @@ public class ScratchToolsView extends RelativeLayout {
                     if(mListener == null) {
                         return;
                     }
-                    Bitmap bmp = mListener.onGetScratchCanvasBitmap();
-                    enterScratchMode(bmp);
+                    enterScratchMode();
                     resetPaintToolSelect();
                     paintView.enableEraser();
                     paintView.disableSelection();
@@ -172,8 +170,7 @@ public class ScratchToolsView extends RelativeLayout {
                 if(mListener == null) {
                     return;
                 }
-                Bitmap bmp = mListener.onGetScratchCanvasBitmap();
-                enterScratchMode(bmp);
+                enterScratchMode();
                 resetPaintToolSelect();
                 paintView.enableSelection();
                 paintView.disableEraser();
@@ -253,11 +250,12 @@ public class ScratchToolsView extends RelativeLayout {
         });
     }
 
-    private void enterScratchMode(Bitmap bmp) {
+    private void enterScratchMode() {
         if(mListener == null) {
             return;
         }
         mListener.onEnterScratchMode();
+        Bitmap bmp = mListener.onGetScratchCanvasBitmap();
 
         if(paintToolView.getVisibility() != View.VISIBLE) {
             EasyFloat.hide();

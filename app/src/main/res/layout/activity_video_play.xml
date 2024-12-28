@@ -1,19 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/video_area"
     android:background="#000000"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
-    <VideoView
-        android:id="@+id/video_view"
+    android:layout_height="match_parent">
+
+    <!-- 视频播放区域 -->
+    <TextureView
+        android:id="@+id/textureView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentTop="true"
+        android:layout_height="match_parent" />
+
+    <!-- 控件容器 -->
+    <LinearLayout
+        android:id="@+id/controlLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="horizontal"
+        android:background="#80ffffff"
+        android:padding="8dp"
+        android:gravity="center_vertical"
         android:layout_alignParentBottom="true"
-        android:layout_gravity="center_vertical" />
+        android:visibility="visible">
+
+        <!-- 播放/暂停按钮 -->
+        <Button
+            android:id="@+id/buttonPlayPause"
+            android:background="@drawable/video_pause"
+            android:layout_width="36dp"
+            android:layout_height="36dp" />
+
+        <!-- 进度条 -->
+        <SeekBar
+            android:id="@+id/seekBar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"/>
+
+        <!-- 倍速播放按钮 -->
+        <Button
+            android:id="@+id/buttonSpeed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1x"
+            android:visibility="gone"/>
+    </LinearLayout>
+
     <Button
         android:id="@+id/btn_exit_video"
         android:background="@drawable/ic_back"
