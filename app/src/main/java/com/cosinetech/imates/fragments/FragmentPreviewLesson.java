@@ -16,14 +16,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.RadioButton;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.VideoView;
 
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.activities.ActivityVideoPlay;
-import com.cosinetech.imates.activities.MainActivity;
+import com.cosinetech.imates.activities.VideoPlayActivity;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.widgets.ConstraintRadioGroup;
 import com.github.spareyaya.SimpleRatingView;
@@ -33,7 +30,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import android.widget.MediaController;
+
 /**
  * A simple {@link Fragment} subclass.
  * Use the {@link FragmentPreviewLesson#newInstance} factory method to
@@ -279,9 +276,10 @@ public class FragmentPreviewLesson extends Fragment {
 
     private void playVideo(String path) {
         Intent videoPlayIntent = new Intent(requireContext(),
-                ActivityVideoPlay.class);
+                VideoPlayActivity.class);
 
-        videoPlayIntent.putExtra(ActivityVideoPlay.KEY_VIDEO_PATH, path);
+        videoPlayIntent.putExtra(VideoPlayActivity.KEY_VIDEO_PATH, path);
+        videoPlayIntent.putExtra(VideoPlayActivity.KEY_TEXTBOOK_SECTION, mPreviewSection.getTitle());
         startActivity(videoPlayIntent);
     }
 

@@ -208,7 +208,8 @@ public class PDFActivity extends AppCompatActivity implements
 
         btnUseBrush.setOnClickListener(
             v -> {
-                enterScratchMode();
+                Bitmap bmp = WindowUtils.getScreenshot2Bitmap(PDFActivity.this, pdfView);
+                enterScratchMode(bmp);
                 resetPaintToolSelect();
                 paintView.disableEraser();
                 paintView.disableSelection();
@@ -218,7 +219,8 @@ public class PDFActivity extends AppCompatActivity implements
 
         btnUseEraser.setOnClickListener(
                v-> {
-                   enterScratchMode();
+                   Bitmap bmp = WindowUtils.getScreenshot2Bitmap(PDFActivity.this, pdfView);
+                   enterScratchMode(bmp);
                    resetPaintToolSelect();
                    paintView.enableEraser();
                    paintView.disableSelection();
@@ -229,7 +231,8 @@ public class PDFActivity extends AppCompatActivity implements
         btnSelectArea.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                enterScratchMode();
+                Bitmap bmp = WindowUtils.getScreenshot2Bitmap(PDFActivity.this, pdfView);
+                enterScratchMode(bmp);
                 resetPaintToolSelect();
                 paintView.enableSelection();
                 paintView.disableEraser();
@@ -309,11 +312,6 @@ public class PDFActivity extends AppCompatActivity implements
                                 } else {
                                     view.findViewById(R.id.tools_layout).setVisibility(View.VISIBLE);
                                 }
-                            });
-
-                            Button btnScratch = view.findViewById(R.id.btn_scratch);
-                            btnScratch.setOnClickListener(v->{
-                                enterScratchMode();
                             });
 
                             // tool bar
@@ -410,9 +408,8 @@ public class PDFActivity extends AppCompatActivity implements
                 .show();
     }
 
-    private void enterScratchMode() {
+    private void enterScratchMode(Bitmap bmp) {
         if(paintToolView.getVisibility() != View.VISIBLE) {
-            Bitmap bmp = WindowUtils.getScreenshot2Bitmap(PDFActivity.this, pdfView);
             EasyFloat.hide();
             paintView.setBitmap(bmp);
             //paintView.setBackgroundColor(Color.TRANSPARENT);

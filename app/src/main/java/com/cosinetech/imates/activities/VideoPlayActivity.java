@@ -1,23 +1,19 @@
 package com.cosinetech.imates.activities;
 
+import android.graphics.Bitmap;
 import android.os.Bundle;
 
+import com.cosinetech.imates.ScratchToolsView;
 import com.cosinetech.imates.util.WindowUtils;
-import com.google.android.material.snackbar.Snackbar;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.view.View;
 import android.widget.Button;
 import android.widget.MediaController;
-import android.widget.TextView;
+import android.widget.RelativeLayout;
 import android.widget.Toast;
 import android.widget.VideoView;
-
-import androidx.navigation.NavController;
-import androidx.navigation.Navigation;
-import androidx.navigation.ui.AppBarConfiguration;
-import androidx.navigation.ui.NavigationUI;
 
 import com.cosinetech.imates.databinding.ActivityVideoPlayBinding;
 
@@ -25,9 +21,12 @@ import com.cosinetech.imates.R;
 
 import java.io.File;
 
-public class ActivityVideoPlay extends AppCompatActivity {
+public class VideoPlayActivity extends AppCompatActivity {
     public static final String KEY_VIDEO_PATH = "VIDEO_PATH";
+    public static final String KEY_TEXTBOOK_SECTION = "TEXTBOOK_SECTION";
     private ActivityVideoPlayBinding binding;
+
+    private ScratchToolsView scratchToolsView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,11 +38,35 @@ public class ActivityVideoPlay extends AppCompatActivity {
         binding = ActivityVideoPlayBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
+        VideoView videoView = findViewById(R.id.video_view);
+        View video_layout = findViewById(R.id.video_area);
+
+        scratchToolsView = findViewById(R.id.scratch_tool);
+        String sectionTitle = getIntent().getStringExtra(KEY_TEXTBOOK_SECTION);
+        if(sectionTitle == null) {
+            sectionTitle = "";
+        }
+        scratchToolsView.setAskAiContextPrompt(sectionTitle);
+
+        scratchToolsView.setOnScratchToolsListener(new ScratchToolsView.OnScratchToolsListener() {
+            @Override
+            public void onEnterScratchMode() {
+                videoView.pause();
+            }
+
+            @Override
+            public void onExitScratchMode() {
+                videoView.resume();
+            }
+
+            @Override
+            public Bitmap onGetScratchCanvasBitmap() {
+                return WindowUtils.getScreenshot2Bitmap(VideoPlayActivity.this, videoView);
+            }
+        });
 
         String videoPath = getIntent().getStringExtra(KEY_VIDEO_PATH);
         if(videoPath != null) {
-            VideoView videoView = findViewById(R.id.video_view);
-            View video_layout = findViewById(R.id.video_area);
 
             File file = new File(videoPath);
             if(file.exists()) {
