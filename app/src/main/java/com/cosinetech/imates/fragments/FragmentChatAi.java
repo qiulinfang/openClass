@@ -27,6 +27,7 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -97,7 +98,7 @@ public class FragmentChatAi extends Fragment {
     private final List<ChatMessageCatalogue> mChatCatalogs = new ArrayList<>();
     private ChatCatalogueAdapter mChatCatalogAdapter;
 
-    private LinearLayout layout;  // 用于调整布局的父布局
+    private RelativeLayout rootLayout;  // 用于调整布局的父布局
 
 
     public FragmentChatAi() {
@@ -216,7 +217,7 @@ public class FragmentChatAi extends Fragment {
         chkViewHistory.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if(isChecked) {
                 view.findViewById(R.id.history_layout).setVisibility(View.VISIBLE);
-                view.findViewById(R.id.chat_input_area).setVisibility(View.GONE);
+                view.findViewById(R.id.chat_input_area).setVisibility(View.INVISIBLE);
 
                 List<String> tags = ChatMessageHistoryDB.getInstance(requireActivity(), userInfoViewModel.userId.getValue()).getAllMessageTags();
                 mChatAdapterChatMessageTag.clearAndAddAll(tags);
@@ -278,7 +279,7 @@ public class FragmentChatAi extends Fragment {
             sendMessageDirectly(app.chatRequest);
         }
 
-        layout = view.findViewById(R.id.layout_chat);  // 父布局
+        rootLayout = view.findViewById(R.id.layout_chat);  // 父布局
 
         // 监听视图变化，获取软键盘的高度
         view.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
@@ -452,13 +453,10 @@ public class FragmentChatAi extends Fragment {
     }
 
     private void adjustLayoutForKeyboard(int keyboardHeight) {
-        if (keyboardHeight > 0) {
-            // 设置 padding 使布局留出足够的空间以防止软键盘遮挡
-            layout.setPadding(0, 0, 0, keyboardHeight);  // 设置 padding 底部为软键盘的高度
-        } else {
-            // 隐藏软键盘时，恢复布局
-            layout.setPadding(0, 0, 0, 0);  // 恢复 padding
-        }
+        // 设置 padding 使布局留出足够的空间以防止软键盘遮挡
+        // 隐藏软键盘时，恢复布局
+        // 恢复 padding
+        rootLayout.setPadding(0, 0, 0, Math.max(keyboardHeight, 0));  // 设置 padding 底部为软键盘的高度
     }
     // 获取焦点时，弹出软键盘并调整布局
     private void showKeyboardAndAdjustLayout(View view) {
