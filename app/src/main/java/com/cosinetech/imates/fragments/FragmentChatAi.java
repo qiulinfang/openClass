@@ -285,6 +285,8 @@ public class FragmentChatAi extends Fragment {
         });
 
         textViewTitle.setOnClickListener(v -> {
+            ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).deleteAllMessageCatalogue();
+            ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).deleteAllMessageDetail();
             messageList.clear();
             adapterAiChatMesssageList.notifyDataSetChanged();
             clickCount++;
@@ -293,6 +295,7 @@ public class FragmentChatAi extends Fragment {
             if(clickCount >= 5) {
 
             }
+
             if (clickCount >= 10) {
                 clickCount = 0;
             }

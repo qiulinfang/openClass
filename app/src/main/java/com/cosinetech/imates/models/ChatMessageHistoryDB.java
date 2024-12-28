@@ -152,6 +152,23 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         }
     }
 
+    public synchronized void deleteAllMessageCatalogue() {
+        writeLock.lock();
+        try {
+            SQLiteDatabase db = getDatabase();
+            db.beginTransaction();
+            try {
+                db.delete(TABLE_CATALOGUE,
+                        null, // Changed from COLUMN_SUBJECT
+                        null); // Changed from subject
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
+        } finally {
+            writeLock.unlock();
+        }
+    }
     public synchronized void deleteMessageCatalogue(String date, String tag) { // Changed parameter type
         writeLock.lock();
         try {
@@ -274,6 +291,23 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         }
     }
 
+    public synchronized void deleteAllMessageDetail() {
+        writeLock.lock();
+        try {
+            SQLiteDatabase db = getDatabase();
+            db.beginTransaction();
+            try {
+                db.delete(TABLE_DETAIL,
+                        null,
+                        null);
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
+        } finally {
+            writeLock.unlock();
+        }
+    }
     public long easyAddMessageDetail(ChatMessage detail) {
         writeLock.lock();
         try {
