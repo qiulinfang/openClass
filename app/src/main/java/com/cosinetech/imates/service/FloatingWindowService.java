@@ -19,6 +19,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.PopupWindow;
 import androidx.annotation.Nullable;
+import androidx.compose.foundation.gestures.snapping.SnapPosition;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentManager;
@@ -62,8 +63,8 @@ public class FloatingWindowService extends Service {
 
         // 创建通知通道（对于 Android 8.0 及以上）
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            CharSequence name = "Floating Window Service";
-            String description = "Floating window service notification";
+            CharSequence name = "AI学伴通知";
+            String description = "用于显示 AI学伴悬浮窗服务的通知";
             int importance = NotificationManager.IMPORTANCE_DEFAULT;
             NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
             channel.setDescription(description);
@@ -73,8 +74,8 @@ public class FloatingWindowService extends Service {
 
         // 创建并启动前台服务
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Floating Window")
-                .setContentText("Floating Window Service is running")
+                .setContentTitle("AI学伴")
+                .setContentText("AI学伴, 一直陪伴你学习")
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .build();
 
@@ -99,9 +100,9 @@ public class FloatingWindowService extends Service {
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
         floatingRobotView = inflater.inflate(R.layout.floating_robot, null);
         // 初始位置
-        layoutParams.x = ScreenUtils.getScreenWidth(this) - floatingRobotView.getWidth() - 10;
-        layoutParams.y = ScreenUtils.getScreenHeight(this) - floatingRobotView.getHeight() - 10;
-//        layoutParams.gravity = Gravity.BOTTOM | Gravity.END;
+        layoutParams.x = 0;//ScreenUtils.getScreenWidth(this) - floatingRobotView.getWidth() - 10;
+        layoutParams.y = 0;//ScreenUtils.getScreenHeight(this) - floatingRobotView.getHeight() - 10;
+        //layoutParams.gravity = Gravity.BOTTOM | Gravity.END;
         windowManager.addView(floatingRobotView, layoutParams);
 
         LottieAnimationView lottieAnimationView = floatingRobotView.findViewById(R.id.lottie_animation_view);
@@ -115,23 +116,26 @@ public class FloatingWindowService extends Service {
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
+                        WindowManager.LayoutParams layoutParams0 = (WindowManager.LayoutParams) floatingRobotView.getLayoutParams();
                         // 记录按下时的坐标
-                        initialX = layoutParams.x;
-                        initialY = layoutParams.y;
+                        initialX = layoutParams0.x;
+                        initialY = layoutParams0.y;
+
                         initialTouchX = event.getRawX();
                         initialTouchY = event.getRawY();
+                        Log.d("?????????", "onTouch-1: " + initialX  + "," + initialY + "," + initialTouchX + ", " + initialTouchY);
                         return true;
 
                     case MotionEvent.ACTION_MOVE:
                         // 计算移动的偏移量
                         int offsetX = (int) (event.getRawX() - initialTouchX);
                         int offsetY = (int) (event.getRawY() - initialTouchY);
-
                         // 更新悬浮窗的位置
                         layoutParams.x = initialX + offsetX;
                         layoutParams.y = initialY + offsetY;
                         windowManager.updateViewLayout(floatingRobotView, layoutParams);
-                        Log.d("?????????", "onTouch: " + layoutParams.x  + "," + layoutParams.y);
+                        Log.d("?????????", "onTouch0: " + offsetX  + "," + offsetY);
+                        Log.d("?????????", "onTouch1: " + layoutParams.x  + "," + layoutParams.y);
                         return true;
 
                     case MotionEvent.ACTION_UP:
@@ -148,7 +152,7 @@ public class FloatingWindowService extends Service {
             }
         });
 
-        // 使悬浮窗可拖动
+         //// 使悬浮窗可拖动
 //        floatingRobotView.setOnTouchListener(new View.OnTouchListener() {
 //            private int initialX;
 //            private int initialY;
@@ -168,11 +172,13 @@ public class FloatingWindowService extends Service {
 //                        layoutParams.x = initialX + (int) (event.getRawX() - initialTouchX);
 //                        layoutParams.y = initialY + (int) (event.getRawY() - initialTouchY);
 //                        windowManager.updateViewLayout(floatingRobotView, layoutParams);
+//                        Log.d("?????????", "onTouch1: " + layoutParams.x  + "," + layoutParams.y);
 //                        return true;
 //                }
 //                return true;
 //            }
 //        });
+
     }
 
     public void popupChatBot1(String url, String tag) {
