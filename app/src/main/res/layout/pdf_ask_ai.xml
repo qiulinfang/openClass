@@ -16,13 +16,15 @@
 
     <EditText
         android:id="@+id/ask_content"
-        android:inputType="text"
+        android:inputType="textMultiLine"
+        android:lines="8"
+        android:minLines="2"
+        android:scrollbars="vertical"
         android:background="#ffffff"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_margin="8dp"
-        android:minWidth="250dp"
-        android:minHeight="48dp"/>
+        android:minWidth="250dp" />
 
     <ImageView
         android:id="@+id/ask_picture_src"

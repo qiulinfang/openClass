@@ -97,15 +97,6 @@
             app:layout_constraintTop_toBottomOf="@id/btn_contents"
             app:layout_constraintStart_toStartOf="@id/btn_contents"/>
 
-        <Button
-            android:id="@+id/btn_scratch"
-            android:background="@drawable/ic_scribble"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="32dp"
-            android:visibility="gone"
-            app:layout_constraintTop_toTopOf="@id/btn_note"
-            app:layout_constraintStart_toEndOf="@id/btn_note"/>
 
         <Button
             android:id="@+id/btn_to_guide"

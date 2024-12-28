@@ -1,5 +1,8 @@
 package com.cosinetech.imates.activities;
 
+import static androidx.core.app.ServiceCompat.startForeground;
+
+import android.app.Notification;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.os.Bundle;
@@ -27,6 +30,7 @@ import com.cosinetech.imates.util.VersionUtils;
 import com.cosinetech.imates.util.WindowUtils;
 
 import androidx.compose.ui.unit.Dp;
+import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.appcompat.app.AppCompatActivity;
@@ -54,6 +58,7 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         ApplicationModelShared  myapp = (ApplicationModelShared)(getApplication());
         myapp.setMainActivity(this);
 
@@ -194,10 +199,12 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
         super.onPause();
         Log.e("++++++++++++++++", "onPause");
     }
+
     @Override
     protected void onResume() {
         super.onResume();
         Log.e("++++++++++++++++", "onResume");
+
     }
 
     @Override
