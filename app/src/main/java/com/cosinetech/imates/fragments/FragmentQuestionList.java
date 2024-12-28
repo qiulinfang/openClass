@@ -99,7 +99,7 @@ public class FragmentQuestionList extends Fragment {
         fragmentChatAi = FragmentChatAi.newInstance(chatBotUrl,
                 subject.name(),
                 false,
-                true,
+                subject == Subject.SUBJECT_BIOLOGY,
                 false,
                 false,
                 success -> {
