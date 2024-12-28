@@ -72,7 +72,7 @@
         android:layout_toEndOf="@id/history_layout"
         android:background="@drawable/chat_ai_msg_list_bg"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="0dp">
 
         <com.scwang.smart.refresh.header.ClassicsHeader
             android:layout_width="match_parent"

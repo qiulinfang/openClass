@@ -252,6 +252,9 @@ public class FloatingWindowService extends Service {
 
         popupWindow.setOutsideTouchable(false);
 
+        popupWindow.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+
+
         Button btnExit = popupView.findViewById(R.id.btn_exit);
         btnExit.setOnClickListener(v-> {
             popupWindow.dismiss();

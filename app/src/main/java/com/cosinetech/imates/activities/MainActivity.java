@@ -194,10 +194,12 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
         super.onPause();
         Log.e("++++++++++++++++", "onPause");
     }
+
     @Override
     protected void onResume() {
         super.onResume();
         Log.e("++++++++++++++++", "onResume");
+
     }
 
     @Override
