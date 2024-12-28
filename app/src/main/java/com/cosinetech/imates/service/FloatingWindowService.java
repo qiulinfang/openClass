@@ -1,6 +1,10 @@
 package com.cosinetech.imates.service;
 
 import android.annotation.SuppressLint;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.os.Build;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.ViewGroup;
@@ -15,6 +19,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.PopupWindow;
 import androidx.annotation.Nullable;
+import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
@@ -31,6 +36,8 @@ public class FloatingWindowService extends Service {
     public interface FragmentManagerProvider {
         FragmentManager getFragmentManagerForFloatingWindow(View floatingView);
     }
+    private static final String CHANNEL_ID = "floating_window_channel";
+    private static final int NOTIFICATION_ID = 1;
 
     private FragmentManagerProvider fragmentManagerProvider;
     private WindowManager windowManager;
@@ -52,6 +59,29 @@ public class FloatingWindowService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+
+        // 创建通知通道（对于 Android 8.0 及以上）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = "Floating Window Service";
+            String description = "Floating window service notification";
+            int importance = NotificationManager.IMPORTANCE_DEFAULT;
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+            channel.setDescription(description);
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
+
+        // 创建并启动前台服务
+        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("Floating Window")
+                .setContentText("Floating Window Service is running")
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .build();
+
+        startForeground(NOTIFICATION_ID, notification);
+
+        // Log to verify
+        Log.d("FloatingWindowService", "Service started as foreground.");
 
         // 获取 FragmentManagerProvider
         ApplicationModelShared myapp = (ApplicationModelShared)(getApplication());
@@ -286,6 +316,22 @@ public class FloatingWindowService extends Service {
             e.printStackTrace();
         }
     }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        // 继续保持服务在前台
+        startForeground(NOTIFICATION_ID, createNotification());
+        return START_STICKY;  // 保持服务运行
+    }
+
+    private Notification createNotification() {
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("Floating Window")
+                .setContentText("Floating Window Service is running")
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .build();
+    }
+
 
     @Override
     public void onDestroy() {
