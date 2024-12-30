@@ -93,10 +93,12 @@ public class FloatingWindowService extends Service {
 
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
         floatingRobotView = inflater.inflate(R.layout.floating_robot, null);
+        final int screenWidth = ScreenUtils.getScreenWidth(this);
+        final int screenHeight = ScreenUtils.getScreenHeight(this);
         // 初始位置
-        layoutParams.x = 0;//ScreenUtils.getScreenWidth(this) - floatingRobotView.getWidth() - 10;
-        layoutParams.y = 0;//ScreenUtils.getScreenHeight(this) - floatingRobotView.getHeight() - 10;
-        //layoutParams.gravity = Gravity.BOTTOM | Gravity.END;
+        layoutParams.x = 0; //ScreenUtils.getScreenWidth(this) - floatingRobotView.getWidth();
+        layoutParams.y = 0; //ScreenUtils.getScreenHeight(this) - floatingRobotView.getHeight();
+        layoutParams.gravity = Gravity.TOP | Gravity.START;
         windowManager.addView(floatingRobotView, layoutParams);
 
         LottieAnimationView lottieAnimationView = floatingRobotView.findViewById(R.id.lottie_animation_view);
@@ -110,10 +112,9 @@ public class FloatingWindowService extends Service {
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
-                        WindowManager.LayoutParams layoutParams0 = (WindowManager.LayoutParams) floatingRobotView.getLayoutParams();
                         // 记录按下时的坐标
-                        initialX = layoutParams0.x;
-                        initialY = layoutParams0.y;
+                        initialX = layoutParams.x;
+                        initialY = layoutParams.y;
 
                         initialTouchX = event.getRawX();
                         initialTouchY = event.getRawY();
@@ -125,8 +126,9 @@ public class FloatingWindowService extends Service {
                         int offsetX = (int) (event.getRawX() - initialTouchX);
                         int offsetY = (int) (event.getRawY() - initialTouchY);
                         // 更新悬浮窗的位置
-                        layoutParams.x = initialX + offsetX;
-                        layoutParams.y = initialY + offsetY;
+
+                        layoutParams.x = Math.min(initialX + offsetX, screenWidth);
+                        layoutParams.y = Math.min(initialY + offsetY, screenHeight);
                         windowManager.updateViewLayout(floatingRobotView, layoutParams);
 //                        Log.d("?????????", "onTouch0: " + offsetX  + "," + offsetY);
 //                        Log.d("?????????", "onTouch1: " + layoutParams.x  + "," + layoutParams.y);
