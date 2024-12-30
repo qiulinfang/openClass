@@ -59,7 +59,7 @@
         android:layout_height="match_parent"
         android:orientation="horizontal">
 
-        <com.cosinetech.imates.widgets.SwipeListView
+        <com.cosinetech.imates.views.SwipeListView
             android:id="@+id/noteListView"
             android:background="#ffffff"
             android:layout_width="0dp"

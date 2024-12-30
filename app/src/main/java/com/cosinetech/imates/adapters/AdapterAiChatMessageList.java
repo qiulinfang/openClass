@@ -12,7 +12,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.widgets.MarkdownTextView;
+import com.cosinetech.imates.views.MarkdownTextView;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;

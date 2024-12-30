@@ -27,7 +27,7 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.webservice.ApiUrl;
-import com.cosinetech.imates.widgets.FindKnowledgeQuestionPopupWindow;
+import com.cosinetech.imates.views.FindKnowledgeQuestionPopupWindow;
 import com.google.gson.Gson;
 
 import java.io.BufferedReader;

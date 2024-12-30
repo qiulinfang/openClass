@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 
-    <com.cosinetech.imates.ScratchToolsView
+    <com.cosinetech.imates.views.ScratchToolsView
         android:id="@+id/scratch_tool"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />

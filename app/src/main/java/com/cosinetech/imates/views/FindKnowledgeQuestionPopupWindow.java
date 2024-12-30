@@ -1,4 +1,4 @@
-package com.cosinetech.imates.widgets;
+package com.cosinetech.imates.views;
 
 import android.app.Activity;
 import android.view.Gravity;

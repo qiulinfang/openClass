@@ -55,7 +55,7 @@
         android:layout_height="32dp"
         android:layout_margin="16dp"/>
 
-    <com.cosinetech.imates.ScratchToolsView
+    <com.cosinetech.imates.views.ScratchToolsView
         android:id="@+id/scratch_tool"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />

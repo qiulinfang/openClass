@@ -15,7 +15,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.ScratchToolsView;
+import com.cosinetech.imates.views.ScratchToolsView;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.notes.NotePopupWindow;
 import com.cosinetech.imates.pdfui.tree.TreeNodeData;

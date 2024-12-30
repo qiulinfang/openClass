@@ -53,7 +53,7 @@
         android:layout_below="@id/split_line"
         android:layout_above="@id/chat_input_area">
 
-        <com.cosinetech.imates.widgets.FlowTagLayout
+        <com.cosinetech.imates.views.FlowTagLayout
             android:id="@+id/chat_tags"
             android:background="#8090e0"
             android:layout_width="match_parent"

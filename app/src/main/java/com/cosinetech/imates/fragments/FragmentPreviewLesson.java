@@ -22,7 +22,7 @@ import android.widget.Toast;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.activities.VideoPlayActivity;
 import com.cosinetech.imates.models.Chapter;
-import com.cosinetech.imates.widgets.ConstraintRadioGroup;
+import com.cosinetech.imates.views.ConstraintRadioGroup;
 import com.github.spareyaya.SimpleRatingView;
 
 import java.io.BufferedReader;

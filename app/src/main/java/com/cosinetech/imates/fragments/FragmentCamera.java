@@ -30,7 +30,7 @@ import androidx.lifecycle.ViewModelStoreOwner;
 import com.canhub.cropper.CropImageView;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.AddQuestionRequest;
-import com.cosinetech.imates.widgets.MarkdownTextView;
+import com.cosinetech.imates.views.MarkdownTextView;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.webservice.ApiUrl;

@@ -1,26 +1,15 @@
-package com.cosinetech.imates.fragments;
+package com.cosinetech.imates.views;
 
 import static com.cosinetech.imates.views.FlowTagLayout.FLOW_TAG_CHECKED_SINGLE;
 
 import android.content.Context;
 import android.graphics.Rect;
-import android.os.Bundle;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
-import androidx.lifecycle.ViewModelProvider;
-import androidx.lifecycle.ViewModelStoreOwner;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-
 import android.os.Handler;
 import android.os.Looper;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
-import android.view.ViewTreeObserver;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -30,45 +19,47 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModelStoreOwner;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
 import com.cosinetech.imates.ApplicationModelShared;
-import com.cosinetech.imates.adapters.AdapterAiChatMessageList;
-import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.adapters.AdapterAiChatMessageList;
+import com.cosinetech.imates.adapters.AdapterChatMessageTag;
+import com.cosinetech.imates.adapters.ChatCatalogueAdapter;
+import com.cosinetech.imates.fragments.FragmentChatAi;
+import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.models.ChatMessageCatalogue;
 import com.cosinetech.imates.models.ChatMessageHistoryDB;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.util.TimeUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
-import com.cosinetech.imates.adapters.ChatCatalogueAdapter;
-import com.cosinetech.imates.views.FlowTagLayout;
-import com.cosinetech.imates.adapters.AdapterChatMessageTag;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * A simple {@link Fragment} subclass.
- * Use the {@link FragmentChatAi#newInstance} factory method to
- * create an instance of this fragment.
- */
-public class FragmentChatAi extends Fragment {
+public class ChatAiView extends RelativeLayout {
     public interface AiChatResponseListener {
         void onAiChatResponced(boolean success);
     }
 
+    class ChatAiParam {
+        public String tag = "";
+        public String chatBotUrl;
+        public boolean showHeader;
+        public boolean streamDisplay;
+        public boolean showHistory;
+        public boolean initialSendEnable;
+        public FragmentChatAi.AiChatResponseListener listener;
+    }
+
     private UserInfoViewModel userInfoViewModel;
-    private static final String KEY_PARAM_CHATBOT_URL = "CHAT_URL";
-
-    private static final String KEY_PARAM_CHATBOT_TAG = "CHAT_TAG";
-    private static final String KEY_PARAM_SHOW_HEADER = "SHOW_HEADER";
-
-    private static final String KEY_PARAM_STREAM_RESPONSE = "STREAM_RESPONSE";
-    private static final String KEY_PARAM_SHOW_HISTORY = "SHOW_HISTORY";
-
-    private static final String KEY_PARAM_INITIAL_SEND = "INITIAL_SEND_ENABLE";
+    private Context mContext;
 
     private AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "");
     private RecyclerView recyclerView;
@@ -76,21 +67,14 @@ public class FragmentChatAi extends Fragment {
     private EditText etMessage;
     private AdapterAiChatMessageList adapterAiChatMesssageList;
     private final List<ChatMessage> messageList = new ArrayList<>();
-    private String chatBotUrl;
     private Button btnSend;
     private CheckBox chkViewHistory;
 
     private TextView textViewTitle;
 
     private String aiName = "";
-    private String tag = "";
 
-    private boolean showHeader;
-    private boolean streamDisplay;
-    private boolean showHistory;
-    private boolean initialSendEnable;
-
-    private AiChatResponseListener mListener;
+    private ChatAiParam mChatAiParam;
 
     // chat message tags
     private AdapterChatMessageTag<String> mChatAdapterChatMessageTag;
@@ -111,66 +95,41 @@ public class FragmentChatAi extends Fragment {
         }
     };
 
-
-    public FragmentChatAi() {
+    public ChatAiView(Context context) {
+        super(context);
+        init(context);
     }
 
-    public static FragmentChatAi newInstance(String chatBotUrl,
-                                             String tag,
-                                             boolean showHeader,
-                                             boolean streamResponse,
-                                             boolean showHistory,
-                                             boolean initialSendEnable,
-                                             AiChatResponseListener l) {
-        FragmentChatAi fragment = new FragmentChatAi();
-        Bundle args = new Bundle();
-        args.putString(KEY_PARAM_CHATBOT_URL, chatBotUrl);
-        args.putBoolean(KEY_PARAM_SHOW_HEADER, showHeader);
-        args.putString(KEY_PARAM_CHATBOT_TAG, tag);
-        args.putBoolean(KEY_PARAM_STREAM_RESPONSE, streamResponse);
-        args.putBoolean(KEY_PARAM_SHOW_HISTORY, showHistory);
-        args.putBoolean(KEY_PARAM_INITIAL_SEND, initialSendEnable);
-        fragment.setArguments(args);
-        fragment.setAiChatListener(l);
-        return fragment;
+    public ChatAiView(Context context, AttributeSet attrs) {
+        super(context, attrs);
+        init(context);
     }
 
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            chatBotUrl = getArguments().getString(KEY_PARAM_CHATBOT_URL);
-            tag = getArguments().getString(KEY_PARAM_CHATBOT_TAG);
-            showHeader = getArguments().getBoolean(KEY_PARAM_SHOW_HEADER);
-            streamDisplay = getArguments().getBoolean(KEY_PARAM_STREAM_RESPONSE);
-            showHistory = getArguments().getBoolean(KEY_PARAM_SHOW_HISTORY);
-            initialSendEnable = getArguments().getBoolean(KEY_PARAM_INITIAL_SEND);
+    public ChatAiView(Context context, AttributeSet attrs, int defStyleAttr) {
+        super(context, attrs, defStyleAttr);
+        init(context);
+    }
+
+    public void setChatAiParam(ChatAiParam param) {
+        this.setVisibility(VISIBLE);
+        mChatAiParam = param;
+        if(mChatAiParam != null) {
+            initView();
         }
-        setRetainInstance(true);
     }
 
-    @Override
-    public void onSaveInstanceState(Bundle outState) {
-        //super.onSaveInstanceState(outState);
-        // 在此处保存需要的状态数据到outState中
-        outState.putString(KEY_PARAM_CHATBOT_URL, chatBotUrl);
-        outState.putBoolean(KEY_PARAM_SHOW_HEADER, showHeader);
+    private void init(Context context) {
+        mContext = context;
     }
 
-    private void setAiChatListener(AiChatResponseListener l) {
-        this.mListener = l;
-    }
-
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
+    private void initView() {
         // Inflate the layout for this fragment
-        View view = inflater.inflate(R.layout.fragment_chat_ai, container, false);
+        View view = LayoutInflater.from(mContext).inflate(R.layout.fragment_chat_ai, this, false);
         recyclerView = view.findViewById(R.id.chat_msg_view);
         refreshLayout = view.findViewById(R.id.chat_message_session);
         etMessage = view.findViewById(R.id.et_message);
         btnSend = view.findViewById(R.id.btn_send);
-        textViewTitle = ((TextView)view.findViewById(R.id.ai_name));
+        textViewTitle = view.findViewById(R.id.ai_name);
 
         etMessage.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
@@ -199,23 +158,23 @@ public class FragmentChatAi extends Fragment {
         btnSend.setOnClickListener(v -> sendMessage());
 
         // Required empty public constructor
-        ViewModelStoreOwner owner = (ViewModelStoreOwner) requireActivity().getApplication();
+        ViewModelStoreOwner owner = ApplicationModelShared.getInstance();
         userInfoViewModel = new ViewModelProvider(
                 owner,
-                new ViewModelProvider.AndroidViewModelFactory(requireActivity().getApplication())
+                new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance())
         ).get(UserInfoViewModel.class);
 
         aiChatMessageRequest.setName(Objects.requireNonNull(userInfoViewModel.userInfo.getValue()).getName());
 
         FlowTagLayout layout = view.findViewById(R.id.chat_tags);
-        mChatAdapterChatMessageTag = new AdapterChatMessageTag<>(requireActivity());
+        mChatAdapterChatMessageTag = new AdapterChatMessageTag<>(mContext);
         layout.setTagCheckedMode(FLOW_TAG_CHECKED_SINGLE);
         layout.setTagCheckedMode(FlowTagLayout.FLOW_TAG_CHECKED_SINGLE);
         layout.setAdapter(mChatAdapterChatMessageTag);
         layout.setOnTagSelectListener((parent, selectedList) -> {
             if (selectedList != null && !selectedList.isEmpty()) {
                 String tag = mChatAdapterChatMessageTag.getItem(selectedList.get(0)).toString();
-                List<ChatMessageCatalogue> catalogues = ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).getMessageCatalogueByTag(tag);
+                List<ChatMessageCatalogue> catalogues = ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).getMessageCatalogueByTag(tag);
                 mChatCatalogs.clear();
                 mChatCatalogs.addAll(catalogues);
                 mChatCatalogAdapter.notifyDataSetChanged();
@@ -231,7 +190,7 @@ public class FragmentChatAi extends Fragment {
                 view.findViewById(R.id.history_layout).setVisibility(View.VISIBLE);
                 view.findViewById(R.id.chat_input_area).setVisibility(View.INVISIBLE);
 
-                List<String> tags = ChatMessageHistoryDB.getInstance(requireActivity(), userInfoViewModel.userId.getValue()).getAllMessageTags();
+                List<String> tags = ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).getAllMessageTags();
                 mChatAdapterChatMessageTag.clearAndAddAll(tags);
                 textViewTitle.setEnabled(false);
             } else {
@@ -241,20 +200,18 @@ public class FragmentChatAi extends Fragment {
             }
         });
 
-        mChatCatalogAdapter = new ChatCatalogueAdapter(requireContext(), mChatCatalogs);
+        mChatCatalogAdapter = new ChatCatalogueAdapter(mContext, mChatCatalogs);
         ListView listView = view.findViewById(R.id.chat_catalog);
         listView.setAdapter(mChatCatalogAdapter);
         listView.setOnItemClickListener((parent, view1, position, id) -> {
-//            String selectedItem = (String) parent.getItemAtPosition(position);
-//            Toast.makeText(MainActivity.this, "Clicked: " + selectedItem, Toast.LENGTH_SHORT).show();
             ChatMessageCatalogue catalog = mChatCatalogs.get(position);
-            List<ChatMessage> msgs = ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).getMessageDetail(catalog.date, catalog.tag);
+            List<ChatMessage> msgs = ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).getMessageDetail(catalog.date, catalog.tag);
             messageList.clear();
             messageList.addAll(msgs);
             adapterAiChatMesssageList.notifyDataSetChanged();
         });
 
-        if(!showHeader) {
+        if(!mChatAiParam.showHeader) {
             //btnExit.setVisibility(View.INVISIBLE);
             chkViewHistory.setVisibility(View.INVISIBLE);
             view.findViewById(R.id.history_layout).setVisibility(View.GONE);
@@ -263,14 +220,15 @@ public class FragmentChatAi extends Fragment {
             textViewTitle.setText(aiName);
         }
 
-        if(showHistory) {
-            List<ChatMessage> msgs = ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).getMessageDetail(TimeUtils.timestampToDateString(System.currentTimeMillis()), tag);
+        if(mChatAiParam.showHistory) {
+            List<ChatMessage> msgs = ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue())
+                    .getMessageDetail(TimeUtils.timestampToDateString(System.currentTimeMillis()), mChatAiParam.tag);
             messageList.addAll(msgs);
             adapterAiChatMesssageList.notifyDataSetChanged();
             recyclerView.scrollToPosition(messageList.size() - 1);
         }
 
-        btnSend.setEnabled(initialSendEnable);
+        btnSend.setEnabled(mChatAiParam.initialSendEnable);
 
         // 监听 EditText 的焦点变化
         etMessage.setOnFocusChangeListener((v, hasFocus) -> {
@@ -284,8 +242,8 @@ public class FragmentChatAi extends Fragment {
         });
 
         textViewTitle.setOnClickListener(v -> {
-            ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).deleteAllMessageCatalogue();
-            ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).deleteAllMessageDetail();
+            ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).deleteAllMessageCatalogue();
+            ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).deleteAllMessageDetail();
             messageList.clear();
             adapterAiChatMesssageList.notifyDataSetChanged();
             clickCount++;
@@ -302,12 +260,7 @@ public class FragmentChatAi extends Fragment {
 
         handler.postDelayed(resetClickCountRunnable, 2000);
 
-        return view;
-    }
-
-    @Override
-    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-        ApplicationModelShared app = (ApplicationModelShared) requireActivity().getApplication();
+        ApplicationModelShared app = ApplicationModelShared.getInstance();
         if(app.chatRequest != null) {
             sendMessageDirectly(app.chatRequest);
         }
@@ -317,26 +270,26 @@ public class FragmentChatAi extends Fragment {
         rootLayout = view.findViewById(R.id.layout_chat);  // 父布局
 
         // 监听视图变化，获取软键盘的高度
-        view.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                // 获取当前屏幕可见区域的高度
-                Rect rect = new Rect();
-                view.getWindowVisibleDisplayFrame(rect);
-                int screenHeight = view.getHeight();
+        view.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
+            // 获取当前屏幕可见区域的高度
+            Rect rect = new Rect();
+            view.getWindowVisibleDisplayFrame(rect);
+            int screenHeight = view.getHeight();
 
-                // 计算软键盘的高度
-                int keypadHeight = screenHeight - rect.bottom;
+            // 计算软键盘的高度
+            int keypadHeight = screenHeight - rect.bottom;
 
-                // 如果软键盘显示，调整布局
-                if (keypadHeight > screenHeight * 0.15) {
-                    adjustLayoutForKeyboard(keypadHeight);
-                } else {
-                    adjustLayoutForKeyboard(0);
-                }
+            // 如果软键盘显示，调整布局
+            if (keypadHeight > screenHeight * 0.15) {
+                adjustLayoutForKeyboard(keypadHeight);
+            } else {
+                adjustLayoutForKeyboard(0);
             }
         });
+
+        addView(view);
     }
+
 
     public void clearChatHistory() {
         messageList.clear();
@@ -348,16 +301,16 @@ public class FragmentChatAi extends Fragment {
     }
 
     private void pollChat() {
-        String url = chatBotUrl;
+        String url = mChatAiParam.chatBotUrl;
         //优先使用Request里自带的url, 没有就用默认的
         if(aiChatMessageRequest.getDstUrl() != null && !aiChatMessageRequest.getDstUrl().isEmpty()) {
             url = aiChatMessageRequest.getDstUrl();
         }
         ApiGateWayService.sendChatMessage(aiChatMessageRequest, url, userInfoViewModel.token.getValue(), (success, response) -> {
-            requireActivity().runOnUiThread(() -> {
+            handler.post(() -> {
                 if (success) {
                     if(!response.trim().isEmpty() && !response.equals("end")) {
-                        adapterAiChatMesssageList.updateLastMessage(response, streamDisplay);
+                        adapterAiChatMesssageList.updateLastMessage(response, mChatAiParam.streamDisplay);
                         Log.d("%%%%%%%%", response);
                     }
                     if(!response.equals("end")) {
@@ -365,14 +318,14 @@ public class FragmentChatAi extends Fragment {
                         pollChat();
                     } else {
                         btnSend.setEnabled(true);
-                        if(mListener != null) {
-                            mListener.onAiChatResponced(true);
+                        if(mChatAiParam.listener != null) {
+                            mChatAiParam.listener.onAiChatResponced(true);
                         }
                         if(!messageList.isEmpty()) {
-                            ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
+                            ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
                         }
 
-                        ApplicationModelShared app = (ApplicationModelShared) requireActivity().getApplication();
+                        ApplicationModelShared app = ApplicationModelShared.getInstance();
                         if(app.chatRequest != null) {
                             app.chatRequest = null;
                         }
@@ -381,14 +334,14 @@ public class FragmentChatAi extends Fragment {
                 } else {
                     adapterAiChatMesssageList.updateLastMessage("‼️消息接收失败", false);
                     btnSend.setEnabled(true);
-                    if(mListener != null) {
-                        mListener.onAiChatResponced(false);
+                    if(mChatAiParam.listener != null) {
+                        mChatAiParam.listener.onAiChatResponced(false);
                     }
                     if(!messageList.isEmpty()) {
-                        ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
+                        ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
                     }
 
-                    ApplicationModelShared app = (ApplicationModelShared) requireActivity().getApplication();
+                    ApplicationModelShared app = ApplicationModelShared.getInstance();
                     if(app.chatRequest != null) {
                         app.chatRequest = null;
                     }
@@ -407,18 +360,18 @@ public class FragmentChatAi extends Fragment {
                     ChatMessage.TYPE_TEXT,
                     false,
                     "",
-                    tag,
+                    mChatAiParam.tag,
                     System.currentTimeMillis());
             messageList.add(message);
 
             etMessage.setText("");
-            ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).easyAddMessageDetail(message);
+            ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).easyAddMessageDetail(message);
             ChatMessage responseMessage = new ChatMessage("",
                     false,
                     ChatMessage.TYPE_TEXT,
                     false,
                     "",
-                    tag,
+                    mChatAiParam.tag,
                     System.currentTimeMillis());
             messageList.add(responseMessage);
 
@@ -446,20 +399,20 @@ public class FragmentChatAi extends Fragment {
                         ChatMessage.TYPE_TEXT,
                         false,
                         "",
-                        tag,
+                        mChatAiParam.tag,
                         System.currentTimeMillis());
                 messageList.add(message);
                 adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
                 etMessage.setText("");
 
-                ChatMessageHistoryDB.getInstance(requireContext(), userInfoViewModel.userId.getValue()).easyAddMessageDetail(message);
+                ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).easyAddMessageDetail(message);
                 ChatMessage responseMessage = new ChatMessage(
                         "",
                         false,
                         ChatMessage.TYPE_TEXT,
                         false,
                         "",
-                        tag,
+                        mChatAiParam.tag,
                         System.currentTimeMillis());
                 messageList.add(responseMessage);
                 adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
@@ -482,7 +435,6 @@ public class FragmentChatAi extends Fragment {
     }
 
     public void setChatEnable(boolean b) {
-        //btnSend.setVisibility(b ? View.VISIBLE : View.INVISIBLE);
         btnSend.setEnabled(b);
         chkViewHistory.setEnabled(b);
         textViewTitle.setEnabled(b);
@@ -496,16 +448,16 @@ public class FragmentChatAi extends Fragment {
     }
     // 获取焦点时，弹出软键盘并调整布局
     private void showKeyboardAndAdjustLayout(View view) {
-        InputMethodManager imm = (InputMethodManager) getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+        InputMethodManager imm = (InputMethodManager)mContext.getSystemService(Context.INPUT_METHOD_SERVICE);
         imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT);
 
         // 调整布局，确保 EditText 不会被软键盘遮挡
         refreshLayout.setVisibility(View.GONE);
     }
-//
+    //
 //    // 失去焦点时，隐藏软键盘并恢复布局
     private void hideKeyboardAndRestoreLayout(View view) {
-        InputMethodManager imm = (InputMethodManager) getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+        InputMethodManager imm = (InputMethodManager) mContext.getSystemService(Context.INPUT_METHOD_SERVICE);
         imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
 
         // 恢复布局，取消软键盘预留的空间

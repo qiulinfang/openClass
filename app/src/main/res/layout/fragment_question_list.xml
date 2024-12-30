@@ -68,7 +68,7 @@
         android:orientation="vertical"
         app:layout_constraintGuide_percent="0.6" />
 
-    <com.cosinetech.imates.widgets.MarkdownTextView
+    <com.cosinetech.imates.views.MarkdownTextView
         android:id="@+id/answerView"
         android:layout_width="0dp"
         android:layout_height="0dp"

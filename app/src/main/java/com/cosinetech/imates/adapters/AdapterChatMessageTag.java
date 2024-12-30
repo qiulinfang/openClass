@@ -9,7 +9,7 @@ import android.widget.TextView;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.SubjectUtils;
-import com.cosinetech.imates.widgets.OnInitSelectedPosition;
+import com.cosinetech.imates.views.OnInitSelectedPosition;
 
 import java.util.ArrayList;
 import java.util.List;

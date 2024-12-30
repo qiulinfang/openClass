@@ -6,7 +6,6 @@ import android.widget.Button;
 import android.widget.PopupWindow;
 
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.widgets.SwipeListView;
 
 public class NotePopupWindow extends PopupWindow {
     private NoteView noteView;

@@ -1,5 +1,5 @@
 
-package com.cosinetech.imates.widgets;
+package com.cosinetech.imates.views;
 
 import android.annotation.SuppressLint;
 import android.content.Context;

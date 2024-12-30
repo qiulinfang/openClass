@@ -1,4 +1,4 @@
-package com.cosinetech.imates.widgets;
+package com.cosinetech.imates.views;
 
 import android.content.Context;
 import android.util.AttributeSet;

@@ -124,7 +124,7 @@
             android:background="@android:color/darker_gray"
             app:layout_constraintTop_toBottomOf="@id/btn_capture"/>
 
-        <com.cosinetech.imates.widgets.MarkdownTextView
+        <com.cosinetech.imates.views.MarkdownTextView
             android:id="@+id/question_view"
             android:layout_width="0dp"
             android:layout_height="wrap_content"

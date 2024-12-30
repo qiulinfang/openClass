@@ -10,7 +10,6 @@ import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,7 +22,7 @@ import com.cosinetech.imates.adapters.AdapterQuestionList;
 import com.cosinetech.imates.adapters.AdapterSimilarQuestionList;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.AddQuestionRequest;
-import com.cosinetech.imates.widgets.MarkdownTextView;
+import com.cosinetech.imates.views.MarkdownTextView;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.FindSimilarQuestionRequest;
 import com.cosinetech.imates.models.UserInfoViewModel;

@@ -13,7 +13,7 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.SwipeAdapter;
 import com.cosinetech.imates.util.ImageUtils;
 import com.cosinetech.imates.util.StringUtils;
-import com.cosinetech.imates.widgets.SwipeListView;
+import com.cosinetech.imates.views.SwipeListView;
 import com.sendtion.xrichtext.RichTextEditor;
 
 import java.io.File;

@@ -1,4 +1,4 @@
-package com.cosinetech.imates.widgets;
+package com.cosinetech.imates.views;
 
 import java.util.List;
 

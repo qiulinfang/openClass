@@ -252,7 +252,7 @@
         app:layout_constraintStart_toStartOf="@id/opt_scheme_6"
         app:layout_constraintBottom_toTopOf="@id/opt_scheme_6" />
 
-    <com.cosinetech.imates.widgets.ConstraintRadioGroup
+    <com.cosinetech.imates.views.ConstraintRadioGroup
         android:id="@+id/schema_group"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

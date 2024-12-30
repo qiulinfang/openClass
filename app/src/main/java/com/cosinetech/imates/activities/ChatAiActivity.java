@@ -1,6 +1,6 @@
 package com.cosinetech.imates.activities;
 
-import static com.cosinetech.imates.widgets.FlowTagLayout.FLOW_TAG_CHECKED_SINGLE;
+import static com.cosinetech.imates.views.FlowTagLayout.FLOW_TAG_CHECKED_SINGLE;
 
 import android.content.Context;
 import android.os.Bundle;
@@ -36,7 +36,7 @@ import com.cosinetech.imates.util.TimeUtils;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
-import com.cosinetech.imates.widgets.FlowTagLayout;
+import com.cosinetech.imates.views.FlowTagLayout;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
 import java.util.ArrayList;

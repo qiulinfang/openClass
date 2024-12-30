@@ -1,4 +1,4 @@
-package com.cosinetech.imates.widgets;
+package com.cosinetech.imates.views;
 
 public interface DrawingChangeListener {
     void onTouchStart(float x, float y);
