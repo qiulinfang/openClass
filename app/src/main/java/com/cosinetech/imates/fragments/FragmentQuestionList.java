@@ -22,6 +22,7 @@ import com.cosinetech.imates.adapters.AdapterQuestionList;
 import com.cosinetech.imates.adapters.AdapterSimilarQuestionList;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.AddQuestionRequest;
+import com.cosinetech.imates.views.ChatAiView;
 import com.cosinetech.imates.views.MarkdownTextView;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.FindSimilarQuestionRequest;
@@ -57,7 +58,7 @@ public class FragmentQuestionList extends Fragment {
     private RadioButton mRdoSimilarQuestion;
     private TextView mTextEmptyQuestionTip;
 
-    private FragmentChatAi fragmentChatAi;
+    private ChatAiView mChatView;
 
     private final List<Question> mQuestions = new ArrayList<>();
 
@@ -95,13 +96,14 @@ public class FragmentQuestionList extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        fragmentChatAi = FragmentChatAi.newInstance(chatBotUrl,
-                subject.name(),
-                false,
-                subject == Subject.SUBJECT_BIOLOGY,
-                false,
-                false,
-                success -> {
+        mChatView = view.findViewById(R.id.chat_view);
+        ChatAiView.ChatAiParam param = new ChatAiView.ChatAiParam();
+        param.tag = subject.name();
+        param.showHeader = false;
+        param.chatBotUrl = chatBotUrl;
+        param.streamDisplay = subject == Subject.SUBJECT_BIOLOGY;
+        param.showHistory = false;
+        param.listener = success -> {
             if(mCurrentQuestionIndex >= 0 && mCurrentQuestionIndex < mQuestions.size()) {
                 mQuestions.get(mCurrentQuestionIndex).isAiGuiding = false;
                 adapterQuestionList.notifyItemChanged(mCurrentQuestionIndex);
@@ -110,14 +112,11 @@ public class FragmentQuestionList extends Fragment {
             if(chatResponceTimes >= 2) {
                 setViewAnswer(true);
             }
-        });
-        fragmentChatAi.setAiName("AI解题助手");
-        getChildFragmentManager().beginTransaction()
-                .replace(R.id.fragmentChatAiContainer, fragmentChatAi)
-                .addToBackStack(null) // 添加到回退栈以便用户可以返回
-                .commit();
+        };
+
+        mChatView.setChatAiParam(param);
+        mChatView.setAiName("AI解题助手");
         view.findViewById(R.id.btn_exit).setOnClickListener(v->{
-            getChildFragmentManager().popBackStack();
             getParentFragmentManager().popBackStack();
         });
 
@@ -198,10 +197,10 @@ public class FragmentQuestionList extends Fragment {
                 aiChatMessageRequest.setCoversation("我们开始吧");
                 aiChatMessageRequest.setReason("start");
                 aiChatMessageRequest.setBmNo(mCurrentQuestion.bmNo);
-                fragmentChatAi.setChatEnable(false);
+                mChatView.setChatEnable(false);
                 chatResponceTimes = 0;
                 setViewAnswer(false);
-                fragmentChatAi.clearChatHistory();
+                mChatView.clearChatHistory();
             }
 
             @Override
@@ -216,8 +215,8 @@ public class FragmentQuestionList extends Fragment {
                 }
 
                 requireActivity().runOnUiThread(() -> {
-                    fragmentChatAi.sendMessageDirectly(aiChatMessageRequest);
-                    fragmentChatAi.setChatEnable(true);
+                    mChatView.sendMessageDirectly(aiChatMessageRequest);
+                    mChatView.setChatEnable(true);
                 });
             }
         }) ;
@@ -304,15 +303,15 @@ public class FragmentQuestionList extends Fragment {
             if(checkedId == R.id.optChatAi) {
                 view.findViewById(R.id.similarExerciseView).setVisibility(View.INVISIBLE);
                 view.findViewById(R.id.answerView).setVisibility(View.INVISIBLE);
-                view.findViewById(R.id.fragmentChatAiContainer).setVisibility(View.VISIBLE);
+                view.findViewById(R.id.chat_view).setVisibility(View.VISIBLE);
             } else if(checkedId == R.id.optAnswer) {
                 view.findViewById(R.id.similarExerciseView).setVisibility(View.INVISIBLE);
                 view.findViewById(R.id.answerView).setVisibility(View.VISIBLE);
-                view.findViewById(R.id.fragmentChatAiContainer).setVisibility(View.INVISIBLE);
+                view.findViewById(R.id.chat_view).setVisibility(View.INVISIBLE);
             } else if(checkedId == R.id.optSimilar) {
                 view.findViewById(R.id.similarExerciseView).setVisibility(View.VISIBLE);
                 view.findViewById(R.id.answerView).setVisibility(View.INVISIBLE);
-                view.findViewById(R.id.fragmentChatAiContainer).setVisibility(View.INVISIBLE);
+                view.findViewById(R.id.chat_view).setVisibility(View.INVISIBLE);
                 findSimilarQuestion();
             }
         });

@@ -27,13 +27,13 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.AdapterAiChatMessageList;
 import com.cosinetech.imates.adapters.AdapterChatMessageTag;
 import com.cosinetech.imates.adapters.ChatCatalogueAdapter;
-import com.cosinetech.imates.fragments.FragmentChatAi;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.models.ChatMessageCatalogue;
 import com.cosinetech.imates.models.ChatMessageHistoryDB;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.util.TimeUtils;
 import com.cosinetech.imates.util.WindowUtils;
+import com.cosinetech.imates.views.ChatAiView;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.views.FlowTagLayout;
@@ -44,9 +44,6 @@ import java.util.List;
 import java.util.Objects;
 
 public class ChatAiActivity extends AppCompatActivity {
-    public interface AiChatResponseListener {
-        void onAiChatResponced(boolean success);
-    }
 
     private UserInfoViewModel userInfoViewModel;
     private static final String KEY_PARAM_CHATBOT_URL = "CHAT_URL";
@@ -77,7 +74,7 @@ public class ChatAiActivity extends AppCompatActivity {
     private boolean showHistory;
     private boolean initialSendEnable;
 
-    private FragmentChatAi.AiChatResponseListener mListener;
+    private ChatAiView.AiChatResponseListener mListener;
 
     // chat message tags
     private AdapterChatMessageTag<String> mChatAdapterChatMessageTag;
@@ -93,7 +90,7 @@ public class ChatAiActivity extends AppCompatActivity {
         WindowUtils.hideSystemUI(this);
         WindowUtils.setFullScreenMode(this);
 
-        View view = getLayoutInflater().inflate(R.layout.fragment_chat_ai, null);
+        View view = getLayoutInflater().inflate(R.layout.view_chat_ai, null);
         setContentView(view);
 
         chatBotUrl = getIntent().getStringExtra(KEY_PARAM_CHATBOT_URL);

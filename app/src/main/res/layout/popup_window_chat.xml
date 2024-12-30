@@ -4,14 +4,10 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <FrameLayout
-        android:id="@+id/popup_container"
+    <com.cosinetech.imates.views.ChatAiView
+        android:id="@+id/chat_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@android:color/white">
-
-        <!-- 这里是一个容器，用于加载 Fragment -->
-    </FrameLayout>
+        android:layout_height="match_parent"/>
 
     <Button
         android:id="@+id/btn_exit"

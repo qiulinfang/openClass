@@ -19,18 +19,16 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.PopupWindow;
 import androidx.annotation.Nullable;
-import androidx.compose.foundation.gestures.snapping.SnapPosition;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentManager;
-import androidx.fragment.app.FragmentTransaction;
 
 import com.airbnb.lottie.LottieAnimationView;
 import com.cosinetech.imates.ApplicationModelShared;
-import com.cosinetech.imates.fragments.FragmentChatAi;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.util.ScreenUtils;
+import com.cosinetech.imates.views.ChatAiView;
 import com.cosinetech.imates.webservice.ApiUrl;
 
 public class FloatingWindowService extends Service {
@@ -44,7 +42,7 @@ public class FloatingWindowService extends Service {
     private WindowManager windowManager;
     private WindowManager.LayoutParams layoutParams;
     private View floatingRobotView;
-    private View popupChatView;
+    //private View popupChatView;
 
     public FloatingWindowService() {
     }
@@ -73,11 +71,7 @@ public class FloatingWindowService extends Service {
         }
 
         // 创建并启动前台服务
-        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("AI学伴")
-                .setContentText("AI学伴, 一直陪伴你学习")
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .build();
+        Notification notification = createNotification();
 
         startForeground(NOTIFICATION_ID, notification);
 
@@ -123,7 +117,7 @@ public class FloatingWindowService extends Service {
 
                         initialTouchX = event.getRawX();
                         initialTouchY = event.getRawY();
-                        Log.d("?????????", "onTouch-1: " + initialX  + "," + initialY + "," + initialTouchX + ", " + initialTouchY);
+                        //Log.d("?????????", "onTouch-1: " + initialX  + "," + initialY + "," + initialTouchX + ", " + initialTouchY);
                         return true;
 
                     case MotionEvent.ACTION_MOVE:
@@ -134,8 +128,8 @@ public class FloatingWindowService extends Service {
                         layoutParams.x = initialX + offsetX;
                         layoutParams.y = initialY + offsetY;
                         windowManager.updateViewLayout(floatingRobotView, layoutParams);
-                        Log.d("?????????", "onTouch0: " + offsetX  + "," + offsetY);
-                        Log.d("?????????", "onTouch1: " + layoutParams.x  + "," + layoutParams.y);
+//                        Log.d("?????????", "onTouch0: " + offsetX  + "," + offsetY);
+//                        Log.d("?????????", "onTouch1: " + layoutParams.x  + "," + layoutParams.y);
                         return true;
 
                     case MotionEvent.ACTION_UP:
@@ -202,7 +196,7 @@ public class FloatingWindowService extends Service {
         layoutPopup.y = 0;
 
         // 初始化并加载布局
-        popupChatView = LayoutInflater.from(this).inflate(R.layout.popup_window_chat, null);
+        final View popupChatView = LayoutInflater.from(this).inflate(R.layout.popup_window_chat, null);
         windowManager.addView(popupChatView, layoutPopup);
 
         // 添加交互事件
@@ -235,34 +229,7 @@ public class FloatingWindowService extends Service {
         Button btnExit = popupChatView.findViewById(R.id.btn_exit);
         btnExit.setOnClickListener(v-> {
             windowManager.removeView(popupChatView);
-            popupChatView = null;
         });
-
-        // 加载 Fragment
-        FragmentManager fragmentManager = fragmentManagerProvider.getFragmentManagerForFloatingWindow(popupChatView);
-        FragmentTransaction transaction = fragmentManager.beginTransaction();
-        transaction.setCustomAnimations(
-                R.anim.fragment_enter, // enter animation
-                R.anim.fragment_exit,  // exit animation
-                R.anim.fragment_enter, // popEnter animation
-                R.anim.fragment_exit   // popExit animation
-        );
-
-        FragmentChatAi fragmentChatAi;
-        try {
-            fragmentChatAi = FragmentChatAi.newInstance(url,
-                    tag,
-                    true,
-                    true,
-                    true,
-                    true,
-                    null);
-            transaction.replace(R.id.popup_container, fragmentChatAi);
-            transaction.addToBackStack(null);
-            transaction.commitAllowingStateLoss();
-        }catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 
     public void popupChatBot(String url, String tag) {
@@ -296,31 +263,16 @@ public class FloatingWindowService extends Service {
             popupWindow.dismiss();
         });
 
-        // 加载 Fragment
-        FragmentManager fragmentManager = fragmentManagerProvider.getFragmentManagerForFloatingWindow(popupView);
-        FragmentTransaction transaction = fragmentManager.beginTransaction();
-        transaction.setCustomAnimations(
-                R.anim.fragment_enter, // enter animation
-                R.anim.fragment_exit,  // exit animation
-                R.anim.fragment_enter, // popEnter animation
-                R.anim.fragment_exit   // popExit animation
-        );
-
-        FragmentChatAi fragmentChatAi;
-        try {
-            fragmentChatAi = FragmentChatAi.newInstance(url,
-                    tag,
-                    true,
-                    true,
-                    true,
-                    true,
-                    null);
-            transaction.replace(R.id.popup_container, fragmentChatAi);
-            transaction.addToBackStack(null);
-            transaction.commitAllowingStateLoss();
-        }catch (Exception e) {
-            e.printStackTrace();
-        }
+        ChatAiView  chatView = popupView.findViewById(R.id.chat_view);
+        ChatAiView.ChatAiParam param = new ChatAiView.ChatAiParam();
+        param.tag = tag;
+        param.chatBotUrl = url;
+        param.showHeader = true;
+        param.streamDisplay = true;
+        param.showHistory = true;
+        param.initialSendEnable = true;
+        param.listener = null;
+        chatView.setChatAiParam(param);
     }
 
     @Override
@@ -332,8 +284,8 @@ public class FloatingWindowService extends Service {
 
     private Notification createNotification() {
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Floating Window")
-                .setContentText("Floating Window Service is running")
+                .setContentTitle("AI学伴")
+                .setContentText("AI学伴, 一直陪伴你学习")
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .build();
     }
@@ -346,10 +298,10 @@ public class FloatingWindowService extends Service {
             windowManager.removeView(floatingRobotView);
             floatingRobotView = null;
         }
-
-        if(popupChatView != null) {
-            windowManager.removeView(popupChatView);
-            popupChatView = null;
-        }
+//
+//        if(popupChatView != null) {
+//            windowManager.removeView(popupChatView);
+//            popupChatView = null;
+//        }
     }
 }

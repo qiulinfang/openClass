@@ -29,7 +29,6 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.AdapterAiChatMessageList;
 import com.cosinetech.imates.adapters.AdapterChatMessageTag;
 import com.cosinetech.imates.adapters.ChatCatalogueAdapter;
-import com.cosinetech.imates.fragments.FragmentChatAi;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.models.ChatMessageCatalogue;
 import com.cosinetech.imates.models.ChatMessageHistoryDB;
@@ -48,14 +47,14 @@ public class ChatAiView extends RelativeLayout {
         void onAiChatResponced(boolean success);
     }
 
-    class ChatAiParam {
+    public static class ChatAiParam {
         public String tag = "";
         public String chatBotUrl;
         public boolean showHeader;
         public boolean streamDisplay;
         public boolean showHistory;
         public boolean initialSendEnable;
-        public FragmentChatAi.AiChatResponseListener listener;
+        public AiChatResponseListener listener;
     }
 
     private UserInfoViewModel userInfoViewModel;
@@ -124,7 +123,7 @@ public class ChatAiView extends RelativeLayout {
 
     private void initView() {
         // Inflate the layout for this fragment
-        View view = LayoutInflater.from(mContext).inflate(R.layout.fragment_chat_ai, this, false);
+        View view = LayoutInflater.from(mContext).inflate(R.layout.view_chat_ai, this, false);
         recyclerView = view.findViewById(R.id.chat_msg_view);
         refreshLayout = view.findViewById(R.id.chat_message_session);
         etMessage = view.findViewById(R.id.et_message);
