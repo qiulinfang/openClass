@@ -5,78 +5,45 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Gravity;
-import android.view.LayoutInflater;
+
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
-import android.widget.EditText;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.PopupWindow;
-import android.widget.TextView;
-import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.colorpicker.ColorListener;
-import com.cosinetech.imates.colorpicker.ColorPickerDialog;
+import com.cosinetech.imates.ScratchToolsView;
 import com.cosinetech.imates.models.Chapter;
-import com.cosinetech.imates.models.Subject;
-import com.cosinetech.imates.notes.NoteManager;
 import com.cosinetech.imates.notes.NotePopupWindow;
 import com.cosinetech.imates.pdfui.tree.TreeNodeData;
-import com.cosinetech.imates.util.ImageUtils;
 import com.cosinetech.imates.util.WindowUtils;
-import com.cosinetech.imates.webservice.AiChatMessageRequest;
-import com.cosinetech.imates.webservice.ApiUrl;
-import com.cosinetech.imates.widgets.DrawingChangeListener;
-import com.cosinetech.imates.widgets.PaintView;
 import com.github.barteksc.pdfviewer.PDFView;
 import com.github.barteksc.pdfviewer.listener.OnLoadCompleteListener;
 import com.github.barteksc.pdfviewer.listener.OnPageChangeListener;
 import com.github.barteksc.pdfviewer.listener.OnPageErrorListener;
 import com.github.barteksc.pdfviewer.scroll.DefaultScrollHandle;
 import com.github.barteksc.pdfviewer.util.FitPolicy;
-import com.litao.slider.NiftySlider;
 import com.lzf.easyfloat.EasyFloat;
 import com.lzf.easyfloat.enums.ShowPattern;
 import com.lzf.easyfloat.enums.SidePattern;
 import com.lzf.easyfloat.interfaces.OnFloatCallbacks;
 import com.shockwave.pdfium.PdfDocument;
 import org.jetbrains.annotations.NotNull;
-import java.io.File;
-import java.io.FileOutputStream;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class PDFActivity extends AppCompatActivity implements
         OnPageChangeListener,
         OnLoadCompleteListener,
         OnPageErrorListener {
 
-    /// edit tools
-    private ImageView btnBrushSize;
-    private ImageView btnPalatte;
-    private ImageView btnUseBrush;
-    private ImageView btnUseEraser;
-    private ImageView btnUndo;
-    private ImageView btnRedo;
-    private ImageView btnSelectArea;
-    private ImageView btnOk;
-    private ImageView btnCancel;
+    private ScratchToolsView scratchToolsView;
 
-    private TextView textColorIndicator;
-    private PaintView paintView;
-    private View paintToolView;
-    private int selectionColorId = R.color.assist_blue;
     private Chapter.Schema mSchema;
     private Chapter.Section mSection;
     //PDF控件
@@ -98,175 +65,40 @@ public class PDFActivity extends AppCompatActivity implements
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        //UIUtils.initWindowStyle(getWindow(), getSupportActionBar());//设置沉浸式
+
         WindowUtils.hideSystemUI(this);
         WindowUtils.setFullScreenMode(this);
         setContentView(R.layout.activity_pdf);
 
         mSchema = getIntent().getParcelableExtra("Schema");
         mSection = getIntent().getParcelableExtra("Section");
-
-        paintView = findViewById(R.id.paint_view);
-
-        btnBrushSize = findViewById(R.id.imgBrushSize);
-        btnPalatte = findViewById(R.id.imgPalette);
-        btnUseBrush = findViewById(R.id.imgBrush);
-        btnUseEraser = findViewById(R.id.imgErase);
-        btnUndo = findViewById(R.id.imgUndo);
-        btnRedo = findViewById(R.id.imgRedo);
-        btnSelectArea = findViewById(R.id.imgSelectArea);
-        btnOk = findViewById(R.id.imgOK);
-        btnCancel = findViewById(R.id.imgCancel);
-
-        textColorIndicator = findViewById(R.id.colorIndicator);
-        paintToolView = findViewById(R.id.img_edit_layout);
-        paintToolView.setVisibility(View.GONE);
-
-        // 默认选择画笔
-        // btnUseBrush.setBackgroundColor(getColor(selectionColorId));
-
-        paintView.addDrawingChangeListener(new DrawingChangeListener() {
+        scratchToolsView = findViewById(R.id.scratch_tool);
+        scratchToolsView.setAskAiContextPrompt(mSection.getTitle());
+        scratchToolsView.setOnScratchToolsListener(new ScratchToolsView.OnScratchToolsListener() {
             @Override
-            public void onTouchStart(float x, float y) {
-
+            public void onEnterScratchMode() {
             }
 
             @Override
-            public void onDrawingChange(float x, float y) {
-
+            public void onExitScratchMode() {
             }
 
             @Override
-            public void onSelectionEnd(float x, float y) {
-                // 加载自定义布局
-                View popupView = LayoutInflater.from(PDFActivity.this).inflate(R.layout.pdf_scribble_menu, null);
-
-                // 创建 PopupWindow
-                PopupWindow popupWindow = new PopupWindow(popupView,
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        true);
-
-                // 设置点击事件
-                popupView.findViewById(R.id.menu_chat).setOnClickListener(view -> {
-                    Bitmap bmp = paintView.getSelectedBitmap();
-                    popupWindow.dismiss();
-                    askQuestionForPicture(bmp, (int)x, (int)y);
-                });
-
-                popupView.findViewById(R.id.menu_note).setOnClickListener(view -> {
-                    Bitmap bmp = paintView.getSelectedBitmap();
-                    byte [] data = ImageUtils.compressBitmapToJpg(bmp);
-                    try {
-                        String fileName = makeNoteFullFilePath();
-                        if(!writeJpgToExternalStorage(data, fileName)) {
-                            Toast.makeText(PDFActivity.this, "保存图片失败", Toast.LENGTH_SHORT).show();
-                        } else {
-                            NoteManager manager = new NoteManager(getBaseContext());
-                            StringBuilder htmlContentBuilder = new StringBuilder();
-                            htmlContentBuilder.append("<img src=\"").append(fileName.toString()).append("\"/>");
-                            manager.addNote(htmlContentBuilder.toString(), "");
-                            popupWindow.dismiss();
-                        }
-                    }catch (Exception ex) {
-                        Toast.makeText(PDFActivity.this, "创建笔记失败", Toast.LENGTH_SHORT).show();
-                    }
-                });
-
-                // 显示 PopupWindow 在指定位置 (例如屏幕中央)
-                popupWindow.showAtLocation(paintView, Gravity.NO_GRAVITY, (int)x, (int)y);
-            }
-        });
-
-        com.litao.slider.NiftySlider slider = findViewById(R.id.niftySlider);
-        btnBrushSize.setOnClickListener(v -> {
-            if(slider.getVisibility() == View.VISIBLE) {
-                btnBrushSize.setBackgroundColor(getColor(R.color.semi_black_transparent));
-                slider.setVisibility(View.GONE);
-            } else {
-                slider.setVisibility(View.VISIBLE);
-                btnBrushSize.setBackgroundColor(getColor(selectionColorId));
-            }
-        });
-
-        slider.setOnIntValueChangeListener(new NiftySlider.OnIntValueChangeListener() {
-            @Override
-            public void onValueChange(@NonNull NiftySlider niftySlider, int i, boolean b) {
-                paintView.setBrushSize(i);
-            }
-        });
-
-        btnPalatte.setOnClickListener(v->{
-            new ColorPickerDialog.Builder(this)
-                    .setTitle("选择颜色")
-                    .setPositiveButton("确定", (ColorListener) (colorInfo, fromUser) -> {
-                        textColorIndicator.setTextColor(colorInfo.getColor());
-                        paintView.setBrushColor(colorInfo.getColor());
-                    })
-                    .show();
-        });
-
-        btnUseBrush.setOnClickListener(
-            v -> {
+            public Bitmap onGetScratchCanvasBitmap() {
                 Bitmap bmp = WindowUtils.getScreenshot2Bitmap(PDFActivity.this, pdfView);
-                enterScratchMode(bmp);
-                resetPaintToolSelect();
-                paintView.disableEraser();
-                paintView.disableSelection();
-                btnUseBrush.setBackgroundColor(getColor(selectionColorId));
-            }
-        );
-
-        btnUseEraser.setOnClickListener(
-               v-> {
-                   Bitmap bmp = WindowUtils.getScreenshot2Bitmap(PDFActivity.this, pdfView);
-                   enterScratchMode(bmp);
-                   resetPaintToolSelect();
-                   paintView.enableEraser();
-                   paintView.disableSelection();
-                   btnUseEraser.setBackgroundColor(getColor(selectionColorId));
-               }
-        );
-
-        btnSelectArea.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Bitmap bmp = WindowUtils.getScreenshot2Bitmap(PDFActivity.this, pdfView);
-                enterScratchMode(bmp);
-                resetPaintToolSelect();
-                paintView.enableSelection();
-                paintView.disableEraser();
-                btnSelectArea.setBackgroundColor(getColor(selectionColorId));
+                return  bmp;
             }
         });
 
-        btnUndo.setOnClickListener(
-                v -> paintView.undoDrawing()
-        );
-
-        btnRedo.setOnClickListener(
-                v -> paintView.redoDrawing()
-        );
-
-        btnOk.setOnClickListener(v -> {
-
-        });
-
-        btnCancel.setOnClickListener( v -> {
-            exitScratchMode();
-        });
 
         initView();//初始化view
         loadPdf();//加载PDF文件
 
         showFloatPDFTools();
 
-        pdfView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                closeFloatPDFTools();
-                showFloatPDFTools();
-            }
+        pdfView.setOnClickListener(v -> {
+            closeFloatPDFTools();
+            showFloatPDFTools();
         });
     }
 
@@ -408,124 +240,8 @@ public class PDFActivity extends AppCompatActivity implements
                 .show();
     }
 
-    private void enterScratchMode(Bitmap bmp) {
-        if(paintToolView.getVisibility() != View.VISIBLE) {
-            EasyFloat.hide();
-            paintView.setBitmap(bmp);
-            //paintView.setBackgroundColor(Color.TRANSPARENT);
-            paintToolView.setVisibility(View.VISIBLE);
-        }
-    }
-
-    private void exitScratchMode() {
-        if(paintToolView.getVisibility() == View.VISIBLE) {
-            paintToolView.setVisibility(View.GONE);
-            EasyFloat.show();
-        }
-        resetPaintToolSelect();
-    }
-
     private void closeFloatPDFTools() {
         EasyFloat.dismiss();
-    }
-
-    private void askQuestionForPicture(Bitmap bmp, int x, int y) {
-// 加载自定义布局
-        View popupView = LayoutInflater.from(PDFActivity.this).inflate(R.layout.pdf_ask_ai, null);
-        ImageView imageView = popupView.findViewById(R.id.ask_picture_src);
-        EditText editText = popupView.findViewById(R.id.ask_content);
-        editText.setSingleLine(false); // 设置为多行
-        editText.setLines(2); // 设置行数
-        //editText.setMaxLines(10);
-        editText.setHorizontallyScrolling(false); // 允许水平滚动
-        // 创建 PopupWindow
-        PopupWindow popupWindow = new PopupWindow(popupView,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                true);
-
-        imageView.setImageBitmap(bmp);
-
-        // 设置点击事件
-        popupView.findViewById(R.id.btn_ok).setOnClickListener(view -> {
-            if(editText.getText().toString().trim().isEmpty()) {
-                Toast.makeText(PDFActivity.this, "请输入要问的问题", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            popupWindow.dismiss();
-            ApplicationModelShared app = (ApplicationModelShared)getApplication();
-            AiChatMessageRequest chatRequest = new AiChatMessageRequest("",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "start",
-                    "");
-            try {
-                chatRequest.setQuestion(ImageUtils.bitmapToHtmlJpgBase64(bmp));
-                chatRequest.setCoversation(editText.getText().toString());
-                chatRequest.setAnswer(mSection.getTitle()); //当前章节
-                chatRequest.setDstUrl(ApiUrl.URL_CHAT_PREVIEW_PICTURE);
-                app.chatRequest = chatRequest;
-
-                app.getFloatingWindowService().popupChatBot(ApiUrl.URL_CHAT_GENERAL, Subject.SUBJECT_ALL.name());
-            } catch (Exception e) {
-                Toast.makeText(PDFActivity.this, "请输入要问的问题", Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        popupView.findViewById(R.id.btn_cancel).setOnClickListener(view -> {
-            popupWindow.dismiss();
-        });
-
-        // 显示 PopupWindow 在指定位置 (例如屏幕中央)
-        popupWindow.showAtLocation(paintView, Gravity.NO_GRAVITY, (int)x, 0);
-    }
-
-    private String makeNoteFullFilePath() {
-        // 获取应用的私有外部存储目录
-        File externalFilesDir = getExternalFilesDir(null);
-        if (externalFilesDir == null) {
-            Toast.makeText(this, "无法访问外部存储目录", Toast.LENGTH_SHORT).show();
-            return null; // 返回 null 表示失败
-        }
-
-        // 创建一个子目录（可选）
-        File customDirectory = new File(externalFilesDir, "MyNotes");
-        if (!customDirectory.exists()) {
-            customDirectory.mkdirs(); // 如果目录不存在，创建它
-        }
-
-        // 生成 GUID 作为文件名
-        String guid = UUID.randomUUID().toString();
-        String fileName = guid + ".jpg";
-
-        // 创建文件对象
-        File file = new File(customDirectory, fileName);
-
-        return file.getAbsolutePath();
-    }
-
-    private boolean writeJpgToExternalStorage(byte [] data , String filePath) {
-        try {
-            File file = new File(filePath);
-            // 创建文件并写入内容
-            FileOutputStream fos = new FileOutputStream(file);
-            fos.write(data);
-            fos.close();
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-            Toast.makeText(this, "写入文件失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            return false;
-        }
-    }
-
-    private void resetPaintToolSelect() {
-        btnUseBrush.setBackgroundColor(getColor(R.color.semi_black_transparent));
-        btnUseEraser.setBackgroundColor(getColor(R.color.semi_black_transparent));
-        btnSelectArea.setBackgroundColor(getColor(R.color.semi_black_transparent));
     }
 
     @Override
