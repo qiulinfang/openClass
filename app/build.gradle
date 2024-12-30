@@ -1,3 +1,6 @@
+import groovy.json.JsonBuilder
+import java.security.MessageDigest
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -24,6 +27,67 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
+    // 配置APK输出路径和名称
+    android.applicationVariants.all { variant ->
+        def buildTypeName = variant.buildType.name // 获取构建类型名称
+        def outputs = variant.outputs
+        outputs.all { output ->
+            if (output.outputFile != null && output.outputFile.name.endsWith('.apk')) {
+                def versionName = variant.versionName
+                def versionCode = variant.versionCode
+
+                // 定义输出文件的新名称
+                def outputFileName = "app-${versionName}-${versionCode}.apk"
+
+                // 修改 APK 文件的输出路径和文件名
+                output.outputFileName = outputFileName
+            }
+        }
+
+        // 配置assemble任务以改变输出目录
+        variant.assembleProvider.configure { task ->
+            task.doLast {
+                outputs.each { output ->
+                    if (output.outputFile != null && output.outputFile.name.endsWith('.apk')) {
+                        def originalOutputFile = output.outputFile
+                        def newOutputDir = new File(rootProject.projectDir, 'output/' + buildTypeName)
+                        def newOutputFile = new File(newOutputDir, originalOutputFile.name)
+
+                        // 确保输出目录存在
+                        newOutputDir.mkdirs()
+
+                        // 复制APK到新的输出目录
+                        copy {
+                            from originalOutputFile
+                            into newOutputDir
+                        }
+
+                        // 如果需要删除旧的APK文件，可以取消注释以下行
+                        // originalOutputFile.delete()
+
+                        // 计算文件大小和MD5校验码
+                        def fileSize = newOutputFile.length()
+                        def md5Checksum = calculateMd5(newOutputFile)
+
+                        // 创建该APK对应的JSON信息
+                        def apkInfo = [
+                                fileName: newOutputFile.name,
+                                filePath: newOutputFile.absolutePath,
+                                fileSize: fileSize,
+                                md5Checksum: md5Checksum
+                        ]
+
+                        // 创建JSON文件，并保存在与APK相同的目录下
+                        def jsonFileName = "${newOutputFile.name.replace('.apk', '')}-info.json"
+                        def jsonFile = new File(newOutputDir, jsonFileName)
+                        jsonFile.text = new JsonBuilder(apkInfo).toPrettyString()
+                    }
+                }
+            }
+        }
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
@@ -35,6 +99,19 @@ android {
     kotlinOptions {
         jvmTarget = '11'
     }
+}
+
+// 辅助方法：计算文件的MD5校验码
+def calculateMd5(File file) {
+    def md5 = MessageDigest.getInstance("MD5")
+    file.withInputStream { inputStream ->
+        byte[] buffer = new byte[8192]
+        int bytesRead
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+            md5.update(buffer, 0, bytesRead)
+        }
+    }
+    return md5.digest().encodeHex().toString()
 }
 
 dependencies {
