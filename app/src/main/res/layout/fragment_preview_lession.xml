@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF"
+    android:background="@drawable/app_main_background"
     tools:context=".fragments.FragmentPreviewLesson">
 
     <TextView
@@ -44,9 +44,165 @@
         app:layout_constraintStart_toEndOf="@id/sign_split"
         app:layout_constraintTop_toTopOf="@id/sign_split" />
 
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_margin="16dp"
+        android:background="@drawable/lesson_preview_intro_bk"
+        app:layout_constraintStart_toStartOf="@id/guideline"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <RelativeLayout
+            android:id="@+id/intro_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:background="@drawable/lesson_preview_intro_title_bk"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="24dp"
+                android:text="教学内容简介"
+                android:textStyle="bold"
+                android:textSize="24sp"
+                android:textColor="#ffffff"
+                android:layout_alignParentStart="true"/>
+
+            <TextView
+                android:id="@+id/schema_1_stat"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="24dp"
+                android:layout_marginEnd="16dp"
+                android:layout_centerVertical="true"
+                android:text="未预习"
+                android:textStyle="bold"
+                android:textSize="24sp"
+                android:layout_alignParentEnd="true"
+                android:textColor="#ffffff" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="●"
+                android:textStyle="bold"
+                android:textSize="24sp"
+                android:layout_marginEnd="16dp"
+                android:layout_toStartOf="@id/schema_1_stat"
+                android:textColor="#ffffff" />
+        </RelativeLayout>
+
+        <LinearLayout
+            android:id="@+id/rate_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            app:layout_constraintTop_toBottomOf="@id/intro_title">
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="6"
+                android:layout_marginHorizontal="24dp"
+                android:background="@drawable/lesson_preview_split_bk"/>
+
+            <TextView
+                android:id="@+id/rate_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:text="评价"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:textColor="#666666" />
+
+            <com.github.spareyaya.SimpleRatingView
+                android:id="@+id/rating"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="32dp"
+                app:starType="heart"
+                app:numStars="5"
+                app:rating="0"
+                app:starSize="24dp"
+                app:starSpacing="2dp"
+                app:primaryColor="#ff0000"
+                app:secondaryColor="#cecece"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/tool_bar" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:text="难度"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="#666666"
+                app:layout_constraintTop_toBottomOf="@id/rate_title"
+                app:layout_constraintEnd_toStartOf="@id/rating_difficulty"/>
+
+            <com.github.spareyaya.SimpleRatingView
+                android:id="@+id/rating_difficulty"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="16dp"
+                app:starType="star"
+                app:numStars="5"
+                app:rating="0"
+                app:starSize="24dp"
+                app:starSpacing="2dp"
+                app:primaryColor="#0000FF"
+                app:secondaryColor="#cecece"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/rating" />
+
+        </LinearLayout>
+
+        <ScrollView
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_margin="12dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/rate_layout"
+            app:layout_constraintBottom_toTopOf="@id/btn_go_prepare">
+            <TextView
+                android:id="@+id/schema_intro"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="600dp"
+                android:textSize="24sp"
+                android:textColor="#000000"/>
+        </ScrollView>
+
+        <Button
+            android:id="@+id/btn_go_prepare"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="24dp"
+            android:layout_marginEnd="32dp"
+            android:textSize="@dimen/head0_size"
+            android:background="@drawable/round_corner"
+            android:textColor="#ffffff"
+            android:text="去预习"
+            android:stateListAnimator="@animator/button_click_scale"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
     <LinearLayout
         android:id="@+id/tool_bar"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:background="#71c9f6"
         android:minHeight="80dp"
@@ -134,15 +290,6 @@
         android:textSize="@dimen/head0_size"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/teacher_video1" />
-
-    <TextView
-        android:id="@+id/schema_1_stat"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="待学习"
-        android:textColor="@android:color/darker_gray"
-        app:layout_constraintStart_toStartOf="@id/opt_scheme_1"
-        app:layout_constraintBottom_toTopOf="@id/opt_scheme_1" />
 
     <RadioButton
         android:id="@+id/opt_scheme_2"
@@ -260,128 +407,11 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tool_bar" />
 
-    <Button
-        android:id="@+id/btn_go_prepare"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="24dp"
-        android:layout_marginEnd="32dp"
-        android:textSize="@dimen/head0_size"
-        android:background="@drawable/round_corner"
-        android:textColor="#ffffff"
-        android:text="去预习"
-        android:stateListAnimator="@animator/button_click_scale"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         app:layout_constraintGuide_percent="0.35" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="24dp"
-        android:text="教学内容简介"
-        android:textSize="24sp"
-        android:textColor="#000000"
-        app:layout_constraintStart_toStartOf="@id/guideline"
-        app:layout_constraintTop_toBottomOf="@id/tool_bar"/>
-
-    <com.github.spareyaya.SimpleRatingView
-        android:id="@+id/rating"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="24dp"
-        app:starType="heart"
-        app:numStars="5"
-        app:rating="0"
-        app:starSize="24dp"
-        app:starSpacing="2dp"
-        app:primaryColor="#ff0000"
-        app:secondaryColor="#cecece"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tool_bar" />
-
-    <TextView
-        android:id="@+id/rate_title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="评价"
-        android:textSize="18sp"
-        android:textColor="#000000"
-        android:layout_margin="24dp"
-        app:layout_constraintTop_toBottomOf="@id/tool_bar"
-        app:layout_constraintEnd_toStartOf="@id/rating"/>
-
-    <com.github.spareyaya.SimpleRatingView
-        android:id="@+id/rating_difficulty"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="24dp"
-        android:layout_marginTop="6dp"
-        app:starType="star"
-        app:numStars="5"
-        app:rating="0"
-        app:starSize="24dp"
-        app:starSpacing="2dp"
-        app:primaryColor="#0000FF"
-        app:secondaryColor="#cecece"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/rating" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="难度"
-        android:textSize="18sp"
-        android:textColor="#000000"
-        android:layout_marginHorizontal="24dp"
-        app:layout_constraintTop_toBottomOf="@id/rate_title"
-        app:layout_constraintEnd_toStartOf="@id/rating_difficulty"/>
-
-    <ScrollView
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_margin="12dp"
-        app:layout_constraintStart_toStartOf="@id/guideline"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/rating_difficulty"
-        app:layout_constraintBottom_toTopOf="@id/btn_go_prepare">
-        <TextView
-            android:id="@+id/schema_intro"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="600dp"
-            android:textSize="24sp"
-            android:textColor="#000000"/>
-    </ScrollView>
-
-<!--    <RelativeLayout-->
-<!--        android:id="@+id/video_area"-->
-<!--        android:background="#000000"-->
-<!--        android:layout_width="match_parent"-->
-<!--        android:layout_height="match_parent"-->
-<!--        android:orientation="vertical"-->
-<!--        android:visibility="gone">-->
-<!--        <VideoView-->
-<!--            android:id="@+id/video_view"-->
-<!--            android:layout_width="match_parent"-->
-<!--            android:layout_height="match_parent"-->
-<!--            android:layout_alignParentStart="true"-->
-<!--            android:layout_alignParentEnd="true"-->
-<!--            android:layout_alignParentTop="true"-->
-<!--            android:layout_alignParentBottom="true"-->
-<!--            android:layout_gravity="center_vertical" />-->
-<!--        <Button-->
-<!--            android:id="@+id/btn_exit_video"-->
-<!--            android:background="@drawable/ic_back"-->
-<!--            android:layout_width="32dp"-->
-<!--            android:layout_height="32dp"-->
-<!--            android:layout_margin="16dp"/>-->
-<!--    </RelativeLayout>-->
 
 </androidx.constraintlayout.widget.ConstraintLayout>

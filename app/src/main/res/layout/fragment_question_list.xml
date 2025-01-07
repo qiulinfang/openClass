@@ -8,6 +8,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     tools:context=".fragments.FragmentSubjectBiology">
 
+
     <Button
         android:id="@+id/btn_exit"
         android:layout_width="30dp"

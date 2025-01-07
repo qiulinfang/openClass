@@ -38,7 +38,7 @@
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="16dp"
             android:textColor="#ffffff"
-            android:background="@drawable/button_bk"
+            android:background="@drawable/knowledge_similar_button_bk"
             android:text = "加入习题列表"/>
 
         <Button
