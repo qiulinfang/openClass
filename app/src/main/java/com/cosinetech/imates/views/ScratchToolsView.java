@@ -322,7 +322,7 @@ public class ScratchToolsView extends RelativeLayout {
         });
 
         // 显示 PopupWindow 在指定位置 (例如屏幕中央)
-        popupWindow.showAtLocation(paintView, Gravity.NO_GRAVITY, (int)x, 0);
+        popupWindow.showAtLocation(paintView, Gravity.NO_GRAVITY, (int)x, 2);
     }
 
     private String makeNoteFullFilePath() {

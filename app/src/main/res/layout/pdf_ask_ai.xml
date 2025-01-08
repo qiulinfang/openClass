@@ -1,41 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:background="#CECECE"
+    android:background="@drawable/ask_ai_for_picture_bg"
     android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
+    android:layout_height="match_parent"
+    android:elevation="10dp"
     android:orientation="vertical">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textColor="#000000"
-        android:minWidth="250dp"
+        android:textStyle="bold"
+        android:minWidth="300dp"
         android:layout_margin="16dp"
         android:text="输入你想问的问题:"/>
 
     <EditText
         android:id="@+id/ask_content"
-        android:inputType="textMultiLine"
-        android:lines="8"
-        android:minLines="2"
-        android:scrollbars="vertical"
-        android:background="#ffffff"
-        android:layout_width="wrap_content"
+        android:layout_width="300dp"
         android:layout_height="wrap_content"
-        android:layout_margin="8dp"
-        android:minWidth="250dp" />
+        android:layout_margin="16dp"
+        android:minWidth="300dp"
+        android:inputType="textMultiLine"
+        android:lines="4"
+        android:maxLines="4"
+        android:hint="想问什么?"
+        android:textColorHint="#808080"
+        android:scrollHorizontally="false"
+        android:overScrollMode="never"
+        android:ellipsize="none"
+        android:singleLine="false"
+        android:gravity="top|start"
+        android:scrollbars="vertical"
+        android:padding="8dp"
+        android:background="@drawable/ask_ai_for_picture_edit_bg"
+        android:elevation="4dp" />
 
     <ImageView
         android:id="@+id/ask_picture_src"
-        android:background="#ffffff"
-        android:layout_width="250dp"
+        android:background="@drawable/ask_ai_for_picture_edit_bg"
+        android:elevation="4dp"
+        android:layout_width="300dp"
         android:layout_height="250dp"
         android:layout_margin="16dp"/>
 
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
         android:orientation="horizontal">
 
         <Button
@@ -43,7 +56,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="#ffffff"
-            android:background="@drawable/button_bk"
+            android:elevation="4dp"
+            android:background="@drawable/ask_ai_for_picture_button_bg"
             android:layout_margin="16dp"
             android:text="确定"/>
 
@@ -52,7 +66,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="#ffffff"
-            android:background="@drawable/button_bk"
+            android:elevation="4dp"
+            android:background="@drawable/ask_ai_for_picture_button_bg"
             android:layout_margin="16dp"
             android:text="取消"/>
     </LinearLayout>

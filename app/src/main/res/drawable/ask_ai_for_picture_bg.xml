@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape android:shape="rectangle"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#ffffff" />
+    <stroke android:color="#ff21a4ff" android:width="1dp" /> <!-- 1dp 的边框 -->
+    <item android:name="android:shadowDx">4</item>
+    <item android:name="android:shadowDy">4</item>
+    <item android:name="android:shadowColor">#26000000</item>
+    <corners android:topLeftRadius="10dp" android:topRightRadius="10dp" android:bottomLeftRadius="10dp" android:bottomRightRadius="10dp" />
+</shape>
