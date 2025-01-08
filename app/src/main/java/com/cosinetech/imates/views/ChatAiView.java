@@ -150,7 +150,6 @@ public class ChatAiView extends RelativeLayout {
             // Handle refresh
             loadMessages();
             refreshLayout.finishRefresh();
-            Toast.makeText(getContext(),"refreshing", Toast.LENGTH_SHORT).show();
         });
 
         // Send button click
@@ -222,7 +221,11 @@ public class ChatAiView extends RelativeLayout {
         if(mChatAiParam.showHistory) {
             List<ChatMessage> msgs = ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue())
                     .getMessageDetail(TimeUtils.timestampToDateString(System.currentTimeMillis()), mChatAiParam.tag);
-            messageList.addAll(msgs);
+            if(msgs.size() > 2) {
+                messageList.addAll(msgs.subList(msgs.size() - 2, msgs.size()));
+            } else if(msgs.size() > 1) {
+                messageList.addAll(msgs.subList(msgs.size() - 1, msgs.size()));
+            }
             adapterAiChatMesssageList.notifyDataSetChanged();
             recyclerView.scrollToPosition(messageList.size() - 1);
         }
@@ -241,12 +244,7 @@ public class ChatAiView extends RelativeLayout {
         });
 
         textViewTitle.setOnClickListener(v -> {
-            ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).deleteAllMessageCatalogue();
-            ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).deleteAllMessageDetail();
-            messageList.clear();
-            adapterAiChatMesssageList.notifyDataSetChanged();
             clickCount++;
-
             // 如果点击次数达到
             if(clickCount >= 5) {
 
@@ -428,9 +426,20 @@ public class ChatAiView extends RelativeLayout {
     }
 
     private void loadMessages() {
-//        ChatMessage message = new ChatMessage("Hello, how are you?", false, 0, ChatMessage.TYPE_TEXT, false);
-//        messageList.add(0, message);
-//        adapterChatAi.notifyItemInserted(0);
+        List<ChatMessage> allMessage =  ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue())
+                .getMessageDetail(TimeUtils.timestampToDateString(System.currentTimeMillis()), mChatAiParam.tag);
+
+        int curSize = messageList.size();
+        int n = curSize + 2;
+        if (allMessage.size() <= n) {
+            messageList.clear();
+            messageList.addAll(allMessage);
+        } else {
+            messageList.clear();
+            messageList.addAll(allMessage.subList(allMessage.size() - n, allMessage.size()));
+        }
+        adapterAiChatMesssageList.notifyDataSetChanged();
+        recyclerView.scrollToPosition(0);
     }
 
     public void setChatEnable(boolean b) {
