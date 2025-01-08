@@ -65,22 +65,23 @@
 
     </LinearLayout>
 
-    <GridLayout
-        android:columnCount="1"
-        android:rowCount="4"
-        android:padding="8dp"
+    <LinearLayout
+        android:paddingHorizontal="8dp"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:layout_margin="16dp"
         android:background="@android:color/transparent"
+        android:orientation="vertical"
         app:layout_constraintStart_toEndOf="@+id/guideline"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
+
         <androidx.cardview.widget.CardView
             android:id="@+id/photo_to_solve"
             style="@style/MenuCard"
             android:background="@android:color/transparent"
-            android:layout_width="300dp"
+            android:layout_width="match_parent"
             android:layout_height="120dp"
             android:clickable="true"
             android:focusable="true">
@@ -99,11 +100,16 @@
                 android:paddingTop="32dp"/>
         </androidx.cardview.widget.CardView>
 
+        <!-- 占位空间 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
         <androidx.cardview.widget.CardView
             android:id="@+id/card_my_favor"
             style="@style/MenuCard"
-            android:layout_marginTop="35dp"
-            android:layout_width="300dp"
+            android:layout_width="match_parent"
             android:layout_height="120dp"
             android:clickable="true"
             android:focusable="true">
@@ -123,13 +129,18 @@
                 android:paddingTop="32dp"/>
         </androidx.cardview.widget.CardView>
 
+        <!-- 占位空间 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
         <androidx.cardview.widget.CardView
             android:id="@+id/exercise"
             android:clickable="true"
             android:focusable="true"
             style="@style/MenuCard"
-            android:layout_marginTop="35dp"
-            android:layout_width="300dp"
+            android:layout_width="match_parent"
             android:layout_height="120dp">
             <ImageView
                 android:layout_marginStart="0dp"
@@ -147,14 +158,18 @@
                 android:paddingTop="32dp"/>
         </androidx.cardview.widget.CardView>
 
+        <!-- 占位空间 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
         <androidx.cardview.widget.CardView
             android:id="@+id/history"
             android:clickable="true"
             android:focusable="true"
             style="@style/MenuCard"
-            android:layout_marginTop="35dp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            android:layout_width="300dp"
+            android:layout_width="match_parent"
             android:layout_height="120dp">
             <ImageView
                 android:layout_marginStart="0dp"
@@ -172,7 +187,9 @@
                 android:paddingTop="32dp"/>
         </androidx.cardview.widget.CardView>
 
-    </GridLayout>
+
+    </LinearLayout>
+
     <!-- Guideline -->
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline"
