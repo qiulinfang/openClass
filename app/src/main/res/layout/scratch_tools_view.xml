@@ -45,16 +45,17 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical">
+
             <ImageView
                 android:id="@+id/imgBrushSize"
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
-                android:background="@color/semi_black_transparent"
+                android:background="@drawable/scratch_tools_bg"
                 android:focusable="true"
                 android:padding="8dp"
                 android:clickable="true"
                 android:layout_marginEnd="48dp"
-                android:src="@drawable/ic_pen_circle"
+                android:src="@drawable/scratch_tools_pen"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintEnd_toStartOf="@id/colorIndicator"/>
 
@@ -66,7 +67,8 @@
                 android:text="❁"
                 android:textSize="28dp"
                 android:textColor="#000000"
-                android:background="@color/semi_black_transparent"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/scratch_tools_bg"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintEnd_toStartOf="@id/imgPalette"/>
 
@@ -75,11 +77,11 @@
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
                 android:gravity="center"
-                android:background="@color/semi_black_transparent"
+                android:background="@drawable/scratch_tools_bg"
                 android:padding="8dp"
                 android:clickable="true"
                 android:layout_marginEnd="16dp"
-                android:src="@drawable/ic_palette"
+                android:src="@drawable/scratch_tools_palette"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintEnd_toStartOf="@id/imgBrush"/>
 
@@ -87,21 +89,22 @@
                 android:id="@+id/imgBrush"
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
+                android:layout_marginTop="8dp"
                 android:gravity="center"
-                android:background="@color/semi_black_transparent"
+                android:background="@drawable/scratch_tools_bg"
                 android:padding="8dp"
                 android:clickable="true"
-                android:src="@drawable/ic_brush" />
+                android:src="@drawable/scratch_tools_brush" />
 
             <ImageView
                 android:id="@+id/imgErase"
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
                 android:gravity="center"
-                android:background="@color/semi_black_transparent"
+                android:background="@drawable/scratch_tools_bg"
                 android:padding="8dp"
                 android:clickable="true"
-                android:src="@drawable/ic_eraser"
+                android:src="@drawable/scratch_tools_eraser"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintStart_toEndOf="@id/imgBrush"/>
 
@@ -110,10 +113,10 @@
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
                 android:gravity="center"
-                android:background="@color/semi_black_transparent"
+                android:background="@drawable/scratch_tools_bg"
                 android:padding="8dp"
                 android:clickable="true"
-                android:src="@drawable/ic_area"
+                android:src="@drawable/scratch_tools_area"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintStart_toEndOf="@id/imgErase" />
 
@@ -121,11 +124,12 @@
                 android:id="@+id/imgUndo"
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
+                android:layout_marginTop="8dp"
                 android:gravity="center"
-                android:background="@color/semi_black_transparent"
+                android:background="@drawable/scratch_tools_bg"
                 android:padding="8dp"
                 android:clickable="true"
-                android:src="@drawable/undo"
+                android:src="@drawable/scratch_tools_undo"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintStart_toEndOf="@id/imgSelectArea"/>
 
@@ -134,10 +138,10 @@
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
                 android:gravity="center"
-                android:background="@color/semi_black_transparent"
+                android:background="@drawable/scratch_tools_bg"
                 android:padding="8dp"
                 android:clickable="true"
-                android:src="@drawable/redo"
+                android:src="@drawable/scratch_tools_redo"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintStart_toEndOf="@id/imgUndo" />
 
@@ -146,7 +150,7 @@
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
                 android:gravity="center"
-                android:background="@color/semi_black_transparent"
+                android:background="@drawable/scratch_tools_bg"
                 android:padding="8dp"
                 android:clickable="true"
                 android:src="@drawable/ic_ok2"
@@ -159,12 +163,13 @@
                 android:id="@+id/imgCancel"
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
+                android:layout_marginTop="8dp"
                 android:focusable="true"
                 android:gravity="center"
-                android:background="@color/semi_black_transparent"
+                android:background="@drawable/scratch_tools_bg"
                 android:padding="8dp"
                 android:clickable="true"
-                android:src="@drawable/ic_cancel"
+                android:src="@drawable/scratch_tools_cancel"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintStart_toEndOf="@id/imgOK" />
 

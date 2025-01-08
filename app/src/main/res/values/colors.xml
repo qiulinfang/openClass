@@ -4,18 +4,14 @@
     <color name="white">#ffffff</color>
 
     <!--chat ui color-->
-    <color name="assist_blue">#64a4f4</color>
+    <color name="assist_blue">#008AFF</color>
     <color name="gray3">#c8969696</color>
-    <!--遮盖层颜色-->
-    <!--快速索引bar颜色-->
-    <!-- ========chat ui color ========-->
 
-<!--    photo editor color-->
+    <!--photo editor color-->
     <color name="semi_black_transparent">#99000000</color>
-
     <color name="m3_demo_color">#a8d286</color>
 
-<!--    mupdf -->
+    <!--mupdf -->
     <color name="canvas">#404040</color>
     <color name="button_normal">#00000000</color>
     <color name="colorAccent">#D81B60</color>
