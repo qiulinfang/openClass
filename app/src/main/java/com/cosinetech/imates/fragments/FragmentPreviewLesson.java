@@ -16,13 +16,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.activities.VideoPlayActivity;
 import com.cosinetech.imates.models.Chapter;
-import com.cosinetech.imates.views.ConstraintRadioGroup;
 import com.github.spareyaya.SimpleRatingView;
 
 import java.io.BufferedReader;
@@ -131,44 +131,23 @@ public class FragmentPreviewLesson extends Fragment {
         };
 
 
-        int [] textViewSchemaStat = new int[] {
-                R.id.schema_1_stat, R.id.schema_2_stat, R.id.schema_3_stat,
-                R.id.schema_4_stat, R.id.schema_5_stat, R.id.schema_6_stat
-        };
-
         for(int i = 0; i < rdoButonIds.length; i++) {
             RadioButton rdoButton = view.findViewById(rdoButonIds[i]);
-            TextView v = view.findViewById(textViewSchemaStat[i]);
             rdoButton.setVisibility(View.INVISIBLE);
-            v.setVisibility(View.INVISIBLE);
         }
 
         for(int i = 0; i < mPreviewSection.getSchemas().size() && i < rdoButonIds.length; i++) {
             RadioButton rdoButton = view.findViewById(rdoButonIds[i]);
-            TextView v = view.findViewById(textViewSchemaStat[i]);
             rdoButton.setVisibility(View.VISIBLE);
-            v.setVisibility(View.VISIBLE);
         }
 
-        for(int i = 0; i < textViewSchemaStat.length; i++) {
-            TextView v = view.findViewById(textViewSchemaStat[i]);
-            boolean learned = sharedPreferences.getBoolean(sectionId + "_schema" + i, false);
-            if(learned) {
-                v.setText("已学习");
-                v.setTextColor(Color.GREEN);
-            } else {
-                v.setText("未学习");
-                v.setTextColor(Color.GRAY);
-            }
-        }
-
-        ConstraintRadioGroup schemaGroup = view.findViewById(R.id.schema_group);
-        schemaGroup.SetOnCheckedChangeListener((rg, nCheckedId) -> {
+        RadioGroup schemaGroup = view.findViewById(R.id.schema_group);
+        schemaGroup.setOnCheckedChangeListener((group, checkedId) -> {
             ratingView.setEnabled(true);
             ratingDifficult.setEnabled(true);
 
             for(int i = 0; i < mPreviewSection.getSchemas().size() && i < rdoButonIds.length; i++) {
-                if(nCheckedId == rdoButonIds[i]) {
+                if(checkedId == rdoButonIds[i]) {
                     mCurrentSchemaIndex = i;
                     int rating = sharedPreferences.getInt(sectionId + "schema_rating_difficulty" + i, 0);
                     ratingDifficult.setRating(rating);
@@ -177,6 +156,16 @@ public class FragmentPreviewLesson extends Fragment {
                     ratingView.setRating(rating);
 
                     updateSchemaIntroduction(view.findViewById(R.id.schema_intro));
+
+                    TextView v = view.findViewById(R.id.schema_stat);
+                    boolean learned = sharedPreferences.getBoolean(sectionId + "_schema" + i, false);
+                    if(learned) {
+                        v.setText("已学习");
+                        v.setTextColor(Color.GREEN);
+                    } else {
+                        v.setText("未学习");
+                        v.setTextColor(Color.WHITE);
+                    }
                     break;
                 }
             }
@@ -199,7 +188,7 @@ public class FragmentPreviewLesson extends Fragment {
                 editor.putBoolean(sectionId + "_schema" + mCurrentSchemaIndex, true);
                 editor.apply();
 
-                TextView textView = view.findViewById(textViewSchemaStat[mCurrentSchemaIndex]);
+                TextView textView = view.findViewById(R.id.schema_stat);
                 textView.setText("已学习");
                 textView.setTextColor(Color.GREEN);
 

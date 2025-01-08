@@ -2,6 +2,7 @@
     <dimen name="reflow_text_title_size">18sp</dimen>
     <dimen name="head0_size">48sp</dimen>
     <dimen name="head1_size">24sp</dimen>
+    <dimen name="head2_size">18sp</dimen>
     <!-- Default screen margins, per the Android Design guidelines. -->
     <dimen name="login_input_text_size">16sp</dimen>
     <dimen name="min_margin_size">8sp</dimen>
