@@ -27,6 +27,7 @@ import com.github.barteksc.pdfviewer.listener.OnPageErrorListener;
 import com.github.barteksc.pdfviewer.scroll.DefaultScrollHandle;
 import com.github.barteksc.pdfviewer.util.FitPolicy;
 import com.lzf.easyfloat.EasyFloat;
+import com.lzf.easyfloat.anim.DefaultAnimator;
 import com.lzf.easyfloat.enums.ShowPattern;
 import com.lzf.easyfloat.enums.SidePattern;
 import com.lzf.easyfloat.interfaces.OnFloatCallbacks;
@@ -106,6 +107,8 @@ public class PDFActivity extends AppCompatActivity implements
         EasyFloat.with(this).setLayout(R.layout.floating_pdf_tools)
                 .setShowPattern(ShowPattern.CURRENT_ACTIVITY)
                 .setSidePattern(SidePattern.AUTO_SIDE)
+                .setMatchParent(false, true)
+                .setAnimator(new DefaultAnimator())
                 .registerCallbacks(new OnFloatCallbacks() {
                     @Override
                     public void createdResult(boolean isCreated, @Nullable String msg, @Nullable View view) {

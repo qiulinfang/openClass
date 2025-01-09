@@ -1,133 +1,160 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:background="#80B5D6E4"
+    android:orientation="horizontal"
     android:layout_width="wrap_content"
-    android:layout_height="wrap_content">
+    android:gravity="center"
+    android:layout_height="match_parent">
 
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/guideline"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.5"/>
-
-    <CheckBox
-        android:id="@+id/btn_collapse"
-        android:layout_width="42dp"
-        android:layout_height="42dp"
-        android:background="@drawable/tool_bar_shrink_bk"
-        android:button="@null"
-        android:checked="true"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <LinearLayout
         android:id="@+id/tools_layout"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@id/btn_collapse"
-        app:layout_constraintStart_toStartOf="parent">
-        <Button
-            android:id="@+id/btn_back"
-            android:background="@drawable/ic_back1"
-            android:layout_marginStart="16dp"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent"/>
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:paddingHorizontal="8dp"
+        android:background="@drawable/reader_tools_bg">
+        <!-- 占位空间 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
 
         <Button
             android:id="@+id/btn_contents"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="32dp"
-            android:background="@drawable/ic_contents"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toEndOf="@id/btn_back"/>
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/reader_tools_table_contents" />
+
+        <!-- 占位空间 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
 
         <Button
             android:id="@+id/btn_fit_width"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="32dp"
-            android:background="@drawable/ic_width"
-            app:layout_constraintTop_toTopOf="@id/btn_contents"
-            app:layout_constraintStart_toEndOf="@id/btn_contents"/>
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/reader_tools_fit_width" />
+
+        <!-- 占位空间 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
         <Button
             android:id="@+id/btn_fit_height"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="@drawable/ic_height"
-            android:layout_marginStart="32dp"
-            app:layout_constraintTop_toTopOf="@id/btn_fit_width"
-            app:layout_constraintStart_toEndOf="@id/btn_fit_width"/>
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/reader_tools_fit_height" />
+
+        <!-- 占位空间 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
 
         <Button
             android:id="@+id/btn_hscroll"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="32dp"
-            android:layout_marginEnd="16dp"
-            android:background="@drawable/ic_scroll"
-            app:layout_constraintTop_toTopOf="@id/btn_fit_height"
-            app:layout_constraintStart_toEndOf="@id/btn_fit_height"/>
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/reader_tools_page_tile" />
 
+        <!-- 占位空间 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
 
         <Button
             android:id="@+id/btn_thumbnail"
             android:text = "缩略图"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent"/>
+            android:layout_height="0dp"
+            android:visibility="gone" />
 
         <Button
             android:id="@+id/btn_note"
-            android:background="@drawable/ic_note"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginVertical="32dp"
-            app:layout_constraintTop_toBottomOf="@id/btn_contents"
-            app:layout_constraintStart_toStartOf="@id/btn_contents"/>
+            android:background="@drawable/reader_tools_open_note"
+            android:layout_width="36dp"
+            android:layout_height="36dp" />
+
+        <!-- 占位空间 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+
+        <!-- 占位空间 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
 
 
         <Button
             android:id="@+id/btn_to_guide"
-            android:background="@drawable/ic_schema"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="32dp"
-            app:layout_constraintTop_toTopOf="@id/btn_note"
-            app:layout_constraintStart_toEndOf="@id/btn_note"/>
+            android:background="@drawable/reader_tools_switch_schema"
+            android:layout_width="36dp"
+            android:layout_height="36dp" />
+
+        <!-- 占位空间 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
 
         <Button
             android:id="@+id/btn_to_ppt"
-            android:background="@drawable/ic_ppt"
+            android:background="@drawable/reader_tools_switch_ppt"
             android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="32dp"
-            app:layout_constraintTop_toTopOf="@id/btn_to_guide"
-            app:layout_constraintStart_toEndOf="@id/btn_to_guide"/>
+            android:layout_height="48dp" />
+
+        <!-- 占位空间 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
 
         <Button
             android:id="@+id/btn_to_textbook"
-            android:background="@drawable/ic_book"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="32dp"
-            app:layout_constraintTop_toTopOf="@id/btn_to_ppt"
-            app:layout_constraintStart_toEndOf="@id/btn_to_ppt"/>
+            android:background="@drawable/reader_tools_switch_textbook"
+            android:layout_width="36dp"
+            android:layout_height="36dp" />
+
+        <!-- 占位空间 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+    </LinearLayout>
+
+    <CheckBox
+        android:id="@+id/btn_collapse"
+        android:visibility="gone"
+        android:layout_width="32dp"
+        android:layout_height="100dp"
+        android:layout_marginHorizontal="8dp"
+        android:paddingHorizontal="4dp"
+        android:paddingVertical="16dp"
+        android:button="@null"
+        android:text="收\n起"
+        android:gravity="bottom|center_horizontal"
+        android:textSize="16sp"
+        android:textColor="#ffffff"
+        android:background="@drawable/reader_tools_expand_selector_bg" />
 
 
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
-
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+    <Button
+        android:id="@+id/btn_back"
+        android:background="@drawable/app_back"
+        android:stateListAnimator="@animator/app_button_click_scale"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="bottom"
+        android:layout_margin="16dp"/>
+</LinearLayout>

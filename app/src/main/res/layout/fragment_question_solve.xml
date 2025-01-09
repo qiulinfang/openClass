@@ -14,7 +14,7 @@
         android:layout_width="30dp"
         android:layout_height="30dp"
         android:background="@drawable/ic_back"
-        android:stateListAnimator="@animator/button_click_scale"
+        android:stateListAnimator="@animator/app_button_click_scale"
         android:layout_marginHorizontal="@dimen/min_margin_size"
         android:scaleType="center"
         app:layout_constraintStart_toStartOf="parent"

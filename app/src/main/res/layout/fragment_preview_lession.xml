@@ -15,7 +15,7 @@
         android:focusable="true"
         android:text="预习"
         android:clickable="true"
-        android:stateListAnimator="@animator/button_click_scale"
+        android:stateListAnimator="@animator/app_button_click_scale"
         android:textColor="#000000"
         android:textSize="@dimen/head1_size"
         android:textStyle="bold"
@@ -197,7 +197,7 @@
             android:background="@drawable/lesson_preview_go"
             android:textColor="#ffffff"
             android:text="去预习"
-            android:stateListAnimator="@animator/button_click_scale"
+            android:stateListAnimator="@animator/app_button_click_scale"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 

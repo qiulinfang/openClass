@@ -30,7 +30,7 @@
             android:layout_height="32dp"
             android:background="@drawable/button_chat_question"
             android:layout_gravity="center"
-            android:stateListAnimator="@animator/button_click_scale"
+            android:stateListAnimator="@animator/app_button_click_scale"
             android:layout_marginEnd="24dp"/>
 
         <Button
@@ -39,7 +39,7 @@
             android:layout_height="32dp"
             android:background="@drawable/ontop"
             android:layout_gravity="center"
-            android:stateListAnimator="@animator/button_click_scale"
+            android:stateListAnimator="@animator/app_button_click_scale"
             android:layout_marginEnd="24dp"/>
 
         <Button
@@ -48,7 +48,7 @@
             android:layout_height="32dp"
             android:background="@drawable/question_solve_delete"
             android:layout_gravity="center"
-            android:stateListAnimator="@animator/button_click_scale"
+            android:stateListAnimator="@animator/app_button_click_scale"
             android:layout_marginEnd="8dp"/>
 
     </LinearLayout>
