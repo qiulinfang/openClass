@@ -21,7 +21,6 @@ import android.widget.PopupWindow;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
-import androidx.fragment.app.FragmentManager;
 
 import com.airbnb.lottie.LottieAnimationView;
 import com.cosinetech.imates.ApplicationModelShared;
@@ -32,13 +31,9 @@ import com.cosinetech.imates.views.ChatAiView;
 import com.cosinetech.imates.webservice.ApiUrl;
 
 public class FloatingWindowService extends Service {
-    public interface FragmentManagerProvider {
-        FragmentManager getFragmentManagerForFloatingWindow(View floatingView);
-    }
     private static final String CHANNEL_ID = "floating_window_channel";
     private static final int NOTIFICATION_ID = 1;
 
-    private FragmentManagerProvider fragmentManagerProvider;
     private WindowManager windowManager;
     private WindowManager.LayoutParams layoutParams;
     private View floatingRobotView;
@@ -80,7 +75,6 @@ public class FloatingWindowService extends Service {
 
         // 获取 FragmentManagerProvider
         ApplicationModelShared myapp = (ApplicationModelShared)(getApplication());
-        fragmentManagerProvider = myapp.getMainActivity();
         myapp.setFloatingWindowService(this);
 
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
@@ -287,7 +281,7 @@ public class FloatingWindowService extends Service {
     private Notification createNotification() {
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("AI学伴")
-                .setContentText("AI学伴, 一直陪伴你学习")
+                .setContentText("AI学伴, 伴你进步")
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .build();
     }

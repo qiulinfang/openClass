@@ -1,16 +1,10 @@
 package com.cosinetech.imates.activities;
 
-import static androidx.core.app.ServiceCompat.startForeground;
-
-import android.app.Notification;
 import android.content.Intent;
-import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -29,8 +23,6 @@ import com.cosinetech.imates.service.FloatingWindowService;
 import com.cosinetech.imates.util.VersionUtils;
 import com.cosinetech.imates.util.WindowUtils;
 
-import androidx.compose.ui.unit.Dp;
-import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.appcompat.app.AppCompatActivity;
@@ -40,19 +32,17 @@ import com.cosinetech.imates.webservice.ApiUrl;
 import com.google.android.material.tabs.TabLayout;
 
 import com.google.android.material.tabs.TabLayoutMediator;
-import com.xuexiang.xupdate.XUpdate;
 import com.xuexiang.xupdate.easy.EasyUpdate;
 
 import android.widget.ImageView;
 
-import androidx.fragment.app.FragmentManager;
 import androidx.viewpager2.widget.ViewPager2;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements FloatingWindowService.FragmentManagerProvider {
+public class MainActivity extends AppCompatActivity {
     private View floatingView;
 
     @Override
@@ -262,9 +252,4 @@ public class MainActivity extends AppCompatActivity implements FloatingWindowSer
         return super.findViewById(id);
     }
 
-    @Override
-    public FragmentManager getFragmentManagerForFloatingWindow(View view) {
-        floatingView = view;
-        return getSupportFragmentManager();
-    }
 }
