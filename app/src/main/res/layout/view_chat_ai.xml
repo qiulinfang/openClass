@@ -24,12 +24,38 @@
         android:id="@+id/btn_view_history"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:gravity="center_vertical"
-        android:text="历史记录"
+        android:layout_marginStart="48dp"
+        android:text="查看历史"
         android:minHeight="60dp"
         android:textColor="#ffffff"
         android:layout_alignParentStart="true"/>
+
+    <!-- 中间的输入框 -->
+    <EditText
+        android:id="@+id/et_search"
+        android:layout_width="200dp"
+        android:layout_height="30dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginTop="16dp"
+        android:autofillHints=""
+        android:hint="搜索聊天记录"
+        android:imeOptions="actionSearch"
+        android:singleLine="true"
+        android:background="@drawable/chat_ai_text_input_bg"
+        android:textSize="12sp"
+        android:paddingHorizontal="10dp"
+        android:layout_toStartOf="@id/btn_cancel_search"/>
+
+    <Button
+        android:id="@+id/btn_cancel_search"
+        android:visibility="invisible"
+        android:background="@drawable/chat_ai_cancel_search"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_alignParentEnd="true"/>
 
     <!-- 下边框 -->
     <View

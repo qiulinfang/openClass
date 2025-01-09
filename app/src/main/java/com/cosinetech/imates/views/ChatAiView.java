@@ -10,6 +10,7 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -83,6 +84,8 @@ public class ChatAiView extends RelativeLayout {
     private ChatCatalogueAdapter mChatCatalogAdapter;
 
     private RelativeLayout rootLayout;  // 用于调整布局的父布局
+
+    private boolean mInSearchMode = false;
 
     private int clickCount = 0; // 记录点击次数
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -209,10 +212,61 @@ public class ChatAiView extends RelativeLayout {
             adapterAiChatMesssageList.notifyDataSetChanged();
         });
 
+        Button btnCancelSearch = view.findViewById(R.id.btn_cancel_search);
+        EditText editTextSearch = view.findViewById(R.id.et_search);
+        btnCancelSearch.setOnClickListener(v->{
+            if (editTextSearch.isFocused()) {
+                editTextSearch.clearFocus();
+                // 隐藏键盘
+                InputMethodManager imm = (InputMethodManager) mContext.getSystemService(Context.INPUT_METHOD_SERVICE);
+                imm.hideSoftInputFromWindow(editTextSearch.getWindowToken(), 0);
+            }
+            editTextSearch.getText().clear();
+            mInSearchMode = false;
+            messageList.clear();
+            loadMessages();
+        });
+        // 设置焦点改变监听器
+        editTextSearch.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                // 当 EditText 获取到焦点时执行的代码
+                btnCancelSearch.setVisibility(View.VISIBLE);
+                mInSearchMode = true;
+            } else {
+                // 当 EditText 失去焦点时执行的代码
+                btnCancelSearch.setVisibility(View.INVISIBLE);
+                mInSearchMode = false;
+                loadMessages();
+            }
+        });
+        editTextSearch.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                String searchContent = editTextSearch.getText().toString();
+                if(searchContent.trim().isEmpty()) {
+                    Toast.makeText(mContext, "请输入要搜索的关键字", Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+                // 用户点击了搜索按钮，这里可以执行搜索逻辑
+                List<ChatMessage> msgs =  ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue())
+                        .searchMessageDetail(searchContent);
+                if(msgs.isEmpty()) {
+                    Toast.makeText(mContext, "没有搜索到记录", Toast.LENGTH_SHORT).show();
+                }
+                messageList.clear();
+                messageList.addAll(msgs);
+                adapterAiChatMesssageList.notifyDataSetChanged();
+
+                return true; // 表示我们已经处理了这个事件
+            }
+            return false;
+        });
+
         if(!mChatAiParam.showHeader) {
-            //btnExit.setVisibility(View.INVISIBLE);
             chkViewHistory.setVisibility(View.INVISIBLE);
             view.findViewById(R.id.history_layout).setVisibility(View.GONE);
+
+            view.findViewById(R.id.et_search).setVisibility(View.GONE);
+            view.findViewById(R.id.btn_cancel_search).setVisibility(View.GONE);
         }
         if(!aiName.isEmpty()) {
             textViewTitle.setText(aiName);
@@ -261,8 +315,6 @@ public class ChatAiView extends RelativeLayout {
         if(app.chatRequest != null) {
             sendMessageDirectly(app.chatRequest);
         }
-
-
 
         rootLayout = view.findViewById(R.id.layout_chat);  // 父布局
 
@@ -426,8 +478,11 @@ public class ChatAiView extends RelativeLayout {
     }
 
     private void loadMessages() {
+        if(mInSearchMode) {
+            return;
+        }
         List<ChatMessage> allMessage =  ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue())
-                .getMessageDetail(TimeUtils.timestampToDateString(System.currentTimeMillis()), mChatAiParam.tag);
+                .getMessageDetailByTag(mChatAiParam.tag);
 
         int curSize = messageList.size();
         int n = curSize + 2;

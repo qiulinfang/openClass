@@ -417,5 +417,66 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
             readLock.unlock();
         }
     }
+
+    @SuppressLint("Range")
+    public List<ChatMessage> getMessageDetailByTag(String tag) {
+        readLock.lock();
+        try {
+            List<ChatMessage> detailList = new ArrayList<>();
+            SQLiteDatabase db = this.getReadableDatabase();
+
+            String selectQuery = "SELECT * FROM " + TABLE_DETAIL +
+                    " WHERE " + COLUMN_TAG + " = ?";
+            Cursor cursor = db.rawQuery(selectQuery, new String[]{tag});
+
+            if (cursor.moveToFirst()) {
+                do {
+                    String content = cursor.getString(cursor.getColumnIndex(COLUMN_CONTENT));
+                    String sessionId = cursor.getString(cursor.getColumnIndex(COLUMN_SESSION_ID));
+                    int type = cursor.getInt(cursor.getColumnIndex(COLUMN_TYPE));
+                    boolean isSelf = cursor.getInt(cursor.getColumnIndex(COLUMN_IS_SELF)) == 1;
+                    long timestamp = cursor.getLong(cursor.getColumnIndex(COLUMN_TIMESTAMP));
+                    ChatMessage detail = new ChatMessage(content, isSelf, type, true, sessionId, tag, timestamp);
+                    detailList.add(detail);
+                } while (cursor.moveToNext());
+            }
+
+            cursor.close();
+            return detailList;
+        } finally {
+            readLock.unlock();
+        }
+    }
+
+    @SuppressLint("Range")
+    public List<ChatMessage> searchMessageDetail(String searchContent) {
+        readLock.lock();
+        try {
+            List<ChatMessage> detailList = new ArrayList<>();
+            SQLiteDatabase db = this.getReadableDatabase();
+
+            String selectQuery = "SELECT * FROM " + TABLE_DETAIL +
+                    " WHERE " + COLUMN_CONTENT + " LIKE ? ";
+            String selectionArg = "%" + searchContent + "%";
+            Cursor cursor = db.rawQuery(selectQuery, new String[]{selectionArg});
+
+            if (cursor.moveToFirst()) {
+                do {
+                    String content = cursor.getString(cursor.getColumnIndex(COLUMN_CONTENT));
+                    String sessionId = cursor.getString(cursor.getColumnIndex(COLUMN_SESSION_ID));
+                    int type = cursor.getInt(cursor.getColumnIndex(COLUMN_TYPE));
+                    boolean isSelf = cursor.getInt(cursor.getColumnIndex(COLUMN_IS_SELF)) == 1;
+                    long timestamp = cursor.getLong(cursor.getColumnIndex(COLUMN_TIMESTAMP));
+                    ChatMessage detail = new ChatMessage(content, isSelf, type, true, sessionId, "", timestamp);
+                    detailList.add(detail);
+                } while (cursor.moveToNext());
+            }
+
+            cursor.close();
+            return detailList;
+        } finally {
+            readLock.unlock();
+        }
+    }
 }
 
