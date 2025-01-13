@@ -1,40 +1,54 @@
-package com.cosinetech.imates.activities;
+package com.cosinetech.imates.views;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.media.MediaPlayer;
-import android.os.Bundle;
-
-import android.animation.ObjectAnimator;
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
 import android.net.Uri;
 import android.os.Build;
+import android.util.AttributeSet;
+import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
+import android.view.WindowManager;
 import android.view.animation.AccelerateDecelerateInterpolator;
-
-import com.cosinetech.imates.views.ScratchToolsView;
-import com.cosinetech.imates.util.WindowUtils;
-
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.PopupWindow;
+import android.widget.RelativeLayout;
 import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.Toast;
-import com.cosinetech.imates.databinding.ActivityVideoPlayBinding;
+
+import androidx.annotation.NonNull;
+
+import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.activities.VideoPlayActivity;
+import com.cosinetech.imates.colorpicker.ColorListener;
+import com.cosinetech.imates.colorpicker.ColorPickerDialog;
+import com.cosinetech.imates.models.Subject;
+import com.cosinetech.imates.notes.NoteManager;
+import com.cosinetech.imates.util.ImageUtils;
+import com.cosinetech.imates.webservice.AiChatMessageRequest;
+import com.cosinetech.imates.webservice.ApiUrl;
+import com.litao.slider.NiftySlider;
+import com.lzf.easyfloat.EasyFloat;
+
 import java.io.File;
+import java.io.FileOutputStream;
+import java.util.UUID;
 
-public class VideoPlayActivity extends AppCompatActivity {
-    public static final String KEY_VIDEO_PATH = "VIDEO_PATH";
-    public static final String KEY_TEXTBOOK_SECTION = "TEXTBOOK_SECTION";
-    private ActivityVideoPlayBinding binding;
-
+public class VideoPlayView extends RelativeLayout {
     private ScratchToolsView scratchToolsView;
 
     //视频播放相关
@@ -48,17 +62,27 @@ public class VideoPlayActivity extends AppCompatActivity {
     private boolean isPlaying = false;
     private float currentSpeed = 1.0f; // 默认倍速播放为 1x
 
+    private String mSectionTitle;
+    private String mVideoPath;
+
+    public VideoPlayView(Context context) {
+        super(context);
+        init(context);
+    }
+
+    public VideoPlayView(Context context, AttributeSet attrs) {
+        super(context, attrs);
+        init(context);
+    }
+
+    public VideoPlayView(Context context, AttributeSet attrs, int defStyleAttr) {
+        super(context, attrs, defStyleAttr);
+        init(context);
+    }
+
     @SuppressLint("ClickableViewAccessibility")
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        // 隐藏系统导航栏
-        WindowUtils.hideSystemUI(this);
-        WindowUtils.setFullScreenMode(this);
-
-        binding = ActivityVideoPlayBinding.inflate(getLayoutInflater());
-        setContentView(binding.getRoot());
-
+    private void init(Context context) {
+        View view = LayoutInflater.from(context).inflate(R.layout.view_video_play, this, true);
         textureView = findViewById(R.id.textureView);
         textureView = findViewById(R.id.textureView);
         controlLayout = findViewById(R.id.controlLayout);
@@ -96,14 +120,8 @@ public class VideoPlayActivity extends AppCompatActivity {
             public void onStopTrackingTouch(SeekBar seekBar) {}
         });
 
-
         scratchToolsView = findViewById(R.id.scratch_tool);
-        String sectionTitle = getIntent().getStringExtra(KEY_TEXTBOOK_SECTION);
-        if(sectionTitle == null) {
-            sectionTitle = "";
-        }
-        scratchToolsView.setAskAiContextPrompt(sectionTitle);
-
+        scratchToolsView.setAskAiContextPrompt(mSectionTitle);
         scratchToolsView.setOnScratchToolsListener(new ScratchToolsView.OnScratchToolsListener() {
             @Override
             public void onEnterScratchMode() {
@@ -123,34 +141,37 @@ public class VideoPlayActivity extends AppCompatActivity {
                 return bitmap;
             }
         });
+    }
 
-        String videoPath = getIntent().getStringExtra(KEY_VIDEO_PATH);
-        if(videoPath != null) {
-            File file = new File(videoPath);
-            if(file.exists()) {
-                setupVideoPlayer(videoPath);
-            } else {
-                Toast.makeText(this, "视频文件不存在", Toast.LENGTH_SHORT).show();
-            }
+    public void setVideoInfo(String videoPath, String sectionTitle) {
+        mVideoPath = videoPath;
+        mSectionTitle = sectionTitle;
+
+        scratchToolsView.setAskAiContextPrompt(mSectionTitle);
+        setupVideoPlayer(mVideoPath);
+    }
+
+    public void startPlay() {
+        if (mediaPlayer == null) return;
+        if(!isPlaying) {
+            togglePlayPause();
         }
+    }
 
-        Button buttonExitVideo = findViewById(R.id.btn_exit_video);
-        buttonExitVideo.setOnClickListener(v->{
-            if(mediaPlayer != null) {
-                mediaPlayer.stop();
-            }
-            finish();
-        });
+    public void pausePlay() {
+        if (mediaPlayer == null) return;
 
-        Button btnEnterPip = findViewById(R.id.btn_enter_pip);
-        btnEnterPip.setOnClickListener(v-> {
-            //enterPiPMode();
-            int curPlayPos = 0;
-            if(mediaPlayer != null) {
-                curPlayPos = mediaPlayer.getCurrentPosition();
-            }
-            finish();
-        });
+        if(isPlaying) {
+            togglePlayPause();
+        }
+    }
+
+    public void stopPlay() {
+        if (mediaPlayer == null) return;
+        isPlaying = false;
+        mediaPlayer.seekTo(0);
+        mediaPlayer.stop();
+        buttonPlayPause.setBackgroundResource(R.drawable.video_play_button_start_bg);
     }
 
     private void setupVideoPlayer(String filePath) {
@@ -162,7 +183,7 @@ public class VideoPlayActivity extends AppCompatActivity {
                 try {
                     // 播放应用资源文件 (R.raw.sample_video)
                     File file = new File(filePath);
-                    mediaPlayer.setDataSource(VideoPlayActivity.this, Uri.fromFile(file));
+                    mediaPlayer.setDataSource(getContext(), Uri.fromFile(file));
 
                     // 或者播放本地文件：
                     // File file = new File(Environment.getExternalStorageDirectory(), "example.mp4");
@@ -182,7 +203,7 @@ public class VideoPlayActivity extends AppCompatActivity {
                         adjustAspectRatio(videoWidth, videoHeight);
 
                         seekBar.setMax(mediaPlayer.getDuration());
-                        togglePlayPause(); // 自动开始播放
+                        //togglePlayPause(); // 自动开始播放
                         updateSeekBar();
                     });
 
@@ -192,7 +213,6 @@ public class VideoPlayActivity extends AppCompatActivity {
                         isPlaying = false;
                         buttonPlayPause.setText("Play");
                         mediaPlayer.seekTo(0);
-                        finish();
                     });
 
                 } catch (Exception e) {
@@ -298,8 +318,9 @@ public class VideoPlayActivity extends AppCompatActivity {
 
     private void adjustAspectRatio(int videoWidth, int videoHeight) {
         // 获取屏幕的宽高
-        int screenWidth = getWindowManager().getDefaultDisplay().getWidth();
-        int screenHeight = getWindowManager().getDefaultDisplay().getHeight();
+        WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
+        int screenWidth = wm.getDefaultDisplay().getWidth();
+        int screenHeight = wm.getDefaultDisplay().getHeight();
 
         // 根据视频的宽高比和屏幕的宽高比，计算需要调整的宽高
         float videoAspectRatio = (float) videoWidth / (float) videoHeight;
@@ -322,19 +343,19 @@ public class VideoPlayActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) {
-            WindowUtils.hideSystemUI(this);
-        }
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        // 执行附加到窗口时的操作
     }
 
     @Override
-    protected void onDestroy() {
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        // 清理资源，防止内存泄漏
         if (mediaPlayer != null) {
+            mediaPlayer.stop();
             mediaPlayer.release();
             mediaPlayer = null;
         }
-        super.onDestroy();
     }
 }

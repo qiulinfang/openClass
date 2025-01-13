@@ -41,15 +41,17 @@
         android:theme="@style/Theme.IMatesApp.FullScreen"
         tools:targetApi="31">
         <activity
+            android:name=".activities.FloatChatAiActivity"
+            android:exported="false" />
+        <activity
             android:name=".activities.LessonPreviewActivity"
             android:exported="false" />
         <activity
             android:name=".activities.VideoPlayActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
-            android:supportsPictureInPicture="true"
             android:launchMode="singleTask"
-            android:configChanges=
-                "screenSize|smallestScreenSize|screenLayout|orientation"
+            android:supportsPictureInPicture="true"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
             android:name=".activities.LoginActivity"
@@ -67,7 +69,6 @@
         <activity
             android:name=".activities.MainActivity"
             android:exported="true"
-            android:launchMode="singleTask"
             android:resizeableActivity="true"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen"
