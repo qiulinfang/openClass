@@ -19,7 +19,7 @@ import com.cosinetech.imates.fragments.FragmentSubjectChinese;
 import com.cosinetech.imates.fragments.FragmentSubjectEnglish;
 import com.cosinetech.imates.fragments.FragmentSubjectMath;
 import com.cosinetech.imates.fragments.FragmentSubjectPhysics;
-import com.cosinetech.imates.service.FloatingWindowService;
+import com.cosinetech.imates.service.FloatingRobotService;
 import com.cosinetech.imates.util.VersionUtils;
 import com.cosinetech.imates.util.WindowUtils;
 
@@ -222,12 +222,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startFloatingWindowService() {
-        Intent intent = new Intent(this, FloatingWindowService.class);
+        Intent intent = new Intent(this, FloatingRobotService.class);
         startService(intent);
     }
 
     private void stopFloatingWndowService() {
-        Intent intent = new Intent(this, FloatingWindowService.class);
+        Intent intent = new Intent(this, FloatingRobotService.class);
         stopService(intent);
     }
 

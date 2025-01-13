@@ -1,18 +1,11 @@
 package com.cosinetech.imates;
 
-import static com.xuexiang.xupdate.entity.UpdateError.ERROR.CHECK_NO_NEW_VERSION;
-
-import android.app.Activity;
 import android.app.Application;
-import android.content.Context;
-import android.content.Intent;
 import android.graphics.Bitmap;
-import android.os.Bundle;
 import android.util.Log;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -23,18 +16,16 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.target.SimpleTarget;
 import com.bumptech.glide.request.transition.Transition;
 import com.cosinetech.imates.activities.MainActivity;
-import com.cosinetech.imates.service.FloatingWindowService;
+import com.cosinetech.imates.service.FloatingRobotService;
 import com.cosinetech.imates.util.AssetsCopyUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.sendtion.xrichtext.IImageLoader;
 import com.sendtion.xrichtext.XRichText;
-import com.xuexiang.xupdate.XUpdate;
-import com.xuexiang.xupdate.utils.UpdateUtils;
 
 public class ApplicationModelShared extends Application implements ViewModelStoreOwner {
     private final ViewModelStore viewModelStore = new ViewModelStore();
     private MainActivity mainActivity;
-    private FloatingWindowService floatingWindowService;
+    private FloatingRobotService floatingRobotService;
 
     public AiChatMessageRequest chatRequest;
     private int activityCount = 0;
@@ -173,7 +164,7 @@ public class ApplicationModelShared extends Application implements ViewModelStor
 //                activityCount--;
 //                if (activityCount == 0) {
 //                    // 应用完全退出，停止服务
-//                    stopService(new Intent(ApplicationModelShared.this, FloatingWindowService.class));
+//                    stopService(new Intent(ApplicationModelShared.this, FloatingRobotService.class));
 //                }
 //            }
 //        });
@@ -192,12 +183,12 @@ public class ApplicationModelShared extends Application implements ViewModelStor
         return mainActivity;
     }
 
-    public void setFloatingWindowService(FloatingWindowService service) {
-        floatingWindowService = service;
+    public void setFloatingWindowService(FloatingRobotService service) {
+        floatingRobotService = service;
     }
 
-    public FloatingWindowService getFloatingWindowService() {
-        return floatingWindowService;
+    public FloatingRobotService getFloatingWindowService() {
+        return floatingRobotService;
     }
 
     @NonNull

@@ -30,7 +30,7 @@ import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.views.ChatAiView;
 import com.cosinetech.imates.webservice.ApiUrl;
 
-public class FloatingWindowService extends Service {
+public class FloatingRobotService extends Service {
     private static final String CHANNEL_ID = "floating_window_channel";
     private static final int NOTIFICATION_ID = 1;
 
@@ -39,7 +39,7 @@ public class FloatingWindowService extends Service {
     private View floatingRobotView;
     //private View popupChatView;
 
-    public FloatingWindowService() {
+    public FloatingRobotService() {
     }
 
 
@@ -71,7 +71,7 @@ public class FloatingWindowService extends Service {
         startForeground(NOTIFICATION_ID, notification);
 
         // Log to verify
-        Log.d("FloatingWindowService", "Service started as foreground.");
+        Log.d("FloatingRobotService", "Service started as foreground.");
 
         // 获取 FragmentManagerProvider
         ApplicationModelShared myapp = (ApplicationModelShared)(getApplication());
