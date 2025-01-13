@@ -5,7 +5,7 @@ import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.WindowManager;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import com.cosinetech.imates.R;
@@ -14,10 +14,12 @@ public class FloatingResizableVideoView extends FrameLayout {
     private static final int MIN_WIDTH = 320; // 最小宽度
     private static final int MIN_HEIGHT = 200; // 最小高度
 
+    private OnResizeListener onResizeListener;
+
     private View resizeLeftBottom;
     private View resizeRightBottom;
     private boolean isResizing = false;
-    private WindowManager.LayoutParams params;
+    private ViewGroup.LayoutParams params;
 
     public FloatingResizableVideoView(Context context) {
         super(context);
@@ -30,7 +32,7 @@ public class FloatingResizableVideoView extends FrameLayout {
     }
 
     private void init() {
-        inflate(getContext(), R.layout.floating_video_play, this);
+        inflate(getContext(), R.layout.floating_video_view, this);
 
         resizeLeftBottom = findViewById(R.id.resize_left_bottom);
         resizeRightBottom = findViewById(R.id.resize_right_bottom);
@@ -55,7 +57,10 @@ public class FloatingResizableVideoView extends FrameLayout {
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
                     isResizing = true;
-                    params = (WindowManager.LayoutParams) getLayoutParams();
+                    params =  getLayoutParams();
+                    if (onResizeListener != null) {
+                        onResizeListener.onResizeBegin();
+                    }
                     break;
                 case MotionEvent.ACTION_MOVE:
                     if (isResizing) {
@@ -65,6 +70,9 @@ public class FloatingResizableVideoView extends FrameLayout {
                     break;
                 case MotionEvent.ACTION_UP:
                     isResizing = false;
+                    if (onResizeListener != null) {
+                        onResizeListener.onResizeEnd();
+                    }
                     break;
             }
             return false;
@@ -78,17 +86,36 @@ public class FloatingResizableVideoView extends FrameLayout {
         if (isLeftBottom) {
             newWidth = Math.max(MIN_WIDTH, (int) (getWidth() - (rawX - outValue[0])));
             newHeight = Math.max(MIN_HEIGHT, (int) (rawY - outValue[1]));
-            params.x += getWidth() - newWidth;
+//            params.x += getWidth() - newWidth;
         } else {
             newWidth = Math.max(MIN_WIDTH, (int) (rawX - outValue[0]));
             newHeight = Math.max(MIN_HEIGHT, (int) (rawY - outValue[1]));
         }
 
+        if(newWidth < MIN_WIDTH) {
+            newWidth = MIN_WIDTH;
+        }
+
+        if(newHeight < MIN_HEIGHT) {
+            newHeight = MIN_HEIGHT;
+        }
         params.width = newWidth;
         params.height = newHeight;
 
-        WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
-        wm.updateViewLayout(FloatingResizableVideoView.this, params);
+        if (onResizeListener != null) {
+            onResizeListener.onResize(newWidth, newHeight);
+        }
+    }
+
+    public void setOnResizeListener(OnResizeListener listener) {
+        this.onResizeListener = listener;
+    }
+
+    public interface OnResizeListener {
+        void onResizeBegin();
+        void onResize(int width, int height);
+
+        void onResizeEnd();
     }
 
     private int dpToPx(int dp) {

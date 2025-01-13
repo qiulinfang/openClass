@@ -8,6 +8,9 @@ import android.util.Log;
 
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
 
@@ -16,6 +19,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.activities.VideoPlayActivity;
+import com.cosinetech.imates.views.FloatingResizableVideoView;
 import com.cosinetech.imates.views.ScratchToolsView;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.notes.NotePopupWindow;
@@ -269,8 +273,43 @@ public class PDFActivity extends AppCompatActivity implements
         startActivityForResult(intent, VideoPlayActivity.CODE_RESULT_VIDEO_PLAY_EXIT);
     }
 
+    private View floatingVideoViewReplaceWithResizableView(String tag) {
+        View originalView = EasyFloat.getFloatView(tag);
+        if (originalView != null && originalView.getParent() instanceof ViewGroup) {
+            ViewGroup parent = (ViewGroup) originalView.getParent();
+            int index = parent.indexOfChild(originalView);
+            parent.removeView(originalView);
+
+            FloatingResizableVideoView resizableView = new FloatingResizableVideoView(this);
+            resizableView.addView(originalView);
+            resizableView.setTag(tag);
+
+            parent.addView(resizableView, index);
+
+            // 更新 EasyFloat 中的引用
+            EasyFloat.updateFloat(tag, 0,0, 640, 400);
+
+            return resizableView;
+        }
+        return null;
+    }
+
+    private View floatingVideoViewReplaceWithResizableView(View originalView) {
+        ViewGroup decorView = (ViewGroup) originalView.getParent();
+        int index = decorView.indexOfChild(originalView);
+        decorView.removeView(originalView);
+
+        FloatingResizableVideoView resizableView = new FloatingResizableVideoView(this);
+        resizableView.addView(originalView);
+        resizableView.setTag(mFloatingVideoTag);
+
+        decorView.addView(resizableView, index);
+        return resizableView;
+    }
+
     private void showFloatingVideoPlay(int startPos, String videoPath, String sectionTitle) {
-        EasyFloat.with(PDFActivity.this).setLayout(R.layout.floating_video_play)
+        EasyFloat.with(PDFActivity.this)
+                .setLayout(R.layout.floating_video_container)
                 .setDragEnable(true)
                 .setShowPattern(ShowPattern.ALL_TIME)
                 .setSidePattern(SidePattern.DEFAULT)
@@ -281,6 +320,43 @@ public class PDFActivity extends AppCompatActivity implements
                     @Override
                     public void createdResult(boolean isCreated, @Nullable String msg, @Nullable View view) {
                         if (isCreated && view != null) {
+                            FloatingResizableVideoView resizableView = view.findViewById(R.id.resizable_float_view);
+                            if (resizableView != null) {
+                                resizableView.setTag(mFloatingVideoTag);
+
+                                resizableView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+                                    @Override
+                                    public void onGlobalLayout() {
+                                        resizableView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+
+                                        // 现在可以安全地获取坐标并设置监听器
+                                        resizableView.setTag(mFloatingVideoTag);
+                                        resizableView.setOnResizeListener(new FloatingResizableVideoView.OnResizeListener() {
+                                            @Override
+                                            public void onResizeBegin() {
+                                                EasyFloat.dragEnable(false, mFloatingVideoTag);
+                                            }
+
+                                            @Override
+                                            public void onResize(int width, int height) {
+                                                // 获取浮窗相对于屏幕的X和Y坐标
+                                                int[] location = new int[2];
+                                                resizableView.getLocationOnScreen(location);
+                                                int x = location[0];
+                                                int y = location[1];
+                                                // 更新浮窗的位置和大小
+                                                EasyFloat.updateFloat(mFloatingVideoTag, x, y, width, height);
+                                            }
+
+                                            @Override
+                                            public void onResizeEnd() {
+                                                EasyFloat.dragEnable(true, mFloatingVideoTag);
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+
                             VideoPlayView videoPlayView = view.findViewById(R.id.video_play_view);
                             videoPlayView.setVideoInfo(videoPath, sectionTitle, startPos);
                             videoPlayView.hideScratchTools();

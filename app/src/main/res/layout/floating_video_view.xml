@@ -26,6 +26,7 @@
 
     <ImageView
         android:id="@+id/resize_left_bottom"
+        android:visibility="gone"
         android:layout_width="32dp"
         android:layout_height="32dp"
         android:src="@drawable/video_play_resize_left"
