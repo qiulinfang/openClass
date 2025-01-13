@@ -158,14 +158,6 @@ public class VideoPlayView extends RelativeLayout {
         }
     }
 
-    public void pausePlay() {
-        if (mediaPlayer == null) return;
-
-        if(isPlaying) {
-            togglePlayPause();
-        }
-    }
-
     public void stopPlay() {
         if (mediaPlayer == null) return;
         isPlaying = false;
@@ -203,7 +195,7 @@ public class VideoPlayView extends RelativeLayout {
                         adjustAspectRatio(videoWidth, videoHeight);
 
                         seekBar.setMax(mediaPlayer.getDuration());
-                        //togglePlayPause(); // 自动开始播放
+                        togglePlayPause(); // 自动开始播放
                         updateSeekBar();
                     });
 
