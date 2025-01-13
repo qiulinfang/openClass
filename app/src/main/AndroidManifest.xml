@@ -42,14 +42,14 @@
         tools:targetApi="31">
         <activity
             android:name=".activities.LessonPreviewActivity"
-            android:supportsPictureInPicture="true"
-            android:launchMode="singleTask"
-            android:configChanges=
-                "screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false" />
         <activity
             android:name=".activities.VideoPlayActivity"
             android:exported="false"
+            android:supportsPictureInPicture="true"
+            android:launchMode="singleTask"
+            android:configChanges=
+                "screenSize|smallestScreenSize|screenLayout|orientation"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
             android:name=".activities.LoginActivity"

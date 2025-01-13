@@ -1,7 +1,16 @@
 package com.cosinetech.imates.activities;
 
+import android.app.PendingIntent;
+import android.app.PictureInPictureParams;
+import android.app.RemoteAction;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
+import android.graphics.drawable.Icon;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 
@@ -10,6 +19,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.net.Uri;
 import android.os.Build;
+import android.util.Rational;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.TextureView;
@@ -20,6 +30,8 @@ import com.cosinetech.imates.views.ScratchToolsView;
 import com.cosinetech.imates.util.WindowUtils;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.Lifecycle;
+
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
@@ -30,6 +42,8 @@ import com.cosinetech.imates.databinding.ActivityVideoPlayBinding;
 import com.cosinetech.imates.R;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 public class VideoPlayActivity extends AppCompatActivity {
     public static final String KEY_VIDEO_PATH = "VIDEO_PATH";
@@ -48,7 +62,11 @@ public class VideoPlayActivity extends AppCompatActivity {
     private boolean isControlsVisible = false;
     private boolean isPlaying = false;
     private float currentSpeed = 1.0f; // 默认倍速播放为 1x
-
+    private static final String ACTION_MEDIA = "com.cosinetech.imates.videoplayer.MEDIA";
+    private static final String ACTION_SEEK = "com.cosinetech.imates.videoplayer.SEEK";
+    private static final String ACTION_SPEED = "com.cosinetech.imates.videoplayer.SPEED";
+    private static final int REQUEST_CODE = 100;
+    private BroadcastReceiver receiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,6 +77,8 @@ public class VideoPlayActivity extends AppCompatActivity {
 
         binding = ActivityVideoPlayBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
+        setupBroadcastReceiver();
 
         textureView = findViewById(R.id.textureView);
         textureView = findViewById(R.id.textureView);
@@ -127,7 +147,6 @@ public class VideoPlayActivity extends AppCompatActivity {
 
         String videoPath = getIntent().getStringExtra(KEY_VIDEO_PATH);
         if(videoPath != null) {
-
             File file = new File(videoPath);
             if(file.exists()) {
                 setupVideoPlayer(videoPath);
@@ -141,6 +160,11 @@ public class VideoPlayActivity extends AppCompatActivity {
                 finish();
             });
         }
+
+        Button btnEnterPip = findViewById(R.id.btn_enter_pip);
+        btnEnterPip.setOnClickListener(v-> {
+            enterPiPMode();
+        });
     }
 
     private void setupVideoPlayer(String filePath) {
@@ -207,6 +231,31 @@ public class VideoPlayActivity extends AppCompatActivity {
         });
     }
 
+    //监听pip模式
+    @Override
+    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode,
+                                              Configuration newConfig) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
+        if(isInPictureInPictureMode) {
+            findViewById(R.id.btn_enter_pip).setVisibility(View.INVISIBLE);
+            findViewById(R.id.btn_exit_video).setVisibility(View.INVISIBLE);
+            findViewById(R.id.scratch_tool).setVisibility(View.INVISIBLE);
+            controlLayout.setVisibility(View.INVISIBLE);
+        } else {
+            findViewById(R.id.btn_enter_pip).setVisibility(View.VISIBLE);
+            findViewById(R.id.btn_exit_video).setVisibility(View.VISIBLE);
+            findViewById(R.id.scratch_tool).setVisibility(View.INVISIBLE);
+            controlLayout.setVisibility(View.VISIBLE);
+
+            if (getLifecycle().getCurrentState() == Lifecycle.State.CREATED) {
+                // 用户点击“关闭”按钮
+                finish();
+            } else if (getLifecycle().getCurrentState() == Lifecycle.State.STARTED){
+                // 用户点击”最大化“按钮
+            }
+        }
+    }
+
     private void togglePlayPause() {
         if (mediaPlayer == null) return;
 
@@ -248,29 +297,33 @@ public class VideoPlayActivity extends AppCompatActivity {
     }
 
     private void fadeInControls() {
-        controlLayout.setVisibility(View.VISIBLE);
-        ObjectAnimator fadeIn = ObjectAnimator.ofFloat(controlLayout, "alpha", 0f, 1f);
-        fadeIn.setDuration(300);
-        fadeIn.setInterpolator(new AccelerateDecelerateInterpolator());
-        fadeIn.start();
-        isControlsVisible = true;
+        if(!isControlsVisible) {
+            controlLayout.setVisibility(View.VISIBLE);
+            ObjectAnimator fadeIn = ObjectAnimator.ofFloat(controlLayout, "alpha", 0f, 1f);
+            fadeIn.setDuration(300);
+            fadeIn.setInterpolator(new AccelerateDecelerateInterpolator());
+            fadeIn.start();
+            isControlsVisible = true;
 
-        // 3 秒后自动隐藏
-        controlLayout.postDelayed(this::fadeOutControls, 3000);
+            // 3 秒后自动隐藏
+            //controlLayout.postDelayed(this::fadeOutControls, 3000);
+        }
     }
 
     private void fadeOutControls() {
-        ObjectAnimator fadeOut = ObjectAnimator.ofFloat(controlLayout, "alpha", 1f, 0f);
-        fadeOut.setDuration(300);
-        fadeOut.setInterpolator(new AccelerateDecelerateInterpolator());
-        fadeOut.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                controlLayout.setVisibility(View.GONE);
-            }
-        });
-        fadeOut.start();
-        isControlsVisible = false;
+        if(isControlsVisible) {
+            ObjectAnimator fadeOut = ObjectAnimator.ofFloat(controlLayout, "alpha", 1f, 0f);
+            fadeOut.setDuration(300);
+            fadeOut.setInterpolator(new AccelerateDecelerateInterpolator());
+            fadeOut.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    controlLayout.setVisibility(View.GONE);
+                }
+            });
+            fadeOut.start();
+            isControlsVisible = false;
+        }
     }
 
     private void updateSeekBar() {
@@ -315,11 +368,133 @@ public class VideoPlayActivity extends AppCompatActivity {
         }
     }
 
+    private void setupBroadcastReceiver() {
+        receiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                switch (intent.getAction()) {
+                    case ACTION_MEDIA:
+                        if (isPlaying) {
+                            mediaPlayer.pause();
+                            isPlaying = false;
+                        } else {
+                            mediaPlayer.start();
+                            isPlaying = true;
+                        }
+                        updatePiPActions();
+                        break;
+                    case ACTION_SEEK:
+                        int progress = intent.getIntExtra("progress", 0);
+                        int seekTo = progress * mediaPlayer.getDuration() / 100;
+                        mediaPlayer.seekTo(seekTo);
+                        break;
+                    case ACTION_SPEED:
+                        currentSpeed = (currentSpeed == 1.0f) ? 1.5f : 1.0f;
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            mediaPlayer.setPlaybackParams(mediaPlayer.getPlaybackParams().setSpeed(currentSpeed));
+                        }
+                        updatePiPActions();
+                        break;
+                }
+            }
+        };
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ACTION_MEDIA);
+        filter.addAction(ACTION_SEEK);
+        filter.addAction(ACTION_SPEED);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            registerReceiver(receiver, filter, RECEIVER_EXPORTED);
+        }
+    }
+
+    private void enterPiPMode() {
+        int videoWidth = 16;
+        int videoHeight = 9;
+        if(mediaPlayer != null) {
+            videoWidth = mediaPlayer.getVideoWidth();
+            videoHeight = mediaPlayer.getVideoHeight();
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Rational aspectRatio = new Rational(videoWidth, videoHeight);
+            PictureInPictureParams params = new PictureInPictureParams.Builder()
+                    .setAspectRatio(aspectRatio)
+                    .setActions(createRemoteActions())
+                    .build();
+            enterPictureInPictureMode(params);
+        }
+    }
+
+    private void updatePiPActions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            PictureInPictureParams params = new PictureInPictureParams.Builder()
+                    .setActions(createRemoteActions())
+                    .build();
+            setPictureInPictureParams(params);
+        }
+    }
+
+    private ArrayList<RemoteAction> createRemoteActions() {
+        ArrayList<RemoteAction> actions = new ArrayList<>();
+
+        // Play/Pause action
+        Intent mediaIntent = new Intent(ACTION_MEDIA);
+        PendingIntent mediaPendingIntent = PendingIntent.getBroadcast(this, REQUEST_CODE, mediaIntent, PendingIntent.FLAG_IMMUTABLE);
+        RemoteAction mediaAction = null;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            mediaAction = new RemoteAction(
+                    Icon.createWithResource(this, isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play),
+                    isPlaying ? "暂停" : "播放",
+                    isPlaying ? "暂停" : "播放",
+                    mediaPendingIntent
+            );
+        }
+
+        // Seek action (progress bar)
+        Intent seekIntent = new Intent(ACTION_SEEK);
+        PendingIntent seekPendingIntent = PendingIntent.getBroadcast(this, REQUEST_CODE, seekIntent, PendingIntent.FLAG_IMMUTABLE);
+        RemoteAction seekAction = null;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            seekAction = new RemoteAction(
+                    Icon.createWithResource(this, R.id.seekBar),
+                    "进度",
+                    "播放进度",
+                    seekPendingIntent
+            );
+        }
+
+        // Speed action
+        Intent speedIntent = new Intent(ACTION_SPEED);
+        PendingIntent speedPendingIntent = PendingIntent.getBroadcast(this, REQUEST_CODE, speedIntent, PendingIntent.FLAG_IMMUTABLE);
+        RemoteAction speedAction = null;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            speedAction = new RemoteAction(
+                    Icon.createWithResource(this, android.R.drawable.ic_menu_rotate),
+                    currentSpeed == 1.0f ? "1.5x" : "1.0x",
+                    "播放速度",
+                    speedPendingIntent
+            );
+        }
+
+        actions.add(mediaAction);
+        actions.add(seekAction);
+        actions.add(speedAction);
+
+        return actions;
+    }
+
     @Override
     protected void onDestroy() {
         if (mediaPlayer != null) {
             mediaPlayer.release();
+            mediaPlayer = null;
         }
+
+        if (receiver != null) {
+            unregisterReceiver(receiver);
+            receiver = null;
+        }
+
         super.onDestroy();
     }
 

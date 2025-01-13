@@ -11,7 +11,7 @@
 
     <Button
         android:id="@+id/btn_exit"
-        android:background="@drawable/chat_ai_close"
+        android:background="@drawable/app_close_button"
         android:layout_width="18dp"
         android:layout_height="18dp"
         android:layout_margin="16dp"
