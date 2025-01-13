@@ -15,11 +15,13 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.activities.VideoPlayActivity;
 import com.cosinetech.imates.views.ScratchToolsView;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.notes.NotePopupWindow;
 import com.cosinetech.imates.pdfui.tree.TreeNodeData;
 import com.cosinetech.imates.util.WindowUtils;
+import com.cosinetech.imates.views.VideoPlayView;
 import com.github.barteksc.pdfviewer.PDFView;
 import com.github.barteksc.pdfviewer.listener.OnLoadCompleteListener;
 import com.github.barteksc.pdfviewer.listener.OnPageChangeListener;
@@ -63,6 +65,10 @@ public class PDFActivity extends AppCompatActivity implements
     //pdf文件uri
     Uri uri;
 
+    // 视频播放相关
+    private static final String mFloatingVideoTag = "FLOATING_VIDEO_PLAYER";
+    private static final String mFloatingPdfToolsTag = "FLOATING_PDF_TOOLS";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -95,20 +101,21 @@ public class PDFActivity extends AppCompatActivity implements
         initView();//初始化view
         loadPdf();//加载PDF文件
 
-        showFloatPDFTools();
+        showFloatingReaderTools();
 
         pdfView.setOnClickListener(v -> {
             closeFloatPDFTools();
-            showFloatPDFTools();
+            showFloatingReaderTools();
         });
     }
 
-    private void showFloatPDFTools() {
-        EasyFloat.with(this).setLayout(R.layout.floating_pdf_tools)
+    private void showFloatingReaderTools() {
+        EasyFloat.with(this).setLayout(R.layout.floating_reader_tools)
                 .setShowPattern(ShowPattern.CURRENT_ACTIVITY)
                 .setSidePattern(SidePattern.AUTO_SIDE)
                 .setMatchParent(true, false)
                 .setAnimator(new DefaultAnimator())
+                .setTag(mFloatingPdfToolsTag)
                 .registerCallbacks(new OnFloatCallbacks() {
                     @Override
                     public void createdResult(boolean isCreated, @Nullable String msg, @Nullable View view) {
@@ -173,6 +180,12 @@ public class PDFActivity extends AppCompatActivity implements
                             btnNote.setOnClickListener(v -> {
                                 NotePopupWindow win = new NotePopupWindow(view.getContext());
                                 win.showAsDropDown(view);
+                            });
+
+                            Button btnWatchVideo = view.findViewById(R.id.btn_watch_video);
+                            btnWatchVideo.setOnClickListener(v-> {
+                                String path = getExternalFilesDir(null) + "/videos/1.mp4";
+                                startVideoPlayActivityForResult(0, path, mSection.getTitle());
                             });
 
                             Button btnToTextBook = view.findViewById(R.id.btn_to_textbook);
@@ -244,7 +257,76 @@ public class PDFActivity extends AppCompatActivity implements
     }
 
     private void closeFloatPDFTools() {
-        EasyFloat.dismiss();
+        EasyFloat.dismiss(mFloatingPdfToolsTag);
+    }
+
+    private void startVideoPlayActivityForResult(int startPos, String videoPath, String sectionTitle) {
+        Intent intent = new Intent(this, VideoPlayActivity.class);
+        intent.putExtra(VideoPlayActivity.KEY_VIDEO_START_PLAY_POS_MS, startPos);
+        intent.putExtra(VideoPlayActivity.KEY_VIDEO_PATH, videoPath);
+        intent.putExtra(VideoPlayActivity.KEY_TEXTBOOK_SECTION, sectionTitle);
+        startActivityForResult(intent, VideoPlayActivity.CODE_RESULT_VIDEO_PLAY_EXIT);
+    }
+
+    private void showFloatingVideoPlay(int startPos, String videoPath, String sectionTitle) {
+        EasyFloat.with(this).setLayout(R.layout.floating_video_play)
+                .setShowPattern(ShowPattern.FOREGROUND)
+                .setSidePattern(SidePattern.DEFAULT)
+                .setMatchParent(false, false)
+                .setAnimator(new DefaultAnimator())
+                .setTag(mFloatingVideoTag)
+                .registerCallbacks(new OnFloatCallbacks() {
+                    @Override
+                    public void createdResult(boolean isCreated, @Nullable String msg, @Nullable View view) {
+                        if (isCreated && view != null) {
+                            VideoPlayView videoPlayView = view.findViewById(R.id.video_play_view);
+                            videoPlayView.setVideoInfo(videoPath, sectionTitle, startPos);
+
+                            Button btnExit = view.findViewById(R.id.btn_exit_video);
+                            btnExit.setOnClickListener(v-> {
+                                videoPlayView.stopPlay();
+                                dismiss();
+                            });
+
+                            Button btnFullScreen = view.findViewById(R.id.btn_full_screen);
+                            btnFullScreen.setOnClickListener(v-> {
+                                int pos = videoPlayView.getCurrentPlayPosition();
+                                videoPlayView.stopPlay();
+                                startVideoPlayActivityForResult(pos, videoPath, sectionTitle);
+                                dismiss();
+                            });
+                        }
+                    }
+
+                    @Override
+                    public void show(@NotNull View view) {
+                        Log.d("aaaaaaaaaaaa", "show");
+                    }
+
+                    @Override
+                    public void hide(@NotNull View view) {
+                        Log.d("aaaaaaaaaaaa", "hide");
+                    }
+
+                    @Override
+                    public void dismiss() {
+                        Log.d("aaaaaaaaaaaa", "dismiss");
+                    }
+
+                    @Override
+                    public void touchEvent(@NotNull View view, @NotNull MotionEvent event) { }
+
+                    @Override
+                    public void drag(@NotNull View view, @NotNull MotionEvent event) { }
+
+                    @Override
+                    public void dragEnd(@NotNull View view) { }
+                })
+                .show();
+    }
+
+    private void closeFloatingVideoPlay() {
+        EasyFloat.dismiss(mFloatingVideoTag);
     }
 
     @Override
@@ -389,6 +471,15 @@ public class PDFActivity extends AppCompatActivity implements
             if (pageNum > 0) {
                 pdfView.jumpTo(pageNum);
             }
+        } else if(resultCode == VideoPlayActivity.CODE_RESULT_VIDEO_PLAY_EXIT) {
+            int actionCode = data.getIntExtra(VideoPlayActivity.KEY_RESULT_ACTION_KEY, VideoPlayActivity.EXIT_ACTION_NONE);
+            if(actionCode == VideoPlayActivity.EXIT_ACTION_FLOAT) {
+                //浮窗模式
+                String videoPath = data.getStringExtra(VideoPlayActivity.KEY_VIDEO_PATH);
+                String sectionTitle = data.getStringExtra(VideoPlayActivity.KEY_TEXTBOOK_SECTION);
+                int curPlayPos = data.getIntExtra(VideoPlayActivity.KEY_VIDEO_START_PLAY_POS_MS, 0);
+                showFloatingVideoPlay(curPlayPos, videoPath, sectionTitle);
+            }
         }
     }
 
@@ -401,5 +492,6 @@ public class PDFActivity extends AppCompatActivity implements
         }
 
         closeFloatPDFTools();
+        closeFloatingVideoPlay();
     }
 }

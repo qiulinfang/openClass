@@ -153,6 +153,16 @@ public class VideoPlayView extends RelativeLayout {
         setupVideoPlayer(mVideoPath);
     }
 
+    public void hideScratchTools() {
+        scratchToolsView.setVisibility(INVISIBLE);
+    }
+    public int getCurrentPlayPosition() {
+        if(mediaPlayer != null) {
+            return mediaPlayer.getCurrentPosition();
+        }
+        return 0;
+    }
+
     public void startPlay() {
         if (mediaPlayer == null) return;
         if(!isPlaying) {

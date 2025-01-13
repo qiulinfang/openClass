@@ -1,16 +1,30 @@
 package com.cosinetech.imates.activities;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.os.Bundle;
+
+import com.cosinetech.imates.pdfui.PDFActivity;
 import com.cosinetech.imates.util.WindowUtils;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.util.Log;
+import android.view.MotionEvent;
+import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 import com.cosinetech.imates.databinding.ActivityVideoPlayBinding;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.views.VideoPlayView;
+import com.lzf.easyfloat.EasyFloat;
+import com.lzf.easyfloat.anim.DefaultAnimator;
+import com.lzf.easyfloat.enums.ShowPattern;
+import com.lzf.easyfloat.enums.SidePattern;
+import com.lzf.easyfloat.interfaces.OnFloatCallbacks;
+
+import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 
@@ -20,6 +34,14 @@ public class VideoPlayActivity extends AppCompatActivity {
     public static final String KEY_VIDEO_START_PLAY_POS_MS = "VIDEO_START_POS_MS";
     private ActivityVideoPlayBinding binding;
     private VideoPlayView mVideoPlayView;
+    private String mVideoFilePath;
+    private String mSectionTitle;
+
+    // Activity返回值相关
+    public static int CODE_RESULT_VIDEO_PLAY_EXIT = RESULT_FIRST_USER + 1;
+    public static final String KEY_RESULT_ACTION_KEY = "RESULT_ACTION";
+    public static final int EXIT_ACTION_NONE = 0;
+    public static final int EXIT_ACTION_FLOAT = 1;
 
     @SuppressLint("ClickableViewAccessibility")
     @Override
@@ -35,15 +57,15 @@ public class VideoPlayActivity extends AppCompatActivity {
         mVideoPlayView = findViewById(R.id.video_play_view);
         int startPlayPos = getIntent().getIntExtra(KEY_VIDEO_START_PLAY_POS_MS, 0);
 
-        String videoPath = getIntent().getStringExtra(KEY_VIDEO_PATH);
-        if(videoPath != null) {
-            File file = new File(videoPath);
+        mSectionTitle = getIntent().getStringExtra(KEY_TEXTBOOK_SECTION);
+        if(mSectionTitle == null) {
+            mSectionTitle = "";
+        }
+        mVideoFilePath = getIntent().getStringExtra(KEY_VIDEO_PATH);
+        if(mVideoFilePath != null) {
+            File file = new File(mVideoFilePath);
             if(file.exists()) {
-                String sectionTitle = getIntent().getStringExtra(KEY_TEXTBOOK_SECTION);
-                if(sectionTitle == null) {
-                    sectionTitle = "";
-                }
-                mVideoPlayView.setVideoInfo(videoPath, sectionTitle, startPlayPos);
+                mVideoPlayView.setVideoInfo(mVideoFilePath, mSectionTitle, startPlayPos);
                 mVideoPlayView.startPlay();
             } else {
                 Toast.makeText(this, "视频文件不存在", Toast.LENGTH_SHORT).show();
@@ -57,11 +79,15 @@ public class VideoPlayActivity extends AppCompatActivity {
 
         Button btnEnterPip = findViewById(R.id.btn_enter_pip);
         btnEnterPip.setOnClickListener(v-> {
-
+            Intent resultIntent = new Intent();
+            resultIntent.putExtra(KEY_RESULT_ACTION_KEY,  EXIT_ACTION_FLOAT);
+            resultIntent.putExtra(KEY_VIDEO_PATH, mVideoFilePath);
+            resultIntent.putExtra(KEY_TEXTBOOK_SECTION, mSectionTitle);
+            resultIntent.putExtra(KEY_VIDEO_START_PLAY_POS_MS, mVideoPlayView.getCurrentPlayPosition());
+            setResult(CODE_RESULT_VIDEO_PLAY_EXIT, resultIntent);
             finish();
         });
     }
-
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
