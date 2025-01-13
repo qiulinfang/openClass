@@ -213,11 +213,11 @@ public class VideoPlayActivity extends AppCompatActivity {
         if (isPlaying) {
             mediaPlayer.pause();
             //buttonPlayPause.setText("Play");
-            buttonPlayPause.setBackgroundResource(R.drawable.video_play);
+            buttonPlayPause.setBackgroundResource(R.drawable.video_play_button_start_bg);
         } else {
             mediaPlayer.start();
             //buttonPlayPause.setText("Pause");
-            buttonPlayPause.setBackgroundResource(R.drawable.video_pause);
+            buttonPlayPause.setBackgroundResource(R.drawable.video_play_button_pause_bg);
         }
         isPlaying = !isPlaying;
     }
