@@ -176,6 +176,8 @@ public class VideoPlayView extends RelativeLayout {
         mediaPlayer.seekTo(0);
         mediaPlayer.stop();
         buttonPlayPause.setBackgroundResource(R.drawable.video_play_button_start_bg);
+        mediaPlayer.release();
+        mediaPlayer = null;
     }
 
     private void setupVideoPlayer(String filePath) {

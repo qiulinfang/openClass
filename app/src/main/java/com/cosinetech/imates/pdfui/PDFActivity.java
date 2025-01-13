@@ -67,7 +67,7 @@ public class PDFActivity extends AppCompatActivity implements
 
     // 视频播放相关
     private static final String mFloatingVideoTag = "FLOATING_VIDEO_PLAYER";
-    private static final String mFloatingPdfToolsTag = "FLOATING_PDF_TOOLS";
+    private static final String mFloatingReaderToolsTag = "FLOATING_READER_TOOLS";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -104,7 +104,7 @@ public class PDFActivity extends AppCompatActivity implements
         showFloatingReaderTools();
 
         pdfView.setOnClickListener(v -> {
-            closeFloatPDFTools();
+            closeFloatReaderTools();
             showFloatingReaderTools();
         });
     }
@@ -115,7 +115,7 @@ public class PDFActivity extends AppCompatActivity implements
                 .setSidePattern(SidePattern.AUTO_SIDE)
                 .setMatchParent(true, false)
                 .setAnimator(new DefaultAnimator())
-                .setTag(mFloatingPdfToolsTag)
+                .setTag(mFloatingReaderToolsTag)
                 .registerCallbacks(new OnFloatCallbacks() {
                     @Override
                     public void createdResult(boolean isCreated, @Nullable String msg, @Nullable View view) {
@@ -256,8 +256,8 @@ public class PDFActivity extends AppCompatActivity implements
                 .show();
     }
 
-    private void closeFloatPDFTools() {
-        EasyFloat.dismiss(mFloatingPdfToolsTag);
+    private void closeFloatReaderTools() {
+        EasyFloat.dismiss(mFloatingReaderToolsTag);
     }
 
     private void startVideoPlayActivityForResult(int startPos, String videoPath, String sectionTitle) {
@@ -269,8 +269,9 @@ public class PDFActivity extends AppCompatActivity implements
     }
 
     private void showFloatingVideoPlay(int startPos, String videoPath, String sectionTitle) {
-        EasyFloat.with(this).setLayout(R.layout.floating_video_play)
-                .setShowPattern(ShowPattern.FOREGROUND)
+        EasyFloat.with(PDFActivity.this).setLayout(R.layout.floating_video_play)
+                .setDragEnable(true)
+                .setShowPattern(ShowPattern.ALL_TIME)
                 .setSidePattern(SidePattern.DEFAULT)
                 .setMatchParent(false, false)
                 .setAnimator(new DefaultAnimator())
@@ -281,11 +282,13 @@ public class PDFActivity extends AppCompatActivity implements
                         if (isCreated && view != null) {
                             VideoPlayView videoPlayView = view.findViewById(R.id.video_play_view);
                             videoPlayView.setVideoInfo(videoPath, sectionTitle, startPos);
+                            videoPlayView.hideScratchTools();
+                            EasyFloat.updateFloat(mFloatingVideoTag, 0,0, 640, 400);
 
                             Button btnExit = view.findViewById(R.id.btn_exit_video);
                             btnExit.setOnClickListener(v-> {
                                 videoPlayView.stopPlay();
-                                dismiss();
+                                closeFloatingVideoPlay();
                             });
 
                             Button btnFullScreen = view.findViewById(R.id.btn_full_screen);
@@ -293,7 +296,7 @@ public class PDFActivity extends AppCompatActivity implements
                                 int pos = videoPlayView.getCurrentPlayPosition();
                                 videoPlayView.stopPlay();
                                 startVideoPlayActivityForResult(pos, videoPath, sectionTitle);
-                                dismiss();
+                                closeFloatingVideoPlay();
                             });
                         }
                     }
@@ -491,7 +494,7 @@ public class PDFActivity extends AppCompatActivity implements
             pdfView.recycle();
         }
 
-        closeFloatPDFTools();
+        closeFloatReaderTools();
         closeFloatingVideoPlay();
     }
 }
