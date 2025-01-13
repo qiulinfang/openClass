@@ -64,6 +64,7 @@ public class VideoPlayView extends RelativeLayout {
 
     private String mSectionTitle;
     private String mVideoPath;
+    private int mStartPlayPos = 0;
 
     public VideoPlayView(Context context) {
         super(context);
@@ -143,9 +144,10 @@ public class VideoPlayView extends RelativeLayout {
         });
     }
 
-    public void setVideoInfo(String videoPath, String sectionTitle) {
+    public void setVideoInfo(String videoPath, String sectionTitle, int startPlayPos) {
         mVideoPath = videoPath;
         mSectionTitle = sectionTitle;
+        mStartPlayPos = startPlayPos;
 
         scratchToolsView.setAskAiContextPrompt(mSectionTitle);
         setupVideoPlayer(mVideoPath);
@@ -195,6 +197,7 @@ public class VideoPlayView extends RelativeLayout {
                         adjustAspectRatio(videoWidth, videoHeight);
 
                         seekBar.setMax(mediaPlayer.getDuration());
+                        mediaPlayer.seekTo(mStartPlayPos);
                         togglePlayPause(); // 自动开始播放
                         updateSeekBar();
                     });

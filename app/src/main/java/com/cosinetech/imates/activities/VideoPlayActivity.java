@@ -1,30 +1,12 @@
 package com.cosinetech.imates.activities;
 
 import android.annotation.SuppressLint;
-import android.graphics.Bitmap;
-import android.graphics.SurfaceTexture;
-import android.media.MediaPlayer;
 import android.os.Bundle;
-
-import android.animation.ObjectAnimator;
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.net.Uri;
-import android.os.Build;
-import android.view.MotionEvent;
-import android.view.Surface;
-import android.view.TextureView;
-import android.view.View;
-import android.view.animation.AccelerateDecelerateInterpolator;
-
-import com.cosinetech.imates.views.ScratchToolsView;
 import com.cosinetech.imates.util.WindowUtils;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.SeekBar;
 import android.widget.Toast;
 import com.cosinetech.imates.databinding.ActivityVideoPlayBinding;
 import com.cosinetech.imates.R;
@@ -35,6 +17,7 @@ import java.io.File;
 public class VideoPlayActivity extends AppCompatActivity {
     public static final String KEY_VIDEO_PATH = "VIDEO_PATH";
     public static final String KEY_TEXTBOOK_SECTION = "TEXTBOOK_SECTION";
+    public static final String KEY_VIDEO_START_PLAY_POS_MS = "VIDEO_START_POS_MS";
     private ActivityVideoPlayBinding binding;
     private VideoPlayView mVideoPlayView;
 
@@ -50,6 +33,7 @@ public class VideoPlayActivity extends AppCompatActivity {
         setContentView(binding.getRoot());
 
         mVideoPlayView = findViewById(R.id.video_play_view);
+        int startPlayPos = getIntent().getIntExtra(KEY_VIDEO_START_PLAY_POS_MS, 0);
 
         String videoPath = getIntent().getStringExtra(KEY_VIDEO_PATH);
         if(videoPath != null) {
@@ -59,7 +43,7 @@ public class VideoPlayActivity extends AppCompatActivity {
                 if(sectionTitle == null) {
                     sectionTitle = "";
                 }
-                mVideoPlayView.setVideoInfo(videoPath, sectionTitle);
+                mVideoPlayView.setVideoInfo(videoPath, sectionTitle, startPlayPos);
                 mVideoPlayView.startPlay();
             } else {
                 Toast.makeText(this, "视频文件不存在", Toast.LENGTH_SHORT).show();
@@ -73,6 +57,7 @@ public class VideoPlayActivity extends AppCompatActivity {
 
         Button btnEnterPip = findViewById(R.id.btn_enter_pip);
         btnEnterPip.setOnClickListener(v-> {
+
             finish();
         });
     }
