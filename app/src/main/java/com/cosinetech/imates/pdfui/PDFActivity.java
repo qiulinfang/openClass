@@ -111,6 +111,7 @@ public class PDFActivity extends AppCompatActivity implements
 
     private void showFloatingReaderTools() {
         EasyFloat.with(this).setLayout(R.layout.floating_reader_tools)
+                .setDragEnable(false)
                 .setShowPattern(ShowPattern.CURRENT_ACTIVITY)
                 .setSidePattern(SidePattern.AUTO_SIDE)
                 .setMatchParent(true, false)

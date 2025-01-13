@@ -7,12 +7,12 @@
     <com.cosinetech.imates.views.VideoPlayView
         android:id="@+id/video_play_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
+        android:layout_height="match_parent" />
 
     <Button
         android:id="@+id/btn_full_screen"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
         android:background="@drawable/video_play_full_screen"
         android:layout_margin="32dp"/>
 
@@ -24,5 +24,19 @@
         android:layout_margin="32dp"
         android:layout_alignParentEnd="true"/>
 
+    <ImageView
+        android:id="@+id/resize_left_bottom"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:src="@drawable/video_play_resize_left"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentBottom="true"/>
 
+    <Button
+        android:id="@+id/resize_right_bottom"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="@drawable/video_play_resize_right"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"/>
 </RelativeLayout>

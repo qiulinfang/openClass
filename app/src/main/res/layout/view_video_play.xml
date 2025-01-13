@@ -28,7 +28,8 @@
             android:id="@+id/buttonPlayPause"
             android:background="@drawable/video_play_button_pause_bg"
             android:layout_width="36dp"
-            android:layout_height="36dp" />
+            android:layout_height="36dp"
+            android:layout_marginStart="36dp"/>
 
         <!-- 进度条 -->
         <SeekBar
@@ -37,7 +38,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="16dp"
-            android:layout_marginEnd="16dp"/>
+            android:layout_marginEnd="36dp"/>
 
         <!-- 倍速播放按钮 -->
         <Button
