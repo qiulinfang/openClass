@@ -41,6 +41,9 @@
         android:theme="@style/Theme.IMatesApp.FullScreen"
         tools:targetApi="31">
         <activity
+            android:name=".activities.LessonPreviewActivity"
+            android:exported="false" />
+        <activity
             android:name=".activities.VideoPlayActivity"
             android:exported="false"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
@@ -50,6 +53,7 @@
             android:theme="@style/Theme.IMatesApp.FullScreen">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.MONKEY" />
@@ -82,8 +86,7 @@
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
             android:name=".mupdfviewer.activity.SignActivity"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <!-- <activity android:name="com.artifex.mupdfdemo.ChoosePDFActivity" -->
+            android:theme="@style/Theme.IMatesApp.FullScreen" /> <!-- <activity android:name="com.artifex.mupdfdemo.ChoosePDFActivity" -->
         <!-- android:theme="@style/Theme.IMatesApp.FullScreen"/> -->
         <!-- <activity android:name="com.artifex.mupdfdemo.PrintDialogActivity" -->
         <!-- android:theme="@style/Theme.IMatesApp.FullScreen"/> -->
@@ -100,8 +103,8 @@
         <service
             android:name=".service.FloatingWindowService"
             android:enabled="true"
-            android:foregroundServiceType="dataSync"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 
 </manifest>

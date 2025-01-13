@@ -2,6 +2,7 @@ package com.cosinetech.imates.fragments;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -23,6 +24,7 @@ import android.widget.ImageView;
 import android.widget.PopupWindow;
 import android.widget.Toast;
 
+import com.cosinetech.imates.activities.LessonPreviewActivity;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Chapter;
@@ -128,7 +130,8 @@ public class FragmentSubjectBiology extends Fragment {
 
         @JavascriptInterface
         public void onPrepareLesson(String nodeId, String nodeName) {
-            loadPrepareLessonFragment(nodeId, nodeName);
+            startPreviewLessonActivity(nodeId, nodeName);
+            //loadPrepareLessonFragment(nodeId, nodeName);
         }
 
         @JavascriptInterface
@@ -308,6 +311,19 @@ public class FragmentSubjectBiology extends Fragment {
             }
         }
         return null;
+    }
+
+    public void startPreviewLessonActivity(String sectionId, String sectionName) {
+        Chapter.Section s = getSection(sectionId);
+        if(s != null) {
+            Intent previewLessonActivity = new Intent(requireActivity(), LessonPreviewActivity.class);
+            previewLessonActivity.putExtra(LessonPreviewActivity.KEY_PREVIEW_SECTION_NAME, sectionName);
+            previewLessonActivity.putExtra(LessonPreviewActivity.KEY_SECTION_SCHEMA, s);
+
+            startActivity(previewLessonActivity);
+        } else {
+            Toast.makeText(this.getContext(), "未查询到相关的课程", Toast.LENGTH_SHORT).show();
+        }
     }
 
     public void loadPrepareLessonFragment(String sectionId, String sectionName) {
