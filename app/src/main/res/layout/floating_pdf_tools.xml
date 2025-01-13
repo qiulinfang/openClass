@@ -2,18 +2,26 @@
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:orientation="horizontal"
-    android:layout_width="wrap_content"
-    android:gravity="center"
-    android:layout_height="match_parent">
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
 
     <LinearLayout
         android:id="@+id/tools_layout"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
         android:paddingHorizontal="8dp"
         android:background="@drawable/reader_tools_bg">
+
+        <Button
+            android:id="@+id/btn_back"
+            android:background="@drawable/app_back"
+            android:stateListAnimator="@animator/app_button_click_scale"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            />
+
         <!-- 占位空间 -->
         <View
             android:layout_width="match_parent"
@@ -148,13 +156,4 @@
         android:textColor="#ffffff"
         android:background="@drawable/reader_tools_expand_selector_bg" />
 
-
-    <Button
-        android:id="@+id/btn_back"
-        android:background="@drawable/app_back"
-        android:stateListAnimator="@animator/app_button_click_scale"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_gravity="bottom"
-        android:layout_margin="16dp"/>
 </LinearLayout>

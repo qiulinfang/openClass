@@ -107,7 +107,7 @@ public class PDFActivity extends AppCompatActivity implements
         EasyFloat.with(this).setLayout(R.layout.floating_pdf_tools)
                 .setShowPattern(ShowPattern.CURRENT_ACTIVITY)
                 .setSidePattern(SidePattern.AUTO_SIDE)
-                .setMatchParent(false, true)
+                .setMatchParent(true, false)
                 .setAnimator(new DefaultAnimator())
                 .registerCallbacks(new OnFloatCallbacks() {
                     @Override

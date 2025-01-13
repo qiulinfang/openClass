@@ -43,8 +43,6 @@ import java.util.Arrays;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
-    private View floatingView;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -239,17 +237,4 @@ public class MainActivity extends AppCompatActivity {
         stopFloatingWndowService();
         Log.e("++++++++++++++++", "onDestroy");
     }
-
-    @Override
-    public <T extends View> T findViewById(int id) {
-        View view;
-        if(floatingView != null) {
-            view = floatingView.findViewById(id);
-            if (view != null) {
-                return (T) view;
-            }
-        }
-        return super.findViewById(id);
-    }
-
 }

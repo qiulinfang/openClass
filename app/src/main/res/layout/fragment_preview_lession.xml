@@ -205,6 +205,7 @@
 
     <LinearLayout
         android:id="@+id/tool_bar"
+        android:visibility="gone"
         android:layout_width="0dp"
         android:layout_height="100dp"
         android:layout_marginHorizontal="32dp"
@@ -256,6 +257,7 @@
 
     <TextView
         android:id="@+id/schema_tip"
+        android:visibility="gone"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="24dp"
