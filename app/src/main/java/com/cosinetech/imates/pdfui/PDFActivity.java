@@ -273,40 +273,6 @@ public class PDFActivity extends AppCompatActivity implements
         startActivityForResult(intent, VideoPlayActivity.CODE_RESULT_VIDEO_PLAY_EXIT);
     }
 
-    private View floatingVideoViewReplaceWithResizableView(String tag) {
-        View originalView = EasyFloat.getFloatView(tag);
-        if (originalView != null && originalView.getParent() instanceof ViewGroup) {
-            ViewGroup parent = (ViewGroup) originalView.getParent();
-            int index = parent.indexOfChild(originalView);
-            parent.removeView(originalView);
-
-            FloatingResizableVideoView resizableView = new FloatingResizableVideoView(this);
-            resizableView.addView(originalView);
-            resizableView.setTag(tag);
-
-            parent.addView(resizableView, index);
-
-            // 更新 EasyFloat 中的引用
-            EasyFloat.updateFloat(tag, 0,0, 640, 400);
-
-            return resizableView;
-        }
-        return null;
-    }
-
-    private View floatingVideoViewReplaceWithResizableView(View originalView) {
-        ViewGroup decorView = (ViewGroup) originalView.getParent();
-        int index = decorView.indexOfChild(originalView);
-        decorView.removeView(originalView);
-
-        FloatingResizableVideoView resizableView = new FloatingResizableVideoView(this);
-        resizableView.addView(originalView);
-        resizableView.setTag(mFloatingVideoTag);
-
-        decorView.addView(resizableView, index);
-        return resizableView;
-    }
-
     private void showFloatingVideoPlay(int startPos, String videoPath, String sectionTitle) {
         EasyFloat.with(PDFActivity.this)
                 .setLayout(R.layout.floating_video_container)

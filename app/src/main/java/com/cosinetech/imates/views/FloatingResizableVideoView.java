@@ -11,8 +11,8 @@ import android.widget.FrameLayout;
 import com.cosinetech.imates.R;
 
 public class FloatingResizableVideoView extends FrameLayout {
-    private static final int MIN_WIDTH = 320; // 最小宽度
-    private static final int MIN_HEIGHT = 200; // 最小高度
+    private static final int MIN_WIDTH = 640; // 最小宽度
+    private static final int MIN_HEIGHT = 400; // 最小高度
 
     private OnResizeListener onResizeListener;
 
