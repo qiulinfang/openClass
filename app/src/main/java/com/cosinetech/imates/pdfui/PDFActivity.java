@@ -6,9 +6,9 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -72,6 +72,7 @@ public class PDFActivity extends AppCompatActivity implements
     // 视频播放相关
     private static final String mFloatingVideoTag = "FLOATING_VIDEO_PLAYER";
     private static final String mFloatingReaderToolsTag = "FLOATING_READER_TOOLS";
+    private boolean mIsPlayingVideo = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -266,14 +267,17 @@ public class PDFActivity extends AppCompatActivity implements
     }
 
     private void startVideoPlayActivityForResult(int startPos, String videoPath, String sectionTitle) {
-        Intent intent = new Intent(this, VideoPlayActivity.class);
-        intent.putExtra(VideoPlayActivity.KEY_VIDEO_START_PLAY_POS_MS, startPos);
-        intent.putExtra(VideoPlayActivity.KEY_VIDEO_PATH, videoPath);
-        intent.putExtra(VideoPlayActivity.KEY_TEXTBOOK_SECTION, sectionTitle);
-        startActivityForResult(intent, VideoPlayActivity.CODE_RESULT_VIDEO_PLAY_EXIT);
+        if(!mIsPlayingVideo) {
+            Intent intent = new Intent(this, VideoPlayActivity.class);
+            intent.putExtra(VideoPlayActivity.KEY_VIDEO_START_PLAY_POS_MS, startPos);
+            intent.putExtra(VideoPlayActivity.KEY_VIDEO_PATH, videoPath);
+            intent.putExtra(VideoPlayActivity.KEY_TEXTBOOK_SECTION, sectionTitle);
+            startActivityForResult(intent, VideoPlayActivity.CODE_RESULT_VIDEO_PLAY_EXIT);
+        }
     }
 
     private void showFloatingVideoPlay(int startPos, String videoPath, String sectionTitle) {
+        mIsPlayingVideo = true;
         EasyFloat.with(PDFActivity.this)
                 .setLayout(R.layout.floating_video_container)
                 .setDragEnable(true)
@@ -372,15 +376,8 @@ public class PDFActivity extends AppCompatActivity implements
     }
 
     private void closeFloatingVideoPlay() {
+        mIsPlayingVideo = false;
         EasyFloat.dismiss(mFloatingVideoTag);
-    }
-
-    @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) {
-            WindowUtils.hideSystemUI(this);
-        }
     }
 
     /**
@@ -525,8 +522,44 @@ public class PDFActivity extends AppCompatActivity implements
                 String sectionTitle = data.getStringExtra(VideoPlayActivity.KEY_TEXTBOOK_SECTION);
                 int curPlayPos = data.getIntExtra(VideoPlayActivity.KEY_VIDEO_START_PLAY_POS_MS, 0);
                 showFloatingVideoPlay(curPlayPos, videoPath, sectionTitle);
+            } else {
+                mIsPlayingVideo = false;
             }
         }
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if(keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_HOME){
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if(keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_HOME){
+            return true;
+        }
+        return super.onKeyUp(keyCode, event);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            WindowUtils.hideSystemUI(this);
+        }
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if(event.getKeyCode() == KeyEvent.KEYCODE_BACK
+            || event.getKeyCode() == KeyEvent.KEYCODE_HOME
+            || event.getKeyCode() == KeyEvent.KEYCODE_MENU){
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
     }
 
     @Override
