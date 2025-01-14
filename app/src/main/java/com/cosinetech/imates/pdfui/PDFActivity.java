@@ -13,6 +13,7 @@ import android.view.ViewTreeObserver;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -40,6 +41,7 @@ import com.lzf.easyfloat.interfaces.OnFloatCallbacks;
 import com.shockwave.pdfium.PdfDocument;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.File;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -267,6 +269,11 @@ public class PDFActivity extends AppCompatActivity implements
     }
 
     private void startVideoPlayActivityForResult(int startPos, String videoPath, String sectionTitle) {
+        File file = new File(videoPath);
+        if(!file.exists()) {
+            Toast.makeText(this, "没有视频文件可观看", Toast.LENGTH_SHORT).show();
+            return;
+        }
         if(!mIsPlayingVideo) {
             Intent intent = new Intent(this, VideoPlayActivity.class);
             intent.putExtra(VideoPlayActivity.KEY_VIDEO_START_PLAY_POS_MS, startPos);
