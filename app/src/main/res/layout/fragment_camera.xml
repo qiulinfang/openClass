@@ -139,7 +139,7 @@
             android:layout_height="64dp"
             android:background="@drawable/camera_ok"
             android:visibility="gone"
-            app:layout_constraintStart_toEndOf="@id/btn_capture"
+            android:layout_marginHorizontal="10dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintBottom_toBottomOf="@id/question_view"/>
 
