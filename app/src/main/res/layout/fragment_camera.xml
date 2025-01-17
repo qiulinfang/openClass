@@ -141,6 +141,7 @@
             android:visibility="gone"
             android:layout_marginHorizontal="10dp"
             app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/split_line"
             app:layout_constraintBottom_toBottomOf="@id/question_view"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
