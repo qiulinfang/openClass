@@ -106,7 +106,6 @@ public class LoginActivity extends AppCompatActivity {
             fullText = getString(R.string.login_moto);
             textView = findViewById(R.id.moto_text); // 获取 TextView
             startTypingEffect(); // 启动打字机效果
-
     }
 
     @Override

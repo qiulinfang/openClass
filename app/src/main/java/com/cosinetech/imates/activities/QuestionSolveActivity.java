@@ -16,6 +16,7 @@ import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.AdapterQuestionList;
 import com.cosinetech.imates.adapters.AdapterSimilarQuestionList;
@@ -416,6 +417,24 @@ public class QuestionSolveActivity extends AppCompatActivity {
             return true;
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        ApplicationModelShared app = (ApplicationModelShared) getApplication();
+        if(app.getFloatingWindowService() != null) {
+            app.getFloatingWindowService().hideMe();
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        ApplicationModelShared app = (ApplicationModelShared) getApplication();
+        if(app.getFloatingWindowService() != null) {
+            app.getFloatingWindowService().showMe();
+        }
     }
 
     @Override

@@ -47,9 +47,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        ApplicationModelShared  myapp = (ApplicationModelShared)(getApplication());
-        myapp.setMainActivity(this);
-
         WindowUtils.hideSystemUI(this);
         WindowUtils.setFullScreenMode(this);
 
@@ -192,7 +189,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         Log.e("++++++++++++++++", "onResume");
-
+        ApplicationModelShared app = (ApplicationModelShared) getApplication();
+        if(app.getFloatingWindowService() != null) {
+            app.getFloatingWindowService().showMe();
+        }
     }
 
     @Override

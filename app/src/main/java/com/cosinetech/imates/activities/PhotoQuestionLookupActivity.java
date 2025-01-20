@@ -28,6 +28,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 
 import com.canhub.cropper.CropImageView;
+import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.AddQuestionRequest;
 import com.cosinetech.imates.models.Subject;
@@ -448,6 +449,24 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
             return true;
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        ApplicationModelShared app = (ApplicationModelShared) getApplication();
+        if(app.getFloatingWindowService() != null) {
+            app.getFloatingWindowService().hideMe();
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        ApplicationModelShared app = (ApplicationModelShared) getApplication();
+        if(app.getFloatingWindowService() != null) {
+            app.getFloatingWindowService().showMe();
+        }
     }
 
     @Override

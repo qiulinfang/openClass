@@ -28,7 +28,6 @@ public class ApplicationModelShared extends Application implements ViewModelStor
     private FloatingRobotService floatingRobotService;
 
     public AiChatMessageRequest chatRequest;
-    private int activityCount = 0;
 
     private static ApplicationModelShared appInstance = null;
 
@@ -173,14 +172,6 @@ public class ApplicationModelShared extends Application implements ViewModelStor
 
     public static ApplicationModelShared getInstance() {
             return appInstance;
-    }
-
-    public void setMainActivity(MainActivity activity) {
-        mainActivity = activity;
-    }
-
-    public MainActivity getMainActivity() {
-        return mainActivity;
     }
 
     public void setFloatingWindowService(FloatingRobotService service) {

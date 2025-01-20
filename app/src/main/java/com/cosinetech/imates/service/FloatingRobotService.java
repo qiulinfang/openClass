@@ -27,6 +27,7 @@ import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.util.ScreenUtils;
+import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.views.ChatAiView;
 import com.cosinetech.imates.webservice.ApiUrl;
 
@@ -38,6 +39,8 @@ public class FloatingRobotService extends Service {
     private WindowManager.LayoutParams layoutParams;
     private View floatingRobotView;
     //private View popupChatView;
+
+    private LottieAnimationView lottieAnimationView;
 
     public FloatingRobotService() {
     }
@@ -95,7 +98,7 @@ public class FloatingRobotService extends Service {
         layoutParams.gravity = Gravity.TOP | Gravity.START;
         windowManager.addView(floatingRobotView, layoutParams);
 
-        LottieAnimationView lottieAnimationView = floatingRobotView.findViewById(R.id.lottie_animation_view);
+        lottieAnimationView = floatingRobotView.findViewById(R.id.lottie_animation_view);
         lottieAnimationView.setOnTouchListener(new View.OnTouchListener() {
             private int initialX;
             private int initialY;
@@ -168,9 +171,19 @@ public class FloatingRobotService extends Service {
 //                return true;
 //            }
 //        });
-
     }
 
+    public void hideMe() {
+        if(floatingRobotView != null) {
+            floatingRobotView.setVisibility(View.GONE);
+        }
+    }
+
+    public void showMe() {
+        if(floatingRobotView != null) {
+            floatingRobotView.setVisibility(View.VISIBLE);
+        }
+    }
     public void popupChatBot1(String url, String tag) {
         int screenWidth = ScreenUtils.getScreenWidth(this);
         int screenHeight = ScreenUtils.getScreenHeight(this);
@@ -232,6 +245,14 @@ public class FloatingRobotService extends Service {
         // 加载 PopupWindow 的布局
         View popupView = LayoutInflater.from(this).inflate(R.layout.popup_window_chat, null);
 
+        popupView.setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION // 隐藏导航栏
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN); // 隐藏状态栏
+
         int screenWidth = ScreenUtils.getScreenWidth(this);
         int screenHeight = ScreenUtils.getScreenHeight(this);
 
@@ -286,7 +307,6 @@ public class FloatingRobotService extends Service {
                 .build();
     }
 
-
     @Override
     public void onDestroy() {
         super.onDestroy();
@@ -294,10 +314,5 @@ public class FloatingRobotService extends Service {
             windowManager.removeView(floatingRobotView);
             floatingRobotView = null;
         }
-//
-//        if(popupChatView != null) {
-//            windowManager.removeView(popupChatView);
-//            popupChatView = null;
-//        }
     }
 }
