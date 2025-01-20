@@ -324,29 +324,81 @@ public class VideoPlayView extends RelativeLayout {
     }
 
     private void adjustAspectRatio(int videoWidth, int videoHeight) {
-        // 获取屏幕的宽高
-        WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
-        int screenWidth = wm.getDefaultDisplay().getWidth();
-        int screenHeight = wm.getDefaultDisplay().getHeight();
+        // 获取 TextureView 当前的布局参数
+        RelativeLayout.LayoutParams layoutParams = (RelativeLayout.LayoutParams) textureView.getLayoutParams();
+
+        // 设置居中对齐方式
+        layoutParams.addRule(RelativeLayout.CENTER_IN_PARENT, RelativeLayout.TRUE);
+        int viewWidth = getWidth();
+        int viewHeight = getHeight();
 
         // 根据视频的宽高比和屏幕的宽高比，计算需要调整的宽高
         float videoAspectRatio = (float) videoWidth / (float) videoHeight;
-        float screenAspectRatio = (float) screenWidth / (float) screenHeight;
+        float screenAspectRatio = (float) viewWidth / (float) viewHeight;
 
         if (videoAspectRatio > screenAspectRatio) {
             // 如果视频宽高比大于屏幕宽高比，视频宽度应该匹配屏幕宽度，保持视频比例
-            int newHeight = (int) (screenWidth / videoAspectRatio);
-            textureView.getLayoutParams().width = screenWidth;
+            int newHeight = (int) (viewWidth / videoAspectRatio);
+            textureView.getLayoutParams().width = viewWidth;
             textureView.getLayoutParams().height = newHeight;
         } else {
             // 如果视频宽高比小于或等于屏幕宽高比，视频高度应该匹配屏幕高度，保持视频比例
-            int newWidth = (int) (screenHeight * videoAspectRatio);
-            textureView.getLayoutParams().height = screenHeight;
+            int newWidth = (int) (viewHeight * videoAspectRatio);
+            textureView.getLayoutParams().height = viewHeight;
             textureView.getLayoutParams().width = newWidth;
         }
 
         // 更新 TextureView 的布局
         textureView.requestLayout();
+    }
+
+    private void adjustAspectRatio0(int videoWidth, int videoHeight) {
+        // 获取屏幕的宽高
+//        WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
+//        int screenWidth = wm.getDefaultDisplay().getWidth();
+//        int screenHeight = wm.getDefaultDisplay().getHeight();
+
+        int viewWidth = getWidth();
+        int viewHeight = getHeight();
+
+        // 根据视频的宽高比和屏幕的宽高比，计算需要调整的宽高
+        float videoAspectRatio = (float) videoWidth / (float) videoHeight;
+        float screenAspectRatio = (float) viewWidth / (float) viewHeight;
+
+        if (videoAspectRatio > screenAspectRatio) {
+            // 如果视频宽高比大于屏幕宽高比，视频宽度应该匹配屏幕宽度，保持视频比例
+            int newHeight = (int) (viewWidth / videoAspectRatio);
+            textureView.getLayoutParams().width = viewWidth;
+            textureView.getLayoutParams().height = newHeight;
+        } else {
+            // 如果视频宽高比小于或等于屏幕宽高比，视频高度应该匹配屏幕高度，保持视频比例
+            int newWidth = (int) (viewHeight * videoAspectRatio);
+            textureView.getLayoutParams().height = viewHeight;
+            textureView.getLayoutParams().width = newWidth;
+        }
+
+        // 更新 TextureView 的布局
+        textureView.requestLayout();
+    }
+
+    @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        if(w <= 0 || h <= 0) {
+            return;
+        }
+
+        if(mediaPlayer == null) {
+            return;
+        }
+
+        int videoWidth = mediaPlayer.getVideoWidth();
+        int videoHeight = mediaPlayer.getVideoHeight();
+
+        // 调整 TextureView 的宽高比
+        if(videoWidth > 0 && videoHeight > 0) {
+            adjustAspectRatio(videoWidth, videoHeight);
+        }
     }
 
     @Override
