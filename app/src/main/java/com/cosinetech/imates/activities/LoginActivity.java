@@ -35,6 +35,7 @@ public class LoginActivity extends AppCompatActivity {
     private static final int REQUEST_CODE_DRAW_OVERLAY = 1001;
     private UserInfoViewModel userInfoViewModel;
     private TextView textView;
+    private Button loginButton;
     private String fullText = null;
     private ProgressBar loadingProgressBar;
     private SharedPreferences sharedPreferences;
@@ -73,39 +74,39 @@ public class LoginActivity extends AppCompatActivity {
                 new ViewModelProvider.AndroidViewModelFactory(getApplication())
         ).get(UserInfoViewModel.class);
 
-            com.cosinetech.imates.databinding.ActivityLoginBinding binding = ActivityLoginBinding.inflate(getLayoutInflater());
-            setContentView(binding.getRoot());
+        com.cosinetech.imates.databinding.ActivityLoginBinding binding = ActivityLoginBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
 
-            String userName = sharedPreferences.getString(KEY_USER_NAME, "");
-            String passwd = sharedPreferences.getString(KEY_PASSWD, "");
+        String userName = sharedPreferences.getString(KEY_USER_NAME, "");
+        String passwd = sharedPreferences.getString(KEY_PASSWD, "");
 
-            final EditText usernameEditText = binding.username;
-            final EditText passwordEditText = binding.password;
-            final Button loginButton = binding.login;
-            loadingProgressBar = binding.loading;
+        final EditText usernameEditText = binding.username;
+        final EditText passwordEditText = binding.password;
+        loginButton = binding.login;
+        loadingProgressBar = binding.loading;
 
-            usernameEditText.setText(userName);
-            passwordEditText.setText(passwd);
+        usernameEditText.setText(userName);
+        passwordEditText.setText(passwd);
 
-            loginButton.setOnClickListener(v -> {
-                if (usernameEditText.getText().toString().trim().isEmpty()) {
-                    binding.usernameError.setVisibility(View.VISIBLE);
-                    return;
-                }
-                if (passwordEditText.getText().toString().trim().isEmpty()) {
-                    binding.usernameError.setVisibility(View.INVISIBLE);
-                    binding.passwordError.setVisibility(View.VISIBLE);
-                    return;
-                }
+        loginButton.setOnClickListener(v -> {
+            if (usernameEditText.getText().toString().trim().isEmpty()) {
+                binding.usernameError.setVisibility(View.VISIBLE);
+                return;
+            }
+            if (passwordEditText.getText().toString().trim().isEmpty()) {
                 binding.usernameError.setVisibility(View.INVISIBLE);
-                binding.passwordError.setVisibility(View.INVISIBLE);
-                performLogin(usernameEditText.getText().toString(), passwordEditText.getText().toString());
-                loadingProgressBar.setVisibility(View.VISIBLE);
-            });
+                binding.passwordError.setVisibility(View.VISIBLE);
+                return;
+            }
+            binding.usernameError.setVisibility(View.INVISIBLE);
+            binding.passwordError.setVisibility(View.INVISIBLE);
+            performLogin(usernameEditText.getText().toString(), passwordEditText.getText().toString());
+            loadingProgressBar.setVisibility(View.VISIBLE);
+        });
 
-            fullText = getString(R.string.login_moto);
-            textView = findViewById(R.id.moto_text); // 获取 TextView
-            startTypingEffect(); // 启动打字机效果
+        fullText = getString(R.string.login_moto);
+        textView = findViewById(R.id.moto_text); // 获取 TextView
+        startTypingEffect(); // 启动打字机效果
     }
 
     @Override
@@ -132,6 +133,7 @@ public class LoginActivity extends AppCompatActivity {
         editor.putString(KEY_USER_NAME, userName);
         editor.putString(KEY_PASSWD, passwd);
         editor.apply();
+        loginButton.setEnabled(false);
 
         new Thread(() -> {
             try {
@@ -154,6 +156,7 @@ public class LoginActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     Toast.makeText(LoginActivity.this, e.getMessage().toString(), Toast.LENGTH_SHORT).show();
                     loadingProgressBar.setVisibility(View.INVISIBLE);
+                    loginButton.setEnabled(true);
                 });
             }
         }).start();
