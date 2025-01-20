@@ -323,6 +323,14 @@ public class VideoPlayView extends RelativeLayout {
         seekBar.postDelayed(this::updateSeekBar, 500);
     }
 
+    private void adjustScratchViewLayout() {
+        RelativeLayout.LayoutParams textureLayout = (RelativeLayout.LayoutParams) textureView.getLayoutParams();
+        RelativeLayout.LayoutParams layoutParams = (RelativeLayout.LayoutParams) scratchToolsView.getLayoutParams();
+        layoutParams.addRule(RelativeLayout.CENTER_IN_PARENT, RelativeLayout.TRUE);
+        layoutParams.width = textureLayout.width;
+        layoutParams.height = textureLayout.height;
+        scratchToolsView.requestLayout();
+    }
     private void adjustAspectRatio(int videoWidth, int videoHeight) {
         // 获取 TextureView 当前的布局参数
         RelativeLayout.LayoutParams layoutParams = (RelativeLayout.LayoutParams) textureView.getLayoutParams();
@@ -350,6 +358,8 @@ public class VideoPlayView extends RelativeLayout {
 
         // 更新 TextureView 的布局
         textureView.requestLayout();
+
+        adjustScratchViewLayout();
     }
 
     private void adjustAspectRatio0(int videoWidth, int videoHeight) {

@@ -163,10 +163,10 @@ public class PaintView extends View {
 
         // 裁剪出矩形区域的 Bitmap
         return Bitmap.createBitmap(mBitmap,
-                (int) rect.left,
-                (int) rect.top,
-                (int) rect.width(),
-                (int) rect.height());
+                Math.max((int) rect.left, 0),
+                Math.max((int) rect.top, 0),
+                (int) rect.width() < getWidth() - rect.left ? (int)rect.width() : (int)(getWidth() - rect.left - 1),
+                (int) rect.height() < getHeight() - rect.top ? (int)rect.height() : (int)(getHeight() - rect.top - 1));
     }
     public Bitmap getCanvasBitmap(){
         return mBitmap;
