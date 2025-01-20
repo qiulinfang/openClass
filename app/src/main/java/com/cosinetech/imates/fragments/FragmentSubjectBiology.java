@@ -25,6 +25,7 @@ import android.widget.PopupWindow;
 import android.widget.Toast;
 
 import com.cosinetech.imates.activities.LessonPreviewActivity;
+import com.cosinetech.imates.activities.PhotoQuestionLookupActivity;
 import com.cosinetech.imates.activities.QuestionSolveActivity;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.R;
@@ -87,7 +88,7 @@ public class FragmentSubjectBiology extends Fragment {
         initPopStackListner(view);
 
         CardView button = view.findViewById(R.id.photo_to_solve);
-        button.setOnClickListener(v -> loadCameraFragment());
+        button.setOnClickListener(v -> startPhotoQuestionLookupActivity());
 
         CardView btnExercise = view.findViewById(R.id.exercise);
         btnExercise.setOnClickListener(v-> startQuestionSolveActivity());
@@ -269,12 +270,10 @@ public class FragmentSubjectBiology extends Fragment {
         popupWindow.showAtLocation(view, Gravity.CENTER, 0, 0);
     }
 
-    public void loadCameraFragment() {
-        final FragmentCamera childFragment = FragmentCamera.newInstance(Subject.SUBJECT_BIOLOGY);
-        getChildFragmentManager().beginTransaction()
-                .replace(R.id.container, childFragment)
-                .addToBackStack(null)
-                .commit();
+    public void startPhotoQuestionLookupActivity() {
+        Intent intent = new Intent(requireActivity(), PhotoQuestionLookupActivity.class);
+        intent.putExtra(PhotoQuestionLookupActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_BIOLOGY.name());
+        startActivity(intent);
     }
 
     public void startQuestionSolveActivity() {

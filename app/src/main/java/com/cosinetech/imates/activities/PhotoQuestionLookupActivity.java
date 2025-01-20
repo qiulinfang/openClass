@@ -1,4 +1,4 @@
-package com.cosinetech.imates.fragments;
+package com.cosinetech.imates.activities;
 
 import android.Manifest;
 import android.animation.ObjectAnimator;
@@ -8,15 +8,15 @@ import android.graphics.Bitmap;
 import android.graphics.RectF;
 import android.net.Uri;
 import android.os.Bundle;
-import android.view.LayoutInflater;
+import android.view.KeyEvent;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
@@ -24,19 +24,18 @@ import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
-import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 
 import com.canhub.cropper.CropImageView;
-import com.cosinetech.imates.activities.QuestionSolveActivity;
-import com.cosinetech.imates.models.Subject;
-import com.cosinetech.imates.models.AddQuestionRequest;
-import com.cosinetech.imates.views.MarkdownTextView;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.models.AddQuestionRequest;
+import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.UserInfoViewModel;
-import com.cosinetech.imates.webservice.ApiUrl;
+import com.cosinetech.imates.util.WindowUtils;
+import com.cosinetech.imates.views.MarkdownTextView;
 import com.cosinetech.imates.webservice.ApiGateWayService;
+import com.cosinetech.imates.webservice.ApiUrl;
 import com.cosinetech.imates.webservice.Question;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -48,7 +47,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class FragmentCamera extends Fragment {
+public class PhotoQuestionLookupActivity extends AppCompatActivity {
     private PreviewView viewFinder;
     private ImageCapture imageCapture;
     private CropImageView cropImageView;
@@ -69,62 +68,37 @@ public class FragmentCamera extends Fragment {
 
     private List<Question> mQuestions = new ArrayList<>();
 
-    private final static String KEY_PARAM_SUBJECT = "SUBJECT";
-
-
-    public static FragmentCamera newInstance(Subject subject) {
-        FragmentCamera fragmentCamera = new FragmentCamera();
-        Bundle args = new Bundle();
-        args.putString(KEY_PARAM_SUBJECT, subject.name());
-        fragmentCamera.setArguments(args);
-        return fragmentCamera;
-    }
-
-    public FragmentCamera() {
-    }
+    public final static String KEY_PARAM_SUBJECT = "SUBJECT";
+    private static final int REQUEST_CODE_PERMISSIONS = 10;
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            this.subject = Subject.valueOf(getArguments().getString(KEY_PARAM_SUBJECT));
-        }
+        WindowUtils.hideSystemUI(this);
+        WindowUtils.setFullScreenMode(this);
+        setContentView(R.layout.activity_photo_question_lookup);
+        subject = Subject.valueOf(getIntent().getStringExtra(KEY_PARAM_SUBJECT));
+        initView();
     }
 
-    @Override
-    public void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        // 在此处保存需要的状态数据到outState中
-        outState.putString(KEY_PARAM_SUBJECT, subject.name());
-    }
-
-    @Nullable
-    @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_camera, container, false);
-    }
-
-    @Override
-    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-
-        ViewModelStoreOwner owner = (ViewModelStoreOwner) requireActivity().getApplication();
+    private void initView() {
+        ViewModelStoreOwner owner = (ViewModelStoreOwner) getApplication();
         userInfoViewModel = new ViewModelProvider(
                 owner,
-                new ViewModelProvider.AndroidViewModelFactory(requireActivity().getApplication())
+                new ViewModelProvider.AndroidViewModelFactory(getApplication())
         ).get(com.cosinetech.imates.models.UserInfoViewModel.class);
 
-        viewFinder = view.findViewById(R.id.camera_previewer);
-        cropImageView = view.findViewById(R.id.crop_img_view);
-        ivPreview = view.findViewById(R.id.img_previewer);
-        btnCapture = view.findViewById(R.id.btn_capture);
-        btnSearch = view.findViewById(R.id.btn_search);
-        btnAddToList = view.findViewById(R.id.btn_add_question);
-        btnExit = view.findViewById(R.id.btn_exit);
-        btnShotAgain = view.findViewById(R.id.btn_reshoot);
-        scanLine = view.findViewById(R.id.scan_line);
-        questionView = view.findViewById(R.id.question_view);
-        splitLine = view.findViewById(R.id.split_line);
+        viewFinder = findViewById(R.id.camera_previewer);
+        cropImageView = findViewById(R.id.crop_img_view);
+        ivPreview = findViewById(R.id.img_previewer);
+        btnCapture = findViewById(R.id.btn_capture);
+        btnSearch = findViewById(R.id.btn_search);
+        btnAddToList = findViewById(R.id.btn_add_question);
+        btnExit = findViewById(R.id.btn_exit);
+        btnShotAgain = findViewById(R.id.btn_reshoot);
+        scanLine = findViewById(R.id.scan_line);
+        questionView = findViewById(R.id.question_view);
+        splitLine = findViewById(R.id.split_line);
 
         if (allPermissionsGranted()) {
             startCamera();
@@ -139,13 +113,13 @@ public class FragmentCamera extends Fragment {
 
         btnExit.setOnClickListener(v -> {
             stopCamera();
-            getParentFragmentManager().popBackStack();
+            finish();
         });
 
         btnAddToList.setOnClickListener(v -> {
             addExerciseToList();
             stopCamera();
-            Intent intent = new Intent(requireActivity(), QuestionSolveActivity.class);
+            Intent intent = new Intent(this, QuestionSolveActivity.class);
             intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, subject == Subject.SUBJECT_BIOLOGY ? ApiUrl.URL_CHAT_BIOLOGY : ApiUrl.URL_CHAT_MATH);
             intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, subject.name());
             startActivity(intent);
@@ -168,17 +142,27 @@ public class FragmentCamera extends Fragment {
         fetchQuestionList();
     }
 
-    private void startCamera() {
-        ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext());
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString(KEY_PARAM_SUBJECT, subject.name());
+    }
 
+    @Override
+    protected void onRestoreInstanceState(Bundle savedState) {
+        subject = Subject.valueOf(savedState.getString(KEY_PARAM_SUBJECT));
+    }
+
+    private void startCamera() {
+        ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
         cameraProviderFuture.addListener(() -> {
             try {
                 cameraProvider = cameraProviderFuture.get();
                 bindPreview(cameraProvider);
             } catch (ExecutionException | InterruptedException e) {
-                Toast.makeText(requireContext(), "Error starting camera: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Error starting camera: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
-        }, ContextCompat.getMainExecutor(requireContext()));
+        }, ContextCompat.getMainExecutor(this));
     }
 
     public void stopCamera() {
@@ -187,13 +171,6 @@ public class FragmentCamera extends Fragment {
             cameraProvider = null;
         }
     }
-
-    @Override
-    public void onDestroy() {
-        stopCamera(); // 确保在活动销毁时停止相机
-        super.onDestroy();
-    }
-
     private void addExerciseToList() {
         if(question == null) {
             return;
@@ -270,24 +247,24 @@ public class FragmentCamera extends Fragment {
 
     private void takePhoto() {
         try {
-            File photoFile = File.createTempFile("prefix_", ".jpg", requireContext().getCacheDir());
+            File photoFile = File.createTempFile("prefix_", ".jpg", getCacheDir());
             ImageCapture.OutputFileOptions outputOptions = new ImageCapture.OutputFileOptions.Builder(photoFile).build();
 
             imageCapture.takePicture(outputOptions, executor, new ImageCapture.OnImageSavedCallback() {
                 @Override
                 public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-                    requireActivity().runOnUiThread(() -> showCropView(photoFile));
+                    runOnUiThread(() -> showCropView(photoFile));
                 }
 
                 @Override
                 public void onError(@NonNull ImageCaptureException exception) {
-                    requireActivity().runOnUiThread(() ->
-                            Toast.makeText(requireContext(), "Error taking photo: " + exception.getMessage(), Toast.LENGTH_SHORT).show()
+                    runOnUiThread(() ->
+                            Toast.makeText(PhotoQuestionLookupActivity.this, "Error taking photo: " + exception.getMessage(), Toast.LENGTH_SHORT).show()
                     );
                 }
             });
         } catch (Exception e) {
-            Toast.makeText(requireContext(), "Error taking photo: " +e.getMessage(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Error taking photo: " +e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -316,7 +293,7 @@ public class FragmentCamera extends Fragment {
             ApiGateWayService.queryExerciseList(url, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
                 @Override
                 public void onSuccess(List<Question> q) {
-                    requireActivity().runOnUiThread(() -> {
+                    runOnUiThread(() -> {
                         mQuestions.clear();
                         mQuestions.addAll(q);
                     });
@@ -324,8 +301,8 @@ public class FragmentCamera extends Fragment {
 
                 @Override
                 public void onFailure(String msg, int code) {
-                    requireActivity().runOnUiThread(() -> {
-                        Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+                    runOnUiThread(() -> {
+                        Toast.makeText(PhotoQuestionLookupActivity.this, msg, Toast.LENGTH_SHORT).show();
                     });
                 }
             });
@@ -351,7 +328,7 @@ public class FragmentCamera extends Fragment {
             ApiGateWayService.recognizeImage(url, croppedBitmap, userInfoViewModel.token.getValue(), new ApiGateWayService.ExerciseImageRecognitionCallback() {
                 @Override
                 public void onSuccess(Question q) {
-                    requireActivity().runOnUiThread(() -> {
+                    runOnUiThread(() -> {
                         stopScanAnimation(scanLine);
                         String questionString = "";
 
@@ -372,15 +349,15 @@ public class FragmentCamera extends Fragment {
 
                 @Override
                 public void onFailure(String msg, int code) {
-                    requireActivity().runOnUiThread(() -> {
-                        Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+                    runOnUiThread(() -> {
+                        Toast.makeText(PhotoQuestionLookupActivity.this, msg, Toast.LENGTH_SHORT).show();
                         stopScanAnimation(scanLine);
                     });
 
                 }
             });
         } else {
-            Toast.makeText(requireContext(), getString(R.string.crop_image_fail), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.crop_image_fail), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -424,19 +401,58 @@ public class FragmentCamera extends Fragment {
     }
 
     private boolean allPermissionsGranted() {
-        return ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_CODE_PERMISSIONS) {
             if (allPermissionsGranted()) {
                 startCamera();
             } else {
-                Toast.makeText(requireContext(), "Permissions not granted by the user.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "拍照授权失败", Toast.LENGTH_SHORT).show();
             }
         }
     }
 
-    private static final int REQUEST_CODE_PERMISSIONS = 10;
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if(keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_HOME){
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if(keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_HOME){
+            return true;
+        }
+        return super.onKeyUp(keyCode, event);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            WindowUtils.hideSystemUI(this);
+        }
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if(event.getKeyCode() == KeyEvent.KEYCODE_BACK
+                || event.getKeyCode() == KeyEvent.KEYCODE_HOME
+                || event.getKeyCode() == KeyEvent.KEYCODE_MENU){
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    protected void onDestroy() {
+        stopCamera(); // 确保在活动销毁时停止相机
+        super.onDestroy();
+    }
 }

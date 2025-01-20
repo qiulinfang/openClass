@@ -1,5 +1,6 @@
 package com.cosinetech.imates.activities;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
@@ -18,7 +19,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.AdapterQuestionList;
 import com.cosinetech.imates.adapters.AdapterSimilarQuestionList;
-import com.cosinetech.imates.fragments.FragmentCamera;
 import com.cosinetech.imates.models.AddQuestionRequest;
 import com.cosinetech.imates.models.FindSimilarQuestionRequest;
 import com.cosinetech.imates.models.Subject;
@@ -109,11 +109,9 @@ public class QuestionSolveActivity extends AppCompatActivity {
         });
 
         findViewById(R.id.btn_capture).setOnClickListener(v-> {
-            final FragmentCamera fragmentCamera = FragmentCamera.newInstance(subject);
-            getSupportFragmentManager().beginTransaction()
-                    .addToBackStack(null)
-                    .replace(R.id.container, fragmentCamera)
-                    .commit();
+            Intent intent = new Intent(this, PhotoQuestionLookupActivity.class);
+            intent.putExtra(PhotoQuestionLookupActivity.KEY_PARAM_SUBJECT, subject.name());
+            startActivity(intent);
         });
 
         mRdoChatAi = findViewById(R.id.optChatAi);

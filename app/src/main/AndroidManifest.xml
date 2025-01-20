@@ -41,6 +41,9 @@
         android:theme="@style/Theme.IMatesApp.FullScreen"
         tools:targetApi="31">
         <activity
+            android:name=".activities.PhotoQuestionLookupActivity"
+            android:exported="false" />
+        <activity
             android:name=".activities.QuestionSolveActivity"
             android:exported="false" />
         <activity

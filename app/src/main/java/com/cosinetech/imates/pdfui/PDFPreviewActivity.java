@@ -36,7 +36,7 @@ public class PDFPreviewActivity extends AppCompatActivity implements GridAdapter
         WindowUtils.hideSystemUI(this);
         WindowUtils.setFullScreenMode(this);
         //UIUtils.initWindowStyle(getWindow(), getSupportActionBar());
-        setContentView(R.layout.activity_preview);
+        setContentView(R.layout.activity_page_thumbnail);
 
         initView();//初始化控件
         setEvent();

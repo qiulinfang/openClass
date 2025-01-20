@@ -47,7 +47,7 @@ public class LessonPreviewActivity extends AppCompatActivity {
         WindowUtils.setFullScreenMode(this);
 
         EdgeToEdge.enable(this);
-        setContentView(R.layout.fragment_preview_lession);
+        setContentView(R.layout.activity_preview_lession);
 
         mPreviewSectionName = getIntent().getStringExtra(KEY_PREVIEW_SECTION_NAME);
         mPreviewSection = getIntent().getParcelableExtra(KEY_SECTION_SCHEMA);
