@@ -1,48 +1,42 @@
-package com.cosinetech.imates.fragments;
+package com.cosinetech.imates.activities;
 
 import android.os.Bundle;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
-import androidx.lifecycle.ViewModelProvider;
-import androidx.lifecycle.ViewModelStoreOwner;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-
-import android.view.LayoutInflater;
+import android.view.KeyEvent;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.EdgeToEdge;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModelStoreOwner;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.AdapterQuestionList;
 import com.cosinetech.imates.adapters.AdapterSimilarQuestionList;
-import com.cosinetech.imates.models.Subject;
+import com.cosinetech.imates.fragments.FragmentCamera;
 import com.cosinetech.imates.models.AddQuestionRequest;
+import com.cosinetech.imates.models.FindSimilarQuestionRequest;
+import com.cosinetech.imates.models.Subject;
+import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.views.ChatAiView;
 import com.cosinetech.imates.views.MarkdownTextView;
-import com.cosinetech.imates.R;
-import com.cosinetech.imates.models.FindSimilarQuestionRequest;
-import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.ApiUrl;
-import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.Question;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * A simple {@link Fragment} subclass.
- * Use the {@link FragmentQuestionList#newInstance} factory method to
- * create an instance of this fragment.
- */
-public class FragmentQuestionList extends Fragment {
-    private static final String KEY_CHATBOT_URL = "KEY_CHAT_BOT_URL";
-    private static final String KEY_SUBJECT = "KEY_SUBJECT";
+public class QuestionSolveActivity extends AppCompatActivity {
+    public static final String KEY_CHATBOT_URL = "KEY_CHAT_BOT_URL";
+    public static final String KEY_SUBJECT = "KEY_SUBJECT";
 
     private int chatResponceTimes = 0;
     private String chatBotUrl;
@@ -64,39 +58,33 @@ public class FragmentQuestionList extends Fragment {
 
     private final List<Question> mSimilarQuestion = new ArrayList<>();
 
-
-    public FragmentQuestionList() {
-        // Required empty public constructor
-    }
-
-    public static FragmentQuestionList newInstance(String chatBotUrl, Subject subject) {
-        FragmentQuestionList fragment = new FragmentQuestionList();
-        Bundle args = new Bundle();
-        args.putString(KEY_CHATBOT_URL,  chatBotUrl);
-        args.putString(KEY_SUBJECT, subject.name());
-        fragment.setArguments(args);
-        return fragment;
-    }
-
     @Override
-    public void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            chatBotUrl = getArguments().getString(KEY_CHATBOT_URL);
-            subject = Subject.valueOf(getArguments().getString(KEY_SUBJECT));
-        }
+        WindowUtils.hideSystemUI(this);
+        WindowUtils.setFullScreenMode(this);
+        EdgeToEdge.enable(this);
+        setContentView(R.layout.activity_question_solve);
+        chatBotUrl = getIntent().getStringExtra(KEY_CHATBOT_URL);
+        subject = Subject.valueOf(getIntent().getStringExtra(KEY_SUBJECT));
+        initView();
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_question_solve, container, false);
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString(KEY_CHATBOT_URL, chatBotUrl);
+        outState.putString(KEY_SUBJECT, subject.name());
     }
 
     @Override
-    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-        mChatView = view.findViewById(R.id.chat_view);
+    protected void onRestoreInstanceState(Bundle savedState) {
+        chatBotUrl = savedState.getString(KEY_CHATBOT_URL);
+        subject = Subject.valueOf(savedState.getString(KEY_SUBJECT));
+    }
+
+    private void initView() {
+        mChatView = findViewById(R.id.chat_view);
         ChatAiView.ChatAiParam param = new ChatAiView.ChatAiParam();
         param.tag = subject.name();
         param.showHeader = false;
@@ -116,31 +104,31 @@ public class FragmentQuestionList extends Fragment {
 
         mChatView.setChatAiParam(param);
         mChatView.setAiName("AI解题助手");
-        view.findViewById(R.id.btn_exit).setOnClickListener(v->{
-            getParentFragmentManager().popBackStack();
+        findViewById(R.id.btn_exit).setOnClickListener(v->{
+            finish();
         });
 
-        view.findViewById(R.id.btn_capture).setOnClickListener(v-> {
-            final FragmentCamera fragment = FragmentCamera.newInstance(subject);
-            getParentFragmentManager().beginTransaction()
+        findViewById(R.id.btn_capture).setOnClickListener(v-> {
+            final FragmentCamera fragmentCamera = FragmentCamera.newInstance(subject);
+            getSupportFragmentManager().beginTransaction()
                     .addToBackStack(null)
-                    .replace(R.id.container, fragment)
+                    .replace(R.id.container, fragmentCamera)
                     .commit();
         });
 
-        mRdoChatAi = view.findViewById(R.id.optChatAi);
-        mRdoViewAnswer = view.findViewById(R.id.optAnswer);
-        mRdoSimilarQuestion = view.findViewById(R.id.optSimilar);
-        mTextEmptyQuestionTip = view.findViewById(R.id.txt_empty_question);
+        mRdoChatAi = findViewById(R.id.optChatAi);
+        mRdoViewAnswer = findViewById(R.id.optAnswer);
+        mRdoSimilarQuestion = findViewById(R.id.optSimilar);
+        mTextEmptyQuestionTip = findViewById(R.id.txt_empty_question);
 
-        ViewModelStoreOwner owner = (ViewModelStoreOwner) requireActivity().getApplication();
+        ViewModelStoreOwner owner = (ViewModelStoreOwner) getApplication();
         userInfoViewModel = new ViewModelProvider(
                 owner,
-                new ViewModelProvider.AndroidViewModelFactory(requireActivity().getApplication())
+                new ViewModelProvider.AndroidViewModelFactory(getApplication())
         ).get(com.cosinetech.imates.models.UserInfoViewModel.class);
 
-        RecyclerView recyclerView = view.findViewById(R.id.exerciseList);
-        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        RecyclerView recyclerView = findViewById(R.id.exerciseList);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
         adapterQuestionList = new AdapterQuestionList(mQuestions, new AdapterQuestionList.ExerciseListChangedListener() {
             @Override
             public void onExerciseDelete(int position) {
@@ -156,7 +144,7 @@ public class FragmentQuestionList extends Fragment {
                 ApiGateWayService.deleteExercise(url, userInfoViewModel.token.getValue(), new ApiGateWayService.ExerciseDeleteLister() {
                     @Override
                     public void onDeleteSuccess() {
-                        requireActivity().runOnUiThread(() -> {
+                        runOnUiThread(() -> {
                             Question q = mQuestions.remove(position);
                             adapterQuestionList.notifyItemRemoved(position);
                         });
@@ -186,7 +174,7 @@ public class FragmentQuestionList extends Fragment {
                 mCurrentQuestion.isAiGuiding = false;
                 adapterQuestionList.notifyItemChanged(pos);
 
-                MarkdownTextView answer = view.findViewById(R.id.answerView);
+                MarkdownTextView answer = findViewById(R.id.answerView);
                 answer.setContent(mCurrentQuestion.answer + mCurrentQuestion.explanation);
 
                 aiChatMessageRequest.setName(userInfoViewModel.userInfo.getValue().getName());
@@ -214,7 +202,7 @@ public class FragmentQuestionList extends Fragment {
                     adapterQuestionList.notifyItemChanged(mCurrentQuestionIndex);
                 }
 
-                requireActivity().runOnUiThread(() -> {
+               runOnUiThread(() -> {
                     mChatView.sendMessageDirectly(aiChatMessageRequest);
                     mChatView.setChatEnable(true);
                 });
@@ -222,8 +210,8 @@ public class FragmentQuestionList extends Fragment {
         }) ;
         recyclerView.setAdapter(adapterQuestionList);
 
-        RecyclerView recyclerViewSimilarQuestion = view.findViewById(R.id.similarExerciseView);
-        recyclerViewSimilarQuestion.setLayoutManager(new LinearLayoutManager(getContext()));
+        RecyclerView recyclerViewSimilarQuestion = findViewById(R.id.similarExerciseView);
+        recyclerViewSimilarQuestion.setLayoutManager(new LinearLayoutManager(this));
         adapterSimilarQuestionList = new AdapterSimilarQuestionList(mSimilarQuestion, new AdapterSimilarQuestionList.SimilarQuestionListChangedListener() {
             @Override
             public void onExerciseAddToMyList(int pos, Question q) {
@@ -298,20 +286,20 @@ public class FragmentQuestionList extends Fragment {
 
         fetchQuestionList();
 
-        RadioGroup radioGroup = view.findViewById(R.id.radioGroup);
+        RadioGroup radioGroup = findViewById(R.id.radioGroup);
         radioGroup.setOnCheckedChangeListener((group, checkedId) -> {
             if(checkedId == R.id.optChatAi) {
-                view.findViewById(R.id.similarExerciseView).setVisibility(View.INVISIBLE);
-                view.findViewById(R.id.answerView).setVisibility(View.INVISIBLE);
-                view.findViewById(R.id.chat_view).setVisibility(View.VISIBLE);
+                findViewById(R.id.similarExerciseView).setVisibility(View.INVISIBLE);
+                findViewById(R.id.answerView).setVisibility(View.INVISIBLE);
+                findViewById(R.id.chat_view).setVisibility(View.VISIBLE);
             } else if(checkedId == R.id.optAnswer) {
-                view.findViewById(R.id.similarExerciseView).setVisibility(View.INVISIBLE);
-                view.findViewById(R.id.answerView).setVisibility(View.VISIBLE);
-                view.findViewById(R.id.chat_view).setVisibility(View.INVISIBLE);
+                findViewById(R.id.similarExerciseView).setVisibility(View.INVISIBLE);
+                findViewById(R.id.answerView).setVisibility(View.VISIBLE);
+                findViewById(R.id.chat_view).setVisibility(View.INVISIBLE);
             } else if(checkedId == R.id.optSimilar) {
-                view.findViewById(R.id.similarExerciseView).setVisibility(View.VISIBLE);
-                view.findViewById(R.id.answerView).setVisibility(View.INVISIBLE);
-                view.findViewById(R.id.chat_view).setVisibility(View.INVISIBLE);
+                findViewById(R.id.similarExerciseView).setVisibility(View.VISIBLE);
+                findViewById(R.id.answerView).setVisibility(View.INVISIBLE);
+                findViewById(R.id.chat_view).setVisibility(View.INVISIBLE);
                 findSimilarQuestion();
             }
         });
@@ -336,7 +324,7 @@ public class FragmentQuestionList extends Fragment {
         ApiGateWayService.querySimilarExerciseList(item, ApiUrl.URL_QUERY_SIMILAR_EXERCISE, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
             @Override
             public void onSuccess(List<Question> q) {
-                requireActivity().runOnUiThread(() -> {
+                runOnUiThread(() -> {
                     mSimilarQuestion.clear();
                     mSimilarQuestion.addAll(q);
                     adapterSimilarQuestionList.resetSelection();
@@ -346,8 +334,8 @@ public class FragmentQuestionList extends Fragment {
 
             @Override
             public void onFailure(String msg, int code) {
-                requireActivity().runOnUiThread(() -> {
-                    Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+                runOnUiThread(() -> {
+                    Toast.makeText(QuestionSolveActivity.this, msg, Toast.LENGTH_SHORT).show();
                 });
             }
         });
@@ -366,7 +354,7 @@ public class FragmentQuestionList extends Fragment {
         ApiGateWayService.queryExerciseList(url, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
             @Override
             public void onSuccess(List<Question> q) {
-                requireActivity().runOnUiThread(() -> {
+                runOnUiThread(() -> {
                     mQuestions.clear();
                     mQuestions.addAll(q);
                     adapterQuestionList.resetSelection();
@@ -377,9 +365,9 @@ public class FragmentQuestionList extends Fragment {
 
             @Override
             public void onFailure(String msg, int code) {
-                requireActivity().runOnUiThread(() -> {
+                runOnUiThread(() -> {
                     updateQuestionListTip();
-                    Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(QuestionSolveActivity.this, msg, Toast.LENGTH_SHORT).show();
                 });
             }
         });
@@ -399,7 +387,41 @@ public class FragmentQuestionList extends Fragment {
     }
 
     @Override
-    public void onDestroy() {
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if(keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_HOME){
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if(keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_HOME){
+            return true;
+        }
+        return super.onKeyUp(keyCode, event);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            WindowUtils.hideSystemUI(this);
+        }
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if(event.getKeyCode() == KeyEvent.KEYCODE_BACK
+                || event.getKeyCode() == KeyEvent.KEYCODE_HOME
+                || event.getKeyCode() == KeyEvent.KEYCODE_MENU){
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    protected void onDestroy() {
         super.onDestroy();
     }
 }

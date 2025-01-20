@@ -179,6 +179,4 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:background="#80808080"/>
 
-
-
 </androidx.constraintlayout.widget.ConstraintLayout>

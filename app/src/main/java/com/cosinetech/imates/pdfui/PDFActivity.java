@@ -193,7 +193,9 @@ public class PDFActivity extends AppCompatActivity implements
                             Button btnWatchVideo = view.findViewById(R.id.btn_watch_video);
                             btnWatchVideo.setOnClickListener(v-> {
                                 String path = getExternalFilesDir(null) + "/videos/1.mp4";
-                                startVideoPlayActivityForResult(0, path, mSection.getTitle());
+                                if(!mIsPlayingVideo) {
+                                    startVideoPlayActivityForResult(0, path, mSection.getTitle());
+                                }
                             });
 
                             Button btnToTextBook = view.findViewById(R.id.btn_to_textbook);
@@ -274,13 +276,11 @@ public class PDFActivity extends AppCompatActivity implements
             Toast.makeText(this, "没有视频文件可观看", Toast.LENGTH_SHORT).show();
             return;
         }
-        if(!mIsPlayingVideo) {
-            Intent intent = new Intent(this, VideoPlayActivity.class);
-            intent.putExtra(VideoPlayActivity.KEY_VIDEO_START_PLAY_POS_MS, startPos);
-            intent.putExtra(VideoPlayActivity.KEY_VIDEO_PATH, videoPath);
-            intent.putExtra(VideoPlayActivity.KEY_TEXTBOOK_SECTION, sectionTitle);
-            startActivityForResult(intent, VideoPlayActivity.CODE_RESULT_VIDEO_PLAY_EXIT);
-        }
+        Intent intent = new Intent(this, VideoPlayActivity.class);
+        intent.putExtra(VideoPlayActivity.KEY_VIDEO_START_PLAY_POS_MS, startPos);
+        intent.putExtra(VideoPlayActivity.KEY_VIDEO_PATH, videoPath);
+        intent.putExtra(VideoPlayActivity.KEY_TEXTBOOK_SECTION, sectionTitle);
+        startActivityForResult(intent, VideoPlayActivity.CODE_RESULT_VIDEO_PLAY_EXIT);
     }
 
     private void showFloatingVideoPlay(int startPos, String videoPath, String sectionTitle) {

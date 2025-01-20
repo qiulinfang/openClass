@@ -25,6 +25,7 @@ import android.widget.PopupWindow;
 import android.widget.Toast;
 
 import com.cosinetech.imates.activities.LessonPreviewActivity;
+import com.cosinetech.imates.activities.QuestionSolveActivity;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Chapter;
@@ -89,7 +90,7 @@ public class FragmentSubjectBiology extends Fragment {
         button.setOnClickListener(v -> loadCameraFragment());
 
         CardView btnExercise = view.findViewById(R.id.exercise);
-        btnExercise.setOnClickListener(v-> loadExerciseListFragment());
+        btnExercise.setOnClickListener(v-> startQuestionSolveActivity());
 
         CardView btnHistory = view.findViewById(R.id.history);
         btnHistory.setOnClickListener(v -> {
@@ -131,7 +132,6 @@ public class FragmentSubjectBiology extends Fragment {
         @JavascriptInterface
         public void onPrepareLesson(String nodeId, String nodeName) {
             startPreviewLessonActivity(nodeId, nodeName);
-            //loadPrepareLessonFragment(nodeId, nodeName);
         }
 
         @JavascriptInterface
@@ -145,7 +145,7 @@ public class FragmentSubjectBiology extends Fragment {
                    s.getKnowledgeNo() , new FindKnowledgeQuestionPopupWindow.OnSimilarQuestionSelectionListener() {
                 @Override
                 public void onQuestionSelected() {
-                    loadExerciseListFragment();
+                    startQuestionSolveActivity();
                 }
             });
             win.show();
@@ -277,12 +277,11 @@ public class FragmentSubjectBiology extends Fragment {
                 .commit();
     }
 
-    public void loadExerciseListFragment() {
-        final FragmentQuestionList fragmentQuestionList = FragmentQuestionList.newInstance(ApiUrl.URL_CHAT_BIOLOGY, Subject.SUBJECT_BIOLOGY);
-        getChildFragmentManager().beginTransaction()
-                .replace(R.id.container, fragmentQuestionList)
-                .addToBackStack(null)
-                .commit();
+    public void startQuestionSolveActivity() {
+        Intent intent = new Intent(requireActivity(), QuestionSolveActivity.class);
+        intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_BIOLOGY);
+        intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, Subject.SUBJECT_BIOLOGY.name());
+        startActivity(intent);
     }
 
     public Chapter.Section getSection(String sectionId) {
@@ -321,19 +320,6 @@ public class FragmentSubjectBiology extends Fragment {
             previewLessonActivity.putExtra(LessonPreviewActivity.KEY_SECTION_SCHEMA, s);
 
             startActivity(previewLessonActivity);
-        } else {
-            Toast.makeText(this.getContext(), "未查询到相关的课程", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    public void loadPrepareLessonFragment(String sectionId, String sectionName) {
-        Chapter.Section s = getSection(sectionId);
-        if(s != null) {
-            final FragmentPreviewLesson fragmentPreviewLesson = FragmentPreviewLesson.newInstance(sectionName, s);
-            getChildFragmentManager().beginTransaction()
-                    .replace(R.id.container, fragmentPreviewLesson)
-                    .addToBackStack(null)
-                    .commit();
         } else {
             Toast.makeText(this.getContext(), "未查询到相关的课程", Toast.LENGTH_SHORT).show();
         }

@@ -2,6 +2,7 @@ package com.cosinetech.imates.fragments;
 
 import android.Manifest;
 import android.animation.ObjectAnimator;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.RectF;
@@ -28,6 +29,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 
 import com.canhub.cropper.CropImageView;
+import com.cosinetech.imates.activities.QuestionSolveActivity;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.AddQuestionRequest;
 import com.cosinetech.imates.views.MarkdownTextView;
@@ -143,11 +145,10 @@ public class FragmentCamera extends Fragment {
         btnAddToList.setOnClickListener(v -> {
             addExerciseToList();
             stopCamera();
-            final FragmentQuestionList fragmentQuestionList = FragmentQuestionList.newInstance(ApiUrl.URL_CHAT_BIOLOGY, subject);
-            getParentFragmentManager().beginTransaction()
-                    .addToBackStack(null)
-                    .replace(R.id.container, fragmentQuestionList)
-                    .commit();
+            Intent intent = new Intent(requireActivity(), QuestionSolveActivity.class);
+            intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, subject == Subject.SUBJECT_BIOLOGY ? ApiUrl.URL_CHAT_BIOLOGY : ApiUrl.URL_CHAT_MATH);
+            intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, subject.name());
+            startActivity(intent);
         });
 
         btnShotAgain.setOnClickListener( v-> {

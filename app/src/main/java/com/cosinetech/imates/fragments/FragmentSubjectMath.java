@@ -2,6 +2,7 @@ package com.cosinetech.imates.fragments;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -24,6 +25,7 @@ import android.widget.PopupWindow;
 import android.widget.Toast;
 
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.activities.QuestionSolveActivity;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.webservice.ApiUrl;
@@ -96,7 +98,7 @@ public class FragmentSubjectMath extends Fragment {
         button.setOnClickListener(v -> loadCameraFragment());
 
         CardView btnExercise = view.findViewById(R.id.exercise);
-        btnExercise.setOnClickListener(v-> loadExerciseListFragment());
+        btnExercise.setOnClickListener(v-> startQuestionSolveActivity());
 
         CardView btnHistory = view.findViewById(R.id.history);
         btnHistory.setOnClickListener(v -> {
@@ -179,7 +181,7 @@ public class FragmentSubjectMath extends Fragment {
                     s.getKnowledgeNo() , new FindKnowledgeQuestionPopupWindow.OnSimilarQuestionSelectionListener() {
                 @Override
                 public void onQuestionSelected() {
-                    loadExerciseListFragment();
+                    startQuestionSolveActivity();
                 }
             });
             win.show();
@@ -311,12 +313,11 @@ public class FragmentSubjectMath extends Fragment {
                 .commit();
     }
 
-    public void loadExerciseListFragment() {
-        final FragmentQuestionList fragmentQuestionList = FragmentQuestionList.newInstance(ApiUrl.URL_CHAT_MATH, Subject.SUBJECT_MATH);
-        getChildFragmentManager().beginTransaction()
-                .replace(R.id.container, fragmentQuestionList)
-                .addToBackStack(null)
-                .commit();
+    public void startQuestionSolveActivity() {
+        Intent intent = new Intent(requireActivity(), QuestionSolveActivity.class);
+        intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
+        intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, Subject.SUBJECT_MATH.name());
+        startActivity(intent);
     }
 
     public void loadPrepareLessonFragment(String sectionId, String sectionName) {
