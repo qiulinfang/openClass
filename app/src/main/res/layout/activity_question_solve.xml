@@ -61,6 +61,305 @@
         app:layout_constraintTop_toBottomOf="@id/txt_empty_question"
         app:layout_constraintVertical_bias="1.0" />
 
+    <ScrollView
+        android:id="@+id/essay_question"
+        android:visibility="gone"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:background="#ffffff"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="@id/verticalGuide"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/txt_empty_question"
+        app:layout_constraintVertical_bias="1.0">
+
+        <RelativeLayout
+            android:background="#ffffff"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="8dp"
+            android:layout_marginVertical="8dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="@id/verticalGuide"
+            app:layout_constraintHorizontal_bias="1.0"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/txt_empty_question"
+            app:layout_constraintVertical_bias="1.0">
+
+            <Button
+                android:id="@+id/btn_exit_question"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:background="@drawable/ic_close"
+                android:layout_alignParentEnd="true"
+                android:layout_margin="8dp"/>
+
+            <com.cosinetech.imates.views.MarkdownTextView
+                android:id="@+id/essay_trunk"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/btn_exit_question"
+                android:layout_margin="16dp"
+                android:text="题干"/>
+
+            <com.cosinetech.imates.views.MarkdownTextView
+                android:id="@+id/essay_episode1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/essay_trunk"
+                android:layout_margin="16dp"
+                android:text="第1题"/>
+
+            <TextView
+                android:id="@+id/title_answer_episode1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="答(a):"
+                android:layout_marginVertical="16dp"
+                android:layout_marginStart="24dp"
+                android:textColor="#0080ff"
+                android:layout_below="@id/essay_episode1"/>
+
+            <EditText
+                android:id="@+id/answer_episode1"
+                android:layout_width="100dp"
+                android:layout_height="wrap_content"
+                android:hint="你的答案"
+                android:textSize="@dimen/head5_size"
+                android:layout_below="@id/essay_episode1"
+                android:layout_toEndOf="@id/title_answer_episode1"/>
+
+            <Button
+                android:id="@+id/btn_answer_episode1"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/question_solve_chatbot"
+                android:layout_below="@id/essay_episode1"
+                android:layout_margin="16dp"
+                android:layout_toEndOf="@id/answer_episode1"/>
+
+            <Button
+                android:id="@+id/btn_submit_episode1"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/submit2"
+                android:layout_below="@id/essay_episode1"
+                android:layout_margin="16dp"
+                android:layout_toEndOf="@id/btn_answer_episode1"/>
+
+
+            <com.cosinetech.imates.views.MarkdownTextView
+                android:id="@+id/essay_episode2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/answer_episode1"
+                android:layout_margin="16dp"
+                android:text="第2题"/>
+
+            <TextView
+                android:id="@+id/title_answer_episode2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="答(b):"
+                android:layout_marginVertical="16dp"
+                android:layout_marginStart="24dp"
+                android:textColor="#0080ff"
+                android:layout_below="@id/essay_episode2"/>
+
+            <EditText
+                android:id="@+id/answer_episode2"
+                android:layout_width="200dp"
+                android:layout_height="wrap_content"
+                android:hint="你的答案"
+                android:textSize="@dimen/head5_size"
+                android:layout_below="@id/essay_episode2"
+                android:layout_toEndOf="@id/title_answer_episode2"/>
+
+            <Button
+                android:id="@+id/btn_answer_episode2"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/question_solve_chatbot"
+                android:layout_below="@id/essay_episode2"
+                android:layout_margin="16dp"
+                android:layout_toEndOf="@id/answer_episode2"/>
+
+            <Button
+                android:id="@+id/btn_submit_episode2"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/submit2"
+                android:layout_below="@id/essay_episode2"
+                android:layout_margin="16dp"
+                android:layout_toEndOf="@id/btn_answer_episode2"/>
+
+            <com.cosinetech.imates.views.MarkdownTextView
+                android:id="@+id/essay_episode3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/answer_episode2"
+                android:layout_margin="16dp"
+                android:text="第3题"/>
+
+            <TextView
+                android:id="@+id/title_answer_episode3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="答(c):"
+                android:layout_marginVertical="16dp"
+                android:layout_marginStart="24dp"
+                android:textColor="#0080ff"
+                android:layout_below="@id/essay_episode3"/>
+
+            <EditText
+                android:id="@+id/answer_episode3"
+                android:layout_width="150dp"
+                android:layout_height="wrap_content"
+                android:hint="你的答案"
+                android:textSize="@dimen/head5_size"
+                android:layout_below="@id/essay_episode3"
+                android:layout_toEndOf="@id/title_answer_episode3"/>
+
+
+
+            <Button
+                android:id="@+id/btn_answer_episode3"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/question_solve_chatbot"
+                android:layout_below="@id/essay_episode3"
+                android:layout_margin="16dp"
+                android:layout_toEndOf="@id/answer_episode3"/>
+
+            <Button
+                android:id="@+id/btn_submit_episode3"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/submit2"
+                android:layout_below="@id/essay_episode3"
+                android:layout_margin="16dp"
+                android:layout_toEndOf="@id/btn_answer_episode3"/>
+
+            <com.cosinetech.imates.views.MarkdownTextView
+                android:id="@+id/essay_episode4"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/answer_episode3"
+                android:layout_margin="16dp"
+                android:text="第4题"/>
+
+            <TextView
+                android:id="@+id/title_answer_episode4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="答(d):"
+                android:layout_marginVertical="16dp"
+                android:layout_marginStart="24dp"
+                android:textColor="#0080ff"
+                android:layout_below="@id/essay_episode4"/>
+
+            <EditText
+                android:id="@+id/answer_episode4"
+                android:layout_width="150dp"
+                android:layout_height="wrap_content"
+                android:hint="你的答案"
+                android:textSize="@dimen/head5_size"
+                android:layout_below="@id/essay_episode4"
+                android:layout_toEndOf="@id/title_answer_episode4"/>
+
+            <TextView
+                android:id="@+id/title_answer_episode4_1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="答(e):"
+                android:layout_marginVertical="16dp"
+                android:layout_marginStart="24dp"
+                android:textColor="#0080ff"
+                android:layout_below="@id/essay_episode4"
+                android:layout_toEndOf="@id/answer_episode4"/>
+
+            <ImageView
+                android:id="@+id/answer_episode4_1"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:clickable="true"
+                android:scaleType="fitCenter"
+                android:src="@drawable/tmp_lines_small"
+                android:layout_below="@id/essay_episode4"
+                android:layout_toEndOf="@id/title_answer_episode4_1"
+                />
+
+            <Button
+                android:id="@+id/btn_answer_episode4"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/question_solve_chatbot"
+                android:layout_below="@id/essay_episode4"
+                android:layout_margin="16dp"
+                android:layout_toEndOf="@id/answer_episode4_1"/>
+
+            <Button
+                android:id="@+id/btn_submit_episode4"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/submit2"
+                android:layout_below="@id/essay_episode4"
+                android:layout_margin="16dp"
+                android:layout_toEndOf="@id/btn_answer_episode4"/>
+
+            <com.cosinetech.imates.views.MarkdownTextView
+                android:id="@+id/essay_episode5"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/answer_episode4_1"
+                android:layout_margin="16dp"
+                android:text="第5题"/>
+
+            <TextView
+                android:id="@+id/title_answer_episode5"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="答(f):"
+                android:layout_marginVertical="16dp"
+                android:layout_marginStart="24dp"
+                android:textColor="#0080ff"
+                android:layout_below="@id/essay_episode5"/>
+
+            <ImageView
+                android:id="@+id/answer_episode5"
+                android:layout_width="400dp"
+                android:layout_height="150dp"
+                android:layout_below="@id/essay_episode5"
+                android:layout_toEndOf="@id/title_answer_episode5"
+                android:clickable="true"
+                android:scaleType="fitCenter"
+                android:src="@drawable/tmp_lines"
+                />
+
+            <Button
+                android:id="@+id/btn_answer_episode5"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="16dp"
+                android:background="@drawable/question_solve_chatbot"
+                android:layout_below="@id/essay_episode5"
+                android:layout_toEndOf="@id/answer_episode5"/>
+
+            <Button
+                android:id="@+id/btn_submit_episode5"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="16dp"
+                android:background="@drawable/submit2"
+                android:layout_below="@id/essay_episode5"
+                android:layout_toEndOf="@id/btn_answer_episode5"/>
+        </RelativeLayout>
+
+    </ScrollView>
+
+
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/verticalGuide"
         android:layout_width="wrap_content"
