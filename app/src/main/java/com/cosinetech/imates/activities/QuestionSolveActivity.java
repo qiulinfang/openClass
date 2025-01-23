@@ -200,6 +200,8 @@ public class QuestionSolveActivity extends AppCompatActivity {
 
                 View essay_view = findViewById(R.id.essay_question);
                 if(pos == mQuestions.size() - 1) {
+                    mCurrentQuestion.isAiGuiding = true;
+                    adapterQuestionList.notifyItemChanged(pos);
                     essay_view.setVisibility(View.VISIBLE);
                 } else {
                     essay_view.setVisibility(View.GONE);
@@ -467,6 +469,10 @@ public class QuestionSolveActivity extends AppCompatActivity {
 
         Button btnHide = findViewById(R.id.btn_exit_question);
         btnHide.setOnClickListener(v->{
+            if(mCurrentQuestionIndex >= 0 && mCurrentQuestionIndex < mQuestions.size()) {
+                mQuestions.get(mCurrentQuestionIndex).isAiGuiding = true;
+                adapterQuestionList.notifyItemChanged(mCurrentQuestionIndex);
+            }
             findViewById(R.id.essay_question).setVisibility(View.GONE);
         });
 
@@ -643,11 +649,6 @@ public class QuestionSolveActivity extends AppCompatActivity {
     private void initEpisodeChat(int finalIdx) {
         if(!mRdoChatAi.isChecked()) {
             mRdoChatAi.setChecked(true);
-        }
-
-        if(mCurrentQuestionIndex >= 0 && mCurrentQuestionIndex < mQuestions.size()) {
-            mQuestions.get(mCurrentQuestionIndex).isAiGuiding = true;
-            adapterQuestionList.notifyItemChanged(mCurrentQuestionIndex);
         }
 
         mQuestions.get(mCurrentQuestionIndex).answer = episodes.get(finalIdx)[1];
