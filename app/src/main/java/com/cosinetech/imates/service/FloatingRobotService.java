@@ -25,6 +25,7 @@ import androidx.core.content.ContextCompat;
 import com.airbnb.lottie.LottieAnimationView;
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.activities.ScreenShotActivity;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.util.WindowUtils;
@@ -36,11 +37,8 @@ public class FloatingRobotService extends Service {
     private static final int NOTIFICATION_ID = 1;
 
     private WindowManager windowManager;
-    private WindowManager.LayoutParams layoutParams;
     private View floatingRobotView;
-    //private View popupChatView;
-
-    private LottieAnimationView lottieAnimationView;
+    private View feedbackView;
 
     public FloatingRobotService() {
     }
@@ -80,14 +78,20 @@ public class FloatingRobotService extends Service {
         ApplicationModelShared myapp = (ApplicationModelShared)(getApplication());
         myapp.setFloatingWindowService(this);
 
+
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-        layoutParams = new WindowManager.LayoutParams(
+        initFloatingRobot();
+        initFeedbackView();
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private void initFloatingRobot() {
+        WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT);
-
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
         floatingRobotView = inflater.inflate(R.layout.floating_robot, null);
         final int screenWidth = ScreenUtils.getScreenWidth(this);
@@ -98,7 +102,7 @@ public class FloatingRobotService extends Service {
         layoutParams.gravity = Gravity.TOP | Gravity.START;
         windowManager.addView(floatingRobotView, layoutParams);
 
-        lottieAnimationView = floatingRobotView.findViewById(R.id.lottie_animation_view);
+        LottieAnimationView lottieAnimationView = floatingRobotView.findViewById(R.id.lottie_animation_view);
         lottieAnimationView.setOnTouchListener(new View.OnTouchListener() {
             private int initialX;
             private int initialY;
@@ -115,7 +119,6 @@ public class FloatingRobotService extends Service {
 
                         initialTouchX = event.getRawX();
                         initialTouchY = event.getRawY();
-                        //Log.d("?????????", "onTouch-1: " + initialX  + "," + initialY + "," + initialTouchX + ", " + initialTouchY);
                         return true;
 
                     case MotionEvent.ACTION_MOVE:
@@ -127,8 +130,6 @@ public class FloatingRobotService extends Service {
                         layoutParams.x = Math.min(initialX + offsetX, screenWidth);
                         layoutParams.y = Math.min(initialY + offsetY, screenHeight);
                         windowManager.updateViewLayout(floatingRobotView, layoutParams);
-//                        Log.d("?????????", "onTouch0: " + offsetX  + "," + offsetY);
-//                        Log.d("?????????", "onTouch1: " + layoutParams.x  + "," + layoutParams.y);
                         return true;
 
                     case MotionEvent.ACTION_UP:
@@ -145,7 +146,7 @@ public class FloatingRobotService extends Service {
             }
         });
 
-         //// 使悬浮窗可拖动
+        //// 使悬浮窗可拖动
 //        floatingRobotView.setOnTouchListener(new View.OnTouchListener() {
 //            private int initialX;
 //            private int initialY;
@@ -173,6 +174,60 @@ public class FloatingRobotService extends Service {
 //        });
     }
 
+    @SuppressLint("ClickableViewAccessibility")
+    private void initFeedbackView() {
+        WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                PixelFormat.TRANSLUCENT);
+        LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
+        feedbackView = inflater.inflate(R.layout.floating_feedback, null);
+        layoutParams.gravity = Gravity.BOTTOM | Gravity.START;
+        windowManager.addView(feedbackView, layoutParams);
+        LottieAnimationView lottieAnimationView = feedbackView.findViewById(R.id.lottie_animation_view);
+        lottieAnimationView.setOnTouchListener(new View.OnTouchListener() {
+            private int initialX;
+            private int initialY;
+            private float initialTouchX;
+            private float initialTouchY;
+
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        // 记录按下时的坐标
+                        initialX = layoutParams.x;
+                        initialY = layoutParams.y;
+
+                        initialTouchX = event.getRawX();
+                        initialTouchY = event.getRawY();
+                        return true;
+
+                    case MotionEvent.ACTION_MOVE:
+                        return true;
+
+                    case MotionEvent.ACTION_UP:
+                        // 判断是否为点击事件
+                        float deltaX = event.getRawX() - initialTouchX;
+                        float deltaY = event.getRawY() - initialTouchY;
+                        if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
+                            performFeedback();
+                        }
+                        return true;
+                }
+                return true;
+            }
+        });
+    }
+
+    private void performFeedback() {
+        Intent intent = new Intent(this, ScreenShotActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈
+        startActivity(intent);
+    }
+
     public void hideMe() {
         if(floatingRobotView != null) {
             floatingRobotView.setVisibility(View.GONE);
@@ -183,62 +238,6 @@ public class FloatingRobotService extends Service {
         if(floatingRobotView != null) {
             floatingRobotView.setVisibility(View.VISIBLE);
         }
-    }
-    public void popupChatBot1(String url, String tag) {
-        int screenWidth = ScreenUtils.getScreenWidth(this);
-        int screenHeight = ScreenUtils.getScreenHeight(this);
-
-        // 配置 LayoutParams
-        WindowManager.LayoutParams layoutPopup = new WindowManager.LayoutParams(
-                screenWidth / 2 + screenWidth / 4,
-                screenHeight,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, // 确保权限
-                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM, // 根据需要调整 FLAG
-                PixelFormat.TRANSLUCENT
-        );
-
-        layoutParams.flags &= ~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
-        layoutParams.flags |= WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM;
-
-        layoutPopup.gravity = Gravity.TOP | Gravity.START; // 显示位置
-        layoutPopup.x = screenWidth / 2;
-        layoutPopup.y = 0;
-
-        // 初始化并加载布局
-        final View popupChatView = LayoutInflater.from(this).inflate(R.layout.popup_window_chat, null);
-        windowManager.addView(popupChatView, layoutPopup);
-
-        // 添加交互事件
-        popupChatView.setOnTouchListener(new View.OnTouchListener() {
-            private int initialX;
-            private int initialY;
-            private float initialTouchX;
-            private float initialTouchY;
-
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                switch (event.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        initialX = layoutPopup.x;
-                        initialY = layoutPopup.y;
-                        initialTouchX = event.getRawX();
-                        initialTouchY = event.getRawY();
-                        return true;
-
-                    case MotionEvent.ACTION_MOVE:
-                        layoutPopup.x = initialX + (int) (event.getRawX() - initialTouchX);
-                        layoutPopup.y = initialY + (int) (event.getRawY() - initialTouchY);
-                        windowManager.updateViewLayout(popupChatView, layoutPopup);
-                        return true;
-                }
-                return false;
-            }
-        });
-
-        Button btnExit = popupChatView.findViewById(R.id.btn_exit);
-        btnExit.setOnClickListener(v-> {
-            windowManager.removeView(popupChatView);
-        });
     }
 
     public void popupChatBot(String url, String tag) {
@@ -313,6 +312,11 @@ public class FloatingRobotService extends Service {
         if (floatingRobotView != null) {
             windowManager.removeView(floatingRobotView);
             floatingRobotView = null;
+        }
+
+        if(feedbackView != null) {
+            windowManager.removeView(feedbackView);
+            feedbackView = null;
         }
     }
 }
