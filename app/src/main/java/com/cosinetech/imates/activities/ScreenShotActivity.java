@@ -4,15 +4,11 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.PixelFormat;
-import android.hardware.display.DisplayManager;
-import android.hardware.display.VirtualDisplay;
-import android.media.Image;
 import android.media.ImageReader;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Bundle;
-import android.util.DisplayMetrics;
+import android.os.Handler;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Toast;
@@ -22,7 +18,6 @@ import com.cosinetech.imates.util.ScreenCapture;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 public class ScreenShotActivity extends Activity {
     private static final int REQUEST_CODE_SCREEN_CAPTURE = 1;
@@ -51,14 +46,30 @@ public class ScreenShotActivity extends Activity {
             if (resultCode == RESULT_OK) {
                 // 获取 MediaProjection 实例
                 mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, data);
-                // 开始屏幕截图
-                new ScreenCapture(this, mediaProjection, "", "").startProjection();
+                if(mediaProjection != null) {
+                    new ScreenCapture(ScreenShotActivity.this, mediaProjection, "", "")
+                            .setListener(new ScreenCapture.OnImageCaptureScreenListener() {
+                                /**
+                                 * @param image
+                                 * @param filePath
+                                 */
+                                @Override
+                                public void imageCaptured(byte[] image, String filePath) {
+                                    //启动反馈Activity
+                                    finish();
+                                }
+                            })
+                            .startProjection();
+                } else {
+                    finish();
+                }
             } else {
                 // 用户拒绝授权，关闭 Activity
                 finish();
             }
+        } else {
+            finish();
         }
-        finish();  // 结束 Activity
     }
 
     private void saveScreenshot(Bitmap bitmap) {

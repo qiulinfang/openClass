@@ -79,30 +79,38 @@ public class ScreenCapture {
     }
 
     public ScreenCapture startProjection() {
-        if (sMediaProjection != null) {
-            File storeDir = new File(STORE_DIR);
-            if (!storeDir.exists()) {
-                boolean success = storeDir.mkdirs();
-                if (!success) {
-                    Log.d("WOW", "mkdir " + storeDir + "  failed");
-                    return this;
-                } else {
-                    Log.d("WOW", "mkdir " + storeDir + "  success");
-                }
+        File storeDir = new File(STORE_DIR);
+        if (!storeDir.exists()) {
+            boolean success = storeDir.mkdirs();
+            if (!success) {
+                Log.d("WOW", "mkdir " + storeDir + "  failed");
+                return this;
             } else {
-                Log.d("WOW", " " + storeDir + "  exist");
+                Log.d("WOW", "mkdir " + storeDir + "  success");
             }
-
         } else {
-            Log.d("WOW", "get mediaprojection failed");
+            Log.d("WOW", " " + storeDir + "  exist");
         }
 
-        try {
-            Thread.sleep(500); // 防止截屏截到 显示截屏权限的窗口
+        // 使用 Handler 延迟 3 秒执行屏幕捕获
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
             isScreenCaptureStarted = true;
-        } catch (InterruptedException e) {
-        }
+            captureScreen();
+        }, 3000); // 延迟 3 秒
 
+
+//        try {
+//            Thread.sleep(3000);
+//            isScreenCaptureStarted = true;
+//        } catch (InterruptedException e) {
+//        }
+//
+//        captureScreen();
+        //sMediaProjection.registerCallback(new MediaProjectionStopCallback(), mHandler);
+        return this;
+    }
+
+    private void captureScreen() {
         WindowManager window = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
         mDisplay = window.getDefaultDisplay();
         final DisplayMetrics metrics = new DisplayMetrics();
@@ -129,7 +137,6 @@ public class ScreenCapture {
 
         mImageReader.setOnImageAvailableListener(reader -> {
             if (isScreenCaptureStarted) {
-
                 Image image = null;
                 FileOutputStream fos = null;
                 Bitmap bitmap = null;
@@ -139,10 +146,6 @@ public class ScreenCapture {
                     if (image != null) {
 //                      bitmap = ImageUtils.image_ARGB8888_2_bitmap(metrics, image);
                         bitmap = ImageUtils.image_2_bitmap(image, Bitmap.Config.ARGB_8888);
-                        if (null != listener) {
-                            listener.imageCaptured(ImageUtils.bitmap2byte(bitmap, 80));
-                        }
-
 
                         String fileName = getImageStorePath();
                         fos = new FileOutputStream(fileName);
@@ -151,6 +154,9 @@ public class ScreenCapture {
                         Toast.makeText(mContext, "Screenshot saved in " + fileName,
                                 Toast.LENGTH_LONG);
                         stopProjection();
+                        if (null != listener) {
+                            listener.imageCaptured(ImageUtils.bitmap2byte(bitmap, 80), getImageStorePath());
+                        }
                     }
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
@@ -171,8 +177,6 @@ public class ScreenCapture {
                 }
             }
         }, mHandler);
-        //sMediaProjection.registerCallback(new MediaProjectionStopCallback(), mHandler);
-        return this;
     }
 
     public ScreenCapture stopProjection() {
@@ -195,7 +199,7 @@ public class ScreenCapture {
     }
 
     public interface OnImageCaptureScreenListener {
-        public void imageCaptured(byte[] image);
+        void imageCaptured(byte[] image, String filePath);
     }
 
     private class MediaProjectionStopCallback extends MediaProjection.Callback {
