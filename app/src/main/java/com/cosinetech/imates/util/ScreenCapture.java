@@ -2,6 +2,7 @@ package com.cosinetech.imates.util;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.PixelFormat;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
@@ -14,6 +15,7 @@ import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
+import android.view.View;
 import android.view.WindowManager;
 import android.widget.Toast;
 
@@ -56,7 +58,7 @@ public class ScreenCapture {
 
         if (TextUtils.isEmpty(savePath)) {
             File externalFilesDir = mContext.getExternalFilesDir(null);
-            Log.d("WOW", "externalFilesDir:" + externalFilesDir.getAbsolutePath());
+            Log.e("WOW", "externalFilesDir:" + externalFilesDir.getAbsolutePath());
             if (externalFilesDir != null) {
                 STORE_DIR = externalFilesDir.getAbsolutePath() + "/myScreenshots";
             } else {
@@ -67,10 +69,11 @@ public class ScreenCapture {
         }
 
         if(TextUtils.isEmpty(fileName)) {
-            Date currentDate = new Date();
-            SimpleDateFormat date = new SimpleDateFormat("yyyyMMddhhmmss");
-            imageFileName = "myScreen_" + date.format(
-                    currentDate) + ".jpg";
+//            Date currentDate = new Date();
+//            SimpleDateFormat date = new SimpleDateFormat("yyyyMMddhhmmss");
+//            imageFileName = "myScreen_" + date.format(
+//                    currentDate) + ".jpg";
+            imageFileName = "myScreenshot.jpg";
         }
     }
 
@@ -83,30 +86,22 @@ public class ScreenCapture {
         if (!storeDir.exists()) {
             boolean success = storeDir.mkdirs();
             if (!success) {
-                Log.d("WOW", "mkdir " + storeDir + "  failed");
+                Log.e("WOW", "mkdir " + storeDir + "  failed");
                 return this;
             } else {
-                Log.d("WOW", "mkdir " + storeDir + "  success");
+                Log.e("WOW", "mkdir " + storeDir + "  success");
             }
         } else {
-            Log.d("WOW", " " + storeDir + "  exist");
+            Log.e("WOW", " " + storeDir + "  exist");
         }
 
-        // 使用 Handler 延迟 3 秒执行屏幕捕获
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             isScreenCaptureStarted = true;
             captureScreen();
-        }, 3000); // 延迟 3 秒
+        }, 500);
 
-
-//        try {
-//            Thread.sleep(3000);
-//            isScreenCaptureStarted = true;
-//        } catch (InterruptedException e) {
-//        }
-//
+//        isScreenCaptureStarted = true;
 //        captureScreen();
-        //sMediaProjection.registerCallback(new MediaProjectionStopCallback(), mHandler);
         return this;
     }
 
@@ -117,8 +112,8 @@ public class ScreenCapture {
         // use getMetrics is 2030, use getRealMetrics is 2160, the diff is NavigationBar's height
         mDisplay.getRealMetrics(metrics);
         mDensity = metrics.densityDpi;
-        Log.d("WOW", "metrics.widthPixels is " + metrics.widthPixels);
-        Log.d("WOW", "metrics.heightPixels is " + metrics.heightPixels);
+        Log.e("WOW", "metrics.widthPixels is " + metrics.widthPixels);
+        Log.e("WOW", "metrics.heightPixels is " + metrics.heightPixels);
         mWidth = metrics.widthPixels;//size.x;
         mHeight = metrics.heightPixels;//size.y;
 
@@ -130,7 +125,7 @@ public class ScreenCapture {
                 mWidth,
                 mHeight,
                 mDensity,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY | DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                 mImageReader.getSurface(),
                 null,
                 mHandler);
@@ -143,20 +138,14 @@ public class ScreenCapture {
 
                 try {
                     image = reader.acquireLatestImage();
-                    if (image != null) {
-//                      bitmap = ImageUtils.image_ARGB8888_2_bitmap(metrics, image);
+                    if (image != null && image.getPlanes().length > 0) {
                         bitmap = ImageUtils.image_2_bitmap(image, Bitmap.Config.ARGB_8888);
 
                         String fileName = getImageStorePath();
                         fos = new FileOutputStream(fileName);
                         bitmap.compress(Bitmap.CompressFormat.JPEG, 50, fos);
-                        Log.d("WOW", "End now!!!!!!  Screenshot saved in " + fileName);
-                        Toast.makeText(mContext, "Screenshot saved in " + fileName,
-                                Toast.LENGTH_LONG);
+                        Log.e("WOW", "End now!!!!!!  Screenshot saved in " + fileName);
                         stopProjection();
-                        if (null != listener) {
-                            listener.imageCaptured(ImageUtils.bitmap2byte(bitmap, 80), getImageStorePath());
-                        }
                     }
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
@@ -181,15 +170,17 @@ public class ScreenCapture {
 
     public ScreenCapture stopProjection() {
         isScreenCaptureStarted = false;
-        Log.d("WOW", "Screen captured");
-        mHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                if (sMediaProjection != null) {
-                    sMediaProjection.stop();
-                }
+        Log.e("WOW", "Screen captured, Now stop");
+        mHandler.post(() -> {
+            if (sMediaProjection != null) {
+                sMediaProjection.stop();
             }
         });
+
+        if (null != listener) {
+            listener.imageCaptured(getImageStorePath());
+        }
+
         return this;
     }
 
@@ -199,7 +190,7 @@ public class ScreenCapture {
     }
 
     public interface OnImageCaptureScreenListener {
-        void imageCaptured(byte[] image, String filePath);
+        void imageCaptured(String filePath);
     }
 
     private class MediaProjectionStopCallback extends MediaProjection.Callback {

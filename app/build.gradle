@@ -207,6 +207,8 @@ dependencies {
     implementation 'com.github.xuexiangjys:XUpdate:2.1.2'
     implementation 'com.github.xuexiangjys.XUpdateAPI:xupdate-easy:1.0.1'
 
+    implementation 'com.github.KirkBushman:zammad-android:1.0.1'
+
     implementation project(path: ':pdflibrary')
     implementation project(path: ':image')
 

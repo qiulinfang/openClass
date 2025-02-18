@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
     <style name="CustomTabLayout" parent="Widget.Design.TabLayout">
         <item name="tabBackground">@drawable/tab_background_selector</item>
         <item name="tabIndicatorHeight">0dp</item>
@@ -21,5 +22,14 @@
         <item name="android:layout_gravity">center</item>
         <item name="android:textColor">@android:color/white</item>
         <item name="android:textSize">16sp</item>
+    </style>
+
+    <style name="Widget.Theme.IMatesApp.FullScreen.ActionBar.Fullscreen" parent="Widget.AppCompat.ActionBar">
+        <item name="android:background">@color/black_overlay</item>
+    </style>
+
+    <style name="Widget.Theme.IMatesApp.FullScreen.ButtonBar.Fullscreen" parent="">
+        <item name="android:background">@color/black_overlay</item>
+        <item name="android:buttonBarStyle">?android:attr/buttonBarStyle</item>
     </style>
 </resources>

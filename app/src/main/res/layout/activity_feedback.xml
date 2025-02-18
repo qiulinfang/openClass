@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/fullscreenBackgroundColor"
+    android:theme="@style/ThemeOverlay.IMatesApp.FullscreenContainer"
+    tools:context=".FeedbackActivity">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fitsSystemWindows="true">
+
+        <LinearLayout
+            android:id="@+id/fullscreen_content_controls"
+            style="@style/Widget.Theme.IMatesApp.FullScreen.ButtonBar.Fullscreen"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="bottom|center_horizontal"
+            android:orientation="vertical"
+            android:padding="32dp"
+            tools:ignore="UselessParent">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:layout_marginVertical="8dp"
+                android:text="请详细描述问题:"/>
+
+            <EditText
+                android:id="@+id/feed_desc"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="3"
+                android:minWidth="300dp"
+                android:inputType="textMultiLine"
+                android:lines="4"
+                android:maxLines="4"
+                android:hint=""
+                android:textColorHint="#808080"
+                android:scrollHorizontally="false"
+                android:overScrollMode="never"
+                android:ellipsize="none"
+                android:singleLine="false"
+                android:gravity="top|start"
+                android:scrollbars="vertical"
+                android:padding="8dp"
+                android:background="@drawable/ask_ai_for_picture_edit_bg"
+                android:elevation="4dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:layout_marginVertical="8dp"
+                android:text="问题截图(点击图片可编辑):"/>
+
+            <ImageView
+                android:id="@+id/feed_image"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="3"
+                android:clickable="true"
+                android:background="@drawable/ask_ai_for_picture_edit_bg"
+                android:contentDescription="问题截图"
+                android:scaleType="fitCenter"/>
+
+            <Button
+                android:id="@+id/summit_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="8dp"
+                android:text="@string/summit" />
+
+        </LinearLayout>
+    </FrameLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

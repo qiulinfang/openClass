@@ -28,7 +28,6 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.activities.ScreenShotActivity;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.util.ScreenUtils;
-import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.views.ChatAiView;
 import com.cosinetech.imates.webservice.ApiUrl;
 
@@ -228,13 +227,13 @@ public class FloatingRobotService extends Service {
         startActivity(intent);
     }
 
-    public void hideMe() {
+    public void hideRobot() {
         if(floatingRobotView != null) {
             floatingRobotView.setVisibility(View.GONE);
         }
     }
 
-    public void showMe() {
+    public void showRobot() {
         if(floatingRobotView != null) {
             floatingRobotView.setVisibility(View.VISIBLE);
         }

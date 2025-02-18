@@ -191,7 +191,7 @@ public class MainActivity extends AppCompatActivity {
         Log.e("++++++++++++++++", "onResume");
         ApplicationModelShared app = (ApplicationModelShared) getApplication();
         if(app.getFloatingWindowService() != null) {
-            app.getFloatingWindowService().showMe();
+            app.getFloatingWindowService().showRobot();
         }
     }
 

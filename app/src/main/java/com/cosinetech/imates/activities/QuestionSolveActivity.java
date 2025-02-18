@@ -755,7 +755,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
         super.onResume();
         ApplicationModelShared app = (ApplicationModelShared) getApplication();
         if(app.getFloatingWindowService() != null) {
-            app.getFloatingWindowService().hideMe();
+            app.getFloatingWindowService().hideRobot();
         }
     }
 
@@ -764,7 +764,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
         super.onPause();
         ApplicationModelShared app = (ApplicationModelShared) getApplication();
         if(app.getFloatingWindowService() != null) {
-            app.getFloatingWindowService().showMe();
+            app.getFloatingWindowService().showRobot();
         }
     }
 

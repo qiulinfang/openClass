@@ -1,0 +1,114 @@
+package com.cosinetech.imates;
+
+import static com.cosinetech.imates.OkHttpTicketCreator.createTicketWithAttachments;
+
+import android.annotation.SuppressLint;
+
+import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModelStoreOwner;
+
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.WindowInsets;
+import android.widget.Toast;
+
+import com.cosinetech.imates.databinding.ActivityFeedbackBinding;
+import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.util.ImageUtils;
+import com.cosinetech.imates.util.WindowUtils;
+
+import java.io.File;
+
+import me.minetsh.imaging.IMGEditActivity;
+
+/**
+ * An example full-screen activity that shows and hides the system UI (i.e.
+ * status bar and navigation/system bar) with user interaction.
+ */
+public class FeedbackActivity extends AppCompatActivity {
+    public static final String KEY_FEEDBACK_IMAGE = "FEEDBACK_IMAGE";
+    private static final int REQ_IMAGE_EDIT = 1;
+    private ActivityFeedbackBinding binding;
+
+    private String mFeedbackImagePath;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        WindowUtils.hideSystemUI(this);
+        WindowUtils.setFullScreenMode(this);
+
+        binding = ActivityFeedbackBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
+
+        ((ApplicationModelShared)getApplication()).getFloatingWindowService().hideRobot();
+
+        // Upon interacting with UI controls, delay any scheduled hide()
+        // operations to prevent the jarring behavior of controls going away
+        // while interacting with the UI.
+        binding.summitButton.setOnClickListener(v -> {
+            binding.summitButton.setEnabled(false);
+            UserInfoViewModel userInfoViewModel = new ViewModelProvider(
+                    (ViewModelStoreOwner) getApplication(),
+                    new ViewModelProvider.AndroidViewModelFactory(getApplication())
+            ).get(UserInfoViewModel.class);
+            String body = binding.feedDesc.getEditableText().toString();
+            String title = userInfoViewModel.userId.getValue() + "的反馈";
+            createTicketWithAttachments(title, body, new File(mFeedbackImagePath), new OkHttpTicketCreator.TicketCreationCallback() {
+                @Override
+                public void onSuccess(String response) {
+                    Toast.makeText(FeedbackActivity.this, "感谢您的反馈!", Toast.LENGTH_SHORT).show();
+                    binding.summitButton.setEnabled(true);
+                    finish();
+                }
+
+                @Override
+                public void onFailure(String error) {
+                    Toast.makeText(FeedbackActivity.this, "反馈失败了", Toast.LENGTH_SHORT).show();
+                    binding.summitButton.setEnabled(true);
+                }
+            });
+            ((ApplicationModelShared)getApplication()).getFloatingWindowService().showRobot();
+        });
+
+
+        mFeedbackImagePath = getIntent().getStringExtra(KEY_FEEDBACK_IMAGE);
+        if(mFeedbackImagePath != null && new File(mFeedbackImagePath).exists()) {
+            binding.feedImage.setImageURI(Uri.fromFile(new File(mFeedbackImagePath)));
+        }
+        binding.feedImage.setOnClickListener(v -> {
+            startActivityForResult(
+                    new Intent(this, IMGEditActivity.class)
+                   .putExtra(IMGEditActivity.EXTRA_IMAGE_URI, Uri.fromFile(new File(mFeedbackImagePath)))
+                    .putExtra(IMGEditActivity.EXTRA_IMAGE_SAVE_PATH, mFeedbackImagePath),
+            REQ_IMAGE_EDIT);
+        });
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            WindowUtils.hideSystemUI(this);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_IMAGE_EDIT) {
+            Bitmap bmp = BitmapFactory.decodeFile(mFeedbackImagePath);
+            binding.feedImage.setImageBitmap(bmp);
+        }
+    }
+}

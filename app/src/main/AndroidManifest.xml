@@ -42,41 +42,47 @@
         android:theme="@style/Theme.IMatesApp.FullScreen"
         tools:targetApi="31">
         <activity
+            android:name=".FeedbackActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.IMatesApp.FullScreen.Fullscreen" />
+        <activity
             android:name=".activities.PhotoQuestionLookupActivity"
-            android:screenOrientation="landscape"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="landscape" />
         <activity
             android:name=".activities.QuestionSolveActivity"
-            android:screenOrientation="landscape"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="landscape" />
         <activity
             android:name=".activities.FloatChatAiActivity"
-            android:screenOrientation="landscape"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="landscape" />
         <activity
             android:name=".activities.LessonPreviewActivity"
-            android:screenOrientation="landscape"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="landscape" />
         <activity
             android:name=".activities.VideoPlayActivity"
-            android:screenOrientation="landscape"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
             android:launchMode="singleTask"
+            android:screenOrientation="landscape"
             android:supportsPictureInPicture="true"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
             android:name=".activities.LoginActivity"
-            android:screenOrientation="landscape"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="true"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.MONKEY" />
@@ -92,57 +98,58 @@
             android:theme="@style/Theme.IMatesApp.FullScreen"
             android:windowSoftInputMode="adjustPan"
             tools:ignore="DiscouragedApi" />
-        <activity android:name=".activities.ScreenShotActivity"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+        <activity
+            android:name=".activities.ScreenShotActivity"
             android:exported="false"
-            android:launchMode="singleTask" />
+            android:launchMode="singleTask"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <activity
             android:name=".mupdfviewer.activity.MuPDFActivity"
-            android:screenOrientation="landscape"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
             android:name=".mupdfviewer.activity.OutlineActivity"
-            android:screenOrientation="landscape"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
             android:name=".mupdfviewer.activity.AllPDFActivity"
-            android:screenOrientation="landscape"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
             android:name=".mupdfviewer.activity.BasePDFActivity"
-            android:screenOrientation="landscape"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
             android:name=".mupdfviewer.activity.MoreSetActivity"
-            android:screenOrientation="landscape"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
             android:name=".mupdfviewer.activity.SignActivity"
-            android:screenOrientation="landscape"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" /> <!-- <activity android:name="com.artifex.mupdfdemo.ChoosePDFActivity" -->
         <!-- android:theme="@style/Theme.IMatesApp.FullScreen"/> -->
         <!-- <activity android:name="com.artifex.mupdfdemo.PrintDialogActivity" -->
         <!-- android:theme="@style/Theme.IMatesApp.FullScreen"/> -->
         <activity
             android:name=".pdfui.PDFPreviewActivity"
-            android:screenOrientation="landscape"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
             android:name=".pdfui.PDFCatelogueActivity"
-            android:screenOrientation="landscape"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
             android:name=".pdfui.PDFActivity"
-            android:screenOrientation="landscape"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
 
         <service

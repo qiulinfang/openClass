@@ -14,7 +14,6 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.CameraSelector;
@@ -456,7 +455,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         super.onResume();
         ApplicationModelShared app = (ApplicationModelShared) getApplication();
         if(app.getFloatingWindowService() != null) {
-            app.getFloatingWindowService().hideMe();
+            app.getFloatingWindowService().hideRobot();
         }
     }
 
@@ -465,7 +464,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         super.onPause();
         ApplicationModelShared app = (ApplicationModelShared) getApplication();
         if(app.getFloatingWindowService() != null) {
-            app.getFloatingWindowService().showMe();
+            app.getFloatingWindowService().showRobot();
         }
     }
 
