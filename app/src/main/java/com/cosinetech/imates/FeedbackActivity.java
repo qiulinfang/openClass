@@ -63,6 +63,12 @@ public class FeedbackActivity extends AppCompatActivity {
                     new ViewModelProvider.AndroidViewModelFactory(getApplication())
             ).get(UserInfoViewModel.class);
             String body = binding.feedDesc.getEditableText().toString();
+            if(body.trim().length() < 5) {
+                Toast.makeText(FeedbackActivity.this, "描述您遇到的问题,至少5个字", Toast.LENGTH_SHORT).show();
+                binding.feedDesc.requestFocus();
+                binding.summitButton.setEnabled(true);
+                return;
+            }
             String title = userInfoViewModel.userId.getValue() + "的反馈";
             createTicketWithAttachments(title, body, new File(mFeedbackImagePath), new OkHttpTicketCreator.TicketCreationCallback() {
                 @Override

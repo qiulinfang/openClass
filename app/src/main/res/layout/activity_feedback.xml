@@ -29,7 +29,7 @@
                 android:layout_height="wrap_content"
                 android:textColor="@color/white"
                 android:layout_marginVertical="8dp"
-                android:text="请详细描述问题:"/>
+                android:text="*请详细描述问题:"/>
 
             <EditText
                 android:id="@+id/feed_desc"
@@ -40,7 +40,7 @@
                 android:inputType="textMultiLine"
                 android:lines="4"
                 android:maxLines="4"
-                android:hint=""
+                android:hint="详细描述您遇到的问题以及如何操作的? 有什么建议?"
                 android:textColorHint="#808080"
                 android:scrollHorizontally="false"
                 android:overScrollMode="never"
@@ -57,7 +57,7 @@
                 android:layout_height="wrap_content"
                 android:textColor="@color/white"
                 android:layout_marginVertical="8dp"
-                android:text="问题截图(点击图片可编辑):"/>
+                android:text="*问题截图(点击图片可编辑):"/>
 
             <ImageView
                 android:id="@+id/feed_image"
