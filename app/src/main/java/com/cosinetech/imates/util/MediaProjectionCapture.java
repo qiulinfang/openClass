@@ -2,7 +2,6 @@ package com.cosinetech.imates.util;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.graphics.PixelFormat;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
@@ -15,7 +14,6 @@ import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
-import android.view.View;
 import android.view.WindowManager;
 import android.widget.Toast;
 
@@ -23,28 +21,24 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-public class ScreenCapture {
-    private static MediaProjection sMediaProjection;
-    boolean isScreenCaptureStarted;
-    OnImageCaptureScreenListener listener;
-    private int mDensity;
-    private Display mDisplay;
-    private int mWidth;
-    private int mHeight;
+
+public class MediaProjectionCapture {
+    private static MediaProjection mMediaProjection;
+    boolean mIsCaptureStarted;
+    boolean mCanGetCapureImage = false;
+    OnImageCaptureScreenListener mCaptureListener;
     private ImageReader mImageReader;
     private VirtualDisplay mVirtualDisplay;
     private Handler mHandler;
     private String STORE_DIR;
-    private String imageFileName;
-    private Context mContext;
+    private String mImageFileName;
+    private final Context mContext;
 
-    public ScreenCapture(Context context, MediaProjection mediaProjection, String savePath, String fileName) {
-        sMediaProjection = mediaProjection;
+    public MediaProjectionCapture(Context context, MediaProjection mediaProjection, String savePath, String fileName) {
+        mMediaProjection = mediaProjection;
         mContext = context;
 
-        isScreenCaptureStarted = false;
+        mIsCaptureStarted = false;
 
         new Thread() {
             @Override
@@ -69,19 +63,15 @@ public class ScreenCapture {
         }
 
         if(TextUtils.isEmpty(fileName)) {
-//            Date currentDate = new Date();
-//            SimpleDateFormat date = new SimpleDateFormat("yyyyMMddhhmmss");
-//            imageFileName = "myScreen_" + date.format(
-//                    currentDate) + ".jpg";
-            imageFileName = "myScreenshot.jpg";
+            mImageFileName = "myScreenshot.jpg";
         }
     }
 
     public String getImageStorePath() {
-        return STORE_DIR + "/" + imageFileName;
+        return STORE_DIR + "/" + mImageFileName;
     }
 
-    public ScreenCapture startProjection() {
+    public MediaProjectionCapture startProjection() {
         File storeDir = new File(STORE_DIR);
         if (!storeDir.exists()) {
             boolean success = storeDir.mkdirs();
@@ -95,32 +85,30 @@ public class ScreenCapture {
             Log.e("WOW", " " + storeDir + "  exist");
         }
 
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            isScreenCaptureStarted = true;
-            captureScreen();
-        }, 500);
+        mIsCaptureStarted = true;
+        captureScreen();
 
-//        isScreenCaptureStarted = true;
-//        captureScreen();
         return this;
     }
 
     private void captureScreen() {
         WindowManager window = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
-        mDisplay = window.getDefaultDisplay();
+        Display mDisplay = window.getDefaultDisplay();
         final DisplayMetrics metrics = new DisplayMetrics();
         // use getMetrics is 2030, use getRealMetrics is 2160, the diff is NavigationBar's height
         mDisplay.getRealMetrics(metrics);
-        mDensity = metrics.densityDpi;
+        int mDensity = metrics.densityDpi;
         Log.e("WOW", "metrics.widthPixels is " + metrics.widthPixels);
         Log.e("WOW", "metrics.heightPixels is " + metrics.heightPixels);
-        mWidth = metrics.widthPixels;//size.x;
-        mHeight = metrics.heightPixels;//size.y;
+        int mWidth = metrics.widthPixels;//size.x;
+        int mHeight = metrics.heightPixels;//size.y;
 
         //start capture reader
         mImageReader = ImageReader.newInstance(mWidth, mHeight, PixelFormat.RGBA_8888, 2);
-        sMediaProjection.registerCallback(new MediaProjectionStopCallback(), mHandler);
-        mVirtualDisplay = sMediaProjection.createVirtualDisplay(
+        registerImageReaderCallback();
+
+        mMediaProjection.registerCallback(new MediaProjectionStopCallback(), mHandler);
+        mVirtualDisplay = mMediaProjection.createVirtualDisplay(
                 "ScreenShot",
                 mWidth,
                 mHeight,
@@ -130,22 +118,31 @@ public class ScreenCapture {
                 null,
                 mHandler);
 
+
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            mCanGetCapureImage = true;
+        }, 1000);
+
+    }
+
+    private void registerImageReaderCallback() {
         mImageReader.setOnImageAvailableListener(reader -> {
-            if (isScreenCaptureStarted) {
+            if (mIsCaptureStarted) {
                 Image image = null;
                 FileOutputStream fos = null;
                 Bitmap bitmap = null;
 
                 try {
                     image = reader.acquireLatestImage();
-                    if (image != null && image.getPlanes().length > 0) {
+                    if (image != null) {
                         bitmap = ImageUtils.image_2_bitmap(image, Bitmap.Config.ARGB_8888);
-
-                        String fileName = getImageStorePath();
-                        fos = new FileOutputStream(fileName);
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 50, fos);
-                        Log.e("WOW", "End now!!!!!!  Screenshot saved in " + fileName);
-                        stopProjection();
+                        if(mCanGetCapureImage) {
+                            String fileName = getImageStorePath();
+                            fos = new FileOutputStream(fileName);
+                            bitmap.compress(Bitmap.CompressFormat.JPEG, 50, fos);
+                            Log.e("WOW", "End now!!!!!!  Screenshot saved in " + fileName);
+                            stopProjection();
+                        }
                     }
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
@@ -168,24 +165,24 @@ public class ScreenCapture {
         }, mHandler);
     }
 
-    public ScreenCapture stopProjection() {
-        isScreenCaptureStarted = false;
+    public MediaProjectionCapture stopProjection() {
+        mIsCaptureStarted = false;
         Log.e("WOW", "Screen captured, Now stop");
         mHandler.post(() -> {
-            if (sMediaProjection != null) {
-                sMediaProjection.stop();
+            if (mMediaProjection != null) {
+                mMediaProjection.stop();
             }
         });
 
-        if (null != listener) {
-            listener.imageCaptured(getImageStorePath());
+        if (null != mCaptureListener) {
+            mCaptureListener.imageCaptured(getImageStorePath());
         }
 
         return this;
     }
 
-    public ScreenCapture setListener(OnImageCaptureScreenListener listener) {
-        this.listener = listener;
+    public MediaProjectionCapture setmCaptureListener(OnImageCaptureScreenListener mCaptureListener) {
+        this.mCaptureListener = mCaptureListener;
         return this;
     }
 
@@ -203,7 +200,7 @@ public class ScreenCapture {
                 if (mImageReader != null) {
                     mImageReader.setOnImageAvailableListener(null, null);
                 }
-                sMediaProjection.unregisterCallback(MediaProjectionStopCallback.this);
+                mMediaProjection.unregisterCallback(MediaProjectionStopCallback.this);
             });
         }
     }

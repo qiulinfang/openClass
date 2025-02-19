@@ -15,10 +15,8 @@ import android.view.WindowManager;
 
 import com.cosinetech.imates.FeedbackActivity;
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.util.ScreenCapture;
+import com.cosinetech.imates.util.MediaProjectionCapture;
 import com.cosinetech.imates.util.WindowUtils;
-
-import java.util.zip.Inflater;
 
 public class ScreenShotActivity extends Activity {
     private static final int REQUEST_CODE_SCREEN_CAPTURE = 1;
@@ -54,8 +52,8 @@ public class ScreenShotActivity extends Activity {
                 // 获取 MediaProjection 实例
                 mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, data);
                 if(mediaProjection != null) {
-//                    new ScreenCapture(ScreenShotActivity.this, mediaProjection, "", "")
-//                            .setListener(new ScreenCapture.OnImageCaptureScreenListener() {
+//                    new MediaProjectionCapture(ScreenShotActivity.this, mediaProjection, "", "")
+//                            .setListener(new MediaProjectionCapture.OnImageCaptureScreenListener() {
 //                                /**
 //                                 * @param filePath
 //                                 */
@@ -72,8 +70,8 @@ public class ScreenShotActivity extends Activity {
 
                     new Handler(Looper.getMainLooper()).postDelayed(() -> {
                         mContentView.setVisibility(View.GONE);
-                        new ScreenCapture(ScreenShotActivity.this, mediaProjection, "", "")
-                                .setListener(new ScreenCapture.OnImageCaptureScreenListener() {
+                        new MediaProjectionCapture(ScreenShotActivity.this, mediaProjection, "", "")
+                                .setmCaptureListener(new MediaProjectionCapture.OnImageCaptureScreenListener() {
                                     /**
                                      * @param filePath
                                      */

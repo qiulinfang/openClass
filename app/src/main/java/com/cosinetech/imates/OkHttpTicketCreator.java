@@ -1,12 +1,7 @@
 package com.cosinetech.imates;
 
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
-
-import com.kirkbushman.zammad.ZammadClient;
-import com.kirkbushman.zammad.models.TicketArticle;
-
 import okhttp3.*;
 
 import org.json.JSONException;
