@@ -14,6 +14,7 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
@@ -212,20 +213,26 @@ public class ChatAiView extends RelativeLayout {
             adapterAiChatMesssageList.notifyDataSetChanged();
         });
 
-        Button btnCancelSearch = view.findViewById(R.id.btn_cancel_search);
+        CheckBox btnCancelSearch = view.findViewById(R.id.btn_search);
         EditText editTextSearch = view.findViewById(R.id.et_search);
-        btnCancelSearch.setOnClickListener(v->{
-            if (editTextSearch.isFocused()) {
-                editTextSearch.clearFocus();
-                // 隐藏键盘
-                InputMethodManager imm = (InputMethodManager) mContext.getSystemService(Context.INPUT_METHOD_SERVICE);
-                imm.hideSoftInputFromWindow(editTextSearch.getWindowToken(), 0);
+        btnCancelSearch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if(isChecked) {
+                editTextSearch.setVisibility(VISIBLE);
+            } else {
+                editTextSearch.setVisibility(GONE);
+                if (editTextSearch.isFocused()) {
+                    editTextSearch.clearFocus();
+                    // 隐藏键盘
+                    InputMethodManager imm = (InputMethodManager) mContext.getSystemService(Context.INPUT_METHOD_SERVICE);
+                    imm.hideSoftInputFromWindow(editTextSearch.getWindowToken(), 0);
+                }
+                editTextSearch.getText().clear();
+                mInSearchMode = false;
+                messageList.clear();
+                loadMessages();
             }
-            editTextSearch.getText().clear();
-            mInSearchMode = false;
-            messageList.clear();
-            loadMessages();
         });
+
         // 设置焦点改变监听器
         editTextSearch.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
@@ -266,7 +273,7 @@ public class ChatAiView extends RelativeLayout {
             view.findViewById(R.id.history_layout).setVisibility(View.GONE);
 
             view.findViewById(R.id.et_search).setVisibility(View.GONE);
-            view.findViewById(R.id.btn_cancel_search).setVisibility(View.GONE);
+            view.findViewById(R.id.btn_search).setVisibility(View.GONE);
         }
         if(!aiName.isEmpty()) {
             textViewTitle.setText(aiName);

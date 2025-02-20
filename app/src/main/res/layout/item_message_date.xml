@@ -4,6 +4,6 @@
     android:layout_height="wrap_content"
     android:gravity="center"
     android:padding="8dp"
-    android:text="YYYY-MM-DD"
+    android:text="YYYY-MM-DD HH:mm"
     android:textColor="#888888"
     android:textSize="14sp" />

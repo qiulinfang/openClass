@@ -1,61 +1,97 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout
-    android:id="@+id/layout_chat"
+<RelativeLayout android:id="@+id/layout_chat"
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/chat_ai_dialog_bg">
 
-    <TextView
-        android:id="@+id/ai_name"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentStart="true"
-        android:layout_marginTop="20dp"
-        android:textAlignment="center"
-        android:clickable="true"
-        android:text="@string/chatbot_name"
-        android:textColor="#ffffff"
-        />
-
     <CheckBox
         android:id="@+id/btn_view_history"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="48dp"
-        android:text="查看历史"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="6dp"
         android:minHeight="60dp"
         android:textColor="#ffffff"
-        android:layout_alignParentStart="true"/>
+        android:button="@null"
+        android:background="@drawable/chat_ai_history_button_bg"
+        android:layout_alignParentTop="true"
+        android:layout_toStartOf="@id/et_search"/>
 
-    <!-- 中间的输入框 -->
+    <CheckBox
+        android:id="@+id/btn_view_category"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="10dp"
+        android:minHeight="60dp"
+        android:textColor="#ffffff"
+        android:button="@null"
+        android:background="@drawable/chat_ai_history_category_bg"
+        android:layout_alignParentTop="true"
+        android:layout_toStartOf="@id/btn_view_history"/>
+
+    <Button
+        android:id="@+id/btn_add_favor"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="16dp"
+        android:background="@drawable/chat_ai_add_favor"
+        android:layout_toStartOf="@id/btn_view_category"/>
+
+    <Button
+        android:id="@+id/btn_new_chat"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="16dp"
+        android:background="@drawable/chat_ai_new_chat"
+        android:layout_toStartOf="@id/btn_add_favor"/>
+
     <EditText
         android:id="@+id/et_search"
         android:layout_width="200dp"
         android:layout_height="30dp"
         android:layout_marginStart="16dp"
         android:layout_marginEnd="8dp"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="9dp"
+        android:textAlignment="center"
+        android:gravity="center"
         android:autofillHints=""
+        android:visibility="gone"
         android:hint="搜索聊天记录"
         android:imeOptions="actionSearch"
+        android:inputType="text"
         android:singleLine="true"
         android:background="@drawable/chat_ai_text_input_bg"
         android:textSize="12sp"
         android:paddingHorizontal="10dp"
-        android:layout_toStartOf="@id/btn_cancel_search"/>
+        android:layout_toStartOf="@id/btn_search"/>
 
-    <Button
-        android:id="@+id/btn_cancel_search"
-        android:visibility="invisible"
-        android:background="@drawable/chat_ai_cancel_search"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:layout_marginTop="16dp"
+    <CheckBox
+        android:id="@+id/btn_search"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
+        android:layout_marginTop="3dp"
         android:layout_marginEnd="16dp"
+        android:button="@null"
+        android:background="@drawable/chat_ai_history_search_bg"
         android:layout_alignParentEnd="true"/>
+
+
+    <TextView
+        android:id="@+id/ai_name"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentStart="true"
+        android:layout_toStartOf="@id/btn_view_category"
+        android:textAlignment="center"
+        android:gravity="center"
+        android:text="@string/chatbot_name"
+        android:textColor="#ffffff"
+        />
 
     <!-- 下边框 -->
     <View
@@ -64,20 +100,20 @@
         android:layout_height="1dp"
         android:background="@color/gray3"
         android:layout_alignParentStart="true"
-        android:layout_below="@id/btn_view_history" />
+        android:layout_below="@id/ai_name" />
 
     <LinearLayout
         android:id="@+id/history_layout"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:layout_marginHorizontal="4dp"
+        android:layout_marginHorizontal="2dp"
         android:background="@drawable/chat_ai_history_area_bg"
-        android:minWidth="80dp"
-        android:visibility="gone"
+        android:minWidth="100dp"
+        android:visibility="visible"
         android:layout_alignParentStart="true"
         android:layout_below="@id/split_line"
-        android:layout_above="@id/chat_input_area">
+        android:layout_alignParentBottom="true">
 
         <com.cosinetech.imates.views.FlowTagLayout
             android:id="@+id/chat_tags"
@@ -90,6 +126,7 @@
             android:id="@+id/chat_catalog"
             android:layout_width="150dp"
             android:layout_height="match_parent" />
+
     </LinearLayout>
 
     <com.scwang.smart.refresh.layout.SmartRefreshLayout

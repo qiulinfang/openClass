@@ -257,7 +257,7 @@ public class FloatingRobotService extends Service {
         // 初始化 PopupWindow
         PopupWindow popupWindow = new PopupWindow(
                 popupView,
-                screenWidth / 2,
+                screenWidth * 2 / 3,
                 screenHeight,
                 true
         );
