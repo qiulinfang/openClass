@@ -2,12 +2,8 @@ package com.cosinetech.imates.webservice;
 
 public class ApiUrl {
     // ========test local
-//     private static final String baseUrl = "http://192.168.1.153:8222/blw-edu-service-alc";
-//     public static final String URL_RESOURCE_BASE = "https://192.168.1.153";
-
-    // ========test shocode
-//    private static final String baseUrl = "https://api.showcode.xyz/blw-edu-service-alc/permission";
-//    public static final String URL_RESOURCE_BASE = "https://study.showcode.xyz";
+//     private static final String baseUrl = "http://192.168.40.10:8222/blw-edu-service-alc";
+//     public static final String URL_RESOURCE_BASE = "https://192.168.40.10";
 
     // =========imates
     private static final String baseUrl = "http://www.imates.com.cn:8222/blw-edu-service-alc";
