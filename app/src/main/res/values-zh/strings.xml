@@ -95,4 +95,5 @@
     <string name="pdf_tools_ink">手绘</string>
     <string name="pdf_tools_outline_title">目录</string>
     <string name="summit">提交反馈</string>
+    <string name="summit_in_progress">提交中...</string>
 </resources>

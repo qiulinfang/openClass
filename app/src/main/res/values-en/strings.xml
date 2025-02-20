@@ -94,4 +94,5 @@
     <string name="search_document">Search document</string>
     <string name="dialog_title">Tip</string>
     <string name="summit">Summit</string>
+    <string name="summit_in_progress">Summiting...</string>
 </resources>

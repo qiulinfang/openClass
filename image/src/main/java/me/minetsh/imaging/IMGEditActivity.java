@@ -23,9 +23,9 @@ import java.io.IOException;
 
 public class IMGEditActivity extends IMGEditBaseActivity {
 
-    private static final int MAX_WIDTH = 1024;
+    private static final int MAX_WIDTH = 4096;
 
-    private static final int MAX_HEIGHT = 1024;
+    private static final int MAX_HEIGHT = 4096;
 
     public static final String EXTRA_IMAGE_URI = "IMAGE_URI";
 
@@ -134,7 +134,7 @@ public class IMGEditActivity extends IMGEditBaseActivity {
                 FileOutputStream fout = null;
                 try {
                     fout = new FileOutputStream(path);
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 80, fout);
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fout);
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
                 } finally {

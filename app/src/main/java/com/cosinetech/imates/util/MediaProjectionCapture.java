@@ -139,7 +139,7 @@ public class MediaProjectionCapture {
                         if(mCanGetCapureImage) {
                             String fileName = getImageStorePath();
                             fos = new FileOutputStream(fileName);
-                            bitmap.compress(Bitmap.CompressFormat.JPEG, 50, fos);
+                            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
                             Log.e("WOW", "End now!!!!!!  Screenshot saved in " + fileName);
                             stopProjection();
                         }

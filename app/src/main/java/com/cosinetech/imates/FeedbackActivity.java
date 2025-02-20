@@ -53,11 +53,9 @@ public class FeedbackActivity extends AppCompatActivity {
 
         ((ApplicationModelShared)getApplication()).getFloatingWindowService().hideRobot();
 
-        // Upon interacting with UI controls, delay any scheduled hide()
-        // operations to prevent the jarring behavior of controls going away
-        // while interacting with the UI.
         binding.summitButton.setOnClickListener(v -> {
             binding.summitButton.setEnabled(false);
+            binding.summitButton.setText(R.string.summit_in_progress);
             UserInfoViewModel userInfoViewModel = new ViewModelProvider(
                     (ViewModelStoreOwner) getApplication(),
                     new ViewModelProvider.AndroidViewModelFactory(getApplication())
@@ -66,6 +64,7 @@ public class FeedbackActivity extends AppCompatActivity {
             if(body.trim().length() < 5) {
                 Toast.makeText(FeedbackActivity.this, "描述您遇到的问题,至少5个字", Toast.LENGTH_SHORT).show();
                 binding.feedDesc.requestFocus();
+                binding.summitButton.setText(R.string.summit);
                 binding.summitButton.setEnabled(true);
                 return;
             }
@@ -74,6 +73,7 @@ public class FeedbackActivity extends AppCompatActivity {
                 @Override
                 public void onSuccess(String response) {
                     Toast.makeText(FeedbackActivity.this, "感谢您的反馈!", Toast.LENGTH_SHORT).show();
+                    binding.summitButton.setText(R.string.summit);
                     binding.summitButton.setEnabled(true);
                     finish();
                 }
@@ -81,6 +81,7 @@ public class FeedbackActivity extends AppCompatActivity {
                 @Override
                 public void onFailure(String error) {
                     Toast.makeText(FeedbackActivity.this, "反馈失败了", Toast.LENGTH_SHORT).show();
+                    binding.summitButton.setText(R.string.summit);
                     binding.summitButton.setEnabled(true);
                 }
             });
