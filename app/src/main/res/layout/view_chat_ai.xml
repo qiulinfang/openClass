@@ -107,7 +107,6 @@
         android:layout_width="300dp"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:layout_marginHorizontal="1dp"
         android:background="@drawable/chat_ai_history_area_bg"
         android:minWidth="100dp"
         android:visibility="visible"
@@ -128,13 +127,22 @@
 
     </LinearLayout>
 
+    <View
+        android:id="@+id/v_split"
+        android:layout_width="1dp"
+        android:layout_height="0dp"
+        android:layout_toEndOf="@id/history_layout"
+        android:layout_below="@id/split_line"
+        android:layout_alignParentBottom="true"
+        android:background="#000000"/>
+
     <com.scwang.smart.refresh.layout.SmartRefreshLayout
         android:id="@+id/chat_message_list"
         android:layout_below="@id/split_line"
         android:layout_above="@id/chat_input_area"
         android:layout_alignParentBottom="true"
         android:layout_alignParentEnd="true"
-        android:layout_toEndOf="@id/history_layout"
+        android:layout_toEndOf="@id/v_split"
         android:background="@drawable/chat_ai_msg_list_bg"
         android:layout_width="match_parent"
         android:layout_height="0dp">
@@ -156,7 +164,7 @@
         android:id="@+id/chat_input_area"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_toEndOf="@id/history_layout"
+        android:layout_toEndOf="@id/v_split"
         android:background="#ffffffff"
         android:layout_alignParentBottom="true">
 

@@ -25,6 +25,7 @@ import androidx.core.content.ContextCompat;
 import com.airbnb.lottie.LottieAnimationView;
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.activities.ChatAiActivity;
 import com.cosinetech.imates.activities.ScreenShotActivity;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.util.ScreenUtils;
@@ -288,6 +289,12 @@ public class FloatingRobotService extends Service {
         param.initialSendEnable = true;
         param.listener = null;
         chatView.setChatAiParam(param);
+    }
+
+    public void popupChatBot0(String url, String catalog) {
+        Intent intent = new Intent(this, ChatAiActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈
+        startActivity(intent);
     }
 
     @Override

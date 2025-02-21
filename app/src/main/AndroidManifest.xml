@@ -104,6 +104,12 @@
             android:launchMode="singleTask"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <activity
+            android:name=".activities.ChatAiActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.IMatesApp.FullScreen" />
+
+        <activity
             android:name=".mupdfviewer.activity.MuPDFActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
