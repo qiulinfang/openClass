@@ -35,7 +35,6 @@ import com.cosinetech.imates.models.ChatMessageCatalogue;
 import com.cosinetech.imates.models.ChatMessageHistoryDB;
 import com.cosinetech.imates.models.ChatMessageSession;
 import com.cosinetech.imates.models.UserInfoViewModel;
-import com.cosinetech.imates.util.TimeUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
@@ -154,7 +153,10 @@ public class ChatAiView extends RelativeLayout {
         });
 
         // Initialize RecyclerView
-        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        //recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        recyclerView.setLayoutManager(new CenterLinearLayoutManager(mContext, LinearLayoutManager.VERTICAL, false));
+        recyclerView.setClipToPadding(false);// disabling clip to padding is critical
+
         adapterAiChatMessageList = new AdapterAiChatMessageList(messageList);
         recyclerView.setAdapter(adapterAiChatMessageList);
 
@@ -170,7 +172,7 @@ public class ChatAiView extends RelativeLayout {
 
         aiChatMessageRequest.setName(Objects.requireNonNull(userInfoViewModel.userInfo.getValue()).getName());
 
-        FlowTagLayout layout = view.findViewById(R.id.chat_tags);
+        FlowTagLayout layout = view.findViewById(R.id.chat_category);
         mChatAdapterChatCatalog = new AdapterChatCatalog<>(mContext);
         layout.setTagCheckedMode(FLOW_TAG_CHECKED_SINGLE);
         layout.setTagCheckedMode(FlowTagLayout.FLOW_TAG_CHECKED_SINGLE);
@@ -287,8 +289,10 @@ public class ChatAiView extends RelativeLayout {
             } else if(msgs.size() > 1) {
                 messageList.addAll(getChatDisplayList(msgs.subList(msgs.size() - 1, msgs.size()), true));
             }
-            adapterAiChatMessageList.notifyDataSetChanged();
-            recyclerView.scrollToPosition(messageList.size() - 1);
+            if(messageList.size() > 0) {
+                adapterAiChatMessageList.notifyDataSetChanged();
+                recyclerView.smoothScrollToPosition(messageList.size() - 1);
+            }
         }
 
         btnSend.setEnabled(mChatAiParam.initialSendEnable);
@@ -440,7 +444,7 @@ public class ChatAiView extends RelativeLayout {
             // 一次性通知 Adapter 插入两条消息
             adapterAiChatMessageList.notifyItemRangeInserted(messageList.size() - 2, 2);
             // 滚动到最新位置
-            recyclerView.scrollToPosition(messageList.size() - 1);
+            recyclerView.smoothScrollToPosition(messageList.size() - 1);
 
             aiChatMessageRequest.setReason("start");
             aiChatMessageRequest.setCoversation(messageText);
@@ -475,7 +479,7 @@ public class ChatAiView extends RelativeLayout {
                 messageList.add(new ChatDisplayItem(responseMessage, false));
                 adapterAiChatMessageList.notifyItemInserted(messageList.size() - 1);
 
-                recyclerView.scrollToPosition(messageList.size() - 1);
+                recyclerView.smoothScrollToPosition(messageList.size() - 1);
 
 //        aiChatMessageRequest.setReason("start");
 //        aiChatMessageRequest.setCoversation(messageText);
@@ -501,8 +505,10 @@ public class ChatAiView extends RelativeLayout {
             messageList.clear();
             messageList.addAll(getChatDisplayList(allMessage.subList(allMessage.size() - n, allMessage.size()), true));
         }
-        adapterAiChatMessageList.notifyDataSetChanged();
-        recyclerView.scrollToPosition(0);
+        if(messageList.size() > 0) {
+            adapterAiChatMessageList.notifyDataSetChanged();
+            recyclerView.smoothScrollToPosition(0);
+        }
     }
 
     public void setChatEnable(boolean b) {

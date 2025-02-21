@@ -104,10 +104,10 @@
 
     <LinearLayout
         android:id="@+id/history_layout"
-        android:layout_width="wrap_content"
+        android:layout_width="300dp"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:layout_marginHorizontal="2dp"
+        android:layout_marginHorizontal="1dp"
         android:background="@drawable/chat_ai_history_area_bg"
         android:minWidth="100dp"
         android:visibility="visible"
@@ -116,15 +116,14 @@
         android:layout_alignParentBottom="true">
 
         <com.cosinetech.imates.views.FlowTagLayout
-            android:id="@+id/chat_tags"
+            android:id="@+id/chat_category"
             android:background="#8090e0"
             android:layout_width="match_parent"
-            android:layout_height="100dp"
-            android:minHeight="80dp"/>
+            android:layout_height="1dp"/>
 
         <ListView
             android:id="@+id/chat_session_list"
-            android:layout_width="150dp"
+            android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
     </LinearLayout>
@@ -133,6 +132,7 @@
         android:id="@+id/chat_message_list"
         android:layout_below="@id/split_line"
         android:layout_above="@id/chat_input_area"
+        android:layout_alignParentBottom="true"
         android:layout_alignParentEnd="true"
         android:layout_toEndOf="@id/history_layout"
         android:background="@drawable/chat_ai_msg_list_bg"
@@ -157,6 +157,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_toEndOf="@id/history_layout"
+        android:background="#ffffffff"
         android:layout_alignParentBottom="true">
 
         <!-- 左侧的键盘按钮 -->

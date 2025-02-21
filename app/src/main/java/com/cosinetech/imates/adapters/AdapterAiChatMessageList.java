@@ -143,6 +143,17 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
     }
 
     @Override
+    public void onViewAttachedToWindow(@NonNull RecyclerView.ViewHolder holder) {
+        super.onViewAttachedToWindow(holder);
+        if (holder instanceof TextViewHolder) {
+            ((TextViewHolder) holder).tvMessage.setEnabled(false);
+            ((TextViewHolder) holder).tvMessage.setEnabled(true);
+            ((TextViewHolder) holder).tvMessage.setTextIsSelectable(true);
+            ((TextViewHolder) holder).tvMessage.setFocusableInTouchMode(true);
+        }
+    }
+
+    @Override
     public int getItemCount() {
         return mMsgList.size();
     }
@@ -177,6 +188,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         public TextViewHolder(@NonNull View itemView) {
             super(itemView);
             tvMessage = itemView.findViewById(R.id.tv_message);
+            tvMessage.setTextIsSelectable(true);
         }
     }
 
