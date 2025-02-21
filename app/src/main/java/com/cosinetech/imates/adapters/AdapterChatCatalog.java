@@ -8,18 +8,19 @@ import android.widget.BaseAdapter;
 import android.widget.TextView;
 
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.models.ChatMessageCatalogue;
 import com.cosinetech.imates.models.SubjectUtils;
 import com.cosinetech.imates.views.OnInitSelectedPosition;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class AdapterChatMessageTag<T> extends BaseAdapter implements OnInitSelectedPosition {
+public class AdapterChatCatalog<T> extends BaseAdapter implements OnInitSelectedPosition {
 
     private final Context mContext;
-    private final List<String> mDataList;
+    private final List<ChatMessageCatalogue> mDataList;
 
-    public AdapterChatMessageTag(Context context) {
+    public AdapterChatCatalog(Context context) {
         this.mContext = context;
         mDataList = new ArrayList<>();
     }
@@ -30,7 +31,7 @@ public class AdapterChatMessageTag<T> extends BaseAdapter implements OnInitSelec
     }
 
     @Override
-    public Object getItem(int position) {
+    public ChatMessageCatalogue getItem(int position) {
         return mDataList.get(position);
     }
 
@@ -43,22 +44,22 @@ public class AdapterChatMessageTag<T> extends BaseAdapter implements OnInitSelec
     public View getView(int position, View convertView, ViewGroup parent) {
 
         if(convertView == null) {
-            convertView = LayoutInflater.from(mContext).inflate(R.layout.chat_msg_tag_item, null);
+            convertView = LayoutInflater.from(mContext).inflate(R.layout.chat_msg_catalog_item, null);
         }
 
         TextView textView =  convertView.findViewById(R.id.tv_tag);
-        String t = mDataList.get(position);
+        String t = mDataList.get(position).catalogName;
 
         textView.setText(SubjectUtils.getSubjectDisplayName(t));
         return convertView;
     }
 
-    public void onlyAddAll(List<String> datas) {
+    public void onlyAddAll(List<ChatMessageCatalogue> datas) {
         mDataList.addAll(datas);
         notifyDataSetChanged();
     }
 
-    public void clearAndAddAll(List<String> datas) {
+    public void clearAndAddAll(List<ChatMessageCatalogue> datas) {
         mDataList.clear();
         onlyAddAll(datas);
     }

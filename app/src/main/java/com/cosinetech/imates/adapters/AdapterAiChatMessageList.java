@@ -10,15 +10,12 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
+import com.cosinetech.imates.models.ChatDisplayItem;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.views.MarkdownTextView;
 
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
@@ -30,36 +27,37 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
     private static final int TYPE_VOICE_LEFT = 5;
     private static final int TYPE_VOICE_RIGHT = 6;
 
-    private List<ChatMessage> messageList;
+    private List<ChatDisplayItem> mMsgList;
 
-    public AdapterAiChatMessageList(List<ChatMessage> messageList) {
-        this.messageList = messageList; //groupMessagesWithDate(messageList);
+    public AdapterAiChatMessageList(List<ChatDisplayItem> mMsgList) {
+        this.mMsgList = mMsgList; //groupMessagesWithDate(messageList);
     }
 
-    private List<ChatMessage> groupMessagesWithDate(List<ChatMessage> messages) {
-        List<ChatMessage> groupedMessages = new ArrayList<>();
-        long lastTimestamp = 0;
-
-        for (ChatMessage message : messages) {
-            if (message.type != ChatMessage.TYPE_DATE && message.timestamp - lastTimestamp > 5 * 60 * 1000) {
-                groupedMessages.add(new ChatMessage(new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date(message.timestamp)),
-                        false,
-                        ChatMessage.TYPE_DATE,
-                        true,
-                        message.sessionId,
-                        message.catalogId,
-                        message.timestamp
-                ));
-                lastTimestamp = message.timestamp;
-            }
-            groupedMessages.add(message);
-        }
-        return groupedMessages;
-    }
+//    private List<ChatDisplayItem> groupMessagesWithDate(List<ChatDisplayItem> messages) {
+//        List<ChatDisplayItem> groupedMessages = new ArrayList<>();
+//        long lastTimestamp = 0;
+//
+//        for (ChatDisplayItem message : messages) {
+//            if (message.type != ChatMessage.TYPE_DATE && message.timestamp - lastTimestamp > 5 * 60 * 1000) {
+//                groupedMessages.add(new ChatMessage(new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date(message.timestamp)),
+//                        false,
+//                        ChatMessage.TYPE_DATE,
+//                        true,
+//                        message.sessionId,
+//                        message.catalogId,
+//                        message.timestamp
+//                ));
+//                lastTimestamp = message.timestamp;
+//            }
+//            groupedMessages.add(message);
+//        }
+//        return groupedMessages;
+//    }
 
     @Override
     public int getItemViewType(int position) {
-       ChatMessage message = messageList.get(position);
+        ChatDisplayItem item = mMsgList.get(position);
+        ChatMessage message = item.chatMessage;
         if (message.type == ChatMessage.TYPE_DATE) return TYPE_DATE;
         if (message.type == ChatMessage.TYPE_TEXT) return message.isSelf ? TYPE_TEXT_RIGHT : TYPE_TEXT_LEFT;
         if (message.type == ChatMessage.TYPE_IMAGE) return message.isSelf ? TYPE_IMAGE_RIGHT : TYPE_IMAGE_LEFT;
@@ -105,15 +103,16 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
 
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int pos) {
-        ChatMessage message = messageList.get(pos);
+        ChatDisplayItem item = mMsgList.get(pos);
+        ChatMessage message = item.chatMessage;
 
         if (holder instanceof DateViewHolder) {
             ((DateViewHolder) holder).tvDate.setText(message.content);
         } else if (holder instanceof TextViewHolder) {
-            if(message.isSelf || message.isHistory) {
+            if(message.isSelf || item.isDirectDisplay) {
                 ((TextViewHolder) holder).tvMessage.setContent(message.content);
             } else {
-                ((TextViewHolder) holder).tvMessage.setChatMessage(message);
+                ((TextViewHolder) holder).tvMessage.setChatMessage(item);
                 if(message.content.isEmpty()) {
                     ((TextViewHolder) holder).tvMessage.clearContent();
                 }
@@ -145,22 +144,22 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
 
     @Override
     public int getItemCount() {
-        return messageList.size();
+        return mMsgList.size();
     }
 
     public void updateLastMessage(String newContent, boolean isStream) {
-        if (!messageList.isEmpty()) {
-            ChatMessage lastMessage = messageList.get(messageList.size() - 1);
-            lastMessage.appendContent(newContent);
-            lastMessage.isHistory = !isStream;
-            notifyItemChanged(messageList.size() - 1); // 更新最后一个消息
+        if (!mMsgList.isEmpty()) {
+            ChatDisplayItem lastMessage = mMsgList.get(mMsgList.size() - 1);
+            lastMessage.chatMessage.appendContent(newContent);
+            lastMessage.isDirectDisplay = !isStream;
+            notifyItemChanged(mMsgList.size() - 1); // 更新最后一个消息
         }
     }
     public void updateLastMessage(String newContent) {
-        if (!messageList.isEmpty()) {
-            ChatMessage lastMessage = messageList.get(messageList.size() - 1);
-            lastMessage.appendContent(newContent);
-            notifyItemChanged(messageList.size() - 1); // 更新最后一个消息
+        if (!mMsgList.isEmpty()) {
+            ChatDisplayItem lastMessage = mMsgList.get(mMsgList.size() - 1);
+            lastMessage.chatMessage.appendContent(newContent);
+            notifyItemChanged(mMsgList.size() - 1); // 更新最后一个消息
         }
     }
 

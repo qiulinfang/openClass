@@ -17,6 +17,7 @@ import androidx.lifecycle.ViewModelStoreOwner;
 
 import android.os.Handler;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -30,6 +31,9 @@ import com.cosinetech.imates.databinding.ActivityLoginBinding;
 import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.util.WindowUtils;
+
+import java.io.File;
+import java.io.IOException;
 
 public class LoginActivity extends AppCompatActivity {
     private static final int REQUEST_CODE_DRAW_OVERLAY = 1001;
@@ -135,6 +139,20 @@ public class LoginActivity extends AppCompatActivity {
         editor.apply();
         loginButton.setEnabled(false);
 
+        File filesDir = getExternalFilesDir(null);
+        File userFilesDir = new File(filesDir, userName);
+        if (!userFilesDir.exists()) {
+            boolean created = userFilesDir.mkdirs();  // 创建子目录
+            if (created) {
+                Log.d("DirectoryCreation", "Subdirectory created successfully!");
+            } else {
+                Log.d("DirectoryCreation", "Failed to create subdirectory.");
+            }
+        } else {
+            Log.d("DirectoryCreation", "Subdirectory already exists.");
+        }
+
+
         new Thread(() -> {
             try {
                 LoginRepository loginRepository = new LoginRepository();
@@ -146,6 +164,8 @@ public class LoginActivity extends AppCompatActivity {
                 // Fetch user info
                 UserInfo userInfo = loginRepository.getUserInfo(token);
                 userInfoViewModel.userInfo.postValue(userInfo);
+
+                userInfoViewModel.userPath.postValue(userFilesDir);
 
                 // Navigate to MainActivity
                 runOnUiThread(() -> {

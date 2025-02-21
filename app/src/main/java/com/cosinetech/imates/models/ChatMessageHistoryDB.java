@@ -373,7 +373,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
     }
 
     @SuppressLint("Range")
-    public ChatMessageSession getMessageSession(String sessionId) {
+    public ChatMessageSession getMessageSessionBySessionId(String sessionId) {
         readLock.lock();
         try {
             SQLiteDatabase db = this.getReadableDatabase();
@@ -398,6 +398,40 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
                 cursor.close();
             }
             return session;
+        } finally {
+            readLock.unlock();
+        }
+    }
+
+    @SuppressLint("Range")
+    public List<ChatMessageSession> getMessageSessionByCatalogId(String catalogId) {
+        readLock.lock();
+        try {
+            List<ChatMessageSession> sessions = new ArrayList<>();
+            SQLiteDatabase db = this.getReadableDatabase();
+
+            Cursor cursor = db.query(TABLE_MESSAGE_SESSION,
+                    null,
+                    KEY_CATALOG_ID + "=?",
+                    new String[]{String.valueOf(catalogId)},
+                    null, null, null);
+
+            if (cursor.moveToFirst()) {
+                do {
+                    ChatMessageSession session = new ChatMessageSession();
+                    session.id = cursor.getLong(cursor.getColumnIndex(KEY_ID));
+                    session.sessionId = cursor.getString(cursor.getColumnIndex(KEY_SESSION_ID));
+                    session.catalogId = cursor.getString(cursor.getColumnIndex(KEY_CATALOG_ID));
+                    session.sessionName = cursor.getString(cursor.getColumnIndex(KEY_SESSION_NAME));
+                    session.type = cursor.getInt(cursor.getColumnIndex(KEY_TYPE));
+                    session.lastMessageTime = cursor.getLong(cursor.getColumnIndex(KEY_LAST_MESSAGE_TIME));
+                    session.createTime = cursor.getLong(cursor.getColumnIndex(KEY_CREATE_TIME));
+                    session.updateTime = cursor.getLong(cursor.getColumnIndex(KEY_UPDATE_TIME));
+                    sessions.add(session);
+                } while (cursor.moveToNext());
+            }
+            cursor.close();
+            return sessions;
         } finally {
             readLock.unlock();
         }
@@ -454,6 +488,37 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         }
     }
 
+    @SuppressLint("Range")
+    public List<ChatMessage> searchMessageDetail(String searchContent) {
+        readLock.lock();
+        try {
+            List<ChatMessage> detailList = new ArrayList<>();
+            SQLiteDatabase db = this.getReadableDatabase();
+
+            String selectQuery = "SELECT * FROM " + TABLE_MESSAGE_DETAIL +
+                    " WHERE " + KEY_CONTENT + " LIKE ? ";
+            String selectionArg = "%" + searchContent + "%";
+            Cursor cursor = db.rawQuery(selectQuery, null);
+
+            if (cursor.moveToFirst()) {
+                do {
+                    ChatMessage msg = new ChatMessage();
+                    msg.id = cursor.getLong(cursor.getColumnIndex(KEY_ID));
+                    msg.sessionId = cursor.getString(cursor.getColumnIndex(KEY_SESSION_ID));
+                    msg.content = cursor.getString(cursor.getColumnIndex(KEY_CONTENT));
+                    msg.type = cursor.getInt(cursor.getColumnIndex(KEY_TYPE));
+                    msg.isSelf = cursor.getInt(cursor.getColumnIndex(KEY_IS_SELF)) == 1;
+                    msg.timestamp = cursor.getLong(cursor.getColumnIndex(KEY_TIMESTAMP));
+                    detailList.add(msg);
+                } while (cursor.moveToNext());
+            }
+            cursor.close();
+            return detailList;
+        } finally {
+            readLock.unlock();
+        }
+    }
+
     public int deleteAllChatMessageDetail() {
         writeLock.lock();
         try {
@@ -494,7 +559,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
     }
 
     @SuppressLint("Range")
-    public List<ChatMessage> getChatMessageDetail(String sessionId) {
+    public synchronized List<ChatMessage> getChatMessageDetail(String sessionId) {
         readLock.lock();
         try {
             List<ChatMessage> messages = new ArrayList<>();
@@ -566,7 +631,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
             }
 
             // First get the session to get catalogId
-            ChatMessageSession session = getMessageSession(msg.sessionId);
+            ChatMessageSession session = getMessageSessionBySessionId(msg.sessionId);
             if (session == null) {
                 return null;
             }

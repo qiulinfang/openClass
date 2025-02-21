@@ -123,14 +123,14 @@
             android:minHeight="80dp"/>
 
         <ListView
-            android:id="@+id/chat_catalog"
+            android:id="@+id/chat_session_list"
             android:layout_width="150dp"
             android:layout_height="match_parent" />
 
     </LinearLayout>
 
     <com.scwang.smart.refresh.layout.SmartRefreshLayout
-        android:id="@+id/chat_message_session"
+        android:id="@+id/chat_message_list"
         android:layout_below="@id/split_line"
         android:layout_above="@id/chat_input_area"
         android:layout_alignParentEnd="true"

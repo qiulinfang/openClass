@@ -14,13 +14,11 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.CheckBox;
-import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -29,11 +27,13 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.AdapterAiChatMessageList;
-import com.cosinetech.imates.adapters.AdapterChatMessageTag;
-import com.cosinetech.imates.adapters.ChatCatalogueAdapter;
+import com.cosinetech.imates.adapters.AdapterChatCatalog;
+import com.cosinetech.imates.adapters.ChatSessionAdapter;
+import com.cosinetech.imates.models.ChatDisplayItem;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.models.ChatMessageCatalogue;
 import com.cosinetech.imates.models.ChatMessageHistoryDB;
+import com.cosinetech.imates.models.ChatMessageSession;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.util.TimeUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
@@ -50,7 +50,7 @@ public class ChatAiView extends RelativeLayout {
     }
 
     public static class ChatAiParam {
-        public String tag = "";
+        public String sessionId = "";
         public String chatBotUrl;
         public boolean showHeader;
         public boolean streamDisplay;
@@ -66,8 +66,8 @@ public class ChatAiView extends RelativeLayout {
     private RecyclerView recyclerView;
     private SmartRefreshLayout refreshLayout;
     private EditText etMessage;
-    private AdapterAiChatMessageList adapterAiChatMesssageList;
-    private final List<ChatMessage> messageList = new ArrayList<>();
+    private AdapterAiChatMessageList adapterAiChatMessageList;
+    private final List<ChatDisplayItem> messageList = new ArrayList<>();
     private Button btnSend;
     private CheckBox chkViewHistory;
 
@@ -78,15 +78,17 @@ public class ChatAiView extends RelativeLayout {
     private ChatAiParam mChatAiParam;
 
     // chat message tags
-    private AdapterChatMessageTag<String> mChatAdapterChatMessageTag;
+    private AdapterChatCatalog<ChatMessageCatalogue> mChatAdapterChatCatalog;
 
     // chat message catalog list by tag
-    private final List<ChatMessageCatalogue> mChatCatalogs = new ArrayList<>();
-    private ChatCatalogueAdapter mChatCatalogAdapter;
+    private final List<ChatMessageSession> mChatSessions = new ArrayList<>();
+    private ChatSessionAdapter mChatSessionAdapter;
 
     private RelativeLayout rootLayout;  // 用于调整布局的父布局
 
     private boolean mInSearchMode = false;
+
+    private ChatMessageHistoryDB mChatDb;
 
     private int clickCount = 0; // 记录点击次数
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -123,13 +125,20 @@ public class ChatAiView extends RelativeLayout {
 
     private void init(Context context) {
         mContext = context;
+        // Required empty public constructor
+        ViewModelStoreOwner owner = ApplicationModelShared.getInstance();
+        userInfoViewModel = new ViewModelProvider(
+                owner,
+                new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance())
+        ).get(UserInfoViewModel.class);
+        mChatDb = ChatMessageHistoryDB.getInstance(context, userInfoViewModel.userPath.getValue());
     }
 
     private void initView() {
         // Inflate the layout for this fragment
         View view = LayoutInflater.from(mContext).inflate(R.layout.view_chat_ai, this, false);
         recyclerView = view.findViewById(R.id.chat_msg_view);
-        refreshLayout = view.findViewById(R.id.chat_message_session);
+        refreshLayout = view.findViewById(R.id.chat_message_list);
         etMessage = view.findViewById(R.id.et_message);
         btnSend = view.findViewById(R.id.btn_send);
         textViewTitle = view.findViewById(R.id.ai_name);
@@ -146,8 +155,8 @@ public class ChatAiView extends RelativeLayout {
 
         // Initialize RecyclerView
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        adapterAiChatMesssageList = new AdapterAiChatMessageList(messageList);
-        recyclerView.setAdapter(adapterAiChatMesssageList);
+        adapterAiChatMessageList = new AdapterAiChatMessageList(messageList);
+        recyclerView.setAdapter(adapterAiChatMessageList);
 
         // Set up SmartRefreshLayout for pull-to-refresh
         refreshLayout.setOnRefreshListener(refreshLayout -> {
@@ -159,30 +168,23 @@ public class ChatAiView extends RelativeLayout {
         // Send button click
         btnSend.setOnClickListener(v -> sendMessage());
 
-        // Required empty public constructor
-        ViewModelStoreOwner owner = ApplicationModelShared.getInstance();
-        userInfoViewModel = new ViewModelProvider(
-                owner,
-                new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance())
-        ).get(UserInfoViewModel.class);
-
         aiChatMessageRequest.setName(Objects.requireNonNull(userInfoViewModel.userInfo.getValue()).getName());
 
         FlowTagLayout layout = view.findViewById(R.id.chat_tags);
-        mChatAdapterChatMessageTag = new AdapterChatMessageTag<>(mContext);
+        mChatAdapterChatCatalog = new AdapterChatCatalog<>(mContext);
         layout.setTagCheckedMode(FLOW_TAG_CHECKED_SINGLE);
         layout.setTagCheckedMode(FlowTagLayout.FLOW_TAG_CHECKED_SINGLE);
-        layout.setAdapter(mChatAdapterChatMessageTag);
+        layout.setAdapter(mChatAdapterChatCatalog);
         layout.setOnTagSelectListener((parent, selectedList) -> {
             if (selectedList != null && !selectedList.isEmpty()) {
-                String tag = mChatAdapterChatMessageTag.getItem(selectedList.get(0)).toString();
-                List<ChatMessageCatalogue> catalogues = ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).getMessageCatalogueByTag(tag);
-                mChatCatalogs.clear();
-                mChatCatalogs.addAll(catalogues);
-                mChatCatalogAdapter.notifyDataSetChanged();
+                String catalogId = mChatAdapterChatCatalog.getItem(selectedList.get(0)).catalogId;
+                List<ChatMessageSession> sessions = mChatDb.getMessageSessionByCatalogId(catalogId);
+                mChatSessions.clear();
+                mChatSessions.addAll(sessions);
+                mChatSessionAdapter.notifyDataSetChanged();
             }else{
-                mChatCatalogs.clear();
-                mChatCatalogAdapter.notifyDataSetChanged();
+                mChatSessions.clear();
+                mChatSessionAdapter.notifyDataSetChanged();
             }
         });
 
@@ -192,8 +194,8 @@ public class ChatAiView extends RelativeLayout {
                 view.findViewById(R.id.history_layout).setVisibility(View.VISIBLE);
                 view.findViewById(R.id.chat_input_area).setVisibility(View.INVISIBLE);
 
-                List<String> tags = ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).getAllMessageTags();
-                mChatAdapterChatMessageTag.clearAndAddAll(tags);
+                List<ChatMessageCatalogue> catalogs = mChatDb.getAllMessageCatalogue();
+                mChatAdapterChatCatalog.clearAndAddAll(catalogs);
                 textViewTitle.setEnabled(false);
             } else {
                 view.findViewById(R.id.history_layout).setVisibility(View.GONE);
@@ -202,15 +204,15 @@ public class ChatAiView extends RelativeLayout {
             }
         });
 
-        mChatCatalogAdapter = new ChatCatalogueAdapter(mContext, mChatCatalogs);
-        ListView listView = view.findViewById(R.id.chat_catalog);
-        listView.setAdapter(mChatCatalogAdapter);
-        listView.setOnItemClickListener((parent, view1, position, id) -> {
-            ChatMessageCatalogue catalog = mChatCatalogs.get(position);
-            List<ChatMessage> msgs = ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).getMessageDetail(catalog.date, catalog.tag);
+        mChatSessionAdapter = new ChatSessionAdapter(mContext, mChatSessions);
+        ListView catalogView = view.findViewById(R.id.chat_session_list);
+        catalogView.setAdapter(mChatSessionAdapter);
+        catalogView.setOnItemClickListener((parent, view1, position, id) -> {
+            ChatMessageSession chatSession = mChatSessions.get(position);
+            List<ChatMessage> msgs = mChatDb.getChatMessageDetail(chatSession.sessionId);
             messageList.clear();
-            messageList.addAll(msgs);
-            adapterAiChatMesssageList.notifyDataSetChanged();
+            messageList.addAll(getChatDisplayList(msgs, true));
+            adapterAiChatMessageList.notifyDataSetChanged();
         });
 
         CheckBox btnCancelSearch = view.findViewById(R.id.btn_search);
@@ -254,14 +256,13 @@ public class ChatAiView extends RelativeLayout {
                     return true;
                 }
                 // 用户点击了搜索按钮，这里可以执行搜索逻辑
-                List<ChatMessage> msgs =  ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue())
-                        .searchMessageDetail(searchContent);
+                List<ChatMessage> msgs =  mChatDb.searchMessageDetail(searchContent);
                 if(msgs.isEmpty()) {
                     Toast.makeText(mContext, "没有搜索到记录", Toast.LENGTH_SHORT).show();
                 }
                 messageList.clear();
-                messageList.addAll(msgs);
-                adapterAiChatMesssageList.notifyDataSetChanged();
+                messageList.addAll(getChatDisplayList(msgs, true));
+                adapterAiChatMessageList.notifyDataSetChanged();
 
                 return true; // 表示我们已经处理了这个事件
             }
@@ -280,14 +281,13 @@ public class ChatAiView extends RelativeLayout {
         }
 
         if(mChatAiParam.showHistory) {
-            List<ChatMessage> msgs = ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue())
-                    .getMessageDetail(TimeUtils.timestampToDateString(System.currentTimeMillis()), mChatAiParam.tag);
+            List<ChatMessage> msgs = mChatDb.getChatMessageDetail(mChatAiParam.sessionId);
             if(msgs.size() > 2) {
-                messageList.addAll(msgs.subList(msgs.size() - 2, msgs.size()));
+                messageList.addAll(getChatDisplayList(msgs.subList(msgs.size() - 2, msgs.size()), true));
             } else if(msgs.size() > 1) {
-                messageList.addAll(msgs.subList(msgs.size() - 1, msgs.size()));
+                messageList.addAll(getChatDisplayList(msgs.subList(msgs.size() - 1, msgs.size()), true));
             }
-            adapterAiChatMesssageList.notifyDataSetChanged();
+            adapterAiChatMessageList.notifyDataSetChanged();
             recyclerView.scrollToPosition(messageList.size() - 1);
         }
 
@@ -349,11 +349,21 @@ public class ChatAiView extends RelativeLayout {
 
     public void clearChatHistory() {
         messageList.clear();
-        adapterAiChatMesssageList.notifyDataSetChanged();
+        adapterAiChatMessageList.notifyDataSetChanged();
     }
 
     public void setAiName(String name) {
         aiName = name;
+    }
+
+    private List<ChatDisplayItem> getChatDisplayList(List<ChatMessage> msgs,  boolean isHistory) {
+        List<ChatDisplayItem> items = new ArrayList<>();
+        for (ChatMessage msg: msgs) {
+            ChatDisplayItem item = new ChatDisplayItem(msg, isHistory);
+            items.add(item);
+        }
+
+        return items;
     }
 
     private void pollChat() {
@@ -366,7 +376,7 @@ public class ChatAiView extends RelativeLayout {
             handler.post(() -> {
                 if (success) {
                     if(!response.trim().isEmpty() && !response.equals("end")) {
-                        adapterAiChatMesssageList.updateLastMessage(response, mChatAiParam.streamDisplay);
+                        adapterAiChatMessageList.updateLastMessage(response, mChatAiParam.streamDisplay);
                         Log.d("%%%%%%%%", response);
                     }
                     if(!response.equals("end")) {
@@ -378,7 +388,7 @@ public class ChatAiView extends RelativeLayout {
                             mChatAiParam.listener.onAiChatResponced(true);
                         }
                         if(!messageList.isEmpty()) {
-                            ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
+                            mChatDb.addChatMessageDetail(messageList.get(messageList.size() - 1).chatMessage);
                         }
 
                         ApplicationModelShared app = ApplicationModelShared.getInstance();
@@ -388,13 +398,13 @@ public class ChatAiView extends RelativeLayout {
                         aiChatMessageRequest.setDstUrl("");
                     }
                 } else {
-                    adapterAiChatMesssageList.updateLastMessage("‼️消息接收失败", false);
+                    adapterAiChatMessageList.updateLastMessage("‼️消息接收失败", false);
                     btnSend.setEnabled(true);
                     if(mChatAiParam.listener != null) {
                         mChatAiParam.listener.onAiChatResponced(false);
                     }
                     if(!messageList.isEmpty()) {
-                        ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).easyAddMessageDetail(messageList.get(messageList.size() - 1));
+                        mChatDb.addChatMessageDetail(messageList.get(messageList.size() - 1).chatMessage);
                     }
 
                     ApplicationModelShared app = ApplicationModelShared.getInstance();
@@ -414,25 +424,21 @@ public class ChatAiView extends RelativeLayout {
             ChatMessage message = new ChatMessage(messageText,
                     true,
                     ChatMessage.TYPE_TEXT,
-                    false,
-                    "",
-                    mChatAiParam.tag,
+                    mChatAiParam.sessionId,
                     System.currentTimeMillis());
-            messageList.add(message);
+            messageList.add(new ChatDisplayItem(message, message.isSelf));
 
             etMessage.setText("");
-            ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).easyAddMessageDetail(message);
+            mChatDb.addChatMessageDetail(message);
             ChatMessage responseMessage = new ChatMessage("",
                     false,
                     ChatMessage.TYPE_TEXT,
-                    false,
-                    "",
-                    mChatAiParam.tag,
+                    mChatAiParam.sessionId,
                     System.currentTimeMillis());
-            messageList.add(responseMessage);
+            messageList.add(new ChatDisplayItem(responseMessage, responseMessage.isSelf));
 
             // 一次性通知 Adapter 插入两条消息
-            adapterAiChatMesssageList.notifyItemRangeInserted(messageList.size() - 2, 2);
+            adapterAiChatMessageList.notifyItemRangeInserted(messageList.size() - 2, 2);
             // 滚动到最新位置
             recyclerView.scrollToPosition(messageList.size() - 1);
 
@@ -453,25 +459,21 @@ public class ChatAiView extends RelativeLayout {
                 ChatMessage message = new ChatMessage(aiChatMessageRequest.getCoversation(),
                         true,
                         ChatMessage.TYPE_TEXT,
-                        false,
-                        "",
-                        mChatAiParam.tag,
+                        mChatAiParam.sessionId,
                         System.currentTimeMillis());
-                messageList.add(message);
-                adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
+                messageList.add(new ChatDisplayItem(message, !message.isSelf));
+                adapterAiChatMessageList.notifyItemInserted(messageList.size() - 1);
                 etMessage.setText("");
 
-                ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue()).easyAddMessageDetail(message);
+                mChatDb.addChatMessageDetail(message);
                 ChatMessage responseMessage = new ChatMessage(
                         "",
                         false,
                         ChatMessage.TYPE_TEXT,
-                        false,
-                        "",
-                        mChatAiParam.tag,
+                        mChatAiParam.sessionId,
                         System.currentTimeMillis());
-                messageList.add(responseMessage);
-                adapterAiChatMesssageList.notifyItemInserted(messageList.size() - 1);
+                messageList.add(new ChatDisplayItem(responseMessage, false));
+                adapterAiChatMessageList.notifyItemInserted(messageList.size() - 1);
 
                 recyclerView.scrollToPosition(messageList.size() - 1);
 
@@ -488,19 +490,18 @@ public class ChatAiView extends RelativeLayout {
         if(mInSearchMode) {
             return;
         }
-        List<ChatMessage> allMessage =  ChatMessageHistoryDB.getInstance(mContext, userInfoViewModel.userId.getValue())
-                .getMessageDetailByTag(mChatAiParam.tag);
+        List<ChatMessage> allMessage =  mChatDb.getChatMessageDetail(mChatAiParam.sessionId);
 
         int curSize = messageList.size();
         int n = curSize + 2;
         if (allMessage.size() <= n) {
             messageList.clear();
-            messageList.addAll(allMessage);
+            messageList.addAll(getChatDisplayList(allMessage, true));
         } else {
             messageList.clear();
-            messageList.addAll(allMessage.subList(allMessage.size() - n, allMessage.size()));
+            messageList.addAll(getChatDisplayList(allMessage.subList(allMessage.size() - n, allMessage.size()), true));
         }
-        adapterAiChatMesssageList.notifyDataSetChanged();
+        adapterAiChatMessageList.notifyDataSetChanged();
         recyclerView.scrollToPosition(0);
     }
 

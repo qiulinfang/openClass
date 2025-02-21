@@ -8,16 +8,16 @@ import android.widget.BaseAdapter;
 import android.widget.TextView;
 
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.models.ChatMessageCatalogue;
+import com.cosinetech.imates.models.ChatMessageSession;
 
 import java.util.List;
 
-public class ChatCatalogueAdapter extends BaseAdapter {
-    private Context context;
-    private List<ChatMessageCatalogue> data;
+public class ChatSessionAdapter extends BaseAdapter {
+    private final Context context;
+    private final List<ChatMessageSession> data;
 
     // 构造函数
-    public ChatCatalogueAdapter(Context context, List<ChatMessageCatalogue> data) {
+    public ChatSessionAdapter(Context context, List<ChatMessageSession> data) {
         this.context = context;
         this.data = data;
     }
@@ -41,12 +41,12 @@ public class ChatCatalogueAdapter extends BaseAdapter {
     public View getView(int position, View convertView, ViewGroup parent) {
         // 重用 convertView，提升性能
         if (convertView == null) {
-            convertView = LayoutInflater.from(context).inflate(R.layout.chat_msg_catalog_item, parent, false);
+            convertView = LayoutInflater.from(context).inflate(R.layout.chat_msg_session_item, parent, false);
         }
 
         // 获取 TextView 并设置数据
         TextView textView = convertView.findViewById(R.id.tv_tag);
-        textView.setText(data.get(position).date);
+        textView.setText(data.get(position).sessionName);
         return convertView;
     }
 }

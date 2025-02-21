@@ -15,26 +15,18 @@ public class ChatMessage {
     public boolean isSelf; // 是自己发送的还是收到的
     public long timestamp; //消息时间戳
 
-    public boolean isHistory; // 是否是加载的历史消息
-    public int currentDisplayCharIndex;  //流式显示的字符索引
-
     public ChatMessage() {
         this.content = "";
         this.isSelf = false;
         this.type = TYPE_TEXT;
         this.timestamp =  0;
         this.sessionId = "";
-
-        this.isHistory = false;
-        this.currentDisplayCharIndex = 0;
     }
 
-    public ChatMessage(String content, boolean isSelf, int type, boolean isHistory, String sessionId, long timestamp) {
+    public ChatMessage(String content, boolean isSelf, int type, String sessionId, long timestamp) {
         this.content = content;
         this.isSelf = isSelf;
         this.type = type;
-        this.isHistory = isHistory;
-        this.currentDisplayCharIndex = 0;
         this.timestamp =  timestamp;
         this.sessionId = sessionId;
     }

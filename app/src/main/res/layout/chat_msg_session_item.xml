@@ -10,13 +10,16 @@
         android:layout_height="wrap_content"
         android:layout_marginLeft="10dp"
         android:layout_marginTop="10dp"
-        android:background="@drawable/round_rectangle_bg"
+        android:background="@drawable/chat_ai_history_date"
         android:paddingBottom="5dp"
         android:paddingLeft="10dp"
         android:paddingRight="10dp"
         android:paddingTop="5dp"
         android:text=""
-        android:textSize="12sp"
-        android:textColor="#000000" />
+        android:textColor="#ffffff" />
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:background="#808080"/>
 
 </LinearLayout>

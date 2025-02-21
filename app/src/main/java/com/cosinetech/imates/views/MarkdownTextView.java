@@ -7,7 +7,7 @@ import android.util.AttributeSet;
 
 import androidx.appcompat.widget.AppCompatTextView;
 
-import com.cosinetech.imates.models.ChatMessage;
+import com.cosinetech.imates.models.ChatDisplayItem;
 
 import io.noties.markwon.Markwon;
 import io.noties.markwon.html.HtmlPlugin;
@@ -18,7 +18,7 @@ import io.noties.markwon.ext.latex.JLatexMathPlugin;
 public class MarkdownTextView extends AppCompatTextView {
     private final Object sync = new  Object();
 
-    private ChatMessage chatMsg;
+    private ChatDisplayItem msgDisplayItem;
     private Markwon markwon;
     private Handler mainHandler;
     private static final long UPDATE_DELAY = 100; // 延迟更新时间，单位毫秒
@@ -58,9 +58,9 @@ public class MarkdownTextView extends AppCompatTextView {
         markwon.setMarkdown(this, preFilterLatex);
     }
 
-    public void setChatMessage(ChatMessage msg) {
+    public void setChatMessage(ChatDisplayItem msg) {
         synchronized (sync) {
-            chatMsg = msg;
+            msgDisplayItem = msg;
         }
         // 如果正在流式显示，则继续流式显示
         if (!isStreaming) {
@@ -90,9 +90,9 @@ public class MarkdownTextView extends AppCompatTextView {
         Runnable runnable = new Runnable() {
             @Override
             public void run() {
-                if (chatMsg.currentDisplayCharIndex < chatMsg.content.length()) {
+                if (msgDisplayItem.currentDisplayCharIndex < msgDisplayItem.chatMessage.content.length()) {
                     // 逐字拼接内容
-                    String displayContent = chatMsg.content.substring(0, ++chatMsg.currentDisplayCharIndex);
+                    String displayContent = msgDisplayItem.chatMessage.content.substring(0, ++msgDisplayItem.currentDisplayCharIndex);
                     String filterString = filterLatexString(displayContent);
                     markwon.setMarkdown(MarkdownTextView.this, filterString);
                     mainHandler.postDelayed(this, UPDATE_DELAY); // 每 100ms 更新一次
