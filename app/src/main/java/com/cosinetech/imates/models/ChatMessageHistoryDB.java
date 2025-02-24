@@ -242,6 +242,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         return db.insert(TABLE_MESSAGE_SESSION, null, values);
     }
 
+    // 更新 name last read time和update time
     public synchronized int updateMessageSession(ChatMessageSession messageSession) {
         SQLiteDatabase db = this.getWritableDatabase();
 
@@ -254,6 +255,31 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
                 values,
                 KEY_SESSION_ID + "=?",
                 new String[]{messageSession.sessionId});
+    }
+
+    public synchronized int updateMessageSessionName(String sessionId, String name, long updateTime) {
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        ContentValues values = new ContentValues();
+        values.put(KEY_SESSION_NAME, name);
+        values.put(KEY_UPDATE_TIME, updateTime);
+
+        return db.update(TABLE_MESSAGE_SESSION,
+                values,
+                KEY_SESSION_ID + "=?",
+                new String[]{sessionId});
+    }
+
+    public synchronized int updateMessageSessionLastReadTime(String sessionId, long readTime, long updateTime) {
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        ContentValues values = new ContentValues();
+        values.put(KEY_LAST_MESSAGE_TIME, readTime);
+        values.put(KEY_UPDATE_TIME, updateTime);
+        return db.update(TABLE_MESSAGE_SESSION,
+                values,
+                KEY_SESSION_ID + "=?",
+                new String[]{sessionId});
     }
 
     public synchronized int deleteMessageSession(String sessionId) {

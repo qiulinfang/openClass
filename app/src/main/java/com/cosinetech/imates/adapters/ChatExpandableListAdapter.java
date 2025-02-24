@@ -247,6 +247,7 @@ public class ChatExpandableListAdapter extends BaseExpandableListAdapter {
         List<ChatMessageSession> sessions = sessionMap.get(session.catalogId);
         if (sessions != null && !sessions.contains(session)) {
             sessions.add(session);
+            selectedSessionId = session.sessionId;
             int groupPosition = getCataloguePosition(session.catalogId);
             if (groupPosition != -1) {
                 notifyDataSetChanged();

@@ -99,4 +99,7 @@
     <string name="chat_ai_catalog_teacher">Teacher QA</string>
     <string name="chat_ai_default_session_name">iMates Defaults</string>
     <string name="chat_ai_input_hint">Input something here</string>
+    <string name="chat_ai_press_to_speak">Press to speak</string>
+    <string name="chat_ai_release_to_end_speak">Release to send</string>
+    <string name="chat_ai_new_session_name">New Chat</string>
 </resources>

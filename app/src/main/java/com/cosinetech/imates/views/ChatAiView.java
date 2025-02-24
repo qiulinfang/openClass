@@ -41,6 +41,7 @@ import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 public class ChatAiView extends RelativeLayout {
     public interface AiChatResponseListener {
@@ -72,21 +73,15 @@ public class ChatAiView extends RelativeLayout {
     private TextView mTextViewTitle;
     private ChatAiParam mChatAiParam;
 
-    // chat message tags
-    //private AdapterChatCatalog<ChatMessageCatalogue> mChatAdapterChatCatalog;
-
-    // chat message catalog list by tag
-    //private final List<ChatMessageSession> mChatSessions = new ArrayList<>();
-    //private ChatSessionAdapter mChatSessionAdapter;
-
     private RelativeLayout rootLayout; // 用于调整布局的父布局
     private boolean mInSearchMode = false;
     private ChatMessageHistoryDB mChatDb;
     private ChatMessageCatalogue mCurrentCatalog;
     private ChatMessageSession mCurrentSession;
     private ExpandableListView expandableListView;
-    private ChatExpandableListAdapter expandableListAdapter;
-    private String selectedSessionId;
+    private ChatExpandableListAdapter mChatSessionListAdapter;
+
+    private final ChatMessageSession mFixedDefaultSession = new ChatMessageSession();
 
     private int clickCount = 0; // 记录点击次数
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -117,21 +112,22 @@ public class ChatAiView extends RelativeLayout {
         this.setVisibility(VISIBLE);
         mChatAiParam = param;
         if(mChatAiParam != null) {
-            //默认catalog
             initView();
             loadData();
         }
     }
 
-    public void setSession(ChatMessageSession session) {
+    public void resetSession(ChatMessageSession session) {
+        if(!mCurrentSession.sessionId.equals(session.sessionId)) {
+            clearChatHistory();
+        }
         mCurrentSession = session;
-        mChatDb.addMessageSession(session);
         String aiName = mCurrentCatalog.catalogName + " - " + mCurrentSession.sessionName;
         mTextViewTitle.setText(aiName);
-        // select session
+        mChatSessionListAdapter.setSelectedSessionId(mCurrentSession.sessionId);
     }
 
-    private void setCatalog(ChatMessageCatalogue catalogue) {
+    private void resetCatalog(ChatMessageCatalogue catalogue) {
         mCurrentCatalog = catalogue;
         String aiName = mCurrentCatalog.catalogName + " - " + mCurrentSession.sessionName;
         mTextViewTitle.setText(aiName);
@@ -162,17 +158,17 @@ public class ChatAiView extends RelativeLayout {
         catalogueTeacher.updateTime = Long.MAX_VALUE - 100;
         mChatDb.addMessageCatalogue(catalogueTeacher);
 
-        ChatMessageSession session = new ChatMessageSession();
-        session.catalogId = CATALOG_ID_DEFAULT;
-        session.sessionId = SESSION_ID_DEFAULT;
-        session.sessionName = mContext.getString(R.string.chat_ai_default_session_name);
-        session.createTime = 0;
-        session.updateTime = Long.MAX_VALUE - 100;
+        mFixedDefaultSession.catalogId = CATALOG_ID_DEFAULT;
+        mFixedDefaultSession.sessionId = SESSION_ID_DEFAULT;
+        mFixedDefaultSession.sessionName = mContext.getString(R.string.chat_ai_default_session_name);
+        mFixedDefaultSession.createTime = 0;
+        mFixedDefaultSession.lastMessageTime = Long.MAX_VALUE - 100;
+        mFixedDefaultSession.updateTime = Long.MAX_VALUE - 100;
 
-        mChatDb.addMessageSession(session);
+        mChatDb.addMessageSession(mFixedDefaultSession);
 
         mCurrentCatalog = catalogueDefault;
-        mCurrentSession = session;
+        mCurrentSession = mFixedDefaultSession;
     }
 
     private void initView() {
@@ -183,6 +179,10 @@ public class ChatAiView extends RelativeLayout {
         mEditMsg = view.findViewById(R.id.et_message);
         mBtnSend = view.findViewById(R.id.btn_send);
         mTextViewTitle = view.findViewById(R.id.ai_name);
+        Button btnNewChat = view.findViewById(R.id.btn_new_chat);
+        btnNewChat.setOnClickListener(v->{
+            newChatSession();
+        });
 
         mEditMsg.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
@@ -223,25 +223,26 @@ public class ChatAiView extends RelativeLayout {
             }
             return true;
         });
-        // 设置ExpandableListView的点击事件
+
         expandableListView.setOnChildClickListener((parent, v, groupPosition, childPosition, id) -> {
-            ChatMessageSession session = (ChatMessageSession) expandableListAdapter.getChild(groupPosition, childPosition);
-            selectedSessionId = session.sessionId;
-            expandableListAdapter.setSelectedSessionId(selectedSessionId);
-            loadMessages0(selectedSessionId);
+            ChatMessageSession session = (ChatMessageSession) mChatSessionListAdapter.getChild(groupPosition, childPosition);
+            resetSession(session);
+            mChatSessionListAdapter.setSelectedSessionId(session.sessionId);
+            loadSelectedSessionMsg(session.sessionId);
             return true;
         });
-        expandableListAdapter = new ChatExpandableListAdapter(mContext);
-        expandableListView.setAdapter(expandableListAdapter);
-//        expandableListView.setOnGroupExpandListener(groupPosition -> {
+        // expandableListView.setOnGroupExpandListener(groupPosition -> {
 //            for (int i = 0; i < expandableListAdapter.getGroupCount(); i++) {
 //                if (groupPosition != i) {
 //                    expandableListView.collapseGroup(i);
 //                }
 //            }
 //        });
+        mChatSessionListAdapter = new ChatExpandableListAdapter(mContext);
+        expandableListView.setAdapter(mChatSessionListAdapter);
+        resetSession(mCurrentSession);
 
-        expandableListAdapter.setOnItemActionListener(new ChatExpandableListAdapter.OnItemActionListener() {
+        mChatSessionListAdapter.setOnItemActionListener(new ChatExpandableListAdapter.OnItemActionListener() {
             @Override
             public void onEditCatalogue(ChatMessageCatalogue catalogue) {
                 showEditCatalogueDialog(catalogue);
@@ -276,11 +277,11 @@ public class ChatAiView extends RelativeLayout {
                             new Thread(() -> {
                                 mChatDb.deleteMessageSession(session.sessionId);
                                 post(() -> {
-                                    if (session.sessionId.equals(selectedSessionId)) {
-                                        selectedSessionId = null;
+                                    if (session.sessionId.equals(mCurrentSession.sessionId)) {
                                         messageList.clear();
                                         adapterAiChatMessageList.notifyDataSetChanged();
                                     }
+                                    resetSession(mFixedDefaultSession);
                                     loadData();
                                 });
                             }).start();
@@ -432,6 +433,21 @@ public class ChatAiView extends RelativeLayout {
         addView(view);
     }
 
+    private void newChatSession() {
+        ChatMessageSession session = new ChatMessageSession();
+        session.catalogId = mCurrentCatalog.catalogId;
+        session.sessionId = UUID.randomUUID().toString();
+        session.sessionName = mContext.getString(R.string.chat_ai_new_session_name);
+        session.createTime = System.currentTimeMillis();
+        session.updateTime = session.createTime;
+        session.type = 0;
+        session.lastMessageTime = session.createTime;
+        mChatDb.addMessageSession(session);
+        mChatSessionListAdapter.addSession(session);
+
+        resetSession(session);
+    }
+
     private void showEditCatalogueDialog(ChatMessageCatalogue catalogue) {
         EditText input = new EditText(mContext);
         input.setText(catalogue.catalogName);
@@ -482,16 +498,16 @@ public class ChatAiView extends RelativeLayout {
         new Thread(() -> {
             List<ChatMessageCatalogue> catalogues = mChatDb.getAllMessageCatalogue();
             post(() -> {
-                expandableListAdapter.setData(catalogues);
+                mChatSessionListAdapter.setData(catalogues);
                 // 展开所有分组
-                for (int i = 0; i < expandableListAdapter.getGroupCount(); i++) {
+                for (int i = 0; i < mChatSessionListAdapter.getGroupCount(); i++) {
                     expandableListView.expandGroup(i);
                 }
             });
         }).start();
     }
 
-    private void loadMessages0(String sessionId) {
+    private void loadSelectedSessionMsg(String sessionId) {
         new Thread(() -> {
             List<ChatMessage> messages = mChatDb.getChatMessageDetail(sessionId);
             post(() -> {
@@ -571,35 +587,39 @@ public class ChatAiView extends RelativeLayout {
 
     private void sendMessage() {
         String messageText = mEditMsg.getText().toString().trim();
-        if (!messageText.isEmpty()) {
-            // Add message to the list and notify the adapter
-            ChatMessage message = new ChatMessage(messageText,
-                    true,
-                    ChatMessage.TYPE_TEXT,
-                    mCurrentSession.sessionId,
-                    System.currentTimeMillis());
-            messageList.add(new ChatDisplayItem(message, message.isSelf));
-
-            mEditMsg.setText("");
-            mChatDb.addChatMessageDetail(message);
-            ChatMessage responseMessage = new ChatMessage("",
-                    false,
-                    ChatMessage.TYPE_TEXT,
-                    mCurrentSession.sessionId,
-                    System.currentTimeMillis());
-            messageList.add(new ChatDisplayItem(responseMessage, responseMessage.isSelf));
-
-            // 一次性通知 Adapter 插入两条消息
-            adapterAiChatMessageList.notifyItemRangeInserted(messageList.size() - 2, 2);
-            // 滚动到最新位置
-            mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
-
-            mAiChatRequest.setReason("start");
-            mAiChatRequest.setCoversation(messageText);
-
-            mBtnSend.setEnabled(false);
-            pollChat();
+        if (messageText.trim().isEmpty()) {
+            return;
         }
+
+        // Add message to the list and notify the adapter
+        ChatMessage message = new ChatMessage(messageText,
+                true,
+                ChatMessage.TYPE_TEXT,
+                mCurrentSession.sessionId,
+                System.currentTimeMillis());
+        messageList.add(new ChatDisplayItem(message, message.isSelf));
+
+        mEditMsg.setText("");
+        mChatDb.addChatMessageDetail(message);
+        ChatMessage responseMessage = new ChatMessage("",
+                false,
+                ChatMessage.TYPE_TEXT,
+                mCurrentSession.sessionId,
+                System.currentTimeMillis());
+        messageList.add(new ChatDisplayItem(responseMessage, responseMessage.isSelf));
+
+        // 一次性通知 Adapter 插入两条消息
+        adapterAiChatMessageList.notifyItemRangeInserted(messageList.size() - 2, 2);
+        // 滚动到最新位置
+        mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
+
+        mAiChatRequest.setReason("start");
+        mAiChatRequest.setCoversation(messageText);
+
+        mBtnSend.setEnabled(false);
+        pollChat();
+
+        autoDetectChatSessionName(messageText.trim());
     }
 
     public void sendMessageDirectly(AiChatMessageRequest mo) {
@@ -632,9 +652,26 @@ public class ChatAiView extends RelativeLayout {
 
             mBtnSend.setEnabled(false);
             pollChat();
+
+            autoDetectChatSessionName(mAiChatRequest.getCoversation().trim());
         }, 1000);
     }
 
+    private void autoDetectChatSessionName(String content) {
+        if(mCurrentSession.createTime == mCurrentSession.updateTime) {
+            if(content.trim().length() < 10) {
+                mCurrentSession.sessionName = content.trim();
+            } else {
+                mCurrentSession.sessionName = content.trim().substring(0, 9);
+            }
+            long updateTick = System.currentTimeMillis();
+            mCurrentSession.updateTime = updateTick;
+            mChatDb.updateMessageSessionName(mCurrentSession.sessionId,
+                    mCurrentSession.sessionName,
+                    updateTick);
+            resetSession(mCurrentSession);
+        }
+    }
     private void loadHistoryMessages() {
         if(mInSearchMode) {
             return;

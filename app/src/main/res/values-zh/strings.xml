@@ -100,4 +100,7 @@
     <string name="chat_ai_catalog_teacher">教师答疑</string>
     <string name="chat_ai_default_session_name">学伴默认</string>
     <string name="chat_ai_input_hint">请输入内容</string>
+    <string name="chat_ai_press_to_speak">按住 说话</string>
+    <string name="chat_ai_release_to_end_speak">松开结束录音</string>
+    <string name="chat_ai_new_session_name">新对话</string>
 </resources>
