@@ -16,8 +16,9 @@
 
     <ImageView
         android:id="@+id/arrow_view"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:contentDescription=""
         android:src="@drawable/chat_ai_ic_arrow_right"
         android:layout_toStartOf="@id/btn_more_catalogue"
         android:layout_centerVertical="true"/>

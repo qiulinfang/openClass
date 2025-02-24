@@ -19,6 +19,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.PopupWindow;
 import androidx.annotation.Nullable;
+import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
@@ -242,7 +243,12 @@ public class FloatingRobotService extends Service {
 
     public void popupChatBot(String url, String tag) {
         // 加载 PopupWindow 的布局
-        View popupView = LayoutInflater.from(this).inflate(R.layout.popup_window_chat, null);
+        // 关键步骤：通过 ContextThemeWrapper 附加主题
+        ContextThemeWrapper themedContext = new ContextThemeWrapper(this, R.style.Theme_IMatesApp_FullScreen);
+        LayoutInflater inflater = LayoutInflater.from(themedContext);
+        //floatingView = inflater.inflate(R.layout.floating_layout, null)
+
+        View popupView = inflater.inflate(R.layout.popup_window_chat, null);
 
         popupView.setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY

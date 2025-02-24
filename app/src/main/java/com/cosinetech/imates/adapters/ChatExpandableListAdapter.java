@@ -22,6 +22,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.xml.XMLConstants;
+
 // ChatExpandableListAdapter.java
 public class ChatExpandableListAdapter extends BaseExpandableListAdapter {
     private Context context;
@@ -185,7 +187,7 @@ public class ChatExpandableListAdapter extends BaseExpandableListAdapter {
     }
 
     private void showSessionPopupMenu(View view, ChatMessageSession session) {
-        PopupMenu popup = new PopupMenu(view.getContext(), view);
+        PopupMenu popup = new PopupMenu(context, view);
         popup.inflate(R.menu.menu_session);
         popup.setOnMenuItemClickListener(item -> {
             if (item.getItemId() == R.id.action_edit_session) {

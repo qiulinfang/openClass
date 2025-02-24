@@ -117,7 +117,7 @@ public class ChatAiView extends RelativeLayout {
         }
     }
 
-    public void resetSession(ChatMessageSession session) {
+    public void resetCurrentSession(ChatMessageSession session) {
         if(!mCurrentSession.sessionId.equals(session.sessionId)) {
             clearChatHistory();
         }
@@ -127,7 +127,7 @@ public class ChatAiView extends RelativeLayout {
         mChatSessionListAdapter.setSelectedSessionId(mCurrentSession.sessionId);
     }
 
-    private void resetCatalog(ChatMessageCatalogue catalogue) {
+    private void resetCurrentCatalog(ChatMessageCatalogue catalogue) {
         mCurrentCatalog = catalogue;
         String aiName = mCurrentCatalog.catalogName + " - " + mCurrentSession.sessionName;
         mTextViewTitle.setText(aiName);
@@ -210,7 +210,7 @@ public class ChatAiView extends RelativeLayout {
         });
 
         // Send button click
-        mBtnSend.setOnClickListener(v -> sendMessage());
+        mBtnSend.setOnClickListener(v -> sendTextMessage());
 
         mAiChatRequest.setName(Objects.requireNonNull(mUserInfoViewModel.userInfo.getValue()).getName());
 
@@ -226,8 +226,7 @@ public class ChatAiView extends RelativeLayout {
 
         expandableListView.setOnChildClickListener((parent, v, groupPosition, childPosition, id) -> {
             ChatMessageSession session = (ChatMessageSession) mChatSessionListAdapter.getChild(groupPosition, childPosition);
-            resetSession(session);
-            mChatSessionListAdapter.setSelectedSessionId(session.sessionId);
+            resetCurrentSession(session);
             loadSelectedSessionMsg(session.sessionId);
             return true;
         });
@@ -240,8 +239,7 @@ public class ChatAiView extends RelativeLayout {
 //        });
         mChatSessionListAdapter = new ChatExpandableListAdapter(mContext);
         expandableListView.setAdapter(mChatSessionListAdapter);
-        resetSession(mCurrentSession);
-
+        resetCurrentSession(mCurrentSession);
         mChatSessionListAdapter.setOnItemActionListener(new ChatExpandableListAdapter.OnItemActionListener() {
             @Override
             public void onEditCatalogue(ChatMessageCatalogue catalogue) {
@@ -270,10 +268,12 @@ public class ChatAiView extends RelativeLayout {
 
             @Override
             public void onDeleteSession(ChatMessageSession session) {
-                new AlertDialog.Builder(mContext)
-                        .setTitle("删除确认")
-                        .setMessage("确定要删除这个会话吗？这将删除该会话下的所有消息。")
-                        .setPositiveButton("确定", (dialog, which) -> {
+                CustomAlertDialogWindowManager dialogWindowManager = new CustomAlertDialogWindowManager(mContext);
+
+// 显示弹窗，传入自定义的消息和按钮点击事件
+                dialogWindowManager.show("Do you want to continue?", "Confirm", "Cancel",
+                        v -> {
+                            // 处理确认按钮点击事件
                             new Thread(() -> {
                                 mChatDb.deleteMessageSession(session.sessionId);
                                 post(() -> {
@@ -281,13 +281,16 @@ public class ChatAiView extends RelativeLayout {
                                         messageList.clear();
                                         adapterAiChatMessageList.notifyDataSetChanged();
                                     }
-                                    resetSession(mFixedDefaultSession);
+                                    resetCurrentSession(mFixedDefaultSession);
                                     loadData();
                                 });
                             }).start();
-                        })
-                        .setNegativeButton("取消", null)
-                        .show();
+                        },
+
+                        v -> {
+                            // 处理取消按钮点击事件
+                            //Toast.makeText(context, "Canceled", Toast.LENGTH_SHORT).show();
+                        });
             }
         });
 
@@ -349,7 +352,7 @@ public class ChatAiView extends RelativeLayout {
                     Toast.makeText(mContext, "没有搜索到记录", Toast.LENGTH_SHORT).show();
                 }
                 messageList.clear();
-                messageList.addAll(getChatDisplayList(msgs, true));
+                messageList.addAll(convertChatDisplayList(msgs, true));
                 adapterAiChatMessageList.notifyDataSetChanged();
 
                 return true; // 表示我们已经处理了这个事件
@@ -368,9 +371,9 @@ public class ChatAiView extends RelativeLayout {
         if(mChatAiParam.showHistory) {
             List<ChatMessage> msgs = mChatDb.getChatMessageDetail(mCurrentSession.sessionId);
             if(msgs.size() > 2) {
-                messageList.addAll(getChatDisplayList(msgs.subList(msgs.size() - 2, msgs.size()), true));
+                messageList.addAll(convertChatDisplayList(msgs.subList(msgs.size() - 2, msgs.size()), true));
             } else if(msgs.size() > 1) {
-                messageList.addAll(getChatDisplayList(msgs.subList(msgs.size() - 1, msgs.size()), true));
+                messageList.addAll(convertChatDisplayList(msgs.subList(msgs.size() - 1, msgs.size()), true));
             }
             if(!messageList.isEmpty()) {
                 adapterAiChatMessageList.notifyDataSetChanged();
@@ -407,7 +410,7 @@ public class ChatAiView extends RelativeLayout {
 
         ApplicationModelShared app = ApplicationModelShared.getInstance();
         if(app.chatRequest != null) {
-            sendMessageDirectly(app.chatRequest);
+            sendTextMessage(app.chatRequest);
         }
 
         rootLayout = view.findViewById(R.id.layout_chat);  // 父布局
@@ -445,7 +448,7 @@ public class ChatAiView extends RelativeLayout {
         mChatDb.addMessageSession(session);
         mChatSessionListAdapter.addSession(session);
 
-        resetSession(session);
+        resetCurrentSession(session);
     }
 
     private void showEditCatalogueDialog(ChatMessageCatalogue catalogue) {
@@ -512,7 +515,7 @@ public class ChatAiView extends RelativeLayout {
             List<ChatMessage> messages = mChatDb.getChatMessageDetail(sessionId);
             post(() -> {
                 messageList.clear();
-                messageList.addAll(getChatDisplayList(messages, true));
+                messageList.addAll(convertChatDisplayList(messages, true));
                 adapterAiChatMessageList.notifyDataSetChanged();
                 mMsgDetailListView.smoothScrollToPosition(0);
             });
@@ -524,7 +527,7 @@ public class ChatAiView extends RelativeLayout {
         adapterAiChatMessageList.notifyDataSetChanged();
     }
 
-    private List<ChatDisplayItem> getChatDisplayList(List<ChatMessage> msgs,  boolean isHistory) {
+    private List<ChatDisplayItem> convertChatDisplayList(List<ChatMessage> msgs, boolean isHistory) {
         List<ChatDisplayItem> items = new ArrayList<>();
         for (ChatMessage msg: msgs) {
             ChatDisplayItem item = new ChatDisplayItem(msg, isHistory);
@@ -585,7 +588,7 @@ public class ChatAiView extends RelativeLayout {
         });
     }
 
-    private void sendMessage() {
+    private void sendTextMessage() {
         String messageText = mEditMsg.getText().toString().trim();
         if (messageText.trim().isEmpty()) {
             return;
@@ -622,7 +625,7 @@ public class ChatAiView extends RelativeLayout {
         autoDetectChatSessionName(messageText.trim());
     }
 
-    public void sendMessageDirectly(AiChatMessageRequest mo) {
+    public void sendTextMessage(AiChatMessageRequest mo) {
         mEditMsg.postDelayed(() -> {
             mAiChatRequest = mo;
             mAiChatRequest.setReason("start");
@@ -669,7 +672,7 @@ public class ChatAiView extends RelativeLayout {
             mChatDb.updateMessageSessionName(mCurrentSession.sessionId,
                     mCurrentSession.sessionName,
                     updateTick);
-            resetSession(mCurrentSession);
+            resetCurrentSession(mCurrentSession);
         }
     }
     private void loadHistoryMessages() {
@@ -682,10 +685,10 @@ public class ChatAiView extends RelativeLayout {
         int n = curSize + 2;
         if (allMessage.size() <= n) {
             messageList.clear();
-            messageList.addAll(getChatDisplayList(allMessage, true));
+            messageList.addAll(convertChatDisplayList(allMessage, true));
         } else {
             messageList.clear();
-            messageList.addAll(getChatDisplayList(allMessage.subList(allMessage.size() - n, allMessage.size()), true));
+            messageList.addAll(convertChatDisplayList(allMessage.subList(allMessage.size() - n, allMessage.size()), true));
         }
         if(!messageList.isEmpty()) {
             adapterAiChatMessageList.notifyDataSetChanged();

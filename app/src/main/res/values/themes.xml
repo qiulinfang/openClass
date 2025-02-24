@@ -8,16 +8,18 @@
         <item name="android:windowTranslucentStatus">true</item>
         <!-- 隐藏导航栏 -->
         <item name="android:windowTranslucentNavigation">true</item>
+        <item name="alertDialogTheme">@style/CustomDialog</item>
     </style>
 
     <style name="CustomDialog" parent="Theme.AppCompat.DayNight.Dialog.Alert">
         <item name="android:dialogCornerRadius" tools:targetApi="p">32dp</item>
     </style>
+
     <!-- Base application theme. -->
-    <style name="Base.Theme.IMatesApp.FullScreen" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
-    </style>
+<!--    <style name="Base.Theme.IMatesApp.FullScreen" parent="Theme.Material3.DayNight.NoActionBar">-->
+<!--        &lt;!&ndash; Customize your light theme here. &ndash;&gt;-->
+<!--        &lt;!&ndash; <item name="colorPrimary">@color/my_light_primary</item> &ndash;&gt;-->
+<!--    </style>-->
 
     <style name="Theme.IMatesApp.FullScreen.Fullscreen" parent="Theme.IMatesApp.FullScreen">
         <item name="android:actionBarStyle">

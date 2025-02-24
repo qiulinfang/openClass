@@ -220,7 +220,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
                 }
 
                runOnUiThread(() -> {
-                    mChatView.sendMessageDirectly(aiChatMessageRequest);
+                    mChatView.sendTextMessage(aiChatMessageRequest);
                     mChatView.setChatEnable(true);
                 });
             }
@@ -547,7 +547,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
             btnChat.setOnClickListener(v-> {
                 initEpisodeChat(finalIdx);
                 aiChatMessageRequest.setCoversation("我们开始吧");
-                mChatView.sendMessageDirectly(aiChatMessageRequest);
+                mChatView.sendTextMessage(aiChatMessageRequest);
                 mChatView.setChatEnable(true);
             });
         }
@@ -609,7 +609,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
                 }
                 initEpisodeChat(finalIdx);
                 aiChatMessageRequest.setCoversation(conversationMarkdown);
-                mChatView.sendMessageDirectly(aiChatMessageRequest);
+                mChatView.sendTextMessage(aiChatMessageRequest);
                 mChatView.setChatEnable(true);
             });
         }

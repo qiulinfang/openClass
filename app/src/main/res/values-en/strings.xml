@@ -102,4 +102,6 @@
     <string name="chat_ai_press_to_speak">Press to speak</string>
     <string name="chat_ai_release_to_end_speak">Release to send</string>
     <string name="chat_ai_new_session_name">New Chat</string>
+    <string name="popup_alert_dialog_confirm">Confirm</string>
+    <string name="popup_alert_dialog_cancel">Cancel</string>
 </resources>
