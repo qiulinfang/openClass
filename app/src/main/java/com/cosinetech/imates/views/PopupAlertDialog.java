@@ -6,27 +6,17 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.PopupWindow;
 import android.widget.TextView;
 
 import com.cosinetech.imates.R;
 
-import android.content.Context;
-import android.view.Gravity;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.WindowManager;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.TextView;
-
-public class CustomAlertDialogWindowManager {
+public class PopupAlertDialog {
 
     private Context mContext;
     private View mPopupView;
     private WindowManager mWindowManager;
 
-    public CustomAlertDialogWindowManager(Context context) {
+    public PopupAlertDialog(Context context) {
         mContext = context;
         mWindowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
 

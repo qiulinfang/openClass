@@ -268,29 +268,27 @@ public class ChatAiView extends RelativeLayout {
 
             @Override
             public void onDeleteSession(ChatMessageSession session) {
-                CustomAlertDialogWindowManager dialogWindowManager = new CustomAlertDialogWindowManager(mContext);
+                PopupAlertDialog dialog = new PopupAlertDialog(getContext().getApplicationContext());
+                dialog.show("确认删除对话吗?", "确认", "取消",
+                    v -> {
+                        // 处理确认按钮点击事件
+                        new Thread(() -> {
+                            mChatDb.deleteMessageSession(session.sessionId);
+                            post(() -> {
+                                if (session.sessionId.equals(mCurrentSession.sessionId)) {
+                                    messageList.clear();
+                                    adapterAiChatMessageList.notifyDataSetChanged();
+                                }
+                                resetCurrentSession(mFixedDefaultSession);
+                                loadData();
+                            });
+                        }).start();
+                    },
 
-// 显示弹窗，传入自定义的消息和按钮点击事件
-                dialogWindowManager.show("Do you want to continue?", "Confirm", "Cancel",
-                        v -> {
-                            // 处理确认按钮点击事件
-                            new Thread(() -> {
-                                mChatDb.deleteMessageSession(session.sessionId);
-                                post(() -> {
-                                    if (session.sessionId.equals(mCurrentSession.sessionId)) {
-                                        messageList.clear();
-                                        adapterAiChatMessageList.notifyDataSetChanged();
-                                    }
-                                    resetCurrentSession(mFixedDefaultSession);
-                                    loadData();
-                                });
-                            }).start();
-                        },
-
-                        v -> {
-                            // 处理取消按钮点击事件
-                            //Toast.makeText(context, "Canceled", Toast.LENGTH_SHORT).show();
-                        });
+                    v -> {
+                        // 处理取消按钮点击事件
+                        //Toast.makeText(context, "Canceled", Toast.LENGTH_SHORT).show();
+                    });
             }
         });
 
