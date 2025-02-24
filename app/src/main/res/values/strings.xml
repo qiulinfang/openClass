@@ -132,6 +132,8 @@
     <string name="server_responce_error">服务器出现问题</string>
     <string name="summit">提交反馈</string>
     <string name="summit_in_progress">提交中...</string>
+    <string name="chat_ai_catalog_default">学伴</string>
+    <string name="chat_ai_catalog_teacher">教师答疑</string>
 
     <!--    <string name="format_currently_not_supported">Format currently not supported</string>-->
     <!--    <string name="toggle_reflow_mode">Toggle reflow mode</string>-->

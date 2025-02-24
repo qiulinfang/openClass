@@ -95,7 +95,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
     private void initView() {
         mChatView = findViewById(R.id.chat_view);
         ChatAiView.ChatAiParam param = new ChatAiView.ChatAiParam();
-        param.sessionId = subject.name();
+        //param.sessionId = subject.name();
         param.showHeader = false;
         param.chatBotUrl = chatBotUrl;
         param.streamDisplay = subject == Subject.SUBJECT_BIOLOGY;
@@ -112,7 +112,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
         };
 
         mChatView.setChatAiParam(param);
-        mChatView.setAiName("AI解题助手");
+        //mChatView.setAiName("AI解题助手");
         findViewById(R.id.btn_exit).setOnClickListener(v->{
             finish();
         });

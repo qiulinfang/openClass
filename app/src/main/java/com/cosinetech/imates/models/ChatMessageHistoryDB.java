@@ -124,6 +124,8 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         return db.insert(TABLE_MESSAGE_CATALOGUE, null, values);
     }
 
+    ///
+    /// 更新名称和时间
     public synchronized int updateMessageCatalogue(ChatMessageCatalogue catalogue) {
         SQLiteDatabase db = this.getWritableDatabase();
 
@@ -282,7 +284,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
                 null,
                 KEY_TYPE + "=?",
                 new String[]{String.valueOf(type)},
-                null, null, null);
+                null, null, KEY_UPDATE_TIME + " DESC");
 
         if (cursor.moveToFirst()) {
             do {
@@ -337,7 +339,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
                 null,
                 KEY_CATALOG_ID + "=?",
                 new String[]{String.valueOf(catalogId)},
-                null, null, null);
+                null, null, KEY_UPDATE_TIME + " DESC");
 
         if (cursor.moveToFirst()) {
             do {

@@ -95,4 +95,6 @@
     <string name="dialog_title">Tip</string>
     <string name="summit">Summit</string>
     <string name="summit_in_progress">Summiting...</string>
+    <string name="chat_ai_catalog_default">iMates Robot</string>
+    <string name="chat_ai_catalog_teacher">Teacher QA</string>
 </resources>

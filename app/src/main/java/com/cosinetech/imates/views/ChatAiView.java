@@ -45,11 +45,10 @@ import java.util.Objects;
 
 public class ChatAiView extends RelativeLayout {
     public interface AiChatResponseListener {
-        void onAiChatResponced(boolean success);
+        void onAiChatResponse(boolean success);
     }
 
     public static class ChatAiParam {
-        public String sessionId = "";
         public String chatBotUrl;
         public boolean showHeader;
         public boolean streamDisplay;
@@ -58,9 +57,10 @@ public class ChatAiView extends RelativeLayout {
         public AiChatResponseListener listener;
     }
 
-    private UserInfoViewModel userInfoViewModel;
+    private final static String CATALOG_ID_DEFAULT = "0".repeat(32);
+    private final static String CATALOG_ID_TEACHER = "1".repeat(32);
+    private UserInfoViewModel mUserInfoViewModel;
     private Context mContext;
-
     private AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "");
     private RecyclerView recyclerView;
     private SmartRefreshLayout refreshLayout;
@@ -69,11 +69,7 @@ public class ChatAiView extends RelativeLayout {
     private final List<ChatDisplayItem> messageList = new ArrayList<>();
     private Button btnSend;
     private CheckBox chkViewHistory;
-
     private TextView textViewTitle;
-
-    private String aiName = "";
-
     private ChatAiParam mChatAiParam;
 
     // chat message tags
@@ -88,6 +84,9 @@ public class ChatAiView extends RelativeLayout {
     private boolean mInSearchMode = false;
 
     private ChatMessageHistoryDB mChatDb;
+
+    private ChatMessageCatalogue mCurrentCatalog;
+    private ChatMessageSession mCurrentSession;
 
     private int clickCount = 0; // 记录点击次数
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -118,19 +117,58 @@ public class ChatAiView extends RelativeLayout {
         this.setVisibility(VISIBLE);
         mChatAiParam = param;
         if(mChatAiParam != null) {
+            //默认catalog
             initView();
         }
+    }
+
+    public void setSession(ChatMessageSession session) {
+        mCurrentSession = session;
+        mChatDb.addMessageSession(session);
+        String aiName = mCurrentCatalog.catalogName + " - " + mCurrentSession.sessionName;
+        textViewTitle.setText(aiName);
+        // select session
+    }
+
+    private void newCatalog(ChatMessageCatalogue catalogue) {
+        mCurrentCatalog = catalogue;
     }
 
     private void init(Context context) {
         mContext = context;
         // Required empty public constructor
         ViewModelStoreOwner owner = ApplicationModelShared.getInstance();
-        userInfoViewModel = new ViewModelProvider(
+        mUserInfoViewModel = new ViewModelProvider(
                 owner,
                 new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance())
         ).get(UserInfoViewModel.class);
-        mChatDb = ChatMessageHistoryDB.getInstance(context, userInfoViewModel.userPath.getValue());
+        mChatDb = ChatMessageHistoryDB.getInstance(context, mUserInfoViewModel.userPath.getValue());
+
+        ChatMessageCatalogue catalogueDefault = new ChatMessageCatalogue();
+        catalogueDefault.catalogId = CATALOG_ID_DEFAULT;
+        catalogueDefault.catalogName = mContext.getString(R.string.chat_ai_catalog_default);
+        catalogueDefault.createTime = Long.MAX_VALUE;
+        catalogueDefault.updateTime = Long.MAX_VALUE;
+        mChatDb.addMessageCatalogue(catalogueDefault);
+
+        // 和老师对话的分类
+        ChatMessageCatalogue catalogueTeacher = new ChatMessageCatalogue();
+        catalogueTeacher.catalogId = CATALOG_ID_TEACHER;
+        catalogueTeacher.catalogName = mContext.getString(R.string.chat_ai_catalog_teacher);;
+        catalogueTeacher.createTime = Long.MAX_VALUE - 100;
+        catalogueTeacher.updateTime = Long.MAX_VALUE - 100;
+        mChatDb.addMessageCatalogue(catalogueTeacher);
+
+        ChatMessageSession session = new ChatMessageSession();
+        session.catalogId = CATALOG_ID_DEFAULT;
+        session.sessionName = "";
+        session.createTime = 0;
+        session.updateTime = Long.MAX_VALUE - 100;
+
+        mChatDb.addMessageSession(session);
+
+        mCurrentCatalog = catalogueDefault;
+        mCurrentSession = session;
     }
 
     private void initView() {
@@ -170,7 +208,7 @@ public class ChatAiView extends RelativeLayout {
         // Send button click
         btnSend.setOnClickListener(v -> sendMessage());
 
-        aiChatMessageRequest.setName(Objects.requireNonNull(userInfoViewModel.userInfo.getValue()).getName());
+        aiChatMessageRequest.setName(Objects.requireNonNull(mUserInfoViewModel.userInfo.getValue()).getName());
 
         FlowTagLayout layout = view.findViewById(R.id.chat_category);
         mChatAdapterChatCatalog = new AdapterChatCatalog<>(mContext);
@@ -184,7 +222,7 @@ public class ChatAiView extends RelativeLayout {
                 mChatSessions.clear();
                 mChatSessions.addAll(sessions);
                 mChatSessionAdapter.notifyDataSetChanged();
-            }else{
+            } else {
                 mChatSessions.clear();
                 mChatSessionAdapter.notifyDataSetChanged();
             }
@@ -278,18 +316,15 @@ public class ChatAiView extends RelativeLayout {
             view.findViewById(R.id.et_search).setVisibility(View.GONE);
             view.findViewById(R.id.btn_search).setVisibility(View.GONE);
         }
-        if(!aiName.isEmpty()) {
-            textViewTitle.setText(aiName);
-        }
 
         if(mChatAiParam.showHistory) {
-            List<ChatMessage> msgs = mChatDb.getChatMessageDetail(mChatAiParam.sessionId);
+            List<ChatMessage> msgs = mChatDb.getChatMessageDetail(mCurrentSession.sessionId);
             if(msgs.size() > 2) {
                 messageList.addAll(getChatDisplayList(msgs.subList(msgs.size() - 2, msgs.size()), true));
             } else if(msgs.size() > 1) {
                 messageList.addAll(getChatDisplayList(msgs.subList(msgs.size() - 1, msgs.size()), true));
             }
-            if(messageList.size() > 0) {
+            if(!messageList.isEmpty()) {
                 adapterAiChatMessageList.notifyDataSetChanged();
                 recyclerView.smoothScrollToPosition(messageList.size() - 1);
             }
@@ -350,14 +385,9 @@ public class ChatAiView extends RelativeLayout {
         addView(view);
     }
 
-
     public void clearChatHistory() {
         messageList.clear();
         adapterAiChatMessageList.notifyDataSetChanged();
-    }
-
-    public void setAiName(String name) {
-        aiName = name;
     }
 
     private List<ChatDisplayItem> getChatDisplayList(List<ChatMessage> msgs,  boolean isHistory) {
@@ -376,7 +406,7 @@ public class ChatAiView extends RelativeLayout {
         if(aiChatMessageRequest.getDstUrl() != null && !aiChatMessageRequest.getDstUrl().isEmpty()) {
             url = aiChatMessageRequest.getDstUrl();
         }
-        ApiGateWayService.sendChatMessage(aiChatMessageRequest, url, userInfoViewModel.token.getValue(), (success, response) -> {
+        ApiGateWayService.sendChatMessage(aiChatMessageRequest, url, mUserInfoViewModel.token.getValue(), (success, response) -> {
             handler.post(() -> {
                 if (success) {
                     if(!response.trim().isEmpty() && !response.equals("end")) {
@@ -389,7 +419,7 @@ public class ChatAiView extends RelativeLayout {
                     } else {
                         btnSend.setEnabled(true);
                         if(mChatAiParam.listener != null) {
-                            mChatAiParam.listener.onAiChatResponced(true);
+                            mChatAiParam.listener.onAiChatResponse(true);
                         }
                         if(!messageList.isEmpty()) {
                             mChatDb.addChatMessageDetail(messageList.get(messageList.size() - 1).chatMessage);
@@ -405,7 +435,7 @@ public class ChatAiView extends RelativeLayout {
                     adapterAiChatMessageList.updateLastMessage("‼️消息接收失败", false);
                     btnSend.setEnabled(true);
                     if(mChatAiParam.listener != null) {
-                        mChatAiParam.listener.onAiChatResponced(false);
+                        mChatAiParam.listener.onAiChatResponse(false);
                     }
                     if(!messageList.isEmpty()) {
                         mChatDb.addChatMessageDetail(messageList.get(messageList.size() - 1).chatMessage);
@@ -428,7 +458,7 @@ public class ChatAiView extends RelativeLayout {
             ChatMessage message = new ChatMessage(messageText,
                     true,
                     ChatMessage.TYPE_TEXT,
-                    mChatAiParam.sessionId,
+                    mCurrentSession.sessionId,
                     System.currentTimeMillis());
             messageList.add(new ChatDisplayItem(message, message.isSelf));
 
@@ -437,7 +467,7 @@ public class ChatAiView extends RelativeLayout {
             ChatMessage responseMessage = new ChatMessage("",
                     false,
                     ChatMessage.TYPE_TEXT,
-                    mChatAiParam.sessionId,
+                    mCurrentSession.sessionId,
                     System.currentTimeMillis());
             messageList.add(new ChatDisplayItem(responseMessage, responseMessage.isSelf));
 
@@ -455,38 +485,35 @@ public class ChatAiView extends RelativeLayout {
     }
 
     public void sendMessageDirectly(AiChatMessageRequest mo) {
-        etMessage.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                aiChatMessageRequest = mo;
-                aiChatMessageRequest.setReason("start");
-                ChatMessage message = new ChatMessage(aiChatMessageRequest.getCoversation(),
-                        true,
-                        ChatMessage.TYPE_TEXT,
-                        mChatAiParam.sessionId,
-                        System.currentTimeMillis());
-                messageList.add(new ChatDisplayItem(message, !message.isSelf));
-                adapterAiChatMessageList.notifyItemInserted(messageList.size() - 1);
-                etMessage.setText("");
+        etMessage.postDelayed(() -> {
+            aiChatMessageRequest = mo;
+            aiChatMessageRequest.setReason("start");
+            ChatMessage message = new ChatMessage(aiChatMessageRequest.getCoversation(),
+                    true,
+                    ChatMessage.TYPE_TEXT,
+                    mCurrentSession.sessionId,
+                    System.currentTimeMillis());
+            messageList.add(new ChatDisplayItem(message, !message.isSelf));
+            adapterAiChatMessageList.notifyItemInserted(messageList.size() - 1);
+            etMessage.setText("");
 
-                mChatDb.addChatMessageDetail(message);
-                ChatMessage responseMessage = new ChatMessage(
-                        "",
-                        false,
-                        ChatMessage.TYPE_TEXT,
-                        mChatAiParam.sessionId,
-                        System.currentTimeMillis());
-                messageList.add(new ChatDisplayItem(responseMessage, false));
-                adapterAiChatMessageList.notifyItemInserted(messageList.size() - 1);
+            mChatDb.addChatMessageDetail(message);
+            ChatMessage responseMessage = new ChatMessage(
+                    "",
+                    false,
+                    ChatMessage.TYPE_TEXT,
+                    mCurrentSession.sessionId,
+                    System.currentTimeMillis());
+            messageList.add(new ChatDisplayItem(responseMessage, false));
+            adapterAiChatMessageList.notifyItemInserted(messageList.size() - 1);
 
-                recyclerView.smoothScrollToPosition(messageList.size() - 1);
+            recyclerView.smoothScrollToPosition(messageList.size() - 1);
 
 //        aiChatMessageRequest.setReason("start");
 //        aiChatMessageRequest.setCoversation(messageText);
 
-                btnSend.setEnabled(false);
-                pollChat();
-            }
+            btnSend.setEnabled(false);
+            pollChat();
         }, 1000);
     }
 
@@ -494,7 +521,7 @@ public class ChatAiView extends RelativeLayout {
         if(mInSearchMode) {
             return;
         }
-        List<ChatMessage> allMessage =  mChatDb.getChatMessageDetail(mChatAiParam.sessionId);
+        List<ChatMessage> allMessage =  mChatDb.getChatMessageDetail(mCurrentSession.sessionId);
 
         int curSize = messageList.size();
         int n = curSize + 2;
@@ -505,7 +532,7 @@ public class ChatAiView extends RelativeLayout {
             messageList.clear();
             messageList.addAll(getChatDisplayList(allMessage.subList(allMessage.size() - n, allMessage.size()), true));
         }
-        if(messageList.size() > 0) {
+        if(!messageList.isEmpty()) {
             adapterAiChatMessageList.notifyDataSetChanged();
             recyclerView.smoothScrollToPosition(0);
         }

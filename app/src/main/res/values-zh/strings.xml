@@ -96,4 +96,6 @@
     <string name="pdf_tools_outline_title">目录</string>
     <string name="summit">提交反馈</string>
     <string name="summit_in_progress">提交中...</string>
+    <string name="chat_ai_catalog_default">学伴</string>
+    <string name="chat_ai_catalog_teacher">教师答疑</string>
 </resources>

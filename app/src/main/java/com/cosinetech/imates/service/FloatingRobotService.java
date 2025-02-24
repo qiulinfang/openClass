@@ -281,7 +281,7 @@ public class FloatingRobotService extends Service {
 
         ChatAiView  chatView = popupView.findViewById(R.id.chat_view);
         ChatAiView.ChatAiParam param = new ChatAiView.ChatAiParam();
-        param.sessionId = tag;
+        //param.sessionId = tag;
         param.chatBotUrl = url;
         param.showHeader = true;
         param.streamDisplay = true;
