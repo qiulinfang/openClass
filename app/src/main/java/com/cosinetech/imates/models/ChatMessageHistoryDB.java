@@ -171,7 +171,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
     @SuppressLint("Range")
     public synchronized List<ChatMessageCatalogue> getAllMessageCatalogue() {
         List<ChatMessageCatalogue> catalogues = new ArrayList<>();
-        String selectQuery = "SELECT * FROM " + TABLE_MESSAGE_CATALOGUE;
+        String selectQuery = "SELECT * FROM " + TABLE_MESSAGE_CATALOGUE + " ORDER BY " + KEY_UPDATE_TIME;
 
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.rawQuery(selectQuery, null);

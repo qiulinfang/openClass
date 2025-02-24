@@ -98,4 +98,6 @@
     <string name="summit_in_progress">提交中...</string>
     <string name="chat_ai_catalog_default">学伴</string>
     <string name="chat_ai_catalog_teacher">教师答疑</string>
+    <string name="chat_ai_default_session_name">学伴默认</string>
+    <string name="chat_ai_input_hint">请输入内容</string>
 </resources>

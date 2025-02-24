@@ -97,4 +97,6 @@
     <string name="summit_in_progress">Summiting...</string>
     <string name="chat_ai_catalog_default">iMates Robot</string>
     <string name="chat_ai_catalog_teacher">Teacher QA</string>
+    <string name="chat_ai_default_session_name">iMates Defaults</string>
+    <string name="chat_ai_input_hint">Input something here</string>
 </resources>

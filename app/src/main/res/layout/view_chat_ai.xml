@@ -102,30 +102,23 @@
         android:layout_alignParentStart="true"
         android:layout_below="@id/ai_name" />
 
-    <LinearLayout
+    <FrameLayout
         android:id="@+id/history_layout"
         android:layout_width="300dp"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:background="@drawable/chat_ai_history_area_bg"
-        android:minWidth="100dp"
-        android:visibility="visible"
-        android:layout_alignParentStart="true"
         android:layout_below="@id/split_line"
-        android:layout_alignParentBottom="true">
+        android:orientation="vertical"
+        android:background="@drawable/chat_ai_history_area_bg">
 
-        <com.cosinetech.imates.views.FlowTagLayout
-            android:id="@+id/chat_category"
-            android:background="#8090e0"
+        <ExpandableListView
+            android:id="@+id/expandable_list_view"
             android:layout_width="match_parent"
-            android:layout_height="1dp"/>
-
-        <ListView
-            android:id="@+id/chat_session_list"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
-
-    </LinearLayout>
+            android:layout_height="match_parent"
+            android:divider="@android:color/darker_gray"
+            android:dividerHeight="0.5dp"
+            android:groupIndicator="@null"
+            android:clickable="true"/>
+    </FrameLayout>
 
     <View
         android:id="@+id/v_split"
@@ -137,7 +130,7 @@
         android:background="#000000"/>
 
     <com.scwang.smart.refresh.layout.SmartRefreshLayout
-        android:id="@+id/chat_message_list"
+        android:id="@+id/chat_msg_refresh_layout"
         android:layout_below="@id/split_line"
         android:layout_above="@id/chat_input_area"
         android:layout_alignParentBottom="true"
@@ -152,7 +145,7 @@
             android:layout_height="wrap_content"/>
 
         <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/chat_msg_view"
+            android:id="@+id/chat_msg_list"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:padding="8dp"
@@ -204,7 +197,7 @@
             android:layout_marginEnd="16dp"
             android:layout_marginVertical="8dp"
             android:autofillHints=""
-            android:hint="请输入内容"
+            android:hint="@string/chat_ai_input_hint"
             android:background="@drawable/chat_ai_text_input_bg"
             android:textSize="12sp"
             android:paddingHorizontal="10dp"

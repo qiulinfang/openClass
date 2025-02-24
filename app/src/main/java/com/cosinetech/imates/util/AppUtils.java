@@ -11,6 +11,8 @@ import androidx.lifecycle.ViewModelStoreOwner;
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.models.UserInfoViewModel;
 
+import java.io.File;
+
 public class AppUtils {
     public static void restartApp(Context context) {
         Intent intent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
@@ -44,5 +46,15 @@ public class AppUtils {
                 new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance())
         ).get(UserInfoViewModel.class);
         return userInfoViewModel.userId.getValue();
+    }
+
+    public static File getUserFilePath() {
+        ViewModelStoreOwner owner = ApplicationModelShared.getInstance();
+        UserInfoViewModel userInfoViewModel = new ViewModelProvider(
+                owner,
+                new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance())
+        ).get(UserInfoViewModel.class);
+
+        return userInfoViewModel.userPath.getValue();
     }
 }
