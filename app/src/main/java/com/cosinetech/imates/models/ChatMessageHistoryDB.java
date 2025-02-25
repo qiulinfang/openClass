@@ -15,7 +15,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "chat_history.db";
     private static final int DATABASE_VERSION = 1;
 
-    private static String DATABASE_FILE_PATH = "";
+    //private static String DATABASE_FILE_PATH = "";
 
     // Table Names
     private static final String TABLE_MESSAGE_CATALOGUE = "message_catalogue";
@@ -85,9 +85,9 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
 
     private static ChatMessageHistoryDB instance;
 
-    public static ChatMessageHistoryDB getInstance(Context context, File userPath) {
+    public static ChatMessageHistoryDB getInstance(Context context, String userId) {
         if (instance == null) {
-            String dbPath = userPath.getAbsolutePath() + "/" + DATABASE_NAME;
+            String dbPath = userId + "_" + DATABASE_NAME;
             instance = new ChatMessageHistoryDB(context.getApplicationContext(), dbPath);
         }
         return instance;
@@ -95,22 +95,21 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
 
     private ChatMessageHistoryDB(Context context, String dbName) {
         super(context, dbName, null, DATABASE_VERSION);
-        DATABASE_FILE_PATH = dbName;
     }
 
-    @Override
-    public SQLiteDatabase getReadableDatabase() {
-        // 使用 openDatabase 打开指定路径的数据库
-        SQLiteDatabase db = SQLiteDatabase.openDatabase(DATABASE_FILE_PATH, null, SQLiteDatabase.OPEN_READONLY);
-        return db;
-    }
-
-    @Override
-    public SQLiteDatabase getWritableDatabase() {
-        // 使用 openDatabase 打开指定路径的数据库
-        SQLiteDatabase db = SQLiteDatabase.openDatabase(DATABASE_FILE_PATH, null, SQLiteDatabase.OPEN_READWRITE);
-        return db;
-    }
+//    @Override
+//    public SQLiteDatabase getReadableDatabase() {
+//        // 使用 openDatabase 打开指定路径的数据库
+//        SQLiteDatabase db = SQLiteDatabase.openDatabase(DATABASE_FILE_PATH, null, SQLiteDatabase.OPEN_READONLY);
+//        return db;
+//    }
+//
+//    @Override
+//    public SQLiteDatabase getWritableDatabase() {
+//        // 使用 openDatabase 打开指定路径的数据库
+//        SQLiteDatabase db = SQLiteDatabase.openDatabase(DATABASE_FILE_PATH, null, SQLiteDatabase.OPEN_READWRITE);
+//        return db;
+//    }
 
     @Override
     public void onCreate(SQLiteDatabase db) {

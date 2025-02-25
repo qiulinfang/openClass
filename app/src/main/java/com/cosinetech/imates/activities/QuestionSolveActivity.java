@@ -85,7 +85,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
         setContentView(R.layout.activity_question_solve);
         chatBotUrl = getIntent().getStringExtra(KEY_CHATBOT_URL);
         subject = Subject.valueOf(getIntent().getStringExtra(KEY_SUBJECT));
-        mChatDb = ChatMessageHistoryDB.getInstance(this, AppUtils.getUserFilePath());
+        mChatDb = ChatMessageHistoryDB.getInstance(this, AppUtils.getUserId());
         initView();
         setChatCatalogue();
     }

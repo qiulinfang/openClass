@@ -35,6 +35,7 @@ import com.cosinetech.imates.models.ChatMessageCatalogue;
 import com.cosinetech.imates.models.ChatMessageHistoryDB;
 import com.cosinetech.imates.models.ChatMessageSession;
 import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
@@ -147,7 +148,7 @@ public class ChatAiView extends RelativeLayout {
                 owner,
                 new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance())
         ).get(UserInfoViewModel.class);
-        mChatDb = ChatMessageHistoryDB.getInstance(context, mUserInfoViewModel.userPath.getValue());
+        mChatDb = ChatMessageHistoryDB.getInstance(context, AppUtils.getUserId());
 
         // 和老师对话的分类
         mTeacherQACatalogue = new ChatMessageCatalogue(CATALOG_ID_TEACHER,

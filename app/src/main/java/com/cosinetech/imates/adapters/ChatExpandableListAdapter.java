@@ -55,7 +55,7 @@ public class ChatExpandableListAdapter extends BaseExpandableListAdapter {
         this.catalogues = catalogues;
         this.sessionMap.clear();
 
-        ChatMessageHistoryDB db = ChatMessageHistoryDB.getInstance(context, AppUtils.getUserFilePath());
+        ChatMessageHistoryDB db = ChatMessageHistoryDB.getInstance(context, AppUtils.getUserId());
         for (ChatMessageCatalogue catalogue : catalogues) {
             List<ChatMessageSession> sessions = db.getMessageSessionByCatalogId(catalogue.catalogId);
             sessionMap.put(catalogue.catalogId, sessions);
