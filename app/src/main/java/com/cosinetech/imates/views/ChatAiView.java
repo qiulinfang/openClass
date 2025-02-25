@@ -82,7 +82,8 @@ public class ChatAiView extends RelativeLayout {
     private ExpandableListView expandableListView;
     private ChatExpandableListAdapter mChatSessionListAdapter;
 
-    private final ChatMessageSession mFixedDefaultSession = new ChatMessageSession();
+    private final ChatMessageSession mFixedDefaultSession =
+            new ChatMessageSession("", "", "", ChatMessageSession.SessionType.SYSTEM_TALK_AI, 0, 0, 0);
 
     private int clickCount = 0; // 记录点击次数
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -144,24 +145,25 @@ public class ChatAiView extends RelativeLayout {
         ).get(UserInfoViewModel.class);
         mChatDb = ChatMessageHistoryDB.getInstance(context, mUserInfoViewModel.userPath.getValue());
 
-        ChatMessageCatalogue catalogueDefault = new ChatMessageCatalogue();
-        catalogueDefault.catalogId = CATALOG_ID_DEFAULT;
-        catalogueDefault.catalogName = mContext.getString(R.string.chat_ai_catalog_default);
-        catalogueDefault.createTime = Long.MAX_VALUE;
-        catalogueDefault.updateTime = Long.MAX_VALUE;
+        ChatMessageCatalogue catalogueDefault = new ChatMessageCatalogue(CATALOG_ID_DEFAULT,
+                mContext.getString(R.string.chat_ai_catalog_default),
+                        ChatMessageCatalogue.CatalogueType.SYSTEM,
+                        Long.MAX_VALUE,
+                        Long.MAX_VALUE);
         mChatDb.addMessageCatalogue(catalogueDefault);
 
         // 和老师对话的分类
-        ChatMessageCatalogue catalogueTeacher = new ChatMessageCatalogue();
-        catalogueTeacher.catalogId = CATALOG_ID_TEACHER;
-        catalogueTeacher.catalogName = mContext.getString(R.string.chat_ai_catalog_teacher);;
-        catalogueTeacher.createTime = Long.MAX_VALUE - 100;
-        catalogueTeacher.updateTime = Long.MAX_VALUE - 100;
+        ChatMessageCatalogue catalogueTeacher = new ChatMessageCatalogue(CATALOG_ID_TEACHER,
+                mContext.getString(R.string.chat_ai_catalog_teacher),
+                ChatMessageCatalogue.CatalogueType.SYSTEM,
+                Long.MAX_VALUE - 100,
+                Long.MAX_VALUE - 100);
         mChatDb.addMessageCatalogue(catalogueTeacher);
 
         mFixedDefaultSession.catalogId = CATALOG_ID_DEFAULT;
         mFixedDefaultSession.sessionId = SESSION_ID_DEFAULT;
         mFixedDefaultSession.sessionName = mContext.getString(R.string.chat_ai_default_session_name);
+        mFixedDefaultSession.type = ChatMessageSession.SessionType.SYSTEM_TALK_AI;
         mFixedDefaultSession.createTime = 0;
         mFixedDefaultSession.lastMessageTime = Long.MAX_VALUE - 100;
         mFixedDefaultSession.updateTime = Long.MAX_VALUE - 100;
@@ -182,7 +184,7 @@ public class ChatAiView extends RelativeLayout {
         mTextViewTitle = view.findViewById(R.id.ai_name);
         Button btnNewChat = view.findViewById(R.id.btn_new_chat);
         btnNewChat.setOnClickListener(v->{
-            newChatSession();
+            createChatSession();
         });
 
         mEditMsg.setOnFocusChangeListener((v, hasFocus) -> {
@@ -196,7 +198,6 @@ public class ChatAiView extends RelativeLayout {
         });
 
         // Initialize RecyclerView
-        //recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         mMsgDetailListView.setLayoutManager(new CenterLinearLayoutManager(mContext, LinearLayoutManager.VERTICAL, false));
         mMsgDetailListView.setClipToPadding(false);// disabling clip to padding is critical
 
@@ -286,6 +287,22 @@ public class ChatAiView extends RelativeLayout {
                                     resetCurrentSession(mFixedDefaultSession);
                                     loadData();
                                 });
+                            }).start();
+                        })
+                        .setNegativeButton("取消", null)
+                        .create();
+                dlg.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+                dlg.show();
+            }
+            @Override
+            public void onClearSession(ChatMessageSession session) {
+                AlertDialog dlg = new AlertDialog.Builder(mContext)
+                        .setTitle("清除确认")
+                        .setMessage("确定要清除这个会话吗？这将删除会话所有消息。")
+                        .setPositiveButton("确定", (dialog, which) -> {
+                            new Thread(() -> {
+                                mChatDb.deleteChatMessageDetail(session.sessionId);
+                                post(() -> loadData());
                             }).start();
                         })
                         .setNegativeButton("取消", null)
@@ -437,15 +454,15 @@ public class ChatAiView extends RelativeLayout {
         addView(view);
     }
 
-    private void newChatSession() {
-        ChatMessageSession session = new ChatMessageSession();
-        session.catalogId = mCurrentCatalog.catalogId;
-        session.sessionId = UUID.randomUUID().toString();
-        session.sessionName = mContext.getString(R.string.chat_ai_new_session_name);
-        session.createTime = System.currentTimeMillis();
-        session.updateTime = session.createTime;
-        session.type = 0;
-        session.lastMessageTime = session.createTime;
+    private void createChatSession() {
+        long tick = System.currentTimeMillis();
+        ChatMessageSession session = new ChatMessageSession(UUID.randomUUID().toString(),
+                mCurrentCatalog.catalogId,
+                mContext.getString(R.string.chat_ai_new_session_name),
+                ChatMessageSession.SessionType.USER_TALK_AI,
+                tick,
+                tick,
+                tick);
         mChatDb.addMessageSession(session);
         mChatSessionListAdapter.addSession(session);
 
@@ -458,7 +475,7 @@ public class ChatAiView extends RelativeLayout {
         input.setSelection(input.length());
 
         AlertDialog dlg = new AlertDialog.Builder(mContext)
-                .setTitle("编辑目录")
+                .setTitle("重命名分类")
                 .setView(input)
                 .setPositiveButton("确定", (dialog, which) -> {
                     String newName = input.getText().toString().trim();
@@ -483,7 +500,7 @@ public class ChatAiView extends RelativeLayout {
         input.setSelection(input.length());
 
         AlertDialog dlg = new AlertDialog.Builder(mContext)
-                .setTitle("编辑会话")
+                .setTitle("重命名会话")
                 .setView(input)
                 .setPositiveButton("确定", (dialog, which) -> {
                     String newName = input.getText().toString().trim();
@@ -602,7 +619,7 @@ public class ChatAiView extends RelativeLayout {
         // Add message to the list and notify the adapter
         ChatMessage message = new ChatMessage(messageText,
                 true,
-                ChatMessage.TYPE_TEXT,
+                ChatMessage.MessageType.TEXT,
                 mCurrentSession.sessionId,
                 System.currentTimeMillis());
         messageList.add(new ChatDisplayItem(message, message.isSelf));
@@ -611,7 +628,7 @@ public class ChatAiView extends RelativeLayout {
         mChatDb.addChatMessageDetail(message);
         ChatMessage responseMessage = new ChatMessage("",
                 false,
-                ChatMessage.TYPE_TEXT,
+                ChatMessage.MessageType.TEXT,
                 mCurrentSession.sessionId,
                 System.currentTimeMillis());
         messageList.add(new ChatDisplayItem(responseMessage, responseMessage.isSelf));
@@ -636,7 +653,7 @@ public class ChatAiView extends RelativeLayout {
             mAiChatRequest.setReason("start");
             ChatMessage message = new ChatMessage(mAiChatRequest.getCoversation(),
                     true,
-                    ChatMessage.TYPE_TEXT,
+                    ChatMessage.MessageType.TEXT,
                     mCurrentSession.sessionId,
                     System.currentTimeMillis());
             messageList.add(new ChatDisplayItem(message, !message.isSelf));
@@ -647,7 +664,7 @@ public class ChatAiView extends RelativeLayout {
             ChatMessage responseMessage = new ChatMessage(
                     "",
                     false,
-                    ChatMessage.TYPE_TEXT,
+                    ChatMessage.MessageType.TEXT,
                     mCurrentSession.sessionId,
                     System.currentTimeMillis());
             messageList.add(new ChatDisplayItem(responseMessage, false));

@@ -145,6 +145,7 @@
     <string name="chat_ai_menu_catalog_delete">删除</string>
     <string name="chat_ai_menu_session_rename">重命名</string>
     <string name="chat_ai_menu_session_delete">删除</string>
+    <string name="chat_ai_menu_session_clear">清空</string>
 
     <!--    <string name="format_currently_not_supported">Format currently not supported</string>-->
     <!--    <string name="toggle_reflow_mode">Toggle reflow mode</string>-->

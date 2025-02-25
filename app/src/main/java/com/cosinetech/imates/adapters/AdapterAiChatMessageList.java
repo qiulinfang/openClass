@@ -19,13 +19,35 @@ import java.util.List;
 
 public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
-    private static final int TYPE_DATE = 0;
-    private static final int TYPE_TEXT_LEFT = 1;
-    private static final int TYPE_TEXT_RIGHT = 2;
-    private static final int TYPE_IMAGE_LEFT = 3;
-    private static final int TYPE_IMAGE_RIGHT = 4;
-    private static final int TYPE_VOICE_LEFT = 5;
-    private static final int TYPE_VOICE_RIGHT = 6;
+    public enum MessageDisplayType {
+        TYPE_NONE(-1),
+        TYPE_DATE(0),
+        TYPE_TEXT_LEFT(1),
+        TYPE_TEXT_RIGHT(2),
+        TYPE_IMAGE_LEFT(3),
+        TYPE_IMAGE_RIGHT(4),
+        TYPE_VOICE_LEFT(5),
+        TYPE_VOICE_RIGHT(6);
+
+        private final int value;
+
+        MessageDisplayType(int value) {
+            this.value = value;
+        }
+
+        public int getValue() {
+            return value;
+        }
+
+        public static MessageDisplayType fromValue(int value) {
+            for (MessageDisplayType type : values()) {
+                if (type.value == value) {
+                    return type;
+                }
+            }
+            throw new IllegalArgumentException("Unknown MessageType value: " + value);
+        }
+    }
 
     private List<ChatDisplayItem> mMsgList;
 
@@ -58,25 +80,42 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
     public int getItemViewType(int position) {
         ChatDisplayItem item = mMsgList.get(position);
         ChatMessage message = item.chatMessage;
-        if (message.type == ChatMessage.TYPE_DATE) return TYPE_DATE;
-        if (message.type == ChatMessage.TYPE_TEXT) return message.isSelf ? TYPE_TEXT_RIGHT : TYPE_TEXT_LEFT;
-        if (message.type == ChatMessage.TYPE_IMAGE) return message.isSelf ? TYPE_IMAGE_RIGHT : TYPE_IMAGE_LEFT;
-        if (message.type == ChatMessage.TYPE_VOICE) return message.isSelf ? TYPE_VOICE_RIGHT : TYPE_VOICE_LEFT;
-        return -1;
+        if (message.type == ChatMessage.MessageType.DATE) {
+            return MessageDisplayType.TYPE_DATE.getValue();
+        }
+        if (message.type == ChatMessage.MessageType.TEXT) {
+            return message.isSelf ?
+                    MessageDisplayType.TYPE_TEXT_RIGHT.value :
+                    MessageDisplayType.TYPE_TEXT_LEFT.getValue();
+        }
+        if (message.type == ChatMessage.MessageType.IMAGE) {
+            return message.isSelf ?
+                    MessageDisplayType.TYPE_IMAGE_RIGHT.getValue() :
+                    MessageDisplayType.TYPE_IMAGE_LEFT.getValue();
+        }
+        if (message.type == ChatMessage.MessageType.VOICE) {
+            return message.isSelf ?
+                    MessageDisplayType.TYPE_VOICE_RIGHT.getValue():
+                    MessageDisplayType.TYPE_VOICE_LEFT.getValue();
+        }
+        return MessageDisplayType.TYPE_NONE.getValue();
     }
 
     @NonNull
     @Override
-    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType0) {
         View view;
-        switch (viewType) {
+        MessageDisplayType type = MessageDisplayType.fromValue(viewType0);
+        switch (type) {
             case TYPE_DATE:
                 view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_message_date, parent, false);
                 return new DateViewHolder(view);
             case TYPE_TEXT_LEFT:
             case TYPE_TEXT_RIGHT:
                 view = LayoutInflater.from(parent.getContext()).inflate(
-                        viewType == TYPE_TEXT_LEFT ? R.layout.item_message_left : R.layout.item_message_right,
+                        type == MessageDisplayType.TYPE_TEXT_LEFT ?
+                                R.layout.item_message_left :
+                                R.layout.item_message_right,
                         parent,
                         false
                 );
@@ -84,7 +123,9 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             case TYPE_IMAGE_LEFT:
             case TYPE_IMAGE_RIGHT:
                 view = LayoutInflater.from(parent.getContext()).inflate(
-                        viewType == TYPE_IMAGE_LEFT ? R.layout.item_message_image_left : R.layout.item_message_image_right,
+                        type == MessageDisplayType.TYPE_IMAGE_LEFT ?
+                                R.layout.item_message_image_left :
+                                R.layout.item_message_image_right,
                         parent,
                         false
                 );
@@ -92,7 +133,9 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             case TYPE_VOICE_LEFT:
             case TYPE_VOICE_RIGHT:
                 view = LayoutInflater.from(parent.getContext()).inflate(
-                        viewType == TYPE_VOICE_LEFT ? R.layout.item_message_voice_left : R.layout.item_message_voice_right,
+                        type == MessageDisplayType.TYPE_VOICE_LEFT ?
+                                R.layout.item_message_voice_left :
+                                R.layout.item_message_voice_right,
                         parent,
                         false
                 );

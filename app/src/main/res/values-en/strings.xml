@@ -108,4 +108,5 @@
     <string name="chat_ai_menu_catalog_delete">Delete</string>
     <string name="chat_ai_menu_session_rename">Rename</string>
     <string name="chat_ai_menu_session_delete">Delete</string>
+    <string name="chat_ai_menu_session_clear">Clear</string>
 </resources>

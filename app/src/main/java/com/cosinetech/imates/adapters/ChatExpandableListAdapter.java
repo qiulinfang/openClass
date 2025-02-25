@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-// ChatExpandableListAdapter.java
 public class ChatExpandableListAdapter extends BaseExpandableListAdapter {
     private Context context;
     private List<ChatMessageCatalogue> catalogues;
@@ -35,6 +34,7 @@ public class ChatExpandableListAdapter extends BaseExpandableListAdapter {
         void onDeleteCatalogue(ChatMessageCatalogue catalogue);
         void onEditSession(ChatMessageSession session);
         void onDeleteSession(ChatMessageSession session);
+        void onClearSession(ChatMessageSession session);
     }
 
     public ChatExpandableListAdapter(Context context) {
@@ -119,8 +119,10 @@ public class ChatExpandableListAdapter extends BaseExpandableListAdapter {
         holder.textView.setText(catalogue.catalogName);
 
         // 显示更多按钮
-        holder.moreButton.setVisibility(View.VISIBLE);
-        holder.moreButton.setOnClickListener(v -> showCataloguePopupMenu(v, catalogue));
+        if(catalogue.type != ChatMessageCatalogue.CatalogueType.SYSTEM) {
+            holder.moreButton.setVisibility(View.VISIBLE);
+            holder.moreButton.setOnClickListener(v -> showCataloguePopupMenu(v, catalogue));
+        }
 
         if(isExpanded) {
             holder.arrowView.setImageResource(R.drawable.chat_ai_ic_arrow_down);
@@ -186,7 +188,12 @@ public class ChatExpandableListAdapter extends BaseExpandableListAdapter {
 
     private void showSessionPopupMenu(View view, ChatMessageSession session) {
         PopupMenu popup = new PopupMenu(context, view);
-        popup.inflate(R.menu.chat_ai_menu_session);
+
+        if(session.type == ChatMessageSession.SessionType.SYSTEM_TALK_AI) {
+            popup.inflate(R.menu.chat_ai_menu_sys_session);
+        } else {
+            popup.inflate(R.menu.chat_ai_menu_session);
+        }
         popup.setOnMenuItemClickListener(item -> {
             if (item.getItemId() == R.id.action_edit_session) {
                 if (actionListener != null) {
@@ -198,6 +205,10 @@ public class ChatExpandableListAdapter extends BaseExpandableListAdapter {
                     actionListener.onDeleteSession(session);
                 }
                 return true;
+            } else if(item.getItemId() == R.id.action_clear_session) {
+                if (actionListener != null) {
+                    actionListener.onClearSession(session);
+                }
             }
             return false;
         });

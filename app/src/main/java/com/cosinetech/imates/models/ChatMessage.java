@@ -1,39 +1,62 @@
 package com.cosinetech.imates.models;
 
-import com.cosinetech.imates.util.TimeUtils;
+import java.util.UUID;
 
 public class ChatMessage {
-    public static final int TYPE_TEXT = 0;
-    public static final int TYPE_IMAGE = 1;
-    public static final int TYPE_VOICE = 2;
-    public static final int TYPE_DATE = 3;
+    public enum MessageType {
+        TEXT(0),
+        IMAGE(1),
+        VOICE(2),
+        DATE(3);
+
+        private final int value;
+
+        MessageType(int value) {
+            this.value = value;
+        }
+
+        public int getValue() {
+            return value;
+        }
+
+        public static MessageType fromValue(int value) {
+            for (MessageType type : values()) {
+                if (type.value == value) {
+                    return type;
+                }
+            }
+            throw new IllegalArgumentException("Unknown MessageType value: " + value);
+        }
+    }
 
     public long id;  // 数据库自增的ID
-    public String sessionId; //主键
-    public String content;
-    public int type; //消息类型: 0:文本  1:图片 2:语音 3:日期(用于分割对话)
+    public String messageId; //消息id主键
+    public String sessionId; //所属的ChatSession
+    public String content; //消息内容
+    public MessageType type; //消息类型
     public boolean isSelf; // 是自己发送的还是收到的
     public long timestamp; //消息时间戳
 
-    public ChatMessage() {
+    private ChatMessage() {
+        this.messageId = "";
         this.content = "";
         this.isSelf = false;
-        this.type = TYPE_TEXT;
-        this.timestamp =  0;
+        this.type = MessageType.TEXT;
+        this.timestamp = 0;
         this.sessionId = "";
     }
 
-    public ChatMessage(String content, boolean isSelf, int type, String sessionId, long timestamp) {
+    public ChatMessage(String content, boolean isSelf, MessageType type, String sessionId, long timestamp) {
+        this.messageId = UUID.randomUUID().toString();
         this.content = content;
         this.isSelf = isSelf;
         this.type = type;
-        this.timestamp =  timestamp;
         this.sessionId = sessionId;
+        this.timestamp = timestamp;
     }
 
     public void appendContent(String newContent) {
         content += newContent;
     }
-
 }
 
