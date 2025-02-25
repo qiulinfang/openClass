@@ -104,4 +104,8 @@
     <string name="chat_ai_new_session_name">New Chat</string>
     <string name="popup_alert_dialog_confirm">Confirm</string>
     <string name="popup_alert_dialog_cancel">Cancel</string>
+    <string name="chat_ai_menu_catalog_rename">Rename</string>
+    <string name="chat_ai_menu_catalog_delete">Delete</string>
+    <string name="chat_ai_menu_session_rename">Rename</string>
+    <string name="chat_ai_menu_session_delete">Delete</string>
 </resources>

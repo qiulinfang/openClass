@@ -10,6 +10,7 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
@@ -248,7 +249,7 @@ public class ChatAiView extends RelativeLayout {
 
             @Override
             public void onDeleteCatalogue(ChatMessageCatalogue catalogue) {
-                new AlertDialog.Builder(mContext)
+                AlertDialog dlg = new AlertDialog.Builder(mContext)
                         .setTitle("删除确认")
                         .setMessage("确定要删除这个目录吗？这将删除该目录下的所有会话和消息。")
                         .setPositiveButton("确定", (dialog, which) -> {
@@ -258,7 +259,9 @@ public class ChatAiView extends RelativeLayout {
                             }).start();
                         })
                         .setNegativeButton("取消", null)
-                        .show();
+                        .create();
+                dlg.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+                dlg.show();
             }
 
             @Override
@@ -268,27 +271,27 @@ public class ChatAiView extends RelativeLayout {
 
             @Override
             public void onDeleteSession(ChatMessageSession session) {
-                PopupAlertDialog dialog = new PopupAlertDialog(getContext().getApplicationContext());
-                dialog.show("确认删除对话吗?", "确认", "取消",
-                    v -> {
-                        // 处理确认按钮点击事件
-                        new Thread(() -> {
-                            mChatDb.deleteMessageSession(session.sessionId);
-                            post(() -> {
-                                if (session.sessionId.equals(mCurrentSession.sessionId)) {
-                                    messageList.clear();
-                                    adapterAiChatMessageList.notifyDataSetChanged();
-                                }
-                                resetCurrentSession(mFixedDefaultSession);
-                                loadData();
-                            });
-                        }).start();
-                    },
-
-                    v -> {
-                        // 处理取消按钮点击事件
-                        //Toast.makeText(context, "Canceled", Toast.LENGTH_SHORT).show();
-                    });
+                AlertDialog dlg = new AlertDialog.Builder(mContext)
+                        .setTitle("删除确认")
+                        .setMessage("确定要删除这个会话吗？这将删除该会话下的所有消息。")
+                        .setPositiveButton("确定", (dialog, which) -> {
+                            // 处理确认按钮点击事件
+                            new Thread(() -> {
+                                mChatDb.deleteMessageSession(session.sessionId);
+                                post(() -> {
+                                    if (session.sessionId.equals(mCurrentSession.sessionId)) {
+                                        messageList.clear();
+                                        adapterAiChatMessageList.notifyDataSetChanged();
+                                    }
+                                    resetCurrentSession(mFixedDefaultSession);
+                                    loadData();
+                                });
+                            }).start();
+                        })
+                        .setNegativeButton("取消", null)
+                        .create();
+                dlg.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+                dlg.show();
             }
         });
 
@@ -454,7 +457,7 @@ public class ChatAiView extends RelativeLayout {
         input.setText(catalogue.catalogName);
         input.setSelection(input.length());
 
-        new AlertDialog.Builder(mContext)
+        AlertDialog dlg = new AlertDialog.Builder(mContext)
                 .setTitle("编辑目录")
                 .setView(input)
                 .setPositiveButton("确定", (dialog, which) -> {
@@ -469,7 +472,9 @@ public class ChatAiView extends RelativeLayout {
                     }
                 })
                 .setNegativeButton("取消", null)
-                .show();
+                .create();
+        dlg.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+        dlg.show();
     }
 
     private void showEditSessionDialog(ChatMessageSession session) {
@@ -477,7 +482,7 @@ public class ChatAiView extends RelativeLayout {
         input.setText(session.sessionName);
         input.setSelection(input.length());
 
-        new AlertDialog.Builder(mContext)
+        AlertDialog dlg = new AlertDialog.Builder(mContext)
                 .setTitle("编辑会话")
                 .setView(input)
                 .setPositiveButton("确定", (dialog, which) -> {
@@ -492,7 +497,9 @@ public class ChatAiView extends RelativeLayout {
                     }
                 })
                 .setNegativeButton("取消", null)
-                .show();
+                .create();
+        dlg.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+        dlg.show();
     }
 
     private void loadData() {

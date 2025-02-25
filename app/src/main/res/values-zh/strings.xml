@@ -105,4 +105,8 @@
     <string name="chat_ai_new_session_name">新对话</string>
     <string name="popup_alert_dialog_confirm">确认</string>
     <string name="popup_alert_dialog_cancel">取消</string>
+    <string name="chat_ai_menu_catalog_rename">重命名</string>
+    <string name="chat_ai_menu_catalog_delete">删除</string>
+    <string name="chat_ai_menu_session_rename">重命名</string>
+    <string name="chat_ai_menu_session_delete">删除</string>
 </resources>
