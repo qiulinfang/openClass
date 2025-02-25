@@ -59,8 +59,9 @@ public class ChatAiView extends RelativeLayout {
     }
 
     private final static String CATALOG_ID_DEFAULT = "0".repeat(32);
-    private final static String CATALOG_ID_TEACHER = "1".repeat(32);
-    private final static String SESSION_ID_DEFAULT = "2".repeat(32);
+    private final static String CATALOG_ID_TEACHER = "3".repeat(32);
+    private final static String CATALOG_ID_MY_FAVOR = "7".repeat(32);
+    private final static String SESSION_ID_DEFAULT = "9".repeat(32);
     private UserInfoViewModel mUserInfoViewModel;
     private Context mContext;
     private AiChatMessageRequest mAiChatRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "");
@@ -82,9 +83,11 @@ public class ChatAiView extends RelativeLayout {
     private ExpandableListView expandableListView;
     private ChatExpandableListAdapter mChatSessionListAdapter;
 
-    private final ChatMessageSession mFixedDefaultSession =
-            new ChatMessageSession("", "", "", ChatMessageSession.SessionType.SYSTEM_TALK_AI, 0, 0, 0);
+    private ChatMessageSession mFixedDefaultSession;
+    private ChatMessageCatalogue mDefaultCatalogue;
+    private ChatMessageCatalogue mTeacherQACatalogue;
 
+    private ChatMessageCatalogue mMyFavorCatalogue;
     private int clickCount = 0; // 记录点击次数
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable resetClickCountRunnable = new Runnable() {
@@ -122,6 +125,7 @@ public class ChatAiView extends RelativeLayout {
     public void resetCurrentSession(ChatMessageSession session) {
         if(!mCurrentSession.sessionId.equals(session.sessionId)) {
             clearChatHistory();
+            loadSelectedSessionMsg(session.sessionId);
         }
         mCurrentSession = session;
         String aiName = mCurrentCatalog.catalogName + " - " + mCurrentSession.sessionName;
@@ -129,7 +133,7 @@ public class ChatAiView extends RelativeLayout {
         mChatSessionListAdapter.setSelectedSessionId(mCurrentSession.sessionId);
     }
 
-    private void resetCurrentCatalog(ChatMessageCatalogue catalogue) {
+    public void resetCurrentCatalog(ChatMessageCatalogue catalogue) {
         mCurrentCatalog = catalogue;
         String aiName = mCurrentCatalog.catalogName + " - " + mCurrentSession.sessionName;
         mTextViewTitle.setText(aiName);
@@ -145,32 +149,37 @@ public class ChatAiView extends RelativeLayout {
         ).get(UserInfoViewModel.class);
         mChatDb = ChatMessageHistoryDB.getInstance(context, mUserInfoViewModel.userPath.getValue());
 
-        ChatMessageCatalogue catalogueDefault = new ChatMessageCatalogue(CATALOG_ID_DEFAULT,
-                mContext.getString(R.string.chat_ai_catalog_default),
-                        ChatMessageCatalogue.CatalogueType.SYSTEM,
-                        Long.MAX_VALUE,
-                        Long.MAX_VALUE);
-        mChatDb.addMessageCatalogue(catalogueDefault);
-
         // 和老师对话的分类
-        ChatMessageCatalogue catalogueTeacher = new ChatMessageCatalogue(CATALOG_ID_TEACHER,
+        mTeacherQACatalogue = new ChatMessageCatalogue(CATALOG_ID_TEACHER,
                 mContext.getString(R.string.chat_ai_catalog_teacher),
                 ChatMessageCatalogue.CatalogueType.SYSTEM,
-                Long.MAX_VALUE - 100,
-                Long.MAX_VALUE - 100);
-        mChatDb.addMessageCatalogue(catalogueTeacher);
+                Long.MAX_VALUE,
+                Long.MAX_VALUE);
+        mChatDb.addMessageCatalogue(mTeacherQACatalogue);
 
-        mFixedDefaultSession.catalogId = CATALOG_ID_DEFAULT;
-        mFixedDefaultSession.sessionId = SESSION_ID_DEFAULT;
-        mFixedDefaultSession.sessionName = mContext.getString(R.string.chat_ai_default_session_name);
-        mFixedDefaultSession.type = ChatMessageSession.SessionType.SYSTEM_TALK_AI;
-        mFixedDefaultSession.createTime = 0;
-        mFixedDefaultSession.lastMessageTime = Long.MAX_VALUE - 100;
-        mFixedDefaultSession.updateTime = Long.MAX_VALUE - 100;
+        mDefaultCatalogue = new ChatMessageCatalogue(CATALOG_ID_DEFAULT,
+                mContext.getString(R.string.chat_ai_catalog_default),
+                        ChatMessageCatalogue.CatalogueType.SYSTEM,
+                        Long.MAX_VALUE  - 100,
+                        Long.MAX_VALUE - 100);
+        mChatDb.addMessageCatalogue(mDefaultCatalogue);
+
+        mMyFavorCatalogue = new ChatMessageCatalogue(CATALOG_ID_MY_FAVOR,
+                mContext.getString(R.string.chat_ai_catalog_my_favor),
+                ChatMessageCatalogue.CatalogueType.SYSTEM,
+                Long.MAX_VALUE  - 200,
+                Long.MAX_VALUE - 200);
+        mChatDb.addMessageCatalogue(mMyFavorCatalogue);
+
+
+        mFixedDefaultSession = new ChatMessageSession(SESSION_ID_DEFAULT, CATALOG_ID_DEFAULT,
+                mContext.getString(R.string.chat_ai_default_session_name),
+                ChatMessageSession.SessionType.SYSTEM_TALK_AI,
+                Long.MAX_VALUE - 100, 0, Long.MAX_VALUE - 100);
 
         mChatDb.addMessageSession(mFixedDefaultSession);
 
-        mCurrentCatalog = catalogueDefault;
+        mCurrentCatalog = mDefaultCatalogue;
         mCurrentSession = mFixedDefaultSession;
     }
 
@@ -227,7 +236,9 @@ public class ChatAiView extends RelativeLayout {
         });
 
         expandableListView.setOnChildClickListener((parent, v, groupPosition, childPosition, id) -> {
+            ChatMessageCatalogue catalog = (ChatMessageCatalogue) mChatSessionListAdapter.getGroup(groupPosition);
             ChatMessageSession session = (ChatMessageSession) mChatSessionListAdapter.getChild(groupPosition, childPosition);
+            resetCurrentCatalog(catalog);
             resetCurrentSession(session);
             loadSelectedSessionMsg(session.sessionId);
             return true;
@@ -239,7 +250,7 @@ public class ChatAiView extends RelativeLayout {
 //                }
 //            }
 //        });
-        mChatSessionListAdapter = new ChatExpandableListAdapter(mContext);
+        mChatSessionListAdapter = new ChatExpandableListAdapter(mContext, expandableListView);
         expandableListView.setAdapter(mChatSessionListAdapter);
         resetCurrentSession(mCurrentSession);
         mChatSessionListAdapter.setOnItemActionListener(new ChatExpandableListAdapter.OnItemActionListener() {
@@ -301,8 +312,11 @@ public class ChatAiView extends RelativeLayout {
                         .setMessage("确定要清除这个会话吗？这将删除会话所有消息。")
                         .setPositiveButton("确定", (dialog, which) -> {
                             new Thread(() -> {
-                                mChatDb.deleteChatMessageDetail(session.sessionId);
-                                post(() -> loadData());
+                                mChatDb.clearMessageSession(session.sessionId);
+                                post(() -> {
+                                    clearChatHistory();
+                                    loadData();
+                                });
                             }).start();
                         })
                         .setNegativeButton("取消", null)
@@ -320,12 +334,11 @@ public class ChatAiView extends RelativeLayout {
             } else {
                 view.findViewById(R.id.history_layout).setVisibility(View.GONE);
                 view.findViewById(R.id.chat_input_area).setVisibility(View.VISIBLE);
-                mTextViewTitle.setEnabled(true);
             }
         });
 
-        CheckBox btnCancelSearch = view.findViewById(R.id.btn_search);
         EditText editTextSearch = view.findViewById(R.id.et_search);
+        CheckBox btnCancelSearch = view.findViewById(R.id.btn_search);
         btnCancelSearch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if(isChecked) {
                 editTextSearch.setVisibility(VISIBLE);
@@ -348,11 +361,11 @@ public class ChatAiView extends RelativeLayout {
         editTextSearch.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
                 // 当 EditText 获取到焦点时执行的代码
-                btnCancelSearch.setVisibility(View.VISIBLE);
+                //btnCancelSearch.setVisibility(View.VISIBLE);
                 mInSearchMode = true;
             } else {
                 // 当 EditText 失去焦点时执行的代码
-                btnCancelSearch.setVisibility(View.INVISIBLE);
+                //btnCancelSearch.setVisibility(View.INVISIBLE);
                 mInSearchMode = false;
                 loadHistoryMessages();
             }
@@ -361,14 +374,15 @@ public class ChatAiView extends RelativeLayout {
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                 String searchContent = editTextSearch.getText().toString();
                 if(searchContent.trim().isEmpty()) {
-                    Toast.makeText(mContext, "请输入要搜索的关键字", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(mContext, "请输入要搜索的关键字", Toast.LENGTH_LONG).show();
                     return true;
                 }
                 // 用户点击了搜索按钮，这里可以执行搜索逻辑
                 List<ChatMessage> msgs =  mChatDb.searchMessageDetail(searchContent);
                 if(msgs.isEmpty()) {
-                    Toast.makeText(mContext, "没有搜索到记录", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(mContext, "没有搜索到记录", Toast.LENGTH_LONG).show();
                 }
+                clearChatHistory();
                 messageList.clear();
                 messageList.addAll(convertChatDisplayList(msgs, true));
                 adapterAiChatMessageList.notifyDataSetChanged();
@@ -378,12 +392,20 @@ public class ChatAiView extends RelativeLayout {
             return false;
         });
 
+        Button btnAddFavor = view.findViewById(R.id.btn_add_favor);
+        btnAddFavor.setOnClickListener(v->{
+            if(!messageList.isEmpty()) {
+                showAddMyFavorEditDialog();
+            }
+        });
+
         if(!mChatAiParam.showHeader) {
             chkViewHistory.setVisibility(View.INVISIBLE);
             view.findViewById(R.id.history_layout).setVisibility(View.GONE);
 
             view.findViewById(R.id.et_search).setVisibility(View.GONE);
             view.findViewById(R.id.btn_search).setVisibility(View.GONE);
+            view.findViewById(R.id.btn_new_chat).setVisibility(View.GONE);
         }
 
         if(mChatAiParam.showHistory) {
@@ -457,7 +479,7 @@ public class ChatAiView extends RelativeLayout {
     private void createChatSession() {
         long tick = System.currentTimeMillis();
         ChatMessageSession session = new ChatMessageSession(UUID.randomUUID().toString(),
-                mCurrentCatalog.catalogId,
+                mDefaultCatalogue.catalogId,
                 mContext.getString(R.string.chat_ai_new_session_name),
                 ChatMessageSession.SessionType.USER_TALK_AI,
                 tick,
@@ -466,6 +488,7 @@ public class ChatAiView extends RelativeLayout {
         mChatDb.addMessageSession(session);
         mChatSessionListAdapter.addSession(session);
 
+        resetCurrentCatalog(mDefaultCatalogue);
         resetCurrentSession(session);
     }
 
@@ -519,6 +542,41 @@ public class ChatAiView extends RelativeLayout {
         dlg.show();
     }
 
+    private void showAddMyFavorEditDialog() {
+        EditText input = new EditText(mContext);
+        input.setText(mContext.getString(R.string.chat_ai_default_favor_name));
+        input.setSelection(input.length());
+
+        AlertDialog dlg = new AlertDialog.Builder(mContext)
+                .setTitle("收藏会话")
+                .setView(input)
+                .setPositiveButton("确定", (dialog, which) -> {
+                    String newName = input.getText().toString().trim();
+                    ArrayList<ChatDisplayItem> msgs = new ArrayList<>(messageList);
+                    if (!TextUtils.isEmpty(newName)) {
+                        new Thread(() -> {
+                            ChatMessageSession session = new ChatMessageSession(UUID.randomUUID().toString(),
+                                    mMyFavorCatalogue.catalogId, newName, ChatMessageSession.SessionType.USER_FAVOR,
+                                    0, 0, 0);
+                            mChatDb.addMessageSession(session);
+                            for (ChatDisplayItem item: msgs) {
+                                // copy a message
+                                item.chatMessage.messageId = UUID.randomUUID().toString();
+                                item.chatMessage.sessionId = session.sessionId;
+                                mChatDb.addChatMessageDetail(item.chatMessage);
+                            }
+                            post(() -> {
+                                loadData();
+                                Toast.makeText(mContext, "收藏成功", Toast.LENGTH_SHORT).show();
+                            });
+                        }).start();
+                    }
+                })
+                .setNegativeButton("取消", null)
+                .create();
+        dlg.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+        dlg.show();
+    }
     private void loadData() {
         new Thread(() -> {
             List<ChatMessageCatalogue> catalogues = mChatDb.getAllMessageCatalogue();
@@ -684,10 +742,10 @@ public class ChatAiView extends RelativeLayout {
 
     private void autoDetectChatSessionName(String content) {
         if(mCurrentSession.createTime == mCurrentSession.updateTime) {
-            if(content.trim().length() < 10) {
+            if(content.trim().length() < ChatMessageSession.MAX_SESSION_NAME_LENGTH) {
                 mCurrentSession.sessionName = content.trim();
             } else {
-                mCurrentSession.sessionName = content.trim().substring(0, 9);
+                mCurrentSession.sessionName = content.trim().substring(0, ChatMessageSession.MAX_SESSION_NAME_LENGTH) + "...";
             }
             long updateTick = System.currentTimeMillis();
             mCurrentSession.updateTime = updateTick;

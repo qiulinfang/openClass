@@ -28,9 +28,13 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.AdapterQuestionList;
 import com.cosinetech.imates.adapters.AdapterSimilarQuestionList;
 import com.cosinetech.imates.models.AddQuestionRequest;
+import com.cosinetech.imates.models.ChatMessageCatalogue;
+import com.cosinetech.imates.models.ChatMessageHistoryDB;
+import com.cosinetech.imates.models.ChatMessageSession;
 import com.cosinetech.imates.models.FindSimilarQuestionRequest;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.views.ChatAiView;
 import com.cosinetech.imates.views.MarkdownTextView;
@@ -42,6 +46,7 @@ import com.cosinetech.imates.webservice.Question;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class QuestionSolveActivity extends AppCompatActivity {
     public static final String KEY_CHATBOT_URL = "KEY_CHAT_BOT_URL";
@@ -63,9 +68,13 @@ public class QuestionSolveActivity extends AppCompatActivity {
 
     private ChatAiView mChatView;
 
+    private ChatMessageHistoryDB mChatDb;
+
     private final List<Question> mQuestions = new ArrayList<>();
 
     private final List<Question> mSimilarQuestion = new ArrayList<>();
+
+    private ChatMessageCatalogue mChatCatalogue;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,7 +85,9 @@ public class QuestionSolveActivity extends AppCompatActivity {
         setContentView(R.layout.activity_question_solve);
         chatBotUrl = getIntent().getStringExtra(KEY_CHATBOT_URL);
         subject = Subject.valueOf(getIntent().getStringExtra(KEY_SUBJECT));
+        mChatDb = ChatMessageHistoryDB.getInstance(this, AppUtils.getUserFilePath());
         initView();
+        setChatCatalogue();
     }
 
     @Override
@@ -198,13 +209,29 @@ public class QuestionSolveActivity extends AppCompatActivity {
                 setViewAnswer(false);
                 mChatView.clearChatHistory();
 
-                View essay_view = findViewById(R.id.essay_question);
-                if(pos == mQuestions.size() - 1) {
-                    mCurrentQuestion.isAiGuiding = true;
-                    adapterQuestionList.notifyItemChanged(pos);
-                    essay_view.setVisibility(View.VISIBLE);
-                } else {
-                    essay_view.setVisibility(View.GONE);
+                String questionString = mCurrentQuestion.getQuestion();
+                long tick = System.currentTimeMillis();
+                ChatMessageSession session = new ChatMessageSession(UUID.nameUUIDFromBytes(mCurrentQuestion.getQuestion().getBytes()).toString(),
+                        mChatCatalogue.catalogId,
+                        (questionString.length() > ChatMessageSession.MAX_SESSION_NAME_LENGTH ?
+                                questionString.substring(0, ChatMessageSession.MAX_SESSION_NAME_LENGTH) + "..." :
+                                questionString),
+                        ChatMessageSession.SessionType.USER_TALK_AI,
+                        tick,
+                        tick,
+                        0);
+                mChatDb.addMessageSession(session);
+                mChatView.resetCurrentSession(session);
+
+                if(subject == Subject.SUBJECT_BIOLOGY) {
+                    View essay_view = findViewById(R.id.essay_question);
+                    if (pos == mQuestions.size() - 1) {
+                        mCurrentQuestion.isAiGuiding = true;
+                        adapterQuestionList.notifyItemChanged(pos);
+                        essay_view.setVisibility(View.VISIBLE);
+                    } else {
+                        essay_view.setVisibility(View.GONE);
+                    }
                 }
             }
 
@@ -322,6 +349,35 @@ public class QuestionSolveActivity extends AppCompatActivity {
             }
         });
 
+    }
+
+    private String getCatalogueName() {
+        switch(subject) {
+            case SUBJECT_BIOLOGY:
+                return getString(R.string.subject_name_biology);
+            case SUBJECT_CHEMISTRY:
+                return getString(R.string.subject_name_chemistry);
+            case SUBJECT_CHINESE:
+                return getString(R.string.subject_name_chinese);
+            case SUBJECT_ENGLISH:
+                return getString(R.string.subject_name_english);
+            case SUBJECT_MATH:
+                return getString(R.string.subject_name_math);
+            case SUBJECT_PHYSICS:
+                return getString(R.string.subject_name_physics);
+            default:
+                return getString(R.string.subject_name_all);
+        }
+    }
+    private void setChatCatalogue() {
+        long tick = System.currentTimeMillis();
+        mChatCatalogue = new ChatMessageCatalogue(UUID.nameUUIDFromBytes(subject.name().getBytes()).toString(),
+                getCatalogueName(),
+                ChatMessageCatalogue.CatalogueType.SYSTEM,
+                tick,
+                tick);
+        mChatDb.addMessageCatalogue(mChatCatalogue);
+        mChatView.resetCurrentCatalog(mChatCatalogue);
     }
 
     private void findSimilarQuestion() {

@@ -110,4 +110,7 @@
     <string name="chat_ai_menu_session_rename">重命名</string>
     <string name="chat_ai_menu_session_delete">删除</string>
     <string name="chat_ai_menu_session_clear">清空</string>
+    <string name="subject_name_all">其他</string>
+    <string name="chat_ai_catalog_my_favor">我的收藏</string>
+    <string name="chat_ai_default_favor_name">收藏1</string>
 </resources>

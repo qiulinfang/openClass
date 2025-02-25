@@ -15,6 +15,8 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "chat_history.db";
     private static final int DATABASE_VERSION = 1;
 
+    private static String DATABASE_FILE_PATH = "";
+
     // Table Names
     private static final String TABLE_MESSAGE_CATALOGUE = "message_catalogue";
     private static final String TABLE_MESSAGE_SESSION = "message_session";
@@ -85,14 +87,29 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
 
     public static ChatMessageHistoryDB getInstance(Context context, File userPath) {
         if (instance == null) {
-            String dbName = userPath.getAbsolutePath() + "/" + DATABASE_NAME;
-            instance = new ChatMessageHistoryDB(context.getApplicationContext(), dbName);
+            String dbPath = userPath.getAbsolutePath() + "/" + DATABASE_NAME;
+            instance = new ChatMessageHistoryDB(context.getApplicationContext(), dbPath);
         }
         return instance;
     }
 
     private ChatMessageHistoryDB(Context context, String dbName) {
         super(context, dbName, null, DATABASE_VERSION);
+        DATABASE_FILE_PATH = dbName;
+    }
+
+    @Override
+    public SQLiteDatabase getReadableDatabase() {
+        // 使用 openDatabase 打开指定路径的数据库
+        SQLiteDatabase db = SQLiteDatabase.openDatabase(DATABASE_FILE_PATH, null, SQLiteDatabase.OPEN_READONLY);
+        return db;
+    }
+
+    @Override
+    public SQLiteDatabase getWritableDatabase() {
+        // 使用 openDatabase 打开指定路径的数据库
+        SQLiteDatabase db = SQLiteDatabase.openDatabase(DATABASE_FILE_PATH, null, SQLiteDatabase.OPEN_READWRITE);
+        return db;
     }
 
     @Override
@@ -310,6 +327,13 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
         deleteAllChatMessageDetail();
         return db.delete(TABLE_MESSAGE_SESSION, null, null);
+    }
+
+    public synchronized int clearMessageSession(String sessionId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        return db.delete(TABLE_MESSAGE_DETAIL,
+                MESSAGE_SESSION_ID + "=?",
+                new String[]{sessionId});
     }
 
     @SuppressLint("Range")

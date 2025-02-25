@@ -109,4 +109,7 @@
     <string name="chat_ai_menu_session_rename">Rename</string>
     <string name="chat_ai_menu_session_delete">Delete</string>
     <string name="chat_ai_menu_session_clear">Clear</string>
+    <string name="subject_name_all">Misc</string>
+    <string name="chat_ai_catalog_my_favor">My Favorite</string>
+    <string name="chat_ai_default_favor_name">Chat1</string>
 </resources>

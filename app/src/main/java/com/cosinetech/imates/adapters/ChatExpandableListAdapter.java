@@ -6,6 +6,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseExpandableListAdapter;
+import android.widget.ExpandableListView;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -29,6 +30,8 @@ public class ChatExpandableListAdapter extends BaseExpandableListAdapter {
     private String selectedSessionId;
     private OnItemActionListener actionListener;
 
+    private final ExpandableListView mView;
+
     public interface OnItemActionListener {
         void onEditCatalogue(ChatMessageCatalogue catalogue);
         void onDeleteCatalogue(ChatMessageCatalogue catalogue);
@@ -37,10 +40,11 @@ public class ChatExpandableListAdapter extends BaseExpandableListAdapter {
         void onClearSession(ChatMessageSession session);
     }
 
-    public ChatExpandableListAdapter(Context context) {
+    public ChatExpandableListAdapter(Context context, ExpandableListView view) {
         this.context = context;
         this.catalogues = new ArrayList<>();
         this.sessionMap = new HashMap<>();
+        this.mView = view;
     }
 
     public void setOnItemActionListener(OnItemActionListener listener) {
@@ -156,6 +160,9 @@ public class ChatExpandableListAdapter extends BaseExpandableListAdapter {
         if (session.sessionId.equals(selectedSessionId)) {
             convertView.setBackgroundColor(context.getResources().getColor(R.color.selected_background));
             holder.moreButton.setVisibility(View.VISIBLE);
+            if(!mView.isGroupExpanded(groupPosition)) {
+                mView.expandGroup(groupPosition);
+            }
         } else {
             convertView.setBackgroundColor(Color.TRANSPARENT);
             holder.moreButton.setVisibility(View.GONE);

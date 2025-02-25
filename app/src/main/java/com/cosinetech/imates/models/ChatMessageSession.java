@@ -29,6 +29,8 @@ public class ChatMessageSession {
         }
     }
 
+    public static final int MAX_SESSION_NAME_LENGTH = 15;
+
     public long id;  // 数据库自增的ID
     public String sessionId; //主键, 会话ID
     public String catalogId; //所属的ChatMessageCatalogue

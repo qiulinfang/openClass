@@ -109,6 +109,7 @@
         android:layout_height="match_parent"
         android:layout_below="@id/split_line"
         android:orientation="vertical"
+        android:visibility="visible"
         android:background="@drawable/chat_ai_history_area_bg">
 
         <ExpandableListView
