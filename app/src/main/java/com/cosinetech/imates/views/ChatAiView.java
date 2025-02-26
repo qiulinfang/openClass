@@ -36,7 +36,6 @@ import com.cosinetech.imates.models.ChatMessageHistoryDB;
 import com.cosinetech.imates.models.ChatMessageSession;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.util.AppUtils;
-import com.cosinetech.imates.util.ImageUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
@@ -91,6 +90,8 @@ public class ChatAiView extends RelativeLayout {
 
     private ChatMessageCatalogue mMyFavorCatalogue;
     private int clickCount = 0; // 记录点击次数
+
+    private ChatMessage mLastReceivingMsg;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable resetClickCountRunnable = new Runnable() {
         @Override
@@ -630,11 +631,13 @@ public class ChatAiView extends RelativeLayout {
         if(mAiChatRequest.getDstUrl() != null && !mAiChatRequest.getDstUrl().isEmpty()) {
             url = mAiChatRequest.getDstUrl();
         }
-        ApiGateWayService.sendChatMessage(mAiChatRequest, url, mUserInfoViewModel.token.getValue(), (success, response, sessionId) -> {
+        ApiGateWayService.sendChatMessage(mAiChatRequest, mLastReceivingMsg.messageId, url, mUserInfoViewModel.token.getValue(), (success, response, sessionId, msgId) -> {
             handler.post(() -> {
                 if (success) {
                     if(!response.trim().isEmpty() && !response.equals("end")) {
-                        adapterAiChatMessageList.updateLastMessage(response, mChatAiParam.streamDisplay);
+                        mLastReceivingMsg.appendContent(response);
+                        adapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, mChatAiParam.streamDisplay);
+
                         Log.d("%%%%%%%%", response);
                     }
                     if(!response.equals("end")) {
@@ -645,9 +648,8 @@ public class ChatAiView extends RelativeLayout {
                         if(mChatAiParam.listener != null) {
                             mChatAiParam.listener.onAiChatResponse(true);
                         }
-                        if(!messageList.isEmpty()) {
-                            mChatDb.addChatMessageDetail(messageList.get(messageList.size() - 1).chatMessage);
-                        }
+
+                        mChatDb.addChatMessageDetail(mLastReceivingMsg);
 
                         ApplicationModelShared app = ApplicationModelShared.getInstance();
                         if(app.chatRequest != null) {
@@ -656,13 +658,14 @@ public class ChatAiView extends RelativeLayout {
                         mAiChatRequest.setDstUrl("");
                     }
                 } else {
-                    adapterAiChatMessageList.updateLastMessage("‼️消息接收失败", false);
+                    mLastReceivingMsg.appendContent("‼️消息接收失败");
+                    adapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, false);
                     mBtnSend.setEnabled(true);
                     if(mChatAiParam.listener != null) {
                         mChatAiParam.listener.onAiChatResponse(false);
                     }
                     if(!messageList.isEmpty()) {
-                        mChatDb.addChatMessageDetail(messageList.get(messageList.size() - 1).chatMessage);
+                        mChatDb.addChatMessageDetail(mLastReceivingMsg);
                     }
 
                     ApplicationModelShared app = ApplicationModelShared.getInstance();
@@ -696,6 +699,7 @@ public class ChatAiView extends RelativeLayout {
                 ChatMessage.MessageType.TEXT,
                 mCurrentSession.sessionId,
                 System.currentTimeMillis());
+        mLastReceivingMsg = responseMessage;
         messageList.add(new ChatDisplayItem(responseMessage, responseMessage.isSelf));
 
         // 一次性通知 Adapter 插入两条消息
@@ -748,6 +752,7 @@ public class ChatAiView extends RelativeLayout {
                     ChatMessage.MessageType.TEXT,
                     mCurrentSession.sessionId,
                     System.currentTimeMillis());
+            mLastReceivingMsg = responseMessage;
             messageList.add(new ChatDisplayItem(responseMessage, false));
             adapterAiChatMessageList.notifyItemInserted(messageList.size() - 1);
 

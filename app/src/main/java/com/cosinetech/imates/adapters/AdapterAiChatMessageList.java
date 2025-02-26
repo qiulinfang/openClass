@@ -201,13 +201,15 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         return mMsgList.size();
     }
 
-    public void updateLastMessage(String newContent, boolean isStream) {
-        if (!mMsgList.isEmpty()) {
-            ChatDisplayItem lastMessage = mMsgList.get(mMsgList.size() - 1);
-            lastMessage.chatMessage.appendContent(newContent);
-            lastMessage.isDirectDisplay = !isStream;
-            notifyItemChanged(mMsgList.size() - 1); // 更新最后一个消息
-        }
+    public void updateReceivingMessage(String msgId, boolean isStream) {
+       for(int i = mMsgList.size() - 1; i >= 0; i--) {
+           if(mMsgList.get(i).chatMessage.messageId.equals(msgId)) {
+               ChatDisplayItem lastMessage = mMsgList.get(i);
+               lastMessage.isDirectDisplay = !isStream;
+               notifyItemChanged(i);
+               break;
+           }
+       }
     }
 
     static class DateViewHolder extends RecyclerView.ViewHolder {
@@ -215,6 +217,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         public DateViewHolder(@NonNull View itemView) {
             super(itemView);
             tvDate = itemView.findViewById(R.id.tv_date);
+            tvDate.setText("");
         }
     }
 
@@ -225,6 +228,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             super(itemView);
             tvMessage = itemView.findViewById(R.id.tv_message);
             tvMessage.setTextIsSelectable(true);
+            tvMessage.setText("");
         }
     }
 
@@ -233,6 +237,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         public ImageViewHolder(@NonNull View itemView) {
             super(itemView);
             ivMessageImage = itemView.findViewById(R.id.iv_message_image);
+            ivMessageImage.setImageBitmap(null);
         }
     }
 

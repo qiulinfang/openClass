@@ -42,7 +42,7 @@ public class ApiGateWayService {
 
     // ========ai聊天接口========
     public interface ChatMessageCallback {
-        void onChatResponse(boolean success, String response, String sessionId);
+        void onChatResponse(boolean success, String response, String sessionId, String msgId);
     }
 
     public static OkHttpClient createClient() {
@@ -91,7 +91,7 @@ public class ApiGateWayService {
 
         return res;
     }
-    public static void sendChatMessage(final AiChatMessageRequest aiChatMessageRequest, String URL, String token, final ChatMessageCallback callback) {
+    public static void sendChatMessage(final AiChatMessageRequest aiChatMessageRequest, String msgId, String URL, String token, final ChatMessageCallback callback) {
         Runnable task = () -> {
             try {
                 OkHttpClient client = createClient();
@@ -126,14 +126,13 @@ public class ApiGateWayService {
                 // 读取响应并调用回调
                 if(response.body() != null && !response.body().toString().isEmpty()) {
                     final AiResponse res = parseChatMessageResult(response.body().string());
-                    callback.onChatResponse(true, res.content, res.sessionId);
+                    callback.onChatResponse(true, res.content, res.sessionId, msgId);
                 } else {
-                    callback.onChatResponse(false, "接收消息失败", aiChatMessageRequest.getSessionId());
+                    callback.onChatResponse(false, "接收消息失败", aiChatMessageRequest.getSessionId(), msgId);
                 }
-
             } catch (Exception e) {
                 e.printStackTrace();
-                callback.onChatResponse(false, e.getMessage(), aiChatMessageRequest.getSessionId());
+                callback.onChatResponse(false, e.getMessage(), aiChatMessageRequest.getSessionId(), msgId);
             }
         };
 
