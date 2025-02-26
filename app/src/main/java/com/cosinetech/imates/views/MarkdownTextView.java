@@ -61,14 +61,6 @@ public class MarkdownTextView extends AppCompatTextView {
         synchronized (sync) {
             msgDisplayItem = msg;
         }
-        // 如果正在流式显示，则继续流式显示
-        if (!isStreaming) {
-            startStreaming();
-        }
-//        else {
-//            // 否则，直接渲染当前内容
-//            markwon.setMarkdown(this, chatMsg.content);
-//        }
     }
 
     private String filterLatexString(String src) {
@@ -80,7 +72,11 @@ public class MarkdownTextView extends AppCompatTextView {
         return preFilterLatex;
     }
 
-    public void startStreaming() {
+    public void disableStreamingDisplay() {
+        isStreaming = false;
+    }
+
+    public void enableStreamingDisplay() {
         if (isStreaming) {
             return; // 如果已经在流式显示，则直接返回
         }
@@ -89,7 +85,7 @@ public class MarkdownTextView extends AppCompatTextView {
         Runnable runnable = new Runnable() {
             @Override
             public void run() {
-                if (msgDisplayItem.currentDisplayCharIndex < msgDisplayItem.chatMessage.content.length()) {
+                if (isStreaming && msgDisplayItem.currentDisplayCharIndex < msgDisplayItem.chatMessage.content.length()) {
                     // 逐字拼接内容
                     String displayContent = msgDisplayItem.chatMessage.content.substring(0, ++msgDisplayItem.currentDisplayCharIndex);
                     String filterString = filterLatexString(displayContent);

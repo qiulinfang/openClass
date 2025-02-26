@@ -128,7 +128,7 @@ public class ChatAiView extends RelativeLayout {
     public void resetCurrentSession(ChatMessageSession session) {
         if(!mCurrentSession.sessionId.equals(session.sessionId)) {
             clearChatHistory();
-            loadSelectedSessionMsg(session.sessionId);
+            loadSelectedSessionMsg(session);
             mAiChatRequest.setNewValue("1");
         } else {
             mAiChatRequest.setNewValue("0");
@@ -247,7 +247,6 @@ public class ChatAiView extends RelativeLayout {
             ChatMessageSession session = (ChatMessageSession) mChatSessionListAdapter.getChild(groupPosition, childPosition);
             resetCurrentCatalog(catalog);
             resetCurrentSession(session);
-            loadSelectedSessionMsg(session.sessionId);
             return true;
         });
         // expandableListView.setOnGroupExpandListener(groupPosition -> {
@@ -596,10 +595,11 @@ public class ChatAiView extends RelativeLayout {
             });
         }).start();
     }
-    private void loadSelectedSessionMsg(String sessionId) {
+    private void loadSelectedSessionMsg(ChatMessageSession session) {
         new Thread(() -> {
-            List<ChatMessage> messages = mChatDb.getChatMessageDetail(sessionId);
+            List<ChatMessage> messages = mChatDb.getChatMessageDetail(session.sessionId);
             post(() -> {
+                Log.e("!!!!!!!!", "loadSelectedSessionMsg: " + session.sessionName);
                 messageList.clear();
                 messageList.addAll(convertChatDisplayList(messages, true));
                 adapterAiChatMessageList.notifyDataSetChanged();
@@ -798,10 +798,8 @@ public class ChatAiView extends RelativeLayout {
             messageList.clear();
             messageList.addAll(convertChatDisplayList(allMessage.subList(allMessage.size() - n, allMessage.size()), true));
         }
-        if(!messageList.isEmpty()) {
-            adapterAiChatMessageList.notifyDataSetChanged();
-            mMsgDetailListView.smoothScrollToPosition(0);
-        }
+        adapterAiChatMessageList.notifyDataSetChanged();
+        mMsgDetailListView.smoothScrollToPosition(0);
     }
 
     public void setChatEnable(boolean b) {

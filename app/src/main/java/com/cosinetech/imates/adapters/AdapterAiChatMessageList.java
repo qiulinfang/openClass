@@ -49,7 +49,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         }
     }
 
-    private List<ChatDisplayItem> mMsgList;
+    private final List<ChatDisplayItem> mMsgList;
 
     public AdapterAiChatMessageList(List<ChatDisplayItem> mMsgList) {
         this.mMsgList = mMsgList; //groupMessagesWithDate(messageList);
@@ -149,18 +149,17 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         ChatDisplayItem item = mMsgList.get(pos);
         ChatMessage message = item.chatMessage;
 
+        Log.e("@@@@@@@@", pos + "-" + message.content);
         if (holder instanceof DateViewHolder) {
             ((DateViewHolder) holder).tvDate.setText(message.content);
         } else if (holder instanceof TextViewHolder) {
+            ((TextViewHolder) holder).tvMessage.disableStreamingDisplay();
+            ((TextViewHolder) holder).tvMessage.setChatMessage(item);
+            ((TextViewHolder) holder).tvMessage.clearContent();
             if(message.isSelf || item.isDirectDisplay) {
                 ((TextViewHolder) holder).tvMessage.setContent(message.content);
             } else {
-                ((TextViewHolder) holder).tvMessage.setChatMessage(item);
-                if(message.content.isEmpty()) {
-                    ((TextViewHolder) holder).tvMessage.clearContent();
-                }
-                ((TextViewHolder) holder).tvMessage.startStreaming();
-                Log.d("@@@@@@@@", pos + "-" + message.content);
+                ((TextViewHolder) holder).tvMessage.enableStreamingDisplay();
             }
         } else if (holder instanceof ImageViewHolder) {
             Glide.with(holder.itemView.getContext())
@@ -204,8 +203,8 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
     public void updateReceivingMessage(String msgId, boolean isStream) {
        for(int i = mMsgList.size() - 1; i >= 0; i--) {
            if(mMsgList.get(i).chatMessage.messageId.equals(msgId)) {
-               ChatDisplayItem lastMessage = mMsgList.get(i);
-               lastMessage.isDirectDisplay = !isStream;
+               ChatDisplayItem displayMsg = mMsgList.get(i);
+               displayMsg.isDirectDisplay = !isStream;
                notifyItemChanged(i);
                break;
            }
@@ -228,7 +227,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             super(itemView);
             tvMessage = itemView.findViewById(R.id.tv_message);
             tvMessage.setTextIsSelectable(true);
-            tvMessage.setText("");
+            tvMessage.clearContent();
         }
     }
 
