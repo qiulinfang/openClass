@@ -630,7 +630,7 @@ public class ChatAiView extends RelativeLayout {
         if(mAiChatRequest.getDstUrl() != null && !mAiChatRequest.getDstUrl().isEmpty()) {
             url = mAiChatRequest.getDstUrl();
         }
-        ApiGateWayService.sendChatMessage(mAiChatRequest, url, mUserInfoViewModel.token.getValue(), (success, response) -> {
+        ApiGateWayService.sendChatMessage(mAiChatRequest, url, mUserInfoViewModel.token.getValue(), (success, response, sessionId) -> {
             handler.post(() -> {
                 if (success) {
                     if(!response.trim().isEmpty() && !response.equals("end")) {

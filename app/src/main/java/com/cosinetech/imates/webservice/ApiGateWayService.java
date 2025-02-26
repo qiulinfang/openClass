@@ -34,9 +34,15 @@ public class ApiGateWayService {
     private static final int HTTP_STATE_FORBIDDEN = 403;
     private static final ExecutorService executor = Executors.newSingleThreadExecutor();
 
+    private static class AiResponse {
+        public boolean success = false;
+        public String sessionId = "";
+        public String content = "";
+    }
+
     // ========ai聊天接口========
     public interface ChatMessageCallback {
-        void onChatResponse(boolean success, String response);
+        void onChatResponse(boolean success, String response, String sessionId);
     }
 
     public static OkHttpClient createClient() {
@@ -62,19 +68,20 @@ public class ApiGateWayService {
         }
     }
 
-    public static String parseChatMessageResult(String jsonString) {
-        String message = "";
+    public static AiResponse parseChatMessageResult(String jsonString) {
+        AiResponse res = new AiResponse();
         try {
             JSONObject jsonObject = new JSONObject(jsonString);
 
             // 解析 success
             boolean success = jsonObject.getBoolean("success");
+            res.success = success;
             if(success) {
                 // 解析 code
                 //int code = jsonObject.getInt("code");
                 // 解析 message
-                message = jsonObject.getString("message");
-
+                res.content = jsonObject.getString("message");
+                res.sessionId = jsonObject.getString("sessionId");
                 // 解析 data
                 //JSONObject dataObject = jsonObject.getJSONObject("data");
             }
@@ -82,7 +89,7 @@ public class ApiGateWayService {
             e.printStackTrace();
         }
 
-        return message;
+        return res;
     }
     public static void sendChatMessage(final AiChatMessageRequest aiChatMessageRequest, String URL, String token, final ChatMessageCallback callback) {
         Runnable task = () -> {
@@ -117,14 +124,16 @@ public class ApiGateWayService {
                 }
 
                 // 读取响应并调用回调
-                assert response.body() != null;
-                final String message = parseChatMessageResult(response.body().string());
-
-                callback.onChatResponse(true, message);
+                if(response.body() != null && !response.body().toString().isEmpty()) {
+                    final AiResponse res = parseChatMessageResult(response.body().string());
+                    callback.onChatResponse(true, res.content, res.sessionId);
+                } else {
+                    callback.onChatResponse(false, "接收消息失败", aiChatMessageRequest.getSessionId());
+                }
 
             } catch (Exception e) {
                 e.printStackTrace();
-                callback.onChatResponse(false, e.getMessage());
+                callback.onChatResponse(false, e.getMessage(), aiChatMessageRequest.getSessionId());
             }
         };
 
