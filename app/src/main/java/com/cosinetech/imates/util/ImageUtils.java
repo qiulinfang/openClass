@@ -113,6 +113,14 @@ public class ImageUtils {
         byte[] b = baos.toByteArray();
         return b;
     }
+
+    public static String htmlJpgBase64ToMd(String jpgBase64) {
+        StringBuilder res = new StringBuilder();
+        res.append("<img src=\"");
+        res.append(jpgBase64);
+        res.append("\"/>");
+        return res.toString();
+    }
     public static String bitmapToHtmlJpgBase64(Bitmap bm) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         bm.compress(Bitmap.CompressFormat.JPEG, 40, baos);

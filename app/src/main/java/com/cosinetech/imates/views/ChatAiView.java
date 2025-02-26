@@ -36,6 +36,7 @@ import com.cosinetech.imates.models.ChatMessageHistoryDB;
 import com.cosinetech.imates.models.ChatMessageSession;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.util.AppUtils;
+import com.cosinetech.imates.util.ImageUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
@@ -127,11 +128,15 @@ public class ChatAiView extends RelativeLayout {
         if(!mCurrentSession.sessionId.equals(session.sessionId)) {
             clearChatHistory();
             loadSelectedSessionMsg(session.sessionId);
+            mAiChatRequest.setNewValue("1");
+        } else {
+            mAiChatRequest.setNewValue("0");
         }
         mCurrentSession = session;
         String aiName = mCurrentCatalog.catalogName + " - " + mCurrentSession.sessionName;
         mTextViewTitle.setText(aiName);
         mChatSessionListAdapter.setSelectedSessionId(mCurrentSession.sessionId);
+        mAiChatRequest.setSessionId(mCurrentSession.sessionId);
     }
 
     public void resetCurrentCatalog(ChatMessageCatalogue catalogue) {
@@ -590,7 +595,6 @@ public class ChatAiView extends RelativeLayout {
             });
         }).start();
     }
-
     private void loadSelectedSessionMsg(String sessionId) {
         new Thread(() -> {
             List<ChatMessage> messages = mChatDb.getChatMessageDetail(sessionId);
@@ -598,7 +602,9 @@ public class ChatAiView extends RelativeLayout {
                 messageList.clear();
                 messageList.addAll(convertChatDisplayList(messages, true));
                 adapterAiChatMessageList.notifyDataSetChanged();
-                mMsgDetailListView.smoothScrollToPosition(0);
+                if(!messageList.isEmpty()) {
+                    mMsgDetailListView.scrollToPosition(messageList.size() - 1);
+                }
             });
         }).start();
     }
@@ -715,11 +721,27 @@ public class ChatAiView extends RelativeLayout {
                     ChatMessage.MessageType.TEXT,
                     mCurrentSession.sessionId,
                     System.currentTimeMillis());
-            messageList.add(new ChatDisplayItem(message, !message.isSelf));
-            adapterAiChatMessageList.notifyItemInserted(messageList.size() - 1);
+            messageList.add(new ChatDisplayItem(message, message.isSelf));
+            mChatDb.addChatMessageDetail(message);
+
+//            if(!mo.getQuestion().isEmpty()) {
+//                //可能是图片
+//                String question = mo.getQuestion().trim();
+//                if(question.startsWith("data:image")) {
+//                    //截图问答的图片
+//                    ChatMessage msgPicture = new ChatMessage(ImageUtils.htmlJpgBase64ToMd(question),
+//                            true,
+//                            ChatMessage.MessageType.TEXT,
+//                            mCurrentSession.sessionId,
+//                            System.currentTimeMillis());
+//                    messageList.add(new ChatDisplayItem(msgPicture, true));
+//                    mChatDb.addChatMessageDetail(msgPicture);
+//                }
+//            }
+
+            adapterAiChatMessageList.notifyDataSetChanged();
             mEditMsg.setText("");
 
-            mChatDb.addChatMessageDetail(message);
             ChatMessage responseMessage = new ChatMessage(
                     "",
                     false,

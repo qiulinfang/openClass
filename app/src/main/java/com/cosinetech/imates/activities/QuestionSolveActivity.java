@@ -196,14 +196,6 @@ public class QuestionSolveActivity extends AppCompatActivity {
                 MarkdownTextView answer = findViewById(R.id.answerView);
                 answer.setContent(mCurrentQuestion.answer + mCurrentQuestion.explanation);
 
-                aiChatMessageRequest.setName(userInfoViewModel.userInfo.getValue().getName());
-                aiChatMessageRequest.setNewValue("1");
-                aiChatMessageRequest.setSessionId(String.valueOf(System.currentTimeMillis()));
-                aiChatMessageRequest.setQuestion(mCurrentQuestion.getQuestion());
-                aiChatMessageRequest.setAnswer(mCurrentQuestion.DAJX + mCurrentQuestion.explanation);
-                aiChatMessageRequest.setCoversation("我们开始吧");
-                aiChatMessageRequest.setReason("start");
-                aiChatMessageRequest.setBmNo(mCurrentQuestion.bmNo);
                 mChatView.setChatEnable(false);
                 chatResponceTimes = 0;
                 setViewAnswer(false);
@@ -247,7 +239,16 @@ public class QuestionSolveActivity extends AppCompatActivity {
                 mChatDb.addMessageSession(session);
                 mChatView.resetCurrentSession(session);
 
-               runOnUiThread(() -> {
+                aiChatMessageRequest.setName(userInfoViewModel.userInfo.getValue().getName());
+                aiChatMessageRequest.setNewValue("1");
+                aiChatMessageRequest.setSessionId(session.sessionId);
+                aiChatMessageRequest.setQuestion(questionString);
+                aiChatMessageRequest.setAnswer(mQuestions.get(mCurrentQuestionIndex).DAJX + mQuestions.get(mCurrentQuestionIndex).explanation);
+                aiChatMessageRequest.setCoversation("我们开始吧");
+                aiChatMessageRequest.setReason("start");
+                aiChatMessageRequest.setBmNo(mQuestions.get(mCurrentQuestionIndex).bmNo);
+
+                runOnUiThread(() -> {
                     mChatView.sendTextMessage(aiChatMessageRequest);
                     mChatView.setChatEnable(true);
                 });
@@ -755,7 +756,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
 
         aiChatMessageRequest.setName(userInfoViewModel.userInfo.getValue().getName());
         aiChatMessageRequest.setNewValue("1");
-        aiChatMessageRequest.setSessionId(String.valueOf(System.currentTimeMillis()));
+        //aiChatMessageRequest.setSessionId(String.valueOf(System.currentTimeMillis()));
         aiChatMessageRequest.setQuestion(essayQuestionTrunk + "\n" + episodes.get(finalIdx)[0]);
         aiChatMessageRequest.setAnswer(episodes.get(finalIdx)[1] + "\n" + episodes.get(finalIdx)[2]);
         aiChatMessageRequest.setReason("start");

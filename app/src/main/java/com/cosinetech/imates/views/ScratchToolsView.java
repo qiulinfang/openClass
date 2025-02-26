@@ -296,19 +296,17 @@ public class ScratchToolsView extends RelativeLayout {
             }
             popupWindow.dismiss();
             ApplicationModelShared app = ApplicationModelShared.getInstance();
-            AiChatMessageRequest chatRequest = new AiChatMessageRequest("",
-                    "",
-                    "",
-                    "",
-                    "",
+            AiChatMessageRequest chatRequest = new AiChatMessageRequest(
+                    UUID.nameUUIDFromBytes(mAiPrompt.getBytes()).toString(),
+                    "1",
+                    editText.getText().toString(),
+                    ImageUtils.bitmapToHtmlJpgBase64(bmp),
+                    mAiPrompt,
                     "",
                     "start",
                     "");
+            chatRequest.setDstUrl(ApiUrl.URL_CHAT_PREVIEW_PICTURE);
             try {
-                chatRequest.setQuestion(ImageUtils.bitmapToHtmlJpgBase64(bmp));
-                chatRequest.setCoversation(editText.getText().toString());
-                chatRequest.setAnswer(mAiPrompt); //当前章节
-                chatRequest.setDstUrl(ApiUrl.URL_CHAT_PREVIEW_PICTURE);
                 app.chatRequest = chatRequest;
 
                 app.getFloatingWindowService().popupChatBot(ApiUrl.URL_CHAT_GENERAL, Subject.SUBJECT_ALL.name());

@@ -209,13 +209,6 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             notifyItemChanged(mMsgList.size() - 1); // 更新最后一个消息
         }
     }
-    public void updateLastMessage(String newContent) {
-        if (!mMsgList.isEmpty()) {
-            ChatDisplayItem lastMessage = mMsgList.get(mMsgList.size() - 1);
-            lastMessage.chatMessage.appendContent(newContent);
-            notifyItemChanged(mMsgList.size() - 1); // 更新最后一个消息
-        }
-    }
 
     static class DateViewHolder extends RecyclerView.ViewHolder {
         TextView tvDate;
