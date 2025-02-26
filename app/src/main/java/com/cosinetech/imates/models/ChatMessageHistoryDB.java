@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ChatMessageHistoryDB extends SQLiteOpenHelper {
-    private static final String DATABASE_NAME = "chat_history.db";
+    private static final String DATABASE_NAME = "chat_history_v16.db";
     private static final int DATABASE_VERSION = 1;
 
     // Table Names
