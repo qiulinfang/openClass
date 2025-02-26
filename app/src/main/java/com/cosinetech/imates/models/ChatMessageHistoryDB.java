@@ -15,8 +15,6 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "chat_history.db";
     private static final int DATABASE_VERSION = 1;
 
-    //private static String DATABASE_FILE_PATH = "";
-
     // Table Names
     private static final String TABLE_MESSAGE_CATALOGUE = "message_catalogue";
     private static final String TABLE_MESSAGE_SESSION = "message_session";
@@ -26,7 +24,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
     private static final String CATALOGUE_ID = "id"; // 自增ID
     private static final String CATALOGUE_CATALOG_ID = "catalog_id"; // 主键
     private static final String CATALOGUE_NAME = "catalog_name";
-    private static final String CATALOGUE_TYPE = "type"; // 新增type字段
+    private static final String CATALOGUE_TYPE = "type";
     private static final String CATALOGUE_CREATE_TIME = "create_time";
     private static final String CATALOGUE_UPDATE_TIME = "update_time";
 
@@ -36,7 +34,8 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
     private static final String SESSION_CATALOG_ID = "catalog_id"; // 外键
     private static final String SESSION_NAME = "session_name";
     private static final String SESSION_TYPE = "type";
-    private static final String SESSION_LAST_MESSAGE_TIME = "last_message_time";
+    private static final String SESSION_RECEIVER_ID = "receiver_id"; // 新增字段
+    private static final String SESSION_LAST_READ_TIME = "last_read_time"; // 改名
     private static final String SESSION_CREATE_TIME = "create_time";
     private static final String SESSION_UPDATE_TIME = "update_time";
 
@@ -46,6 +45,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
     private static final String MESSAGE_SESSION_ID = "session_id"; // 外键
     private static final String MESSAGE_CONTENT = "content";
     private static final String MESSAGE_TYPE = "type";
+    private static final String MESSAGE_STATUS = "status"; // 新增字段
     private static final String MESSAGE_IS_SELF = "is_self";
     private static final String MESSAGE_TIMESTAMP = "timestamp";
 
@@ -55,7 +55,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
             + CATALOGUE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
             + CATALOGUE_CATALOG_ID + " TEXT UNIQUE,"
             + CATALOGUE_NAME + " TEXT,"
-            + CATALOGUE_TYPE + " INTEGER,"  // 新增type字段
+            + CATALOGUE_TYPE + " INTEGER,"
             + CATALOGUE_CREATE_TIME + " INTEGER,"
             + CATALOGUE_UPDATE_TIME + " INTEGER"
             + ")";
@@ -67,7 +67,8 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
             + SESSION_CATALOG_ID + " TEXT,"
             + SESSION_NAME + " TEXT,"
             + SESSION_TYPE + " INTEGER,"
-            + SESSION_LAST_MESSAGE_TIME + " INTEGER,"
+            + SESSION_RECEIVER_ID + " TEXT,"  // 新增字段
+            + SESSION_LAST_READ_TIME + " INTEGER,"
             + SESSION_CREATE_TIME + " INTEGER,"
             + SESSION_UPDATE_TIME + " INTEGER"
             + ")";
@@ -79,6 +80,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
             + MESSAGE_SESSION_ID + " TEXT,"
             + MESSAGE_CONTENT + " TEXT,"
             + MESSAGE_TYPE + " INTEGER,"
+            + MESSAGE_STATUS + " INTEGER DEFAULT 0," // 新增字段
             + MESSAGE_IS_SELF + " INTEGER,"
             + MESSAGE_TIMESTAMP + " INTEGER"
             + ")";
@@ -92,24 +94,9 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         }
         return instance;
     }
-
     private ChatMessageHistoryDB(Context context, String dbName) {
         super(context, dbName, null, DATABASE_VERSION);
     }
-
-//    @Override
-//    public SQLiteDatabase getReadableDatabase() {
-//        // 使用 openDatabase 打开指定路径的数据库
-//        SQLiteDatabase db = SQLiteDatabase.openDatabase(DATABASE_FILE_PATH, null, SQLiteDatabase.OPEN_READONLY);
-//        return db;
-//    }
-//
-//    @Override
-//    public SQLiteDatabase getWritableDatabase() {
-//        // 使用 openDatabase 打开指定路径的数据库
-//        SQLiteDatabase db = SQLiteDatabase.openDatabase(DATABASE_FILE_PATH, null, SQLiteDatabase.OPEN_READWRITE);
-//        return db;
-//    }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -262,7 +249,8 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         values.put(SESSION_CATALOG_ID, session.catalogId);
         values.put(SESSION_NAME, session.sessionName);
         values.put(SESSION_TYPE, session.type.getValue());
-        values.put(SESSION_LAST_MESSAGE_TIME, session.lastMessageTime);
+        values.put(SESSION_RECEIVER_ID, session.receiverId); // 新增字段
+        values.put(SESSION_LAST_READ_TIME, session.lastReadTime); // 改名
         values.put(SESSION_CREATE_TIME, session.createTime);
         values.put(SESSION_UPDATE_TIME, session.updateTime);
 
@@ -274,7 +262,8 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
 
         ContentValues values = new ContentValues();
         values.put(SESSION_NAME, session.sessionName);
-        values.put(SESSION_LAST_MESSAGE_TIME, session.lastMessageTime);
+        values.put(SESSION_RECEIVER_ID, session.receiverId); // 新增字段
+        values.put(SESSION_LAST_READ_TIME, session.lastReadTime); // 改名
         values.put(SESSION_UPDATE_TIME, session.updateTime);
 
         return db.update(TABLE_MESSAGE_SESSION,
@@ -300,7 +289,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
 
         ContentValues values = new ContentValues();
-        values.put(SESSION_LAST_MESSAGE_TIME, readTime);
+        values.put(SESSION_LAST_READ_TIME, readTime); // 改名
         values.put(SESSION_UPDATE_TIME, updateTime);
 
         return db.update(TABLE_MESSAGE_SESSION,
@@ -354,7 +343,8 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
                 session.catalogId = cursor.getString(cursor.getColumnIndex(SESSION_CATALOG_ID));
                 session.sessionName = cursor.getString(cursor.getColumnIndex(SESSION_NAME));
                 session.type = ChatMessageSession.SessionType.fromValue(cursor.getInt(cursor.getColumnIndex(SESSION_TYPE)));
-                session.lastMessageTime = cursor.getLong(cursor.getColumnIndex(SESSION_LAST_MESSAGE_TIME));
+                session.receiverId = cursor.getString(cursor.getColumnIndex(SESSION_RECEIVER_ID)); // 新增字段
+                session.lastReadTime = cursor.getLong(cursor.getColumnIndex(SESSION_LAST_READ_TIME)); // 改名
                 session.createTime = cursor.getLong(cursor.getColumnIndex(SESSION_CREATE_TIME));
                 session.updateTime = cursor.getLong(cursor.getColumnIndex(SESSION_UPDATE_TIME));
                 sessions.add(session);
@@ -382,7 +372,8 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
             session.catalogId = cursor.getString(cursor.getColumnIndex(SESSION_CATALOG_ID));
             session.sessionName = cursor.getString(cursor.getColumnIndex(SESSION_NAME));
             session.type = ChatMessageSession.SessionType.fromValue(cursor.getInt(cursor.getColumnIndex(SESSION_TYPE)));
-            session.lastMessageTime = cursor.getLong(cursor.getColumnIndex(SESSION_LAST_MESSAGE_TIME));
+            session.receiverId = cursor.getString(cursor.getColumnIndex(SESSION_RECEIVER_ID)); // 新增字段
+            session.lastReadTime = cursor.getLong(cursor.getColumnIndex(SESSION_LAST_READ_TIME)); // 改名
             session.createTime = cursor.getLong(cursor.getColumnIndex(SESSION_CREATE_TIME));
             session.updateTime = cursor.getLong(cursor.getColumnIndex(SESSION_UPDATE_TIME));
             cursor.close();
@@ -409,7 +400,8 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
                 session.catalogId = cursor.getString(cursor.getColumnIndex(SESSION_CATALOG_ID));
                 session.sessionName = cursor.getString(cursor.getColumnIndex(SESSION_NAME));
                 session.type = ChatMessageSession.SessionType.fromValue(cursor.getInt(cursor.getColumnIndex(SESSION_TYPE)));
-                session.lastMessageTime = cursor.getLong(cursor.getColumnIndex(SESSION_LAST_MESSAGE_TIME));
+                session.receiverId = cursor.getString(cursor.getColumnIndex(SESSION_RECEIVER_ID)); // 新增字段
+                session.lastReadTime = cursor.getLong(cursor.getColumnIndex(SESSION_LAST_READ_TIME)); // 改名
                 session.createTime = cursor.getLong(cursor.getColumnIndex(SESSION_CREATE_TIME));
                 session.updateTime = cursor.getLong(cursor.getColumnIndex(SESSION_UPDATE_TIME));
                 sessions.add(session);
@@ -439,6 +431,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         values.put(MESSAGE_SESSION_ID, msg.sessionId);
         values.put(MESSAGE_CONTENT, msg.content);
         values.put(MESSAGE_TYPE, msg.type.getValue());
+        values.put(MESSAGE_STATUS, msg.status); // 新增字段
         values.put(MESSAGE_IS_SELF, msg.isSelf ? 1 : 0);
         values.put(MESSAGE_TIMESTAMP, msg.timestamp);
 
@@ -451,6 +444,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         ContentValues values = new ContentValues();
         values.put(MESSAGE_CONTENT, msg.content);
         values.put(MESSAGE_TYPE, msg.type.getValue());
+        values.put(MESSAGE_STATUS, msg.status); // 新增字段
         values.put(MESSAGE_IS_SELF, msg.isSelf ? 1 : 0);
         values.put(MESSAGE_TIMESTAMP, msg.timestamp);
 
@@ -459,7 +453,6 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
                 MESSAGE_MESSAGE_ID + "=?",
                 new String[]{msg.messageId});
     }
-
     public synchronized int deleteChatMessageDetail(String messageId) {
         SQLiteDatabase db = this.getWritableDatabase();
         return db.delete(TABLE_MESSAGE_DETAIL,
@@ -470,6 +463,18 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
     public synchronized int deleteAllChatMessageDetail() {
         SQLiteDatabase db = this.getWritableDatabase();
         return db.delete(TABLE_MESSAGE_DETAIL, null, null);
+    }
+
+    @SuppressLint("Range")
+    private void populateChatMessageFromCursor(ChatMessage msg, Cursor cursor) {
+        msg.id = cursor.getLong(cursor.getColumnIndex(MESSAGE_ID));
+        msg.messageId = cursor.getString(cursor.getColumnIndex(MESSAGE_MESSAGE_ID));
+        msg.sessionId = cursor.getString(cursor.getColumnIndex(MESSAGE_SESSION_ID));
+        msg.content = cursor.getString(cursor.getColumnIndex(MESSAGE_CONTENT));
+        msg.type = ChatMessage.MessageType.fromValue(cursor.getInt(cursor.getColumnIndex(MESSAGE_TYPE)));
+        msg.status = cursor.getInt(cursor.getColumnIndex(MESSAGE_STATUS)); // 新增字段
+        msg.isSelf = cursor.getInt(cursor.getColumnIndex(MESSAGE_IS_SELF)) == 1;
+        msg.timestamp = cursor.getLong(cursor.getColumnIndex(MESSAGE_TIMESTAMP));
     }
 
     @SuppressLint("Range")
@@ -485,13 +490,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         if (cursor.moveToFirst()) {
             do {
                 ChatMessage msg = createChatMessage();
-                msg.id = cursor.getLong(cursor.getColumnIndex(MESSAGE_ID));
-                msg.messageId = cursor.getString(cursor.getColumnIndex(MESSAGE_MESSAGE_ID));
-                msg.sessionId = cursor.getString(cursor.getColumnIndex(MESSAGE_SESSION_ID));
-                msg.content = cursor.getString(cursor.getColumnIndex(MESSAGE_CONTENT));
-                msg.type = ChatMessage.MessageType.fromValue(cursor.getInt(cursor.getColumnIndex(MESSAGE_TYPE)));
-                msg.isSelf = cursor.getInt(cursor.getColumnIndex(MESSAGE_IS_SELF)) == 1;
-                msg.timestamp = cursor.getLong(cursor.getColumnIndex(MESSAGE_TIMESTAMP));
+                populateChatMessageFromCursor(msg, cursor);
                 detailList.add(msg);
             } while (cursor.moveToNext());
         }
@@ -510,13 +509,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         if (cursor.moveToFirst()) {
             do {
                 ChatMessage msg = createChatMessage();
-                msg.id = cursor.getLong(cursor.getColumnIndex(MESSAGE_ID));
-                msg.messageId = cursor.getString(cursor.getColumnIndex(MESSAGE_MESSAGE_ID));
-                msg.sessionId = cursor.getString(cursor.getColumnIndex(MESSAGE_SESSION_ID));
-                msg.content = cursor.getString(cursor.getColumnIndex(MESSAGE_CONTENT));
-                msg.type = ChatMessage.MessageType.fromValue(cursor.getInt(cursor.getColumnIndex(MESSAGE_TYPE)));
-                msg.isSelf = cursor.getInt(cursor.getColumnIndex(MESSAGE_IS_SELF)) == 1;
-                msg.timestamp = cursor.getLong(cursor.getColumnIndex(MESSAGE_TIMESTAMP));
+                populateChatMessageFromCursor(msg, cursor);
                 messages.add(msg);
             } while (cursor.moveToNext());
         }
@@ -538,13 +531,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         if (cursor.moveToFirst()) {
             do {
                 ChatMessage msg = createChatMessage();
-                msg.id = cursor.getLong(cursor.getColumnIndex(MESSAGE_ID));
-                msg.messageId = cursor.getString(cursor.getColumnIndex(MESSAGE_MESSAGE_ID));
-                msg.sessionId = cursor.getString(cursor.getColumnIndex(MESSAGE_SESSION_ID));
-                msg.content = cursor.getString(cursor.getColumnIndex(MESSAGE_CONTENT));
-                msg.type = ChatMessage.MessageType.fromValue(cursor.getInt(cursor.getColumnIndex(MESSAGE_TYPE)));
-                msg.isSelf = cursor.getInt(cursor.getColumnIndex(MESSAGE_IS_SELF)) == 1;
-                msg.timestamp = cursor.getLong(cursor.getColumnIndex(MESSAGE_TIMESTAMP));
+                populateChatMessageFromCursor(msg, cursor);
                 messages.add(msg);
             } while (cursor.moveToNext());
         }
@@ -566,13 +553,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         if (cursor.moveToFirst()) {
             do {
                 ChatMessage msg = createChatMessage();
-                msg.id = cursor.getLong(cursor.getColumnIndex(MESSAGE_ID));
-                msg.messageId = cursor.getString(cursor.getColumnIndex(MESSAGE_MESSAGE_ID));
-                msg.sessionId = cursor.getString(cursor.getColumnIndex(MESSAGE_SESSION_ID));
-                msg.content = cursor.getString(cursor.getColumnIndex(MESSAGE_CONTENT));
-                msg.type = ChatMessage.MessageType.fromValue(cursor.getInt(cursor.getColumnIndex(MESSAGE_TYPE)));
-                msg.isSelf = cursor.getInt(cursor.getColumnIndex(MESSAGE_IS_SELF)) == 1;
-                msg.timestamp = cursor.getLong(cursor.getColumnIndex(MESSAGE_TIMESTAMP));
+                populateChatMessageFromCursor(msg, cursor);
                 messages.add(msg);
             } while (cursor.moveToNext());
         }
@@ -598,9 +579,8 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
 
     private ChatMessage createChatMessage() {
         try {
-            // 通过反射调用无参构造器
             Constructor<ChatMessage> constructor = ChatMessage.class.getDeclaredConstructor();
-            constructor.setAccessible(true);  // 让私有构造器可访问
+            constructor.setAccessible(true);
             return constructor.newInstance();
         } catch (Exception e) {
             return new ChatMessage("", false, ChatMessage.MessageType.TEXT, "", 0);
@@ -609,20 +589,18 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
 
     private ChatMessageSession createChatMessageSession() {
         try {
-            // 通过反射调用无参构造器
             Constructor<ChatMessageSession> constructor = ChatMessageSession.class.getDeclaredConstructor();
-            constructor.setAccessible(true);  // 让私有构造器可访问
+            constructor.setAccessible(true);
             return constructor.newInstance();
         } catch (Exception e) {
-            return new ChatMessageSession("", "", "", ChatMessageSession.SessionType.USER_TALK_AI, 0, 0 , 0);
+            return new ChatMessageSession("", "", "", ChatMessageSession.SessionType.USER_TALK_AI, 0, 0, 0);
         }
     }
 
     private ChatMessageCatalogue createChatMessageCatalogue() {
         try {
-            // 通过反射调用无参构造器
             Constructor<ChatMessageCatalogue> constructor = ChatMessageCatalogue.class.getDeclaredConstructor();
-            constructor.setAccessible(true);  // 让私有构造器可访问
+            constructor.setAccessible(true);
             return constructor.newInstance();
         } catch (Exception e) {
             return new ChatMessageCatalogue("", "", ChatMessageCatalogue.CatalogueType.SYSTEM, 0, 0);

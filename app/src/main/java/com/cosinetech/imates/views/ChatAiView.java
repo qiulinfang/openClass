@@ -331,10 +331,10 @@ public class ChatAiView extends RelativeLayout {
         chkViewHistory.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if(isChecked) {
                 view.findViewById(R.id.history_layout).setVisibility(View.VISIBLE);
-                view.findViewById(R.id.chat_input_area).setVisibility(View.INVISIBLE);
+                //view.findViewById(R.id.chat_input_area).setVisibility(View.INVISIBLE);
             } else {
                 view.findViewById(R.id.history_layout).setVisibility(View.GONE);
-                view.findViewById(R.id.chat_input_area).setVisibility(View.VISIBLE);
+                //view.findViewById(R.id.chat_input_area).setVisibility(View.VISIBLE);
             }
         });
 

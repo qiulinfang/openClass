@@ -209,20 +209,6 @@ public class QuestionSolveActivity extends AppCompatActivity {
                 setViewAnswer(false);
                 mChatView.clearChatHistory();
 
-                String questionString = mCurrentQuestion.getQuestion();
-                long tick = System.currentTimeMillis();
-                ChatMessageSession session = new ChatMessageSession(UUID.nameUUIDFromBytes(mCurrentQuestion.getQuestion().getBytes()).toString(),
-                        mChatCatalogue.catalogId,
-                        (questionString.length() > ChatMessageSession.MAX_SESSION_NAME_LENGTH ?
-                                questionString.substring(0, ChatMessageSession.MAX_SESSION_NAME_LENGTH) + "..." :
-                                questionString),
-                        ChatMessageSession.SessionType.USER_TALK_AI,
-                        tick,
-                        tick,
-                        0);
-                mChatDb.addMessageSession(session);
-                mChatView.resetCurrentSession(session);
-
                 if(subject == Subject.SUBJECT_BIOLOGY) {
                     View essay_view = findViewById(R.id.essay_question);
                     if (pos == mQuestions.size() - 1) {
@@ -245,6 +231,21 @@ public class QuestionSolveActivity extends AppCompatActivity {
                     mQuestions.get(mCurrentQuestionIndex).isAiGuiding = true;
                     adapterQuestionList.notifyItemChanged(mCurrentQuestionIndex);
                 }
+
+                String questionString = mQuestions.get(mCurrentQuestionIndex).getQuestion();
+                long tick = System.currentTimeMillis();
+                ChatMessageSession session = new ChatMessageSession(
+                        UUID.nameUUIDFromBytes(questionString.getBytes()).toString(),
+                        mChatCatalogue.catalogId,
+                        (questionString.length() > ChatMessageSession.MAX_SESSION_NAME_LENGTH ?
+                                questionString.substring(0, ChatMessageSession.MAX_SESSION_NAME_LENGTH) + "..." :
+                                questionString),
+                        ChatMessageSession.SessionType.USER_TALK_AI,
+                        tick,
+                        tick,
+                        0);
+                mChatDb.addMessageSession(session);
+                mChatView.resetCurrentSession(session);
 
                runOnUiThread(() -> {
                     mChatView.sendTextMessage(aiChatMessageRequest);
@@ -373,7 +374,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
         long tick = System.currentTimeMillis();
         mChatCatalogue = new ChatMessageCatalogue(UUID.nameUUIDFromBytes(subject.name().getBytes()).toString(),
                 getCatalogueName(),
-                ChatMessageCatalogue.CatalogueType.SYSTEM,
+                ChatMessageCatalogue.CatalogueType.USER,
                 tick,
                 tick);
         mChatDb.addMessageCatalogue(mChatCatalogue);

@@ -31,9 +31,10 @@ public class ChatMessage {
 
     public long id;  // 数据库自增的ID
     public String messageId; //消息id主键
-    public String sessionId; //所属的ChatSession
-    public String content; //消息内容
-    public MessageType type; //消息类型
+    public String sessionId; // 所属的ChatSession
+    public String content; // 消息内容
+    public MessageType type; // 消息类型
+    public int status; // 预留的消息状态
     public boolean isSelf; // 是自己发送的还是收到的
     public long timestamp; //消息时间戳
 
@@ -41,6 +42,7 @@ public class ChatMessage {
         this.messageId = "";
         this.content = "";
         this.isSelf = false;
+        this.status = 0;
         this.type = MessageType.TEXT;
         this.timestamp = 0;
         this.sessionId = "";
@@ -51,6 +53,7 @@ public class ChatMessage {
         this.content = content;
         this.isSelf = isSelf;
         this.type = type;
+        this.status = 0;
         this.sessionId = sessionId;
         this.timestamp = timestamp;
     }

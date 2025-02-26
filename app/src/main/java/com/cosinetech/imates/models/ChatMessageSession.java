@@ -36,7 +36,8 @@ public class ChatMessageSession {
     public String catalogId; //所属的ChatMessageCatalogue
     public String sessionName; // 会话名称
     public SessionType type; // 会话类型
-    public long lastMessageTime; // 最后一次阅读消息的时间戳
+    public String receiverId; // 接收方用户标识
+    public long lastReadTime; // 最后一次阅读消息的时间戳
     public long createTime; // 创建时间
     public long updateTime; // 更新时间
 
@@ -45,7 +46,8 @@ public class ChatMessageSession {
         this.catalogId = "";
         this.sessionName = "";
         this.type = null;
-        this.lastMessageTime = 0;
+        this.receiverId = "";
+        this.lastReadTime = 0;
         this.createTime = 0;
         this.updateTime = 0;
     }
@@ -57,7 +59,7 @@ public class ChatMessageSession {
         this.catalogId = catalogId;
         this.sessionName = name;
         this.type = type;
-        this.lastMessageTime = lastReadTime;
+        this.lastReadTime = lastReadTime;
         this.createTime = createTime;
         this.updateTime = updateTime;
     }

@@ -15,20 +15,22 @@
         android:textColor="#ffffff"
         android:button="@null"
         android:background="@drawable/chat_ai_history_button_bg"
+        android:stateListAnimator="@animator/app_button_click_scale"
         android:layout_alignParentTop="true"
         android:layout_toStartOf="@id/et_search"/>
 
     <CheckBox
-        android:id="@+id/btn_view_category"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
+        android:id="@+id/btn_set_ai_param"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
         android:layout_marginEnd="16dp"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="8dp"
         android:minHeight="60dp"
         android:textColor="#ffffff"
         android:button="@null"
-        android:visibility="invisible"
-        android:background="@drawable/chat_ai_history_category_bg"
+        android:visibility="visible"
+        android:background="@drawable/chat_ai_settings"
+        android:stateListAnimator="@animator/app_button_click_scale"
         android:layout_alignParentTop="true"
         android:layout_toStartOf="@id/btn_view_history"/>
 
@@ -39,7 +41,8 @@
         android:layout_marginTop="8dp"
         android:layout_marginEnd="16dp"
         android:background="@drawable/chat_ai_add_favor"
-        android:layout_toStartOf="@id/btn_view_category"/>
+        android:stateListAnimator="@animator/app_button_click_scale"
+        android:layout_toStartOf="@id/btn_set_ai_param"/>
 
     <Button
         android:id="@+id/btn_new_chat"
@@ -48,6 +51,7 @@
         android:layout_marginTop="8dp"
         android:layout_marginEnd="16dp"
         android:background="@drawable/chat_ai_new_chat"
+        android:stateListAnimator="@animator/app_button_click_scale"
         android:layout_toStartOf="@id/btn_add_favor"/>
 
     <EditText
@@ -78,6 +82,7 @@
         android:layout_marginEnd="16dp"
         android:button="@null"
         android:background="@drawable/chat_ai_history_search_bg"
+        android:stateListAnimator="@animator/app_button_click_scale"
         android:layout_alignParentEnd="true"/>
 
 
@@ -87,7 +92,7 @@
         android:layout_height="48dp"
         android:layout_alignParentTop="true"
         android:layout_alignParentStart="true"
-        android:layout_toStartOf="@id/btn_view_category"
+        android:layout_toStartOf="@id/btn_new_chat"
         android:textAlignment="center"
         android:gravity="center"
         android:text="@string/chatbot_name"
