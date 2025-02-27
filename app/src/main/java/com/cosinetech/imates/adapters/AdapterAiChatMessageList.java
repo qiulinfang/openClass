@@ -150,17 +150,16 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         ChatDisplayItem item = mMsgList.get(pos);
         ChatMessage message = item.chatMessage;
 
-        Log.e("@@@@@@@@", pos + "-" + message.content);
         if (holder instanceof DateViewHolder) {
             ((DateViewHolder) holder).tvDate.setText(message.content);
         } else if (holder instanceof TextViewHolder) {
-            ((TextViewHolder) holder).tvMessage.disableStreamingDisplay();
-            ((TextViewHolder) holder).tvMessage.setChatMessage(item);
             ((TextViewHolder) holder).tvMessage.clearContent();
-            if(message.isSelf || item.isDirectDisplay) {
-                ((TextViewHolder) holder).tvMessage.setContent(message.content);
+            ((TextViewHolder) holder).tvMessage.setTypingEffectDisplayItem(item);
+            ((TextViewHolder) holder).tvMessage.disableTypingEffectDisplay();
+            if(item.showWithTypingEffect) {
+                ((TextViewHolder) holder).tvMessage.enableTypingEffectDisplay();
             } else {
-                ((TextViewHolder) holder).tvMessage.enableStreamingDisplay();
+                ((TextViewHolder) holder).tvMessage.setContent(message.content);
             }
         } else if (holder instanceof ImageViewHolder) {
             Glide.with(holder.itemView.getContext())
@@ -175,7 +174,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             ((VoiceViewHolder) holder).ivVoiceIcon.setOnClickListener(v -> {
                 MediaPlayer mediaPlayer = new MediaPlayer();
                 try {
-                    mediaPlayer.setDataSource(message.content.toString());
+                    mediaPlayer.setDataSource(message.content);
                     mediaPlayer.prepare();
                     mediaPlayer.start();
                 } catch (Exception e) {
@@ -201,11 +200,11 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         return mMsgList.size();
     }
 
-    public void updateReceivingMessage(String msgId, boolean isStream) {
+    public void updateReceivingMessage(String msgId, boolean showWithTypingEffect) {
        for(int i = mMsgList.size() - 1; i >= 0; i--) {
            if(mMsgList.get(i).chatMessage.messageId.equals(msgId)) {
                ChatDisplayItem displayMsg = mMsgList.get(i);
-               displayMsg.isDirectDisplay = !isStream;
+               displayMsg.showWithTypingEffect = showWithTypingEffect;
                notifyItemChanged(i);
                break;
            }
@@ -213,7 +212,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
     }
 
     static class DateViewHolder extends RecyclerView.ViewHolder {
-        TextView tvDate;
+        private final TextView tvDate;
         public DateViewHolder(@NonNull View itemView) {
             super(itemView);
             tvDate = itemView.findViewById(R.id.tv_date);
@@ -222,7 +221,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
     }
 
     static class TextViewHolder extends RecyclerView.ViewHolder {
-        private MarkdownTextView tvMessage;
+        private final MarkdownTextView tvMessage;
 
         public TextViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -233,7 +232,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
     }
 
     static class ImageViewHolder extends RecyclerView.ViewHolder {
-        ImageView ivMessageImage;
+        private final ImageView ivMessageImage;
         public ImageViewHolder(@NonNull View itemView) {
             super(itemView);
             ivMessageImage = itemView.findViewById(R.id.iv_message_image);

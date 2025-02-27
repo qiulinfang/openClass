@@ -49,7 +49,6 @@ public class ApplicationModelShared extends Application implements ViewModelStor
         XRichText.getInstance().setImageLoader(new IImageLoader() {
             @Override
             public void loadImage(final String imagePath, final ImageView imageView, final int imageHeight) {
-                Log.e("---", "imageHeight: "+imageHeight);
                 //如果是网络图片
                 if (imagePath.startsWith("http://") || imagePath.startsWith("https://")){
                     Glide.with(getApplicationContext()).asBitmap().load(imagePath).dontAnimate()

@@ -4,7 +4,6 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
-
 import androidx.appcompat.widget.AppCompatTextView;
 
 import com.cosinetech.imates.models.ChatDisplayItem;
@@ -15,13 +14,11 @@ import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin;
 import io.noties.markwon.ext.latex.JLatexMathPlugin;
 
 public class MarkdownTextView extends AppCompatTextView {
-    private final Object sync = new  Object();
-
-    private ChatDisplayItem msgDisplayItem;
-    private Markwon markwon;
-    private Handler mainHandler;
+    private ChatDisplayItem mTypingEffectDisplayItem;
+    private Markwon mMarkwon;
+    private Handler mMainHandler;
     private static final long UPDATE_DELAY = 100; // 延迟更新时间，单位毫秒
-    private boolean isStreaming;
+    private boolean showWithTypingEffect;
 
     public MarkdownTextView(Context context) {
         this(context, null);
@@ -39,8 +36,8 @@ public class MarkdownTextView extends AppCompatTextView {
     }
 
     private void init(Context context) {
-        mainHandler = new Handler(Looper.getMainLooper());
-        markwon = Markwon.builder(getContext())
+        mMainHandler = new Handler(Looper.getMainLooper());
+        mMarkwon = Markwon.builder(getContext())
                 .usePlugin(MarkwonInlineParserPlugin.create())
                 .usePlugin(GlideImagesPlugin.create(getContext()))
                 .usePlugin(HtmlPlugin.create())
@@ -54,13 +51,11 @@ public class MarkdownTextView extends AppCompatTextView {
 
     public void setContent(String content) {
         String preFilterLatex = filterLatexString(content);
-        markwon.setMarkdown(this, preFilterLatex);
+        mMarkwon.setMarkdown(this, preFilterLatex);
     }
 
-    public void setChatMessage(ChatDisplayItem msg) {
-        synchronized (sync) {
-            msgDisplayItem = msg;
-        }
+    public void setTypingEffectDisplayItem(ChatDisplayItem msg) {
+        mTypingEffectDisplayItem = msg;
     }
 
     private String filterLatexString(String src) {
@@ -71,38 +66,51 @@ public class MarkdownTextView extends AppCompatTextView {
                 .replace("\\]", "$");
     }
 
-    public void disableStreamingDisplay() {
-        isStreaming = false;
+    public void disableTypingEffectDisplay() {
+        showWithTypingEffect = false;
     }
 
-    public void enableStreamingDisplay() {
-        if (isStreaming) {
+    final Runnable displayOneChar = new Runnable() {
+        @Override
+        public void run() {
+            if(!mTypingEffectDisplayItem.showWithTypingEffect) {
+                setContent(mTypingEffectDisplayItem.chatMessage.content);
+                return;
+            }
+
+            if (mTypingEffectDisplayItem.currentDisplayCharIndex < mTypingEffectDisplayItem.chatMessage.content.length()) {
+                // 逐字拼接内容
+                String displayContent = mTypingEffectDisplayItem.chatMessage.content.substring(0, ++mTypingEffectDisplayItem.currentDisplayCharIndex);
+                setContent(displayContent);
+                if(mTypingEffectDisplayItem.currentDisplayCharIndex < mTypingEffectDisplayItem.chatMessage.content.length()) {
+                    mMainHandler.postDelayed(this, UPDATE_DELAY); // 每 100ms 更新一次
+                }
+            } else {
+                showWithTypingEffect = false;
+
+                // recycleView复用上次相同view, 会调用到这里
+                setContent(mTypingEffectDisplayItem.chatMessage.content);
+            }
+        }
+    };
+
+    public void enableTypingEffectDisplay() {
+        if (showWithTypingEffect) {
             return; // 如果已经在流式显示，则直接返回
         }
-        isStreaming = true;
+        if(mTypingEffectDisplayItem == null) {
+            return;
+        }
+        showWithTypingEffect = true;
 
-        final Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                if (isStreaming && msgDisplayItem.currentDisplayCharIndex < msgDisplayItem.chatMessage.content.length()) {
-                    // 逐字拼接内容
-                    String displayContent = msgDisplayItem.chatMessage.content.substring(0, ++msgDisplayItem.currentDisplayCharIndex);
-                    setContent(displayContent);
-                    mainHandler.postDelayed(this, UPDATE_DELAY); // 每 100ms 更新一次
-                } else {
-                    isStreaming = false; // 流式显示结束
-                }
-            }
-        };
-
-        mainHandler.post(runnable);
+        mMainHandler.post(displayOneChar);
     }
 
-    public boolean isStreaming() {
-        return isStreaming;
+    public boolean isShowWithTypingEffect() {
+        return showWithTypingEffect;
     }
 
     public void clearContent() {
-        setText("");
+        setContent("");
     }
 }

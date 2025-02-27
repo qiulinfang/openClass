@@ -199,7 +199,8 @@ public class QuestionSolveActivity extends AppCompatActivity {
                 mChatView.setChatEnable(false);
                 chatResponceTimes = 0;
                 setViewAnswer(false);
-                mChatView.clearChatHistory();
+                //mChatView.clearChatHistory();
+                onChatQuestionSessionChange(false);
 
                 if(subject == Subject.SUBJECT_BIOLOGY) {
                     View essay_view = findViewById(R.id.essay_question);
@@ -223,31 +224,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
                     mQuestions.get(mCurrentQuestionIndex).isAiGuiding = true;
                     adapterQuestionList.notifyItemChanged(mCurrentQuestionIndex);
                 }
-
-                String questionString = mQuestions.get(mCurrentQuestionIndex).getQuestion();
-                long tick = System.currentTimeMillis();
-                ChatMessageSession session = new ChatMessageSession(
-                        UUID.nameUUIDFromBytes(questionString.getBytes()).toString(),
-                        mChatCatalogue.catalogId,
-                        (questionString.length() > ChatMessageSession.MAX_SESSION_NAME_LENGTH ?
-                                questionString.substring(0, ChatMessageSession.MAX_SESSION_NAME_LENGTH) + "..." :
-                                questionString),
-                        ChatMessageSession.SessionType.USER_TALK_AI,
-                        tick,
-                        tick,
-                        0);
-                mChatDb.addMessageSession(session);
-                mChatView.resetCurrentSession(session);
-
-                aiChatMessageRequest.setName(userInfoViewModel.userInfo.getValue().getName());
-                aiChatMessageRequest.setNewValue("1");
-                aiChatMessageRequest.setSessionId(session.sessionId);
-                aiChatMessageRequest.setQuestion(questionString);
-                aiChatMessageRequest.setAnswer(mQuestions.get(mCurrentQuestionIndex).DAJX + mQuestions.get(mCurrentQuestionIndex).explanation);
-                aiChatMessageRequest.setCoversation("我们开始吧");
-                aiChatMessageRequest.setReason("start");
-                aiChatMessageRequest.setBmNo(mQuestions.get(mCurrentQuestionIndex).bmNo);
-
+                onChatQuestionSessionChange(true);
                 runOnUiThread(() -> {
                     mChatView.sendTextMessage(aiChatMessageRequest);
                     mChatView.setChatEnable(true);
@@ -351,6 +328,34 @@ public class QuestionSolveActivity extends AppCompatActivity {
             }
         });
 
+    }
+
+    private void onChatQuestionSessionChange(boolean saveToDb) {
+        String questionString = mQuestions.get(mCurrentQuestionIndex).getQuestion();
+        long tick = System.currentTimeMillis();
+        ChatMessageSession session = new ChatMessageSession(
+                UUID.nameUUIDFromBytes(questionString.getBytes()).toString(),
+                mChatCatalogue.catalogId,
+                (questionString.length() > ChatMessageSession.MAX_SESSION_NAME_LENGTH ?
+                        questionString.substring(0, ChatMessageSession.MAX_SESSION_NAME_LENGTH) + "..." :
+                        questionString),
+                ChatMessageSession.SessionType.USER_TALK_AI,
+                tick,
+                tick,
+                0);
+        if(saveToDb) {
+            mChatDb.addMessageSession(session);
+        }
+        mChatView.resetCurrentSession(session);
+
+        aiChatMessageRequest.setName(userInfoViewModel.userInfo.getValue().getName());
+        aiChatMessageRequest.setNewValue("1");
+        aiChatMessageRequest.setSessionId(session.sessionId);
+        aiChatMessageRequest.setQuestion(questionString);
+        aiChatMessageRequest.setAnswer(mQuestions.get(mCurrentQuestionIndex).DAJX + mQuestions.get(mCurrentQuestionIndex).explanation);
+        aiChatMessageRequest.setCoversation("我们开始吧");
+        aiChatMessageRequest.setReason("start");
+        aiChatMessageRequest.setBmNo(mQuestions.get(mCurrentQuestionIndex).bmNo);
     }
 
     private String getCatalogueName() {

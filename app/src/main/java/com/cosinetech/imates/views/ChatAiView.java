@@ -618,7 +618,7 @@ public class ChatAiView extends RelativeLayout {
     private List<ChatDisplayItem> convertChatDisplayList(List<ChatMessage> msgs, boolean isHistory) {
         List<ChatDisplayItem> items = new ArrayList<>();
         for (ChatMessage msg: msgs) {
-            ChatDisplayItem item = new ChatDisplayItem(msg, isHistory);
+            ChatDisplayItem item = new ChatDisplayItem(msg, !isHistory);
             items.add(item);
         }
 
@@ -690,7 +690,7 @@ public class ChatAiView extends RelativeLayout {
                 ChatMessage.MessageType.TEXT,
                 mCurrentSession.sessionId,
                 System.currentTimeMillis());
-        messageList.add(new ChatDisplayItem(message, message.isSelf));
+        messageList.add(new ChatDisplayItem(message, !message.isSelf));
 
         mEditMsg.setText("");
         mChatDb.addChatMessageDetail(message);
@@ -700,7 +700,7 @@ public class ChatAiView extends RelativeLayout {
                 mCurrentSession.sessionId,
                 System.currentTimeMillis());
         mLastReceivingMsg = responseMessage;
-        messageList.add(new ChatDisplayItem(responseMessage, responseMessage.isSelf));
+        messageList.add(new ChatDisplayItem(responseMessage, !responseMessage.isSelf));
 
         // 一次性通知 Adapter 插入两条消息
         adapterAiChatMessageList.notifyItemRangeInserted(messageList.size() - 2, 2);
@@ -725,7 +725,7 @@ public class ChatAiView extends RelativeLayout {
                     ChatMessage.MessageType.TEXT,
                     mCurrentSession.sessionId,
                     System.currentTimeMillis());
-            messageList.add(new ChatDisplayItem(message, message.isSelf));
+            messageList.add(new ChatDisplayItem(message, !message.isSelf));
             mChatDb.addChatMessageDetail(message);
 
 //            if(!mo.getQuestion().isEmpty()) {
@@ -753,7 +753,7 @@ public class ChatAiView extends RelativeLayout {
                     mCurrentSession.sessionId,
                     System.currentTimeMillis());
             mLastReceivingMsg = responseMessage;
-            messageList.add(new ChatDisplayItem(responseMessage, false));
+            messageList.add(new ChatDisplayItem(responseMessage, !responseMessage.isSelf));
             adapterAiChatMessageList.notifyItemInserted(messageList.size() - 1);
 
             mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);

@@ -91,47 +91,41 @@ public class SignActivity extends AppCompatActivity {
 
         // 电子签章
         btn_sign = (Button) findViewById(R.id.btn_sign);
-        btn_sign.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.e(TAG, "btn_sign");
-                vdhDeepLayout.setVisibility(View.VISIBLE);
-            }
+        btn_sign.setOnClickListener(v -> {
+            Log.e(TAG, "btn_sign");
+            vdhDeepLayout.setVisibility(View.VISIBLE);
         });
 
         // 保存
         btn_save = (Button) findViewById(R.id.btn_save);
-        btn_save.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                // 这里注意 in_path 和 out_path 不能一样 边读边写会出错
-                String in_path = filePath;
-                String out_path = in_path.substring(0, in_path.length() - 4) + "_t2.pdf";
-                SavePdf savePdf = new SavePdf(in_path, out_path);
-                savePdf.setScale(muPDFReaderView.getCurrentScale());
-                savePdf.setPageNum(muPDFReaderView.getDisplayedViewIndex() + 1);
+        btn_save.setOnClickListener(v -> {
+            // 这里注意 in_path 和 out_path 不能一样 边读边写会出错
+            String in_path = filePath;
+            String out_path = in_path.substring(0, in_path.length() - 4) + "_t2.pdf";
+            SavePdf savePdf = new SavePdf(in_path, out_path);
+            savePdf.setScale(muPDFReaderView.getCurrentScale());
+            savePdf.setPageNum(muPDFReaderView.getDisplayedViewIndex() + 1);
 
-                savePdf.setWidthScale(1.0f * muPDFReaderView.getScaleX() / muPDFReaderView.getDisplayedView().getWidth());//计算宽偏移的百分比
-                savePdf.setHeightScale(1.0f * muPDFReaderView.getScaleY() / muPDFReaderView.getDisplayedView().getHeight());//计算长偏移的百分比
+            savePdf.setWidthScale(1.0f * muPDFReaderView.getScaleX() / muPDFReaderView.getDisplayedView().getWidth());//计算宽偏移的百分比
+            savePdf.setHeightScale(1.0f * muPDFReaderView.getScaleY() / muPDFReaderView.getDisplayedView().getHeight());//计算长偏移的百分比
 
-                Log.e(TAG, "scaleX = " + muPDFReaderView.getScaleX() + "   " + muPDFReaderView.getDisplayedView().getWidth());
-                savePdf.setWH(iv_sign.getX(), iv_sign.getY());
+            Log.e(TAG, "scaleX = " + muPDFReaderView.getScaleX() + "   " + muPDFReaderView.getDisplayedView().getWidth());
+            savePdf.setWH(iv_sign.getX(), iv_sign.getY());
 //                savePdf.setWidthScale(0);
 //                savePdf.setHeightScale(0);
 
-                //计算分辨率密度
-                DisplayMetrics metric = new DisplayMetrics();
-                getWindowManager().getDefaultDisplay().getMetrics(metric);
+            //计算分辨率密度
+            DisplayMetrics metric = new DisplayMetrics();
+            getWindowManager().getDefaultDisplay().getMetrics(metric);
 
-                float density = metric.density;
-                savePdf.setDensity(density);
+            float density = metric.density;
+            savePdf.setDensity(density);
 
-                Bitmap bitmap = getBitmap(SignActivity.this, R.mipmap.ic_launcher);
-                savePdf.setBitmap(bitmap);
+            Bitmap bitmap = getBitmap(SignActivity.this, R.mipmap.ic_launcher);
+            savePdf.setBitmap(bitmap);
 
-                savePdfTask = new SavePdfTask(savePdf);
-                savePdfTask.execute();
-            }
+            savePdfTask = new SavePdfTask(savePdf);
+            savePdfTask.execute();
         });
 
         vdhDeepLayout = (VDHDeepLayout) findViewById(R.id.VDHDeepLayout);

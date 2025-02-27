@@ -210,30 +210,24 @@ public class PDFActivity extends AppCompatActivity implements
                             });
 
                             Button btnToPpt = view.findViewById(R.id.btn_to_ppt);
-                            btnToPpt.setOnClickListener(new View.OnClickListener() {
-                                @Override
-                                public void onClick(View v) {
-                                    if(mSchema != null && !mSchema.getLecture().isEmpty()) {
-                                        Intent intent = getIntent();
-                                        intent.putExtra("AssetsPdf", mSchema.getLecture());
-                                        pdfFitPolicy = FitPolicy.WIDTH;
-                                        pdfSwipeHorizontal = false;
-                                        loadPdf();
-                                    }
+                            btnToPpt.setOnClickListener(v -> {
+                                if(mSchema != null && !mSchema.getLecture().isEmpty()) {
+                                    Intent intent = getIntent();
+                                    intent.putExtra("AssetsPdf", mSchema.getLecture());
+                                    pdfFitPolicy = FitPolicy.WIDTH;
+                                    pdfSwipeHorizontal = false;
+                                    loadPdf();
                                 }
                             });
 
                             Button btnToGuide= view.findViewById(R.id.btn_to_guide);
-                            btnToGuide.setOnClickListener(new View.OnClickListener() {
-                                @Override
-                                public void onClick(View v) {
-                                    if(mSchema != null && !mSchema.getLearnGuide().isEmpty()) {
-                                        Intent intent = getIntent();
-                                        intent.putExtra("AssetsPdf", mSchema.getLearnGuide());
-                                        pdfFitPolicy = FitPolicy.BOTH;
-                                        pdfSwipeHorizontal = false;
-                                        loadPdf();
-                                    }
+                            btnToGuide.setOnClickListener(v -> {
+                                if(mSchema != null && !mSchema.getLearnGuide().isEmpty()) {
+                                    Intent intent = getIntent();
+                                    intent.putExtra("AssetsPdf", mSchema.getLearnGuide());
+                                    pdfFitPolicy = FitPolicy.BOTH;
+                                    pdfSwipeHorizontal = false;
+                                    loadPdf();
                                 }
                             });
                         }
@@ -241,17 +235,14 @@ public class PDFActivity extends AppCompatActivity implements
 
                     @Override
                     public void show(@NotNull View view) {
-                        Log.d("aaaaaaaaaaaa", "show");
                     }
 
                     @Override
                     public void hide(@NotNull View view) {
-                        Log.d("aaaaaaaaaaaa", "hide");
                     }
 
                     @Override
                     public void dismiss() {
-                        Log.d("aaaaaaaaaaaa", "dismiss");
                     }
 
                     @Override

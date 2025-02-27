@@ -114,22 +114,21 @@ public class SavePdf {
             //这里设置image相对PDF左下角的偏移量，我的做法是得到放大后位置相对于整个PDF的百分比再乘PDF的大小得到他的相对偏移位置
 //            img.setAbsolutePosition(rectangle.getWidth() * widthScale, rectangle.getHeight() * heightScale);// 偏右上
 
-            Log.e("zyw", "position = " + rectangle.getWidth() * widthScale + "  " + rectangle.getHeight() * heightScale);
-            Log.e("zyw", "density = " + density);
-            Log.e("zyw", "img.getWidth() = " + img.getWidth() + "  img.getHeight() = " + img.getHeight());
-            Log.e("zyw", "scale = " + scale);
-            Log.e("zyw", "widthScale = " + widthScale + "  heightScale = " + heightScale);
-            Log.e("zyw", "bitmap.w = " + bitmap.getWidth() + "  bitmap.h = " + bitmap.getHeight());
-            Log.e("zyw", "rectangle.getLeft = " + rectangle.getLeft() + "  rectangle.getBottom() = " + rectangle.getBottom());
-            Log.e("zyw", "rectangle.getWidth = " + rectangle.getWidth() + "  rectangle.getHeight = " + rectangle.getHeight());
-
-
-            Log.e("zyw", "比例1 = " +  ((float)rectangle.getWidth()/img.getWidth())*100);
-            Log.e("zyw", "比例2 = " +  rectangle.getWidth() * widthScale*100);
-            Log.e("zyw", "坐标AbsolutePosition = " +  width * (rectangle.getWidth() * widthScale) + " " + (1964-height-img.getHeight()) * (rectangle.getWidth() * widthScale));
-            Log.e("zyw", "差值 = " + rectangle.getHeight() * (heightScale-widthScale));
-            //            img.scalePercent(((float)594/1080)*100);
-            Log.e("zyw", "缩放比例 = " + scale / defaultScale);
+//            Log.e("zyw", "position = " + rectangle.getWidth() * widthScale + "  " + rectangle.getHeight() * heightScale);
+//            Log.e("zyw", "density = " + density);
+//            Log.e("zyw", "img.getWidth() = " + img.getWidth() + "  img.getHeight() = " + img.getHeight());
+//            Log.e("zyw", "scale = " + scale);
+//            Log.e("zyw", "widthScale = " + widthScale + "  heightScale = " + heightScale);
+//            Log.e("zyw", "bitmap.w = " + bitmap.getWidth() + "  bitmap.h = " + bitmap.getHeight());
+//            Log.e("zyw", "rectangle.getLeft = " + rectangle.getLeft() + "  rectangle.getBottom() = " + rectangle.getBottom());
+//            Log.e("zyw", "rectangle.getWidth = " + rectangle.getWidth() + "  rectangle.getHeight = " + rectangle.getHeight());
+//
+//            Log.e("zyw", "比例1 = " +  ((float)rectangle.getWidth()/img.getWidth())*100);
+//            Log.e("zyw", "比例2 = " +  rectangle.getWidth() * widthScale*100);
+//            Log.e("zyw", "坐标AbsolutePosition = " +  width * (rectangle.getWidth() * widthScale) + " " + (1964-height-img.getHeight()) * (rectangle.getWidth() * widthScale));
+//            Log.e("zyw", "差值 = " + rectangle.getHeight() * (heightScale-widthScale));
+//            //            img.scalePercent(((float)594/1080)*100);
+//            Log.e("zyw", "缩放比例 = " + scale / defaultScale);
             img.scalePercent(rectangle.getWidth() * widthScale*100);
 //            img.setAbsolutePosition(rectangle.getLeft(), rectangle.getBottom() - 120);
             img.setAbsolutePosition(width * (rectangle.getWidth() * widthScale) * (scale ), rectangle.getHeight() - ((height) * (rectangle.getWidth() * widthScale) * (scale / defaultScale)) + img.getHeight()/2*widthScale*100);
