@@ -104,6 +104,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
     @NonNull
     @Override
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType0) {
+        Log.e("================",  "Create View Holder" );
         View view;
         MessageDisplayType type = MessageDisplayType.fromValue(viewType0);
         switch (type) {

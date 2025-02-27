@@ -45,7 +45,7 @@
             android:name=".FeedbackActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:exported="false"
-            android:theme="@style/Theme.IMatesApp.FullScreen.Fullscreen" />
+            android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
             android:name=".activities.PhotoQuestionLookupActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
@@ -54,6 +54,7 @@
         <activity
             android:name=".activities.QuestionSolveActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:windowSoftInputMode="adjustPan"
             android:exported="false"
             android:screenOrientation="landscape" />
         <activity
@@ -138,7 +139,8 @@
             android:name=".mupdfviewer.activity.SignActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.IMatesApp.FullScreen" /> <!-- <activity android:name="com.artifex.mupdfdemo.ChoosePDFActivity" -->
+            android:theme="@style/Theme.IMatesApp.FullScreen" />
+        <!-- <activity android:name="com.artifex.mupdfdemo.ChoosePDFActivity" -->
         <!-- android:theme="@style/Theme.IMatesApp.FullScreen"/> -->
         <!-- <activity android:name="com.artifex.mupdfdemo.PrintDialogActivity" -->
         <!-- android:theme="@style/Theme.IMatesApp.FullScreen"/> -->

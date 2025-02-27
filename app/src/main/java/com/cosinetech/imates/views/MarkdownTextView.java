@@ -64,12 +64,11 @@ public class MarkdownTextView extends AppCompatTextView {
     }
 
     private String filterLatexString(String src) {
-        String preFilterLatex = src.replace("\\(", "$")
+        return src.replace("\\(", "$")
                 .replace("\\)", "$")
                 .replace("$$", "$$\n")
                 .replace("\\[", "$")
                 .replace("\\]", "$");
-        return preFilterLatex;
     }
 
     public void disableStreamingDisplay() {
@@ -82,14 +81,13 @@ public class MarkdownTextView extends AppCompatTextView {
         }
         isStreaming = true;
 
-        Runnable runnable = new Runnable() {
+        final Runnable runnable = new Runnable() {
             @Override
             public void run() {
                 if (isStreaming && msgDisplayItem.currentDisplayCharIndex < msgDisplayItem.chatMessage.content.length()) {
                     // 逐字拼接内容
                     String displayContent = msgDisplayItem.chatMessage.content.substring(0, ++msgDisplayItem.currentDisplayCharIndex);
-                    String filterString = filterLatexString(displayContent);
-                    markwon.setMarkdown(MarkdownTextView.this, filterString);
+                    setContent(displayContent);
                     mainHandler.postDelayed(this, UPDATE_DELAY); // 每 100ms 更新一次
                 } else {
                     isStreaming = false; // 流式显示结束

@@ -15,20 +15,6 @@
         <item name="android:dialogCornerRadius" tools:targetApi="p">32dp</item>
     </style>
 
-    <!-- Base application theme. -->
-<!--    <style name="Base.Theme.IMatesApp.FullScreen" parent="Theme.Material3.DayNight.NoActionBar">-->
-<!--        &lt;!&ndash; Customize your light theme here. &ndash;&gt;-->
-<!--        &lt;!&ndash; <item name="colorPrimary">@color/my_light_primary</item> &ndash;&gt;-->
-<!--    </style>-->
-
-    <style name="Theme.IMatesApp.FullScreen.Fullscreen" parent="Theme.IMatesApp.FullScreen">
-        <item name="android:actionBarStyle">
-            @style/Widget.Theme.IMatesApp.FullScreen.ActionBar.Fullscreen
-        </item>
-        <item name="android:windowActionBarOverlay">true</item>
-        <item name="android:windowBackground">@null</item>
-    </style>
-
     <style name="ThemeOverlay.IMatesApp.FullscreenContainer" parent="">
         <item name="fullscreenBackgroundColor">@color/light_blue_600</item>
         <item name="fullscreenTextColor">@color/light_blue_A200</item>
