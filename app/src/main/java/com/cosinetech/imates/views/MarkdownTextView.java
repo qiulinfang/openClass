@@ -1,6 +1,7 @@
 package com.cosinetech.imates.views;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
@@ -8,10 +9,13 @@ import androidx.appcompat.widget.AppCompatTextView;
 
 import com.cosinetech.imates.models.ChatDisplayItem;
 import io.noties.markwon.Markwon;
+import io.noties.markwon.ext.tables.TablePlugin;
 import io.noties.markwon.html.HtmlPlugin;
 import io.noties.markwon.image.glide.GlideImagesPlugin;
 import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin;
 import io.noties.markwon.ext.latex.JLatexMathPlugin;
+import io.noties.markwon.utils.ColorUtils;
+import io.noties.markwon.utils.Dip;
 
 public class MarkdownTextView extends AppCompatTextView {
     private ChatDisplayItem mTypingEffectDisplayItem;
@@ -46,6 +50,7 @@ public class MarkdownTextView extends AppCompatTextView {
                     builder.inlinesEnabled(true);
                     builder.allowInlinesSingleDollar(true);
                 }))
+                .usePlugin(TablePlugin.create(context))
                 .build();
     }
 
