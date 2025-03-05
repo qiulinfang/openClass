@@ -1,5 +1,6 @@
 package com.artifex.mupdfdemo;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -85,7 +86,7 @@ public class MuPDFReaderView extends ReaderView {
      *
      * @param inkThickness 粗细值
      */
-    public void setPaintStrockWidth(float inkThickness) {
+    public void setPaintStrokeWidth(float inkThickness) {
 //		SharedPreferencesUtil.put(SPConsts.SP_COLOR_SEARCH_TEXT, color);
         ((MuPDFView) getCurrentView()).setPaintStrockWidth(inkThickness);
     }
@@ -218,6 +219,7 @@ public class MuPDFReaderView extends ReaderView {
         return super.onScaleBegin(d);
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     public boolean onTouchEvent(MotionEvent event) {
 
         if (mMode == Mode.Drawing) {

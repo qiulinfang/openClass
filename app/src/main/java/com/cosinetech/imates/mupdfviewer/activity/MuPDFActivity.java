@@ -25,9 +25,7 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ViewAnimator;
-
 import androidx.appcompat.app.AppCompatActivity;
-
 import com.artifex.mupdfdemo.Annotation;
 import com.artifex.mupdfdemo.FilePicker;
 import com.artifex.mupdfdemo.Hit;
@@ -57,7 +55,7 @@ public class MuPDFActivity extends AppCompatActivity {
     private static final String TAG = MuPDFActivity.class.getSimpleName();
 
     private final int OUTLINE_REQUEST = 0;// 目录回调
-    private String filePath; // 文件路径
+    private String mFilePath; // 文件路径
 
     private AlertDialog.Builder mAlertBuilder;// 弹出框
 
@@ -99,7 +97,7 @@ public class MuPDFActivity extends AppCompatActivity {
         WindowUtils.setFullScreenMode(this);
 
         setContentView(R.layout.activity_mupdf);
-        filePath = getIntent().getData().getPath();
+        mFilePath = getIntent().getData().getPath();
         initView();
     }
 
@@ -109,7 +107,7 @@ public class MuPDFActivity extends AppCompatActivity {
     private void initView() {
         SharedPreferencesUtil.init(getApplication());
 
-        muPDFReaderView = (MuPDFReaderView) findViewById(R.id.mu_pdf_mupdfreaderview);
+        muPDFReaderView = findViewById(R.id.mu_pdf_mupdfreaderview);
 
         initToolsView();
         createPDF();
@@ -119,7 +117,6 @@ public class MuPDFActivity extends AppCompatActivity {
      * 初始化工具栏
      */
     private void initToolsView() {
-
         mTopBarSwitcher = (ViewAnimator) findViewById(R.id.switcher);
         mLinkButton = (ImageButton) findViewById(R.id.linkButton);
         mAnnotButton = (ImageButton) findViewById(R.id.reflowButton);
@@ -144,7 +141,7 @@ public class MuPDFActivity extends AppCompatActivity {
         mAlertBuilder = new AlertDialog.Builder(this);
 
         // 通过MuPDFCore打开pdf文件
-        muPDFCore = openFile(filePath);
+        muPDFCore = openFile(mFilePath);
         // 搜索设为空
         SearchTaskResult.set(null);
         // 判断如果core为空，提示不能打开文件
@@ -995,6 +992,10 @@ public class MuPDFActivity extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         super.onBackPressed();
+        onFinishing();
+    }
+
+    private void onFinishing() {
         if (muPDFCore != null && muPDFCore.hasChanges()) {
             DialogInterface.OnClickListener listener = new DialogInterface.OnClickListener() {
                 public void onClick(DialogInterface dialog, int which) {

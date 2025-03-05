@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Environment;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
@@ -32,7 +31,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.artifex.mupdfdemo.Annotation;
-import com.artifex.mupdfdemo.FilePicker;
 import com.artifex.mupdfdemo.Hit;
 import com.artifex.mupdfdemo.MuPDFAlert;
 import com.artifex.mupdfdemo.MuPDFCore;
@@ -123,19 +121,16 @@ public class MoreSetActivity extends AppCompatActivity {
 
     private void setPDFVoid() {
         //切换横竖显示
-        btn_change_hv = (Button) findViewById(R.id.btn_change_hv);
-        btn_change_hv.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (ischangeHV) {
-                    muPDFReaderView.setHorizontalScrolling(ischangeHV);
-                    btn_change_hv.setText("横");
-                    ischangeHV = false;
-                } else {
-                    muPDFReaderView.setHorizontalScrolling(ischangeHV);
-                    btn_change_hv.setText("竖");
-                    ischangeHV = true;
-                }
+        btn_change_hv = findViewById(R.id.btn_change_hv);
+        btn_change_hv.setOnClickListener(v -> {
+            if (ischangeHV) {
+                muPDFReaderView.setHorizontalScrolling(ischangeHV);
+                btn_change_hv.setText("横");
+                ischangeHV = false;
+            } else {
+                muPDFReaderView.setHorizontalScrolling(ischangeHV);
+                btn_change_hv.setText("竖");
+                ischangeHV = true;
             }
         });
 
@@ -172,7 +167,7 @@ public class MoreSetActivity extends AppCompatActivity {
         btn_paintstrokewidth.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                setPaintStrockWidth(20.0f);
+                setPaintStrokeWidth(20.0f);
             }
         });
     }
@@ -230,11 +225,8 @@ public class MoreSetActivity extends AppCompatActivity {
             return;
         }
         // 显示
-        muPDFReaderView.setAdapter(new MuPDFPageAdapter(this, new FilePicker.FilePickerSupport() {
-            @Override
-            public void performPickFor(FilePicker picker) {
+        muPDFReaderView.setAdapter(new MuPDFPageAdapter(this, picker -> {
 
-            }
         }, muPDFCore));
         // Set up the page slider
         int smax = Math.max(muPDFCore.countPages() - 1, 1);
@@ -262,14 +254,12 @@ public class MoreSetActivity extends AppCompatActivity {
         // 判断如果pdf文件有目录
         if (muPDFCore.hasOutline()) {
             // 点击目录按钮跳转到目录页
-            mOutlineButton.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) {
-                    OutlineItem outline[] = muPDFCore.getOutline();
-                    if (outline != null) {
-                        OutlineActivityData.get().items = outline;
-                        Intent intent = new Intent(MoreSetActivity.this, OutlineActivity.class);
-                        startActivityForResult(intent, OUTLINE_REQUEST);
-                    }
+            mOutlineButton.setOnClickListener(v -> {
+                OutlineItem outline[] = muPDFCore.getOutline();
+                if (outline != null) {
+                    OutlineActivityData.get().items = outline;
+                    Intent intent = new Intent(MoreSetActivity.this, OutlineActivity.class);
+                    startActivityForResult(intent, OUTLINE_REQUEST);
                 }
             });
         } else {
@@ -505,8 +495,8 @@ public class MoreSetActivity extends AppCompatActivity {
      *
      * @param inkThickness 粗细值
      */
-    private void setPaintStrockWidth(float inkThickness) {
-        muPDFReaderView.setPaintStrockWidth(inkThickness);
+    private void setPaintStrokeWidth(float inkThickness) {
+        muPDFReaderView.setPaintStrokeWidth(inkThickness);
     }
 
     /**
@@ -1092,6 +1082,7 @@ public class MoreSetActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
+        super.onBackPressed();
         if (muPDFCore != null && muPDFCore.hasChanges()) {
             DialogInterface.OnClickListener listener = new DialogInterface.OnClickListener() {
                 public void onClick(DialogInterface dialog, int which) {
@@ -1115,7 +1106,7 @@ public class MoreSetActivity extends AppCompatActivity {
     /**
      * 多线程类
      */
-    class ThreadPerTaskExecutor implements Executor {
+    static class ThreadPerTaskExecutor implements Executor {
         public void execute(Runnable r) {
             new Thread(r).start();
         }

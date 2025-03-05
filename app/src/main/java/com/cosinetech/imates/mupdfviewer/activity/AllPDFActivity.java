@@ -196,19 +196,16 @@ public class AllPDFActivity extends AppCompatActivity {
         createUI();
 
         //切换横竖显示
-        btn_change_hv = (Button) findViewById(R.id.btn_change_hv);
-        btn_change_hv.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (ischangeHV) {
-                    muPDFReaderView.setHorizontalScrolling(ischangeHV);
-                    btn_change_hv.setText("横");
-                    ischangeHV = false;
-                } else {
-                    muPDFReaderView.setHorizontalScrolling(ischangeHV);
-                    btn_change_hv.setText("竖");
-                    ischangeHV = true;
-                }
+        btn_change_hv = findViewById(R.id.btn_change_hv);
+        btn_change_hv.setOnClickListener(v -> {
+            if (ischangeHV) {
+                muPDFReaderView.setHorizontalScrolling(ischangeHV);
+                btn_change_hv.setText("横");
+                ischangeHV = false;
+            } else {
+                muPDFReaderView.setHorizontalScrolling(ischangeHV);
+                btn_change_hv.setText("竖");
+                ischangeHV = true;
             }
         });
 
@@ -1017,7 +1014,7 @@ public class AllPDFActivity extends AppCompatActivity {
      * @param inkThickness 粗细值
      */
     private void setPaintStrockWidth(float inkThickness) {
-        muPDFReaderView.setPaintStrockWidth(inkThickness);
+        muPDFReaderView.setPaintStrokeWidth(inkThickness);
     }
 
     /**
