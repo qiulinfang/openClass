@@ -21,7 +21,7 @@
     <color name="colorPrimaryDark">#00574B</color>
     <color name="link_bg">#2200ffff</color>
     <color name="search_bg">#440000ff</color>
-    <color name="muPDFReaderView_bg">#ffffff</color>
+    <color name="muPDFReaderView_bg">#808080</color>
     <color name="paint_color">#0000FF</color>
     <color name="rv_item_line_bg">#eeeeee</color>
     <color name="rv_item_line_tv">#000000</color>
