@@ -121,7 +121,7 @@ public class AllPDFActivity extends AppCompatActivity {
     /*
      * 用于存储的异步,并上传更新
      * */
-    class SavePdfTask extends AsyncTask {
+    static class SavePdfTask extends AsyncTask {
 
         SavePdf savePdf;
 
@@ -151,7 +151,7 @@ public class AllPDFActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_all_pdf);
-
+        filePath = getIntent().getData().getPath();
         initView();
     }
 
@@ -1232,6 +1232,7 @@ public class AllPDFActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
+        super.onBackPressed();
         if (muPDFCore != null && muPDFCore.hasChanges()) {
             DialogInterface.OnClickListener listener = new DialogInterface.OnClickListener() {
                 public void onClick(DialogInterface dialog, int which) {

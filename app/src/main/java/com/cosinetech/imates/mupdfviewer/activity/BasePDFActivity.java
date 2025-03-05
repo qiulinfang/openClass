@@ -25,7 +25,7 @@ import com.cosinetech.imates.R;
 public class BasePDFActivity extends AppCompatActivity {
     private static final String TAG = BasePDFActivity.class.getSimpleName();
 
-    private String filePath = Environment.getExternalStorageDirectory() + "/pdf_t1.pdf"; // 文件路径
+    private String filePath; // 文件路径
 
     private MuPDFCore muPDFCore;// 加载mupdf.so文件
     private MuPDFReaderView muPDFReaderView;// 显示pdf的view
@@ -34,7 +34,7 @@ public class BasePDFActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_base_pdf);
-
+        filePath = getIntent().getData().getPath();
         initView();
     }
 

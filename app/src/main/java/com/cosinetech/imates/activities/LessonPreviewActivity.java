@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -16,6 +17,7 @@ import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Chapter;
+import com.cosinetech.imates.mupdfviewer.activity.MuPDFActivity;
 import com.cosinetech.imates.util.WindowUtils;
 import com.github.spareyaya.SimpleRatingView;
 
@@ -154,8 +156,18 @@ public class LessonPreviewActivity extends AppCompatActivity {
                 textView.setText("已学习");
                 textView.setTextColor(Color.GREEN);
 
-                Intent intent = new Intent(this, com.cosinetech.imates.pdfui.PDFActivity.class);
-                intent.putExtra("AssetsPdf", mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getTextBook());
+//                Intent intent = new Intent(this, com.cosinetech.imates.pdfui.PDFActivity.class);
+//                intent.putExtra("AssetsPdf", mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getTextBook());
+//                intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
+//                intent.putExtra("Section", mPreviewSection);
+//                startActivity(intent);q
+
+                Intent intent = new Intent(this, MuPDFActivity.class);
+                intent.setAction(Intent.ACTION_VIEW);
+                String path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getTextBook();
+
+                intent.setData(Uri.fromFile(new File(path)));
+                intent.putExtra("AssetsPdf", path);
                 intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
                 intent.putExtra("Section", mPreviewSection);
                 startActivity(intent);

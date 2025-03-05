@@ -58,7 +58,7 @@ import java.util.concurrent.Executor;
 public class MoreSetActivity extends AppCompatActivity {
     private static final String TAG = MoreSetActivity.class.getSimpleName();
     private final int OUTLINE_REQUEST = 0;// 目录回调
-    private String filePath = Environment.getExternalStorageDirectory() + "/pdf_t1.pdf"; // 文件路径
+    private String filePath; // 文件路径
 
     private AlertDialog.Builder mAlertBuilder;// 弹出框
 
@@ -104,7 +104,7 @@ public class MoreSetActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_more_set);
-
+        filePath = getIntent().getData().getPath();
         initView();
     }
 

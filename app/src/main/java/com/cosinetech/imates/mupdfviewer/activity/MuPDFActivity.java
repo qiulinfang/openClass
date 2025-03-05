@@ -45,6 +45,7 @@ import com.artifex.mupdfdemo.SearchTask;
 import com.artifex.mupdfdemo.SearchTaskResult;
 import com.artifex.mupdfdemo.SharedPreferencesUtil;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.util.WindowUtils;
 
 import java.util.concurrent.Executor;
 
@@ -57,7 +58,7 @@ public class MuPDFActivity extends AppCompatActivity {
     private static final String TAG = MuPDFActivity.class.getSimpleName();
 
     private final int OUTLINE_REQUEST = 0;// 目录回调
-    private String filePath = Environment.getExternalStorageDirectory() + "/pdf_t1.pdf"; // 文件路径
+    private String filePath; // 文件路径
 
     private AlertDialog.Builder mAlertBuilder;// 弹出框
 
@@ -95,8 +96,11 @@ public class MuPDFActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_mupdf);
+        WindowUtils.hideSystemUI(this);
+        WindowUtils.setFullScreenMode(this);
 
+        setContentView(R.layout.activity_mupdf);
+        filePath = getIntent().getData().getPath();
         initView();
     }
 
@@ -991,6 +995,7 @@ public class MuPDFActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
+        super.onBackPressed();
         if (muPDFCore != null && muPDFCore.hasChanges()) {
             DialogInterface.OnClickListener listener = new DialogInterface.OnClickListener() {
                 public void onClick(DialogInterface dialog, int which) {
@@ -1011,10 +1016,18 @@ public class MuPDFActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            WindowUtils.hideSystemUI(this);
+        }
+    }
+
     /**
      * 多线程类
      */
-    class ThreadPerTaskExecutor implements Executor {
+    static class ThreadPerTaskExecutor implements Executor {
         public void execute(Runnable r) {
             new Thread(r).start();
         }

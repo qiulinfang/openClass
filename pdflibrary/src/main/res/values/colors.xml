@@ -14,5 +14,5 @@
 	<color name="seek_thumb">#2572AC</color>
 	<color name="seek_progress">#FFFFFF</color>
 
-	<color name="muPDFReaderView_bg">#ffffff</color>
+	<color name="muPDFReaderView_bg">#808080</color>
 </resources>
