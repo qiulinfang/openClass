@@ -1100,7 +1100,7 @@ public class MuPDFActivity extends AppCompatActivity {
                                 @Override
                                 public void onClick(View v) {
                                     // 点击按钮时退出当前 Activity
-                                    onBackPressed();
+                                    onFinishing();
                                 }
                             });
 
