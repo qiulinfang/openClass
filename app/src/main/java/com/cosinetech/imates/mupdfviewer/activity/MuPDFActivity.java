@@ -4,6 +4,7 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -13,21 +14,26 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.animation.Animation;
 import android.view.animation.TranslateAnimation;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ViewAnimator;
+
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import com.artifex.mupdfdemo.Annotation;
-import com.artifex.mupdfdemo.FilePicker;
 import com.artifex.mupdfdemo.Hit;
 import com.artifex.mupdfdemo.MuPDFAlert;
 import com.artifex.mupdfdemo.MuPDFCore;
@@ -42,18 +48,26 @@ import com.artifex.mupdfdemo.SearchTask;
 import com.artifex.mupdfdemo.SearchTaskResult;
 import com.artifex.mupdfdemo.SharedPreferencesUtil;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.activities.VideoPlayActivity;
+import com.cosinetech.imates.models.Chapter;
+import com.cosinetech.imates.notes.NotePopupWindow;
 import com.cosinetech.imates.util.WindowUtils;
+import com.cosinetech.imates.views.FloatingResizableVideoView;
+import com.cosinetech.imates.views.ScratchToolsView;
+import com.cosinetech.imates.views.VideoPlayView;
+import com.lzf.easyfloat.EasyFloat;
+import com.lzf.easyfloat.anim.DefaultAnimator;
+import com.lzf.easyfloat.enums.ShowPattern;
+import com.lzf.easyfloat.enums.SidePattern;
+import com.lzf.easyfloat.interfaces.OnFloatCallbacks;
 
+import org.jetbrains.annotations.NotNull;
+
+import java.io.File;
 import java.util.concurrent.Executor;
 
-/**
- * @Description: MuPDF已有功能
- * @author: ZhangYW
- * @time: 2019/3/11 15:56
- */
 public class MuPDFActivity extends AppCompatActivity {
     private static final String TAG = MuPDFActivity.class.getSimpleName();
-
     private final int OUTLINE_REQUEST = 0;// 目录回调
     private String mFilePath; // 文件路径
 
@@ -65,7 +79,6 @@ public class MuPDFActivity extends AppCompatActivity {
     private boolean mAlertsActive = false;
     private AsyncTask<Void, Void, MuPDFAlert> mAlertTask;
     private AlertDialog mAlertDialog;// 初始加载pdf等待弹出框
-
     // tools
     private ViewAnimator mTopBarSwitcher;// 工具栏动画
     private ImageButton mLinkButton;// 超链接
@@ -90,6 +103,15 @@ public class MuPDFActivity extends AppCompatActivity {
     private SearchTask mSearchTask;// 搜索线程
     private boolean mLinkHighlight = false;// 是否高亮显示
 
+    //
+    // 视频播放相关
+    private static final String mFloatingVideoTag = "FLOATING_VIDEO_PLAYER";
+    private static final String mFloatingReaderToolsTag = "FLOATING_READER_TOOLS";
+    private boolean mIsPlayingVideo = false;
+
+    private Chapter.Schema mSchema;
+    private Chapter.Section mSection;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -98,7 +120,27 @@ public class MuPDFActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_mupdf);
         mFilePath = getIntent().getData().getPath();
+        mSchema = getIntent().getParcelableExtra("Schema");
+        mSection = getIntent().getParcelableExtra("Section");
+        ScratchToolsView scratchToolsView = findViewById(R.id.scratch_tool);
+        scratchToolsView.setAskAiContextPrompt(mSection.getTitle());
+        scratchToolsView.setOnScratchToolsListener(new ScratchToolsView.OnScratchToolsListener() {
+            @Override
+            public void onEnterScratchMode() {
+            }
+
+            @Override
+            public void onExitScratchMode() {
+            }
+
+            @Override
+            public Bitmap onGetScratchCanvasBitmap() {
+                Bitmap bmp = WindowUtils.getScreenshot2Bitmap(MuPDFActivity.this, muPDFReaderView);
+                return  bmp;
+            }
+        });
         initView();
+        showFloatingReaderTools();
     }
 
     /**
@@ -117,20 +159,20 @@ public class MuPDFActivity extends AppCompatActivity {
      * 初始化工具栏
      */
     private void initToolsView() {
-        mTopBarSwitcher = (ViewAnimator) findViewById(R.id.switcher);
-        mLinkButton = (ImageButton) findViewById(R.id.linkButton);
-        mAnnotButton = (ImageButton) findViewById(R.id.reflowButton);
-        mOutlineButton = (ImageButton) findViewById(R.id.outlineButton);
-        mSearchButton = (ImageButton) findViewById(R.id.searchButton);
+        mTopBarSwitcher = findViewById(R.id.switcher);
+        mLinkButton = findViewById(R.id.linkButton);
+        mAnnotButton = findViewById(R.id.reflowButton);
+        mOutlineButton = findViewById(R.id.outlineButton);
+        mSearchButton = findViewById(R.id.searchButton);
 
-        et_searchText = (EditText) findViewById(R.id.searchText);
-        mSearchBack = (ImageButton) findViewById(R.id.searchBack);
-        mSearchFwd = (ImageButton) findViewById(R.id.searchForward);
+        et_searchText = findViewById(R.id.searchText);
+        mSearchBack = findViewById(R.id.searchBack);
+        mSearchFwd = findViewById(R.id.searchForward);
 
-        mAnnotTypeText = (TextView) findViewById(R.id.annotType);
+        mAnnotTypeText = findViewById(R.id.annotType);
 
-        mPageNumberView = (TextView) findViewById(R.id.pageNumber);
-        mPageSlider = (SeekBar) findViewById(R.id.pageSlider);
+        mPageNumberView = findViewById(R.id.pageNumber);
+        mPageSlider = findViewById(R.id.pageSlider);
 
         mTopBarSwitcher.setVisibility(View.INVISIBLE);
         mPageNumberView.setVisibility(View.INVISIBLE);
@@ -149,27 +191,14 @@ public class MuPDFActivity extends AppCompatActivity {
             AlertDialog alert = mAlertBuilder.create();
             alert.setTitle(R.string.cannot_open_document);
             alert.setButton(AlertDialog.BUTTON_POSITIVE, getString(R.string.dismiss),
-                    new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog, int which) {
-                            finish();
-                        }
-                    });
-            alert.setOnCancelListener(new DialogInterface.OnCancelListener() {
-
-                @Override
-                public void onCancel(DialogInterface dialog) {
-                    finish();
-                }
-            });
+                    (dialog, which) -> finish());
+            alert.setOnCancelListener(dialog -> finish());
             alert.show();
             return;
         }
         // 显示
-        muPDFReaderView.setAdapter(new MuPDFPageAdapter(this, new FilePicker.FilePickerSupport() {
-            @Override
-            public void performPickFor(FilePicker picker) {
-                
-            }
+        muPDFReaderView.setAdapter(new MuPDFPageAdapter(this, picker -> {
+
         }, muPDFCore));
         // Set up the page slider
         int smax = Math.max(muPDFCore.countPages() - 1, 1);
@@ -199,12 +228,7 @@ public class MuPDFActivity extends AppCompatActivity {
             // 点击目录按钮跳转到目录页
             mOutlineButton.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
-                    OutlineItem outline[] = muPDFCore.getOutline();
-                    if (outline != null) {
-                        OutlineActivityData.get().items = outline;
-                        Intent intent = new Intent(MuPDFActivity.this, OutlineActivity.class);
-                        startActivityForResult(intent, OUTLINE_REQUEST);
-                    }
+                    showPdfOutline();
                 }
             });
         } else {
@@ -213,6 +237,15 @@ public class MuPDFActivity extends AppCompatActivity {
 
         // 设置监听事件
         setListener();
+    }
+
+    private void showPdfOutline() {
+        OutlineItem[] outline = muPDFCore.getOutline();
+        if (outline != null) {
+            OutlineActivityData.get().items = outline;
+            Intent intent = new Intent(MuPDFActivity.this, OutlineActivity.class);
+            startActivityForResult(intent, OUTLINE_REQUEST);
+        }
     }
 
     /**
@@ -397,12 +430,23 @@ public class MuPDFActivity extends AppCompatActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        switch (requestCode) {
-            // 目录回调
-            case OUTLINE_REQUEST:
-                if (resultCode >= 0)
-                    muPDFReaderView.setDisplayedViewIndex(resultCode);
-                break;
+        // 目录回调
+        if (requestCode == OUTLINE_REQUEST) {
+            if (resultCode >= 0)
+                muPDFReaderView.setDisplayedViewIndex(resultCode);
+        }
+
+        if(resultCode == VideoPlayActivity.CODE_RESULT_VIDEO_PLAY_EXIT) {
+            int actionCode = data.getIntExtra(VideoPlayActivity.KEY_RESULT_ACTION_KEY, VideoPlayActivity.EXIT_ACTION_NONE);
+            if(actionCode == VideoPlayActivity.EXIT_ACTION_FLOAT) {
+                //浮窗模式
+                String videoPath = data.getStringExtra(VideoPlayActivity.KEY_VIDEO_PATH);
+                String sectionTitle = data.getStringExtra(VideoPlayActivity.KEY_TEXTBOOK_SECTION);
+                int curPlayPos = data.getIntExtra(VideoPlayActivity.KEY_VIDEO_START_PLAY_POS_MS, 0);
+                showFloatingVideoPlay(curPlayPos, videoPath, sectionTitle);
+            } else {
+                mIsPlayingVideo = false;
+            }
         }
 
         super.onActivityResult(requestCode, resultCode, data);
@@ -987,6 +1031,9 @@ public class MuPDFActivity extends AppCompatActivity {
         }
         muPDFCore = null;
         super.onDestroy();
+
+        closeFloatReaderTools();
+        closeFloatingVideoPlay();
     }
 
     @Override
@@ -1023,6 +1070,273 @@ public class MuPDFActivity extends AppCompatActivity {
             WindowUtils.hideSystemUI(this);
         }
     }
+
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if(event.getKeyCode() == KeyEvent.KEYCODE_BACK
+                || event.getKeyCode() == KeyEvent.KEYCODE_HOME
+                || event.getKeyCode() == KeyEvent.KEYCODE_MENU){
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    private void showFloatingReaderTools() {
+        EasyFloat.with(this).setLayout(R.layout.floating_reader_tools)
+                .setDragEnable(false)
+                .setShowPattern(ShowPattern.CURRENT_ACTIVITY)
+                .setSidePattern(SidePattern.AUTO_SIDE)
+                .setMatchParent(true, false)
+                .setAnimator(new DefaultAnimator())
+                .setTag(mFloatingReaderToolsTag)
+                .registerCallbacks(new OnFloatCallbacks() {
+                    @Override
+                    public void createdResult(boolean isCreated, @Nullable String msg, @Nullable View view) {
+                        if (isCreated && view != null) {
+                            // 获取浮动窗口中的按钮
+                            Button btnClose = view.findViewById(R.id.btn_back);
+                            btnClose.setOnClickListener(new View.OnClickListener() {
+                                @Override
+                                public void onClick(View v) {
+                                    // 点击按钮时退出当前 Activity
+                                    onBackPressed();
+                                }
+                            });
+
+                            Button btnContent = view.findViewById(R.id.btn_contents);
+                            btnContent.setOnClickListener(v -> {
+                                //跳转目录页面
+                                showPdfOutline();
+                            });
+
+                            Button btnThumbnail = view.findViewById(R.id.btn_thumbnail);
+                            btnThumbnail.setOnClickListener( v->{
+                                //跳转缩略图页面
+                            });
+
+                            CheckBox checkBoxColl = view.findViewById(R.id.btn_collapse);
+                            checkBoxColl.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                                if(isChecked) {
+                                    view.findViewById(R.id.tools_layout).setVisibility(View.GONE);
+                                } else {
+                                    view.findViewById(R.id.tools_layout).setVisibility(View.VISIBLE);
+                                }
+                            });
+
+                            // tool bar
+                            Button btnFitWidth = view.findViewById(R.id.btn_fit_width);
+                            btnFitWidth.setOnClickListener(v->{
+//                                pdfFitPolicy = FitPolicy.WIDTH;
+//                                pdfSwipeHorizontal = false;
+//                                loadPdf();
+                            });
+                            Button btnFitHeight = view.findViewById(R.id.btn_fit_height);
+                            btnFitHeight.setOnClickListener(v->{
+                                muPDFReaderView.setHorizontalScrolling(true);
+//                                pdfFitPolicy = FitPolicy.BOTH;
+//                                pdfSwipeHorizontal = false;
+//                                loadPdf();
+                            });
+                            Button btnScrollMode = view.findViewById(R.id.btn_hscroll);
+                            btnScrollMode.setOnClickListener(v->{
+//                                pdfFitPolicy = FitPolicy.HEIGHT;
+//                                pdfSwipeHorizontal = true;
+//                                loadPdf();
+                                muPDFReaderView.setHorizontalScrolling(false);
+                            });
+
+                            Button btnNote = view.findViewById(R.id.btn_note);
+                            btnNote.setOnClickListener(v -> {
+                                NotePopupWindow win = new NotePopupWindow(view.getContext());
+                                win.showAsDropDown(view);
+                            });
+
+                            Button btnWatchVideo = view.findViewById(R.id.btn_watch_video);
+                            btnWatchVideo.setOnClickListener(v-> {
+                                String path = getExternalFilesDir(null) + "/videos/1.mp4";
+                                if(!mIsPlayingVideo) {
+                                    startVideoPlayActivityForResult(0, path, mSection.getTitle());
+                                }
+                            });
+
+                            Button btnToTextBook = view.findViewById(R.id.btn_to_textbook);
+                            btnToTextBook.setOnClickListener(v->{
+                                if(mSchema != null && !mSchema.getTextBook().isEmpty()) {
+                                    Intent intent = getIntent();
+                                    intent.putExtra("AssetsPdf", mSchema.getTextBook());
+//                                    pdfFitPolicy = FitPolicy.BOTH;
+//                                    pdfSwipeHorizontal = false;
+//                                    loadPdf();
+                                }
+                            });
+
+                            Button btnToPpt = view.findViewById(R.id.btn_to_ppt);
+                            btnToPpt.setOnClickListener(v -> {
+                                if(mSchema != null && !mSchema.getLecture().isEmpty()) {
+                                    Intent intent = getIntent();
+                                    intent.putExtra("AssetsPdf", mSchema.getLecture());
+//                                    pdfFitPolicy = FitPolicy.WIDTH;
+//                                    pdfSwipeHorizontal = false;
+//                                    loadPdf();
+                                }
+                            });
+
+                            Button btnToGuide= view.findViewById(R.id.btn_to_guide);
+                            btnToGuide.setOnClickListener(v -> {
+                                if(mSchema != null && !mSchema.getLearnGuide().isEmpty()) {
+                                    Intent intent = getIntent();
+                                    intent.putExtra("AssetsPdf", mSchema.getLearnGuide());
+//                                    pdfFitPolicy = FitPolicy.BOTH;
+//                                    pdfSwipeHorizontal = false;
+//                                    loadPdf();
+                                }
+                            });
+                        }
+                    }
+
+                    @Override
+                    public void show(@NotNull View view) {
+                    }
+
+                    @Override
+                    public void hide(@NotNull View view) {
+                    }
+
+                    @Override
+                    public void dismiss() {
+                    }
+
+                    @Override
+                    public void touchEvent(@NotNull View view, @NotNull MotionEvent event) { }
+
+                    @Override
+                    public void drag(@NotNull View view, @NotNull MotionEvent event) { }
+
+                    @Override
+                    public void dragEnd(@NotNull View view) { }
+                })
+                .show();
+    }
+
+    private void closeFloatReaderTools() {
+        EasyFloat.dismiss(mFloatingReaderToolsTag);
+    }
+
+    private void startVideoPlayActivityForResult(int startPos, String videoPath, String sectionTitle) {
+        File file = new File(videoPath);
+        if(!file.exists()) {
+            Toast.makeText(this, "没有视频文件可观看", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Intent intent = new Intent(this, VideoPlayActivity.class);
+        intent.putExtra(VideoPlayActivity.KEY_VIDEO_START_PLAY_POS_MS, startPos);
+        intent.putExtra(VideoPlayActivity.KEY_VIDEO_PATH, videoPath);
+        intent.putExtra(VideoPlayActivity.KEY_TEXTBOOK_SECTION, sectionTitle);
+        startActivityForResult(intent, VideoPlayActivity.CODE_RESULT_VIDEO_PLAY_EXIT);
+    }
+
+    private void showFloatingVideoPlay(int startPos, String videoPath, String sectionTitle) {
+        mIsPlayingVideo = true;
+        EasyFloat.with(MuPDFActivity.this)
+                .setLayout(R.layout.floating_video_container)
+                .setDragEnable(true)
+                .setShowPattern(ShowPattern.ALL_TIME)
+                .setSidePattern(SidePattern.DEFAULT)
+                .setMatchParent(false, false)
+                .setAnimator(new DefaultAnimator())
+                .setTag(mFloatingVideoTag)
+                .registerCallbacks(new OnFloatCallbacks() {
+                    @Override
+                    public void createdResult(boolean isCreated, @Nullable String msg, @Nullable View view) {
+                        if (isCreated && view != null) {
+                            FloatingResizableVideoView resizableView = view.findViewById(R.id.resizable_float_view);
+                            if (resizableView != null) {
+                                resizableView.setTag(mFloatingVideoTag);
+
+                                resizableView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+                                    @Override
+                                    public void onGlobalLayout() {
+                                        resizableView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+
+                                        // 现在可以安全地获取坐标并设置监听器
+                                        resizableView.setTag(mFloatingVideoTag);
+                                        resizableView.setOnResizeListener(new FloatingResizableVideoView.OnResizeListener() {
+                                            @Override
+                                            public void onResizeBegin() {
+                                                EasyFloat.dragEnable(false, mFloatingVideoTag);
+                                            }
+
+                                            @Override
+                                            public void onResize(int width, int height) {
+                                                // 获取浮窗相对于屏幕的X和Y坐标
+                                                int[] location = new int[2];
+                                                resizableView.getLocationOnScreen(location);
+                                                int x = location[0];
+                                                int y = location[1];
+                                                // 更新浮窗的位置和大小
+                                                EasyFloat.updateFloat(mFloatingVideoTag, x, y, width, height);
+                                            }
+
+                                            @Override
+                                            public void onResizeEnd() {
+                                                EasyFloat.dragEnable(true, mFloatingVideoTag);
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+
+                            VideoPlayView videoPlayView = view.findViewById(R.id.video_play_view);
+                            videoPlayView.setVideoInfo(videoPath, sectionTitle, startPos);
+                            videoPlayView.hideScratchTools();
+                            EasyFloat.updateFloat(mFloatingVideoTag, 0,0, 640, 400);
+
+                            Button btnExit = view.findViewById(R.id.btn_exit_video);
+                            btnExit.setOnClickListener(v-> {
+                                videoPlayView.stopPlay();
+                                closeFloatingVideoPlay();
+                            });
+
+                            Button btnFullScreen = view.findViewById(R.id.btn_full_screen);
+                            btnFullScreen.setOnClickListener(v-> {
+                                int pos = videoPlayView.getCurrentPlayPosition();
+                                videoPlayView.stopPlay();
+                                startVideoPlayActivityForResult(pos, videoPath, sectionTitle);
+                                closeFloatingVideoPlay();
+                            });
+                        }
+                    }
+
+                    @Override
+                    public void show(@NotNull View view) {
+                    }
+
+                    @Override
+                    public void hide(@NotNull View view) {
+                    }
+
+                    @Override
+                    public void dismiss() {
+                    }
+
+                    @Override
+                    public void touchEvent(@NotNull View view, @NotNull MotionEvent event) { }
+
+                    @Override
+                    public void drag(@NotNull View view, @NotNull MotionEvent event) { }
+
+                    @Override
+                    public void dragEnd(@NotNull View view) { }
+                })
+                .show();
+    }
+
+    private void closeFloatingVideoPlay() {
+        mIsPlayingVideo = false;
+        EasyFloat.dismiss(mFloatingVideoTag);
+    }
+
 
     /**
      * 多线程类

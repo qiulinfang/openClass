@@ -13,4 +13,9 @@
         android:background="#808080"/>
 
     <include layout="@layout/pdf_tools" />
+
+    <com.cosinetech.imates.views.ScratchToolsView
+        android:id="@+id/scratch_tool"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
 </RelativeLayout>
