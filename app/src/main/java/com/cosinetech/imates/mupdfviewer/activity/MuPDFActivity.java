@@ -1337,7 +1337,6 @@ public class MuPDFActivity extends AppCompatActivity {
         EasyFloat.dismiss(mFloatingVideoTag);
     }
 
-
     /**
      * 多线程类
      */
