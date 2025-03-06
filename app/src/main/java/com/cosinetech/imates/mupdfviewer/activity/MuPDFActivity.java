@@ -141,7 +141,7 @@ public class MuPDFActivity extends AppCompatActivity {
             }
         });
         initView();
-        showFloatingReaderTools();
+        setReaderTools();
     }
 
     /**
@@ -1028,8 +1028,6 @@ public class MuPDFActivity extends AppCompatActivity {
         }
         muPDFCore = null;
         super.onDestroy();
-
-        closeFloatReaderTools();
         closeFloatingVideoPlay();
     }
 
@@ -1079,92 +1077,29 @@ public class MuPDFActivity extends AppCompatActivity {
         return super.dispatchKeyEvent(event);
     }
 
-    private void showFloatingReaderTools() {
-        EasyFloat.with(this).setLayout(R.layout.floating_reader_tools)
-                .setDragEnable(false)
-                .setShowPattern(ShowPattern.CURRENT_ACTIVITY)
-                .setSidePattern(SidePattern.AUTO_SIDE)
-                .setMatchParent(true, false)
-                .setAnimator(new DefaultAnimator())
-                .setTag(mFloatingReaderToolsTag)
-                .registerCallbacks(new OnFloatCallbacks() {
-                    @Override
-                    public void createdResult(boolean isCreated, @Nullable String msg, @Nullable View view) {
-                        if (isCreated && view != null) {
-                            setReaderTools(view);
-                        }
-                    }
-
-                    @Override
-                    public void show(@NotNull View view) {
-                    }
-
-                    @Override
-                    public void hide(@NotNull View view) {
-                    }
-
-                    @Override
-                    public void dismiss() {
-                    }
-
-                    @Override
-                    public void touchEvent(@NotNull View view, @NotNull MotionEvent event) { }
-
-                    @Override
-                    public void drag(@NotNull View view, @NotNull MotionEvent event) { }
-
-                    @Override
-                    public void dragEnd(@NotNull View view) { }
-                })
-                .show();
-    }
-
-    private void setReaderTools(@NonNull View view) {
+    private void setReaderTools() {
         // 获取浮动窗口中的按钮
-        Button btnClose = view.findViewById(R.id.btn_back);
-        btnClose.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                // 点击按钮时退出当前 Activity
-                onFinishing();
-            }
-        });
-
-        Button btnContent = view.findViewById(R.id.btn_contents);
-        btnContent.setOnClickListener(v -> {
-            //跳转目录页面
-            showPdfOutline();
-        });
-
-        Button btnThumbnail = view.findViewById(R.id.btn_thumbnail);
-        btnThumbnail.setOnClickListener( v->{
-            //跳转缩略图页面
-        });
-
-        CheckBox checkBoxColl = view.findViewById(R.id.btn_collapse);
-        checkBoxColl.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if(isChecked) {
-                view.findViewById(R.id.tools_layout).setVisibility(View.GONE);
-            } else {
-                view.findViewById(R.id.tools_layout).setVisibility(View.VISIBLE);
-            }
+        ImageButton btnClose = findViewById(R.id.btn_back);
+        btnClose.setOnClickListener(v -> {
+            // 点击按钮时退出当前 Activity
+            onFinishing();
         });
 
         // tool bar
-        Button btnFitWidth = view.findViewById(R.id.btn_fit_width);
+        ImageButton btnFitWidth = findViewById(R.id.btn_fit_width);
         btnFitWidth.setOnClickListener(v->{
 //                                pdfFitPolicy = FitPolicy.WIDTH;
 //                                pdfSwipeHorizontal = false;
 //                                loadPdf();
         });
-        Button btnFitHeight = view.findViewById(R.id.btn_fit_height);
+        ImageButton btnFitHeight = findViewById(R.id.btn_fit_height);
         btnFitHeight.setOnClickListener(v->{
             muPDFReaderView.setHorizontalScrolling(true);
 //                                pdfFitPolicy = FitPolicy.BOTH;
 //                                pdfSwipeHorizontal = false;
 //                                loadPdf();
         });
-        Button btnScrollMode = view.findViewById(R.id.btn_hscroll);
+        ImageButton btnScrollMode = findViewById(R.id.btn_hscroll);
         btnScrollMode.setOnClickListener(v->{
 //                                pdfFitPolicy = FitPolicy.HEIGHT;
 //                                pdfSwipeHorizontal = true;
@@ -1172,13 +1107,7 @@ public class MuPDFActivity extends AppCompatActivity {
             muPDFReaderView.setHorizontalScrolling(false);
         });
 
-        Button btnNote = view.findViewById(R.id.btn_note);
-        btnNote.setOnClickListener(v -> {
-            NotePopupWindow win = new NotePopupWindow(view.getContext());
-            win.showAsDropDown(view);
-        });
-
-        Button btnWatchVideo = view.findViewById(R.id.btn_watch_video);
+        ImageButton btnWatchVideo = findViewById(R.id.btn_watch_video);
         btnWatchVideo.setOnClickListener(v-> {
             String path = getExternalFilesDir(null) + "/videos/1.mp4";
             if(!mIsPlayingVideo) {
@@ -1186,7 +1115,7 @@ public class MuPDFActivity extends AppCompatActivity {
             }
         });
 
-        Button btnToTextBook = view.findViewById(R.id.btn_to_textbook);
+        ImageButton btnToTextBook = findViewById(R.id.btn_to_textbook);
         btnToTextBook.setOnClickListener(v->{
             if(mSchema != null && !mSchema.getTextBook().isEmpty()) {
                 Intent intent = getIntent();
@@ -1197,7 +1126,7 @@ public class MuPDFActivity extends AppCompatActivity {
             }
         });
 
-        Button btnToPpt = view.findViewById(R.id.btn_to_ppt);
+        ImageButton btnToPpt = findViewById(R.id.btn_to_ppt);
         btnToPpt.setOnClickListener(v -> {
             if(mSchema != null && !mSchema.getLecture().isEmpty()) {
                 Intent intent = getIntent();
@@ -1208,7 +1137,7 @@ public class MuPDFActivity extends AppCompatActivity {
             }
         });
 
-        Button btnToGuide= view.findViewById(R.id.btn_to_guide);
+        ImageButton btnToGuide= findViewById(R.id.btn_to_guide);
         btnToGuide.setOnClickListener(v -> {
             if(mSchema != null && !mSchema.getLearnGuide().isEmpty()) {
                 Intent intent = getIntent();
@@ -1218,10 +1147,6 @@ public class MuPDFActivity extends AppCompatActivity {
 //                                    loadPdf();
             }
         });
-    }
-
-    private void closeFloatReaderTools() {
-        EasyFloat.dismiss(mFloatingReaderToolsTag);
     }
 
     private void startVideoPlayActivityForResult(int startPos, String videoPath, String sectionTitle) {

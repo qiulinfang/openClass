@@ -100,7 +100,7 @@ public class FloatingRobotService extends Service {
         // 初始位置
         layoutParams.x = 0; //ScreenUtils.getScreenWidth(this) - floatingRobotView.getWidth();
         layoutParams.y = 0; //ScreenUtils.getScreenHeight(this) - floatingRobotView.getHeight();
-        layoutParams.gravity = Gravity.TOP | Gravity.START;
+        layoutParams.gravity = Gravity.BOTTOM | Gravity.END;
         windowManager.addView(floatingRobotView, layoutParams);
 
         LottieAnimationView lottieAnimationView = floatingRobotView.findViewById(R.id.lottie_animation_view);
@@ -128,8 +128,8 @@ public class FloatingRobotService extends Service {
                         int offsetY = (int) (event.getRawY() - initialTouchY);
                         // 更新悬浮窗的位置
 
-                        layoutParams.x = Math.min(initialX + offsetX, screenWidth);
-                        layoutParams.y = Math.min(initialY + offsetY, screenHeight);
+                        layoutParams.x = Math.min(initialX - offsetX, screenWidth);
+                        layoutParams.y = Math.min(initialY - offsetY, screenHeight);
                         windowManager.updateViewLayout(floatingRobotView, layoutParams);
                         return true;
 
@@ -183,6 +183,8 @@ public class FloatingRobotService extends Service {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT);
+        final int screenWidth = ScreenUtils.getScreenWidth(this);
+        final int screenHeight = ScreenUtils.getScreenHeight(this);
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
         feedbackView = inflater.inflate(R.layout.floating_feedback, null);
         layoutParams.gravity = Gravity.BOTTOM | Gravity.START;
@@ -207,6 +209,14 @@ public class FloatingRobotService extends Service {
                         return true;
 
                     case MotionEvent.ACTION_MOVE:
+                        // 计算移动的偏移量
+                        int offsetX = (int) (event.getRawX() - initialTouchX);
+                        int offsetY = (int) (event.getRawY() - initialTouchY);
+                        // 更新悬浮窗的位置
+
+                        layoutParams.x = Math.min(initialX + offsetX, screenWidth);
+                        layoutParams.y = Math.min(initialY - offsetY, screenHeight);
+                        windowManager.updateViewLayout(feedbackView, layoutParams);
                         return true;
 
                     case MotionEvent.ACTION_UP:
