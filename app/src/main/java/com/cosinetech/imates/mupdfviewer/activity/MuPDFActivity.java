@@ -6,6 +6,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.text.Editable;
@@ -23,7 +24,6 @@ import android.view.animation.TranslateAnimation;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.SeekBar;
@@ -31,7 +31,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ViewAnimator;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import com.artifex.mupdfdemo.Annotation;
@@ -51,7 +50,6 @@ import com.artifex.mupdfdemo.SharedPreferencesUtil;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.activities.VideoPlayActivity;
 import com.cosinetech.imates.models.Chapter;
-import com.cosinetech.imates.notes.NotePopupWindow;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.views.FloatingResizableVideoView;
 import com.cosinetech.imates.views.ScratchToolsView;
@@ -107,7 +105,6 @@ public class MuPDFActivity extends AppCompatActivity {
     //
     // 视频播放相关
     private static final String mFloatingVideoTag = "FLOATING_VIDEO_PLAYER";
-    private static final String mFloatingReaderToolsTag = "FLOATING_READER_TOOLS";
     private boolean mIsPlayingVideo = false;
 
     private Chapter.Schema mSchema;
@@ -151,6 +148,7 @@ public class MuPDFActivity extends AppCompatActivity {
         SharedPreferencesUtil.init(getApplication());
 
         muPDFReaderView = findViewById(R.id.mu_pdf_mupdfreaderview);
+        mAlertBuilder = new AlertDialog.Builder(this);
 
         initToolsView();
         createPDF();
@@ -181,8 +179,6 @@ public class MuPDFActivity extends AppCompatActivity {
     }
 
     private void createPDF() {
-        mAlertBuilder = new AlertDialog.Builder(this);
-
         // 通过MuPDFCore打开pdf文件
         muPDFCore = openFile(mFilePath);
         // 搜索设为空
@@ -352,16 +348,8 @@ public class MuPDFActivity extends AppCompatActivity {
         });
 
         // Activate search invoking buttons
-        mSearchBack.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                search(-1);
-            }
-        });
-        mSearchFwd.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                search(1);
-            }
-        });
+        mSearchBack.setOnClickListener(v -> search(-1));
+        mSearchFwd.setOnClickListener(v -> search(1));
 
         mLinkButton.setOnClickListener(v -> setLinkHighlight(!mLinkHighlight));
     }
@@ -1013,6 +1001,12 @@ public class MuPDFActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        destroyMuPdfResource();
+        closeFloatingVideoPlay();
+        super.onDestroy();
+    }
+
+    private void destroyMuPdfResource() {
         if (muPDFReaderView != null) {
             muPDFReaderView.applyToChildren(new ReaderView.ViewMapper() {
                 public void applyToView(View view) {
@@ -1027,8 +1021,6 @@ public class MuPDFActivity extends AppCompatActivity {
             mAlertTask = null;
         }
         muPDFCore = null;
-        super.onDestroy();
-        closeFloatingVideoPlay();
     }
 
     @Override
@@ -1120,9 +1112,8 @@ public class MuPDFActivity extends AppCompatActivity {
             if(mSchema != null && !mSchema.getTextBook().isEmpty()) {
                 Intent intent = getIntent();
                 intent.putExtra("AssetsPdf", mSchema.getTextBook());
-//                                    pdfFitPolicy = FitPolicy.BOTH;
-//                                    pdfSwipeHorizontal = false;
-//                                    loadPdf();
+                mFilePath = getExternalFilesDir(null) + "/" + mSchema.getTextBook();
+                switchToNewFile();
             }
         });
 
@@ -1131,9 +1122,8 @@ public class MuPDFActivity extends AppCompatActivity {
             if(mSchema != null && !mSchema.getLecture().isEmpty()) {
                 Intent intent = getIntent();
                 intent.putExtra("AssetsPdf", mSchema.getLecture());
-//                                    pdfFitPolicy = FitPolicy.WIDTH;
-//                                    pdfSwipeHorizontal = false;
-//                                    loadPdf();
+                mFilePath = getExternalFilesDir(null) + "/" + mSchema.getLecture();
+                switchToNewFile();
             }
         });
 
@@ -1142,11 +1132,21 @@ public class MuPDFActivity extends AppCompatActivity {
             if(mSchema != null && !mSchema.getLearnGuide().isEmpty()) {
                 Intent intent = getIntent();
                 intent.putExtra("AssetsPdf", mSchema.getLearnGuide());
-//                                    pdfFitPolicy = FitPolicy.BOTH;
-//                                    pdfSwipeHorizontal = false;
-//                                    loadPdf();
+                mFilePath = getExternalFilesDir(null) + "/" + mSchema.getLearnGuide();
+                switchToNewFile();
             }
         });
+    }
+
+    private void switchToNewFile() {
+        Intent intent = new Intent(this, MuPDFActivity.class);
+        intent.setAction(Intent.ACTION_VIEW);
+        intent.setData(Uri.fromFile(new File(mFilePath)));
+        intent.putExtra("AssetsPdf", mFilePath);
+        intent.putExtra("Schema", mSchema);
+        intent.putExtra("Section", mSection);
+        startActivity(intent);
+        finish();
     }
 
     private void startVideoPlayActivityForResult(int startPos, String videoPath, String sectionTitle) {
