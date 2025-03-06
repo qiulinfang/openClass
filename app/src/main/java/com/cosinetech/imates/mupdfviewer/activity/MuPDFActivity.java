@@ -31,6 +31,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ViewAnimator;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import com.artifex.mupdfdemo.Annotation;
@@ -362,11 +363,7 @@ public class MuPDFActivity extends AppCompatActivity {
             }
         });
 
-        mLinkButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                setLinkHighlight(!mLinkHighlight);
-            }
-        });
+        mLinkButton.setOnClickListener(v -> setLinkHighlight(!mLinkHighlight));
     }
 
     /**
@@ -1044,20 +1041,20 @@ public class MuPDFActivity extends AppCompatActivity {
 
     private void onFinishing() {
         if (muPDFCore != null && muPDFCore.hasChanges()) {
-            DialogInterface.OnClickListener listener = new DialogInterface.OnClickListener() {
-                public void onClick(DialogInterface dialog, int which) {
-                    if (which == AlertDialog.BUTTON_POSITIVE) {
-                        muPDFCore.save();
-                    }
-                    finish();
-                }
-            };
-            AlertDialog alert = mAlertBuilder.create();
-            alert.setTitle(R.string.dialog_title);
-            alert.setMessage(getString(R.string.document_has_changes_save_them));
-            alert.setButton(AlertDialog.BUTTON_POSITIVE, getString(R.string.yes), listener);
-            alert.setButton(AlertDialog.BUTTON_NEGATIVE, getString(R.string.no), listener);
-            alert.show();
+            muPDFCore.save();
+            finish();
+//            DialogInterface.OnClickListener listener = (dialog, which) -> {
+//                if (which == AlertDialog.BUTTON_POSITIVE) {
+//                    muPDFCore.save();
+//                }
+//                finish();
+//            };
+//            AlertDialog alert = mAlertBuilder.create();
+//            alert.setTitle(R.string.dialog_title);
+//            alert.setMessage(getString(R.string.document_has_changes_save_them));
+//            alert.setButton(AlertDialog.BUTTON_POSITIVE, getString(R.string.yes), listener);
+//            alert.setButton(AlertDialog.BUTTON_NEGATIVE, getString(R.string.no), listener);
+//            alert.show();
         } else {
             finish();
         }
@@ -1094,104 +1091,7 @@ public class MuPDFActivity extends AppCompatActivity {
                     @Override
                     public void createdResult(boolean isCreated, @Nullable String msg, @Nullable View view) {
                         if (isCreated && view != null) {
-                            // 获取浮动窗口中的按钮
-                            Button btnClose = view.findViewById(R.id.btn_back);
-                            btnClose.setOnClickListener(new View.OnClickListener() {
-                                @Override
-                                public void onClick(View v) {
-                                    // 点击按钮时退出当前 Activity
-                                    onFinishing();
-                                }
-                            });
-
-                            Button btnContent = view.findViewById(R.id.btn_contents);
-                            btnContent.setOnClickListener(v -> {
-                                //跳转目录页面
-                                showPdfOutline();
-                            });
-
-                            Button btnThumbnail = view.findViewById(R.id.btn_thumbnail);
-                            btnThumbnail.setOnClickListener( v->{
-                                //跳转缩略图页面
-                            });
-
-                            CheckBox checkBoxColl = view.findViewById(R.id.btn_collapse);
-                            checkBoxColl.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                                if(isChecked) {
-                                    view.findViewById(R.id.tools_layout).setVisibility(View.GONE);
-                                } else {
-                                    view.findViewById(R.id.tools_layout).setVisibility(View.VISIBLE);
-                                }
-                            });
-
-                            // tool bar
-                            Button btnFitWidth = view.findViewById(R.id.btn_fit_width);
-                            btnFitWidth.setOnClickListener(v->{
-//                                pdfFitPolicy = FitPolicy.WIDTH;
-//                                pdfSwipeHorizontal = false;
-//                                loadPdf();
-                            });
-                            Button btnFitHeight = view.findViewById(R.id.btn_fit_height);
-                            btnFitHeight.setOnClickListener(v->{
-                                muPDFReaderView.setHorizontalScrolling(true);
-//                                pdfFitPolicy = FitPolicy.BOTH;
-//                                pdfSwipeHorizontal = false;
-//                                loadPdf();
-                            });
-                            Button btnScrollMode = view.findViewById(R.id.btn_hscroll);
-                            btnScrollMode.setOnClickListener(v->{
-//                                pdfFitPolicy = FitPolicy.HEIGHT;
-//                                pdfSwipeHorizontal = true;
-//                                loadPdf();
-                                muPDFReaderView.setHorizontalScrolling(false);
-                            });
-
-                            Button btnNote = view.findViewById(R.id.btn_note);
-                            btnNote.setOnClickListener(v -> {
-                                NotePopupWindow win = new NotePopupWindow(view.getContext());
-                                win.showAsDropDown(view);
-                            });
-
-                            Button btnWatchVideo = view.findViewById(R.id.btn_watch_video);
-                            btnWatchVideo.setOnClickListener(v-> {
-                                String path = getExternalFilesDir(null) + "/videos/1.mp4";
-                                if(!mIsPlayingVideo) {
-                                    startVideoPlayActivityForResult(0, path, mSection.getTitle());
-                                }
-                            });
-
-                            Button btnToTextBook = view.findViewById(R.id.btn_to_textbook);
-                            btnToTextBook.setOnClickListener(v->{
-                                if(mSchema != null && !mSchema.getTextBook().isEmpty()) {
-                                    Intent intent = getIntent();
-                                    intent.putExtra("AssetsPdf", mSchema.getTextBook());
-//                                    pdfFitPolicy = FitPolicy.BOTH;
-//                                    pdfSwipeHorizontal = false;
-//                                    loadPdf();
-                                }
-                            });
-
-                            Button btnToPpt = view.findViewById(R.id.btn_to_ppt);
-                            btnToPpt.setOnClickListener(v -> {
-                                if(mSchema != null && !mSchema.getLecture().isEmpty()) {
-                                    Intent intent = getIntent();
-                                    intent.putExtra("AssetsPdf", mSchema.getLecture());
-//                                    pdfFitPolicy = FitPolicy.WIDTH;
-//                                    pdfSwipeHorizontal = false;
-//                                    loadPdf();
-                                }
-                            });
-
-                            Button btnToGuide= view.findViewById(R.id.btn_to_guide);
-                            btnToGuide.setOnClickListener(v -> {
-                                if(mSchema != null && !mSchema.getLearnGuide().isEmpty()) {
-                                    Intent intent = getIntent();
-                                    intent.putExtra("AssetsPdf", mSchema.getLearnGuide());
-//                                    pdfFitPolicy = FitPolicy.BOTH;
-//                                    pdfSwipeHorizontal = false;
-//                                    loadPdf();
-                                }
-                            });
+                            setReaderTools(view);
                         }
                     }
 
@@ -1217,6 +1117,107 @@ public class MuPDFActivity extends AppCompatActivity {
                     public void dragEnd(@NotNull View view) { }
                 })
                 .show();
+    }
+
+    private void setReaderTools(@NonNull View view) {
+        // 获取浮动窗口中的按钮
+        Button btnClose = view.findViewById(R.id.btn_back);
+        btnClose.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // 点击按钮时退出当前 Activity
+                onFinishing();
+            }
+        });
+
+        Button btnContent = view.findViewById(R.id.btn_contents);
+        btnContent.setOnClickListener(v -> {
+            //跳转目录页面
+            showPdfOutline();
+        });
+
+        Button btnThumbnail = view.findViewById(R.id.btn_thumbnail);
+        btnThumbnail.setOnClickListener( v->{
+            //跳转缩略图页面
+        });
+
+        CheckBox checkBoxColl = view.findViewById(R.id.btn_collapse);
+        checkBoxColl.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if(isChecked) {
+                view.findViewById(R.id.tools_layout).setVisibility(View.GONE);
+            } else {
+                view.findViewById(R.id.tools_layout).setVisibility(View.VISIBLE);
+            }
+        });
+
+        // tool bar
+        Button btnFitWidth = view.findViewById(R.id.btn_fit_width);
+        btnFitWidth.setOnClickListener(v->{
+//                                pdfFitPolicy = FitPolicy.WIDTH;
+//                                pdfSwipeHorizontal = false;
+//                                loadPdf();
+        });
+        Button btnFitHeight = view.findViewById(R.id.btn_fit_height);
+        btnFitHeight.setOnClickListener(v->{
+            muPDFReaderView.setHorizontalScrolling(true);
+//                                pdfFitPolicy = FitPolicy.BOTH;
+//                                pdfSwipeHorizontal = false;
+//                                loadPdf();
+        });
+        Button btnScrollMode = view.findViewById(R.id.btn_hscroll);
+        btnScrollMode.setOnClickListener(v->{
+//                                pdfFitPolicy = FitPolicy.HEIGHT;
+//                                pdfSwipeHorizontal = true;
+//                                loadPdf();
+            muPDFReaderView.setHorizontalScrolling(false);
+        });
+
+        Button btnNote = view.findViewById(R.id.btn_note);
+        btnNote.setOnClickListener(v -> {
+            NotePopupWindow win = new NotePopupWindow(view.getContext());
+            win.showAsDropDown(view);
+        });
+
+        Button btnWatchVideo = view.findViewById(R.id.btn_watch_video);
+        btnWatchVideo.setOnClickListener(v-> {
+            String path = getExternalFilesDir(null) + "/videos/1.mp4";
+            if(!mIsPlayingVideo) {
+                startVideoPlayActivityForResult(0, path, mSection.getTitle());
+            }
+        });
+
+        Button btnToTextBook = view.findViewById(R.id.btn_to_textbook);
+        btnToTextBook.setOnClickListener(v->{
+            if(mSchema != null && !mSchema.getTextBook().isEmpty()) {
+                Intent intent = getIntent();
+                intent.putExtra("AssetsPdf", mSchema.getTextBook());
+//                                    pdfFitPolicy = FitPolicy.BOTH;
+//                                    pdfSwipeHorizontal = false;
+//                                    loadPdf();
+            }
+        });
+
+        Button btnToPpt = view.findViewById(R.id.btn_to_ppt);
+        btnToPpt.setOnClickListener(v -> {
+            if(mSchema != null && !mSchema.getLecture().isEmpty()) {
+                Intent intent = getIntent();
+                intent.putExtra("AssetsPdf", mSchema.getLecture());
+//                                    pdfFitPolicy = FitPolicy.WIDTH;
+//                                    pdfSwipeHorizontal = false;
+//                                    loadPdf();
+            }
+        });
+
+        Button btnToGuide= view.findViewById(R.id.btn_to_guide);
+        btnToGuide.setOnClickListener(v -> {
+            if(mSchema != null && !mSchema.getLearnGuide().isEmpty()) {
+                Intent intent = getIntent();
+                intent.putExtra("AssetsPdf", mSchema.getLearnGuide());
+//                                    pdfFitPolicy = FitPolicy.BOTH;
+//                                    pdfSwipeHorizontal = false;
+//                                    loadPdf();
+            }
+        });
     }
 
     private void closeFloatReaderTools() {
