@@ -559,7 +559,7 @@ public abstract class PageView extends ViewGroup {
      *
      * @param inkThickness 粗细值
      */
-    public void setPaintStrockWidth(float inkThickness) {
+    public void setPaintStrokeWidth(float inkThickness) {
         INK_THICKNESS = inkThickness;
     }
 

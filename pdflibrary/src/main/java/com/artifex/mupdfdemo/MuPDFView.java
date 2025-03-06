@@ -77,7 +77,7 @@ public interface MuPDFView {
      *
      * @param inkThickness 粗细值
      */
-    public void setPaintStrockWidth(float inkThickness);
+    public void setPaintStrokeWidth(float inkThickness);
 
     public float getCurrentScale();
 }

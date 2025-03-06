@@ -164,7 +164,7 @@ public class MuPDFReflowView extends WebView implements MuPDFView {
     }
 
     @Override
-    public void setPaintStrockWidth(float inkThickness) {
+    public void setPaintStrokeWidth(float inkThickness) {
 
     }
 

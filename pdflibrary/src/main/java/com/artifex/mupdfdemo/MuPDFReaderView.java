@@ -88,7 +88,7 @@ public class MuPDFReaderView extends ReaderView {
      */
     public void setPaintStrokeWidth(float inkThickness) {
 //		SharedPreferencesUtil.put(SPConsts.SP_COLOR_SEARCH_TEXT, color);
-        ((MuPDFView) getCurrentView()).setPaintStrockWidth(inkThickness);
+        ((MuPDFView) getCurrentView()).setPaintStrokeWidth(inkThickness);
     }
 
     public float getCurrentScale() {
