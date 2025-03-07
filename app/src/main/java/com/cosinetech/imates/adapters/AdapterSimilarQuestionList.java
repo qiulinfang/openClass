@@ -5,6 +5,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -101,7 +102,7 @@ public class AdapterSimilarQuestionList extends RecyclerView.Adapter<AdapterSimi
 
     // ViewHolder静态内部类
     public static class SimilarQuestionItemViewHolder extends RecyclerView.ViewHolder {
-        LinearLayout container;
+        View container;
         MarkdownTextView itemText;
         TextView itemNo;
         Button btnAddToList;
