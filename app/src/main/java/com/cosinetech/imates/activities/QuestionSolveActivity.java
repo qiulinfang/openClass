@@ -149,7 +149,6 @@ public class QuestionSolveActivity extends AppCompatActivity {
         RecyclerView recyclerView = findViewById(R.id.exerciseList);
         recyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
         recyclerView.addItemDecoration(new RecyclerViewOverscrollDecoration());
-        //recyclerView.setLayoutManager(new CenterLinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
         adapterQuestionList = new AdapterQuestionList(mQuestions, new AdapterQuestionList.ExerciseListChangedListener() {
             @Override
             public void onExerciseDelete(int position) {
