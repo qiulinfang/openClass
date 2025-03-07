@@ -83,6 +83,7 @@
                     android:background="@drawable/pdf_tools_btn_bg"
                     android:contentDescription=""
                     android:scaleType="fitCenter"
+                    android:visibility="invisible"
                     android:src="@drawable/reader_tools_page_tile" />
                 <!-- 占位空间 -->
                 <View
