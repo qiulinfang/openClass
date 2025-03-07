@@ -1080,13 +1080,16 @@ public class MuPDFActivity extends AppCompatActivity {
         // tool bar
         ImageButton btnFitWidth = findViewById(R.id.btn_fit_width);
         btnFitWidth.setOnClickListener(v->{
+            muPDFReaderView.setHorizontalScrolling(false);
+            muPDFReaderView.setFitToWidth(true);
 //                                pdfFitPolicy = FitPolicy.WIDTH;
 //                                pdfSwipeHorizontal = false;
 //                                loadPdf();
         });
         ImageButton btnFitHeight = findViewById(R.id.btn_fit_height);
         btnFitHeight.setOnClickListener(v->{
-            muPDFReaderView.setHorizontalScrolling(true);
+            muPDFReaderView.setFitToHeight(true);
+            muPDFReaderView.setHorizontalScrolling(false);
 //                                pdfFitPolicy = FitPolicy.BOTH;
 //                                pdfSwipeHorizontal = false;
 //                                loadPdf();

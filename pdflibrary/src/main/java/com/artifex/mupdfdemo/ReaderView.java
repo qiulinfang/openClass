@@ -6,11 +6,13 @@ import android.content.DialogInterface;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.util.AttributeSet;
+import android.util.DisplayMetrics;
 import android.util.SparseArray;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Adapter;
 import android.widget.AdapterView;
 import android.widget.Scroller;
@@ -34,7 +36,7 @@ public class ReaderView
     private static final float MAX_SCALE = 5.0f;
     private static final float REFLOW_SCALE_FACTOR = 0.5f;
 
-    private boolean HORIZONTAL_SCROLLING = true;// ������ʾ����������ʾ
+    private boolean HORIZONTAL_SCROLLING = false;// ������ʾ����������ʾ
 
     private Adapter mAdapter;
     private int mCurrent;    // Adapter's index for the current view
@@ -62,6 +64,9 @@ public class ReaderView
     private int mScrollerLastY;
     private float mLastScaleFocusX;
     private float mLastScaleFocusY;
+
+    private boolean mFitToWidth = false;
+    private boolean mFitToHeight = false;
 
     public static abstract class ViewMapper {
         public abstract void applyToView(View view);
@@ -540,6 +545,68 @@ public class ReaderView
             });
         }
         mScaling = false;
+    }
+
+    public void setFitToWidth(boolean fitToWidth) {
+        mFitToWidth = fitToWidth;
+        if (fitToWidth) {
+            mFitToHeight = false;
+            fitCurrentViewToWidth();
+        }
+    }
+
+    public void setFitToHeight(boolean fitToHeight) {
+        mFitToHeight = fitToHeight;
+        if (fitToHeight) {
+            mFitToWidth = false;
+            fitCurrentViewToHeight();
+        }
+    }
+
+    public boolean getFitToWidth() {
+        return mFitToWidth;
+    }
+
+    public boolean getFitToHeight() {
+        return mFitToHeight;
+    }
+
+    private void fitCurrentViewToWidth() {
+        View v = getCurrentView();
+        if (v != null) {
+            // 获取屏幕宽度
+            Point size = new Point();
+            WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
+            wm.getDefaultDisplay().getRealSize(size);
+            int screenWidth = size.x;
+
+            // 计算缩放比例
+            v.measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED);
+            float scale = (float) (screenWidth) / v.getMeasuredWidth();
+            mScale = scale;
+
+            // 重新布局
+            requestLayout();
+        }
+    }
+
+    private void fitCurrentViewToHeight() {
+        View v = getCurrentView();
+        if (v != null) {
+            // 获取屏幕高度
+            Point size = new Point();
+            WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
+            wm.getDefaultDisplay().getRealSize(size);
+            int screenHeight = size.y;
+
+            // 计算缩放比例
+            v.measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED);
+            float scale = (float) screenHeight / v.getMeasuredHeight();
+            mScale = scale;
+
+            // 重新布局
+            requestLayout();
+        }
     }
 
     @Override
