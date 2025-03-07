@@ -17,6 +17,7 @@
 
     <TextView
         android:id="@+id/menu_note"
+        android:visibility="gone"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:focusable="true"
