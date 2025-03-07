@@ -37,7 +37,7 @@ public class CenterLinearLayoutManager extends LinearLayoutManager {
 
     @Override
     public void measureChildWithMargins(View child, int widthUsed, int heightUsed) {
-        int lp = ((RecyclerView.LayoutParams) child.getLayoutParams()).getViewAdapterPosition();
+        int lp = ((RecyclerView.LayoutParams) child.getLayoutParams()).getAbsoluteAdapterPosition();
         super.measureChildWithMargins(child, widthUsed, heightUsed);
 
         if (lp != 0 && lp != getItemCount() - 1) return;
@@ -48,10 +48,18 @@ public class CenterLinearLayoutManager extends LinearLayoutManager {
                 int hPadding = Math.max((getWidth() - child.getMeasuredWidth()) / 2, 0);
                 if (!getReverseLayout()) {
                     //if (lp == 0) recyclerView.setPaddingRelative(hPadding, recyclerView.getPaddingTop(), recyclerView.getPaddingEnd(), recyclerView.getPaddingBottom());
-                    if (lp == getItemCount() - 1) recyclerView.setPaddingRelative(recyclerView.getPaddingStart(), recyclerView.getPaddingTop(), hPadding, recyclerView.getPaddingBottom());
+                    if (lp == getItemCount() - 1) {
+                        recyclerView.setPaddingRelative(recyclerView.getPaddingStart(), recyclerView.getPaddingTop(), hPadding, recyclerView.getPaddingBottom());
+                    } else {
+                        recyclerView.setPaddingRelative(0, 0,0, 0);
+                    }
                 } else {
                     //if (lp == 0) recyclerView.setPaddingRelative(recyclerView.getPaddingStart(), recyclerView.getPaddingTop(), hPadding, recyclerView.getPaddingBottom());
-                    if (lp == getItemCount() - 1) recyclerView.setPaddingRelative(hPadding, recyclerView.getPaddingTop(), recyclerView.getPaddingEnd(), recyclerView.getPaddingBottom());
+                    if (lp == getItemCount() - 1) {
+                        recyclerView.setPaddingRelative(hPadding, recyclerView.getPaddingTop(), recyclerView.getPaddingEnd(), recyclerView.getPaddingBottom());
+                    } else {
+                        recyclerView.setPaddingRelative(0, 0,0, 0);
+                    }
                 }
                 break;
             }
@@ -59,10 +67,18 @@ public class CenterLinearLayoutManager extends LinearLayoutManager {
                 int vPadding = Math.max((getHeight() - child.getMeasuredHeight()) / 2, 0);
                 if (!getReverseLayout()) {
                     //if (lp == 0) recyclerView.setPaddingRelative(recyclerView.getPaddingStart(), vPadding, recyclerView.getPaddingEnd(), recyclerView.getPaddingBottom());
-                    if (lp == getItemCount() - 1) recyclerView.setPaddingRelative(recyclerView.getPaddingStart(), recyclerView.getPaddingTop(), recyclerView.getPaddingEnd(), vPadding);
+                    if (lp == getItemCount() - 1) {
+                        recyclerView.setPaddingRelative(recyclerView.getPaddingStart(), recyclerView.getPaddingTop(), recyclerView.getPaddingEnd(), vPadding);
+                    } else {
+                        recyclerView.setPaddingRelative(0, 0,0, 0);
+                    }
                 } else {
                     //if (lp == 0) recyclerView.setPaddingRelative(recyclerView.getPaddingStart(), recyclerView.getPaddingTop(), recyclerView.getPaddingEnd(), vPadding);
-                    if (lp == getItemCount() - 1) recyclerView.setPaddingRelative(recyclerView.getPaddingStart(), vPadding, recyclerView.getPaddingEnd(), recyclerView.getPaddingBottom());
+                    if (lp == getItemCount() - 1) {
+                        recyclerView.setPaddingRelative(recyclerView.getPaddingStart(), vPadding, recyclerView.getPaddingEnd(), recyclerView.getPaddingBottom());
+                    } else {
+                        recyclerView.setPaddingRelative(0, 0,0, 0);
+                    }
                 }
                 break;
             }

@@ -38,6 +38,7 @@ import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.views.ChatAiView;
 import com.cosinetech.imates.views.MarkdownTextView;
+import com.cosinetech.imates.views.RecyclerViewOverscrollDecoration;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.ApiUrl;
@@ -146,7 +147,9 @@ public class QuestionSolveActivity extends AppCompatActivity {
         ).get(com.cosinetech.imates.models.UserInfoViewModel.class);
 
         RecyclerView recyclerView = findViewById(R.id.exerciseList);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        recyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
+        recyclerView.addItemDecoration(new RecyclerViewOverscrollDecoration());
+        //recyclerView.setLayoutManager(new CenterLinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
         adapterQuestionList = new AdapterQuestionList(mQuestions, new AdapterQuestionList.ExerciseListChangedListener() {
             @Override
             public void onExerciseDelete(int position) {
