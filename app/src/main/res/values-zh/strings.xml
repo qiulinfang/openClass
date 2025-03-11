@@ -101,7 +101,7 @@
     <string name="chat_ai_default_session_name">学伴默认</string>
     <string name="chat_ai_input_hint">请输入内容</string>
     <string name="chat_ai_press_to_speak">按住 说话</string>
-    <string name="chat_ai_release_to_end_speak">松开结束录音</string>
+    <string name="chat_ai_release_to_end_speak">松开结束录音并发送</string>
     <string name="chat_ai_new_session_name">新对话</string>
     <string name="popup_alert_dialog_confirm">确认</string>
     <string name="popup_alert_dialog_cancel">取消</string>
@@ -114,4 +114,5 @@
     <string name="chat_ai_catalog_my_favor">我的收藏</string>
     <string name="chat_ai_default_favor_name">收藏1</string>
     <string name="chat_ai_voice_hint">按住 说话</string>
+    <string name="chat_ai_release_to_cancel">松开取消</string>
 </resources>

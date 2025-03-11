@@ -19,6 +19,7 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ExpandableListView;
+import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -509,41 +510,34 @@ public class ChatAiView extends RelativeLayout {
             mBtnSend.setVisibility(GONE);
         });
 
-        voiceAnimateLayout.setOnTouchListener((v, event) -> {
-            switch (event.getAction()) {
-                case MotionEvent.ACTION_MOVE:
-                    if (isCancelled(voiceAnimateLayout, event)) {
-                        AudioRecordManager.getInstance(this.getContext()).willCancelRecord();
-                    } else {
-                        AudioRecordManager.getInstance(this.getContext()).continueRecord();
-                    }
-                    break;
-                case MotionEvent.ACTION_UP:
-                    voiceAnimateLayout.setVisibility(GONE);
-                    AudioRecordManager.getInstance(this.getContext()).stopRecord();
-                    AudioRecordManager.getInstance(this.getContext()).destroyRecord();
-                    break;
-            }
-            return false;
-        });
+        ImageView viewCancelSend = view.findViewById(R.id.cancel_record);
 
         mVoiceMessageButton.setOnTouchListener((v, event) -> {
+            float x = event.getRawX();  // 触摸点相对屏幕的 X 坐标
+            float y = event.getRawY();  // 触摸点相对屏幕的 Y 坐标
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
                     voiceAnimateLayout.setVisibility(VISIBLE);
                     AudioRecordManager.getInstance(this.getContext()).startRecord();
                     break;
                 case MotionEvent.ACTION_MOVE:
-                    if (isCancelled(v, event)) {
+                    if (isTouchInsideView(viewCancelSend, x, y)) {
                         AudioRecordManager.getInstance(this.getContext()).willCancelRecord();
+                        viewCancelSend.setImageResource(R.drawable.chat_ai_cancel_send_active);
                     } else {
                         AudioRecordManager.getInstance(this.getContext()).continueRecord();
+                        viewCancelSend.setImageResource(R.drawable.chat_ai_cancel_send);
                     }
                     break;
                 case MotionEvent.ACTION_UP:
                     voiceAnimateLayout.setVisibility(GONE);
                     AudioRecordManager.getInstance(this.getContext()).stopRecord();
                     AudioRecordManager.getInstance(this.getContext()).destroyRecord();
+                    if (isTouchInsideView(viewCancelSend, x, y)) {
+
+                    } else {
+
+                    }
                     break;
             }
             return false;
@@ -552,17 +546,21 @@ public class ChatAiView extends RelativeLayout {
         addView(view);
     }
 
-    private boolean isCancelled(View view, MotionEvent event) {
-        int[] location = new int[2];
-        view.getLocationOnScreen(location);
-
-        if (event.getRawX() < location[0] || event.getRawX() > location[0] + view.getWidth()
-                || event.getRawY() < location[1] - 40) {
-            return true;
+    private boolean isTouchInsideView(View view, float x, float y) {
+        if (view == null || view.getVisibility() != View.VISIBLE) {
+            return false;
         }
 
-        return false;
+        int[] location = new int[2];
+        view.getLocationOnScreen(location);  // 获取 View 在屏幕上的绝对位置
+        int left = location[0];
+        int top = location[1];
+        int right = left + view.getWidth();
+        int bottom = top + view.getHeight();
+
+        return (x > left && x < right && y > top && y < bottom);
     }
+
 
     private void createChatSession() {
         long tick = System.currentTimeMillis();
