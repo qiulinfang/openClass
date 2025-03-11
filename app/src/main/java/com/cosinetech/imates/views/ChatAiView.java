@@ -1,5 +1,6 @@
 package com.cosinetech.imates.views;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.graphics.Rect;
@@ -9,6 +10,7 @@ import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
@@ -29,6 +31,7 @@ import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.AdapterAiChatMessageList;
 import com.cosinetech.imates.adapters.ChatExpandableListAdapter;
+import com.cosinetech.imates.audio.AudioRecordManager;
 import com.cosinetech.imates.models.ChatDisplayItem;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.models.ChatMessageCatalogue;
@@ -66,16 +69,18 @@ public class ChatAiView extends RelativeLayout {
     private UserInfoViewModel mUserInfoViewModel;
     private Context mContext;
     private AiChatMessageRequest mAiChatRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "");
+    private AdapterAiChatMessageList adapterAiChatMessageList;
+    private final List<ChatDisplayItem> messageList = new ArrayList<>();
     private RecyclerView mMsgDetailListView;
     private SmartRefreshLayout mMsgRefreshLayout;
     private EditText mEditMsg;
-    private AdapterAiChatMessageList adapterAiChatMessageList;
-    private final List<ChatDisplayItem> messageList = new ArrayList<>();
     private Button mBtnSend;
     private CheckBox chkViewHistory;
     private TextView mTextViewTitle;
+    private Button mKeyboardInputButton;
+    private Button mVoiceInputButton;
+    private Button mVoiceMessageButton;
     private ChatAiParam mChatAiParam;
-
     private RelativeLayout rootLayout; // 用于调整布局的父布局
     private boolean mInSearchMode = false;
     private ChatMessageHistoryDB mChatDb;
@@ -190,6 +195,7 @@ public class ChatAiView extends RelativeLayout {
         mCurrentSession = mFixedDefaultSession;
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private void initView() {
         // Inflate the layout for this fragment
         View view = LayoutInflater.from(mContext).inflate(R.layout.view_chat_ai, this, false);
@@ -480,7 +486,82 @@ public class ChatAiView extends RelativeLayout {
             }
         });
 
+        View voiceAnimateLayout = view.findViewById(R.id.voice_animate_area);
+        mKeyboardInputButton = view.findViewById(R.id.input_keyboard);
+        mVoiceInputButton = view.findViewById(R.id.btn_voice);
+        mVoiceMessageButton = view.findViewById(R.id.voice_message);
+
+        mKeyboardInputButton.setOnClickListener(v->{
+            mKeyboardInputButton.setVisibility(GONE);
+            mVoiceInputButton.setVisibility(VISIBLE);
+            voiceAnimateLayout.setVisibility(GONE);
+            mVoiceMessageButton.setVisibility(GONE);
+            mEditMsg.setVisibility(VISIBLE);
+            mBtnSend.setVisibility(VISIBLE);
+        });
+
+        mVoiceInputButton.setOnClickListener(v->{
+            mKeyboardInputButton.setVisibility(VISIBLE);
+            mVoiceInputButton.setVisibility(GONE);
+            voiceAnimateLayout.setVisibility(GONE);
+            mVoiceMessageButton.setVisibility(VISIBLE);
+            mEditMsg.setVisibility(GONE);
+            mBtnSend.setVisibility(GONE);
+        });
+
+        voiceAnimateLayout.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_MOVE:
+                    if (isCancelled(voiceAnimateLayout, event)) {
+                        AudioRecordManager.getInstance(this.getContext()).willCancelRecord();
+                    } else {
+                        AudioRecordManager.getInstance(this.getContext()).continueRecord();
+                    }
+                    break;
+                case MotionEvent.ACTION_UP:
+                    voiceAnimateLayout.setVisibility(GONE);
+                    AudioRecordManager.getInstance(this.getContext()).stopRecord();
+                    AudioRecordManager.getInstance(this.getContext()).destroyRecord();
+                    break;
+            }
+            return false;
+        });
+
+        mVoiceMessageButton.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    voiceAnimateLayout.setVisibility(VISIBLE);
+                    AudioRecordManager.getInstance(this.getContext()).startRecord();
+                    break;
+                case MotionEvent.ACTION_MOVE:
+                    if (isCancelled(v, event)) {
+                        AudioRecordManager.getInstance(this.getContext()).willCancelRecord();
+                    } else {
+                        AudioRecordManager.getInstance(this.getContext()).continueRecord();
+                    }
+                    break;
+                case MotionEvent.ACTION_UP:
+                    voiceAnimateLayout.setVisibility(GONE);
+                    AudioRecordManager.getInstance(this.getContext()).stopRecord();
+                    AudioRecordManager.getInstance(this.getContext()).destroyRecord();
+                    break;
+            }
+            return false;
+        });
+
         addView(view);
+    }
+
+    private boolean isCancelled(View view, MotionEvent event) {
+        int[] location = new int[2];
+        view.getLocationOnScreen(location);
+
+        if (event.getRawX() < location[0] || event.getRawX() > location[0] + view.getWidth()
+                || event.getRawY() < location[1] - 40) {
+            return true;
+        }
+
+        return false;
     }
 
     private void createChatSession() {

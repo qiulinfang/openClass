@@ -8,7 +8,7 @@
     <dimen name="head5_size">12sp</dimen>
     <!-- Default screen margins, per the Android Design guidelines. -->
     <dimen name="login_input_text_size">16sp</dimen>
-    <dimen name="min_margin_size">8sp</dimen>
+    <dimen name="min_margin_size">8dp</dimen>
 
     <!--    photo editor -->
     <dimen name="top_tool_icon_width">48dp</dimen>

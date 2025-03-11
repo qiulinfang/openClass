@@ -1,12 +1,17 @@
 package com.cosinetech.imates.activities;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -33,7 +38,6 @@ import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.util.WindowUtils;
 
 import java.io.File;
-import java.io.IOException;
 
 public class LoginActivity extends AppCompatActivity {
     private static final int REQUEST_CODE_DRAW_OVERLAY = 1001;
@@ -117,14 +121,20 @@ public class LoginActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         // 检查权限
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (!Settings.canDrawOverlays(this)) {
-                // 如果没有权限，请求权限
-                showPermissionDialog();
-            } else {
-                // 有权限
-            }
+        if (!Settings.canDrawOverlays(this)) {
+            // 如果没有权限，请求权限
+            requestOverlayPermission();
+        } else {
+            // 有权限
         }
+
+        final int REQUEST_CODE_RECORD_AUDIO = 101;
+        requestPermission(Manifest.permission.RECORD_AUDIO, REQUEST_CODE_RECORD_AUDIO,
+                "需要录音权限才能正常使用此功能", () -> {
+                    // 录音权限被授予后执行的操作
+                    Toast.makeText(this, "录音权限已授予", Toast.LENGTH_SHORT).show();
+        });
+
 
         if(userInfoViewModel.token.getValue() != null && !userInfoViewModel.token.getValue().isEmpty()) {
             // 跳转到 MainActivity
@@ -211,7 +221,7 @@ public class LoginActivity extends AppCompatActivity {
         Toast.makeText(getApplicationContext(), errorString, Toast.LENGTH_SHORT).show();
     }
 
-    private void showPermissionDialog() {
+    private void requestOverlayPermission() {
         // 创建 AlertDialog
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("权限提示");
@@ -229,22 +239,40 @@ public class LoginActivity extends AppCompatActivity {
         });
 
         // 设置“取消”按钮
-        builder.setNegativeButton("取消", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                // 用户取消，提示用户
-                Toast.makeText(LoginActivity.this, "您拒绝了权限，功能无法使用", Toast.LENGTH_SHORT).show();
-            }
+        builder.setNegativeButton("取消", (dialog, which) -> {
+            // 用户取消，提示用户
+            Toast.makeText(LoginActivity.this, "您拒绝了权限，功能无法使用", Toast.LENGTH_SHORT).show();
         });
 
         // 显示对话框
         builder.show();
     }
 
-    private void requestOverlayPermission() {
-        Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:" + getPackageName()));
-        startActivityForResult(intent, REQUEST_CODE_DRAW_OVERLAY);
+    private void requestPermission(String permission, int requestCode, String rationale, Runnable onGranted) {
+        if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
+            // 权限已授权，直接执行回调
+            onGranted.run();
+        } else {
+            // 显示权限申请对话框
+            new AlertDialog.Builder(this)
+                    .setTitle("权限请求")
+                    .setMessage(rationale)
+                    .setPositiveButton("允许", (dialog, which) ->
+                            ActivityCompat.requestPermissions(this, new String[]{permission}, requestCode))
+                    .setNegativeButton("取消", (dialog, which) ->
+                            Toast.makeText(this, "您拒绝了权限，功能可能无法正常使用", Toast.LENGTH_SHORT).show())
+                    .show();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "权限已授予", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "权限被拒绝，功能无法使用", Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
@@ -256,8 +284,7 @@ public class LoginActivity extends AppCompatActivity {
                     // 权限已授予
                 } else {
                     // 权限未授予
-                    Toast.makeText(this, "需要悬浮窗权限", Toast.LENGTH_SHORT).show();
-                    showPermissionDialog();
+                    requestOverlayPermission();
                 }
             }
         }
