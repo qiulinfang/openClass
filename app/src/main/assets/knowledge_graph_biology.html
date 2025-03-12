@@ -13,12 +13,15 @@
             box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
             border-radius: 4px;
             z-index: 1000;
+            min-width: 90px; /* 确保菜单不会太窄 */
         }
         .custom-menu-item {
             padding: 8px 15px;
             cursor: pointer;
             font-size: 16px;
             color: #1d85ce;
+            white-space: nowrap; /* 防止换行 */
+            min-width: 80px; /* 确保菜单项足够宽 */
         }
         .custom-menu-item:hover {
             background: #f0f0f0;
@@ -26,7 +29,7 @@
     </style>
 </head>
 <body>
-<div id="jsmind_container" style="width: 1200px; height: 1000px;"></div>
+<div id="jsmind_container" style="width: 100px; height: 800px;"></div>
 <script type="text/javascript">
     var graph = {
         "meta": { "name": "生物知识导图", "author": "imates", "version": "0.1" },
@@ -107,13 +110,21 @@
         contextMenu.className = 'custom-menu';
 
         // 定位菜单（向右下方偏移5px）
-        contextMenu.style.left = (event.pageX + 5) + 'px';
-        contextMenu.style.top = (event.pageY + 5) + 'px';
+        contextMenu.style.left = (event.pageX) + 'px';
+        contextMenu.style.top = (event.pageY) + 'px';
 
         // 添加菜单项
         var menuItems = [
-            {text: '去学习', action: () => window.Android.onPrepareLesson(nodeId, nodeName)},
-            {text: '去练习', action: () => window.Android.onReviewLesson(nodeId, nodeName)}
+            {text: '去学习', action: () => {
+                            document.body.removeChild(contextMenu);
+                            currentContextMenu = null;
+                            window.Android.onPrepareLesson(nodeId, nodeName);
+                        }},
+            {text: '去练习', action: () => {
+                            document.body.removeChild(contextMenu);
+                            currentContextMenu = null;
+                            window.Android.onReviewLesson(nodeId, nodeName);
+                        }}
         ];
 
         menuItems.forEach(item => {
