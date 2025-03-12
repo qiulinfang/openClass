@@ -561,7 +561,6 @@ public class ChatAiView extends RelativeLayout {
         return (x > left && x < right && y > top && y < bottom);
     }
 
-
     private void createChatSession() {
         long tick = System.currentTimeMillis();
         ChatMessageSession session = new ChatMessageSession(UUID.randomUUID().toString(),
@@ -689,7 +688,6 @@ public class ChatAiView extends RelativeLayout {
             });
         }).start();
     }
-
     public void clearChatHistory() {
         messageList.clear();
         adapterAiChatMessageList.notifyDataSetChanged();
@@ -794,6 +792,10 @@ public class ChatAiView extends RelativeLayout {
         pollChat();
 
         autoDetectChatSessionName(messageText.trim());
+    }
+
+    private void sendVoiceMessage(String voicePath) {
+
     }
 
     public void sendTextMessage(AiChatMessageRequest mo) {

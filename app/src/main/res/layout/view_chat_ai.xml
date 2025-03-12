@@ -187,7 +187,7 @@
             android:id="@+id/btn_voice"
             android:layout_width="36dp"
             android:layout_height="36dp"
-            android:background="@drawable/ic_mic"
+            android:background="@drawable/chat_ai_button_voice_bk"
             android:stateListAnimator="@animator/app_button_click_scale"
             android:layout_marginHorizontal="@dimen/min_margin_size"
             android:scaleType="center"

@@ -49,7 +49,6 @@ public class AudioRecordManager implements Handler.Callback {
         return mInstance;
     }
 
-    @TargetApi(21)
     private AudioRecordManager(Context context) {
         this.mContext = context;
         this.mHandler = new Handler(this);
