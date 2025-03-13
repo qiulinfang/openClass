@@ -209,6 +209,9 @@ dependencies {
     implementation 'com.github.xuexiangjys:XUpdate:2.1.2'
     implementation 'com.github.xuexiangjys.XUpdateAPI:xupdate-easy:1.0.1'
 
+    implementation 'com.rabbitmq:amqp-client:5.13.0'
+    implementation 'com.google.guava:guava:30.1.1-android'
+
     implementation project(path: ':pdflibrary')
     implementation project(path: ':image')
 
