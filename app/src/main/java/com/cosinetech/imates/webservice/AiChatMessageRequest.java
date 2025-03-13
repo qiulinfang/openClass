@@ -11,6 +11,8 @@ public class AiChatMessageRequest {
 
     private String dstUrl;
 
+    private String isWebSearch; //是否联网搜索
+
     public String getBmNo() {
         return bmNo;
     }
@@ -19,22 +21,32 @@ public class AiChatMessageRequest {
         this.bmNo = bmNo;
     }
 
+    public String getIsWebSearch() {
+        return isWebSearch;
+    }
+
+    public void setIsWebSearch(String isWebSearch) {
+        this.isWebSearch = isWebSearch;
+    }
+
     private String bmNo;
 
     // 构造函数
     public AiChatMessageRequest(String sessionId, String newValue,
-                                String coversation, String question,
+                                String conversation, String question,
                                 String answer,
                                 String name, String reason,
-                                String bmNo) {
+                                String bmNo,
+                                boolean isWebSearch) {
         this.sessionId = sessionId;
         this.newValue = newValue;
-        this.coversation = coversation;
+        this.coversation = conversation;
         this.question = question;
         this.answer = answer;
         this.name = name;
         this.reason = reason;
         this.bmNo = bmNo;
+        this.isWebSearch = isWebSearch ? "1" : "0";
     }
 
     // Getters 和 Setters 方法

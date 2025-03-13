@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/chat_ai_search_web_inactive"  android:state_checked="false"/>
+    <item android:drawable="@drawable/chat_ai_search_web_inactive"  android:state_enabled="false"/>
+    <!-- 正常状态 -->
+    <item android:drawable="@drawable/chat_ai_search_web_active"/>
+</selector>

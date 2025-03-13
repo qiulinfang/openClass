@@ -69,7 +69,7 @@ public class ChatAiView extends RelativeLayout {
     private final static String SESSION_ID_DEFAULT = "9".repeat(32);
     private UserInfoViewModel mUserInfoViewModel;
     private Context mContext;
-    private AiChatMessageRequest mAiChatRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "");
+    private AiChatMessageRequest mAiChatRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "", false);
     private AdapterAiChatMessageList adapterAiChatMessageList;
     private final List<ChatDisplayItem> messageList = new ArrayList<>();
     private RecyclerView mMsgDetailListView;
@@ -81,7 +81,10 @@ public class ChatAiView extends RelativeLayout {
     private Button mKeyboardInputButton;
     private Button mVoiceInputButton;
     private Button mVoiceMessageButton;
+    private CheckBox mCheckSearchWeb;
+    private Button mSendPictureButton;
     private ChatAiParam mChatAiParam;
+    private View voiceAnimateLayout;
     private RelativeLayout rootLayout; // 用于调整布局的父布局
     private boolean mInSearchMode = false;
     private ChatMessageHistoryDB mChatDb;
@@ -140,6 +143,13 @@ public class ChatAiView extends RelativeLayout {
             mAiChatRequest.setNewValue("0");
         }
         mCurrentSession = session;
+        if(mCurrentSession.type == ChatMessageSession.SessionType.USER_TALK_AI) {
+            setChatAiSendMode(true);
+        } else if(mCurrentSession.type == ChatMessageSession.SessionType.USER_TALK_TEACHER) {
+            setChatAiSendMode(false);
+        } else {
+            setChatAiSendMode(true);
+        }
         String aiName = mCurrentCatalog.catalogName + " - " + mCurrentSession.sessionName;
         mTextViewTitle.setText(aiName);
         mChatSessionListAdapter.setSelectedSessionId(mCurrentSession.sessionId);
@@ -237,109 +247,6 @@ public class ChatAiView extends RelativeLayout {
 
         // Send button click
         mBtnSend.setOnClickListener(v -> sendTextMessage());
-
-        mAiChatRequest.setName(Objects.requireNonNull(mUserInfoViewModel.userInfo.getValue()).getName());
-
-        expandableListView = view.findViewById(R.id.expandable_list_view);
-        expandableListView.setOnGroupClickListener((parent, v, groupPosition, id) -> {
-            if(expandableListView.isGroupExpanded(groupPosition)) {
-                expandableListView.collapseGroup(groupPosition);
-            } else {
-                expandableListView.expandGroup(groupPosition);
-            }
-            return true;
-        });
-
-        expandableListView.setOnChildClickListener((parent, v, groupPosition, childPosition, id) -> {
-            ChatMessageCatalogue catalog = (ChatMessageCatalogue) mChatSessionListAdapter.getGroup(groupPosition);
-            ChatMessageSession session = (ChatMessageSession) mChatSessionListAdapter.getChild(groupPosition, childPosition);
-            resetCurrentCatalog(catalog);
-            resetCurrentSession(session);
-            return true;
-        });
-        // expandableListView.setOnGroupExpandListener(groupPosition -> {
-//            for (int i = 0; i < expandableListAdapter.getGroupCount(); i++) {
-//                if (groupPosition != i) {
-//                    expandableListView.collapseGroup(i);
-//                }
-//            }
-//        });
-        mChatSessionListAdapter = new ChatExpandableListAdapter(mContext, expandableListView);
-        expandableListView.setAdapter(mChatSessionListAdapter);
-        resetCurrentSession(mCurrentSession);
-        mChatSessionListAdapter.setOnItemActionListener(new ChatExpandableListAdapter.OnItemActionListener() {
-            @Override
-            public void onEditCatalogue(ChatMessageCatalogue catalogue) {
-                showEditCatalogueDialog(catalogue);
-            }
-
-            @Override
-            public void onDeleteCatalogue(ChatMessageCatalogue catalogue) {
-                AlertDialog dlg = new AlertDialog.Builder(mContext)
-                        .setTitle("删除确认")
-                        .setMessage("确定要删除这个目录吗？这将删除该目录下的所有会话和消息。")
-                        .setPositiveButton("确定", (dialog, which) -> {
-                            new Thread(() -> {
-                                mChatDb.deleteMessageCatalogue(catalogue.catalogId);
-                                post(() -> loadData());
-                            }).start();
-                        })
-                        .setNegativeButton("取消", null)
-                        .create();
-                dlg.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
-                dlg.show();
-            }
-
-            @Override
-            public void onEditSession(ChatMessageSession session) {
-                showEditSessionDialog(session);
-            }
-
-            @Override
-            public void onDeleteSession(ChatMessageSession session) {
-                AlertDialog dlg = new AlertDialog.Builder(mContext)
-                        .setTitle("删除确认")
-                        .setMessage("确定要删除这个会话吗？这将删除该会话下的所有消息。")
-                        .setPositiveButton("确定", (dialog, which) -> {
-                            // 处理确认按钮点击事件
-                            new Thread(() -> {
-                                mChatDb.deleteMessageSession(session.sessionId);
-                                post(() -> {
-                                    if (session.sessionId.equals(mCurrentSession.sessionId)) {
-                                        messageList.clear();
-                                        adapterAiChatMessageList.notifyDataSetChanged();
-                                    }
-                                    resetCurrentSession(mFixedDefaultSession);
-                                    loadData();
-                                });
-                            }).start();
-                        })
-                        .setNegativeButton("取消", null)
-                        .create();
-                dlg.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
-                dlg.show();
-            }
-            @Override
-            public void onClearSession(ChatMessageSession session) {
-                AlertDialog dlg = new AlertDialog.Builder(mContext)
-                        .setTitle("清除确认")
-                        .setMessage("确定要清除这个会话吗？这将删除会话所有消息。")
-                        .setPositiveButton("确定", (dialog, which) -> {
-                            new Thread(() -> {
-                                mChatDb.clearMessageSession(session.sessionId);
-                                post(() -> {
-                                    clearChatHistory();
-                                    loadData();
-                                });
-                            }).start();
-                        })
-                        .setNegativeButton("取消", null)
-                        .create();
-                dlg.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
-                dlg.show();
-            }
-        });
-
         chkViewHistory = view.findViewById(R.id.btn_view_history);
         chkViewHistory.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if(isChecked) {
@@ -356,14 +263,19 @@ public class ChatAiView extends RelativeLayout {
         btnCancelSearch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if(isChecked) {
                 editTextSearch.setVisibility(VISIBLE);
+                editTextSearch.requestFocus();
+                // 隐藏键盘
+                InputMethodManager imm = (InputMethodManager) mContext.getSystemService(Context.INPUT_METHOD_SERVICE);
+                imm.showSoftInput(editTextSearch, 0);
             } else {
                 editTextSearch.setVisibility(GONE);
                 if (editTextSearch.isFocused()) {
                     editTextSearch.clearFocus();
-                    // 隐藏键盘
-                    InputMethodManager imm = (InputMethodManager) mContext.getSystemService(Context.INPUT_METHOD_SERVICE);
-                    imm.hideSoftInputFromWindow(editTextSearch.getWindowToken(), 0);
                 }
+                // 隐藏键盘
+                InputMethodManager imm = (InputMethodManager) mContext.getSystemService(Context.INPUT_METHOD_SERVICE);
+                imm.hideSoftInputFromWindow(editTextSearch.getWindowToken(), 0);
+
                 editTextSearch.getText().clear();
                 mInSearchMode = false;
                 messageList.clear();
@@ -487,27 +399,19 @@ public class ChatAiView extends RelativeLayout {
             }
         });
 
-        View voiceAnimateLayout = view.findViewById(R.id.voice_animate_area);
+        voiceAnimateLayout = view.findViewById(R.id.voice_animate_area);
         mKeyboardInputButton = view.findViewById(R.id.input_keyboard);
         mVoiceInputButton = view.findViewById(R.id.btn_voice);
         mVoiceMessageButton = view.findViewById(R.id.voice_message);
+        mCheckSearchWeb = view.findViewById(R.id.check_search_web);
+        mSendPictureButton = view.findViewById(R.id.btn_send_picture);
 
         mKeyboardInputButton.setOnClickListener(v->{
-            mKeyboardInputButton.setVisibility(GONE);
-            mVoiceInputButton.setVisibility(VISIBLE);
-            voiceAnimateLayout.setVisibility(GONE);
-            mVoiceMessageButton.setVisibility(GONE);
-            mEditMsg.setVisibility(VISIBLE);
-            mBtnSend.setVisibility(VISIBLE);
+            switchToVoiceInput();
         });
 
         mVoiceInputButton.setOnClickListener(v->{
-            mKeyboardInputButton.setVisibility(VISIBLE);
-            mVoiceInputButton.setVisibility(GONE);
-            voiceAnimateLayout.setVisibility(GONE);
-            mVoiceMessageButton.setVisibility(VISIBLE);
-            mEditMsg.setVisibility(GONE);
-            mBtnSend.setVisibility(GONE);
+            switchToKeyboardInput();
         });
 
         ImageView viewCancelSend = view.findViewById(R.id.cancel_record);
@@ -543,7 +447,140 @@ public class ChatAiView extends RelativeLayout {
             return false;
         });
 
+
+        mAiChatRequest.setName(Objects.requireNonNull(mUserInfoViewModel.userInfo.getValue()).getName());
+
+        expandableListView = view.findViewById(R.id.expandable_list_view);
+        expandableListView.setOnGroupClickListener((parent, v, groupPosition, id) -> {
+            if(expandableListView.isGroupExpanded(groupPosition)) {
+                expandableListView.collapseGroup(groupPosition);
+            } else {
+                expandableListView.expandGroup(groupPosition);
+            }
+            return true;
+        });
+
+        expandableListView.setOnChildClickListener((parent, v, groupPosition, childPosition, id) -> {
+            ChatMessageCatalogue catalog = (ChatMessageCatalogue) mChatSessionListAdapter.getGroup(groupPosition);
+            ChatMessageSession session = (ChatMessageSession) mChatSessionListAdapter.getChild(groupPosition, childPosition);
+            resetCurrentCatalog(catalog);
+            resetCurrentSession(session);
+            return true;
+        });
+        // expandableListView.setOnGroupExpandListener(groupPosition -> {
+//            for (int i = 0; i < expandableListAdapter.getGroupCount(); i++) {
+//                if (groupPosition != i) {
+//                    expandableListView.collapseGroup(i);
+//                }
+//            }
+//        });
+        mChatSessionListAdapter = new ChatExpandableListAdapter(mContext, expandableListView);
+        expandableListView.setAdapter(mChatSessionListAdapter);
+        resetCurrentSession(mCurrentSession);
+        mChatSessionListAdapter.setOnItemActionListener(new ChatExpandableListAdapter.OnItemActionListener() {
+            @Override
+            public void onEditCatalogue(ChatMessageCatalogue catalogue) {
+                showEditCatalogueDialog(catalogue);
+            }
+
+            @Override
+            public void onDeleteCatalogue(ChatMessageCatalogue catalogue) {
+                AlertDialog dlg = new AlertDialog.Builder(mContext)
+                        .setTitle("删除确认")
+                        .setMessage("确定要删除这个目录吗？这将删除该目录下的所有会话和消息。")
+                        .setPositiveButton("确定", (dialog, which) -> {
+                            new Thread(() -> {
+                                mChatDb.deleteMessageCatalogue(catalogue.catalogId);
+                                post(() -> loadData());
+                            }).start();
+                        })
+                        .setNegativeButton("取消", null)
+                        .create();
+                dlg.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+                dlg.show();
+            }
+
+            @Override
+            public void onEditSession(ChatMessageSession session) {
+                showEditSessionDialog(session);
+            }
+
+            @Override
+            public void onDeleteSession(ChatMessageSession session) {
+                AlertDialog dlg = new AlertDialog.Builder(mContext)
+                        .setTitle("删除确认")
+                        .setMessage("确定要删除这个会话吗？这将删除该会话下的所有消息。")
+                        .setPositiveButton("确定", (dialog, which) -> {
+                            // 处理确认按钮点击事件
+                            new Thread(() -> {
+                                mChatDb.deleteMessageSession(session.sessionId);
+                                post(() -> {
+                                    if (session.sessionId.equals(mCurrentSession.sessionId)) {
+                                        messageList.clear();
+                                        adapterAiChatMessageList.notifyDataSetChanged();
+                                    }
+                                    resetCurrentSession(mFixedDefaultSession);
+                                    loadData();
+                                });
+                            }).start();
+                        })
+                        .setNegativeButton("取消", null)
+                        .create();
+                dlg.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+                dlg.show();
+            }
+            @Override
+            public void onClearSession(ChatMessageSession session) {
+                AlertDialog dlg = new AlertDialog.Builder(mContext)
+                        .setTitle("清除确认")
+                        .setMessage("确定要清除这个会话吗？这将删除会话所有消息。")
+                        .setPositiveButton("确定", (dialog, which) -> {
+                            new Thread(() -> {
+                                mChatDb.clearMessageSession(session.sessionId);
+                                post(() -> {
+                                    clearChatHistory();
+                                    loadData();
+                                });
+                            }).start();
+                        })
+                        .setNegativeButton("取消", null)
+                        .create();
+                dlg.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+                dlg.show();
+            }
+        });
         addView(view);
+    }
+
+    private void switchToVoiceInput() {
+        mKeyboardInputButton.setVisibility(VISIBLE);
+        mCheckSearchWeb.setVisibility(GONE);
+        mSendPictureButton.setVisibility(GONE);
+        mVoiceInputButton.setVisibility(GONE);
+        voiceAnimateLayout.setVisibility(GONE);
+        mVoiceMessageButton.setVisibility(VISIBLE);
+        mEditMsg.setVisibility(GONE);
+        mBtnSend.setVisibility(GONE);
+    }
+
+    private void switchToKeyboardInput() {
+        mKeyboardInputButton.setVisibility(GONE);
+        mCheckSearchWeb.setVisibility(VISIBLE);
+        mSendPictureButton.setVisibility(VISIBLE);
+        mVoiceInputButton.setVisibility(VISIBLE);
+        voiceAnimateLayout.setVisibility(GONE);
+        mVoiceMessageButton.setVisibility(GONE);
+        mEditMsg.setVisibility(VISIBLE);
+        mBtnSend.setVisibility(VISIBLE);
+    }
+
+    private void setChatAiSendMode(boolean isChatAi) {
+        if(isChatAi) {
+            switchToKeyboardInput();
+        }
+        mVoiceInputButton.setEnabled(!isChatAi);
+        mSendPictureButton.setEnabled(!isChatAi);
+        mCheckSearchWeb.setEnabled(isChatAi);
     }
 
     private boolean isTouchInsideView(View view, float x, float y) {
@@ -787,6 +824,7 @@ public class ChatAiView extends RelativeLayout {
 
         mAiChatRequest.setReason("start");
         mAiChatRequest.setCoversation(messageText);
+        mAiChatRequest.setIsWebSearch(mCheckSearchWeb.isChecked() ? "1" : "0");
 
         mBtnSend.setEnabled(false);
         pollChat();
@@ -810,6 +848,7 @@ public class ChatAiView extends RelativeLayout {
         mEditMsg.postDelayed(() -> {
             mAiChatRequest = mo;
             mAiChatRequest.setReason("start");
+            mAiChatRequest.setIsWebSearch(mCheckSearchWeb.isChecked() ? "1" : "0");
             ChatMessage message = new ChatMessage(mAiChatRequest.getCoversation(),
                     true,
                     ChatMessage.MessageType.TEXT,

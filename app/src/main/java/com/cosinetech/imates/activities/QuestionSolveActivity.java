@@ -59,7 +59,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
     private UserInfoViewModel userInfoViewModel;
     private AdapterQuestionList adapterQuestionList;
     private AdapterSimilarQuestionList adapterSimilarQuestionList;
-    private final AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "");
+    private final AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "", false);
     private int mCurrentQuestionIndex = -1;
 
     private RadioButton mRdoChatAi;

@@ -105,6 +105,7 @@ public class ApiGateWayService {
                 json.put("name", aiChatMessageRequest.getName());
                 json.put("reason", aiChatMessageRequest.getReason());
                 json.put("bmNo", aiChatMessageRequest.getBmNo());
+                json.put("isWebSearch", aiChatMessageRequest.getIsWebSearch());
 
                 RequestBody body = RequestBody.create(
                         MediaType.parse("application/json; charset=utf-8"),
