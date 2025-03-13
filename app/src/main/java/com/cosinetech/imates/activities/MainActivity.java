@@ -19,6 +19,8 @@ import com.cosinetech.imates.fragments.FragmentSubjectChinese;
 import com.cosinetech.imates.fragments.FragmentSubjectEnglish;
 import com.cosinetech.imates.fragments.FragmentSubjectMath;
 import com.cosinetech.imates.fragments.FragmentSubjectPhysics;
+import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.mq.MessageManager;
 import com.cosinetech.imates.service.FloatingRobotService;
 import com.cosinetech.imates.util.VersionUtils;
 import com.cosinetech.imates.util.WindowUtils;
@@ -36,6 +38,8 @@ import com.xuexiang.xupdate.easy.EasyUpdate;
 
 import android.widget.ImageView;
 
+import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.viewpager2.widget.ViewPager2;
 
 import java.util.ArrayList;
@@ -143,26 +147,23 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        tabLayout.post(new Runnable() {
-            @Override
-            public void run() {
-                TabLayout.Tab firstTab = tabLayout.getTabAt(0); // 获取第一个 Tab
-                if (firstTab != null) {
-                    firstTab.select(); // 选中第一个 Tab
+        tabLayout.post(() -> {
+            TabLayout.Tab firstTab = tabLayout.getTabAt(0); // 获取第一个 Tab
+            if (firstTab != null) {
+                firstTab.select(); // 选中第一个 Tab
 
-                    // 调整选中状态的高度
-                    View tabView = firstTab.getCustomView();
-                    if (tabView != null) {
-                        ImageView icon = tabView.findViewById(R.id.tab_icon);
-                        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) icon.getLayoutParams();
-                        params.bottomMargin = 20; // 设置选中状态的高度
-                        icon.setLayoutParams(params);
+                // 调整选中状态的高度
+                View tabView = firstTab.getCustomView();
+                if (tabView != null) {
+                    ImageView icon = tabView.findViewById(R.id.tab_icon);
+                    LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) icon.getLayoutParams();
+                    params.bottomMargin = 20; // 设置选中状态的高度
+                    icon.setLayoutParams(params);
 
-                        // 改变文字颜色
-                        TextView text = tabView.findViewById(R.id.tab_text);
-                        text.setTextColor(ContextCompat.getColor(MainActivity.this, R.color.black));
-                        text.setTextSize(24);
-                    }
+                    // 改变文字颜色
+                    TextView text = tabView.findViewById(R.id.tab_text);
+                    text.setTextColor(ContextCompat.getColor(MainActivity.this, R.color.black));
+                    text.setTextSize(24);
                 }
             }
         });
@@ -177,6 +178,12 @@ public class MainActivity extends AppCompatActivity {
         TextView versionText = findViewById(R.id.version);
         versionText.setText(VersionUtils.getVersionName(this) + "_" + VersionUtils.getVersionCode(this));
 
+        // 初始化MessageManager
+        UserInfoViewModel userInfoViewModel = new ViewModelProvider(
+                (ViewModelStoreOwner) getApplication(),
+                new ViewModelProvider.AndroidViewModelFactory(getApplication())
+        ).get(UserInfoViewModel.class);
+        MessageManager.getInstance().initialize(getApplicationContext(), userInfoViewModel.userId.getValue());
         Log.e("++++++++++++++++", "onCreate");    }
 
     @Override
@@ -235,6 +242,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         stopFloatingWndowService();
+        // 关闭MessageManager
+        MessageManager.getInstance().shutdown();
         Log.e("++++++++++++++++", "onDestroy");
     }
 }

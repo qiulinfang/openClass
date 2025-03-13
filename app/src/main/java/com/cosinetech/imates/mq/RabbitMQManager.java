@@ -19,10 +19,10 @@ import java.util.concurrent.TimeoutException;
  * - userId_a: For messages received from teachers
  */
 public class RabbitMQManager {
-    private static final String HOST = "your-rabbitmq-host";
+    private static final String HOST = "192.168.40.149";
     private static final int PORT = 5672;
-    private static final String USERNAME = "your-username";
-    private static final String PASSWORD = "your-password";
+    private static final String USERNAME = "admin";
+    private static final String PASSWORD = "admin";
     private static final String VIRTUAL_HOST = "/";
 
     private final String userId;
