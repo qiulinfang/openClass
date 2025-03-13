@@ -794,7 +794,15 @@ public class ChatAiView extends RelativeLayout {
         autoDetectChatSessionName(messageText.trim());
     }
 
-    private void sendVoiceMessage(String voicePath) {
+    public void sendVoiceMessageToTeacher(String voicePath) {
+
+    }
+
+    public void sendTextMessageToTeacher(String content) {
+
+    }
+
+    public void sendPictureToTeacher(String path) {
 
     }
 

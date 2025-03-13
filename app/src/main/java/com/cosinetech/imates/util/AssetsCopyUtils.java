@@ -14,7 +14,7 @@ import java.io.InputStream;
 public class AssetsCopyUtils {
     private static final String PREFS_NAME = "FileCopyPrefs";
     private static final String KEY_FILE_VERSION = "file_version";
-    private static final String CURRENT_VERSION = "2.0"; // 当前文件版本号
+    private static final String CURRENT_VERSION = "3.1"; // 当前文件版本号
 
     public static void copyAssetsToDocuments(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -51,10 +51,10 @@ public class AssetsCopyUtils {
 
     private static void copyFile(Context context, AssetManager assetManager, String filename) throws IOException {
         File outFile = new File(context.getExternalFilesDir(null), filename);
-        if (outFile.exists() && outFile.length() > 0) {
-            Log.i("FileCopyUtil", "File already exists, skipping: " + filename);
-            return;
-        }
+//        if (outFile.exists() && outFile.length() > 0) {
+//            Log.i("FileCopyUtil", "File already exists, skipping: " + filename);
+//            return;
+//        }
 
         File parent = outFile.getParentFile();
         if (!parent.exists() && !parent.mkdirs()) {

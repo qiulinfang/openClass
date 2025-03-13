@@ -33,11 +33,14 @@ import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.webservice.ApiUrl;
 import com.cosinetech.imates.views.FindKnowledgeQuestionPopupWindow;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.reflect.Type;
+import java.util.List;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -302,10 +305,15 @@ public class FragmentSubjectBiology extends Fragment {
         }
 
         Gson gson = new Gson();
-        Chapter chapter = gson.fromJson(newstringBuilder.toString(), Chapter.class);
-        for (Chapter.Section s: chapter.getSections()) {
-            if(s.getSection().equals(sectionId)) {
-                return s;
+        // 使用 TypeToken 反序列化
+        Type listType = new TypeToken<List<Chapter>>() {}.getType();
+        List<Chapter> chapters = gson.fromJson(newstringBuilder.toString(), listType);
+        //Chapter chapter = gson.fromJson(newstringBuilder.toString(), Chapter.class);
+        for(Chapter c : chapters) {
+            for (Chapter.Section s : c.getSections()) {
+                if (s.getSection().equals(sectionId)) {
+                    return s;
+                }
             }
         }
         return null;

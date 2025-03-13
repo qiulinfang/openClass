@@ -1,146 +1,155 @@
-{
-  "chapter": "5",
-  "title":"第5章",
-  "sections": [
+[
     {
-      "section":"section5.1",
-      "knowledgeNo":"5_1_d82eae08",
-      "title":"生长激素",
-      "schemas": [
-        {
-          "comments": "李硕",
-          "introduction":"biology/chapter5/section5_1/schema1_intro.txt",
-          "textBook":"biology/chapter5/5_1.pdf",
-          "bookPageStart": 3,
-          "lecture":"biology/chapter5/section5_1/schema1_lecture.pdf",
-          "learnGuide":""
-        },
-        {
-          "comments": "吴婧",
-          "introduction":"biology/chapter5/section5_1/schema2_intro.txt",
-          "textBook":"biology/chapter5/5_1.pdf",
-          "bookPageStart": 3,
-          "lecture":"biology/chapter5/section5_1/schema2_lecture.pdf",
-          "learnGuide":"biology/chapter5/section5_1/schema2_guide.pdf"
-        },
-        {
-          "comments": "柳忠烈",
-          "introduction":"biology/chapter5/section5_1/schema3_intro.txt",
-          "textBook":"biology/chapter5/5_1.pdf",
-          "bookPageStart": 3,
-          "lecture":"biology/chapter5/section5_1/schema3_lecture.pdf",
-          "learnGuide":""
-        }
-      ]
+        "chapter": "4",
+        "title":"第4章",
+        "sections": [
+            {
+              "section":"section4.1",
+              "knowledgeNo":"4_1_d82eae08",
+              "title":"基因指导蛋白质的合成",
+              "schemas": [
+                {
+                  "comments": "",
+                  "introduction":"biology/chapter4/section4_1/schema1_intro.txt",
+                  "textBook":"biology/chapter4/4_1.pdf",
+                  "bookPageStart": 1,
+                  "lecture":"biology/chapter4/section4_1/schema1_lecture.pdf",
+                  "learnGuide":"biology/chapter4/section4_1/schema1_guide.pdf"
+                }
+              ]
+            },
+            {
+              "section":"section4.2",
+              "title":"基因表达与性状的关系",
+              "knowledgeNo": "4_2_6e6ecf37",
+              "schemas": [
+                {
+                  "comments": "",
+                  "introduction":"biology/chapter4/section4_2/schema1_intro.txt",
+                  "textBook":"biology/chapter4/4_2.pdf",
+                  "bookPageStart": 1,
+                  "lecture":"biology/chapter4/section4_2/schema1_lecture.pdf",
+                  "learnGuide":"biology/chapter4/section4_2/schema1_guide.pdf"
+                }
+              ]
+            }
+        ]
     },
     {
-      "section":"section5.2",
-      "title":"其他植物激素",
-      "knowledgeNo": "5_2_6e6ecf37",
-      "schemas": [
-        {
-          "comments": "刘木举",
-          "introduction":"biology/chapter5/section5_2/schema1_intro.txt",
-          "textBook":"biology/chapter5/5_2.pdf",
-          "bookPageStart": 3,
-          "lecture":"biology/chapter5/section5_2/schema1_lecture.pdf",
-          "learnGuide":""
-        },
-        {
-          "comments": "李赛楠",
-          "introduction":"biology/chapter5/section5_2/schema2_intro.txt",
-          "textBook":"biology/chapter5/5_2.pdf",
-          "bookPageStart": 3,
-          "lecture":"biology/chapter5/section5_2/schema2_lecture.pdf",
-          "learnGuide":"biology/chapter5/section5_2/schema2_guide.pdf"
-        },
-        {
-          "comments": "陈希",
-          "introduction":"biology/chapter5/section5_2/schema3_intro.txt",
-          "textBook":"biology/chapter5/5_2.pdf",
-          "bookPageStart": 3,
-          "lecture":"biology/chapter5/section5_2/schema3_lecture.pdf",
-          "learnGuide":""
-        }
-      ]
+        "chapter": "5",
+        "title":"第5章",
+        "sections": [
+            {
+              "section":"section5.1",
+              "knowledgeNo":"5_1_d82eae08",
+              "title":"基因突变和基因重组",
+              "schemas": [
+                {
+                  "comments": "",
+                  "introduction":"biology/chapter5/section5_1/schema1_intro.txt",
+                  "textBook":"biology/chapter5/5_1.pdf",
+                  "bookPageStart": 1,
+                  "lecture":"biology/chapter5/section5_1/schema1_lecture.pdf",
+                  "learnGuide":"biology/chapter5/section5_1/schema1_guide.pdf"
+                }
+              ]
+            },
+            {
+              "section":"section5.2",
+              "title":"其他植物激素",
+              "knowledgeNo": "5_2_6e6ecf37",
+              "schemas": [
+                {
+                  "comments": "刘木举",
+                  "introduction":"biology/chapter5/section5_2/schema1_intro.txt",
+                  "textBook":"biology/chapter5/5_2.pdf",
+                  "bookPageStart": 3,
+                  "lecture":"biology/chapter5/section5_2/schema1_lecture.pdf",
+                  "learnGuide":"biology/chapter5/section5_2/schema1_guide.pdf"
+                }
+              ]
+            },
+            {
+              "section":"section5.3",
+              "title":"其他植物激素",
+              "knowledgeNo": "5_3_6e6ecf37",
+              "schemas": [
+                {
+                  "comments": "",
+                  "introduction":"biology/chapter5/section5_3/schema1_intro.txt",
+                  "textBook":"biology/chapter5/5_3.pdf",
+                  "bookPageStart": 1,
+                  "lecture":"biology/chapter5/section5_3/schema1_lecture.pdf",
+                  "learnGuide":"biology/chapter5/section5_3/schema1_guide.pdf"
+                }
+              ]
+            }
+        ]
     },
     {
-      "section":"section5.3",
-      "title":"植物生长调节剂",
-      "knowledgeNo":"",
-      "schemas": [
-        {
-          "comments": "吴盼盼",
-          "introduction":"biology/chapter5/section5_3/schema1_intro.txt",
-          "textBook":"biology/chapter5/5_3.pdf",
-          "bookPageStart": 3,
-          "lecture":"biology/chapter5/section5_3/schema1_lecture.pdf",
-          "learnGuide":"biology/chapter5/section_3/schema1_guide.pdf"
-        },
-        {
-          "comments": "李磊",
-          "introduction":"biology/chapter5/section5_3/schema2_intro.txt",
-          "textBook":"biology/chapter5/5_3.pdf",
-          "bookPageStart": 3,
-          "lecture":"biology/chapter5/section5_3/schema2_lecture.pdf",
-          "learnGuide":"biology/chapter5/section5_3/schema2_guide.pdf"
-        },
-        {
-          "comments": "王爱丽",
-          "introduction":"biology/chapter5/section5_3/schema3_intro.txt",
-          "textBook":"biology/chapter5/5_3.pdf",
-          "bookPageStart": 3,
-          "lecture":"biology/chapter5/section5_3/schema3_lecture.pdf",
-          "learnGuide":""
-        },
-        {
-          "comments": "陈康",
-          "introduction":"biology/chapter5/section5_3/schema4_intro.txt",
-          "textBook":"biology/chapter5/5_3.pdf",
-          "bookPageStart": 3,
-          "lecture":"biology/chapter5/section5_3/schema4_lecture.pdf",
-          "learnGuide":"biology/chapter5/section5_3/schema4_guide.pdf"
-        }
-      ]
-    },
-    {
-      "section":"section5.4",
-      "title":"环境因素参与调节植物的生命活动",
-      "knowledgeNo": "5_4_a4a90ae4",
-      "schemas": [
-        {
-          "comments": "吴婧",
-          "introduction":"biology/chapter5/section5_4/schema1_intro.txt",
-          "textBook":"biology/chapter5/5_4.pdf",
-          "bookPageStart": 3,
-          "lecture":"",
-          "learnGuide":"biology/chapter5/section5_4/schema1_guide.pdf"
-        },
-        {
-          "comments": "王魏然",
-          "introduction":"biology/chapter5/section5_4/schema2_intro.txt",
-          "textBook":"biology/chapter5/5_4.pdf",
-          "bookPageStart": 3,
-          "lecture":"biology/chapter5/section5_4/schema2_lecture.pdf",
-          "learnGuide":""
-        },
-        {
-          "comments": "苗雪鹏",
-          "introduction":"biology/chapter5/section5_4/schema3_intro.txt",
-          "textBook":"biology/chapter5/5_4.pdf",
-          "bookPageStart": 3,
-          "lecture":"biology/chapter5/section5_4/schema3_lecture.pdf",
-          "learnGuide":""
-        },
-        {
-          "comments": "陈希",
-          "introduction":"biology/chapter5/section5_4/schema4_intro.txt",
-          "textBook":"biology/chapter5/5_4.pdf",
-          "bookPageStart": 3,
-          "lecture":"",
-          "learnGuide":"biology/chapter5/section5_4/schema4_guide.pdf"
-        }
-      ]
+        "chapter": "6",
+        "title":"第6章",
+        "sections": [
+            {
+              "section":"section6.1",
+              "knowledgeNo":"6_1_d82eae08",
+              "title":"生长激素",
+              "schemas": [
+                {
+                  "comments": "",
+                  "introduction":"biology/chapter6/section6_1/schema1_intro.txt",
+                  "textBook":"biology/chapter6/6_1.pdf",
+                  "bookPageStart": 1,
+                  "lecture":"biology/chapter6/section6_1/schema1_lecture.pdf",
+                  "learnGuide":"biology/chapter6/section6_1/schema1_guide.pdf"
+                }
+              ]
+            },
+            {
+              "section":"section6.2",
+              "title":"其他植物激素",
+              "knowledgeNo": "6_2_6e6ecf37",
+              "schemas": [
+                {
+                  "comments": "",
+                  "introduction":"biology/chapter6/section6_2/schema1_intro.txt",
+                  "textBook":"biology/chapter6/6_2.pdf",
+                  "bookPageStart": 1,
+                  "lecture":"biology/chapter6/section6_2/schema1_lecture.pdf",
+                  "learnGuide":"biology/chapter6/section6_2/schema1_guide.pdf"
+                }
+              ]
+            },
+            {
+              "section":"section6.3",
+              "title":"其他植物激素",
+              "knowledgeNo": "6_3_6e6ecf37",
+              "schemas": [
+                {
+                  "comments": "",
+                  "introduction":"biology/chapter6/section6_3/schema1_intro.txt",
+                  "textBook":"biology/chapter6/6_3.pdf",
+                  "bookPageStart": 1,
+                  "lecture":"biology/chapter6/section6_3/schema1_lecture.pdf",
+                  "learnGuide":"biology/chapter6/section6_3/schema1_guide.pdf"
+                }
+              ]
+            },
+            {
+              "section":"section6.4",
+              "title":"其他植物激素",
+              "knowledgeNo": "6_4_6e6ecf37",
+              "schemas": [
+                {
+                  "comments": "",
+                  "introduction":"biology/chapter6/section6_4/schema1_intro.txt",
+                  "textBook":"biology/chapter6/6_4.pdf",
+                  "bookPageStart": 1,
+                  "lecture":"biology/chapter6/section6_4/schema1_lecture.pdf",
+                  "learnGuide":"biology/chapter6/section6_4/schema1_guide.pdf"
+                }
+              ]
+            }
+        ]
     }
-  ]
-}
+]
