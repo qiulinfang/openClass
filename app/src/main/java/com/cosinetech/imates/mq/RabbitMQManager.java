@@ -71,7 +71,15 @@ public class RabbitMQManager {
      * @throws JSONException If JSON creation fails
      */
     public String sendMessage(StudentMessage message) throws IOException, JSONException {
-        channel.basicPublish("", queueNameSend, null, 
+        // 设置消息属性，包括72小时的过期时间 (72 * 60 * 60 * 1000 = 259200000 毫秒)
+        com.rabbitmq.client.AMQP.BasicProperties properties = 
+            new com.rabbitmq.client.AMQP.BasicProperties.Builder()
+                .expiration("259200000") // 72小时过期时间，以毫秒为单位的字符串
+                .contentType("application/json")
+                .deliveryMode(2) // 持久化消息
+                .build();
+        
+        channel.basicPublish("", queueNameSend, properties, 
                             message.toJsonString().getBytes(StandardCharsets.UTF_8));
         
         return message.getMessageId();
