@@ -48,6 +48,7 @@ import com.cosinetech.imates.mq.MessageManager;
 import com.cosinetech.imates.mq.StudentMessage;
 import com.cosinetech.imates.mq.TeacherQaType;
 import com.cosinetech.imates.util.AppUtils;
+import com.cosinetech.imates.util.ImageUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
@@ -885,20 +886,30 @@ public class ChatAiView extends RelativeLayout {
             messageList.add(new ChatDisplayItem(message, !message.isSelf));
             mChatDb.addChatMessageDetail(message);
 
-//            if(!mo.getQuestion().isEmpty()) {
-//                //可能是图片
-//                String question = mo.getQuestion().trim();
+            if(!mo.getQuestion().isEmpty()) {
+                //可能是图片
+                String question = mo.getQuestion().trim();
 //                if(question.startsWith("data:image")) {
 //                    //截图问答的图片
-//                    ChatMessage msgPicture = new ChatMessage(ImageUtils.htmlJpgBase64ToMd(question),
+//                    ChatMessage msg = new ChatMessage(ImageUtils.htmlJpgBase64ToMd(question),
 //                            true,
 //                            ChatMessage.MessageType.TEXT,
 //                            mCurrentSession.sessionId,
 //                            System.currentTimeMillis());
-//                    messageList.add(new ChatDisplayItem(msgPicture, true));
-//                    mChatDb.addChatMessageDetail(msgPicture);
-//                }
-//            }
+//                    messageList.add(new ChatDisplayItem(msg, false));
+//                    mChatDb.addChatMessageDetail(msg);
+//                } else
+               {
+                    //截图问答的图片
+                    ChatMessage msg = new ChatMessage(question,
+                            true,
+                            ChatMessage.MessageType.TEXT,
+                            mCurrentSession.sessionId,
+                            System.currentTimeMillis());
+                    messageList.add(new ChatDisplayItem(msg, false));
+                    mChatDb.addChatMessageDetail(msg);
+                }
+            }
 
             adapterAiChatMessageList.notifyDataSetChanged();
             mEditMsg.setText("");

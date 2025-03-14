@@ -6,29 +6,6 @@
     android:background="@drawable/chat_ai_dialog_bg"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <LinearLayout
-        android:id="@+id/teacher_qa"
-        android:layout_width="wrap_content"
-        android:layout_height="36dp"
-        android:orientation="horizontal"
-        android:layout_alignParentTop="true"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="6dp"
-        android:minHeight="60dp"
-        android:layout_alignParentStart="true">
-
-        <CheckBox
-            android:id="@+id/chk_select_history"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginEnd="16dp"
-            android:textColor="#ffffff"
-            android:button="@null"
-            android:layout_gravity="center_vertical"
-            android:background="@drawable/chat_ai_select_item"
-            android:stateListAnimator="@animator/app_button_click_scale" />
-    </LinearLayout>
-
     <CheckBox
         android:id="@+id/btn_view_history"
         android:layout_width="36dp"
@@ -109,14 +86,36 @@
         android:stateListAnimator="@animator/app_button_click_scale"
         android:layout_alignParentEnd="true"/>
 
+    <LinearLayout
+        android:id="@+id/select_chat_msg_area"
+        android:layout_width="wrap_content"
+        android:layout_height="36dp"
+        android:orientation="horizontal"
+        android:layout_alignParentTop="true"
+        android:layout_marginStart="48dp"
+        android:layout_marginTop="6dp"
+        android:minHeight="60dp"
+        android:layout_alignParentStart="true">
+
+        <CheckBox
+            android:id="@+id/chk_select_history"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="16dp"
+            android:textColor="#ffffff"
+            android:button="@null"
+            android:layout_gravity="center_vertical"
+            android:background="@drawable/chat_ai_select_item"
+            android:stateListAnimator="@animator/app_button_click_scale" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/ai_name"
         android:layout_width="wrap_content"
         android:layout_height="48dp"
         android:layout_alignParentTop="true"
-        android:layout_alignParentStart="true"
         android:layout_toStartOf="@id/btn_new_chat"
+        android:layout_toEndOf="@id/select_chat_msg_area"
         android:textAlignment="center"
         android:gravity="center"
         android:text="@string/chatbot_name"
@@ -324,7 +323,8 @@
         android:layout_toEndOf="@id/v_split"
         android:background="#ffffffff"
         android:orientation="vertical"
-        android:layout_alignParentBottom="true">
+        android:layout_alignParentBottom="true"
+        android:visibility="gone">
         <Button
             android:id="@+id/btn_ask_teacher"
             android:layout_width="96dp"

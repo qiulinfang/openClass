@@ -329,7 +329,6 @@ public class QuestionSolveActivity extends AppCompatActivity {
                 findSimilarQuestion();
             }
         });
-
     }
 
     private void onChatQuestionSessionChange(boolean saveToDb) {
