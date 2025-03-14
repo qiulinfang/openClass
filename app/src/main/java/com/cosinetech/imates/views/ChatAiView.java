@@ -1,5 +1,10 @@
 package com.cosinetech.imates.views;
 
+import static com.cosinetech.imates.models.ChatMessageCatalogue.CATALOG_ID_DEFAULT;
+import static com.cosinetech.imates.models.ChatMessageCatalogue.CATALOG_ID_MY_FAVOR;
+import static com.cosinetech.imates.models.ChatMessageCatalogue.CATALOG_ID_TEACHER;
+import static com.cosinetech.imates.models.ChatMessageSession.SESSION_ID_DEFAULT;
+
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -39,6 +44,9 @@ import com.cosinetech.imates.models.ChatMessageCatalogue;
 import com.cosinetech.imates.models.ChatMessageHistoryDB;
 import com.cosinetech.imates.models.ChatMessageSession;
 import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.mq.MessageManager;
+import com.cosinetech.imates.mq.StudentMessage;
+import com.cosinetech.imates.mq.TeacherQaType;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
@@ -63,10 +71,6 @@ public class ChatAiView extends RelativeLayout {
         public AiChatResponseListener listener;
     }
 
-    private final static String CATALOG_ID_DEFAULT = "0".repeat(32);
-    private final static String CATALOG_ID_TEACHER = "3".repeat(32);
-    private final static String CATALOG_ID_MY_FAVOR = "7".repeat(32);
-    private final static String SESSION_ID_DEFAULT = "9".repeat(32);
     private UserInfoViewModel mUserInfoViewModel;
     private Context mContext;
     private AiChatMessageRequest mAiChatRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "", false);
@@ -143,10 +147,9 @@ public class ChatAiView extends RelativeLayout {
             mAiChatRequest.setNewValue("0");
         }
         mCurrentSession = session;
-        if(mCurrentSession.type == ChatMessageSession.SessionType.USER_TALK_AI) {
+        if(mCurrentSession.type == ChatMessageSession.SessionType.USER_TALK_AI
+                || mCurrentSession.type == ChatMessageSession.SessionType.USER_FAVOR) {
             setChatAiSendMode(true);
-        } else if(mCurrentSession.type == ChatMessageSession.SessionType.USER_TALK_TEACHER) {
-            setChatAiSendMode(false);
         } else {
             setChatAiSendMode(true);
         }
@@ -836,8 +839,33 @@ public class ChatAiView extends RelativeLayout {
 
     }
 
-    public void sendTextMessageToTeacher(String content) {
 
+    public void sendTextMessageToTeacher(String content) {
+        String subject;
+        if(mCurrentSession.type == ChatMessageSession.SessionType.USER_TALK_TEACHER_BIOLOGY) {
+            subject = TeacherQaType.SCHOOL_SUBJECT_BIOLOGY;
+        } else {
+            subject = TeacherQaType.SCHOOL_SUBJECT_MATH;
+        }
+
+        StudentMessage studentMsg = new StudentMessage(mUserInfoViewModel.userId.getValue(),
+                mCurrentSession.sessionId,
+                subject,
+                TeacherQaType.QA_MSG_TYPE_TEXT,
+                content);
+        MessageManager.getInstance().sendMessage(studentMsg, (success, messageId, errorMessage) -> {
+
+        });
+
+        ChatMessage message = new ChatMessage(content,
+                true,
+                ChatMessage.MessageType.TEXT,
+                mCurrentSession.sessionId,
+                System.currentTimeMillis());
+        message.messageId = studentMsg.getMessageId();
+
+        messageList.add(new ChatDisplayItem(message, !message.isSelf));
+        mChatDb.addChatMessageDetail(message);
     }
 
     public void sendPictureToTeacher(String path) {

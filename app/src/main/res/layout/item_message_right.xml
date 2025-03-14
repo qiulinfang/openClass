@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:padding="10dp"
-    android:gravity="end">
+    android:padding="10dp">
+
+    <CheckBox
+        android:id="@+id/iv_select"
+        android:layout_marginHorizontal="8dp"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:visibility="gone"/>
 
     <com.cosinetech.imates.views.MarkdownTextView
         android:id="@+id/tv_message"
@@ -12,6 +17,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="80dp"
         android:layout_marginEnd="10dp"
+        android:layout_toStartOf="@id/iv_avatar"
         android:background="@drawable/chat_ai_msg_self_bg"
         android:textColor="#ffffff"
         android:padding="10dp"
@@ -22,5 +28,6 @@
         android:id="@+id/iv_avatar"
         android:layout_width="40dp"
         android:layout_height="40dp"
+        android:layout_alignParentEnd="true"
         android:src="@drawable/chat_ai_avatar_user" />
-</LinearLayout>
+</RelativeLayout>

@@ -1,6 +1,9 @@
 package com.cosinetech.imates.models;
 
 public class ChatMessageCatalogue {
+    public final static String CATALOG_ID_DEFAULT = "0".repeat(32);
+    public final static String CATALOG_ID_TEACHER = "3".repeat(32);
+    public final static String CATALOG_ID_MY_FAVOR = "7".repeat(32);
     public enum CatalogueType {
         SYSTEM(0),
         USER(1);

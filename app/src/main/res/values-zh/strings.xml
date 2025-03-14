@@ -115,4 +115,5 @@
     <string name="chat_ai_default_favor_name">收藏1</string>
     <string name="chat_ai_voice_hint">按住 说话</string>
     <string name="chat_ai_release_to_cancel">松开取消</string>
+    <string name="chat_ai_forward_to_teacher">发给老师</string>
 </resources>

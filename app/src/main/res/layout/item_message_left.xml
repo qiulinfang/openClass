@@ -5,6 +5,13 @@
     android:orientation="horizontal"
     android:padding="10dp">
 
+    <CheckBox
+        android:id="@+id/iv_select"
+        android:layout_marginHorizontal="8dp"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:visibility="gone"/>
+
     <ImageView
         android:id="@+id/iv_avatar"
         android:layout_width="40dp"

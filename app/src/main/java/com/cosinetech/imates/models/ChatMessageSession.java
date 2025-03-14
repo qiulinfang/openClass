@@ -3,11 +3,13 @@ package com.cosinetech.imates.models;
 import java.util.UUID;
 
 public class ChatMessageSession {
+    public final static String SESSION_ID_DEFAULT = "9".repeat(32);
     public enum SessionType {
         USER_TALK_AI(0), // 用户创建的
         SYSTEM_TALK_AI(1), // 内置的Session, 不可删除或修改
-        USER_TALK_TEACHER(2), // 用户和老师的对话
-        USER_FAVOR(3);  // 用户收藏的搜索结果
+        USER_TALK_TEACHER_BIOLOGY(2), // 用户和生物老师的对话
+        USER_TALK_TEACHER_MATH(3), // 用户和数学老师的对话
+        USER_FAVOR(99);  // 用户收藏的搜索结果
 
         private final int value;
 
