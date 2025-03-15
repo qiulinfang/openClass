@@ -12,6 +12,7 @@
         android:visibility="gone"/>
 
     <LinearLayout
+        android:id="@+id/voice_layout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="10dp"
@@ -21,7 +22,7 @@
 
         <ImageView
             android:id="@+id/iv_voice_icon"
-            android:layout_width="24dp"
+            android:layout_width="48dp"
             android:layout_height="24dp"
             android:src="@drawable/ic_voice" />
 
@@ -31,6 +32,7 @@
             android:layout_height="wrap_content"
             android:text="10"
             android:layout_marginStart="10dp"
+            android:layout_gravity="center_vertical"
             android:textColor="#ffffff" />
     </LinearLayout>
 

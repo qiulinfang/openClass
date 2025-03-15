@@ -9,6 +9,7 @@ import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.graphics.Rect;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
@@ -28,6 +29,8 @@ import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -38,6 +41,7 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.AdapterAiChatMessageList;
 import com.cosinetech.imates.adapters.ChatExpandableListAdapter;
 import com.cosinetech.imates.audio.AudioRecordManager;
+import com.cosinetech.imates.audio.IAudioRecordListener;
 import com.cosinetech.imates.models.ChatDisplayItem;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.models.ChatMessageCatalogue;
@@ -49,10 +53,12 @@ import com.cosinetech.imates.mq.StudentMessage;
 import com.cosinetech.imates.mq.TeacherQaType;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.ImageUtils;
+import com.cosinetech.imates.util.VoiceDbUtil;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -109,6 +115,9 @@ public class ChatAiView extends RelativeLayout {
     private int clickCount = 0; // 记录点击次数
 
     private ChatMessage mLastReceivingMsg;
+
+    private String mAudioRecordUUID = "";
+    private boolean mAudioRecordCancel = false;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable resetClickCountRunnable = new Runnable() {
         @Override
@@ -117,6 +126,7 @@ public class ChatAiView extends RelativeLayout {
             handler.postDelayed(this, 2000);
         }
     };
+
 
     public ChatAiView(Context context) {
         super(context);
@@ -272,7 +282,8 @@ public class ChatAiView extends RelativeLayout {
                 } else if(msg.type == ChatMessage.MessageType.IMAGE) {
                     sendPictureToTeacher(msg.content);
                 } else if(msg.type == ChatMessage.MessageType.VOICE) {
-                    sendVoiceMessageToTeacher(msg.content);
+                    VoiceDbUtil.VoiceDbItem vi = VoiceDbUtil.extractDbVoiceContent(msg.content);
+                    sendVoiceMessageToTeacher(vi.voicePath, vi.duration);
                 }
             }
         });
@@ -476,11 +487,11 @@ public class ChatAiView extends RelativeLayout {
         mSendPictureButton = view.findViewById(R.id.btn_send_picture);
 
         mKeyboardInputButton.setOnClickListener(v->{
-            switchToVoiceInput();
+            switchToKeyboardInput();
         });
 
         mVoiceInputButton.setOnClickListener(v->{
-            switchToKeyboardInput();
+            switchToVoiceInput();
         });
 
         ImageView viewCancelSend = view.findViewById(R.id.cancel_record);
@@ -491,6 +502,64 @@ public class ChatAiView extends RelativeLayout {
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
                     voiceAnimateLayout.setVisibility(VISIBLE);
+                    mAudioRecordUUID = UUID.randomUUID().toString();
+                    mAudioRecordCancel = false;
+                    String AudioRecordFilePath = AppUtils.getUserFilePath() + "/" + mAudioRecordUUID + ".voice";
+                    AudioRecordManager.getInstance(getContext()).setAudioSavePath(AudioRecordFilePath);
+                    AudioRecordManager.getInstance(getContext()).setAudioRecordListener(new IAudioRecordListener() {
+                        @Override
+                        public void initTipView() {
+
+                        }
+
+                        @Override
+                        public void setTimeoutTipView(int counter) {
+
+                        }
+
+                        @Override
+                        public void setRecordingTipView() {
+
+                        }
+
+                        @Override
+                        public void setAudioShortTipView() {
+
+                        }
+
+                        @Override
+                        public void setCancelTipView() {
+
+                        }
+
+                        @Override
+                        public void destroyTipView() {
+
+                        }
+
+                        @Override
+                        public void onStartRecord() {
+
+                        }
+
+                        @Override
+                        public void onFinish(Uri audioUri, String path, int duration) {
+                            if(mAudioRecordCancel) {
+                                ImageUtils.deleteTempFile(path);
+                                return;
+                            }
+                            if(duration < 1) {
+                                Toast.makeText(getContext(), "录音时长太短了", Toast.LENGTH_SHORT).show();
+                            } else {
+                                sendVoiceMessageToTeacher(path, duration);
+                            }
+                        }
+
+                        @Override
+                        public void onAudioDBChanged(int db) {
+
+                        }
+                    });
                     AudioRecordManager.getInstance(this.getContext()).startRecord();
                     break;
                 case MotionEvent.ACTION_MOVE:
@@ -507,9 +576,9 @@ public class ChatAiView extends RelativeLayout {
                     AudioRecordManager.getInstance(this.getContext()).stopRecord();
                     AudioRecordManager.getInstance(this.getContext()).destroyRecord();
                     if (isTouchInsideView(viewCancelSend, x, y)) {
-
+                        mAudioRecordCancel = true;
                     } else {
-
+                        mAudioRecordCancel = false;
                     }
                     break;
             }
@@ -646,7 +715,8 @@ public class ChatAiView extends RelativeLayout {
         if(isChatAi) {
             switchToKeyboardInput();
         }
-        mVoiceInputButton.setEnabled(!isChatAi);
+        // TODO:测试
+        /////mVoiceInputButton.setEnabled(!isChatAi);
         mSendPictureButton.setEnabled(!isChatAi);
         mCheckSearchWeb.setEnabled(isChatAi);
     }
@@ -962,17 +1032,47 @@ public class ChatAiView extends RelativeLayout {
         }, 1000);
     }
 
-    public void sendVoiceMessageToTeacher(String voicePath) {
-
-    }
-
-    public void sendTextMessageToTeacher(String content) {
+    @NonNull
+    private String getTeacherSubject() {
         String subject;
         if(mCurrentSession.type == ChatMessageSession.SessionType.USER_TALK_TEACHER_BIOLOGY) {
             subject = TeacherQaType.SCHOOL_SUBJECT_BIOLOGY;
         } else {
             subject = TeacherQaType.SCHOOL_SUBJECT_MATH;
         }
+        return subject;
+    }
+
+    public void sendVoiceMessageToTeacher(String voicePath, int duration) {
+        String subject = getTeacherSubject();
+
+        StudentMessage studentMsg = new StudentMessage(mUserInfoViewModel.userId.getValue(),
+                mCurrentSession.sessionId,
+                subject,
+                TeacherQaType.QA_MSG_TYPE_VOICE,
+                VoiceDbUtil.getRawVoiceBase64(voicePath));
+        MessageManager.getInstance().sendMessage(studentMsg, (success, messageId, errorMessage) -> {
+        });
+
+        VoiceDbUtil.VoiceDbItem item = new VoiceDbUtil.VoiceDbItem();
+        item.duration = duration;
+        item.voicePath = voicePath;
+
+        String dbContent = VoiceDbUtil.makeVoiceDbContent(item);
+        ChatMessage message = new ChatMessage(dbContent,
+                true,
+                ChatMessage.MessageType.VOICE,
+                mCurrentSession.sessionId,
+                System.currentTimeMillis());
+        message.messageId = studentMsg.getMessageId();
+
+        messageList.add(new ChatDisplayItem(message, !message.isSelf));
+        mChatDb.addChatMessageDetail(message);
+        mAdapterAiChatMessageList.notifyItemInserted(messageList.size() - 1);
+    }
+
+    public void sendTextMessageToTeacher(String content) {
+        String subject = getTeacherSubject();
 
         StudentMessage studentMsg = new StudentMessage(mUserInfoViewModel.userId.getValue(),
                 mCurrentSession.sessionId,
@@ -992,6 +1092,7 @@ public class ChatAiView extends RelativeLayout {
 
         messageList.add(new ChatDisplayItem(message, !message.isSelf));
         mChatDb.addChatMessageDetail(message);
+        mAdapterAiChatMessageList.notifyItemInserted(messageList.size() - 1);
     }
 
     public void sendPictureToTeacher(String path) {

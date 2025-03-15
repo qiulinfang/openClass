@@ -46,10 +46,11 @@ public interface IAudioRecordListener {
     /**
      * 录制结束
      *
-     * @param audioPath 语音文件路径
-     * @param duration  语音文件时长
+     * @param audioPath 语音文件路径, Uri形式
+     * @param path 语音文件路径, 绝对路径形式
+     * @param duration  语音文件时长,秒
      */
-    void onFinish(Uri audioPath, int duration);
+    void onFinish(Uri audioPathUri, String path, int duration);
 
     /**
      * 分贝改变

@@ -1,6 +1,5 @@
 package com.cosinetech.imates.audio;
 
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.Resources;
 import android.media.AudioManager;
@@ -26,7 +25,7 @@ public class AudioRecordManager implements Handler.Callback {
     private Handler mHandler;
     private AudioManager mAudioManager;
     private MediaRecorder mMediaRecorder;
-    private Uri mAudioPath;
+    private Uri mAudioFilePathUri;
     private long smStartRecTime;
     private AudioManager.OnAudioFocusChangeListener mAfChangeListener;
     IAudioState idleState;
@@ -145,10 +144,14 @@ public class AudioRecordManager implements Handler.Callback {
 
     public void setAudioSavePath(String path) {
         if (TextUtils.isEmpty(path)) {
-            this.SAVE_PATH = mContext.getCacheDir().getAbsolutePath();
+            this.SAVE_PATH = mContext.getCacheDir().getAbsolutePath() + "/" + System.currentTimeMillis() + ".voice";
         } else {
             this.SAVE_PATH = path;
         }
+    }
+
+    public String getAudioSavePath() {
+        return SAVE_PATH;
     }
 
     public int getMaxVoiceDuration() {
@@ -228,8 +231,9 @@ public class AudioRecordManager implements Handler.Callback {
             this.mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
             this.mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.AMR_NB);
             this.mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-            this.mAudioPath = Uri.fromFile(new File(SAVE_PATH, System.currentTimeMillis() + "temp.voice"));
-            this.mMediaRecorder.setOutputFile(this.mAudioPath.getPath());
+            this.mMediaRecorder.setAudioEncodingBitRate(12200); // 设置比特率为 12.2kbps
+            this.mAudioFilePathUri = Uri.fromFile(new File(SAVE_PATH));
+            this.mMediaRecorder.setOutputFile(this.mAudioFilePathUri.getPath());
             this.mMediaRecorder.prepare();
             this.mMediaRecorder.start();
             Message e1 = Message.obtain();
@@ -265,8 +269,8 @@ public class AudioRecordManager implements Handler.Callback {
 
     private void deleteAudioFile() {
         Log.d(TAG, "deleteAudioFile");
-        if (this.mAudioPath != null) {
-            File file = new File(this.mAudioPath.getPath());
+        if (this.mAudioFilePathUri != null) {
+            File file = new File(this.mAudioFilePathUri.getPath());
             if (file.exists()) {
                 file.delete();
             }
@@ -275,10 +279,10 @@ public class AudioRecordManager implements Handler.Callback {
     }
 
     private void finishRecord() {
-        Log.d(TAG, "finishRecord path = " + this.mAudioPath);
+        Log.d(TAG, "finishRecord path = " + this.mAudioFilePathUri);
         if (mAudioRecordListener != null) {
             int duration = (int) (SystemClock.elapsedRealtime() - this.smStartRecTime) / 1000;
-            mAudioRecordListener.onFinish(this.mAudioPath, duration);
+            mAudioRecordListener.onFinish(this.mAudioFilePathUri, SAVE_PATH,  duration);
         }
     }
 

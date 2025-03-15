@@ -16,6 +16,7 @@ import android.os.Build;
 import android.os.PowerManager;
 import android.util.Log;
 
+import java.io.File;
 import java.io.IOException;
 
 public class AudioPlayManager implements SensorEventListener {
@@ -146,24 +147,23 @@ public class AudioPlayManager implements SensorEventListener {
 
     }
 
-    public void startPlay(Context context, Uri audioUri, IAudioPlayListener playListener) {
-        if (context != null && audioUri != null) {
+    public void startPlay(Context context, String path, IAudioPlayListener playListener) {
+        if (context != null && path != null) {
+            Uri audioUri = Uri.fromFile(new File(path));
             this.context = context;
             if (this._playListener != null && this._playingUri != null) {
                 this._playListener.onStop(this._playingUri);
             }
 
             this.resetMediaPlayer();
-            this.afChangeListener = new AudioManager.OnAudioFocusChangeListener() {
-                public void onAudioFocusChange(int focusChange) {
-                    Log.d(TAG, "OnAudioFocusChangeListener " + focusChange);
-                    if (AudioPlayManager.this._audioManager != null && focusChange == -1) {
-                        AudioPlayManager.this._audioManager.abandonAudioFocus(AudioPlayManager.this.afChangeListener);
-                        AudioPlayManager.this.afChangeListener = null;
-                        AudioPlayManager.this.resetMediaPlayer();
-                    }
-
+            this.afChangeListener = focusChange -> {
+                Log.d(TAG, "OnAudioFocusChangeListener " + focusChange);
+                if (AudioPlayManager.this._audioManager != null && focusChange == -1) {
+                    AudioPlayManager.this._audioManager.abandonAudioFocus(AudioPlayManager.this.afChangeListener);
+                    AudioPlayManager.this.afChangeListener = null;
+                    AudioPlayManager.this.resetMediaPlayer();
                 }
+
             };
 
             try {
@@ -179,22 +179,18 @@ public class AudioPlayManager implements SensorEventListener {
                 this._playListener = playListener;
                 this._playingUri = audioUri;
                 this._mediaPlayer = new MediaPlayer();
-                this._mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-                    public void onCompletion(MediaPlayer mp) {
-                        if (AudioPlayManager.this._playListener != null) {
-                            AudioPlayManager.this._playListener.onComplete(AudioPlayManager.this._playingUri);
-                            AudioPlayManager.this._playListener = null;
-                            AudioPlayManager.this.context = null;
-                        }
+                this._mediaPlayer.setOnCompletionListener(mp -> {
+                    if (AudioPlayManager.this._playListener != null) {
+                        AudioPlayManager.this._playListener.onComplete(AudioPlayManager.this._playingUri);
+                        AudioPlayManager.this._playListener = null;
+                        AudioPlayManager.this.context = null;
+                    }
 
-                        AudioPlayManager.this.reset();
-                    }
+                    AudioPlayManager.this.reset();
                 });
-                this._mediaPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
-                    public boolean onError(MediaPlayer mp, int what, int extra) {
-                        AudioPlayManager.this.reset();
-                        return true;
-                    }
+                this._mediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                    AudioPlayManager.this.reset();
+                    return true;
                 });
                 this._mediaPlayer.setDataSource(context, audioUri);
                 this._mediaPlayer.setAudioStreamType(3);

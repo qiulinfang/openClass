@@ -19,9 +19,12 @@ import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.cosinetech.imates.activities.ImageViewerActivity;
+import com.cosinetech.imates.audio.AudioPlayManager;
+import com.cosinetech.imates.audio.IAudioPlayListener;
 import com.cosinetech.imates.models.ChatDisplayItem;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.util.VoiceDbUtil;
 import com.cosinetech.imates.views.MarkdownTextView;
 
 import java.io.File;
@@ -225,16 +228,29 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
                 item.isSelected = isChecked;
             });
         } else if (holder instanceof VoiceViewHolder) {
-            ((VoiceViewHolder) holder).tvVoiceLength.setText("语音时长");
+            VoiceDbUtil.VoiceDbItem vi = VoiceDbUtil.extractDbVoiceContent(message.content);
+//            ViewGroup.LayoutParams layoutParams = ((VoiceViewHolder) holder).ivLayout.getLayoutParams();
+//            layoutParams.width += vi.duration;
+//            ((VoiceViewHolder) holder).ivLayout.setLayoutParams(layoutParams);
+
+            ((VoiceViewHolder) holder).tvVoiceLength.setText(String.valueOf(vi.duration));
             ((VoiceViewHolder) holder).ivVoiceIcon.setOnClickListener(v -> {
-                MediaPlayer mediaPlayer = new MediaPlayer();
-                try {
-                    mediaPlayer.setDataSource(message.content);
-                    mediaPlayer.prepare();
-                    mediaPlayer.start();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                AudioPlayManager.getInstance().startPlay(mContext, vi.voicePath, new IAudioPlayListener() {
+                    @Override
+                    public void onStart(Uri var1) {
+                        //开播（一般是开始语音消息动画）
+                    }
+
+                    @Override
+                    public void onStop(Uri var1) {
+                        //停播（一般是停止语音消息动画）
+                    }
+
+                    @Override
+                    public void onComplete(Uri var1) {
+                        //播完（一般是停止语音消息动画）
+                    }
+                });
             });
 
             ((VoiceViewHolder) holder).tvSelected.setChecked(false);
@@ -314,11 +330,13 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         ImageView ivVoiceIcon;
         TextView tvVoiceLength;
         CheckBox tvSelected;
+        View ivLayout;
         public VoiceViewHolder(@NonNull View itemView) {
             super(itemView);
             ivVoiceIcon = itemView.findViewById(R.id.iv_voice_icon);
             tvVoiceLength = itemView.findViewById(R.id.tv_voice_length);
             tvSelected = itemView.findViewById(R.id.iv_select);
+            ivLayout = itemView.findViewById(R.id.voice_layout);
         }
     }
 }
