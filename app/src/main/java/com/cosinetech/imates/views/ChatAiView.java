@@ -740,8 +740,8 @@ public class ChatAiView extends RelativeLayout {
         if(isChatAi) {
             switchToKeyboardInput();
         }
-        // TODO:测试
-        /////mVoiceInputButton.setEnabled(!isChatAi);
+
+        mVoiceInputButton.setEnabled(!isChatAi);
         mSendPictureButton.setEnabled(!isChatAi);
         mCheckSearchWeb.setEnabled(isChatAi);
     }
