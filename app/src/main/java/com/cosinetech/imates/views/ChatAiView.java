@@ -48,7 +48,6 @@ import com.cosinetech.imates.mq.MessageManager;
 import com.cosinetech.imates.mq.StudentMessage;
 import com.cosinetech.imates.mq.TeacherQaType;
 import com.cosinetech.imates.util.AppUtils;
-import com.cosinetech.imates.util.ImageUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
@@ -80,7 +79,7 @@ public class ChatAiView extends RelativeLayout {
     private RecyclerView mMsgDetailListView;
     private SmartRefreshLayout mMsgRefreshLayout;
     private EditText mEditMsg;
-    private Button mBtnSend;
+    private Button mBtnSendText;
     private CheckBox chkViewHistory;
     private TextView mTextViewTitle;
     private Button mKeyboardInputButton;
@@ -90,6 +89,8 @@ public class ChatAiView extends RelativeLayout {
     private Button mSendPictureButton;
     private ChatAiParam mChatAiParam;
     private View voiceAnimateLayout;
+    private View mSelectChatItemButton;
+    private View mSendToTeacherButton;
     private RelativeLayout rootLayout; // 用于调整布局的父布局
     private boolean mInSearchMode = false;
     private ChatMessageHistoryDB mChatDb;
@@ -139,7 +140,8 @@ public class ChatAiView extends RelativeLayout {
         }
     }
 
-    public void resetCurrentSession(ChatMessageSession session) {
+    public void resetCurrentSession(ChatMessageCatalogue catalogue, ChatMessageSession session) {
+        resetCurrentCatalog(catalogue);
         if(!mCurrentSession.sessionId.equals(session.sessionId)) {
             clearChatHistory();
             loadSelectedSessionMsg(session);
@@ -149,11 +151,24 @@ public class ChatAiView extends RelativeLayout {
         }
         mCurrentSession = session;
         if(mCurrentSession.type == ChatMessageSession.SessionType.USER_TALK_AI
-                || mCurrentSession.type == ChatMessageSession.SessionType.USER_FAVOR) {
+                || mCurrentSession.type == ChatMessageSession.SessionType.SYSTEM_TALK_AI) {
             setChatAiSendMode(true);
+        } else if (mCurrentSession.type == ChatMessageSession.SessionType.USER_FAVOR) {
+            setChatAiSendMode(true);
+            setChatEnable(false);
         } else {
-            setChatAiSendMode(true);
+            setChatAiSendMode(false);
+            setChatEnable(true);
         }
+
+        mSendToTeacherButton.setVisibility(GONE);
+        if(mCurrentCatalog.type.getValue() >= ChatMessageCatalogue.CatalogueType.USER_SUBJECT_BEGIN.getValue()
+            && mCurrentCatalog.type.getValue() <= ChatMessageCatalogue.CatalogueType.USER_SUBJECT_END.getValue()) {
+            mSelectChatItemButton.setVisibility(VISIBLE);
+        } else {
+            mSelectChatItemButton.setVisibility(GONE);
+        }
+
         String aiName = mCurrentCatalog.catalogName + " - " + mCurrentSession.sessionName;
         mTextViewTitle.setText(aiName);
         mChatSessionListAdapter.setSelectedSessionId(mCurrentSession.sessionId);
@@ -217,8 +232,10 @@ public class ChatAiView extends RelativeLayout {
         mMsgDetailListView = view.findViewById(R.id.chat_msg_list);
         mMsgRefreshLayout = view.findViewById(R.id.chat_msg_refresh_layout);
         mEditMsg = view.findViewById(R.id.et_message);
-        mBtnSend = view.findViewById(R.id.btn_send);
+        mBtnSendText = view.findViewById(R.id.btn_send);
         mTextViewTitle = view.findViewById(R.id.ai_name);
+        mSelectChatItemButton = view.findViewById(R.id.chk_select_history);
+        mSendToTeacherButton = view.findViewById(R.id.select_history_function);
         Button btnNewChat = view.findViewById(R.id.btn_new_chat);
         btnNewChat.setOnClickListener(v->{
             createChatSession();
@@ -250,7 +267,19 @@ public class ChatAiView extends RelativeLayout {
         });
 
         // Send button click
-        mBtnSend.setOnClickListener(v -> sendTextMessage());
+        mBtnSendText.setOnClickListener(v -> {
+            String content = mEditMsg.getText().toString().trim();
+            if(content.isEmpty()) {
+                return;
+            }
+            if(mCurrentSession.type == ChatMessageSession.SessionType.SYSTEM_TALK_AI
+                || mCurrentSession.type == ChatMessageSession.SessionType.USER_TALK_AI) {
+                sendTextMessageToAi(content);
+            } else { //和老师的对话
+                sendTextMessageToTeacher(content);
+            }
+        });
+
         chkViewHistory = view.findViewById(R.id.btn_view_history);
         chkViewHistory.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if(isChecked) {
@@ -351,7 +380,7 @@ public class ChatAiView extends RelativeLayout {
             }
         }
 
-        mBtnSend.setEnabled(mChatAiParam.initialSendEnable);
+        mBtnSendText.setEnabled(mChatAiParam.initialSendEnable);
 
         // 监听 EditText 的焦点变化
         mEditMsg.setOnFocusChangeListener((v, hasFocus) -> {
@@ -380,7 +409,7 @@ public class ChatAiView extends RelativeLayout {
 
         ApplicationModelShared app = ApplicationModelShared.getInstance();
         if(app.chatRequest != null) {
-            sendTextMessage(app.chatRequest);
+            sendTextMessageToAi(app.chatRequest);
         }
 
         rootLayout = view.findViewById(R.id.layout_chat);  // 父布局
@@ -467,8 +496,7 @@ public class ChatAiView extends RelativeLayout {
         expandableListView.setOnChildClickListener((parent, v, groupPosition, childPosition, id) -> {
             ChatMessageCatalogue catalog = (ChatMessageCatalogue) mChatSessionListAdapter.getGroup(groupPosition);
             ChatMessageSession session = (ChatMessageSession) mChatSessionListAdapter.getChild(groupPosition, childPosition);
-            resetCurrentCatalog(catalog);
-            resetCurrentSession(session);
+            resetCurrentSession(catalog, session);
             return true;
         });
         // expandableListView.setOnGroupExpandListener(groupPosition -> {
@@ -480,7 +508,7 @@ public class ChatAiView extends RelativeLayout {
 //        });
         mChatSessionListAdapter = new ChatExpandableListAdapter(mContext, expandableListView);
         expandableListView.setAdapter(mChatSessionListAdapter);
-        resetCurrentSession(mCurrentSession);
+        resetCurrentSession(mDefaultCatalogue, mFixedDefaultSession);
         mChatSessionListAdapter.setOnItemActionListener(new ChatExpandableListAdapter.OnItemActionListener() {
             @Override
             public void onEditCatalogue(ChatMessageCatalogue catalogue) {
@@ -523,7 +551,7 @@ public class ChatAiView extends RelativeLayout {
                                         messageList.clear();
                                         adapterAiChatMessageList.notifyDataSetChanged();
                                     }
-                                    resetCurrentSession(mFixedDefaultSession);
+                                    resetCurrentSession(mDefaultCatalogue, mFixedDefaultSession);
                                     loadData();
                                 });
                             }).start();
@@ -564,7 +592,7 @@ public class ChatAiView extends RelativeLayout {
         voiceAnimateLayout.setVisibility(GONE);
         mVoiceMessageButton.setVisibility(VISIBLE);
         mEditMsg.setVisibility(GONE);
-        mBtnSend.setVisibility(GONE);
+        mBtnSendText.setVisibility(GONE);
     }
 
     private void switchToKeyboardInput() {
@@ -575,7 +603,7 @@ public class ChatAiView extends RelativeLayout {
         voiceAnimateLayout.setVisibility(GONE);
         mVoiceMessageButton.setVisibility(GONE);
         mEditMsg.setVisibility(VISIBLE);
-        mBtnSend.setVisibility(VISIBLE);
+        mBtnSendText.setVisibility(VISIBLE);
     }
 
     private void setChatAiSendMode(boolean isChatAi) {
@@ -614,8 +642,7 @@ public class ChatAiView extends RelativeLayout {
         mChatDb.addMessageSession(session);
         mChatSessionListAdapter.addSession(session);
 
-        resetCurrentCatalog(mDefaultCatalogue);
-        resetCurrentSession(session);
+        resetCurrentSession(mDefaultCatalogue, session);
     }
 
     private void showEditCatalogueDialog(ChatMessageCatalogue catalogue) {
@@ -763,7 +790,7 @@ public class ChatAiView extends RelativeLayout {
                         mAiChatRequest.setReason("continue");
                         pollChat();
                     } else {
-                        mBtnSend.setEnabled(true);
+                        mBtnSendText.setEnabled(true);
                         if(mChatAiParam.listener != null) {
                             mChatAiParam.listener.onAiChatResponse(true);
                         }
@@ -779,7 +806,7 @@ public class ChatAiView extends RelativeLayout {
                 } else {
                     mLastReceivingMsg.appendContent("‼️消息接收失败");
                     adapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, false);
-                    mBtnSend.setEnabled(true);
+                    mBtnSendText.setEnabled(true);
                     if(mChatAiParam.listener != null) {
                         mChatAiParam.listener.onAiChatResponse(false);
                     }
@@ -797,14 +824,13 @@ public class ChatAiView extends RelativeLayout {
         });
     }
 
-    private void sendTextMessage() {
-        String messageText = mEditMsg.getText().toString().trim();
-        if (messageText.trim().isEmpty()) {
+    private void sendTextMessageToAi(String content) {
+        if (content.trim().isEmpty()) {
             return;
         }
 
         // Add message to the list and notify the adapter
-        ChatMessage message = new ChatMessage(messageText,
+        ChatMessage message = new ChatMessage(content,
                 true,
                 ChatMessage.MessageType.TEXT,
                 mCurrentSession.sessionId,
@@ -827,19 +853,18 @@ public class ChatAiView extends RelativeLayout {
         mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
 
         mAiChatRequest.setReason("start");
-        mAiChatRequest.setCoversation(messageText);
+        mAiChatRequest.setCoversation(content);
         mAiChatRequest.setIsWebSearch(mCheckSearchWeb.isChecked() ? "1" : "0");
 
-        mBtnSend.setEnabled(false);
+        mBtnSendText.setEnabled(false);
         pollChat();
 
-        autoDetectChatSessionName(messageText.trim());
+        autoDetectChatSessionName(content);
     }
 
     public void sendVoiceMessageToTeacher(String voicePath) {
 
     }
-
 
     public void sendTextMessageToTeacher(String content) {
         String subject;
@@ -873,7 +898,7 @@ public class ChatAiView extends RelativeLayout {
 
     }
 
-    public void sendTextMessage(AiChatMessageRequest mo) {
+    public void sendTextMessageToAi(AiChatMessageRequest mo) {
         mEditMsg.postDelayed(() -> {
             mAiChatRequest = mo;
             mAiChatRequest.setReason("start");
@@ -929,7 +954,7 @@ public class ChatAiView extends RelativeLayout {
 //        aiChatMessageRequest.setReason("start");
 //        aiChatMessageRequest.setCoversation(messageText);
 
-            mBtnSend.setEnabled(false);
+            mBtnSendText.setEnabled(false);
             pollChat();
 
             autoDetectChatSessionName(mAiChatRequest.getCoversation().trim());
@@ -948,7 +973,7 @@ public class ChatAiView extends RelativeLayout {
             mChatDb.updateMessageSessionName(mCurrentSession.sessionId,
                     mCurrentSession.sessionName,
                     updateTick);
-            resetCurrentSession(mCurrentSession);
+            resetCurrentSession(mCurrentCatalog, mCurrentSession);
         }
     }
     private void loadHistoryMessages() {
@@ -971,7 +996,7 @@ public class ChatAiView extends RelativeLayout {
     }
 
     public void setChatEnable(boolean b) {
-        mBtnSend.setEnabled(b);
+        mBtnSendText.setEnabled(b);
         chkViewHistory.setEnabled(b);
         mTextViewTitle.setEnabled(b);
     }

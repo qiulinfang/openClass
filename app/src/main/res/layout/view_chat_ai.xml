@@ -336,6 +336,7 @@
             android:layout_gravity="center_vertical"
             android:drawableTop="@drawable/chat_ai_ask_teacher"
             android:stateListAnimator="@animator/app_button_click_scale" />
+
 <!--        <TextView-->
 <!--            android:layout_width="wrap_content"-->
 <!--            android:layout_height="wrap_content"-->

@@ -228,7 +228,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
                 }
                 onChatQuestionSessionChange(true);
                 runOnUiThread(() -> {
-                    mChatView.sendTextMessage(aiChatMessageRequest);
+                    mChatView.sendTextMessageToAi(aiChatMessageRequest);
                     mChatView.setChatEnable(true);
                 });
             }
@@ -347,7 +347,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
         if(saveToDb) {
             mChatDb.addMessageSession(session);
         }
-        mChatView.resetCurrentSession(session);
+        mChatView.resetCurrentSession(mChatCatalogue, session);
 
         aiChatMessageRequest.setName(userInfoViewModel.userInfo.getValue().getName());
         aiChatMessageRequest.setNewValue("1");
@@ -377,11 +377,12 @@ public class QuestionSolveActivity extends AppCompatActivity {
                 return getString(R.string.subject_name_all);
         }
     }
+
     private void setChatCatalogue() {
         long tick = System.currentTimeMillis();
         mChatCatalogue = new ChatMessageCatalogue(UUID.nameUUIDFromBytes(subject.name().getBytes()).toString(),
                 getCatalogueName(),
-                ChatMessageCatalogue.CatalogueType.USER,
+                subject == Subject.SUBJECT_BIOLOGY ? ChatMessageCatalogue.CatalogueType.USER_BIOLOGY : ChatMessageCatalogue.CatalogueType.USER_MATH,
                 tick,
                 tick);
         mChatDb.addMessageCatalogue(mChatCatalogue);
@@ -471,7 +472,6 @@ public class QuestionSolveActivity extends AppCompatActivity {
         mRdoViewAnswer.setEnabled(b);
         mRdoSimilarQuestion.setEnabled(b);
     }
-
 
     List<String []> episodes = new ArrayList<>();
     String essayQuestionTrunk = "  植物通过调节激素水平协调自身生长和逆境响应（应对不良环境的系列反应）的关系，研究者对其分子机制进行了探索。";
@@ -611,7 +611,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
             btnChat.setOnClickListener(v-> {
                 initEpisodeChat(finalIdx);
                 aiChatMessageRequest.setCoversation("我们开始吧");
-                mChatView.sendTextMessage(aiChatMessageRequest);
+                mChatView.sendTextMessageToAi(aiChatMessageRequest);
                 mChatView.setChatEnable(true);
             });
         }
@@ -673,7 +673,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
                 }
                 initEpisodeChat(finalIdx);
                 aiChatMessageRequest.setCoversation(conversationMarkdown);
-                mChatView.sendTextMessage(aiChatMessageRequest);
+                mChatView.sendTextMessageToAi(aiChatMessageRequest);
                 mChatView.setChatEnable(true);
             });
         }
