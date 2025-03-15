@@ -1,10 +1,7 @@
-package com.cosinetech.imates;
+package com.cosinetech.imates.activities;
 
 import static com.cosinetech.imates.OkHttpTicketCreator.createTicketWithAttachments;
 
-import android.annotation.SuppressLint;
-
-import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
@@ -13,18 +10,14 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.WindowInsets;
 import android.widget.Toast;
 
+import com.cosinetech.imates.ApplicationModelShared;
+import com.cosinetech.imates.OkHttpTicketCreator;
+import com.cosinetech.imates.R;
 import com.cosinetech.imates.databinding.ActivityFeedbackBinding;
 import com.cosinetech.imates.models.UserInfoViewModel;
-import com.cosinetech.imates.util.ImageUtils;
 import com.cosinetech.imates.util.WindowUtils;
 
 import java.io.File;

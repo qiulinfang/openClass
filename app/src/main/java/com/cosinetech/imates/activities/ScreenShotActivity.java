@@ -13,7 +13,6 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 
-import com.cosinetech.imates.FeedbackActivity;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.util.MediaProjectionCapture;
 import com.cosinetech.imates.util.WindowUtils;

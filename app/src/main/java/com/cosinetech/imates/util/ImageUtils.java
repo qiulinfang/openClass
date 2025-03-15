@@ -137,19 +137,48 @@ public class ImageUtils {
         return builder.toString();
     }
 
+    public static Bitmap loadImageFile(String filePath) {
+        return BitmapFactory.decodeFile(filePath);
+    }
+
     /**
-     * 将 Bitmap 转换为 JPEG 文件并保存到指定路径。
+     * 将base64图片转换成本地文件并保存
+     * @param base64Image data:image开头的base64图片
+     * @param filePath 本地路径
+     */
+    public static void saveImageFile(String base64Image, String filePath) {
+        if(!base64Image.startsWith("data:image")) {
+            return;
+        }
+        Bitmap bmp = base64ImageToBitmap(base64Image);
+        saveBitmapAsPng(bmp, filePath, 100);
+    }
+
+    private static Bitmap base64ImageToBitmap(String base64Image) {
+        // 去掉前缀 "data:image/jpg;base64,"
+        String base64Data = base64Image.split(",")[1];
+
+        // 解码 Base64 字符串为字节数组
+        byte[] decodedBytes = Base64.getDecoder().decode(base64Data);
+
+        // 将字节数组转换为 Bitmap
+
+        return BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length);
+    }
+
+    /**
+     * 将 Bitmap 转换为 PNG 文件并保存到指定路径。
      *
      * @param bitmap 需要转换的 Bitmap 对象。
      * @param filePath 保存的文件路径。
      * @param quality 图像质量（0-100），100 表示最高质量。
      */
-    public static void saveBitmapAsJpeg(Bitmap bitmap, String filePath, int quality) {
+    public static void saveBitmapAsPng(Bitmap bitmap, String filePath, int quality) {
         // 创建一个字节输出流
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
 
         // 将 Bitmap 压缩为 JPEG 格式，并写入到字节流中
-        boolean compressed = bitmap.compress(Bitmap.CompressFormat.JPEG, quality, stream);
+        boolean compressed = bitmap.compress(Bitmap.CompressFormat.PNG, quality, stream);
 
         if (compressed) {
             try {
@@ -164,18 +193,18 @@ public class ImageUtils {
                 fos.flush();
                 fos.close();
 
-                System.out.println("JPEG 文件已成功保存！");
+                Log.e(ImageUtils.class.toString(),"保存成功:" + filePath);
             } catch (IOException e) {
-                e.printStackTrace();
+                Log.e(ImageUtils.class.toString(),"保存异常:" + filePath + "\n" + e);
             } finally {
                 try {
                     stream.close();
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    Log.e(ImageUtils.class.toString(),"关闭流异常:" + filePath + "\n" + e);
                 }
             }
         } else {
-            System.err.println("压缩失败");
+            Log.e(ImageUtils.class.toString(),"压缩失败:" + filePath);
         }
     }
 

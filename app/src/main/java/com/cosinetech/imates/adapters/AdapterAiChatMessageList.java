@@ -1,20 +1,31 @@
 package com.cosinetech.imates.adapters;
 
+import android.content.Context;
+import android.content.Intent;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
+
 import androidx.annotation.NonNull;
+import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
+import com.cosinetech.imates.activities.ImageViewerActivity;
 import com.cosinetech.imates.models.ChatDisplayItem;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.views.MarkdownTextView;
 
+import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
@@ -51,8 +62,13 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
 
     private final List<ChatDisplayItem> mMsgList;
 
-    public AdapterAiChatMessageList(List<ChatDisplayItem> mMsgList) {
+    private boolean mItemCanSelect = false;
+
+    private  Context mContext;
+
+    public AdapterAiChatMessageList(Context context, List<ChatDisplayItem> mMsgList) {
         this.mMsgList = mMsgList; //groupMessagesWithDate(messageList);
+        mContext = context;
     }
 
 //    private List<ChatDisplayItem> groupMessagesWithDate(List<ChatDisplayItem> messages) {
@@ -75,6 +91,20 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
 //        }
 //        return groupedMessages;
 //    }
+
+    public void setItemCanSelect(boolean canSelect) {
+        mItemCanSelect = canSelect;
+    }
+
+    public List<ChatDisplayItem> getSelectedItem() {
+        List<ChatDisplayItem> items = new ArrayList<>();
+        for(ChatDisplayItem item: mMsgList) {
+            if(item.isSelected) {
+                items.add(item);
+            }
+        }
+        return items;
+    }
 
     @Override
     public int getItemViewType(int position) {
@@ -161,13 +191,38 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             } else {
                 ((TextViewHolder) holder).tvMessage.setContent(message.content);
             }
+
+            ((TextViewHolder) holder).tvSelected.setChecked(false);
+            if(mItemCanSelect) {
+                ((TextViewHolder) holder).tvSelected.setVisibility(View.VISIBLE);
+            } else {
+                ((TextViewHolder) holder).tvSelected.setVisibility(View.GONE);
+            }
+            ((TextViewHolder) holder).tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                item.isSelected = isChecked;
+            });
         } else if (holder instanceof ImageViewHolder) {
             Glide.with(holder.itemView.getContext())
                     .load(message.content)
                     .into(((ImageViewHolder) holder).ivMessageImage);
 
             ((ImageViewHolder) holder).ivMessageImage.setOnClickListener(v -> {
-                // 图片预览逻辑
+                // content是图片的本地路径
+                Intent intent = new Intent(mContext, ImageViewerActivity.class);
+                intent.putExtra("image_path", message.content);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 添加 FLAG_ACTIVITY_NEW_TASK
+                mContext.startActivity(intent);
+            });
+
+            ((ImageViewHolder) holder).tvSelected.setChecked(false);
+            if(mItemCanSelect) {
+                ((ImageViewHolder) holder).tvSelected.setVisibility(View.VISIBLE);
+            } else {
+                ((ImageViewHolder) holder).tvSelected.setVisibility(View.GONE);
+            }
+
+            ((ImageViewHolder) holder).tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                item.isSelected = isChecked;
             });
         } else if (holder instanceof VoiceViewHolder) {
             ((VoiceViewHolder) holder).tvVoiceLength.setText("语音时长");
@@ -180,6 +235,17 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
+            });
+
+            ((VoiceViewHolder) holder).tvSelected.setChecked(false);
+            if(mItemCanSelect) {
+                ((VoiceViewHolder) holder).tvSelected.setVisibility(View.VISIBLE);
+            } else {
+                ((VoiceViewHolder) holder).tvSelected.setVisibility(View.GONE);
+            }
+
+            ((VoiceViewHolder) holder).tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                item.isSelected = isChecked;
             });
         }
     }
@@ -222,31 +288,37 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
 
     static class TextViewHolder extends RecyclerView.ViewHolder {
         private final MarkdownTextView tvMessage;
+        private final CheckBox tvSelected;
 
         public TextViewHolder(@NonNull View itemView) {
             super(itemView);
             tvMessage = itemView.findViewById(R.id.tv_message);
             tvMessage.setTextIsSelectable(true);
             tvMessage.clearContent();
+            tvSelected = itemView.findViewById(R.id.iv_select);
         }
     }
 
     static class ImageViewHolder extends RecyclerView.ViewHolder {
         private final ImageView ivMessageImage;
+        private final CheckBox tvSelected;
         public ImageViewHolder(@NonNull View itemView) {
             super(itemView);
             ivMessageImage = itemView.findViewById(R.id.iv_message_image);
             ivMessageImage.setImageBitmap(null);
+            tvSelected = itemView.findViewById(R.id.iv_select);
         }
     }
 
     static class VoiceViewHolder extends RecyclerView.ViewHolder {
         ImageView ivVoiceIcon;
         TextView tvVoiceLength;
+        CheckBox tvSelected;
         public VoiceViewHolder(@NonNull View itemView) {
             super(itemView);
             ivVoiceIcon = itemView.findViewById(R.id.iv_voice_icon);
             tvVoiceLength = itemView.findViewById(R.id.tv_voice_length);
+            tvSelected = itemView.findViewById(R.id.iv_select);
         }
     }
 }

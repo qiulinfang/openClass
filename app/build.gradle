@@ -194,6 +194,8 @@ dependencies {
 
     implementation 'com.github.sendtion:XRichText:1.9.4'
 
+    implementation 'com.github.chrisbanes:PhotoView:2.3.0'
+
     // ======== rating
     implementation libs.simpleratingview
 
