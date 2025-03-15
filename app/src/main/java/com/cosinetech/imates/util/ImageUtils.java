@@ -318,17 +318,6 @@ public class ImageUtils {
         return newBitmap;
     }
 
-    /**
-     * 根据路径删除图片
-     *
-     * @param path
-     */
-    public static void deleteTempFile(String path) {
-        File file = new File(path);
-        if (file.exists()) {
-            file.delete();
-        }
-    }
 
     /**
      * 添加到图库

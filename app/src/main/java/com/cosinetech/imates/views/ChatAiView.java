@@ -545,7 +545,7 @@ public class ChatAiView extends RelativeLayout {
                         @Override
                         public void onFinish(Uri audioUri, String path, int duration) {
                             if(mAudioRecordCancel) {
-                                ImageUtils.deleteTempFile(path);
+                                AppUtils.deleteTempFile(path);
                                 return;
                             }
                             if(duration < 1) {
@@ -626,6 +626,13 @@ public class ChatAiView extends RelativeLayout {
                         .setMessage("确定要删除这个目录吗？这将删除该目录下的所有会话和消息。")
                         .setPositiveButton("确定", (dialog, which) -> {
                             new Thread(() -> {
+                                List<ChatMessageSession> sessions = mChatDb.getMessageSessionByCatalogId(catalogue.catalogId);
+                                for(ChatMessageSession s : sessions) {
+                                    List<ChatMessage> messages = mChatDb.getChatMessageDetail(s.sessionId);
+                                    for(ChatMessage m : messages) {
+                                        deleteChatMessageFiles(m);
+                                    }
+                                }
                                 mChatDb.deleteMessageCatalogue(catalogue.catalogId);
                                 post(() -> loadData());
                             }).start();
@@ -649,6 +656,10 @@ public class ChatAiView extends RelativeLayout {
                         .setPositiveButton("确定", (dialog, which) -> {
                             // 处理确认按钮点击事件
                             new Thread(() -> {
+                                List<ChatMessage> messages = mChatDb.getChatMessageDetail(session.sessionId);
+                                for(ChatMessage m : messages) {
+                                    deleteChatMessageFiles(m);
+                                }
                                 mChatDb.deleteMessageSession(session.sessionId);
                                 post(() -> {
                                     if (session.sessionId.equals(mCurrentSession.sessionId)) {
@@ -687,6 +698,20 @@ public class ChatAiView extends RelativeLayout {
         });
         resetCurrentSession(mDefaultCatalogue, mFixedDefaultSession);
         addView(view);
+    }
+
+    private void deleteChatMessageFiles(ChatMessage msg) {
+        switch (msg.type) {
+            case IMAGE:
+                AppUtils.deleteTempFile(msg.content);
+                break;
+            case VOICE:
+            {
+                VoiceDbUtil.VoiceDbItem vi = VoiceDbUtil.extractDbVoiceContent(msg.content);
+                AppUtils.deleteTempFile(vi.voicePath);
+            }
+                break;
+        }
     }
 
     private void switchToVoiceInput() {
