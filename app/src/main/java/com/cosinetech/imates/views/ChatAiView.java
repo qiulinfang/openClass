@@ -902,7 +902,6 @@ public class ChatAiView extends RelativeLayout {
         return items;
     }
 
-
     private void pollChat() {
         String url = mChatAiParam.chatBotUrl;
         //优先使用Request里自带的url, 没有就用默认的
