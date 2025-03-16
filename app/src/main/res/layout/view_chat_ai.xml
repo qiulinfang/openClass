@@ -6,6 +6,19 @@
     android:background="@drawable/chat_ai_dialog_bg"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <TextView
+        android:id="@+id/ai_name"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentEnd="true"
+        android:textAlignment="center"
+        android:gravity="center"
+        android:text="@string/chatbot_name"
+        android:textColor="#ffffff"
+        />
+
     <CheckBox
         android:id="@+id/btn_view_history"
         android:layout_width="36dp"
@@ -108,19 +121,6 @@
             android:background="@drawable/chat_ai_select_item"
             android:stateListAnimator="@animator/app_button_click_scale" />
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/ai_name"
-        android:layout_width="wrap_content"
-        android:layout_height="48dp"
-        android:layout_alignParentTop="true"
-        android:layout_toStartOf="@id/btn_new_chat"
-        android:layout_toEndOf="@id/select_chat_msg_area"
-        android:textAlignment="center"
-        android:gravity="center"
-        android:text="@string/chatbot_name"
-        android:textColor="#ffffff"
-        />
 
     <!-- 下边框 -->
     <View

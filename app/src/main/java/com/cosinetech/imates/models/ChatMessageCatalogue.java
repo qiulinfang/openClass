@@ -1,5 +1,8 @@
 package com.cosinetech.imates.models;
 
+import com.cosinetech.imates.ApplicationModelShared;
+import com.cosinetech.imates.R;
+
 public class ChatMessageCatalogue {
     public final static String CATALOG_ID_DEFAULT = "0".repeat(32);
     public final static String CATALOG_ID_TEACHER = "3".repeat(32);
@@ -55,4 +58,22 @@ public class ChatMessageCatalogue {
         this.createTime = createTime;
         this.updateTime = updateTime;
     }
+
+    public static final ChatMessageCatalogue CATEGORY_DEFAULT_SYSTEM = new ChatMessageCatalogue(CATALOG_ID_DEFAULT,
+            ApplicationModelShared.getInstance().getString(R.string.chat_ai_catalog_default),
+            ChatMessageCatalogue.CatalogueType.SYSTEM,
+            Long.MAX_VALUE  - 100,
+            Long.MAX_VALUE - 100);;
+
+    public static final ChatMessageCatalogue CATEGORY_TEACHER_QA = new ChatMessageCatalogue(CATALOG_ID_TEACHER,
+                    ApplicationModelShared.getInstance().getString(R.string.chat_ai_catalog_teacher),
+                    ChatMessageCatalogue.CatalogueType.SYSTEM,
+                    Long.MAX_VALUE,
+                    Long.MAX_VALUE);
+
+    public static final ChatMessageCatalogue CATEGORY_MY_FAVOR = new ChatMessageCatalogue(CATALOG_ID_MY_FAVOR,
+            ApplicationModelShared.getInstance().getString(R.string.chat_ai_catalog_my_favor),
+            ChatMessageCatalogue.CatalogueType.SYSTEM,
+            Long.MAX_VALUE  - 200,
+            Long.MAX_VALUE - 200);;
 }

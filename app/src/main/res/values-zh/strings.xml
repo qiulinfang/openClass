@@ -48,7 +48,7 @@
     <string name="check_answer">查看答案</string>
     <string name="similar_questions">举一反三</string>
     <string name="shoot_question">拍照识题</string>
-    <string name="ai_guide_question">解题分析</string>
+    <string name="ai_guide_question">AI引导解题</string>
     <string name="enter_password">输入密码</string>
     <string name="text_not_found">文本未找到</string>
     <string name="searching_">搜索&#8230;</string>
@@ -116,4 +116,5 @@
     <string name="chat_ai_voice_hint">按住 说话</string>
     <string name="chat_ai_release_to_cancel">松开取消</string>
     <string name="chat_ai_forward_to_teacher">发给老师</string>
+    <string name="question_solve_ask_teacher">老师答疑</string>
 </resources>

@@ -53,7 +53,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
     public static final String KEY_CHATBOT_URL = "KEY_CHAT_BOT_URL";
     public static final String KEY_SUBJECT = "KEY_SUBJECT";
 
-    private int chatResponceTimes = 0;
+    private int chatResponseTimes = 0;
     private String chatBotUrl;
     private Subject subject;
     private UserInfoViewModel userInfoViewModel;
@@ -63,6 +63,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
     private int mCurrentQuestionIndex = -1;
 
     private RadioButton mRdoChatAi;
+    private RadioButton mRdoAskTeacher;
     private RadioButton mRdoViewAnswer;
     private RadioButton mRdoSimilarQuestion;
     private TextView mTextEmptyQuestionTip;
@@ -75,7 +76,9 @@ public class QuestionSolveActivity extends AppCompatActivity {
 
     private final List<Question> mSimilarQuestion = new ArrayList<>();
 
-    private ChatMessageCatalogue mChatCatalogue;
+    private ChatMessageCatalogue mChatAiCatalogue;
+
+    private ChatMessageSession mAskTeacherChatSession;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -106,6 +109,18 @@ public class QuestionSolveActivity extends AppCompatActivity {
 
     private void initView() {
         mChatView = findViewById(R.id.chat_view);
+        mChatView.setSendTeacherListener(new ChatAiView.OnSendToTeacherListener() {
+            @Override
+            public void onSendToTeacher() {
+                if(!mRdoAskTeacher.isEnabled()) {
+                    mRdoAskTeacher.setEnabled(true);
+                }
+
+                if(!mRdoAskTeacher.isChecked()) {
+                    mRdoAskTeacher.setChecked(true);
+                }
+            }
+        });
         ChatAiView.ChatAiParam param = new ChatAiView.ChatAiParam();
         //param.sessionId = subject.name();
         param.showHeader = false;
@@ -117,8 +132,8 @@ public class QuestionSolveActivity extends AppCompatActivity {
                 mQuestions.get(mCurrentQuestionIndex).isAiGuiding = false;
                 adapterQuestionList.notifyItemChanged(mCurrentQuestionIndex);
             }
-            chatResponceTimes++;
-            if(chatResponceTimes >= 2) {
+            chatResponseTimes++;
+            if(chatResponseTimes >= 2) {
                 setViewAnswer(true);
             }
         };
@@ -136,6 +151,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
         });
 
         mRdoChatAi = findViewById(R.id.optChatAi);
+        mRdoAskTeacher = findViewById(R.id.optChatTeacher);
         mRdoViewAnswer = findViewById(R.id.optAnswer);
         mRdoSimilarQuestion = findViewById(R.id.optSimilar);
         mTextEmptyQuestionTip = findViewById(R.id.txt_empty_question);
@@ -189,6 +205,10 @@ public class QuestionSolveActivity extends AppCompatActivity {
 
             @Override
             public void onSelectExerciseChange(int previous, int pos) {
+                if(!mRdoChatAi.isChecked()) {
+                    mRdoChatAi.setChecked(true);
+                }
+
                 mCurrentQuestionIndex = pos;
                 Question mCurrentQuestion = mQuestions.get(pos);
                 mCurrentQuestion.getQuestion();
@@ -199,10 +219,11 @@ public class QuestionSolveActivity extends AppCompatActivity {
                 answer.setContent(mCurrentQuestion.answer + mCurrentQuestion.explanation);
 
                 mChatView.setChatEnable(false);
-                chatResponceTimes = 0;
+                chatResponseTimes = 0;
                 setViewAnswer(false);
                 //mChatView.clearChatHistory();
                 onChatQuestionSessionChange(false);
+                onChatTeacherSessionChange();
 
                 if(subject == Subject.SUBJECT_BIOLOGY) {
                     View essay_view = findViewById(R.id.essay_question);
@@ -218,10 +239,6 @@ public class QuestionSolveActivity extends AppCompatActivity {
 
             @Override
             public void onBeginGuideToSolveQuestion(int pos) {
-                if(!mRdoChatAi.isChecked()) {
-                    mRdoChatAi.setChecked(true);
-                }
-
                 if(mCurrentQuestionIndex >= 0 && mCurrentQuestionIndex < mQuestions.size()) {
                     mQuestions.get(mCurrentQuestionIndex).isAiGuiding = true;
                     adapterQuestionList.notifyItemChanged(mCurrentQuestionIndex);
@@ -318,6 +335,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
                 findViewById(R.id.similarExerciseView).setVisibility(View.INVISIBLE);
                 findViewById(R.id.answerView).setVisibility(View.INVISIBLE);
                 findViewById(R.id.chat_view).setVisibility(View.VISIBLE);
+                onChatQuestionSessionChange(false);
             } else if(checkedId == R.id.optAnswer) {
                 findViewById(R.id.similarExerciseView).setVisibility(View.INVISIBLE);
                 findViewById(R.id.answerView).setVisibility(View.VISIBLE);
@@ -327,16 +345,44 @@ public class QuestionSolveActivity extends AppCompatActivity {
                 findViewById(R.id.answerView).setVisibility(View.INVISIBLE);
                 findViewById(R.id.chat_view).setVisibility(View.INVISIBLE);
                 findSimilarQuestion();
+            } else if(checkedId == R.id.optChatTeacher) {
+                findViewById(R.id.similarExerciseView).setVisibility(View.INVISIBLE);
+                findViewById(R.id.answerView).setVisibility(View.INVISIBLE);
+                findViewById(R.id.chat_view).setVisibility(View.VISIBLE);
+                mChatView.resetCurrentSession(ChatMessageCatalogue.CATEGORY_TEACHER_QA, mAskTeacherChatSession);
             }
         });
     }
 
+    private void onChatTeacherSessionChange() {
+        String questionString = mQuestions.get(mCurrentQuestionIndex).getQuestion();
+        String askTeacherSessionId =  UUID.nameUUIDFromBytes((subject.name() + questionString).getBytes()).toString();
+        mAskTeacherChatSession = new ChatMessageSession(askTeacherSessionId,
+                ChatMessageCatalogue.CATEGORY_TEACHER_QA.catalogId,
+                (questionString.length() > ChatMessageSession.MAX_SESSION_NAME_LENGTH ?
+                        questionString.substring(0, ChatMessageSession.MAX_SESSION_NAME_LENGTH) + "..." :
+                        questionString),
+                ChatMessageSession.SessionType.USER_TALK_TEACHER_BIOLOGY,
+                0,
+                System.currentTimeMillis(),
+                System.currentTimeMillis());
+
+        if(mChatDb.getMessageSessionBySessionId(askTeacherSessionId) == null) {
+            mRdoAskTeacher.setEnabled(false);
+        } else {
+            mRdoAskTeacher.setEnabled(true);
+        }
+        mChatView.setChatTeacherSession(mAskTeacherChatSession);
+    }
+
     private void onChatQuestionSessionChange(boolean saveToDb) {
+        if(mCurrentQuestionIndex < 0) return;
+
         String questionString = mQuestions.get(mCurrentQuestionIndex).getQuestion();
         long tick = System.currentTimeMillis();
         ChatMessageSession session = new ChatMessageSession(
                 UUID.nameUUIDFromBytes(questionString.getBytes()).toString(),
-                mChatCatalogue.catalogId,
+                mChatAiCatalogue.catalogId,
                 (questionString.length() > ChatMessageSession.MAX_SESSION_NAME_LENGTH ?
                         questionString.substring(0, ChatMessageSession.MAX_SESSION_NAME_LENGTH) + "..." :
                         questionString),
@@ -347,7 +393,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
         if(saveToDb) {
             mChatDb.addMessageSession(session);
         }
-        mChatView.resetCurrentSession(mChatCatalogue, session);
+        mChatView.resetCurrentSession(mChatAiCatalogue, session);
 
         aiChatMessageRequest.setName(userInfoViewModel.userInfo.getValue().getName());
         aiChatMessageRequest.setNewValue("1");
@@ -380,13 +426,13 @@ public class QuestionSolveActivity extends AppCompatActivity {
 
     private void setChatCatalogue() {
         long tick = System.currentTimeMillis();
-        mChatCatalogue = new ChatMessageCatalogue(UUID.nameUUIDFromBytes(subject.name().getBytes()).toString(),
+        mChatAiCatalogue = new ChatMessageCatalogue(UUID.nameUUIDFromBytes(subject.name().getBytes()).toString(),
                 getCatalogueName(),
                 subject == Subject.SUBJECT_BIOLOGY ? ChatMessageCatalogue.CatalogueType.USER_BIOLOGY : ChatMessageCatalogue.CatalogueType.USER_MATH,
                 tick,
                 tick);
-        mChatDb.addMessageCatalogue(mChatCatalogue);
-        mChatView.resetCurrentCatalog(mChatCatalogue);
+        mChatDb.addMessageCatalogue(mChatAiCatalogue);
+        mChatView.resetCurrentCatalog(mChatAiCatalogue);
     }
 
     private void findSimilarQuestion() {
@@ -756,7 +802,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
         answer.setContent(episodes.get(finalIdx)[1]);
 
         mChatView.setChatEnable(false);
-        chatResponceTimes = 0;
+        chatResponseTimes = 0;
         setViewAnswer(false);
         mChatView.clearChatHistory();
 

@@ -9,6 +9,7 @@ import android.media.projection.MediaProjectionManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Parcelable;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -18,6 +19,9 @@ import com.cosinetech.imates.util.MediaProjectionCapture;
 import com.cosinetech.imates.util.WindowUtils;
 
 public class ScreenShotActivity extends Activity {
+    public static final String KEY_SET_STORE_DIR = "STORE_DIR";
+    public static final String KEY_SET_FILE_NAME = "STORE_FILE_NAME";
+    public static final String KEY_SET_LISTENER = "LISTENER";
     private static final int REQUEST_CODE_SCREEN_CAPTURE = 1;
     private MediaProjectionManager mediaProjectionManager;
     private MediaProjection mediaProjection;
@@ -25,9 +29,29 @@ public class ScreenShotActivity extends Activity {
 
     private View mContentView;
 
+    private String mStoreDir;
+    private String mFileName;
+
+    private OnScreenShotListener mListener;
+
+    public interface OnScreenShotListener extends Parcelable {
+        void onImageCaptured(Context context, String filePath);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mStoreDir = getIntent().getStringExtra(KEY_SET_STORE_DIR);
+        if(mStoreDir == null) {
+            mStoreDir = "";
+        }
+
+        mFileName = getIntent().getStringExtra(KEY_SET_FILE_NAME);
+        if(mFileName == null) {
+            mFileName = "";
+        }
+
+        mListener = getIntent().getParcelableExtra(KEY_SET_LISTENER);
 
         // 设置透明背景
         requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -51,35 +75,23 @@ public class ScreenShotActivity extends Activity {
                 // 获取 MediaProjection 实例
                 mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, data);
                 if(mediaProjection != null) {
-//                    new MediaProjectionCapture(ScreenShotActivity.this, mediaProjection, "", "")
-//                            .setListener(new MediaProjectionCapture.OnImageCaptureScreenListener() {
-//                                /**
-//                                 * @param filePath
-//                                 */
-//                                @Override
-//                                public void imageCaptured(String filePath) {
-//                                    //启动反馈Activity
-//                                    Intent intent = new Intent(ScreenShotActivity.this, FeedbackActivity.class);
-//                                    intent.putExtra(FeedbackActivity.KEY_FEEDBACK_IMAGE, filePath);
-//                                    startActivity(intent);
-//                                    finish();
-//                                }
-//                            })
-//                            .startProjection();
-
                     new Handler(Looper.getMainLooper()).postDelayed(() -> {
                         mContentView.setVisibility(View.GONE);
-                        new MediaProjectionCapture(ScreenShotActivity.this, mediaProjection, "", "")
+                        new MediaProjectionCapture(ScreenShotActivity.this, mediaProjection, mStoreDir, mFileName)
                                 .setmCaptureListener(new MediaProjectionCapture.OnImageCaptureScreenListener() {
                                     /**
                                      * @param filePath
                                      */
                                     @Override
                                     public void imageCaptured(String filePath) {
-                                        //启动反馈Activity
-                                        Intent intent = new Intent(ScreenShotActivity.this, FeedbackActivity.class);
-                                        intent.putExtra(FeedbackActivity.KEY_FEEDBACK_IMAGE, filePath);
-                                        startActivity(intent);
+                                        if(mListener != null) {
+                                            mListener.onImageCaptured(ScreenShotActivity.this, filePath);
+                                        }
+//
+//                                        //启动反馈Activity
+//                                        Intent intent = new Intent(ScreenShotActivity.this, FeedbackActivity.class);
+//                                        intent.putExtra(FeedbackActivity.KEY_FEEDBACK_IMAGE, filePath);
+//                                        startActivity(intent);
                                         finish();
                                     }
                                 })

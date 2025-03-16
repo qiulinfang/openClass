@@ -18,6 +18,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.PopupWindow;
+
 import androidx.annotation.Nullable;
 import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.core.app.NotificationCompat;
@@ -26,6 +27,7 @@ import androidx.core.content.ContextCompat;
 import com.airbnb.lottie.LottieAnimationView;
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.ScreenShotForFeedbackAction;
 import com.cosinetech.imates.activities.ChatAiActivity;
 import com.cosinetech.imates.activities.ScreenShotActivity;
 import com.cosinetech.imates.models.Subject;
@@ -234,7 +236,9 @@ public class FloatingRobotService extends Service {
     }
 
     private void performFeedback() {
+        ScreenShotForFeedbackAction action = new ScreenShotForFeedbackAction();
         Intent intent = new Intent(this, ScreenShotActivity.class);
+        intent.putExtra(ScreenShotActivity.KEY_SET_LISTENER, action);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈
         startActivity(intent);
     }
