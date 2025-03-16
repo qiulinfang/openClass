@@ -1,12 +1,18 @@
 package com.cosinetech.imates.views;
 
+import static androidx.activity.result.ActivityResultCallerKt.registerForActivityResult;
+
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -25,7 +31,10 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -33,10 +42,12 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.activities.ScreenShotActivity;
 import com.cosinetech.imates.adapters.AdapterAiChatMessageList;
 import com.cosinetech.imates.adapters.ChatExpandableListAdapter;
 import com.cosinetech.imates.audio.AudioRecordManager;
 import com.cosinetech.imates.audio.IAudioRecordListener;
+import com.cosinetech.imates.models.ChatAiParam;
 import com.cosinetech.imates.models.ChatDisplayItem;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.models.ChatMessageCatalogue;
@@ -63,13 +74,8 @@ public class ChatAiView extends RelativeLayout {
         void onAiChatResponse(boolean success);
     }
 
-    public static class ChatAiParam {
-        public String chatBotUrl;
-        public boolean showHeader;
-        public boolean streamDisplay;
-        public boolean showHistory;
-        public boolean initialSendEnable;
-        public AiChatResponseListener listener;
+    public interface OnSendToTeacherListener {
+        void onSendToTeacher();
     }
 
     private UserInfoViewModel mUserInfoViewModel;
@@ -89,6 +95,7 @@ public class ChatAiView extends RelativeLayout {
     private CheckBox mCheckSearchWeb;
     private Button mSendPictureButton;
     private ChatAiParam mChatAiParam;
+    private AiChatResponseListener mListener;
     private View voiceAnimateLayout;
     private CheckBox mSelectChatItemButton;
     private View mAskTeacherLayout;
@@ -116,10 +123,6 @@ public class ChatAiView extends RelativeLayout {
             handler.postDelayed(this, 2000);
         }
     };
-
-    public interface OnSendToTeacherListener {
-        void onSendToTeacher();
-    }
 
     private OnSendToTeacherListener mSendTeacherListener;
 
@@ -149,6 +152,10 @@ public class ChatAiView extends RelativeLayout {
             initView();
             loadData();
         }
+    }
+
+    public void setChatResponseListener(AiChatResponseListener l) {
+        mListener = l;
     }
 
     public void resetCurrentSession(ChatMessageCatalogue catalogue, ChatMessageSession session) {
@@ -228,7 +235,25 @@ public class ChatAiView extends RelativeLayout {
         mSelectChatItemButton = view.findViewById(R.id.chk_select_history);
         mAskTeacherLayout = view.findViewById(R.id.select_history_function);
         mAskTeacherButton = view.findViewById(R.id.btn_ask_teacher);
+        mSendPictureButton = view.findViewById(R.id.btn_send_picture);
+        chkViewHistory = view.findViewById(R.id.btn_view_history);
+        voiceAnimateLayout = view.findViewById(R.id.voice_animate_area);
+        mKeyboardInputButton = view.findViewById(R.id.input_keyboard);
+        mVoiceInputButton = view.findViewById(R.id.btn_voice);
+        mVoiceMessageButton = view.findViewById(R.id.voice_message);
+        mCheckSearchWeb = view.findViewById(R.id.check_search_web);
+        rootLayout = view.findViewById(R.id.layout_chat);  // 父布局
+        expandableListView = view.findViewById(R.id.expandable_list_view);
+        ImageView viewCancelSend = view.findViewById(R.id.cancel_record);
+        EditText editTextSearch = view.findViewById(R.id.et_search);
+        CheckBox btnCancelSearch = view.findViewById(R.id.btn_search);
         Button btnNewChat = view.findViewById(R.id.btn_new_chat);
+        Button btnAddFavor = view.findViewById(R.id.btn_add_favor);
+
+        mSendPictureButton.setOnClickListener(v->{
+
+        });
+
         btnNewChat.setOnClickListener(v->{
             createChatSession();
         });
@@ -316,7 +341,7 @@ public class ChatAiView extends RelativeLayout {
             mEditMsg.setText("");
         });
 
-        chkViewHistory = view.findViewById(R.id.btn_view_history);
+
         chkViewHistory.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if(isChecked) {
                 view.findViewById(R.id.history_layout).setVisibility(View.VISIBLE);
@@ -327,8 +352,6 @@ public class ChatAiView extends RelativeLayout {
             }
         });
 
-        EditText editTextSearch = view.findViewById(R.id.et_search);
-        CheckBox btnCancelSearch = view.findViewById(R.id.btn_search);
         btnCancelSearch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if(isChecked) {
                 editTextSearch.setVisibility(VISIBLE);
@@ -387,7 +410,7 @@ public class ChatAiView extends RelativeLayout {
             return false;
         });
 
-        Button btnAddFavor = view.findViewById(R.id.btn_add_favor);
+
         btnAddFavor.setOnClickListener(v->{
             if(!messageList.isEmpty()) {
                 showAddMyFavorEditDialog();
@@ -448,7 +471,7 @@ public class ChatAiView extends RelativeLayout {
             sendTextMessageToAi(app.chatRequest);
         }
 
-        rootLayout = view.findViewById(R.id.layout_chat);  // 父布局
+
 
         // 监听视图变化，获取软键盘的高度
         view.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
@@ -468,24 +491,6 @@ public class ChatAiView extends RelativeLayout {
             }
         });
 
-        voiceAnimateLayout = view.findViewById(R.id.voice_animate_area);
-        mKeyboardInputButton = view.findViewById(R.id.input_keyboard);
-        mVoiceInputButton = view.findViewById(R.id.btn_voice);
-        mVoiceMessageButton = view.findViewById(R.id.voice_message);
-        mCheckSearchWeb = view.findViewById(R.id.check_search_web);
-        mSendPictureButton = view.findViewById(R.id.btn_send_picture);
-        mSendPictureButton.setOnClickListener(v->{
-//            a;
-//            ScreenShotForEditAction action = new ScreenShotForEditAction();
-//
-//
-//
-//            Intent intent = new Intent(getContext(), ScreenShotActivity.class);
-//            intent.putExtra(ScreenShotActivity.KEY_SET_LISTENER, action);
-//            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈
-//            getContext().startActivity(intent);
-        });
-
         mKeyboardInputButton.setOnClickListener(v->{
             switchToKeyboardInput();
         });
@@ -494,7 +499,7 @@ public class ChatAiView extends RelativeLayout {
             switchToVoiceInput();
         });
 
-        ImageView viewCancelSend = view.findViewById(R.id.cancel_record);
+
 
         mVoiceMessageButton.setOnTouchListener((v, event) -> {
             float x = event.getRawX();  // 触摸点相对屏幕的 X 坐标
@@ -586,8 +591,6 @@ public class ChatAiView extends RelativeLayout {
         });
 
         mAiChatRequest.setName(Objects.requireNonNull(mUserInfoViewModel.userInfo.getValue()).getName());
-
-        expandableListView = view.findViewById(R.id.expandable_list_view);
         expandableListView.setOnGroupClickListener((parent, v, groupPosition, id) -> {
             if(expandableListView.isGroupExpanded(groupPosition)) {
                 expandableListView.collapseGroup(groupPosition);
@@ -925,8 +928,8 @@ public class ChatAiView extends RelativeLayout {
                         pollChat();
                     } else {
                         mBtnSendText.setEnabled(true);
-                        if(mChatAiParam.listener != null) {
-                            mChatAiParam.listener.onAiChatResponse(true);
+                        if(mListener != null) {
+                            mListener.onAiChatResponse(true);
                         }
 
                         mChatDb.addChatMessageDetail(mLastReceivingMsg);
@@ -941,8 +944,8 @@ public class ChatAiView extends RelativeLayout {
                     mLastReceivingMsg.appendContent("‼️消息接收失败");
                     mAdapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, false);
                     mBtnSendText.setEnabled(true);
-                    if(mChatAiParam.listener != null) {
-                        mChatAiParam.listener.onAiChatResponse(false);
+                    if(mListener != null) {
+                        mListener.onAiChatResponse(false);
                     }
                     if(!messageList.isEmpty()) {
                         mChatDb.addChatMessageDetail(mLastReceivingMsg);

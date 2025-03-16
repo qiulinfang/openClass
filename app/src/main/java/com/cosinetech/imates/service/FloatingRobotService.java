@@ -30,6 +30,7 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.ScreenShotForFeedbackAction;
 import com.cosinetech.imates.activities.ChatAiActivity;
 import com.cosinetech.imates.activities.ScreenShotActivity;
+import com.cosinetech.imates.models.ChatAiParam;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.views.ChatAiView;
@@ -255,7 +256,7 @@ public class FloatingRobotService extends Service {
         }
     }
 
-    public void popupChatBot(String url, String tag) {
+    public void popupChatBot1(String url, String tag) {
         // 加载 PopupWindow 的布局
         // 关键步骤：通过 ContextThemeWrapper 附加主题
         ContextThemeWrapper themedContext = new ContextThemeWrapper(this, R.style.Theme_IMatesApp_FullScreen);
@@ -300,21 +301,32 @@ public class FloatingRobotService extends Service {
         });
 
         ChatAiView  chatView = popupView.findViewById(R.id.chat_view);
-        ChatAiView.ChatAiParam param = new ChatAiView.ChatAiParam();
+        ChatAiParam param = new ChatAiParam();
         //param.sessionId = tag;
         param.chatBotUrl = url;
         param.showHeader = true;
         param.streamDisplay = true;
         param.showHistory = true;
         param.initialSendEnable = true;
-        param.listener = null;
+//        param.listener = null;
         chatView.setChatAiParam(param);
     }
 
-    public void popupChatBot0(String url, String catalog) {
+    public void popupChatBot(String url, String catalog) {
+        ChatAiParam param = new ChatAiParam();
+        //param.sessionId = tag;
+        param.chatBotUrl = url;
+        param.showHeader = true;
+        param.streamDisplay = true;
+        param.showHistory = true;
+        param.initialSendEnable = true;
+
         Intent intent = new Intent(this, ChatAiActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈
+        intent.putExtra(ChatAiActivity.KEY_CHAT_AI_PARAM, param);
         startActivity(intent);
+
+        hideRobot();
     }
 
     @Override

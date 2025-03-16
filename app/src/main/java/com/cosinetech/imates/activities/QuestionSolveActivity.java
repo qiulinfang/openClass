@@ -28,6 +28,7 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.AdapterQuestionList;
 import com.cosinetech.imates.adapters.AdapterSimilarQuestionList;
 import com.cosinetech.imates.models.AddQuestionRequest;
+import com.cosinetech.imates.models.ChatAiParam;
 import com.cosinetech.imates.models.ChatMessageCatalogue;
 import com.cosinetech.imates.models.ChatMessageHistoryDB;
 import com.cosinetech.imates.models.ChatMessageSession;
@@ -121,13 +122,13 @@ public class QuestionSolveActivity extends AppCompatActivity {
                 }
             }
         });
-        ChatAiView.ChatAiParam param = new ChatAiView.ChatAiParam();
+        ChatAiParam param = new ChatAiParam();
         //param.sessionId = subject.name();
         param.showHeader = false;
         param.chatBotUrl = chatBotUrl;
         param.streamDisplay = subject == Subject.SUBJECT_BIOLOGY;
         param.showHistory = false;
-        param.listener = success -> {
+        mChatView.setChatResponseListener( success -> {
             if(mCurrentQuestionIndex >= 0 && mCurrentQuestionIndex < mQuestions.size()) {
                 mQuestions.get(mCurrentQuestionIndex).isAiGuiding = false;
                 adapterQuestionList.notifyItemChanged(mCurrentQuestionIndex);
@@ -136,7 +137,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
             if(chatResponseTimes >= 2) {
                 setViewAnswer(true);
             }
-        };
+        });
 
         mChatView.setChatAiParam(param);
         //mChatView.setAiName("AI解题助手");

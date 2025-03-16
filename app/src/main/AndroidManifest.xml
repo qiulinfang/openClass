@@ -115,7 +115,8 @@
             android:name=".activities.ChatAiActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
+            android:windowSoftInputMode="adjustPan"
+            android:theme="@style/Theme.ActivityDialogStyle" />
 
         <activity
             android:name=".mupdfviewer.activity.MuPDFActivity"

@@ -22,6 +22,7 @@ public class ScreenShotActivity extends Activity {
     public static final String KEY_SET_STORE_DIR = "STORE_DIR";
     public static final String KEY_SET_FILE_NAME = "STORE_FILE_NAME";
     public static final String KEY_SET_LISTENER = "LISTENER";
+    public static final String KEY_GET_CAPTURE_IMAGE = "CAPTURE_IMAGE_PATH";
     private static final int REQUEST_CODE_SCREEN_CAPTURE = 1;
     private MediaProjectionManager mediaProjectionManager;
     private MediaProjection mediaProjection;
@@ -87,11 +88,10 @@ public class ScreenShotActivity extends Activity {
                                         if(mListener != null) {
                                             mListener.onImageCaptured(ScreenShotActivity.this, filePath);
                                         }
-//
-//                                        //启动反馈Activity
-//                                        Intent intent = new Intent(ScreenShotActivity.this, FeedbackActivity.class);
-//                                        intent.putExtra(FeedbackActivity.KEY_FEEDBACK_IMAGE, filePath);
-//                                        startActivity(intent);
+                                        // 返回结果
+                                        Intent resultIntent = new Intent();
+                                        resultIntent.putExtra(KEY_GET_CAPTURE_IMAGE, filePath);
+                                        setResult(RESULT_OK, resultIntent);
                                         finish();
                                     }
                                 })
