@@ -34,19 +34,6 @@ public class IMGEditActivity extends IMGEditBaseActivity {
 
     public static final String EXTRA_IMAGE_SAVE_PATH = "IMAGE_SAVE_PATH";
 
-    public static final String EXTRA_LISTENER = "IMAGE_EDIT_LISTENER";
-
-    public interface OnImageEditListener extends Parcelable {
-        void onImageEdited(boolean canceled, String filePath);
-    }
-
-    private OnImageEditListener mListener;
-
-    @Override
-    public void onCreated() {
-        mListener = getIntent().getParcelableExtra(EXTRA_LISTENER);
-    }
-
     @Override
     public Bitmap getBitmap() {
         Intent intent = getIntent();
@@ -133,10 +120,6 @@ public class IMGEditActivity extends IMGEditBaseActivity {
 
     @Override
     public void onCancelClick() {
-        String path = getIntent().getStringExtra(EXTRA_IMAGE_SAVE_PATH);
-        if(mListener != null) {
-            mListener.onImageEdited(true, path);
-        }
         finish();
     }
 
@@ -162,17 +145,11 @@ public class IMGEditActivity extends IMGEditBaseActivity {
                     }
                 }
                 setResult(RESULT_OK);
-                if(mListener != null) {
-                    mListener.onImageEdited(false, path);
-                }
                 finish();
                 return;
             }
         }
         setResult(RESULT_CANCELED);
-        if(mListener != null) {
-            mListener.onImageEdited(true, path);
-        }
         finish();
     }
 
