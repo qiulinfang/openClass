@@ -11,8 +11,6 @@ import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.Parcel;
-import android.os.Parcelable;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -78,6 +76,10 @@ public class ChatAiView extends RelativeLayout {
         void onSendToTeacher();
     }
 
+    public interface OnScreenshotCapturedListener {
+        void onScreenshotCaptured(String screenshotPath);
+    }
+
     private UserInfoViewModel mUserInfoViewModel;
     private Context mContext;
     private AiChatMessageRequest mAiChatRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "", false);
@@ -113,6 +115,8 @@ public class ChatAiView extends RelativeLayout {
 
     private ChatMessage mLastReceivingMsg;
 
+    private String mScreenShotImageUUID = "";
+
     private String mAudioRecordUUID = "";
     private boolean mAudioRecordCancel = false;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -126,9 +130,8 @@ public class ChatAiView extends RelativeLayout {
 
     private OnSendToTeacherListener mSendTeacherListener;
 
-    public void setSendTeacherListener(OnSendToTeacherListener l) {
-        mSendTeacherListener = l;
-    }
+    private ActivityResultLauncher<Intent> mScreenshotLauncher;
+    private OnScreenshotCapturedListener mScreenshotCapturedListener;
 
     public ChatAiView(Context context) {
         super(context);
@@ -145,11 +148,46 @@ public class ChatAiView extends RelativeLayout {
         init(context);
     }
 
+    public void registerForActivityResult(FragmentActivity activity) {
+        mScreenshotLauncher = activity.registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                        // Get the screenshot path from the result
+                        String screenshotPath = result.getData().getStringExtra(ScreenShotActivity.KEY_FINAL_IMAGE_PATH);
+                        if (screenshotPath != null && !screenshotPath.isEmpty()) {
+                            if (mScreenshotCapturedListener != null) {
+                                mScreenshotCapturedListener.onScreenshotCaptured(screenshotPath);
+                            }
+                        }
+                    }
+                }
+        );
+    }
+
+    private void launchScreenshotActivity() {
+        if (mScreenshotLauncher != null) {
+            Intent intent = new Intent(getContext(),  ScreenShotActivity.class);
+            intent.setAction(ScreenShotActivity.ACTION_EDIT_IMAGE);
+            intent.putExtra(ScreenShotActivity.KEY_SET_STORE_DIR, AppUtils.getUserFilePath().getAbsolutePath());
+            intent.putExtra(ScreenShotActivity.KEY_SET_FILE_NAME, mScreenShotImageUUID + ".png");
+            mScreenshotLauncher.launch(intent);
+        }
+    }
+
+    public void setOnScreenshotCapturedListener(OnScreenshotCapturedListener listener) {
+        this.mScreenshotCapturedListener = listener;
+    }
+
+    public void setSendTeacherListener(OnSendToTeacherListener l) {
+        mSendTeacherListener = l;
+    }
+
     public void setChatAiParam(ChatAiParam param) {
         this.setVisibility(VISIBLE);
         mChatAiParam = param;
         if(mChatAiParam != null) {
-            initView();
+            initView(getContext());
             loadData();
         }
     }
@@ -224,7 +262,7 @@ public class ChatAiView extends RelativeLayout {
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private void initView() {
+    private void initView(Context context) {
         // Inflate the layout for this fragment
         View view = LayoutInflater.from(mContext).inflate(R.layout.view_chat_ai, this, false);
         mMsgDetailListView = view.findViewById(R.id.chat_msg_list);
@@ -251,7 +289,10 @@ public class ChatAiView extends RelativeLayout {
         Button btnAddFavor = view.findViewById(R.id.btn_add_favor);
 
         mSendPictureButton.setOnClickListener(v->{
-
+            mScreenShotImageUUID = UUID.randomUUID().toString();
+            if (context instanceof FragmentActivity) {
+                launchScreenshotActivity();
+            }
         });
 
         btnNewChat.setOnClickListener(v->{
@@ -304,8 +345,7 @@ public class ChatAiView extends RelativeLayout {
         mEditMsg.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    Context context = mEditMsg.getContext();
-                    InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
+                    InputMethodManager imm = (InputMethodManager) mEditMsg.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
                     imm.showSoftInput(mEditMsg, InputMethodManager.SHOW_IMPLICIT);
                 }, 500); // 延迟 200 毫秒
             }
@@ -1125,7 +1165,29 @@ public class ChatAiView extends RelativeLayout {
     }
 
     public void sendPictureToTeacher(String path) {
+        String subject = getTeacherSubject();
 
+        StudentMessage studentMsg = new StudentMessage(mUserInfoViewModel.userId.getValue(),
+                mCurrentSession.sessionId,
+                subject,
+                TeacherQaType.QA_MSG_TYPE_PICTURE,
+                path);
+        studentMsg.setMessageId(mScreenShotImageUUID);
+
+        MessageManager.getInstance().sendMessage(studentMsg, (success, messageId, errorMessage) -> {
+
+        });
+
+        ChatMessage message = new ChatMessage(path,
+                true,
+                ChatMessage.MessageType.IMAGE,
+                mCurrentSession.sessionId,
+                System.currentTimeMillis());
+        message.messageId = studentMsg.getMessageId();
+
+        messageList.add(new ChatDisplayItem(message, !message.isSelf));
+        mChatDb.addChatMessageDetail(message);
+        mAdapterAiChatMessageList.notifyDataSetChanged();
     }
 
     private void autoDetectChatSessionName(String content) {

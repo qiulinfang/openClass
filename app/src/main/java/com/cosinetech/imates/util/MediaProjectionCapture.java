@@ -64,6 +64,8 @@ public class MediaProjectionCapture {
 
         if(TextUtils.isEmpty(fileName)) {
             mImageFileName = "myScreenshot.jpg";
+        } else {
+            mImageFileName = fileName;
         }
     }
 

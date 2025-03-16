@@ -37,6 +37,10 @@ public class ChatAiActivity extends AppCompatActivity {
             finish();
         });
 
+        chatView.registerForActivityResult(this);
+        // Set listener to be notified when screenshot is captured
+        chatView.setOnScreenshotCapturedListener(chatView::sendPictureToTeacher);
+
         // 动态设置窗口宽度
         DisplayMetrics metrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(metrics);

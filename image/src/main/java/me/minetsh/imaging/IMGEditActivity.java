@@ -35,6 +35,12 @@ public class IMGEditActivity extends IMGEditBaseActivity {
     public static final String EXTRA_IMAGE_SAVE_PATH = "IMAGE_SAVE_PATH";
 
     @Override
+    public void onCreated() {
+
+    }
+
+
+    @Override
     public Bitmap getBitmap() {
         Intent intent = getIntent();
         if (intent == null) {

@@ -140,6 +140,10 @@ public class QuestionSolveActivity extends AppCompatActivity {
         });
 
         mChatView.setChatAiParam(param);
+        mChatView.registerForActivityResult(this);
+        // Set listener to be notified when screenshot is captured
+        mChatView.setOnScreenshotCapturedListener(mChatView::sendPictureToTeacher);
+
         //mChatView.setAiName("AI解题助手");
         findViewById(R.id.btn_exit).setOnClickListener(v->{
             finish();
