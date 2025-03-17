@@ -41,13 +41,13 @@ public class RabbitMQManager {
 
     // Exchange配置
     private static final String EXCHANGE_NAME = "student_teacher_exchange";
-    private static final String EXCHANGE_TYPE = "topic";
+    private static final String EXCHANGE_TYPE = "direct";
 
     // 路由键配置
     private static final String ROUTE_KEY_STUDENT_TO_TEACHER = "student_route_teacher";
 
     // 队列配置
-    private static final String TEACHER_QUEUE_NAME = "QUESTION_RECEIVE_QUEUE";
+    private static final String TEACHER_QUEUE_NAME = "QUESTION_RECEIVE_QUEUE_N";
 
     private final String userId;
     private final String studentQueueName; // userId_a

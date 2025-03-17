@@ -29,4 +29,10 @@ public class ScreenUtils {
         display.getRealSize(size);
         return size.y;
     }
+
+    // dp 转 px
+    public static int dpToPx(Context context, int dp) {
+        float density = context.getResources().getDisplayMetrics().density;
+        return (int) (dp * density + 0.5f); // 加 0.5f 是为了四舍五入
+    }
 }

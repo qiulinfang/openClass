@@ -24,6 +24,7 @@ import com.cosinetech.imates.audio.IAudioPlayListener;
 import com.cosinetech.imates.models.ChatDisplayItem;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.util.VoiceDbUtil;
 import com.cosinetech.imates.views.MarkdownTextView;
 
@@ -229,11 +230,22 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             });
         } else if (holder instanceof VoiceViewHolder) {
             VoiceDbUtil.VoiceDbItem vi = VoiceDbUtil.extractDbVoiceContent(message.content);
-//            ViewGroup.LayoutParams layoutParams = ((VoiceViewHolder) holder).ivLayout.getLayoutParams();
-//            layoutParams.width += vi.duration;
-//            ((VoiceViewHolder) holder).ivLayout.setLayoutParams(layoutParams);
 
-            ((VoiceViewHolder) holder).tvVoiceLength.setText(String.valueOf(vi.duration));
+// 计算 voice_layout 的宽度
+            int baseWidth = ScreenUtils.dpToPx(mContext,50); // 基准宽度
+            int minWidth = ScreenUtils.dpToPx(mContext, 50);   // 最小宽度
+            int maxWidth = ScreenUtils.dpToPx(mContext, 600);  // 最大宽度
+            int calculatedWidth = baseWidth + (vi.duration * ScreenUtils.dpToPx(mContext,5)); // 根据语音时长调整宽度
+
+            // 限制宽度在 minWidth 和 maxWidth 之间
+            calculatedWidth = Math.min(Math.max(calculatedWidth, minWidth), maxWidth);
+
+            // 设置 voice_layout 的宽度
+            ViewGroup.LayoutParams params = ((VoiceViewHolder) holder).ivLayout.getLayoutParams();
+            params.width = calculatedWidth;
+            ((VoiceViewHolder) holder).ivLayout.setLayoutParams(params);
+
+            ((VoiceViewHolder) holder).tvVoiceLength.setText(vi.duration + "\"");
             ((VoiceViewHolder) holder).ivVoiceIcon.setOnClickListener(v -> {
                 AudioPlayManager.getInstance().startPlay(mContext, vi.voicePath, new IAudioPlayListener() {
                     @Override
