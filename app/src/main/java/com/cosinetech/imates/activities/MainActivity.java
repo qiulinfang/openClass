@@ -20,7 +20,7 @@ import com.cosinetech.imates.fragments.FragmentSubjectEnglish;
 import com.cosinetech.imates.fragments.FragmentSubjectMath;
 import com.cosinetech.imates.fragments.FragmentSubjectPhysics;
 import com.cosinetech.imates.models.UserInfoViewModel;
-import com.cosinetech.imates.mq.MessageManager;
+import com.cosinetech.imates.mq.MessagingManager;
 import com.cosinetech.imates.service.FloatingRobotService;
 import com.cosinetech.imates.util.VersionUtils;
 import com.cosinetech.imates.util.WindowUtils;
@@ -183,7 +183,7 @@ public class MainActivity extends AppCompatActivity {
                 (ViewModelStoreOwner) getApplication(),
                 new ViewModelProvider.AndroidViewModelFactory(getApplication())
         ).get(UserInfoViewModel.class);
-        MessageManager.getInstance().initialize(getApplicationContext(), userInfoViewModel.userId.getValue());
+        MessagingManager.getInstance().initialize(getApplicationContext(), userInfoViewModel.userId.getValue());
         Log.e("++++++++++++++++", "onCreate");    }
 
     @Override
@@ -243,7 +243,7 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
         stopFloatingWndowService();
         // 关闭MessageManager
-        MessageManager.getInstance().shutdown();
+        MessagingManager.getInstance().shutdown();
         Log.e("++++++++++++++++", "onDestroy");
     }
 }

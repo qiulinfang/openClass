@@ -52,7 +52,7 @@ import com.cosinetech.imates.models.ChatMessageCatalogue;
 import com.cosinetech.imates.models.ChatMessageHistoryDB;
 import com.cosinetech.imates.models.ChatMessageSession;
 import com.cosinetech.imates.models.UserInfoViewModel;
-import com.cosinetech.imates.mq.MessageManager;
+import com.cosinetech.imates.mq.MessagingManager;
 import com.cosinetech.imates.mq.StudentMessage;
 import com.cosinetech.imates.mq.TeacherQaType;
 import com.cosinetech.imates.util.AppUtils;
@@ -1120,7 +1120,8 @@ public class ChatAiView extends RelativeLayout {
                 subject,
                 TeacherQaType.QA_MSG_TYPE_VOICE,
                 VoiceDbUtil.getRawVoiceBase64(voicePath));
-        MessageManager.getInstance().sendMessage(studentMsg, (success, messageId, errorMessage) -> {
+        MessagingManager.getInstance().sendMessageToTeacher(studentMsg, (success, messageId, errorMessage) -> {
+            Log.e("=-=-=", success + messageId + errorMessage);
         });
 
         VoiceDbUtil.VoiceDbItem item = new VoiceDbUtil.VoiceDbItem();
@@ -1148,8 +1149,8 @@ public class ChatAiView extends RelativeLayout {
                 subject,
                 TeacherQaType.QA_MSG_TYPE_TEXT,
                 content);
-        MessageManager.getInstance().sendMessage(studentMsg, (success, messageId, errorMessage) -> {
-
+        MessagingManager.getInstance().sendMessageToTeacher(studentMsg, (success, messageId, errorMessage) -> {
+            Log.e("=-=-=", success + messageId + errorMessage);
         });
 
         ChatMessage message = new ChatMessage(content,
@@ -1174,8 +1175,8 @@ public class ChatAiView extends RelativeLayout {
                 path);
         studentMsg.setMessageId(mScreenShotImageUUID);
 
-        MessageManager.getInstance().sendMessage(studentMsg, (success, messageId, errorMessage) -> {
-
+        MessagingManager.getInstance().sendMessageToTeacher(studentMsg, (success, messageId, errorMessage) -> {
+            Log.e("=-=-=", success + messageId + errorMessage);
         });
 
         ChatMessage message = new ChatMessage(path,
