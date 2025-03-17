@@ -16,6 +16,7 @@ import android.util.Log;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -208,6 +209,31 @@ public class ImageUtils {
         }
     }
 
+    public static String loadImageFileToBase64(String filePath) {
+        File file = new File(filePath);
+        if (file.exists()) {
+            try (InputStream inputStream = new FileInputStream(file)) {
+                byte[] bytes = new byte[(int) file.length()];
+                int bytesRead = 0;
+                while (bytesRead < bytes.length) {
+                    int result = inputStream.read(bytes, bytesRead, bytes.length - bytesRead);
+                    if (result == -1) {
+                        break; // 文件读取完毕
+                    }
+                    bytesRead += result;
+                }
+
+                if (bytesRead == bytes.length) {
+                    String base64 = Base64.getEncoder().encodeToString(bytes);
+                    return "data:image/png;base64," + base64;
+                }
+            } catch (IOException e) {
+                // 这里不抛出异常，而是返回空字符串或其他处理逻辑
+                return "";
+            }
+        }
+        return "";
+    }
     /**
      * 图片压缩处理，size参数为压缩比，比如size为2，则压缩为1/4
      **/

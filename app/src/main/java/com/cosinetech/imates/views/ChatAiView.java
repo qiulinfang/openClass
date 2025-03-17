@@ -1167,12 +1167,12 @@ public class ChatAiView extends RelativeLayout {
 
     public void sendPictureToTeacher(String path) {
         String subject = getTeacherSubject();
-
+        String base64Content = ImageUtils.loadImageFileToBase64(path);
         StudentMessage studentMsg = new StudentMessage(mUserInfoViewModel.userId.getValue(),
                 mCurrentSession.sessionId,
                 subject,
                 TeacherQaType.QA_MSG_TYPE_PICTURE,
-                path);
+                base64Content);
         studentMsg.setMessageId(mScreenShotImageUUID);
 
         MessagingManager.getInstance().sendMessageToTeacher(studentMsg, (success, messageId, errorMessage) -> {
