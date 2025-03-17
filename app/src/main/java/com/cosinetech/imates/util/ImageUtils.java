@@ -148,10 +148,13 @@ public class ImageUtils {
      * @param filePath 本地路径
      */
     public static void saveImageFile(String base64Image, String filePath) {
+        String imgString;
         if(!base64Image.startsWith("data:image")) {
-            return;
+            imgString = "data:image/gif;base64," + base64Image;
+        } else {
+            imgString = base64Image;
         }
-        Bitmap bmp = base64ImageToBitmap(base64Image);
+        Bitmap bmp = base64ImageToBitmap(imgString);
         saveBitmapAsPng(bmp, filePath, 100);
     }
 

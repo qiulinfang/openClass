@@ -54,6 +54,7 @@ import com.cosinetech.imates.models.ChatMessageSession;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.mq.MessagingManager;
 import com.cosinetech.imates.mq.StudentMessage;
+import com.cosinetech.imates.mq.TeacherMessage;
 import com.cosinetech.imates.mq.TeacherQaType;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.ImageUtils;
@@ -539,8 +540,6 @@ public class ChatAiView extends RelativeLayout {
             switchToVoiceInput();
         });
 
-
-
         mVoiceMessageButton.setOnTouchListener((v, event) -> {
             float x = event.getRawX();  // 触摸点相对屏幕的 X 坐标
             float y = event.getRawY();  // 触摸点相对屏幕的 Y 坐标
@@ -740,6 +739,8 @@ public class ChatAiView extends RelativeLayout {
         });
         resetCurrentSession(ChatMessageCatalogue.CATEGORY_DEFAULT_SYSTEM, ChatMessageSession.SESSION_DEFAULT_SYSTEM);
         addView(view);
+
+        MessagingManager.getInstance().addMessageListener(this::onReceivedTeacherMessage);
     }
 
     public void setChatTeacherSession(ChatMessageSession s) {
@@ -1189,6 +1190,55 @@ public class ChatAiView extends RelativeLayout {
         messageList.add(new ChatDisplayItem(message, !message.isSelf));
         mChatDb.addChatMessageDetail(message);
         mAdapterAiChatMessageList.notifyDataSetChanged();
+    }
+
+    private void onReceivedTeacherMessage(TeacherMessage msg) {
+        ChatMessage chatMessage = null;
+        switch (msg.getMessageType()) {
+            case TeacherQaType.QA_MSG_TYPE_TEXT:
+            {
+                chatMessage = new ChatMessage(msg.getContent(),
+                        false,
+                        ChatMessage.MessageType.TEXT,
+                        msg.getSessionId(),
+                        msg.getTimestamp());
+            }
+                break;
+            case TeacherQaType.QA_MSG_TYPE_PICTURE:
+            {
+                chatMessage = new ChatMessage("",
+                        false,
+                        ChatMessage.MessageType.IMAGE,
+                        msg.getSessionId(),
+                        msg.getTimestamp());
+                String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + chatMessage.messageId + ".png";
+                ImageUtils.saveImageFile(msg.getContent(), filePath);
+                chatMessage.content = filePath;
+            }
+                break;
+            case TeacherQaType.QA_MSG_TYPE_VOICE:
+            {
+                chatMessage = new ChatMessage("",
+                        false,
+                        ChatMessage.MessageType.VOICE,
+                        msg.getSessionId(),
+                        msg.getTimestamp());
+                String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + chatMessage.messageId + ".png";
+                VoiceDbUtil.saveVoiceFile(msg.getContent(), filePath);
+                chatMessage.content = filePath;
+            }
+                break;
+        }
+
+        if(chatMessage != null) {
+            mChatDb.addChatMessageDetail(chatMessage);
+
+            if(mCurrentSession.sessionId.equals(chatMessage.sessionId)) {
+                messageList.add(new ChatDisplayItem(chatMessage, false));
+                mAdapterAiChatMessageList.notifyDataSetChanged();
+            }
+        }
+
     }
 
     private void autoDetectChatSessionName(String content) {
