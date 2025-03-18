@@ -209,11 +209,14 @@ public class ChatAiView extends RelativeLayout {
         mCurrentSession = session;
         if(mCurrentSession.type == ChatMessageSession.SessionType.USER_TALK_AI
                 || mCurrentSession.type == ChatMessageSession.SessionType.SYSTEM_TALK_AI) {
+            mAdapterAiChatMessageList.setOtherAvastarIconRes(R.drawable.chat_ai_avatar_robot);
             setChatAiSendMode(true);
         } else if (mCurrentSession.type == ChatMessageSession.SessionType.USER_FAVOR) {
+            mAdapterAiChatMessageList.setOtherAvastarIconRes(R.drawable.chat_ai_avatar_robot);
             setChatAiSendMode(true);
             setChatEnable(false);
         } else {
+            mAdapterAiChatMessageList.setOtherAvastarIconRes(R.drawable.avatar_7);
             setChatAiSendMode(false);
             setChatEnable(true);
         }
@@ -234,6 +237,7 @@ public class ChatAiView extends RelativeLayout {
         mChatSessionListAdapter.setSelectedSessionId(mCurrentSession.sessionId);
         mAiChatRequest.setSessionId(mCurrentSession.sessionId);
         mChatSessionListAdapter.notifyDataSetChanged();
+        mAdapterAiChatMessageList.notifyDataSetChanged();
     }
 
     public void resetCurrentCatalog(ChatMessageCatalogue catalogue) {
