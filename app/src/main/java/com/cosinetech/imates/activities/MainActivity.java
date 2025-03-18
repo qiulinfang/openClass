@@ -178,12 +178,6 @@ public class MainActivity extends AppCompatActivity {
         TextView versionText = findViewById(R.id.version);
         versionText.setText(VersionUtils.getVersionName(this) + "_" + VersionUtils.getVersionCode(this));
 
-        // 初始化MessageManager
-        UserInfoViewModel userInfoViewModel = new ViewModelProvider(
-                (ViewModelStoreOwner) getApplication(),
-                new ViewModelProvider.AndroidViewModelFactory(getApplication())
-        ).get(UserInfoViewModel.class);
-        MessagingManager.getInstance().initialize(getApplicationContext(), userInfoViewModel.userId.getValue());
         Log.e("++++++++++++++++", "onCreate");    }
 
     @Override
@@ -242,8 +236,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         stopFloatingWndowService();
-        // 关闭MessageManager
-        MessagingManager.getInstance().shutdown();
         Log.e("++++++++++++++++", "onDestroy");
     }
 }

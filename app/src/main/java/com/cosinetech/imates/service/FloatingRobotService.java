@@ -24,6 +24,8 @@ import androidx.annotation.RequiresApi;
 import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModelStoreOwner;
 
 import com.airbnb.lottie.LottieAnimationView;
 import com.cosinetech.imates.ApplicationModelShared;
@@ -31,18 +33,26 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.activities.ChatAiActivity;
 import com.cosinetech.imates.activities.ScreenShotActivity;
 import com.cosinetech.imates.models.ChatAiParam;
+import com.cosinetech.imates.models.ChatMessage;
+import com.cosinetech.imates.models.ChatMessageHistoryDB;
 import com.cosinetech.imates.models.Subject;
+import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.mq.MessagingManager;
+import com.cosinetech.imates.mq.TeacherMessage;
+import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.views.ChatAiView;
 import com.cosinetech.imates.webservice.ApiUrl;
 
-public class FloatingRobotService extends Service {
+public class FloatingRobotService extends Service implements MessagingManager.MessageListener {
     private static final String CHANNEL_ID = "floating_window_channel";
     private static final int NOTIFICATION_ID = 1;
 
     private WindowManager windowManager;
     private View floatingRobotView;
     private View feedbackView;
+
+    private ChatMessageHistoryDB mChatDb;
 
     public FloatingRobotService() {
     }
@@ -86,6 +96,16 @@ public class FloatingRobotService extends Service {
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         initFloatingRobot();
         initFeedbackView();
+
+        // 初始化MessageManager
+        UserInfoViewModel userInfoViewModel = new ViewModelProvider(
+                (ViewModelStoreOwner) getApplication(),
+                new ViewModelProvider.AndroidViewModelFactory(getApplication())
+        ).get(UserInfoViewModel.class);
+
+        mChatDb = ChatMessageHistoryDB.getInstance(getApplicationContext(), AppUtils.getUserId());
+        MessagingManager.getInstance().addMessageListener(this);
+        MessagingManager.getInstance().initialize(getApplicationContext(), userInfoViewModel.userId.getValue());
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -355,6 +375,17 @@ public class FloatingRobotService extends Service {
         if(feedbackView != null) {
             windowManager.removeView(feedbackView);
             feedbackView = null;
+        }
+
+        // 关闭MessageManager
+        MessagingManager.getInstance().shutdown();
+    }
+
+    @Override
+    public void onTeacherMessageReceived(TeacherMessage message) {
+        ChatMessage msg = message.toChatMessage();
+        if(msg != null) {
+            mChatDb.addChatMessageDetail(msg);
         }
     }
 }

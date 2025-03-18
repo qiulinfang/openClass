@@ -739,8 +739,6 @@ public class ChatAiView extends RelativeLayout {
         });
         resetCurrentSession(ChatMessageCatalogue.CATEGORY_DEFAULT_SYSTEM, ChatMessageSession.SESSION_DEFAULT_SYSTEM);
         addView(view);
-
-        MessagingManager.getInstance().addMessageListener(this::onReceivedTeacherMessage);
     }
 
     public void setChatTeacherSession(ChatMessageSession s) {
@@ -1192,7 +1190,7 @@ public class ChatAiView extends RelativeLayout {
         mAdapterAiChatMessageList.notifyDataSetChanged();
     }
 
-    private void onReceivedTeacherMessage(TeacherMessage msg) {
+    public void onReceivedTeacherMessage(TeacherMessage msg) {
         ChatMessage chatMessage = msg.toChatMessage();
         if(chatMessage != null) {
             mChatDb.addChatMessageDetail(chatMessage);

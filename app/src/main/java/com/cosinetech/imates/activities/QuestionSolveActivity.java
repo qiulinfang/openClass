@@ -27,6 +27,7 @@ import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.AdapterQuestionList;
 import com.cosinetech.imates.adapters.AdapterSimilarQuestionList;
+import com.cosinetech.imates.audio.AudioPlayManager;
 import com.cosinetech.imates.models.AddQuestionRequest;
 import com.cosinetech.imates.models.ChatAiParam;
 import com.cosinetech.imates.models.ChatMessageCatalogue;
@@ -35,6 +36,8 @@ import com.cosinetech.imates.models.ChatMessageSession;
 import com.cosinetech.imates.models.FindSimilarQuestionRequest;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.mq.MessagingManager;
+import com.cosinetech.imates.mq.TeacherMessage;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.views.ChatAiView;
@@ -50,7 +53,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class QuestionSolveActivity extends AppCompatActivity {
+public class QuestionSolveActivity extends AppCompatActivity implements MessagingManager.MessageListener {
     public static final String KEY_CHATBOT_URL = "KEY_CHAT_BOT_URL";
     public static final String KEY_SUBJECT = "KEY_SUBJECT";
 
@@ -832,6 +835,11 @@ public class QuestionSolveActivity extends AppCompatActivity {
     }
 
     @Override
+    public void onTeacherMessageReceived(TeacherMessage message) {
+        mChatView.onReceivedTeacherMessage(message);
+    }
+
+    @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if(keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_HOME){
             return true;
@@ -886,5 +894,7 @@ public class QuestionSolveActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        AudioPlayManager.getInstance().stopPlay();
+        MessagingManager.getInstance().removeMessageListener(this);
     }
 }
