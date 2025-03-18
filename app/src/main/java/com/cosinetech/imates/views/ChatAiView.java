@@ -1193,43 +1193,7 @@ public class ChatAiView extends RelativeLayout {
     }
 
     private void onReceivedTeacherMessage(TeacherMessage msg) {
-        ChatMessage chatMessage = null;
-        switch (msg.getMessageType()) {
-            case TeacherQaType.QA_MSG_TYPE_TEXT:
-            {
-                chatMessage = new ChatMessage(msg.getContent(),
-                        false,
-                        ChatMessage.MessageType.TEXT,
-                        msg.getSessionId(),
-                        msg.getTimestamp());
-            }
-                break;
-            case TeacherQaType.QA_MSG_TYPE_PICTURE:
-            {
-                chatMessage = new ChatMessage("",
-                        false,
-                        ChatMessage.MessageType.IMAGE,
-                        msg.getSessionId(),
-                        msg.getTimestamp());
-                String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + chatMessage.messageId + ".png";
-                ImageUtils.saveImageFile(msg.getContent(), filePath);
-                chatMessage.content = filePath;
-            }
-                break;
-            case TeacherQaType.QA_MSG_TYPE_VOICE:
-            {
-                chatMessage = new ChatMessage("",
-                        false,
-                        ChatMessage.MessageType.VOICE,
-                        msg.getSessionId(),
-                        msg.getTimestamp());
-                String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + chatMessage.messageId + ".png";
-                VoiceDbUtil.saveVoiceFile(msg.getContent(), filePath);
-                chatMessage.content = filePath;
-            }
-                break;
-        }
-
+        ChatMessage chatMessage = msg.toChatMessage();
         if(chatMessage != null) {
             mChatDb.addChatMessageDetail(chatMessage);
 

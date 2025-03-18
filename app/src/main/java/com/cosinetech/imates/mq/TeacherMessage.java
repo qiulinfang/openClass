@@ -1,5 +1,11 @@
 package com.cosinetech.imates.mq;
 
+import com.cosinetech.imates.models.ChatDisplayItem;
+import com.cosinetech.imates.models.ChatMessage;
+import com.cosinetech.imates.util.AppUtils;
+import com.cosinetech.imates.util.ImageUtils;
+import com.cosinetech.imates.util.VoiceDbUtil;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -78,6 +84,46 @@ public class TeacherMessage {
      */
     public String toJsonString() throws JSONException {
         return toJson().toString();
+    }
+
+    public ChatMessage toChatMessage() {
+        ChatMessage chatMessage = null;
+        switch (this.getMessageType()) {
+            case TeacherQaType.QA_MSG_TYPE_TEXT:
+            {
+                chatMessage = new ChatMessage(this.getContent(),
+                        false,
+                        ChatMessage.MessageType.TEXT,
+                        this.getSessionId(),
+                        this.getTimestamp());
+            }
+            break;
+            case TeacherQaType.QA_MSG_TYPE_PICTURE:
+            {
+                chatMessage = new ChatMessage("",
+                        false,
+                        ChatMessage.MessageType.IMAGE,
+                        this.getSessionId(),
+                        this.getTimestamp());
+                String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + chatMessage.messageId + ".png";
+                ImageUtils.saveImageFile(this.getContent(), filePath);
+                chatMessage.content = filePath;
+            }
+            break;
+            case TeacherQaType.QA_MSG_TYPE_VOICE:
+            {
+                chatMessage = new ChatMessage("",
+                        false,
+                        ChatMessage.MessageType.VOICE,
+                        this.getSessionId(),
+                        this.getTimestamp());
+                String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + chatMessage.messageId + ".png";
+                VoiceDbUtil.saveVoiceFile(this.getContent(), filePath);
+                chatMessage.content = filePath;
+            }
+            break;
+        }
+        return chatMessage;
     }
 
     // Getters and setters
