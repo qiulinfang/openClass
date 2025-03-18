@@ -289,7 +289,7 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
 
         ContentValues values = new ContentValues();
-        values.put(SESSION_LAST_READ_TIME, readTime); // 改名
+        values.put(SESSION_LAST_READ_TIME, readTime);
         values.put(SESSION_UPDATE_TIME, updateTime);
 
         return db.update(TABLE_MESSAGE_SESSION,
@@ -438,20 +438,18 @@ public class ChatMessageHistoryDB extends SQLiteOpenHelper {
         return db.insert(TABLE_MESSAGE_DETAIL, null, values);
     }
 
-    public synchronized int updateChatMessageDetail(ChatMessage msg) {
+    public synchronized int updateChatMessageDetail(String msgId, int status, String content, long timestamp) {
         SQLiteDatabase db = this.getWritableDatabase();
 
         ContentValues values = new ContentValues();
-        values.put(MESSAGE_CONTENT, msg.content);
-        values.put(MESSAGE_TYPE, msg.type.getValue());
-        values.put(MESSAGE_STATUS, msg.status); // 新增字段
-        values.put(MESSAGE_IS_SELF, msg.isSelf ? 1 : 0);
-        values.put(MESSAGE_TIMESTAMP, msg.timestamp);
+        values.put(MESSAGE_CONTENT, content);
+        values.put(MESSAGE_STATUS, status);
+        values.put(MESSAGE_TIMESTAMP, timestamp);
 
         return db.update(TABLE_MESSAGE_DETAIL,
                 values,
                 MESSAGE_MESSAGE_ID + "=?",
-                new String[]{msg.messageId});
+                new String[]{msgId});
     }
     public synchronized int deleteChatMessageDetail(String messageId) {
         SQLiteDatabase db = this.getWritableDatabase();

@@ -234,6 +234,10 @@ public class ChatAiView extends RelativeLayout {
 
         String aiName = mCurrentCatalog.catalogName + " - " + mCurrentSession.sessionName;
         mTextViewTitle.setText(aiName);
+
+        long timestamp = System.currentTimeMillis();
+        mChatDb.updateMessageSessionLastReadTime(mCurrentSession.sessionId, timestamp, timestamp);
+
         mChatSessionListAdapter.setSelectedSessionId(mCurrentSession.sessionId);
         mAiChatRequest.setSessionId(mCurrentSession.sessionId);
         mChatSessionListAdapter.notifyDataSetChanged();
@@ -790,9 +794,9 @@ public class ChatAiView extends RelativeLayout {
             switchToKeyboardInput();
         }
 
-        mVoiceInputButton.setEnabled(!isChatAi);
-        mSendPictureButton.setEnabled(!isChatAi);
-        mCheckSearchWeb.setEnabled(isChatAi);
+        mVoiceInputButton.setVisibility(!isChatAi ? VISIBLE : INVISIBLE);
+        mSendPictureButton.setVisibility(!isChatAi ? VISIBLE : INVISIBLE);
+        mCheckSearchWeb.setVisibility(isChatAi ? VISIBLE : INVISIBLE);
     }
 
     private boolean isTouchInsideView(View view, float x, float y) {

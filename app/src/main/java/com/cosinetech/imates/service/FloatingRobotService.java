@@ -17,6 +17,7 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.PopupWindow;
 
 import androidx.annotation.Nullable;
@@ -51,6 +52,7 @@ public class FloatingRobotService extends Service implements MessagingManager.Me
     private WindowManager windowManager;
     private View floatingRobotView;
     private View feedbackView;
+    private ImageView newMsgIndicator;
 
     private ChatMessageHistoryDB mChatDb;
 
@@ -118,6 +120,7 @@ public class FloatingRobotService extends Service implements MessagingManager.Me
                 PixelFormat.TRANSLUCENT);
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
         floatingRobotView = inflater.inflate(R.layout.floating_robot, null);
+        newMsgIndicator = floatingRobotView.findViewById(R.id.indicator_new_msg);
         final int screenWidth = ScreenUtils.getScreenWidth(this);
         final int screenHeight = ScreenUtils.getScreenHeight(this);
         // 初始位置
@@ -387,5 +390,8 @@ public class FloatingRobotService extends Service implements MessagingManager.Me
         if(msg != null) {
             mChatDb.addChatMessageDetail(msg);
         }
+
+        // check any unread chat sessions
+        newMsgIndicator.setVisibility(View.GONE);
     }
 }

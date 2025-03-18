@@ -229,9 +229,9 @@ public class AudioRecordManager implements Handler.Callback {
 
             this.mMediaRecorder.setAudioChannels(1);
             this.mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            this.mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.AMR_NB);
-            this.mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-            this.mMediaRecorder.setAudioEncodingBitRate(12200); // 设置比特率为 12.2kbps
+            this.mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            this.mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            this.mMediaRecorder.setAudioEncodingBitRate(16000); // 设置比特率为
             this.mAudioFilePathUri = Uri.fromFile(new File(SAVE_PATH));
             this.mMediaRecorder.setOutputFile(this.mAudioFilePathUri.getPath());
             this.mMediaRecorder.prepare();
