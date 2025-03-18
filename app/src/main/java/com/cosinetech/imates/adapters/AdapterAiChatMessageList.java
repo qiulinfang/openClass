@@ -257,28 +257,37 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             }
 
             ((VoiceViewHolder) holder).ivVoiceIcon.setOnClickListener(v -> {
-                AudioPlayManager.getInstance().stopPlay();
-                AudioPlayManager.getInstance().startPlay(mContext, vi.voicePath, new IAudioPlayListener() {
-                    @Override
-                    public void onStart(Uri var1) {
-                        mAudioPlayingItemIndex = pos;
-                        //开播（一般是开始语音消息动画）
-                    }
+                if(mAudioPlayingItemIndex >= 0) {
+                    notifyItemChanged(mAudioPlayingItemIndex);
+                }
 
-                    @Override
-                    public void onStop(Uri var1) {
-                        mAudioPlayingItemIndex = -1;
-                        notifyDataSetChanged();
-                    }
+                if(mAudioPlayingItemIndex == pos) {
+                    AudioPlayManager.getInstance().stopPlay();
+                    notifyItemChanged(pos);
+                } else {
+                    AudioPlayManager.getInstance().stopPlay();
+                    AudioPlayManager.getInstance().startPlay(mContext, vi.voicePath, new IAudioPlayListener() {
+                        @Override
+                        public void onStart(Uri var1) {
+                            mAudioPlayingItemIndex = pos;
+                            //开播（一般是开始语音消息动画）
+                        }
 
-                    @Override
-                    public void onComplete(Uri var1) {
-                        //播完（一般是停止语音消息动画）
-                        mAudioPlayingItemIndex = -1;
-                        notifyDataSetChanged();
-                    }
-                });
-                notifyDataSetChanged();
+                        @Override
+                        public void onStop(Uri var1) {
+                            mAudioPlayingItemIndex = -1;
+                            notifyItemChanged(pos);
+                        }
+
+                        @Override
+                        public void onComplete(Uri var1) {
+                            //播完（一般是停止语音消息动画）
+                            mAudioPlayingItemIndex = -1;
+                            notifyItemChanged(pos);
+                        }
+                    });
+                    notifyItemChanged(pos);
+                }
             });
 
             ((VoiceViewHolder) holder).tvSelected.setChecked(false);
