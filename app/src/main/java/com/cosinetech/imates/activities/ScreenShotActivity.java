@@ -114,7 +114,11 @@ public class ScreenShotActivity extends Activity {
         } else if(requestCode == REQ_IMAGE_EDIT) {
             Intent editData = new Intent();
             editData.putExtra(KEY_FINAL_IMAGE_PATH, mStoreDir + "/" + mFileName);
-            setResult(RESULT_OK, editData);
+            if(resultCode == RESULT_OK) {
+                setResult(RESULT_OK, editData);
+            } else {
+                setResult(requestCode, editData);
+            }
             finish();
         } else {
             finish();
