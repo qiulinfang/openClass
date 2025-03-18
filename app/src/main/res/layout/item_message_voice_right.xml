@@ -2,6 +2,7 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:padding="10dp">
 
     <CheckBox
@@ -20,11 +21,16 @@
         android:background="@drawable/chat_ai_msg_self_bg"
         android:padding="10dp">
 
-        <ImageView
+        <com.airbnb.lottie.LottieAnimationView
             android:id="@+id/iv_voice_icon"
             android:layout_width="48dp"
             android:layout_height="24dp"
-            android:src="@drawable/ic_voice" />
+            app:lottie_fileName="AnimationAudioPlaying.lottie"
+            app:lottie_autoPlay="false"
+            app:lottie_loop="true"
+            android:layout_gravity="center"
+            android:padding="0dp"
+            android:scaleType="centerCrop"/>
 
         <TextView
             android:id="@+id/tv_voice_length"

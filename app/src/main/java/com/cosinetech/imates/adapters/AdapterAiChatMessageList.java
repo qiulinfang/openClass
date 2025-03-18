@@ -17,6 +17,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.airbnb.lottie.LottieAnimationView;
 import com.bumptech.glide.Glide;
 import com.cosinetech.imates.activities.ImageViewerActivity;
 import com.cosinetech.imates.audio.AudioPlayManager;
@@ -67,6 +69,8 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
     private final List<ChatDisplayItem> mMsgList;
 
     private boolean mItemCanSelect = false;
+
+    private int mAudioPlayingItemIndex = -1;
 
     private  Context mContext;
 
@@ -232,10 +236,10 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             VoiceDbUtil.VoiceDbItem vi = VoiceDbUtil.extractDbVoiceContent(message.content);
 
 // 计算 voice_layout 的宽度
-            int baseWidth = ScreenUtils.dpToPx(mContext,50); // 基准宽度
+            int baseWidth = ScreenUtils.dpToPx(mContext, 50); // 基准宽度
             int minWidth = ScreenUtils.dpToPx(mContext, 50);   // 最小宽度
             int maxWidth = ScreenUtils.dpToPx(mContext, 600);  // 最大宽度
-            int calculatedWidth = baseWidth + (vi.duration * ScreenUtils.dpToPx(mContext,5)); // 根据语音时长调整宽度
+            int calculatedWidth = baseWidth + (vi.duration * ScreenUtils.dpToPx(mContext, 5)); // 根据语音时长调整宽度
 
             // 限制宽度在 minWidth 和 maxWidth 之间
             calculatedWidth = Math.min(Math.max(calculatedWidth, minWidth), maxWidth);
@@ -246,27 +250,39 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             ((VoiceViewHolder) holder).ivLayout.setLayoutParams(params);
 
             ((VoiceViewHolder) holder).tvVoiceLength.setText(vi.duration + "\"");
+            if (mAudioPlayingItemIndex == pos) {
+                ((VoiceViewHolder) holder).ivVoiceIcon.playAnimation();
+            } else {
+                ((VoiceViewHolder) holder).ivVoiceIcon.cancelAnimation();
+            }
+
             ((VoiceViewHolder) holder).ivVoiceIcon.setOnClickListener(v -> {
+                AudioPlayManager.getInstance().stopPlay();
                 AudioPlayManager.getInstance().startPlay(mContext, vi.voicePath, new IAudioPlayListener() {
                     @Override
                     public void onStart(Uri var1) {
+                        mAudioPlayingItemIndex = pos;
                         //开播（一般是开始语音消息动画）
                     }
 
                     @Override
                     public void onStop(Uri var1) {
-                        //停播（一般是停止语音消息动画）
+                        mAudioPlayingItemIndex = -1;
+                        notifyDataSetChanged();
                     }
 
                     @Override
                     public void onComplete(Uri var1) {
                         //播完（一般是停止语音消息动画）
+                        mAudioPlayingItemIndex = -1;
+                        notifyDataSetChanged();
                     }
                 });
+                notifyDataSetChanged();
             });
 
             ((VoiceViewHolder) holder).tvSelected.setChecked(false);
-            if(mItemCanSelect) {
+            if (mItemCanSelect) {
                 ((VoiceViewHolder) holder).tvSelected.setVisibility(View.VISIBLE);
             } else {
                 ((VoiceViewHolder) holder).tvSelected.setVisibility(View.GONE);
@@ -339,7 +355,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
     }
 
     static class VoiceViewHolder extends RecyclerView.ViewHolder {
-        ImageView ivVoiceIcon;
+        LottieAnimationView ivVoiceIcon;
         TextView tvVoiceLength;
         CheckBox tvSelected;
         View ivLayout;
