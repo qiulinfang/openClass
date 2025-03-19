@@ -82,7 +82,11 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
 
     private ChatMessageCatalogue mChatAiCatalogue;
 
+    //每个题目对应的老师对话
     private ChatMessageSession mAskTeacherChatSession;
+
+    //每个题目对应的Ai对话
+    //private ChatMessageSession mChatAiQuestionSession;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -166,7 +170,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         userInfoViewModel = new ViewModelProvider(
                 owner,
                 new ViewModelProvider.AndroidViewModelFactory(getApplication())
-        ).get(com.cosinetech.imates.models.UserInfoViewModel.class);
+        ).get(UserInfoViewModel.class);
 
         RecyclerView recyclerView = findViewById(R.id.exerciseList);
         recyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
@@ -228,8 +232,12 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 chatResponseTimes = 0;
                 setViewAnswer(false);
                 //mChatView.clearChatHistory();
-                onChatQuestionSessionChange(false);
-                onChatTeacherSessionChange();
+                //先生成ai的session
+                ChatMessageSession session = onChatQuestionSessionChange(false);
+                //再根据ai的sesion生成老师的session
+                if(session != null) {
+                    onChatTeacherSessionChange(session.sessionId, session.sessionName);
+                }
 
 //                if(subject == Subject.SUBJECT_BIOLOGY) {
 //                    View essay_view = findViewById(R.id.essay_question);
@@ -360,20 +368,28 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         });
     }
 
-    private void onChatTeacherSessionChange() {
-        String questionString = mQuestions.get(mCurrentQuestionIndex).getQuestion();
-        String askTeacherSessionId =  UUID.nameUUIDFromBytes((subject.name() + questionString).getBytes()).toString();
-        mAskTeacherChatSession = new ChatMessageSession(askTeacherSessionId,
+    public static ChatMessageSession createChatTeacherSession(String chatAiSessionId, String chatAiSessionName, ChatMessageSession.SessionType type) {
+        String askTeacherSessionId =  UUID.nameUUIDFromBytes(chatAiSessionId.getBytes()).toString();
+        ChatMessageSession session = new ChatMessageSession(askTeacherSessionId,
                 ChatMessageCatalogue.CATEGORY_TEACHER_QA.catalogId,
-                (questionString.length() > ChatMessageSession.MAX_SESSION_NAME_LENGTH ?
-                        questionString.substring(0, ChatMessageSession.MAX_SESSION_NAME_LENGTH) + "..." :
-                        questionString),
-                ChatMessageSession.SessionType.USER_TALK_TEACHER_BIOLOGY,
+                chatAiSessionName,
+                type, //ChatMessageSession.SessionType.USER_TALK_TEACHER_BIOLOGY,
                 0,
                 System.currentTimeMillis(),
                 System.currentTimeMillis());
+        return session;
+    }
 
-        if(mChatDb.getMessageSessionBySessionId(askTeacherSessionId) == null) {
+    private void onChatTeacherSessionChange(String chatAiSessionId, String chatAiSessionName) {
+        ChatMessageSession.SessionType type;
+        if(subject == Subject.SUBJECT_BIOLOGY) {
+            type = ChatMessageSession.SessionType.USER_TALK_TEACHER_BIOLOGY;
+        } else {
+            type = ChatMessageSession.SessionType.USER_TALK_TEACHER_MATH;
+        }
+        mAskTeacherChatSession = createChatTeacherSession(chatAiSessionId, chatAiSessionName, type);
+
+        if(mChatDb.getMessageSessionBySessionId(mAskTeacherChatSession.sessionId) == null) {
             mRdoAskTeacher.setEnabled(false);
         } else {
             mRdoAskTeacher.setEnabled(true);
@@ -381,8 +397,8 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         mChatView.setChatTeacherSession(mAskTeacherChatSession);
     }
 
-    private void onChatQuestionSessionChange(boolean saveToDb) {
-        if(mCurrentQuestionIndex < 0) return;
+    private ChatMessageSession onChatQuestionSessionChange(boolean saveToDb) {
+        if(mCurrentQuestionIndex < 0) return null;
 
         String questionString = mQuestions.get(mCurrentQuestionIndex).getQuestion();
         long tick = System.currentTimeMillis();
@@ -409,6 +425,8 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         aiChatMessageRequest.setCoversation("我们开始吧");
         aiChatMessageRequest.setReason("start");
         aiChatMessageRequest.setBmNo(mQuestions.get(mCurrentQuestionIndex).bmNo);
+
+        return session;
     }
 
     private String getCatalogueName() {
@@ -694,7 +712,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                     ImageView imgView = findViewById(R.id.answer_episode4_1);
                     Uri path = imgView.getTag()  == null ? null : (Uri)imgView.getTag();
                     if(!text.isEmpty() && path != null) {
-                        String remoteName = java.util.UUID.randomUUID().toString() + ".jpg";
+                        String remoteName = UUID.randomUUID().toString() + ".jpg";
                         if(uploadFile(path, remoteName)) {
                             conversationMarkdown = "(d):" + text + "  \n"
                                     + "(e):![(e)](" + ApiUrl.URL_RESOURCE_BASE+ "/essays/" +remoteName + ")";
@@ -707,7 +725,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                     ImageView imgView = findViewById(R.id.answer_episode5);
                     Uri path = imgView.getTag()  == null ? null : (Uri)imgView.getTag();
                     if(path != null) {
-                        String remoteName = ApiUrl.URL_RESOURCE_BASE + "/" + java.util.UUID.randomUUID().toString() + ".jpg";
+                        String remoteName = ApiUrl.URL_RESOURCE_BASE + "/" + UUID.randomUUID().toString() + ".jpg";
                         if(uploadFile(path, remoteName)) {
                             conversationMarkdown = "(f):![(f)](" +ApiUrl.URL_RESOURCE_BASE+ "/essays/" +remoteName + ")";
                         } else {

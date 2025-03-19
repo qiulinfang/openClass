@@ -1,7 +1,5 @@
 package com.cosinetech.imates.views;
 
-import static androidx.activity.result.ActivityResultCallerKt.registerForActivityResult;
-
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -40,6 +38,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.activities.QuestionSolveActivity;
 import com.cosinetech.imates.activities.ScreenShotActivity;
 import com.cosinetech.imates.adapters.AdapterAiChatMessageList;
 import com.cosinetech.imates.adapters.ChatExpandableListAdapter;
@@ -326,11 +325,21 @@ public class ChatAiView extends RelativeLayout {
 
             List<ChatDisplayItem> items = mAdapterAiChatMessageList.getSelectedItem();
             //切换到老师会话
-            if(mChatTeacherSession != null) {
-                mChatDb.addMessageSession(mChatTeacherSession);
-                mChatSessionListAdapter.notifyDataSetChanged();
-                resetCurrentSession(ChatMessageCatalogue.CATEGORY_TEACHER_QA, mChatTeacherSession);
+            if(mChatTeacherSession == null) {
+                ChatMessageSession.SessionType type;
+                if(mCurrentCatalog.type == ChatMessageCatalogue.CatalogueType.USER_BIOLOGY) {
+                    type = ChatMessageSession.SessionType.USER_TALK_TEACHER_BIOLOGY;
+                } else {
+                    type = ChatMessageSession.SessionType.USER_TALK_TEACHER_MATH;
+                }
+                mChatTeacherSession = QuestionSolveActivity.createChatTeacherSession(mCurrentSession.sessionId,
+                        mCurrentSession.sessionName, type);
             }
+
+            mChatDb.addMessageSession(mChatTeacherSession);
+            mChatSessionListAdapter.addSession(mChatTeacherSession);
+            mChatSessionListAdapter.notifyDataSetChanged();
+            resetCurrentSession(ChatMessageCatalogue.CATEGORY_TEACHER_QA, mChatTeacherSession);
 
             for (ChatDisplayItem item: items) {
                 ChatMessage msg = item.chatMessage;
@@ -347,6 +356,7 @@ public class ChatAiView extends RelativeLayout {
             if(mSendTeacherListener != null) {
                 mSendTeacherListener.onSendToTeacher();
             }
+
             loadSelectedSessionMsg(mCurrentSession);
             mAdapterAiChatMessageList.notifyDataSetChanged();
         });
