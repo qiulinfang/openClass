@@ -231,16 +231,16 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 onChatQuestionSessionChange(false);
                 onChatTeacherSessionChange();
 
-                if(subject == Subject.SUBJECT_BIOLOGY) {
-                    View essay_view = findViewById(R.id.essay_question);
-                    if (pos == mQuestions.size() - 1) {
-                        mCurrentQuestion.isAiGuiding = true;
-                        adapterQuestionList.notifyItemChanged(pos);
-                        essay_view.setVisibility(View.VISIBLE);
-                    } else {
-                        essay_view.setVisibility(View.GONE);
-                    }
-                }
+//                if(subject == Subject.SUBJECT_BIOLOGY) {
+//                    View essay_view = findViewById(R.id.essay_question);
+//                    if (pos == mQuestions.size() - 1) {
+//                        mCurrentQuestion.isAiGuiding = true;
+//                        adapterQuestionList.notifyItemChanged(pos);
+//                        essay_view.setVisibility(View.VISIBLE);
+//                    } else {
+//                        essay_view.setVisibility(View.GONE);
+//                    }
+//                }
             }
 
             @Override
@@ -332,7 +332,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         });
         recyclerViewSimilarQuestion.setAdapter(adapterSimilarQuestionList);
 
-        initEssayQuestion();
+        //initEssayQuestion();
         fetchQuestionList();
 
         RadioGroup radioGroup = findViewById(R.id.radioGroup);
@@ -493,9 +493,9 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 runOnUiThread(() -> {
                     mQuestions.clear();
                     mQuestions.addAll(q);
-                    if(subject == Subject.SUBJECT_BIOLOGY) {
-                        mQuestions.add(getEssayQuestion());
-                    }
+//                    if(subject == Subject.SUBJECT_BIOLOGY) {
+//                        mQuestions.add(getEssayQuestion());
+//                    }
                     adapterQuestionList.resetSelection();
                     adapterQuestionList.notifyDataSetChanged();
                     updateQuestionListTip();
@@ -527,7 +527,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
 
     List<String []> episodes = new ArrayList<>();
     String essayQuestionTrunk = "  植物通过调节激素水平协调自身生长和逆境响应（应对不良环境的系列反应）的关系，研究者对其分子机制进行了探索。";
-    private void initEssayQuestion() {
+    private void initEssayQuestion0() {
         // 题\答案\解析
         String [] episode1 = new String[] {
             "  （1）生长素（IAA）具有促进生长的作用，脱落酸（ABA）可提高抗逆性并抑制茎叶生长，两种激素均作为(a)____分子，调节植物生长及逆境响应。",
