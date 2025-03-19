@@ -160,7 +160,12 @@ public class ImageUtils {
 
     private static Bitmap base64ImageToBitmap(String base64Image) {
         // 去掉前缀 "data:image/jpg;base64,"
-        String base64Data = base64Image.split(",")[1];
+        String base64Data;
+        if(base64Image.startsWith("data:image")) {
+            base64Data = base64Image.split(",")[1];
+        } else {
+            base64Data = base64Image;
+        }
 
         // 解码 Base64 字符串为字节数组
         byte[] decodedBytes = Base64.getDecoder().decode(base64Data);

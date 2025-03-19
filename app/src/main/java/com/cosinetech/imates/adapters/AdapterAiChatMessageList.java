@@ -255,8 +255,8 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             VoiceDbUtil.VoiceDbItem vi = VoiceDbUtil.extractDbVoiceContent(message.content);
 
 // 计算 voice_layout 的宽度
-            int baseWidth = ScreenUtils.dpToPx(mContext, 50); // 基准宽度
-            int minWidth = ScreenUtils.dpToPx(mContext, 50);   // 最小宽度
+            int baseWidth = ScreenUtils.dpToPx(mContext, 100); // 基准宽度
+            int minWidth = ScreenUtils.dpToPx(mContext, 100);   // 最小宽度
             int maxWidth = ScreenUtils.dpToPx(mContext, 600);  // 最大宽度
             int calculatedWidth = baseWidth + (vi.duration * ScreenUtils.dpToPx(mContext, 5)); // 根据语音时长调整宽度
 

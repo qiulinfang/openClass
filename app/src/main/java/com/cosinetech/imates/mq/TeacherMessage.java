@@ -117,9 +117,10 @@ public class TeacherMessage {
                         ChatMessage.MessageType.VOICE,
                         this.getSessionId(),
                         this.getTimestamp());
-                String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + chatMessage.messageId + ".png";
+                String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + chatMessage.messageId + ".voice";
                 VoiceDbUtil.saveVoiceFile(this.getContent(), filePath);
-                chatMessage.content = filePath;
+                // TODO: duration
+                chatMessage.content = "1," +  filePath;
             }
             break;
         }

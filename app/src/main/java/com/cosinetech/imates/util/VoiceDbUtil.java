@@ -20,7 +20,13 @@ public class VoiceDbUtil {
         public String voicePath;
     }
 
-    public static void saveVoiceFile(String base64Voice, String filePath) {
+    public static void saveVoiceFile(String base64VoiceData, String filePath) {
+        String base64Voice;
+        if(!base64VoiceData.startsWith("data:audio")) {
+            base64Voice = base64VoiceData;
+        } else {
+            base64Voice = base64VoiceData.split(",")[1];;
+        }
         if (base64Voice == null || base64Voice.isEmpty()) {
             Log.e("VoiceUtils", "Base64数据为空，无法保存：" + filePath);
             return;
@@ -61,8 +67,8 @@ public class VoiceDbUtil {
             // 读取文件内容为字节数组
             byte[] fileContent = Files.readAllBytes(Paths.get(voicePath));
 
-            // 将字节数组编码为 Base64 字符串
-            return Base64.getEncoder().encodeToString(fileContent);
+            // 将字节数组编码为 Base64 字符串, 带audio前缀
+            return "data:audio/aac;base64," + Base64.getEncoder().encodeToString(fileContent);
         } catch (Exception e) {
             // 处理异常
             Log.e(VoiceDbUtil.class.toString(),"读取文件或编码失败: " + e.getMessage());
