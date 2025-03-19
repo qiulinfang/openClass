@@ -96,6 +96,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         mChatDb = ChatMessageHistoryDB.getInstance(this, AppUtils.getUserId());
         initView();
         setChatCatalogue();
+        MessagingManager.getInstance().addMessageListener(this);
     }
 
     @Override
@@ -113,16 +114,13 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
 
     private void initView() {
         mChatView = findViewById(R.id.chat_view);
-        mChatView.setSendTeacherListener(new ChatAiView.OnSendToTeacherListener() {
-            @Override
-            public void onSendToTeacher() {
-                if(!mRdoAskTeacher.isEnabled()) {
-                    mRdoAskTeacher.setEnabled(true);
-                }
+        mChatView.setSendTeacherListener(() -> {
+            if(!mRdoAskTeacher.isEnabled()) {
+                mRdoAskTeacher.setEnabled(true);
+            }
 
-                if(!mRdoAskTeacher.isChecked()) {
-                    mRdoAskTeacher.setChecked(true);
-                }
+            if(!mRdoAskTeacher.isChecked()) {
+                mRdoAskTeacher.setChecked(true);
             }
         });
         ChatAiParam param = new ChatAiParam();
