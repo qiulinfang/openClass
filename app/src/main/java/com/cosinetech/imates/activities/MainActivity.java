@@ -19,8 +19,6 @@ import com.cosinetech.imates.fragments.FragmentSubjectChinese;
 import com.cosinetech.imates.fragments.FragmentSubjectEnglish;
 import com.cosinetech.imates.fragments.FragmentSubjectMath;
 import com.cosinetech.imates.fragments.FragmentSubjectPhysics;
-import com.cosinetech.imates.models.UserInfoViewModel;
-import com.cosinetech.imates.mq.MessagingManager;
 import com.cosinetech.imates.service.FloatingRobotService;
 import com.cosinetech.imates.util.VersionUtils;
 import com.cosinetech.imates.util.WindowUtils;
@@ -38,8 +36,6 @@ import com.xuexiang.xupdate.easy.EasyUpdate;
 
 import android.widget.ImageView;
 
-import androidx.lifecycle.ViewModelProvider;
-import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.viewpager2.widget.ViewPager2;
 
 import java.util.ArrayList;

@@ -12,8 +12,6 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -33,8 +31,8 @@ public class RabbitMQManager {
     private static final String TAG = "RabbitMQManager";
 
     // RabbitMQ连接参数
-    private static final String HOST = "192.168.40.149";
-    private static final int PORT = 5672;
+    private static final String HOST = "www.imates.com.cn";
+    private static final int PORT = 5673;
     private static final String USERNAME = "admin";
     private static final String PASSWORD = "admin";
     private static final String VIRTUAL_HOST = "/";
@@ -47,7 +45,7 @@ public class RabbitMQManager {
     private static final String ROUTE_KEY_STUDENT_TO_TEACHER = "student_route_teacher";
 
     // 队列配置
-    private static final String TEACHER_QUEUE_NAME = "QUESTION_RECEIVE_QUEUE_N";
+    private static final String TEACHER_QUEUE_NAME = "QUESTION_RECEIVE_QUEUE";
 
     private final String userId;
     private final String studentQueueName; // userId_a
@@ -63,7 +61,7 @@ public class RabbitMQManager {
      */
     public RabbitMQManager(String userId) {
         this.userId = userId;
-        this.studentQueueName = userId + "_student_q";
+        this.studentQueueName = userId + "_a";
         this.routeKeyTeacherToStudent = "teacher_route_student_" + userId;
     }
 
@@ -93,8 +91,8 @@ public class RabbitMQManager {
             channel.exchangeDeclare(EXCHANGE_NAME, EXCHANGE_TYPE, true);
 
             // 声明队列参数
-            Map<String, Object> queueArgs = new HashMap<>();
-            queueArgs.put("x-message-ttl", 259200000); // 72小时 = 259200000毫秒
+//            Map<String, Object> queueArgs = new HashMap<>();
+//            queueArgs.put("x-message-ttl", 259200000); // 72小时 = 259200000毫秒
 
             // 声明教师队列（被动声明，如果不存在则会抛出异常）
 //            try {
@@ -106,10 +104,10 @@ public class RabbitMQManager {
 //
 //            }
             // 声明教师队列
-            channel.queueDeclare(TEACHER_QUEUE_NAME, true, false, false, queueArgs);
+            channel.queueDeclare(TEACHER_QUEUE_NAME, true, false, false, null);
 
             // 声明学生接收队列
-            channel.queueDeclare(studentQueueName, true, false, false, queueArgs);
+            channel.queueDeclare(studentQueueName, true, false, false, null);
 
             // 绑定教师队列到Exchange
             channel.queueBind(TEACHER_QUEUE_NAME, EXCHANGE_NAME, ROUTE_KEY_STUDENT_TO_TEACHER);
