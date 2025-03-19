@@ -1211,8 +1211,6 @@ public class ChatAiView extends RelativeLayout {
     public void onReceivedTeacherMessage(TeacherMessage msg) {
         ChatMessage chatMessage = msg.toChatMessage();
         if(chatMessage != null) {
-            mChatDb.addChatMessageDetail(chatMessage);
-
             if(mCurrentSession.sessionId.equals(chatMessage.sessionId)) {
                 messageList.add(new ChatDisplayItem(chatMessage, false));
                 mAdapterAiChatMessageList.notifyDataSetChanged();

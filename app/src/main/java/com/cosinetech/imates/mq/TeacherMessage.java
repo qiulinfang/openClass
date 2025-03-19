@@ -120,10 +120,15 @@ public class TeacherMessage {
                 String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + chatMessage.messageId + ".voice";
                 VoiceDbUtil.saveVoiceFile(this.getContent(), filePath);
                 // TODO: duration
-                chatMessage.content = "1," +  filePath;
+                chatMessage.content = "10," +  filePath;
             }
             break;
         }
+
+        if(chatMessage != null) {
+            chatMessage.messageId = UUID.nameUUIDFromBytes(this.messageId.getBytes()).toString();
+        }
+
         return chatMessage;
     }
 
