@@ -42,48 +42,34 @@ android {
 
                 // 修改 APK 文件的输出路径和文件名
                 output.outputFileName = outputFileName
-            }
-        }
 
-        // 配置assemble任务以改变输出目录
-        variant.assembleProvider.configure { task ->
-            task.doLast {
-                outputs.each { output ->
-                    if (output.outputFile != null && output.outputFile.name.endsWith('.apk')) {
-                        def originalOutputFile = output.outputFile
-                        def newOutputDir = new File(rootProject.projectDir, 'output/' + buildTypeName)
-                        def newOutputFile = new File(newOutputDir, originalOutputFile.name)
+                // 创建一个任务，在 APK 生成后计算 MD5 校验码
+                def generateApkInfoTask = project.tasks.register("generateApkInfo_${variant.name}") {
+                    doLast {
+                        // 获取生成后的 APK 文件
+                        def generatedFile = output.outputFile
 
-                        // 确保输出目录存在
-                        newOutputDir.mkdirs()
+                        // 计算文件大小和 MD5 校验码
+                        def fileSize = generatedFile.length()
+                        def md5Checksum = calculateMd5(generatedFile)
 
-                        // 复制APK到新的输出目录
-                        copy {
-                            from originalOutputFile
-                            into newOutputDir
-                        }
-
-                        // 如果需要删除旧的APK文件，可以取消注释以下行
-                        // originalOutputFile.delete()
-
-                        // 计算文件大小和MD5校验码
-                        def fileSize = newOutputFile.length()
-                        def md5Checksum = calculateMd5(newOutputFile)
-
-                        // 创建该APK对应的JSON信息
+                        // 创建该 APK 对应的 JSON 信息
                         def apkInfo = [
-                                fileName: newOutputFile.name,
-                                filePath: newOutputFile.absolutePath,
+                                fileName: generatedFile.name,
+                                filePath: generatedFile.absolutePath,
                                 fileSize: fileSize,
                                 md5Checksum: md5Checksum
                         ]
 
-                        // 创建JSON文件，并保存在与APK相同的目录下
-                        def jsonFileName = "${newOutputFile.name.replace('.apk', '')}-info.json"
-                        def jsonFile = new File(newOutputDir, jsonFileName)
-                        jsonFile.text = new JsonBuilder(apkInfo).toPrettyString()
+                        // 创建 JSON 文件，并保存在与 APK 相同的目录下
+                        def jsonFileName = "${generatedFile.name.replace('.apk', '')}-info.json"
+                        def jsonFile = new File(generatedFile.parentFile, jsonFileName)
+                        jsonFile.text = new groovy.json.JsonBuilder(apkInfo).toPrettyString()
                     }
                 }
+
+                // 将这个任务添加到构建任务的执行顺序中，确保它在 APK 构建后执行
+                variant.assembleProvider.get().finalizedBy(generateApkInfoTask)
             }
         }
     }
