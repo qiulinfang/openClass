@@ -163,7 +163,6 @@
         android:id="@+id/chat_msg_refresh_layout"
         android:layout_below="@id/split_line"
         android:layout_above="@id/chat_input_area"
-        android:layout_alignParentBottom="true"
         android:layout_alignParentEnd="true"
         android:layout_toEndOf="@id/v_split"
         android:background="@drawable/chat_ai_msg_list_bg"
