@@ -26,8 +26,8 @@ public class RecyclerViewOverscrollDecoration extends RecyclerView.ItemDecoratio
         boolean isReverseLayout = linearLayoutManager.getReverseLayout();
         boolean isHorizontal = linearLayoutManager.getOrientation() == LinearLayoutManager.HORIZONTAL;
 
-        int reservePadH = parent.getWidth() * 7 / 8;
-        int reservePadV = parent.getHeight() * 7 / 8;
+        int reservePadH = parent.getWidth() * 3 / 4;
+        int reservePadV = parent.getHeight() * 3 / 4;
         // Calculate extra space for first/last item based on orientation and reverseLayout
         if (isReverseLayout) {
             // When reversed, we need to add space to the first item

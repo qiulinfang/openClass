@@ -1201,6 +1201,7 @@ public class ChatAiView extends RelativeLayout {
         messageList.add(new ChatDisplayItem(message, !message.isSelf));
         mChatDb.addChatMessageDetail(message);
         mAdapterAiChatMessageList.notifyDataSetChanged();
+        mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
     }
 
     public void sendTextMessageToTeacher(String content) {
@@ -1225,6 +1226,7 @@ public class ChatAiView extends RelativeLayout {
         messageList.add(new ChatDisplayItem(message, !message.isSelf));
         mChatDb.addChatMessageDetail(message);
         mAdapterAiChatMessageList.notifyDataSetChanged();
+        mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
     }
 
     public void sendPictureToTeacher(String path) {
@@ -1251,6 +1253,7 @@ public class ChatAiView extends RelativeLayout {
         messageList.add(new ChatDisplayItem(message, !message.isSelf));
         mChatDb.addChatMessageDetail(message);
         mAdapterAiChatMessageList.notifyDataSetChanged();
+        mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
     }
 
     public void onReceivedTeacherMessage(TeacherMessage msg) {
@@ -1259,6 +1262,7 @@ public class ChatAiView extends RelativeLayout {
             if(mCurrentSession.sessionId.equals(chatMessage.sessionId)) {
                 messageList.add(new ChatDisplayItem(chatMessage, false));
                 mAdapterAiChatMessageList.notifyDataSetChanged();
+                mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
             }
         }
 
