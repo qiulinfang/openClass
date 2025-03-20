@@ -40,9 +40,10 @@ public class ChatAiActivity extends AppCompatActivity implements MessagingManage
             finish();
         });
 
-        mChatView.registerForActivityResult(this);
+        mChatView.registerScreenShotForActivityResult(this);
+        mChatView.registerPickImageForActivityResult(this);
         // Set listener to be notified when screenshot is captured
-        mChatView.setOnScreenshotCapturedListener(mChatView::sendPictureToTeacher);
+        mChatView.setOnPictureSelectedListener(mChatView::sendPictureToTeacher);
 
         MessagingManager.getInstance().addMessageListener(this);
 

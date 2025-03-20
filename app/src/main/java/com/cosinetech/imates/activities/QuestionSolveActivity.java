@@ -1,10 +1,8 @@
 package com.cosinetech.imates.activities;
 
 import android.content.Intent;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.MediaStore;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
@@ -145,9 +143,9 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         });
 
         mChatView.setChatAiParam(param);
-        mChatView.registerForActivityResult(this);
+        mChatView.registerScreenShotForActivityResult(this);
         // Set listener to be notified when screenshot is captured
-        mChatView.setOnScreenshotCapturedListener(mChatView::sendPictureToTeacher);
+        mChatView.setOnPictureSelectedListener(mChatView::sendPictureToTeacher);
 
         //mChatView.setAiName("AI解题助手");
         findViewById(R.id.btn_exit).setOnClickListener(v->{
@@ -799,19 +797,6 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 imageView.setTag(selectedImageUri);
             }
         }
-    }
-
-    private String getRealPathFromURI(Uri uri) {
-        String[] projection = {MediaStore.Images.Media.DATA};
-        Cursor cursor = getContentResolver().query(uri, projection, null, null, null);
-        if (cursor != null) {
-            int columnIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
-            cursor.moveToFirst();
-            String path = cursor.getString(columnIndex);
-            cursor.close();
-            return path;
-        }
-        return uri.toString();
     }
 
 

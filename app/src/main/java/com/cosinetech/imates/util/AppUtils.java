@@ -4,7 +4,12 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
+import android.provider.MediaStore;
+import android.util.Log;
 
+import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 
@@ -12,6 +17,10 @@ import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.models.UserInfoViewModel;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 public class AppUtils {
     public static void restartApp(Context context) {
@@ -67,6 +76,45 @@ public class AppUtils {
         File file = new File(path);
         if (file.exists()) {
             file.delete();
+        }
+    }
+
+    public String getRealPathFromURI(Context context, Uri uri) {
+        String[] projection = {MediaStore.Images.Media.DATA};
+        Cursor cursor = context.getContentResolver().query(uri, projection, null, null, null);
+        if (cursor != null) {
+            int columnIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+            cursor.moveToFirst();
+            String path = cursor.getString(columnIndex);
+            cursor.close();
+            return path;
+        }
+        return uri.toString();
+    }
+
+    public static boolean copyImageToExternalFilesDir(Context context, Uri imageUri, String filePath) {
+        File destinationFile = new File(filePath);
+
+        try (InputStream inputStream = context.getContentResolver().openInputStream(imageUri);
+             OutputStream outputStream = new FileOutputStream(destinationFile)) {
+
+            if (inputStream == null) {
+                Log.e("CopyImage", "Failed to open input stream.");
+                return false;
+            }
+
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+            }
+
+            Log.d("CopyImage", "Image copied to: " + destinationFile.getAbsolutePath());
+            return true;
+
+        } catch (IOException e) {
+            Log.e("CopyImage", "Error copying image: " + e.getMessage());
+            return false;
         }
     }
 }

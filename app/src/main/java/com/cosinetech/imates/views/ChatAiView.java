@@ -76,7 +76,7 @@ public class ChatAiView extends RelativeLayout {
         void onSendToTeacher();
     }
 
-    public interface OnScreenshotCapturedListener {
+    public interface OnPictureSelectedListener {
         void onScreenshotCaptured(String screenshotPath);
     }
 
@@ -115,7 +115,7 @@ public class ChatAiView extends RelativeLayout {
 
     private ChatMessage mLastReceivingMsg;
 
-    private String mScreenShotImageUUID = "";
+    private String mSelectedImageUUID = "";
 
     private String mAudioRecordUUID = "";
     private boolean mAudioRecordCancel = false;
@@ -131,7 +131,8 @@ public class ChatAiView extends RelativeLayout {
     private OnSendToTeacherListener mSendTeacherListener;
 
     private ActivityResultLauncher<Intent> mScreenshotLauncher;
-    private OnScreenshotCapturedListener mScreenshotCapturedListener;
+    private ActivityResultLauncher<Intent> mPickImageLauncher;
+    private OnPictureSelectedListener mPictureSelectedListener;
 
     public ChatAiView(Context context) {
         super(context);
@@ -148,7 +149,7 @@ public class ChatAiView extends RelativeLayout {
         init(context);
     }
 
-    public void registerForActivityResult(FragmentActivity activity) {
+    public void registerScreenShotForActivityResult(FragmentActivity activity) {
         mScreenshotLauncher = activity.registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
@@ -156,9 +157,37 @@ public class ChatAiView extends RelativeLayout {
                         // Get the screenshot path from the result
                         String screenshotPath = result.getData().getStringExtra(ScreenShotActivity.KEY_FINAL_IMAGE_PATH);
                         if (screenshotPath != null && !screenshotPath.isEmpty()) {
-                            if (mScreenshotCapturedListener != null) {
-                                mScreenshotCapturedListener.onScreenshotCaptured(screenshotPath);
+                            if (mPictureSelectedListener != null) {
+                                mPictureSelectedListener.onScreenshotCaptured(screenshotPath);
                             }
+                        }
+                    }
+                }
+        );
+    }
+
+    public void registerPickImageForActivityResult(FragmentActivity activity) {
+        mPickImageLauncher = activity.registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                        // Get the screenshot path from the result
+                        Uri uri = result.getData().getData();
+                        if(uri != null) {
+                            // 复制图片到外部存储
+                            String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + mSelectedImageUUID + ".png";
+                            boolean success = AppUtils.copyImageToExternalFilesDir(getContext(), uri, filePath);
+                            if (success) {
+                                Log.d("PhotoPicker", "Image copied successfully!");
+                                if (mPictureSelectedListener != null) {
+                                    mPictureSelectedListener.onScreenshotCaptured(filePath);
+                                }
+                            } else {
+                                Log.e("PhotoPicker", "Failed to copy image.");
+                                Toast.makeText(getContext(), "照片拷贝失败", Toast.LENGTH_SHORT).show();
+                            }
+                        } else {
+                            Toast.makeText(getContext(), "没有选择相片", Toast.LENGTH_SHORT).show();
                         }
                     }
                 }
@@ -170,13 +199,22 @@ public class ChatAiView extends RelativeLayout {
             Intent intent = new Intent(getContext(),  ScreenShotActivity.class);
             intent.setAction(ScreenShotActivity.ACTION_EDIT_IMAGE);
             intent.putExtra(ScreenShotActivity.KEY_SET_STORE_DIR, AppUtils.getUserFilePath().getAbsolutePath());
-            intent.putExtra(ScreenShotActivity.KEY_SET_FILE_NAME, mScreenShotImageUUID + ".png");
+            intent.putExtra(ScreenShotActivity.KEY_SET_FILE_NAME, mSelectedImageUUID + ".png");
             mScreenshotLauncher.launch(intent);
         }
     }
 
-    public void setOnScreenshotCapturedListener(OnScreenshotCapturedListener listener) {
-        this.mScreenshotCapturedListener = listener;
+    private void launchPickImageActivity() {
+        if (mPickImageLauncher != null) {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("image/*");
+            mPickImageLauncher.launch(intent);
+        }
+    }
+
+    public void setOnPictureSelectedListener(OnPictureSelectedListener listener) {
+        this.mPictureSelectedListener = listener;
     }
 
     public void setSendTeacherListener(OnSendToTeacherListener l) {
@@ -297,10 +335,17 @@ public class ChatAiView extends RelativeLayout {
         Button btnAddFavor = view.findViewById(R.id.btn_add_favor);
 
         mSendPictureButton.setOnClickListener(v->{
-            mScreenShotImageUUID = UUID.randomUUID().toString();
+            //截图
+//            mScreenShotImageUUID = UUID.randomUUID().toString();
+//            if (context instanceof FragmentActivity) {
+//                launchScreenshotActivity();
+//            }
+            //从相册选择
+            mSelectedImageUUID = UUID.randomUUID().toString();
             if (context instanceof FragmentActivity) {
-                launchScreenshotActivity();
+                launchPickImageActivity();
             }
+
         });
 
         btnNewChat.setOnClickListener(v->{
@@ -1190,7 +1235,7 @@ public class ChatAiView extends RelativeLayout {
                 subject,
                 TeacherQaType.QA_MSG_TYPE_PICTURE,
                 base64Content);
-        studentMsg.setMessageId(mScreenShotImageUUID);
+        studentMsg.setMessageId(mSelectedImageUUID);
 
         MessagingManager.getInstance().sendMessageToTeacher(studentMsg, (success, messageId, errorMessage) -> {
             Log.e("=-=-=", success + messageId + errorMessage);
