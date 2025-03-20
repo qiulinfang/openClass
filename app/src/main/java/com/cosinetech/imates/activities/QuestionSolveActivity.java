@@ -139,6 +139,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
 
         mChatView.setChatAiParam(param);
         mChatView.registerScreenShotForActivityResult(this);
+        mChatView.registerPickImageForActivityResult(this);
         // Set listener to be notified when screenshot is captured
         mChatView.setOnPictureSelectedListener(mChatView::sendPictureToTeacher);
 
