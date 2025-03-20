@@ -219,7 +219,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 adapterQuestionList.notifyItemChanged(pos);
 
                 MarkdownTextView answer = findViewById(R.id.answerView);
-                answer.setContent(mCurrentQuestion.answer + mCurrentQuestion.explanation);
+                answer.setContent(mCurrentQuestion.DAJX);
 
                 mChatView.setChatEnable(false);
                 chatResponseTimes = 0;
@@ -401,7 +401,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         aiChatMessageRequest.setNewValue("1");
         aiChatMessageRequest.setSessionId(session.sessionId);
         aiChatMessageRequest.setQuestion(questionString);
-        aiChatMessageRequest.setAnswer(mQuestions.get(mCurrentQuestionIndex).DAJX + mQuestions.get(mCurrentQuestionIndex).explanation);
+        aiChatMessageRequest.setAnswer(mQuestions.get(mCurrentQuestionIndex).explanation);
         aiChatMessageRequest.setCoversation("我们开始吧");
         aiChatMessageRequest.setReason("start");
         aiChatMessageRequest.setBmNo(mQuestions.get(mCurrentQuestionIndex).bmNo);
