@@ -74,27 +74,21 @@ public class FindKnowledgeQuestionPopupWindow {
         ApiGateWayService.querySimilarExerciseList(item, url, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
             @Override
             public void onSuccess(List<Question> q) {
-                mView.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        mSimilarQuestion.clear();
-                        mSimilarQuestion.addAll(q);
-                        adapterSimilarQuestionList.resetSelection();
-                        adapterSimilarQuestionList.notifyDataSetChanged();
-                    }
+                mView.post(() -> {
+                    mSimilarQuestion.clear();
+                    mSimilarQuestion.addAll(q);
+                    adapterSimilarQuestionList.resetSelection();
+                    adapterSimilarQuestionList.notifyDataSetChanged();
                 });
             }
 
             @Override
             public void onFailure(String msg, int code) {
-                mView.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        mSimilarQuestion.clear();
-                        adapterSimilarQuestionList.resetSelection();
-                        adapterSimilarQuestionList.notifyDataSetChanged();
-                        Toast.makeText(mContext, "没有查到对应的题目", Toast.LENGTH_SHORT).show();
-                    }
+                mView.post(() -> {
+                    mSimilarQuestion.clear();
+                    adapterSimilarQuestionList.resetSelection();
+                    adapterSimilarQuestionList.notifyDataSetChanged();
+                    Toast.makeText(mContext, "没有查到对应的题目", Toast.LENGTH_SHORT).show();
                 });
             }
         });
