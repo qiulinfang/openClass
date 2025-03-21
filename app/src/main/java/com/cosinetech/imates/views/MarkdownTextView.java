@@ -65,10 +65,10 @@ public class MarkdownTextView extends AppCompatTextView {
 
     private String filterLatexString(String src) {
         return src.replace("\\(", "$")
-                .replace("\\)", "$")
+                .replace("\\)", "$") //行内公式
                 .replace("$$", "$$\n")
-                .replace("\\[", "$")
-                .replace("\\]", "$");
+                .replace("\\[", "$$\n") //块公式
+                .replace("\\]", "$$\n");
     }
 
     public void disableTypingEffectDisplay() {
