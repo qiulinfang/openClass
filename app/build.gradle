@@ -29,10 +29,10 @@ android {
     }
 
     // 配置APK输出路径和名称
-    android.applicationVariants.all { variant ->
+    android.applicationVariants.configureEach { variant ->
         def buildTypeName = variant.buildType.name // 获取构建类型名称
         def outputs = variant.outputs
-        outputs.all { output ->
+        outputs.configureEach { output ->
             if (output.outputFile != null && output.outputFile.name.endsWith('.apk')) {
                 def versionName = variant.versionName
                 def versionCode = variant.versionCode
@@ -64,7 +64,7 @@ android {
                         // 创建 JSON 文件，并保存在与 APK 相同的目录下
                         def jsonFileName = "${generatedFile.name.replace('.apk', '')}-info.json"
                         def jsonFile = new File(generatedFile.parentFile, jsonFileName)
-                        jsonFile.text = new groovy.json.JsonBuilder(apkInfo).toPrettyString()
+                        jsonFile.text = new JsonBuilder(apkInfo).toPrettyString()
                     }
                 }
 

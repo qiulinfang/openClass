@@ -64,11 +64,14 @@ public class MarkdownTextView extends AppCompatTextView {
     }
 
     private String filterLatexString(String src) {
-        return src.replace("\\(", "$")
-                .replace("\\)", "$")
+        return src // 处理块latex
                 .replace("$$", "$$\n")
-                .replace("\\[", "$")
-                .replace("\\]", "$");
+                //处理inline latex
+                .replace("\\(", "$$$$")
+                .replace("\\)", "$$$$")
+                .replace("\\[", "$$$$")
+                .replace("\\]", "$$$$")
+                .replace("$$$$", "$$");
     }
 
     public void disableTypingEffectDisplay() {
