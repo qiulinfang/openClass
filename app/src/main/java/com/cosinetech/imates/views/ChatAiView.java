@@ -1076,13 +1076,15 @@ public class ChatAiView extends RelativeLayout {
                 System.currentTimeMillis());
         messageList.add(new ChatDisplayItem(message, !message.isSelf));
         mChatDb.addChatMessageDetail(message);
-        ChatMessage responseMessage = new ChatMessage("",
+
+        mLastReceivingMsg = new ChatMessage("",
                 false,
                 ChatMessage.MessageType.TEXT,
                 mCurrentSession.sessionId,
                 System.currentTimeMillis());
-        mLastReceivingMsg = responseMessage;
-        messageList.add(new ChatDisplayItem(responseMessage, !responseMessage.isSelf));
+
+        // 注意： 从 mChatAiParam决定是否启用打字机效果显示
+        messageList.add(new ChatDisplayItem(mLastReceivingMsg, mChatAiParam.streamDisplay));
 
         // 一次性通知 Adapter 插入两条消息
         mAdapterAiChatMessageList.notifyItemRangeInserted(messageList.size() - 2, 2);
@@ -1141,14 +1143,14 @@ public class ChatAiView extends RelativeLayout {
             mAdapterAiChatMessageList.notifyDataSetChanged();
             mEditMsg.setText("");
 
-            ChatMessage responseMessage = new ChatMessage(
+            mLastReceivingMsg = new ChatMessage(
                     "",
                     false,
                     ChatMessage.MessageType.TEXT,
                     mCurrentSession.sessionId,
                     System.currentTimeMillis());
-            mLastReceivingMsg = responseMessage;
-            messageList.add(new ChatDisplayItem(responseMessage, !responseMessage.isSelf));
+            // 注意： 从 mChatAiParam决定是否启用打字机效果显示
+            messageList.add(new ChatDisplayItem(mLastReceivingMsg, mChatAiParam.streamDisplay));
             mAdapterAiChatMessageList.notifyItemInserted(messageList.size() - 1);
 
             mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
