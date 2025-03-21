@@ -1025,6 +1025,7 @@ public class ChatAiView extends RelativeLayout {
 
                         Log.d("%%%%%%%%", response);
                     }
+
                     if(!response.equals("end")) {
                         mAiChatRequest.setReason("continue");
                         pollChat();

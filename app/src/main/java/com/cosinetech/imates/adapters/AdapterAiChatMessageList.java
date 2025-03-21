@@ -204,6 +204,8 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             viewHolder.tvMessage.setTypingEffectDisplayItem(item);
             viewHolder.tvMessage.disableTypingEffectDisplay();
             if(item.showWithTypingEffect) {
+                // 2. 回退到当前显示进度（关键步骤）
+//                viewHolder.tvMessage.rewindToProgress(item.currentDisplayCharIndex);
                 viewHolder.tvMessage.enableTypingEffectDisplay();
             } else {
                 viewHolder.tvMessage.setContent(message.content);
@@ -374,6 +376,11 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             tvMessage.clearContent();
             tvSelected = itemView.findViewById(R.id.iv_select);
             ivAvastar = itemView.findViewById(R.id.iv_avatar);
+        }
+        // 添加回收时清理的方法
+        public void cleanUp() {
+            tvMessage.disableTypingEffectDisplay();
+            tvMessage.clearContent();
         }
     }
 
