@@ -31,7 +31,6 @@ public class MarkdownTextView extends AppCompatTextView {
     private boolean showWithTypingEffect;
 
     // 新增语法处理状态
-    private final SyntaxBuffer mSyntaxBuffer = new SyntaxBuffer();
     private final Deque<Runnable> mPendingUpdates = new ArrayDeque<>();
     private boolean mIsRendering;
 
@@ -72,26 +71,35 @@ public class MarkdownTextView extends AppCompatTextView {
 
     public void setTypingEffectDisplayItem(ChatDisplayItem msg) {
         mTypingEffectDisplayItem = msg;
-
-        // 关键修改：当复用已有进度的项目时，恢复缓冲区状态
-        if (msg.currentDisplayCharIndex > 0) {
-            String processedContent = msg.chatMessage.content.substring(0, msg.currentDisplayCharIndex);
-            mSyntaxBuffer.restoreState(processedContent);
-        }
     }
 
     private String filterLatexString(String src) {
-        return src // 处理块latex
+        return src.replace("\\(", "$")
+                .replace("\\)", "$")
                 .replace("$$", "$$\n")
-                //处理inline latex
-                .replace("\\(", "$$")
-                .replace("\\)", "$$")
-                .replace("\\[", "$$")
-                .replace("\\]", "$$");
+                .replace("\\[", "$")
+                .replace("\\]", "$");
     }
 
     public void disableTypingEffectDisplay() {
         showWithTypingEffect = false;
+    }
+
+    public void enableTypingEffectDisplay() {
+        if (showWithTypingEffect) {
+            return; // 如果已经在流式显示，则直接返回
+        }
+        if(mTypingEffectDisplayItem == null) {
+            return;
+        }
+        showWithTypingEffect = true;
+
+        // 仅在首次启动时重置缓冲区
+        if (mTypingEffectDisplayItem.currentDisplayCharIndex == 0) {
+            mTypingEffectDisplayItem.mSyntaxBuffer.reset();
+        }
+        mMainHandler.post(streamDisplayRunnable);
+        //mMainHandler.postDelayed(latexTimeoutCheck, LATEX_TIMEOUT);
     }
 
     final Runnable streamDisplayRunnable = new Runnable() {
@@ -104,21 +112,25 @@ public class MarkdownTextView extends AppCompatTextView {
 
             // 处理新内容块
             String newContent = getNextContentChunk();
-            if (newContent == null || newContent.isEmpty()) return;
+            if (newContent == null || newContent.isEmpty()) {
+                return;
+            }
+            Log.e(TAG, "new：" + newContent);
 
             // 1. 处理输入内容
             for (char c : newContent.toCharArray()) {
-                mSyntaxBuffer.feed(c);
+                mTypingEffectDisplayItem.mSyntaxBuffer.feed(c);
             }
 
             // 2. 获取并显示安全内容
-            String safeContent = mSyntaxBuffer.flushSafeContent();
+            String safeContent = mTypingEffectDisplayItem.mSyntaxBuffer.flushSafeContent();
+            Log.e(TAG, "safe：" + safeContent);
             if (!safeContent.isEmpty()) {
                 appendContent(safeContent);
             }
 
             // 3. 显示占位符（关键位置）
-            if (mSyntaxBuffer.hasPendingLatex()) {
+            if (mTypingEffectDisplayItem.mSyntaxBuffer.hasPendingLatex()) {
                 appendPlaceholder();
             } else {
                 removePlaceholder();
@@ -147,23 +159,6 @@ public class MarkdownTextView extends AppCompatTextView {
 //            }
         }
     };
-
-    public void enableTypingEffectDisplay() {
-        if (showWithTypingEffect) {
-            return; // 如果已经在流式显示，则直接返回
-        }
-        if(mTypingEffectDisplayItem == null) {
-            return;
-        }
-        showWithTypingEffect = true;
-
-        // 仅在首次启动时重置缓冲区
-        if (mTypingEffectDisplayItem.currentDisplayCharIndex == 0) {
-            mSyntaxBuffer.reset();
-        }
-        mMainHandler.post(streamDisplayRunnable);
-        mMainHandler.postDelayed(latexTimeoutCheck, LATEX_TIMEOUT);
-    }
 
     public boolean isShowWithTypingEffect() {
         return showWithTypingEffect;
@@ -200,10 +195,10 @@ public class MarkdownTextView extends AppCompatTextView {
 
     // 在超时处理中移除占位符
     private final Runnable latexTimeoutCheck = () -> {
-        if (mSyntaxBuffer.hasPendingLatex()) {
+        if (mTypingEffectDisplayItem.mSyntaxBuffer.hasPendingLatex()) {
             Log.w(TAG, "LaTeX block timeout, flushing raw content");
             removePlaceholder(); // 先移除占位符
-            appendContent(mSyntaxBuffer.flushAll());
+            appendContent(mTypingEffectDisplayItem.mSyntaxBuffer.flushAll());
         }
     };
 
@@ -236,18 +231,17 @@ public class MarkdownTextView extends AppCompatTextView {
 
     private void appendContent(String newContent) {
         safeUpdateUI(() -> {
-            SpannableStringBuilder fullContent = new SpannableStringBuilder(getText());
-            fullContent.append(filterLatexString(newContent));
-
+            mTypingEffectDisplayItem.currentSafeDisplayString.append(newContent);
+            Log.e(TAG, "full：" + mTypingEffectDisplayItem.currentSafeDisplayString.toString());
             // 优化：仅在内容变化时更新
-            if (!fullContent.toString().equals(getText().toString())) {
-                mMarkwon.setMarkdown(this, fullContent.toString());
-            }
+            //if (!fullContent.toString().equals(getText().toString())) {
+                mMarkwon.setMarkdown(this, mTypingEffectDisplayItem.currentSafeDisplayString.toString());
+            //}
         });
     }
 
     private void flushRemainingContent() {
-        String remaining = mSyntaxBuffer.flushAll();
+        String remaining = mTypingEffectDisplayItem.mSyntaxBuffer.flushAll();
         if (!remaining.isEmpty()) {
             appendContent(remaining);
         }
@@ -281,108 +275,5 @@ public class MarkdownTextView extends AppCompatTextView {
     }
 
     // 核心语法处理类
-    private static class SyntaxBuffer {
-        private final StringBuilder buffer = new StringBuilder();
-        private int latexBlockDepth;
-        private boolean inLatexInline;
-        private boolean escaping; // 新增转义状态跟踪
 
-        private void feed(char c) {
-            buffer.append(c);
-            updateState(c);
-        }
-
-        // 状态分析方法（支持转义字符）
-        private void updateState(char c) {
-            // 处理转义字符
-            if (escaping) {
-                escaping = false;
-                return;
-            }
-
-            if (c == '\\') {
-                escaping = true;
-                return;
-            }
-
-            // 块级公式检测
-            if (buffer.length() >= 2) {
-                int pos = buffer.length() - 1;
-                char prev = buffer.charAt(pos - 1);
-                if (prev == '$' && c == '$' && !isEscaped(pos - 1)) {
-                    latexBlockDepth += (latexBlockDepth % 2 == 0) ? 1 : -1;
-                    return;
-                }
-            }
-
-//            // 行内公式检测（排除块公式情况）
-            if (c == '$' && latexBlockDepth % 2 == 0) {
-                if (buffer.length() == 1 ||
-                        buffer.charAt(buffer.length()-2) != '$' ||
-                        isEscaped(buffer.length()-2)) {
-                    inLatexInline = !inLatexInline;
-                }
-            }
-        }
-
-        // 状态重建核心方法
-        private void reAnalyzeBufferState() {
-            reset();
-            escaping = false;
-
-            // 临时禁用状态更新
-            final StringBuilder temp = new StringBuilder(buffer);
-            buffer.setLength(0);
-
-            for (int i = 0; i < temp.length(); i++) {
-                final char c = temp.charAt(i);
-                buffer.append(c);
-                updateState(c);
-            }
-        }
-
-        private boolean isEscaped(int pos) {
-            if (pos <= 0) return false;
-            int escapeCount = 0;
-            while (pos > 0 && buffer.charAt(pos-1) == '\\') {
-                escapeCount++;
-                pos--;
-            }
-            return escapeCount % 2 != 0;
-        }
-
-        public void restoreState(String processedContent) {
-            buffer.setLength(0);
-            buffer.append(processedContent);
-            reAnalyzeBufferState();
-        }
-
-        String flushSafeContent() {
-            if (hasPendingLatex()) {
-                return "";
-            }
-            return flushContent();
-        }
-
-        String flushAll() {
-            return flushContent();
-        }
-
-        private String flushContent() {
-            String content = buffer.toString();
-            buffer.setLength(0);
-            reset();
-            return content;
-        }
-
-        boolean hasPendingLatex() {
-            return latexBlockDepth % 2 != 0 || inLatexInline;
-        }
-
-        void reset() {
-            latexBlockDepth = 0;
-            inLatexInline = false;
-            escaping = false;
-        }
-    }
 }
