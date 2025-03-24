@@ -170,6 +170,13 @@ public class VideoPlayView extends RelativeLayout {
         }
     }
 
+    public void pausePlay() {
+        if (mediaPlayer == null) return;
+        if(isPlaying) {
+            togglePlayPause();
+        }
+    }
+
     public void stopPlay() {
         if (mediaPlayer == null) return;
         isPlaying = false;
@@ -210,7 +217,7 @@ public class VideoPlayView extends RelativeLayout {
 
                         seekBar.setMax(mediaPlayer.getDuration());
                         mediaPlayer.seekTo(mStartPlayPos);
-                        togglePlayPause(); // 自动开始播放
+                        //togglePlayPause(); // 自动开始播放
                         updateSeekBar();
                     });
 
@@ -218,7 +225,7 @@ public class VideoPlayView extends RelativeLayout {
                     mediaPlayer.setOnCompletionListener(mp -> {
                         // 播放完成后的处理逻辑
                         isPlaying = false;
-                        buttonPlayPause.setText("Play");
+                        buttonPlayPause.setBackgroundResource(R.drawable.video_play_button_start_bg);
                         mediaPlayer.seekTo(0);
                     });
 

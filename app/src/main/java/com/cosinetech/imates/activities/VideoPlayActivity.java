@@ -66,7 +66,7 @@ public class VideoPlayActivity extends AppCompatActivity {
             File file = new File(mVideoFilePath);
             if(file.exists()) {
                 mVideoPlayView.setVideoInfo(mVideoFilePath, mSectionTitle, startPlayPos);
-                mVideoPlayView.startPlay();
+                mVideoPlayView.pausePlay();
             } else {
                 Toast.makeText(this, "视频文件不存在", Toast.LENGTH_SHORT).show();
             }
