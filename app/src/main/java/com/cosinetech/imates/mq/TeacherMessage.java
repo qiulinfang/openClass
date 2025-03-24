@@ -119,8 +119,8 @@ public class TeacherMessage {
                         this.getTimestamp());
                 String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + chatMessage.messageId + ".voice";
                 VoiceDbUtil.saveVoiceFile(this.getContent(), filePath);
-                // TODO: duration
-                chatMessage.content = "10," +  filePath;
+                long duration = VoiceDbUtil.getDuration(filePath);
+                chatMessage.content = duration + "," +  filePath;
             }
             break;
         }

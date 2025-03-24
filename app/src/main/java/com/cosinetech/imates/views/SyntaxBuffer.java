@@ -16,29 +16,29 @@ public class SyntaxBuffer {
 
     // 状态分析方法（支持转义字符）
     private void updateState(char c) {
-//        if(!escaping && c != '\\') {
-//            buffer.append(c);
-//        }
-//        // 处理转义字符
-//        if (escaping) {
-//            escaping = false;
-//
-//            if(c == '(' || c == ')' || c == '[' || c == ']')  {
-//                if(c == '(' || c == ')') {
-//                    buffer.append("$$");
-//                } else {
-//                    buffer.append("$$\n");
-//                }
-//            } else {
-//                buffer.append('\\');
-//                buffer.append(c);
-//            }
-//        }
-//
-//        if (c == '\\') {
-//            escaping = true;
-//            return;
-//        }
+        if(!escaping && c != '\\') {
+            buffer.append(c);
+        }
+        // 处理转义字符
+        if (escaping) {
+            escaping = false;
+
+            if(c == '(' || c == ')' || c == '[' || c == ']')  {
+                if(c == '(' || c == ')') {
+                    buffer.append("$$");
+                } else {
+                    buffer.append("$$\n");
+                }
+            } else {
+                buffer.append('\\');
+                buffer.append(c);
+            }
+        }
+
+        if (c == '\\') {
+            escaping = true;
+            return;
+        }
 
         // $$公式检测
         if (buffer.length() >= 2) {
@@ -50,15 +50,14 @@ public class SyntaxBuffer {
             }
         }
 
-
-//            // 行内公式检测（排除块公式情况）
-//            if (c == '$' && latexBlockDepth % 2 == 0) {
-//                if (buffer.length() == 1 ||
-//                        buffer.charAt(buffer.length()-2) != '$' ||
-//                        isEscaped(buffer.length()-2)) {
-//                    inLatexInline = !inLatexInline;
-//                }
+// 行内公式检测（排除块公式情况）
+//        if (c == '$' && latexBlockDepth % 2 == 0) {
+//            if (buffer.length() == 1 ||
+//                    buffer.charAt(buffer.length()-2) != '$' ||
+//                    isEscaped(buffer.length()-2)) {
+//                inLatexInline = !inLatexInline;
 //            }
+//        }
     }
 
     private boolean isEscaped(int pos) {

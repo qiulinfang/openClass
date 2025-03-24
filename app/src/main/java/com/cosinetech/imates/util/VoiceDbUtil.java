@@ -1,6 +1,7 @@
 package com.cosinetech.imates.util;
 
 import android.graphics.Bitmap;
+import android.media.MediaMetadataRetriever;
 import android.util.Log;
 
 import java.io.ByteArrayOutputStream;
@@ -88,5 +89,17 @@ public class VoiceDbUtil {
         vi.voicePath = dbContent.split(",")[1];
 
         return  vi;
+    }
+
+    // 直接返回秒数，失败返回 -1
+    public static long getDuration(String filePath) {
+
+        try (MediaMetadataRetriever retriever = new MediaMetadataRetriever()){
+            retriever.setDataSource(filePath);
+            String durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
+            return durationMs != null ? Long.parseLong(durationMs) / 1000 : 0;
+        } catch (Exception e) {
+            return 0;
+        }
     }
 }
