@@ -165,12 +165,26 @@ public class LessonPreviewActivity extends AppCompatActivity {
                 Intent intent = new Intent(this, MuPDFActivity.class);
                 intent.setAction(Intent.ACTION_VIEW);
                 String path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getTextBook();
+                File file = new  File(path);
+                if(!file.exists()) {
+                    path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getLecture();
+                    file = new File(path);
+                }
 
-                intent.setData(Uri.fromFile(new File(path)));
-                intent.putExtra("AssetsPdf", path);
-                intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
-                intent.putExtra("Section", mPreviewSection);
-                startActivity(intent);
+                if(!file.exists()) {
+                    path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getLearnGuide();
+                    file = new File(path);
+                }
+
+                if(file.exists()) {
+                    intent.setData(Uri.fromFile(new File(path)));
+                    intent.putExtra("AssetsPdf", path);
+                    intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
+                    intent.putExtra("Section", mPreviewSection);
+                    startActivity(intent);
+                } else {
+                    Toast.makeText(this, "没有可学习的资源", Toast.LENGTH_SHORT).show();
+                }
             }
         });
 

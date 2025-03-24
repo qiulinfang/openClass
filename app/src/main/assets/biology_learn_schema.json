@@ -1,5 +1,71 @@
 [
     {
+    "chapter": "3",
+    "title":"第3章",
+    "sections": [
+      {
+        "section":"section3.1",
+        "knowledgeNo":"3_1_d82eae08",
+        "title":"DNA是主要的遗传物质",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"biology/chapter3/section3_1/schema1_intro.txt",
+            "textBook":"biology/chapter3/3_1.pdf",
+            "bookPageStart": 1,
+            "lecture":"biology/chapter3/section3_1/schema1_lecture.pdf",
+            "learnGuide":"biology/chapter3/section3_1/schema1_guide.pdf"
+          }
+        ]
+      },
+      {
+        "section":"section3.2",
+        "title":"DNA的结构",
+        "knowledgeNo": "3_2_6e6ecf37",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"biology/chapter3/section3_2/schema1_intro.txt",
+            "textBook":"biology/chapter3/3_2.pdf",
+            "bookPageStart": 1,
+            "lecture":"biology/chapter3/section3_2/schema1_lecture.pdf",
+            "learnGuide":"biology/chapter3/section3_2/schema1_guide.pdf"
+          }
+        ]
+      },
+      {
+        "section":"section3.3",
+        "title":"DNA的复制",
+        "knowledgeNo": "3_3_6e6ecf37",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"biology/chapter3/section3_3/schema1_intro.txt",
+            "textBook":"biology/chapter3/3_3.pdf",
+            "bookPageStart": 1,
+            "lecture":"biology/chapter3/section3_3/schema1_lecture.pdf",
+            "learnGuide":"biology/chapter3/section3_3/schema1_guide.pdf"
+          }
+        ]
+      },
+      {
+        "section":"section3.4",
+        "title":"基因通常是有遗传效应的DNA片段",
+        "knowledgeNo": "3_4_6e6ecf37",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"biology/chapter3/section3_4/schema1_intro.txt",
+            "textBook":"biology/chapter3/3_4.pdf",
+            "bookPageStart": 1,
+            "lecture":"biology/chapter3/section3_4/schema1_lecture.pdf",
+            "learnGuide":"biology/chapter3/section3_4/schema1_guide.pdf"
+          }
+        ]
+      }
+    ]
+  },
+    {
         "chapter": "4",
         "title":"第4章",
         "sections": [
@@ -56,11 +122,11 @@
             },
             {
               "section":"section5.2",
-              "title":"其他植物激素",
+              "title":"染色体变异",
               "knowledgeNo": "5_2_6e6ecf37",
               "schemas": [
                 {
-                  "comments": "刘木举",
+                  "comments": "",
                   "introduction":"biology/chapter5/section5_2/schema1_intro.txt",
                   "textBook":"biology/chapter5/5_2.pdf",
                   "bookPageStart": 3,
@@ -71,7 +137,7 @@
             },
             {
               "section":"section5.3",
-              "title":"其他植物激素",
+              "title":"人类遗传病",
               "knowledgeNo": "5_3_6e6ecf37",
               "schemas": [
                 {
@@ -93,7 +159,7 @@
             {
               "section":"section6.1",
               "knowledgeNo":"6_1_d82eae08",
-              "title":"生长激素",
+              "title":"生物有共同祖先的证据",
               "schemas": [
                 {
                   "comments": "",
@@ -107,7 +173,7 @@
             },
             {
               "section":"section6.2",
-              "title":"其他植物激素",
+              "title":"自然选择与适应的形成",
               "knowledgeNo": "6_2_6e6ecf37",
               "schemas": [
                 {
@@ -122,7 +188,7 @@
             },
             {
               "section":"section6.3",
-              "title":"其他植物激素",
+              "title":"种群基因组成的变化与物种的形成",
               "knowledgeNo": "6_3_6e6ecf37",
               "schemas": [
                 {
@@ -137,7 +203,7 @@
             },
             {
               "section":"section6.4",
-              "title":"其他植物激素",
+              "title":"协同进化与生物多样性的形成",
               "knowledgeNo": "6_4_6e6ecf37",
               "schemas": [
                 {
