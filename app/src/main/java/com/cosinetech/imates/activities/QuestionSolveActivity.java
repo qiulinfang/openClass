@@ -172,6 +172,9 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         adapterQuestionList = new AdapterQuestionList(mQuestions, new AdapterQuestionList.ExerciseListChangedListener() {
             @Override
             public void onExerciseDelete(int position) {
+                if(position < 0 || position >= mQuestions.size()) {
+                    return;
+                }
                 String url;
                 Question q = mQuestions.get(position);
                 if(subject == Subject.SUBJECT_BIOLOGY) {

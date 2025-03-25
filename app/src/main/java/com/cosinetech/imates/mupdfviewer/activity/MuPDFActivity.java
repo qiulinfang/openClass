@@ -644,7 +644,7 @@ public class MuPDFActivity extends AppCompatActivity {
     }
 
     /**
-     * 工具栏 - 注释 - 底部画线点击事件
+     * 工具栏 - 注释 - 下划线点击事件
      *
      * @param v
      */
@@ -658,7 +658,7 @@ public class MuPDFActivity extends AppCompatActivity {
     }
 
     /**
-     * 工具栏 - 注释 - 废弃线点击事件
+     * 工具栏 - 注释 - 删除线点击事件
      *
      * @param v
      */
@@ -672,7 +672,7 @@ public class MuPDFActivity extends AppCompatActivity {
     }
 
     /**
-     * 工具栏 - 注释 - 签字点击事件
+     * 工具栏 - 注释 - 手绘点击事件
      *
      * @param v
      */

@@ -9,44 +9,23 @@ import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.media.MediaPlayer;
 import android.net.Uri;
-import android.os.Build;
 import android.util.AttributeSet;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
-import android.view.WindowManager;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.Button;
-import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.PopupWindow;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
-import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
-import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.activities.VideoPlayActivity;
-import com.cosinetech.imates.colorpicker.ColorListener;
-import com.cosinetech.imates.colorpicker.ColorPickerDialog;
-import com.cosinetech.imates.models.Subject;
-import com.cosinetech.imates.notes.NoteManager;
-import com.cosinetech.imates.util.ImageUtils;
-import com.cosinetech.imates.webservice.AiChatMessageRequest;
-import com.cosinetech.imates.webservice.ApiUrl;
-import com.litao.slider.NiftySlider;
-import com.lzf.easyfloat.EasyFloat;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.util.UUID;
 
 public class VideoPlayView extends RelativeLayout {
     private ScratchToolsView scratchToolsView;
@@ -138,8 +117,8 @@ public class VideoPlayView extends RelativeLayout {
 
             @Override
             public Bitmap onGetScratchCanvasBitmap() {
-                Bitmap bitmap = textureView.getBitmap(); // 获取当前帧
-                return bitmap;
+                // 获取当前帧
+                return textureView.getBitmap();
             }
         });
     }
@@ -247,7 +226,7 @@ public class VideoPlayView extends RelativeLayout {
             }
 
             @Override
-            public void onSurfaceTextureUpdated(SurfaceTexture surface) {}
+            public void onSurfaceTextureUpdated(@NonNull SurfaceTexture surface) {}
         });
     }
 
@@ -267,7 +246,7 @@ public class VideoPlayView extends RelativeLayout {
     }
 
     private void togglePlaybackSpeed() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && mediaPlayer != null) {
+        if (mediaPlayer != null) {
             // 切换倍速
             if (currentSpeed == 1.0f) {
                 currentSpeed = 1.5f;

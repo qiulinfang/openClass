@@ -25,7 +25,7 @@ public class AdapterSimilarQuestionList extends RecyclerView.Adapter<AdapterSimi
     private final List<Question> dataList;
     private int selectedPosition = -1;
 
-    private SimilarQuestionListChangedListener listener;
+    private final SimilarQuestionListChangedListener listener;
 
     // 构造函数接收数据列表
     public AdapterSimilarQuestionList(List<Question> dataList, SimilarQuestionListChangedListener listener) {
@@ -72,14 +72,18 @@ public class AdapterSimilarQuestionList extends RecyclerView.Adapter<AdapterSimi
         holder.btnAddToList.setOnClickListener(v -> {
             if(listener != null)  {
                 int pos = holder.getBindingAdapterPosition();
-                listener.onExerciseAddToMyList(pos, dataList.get(pos));
+                if(pos >= 0) {
+                    listener.onExerciseAddToMyList(pos, dataList.get(pos));
+                }
             }
         });
 
         holder.btnAddToFavor.setOnClickListener(v -> {
             if(listener != null)  {
                 int pos = holder.getBindingAdapterPosition();
-                listener.onExerciseAddToMyFavor(pos, dataList.get(pos));
+                if(pos >= 0) {
+                    listener.onExerciseAddToMyFavor(pos, dataList.get(pos));
+                }
             }
         });
     }
