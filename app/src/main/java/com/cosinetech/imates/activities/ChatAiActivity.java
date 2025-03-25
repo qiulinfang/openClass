@@ -12,8 +12,8 @@ import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.audio.AudioPlayManager;
 import com.cosinetech.imates.models.ChatAiParam;
+import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.mq.MessagingManager;
-import com.cosinetech.imates.mq.TeacherMessage;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.views.ChatAiView;
 
@@ -57,7 +57,7 @@ public class ChatAiActivity extends AppCompatActivity implements MessagingManage
     }
 
     @Override
-    public void onTeacherMessageReceived(TeacherMessage message) {
+    public void onTeacherMessageReceived(ChatMessage message) {
         mChatView.onReceivedTeacherMessage(message);
     }
 

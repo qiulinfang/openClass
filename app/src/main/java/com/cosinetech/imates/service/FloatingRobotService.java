@@ -385,8 +385,7 @@ public class FloatingRobotService extends Service implements MessagingManager.Me
     }
 
     @Override
-    public void onTeacherMessageReceived(TeacherMessage message) {
-        ChatMessage msg = message.toChatMessage();
+    public void onTeacherMessageReceived(ChatMessage msg) {
         if(msg != null) {
             mChatDb.addChatMessageDetail(msg);
         }

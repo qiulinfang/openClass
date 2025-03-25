@@ -1259,8 +1259,7 @@ public class ChatAiView extends RelativeLayout {
         mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
     }
 
-    public void onReceivedTeacherMessage(TeacherMessage msg) {
-        ChatMessage chatMessage = msg.toChatMessage();
+    public void onReceivedTeacherMessage(ChatMessage chatMessage) {
         if(chatMessage != null) {
             if(mCurrentSession.sessionId.equals(chatMessage.sessionId)) {
                 messageList.add(new ChatDisplayItem(chatMessage, false));

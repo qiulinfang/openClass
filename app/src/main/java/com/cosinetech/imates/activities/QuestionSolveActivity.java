@@ -28,6 +28,7 @@ import com.cosinetech.imates.adapters.AdapterSimilarQuestionList;
 import com.cosinetech.imates.audio.AudioPlayManager;
 import com.cosinetech.imates.models.AddQuestionRequest;
 import com.cosinetech.imates.models.ChatAiParam;
+import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.models.ChatMessageCatalogue;
 import com.cosinetech.imates.models.ChatMessageHistoryDB;
 import com.cosinetech.imates.models.ChatMessageSession;
@@ -526,7 +527,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
     }
 
     @Override
-    public void onTeacherMessageReceived(TeacherMessage message) {
+    public void onTeacherMessageReceived(ChatMessage message) {
         mChatView.onReceivedTeacherMessage(message);
     }
 

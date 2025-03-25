@@ -5,6 +5,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import com.cosinetech.imates.models.ChatMessage;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class MessagingManager {
     private static final String TAG = "MessagingManager";
     private static final int RECONNECT_DELAY_MS = 5000; // 重连间隔
-    private static final int MAX_RECONNECT_ATTEMPTS = 10; // 最大重连次数
+    //private static final int MAX_RECONNECT_ATTEMPTS = 10; // 最大重连次数
 
     private static MessagingManager instance;
     private RabbitMQManager rabbitMQManager;
@@ -64,9 +66,10 @@ public class MessagingManager {
                 // 监听老师回复
                 rabbitMQManager.startListeningForTeacherReplies(message -> {
                     Log.d(TAG, "Received teacher message: " + message.getMessageId());
+                    ChatMessage chatMsg = message.toChatMessage();
                     mainHandler.post(() -> {
                         for (MessageListener listener : messageListeners) {
-                            listener.onTeacherMessageReceived(message);
+                            listener.onTeacherMessageReceived(chatMsg);
                         }
                     });
                 });
@@ -84,10 +87,10 @@ public class MessagingManager {
     }
 
     private void scheduleReconnect() {
-        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-            Log.e(TAG, "Max reconnect attempts reached. Giving up.");
-            return;
-        }
+//        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+//            Log.e(TAG, "Max reconnect attempts reached. Giving up.");
+//            return;
+//        }
 
         reconnectAttempts++;
         Log.d(TAG, "Scheduling reconnect attempt " + reconnectAttempts + " in " + RECONNECT_DELAY_MS + "ms");
@@ -160,7 +163,7 @@ public class MessagingManager {
     }
 
     public interface MessageListener {
-        void onTeacherMessageReceived(TeacherMessage message);
+        void onTeacherMessageReceived(ChatMessage message);
     }
 
     public interface SendCallback {
