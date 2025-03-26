@@ -506,9 +506,9 @@ public abstract class PageView extends ViewGroup {
         float docRelX = (x - getLeft()) / scale;
         float docRelY = (y - getTop()) / scale;
         if (mDrawing == null)
-            mDrawing = new ArrayList<ArrayList<PointF>>();
+            mDrawing = new ArrayList<>();
 
-        ArrayList<PointF> arc = new ArrayList<PointF>();
+        ArrayList<PointF> arc = new ArrayList<>();
         arc.add(new PointF(docRelX, docRelY));
         mDrawing.add(arc);
         mSearchView.invalidate();

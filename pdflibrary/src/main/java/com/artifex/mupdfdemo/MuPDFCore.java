@@ -155,6 +155,38 @@ public class MuPDFCore {
 
     public native boolean javascriptSupported();
 
+    /**
+     * 获取指定页面上指定位置的 ink annotation
+     *
+     * @param page 页码
+     * @param x x坐标
+     * @param y y坐标
+     * @return annotation 索引，如果没有找到则返回 -1
+     */
+    public native int hitAnnotation(int page, float x, float y);
+
+    /**
+     * 获取指定 ink annotation 的路径数据
+     *
+     * @param page 页码
+     * @param annot_index annotation 索引
+     * @return 路径数据，格式为 PointF[][]
+     */
+    public native PointF[][] getAnnotationInkList(int page, int annot_index);
+
+    /**
+     * 更新指定 ink annotation 的路径数据
+     *
+     * @param page 页码
+     * @param annot_index annotation 索引
+     * @param inkList 新的路径数据
+     * @param color 颜色值
+     * @param thickness 线条粗细
+     * @return 是否成功
+     */
+    public native boolean updateInkAnnotation(int page, int annot_index, PointF[][] inkList, float[] color, float thickness);
+
+
     public class Cookie {
         private final long cookiePtr;
 

@@ -404,7 +404,6 @@ public class MuPDFPageView extends PageView implements MuPDFView {
         return Hit.Nothing;
     }
 
-    @TargetApi(11)
     public boolean copySelection() {
         final StringBuilder text = new StringBuilder();
 
@@ -498,7 +497,7 @@ public class MuPDFPageView extends PageView implements MuPDFView {
             if (mDeleteAnnotation != null)
                 mDeleteAnnotation.cancel(true);
 
-            mDeleteAnnotation = new AsyncTask<Integer, Void, Void>() {
+            mDeleteAnnotation = new AsyncTask<>() {
                 @Override
                 protected Void doInBackground(Integer... params) {
                     mCore.deleteAnnotation(mPageNumber, params[0]);
@@ -549,7 +548,7 @@ public class MuPDFPageView extends PageView implements MuPDFView {
 //
 //		};
 
-        mAddInk = new AsyncTask<Object, Void, Void>() {
+        mAddInk = new AsyncTask<>() {
             @Override
             protected Void doInBackground(Object... params) {
                 mCore.addInkAnnotation(mPageNumber, (PointF[][]) params[0], (float[]) params[1], (float) params[2]);
