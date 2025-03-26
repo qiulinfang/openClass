@@ -199,4 +199,25 @@ public class MuPDFReflowView extends WebView implements MuPDFView {
         // TODO Auto-generated method stub
         return false;
     }
+
+    /**
+     * Toggle eraser mode on/off
+     *
+     * @return true if eraser mode is now enabled, false if disabled
+     */
+    @Override
+    public boolean toggleEraserMode() {
+        return false;
+    }
+
+    // Add a method to set the eraser thickness for better user control
+
+    /**
+     * Set the eraser thickness
+     *
+     * @param thickness the thickness of the eraser
+     */
+    @Override
+    public void setEraserThickness(float thickness) {
+    }
 }

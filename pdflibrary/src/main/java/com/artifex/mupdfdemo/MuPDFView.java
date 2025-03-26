@@ -80,4 +80,8 @@ public interface MuPDFView {
     public void setPaintStrokeWidth(float inkThickness);
 
     public float getCurrentScale();
+
+    public boolean toggleEraserMode();
+
+    public void setEraserThickness(float thickness);
 }

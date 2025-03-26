@@ -93,7 +93,7 @@ public class MuPDFPageView extends PageView implements MuPDFView {
     private final MuPDFCore mCore;
     private AsyncTask<Void, Void, PassClickResult> mPassClick;
     private RectF mWidgetAreas[];
-    private Annotation mAnnotations[];
+//    private Annotation mAnnotations[];
     private int mSelectedAnnotationIndex = -1;
     private AsyncTask<Void, Void, RectF[]> mLoadWidgetAreas;
     private AsyncTask<Void, Void, Annotation[]> mLoadAnnotations;
@@ -199,6 +199,15 @@ public class MuPDFPageView extends PageView implements MuPDFView {
         });
 
         mPasswordEntry = mPasswordEntryBuilder.create();
+    }
+
+    // 在 MuPDFPageView.java 中添加以下方法
+
+    /**
+     * 获取 MuPDFCore 实例
+     */
+    public MuPDFCore getCore() {
+        return mCore;
     }
 
     private void signWithKeyFile(final Uri uri) {
@@ -497,7 +506,7 @@ public class MuPDFPageView extends PageView implements MuPDFView {
             if (mDeleteAnnotation != null)
                 mDeleteAnnotation.cancel(true);
 
-            mDeleteAnnotation = new AsyncTask<>() {
+            mDeleteAnnotation = new AsyncTask<Integer, Void, Void>() {
                 @Override
                 protected Void doInBackground(Integer... params) {
                     mCore.deleteAnnotation(mPageNumber, params[0]);
@@ -533,20 +542,6 @@ public class MuPDFPageView extends PageView implements MuPDFView {
             mAddInk.cancel(true);
             mAddInk = null;
         }
-//		mAddInk = new AsyncTask<PointF[][],Void,Void>() {
-//			@Override
-//			protected Void doInBackground(PointF[][]... params) {
-//				mCore.addInkAnnotation(mPageNumber, params[0]);
-//				return null;
-//			}
-//
-//			@Override
-//			protected void onPostExecute(Void result) {
-//				loadAnnotations();
-//				update();
-//			}
-//
-//		};
 
         mAddInk = new AsyncTask<>() {
             @Override
@@ -560,16 +555,37 @@ public class MuPDFPageView extends PageView implements MuPDFView {
                 loadAnnotations();
                 update();
             }
-
         };
 
-//		mAddInk.execute(getDraw());
         mAddInk.execute(getDraw(), getColor(), getInkThickness());
         cancelDraw();
 
         return true;
     }
 
+    /**
+     * Toggle eraser mode on/off
+     * 
+     * @return true if eraser mode is now enabled, false if disabled
+     */
+    @Override
+    public boolean toggleEraserMode() {
+        boolean newMode = !isEraserMode();
+        setEraserMode(newMode);
+        return newMode;
+    }
+
+    // Add a method to set the eraser thickness for better user control
+
+    /**
+     * Set the eraser thickness
+     * 
+     * @param thickness the thickness of the eraser
+     */
+    @Override
+    public void setEraserThickness(float thickness) {
+        super.setEraserThickness(thickness);
+    }
 
     @Override
     protected CancellableTaskDefinition<Void, Void> getDrawPageTask(final Bitmap bm, final int sizeX, final int sizeY,
@@ -621,7 +637,12 @@ public class MuPDFPageView extends PageView implements MuPDFView {
         mCore.addMarkupAnnotation(mPageNumber, quadPoints, type);
     }
 
-    private void loadAnnotations() {
+    /**
+     * 加载 annotations
+     * 将 loadAnnotations 方法改为 public，以便 PageView 可以调用
+     */
+
+    public void loadAnnotations() {
         mAnnotations = null;
         if (mLoadAnnotations != null)
             mLoadAnnotations.cancel(true);
@@ -634,6 +655,10 @@ public class MuPDFPageView extends PageView implements MuPDFView {
             @Override
             protected void onPostExecute(Annotation[] result) {
                 mAnnotations = result;
+                // 通知视图刷新
+                if (mSearchView != null) {
+                    mSearchView.invalidate();
+                }
             }
         };
 
@@ -706,3 +731,4 @@ public class MuPDFPageView extends PageView implements MuPDFView {
         super.releaseResources();
     }
 }
+

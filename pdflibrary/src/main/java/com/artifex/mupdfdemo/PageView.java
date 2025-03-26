@@ -20,6 +20,8 @@ import android.widget.ProgressBar;
 
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Objects;
 
 // Make our ImageViews opaque to optimize redraw
 class OpaqueImageView extends ImageView {
@@ -101,6 +103,17 @@ public abstract class PageView extends ViewGroup {
     private float INK_THICKNESS = 10.0f;// 绘制时画笔宽
     private float current_scale;
 
+    // Eraser related variables
+    private boolean mEraserMode = false;
+    private float ERASER_THICKNESS = 20.0f; // Eraser thickness (wider than pen)
+    private ArrayList<PointF> mEraserPath; // Current eraser path
+    private ArrayList<ArrayList<PointF>> mEraserPaths; // All eraser paths
+
+    // 添加变量来跟踪当前正在编辑的 annotation
+    private int mEditingAnnotationIndex = -1;
+    private PointF[][] mEditingAnnotationInkList = null;
+    private boolean mAnnotationModified = false;
+
     private static final int BACKGROUND_COLOR = 0xFFFFFFFF;
     private static final int PROGRESS_DIALOG_DELAY = 200;
     protected final Context mContext;
@@ -108,7 +121,7 @@ public abstract class PageView extends ViewGroup {
     private Point mParentSize;
     protected Point mSize;   // Size of page at minimum zoom
     protected float mSourceScale;
-
+    protected Annotation mAnnotations[];
     private ImageView mEntire; // Image rendered at minimum zoom
     private Bitmap mEntireBm;
     private Matrix mEntireMat;
@@ -127,7 +140,7 @@ public abstract class PageView extends ViewGroup {
     private TextWord mText[][];
     private RectF mItemSelectBox;
     protected ArrayList<ArrayList<PointF>> mDrawing;
-    private View mSearchView;
+    protected View mSearchView;
     private boolean mIsBlank;
     private boolean mHighlightLinks;
 
@@ -425,6 +438,76 @@ public abstract class PageView extends ViewGroup {
                         paint.setStyle(Paint.Style.STROKE);
                         canvas.drawPath(path, paint);
                     }
+                    
+                    // Draw eraser path (for visual feedback)
+                    /*
+                    if (mEraserMode && mEraserPath != null && mEraserPath.size() > 0) {
+                        Path eraserPath = new Path();
+                        paint.setStyle(Paint.Style.STROKE);
+                        paint.setStrokeWidth(ERASER_THICKNESS * scale);
+                        paint.setColor(Color.RED); // Red color to indicate eraser
+                        paint.setAlpha(100); // Semi-transparent
+                        
+                        if (mEraserPath.size() >= 2) {
+                            Iterator<PointF> iit = mEraserPath.iterator();
+                            PointF p = iit.next();
+                            float mX = p.x * scale;
+                            float mY = p.y * scale;
+                            eraserPath.moveTo(mX, mY);
+                            while (iit.hasNext()) {
+                                p = iit.next();
+                                float x = p.x * scale;
+                                float y = p.y * scale;
+                                eraserPath.quadTo(mX, mY, (x + mX) / 2, (y + mY) / 2);
+                                mX = x;
+                                mY = y;
+                            }
+                            eraserPath.lineTo(mX, mY);
+                            canvas.drawPath(eraserPath, paint);
+                        }
+                    }
+                    */
+                    
+                    // 绘制正在编辑的 annotation
+                    if (mEraserMode && mEditingAnnotationIndex >= 0 && mEditingAnnotationInkList != null) {
+                        Path path = new Path();
+                        PointF p;
+
+                        paint.setAntiAlias(true);
+                        paint.setDither(true);
+                        paint.setStrokeJoin(Paint.Join.ROUND);
+                        paint.setStrokeCap(Paint.Cap.ROUND);
+
+                        paint.setStyle(Paint.Style.FILL);
+                        paint.setStrokeWidth(INK_THICKNESS * scale);
+                        paint.setColor(INK_COLOR);
+
+                        for (PointF[] arc : mEditingAnnotationInkList) {
+                            if (arc.length >= 2) {
+                                p = arc[0];
+                                float mX = p.x * scale;
+                                float mY = p.y * scale;
+                                path.moveTo(mX, mY);
+                                
+                                for (int i = 1; i < arc.length; i++) {
+                                    p = arc[i];
+                                    float x = p.x * scale;
+                                    float y = p.y * scale;
+                                    path.quadTo(mX, mY, (x + mX) / 2, (y + mY) / 2);
+                                    mX = x;
+                                    mY = y;
+                                }
+                                
+                                path.lineTo(mX, mY);
+                            } else if (arc.length == 1) {
+                                p = arc[0];
+                                canvas.drawCircle(p.x * scale, p.y * scale, INK_THICKNESS * scale / 2, paint);
+                            }
+                        }
+
+                        paint.setStyle(Paint.Style.STROKE);
+                        canvas.drawPath(path, paint);
+                    }
                 }
             };
 
@@ -501,17 +584,205 @@ public abstract class PageView extends ViewGroup {
         }
     }
 
+    /**
+     * Set eraser mode on or off
+     * 
+     * @param enabled true to enable eraser mode, false for normal drawing mode
+     */
+    public void setEraserMode(boolean enabled) {
+        mEraserMode = enabled;
+        if (enabled && mEraserPaths == null) {
+            mEraserPaths = new ArrayList<>();
+        }
+    }
+    
+    /**
+     * Check if eraser mode is enabled
+     * 
+     * @return true if eraser mode is enabled
+     */
+    public boolean isEraserMode() {
+        return mEraserMode;
+    }
+    
+    /**
+     * Set the eraser thickness
+     * 
+     * @param thickness the thickness of the eraser
+     */
+    public void setEraserThickness(float thickness) {
+        ERASER_THICKNESS = thickness;
+    }
+
     public void startDraw(float x, float y) {
         float scale = mSourceScale * (float) getWidth() / (float) mSize.x;
         float docRelX = (x - getLeft()) / scale;
         float docRelY = (y - getTop()) / scale;
-        if (mDrawing == null)
-            mDrawing = new ArrayList<>();
+        
+        if (mEraserMode) {
+            // Start eraser path
+            if (mEraserPath == null) {
+                mEraserPath = new ArrayList<>();
+            } else {
+                mEraserPath.clear();
+            }
+            mEraserPath.add(new PointF(docRelX, docRelY));
+            if (mEraserPaths == null) {
+                mEraserPaths = new ArrayList<>();
+            }
+            mEraserPaths.add(mEraserPath);
+        } else {
+            // Normal drawing
+            if (mDrawing == null)
+                mDrawing = new ArrayList<>();
 
-        ArrayList<PointF> arc = new ArrayList<>();
-        arc.add(new PointF(docRelX, docRelY));
-        mDrawing.add(arc);
+            ArrayList<PointF> arc = new ArrayList<>();
+            arc.add(new PointF(docRelX, docRelY));
+            mDrawing.add(arc);
+        }
+        
         mSearchView.invalidate();
+    }
+
+    /**
+     * 应用橡皮擦到已保存的 annotations
+     * 
+     * @param x x坐标
+     * @param y y坐标
+     * @return 是否有 annotation 被修改
+     */
+    private boolean applyEraserToAnnotations(float x, float y) {
+        if (!mEraserMode) return false;
+        
+        float eraserRadius = ERASER_THICKNESS / 2;
+        boolean modified = false;
+        
+        // 如果当前没有正在编辑的 annotation，尝试查找一个
+        if (mEditingAnnotationIndex == -1) {
+            int hitAnnot = -1; //((MuPDFPageView)this).getCore().hitAnnotation(mPageNumber, x, y);
+            if (mAnnotations != null) {
+                for (int i = 0; i < mAnnotations.length; i++) {
+                    if (mAnnotations[i].contains(x, y)) {
+                        if (Objects.requireNonNull(mAnnotations[i].type) == Annotation.Type.INK) {
+                            hitAnnot = i;
+                        }
+                    }
+                }
+            }
+            if (hitAnnot >= 0) {
+                mEditingAnnotationIndex = hitAnnot;
+                mEditingAnnotationInkList = ((MuPDFPageView)this).getCore().getAnnotationInkList(mPageNumber, hitAnnot);
+                mAnnotationModified = false;
+            }
+        }
+        
+        // 如果有正在编辑的 annotation，应用橡皮擦
+        if (mEditingAnnotationIndex >= 0 && mEditingAnnotationInkList != null) {
+            // 转换为 ArrayList 以便于修改
+            ArrayList<ArrayList<PointF>> inkList = new ArrayList<>();
+            for (PointF[] path : mEditingAnnotationInkList) {
+                ArrayList<PointF> pathList = new ArrayList<>();
+                for (PointF point : path) {
+                    pathList.add(point);
+                }
+                inkList.add(pathList);
+            }
+            
+            // 应用橡皮擦逻辑，类似于 applyEraser 方法
+            boolean pathModified = false;
+            Iterator<ArrayList<PointF>> pathIterator = inkList.iterator();
+            while (pathIterator.hasNext()) {
+                ArrayList<PointF> path = pathIterator.next();
+                ArrayList<PointF> newPath = new ArrayList<>();
+                boolean addedToNewPath = false;
+                
+                Iterator<PointF> pointIterator = path.iterator();
+                while (pointIterator.hasNext()) {
+                    PointF point = pointIterator.next();
+                    
+                    // 计算点到橡皮擦的距离
+                    float distance = (float) Math.sqrt(
+                        Math.pow(point.x - x, 2) + 
+                        Math.pow(point.y - y, 2)
+                    );
+                    
+                    // 如果点在橡皮擦范围内，移除它
+                    if (distance <= eraserRadius) {
+                        pointIterator.remove();
+                        pathModified = true;
+                        modified = true;
+                        
+                        // 如果已经添加了点到新路径，需要开始一个新的路径段
+                        if (addedToNewPath && !newPath.isEmpty()) {
+                            if (newPath.size() > 1) {
+                                inkList.add(newPath);
+                            }
+                            newPath = new ArrayList<>();
+                            addedToNewPath = false;
+                        }
+                    } else {
+                        // 保留这个点
+                        if (pathModified) {
+                            newPath.add(point);
+                            addedToNewPath = true;
+                        }
+                    }
+                }
+                
+                // 如果修改了路径并有新的路径段，添加它
+                if (pathModified && !newPath.isEmpty() && newPath.size() > 1) {
+                    inkList.add(newPath);
+                }
+                
+                // 如果路径为空或只有一个点，移除它
+                if (path.size() <= 1) {
+                    pathIterator.remove();
+                }
+            }
+            
+            // 如果有修改，更新 annotation
+            if (modified) {
+                mAnnotationModified = true;
+                
+                // 转换回 PointF[][]
+                mEditingAnnotationInkList = new PointF[inkList.size()][];
+                for (int i = 0; i < inkList.size(); i++) {
+                    ArrayList<PointF> path = inkList.get(i);
+                    mEditingAnnotationInkList[i] = path.toArray(new PointF[path.size()]);
+                }
+                
+                // 立即更新视图以提供实时反馈
+                mSearchView.invalidate();
+            }
+        }
+        
+        return modified;
+    }
+
+    /**
+     * 保存对 annotation 的修改
+     */
+    private void saveAnnotationChanges() {
+        if (mEditingAnnotationIndex >= 0 && mAnnotationModified && mEditingAnnotationInkList != null) {
+            // 获取当前 annotation 的颜色和粗细
+            float[] color = getColor(); // 假设使用当前颜色
+            float thickness = getInkThickness(); // 假设使用当前粗细
+            
+            // 更新 annotation
+            boolean success = ((MuPDFPageView)this).getCore().updateInkAnnotation(
+                mPageNumber, mEditingAnnotationIndex, mEditingAnnotationInkList, color, thickness);
+            
+            if (success) {
+                // 重新加载 annotations 并更新视图
+                ((MuPDFPageView)this).loadAnnotations();
+                update();
+            }
+            
+            // 重置编辑状态
+            mEditingAnnotationIndex = -1;
+            mEditingAnnotationInkList = null;
+            mAnnotationModified = false;
+        }
     }
 
     public void continueDraw(float x, float y) {
@@ -519,15 +790,115 @@ public abstract class PageView extends ViewGroup {
         float docRelX = (x - getLeft()) / scale;
         float docRelY = (y - getTop()) / scale;
 
-        if (mDrawing != null && mDrawing.size() > 0) {
-            ArrayList<PointF> arc = mDrawing.get(mDrawing.size() - 1);
-            arc.add(new PointF(docRelX, docRelY));
-            mSearchView.invalidate();
+        if (mEraserMode) {
+            // 继续橡皮擦路径
+            if (mEraserPath != null) {
+                mEraserPath.add(new PointF(docRelX, docRelY));
+            
+                // 应用橡皮擦到当前绘制的内容
+                boolean currentDrawingModified = false;
+                if (mDrawing != null && !mDrawing.isEmpty()) {
+                    applyEraser(docRelX, docRelY);
+                    currentDrawingModified = true;
+                }
+                
+                // 应用橡皮擦到已保存的 annotations
+                boolean annotationsModified = applyEraserToAnnotations(docRelX, docRelY);
+                
+                // 如果有任何修改，刷新视图
+                if (currentDrawingModified || annotationsModified) {
+                    mSearchView.invalidate();
+                }
+            }
+        } else {
+            // 正常绘制
+            if (mDrawing != null && mDrawing.size() > 0) {
+                ArrayList<PointF> arc = mDrawing.get(mDrawing.size() - 1);
+                arc.add(new PointF(docRelX, docRelY));
+                mSearchView.invalidate();
+            }
+        }
+    }
+    
+    /**
+     * Apply eraser at the given point to existing drawings
+     * 
+     * @param x x-coordinate in document space
+     * @param y y-coordinate in document space
+     */
+    private void applyEraser(float x, float y) {
+        if (mDrawing == null || mDrawing.isEmpty()) {
+            return;
+        }
+        
+        float eraserRadius = ERASER_THICKNESS / 2;
+        
+        // Iterate through all drawing paths
+        Iterator<ArrayList<PointF>> pathIterator = mDrawing.iterator();
+        while (pathIterator.hasNext()) {
+            ArrayList<PointF> path = pathIterator.next();
+            
+            // Create a new path that will contain the non-erased points
+            ArrayList<PointF> newPath = new ArrayList<>();
+            boolean pathModified = false;
+            boolean addedToNewPath = false;
+            
+            // Check each point in the path
+            Iterator<PointF> pointIterator = path.iterator();
+            while (pointIterator.hasNext()) {
+                PointF point = pointIterator.next();
+                
+                // Calculate distance from eraser to this point
+                float distance = (float) Math.sqrt(
+                    Math.pow(point.x - x, 2) + 
+                    Math.pow(point.y - y, 2)
+                );
+                
+                // If point is within eraser radius, remove it
+                if (distance <= eraserRadius) {
+                    pointIterator.remove();
+                    pathModified = true;
+                    
+                    // If we've already added points to the new path, we need to start a new path segment
+                    if (addedToNewPath && !newPath.isEmpty()) {
+                        // Add the current path to the drawing and start a new one
+                        if (newPath.size() > 1) {
+                            mDrawing.add(newPath);
+                        }
+                        newPath = new ArrayList<>();
+                        addedToNewPath = false;
+                    }
+                } else {
+                    // Keep this point
+                    if (pathModified) {
+                        // We're building a new path after erasing some points
+                        newPath.add(point);
+                        addedToNewPath = true;
+                    }
+                }
+            }
+            
+            // If we modified the path and have a new path segment, add it
+            if (pathModified && !newPath.isEmpty() && newPath.size() > 1) {
+                mDrawing.add(newPath);
+            }
+            
+            // Remove the original path if it's now empty or has only one point
+            if (path.size() <= 1) {
+                pathIterator.remove();
+            }
         }
     }
 
     public void cancelDraw() {
-        mDrawing = null;
+        // 保存对 annotation 的修改
+        saveAnnotationChanges();
+        
+        if (mEraserMode) {
+            mEraserPath = null;
+        } else {
+            mDrawing = null;
+        }
         mSearchView.invalidate();
     }
 
@@ -583,6 +954,9 @@ public abstract class PageView extends ViewGroup {
 
         return changeColor(INK_COLOR);
     }
+
+
+
 
     /**
      * 将十进制颜色值转换成RGB格式

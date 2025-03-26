@@ -683,6 +683,11 @@ public class MuPDFActivity extends AppCompatActivity {
         muPDFReaderView.setMode(MuPDFReaderView.Mode.Drawing);
         mAnnotTypeText.setText(R.string.pdf_tools_ink);
         showInfo(getString(R.string.pdf_tools_draw_annotation));
+        MuPDFView pageView = (MuPDFView) muPDFReaderView.getDisplayedView();
+        if (pageView != null) {
+            pageView.deleteSelectedAnnotation();
+            pageView.toggleEraserMode(); pageView.setEraserThickness(25.0f);
+        }
     }
 
     /**
