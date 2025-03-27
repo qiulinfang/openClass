@@ -352,7 +352,7 @@
                 android:id="@+id/inkButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_alignParentEnd="true"
+                android:layout_toStartOf="@+id/eraserButton"
                 android:layout_centerVertical="true"
                 android:layout_marginTop="2dp"
                 android:layout_marginBottom="2dp"
@@ -360,7 +360,21 @@
                 android:contentDescription="@string/pdf_tools_ink"
                 android:onClick="OnInkButtonClick"
                 android:scaleType="fitCenter"
-                android:src="@mipmap/ic_pencil_white_48dp" />
+                android:src="@drawable/pdf_tools_hand_writing" />
+
+            <ImageButton
+                android:id="@+id/eraserButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:layout_marginTop="2dp"
+                android:layout_marginBottom="2dp"
+                android:background="@drawable/pdf_tools_btn_bg"
+                android:contentDescription="@string/pdf_tools_ink"
+                android:onClick="OnEraserButtonClick"
+                android:scaleType="fitCenter"
+                android:src="@drawable/pdf_tools_eraser" />
 
         </RelativeLayout>
 

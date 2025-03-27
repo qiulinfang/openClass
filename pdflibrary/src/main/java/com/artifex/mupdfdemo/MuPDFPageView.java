@@ -1,6 +1,5 @@
 package com.artifex.mupdfdemo;
 
-import android.annotation.TargetApi;
 import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.Context;
@@ -546,7 +545,13 @@ public class MuPDFPageView extends PageView implements MuPDFView {
         mAddInk = new AsyncTask<>() {
             @Override
             protected Void doInBackground(Object... params) {
-                mCore.addInkAnnotation(mPageNumber, (PointF[][]) params[0], (float[]) params[1], (float) params[2]);
+                PointF[][] inkAnnotates = (PointF[][])params[0];
+                for (PointF[] inkAnnotate : inkAnnotates) {
+                    PointF[][] annotate = new PointF[1][inkAnnotate.length];
+                    System.arraycopy(inkAnnotate, 0, annotate[0], 0, inkAnnotate.length);
+                    //mCore.addInkAnnotation(mPageNumber, (PointF[][]) params[0], (float[]) params[1], (float) params[2]);
+                    mCore.addInkAnnotation(mPageNumber, annotate, (float[]) params[1], (float) params[2]);
+                }
                 return null;
             }
 
@@ -565,14 +570,10 @@ public class MuPDFPageView extends PageView implements MuPDFView {
 
     /**
      * Toggle eraser mode on/off
-     * 
-     * @return true if eraser mode is now enabled, false if disabled
      */
     @Override
-    public boolean toggleEraserMode() {
-        boolean newMode = !isEraserMode();
-        setEraserMode(newMode);
-        return newMode;
+    public void setEraserMode(boolean enable) {
+        super.setEraserMode(enable);
     }
 
     // Add a method to set the eraser thickness for better user control

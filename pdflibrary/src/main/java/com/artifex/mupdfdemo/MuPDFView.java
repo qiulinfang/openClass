@@ -81,7 +81,7 @@ public interface MuPDFView {
 
     public float getCurrentScale();
 
-    public boolean toggleEraserMode();
+    public void setEraserMode(boolean enable);
 
     public void setEraserThickness(float thickness);
 }

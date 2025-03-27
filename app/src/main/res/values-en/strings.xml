@@ -116,4 +116,6 @@
     <string name="chat_ai_release_to_cancel">Release to cancel</string>
     <string name="chat_ai_forward_to_teacher">Send to teacher</string>
     <string name="question_solve_ask_teacher">Ask for Teacher</string>
+    <string name="pdf_tools_eraser">Eraser</string>
+    <string name="pdf_tools_eraser_annotation">Erase Object</string>
 </resources>

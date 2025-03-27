@@ -162,8 +162,6 @@ public class LessonPreviewActivity extends AppCompatActivity {
 //                intent.putExtra("Section", mPreviewSection);
 //                startActivity(intent);q
 
-                Intent intent = new Intent(this, MuPDFActivity.class);
-                intent.setAction(Intent.ACTION_VIEW);
                 String path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getTextBook();
                 File file = new  File(path);
                 if(!file.exists()) {
@@ -177,6 +175,8 @@ public class LessonPreviewActivity extends AppCompatActivity {
                 }
 
                 if(file.exists()) {
+                    Intent intent = new Intent(this, MuPDFActivity.class);
+                    intent.setAction(Intent.ACTION_VIEW);
                     intent.setData(Uri.fromFile(new File(path)));
                     intent.putExtra("AssetsPdf", path);
                     intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));

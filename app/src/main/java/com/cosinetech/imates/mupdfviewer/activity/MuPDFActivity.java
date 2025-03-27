@@ -683,10 +683,19 @@ public class MuPDFActivity extends AppCompatActivity {
         muPDFReaderView.setMode(MuPDFReaderView.Mode.Drawing);
         mAnnotTypeText.setText(R.string.pdf_tools_ink);
         showInfo(getString(R.string.pdf_tools_draw_annotation));
+    }
+
+    public void OnEraserButtonClick(View v) {
+        mTopBarMode = TopBarMode.Accept;
+        mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+        mAcceptMode = AcceptMode.Ink;
+        muPDFReaderView.setMode(MuPDFReaderView.Mode.Drawing);
+        mAnnotTypeText.setText(R.string.pdf_tools_eraser);
+        showInfo(getString(R.string.pdf_tools_eraser_annotation));
         MuPDFView pageView = (MuPDFView) muPDFReaderView.getDisplayedView();
         if (pageView != null) {
-            pageView.deleteSelectedAnnotation();
-            pageView.toggleEraserMode(); pageView.setEraserThickness(25.0f);
+            pageView.setEraserMode(true);
+            pageView.setEraserThickness(25.0f);
         }
     }
 

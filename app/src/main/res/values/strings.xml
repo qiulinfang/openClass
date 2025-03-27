@@ -153,6 +153,8 @@
     <string name="chat_ai_release_to_cancel">松开取消</string>
     <string name="chat_ai_forward_to_teacher">发给老师</string>
     <string name="question_solve_ask_teacher">老师答疑</string>
+    <string name="pdf_tools_eraser">橡皮擦</string>
+    <string name="pdf_tools_eraser_annotation">擦除对象</string>
 
     <!--    <string name="format_currently_not_supported">Format currently not supported</string>-->
     <!--    <string name="toggle_reflow_mode">Toggle reflow mode</string>-->
