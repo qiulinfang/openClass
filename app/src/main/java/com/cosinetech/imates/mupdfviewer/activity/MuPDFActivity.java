@@ -706,8 +706,10 @@ public class MuPDFActivity extends AppCompatActivity {
      */
     public void OnDeleteButtonClick(View v) {
         MuPDFView pageView = (MuPDFView) muPDFReaderView.getDisplayedView();
-        if (pageView != null)
+        if (pageView != null) {
             pageView.deleteSelectedAnnotation();
+            pageView.setEraserMode(false);
+        }
         mTopBarMode = TopBarMode.Annot;
         mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
     }
@@ -719,8 +721,10 @@ public class MuPDFActivity extends AppCompatActivity {
      */
     public void OnCancelDeleteButtonClick(View v) {
         MuPDFView pageView = (MuPDFView) muPDFReaderView.getDisplayedView();
-        if (pageView != null)
+        if (pageView != null) {
             pageView.deselectAnnotation();
+            pageView.setEraserMode(false);
+        }
         mTopBarMode = TopBarMode.Annot;
         mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
     }
@@ -735,6 +739,7 @@ public class MuPDFActivity extends AppCompatActivity {
         if (pageView != null) {
             pageView.deselectText();
             pageView.cancelDraw();
+            pageView.setEraserMode(false);
         }
         muPDFReaderView.setMode(MuPDFReaderView.Mode.Viewing);
         switch (mAcceptMode) {
@@ -755,6 +760,9 @@ public class MuPDFActivity extends AppCompatActivity {
      */
     public void OnAcceptButtonClick(View v) {
         MuPDFView pageView = (MuPDFView) muPDFReaderView.getDisplayedView();
+        if(pageView != null) {
+            pageView.setEraserMode(false);
+        }
         boolean success = false;
         switch (mAcceptMode) {
             case CopyText:

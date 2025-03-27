@@ -318,7 +318,7 @@
                 android:contentDescription="@string/pdf_tools_highlight"
                 android:onClick="OnHighlightButtonClick"
                 android:scaleType="fitCenter"
-                android:src="@mipmap/ic_format_color_fill_white_48dp" />
+                android:src="@drawable/pdf_tools_highlight" />
 
             <ImageButton
                 android:id="@+id/underlineButton"
@@ -332,7 +332,7 @@
                 android:contentDescription="@string/pdf_tools_underline"
                 android:onClick="OnUnderlineButtonClick"
                 android:scaleType="fitCenter"
-                android:src="@mipmap/ic_format_vertical_align_bottom_white_48dp" />
+                android:src="@drawable/pdf_tools_under_line" />
 
             <ImageButton
                 android:id="@+id/strikeOutButton"
@@ -346,7 +346,7 @@
                 android:contentDescription="@string/pdf_tools_strike_out"
                 android:onClick="OnStrikeOutButtonClick"
                 android:scaleType="fitCenter"
-                android:src="@mipmap/ic_format_vertical_align_center_white_48dp" />
+                android:src="@drawable/pdf_tools_strikeout" />
 
             <ImageButton
                 android:id="@+id/inkButton"
@@ -371,7 +371,7 @@
                 android:layout_marginTop="2dp"
                 android:layout_marginBottom="2dp"
                 android:background="@drawable/pdf_tools_btn_bg"
-                android:contentDescription="@string/pdf_tools_ink"
+                android:contentDescription="@string/pdf_tools_eraser"
                 android:onClick="OnEraserButtonClick"
                 android:scaleType="fitCenter"
                 android:src="@drawable/pdf_tools_eraser" />

@@ -1,5 +1,7 @@
 package com.artifex.mupdfdemo;
 
+import static com.artifex.mupdfdemo.Annotation.Type.INK;
+
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
@@ -105,6 +107,7 @@ public abstract class PageView extends ViewGroup {
 
     // Eraser related variables
     private boolean mEraserMode = false;
+    protected boolean mRepainting = false;
     private float ERASER_THICKNESS = 20.0f; // Eraser thickness (wider than pen)
     private static final int BACKGROUND_COLOR = 0xFFFFFFFF;
     private static final int PROGRESS_DIALOG_DELAY = 200;
@@ -554,18 +557,22 @@ public abstract class PageView extends ViewGroup {
         mSearchView.invalidate();
     }
 
+    public void deleteSelectedAnnotation(int i) {
+
+    }
+
     public void continueDraw(float x, float y) {
         float scale = mSourceScale * (float) getWidth() / (float) mSize.x;
         float docRelX = (x - getLeft()) / scale;
         float docRelY = (y - getTop()) / scale;
 
         if (mEraserMode) {
-            // 继续橡皮擦路径
-                // 如果有任何修改，刷新视图
-//                if (currentDrawingModified || annotationsModified) {
-//                    mSearchView.invalidate();
-//                }
-//            }
+            if(!mRepainting) {
+                int annotate = getPassedInkAnnotation(docRelX, docRelY);
+                if(annotate >= 0) {
+                    deleteSelectedAnnotation(annotate);
+                }
+            }
         } else {
             // 正常绘制
             if (mDrawing != null && mDrawing.size() > 0) {
@@ -574,6 +581,17 @@ public abstract class PageView extends ViewGroup {
                 mSearchView.invalidate();
             }
         }
+    }
+
+    public int getPassedInkAnnotation(float docRelX, float docRelY) {
+        if (mAnnotations != null) {
+            for (int i = 0; i < mAnnotations.length; i++)
+                if (mAnnotations[i].type == INK && mAnnotations[i].contains(docRelX, docRelY)) {
+                    return i;
+                }
+        }
+
+        return -1;
     }
 
     public void cancelDraw() {

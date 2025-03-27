@@ -500,6 +500,13 @@ public class MuPDFPageView extends PageView implements MuPDFView {
         return true;
     }
 
+    @Override
+    public void deleteSelectedAnnotation(int i) {
+        mRepainting = true;
+        mSelectedAnnotationIndex = i;
+        deleteSelectedAnnotation();
+    }
+
     public void deleteSelectedAnnotation() {
         if (mSelectedAnnotationIndex != -1) {
             if (mDeleteAnnotation != null)
@@ -516,6 +523,7 @@ public class MuPDFPageView extends PageView implements MuPDFView {
                 protected void onPostExecute(Void result) {
                     loadAnnotations();
                     update();
+                    mRepainting = false;
                 }
             };
 
