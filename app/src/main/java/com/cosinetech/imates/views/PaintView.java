@@ -41,6 +41,7 @@ public class PaintView extends View {
     private int brushSize;
     private float touchTolerance;
     private Bitmap mBitmap;
+    private Bitmap mOriginBitmap;
     private Canvas mCanvas;
     private Paint mBitmapPaint = new Paint(Paint.DITHER_FLAG);
     private DrawingChangeListener drawingChangeListener;
@@ -97,6 +98,7 @@ public class PaintView extends View {
         super.onSizeChanged(w, h, oldw, oldh);
         if (mBitmap == null) {
             mBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+            mOriginBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
             mCanvas = new Canvas(mBitmap);
         }
         startPoint.x = 0;
@@ -110,6 +112,7 @@ public class PaintView extends View {
         paths.clear();
         undoPaths.clear();
         mBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+        mOriginBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
         mCanvas = new Canvas(mBitmap);
         invalidate();
     }
@@ -319,7 +322,9 @@ public class PaintView extends View {
     private void redrawToBitmap() {
         if (mBitmap != null) {
             // 清空画布，但保留现有的 Bitmap 内容
-            mBitmap.eraseColor(Color.TRANSPARENT);
+            copyBitmap(mOriginBitmap, mBitmap);
+//            mBitmap.eraseColor(Color.TRANSPARENT);
+//            mBitmap = mOriginBitmap.copy(Bitmap.Config.ARGB_8888, true);
         } else {
             mCanvas.drawColor(backgroundColor); // 没有自定义背景图时使用纯色背景
         }
@@ -329,11 +334,9 @@ public class PaintView extends View {
         }
     }
 
-    int layerid = -1;
     public void enableEraser(){
         mPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
     }
-
 
     public void disableEraser(){
         mPaint.setXfermode(null);
@@ -371,5 +374,18 @@ public class PaintView extends View {
 
     public void addDrawingChangeListener(DrawingChangeListener listener){
         drawingChangeListener = listener;
+    }
+
+    public static void copyBitmap(Bitmap source, Bitmap target) {
+        if (source == null || target == null
+                || source.getWidth() != target.getWidth()
+                || source.getHeight() != target.getHeight()) {
+            return;
+        }
+
+        Canvas canvas = new Canvas(target);
+        Paint paint = new Paint();
+        paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
+        canvas.drawBitmap(source, 0, 0, paint);
     }
 }
