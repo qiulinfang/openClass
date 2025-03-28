@@ -2,9 +2,13 @@ package com.cosinetech.imates.views;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.Rect;
+import android.graphics.drawable.ColorDrawable;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -286,8 +290,8 @@ public class ScratchToolsView extends RelativeLayout {
         int screenHeight = ScreenUtils.getScreenHeight(getContext());
         // 创建 PopupWindow
         PopupWindow popupWindow = new PopupWindow(popupView,
-                screenWidth,
-                screenHeight,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
                 true);
 
         imageView.setImageBitmap(bmp);
@@ -325,6 +329,53 @@ public class ScratchToolsView extends RelativeLayout {
         });
 
         // 显示 PopupWindow 在指定位置 (例如屏幕中央)
+//        popupWindow.setTouchable(true);
+//        popupWindow.setFocusable(true);
+//        popupWindow.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT)); // 必须设置背景
+//        popupWindow.setOutsideTouchable(false);
+//        popupWindow.setTouchInterceptor(new View.OnTouchListener() {
+//            @Override
+//            public boolean onTouch(View v, MotionEvent event) {
+//                // 只拦截PopupWindow区域外的点击
+//                if (event.getAction() == MotionEvent.ACTION_OUTSIDE) {
+//                    return true; // 拦截外部点击
+//                }
+//                return false; // 允许内部控件接收触摸事件
+//            }
+//        });
+
+        popupWindow.setTouchable(true);
+        popupWindow.setFocusable(true);
+        popupWindow.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        popupWindow.setOutsideTouchable(true);
+
+        // 使用TouchInterceptor精确控制
+        popupWindow.setTouchInterceptor(new View.OnTouchListener() {
+            private final Rect popupRect = new Rect();
+
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                // 首次触摸时计算PopupWindow的屏幕区域
+                if (popupRect.isEmpty()) {
+                    //popupView.getGlobalVisibleRect(popupRect);
+                    int [] location = new int[2];
+                    popupView.getLocationOnScreen(location);
+                    popupRect.set(
+                            location[0],
+                            location[1],
+                            location[0] + popupView.getWidth(),
+                            location[1] + popupView.getHeight()
+                    );
+                }
+
+
+                // 检查是否点击在PopupWindow外部
+                if (!popupRect.contains((int)event.getRawX(), (int)event.getRawY())) {
+                    return true; // 拦截外部点击
+                }
+                return false; // 允许内部事件传递
+            }
+        });
         popupWindow.showAtLocation(paintView, Gravity.NO_GRAVITY, (int)x, 2);
     }
 
