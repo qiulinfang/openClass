@@ -101,8 +101,8 @@ public abstract class PageView extends ViewGroup {
     private static final int BOX_COLOR = 0xFF696969;// 选中时边框的颜色
     //    private static final int INK_COLOR = 0xFF000000;// 绘制时画笔颜色
     private int INK_COLOR = 0xFF000000;// 绘制时画笔颜色
-    //    private static final float INK_THICKNESS = 10.0f;// 绘制时画笔宽
-    private float INK_THICKNESS = 10.0f;// 绘制时画笔宽
+
+    private float INK_THICKNESS = 5.0f;// 绘制时画笔宽
     private float current_scale;
 
     // Eraser related variables

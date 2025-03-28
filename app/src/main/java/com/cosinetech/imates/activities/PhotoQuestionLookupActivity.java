@@ -8,6 +8,7 @@ import android.graphics.Bitmap;
 import android.graphics.RectF;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
@@ -32,6 +33,7 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.AddQuestionRequest;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.views.MarkdownTextView;
 import com.cosinetech.imates.webservice.ApiGateWayService;
@@ -40,6 +42,7 @@ import com.cosinetech.imates.webservice.Question;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -53,6 +56,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
     private CropImageView cropImageView;
     private ImageView ivPreview;
     private Button btnCapture;
+    private Button btnGallery;
     private Button btnSearch;
     private Button btnAddToList;
     private Button btnExit;
@@ -70,6 +74,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
 
     public final static String KEY_PARAM_SUBJECT = "SUBJECT";
     private static final int REQUEST_CODE_PERMISSIONS = 10;
+    private static final int REQUEST_CODE_PICK_IMAGE = 11;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -92,6 +97,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         cropImageView = findViewById(R.id.crop_img_view);
         ivPreview = findViewById(R.id.img_previewer);
         btnCapture = findViewById(R.id.btn_capture);
+        btnGallery = findViewById(R.id.btn_select_picture);
         btnSearch = findViewById(R.id.btn_search);
         btnAddToList = findViewById(R.id.btn_add_question);
         btnExit = findViewById(R.id.btn_exit);
@@ -108,6 +114,9 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
 
         btnCapture.setOnClickListener(v -> {
             takePhoto();
+        });
+        btnGallery.setOnClickListener(v->{
+            selectPhotoFromGallery();
         });
         btnSearch.setOnClickListener(v -> processCroppedImage());
 
@@ -128,6 +137,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         btnShotAgain.setOnClickListener( v-> {
             viewFinder.setVisibility(View.VISIBLE);
             btnCapture.setVisibility(View.VISIBLE);
+            btnGallery.setVisibility(View.VISIBLE);
             btnSearch.setVisibility(View.GONE);
             btnShotAgain.setVisibility(View.GONE);
             cropImageView.setVisibility(View.GONE);
@@ -245,6 +255,12 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture);
     }
 
+    private void selectPhotoFromGallery() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        startActivityForResult(intent, REQUEST_CODE_PICK_IMAGE);
+    }
     private void takePhoto() {
         try {
             File photoFile = File.createTempFile("prefix_", ".jpg", getCacheDir());
@@ -272,6 +288,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         viewFinder.setVisibility(View.GONE);
         cropImageView.setVisibility(View.VISIBLE);
         btnCapture.setVisibility(View.GONE);
+        btnGallery.setVisibility(View.GONE);
         btnSearch.setVisibility(View.VISIBLE);
         btnShotAgain.setVisibility(View.VISIBLE);
 
@@ -402,6 +419,36 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
 
     private boolean allPermissionsGranted() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE_PICK_IMAGE) {
+            if(resultCode == RESULT_OK && data != null) {
+                Uri uri = data.getData();
+                if(uri != null) {
+                    // 复制图片到外部存储
+                    try {
+                        File photoFile = File.createTempFile("prefix_", ".jpg", getCacheDir());
+                        String filePath = photoFile.getAbsolutePath();
+                        boolean success = AppUtils.copyImageToExternalFilesDir(this, uri, filePath);
+                        if (success) {
+                            Log.d("PhotoPicker", "Image copied successfully!");
+                            showCropView(photoFile);
+                        } else {
+                            Log.e("PhotoPicker", "Failed to copy image.");
+                            Toast.makeText(this, "加载照片失败", Toast.LENGTH_SHORT).show();
+                        }
+                    } catch (IOException e) {
+                        Toast.makeText(this, "读取照片失败", Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    Toast.makeText(this, "没有选择照片", Toast.LENGTH_SHORT).show();
+                }
+            }
+        }
+
     }
 
     @Override
