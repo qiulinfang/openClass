@@ -20,12 +20,14 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
 import com.cosinetech.imates.R;
 
 import java.io.File;
+import java.util.Locale;
 
 public class VideoPlayView extends RelativeLayout {
     private ScratchToolsView scratchToolsView;
@@ -36,6 +38,8 @@ public class VideoPlayView extends RelativeLayout {
     private LinearLayout controlLayout;
     private Button buttonPlayPause, buttonSpeed;
     private SeekBar seekBar;
+    private TextView currentPlayTimeView;
+    private TextView totalTimeView;
     // 视频控制相关
     private boolean isControlsVisible = false;
     private boolean isPlaying = false;
@@ -69,7 +73,8 @@ public class VideoPlayView extends RelativeLayout {
         buttonPlayPause = findViewById(R.id.buttonPlayPause);
         buttonSpeed = findViewById(R.id.buttonSpeed);
         seekBar = findViewById(R.id.seekBar);
-
+        currentPlayTimeView = findViewById(R.id.current_play_time);
+        totalTimeView = findViewById(R.id.total_video_time);
         // 播放/暂停按钮
         buttonPlayPause.setOnClickListener(v -> togglePlayPause());
 
@@ -301,8 +306,12 @@ public class VideoPlayView extends RelativeLayout {
     }
 
     private void updateSeekBar() {
-        if (mediaPlayer != null && isPlaying) {
-            seekBar.setProgress(mediaPlayer.getCurrentPosition());
+        if (mediaPlayer != null) {
+            if(isPlaying) {
+                seekBar.setProgress(mediaPlayer.getCurrentPosition());
+            }
+            currentPlayTimeView.setText(formatTime(mediaPlayer.getCurrentPosition()));
+            totalTimeView.setText(formatTime(mediaPlayer.getDuration()));
         }
 
         // 每 500 毫秒更新一次进度条
@@ -395,6 +404,13 @@ public class VideoPlayView extends RelativeLayout {
         if(videoWidth > 0 && videoHeight > 0) {
             adjustAspectRatio(videoWidth, videoHeight);
         }
+    }
+
+    private String formatTime(int millis) {
+        int seconds = millis / 1000;
+        int minutes = seconds / 60;
+        seconds = seconds % 60;
+        return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
     }
 
     @Override
