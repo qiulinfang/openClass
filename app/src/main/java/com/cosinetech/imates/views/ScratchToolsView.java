@@ -1,5 +1,6 @@
 package com.cosinetech.imates.views;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -282,14 +283,14 @@ public class ScratchToolsView extends RelativeLayout {
 
     private void askQuestionForPicture(Bitmap bmp, int x, int y) {
 // 加载自定义布局
-        View popupView = LayoutInflater.from(context).inflate(R.layout.pdf_ask_ai, null);
-        ImageView imageView = popupView.findViewById(R.id.ask_picture_src);
-        EditText editText = popupView.findViewById(R.id.ask_content);
+        View qView = LayoutInflater.from(context).inflate(R.layout.pdf_ask_ai, null);
+        ImageView imageView = qView.findViewById(R.id.ask_picture_src);
+        EditText editText = qView.findViewById(R.id.ask_content);
         // 动态设置窗口宽度
         int screenWidth = ScreenUtils.getScreenWidth(getContext());
         int screenHeight = ScreenUtils.getScreenHeight(getContext());
         // 创建 PopupWindow
-        PopupWindow popupWindow = new PopupWindow(popupView,
+        PopupWindow popupWindow = new PopupWindow(qView,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 true);
@@ -297,7 +298,7 @@ public class ScratchToolsView extends RelativeLayout {
         imageView.setImageBitmap(bmp);
 
         // 设置点击事件
-        popupView.findViewById(R.id.btn_ok).setOnClickListener(view -> {
+        qView.findViewById(R.id.btn_ok).setOnClickListener(view -> {
             if(editText.getText().toString().trim().isEmpty()) {
                 Toast.makeText(context, "请输入要问的问题", Toast.LENGTH_SHORT).show();
                 return;
@@ -324,47 +325,103 @@ public class ScratchToolsView extends RelativeLayout {
             }
         });
 
-        popupView.findViewById(R.id.btn_cancel).setOnClickListener(view -> {
+        qView.findViewById(R.id.btn_cancel).setOnClickListener(view -> {
             popupWindow.dismiss();
         });
 
-        // 显示 PopupWindow 在指定位置 (例如屏幕中央)
-//        popupWindow.setTouchable(true);
-//        popupWindow.setFocusable(true);
-//        popupWindow.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT)); // 必须设置背景
-//        popupWindow.setOutsideTouchable(false);
-//        popupWindow.setTouchInterceptor(new View.OnTouchListener() {
-//            @Override
-//            public boolean onTouch(View v, MotionEvent event) {
-//                // 只拦截PopupWindow区域外的点击
-//                if (event.getAction() == MotionEvent.ACTION_OUTSIDE) {
-//                    return true; // 拦截外部点击
-//                }
-//                return false; // 允许内部控件接收触摸事件
-//            }
-//        });
+        // 拖动功能实现
+        final int[] lastTouchPos = new int[2];
+        final boolean[] isDragging = {false};
+        final int[] popupLocation = new int[2]; // 记录PopupWindow当前位置
+
+        // 设置拖动触摸监听
+        qView.setOnTouchListener(new View.OnTouchListener() {
+            @SuppressLint("ClickableViewAccessibility")
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                int action = event.getAction();
+                int x = (int) event.getRawX();
+                int y = (int) event.getRawY();
+
+                switch (action) {
+                    case MotionEvent.ACTION_DOWN:
+                        // 记录初始触摸位置
+                        lastTouchPos[0] = x;
+                        lastTouchPos[1] = y;
+                        isDragging[0] = false;
+                        // 获取当前PopupWindow位置
+                        qView.getLocationOnScreen(popupLocation);
+                        return true;
+
+                    case MotionEvent.ACTION_MOVE:
+                        // 计算移动距离
+                        int dx = x - lastTouchPos[0];
+                        int dy = y - lastTouchPos[1];
+
+                        // 更新PopupWindow位置
+                        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) { // 移动阈值，避免误触
+                            if (!isDragging[0]) {
+                                // 开始拖动时添加动画效果
+                                qView.animate().alpha(0.9f).setDuration(100).start();
+                            }
+                            isDragging[0] = true;
+
+                            // 计算新位置（带边界检查）
+                            int newX = popupLocation[0] + dx;
+                            int newY = popupLocation[1] + dy;
+
+                            // 边界检查 - 防止拖出屏幕
+                            int popupWidth = qView.getWidth();
+                            int popupHeight = qView.getHeight();
+
+                            newX = Math.max(0, Math.min(newX, screenWidth - popupWidth));
+                            newY = Math.max(0, Math.min(newY, screenHeight - popupHeight));
+
+                            // 更新位置
+                            popupWindow.update(newX, newY, -1, -1, true);
+
+                            // 更新记录的位置
+                            popupLocation[0] = newX;
+                            popupLocation[1] = newY;
+                            lastTouchPos[0] = x;
+                            lastTouchPos[1] = y;
+                        }
+                        return true;
+
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        if (isDragging[0]) {
+                            isDragging[0] = false;
+                            // 拖动结束恢复透明度
+                            qView.animate().alpha(1.0f).setDuration(200).start();
+                            return true; // 消费事件，防止触发点击
+                        }
+                        return false;
+                }
+                return false;
+            }
+        });
 
         popupWindow.setTouchable(true);
         popupWindow.setFocusable(true);
         popupWindow.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         popupWindow.setOutsideTouchable(true);
 
-        // 使用TouchInterceptor精确控制
         popupWindow.setTouchInterceptor(new View.OnTouchListener() {
             private final Rect popupRect = new Rect();
 
+            @SuppressLint("ClickableViewAccessibility")
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 // 首次触摸时计算PopupWindow的屏幕区域
                 if (popupRect.isEmpty()) {
-                    //popupView.getGlobalVisibleRect(popupRect);
                     int [] location = new int[2];
-                    popupView.getLocationOnScreen(location);
+                    qView.getLocationOnScreen(location);
                     popupRect.set(
                             location[0],
                             location[1],
-                            location[0] + popupView.getWidth(),
-                            location[1] + popupView.getHeight()
+                            location[0] + qView.getWidth(),
+                            location[1] + qView.getHeight()
                     );
                 }
 

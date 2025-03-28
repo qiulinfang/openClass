@@ -13,16 +13,16 @@
         android:layout_height="wrap_content"
         android:textColor="#000000"
         android:textStyle="bold"
-        android:minWidth="600dp"
+        android:minWidth="400dp"
         android:layout_margin="16dp"
         android:text="输入你想问的问题:"/>
 
     <EditText
         android:id="@+id/ask_content"
-        android:layout_width="600dp"
+        android:layout_width="400dp"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
-        android:minWidth="600dp"
+        android:minWidth="400dp"
         android:inputType="textMultiLine"
         android:lines="4"
         android:maxLines="4"
@@ -42,7 +42,7 @@
         android:id="@+id/ask_picture_src"
         android:background="@drawable/ask_ai_for_picture_edit_bg"
         android:elevation="4dp"
-        android:layout_width="600dp"
+        android:layout_width="400dp"
         android:layout_height="250dp"
         android:layout_margin="16dp"/>
 
