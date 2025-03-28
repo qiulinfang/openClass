@@ -1,74 +1,85 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:background="@drawable/ask_ai_for_picture_bg"
+    android:background="#80000000"
     android:layout_width="wrap_content"
     android:layout_height="match_parent"
     android:elevation="10dp"
+    android:layout_gravity="center_horizontal"
     android:orientation="vertical">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="#000000"
-        android:textStyle="bold"
-        android:minWidth="300dp"
-        android:layout_margin="16dp"
-        android:text="输入你想问的问题:"/>
-
-    <EditText
-        android:id="@+id/ask_content"
-        android:layout_width="300dp"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:minWidth="300dp"
-        android:inputType="textMultiLine"
-        android:lines="4"
-        android:maxLines="4"
-        android:hint="想问什么?"
-        android:textColorHint="#808080"
-        android:scrollHorizontally="false"
-        android:overScrollMode="never"
-        android:ellipsize="none"
-        android:singleLine="false"
-        android:gravity="top|start"
-        android:scrollbars="vertical"
-        android:padding="8dp"
-        android:background="@drawable/ask_ai_for_picture_edit_bg"
-        android:elevation="4dp" />
-
-    <ImageView
-        android:id="@+id/ask_picture_src"
-        android:background="@drawable/ask_ai_for_picture_edit_bg"
-        android:elevation="4dp"
-        android:layout_width="300dp"
-        android:layout_height="250dp"
-        android:layout_margin="16dp"/>
-
     <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_horizontal"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/btn_ok"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:background="@drawable/ask_ai_for_picture_bg"
+        android:elevation="10dp"
+        android:layout_gravity="center_horizontal"
+        android:orientation="vertical">
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#ffffff"
-            android:elevation="4dp"
-            android:background="@drawable/ask_ai_for_picture_button_bg"
+            android:textColor="#000000"
+            android:textStyle="bold"
+            android:minWidth="600dp"
             android:layout_margin="16dp"
-            android:text="确定"/>
+            android:text="输入你想问的问题:"/>
 
-        <Button
-            android:id="@+id/btn_cancel"
-            android:layout_width="wrap_content"
+        <EditText
+            android:id="@+id/ask_content"
+            android:layout_width="600dp"
             android:layout_height="wrap_content"
-            android:textColor="#ffffff"
-            android:elevation="4dp"
-            android:background="@drawable/ask_ai_for_picture_button_bg"
             android:layout_margin="16dp"
-            android:text="取消"/>
+            android:minWidth="600dp"
+            android:inputType="textMultiLine"
+            android:lines="4"
+            android:maxLines="4"
+            android:hint="想问什么?"
+            android:textColorHint="#808080"
+            android:scrollHorizontally="false"
+            android:overScrollMode="never"
+            android:ellipsize="none"
+            android:singleLine="false"
+            android:gravity="top|start"
+            android:scrollbars="vertical"
+            android:padding="8dp"
+            android:background="@drawable/ask_ai_for_picture_edit_bg"
+            android:elevation="4dp" />
+
+        <ImageView
+            android:id="@+id/ask_picture_src"
+            android:background="@drawable/ask_ai_for_picture_edit_bg"
+            android:elevation="4dp"
+            android:layout_width="600dp"
+            android:layout_height="250dp"
+            android:layout_margin="16dp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_ok"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#ffffff"
+                android:elevation="4dp"
+                android:background="@drawable/ask_ai_for_picture_button_bg"
+                android:layout_margin="16dp"
+                android:text="确定"/>
+
+            <Button
+                android:id="@+id/btn_cancel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#ffffff"
+                android:elevation="4dp"
+                android:background="@drawable/ask_ai_for_picture_button_bg"
+                android:layout_margin="16dp"
+                android:text="取消"/>
+        </LinearLayout>
+
     </LinearLayout>
+
 </LinearLayout>

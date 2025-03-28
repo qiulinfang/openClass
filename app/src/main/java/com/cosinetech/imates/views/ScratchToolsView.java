@@ -3,6 +3,7 @@ package com.cosinetech.imates.views;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.util.AttributeSet;
+import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -22,7 +23,9 @@ import com.cosinetech.imates.colorpicker.ColorListener;
 import com.cosinetech.imates.colorpicker.ColorPickerDialog;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.notes.NoteManager;
+import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.ImageUtils;
+import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiUrl;
 import com.litao.slider.NiftySlider;
@@ -280,10 +283,13 @@ public class ScratchToolsView extends RelativeLayout {
         View popupView = LayoutInflater.from(context).inflate(R.layout.pdf_ask_ai, null);
         ImageView imageView = popupView.findViewById(R.id.ask_picture_src);
         EditText editText = popupView.findViewById(R.id.ask_content);
+        // 动态设置窗口宽度
+        int screenWidth = ScreenUtils.getScreenWidth(getContext());
+        int screenHeight = ScreenUtils.getScreenHeight(getContext());
         // 创建 PopupWindow
         PopupWindow popupWindow = new PopupWindow(popupView,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
+                screenWidth,
+                screenHeight,
                 true);
 
         imageView.setImageBitmap(bmp);
