@@ -7,6 +7,7 @@ import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -330,11 +331,88 @@ public class ScratchToolsView extends RelativeLayout {
         });
 
         // 拖动功能实现
+        final int[] anchorScreenLocation = new int[2];
+
+// 在showAtLocation之前添加
+        paintView.getLocationOnScreen(anchorScreenLocation);
+
+// 修改触摸监听
+//        final int[] lastTouchPos = new int[2];
+//        final boolean[] isDragging = {false};
+//        qView.setOnTouchListener(new View.OnTouchListener() {
+//            @Override
+//            public boolean onTouch(View v, MotionEvent event) {
+//                int action = event.getAction();
+//                int x = (int) event.getRawX();
+//                int y = (int) event.getRawY();
+//
+//                switch (action) {
+//                    case MotionEvent.ACTION_DOWN:
+//                        lastTouchPos[0] = x;
+//                        lastTouchPos[1] = y;
+//                        isDragging[0] = false;
+//                        return true;
+//
+//                    case MotionEvent.ACTION_MOVE:
+//                        int dx = x - lastTouchPos[0];
+//                        int dy = y - lastTouchPos[1];
+//
+//                        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+//                            if (!isDragging[0]) {
+//                                qView.animate().alpha(0.9f).setDuration(100).start();
+//                            }
+//                            isDragging[0] = true;
+//
+//                            // 获取当前PopupWindow位置
+//                            int[] popupLocation = new int[2];
+//                            qView.getLocationOnScreen(popupLocation);
+//
+//                            // 计算新位置
+//                            int newX = popupLocation[0] + dx;
+//                            int newY = popupLocation[1] + dy;
+//
+//                            // 确保视图尺寸有效
+//                            if (qView.getWidth() <= 0 || qView.getHeight() <= 0) {
+//                                qView.measure(
+//                                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+//                                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+//                                );
+//                            }
+//
+//                            // 边界检查
+//                            newX = Math.max(0, Math.min(newX, screenWidth - qView.getMeasuredWidth()));
+//                            newY = Math.max(0, Math.min(newY, screenHeight - qView.getMeasuredHeight()));
+//
+//                            // 转换为相对于锚点的坐标
+//                            int relativeX = newX - anchorScreenLocation[0];
+//                            int relativeY = newY - anchorScreenLocation[1];
+//
+//                            // 更新位置
+//                            popupWindow.update(relativeX, relativeY, -1, -1, true);
+//
+//                            lastTouchPos[0] = x;
+//                            lastTouchPos[1] = y;
+//                        }
+//                        return true;
+//
+//                    case MotionEvent.ACTION_UP:
+//                        if (isDragging[0]) {
+//                            isDragging[0] = false;
+//                            qView.animate().alpha(1.0f).setDuration(200).start();
+//                            return true;
+//                        }
+//                        return false;
+//                }
+//                return false;
+//            }
+//        });
+
+
+        final Rect popupRect = new Rect();
         final int[] lastTouchPos = new int[2];
         final boolean[] isDragging = {false};
         final int[] popupLocation = new int[2]; // 记录PopupWindow当前位置
-
-        // 设置拖动触摸监听
+         //设置拖动触摸监听
         qView.setOnTouchListener(new View.OnTouchListener() {
             @SuppressLint("ClickableViewAccessibility")
             @Override
@@ -408,22 +486,17 @@ public class ScratchToolsView extends RelativeLayout {
         popupWindow.setOutsideTouchable(true);
 
         popupWindow.setTouchInterceptor(new View.OnTouchListener() {
-            private final Rect popupRect = new Rect();
-
             @SuppressLint("ClickableViewAccessibility")
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                // 首次触摸时计算PopupWindow的屏幕区域
-                if (popupRect.isEmpty()) {
-                    int [] location = new int[2];
-                    qView.getLocationOnScreen(location);
-                    popupRect.set(
-                            location[0],
-                            location[1],
-                            location[0] + qView.getWidth(),
-                            location[1] + qView.getHeight()
-                    );
-                }
+                int [] location = new int[2];
+                qView.getLocationOnScreen(location);
+                popupRect.set(
+                        location[0],
+                        location[1],
+                        location[0] + qView.getWidth(),
+                        location[1] + qView.getHeight()
+                );
 
 
                 // 检查是否点击在PopupWindow外部
