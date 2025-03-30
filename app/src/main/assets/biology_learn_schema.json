@@ -5,7 +5,7 @@
     "sections": [
       {
         "section":"section3.1",
-        "knowledgeNo":"1742287268-162,1742287268-256,1742287268-893,1742287268-937,1742287269-170,1742287269-392,1742287269-859,1742287283-247",
+        "knowledgeNo":"27,28,29,30",
         "title":"DNA是主要的遗传物质",
         "schemas": [
           {
@@ -21,7 +21,7 @@
       {
         "section":"section3.2",
         "title":"DNA的结构",
-        "knowledgeNo": "1742287351-189,1742287351-691,1742287351-770,1742287352-985",
+        "knowledgeNo": "31,32,33",
         "schemas": [
           {
             "comments": "",
@@ -36,7 +36,7 @@
       {
         "section":"section3.3",
         "title":"DNA的复制",
-        "knowledgeNo": "1742287641-780,1742287609-664,1742287609-234,1742287608-922,1742287608-387,1742287608-209",
+        "knowledgeNo": "34,35,36",
         "schemas": [
           {
             "comments": "",
@@ -51,7 +51,7 @@
       {
         "section":"section3.4",
         "title":"基因通常是有遗传效应的DNA片段",
-        "knowledgeNo": "1742287680-664,1742287679-679,1742287679-728,1742287680-215,1742287678-982,1742287678-52,1742287678-37",
+        "knowledgeNo": "37,38",
         "schemas": [
           {
             "comments": "",
@@ -71,7 +71,7 @@
         "sections": [
             {
               "section":"section4.1",
-              "knowledgeNo":"1742287787-993,1742287787-682,1742287787-345,1742287787-459,1457849c-055a-,6eefdfba-07da-,8ed17546-0572-,a291282b-4493-,bc0ffe74-337b-,datia8168187,1742287765-448,1742287765-423,1742287764-42,1742287764-382,1742287760-315,1742287760-86,1742287763-835,1742287763-993,1742287765-532",
+              "knowledgeNo":"43,40,41,39,42,44,45,46",
               "title":"基因指导蛋白质的合成",
               "schemas": [
                 {
@@ -87,7 +87,7 @@
             {
               "section":"section4.2",
               "title":"基因表达与性状的关系",
-              "knowledgeNo": "12f71a13-7da8-,763b395e-26bd-,702e8019-2fb2-,ee8e49c4-4506-,5a56a2cb-ce22-,1742287923-934,1742287842-353,1742287841-902,1742287841-377,1742287840-628,1742287840-390,1742287817-898,1742287817-241,1742287817-22",
+              "knowledgeNo": "47,48,49",
               "schemas": [
                 {
                   "comments": "",
@@ -107,7 +107,7 @@
         "sections": [
             {
               "section":"section5.1",
-              "knowledgeNo":"5_1_d82eae08",
+              "knowledgeNo":"50,51,52,53,54",
               "title":"基因突变和基因重组",
               "schemas": [
                 {
@@ -123,7 +123,7 @@
             {
               "section":"section5.2",
               "title":"染色体变异",
-              "knowledgeNo": "5_2_6e6ecf37",
+              "knowledgeNo": "58,55,66,65,64,62,57,59,56,60,61,63",
               "schemas": [
                 {
                   "comments": "",
@@ -138,7 +138,7 @@
             {
               "section":"section5.3",
               "title":"人类遗传病",
-              "knowledgeNo": "5_3_6e6ecf37",
+              "knowledgeNo": "67,68,69,70,71,72",
               "schemas": [
                 {
                   "comments": "",
@@ -158,7 +158,7 @@
         "sections": [
             {
               "section":"section6.1",
-              "knowledgeNo":"6_1_d82eae08",
+              "knowledgeNo":"73",
               "title":"生物有共同祖先的证据",
               "schemas": [
                 {
@@ -174,7 +174,7 @@
             {
               "section":"section6.2",
               "title":"自然选择与适应的形成",
-              "knowledgeNo": "6_2_6e6ecf37",
+              "knowledgeNo": "74",
               "schemas": [
                 {
                   "comments": "",
@@ -189,7 +189,7 @@
             {
               "section":"section6.3",
               "title":"种群基因组成的变化与物种的形成",
-              "knowledgeNo": "6_3_6e6ecf37",
+              "knowledgeNo": "75,76",
               "schemas": [
                 {
                   "comments": "",
@@ -204,7 +204,7 @@
             {
               "section":"section6.4",
               "title":"协同进化与生物多样性的形成",
-              "knowledgeNo": "6_4_6e6ecf37",
+              "knowledgeNo": "77,78",
               "schemas": [
                 {
                   "comments": "",

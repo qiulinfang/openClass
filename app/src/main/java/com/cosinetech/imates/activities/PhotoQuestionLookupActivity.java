@@ -142,8 +142,9 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
             btnShotAgain.setVisibility(View.GONE);
             cropImageView.setVisibility(View.GONE);
             ivPreview.setVisibility(View.GONE);
-            questionView.setContent("");
-            btnAddToList.setVisibility(View.INVISIBLE);
+            questionView.setVisibility(View.GONE);
+            //questionView.setContent(" ");
+            btnAddToList.setVisibility(View.GONE);
             splitLine.setVisibility(View.GONE);
             stopCamera();
             startCamera();
@@ -360,6 +361,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                         }
                         splitLine.setVisibility(View.VISIBLE);
                         questionView.setContent(questionString);
+                        questionView.setVisibility(View.VISIBLE);
                         btnAddToList.setVisibility(View.VISIBLE);
                     });
                 }
