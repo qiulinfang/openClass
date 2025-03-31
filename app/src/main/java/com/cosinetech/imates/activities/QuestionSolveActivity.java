@@ -166,9 +166,9 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 new ViewModelProvider.AndroidViewModelFactory(getApplication())
         ).get(UserInfoViewModel.class);
 
-        RecyclerView recyclerView = findViewById(R.id.exerciseList);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
-        recyclerView.addItemDecoration(new RecyclerViewOverscrollDecoration());
+        RecyclerView myExercisesView = findViewById(R.id.exerciseList);
+        myExercisesView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
+        myExercisesView.addItemDecoration(new RecyclerViewOverscrollDecoration());
         adapterQuestionList = new AdapterQuestionList(mQuestions, new AdapterQuestionList.ExerciseListChangedListener() {
             @Override
             public void onExerciseDelete(int position) {
@@ -207,7 +207,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
 //                adapterQuestionList.notifyItemRemoved(position);
 //                adapterQuestionList.notifyItemInserted(0);
                 adapterQuestionList.notifyDataSetChanged();
-                recyclerView.smoothScrollToPosition(0);
+                myExercisesView.smoothScrollToPosition(0);
             }
 
             @Override
@@ -250,7 +250,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 });
             }
         });
-        recyclerView.setAdapter(adapterQuestionList);
+        myExercisesView.setAdapter(adapterQuestionList);
 
         RecyclerView recyclerViewSimilarQuestion = findViewById(R.id.similarExerciseView);
         recyclerViewSimilarQuestion.setLayoutManager(new LinearLayoutManager(this));
@@ -313,7 +313,9 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 ApiGateWayService.addExerciseToList(item, ApiUrl.URL_ADD_EXERCISE_TO_LIST, userInfoViewModel.token.getValue());
 
                 mQuestions.add(q);
-                adapterQuestionList.notifyItemInserted(mQuestions.size() - 1);
+                //adapterQuestionList.notifyItemInserted(mQuestions.size() - 1);
+                adapterQuestionList.notifyDataSetChanged();
+                myExercisesView.smoothScrollToPosition(mQuestions.size() - 1);
 
                 mSimilarQuestion.remove(pos);
                 adapterSimilarQuestionList.notifyDataSetChanged();

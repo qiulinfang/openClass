@@ -369,6 +369,9 @@ public class ChatAiView extends RelativeLayout {
             mAskTeacherLayout.setVisibility(GONE);
 
             List<ChatDisplayItem> items = mAdapterAiChatMessageList.getSelectedItem();
+            if(items.isEmpty()) {
+                return;
+            }
             //切换到老师会话
             if(mChatTeacherSession == null) {
                 ChatMessageSession.SessionType type;

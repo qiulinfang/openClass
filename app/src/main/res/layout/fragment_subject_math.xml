@@ -93,7 +93,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:text="拍照解题"
+                android:text="拍照答疑"
                 android:textColor="@color/white"
                 android:textSize="32sp"
                 android:paddingLeft="24dp"
