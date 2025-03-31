@@ -201,7 +201,7 @@ public class ApiGateWayService {
     }
 
     // ========添加习题接口========
-    public static void addExerciseToList(AddQuestionRequest item, String Url, String token) {
+    public static void addExerciseToList(AddQuestionRequest item, String Url, String token, AddExerciseCallback callback) {
         Runnable task = () -> {
             try {
                 OkHttpClient client = createClient();
@@ -222,8 +222,14 @@ public class ApiGateWayService {
                 try (Response response = client.newCall(request).execute();) {
                     if (response.isSuccessful()) {
                         // 获取响应体
-                        String responseBody = response.body().string();
+                        //String responseBody = response.body().string();
+                        if(callback != null) {
+                            callback.onSuccess();
+                        }
                     } else {
+                        if(callback != null) {
+                            callback.onFailure(response.message(), response.code());
+                        }
                         fileterFailedResponse(response);
                     }
                 } catch (Exception e) {
@@ -239,9 +245,15 @@ public class ApiGateWayService {
 
     // ========查询练习题接口========
     public interface QueryExerciseListCallback {
-        void onSuccess(List<Question> questions);
+        void onSuccess(List<Question> questions, long totalCount, long pageSize, long currentPageNo);
         void onFailure(String msg, int code);
     }
+
+    public interface AddExerciseCallback {
+        void onSuccess();
+        void onFailure(String msg, int code);
+    }
+
     public static void queryExerciseList(String url, String token, QueryExerciseListCallback callback) {
         Runnable task = () -> {
             try {
@@ -259,7 +271,10 @@ public class ApiGateWayService {
                         if (callback != null && response.body() != null) {
                             QueryQuestionListResponse q = QueryQuestionListResponse.fromJson(response.body().string());
                             if(!q.getData().getQuestionsList().isEmpty()) {
-                                callback.onSuccess(q.getData().getQuestionsList());
+                                callback.onSuccess(q.getData().getQuestionsList(),
+                                        q.getData().getQuestionsList().size(),
+                                        q.getData().getQuestionsList().size(),
+                                        1);
                             } else {
                                 callback.onFailure(response.message(), response.code());
                             }
@@ -305,7 +320,10 @@ public class ApiGateWayService {
                         if (callback != null && response.body() != null) {
                             SimilarExerciseResponse q = SimilarExerciseResponse.fromJson(response.body().string());
                             if(!q.getData().getQuestions().isEmpty()) {
-                                callback.onSuccess(q.getData().getQuestions());
+                                callback.onSuccess(q.getData().getQuestions(),
+                                        q.getTotalCount(),
+                                        q.getPageSize(),
+                                        q.getPageNo());
                             } else {
                                 callback.onFailure(response.message(), response.code());
                             }

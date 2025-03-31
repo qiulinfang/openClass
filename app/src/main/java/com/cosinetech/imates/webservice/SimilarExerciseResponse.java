@@ -19,6 +19,15 @@ public class SimilarExerciseResponse {
     @SerializedName("message")
     private String message;
 
+    @SerializedName("pageNo")
+    private long pageNo;
+
+    @SerializedName("pageSize")
+    private long pageSize;
+
+    @SerializedName("totalCount")
+    private long totalCount;
+
     @SerializedName("data")
     private Data data;
 
@@ -37,6 +46,30 @@ public class SimilarExerciseResponse {
 
     public void setCode(int code) {
         this.code = code;
+    }
+
+    public long getPageSize(){
+        return  pageSize;
+    }
+
+    public void setPageSize(long pageSize) {
+        this.pageSize = pageSize;
+    }
+
+    public long getPageNo() {
+        return pageNo;
+    }
+
+    public void setPageNo(long pageNo) {
+        this.pageNo = pageNo;
+    }
+
+    public long getTotalCount() {
+        return totalCount;
+    }
+
+    public void setTotalCount(long totalCount) {
+        this.totalCount = totalCount;
     }
 
     public String getMessage() {

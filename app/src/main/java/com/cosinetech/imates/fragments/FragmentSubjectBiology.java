@@ -11,6 +11,8 @@ import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -145,14 +147,11 @@ public class FragmentSubjectBiology extends Fragment {
                 Toast.makeText(getContext(), "未查询到相关的练习资料", Toast.LENGTH_SHORT).show();
                 return;
             }
-            FindKnowledgeQuestionPopupWindow win = new FindKnowledgeQuestionPopupWindow(requireActivity(), Subject.SUBJECT_BIOLOGY,
-                   s.getKnowledgeNo() , new FindKnowledgeQuestionPopupWindow.OnSimilarQuestionSelectionListener() {
-                @Override
-                public void onQuestionSelected() {
-                    startQuestionSolveActivity();
-                }
+            new Handler(Looper.getMainLooper()).post(() -> {
+                FindKnowledgeQuestionPopupWindow win = new FindKnowledgeQuestionPopupWindow(requireActivity(), Subject.SUBJECT_BIOLOGY,
+                        s.getKnowledgeNo(), () -> startQuestionSolveActivity());
+                win.show();
             });
-            win.show();
         }
     }
 

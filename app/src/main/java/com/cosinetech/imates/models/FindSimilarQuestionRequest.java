@@ -41,6 +41,38 @@ public class FindSimilarQuestionRequest {
     @SerializedName("type")
     private String type;
 
+    @SerializedName("current")
+    private int currentPage; //当前页面
+
+    @SerializedName("size")
+    private int pageSize; //每页条目数
+
+    private long totalCount; // 总条目数
+
+    public long getTotalCount() {
+        return totalCount;
+    }
+
+    public void setTotalCount(long totalCount) {
+        this.totalCount = totalCount;
+    }
+
+    public int getCurrentPage() {
+        return currentPage;
+    }
+
+    public void setCurrentPage(int pageNo) {
+        currentPage = pageNo;
+    }
+
+    public int getPageSize() {
+        return pageSize;
+    }
+
+    public void setPageSize(int ps) {
+        pageSize = ps;
+    }
+
     public String getKnowledgeNo() {
         return knowledgeNo;
     }
@@ -210,11 +242,11 @@ public class FindSimilarQuestionRequest {
         return item;
     }
 
-    public static FindSimilarQuestionRequest fromKnowledgeId(String knowledgeNos, String existingBMids, String subject) {
-        FindSimilarQuestionRequest item = new FindSimilarQuestionRequest();
-        item.setKnowledgeNo(knowledgeNos);
-        item.setExercisesId(existingBMids);
-        item.setType(subject);
-        return item;
-    }
+//    public static FindSimilarQuestionRequest fromKnowledgeId(String knowledgeNos, String existingBMids, String subject) {
+//        FindSimilarQuestionRequest item = new FindSimilarQuestionRequest();
+//        item.setKnowledgeNo(knowledgeNos);
+//        item.setExercisesId(existingBMids);
+//        item.setType(subject);
+//        return item;
+//    }
 }

@@ -1,44 +1,62 @@
 package com.cosinetech.imates.views;
 
 import android.app.Activity;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.PopupWindow;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.adapters.AdapterMultiSelectSimilarQuestionList;
 import com.cosinetech.imates.models.Subject;
-import com.cosinetech.imates.adapters.AdapterSimilarQuestionList;
 import com.cosinetech.imates.models.AddQuestionRequest;
 import com.cosinetech.imates.models.FindSimilarQuestionRequest;
 import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.ApiUrl;
 import com.cosinetech.imates.webservice.Question;
+import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 
 public class FindKnowledgeQuestionPopupWindow {
     public interface OnSimilarQuestionSelectionListener {
         void onQuestionSelected();
     }
+    private static final int QUESTION_PAGE_SIZE = 8;
     private Subject mSubject;
     private Activity mContext;
+    private PopupWindow mPopupWindow;
+    private RecyclerView mRecyclerViewSimilarQuestion;
     private OnSimilarQuestionSelectionListener mListener;
     private String mKnowledgeList;
     private List<Question> mSimilarQuestion = new ArrayList<>();
-    private AdapterSimilarQuestionList adapterSimilarQuestionList;
-    private UserInfoViewModel userInfoViewModel;
-    private final List<Question> mQuestions = new ArrayList<>();
+    private ArrayList<String> mQuestionIdsInFavor = new ArrayList<>();
+
+    private AdapterMultiSelectSimilarQuestionList adapterMultiSelectSimilarQuestionList;
+    private UserInfoViewModel mUserInfoViewModel;
+    private final List<Question> mQuestionsInFavor = new ArrayList<>();
+
+    private final FindSimilarQuestionRequest mFindSimilarQuestionRequest = new FindSimilarQuestionRequest();
+
+    private ApiGateWayService.QueryExerciseListCallback mSimilarQuestionsCallback = null;
 
     private View mView;
     public FindKnowledgeQuestionPopupWindow(Activity context, Subject subject, String knowledgeList, OnSimilarQuestionSelectionListener listener) {
@@ -48,18 +66,54 @@ public class FindKnowledgeQuestionPopupWindow {
         this.mKnowledgeList = knowledgeList;
 
         ViewModelStoreOwner owner = (ViewModelStoreOwner) context.getApplication();
-        userInfoViewModel = new ViewModelProvider(
+        mUserInfoViewModel = new ViewModelProvider(
                 owner,
                 new ViewModelProvider.AndroidViewModelFactory(context.getApplication())
         ).get(com.cosinetech.imates.models.UserInfoViewModel.class);
 
+        mFindSimilarQuestionRequest.setCurrentPage(0);
+
+        mSimilarQuestionsCallback = new ApiGateWayService.QueryExerciseListCallback() {
+            @Override
+            public void onSuccess(List<Question> questions, long totalCount, long pageSize, long currentPageNo) {
+                mView.post(() -> {
+//                    mSimilarQuestion.clear();
+                    for (Question q: questions) {
+                        if(mQuestionIdsInFavor.contains(q.bmNo)) {
+                            q.atUserList = true;
+                        }
+                    }
+                    mSimilarQuestion.addAll(questions);
+                    adapterMultiSelectSimilarQuestionList.resetSelection();
+                    adapterMultiSelectSimilarQuestionList.notifyDataSetChanged();
+                    mFindSimilarQuestionRequest.setTotalCount(totalCount);
+                    if(!mSimilarQuestion.isEmpty()) {
+                        mRecyclerViewSimilarQuestion.smoothScrollToPosition(mSimilarQuestion.size() - 1);
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure(String msg, int code) {
+                mView.post(() -> {
+                    //mSimilarQuestion.clear();
+                    adapterMultiSelectSimilarQuestionList.resetSelection();
+                    adapterMultiSelectSimilarQuestionList.notifyDataSetChanged();
+                    if(mFindSimilarQuestionRequest.getCurrentPage() > 1) {
+                        mFindSimilarQuestionRequest.setCurrentPage(mFindSimilarQuestionRequest.getCurrentPage() - 1);
+                    }
+                    Toast.makeText(mContext, "没有查到对应的题目", Toast.LENGTH_SHORT).show();
+                });
+            }
+        };
     }
 
     private void findSimilarKnowledgeQuestion() {
         StringBuilder ids = new StringBuilder();
-        for (Question qq:mQuestions) {
+        for (Question qq: mQuestionsInFavor) {
             ids.append(qq.bmNo).append(",");
         }
+
         String url = ApiUrl.URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE;
         String subjectName;
         if(mSubject == Subject.SUBJECT_BIOLOGY) {
@@ -70,28 +124,14 @@ public class FindKnowledgeQuestionPopupWindow {
             return;
         }
 
-        FindSimilarQuestionRequest item = FindSimilarQuestionRequest.fromKnowledgeId(mKnowledgeList, ids.toString(), subjectName);
-        ApiGateWayService.querySimilarExerciseList(item, url, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
-            @Override
-            public void onSuccess(List<Question> q) {
-                mView.post(() -> {
-                    mSimilarQuestion.clear();
-                    mSimilarQuestion.addAll(q);
-                    adapterSimilarQuestionList.resetSelection();
-                    adapterSimilarQuestionList.notifyDataSetChanged();
-                });
-            }
+        mFindSimilarQuestionRequest.setKnowledgeNo(mKnowledgeList);
+        mFindSimilarQuestionRequest.setExercisesId(ids.toString());
+        mFindSimilarQuestionRequest.setType(subjectName);
+        mFindSimilarQuestionRequest.setPageSize(QUESTION_PAGE_SIZE);
+        mFindSimilarQuestionRequest.setCurrentPage(mFindSimilarQuestionRequest.getCurrentPage() + 1);
 
-            @Override
-            public void onFailure(String msg, int code) {
-                mView.post(() -> {
-                    mSimilarQuestion.clear();
-                    adapterSimilarQuestionList.resetSelection();
-                    adapterSimilarQuestionList.notifyDataSetChanged();
-                    Toast.makeText(mContext, "没有查到对应的题目", Toast.LENGTH_SHORT).show();
-                });
-            }
-        });
+        //FindSimilarQuestionRequest request = FindSimilarQuestionRequest.fromKnowledgeId(mKnowledgeList, ids.toString(), subjectName);
+        ApiGateWayService.querySimilarExerciseList(mFindSimilarQuestionRequest, url, mUserInfoViewModel.token.getValue(), mSimilarQuestionsCallback);
     }
 
     private void fetchQuestionList() {
@@ -104,11 +144,15 @@ public class FindKnowledgeQuestionPopupWindow {
             return;
         }
 
-        ApiGateWayService.queryExerciseList(url, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
+        ApiGateWayService.queryExerciseList(url, mUserInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
             @Override
-            public void onSuccess(List<Question> q) {
-                mQuestions.clear();
-                mQuestions.addAll(q);
+            public void onSuccess(List<Question> questions, long totalCount, long pageSize, long currentPageNo) {
+                mQuestionsInFavor.clear();
+                mQuestionIdsInFavor.clear();
+                mQuestionsInFavor.addAll(questions);
+                for(Question q: questions) {
+                    mQuestionIdsInFavor.add(q.bmNo);
+                }
                 findSimilarKnowledgeQuestion();
             }
 
@@ -123,117 +167,103 @@ public class FindKnowledgeQuestionPopupWindow {
     }
 
     public void setQuestionListView(View view) {
-        RecyclerView recyclerViewSimilarQuestion = view.findViewById(R.id.question_list);
-        recyclerViewSimilarQuestion.setLayoutManager(new LinearLayoutManager(mContext));
-        adapterSimilarQuestionList = new AdapterSimilarQuestionList(mSimilarQuestion, new AdapterSimilarQuestionList.SimilarQuestionListChangedListener() {
+        mRecyclerViewSimilarQuestion = view.findViewById(R.id.question_list);
+        mRecyclerViewSimilarQuestion.setLayoutManager(new LinearLayoutManager(mContext));
+        adapterMultiSelectSimilarQuestionList = new AdapterMultiSelectSimilarQuestionList(mSimilarQuestion);
+        mRecyclerViewSimilarQuestion.setAdapter(adapterMultiSelectSimilarQuestionList);
+    }
+
+    public void addSelectedQuestionToList() {
+        AddQuestionRequest item = new AddQuestionRequest();
+
+        StringBuilder ids = new StringBuilder();
+        for (Question qq : mSimilarQuestion) {
+            ids.append(qq.bmNo).append(",");
+        }
+        item.setBmNo(ids.toString());
+
+        if (mSubject == Subject.SUBJECT_BIOLOGY) {
+            item.setType("biology");
+        } else if (mSubject == Subject.SUBJECT_MATH) {
+            item.setType("math");
+        }
+        ApiGateWayService.addExerciseToList(item, ApiUrl.URL_ADD_EXERCISE_TO_LIST, mUserInfoViewModel.token.getValue(), new ApiGateWayService.AddExerciseCallback() {
             @Override
-            public void onExerciseAddToMyList(int pos, Question q) {
-                AddQuestionRequest item = new AddQuestionRequest();
-
-                item.setTitle(q.title);
-                item.setImgName(q.titleImg);
-                item.setImgTitleUrl(q.titleImg);
-
-                final List<String> optImgs = q.optionsImg.isEmpty() ? q.imgUrl : q.optionsImg;
-                StringBuilder optionImgs = new StringBuilder();
-
-                for(int i = 0; i< optImgs.size(); i++) {
-                    if(i == 0) {
-                        optionImgs.append("[");
+            public void onSuccess() {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    mPopupWindow.dismiss();
+                    if (mListener != null) {
+                        mListener.onQuestionSelected();
                     }
-
-                    optionImgs.append("\"").append(optImgs.get(i)).append("\"");
-                    if(i != optImgs.size() - 1) {
-                        optionImgs.append(",");
-                    } else {
-                        optionImgs.append("]");
-                    }
-                }
-
-                item.setImgUrl(optionImgs.toString());
-
-                StringBuilder opts = new StringBuilder();
-                for(int i = 0; i < q.options.size(); i++) {
-                    if(i == 0) {
-                        opts.append("[");
-                    }
-
-                    opts.append("\"").append(q.options.get(i)).append("\"");
-                    if(i != q.options.size() - 1) {
-                        opts.append(",");
-                    } else {
-                        opts.append("]");
-                    }
-                }
-                item.setOptions(opts.toString());
-                item.setAnswer(q.answer);
-                item.setExplanation(q.explanation);
-
-                StringBuilder ids = new StringBuilder();
-                for (Question qq:mQuestions) {
-                    ids.append(qq.bmNo).append(",");
-                }
-                item.setExercisesId(ids.toString());
-                item.setBmNo(q.bmNo);
-
-                if(mSubject == Subject.SUBJECT_BIOLOGY) {
-                    item.setType("biology");
-                } else if(mSubject == Subject.SUBJECT_MATH) {
-                    item.setType("math");
-                }
-                ApiGateWayService.addExerciseToList(item, ApiUrl.URL_ADD_EXERCISE_TO_LIST, userInfoViewModel.token.getValue());
-
-                mSimilarQuestion.get(pos).atUserList = true;
-                adapterSimilarQuestionList.notifyDataSetChanged();
+                });
             }
 
             @Override
-            public void onExerciseAddToMyFavor(int pos, Question q) {
-
+            public void onFailure(String msg, int code) {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    Toast.makeText(mContext, "添加到列表失败:" + msg, Toast.LENGTH_SHORT).show();
+                });
             }
         });
-        recyclerViewSimilarQuestion.setAdapter(adapterSimilarQuestionList);
+
+
     }
 
     public void show() {
         mView = LayoutInflater.from(mContext).inflate(
                 R.layout.popup_windows_similar_questions, null);
         // 初始化 PopupWindow
-        PopupWindow popupWindow = new PopupWindow(mView,
-                ViewGroup.LayoutParams.MATCH_PARENT, // 宽度
-                ViewGroup.LayoutParams.MATCH_PARENT); // 高度
+        int screenWidth = ScreenUtils.getScreenWidth(mContext);
+        int screenHeight = ScreenUtils.getScreenHeight(mContext);
+        mPopupWindow = new PopupWindow(mView,
+                screenWidth, // 宽度
+                screenHeight); // 高度
         setQuestionListView(mView);
 
         Button btnOk = mView.findViewById(R.id.btn_ok);
         btnOk.setOnClickListener(v -> {
-            popupWindow.dismiss();
-            if(mListener != null) {
-                mListener.onQuestionSelected();
-            }
+            addSelectedQuestionToList();
         });
 
         Button btnExit = mView.findViewById(R.id.btn_back);
-        btnExit.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                popupWindow.dismiss();
+        btnExit.setOnClickListener(v -> mPopupWindow.dismiss());
+
+        Button btnRefresh = mView.findViewById(R.id.btn_unselect);
+        btnRefresh.setOnClickListener( v-> {
+            for (Question q: mSimilarQuestion
+                 ) {
+                q.userSelect = false;
+            }
+            adapterMultiSelectSimilarQuestionList.notifyDataSetChanged();
+        });
+
+        SmartRefreshLayout mRefreshLayout = mView.findViewById(R.id.refreshLayout);
+        //下拉刷新
+        mRefreshLayout.setOnRefreshListener(refreshlayout -> {
+            mRefreshLayout.finishRefresh(1000);// 刷新完成后等待的时间
+        });
+
+        //上拉加载更多
+        mRefreshLayout.setOnLoadMoreListener(refreshlayout -> {
+            if(mFindSimilarQuestionRequest.getTotalCount() < mSimilarQuestion.size()) {
+                mRefreshLayout.finishLoadMore(1000);// 加载完成后等待的时间
+                new Handler(Looper.getMainLooper()).postDelayed(this::fetchQuestionList, 1000);
+
+            } else {
+                Toast.makeText(mContext, "没有更多的题目了", Toast.LENGTH_SHORT).show();
             }
         });
 
-        Button btnRefresh = mView.findViewById(R.id.btn_refresh);
-        btnRefresh.setOnClickListener( v-> {
-            fetchQuestionList();
-        });
 
         // 设置背景
         //popupWindow.setBackgroundDrawable(new ColorDrawable(android.R.color.white));
 
         // 设置点击外部区域关闭
-        popupWindow.setOutsideTouchable(true);
-        popupWindow.setFocusable(true);
+        mPopupWindow.setOutsideTouchable(true);
+        mPopupWindow.setFocusable(true);
 
         // 显示 PopupWindow
-        popupWindow.showAtLocation(mView, Gravity.CENTER, 0, 0);
+        mPopupWindow.showAtLocation(mView, Gravity.CENTER, 0, 0);
         fetchQuestionList();
     }
 }

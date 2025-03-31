@@ -83,6 +83,9 @@ public class Question {
     // 此题目是否已经开始引导
     public boolean isAiGuiding = false;
 
+    //用户选择了这个题(知识点举一反三)
+    public boolean userSelect = false;
+
     private void emitNull() {
         if(this.bmNo == null) {
             this.bmNo = "";

@@ -40,7 +40,7 @@
         android:layout_height="48dp"
         android:layout_margin="8dp"
         android:textColor="#ffffff"
-        android:background="@drawable/app_add_button_bk"
+        android:background="@drawable/question_solve_add_button_bk"
         android:text = ""
         android:layout_centerVertical="true"
         android:layout_alignParentEnd="true"/>

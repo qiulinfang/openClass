@@ -1,13 +1,9 @@
 package com.cosinetech.imates.activities;
 
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
@@ -24,7 +20,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.AdapterQuestionList;
-import com.cosinetech.imates.adapters.AdapterSimilarQuestionList;
+import com.cosinetech.imates.adapters.AdapterSingleSelectSimilarQuestionList;
 import com.cosinetech.imates.audio.AudioPlayManager;
 import com.cosinetech.imates.models.AddQuestionRequest;
 import com.cosinetech.imates.models.ChatAiParam;
@@ -36,7 +32,6 @@ import com.cosinetech.imates.models.FindSimilarQuestionRequest;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.mq.MessagingManager;
-import com.cosinetech.imates.mq.TeacherMessage;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.views.ChatAiView;
@@ -45,7 +40,6 @@ import com.cosinetech.imates.views.RecyclerViewOverscrollDecoration;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.ApiUrl;
-import com.cosinetech.imates.webservice.HttpFileUploader;
 import com.cosinetech.imates.webservice.Question;
 
 import java.util.ArrayList;
@@ -60,7 +54,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
     private Subject subject;
     private UserInfoViewModel userInfoViewModel;
     private AdapterQuestionList adapterQuestionList;
-    private AdapterSimilarQuestionList adapterSimilarQuestionList;
+    private AdapterSingleSelectSimilarQuestionList adapterSingleSelectSimilarQuestionList;
     private final AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "", false);
     private int mCurrentQuestionIndex = -1;
 
@@ -254,49 +248,49 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
 
         RecyclerView recyclerViewSimilarQuestion = findViewById(R.id.similarExerciseView);
         recyclerViewSimilarQuestion.setLayoutManager(new LinearLayoutManager(this));
-        adapterSimilarQuestionList = new AdapterSimilarQuestionList(mSimilarQuestion, new AdapterSimilarQuestionList.SimilarQuestionListChangedListener() {
+        adapterSingleSelectSimilarQuestionList = new AdapterSingleSelectSimilarQuestionList(mSimilarQuestion, new AdapterSingleSelectSimilarQuestionList.SimilarQuestionListChangedListener() {
             @Override
             public void onExerciseAddToMyList(int pos, Question q) {
                 AddQuestionRequest item = new AddQuestionRequest();
 
-                item.setTitle(q.title);
-                item.setImgName(q.titleImg);
-                item.setImgTitleUrl(q.titleImg);
-
-                final List<String> optImgs = q.optionsImg.isEmpty() ? q.imgUrl : q.optionsImg;
-                StringBuilder optionImgs = new StringBuilder();
-
-                for(int i = 0; i< optImgs.size(); i++) {
-                    if(i == 0) {
-                        optionImgs.append("[");
-                    }
-
-                    optionImgs.append("\"").append(optImgs.get(i)).append("\"");
-                    if(i != optImgs.size() - 1) {
-                        optionImgs.append(",");
-                    } else {
-                        optionImgs.append("]");
-                    }
-                }
-
-                item.setImgUrl(optionImgs.toString());
-
-                StringBuilder opts = new StringBuilder();
-                for(int i = 0; i < q.options.size(); i++) {
-                    if(i == 0) {
-                        opts.append("[");
-                    }
-
-                    opts.append("\"").append(q.options.get(i)).append("\"");
-                    if(i != q.options.size() - 1) {
-                        opts.append(",");
-                    } else {
-                        opts.append("]");
-                    }
-                }
-                item.setOptions(opts.toString());
-                item.setAnswer(q.answer);
-                item.setExplanation(q.explanation);
+//                item.setTitle(q.title);
+//                item.setImgName(q.titleImg);
+//                item.setImgTitleUrl(q.titleImg);
+//
+//                final List<String> optImgs = q.optionsImg.isEmpty() ? q.imgUrl : q.optionsImg;
+//                StringBuilder optionImgs = new StringBuilder();
+//
+//                for(int i = 0; i< optImgs.size(); i++) {
+//                    if(i == 0) {
+//                        optionImgs.append("[");
+//                    }
+//
+//                    optionImgs.append("\"").append(optImgs.get(i)).append("\"");
+//                    if(i != optImgs.size() - 1) {
+//                        optionImgs.append(",");
+//                    } else {
+//                        optionImgs.append("]");
+//                    }
+//                }
+//
+//                item.setImgUrl(optionImgs.toString());
+//
+//                StringBuilder opts = new StringBuilder();
+//                for(int i = 0; i < q.options.size(); i++) {
+//                    if(i == 0) {
+//                        opts.append("[");
+//                    }
+//
+//                    opts.append("\"").append(q.options.get(i)).append("\"");
+//                    if(i != q.options.size() - 1) {
+//                        opts.append(",");
+//                    } else {
+//                        opts.append("]");
+//                    }
+//                }
+//                item.setOptions(opts.toString());
+//                item.setAnswer(q.answer);
+//                item.setExplanation(q.explanation);
 
                 StringBuilder ids = new StringBuilder();
                 for (Question qq:mQuestions) {
@@ -310,7 +304,17 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 } else if(subject == Subject.SUBJECT_MATH) {
                     item.setType("math");
                 }
-                ApiGateWayService.addExerciseToList(item, ApiUrl.URL_ADD_EXERCISE_TO_LIST, userInfoViewModel.token.getValue());
+                ApiGateWayService.addExerciseToList(item, ApiUrl.URL_ADD_EXERCISE_TO_LIST, userInfoViewModel.token.getValue(), new ApiGateWayService.AddExerciseCallback() {
+                    @Override
+                    public void onSuccess() {
+
+                    }
+
+                    @Override
+                    public void onFailure(String msg, int code) {
+
+                    }
+                });
 
                 mQuestions.add(q);
                 //adapterQuestionList.notifyItemInserted(mQuestions.size() - 1);
@@ -318,7 +322,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 myExercisesView.smoothScrollToPosition(mQuestions.size() - 1);
 
                 mSimilarQuestion.remove(pos);
-                adapterSimilarQuestionList.notifyDataSetChanged();
+                adapterSingleSelectSimilarQuestionList.notifyDataSetChanged();
             }
 
             @Override
@@ -326,7 +330,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
 
             }
         });
-        recyclerViewSimilarQuestion.setAdapter(adapterSimilarQuestionList);
+        recyclerViewSimilarQuestion.setAdapter(adapterSingleSelectSimilarQuestionList);
 
         fetchQuestionList();
 
@@ -463,12 +467,12 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         FindSimilarQuestionRequest item = FindSimilarQuestionRequest.fromQuestion(mQuestions.get(mCurrentQuestionIndex), ids.toString(), subjectName);
         ApiGateWayService.querySimilarExerciseList(item, ApiUrl.URL_QUERY_SIMILAR_EXERCISE, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
             @Override
-            public void onSuccess(List<Question> q) {
+            public void onSuccess(List<Question> q, long totalCount, long pageSize, long currentPageNo) {
                 runOnUiThread(() -> {
                     mSimilarQuestion.clear();
                     mSimilarQuestion.addAll(q);
-                    adapterSimilarQuestionList.resetSelection();
-                    adapterSimilarQuestionList.notifyDataSetChanged();
+                    adapterSingleSelectSimilarQuestionList.resetSelection();
+                    adapterSingleSelectSimilarQuestionList.notifyDataSetChanged();
                 });
             }
 
@@ -493,7 +497,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
 
         ApiGateWayService.queryExerciseList(url, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
             @Override
-            public void onSuccess(List<Question> q) {
+            public void onSuccess(List<Question> q, long totalCount, long pageSize, long currentPageNo) {
                 runOnUiThread(() -> {
                     mQuestions.clear();
                     mQuestions.addAll(q);

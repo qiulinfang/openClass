@@ -4,40 +4,33 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.webservice.Question;
 import com.cosinetech.imates.views.MarkdownTextView;
+import com.cosinetech.imates.webservice.Question;
 
 import java.util.List;
 
-public class AdapterSimilarQuestionList extends RecyclerView.Adapter<AdapterSimilarQuestionList.SimilarQuestionItemViewHolder> {
-    public interface SimilarQuestionListChangedListener {
-        void onExerciseAddToMyList(int pos, Question q);
-        void onExerciseAddToMyFavor(int pos, Question q);
-    }
+public class AdapterMultiSelectSimilarQuestionList extends RecyclerView.Adapter<AdapterMultiSelectSimilarQuestionList.SimilarQuestionItemViewHolder> {
     private final List<Question> dataList;
     private int selectedPosition = -1;
 
-    private final SimilarQuestionListChangedListener listener;
-
     // 构造函数接收数据列表
-    public AdapterSimilarQuestionList(List<Question> dataList, SimilarQuestionListChangedListener listener) {
+    public AdapterMultiSelectSimilarQuestionList(List<Question> dataList) {
         this.dataList = dataList;
-        this.listener = listener;
     }
 
     @NonNull
     @Override
     public SimilarQuestionItemViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         View itemView = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_similar_question, parent, false);
+                .inflate(R.layout.item_multi_select_similar_question, parent, false);
 
         return new SimilarQuestionItemViewHolder(itemView);
     }
@@ -56,9 +49,11 @@ public class AdapterSimilarQuestionList extends RecyclerView.Adapter<AdapterSimi
         }
 
         if(data.atUserList) {
-            holder.btnAddToList.setEnabled(false);
+            holder.checkSelected.setChecked(true);
+            holder.checkSelected.setEnabled(false);
         } else {
-            holder.btnAddToList.setEnabled(true);
+            holder.checkSelected.setEnabled(true);
+            holder.checkSelected.setChecked(data.userSelect);
         }
 
         // 设置点击监听器
@@ -69,22 +64,14 @@ public class AdapterSimilarQuestionList extends RecyclerView.Adapter<AdapterSimi
             setSelectedPosition(holder.getBindingAdapterPosition());
         });
 
-        holder.btnAddToList.setOnClickListener(v -> {
-            if(listener != null)  {
-                int pos = holder.getBindingAdapterPosition();
-                if(pos >= 0) {
-                    listener.onExerciseAddToMyList(pos, dataList.get(pos));
-                }
+        holder.checkSelected.setOnCheckedChangeListener((compoundButton, b) -> {
+            int pos = holder.getBindingAdapterPosition();
+            if(pos >= 0) {
+                dataList.get(pos).userSelect = b;
             }
         });
 
         holder.btnAddToFavor.setOnClickListener(v -> {
-            if(listener != null)  {
-                int pos = holder.getBindingAdapterPosition();
-                if(pos >= 0) {
-                    listener.onExerciseAddToMyFavor(pos, dataList.get(pos));
-                }
-            }
         });
     }
 
@@ -109,14 +96,14 @@ public class AdapterSimilarQuestionList extends RecyclerView.Adapter<AdapterSimi
         View container;
         MarkdownTextView itemText;
         TextView itemNo;
-        Button btnAddToList;
+        CheckBox checkSelected;
         Button btnAddToFavor;
         SimilarQuestionItemViewHolder(View view) {
             super(view);
             container = view.findViewById(R.id.container);
             itemText = view.findViewById(R.id.question_text);
             itemNo = view.findViewById(R.id.item_number);
-            btnAddToList = view.findViewById(R.id.add_to_list);
+            checkSelected = view.findViewById(R.id.add_to_list);
             btnAddToFavor = view.findViewById(R.id.add_to_favor);
         }
     }

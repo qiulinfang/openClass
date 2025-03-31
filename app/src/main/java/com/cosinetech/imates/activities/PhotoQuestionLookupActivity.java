@@ -189,44 +189,44 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         Question q = question;
         AddQuestionRequest item = new AddQuestionRequest();
 
-        item.setTitle(q.title);
-        item.setImgName(q.titleImg);
-        item.setImgTitleUrl(q.titleImg);
+//        item.setTitle(q.title);
+//        item.setImgName(q.titleImg);
+//        item.setImgTitleUrl(q.titleImg);
+//
+//        final List<String> optImgs = q.optionsImg.isEmpty() ? q.imgUrl : q.optionsImg;
+//        StringBuilder optionImgs = new StringBuilder();
+//
+//        for(int i = 0; i< optImgs.size(); i++) {
+//            if(i == 0) {
+//                optionImgs.append("[");
+//            }
+//
+//            optionImgs.append("\"").append(optImgs.get(i)).append("\"");
+//            if(i != optImgs.size() - 1) {
+//                optionImgs.append(",");
+//            } else {
+//                optionImgs.append("]");
+//            }
+//        }
+//
+//        item.setImgUrl(optionImgs.toString());
 
-        final List<String> optImgs = q.optionsImg.isEmpty() ? q.imgUrl : q.optionsImg;
-        StringBuilder optionImgs = new StringBuilder();
-
-        for(int i = 0; i< optImgs.size(); i++) {
-            if(i == 0) {
-                optionImgs.append("[");
-            }
-
-            optionImgs.append("\"").append(optImgs.get(i)).append("\"");
-            if(i != optImgs.size() - 1) {
-                optionImgs.append(",");
-            } else {
-                optionImgs.append("]");
-            }
-        }
-
-        item.setImgUrl(optionImgs.toString());
-
-        StringBuilder opts = new StringBuilder();
-        for(int i = 0; i < q.options.size(); i++) {
-            if(i == 0) {
-                opts.append("[");
-            }
-
-            opts.append("\"").append(q.options.get(i)).append("\"");
-            if(i != q.options.size() - 1) {
-                opts.append(",");
-            } else {
-                opts.append("]");
-            }
-        }
-        item.setOptions(opts.toString());
-        item.setAnswer(q.answer);
-        item.setExplanation(q.explanation);
+//        StringBuilder opts = new StringBuilder();
+//        for(int i = 0; i < q.options.size(); i++) {
+//            if(i == 0) {
+//                opts.append("[");
+//            }
+//
+//            opts.append("\"").append(q.options.get(i)).append("\"");
+//            if(i != q.options.size() - 1) {
+//                opts.append(",");
+//            } else {
+//                opts.append("]");
+//            }
+//        }
+//        item.setOptions(opts.toString());
+//        item.setAnswer(q.answer);
+//        item.setExplanation(q.explanation);
 
         StringBuilder ids = new StringBuilder();
         for (Question qq:mQuestions) {
@@ -240,7 +240,17 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         } else if(subject == Subject.SUBJECT_MATH) {
             item.setType("math");
         }
-        ApiGateWayService.addExerciseToList(item, ApiUrl.URL_ADD_EXERCISE_TO_LIST, userInfoViewModel.token.getValue());
+        ApiGateWayService.addExerciseToList(item, ApiUrl.URL_ADD_EXERCISE_TO_LIST, userInfoViewModel.token.getValue(), new ApiGateWayService.AddExerciseCallback() {
+            @Override
+            public void onSuccess() {
+
+            }
+
+            @Override
+            public void onFailure(String msg, int code) {
+
+            }
+        });
     }
 
     private void bindPreview(@NonNull ProcessCameraProvider cameraProvider) {
@@ -310,10 +320,10 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         if(!url.isEmpty()) {
             ApiGateWayService.queryExerciseList(url, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
                 @Override
-                public void onSuccess(List<Question> q) {
+                public void onSuccess(List<Question> questions, long totalCount, long pageSize, long currentPageNo) {
                     runOnUiThread(() -> {
                         mQuestions.clear();
-                        mQuestions.addAll(q);
+                        mQuestions.addAll(questions);
                     });
                 }
 
