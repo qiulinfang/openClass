@@ -8,29 +8,29 @@ import com.google.gson.annotations.SerializedName;
 
 // 添加到习题列表的结构
 public class FindSimilarQuestionRequest {
-    @SerializedName("title")
-    private String title;
-
-    @SerializedName("imgName")
-    private String imgName;
-
-    @SerializedName("imgTitleUrl")
-    private String imgTitleUrl;
-
-    @SerializedName("options")
-    private String options;
-
-    @SerializedName("select")
-    private String select;
-
-    @SerializedName("imgUrl")
-    private String imgUrl;
-
-    @SerializedName("answer")
-    private String answer;
-
-    @SerializedName("explanation")
-    private String explanation;
+//    @SerializedName("title")
+//    private String title;
+//
+//    @SerializedName("imgName")
+//    private String imgName;
+//
+//    @SerializedName("imgTitleUrl")
+//    private String imgTitleUrl;
+//
+//    @SerializedName("options")
+//    private String options;
+//
+//    @SerializedName("select")
+//    private String select;
+//
+//    @SerializedName("imgUrl")
+//    private String imgUrl;
+//
+//    @SerializedName("answer")
+//    private String answer;
+//
+//    @SerializedName("explanation")
+//    private String explanation;
 
     @SerializedName("bmNo")
     private String bmNo;
@@ -46,6 +46,9 @@ public class FindSimilarQuestionRequest {
 
     @SerializedName("size")
     private int pageSize; //每页条目数
+
+    @SerializedName("knowledgeNo")
+    private String knowledgeNo;
 
     private long totalCount; // 总条目数
 
@@ -81,73 +84,70 @@ public class FindSimilarQuestionRequest {
         this.knowledgeNo = knowledgeNo;
     }
 
-    @SerializedName("knowledgeNo")
-    private String knowledgeNo;
-
     // Getters and Setters
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getImgName() {
-        return imgName;
-    }
-
-    public void setImgName(String imgName) {
-        this.imgName = imgName;
-    }
-
-    public String getImgTitleUrl() {
-        return imgTitleUrl;
-    }
-
-    public void setImgTitleUrl(String imgTitleUrl) {
-        this.imgTitleUrl = imgTitleUrl;
-    }
-
-    public String getOptions() {
-        return options;
-    }
-
-    public void setOptions(String options) {
-        this.options = options;
-    }
-
-    public String getSelect() {
-        return select;
-    }
-
-    public void setSelect(String select) {
-        this.select = select;
-    }
-
-    public String getImgUrl() {
-        return imgUrl;
-    }
-
-    public void setImgUrl(String imgUrl) {
-        this.imgUrl = imgUrl;
-    }
-
-    public String getAnswer() {
-        return answer;
-    }
-
-    public void setAnswer(String answer) {
-        this.answer = answer;
-    }
-
-    public String getExplanation() {
-        return explanation;
-    }
-
-    public void setExplanation(String explanation) {
-        this.explanation = explanation;
-    }
+//    public String getTitle() {
+//        return title;
+//    }
+//
+//    public void setTitle(String title) {
+//        this.title = title;
+//    }
+//
+//    public String getImgName() {
+//        return imgName;
+//    }
+//
+//    public void setImgName(String imgName) {
+//        this.imgName = imgName;
+//    }
+//
+//    public String getImgTitleUrl() {
+//        return imgTitleUrl;
+//    }
+//
+//    public void setImgTitleUrl(String imgTitleUrl) {
+//        this.imgTitleUrl = imgTitleUrl;
+//    }
+//
+//    public String getOptions() {
+//        return options;
+//    }
+//
+//    public void setOptions(String options) {
+//        this.options = options;
+//    }
+//
+//    public String getSelect() {
+//        return select;
+//    }
+//
+//    public void setSelect(String select) {
+//        this.select = select;
+//    }
+//
+//    public String getImgUrl() {
+//        return imgUrl;
+//    }
+//
+//    public void setImgUrl(String imgUrl) {
+//        this.imgUrl = imgUrl;
+//    }
+//
+//    public String getAnswer() {
+//        return answer;
+//    }
+//
+//    public void setAnswer(String answer) {
+//        this.answer = answer;
+//    }
+//
+//    public String getExplanation() {
+//        return explanation;
+//    }
+//
+//    public void setExplanation(String explanation) {
+//        this.explanation = explanation;
+//    }
 
     public String getBmNo() {
         return bmNo;
@@ -174,30 +174,31 @@ public class FindSimilarQuestionRequest {
     }
 
     private void emitNull() {
-        if(title == null){
-            title = "";
-        }
-        if(imgName == null) {
-            imgName = "";
-        }
-        if(imgTitleUrl == null) {
-            imgTitleUrl = "";
-        }
-        if(options == null) {
-            options = "";
-        }
-        if(select == null) {
-            select = "";
-        }
-        if(imgUrl == null) {
-            imgUrl = "";
-        }
-        if(answer == null) {
-            answer = "";
-        }
-        if(explanation == null) {
-            explanation = "";
-        }
+//        if(title == null){
+//            title = "";
+//        }
+//        if(imgName == null) {
+//            imgName = "";
+//        }
+//        if(imgTitleUrl == null) {
+//            imgTitleUrl = "";
+//        }
+//        if(options == null) {
+//            options = "";
+//        }
+//        if(select == null) {
+//            select = "";
+//        }
+//        if(imgUrl == null) {
+//            imgUrl = "";
+//        }
+//        if(answer == null) {
+//            answer = "";
+//        }
+//        if(explanation == null) {
+//            explanation = "";
+//        }
+
         if(bmNo == null) {
             bmNo = "";
         }
@@ -228,14 +229,14 @@ public class FindSimilarQuestionRequest {
 
     public static FindSimilarQuestionRequest fromQuestion(Question q, String existingBMids, String subject) {
         FindSimilarQuestionRequest item = new FindSimilarQuestionRequest();
-        item.setTitle(q.title);
-        item.setImgName(q.titleImg);
-        item.setImgTitleUrl(q.titleImg);
-        item.setOptions(q.title);
-        item.setSelect("");
-        item.setImgUrl("");
-        item.setAnswer(q.answer);
-        item.setExplanation(q.explanation);
+//        item.setTitle(q.title);
+//        item.setImgName(q.titleImg);
+//        item.setImgTitleUrl(q.titleImg);
+//        item.setOptions(q.title);
+//        item.setSelect("");
+//        item.setImgUrl("");
+//        item.setAnswer(q.answer);
+//        item.setExplanation(q.explanation);
         item.setExercisesId(existingBMids);
         item.setBmNo(q.bmNo);
         item.setType(subject);

@@ -40,23 +40,24 @@ public class FindKnowledgeQuestionPopupWindow {
     public interface OnSimilarQuestionSelectionListener {
         void onQuestionSelected();
     }
-    private static final int QUESTION_PAGE_SIZE = 8;
-    private Subject mSubject;
-    private Activity mContext;
+    private static final int QUESTION_PAGE_SIZE = 2;
+    private final Subject mSubject;
+    private final Activity mContext;
     private PopupWindow mPopupWindow;
     private RecyclerView mRecyclerViewSimilarQuestion;
-    private OnSimilarQuestionSelectionListener mListener;
-    private String mKnowledgeList;
-    private List<Question> mSimilarQuestion = new ArrayList<>();
-    private ArrayList<String> mQuestionIdsInFavor = new ArrayList<>();
+    private SmartRefreshLayout mRefreshLayout;
+    private final OnSimilarQuestionSelectionListener mListener;
+    private final String mKnowledgeList;
+    private final List<Question> mSimilarQuestion = new ArrayList<>();
+    private final ArrayList<String> mQuestionIdsInFavor = new ArrayList<>();
 
     private AdapterMultiSelectSimilarQuestionList adapterMultiSelectSimilarQuestionList;
-    private UserInfoViewModel mUserInfoViewModel;
+    private final UserInfoViewModel mUserInfoViewModel;
     private final List<Question> mQuestionsInFavor = new ArrayList<>();
 
     private final FindSimilarQuestionRequest mFindSimilarQuestionRequest = new FindSimilarQuestionRequest();
 
-    private ApiGateWayService.QueryExerciseListCallback mSimilarQuestionsCallback = null;
+    private final ApiGateWayService.QueryExerciseListCallback mSimilarQuestionsCallback;
 
     private View mView;
     public FindKnowledgeQuestionPopupWindow(Activity context, Subject subject, String knowledgeList, OnSimilarQuestionSelectionListener listener) {
@@ -77,11 +78,8 @@ public class FindKnowledgeQuestionPopupWindow {
             @Override
             public void onSuccess(List<Question> questions, long totalCount, long pageSize, long currentPageNo) {
                 mView.post(() -> {
-//                    mSimilarQuestion.clear();
                     for (Question q: questions) {
-                        if(mQuestionIdsInFavor.contains(q.bmNo)) {
-                            q.atUserList = true;
-                        }
+                        q.atUserList = mQuestionIdsInFavor.contains(q.bmNo);
                     }
                     mSimilarQuestion.addAll(questions);
                     adapterMultiSelectSimilarQuestionList.resetSelection();
@@ -90,6 +88,7 @@ public class FindKnowledgeQuestionPopupWindow {
                     if(!mSimilarQuestion.isEmpty()) {
                         mRecyclerViewSimilarQuestion.smoothScrollToPosition(mSimilarQuestion.size() - 1);
                     }
+                    mRefreshLayout.finishLoadMore(1000);// 加载完成后等待的时间
                 });
             }
 
@@ -102,6 +101,7 @@ public class FindKnowledgeQuestionPopupWindow {
                     if(mFindSimilarQuestionRequest.getCurrentPage() > 1) {
                         mFindSimilarQuestionRequest.setCurrentPage(mFindSimilarQuestionRequest.getCurrentPage() - 1);
                     }
+                    mRefreshLayout.finishLoadMore();// 加载完成后等待的时间
                     Toast.makeText(mContext, "没有查到对应的题目", Toast.LENGTH_SHORT).show();
                 });
             }
@@ -130,7 +130,6 @@ public class FindKnowledgeQuestionPopupWindow {
         mFindSimilarQuestionRequest.setPageSize(QUESTION_PAGE_SIZE);
         mFindSimilarQuestionRequest.setCurrentPage(mFindSimilarQuestionRequest.getCurrentPage() + 1);
 
-        //FindSimilarQuestionRequest request = FindSimilarQuestionRequest.fromKnowledgeId(mKnowledgeList, ids.toString(), subjectName);
         ApiGateWayService.querySimilarExerciseList(mFindSimilarQuestionRequest, url, mUserInfoViewModel.token.getValue(), mSimilarQuestionsCallback);
     }
 
@@ -205,8 +204,6 @@ public class FindKnowledgeQuestionPopupWindow {
                 });
             }
         });
-
-
     }
 
     public void show() {
@@ -232,31 +229,29 @@ public class FindKnowledgeQuestionPopupWindow {
         btnRefresh.setOnClickListener( v-> {
             for (Question q: mSimilarQuestion
                  ) {
-                q.userSelect = false;
+                if(!q.atUserList) {
+                    q.userSelect = false;
+                }
             }
             adapterMultiSelectSimilarQuestionList.notifyDataSetChanged();
         });
 
-        SmartRefreshLayout mRefreshLayout = mView.findViewById(R.id.refreshLayout);
+        mRefreshLayout = mView.findViewById(R.id.refreshLayout);
+        mRefreshLayout.setEnableAutoLoadMore(false);
         //下拉刷新
         mRefreshLayout.setOnRefreshListener(refreshlayout -> {
-            mRefreshLayout.finishRefresh(1000);// 刷新完成后等待的时间
+            mRefreshLayout.finishRefresh();
         });
 
         //上拉加载更多
         mRefreshLayout.setOnLoadMoreListener(refreshlayout -> {
-            if(mFindSimilarQuestionRequest.getTotalCount() < mSimilarQuestion.size()) {
-                mRefreshLayout.finishLoadMore(1000);// 加载完成后等待的时间
-                new Handler(Looper.getMainLooper()).postDelayed(this::fetchQuestionList, 1000);
-
+            if(mSimilarQuestion.size() < mFindSimilarQuestionRequest.getTotalCount()) {
+                fetchQuestionList();
             } else {
                 Toast.makeText(mContext, "没有更多的题目了", Toast.LENGTH_SHORT).show();
+                mRefreshLayout.finishLoadMore();
             }
         });
-
-
-        // 设置背景
-        //popupWindow.setBackgroundDrawable(new ColorDrawable(android.R.color.white));
 
         // 设置点击外部区域关闭
         mPopupWindow.setOutsideTouchable(true);
