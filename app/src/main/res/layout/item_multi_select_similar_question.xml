@@ -13,9 +13,8 @@
         android:id="@+id/item_number"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_margin="8dp"
+        android:layout_marginBottom="2dp"
         android:textSize="18sp"
-        android:minHeight="24dp"
         android:textColor="@android:color/black"
         android:layout_gravity="start"
         android:layout_marginEnd="8dp"
@@ -28,7 +27,7 @@
         android:focusable="false"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_margin="8dp"
+        android:layout_marginBottom="8dp"
         android:textColor="#000000"
         android:layout_alignParentStart="true"
         android:layout_toStartOf="@id/add_to_list"
@@ -58,7 +57,6 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:layout_margin="8dp"
         android:background="#000000"
         android:layout_alignParentBottom="true"/>
 

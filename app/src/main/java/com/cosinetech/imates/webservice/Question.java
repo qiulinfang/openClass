@@ -64,12 +64,8 @@ public class Question {
     public String getQuestion() {
         StringBuilder result = new StringBuilder();
         emitNull();
-        try {
-            result.append(title).append("\n\n");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return result.toString();
+        result.append(title).append("\n\n");
+        return result.toString().trim().replace("<p>", "").replace("</p>", "  \n");
     }
 
     public String getAnswer() {
