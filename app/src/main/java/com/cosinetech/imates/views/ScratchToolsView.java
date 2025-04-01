@@ -26,7 +26,6 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.colorpicker.ColorListener;
 import com.cosinetech.imates.colorpicker.ColorPickerDialog;
 import com.cosinetech.imates.models.Subject;
-import com.cosinetech.imates.notes.NoteManager;
 import com.cosinetech.imates.util.ImageUtils;
 import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
@@ -237,10 +236,10 @@ public class ScratchToolsView extends RelativeLayout {
                         if(!writeJpgToExternalStorage(data, fileName)) {
                             Toast.makeText(context, "保存图片失败", Toast.LENGTH_SHORT).show();
                         } else {
-                            NoteManager manager = new NoteManager(context);
-                            StringBuilder htmlContentBuilder = new StringBuilder();
-                            htmlContentBuilder.append("<img src=\"").append(fileName.toString()).append("\"/>");
-                            manager.addNote(htmlContentBuilder.toString(), "");
+//                            NoteManager manager = new NoteManager(context);
+//                            StringBuilder htmlContentBuilder = new StringBuilder();
+//                            htmlContentBuilder.append("<img src=\"").append(fileName.toString()).append("\"/>");
+//                            manager.addNote(htmlContentBuilder.toString(), "");
                             popupWindow.dismiss();
                         }
                     }catch (Exception ex) {

@@ -66,6 +66,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
     private final Executor executor = Executors.newSingleThreadExecutor();
     private ProcessCameraProvider cameraProvider;
     private MarkdownTextView questionView;
+    private View questionLayout;
     private UserInfoViewModel userInfoViewModel;
     private Subject subject;
     private Question question;
@@ -104,6 +105,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         btnShotAgain = findViewById(R.id.btn_reshoot);
         scanLine = findViewById(R.id.scan_line);
         questionView = findViewById(R.id.question_view);
+        questionLayout = findViewById(R.id.question_layout);
         splitLine = findViewById(R.id.split_line);
 
         if (allPermissionsGranted()) {
@@ -142,9 +144,9 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
             btnShotAgain.setVisibility(View.GONE);
             cropImageView.setVisibility(View.GONE);
             ivPreview.setVisibility(View.GONE);
-            questionView.setVisibility(View.GONE);
+            questionLayout.setVisibility(View.GONE);
             //questionView.setContent(" ");
-            btnAddToList.setVisibility(View.GONE);
+            //btnAddToList.setVisibility(View.GONE);
             splitLine.setVisibility(View.GONE);
             stopCamera();
             startCamera();
@@ -371,8 +373,8 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                         }
                         splitLine.setVisibility(View.VISIBLE);
                         questionView.setContent(questionString);
-                        questionView.setVisibility(View.VISIBLE);
-                        btnAddToList.setVisibility(View.VISIBLE);
+                        questionLayout.setVisibility(View.VISIBLE);
+                        //btnAddToList.setVisibility(View.VISIBLE);
                     });
                 }
 

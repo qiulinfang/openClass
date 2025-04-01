@@ -4,27 +4,15 @@ import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
 
-import com.cosinetech.imates.pdfui.PDFActivity;
 import com.cosinetech.imates.util.WindowUtils;
 
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.util.Log;
-import android.view.MotionEvent;
-import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 import com.cosinetech.imates.databinding.ActivityVideoPlayBinding;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.views.VideoPlayView;
-import com.lzf.easyfloat.EasyFloat;
-import com.lzf.easyfloat.anim.DefaultAnimator;
-import com.lzf.easyfloat.enums.ShowPattern;
-import com.lzf.easyfloat.enums.SidePattern;
-import com.lzf.easyfloat.interfaces.OnFloatCallbacks;
-
-import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 
@@ -32,7 +20,6 @@ public class VideoPlayActivity extends AppCompatActivity {
     public static final String KEY_VIDEO_PATH = "VIDEO_PATH";
     public static final String KEY_TEXTBOOK_SECTION = "TEXTBOOK_SECTION";
     public static final String KEY_VIDEO_START_PLAY_POS_MS = "VIDEO_START_POS_MS";
-    private ActivityVideoPlayBinding binding;
     private VideoPlayView mVideoPlayView;
     private String mVideoFilePath;
     private String mSectionTitle;
@@ -51,7 +38,7 @@ public class VideoPlayActivity extends AppCompatActivity {
         WindowUtils.hideSystemUI(this);
         WindowUtils.setFullScreenMode(this);
 
-        binding = ActivityVideoPlayBinding.inflate(getLayoutInflater());
+        com.cosinetech.imates.databinding.ActivityVideoPlayBinding binding = ActivityVideoPlayBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
         mVideoPlayView = findViewById(R.id.video_play_view);

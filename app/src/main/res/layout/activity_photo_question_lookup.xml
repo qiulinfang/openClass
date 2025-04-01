@@ -31,6 +31,7 @@
         custom:cropBorderLineThickness="2dp"
         />
 
+
     <ImageView
         android:id="@+id/img_previewer"
         android:layout_width="match_parent"
@@ -52,6 +53,53 @@
         app:layout_constraintStart_toStartOf="@id/img_previewer"
         app:layout_constraintTop_toTopOf="@id/img_previewer"
         android:visibility="gone" />
+
+    <ScrollView
+        android:id="@+id/question_layout"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone"
+        android:background="#ffffff"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/toolbar_bottom">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="10dp"
+            android:orientation="horizontal">
+
+            <com.cosinetech.imates.views.MarkdownTextView
+                android:id="@+id/question_view"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_marginHorizontal="10dp"
+                android:layout_alignParentStart="true"
+                android:layout_alignParentTop="true"
+                android:layout_alignParentBottom="true"
+                android:layout_toStartOf="@id/btn_add_question"/>
+
+            <Button
+                android:id="@+id/btn_add_question"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_centerVertical="true"
+                android:layout_alignParentEnd="true"
+                android:background="@drawable/camera_ok"
+                android:layout_marginHorizontal="10dp" />
+        </RelativeLayout>
+    </ScrollView>
+
+    <View
+        android:id="@+id/split_line"
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:visibility="visible"
+        android:background="@android:color/darker_gray"
+        app:layout_constraintBottom_toTopOf= "@id/toolbar_bottom"/>
+
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/toolbar_bottom"
@@ -126,34 +174,6 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
 
-        <View
-            android:id="@+id/split_line"
-            android:layout_width="match_parent"
-            android:layout_height="2dp"
-            android:visibility="gone"
-            android:background="@android:color/darker_gray"
-            app:layout_constraintTop_toBottomOf="@id/btn_capture"/>
-
-        <com.cosinetech.imates.views.MarkdownTextView
-            android:id="@+id/question_view"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="10dp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/guideline"
-            app:layout_constraintTop_toBottomOf="@id/split_line"
-            app:layout_constraintBottom_toBottomOf="parent"/>
-
-        <Button
-            android:id="@+id/btn_add_question"
-            android:layout_width="64dp"
-            android:layout_height="64dp"
-            android:background="@drawable/camera_ok"
-            android:visibility="gone"
-            android:layout_marginHorizontal="10dp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/split_line"
-            app:layout_constraintBottom_toBottomOf="@id/question_view"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
