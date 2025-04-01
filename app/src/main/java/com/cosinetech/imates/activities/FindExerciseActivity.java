@@ -219,7 +219,13 @@ public class FindExerciseActivity extends AppCompatActivity {
 
         StringBuilder ids = new StringBuilder();
         for (Question qq : mSimilarQuestion) {
-            ids.append(qq.bmNo).append(",");
+            if(qq.userSelect) {
+                ids.append(qq.bmNo).append(",");
+            }
+        }
+        if(ids.toString().isEmpty()) {
+            Toast.makeText(FindExerciseActivity.this, "请勾选要添加的习题", Toast.LENGTH_SHORT).show();
+            return;
         }
         item.setBmNo(ids.toString());
 
