@@ -4,8 +4,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
@@ -45,6 +45,9 @@
         android:theme="@style/Theme.IMatesApp.FullScreen"
         tools:targetApi="31">
         <activity
+            android:name=".activities.FindExerciseActivity"
+            android:exported="false" />
+        <activity
             android:name=".activities.ImageViewerActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:exported="false"
@@ -62,9 +65,9 @@
         <activity
             android:name=".activities.QuestionSolveActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:windowSoftInputMode="adjustPan"
             android:exported="false"
-            android:screenOrientation="landscape" />
+            android:screenOrientation="landscape"
+            android:windowSoftInputMode="adjustPan" />
         <activity
             android:name=".activities.FloatChatAiActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
@@ -116,9 +119,8 @@
             android:name=".activities.ChatAiActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
-            android:windowSoftInputMode="adjustPan"
-            android:theme="@style/Theme.ActivityDialogStyle" />
-
+            android:theme="@style/Theme.ActivityDialogStyle"
+            android:windowSoftInputMode="adjustPan" />
         <activity
             android:name=".mupdfviewer.activity.MuPDFActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
@@ -148,8 +150,7 @@
             android:name=".mupdfviewer.activity.SignActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <!-- <activity android:name="com.artifex.mupdfdemo.ChoosePDFActivity" -->
+            android:theme="@style/Theme.IMatesApp.FullScreen" /> <!-- <activity android:name="com.artifex.mupdfdemo.ChoosePDFActivity" -->
         <!-- android:theme="@style/Theme.IMatesApp.FullScreen"/> -->
         <!-- <activity android:name="com.artifex.mupdfdemo.PrintDialogActivity" -->
         <!-- android:theme="@style/Theme.IMatesApp.FullScreen"/> -->
@@ -168,7 +169,6 @@
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
-
         <activity
             android:name="com.pspdfkit.ui.PdfActivity"
             android:windowSoftInputMode="adjustNothing" />

@@ -26,6 +26,7 @@ import android.widget.ImageView;
 import android.widget.PopupWindow;
 import android.widget.Toast;
 
+import com.cosinetech.imates.activities.FindExerciseActivity;
 import com.cosinetech.imates.activities.LessonPreviewActivity;
 import com.cosinetech.imates.activities.PhotoQuestionLookupActivity;
 import com.cosinetech.imates.activities.QuestionSolveActivity;
@@ -33,7 +34,6 @@ import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.webservice.ApiUrl;
-import com.cosinetech.imates.views.FindKnowledgeQuestionPopupWindow;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
@@ -147,11 +147,7 @@ public class FragmentSubjectBiology extends Fragment {
                 Toast.makeText(getContext(), "未查询到相关的练习资料", Toast.LENGTH_SHORT).show();
                 return;
             }
-            new Handler(Looper.getMainLooper()).post(() -> {
-                FindKnowledgeQuestionPopupWindow win = new FindKnowledgeQuestionPopupWindow(requireActivity(), Subject.SUBJECT_BIOLOGY,
-                        s.getKnowledgeNo(), () -> startQuestionSolveActivity());
-                win.show();
-            });
+            new Handler(Looper.getMainLooper()).post(() -> startFindExerciseActivity(s.getKnowledgeNo()));
         }
     }
 
@@ -282,6 +278,14 @@ public class FragmentSubjectBiology extends Fragment {
         Intent intent = new Intent(requireActivity(), QuestionSolveActivity.class);
         intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_BIOLOGY);
         intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, Subject.SUBJECT_BIOLOGY.name());
+        startActivity(intent);
+    }
+
+    public void startFindExerciseActivity(String knowledgeList) {
+        Intent intent = new Intent(requireActivity(), FindExerciseActivity.class);
+        intent.putExtra(FindExerciseActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_BIOLOGY);
+        intent.putExtra(FindExerciseActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_BIOLOGY.name());
+        intent.putExtra(FindExerciseActivity.KEY_KNOWLEDGE_LIST, knowledgeList);
         startActivity(intent);
     }
 

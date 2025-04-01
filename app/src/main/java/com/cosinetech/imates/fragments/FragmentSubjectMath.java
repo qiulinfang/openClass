@@ -27,12 +27,12 @@ import android.widget.PopupWindow;
 import android.widget.Toast;
 
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.activities.FindExerciseActivity;
 import com.cosinetech.imates.activities.PhotoQuestionLookupActivity;
 import com.cosinetech.imates.activities.QuestionSolveActivity;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.webservice.ApiUrl;
-import com.cosinetech.imates.views.FindKnowledgeQuestionPopupWindow;
 import com.google.gson.Gson;
 
 import java.io.BufferedReader;
@@ -180,18 +180,8 @@ public class FragmentSubjectMath extends Fragment {
                 Toast.makeText(getContext(), "未查询到相关的练习资料", Toast.LENGTH_SHORT).show();
                 return;
             }
-            new Handler(Looper.getMainLooper()).post(() -> {
-                // 在 UI 线程上执行的代码
-                FindKnowledgeQuestionPopupWindow win = new FindKnowledgeQuestionPopupWindow(requireActivity(), Subject.SUBJECT_MATH,
-                        s.getKnowledgeNo() , new FindKnowledgeQuestionPopupWindow.OnSimilarQuestionSelectionListener() {
-                    @Override
-                    public void onQuestionSelected() {
-                        startQuestionSolveActivity();
-                    }
-                });
-                win.show();
-            });
-
+            // 在 UI 线程上执行的代码
+            new Handler(Looper.getMainLooper()).post(() -> startFindExerciseActivity(s.getKnowledgeNo()));
         }
     }
 
@@ -315,6 +305,14 @@ public class FragmentSubjectMath extends Fragment {
     public void startPhotoQuestionLookupActivity() {
         Intent intent = new Intent(requireActivity(), PhotoQuestionLookupActivity.class);
         intent.putExtra(PhotoQuestionLookupActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_MATH.name());
+        startActivity(intent);
+    }
+
+    public void startFindExerciseActivity(String knowledgeList) {
+        Intent intent = new Intent(requireActivity(), FindExerciseActivity.class);
+        intent.putExtra(FindExerciseActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
+        intent.putExtra(FindExerciseActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_MATH.name());
+        intent.putExtra(FindExerciseActivity.KEY_KNOWLEDGE_LIST, knowledgeList);
         startActivity(intent);
     }
 

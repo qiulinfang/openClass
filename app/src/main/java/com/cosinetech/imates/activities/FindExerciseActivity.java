@@ -1,17 +1,15 @@
-package com.cosinetech.imates.views;
+package com.cosinetech.imates.activities;
 
-import android.app.Activity;
+import android.content.Intent;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.Gravity;
-import android.view.LayoutInflater;
-import android.view.View;
+import android.view.KeyEvent;
 import android.widget.Button;
-import android.widget.PopupWindow;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -19,57 +17,60 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.AdapterMultiSelectSimilarQuestionList;
-import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.AddQuestionRequest;
 import com.cosinetech.imates.models.FindSimilarQuestionRequest;
+import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.UserInfoViewModel;
-import com.cosinetech.imates.util.ScreenUtils;
+import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.ApiUrl;
 import com.cosinetech.imates.webservice.Question;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 
-public class FindKnowledgeQuestionPopupWindow {
-    public interface OnSimilarQuestionSelectionListener {
-        void onQuestionSelected();
-    }
-    private static final int QUESTION_PAGE_SIZE = 2;
-    private final Subject mSubject;
-    private final Activity mContext;
-    private PopupWindow mPopupWindow;
+public class FindExerciseActivity extends AppCompatActivity {
+    public final static String KEY_PARAM_SUBJECT = "SUBJECT";
+    public final static String KEY_KNOWLEDGE_LIST = "KNOWLEDGE_LIST";
+    public static final String KEY_CHATBOT_URL = "KEY_CHAT_BOT_URL";
+    private static final int QUESTION_PAGE_SIZE = 5;
+    private String mChatBotUrl;
+    private Subject mSubject;
     private RecyclerView mRecyclerViewSimilarQuestion;
     private SmartRefreshLayout mRefreshLayout;
-    private final OnSimilarQuestionSelectionListener mListener;
-    private final String mKnowledgeList;
+    private String mKnowledgeList;
     private final List<Question> mSimilarQuestion = new ArrayList<>();
     private final ArrayList<String> mQuestionIdsInFavor = new ArrayList<>();
 
     private AdapterMultiSelectSimilarQuestionList adapterMultiSelectSimilarQuestionList;
-    private final UserInfoViewModel mUserInfoViewModel;
+    private UserInfoViewModel mUserInfoViewModel;
     private final List<Question> mQuestionsInFavor = new ArrayList<>();
 
     private final FindSimilarQuestionRequest mFindSimilarQuestionRequest = new FindSimilarQuestionRequest();
 
-    private final ApiGateWayService.QueryExerciseListCallback mSimilarQuestionsCallback;
+    private ApiGateWayService.QueryExerciseListCallback mSimilarQuestionsCallback;
 
-    private View mView;
-    public FindKnowledgeQuestionPopupWindow(Activity context, Subject subject, String knowledgeList, OnSimilarQuestionSelectionListener listener) {
-        this.mSubject = subject;
-        this.mContext = context;
-        this.mListener = listener;
-        this.mKnowledgeList = knowledgeList;
 
-        ViewModelStoreOwner owner = (ViewModelStoreOwner) context.getApplication();
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        WindowUtils.hideSystemUI(this);
+        WindowUtils.setFullScreenMode(this);
+        setContentView(R.layout.activity_find_exercise);
+        initData();
+        initView();
+    }
+
+    private void initData() {
+        mSubject = Subject.valueOf(getIntent().getStringExtra(KEY_PARAM_SUBJECT));
+        mKnowledgeList = getIntent().getStringExtra(KEY_KNOWLEDGE_LIST);
+        mChatBotUrl = getIntent().getStringExtra(KEY_CHATBOT_URL);
+
+        ViewModelStoreOwner owner = (ViewModelStoreOwner) this.getApplication();
         mUserInfoViewModel = new ViewModelProvider(
                 owner,
-                new ViewModelProvider.AndroidViewModelFactory(context.getApplication())
+                new ViewModelProvider.AndroidViewModelFactory(this.getApplication())
         ).get(com.cosinetech.imates.models.UserInfoViewModel.class);
 
         mFindSimilarQuestionRequest.setCurrentPage(0);
@@ -77,7 +78,7 @@ public class FindKnowledgeQuestionPopupWindow {
         mSimilarQuestionsCallback = new ApiGateWayService.QueryExerciseListCallback() {
             @Override
             public void onSuccess(List<Question> questions, long totalCount, long pageSize, long currentPageNo) {
-                mView.post(() -> {
+                runOnUiThread(() -> {
                     for (Question q: questions) {
                         q.atUserList = mQuestionIdsInFavor.contains(q.bmNo);
                     }
@@ -94,7 +95,7 @@ public class FindKnowledgeQuestionPopupWindow {
 
             @Override
             public void onFailure(String msg, int code) {
-                mView.post(() -> {
+                runOnUiThread(() -> {
                     //mSimilarQuestion.clear();
                     adapterMultiSelectSimilarQuestionList.resetSelection();
                     adapterMultiSelectSimilarQuestionList.notifyDataSetChanged();
@@ -102,10 +103,54 @@ public class FindKnowledgeQuestionPopupWindow {
                         mFindSimilarQuestionRequest.setCurrentPage(mFindSimilarQuestionRequest.getCurrentPage() - 1);
                     }
                     mRefreshLayout.finishLoadMore();// 加载完成后等待的时间
-                    Toast.makeText(mContext, "没有查到对应的题目", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(FindExerciseActivity.this, "没有查到对应的题目", Toast.LENGTH_SHORT).show();
                 });
             }
         };
+    }
+    private void initView() {
+        mRecyclerViewSimilarQuestion = findViewById(R.id.question_list);
+        mRecyclerViewSimilarQuestion.setLayoutManager(new LinearLayoutManager(this));
+        adapterMultiSelectSimilarQuestionList = new AdapterMultiSelectSimilarQuestionList(mSimilarQuestion);
+        mRecyclerViewSimilarQuestion.setAdapter(adapterMultiSelectSimilarQuestionList);
+
+        Button btnOk = findViewById(R.id.btn_ok);
+        btnOk.setOnClickListener(v -> {
+            addSelectedQuestionToList();
+        });
+
+        Button btnExit = findViewById(R.id.btn_back);
+        btnExit.setOnClickListener(v -> finish());
+
+        Button btnRefresh = findViewById(R.id.btn_unselect);
+        btnRefresh.setOnClickListener( v-> {
+            for (Question q: mSimilarQuestion
+            ) {
+                if(!q.atUserList) {
+                    q.userSelect = false;
+                }
+            }
+            adapterMultiSelectSimilarQuestionList.notifyDataSetChanged();
+        });
+
+        mRefreshLayout = findViewById(R.id.refreshLayout);
+        mRefreshLayout.setEnableAutoLoadMore(false);
+        //下拉刷新
+        mRefreshLayout.setOnRefreshListener(refreshlayout -> {
+            mRefreshLayout.finishRefresh();
+        });
+
+        //上拉加载更多
+        mRefreshLayout.setOnLoadMoreListener(refreshlayout -> {
+            if(mSimilarQuestion.size() < mFindSimilarQuestionRequest.getTotalCount()) {
+                fetchQuestionList();
+            } else {
+                Toast.makeText(this, "没有更多的题目了", Toast.LENGTH_SHORT).show();
+                mRefreshLayout.finishLoadMore();
+            }
+        });
+
+        fetchQuestionList();
     }
 
     private void findSimilarKnowledgeQuestion() {
@@ -157,20 +202,14 @@ public class FindKnowledgeQuestionPopupWindow {
 
             @Override
             public void onFailure(String msg, int code) {
-                mContext.runOnUiThread(() -> {
-                    Toast.makeText(mContext, msg, Toast.LENGTH_SHORT).show();
+                runOnUiThread(() -> {
+                    Toast.makeText(FindExerciseActivity.this, msg, Toast.LENGTH_SHORT).show();
                 });
                 findSimilarKnowledgeQuestion();
             }
         });
     }
 
-    public void setQuestionListView(View view) {
-        mRecyclerViewSimilarQuestion = view.findViewById(R.id.question_list);
-        mRecyclerViewSimilarQuestion.setLayoutManager(new LinearLayoutManager(mContext));
-        adapterMultiSelectSimilarQuestionList = new AdapterMultiSelectSimilarQuestionList(mSimilarQuestion);
-        mRecyclerViewSimilarQuestion.setAdapter(adapterMultiSelectSimilarQuestionList);
-    }
 
     public void addSelectedQuestionToList() {
         AddQuestionRequest item = new AddQuestionRequest();
@@ -190,75 +229,78 @@ public class FindKnowledgeQuestionPopupWindow {
             @Override
             public void onSuccess() {
                 new Handler(Looper.getMainLooper()).post(() -> {
-                    mPopupWindow.dismiss();
-                    if (mListener != null) {
-                        mListener.onQuestionSelected();
-                    }
+                    startQuestionSolveActivity();
                 });
             }
 
             @Override
             public void onFailure(String msg, int code) {
                 new Handler(Looper.getMainLooper()).post(() -> {
-                    Toast.makeText(mContext, "添加到列表失败:" + msg, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(FindExerciseActivity.this, "添加到列表失败:" + msg, Toast.LENGTH_SHORT).show();
                 });
             }
         });
     }
 
-    public void show() {
-        mView = LayoutInflater.from(mContext).inflate(
-                R.layout.popup_windows_similar_questions, null);
-        // 初始化 PopupWindow
-        int screenWidth = ScreenUtils.getScreenWidth(mContext);
-        int screenHeight = ScreenUtils.getScreenHeight(mContext);
-        mPopupWindow = new PopupWindow(mView,
-                screenWidth, // 宽度
-                screenHeight); // 高度
-        setQuestionListView(mView);
+    public void startQuestionSolveActivity() {
+        Intent intent = new Intent(this, QuestionSolveActivity.class);
+        intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, mChatBotUrl);
+        intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, mSubject.name());
+        startActivity(intent);
+    }
 
-        Button btnOk = mView.findViewById(R.id.btn_ok);
-        btnOk.setOnClickListener(v -> {
-            addSelectedQuestionToList();
-        });
 
-        Button btnExit = mView.findViewById(R.id.btn_back);
-        btnExit.setOnClickListener(v -> mPopupWindow.dismiss());
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
 
-        Button btnRefresh = mView.findViewById(R.id.btn_unselect);
-        btnRefresh.setOnClickListener( v-> {
-            for (Question q: mSimilarQuestion
-                 ) {
-                if(!q.atUserList) {
-                    q.userSelect = false;
-                }
-            }
-            adapterMultiSelectSimilarQuestionList.notifyDataSetChanged();
-        });
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if(keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_HOME){
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
 
-        mRefreshLayout = mView.findViewById(R.id.refreshLayout);
-        mRefreshLayout.setEnableAutoLoadMore(false);
-        //下拉刷新
-        mRefreshLayout.setOnRefreshListener(refreshlayout -> {
-            mRefreshLayout.finishRefresh();
-        });
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if(keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_HOME){
+            return true;
+        }
+        return super.onKeyUp(keyCode, event);
+    }
 
-        //上拉加载更多
-        mRefreshLayout.setOnLoadMoreListener(refreshlayout -> {
-            if(mSimilarQuestion.size() < mFindSimilarQuestionRequest.getTotalCount()) {
-                fetchQuestionList();
-            } else {
-                Toast.makeText(mContext, "没有更多的题目了", Toast.LENGTH_SHORT).show();
-                mRefreshLayout.finishLoadMore();
-            }
-        });
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            WindowUtils.hideSystemUI(this);
+        }
+    }
 
-        // 设置点击外部区域关闭
-        mPopupWindow.setOutsideTouchable(true);
-        mPopupWindow.setFocusable(true);
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if(event.getKeyCode() == KeyEvent.KEYCODE_BACK
+                || event.getKeyCode() == KeyEvent.KEYCODE_HOME
+                || event.getKeyCode() == KeyEvent.KEYCODE_MENU){
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
 
-        // 显示 PopupWindow
-        mPopupWindow.showAtLocation(mView, Gravity.CENTER, 0, 0);
-        fetchQuestionList();
+    @Override
+    public void onResume() {
+        super.onResume();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
     }
 }
