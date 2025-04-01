@@ -3,73 +3,34 @@ package com.cosinetech.imates.webservice;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class Question {
     @Expose
     @SerializedName("bmNo")
     public String bmNo = "";
 
     @Expose
-    @SerializedName("titleImg")
-    public String titleImg = "";
+    @SerializedName("title")
+    public String title = "";
 
-    @Expose
-    @SerializedName("imgTitleUrl")
-    public String imgTitleUrl = "";
-
-    @Expose
-    @SerializedName("ref")
-    public String ref = "";
-
+    //答案
     @Expose
     @SerializedName("answer")
     public String answer = "";
 
-    @Expose
-    @SerializedName("imgPath")
-    public String imgPath = "";
-
-    @Expose
-    @SerializedName("options")
-    public List<String> options = new ArrayList<>();
-
-    @Expose
-    @SerializedName("options1")
-    public List<String> options1 = new ArrayList<>();
-
-    @Expose
-    @SerializedName("optionsImg")
-    public List<String> optionsImg = new ArrayList<>();
-
-    @Expose
-    @SerializedName("imgUrl")
-    public List<String> imgUrl = new ArrayList<>();
-
-    @Expose
-    @SerializedName("fullText")
-    public String fullText = "";
-
-    @Expose
-    @SerializedName("title")
-    public String title = "";
-
+    //解析
     @Expose
     @SerializedName("explanation")
-    public String explanation = "";
+    public String aiExplanation = "";
 
+    //AI详解
     @Expose
-    @SerializedName("reasonData")
-    public String reasonData = "";
+    @SerializedName("analysisData")
+    public String answerAnalysis = "";
 
     @Expose
     @SerializedName("id")
     public String id = "";
 
-    @Expose
-    @SerializedName("DAJX")
-    public String DAJX = "";
 
     /// 和显示相关的属性
     // 题目是否已经加入了用户题库表
@@ -86,60 +47,18 @@ public class Question {
             this.bmNo = "";
         }
 
-        if(this.titleImg == null) {
-            this.titleImg = "";
-        }
-        if(this.imgTitleUrl == null) {
-            this.imgTitleUrl = "";
-        }
-
-        if(this.ref == null) {
-            this.ref  ="";
-        }
-
-        if(this.answer == null) {
-            this.answer = "";
-        }
-        if(this.imgPath == null) {
-            this.imgPath = "";
-        }
-        if(this.options == null) {
-            this.options = new ArrayList<>();
-        }
-        if(this.optionsImg == null) {
-            this.optionsImg = new ArrayList<>();
-        }
-        if(this.imgUrl == null) {
-            this.imgUrl = new ArrayList<>();
-        }
-
-//        if(this.optionsFileName == null) {
-//            this.optionsFileName = new ArrayList<>();
-//        }
-
-        if(this.options1 == null) {
-            this.options1 = new ArrayList<>();
-        }
-        if(this.fullText == null) {
-            this.fullText = "";
-        }
         if(this.title == null) {
             this.title = "";
         }
-        if(this.explanation == null) {
-            this.explanation = "";
+        if(this.aiExplanation == null) {
+            this.aiExplanation = "";
         }
-        if(this.reasonData == null) {
-            this.reasonData = "";
+        if(this.answerAnalysis == null) {
+            this.answerAnalysis = "";
         }
         if(this.id == null) {
             this.id = "";
         }
-
-        if(this.DAJX == null) {
-            this.DAJX = "";
-        }
-
     }
 
     public String getQuestion() {
@@ -158,8 +77,13 @@ public class Question {
         return answer;
     }
 
-    public String getAnalysis() {
+    public String getAiExplanation() {
         emitNull();
-        return explanation;
+        return aiExplanation;
+    }
+
+    public String getAnswerAnalysis() {
+        emitNull();
+        return answerAnalysis;
     }
 }

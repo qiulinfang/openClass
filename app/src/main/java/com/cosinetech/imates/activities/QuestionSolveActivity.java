@@ -217,12 +217,12 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 adapterQuestionList.notifyItemChanged(pos);
 
                 MarkdownTextView answer = findViewById(R.id.answerView);
-                answer.setContent(mCurrentQuestion.DAJX);
+                answer.setContent(mCurrentQuestion.getAnswer() + "   \n" + mCurrentQuestion.getAnswerAnalysis());
 
                 mChatView.setChatEnable(false);
                 chatResponseTimes = 0;
                 setViewAnswer(false);
-                //mChatView.clearChatHistory();
+
                 //先生成ai的session
                 ChatMessageSession session = onChatQuestionSessionChange(false);
                 //再根据ai的session生成老师的session
@@ -252,45 +252,6 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
             @Override
             public void onExerciseAddToMyList(int pos, Question q) {
                 AddQuestionRequest item = new AddQuestionRequest();
-
-//                item.setTitle(q.title);
-//                item.setImgName(q.titleImg);
-//                item.setImgTitleUrl(q.titleImg);
-//
-//                final List<String> optImgs = q.optionsImg.isEmpty() ? q.imgUrl : q.optionsImg;
-//                StringBuilder optionImgs = new StringBuilder();
-//
-//                for(int i = 0; i< optImgs.size(); i++) {
-//                    if(i == 0) {
-//                        optionImgs.append("[");
-//                    }
-//
-//                    optionImgs.append("\"").append(optImgs.get(i)).append("\"");
-//                    if(i != optImgs.size() - 1) {
-//                        optionImgs.append(",");
-//                    } else {
-//                        optionImgs.append("]");
-//                    }
-//                }
-//
-//                item.setImgUrl(optionImgs.toString());
-//
-//                StringBuilder opts = new StringBuilder();
-//                for(int i = 0; i < q.options.size(); i++) {
-//                    if(i == 0) {
-//                        opts.append("[");
-//                    }
-//
-//                    opts.append("\"").append(q.options.get(i)).append("\"");
-//                    if(i != q.options.size() - 1) {
-//                        opts.append(",");
-//                    } else {
-//                        opts.append("]");
-//                    }
-//                }
-//                item.setOptions(opts.toString());
-//                item.setAnswer(q.answer);
-//                item.setExplanation(q.explanation);
 
                 StringBuilder ids = new StringBuilder();
                 for (Question qq:mQuestions) {
@@ -411,7 +372,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         aiChatMessageRequest.setNewValue("1");
         aiChatMessageRequest.setSessionId(session.sessionId);
         aiChatMessageRequest.setQuestion(questionString);
-        aiChatMessageRequest.setAnswer(mQuestions.get(mCurrentQuestionIndex).explanation);
+        aiChatMessageRequest.setAnswer(mQuestions.get(mCurrentQuestionIndex).getAiExplanation());
         aiChatMessageRequest.setCoversation("我们开始吧");
         aiChatMessageRequest.setReason("start");
         aiChatMessageRequest.setBmNo(mQuestions.get(mCurrentQuestionIndex).bmNo);
