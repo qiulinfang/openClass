@@ -9,14 +9,14 @@ plugins {
 
 android {
     namespace 'com.cosinetech.imates'
-    compileSdk 35
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.cosinetech.imates"
         minSdk 24
-        targetSdk 35
-        versionCode 25
-        versionName "1.0.25"
+        targetSdk 34
+        versionCode 26
+        versionName "1.0.26"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
