@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.KeyEvent;
+import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
@@ -39,6 +40,7 @@ public class FindExerciseActivity extends AppCompatActivity {
     private Subject mSubject;
     private RecyclerView mRecyclerViewSimilarQuestion;
     private SmartRefreshLayout mRefreshLayout;
+    private View mProgressView;
     private String mKnowledgeList;
     private final List<Question> mSimilarQuestion = new ArrayList<>();
     private final ArrayList<String> mQuestionIdsInFavor = new ArrayList<>();
@@ -60,6 +62,7 @@ public class FindExerciseActivity extends AppCompatActivity {
         setContentView(R.layout.activity_find_exercise);
         initData();
         initView();
+        fetchQuestionList();
     }
 
     private void initData() {
@@ -114,24 +117,7 @@ public class FindExerciseActivity extends AppCompatActivity {
         adapterMultiSelectSimilarQuestionList = new AdapterMultiSelectSimilarQuestionList(mSimilarQuestion);
         mRecyclerViewSimilarQuestion.setAdapter(adapterMultiSelectSimilarQuestionList);
 
-        Button btnOk = findViewById(R.id.btn_ok);
-        btnOk.setOnClickListener(v -> {
-            addSelectedQuestionToList();
-        });
-
-        Button btnExit = findViewById(R.id.btn_back);
-        btnExit.setOnClickListener(v -> finish());
-
-        Button btnRefresh = findViewById(R.id.btn_unselect);
-        btnRefresh.setOnClickListener( v-> {
-            for (Question q: mSimilarQuestion
-            ) {
-                if(!q.atUserList) {
-                    q.userSelect = false;
-                }
-            }
-            adapterMultiSelectSimilarQuestionList.notifyDataSetChanged();
-        });
+        mProgressView = findViewById(R.id.progress_layout);
 
         mRefreshLayout = findViewById(R.id.refreshLayout);
         mRefreshLayout.setEnableAutoLoadMore(false);
@@ -150,7 +136,24 @@ public class FindExerciseActivity extends AppCompatActivity {
             }
         });
 
-        fetchQuestionList();
+        Button btnOk = findViewById(R.id.btn_ok);
+        btnOk.setOnClickListener(v -> {
+            addSelectedQuestionToList();
+        });
+
+        Button btnExit = findViewById(R.id.btn_back);
+        btnExit.setOnClickListener(v -> finish());
+
+        Button btnRefresh = findViewById(R.id.btn_unselect);
+        btnRefresh.setOnClickListener( v-> {
+            for (Question q: mSimilarQuestion
+            ) {
+                if(!q.atUserList) {
+                    q.userSelect = false;
+                }
+            }
+            adapterMultiSelectSimilarQuestionList.notifyDataSetChanged();
+        });
     }
 
     private void findSimilarKnowledgeQuestion() {
@@ -225,17 +228,22 @@ public class FindExerciseActivity extends AppCompatActivity {
         } else if (mSubject == Subject.SUBJECT_MATH) {
             item.setType("math");
         }
+
+        mProgressView.setVisibility(View.VISIBLE);
+
         ApiGateWayService.addExerciseToList(item, ApiUrl.URL_ADD_EXERCISE_TO_LIST, mUserInfoViewModel.token.getValue(), new ApiGateWayService.AddExerciseCallback() {
             @Override
             public void onSuccess() {
                 new Handler(Looper.getMainLooper()).post(() -> {
                     startQuestionSolveActivity();
+                    finish();
                 });
             }
 
             @Override
             public void onFailure(String msg, int code) {
                 new Handler(Looper.getMainLooper()).post(() -> {
+                    mProgressView.setVisibility(View.GONE);
                     Toast.makeText(FindExerciseActivity.this, "添加到列表失败:" + msg, Toast.LENGTH_SHORT).show();
                 });
             }
