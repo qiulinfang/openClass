@@ -2,6 +2,8 @@ package com.cosinetech.imates.activities;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -43,6 +45,22 @@ import java.util.Arrays;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
+    private long mCheckUpdateTick = 0;
+    private final Handler mCheckUpdateHandler = new Handler(Looper.getMainLooper());
+    private final Runnable mCheckUpdateRunnable = new Runnable() {
+        @Override
+        public void run() {
+            long tick = System.currentTimeMillis();
+            if(tick - mCheckUpdateTick >= 3600000) {
+                mCheckUpdateTick = tick;
+                EasyUpdate.create(MainActivity.this, ApiUrl.URL_APP_UPDATE)
+                        .isAutoMode(false)
+                        .update();
+            }
+            mCheckUpdateHandler.postDelayed(this, 60000); // 每秒执行一次
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -174,7 +192,10 @@ public class MainActivity extends AppCompatActivity {
         TextView versionText = findViewById(R.id.version);
         versionText.setText(VersionUtils.getVersionName(this) + "_" + VersionUtils.getVersionCode(this));
 
-        Log.e("++++++++++++++++", "onCreate");    }
+        mCheckUpdateTick = System.currentTimeMillis();
+        mCheckUpdateHandler.postDelayed(mCheckUpdateRunnable, 60000);
+        Log.e("++++++++++++++++", "onCreate");
+    }
 
     @Override
     protected void onPause() {
