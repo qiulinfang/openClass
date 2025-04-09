@@ -185,13 +185,12 @@ public class MainActivity extends AppCompatActivity {
         stopFloatingWndowService();
         startFloatingWindowService();
 
-        EasyUpdate.create(this, ApiUrl.URL_APP_UPDATE)
-                .isAutoMode(false)
-                .update();
-
         TextView versionText = findViewById(R.id.version);
         versionText.setText(VersionUtils.getVersionName(this) + "_" + VersionUtils.getVersionCode(this));
 
+        EasyUpdate.create(this, ApiUrl.URL_APP_UPDATE)
+                .isAutoMode(false)
+                .update();
         mCheckUpdateTick = System.currentTimeMillis();
         mCheckUpdateHandler.postDelayed(mCheckUpdateRunnable, 60000);
         Log.e("++++++++++++++++", "onCreate");
@@ -253,6 +252,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         stopFloatingWndowService();
+        mCheckUpdateHandler.removeCallbacksAndMessages(null); // 彻底清除
         Log.e("++++++++++++++++", "onDestroy");
     }
 }

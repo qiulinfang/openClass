@@ -21,6 +21,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelStoreOwner;
 
 import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
@@ -36,6 +37,8 @@ import com.cosinetech.imates.databinding.ActivityLoginBinding;
 import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.util.WindowUtils;
+import com.cosinetech.imates.webservice.ApiUrl;
+import com.xuexiang.xupdate.easy.EasyUpdate;
 
 import java.io.File;
 
@@ -66,6 +69,22 @@ public class LoginActivity extends AppCompatActivity {
                 handler.postDelayed(this, delay); // 延迟后继续执行
                 index = 0;
             }
+        }
+    };
+
+    private long mCheckUpdateTick = 0;
+    private final Handler mCheckUpdateHandler = new Handler(Looper.getMainLooper());
+    private final Runnable mCheckUpdateRunnable = new Runnable() {
+        @Override
+        public void run() {
+            long tick = System.currentTimeMillis();
+            if(tick - mCheckUpdateTick >= 3600000) {
+                mCheckUpdateTick = tick;
+                EasyUpdate.create(LoginActivity.this, ApiUrl.URL_APP_UPDATE)
+                        .isAutoMode(false)
+                        .update();
+            }
+            mCheckUpdateHandler.postDelayed(this, 60000); // 每秒执行一次
         }
     };
 
@@ -115,6 +134,9 @@ public class LoginActivity extends AppCompatActivity {
         fullText = getString(R.string.login_moto);
         textView = findViewById(R.id.moto_text); // 获取 TextView
         startTypingEffect(); // 启动打字机效果
+
+        mCheckUpdateTick = System.currentTimeMillis();
+        mCheckUpdateHandler.postDelayed(mCheckUpdateRunnable, 60000);
     }
 
     @Override
@@ -263,6 +285,14 @@ public class LoginActivity extends AppCompatActivity {
                             Toast.makeText(this, "您拒绝了权限，功能可能无法正常使用", Toast.LENGTH_SHORT).show())
                     .show();
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mCheckUpdateHandler.removeCallbacksAndMessages(null); // 彻底清除
+        handler.removeCallbacksAndMessages(null);
+        Log.e("++++++++++++++++", "onDestroy");
     }
 
     @Override
