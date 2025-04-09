@@ -150,12 +150,21 @@ public class MessagingManager {
     }
 
     public void shutdown() {
-        if (rabbitMQManager != null) {
-            rabbitMQManager.closeConnection();
-        }
-        messageListeners.clear();
-        isInitialized.set(false);
-        Log.d(TAG, "MessagingManager shutdown");
+        new Thread(() -> {
+            if (rabbitMQManager != null) {
+                rabbitMQManager.closeConnection();
+            }
+            messageListeners.clear();
+            isInitialized.set(false);
+            Log.d(TAG, "MessagingManager shutdown");
+        }).start();
+//
+//        if (rabbitMQManager != null) {
+//            rabbitMQManager.closeConnection();
+//        }
+//        messageListeners.clear();
+//        isInitialized.set(false);
+//        Log.d(TAG, "MessagingManager shutdown");
     }
 
     public boolean isInitialized() {

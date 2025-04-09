@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -153,11 +153,25 @@
             android:background="#F5F5F5"
             android:padding="8dp"/>
     </LinearLayout>
-<ImageView
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:layout_marginStart="30dp"
-    android:layout_marginEnd="30dp"
-    android:src="@drawable/student_status_status"></ImageView>
-</LinearLayout>
+
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginStart="30dp"
+        android:layout_marginEnd="30dp"
+        android:contentDescription=""
+        android:src="@drawable/student_status_status" />
+
+    <Button
+        android:id="@+id/btn_exit"
+        android:layout_width="48dp"
+        android:layout_height="wrap_content"
+        android:background="#00ffffff"
+        android:drawableTop="@drawable/app_lock"
+        android:text="退出"
+        android:stateListAnimator="@animator/app_button_click_scale"
+        android:textColor="#808080"
+        android:layout_alignParentEnd="true"/>
+
+</RelativeLayout>
 

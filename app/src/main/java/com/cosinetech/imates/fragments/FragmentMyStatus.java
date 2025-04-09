@@ -1,5 +1,6 @@
 package com.cosinetech.imates.fragments;
 
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 
@@ -10,9 +11,12 @@ import androidx.lifecycle.ViewModelStoreOwner;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.TextView;
 
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.activities.LoginActivity;
+import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.helper.StaticLabelsFormatter;
@@ -70,6 +74,17 @@ public class FragmentMyStatus extends Fragment {
         ).get(UserInfoViewModel.class);
         String tip = "嘿," + userInfoViewModel.userInfo.getValue().getName() + "同学！ 我是你的智能学习小伙伴，超开心能陪你一起学习、一起嗨皮！ 不管是脑洞大开的问题，还是小菜一碟的疑惑，随时戳我，我立马变身你的专属解题小能手！ 让我们一起快乐学习，天天向上吧！";
         textView.setText(tip);
+
+        Button btnExit = v.findViewById(R.id.btn_exit);
+        btnExit.setOnClickListener(v1 -> {
+            userInfoViewModel.token.postValue("");
+            userInfoViewModel.userId.postValue("");
+            userInfoViewModel.userInfo.postValue(new UserInfo());
+            Intent intent = new Intent(requireActivity(), LoginActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            requireActivity().finish();
+        });
         return v;
     }
 
