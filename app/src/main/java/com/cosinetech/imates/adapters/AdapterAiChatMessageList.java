@@ -199,132 +199,142 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         if (holder instanceof DateViewHolder) {
             ((DateViewHolder) holder).tvDate.setText(message.content);
         } else if (holder instanceof TextViewHolder) {
-            TextViewHolder viewHolder = ((TextViewHolder) holder);
-            viewHolder.tvMessage.clearContent();
-            viewHolder.tvMessage.setTypingEffectDisplayItem(item);
-            viewHolder.tvMessage.disableTypingEffectDisplay();
-            if(item.showWithTypingEffect) {
-                // 2. 回退到当前显示进度（关键步骤）
-//                viewHolder.tvMessage.rewindToProgress(item.currentDisplayCharIndex);
-                viewHolder.tvMessage.enableTypingEffectDisplay();
-            } else {
-                viewHolder.tvMessage.setContent(message.content);
-            }
-
-            viewHolder.tvSelected.setChecked(false);
-            if(mItemCanSelect) {
-                viewHolder.tvSelected.setVisibility(View.VISIBLE);
-            } else {
-                viewHolder.tvSelected.setVisibility(View.GONE);
-            }
-            viewHolder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                item.isSelected = isChecked;
-            });
-
-            if(!item.chatMessage.isSelf) {
-                viewHolder.ivAvastar.setImageResource(mOtherAvastarIconRes);
-            }
+            bindTextViewHolder((TextViewHolder) holder, item, message);
         } else if (holder instanceof ImageViewHolder) {
-            ImageViewHolder viewHolder = ((ImageViewHolder) holder);
-            Glide.with(holder.itemView.getContext())
-                    .load(message.content)
-                    .into(viewHolder.ivMessageImage);
-
-            viewHolder.ivMessageImage.setOnClickListener(v -> {
-                // content是图片的本地路径
-                Intent intent = new Intent(mContext, ImageViewerActivity.class);
-                intent.putExtra("image_path", message.content);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 添加 FLAG_ACTIVITY_NEW_TASK
-                mContext.startActivity(intent);
-            });
-
-            viewHolder.tvSelected.setChecked(false);
-            if(mItemCanSelect) {
-                viewHolder.tvSelected.setVisibility(View.VISIBLE);
-            } else {
-                viewHolder.tvSelected.setVisibility(View.GONE);
-            }
-
-            viewHolder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                item.isSelected = isChecked;
-            });
-
-            if(!item.chatMessage.isSelf) {
-                viewHolder.ivAvastar.setImageResource(mOtherAvastarIconRes);
-            }
+            bindImageViewHolder((ImageViewHolder) holder, message, item);
         } else if (holder instanceof VoiceViewHolder) {
-            VoiceViewHolder viewHolder = ((VoiceViewHolder) holder);
-            VoiceDbUtil.VoiceDbItem vi = VoiceDbUtil.extractDbVoiceContent(message.content);
+            bindVoiceViewHolder((VoiceViewHolder) holder, pos, message, item);
+        }
+    }
 
-// 计算 voice_layout 的宽度
-            int baseWidth = ScreenUtils.dpToPx(mContext, 100); // 基准宽度
-            int minWidth = ScreenUtils.dpToPx(mContext, 100);   // 最小宽度
-            int maxWidth = ScreenUtils.dpToPx(mContext, 600);  // 最大宽度
-            int calculatedWidth = baseWidth + (vi.duration * ScreenUtils.dpToPx(mContext, 5)); // 根据语音时长调整宽度
+    private void bindVoiceViewHolder(VoiceViewHolder holder, int pos, ChatMessage message, ChatDisplayItem item) {
+        VoiceDbUtil.VoiceDbItem vi = VoiceDbUtil.extractDbVoiceContent(message.content);
 
-            // 限制宽度在 minWidth 和 maxWidth 之间
-            calculatedWidth = Math.min(Math.max(calculatedWidth, minWidth), maxWidth);
+        // 计算 voice_layout 的宽度
+        int baseWidth = ScreenUtils.dpToPx(mContext, 100); // 基准宽度
+        int minWidth = ScreenUtils.dpToPx(mContext, 100);   // 最小宽度
+        int maxWidth = ScreenUtils.dpToPx(mContext, 600);  // 最大宽度
+        int calculatedWidth = baseWidth + (vi.duration * ScreenUtils.dpToPx(mContext, 5)); // 根据语音时长调整宽度
 
-            // 设置 voice_layout 的宽度
-            ViewGroup.LayoutParams params = viewHolder.ivLayout.getLayoutParams();
-            params.width = calculatedWidth;
-            viewHolder.ivLayout.setLayoutParams(params);
+        // 限制宽度在 minWidth 和 maxWidth 之间
+        calculatedWidth = Math.min(Math.max(calculatedWidth, minWidth), maxWidth);
 
-            viewHolder.tvVoiceLength.setText(vi.duration + "\"");
-            if (mAudioPlayingItemIndex == pos) {
-                viewHolder.ivVoiceIcon.playAnimation();
+        // 设置 voice_layout 的宽度
+        ViewGroup.LayoutParams params = holder.ivLayout.getLayoutParams();
+        params.width = calculatedWidth;
+        holder.ivLayout.setLayoutParams(params);
+
+        holder.tvVoiceLength.setText(vi.duration + "\"");
+        if (mAudioPlayingItemIndex == pos) {
+            holder.ivVoiceIcon.playAnimation();
+        } else {
+            holder.ivVoiceIcon.cancelAnimation();
+        }
+
+        holder.ivVoiceIcon.setOnClickListener(v -> {
+            if(mAudioPlayingItemIndex >= 0) {
+                notifyItemChanged(mAudioPlayingItemIndex);
+            }
+
+            if(mAudioPlayingItemIndex == pos) {
+                AudioPlayManager.getInstance().stopPlay();
+                notifyItemChanged(pos);
             } else {
-                viewHolder.ivVoiceIcon.cancelAnimation();
+                AudioPlayManager.getInstance().stopPlay();
+                AudioPlayManager.getInstance().startPlay(mContext, vi.voicePath, new IAudioPlayListener() {
+                    @Override
+                    public void onStart(Uri var1) {
+                        mAudioPlayingItemIndex = pos;
+                        //开播（一般是开始语音消息动画）
+                    }
+
+                    @Override
+                    public void onStop(Uri var1) {
+                        mAudioPlayingItemIndex = -1;
+                        notifyItemChanged(pos);
+                    }
+
+                    @Override
+                    public void onComplete(Uri var1) {
+                        //播完（一般是停止语音消息动画）
+                        mAudioPlayingItemIndex = -1;
+                        notifyItemChanged(pos);
+                    }
+                });
+                notifyItemChanged(pos);
             }
+        });
 
-            viewHolder.ivVoiceIcon.setOnClickListener(v -> {
-                if(mAudioPlayingItemIndex >= 0) {
-                    notifyItemChanged(mAudioPlayingItemIndex);
-                }
+        holder.tvSelected.setChecked(false);
+        if (mItemCanSelect) {
+            holder.tvSelected.setVisibility(View.VISIBLE);
+        } else {
+            holder.tvSelected.setVisibility(View.GONE);
+        }
 
-                if(mAudioPlayingItemIndex == pos) {
-                    AudioPlayManager.getInstance().stopPlay();
-                    notifyItemChanged(pos);
-                } else {
-                    AudioPlayManager.getInstance().stopPlay();
-                    AudioPlayManager.getInstance().startPlay(mContext, vi.voicePath, new IAudioPlayListener() {
-                        @Override
-                        public void onStart(Uri var1) {
-                            mAudioPlayingItemIndex = pos;
-                            //开播（一般是开始语音消息动画）
-                        }
+        holder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            item.isSelected = isChecked;
+        });
 
-                        @Override
-                        public void onStop(Uri var1) {
-                            mAudioPlayingItemIndex = -1;
-                            notifyItemChanged(pos);
-                        }
+        if(!item.chatMessage.isSelf) {
+            holder.ivAvastar.setImageResource(mOtherAvastarIconRes);
+        }
+    }
 
-                        @Override
-                        public void onComplete(Uri var1) {
-                            //播完（一般是停止语音消息动画）
-                            mAudioPlayingItemIndex = -1;
-                            notifyItemChanged(pos);
-                        }
-                    });
-                    notifyItemChanged(pos);
-                }
-            });
+    private void bindImageViewHolder(ImageViewHolder holder, ChatMessage message, ChatDisplayItem item) {
+        Glide.with(holder.itemView.getContext())
+                .load(message.content)
+                .into(holder.ivMessageImage);
 
-            viewHolder.tvSelected.setChecked(false);
-            if (mItemCanSelect) {
-                viewHolder.tvSelected.setVisibility(View.VISIBLE);
-            } else {
-                viewHolder.tvSelected.setVisibility(View.GONE);
-            }
+        holder.ivMessageImage.setOnClickListener(v -> {
+            // content是图片的本地路径
+            Intent intent = new Intent(mContext, ImageViewerActivity.class);
+            intent.putExtra("image_path", message.content);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 添加 FLAG_ACTIVITY_NEW_TASK
+            mContext.startActivity(intent);
+        });
 
-            viewHolder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                item.isSelected = isChecked;
-            });
+        holder.tvSelected.setChecked(false);
+        if(mItemCanSelect) {
+            holder.tvSelected.setVisibility(View.VISIBLE);
+        } else {
+            holder.tvSelected.setVisibility(View.GONE);
+        }
 
-            if(!item.chatMessage.isSelf) {
-                viewHolder.ivAvastar.setImageResource(mOtherAvastarIconRes);
-            }
+        holder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            item.isSelected = isChecked;
+        });
+
+        if(!item.chatMessage.isSelf) {
+            holder.ivAvastar.setImageResource(mOtherAvastarIconRes);
+        }
+    }
+
+    private void bindTextViewHolder(TextViewHolder holder, ChatDisplayItem item, ChatMessage message) {
+        TextViewHolder viewHolder = holder;
+        viewHolder.tvMessage.clearContent();
+        viewHolder.tvMessage.setTypingEffectDisplayItem(item);
+        viewHolder.tvMessage.disableTypingEffectDisplay();
+        if(item.showWithTypingEffect) {
+            // 2. 回退到当前显示进度（关键步骤）
+//                viewHolder.tvMessage.rewindToProgress(item.currentDisplayCharIndex);
+            viewHolder.tvMessage.enableTypingEffectDisplay();
+        } else {
+            viewHolder.tvMessage.setContent(message.content);
+        }
+
+        viewHolder.tvSelected.setChecked(false);
+        if(mItemCanSelect) {
+            viewHolder.tvSelected.setVisibility(View.VISIBLE);
+        } else {
+            viewHolder.tvSelected.setVisibility(View.GONE);
+        }
+        viewHolder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            item.isSelected = isChecked;
+        });
+
+        if(!item.chatMessage.isSelf) {
+            viewHolder.ivAvastar.setImageResource(mOtherAvastarIconRes);
         }
     }
 
