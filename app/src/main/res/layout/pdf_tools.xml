@@ -6,165 +6,24 @@
 
     <ViewAnimator
         android:id="@+id/switcher"
-        android:layout_width="wrap_content"
-        android:layout_height="46dp"
-        android:layout_alignParentTop="true"
-        android:layout_centerHorizontal="true">
+        android:layout_width="46dp"
+        android:layout_height="300dp"
+        android:layout_alignParentStart="true"
+        android:layout_centerVertical="true"
+        android:background="@color/colorDarkTrans">
 
-        <!--顶部工具栏-->
+        <!--工具栏-->
         <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@color/colorDarkTrans">
-
-            <LinearLayout
-                android:id="@+id/tools_layout"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:orientation="horizontal"
-                android:paddingHorizontal="8dp"
-                android:layout_alignParentStart="true"
-                android:layout_toStartOf="@id/linkButton">
-
-                <ImageButton
-                    android:id="@+id/btn_back"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginBottom="2dp"
-                    android:background="@drawable/pdf_tools_btn_bg"
-                    android:contentDescription=""
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/app_back_arrow" />
-                <!-- 占位空间 -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1" />
-
-                <ImageButton
-                    android:id="@+id/btn_fit_width"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginBottom="2dp"
-                    android:background="@drawable/pdf_tools_btn_bg"
-                    android:contentDescription=""
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/reader_tools_fit_width"/>
-                <!-- 占位空间 -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1" />
-
-                <ImageButton
-                    android:id="@+id/btn_fit_height"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginBottom="2dp"
-                    android:background="@drawable/pdf_tools_btn_bg"
-                    android:contentDescription=""
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/reader_tools_fit_height" />
-                <!-- 占位空间 -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1" />
-
-                <ImageButton
-                    android:id="@+id/btn_hscroll"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginBottom="2dp"
-                    android:background="@drawable/pdf_tools_btn_bg"
-                    android:contentDescription=""
-                    android:scaleType="fitCenter"
-                    android:visibility="invisible"
-                    android:src="@drawable/reader_tools_page_tile" />
-                <!-- 占位空间 -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1" />
-
-                <ImageButton
-                    android:id="@+id/btn_watch_video"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginBottom="2dp"
-                    android:background="@drawable/pdf_tools_btn_bg"
-                    android:contentDescription=""
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/reader_tools_watch_video" />
-                <!-- 占位空间 -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1" />
-
-                <ImageButton
-                    android:id="@+id/btn_to_guide"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginBottom="2dp"
-                    android:background="@drawable/pdf_tools_btn_bg"
-                    android:contentDescription=""
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/reader_tools_switch_schema"
-                    />
-                <!-- 占位空间 -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1" />
-
-                <ImageButton
-                    android:id="@+id/btn_to_ppt"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginBottom="2dp"
-                    android:background="@drawable/pdf_tools_btn_bg"
-                    android:contentDescription=""
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/reader_tools_switch_ppt"/>
-                <!-- 占位空间 -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1" />
-
-                <ImageButton
-                    android:id="@+id/btn_to_textbook"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginBottom="2dp"
-                    android:background="@drawable/pdf_tools_btn_bg"
-                    android:contentDescription=""
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/reader_tools_switch_textbook" />
-                <!-- 占位空间 -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1" />
-            </LinearLayout>
+            android:layout_height="match_parent">
 
             <ImageButton
                 android:id="@+id/linkButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_centerVertical="true"
                 android:layout_marginTop="2dp"
                 android:layout_marginBottom="2dp"
-                android:layout_toStartOf="@+id/reflowButton"
+                android:layout_above="@id/outlineButton"
                 android:background="@drawable/pdf_tools_btn_bg"
                 android:contentDescription="@string/pdf_tools_toggle_links"
                 android:scaleType="fitCenter"
@@ -172,13 +31,25 @@
                 android:visibility="invisible"/>
 
             <ImageButton
+                android:id="@+id/outlineButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:layout_marginBottom="2dp"
+                android:layout_above="@id/reflowButton"
+                android:background="@drawable/pdf_tools_btn_bg"
+                android:contentDescription="@string/pdf_tools_outline_title"
+                android:scaleType="fitCenter"
+                android:src="@drawable/mupdf_ic_list" />
+
+
+            <ImageButton
                 android:id="@+id/reflowButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_centerVertical="true"
                 android:layout_marginTop="2dp"
                 android:layout_marginBottom="2dp"
-                android:layout_toStartOf="@+id/outlineButton"
+                android:layout_centerInParent="true"
                 android:background="@drawable/pdf_tools_btn_bg"
                 android:contentDescription="@string/pdf_tools_toggle_reflow_mode"
                 android:onClick="OnEditAnnotButtonClick"
@@ -186,37 +57,10 @@
                 android:src="@mipmap/ic_pencil_white_48dp" />
 
             <ImageButton
-                android:id="@+id/outlineButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerVertical="true"
-                android:layout_marginTop="2dp"
-                android:layout_marginBottom="2dp"
-                android:layout_toStartOf="@+id/searchButton"
-                android:background="@drawable/pdf_tools_btn_bg"
-                android:contentDescription="@string/pdf_tools_outline_title"
-                android:scaleType="fitCenter"
-                android:src="@drawable/mupdf_ic_list" />
-
-            <ImageButton
-                android:id="@+id/searchButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerVertical="true"
-                android:layout_marginTop="2dp"
-                android:layout_marginBottom="2dp"
-                android:layout_toStartOf="@+id/moreButton"
-                android:background="@drawable/pdf_tools_btn_bg"
-                android:contentDescription="@string/pdf_tools_search_document"
-                android:scaleType="fitCenter"
-                android:src="@mipmap/ic_search_white_48dp" />
-
-            <ImageButton
                 android:id="@+id/moreButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
+                android:layout_below="@id/reflowButton"
                 android:layout_marginTop="2dp"
                 android:layout_marginBottom="2dp"
                 android:background="@drawable/pdf_tools_btn_bg"
@@ -225,12 +69,25 @@
                 android:scaleType="fitCenter"
                 android:src="@mipmap/ic_content_copy_white_48dp" />
 
+            <ImageButton
+                android:id="@+id/searchButton"
+                android:visibility="invisible"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:layout_marginBottom="2dp"
+                android:layout_below="@id/moreButton"
+                android:background="@drawable/pdf_tools_btn_bg"
+                android:contentDescription="@string/pdf_tools_search_document"
+                android:scaleType="fitCenter"
+                android:src="@mipmap/ic_search_white_48dp" />
+
         </RelativeLayout>
 
         <!--搜索框-->
         <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_width="46dp"
+            android:layout_height="match_parent"
             android:background="@color/colorDarkTrans">
 
             <ImageButton
@@ -291,16 +148,15 @@
         <!--注释-->
         <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:background="@color/colorDarkTrans">
 
             <ImageButton
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_alignParentStart="true"
-                android:layout_centerVertical="true"
+                android:layout_above="@id/inkButton"
                 android:layout_marginTop="2dp"
-                android:layout_marginBottom="2dp"
+                android:layout_marginBottom="16dp"
                 android:background="@drawable/pdf_tools_btn_bg"
                 android:contentDescription="@string/cancel"
                 android:onClick="OnCancelMoreButtonClick"
@@ -310,6 +166,7 @@
             <ImageButton
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:visibility="invisible"
                 android:layout_centerVertical="true"
                 android:layout_marginTop="2dp"
                 android:layout_marginBottom="2dp"
@@ -323,6 +180,7 @@
 
             <ImageButton
                 android:id="@+id/underlineButton"
+                android:visibility="invisible"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_centerVertical="true"
@@ -338,6 +196,7 @@
 
             <ImageButton
                 android:id="@+id/strikeOutButton"
+                android:visibility="invisible"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_centerVertical="true"
@@ -355,8 +214,7 @@
                 android:id="@+id/inkButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_toStartOf="@+id/eraserButton"
-                android:layout_centerVertical="true"
+                android:layout_centerInParent="true"
                 android:layout_marginTop="2dp"
                 android:layout_marginBottom="2dp"
                 android:layout_marginEnd="16dp"
@@ -370,10 +228,9 @@
                 android:id="@+id/eraserButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="16dp"
                 android:layout_marginBottom="2dp"
+                android:layout_below="@id/inkButton"
                 android:background="@drawable/pdf_tools_btn_bg"
                 android:contentDescription="@string/pdf_tools_eraser"
                 android:onClick="OnEraserButtonClick"
@@ -479,6 +336,111 @@
         </RelativeLayout>
 
     </ViewAnimator>
+
+    <LinearLayout
+        android:id="@+id/tools_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@color/colorDarkTrans"
+        android:layout_alignParentStart="true">
+
+        <ImageButton
+            android:id="@+id/btn_back"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="2dp"
+            android:background="@drawable/pdf_tools_btn_bg"
+            android:contentDescription=""
+            android:scaleType="fitCenter"
+            android:src="@drawable/app_back_arrow" />
+
+        <ImageButton
+            android:id="@+id/btn_fit_width"
+            android:visibility="gone"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="2dp"
+            android:background="@drawable/pdf_tools_btn_bg"
+            android:contentDescription=""
+            android:scaleType="fitCenter"
+            android:src="@drawable/reader_tools_fit_width"/>
+
+        <ImageButton
+            android:id="@+id/btn_fit_height"
+            android:visibility="gone"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="2dp"
+            android:background="@drawable/pdf_tools_btn_bg"
+            android:contentDescription=""
+            android:scaleType="fitCenter"
+            android:src="@drawable/reader_tools_fit_height" />
+
+        <ImageButton
+            android:id="@+id/btn_hscroll"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="2dp"
+            android:background="@drawable/pdf_tools_btn_bg"
+            android:contentDescription=""
+            android:scaleType="fitCenter"
+            android:visibility="invisible"
+            android:src="@drawable/reader_tools_page_tile" />
+
+        <ImageButton
+            android:id="@+id/btn_watch_video"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="2dp"
+            android:layout_marginStart="32dp"
+            android:background="@drawable/pdf_tools_btn_bg"
+            android:contentDescription=""
+            android:scaleType="fitCenter"
+            android:src="@drawable/reader_tools_watch_video" />
+
+        <ImageButton
+            android:id="@+id/btn_to_guide"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="2dp"
+            android:layout_marginStart="32dp"
+            android:background="@drawable/pdf_tools_btn_bg"
+            android:contentDescription=""
+            android:scaleType="fitCenter"
+            android:src="@drawable/reader_tools_switch_schema"
+            />
+
+        <ImageButton
+            android:id="@+id/btn_to_ppt"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="2dp"
+            android:layout_marginStart="32dp"
+            android:background="@drawable/pdf_tools_btn_bg"
+            android:contentDescription=""
+            android:scaleType="fitCenter"
+            android:src="@drawable/reader_tools_switch_ppt"/>
+
+        <ImageButton
+            android:id="@+id/btn_to_textbook"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="2dp"
+            android:layout_marginStart="32dp"
+            android:background="@drawable/pdf_tools_btn_bg"
+            android:contentDescription=""
+            android:scaleType="fitCenter"
+            android:src="@drawable/reader_tools_switch_textbook" />
+    </LinearLayout>
 
     <!--底部拖动-->
     <RelativeLayout

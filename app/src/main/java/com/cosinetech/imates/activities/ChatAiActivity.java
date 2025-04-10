@@ -81,5 +81,9 @@ public class ChatAiActivity extends AppCompatActivity implements MessagingManage
         MessagingManager.getInstance().removeMessageListener(this);
         AudioPlayManager.getInstance().stopPlay();
         ApplicationModelShared.getInstance().getFloatingWindowService().showRobot();
+        ApplicationModelShared app = ApplicationModelShared.getInstance();
+        if(app.chatRequest != null) {
+            app.chatRequest = null;
+        }
     }
 }

@@ -578,8 +578,6 @@ public class ChatAiView extends RelativeLayout {
             sendTextMessageToAi(app.chatRequest);
         }
 
-
-
         // 监听视图变化，获取软键盘的高度
         view.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
             // 获取当前屏幕可见区域的高度
@@ -1033,20 +1031,26 @@ public class ChatAiView extends RelativeLayout {
                         mAiChatRequest.setReason("continue");
                         pollChat();
                     } else {
+                        ApplicationModelShared app = ApplicationModelShared.getInstance();
+                        if(app.chatRequest != null) {
+                            app.chatRequest = null;
+                        }
+                        mAiChatRequest.setDstUrl("");
+
                         mBtnSendText.setEnabled(true);
                         if(mListener != null) {
                             mListener.onAiChatResponse(true);
                         }
 
                         mChatDb.addChatMessageDetail(mLastReceivingMsg);
-
-                        ApplicationModelShared app = ApplicationModelShared.getInstance();
-                        if(app.chatRequest != null) {
-                            app.chatRequest = null;
-                        }
-                        mAiChatRequest.setDstUrl("");
                     }
                 } else {
+                    ApplicationModelShared app = ApplicationModelShared.getInstance();
+                    if(app.chatRequest != null) {
+                        app.chatRequest = null;
+                    }
+                    mAiChatRequest.setDstUrl("");
+
                     mLastReceivingMsg.appendContent("‼️消息接收失败");
                     mAdapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, false);
                     mBtnSendText.setEnabled(true);
@@ -1056,12 +1060,6 @@ public class ChatAiView extends RelativeLayout {
                     if(!messageList.isEmpty()) {
                         mChatDb.addChatMessageDetail(mLastReceivingMsg);
                     }
-
-                    ApplicationModelShared app = ApplicationModelShared.getInstance();
-                    if(app.chatRequest != null) {
-                        app.chatRequest = null;
-                    }
-                    mAiChatRequest.setDstUrl("");
                 }
             });
         });

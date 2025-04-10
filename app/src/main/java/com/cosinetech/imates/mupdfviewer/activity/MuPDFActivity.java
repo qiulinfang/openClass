@@ -93,7 +93,7 @@ public class MuPDFActivity extends AppCompatActivity {
     // tools 底部布局
     private TextView mPageNumberView;// 页数
     private SeekBar mPageSlider;// 底部拖动条
-
+    private View mToolsLayout;
     private int mPageSliderRes;// 拖动条的个数
     private boolean mButtonsVisible;// 是否显示工具栏
     private TopBarMode mTopBarMode = TopBarMode.Main;// 工具栏类型
@@ -172,10 +172,12 @@ public class MuPDFActivity extends AppCompatActivity {
 
         mPageNumberView = findViewById(R.id.pageNumber);
         mPageSlider = findViewById(R.id.pageSlider);
+        mToolsLayout = findViewById(R.id.tools_layout);
 
         mTopBarSwitcher.setVisibility(View.INVISIBLE);
         mPageNumberView.setVisibility(View.INVISIBLE);
         mPageSlider.setVisibility(View.INVISIBLE);
+        mToolsLayout.setVisibility(View.INVISIBLE);
     }
 
     private void createPDF() {
@@ -475,6 +477,7 @@ public class MuPDFActivity extends AppCompatActivity {
             anim.setAnimationListener(new Animation.AnimationListener() {
                 public void onAnimationStart(Animation animation) {
                     mPageSlider.setVisibility(View.VISIBLE);
+                    mToolsLayout.setVisibility(View.VISIBLE);
                 }
 
                 public void onAnimationRepeat(Animation animation) {
@@ -523,6 +526,7 @@ public class MuPDFActivity extends AppCompatActivity {
 
                 public void onAnimationEnd(Animation animation) {
                     mPageSlider.setVisibility(View.INVISIBLE);
+                    mToolsLayout.setVisibility(View.INVISIBLE);
                 }
             });
             mPageSlider.startAnimation(anim);

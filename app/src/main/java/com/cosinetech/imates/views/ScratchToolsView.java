@@ -281,7 +281,6 @@ public class ScratchToolsView extends RelativeLayout {
     }
 
     private void askQuestionForPicture(Bitmap bmp, int x, int y) {
-// 加载自定义布局
         View qView = LayoutInflater.from(context).inflate(R.layout.pdf_ask_ai, null);
         ImageView imageView = qView.findViewById(R.id.ask_picture_src);
         EditText editText = qView.findViewById(R.id.ask_content);
