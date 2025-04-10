@@ -220,6 +220,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
                     boolean showTypingEffect = (Boolean) payload;
                     TextViewHolder viewHolder = (TextViewHolder) holder;
                     viewHolder.tvMessage.setTypingEffectDisplayItem(item);
+                    viewHolder.tvMessage.disableTypingEffectDisplay();
                     if (showTypingEffect) {
                         viewHolder.tvMessage.enableTypingEffectDisplay();
                     } else {
