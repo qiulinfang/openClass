@@ -423,7 +423,7 @@ public class ChatAiView extends RelativeLayout {
         mMsgDetailListView.addItemDecoration(new RecyclerViewOverscrollDecoration());
         mMsgDetailListView.setClipToPadding(false);// disabling clip to padding is critical
 
-        mAdapterAiChatMessageList = new AdapterAiChatMessageList(getContext(), messageList);
+        mAdapterAiChatMessageList = new AdapterAiChatMessageList(getContext(), messageList, mMsgDetailListView);
         mMsgDetailListView.setAdapter(mAdapterAiChatMessageList);
 
         // Set up SmartRefreshLayout for pull-to-refresh

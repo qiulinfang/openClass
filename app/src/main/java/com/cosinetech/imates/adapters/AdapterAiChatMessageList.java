@@ -73,14 +73,16 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
 
     private int mAudioPlayingItemIndex = -1;
 
-    private  Context mContext;
+    private final Context mContext;
+    private final RecyclerView mRecyclerView;
 
     //收到的消息显示哪个头像? 默认是机器人, 老师的消息显示人物头像
     private int mOtherAvastarIconRes = R.drawable. chat_ai_avatar_robot;
 
-    public AdapterAiChatMessageList(Context context, List<ChatDisplayItem> mMsgList) {
+    public AdapterAiChatMessageList(Context context, List<ChatDisplayItem> mMsgList, RecyclerView view) {
         this.mMsgList = mMsgList; //groupMessagesWithDate(messageList);
-        mContext = context;
+        this.mContext = context;
+        this.mRecyclerView = view;
     }
 
     public void setOtherAvastarIconRes(int res) {
@@ -207,6 +209,29 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         }
     }
 
+    @Override
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int pos, @NonNull List<Object> payloads) {
+        if (!payloads.isEmpty()) {
+            // 仅更新 TextView 内容，避免重新布局
+            ChatDisplayItem item = mMsgList.get(pos);
+            //ChatMessage message = item.chatMessage;
+            for (Object payload : payloads) {
+                if (payload instanceof Boolean) {
+                    boolean showTypingEffect = (Boolean) payload;
+                    TextViewHolder viewHolder = (TextViewHolder) holder;
+                    viewHolder.tvMessage.setTypingEffectDisplayItem(item);
+                    if (showTypingEffect) {
+                        viewHolder.tvMessage.enableTypingEffectDisplay();
+                    } else {
+                        viewHolder.tvMessage.setContent(mMsgList.get(pos).chatMessage.content);
+                    }
+                    return; // 只处理 payload，避免完整绑定
+                }
+            }
+        }
+        super.onBindViewHolder(holder, pos, payloads); // 默认情况走完整绑定
+    }
+
     private void bindVoiceViewHolder(VoiceViewHolder holder, int pos, ChatMessage message, ChatDisplayItem item) {
         VoiceDbUtil.VoiceDbItem vi = VoiceDbUtil.extractDbVoiceContent(message.content);
 
@@ -311,30 +336,27 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
     }
 
     private void bindTextViewHolder(TextViewHolder holder, ChatDisplayItem item, ChatMessage message) {
-        TextViewHolder viewHolder = holder;
-        viewHolder.tvMessage.clearContent();
-        viewHolder.tvMessage.setTypingEffectDisplayItem(item);
-        viewHolder.tvMessage.disableTypingEffectDisplay();
+        holder.tvMessage.clearContent();
+        holder.tvMessage.setTypingEffectDisplayItem(item);
+        holder.tvMessage.disableTypingEffectDisplay();
         if(item.showWithTypingEffect) {
-            // 2. 回退到当前显示进度（关键步骤）
-//                viewHolder.tvMessage.rewindToProgress(item.currentDisplayCharIndex);
-            viewHolder.tvMessage.enableTypingEffectDisplay();
+            holder.tvMessage.enableTypingEffectDisplay();
         } else {
-            viewHolder.tvMessage.setContent(message.content);
+            holder.tvMessage.setContent(message.content);
         }
 
-        viewHolder.tvSelected.setChecked(false);
+        holder.tvSelected.setChecked(false);
         if(mItemCanSelect) {
-            viewHolder.tvSelected.setVisibility(View.VISIBLE);
+            holder.tvSelected.setVisibility(View.VISIBLE);
         } else {
-            viewHolder.tvSelected.setVisibility(View.GONE);
+            holder.tvSelected.setVisibility(View.GONE);
         }
-        viewHolder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
+        holder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
             item.isSelected = isChecked;
         });
 
         if(!item.chatMessage.isSelf) {
-            viewHolder.ivAvastar.setImageResource(mOtherAvastarIconRes);
+            holder.ivAvastar.setImageResource(mOtherAvastarIconRes);
         }
     }
 
@@ -359,7 +381,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
            if(mMsgList.get(i).chatMessage.messageId.equals(msgId)) {
                ChatDisplayItem displayMsg = mMsgList.get(i);
                displayMsg.showWithTypingEffect = showWithTypingEffect;
-               notifyItemChanged(i);
+               notifyItemChanged(i, showWithTypingEffect);
                break;
            }
        }
