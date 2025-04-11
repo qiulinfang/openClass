@@ -69,7 +69,7 @@
                 android:src="@drawable/mupdf_edit" />
 
             <TextView
-                android:id="@+id/colorIndicator"
+                android:id="@+id/colorIndicator0"
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
                 android:gravity="center"
@@ -80,7 +80,7 @@
                 android:background="@drawable/scratch_tools_bg" />
 
             <ImageView
-                android:id="@+id/imgPalette"
+                android:id="@+id/imgPalette0"
                 android:contentDescription=""
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
@@ -120,7 +120,7 @@
 
 
             <ImageView
-                android:id="@+id/imgBrushSize"
+                android:id="@+id/imgBrushSize0"
                 android:contentDescription=""
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
@@ -151,6 +151,7 @@
                 android:layout_marginTop="2dp"
                 android:layout_marginBottom="2dp"
                 android:background="@drawable/pdf_tools_btn_bg"
+                android:stateListAnimator="@animator/app_button_click_scale"
                 android:contentDescription="@string/cancel"
                 android:onClick="OnCancelSearchButtonClick"
                 android:scaleType="fitCenter"
@@ -198,9 +199,10 @@
         </RelativeLayout>
 
         <!--注释-->
-        <RelativeLayout
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:orientation="vertical">
 
             <ImageButton
                 android:layout_width="48dp"
@@ -210,9 +212,11 @@
                 android:layout_marginBottom="16dp"
                 android:padding="8dp"
                 android:background="@drawable/scratch_tools_bg"
+                android:stateListAnimator="@animator/app_button_click_scale"
                 android:contentDescription="@string/cancel"
                 android:onClick="OnCancelMoreButtonClick"
                 android:scaleType="fitCenter"
+                android:visibility="gone"
                 android:src="@mipmap/ic_close_white_48dp" />
 
             <ImageButton
@@ -291,7 +295,46 @@
                 android:scaleType="fitCenter"
                 android:src="@drawable/pdf_tools_eraser" />
 
-        </RelativeLayout>
+            <TextView
+                android:id="@+id/colorIndicator"
+                android:layout_width="@dimen/top_tool_icon_width"
+                android:layout_height="@dimen/top_tool_icon_width"
+                android:gravity="center"
+                android:text="❁"
+                android:textSize="28dp"
+                android:textColor="#000000"
+                android:layout_marginTop="2dp"
+                android:background="@drawable/scratch_tools_bg" />
+
+            <ImageView
+                android:id="@+id/imgPalette"
+                android:contentDescription=""
+                android:layout_width="@dimen/top_tool_icon_width"
+                android:layout_height="@dimen/top_tool_icon_width"
+                android:layout_marginTop="2dp"
+                android:gravity="center"
+                android:background="@drawable/scratch_tools_bg"
+                android:stateListAnimator="@animator/app_button_click_scale"
+                android:padding="8dp"
+                android:clickable="true"
+                android:src="@drawable/scratch_tools_palette" />
+
+            <ImageView
+                android:id="@+id/imgBrushSize"
+                android:contentDescription=""
+                android:layout_width="@dimen/top_tool_icon_width"
+                android:layout_height="@dimen/top_tool_icon_width"
+                android:layout_marginBottom="16dp"
+                android:layout_marginTop="2dp"
+                android:background="@drawable/scratch_tools_bg"
+                android:stateListAnimator="@animator/app_button_click_scale"
+                android:focusable="true"
+                android:padding="8dp"
+                android:clickable="true"
+                android:layout_marginEnd="48dp"
+                android:src="@drawable/scratch_tools_brush_size" />
+
+        </LinearLayout>
 
         <!--删除标记-->
         <RelativeLayout

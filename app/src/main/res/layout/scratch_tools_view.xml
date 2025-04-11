@@ -115,6 +115,7 @@
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
                 android:gravity="center"
+                android:visibility="gone"
                 android:background="@drawable/scratch_tools_bg"
                 android:padding="8dp"
                 android:clickable="true"

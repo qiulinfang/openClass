@@ -277,6 +277,8 @@ public class MuPDFActivity extends AppCompatActivity {
 
         // 设置监听事件
         setListener();
+        mTopBarMode = TopBarMode.Annot;
+        mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
     }
 
     private void showPdfOutline() {
@@ -609,7 +611,7 @@ public class MuPDFActivity extends AppCompatActivity {
      * @param v
      */
     public void OnEditAnnotButtonClick(View v) {
-        mTopBarMode = TopBarMode.Main;
+        mTopBarMode = TopBarMode.Annot;
         mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
     }
 
@@ -642,7 +644,7 @@ public class MuPDFActivity extends AppCompatActivity {
      * @param v
      */
     public void OnCancelMoreButtonClick(View v) {
-        mTopBarMode = TopBarMode.Main;
+        mTopBarMode = TopBarMode.Annot;
         mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
     }
 
@@ -664,7 +666,7 @@ public class MuPDFActivity extends AppCompatActivity {
      */
     private void searchModeOff() {
         if (mTopBarMode == TopBarMode.Search) {
-            mTopBarMode = TopBarMode.Main;
+            mTopBarMode = TopBarMode.Annot;
             hideKeyboard();
             mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
             SearchTaskResult.set(null);
@@ -791,7 +793,7 @@ public class MuPDFActivity extends AppCompatActivity {
         muPDFReaderView.setMode(MuPDFReaderView.Mode.Viewing);
         switch (mAcceptMode) {
             case CopyText:
-                mTopBarMode = TopBarMode.Main;
+                mTopBarMode = TopBarMode.Annot;
                 break;
             default:
                 mTopBarMode = TopBarMode.Annot;
@@ -815,7 +817,7 @@ public class MuPDFActivity extends AppCompatActivity {
             case CopyText:
                 if (pageView != null)
                     success = pageView.copySelection();
-                mTopBarMode = TopBarMode.Main;
+                mTopBarMode = TopBarMode.Annot;
                 showInfo(success ? getString(R.string.copied_to_clipboard) : getString(R.string.no_text_selected));
                 break;
             case Highlight:
