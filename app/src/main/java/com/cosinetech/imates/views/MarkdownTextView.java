@@ -65,7 +65,6 @@ public class MarkdownTextView extends AppCompatTextView {
         mMarkwon.setMarkdown(this, preFilterLatex);
     }
 
-    //private int lastHeight = 0;
     public void updateMarkdownMinHeight(String fullContent) {
         final TextView hostTextView = this;
 
