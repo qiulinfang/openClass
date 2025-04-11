@@ -90,7 +90,8 @@ public class MuPDFActivity extends AppCompatActivity {
     private int selectionColorId = R.color.assist_blue;
 
     // tools
-    private ViewAnimator mTopBarSwitcher;// 工具栏动画
+    private ViewAnimator mReaderToolBarSwitcher;// 工具栏动画
+    private ViewAnimator mTopToolBarSwitcher;
     private ImageButton mLinkButton;// 超链接
     private ImageButton mOutlineButton;// 目录
     private ImageButton mSearchButton;// 搜索
@@ -172,7 +173,8 @@ public class MuPDFActivity extends AppCompatActivity {
      * 初始化工具栏
      */
     private void initToolsView() {
-        mTopBarSwitcher = findViewById(R.id.switcher);
+        mReaderToolBarSwitcher = findViewById(R.id.switcher);
+        mTopToolBarSwitcher = findViewById(R.id.switcher0);
         mLinkButton = findViewById(R.id.linkButton);
         mAnnotButton = findViewById(R.id.reflowButton);
         mOutlineButton = findViewById(R.id.outlineButton);
@@ -188,7 +190,8 @@ public class MuPDFActivity extends AppCompatActivity {
         mPageSlider = findViewById(R.id.pageSlider);
         mToolsLayout = findViewById(R.id.tools_layout);
 
-        mTopBarSwitcher.setVisibility(View.INVISIBLE);
+        mTopToolBarSwitcher.setVisibility(View.INVISIBLE);
+        mReaderToolBarSwitcher.setVisibility(View.VISIBLE);
         mPageNumberView.setVisibility(View.INVISIBLE);
         mPageSlider.setVisibility(View.INVISIBLE);
         mToolsLayout.setVisibility(View.INVISIBLE);
@@ -282,7 +285,7 @@ public class MuPDFActivity extends AppCompatActivity {
         // 设置监听事件
         setListener();
         mTopBarMode = TopBarMode.Annot;
-        mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+        mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
     }
 
     private void showPdfOutline() {
@@ -349,7 +352,7 @@ public class MuPDFActivity extends AppCompatActivity {
             mAnnotButton.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     mTopBarMode = TopBarMode.Annot;
-                    mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+                    mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
                 }
             });
         } else {
@@ -441,12 +444,12 @@ public class MuPDFActivity extends AppCompatActivity {
                         if (item == Hit.Annotation) {
                             showButtons();
                             mTopBarMode = TopBarMode.Delete;
-                            mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+                            mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
                         }
                         break;
                     case Delete:
                         mTopBarMode = TopBarMode.Annot;
-                        mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+                        mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
                         // fall through
                     default:
                         // Not in annotation editing mode, but the pageview will
@@ -504,11 +507,11 @@ public class MuPDFActivity extends AppCompatActivity {
                 showKeyboard();
             }
 
-            Animation anim = new TranslateAnimation(0, 0, -mTopBarSwitcher.getHeight(), 0);
+            Animation anim = new TranslateAnimation(0, 0, -mReaderToolBarSwitcher.getHeight(), 0);
             anim.setDuration(200);
             anim.setAnimationListener(new Animation.AnimationListener() {
                 public void onAnimationStart(Animation animation) {
-                    mTopBarSwitcher.setVisibility(View.VISIBLE);
+                    mTopToolBarSwitcher.setVisibility(View.VISIBLE);
                 }
 
                 public void onAnimationRepeat(Animation animation) {
@@ -517,7 +520,8 @@ public class MuPDFActivity extends AppCompatActivity {
                 public void onAnimationEnd(Animation animation) {
                 }
             });
-            mTopBarSwitcher.startAnimation(anim);
+            mTopToolBarSwitcher.startAnimation(anim);
+            mReaderToolBarSwitcher.setVisibility(View.VISIBLE);
 
             anim = new TranslateAnimation(0, 0, mPageSlider.getHeight(), 0);
             anim.setDuration(200);
@@ -546,7 +550,7 @@ public class MuPDFActivity extends AppCompatActivity {
             mButtonsVisible = false;
             hideKeyboard();
 
-            Animation anim = new TranslateAnimation(0, 0, 0, -mTopBarSwitcher.getHeight());
+            Animation anim = new TranslateAnimation(0, 0, 0, -mReaderToolBarSwitcher.getHeight());
             anim.setDuration(200);
             anim.setAnimationListener(new Animation.AnimationListener() {
                 public void onAnimationStart(Animation animation) {
@@ -556,10 +560,11 @@ public class MuPDFActivity extends AppCompatActivity {
                 }
 
                 public void onAnimationEnd(Animation animation) {
-                    mTopBarSwitcher.setVisibility(View.INVISIBLE);
+                    mTopToolBarSwitcher.setVisibility(View.INVISIBLE);
                 }
             });
-            mTopBarSwitcher.startAnimation(anim);
+            mTopToolBarSwitcher.startAnimation(anim);
+            mReaderToolBarSwitcher.setVisibility(View.VISIBLE);
 
             anim = new TranslateAnimation(0, 0, 0, mPageSlider.getHeight());
             anim.setDuration(200);
@@ -620,7 +625,7 @@ public class MuPDFActivity extends AppCompatActivity {
      */
     public void OnEditAnnotButtonClick(View v) {
         mTopBarMode = TopBarMode.Annot;
-        mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+        mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
     }
 
     /**
@@ -630,7 +635,7 @@ public class MuPDFActivity extends AppCompatActivity {
      */
     public void OnCopyTextButtonClick(View v) {
         mTopBarMode = TopBarMode.Accept;
-        mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+        mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
         mAcceptMode = AcceptMode.CopyText;
         muPDFReaderView.setMode(MuPDFReaderView.Mode.Selecting);
         mAnnotTypeText.setText(getString(R.string.copy_text));
@@ -653,7 +658,7 @@ public class MuPDFActivity extends AppCompatActivity {
      */
     public void OnCancelMoreButtonClick(View v) {
         mTopBarMode = TopBarMode.Annot;
-        mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+        mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
     }
 
     /**
@@ -665,7 +670,7 @@ public class MuPDFActivity extends AppCompatActivity {
             //Focus on EditTextWidget
             et_searchText.requestFocus();
             showKeyboard();
-            mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+            mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
         }
     }
 
@@ -676,7 +681,7 @@ public class MuPDFActivity extends AppCompatActivity {
         if (mTopBarMode == TopBarMode.Search) {
             mTopBarMode = TopBarMode.Annot;
             hideKeyboard();
-            mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+            mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
             SearchTaskResult.set(null);
             // Make the ReaderView act on the change to mSearchTaskResult
             // via overridden onChildSetup method.
@@ -691,7 +696,7 @@ public class MuPDFActivity extends AppCompatActivity {
      */
     public void OnHighlightButtonClick(View v) {
         mTopBarMode = TopBarMode.Accept;
-        mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+        mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
         mAcceptMode = AcceptMode.Highlight;
         muPDFReaderView.setMode(MuPDFReaderView.Mode.Selecting);
         mAnnotTypeText.setText(R.string.pdf_tools_highlight);
@@ -705,7 +710,7 @@ public class MuPDFActivity extends AppCompatActivity {
      */
     public void OnUnderlineButtonClick(View v) {
         mTopBarMode = TopBarMode.Accept;
-        mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+        mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
         mAcceptMode = AcceptMode.Underline;
         muPDFReaderView.setMode(MuPDFReaderView.Mode.Selecting);
         mAnnotTypeText.setText(R.string.pdf_tools_underline);
@@ -719,7 +724,7 @@ public class MuPDFActivity extends AppCompatActivity {
      */
     public void OnStrikeOutButtonClick(View v) {
         mTopBarMode = TopBarMode.Accept;
-        mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+        mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
         mAcceptMode = AcceptMode.StrikeOut;
         muPDFReaderView.setMode(MuPDFReaderView.Mode.Selecting);
         mAnnotTypeText.setText(R.string.pdf_tools_strike_out);
@@ -733,7 +738,7 @@ public class MuPDFActivity extends AppCompatActivity {
      */
     public void OnInkButtonClick(View v) {
         mTopBarMode = TopBarMode.Accept;
-        mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+        mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
         mAcceptMode = AcceptMode.Ink;
         muPDFReaderView.setMode(MuPDFReaderView.Mode.Drawing);
         muPDFReaderView.setInkColor(mInkColor);
@@ -747,7 +752,7 @@ public class MuPDFActivity extends AppCompatActivity {
 
     public void OnEraserButtonClick(View v) {
         mTopBarMode = TopBarMode.Accept;
-        mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+        mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
         mAcceptMode = AcceptMode.Ink;
         muPDFReaderView.setMode(MuPDFReaderView.Mode.Drawing);
         mAnnotTypeText.setText(R.string.pdf_tools_eraser);
@@ -775,7 +780,7 @@ public class MuPDFActivity extends AppCompatActivity {
             pageView.setEraserMode(false);
         }
         mTopBarMode = TopBarMode.Annot;
-        mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+        mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
     }
 
     /**
@@ -790,7 +795,7 @@ public class MuPDFActivity extends AppCompatActivity {
             pageView.setEraserMode(false);
         }
         mTopBarMode = TopBarMode.Annot;
-        mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+        mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
     }
 
     /**
@@ -814,7 +819,7 @@ public class MuPDFActivity extends AppCompatActivity {
                 mTopBarMode = TopBarMode.Annot;
                 break;
         }
-        mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+        mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
     }
 
     /**
@@ -869,7 +874,7 @@ public class MuPDFActivity extends AppCompatActivity {
                     showInfo(getString(R.string.nothing_to_save));
                 break;
         }
-        mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
+        mReaderToolBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
         muPDFReaderView.setMode(MuPDFReaderView.Mode.Viewing);
     }
 
