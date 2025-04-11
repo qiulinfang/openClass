@@ -113,7 +113,7 @@ public class ScratchToolsView extends RelativeLayout {
 
         initPaintView(context);
 
-        com.litao.slider.NiftySlider slider = findViewById(R.id.niftySlider);
+        NiftySlider slider = findViewById(R.id.niftySlider);
         btnBrushSize.setOnClickListener(v -> {
             if(slider.getVisibility() == View.VISIBLE) {
                 btnBrushSize.setBackgroundColor(context.getColor(R.color.semi_black_transparent));
@@ -124,12 +124,7 @@ public class ScratchToolsView extends RelativeLayout {
             }
         });
 
-        slider.setOnIntValueChangeListener(new NiftySlider.OnIntValueChangeListener() {
-            @Override
-            public void onValueChange(@NonNull NiftySlider niftySlider, int i, boolean b) {
-                paintView.setBrushSize(i);
-            }
-        });
+        slider.setOnIntValueChangeListener((niftySlider, i, b) -> paintView.setBrushSize(i));
 
         btnPalatte.setOnClickListener(v->{
             new ColorPickerDialog.Builder(context)
@@ -167,18 +162,15 @@ public class ScratchToolsView extends RelativeLayout {
                 }
         );
 
-        btnSelectArea.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if(mListener == null) {
-                    return;
-                }
-                enterScratchMode();
-                resetPaintToolSelect();
-                paintView.enableSelection();
-                paintView.disableEraser();
-                btnSelectArea.setBackgroundColor(context.getColor(selectionColorId));
+        btnSelectArea.setOnClickListener(v -> {
+            if(mListener == null) {
+                return;
             }
+            enterScratchMode();
+            resetPaintToolSelect();
+            paintView.enableSelection();
+            paintView.disableEraser();
+            btnSelectArea.setBackgroundColor(context.getColor(selectionColorId));
         });
 
         btnUndo.setOnClickListener(
@@ -410,7 +402,7 @@ public class ScratchToolsView extends RelativeLayout {
         final boolean[] isDragging = {false};
         final int[] popupLocation = new int[2]; // 记录PopupWindow当前位置
          //设置拖动触摸监听
-        qView.setOnTouchListener(new View.OnTouchListener() {
+        qView.setOnTouchListener(new OnTouchListener() {
             @SuppressLint("ClickableViewAccessibility")
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -482,7 +474,7 @@ public class ScratchToolsView extends RelativeLayout {
         popupWindow.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         popupWindow.setOutsideTouchable(true);
 
-        popupWindow.setTouchInterceptor(new View.OnTouchListener() {
+        popupWindow.setTouchInterceptor(new OnTouchListener() {
             @SuppressLint("ClickableViewAccessibility")
             @Override
             public boolean onTouch(View v, MotionEvent event) {

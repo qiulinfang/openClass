@@ -18,7 +18,7 @@ import androidx.annotation.Nullable;
 import java.util.ArrayList;
 
 public class PaintView extends View {
-    public static final int DEFAULT_BRUSH_SIZE = 20;
+    public static final int DEFAULT_BRUSH_SIZE = 5;
     public static final int DEFAULT_BRUSH_COLOR = Color.BLACK;
     public static final int DEFAULT_BG_COLOR = Color.WHITE;
     private static final float DEFAULT_TOUCH_TOLERANCE = 4;
