@@ -362,7 +362,7 @@
                 android:contentDescription="@string/pdf_tools_ink"
                 android:onClick="OnInkButtonClick"
                 android:scaleType="fitCenter"
-                android:src="@drawable/scratch_tools_brush" />
+                android:src="@drawable/pdf_tools_brush" />
 
             <ImageButton
                 android:id="@+id/eraserButton"
