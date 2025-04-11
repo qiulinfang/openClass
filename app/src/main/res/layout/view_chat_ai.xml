@@ -16,7 +16,6 @@
         android:textAlignment="center"
         android:gravity="center"
         android:text="@string/chatbot_name"
-        android:textSize="18sp"
         android:textColor="#ffffff"
         />
 

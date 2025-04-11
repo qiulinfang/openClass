@@ -61,7 +61,7 @@ public class MarkdownTextView extends AppCompatTextView {
 
     public void setContent(String content) {
         String preFilterLatex = filterLatexString(content);
-        updateMarkdownMinHeight(preFilterLatex);
+        //updateMarkdownMinHeight(preFilterLatex);
         mMarkwon.setMarkdown(this, preFilterLatex);
     }
 
@@ -174,9 +174,9 @@ public class MarkdownTextView extends AppCompatTextView {
         }
         showWithTypingEffect = true;
 
-        mMainHandler.post(() -> {
-            updateMarkdownMinHeight(mTypingEffectDisplayItem.chatMessage.content);
-        });
+//        mMainHandler.post(() -> {
+//            updateMarkdownMinHeight(mTypingEffectDisplayItem.chatMessage.content);
+//        });
 
         mMainHandler.post(displayOneChar);
     }
