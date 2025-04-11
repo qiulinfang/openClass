@@ -16,6 +16,7 @@
         android:textAlignment="center"
         android:gravity="center"
         android:text="@string/chatbot_name"
+        android:textSize="18sp"
         android:textColor="#ffffff"
         />
 
@@ -219,7 +220,7 @@
         <EditText
             android:id="@+id/et_message"
             android:layout_width="0dp"
-            android:layout_height="40dp"
+            android:layout_height="48dp"
             android:layout_toStartOf="@id/check_search_web"
             android:layout_toEndOf="@id/btn_voice"
             android:layout_marginStart="16dp"
@@ -228,7 +229,7 @@
             android:autofillHints=""
             android:hint="@string/chat_ai_input_hint"
             android:background="@drawable/chat_ai_text_input_bg"
-            android:textSize="12sp"
+            android:textSize="14sp"
             android:paddingHorizontal="10dp"
             android:gravity="center_vertical"
             android:inputType="textMultiLine"
