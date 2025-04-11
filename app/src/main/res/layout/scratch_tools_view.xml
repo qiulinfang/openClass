@@ -47,6 +47,15 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <TextView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/pdf_tools_btn_bg"
+                android:text="截图\n工具"
+                android:textColor="#000000"
+                android:gravity="center_horizontal"
+                />
+
             <ImageView
                 android:id="@+id/imgBrushSize"
                 android:contentDescription=""
@@ -95,7 +104,6 @@
                 android:id="@+id/imgBrush"
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
-                android:layout_marginTop="8dp"
                 android:gravity="center"
                 android:background="@drawable/scratch_tools_bg"
                 android:padding="8dp"

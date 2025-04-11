@@ -69,7 +69,7 @@
 				android:layout_toLeftOf="@+id/searchButton"
 				android:contentDescription="@string/outline_title"
 				android:background="@drawable/button"
-				android:src="@drawable/mupdf_ic_list" />
+				android:src="@drawable/mupdf_table_contents" />
 
 			<ImageButton
 				android:id="@+id/searchButton"

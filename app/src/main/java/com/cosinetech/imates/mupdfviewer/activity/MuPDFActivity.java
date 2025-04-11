@@ -26,6 +26,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -49,11 +50,14 @@ import com.artifex.mupdfdemo.SearchTaskResult;
 import com.artifex.mupdfdemo.SharedPreferencesUtil;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.activities.VideoPlayActivity;
+import com.cosinetech.imates.colorpicker.ColorListener;
+import com.cosinetech.imates.colorpicker.ColorPickerDialog;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.views.FloatingResizableVideoView;
 import com.cosinetech.imates.views.ScratchToolsView;
 import com.cosinetech.imates.views.VideoPlayView;
+import com.litao.slider.NiftySlider;
 import com.lzf.easyfloat.EasyFloat;
 import com.lzf.easyfloat.anim.DefaultAnimator;
 import com.lzf.easyfloat.enums.ShowPattern;
@@ -78,6 +82,13 @@ public class MuPDFActivity extends AppCompatActivity {
     private boolean mAlertsActive = false;
     private AsyncTask<Void, Void, MuPDFAlert> mAlertTask;
     private AlertDialog mAlertDialog;// 初始加载pdf等待弹出框
+
+    private ImageView btnBrushSize;
+    private ImageView btnPalatte;
+    private NiftySlider slider;
+    private TextView textColorIndicator;
+    private int selectionColorId = R.color.assist_blue;
+
     // tools
     private ViewAnimator mTopBarSwitcher;// 工具栏动画
     private ImageButton mLinkButton;// 超链接
@@ -109,6 +120,9 @@ public class MuPDFActivity extends AppCompatActivity {
 
     private Chapter.Schema mSchema;
     private Chapter.Section mSection;
+
+    private int mInkPenSize = 5;
+    private int mInkColor = 0xFF000000;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -178,6 +192,33 @@ public class MuPDFActivity extends AppCompatActivity {
         mPageNumberView.setVisibility(View.INVISIBLE);
         mPageSlider.setVisibility(View.INVISIBLE);
         mToolsLayout.setVisibility(View.INVISIBLE);
+
+        btnBrushSize = findViewById(R.id.imgBrushSize);
+        btnPalatte = findViewById(R.id.imgPalette);
+        textColorIndicator = findViewById(R.id.colorIndicator);
+
+        slider = findViewById(R.id.niftySlider);
+        btnBrushSize.setOnClickListener(v -> {
+            if(slider.getVisibility() == View.VISIBLE) {
+                btnBrushSize.setBackgroundColor(getColor(R.color.semi_black_transparent));
+                slider.setVisibility(View.GONE);
+            } else {
+                slider.setVisibility(View.VISIBLE);
+                btnBrushSize.setBackgroundColor(getColor(selectionColorId));
+            }
+        });
+
+        slider.setOnIntValueChangeListener((niftySlider, i, b) -> mInkPenSize = i);
+
+        btnPalatte.setOnClickListener(v->{
+            new ColorPickerDialog.Builder(this)
+                    .setTitle("选择颜色")
+                    .setPositiveButton("确定", (ColorListener) (colorInfo, fromUser) -> {
+                        textColorIndicator.setTextColor(colorInfo.getColor());
+                        mInkColor = colorInfo.getColor();
+                    })
+                    .show();
+        });
     }
 
     private void createPDF() {
@@ -685,6 +726,8 @@ public class MuPDFActivity extends AppCompatActivity {
         mTopBarSwitcher.setDisplayedChild(mTopBarMode.ordinal());
         mAcceptMode = AcceptMode.Ink;
         muPDFReaderView.setMode(MuPDFReaderView.Mode.Drawing);
+        muPDFReaderView.setInkColor(mInkColor);
+        muPDFReaderView.setPaintStrokeWidth(mInkPenSize);
         mAnnotTypeText.setText(R.string.pdf_tools_ink);
         showInfo(getString(R.string.pdf_tools_draw_annotation));
     }
