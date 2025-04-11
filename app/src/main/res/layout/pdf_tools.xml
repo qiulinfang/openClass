@@ -41,18 +41,6 @@
                 android:src="@mipmap/ic_link_variant_white_48dp"
                 android:visibility="gone"/>
 
-            <ImageButton
-                android:id="@+id/outlineButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_marginBottom="2dp"
-                android:padding="8dp"
-                android:background="@drawable/scratch_tools_bg"
-                android:stateListAnimator="@animator/app_button_click_scale"
-                android:contentDescription="@string/pdf_tools_outline_title"
-                android:scaleType="fitCenter"
-                android:src="@drawable/mupdf_table_contents" />
-
 
             <ImageButton
                 android:id="@+id/reflowButton"
@@ -67,30 +55,6 @@
                 android:onClick="OnEditAnnotButtonClick"
                 android:scaleType="fitCenter"
                 android:src="@drawable/mupdf_edit" />
-
-            <TextView
-                android:id="@+id/colorIndicator0"
-                android:layout_width="@dimen/top_tool_icon_width"
-                android:layout_height="@dimen/top_tool_icon_width"
-                android:gravity="center"
-                android:text="❁"
-                android:textSize="28dp"
-                android:textColor="#000000"
-                android:layout_marginTop="2dp"
-                android:background="@drawable/scratch_tools_bg" />
-
-            <ImageView
-                android:id="@+id/imgPalette0"
-                android:contentDescription=""
-                android:layout_width="@dimen/top_tool_icon_width"
-                android:layout_height="@dimen/top_tool_icon_width"
-                android:layout_marginTop="2dp"
-                android:gravity="center"
-                android:background="@drawable/scratch_tools_bg"
-                android:stateListAnimator="@animator/app_button_click_scale"
-                android:padding="8dp"
-                android:clickable="true"
-                android:src="@drawable/scratch_tools_palette" />
 
             <ImageButton
                 android:id="@+id/moreButton"
@@ -117,22 +81,6 @@
                 android:contentDescription="@string/pdf_tools_search_document"
                 android:scaleType="fitCenter"
                 android:src="@mipmap/ic_search_white_48dp" />
-
-
-            <ImageView
-                android:id="@+id/imgBrushSize0"
-                android:contentDescription=""
-                android:layout_width="@dimen/top_tool_icon_width"
-                android:layout_height="@dimen/top_tool_icon_width"
-                android:layout_marginBottom="16dp"
-                android:layout_marginTop="2dp"
-                android:background="@drawable/scratch_tools_bg"
-                android:stateListAnimator="@animator/app_button_click_scale"
-                android:focusable="true"
-                android:padding="8dp"
-                android:clickable="true"
-                android:layout_marginEnd="48dp"
-                android:src="@drawable/scratch_tools_brush_size" />
 
         </LinearLayout>
 
@@ -204,6 +152,28 @@
             android:layout_height="match_parent"
             android:orientation="vertical">
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/pdf_tools_btn_bg"
+                android:text="笔记\n工具"
+                android:textColor="#000000"
+                android:gravity="center_horizontal"
+                />
+
+            <ImageButton
+                android:id="@+id/outlineButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginBottom="2dp"
+                android:padding="8dp"
+                android:background="@drawable/scratch_tools_bg"
+                android:stateListAnimator="@animator/app_button_click_scale"
+                android:contentDescription="@string/pdf_tools_outline_title"
+                android:scaleType="fitCenter"
+                android:src="@drawable/mupdf_table_contents" />
+
             <ImageButton
                 android:layout_width="48dp"
                 android:layout_height="48dp"
@@ -222,7 +192,7 @@
             <ImageButton
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:visibility="invisible"
+                android:visibility="gone"
                 android:layout_centerVertical="true"
                 android:layout_marginTop="2dp"
                 android:layout_marginBottom="2dp"
@@ -236,7 +206,7 @@
 
             <ImageButton
                 android:id="@+id/underlineButton"
-                android:visibility="invisible"
+                android:visibility="gone"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_centerVertical="true"
@@ -253,7 +223,7 @@
 
             <ImageButton
                 android:id="@+id/strikeOutButton"
-                android:visibility="invisible"
+                android:visibility="gone"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_centerVertical="true"
@@ -339,26 +309,26 @@
         <!--删除标记-->
         <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@color/colorDarkTrans">
+            android:layout_height="wrap_content">
 
             <ImageButton
                 android:id="@+id/cancelDeleteButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="@dimen/top_tool_icon_width"
+                android:layout_height="@dimen/top_tool_icon_width"
                 android:layout_alignParentStart="true"
                 android:layout_centerVertical="true"
                 android:layout_marginTop="2dp"
                 android:layout_marginBottom="2dp"
-                android:background="@drawable/pdf_tools_btn_bg"
+                android:background="@drawable/scratch_tools_bg"
+                android:stateListAnimator="@animator/app_button_click_scale"
                 android:contentDescription="@string/cancel"
                 android:onClick="OnCancelDeleteButtonClick"
                 android:scaleType="fitCenter"
                 android:src="@mipmap/ic_close_white_48dp" />
 
             <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="@dimen/top_tool_icon_width"
+                android:layout_height="@dimen/top_tool_icon_width"
                 android:layout_centerVertical="true"
                 android:layout_toStartOf="@+id/deleteButton"
                 android:layout_toEndOf="@+id/cancelDeleteButton"
@@ -370,13 +340,14 @@
 
             <ImageButton
                 android:id="@+id/deleteButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="@dimen/top_tool_icon_width"
+                android:layout_height="@dimen/top_tool_icon_width"
                 android:layout_alignParentEnd="true"
                 android:layout_centerVertical="true"
                 android:layout_marginTop="2dp"
                 android:layout_marginBottom="2dp"
-                android:background="@drawable/pdf_tools_btn_bg"
+                android:background="@drawable/scratch_tools_bg"
+                android:stateListAnimator="@animator/app_button_click_scale"
                 android:contentDescription="@string/pdf_tools_delete"
                 android:onClick="OnDeleteButtonClick"
                 android:scaleType="fitCenter"
@@ -387,8 +358,7 @@
         <!--标记中各功能取消确定-->
         <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@color/colorDarkTrans">
+            android:layout_height="wrap_content">
 
             <ImageButton
                 android:id="@+id/cancelAcceptButton"
@@ -402,6 +372,7 @@
                 android:background="@drawable/scratch_tools_bg"
                 android:contentDescription="@string/cancel"
                 android:onClick="OnCancelAcceptButtonClick"
+                android:stateListAnimator="@animator/app_button_click_scale"
                 android:scaleType="fitCenter"
                 android:src="@mipmap/ic_close_white_48dp" />
 
@@ -428,6 +399,7 @@
                 android:background="@drawable/scratch_tools_bg"
                 android:contentDescription="@string/pdf_tools_accept"
                 android:onClick="OnAcceptButtonClick"
+                android:stateListAnimator="@animator/app_button_click_scale"
                 android:scaleType="fitCenter"
                 android:src="@mipmap/ic_check_white_48dp" />
         </RelativeLayout>

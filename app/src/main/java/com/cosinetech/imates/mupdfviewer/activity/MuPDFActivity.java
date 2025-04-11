@@ -199,13 +199,7 @@ public class MuPDFActivity extends AppCompatActivity {
 
         slider = findViewById(R.id.niftySlider);
         btnBrushSize.setOnClickListener(v -> {
-            if(slider.getVisibility() == View.VISIBLE) {
-                btnBrushSize.setBackgroundColor(getColor(R.color.semi_black_transparent));
-                slider.setVisibility(View.GONE);
-            } else {
-                slider.setVisibility(View.VISIBLE);
-                btnBrushSize.setBackgroundColor(getColor(selectionColorId));
-            }
+            switchPenSizeSlider();
         });
 
         slider.setOnIntValueChangeListener((niftySlider, i, b) -> mInkPenSize = i);
@@ -219,6 +213,16 @@ public class MuPDFActivity extends AppCompatActivity {
                     })
                     .show();
         });
+    }
+
+    private void switchPenSizeSlider() {
+        if(slider.getVisibility() == View.VISIBLE) {
+            btnBrushSize.setBackgroundColor(getColor(R.color.semi_black_transparent));
+            slider.setVisibility(View.GONE);
+        } else {
+            slider.setVisibility(View.VISIBLE);
+            btnBrushSize.setBackgroundColor(getColor(selectionColorId));
+        }
     }
 
     private void createPDF() {
@@ -420,7 +424,7 @@ public class MuPDFActivity extends AppCompatActivity {
                 if (!mButtonsVisible) {
                     showButtons();
                 } else {
-                    if (mTopBarMode == TopBarMode.Main)
+                    if (mTopBarMode == TopBarMode.Annot)
                         hideButtons();
                 }
             }
@@ -573,6 +577,10 @@ public class MuPDFActivity extends AppCompatActivity {
                 }
             });
             mPageSlider.startAnimation(anim);
+        }
+
+        if(slider.getVisibility() == View.VISIBLE) {
+            switchPenSizeSlider();
         }
     }
 
@@ -732,6 +740,9 @@ public class MuPDFActivity extends AppCompatActivity {
         muPDFReaderView.setPaintStrokeWidth(mInkPenSize);
         mAnnotTypeText.setText(R.string.pdf_tools_ink);
         showInfo(getString(R.string.pdf_tools_draw_annotation));
+        if(slider.getVisibility() == View.VISIBLE) {
+            switchPenSizeSlider();
+        }
     }
 
     public void OnEraserButtonClick(View v) {
@@ -745,6 +756,10 @@ public class MuPDFActivity extends AppCompatActivity {
         if (pageView != null) {
             pageView.setEraserMode(true);
             pageView.setEraserThickness(25.0f);
+        }
+
+        if(slider.getVisibility() == View.VISIBLE) {
+            switchPenSizeSlider();
         }
     }
 
