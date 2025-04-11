@@ -22,9 +22,10 @@
 
     <LinearLayout
         android:layout_width="wrap_content"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:layout_marginTop="150dp"
+        android:layout_centerInParent="true"
         android:layout_alignParentEnd="true">
 
         <com.litao.slider.NiftySlider
@@ -48,6 +49,8 @@
 
             <ImageView
                 android:id="@+id/imgBrushSize"
+                android:contentDescription=""
+                android:visibility="gone"
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
                 android:background="@drawable/scratch_tools_bg"
@@ -61,6 +64,7 @@
 
             <TextView
                 android:id="@+id/colorIndicator"
+                android:visibility="gone"
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
                 android:gravity="center"
@@ -74,6 +78,8 @@
 
             <ImageView
                 android:id="@+id/imgPalette"
+                android:contentDescription=""
+                android:visibility="gone"
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
                 android:gravity="center"
@@ -164,6 +170,7 @@
                 android:layout_width="@dimen/top_tool_icon_width"
                 android:layout_height="@dimen/top_tool_icon_width"
                 android:layout_marginTop="8dp"
+                android:layout_marginEnd="48dp"
                 android:focusable="true"
                 android:gravity="center"
                 android:background="@drawable/scratch_tools_bg"
