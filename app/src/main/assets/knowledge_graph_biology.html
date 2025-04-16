@@ -29,7 +29,7 @@
     </style>
 </head>
 <body>
-<div id="jsmind_container" style="width: 1000px; height: 800px;"></div>
+<div id="jsmind_container" style="width: 1000px; height: 600px;"></div>
 <script type="text/javascript">
     var graph = {
         "meta": { "name": "生物知识导图", "author": "imates", "version": "0.1" },
@@ -181,7 +181,15 @@
         theme: 'primary',
         editable: false,
         support_html: true,
-        view: { engine: 'svg', draggable: true }
+        view: { engine: 'canvas',
+                draggable: true
+        },
+        layout:{
+           hspace:30,          // 节点之间的水平间距
+           vspace:40,          // 节点之间的垂直间距
+           pspace:13,          // 节点与连接线之间的水平间距（用于容纳节点收缩/展开控制器）
+           cousin_space:10      // 相邻节点的子节点之间的额外的垂直间距
+        }
     };
 
     var mind = new jsMind(options);
