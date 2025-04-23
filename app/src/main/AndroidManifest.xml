@@ -61,6 +61,7 @@
             android:name=".activities.PhotoQuestionLookupActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
+            android:windowSoftInputMode="adjustPan"
             android:screenOrientation="landscape" />
         <activity
             android:name=".activities.QuestionSolveActivity"

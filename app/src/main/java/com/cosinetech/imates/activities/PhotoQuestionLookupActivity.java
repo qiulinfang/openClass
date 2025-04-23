@@ -58,8 +58,6 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
     private Button btnCapture;
     private Button btnGallery;
     private Button btnSearch;
-    private Button btnAddToList;
-    private Button btnExit;
     private Button btnShotAgain;
     private View scanLine;
     private View splitLine;
@@ -67,6 +65,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
     private ProcessCameraProvider cameraProvider;
     private MarkdownTextView questionView;
     private View questionLayout;
+    private View textSearchLayout;
     private UserInfoViewModel userInfoViewModel;
     private Subject subject;
     private Question question;
@@ -100,11 +99,10 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         btnCapture = findViewById(R.id.btn_capture);
         btnGallery = findViewById(R.id.btn_select_picture);
         btnSearch = findViewById(R.id.btn_search);
-        btnAddToList = findViewById(R.id.btn_add_question);
-        btnExit = findViewById(R.id.btn_exit);
         btnShotAgain = findViewById(R.id.btn_reshoot);
         scanLine = findViewById(R.id.scan_line);
         questionView = findViewById(R.id.question_view);
+        textSearchLayout = findViewById(R.id.text_search_layout);
         questionLayout = findViewById(R.id.question_layout);
         splitLine = findViewById(R.id.split_line);
 
@@ -122,12 +120,12 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         });
         btnSearch.setOnClickListener(v -> processCroppedImage());
 
-        btnExit.setOnClickListener(v -> {
+        findViewById(R.id.btn_exit).setOnClickListener(v -> {
             stopCamera();
             finish();
         });
 
-        btnAddToList.setOnClickListener(v -> {
+        findViewById(R.id.btn_add_question).setOnClickListener(v -> {
             addExerciseToList();
             stopCamera();
             Intent intent = new Intent(this, QuestionSolveActivity.class);
@@ -145,8 +143,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
             cropImageView.setVisibility(View.GONE);
             ivPreview.setVisibility(View.GONE);
             questionLayout.setVisibility(View.GONE);
-            //questionView.setContent(" ");
-            //btnAddToList.setVisibility(View.GONE);
+            textSearchLayout.setVisibility(View.GONE);
             splitLine.setVisibility(View.GONE);
             stopCamera();
             startCamera();
@@ -373,8 +370,8 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                         }
                         splitLine.setVisibility(View.VISIBLE);
                         questionView.setContent(questionString);
+                        textSearchLayout.setVisibility(View.VISIBLE);
                         questionLayout.setVisibility(View.VISIBLE);
-                        //btnAddToList.setVisibility(View.VISIBLE);
                     });
                 }
 

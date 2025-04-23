@@ -59,27 +59,42 @@
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:visibility="gone"
-        android:background="#ffffff"
+        android:background="#edf4fe"
+        android:padding="16dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/toolbar_bottom">
+        app:layout_constraintBottom_toTopOf="@id/text_search_layout">
 
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="10dp"
-            android:orientation="horizontal">
-
-            <com.cosinetech.imates.views.MarkdownTextView
-                android:id="@+id/question_view"
+            android:padding="8dp">
+            <androidx.cardview.widget.CardView
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:layout_marginHorizontal="10dp"
                 android:layout_alignParentStart="true"
                 android:layout_alignParentTop="true"
                 android:layout_alignParentBottom="true"
-                android:layout_toStartOf="@id/btn_add_question"/>
+                android:layout_toStartOf="@id/btn_add_question"
+                app:cardCornerRadius="4dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="@android:color/white">
+                    <com.cosinetech.imates.views.MarkdownTextView
+                        android:id="@+id/question_view"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_marginHorizontal="10dp"
+                        android:layout_alignParentStart="true"
+                        android:layout_alignParentTop="true"
+                        android:layout_alignParentBottom="true"
+                        android:lineSpacingMultiplier="1.5"
+                        android:padding="32dp"
+                        android:background="#ffffff"
+                        android:layout_toStartOf="@id/btn_add_question"/>
+            </androidx.cardview.widget.CardView>
+
 
             <Button
                 android:id="@+id/btn_add_question"
@@ -88,9 +103,73 @@
                 android:layout_centerVertical="true"
                 android:layout_alignParentEnd="true"
                 android:background="@drawable/camera_ok"
+                android:stateListAnimator="@animator/app_button_click_scale"
                 android:layout_marginHorizontal="10dp" />
         </RelativeLayout>
     </ScrollView>
+
+    <RelativeLayout
+        android:id="@+id/text_search_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/split_line"
+        android:orientation="horizontal"
+        android:background="#edf4fe"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/text_search_tip"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#000000"
+            android:layout_marginVertical="16dp"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentStart="true"
+            android:text="不是要搜的题? 可输入文本进行搜索:"/>
+
+        <EditText
+            android:id="@+id/et_message"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/text_search_tip"
+            android:layout_alignParentStart="true"
+            android:layout_toStartOf="@id/btn_text_search"
+            android:layout_marginEnd="16dp"
+            android:layout_marginVertical="16dp"
+            android:autofillHints=""
+            android:textSize="14sp"
+            android:paddingHorizontal="10dp"
+            android:gravity="top"
+            android:inputType="textMultiLine"
+            android:lines="4"
+            android:maxLines="4"
+            android:hint="输入题目的关键字或题干"
+            android:textColorHint="#808080"
+            android:scrollHorizontally="false"
+            android:overScrollMode="never"
+            android:ellipsize="none"
+            android:singleLine="false"
+            android:scrollbars="vertical"
+            android:padding="8dp"
+            android:background="@drawable/ask_ai_for_picture_edit_bg"
+            android:elevation="4dp"
+            android:layout_centerVertical="true"/>
+
+        <Button
+            android:id="@+id/btn_text_search"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:background="@drawable/camera_search"
+            android:stateListAnimator="@animator/app_button_click_scale"
+            android:layout_centerInParent="true"
+            android:layout_marginVertical="16dp"
+            android:layout_marginHorizontal="16dp"
+            android:layout_alignParentEnd="true"/>
+
+    </RelativeLayout>
 
     <View
         android:id="@+id/split_line"
@@ -106,7 +185,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:background="#EAEAEA"
+        android:background="#edf4fe"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
@@ -116,6 +195,7 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:background="@drawable/camera_search"
+            android:stateListAnimator="@animator/app_button_click_scale"
             android:visibility="gone"
             android:layout_marginVertical="16dp"
             android:layout_marginHorizontal="16dp"
@@ -127,6 +207,7 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:background="@drawable/camera_repeat"
+            android:stateListAnimator="@animator/app_button_click_scale"
             android:layout_marginVertical="16dp"
             android:visibility="gone"
             android:layout_marginHorizontal="32dp"
@@ -138,6 +219,7 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:background="@drawable/camera_gallery"
+            android:stateListAnimator="@animator/app_button_click_scale"
             android:layout_marginVertical="16dp"
             android:layout_marginHorizontal="16dp"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -149,8 +231,9 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:background="@drawable/camera_take_photo"
+            android:stateListAnimator="@animator/app_button_click_scale"
             android:layout_marginVertical="16dp"
-            android:layout_marginHorizontal="16dp"
+            android:layout_marginHorizontal="48dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"/>
@@ -168,9 +251,10 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:background="@drawable/app_back"
+            android:stateListAnimator="@animator/app_button_click_scale"
             android:visibility="visible"
             android:layout_marginVertical="16dp"
-            android:layout_marginHorizontal="16dp"
+            android:layout_marginHorizontal="48dp"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
 
