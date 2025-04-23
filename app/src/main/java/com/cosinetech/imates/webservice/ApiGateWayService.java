@@ -1,20 +1,19 @@
 package com.cosinetech.imates.webservice;
 
-import static androidx.camera.core.impl.utils.ContextUtil.getApplicationContext;
-
 import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
 
 import com.cosinetech.imates.ApplicationModelShared;
-import com.cosinetech.imates.activities.MainActivity;
 import com.cosinetech.imates.models.AddQuestionRequest;
 import com.cosinetech.imates.models.FindSimilarQuestionRequest;
 import com.cosinetech.imates.util.AppUtils;
 
 import org.json.JSONObject;
 
+import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
@@ -24,6 +23,7 @@ import okhttp3.Response;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -141,11 +141,58 @@ public class ApiGateWayService {
     }
 
     // ========图像识别接口========
-    public interface ExerciseImageRecognitionCallback {
+    public interface ExerciseRecognitionCallback {
         void onSuccess(Question q);
         void onFailure(String msg, int code);
     }
-    public static void recognizeImage(String url, Bitmap bitmap, String token, ExerciseImageRecognitionCallback callback) {
+
+    public static void searchQuestionByKeyText(String baseUrl, String keyText, String token, ExerciseRecognitionCallback callback) {
+        Runnable task = () -> {
+            try {
+                OkHttpClient client = createClient();
+
+//                Uri.Builder builder = Uri.parse(baseUrl).buildUpon()
+//                        .appendPath(URLEncoder.encode(keyText, "UTF-8")); // 对路径参数进行编码
+//
+//                String url = builder.build().toString();
+
+                // 创建请求
+                Request request = new Request.Builder()
+                        .url(baseUrl + "/" + keyText)
+                        .get()
+                        .addHeader("token", token)
+                        .build();
+
+                // 发送请求
+                try (Response response = client. newCall(request).execute()) {
+                    if (response.isSuccessful()) {
+                        if (callback != null && response.body() != null) {
+                            QuestionImageResponse q = QuestionImageResponse.fromJson(response.body().string());
+                            if(!q.data.item.questionsConfirm.isEmpty()) {
+                                callback.onSuccess(q.data.item.questionsConfirm.get(0));
+                            } else {
+                                callback.onFailure(response.message(), response.code());
+                            }
+                        }
+                    } else {
+                        if (callback != null) {
+                            callback.onFailure(response.message(), response.code());
+                        }
+                        fileterFailedResponse(response);
+                    }
+                }
+            } catch (Exception e) {
+                if(callback != null) {
+                    callback.onFailure(e.getMessage(), 1);
+                }
+            }
+        };
+
+        executor.submit(task);
+    }
+
+
+    public static void recognizeImage(String url, Bitmap bitmap, String token, ExerciseRecognitionCallback callback) {
         Runnable task = () -> {
             try {
                 ByteArrayOutputStream stream = new ByteArrayOutputStream();

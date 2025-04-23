@@ -12,6 +12,7 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -149,6 +150,60 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
             startCamera();
         });
 
+        (findViewById(R.id.btn_text_search)).setOnClickListener(v->{
+            String keyText = ((EditText)findViewById(R.id.et_key_text)).getText().toString();
+            if(keyText.trim().isEmpty()) {
+                Toast.makeText(this, "输入题目关键字再搜索", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            findViewById(R.id.btn_text_search).clearFocus();
+            findViewById(R.id.loading).setVisibility(View.VISIBLE);
+            findViewById(R.id.btn_text_search).setVisibility(View.INVISIBLE);
+            String url;
+            if(subject == Subject.SUBJECT_BIOLOGY) {
+                url = ApiUrl.URL_QUESTION_TEXT_SEARCH_BIOLOGY;
+            } else {
+                url = ApiUrl.URL_QUESTION_TEXT_SEARCH_MATH;
+            }
+
+            ApiGateWayService.searchQuestionByKeyText(url, keyText, userInfoViewModel.token.getValue(), new ApiGateWayService.ExerciseRecognitionCallback() {
+                @Override
+                public void onSuccess(Question q) {
+                    runOnUiThread(() -> {
+                        findViewById(R.id.loading).setVisibility(View.INVISIBLE);
+                        findViewById(R.id.btn_text_search).setVisibility(View.VISIBLE);
+                        stopScanAnimation(scanLine);
+                        String questionString = "";
+
+                        switch (subject) {
+                            case SUBJECT_BIOLOGY:
+                            case SUBJECT_MATH:
+                                question = q;
+                                questionString = question.getQuestion();
+                                break;
+                            default:
+                                return;
+                        }
+                        splitLine.setVisibility(View.VISIBLE);
+                        questionView.setContent(questionString);
+                        textSearchLayout.setVisibility(View.VISIBLE);
+                        questionLayout.setVisibility(View.VISIBLE);
+                    });
+                }
+
+                @Override
+                public void onFailure(String msg, int code) {
+                    runOnUiThread(() -> {
+                        findViewById(R.id.loading).setVisibility(View.INVISIBLE);
+                        findViewById(R.id.btn_text_search).setVisibility(View.VISIBLE);
+                        Toast.makeText(PhotoQuestionLookupActivity.this, "搜索失败:" + msg, Toast.LENGTH_SHORT).show();
+                        stopScanAnimation(scanLine);
+                    });
+
+                }
+            });
+        });
+
         fetchQuestionList();
     }
 
@@ -187,45 +242,6 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         }
         Question q = question;
         AddQuestionRequest item = new AddQuestionRequest();
-
-//        item.setTitle(q.title);
-//        item.setImgName(q.titleImg);
-//        item.setImgTitleUrl(q.titleImg);
-//
-//        final List<String> optImgs = q.optionsImg.isEmpty() ? q.imgUrl : q.optionsImg;
-//        StringBuilder optionImgs = new StringBuilder();
-//
-//        for(int i = 0; i< optImgs.size(); i++) {
-//            if(i == 0) {
-//                optionImgs.append("[");
-//            }
-//
-//            optionImgs.append("\"").append(optImgs.get(i)).append("\"");
-//            if(i != optImgs.size() - 1) {
-//                optionImgs.append(",");
-//            } else {
-//                optionImgs.append("]");
-//            }
-//        }
-//
-//        item.setImgUrl(optionImgs.toString());
-
-//        StringBuilder opts = new StringBuilder();
-//        for(int i = 0; i < q.options.size(); i++) {
-//            if(i == 0) {
-//                opts.append("[");
-//            }
-//
-//            opts.append("\"").append(q.options.get(i)).append("\"");
-//            if(i != q.options.size() - 1) {
-//                opts.append(",");
-//            } else {
-//                opts.append("]");
-//            }
-//        }
-//        item.setOptions(opts.toString());
-//        item.setAnswer(q.answer);
-//        item.setExplanation(q.explanation);
 
         StringBuilder ids = new StringBuilder();
         for (Question qq:mQuestions) {
@@ -352,7 +368,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
             } else {
                 url = ApiUrl.URL_QUESTION_IMAGE_RECOGNISE_MATH;
             }
-            ApiGateWayService.recognizeImage(url, croppedBitmap, userInfoViewModel.token.getValue(), new ApiGateWayService.ExerciseImageRecognitionCallback() {
+            ApiGateWayService.recognizeImage(url, croppedBitmap, userInfoViewModel.token.getValue(), new ApiGateWayService.ExerciseRecognitionCallback() {
                 @Override
                 public void onSuccess(Question q) {
                     runOnUiThread(() -> {
@@ -378,7 +394,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                 @Override
                 public void onFailure(String msg, int code) {
                     runOnUiThread(() -> {
-                        Toast.makeText(PhotoQuestionLookupActivity.this, msg, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(PhotoQuestionLookupActivity.this, "搜索失败:" + msg, Toast.LENGTH_SHORT).show();
                         stopScanAnimation(scanLine);
                     });
 
