@@ -196,7 +196,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         findViewById(R.id.loading).setVisibility(View.INVISIBLE);
                         findViewById(R.id.btn_text_search).setVisibility(View.VISIBLE);
-                        Toast.makeText(PhotoQuestionLookupActivity.this, "搜索失败:" + msg, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(PhotoQuestionLookupActivity.this,  msg, Toast.LENGTH_SHORT).show();
                         stopScanAnimation(scanLine);
                     });
 
@@ -225,7 +225,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                 cameraProvider = cameraProviderFuture.get();
                 bindPreview(cameraProvider);
             } catch (ExecutionException | InterruptedException e) {
-                Toast.makeText(this, "Error starting camera: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "无法开启相机:" + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         }, ContextCompat.getMainExecutor(this));
     }
@@ -301,12 +301,12 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                 @Override
                 public void onError(@NonNull ImageCaptureException exception) {
                     runOnUiThread(() ->
-                            Toast.makeText(PhotoQuestionLookupActivity.this, "Error taking photo: " + exception.getMessage(), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(PhotoQuestionLookupActivity.this, "无法拍照: " + exception.getMessage(), Toast.LENGTH_SHORT).show()
                     );
                 }
             });
         } catch (Exception e) {
-            Toast.makeText(this, "Error taking photo: " +e.getMessage(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "无法拍照: " +e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 

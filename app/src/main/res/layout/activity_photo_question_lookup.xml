@@ -141,7 +141,7 @@
             android:inputType="textMultiLine"
             android:lines="4"
             android:maxLines="4"
-            android:hint="输入题目的关键字或题干"
+            android:hint="输入题目的关键词, 空格或逗号分隔多个关键词"
             android:textColorHint="#808080"
             android:scrollHorizontally="false"
             android:overScrollMode="never"

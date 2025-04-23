@@ -181,6 +181,71 @@
             android:clipToPadding="false" />
     </com.scwang.smart.refresh.layout.SmartRefreshLayout>
 
+    <HorizontalScrollView
+        android:id="@+id/hand_on_select_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/chat_input_area"
+        android:layout_alignParentEnd="true"
+        android:layout_toEndOf="@id/v_split"
+        android:padding="2dp">
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="2dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="8dp"
+                android:background="@drawable/blue_rounded_bg"
+                android:textColor="#6e9be2"
+                android:paddingVertical="8dp"
+                android:paddingHorizontal="16dp"
+                android:clickable="true"
+                android:stateListAnimator="@animator/app_button_click_scale"
+                android:text="选择A"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="8dp"
+                android:background="@drawable/blue_rounded_bg"
+                android:textColor="#6e9be2"
+                android:paddingVertical="8dp"
+                android:paddingHorizontal="16dp"
+                android:clickable="true"
+                android:stateListAnimator="@animator/app_button_click_scale"
+                android:text="选择B"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="8dp"
+                android:background="@drawable/blue_rounded_bg"
+                android:textColor="#6e9be2"
+                android:paddingVertical="8dp"
+                android:paddingHorizontal="16dp"
+                android:clickable="true"
+                android:stateListAnimator="@animator/app_button_click_scale"
+                android:text="选择C"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="8dp"
+                android:background="@drawable/blue_rounded_bg"
+                android:textColor="#6e9be2"
+                android:paddingVertical="8dp"
+                android:paddingHorizontal="16dp"
+                android:clickable="true"
+                android:stateListAnimator="@animator/app_button_click_scale"
+                android:text="选择D"/>
+
+        </LinearLayout>
+    </HorizontalScrollView>
+
     <!-- 聊天输入区域 -->
     <RelativeLayout
         android:id="@+id/chat_input_area"
