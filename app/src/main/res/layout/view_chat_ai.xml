@@ -189,6 +189,7 @@
         android:layout_alignParentEnd="true"
         android:layout_toEndOf="@id/v_split"
         android:padding="2dp">
+
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -196,6 +197,7 @@
             android:padding="2dp">
 
             <TextView
+                android:id="@+id/handson_opt_1"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="8dp"
@@ -205,9 +207,10 @@
                 android:paddingHorizontal="16dp"
                 android:clickable="true"
                 android:stateListAnimator="@animator/app_button_click_scale"
-                android:text="选择A"/>
+                android:text="这道题选择A对吗"/>
 
             <TextView
+                android:id="@+id/handson_opt_2"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="8dp"
@@ -217,9 +220,10 @@
                 android:paddingHorizontal="16dp"
                 android:clickable="true"
                 android:stateListAnimator="@animator/app_button_click_scale"
-                android:text="选择B"/>
+                android:text="这道题选择B对吗"/>
 
             <TextView
+                android:id="@+id/handson_opt_3"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="8dp"
@@ -229,9 +233,10 @@
                 android:paddingHorizontal="16dp"
                 android:clickable="true"
                 android:stateListAnimator="@animator/app_button_click_scale"
-                android:text="选择C"/>
+                android:text="这道题选择C对吗"/>
 
             <TextView
+                android:id="@+id/handson_opt_4"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="8dp"
@@ -241,7 +246,7 @@
                 android:paddingHorizontal="16dp"
                 android:clickable="true"
                 android:stateListAnimator="@animator/app_button_click_scale"
-                android:text="选择D"/>
+                android:text="这道题选择D对吗"/>
 
         </LinearLayout>
     </HorizontalScrollView>

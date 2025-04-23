@@ -90,7 +90,8 @@
                     android:lineSpacingMultiplier="1.5"
                     android:padding="32dp"
                     android:background="#ffffff"
-                    android:layout_toStartOf="@id/btn_add_question"/>
+                    android:layout_toStartOf="@id/btn_add_question"
+                    android:focusable="true"/>
             </androidx.cardview.widget.CardView>
         </ScrollView>
 
