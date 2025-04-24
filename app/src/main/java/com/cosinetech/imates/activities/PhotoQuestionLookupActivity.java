@@ -14,6 +14,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -60,6 +61,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
     private Button btnGallery;
     private Button btnSearch;
     private Button btnShotAgain;
+    private TextView viewLinkTextSearch;
     private View scanLine;
     private View splitLine;
     private final Executor executor = Executors.newSingleThreadExecutor();
@@ -106,6 +108,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         textSearchLayout = findViewById(R.id.text_search_layout);
         questionLayout = findViewById(R.id.question_layout);
         splitLine = findViewById(R.id.split_line);
+        viewLinkTextSearch = findViewById(R.id.link_search_text);
 
         if (allPermissionsGranted()) {
             startCamera();
@@ -127,12 +130,14 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         });
 
         findViewById(R.id.btn_add_question).setOnClickListener(v -> {
-            addExerciseToList();
-            stopCamera();
-            Intent intent = new Intent(this, QuestionSolveActivity.class);
-            intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, subject == Subject.SUBJECT_BIOLOGY ? ApiUrl.URL_CHAT_BIOLOGY : ApiUrl.URL_CHAT_MATH);
-            intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, subject.name());
-            startActivity(intent);
+            if(question != null) {
+                addExerciseToList();
+                stopCamera();
+                Intent intent = new Intent(this, QuestionSolveActivity.class);
+                intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, subject == Subject.SUBJECT_BIOLOGY ? ApiUrl.URL_CHAT_BIOLOGY : ApiUrl.URL_CHAT_MATH);
+                intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, subject.name());
+                startActivity(intent);
+            }
         });
 
         btnShotAgain.setOnClickListener( v-> {
@@ -204,6 +209,9 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
             });
         });
 
+        viewLinkTextSearch.setOnClickListener(v->{
+            proceedSuccessView("");
+        });
         fetchQuestionList();
     }
 
@@ -373,7 +381,6 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                 @Override
                 public void onSuccess(Question q) {
                     runOnUiThread(() -> {
-                        stopScanAnimation(scanLine);
                         String questionString = "";
 
                         switch (subject) {
@@ -385,10 +392,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                             default:
                                 return;
                         }
-                        splitLine.setVisibility(View.VISIBLE);
-                        questionView.setContent(questionString);
-                        textSearchLayout.setVisibility(View.VISIBLE);
-                        questionLayout.setVisibility(View.VISIBLE);
+                        proceedSuccessView(questionString);
                     });
                 }
 
@@ -398,6 +402,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                         Toast.makeText(PhotoQuestionLookupActivity.this, "搜索失败:" + msg, Toast.LENGTH_SHORT).show();
                         stopScanAnimation(scanLine);
                         btnSearch.setVisibility(View.VISIBLE);
+                        viewLinkTextSearch.setVisibility(View.VISIBLE);
                     });
 
                 }
@@ -405,6 +410,15 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         } else {
             Toast.makeText(this, getString(R.string.crop_image_fail), Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void proceedSuccessView(String questionString) {
+        stopScanAnimation(scanLine);
+        splitLine.setVisibility(View.VISIBLE);
+        questionView.setContent(questionString);
+        textSearchLayout.setVisibility(View.VISIBLE);
+        questionLayout.setVisibility(View.VISIBLE);
+        viewLinkTextSearch.setVisibility(View.GONE);
     }
 
     private void stopScanAnimation(View scanLine) {
