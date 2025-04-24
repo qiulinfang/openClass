@@ -99,7 +99,6 @@ public class FindExerciseActivity extends AppCompatActivity {
             @Override
             public void onFailure(String msg, int code) {
                 runOnUiThread(() -> {
-                    //mSimilarQuestion.clear();
                     adapterMultiSelectSimilarQuestionList.resetSelection();
                     adapterMultiSelectSimilarQuestionList.notifyDataSetChanged();
                     if(mFindSimilarQuestionRequest.getCurrentPage() > 1) {

@@ -359,6 +359,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
             // 创建一个字节输出流
             showFinalImage(croppedBitmap);
             startScanAnimation(cropImageView, scanLine);
+            btnSearch.setVisibility(View.GONE);
             if(mQuestions.isEmpty()) {
                 fetchQuestionList();
             }
@@ -396,6 +397,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         Toast.makeText(PhotoQuestionLookupActivity.this, "搜索失败:" + msg, Toast.LENGTH_SHORT).show();
                         stopScanAnimation(scanLine);
+                        btnSearch.setVisibility(View.VISIBLE);
                     });
 
                 }

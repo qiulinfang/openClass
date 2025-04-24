@@ -15,9 +15,12 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
+import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
@@ -30,6 +33,7 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.appcompat.widget.AppCompatSpinner;
 import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
@@ -102,6 +106,10 @@ public class ChatAiView extends RelativeLayout {
     private CheckBox mSelectChatItemButton;
     private View mAskTeacherLayout;
     private Button mAskTeacherButton;
+    private AppCompatSpinner materialSpinner;
+    private SettingsAdapter settingsAdapter;
+    private List<SettingsItem> settingsItems;
+    private int selectedPosition = 0; // Default selected position
     private RelativeLayout rootLayout; // 用于调整布局的父布局
     private boolean mInSearchMode = false;
     private ChatMessageHistoryDB mChatDb;
@@ -109,7 +117,6 @@ public class ChatAiView extends RelativeLayout {
     private ChatMessageSession mCurrentSession;
     private ExpandableListView expandableListView;
     private ChatExpandableListAdapter mChatSessionListAdapter;
-
     private ChatMessageSession mChatTeacherSession;
     private int clickCount = 0; // 记录点击次数
 
@@ -333,6 +340,41 @@ public class ChatAiView extends RelativeLayout {
         CheckBox btnCancelSearch = view.findViewById(R.id.btn_search);
         Button btnNewChat = view.findViewById(R.id.btn_new_chat);
         Button btnAddFavor = view.findViewById(R.id.btn_add_favor);
+        materialSpinner = view.findViewById(R.id.settings_spinner);
+        prepareSettingsItems();
+        // Set up adapter
+        settingsAdapter = new SettingsAdapter(settingsItems, getContext());
+        materialSpinner.setAdapter(settingsAdapter);
+
+        // Set default selection
+        materialSpinner.setSelection(selectedPosition);
+
+        // Set item selection listener
+        materialSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                // Update selected position
+                selectedPosition = position;
+
+                // Update all items to reflect selection state
+                for (int i = 0; i < settingsItems.size(); i++) {
+                    settingsItems.get(i).setSelected(i == selectedPosition);
+                }
+
+                // Notify adapter of data change
+                settingsAdapter.notifyDataSetChanged();
+
+                // Show toast message for selected item
+                Toast.makeText(getContext(),
+                        "Selected: " + settingsItems.get(position).getTitle(),
+                        Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                // Do nothing
+            }
+        });
 
         mSendPictureButton.setOnClickListener(v->{
             //截图
@@ -803,6 +845,13 @@ public class ChatAiView extends RelativeLayout {
         });
         resetCurrentSession(ChatMessageCatalogue.CATEGORY_DEFAULT_SYSTEM, ChatMessageSession.SESSION_DEFAULT_SYSTEM);
         addView(view);
+    }
+
+    private void prepareSettingsItems() {
+        settingsItems = new ArrayList<>();
+        settingsItems.add(new SettingsItem("探讨模式", R.drawable.chat_ai_role_mate, true));
+        settingsItems.add(new SettingsItem("引导模式", R.drawable.chat_ai_role_mentor, false));
+        settingsItems.add(new SettingsItem("专家模式", R.drawable.chat_ai_role_researcher, false));
     }
 
     public void setChatTeacherSession(ChatMessageSession s) {
@@ -1334,5 +1383,106 @@ public class ChatAiView extends RelativeLayout {
         // 恢复布局，取消软键盘预留的空间
         //refreshLayout.setPadding(0, 0, 0, 0);
         mMsgRefreshLayout.setVisibility(View.VISIBLE);
+    }
+
+    // Model class for settings items
+    public static class SettingsItem {
+        private String title;
+        private int iconResId;
+        private boolean selected;
+
+        public SettingsItem(String title, int iconResId, boolean selected) {
+            this.title = title;
+            this.iconResId = iconResId;
+            this.selected = selected;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public int getIconResId() {
+            return iconResId;
+        }
+
+        public boolean isSelected() {
+            return selected;
+        }
+
+        public void setSelected(boolean selected) {
+            this.selected = selected;
+        }
+    }
+
+    // Custom adapter for settings spinner
+    public static class SettingsAdapter extends BaseAdapter {
+        private final List<SettingsItem> items;
+        private final LayoutInflater inflater;
+
+        public SettingsAdapter(List<SettingsItem> items, Context context) {
+            this.items = items;
+            this.inflater = LayoutInflater.from(context);
+        }
+
+        @Override
+        public int getCount() {
+            return items.size();
+        }
+
+        @Override
+        public Object getItem(int position) {
+            return items.get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            // This view is what shows when the spinner is closed
+            View view = inflater.inflate(R.layout.spinner_closed_view, parent, false);
+            ImageView settingsIcon = view.findViewById(R.id.settings_icon);
+            settingsIcon.setImageResource(R.drawable.chat_ai_settings);
+            return view;
+        }
+
+        @Override
+        public View getDropDownView(int position, View convertView, ViewGroup parent) {
+            // This view is for each item in the dropdown
+            ViewHolder holder;
+
+            if (convertView == null) {
+                convertView = inflater.inflate(R.layout.spinner_item_view, parent, false);
+                holder = new ViewHolder();
+                holder.icon = convertView.findViewById(R.id.item_icon);
+                holder.title = convertView.findViewById(R.id.item_title);
+                holder.checkIcon = convertView.findViewById(R.id.item_check);
+                convertView.setTag(holder);
+            } else {
+                holder = (ViewHolder) convertView.getTag();
+            }
+
+            SettingsItem item = items.get(position);
+
+            holder.icon.setImageResource(item.getIconResId());
+            holder.title.setText(item.getTitle());
+
+            // Show checkmark for selected item
+            if (item.isSelected()) {
+                holder.checkIcon.setVisibility(View.VISIBLE);
+            } else {
+                holder.checkIcon.setVisibility(View.GONE);
+            }
+
+            return convertView;
+        }
+
+        private class ViewHolder {
+            ImageView icon;
+            TextView title;
+            ImageView checkIcon;
+        }
     }
 }
