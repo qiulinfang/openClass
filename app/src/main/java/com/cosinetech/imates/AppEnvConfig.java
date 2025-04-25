@@ -14,7 +14,7 @@ public class AppEnvConfig {
     // 环境类型枚举
     public enum AppEnvType {
         RELEASE("正式版"),
-        INTERNAL_TEST("内部测试版");
+        INTERNAL_TEST("内部测试");
 
         private final String displayName;
 
