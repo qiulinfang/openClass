@@ -5,6 +5,8 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Handler;
@@ -57,7 +59,6 @@ import com.cosinetech.imates.models.ChatMessageSession;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.mq.MessagingManager;
 import com.cosinetech.imates.mq.StudentMessage;
-import com.cosinetech.imates.mq.TeacherMessage;
 import com.cosinetech.imates.mq.TeacherQaType;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.ImageUtils;
@@ -72,6 +73,37 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class ChatAiView extends RelativeLayout {
+    public enum ChatRole {
+        CHAT_ROLE_AI_MATE("探讨模式", R.drawable.chat_ai_avatar_ai_mate, "mate"),
+        CHAT_ROLE_AI_MENTOR("引导模式", R.drawable.chat_ai_avatar_ai_mentor, "mentor"),
+        CHAT_ROLE_AI_RESEARCHER("专家模式", R.drawable.chat_ai_avatar_ai_researcher, "researcher"),
+
+        CHAT_ROLE_MYSELF("我自己", R.drawable.chat_ai_avatar_user, "myself"),
+        CHAT_ROLE_TEACHER("老师", R.drawable.chat_ai_avatar_teacher_woman, "teacher");
+
+        private final String displayName;
+        private final int iconResId;
+        private final String paramName;
+
+        ChatRole(String displayName, int iconResId, String paramName) {
+            this.displayName = displayName;
+            this.iconResId = iconResId;
+            this.paramName = paramName;
+        }
+
+        public String getDisplayName() {
+            return displayName;
+        }
+
+        public int getIconResId() {
+            return iconResId;
+        }
+
+        public  String getParamName() {
+            return paramName;
+        }
+    }
+
     public interface AiChatResponseListener {
         void onAiChatResponse(boolean success);
     }
@@ -105,11 +137,14 @@ public class ChatAiView extends RelativeLayout {
     private View voiceAnimateLayout;
     private CheckBox mSelectChatItemButton;
     private View mAskTeacherLayout;
-    private Button mAskTeacherButton;
     private AppCompatSpinner materialSpinner;
-    private SettingsAdapter settingsAdapter;
+
+    private static final String PREFS_NAME = "ChatRolePrefs";
+    private static final String KEY_SELECTED_ROLE = "selectedRole";
     private List<SettingsItem> settingsItems;
-    private int selectedPosition = 0; // Default selected position
+    private int selectedPosition = 0; // 默认选择位置
+    private ChatRole selectedRole = ChatRole.CHAT_ROLE_AI_MATE; // 默认选择角色
+    private SettingsAdapter settingsAdapter;
     private RelativeLayout rootLayout; // 用于调整布局的父布局
     private boolean mInSearchMode = false;
     private ChatMessageHistoryDB mChatDb;
@@ -253,14 +288,11 @@ public class ChatAiView extends RelativeLayout {
         mCurrentSession = session;
         if(mCurrentSession.type == ChatMessageSession.SessionType.USER_TALK_AI
                 || mCurrentSession.type == ChatMessageSession.SessionType.SYSTEM_TALK_AI) {
-            mAdapterAiChatMessageList.setOtherAvastarIconRes(R.drawable.chat_ai_avatar_robot);
             setChatAiSendMode(true);
         } else if (mCurrentSession.type == ChatMessageSession.SessionType.USER_FAVOR) {
-            mAdapterAiChatMessageList.setOtherAvastarIconRes(R.drawable.chat_ai_avatar_robot);
             setChatAiSendMode(true);
             setChatEnable(false);
         } else {
-            mAdapterAiChatMessageList.setOtherAvastarIconRes(R.drawable.avatar_7);
             setChatAiSendMode(false);
             setChatEnable(true);
         }
@@ -325,7 +357,7 @@ public class ChatAiView extends RelativeLayout {
         mTextViewTitle = view.findViewById(R.id.ai_name);
         mSelectChatItemButton = view.findViewById(R.id.chk_select_history);
         mAskTeacherLayout = view.findViewById(R.id.select_history_function);
-        mAskTeacherButton = view.findViewById(R.id.btn_ask_teacher);
+        Button mAskTeacherButton = view.findViewById(R.id.btn_ask_teacher);
         mSendPictureButton = view.findViewById(R.id.btn_send_picture);
         chkViewHistory = view.findViewById(R.id.btn_view_history);
         voiceAnimateLayout = view.findViewById(R.id.voice_animate_area);
@@ -341,6 +373,8 @@ public class ChatAiView extends RelativeLayout {
         Button btnNewChat = view.findViewById(R.id.btn_new_chat);
         Button btnAddFavor = view.findViewById(R.id.btn_add_favor);
         materialSpinner = view.findViewById(R.id.settings_spinner);
+        // 从 SharedPreferences 加载保存的角色
+        loadSelectedRole();
         prepareSettingsItems();
         // Set up adapter
         settingsAdapter = new SettingsAdapter(settingsItems, getContext());
@@ -353,18 +387,31 @@ public class ChatAiView extends RelativeLayout {
         materialSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                // Update selected position
+                // 检查项目是否已禁用
+                if (!settingsItems.get(position).isEnabled()) {
+                    // 如果项目被禁用，恢复到之前的选择
+                    materialSpinner.setSelection(selectedPosition);
+                    return;
+                }
+
+                // 更新选择位置
                 selectedPosition = position;
 
-                // Update all items to reflect selection state
+                // 更新选择的角色
+                selectedRole = settingsItems.get(position).getRole();
+
+                // 保存选择到 SharedPreferences
+                saveSelectedRole();
+
+                // 更新所有项目以反映选择状态
                 for (int i = 0; i < settingsItems.size(); i++) {
                     settingsItems.get(i).setSelected(i == selectedPosition);
                 }
 
-                // Notify adapter of data change
+                // 通知适配器数据变化
                 settingsAdapter.notifyDataSetChanged();
 
-                // Show toast message for selected item
+                // 显示选择的项目消息
                 Toast.makeText(getContext(),
                         "Selected: " + settingsItems.get(position).getTitle(),
                         Toast.LENGTH_SHORT).show();
@@ -390,9 +437,7 @@ public class ChatAiView extends RelativeLayout {
 
         });
 
-        btnNewChat.setOnClickListener(v->{
-            createChatSession();
-        });
+        btnNewChat.setOnClickListener(v-> createChatSession());
 
         mSelectChatItemButton.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if(isChecked) {
@@ -592,13 +637,10 @@ public class ChatAiView extends RelativeLayout {
 
         // 监听 EditText 的焦点变化
         mEditMsg.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus) {
-                // EditText 获取焦点时，可以执行布局调整或其他操作
-                //showKeyboardAndAdjustLayout(etMessage);
-            } else {
-                // EditText 失去焦点时，可以恢复布局
-                //hideKeyboardAndRestoreLayout(etMessage);
-            }
+            // EditText 获取焦点时，可以执行布局调整或其他操作
+            //showKeyboardAndAdjustLayout(etMessage);
+            // EditText 失去焦点时，可以恢复布局
+            //hideKeyboardAndRestoreLayout(etMessage);
         });
 
         mTextViewTitle.setOnClickListener(v -> {
@@ -725,11 +767,7 @@ public class ChatAiView extends RelativeLayout {
                     voiceAnimateLayout.setVisibility(GONE);
                     AudioRecordManager.getInstance(this.getContext()).stopRecord();
                     AudioRecordManager.getInstance(this.getContext()).destroyRecord();
-                    if (isTouchInsideView(viewCancelSend, x, y)) {
-                        mAudioRecordCancel = true;
-                    } else {
-                        mAudioRecordCancel = false;
-                    }
+                    mAudioRecordCancel = isTouchInsideView(viewCancelSend, x, y);
                     break;
             }
             return false;
@@ -828,15 +866,13 @@ public class ChatAiView extends RelativeLayout {
                 AlertDialog dlg = new AlertDialog.Builder(mContext)
                         .setTitle("清除确认")
                         .setMessage("确定要清除这个会话吗？这将删除会话所有消息。")
-                        .setPositiveButton("确定", (dialog, which) -> {
-                            new Thread(() -> {
-                                mChatDb.clearMessageSession(session.sessionId);
-                                post(() -> {
-                                    clearChatHistory();
-                                    loadData();
-                                });
-                            }).start();
-                        })
+                        .setPositiveButton("确定", (dialog, which) -> new Thread(() -> {
+                            mChatDb.clearMessageSession(session.sessionId);
+                            post(() -> {
+                                clearChatHistory();
+                                loadData();
+                            });
+                        }).start())
                         .setNegativeButton("取消", null)
                         .create();
                 dlg.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
@@ -847,11 +883,51 @@ public class ChatAiView extends RelativeLayout {
         addView(view);
     }
 
+    private void loadSelectedRole() {
+        SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String roleName = prefs.getString(KEY_SELECTED_ROLE, ChatRole.CHAT_ROLE_AI_MATE.name());
+
+        try {
+            // 将存储的字符串转换回枚举
+            selectedRole = ChatRole.valueOf(roleName);
+        } catch (IllegalArgumentException e) {
+            // 如果存储的值无效（可能是因为枚举定义改变），使用默认值
+            selectedRole = ChatRole.CHAT_ROLE_AI_MATE;
+        }
+    }
+    private void saveSelectedRole() {
+        SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        // 存储枚举的名称而不是位置
+        editor.putString(KEY_SELECTED_ROLE, selectedRole.name());
+        editor.apply();
+    }
+
     private void prepareSettingsItems() {
         settingsItems = new ArrayList<>();
-        settingsItems.add(new SettingsItem("探讨模式", R.drawable.chat_ai_role_mate, true));
-        settingsItems.add(new SettingsItem("引导模式", R.drawable.chat_ai_role_mentor, false));
-        settingsItems.add(new SettingsItem("专家模式", R.drawable.chat_ai_role_researcher, false));
+
+        ChatRole [] settingRoles = new  ChatRole[]{
+                ChatRole.CHAT_ROLE_AI_MATE,
+                ChatRole.CHAT_ROLE_AI_MENTOR,
+                ChatRole.CHAT_ROLE_AI_RESEARCHER
+        };
+
+        for (ChatRole role : settingRoles) {
+            boolean isSelected = (role == selectedRole);
+            boolean isEnabled = true; // 默认所有项目都启用
+
+            // 禁用研究员角色
+            if (role == ChatRole.CHAT_ROLE_AI_RESEARCHER) {
+                isEnabled = false;
+            }
+
+            settingsItems.add(new SettingsItem(role.getDisplayName(), role.getIconResId(), isSelected, isEnabled, role));
+
+            // 如果这是当前选择的角色，更新selectedPosition
+            if (isSelected) {
+                selectedPosition = settingsItems.size() - 1;
+            }
+        }
     }
 
     public void setChatTeacherSession(ChatMessageSession s) {
@@ -1118,13 +1194,13 @@ public class ChatAiView extends RelativeLayout {
         if (content.trim().isEmpty()) {
             return;
         }
-
         // Add message to the list and notify the adapter
         ChatMessage message = new ChatMessage(content,
                 true,
                 ChatMessage.MessageType.TEXT,
                 mCurrentSession.sessionId,
-                System.currentTimeMillis());
+                System.currentTimeMillis(),
+                selectedRole);
         messageList.add(new ChatDisplayItem(message, !message.isSelf));
         mChatDb.addChatMessageDetail(message);
 
@@ -1132,7 +1208,8 @@ public class ChatAiView extends RelativeLayout {
                 false,
                 ChatMessage.MessageType.TEXT,
                 mCurrentSession.sessionId,
-                System.currentTimeMillis());
+                System.currentTimeMillis(),
+                selectedRole);
 
         // 注意： 从 mChatAiParam决定是否启用打字机效果显示
         messageList.add(new ChatDisplayItem(mLastReceivingMsg, mChatAiParam.streamDisplay));
@@ -1161,7 +1238,8 @@ public class ChatAiView extends RelativeLayout {
                     true,
                     ChatMessage.MessageType.TEXT,
                     mCurrentSession.sessionId,
-                    System.currentTimeMillis());
+                    System.currentTimeMillis(),
+                    ChatRole.CHAT_ROLE_MYSELF);
             messageList.add(new ChatDisplayItem(message, !message.isSelf));
             mChatDb.addChatMessageDetail(message);
 
@@ -1175,7 +1253,8 @@ public class ChatAiView extends RelativeLayout {
                             true,
                             ChatMessage.MessageType.IMAGE,
                             mCurrentSession.sessionId,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(),
+                            ChatRole.CHAT_ROLE_MYSELF);
                     String localPath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + msg.messageId + ".png";
                     msg.content = localPath;
                     ImageUtils.saveImageFile(question, localPath);
@@ -1185,7 +1264,8 @@ public class ChatAiView extends RelativeLayout {
                             true,
                             ChatMessage.MessageType.TEXT,
                             mCurrentSession.sessionId,
-                            System.currentTimeMillis());
+                            System.currentTimeMillis(),
+                            ChatRole.CHAT_ROLE_MYSELF);
                 }
                 messageList.add(new ChatDisplayItem(msg, false));
                 mChatDb.addChatMessageDetail(msg);
@@ -1199,15 +1279,13 @@ public class ChatAiView extends RelativeLayout {
                     false,
                     ChatMessage.MessageType.TEXT,
                     mCurrentSession.sessionId,
-                    System.currentTimeMillis());
+                    System.currentTimeMillis(),
+                    selectedRole);
             // 注意： 从 mChatAiParam决定是否启用打字机效果显示
             messageList.add(new ChatDisplayItem(mLastReceivingMsg, mChatAiParam.streamDisplay));
             mAdapterAiChatMessageList.notifyItemInserted(messageList.size() - 1);
 
             mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
-
-//        aiChatMessageRequest.setReason("start");
-//        aiChatMessageRequest.setCoversation(messageText);
 
             mBtnSendText.setEnabled(false);
             pollChat();
@@ -1248,7 +1326,8 @@ public class ChatAiView extends RelativeLayout {
                 true,
                 ChatMessage.MessageType.VOICE,
                 mCurrentSession.sessionId,
-                System.currentTimeMillis());
+                System.currentTimeMillis(),
+                ChatRole.CHAT_ROLE_MYSELF);
         message.messageId = studentMsg.getMessageId();
 
         messageList.add(new ChatDisplayItem(message, !message.isSelf));
@@ -1273,7 +1352,8 @@ public class ChatAiView extends RelativeLayout {
                 true,
                 ChatMessage.MessageType.TEXT,
                 mCurrentSession.sessionId,
-                System.currentTimeMillis());
+                System.currentTimeMillis(),
+                ChatRole.CHAT_ROLE_MYSELF);
         message.messageId = studentMsg.getMessageId();
 
         messageList.add(new ChatDisplayItem(message, !message.isSelf));
@@ -1300,7 +1380,8 @@ public class ChatAiView extends RelativeLayout {
                 true,
                 ChatMessage.MessageType.IMAGE,
                 mCurrentSession.sessionId,
-                System.currentTimeMillis());
+                System.currentTimeMillis(),
+                ChatRole.CHAT_ROLE_MYSELF);
         message.messageId = studentMsg.getMessageId();
 
         messageList.add(new ChatDisplayItem(message, !message.isSelf));
@@ -1386,15 +1467,20 @@ public class ChatAiView extends RelativeLayout {
     }
 
     // Model class for settings items
+    // 设置项目的模型类
     public static class SettingsItem {
-        private String title;
-        private int iconResId;
+        private final String title;
+        private final int iconResId;
         private boolean selected;
+        private boolean enabled;
+        private final ChatRole role; // 添加枚举引用
 
-        public SettingsItem(String title, int iconResId, boolean selected) {
+        public SettingsItem(String title, int iconResId, boolean selected, boolean enabled, ChatRole role) {
             this.title = title;
             this.iconResId = iconResId;
             this.selected = selected;
+            this.enabled = enabled;
+            this.role = role;
         }
 
         public String getTitle() {
@@ -1412,10 +1498,22 @@ public class ChatAiView extends RelativeLayout {
         public void setSelected(boolean selected) {
             this.selected = selected;
         }
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public ChatRole getRole() {
+            return role;
+        }
     }
 
-    // Custom adapter for settings spinner
-    public static class SettingsAdapter extends BaseAdapter {
+    // 自定义适配器
+    public class SettingsAdapter extends BaseAdapter {
         private final List<SettingsItem> items;
         private final LayoutInflater inflater;
 
@@ -1440,28 +1538,45 @@ public class ChatAiView extends RelativeLayout {
         }
 
         @Override
+        public boolean isEnabled(int position) {
+            return items.get(position).isEnabled();
+        }
+
+        @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-            // This view is what shows when the spinner is closed
-            View view = inflater.inflate(R.layout.spinner_closed_view, parent, false);
-            ImageView settingsIcon = view.findViewById(R.id.settings_icon);
-            settingsIcon.setImageResource(R.drawable.chat_ai_settings);
-            return view;
+            // 这个视图是 Spinner 关闭时显示的
+            ViewHolder viewHolder;
+            if(convertView == null) {
+                viewHolder = new ViewHolder();
+                convertView = inflater.inflate(R.layout.spinner_closed_view, parent, false);
+                viewHolder.settingsIcon = convertView.findViewById(R.id.settings_icon);
+                viewHolder.titleText = convertView.findViewById(R.id.settings_title);
+                convertView.setTag(viewHolder);
+            } else {
+                viewHolder = (ViewHolder) convertView.getTag();
+            }
+
+            SettingsItem currentItem = items.get(selectedPosition);
+            viewHolder.settingsIcon.setImageResource(currentItem.getIconResId());
+            viewHolder.titleText.setText(currentItem.getTitle());
+
+            return convertView;
         }
 
         @Override
         public View getDropDownView(int position, View convertView, ViewGroup parent) {
-            // This view is for each item in the dropdown
-            ViewHolder holder;
+            // 这个视图是下拉列表中每个项目的视图
+            ViewHolderSettingItem holder;
 
             if (convertView == null) {
                 convertView = inflater.inflate(R.layout.spinner_item_view, parent, false);
-                holder = new ViewHolder();
+                holder = new ViewHolderSettingItem();
                 holder.icon = convertView.findViewById(R.id.item_icon);
                 holder.title = convertView.findViewById(R.id.item_title);
                 holder.checkIcon = convertView.findViewById(R.id.item_check);
                 convertView.setTag(holder);
             } else {
-                holder = (ViewHolder) convertView.getTag();
+                holder = (ViewHolderSettingItem) convertView.getTag();
             }
 
             SettingsItem item = items.get(position);
@@ -1469,17 +1584,40 @@ public class ChatAiView extends RelativeLayout {
             holder.icon.setImageResource(item.getIconResId());
             holder.title.setText(item.getTitle());
 
-            // Show checkmark for selected item
+            // 为选中的项目显示对勾
             if (item.isSelected()) {
                 holder.checkIcon.setVisibility(View.VISIBLE);
             } else {
                 holder.checkIcon.setVisibility(View.GONE);
             }
 
+            // 处理禁用状态
+            if (!item.isEnabled()) {
+                // 灰显文本和图标
+                holder.title.setTextColor(Color.GRAY);
+                holder.icon.setAlpha(0.5f);
+                if (holder.checkIcon.getVisibility() == View.VISIBLE) {
+                    holder.checkIcon.setAlpha(0.5f);
+                }
+                // 设置背景为灰色
+                convertView.setBackgroundColor(Color.parseColor("#F5F5F5"));
+            } else {
+                // 正常状态
+                holder.title.setTextColor(Color.BLACK);
+                holder.icon.setAlpha(1.0f);
+                holder.checkIcon.setAlpha(1.0f);
+                convertView.setBackgroundColor(Color.WHITE);
+            }
+
             return convertView;
         }
 
-        private class ViewHolder {
+        private static class ViewHolder {
+            ImageView settingsIcon;
+            TextView titleText;
+        }
+
+        private static class ViewHolderSettingItem {
             ImageView icon;
             TextView title;
             ImageView checkIcon;

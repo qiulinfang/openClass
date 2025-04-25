@@ -12,7 +12,7 @@
         android:layout_height="48dp"
         android:layout_alignParentTop="true"
         android:layout_alignParentStart="true"
-        android:layout_alignParentEnd="true"
+        android:layout_toStartOf="@id/btn_new_chat"
         android:textAlignment="center"
         android:gravity="center"
         android:text="@string/chatbot_name"
@@ -55,39 +55,11 @@
         android:layout_marginEnd="16dp"
         android:layout_marginTop="8dp"
         android:background="@null"
-        android:dropDownVerticalOffset="16dp"
+        android:dropDownVerticalOffset="32dp"
         android:dropDownSelector="#00BCD4"
         android:stateListAnimator="@animator/app_button_click_scale"
         android:layout_alignParentTop="true"
         android:layout_toStartOf="@id/btn_view_history" />
-
-<!--    <androidx.cardview.widget.CardView-->
-<!--        android:layout_width="32dp"-->
-<!--        android:layout_height="32dp"-->
-<!--        android:layout_marginEnd="16dp"-->
-<!--        android:layout_marginTop="8dp"-->
-<!--        android:minHeight="60dp"-->
-<!--        android:background="@android:color/transparent"-->
-<!--        android:stateListAnimator="@animator/app_button_click_scale"-->
-<!--        android:layout_alignParentTop="true"-->
-<!--        android:layout_toStartOf="@id/btn_view_history"-->
-<!--        app:cardElevation="4dp"-->
-<!--        app:cardCornerRadius="8dp">-->
-
-<!--        <ImageView-->
-<!--            android:layout_width="match_parent"-->
-<!--            android:layout_height="match_parent"-->
-<!--            android:scaleType="fitXY"-->
-<!--            android:src="@drawable/subject_biology_photo_to_solve"/>-->
-
-<!--        <androidx.appcompat.widget.AppCompatSpinner-->
-<!--            android:id="@+id/settings_spinner"-->
-<!--            android:layout_width="match_parent"-->
-<!--            android:layout_height="match_parent"-->
-<!--            android:background="@drawable/chat_ai_settings"-->
-<!--            android:padding="1dp"-->
-<!--            android:spinnerMode="dropdown" />-->
-<!--    </androidx.cardview.widget.CardView>-->
 
     <Button
         android:id="@+id/btn_add_favor"
@@ -113,7 +85,7 @@
         android:id="@+id/et_search"
         android:layout_width="200dp"
         android:layout_height="30dp"
-        android:layout_marginStart="16dp"
+        android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
         android:layout_marginTop="9dp"
         android:textAlignment="center"

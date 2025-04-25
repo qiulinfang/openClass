@@ -1,5 +1,7 @@
 package com.cosinetech.imates.models;
 
+import com.cosinetech.imates.views.ChatAiView;
+
 import java.util.UUID;
 
 public class ChatMessage {
@@ -34,6 +36,7 @@ public class ChatMessage {
     public String sessionId; // 所属的ChatSession
     public String content; // 消息内容
     public MessageType type; // 消息类型
+    public int  role; // 角色
     public int status; // 预留的消息状态
     public boolean isSelf; // 是自己发送的还是收到的
     public long timestamp; //消息时间戳
@@ -48,7 +51,7 @@ public class ChatMessage {
         this.sessionId = "";
     }
 
-    public ChatMessage(String content, boolean isSelf, MessageType type, String sessionId, long timestamp) {
+    public ChatMessage(String content, boolean isSelf, MessageType type, String sessionId, long timestamp, ChatAiView.ChatRole role) {
         this.messageId = UUID.randomUUID().toString();
         this.content = content;
         this.isSelf = isSelf;
@@ -56,6 +59,7 @@ public class ChatMessage {
         this.status = 0;
         this.sessionId = sessionId;
         this.timestamp = timestamp;
+        this.role = role.ordinal();
     }
 
     public void appendContent(String newContent) {

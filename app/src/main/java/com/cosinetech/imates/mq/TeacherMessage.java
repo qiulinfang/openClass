@@ -5,6 +5,7 @@ import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.ImageUtils;
 import com.cosinetech.imates.util.VoiceDbUtil;
+import com.cosinetech.imates.views.ChatAiView;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -95,7 +96,8 @@ public class TeacherMessage {
                         false,
                         ChatMessage.MessageType.TEXT,
                         this.getSessionId(),
-                        this.getTimestamp());
+                        this.getTimestamp(),
+                        ChatAiView.ChatRole.CHAT_ROLE_TEACHER);
             }
             break;
             case TeacherQaType.QA_MSG_TYPE_PICTURE:
@@ -104,7 +106,8 @@ public class TeacherMessage {
                         false,
                         ChatMessage.MessageType.IMAGE,
                         this.getSessionId(),
-                        this.getTimestamp());
+                        this.getTimestamp(),
+                        ChatAiView.ChatRole.CHAT_ROLE_TEACHER);
                 String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + chatMessage.messageId + ".png";
                 ImageUtils.saveImageFile(this.getContent(), filePath);
                 chatMessage.content = filePath;
@@ -116,7 +119,8 @@ public class TeacherMessage {
                         false,
                         ChatMessage.MessageType.VOICE,
                         this.getSessionId(),
-                        this.getTimestamp());
+                        this.getTimestamp(),
+                        ChatAiView.ChatRole.CHAT_ROLE_TEACHER);
                 String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + chatMessage.messageId + ".voice";
                 VoiceDbUtil.saveVoiceFile(this.getContent(), filePath);
                 long duration = VoiceDbUtil.getDuration(filePath);

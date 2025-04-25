@@ -11,7 +11,10 @@ public class AiChatMessageRequest {
 
     private String dstUrl;
 
-    private String isWebSearch; //是否联网搜索
+    private String isWebSearch;
+    private String bmNo;
+
+    private String chatRole;
 
     public String getBmNo() {
         return bmNo;
@@ -29,7 +32,13 @@ public class AiChatMessageRequest {
         this.isWebSearch = isWebSearch;
     }
 
-    private String bmNo;
+    public void setChatRole(String role) {
+        this.chatRole = role;
+    }
+
+    public String getChatRole() {
+        return this.chatRole;
+    }
 
     // 构造函数
     public AiChatMessageRequest(String sessionId, String newValue,

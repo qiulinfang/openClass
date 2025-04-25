@@ -28,6 +28,7 @@ import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.util.VoiceDbUtil;
+import com.cosinetech.imates.views.ChatAiView;
 import com.cosinetech.imates.views.MarkdownTextView;
 
 import org.w3c.dom.Text;
@@ -76,17 +77,10 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
     private final Context mContext;
     private final RecyclerView mRecyclerView;
 
-    //收到的消息显示哪个头像? 默认是机器人, 老师的消息显示人物头像
-    private int mOtherAvastarIconRes = R.drawable. chat_ai_avatar_robot;
-
     public AdapterAiChatMessageList(Context context, List<ChatDisplayItem> mMsgList, RecyclerView view) {
         this.mMsgList = mMsgList; //groupMessagesWithDate(messageList);
         this.mContext = context;
         this.mRecyclerView = view;
-    }
-
-    public void setOtherAvastarIconRes(int res) {
-        mOtherAvastarIconRes = res;
     }
 
 //    private List<ChatDisplayItem> groupMessagesWithDate(List<ChatDisplayItem> messages) {
@@ -302,8 +296,15 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             item.isSelected = isChecked;
         });
 
-        if(!item.chatMessage.isSelf) {
-            holder.ivAvastar.setImageResource(mOtherAvastarIconRes);
+        if(item.chatMessage.isSelf) {
+            holder.ivAvastar.setImageResource(R.drawable.chat_ai_avatar_user);
+        } else {
+            for (ChatAiView.ChatRole role : ChatAiView.ChatRole.values()) {
+                if(item.chatMessage.role == role.ordinal()) {
+                    holder.ivAvastar.setImageResource(role.getIconResId());
+                    break;
+                }
+            }
         }
     }
 
@@ -331,8 +332,15 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             item.isSelected = isChecked;
         });
 
-        if(!item.chatMessage.isSelf) {
-            holder.ivAvastar.setImageResource(mOtherAvastarIconRes);
+        if(item.chatMessage.isSelf) {
+            holder.ivAvastar.setImageResource(R.drawable.chat_ai_avatar_user);
+        } else {
+            for (ChatAiView.ChatRole role : ChatAiView.ChatRole.values()) {
+                if(item.chatMessage.role == role.ordinal()) {
+                    holder.ivAvastar.setImageResource(role.getIconResId());
+                    break;
+                }
+            }
         }
     }
 
@@ -356,8 +364,15 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             item.isSelected = isChecked;
         });
 
-        if(!item.chatMessage.isSelf) {
-            holder.ivAvastar.setImageResource(mOtherAvastarIconRes);
+        if(item.chatMessage.isSelf) {
+            holder.ivAvastar.setImageResource(R.drawable.chat_ai_avatar_user);
+        } else {
+            for (ChatAiView.ChatRole role : ChatAiView.ChatRole.values()) {
+                if(item.chatMessage.role == role.ordinal()) {
+                    holder.ivAvastar.setImageResource(role.getIconResId());
+                    break;
+                }
+            }
         }
     }
 

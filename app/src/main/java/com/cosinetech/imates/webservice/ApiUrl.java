@@ -40,5 +40,4 @@ public class ApiUrl {
     public static final String URL_QUERY_SIMILAR_EXERCISE = baseUrl + "/permission/topicAndAck";
 
     public static final  String URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE = baseUrl + "/biologyTopicKnowledge/knowledgeTopicAndAck";
-
 }

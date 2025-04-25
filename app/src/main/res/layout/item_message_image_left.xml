@@ -16,7 +16,7 @@
         android:id="@+id/iv_avatar"
         android:layout_width="40dp"
         android:layout_height="40dp"
-        android:src="@drawable/avatar_7" />
+        android:src="@drawable/chat_ai_avatar_teacher_woman" />
 
     <ImageView
         android:id="@+id/iv_message_image"
