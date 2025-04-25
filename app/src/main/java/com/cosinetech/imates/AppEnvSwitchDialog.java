@@ -20,16 +20,16 @@ public class AppEnvSwitchDialog {
         layout.setPadding(50, 30, 50, 10);
 
         TextView hint = new TextView(context);
-        hint.setText("切换到测试环境需要验证密码");
+        hint.setText("加入测试通道,获取更及时的测试版更新及新功能");
         layout.addView(hint);
 
         EditText passwordInput = new EditText(context);
         passwordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        passwordInput.setHint("输入测试环境密码");
+        passwordInput.setHint("输入密码");
         layout.addView(passwordInput);
 
         new AlertDialog.Builder(context)
-                .setTitle("环境切换验证")
+                .setTitle("加入测试通道验证")
                 .setView(layout)
                 .setPositiveButton("确认", (dialog, which) -> {
                     String password = passwordInput.getText().toString();
@@ -45,8 +45,8 @@ public class AppEnvSwitchDialog {
 
     public static void showSwitchToReleaseDialog(Context context, AppEnvSwitchCallback callback) {
         new AlertDialog.Builder(context)
-                .setTitle("切换环境")
-                .setMessage("确定要切换回正式环境吗？")
+                .setTitle("离开测试通道")
+                .setMessage("确定要离开测试通道吗？")
                 .setPositiveButton("确定", (dialog, which) -> {
                     AppEnvConfig.trySwitchEnv(context, AppEnvConfig.AppEnvType.RELEASE, "");
                     callback.onSwitchSuccess(AppEnvConfig.AppEnvType.RELEASE);

@@ -13,7 +13,7 @@ public class AppEnvSwitchHelper {
             AppEnvSwitchDialog.showSwitchToTestFlightDialog(context, new AppEnvSwitchDialog.AppEnvSwitchCallback() {
                 @Override
                 public void onSwitchSuccess(AppEnvConfig.AppEnvType newEnv) {
-                    Toast.makeText(context, "已切换到测试环境", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, "已切换到测试通道", Toast.LENGTH_SHORT).show();
                     if(callback != null) {
                         callback.onSwitchSuccess(newEnv);
                     }
@@ -32,7 +32,7 @@ public class AppEnvSwitchHelper {
             AppEnvSwitchDialog.showSwitchToReleaseDialog(context, new AppEnvSwitchDialog.AppEnvSwitchCallback() {
                 @Override
                 public void onSwitchSuccess(AppEnvConfig.AppEnvType newEnv) {
-                    Toast.makeText(context, "已切换回正式环境", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, "已切换回正式通道", Toast.LENGTH_SHORT).show();
                     if(callback != null) {
                         callback.onSwitchSuccess(newEnv);
                     }
@@ -40,7 +40,7 @@ public class AppEnvSwitchHelper {
 
                 @Override
                 public void onSwitchFailed() {
-                    Toast.makeText(context, "切换回正式环境失败", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, "切换回正式通道失败", Toast.LENGTH_SHORT).show();
                     if(callback != null) {
                         callback.onSwitchFailed();
                     }
@@ -52,8 +52,8 @@ public class AppEnvSwitchHelper {
     // 在设置界面添加触发按钮
     public static void setupEnvSwitchItem(Context context, PreferenceScreen screen) {
         Preference envPreference = new Preference(context);
-        envPreference.setTitle("当前环境: " + AppEnvConfig.getCurrentEnvType(context).getDisplayName());
-        envPreference.setSummary("点击切换应用环境");
+        envPreference.setTitle("当前通道: " + AppEnvConfig.getCurrentEnvType(context).getDisplayName());
+        envPreference.setSummary("点击切换应用通道");
         envPreference.setOnPreferenceClickListener(preference -> {
             showEnvSwitchOption(context, null);
             return true;
