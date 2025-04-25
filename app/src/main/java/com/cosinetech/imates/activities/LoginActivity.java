@@ -31,6 +31,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.cosinetech.imates.AppEnvConfig;
 import com.cosinetech.imates.LoginRepository;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.databinding.ActivityLoginBinding;
@@ -91,6 +92,7 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        AppEnvConfig.checkAndUpdateVersion(this);
         sharedPreferences = getSharedPreferences(CONFIG_NAME, Context.MODE_PRIVATE);
         // 隐藏系统导航栏
         WindowUtils.hideSystemUI(this);

@@ -10,6 +10,7 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.cosinetech.imates.AppEnvConfig;
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.adapters.AdapterSubjectViewPager;
@@ -22,7 +23,6 @@ import com.cosinetech.imates.fragments.FragmentSubjectEnglish;
 import com.cosinetech.imates.fragments.FragmentSubjectMath;
 import com.cosinetech.imates.fragments.FragmentSubjectPhysics;
 import com.cosinetech.imates.service.FloatingRobotService;
-import com.cosinetech.imates.util.VersionUtils;
 import com.cosinetech.imates.util.WindowUtils;
 
 import androidx.core.content.ContextCompat;
@@ -186,7 +186,7 @@ public class MainActivity extends AppCompatActivity {
         startFloatingWindowService();
 
         TextView versionText = findViewById(R.id.version);
-        versionText.setText(VersionUtils.getVersionName(this) + "_" + VersionUtils.getVersionCode(this));
+        versionText.setText(AppEnvConfig.getAppVersion(this));
 
         EasyUpdate.create(this, ApiUrl.URL_APP_UPDATE)
                 .isAutoMode(false)

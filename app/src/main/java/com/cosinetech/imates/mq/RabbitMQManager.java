@@ -2,6 +2,7 @@ package com.cosinetech.imates.mq;
 
 import android.util.Log;
 
+import com.cosinetech.imates.webservice.ApiUrl;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
@@ -31,8 +32,8 @@ public class RabbitMQManager {
     private static final String TAG = "RabbitMQManager";
 
     // RabbitMQ连接参数
-    private static final String HOST = "www.imates.com.cn";
-    private static final int PORT = 5673;
+    private static final String HOST = ApiUrl.MQ_HOST_BASE;
+    private static final int PORT = ApiUrl.MQ_HOST_PORT;
     private static final String USERNAME = "admin";
     private static final String PASSWORD = "admin";
     private static final String VIRTUAL_HOST = "/";
