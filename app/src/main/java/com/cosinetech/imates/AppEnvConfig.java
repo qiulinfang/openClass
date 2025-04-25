@@ -28,7 +28,7 @@ public class AppEnvConfig {
     }
 
     // 密码相关配置
-    private static final String TEST_ENV_PASSWORD = "test123"; // 测试环境切换密码
+    private static final String TEST_ENV_PASSWORD = "148259"; // 测试环境切换密码
     private static final String PASSWORD_HASH = "hashed_password"; // 实际应用中应存储哈希值
 
     private static final String PREFS_NAME = "app_env_config";
@@ -51,6 +51,8 @@ public class AppEnvConfig {
         if(curEnvType.isEmpty()){
             // 重置为默认环境（正式环境）
             forceEnvType(context, AppEnvType.RELEASE);
+        } else {
+            forceEnvType(context, getCurrentEnvType(context));
         }
     }
 

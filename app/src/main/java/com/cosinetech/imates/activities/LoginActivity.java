@@ -32,6 +32,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.cosinetech.imates.AppEnvConfig;
+import com.cosinetech.imates.AppEnvSwitchDialog;
+import com.cosinetech.imates.AppEnvSwitchHelper;
 import com.cosinetech.imates.LoginRepository;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.databinding.ActivityLoginBinding;
@@ -55,7 +57,15 @@ public class LoginActivity extends AppCompatActivity {
     private final String KEY_USER_NAME = "USER_NAME";
     private final String KEY_PASSWD = "PASSWORD";
     private int index = 0; // 当前显示的字符索引
-    private final Handler handler = new Handler(); // 用于更新 UI
+    private int clickCount = 0; // 记录点击次数
+    private final Handler handler = new Handler(Looper.getMainLooper()); // 用于更新 UI
+    private final Runnable resetClickCountRunnable = new Runnable() {
+        @Override
+        public void run() {
+            clickCount = 0; // 重置点击次数
+            handler.postDelayed(this, 2000);
+        }
+    };
     private final Runnable typeWriterRunnable = new Runnable() {
         @Override
         public void run() {
@@ -139,6 +149,29 @@ public class LoginActivity extends AppCompatActivity {
 
         mCheckUpdateTick = System.currentTimeMillis();
         mCheckUpdateHandler.postDelayed(mCheckUpdateRunnable, 60000);
+
+        ((TextView)(findViewById(R.id.version))).setText(AppEnvConfig.getAppVersion(this));
+        findViewById(R.id.version).setOnClickListener(v -> {
+            clickCount++;
+            // 如果点击次数达到
+            if(clickCount >= 5) {
+                clickCount = 0;
+                AppEnvSwitchHelper.showEnvSwitchOption(this, new AppEnvSwitchDialog.AppEnvSwitchCallback() {
+                    @Override
+                    public void onSwitchSuccess(AppEnvConfig.AppEnvType newEnv) {
+                        ((TextView)(findViewById(R.id.version))).setText(AppEnvConfig.getAppVersion(LoginActivity.this));
+                    }
+
+                    @Override
+                    public void onSwitchFailed() {
+                        ((TextView)(findViewById(R.id.version))).setText(AppEnvConfig.getAppVersion(LoginActivity.this));
+                    }
+                });
+
+            }
+        });
+
+        handler.postDelayed(resetClickCountRunnable, 2000);
     }
 
     @Override

@@ -6,20 +6,25 @@ import android.preference.PreferenceScreen;
 import android.widget.Toast;
 
 public class AppEnvSwitchHelper {
-    public static void showEnvSwitchOption(Context context) {
+    public static void showEnvSwitchOption(Context context, AppEnvSwitchDialog.AppEnvSwitchCallback callback) {
         AppEnvConfig.AppEnvType currentEnv = AppEnvConfig.getCurrentEnvType(context);
-
         if (currentEnv == AppEnvConfig.AppEnvType.RELEASE) {
             // 当前是正式环境，切换到测试环境需要密码
             AppEnvSwitchDialog.showSwitchToTestFlightDialog(context, new AppEnvSwitchDialog.AppEnvSwitchCallback() {
                 @Override
                 public void onSwitchSuccess(AppEnvConfig.AppEnvType newEnv) {
                     Toast.makeText(context, "已切换到测试环境", Toast.LENGTH_SHORT).show();
+                    if(callback != null) {
+                        callback.onSwitchSuccess(newEnv);
+                    }
                 }
 
                 @Override
                 public void onSwitchFailed() {
                     Toast.makeText(context, "密码错误，切换失败", Toast.LENGTH_SHORT).show();
+                    if(callback != null) {
+                        callback.onSwitchFailed();
+                    }
                 }
             });
         } else {
@@ -28,11 +33,17 @@ public class AppEnvSwitchHelper {
                 @Override
                 public void onSwitchSuccess(AppEnvConfig.AppEnvType newEnv) {
                     Toast.makeText(context, "已切换回正式环境", Toast.LENGTH_SHORT).show();
+                    if(callback != null) {
+                        callback.onSwitchSuccess(newEnv);
+                    }
                 }
 
                 @Override
                 public void onSwitchFailed() {
-
+                    Toast.makeText(context, "切换回正式环境失败", Toast.LENGTH_SHORT).show();
+                    if(callback != null) {
+                        callback.onSwitchFailed();
+                    }
                 }
             });
         }
@@ -44,7 +55,7 @@ public class AppEnvSwitchHelper {
         envPreference.setTitle("当前环境: " + AppEnvConfig.getCurrentEnvType(context).getDisplayName());
         envPreference.setSummary("点击切换应用环境");
         envPreference.setOnPreferenceClickListener(preference -> {
-            showEnvSwitchOption(context);
+            showEnvSwitchOption(context, null);
             return true;
         });
         screen.addPreference(envPreference);

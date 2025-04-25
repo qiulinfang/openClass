@@ -153,8 +153,6 @@ public class ChatAiView extends RelativeLayout {
     private ExpandableListView expandableListView;
     private ChatExpandableListAdapter mChatSessionListAdapter;
     private ChatMessageSession mChatTeacherSession;
-    private int clickCount = 0; // 记录点击次数
-
     private ChatMessage mLastReceivingMsg;
 
     private String mSelectedImageUUID = "";
@@ -162,13 +160,6 @@ public class ChatAiView extends RelativeLayout {
     private String mAudioRecordUUID = "";
     private boolean mAudioRecordCancel = false;
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private final Runnable resetClickCountRunnable = new Runnable() {
-        @Override
-        public void run() {
-            clickCount = 0; // 重置点击次数
-            handler.postDelayed(this, 2000);
-        }
-    };
 
     private OnSendToTeacherListener mSendTeacherListener;
 
@@ -642,20 +633,6 @@ public class ChatAiView extends RelativeLayout {
             // EditText 失去焦点时，可以恢复布局
             //hideKeyboardAndRestoreLayout(etMessage);
         });
-
-        mTextViewTitle.setOnClickListener(v -> {
-            clickCount++;
-            // 如果点击次数达到
-            if(clickCount >= 5) {
-
-            }
-
-            if (clickCount >= 10) {
-                clickCount = 0;
-            }
-        });
-
-        handler.postDelayed(resetClickCountRunnable, 2000);
 
         ApplicationModelShared app = ApplicationModelShared.getInstance();
         if(app.chatRequest != null) {
