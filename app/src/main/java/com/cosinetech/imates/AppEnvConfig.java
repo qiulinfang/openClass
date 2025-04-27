@@ -13,8 +13,8 @@ import java.security.NoSuchAlgorithmException;
 public class AppEnvConfig {
     // 环境类型枚举
     public enum AppEnvType {
-        RELEASE("正式版"),
-        INTERNAL_TEST("内部测试");
+        RELEASE(""),
+        INTERNAL_TEST("Joined Testflight");
 
         private final String displayName;
 
@@ -72,7 +72,7 @@ public class AppEnvConfig {
     public static String getAppVersion(Context context) {
         try {
             PackageInfo pInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
-            return pInfo.versionName + getCurrentEnvType(context).displayName;
+            return pInfo.versionName + "\n" + getCurrentEnvType(context).displayName;
         } catch (PackageManager.NameNotFoundException e) {
             return "unknown";
         }
