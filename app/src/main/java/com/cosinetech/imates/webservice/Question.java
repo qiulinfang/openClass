@@ -65,7 +65,9 @@ public class Question {
         StringBuilder result = new StringBuilder();
         emitNull();
         result.append(title).append("\n\n");
-        return result.toString().trim().replace("<p>", "").replace("</p>", "  \n");
+        return result.toString().trim().replace("<p>", "")
+                .replace("</p>", "  \n")
+                .replace("_", "\\_");
     }
 
     public String getAnswer() {
