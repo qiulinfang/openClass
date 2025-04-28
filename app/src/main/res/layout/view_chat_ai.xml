@@ -42,7 +42,7 @@
         android:minHeight="60dp"
         android:textColor="#ffffff"
         android:button="@null"
-        android:visibility="visible"
+        android:visibility="gone"
         android:background="@drawable/chat_ai_settings"
         android:stateListAnimator="@animator/app_button_click_scale"
         android:layout_alignParentTop="true"
@@ -50,7 +50,7 @@
 
     <androidx.appcompat.widget.AppCompatSpinner
         android:id="@+id/settings_spinner"
-        android:visibility="gone"
+        android:visibility="visible"
         android:layout_width="32dp"
         android:layout_height="32dp"
         android:layout_marginEnd="16dp"
