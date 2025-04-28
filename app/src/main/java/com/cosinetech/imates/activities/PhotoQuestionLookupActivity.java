@@ -136,6 +136,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                 Intent intent = new Intent(this, QuestionSolveActivity.class);
                 intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, subject == Subject.SUBJECT_BIOLOGY ? ApiUrl.URL_CHAT_BIOLOGY : ApiUrl.URL_CHAT_MATH);
                 intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, subject.name());
+                intent.putExtra(QuestionSolveActivity.KEY_SHOW_LAST_QUESTION, true);
                 startActivity(intent);
             }
         });
@@ -146,6 +147,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
             btnGallery.setVisibility(View.VISIBLE);
             btnSearch.setVisibility(View.GONE);
             btnShotAgain.setVisibility(View.GONE);
+            viewLinkTextSearch.setVisibility(View.GONE);
             cropImageView.setVisibility(View.GONE);
             ivPreview.setVisibility(View.GONE);
             questionLayout.setVisibility(View.GONE);
@@ -201,7 +203,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         findViewById(R.id.loading).setVisibility(View.INVISIBLE);
                         findViewById(R.id.btn_text_search).setVisibility(View.VISIBLE);
-                        Toast.makeText(PhotoQuestionLookupActivity.this,  msg, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(PhotoQuestionLookupActivity.this,  "没有搜索到题目" + msg, Toast.LENGTH_SHORT).show();
                         stopScanAnimation(scanLine);
                     });
 
@@ -399,7 +401,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                 @Override
                 public void onFailure(String msg, int code) {
                     runOnUiThread(() -> {
-                        Toast.makeText(PhotoQuestionLookupActivity.this, "搜索失败:" + msg, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(PhotoQuestionLookupActivity.this, "没有搜到题目" + msg, Toast.LENGTH_SHORT).show();
                         stopScanAnimation(scanLine);
                         btnSearch.setVisibility(View.VISIBLE);
                         viewLinkTextSearch.setVisibility(View.VISIBLE);
@@ -419,6 +421,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
         textSearchLayout.setVisibility(View.VISIBLE);
         questionLayout.setVisibility(View.VISIBLE);
         viewLinkTextSearch.setVisibility(View.GONE);
+        btnSearch.setVisibility(View.INVISIBLE);
     }
 
     private void stopScanAnimation(View scanLine) {

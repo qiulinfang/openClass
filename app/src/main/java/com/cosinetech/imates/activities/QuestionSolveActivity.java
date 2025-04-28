@@ -49,6 +49,7 @@ import java.util.UUID;
 public class QuestionSolveActivity extends AppCompatActivity implements MessagingManager.MessageListener {
     public static final String KEY_CHATBOT_URL = "KEY_CHAT_BOT_URL";
     public static final String KEY_SUBJECT = "KEY_SUBJECT";
+    public static final String KEY_SHOW_LAST_QUESTION = "KEY_SHOW_LAST";
     private int chatResponseTimes = 0;
     private String chatBotUrl;
     private Subject subject;
@@ -65,6 +66,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
     private TextView mTextEmptyQuestionTip;
 
     private ChatAiView mChatView;
+    private RecyclerView myExercisesView;
 
     private ChatMessageHistoryDB mChatDb;
 
@@ -107,6 +109,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
 
     private void initView() {
         mChatView = findViewById(R.id.chat_view);
+        myExercisesView = findViewById(R.id.exerciseList);
         mChatView.setSendTeacherListener(() -> {
             if(!mRdoAskTeacher.isEnabled()) {
                 mRdoAskTeacher.setEnabled(true);
@@ -160,7 +163,6 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 new ViewModelProvider.AndroidViewModelFactory(getApplication())
         ).get(UserInfoViewModel.class);
 
-        RecyclerView myExercisesView = findViewById(R.id.exerciseList);
         myExercisesView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
         myExercisesView.addItemDecoration(new RecyclerViewOverscrollDecoration());
         adapterQuestionList = new AdapterQuestionList(mQuestions, new AdapterQuestionList.ExerciseListChangedListener() {
@@ -190,6 +192,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
 
                     @Override
                     public void onDeleteFailed(String msg) {
+                        runOnUiThread(() -> Toast.makeText(QuestionSolveActivity.this, "删除失败, 稍后重试", Toast.LENGTH_SHORT).show());
                     }
                 });
             }
@@ -460,11 +463,15 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
             @Override
             public void onSuccess(List<Question> q, long totalCount, long pageSize, long currentPageNo) {
                 runOnUiThread(() -> {
+                    boolean scrollToLast =  getIntent().getBooleanExtra(KEY_SHOW_LAST_QUESTION, false);
                     mQuestions.clear();
                     mQuestions.addAll(q);
                     adapterQuestionList.resetSelection();
                     adapterQuestionList.notifyDataSetChanged();
                     updateQuestionListTip();
+                    if(scrollToLast && !mQuestions.isEmpty()) {
+                        myExercisesView.scrollToPosition(mQuestions.size() - 1);
+                    }
                 });
             }
 

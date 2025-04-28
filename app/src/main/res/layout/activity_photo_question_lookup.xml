@@ -204,9 +204,9 @@
             android:stateListAnimator="@animator/app_button_click_scale"
             android:visibility="gone"
             android:layout_marginVertical="16dp"
-            android:layout_marginHorizontal="48dp"
-            app:layout_constraintEnd_toStartOf="@id/btn_reshoot"
-            app:layout_constraintTop_toTopOf="parent"/>
+            android:layout_marginHorizontal="32dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
         <Button
             android:id="@+id/btn_reshoot"
@@ -214,10 +214,10 @@
             android:layout_height="64dp"
             android:background="@drawable/camera_repeat"
             android:stateListAnimator="@animator/app_button_click_scale"
-            android:layout_marginVertical="16dp"
             android:visibility="gone"
-            android:layout_marginHorizontal="32dp"
-            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginVertical="16dp"
+            android:layout_marginHorizontal="48dp"
+            app:layout_constraintEnd_toStartOf="@id/btn_search"
             app:layout_constraintTop_toTopOf="parent"/>
 
         <Button

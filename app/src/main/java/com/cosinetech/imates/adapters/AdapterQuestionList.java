@@ -54,6 +54,7 @@ public class AdapterQuestionList extends RecyclerView.Adapter<AdapterQuestionLis
         if (selectedPosition == position) {
             holder.itemView.setSelected(true);
             holder.btnDelete.setVisibility(View.VISIBLE);
+            holder.btnDelete.setEnabled(true);
             holder.btnMoveToTop.setVisibility(View.VISIBLE);
             holder.btnAiGuide.setVisibility(View.VISIBLE);
         } else {
@@ -81,6 +82,7 @@ public class AdapterQuestionList extends RecyclerView.Adapter<AdapterQuestionLis
 
         holder.btnDelete.setOnClickListener(v -> {
             if(listener != null)  {
+                holder.btnDelete.setEnabled(false);
                 listener.onExerciseDelete(holder.getBindingAdapterPosition());
             }
         });
