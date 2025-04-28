@@ -53,13 +53,13 @@
 
     </LinearLayout>
 
+    <!--        android:lineSpacingMultiplier="1.5"-->
     <com.cosinetech.imates.views.MarkdownTextView
         android:id="@+id/question_text"
         android:clickable="true"
         android:focusable="false"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:lineSpacingMultiplier="1.5"
         android:textColor="#000000"/>
     <View
         android:layout_width="match_parent"
