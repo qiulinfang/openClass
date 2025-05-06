@@ -1,70 +1,157 @@
 [
     {
-    "chapter": "3",
-    "title":"第3章",
-    "sections": [
-      {
-        "section":"section3.1",
-        "knowledgeNo":"27,28,29,30",
-        "title":"DNA是主要的遗传物质",
-        "schemas": [
-          {
-            "comments": "",
-            "introduction":"biology/chapter3/section3_1/schema1_intro.txt",
-            "textBook":"biology/chapter3/3_1.pdf",
-            "bookPageStart": 1,
-            "lecture":"biology/chapter3/section3_1/schema1_lecture.pdf",
-            "learnGuide":"biology/chapter3/section3_1/schema1_guide.pdf"
-          }
-        ]
-      },
-      {
-        "section":"section3.2",
-        "title":"DNA的结构",
-        "knowledgeNo": "31,32,33",
-        "schemas": [
-          {
-            "comments": "",
-            "introduction":"biology/chapter3/section3_2/schema1_intro.txt",
-            "textBook":"biology/chapter3/3_2.pdf",
-            "bookPageStart": 1,
-            "lecture":"biology/chapter3/section3_2/schema1_lecture.pdf",
-            "learnGuide":"biology/chapter3/section3_2/schema1_guide.pdf"
-          }
-        ]
-      },
-      {
-        "section":"section3.3",
-        "title":"DNA的复制",
-        "knowledgeNo": "34,35,36",
-        "schemas": [
-          {
-            "comments": "",
-            "introduction":"biology/chapter3/section3_3/schema1_intro.txt",
-            "textBook":"biology/chapter3/3_3.pdf",
-            "bookPageStart": 1,
-            "lecture":"biology/chapter3/section3_3/schema1_lecture.pdf",
-            "learnGuide":"biology/chapter3/section3_3/schema1_guide.pdf"
-          }
-        ]
-      },
-      {
-        "section":"section3.4",
-        "title":"基因通常是有遗传效应的DNA片段",
-        "knowledgeNo": "37,38",
-        "schemas": [
-          {
-            "comments": "",
-            "introduction":"biology/chapter3/section3_4/schema1_intro.txt",
-            "textBook":"biology/chapter3/3_4.pdf",
-            "bookPageStart": 1,
-            "lecture":"biology/chapter3/section3_4/schema1_lecture.pdf",
-            "learnGuide":"biology/chapter3/section3_4/schema1_guide.pdf"
-          }
-        ]
-      }
-    ]
-  },
+      "chapter": "1",
+      "title":"第1章",
+      "sections": [
+        {
+          "section":"section1.1",
+          "knowledgeNo":"1,2,3,4,5,6,7,8",
+          "title":"1.1 孟德尔的豌豆杂交实验（一）",
+          "schemas": [
+            {
+              "comments": "",
+              "introduction":"biology/chapter1/section1_1/schema1_intro.txt",
+              "textBook":"biology/chapter1/1_1.pdf",
+              "bookPageStart": 1,
+              "lecture":"biology/chapter1/section1_1/schema1_lecture.pdf",
+              "learnGuide":"biology/chapter1/section1_1/schema1_guide.pdf"
+            }
+          ]
+        },
+        {
+          "section":"section1.2",
+          "title":"1.2 孟德尔的豌豆杂交实验（二）",
+          "knowledgeNo": "9,10,12,13,14,15,16,17",
+          "schemas": [
+            {
+              "comments": "",
+              "introduction":"biology/chapter1/section1_2/schema1_intro.txt",
+              "textBook":"biology/chapter1/1_2.pdf",
+              "bookPageStart": 1,
+              "lecture":"biology/chapter1/section1_2/schema1_lecture.pdf",
+              "learnGuide":"biology/chapter1/section1_2/schema1_guide.pdf"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": "2",
+      "title":"第2章",
+      "sections": [
+        {
+          "section":"section2.1",
+          "knowledgeNo":"18,19",
+          "title":"减数分裂与配子形成",
+          "schemas": [
+            {
+              "comments": "",
+              "introduction":"biology/chapter2/section2_1/schema1_intro.txt",
+              "textBook":"biology/chapter2/2_1.pdf",
+              "bookPageStart": 1,
+              "lecture":"biology/chapter2/section2_1/schema1_lecture.pdf",
+              "learnGuide":"biology/chapter2/section2_1/schema1_guide.pdf"
+            }
+          ]
+        },
+        {
+          "section":"section2.2",
+          "title":"基因在染色体上",
+          "knowledgeNo": "20,21,22",
+          "schemas": [
+            {
+              "comments": "",
+              "introduction":"biology/chapter2/section2_2/schema1_intro.txt",
+              "textBook":"biology/chapter2/2_2.pdf",
+              "bookPageStart": 1,
+              "lecture":"biology/chapter2/section2_2/schema1_lecture.pdf",
+              "learnGuide":"biology/chapter2/section2_2/schema1_guide.pdf"
+            }
+          ]
+        },
+        {
+          "section":"section2.3",
+          "title":"伴性遗传",
+          "knowledgeNo": "23,24,25,26",
+          "schemas": [
+            {
+              "comments": "",
+              "introduction":"biology/chapter2/section2_3/schema1_intro.txt",
+              "textBook":"biology/chapter2/2_3.pdf",
+              "bookPageStart": 1,
+              "lecture":"biology/chapter2/section2_3/schema1_lecture.pdf",
+              "learnGuide":"biology/chapter2/section2_3/schema1_guide.pdf"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": "3",
+      "title":"第3章",
+      "sections": [
+        {
+          "section":"section3.1",
+          "knowledgeNo":"27,28,29,30",
+          "title":"DNA是主要的遗传物质",
+          "schemas": [
+            {
+              "comments": "",
+              "introduction":"biology/chapter3/section3_1/schema1_intro.txt",
+              "textBook":"biology/chapter3/3_1.pdf",
+              "bookPageStart": 1,
+              "lecture":"biology/chapter3/section3_1/schema1_lecture.pdf",
+              "learnGuide":"biology/chapter3/section3_1/schema1_guide.pdf"
+            }
+          ]
+        },
+        {
+          "section":"section3.2",
+          "title":"DNA的结构",
+          "knowledgeNo": "31,32,33",
+          "schemas": [
+            {
+              "comments": "",
+              "introduction":"biology/chapter3/section3_2/schema1_intro.txt",
+              "textBook":"biology/chapter3/3_2.pdf",
+              "bookPageStart": 1,
+              "lecture":"biology/chapter3/section3_2/schema1_lecture.pdf",
+              "learnGuide":"biology/chapter3/section3_2/schema1_guide.pdf"
+            }
+          ]
+        },
+        {
+          "section":"section3.3",
+          "title":"DNA的复制",
+          "knowledgeNo": "34,35,36",
+          "schemas": [
+            {
+              "comments": "",
+              "introduction":"biology/chapter3/section3_3/schema1_intro.txt",
+              "textBook":"biology/chapter3/3_3.pdf",
+              "bookPageStart": 1,
+              "lecture":"biology/chapter3/section3_3/schema1_lecture.pdf",
+              "learnGuide":"biology/chapter3/section3_3/schema1_guide.pdf"
+            }
+          ]
+        },
+        {
+          "section":"section3.4",
+          "title":"基因通常是有遗传效应的DNA片段",
+          "knowledgeNo": "37,38",
+          "schemas": [
+            {
+              "comments": "",
+              "introduction":"biology/chapter3/section3_4/schema1_intro.txt",
+              "textBook":"biology/chapter3/3_4.pdf",
+              "bookPageStart": 1,
+              "lecture":"biology/chapter3/section3_4/schema1_lecture.pdf",
+              "learnGuide":"biology/chapter3/section3_4/schema1_guide.pdf"
+            }
+          ]
+        }
+      ]
+    },
     {
         "chapter": "4",
         "title":"第4章",
