@@ -8,6 +8,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,6 +23,18 @@ import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.helper.StaticLabelsFormatter;
 import com.jjoe64.graphview.series.BarGraphSeries;
 import com.jjoe64.graphview.series.DataPoint;
+import com.suke.widget.SwitchButton;
+
+import org.loka.screensharekit.EncodeBuilder;
+import org.loka.screensharekit.ScreenShareKit;
+import org.loka.screensharekit.callback.H264CallBack;
+import org.loka.screensharekit.callback.StartCaptureCallback;
+
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.logging.Logger;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -33,6 +46,7 @@ public class FragmentMyStatus extends Fragment {
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
+    private FileOutputStream fos;
 
     private String mParam1;
     private String mParam2;
@@ -84,6 +98,46 @@ public class FragmentMyStatus extends Fragment {
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
             requireActivity().finish();
+        });
+
+        com.suke.widget.SwitchButton switchButton = v.findViewById(R.id.switch_button);
+        switchButton.setOnCheckedChangeListener((view, isChecked) -> {
+            if(switchButton.isChecked()) {
+                try {
+                    fos = new FileOutputStream(getActivity().getExternalFilesDir(null).getAbsolutePath() + "/screen.h264", true);  // true表示追加模式
+                } catch (FileNotFoundException e) {
+                    Log.e("=-=-=-=", e.getMessage());
+                    throw new RuntimeException(e);
+                }
+                ScreenShareKit.INSTANCE.init(this)
+                        .config(1920, 1200, 25, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
+                        .onH264(new H264CallBack() {
+                            @Override
+                            public void onH264(ByteBuffer buffer, boolean isKeyFrame, int width, int height, long ts) {
+                                // 编码后的数据
+                                byte[] bytes = new byte[buffer.remaining()];
+                                buffer.get(bytes);
+                                try {
+                                    fos.write(bytes);
+                                } catch (IOException e) {
+                                    Log.e("=-=-=-=", e.getMessage());
+                                }
+                            }
+                        })
+                        .onStart(() -> {
+
+                        }).start();
+            } else {
+                ScreenShareKit.INSTANCE.stop();
+                if (fos != null) {
+                    try {
+                        fos.close();
+                    } catch (IOException e) {
+
+                    }
+                    fos = null;
+                }
+            }
         });
         return v;
     }
