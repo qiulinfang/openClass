@@ -173,24 +173,18 @@
         android:textColor="#808080"
         android:layout_alignParentEnd="true"/>
 
-    <com.suke.widget.SwitchButton
+    <Button
         android:id="@+id/switch_button"
-        android:layout_width="wrap_content"
+        android:layout_width="60dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:layout_marginHorizontal="24dp"
-        android:stateListAnimator="@animator/app_button_click_scale"
-        android:layout_toStartOf="@id/btn_exit"
-        />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="24dp"
+        android:background="#00ffffff"
+        android:drawableTop="@drawable/app_switch_off"
+        android:text="课堂模式"
         android:textColor="#808080"
-        android:layout_below="@id/switch_button"
-        android:layout_toStartOf="@id/btn_exit"
-        android:text="课堂模式" />
+        android:stateListAnimator="@animator/app_button_click_scale"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="32dp"
+        />
 
 </RelativeLayout>
 

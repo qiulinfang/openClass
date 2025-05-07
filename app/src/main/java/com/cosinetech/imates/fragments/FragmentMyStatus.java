@@ -2,6 +2,8 @@ package com.cosinetech.imates.fragments;
 
 import android.content.Intent;
 import android.graphics.Color;
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecList;
 import android.os.Bundle;
 
 import androidx.fragment.app.Fragment;
@@ -14,27 +16,26 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.activities.LoginActivity;
 import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.screencasting.ScreenCastingCommunicator;
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.helper.StaticLabelsFormatter;
 import com.jjoe64.graphview.series.BarGraphSeries;
 import com.jjoe64.graphview.series.DataPoint;
-import com.suke.widget.SwitchButton;
 
 import org.loka.screensharekit.EncodeBuilder;
 import org.loka.screensharekit.ScreenShareKit;
-import org.loka.screensharekit.callback.H264CallBack;
-import org.loka.screensharekit.callback.StartCaptureCallback;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.logging.Logger;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -47,6 +48,11 @@ public class FragmentMyStatus extends Fragment {
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
     private FileOutputStream fos;
+    private ScreenCastingCommunicator  udpCommunicator;
+    private boolean bHavingClassMode = false;
+    private boolean bShouldProjection = false;
+
+    private final ExecutorService executor = Executors.newFixedThreadPool(1);
 
     private String mParam1;
     private String mParam2;
@@ -100,46 +106,160 @@ public class FragmentMyStatus extends Fragment {
             requireActivity().finish();
         });
 
-        com.suke.widget.SwitchButton switchButton = v.findViewById(R.id.switch_button);
-        switchButton.setOnCheckedChangeListener((view, isChecked) -> {
-            if(switchButton.isChecked()) {
-                try {
-                    fos = new FileOutputStream(getActivity().getExternalFilesDir(null).getAbsolutePath() + "/screen.h264", true);  // true表示追加模式
-                } catch (FileNotFoundException e) {
-                    Log.e("=-=-=-=", e.getMessage());
-                    throw new RuntimeException(e);
-                }
+        Button switchButton = v.findViewById(R.id.switch_button);
+        switchButton.setOnClickListener(v2 -> {
+            switchButton.setEnabled(false);
+            if(bHavingClassMode) {
+                bHavingClassMode = false;
+                switchButton.setCompoundDrawablesWithIntrinsicBounds(null, getContext().getDrawable(R.drawable.app_switch_off), null, null);
+                ScreenShareKit.INSTANCE.stop();
+                switchButton.postDelayed(() -> {
+                    switchButton.setEnabled(true);
+                    if (fos != null) {
+                        try {
+                            fos.close();
+                        } catch (IOException e) {
+
+                        }
+                        fos = null;
+                    }
+                }, 2000);
+            } else {
                 ScreenShareKit.INSTANCE.init(this)
-                        .config(1920, 1200, 25, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
-                        .onH264(new H264CallBack() {
-                            @Override
-                            public void onH264(ByteBuffer buffer, boolean isKeyFrame, int width, int height, long ts) {
-                                // 编码后的数据
-                                byte[] bytes = new byte[buffer.remaining()];
-                                buffer.get(bytes);
-                                try {
-                                    fos.write(bytes);
-                                } catch (IOException e) {
-                                    Log.e("=-=-=-=", e.getMessage());
-                                }
+                        .config(1920, 1080, 30, 6000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
+                        .onH264((buffer, isKeyFrame, width, height, ts) -> {
+                            // 编码后的数据
+                            byte[] bytes = new byte[buffer.remaining()];
+                            buffer.get(bytes);
+                            try {
+                                fos.write(bytes);
+                            } catch (IOException e) {
+                                Log.e("=-=-=-=", e.getMessage());
                             }
                         })
+                        .onError(errorInfo -> {
+
+                        })
                         .onStart(() -> {
-
+                            try {
+                                fos = new FileOutputStream(getContext().getExternalFilesDir(null).getAbsolutePath() + "/screen.h264", true);  // true表示追加模式
+                            } catch (FileNotFoundException e) {
+                                Log.e("=-=-=-=", e.getMessage());
+                                throw new RuntimeException(e);
+                            }
+                            bHavingClassMode = true;
+                            switchButton.post(() -> {
+                                switchButton.setCompoundDrawablesWithIntrinsicBounds(null, getContext().getDrawable(R.drawable.app_switch_on), null, null);
+                            });
                         }).start();
-            } else {
-                ScreenShareKit.INSTANCE.stop();
-                if (fos != null) {
-                    try {
-                        fos.close();
-                    } catch (IOException e) {
+            }
 
+            switchButton.postDelayed(() -> {
+                switchButton.setEnabled(true);
+            }, 2000);
+        });
+
+        executor.execute(() -> {
+            final boolean[] bCommunicationHasError = {false};
+            while(!executor.isShutdown()) {
+                try {
+                    Thread.sleep(500);
+                    if (bCommunicationHasError[0] && udpCommunicator != null) {
+                        udpCommunicator.stop();
+                        udpCommunicator = null;
+                        bCommunicationHasError[0] = false;
                     }
-                    fos = null;
+
+                    if (bHavingClassMode && udpCommunicator == null) {
+                        udpCommunicator = new ScreenCastingCommunicator(
+                                getContext(),
+                                userInfoViewModel.userId.getValue(),
+                                userInfoViewModel.userInfo.getValue().getName());
+
+                        // 设置网络状态监听器
+                        udpCommunicator.setNetworkStateListener(new ScreenCastingCommunicator.NetworkStateListener() {
+                            @Override
+                            public void onNetworkError(String errorMessage) {
+                                bCommunicationHasError[0] = true;
+                                getActivity().runOnUiThread(() -> Toast.makeText(
+                                        getContext(),
+                                        "网络错误: " + errorMessage,
+                                        Toast.LENGTH_LONG).show());
+                            }
+
+                            @Override
+                            public void onJoinGroupSuccess() {
+                                getActivity().runOnUiThread(() -> Toast.makeText(
+                                        getContext(),
+                                        "加入组播组成功",
+                                        Toast.LENGTH_SHORT).show());
+                            }
+                        });
+
+                        // 设置命令处理器
+                        udpCommunicator.setCommandHandler(new ScreenCastingCommunicator.CommandHandler() {
+                            @Override
+                            public void onStartProjection() {
+                                getActivity().runOnUiThread(() -> {
+                                    Toast.makeText(getContext(), "开始投屏", Toast.LENGTH_SHORT).show();
+                                    bShouldProjection = true;
+                                    // 调用投屏开始逻辑
+                                    //startScreenProjection();
+                                });
+                            }
+
+                            @Override
+                            public void onStopProjection() {
+                                getActivity().runOnUiThread(() -> {
+                                    Toast.makeText(getContext(), "停止投屏", Toast.LENGTH_SHORT).show();
+                                    bShouldProjection = false;
+                                    // 调用投屏停止逻辑
+                                    //stopScreenProjection();
+                                });
+                            }
+
+                            @Override
+                            public void onTakeSnapshot(String commandId) {
+                                getActivity().runOnUiThread(() -> {
+                                    Toast.makeText(getContext(), "收到截图命令", Toast.LENGTH_SHORT).show();
+                                    // 调用截图逻辑
+                                    //takeScreenSnapshot(commandId);
+                                });
+                            }
+                        });
+
+                        // 启动通信
+                        udpCommunicator.start();
+                    }
+
+                    if (!bHavingClassMode && udpCommunicator != null) {
+                        udpCommunicator.stop();
+                        udpCommunicator = null;
+                        bCommunicationHasError[0] = false;
+                    }
+                } catch (Exception e) {
                 }
             }
         });
         return v;
+    }
+
+    private MediaCodecInfo findEncoderForMimeType(String mimeType) {
+        int codecCount = MediaCodecList.getCodecCount();
+        for (int i = 0; i < codecCount; i++) {
+            MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
+            if (!codecInfo.isEncoder()) {
+                continue;
+            }
+
+            String[] types = codecInfo.getSupportedTypes();
+            for (String type : types) {
+                if (type.equalsIgnoreCase(mimeType)) {
+                    return codecInfo;
+                }
+            }
+        }
+        return null;
     }
 
     private void setupGraph(View v) {

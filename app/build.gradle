@@ -150,7 +150,6 @@ dependencies {
     implementation files('libs/markwon-syntax-highlight.aar')
     implementation files('libs/markwon-ext-latex.aar')
 
-    implementation 'com.github.zcweng:switch-button:0.0.3@aar'
     implementation 'com.github.LxzBUG:ScreenShare:1.1.6'
 
 //    implementation files('libs/pspdfkit-10.1.2.aar')
