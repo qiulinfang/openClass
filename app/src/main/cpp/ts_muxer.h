@@ -19,6 +19,7 @@ extern "C" {
 
 int ts_muxter_init(const char *dstAddress, int dstPort);
 void ts_muxer_set_dst(const char* dstIp, int dstPort);
+void ts_muxer_set_send_enable(int enable);
 uint64_t ts_muxer_us_to_90k(uint64_t microsecond_timestamp);
 void ts_muxer_add_h264(const uint8_t* h264_frame, uint32_t h264_len, uint64_t pts, int is_key_frame);
 void ts_muxer_add_aac(const uint8_t *aac_frame, uint32_t aac_len, uint64_t pts);

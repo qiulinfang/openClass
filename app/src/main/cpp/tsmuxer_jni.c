@@ -17,6 +17,11 @@ Java_com_cosinetech_imates_screencasting_TSMuxer_setDestination(JNIEnv *env, jcl
     (*env)->ReleaseStringUTFChars(env, dst_ip, ip);
 }
 
+JNIEXPORT void JNICALL
+Java_com_cosinetech_imates_screencasting_TSMuxer_setSendEnable(JNIEnv *env, jclass clazz, jint enable) {
+    ts_muxer_set_send_enable(enable);
+}
+
 JNIEXPORT jlong JNICALL
 Java_com_cosinetech_imates_screencasting_TSMuxer_usTo90k(JNIEnv *env, jclass clazz, jlong microsecond_timestamp) {
     return (jlong)ts_muxer_us_to_90k((uint64_t)microsecond_timestamp);

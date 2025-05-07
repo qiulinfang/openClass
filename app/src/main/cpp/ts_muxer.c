@@ -24,6 +24,7 @@ static int ts_stream_len = 0;
 static int  sock_fd = -1;
 static struct sockaddr_in dst_ep;
 static lt_ts_program programInfo;
+static int sendEnable = 0;
 
 // 定义90kHz时钟频率
 #define CLOCK_RATE 90000u
@@ -40,8 +41,11 @@ void ts_muxer_send_stream() {
         return;
     }
 
-    for(int i=0; i<pkt_cnt; i++) {
-        sendto(sock_fd, ts_buffer + i * PACK_SIZE, PACK_SIZE, 0, (struct sockaddr*)&dst_ep, sizeof dst_ep);
+    if(sendEnable) {
+        for (int i = 0; i < pkt_cnt; i++) {
+            sendto(sock_fd, ts_buffer + i * PACK_SIZE, PACK_SIZE, 0, (struct sockaddr *) &dst_ep,
+                   sizeof dst_ep);
+        }
     }
 
     int rest = ts_stream_len % PACK_SIZE;
@@ -98,6 +102,10 @@ void ts_muxer_set_dst(const char* dstIp, int dstPort) {
     dst_ep.sin_family = AF_INET;
     dst_ep.sin_port = htons(dstPort);
     dst_ep.sin_addr.s_addr = inet_addr(dstIp);
+}
+
+void ts_muxer_set_send_enable(int enable) {
+    sendEnable = enable;
 }
 
 
