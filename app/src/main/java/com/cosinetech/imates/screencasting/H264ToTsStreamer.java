@@ -6,6 +6,10 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.MulticastSocket;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.Enumeration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -17,8 +21,8 @@ public class H264ToTsStreamer {
 
     private final String destinationIp;
     private final int destinationPort;
-    private DatagramSocket socket;
-    private final ExecutorService executor;
+    private MulticastSocket socket;
+    private ExecutorService executor;
 
     // TS packet header constants
     private static final byte SYNC_BYTE = 0x47;
@@ -35,6 +39,8 @@ public class H264ToTsStreamer {
     private long pesPacketCounter = 0;
     private long ptsBase = 0;
 
+    private boolean bCanSend = false;
+
     public H264ToTsStreamer(String destinationIp, int destinationPort) {
         this.destinationIp = destinationIp;
         this.destinationPort = destinationPort;
@@ -43,7 +49,13 @@ public class H264ToTsStreamer {
 
     public void start() {
         try {
-            socket = new DatagramSocket();
+            socket = new MulticastSocket();
+            socket.setTimeToLive(64);
+            // 设置网络接口（解决某些设备无法接收组播的问题）
+            NetworkInterface networkInterface = getMulticastNetworkInterface();
+            if (networkInterface != null) {
+                socket.setNetworkInterface(networkInterface);
+            }
             // Send PAT and PMT tables initially
             sendPATAndPMT();
             Log.d(TAG, "H264ToTsStreamer started");
@@ -61,15 +73,24 @@ public class H264ToTsStreamer {
     }
 
     // This is the callback method that will receive H.264 data
-    public void onH264DataReceived(byte[] h264Data, long presentationTimeUs) {
-        executor.execute(() -> processH264Frame(h264Data, presentationTimeUs));
+    public void onH264DataReceived(byte[] h264Data, boolean isKeyFrame, long presentationTimeUs) {
+        executor.execute(() -> processH264Frame(h264Data,isKeyFrame, presentationTimeUs));
     }
 
-    private void processH264Frame(byte[] h264Data, long presentationTimeUs) {
+    private void processH264Frame(byte[] h264Data, boolean isKeyframe, long presentationTimeUs) {
         try {
             // If this is the first frame, set the PTS base
             if (ptsBase == 0) {
                 ptsBase = presentationTimeUs;
+            }
+
+            // Check if this is a keyframe (I-frame)
+            //boolean isKeyframe = isKeyframe(h264Data);
+
+            // If it's a keyframe, send PAT and PMT tables first
+            if (isKeyframe) {
+                sendPATAndPMT();
+                Log.d(TAG, "Keyframe detected, sent PAT and PMT");
             }
 
             // Calculate PTS (Presentation Time Stamp) relative to base
@@ -148,6 +169,35 @@ public class H264ToTsStreamer {
         } catch (Exception e) {
             Log.e(TAG, "Error processing H264 frame", e);
         }
+    }
+
+    /**
+     * Checks if the H.264 data contains a keyframe (I-frame)
+     * In H.264, NAL unit type 5 indicates an IDR picture (keyframe)
+     */
+    private boolean isKeyframe(byte[] h264Data) {
+        // Look for NAL units in the data
+        for (int i = 0; i < h264Data.length - 4; i++) {
+            // Check for NAL unit start code (0x00 0x00 0x00 0x01 or 0x00 0x00 0x01)
+            if ((h264Data[i] == 0x00 && h264Data[i + 1] == 0x00 && h264Data[i + 2] == 0x00 && h264Data[i + 3] == 0x01) ||
+                    (h264Data[i] == 0x00 && h264Data[i + 1] == 0x00 && h264Data[i + 2] == 0x01)) {
+
+                // Determine the position of the NAL unit type
+                int nalTypeOffset = (h264Data[i + 2] == 0x01) ? i + 3 : i + 4;
+
+                // Make sure we're not out of bounds
+                if (nalTypeOffset < h264Data.length) {
+                    // Extract NAL unit type (5 bits)
+                    int nalType = (h264Data[nalTypeOffset] & 0x1F);
+
+                    // NAL unit type 5 is an IDR picture (keyframe)
+                    if (nalType == 5) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private byte[] createPESPacket(byte[] h264Data, long pts) {
@@ -370,15 +420,19 @@ public class H264ToTsStreamer {
     }
 
     private void sendUdpPacket(byte[] data, int length) {
-        try {
-            DatagramPacket packet = new DatagramPacket(
-                    data,
-                    length,
-                    InetAddress.getByName(destinationIp),
-                    destinationPort);
-            socket.send(packet);
-        } catch (IOException e) {
-            Log.e(TAG, "Error sending UDP packet", e);
+        if(bCanSend) {
+            try {
+                DatagramPacket packet = new DatagramPacket(
+                        data,
+                        length,
+                        InetAddress.getByName(destinationIp),
+                        destinationPort);
+                socket.send(packet);
+            } catch (IOException e) {
+                Log.e(TAG, "IOError sending UDP packet", e);
+            } catch (Exception e) {
+                Log.e(TAG, "Error sending UDP packet", e);
+            }
         }
     }
 
@@ -396,5 +450,27 @@ public class H264ToTsStreamer {
             }
         }
         return crc;
+    }
+
+    public void setSendStreamEnable(boolean bCanSend) {
+        this.bCanSend = bCanSend;
+    }
+
+    /**
+     * 获取适合组播的网络接口
+     */
+    private NetworkInterface getMulticastNetworkInterface() {
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface networkInterface = interfaces.nextElement();
+                if (networkInterface.supportsMulticast() && !networkInterface.isLoopback()) {
+                    return networkInterface;
+                }
+            }
+        } catch (SocketException e) {
+            Log.e(TAG, "获取网络接口失败", e);
+        }
+        return null;
     }
 }

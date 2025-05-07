@@ -22,6 +22,7 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.activities.LoginActivity;
 import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.screencasting.H264ToTsStreamer;
 import com.cosinetech.imates.screencasting.ScreenCastingCommunicator;
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.helper.StaticLabelsFormatter;
@@ -31,9 +32,6 @@ import com.jjoe64.graphview.series.DataPoint;
 import org.loka.screensharekit.EncodeBuilder;
 import org.loka.screensharekit.ScreenShareKit;
 
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -47,10 +45,12 @@ public class FragmentMyStatus extends Fragment {
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
-    private FileOutputStream fos;
     private ScreenCastingCommunicator  udpCommunicator;
     private boolean bHavingClassMode = false;
-    private boolean bShouldProjection = false;
+    private boolean bShouldProjection = true;
+
+    private H264ToTsStreamer h264ToTsStreamer = null;
+    private static final String STREAMING_IP_ADDRESS = "239.255.255.250";
 
     private final ExecutorService executor = Executors.newFixedThreadPool(1);
 
@@ -115,38 +115,28 @@ public class FragmentMyStatus extends Fragment {
                 ScreenShareKit.INSTANCE.stop();
                 switchButton.postDelayed(() -> {
                     switchButton.setEnabled(true);
-                    if (fos != null) {
-                        try {
-                            fos.close();
-                        } catch (IOException e) {
-
-                        }
-                        fos = null;
-                    }
                 }, 2000);
             } else {
                 ScreenShareKit.INSTANCE.init(this)
-                        .config(1920, 1080, 30, 6000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
+                        .config(1920, 1200, 30, 6000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
                         .onH264((buffer, isKeyFrame, width, height, ts) -> {
-                            // 编码后的数据
-                            byte[] bytes = new byte[buffer.remaining()];
-                            buffer.get(bytes);
-                            try {
-                                fos.write(bytes);
-                            } catch (IOException e) {
-                                Log.e("=-=-=-=", e.getMessage());
+                            if(bShouldProjection) {
+                                try {
+                                    // 编码后的数据
+                                    byte[] bytes = new byte[buffer.remaining()];
+                                    buffer.get(bytes);
+                                    h264ToTsStreamer.onH264DataReceived(bytes, isKeyFrame, ts);
+                                    if(isKeyFrame) {
+                                        Log.e("ScreenShareKit", "Key Frame got:" + bytes.length);
+                                    }
+                                } catch (Exception e) {
+                                }
                             }
                         })
                         .onError(errorInfo -> {
 
                         })
                         .onStart(() -> {
-                            try {
-                                fos = new FileOutputStream(getContext().getExternalFilesDir(null).getAbsolutePath() + "/screen.h264", true);  // true表示追加模式
-                            } catch (FileNotFoundException e) {
-                                Log.e("=-=-=-=", e.getMessage());
-                                throw new RuntimeException(e);
-                            }
                             bHavingClassMode = true;
                             switchButton.post(() -> {
                                 switchButton.setCompoundDrawablesWithIntrinsicBounds(null, getContext().getDrawable(R.drawable.app_switch_on), null, null);
@@ -175,6 +165,14 @@ public class FragmentMyStatus extends Fragment {
                                 getContext(),
                                 userInfoViewModel.userId.getValue(),
                                 userInfoViewModel.userInfo.getValue().getName());
+                        if(h264ToTsStreamer != null) {
+                            h264ToTsStreamer.stop();
+                            h264ToTsStreamer = null;
+                        }
+
+                        h264ToTsStreamer = new H264ToTsStreamer(STREAMING_IP_ADDRESS, udpCommunicator.getTsStreamPort());
+                        h264ToTsStreamer.setSendStreamEnable(bShouldProjection);
+                        h264ToTsStreamer.start();
 
                         // 设置网络状态监听器
                         udpCommunicator.setNetworkStateListener(new ScreenCastingCommunicator.NetworkStateListener() {
@@ -202,9 +200,12 @@ public class FragmentMyStatus extends Fragment {
                             public void onStartProjection() {
                                 getActivity().runOnUiThread(() -> {
                                     Toast.makeText(getContext(), "开始投屏", Toast.LENGTH_SHORT).show();
-                                    bShouldProjection = true;
-                                    // 调用投屏开始逻辑
-                                    //startScreenProjection();
+                                    if(!bShouldProjection) {
+                                        h264ToTsStreamer.setSendStreamEnable(true);
+                                        bShouldProjection = true;
+                                        // 调用投屏开始逻辑
+                                        //startScreenProjection();
+                                    }
                                 });
                             }
 
@@ -212,9 +213,12 @@ public class FragmentMyStatus extends Fragment {
                             public void onStopProjection() {
                                 getActivity().runOnUiThread(() -> {
                                     Toast.makeText(getContext(), "停止投屏", Toast.LENGTH_SHORT).show();
-                                    bShouldProjection = false;
-                                    // 调用投屏停止逻辑
-                                    //stopScreenProjection();
+                                    if(bShouldProjection) {
+                                        bShouldProjection = false;
+                                        h264ToTsStreamer.setSendStreamEnable(false);
+                                        // 调用投屏停止逻辑
+                                        //stopScreenProjection();
+                                    }
                                 });
                             }
 

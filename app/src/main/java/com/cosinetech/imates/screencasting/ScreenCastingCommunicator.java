@@ -61,9 +61,6 @@ public class ScreenCastingCommunicator {
 
     // 已处理的命令编号缓存（防止重复处理）
     private final Set<String> processedCommands = new HashSet<>();
-
-    // 当前状态
-    private String currentStatus = STATUS_READY;
     private boolean isStreaming = false;
     private static final int TS_STREAM_PORT_BASE = 10000;
 
@@ -74,15 +71,8 @@ public class ScreenCastingCommunicator {
         this.tsStreamPort = TS_STREAM_PORT_BASE;
     }
 
-    public String getCurrentStatus() {
-        return currentStatus;
-    }
-
-    public void setCurrentStatus(boolean isStreaming) {
-        if(isStreaming)
-            this.currentStatus = STATUS_STREAMING;
-        else
-            this.currentStatus = STATUS_READY;
+    public int getTsStreamPort() {
+        return this.tsStreamPort;
     }
 
     public interface NetworkStateListener {
