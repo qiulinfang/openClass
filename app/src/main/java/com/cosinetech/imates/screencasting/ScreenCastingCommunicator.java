@@ -76,6 +76,7 @@ public class ScreenCastingCommunicator {
     }
 
     public interface NetworkStateListener {
+        void onNetworkPrepared();
         void onNetworkError(String errorMessage);
         void onJoinGroupSuccess();
     }
@@ -126,6 +127,10 @@ public class ScreenCastingCommunicator {
                 // 通知监听器
                 if (networkStateListener != null) {
                     mainHandler.post(networkStateListener::onJoinGroupSuccess);
+                }
+
+                if (networkStateListener != null) {
+                    mainHandler.post(() -> networkStateListener.onNetworkPrepared());
                 }
 
                 // 开始状态上报
