@@ -1,27 +1,23 @@
 package com.cosinetech.imates.screencasting;
 
+import android.annotation.SuppressLint;
 import android.util.Log;
 
 import com.arthenica.ffmpegkit.FFmpegKit;
-import com.arthenica.ffmpegkit.FFmpegKitConfig;
 import com.arthenica.ffmpegkit.FFmpegSession;
+import com.arthenica.ffmpegkit.Level;
 import com.arthenica.ffmpegkit.SessionState;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
-import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class FFmpegTsStreamer {
-    private static final String TAG = "FFmpegTsStreamer";
+public class FFmpegPipeStreamer {
+    private static final String TAG = "FFmpegPipeStreamer";
     private static final int TS_PACKET_SIZE = 188;
     private static final int PACKETS_PER_UDP = 7;
     private static final int UDP_PACKET_SIZE = TS_PACKET_SIZE * PACKETS_PER_UDP; // 1316 bytes
@@ -29,18 +25,17 @@ public class FFmpegTsStreamer {
     private final String destinationIp;
     private final int destinationPort;
     private final int frameRate;
-    private final File cacheDir;
 
     private DatagramSocket socket;
-    private ExecutorService executor;
-    private ScheduledExecutorService heartbeatExecutor;
-    private AtomicBoolean isRunning = new AtomicBoolean(false);
-    private AtomicBoolean isFFmpegRunning = new AtomicBoolean(false);
+    private final ExecutorService executor;
+    private final ScheduledExecutorService heartbeatExecutor;
+    private final AtomicBoolean isRunning = new AtomicBoolean(false);
+    private final AtomicBoolean isFFmpegRunning = new AtomicBoolean(false);
 
     // 管道相关
-    private PipedOutputStream pipedOutputStream;
-    private PipedInputStream pipedInputStream;
-    private static int PIPE_BUFFER_SIZE = 1024 * 1024; // 1MB管道缓冲区
+    private int readFd = -1;
+    private int writeFd = -1;
+    private String pipePath;
 
     private long lastDataTime = 0;
     private long dataTimeout = 5000; // 5秒超时
@@ -49,11 +44,10 @@ public class FFmpegTsStreamer {
     // 用于生成空帧的数据
     private byte[] nullFrame;
 
-    public FFmpegTsStreamer(String destinationIp, int destinationPort, int frameRate, File cacheDir) {
+    public FFmpegPipeStreamer(String destinationIp, int destinationPort, int frameRate) {
         this.destinationIp = destinationIp;
         this.destinationPort = destinationPort;
         this.frameRate = frameRate;
-        this.cacheDir = cacheDir;
         this.executor = Executors.newFixedThreadPool(2);
         this.heartbeatExecutor = Executors.newSingleThreadScheduledExecutor();
 
@@ -76,8 +70,16 @@ public class FFmpegTsStreamer {
             socket = new DatagramSocket();
 
             // 创建管道
-            pipedOutputStream = new PipedOutputStream();
-            pipedInputStream = new PipedInputStream(pipedOutputStream, PIPE_BUFFER_SIZE);
+            int[] fds = PipeHelper.createPipe();
+            if (fds == null || fds.length != 2) {
+                throw new IOException("Failed to create pipe");
+            }
+
+            readFd = fds[0];
+            writeFd = fds[1];
+            pipePath = PipeHelper.getFdPath(readFd);
+
+            Log.d(TAG, "Created pipe: read_fd=" + readFd + ", write_fd=" + writeFd + ", path=" + pipePath);
 
             // 启动FFmpeg处理
             startFFmpegProcess();
@@ -85,7 +87,7 @@ public class FFmpegTsStreamer {
             // 启动心跳检测，确保数据流不会中断
             startHeartbeatMonitor();
 
-            Log.d(TAG, "FFmpegTsStreamer started");
+            Log.d(TAG, "FFmpegPipeStreamer started");
         } catch (Exception e) {
             Log.e(TAG, "Failed to start streamer", e);
             stop();
@@ -108,17 +110,13 @@ public class FFmpegTsStreamer {
             }
 
             // 关闭管道
-            try {
-                if (pipedOutputStream != null) {
-                    pipedOutputStream.close();
-                    pipedOutputStream = null;
-                }
-                if (pipedInputStream != null) {
-                    pipedInputStream.close();
-                    pipedInputStream = null;
-                }
-            } catch (IOException e) {
-                Log.e(TAG, "Error closing pipes", e);
+            if (readFd >= 0) {
+                PipeHelper.closeFd(readFd);
+                readFd = -1;
+            }
+            if (writeFd >= 0) {
+                PipeHelper.closeFd(writeFd);
+                writeFd = -1;
             }
 
             // 关闭socket
@@ -130,7 +128,7 @@ public class FFmpegTsStreamer {
             // 关闭线程池
             executor.shutdown();
 
-            Log.d(TAG, "FFmpegTsStreamer stopped");
+            Log.d(TAG, "FFmpegPipeStreamer stopped");
         } catch (Exception e) {
             Log.e(TAG, "Error stopping streamer", e);
         }
@@ -140,7 +138,7 @@ public class FFmpegTsStreamer {
      * 启动心跳监控，确保数据流不会因为输入延迟而中断
      */
     private void startHeartbeatMonitor() {
-        heartbeatExecutor.scheduleAtFixedRate(() -> {
+        heartbeatExecutor.scheduleWithFixedDelay(() -> {
             if (!isRunning.get()) {
                 return;
             }
@@ -160,13 +158,11 @@ public class FFmpegTsStreamer {
     private void startFFmpegProcess() {
         executor.execute(() -> {
             try {
-                // 创建临时命名管道文件路径（仅用于FFmpeg命令，实际不会创建此文件）
-                String pipePath = "pipe:0";
-
                 // 构建FFmpeg命令
-                // 使用-i pipe:0从标准输入读取数据
+                // 使用-i pipe:<fd>从管道读取数据
+                @SuppressLint("DefaultLocale")
                 String ffmpegCommand = String.format(
-                        "-f h264 -r %d -i %s " +
+                        "-fflags nobuffer+flush_packets+discardcorrupt -f h264 -r %d -i %s " +
                                 "-c copy -bsf:v h264_mp4toannexb -f mpegts " +
                                 "udp://%s:%d?pkt_size=%d",
                         frameRate, pipePath,
@@ -175,9 +171,6 @@ public class FFmpegTsStreamer {
                 Log.d(TAG, "Starting FFmpeg with command: " + ffmpegCommand);
 
                 isFFmpegRunning.set(true);
-
-                // 设置输入流
-                FFmpegKitConfig.setInputRedirection(pipedInputStream);
 
                 // 执行FFmpeg命令
                 currentSession = FFmpegKit.executeAsync(ffmpegCommand,
@@ -209,7 +202,7 @@ public class FFmpegTsStreamer {
                             }
                         },
                         log -> {
-                            if (log.getLevel() <= 32) { // AV_LOG_WARNING及以上级别
+                            if (log.getLevel().getValue() <= Level.AV_LOG_WARNING.getValue()) { // AV_LOG_WARNING及以上级别
                                 Log.d(TAG, "FFmpeg log: " + log.getMessage());
                             }
                         },
@@ -234,7 +227,7 @@ public class FFmpegTsStreamer {
      * 接收H.264数据并写入管道
      */
     public void onH264DataReceived(byte[] h264Data, long presentationTimeUs) {
-        if (!isRunning.get() || pipedOutputStream == null) {
+        if (!isRunning.get() || writeFd < 0) {
             return;
         }
 
@@ -244,47 +237,69 @@ public class FFmpegTsStreamer {
                 lastDataTime = System.currentTimeMillis();
 
                 // 写入H.264数据到管道
-                pipedOutputStream.write(h264Data);
-                pipedOutputStream.flush();
-            } catch (IOException e) {
+                int bytesWritten = PipeHelper.write(writeFd, h264Data, 0, h264Data.length);
+
+                if (bytesWritten < 0) {
+                    Log.e(TAG, "Failed to write data to pipe: " + bytesWritten);
+
+                    // 如果管道已关闭或出错，尝试重新创建
+                    if (isRunning.get()) {
+                        recreatePipe();
+                    }
+                } else if (bytesWritten < h264Data.length) {
+                    Log.w(TAG, "Partial write to pipe: " + bytesWritten + "/" + h264Data.length);
+                    // 可以选择重试写入剩余数据，或者简单地丢弃
+                }
+            } catch (Exception e) {
                 Log.e(TAG, "Error writing H.264 data to pipe", e);
 
-                // 如果管道已关闭或出错，尝试重新创建
+                // 如果出错，尝试重新创建管道
                 if (isRunning.get()) {
-                    try {
-                        // 关闭旧管道
-                        if (pipedOutputStream != null) {
-                            try {
-                                pipedOutputStream.close();
-                            } catch (IOException ex) {
-                                // 忽略关闭错误
-                            }
-                        }
-                        if (pipedInputStream != null) {
-                            try {
-                                pipedInputStream.close();
-                            } catch (IOException ex) {
-                                // 忽略关闭错误
-                            }
-                        }
-
-                        // 创建新管道
-                        pipedOutputStream = new PipedOutputStream();
-                        pipedInputStream = new PipedInputStream(pipedOutputStream, PIPE_BUFFER_SIZE);
-
-                        // 重启FFmpeg进程
-                        if (isFFmpegRunning.getAndSet(false)) {
-                            if (currentSession != null) {
-                                FFmpegKit.cancel(currentSession.getSessionId());
-                            }
-                            startFFmpegProcess();
-                        }
-                    } catch (IOException ex) {
-                        Log.e(TAG, "Failed to recreate pipes", ex);
-                    }
+                    recreatePipe();
                 }
             }
         });
+    }
+
+    /**
+     * 重新创建管道
+     */
+    private void recreatePipe() {
+        try {
+            Log.d(TAG, "Recreating pipe");
+
+            // 关闭旧管道
+            if (readFd >= 0) {
+                PipeHelper.closeFd(readFd);
+                readFd = -1;
+            }
+            if (writeFd >= 0) {
+                PipeHelper.closeFd(writeFd);
+                writeFd = -1;
+            }
+
+            // 创建新管道
+            int[] fds = PipeHelper.createPipe();
+            if (fds == null || fds.length != 2) {
+                throw new IOException("Failed to create pipe");
+            }
+
+            readFd = fds[0];
+            writeFd = fds[1];
+            pipePath = PipeHelper.getFdPath(readFd);
+
+            Log.d(TAG, "Created new pipe: read_fd=" + readFd + ", write_fd=" + writeFd + ", path=" + pipePath);
+
+            // 重启FFmpeg进程
+            if (isFFmpegRunning.getAndSet(false)) {
+                if (currentSession != null) {
+                    FFmpegKit.cancel(currentSession.getSessionId());
+                }
+                startFFmpegProcess();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to recreate pipe", e);
+        }
     }
 
     /**
@@ -294,14 +309,4 @@ public class FFmpegTsStreamer {
     public void setDataTimeout(long timeoutMs) {
         this.dataTimeout = timeoutMs;
     }
-
-    /**
-     * 设置管道缓冲区大小
-     */
-    public void setPipeBufferSize(int bufferSize) {
-        // 只能在创建新管道时设置，这里只保存值
-        // 下次重新创建管道时会使用新的缓冲区大小
-        PIPE_BUFFER_SIZE = bufferSize;
-    }
 }
-

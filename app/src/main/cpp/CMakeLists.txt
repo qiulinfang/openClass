@@ -10,7 +10,7 @@ cmake_minimum_required(VERSION 3.22.1)
 # Since this is the top level CMakeLists.txt, the project name is also accessible
 # with ${CMAKE_PROJECT_NAME} (both CMake variables are in-sync within the top level
 # build script scope).
-project("tsmuxer")
+project("pipehelper")
 
 # Creates and names a library, sets it as either STATIC
 # or SHARED, and provides the relative paths to its source code.
@@ -27,19 +27,7 @@ project("tsmuxer")
 # used in the AndroidManifest.xml file.
 add_library(${CMAKE_PROJECT_NAME} SHARED
     # List C/C++ source files with relative paths to this CMakeLists.txt.
-        litets.h
-        ringbuf.h
-        strm_le.h
-        ts_muxer.h
-        misc.c
-        pes.c
-        ps_demux.c
-        ps_stream.c
-        ringbuf.c
-        ts_demux.c
-        ts_stream.c
-        ts_muxer.c
-        tsmuxer_jni.c)
+        pipe_helper.c)
 
 # Specifies libraries CMake should link to your target library. You
 # can link libraries from various origins, such as libraries defined in this
