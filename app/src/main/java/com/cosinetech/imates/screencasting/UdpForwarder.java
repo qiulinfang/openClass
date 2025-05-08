@@ -2,9 +2,6 @@ package com.cosinetech.imates.screencasting;
 
 import android.util.Log;
 
-import com.cosinetech.imates.ApplicationModelShared;
-
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.*;
 

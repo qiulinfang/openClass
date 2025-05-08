@@ -189,6 +189,9 @@ public class FFmpegFileStreamer {
                         "-stream_loop -1 -fflags +genpts+nobuffer+flush_packets " +
                                 "-f h264 -r %d -i %s " +
                                 "-c copy -bsf:v h264_mp4toannexb -f mpegts " +
+                                "-muxdelay 0.1 -muxpreload 0.1 " +
+                                "-metadata service_provider=\"imates provider\"  " +
+                                "-metadata service_name=\"imates ltd.\" " +
                                 "%s",
                         frameRate, h264File.getAbsolutePath(), outDir);
                         //destinationIp, destinationPort, UDP_PACKET_SIZE);

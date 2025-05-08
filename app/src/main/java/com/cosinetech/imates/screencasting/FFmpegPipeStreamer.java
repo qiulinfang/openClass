@@ -177,6 +177,9 @@ public class FFmpegPipeStreamer {
                 String ffmpegCommand = String.format(
                         "-y -fflags +genpts+nobuffer+flush_packets -flags low_delay -f h264 -r %d -i %s " +
                                 "-c:v copy -bsf:v h264_mp4toannexb -f mpegts " +
+                                "-muxdelay 0.1 -muxpreload 0.1 " +
+                                "-metadata service_provider=\"imates provider\"  " +
+                                "-metadata service_name=\"imates ltd.\" " +
                                 "%s",
                         frameRate,
                         pipePath,
@@ -186,6 +189,9 @@ public class FFmpegPipeStreamer {
                     ffmpegCommand = String.format(
                             "-y -fflags +genpts+nobuffer+flush_packets -flags low_delay -f h264 -r %d -i %s " +
                                     "-c:v copy -bsf:v h264_mp4toannexb -f mpegts " +
+                                    "-muxdelay 0.1 -muxpreload 0.1 " +
+                                    "-metadata service_provider=\"imates provider\"  " +
+                                    "-metadata service_name=\"imates ltd.\" " +
                                     "udp://%s:%d?pkt_size=%d",
                             frameRate,
                             pipePath,

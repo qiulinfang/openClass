@@ -160,6 +160,9 @@ public class FFmpegSocketStreamer {
                                 // "probesize 32 -analyzeduration 0 " +
                                 "-f h264 -i tcp://127.0.0.1:%d " +
                                 "-c copy -bsf:v h264_mp4toannexb -f mpegts " +
+                                "-muxdelay 0.1 -muxpreload 0.1 " +
+                                "-metadata service_provider=\"imates provider\"  " +
+                                "-metadata service_name=\"imates ltd.\" " +
                                 "udp://%s:%d?pkt_size=%d",
                         frameRate, localPort,
                         destinationIp, destinationPort, UDP_PACKET_SIZE);
