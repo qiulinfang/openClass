@@ -57,19 +57,18 @@ public class UdpForwarder {
             socket.setReuseAddress(true);
             Log.i(TAG, "UDP forwarder listening on 127.0.0.1:" + listenPort);
 
-            FileOutputStream fos = null;
-            try {
-                fos = new FileOutputStream(ApplicationModelShared.getInstance().getExternalFilesDir(null).getAbsolutePath() + "/debug.ts");
-            } catch (Exception e) {
-
-            }
+//            FileOutputStream fos = null;
+//            try {
+//                fos = new FileOutputStream(ApplicationModelShared.getInstance().getExternalFilesDir(null).getAbsolutePath() + "/debug.ts");
+//            } catch (Exception e) {
+//            }
             while (running) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 try {
                     socket.receive(packet);
-                    if(fos != null) {
-                        fos.write(packet.getData(), packet.getOffset(), packet.getLength());
-                    }
+//                    if(fos != null) {
+//                        fos.write(packet.getData(), packet.getOffset(), packet.getLength());
+//                    }
                     if (shouldForward && targetHost != null && targetPort > 0) {
                         try {
                             DatagramPacket forwardPacket = new DatagramPacket(
@@ -78,7 +77,7 @@ public class UdpForwarder {
                             );
                             socket.send(forwardPacket);
                         } catch (Exception e) {
-                            Log.e(TAG, "Failed to forward packet: " + e.getMessage(), e);
+                            //Log.e(TAG, "Failed to forward packet: " + e.getMessage(), e);
                             Thread.sleep(10);
                         }
                     }
