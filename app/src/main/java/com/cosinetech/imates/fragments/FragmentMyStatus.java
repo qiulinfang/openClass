@@ -54,7 +54,7 @@ public class FragmentMyStatus extends Fragment {
     private UdpForwarder udpForwarder = null;
     private static final String STREAMING_IP_ADDRESS = "239.255.255.250";
     private static final int STREAMING_LOCAL_PORT = 20250;
-    private static final int ENCODE_FRAME_RATE = 60;
+    private static final int ENCODE_FRAME_RATE = 25;
 
     private final ExecutorService executor = Executors.newFixedThreadPool(1);
 
