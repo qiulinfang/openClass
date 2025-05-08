@@ -161,6 +161,8 @@ dependencies {
     implementation files('libs/markwon-syntax-highlight.aar')
     implementation files('libs/markwon-ext-latex.aar')
     implementation files('libs/ffmpeg-kit.aar')
+    implementation files('libs/smart-exception-java-0.2.1.jar')
+    implementation files('libs/smart-exception-common-0.2.1.jar')
 
     implementation 'com.github.LxzBUG:ScreenShare:1.1.6'
 // FFmpegKit依赖

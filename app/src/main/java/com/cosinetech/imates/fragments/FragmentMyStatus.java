@@ -23,6 +23,7 @@ import com.cosinetech.imates.activities.LoginActivity;
 import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.screencasting.FFmpegPipeStreamer;
+import com.cosinetech.imates.screencasting.FFmpegSocketStreamer;
 import com.cosinetech.imates.screencasting.ScreenCastingCommunicator;
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.helper.StaticLabelsFormatter;
@@ -118,7 +119,7 @@ public class FragmentMyStatus extends Fragment {
                 }, 2000);
             } else {
                 ScreenShareKit.INSTANCE.init(this)
-                        .config(1920, 1200, ENCODE_FRAME_RATE, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
+                        .config(1920, 1080, ENCODE_FRAME_RATE, 4000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
                         .onH264((buffer, isKeyFrame, width, height, ts) -> {
                             if(bShouldProjection) {
                                 try {
@@ -193,7 +194,9 @@ public class FragmentMyStatus extends Fragment {
 
                             @Override
                             public void onNetworkPrepared() {
-                                h264ToTsStreamer = new FFmpegPipeStreamer(STREAMING_IP_ADDRESS, udpCommunicator.getTsStreamPort(), ENCODE_FRAME_RATE);
+                                h264ToTsStreamer = new FFmpegPipeStreamer("192.168.31.206",
+                                        udpCommunicator.getTsStreamPort(),
+                                        ENCODE_FRAME_RATE);
 //                                h264ToTsStreamer.setSendStreamEnable(bShouldProjection);
                                 h264ToTsStreamer.start();
                             }

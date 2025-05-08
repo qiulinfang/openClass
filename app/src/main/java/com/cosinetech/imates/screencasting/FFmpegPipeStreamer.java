@@ -42,7 +42,7 @@ public class FFmpegPipeStreamer {
     private FFmpegSession currentSession;
 
     // 用于生成空帧的数据
-    private byte[] nullFrame;
+    private final byte[] nullFrame;
 
     public FFmpegPipeStreamer(String destinationIp, int destinationPort, int frameRate) {
         this.destinationIp = destinationIp;
@@ -162,7 +162,7 @@ public class FFmpegPipeStreamer {
                 // 使用-i pipe:<fd>从管道读取数据
                 @SuppressLint("DefaultLocale")
                 String ffmpegCommand = String.format(
-                        "-fflags +genpts+nobuffer+flush_packets -r %d -f h264 -i %s " +
+                        "-fflags nobuffer+flush_packets+discardcorrupt -f h264 -r %d -i %s " +
                                 "-c copy -bsf:v h264_mp4toannexb -f mpegts " +
                                 "udp://%s:%d?pkt_size=%d",
                         frameRate, pipePath,

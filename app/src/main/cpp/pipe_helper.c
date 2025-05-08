@@ -25,6 +25,10 @@ Java_com_cosinetech_imates_screencasting_PipeHelper_createPipe(JNIEnv *env, jcla
     fcntl(pipefd[0], F_SETFL, O_NONBLOCK);
     fcntl(pipefd[1], F_SETFL, O_NONBLOCK);
 
+    int32_t pipeSize = 1024 * 1024 * 10;
+    fcntl(pipefd[0], F_SETPIPE_SZ, pipeSize);
+    fcntl(pipefd[1], F_SETPIPE_SZ, pipeSize);
+
     // 创建返回数组
     jintArray result = (*env)->NewIntArray(env, 2);
     if (result == NULL) {
