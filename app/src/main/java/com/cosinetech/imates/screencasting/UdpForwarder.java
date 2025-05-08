@@ -2,6 +2,9 @@ package com.cosinetech.imates.screencasting;
 
 import android.util.Log;
 
+import com.cosinetech.imates.ApplicationModelShared;
+
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.*;
 
@@ -49,14 +52,24 @@ public class UdpForwarder {
     private void runForwarder() {
         byte[] buffer = new byte[2048];
         try (DatagramSocket socket = new DatagramSocket(listenPort)) {
+            socket.setReceiveBufferSize(10 * 1024 * 1024);
+            Log.e("UDP", "实际接收缓冲大小: " + socket.getReceiveBufferSize());
             socket.setReuseAddress(true);
             Log.i(TAG, "UDP forwarder listening on 127.0.0.1:" + listenPort);
 
+            FileOutputStream fos = null;
+            try {
+                fos = new FileOutputStream(ApplicationModelShared.getInstance().getExternalFilesDir(null).getAbsolutePath() + "/debug.ts");
+            } catch (Exception e) {
+
+            }
             while (running) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 try {
                     socket.receive(packet);
-
+                    if(fos != null) {
+                        fos.write(packet.getData(), packet.getOffset(), packet.getLength());
+                    }
                     if (shouldForward && targetHost != null && targetPort > 0) {
                         try {
                             DatagramPacket forwardPacket = new DatagramPacket(
