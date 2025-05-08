@@ -162,7 +162,7 @@ public class FFmpegPipeStreamer {
                 // 使用-i pipe:<fd>从管道读取数据
                 @SuppressLint("DefaultLocale")
                 String ffmpegCommand = String.format(
-                        "-fflags nobuffer+flush_packets+discardcorrupt -f h264 -r %d -i %s " +
+                        "-fflags +genpts+nobuffer+flush_packets -flags low_delay -f h264 -r %d -i %s " +
                                 "-c copy -bsf:v h264_mp4toannexb -f mpegts " +
                                 "udp://%s:%d?pkt_size=%d",
                         frameRate, pipePath,

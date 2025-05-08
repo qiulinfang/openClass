@@ -51,6 +51,7 @@ public class FFmpegSocketStreamer {
 
             // 创建本地TCP服务器
             serverSocket = new ServerSocket(0); // 0表示自动分配端口
+            serverSocket.setReceiveBufferSize(8 * 1024);
             localPort = serverSocket.getLocalPort();
             Log.d(TAG, "Created local TCP server on port " + localPort);
 
@@ -71,12 +72,16 @@ public class FFmpegSocketStreamer {
      * 接受TCP连接
      */
     private void acceptConnections() {
+        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO);
         try {
             while (isRunning.get() && !serverSocket.isClosed()) {
                 Log.d(TAG, "Waiting for FFmpeg to connect...");
 
                 // 接受连接
                 Socket socket = serverSocket.accept();
+                socket.setTcpNoDelay(true); // 禁用Nagle算法
+                socket.setReceiveBufferSize(8 * 1024);
+                socket.setSendBufferSize(8 * 1024);
                 Log.d(TAG, "FFmpeg connected from " + socket.getInetAddress());
 
                 // 关闭旧连接
@@ -145,12 +150,14 @@ public class FFmpegSocketStreamer {
      */
     private void startFFmpegProcess() {
         executor.execute(() -> {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO);
             try {
                 // 构建FFmpeg命令
                 // 使用TCP协议从本地服务器读取数据
                 @SuppressLint("DefaultLocale")
                 String ffmpegCommand = String.format(
-                        "-fflags +genpts+nobuffer+flush_packets -r %d " +
+                        "-fflags +genpts+nobuffer+flush_packets -flags low_delay -r %d " +
+                                // "probesize 32 -analyzeduration 0 " +
                                 "-f h264 -i tcp://127.0.0.1:%d " +
                                 "-c copy -bsf:v h264_mp4toannexb -f mpegts " +
                                 "udp://%s:%d?pkt_size=%d",
@@ -219,6 +226,7 @@ public class FFmpegSocketStreamer {
         }
 
         executor.execute(() -> {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO);
             try {
                 // 写入H.264数据到Socket
                 socketOutputStream.write(h264Data);
