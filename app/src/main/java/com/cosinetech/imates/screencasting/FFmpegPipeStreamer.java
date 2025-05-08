@@ -43,13 +43,15 @@ public class FFmpegPipeStreamer {
 
     // 用于生成空帧的数据
     private final byte[] nullFrame;
+    private String outDir;
 
-    public FFmpegPipeStreamer(String destinationIp, int destinationPort, int frameRate) {
+    public FFmpegPipeStreamer(String destinationIp, int destinationPort, int frameRate, String outDir) {
         this.destinationIp = destinationIp;
         this.destinationPort = destinationPort;
         this.frameRate = frameRate;
         this.executor = Executors.newFixedThreadPool(2);
         this.heartbeatExecutor = Executors.newSingleThreadScheduledExecutor();
+        this.outDir = outDir;
 
         // 创建一个简单的空帧（NAL单元类型为12 - 填充）
         this.nullFrame = new byte[] {
