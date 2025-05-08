@@ -1,5 +1,6 @@
 package com.cosinetech.imates.screencasting;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
@@ -152,16 +153,16 @@ public class ScreenCastingCommunicator {
      */
     public void stop() {
         executor.execute(() -> {
-            try {
-                if (controlSocket != null && controlGroup != null) {
+            if (controlSocket != null && controlGroup != null) {
+                try {
                     controlSocket.leaveGroup(controlGroup);
+                } catch (Exception ignore) {}
+                finally {
                     controlSocket.close();
                 }
-                executor.shutdown();
-                Log.d(TAG, "学生端通信已停止");
-            } catch (IOException e) {
-                Log.e(TAG, "停止通信时出错", e);
             }
+            executor.shutdown();
+            Log.d(TAG, "学生端通信已停止");
         });
     }
 
@@ -193,6 +194,7 @@ public class ScreenCastingCommunicator {
         String status = isStreaming ? STATUS_STREAMING : STATUS_READY;
         String localIp = getLocalIpAddress();
 
+        @SuppressLint("DefaultLocale")
         String message = String.format("%s,%s,%s,%s,%s,%s,%d,%s",
                 MSG_TYPE_STATUS,
                 ROLE_STUDENT,

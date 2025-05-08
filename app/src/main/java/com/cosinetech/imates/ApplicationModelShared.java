@@ -1,20 +1,15 @@
 package com.cosinetech.imates;
 
+import android.app.Activity;
 import android.app.Application;
-import android.graphics.Bitmap;
+import android.os.Bundle;
 import android.util.Log;
-import android.widget.FrameLayout;
-import android.widget.ImageView;
-import android.widget.RelativeLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.ViewModelStore;
 import androidx.lifecycle.ViewModelStoreOwner;
 
-import com.bumptech.glide.Glide;
-import com.bumptech.glide.request.target.SimpleTarget;
-import com.bumptech.glide.request.transition.Transition;
 import com.cosinetech.imates.activities.MainActivity;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.UdpForwarderManager;
@@ -29,6 +24,7 @@ public class ApplicationModelShared extends Application implements ViewModelStor
 
     public AiChatMessageRequest chatRequest;
 
+    private int activityCount = 0;
     private static ApplicationModelShared appInstance = null;
 
     @Override
@@ -39,6 +35,35 @@ public class ApplicationModelShared extends Application implements ViewModelStor
         AssetsCopyUtils.copyAssetsToDocuments(this);
         UdpForwarderManager.getInstance().start();
         H264MpegTSStreamerManager.getInstance();
+        registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
+            @Override
+            public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {
+                activityCount++;
+            }
+
+            @Override
+            public void onActivityDestroyed(Activity activity) {
+                activityCount--;
+                if (activityCount == 0) {
+                    // 所有Activity都销毁了，可能是应用退出
+                    onAppExit();
+                }
+            }
+
+            // 其他生命周期方法需要空实现
+            @Override public void onActivityStarted(Activity activity) {}
+            @Override public void onActivityResumed(Activity activity) {}
+            @Override public void onActivityPaused(Activity activity) {}
+            @Override public void onActivityStopped(Activity activity) {}
+            @Override public void onActivitySaveInstanceState(Activity activity, Bundle outState) {}
+        });
+    }
+
+    private void onAppExit() {
+        // 这里处理应用退出逻辑
+        Log.e("MyApp", "Application is exiting");
+        UdpForwarderManager.getInstance().stop();
+        H264MpegTSStreamerManager.getInstance().stop();
     }
 
     public static ApplicationModelShared getInstance() {

@@ -66,10 +66,11 @@ public class UdpForwarder {
                             socket.send(forwardPacket);
                         } catch (Exception e) {
                             Log.e(TAG, "Failed to forward packet: " + e.getMessage(), e);
+                            Thread.sleep(10);
                         }
                     }
 
-                } catch (IOException e) {
+                } catch (IOException | InterruptedException e) {
                     if (running) {
                         Log.e(TAG, "Receive error: " + e.getMessage(), e);
                     }

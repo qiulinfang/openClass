@@ -4,7 +4,7 @@ import androidx.compose.foundation.interaction.PressInteraction;
 
 public class H264MpegTSStreamerManager {
     private static FFmpegPipeStreamer instance = null;
-    public static final int ENCODE_FRAME_RATE = 60;
+    public static final int ENCODE_FRAME_RATE = 30;
 
     public static synchronized FFmpegPipeStreamer  getInstance() {
         if (instance == null) {
