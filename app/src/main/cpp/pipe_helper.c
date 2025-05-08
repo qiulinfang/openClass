@@ -57,18 +57,22 @@ JNIEXPORT jint JNICALL
 Java_com_cosinetech_imates_screencasting_PipeHelper_write(JNIEnv *env, jclass clazz, jint fd,
                                             jbyteArray data, jint offset, jint length) {
     if (fd < 0 || data == NULL) {
+        LOGE("Failed to write pipe for null!!!!!!");
         return -1;
     }
 
     // 获取Java字节数组
     jbyte *buffer = (*env)->GetByteArrayElements(env, data, NULL);
     if (buffer == NULL) {
+        LOGE("Failed to write pipe for nullBuffer!!!!!!");
         return -1;
     }
 
     // 写入数据
     ssize_t bytesWritten = write(fd, buffer + offset, length);
-
+    if(bytesWritten < 0) {
+        LOGE("Failed to write pipe: %s", strerror(errno));
+    }
     // 释放Java字节数组
     (*env)->ReleaseByteArrayElements(env, data, buffer, JNI_ABORT);
 

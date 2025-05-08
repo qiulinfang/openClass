@@ -50,7 +50,7 @@ public class FragmentMyStatus extends Fragment {
     private boolean bHavingClassMode = false;
     private boolean bShouldProjection = true;
 
-    private FFmpegSocketStreamer h264ToTsStreamer = null;
+    private FFmpegPipeStreamer h264ToTsStreamer = null;
     private static final String STREAMING_IP_ADDRESS = "239.255.255.250";
     private static final int ENCODE_FRAME_RATE = 30;
 
@@ -194,10 +194,10 @@ public class FragmentMyStatus extends Fragment {
 
                             @Override
                             public void onNetworkPrepared() {
-                                h264ToTsStreamer = new FFmpegSocketStreamer("192.168.31.206",
+                                h264ToTsStreamer = new FFmpegPipeStreamer("192.168.31.206",
                                         udpCommunicator.getTsStreamPort(),
-                                        ENCODE_FRAME_RATE);
-                                //, getContext().getExternalFilesDir(null).getAbsolutePath() + "/out.ts");
+                                        ENCODE_FRAME_RATE
+                                , getContext().getExternalFilesDir(null).getAbsolutePath() + "/out.ts");
 //                                h264ToTsStreamer.setSendStreamEnable(bShouldProjection);
                                 h264ToTsStreamer.start();
                             }

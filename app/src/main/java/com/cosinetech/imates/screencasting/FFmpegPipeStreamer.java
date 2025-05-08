@@ -5,7 +5,9 @@ import android.util.Log;
 
 import com.arthenica.ffmpegkit.FFmpegKit;
 import com.arthenica.ffmpegkit.FFmpegSession;
+import com.arthenica.ffmpegkit.FFmpegSessionCompleteCallback;
 import com.arthenica.ffmpegkit.Level;
+import com.arthenica.ffmpegkit.Session;
 import com.arthenica.ffmpegkit.SessionState;
 
 import java.io.IOException;
@@ -141,16 +143,25 @@ public class FFmpegPipeStreamer {
      */
     private void startHeartbeatMonitor() {
         heartbeatExecutor.scheduleWithFixedDelay(() -> {
-            if (!isRunning.get()) {
-                return;
-            }
+            try {
+                if (!isRunning.get()) {
+                    return;
+                }
 
-            long now = System.currentTimeMillis();
-            if (lastDataTime > 0 && now - lastDataTime > dataTimeout) {
-                Log.d(TAG, "No data received for " + dataTimeout + "ms, sending null frame");
-                // 发送空帧保持流活跃
-                onH264DataReceived(nullFrame, System.nanoTime() / 1000);
-            }
+                long now = System.currentTimeMillis();
+                if (lastDataTime > 0 && now - lastDataTime > dataTimeout) {
+                    Log.d(TAG, "No data received for " + dataTimeout + "ms, sending null frame");
+                    // 发送空帧保持流活跃
+                    onH264DataReceived(nullFrame, System.nanoTime() / 1000);
+                }
+
+                if(currentSession != null
+                        && !isFFmpegRunning.get()
+                        && currentSession.getState() == SessionState.RUNNING) {
+                    isFFmpegRunning.set(true);
+                }
+            }  catch (Exception ignored)
+            {}
         }, 1000, 1000, TimeUnit.MILLISECONDS);
     }
 
@@ -164,15 +175,15 @@ public class FFmpegPipeStreamer {
                 // 使用-i pipe:<fd>从管道读取数据
                 @SuppressLint("DefaultLocale")
                 String ffmpegCommand = String.format(
-                        "-fflags +genpts+nobuffer+flush_packets -flags low_delay -f h264 -r %d -i %s " +
-                                "-c copy -bsf:v h264_mp4toannexb -f mpegts " +
-                                "udp://%s:%d?pkt_size=%d",
-                        frameRate, pipePath,
-                        destinationIp, destinationPort, UDP_PACKET_SIZE);
+                        "-y -fflags +genpts+nobuffer+flush_packets -flags low_delay -f h264 -r %d -i %s " +
+                                "-c:v copy -bsf:v h264_mp4toannexb -f mpegts " +
+                                "%s",
+                        frameRate, pipePath, outDir);
+                        //destinationIp, destinationPort, UDP_PACKET_SIZE);
 
                 Log.d(TAG, "Starting FFmpeg with command: " + ffmpegCommand);
 
-                isFFmpegRunning.set(true);
+                //isFFmpegRunning.set(true);
 
                 // 执行FFmpeg命令
                 currentSession = FFmpegKit.executeAsync(ffmpegCommand,
@@ -205,11 +216,12 @@ public class FFmpegPipeStreamer {
                         },
                         log -> {
                             if (log.getLevel().getValue() <= Level.AV_LOG_WARNING.getValue()) { // AV_LOG_WARNING及以上级别
-                                Log.d(TAG, "FFmpeg log: " + log.getMessage());
+                                Log.e(TAG, "FFmpeg log: " + log.getMessage());
                             }
                         },
                         statistics -> {
                             // 可以在这里处理进度统计信息
+                            Log.e(TAG, "FFmpeg status: " + statistics.toString());
                         });
 
             } catch (Exception e) {
@@ -230,6 +242,10 @@ public class FFmpegPipeStreamer {
      */
     public void onH264DataReceived(byte[] h264Data, long presentationTimeUs) {
         if (!isRunning.get() || writeFd < 0) {
+            return;
+        }
+
+        if(!isFFmpegRunning.get()) {
             return;
         }
 
