@@ -23,8 +23,8 @@ import com.cosinetech.imates.activities.LoginActivity;
 import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.screencasting.FFmpegPipeStreamer;
-import com.cosinetech.imates.screencasting.FFmpegSocketStreamer;
 import com.cosinetech.imates.screencasting.ScreenCastingCommunicator;
+import com.cosinetech.imates.screencasting.UdpForwarder;
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.helper.StaticLabelsFormatter;
 import com.jjoe64.graphview.series.BarGraphSeries;
@@ -51,7 +51,9 @@ public class FragmentMyStatus extends Fragment {
     private boolean bShouldProjection = true;
 
     private FFmpegPipeStreamer h264ToTsStreamer = null;
+    private UdpForwarder udpForwarder = null;
     private static final String STREAMING_IP_ADDRESS = "239.255.255.250";
+    private static final int STREAMING_LOCAL_PORT = 20250;
     private static final int ENCODE_FRAME_RATE = 60;
 
     private final ExecutorService executor = Executors.newFixedThreadPool(1);
@@ -106,6 +108,13 @@ public class FragmentMyStatus extends Fragment {
             startActivity(intent);
             requireActivity().finish();
         });
+        udpForwarder = new UdpForwarder(STREAMING_LOCAL_PORT);
+        udpForwarder.start();
+
+        h264ToTsStreamer = new FFmpegPipeStreamer("127.0.0.1",
+                STREAMING_LOCAL_PORT,
+                ENCODE_FRAME_RATE
+                , null);
 
         Button switchButton = v.findViewById(R.id.switch_button);
         switchButton.setOnClickListener(v2 -> {
@@ -121,19 +130,14 @@ public class FragmentMyStatus extends Fragment {
                 ScreenShareKit.INSTANCE.init(this)
                         .config(1920, 1080, ENCODE_FRAME_RATE, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
                         .onH264((buffer, isKeyFrame, width, height, ts) -> {
-                            if(bShouldProjection) {
-                                try {
-                                    // 编码后的数据
-                                    byte[] bytes = new byte[buffer.remaining()];
-                                    buffer.get(bytes);
+                            try {
+                                // 编码后的数据
+                                byte[] bytes = new byte[buffer.remaining()];
+                                buffer.get(bytes);
 
-                                    h264ToTsStreamer.onH264DataReceived(bytes, ts);
-
-                                    if(isKeyFrame) {
-                                        Log.e("ScreenShareKit", "Key Frame got:" + bytes.length + " w:" + width + " h:" + height);
-                                    }
-                                } catch (Exception e) {
-                                }
+                                h264ToTsStreamer.onH264DataReceived(bytes, ts);
+                            } catch (Exception e) {
+                                Log.e("ScreenShareKit", "H264 callback error:" + e.getMessage());
                             }
                         })
                         .onError(errorInfo -> {
@@ -141,6 +145,7 @@ public class FragmentMyStatus extends Fragment {
                         })
                         .onStart(() -> {
                             bHavingClassMode = true;
+                            h264ToTsStreamer.start();
                             switchButton.post(() -> {
                                 switchButton.setCompoundDrawablesWithIntrinsicBounds(null, getContext().getDrawable(R.drawable.app_switch_on), null, null);
                             });
@@ -168,10 +173,6 @@ public class FragmentMyStatus extends Fragment {
                                 getContext(),
                                 userInfoViewModel.userId.getValue(),
                                 userInfoViewModel.userInfo.getValue().getName());
-                        if(h264ToTsStreamer != null) {
-                            h264ToTsStreamer.stop();
-                            h264ToTsStreamer = null;
-                        }
 
                         // 设置网络状态监听器
                         udpCommunicator.setNetworkStateListener(new ScreenCastingCommunicator.NetworkStateListener() {
@@ -186,20 +187,12 @@ public class FragmentMyStatus extends Fragment {
 
                             @Override
                             public void onJoinGroupSuccess() {
-                                getActivity().runOnUiThread(() -> Toast.makeText(
-                                        getContext(),
-                                        "加入组播组成功",
-                                        Toast.LENGTH_SHORT).show());
                             }
 
                             @Override
                             public void onNetworkPrepared() {
-                                h264ToTsStreamer = new FFmpegPipeStreamer("192.168.31.206",
-                                        udpCommunicator.getTsStreamPort(),
-                                        ENCODE_FRAME_RATE
-                                , getContext().getExternalFilesDir(null).getAbsolutePath() + "/out.ts");
-//                                h264ToTsStreamer.setSendStreamEnable(bShouldProjection);
-                                h264ToTsStreamer.start();
+                                udpForwarder.setTarget("192.168.31.206", udpCommunicator.getTsStreamPort());
+                                udpForwarder.setForwardingEnabled(true);
                             }
                         });
 
@@ -209,12 +202,8 @@ public class FragmentMyStatus extends Fragment {
                             public void onStartProjection() {
                                 getActivity().runOnUiThread(() -> {
                                     Toast.makeText(getContext(), "开始投屏", Toast.LENGTH_SHORT).show();
-                                    if(!bShouldProjection) {
-                                        //h264ToTsStreamer.setSendStreamEnable(true);
-                                        bShouldProjection = true;
-                                        // 调用投屏开始逻辑
-                                        //startScreenProjection();
-                                    }
+                                    bShouldProjection = true;
+                                    udpForwarder.setForwardingEnabled(true);
                                 });
                             }
 
@@ -222,12 +211,8 @@ public class FragmentMyStatus extends Fragment {
                             public void onStopProjection() {
                                 getActivity().runOnUiThread(() -> {
                                     Toast.makeText(getContext(), "停止投屏", Toast.LENGTH_SHORT).show();
-                                    if(bShouldProjection) {
-                                        bShouldProjection = false;
-                                        //h264ToTsStreamer.setSendStreamEnable(false);
-                                        // 调用投屏停止逻辑
-                                        //stopScreenProjection();
-                                    }
+                                    bShouldProjection = false;
+                                    udpForwarder.setForwardingEnabled(false);
                                 });
                             }
 

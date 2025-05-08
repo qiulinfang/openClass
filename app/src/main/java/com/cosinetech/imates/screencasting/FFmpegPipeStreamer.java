@@ -168,18 +168,31 @@ public class FFmpegPipeStreamer {
     /**
      * 启动FFmpeg进程，将H.264数据转换为TS流并发送
      */
+    @SuppressLint("DefaultLocale")
     private void startFFmpegProcess() {
         executor.execute(() -> {
             try {
                 // 构建FFmpeg命令
                 // 使用-i pipe:<fd>从管道读取数据
-                @SuppressLint("DefaultLocale")
                 String ffmpegCommand = String.format(
                         "-y -fflags +genpts+nobuffer+flush_packets -flags low_delay -f h264 -r %d -i %s " +
                                 "-c:v copy -bsf:v h264_mp4toannexb -f mpegts " +
                                 "%s",
-                        frameRate, pipePath, outDir);
-                        //destinationIp, destinationPort, UDP_PACKET_SIZE);
+                        frameRate,
+                        pipePath,
+                        outDir);
+
+                if(outDir == null || outDir.isEmpty()) {
+                    ffmpegCommand = String.format(
+                            "-y -fflags +genpts+nobuffer+flush_packets -flags low_delay -f h264 -r %d -i %s " +
+                                    "-c:v copy -bsf:v h264_mp4toannexb -f mpegts " +
+                                    "udp://%s:%d?pkt_size=%d",
+                            frameRate,
+                            pipePath,
+                            destinationIp,
+                            destinationPort,
+                            UDP_PACKET_SIZE);
+                }
 
                 Log.e(TAG, "Starting FFmpeg with command: " + ffmpegCommand);
 
