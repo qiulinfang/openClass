@@ -16,6 +16,8 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.target.SimpleTarget;
 import com.bumptech.glide.request.transition.Transition;
 import com.cosinetech.imates.activities.MainActivity;
+import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
+import com.cosinetech.imates.screencasting.UdpForwarderManager;
 import com.cosinetech.imates.service.FloatingRobotService;
 import com.cosinetech.imates.util.AssetsCopyUtils;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
@@ -35,6 +37,8 @@ public class ApplicationModelShared extends Application implements ViewModelStor
         appInstance = this;
         // 拷贝文件到 Documents 目录
         AssetsCopyUtils.copyAssetsToDocuments(this);
+        UdpForwarderManager.getInstance().start();
+        H264MpegTSStreamerManager.getInstance();
     }
 
     public static ApplicationModelShared getInstance() {

@@ -50,7 +50,7 @@ public class FFmpegPipeStreamer {
     public FFmpegPipeStreamer(String destinationIp, int destinationPort, int frameRate, String outDir) {
         this.destinationIp = destinationIp;
         this.destinationPort = destinationPort;
-        this.frameRate = 60;
+        this.frameRate = frameRate;
         this.executor = Executors.newFixedThreadPool(2);
         this.heartbeatExecutor = Executors.newSingleThreadScheduledExecutor();
         this.outDir = outDir;
