@@ -68,11 +68,23 @@ Java_com_cosinetech_imates_screencasting_PipeHelper_write(JNIEnv *env, jclass cl
         return -1;
     }
 
-    // 写入数据
-    ssize_t bytesWritten = write(fd, buffer + offset, length);
-    if(bytesWritten < 0) {
-        LOGE("Failed to write pipe: %s", strerror(errno));
+    ssize_t bytesWritten = 0;
+    size_t chunk_size = 4096; // 或更小
+    while (offset < length) {
+        size_t to_write = (length - offset) > chunk_size ? chunk_size : (length - offset);
+        ssize_t written = write(fd, buffer + offset, to_write);
+        if (written < 0) {
+            if (errno == EAGAIN) {
+                usleep(1000); // 等待 1ms 再重试
+                continue;
+            }
+            LOGE("write pipe failed : %s", strerror(errno));
+            break;
+        }
+        offset += written;
+        bytesWritten += written;
     }
+
     // 释放Java字节数组
     (*env)->ReleaseByteArrayElements(env, data, buffer, JNI_ABORT);
 

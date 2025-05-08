@@ -52,7 +52,7 @@ public class FragmentMyStatus extends Fragment {
 
     private FFmpegPipeStreamer h264ToTsStreamer = null;
     private static final String STREAMING_IP_ADDRESS = "239.255.255.250";
-    private static final int ENCODE_FRAME_RATE = 30;
+    private static final int ENCODE_FRAME_RATE = 60;
 
     private final ExecutorService executor = Executors.newFixedThreadPool(1);
 
@@ -119,7 +119,7 @@ public class FragmentMyStatus extends Fragment {
                 }, 2000);
             } else {
                 ScreenShareKit.INSTANCE.init(this)
-                        .config(1920, 1080, ENCODE_FRAME_RATE, 4000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
+                        .config(1920, 1080, ENCODE_FRAME_RATE, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
                         .onH264((buffer, isKeyFrame, width, height, ts) -> {
                             if(bShouldProjection) {
                                 try {

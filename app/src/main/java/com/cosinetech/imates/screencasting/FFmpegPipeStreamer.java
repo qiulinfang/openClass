@@ -181,7 +181,7 @@ public class FFmpegPipeStreamer {
                         frameRate, pipePath, outDir);
                         //destinationIp, destinationPort, UDP_PACKET_SIZE);
 
-                Log.d(TAG, "Starting FFmpeg with command: " + ffmpegCommand);
+                Log.e(TAG, "Starting FFmpeg with command: " + ffmpegCommand);
 
                 //isFFmpegRunning.set(true);
 
@@ -209,14 +209,14 @@ public class FFmpegPipeStreamer {
 
                                 // 如果流还在运行，重启FFmpeg进程
                                 if (isRunning.get()) {
-                                    Log.d(TAG, "Restarting FFmpeg process after failure");
+                                    Log.e(TAG, "Restarting FFmpeg process after failure");
                                     startFFmpegProcess();
                                 }
                             }
                         },
                         log -> {
                             if (log.getLevel().getValue() <= Level.AV_LOG_WARNING.getValue()) { // AV_LOG_WARNING及以上级别
-                                Log.e(TAG, "FFmpeg log: " + log.getMessage());
+                                Log.d(TAG, "FFmpeg log: " + log.getMessage());
                             }
                         },
                         statistics -> {
@@ -265,7 +265,7 @@ public class FFmpegPipeStreamer {
                         recreatePipe();
                     }
                 } else if (bytesWritten < h264Data.length) {
-                    Log.w(TAG, "Partial write to pipe: " + bytesWritten + "/" + h264Data.length);
+                    Log.e(TAG, "Partial write to pipe: " + bytesWritten + "/" + h264Data.length);
                     // 可以选择重试写入剩余数据，或者简单地丢弃
                 }
             } catch (Exception e) {
