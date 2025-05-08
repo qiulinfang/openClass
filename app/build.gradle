@@ -160,14 +160,11 @@ dependencies {
     implementation files('libs/markwon-inline-parser.aar')
     implementation files('libs/markwon-syntax-highlight.aar')
     implementation files('libs/markwon-ext-latex.aar')
+    implementation files('libs/ffmpeg-kit.aar')
 
     implementation 'com.github.LxzBUG:ScreenShare:1.1.6'
-//    implementation 'org.bytedeco:javacv:1.5.7'
-//    // FFmpeg平台相关库 - 只包含您需要的平台以减小APK大小
-//    implementation 'org.bytedeco:javacpp:1.5.7'
-//    implementation 'org.bytedeco:ffmpeg:5.0-1.5.7'
-//    implementation 'org.bytedeco:ffmpeg:5.0-1.5.7:android-arm64'
-//    implementation 'org.bytedeco:ffmpeg:5.0-1.5.7:android-x86_64'
+// FFmpegKit依赖
+//    implementation 'com.arthenica:ffmpeg-kit-full:6.0-2'
 
 //    implementation files('libs/pspdfkit-10.1.2.aar')
 //    implementation("com.pspdfkit:pspdfkit:2024.9.2")

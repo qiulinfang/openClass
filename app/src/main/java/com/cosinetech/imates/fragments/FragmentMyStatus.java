@@ -33,6 +33,9 @@ import com.jjoe64.graphview.series.DataPoint;
 import org.loka.screensharekit.EncodeBuilder;
 import org.loka.screensharekit.ScreenShareKit;
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -62,6 +65,7 @@ public class FragmentMyStatus extends Fragment {
     public FragmentMyStatus() {
         // Required empty public constructor
     }
+    private FileOutputStream fos;
 
     public static  long timestamp = 0;
     public static FragmentMyStatus newInstance(String param1, String param2) {
@@ -121,13 +125,19 @@ public class FragmentMyStatus extends Fragment {
                 }, 2000);
             } else {
                 ScreenShareKit.INSTANCE.init(this)
-                        .config(1920, 1080, 25, 4000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
+                        .config(1920, 1200, 30, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
                         .onH264((buffer, isKeyFrame, width, height, ts) -> {
                             if(bShouldProjection) {
                                 try {
                                     // 编码后的数据
                                     byte[] bytes = new byte[buffer.remaining()];
                                     buffer.get(bytes);
+                                    try {
+                                        fos.write(bytes);
+                                    } catch (IOException e) {
+                                        Log.e("=-=-=-=", e.getMessage());
+                                    }
+
                                     timestamp += 3000;
                                     TSMuxer.addH264(bytes, timestamp, isKeyFrame); // true for key frame
                                     //
@@ -164,6 +174,13 @@ public class FragmentMyStatus extends Fragment {
         int result = TSMuxer.init("192.168.0.100", 1234);
         if (result != 0) {
             Log.e("TSMuxer", "Initialization failed");
+        }
+
+        try {
+            fos = new FileOutputStream(getActivity().getExternalFilesDir(null).getAbsolutePath() + "/screen.h264", true);  // true表示追加模式
+        } catch (FileNotFoundException e) {
+            Log.e("=-=-=-=", e.getMessage());
+            throw new RuntimeException(e);
         }
 
 //        // Example usage
