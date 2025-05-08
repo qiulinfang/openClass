@@ -22,9 +22,8 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.activities.LoginActivity;
 import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;
-import com.cosinetech.imates.screencasting.H264ToTsStreamer;
+import com.cosinetech.imates.screencasting.FFmpegPipeStreamer;
 import com.cosinetech.imates.screencasting.ScreenCastingCommunicator;
-import com.cosinetech.imates.screencasting.TSMuxer;
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.helper.StaticLabelsFormatter;
 import com.jjoe64.graphview.series.BarGraphSeries;
@@ -32,10 +31,6 @@ import com.jjoe64.graphview.series.DataPoint;
 
 import org.loka.screensharekit.EncodeBuilder;
 import org.loka.screensharekit.ScreenShareKit;
-
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -54,8 +49,9 @@ public class FragmentMyStatus extends Fragment {
     private boolean bHavingClassMode = false;
     private boolean bShouldProjection = true;
 
-    //private H264ToTsStreamer h264ToTsStreamer = null;
+    private FFmpegPipeStreamer h264ToTsStreamer = null;
     private static final String STREAMING_IP_ADDRESS = "239.255.255.250";
+    private static final int ENCODE_FRAME_RATE = 30;
 
     private final ExecutorService executor = Executors.newFixedThreadPool(1);
 
@@ -65,9 +61,6 @@ public class FragmentMyStatus extends Fragment {
     public FragmentMyStatus() {
         // Required empty public constructor
     }
-    private FileOutputStream fos;
-
-    public static  long timestamp = 0;
     public static FragmentMyStatus newInstance(String param1, String param2) {
         FragmentMyStatus fragment = new FragmentMyStatus();
         Bundle args = new Bundle();
@@ -125,28 +118,16 @@ public class FragmentMyStatus extends Fragment {
                 }, 2000);
             } else {
                 ScreenShareKit.INSTANCE.init(this)
-                        .config(1920, 1200, 30, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
+                        .config(1920, 1200, ENCODE_FRAME_RATE, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
                         .onH264((buffer, isKeyFrame, width, height, ts) -> {
                             if(bShouldProjection) {
                                 try {
                                     // 编码后的数据
                                     byte[] bytes = new byte[buffer.remaining()];
                                     buffer.get(bytes);
-                                    try {
-                                        fos.write(bytes);
-                                    } catch (IOException e) {
-                                        Log.e("=-=-=-=", e.getMessage());
-                                    }
 
-                                    timestamp += 3000;
-                                    TSMuxer.addH264(bytes, timestamp, isKeyFrame); // true for key frame
-                                    //
-                                    //        // When you have AAC data to send
-                                    //        byte[] aacFrame = getAACFrame(); // Your method to get frame data
-                                    //        TSMuxer.addAAC(aacFrame, pts);
-                                    //
-                                    //        // Send the stream
-                                    TSMuxer.sendStream();
+                                    h264ToTsStreamer.onH264DataReceived(bytes, ts);
+
                                     if(isKeyFrame) {
                                         Log.e("ScreenShareKit", "Key Frame got:" + bytes.length + " w:" + width + " h:" + height);
                                     }
@@ -170,34 +151,6 @@ public class FragmentMyStatus extends Fragment {
             }, 2000);
         });
 
-        // Initialize the muxer
-        int result = TSMuxer.init("192.168.0.100", 1234);
-        if (result != 0) {
-            Log.e("TSMuxer", "Initialization failed");
-        }
-
-        try {
-            fos = new FileOutputStream(getActivity().getExternalFilesDir(null).getAbsolutePath() + "/screen.h264", true);  // true表示追加模式
-        } catch (FileNotFoundException e) {
-            Log.e("=-=-=-=", e.getMessage());
-            throw new RuntimeException(e);
-        }
-
-//        // Example usage
-//        TSMuxer.setDestination("192.168.1.100", 1234);
-//
-//        // When you have H.264 data to send
-//        byte[] h264Frame = getH264Frame(); // Your method to get frame data
-//        long pts = System.currentTimeMillis() * 1000; // Microsecond timestamp
-//        TSMuxer.addH264(h264Frame, pts, true); // true for key frame
-//
-//        // When you have AAC data to send
-//        byte[] aacFrame = getAACFrame(); // Your method to get frame data
-//        TSMuxer.addAAC(aacFrame, pts);
-//
-//        // Send the stream
-//        TSMuxer.sendStream();
-
         executor.execute(() -> {
             final boolean[] bCommunicationHasError = {false};
             while(!executor.isShutdown()) {
@@ -214,14 +167,10 @@ public class FragmentMyStatus extends Fragment {
                                 getContext(),
                                 userInfoViewModel.userId.getValue(),
                                 userInfoViewModel.userInfo.getValue().getName());
-//                        if(h264ToTsStreamer != null) {
-//                            h264ToTsStreamer.stop();
-//                            h264ToTsStreamer = null;
-//                        }
-//
-//                        h264ToTsStreamer = new H264ToTsStreamer(STREAMING_IP_ADDRESS, udpCommunicator.getTsStreamPort());
-//                        h264ToTsStreamer.setSendStreamEnable(bShouldProjection);
-//                        h264ToTsStreamer.start();
+                        if(h264ToTsStreamer != null) {
+                            h264ToTsStreamer.stop();
+                            h264ToTsStreamer = null;
+                        }
 
                         // 设置网络状态监听器
                         udpCommunicator.setNetworkStateListener(new ScreenCastingCommunicator.NetworkStateListener() {
@@ -244,8 +193,9 @@ public class FragmentMyStatus extends Fragment {
 
                             @Override
                             public void onNetworkPrepared() {
-                                TSMuxer.setDestination(STREAMING_IP_ADDRESS, udpCommunicator.getTsStreamPort());
-                                TSMuxer.setSendEnable(1);
+                                h264ToTsStreamer = new FFmpegPipeStreamer(STREAMING_IP_ADDRESS, udpCommunicator.getTsStreamPort(), ENCODE_FRAME_RATE);
+//                                h264ToTsStreamer.setSendStreamEnable(bShouldProjection);
+                                h264ToTsStreamer.start();
                             }
                         });
 
