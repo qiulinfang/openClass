@@ -7,10 +7,12 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStore;
 import androidx.lifecycle.ViewModelStoreOwner;
 
-import com.cosinetech.imates.activities.MainActivity;
+import com.cosinetech.imates.models.UserInfo;
+import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.UdpForwarderManager;
 import com.cosinetech.imates.service.FloatingRobotService;
@@ -19,7 +21,6 @@ import com.cosinetech.imates.webservice.AiChatMessageRequest;
 
 public class ApplicationModelShared extends Application implements ViewModelStoreOwner {
     private final ViewModelStore viewModelStore = new ViewModelStore();
-    private MainActivity mainActivity;
     private FloatingRobotService floatingRobotService;
 
     public AiChatMessageRequest chatRequest;
@@ -62,6 +63,13 @@ public class ApplicationModelShared extends Application implements ViewModelStor
     private void onAppExit() {
         // 这里处理应用退出逻辑
         Log.e("MyApp", "Application is exiting");
+        UserInfoViewModel userInfoViewModel = new ViewModelProvider(
+                this,
+                new ViewModelProvider.AndroidViewModelFactory(this)
+        ).get(UserInfoViewModel.class);
+        userInfoViewModel.token.postValue("");
+        userInfoViewModel.userId.postValue("");
+        userInfoViewModel.userInfo.postValue(new UserInfo());
         UdpForwarderManager.getInstance().stop();
         H264MpegTSStreamerManager.getInstance().stop();
     }
