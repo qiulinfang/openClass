@@ -2,6 +2,8 @@ package com.cosinetech.imates;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.Context;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -26,6 +28,7 @@ public class ApplicationModelShared extends Application implements ViewModelStor
     public AiChatMessageRequest chatRequest;
 
     private int activityCount = 0;
+    WifiManager.MulticastLock multicastLock = null;
     private static ApplicationModelShared appInstance = null;
 
     @Override
@@ -36,6 +39,11 @@ public class ApplicationModelShared extends Application implements ViewModelStor
         AssetsCopyUtils.copyAssetsToDocuments(this);
         UdpForwarderManager.getInstance().start();
         H264MpegTSStreamerManager.getInstance();
+        WifiManager wifi = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        multicastLock = wifi.createMulticastLock("media-play");
+        multicastLock.setReferenceCounted(true);
+        multicastLock.acquire();
+
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
             @Override
             public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {
@@ -72,6 +80,7 @@ public class ApplicationModelShared extends Application implements ViewModelStor
         userInfoViewModel.userInfo.postValue(new UserInfo());
         UdpForwarderManager.getInstance().stop();
         H264MpegTSStreamerManager.getInstance().stop();
+        multicastLock.release();
     }
 
     public static ApplicationModelShared getInstance() {
