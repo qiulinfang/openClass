@@ -10,7 +10,6 @@ import android.media.Image;
 import android.net.Uri;
 import android.os.Build;
 import android.text.TextUtils;
-import android.util.DisplayMetrics;
 import android.util.Log;
 
 import java.io.ByteArrayInputStream;
@@ -24,40 +23,6 @@ import java.nio.ByteBuffer;
 import java.util.Base64;
 
 public class ImageUtils {
-
-    public static Bitmap image_ARGB8888_2_bitmap(DisplayMetrics metrics, Image image) {
-        Image.Plane[] planes = image.getPlanes();
-        ByteBuffer buffer = planes[0].getBuffer();
-
-        int width = image.getWidth();
-//        Log.d("WOW", "image w = " + width);
-        int height = image.getHeight();
-//        Log.d("WOW", "image h = " + height);
-
-        int pixelStride = planes[0].getPixelStride();
-//        Log.d("WOW", "pixelStride is " + pixelStride);
-        int rowStride = planes[0].getRowStride();
-//        Log.d("WOW", "row Stride is " + rowStride);
-        int rowPadding = rowStride - pixelStride * width;
-//        Log.d("WOW", "rowPadding is " + rowPadding);
-
-        int offset = 0;
-        Bitmap bitmap;
-        bitmap = Bitmap.createBitmap(metrics, width, height, Bitmap.Config.ARGB_8888);
-        for (int i = 0; i < height; ++i) {
-            for (int j = 0; j < width; ++j) {
-                int pixel = 0;
-                pixel |= (buffer.get(offset) & 0xff) << 16;     // R
-                pixel |= (buffer.get(offset + 1) & 0xff) << 8;  // G
-                pixel |= (buffer.get(offset + 2) & 0xff);       // B
-                pixel |= (buffer.get(offset + 3) & 0xff) << 24; // A
-                bitmap.setPixel(j, i, pixel);
-                offset += pixelStride;
-            }
-            offset += rowPadding;
-        }
-        return bitmap;
-    }
 
     /**
      * 这个方法可以转换，但是得到的图片右边多了一列，比如上面方法得到1080x2160，这个方法得到1088x2160
@@ -168,7 +133,10 @@ public class ImageUtils {
         }
 
         // 解码 Base64 字符串为字节数组
-        byte[] decodedBytes = Base64.getDecoder().decode(base64Data);
+        byte[] decodedBytes = null;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            decodedBytes = Base64.getDecoder().decode(base64Data);
+        }
 
         // 将字节数组转换为 Bitmap
 
@@ -232,7 +200,10 @@ public class ImageUtils {
                 }
 
                 if (bytesRead == bytes.length) {
-                    String base64 = Base64.getEncoder().encodeToString(bytes);
+                    String base64 = null;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        base64 = Base64.getEncoder().encodeToString(bytes);
+                    }
                     return "data:image/png;base64," + base64;
                 }
             } catch (IOException e) {
