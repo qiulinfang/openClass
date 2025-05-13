@@ -7,20 +7,19 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
-import com.cosinetech.imates.util.ImageUtils;
-import com.cosinetech.imates.util.TimeUtils;
-
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.NetworkInterface;
+import java.net.Socket;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Enumeration;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -228,7 +227,7 @@ public class ScreenCastingCommunicator {
      */
     private void startReceivingMessages() {
         executor.execute(() -> {
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[4096];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 
             while (!executor.isShutdown()) {
@@ -291,7 +290,7 @@ public class ScreenCastingCommunicator {
 
             case MSG_TYPE_PICTURE:
                 // 图片分包处理（这里只是示例，实际需要更复杂的处理）
-                Log.d(TAG, "收到图片分包: " + message);
+                //Log.d(TAG, "收到图片分包: " + message);
                 break;
 
             default:
@@ -345,8 +344,9 @@ public class ScreenCastingCommunicator {
      * 处理截图命令
      */
     private void processSnapshotCommand(String[] parts) {
-        String commandId = parts[3];
-        String targetStudent = parts[4];
+        String deviceIp = parts[3];
+        String commandId = parts[4];
+        String targetStudent = parts[5];
 
         // 检查命令是否已经处理过
         if (astSnapshotCmdId.equals(commandId)) {
@@ -361,7 +361,8 @@ public class ScreenCastingCommunicator {
             if(lastIFrame != null) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     String base64 = Base64.getEncoder().encodeToString(lastIFrame);
-                    sendImageInPackets(base64);
+                    //sendImageInPacketsByUdp(base64);
+                    sendImageInPacketsByTcp(deviceIp, base64);
                 }
             }
             if (commandHandler != null) {
@@ -370,12 +371,12 @@ public class ScreenCastingCommunicator {
         }
     }
 
-    public void sendImageInPackets(String imageBase64) {
+    public void sendImageInPacketsByUdp(String imageBase64) {
         // 日志记录
         Log.d(TAG, "开始发送图片，学生ID: " + studentId + ", base64长度: " + imageBase64.length());
 
         // 计算需要分成多少包
-        int contentMaxSize = 1024;
+        int contentMaxSize = 1472 - 100;
         int totalPackets = (int) Math.ceil((double) imageBase64.length() / contentMaxSize);
 
         Log.d(TAG, "图片将分为 " + totalPackets + " 个包发送");
@@ -421,6 +422,59 @@ public class ScreenCastingCommunicator {
         }
 
         Log.d(TAG, "图片发送完成，学生ID: " + studentId);
+    }
+
+    public void sendImageInPacketsByTcp(String serverIp, String imageBase64) {
+        Log.d(TAG, "开始通过TCP发送图片，学生ID: " + studentId + ", base64长度: " + imageBase64.length());
+        int serverPort = 5002;
+
+        // 计算包大小
+        int contentMaxSize = 1024; // TCP不受UDP限制，可以更大，但也不宜过大，保持一致性
+
+        int totalPackets = (int) Math.ceil((double) imageBase64.length() / contentMaxSize);
+        Log.d(TAG, "图片将分为 " + totalPackets + " 个包发送（TCP）");
+
+        Socket socket = null;
+        OutputStream outputStream = null;
+
+        try {
+            socket = new Socket();
+            socket.connect(new InetSocketAddress(serverIp, serverPort), 3000);
+
+            outputStream = socket.getOutputStream();
+
+            for (int packetIndex = 0; packetIndex < totalPackets; packetIndex++) {
+                int startPos = packetIndex * contentMaxSize;
+                int endPos = Math.min(startPos + contentMaxSize, imageBase64.length());
+                String base64Segment = imageBase64.substring(startPos, endPos);
+
+                // 构建消息格式
+                String message = "picture" + "," +
+                        studentId + "," +
+                        totalPackets + "," +
+                        packetIndex + "," +
+                        base64Segment + "\n";
+
+                byte[] data = message.getBytes(StandardCharsets.UTF_8);
+                outputStream.write(data);
+                outputStream.flush();
+            }
+
+            Log.d(TAG, "TCP图片发送完成，学生ID: " + studentId);
+
+        } catch (SocketTimeoutException e) {
+            Log.e(TAG, "连接超时 " + e.getMessage());
+        } catch (IOException e) {
+            Log.e(TAG, "TCP发送异常: " + e.getMessage(), e);
+            Thread.currentThread().interrupt(); // 中断状态恢复
+        } finally {
+            try {
+                if (outputStream != null) outputStream.close();
+                if (socket != null && !socket.isClosed()) socket.close();
+            } catch (IOException e) {
+                Log.e(TAG, "关闭TCP连接失败", e);
+            }
+        }
     }
 
     /**
