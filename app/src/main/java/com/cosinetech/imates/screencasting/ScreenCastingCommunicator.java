@@ -2,9 +2,12 @@ package com.cosinetech.imates.screencasting;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+
+import com.cosinetech.imates.util.ImageUtils;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -12,9 +15,8 @@ import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.net.NetworkInterface;
 import java.net.SocketException;
-import java.net.SocketOption;
-import java.net.StandardSocketOptions;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Set;
@@ -61,7 +63,7 @@ public class ScreenCastingCommunicator {
     private CommandHandler commandHandler;
 
     // 已处理的命令编号缓存（防止重复处理）
-    private final Set<String> processedCommands = new HashSet<>();
+    private String astSnapshotCmdId = "";
     private boolean isStreaming = false;
     private static final int TS_STREAM_PORT_BASE = 10000;
 
@@ -341,18 +343,78 @@ public class ScreenCastingCommunicator {
         String targetStudent = parts[4];
 
         // 检查命令是否已经处理过
-        if (processedCommands.contains(commandId)) {
-            Log.d(TAG, "命令已处理过，忽略: " + commandId);
+        if (astSnapshotCmdId.equals(commandId)) {
+            Log.e(TAG, "命令已处理过，忽略: " + commandId);
             return;
         }
 
         // 检查是否针对本设备或所有设备
         if (targetStudent.equals(RECEIVER_ALL) || targetStudent.equals(studentId)) {
-            processedCommands.add(commandId);
+            astSnapshotCmdId = commandId;
+            byte [] lastIFrame = H264IFrameCache.getInstance().getLatestIFrame();
+            if(lastIFrame != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    String base64 = Base64.getEncoder().encodeToString(lastIFrame);
+                    sendImageInPackets(base64);
+                }
+            }
             if (commandHandler != null) {
                 mainHandler.post(() -> commandHandler.onTakeSnapshot(commandId));
             }
         }
+    }
+
+    public void sendImageInPackets(String imageBase64) {
+        // 日志记录
+        Log.d(TAG, "开始发送图片，学生ID: " + studentId + ", base64长度: " + imageBase64.length());
+
+        // 计算需要分成多少包
+        int contentMaxSize = 1024;
+        int totalPackets = (int) Math.ceil((double) imageBase64.length() / contentMaxSize);
+
+        Log.d(TAG, "图片将分为 " + totalPackets + " 个包发送");
+
+        // 分包发送
+        for (int packetIndex = 0; packetIndex < totalPackets; packetIndex++) {
+            // 计算当前包的base64片段
+            int startPos = packetIndex * contentMaxSize;
+            int endPos = Math.min(startPos + contentMaxSize, imageBase64.length());
+            String base64Segment = imageBase64.substring(startPos, endPos);
+
+            // 构建消息
+
+            String message = "picture" + "," +
+                    studentId + "," +
+                    totalPackets + "," +
+                    packetIndex + "," +
+                    base64Segment;
+
+            // 发送消息
+            byte[] buffer = message.getBytes(StandardCharsets.UTF_8);
+            DatagramPacket packet = new DatagramPacket(
+                    buffer, buffer.length, controlGroup,
+                    CONTROL_MULTICAST_PORT);
+
+            try {
+                controlSocket.send(packet);
+            } catch (Exception e) {
+                Log.e(TAG, "发送图片包异常 " + (packetIndex + 1) + "/" + totalPackets +
+                    "," + buffer.length + " " + e.getMessage());
+            }
+//            Log.d(TAG, "已发送图片包 " + (packetIndex + 1) + "/" + totalPackets +
+//                    ", 大小: " + buffer.length + " 字节");
+
+            // 短暂延迟，避免网络拥塞
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                Log.e(TAG, "发送过程被中断", e);
+                break;
+            }
+        }
+
+        Log.d(TAG, "图片发送完成，学生ID: " + studentId);
     }
 
     /**

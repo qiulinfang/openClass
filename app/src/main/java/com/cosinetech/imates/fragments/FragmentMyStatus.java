@@ -20,6 +20,7 @@ import com.cosinetech.imates.activities.LoginActivity;
 import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.screencasting.FFmpegPipeStreamer;
+import com.cosinetech.imates.screencasting.H264IFrameCache;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.screencasting.UdpForwarderManager;
@@ -125,6 +126,9 @@ public class FragmentMyStatus extends Fragment {
                                 buffer.get(bytes);
 
                                 h264ToTsStreamer.onH264DataReceived(bytes, ts);
+                                if(isKeyFrame) {
+                                    H264IFrameCache.getInstance().onH264Frame(bytes);
+                                }
                             } catch (Exception e) {
                                 Log.e("ScreenShareKit", "H264 callback error:" + e.getMessage());
                             }

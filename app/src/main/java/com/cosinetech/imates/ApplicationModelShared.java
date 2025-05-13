@@ -15,6 +15,7 @@ import androidx.lifecycle.ViewModelStoreOwner;
 
 import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.screencasting.H264IFrameCache;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.UdpForwarderManager;
 import com.cosinetech.imates.service.FloatingRobotService;
@@ -39,6 +40,7 @@ public class ApplicationModelShared extends Application implements ViewModelStor
         AssetsCopyUtils.copyAssetsToDocuments(this);
         UdpForwarderManager.getInstance().start();
         H264MpegTSStreamerManager.getInstance();
+        H264IFrameCache.getInstance();
         WifiManager wifi = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         multicastLock = wifi.createMulticastLock("media-play");
         multicastLock.setReferenceCounted(true);
