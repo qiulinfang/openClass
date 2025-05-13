@@ -8,6 +8,7 @@ import android.os.Looper;
 import android.util.Log;
 
 import com.cosinetech.imates.util.ImageUtils;
+import com.cosinetech.imates.util.TimeUtils;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -22,12 +23,13 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class ScreenCastingCommunicator {
     private static final String TAG = "StudentUdpComm";
 
     // 组播地址和端口
-    private static final String CONTROL_MULTICAST_ADDRESS = "239.255.255.250";
+    private static final String CONTROL_MULTICAST_ADDRESS = "239.255.100.1";
     private static final int CONTROL_MULTICAST_PORT = 5000;
 
     // 消息类型
@@ -54,7 +56,7 @@ public class ScreenCastingCommunicator {
 
     private MulticastSocket controlSocket;
     private InetAddress controlGroup;
-    private final ExecutorService executor = Executors.newFixedThreadPool(2);
+    private final ExecutorService executor = Executors.newFixedThreadPool(3);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     // 网络状态监听器
@@ -102,70 +104,70 @@ public class ScreenCastingCommunicator {
      * 初始化并加入组播组
      */
     public void start() {
-        executor.execute(() -> {
-            try {
-                // 获取本地IP地址
-                String localIp = getLocalIpAddress();
-                if (localIp == null) {
-                    notifyNetworkError("无法获取本地IP地址");
-                    return;
-                }
-                String[] parts = localIp.split("\\.");
-                this.tsStreamPort = TS_STREAM_PORT_BASE + Integer.parseInt(parts[3]);
-
-                // 创建控制信道socket
-                controlSocket = new MulticastSocket(CONTROL_MULTICAST_PORT);
-                controlSocket.setTimeToLive(64);
-
-                controlGroup = InetAddress.getByName(CONTROL_MULTICAST_ADDRESS);
-
-                // 设置网络接口（解决某些设备无法接收组播的问题）
-                NetworkInterface networkInterface = getMulticastNetworkInterface();
-                if (networkInterface != null) {
-                    controlSocket.setNetworkInterface(networkInterface);
-                }
-
-                controlSocket.joinGroup(controlGroup);
-
-                // 通知监听器
-                if (networkStateListener != null) {
-                    mainHandler.post(networkStateListener::onJoinGroupSuccess);
-                }
-
-                if (networkStateListener != null) {
-                    mainHandler.post(() -> networkStateListener.onNetworkPrepared());
-                }
-
-                // 开始状态上报
-                startStatusReporting();
-
-                // 开始接收消息
-                startReceivingMessages();
-
-                Log.d(TAG, "学生端通信已启动，本地IP: " + localIp);
-            } catch (IOException e) {
-                Log.e(TAG, "启动通信失败", e);
-                notifyNetworkError("启动通信失败: " + e.getMessage());
+        try {
+            // 获取本地IP地址
+            String localIp = getLocalIpAddress();
+            if (localIp == null) {
+                notifyNetworkError("无法获取本地IP地址");
+                return;
             }
-        });
+            String[] parts = localIp.split("\\.");
+            this.tsStreamPort = TS_STREAM_PORT_BASE + Integer.parseInt(parts[3]);
+
+            // 创建控制信道socket
+            controlSocket = new MulticastSocket(CONTROL_MULTICAST_PORT);
+            controlSocket.setTimeToLive(64);
+
+            controlGroup = InetAddress.getByName(CONTROL_MULTICAST_ADDRESS);
+
+            // 设置网络接口（解决某些设备无法接收组播的问题）
+            NetworkInterface networkInterface = getMulticastNetworkInterface();
+            if (networkInterface != null) {
+                controlSocket.setNetworkInterface(networkInterface);
+            }
+
+            controlSocket.joinGroup(controlGroup);
+
+            // 通知监听器
+            if (networkStateListener != null) {
+                mainHandler.post(networkStateListener::onJoinGroupSuccess);
+            }
+
+            if (networkStateListener != null) {
+                mainHandler.post(() -> networkStateListener.onNetworkPrepared());
+            }
+
+            // 开始状态上报
+            startStatusReporting();
+
+            // 开始接收消息
+            startReceivingMessages();
+
+            Log.d(TAG, "学生端通信已启动，本地IP: " + localIp);
+        } catch (IOException e) {
+            Log.e(TAG, "启动通信失败", e);
+            notifyNetworkError("启动通信失败: " + e.getMessage());
+        }
     }
 
     /**
      * 停止通信
      */
     public void stop() {
-        executor.execute(() -> {
-            if (controlSocket != null && controlGroup != null) {
-                try {
-                    controlSocket.leaveGroup(controlGroup);
-                } catch (Exception ignore) {}
-                finally {
-                    controlSocket.close();
-                }
+        executor.shutdown();
+        try {
+            executor.awaitTermination(3, TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+        }
+        if (controlSocket != null && controlGroup != null) {
+            try {
+                controlSocket.leaveGroup(controlGroup);
+            } catch (Exception ignore) {}
+            finally {
+                controlSocket.close();
+                controlSocket = null;
             }
-            executor.shutdown();
-            Log.d(TAG, "学生端通信已停止");
-        });
+        }
     }
 
     /**
@@ -173,14 +175,17 @@ public class ScreenCastingCommunicator {
      */
     private void startStatusReporting() {
         executor.execute(() -> {
-            while (!executor.isShutdown() && !controlSocket.isClosed()) {
+            while (!executor.isShutdown()) {
                 try {
+                    if(controlSocket.isClosed()) {
+                        break;
+                    }
                     sendStatusMessage();
                     Thread.sleep(1000); // 1秒发送一次
                 } catch (InterruptedException e) {
                     Log.d(TAG, "状态上报线程被中断");
                     break;
-                } catch (IOException e) {
+                } catch (Exception e) {
                     Log.e(TAG, "发送状态消息失败", e);
                     notifyNetworkError("发送状态消息失败: " + e.getMessage());
                     break;
@@ -226,8 +231,11 @@ public class ScreenCastingCommunicator {
             byte[] buffer = new byte[1024];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 
-            while (!executor.isShutdown() && !controlSocket.isClosed()) {
+            while (!executor.isShutdown()) {
                 try {
+                    if(controlSocket.isClosed()) {
+                        break;
+                    }
                     controlSocket.receive(packet);
                     String receivedMessage = new String(
                             packet.getData(),
@@ -238,11 +246,9 @@ public class ScreenCastingCommunicator {
                     Log.d(TAG, "收到消息: " + receivedMessage);
                     processReceivedMessage(receivedMessage);
 
-                } catch (IOException e) {
-                    if (!controlSocket.isClosed()) {
-                        Log.e(TAG, "接收消息时出错", e);
-                        notifyNetworkError("接收消息时出错: " + e.getMessage());
-                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "接收消息时出错", e);
+                    notifyNetworkError("接收消息时出错: " + e.getMessage());
                 }
             }
         });

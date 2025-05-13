@@ -1,5 +1,7 @@
 package com.cosinetech.imates.fragments;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -112,10 +114,19 @@ public class FragmentMyStatus extends Fragment {
         switchButton.setOnClickListener(v2 -> {
             switchButton.setEnabled(false);
             if(ScreenCastingManager.isHavingClass()) {
-                ScreenCastingManager.setClassMode(false);
-                switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getContext(), R.drawable.app_switch_off), null, null);
-                ScreenShareKit.INSTANCE.stop();
-                switchButton.postDelayed(() -> switchButton.setEnabled(true), 2000);
+                new AlertDialog.Builder(getContext())
+                        .setTitle("提示")
+                        .setMessage("退出课堂后将不能和老师互动, 确认退出吗?")
+                        .setPositiveButton("确认", (dialog, which) -> {
+                            ScreenCastingManager.setClassMode(false);
+                            switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getContext(), R.drawable.app_switch_off), null, null);
+                            ScreenShareKit.INSTANCE.stop();
+                            switchButton.postDelayed(() -> switchButton.setEnabled(true), 2000);
+                        })
+                        .setNegativeButton("取消", (dialog, which) -> {
+                        })
+                        .create()
+                        .show();
             } else {
                 ScreenShareKit.INSTANCE.init(this)
                         .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
