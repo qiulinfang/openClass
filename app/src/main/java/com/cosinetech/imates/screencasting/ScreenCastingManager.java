@@ -21,6 +21,8 @@ public class ScreenCastingManager {
     private static String currentUserName;
     private static UdpForwarder udpForwarder;
 
+    private static final String STREAM_ADDRESS = "239.255.100.2";
+
     public static synchronized void startLoop(Context context, String userId, String userName, UdpForwarder forwarder) {
         appContext = context.getApplicationContext();
 
@@ -72,7 +74,7 @@ public class ScreenCastingManager {
                             @Override
                             public void onNetworkPrepared() {
                                 Log.i(TAG, "Network prepared, setting forward target");
-                                udpForwarder.setTarget("192.168.40.210", udpCommunicator.getTsStreamPort());
+                                udpForwarder.setTarget(STREAM_ADDRESS, udpCommunicator.getTsStreamPort());
                                 udpForwarder.setForwardingEnabled(true);
                             }
                         });
