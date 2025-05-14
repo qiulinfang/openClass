@@ -75,7 +75,6 @@ public class ScreenCastingManager {
                             public void onNetworkPrepared() {
                                 Log.i(TAG, "Network prepared, setting forward target");
                                 udpForwarder.setTarget(STREAM_ADDRESS, udpCommunicator.getTsStreamPort());
-                                udpForwarder.setForwardingEnabled(true);
                             }
                         });
 
