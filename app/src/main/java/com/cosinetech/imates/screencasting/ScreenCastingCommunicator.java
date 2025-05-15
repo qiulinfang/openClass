@@ -89,6 +89,7 @@ public class ScreenCastingCommunicator {
         void onStartProjection();
         void onStopProjection();
         void onTakeSnapshot(String commandId);
+        void onReceivePcIpAddress(String ip);
     }
 
     public void setNetworkStateListener(NetworkStateListener listener) {
@@ -276,6 +277,11 @@ public class ScreenCastingCommunicator {
         }
 
         switch (msgType) {
+            case MSG_TYPE_STATUS:
+                if(parts.length >= 8 && sender.equals(ROLE_PC)) {
+                    processPcStatus(parts);
+                }
+                break;
             case MSG_TYPE_PROJECTION_PAD:
                 if (parts.length >= 4 && sender.equals(ROLE_TEACHER)) {
                     processProjectionCommand(parts);
@@ -295,6 +301,12 @@ public class ScreenCastingCommunicator {
 
             default:
                 Log.d(TAG, "未知消息类型: " + msgType);
+        }
+    }
+
+    private void processPcStatus(String [] parts) {
+        if (commandHandler != null) {
+            mainHandler.post(() -> commandHandler.onReceivePcIpAddress(parts[5]));
         }
     }
 

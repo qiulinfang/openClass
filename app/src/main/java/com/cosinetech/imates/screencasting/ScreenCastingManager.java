@@ -20,8 +20,8 @@ public class ScreenCastingManager {
     private static String currentUserId;
     private static String currentUserName;
     private static UdpForwarder udpForwarder;
-
     private static final String STREAM_ADDRESS = "239.255.100.2";
+    private static volatile String pcDeviceIp = STREAM_ADDRESS;
 
     public static synchronized void startLoop(Context context, String userId, String userName, UdpForwarder forwarder) {
         appContext = context.getApplicationContext();
@@ -74,7 +74,7 @@ public class ScreenCastingManager {
                             @Override
                             public void onNetworkPrepared() {
                                 Log.i(TAG, "Network prepared, setting forward target");
-                                udpForwarder.setTarget(STREAM_ADDRESS, udpCommunicator.getTsStreamPort());
+                                udpForwarder.setTarget(pcDeviceIp, udpCommunicator.getTsStreamPort());
                             }
                         });
 
@@ -97,6 +97,14 @@ public class ScreenCastingManager {
                             public void onTakeSnapshot(String commandId) {
                                 Log.i(TAG, "Received command: TakeSnapshot - " + commandId);
                                 // 调用截图逻辑（可扩展）
+                            }
+
+                            @Override
+                            public void onReceivePcIpAddress(String ip) {
+                                if(!pcDeviceIp.equals(ip)) {
+                                    udpForwarder.setTarget(ip, udpCommunicator.getTsStreamPort());
+                                    pcDeviceIp = ip;
+                                }
                             }
                         });
 
