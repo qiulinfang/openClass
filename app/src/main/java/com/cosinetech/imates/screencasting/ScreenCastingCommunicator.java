@@ -344,6 +344,9 @@ public class ScreenCastingCommunicator {
      * 处理投屏命令
      */
     private void processProjectionCommand(String[] parts) {
+        if(!teacherPadDeviceIp.equals(parts[3])) {
+            teacherPadDeviceIp = parts[3];
+        }
         // 检查是否包含本学生ID
         boolean shouldProject = false;
         for (int i = 4; i < parts.length; i++) {
