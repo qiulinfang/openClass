@@ -68,6 +68,9 @@ public class ScreenCastingCommunicator {
     private boolean isStreaming = false;
     private static final int TS_STREAM_PORT_BASE = 10000;
 
+    private volatile  String pcDeviceIp = "1.1.1.1";
+    private volatile String teacherPadDeviceIp = "1.1.1.1";
+
     public ScreenCastingCommunicator(Context ctx, String studentId, String studentName) {
         this.context = ctx.getApplicationContext();
         this.studentId = studentId;
@@ -90,6 +93,7 @@ public class ScreenCastingCommunicator {
         void onStopProjection();
         void onTakeSnapshot(String commandId);
         void onReceivePcIpAddress(String ip);
+        void onReceiveTeacherPadIpAddress(String ip);
     }
 
     public void setNetworkStateListener(NetworkStateListener listener) {
@@ -180,8 +184,8 @@ public class ScreenCastingCommunicator {
                     if(controlSocket.isClosed()) {
                         break;
                     }
-                    sendStatusMessage();
                     Thread.sleep(1000); // 1秒发送一次
+                    sendStatusMessage();
                 } catch (InterruptedException e) {
                     Log.d(TAG, "状态上报线程被中断");
                     break;
@@ -213,13 +217,23 @@ public class ScreenCastingCommunicator {
                 status);
 
         byte[] buffer = message.getBytes(StandardCharsets.UTF_8);
+
+        InetAddress pcAddress = InetAddress.getByName(pcDeviceIp);;
         DatagramPacket packet = new DatagramPacket(
                 buffer,
                 buffer.length,
-                controlGroup,
+                pcAddress,
                 CONTROL_MULTICAST_PORT);
 
         controlSocket.send(packet);
+
+        InetAddress teacherPadAddress = InetAddress.getByName(teacherPadDeviceIp);;
+        DatagramPacket packet1 = new DatagramPacket(
+                buffer,
+                buffer.length,
+                teacherPadAddress,
+                CONTROL_MULTICAST_PORT);
+        controlSocket.send(packet1);
         Log.d(TAG, "发送状态消息: " + message);
     }
 
@@ -278,8 +292,12 @@ public class ScreenCastingCommunicator {
 
         switch (msgType) {
             case MSG_TYPE_STATUS:
-                if(parts.length >= 8 && sender.equals(ROLE_PC)) {
-                    processPcStatus(parts);
+                if(parts.length >= 8) {
+                    if(sender.equals(ROLE_PC)) {
+                        processPcStatus(parts);
+                    } else if(sender.equals(ROLE_TEACHER)) {
+                        processTeacherPadStatus(parts);
+                    }
                 }
                 break;
             case MSG_TYPE_PROJECTION_PAD:
@@ -306,7 +324,19 @@ public class ScreenCastingCommunicator {
 
     private void processPcStatus(String [] parts) {
         if (commandHandler != null) {
+            if(!pcDeviceIp.equals(parts[5])) {
+                pcDeviceIp = parts[5];
+            }
             mainHandler.post(() -> commandHandler.onReceivePcIpAddress(parts[5]));
+        }
+    }
+
+    private void processTeacherPadStatus(String [] parts) {
+        if (commandHandler != null) {
+            if(!teacherPadDeviceIp.equals(parts[5])) {
+                teacherPadDeviceIp = parts[5];
+            }
+            mainHandler.post(() -> commandHandler.onReceiveTeacherPadIpAddress(parts[5]));
         }
     }
 
@@ -373,7 +403,6 @@ public class ScreenCastingCommunicator {
             if(lastIFrame != null) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     String base64 = Base64.getEncoder().encodeToString(lastIFrame);
-                    //sendImageInPacketsByUdp(base64);
                     sendImageInPacketsByTcp(deviceIp, base64);
                 }
             }
@@ -381,59 +410,6 @@ public class ScreenCastingCommunicator {
                 mainHandler.post(() -> commandHandler.onTakeSnapshot(commandId));
             }
         }
-    }
-
-    public void sendImageInPacketsByUdp(String imageBase64) {
-        // 日志记录
-        Log.d(TAG, "开始发送图片，学生ID: " + studentId + ", base64长度: " + imageBase64.length());
-
-        // 计算需要分成多少包
-        int contentMaxSize = 1472 - 100;
-        int totalPackets = (int) Math.ceil((double) imageBase64.length() / contentMaxSize);
-
-        Log.d(TAG, "图片将分为 " + totalPackets + " 个包发送");
-
-        // 分包发送
-        for (int packetIndex = 0; packetIndex < totalPackets; packetIndex++) {
-            // 计算当前包的base64片段
-            int startPos = packetIndex * contentMaxSize;
-            int endPos = Math.min(startPos + contentMaxSize, imageBase64.length());
-            String base64Segment = imageBase64.substring(startPos, endPos);
-
-            // 构建消息
-
-            String message = "picture" + "," +
-                    studentId + "," +
-                    totalPackets + "," +
-                    packetIndex + "," +
-                    base64Segment;
-
-            // 发送消息
-            byte[] buffer = message.getBytes(StandardCharsets.UTF_8);
-            DatagramPacket packet = new DatagramPacket(
-                    buffer, buffer.length, controlGroup,
-                    CONTROL_MULTICAST_PORT);
-
-            try {
-                controlSocket.send(packet);
-            } catch (Exception e) {
-                Log.e(TAG, "发送图片包异常 " + (packetIndex + 1) + "/" + totalPackets +
-                    "," + buffer.length + " " + e.getMessage());
-            }
-//            Log.d(TAG, "已发送图片包 " + (packetIndex + 1) + "/" + totalPackets +
-//                    ", 大小: " + buffer.length + " 字节");
-
-            // 短暂延迟，避免网络拥塞
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                Log.e(TAG, "发送过程被中断", e);
-                break;
-            }
-        }
-
-        Log.d(TAG, "图片发送完成，学生ID: " + studentId);
     }
 
     public void sendImageInPacketsByTcp(String serverIp, String imageBase64) {
