@@ -204,6 +204,8 @@ public class ScreenCastingCommunicator {
     private void sendStatusMessage() throws IOException {
         String status = isStreaming ? STATUS_STREAMING : STATUS_READY;
         String localIp = getLocalIpAddress();
+        String[] parts = localIp.split("\\.");
+        this.tsStreamPort = TS_STREAM_PORT_BASE + Integer.parseInt(parts[3]);
 
         @SuppressLint("DefaultLocale")
         String message = String.format("%s,%s,%s,%s,%s,%s,%d,%s",
@@ -420,7 +422,7 @@ public class ScreenCastingCommunicator {
         int serverPort = 5002;
 
         // 计算包大小
-        int contentMaxSize = 1024; // TCP不受UDP限制，可以更大，但也不宜过大，保持一致性
+        int contentMaxSize = 1024;
 
         int totalPackets = (int) Math.ceil((double) imageBase64.length() / contentMaxSize);
         Log.d(TAG, "图片将分为 " + totalPackets + " 个包发送（TCP）");
@@ -487,7 +489,7 @@ public class ScreenCastingCommunicator {
         } catch (SocketException e) {
             Log.e(TAG, "获取本地IP地址失败", e);
         }
-        return null;
+        return "127.0.0.1";
     }
 
     /**

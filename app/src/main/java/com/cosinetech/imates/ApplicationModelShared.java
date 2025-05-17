@@ -17,6 +17,7 @@ import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.screencasting.H264IFrameCache;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
+import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.screencasting.UdpForwarderManager;
 import com.cosinetech.imates.service.FloatingRobotService;
 import com.cosinetech.imates.util.AssetsCopyUtils;
@@ -80,6 +81,8 @@ public class ApplicationModelShared extends Application implements ViewModelStor
         userInfoViewModel.token.postValue("");
         userInfoViewModel.userId.postValue("");
         userInfoViewModel.userInfo.postValue(new UserInfo());
+        ScreenCastingManager.setClassMode(false);
+        ScreenCastingManager.stopLoop();
         UdpForwarderManager.getInstance().stop();
         H264MpegTSStreamerManager.getInstance().stop();
         multicastLock.release();
