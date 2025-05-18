@@ -91,6 +91,7 @@ android {
     buildFeatures {
         viewBinding true
         compose true
+        dataBinding = true
     }
     externalNativeBuild {
         cmake {
@@ -212,6 +213,7 @@ dependencies {
     implementation libs.camera.lifecycle
     implementation libs.camera.view
     implementation libs.android.image.cropper
+    implementation 'io.github.ParkSangGwon:tedimagepicker:1.6.1'
 
     // ======== http/https请求库 ========
     implementation platform(libs.okhttp.bom)

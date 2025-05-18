@@ -1,9 +1,10 @@
 package com.cosinetech.imates.fragments;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
 
 import androidx.appcompat.content.res.AppCompatResources;
@@ -17,8 +18,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.activities.ChatAiActivity;
 import com.cosinetech.imates.activities.LoginActivity;
+import com.cosinetech.imates.models.ChatAiParam;
 import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.screencasting.FFmpegPipeStreamer;
@@ -26,13 +32,23 @@ import com.cosinetech.imates.screencasting.H264IFrameCache;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.screencasting.UdpForwarderManager;
+import com.cosinetech.imates.util.AppUtils;
+import com.cosinetech.imates.views.ChatAiView;
+import com.cosinetech.imates.webservice.ApiUrl;
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.helper.StaticLabelsFormatter;
 import com.jjoe64.graphview.series.BarGraphSeries;
 import com.jjoe64.graphview.series.DataPoint;
 
+import org.jetbrains.annotations.NotNull;
 import org.loka.screensharekit.EncodeBuilder;
 import org.loka.screensharekit.ScreenShareKit;
+
+import java.util.List;
+import java.util.UUID;
+
+import gun0912.tedimagepicker.builder.TedImagePicker;
+import gun0912.tedimagepicker.builder.listener.OnMultiSelectedListener;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -105,12 +121,7 @@ public class FragmentMyStatus extends Fragment {
         });
 
         Button submitButton = v.findViewById(R.id.submit_homework);
-        submitButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-
-            }
-        });
+        submitButton.setOnClickListener(v3 -> takePictureToTeacher());
 
         Button switchButton = v.findViewById(R.id.switch_button);
         if(ScreenCastingManager.isHavingClass()) {
@@ -217,5 +228,55 @@ public class FragmentMyStatus extends Fragment {
 
         // Enable scaling
         graph.getViewport().setScalable(true);
+    }
+
+    @SuppressLint("CheckResult")
+    private void takePictureToTeacher() {
+        TedImagePicker.with(getContext())
+                .startMultiImage(uriList -> {
+                    String paths = "";
+                    for(Uri uri : uriList) {
+                        if(uri != null) {
+                            // 复制图片到外部存储
+                            String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + UUID.randomUUID().toString() + ".png";
+                            boolean success = AppUtils.copyImageToExternalFilesDir(getContext(), uri, filePath);
+                            if (success) {
+                                paths += filePath + ",";
+                            } else {
+                                Log.e("PhotoPicker", "Failed to copy image.");
+                                Toast.makeText(getContext(), "照片读取失败", Toast.LENGTH_SHORT).show();
+                            }
+                        } else {
+                            Toast.makeText(getContext(), "没有选择相片", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+                    String finalPaths = paths;
+                    if(!finalPaths.isEmpty()) {
+                        getActivity().runOnUiThread(() -> {
+                            ChatAiParam param = new ChatAiParam();
+                            //param.sessionId = tag;
+                            param.chatBotUrl = ApiUrl.URL_CHAT_GENERAL;
+                            param.showHeader = true;
+                            param.streamDisplay = true;
+                            param.showHistory = true;
+                            param.initialSendEnable = true;
+
+                            Intent intent = new Intent(getContext(), ChatAiActivity.class);
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈
+                            intent.putExtra(ChatAiActivity.KEY_CHAT_AI_PARAM, param);
+                            intent.putExtra(ChatAiActivity.KEY_SUBMIT_PICTURE_PATH, finalPaths);
+                            startActivity(intent);
+
+                            ApplicationModelShared.getInstance().getFloatingWindowService().hideRobot();
+                        });
+                    }
+                });
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
     }
 }

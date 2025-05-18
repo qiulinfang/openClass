@@ -766,6 +766,7 @@ public class ChatAiView extends RelativeLayout {
             resetCurrentSession(catalog, session);
             return true;
         });
+
         // expandableListView.setOnGroupExpandListener(groupPosition -> {
 //            for (int i = 0; i < expandableListAdapter.getGroupCount(); i++) {
 //                if (groupPosition != i) {
@@ -1339,6 +1340,14 @@ public class ChatAiView extends RelativeLayout {
         mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
     }
 
+    public void sendHomeworkPicturesToTeacher(String pictures) {
+        String [] paths = pictures.split(",");
+        for(String path : paths) {
+            postDelayed(() -> {
+                sendPictureToTeacher(path);
+            }, 1000);
+        }
+    }
     public void sendPictureToTeacher(String path) {
         String subject = getTeacherSubject();
         String base64Content = ImageUtils.loadImageFileToBase64(path);
