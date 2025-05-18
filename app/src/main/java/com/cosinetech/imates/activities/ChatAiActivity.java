@@ -23,6 +23,8 @@ import com.cosinetech.imates.views.ChatAiView;
 public class ChatAiActivity extends AppCompatActivity implements MessagingManager.MessageListener {
     private ChatAiView mChatView;
     public static final String KEY_CHAT_AI_PARAM = "CHAT_PARAM";
+    public static final String KEY_CHAT_TEACHER = "CHAT_TEACHER";
+
     @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {

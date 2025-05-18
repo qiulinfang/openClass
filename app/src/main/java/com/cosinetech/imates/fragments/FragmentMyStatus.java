@@ -104,6 +104,14 @@ public class FragmentMyStatus extends Fragment {
             requireActivity().finish();
         });
 
+        Button submitButton = v.findViewById(R.id.submit_homework);
+        submitButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+            }
+        });
+
         Button switchButton = v.findViewById(R.id.switch_button);
         if(ScreenCastingManager.isHavingClass()) {
             switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getContext(), R.drawable.app_switch_on), null, null);
@@ -122,6 +130,7 @@ public class FragmentMyStatus extends Fragment {
                             switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getContext(), R.drawable.app_switch_off), null, null);
                             ScreenShareKit.INSTANCE.stop();
                             switchButton.postDelayed(() -> switchButton.setEnabled(true), 2000);
+                            submitButton.post(() -> submitButton.setVisibility(View.INVISIBLE));
                         })
                         .setNegativeButton("取消", (dialog, which) -> {
                         })
@@ -149,6 +158,7 @@ public class FragmentMyStatus extends Fragment {
                             ScreenCastingManager.setClassMode(true);
                             h264ToTsStreamer.start();
                             switchButton.post(() -> switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getContext(), R.drawable.app_switch_on), null, null));
+                            submitButton.post(() -> submitButton.setVisibility(View.VISIBLE));
                         }).start();
             }
 
