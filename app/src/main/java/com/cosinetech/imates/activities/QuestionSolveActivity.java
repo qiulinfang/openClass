@@ -213,6 +213,10 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                     mRdoChatAi.setChecked(true);
                 }
 
+                if(pos < 0 || pos >= mQuestions.size()) {
+                    return;
+                }
+
                 mCurrentQuestionIndex = pos;
                 Question mCurrentQuestion = mQuestions.get(pos);
                 mCurrentQuestion.getQuestion();
@@ -222,9 +226,15 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 MarkdownTextView answer = findViewById(R.id.answerView);
                 answer.setContent(mCurrentQuestion.getAnswer() + "   \n" + mCurrentQuestion.getAnswerAnalysis());
 
-                mChatView.setChatEnable(false);
-                chatResponseTimes = 0;
-                setViewAnswer(false);
+                if(mCurrentQuestion.beginGuideToSolve) {
+                    mChatView.setChatEnable(true);
+                    chatResponseTimes = 2;
+                    setViewAnswer(true);
+                } else {
+                    mChatView.setChatEnable(false);
+                    chatResponseTimes = 0;
+                    setViewAnswer(false);
+                }
 
                 //先生成ai的session
                 ChatMessageSession session = onChatQuestionSessionChange(false);
@@ -239,6 +249,10 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 if(mCurrentQuestionIndex >= 0 && mCurrentQuestionIndex < mQuestions.size()) {
                     mQuestions.get(mCurrentQuestionIndex).isAiGuiding = true;
                     adapterQuestionList.notifyItemChanged(mCurrentQuestionIndex);
+                    for(Question q : mQuestions) {
+                        q.beginGuideToSolve = false;
+                    }
+                    mQuestions.get(mCurrentQuestionIndex).beginGuideToSolve = true;
                 }
                 onChatQuestionSessionChange(true);
                 runOnUiThread(() -> {
