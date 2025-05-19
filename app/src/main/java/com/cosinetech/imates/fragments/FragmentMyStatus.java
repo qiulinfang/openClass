@@ -110,6 +110,7 @@ public class FragmentMyStatus extends Fragment {
             userInfoViewModel.token.postValue("");
             userInfoViewModel.userId.postValue("");
             userInfoViewModel.userInfo.postValue(new UserInfo());
+            ScreenCastingManager.setClassMode(false);
             Intent intent = new Intent(requireActivity(), LoginActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
