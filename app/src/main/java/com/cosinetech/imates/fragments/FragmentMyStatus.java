@@ -33,6 +33,7 @@ import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.screencasting.UdpForwarderManager;
 import com.cosinetech.imates.util.AppUtils;
+import com.cosinetech.imates.util.SimpleImageCompressor;
 import com.cosinetech.imates.webservice.ApiUrl;
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.helper.StaticLabelsFormatter;
@@ -238,6 +239,7 @@ public class FragmentMyStatus extends Fragment {
                             String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + UUID.randomUUID().toString() + ".png";
                             boolean success = AppUtils.copyImageToExternalFilesDir(getContext(), uri, filePath);
                             if (success) {
+                                SimpleImageCompressor.compressInPlace(filePath, 40);
                                 paths += filePath + ",";
                             } else {
                                 Log.e("PhotoPicker", "Failed to copy image.");
