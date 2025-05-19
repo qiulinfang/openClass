@@ -15,8 +15,8 @@ android {
         applicationId "com.cosinetech.imates"
         minSdk 24
         targetSdk 34
-        versionCode 39
-        versionName "1.0.39"
+        versionCode 40
+        versionName "1.0.40"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
@@ -213,7 +213,8 @@ dependencies {
     implementation libs.camera.lifecycle
     implementation libs.camera.view
     implementation libs.android.image.cropper
-    implementation 'io.github.ParkSangGwon:tedimagepicker:1.6.1'
+    //implementation 'io.github.ParkSangGwon:tedimagepicker:1.6.1'
+    implementation 'com.github.dhaval2404:imagepicker:2.1'
 
     // ======== http/https请求库 ========
     implementation platform(libs.okhttp.bom)
