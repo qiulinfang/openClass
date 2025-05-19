@@ -1356,7 +1356,11 @@ public class ChatAiView extends RelativeLayout {
                 subject,
                 TeacherQaType.QA_MSG_TYPE_PICTURE,
                 base64Content);
-        studentMsg.setMessageId(mSelectedImageUUID);
+        if(mSelectedImageUUID.isEmpty()) {
+            studentMsg.setMessageId(UUID.randomUUID().toString());
+        } else {
+            studentMsg.setMessageId(mSelectedImageUUID);
+        }
 
         MessagingManager.getInstance().sendMessageToTeacher(studentMsg, (success, messageId, errorMessage) -> {
             Log.e("=-=-=", success + messageId + errorMessage);
