@@ -213,8 +213,9 @@ dependencies {
     implementation libs.camera.lifecycle
     implementation libs.camera.view
     implementation libs.android.image.cropper
-    //implementation 'io.github.ParkSangGwon:tedimagepicker:1.6.1'
-    implementation 'com.github.dhaval2404:imagepicker:2.1'
+    implementation 'io.github.ParkSangGwon:tedimagepicker:1.6.1'
+    implementation("io.github.ParkSangGwon:tedpermission-normal:3.4.2")
+    //implementation 'com.github.dhaval2404:imagepicker:2.1'
 
     // ======== http/https请求库 ========
     implementation platform(libs.okhttp.bom)

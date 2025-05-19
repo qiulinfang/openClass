@@ -1,7 +1,6 @@
 package com.cosinetech.imates.fragments;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Color;
@@ -34,20 +33,18 @@ import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.screencasting.UdpForwarderManager;
 import com.cosinetech.imates.util.AppUtils;
-import com.cosinetech.imates.views.ChatAiView;
 import com.cosinetech.imates.webservice.ApiUrl;
-import com.github.dhaval2404.imagepicker.ImagePicker;
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.helper.StaticLabelsFormatter;
 import com.jjoe64.graphview.series.BarGraphSeries;
 import com.jjoe64.graphview.series.DataPoint;
 
-import org.jetbrains.annotations.NotNull;
 import org.loka.screensharekit.EncodeBuilder;
 import org.loka.screensharekit.ScreenShareKit;
 
-import java.util.List;
 import java.util.UUID;
+
+import gun0912.tedimagepicker.builder.TedImagePicker;
 
 //import gun0912.tedimagepicker.builder.TedImagePicker;
 //import gun0912.tedimagepicker.builder.listener.OnMultiSelectedListener;
@@ -234,97 +231,50 @@ public class FragmentMyStatus extends Fragment {
 
     @SuppressLint("CheckResult")
     private void takePictureToTeacher() {
-        ImagePicker.with(this)
-                //.crop()	    			//Crop image(Optional), Check Customization for more option
-                .compress(1024)			//Final image size will be less than 1 MB(Optional)
-                .maxResultSize(1920, 1080)	//Final image resolution will be less than 1080 x 1080(Optional)
-                .start();
-//        TedImagePicker.with(getContext())
-//                .startMultiImage(uriList -> {
-//                    String paths = "";
-//                    for(Uri uri : uriList) {
-//                        if(uri != null) {
-//                            // 复制图片到外部存储
-//                            String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + UUID.randomUUID().toString() + ".png";
-//                            boolean success = AppUtils.copyImageToExternalFilesDir(getContext(), uri, filePath);
-//                            if (success) {
-//                                paths += filePath + ",";
-//                            } else {
-//                                Log.e("PhotoPicker", "Failed to copy image.");
-//                                Toast.makeText(getContext(), "照片读取失败", Toast.LENGTH_SHORT).show();
-//                            }
-//                        } else {
-//                            Toast.makeText(getContext(), "没有选择相片", Toast.LENGTH_SHORT).show();
-//                        }
-//                    }
-//
-//                    String finalPaths = paths;
-//                    if(!finalPaths.isEmpty()) {
-//                        getActivity().runOnUiThread(() -> {
-//                            ChatAiParam param = new ChatAiParam();
-//                            //param.sessionId = tag;
-//                            param.chatBotUrl = ApiUrl.URL_CHAT_GENERAL;
-//                            param.showHeader = true;
-//                            param.streamDisplay = true;
-//                            param.showHistory = true;
-//                            param.initialSendEnable = true;
-//
-//                            Intent intent = new Intent(getContext(), ChatAiActivity.class);
-//                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈
-//                            intent.putExtra(ChatAiActivity.KEY_CHAT_AI_PARAM, param);
-//                            intent.putExtra(ChatAiActivity.KEY_SUBMIT_PICTURE_PATH, finalPaths);
-//                            startActivity(intent);
-//
-//                            ApplicationModelShared.getInstance().getFloatingWindowService().hideRobot();
-//                        });
-//                    }
-//                });
+        TedImagePicker.with(getContext())
+                .startMultiImage(uriList -> {
+                    String paths = "";
+                    for(Uri uri : uriList) {
+                        if(uri != null) {
+                            // 复制图片到外部存储
+                            String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + UUID.randomUUID().toString() + ".png";
+                            boolean success = AppUtils.copyImageToExternalFilesDir(getContext(), uri, filePath);
+                            if (success) {
+                                paths += filePath + ",";
+                            } else {
+                                Log.e("PhotoPicker", "Failed to copy image.");
+                                Toast.makeText(getContext(), "照片读取失败", Toast.LENGTH_SHORT).show();
+                            }
+                        } else {
+                            Toast.makeText(getContext(), "没有选择相片", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+                    String finalPaths = paths;
+                    if(!finalPaths.isEmpty()) {
+                        getActivity().runOnUiThread(() -> {
+                            ChatAiParam param = new ChatAiParam();
+                            //param.sessionId = tag;
+                            param.chatBotUrl = ApiUrl.URL_CHAT_GENERAL;
+                            param.showHeader = true;
+                            param.streamDisplay = true;
+                            param.showHistory = true;
+                            param.initialSendEnable = true;
+
+                            Intent intent = new Intent(getContext(), ChatAiActivity.class);
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈
+                            intent.putExtra(ChatAiActivity.KEY_CHAT_AI_PARAM, param);
+                            intent.putExtra(ChatAiActivity.KEY_SUBMIT_PICTURE_PATH, finalPaths);
+                            startActivity(intent);
+
+                            ApplicationModelShared.getInstance().getFloatingWindowService().hideRobot();
+                        });
+                    }
+                });
     }
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode == Activity.RESULT_OK) {
-            //Image Uri will not be null for RESULT_OK
-            Uri uri = data.getData();
-            String paths = "";
-            if (uri != null) {
-                // 复制图片到外部存储
-                String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + UUID.randomUUID().toString() + ".png";
-                boolean success = AppUtils.copyImageToExternalFilesDir(getContext(), uri, filePath);
-                if (success) {
-                    paths += filePath + ",";
-                } else {
-                    Log.e("PhotoPicker", "Failed to copy image.");
-                    Toast.makeText(getContext(), "照片读取失败", Toast.LENGTH_SHORT).show();
-                }
-            } else {
-                Toast.makeText(getContext(), "没有选择相片", Toast.LENGTH_SHORT).show();
-            }
-            String finalPaths = paths;
-            if(!finalPaths.isEmpty()) {
-                getActivity().runOnUiThread(() -> {
-                    ChatAiParam param = new ChatAiParam();
-                    //param.sessionId = tag;
-                    param.chatBotUrl = ApiUrl.URL_CHAT_GENERAL;
-                    param.showHeader = true;
-                    param.streamDisplay = true;
-                    param.showHistory = true;
-                    param.initialSendEnable = true;
-
-                    Intent intent = new Intent(getContext(), ChatAiActivity.class);
-                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈
-                    intent.putExtra(ChatAiActivity.KEY_CHAT_AI_PARAM, param);
-                    intent.putExtra(ChatAiActivity.KEY_SUBMIT_PICTURE_PATH, finalPaths);
-                    startActivity(intent);
-
-                    ApplicationModelShared.getInstance().getFloatingWindowService().hideRobot();
-                });
-            }
-        } else if (resultCode == ImagePicker.RESULT_ERROR) {
-            Toast.makeText(getContext(), ImagePicker.getError(data), Toast.LENGTH_SHORT).show();
-        } else {
-            Toast.makeText(getContext(), "Task Cancelled", Toast.LENGTH_SHORT).show();
-        }
     }
 }
