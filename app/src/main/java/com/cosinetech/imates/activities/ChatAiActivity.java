@@ -114,7 +114,7 @@ public class ChatAiActivity extends AppCompatActivity implements MessagingManage
         if(teacherPicturePath != null && !teacherPicturePath.isEmpty()) {
             mChatView.resetCurrentCatalog(ChatMessageCatalogue.CATEGORY_TEACHER_QA);
             String chatAiSessionName = "我的作业" + new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
-            String chatAiSessionId = UUID.nameUUIDFromBytes(chatAiSessionName.getBytes(StandardCharsets.UTF_8)).toString();
+            String chatAiSessionId = UUID.nameUUIDFromBytes((AppUtils.getUserId() + chatAiSessionName).getBytes(StandardCharsets.UTF_8)).toString();
             ChatMessageSession session = createChatTeacherSession(chatAiSessionId, chatAiSessionName,
                     ChatMessageSession.SessionType.USER_TALK_TEACHER_BIOLOGY);
 //
