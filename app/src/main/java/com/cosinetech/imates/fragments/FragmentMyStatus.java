@@ -46,9 +46,6 @@ import java.util.UUID;
 
 import gun0912.tedimagepicker.builder.TedImagePicker;
 
-//import gun0912.tedimagepicker.builder.TedImagePicker;
-//import gun0912.tedimagepicker.builder.listener.OnMultiSelectedListener;
-
 /**
  * A simple {@link Fragment} subclass.
  * Use the {@link FragmentMyStatus#newInstance} factory method to

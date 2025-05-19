@@ -14,7 +14,7 @@ import java.io.InputStream;
 public class AssetsCopyUtils {
     private static final String PREFS_NAME = "FileCopyPrefs";
     private static final String KEY_FILE_VERSION = "file_version";
-    private static final String CURRENT_VERSION = "20250506_01"; // 当前文件版本号
+    private static final String CURRENT_VERSION = "20250519_01"; // 当前文件版本号
 
     public static void copyAssetsToDocuments(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
