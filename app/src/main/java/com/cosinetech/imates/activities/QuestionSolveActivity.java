@@ -51,6 +51,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
     public static final String KEY_SUBJECT = "KEY_SUBJECT";
     public static final String KEY_SHOW_LAST_QUESTION = "KEY_SHOW_LAST";
     private int chatResponseTimes = 0;
+    private static final int VIEW_ANSWER_CHAT_TIMES = 5;
     private String chatBotUrl;
     private Subject subject;
     private UserInfoViewModel userInfoViewModel;
@@ -130,7 +131,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 adapterQuestionList.notifyItemChanged(mCurrentQuestionIndex);
             }
             chatResponseTimes++;
-            if(chatResponseTimes >= 2) {
+            if(chatResponseTimes >= VIEW_ANSWER_CHAT_TIMES) {
                 setViewAnswer(true);
             }
         });
@@ -228,8 +229,9 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
 
                 if(mCurrentQuestion.beginGuideToSolve) {
                     mChatView.setChatEnable(true);
-                    chatResponseTimes = 2;
-                    setViewAnswer(true);
+                    if(chatResponseTimes >= VIEW_ANSWER_CHAT_TIMES) {
+                        setViewAnswer(true);
+                    }
                 } else {
                     mChatView.setChatEnable(false);
                     chatResponseTimes = 0;
