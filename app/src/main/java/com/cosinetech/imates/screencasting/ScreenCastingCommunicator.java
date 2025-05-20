@@ -53,8 +53,9 @@ public class ScreenCastingCommunicator {
     private final String studentName;
     private int tsStreamPort;
 
-    private MulticastSocket controlSocket;
-    private InetAddress controlGroup;
+    private MulticastSocket multicastReceiver;
+    private MulticastSocket multicastSender;
+    private InetAddress multicastGroup;
     private final ExecutorService executor = Executors.newFixedThreadPool(3);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
@@ -117,20 +118,28 @@ public class ScreenCastingCommunicator {
             }
             String[] parts = localIp.split("\\.");
             this.tsStreamPort = TS_STREAM_PORT_BASE + Integer.parseInt(parts[3]);
+            multicastGroup = InetAddress.getByName(CONTROL_MULTICAST_ADDRESS);
 
             // 创建控制信道socket
-            controlSocket = new MulticastSocket(CONTROL_MULTICAST_PORT);
-            controlSocket.setTimeToLive(64);
+            multicastReceiver = new MulticastSocket(null);
+            multicastReceiver.setReuseAddress(true);
+            multicastReceiver.bind(new InetSocketAddress(multicastGroup, CONTROL_MULTICAST_PORT));
+            multicastReceiver.setReceiveBufferSize(1024 * 1024);
+            multicastReceiver.setTimeToLive(64);
 
-            controlGroup = InetAddress.getByName(CONTROL_MULTICAST_ADDRESS);
+            multicastSender = new MulticastSocket();
+            multicastSender.setSendBufferSize(1024 * 1024);
+            multicastSender.setTimeToLive(64);
+
 
             // 设置网络接口（解决某些设备无法接收组播的问题）
             NetworkInterface networkInterface = getMulticastNetworkInterface();
             if (networkInterface != null) {
-                controlSocket.setNetworkInterface(networkInterface);
+                multicastReceiver.setNetworkInterface(networkInterface);
+                multicastSender.setNetworkInterface(networkInterface);
             }
 
-            controlSocket.joinGroup(controlGroup);
+            multicastReceiver.joinGroup(multicastGroup);
 
             // 通知监听器
             if (networkStateListener != null) {
@@ -163,13 +172,13 @@ public class ScreenCastingCommunicator {
             executor.awaitTermination(3, TimeUnit.SECONDS);
         } catch (Exception ignored) {
         }
-        if (controlSocket != null && controlGroup != null) {
+        if (multicastReceiver != null && multicastGroup != null) {
             try {
-                controlSocket.leaveGroup(controlGroup);
+                multicastReceiver.leaveGroup(multicastGroup);
             } catch (Exception ignore) {}
             finally {
-                controlSocket.close();
-                controlSocket = null;
+                multicastReceiver.close();
+                multicastReceiver = null;
             }
         }
     }
@@ -181,7 +190,7 @@ public class ScreenCastingCommunicator {
         executor.execute(() -> {
             while (!executor.isShutdown()) {
                 try {
-                    if(controlSocket.isClosed()) {
+                    if(multicastReceiver.isClosed()) {
                         break;
                     }
                     Thread.sleep(1000); // 1秒发送一次
@@ -227,7 +236,7 @@ public class ScreenCastingCommunicator {
                 pcAddress,
                 CONTROL_MULTICAST_PORT);
 
-        controlSocket.send(packet);
+        multicastSender.send(packet);
 
         InetAddress teacherPadAddress = InetAddress.getByName(teacherPadDeviceIp);;
         DatagramPacket packet1 = new DatagramPacket(
@@ -235,7 +244,7 @@ public class ScreenCastingCommunicator {
                 buffer.length,
                 teacherPadAddress,
                 CONTROL_MULTICAST_PORT);
-        controlSocket.send(packet1);
+        multicastSender.send(packet1);
         Log.d(TAG, "发送状态消息: " + message);
     }
 
@@ -249,10 +258,10 @@ public class ScreenCastingCommunicator {
 
             while (!executor.isShutdown()) {
                 try {
-                    if(controlSocket.isClosed()) {
+                    if(multicastReceiver.isClosed()) {
                         break;
                     }
-                    controlSocket.receive(packet);
+                    multicastReceiver.receive(packet);
                     String receivedMessage = new String(
                             packet.getData(),
                             packet.getOffset(),
