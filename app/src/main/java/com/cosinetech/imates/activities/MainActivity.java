@@ -6,6 +6,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -22,9 +23,12 @@ import com.cosinetech.imates.fragments.FragmentSubjectChinese;
 import com.cosinetech.imates.fragments.FragmentSubjectEnglish;
 import com.cosinetech.imates.fragments.FragmentSubjectMath;
 import com.cosinetech.imates.fragments.FragmentSubjectPhysics;
+import com.cosinetech.imates.screencasting.FFmpegPipeStreamer;
+import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.service.FloatingRobotService;
 import com.cosinetech.imates.util.WindowUtils;
 
+import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.appcompat.app.AppCompatActivity;
@@ -34,11 +38,18 @@ import com.cosinetech.imates.webservice.ApiUrl;
 import com.google.android.material.tabs.TabLayout;
 
 import com.google.android.material.tabs.TabLayoutMediator;
+import com.lzf.easyfloat.EasyFloat;
+import com.lzf.easyfloat.anim.DefaultAnimator;
+import com.lzf.easyfloat.enums.ShowPattern;
+import com.lzf.easyfloat.enums.SidePattern;
+import com.lzf.easyfloat.interfaces.OnFloatCallbacks;
 import com.xuexiang.xupdate.easy.EasyUpdate;
 
 import android.widget.ImageView;
 
 import androidx.viewpager2.widget.ViewPager2;
+
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -61,6 +72,8 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    private FFmpegPipeStreamer h264ToTsStreamer = null;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -74,7 +87,6 @@ public class MainActivity extends AppCompatActivity {
         ViewPager2 viewPager = findViewById(R.id.view_pager);
         // 禁止滑动翻页
         viewPager.setUserInputEnabled(false);
-
 
         // 创建 Fragment 列表
         List<Fragment> fragmentList = new ArrayList<>();
@@ -193,6 +205,9 @@ public class MainActivity extends AppCompatActivity {
                 .update();
         mCheckUpdateTick = System.currentTimeMillis();
         mCheckUpdateHandler.postDelayed(mCheckUpdateRunnable, 60000);
+
+        h264ToTsStreamer = H264MpegTSStreamerManager.getInstance();
+
         Log.e("++++++++++++++++", "onCreate");
     }
 
@@ -207,7 +222,7 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         Log.e("++++++++++++++++", "onResume");
         ApplicationModelShared app = (ApplicationModelShared) getApplication();
-        if(app.getFloatingWindowService() != null) {
+        if (app.getFloatingWindowService() != null) {
             app.getFloatingWindowService().showRobot();
         }
     }
