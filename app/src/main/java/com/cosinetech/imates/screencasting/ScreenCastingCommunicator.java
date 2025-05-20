@@ -31,6 +31,12 @@ public class ScreenCastingCommunicator {
     private static final String CONTROL_MULTICAST_ADDRESS = "239.255.100.1";
     private static final int CONTROL_MULTICAST_PORT = 5000;
 
+    // 教师端监听的端口, 用来接收学生状态
+    private static final int TEACHER_PAD_CONTROL_PORT = 5986;
+
+    //学生端监听的端口, 用来给其发命令
+    private static final int STUDENT_CONTROL_PORT = 5987;
+
     // 消息类型
     private static final String MSG_TYPE_STATUS = "status";
     private static final String MSG_TYPE_PROJECTION_PAD = "projection_pad";
@@ -127,7 +133,7 @@ public class ScreenCastingCommunicator {
             multicastReceiver.setReceiveBufferSize(1024 * 1024);
             multicastReceiver.setTimeToLive(64);
 
-            multicastSender = new MulticastSocket(CONTROL_MULTICAST_PORT + 1);
+            multicastSender = new MulticastSocket(STUDENT_CONTROL_PORT);
             multicastSender.setSendBufferSize(1024 * 1024);
             multicastSender.setTimeToLive(64);
 
@@ -248,7 +254,7 @@ public class ScreenCastingCommunicator {
                 buffer,
                 buffer.length,
                 teacherPadAddress,
-                CONTROL_MULTICAST_PORT + 1);
+                TEACHER_PAD_CONTROL_PORT);
         multicastSender.send(packet1);
         Log.d(TAG, "发送状态消息: " + message);
     }
