@@ -243,7 +243,7 @@ public class ScreenCastingCommunicator {
                 buffer,
                 buffer.length,
                 teacherPadAddress,
-                CONTROL_MULTICAST_PORT);
+                CONTROL_MULTICAST_PORT + 1);
         multicastSender.send(packet1);
         Log.d(TAG, "发送状态消息: " + message);
     }
