@@ -373,7 +373,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         String questionString = mQuestions.get(mCurrentQuestionIndex).getQuestion();
         long tick = System.currentTimeMillis();
         ChatMessageSession session = new ChatMessageSession(
-                UUID.nameUUIDFromBytes(questionString.getBytes()).toString(),
+                UUID.nameUUIDFromBytes((questionString + userInfoViewModel.userId.getValue()).getBytes()).toString(),
                 mChatAiCatalogue.catalogId,
                 (questionString.length() > ChatMessageSession.MAX_SESSION_NAME_LENGTH ?
                         questionString.substring(0, ChatMessageSession.MAX_SESSION_NAME_LENGTH) + "..." :
