@@ -56,7 +56,7 @@ public class ScreenCastingCommunicator {
     private MulticastSocket multicastReceiver;
     private MulticastSocket multicastSender;
     private InetAddress multicastGroup;
-    private final ExecutorService executor = Executors.newFixedThreadPool(3);
+    private final ExecutorService executor = Executors.newFixedThreadPool(8);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     // 网络状态监听器
@@ -127,7 +127,7 @@ public class ScreenCastingCommunicator {
             multicastReceiver.setReceiveBufferSize(1024 * 1024);
             multicastReceiver.setTimeToLive(64);
 
-            multicastSender = new MulticastSocket();
+            multicastSender = new MulticastSocket(CONTROL_MULTICAST_PORT + 1);
             multicastSender.setSendBufferSize(1024 * 1024);
             multicastSender.setTimeToLive(64);
 
@@ -154,7 +154,8 @@ public class ScreenCastingCommunicator {
             startStatusReporting();
 
             // 开始接收消息
-            startReceivingMessages();
+            startReceivingMulticastMessages();
+            startReceivingSingleCastMessage();
 
             Log.d(TAG, "学生端通信已启动，本地IP: " + localIp);
         } catch (IOException e) {
@@ -180,6 +181,10 @@ public class ScreenCastingCommunicator {
                 multicastReceiver.close();
                 multicastReceiver = null;
             }
+        }
+        if(multicastSender != null) {
+            multicastSender.close();
+            multicastSender = null;
         }
     }
 
@@ -251,7 +256,7 @@ public class ScreenCastingCommunicator {
     /**
      * 开始接收消息
      */
-    private void startReceivingMessages() {
+    private void startReceivingMulticastMessages() {
         executor.execute(() -> {
             byte[] buffer = new byte[4096];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
@@ -279,6 +284,33 @@ public class ScreenCastingCommunicator {
         });
     }
 
+    private void startReceivingSingleCastMessage() {
+        executor.execute(() -> {
+            byte[] buffer = new byte[4096];
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+
+            while (!executor.isShutdown()) {
+                try {
+                    if(multicastSender.isClosed()) {
+                        break;
+                    }
+                    multicastSender.receive(packet);
+                    String receivedMessage = new String(
+                            packet.getData(),
+                            packet.getOffset(),
+                            packet.getLength(),
+                            StandardCharsets.UTF_8);
+
+                    Log.d(TAG, "收到消息: " + receivedMessage);
+                    processReceivedMessage(receivedMessage);
+
+                } catch (Exception e) {
+                    Log.e(TAG, "接收消息时出错", e);
+                    notifyNetworkError("接收消息时出错: " + e.getMessage());
+                }
+            }
+        });
+    }
     /**
      * 处理接收到的消息
      */
