@@ -30,6 +30,7 @@ public class ApplicationModelShared extends Application implements ViewModelStor
     public AiChatMessageRequest chatRequest;
 
     private int activityCount = 0;
+    public boolean fakeClassMode = false;
     WifiManager.MulticastLock multicastLock = null;
     private static ApplicationModelShared appInstance = null;
 
@@ -86,6 +87,7 @@ public class ApplicationModelShared extends Application implements ViewModelStor
         UdpForwarderManager.getInstance().stop();
         H264MpegTSStreamerManager.getInstance().stop();
         multicastLock.release();
+        fakeClassMode = false;
     }
 
     public static ApplicationModelShared getInstance() {

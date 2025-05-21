@@ -47,6 +47,12 @@
         android:theme="@style/Theme.IMatesApp.FullScreen"
         tools:targetApi="31">
         <activity
+            android:name=".activities.MyFavorCenterActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activities.MyHistoryActivity"
+            android:exported="false" />
+        <activity
             android:name=".activities.FindExerciseActivity"
             android:exported="false" />
         <activity
@@ -63,8 +69,8 @@
             android:name=".activities.PhotoQuestionLookupActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
-            android:windowSoftInputMode="adjustPan"
-            android:screenOrientation="landscape" />
+            android:screenOrientation="landscape"
+            android:windowSoftInputMode="adjustPan" />
         <activity
             android:name=".activities.QuestionSolveActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"

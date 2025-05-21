@@ -282,57 +282,74 @@ public class MainActivity extends AppCompatActivity {
                                 submitButton.setOnClickListener(v3 -> takePictureToTeacher());
 
                                 Button switchButton = view.findViewById(R.id.switch_button);
-                                if(ScreenCastingManager.isHavingClass()) {
-                                    switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_on), null, null);
-                                } else {
-                                    switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_off), null, null);
-                                }
-
-                                switchButton.setOnClickListener(v2 -> {
-                                    switchButton.setEnabled(false);
-                                    if(ScreenCastingManager.isHavingClass()) {
-                                        new AlertDialog.Builder(MainActivity.this)
-                                                .setTitle("提示")
-                                                .setMessage("退出课堂后将不能和老师互动, 确认退出吗?")
-                                                .setPositiveButton("确认", (dialog, which) -> {
-                                                    ScreenCastingManager.setClassMode(false);
-                                                    switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_off), null, null);
-                                                    ScreenShareKit.INSTANCE.stop();
-                                                    switchButton.postDelayed(() -> switchButton.setEnabled(true), 2000);
-                                                    submitButton.post(() -> submitButton.setVisibility(View.INVISIBLE));
-                                                })
-                                                .setNegativeButton("取消", (dialog, which) -> {
-                                                })
-                                                .create()
-                                                .show();
+                                if(AppUtils.getUserId().equals("guest000")) {
+                                    if(ApplicationModelShared.getInstance().fakeClassMode) {
+                                        switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_on), null, null);
                                     } else {
-                                        ScreenShareKit.INSTANCE.init(MainActivity.this)
-                                                .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
-                                                .onH264((buffer, isKeyFrame, width, height, ts) -> {
-                                                    try {
-                                                        // 编码后的数据
-                                                        byte[] bytes = new byte[buffer.remaining()];
-                                                        buffer.get(bytes);
-
-                                                        h264ToTsStreamer.onH264DataReceived(bytes, ts);
-                                                        if(isKeyFrame) {
-                                                            H264IFrameCache.getInstance().onH264Frame(bytes);
-                                                        }
-                                                    } catch (Exception e) {
-                                                        Log.e("ScreenShareKit", "H264 callback error:" + e.getMessage());
-                                                    }
-                                                })
-                                                .onError(errorInfo -> Log.e("ScreenShareKitERROR", errorInfo.getMessage()))
-                                                .onStart(() -> {
-                                                    ScreenCastingManager.setClassMode(true);
-                                                    h264ToTsStreamer.start();
-                                                    switchButton.post(() -> switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_on), null, null));
-                                                    submitButton.post(() -> submitButton.setVisibility(View.VISIBLE));
-                                                }).start();
+                                        switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_off), null, null);
+                                    }
+                                    switchButton.setOnClickListener(v3 -> {
+                                        if(ApplicationModelShared.getInstance().fakeClassMode) {
+                                            ApplicationModelShared.getInstance().fakeClassMode = false;
+                                            switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_off), null, null);
+                                        } else {
+                                            ApplicationModelShared.getInstance().fakeClassMode = true;
+                                            switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_on), null, null);
+                                        }
+                                    });
+                                } else {
+                                    if (ScreenCastingManager.isHavingClass()) {
+                                        switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_on), null, null);
+                                    } else {
+                                        switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_off), null, null);
                                     }
 
-                                    switchButton.postDelayed(() -> switchButton.setEnabled(true), 2000);
-                                });
+                                    switchButton.setOnClickListener(v2 -> {
+                                        switchButton.setEnabled(false);
+                                        if (ScreenCastingManager.isHavingClass()) {
+                                            new AlertDialog.Builder(MainActivity.this)
+                                                    .setTitle("提示")
+                                                    .setMessage("退出课堂后将不能和老师互动, 确认退出吗?")
+                                                    .setPositiveButton("确认", (dialog, which) -> {
+                                                        ScreenCastingManager.setClassMode(false);
+                                                        switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_off), null, null);
+                                                        ScreenShareKit.INSTANCE.stop();
+                                                        switchButton.postDelayed(() -> switchButton.setEnabled(true), 2000);
+                                                        submitButton.post(() -> submitButton.setVisibility(View.INVISIBLE));
+                                                    })
+                                                    .setNegativeButton("取消", (dialog, which) -> {
+                                                    })
+                                                    .create()
+                                                    .show();
+                                        } else {
+                                            ScreenShareKit.INSTANCE.init(MainActivity.this)
+                                                    .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
+                                                    .onH264((buffer, isKeyFrame, width, height, ts) -> {
+                                                        try {
+                                                            // 编码后的数据
+                                                            byte[] bytes = new byte[buffer.remaining()];
+                                                            buffer.get(bytes);
+
+                                                            h264ToTsStreamer.onH264DataReceived(bytes, ts);
+                                                            if (isKeyFrame) {
+                                                                H264IFrameCache.getInstance().onH264Frame(bytes);
+                                                            }
+                                                        } catch (Exception e) {
+                                                            Log.e("ScreenShareKit", "H264 callback error:" + e.getMessage());
+                                                        }
+                                                    })
+                                                    .onError(errorInfo -> Log.e("ScreenShareKitERROR", errorInfo.getMessage()))
+                                                    .onStart(() -> {
+                                                        ScreenCastingManager.setClassMode(true);
+                                                        h264ToTsStreamer.start();
+                                                        switchButton.post(() -> switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_on), null, null));
+                                                        submitButton.post(() -> submitButton.setVisibility(View.VISIBLE));
+                                                    }).start();
+                                        }
+
+                                        switchButton.postDelayed(() -> switchButton.setEnabled(true), 2000);
+                                    });
+                                }
                             }
                         }
 

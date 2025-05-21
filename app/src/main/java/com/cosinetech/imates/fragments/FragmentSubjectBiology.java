@@ -151,6 +151,7 @@ public class FragmentSubjectBiology extends Fragment {
         }
     }
 
+    //历史档案
     public void showMyHistory(View anchorView, int imageResId) {
         // 加载布局
         View popupView = LayoutInflater.from(getActivity()).inflate(R.layout.popup_window_history_image, null);
@@ -179,6 +180,7 @@ public class FragmentSubjectBiology extends Fragment {
         popupWindow.showAtLocation(anchorView, Gravity.CENTER, 0, 0);
     }
 
+    //收藏中心
     public void showMyFavor(View anchorView) {
         View popupView = LayoutInflater.from(getActivity()).inflate(R.layout.popup_window_my_favor, null);
 
