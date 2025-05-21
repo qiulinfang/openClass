@@ -113,4 +113,13 @@ public class MyFavorCenterActivity extends AppCompatActivity {
         // 显示 PopupWindow
         popupWindow.showAtLocation(view, Gravity.CENTER, 0, 0);
     }
+
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            WindowUtils.hideSystemUI(this);
+        }
+    }
 }

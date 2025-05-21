@@ -41,4 +41,13 @@ public class MyHistoryActivity extends AppCompatActivity {
             imageView.setImageResource(R.drawable.history_math);
         }
     }
+
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            WindowUtils.hideSystemUI(this);
+        }
+    }
 }
