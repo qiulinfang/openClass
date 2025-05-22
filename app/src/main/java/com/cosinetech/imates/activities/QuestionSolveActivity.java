@@ -51,7 +51,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
     public static final String KEY_SUBJECT = "KEY_SUBJECT";
     public static final String KEY_SHOW_LAST_QUESTION = "KEY_SHOW_LAST";
     private int chatResponseTimes = 0;
-    private static final int VIEW_ANSWER_CHAT_TIMES = 5;
+    private static final int VIEW_ANSWER_CHAT_TIMES = 3;
     private String chatBotUrl;
     private Subject subject;
     private UserInfoViewModel userInfoViewModel;
