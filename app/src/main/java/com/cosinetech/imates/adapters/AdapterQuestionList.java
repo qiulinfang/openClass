@@ -53,13 +53,13 @@ public class AdapterQuestionList extends RecyclerView.Adapter<AdapterQuestionLis
         // 设置选中状态
         if (selectedPosition == position) {
             holder.itemView.setSelected(true);
-            holder.btnDelete.setVisibility(View.VISIBLE);
-            holder.btnDelete.setEnabled(true);
+//            holder.btnDelete.setVisibility(View.VISIBLE);
+//            holder.btnDelete.setEnabled(true);
             holder.btnMoveToTop.setVisibility(View.VISIBLE);
             holder.btnAiGuide.setVisibility(View.VISIBLE);
         } else {
             holder.itemView.setSelected(false);
-            holder.btnDelete.setVisibility(View.INVISIBLE);
+//            holder.btnDelete.setVisibility(View.INVISIBLE);
             holder.btnMoveToTop.setVisibility(View.INVISIBLE);
             holder.btnAiGuide.setVisibility(View.INVISIBLE);
         }

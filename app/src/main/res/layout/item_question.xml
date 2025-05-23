@@ -46,6 +46,7 @@
             android:id="@+id/delete"
             android:layout_width="32dp"
             android:layout_height="32dp"
+            android:visibility="invisible"
             android:background="@drawable/question_solve_delete"
             android:layout_gravity="center"
             android:stateListAnimator="@animator/app_button_click_scale"
