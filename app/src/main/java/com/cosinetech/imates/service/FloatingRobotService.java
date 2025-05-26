@@ -236,14 +236,23 @@ public class FloatingRobotService extends Service implements MessagingManager.Me
     }
 
     private void performFeedback() {
-        if(!ScreenCastingManager.isHavingClass()) {
-            Intent intent = new Intent(this, ScreenShotActivity.class);
-            intent.setAction(ScreenShotActivity.ACTION_START_FEED_BACK);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈
-            startActivity(intent);
-        } else {
+        if(ScreenCastingManager.isHavingClass()) {
             Toast.makeText(getApplicationContext(), "请在退出课堂后再进行反馈", Toast.LENGTH_SHORT).show();
+            return;
         }
+
+        String userId = AppUtils.getUserId();
+        if(userId == null
+                || userId.isEmpty()
+                || userId.equals("guest000")) {
+            Toast.makeText(getApplicationContext(), "请用其他账户进行反馈", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Intent intent = new Intent(this, ScreenShotActivity.class);
+        intent.setAction(ScreenShotActivity.ACTION_START_FEED_BACK);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈
+        startActivity(intent);
     }
 
     public void hideRobot() {
