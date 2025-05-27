@@ -2,6 +2,29 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Device Admin 权限 -->
+    <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.MANAGE_DEVICE_ADMINS"
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- 系统级权限 -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+<!--    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />-->
+    <uses-permission android:name="android.permission.GET_TASKS" />
+    <uses-permission android:name="android.permission.REORDER_TASKS" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
+
+    <!-- 网络权限用于远程配置 -->
+<!--    <uses-permission android:name="android.permission.INTERNET" />-->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
@@ -103,7 +126,6 @@
             android:theme="@style/Theme.IMatesApp.FullScreen">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.MONKEY" />
@@ -159,35 +181,56 @@
             android:name=".mupdfviewer.activity.SignActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.IMatesApp.FullScreen" /> <!-- <activity android:name="com.artifex.mupdfdemo.ChoosePDFActivity" -->
-        <!-- android:theme="@style/Theme.IMatesApp.FullScreen"/> -->
-        <!-- <activity android:name="com.artifex.mupdfdemo.PrintDialogActivity" -->
-        <!-- android:theme="@style/Theme.IMatesApp.FullScreen"/> -->
-        <activity
-            android:name=".pdfui.PDFPreviewActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <activity
-            android:name=".pdfui.PDFCatelogueActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <activity
-            android:name=".pdfui.PDFActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <activity
-            android:name="com.pspdfkit.ui.PdfActivity"
-            android:windowSoftInputMode="adjustNothing" />
-
         <service
             android:name=".service.FloatingRobotService"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync|mediaProjection" />
+        <!-- Device Admin Receiver -->
+        <receiver
+            android:name=".admin.KioskDeviceAdminReceiver"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin_policies" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.DEVICE_ADMIN_DISABLED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 警告对话框Activity -->
+        <activity
+            android:name=".admin.WarningDialogActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="landscape"
+            android:theme="@style/DialogTheme"
+            android:excludeFromRecents="true"
+            android:noHistory="true" />
+
+        <!-- 应用监控服务 -->
+        <service
+            android:name=".admin.AppMonitorService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" />
+
+        <!-- 开机自启动 -->
+        <receiver
+            android:name=".admin.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter android:priority="1000">
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.PACKAGE_REPLACED" />
+                <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

@@ -3,7 +3,9 @@ package com.cosinetech.imates;
 import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
+import android.content.Intent;
 import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -13,6 +15,8 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStore;
 import androidx.lifecycle.ViewModelStoreOwner;
 
+import com.cosinetech.imates.admin.AppMonitorService;
+import com.cosinetech.imates.admin.KioskManager;
 import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.screencasting.H264IFrameCache;
@@ -69,7 +73,20 @@ public class ApplicationModelShared extends Application implements ViewModelStor
             @Override public void onActivityPaused(Activity activity) {}
             @Override public void onActivityStopped(Activity activity) {}
             @Override public void onActivitySaveInstanceState(Activity activity, Bundle outState) {}
+
         });
+// 初始化Kiosk管理器
+        KioskManager.getInstance().initialize(this);
+
+        // 启动监控服务
+        startAppMonitorService();
+    }
+
+    private void startAppMonitorService() {
+        Intent serviceIntent = new Intent(this, AppMonitorService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent);
+        }
     }
 
     private void onAppExit() {
