@@ -90,22 +90,15 @@ public class KioskManager {
             setLockTaskPackages();
 
             // 禁用状态栏
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                devicePolicyManager.setStatusBarDisabled(adminComponent, true);
-            }
+//            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+//                devicePolicyManager.setStatusBarDisabled(adminComponent, true);
+//            }
 
             // 禁用键盘锁
             devicePolicyManager.setKeyguardDisabled(adminComponent, true);
-
             // 设置用户限制
             setUserRestrictions();
-
-            // 隐藏系统应用
-//            hideSystemApps();
-
-            //
             updateAllowedApps(getAllowedApps());
-
             setAsDefaultLauncherAndLock();
 
             Log.d(TAG, "Device Owner policies configured successfully!!!");
@@ -320,7 +313,7 @@ public class KioskManager {
                     }
 
                     // 隐藏应用
-                    boolean hidden = devicePolicyManager.setApplicationHidden(adminComponent, packageName, false);
+                    boolean hidden = devicePolicyManager.setApplicationHidden(adminComponent, packageName, true);
                     if (hidden) {
                         hiddenCount++;
                         Log.d(TAG, "Hidden app: " + packageName);
@@ -383,6 +376,10 @@ public class KioskManager {
             return true;
         }
 
+        if(!hasLauncherIcon(context, packageName)) {
+            return true;
+        }
+
         // 系统关键应用
         if (isSystemCriticalApp(packageName)) {
             return true;
@@ -415,11 +412,10 @@ public class KioskManager {
                 "com.android.packageinstaller",    // 包安装器
                 "com.android.permissioncontroller", // 权限控制器
                 "com.android.providers.telephony",
-                "com.android.packageinstaller"
         };
 
         for (String criticalApp : criticalApps) {
-            if (packageName.equals(criticalApp) || packageName.startsWith("com.android")) {
+            if (packageName.startsWith(criticalApp)) {
                 return true;
             }
         }
@@ -478,26 +474,6 @@ public class KioskManager {
 
             // 重新隐藏非白名单应用
             hideNonWhitelistApps();
-        }
-    }
-
-    private void hideSystemApps() {
-        // 隐藏不需要的系统应用
-        String[] appsToHide = {
-                "com.android.chrome",
-                "com.google.android.youtube",
-                "com.android.vending", // Google Play Store
-                "com.google.android.gms",
-                "com.android.gallery3d"
-        };
-
-        for (String packageName : appsToHide) {
-            try {
-                boolean hidden = devicePolicyManager.setApplicationHidden(adminComponent, packageName, true);
-                Log.d(TAG, "Hide app " + packageName + ": " + hidden);
-            } catch (Exception e) {
-                Log.w(TAG, "Failed to hide app: " + packageName, e);
-            }
         }
     }
 
