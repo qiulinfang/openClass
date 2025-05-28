@@ -143,7 +143,7 @@ public class KioskManager {
         addUserRestrictionSafely(UserManager.DISALLOW_ADD_USER);
 
         // 禁用卸载应用
-        addUserRestrictionSafely(UserManager.DISALLOW_UNINSTALL_APPS);
+        //addUserRestrictionSafely(UserManager.DISALLOW_UNINSTALL_APPS);
 
         // 禁用修改账户
         addUserRestrictionSafely(UserManager.DISALLOW_MODIFY_ACCOUNTS);
