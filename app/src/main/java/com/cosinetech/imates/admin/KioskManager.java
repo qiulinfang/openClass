@@ -99,7 +99,7 @@ public class KioskManager {
             // 设置用户限制
             setUserRestrictions();
             updateAllowedApps(getAllowedApps());
-            setAsDefaultLauncherAndLock();
+            //setAsDefaultLauncherAndLock();
 
             Log.d(TAG, "Device Owner policies configured successfully!!!");
 
@@ -515,368 +515,368 @@ public class KioskManager {
         return getAllowedApps().contains(packageName);
     }
 
-    /**
-     * 设置本应用为默认Launcher并锁定
-     */
-    public void setAsDefaultLauncherAndLock() {
-        if (!isDeviceOwner()) {
-            Log.w(TAG, "Cannot set default launcher - not device owner");
-            return;
-        }
-
-        try {
-            // 1. 设置本应用为默认Launcher
-            setAsDefaultLauncher();
-
-            // 2. 隐藏其他Launcher应用
-            hideOtherLaunchers();
-
-            // 3. 锁定Launcher选择
-            lockLauncherSelection();
-
-            // 4. 禁用相关设置页面
-            disableLauncherSettings();
-
-            Log.d(TAG, "Successfully set as default launcher and locked");
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error setting as default launcher", e);
-        }
-    }
-
-    /**
-     * 设置本应用为默认Launcher
-     */
-    private void setAsDefaultLauncher() {
-        try {
-            // 创建Intent过滤器
-            IntentFilter homeFilter = new IntentFilter(Intent.ACTION_MAIN);
-            homeFilter.addCategory(Intent.CATEGORY_HOME);
-            homeFilter.addCategory(Intent.CATEGORY_DEFAULT);
-
-            // 设置本应用的Launcher Activity为首选
-            ComponentName launcherComponent = new ComponentName(
-                    context.getPackageName(),
-                    KioskLauncherActivity.class.getName()
-            );
-
-            // 添加持久化首选Activity
-            devicePolicyManager.addPersistentPreferredActivity(
-                    adminComponent,
-                    homeFilter,
-                    launcherComponent
-            );
-
-            Log.d(TAG, "Set as default launcher: " + launcherComponent);
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error setting as default launcher", e);
-        }
-    }
-
-    /**
-     * 隐藏其他Launcher应用
-     */
-    private void hideOtherLaunchers() {
-        try {
-            Intent homeIntent = new Intent(Intent.ACTION_MAIN);
-            homeIntent.addCategory(Intent.CATEGORY_HOME);
-
-            List<ResolveInfo> launchers = context.getPackageManager()
-                    .queryIntentActivities(homeIntent, 0);
-
-            String myPackageName = context.getPackageName();
-            int hiddenCount = 0;
-
-            for (ResolveInfo launcher : launchers) {
-                String packageName = launcher.activityInfo.packageName;
-
-                // 跳过自己的应用
-                if (packageName.equals(myPackageName)) {
-                    continue;
-                }
-
-                // 跳过系统关键组件
-                if (isSystemCriticalLauncher(packageName)) {
-                    Log.d(TAG, "Skipping system critical launcher: " + packageName);
-                    continue;
-                }
-
-                try {
-                    // 使用 setApplicationHidden 隐藏整个应用
-                    boolean hidden = devicePolicyManager.setApplicationHidden(
-                            adminComponent, packageName, true);
-
-                    if (hidden) {
-                        hiddenCount++;
-                        Log.d(TAG, "Hidden launcher app: " + packageName);
-                    } else {
-                        Log.w(TAG, "Failed to hide launcher app: " + packageName);
-                    }
-
-                } catch (Exception e) {
-                    Log.w(TAG, "Failed to hide launcher: " + packageName, e);
-                }
-            }
-
-            Log.d(TAG, "Hidden " + hiddenCount + " other launcher apps");
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error hiding other launchers", e);
-        }
-    }
-
-    /**
-     * 检查是否为系统关键Launcher
-     */
-    private boolean isSystemCriticalLauncher(String packageName) {
-        String[] criticalLaunchers = {
-                "com.android.launcher",
-                "com.android.launcher2",
-                "com.android.launcher3",
-                "com.google.android.apps.nexuslauncher", // Pixel Launcher
-                "com.android.systemui" // 系统UI
-        };
-
-        for (String critical : criticalLaunchers) {
-            if (packageName.equals(critical) || packageName.startsWith(critical)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * 锁定Launcher选择，防止用户更改
-     */
-    private void lockLauncherSelection() {
-        try {
-            // 禁用默认应用设置
-            devicePolicyManager.addUserRestriction(adminComponent,
-                    UserManager.DISALLOW_CONFIG_DEFAULT_APPS);
-
-            // 禁用应用设置
-            devicePolicyManager.addUserRestriction(adminComponent,
-                    UserManager.DISALLOW_APPS_CONTROL);
-
-            Log.d(TAG, "Launcher selection locked");
-
-        } catch (Exception e) {
-            Log.w(TAG, "Error locking launcher selection", e);
-        }
-    }
-
-    /**
-     * 禁用Launcher相关的设置页面
-     */
-    private void disableLauncherSettings() {
-        try {
-            // 隐藏默认应用设置相关的应用
-            String[] settingsToHide = {
-                    "com.android.settings.applications.DefaultAppSettings",
-                    "com.android.settings.applications.ManageDefaultApps"
-            };
-
-            for (String settingPackage : settingsToHide) {
-                try {
-                    devicePolicyManager.setApplicationHidden(adminComponent, settingPackage, true);
-                    Log.d(TAG, "Hidden settings: " + settingPackage);
-                } catch (Exception e) {
-                    Log.w(TAG, "Could not hide setting: " + settingPackage, e);
-                }
-            }
-
-            // 设置全局设置来隐藏相关选项
-            devicePolicyManager.setGlobalSetting(adminComponent,
-                    "hide_launcher_icon_management", "1");
-
-            Log.d(TAG, "Launcher settings disabled");
-
-        } catch (Exception e) {
-            Log.w(TAG, "Error disabling launcher settings", e);
-        }
-    }
-
-    /**
-     * 使用PackageManager禁用组件（需要系统权限）
-     */
-    private void disableComponentWithPackageManager(String packageName, String activityName) {
-        try {
-            PackageManager packageManager = context.getPackageManager();
-            ComponentName component = new ComponentName(packageName, activityName);
-
-            // 这需要系统级权限，在Device Owner模式下可能可用
-            packageManager.setComponentEnabledSetting(
-                    component,
-                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                    PackageManager.DONT_KILL_APP
-            );
-
-            Log.d(TAG, "Disabled component: " + component);
-
-        } catch (Exception e) {
-            Log.w(TAG, "Failed to disable component: " + packageName + "/" + activityName, e);
-        }
-    }
-
-    /**
-     * 通过Intent过滤器阻止其他Launcher
-     */
-    private void blockOtherLaunchersWithIntentFilter() {
-        try {
-            // 清除所有现有的HOME Intent处理器
-            Intent homeIntent = new Intent(Intent.ACTION_MAIN);
-            homeIntent.addCategory(Intent.CATEGORY_HOME);
-
-            List<ResolveInfo> launchers = context.getPackageManager()
-                    .queryIntentActivities(homeIntent, 0);
-
-            // 清除其他应用的持久化首选项
-            for (ResolveInfo launcher : launchers) {
-                String packageName = launcher.activityInfo.packageName;
-                if (!packageName.equals(context.getPackageName())) {
-                    devicePolicyManager.clearPackagePersistentPreferredActivities(
-                            adminComponent, packageName);
-                }
-            }
-
-            Log.d(TAG, "Cleared other launcher preferences");
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error blocking other launchers", e);
-        }
-    }
-
-    /**
-     * 检查是否为默认Launcher
-     */
-    public boolean isDefaultLauncher() {
-        try {
-            Intent homeIntent = new Intent(Intent.ACTION_MAIN);
-            homeIntent.addCategory(Intent.CATEGORY_HOME);
-
-            ResolveInfo resolveInfo = context.getPackageManager()
-                    .resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY);
-
-            if (resolveInfo != null && resolveInfo.activityInfo != null) {
-                String defaultLauncher = resolveInfo.activityInfo.packageName;
-                boolean isDefault = context.getPackageName().equals(defaultLauncher);
-                Log.d(TAG, "Current default launcher: " + defaultLauncher + ", isDefault: " + isDefault);
-                return isDefault;
-            }
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error checking default launcher", e);
-        }
-
-        return false;
-    }
-
-    /**
-     * 强制启动自己的Launcher
-     */
-    public void forceLaunchOwnLauncher() {
-        try {
-            Intent intent = new Intent(context, KioskLauncherActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
-                    Intent.FLAG_ACTIVITY_CLEAR_TASK |
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            intent.addCategory(Intent.CATEGORY_HOME);
-            context.startActivity(intent);
-
-            Log.d(TAG, "Forced launch of own launcher");
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error forcing launcher", e);
-        }
-    }
-
-    /**
-     * 恢复其他Launcher（用于调试或紧急情况）
-     */
-    public void restoreOtherLaunchers() {
-        if (!isDeviceOwner()) {
-            Log.w(TAG, "Cannot restore launchers - not device owner");
-            return;
-        }
-
-        try {
-            // 显示所有隐藏的Launcher应用
-            Intent homeIntent = new Intent(Intent.ACTION_MAIN);
-            homeIntent.addCategory(Intent.CATEGORY_HOME);
-
-            List<ResolveInfo> launchers = context.getPackageManager()
-                    .queryIntentActivities(homeIntent, PackageManager.MATCH_DISABLED_COMPONENTS);
-
-            String myPackageName = context.getPackageName();
-            int restoredCount = 0;
-
-            for (ResolveInfo launcher : launchers) {
-                String packageName = launcher.activityInfo.packageName;
-
-                if (packageName.equals(myPackageName)) {
-                    continue;
-                }
-
-                try {
-                    // 显示隐藏的应用
-                    if (devicePolicyManager.isApplicationHidden(adminComponent, packageName)) {
-                        boolean shown = devicePolicyManager.setApplicationHidden(
-                                adminComponent, packageName, false);
-
-                        if (shown) {
-                            restoredCount++;
-                            Log.d(TAG, "Restored launcher: " + packageName);
-                        }
-                    }
-
-                } catch (Exception e) {
-                    Log.w(TAG, "Failed to restore launcher: " + packageName, e);
-                }
-            }
-
-            // 移除用户限制
-            devicePolicyManager.clearUserRestriction(adminComponent,
-                    UserManager.DISALLOW_CONFIG_DEFAULT_APPS);
-            devicePolicyManager.clearUserRestriction(adminComponent,
-                    UserManager.DISALLOW_APPS_CONTROL);
-
-            Log.d(TAG, "Restored " + restoredCount + " launchers");
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error restoring other launchers", e);
-        }
-    }
-
-    /**
-     * 获取Launcher状态信息
-     */
-    public String getLauncherStatusInfo() {
-        StringBuilder info = new StringBuilder();
-        info.append("=== Launcher Status ===\n");
-        info.append("Is Default Launcher: ").append(isDefaultLauncher()).append("\n");
-        info.append("Device Owner: ").append(isDeviceOwner()).append("\n");
-
-        try {
-            Intent homeIntent = new Intent(Intent.ACTION_MAIN);
-            homeIntent.addCategory(Intent.CATEGORY_HOME);
-
-            List<ResolveInfo> launchers = context.getPackageManager()
-                    .queryIntentActivities(homeIntent, 0);
-
-            info.append("Available Launchers: ").append(launchers.size()).append("\n");
-            for (ResolveInfo launcher : launchers) {
-                String packageName = launcher.activityInfo.packageName;
-                boolean isHidden = devicePolicyManager.isApplicationHidden(adminComponent, packageName);
-                info.append("  - ").append(packageName)
-                        .append(" (Hidden: ").append(isHidden).append(")\n");
-            }
-
-        } catch (Exception e) {
-            info.append("Error getting launcher info: ").append(e.getMessage()).append("\n");
-        }
-
-        return info.toString();
-    }
+//    /**
+//     * 设置本应用为默认Launcher并锁定
+//     */
+//    public void setAsDefaultLauncherAndLock() {
+//        if (!isDeviceOwner()) {
+//            Log.w(TAG, "Cannot set default launcher - not device owner");
+//            return;
+//        }
+//
+//        try {
+//            // 1. 设置本应用为默认Launcher
+//            setAsDefaultLauncher();
+//
+//            // 2. 隐藏其他Launcher应用
+//            hideOtherLaunchers();
+//
+//            // 3. 锁定Launcher选择
+//            lockLauncherSelection();
+//
+//            // 4. 禁用相关设置页面
+//            disableLauncherSettings();
+//
+//            Log.d(TAG, "Successfully set as default launcher and locked");
+//
+//        } catch (Exception e) {
+//            Log.e(TAG, "Error setting as default launcher", e);
+//        }
+//    }
+//
+//    /**
+//     * 设置本应用为默认Launcher
+//     */
+//    private void setAsDefaultLauncher() {
+//        try {
+//            // 创建Intent过滤器
+//            IntentFilter homeFilter = new IntentFilter(Intent.ACTION_MAIN);
+//            homeFilter.addCategory(Intent.CATEGORY_HOME);
+//            homeFilter.addCategory(Intent.CATEGORY_DEFAULT);
+//
+//            // 设置本应用的Launcher Activity为首选
+//            ComponentName launcherComponent = new ComponentName(
+//                    context.getPackageName(),
+//                    KioskLauncherActivity.class.getName()
+//            );
+//
+//            // 添加持久化首选Activity
+//            devicePolicyManager.addPersistentPreferredActivity(
+//                    adminComponent,
+//                    homeFilter,
+//                    launcherComponent
+//            );
+//
+//            Log.d(TAG, "Set as default launcher: " + launcherComponent);
+//
+//        } catch (Exception e) {
+//            Log.e(TAG, "Error setting as default launcher", e);
+//        }
+//    }
+//
+//    /**
+//     * 隐藏其他Launcher应用
+//     */
+//    private void hideOtherLaunchers() {
+//        try {
+//            Intent homeIntent = new Intent(Intent.ACTION_MAIN);
+//            homeIntent.addCategory(Intent.CATEGORY_HOME);
+//
+//            List<ResolveInfo> launchers = context.getPackageManager()
+//                    .queryIntentActivities(homeIntent, 0);
+//
+//            String myPackageName = context.getPackageName();
+//            int hiddenCount = 0;
+//
+//            for (ResolveInfo launcher : launchers) {
+//                String packageName = launcher.activityInfo.packageName;
+//
+//                // 跳过自己的应用
+//                if (packageName.equals(myPackageName)) {
+//                    continue;
+//                }
+//
+//                // 跳过系统关键组件
+//                if (isSystemCriticalLauncher(packageName)) {
+//                    Log.d(TAG, "Skipping system critical launcher: " + packageName);
+//                    continue;
+//                }
+//
+//                try {
+//                    // 使用 setApplicationHidden 隐藏整个应用
+//                    boolean hidden = devicePolicyManager.setApplicationHidden(
+//                            adminComponent, packageName, true);
+//
+//                    if (hidden) {
+//                        hiddenCount++;
+//                        Log.d(TAG, "Hidden launcher app: " + packageName);
+//                    } else {
+//                        Log.w(TAG, "Failed to hide launcher app: " + packageName);
+//                    }
+//
+//                } catch (Exception e) {
+//                    Log.w(TAG, "Failed to hide launcher: " + packageName, e);
+//                }
+//            }
+//
+//            Log.d(TAG, "Hidden " + hiddenCount + " other launcher apps");
+//
+//        } catch (Exception e) {
+//            Log.e(TAG, "Error hiding other launchers", e);
+//        }
+//    }
+//
+//    /**
+//     * 检查是否为系统关键Launcher
+//     */
+//    private boolean isSystemCriticalLauncher(String packageName) {
+//        String[] criticalLaunchers = {
+//                "com.android.launcher",
+//                "com.android.launcher2",
+//                "com.android.launcher3",
+//                "com.google.android.apps.nexuslauncher", // Pixel Launcher
+//                "com.android.systemui" // 系统UI
+//        };
+//
+//        for (String critical : criticalLaunchers) {
+//            if (packageName.equals(critical) || packageName.startsWith(critical)) {
+//                return true;
+//            }
+//        }
+//
+//        return false;
+//    }
+//
+//    /**
+//     * 锁定Launcher选择，防止用户更改
+//     */
+//    private void lockLauncherSelection() {
+//        try {
+//            // 禁用默认应用设置
+//            devicePolicyManager.addUserRestriction(adminComponent,
+//                    UserManager.DISALLOW_CONFIG_DEFAULT_APPS);
+//
+//            // 禁用应用设置
+//            devicePolicyManager.addUserRestriction(adminComponent,
+//                    UserManager.DISALLOW_APPS_CONTROL);
+//
+//            Log.d(TAG, "Launcher selection locked");
+//
+//        } catch (Exception e) {
+//            Log.w(TAG, "Error locking launcher selection", e);
+//        }
+//    }
+//
+//    /**
+//     * 禁用Launcher相关的设置页面
+//     */
+//    private void disableLauncherSettings() {
+//        try {
+//            // 隐藏默认应用设置相关的应用
+//            String[] settingsToHide = {
+//                    "com.android.settings.applications.DefaultAppSettings",
+//                    "com.android.settings.applications.ManageDefaultApps"
+//            };
+//
+//            for (String settingPackage : settingsToHide) {
+//                try {
+//                    devicePolicyManager.setApplicationHidden(adminComponent, settingPackage, true);
+//                    Log.d(TAG, "Hidden settings: " + settingPackage);
+//                } catch (Exception e) {
+//                    Log.w(TAG, "Could not hide setting: " + settingPackage, e);
+//                }
+//            }
+//
+//            // 设置全局设置来隐藏相关选项
+//            devicePolicyManager.setGlobalSetting(adminComponent,
+//                    "hide_launcher_icon_management", "1");
+//
+//            Log.d(TAG, "Launcher settings disabled");
+//
+//        } catch (Exception e) {
+//            Log.w(TAG, "Error disabling launcher settings", e);
+//        }
+//    }
+//
+//    /**
+//     * 使用PackageManager禁用组件（需要系统权限）
+//     */
+//    private void disableComponentWithPackageManager(String packageName, String activityName) {
+//        try {
+//            PackageManager packageManager = context.getPackageManager();
+//            ComponentName component = new ComponentName(packageName, activityName);
+//
+//            // 这需要系统级权限，在Device Owner模式下可能可用
+//            packageManager.setComponentEnabledSetting(
+//                    component,
+//                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+//                    PackageManager.DONT_KILL_APP
+//            );
+//
+//            Log.d(TAG, "Disabled component: " + component);
+//
+//        } catch (Exception e) {
+//            Log.w(TAG, "Failed to disable component: " + packageName + "/" + activityName, e);
+//        }
+//    }
+//
+//    /**
+//     * 通过Intent过滤器阻止其他Launcher
+//     */
+//    private void blockOtherLaunchersWithIntentFilter() {
+//        try {
+//            // 清除所有现有的HOME Intent处理器
+//            Intent homeIntent = new Intent(Intent.ACTION_MAIN);
+//            homeIntent.addCategory(Intent.CATEGORY_HOME);
+//
+//            List<ResolveInfo> launchers = context.getPackageManager()
+//                    .queryIntentActivities(homeIntent, 0);
+//
+//            // 清除其他应用的持久化首选项
+//            for (ResolveInfo launcher : launchers) {
+//                String packageName = launcher.activityInfo.packageName;
+//                if (!packageName.equals(context.getPackageName())) {
+//                    devicePolicyManager.clearPackagePersistentPreferredActivities(
+//                            adminComponent, packageName);
+//                }
+//            }
+//
+//            Log.d(TAG, "Cleared other launcher preferences");
+//
+//        } catch (Exception e) {
+//            Log.e(TAG, "Error blocking other launchers", e);
+//        }
+//    }
+//
+//    /**
+//     * 检查是否为默认Launcher
+//     */
+//    public boolean isDefaultLauncher() {
+//        try {
+//            Intent homeIntent = new Intent(Intent.ACTION_MAIN);
+//            homeIntent.addCategory(Intent.CATEGORY_HOME);
+//
+//            ResolveInfo resolveInfo = context.getPackageManager()
+//                    .resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY);
+//
+//            if (resolveInfo != null && resolveInfo.activityInfo != null) {
+//                String defaultLauncher = resolveInfo.activityInfo.packageName;
+//                boolean isDefault = context.getPackageName().equals(defaultLauncher);
+//                Log.d(TAG, "Current default launcher: " + defaultLauncher + ", isDefault: " + isDefault);
+//                return isDefault;
+//            }
+//
+//        } catch (Exception e) {
+//            Log.e(TAG, "Error checking default launcher", e);
+//        }
+//
+//        return false;
+//    }
+//
+//    /**
+//     * 强制启动自己的Launcher
+//     */
+//    public void forceLaunchOwnLauncher() {
+//        try {
+//            Intent intent = new Intent(context, KioskLauncherActivity.class);
+//            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
+//                    Intent.FLAG_ACTIVITY_CLEAR_TASK |
+//                    Intent.FLAG_ACTIVITY_CLEAR_TOP);
+//            intent.addCategory(Intent.CATEGORY_HOME);
+//            context.startActivity(intent);
+//
+//            Log.d(TAG, "Forced launch of own launcher");
+//
+//        } catch (Exception e) {
+//            Log.e(TAG, "Error forcing launcher", e);
+//        }
+//    }
+//
+//    /**
+//     * 恢复其他Launcher（用于调试或紧急情况）
+//     */
+//    public void restoreOtherLaunchers() {
+//        if (!isDeviceOwner()) {
+//            Log.w(TAG, "Cannot restore launchers - not device owner");
+//            return;
+//        }
+//
+//        try {
+//            // 显示所有隐藏的Launcher应用
+//            Intent homeIntent = new Intent(Intent.ACTION_MAIN);
+//            homeIntent.addCategory(Intent.CATEGORY_HOME);
+//
+//            List<ResolveInfo> launchers = context.getPackageManager()
+//                    .queryIntentActivities(homeIntent, PackageManager.MATCH_DISABLED_COMPONENTS);
+//
+//            String myPackageName = context.getPackageName();
+//            int restoredCount = 0;
+//
+//            for (ResolveInfo launcher : launchers) {
+//                String packageName = launcher.activityInfo.packageName;
+//
+//                if (packageName.equals(myPackageName)) {
+//                    continue;
+//                }
+//
+//                try {
+//                    // 显示隐藏的应用
+//                    if (devicePolicyManager.isApplicationHidden(adminComponent, packageName)) {
+//                        boolean shown = devicePolicyManager.setApplicationHidden(
+//                                adminComponent, packageName, false);
+//
+//                        if (shown) {
+//                            restoredCount++;
+//                            Log.d(TAG, "Restored launcher: " + packageName);
+//                        }
+//                    }
+//
+//                } catch (Exception e) {
+//                    Log.w(TAG, "Failed to restore launcher: " + packageName, e);
+//                }
+//            }
+//
+//            // 移除用户限制
+//            devicePolicyManager.clearUserRestriction(adminComponent,
+//                    UserManager.DISALLOW_CONFIG_DEFAULT_APPS);
+//            devicePolicyManager.clearUserRestriction(adminComponent,
+//                    UserManager.DISALLOW_APPS_CONTROL);
+//
+//            Log.d(TAG, "Restored " + restoredCount + " launchers");
+//
+//        } catch (Exception e) {
+//            Log.e(TAG, "Error restoring other launchers", e);
+//        }
+//    }
+//
+//    /**
+//     * 获取Launcher状态信息
+//     */
+//    public String getLauncherStatusInfo() {
+//        StringBuilder info = new StringBuilder();
+//        info.append("=== Launcher Status ===\n");
+//        info.append("Is Default Launcher: ").append(isDefaultLauncher()).append("\n");
+//        info.append("Device Owner: ").append(isDeviceOwner()).append("\n");
+//
+//        try {
+//            Intent homeIntent = new Intent(Intent.ACTION_MAIN);
+//            homeIntent.addCategory(Intent.CATEGORY_HOME);
+//
+//            List<ResolveInfo> launchers = context.getPackageManager()
+//                    .queryIntentActivities(homeIntent, 0);
+//
+//            info.append("Available Launchers: ").append(launchers.size()).append("\n");
+//            for (ResolveInfo launcher : launchers) {
+//                String packageName = launcher.activityInfo.packageName;
+//                boolean isHidden = devicePolicyManager.isApplicationHidden(adminComponent, packageName);
+//                info.append("  - ").append(packageName)
+//                        .append(" (Hidden: ").append(isHidden).append(")\n");
+//            }
+//
+//        } catch (Exception e) {
+//            info.append("Error getting launcher info: ").append(e.getMessage()).append("\n");
+//        }
+//
+//        return info.toString();
+//    }
 }
