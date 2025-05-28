@@ -143,7 +143,7 @@ public class KioskManager {
         addUserRestrictionSafely(UserManager.DISALLOW_ADD_USER);
 
         // 禁用卸载应用
-        //addUserRestrictionSafely(UserManager.DISALLOW_UNINSTALL_APPS);
+        addUserRestrictionSafely(UserManager.DISALLOW_UNINSTALL_APPS);
 
         // 禁用修改账户
         addUserRestrictionSafely(UserManager.DISALLOW_MODIFY_ACCOUNTS);
@@ -397,6 +397,7 @@ public class KioskManager {
                 "com.android.launcher",            // 系统桌面
                 "com.android.launcher3",           // 系统桌面3
                 "com.android.inputmethod.latin",   // 输入法
+                "com.tencent.wetype",
                 "com.google.android.inputmethod.latin", // Google输入法
                 "com.android.phone",               // 电话应用
                 "com.android.emergency",           // 紧急呼叫
