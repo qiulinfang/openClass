@@ -403,9 +403,9 @@ public class ChatAiView extends RelativeLayout {
                 settingsAdapter.notifyDataSetChanged();
 
                 // 显示选择的项目消息
-                Toast.makeText(getContext(),
-                        "Selected: " + settingsItems.get(position).getTitle(),
-                        Toast.LENGTH_SHORT).show();
+//                Toast.makeText(getContext(),
+//                        "Selected: " + settingsItems.get(position).getTitle(),
+//                        Toast.LENGTH_SHORT).show();
             }
 
             @Override

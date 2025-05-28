@@ -1,5 +1,6 @@
 package com.cosinetech.imates.activities;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.KeyEvent;
@@ -12,6 +13,7 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -32,6 +34,7 @@ import com.cosinetech.imates.models.FindSimilarQuestionRequest;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.mq.MessagingManager;
+import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.views.ChatAiView;
@@ -41,6 +44,8 @@ import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.ApiUrl;
 import com.cosinetech.imates.webservice.Question;
+
+import org.loka.screensharekit.ScreenShareKit;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -172,31 +177,40 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 if(position < 0 || position >= mQuestions.size()) {
                     return;
                 }
-                String url;
-                Question q = mQuestions.get(position);
-                if(subject == Subject.SUBJECT_BIOLOGY) {
-                    url = ApiUrl.URL_DELETE_EXERCISE_BASE + "/" + q.id + "/biology";
-                } else if(subject == Subject.SUBJECT_MATH) {
-                    url = ApiUrl.URL_DELETE_EXERCISE_BASE + "/" + q.id + "/math";
-                } else {
-                    return;
+                new AlertDialog.Builder(QuestionSolveActivity.this)
+                        .setTitle("提示")
+                        .setMessage("确认删除习题吗?")
+                        .setPositiveButton("确认", (dialog, which) -> {
+                            String url;
+                            Question q = mQuestions.get(position);
+                            if(subject == Subject.SUBJECT_BIOLOGY) {
+                                url = ApiUrl.URL_DELETE_EXERCISE_BASE + "/" + q.id + "/biology";
+                            } else if(subject == Subject.SUBJECT_MATH) {
+                                url = ApiUrl.URL_DELETE_EXERCISE_BASE + "/" + q.id + "/math";
+                            } else {
+                                return;
+                            }
+                            ApiGateWayService.deleteExercise(url, userInfoViewModel.token.getValue(), new ApiGateWayService.ExerciseDeleteLister() {
+                                @Override
+                                public void onDeleteSuccess() {
+                                    runOnUiThread(() -> {
+                                        Question q = mQuestions.remove(position);
+                                        adapterQuestionList.notifyItemRemoved(position);
+                                    });
+
+                                }
+
+                                @Override
+                                public void onDeleteFailed(String msg) {
+                                    runOnUiThread(() -> Toast.makeText(QuestionSolveActivity.this, "删除失败, 稍后重试", Toast.LENGTH_SHORT).show());
+                                }
+                            });
+                        })
+                        .setNegativeButton("取消", (dialog, which) -> {
+                        })
+                        .create()
+                        .show();
                 }
-                ApiGateWayService.deleteExercise(url, userInfoViewModel.token.getValue(), new ApiGateWayService.ExerciseDeleteLister() {
-                    @Override
-                    public void onDeleteSuccess() {
-                        runOnUiThread(() -> {
-                            Question q = mQuestions.remove(position);
-                            adapterQuestionList.notifyItemRemoved(position);
-                        });
-
-                    }
-
-                    @Override
-                    public void onDeleteFailed(String msg) {
-                        runOnUiThread(() -> Toast.makeText(QuestionSolveActivity.this, "删除失败, 稍后重试", Toast.LENGTH_SHORT).show());
-                    }
-                });
-            }
 
             @Override
             public void onExerciseToTop(int position) {

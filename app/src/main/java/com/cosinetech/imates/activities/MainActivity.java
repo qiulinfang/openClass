@@ -315,7 +315,6 @@ public class MainActivity extends AppCompatActivity {
                                                         switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_off), null, null);
                                                         ScreenShareKit.INSTANCE.stop();
                                                         switchButton.postDelayed(() -> switchButton.setEnabled(true), 2000);
-                                                        submitButton.post(() -> submitButton.setVisibility(View.INVISIBLE));
                                                     })
                                                     .setNegativeButton("取消", (dialog, which) -> {
                                                     })
