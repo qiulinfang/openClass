@@ -13,7 +13,6 @@ import androidx.fragment.app.FragmentManager;
 
 import android.os.Handler;
 import android.os.Looper;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -21,13 +20,11 @@ import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.PopupWindow;
 import android.widget.Toast;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.activities.FindExerciseActivity;
+import com.cosinetech.imates.activities.LessonPreviewActivity;
 import com.cosinetech.imates.activities.MyFavorCenterActivity;
 import com.cosinetech.imates.activities.MyHistoryActivity;
 import com.cosinetech.imates.activities.PhotoQuestionLookupActivity;
@@ -36,11 +33,14 @@ import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.webservice.ApiUrl;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.reflect.Type;
+import java.util.List;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -148,37 +148,8 @@ public class FragmentSubjectMath extends Fragment {
 
         @JavascriptInterface
         public void onPrepareLesson(String nodeId, String nodeName) {
-            loadPrepareLessonFragment(nodeId, nodeName);
+            startPreviewLessonActivity(nodeId, nodeName);
         }
-
-        public Chapter.Section getSection(String sectionId) {
-            StringBuilder newstringBuilder = new StringBuilder();
-            InputStream inputStream;
-            try {
-                inputStream = getResources().getAssets().open("math_learn_schema.json");
-                InputStreamReader isr = new InputStreamReader(inputStream);
-                BufferedReader reader = new BufferedReader(isr);
-                String jsonLine;
-                while ((jsonLine = reader.readLine()) != null) {
-                    newstringBuilder.append(jsonLine);
-                }
-                reader.close();
-                isr.close();
-                inputStream.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            Gson gson = new Gson();
-            Chapter chapter = gson.fromJson(newstringBuilder.toString(), Chapter.class);
-            for (Chapter.Section s: chapter.getSections()) {
-                if(s.getSection().equals(sectionId)) {
-                    return s;
-                }
-            }
-            return null;
-        }
-
         @JavascriptInterface
         public void onReviewLesson(String nodeId, String nodeName) {
             Chapter.Section s = getSection(nodeId);
@@ -212,8 +183,50 @@ public class FragmentSubjectMath extends Fragment {
         startActivity(intent);
     }
 
-    public void loadPrepareLessonFragment(String sectionId, String sectionName) {
-        Toast.makeText(this.getContext(), "暂无相关课程", Toast.LENGTH_SHORT).show();
+    public void startPreviewLessonActivity(String sectionId, String sectionName) {
+        Chapter.Section s = getSection(sectionId);
+        if(s != null) {
+            Intent previewLessonActivity = new Intent(requireActivity(), LessonPreviewActivity.class);
+            previewLessonActivity.putExtra(LessonPreviewActivity.KEY_PREVIEW_SECTION_NAME, sectionName);
+            previewLessonActivity.putExtra(LessonPreviewActivity.KEY_SECTION_SCHEMA, s);
+
+            startActivity(previewLessonActivity);
+        } else {
+            Toast.makeText(this.getContext(), "未查询到相关的课程", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    public Chapter.Section getSection(String sectionId) {
+        StringBuilder newstringBuilder = new StringBuilder();
+        InputStream inputStream;
+        try {
+            inputStream = getResources().getAssets().open("math_learn_schema.json");
+            InputStreamReader isr = new InputStreamReader(inputStream);
+            BufferedReader reader = new BufferedReader(isr);
+            String jsonLine;
+            while ((jsonLine = reader.readLine()) != null) {
+                newstringBuilder.append(jsonLine);
+            }
+            reader.close();
+            isr.close();
+            inputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        Gson gson = new Gson();
+        // 使用 TypeToken 反序列化
+        Type listType = new TypeToken<List<Chapter>>() {}.getType();
+        List<Chapter> chapters = gson.fromJson(newstringBuilder.toString(), listType);
+        //Chapter chapter = gson.fromJson(newstringBuilder.toString(), Chapter.class);
+        for(Chapter c : chapters) {
+            for (Chapter.Section s : c.getSections()) {
+                if (s.getSection().equals(sectionId)) {
+                    return s;
+                }
+            }
+        }
+        return null;
     }
 
     private void initPopStackListner(View view) {

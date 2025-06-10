@@ -307,7 +307,7 @@ public class MainActivity extends AppCompatActivity {
                                     switchButton.setOnClickListener(v2 -> {
                                         switchButton.setEnabled(false);
                                         if (ScreenCastingManager.isHavingClass()) {
-                                            new AlertDialog.Builder(MainActivity.this)
+                                            new AlertDialog.Builder(getApplicationContext())
                                                     .setTitle("提示")
                                                     .setMessage("退出课堂后将不能和老师互动, 确认退出吗?")
                                                     .setPositiveButton("确认", (dialog, which) -> {
