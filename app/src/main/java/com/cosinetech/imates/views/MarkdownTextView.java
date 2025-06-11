@@ -130,11 +130,12 @@ public class MarkdownTextView extends AppCompatTextView {
     }
 
     private String filterLatexString(String src) {
+        src += "   \n\f";
         return src.replace("\\(", "$")
                 .replace("\\)", "$") //行内公式
-                .replace("$$", "$$\n")
-                .replace("\\[", "$$\n") //块公式
-                .replace("\\]", "$$\n");
+                .replace("$$", "\n$$\n") //块公式
+                .replace("\\[", "\n$$\n")
+                .replace("\\]", "\n$$\n");
     }
 
     public void disableTypingEffectDisplay() {
@@ -160,12 +161,12 @@ public class MarkdownTextView extends AppCompatTextView {
                 }
             } else {
                 showWithTypingEffect = false;
-
                 // recycleView复用上次相同view, 会调用到这里
                 setContent(mTypingEffectDisplayItem.chatMessage.content);
             }
         }
     };
+
     public void enableTypingEffectDisplay() {
         if (showWithTypingEffect) {
             return; // 如果已经在流式显示，则直接返回
@@ -174,10 +175,6 @@ public class MarkdownTextView extends AppCompatTextView {
             return;
         }
         showWithTypingEffect = true;
-
-//        mMainHandler.post(() -> {
-//            updateMarkdownMinHeight(mTypingEffectDisplayItem.chatMessage.content);
-//        });
 
         mMainHandler.post(displayOneChar);
     }
