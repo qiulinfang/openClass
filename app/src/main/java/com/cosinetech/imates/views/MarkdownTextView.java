@@ -5,6 +5,7 @@ import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
@@ -60,6 +61,7 @@ public class MarkdownTextView extends AppCompatTextView {
     }
 
     public void setContent(String content) {
+        Log.e("MarkdownTextView", content);
         String preFilterLatex = filterLatexString(content);
         //updateMarkdownMinHeight(preFilterLatex);
         mMarkwon.setMarkdown(this, preFilterLatex);
@@ -135,7 +137,9 @@ public class MarkdownTextView extends AppCompatTextView {
                 .replace("\\)", "$") //行内公式
                 .replace("$$", "\n$$\n") //块公式
                 .replace("\\[", "\n$$\n")
-                .replace("\\]", "\n$$\n");
+                .replace("\\]", "\n$$\n")
+                .replace("<p>", "")
+                .replace("</p>", "  \n");
     }
 
     public void disableTypingEffectDisplay() {
