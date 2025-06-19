@@ -1,38 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-
     <!-- Device Admin 权限 -->
-    <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN"
+    <uses-permission
+        android:name="android.permission.BIND_DEVICE_ADMIN"
         tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.MANAGE_DEVICE_ADMINS"
+    <uses-permission
+        android:name="android.permission.MANAGE_DEVICE_ADMINS"
         tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
-
-    <!-- 系统级权限 -->
-    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
-        tools:ignore="ProtectedPermissions" />
-<!--    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />-->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" /> <!-- 系统级权限 -->
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" /> <!-- <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" /> -->
     <uses-permission android:name="android.permission.GET_TASKS" />
     <uses-permission android:name="android.permission.REORDER_TASKS" />
-    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
-
-    <!-- 网络权限用于远程配置 -->
-<!--    <uses-permission android:name="android.permission.INTERNET" />-->
+    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" /> <!-- 网络权限用于远程配置 -->
+    <!-- <uses-permission android:name="android.permission.INTERNET" /> -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission
@@ -70,6 +67,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.IMatesApp.FullScreen"
         tools:targetApi="31">
+        <activity
+            android:name=".activities.RichInputBoardActivity"
+            android:exported="false" />
         <activity
             android:name=".activities.MyFavorCenterActivity"
             android:exported="false" />
@@ -127,6 +127,7 @@
             android:theme="@style/Theme.IMatesApp.FullScreen">
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.MONKEY" />
@@ -136,6 +137,7 @@
             <!-- 主要的HOME Intent过滤器 -->
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
@@ -143,6 +145,7 @@
             <!-- 确保响应所有HOME相关的Intent -->
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
@@ -197,13 +200,13 @@
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
+
         <service
             android:name=".service.FloatingRobotService"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync|mediaProjection" />
-        <!-- Device Admin Receiver -->
+            android:foregroundServiceType="dataSync|mediaProjection" /> <!-- Device Admin Receiver -->
         <receiver
             android:name=".admin.KioskDeviceAdminReceiver"
             android:exported="true"
@@ -211,30 +214,25 @@
             <meta-data
                 android:name="android.app.device_admin"
                 android:resource="@xml/device_admin_policies" />
+
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
                 <action android:name="android.app.action.DEVICE_ADMIN_DISABLED" />
             </intent-filter>
-        </receiver>
-
-        <!-- 警告对话框Activity -->
+        </receiver> <!-- 警告对话框Activity -->
         <activity
             android:name=".admin.WarningDialogActivity"
+            android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTop"
+            android:noHistory="true"
             android:screenOrientation="landscape"
-            android:theme="@style/DialogTheme"
-            android:excludeFromRecents="true"
-            android:noHistory="true" />
-
-        <!-- 应用监控服务 -->
+            android:theme="@style/DialogTheme" /> <!-- 应用监控服务 -->
         <service
             android:name=".admin.AppMonitorService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="specialUse" />
-
-        <!-- 开机自启动 -->
+            android:foregroundServiceType="specialUse" /> <!-- 开机自启动 -->
         <receiver
             android:name=".admin.BootReceiver"
             android:enabled="true"
@@ -243,6 +241,7 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.PACKAGE_REPLACED" />
+
                 <data android:scheme="package" />
             </intent-filter>
         </receiver>

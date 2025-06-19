@@ -45,6 +45,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.activities.QuestionSolveActivity;
+import com.cosinetech.imates.activities.RichInputBoardActivity;
 import com.cosinetech.imates.activities.ScreenShotActivity;
 import com.cosinetech.imates.adapters.AdapterAiChatMessageList;
 import com.cosinetech.imates.adapters.ChatExpandableListAdapter;
@@ -116,6 +117,10 @@ public class ChatAiView extends RelativeLayout {
         void onScreenshotCaptured(String screenshotPath);
     }
 
+    public interface OnRichInputFinishListener {
+        void onRichInputResult(String resultString);
+    }
+
     private UserInfoViewModel mUserInfoViewModel;
     private Context mContext;
     private AiChatMessageRequest mAiChatRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "", false);
@@ -132,6 +137,7 @@ public class ChatAiView extends RelativeLayout {
     private Button mVoiceMessageButton;
     private CheckBox mCheckSearchWeb;
     private Button mSendPictureButton;
+    private Button mRichInputButton;
     private ChatAiParam mChatAiParam;
     private AiChatResponseListener mListener;
     private View voiceAnimateLayout;
@@ -162,10 +168,11 @@ public class ChatAiView extends RelativeLayout {
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private OnSendToTeacherListener mSendTeacherListener;
-
     private ActivityResultLauncher<Intent> mScreenshotLauncher;
     private ActivityResultLauncher<Intent> mPickImageLauncher;
+    private ActivityResultLauncher<Intent> mRichInputBoardLauncher;
     private OnPictureSelectedListener mPictureSelectedListener;
+    private OnRichInputFinishListener mRichInputFinishListener;
 
     public ChatAiView(Context context) {
         super(context);
@@ -227,6 +234,20 @@ public class ChatAiView extends RelativeLayout {
         );
     }
 
+    public void registerRichInputBoardForActivityResult(FragmentActivity activity) {
+        mRichInputBoardLauncher = activity.registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                        String resultString = result.getData().getStringExtra(RichInputBoardActivity.RICH_INPUT_RESULT_KEY);
+                        if (mRichInputFinishListener != null) {
+                            mRichInputFinishListener.onRichInputResult(resultString);
+                        }
+                    }
+                }
+        );
+    }
+
     private void launchScreenshotActivity() {
         if (mScreenshotLauncher != null) {
             Intent intent = new Intent(getContext(),  ScreenShotActivity.class);
@@ -246,12 +267,23 @@ public class ChatAiView extends RelativeLayout {
         }
     }
 
+    private void launchRichInputBoardActivity() {
+        if(mRichInputBoardLauncher != null) {
+            Intent intent = new Intent(getContext(), RichInputBoardActivity.class);
+            mRichInputBoardLauncher.launch(intent);
+        }
+    }
+
     public void setOnPictureSelectedListener(OnPictureSelectedListener listener) {
         this.mPictureSelectedListener = listener;
     }
 
     public void setSendTeacherListener(OnSendToTeacherListener l) {
         mSendTeacherListener = l;
+    }
+
+    public void setRichInputFinishListener(OnRichInputFinishListener l) {
+        mRichInputFinishListener = l;
     }
 
     public void setChatAiParam(ChatAiParam param) {
@@ -350,6 +382,7 @@ public class ChatAiView extends RelativeLayout {
         mAskTeacherLayout = view.findViewById(R.id.select_history_function);
         Button mAskTeacherButton = view.findViewById(R.id.btn_ask_teacher);
         mSendPictureButton = view.findViewById(R.id.btn_send_picture);
+        mRichInputButton = view.findViewById(R.id.btn_rich_input);
         chkViewHistory = view.findViewById(R.id.btn_view_history);
         voiceAnimateLayout = view.findViewById(R.id.voice_animate_area);
         mKeyboardInputButton = view.findViewById(R.id.input_keyboard);
@@ -425,11 +458,15 @@ public class ChatAiView extends RelativeLayout {
             if (context instanceof FragmentActivity) {
                 launchPickImageActivity();
             }
+        });
 
+        mRichInputButton.setOnClickListener(v->{
+            if (context instanceof FragmentActivity) {
+                launchRichInputBoardActivity();
+            }
         });
 
         btnNewChat.setOnClickListener(v-> createChatSession());
-
         mSelectChatItemButton.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if(isChecked) {
                 mAskTeacherLayout.setVisibility(VISIBLE);
@@ -517,12 +554,7 @@ public class ChatAiView extends RelativeLayout {
             if(content.isEmpty()) {
                 return;
             }
-            if(mCurrentSession.type == ChatMessageSession.SessionType.SYSTEM_TALK_AI
-                || mCurrentSession.type == ChatMessageSession.SessionType.USER_TALK_AI) {
-                sendTextMessageToAi(content);
-            } else { //和老师的对话
-                sendTextMessageToTeacher(content);
-            }
+            sendTextContent(content);
             mEditMsg.setText("");
         });
 
@@ -859,6 +891,15 @@ public class ChatAiView extends RelativeLayout {
         });
         resetCurrentSession(ChatMessageCatalogue.CATEGORY_DEFAULT_SYSTEM, ChatMessageSession.SESSION_DEFAULT_SYSTEM);
         addView(view);
+    }
+
+    public void sendTextContent(String content) {
+        if(mCurrentSession.type == ChatMessageSession.SessionType.SYSTEM_TALK_AI
+            || mCurrentSession.type == ChatMessageSession.SessionType.USER_TALK_AI) {
+            sendTextMessageToAi(content);
+        } else { //和老师的对话
+            sendTextMessageToTeacher(content);
+        }
     }
 
     private void loadSelectedRole() {
@@ -1406,6 +1447,7 @@ public class ChatAiView extends RelativeLayout {
             resetCurrentSession(mCurrentCatalog, mCurrentSession);
         }
     }
+
     private void loadHistoryMessages() {
         if(mInSearchMode) {
             return;
