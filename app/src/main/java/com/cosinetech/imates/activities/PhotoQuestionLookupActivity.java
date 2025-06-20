@@ -136,7 +136,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                 Intent intent = new Intent(this, QuestionSolveActivity.class);
                 intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, subject == Subject.SUBJECT_BIOLOGY ? ApiUrl.URL_CHAT_BIOLOGY : ApiUrl.URL_CHAT_MATH);
                 intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, subject.name());
-                intent.putExtra(QuestionSolveActivity.KEY_SHOW_LAST_QUESTION, true);
+                intent.putExtra(QuestionSolveActivity.KEY_SHOW_LAST_QUESTION, false);
                 startActivity(intent);
             }
         });

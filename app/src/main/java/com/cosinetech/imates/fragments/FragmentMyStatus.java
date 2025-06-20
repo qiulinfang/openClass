@@ -18,6 +18,7 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.activities.LoginActivity;
 import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.helper.StaticLabelsFormatter;
 import com.jjoe64.graphview.series.BarGraphSeries;
@@ -28,19 +29,16 @@ import com.jjoe64.graphview.series.DataPoint;
  * Use the {@link FragmentMyStatus#newInstance} factory method to
  * create an instance of this fragment.
  */
+
 public class FragmentMyStatus extends Fragment {
     private UserInfoViewModel userInfoViewModel;
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
 
-    private String mParam1;
-    private String mParam2;
-
     public FragmentMyStatus() {
         // Required empty public constructor
     }
-
     public static FragmentMyStatus newInstance(String param1, String param2) {
         FragmentMyStatus fragment = new FragmentMyStatus();
         Bundle args = new Bundle();
@@ -53,10 +51,10 @@ public class FragmentMyStatus extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
-        }
+//        if (getArguments() != null) {
+//            mParam1 = getArguments().getString(ARG_PARAM1);
+//            mParam2 = getArguments().getString(ARG_PARAM2);
+//        }
     }
 
     @Override
@@ -74,17 +72,18 @@ public class FragmentMyStatus extends Fragment {
         ).get(UserInfoViewModel.class);
         String tip = "嘿," + userInfoViewModel.userInfo.getValue().getName() + "同学！ 我是你的智能学习小伙伴，超开心能陪你一起学习、一起嗨皮！ 不管是脑洞大开的问题，还是小菜一碟的疑惑，随时戳我，我立马变身你的专属解题小能手！ 让我们一起快乐学习，天天向上吧！";
         textView.setText(tip);
-
         Button btnExit = v.findViewById(R.id.btn_exit);
         btnExit.setOnClickListener(v1 -> {
             userInfoViewModel.token.postValue("");
             userInfoViewModel.userId.postValue("");
             userInfoViewModel.userInfo.postValue(new UserInfo());
+            ScreenCastingManager.setClassMode(false);
             Intent intent = new Intent(requireActivity(), LoginActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
             requireActivity().finish();
         });
+
         return v;
     }
 
@@ -138,4 +137,5 @@ public class FragmentMyStatus extends Fragment {
         // Enable scaling
         graph.getViewport().setScalable(true);
     }
+
 }

@@ -42,7 +42,7 @@
         android:minHeight="60dp"
         android:textColor="#ffffff"
         android:button="@null"
-        android:visibility="visible"
+        android:visibility="invisible"
         android:background="@drawable/chat_ai_settings"
         android:stateListAnimator="@animator/app_button_click_scale"
         android:layout_alignParentTop="true"
@@ -50,7 +50,7 @@
 
     <androidx.appcompat.widget.AppCompatSpinner
         android:id="@+id/settings_spinner"
-        android:visibility="gone"
+        android:visibility="visible"
         android:layout_width="32dp"
         android:layout_height="32dp"
         android:layout_marginEnd="16dp"
@@ -383,6 +383,17 @@
             android:layout_height="36dp"
             android:layout_marginEnd="16dp"
             android:background="@drawable/chat_ai_send_picture_bg"
+            android:layout_toStartOf="@id/btn_rich_input"
+            android:stateListAnimator="@animator/app_button_click_scale"
+            android:layout_centerVertical="true"/>
+
+        <!-- 发送公式功能按钮 -->
+        <Button
+            android:id="@+id/btn_rich_input"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/chat_ai_view_formula"
             android:layout_toStartOf="@id/btn_send"
             android:stateListAnimator="@animator/app_button_click_scale"
             android:layout_centerVertical="true"/>

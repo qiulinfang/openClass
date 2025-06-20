@@ -15,10 +15,15 @@ android {
         applicationId "com.cosinetech.imates"
         minSdk 24
         targetSdk 34
-        versionCode 37
-        versionName "1.0.37"
+        versionCode 50
+        versionName "1.0.50"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        externalNativeBuild {
+            cmake {
+                cppFlags ''
+            }
+        }
     }
 
     buildTypes {
@@ -86,6 +91,13 @@ android {
     buildFeatures {
         viewBinding true
         compose true
+        dataBinding = true
+    }
+    externalNativeBuild {
+        cmake {
+            path file('src/main/cpp/CMakeLists.txt')
+            version '3.22.1'
+        }
     }
 }
 
@@ -149,6 +161,14 @@ dependencies {
     implementation files('libs/markwon-inline-parser.aar')
     implementation files('libs/markwon-syntax-highlight.aar')
     implementation files('libs/markwon-ext-latex.aar')
+    implementation files('libs/ffmpeg-kit.aar')
+    implementation files('libs/smart-exception-java-0.2.1.jar')
+    implementation files('libs/smart-exception-common-0.2.1.jar')
+    implementation files('libs/screenShareKit.aar')
+//
+//    implementation 'com.github.LxzBUG:ScreenShare:1.1.6'
+// FFmpegKit依赖
+//    implementation 'com.arthenica:ffmpeg-kit-full:6.0-2'
 
 //    implementation files('libs/pspdfkit-10.1.2.aar')
 //    implementation("com.pspdfkit:pspdfkit:2024.9.2")
@@ -193,6 +213,9 @@ dependencies {
     implementation libs.camera.lifecycle
     implementation libs.camera.view
     implementation libs.android.image.cropper
+    implementation 'io.github.ParkSangGwon:tedimagepicker:1.6.1'
+    implementation("io.github.ParkSangGwon:tedpermission-normal:3.4.2")
+    //implementation 'com.github.dhaval2404:imagepicker:2.1'
 
     // ======== http/https请求库 ========
     implementation platform(libs.okhttp.bom)

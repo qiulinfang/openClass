@@ -1,5 +1,6 @@
 package com.cosinetech.imates.activities;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.KeyEvent;
@@ -12,6 +13,7 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -32,6 +34,7 @@ import com.cosinetech.imates.models.FindSimilarQuestionRequest;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.mq.MessagingManager;
+import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.views.ChatAiView;
@@ -42,6 +45,8 @@ import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.ApiUrl;
 import com.cosinetech.imates.webservice.Question;
 
+import org.loka.screensharekit.ScreenShareKit;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -51,6 +56,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
     public static final String KEY_SUBJECT = "KEY_SUBJECT";
     public static final String KEY_SHOW_LAST_QUESTION = "KEY_SHOW_LAST";
     private int chatResponseTimes = 0;
+    private static final int VIEW_ANSWER_CHAT_TIMES = 3;
     private String chatBotUrl;
     private Subject subject;
     private UserInfoViewModel userInfoViewModel;
@@ -130,7 +136,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 adapterQuestionList.notifyItemChanged(mCurrentQuestionIndex);
             }
             chatResponseTimes++;
-            if(chatResponseTimes >= 2) {
+            if(chatResponseTimes >= VIEW_ANSWER_CHAT_TIMES) {
                 setViewAnswer(true);
             }
         });
@@ -138,8 +144,10 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         mChatView.setChatAiParam(param);
         mChatView.registerScreenShotForActivityResult(this);
         mChatView.registerPickImageForActivityResult(this);
+        mChatView.registerRichInputBoardForActivityResult(this);
         // Set listener to be notified when screenshot is captured
         mChatView.setOnPictureSelectedListener(mChatView::sendPictureToTeacher);
+        mChatView.setRichInputFinishListener(resultString -> mChatView.sendTextContent(resultString));
 
         findViewById(R.id.btn_exit).setOnClickListener(v->{
             finish();
@@ -171,31 +179,40 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 if(position < 0 || position >= mQuestions.size()) {
                     return;
                 }
-                String url;
-                Question q = mQuestions.get(position);
-                if(subject == Subject.SUBJECT_BIOLOGY) {
-                    url = ApiUrl.URL_DELETE_EXERCISE_BASE + "/" + q.id + "/biology";
-                } else if(subject == Subject.SUBJECT_MATH) {
-                    url = ApiUrl.URL_DELETE_EXERCISE_BASE + "/" + q.id + "/math";
-                } else {
-                    return;
+                new AlertDialog.Builder(QuestionSolveActivity.this)
+                        .setTitle("提示")
+                        .setMessage("确认删除习题吗?")
+                        .setPositiveButton("确认", (dialog, which) -> {
+                            String url;
+                            Question q = mQuestions.get(position);
+                            if(subject == Subject.SUBJECT_BIOLOGY) {
+                                url = ApiUrl.URL_DELETE_EXERCISE_BASE + "/" + q.id + "/biology";
+                            } else if(subject == Subject.SUBJECT_MATH) {
+                                url = ApiUrl.URL_DELETE_EXERCISE_BASE + "/" + q.id + "/math";
+                            } else {
+                                return;
+                            }
+                            ApiGateWayService.deleteExercise(url, userInfoViewModel.token.getValue(), new ApiGateWayService.ExerciseDeleteLister() {
+                                @Override
+                                public void onDeleteSuccess() {
+                                    runOnUiThread(() -> {
+                                        Question q = mQuestions.remove(position);
+                                        adapterQuestionList.notifyItemRemoved(position);
+                                    });
+
+                                }
+
+                                @Override
+                                public void onDeleteFailed(String msg) {
+                                    runOnUiThread(() -> Toast.makeText(QuestionSolveActivity.this, "删除失败, 稍后重试", Toast.LENGTH_SHORT).show());
+                                }
+                            });
+                        })
+                        .setNegativeButton("取消", (dialog, which) -> {
+                        })
+                        .create()
+                        .show();
                 }
-                ApiGateWayService.deleteExercise(url, userInfoViewModel.token.getValue(), new ApiGateWayService.ExerciseDeleteLister() {
-                    @Override
-                    public void onDeleteSuccess() {
-                        runOnUiThread(() -> {
-                            Question q = mQuestions.remove(position);
-                            adapterQuestionList.notifyItemRemoved(position);
-                        });
-
-                    }
-
-                    @Override
-                    public void onDeleteFailed(String msg) {
-                        runOnUiThread(() -> Toast.makeText(QuestionSolveActivity.this, "删除失败, 稍后重试", Toast.LENGTH_SHORT).show());
-                    }
-                });
-            }
 
             @Override
             public void onExerciseToTop(int position) {
@@ -213,6 +230,10 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                     mRdoChatAi.setChecked(true);
                 }
 
+                if(pos < 0 || pos >= mQuestions.size()) {
+                    return;
+                }
+
                 mCurrentQuestionIndex = pos;
                 Question mCurrentQuestion = mQuestions.get(pos);
                 mCurrentQuestion.getQuestion();
@@ -222,9 +243,16 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 MarkdownTextView answer = findViewById(R.id.answerView);
                 answer.setContent(mCurrentQuestion.getAnswer() + "   \n" + mCurrentQuestion.getAnswerAnalysis());
 
-                mChatView.setChatEnable(false);
-                chatResponseTimes = 0;
-                setViewAnswer(false);
+                if(mCurrentQuestion.beginGuideToSolve) {
+                    mChatView.setChatEnable(true);
+                    if(chatResponseTimes >= VIEW_ANSWER_CHAT_TIMES) {
+                        setViewAnswer(true);
+                    }
+                } else {
+                    mChatView.setChatEnable(false);
+                    chatResponseTimes = 0;
+                    setViewAnswer(false);
+                }
 
                 //先生成ai的session
                 ChatMessageSession session = onChatQuestionSessionChange(false);
@@ -239,6 +267,10 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 if(mCurrentQuestionIndex >= 0 && mCurrentQuestionIndex < mQuestions.size()) {
                     mQuestions.get(mCurrentQuestionIndex).isAiGuiding = true;
                     adapterQuestionList.notifyItemChanged(mCurrentQuestionIndex);
+                    for(Question q : mQuestions) {
+                        q.beginGuideToSolve = false;
+                    }
+                    mQuestions.get(mCurrentQuestionIndex).beginGuideToSolve = true;
                 }
                 onChatQuestionSessionChange(true);
                 runOnUiThread(() -> {
@@ -357,7 +389,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         String questionString = mQuestions.get(mCurrentQuestionIndex).getQuestion();
         long tick = System.currentTimeMillis();
         ChatMessageSession session = new ChatMessageSession(
-                UUID.nameUUIDFromBytes(questionString.getBytes()).toString(),
+                UUID.nameUUIDFromBytes((questionString + userInfoViewModel.userId.getValue()).getBytes()).toString(),
                 mChatAiCatalogue.catalogId,
                 (questionString.length() > ChatMessageSession.MAX_SESSION_NAME_LENGTH ?
                         questionString.substring(0, ChatMessageSession.MAX_SESSION_NAME_LENGTH) + "..." :

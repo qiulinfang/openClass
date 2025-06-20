@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="horizontal"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+
+    <Button
+        android:id="@+id/back_main"
+        style="?android:attr/buttonBarButtonStyle"
+        android:layout_width="60dp"
+        android:layout_height="wrap_content"
+        android:background="#00ffffff"
+        android:drawableTop="@drawable/app_home"
+        android:text="返回主页"
+        android:textColor="#000000"
+        android:stateListAnimator="@animator/app_button_click_scale"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="32dp" />
+
+    <Button
+        android:id="@+id/switch_button"
+        style="?android:attr/buttonBarButtonStyle"
+        android:layout_width="60dp"
+        android:layout_height="wrap_content"
+        android:background="#00ffffff"
+        android:drawableTop="@drawable/app_switch_off"
+        android:text="加入课堂"
+        android:textColor="#000000"
+        android:stateListAnimator="@animator/app_button_click_scale"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="32dp" />
+
+    <Button
+        android:id="@+id/submit_homework"
+        style="?android:attr/buttonBarButtonStyle"
+        android:layout_width="60dp"
+        android:layout_height="wrap_content"
+        android:background="#00ffffff"
+        android:drawableTop="@drawable/app_photo"
+        android:text="拍作业"
+        android:textColor="#000000"
+        android:stateListAnimator="@animator/app_button_click_scale"
+        android:layout_toEndOf="@id/switch_button"
+        android:layout_marginStart="32dp"
+        />
+
+</LinearLayout>

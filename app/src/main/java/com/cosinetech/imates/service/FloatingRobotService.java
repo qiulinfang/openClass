@@ -19,6 +19,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.PopupWindow;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -40,6 +41,7 @@ import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.mq.MessagingManager;
 import com.cosinetech.imates.mq.TeacherMessage;
+import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.views.ChatAiView;
@@ -172,33 +174,6 @@ public class FloatingRobotService extends Service implements MessagingManager.Me
                 return true;
             }
         });
-
-        //// 使悬浮窗可拖动
-//        floatingRobotView.setOnTouchListener(new View.OnTouchListener() {
-//            private int initialX;
-//            private int initialY;
-//            private float initialTouchX;
-//            private float initialTouchY;
-//
-//            @Override
-//            public boolean onTouch(View v, MotionEvent event) {
-//                switch (event.getAction()) {
-//                    case MotionEvent.ACTION_DOWN:
-//                        initialX = layoutParams.x;
-//                        initialY = layoutParams.y;
-//                        initialTouchX = event.getRawX();
-//                        initialTouchY = event.getRawY();
-//                        return true;
-//                    case MotionEvent.ACTION_MOVE:
-//                        layoutParams.x = initialX + (int) (event.getRawX() - initialTouchX);
-//                        layoutParams.y = initialY + (int) (event.getRawY() - initialTouchY);
-//                        windowManager.updateViewLayout(floatingRobotView, layoutParams);
-//                        Log.d("?????????", "onTouch1: " + layoutParams.x  + "," + layoutParams.y);
-//                        return true;
-//                }
-//                return true;
-//            }
-//        });
     }
 
     @RequiresApi(api = Build.VERSION_CODES.O)
@@ -261,6 +236,19 @@ public class FloatingRobotService extends Service implements MessagingManager.Me
     }
 
     private void performFeedback() {
+        if(ScreenCastingManager.isHavingClass()) {
+            Toast.makeText(getApplicationContext(), "请在退出课堂后再进行反馈", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String userId = AppUtils.getUserId();
+        if(userId == null
+                || userId.isEmpty()
+                || userId.equals("guest000")) {
+            Toast.makeText(getApplicationContext(), "请用其他账户进行反馈", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         Intent intent = new Intent(this, ScreenShotActivity.class);
         intent.setAction(ScreenShotActivity.ACTION_START_FEED_BACK);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈

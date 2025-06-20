@@ -42,6 +42,8 @@ public class Question {
     //用户选择了这个题(知识点举一反三)
     public boolean userSelect = false;
 
+    public boolean beginGuideToSolve = false;
+
     private void emitNull() {
         if(this.bmNo == null) {
             this.bmNo = "";

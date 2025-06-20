@@ -13,7 +13,6 @@ import androidx.fragment.app.FragmentManager;
 
 import android.os.Handler;
 import android.os.Looper;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -21,24 +20,27 @@ import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.PopupWindow;
 import android.widget.Toast;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.activities.FindExerciseActivity;
+import com.cosinetech.imates.activities.LessonPreviewActivity;
+import com.cosinetech.imates.activities.MyFavorCenterActivity;
+import com.cosinetech.imates.activities.MyHistoryActivity;
 import com.cosinetech.imates.activities.PhotoQuestionLookupActivity;
 import com.cosinetech.imates.activities.QuestionSolveActivity;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.webservice.ApiUrl;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.reflect.Type;
+import java.util.List;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -105,12 +107,16 @@ public class FragmentSubjectMath extends Fragment {
 
         CardView btnHistory = view.findViewById(R.id.history);
         btnHistory.setOnClickListener(v -> {
-            showMyHistory(view, R.drawable.history_math);
+            Intent intent = new Intent(getActivity(), MyHistoryActivity.class);
+            intent.putExtra(MyHistoryActivity.KEY_SUBJECT_NAME, Subject.SUBJECT_MATH.name());
+            startActivity(intent);
         });
 
         CardView btnMyFavor = view.findViewById(R.id.card_my_favor);
         btnMyFavor.setOnClickListener( v-> {
-            showMyFavor(view);
+            Intent intent = new Intent(getActivity(), MyFavorCenterActivity.class);
+            intent.putExtra(MyFavorCenterActivity.KEY_SUBJECT_NAME, Subject.SUBJECT_MATH.name());
+            startActivity(intent);
         });
 
         WebView webView = view.findViewById(R.id.knowledge_view);
@@ -142,37 +148,8 @@ public class FragmentSubjectMath extends Fragment {
 
         @JavascriptInterface
         public void onPrepareLesson(String nodeId, String nodeName) {
-            loadPrepareLessonFragment(nodeId, nodeName);
+            startPreviewLessonActivity(nodeId, nodeName);
         }
-
-        public Chapter.Section getSection(String sectionId) {
-            StringBuilder newstringBuilder = new StringBuilder();
-            InputStream inputStream;
-            try {
-                inputStream = getResources().getAssets().open("math_learn_schema.json");
-                InputStreamReader isr = new InputStreamReader(inputStream);
-                BufferedReader reader = new BufferedReader(isr);
-                String jsonLine;
-                while ((jsonLine = reader.readLine()) != null) {
-                    newstringBuilder.append(jsonLine);
-                }
-                reader.close();
-                isr.close();
-                inputStream.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            Gson gson = new Gson();
-            Chapter chapter = gson.fromJson(newstringBuilder.toString(), Chapter.class);
-            for (Chapter.Section s: chapter.getSections()) {
-                if(s.getSection().equals(sectionId)) {
-                    return s;
-                }
-            }
-            return null;
-        }
-
         @JavascriptInterface
         public void onReviewLesson(String nodeId, String nodeName) {
             Chapter.Section s = getSection(nodeId);
@@ -183,123 +160,6 @@ public class FragmentSubjectMath extends Fragment {
             // 在 UI 线程上执行的代码
             new Handler(Looper.getMainLooper()).post(() -> startFindExerciseActivity(s.getKnowledgeNo()));
         }
-    }
-
-    public void showMyHistory(View anchorView, int imageResId) {
-        // 加载布局
-        View popupView = LayoutInflater.from(getActivity()).inflate(R.layout.popup_window_history_image, null);
-
-        // 初始化 PopupWindow
-        PopupWindow popupWindow = new PopupWindow(popupView,
-                ViewGroup.LayoutParams.MATCH_PARENT, // 宽度
-                ViewGroup.LayoutParams.MATCH_PARENT); // 高度
-
-        // 设置背景
-        //popupWindow.setBackgroundDrawable(new ColorDrawable(android.R.color.white));
-
-        // 设置点击外部区域关闭
-        popupWindow.setOutsideTouchable(true);
-        popupWindow.setFocusable(true);
-
-        // 设置图片
-        ImageView imageView = popupView.findViewById(R.id.img_view);
-        imageView.setImageResource(imageResId);
-
-        // 关闭按钮点击事件
-        Button closeButton = popupView.findViewById(R.id.close);
-        closeButton.setOnClickListener(v -> popupWindow.dismiss());
-
-        // 显示 PopupWindow
-        popupWindow.showAtLocation(anchorView, Gravity.CENTER, 0, 0);
-    }
-
-    public void showMyFavor(View anchorView) {
-        View popupView = LayoutInflater.from(getActivity()).inflate(R.layout.popup_window_my_favor, null);
-
-        // 初始化 PopupWindow
-        PopupWindow popupWindow = new PopupWindow(popupView,
-                ViewGroup.LayoutParams.MATCH_PARENT, // 宽度
-                ViewGroup.LayoutParams.MATCH_PARENT); // 高度
-
-        // 设置背景
-        //popupWindow.setBackgroundDrawable(new ColorDrawable(android.R.color.white));
-
-        // 设置点击外部区域关闭
-        popupWindow.setOutsideTouchable(true);
-        popupWindow.setFocusable(true);
-
-        // 关闭按钮点击事件
-        Button closeButton = popupView.findViewById(R.id.close);
-        closeButton.setOnClickListener(v -> popupWindow.dismiss());
-
-        CardView btnShowNotes = popupView.findViewById(R.id.my_note);
-        btnShowNotes.setOnClickListener(v->{
-            showMyFavorNotes(anchorView);
-        });
-
-        CardView btnShowMind = popupView.findViewById(R.id.my_mind);
-        btnShowMind.setOnClickListener(v->{
-            showMyFavorMind(anchorView);
-        });
-
-        // 显示 PopupWindow
-        popupWindow.showAtLocation(anchorView, Gravity.CENTER, 0, 0);
-    }
-
-    public void showMyFavorNotes(View view) {
-        // 加载布局
-        View popupView = LayoutInflater.from(getActivity()).inflate(R.layout.popup_window_my_notes, null);
-
-        // 初始化 PopupWindow
-        PopupWindow popupWindow = new PopupWindow(popupView,
-                ViewGroup.LayoutParams.MATCH_PARENT, // 宽度
-                ViewGroup.LayoutParams.MATCH_PARENT); // 高度
-
-        // 设置背景
-        //popupWindow.setBackgroundDrawable(new ColorDrawable(android.R.color.white));
-
-        // 设置点击外部区域关闭
-        popupWindow.setOutsideTouchable(true);
-        popupWindow.setFocusable(true);
-
-        // 设置图片
-        ImageView imageView = popupView.findViewById(R.id.img_view);
-        imageView.setImageResource(R.drawable.notes_math);
-
-        // 关闭按钮点击事件
-        Button closeButton = popupView.findViewById(R.id.close);
-        closeButton.setOnClickListener(v -> popupWindow.dismiss());
-
-        // 显示 PopupWindow
-        popupWindow.showAtLocation(view, Gravity.CENTER, 0, 0);
-    }
-
-    public void showMyFavorMind(View view) {
-// 加载布局
-        View popupView = LayoutInflater.from(getActivity()).inflate(R.layout.popup_window_my_mind, null);
-
-        // 初始化 PopupWindow
-        PopupWindow popupWindow = new PopupWindow(popupView,
-                ViewGroup.LayoutParams.MATCH_PARENT, // 宽度
-                ViewGroup.LayoutParams.MATCH_PARENT); // 高度
-
-        // 设置背景
-        //popupWindow.setBackgroundDrawable(new ColorDrawable(android.R.color.white));
-
-        // 设置点击外部区域关闭
-        popupWindow.setOutsideTouchable(true);
-        popupWindow.setFocusable(true);
-
-        // 设置图片
-        ImageView imageView = popupView.findViewById(R.id.img_view);
-        imageView.setImageResource(R.drawable.notes_math);
-
-        // 关闭按钮点击事件
-        Button closeButton = popupView.findViewById(R.id.close);
-        closeButton.setOnClickListener(v -> popupWindow.dismiss());
-
-        // 显示 PopupWindow
-        popupWindow.showAtLocation(view, Gravity.CENTER, 0, 0);
     }
 
     public void startPhotoQuestionLookupActivity() {
@@ -323,8 +183,50 @@ public class FragmentSubjectMath extends Fragment {
         startActivity(intent);
     }
 
-    public void loadPrepareLessonFragment(String sectionId, String sectionName) {
-        Toast.makeText(this.getContext(), "暂无相关课程", Toast.LENGTH_SHORT).show();
+    public void startPreviewLessonActivity(String sectionId, String sectionName) {
+        Chapter.Section s = getSection(sectionId);
+        if(s != null) {
+            Intent previewLessonActivity = new Intent(requireActivity(), LessonPreviewActivity.class);
+            previewLessonActivity.putExtra(LessonPreviewActivity.KEY_PREVIEW_SECTION_NAME, sectionName);
+            previewLessonActivity.putExtra(LessonPreviewActivity.KEY_SECTION_SCHEMA, s);
+
+            startActivity(previewLessonActivity);
+        } else {
+            Toast.makeText(this.getContext(), "未查询到相关的课程", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    public Chapter.Section getSection(String sectionId) {
+        StringBuilder newstringBuilder = new StringBuilder();
+        InputStream inputStream;
+        try {
+            inputStream = getResources().getAssets().open("math_learn_schema.json");
+            InputStreamReader isr = new InputStreamReader(inputStream);
+            BufferedReader reader = new BufferedReader(isr);
+            String jsonLine;
+            while ((jsonLine = reader.readLine()) != null) {
+                newstringBuilder.append(jsonLine);
+            }
+            reader.close();
+            isr.close();
+            inputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        Gson gson = new Gson();
+        // 使用 TypeToken 反序列化
+        Type listType = new TypeToken<List<Chapter>>() {}.getType();
+        List<Chapter> chapters = gson.fromJson(newstringBuilder.toString(), listType);
+        //Chapter chapter = gson.fromJson(newstringBuilder.toString(), Chapter.class);
+        for(Chapter c : chapters) {
+            for (Chapter.Section s : c.getSections()) {
+                if (s.getSection().equals(sectionId)) {
+                    return s;
+                }
+            }
+        }
+        return null;
     }
 
     private void initPopStackListner(View view) {

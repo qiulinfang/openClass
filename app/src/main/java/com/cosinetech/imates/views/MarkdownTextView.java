@@ -5,6 +5,7 @@ import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
@@ -60,6 +61,7 @@ public class MarkdownTextView extends AppCompatTextView {
     }
 
     public void setContent(String content) {
+        Log.e("MarkdownTextView", content);
         String preFilterLatex = filterLatexString(content);
         //updateMarkdownMinHeight(preFilterLatex);
         mMarkwon.setMarkdown(this, preFilterLatex);
@@ -130,11 +132,14 @@ public class MarkdownTextView extends AppCompatTextView {
     }
 
     private String filterLatexString(String src) {
+        src += "   \n\f";
         return src.replace("\\(", "$")
                 .replace("\\)", "$") //行内公式
-                .replace("$$", "$$\n")
-                .replace("\\[", "$$\n") //块公式
-                .replace("\\]", "$$\n");
+                .replace("$$", "\n$$\n") //块公式
+                .replace("\\[", "\n$$\n")
+                .replace("\\]", "\n$$\n")
+                .replace("<p>", "")
+                .replace("</p>", "  \n");
     }
 
     public void disableTypingEffectDisplay() {
@@ -151,19 +156,21 @@ public class MarkdownTextView extends AppCompatTextView {
 
             if (mTypingEffectDisplayItem.currentDisplayCharIndex < mTypingEffectDisplayItem.chatMessage.content.length()) {
                 // 逐字拼接内容
-                String displayContent = mTypingEffectDisplayItem.chatMessage.content.substring(0, ++mTypingEffectDisplayItem.currentDisplayCharIndex);
+                //String displayContent = mTypingEffectDisplayItem.chatMessage.content.substring(0, ++mTypingEffectDisplayItem.currentDisplayCharIndex);
+                String displayContent = mTypingEffectDisplayItem.chatMessage.content;
+                mTypingEffectDisplayItem.currentDisplayCharIndex = mTypingEffectDisplayItem.chatMessage.content.length();
                 setContent(displayContent);
                 if(mTypingEffectDisplayItem.currentDisplayCharIndex < mTypingEffectDisplayItem.chatMessage.content.length()) {
                     mMainHandler.postDelayed(this, UPDATE_DELAY); // 每 100ms 更新一次
                 }
             } else {
                 showWithTypingEffect = false;
-
                 // recycleView复用上次相同view, 会调用到这里
                 setContent(mTypingEffectDisplayItem.chatMessage.content);
             }
         }
     };
+
     public void enableTypingEffectDisplay() {
         if (showWithTypingEffect) {
             return; // 如果已经在流式显示，则直接返回
@@ -172,10 +179,6 @@ public class MarkdownTextView extends AppCompatTextView {
             return;
         }
         showWithTypingEffect = true;
-
-//        mMainHandler.post(() -> {
-//            updateMarkdownMinHeight(mTypingEffectDisplayItem.chatMessage.content);
-//        });
 
         mMainHandler.post(displayOneChar);
     }
