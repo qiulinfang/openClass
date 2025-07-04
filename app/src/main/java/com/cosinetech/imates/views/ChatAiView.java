@@ -971,6 +971,7 @@ public class ChatAiView extends RelativeLayout {
         mKeyboardInputButton.setVisibility(VISIBLE);
         mCheckSearchWeb.setVisibility(GONE);
         mSendPictureButton.setVisibility(GONE);
+        mRichInputButton.setVisibility(GONE);
         mVoiceInputButton.setVisibility(GONE);
         voiceAnimateLayout.setVisibility(GONE);
         mVoiceMessageButton.setVisibility(VISIBLE);
@@ -982,6 +983,7 @@ public class ChatAiView extends RelativeLayout {
         mKeyboardInputButton.setVisibility(GONE);
         mCheckSearchWeb.setVisibility(VISIBLE);
         mSendPictureButton.setVisibility(VISIBLE);
+        mRichInputButton.setVisibility(VISIBLE);
         mVoiceInputButton.setVisibility(VISIBLE);
         voiceAnimateLayout.setVisibility(GONE);
         mVoiceMessageButton.setVisibility(GONE);
@@ -995,7 +997,7 @@ public class ChatAiView extends RelativeLayout {
         }
 
         mVoiceInputButton.setVisibility(!isChatAi ? VISIBLE : INVISIBLE);
-        mSendPictureButton.setVisibility(!isChatAi ? VISIBLE : INVISIBLE);
+        //mSendPictureButton.setVisibility(!isChatAi ? VISIBLE : INVISIBLE);
         mCheckSearchWeb.setVisibility(isChatAi ? VISIBLE : INVISIBLE);
     }
 
@@ -1429,7 +1431,6 @@ public class ChatAiView extends RelativeLayout {
                 mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
             }
         }
-
     }
 
     private void autoDetectChatSessionName(String content) {

@@ -13,7 +13,6 @@ import androidx.fragment.app.FragmentManager;
 
 import android.os.Handler;
 import android.os.Looper;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -21,9 +20,9 @@ import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.PopupWindow;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Spinner;
 import android.widget.Toast;
 
 import com.cosinetech.imates.activities.FindExerciseActivity;
@@ -44,6 +43,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -59,6 +59,29 @@ public class FragmentSubjectBiology extends Fragment {
     // TODO: Rename and change types of parameters
     private String mParam1;
     private String mParam2;
+
+    private Spinner mSpinTextbookVersion;
+    private Spinner mSpinTextbookVolumes;
+    private ArrayAdapter mTextbookVersionAdapter;
+    private ArrayAdapter mTextbookVolumeAdapter;
+    //定义字符串数组,指定数组的元素
+    private final String[] textbookVersion = new String[]{"人教版","北师大版"};
+    private final String[] volumesRenJiao = new String[]{
+            "必修1 分子与细胞",
+            "必修2 遗传与进化",
+            "选择性必修1 稳态与调节",
+            "选择性必修2 生物与环境",
+            "选择性必修3 生物技术与工程"
+    };
+    private final String[] volumesBeiShiDa = new String[]{
+            "北师大必修1 分子与细胞",
+            "必修2 遗传与进化",
+            "选择性必修1 稳态与调节",
+            "选择性必修2 生物与环境",
+            "北师大选择性必修3 生物技术与工程"
+    };
+
+    private List<String[]> mTextbookVolumes = new ArrayList<>();
 
     public FragmentSubjectBiology() {
         // Required empty public constructor
@@ -80,6 +103,8 @@ public class FragmentSubjectBiology extends Fragment {
             mParam1 = getArguments().getString(ARG_PARAM1);
             mParam2 = getArguments().getString(ARG_PARAM2);
         }
+        mTextbookVolumes.add(volumesRenJiao);
+        mTextbookVolumes.add(volumesBeiShiDa);
     }
 
     @Override
@@ -132,6 +157,48 @@ public class FragmentSubjectBiology extends Fragment {
             }
             return false; // 返回false，让HScrollView继续处理触摸事件
         });
+
+        mSpinTextbookVersion = view.findViewById(R.id.spinner_textbook_versions);
+        mSpinTextbookVolumes = view.findViewById(R.id.spinner_textbook_volumes);
+        mTextbookVersionAdapter = new ArrayAdapter(getContext(), android.R.layout.simple_spinner_item, textbookVersion);
+        //设置适配器列表框下拉时的列表样式
+        mTextbookVersionAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        //将适配器与下拉列表框关联起来
+        mSpinTextbookVersion.setAdapter(mTextbookVersionAdapter);
+        mSpinTextbookVersion.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                setSelectedTextbookVolume(position);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
+        });
+
+        setSelectedTextbookVolume(0);
+    }
+
+    private void setSelectedTextbookVolume(int position) {
+        if(position >= mTextbookVolumes.size()) {
+            return;
+        }
+        mTextbookVolumeAdapter = new ArrayAdapter(getContext(), android.R.layout.simple_spinner_item, mTextbookVolumes.get(position));
+        mTextbookVolumeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        mSpinTextbookVolumes.setAdapter(mTextbookVolumeAdapter);
+        mSpinTextbookVolumes.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
+        });
+
     }
 
     public class WebAppInterface {

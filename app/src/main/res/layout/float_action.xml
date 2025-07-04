@@ -8,7 +8,7 @@
     <Button
         android:id="@+id/back_main"
         style="?android:attr/buttonBarButtonStyle"
-        android:layout_width="60dp"
+        android:layout_width="64dp"
         android:layout_height="wrap_content"
         android:background="#00ffffff"
         android:drawableTop="@drawable/app_home"
@@ -21,7 +21,7 @@
     <Button
         android:id="@+id/switch_button"
         style="?android:attr/buttonBarButtonStyle"
-        android:layout_width="60dp"
+        android:layout_width="64dp"
         android:layout_height="wrap_content"
         android:background="#00ffffff"
         android:drawableTop="@drawable/app_switch_off"
@@ -34,7 +34,7 @@
     <Button
         android:id="@+id/submit_homework"
         style="?android:attr/buttonBarButtonStyle"
-        android:layout_width="60dp"
+        android:layout_width="64dp"
         android:layout_height="wrap_content"
         android:background="#00ffffff"
         android:drawableTop="@drawable/app_photo"
