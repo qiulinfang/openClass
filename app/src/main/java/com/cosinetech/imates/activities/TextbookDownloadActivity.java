@@ -90,9 +90,6 @@ public class TextbookDownloadActivity extends AppCompatActivity implements
         textbookRecyclerView.setLayoutManager(layoutManager);
         textbookRecyclerView.setAdapter(textbookAdapter);
 
-        textbookAdapter = new TextbookAdapter(this, currentTextbooks);
-        textbookAdapter.setOnTextbookClickListener(this);
-
         // 根据屏幕宽度动态计算列数，确保图书显示合理
 //        int screenWidth = getResources().getDisplayMetrics().widthPixels;
 //        int itemWidth = (int) (160 * getResources().getDisplayMetrics().density); // 160dp转换为px
