@@ -240,6 +240,9 @@ public class MainActivity extends AppCompatActivity {
         h264ToTsStreamer = H264MpegTSStreamerManager.getInstance();
 
         Log.e("++++++++++++++++", "onCreate");
+
+        Intent intent = new Intent(this, TextbookDownloadActivity.class);
+        startActivity(intent);
     }
 
     @Override

@@ -161,4 +161,6 @@
     <!--    <string name="select_certificate_and_sign">Select certificate and sign?</string>-->
     <!--    <string name="signature_checked">Signature checked</string>-->
 
+    <string name="permission_storage_rationale">需要存储权限来下载教材文件</string>
+
 </resources>

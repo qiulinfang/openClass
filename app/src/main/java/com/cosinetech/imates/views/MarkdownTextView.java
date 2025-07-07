@@ -27,7 +27,7 @@ public class MarkdownTextView extends AppCompatTextView {
     private ChatDisplayItem mTypingEffectDisplayItem;
     private Markwon mMarkwon;
     private Handler mMainHandler;
-    private static final long UPDATE_DELAY = 100; // 延迟更新时间，单位毫秒
+    private static final long UPDATE_DELAY = 50; // 延迟更新时间，单位毫秒
     private boolean showWithTypingEffect;
 
     public MarkdownTextView(Context context) {
