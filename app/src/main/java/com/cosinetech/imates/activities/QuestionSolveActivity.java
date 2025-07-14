@@ -13,7 +13,6 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -34,7 +33,6 @@ import com.cosinetech.imates.models.FindSimilarQuestionRequest;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.mq.MessagingManager;
-import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.views.ChatAiView;
@@ -44,8 +42,6 @@ import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.ApiUrl;
 import com.cosinetech.imates.webservice.Question;
-
-import org.loka.screensharekit.ScreenShareKit;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -154,8 +150,8 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         });
 
         findViewById(R.id.btn_capture).setOnClickListener(v-> {
-            Intent intent = new Intent(this, PhotoQuestionLookupActivity.class);
-            intent.putExtra(PhotoQuestionLookupActivity.KEY_PARAM_SUBJECT, subject.name());
+            Intent intent = new Intent(this, PhotoSearchActivity.class);
+            intent.putExtra(PhotoSearchActivity.KEY_PARAM_SUBJECT, subject.name());
             startActivity(intent);
         });
 

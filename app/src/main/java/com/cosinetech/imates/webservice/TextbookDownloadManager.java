@@ -94,7 +94,7 @@ public class TextbookDownloadManager {
                 }
 
                 // Create download directory
-                File downloadDir = new File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "textbooks");
+                File downloadDir = new File(context.getExternalFilesDir(null), "textbooks");
                 if (!downloadDir.exists()) {
                     downloadDir.mkdirs();
                 }

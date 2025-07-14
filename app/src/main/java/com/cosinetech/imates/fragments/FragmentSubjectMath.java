@@ -27,7 +27,7 @@ import com.cosinetech.imates.activities.FindExerciseActivity;
 import com.cosinetech.imates.activities.LessonPreviewActivity;
 import com.cosinetech.imates.activities.MyFavorCenterActivity;
 import com.cosinetech.imates.activities.MyHistoryActivity;
-import com.cosinetech.imates.activities.PhotoQuestionLookupActivity;
+import com.cosinetech.imates.activities.PhotoSearchActivity;
 import com.cosinetech.imates.activities.QuestionSolveActivity;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.Chapter;
@@ -163,8 +163,8 @@ public class FragmentSubjectMath extends Fragment {
     }
 
     public void startPhotoQuestionLookupActivity() {
-        Intent intent = new Intent(requireActivity(), PhotoQuestionLookupActivity.class);
-        intent.putExtra(PhotoQuestionLookupActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_MATH.name());
+        Intent intent = new Intent(requireActivity(), PhotoSearchActivity.class);
+        intent.putExtra(PhotoSearchActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_MATH.name());
         startActivity(intent);
     }
 

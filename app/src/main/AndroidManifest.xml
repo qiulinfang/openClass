@@ -11,8 +11,7 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" /> <!-- 系统级权限 -->
     <uses-permission
         android:name="android.permission.WRITE_SECURE_SETTINGS"
-        tools:ignore="ProtectedPermissions" />
-    <!-- <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" /> -->
+        tools:ignore="ProtectedPermissions" /> <!-- <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" /> -->
     <uses-permission android:name="android.permission.GET_TASKS" />
     <uses-permission android:name="android.permission.REORDER_TASKS" />
     <uses-permission
@@ -67,11 +66,15 @@
         android:theme="@style/Theme.IMatesApp.FullScreen"
         tools:targetApi="31">
         <activity
+            android:name=".activities.MyProfileActivity"
+            android:exported="false"
+            android:theme="@style/Theme.IMatesApp.FullScreen" />
+        <activity
             android:name=".activities.RichInputBoardActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false"
             android:screenOrientation="landscape"
-            android:windowSoftInputMode="adjustPan"
-            android:exported="false" />
+            android:windowSoftInputMode="adjustPan" />
         <activity
             android:name=".activities.MyFavorCenterActivity"
             android:exported="false" />
@@ -92,7 +95,7 @@
             android:exported="false"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
-            android:name=".activities.PhotoQuestionLookupActivity"
+            android:name=".activities.PhotoSearchActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
             android:screenOrientation="landscape"
