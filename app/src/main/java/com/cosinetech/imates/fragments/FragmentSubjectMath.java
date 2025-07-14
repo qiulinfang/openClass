@@ -23,12 +23,12 @@ import android.webkit.WebViewClient;
 import android.widget.Toast;
 
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.activities.ExerciseSolveActivity;
 import com.cosinetech.imates.activities.FindExerciseActivity;
 import com.cosinetech.imates.activities.LessonPreviewActivity;
 import com.cosinetech.imates.activities.MyFavorCenterActivity;
 import com.cosinetech.imates.activities.MyHistoryActivity;
 import com.cosinetech.imates.activities.PhotoSearchActivity;
-import com.cosinetech.imates.activities.QuestionSolveActivity;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.webservice.ApiUrl;
@@ -177,9 +177,9 @@ public class FragmentSubjectMath extends Fragment {
     }
 
     public void startQuestionSolveActivity() {
-        Intent intent = new Intent(requireActivity(), QuestionSolveActivity.class);
-        intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
-        intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, Subject.SUBJECT_MATH.name());
+        Intent intent = new Intent(requireActivity(), ExerciseSolveActivity.class);
+        intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
+        intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, Subject.SUBJECT_MATH.name());
         startActivity(intent);
     }
 

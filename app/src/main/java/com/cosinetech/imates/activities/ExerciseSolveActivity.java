@@ -10,9 +10,7 @@ import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -47,7 +45,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class QuestionSolveActivity extends AppCompatActivity implements MessagingManager.MessageListener {
+public class ExerciseSolveActivity extends BaseActivity implements MessagingManager.MessageListener {
     public static final String KEY_CHATBOT_URL = "KEY_CHAT_BOT_URL";
     public static final String KEY_SUBJECT = "KEY_SUBJECT";
     public static final String KEY_SHOW_LAST_QUESTION = "KEY_SHOW_LAST";
@@ -82,12 +80,22 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
     private ChatMessageSession mAskTeacherChatSession;
 
     @Override
+    protected int getLayoutResId() {
+        return R.layout.activity_question_solve;
+    }
+
+    @Override
+    protected int getCurrentNavItemId() {
+        return R.id.nav_exercise_list;
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        WindowUtils.hideSystemUI(this);
-        WindowUtils.setFullScreenMode(this);
-        EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_question_solve);
+//        WindowUtils.hideSystemUI(this);
+//        WindowUtils.setFullScreenMode(this);
+//        EdgeToEdge.enable(this);
+//        setContentView(R.layout.activity_question_solve);
         chatBotUrl = getIntent().getStringExtra(KEY_CHATBOT_URL);
         subject = Subject.valueOf(getIntent().getStringExtra(KEY_SUBJECT));
         mChatDb = ChatMessageHistoryDB.getInstance(this, AppUtils.getUserId());
@@ -175,7 +183,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 if(position < 0 || position >= mQuestions.size()) {
                     return;
                 }
-                new AlertDialog.Builder(QuestionSolveActivity.this)
+                new AlertDialog.Builder(ExerciseSolveActivity.this)
                         .setTitle("提示")
                         .setMessage("确认删除习题吗?")
                         .setPositiveButton("确认", (dialog, which) -> {
@@ -200,7 +208,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
 
                                 @Override
                                 public void onDeleteFailed(String msg) {
-                                    runOnUiThread(() -> Toast.makeText(QuestionSolveActivity.this, "删除失败, 稍后重试", Toast.LENGTH_SHORT).show());
+                                    runOnUiThread(() -> Toast.makeText(ExerciseSolveActivity.this, "删除失败, 稍后重试", Toast.LENGTH_SHORT).show());
                                 }
                             });
                         })
@@ -471,7 +479,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
             @Override
             public void onFailure(String msg, int code) {
                 runOnUiThread(() -> {
-                    Toast.makeText(QuestionSolveActivity.this, msg, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(ExerciseSolveActivity.this, msg, Toast.LENGTH_SHORT).show();
                 });
             }
         });
@@ -507,7 +515,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
             public void onFailure(String msg, int code) {
                 runOnUiThread(() -> {
                     updateQuestionListTip();
-                    Toast.makeText(QuestionSolveActivity.this, msg, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(ExerciseSolveActivity.this, msg, Toast.LENGTH_SHORT).show();
                 });
             }
         });

@@ -256,9 +256,9 @@ public class FindExerciseActivity extends AppCompatActivity {
     }
 
     public void startQuestionSolveActivity() {
-        Intent intent = new Intent(this, QuestionSolveActivity.class);
-        intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, mChatBotUrl);
-        intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, mSubject.name());
+        Intent intent = new Intent(this, ExerciseSolveActivity.class);
+        intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, mChatBotUrl);
+        intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, mSubject.name());
         startActivity(intent);
     }
 

@@ -46,7 +46,7 @@
     <string name="server_responce_error">Server resonse error</string>
     <string name="check_answer">Answer</string>
     <string name="similar_questions">Similars</string>
-    <string name="shoot_question">Captrue</string>
+    <string name="shoot_question">Capture</string>
     <string name="ai_guide_question">AI Guide</string>
     <string name="save">Save</string>
     <string name="pdf_tools_accept">Accept</string>

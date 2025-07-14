@@ -1,6 +1,6 @@
 package com.cosinetech.imates.activities;
 
-import static com.cosinetech.imates.activities.QuestionSolveActivity.createChatTeacherSession;
+import static com.cosinetech.imates.activities.ExerciseSolveActivity.createChatTeacherSession;
 
 import android.annotation.SuppressLint;
 import android.os.Bundle;

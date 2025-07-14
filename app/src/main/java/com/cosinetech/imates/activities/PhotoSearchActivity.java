@@ -18,7 +18,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
@@ -86,7 +85,7 @@ public class PhotoSearchActivity extends BaseActivity {
 
     @Override
     protected int getCurrentNavItemId() {
-        return R.id.nav_camera;
+        return R.id.nav_photo_search;
     }
 
     @Override
@@ -117,6 +116,8 @@ public class PhotoSearchActivity extends BaseActivity {
         splitLine = findViewById(R.id.split_line);
         viewLinkTextSearch = findViewById(R.id.link_search_text);
 
+        viewFinder.setScaleType(PreviewView.ScaleType.FIT_CENTER);
+
         if (allPermissionsGranted()) {
             startCamera();
         } else {
@@ -140,10 +141,10 @@ public class PhotoSearchActivity extends BaseActivity {
             if(question != null) {
                 addExerciseToList();
                 stopCamera();
-                Intent intent = new Intent(this, QuestionSolveActivity.class);
-                intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, subject == Subject.SUBJECT_BIOLOGY ? ApiUrl.URL_CHAT_BIOLOGY : ApiUrl.URL_CHAT_MATH);
-                intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, subject.name());
-                intent.putExtra(QuestionSolveActivity.KEY_SHOW_LAST_QUESTION, false);
+                Intent intent = new Intent(this, ExerciseSolveActivity.class);
+                intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, subject == Subject.SUBJECT_BIOLOGY ? ApiUrl.URL_CHAT_BIOLOGY : ApiUrl.URL_CHAT_MATH);
+                intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, subject.name());
+                intent.putExtra(ExerciseSolveActivity.KEY_SHOW_LAST_QUESTION, false);
                 startActivity(intent);
             }
         });

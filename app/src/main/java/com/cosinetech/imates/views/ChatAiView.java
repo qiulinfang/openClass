@@ -44,7 +44,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.activities.QuestionSolveActivity;
+import com.cosinetech.imates.activities.ExerciseSolveActivity;
 import com.cosinetech.imates.activities.RichInputBoardActivity;
 import com.cosinetech.imates.activities.ScreenShotActivity;
 import com.cosinetech.imates.adapters.AdapterAiChatMessageList;
@@ -495,7 +495,7 @@ public class ChatAiView extends RelativeLayout {
                 } else {
                     type = ChatMessageSession.SessionType.USER_TALK_TEACHER_MATH;
                 }
-                mChatTeacherSession = QuestionSolveActivity.createChatTeacherSession(mCurrentSession.sessionId,
+                mChatTeacherSession = ExerciseSolveActivity.createChatTeacherSession(mCurrentSession.sessionId,
                         mCurrentSession.sessionName, type);
             }
 

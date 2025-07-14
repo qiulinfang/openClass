@@ -16,6 +16,7 @@ import androidx.core.view.WindowInsetsCompat;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.util.WindowUtils;
+import com.cosinetech.imates.webservice.ApiUrl;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public abstract class BaseActivity extends AppCompatActivity {
@@ -50,21 +51,24 @@ public abstract class BaseActivity extends AppCompatActivity {
             if (itemId == getCurrentNavItemId()) return true;
 
             Intent intent = null;
-            if (itemId == R.id.nav_camera) {
+            if (itemId == R.id.nav_photo_search) {
                 intent = new Intent(this, PhotoSearchActivity.class);
                 intent.putExtra(PhotoSearchActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_MATH.name());
                 startActivity(intent);
-            } else if (itemId == R.id.nav_knowledge) {
-                intent = new Intent(this, PhotoSearchActivity.class);
-            } else if (itemId == R.id.nav_list) {
-                intent = new Intent(this, QuestionSolveActivity.class);
-            } else if (itemId == R.id.nav_profile) {
+            } else if (itemId == R.id.nav_textbook_knowledge) {
+                intent = new Intent(this, TextbookLearning.class);
+            } else if (itemId == R.id.nav_exercise_list) {
+                intent = new Intent(this, ExerciseSolveActivity.class);
+                intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
+                intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, Subject.SUBJECT_MATH.name());
+                startActivity(intent);
+            } else if (itemId == R.id.nav_my_profile) {
                 intent = new Intent(this, MyProfileActivity.class);
             }
 
             if (intent != null) {
                 startActivity(intent);
-                overridePendingTransition(0, 0);
+                //overridePendingTransition(0, 0);
                 finish(); // 避免堆栈积累
             }
             return true;

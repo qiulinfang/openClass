@@ -30,7 +30,7 @@ import com.cosinetech.imates.activities.LessonPreviewActivity;
 import com.cosinetech.imates.activities.MyFavorCenterActivity;
 import com.cosinetech.imates.activities.MyHistoryActivity;
 import com.cosinetech.imates.activities.PhotoSearchActivity;
-import com.cosinetech.imates.activities.QuestionSolveActivity;
+import com.cosinetech.imates.activities.ExerciseSolveActivity;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Chapter;
@@ -55,8 +55,6 @@ public class FragmentSubjectBiology extends Fragment {
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
     private int previousBackStackCount = 0;
-
-    // TODO: Rename and change types of parameters
     private String mParam1;
     private String mParam2;
 
@@ -230,9 +228,9 @@ public class FragmentSubjectBiology extends Fragment {
     }
 
     public void startQuestionSolveActivity() {
-        Intent intent = new Intent(requireActivity(), QuestionSolveActivity.class);
-        intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_BIOLOGY);
-        intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, Subject.SUBJECT_BIOLOGY.name());
+        Intent intent = new Intent(requireActivity(), ExerciseSolveActivity.class);
+        intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_BIOLOGY);
+        intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, Subject.SUBJECT_BIOLOGY.name());
         startActivity(intent);
     }
 

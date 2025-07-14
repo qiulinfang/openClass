@@ -12,6 +12,7 @@
         android:id="@+id/btn_exit"
         android:layout_width="30dp"
         android:layout_height="30dp"
+        android:visibility="gone"
         android:background="@drawable/ic_back"
         android:stateListAnimator="@animator/app_button_click_scale"
         android:layout_marginHorizontal="@dimen/min_margin_size"
@@ -23,6 +24,7 @@
         android:id="@+id/title"
         android:layout_width="30dp"
         android:layout_height="30dp"
+        android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toEndOf="@id/btn_exit"/>
 
@@ -32,6 +34,7 @@
         android:layout_width="match_parent"
         android:layout_height="2dp"
         android:layout_marginTop="8dp"
+        android:visibility="gone"
         android:background="#000000"
         app:layout_constraintTop_toBottomOf="@id/btn_exit"
         app:layout_constraintStart_toStartOf="parent"/>
