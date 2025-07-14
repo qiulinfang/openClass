@@ -20,7 +20,6 @@ import com.cosinetech.imates.webservice.ApiUrl;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public abstract class BaseActivity extends AppCompatActivity {
-
     protected abstract @LayoutRes int getLayoutResId();
 
     protected abstract @IdRes int getCurrentNavItemId();
