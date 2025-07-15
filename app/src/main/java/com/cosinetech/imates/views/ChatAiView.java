@@ -893,7 +893,7 @@ public class ChatAiView extends RelativeLayout {
                 dlg.show();
             }
         });
-        resetCurrentSession(ChatMessageCatalogue.CATEGORY_DEFAULT_SYSTEM, ChatMessageSession.SESSION_DEFAULT_SYSTEM);
+        //resetCurrentSession(ChatMessageCatalogue.CATEGORY_DEFAULT_SYSTEM, ChatMessageSession.SESSION_DEFAULT_SYSTEM);
         addView(view);
     }
 
@@ -927,7 +927,6 @@ public class ChatAiView extends RelativeLayout {
         editor.putString(KEY_SELECTED_ROLE, selectedRole.name());
         editor.apply();
     }
-
     private void prepareSettingsItems() {
         settingsItems = new ArrayList<>();
 
