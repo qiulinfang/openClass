@@ -446,6 +446,7 @@ public class MainActivity extends AppCompatActivity {
                             param.streamDisplay = true;
                             param.showHistory = true;
                             param.initialSendEnable = true;
+                            param.showTeacherSessionOnly = true;
 
                             Intent intent = new Intent(this, ChatAiActivity.class);
                             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈

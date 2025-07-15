@@ -24,6 +24,7 @@ import androidx.lifecycle.ViewModelStoreOwner;
 import com.cosinetech.imates.AppEnvConfig;
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.models.ChatAiParam;
+import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.screencasting.FFmpegPipeStreamer;
 import com.cosinetech.imates.screencasting.H264IFrameCache;
@@ -104,22 +105,24 @@ public class MyProfileActivity extends BaseActivity {
         });
 
         // 功能卡片点击事件
-        cardJoinClass.setOnClickListener(v -> Toast.makeText(this, "进入实时互动课堂", Toast.LENGTH_SHORT).show());
+        cardJoinClass.setOnClickListener(v -> {
+            joinClassroom(v);
+            v.setEnabled(false);
+            v.postDelayed(() -> v.setEnabled(true), 1000);
+        });
 
-        cardTeacherAnswer.setOnClickListener(v -> Toast.makeText(this, "查看教师解答记录", Toast.LENGTH_SHORT).show());
+        cardTeacherAnswer.setOnClickListener(v -> chatWithTeacher());
 
-        cardHomework.setOnClickListener(v -> Toast.makeText(this, "拍摄并上传作业", Toast.LENGTH_SHORT).show());
+        cardHomework.setOnClickListener(v -> takePictureToTeacher());
 
-        cardFeedback.setOnClickListener(v -> Toast.makeText(this, "反馈与建议", Toast.LENGTH_SHORT).show());
+        cardFeedback.setOnClickListener(v -> feedback());
 
-        // 退出账号按钮点击事件
-        cardLogout.setOnClickListener(v -> Toast.makeText(this, "退出账号", Toast.LENGTH_SHORT).show());
+        cardLogout.setOnClickListener(v -> logout());
 
         miscellaneousInitialization();
     }
-
     private void miscellaneousInitialization() {
-        stopFloatingWndowService();
+        stopFloatingWindowService();
         startFloatingWindowService();
         TextView versionText = findViewById(R.id.version);
         versionText.setText(AppEnvConfig.getAppVersion(this));
@@ -150,126 +153,6 @@ public class MyProfileActivity extends BaseActivity {
         if (app.getFloatingWindowService() != null) {
             app.getFloatingWindowService().showRobot();
         }
-
-        mMainHandler.postDelayed(() -> {
-            EasyFloat.with(this)
-                    .setLayout(R.layout.float_action)
-                    .setDragEnable(true)
-                    .setShowPattern(ShowPattern.FOREGROUND)
-                    .setSidePattern(SidePattern.DEFAULT)
-                    .setMatchParent(false, false)
-                    .setAnimator(new DefaultAnimator())
-                    .setTag(FLOAT_ACTION_TAG)
-                    .registerCallbacks(new OnFloatCallbacks() {
-                        @Override
-                        public void createdResult(boolean isCreated, @Nullable String msg, @Nullable View view) {
-                            if (isCreated && view != null) {
-                                Button homeButton = view.findViewById(R.id.back_main);
-                                homeButton.setOnClickListener(v->{
-                                    Intent intent = new Intent(MyProfileActivity.this, MainActivity.class);
-                                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP |
-                                            Intent.FLAG_ACTIVITY_NEW_TASK |
-                                            Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                                    startActivity(intent);
-                                });
-                                Button submitButton = view.findViewById(R.id.submit_homework);
-                                submitButton.setOnClickListener(v3 -> takePictureToTeacher());
-
-                                Button switchButton = view.findViewById(R.id.switch_button);
-                                if(AppUtils.getUserId().equals("guest000")) {
-                                    if(ApplicationModelShared.getInstance().fakeClassMode) {
-                                        switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_on), null, null);
-                                    } else {
-                                        switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_off), null, null);
-                                    }
-                                    switchButton.setOnClickListener(v3 -> {
-                                        if(ApplicationModelShared.getInstance().fakeClassMode) {
-                                            ApplicationModelShared.getInstance().fakeClassMode = false;
-                                            switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_off), null, null);
-                                        } else {
-                                            ApplicationModelShared.getInstance().fakeClassMode = true;
-                                            switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_on), null, null);
-                                        }
-                                    });
-                                } else {
-                                    if (ScreenCastingManager.isHavingClass()) {
-                                        switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_on), null, null);
-                                    } else {
-                                        switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_off), null, null);
-                                    }
-
-                                    switchButton.setOnClickListener(v2 -> {
-                                        switchButton.setEnabled(false);
-                                        if (ScreenCastingManager.isHavingClass()) {
-                                            new AlertDialog.Builder(getApplicationContext())
-                                                    .setTitle("提示")
-                                                    .setMessage("退出课堂后将不能和老师互动, 确认退出吗?")
-                                                    .setPositiveButton("确认", (dialog, which) -> {
-                                                        ScreenCastingManager.setClassMode(false);
-                                                        switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_off), null, null);
-                                                        ScreenShareKit.INSTANCE.stop();
-                                                        switchButton.postDelayed(() -> switchButton.setEnabled(true), 2000);
-                                                    })
-                                                    .setNegativeButton("取消", (dialog, which) -> {
-                                                    })
-                                                    .create()
-                                                    .show();
-                                        } else {
-                                            ScreenShareKit.INSTANCE.init(MyProfileActivity.this)
-                                                    .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
-                                                    .onH264((buffer, isKeyFrame, width, height, ts) -> {
-                                                        try {
-                                                            // 编码后的数据
-                                                            byte[] bytes = new byte[buffer.remaining()];
-                                                            buffer.get(bytes);
-
-                                                            h264ToTsStreamer.onH264DataReceived(bytes, ts);
-                                                            if (isKeyFrame) {
-                                                                H264IFrameCache.getInstance().onH264Frame(bytes);
-                                                            }
-                                                        } catch (Exception e) {
-                                                            Log.e("ScreenShareKit", "H264 callback error:" + e.getMessage());
-                                                        }
-                                                    })
-                                                    .onError(errorInfo -> Log.e("ScreenShareKitERROR", errorInfo.getMessage()))
-                                                    .onStart(() -> {
-                                                        ScreenCastingManager.setClassMode(true);
-                                                        h264ToTsStreamer.start();
-                                                        switchButton.post(() -> switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_on), null, null));
-                                                        submitButton.post(() -> submitButton.setVisibility(View.VISIBLE));
-                                                    }).start();
-                                        }
-
-                                        switchButton.postDelayed(() -> switchButton.setEnabled(true), 2000);
-                                    });
-                                }
-                            }
-                        }
-
-                        @Override
-                        public void show(@NotNull View view) {
-                        }
-
-                        @Override
-                        public void hide(@NotNull View view) {
-                        }
-
-                        @Override
-                        public void dismiss() {
-                        }
-
-                        @Override
-                        public void touchEvent(@NotNull View view, @NotNull MotionEvent event) { }
-
-                        @Override
-                        public void drag(@NotNull View view, @NotNull MotionEvent event) { }
-
-                        @Override
-                        public void dragEnd(@NotNull View view) { }
-                    })
-                    .show();
-        }, 3000);
-
     }
 
     private void startFloatingWindowService() {
@@ -277,9 +160,75 @@ public class MyProfileActivity extends BaseActivity {
         startService(intent);
     }
 
-    private void stopFloatingWndowService() {
+    private void stopFloatingWindowService() {
         Intent intent = new Intent(this, FloatingRobotService.class);
         stopService(intent);
+    }
+
+    private void chatWithTeacher() {
+        ((ApplicationModelShared)getApplication()).getFloatingWindowService().popupChatBot(ApiUrl.URL_CHAT_GENERAL, true);
+    }
+    private void showJoinClassroom(boolean b) {
+        CardView cardJoinClass = findViewById(R.id.cardJoinClass);
+        TextView tvJoinClass = findViewById(R.id.tvJoinClass);
+        if(b) {
+            cardJoinClass.setCardBackgroundColor(AppCompatResources.getColorStateList(this, me.minetsh.imaging.R.color.image_color_blue));
+            tvJoinClass.setText("退出课堂");
+        } else {
+            cardJoinClass.setCardBackgroundColor(AppCompatResources.getColorStateList(this, R.color.white));
+            tvJoinClass.setText("加入课堂");
+        }
+    }
+
+    private void joinClassroom(View v) {
+        if(AppUtils.getUserId().equals("guest000")) {
+            ApplicationModelShared.getInstance().fakeClassMode = !ApplicationModelShared.getInstance().fakeClassMode;
+            showJoinClassroom(ApplicationModelShared.getInstance().fakeClassMode);
+        } else {
+            if (ScreenCastingManager.isHavingClass()) {
+                new AlertDialog.Builder(this)
+                        .setTitle("提示")
+                        .setMessage("退出课堂后将不能和老师互动, 确认退出吗?")
+                        .setPositiveButton("确认", (dialog, which) -> {
+                            ScreenCastingManager.setClassMode(false);
+                            ScreenShareKit.INSTANCE.stop();
+                            showJoinClassroom(false);
+                        })
+                        .setNegativeButton("取消", (dialog, which) -> {
+                            showJoinClassroom(true);
+                        })
+                        .create()
+                        .show();
+            } else {
+                ScreenShareKit.INSTANCE.init(MyProfileActivity.this)
+                        .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
+                        .onH264((buffer, isKeyFrame, width, height, ts) -> {
+                            try {
+                                // 编码后的数据
+                                byte[] bytes = new byte[buffer.remaining()];
+                                buffer.get(bytes);
+
+                                h264ToTsStreamer.onH264DataReceived(bytes, ts);
+                                if (isKeyFrame) {
+                                    H264IFrameCache.getInstance().onH264Frame(bytes);
+                                }
+                            } catch (Exception e) {
+                                Log.e("ScreenShareKit", "H264 callback error:" + e.getMessage());
+                            }
+                        })
+                        .onError(errorInfo -> Log.e("ScreenShareKitERROR", errorInfo.getMessage()))
+                        .onStart(() -> {
+                            ScreenCastingManager.setClassMode(true);
+                            showJoinClassroom(true);
+                            h264ToTsStreamer.start();
+                        }).start();
+            }
+        }
+    }
+
+    private void feedback() {
+        Intent intent = new Intent(this, FeedbackActivity.class);
+        startActivity(intent);
     }
 
     @SuppressLint("CheckResult")
@@ -314,6 +263,7 @@ public class MyProfileActivity extends BaseActivity {
                             param.streamDisplay = true;
                             param.showHistory = true;
                             param.initialSendEnable = true;
+                            param.showTeacherSessionOnly = true;
 
                             Intent intent = new Intent(this, ChatAiActivity.class);
                             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈
@@ -327,6 +277,21 @@ public class MyProfileActivity extends BaseActivity {
                 });
     }
 
+    private void logout() {
+        ViewModelStoreOwner owner = (ViewModelStoreOwner) this.getApplication();
+        UserInfoViewModel userInfoViewModel = new ViewModelProvider(
+                owner,
+                new ViewModelProvider.AndroidViewModelFactory(this.getApplication())
+        ).get(UserInfoViewModel.class);
+        userInfoViewModel.token.postValue("");
+        userInfoViewModel.userId.postValue("");
+        userInfoViewModel.userInfo.postValue(new UserInfo());
+        ScreenCastingManager.setClassMode(false);
+        Intent intent = new Intent(this, LoginActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+    }
+
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
@@ -337,7 +302,7 @@ public class MyProfileActivity extends BaseActivity {
     protected void onDestroy() {
         super.onDestroy();
         EasyFloat.dismiss(FLOAT_ACTION_TAG);
-        stopFloatingWndowService();
+        stopFloatingWindowService();
         mMainHandler.removeCallbacksAndMessages(null); // 彻底清除
         Log.e("++++++++++++++++", "onDestroy");
     }

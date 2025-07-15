@@ -6,6 +6,7 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.net.Uri;
@@ -66,6 +67,7 @@ import com.cosinetech.imates.util.ImageUtils;
 import com.cosinetech.imates.util.VoiceDbUtil;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
+import com.cosinetech.imates.webservice.ApiUrl;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
 import java.util.ArrayList;
@@ -605,6 +607,7 @@ public class ChatAiView extends RelativeLayout {
                 loadHistoryMessages();
             }
         });
+
         editTextSearch.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                 String searchContent = editTextSearch.getText().toString();
@@ -668,7 +671,7 @@ public class ChatAiView extends RelativeLayout {
 
         ApplicationModelShared app = ApplicationModelShared.getInstance();
         if(app.chatRequest != null) {
-            sendTextMessageToAi(app.chatRequest);
+            sendMessageToAi(app.chatRequest);
         }
 
         // 监听视图变化，获取软键盘的高度
@@ -1119,8 +1122,22 @@ public class ChatAiView extends RelativeLayout {
     private void loadData() {
         new Thread(() -> {
             List<ChatMessageCatalogue> catalogues = mChatDb.getAllMessageCatalogue();
+            List<ChatMessageCatalogue> displayCatalogs = new ArrayList<>();
+            if(mChatAiParam.showTeacherSessionOnly) {
+                for(ChatMessageCatalogue c : catalogues) {
+                    if(c.catalogId.equals(ChatMessageCatalogue.CATEGORY_TEACHER_QA.catalogId)) {
+                        displayCatalogs.add(c);
+                    }
+                }
+            } else {
+                for(ChatMessageCatalogue c : catalogues) {
+                    if(!c.catalogId.equals(ChatMessageCatalogue.CATEGORY_TEACHER_QA.catalogId)) {
+                        displayCatalogs.add(c);
+                    }
+                }
+            }
             post(() -> {
-                mChatSessionListAdapter.setData(catalogues);
+                mChatSessionListAdapter.setData(displayCatalogs);
                 // 展开所有分组
                 for (int i = 0; i < mChatSessionListAdapter.getGroupCount(); i++) {
                     expandableListView.expandGroup(i);
@@ -1163,6 +1180,7 @@ public class ChatAiView extends RelativeLayout {
         if(mAiChatRequest.getDstUrl() != null && !mAiChatRequest.getDstUrl().isEmpty()) {
             url = mAiChatRequest.getDstUrl();
         }
+
         ApiGateWayService.sendChatMessage(mAiChatRequest, mLastReceivingMsg.messageId, url, mUserInfoViewModel.token.getValue(), (success, response, sessionId, msgId) -> {
             handler.post(() -> {
                 if (success) {
@@ -1209,6 +1227,7 @@ public class ChatAiView extends RelativeLayout {
                 }
             });
         });
+
     }
 
     private void sendTextMessageToAi(String content) {
@@ -1250,7 +1269,7 @@ public class ChatAiView extends RelativeLayout {
         autoDetectChatSessionName(content);
     }
 
-    public void sendTextMessageToAi(AiChatMessageRequest mo) {
+    public void sendMessageToAi(AiChatMessageRequest mo) {
         mEditMsg.postDelayed(() -> {
             mAiChatRequest = mo;
             mAiChatRequest.setReason("start");
@@ -1391,7 +1410,18 @@ public class ChatAiView extends RelativeLayout {
             }, 1000);
         }
     }
-    public void sendPictureToTeacher(String path) {
+
+    public void sendPicture(String path) {
+        if(mCurrentSession.type.getValue() > ChatMessageSession.SessionType.USER_TALK_TEACHER_BEGIN.getValue()
+          && mCurrentSession.type.getValue() < ChatMessageSession.SessionType.USER_TALK_TEACHER_END.getValue()) {
+            sendPictureToTeacher(path);
+        } else {
+            mAiChatRequest.setDstUrl(ApiUrl.URL_CHAT_PREVIEW_PICTURE);
+            mAiChatRequest.setQuestion(ImageUtils.bitmapToHtmlJpgBase64(BitmapFactory.decodeFile(path)));
+            sendMessageToAi(mAiChatRequest);
+        }
+    }
+    private void sendPictureToTeacher(String path) {
         String subject = getTeacherSubject();
         String base64Content = ImageUtils.loadImageFileToBase64(path);
         StudentMessage studentMsg = new StudentMessage(mUserInfoViewModel.userId.getValue(),

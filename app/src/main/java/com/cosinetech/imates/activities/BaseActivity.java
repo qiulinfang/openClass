@@ -20,6 +20,7 @@ import com.cosinetech.imates.webservice.ApiUrl;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public abstract class BaseActivity extends AppCompatActivity {
+    private BottomNavigationView bottomNav;
     protected abstract @LayoutRes int getLayoutResId();
 
     protected abstract @IdRes int getCurrentNavItemId();
@@ -30,7 +31,7 @@ public abstract class BaseActivity extends AppCompatActivity {
         WindowUtils.hideSystemUI(this);
         WindowUtils.setFullScreenMode(this);
         setContentView(R.layout.activity_base);
-        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        bottomNav = findViewById(R.id.bottom_navigation);
         ViewCompat.setOnApplyWindowInsetsListener(bottomNav, (v, insets) -> {
             // 获取原始的 Insets，但只保留左右，不保留底部
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -66,12 +67,20 @@ public abstract class BaseActivity extends AppCompatActivity {
             }
 
             if (intent != null) {
+                intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
                 startActivity(intent);
                 //overridePendingTransition(0, 0);
-                finish(); // 避免堆栈积累
+                //finish(); // 避免堆栈积累
             }
             return true;
         });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        WindowUtils.hideSystemUI(this);
+        bottomNav.setSelectedItemId(getCurrentNavItemId());
     }
 
     @Override

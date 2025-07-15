@@ -39,11 +39,13 @@ public class OkHttpTicketCreator {
             articleJson.put("type", "note");
             articleJson.put("internal", false);
 
-             //Add attachments
-            JSONArray attachments = new JSONArray();
-            attachments.put(createAttachmentJson(imageFile));
-            //attachments.put(createAttachmentJson(documentFile));
-            articleJson.put("attachments", attachments);
+            if(imageFile != null && imageFile.exists()) {
+                //Add attachments
+                JSONArray attachments = new JSONArray();
+                attachments.put(createAttachmentJson(imageFile));
+                //attachments.put(createAttachmentJson(documentFile));
+                articleJson.put("attachments", attachments);
+            }
 
             ticketJson.put("article", articleJson);
 

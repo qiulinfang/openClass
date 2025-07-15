@@ -99,7 +99,7 @@ public class FloatingRobotService extends Service implements MessagingManager.Me
 
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         initFloatingRobot();
-        initFeedbackView();
+        //initFeedbackView();
 
         // 初始化MessageManager
         UserInfoViewModel userInfoViewModel = new ViewModelProvider(
@@ -167,7 +167,7 @@ public class FloatingRobotService extends Service implements MessagingManager.Me
                         float deltaY = event.getRawY() - initialTouchY;
                         if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
                             // 如果移动距离小于阈值，认为是点击事件
-                            popupChatBot(ApiUrl.URL_CHAT_GENERAL, Subject.SUBJECT_ALL.name());
+                            popupChatBot(ApiUrl.URL_CHAT_GENERAL, false);
                         }
                         return true;
                 }
@@ -323,14 +323,14 @@ public class FloatingRobotService extends Service implements MessagingManager.Me
         chatView.setChatAiParam(param);
     }
 
-    public void popupChatBot(String url, String catalog) {
+    public void popupChatBot(String url, boolean showOnlyTeacher) {
         ChatAiParam param = new ChatAiParam();
-        //param.sessionId = tag;
         param.chatBotUrl = url;
         param.showHeader = true;
         param.streamDisplay = true;
         param.showHistory = true;
         param.initialSendEnable = true;
+        param.showTeacherSessionOnly = showOnlyTeacher;
 
         Intent intent = new Intent(this, ChatAiActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈

@@ -57,7 +57,7 @@
                 android:layout_height="wrap_content"
                 android:textColor="@color/white"
                 android:layout_marginVertical="8dp"
-                android:text="*问题截图(点击图片可编辑):"/>
+                android:text="(可选)问题截图(点击图片可编辑):"/>
 
             <ImageView
                 android:id="@+id/feed_image"
@@ -68,6 +68,13 @@
                 android:background="@drawable/ask_ai_for_picture_edit_bg"
                 android:contentDescription="问题截图"
                 android:scaleType="fitCenter"/>
+
+            <Button
+                android:id="@+id/upload_image_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="8dp"
+                android:text="上传截图" />
 
             <Button
                 android:id="@+id/summit_button"
