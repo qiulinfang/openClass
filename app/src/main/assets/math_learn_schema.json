@@ -1,0 +1,68 @@
+[
+  {
+    "chapter": "4",
+    "title":"第4章",
+    "sections": [
+      {
+        "section":"section4.1",
+        "knowledgeNo":"43,40,41,39,42,44,45,46",
+        "title":"数列的概念",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/chapter4/schema1_intro.txt",
+            "textBook":"math/chapter4/4_1.pdf",
+            "bookPageStart": 1,
+            "lecture":"",
+            "learnGuide":""
+          }
+        ]
+      },
+      {
+        "section":"section4.2",
+        "title":"等差数列",
+        "knowledgeNo": "47,48,49",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/chapter4/schema1_intro.txt",
+            "textBook":"math/chapter4/4_2.pdf",
+            "bookPageStart": 1,
+            "lecture":"",
+            "learnGuide":""
+          }
+        ]
+      },
+      {
+        "section":"section4.3",
+        "title":"等比数列",
+        "knowledgeNo": "47,48,49",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/chapter4/schema1_intro.txt",
+            "textBook":"math/chapter4/4_3.pdf",
+            "bookPageStart": 1,
+            "lecture":"",
+            "learnGuide":""
+          }
+        ]
+      },
+      {
+        "section":"section4.4",
+        "title":"数学归纳法",
+        "knowledgeNo": "47,48,49",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/chapter4/schema1_intro.txt",
+            "textBook":"math/chapter4/4_4.pdf",
+            "bookPageStart": 1,
+            "lecture":"",
+            "learnGuide":""
+          }
+        ]
+      }
+    ]
+  }
+]
