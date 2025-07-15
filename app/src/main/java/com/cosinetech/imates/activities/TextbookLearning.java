@@ -90,7 +90,6 @@ public class TextbookLearning extends BaseActivity {
                 Intent previewLessonActivity = new Intent(context, LessonPreviewActivity.class);
                 previewLessonActivity.putExtra(LessonPreviewActivity.KEY_PREVIEW_SECTION_NAME, sectionName);
                 previewLessonActivity.putExtra(LessonPreviewActivity.KEY_SECTION_SCHEMA, s);
-
                 startActivity(previewLessonActivity);
             } else {
                 Toast.makeText(context, "未查询到相关的课程", Toast.LENGTH_SHORT).show();

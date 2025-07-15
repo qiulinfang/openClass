@@ -44,6 +44,7 @@
             android:layout_height="wrap_content"
             android:text="高三(1)班"
             android:textSize="16sp"
+            android:visibility="invisible"
             app:layout_constraintTop_toBottomOf="@id/tvUserId"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"

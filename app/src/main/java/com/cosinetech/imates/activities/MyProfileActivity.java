@@ -54,6 +54,7 @@ import java.util.UUID;
 import gun0912.tedimagepicker.builder.TedImagePicker;
 
 public class MyProfileActivity extends BaseActivity {
+    private UserInfoViewModel userInfoViewModel;
     private final static String FLOAT_ACTION_TAG = "MAIN_FLOAT_ACTION";
     private long mCheckUpdateTick = 0;
     FFmpegPipeStreamer h264ToTsStreamer = null;
@@ -84,6 +85,11 @@ public class MyProfileActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        ViewModelStoreOwner owner = (ViewModelStoreOwner) this.getApplication();
+        userInfoViewModel = new ViewModelProvider(
+                owner,
+                new ViewModelProvider.AndroidViewModelFactory(getApplication())
+        ).get(UserInfoViewModel.class);
         // 初始化视图
         ImageView ivAvatar = findViewById(R.id.ivAvatar);
         TextView tvUserId = findViewById(R.id.tvUserId);
@@ -95,7 +101,7 @@ public class MyProfileActivity extends BaseActivity {
         CardView cardLogout = findViewById(R.id.cardLogout);
 
         // 设置用户信息
-        tvUserId.setText("用户789594350");
+        tvUserId.setText(userInfoViewModel.userInfo.getValue().getName());
         tvGrade.setText("高三(1)班");
 
         // 头像点击事件
@@ -131,12 +137,6 @@ public class MyProfileActivity extends BaseActivity {
                 .update();
         mCheckUpdateTick = System.currentTimeMillis();
         mMainHandler.postDelayed(mCheckUpdateRunnable, 60000);
-
-        ViewModelStoreOwner owner = (ViewModelStoreOwner) this.getApplication();
-        UserInfoViewModel userInfoViewModel = new ViewModelProvider(
-                owner,
-                new ViewModelProvider.AndroidViewModelFactory(getApplication())
-        ).get(UserInfoViewModel.class);
         h264ToTsStreamer = H264MpegTSStreamerManager.getInstance();
         ScreenCastingManager.startLoop(this,
                 userInfoViewModel.userId.getValue(),

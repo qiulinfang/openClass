@@ -49,6 +49,8 @@ import com.artifex.mupdfdemo.SearchTask;
 import com.artifex.mupdfdemo.SearchTaskResult;
 import com.artifex.mupdfdemo.SharedPreferencesUtil;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.activities.MyProfileActivity;
+import com.cosinetech.imates.activities.TextbookLearning;
 import com.cosinetech.imates.activities.VideoPlayActivity;
 import com.cosinetech.imates.colorpicker.ColorListener;
 import com.cosinetech.imates.colorpicker.ColorPickerDialog;
@@ -1229,6 +1231,14 @@ public class MuPDFActivity extends AppCompatActivity {
                 mFilePath = getExternalFilesDir(null) + "/" + mSchema.getLearnGuide();
                 switchToNewFile();
             }
+        });
+
+        ImageButton btnHome = findViewById(R.id.btn_home);
+        btnHome.setOnClickListener(v->{
+            Intent intent = new Intent(this, TextbookLearning.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(intent);
+            finish();
         });
     }
 
