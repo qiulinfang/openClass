@@ -125,7 +125,7 @@ public class ChatAiView extends RelativeLayout {
 
     private UserInfoViewModel mUserInfoViewModel;
     private Context mContext;
-    private AiChatMessageRequest mAiChatRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "", false, ChatRole.CHAT_ROLE_AI_MATE.name());
+    private AiChatMessageRequest mAiChatRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "", false);
     private AdapterAiChatMessageList mAdapterAiChatMessageList;
     private final List<ChatDisplayItem> messageList = new ArrayList<>();
     private RecyclerView mMsgDetailListView;
@@ -428,7 +428,7 @@ public class ChatAiView extends RelativeLayout {
 
                 // 保存选择到 SharedPreferences
                 saveSelectedRole();
-                mAiChatRequest.setChatRole(selectedRole.name());
+                mAiChatRequest.setChatRole(selectedRole.paramName);
 
                 // 更新所有项目以反映选择状态
                 for (int i = 0; i < settingsItems.size(); i++) {
@@ -918,7 +918,7 @@ public class ChatAiView extends RelativeLayout {
             selectedRole = ChatRole.CHAT_ROLE_AI_MATE;
         }
 
-        mAiChatRequest.setChatRole(selectedRole.name());
+        mAiChatRequest.setChatRole(selectedRole.paramName);
     }
     private void saveSelectedRole() {
         SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -1277,7 +1277,7 @@ public class ChatAiView extends RelativeLayout {
             mAiChatRequest = mo;
             mAiChatRequest.setReason("start");
             mAiChatRequest.setIsWebSearch(mCheckSearchWeb.isChecked() ? "1" : "0");
-            mAiChatRequest.setChatRole(selectedRole.name());
+            mAiChatRequest.setChatRole(selectedRole.paramName);
             ChatMessage message = new ChatMessage(mAiChatRequest.getCoversation(),
                     true,
                     ChatMessage.MessageType.TEXT,
