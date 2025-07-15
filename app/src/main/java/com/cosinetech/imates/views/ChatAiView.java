@@ -125,7 +125,7 @@ public class ChatAiView extends RelativeLayout {
 
     private UserInfoViewModel mUserInfoViewModel;
     private Context mContext;
-    private AiChatMessageRequest mAiChatRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "", false);
+    private AiChatMessageRequest mAiChatRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "", false, ChatRole.CHAT_ROLE_AI_MATE.name());
     private AdapterAiChatMessageList mAdapterAiChatMessageList;
     private final List<ChatDisplayItem> messageList = new ArrayList<>();
     private RecyclerView mMsgDetailListView;
@@ -428,6 +428,7 @@ public class ChatAiView extends RelativeLayout {
 
                 // 保存选择到 SharedPreferences
                 saveSelectedRole();
+                mAiChatRequest.setChatRole(selectedRole.name());
 
                 // 更新所有项目以反映选择状态
                 for (int i = 0; i < settingsItems.size(); i++) {
@@ -916,6 +917,8 @@ public class ChatAiView extends RelativeLayout {
             // 如果存储的值无效（可能是因为枚举定义改变），使用默认值
             selectedRole = ChatRole.CHAT_ROLE_AI_MATE;
         }
+
+        mAiChatRequest.setChatRole(selectedRole.name());
     }
     private void saveSelectedRole() {
         SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -939,9 +942,9 @@ public class ChatAiView extends RelativeLayout {
             boolean isEnabled = true; // 默认所有项目都启用
 
             // 禁用研究员角色
-            if (role == ChatRole.CHAT_ROLE_AI_RESEARCHER) {
-                isEnabled = false;
-            }
+//            if (role == ChatRole.CHAT_ROLE_AI_RESEARCHER) {
+//                isEnabled = false;
+//            }
 
             settingsItems.add(new SettingsItem(role.getDisplayName(), role.getIconResId(), isSelected, isEnabled, role));
 
@@ -1274,6 +1277,7 @@ public class ChatAiView extends RelativeLayout {
             mAiChatRequest = mo;
             mAiChatRequest.setReason("start");
             mAiChatRequest.setIsWebSearch(mCheckSearchWeb.isChecked() ? "1" : "0");
+            mAiChatRequest.setChatRole(selectedRole.name());
             ChatMessage message = new ChatMessage(mAiChatRequest.getCoversation(),
                     true,
                     ChatMessage.MessageType.TEXT,

@@ -46,7 +46,8 @@ public class AiChatMessageRequest {
                                 String answer,
                                 String name, String reason,
                                 String bmNo,
-                                boolean isWebSearch) {
+                                boolean isWebSearch,
+                                String chatRole) {
         this.sessionId = sessionId;
         this.newValue = newValue;
         this.coversation = conversation;
@@ -56,6 +57,7 @@ public class AiChatMessageRequest {
         this.reason = reason;
         this.bmNo = bmNo;
         this.isWebSearch = isWebSearch ? "1" : "0";
+        this.chatRole = chatRole;
     }
 
     // Getters 和 Setters 方法
