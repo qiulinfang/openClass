@@ -46,7 +46,7 @@ public class ApiUrl {
         if(envType == AppEnvConfig.AppEnvType.RELEASE) {
             baseUrl = "http://www.imates.com.cn:8222/blw-edu-service-alc";
             URL_RESOURCE_BASE = "https://www.imates.com.cn";
-            URL_APP_UPDATE = "https://www.imates.com.cn/appupdate.json";
+            URL_APP_UPDATE = "https://www.imates.com.cn/bj101/appupdate.json";
             MQ_HOST_BASE = "www.imates.com.cn";
             MQ_HOST_PORT = 5673;
             ZAMMAD_URL = "http://app.imates.com.cn:8080/api/v1";
