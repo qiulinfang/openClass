@@ -64,6 +64,7 @@ import com.cosinetech.imates.mq.StudentMessage;
 import com.cosinetech.imates.mq.TeacherQaType;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.ImageUtils;
+import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.util.VoiceDbUtil;
 import com.cosinetech.imates.webservice.AiChatMessageRequest;
 import com.cosinetech.imates.webservice.ApiGateWayService;
@@ -145,7 +146,7 @@ public class ChatAiView extends RelativeLayout {
     private View voiceAnimateLayout;
     private CheckBox mSelectChatItemButton;
     private View mAskTeacherLayout;
-    private AppCompatSpinner materialSpinner;
+    private AppCompatSpinner aiRoleSpinner;
 
     private static final String PREFS_NAME = "ChatRolePrefs";
     private static final String KEY_SELECTED_ROLE = "selectedRole";
@@ -398,25 +399,25 @@ public class ChatAiView extends RelativeLayout {
         CheckBox btnCancelSearch = view.findViewById(R.id.btn_search);
         Button btnNewChat = view.findViewById(R.id.btn_new_chat);
         Button btnAddFavor = view.findViewById(R.id.btn_add_favor);
-        materialSpinner = view.findViewById(R.id.settings_spinner);
+        aiRoleSpinner = view.findViewById(R.id.settings_spinner);
         // 从 SharedPreferences 加载保存的角色
         loadSelectedRole();
         prepareSettingsItems();
         // Set up adapter
         settingsAdapter = new SettingsAdapter(settingsItems, getContext());
-        materialSpinner.setAdapter(settingsAdapter);
+        aiRoleSpinner.setAdapter(settingsAdapter);
 
         // Set default selection
-        materialSpinner.setSelection(selectedPosition);
+        aiRoleSpinner.setSelection(selectedPosition);
 
         // Set item selection listener
-        materialSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+        aiRoleSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 // 检查项目是否已禁用
                 if (!settingsItems.get(position).isEnabled()) {
                     // 如果项目被禁用，恢复到之前的选择
-                    materialSpinner.setSelection(selectedPosition);
+                    aiRoleSpinner.setSelection(selectedPosition);
                     return;
                 }
 
@@ -680,7 +681,7 @@ public class ChatAiView extends RelativeLayout {
             // 获取当前屏幕可见区域的高度
             Rect rect = new Rect();
             view.getWindowVisibleDisplayFrame(rect);
-            int screenHeight = view.getHeight();
+            int screenHeight = ScreenUtils.getScreenHeight(getContext());
 
             // 计算软键盘的高度
             int keypadHeight = screenHeight - rect.bottom;
@@ -981,6 +982,7 @@ public class ChatAiView extends RelativeLayout {
         voiceAnimateLayout.setVisibility(GONE);
         mVoiceMessageButton.setVisibility(VISIBLE);
         mEditMsg.setVisibility(GONE);
+        aiRoleSpinner.setVisibility(GONE);
         mBtnSendText.setVisibility(GONE);
     }
 
@@ -993,6 +995,7 @@ public class ChatAiView extends RelativeLayout {
         voiceAnimateLayout.setVisibility(GONE);
         mVoiceMessageButton.setVisibility(GONE);
         mEditMsg.setVisibility(VISIBLE);
+        aiRoleSpinner.setVisibility(VISIBLE);
         mBtnSendText.setVisibility(VISIBLE);
     }
 
