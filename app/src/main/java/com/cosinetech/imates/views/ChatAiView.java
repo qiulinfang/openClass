@@ -1617,7 +1617,7 @@ public class ChatAiView extends RelativeLayout {
             ViewHolder viewHolder;
             if(convertView == null) {
                 viewHolder = new ViewHolder();
-                convertView = inflater.inflate(R.layout.spinner_closed_view, parent, false);
+                convertView = inflater.inflate(R.layout.chat_ai_role_spinner_closed_view, parent, false);
                 viewHolder.settingsIcon = convertView.findViewById(R.id.settings_icon);
                 viewHolder.titleText = convertView.findViewById(R.id.settings_title);
                 convertView.setTag(viewHolder);
@@ -1638,7 +1638,7 @@ public class ChatAiView extends RelativeLayout {
             ViewHolderSettingItem holder;
 
             if (convertView == null) {
-                convertView = inflater.inflate(R.layout.spinner_item_view, parent, false);
+                convertView = inflater.inflate(R.layout.chat_ai_role_spinner_item_view, parent, false);
                 holder = new ViewHolderSettingItem();
                 holder.icon = convertView.findViewById(R.id.item_icon);
                 holder.title = convertView.findViewById(R.id.item_title);
