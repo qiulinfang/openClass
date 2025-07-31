@@ -71,7 +71,7 @@ public class ChatDisplayItem {
             markwon = Markwon.builder(context)
                     .usePlugin(HtmlPlugin.create())
                     .usePlugin(ImagesPlugin.create())
-                    .usePlugin(TablePlugin.create(context))
+//                    .usePlugin(TablePlugin.create(context))
                     .usePlugin(TableEntryPlugin.create(context))
                     .usePlugin(StrikethroughPlugin.create())
                     .usePlugin(TaskListPlugin.create(context))

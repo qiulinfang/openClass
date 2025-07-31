@@ -382,7 +382,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
                     // 更新内容
                     adapter.setMarkdown(markwon, content);
 
-                    holder.recyclerView.postDelayed(() -> adapter.notifyDataSetChanged(), 100);
+                    holder.recyclerView.post(() -> adapter.notifyDataSetChanged());
                     // 滚动到底部
                     if (holder.recyclerView.getParent() instanceof RecyclerView parentRecyclerView) {
                         parentRecyclerView.scrollToPosition(mMsgList.size() - 1);
