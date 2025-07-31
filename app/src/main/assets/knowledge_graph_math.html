@@ -29,7 +29,7 @@
     </style>
 </head>
 <body>
-<div id="jsmind_container" style="width: 1000px; height: 800px;"></div>
+<div id="jsmind_container" style="width: 1200; height: 800px;"></div>
 <script type="text/javascript">
     var graph = {
         "meta": {
@@ -45,22 +45,22 @@
                  {
                     "id": "chapter1",
                     "topic": "第1章<br/>集合与常用逻辑用语",
+                    "direction": "left",
                     "children": [
                         {
                             "id": "section1.1",
                             "topic": "1.1<br/>集合",
-                            "direction": "left",
                             "children": [
                                 {
-                                    "id": "subsetion1.1.1",
+                                    "id": "section1.1.1",
                                     "topic": "集合及其表示方法"
                                 },
                                 {
-                                    "id": "subsetion1.1.2",
+                                    "id": "section1.1.2",
                                     "topic": "集合的基本关系"
                                 },
                                 {
-                                    "id": "subsetion1.1.3",
+                                    "id": "section1.1.3",
                                     "topic": "集合的基本运算"
                                 }
                             ]
@@ -68,18 +68,17 @@
                         {
                             "id": "section1.2",
                             "topic": "1.2<br/>常用逻辑用语",
-                            "direction": "right",
                             "children": [
                                 {
-                                    "id": "subsetion1.2.1",
+                                    "id": "section1.2.1",
                                     "topic": "命题与量词"
                                 },
                                 {
-                                    "id": "subsetion1.2.2",
+                                    "id": "section1.2.2",
                                     "topic": "全称量词命题与存在量词命题的否定"
                                 },
                                 {
-                                    "id": "subsetion1.2.3",
+                                    "id": "section1.2.3",
                                     "topic": "充分条件、必要条件"
                                 }
                             ]
@@ -89,22 +88,22 @@
                 {
                     "id": "chapter2",
                     "topic": "第2章<br/>等式与不等式",
+                    "direction": "right",
                     "children": [
                         {
                             "id": "section2.1",
                             "topic": "2.1<br/>等式",
-                            "direction": "left",
                             "children": [
                                 {
-                                    "id": "subsetion2.1.1",
+                                    "id": "section2.1.1",
                                     "topic": "等式的性质与方程的解集"
                                 },
                                 {
-                                    "id": "subsetion2.1.2",
+                                    "id": "section2.1.2",
                                     "topic": "一元二次方程的解集及其根与系数的关系"
                                 },
                                 {
-                                    "id": "subsetion2.1.3",
+                                    "id": "section2.1.3",
                                     "topic": "方程组的解集"
                                 }
                             ]
@@ -112,22 +111,21 @@
                         {
                             "id": "section2.2",
                             "topic": "2.2<br/>不等式",
-                            "direction": "right",
                             "children": [
                                 {
-                                    "id": "subsetion2.2.1",
+                                    "id": "section2.2.1",
                                     "topic": "不等式及其性质"
                                 },
                                 {
-                                    "id": "subsetion2.2.2",
+                                    "id": "section2.2.2",
                                     "topic": "不等式的解集"
                                 },
                                 {
-                                    "id": "subsetion2.2.3",
+                                    "id": "section2.2.3",
                                     "topic": "一元二次不等式的解法"
                                 },
                                 {
-                                    "id": "subsetion2.2.4",
+                                    "id": "section2.2.4",
                                     "topic": "均值不等式及其应用"
                                 }
                             ]
@@ -137,22 +135,22 @@
                 {
                     "id": "chapter3",
                     "topic": "第3章<br/>函数",
+                    "direction": "left",
                     "children": [
                         {
                             "id": "section3.1",
                             "topic": "3.1<br/>函数的概念与性质",
-                            "direction": "left",
                             "children": [
                                 {
-                                    "id": "subsetion3.1.1",
+                                    "id": "section3.1.1",
                                     "topic": "函数及其表示方法"
                                 },
                                 {
-                                    "id": "subsetion3.1.2",
+                                    "id": "section3.1.2",
                                     "topic": "函数的单调性"
                                 },
                                 {
-                                    "id": "subsetion3.1.3",
+                                    "id": "section3.1.3",
                                     "topic": "函数的奇偶性"
                                 }
                             ]
@@ -160,17 +158,14 @@
                         {
                             "id": "section3.2",
                             "topic": "3.2<br/>函数与方程、不等式之间的关系",
-                            "direction": "right"
                         },
                         {
                             "id": "section3.3",
                             "topic": "3.3<br/>函数的应用(一)",
-                            "direction": "right"
                         },
                         {
                             "id": "section3.4",
                             "topic": "3.4<br/>数学建模活动",
-                            "direction": "right"
                         }
                     ]
                 }
@@ -208,7 +203,7 @@
 
             var nodeId = nodeElement.getAttribute('nodeid');
             // 只处理章节节点
-            if (nodeId && nodeId.startsWith("section")) {
+            if (nodeId && (nodeId.startsWith("section") || nodeId.startsWith("section"))) {
                 showContextMenu(event, nodeElement);
             }
         }

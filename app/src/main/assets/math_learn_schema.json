@@ -1,65 +1,302 @@
 [
   {
-    "chapter": "4",
-    "title":"第4章",
+    "chapter": "1",
+    "title":"第1章",
     "sections": [
       {
-        "section":"section4.1",
+        "section":"section1.1.1",
         "knowledgeNo":"43,40,41,39,42,44,45,46",
         "title":"数列的概念",
         "schemas": [
           {
             "comments": "",
-            "introduction":"math/chapter4/schema1_intro.txt",
-            "textBook":"math/chapter4/4_1.pdf",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/1.1.1/1.1.1 集合及其表示方法.pdf",
             "bookPageStart": 1,
-            "lecture":"",
-            "learnGuide":""
+            "lecture":"math/数学人教B版必修一资源/1.1.1/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/1.1.1/学案.pdf"
           }
         ]
       },
       {
-        "section":"section4.2",
+        "section":"section1.1.2",
         "title":"等差数列",
         "knowledgeNo": "47,48,49",
         "schemas": [
           {
             "comments": "",
-            "introduction":"math/chapter4/schema1_intro.txt",
-            "textBook":"math/chapter4/4_2.pdf",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/1.1.2/1.1.2 集合的基本关系 .pdf",
             "bookPageStart": 1,
-            "lecture":"",
-            "learnGuide":""
+            "lecture":"math/数学人教B版必修一资源/1.1.2/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/1.1.2/学案.pdf"
           }
         ]
       },
       {
-        "section":"section4.3",
+        "section":"section1.1.3",
         "title":"等比数列",
         "knowledgeNo": "47,48,49",
         "schemas": [
           {
             "comments": "",
-            "introduction":"math/chapter4/schema1_intro.txt",
-            "textBook":"math/chapter4/4_3.pdf",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/1.1.3/1.1.3 集合的基本运算.pdf",
             "bookPageStart": 1,
-            "lecture":"",
-            "learnGuide":""
+            "lecture":"math/数学人教B版必修一资源/1.1.3/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/1.1.3/学案.pdf"
           }
         ]
       },
       {
-        "section":"section4.4",
+        "section":"section1.2.1",
         "title":"数学归纳法",
         "knowledgeNo": "47,48,49",
         "schemas": [
           {
             "comments": "",
-            "introduction":"math/chapter4/schema1_intro.txt",
-            "textBook":"math/chapter4/4_4.pdf",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/1.2.1/1.2.1 命题与量词.pdf",
             "bookPageStart": 1,
-            "lecture":"",
-            "learnGuide":""
+            "lecture":"math/数学人教B版必修一资源/1.2.1/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/1.2.1/学案.pdf"
+          }
+        ]
+      },
+      {
+        "section":"section1.2.2",
+        "title":"数学归纳法",
+        "knowledgeNo": "47,48,49",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/1.2.2/1.2.2 全称量词命题与存在量词命题的否定.pdf",
+            "bookPageStart": 1,
+            "lecture":"math/数学人教B版必修一资源/1.2.2/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/1.2.2/学案.pdf"
+          }
+        ]
+      },
+      {
+        "section":"section1.2.3",
+        "title":"数学归纳法",
+        "knowledgeNo": "47,48,49",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/1.2.3/1.2.3 充分条件、必要条件.pdf",
+            "bookPageStart": 1,
+            "lecture":"math/数学人教B版必修一资源/1.2.3/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/1.2.3/学案.pdf"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "chapter": "2",
+    "title":"第2章",
+    "sections": [
+      {
+        "section":"section2.1.1",
+        "knowledgeNo":"43,40,41,39,42,44,45,46",
+        "title":"数列的概念",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/2.1.1/2.1.1 等式的性质与方程的解集.pdf",
+            "bookPageStart": 1,
+            "lecture":"math/数学人教B版必修一资源/2.1.1/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/2.1.1/学案.pdf"
+          }
+        ]
+      },
+      {
+        "section":"section2.1.2",
+        "title":"等差数列",
+        "knowledgeNo": "47,48,49",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/2.1.2/2.1.2 一元二次方程的解集及其根与系数的关系.pdf",
+            "bookPageStart": 1,
+            "lecture":"math/数学人教B版必修一资源/2.1.2/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/2.1.2/学案.pdf"
+          }
+        ]
+      },
+      {
+        "section":"section2.1.3",
+        "title":"等比数列",
+        "knowledgeNo": "47,48,49",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/2.1.3/2.1.3 方程组的解集.pdf",
+            "bookPageStart": 1,
+            "lecture":"math/数学人教B版必修一资源/2.1.3/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/2.1.3/学案.pdf"
+          }
+        ]
+      },
+      {
+        "section":"section2.2.1",
+        "title":"数学归纳法",
+        "knowledgeNo": "47,48,49",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/2.2.1/2.2.1 不等式及其性质.pdf",
+            "bookPageStart": 1,
+            "lecture":"math/数学人教B版必修一资源/2.2.1/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/2.2.1/学案.pdf"
+          }
+        ]
+      },
+      {
+        "section":"section2.2.2",
+        "title":"数学归纳法",
+        "knowledgeNo": "47,48,49",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/2.2.2/2.2.2 不等式的解集.pdf",
+            "bookPageStart": 1,
+            "lecture":"math/数学人教B版必修一资源/2.2.2/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/2.2.2/学案.pdf"
+          }
+        ]
+      },
+      {
+        "section":"section2.2.3",
+        "title":"数学归纳法",
+        "knowledgeNo": "47,48,49",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/2.2.3/2.2.3 一元二次不等式的解法.pdf",
+            "bookPageStart": 1,
+            "lecture":"math/数学人教B版必修一资源/2.2.3/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/2.2.3/学案.pdf"
+          }
+        ]
+      },
+      {
+        "section":"section2.2.4",
+        "title":"数学归纳法",
+        "knowledgeNo": "47,48,49",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/2.2.4/2.2.4 均值不等式及其应用.pdf",
+            "bookPageStart": 1,
+            "lecture":"math/数学人教B版必修一资源/2.2.4/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/2.2.4/学案.pdf"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "chapter": "3",
+    "title":"第3章",
+    "sections": [
+      {
+        "section":"section3.1.1",
+        "knowledgeNo":"43,40,41,39,42,44,45,46",
+        "title":"数列的概念",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/3.1.1/3.1.1 函数及其表示方法.pdf",
+            "bookPageStart": 1,
+            "lecture":"math/数学人教B版必修一资源/3.1.1/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/3.1.1/学案.pdf"
+          }
+        ]
+      },
+      {
+        "section":"section3.1.2",
+        "title":"等差数列",
+        "knowledgeNo": "47,48,49",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/3.1.2/3.1.2 函数的单调性.pdf",
+            "bookPageStart": 1,
+            "lecture":"math/数学人教B版必修一资源/3.1.2/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/3.1.2/学案.pdf"
+          }
+        ]
+      },
+      {
+        "section":"section3.1.3",
+        "title":"等比数列",
+        "knowledgeNo": "47,48,49",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/3.1.3/3.1.3 函数的奇偶性.pdf",
+            "bookPageStart": 1,
+            "lecture":"math/数学人教B版必修一资源/3.1.3/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/3.1.3/学案.pdf"
+          }
+        ]
+      },
+      {
+        "section":"section3.2",
+        "title":"数学归纳法",
+        "knowledgeNo": "47,48,49",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/3.2/3.2 函数与方程、不等式之间的关系.pdf",
+            "bookPageStart": 1,
+            "lecture":"math/数学人教B版必修一资源/3.2/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/3.2/学案.pdf"
+          }
+        ]
+      },
+      {
+        "section":"section3.3",
+        "title":"数学归纳法",
+        "knowledgeNo": "47,48,49",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/3.3/3.3 函数的应用(一).pdf",
+            "bookPageStart": 1,
+            "lecture":"math/数学人教B版必修一资源/3.3/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/3.3/学案.pdf"
+          }
+        ]
+      },
+      {
+        "section":"section3.4",
+        "title":"数学归纳法",
+        "knowledgeNo": "47,48,49",
+        "schemas": [
+          {
+            "comments": "",
+            "introduction":"math/数学人教B版必修一资源/schema1_intro.txt",
+            "textBook":"math/数学人教B版必修一资源/3.4/3.4 数学建模活动.pdf",
+            "bookPageStart": 1,
+            "lecture":"math/数学人教B版必修一资源/3.4/ppt.pdf",
+            "learnGuide":"math/数学人教B版必修一资源/3.4/学案.pdf"
           }
         ]
       }

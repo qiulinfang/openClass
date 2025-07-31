@@ -156,9 +156,11 @@ public class MarkdownTextView extends AppCompatTextView {
 
             if (mTypingEffectDisplayItem.currentDisplayCharIndex < mTypingEffectDisplayItem.chatMessage.content.length()) {
                 // 逐字拼接内容
-                //String displayContent = mTypingEffectDisplayItem.chatMessage.content.substring(0, ++mTypingEffectDisplayItem.currentDisplayCharIndex);
-                String displayContent = mTypingEffectDisplayItem.chatMessage.content;
-                mTypingEffectDisplayItem.currentDisplayCharIndex = mTypingEffectDisplayItem.chatMessage.content.length();
+                String displayContent = mTypingEffectDisplayItem.chatMessage.content.substring(0, ++mTypingEffectDisplayItem.currentDisplayCharIndex);
+
+//                String displayContent = mTypingEffectDisplayItem.chatMessage.content;
+//                mTypingEffectDisplayItem.currentDisplayCharIndex = mTypingEffectDisplayItem.chatMessage.content.length();
+
                 setContent(displayContent);
                 if(mTypingEffectDisplayItem.currentDisplayCharIndex < mTypingEffectDisplayItem.chatMessage.content.length()) {
                     mMainHandler.postDelayed(this, UPDATE_DELAY); // 每 100ms 更新一次
