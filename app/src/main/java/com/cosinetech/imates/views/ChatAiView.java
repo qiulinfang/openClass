@@ -1172,7 +1172,7 @@ public class ChatAiView extends RelativeLayout {
     private List<ChatDisplayItem> convertChatDisplayList(List<ChatMessage> msgs, boolean isHistory) {
         List<ChatDisplayItem> items = new ArrayList<>();
         for (ChatMessage msg: msgs) {
-            ChatDisplayItem item = new ChatDisplayItem(msg, !isHistory);
+            ChatDisplayItem item = new ChatDisplayItem(msg, !isHistory, getContext());
             items.add(item);
         }
 
@@ -1191,7 +1191,7 @@ public class ChatAiView extends RelativeLayout {
                 if (success) {
                     if(!response.trim().isEmpty() && !response.equals("end")) {
                         mLastReceivingMsg.appendContent(response);
-                        mAdapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, mChatAiParam.streamDisplay);
+                        mAdapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, mChatAiParam.streamDisplay, false);
 
                         Log.d("%%%%%%%%", response);
                     }
@@ -1200,6 +1200,7 @@ public class ChatAiView extends RelativeLayout {
                         mAiChatRequest.setReason("continue");
                         pollChat();
                     } else {
+                        mAdapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, mChatAiParam.streamDisplay, true);
                         ApplicationModelShared app = ApplicationModelShared.getInstance();
                         if(app.chatRequest != null) {
                             app.chatRequest = null;
@@ -1221,7 +1222,7 @@ public class ChatAiView extends RelativeLayout {
                     mAiChatRequest.setDstUrl("");
 
                     mLastReceivingMsg.appendContent("‼️消息接收失败");
-                    mAdapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, false);
+                    mAdapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, false, true);
                     mBtnSendText.setEnabled(true);
                     if(mListener != null) {
                         mListener.onAiChatResponse(false);
@@ -1246,7 +1247,7 @@ public class ChatAiView extends RelativeLayout {
                 mCurrentSession.sessionId,
                 System.currentTimeMillis(),
                 selectedRole);
-        messageList.add(new ChatDisplayItem(message, !message.isSelf));
+        messageList.add(new ChatDisplayItem(message, !message.isSelf, getContext()));
         mChatDb.addChatMessageDetail(message);
 
         mLastReceivingMsg = new ChatMessage("",
@@ -1257,7 +1258,7 @@ public class ChatAiView extends RelativeLayout {
                 selectedRole);
 
         // 注意： 从 mChatAiParam决定是否启用打字机效果显示
-        messageList.add(new ChatDisplayItem(mLastReceivingMsg, mChatAiParam.streamDisplay));
+        messageList.add(new ChatDisplayItem(mLastReceivingMsg, mChatAiParam.streamDisplay, getContext()));
 
         // 一次性通知 Adapter 插入两条消息
         mAdapterAiChatMessageList.notifyItemRangeInserted(messageList.size() - 2, 2);
@@ -1286,7 +1287,7 @@ public class ChatAiView extends RelativeLayout {
                     mCurrentSession.sessionId,
                     System.currentTimeMillis(),
                     ChatRole.CHAT_ROLE_MYSELF);
-            messageList.add(new ChatDisplayItem(message, !message.isSelf));
+            messageList.add(new ChatDisplayItem(message, !message.isSelf, getContext()));
             mChatDb.addChatMessageDetail(message);
 
             if(!mo.getQuestion().isEmpty()) {
@@ -1313,7 +1314,7 @@ public class ChatAiView extends RelativeLayout {
                             System.currentTimeMillis(),
                             ChatRole.CHAT_ROLE_MYSELF);
                 }
-                messageList.add(new ChatDisplayItem(msg, false));
+                messageList.add(new ChatDisplayItem(msg, false, getContext()));
                 mChatDb.addChatMessageDetail(msg);
             }
 
@@ -1328,7 +1329,7 @@ public class ChatAiView extends RelativeLayout {
                     System.currentTimeMillis(),
                     selectedRole);
             // 注意： 从 mChatAiParam决定是否启用打字机效果显示
-            messageList.add(new ChatDisplayItem(mLastReceivingMsg, mChatAiParam.streamDisplay));
+            messageList.add(new ChatDisplayItem(mLastReceivingMsg, mChatAiParam.streamDisplay, getContext()));
             mAdapterAiChatMessageList.notifyItemInserted(messageList.size() - 1);
 
             mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
@@ -1376,7 +1377,7 @@ public class ChatAiView extends RelativeLayout {
                 ChatRole.CHAT_ROLE_MYSELF);
         message.messageId = studentMsg.getMessageId();
 
-        messageList.add(new ChatDisplayItem(message, !message.isSelf));
+        messageList.add(new ChatDisplayItem(message, !message.isSelf, getContext()));
         mChatDb.addChatMessageDetail(message);
         mAdapterAiChatMessageList.notifyDataSetChanged();
         mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
@@ -1402,7 +1403,7 @@ public class ChatAiView extends RelativeLayout {
                 ChatRole.CHAT_ROLE_MYSELF);
         message.messageId = studentMsg.getMessageId();
 
-        messageList.add(new ChatDisplayItem(message, !message.isSelf));
+        messageList.add(new ChatDisplayItem(message, !message.isSelf, getContext()));
         mChatDb.addChatMessageDetail(message);
         mAdapterAiChatMessageList.notifyDataSetChanged();
         mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
@@ -1453,7 +1454,7 @@ public class ChatAiView extends RelativeLayout {
                 ChatRole.CHAT_ROLE_MYSELF);
         message.messageId = studentMsg.getMessageId();
 
-        messageList.add(new ChatDisplayItem(message, !message.isSelf));
+        messageList.add(new ChatDisplayItem(message, !message.isSelf, getContext()));
         mChatDb.addChatMessageDetail(message);
         mAdapterAiChatMessageList.notifyDataSetChanged();
         mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
@@ -1462,7 +1463,7 @@ public class ChatAiView extends RelativeLayout {
     public void onReceivedTeacherMessage(ChatMessage chatMessage) {
         if(chatMessage != null) {
             if(mCurrentSession.sessionId.equals(chatMessage.sessionId)) {
-                messageList.add(new ChatDisplayItem(chatMessage, false));
+                messageList.add(new ChatDisplayItem(chatMessage, false, getContext()));
                 mAdapterAiChatMessageList.notifyDataSetChanged();
                 mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
             }

@@ -57,7 +57,7 @@ public class MarkdownTestActivity extends AppCompatActivity {
             System.currentTimeMillis(),
             ChatAiView.ChatRole.CHAT_ROLE_AI_MATE
         );
-        messageList.add(new ChatDisplayItem(textMsg, false));
+                    messageList.add(new ChatDisplayItem(textMsg, false, this));
         
         // 添加带打字效果的 Markdown 消息
         ChatMessage markdownMsg = new ChatMessage(
@@ -80,7 +80,7 @@ public class MarkdownTestActivity extends AppCompatActivity {
             System.currentTimeMillis(),
             ChatAiView.ChatRole.CHAT_ROLE_AI_MATE
         );
-        messageList.add(new ChatDisplayItem(markdownMsg, true)); // 启用打字效果
+        messageList.add(new ChatDisplayItem(markdownMsg, true, this)); // 启用打字效果
         
         adapter.notifyDataSetChanged();
     }
@@ -101,7 +101,7 @@ public class MarkdownTestActivity extends AppCompatActivity {
             System.currentTimeMillis(),
             ChatAiView.ChatRole.CHAT_ROLE_MYSELF
         );
-        messageList.add(new ChatDisplayItem(markdownMsg, false));
+        messageList.add(new ChatDisplayItem(markdownMsg, false, this));
         adapter.notifyItemInserted(messageList.size() - 1);
         recyclerView.scrollToPosition(messageList.size() - 1);
     }
@@ -127,7 +127,7 @@ public class MarkdownTestActivity extends AppCompatActivity {
             System.currentTimeMillis(),
             ChatAiView.ChatRole.CHAT_ROLE_AI_MATE
         );
-        messageList.add(new ChatDisplayItem(typingMsg, true)); // 启用打字效果
+        messageList.add(new ChatDisplayItem(typingMsg, true, this)); // 启用打字效果
         adapter.notifyItemInserted(messageList.size() - 1);
         recyclerView.scrollToPosition(messageList.size() - 1);
     }
