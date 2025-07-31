@@ -492,7 +492,33 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         // 设置 RecyclerView
         holder.recyclerView.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(mContext));
         holder.recyclerView.setAdapter(adapter);
-        adapter.setMarkdown(markwon, message.content);
+
+        // 存储引用以便回调使用
+        holder.currentAdapter = adapter;
+        holder.currentMarkwon = markwon;
+        holder.currentItem = item;
+
+        // 开始打字效果或直接显示内容
+        item.startTypingEffect(adapter, markwon, new ChatDisplayItem.TypingEffectCallback() {
+            @Override
+            public void onContentUpdate(String content) {
+                // 更新内容
+                adapter.setMarkdown(markwon, content);
+                Log.e("onContentUpdate=====", content);
+                
+                // 滚动到底部
+                if (holder.recyclerView.getParent() instanceof RecyclerView) {
+                    RecyclerView parentRecyclerView = (RecyclerView) holder.recyclerView.getParent();
+                    parentRecyclerView.scrollToPosition(mMsgList.size() - 1);
+                }
+            }
+
+            @Override
+            public void onTypingComplete() {
+                // 打字效果完成，可以在这里添加完成后的逻辑
+                //item.showWithTypingEffect = false;
+            }
+        });
     }
 
     @Override
@@ -504,8 +530,14 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             mdHolder.tvMessage.setEnabled(true);
             mdHolder.tvMessage.setTextIsSelectable(true);
             mdHolder.tvMessage.setFocusableInTouchMode(true);
-        } else if (holder instanceof MarkdownTextViewHolder) {
-            // Markdown ViewHolder 不需要特殊处理，因为使用的是 RecyclerView
+        }
+    }
+
+    @Override
+    public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
+        super.onViewRecycled(holder);
+        if (holder instanceof MarkdownTextViewHolder) {
+            ((MarkdownTextViewHolder) holder).cleanUp();
         }
     }
 
@@ -519,6 +551,8 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
            if(mMsgList.get(i).chatMessage.messageId.equals(msgId)) {
                ChatDisplayItem displayMsg = mMsgList.get(i);
                displayMsg.showWithTypingEffect = showWithTypingEffect;
+               
+               // 重新绑定以触发打字效果
                notifyItemChanged(i);
                break;
            }
@@ -590,6 +624,11 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         private final ImageView ivAvastar;
         private final androidx.recyclerview.widget.RecyclerView recyclerView;
 
+        // 当前绑定的引用
+        public MarkwonAdapter currentAdapter;
+        public Markwon currentMarkwon;
+        public ChatDisplayItem currentItem;
+
         public MarkdownTextViewHolder(@NonNull View itemView) {
             super(itemView);
             tvMessage = itemView.findViewById(R.id.tv_message);
@@ -604,6 +643,15 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
                 tvMessage.disableTypingEffectDisplay();
                 tvMessage.clearContent();
             }
+            
+            // 清理当前项的打字效果
+            if (currentItem != null) {
+                currentItem.cleanup();
+                currentItem = null;
+            }
+            
+            currentAdapter = null;
+            currentMarkwon = null;
         }
     }
 }

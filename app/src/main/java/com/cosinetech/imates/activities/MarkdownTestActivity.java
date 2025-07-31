@@ -23,6 +23,7 @@ public class MarkdownTestActivity extends AppCompatActivity {
     private AdapterAiChatMessageList adapter;
     private List<ChatDisplayItem> messageList;
     private Button btnAddMarkdown;
+    private Button btnAddTypingEffect;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,6 +32,7 @@ public class MarkdownTestActivity extends AppCompatActivity {
         
         recyclerView = findViewById(R.id.recycler_view);
         btnAddMarkdown = findViewById(R.id.btn_add_markdown);
+        btnAddTypingEffect = findViewById(R.id.btn_add_typing_effect);
         
         messageList = new ArrayList<>();
         adapter = new AdapterAiChatMessageList(this, messageList, recyclerView);
@@ -42,6 +44,7 @@ public class MarkdownTestActivity extends AppCompatActivity {
         addTestMessages();
         
         btnAddMarkdown.setOnClickListener(v -> addMarkdownMessage());
+        btnAddTypingEffect.setOnClickListener(v -> addTypingEffectMessage());
     }
     
     private void addTestMessages() {
@@ -56,9 +59,9 @@ public class MarkdownTestActivity extends AppCompatActivity {
         );
         messageList.add(new ChatDisplayItem(textMsg, false));
         
-        // 添加 Markdown 消息
+        // 添加带打字效果的 Markdown 消息
         ChatMessage markdownMsg = new ChatMessage(
-            "这是一个 **Markdown** 消息\n\n" +
+            "这是一个 **Markdown** 消息，带有打字效果！\n\n" +
             "```java\n" +
             "public class Test {\n" +
             "    public static void main(String[] args) {\n" +
@@ -69,14 +72,15 @@ public class MarkdownTestActivity extends AppCompatActivity {
             "| 列1 | 列2 | 列3 |\n" +
             "|-----|-----|-----|\n" +
             "| 数据1 | 数据2 | 数据3 |\n" +
-            "| 数据4 | 数据5 | 数据6 |",
+            "| 数据4 | 数据5 | 数据6 |\n\n" +
+            "这是一个很长的消息，用来测试打字效果。它会逐字符显示，就像 AI 在实时回复一样。",
             false,
             ChatMessage.MessageType.TEXT,
             "test_session",
             System.currentTimeMillis(),
             ChatAiView.ChatRole.CHAT_ROLE_AI_MATE
         );
-        messageList.add(new ChatDisplayItem(markdownMsg, false));
+        messageList.add(new ChatDisplayItem(markdownMsg, true)); // 启用打字效果
         
         adapter.notifyDataSetChanged();
     }
@@ -98,6 +102,32 @@ public class MarkdownTestActivity extends AppCompatActivity {
             ChatAiView.ChatRole.CHAT_ROLE_MYSELF
         );
         messageList.add(new ChatDisplayItem(markdownMsg, false));
+        adapter.notifyItemInserted(messageList.size() - 1);
+        recyclerView.scrollToPosition(messageList.size() - 1);
+    }
+    
+    private void addTypingEffectMessage() {
+        ChatMessage typingMsg = new ChatMessage(
+            "这是一个带有打字效果的 **AI 回复**！\n\n" +
+            "```python\n" +
+            "def ai_response():\n" +
+            "    print(\"Hello from AI!\")\n" +
+            "    return \"这是一个模拟的 AI 回复\"\n" +
+            "```\n\n" +
+            "| 功能 | 状态 | 说明 |\n" +
+            "|------|------|------|\n" +
+            "| 打字效果 | ✅ | 逐字符显示 |\n" +
+            "| Markdown | ✅ | 支持格式 |\n" +
+            "| 代码高亮 | ✅ | 语法高亮 |\n" +
+            "| 表格 | ✅ | 完整表格 |\n\n" +
+            "这个功能模拟了真实的 AI 聊天体验，用户可以看到消息逐字符出现，就像 AI 在实时思考和回复一样。",
+            false,
+            ChatMessage.MessageType.TEXT,
+            "test_session",
+            System.currentTimeMillis(),
+            ChatAiView.ChatRole.CHAT_ROLE_AI_MATE
+        );
+        messageList.add(new ChatDisplayItem(typingMsg, true)); // 启用打字效果
         adapter.notifyItemInserted(messageList.size() - 1);
         recyclerView.scrollToPosition(messageList.size() - 1);
     }
