@@ -71,7 +71,6 @@ public class ChatDisplayItem {
             markwon = Markwon.builder(context)
                     .usePlugin(HtmlPlugin.create())
                     .usePlugin(ImagesPlugin.create())
-//                    .usePlugin(TablePlugin.create(context))
                     .usePlugin(TableEntryPlugin.create(context))
                     .usePlugin(StrikethroughPlugin.create())
                     .usePlugin(TaskListPlugin.create(context))
@@ -163,7 +162,7 @@ public class ChatDisplayItem {
 
                 if(!msgIsFinished || currentDisplayCharIndex <= chatMessage.content.length()) {
                     // 计算下一个字符的延迟时间
-                    long delay = 50; //calculateTypingDelay(chatMessage.content, currentDisplayCharIndex - 1);
+                    long delay = 100; //calculateTypingDelay(chatMessage.content, currentDisplayCharIndex - 1);
                     typingHandler.postDelayed(this, delay);
                 } else {
                     if (callback != null) {
