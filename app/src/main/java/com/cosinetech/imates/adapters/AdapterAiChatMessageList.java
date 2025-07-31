@@ -1,18 +1,21 @@
 package com.cosinetech.imates.adapters;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
+import android.media.MediaPlayer;
 import android.net.Uri;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.airbnb.lottie.LottieAnimationView;
@@ -26,10 +29,11 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.util.VoiceDbUtil;
 import com.cosinetech.imates.views.ChatAiView;
+import com.cosinetech.imates.views.MarkdownTextView;
 
-import io.noties.markwon.Markwon;
-import io.noties.markwon.recycler.MarkwonAdapter;
+import org.w3c.dom.Text;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,14 +41,12 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
     public enum MessageDisplayType {
         TYPE_NONE(-1),
         TYPE_DATE(0),
-//        TYPE_TEXT_LEFT(1),
-//        TYPE_TEXT_RIGHT(2),
+        TYPE_TEXT_LEFT(1),
+        TYPE_TEXT_RIGHT(2),
         TYPE_IMAGE_LEFT(3),
         TYPE_IMAGE_RIGHT(4),
         TYPE_VOICE_LEFT(5),
-        TYPE_VOICE_RIGHT(6),
-        TYPE_TEXT_LEFT_MARKDOWN(7),
-        TYPE_TEXT_RIGHT_MARKDOWN(8);
+        TYPE_VOICE_RIGHT(6);
 
         private final int value;
 
@@ -124,13 +126,9 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             return MessageDisplayType.TYPE_DATE.getValue();
         }
         if (message.type == ChatMessage.MessageType.TEXT) {
-            // 检查是否包含 Markdown 语法
-            //boolean containsMarkdown = containsMarkdownSyntax(message.content);
-            if (message.isSelf) {
-                return MessageDisplayType.TYPE_TEXT_RIGHT_MARKDOWN.getValue();
-            } else {
-                return MessageDisplayType.TYPE_TEXT_LEFT_MARKDOWN.getValue();
-            }
+            return message.isSelf ?
+                    MessageDisplayType.TYPE_TEXT_RIGHT.value :
+                    MessageDisplayType.TYPE_TEXT_LEFT.getValue();
         }
         if (message.type == ChatMessage.MessageType.IMAGE) {
             return message.isSelf ?
@@ -155,16 +153,16 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             case TYPE_DATE:
                 view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_message_date, parent, false);
                 return new DateViewHolder(view);
-            case TYPE_TEXT_LEFT_MARKDOWN:
-            case TYPE_TEXT_RIGHT_MARKDOWN:
+            case TYPE_TEXT_LEFT:
+            case TYPE_TEXT_RIGHT:
                 view = LayoutInflater.from(parent.getContext()).inflate(
-                        type == MessageDisplayType.TYPE_TEXT_LEFT_MARKDOWN ?
-                                R.layout.item_message_left_markdown :
-                                R.layout.item_message_right_markdown,
+                        type == MessageDisplayType.TYPE_TEXT_LEFT ?
+                                R.layout.item_message_left :
+                                R.layout.item_message_right,
                         parent,
                         false
                 );
-                return new MarkdownTextViewHolder(view);
+                return new TextViewHolder(view);
             case TYPE_IMAGE_LEFT:
             case TYPE_IMAGE_RIGHT:
                 view = LayoutInflater.from(parent.getContext()).inflate(
@@ -196,9 +194,8 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
 
         if (holder instanceof DateViewHolder) {
             ((DateViewHolder) holder).tvDate.setText(message.content);
-        } else if (holder instanceof MarkdownTextViewHolder) {
-            bindMarkdownTextViewHolder((MarkdownTextViewHolder) holder, item, message);
-            //bindTextViewHolder((MarkdownTextViewHolder) holder, item, message);
+        } else if (holder instanceof TextViewHolder) {
+            bindTextViewHolder((TextViewHolder) holder, item, message);
         } else if (holder instanceof ImageViewHolder) {
             bindImageViewHolder((ImageViewHolder) holder, message, item);
         } else if (holder instanceof VoiceViewHolder) {
@@ -214,9 +211,15 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             //ChatMessage message = item.chatMessage;
             for (Object payload : payloads) {
                 if (payload instanceof Boolean) {
-                    //boolean showTypingEffect = (Boolean) payload;
-                    MarkdownTextViewHolder viewHolder = (MarkdownTextViewHolder) holder;
-                    bindMarkdownTextViewHolder(viewHolder, item, item.chatMessage);
+                    boolean showTypingEffect = (Boolean) payload;
+                    TextViewHolder viewHolder = (TextViewHolder) holder;
+                    viewHolder.tvMessage.setTypingEffectDisplayItem(item);
+                    viewHolder.tvMessage.disableTypingEffectDisplay();
+                    if (showTypingEffect) {
+                        viewHolder.tvMessage.enableTypingEffectDisplay();
+                    } else {
+                        viewHolder.tvMessage.setContent(mMsgList.get(pos).chatMessage.content);
+                    }
                     return; // 只处理 payload，避免完整绑定
                 }
             }
@@ -224,7 +227,6 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         super.onBindViewHolder(holder, pos, payloads); // 默认情况走完整绑定
     }
 
-    @SuppressLint("SetTextI18n")
     private void bindVoiceViewHolder(VoiceViewHolder holder, int pos, ChatMessage message, ChatDisplayItem item) {
         VoiceDbUtil.VoiceDbItem vi = VoiceDbUtil.extractDbVoiceContent(message.content);
 
@@ -290,7 +292,9 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             holder.tvSelected.setVisibility(View.GONE);
         }
 
-        holder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> item.isSelected = isChecked);
+        holder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            item.isSelected = isChecked;
+        });
 
         if(item.chatMessage.isSelf) {
             holder.ivAvastar.setImageResource(R.drawable.chat_ai_avatar_user);
@@ -324,7 +328,9 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             holder.tvSelected.setVisibility(View.GONE);
         }
 
-        holder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> item.isSelected = isChecked);
+        holder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            item.isSelected = isChecked;
+        });
 
         if(item.chatMessage.isSelf) {
             holder.ivAvastar.setImageResource(R.drawable.chat_ai_avatar_user);
@@ -338,17 +344,26 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         }
     }
 
-    private void bindMarkdownTextViewHolder(MarkdownTextViewHolder holder, ChatDisplayItem item, ChatMessage message) {
-        // 设置选择框
+    private void bindTextViewHolder(TextViewHolder holder, ChatDisplayItem item, ChatMessage message) {
+        holder.tvMessage.clearContent();
+        holder.tvMessage.setTypingEffectDisplayItem(item);
+        holder.tvMessage.disableTypingEffectDisplay();
+        if(item.showWithTypingEffect) {
+            holder.tvMessage.enableTypingEffectDisplay();
+        } else {
+            holder.tvMessage.setContent(message.content);
+        }
+
         holder.tvSelected.setChecked(false);
         if(mItemCanSelect) {
             holder.tvSelected.setVisibility(View.VISIBLE);
         } else {
             holder.tvSelected.setVisibility(View.GONE);
         }
-        holder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> item.isSelected = isChecked);
+        holder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            item.isSelected = isChecked;
+        });
 
-        // 设置头像
         if(item.chatMessage.isSelf) {
             holder.ivAvastar.setImageResource(R.drawable.chat_ai_avatar_user);
         } else {
@@ -359,57 +374,16 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
                 }
             }
         }
-
-        // 获取 Markwon 和 MarkwonAdapter 实例
-        final Markwon markwon = item.getMarkwon();
-        final MarkwonAdapter adapter = item.getMarkwonAdapter();
-
-        // 设置 RecyclerView
-        holder.recyclerView.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(mContext));
-        holder.recyclerView.setAdapter(adapter);
-
-        // 存储引用以便回调使用
-        holder.currentAdapter = adapter;
-        holder.currentMarkwon = markwon;
-        holder.currentItem = item;
-
-        // 开始打字效果或直接显示内容
-        if (item.shouldShowTypingEffect()) {
-            // 使用打字效果
-            item.startTypingEffect(new ChatDisplayItem.TypingEffectCallback() {
-                @Override
-                public void onContentUpdate(String content) {
-                    // 更新内容
-                    adapter.setMarkdown(markwon, content);
-
-                    holder.recyclerView.post(() -> adapter.notifyDataSetChanged());
-                    // 滚动到底部
-                    if (holder.recyclerView.getParent() instanceof RecyclerView parentRecyclerView) {
-                        parentRecyclerView.scrollToPosition(mMsgList.size() - 1);
-                    }
-                }
-
-                @Override
-                public void onTypingComplete() {
-                    // 打字效果完成，可以在这里添加完成后的逻辑
-                    Log.d("TypingEffect", "Typing effect completed");
-                }
-            });
-        } else {
-            // 直接显示完整内容
-            Log.e("onContentShow++++", message.content);
-            adapter.setMarkdown(markwon, message.content);
-        }
     }
 
     @Override
-    public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
-        super.onViewRecycled(holder);
-        if (holder instanceof MarkdownTextViewHolder mdHolder) {
-            // 只有在没有进行打字效果时才清理资源
-            if (mdHolder.currentItem != null && !mdHolder.currentItem.isTypingInProgress()) {
-                mdHolder.cleanUp();
-            }
+    public void onViewAttachedToWindow(@NonNull RecyclerView.ViewHolder holder) {
+        super.onViewAttachedToWindow(holder);
+        if (holder instanceof TextViewHolder) {
+            ((TextViewHolder) holder).tvMessage.setEnabled(false);
+            ((TextViewHolder) holder).tvMessage.setEnabled(true);
+            ((TextViewHolder) holder).tvMessage.setTextIsSelectable(true);
+            ((TextViewHolder) holder).tvMessage.setFocusableInTouchMode(true);
         }
     }
 
@@ -424,8 +398,6 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
                ChatDisplayItem displayMsg = mMsgList.get(i);
                displayMsg.showWithTypingEffect = showWithTypingEffect;
                displayMsg.msgIsFinished = msgIsFinished;
-               
-               // 重新绑定以触发打字效果
                notifyItemChanged(i, showWithTypingEffect);
                break;
            }
@@ -438,6 +410,26 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             super(itemView);
             tvDate = itemView.findViewById(R.id.tv_date);
             tvDate.setText("");
+        }
+    }
+
+    static class TextViewHolder extends RecyclerView.ViewHolder {
+        private final MarkdownTextView tvMessage;
+        private final CheckBox tvSelected;
+        private final ImageView ivAvastar;
+
+        public TextViewHolder(@NonNull View itemView) {
+            super(itemView);
+            tvMessage = itemView.findViewById(R.id.tv_message);
+            tvMessage.setTextIsSelectable(true);
+            tvMessage.clearContent();
+            tvSelected = itemView.findViewById(R.id.iv_select);
+            ivAvastar = itemView.findViewById(R.id.iv_avatar);
+        }
+        // 添加回收时清理的方法
+        public void cleanUp() {
+            tvMessage.disableTypingEffectDisplay();
+            tvMessage.clearContent();
         }
     }
 
@@ -468,37 +460,6 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
             tvSelected = itemView.findViewById(R.id.iv_select);
             ivLayout = itemView.findViewById(R.id.voice_layout);
             ivAvastar = itemView.findViewById(R.id.iv_avatar);
-        }
-    }
-
-    static class MarkdownTextViewHolder extends RecyclerView.ViewHolder {
-        //private final MarkdownTextView tvMessage;
-        private final CheckBox tvSelected;
-        private final ImageView ivAvastar;
-        private final androidx.recyclerview.widget.RecyclerView recyclerView;
-
-        // 当前绑定的引用
-        public MarkwonAdapter currentAdapter;
-        public Markwon currentMarkwon;
-        public ChatDisplayItem currentItem;
-
-        public MarkdownTextViewHolder(@NonNull View itemView) {
-            super(itemView);
-            tvSelected = itemView.findViewById(R.id.iv_select);
-            ivAvastar = itemView.findViewById(R.id.iv_avatar);
-            recyclerView = itemView.findViewById(R.id.recycler_view);
-        }
-
-        // 添加回收时清理的方法
-        public void cleanUp() {
-            // 清理当前项的打字效果
-            if (currentItem != null) {
-                currentItem.cleanup();
-                currentItem = null;
-            }
-            
-            currentAdapter = null;
-            currentMarkwon = null;
         }
     }
 }
