@@ -37,6 +37,8 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.noties.markwon.utils.NoCopySpannableFactory;
+
 public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public enum MessageDisplayType {
         TYPE_NONE(-1),
@@ -348,6 +350,7 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         holder.tvMessage.clearContent();
         holder.tvMessage.setTypingEffectDisplayItem(item);
         holder.tvMessage.disableTypingEffectDisplay();
+        holder.tvMessage.setSpannableFactory(NoCopySpannableFactory.getInstance());
         if(item.showWithTypingEffect) {
             holder.tvMessage.enableTypingEffectDisplay();
         } else {
