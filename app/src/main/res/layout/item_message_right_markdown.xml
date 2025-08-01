@@ -1,49 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:padding="10dp">
+<layout xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <CheckBox
-        android:id="@+id/iv_select"
-        android:layout_marginHorizontal="8dp"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:visibility="gone"/>
+    <data>
+        <variable
+            name="data"
+            type="com.cosinetech.imates.models.ChatDisplayItem" />
+        <variable
+            name="message"
+            type="com.cosinetech.imates.models.ChatMessage" />
+        <variable
+            name="position"
+            type="int" />
+    </data>
 
-    <LinearLayout
-        android:id="@+id/message_container"
-        android:layout_width="wrap_content"
+    <RelativeLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="80dp"
-        android:layout_marginEnd="10dp"
-        android:layout_toStartOf="@id/iv_avatar"
-        android:background="@drawable/chat_ai_msg_self_bg"
-        android:padding="10dp"
-        android:orientation="vertical">
+        android:padding="10dp">
 
-        <!-- 原有的 TextView 用于打字效果 -->
-        <com.cosinetech.imates.views.MarkdownTextView
-            android:id="@+id/tv_message"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="#ffffff"
-            android:textIsSelectable="true"
+        <CheckBox
+            android:id="@+id/iv_select"
+            android:layout_marginHorizontal="8dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:visibility="gone"/>
 
-        <!-- 新增的 RecyclerView 用于 Markdown 渲染 -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recycler_view"
+        <LinearLayout
+            android:id="@+id/message_container"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:nestedScrollingEnabled="false" />
+            android:layout_marginStart="80dp"
+            android:layout_marginEnd="10dp"
+            android:layout_toStartOf="@id/iv_avatar"
+            android:background="@drawable/chat_ai_msg_self_bg"
+            android:padding="10dp"
+            android:orientation="vertical">
 
-    </LinearLayout>
+            <!-- 原有的 TextView 用于打字效果 -->
+            <com.cosinetech.imates.views.MarkdownTextView
+                android:id="@+id/tv_message"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#ffffff"
+                android:textIsSelectable="true"
+                android:visibility="gone"/>
 
-    <ImageView
-        android:id="@+id/iv_avatar"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_alignParentEnd="true"
-        android:src="@drawable/chat_ai_avatar_user" />
-</RelativeLayout> 
+            <!-- 新增的 RecyclerView 用于 Markdown 渲染 -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recycler_view"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false" />
+
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/iv_avatar"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_alignParentEnd="true"
+            android:src="@drawable/chat_ai_avatar_user" />
+    </RelativeLayout>
+
+</layout>
