@@ -11,34 +11,17 @@
         android:layout_height="40dp"
         android:visibility="gone"/>
 
-    <LinearLayout
-        android:id="@+id/message_container"
+    <com.cosinetech.imates.views.MarkdownTextView
+        android:id="@+id/tv_message"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="80dp"
         android:layout_marginEnd="10dp"
         android:layout_toStartOf="@id/iv_avatar"
         android:background="@drawable/chat_ai_msg_self_bg"
+        android:textColor="#ffffff"
         android:padding="10dp"
-        android:orientation="vertical">
-
-        <!-- 原有的 TextView 用于打字效果 -->
-        <com.cosinetech.imates.views.MarkdownTextView
-            android:id="@+id/tv_message"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="#ffffff"
-            android:textIsSelectable="true"
-            android:visibility="gone"/>
-
-        <!-- 新增的 RecyclerView 用于 Markdown 渲染 -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recycler_view"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:nestedScrollingEnabled="false" />
-
-    </LinearLayout>
+        android:textIsSelectable="true"/>
 
     <ImageView
         android:id="@+id/iv_avatar"
@@ -46,4 +29,4 @@
         android:layout_height="40dp"
         android:layout_alignParentEnd="true"
         android:src="@drawable/chat_ai_avatar_user" />
-</RelativeLayout> 
+</RelativeLayout>

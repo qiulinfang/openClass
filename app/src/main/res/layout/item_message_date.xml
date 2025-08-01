@@ -1,26 +1,9 @@
-<?xml version="1.0" encoding="utf-8"?>
-<layout xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <data>
-        <variable
-            name="data"
-            type="com.cosinetech.imates.models.ChatDisplayItem" />
-        <variable
-            name="message"
-            type="com.cosinetech.imates.models.ChatMessage" />
-        <variable
-            name="position"
-            type="int" />
-    </data>
-
-    <com.cosinetech.imates.views.MarkdownTextView
-        android:id="@+id/tv_date"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:padding="8dp"
-        android:text="@{message.content}"
-        android:textColor="#888888"
-        android:textSize="14sp" />
-
-</layout>
+<com.cosinetech.imates.views.MarkdownTextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/tv_date"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center"
+    android:padding="8dp"
+    android:text="YYYY-MM-DD HH:mm"
+    android:textColor="#888888"
+    android:textSize="14sp" />

@@ -128,6 +128,7 @@ public class ChatAiView extends RelativeLayout {
     private Context mContext;
     private AiChatMessageRequest mAiChatRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "", false);
     private AdapterAiChatMessageList mAdapterAiChatMessageList;
+    private final List<ChatDisplayItem> messageList = new ArrayList<>();
     private RecyclerView mMsgDetailListView;
     private SmartRefreshLayout mMsgRefreshLayout;
     private EditText mEditMsg;
@@ -342,7 +343,7 @@ public class ChatAiView extends RelativeLayout {
         mChatSessionListAdapter.setSelectedSessionId(mCurrentSession.sessionId);
         mAiChatRequest.setSessionId(mCurrentSession.sessionId);
         mChatSessionListAdapter.notifyDataSetChanged();
-        //mAdapterAiChatMessageList.notifyDataSetChanged();
+        mAdapterAiChatMessageList.notifyDataSetChanged();
     }
 
     public void resetCurrentCatalog(ChatMessageCatalogue catalogue) {
@@ -437,6 +438,11 @@ public class ChatAiView extends RelativeLayout {
 
                 // 通知适配器数据变化
                 settingsAdapter.notifyDataSetChanged();
+
+                // 显示选择的项目消息
+//                Toast.makeText(getContext(),
+//                        "Selected: " + settingsItems.get(position).getTitle(),
+//                        Toast.LENGTH_SHORT).show();
             }
 
             @Override
@@ -473,7 +479,7 @@ public class ChatAiView extends RelativeLayout {
                 mAskTeacherLayout.setVisibility(GONE);
                 mAdapterAiChatMessageList.setItemCanSelect(false);
             }
-            //mAdapterAiChatMessageList.notifyDataSetChanged();
+            mAdapterAiChatMessageList.notifyDataSetChanged();
         });
 
         mAskTeacherButton.setOnClickListener(v->{
@@ -519,7 +525,7 @@ public class ChatAiView extends RelativeLayout {
             }
 
             loadSelectedSessionMsg(mCurrentSession);
-            //mAdapterAiChatMessageList.notifyDataSetChanged();
+            mAdapterAiChatMessageList.notifyDataSetChanged();
         });
 
         mEditMsg.setOnFocusChangeListener((v, hasFocus) -> {
@@ -536,8 +542,7 @@ public class ChatAiView extends RelativeLayout {
         mMsgDetailListView.addItemDecoration(new RecyclerViewOverscrollDecoration());
         mMsgDetailListView.setClipToPadding(false);// disabling clip to padding is critical
 
-        mAdapterAiChatMessageList = new AdapterAiChatMessageList(getContext(), null, mMsgDetailListView);
-        //mAdapterAiChatMessageList.getItems().addAll(mAdapterAiChatMessageList.getItems());
+        mAdapterAiChatMessageList = new AdapterAiChatMessageList(getContext(), messageList, mMsgDetailListView);
         mMsgDetailListView.setAdapter(mAdapterAiChatMessageList);
 
         // Set up SmartRefreshLayout for pull-to-refresh
@@ -586,7 +591,7 @@ public class ChatAiView extends RelativeLayout {
 
                 editTextSearch.getText().clear();
                 mInSearchMode = false;
-                //mAdapterAiChatMessageList.getItems().clear();
+                messageList.clear();
                 loadHistoryMessages();
             }
         });
@@ -618,9 +623,9 @@ public class ChatAiView extends RelativeLayout {
                     Toast.makeText(mContext, "没有搜索到记录", Toast.LENGTH_LONG).show();
                 }
                 clearChatHistory();
-                mAdapterAiChatMessageList.getItems().clear();
-                mAdapterAiChatMessageList.getItems().addAll(convertChatDisplayList(msgs, true));
-                //mAdapterAiChatMessageList.notifyDataSetChanged();
+                messageList.clear();
+                messageList.addAll(convertChatDisplayList(msgs, true));
+                mAdapterAiChatMessageList.notifyDataSetChanged();
 
                 return true; // 表示我们已经处理了这个事件
             }
@@ -629,7 +634,7 @@ public class ChatAiView extends RelativeLayout {
 
 
         btnAddFavor.setOnClickListener(v->{
-            if(!mAdapterAiChatMessageList.getItems().isEmpty()) {
+            if(!messageList.isEmpty()) {
                 showAddMyFavorEditDialog();
             }
         });
@@ -646,13 +651,13 @@ public class ChatAiView extends RelativeLayout {
         if(mChatAiParam.showHistory) {
             List<ChatMessage> msgs = mChatDb.getChatMessageDetail(mCurrentSession.sessionId);
             if(msgs.size() > 2) {
-                mAdapterAiChatMessageList.getItems().addAll(convertChatDisplayList(msgs.subList(msgs.size() - 2, msgs.size()), true));
+                messageList.addAll(convertChatDisplayList(msgs.subList(msgs.size() - 2, msgs.size()), true));
             } else if(msgs.size() > 1) {
-                mAdapterAiChatMessageList.getItems().addAll(convertChatDisplayList(msgs.subList(msgs.size() - 1, msgs.size()), true));
+                messageList.addAll(convertChatDisplayList(msgs.subList(msgs.size() - 1, msgs.size()), true));
             }
-            if(!mAdapterAiChatMessageList.getItems().isEmpty()) {
-                //mAdapterAiChatMessageList.notifyDataSetChanged();
-                mMsgDetailListView.smoothScrollToPosition(mAdapterAiChatMessageList.getItems().size() - 1);
+            if(!messageList.isEmpty()) {
+                mAdapterAiChatMessageList.notifyDataSetChanged();
+                mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
             }
         }
 
@@ -689,9 +694,13 @@ public class ChatAiView extends RelativeLayout {
             }
         });
 
-        mKeyboardInputButton.setOnClickListener(v-> switchToKeyboardInput());
+        mKeyboardInputButton.setOnClickListener(v->{
+            switchToKeyboardInput();
+        });
 
-        mVoiceInputButton.setOnClickListener(v-> switchToVoiceInput());
+        mVoiceInputButton.setOnClickListener(v->{
+            switchToVoiceInput();
+        });
 
         mVoiceMessageButton.setOnTouchListener((v, event) -> {
             float x = event.getRawX();  // 触摸点相对屏幕的 X 坐标
@@ -794,6 +803,14 @@ public class ChatAiView extends RelativeLayout {
             resetCurrentSession(catalog, session);
             return true;
         });
+
+        // expandableListView.setOnGroupExpandListener(groupPosition -> {
+//            for (int i = 0; i < expandableListAdapter.getGroupCount(); i++) {
+//                if (groupPosition != i) {
+//                    expandableListView.collapseGroup(i);
+//                }
+//            }
+//        });
         mChatSessionListAdapter = new ChatExpandableListAdapter(mContext, expandableListView);
         expandableListView.setAdapter(mChatSessionListAdapter);
         mChatSessionListAdapter.setOnItemActionListener(new ChatExpandableListAdapter.OnItemActionListener() {
@@ -846,8 +863,8 @@ public class ChatAiView extends RelativeLayout {
                                 mChatDb.deleteMessageSession(session.sessionId);
                                 post(() -> {
                                     if (session.sessionId.equals(mCurrentSession.sessionId)) {
-                                        mAdapterAiChatMessageList.getItems().clear();
-                                        //mAdapterAiChatMessageList.notifyDataSetChanged();
+                                        messageList.clear();
+                                        mAdapterAiChatMessageList.notifyDataSetChanged();
                                     }
                                     resetCurrentSession(ChatMessageCatalogue.CATEGORY_DEFAULT_SYSTEM, ChatMessageSession.SESSION_DEFAULT_SYSTEM);
                                     loadData();
@@ -923,6 +940,11 @@ public class ChatAiView extends RelativeLayout {
         for (ChatRole role : settingRoles) {
             boolean isSelected = (role == selectedRole);
             boolean isEnabled = true; // 默认所有项目都启用
+
+            // 禁用研究员角色
+//            if (role == ChatRole.CHAT_ROLE_AI_RESEARCHER) {
+//                isEnabled = false;
+//            }
 
             settingsItems.add(new SettingsItem(role.getDisplayName(), role.getIconResId(), isSelected, isEnabled, role));
 
@@ -1077,7 +1099,7 @@ public class ChatAiView extends RelativeLayout {
                 .setView(input)
                 .setPositiveButton("确定", (dialog, which) -> {
                     String newName = input.getText().toString().trim();
-                    ArrayList<ChatDisplayItem> msgs = new ArrayList<>(mAdapterAiChatMessageList.getItems());
+                    ArrayList<ChatDisplayItem> msgs = new ArrayList<>(messageList);
                     if (!TextUtils.isEmpty(newName)) {
                         new Thread(() -> {
                             ChatMessageSession session = new ChatMessageSession(UUID.randomUUID().toString(),
@@ -1133,18 +1155,18 @@ public class ChatAiView extends RelativeLayout {
             List<ChatMessage> messages = mChatDb.getChatMessageDetail(session.sessionId);
             post(() -> {
                 Log.e("!!!!!!!!", "loadSelectedSessionMsg: " + session.sessionName);
-                mAdapterAiChatMessageList.getItems().clear();
-                mAdapterAiChatMessageList.getItems().addAll(convertChatDisplayList(messages, true));
-                //mAdapterAiChatMessageList.notifyDataSetChanged();
-                if(!mAdapterAiChatMessageList.getItems().isEmpty()) {
-                    mMsgDetailListView.scrollToPosition(mAdapterAiChatMessageList.getItems().size() - 1);
+                messageList.clear();
+                messageList.addAll(convertChatDisplayList(messages, true));
+                mAdapterAiChatMessageList.notifyDataSetChanged();
+                if(!messageList.isEmpty()) {
+                    mMsgDetailListView.scrollToPosition(messageList.size() - 1);
                 }
             });
         }).start();
     }
     public void clearChatHistory() {
-        mAdapterAiChatMessageList.getItems().clear();
-        //mAdapterAiChatMessageList.notifyDataSetChanged();
+        messageList.clear();
+        mAdapterAiChatMessageList.notifyDataSetChanged();
     }
 
     private List<ChatDisplayItem> convertChatDisplayList(List<ChatMessage> msgs, boolean isHistory) {
@@ -1205,7 +1227,7 @@ public class ChatAiView extends RelativeLayout {
                     if(mListener != null) {
                         mListener.onAiChatResponse(false);
                     }
-                    if(!mAdapterAiChatMessageList.getItems().isEmpty()) {
+                    if(!messageList.isEmpty()) {
                         mChatDb.addChatMessageDetail(mLastReceivingMsg);
                     }
                 }
@@ -1225,7 +1247,7 @@ public class ChatAiView extends RelativeLayout {
                 mCurrentSession.sessionId,
                 System.currentTimeMillis(),
                 selectedRole);
-        mAdapterAiChatMessageList.getItems().add(new ChatDisplayItem(message, !message.isSelf, getContext()));
+        messageList.add(new ChatDisplayItem(message, !message.isSelf, getContext()));
         mChatDb.addChatMessageDetail(message);
 
         mLastReceivingMsg = new ChatMessage("",
@@ -1236,12 +1258,12 @@ public class ChatAiView extends RelativeLayout {
                 selectedRole);
 
         // 注意： 从 mChatAiParam决定是否启用打字机效果显示
-        mAdapterAiChatMessageList.getItems().add(new ChatDisplayItem(mLastReceivingMsg, mChatAiParam.streamDisplay, getContext()));
+        messageList.add(new ChatDisplayItem(mLastReceivingMsg, mChatAiParam.streamDisplay, getContext()));
 
         // 一次性通知 Adapter 插入两条消息
-        //mAdapterAiChatMessageList.notifyItemRangeInserted(mAdapterAiChatMessageList.getItems().size() - 2, 2);
+        mAdapterAiChatMessageList.notifyItemRangeInserted(messageList.size() - 2, 2);
         // 滚动到最新位置
-        mMsgDetailListView.smoothScrollToPosition(mAdapterAiChatMessageList.getItems().size() - 1);
+        mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
 
         mAiChatRequest.setReason("start");
         mAiChatRequest.setCoversation(content);
@@ -1265,7 +1287,7 @@ public class ChatAiView extends RelativeLayout {
                     mCurrentSession.sessionId,
                     System.currentTimeMillis(),
                     ChatRole.CHAT_ROLE_MYSELF);
-            mAdapterAiChatMessageList.getItems().add(new ChatDisplayItem(message, !message.isSelf, getContext()));
+            messageList.add(new ChatDisplayItem(message, !message.isSelf, getContext()));
             mChatDb.addChatMessageDetail(message);
 
             if(!mo.getQuestion().isEmpty()) {
@@ -1292,11 +1314,11 @@ public class ChatAiView extends RelativeLayout {
                             System.currentTimeMillis(),
                             ChatRole.CHAT_ROLE_MYSELF);
                 }
-                mAdapterAiChatMessageList.getItems().add(new ChatDisplayItem(msg, false, getContext()));
+                messageList.add(new ChatDisplayItem(msg, false, getContext()));
                 mChatDb.addChatMessageDetail(msg);
             }
 
-            //mAdapterAiChatMessageList.notifyDataSetChanged();
+            mAdapterAiChatMessageList.notifyDataSetChanged();
             mEditMsg.setText("");
 
             mLastReceivingMsg = new ChatMessage(
@@ -1307,10 +1329,10 @@ public class ChatAiView extends RelativeLayout {
                     System.currentTimeMillis(),
                     selectedRole);
             // 注意： 从 mChatAiParam决定是否启用打字机效果显示
-            mAdapterAiChatMessageList.getItems().add(new ChatDisplayItem(mLastReceivingMsg, mChatAiParam.streamDisplay, getContext()));
-            //mAdapterAiChatMessageList.notifyItemInserted(mAdapterAiChatMessageList.getItems().size() - 1);
+            messageList.add(new ChatDisplayItem(mLastReceivingMsg, mChatAiParam.streamDisplay, getContext()));
+            mAdapterAiChatMessageList.notifyItemInserted(messageList.size() - 1);
 
-            mMsgDetailListView.smoothScrollToPosition(mAdapterAiChatMessageList.getItems().size() - 1);
+            mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
 
             mBtnSendText.setEnabled(false);
             pollChat();
@@ -1355,10 +1377,10 @@ public class ChatAiView extends RelativeLayout {
                 ChatRole.CHAT_ROLE_MYSELF);
         message.messageId = studentMsg.getMessageId();
 
-        mAdapterAiChatMessageList.getItems().add(new ChatDisplayItem(message, !message.isSelf, getContext()));
+        messageList.add(new ChatDisplayItem(message, !message.isSelf, getContext()));
         mChatDb.addChatMessageDetail(message);
-        //mAdapterAiChatMessageList.notifyDataSetChanged();
-        mMsgDetailListView.smoothScrollToPosition(mAdapterAiChatMessageList.getItems().size() - 1);
+        mAdapterAiChatMessageList.notifyDataSetChanged();
+        mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
     }
 
     public void sendTextMessageToTeacher(String content) {
@@ -1381,10 +1403,10 @@ public class ChatAiView extends RelativeLayout {
                 ChatRole.CHAT_ROLE_MYSELF);
         message.messageId = studentMsg.getMessageId();
 
-        mAdapterAiChatMessageList.getItems().add(new ChatDisplayItem(message, !message.isSelf, getContext()));
+        messageList.add(new ChatDisplayItem(message, !message.isSelf, getContext()));
         mChatDb.addChatMessageDetail(message);
-        //mAdapterAiChatMessageList.notifyDataSetChanged();
-        mMsgDetailListView.smoothScrollToPosition(mAdapterAiChatMessageList.getItems().size() - 1);
+        mAdapterAiChatMessageList.notifyDataSetChanged();
+        mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
     }
 
     public void sendHomeworkPicturesToTeacher(String pictures) {
@@ -1432,18 +1454,18 @@ public class ChatAiView extends RelativeLayout {
                 ChatRole.CHAT_ROLE_MYSELF);
         message.messageId = studentMsg.getMessageId();
 
-        mAdapterAiChatMessageList.getItems().add(new ChatDisplayItem(message, !message.isSelf, getContext()));
+        messageList.add(new ChatDisplayItem(message, !message.isSelf, getContext()));
         mChatDb.addChatMessageDetail(message);
-        //mAdapterAiChatMessageList.notifyDataSetChanged();
-        mMsgDetailListView.smoothScrollToPosition(mAdapterAiChatMessageList.getItems().size() - 1);
+        mAdapterAiChatMessageList.notifyDataSetChanged();
+        mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
     }
 
     public void onReceivedTeacherMessage(ChatMessage chatMessage) {
         if(chatMessage != null) {
             if(mCurrentSession.sessionId.equals(chatMessage.sessionId)) {
-                mAdapterAiChatMessageList.getItems().add(new ChatDisplayItem(chatMessage, false, getContext()));
-                //mAdapterAiChatMessageList.notifyDataSetChanged();
-                mMsgDetailListView.smoothScrollToPosition(mAdapterAiChatMessageList.getItems().size() - 1);
+                messageList.add(new ChatDisplayItem(chatMessage, false, getContext()));
+                mAdapterAiChatMessageList.notifyDataSetChanged();
+                mMsgDetailListView.smoothScrollToPosition(messageList.size() - 1);
             }
         }
     }
@@ -1470,16 +1492,16 @@ public class ChatAiView extends RelativeLayout {
         }
         List<ChatMessage> allMessage =  mChatDb.getChatMessageDetail(mCurrentSession.sessionId);
 
-        int curSize = mAdapterAiChatMessageList.getItems().size();
+        int curSize = messageList.size();
         int n = curSize + 2;
         if (allMessage.size() <= n) {
-            mAdapterAiChatMessageList.getItems().clear();
-            mAdapterAiChatMessageList.getItems().addAll(convertChatDisplayList(allMessage, true));
+            messageList.clear();
+            messageList.addAll(convertChatDisplayList(allMessage, true));
         } else {
-            mAdapterAiChatMessageList.getItems().clear();
-            mAdapterAiChatMessageList.getItems().addAll(convertChatDisplayList(allMessage.subList(allMessage.size() - n, allMessage.size()), true));
+            messageList.clear();
+            messageList.addAll(convertChatDisplayList(allMessage.subList(allMessage.size() - n, allMessage.size()), true));
         }
-        //mAdapterAiChatMessageList.notifyDataSetChanged();
+        mAdapterAiChatMessageList.notifyDataSetChanged();
         mMsgDetailListView.smoothScrollToPosition(0);
     }
 

@@ -1,67 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:padding="10dp">
 
-    <data>
-        <variable
-            name="data"
-            type="com.cosinetech.imates.models.ChatDisplayItem" />
-        <variable
-            name="message"
-            type="com.cosinetech.imates.models.ChatMessage" />
-        <variable
-            name="position"
-            type="int" />
-    </data>
+    <CheckBox
+        android:id="@+id/iv_select"
+        android:layout_marginHorizontal="8dp"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:visibility="gone"/>
 
-    <RelativeLayout
-        android:layout_width="match_parent"
+    <LinearLayout
+        android:id="@+id/voice_layout"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginEnd="10dp"
+        android:layout_toStartOf="@id/iv_avatar"
+        android:background="@drawable/chat_ai_msg_self_bg"
         android:padding="10dp">
 
-        <CheckBox
-            android:id="@+id/iv_select"
-            android:layout_marginHorizontal="8dp"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:visibility="gone"/>
+        <com.airbnb.lottie.LottieAnimationView
+            android:id="@+id/iv_voice_icon"
+            android:layout_width="48dp"
+            android:layout_height="24dp"
+            app:lottie_fileName="AnimationAudioPlaying.lottie"
+            app:lottie_autoPlay="false"
+            app:lottie_loop="true"
+            android:layout_gravity="center"
+            android:padding="0dp"
+            android:scaleType="centerCrop"/>
 
-        <LinearLayout
-            android:id="@+id/voice_layout"
+        <TextView
+            android:id="@+id/tv_voice_length"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="10dp"
-            android:layout_toStartOf="@id/iv_avatar"
-            android:background="@drawable/chat_ai_msg_self_bg"
-            android:padding="10dp">
+            android:text="10"
+            android:layout_marginStart="10dp"
+            android:layout_gravity="center_vertical"
+            android:textColor="#ffffff" />
+    </LinearLayout>
 
-            <com.airbnb.lottie.LottieAnimationView
-                android:id="@+id/iv_voice_icon"
-                android:layout_width="48dp"
-                android:layout_height="24dp"
-                app:lottie_fileName="AnimationAudioPlaying.lottie"
-                app:lottie_autoPlay="false"
-                app:lottie_loop="true"
-                android:layout_gravity="center"
-                android:padding="0dp"
-                android:scaleType="centerCrop"/>
-
-            <TextView
-                android:id="@+id/tv_voice_length"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="10"
-                android:layout_marginStart="10dp"
-                android:layout_gravity="center_vertical"
-                android:textColor="#ffffff" />
-        </LinearLayout>
-
-        <ImageView
-            android:id="@+id/iv_avatar"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_alignParentEnd="true"
-            android:src="@drawable/chat_ai_avatar_user" />
-    </RelativeLayout>
-
-</layout>
+    <ImageView
+        android:id="@+id/iv_avatar"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_alignParentEnd="true"
+        android:src="@drawable/chat_ai_avatar_user" />
+</RelativeLayout>

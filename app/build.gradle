@@ -147,33 +147,33 @@ dependencies {
     implementation libs.refresh.footer.classics // 经典 Footer
 
     // ======== markdown dependencies ========
-    implementation 'io.noties.markwon:core:4.6.2'
-    implementation 'io.noties.markwon:html:4.6.2'
-    implementation 'io.noties.markwon:ext-tables:4.6.2'
-    implementation 'io.noties.markwon:image:4.6.2'
-    implementation 'io.noties.markwon:image-glide:4.6.2'
-    implementation 'io.noties.markwon:recycler-table:4.6.2'
-//    implementation 'io.noties.markwon:syntax-highlight:4.6.2'
-    implementation 'io.noties.markwon:ext-latex:4.6.2'
-    implementation 'io.noties.markwon:recycler:4.6.2'
-    implementation 'io.noties.markwon:recycler-table:4.6.2'
-    implementation 'io.noties.markwon:ext-strikethrough:4.6.2'
-    implementation 'io.noties.markwon:ext-tasklist:4.6.2'
-////// ====== local version
-//    implementation libs.commonmark
-//    implementation libs.commonmark.parent
-//    implementation 'com.atlassian.commonmark:commonmark-ext-gfm-tables:0.13.0'
-//    implementation libs.jlatexmath.android
-//    implementation libs.jlatexmath.android.font.cyrillic
-//    implementation libs.jlatexmath.android.font.greek
-//    implementation files('libs/markwon-core.aar')
-//    implementation files('libs/markwon-html.aar')
-//    implementation files('libs/markwon-ext-tables.aar')
-//    implementation files('libs/markwon-image.aar')
-//    implementation files('libs/markwon-image-glide.aar')
-//    implementation files('libs/markwon-inline-parser.aar')
-//    implementation files('libs/markwon-syntax-highlight.aar')
-//    implementation files('libs/markwon-ext-latex.aar')
+//    implementation 'io.noties.markwon:core:4.6.2'
+//    implementation 'io.noties.markwon:html:4.6.2'
+//    implementation 'io.noties.markwon:ext-tables:4.6.2'
+//    implementation 'io.noties.markwon:image:4.6.2'
+//    implementation 'io.noties.markwon:image-glide:4.6.2'
+//    implementation 'io.noties.markwon:recycler-table:4.6.2'
+////    implementation 'io.noties.markwon:syntax-highlight:4.6.2'
+//    implementation 'io.noties.markwon:ext-latex:4.6.2'
+//    implementation 'io.noties.markwon:recycler:4.6.2'
+//    implementation 'io.noties.markwon:recycler-table:4.6.2'
+//    implementation 'io.noties.markwon:ext-strikethrough:4.6.2'
+//    implementation 'io.noties.markwon:ext-tasklist:4.6.2'
+//// ====== local version
+    implementation libs.commonmark
+    implementation libs.commonmark.parent
+    implementation 'com.atlassian.commonmark:commonmark-ext-gfm-tables:0.13.0'
+    implementation libs.jlatexmath.android
+    implementation libs.jlatexmath.android.font.cyrillic
+    implementation libs.jlatexmath.android.font.greek
+    implementation files('libs/markwon-core.aar')
+    implementation files('libs/markwon-html.aar')
+    implementation files('libs/markwon-ext-tables.aar')
+    implementation files('libs/markwon-image.aar')
+    implementation files('libs/markwon-image-glide.aar')
+    implementation files('libs/markwon-inline-parser.aar')
+    implementation files('libs/markwon-syntax-highlight.aar')
+    implementation files('libs/markwon-ext-latex.aar')
 
 //    implementation files('libs/markwon-recycler.aar')
 //    implementation files('libs/markwon-recycler-table.aar')
