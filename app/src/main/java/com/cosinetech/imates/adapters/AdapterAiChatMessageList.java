@@ -228,7 +228,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                     @Override
                     public void onContentUpdate(String content) {
                         adapter.setMarkdown(markwon, content);
-                        recyclerView.post(() -> adapter.notifyDataSetChanged());
+                        adapter.notifyDataSetChanged();//recyclerView.post(() -> );
 
                         // 滚动到底部
                         if (mRecyclerView != null) {
