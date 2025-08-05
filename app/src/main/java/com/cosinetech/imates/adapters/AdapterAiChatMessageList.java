@@ -1,21 +1,18 @@
 package com.cosinetech.imates.adapters;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
-import android.media.MediaPlayer;
 import android.net.Uri;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
-import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.core.content.FileProvider;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.airbnb.lottie.LottieAnimationView;
@@ -23,32 +20,53 @@ import com.bumptech.glide.Glide;
 import com.cosinetech.imates.activities.ImageViewerActivity;
 import com.cosinetech.imates.audio.AudioPlayManager;
 import com.cosinetech.imates.audio.IAudioPlayListener;
+import com.cosinetech.imates.databinding.ItemMessageDateBinding;
+import com.cosinetech.imates.databinding.ItemMessageImageLeftBinding;
+import com.cosinetech.imates.databinding.ItemMessageImageRightBinding;
+import com.cosinetech.imates.databinding.ItemMessageLeftMarkdownBinding;
+import com.cosinetech.imates.databinding.ItemMessageRightMarkdownBinding;
+import com.cosinetech.imates.databinding.ItemMessageVoiceLeftBinding;
+import com.cosinetech.imates.databinding.ItemMessageVoiceRightBinding;
 import com.cosinetech.imates.models.ChatDisplayItem;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.util.VoiceDbUtil;
 import com.cosinetech.imates.views.ChatAiView;
-import com.cosinetech.imates.views.MarkdownTextView;
 
-import org.w3c.dom.Text;
+import io.noties.markwon.AbstractMarkwonPlugin;
+import io.noties.markwon.Markwon;
+import io.noties.markwon.MarkwonConfiguration;
+import io.noties.markwon.MarkwonVisitor;
+import io.noties.markwon.ext.latex.JLatexMathPlugin;
+import io.noties.markwon.ext.strikethrough.StrikethroughPlugin;
+import io.noties.markwon.ext.tasklist.TaskListPlugin;
+import io.noties.markwon.html.HtmlPlugin;
+import io.noties.markwon.image.ImagesPlugin;
+import io.noties.markwon.image.glide.GlideImagesPlugin;
+import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin;
+import io.noties.markwon.recycler.MarkwonAdapter;
+import io.noties.markwon.recycler.SimpleEntry;
+import io.noties.markwon.recycler.table.TableEntry;
+import io.noties.markwon.recycler.table.TableEntryPlugin;
 
-import java.io.File;
+import org.commonmark.ext.gfm.tables.TableBlock;
+import org.commonmark.node.FencedCodeBlock;
+
 import java.util.ArrayList;
 import java.util.List;
 
-import io.noties.markwon.utils.NoCopySpannableFactory;
+public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem, androidx.databinding.ViewDataBinding> {
 
-public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public enum MessageDisplayType {
         TYPE_NONE(-1),
         TYPE_DATE(0),
-        TYPE_TEXT_LEFT(1),
-        TYPE_TEXT_RIGHT(2),
         TYPE_IMAGE_LEFT(3),
         TYPE_IMAGE_RIGHT(4),
         TYPE_VOICE_LEFT(5),
-        TYPE_VOICE_RIGHT(6);
+        TYPE_VOICE_RIGHT(6),
+        TYPE_TEXT_LEFT_MARKDOWN(7),
+        TYPE_TEXT_RIGHT_MARKDOWN(8);
 
         private final int value;
 
@@ -70,67 +88,46 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         }
     }
 
-    private final List<ChatDisplayItem> mMsgList;
-
     private boolean mItemCanSelect = false;
-
     private int mAudioPlayingItemIndex = -1;
-
-    private final Context mContext;
     private final RecyclerView mRecyclerView;
 
-    public AdapterAiChatMessageList(Context context, List<ChatDisplayItem> mMsgList, RecyclerView view) {
-        this.mMsgList = mMsgList; //groupMessagesWithDate(messageList);
-        this.mContext = context;
+    public AdapterAiChatMessageList(Context context, List<ChatDisplayItem> msgList, RecyclerView view) {
+        super(context);
         this.mRecyclerView = view;
+        if (msgList != null) {
+            this.items.addAll(msgList);
+        }
     }
-
-//    private List<ChatDisplayItem> groupMessagesWithDate(List<ChatDisplayItem> messages) {
-//        List<ChatDisplayItem> groupedMessages = new ArrayList<>();
-//        long lastTimestamp = 0;
-//
-//        for (ChatDisplayItem message : messages) {
-//            if (message.type != ChatMessage.TYPE_DATE && message.timestamp - lastTimestamp > 5 * 60 * 1000) {
-//                groupedMessages.add(new ChatMessage(new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date(message.timestamp)),
-//                        false,
-//                        ChatMessage.TYPE_DATE,
-//                        true,
-//                        message.sessionId,
-//                        message.catalogId,
-//                        message.timestamp
-//                ));
-//                lastTimestamp = message.timestamp;
-//            }
-//            groupedMessages.add(message);
-//        }
-//        return groupedMessages;
-//    }
 
     public void setItemCanSelect(boolean canSelect) {
         mItemCanSelect = canSelect;
     }
 
     public List<ChatDisplayItem> getSelectedItem() {
-        List<ChatDisplayItem> items = new ArrayList<>();
-        for(ChatDisplayItem item: mMsgList) {
-            if(item.isSelected) {
-                items.add(item);
+        List<ChatDisplayItem> selectedItems = new ArrayList<>();
+        for (ChatDisplayItem item : items) {
+            if (item.isSelected) {
+                selectedItems.add(item);
             }
         }
-        return items;
+        return selectedItems;
     }
 
     @Override
     public int getItemViewType(int position) {
-        ChatDisplayItem item = mMsgList.get(position);
+        ChatDisplayItem item = items.get(position);
         ChatMessage message = item.chatMessage;
+
         if (message.type == ChatMessage.MessageType.DATE) {
             return MessageDisplayType.TYPE_DATE.getValue();
         }
         if (message.type == ChatMessage.MessageType.TEXT) {
-            return message.isSelf ?
-                    MessageDisplayType.TYPE_TEXT_RIGHT.value :
-                    MessageDisplayType.TYPE_TEXT_LEFT.getValue();
+            if (message.isSelf) {
+                return MessageDisplayType.TYPE_TEXT_RIGHT_MARKDOWN.getValue();
+            } else {
+                return MessageDisplayType.TYPE_TEXT_LEFT_MARKDOWN.getValue();
+            }
         }
         if (message.type == ChatMessage.MessageType.IMAGE) {
             return message.isSelf ?
@@ -139,330 +136,253 @@ public class AdapterAiChatMessageList extends RecyclerView.Adapter<RecyclerView.
         }
         if (message.type == ChatMessage.MessageType.VOICE) {
             return message.isSelf ?
-                    MessageDisplayType.TYPE_VOICE_RIGHT.getValue():
+                    MessageDisplayType.TYPE_VOICE_RIGHT.getValue() :
                     MessageDisplayType.TYPE_VOICE_LEFT.getValue();
         }
         return MessageDisplayType.TYPE_NONE.getValue();
     }
 
-    @NonNull
     @Override
-    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType0) {
-        Log.e("================",  "Create View Holder" );
-        View view;
-        MessageDisplayType type = MessageDisplayType.fromValue(viewType0);
+    protected int getLayoutResId(int viewType) {
+        MessageDisplayType type = MessageDisplayType.fromValue(viewType);
         switch (type) {
             case TYPE_DATE:
-                view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_message_date, parent, false);
-                return new DateViewHolder(view);
-            case TYPE_TEXT_LEFT:
-            case TYPE_TEXT_RIGHT:
-                view = LayoutInflater.from(parent.getContext()).inflate(
-                        type == MessageDisplayType.TYPE_TEXT_LEFT ?
-                                R.layout.item_message_left :
-                                R.layout.item_message_right,
-                        parent,
-                        false
-                );
-                return new TextViewHolder(view);
+                return R.layout.item_message_date;
+            case TYPE_TEXT_LEFT_MARKDOWN:
+                return R.layout.item_message_left_markdown;
+            case TYPE_TEXT_RIGHT_MARKDOWN:
+                return R.layout.item_message_right_markdown;
             case TYPE_IMAGE_LEFT:
+                return R.layout.item_message_image_left;
             case TYPE_IMAGE_RIGHT:
-                view = LayoutInflater.from(parent.getContext()).inflate(
-                        type == MessageDisplayType.TYPE_IMAGE_LEFT ?
-                                R.layout.item_message_image_left :
-                                R.layout.item_message_image_right,
-                        parent,
-                        false
-                );
-                return new ImageViewHolder(view);
+                return R.layout.item_message_image_right;
             case TYPE_VOICE_LEFT:
+                return R.layout.item_message_voice_left;
             case TYPE_VOICE_RIGHT:
-                view = LayoutInflater.from(parent.getContext()).inflate(
-                        type == MessageDisplayType.TYPE_VOICE_LEFT ?
-                                R.layout.item_message_voice_left :
-                                R.layout.item_message_voice_right,
-                        parent,
-                        false
-                );
-                return new VoiceViewHolder(view);
+                return R.layout.item_message_voice_right;
+            default:
+                return R.layout.item_message_date; // fallback
         }
-        return null;
     }
 
     @Override
-    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int pos) {
-        ChatDisplayItem item = mMsgList.get(pos);
+    protected void onBindItem(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item, int position) {
         ChatMessage message = item.chatMessage;
+        MessageDisplayType type = MessageDisplayType.fromValue(getItemViewType(position));
 
-        if (holder instanceof DateViewHolder) {
-            ((DateViewHolder) holder).tvDate.setText(message.content);
-        } else if (holder instanceof TextViewHolder) {
-            bindTextViewHolder((TextViewHolder) holder, item, message);
-        } else if (holder instanceof ImageViewHolder) {
-            bindImageViewHolder((ImageViewHolder) holder, message, item);
-        } else if (holder instanceof VoiceViewHolder) {
-            bindVoiceViewHolder((VoiceViewHolder) holder, pos, message, item);
+        // Set common data for all binding types
+        binding.setVariable(com.cosinetech.imates.BR.data, item);
+        binding.setVariable(com.cosinetech.imates.BR.message, message);
+        binding.setVariable(com.cosinetech.imates.BR.position, position);
+
+        switch (type) {
+            case TYPE_DATE:
+                bindDateItem((ItemMessageDateBinding) binding, message);
+                break;
+            case TYPE_TEXT_LEFT_MARKDOWN:
+                bindMarkdownItem(binding, item, message, position);
+                break;
+            case TYPE_TEXT_RIGHT_MARKDOWN:
+                bindMarkdownItem(binding, item, message, position);
+                break;
+            case TYPE_IMAGE_LEFT:
+                bindImageItem(binding, item, message);
+                break;
+            case TYPE_IMAGE_RIGHT:
+                bindImageItem(binding, item, message);
+                break;
+            case TYPE_VOICE_LEFT:
+                bindVoiceItem(binding, item, message, position);
+                break;
+            case TYPE_VOICE_RIGHT:
+                bindVoiceItem(binding, item, message, position);
+                break;
         }
+
+        binding.executePendingBindings();
     }
 
-    @Override
-    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int pos, @NonNull List<Object> payloads) {
-        if (!payloads.isEmpty()) {
-            // 仅更新 TextView 内容，避免重新布局
-            ChatDisplayItem item = mMsgList.get(pos);
-            //ChatMessage message = item.chatMessage;
-            for (Object payload : payloads) {
-                if (payload instanceof Boolean) {
-                    boolean showTypingEffect = (Boolean) payload;
-                    TextViewHolder viewHolder = (TextViewHolder) holder;
-                    viewHolder.tvMessage.setTypingEffectDisplayItem(item);
-                    viewHolder.tvMessage.disableTypingEffectDisplay();
-                    if (showTypingEffect) {
-                        viewHolder.tvMessage.enableTypingEffectDisplay();
-                    } else {
-                        viewHolder.tvMessage.setContent(mMsgList.get(pos).chatMessage.content);
-                    }
-                    return; // 只处理 payload，避免完整绑定
-                }
-            }
-        }
-        super.onBindViewHolder(holder, pos, payloads); // 默认情况走完整绑定
+    private void bindDateItem(ItemMessageDateBinding binding, ChatMessage message) {
+        // 日期已经通过 Data Binding 自动设置了
+        // android:text="@{message.content}" 在布局文件中
     }
 
-    private void bindVoiceViewHolder(VoiceViewHolder holder, int pos, ChatMessage message, ChatDisplayItem item) {
-        VoiceDbUtil.VoiceDbItem vi = VoiceDbUtil.extractDbVoiceContent(message.content);
+    private void bindMarkdownItem(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item, ChatMessage message, int position) {
+        // 设置选择状态和头像
+        setSelectionState(binding, item);
+        setAvatarImage(binding, item);
+        Log.e("bindMarkdownItem", "bindMarkdownItem!!!");
+        // 获取 Markwon 和 MarkwonAdapter 实例
+        final Markwon markwon = item.getMarkwon();
+        final MarkwonAdapter adapter = item.getMarkwonAdapter();
 
-        // 计算 voice_layout 的宽度
-        int baseWidth = ScreenUtils.dpToPx(mContext, 100); // 基准宽度
-        int minWidth = ScreenUtils.dpToPx(mContext, 100);   // 最小宽度
-        int maxWidth = ScreenUtils.dpToPx(mContext, 600);  // 最大宽度
-        int calculatedWidth = baseWidth + (vi.duration * ScreenUtils.dpToPx(mContext, 5)); // 根据语音时长调整宽度
+        // 获取 RecyclerView
+        RecyclerView recyclerView = binding.getRoot().findViewById(R.id.recycler_view);
+        if (recyclerView != null) {
+            recyclerView.setLayoutManager(new LinearLayoutManager(context));
+            recyclerView.setAdapter(adapter);
 
-        // 限制宽度在 minWidth 和 maxWidth 之间
-        calculatedWidth = Math.min(Math.max(calculatedWidth, minWidth), maxWidth);
-
-        // 设置 voice_layout 的宽度
-        ViewGroup.LayoutParams params = holder.ivLayout.getLayoutParams();
-        params.width = calculatedWidth;
-        holder.ivLayout.setLayoutParams(params);
-
-        holder.tvVoiceLength.setText(vi.duration + "\"");
-        if (mAudioPlayingItemIndex == pos) {
-            holder.ivVoiceIcon.playAnimation();
-        } else {
-            holder.ivVoiceIcon.cancelAnimation();
-        }
-
-        holder.ivVoiceIcon.setOnClickListener(v -> {
-            if(mAudioPlayingItemIndex >= 0) {
-                notifyItemChanged(mAudioPlayingItemIndex);
-            }
-
-            if(mAudioPlayingItemIndex == pos) {
-                AudioPlayManager.getInstance().stopPlay();
-                notifyItemChanged(pos);
-            } else {
-                AudioPlayManager.getInstance().stopPlay();
-                AudioPlayManager.getInstance().startPlay(mContext, vi.voicePath, new IAudioPlayListener() {
+            // 处理打字效果或直接显示
+            if (item.shouldShowTypingEffect()) {
+                item.startTypingEffect(new ChatDisplayItem.TypingEffectCallback() {
                     @Override
-                    public void onStart(Uri var1) {
-                        mAudioPlayingItemIndex = pos;
-                        //开播（一般是开始语音消息动画）
+                    public void onContentUpdate(String content) {
+                        adapter.setMarkdown(markwon, content);
+                        adapter.notifyDataSetChanged();//recyclerView.post(() -> );
+
+                        // 滚动到底部
+                        if (mRecyclerView != null) {
+                            mRecyclerView.scrollToPosition(items.size() - 1);
+                        }
                     }
 
                     @Override
-                    public void onStop(Uri var1) {
-                        mAudioPlayingItemIndex = -1;
-                        notifyItemChanged(pos);
-                    }
-
-                    @Override
-                    public void onComplete(Uri var1) {
-                        //播完（一般是停止语音消息动画）
-                        mAudioPlayingItemIndex = -1;
-                        notifyItemChanged(pos);
+                    public void onTypingComplete(String content) {
+                        adapter.setMarkdown(markwon, content);
+                        Log.d("TypingEffect", "Typing effect completed");
                     }
                 });
-                notifyItemChanged(pos);
+            } else {
+                // 直接显示完整内容，参考 VoiceListAdapter 的方式
+                adapter.setMarkdown(markwon, message.content);
             }
-        });
+        }
+    }
 
-        holder.tvSelected.setChecked(false);
-        if (mItemCanSelect) {
-            holder.tvSelected.setVisibility(View.VISIBLE);
-        } else {
-            holder.tvSelected.setVisibility(View.GONE);
+    private void bindImageItem(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item, ChatMessage message) {
+        setSelectionState(binding, item);
+        setAvatarImage(binding, item);
+
+        // 获取 ImageView 并加载图片
+        ImageView imageView = binding.getRoot().findViewById(R.id.iv_message_image);
+        if (imageView != null) {
+            Glide.with(context)
+                    .load(message.content)
+                    .into(imageView);
+
+            imageView.setOnClickListener(v -> {
+                Intent intent = new Intent(context, ImageViewerActivity.class);
+                intent.putExtra("image_path", message.content);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(intent);
+            });
+        }
+    }
+
+    @SuppressLint("SetTextI18n")
+    private void bindVoiceItem(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item, ChatMessage message, int position) {
+        setSelectionState(binding, item);
+        setAvatarImage(binding, item);
+
+        VoiceDbUtil.VoiceDbItem vi = VoiceDbUtil.extractDbVoiceContent(message.content);
+
+        // 获取控件
+        View voiceLayout = binding.getRoot().findViewById(R.id.voice_layout);
+        TextView tvVoiceLength = binding.getRoot().findViewById(R.id.tv_voice_length);
+        LottieAnimationView ivVoiceIcon = binding.getRoot().findViewById(R.id.iv_voice_icon);
+
+        if (voiceLayout != null && tvVoiceLength != null && ivVoiceIcon != null) {
+            // 计算语音布局宽度
+            int baseWidth = ScreenUtils.dpToPx(context, 100);
+            int minWidth = ScreenUtils.dpToPx(context, 100);
+            int maxWidth = ScreenUtils.dpToPx(context, 600);
+            int calculatedWidth = baseWidth + (vi.duration * ScreenUtils.dpToPx(context, 5));
+            calculatedWidth = Math.min(Math.max(calculatedWidth, minWidth), maxWidth);
+
+            ViewGroup.LayoutParams params = voiceLayout.getLayoutParams();
+            params.width = calculatedWidth;
+            voiceLayout.setLayoutParams(params);
+
+            tvVoiceLength.setText(vi.duration + "\"");
+
+            // 处理动画状态
+            if (mAudioPlayingItemIndex == position) {
+                ivVoiceIcon.playAnimation();
+            } else {
+                ivVoiceIcon.cancelAnimation();
+            }
+
+            // 设置点击监听器
+            ivVoiceIcon.setOnClickListener(v -> handleVoiceClick(position, vi.voicePath));
+        }
+    }
+
+    private void handleVoiceClick(int position, String voicePath) {
+        if (mAudioPlayingItemIndex >= 0) {
+            notifyItemChanged(mAudioPlayingItemIndex);
         }
 
-        holder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            item.isSelected = isChecked;
-        });
-
-        if(item.chatMessage.isSelf) {
-            holder.ivAvastar.setImageResource(R.drawable.chat_ai_avatar_user);
+        if (mAudioPlayingItemIndex == position) {
+            AudioPlayManager.getInstance().stopPlay();
+            notifyItemChanged(position);
         } else {
-            for (ChatAiView.ChatRole role : ChatAiView.ChatRole.values()) {
-                if(item.chatMessage.role == role.ordinal()) {
-                    holder.ivAvastar.setImageResource(role.getIconResId());
-                    break;
+            AudioPlayManager.getInstance().stopPlay();
+            AudioPlayManager.getInstance().startPlay(context, voicePath, new IAudioPlayListener() {
+                @Override
+                public void onStart(Uri var1) {
+                    mAudioPlayingItemIndex = position;
+                }
+
+                @Override
+                public void onStop(Uri var1) {
+                    mAudioPlayingItemIndex = -1;
+                    notifyItemChanged(position);
+                }
+
+                @Override
+                public void onComplete(Uri var1) {
+                    mAudioPlayingItemIndex = -1;
+                    notifyItemChanged(position);
+                }
+            });
+            notifyItemChanged(position);
+        }
+    }
+
+    private void setSelectionState(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item) {
+        CheckBox checkBox = binding.getRoot().findViewById(R.id.iv_select);
+        if (checkBox != null) {
+            checkBox.setChecked(item.isSelected);
+            checkBox.setVisibility(mItemCanSelect ? View.VISIBLE : View.GONE);
+            checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> item.isSelected = isChecked);
+        }
+    }
+
+    private void setAvatarImage(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item) {
+        ImageView avatarView = binding.getRoot().findViewById(R.id.iv_avatar);
+        if (avatarView != null) {
+            if (item.chatMessage.isSelf) {
+                avatarView.setImageResource(R.drawable.chat_ai_avatar_user);
+            } else {
+                for (ChatAiView.ChatRole role : ChatAiView.ChatRole.values()) {
+                    if (item.chatMessage.role == role.ordinal()) {
+                        avatarView.setImageResource(role.getIconResId());
+                        break;
+                    }
                 }
             }
         }
-    }
-
-    private void bindImageViewHolder(ImageViewHolder holder, ChatMessage message, ChatDisplayItem item) {
-        Glide.with(holder.itemView.getContext())
-                .load(message.content)
-                .into(holder.ivMessageImage);
-
-        holder.ivMessageImage.setOnClickListener(v -> {
-            // content是图片的本地路径
-            Intent intent = new Intent(mContext, ImageViewerActivity.class);
-            intent.putExtra("image_path", message.content);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 添加 FLAG_ACTIVITY_NEW_TASK
-            mContext.startActivity(intent);
-        });
-
-        holder.tvSelected.setChecked(false);
-        if(mItemCanSelect) {
-            holder.tvSelected.setVisibility(View.VISIBLE);
-        } else {
-            holder.tvSelected.setVisibility(View.GONE);
-        }
-
-        holder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            item.isSelected = isChecked;
-        });
-
-        if(item.chatMessage.isSelf) {
-            holder.ivAvastar.setImageResource(R.drawable.chat_ai_avatar_user);
-        } else {
-            for (ChatAiView.ChatRole role : ChatAiView.ChatRole.values()) {
-                if(item.chatMessage.role == role.ordinal()) {
-                    holder.ivAvastar.setImageResource(role.getIconResId());
-                    break;
-                }
-            }
-        }
-    }
-
-    private void bindTextViewHolder(TextViewHolder holder, ChatDisplayItem item, ChatMessage message) {
-        holder.tvMessage.clearContent();
-        holder.tvMessage.setTypingEffectDisplayItem(item);
-        holder.tvMessage.disableTypingEffectDisplay();
-        holder.tvMessage.setSpannableFactory(NoCopySpannableFactory.getInstance());
-        if(item.showWithTypingEffect) {
-            holder.tvMessage.enableTypingEffectDisplay();
-        } else {
-            holder.tvMessage.setContent(message.content);
-        }
-
-        holder.tvSelected.setChecked(false);
-        if(mItemCanSelect) {
-            holder.tvSelected.setVisibility(View.VISIBLE);
-        } else {
-            holder.tvSelected.setVisibility(View.GONE);
-        }
-        holder.tvSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            item.isSelected = isChecked;
-        });
-
-        if(item.chatMessage.isSelf) {
-            holder.ivAvastar.setImageResource(R.drawable.chat_ai_avatar_user);
-        } else {
-            for (ChatAiView.ChatRole role : ChatAiView.ChatRole.values()) {
-                if(item.chatMessage.role == role.ordinal()) {
-                    holder.ivAvastar.setImageResource(role.getIconResId());
-                    break;
-                }
-            }
-        }
-    }
-
-    @Override
-    public void onViewAttachedToWindow(@NonNull RecyclerView.ViewHolder holder) {
-        super.onViewAttachedToWindow(holder);
-        if (holder instanceof TextViewHolder) {
-            ((TextViewHolder) holder).tvMessage.setEnabled(false);
-            ((TextViewHolder) holder).tvMessage.setEnabled(true);
-            ((TextViewHolder) holder).tvMessage.setTextIsSelectable(true);
-            ((TextViewHolder) holder).tvMessage.setFocusableInTouchMode(true);
-        }
-    }
-
-    @Override
-    public int getItemCount() {
-        return mMsgList.size();
     }
 
     public void updateReceivingMessage(String msgId, boolean showWithTypingEffect, boolean msgIsFinished) {
-       for(int i = mMsgList.size() - 1; i >= 0; i--) {
-           if(mMsgList.get(i).chatMessage.messageId.equals(msgId)) {
-               ChatDisplayItem displayMsg = mMsgList.get(i);
-               displayMsg.showWithTypingEffect = showWithTypingEffect;
-               displayMsg.msgIsFinished = msgIsFinished;
-               notifyItemChanged(i, showWithTypingEffect);
-               break;
-           }
-       }
-    }
+        for (int i = items.size() - 1; i >= 0; i--) {
+            if (items.get(i).chatMessage.messageId.equals(msgId)) {
+                ChatDisplayItem displayMsg = items.get(i);
+                displayMsg.showWithTypingEffect = showWithTypingEffect;
+                displayMsg.msgIsFinished = msgIsFinished;
 
-    static class DateViewHolder extends RecyclerView.ViewHolder {
-        private final TextView tvDate;
-        public DateViewHolder(@NonNull View itemView) {
-            super(itemView);
-            tvDate = itemView.findViewById(R.id.tv_date);
-            tvDate.setText("");
+                notifyDataSetChanged();
+                break;
+            }
         }
     }
 
-    static class TextViewHolder extends RecyclerView.ViewHolder {
-        private final MarkdownTextView tvMessage;
-        private final CheckBox tvSelected;
-        private final ImageView ivAvastar;
-
-        public TextViewHolder(@NonNull View itemView) {
-            super(itemView);
-            tvMessage = itemView.findViewById(R.id.tv_message);
-            tvMessage.setTextIsSelectable(true);
-            tvMessage.clearContent();
-            tvSelected = itemView.findViewById(R.id.iv_select);
-            ivAvastar = itemView.findViewById(R.id.iv_avatar);
-        }
-        // 添加回收时清理的方法
-        public void cleanUp() {
-            tvMessage.disableTypingEffectDisplay();
-            tvMessage.clearContent();
-        }
-    }
-
-    static class ImageViewHolder extends RecyclerView.ViewHolder {
-        private final ImageView ivMessageImage;
-        private final CheckBox tvSelected;
-        private final ImageView ivAvastar;
-        public ImageViewHolder(@NonNull View itemView) {
-            super(itemView);
-            ivMessageImage = itemView.findViewById(R.id.iv_message_image);
-            ivMessageImage.setImageBitmap(null);
-            tvSelected = itemView.findViewById(R.id.iv_select);
-            ivAvastar = itemView.findViewById(R.id.iv_avatar);
-        }
-    }
-
-    static class VoiceViewHolder extends RecyclerView.ViewHolder {
-        private final LottieAnimationView ivVoiceIcon;
-        private final TextView tvVoiceLength;
-        private final CheckBox tvSelected;
-        private final View ivLayout;
-
-        private final ImageView ivAvastar;
-        public VoiceViewHolder(@NonNull View itemView) {
-            super(itemView);
-            ivVoiceIcon = itemView.findViewById(R.id.iv_voice_icon);
-            tvVoiceLength = itemView.findViewById(R.id.tv_voice_length);
-            tvSelected = itemView.findViewById(R.id.iv_select);
-            ivLayout = itemView.findViewById(R.id.voice_layout);
-            ivAvastar = itemView.findViewById(R.id.iv_avatar);
+    @Override
+    public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
+        super.onViewRecycled(holder);
+        // 清理资源
+        if (holder instanceof BaseBindingViewHolder) {
+            // 可以在这里添加清理逻辑
         }
     }
 }

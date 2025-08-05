@@ -23,6 +23,8 @@
         android:paddingRight="12dip"
         android:paddingBottom="6dip"
         android:textAppearance="?android:attr/textAppearanceMedium"
-        android:textSize="14sp" />
+        android:textSize="14sp"
+        android:focusable="true"
+        android:textIsSelectable="true"/>
 
 </androidx.appcompat.widget.LinearLayoutCompat> 
