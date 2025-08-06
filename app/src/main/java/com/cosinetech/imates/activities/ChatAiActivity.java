@@ -1,6 +1,6 @@
 package com.cosinetech.imates.activities;
 
-import static com.cosinetech.imates.activities.QuestionSolveActivity.createChatTeacherSession;
+import static com.cosinetech.imates.activities.ExerciseSolveActivity.createChatTeacherSession;
 
 import android.annotation.SuppressLint;
 import android.os.Bundle;
@@ -63,7 +63,7 @@ public class ChatAiActivity extends AppCompatActivity implements MessagingManage
         mChatView.registerPickImageForActivityResult(this);
         mChatView.registerRichInputBoardForActivityResult(this);
         // Set listener to be notified when screenshot is captured
-        mChatView.setOnPictureSelectedListener(mChatView::sendPictureToTeacher);
+        mChatView.setOnPictureSelectedListener(mChatView::sendPicture);
         mChatView.setRichInputFinishListener(resultString -> mChatView.sendTextContent(resultString));
 
         MessagingManager.getInstance().addMessageListener(this);
@@ -143,9 +143,7 @@ public class ChatAiActivity extends AppCompatActivity implements MessagingManage
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) {
-            WindowUtils.hideSystemUI(this);
-        }
+        WindowUtils.hideSystemUI(this);
     }
 
     @Override

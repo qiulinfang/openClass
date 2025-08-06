@@ -1,0 +1,18 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_my_profile"
+        android:icon="@drawable/app_my_profile"
+        android:title="我的" />
+    <item
+        android:id="@+id/nav_photo_search"
+        android:icon="@drawable/app_photo"
+        android:title="拍照答疑" />
+    <item
+        android:id="@+id/nav_textbook_knowledge"
+        android:icon="@drawable/app_knowledge"
+        android:title="知识图谱" />
+    <item
+        android:id="@+id/nav_exercise_list"
+        android:icon="@drawable/app_list"
+        android:title="习题列表" />
+</menu>

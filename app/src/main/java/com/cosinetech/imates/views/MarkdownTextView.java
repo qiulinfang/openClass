@@ -27,7 +27,7 @@ public class MarkdownTextView extends AppCompatTextView {
     private ChatDisplayItem mTypingEffectDisplayItem;
     private Markwon mMarkwon;
     private Handler mMainHandler;
-    private static final long UPDATE_DELAY = 100; // 延迟更新时间，单位毫秒
+    private static final long UPDATE_DELAY = 50; // 延迟更新时间，单位毫秒
     private boolean showWithTypingEffect;
 
     public MarkdownTextView(Context context) {
@@ -131,7 +131,7 @@ public class MarkdownTextView extends AppCompatTextView {
         mTypingEffectDisplayItem = msg;
     }
 
-    private String filterLatexString(String src) {
+    public static String filterLatexString(String src) {
         src += "   \n\f";
         return src.replace("\\(", "$")
                 .replace("\\)", "$") //行内公式
@@ -156,9 +156,11 @@ public class MarkdownTextView extends AppCompatTextView {
 
             if (mTypingEffectDisplayItem.currentDisplayCharIndex < mTypingEffectDisplayItem.chatMessage.content.length()) {
                 // 逐字拼接内容
-                //String displayContent = mTypingEffectDisplayItem.chatMessage.content.substring(0, ++mTypingEffectDisplayItem.currentDisplayCharIndex);
-                String displayContent = mTypingEffectDisplayItem.chatMessage.content;
-                mTypingEffectDisplayItem.currentDisplayCharIndex = mTypingEffectDisplayItem.chatMessage.content.length();
+                String displayContent = mTypingEffectDisplayItem.chatMessage.content.substring(0, ++mTypingEffectDisplayItem.currentDisplayCharIndex);
+
+//                String displayContent = mTypingEffectDisplayItem.chatMessage.content;
+//                mTypingEffectDisplayItem.currentDisplayCharIndex = mTypingEffectDisplayItem.chatMessage.content.length();
+
                 setContent(displayContent);
                 if(mTypingEffectDisplayItem.currentDisplayCharIndex < mTypingEffectDisplayItem.chatMessage.content.length()) {
                     mMainHandler.postDelayed(this, UPDATE_DELAY); // 每 100ms 更新一次

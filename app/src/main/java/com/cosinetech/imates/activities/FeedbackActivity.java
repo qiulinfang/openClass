@@ -11,6 +11,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Toast;
 
 import com.cosinetech.imates.ApplicationModelShared;
@@ -18,10 +19,14 @@ import com.cosinetech.imates.OkHttpTicketCreator;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.databinding.ActivityFeedbackBinding;
 import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.util.AppUtils;
+import com.cosinetech.imates.util.SimpleImageCompressor;
 import com.cosinetech.imates.util.WindowUtils;
 
 import java.io.File;
+import java.util.UUID;
 
+import gun0912.tedimagepicker.builder.TedImagePicker;
 import me.minetsh.imaging.IMGEditActivity;
 
 /**
@@ -81,7 +86,6 @@ public class FeedbackActivity extends AppCompatActivity {
             ((ApplicationModelShared)getApplication()).getFloatingWindowService().showRobot();
         });
 
-
         mFeedbackImagePath = getIntent().getStringExtra(KEY_FEEDBACK_IMAGE);
         if(mFeedbackImagePath != null && new File(mFeedbackImagePath).exists()) {
             binding.feedImage.setImageURI(Uri.fromFile(new File(mFeedbackImagePath)));
@@ -92,6 +96,34 @@ public class FeedbackActivity extends AppCompatActivity {
                    .putExtra(IMGEditActivity.EXTRA_IMAGE_URI, Uri.fromFile(new File(mFeedbackImagePath)))
                     .putExtra(IMGEditActivity.EXTRA_IMAGE_SAVE_PATH, mFeedbackImagePath),
             REQ_IMAGE_EDIT);
+        });
+
+        binding.uploadImageButton.setOnClickListener(v->{
+            TedImagePicker.with(this)
+                    .startMultiImage(uriList -> {
+                        String paths = "";
+                        for(Uri uri : uriList) {
+                            if(uri != null) {
+                                // 复制图片到外部存储
+                                String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + UUID.randomUUID().toString() + ".png";
+                                boolean success = AppUtils.copyImageToExternalFilesDir(getApplicationContext(), uri, filePath);
+                                if (success) {
+                                    SimpleImageCompressor.compressInPlace(filePath, 40);
+                                    paths = filePath;
+                                } else {
+                                    Log.e("PhotoPicker", "Failed to copy image.");
+                                    Toast.makeText(getApplicationContext(), "照片读取失败", Toast.LENGTH_SHORT).show();
+                                }
+                            } else {
+                                Toast.makeText(getApplicationContext(), "没有选择相片", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+
+                        if(!paths.isEmpty()) {
+                            mFeedbackImagePath = paths;
+                            binding.feedImage.setImageURI(Uri.fromFile(new File(mFeedbackImagePath)));
+                        }
+                    });
         });
     }
 

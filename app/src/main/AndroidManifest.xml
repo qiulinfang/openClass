@@ -18,8 +18,8 @@
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" /> <!-- 网络权限用于远程配置 -->
@@ -30,8 +30,6 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:required="false" />
@@ -68,17 +66,18 @@
         android:theme="@style/Theme.IMatesApp.FullScreen"
         tools:targetApi="31">
         <activity
+            android:name=".activities.KnowledgeGraphActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activities.MyProfileActivity"
+            android:exported="false"
+            android:theme="@style/Theme.IMatesApp.FullScreen" />
+        <activity
             android:name=".activities.RichInputBoardActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false"
             android:screenOrientation="landscape"
-            android:windowSoftInputMode="adjustPan"
-            android:exported="false" />
-        <activity
-            android:name=".activities.MyFavorCenterActivity"
-            android:exported="false" />
-        <activity
-            android:name=".activities.MyHistoryActivity"
-            android:exported="false" />
+            android:windowSoftInputMode="adjustPan" />
         <activity
             android:name=".activities.FindExerciseActivity"
             android:exported="false" />
@@ -93,13 +92,13 @@
             android:exported="false"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
-            android:name=".activities.PhotoQuestionLookupActivity"
+            android:name=".activities.PhotoSearchActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
             android:screenOrientation="landscape"
             android:windowSoftInputMode="adjustPan" />
         <activity
-            android:name=".activities.QuestionSolveActivity"
+            android:name=".activities.ExerciseSolveActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
             android:screenOrientation="landscape"
@@ -154,15 +153,6 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".activities.MainActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:exported="true"
-            android:resizeableActivity="true"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.IMatesApp.FullScreen"
-            android:windowSoftInputMode="adjustPan"
-            tools:ignore="DiscouragedApi" />
-        <activity
             android:name=".activities.ScreenShotActivity"
             android:exported="false"
             android:launchMode="singleTask"
@@ -203,6 +193,11 @@
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
+        <activity
+            android:name=".activities.TextbookDownloadActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:screenOrientation="landscape"
+            android:theme="@style/AppTheme" />
 
         <service
             android:name=".service.FloatingRobotService"

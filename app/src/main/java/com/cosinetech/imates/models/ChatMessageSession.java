@@ -10,8 +10,11 @@ public class ChatMessageSession {
     public enum SessionType {
         USER_TALK_AI(0), // 用户创建的
         SYSTEM_TALK_AI(100), // 内置的Session, 不可删除或修改
+
+        USER_TALK_TEACHER_BEGIN(199),
         USER_TALK_TEACHER_BIOLOGY(200), // 用户和生物老师的对话
         USER_TALK_TEACHER_MATH(300), // 用户和数学老师的对话
+        USER_TALK_TEACHER_END(301),
         USER_FAVOR(999);  // 用户收藏的搜索结果
 
         private final int value;

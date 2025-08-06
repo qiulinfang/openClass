@@ -70,7 +70,7 @@
                 android:layout_height="48dp"
                 android:layout_marginRight="8dp"
                 android:layout_weight="1"
-                android:background="@drawable/button_primary"
+                android:background="@drawable/app_button_primary"
                 android:text="返回学习"
                 android:textColor="@android:color/white"
                 android:textSize="16sp" />
@@ -81,7 +81,7 @@
                 android:layout_height="48dp"
                 android:layout_marginLeft="8dp"
                 android:layout_weight="1"
-                android:background="@drawable/button_secondary"
+                android:background="@drawable/app_button_secondary"
                 android:text="我知道了"
                 android:textColor="#2196F3"
                 android:textSize="16sp" />
