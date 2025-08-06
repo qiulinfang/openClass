@@ -878,6 +878,13 @@ public class ChatAiView extends RelativeLayout {
             }
         });
         //resetCurrentSession(ChatMessageCatalogue.CATEGORY_DEFAULT_SYSTEM, ChatMessageSession.SESSION_DEFAULT_SYSTEM);
+
+        if(mChatAiParam.showTeacherSessionOnly) {
+            setChatAiSendMode(false);
+            clearChatHistory();
+        } else {
+            setChatAiSendMode(true);
+        }
         addView(view);
     }
 

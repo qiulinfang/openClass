@@ -143,9 +143,7 @@ public class ChatAiActivity extends AppCompatActivity implements MessagingManage
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) {
-            WindowUtils.hideSystemUI(this);
-        }
+        WindowUtils.hideSystemUI(this);
     }
 
     @Override
