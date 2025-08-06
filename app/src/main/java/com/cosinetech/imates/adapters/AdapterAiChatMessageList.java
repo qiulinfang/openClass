@@ -210,9 +210,9 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                         //recyclerView.post(() -> );
 
                         // 滚动到底部
-                        if (mRecyclerView != null) {
-                            mRecyclerView.scrollToPosition(items.size() - 1);
-                        }
+//                        if (mRecyclerView != null) {
+//                            mRecyclerView.scrollToPosition(items.size() - 1);
+//                        }
                     }
 
                     @Override

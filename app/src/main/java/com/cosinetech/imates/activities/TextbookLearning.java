@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.List;
 
 public class TextbookLearning extends BaseActivity {
@@ -71,22 +72,38 @@ public class TextbookLearning extends BaseActivity {
 
         @JavascriptInterface
         public void onPrepareLesson(String nodeId, String nodeName) {
-            startPreviewLessonActivity(nodeId, nodeName);
+            new Handler(Looper.getMainLooper()).post(()->startPreviewLessonActivity(nodeId, nodeName));
         }
         @JavascriptInterface
         public void onReviewLesson(String nodeId, String nodeName) {
             Chapter.Section s = getSection(nodeId);
             if(s == null) {
-                Toast.makeText(context, "未查询到相关的练习资料", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "未查询到相关的学习资料", Toast.LENGTH_SHORT).show();
                 return;
             }
-            // 在 UI 线程上执行的代码
-            new Handler(Looper.getMainLooper()).post(() -> startFindExerciseActivity(s.getKnowledgeNo()));
+
+            if(s.getKnowledgeNo().trim().isEmpty()) {
+                Toast.makeText(context, "没有相关的习题", Toast.LENGTH_SHORT).show();
+            } else {
+                // 在 UI 线程上执行的代码
+                new Handler(Looper.getMainLooper()).post(() -> startFindExerciseActivity(s.getKnowledgeNo()));
+            }
         }
 
         public void startPreviewLessonActivity(String sectionId, String sectionName) {
             Chapter.Section s = getSection(sectionId);
             if(s != null) {
+                List<Chapter.Schema> validSchemas = new ArrayList<>();
+                for (Chapter.Schema schema : s.getSchemas()) {
+                    if(!schema.getTextBook().trim().isEmpty()) {
+                        validSchemas.add(schema);
+                    }
+                }
+                if(validSchemas.isEmpty()) {
+                    Toast.makeText(context, "未查询到相关的课程", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                s.setSchemas(validSchemas);
                 Intent previewLessonActivity = new Intent(context, LessonPreviewActivity.class);
                 previewLessonActivity.putExtra(LessonPreviewActivity.KEY_PREVIEW_SECTION_NAME, sectionName);
                 previewLessonActivity.putExtra(LessonPreviewActivity.KEY_SECTION_SCHEMA, s);
