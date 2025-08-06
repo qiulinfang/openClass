@@ -662,8 +662,8 @@ public class ChatAiView extends RelativeLayout {
         mEditMsg.setOnFocusChangeListener((v, hasFocus) -> {
             // EditText 获取焦点时，可以执行布局调整或其他操作
             //showKeyboardAndAdjustLayout(etMessage);
-            // EditText 失去焦点时，可以恢复布局
-            //hideKeyboardAndRestoreLayout(etMessage);
+            if(!hasFocus)
+                hideKeyboardAndRestoreLayout(mEditMsg);
         });
 
         ApplicationModelShared app = ApplicationModelShared.getInstance();
