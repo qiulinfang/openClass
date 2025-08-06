@@ -27,6 +27,7 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.util.VoiceDbUtil;
 import com.cosinetech.imates.views.ChatAiView;
+import com.cosinetech.imates.views.MarkdownTextView;
 
 import io.noties.markwon.Markwon;
 import io.noties.markwon.recycler.MarkwonAdapter;
@@ -205,7 +206,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                 item.startTypingEffect(new ChatDisplayItem.TypingEffectCallback() {
                     @Override
                     public void onContentUpdate(String content) {
-                        adapter.setMarkdown(markwon, content);
+                        adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(content));
                         adapter.notifyDataSetChanged();
                         //recyclerView.post(() -> );
 
@@ -217,14 +218,14 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
 
                     @Override
                     public void onTypingComplete(String content) {
-                        adapter.setMarkdown(markwon, content);
-                        //adapter.notifyDataSetChanged();
+//                        adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(content));
+//                        adapter.notifyDataSetChanged();
                         Log.d("TypingEffect", "Typing effect completed");
                     }
                 });
             } else {
                 // 直接显示完整内容，参考 VoiceListAdapter 的方式
-                adapter.setMarkdown(markwon, message.content);
+                adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(message.content));
             }
         }
     }

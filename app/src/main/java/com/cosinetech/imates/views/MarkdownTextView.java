@@ -131,7 +131,7 @@ public class MarkdownTextView extends AppCompatTextView {
         mTypingEffectDisplayItem = msg;
     }
 
-    private String filterLatexString(String src) {
+    public static String filterLatexString(String src) {
         src += "   \n\f";
         return src.replace("\\(", "$")
                 .replace("\\)", "$") //行内公式
