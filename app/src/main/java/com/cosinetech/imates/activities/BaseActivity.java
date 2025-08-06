@@ -56,7 +56,7 @@ public abstract class BaseActivity extends AppCompatActivity {
                 intent.putExtra(PhotoSearchActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_MATH.name());
                 startActivity(intent);
             } else if (itemId == R.id.nav_textbook_knowledge) {
-                intent = new Intent(this, TextbookLearning.class);
+                intent = new Intent(this, KnowledgeGraphActivity.class);
             } else if (itemId == R.id.nav_exercise_list) {
                 intent = new Intent(this, ExerciseSolveActivity.class);
                 intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
@@ -69,8 +69,6 @@ public abstract class BaseActivity extends AppCompatActivity {
             if (intent != null) {
                 intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
                 startActivity(intent);
-                //overridePendingTransition(0, 0);
-                //finish(); // 避免堆栈积累
             }
             return true;
         });

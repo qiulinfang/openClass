@@ -27,10 +27,10 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TextbookLearning extends BaseActivity {
+public class KnowledgeGraphActivity extends BaseActivity {
     @Override
     protected int getLayoutResId() {
-        return R.layout.fragment_subject_math;
+        return R.layout.activity_knowledge_graph;
     }
 
     @Override
@@ -49,7 +49,7 @@ public class TextbookLearning extends BaseActivity {
         // 设置WebViewClient以防止外部浏览器打开链接
         webView.setWebViewClient(new WebViewClient());
         // Add JavaScript interface
-        webView.addJavascriptInterface(new TextbookLearning.WebAppInterface(this), "Android");
+        webView.addJavascriptInterface(new KnowledgeGraphActivity.WebAppInterface(this), "Android");
         // Load the local HTML file
         webView.loadUrl("file:///android_asset/knowledge_graph_math.html");
         webView.setOnTouchListener((v, event) -> {
