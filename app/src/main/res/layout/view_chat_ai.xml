@@ -335,6 +335,21 @@
                 android:maxLines="4"
                 android:minHeight="40dp"
                 android:visibility="gone"/>
+
+            <!-- 发送图片功能按钮 -->
+            <Button
+                android:id="@+id/btn_send_picture"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="16dp"
+                android:background="#00000000"
+                android:drawableStart="@drawable/chat_ai_send_picture_bg"
+                android:text="插入图片"
+                android:stateListAnimator="@animator/app_button_click_scale"
+                android:layout_centerVertical="true"
+                android:layout_toEndOf="@id/btn_voice"
+                android:visibility="invisible"/>
+
             <!--是否联网搜索-->
             <CheckBox
                 android:id="@+id/check_search_web"
@@ -348,20 +363,7 @@
                 android:drawableStart="@drawable/chat_ai_search_web_bg"
                 android:stateListAnimator="@animator/app_button_click_scale"
                 android:layout_centerVertical="true"
-                android:layout_toEndOf="@id/btn_voice" />
-
-            <!-- 发送图片功能按钮 -->
-            <Button
-                android:id="@+id/btn_send_picture"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_marginEnd="16dp"
-                android:background="#00000000"
-                android:drawableStart="@drawable/chat_ai_send_picture_bg"
-                android:text="插入图片"
-                android:stateListAnimator="@animator/app_button_click_scale"
-                android:layout_centerVertical="true"
-                android:layout_toEndOf="@id/check_search_web"/>
+                android:layout_toEndOf="@id/btn_send_picture" />
 
             <!-- 发送公式功能按钮 -->
             <Button
@@ -370,11 +372,11 @@
                 android:layout_height="40dp"
                 android:layout_marginEnd="16dp"
                 android:background="#00000000"
-                android:text="插入公式"
+                android:text="公式输入"
                 android:drawableStart="@drawable/chat_ai_view_formula"
                 android:stateListAnimator="@animator/app_button_click_scale"
                 android:layout_centerVertical="true"
-                android:layout_toEndOf="@id/btn_send_picture"/>
+                android:layout_toEndOf="@id/check_search_web"/>
 
             <androidx.appcompat.widget.AppCompatSpinner
                 android:id="@+id/settings_spinner"

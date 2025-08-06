@@ -139,7 +139,7 @@ public class ChatDisplayItem {
             @Override
             public void run() {
                 if (currentDisplayCharIndex < chatMessage.content.length() && isTypingActive) {
-                    currentDisplayCharIndex += 3;
+                    currentDisplayCharIndex += 1;
                     if(currentDisplayCharIndex >= chatMessage.content.length()) {
                         currentDisplayCharIndex = chatMessage.content.length();
                     }
@@ -152,7 +152,7 @@ public class ChatDisplayItem {
 
                 if (!msgIsFinished || currentDisplayCharIndex < chatMessage.content.length()) {
                     // 计算下一个字符的延迟时间
-                    long delay = 50;
+                    long delay = 20;
                     typingHandler.postDelayed(this, delay);
                 } else {
                     if (callback != null) {

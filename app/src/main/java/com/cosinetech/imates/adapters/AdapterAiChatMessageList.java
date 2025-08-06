@@ -21,12 +21,6 @@ import com.cosinetech.imates.activities.ImageViewerActivity;
 import com.cosinetech.imates.audio.AudioPlayManager;
 import com.cosinetech.imates.audio.IAudioPlayListener;
 import com.cosinetech.imates.databinding.ItemMessageDateBinding;
-import com.cosinetech.imates.databinding.ItemMessageImageLeftBinding;
-import com.cosinetech.imates.databinding.ItemMessageImageRightBinding;
-import com.cosinetech.imates.databinding.ItemMessageLeftMarkdownBinding;
-import com.cosinetech.imates.databinding.ItemMessageRightMarkdownBinding;
-import com.cosinetech.imates.databinding.ItemMessageVoiceLeftBinding;
-import com.cosinetech.imates.databinding.ItemMessageVoiceRightBinding;
 import com.cosinetech.imates.models.ChatDisplayItem;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.R;
@@ -34,24 +28,8 @@ import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.util.VoiceDbUtil;
 import com.cosinetech.imates.views.ChatAiView;
 
-import io.noties.markwon.AbstractMarkwonPlugin;
 import io.noties.markwon.Markwon;
-import io.noties.markwon.MarkwonConfiguration;
-import io.noties.markwon.MarkwonVisitor;
-import io.noties.markwon.ext.latex.JLatexMathPlugin;
-import io.noties.markwon.ext.strikethrough.StrikethroughPlugin;
-import io.noties.markwon.ext.tasklist.TaskListPlugin;
-import io.noties.markwon.html.HtmlPlugin;
-import io.noties.markwon.image.ImagesPlugin;
-import io.noties.markwon.image.glide.GlideImagesPlugin;
-import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin;
 import io.noties.markwon.recycler.MarkwonAdapter;
-import io.noties.markwon.recycler.SimpleEntry;
-import io.noties.markwon.recycler.table.TableEntry;
-import io.noties.markwon.recycler.table.TableEntryPlugin;
-
-import org.commonmark.ext.gfm.tables.TableBlock;
-import org.commonmark.node.FencedCodeBlock;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -228,7 +206,8 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                     @Override
                     public void onContentUpdate(String content) {
                         adapter.setMarkdown(markwon, content);
-                        adapter.notifyDataSetChanged();//recyclerView.post(() -> );
+                        adapter.notifyDataSetChanged();
+                        //recyclerView.post(() -> );
 
                         // 滚动到底部
                         if (mRecyclerView != null) {
@@ -239,6 +218,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                     @Override
                     public void onTypingComplete(String content) {
                         adapter.setMarkdown(markwon, content);
+                        //adapter.notifyDataSetChanged();
                         Log.d("TypingEffect", "Typing effect completed");
                     }
                 });
@@ -371,7 +351,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                 displayMsg.showWithTypingEffect = showWithTypingEffect;
                 displayMsg.msgIsFinished = msgIsFinished;
 
-                notifyDataSetChanged();
+                //notifyDataSetChanged();
                 break;
             }
         }
