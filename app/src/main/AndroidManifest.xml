@@ -79,12 +79,6 @@
             android:screenOrientation="landscape"
             android:windowSoftInputMode="adjustPan" />
         <activity
-            android:name=".activities.MyFavorCenterActivity"
-            android:exported="false" />
-        <activity
-            android:name=".activities.MyHistoryActivity"
-            android:exported="false" />
-        <activity
             android:name=".activities.FindExerciseActivity"
             android:exported="false" />
         <activity
@@ -158,15 +152,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".activities.MainActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:exported="true"
-            android:resizeableActivity="true"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.IMatesApp.FullScreen"
-            android:windowSoftInputMode="adjustPan"
-            tools:ignore="DiscouragedApi" />
         <activity
             android:name=".activities.ScreenShotActivity"
             android:exported="false"
