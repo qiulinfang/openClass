@@ -10,6 +10,7 @@ import android.view.MotionEvent;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Button;
 import android.widget.Toast;
 
 import com.cosinetech.imates.R;
@@ -60,6 +61,11 @@ public class KnowledgeGraphActivity extends BaseActivity {
                 v.getParent().requestDisallowInterceptTouchEvent(false);
             }
             return false; // 返回false，让HScrollView继续处理触摸事件
+        });
+
+        findViewById(R.id.btn_res_center).setOnClickListener(v -> {
+            Intent intent = new Intent(KnowledgeGraphActivity.this, TextbookDownloadActivity.class);
+            startActivity(intent);
         });
     }
 
@@ -143,7 +149,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
             // 使用 TypeToken 反序列化
             Type listType = new TypeToken<List<Chapter>>() {}.getType();
             List<Chapter> chapters = gson.fromJson(newstringBuilder.toString(), listType);
-            //Chapter chapter = gson.fromJson(newstringBuilder.toString(), Chapter.class);
+
             for(Chapter c : chapters) {
                 for (Chapter.Section s : c.getSections()) {
                     if (s.getSection().equals(sectionId)) {

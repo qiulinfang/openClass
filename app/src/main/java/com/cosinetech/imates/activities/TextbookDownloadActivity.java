@@ -15,6 +15,7 @@ import com.cosinetech.imates.adapters.TextbookAdapter;
 import com.cosinetech.imates.models.Textbook;
 import com.cosinetech.imates.models.TextbookResponse;
 import com.cosinetech.imates.models.TextbookVersion;
+import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.webservice.TextbookApiClient;
 import com.cosinetech.imates.webservice.TextbookDownloadManager;
 import com.google.android.material.chip.Chip;
@@ -31,7 +32,6 @@ public class TextbookDownloadActivity extends AppCompatActivity implements
         TextbookAdapter.OnTextbookClickListener,
         TextbookDownloadManager.DownloadListener {
     private static final int PERMISSION_REQUEST_CODE = 1001;
-
     private ChipGroup subjectChipGroup;
     private ChipGroup versionChipGroup;
     private RecyclerView textbookRecyclerView;
@@ -47,6 +47,9 @@ public class TextbookDownloadActivity extends AppCompatActivity implements
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // 隐藏系统导航栏
+        WindowUtils.hideSystemUI(this);
+        WindowUtils.setFullScreenMode(this);
         setContentView(R.layout.activity_textbook_download);
 
         initViews();
@@ -281,5 +284,11 @@ public class TextbookDownloadActivity extends AppCompatActivity implements
             textbookAdapter.updateTextbook(textbook);
             Toast.makeText(this, textbook.getTitle() + " 下载失败: " + error, Toast.LENGTH_SHORT).show();
         });
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        WindowUtils.hideSystemUI(this);
     }
 }
