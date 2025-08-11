@@ -175,6 +175,7 @@ dependencies {
     implementation files('libs/markwon-inline-parser.aar')
     //implementation files('libs/markwon-syntax-highlight.aar')
     implementation files('libs/markwon-ext-latex.aar')
+    implementation files('libs/markwon-linkify.aar')
 
     implementation files('libs/markwon-recycler.aar')
     implementation files('libs/markwon-recycler-table.aar')
