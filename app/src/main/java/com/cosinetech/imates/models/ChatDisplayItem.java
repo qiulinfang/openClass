@@ -88,7 +88,7 @@ public class ChatDisplayItem {
                     })
                     .usePlugin(MarkwonInlineParserPlugin.create())
                     .usePlugin(GlideImagesPlugin.create(context))
-                    .usePlugin(JLatexMathPlugin.create(24, builder -> {
+                    .usePlugin(JLatexMathPlugin.create(36, builder -> {
                         // enable inlines (require `MarkwonInlineParserPlugin`), by default `false`
                         builder.inlinesEnabled(true);
                         builder.allowInlinesSingleDollar(true);

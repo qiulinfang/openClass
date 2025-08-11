@@ -1,5 +1,6 @@
 package com.cosinetech.imates.webservice;
 
+import com.cosinetech.imates.views.MarkdownTextView;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
@@ -66,10 +67,8 @@ public class Question {
     public String getQuestion() {
         StringBuilder result = new StringBuilder();
         emitNull();
-        result.append(title).append("\n\n");
-        return result.toString().trim().replace("<p>", "")
-                .replace("</p>", "  \n")
-                .replace("_", "\\_");
+        result.append(title).append("  \n");
+        return MarkdownTextView.filterLatexString(result.toString());
     }
 
     public String getAnswer() {

@@ -9,6 +9,7 @@ import android.content.SharedPreferences;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Rect;
+import android.location.GnssNavigationMessage;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -139,13 +140,14 @@ public class ChatAiView extends RelativeLayout {
     private Button mVoiceMessageButton;
     private CheckBox mCheckSearchWeb;
     private Button mSendPictureButton;
-    private Button mRichInputButton;
+    private Button mFormulaInputButton;
     private ChatAiParam mChatAiParam;
     private AiChatResponseListener mListener;
     private View voiceAnimateLayout;
     private CheckBox mSelectChatItemButton;
     private View mAskTeacherLayout;
-    private AppCompatSpinner aiRoleSpinner;
+    private View mInputUtilsLayout;
+    private AppCompatSpinner mAiRoleSpinner;
 
     private static final String PREFS_NAME = "ChatRolePrefs";
     private static final String KEY_SELECTED_ROLE = "selectedRole";
@@ -384,7 +386,7 @@ public class ChatAiView extends RelativeLayout {
         mAskTeacherLayout = view.findViewById(R.id.select_history_function);
         Button mAskTeacherButton = view.findViewById(R.id.btn_ask_teacher);
         mSendPictureButton = view.findViewById(R.id.btn_send_picture);
-        mRichInputButton = view.findViewById(R.id.btn_rich_input);
+        mFormulaInputButton = view.findViewById(R.id.btn_rich_input);
         chkViewHistory = view.findViewById(R.id.btn_view_history);
         voiceAnimateLayout = view.findViewById(R.id.voice_animate_area);
         mKeyboardInputButton = view.findViewById(R.id.input_keyboard);
@@ -393,30 +395,31 @@ public class ChatAiView extends RelativeLayout {
         mCheckSearchWeb = view.findViewById(R.id.check_search_web);
         rootLayout = view.findViewById(R.id.layout_chat);  // 父布局
         expandableListView = view.findViewById(R.id.expandable_list_view);
+        mInputUtilsLayout = view.findViewById(R.id.utils_layout);
         ImageView viewCancelSend = view.findViewById(R.id.cancel_record);
         EditText editTextSearch = view.findViewById(R.id.et_search);
         CheckBox btnCancelSearch = view.findViewById(R.id.btn_search);
         Button btnNewChat = view.findViewById(R.id.btn_new_chat);
         Button btnAddFavor = view.findViewById(R.id.btn_add_favor);
-        aiRoleSpinner = view.findViewById(R.id.settings_spinner);
+        mAiRoleSpinner = view.findViewById(R.id.settings_spinner);
         // 从 SharedPreferences 加载保存的角色
         loadSelectedRole();
         prepareSettingsItems();
         // Set up adapter
         settingsAdapter = new SettingsAdapter(settingsItems, getContext());
-        aiRoleSpinner.setAdapter(settingsAdapter);
+        mAiRoleSpinner.setAdapter(settingsAdapter);
 
         // Set default selection
-        aiRoleSpinner.setSelection(selectedPosition);
+        mAiRoleSpinner.setSelection(selectedPosition);
 
         // Set item selection listener
-        aiRoleSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+        mAiRoleSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 // 检查项目是否已禁用
                 if (!settingsItems.get(position).isEnabled()) {
                     // 如果项目被禁用，恢复到之前的选择
-                    aiRoleSpinner.setSelection(selectedPosition);
+                    mAiRoleSpinner.setSelection(selectedPosition);
                     return;
                 }
 
@@ -458,7 +461,7 @@ public class ChatAiView extends RelativeLayout {
             }
         });
 
-        mRichInputButton.setOnClickListener(v->{
+        mFormulaInputButton.setOnClickListener(v->{
             if (context instanceof FragmentActivity) {
                 launchRichInputBoardActivity();
             }
@@ -960,27 +963,21 @@ public class ChatAiView extends RelativeLayout {
 
     private void switchToVoiceInput() {
         mKeyboardInputButton.setVisibility(VISIBLE);
-        mCheckSearchWeb.setVisibility(GONE);
-        mSendPictureButton.setVisibility(GONE);
-        mRichInputButton.setVisibility(GONE);
         mVoiceInputButton.setVisibility(GONE);
+        mInputUtilsLayout.setVisibility(GONE);
         voiceAnimateLayout.setVisibility(GONE);
         mVoiceMessageButton.setVisibility(VISIBLE);
         mEditMsg.setVisibility(GONE);
-        aiRoleSpinner.setVisibility(GONE);
         mBtnSendText.setVisibility(GONE);
     }
 
     private void switchToKeyboardInput() {
         mKeyboardInputButton.setVisibility(GONE);
-        mCheckSearchWeb.setVisibility(VISIBLE);
-        mSendPictureButton.setVisibility(VISIBLE);
-        mRichInputButton.setVisibility(VISIBLE);
         mVoiceInputButton.setVisibility(VISIBLE);
+        mInputUtilsLayout.setVisibility(VISIBLE);
         voiceAnimateLayout.setVisibility(GONE);
         mVoiceMessageButton.setVisibility(GONE);
         mEditMsg.setVisibility(VISIBLE);
-        aiRoleSpinner.setVisibility(VISIBLE);
         mBtnSendText.setVisibility(VISIBLE);
     }
 
@@ -989,9 +986,10 @@ public class ChatAiView extends RelativeLayout {
             switchToKeyboardInput();
         }
 
-        mVoiceInputButton.setVisibility(!isChatAi ? VISIBLE : INVISIBLE);
-        //mSendPictureButton.setVisibility(!isChatAi ? VISIBLE : INVISIBLE);
-        mCheckSearchWeb.setVisibility(isChatAi ? VISIBLE : INVISIBLE);
+        mVoiceInputButton.setVisibility(isChatAi ? GONE : VISIBLE);
+        mSendPictureButton.setVisibility(isChatAi ? GONE : VISIBLE);
+        mCheckSearchWeb.setVisibility(isChatAi ? VISIBLE : GONE);
+        mAiRoleSpinner.setVisibility(isChatAi ? VISIBLE : GONE);
     }
 
     private boolean isTouchInsideView(View view, float x, float y) {

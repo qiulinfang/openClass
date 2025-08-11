@@ -285,11 +285,12 @@
             android:gravity="start"
             android:inputType="textMultiLine" />
 
-        <RelativeLayout
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@drawable/chat_ai_text_input_bg_bottom"
             android:layout_below="@id/et_message"
+            android:gravity="center_vertical"
             android:layout_marginHorizontal="8dp"
             android:layout_marginBottom="8dp"
             android:padding="4dp">
@@ -302,8 +303,6 @@
                 android:stateListAnimator="@animator/app_button_click_scale"
                 android:layout_marginHorizontal="@dimen/min_margin_size"
                 android:scaleType="center"
-                android:layout_alignParentStart="true"
-                android:layout_centerVertical="true"
                 android:visibility="gone"/>
 
             <!-- 左侧的语音按钮 -->
@@ -315,14 +314,12 @@
                 android:background="@drawable/chat_ai_button_voice_bk"
                 android:stateListAnimator="@animator/app_button_click_scale"
                 android:layout_marginHorizontal="@dimen/min_margin_size"
-                android:scaleType="center"
-                android:layout_centerVertical="true"/>
+                android:scaleType="center" />
+
             <Button
                 android:id="@+id/voice_message"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="40dp"
-                android:layout_toEndOf="@id/input_keyboard"
-                android:layout_alignParentEnd="true"
                 android:layout_marginStart="16dp"
                 android:layout_marginEnd="16dp"
                 android:layout_marginVertical="8dp"
@@ -333,80 +330,79 @@
                 android:text="@string/chat_ai_voice_hint"
                 android:textColor="#000000"
                 android:textAlignment="center"
-                android:layout_centerVertical="true"
                 android:maxLines="4"
                 android:minHeight="40dp"
                 android:visibility="gone"/>
 
-            <!-- 发送图片功能按钮 -->
-            <Button
-                android:id="@+id/btn_send_picture"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_marginEnd="16dp"
-                android:background="#00000000"
-                android:drawableStart="@drawable/chat_ai_send_picture_bg"
-                android:text="插入图片"
-                android:stateListAnimator="@animator/app_button_click_scale"
-                android:layout_centerVertical="true"
-                android:layout_toEndOf="@id/btn_voice"
-                android:visibility="invisible"/>
+            <!-- 中间内容区域 -->
+            <LinearLayout
+                android:id="@+id/utils_layout"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginHorizontal="8dp">
+                <!-- 发送图片功能按钮 -->
+                <Button
+                    android:id="@+id/btn_send_picture"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="16dp"
+                    android:background="#00000000"
+                    android:drawableStart="@drawable/chat_ai_send_picture_bg"
+                    android:text="插入图片"
+                    android:stateListAnimator="@animator/app_button_click_scale"
+                    android:visibility="gone"/>
 
-            <!--是否联网搜索-->
-            <CheckBox
-                android:id="@+id/check_search_web"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_marginEnd="16dp"
-                android:button="@null"
-                android:textAlignment="center"
-                android:textColor="#000000"
-                android:text="联网搜索"
-                android:drawableStart="@drawable/chat_ai_search_web_bg"
-                android:stateListAnimator="@animator/app_button_click_scale"
-                android:layout_centerVertical="true"
-                android:layout_toEndOf="@id/btn_send_picture" />
+                <!--是否联网搜索-->
+                <CheckBox
+                    android:id="@+id/check_search_web"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="16dp"
+                    android:button="@null"
+                    android:textAlignment="center"
+                    android:textColor="#000000"
+                    android:text="联网搜索"
+                    android:drawableStart="@drawable/chat_ai_search_web_bg"
+                    android:stateListAnimator="@animator/app_button_click_scale" />
 
-            <!-- 发送公式功能按钮 -->
-            <Button
-                android:id="@+id/btn_rich_input"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_marginEnd="16dp"
-                android:background="#00000000"
-                android:text="公式输入"
-                android:drawableStart="@drawable/chat_ai_view_formula"
-                android:stateListAnimator="@animator/app_button_click_scale"
-                android:layout_centerVertical="true"
-                android:layout_toEndOf="@id/check_search_web"/>
+                <androidx.appcompat.widget.AppCompatSpinner
+                    android:id="@+id/settings_spinner"
+                    android:visibility="visible"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="16dp"
+                    android:background="@null"
+                    android:dropDownVerticalOffset="32dp"
+                    android:dropDownSelector="#00BCD4"
+                    android:stateListAnimator="@animator/app_button_click_scale" />
 
-            <androidx.appcompat.widget.AppCompatSpinner
-                android:id="@+id/settings_spinner"
-                android:visibility="visible"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_marginEnd="16dp"
-                android:background="@null"
-                android:dropDownVerticalOffset="32dp"
-                android:dropDownSelector="#00BCD4"
-                android:stateListAnimator="@animator/app_button_click_scale"
-                android:layout_centerVertical="true"
-                android:layout_toEndOf="@id/btn_rich_input"/>
+                <!-- 发送公式功能按钮 -->
+                <Button
+                    android:id="@+id/btn_rich_input"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="16dp"
+                    android:background="#00000000"
+                    android:text="公式输入"
+                    android:drawableStart="@drawable/chat_ai_view_formula"
+                    android:stateListAnimator="@animator/app_button_click_scale" />
+            </LinearLayout>
 
             <!-- 发送按钮 -->
             <Button
                 android:id="@+id/btn_send"
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
-                android:layout_marginEnd="4dp"
+                android:layout_marginEnd="2dp"
                 android:drawableStart="@drawable/chat_ai_button_send_bk"
                 android:stateListAnimator="@animator/app_button_click_scale"
-                android:text="发送        "
+                android:text="发送       "
                 android:background="#00000000"
-                android:textColor="@color/black"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"/>
-        </RelativeLayout>
+                android:textColor="@color/black"/>
+        </LinearLayout>
 
     </RelativeLayout>
 

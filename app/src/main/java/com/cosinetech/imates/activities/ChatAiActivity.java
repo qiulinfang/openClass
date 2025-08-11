@@ -72,7 +72,7 @@ public class ChatAiActivity extends AppCompatActivity implements MessagingManage
         DisplayMetrics metrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(metrics);
         int screenWidth = metrics.widthPixels;
-        getWindow().setLayout((int) (screenWidth * 0.67), metrics.heightPixels);
+        getWindow().setLayout((int) (screenWidth * 0.70), metrics.heightPixels);
 
         ApplicationModelShared.getInstance().getFloatingWindowService().hideRobot();
 
