@@ -29,7 +29,7 @@
     </style>
 </head>
 <body>
-<div id="jsmind_container" style="width: 1200; height: 800px;"></div>
+<div id="jsmind_container" style="width: 1000; height: 700px;"></div>
 <script type="text/javascript">
     var graph = {
         "meta": {
@@ -180,7 +180,12 @@
         support_html: true,
         view: { engine: 'canvas',
                 draggable: true,
-                enable_device_pixel_ratio: true
+                enable_device_pixel_ratio: true,
+                zoom: {             // 配置缩放
+                   min: 0.5,       // 最小的缩放比例
+                   max: 3.0,       // 最大的缩放比例
+                   step: 0.1,      // 缩放比例间隔
+               }
         },
         layout:{
            hspace:30,          // 节点之间的水平间距
@@ -192,6 +197,28 @@
 
     var mind = new jsMind(options);
     mind.show(graph);
+
+    // 将 resizeToFit 方法绑定到 mind 实例
+    mind.resizeToFit = function() {
+        const container = document.getElementById('jsmind_container');
+        const mindSize = this.view.size;
+        const scaleWidth = container.offsetWidth / mindSize.w;
+        const scaleHeight = container.offsetHeight / mindSize.h;
+        const scale = Math.min(scaleWidth, scaleHeight);
+        this.view.setZoom(scale);
+    }.bind(mind); // 使用 bind 确保 this 指向 mind 实例
+
+    // 在初始加载和窗口大小改变时调用 resizeToFit
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            mind.resizeToFit();
+        }, 100); // 延迟 100ms 确保布局完成
+    });
+
+    window.addEventListener('resize', function() {
+        mind.resizeToFit();
+    });
+
     var currentContextMenu = null;
 
     // 修改为click事件监听
