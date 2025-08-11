@@ -67,7 +67,7 @@ public class FeedbackActivity extends AppCompatActivity {
                 return;
             }
             String title = userInfoViewModel.userId.getValue() + "的反馈";
-            createTicketWithAttachments(title, body, new File(mFeedbackImagePath), new OkHttpTicketCreator.TicketCreationCallback() {
+            createTicketWithAttachments(title, body, mFeedbackImagePath.trim().isEmpty() ? null : new File(mFeedbackImagePath), new OkHttpTicketCreator.TicketCreationCallback() {
                 @Override
                 public void onSuccess(String response) {
                     Toast.makeText(FeedbackActivity.this, "感谢您的反馈!", Toast.LENGTH_SHORT).show();
@@ -89,6 +89,8 @@ public class FeedbackActivity extends AppCompatActivity {
         mFeedbackImagePath = getIntent().getStringExtra(KEY_FEEDBACK_IMAGE);
         if(mFeedbackImagePath != null && new File(mFeedbackImagePath).exists()) {
             binding.feedImage.setImageURI(Uri.fromFile(new File(mFeedbackImagePath)));
+        } else {
+            mFeedbackImagePath = "";
         }
         binding.feedImage.setOnClickListener(v -> {
             startActivityForResult(

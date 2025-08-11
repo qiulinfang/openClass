@@ -1,6 +1,7 @@
 package com.cosinetech.imates.models;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -23,10 +24,12 @@ import io.noties.markwon.html.HtmlPlugin;
 import io.noties.markwon.image.ImagesPlugin;
 import io.noties.markwon.image.glide.GlideImagesPlugin;
 import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin;
+import io.noties.markwon.linkify.LinkifyPlugin;
 import io.noties.markwon.recycler.MarkwonAdapter;
 import io.noties.markwon.recycler.SimpleEntry;
 import io.noties.markwon.recycler.table.TableEntry;
 import io.noties.markwon.recycler.table.TableEntryPlugin;
+import ru.noties.jlatexmath.JLatexMathDrawable;
 
 public class ChatDisplayItem {
     public ChatMessage chatMessage; // 数据模型
@@ -88,11 +91,39 @@ public class ChatDisplayItem {
                     })
                     .usePlugin(MarkwonInlineParserPlugin.create())
                     .usePlugin(GlideImagesPlugin.create(context))
-                    .usePlugin(JLatexMathPlugin.create(24, builder -> {
-                        // enable inlines (require `MarkwonInlineParserPlugin`), by default `false`
+                    .usePlugin(JLatexMathPlugin.create(36, builder -> {
+                        // background provider for both inlines and blocks
+                        //  or more specific: `inlineBackgroundProvider` & `blockBackgroundProvider`
                         builder.inlinesEnabled(true);
                         builder.allowInlinesSingleDollar(true);
+//                        builder.theme().backgroundProvider(new JLatexMathTheme.BackgroundProvider() {
+//                            @NonNull
+//                            @Override
+//                            public Drawable provide() {
+//                                return new ColorDrawable(0xFFff0000);
+//                            }
+//                        });
+
+                        // should block fit the whole canvas width, by default true
+                        builder.theme().blockFitCanvas(true);
+
+                        // horizontal alignment for block, by default ALIGN_CENTER
+                        builder.theme().blockHorizontalAlignment(JLatexMathDrawable.ALIGN_CENTER);
+
+                        // padding for both inlines and blocks
+                        //builder.theme().padding(JLatexMathTheme.Padding.all(8));
+
+                        // padding for inlines
+                        //builder.theme().inlinePadding(JLatexMathTheme.Padding.symmetric(16, 8));
+
+                        // padding for blocks
+                        //builder.theme().blockPadding(new JLatexMathTheme.Padding(0, 1, 2, 3));
+
+                        // text color of LaTeX content for both inlines and blocks
+                        //  or more specific: `inlineTextColor` & `blockTextColor`
+                        //builder.theme().textColor(Color.BLUE);
                     }))
+                    .usePlugin(LinkifyPlugin.create())
                     .build();
         }
         return markwon;

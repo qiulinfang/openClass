@@ -6,8 +6,10 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.DisplayMetrics;
 import android.view.MotionEvent;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
@@ -47,6 +49,9 @@ public class KnowledgeGraphActivity extends BaseActivity {
         WebView webView = findViewById(R.id.knowledge_view);
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true); // 启用 DOM storage
+        webView.getSettings().setSupportZoom(true);
+        webView.getSettings().setBuiltInZoomControls(true);
+        webView.getSettings().setDisplayZoomControls(false);
         // 设置WebViewClient以防止外部浏览器打开链接
         webView.setWebViewClient(new WebViewClient());
         // Add JavaScript interface

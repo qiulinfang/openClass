@@ -15,8 +15,8 @@ android {
         applicationId "com.cosinetech.imates"
         minSdk 24
         targetSdk 34
-        versionCode 51
-        versionName "1.0.51"
+        versionCode 52
+        versionName "1.0.52"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
@@ -175,6 +175,7 @@ dependencies {
     implementation files('libs/markwon-inline-parser.aar')
     //implementation files('libs/markwon-syntax-highlight.aar')
     implementation files('libs/markwon-ext-latex.aar')
+    implementation files('libs/markwon-linkify.aar')
 
     implementation files('libs/markwon-recycler.aar')
     implementation files('libs/markwon-recycler-table.aar')

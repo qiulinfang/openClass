@@ -4,8 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/app_main_background"
-    tools:context=".fragments.FragmentPreviewLesson">
+    android:background="@drawable/app_main_background">
 
     <TextView
         android:id="@+id/label"
@@ -20,7 +19,8 @@
         android:textSize="@dimen/head1_size"
         android:textStyle="bold"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="@id/preview_section_name"/>
 
     <TextView
         android:id="@+id/sign_split"
@@ -35,14 +35,17 @@
 
     <TextView
         android:id="@+id/preview_section_name"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="预习内容"
+        android:maxLines="2"
+        android:ellipsize="end"
         android:textColor="#000000"
         android:textSize="@dimen/head1_size"
         android:textStyle="bold"
         app:layout_constraintStart_toEndOf="@id/sign_split"
-        app:layout_constraintTop_toTopOf="@id/sign_split" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="@id/schema_layout"/>
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="0dp"
@@ -299,6 +302,7 @@
         app:layout_constraintTop_toBottomOf="@id/schema_tip"/>
 
     <ScrollView
+        android:id="@+id/schema_layout"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:fillViewport="true"

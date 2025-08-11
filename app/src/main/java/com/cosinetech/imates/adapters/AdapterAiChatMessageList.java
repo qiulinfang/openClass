@@ -220,12 +220,12 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                     public void onTypingComplete(String content) {
 //                        adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(content));
 //                        adapter.notifyDataSetChanged();
-                        Log.d("TypingEffect", "Typing effect completed");
                     }
                 });
             } else {
                 // 直接显示完整内容，参考 VoiceListAdapter 的方式
                 adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(message.content));
+                adapter.notifyDataSetChanged();
             }
         }
     }
@@ -352,7 +352,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                 displayMsg.showWithTypingEffect = showWithTypingEffect;
                 displayMsg.msgIsFinished = msgIsFinished;
 
-                //notifyDataSetChanged();
+                notifyDataSetChanged();
                 break;
             }
         }
