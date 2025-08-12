@@ -17,10 +17,10 @@ import okhttp3.Response;
 
 public class TextbookDownloadManager {
     private static TextbookDownloadManager instance;
-    private Context context;
-    private ExecutorService executorService;
-    private ConcurrentHashMap<String, DownloadTask> activeDownloads;
-    private OkHttpClient httpClient;
+    private final Context context;
+    private final ExecutorService executorService;
+    private final ConcurrentHashMap<String, DownloadTask> activeDownloads;
+    private final OkHttpClient httpClient;
 
     public interface DownloadListener {
         void onDownloadStart(Textbook textbook);

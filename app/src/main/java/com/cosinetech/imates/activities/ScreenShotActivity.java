@@ -3,21 +3,18 @@ package com.cosinetech.imates.activities;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.media.ImageReader;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.Parcelable;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 
-import androidx.camera.core.processing.SurfaceProcessorNode;
-
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.feedback.FeedbackActivity;
 import com.cosinetech.imates.util.MediaProjectionCapture;
 import com.cosinetech.imates.util.WindowUtils;
 

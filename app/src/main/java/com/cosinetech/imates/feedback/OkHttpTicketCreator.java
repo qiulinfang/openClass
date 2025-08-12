@@ -1,4 +1,4 @@
-package com.cosinetech.imates;
+package com.cosinetech.imates.feedback;
 
 import android.os.Handler;
 import android.os.Looper;

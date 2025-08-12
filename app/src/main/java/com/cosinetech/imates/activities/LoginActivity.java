@@ -224,6 +224,8 @@ public class LoginActivity extends AppCompatActivity {
             try {
                 LoginRepository loginRepository = new LoginRepository();
                 userInfoViewModel.userId.postValue(userName);
+
+                userInfoViewModel.password.postValue(passwd);
                 // Perform login
                 String token = loginRepository.login(userName, passwd);
                 userInfoViewModel.token.postValue(token);

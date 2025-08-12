@@ -20,6 +20,7 @@ import androidx.lifecycle.ViewModelStoreOwner;
 
 import com.cosinetech.imates.AppEnvConfig;
 import com.cosinetech.imates.ApplicationModelShared;
+import com.cosinetech.imates.feedback.FeedbackActivity;
 import com.cosinetech.imates.models.ChatAiParam;
 import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;

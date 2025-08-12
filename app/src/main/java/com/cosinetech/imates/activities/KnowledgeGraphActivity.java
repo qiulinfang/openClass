@@ -17,6 +17,7 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
+import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.textbookservice.*;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -28,10 +29,26 @@ import java.io.InputStreamReader;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class KnowledgeGraphActivity extends BaseActivity {
     private static final String TAG = "KnowledgeGraphActivity";
     private LearnResourceManager manager;
+    private UserInfoViewModel userInfoViewModel;
+
+    Timer timer = new Timer();
+    TimerTask task = new TimerTask() {
+        @Override
+        public void run() {
+            // 在UI线程执行更新
+            runOnUiThread(() -> {
+                loginYb();
+                checkForUpdates();
+            });
+        }
+    };
+
     @Override
     protected int getLayoutResId() {
         return R.layout.activity_knowledge_graph;
@@ -79,16 +96,19 @@ public class KnowledgeGraphActivity extends BaseActivity {
     @Override
     protected void onStop() {
         super.onStop();
+        timer.cancel();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        timer.schedule(task, 0, 60000);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        timer.cancel();
     }
 
     public class WebAppInterface {
@@ -185,20 +205,26 @@ public class KnowledgeGraphActivity extends BaseActivity {
 
     public void initializeManager(Context context) {
         manager = new LearnResourceManager(context);
+        userInfoViewModel.ybLogin.postValue(false);
     }
 
     public void loginYb() {
-        manager.login("anxu", "your_password", new LearnResourceManager.LoginCallback() {
+        if(userInfoViewModel.ybLogin.getValue() != null && userInfoViewModel.ybLogin.getValue()) {
+            return;
+        }
+
+        manager.login(userInfoViewModel.userId.getValue(), userInfoViewModel.password.getValue(),
+                new LearnResourceManager.LoginCallback() {
             @Override
             public void onSuccess(LoginResponse response) {
                 Log.d(TAG, "Login successful: " + response.token);
-                // Proceed with other operations
-                checkForUpdates();
+                userInfoViewModel.ybLogin.postValue(true);
             }
 
             @Override
             public void onError(String error) {
                 Log.e(TAG, "Login failed: " + error);
+                userInfoViewModel.ybLogin.postValue(false);
             }
         });
     }
@@ -209,7 +235,6 @@ public class KnowledgeGraphActivity extends BaseActivity {
             public void onUpdateAvailable(List<TextbookVersion> updatedTextbooks) {
                 Log.d(TAG, "Updates available for " + updatedTextbooks.size() + " textbooks");
 
-                // Download updates for first textbook as example
                 if (!updatedTextbooks.isEmpty()) {
                     downloadTextbook(updatedTextbooks.get(0));
                 }
@@ -223,6 +248,11 @@ public class KnowledgeGraphActivity extends BaseActivity {
             @Override
             public void onError(String error) {
                 Log.e(TAG, "Update check failed: " + error);
+            }
+
+            @Override
+            public void onUnauthorized() {
+                userInfoViewModel.ybLogin.postValue(false);
             }
         });
     }

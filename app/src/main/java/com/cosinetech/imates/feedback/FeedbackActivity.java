@@ -1,6 +1,6 @@
-package com.cosinetech.imates.activities;
+package com.cosinetech.imates.feedback;
 
-import static com.cosinetech.imates.OkHttpTicketCreator.createTicketWithAttachments;
+import static com.cosinetech.imates.feedback.OkHttpTicketCreator.createTicketWithAttachments;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
@@ -15,7 +15,6 @@ import android.util.Log;
 import android.widget.Toast;
 
 import com.cosinetech.imates.ApplicationModelShared;
-import com.cosinetech.imates.OkHttpTicketCreator;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.databinding.ActivityFeedbackBinding;
 import com.cosinetech.imates.models.UserInfoViewModel;
