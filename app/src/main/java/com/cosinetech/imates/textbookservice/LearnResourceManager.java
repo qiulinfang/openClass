@@ -96,7 +96,7 @@ public class LearnResourceManager {
                 }
                 
                 @Override
-                public void onResponse(Call call, Response response) throws IOException {
+                public void onResponse(Call call, Response response) {
                     try {
                         String responseBody = response.body().string();
                         ApiResponse<LoginData> apiResponse = gson.fromJson(responseBody, 
@@ -176,7 +176,7 @@ public class LearnResourceManager {
             }
             
             @Override
-            public void onResponse(Call call, Response response) throws IOException {
+            public void onResponse(Call call, Response response) {
                 if (response.code() == 401) {
                     mainHandler.post(callback::onUnauthorized);
                     return;
@@ -228,7 +228,7 @@ public class LearnResourceManager {
             }
             
             @Override
-            public void onResponse(Call call, Response response) throws IOException {
+            public void onResponse(Call call, Response response) {
                 if (response.code() == 401) {
                     mainHandler.post(callback::onUnauthorized);
                     return;
@@ -251,13 +251,13 @@ public class LearnResourceManager {
         });
     }
     
-    public interface LearningResourcesCallback {
+    public interface LearningPackageCallback {
         void onSuccess(List<LearningPackage> resources);
         void onError(String error);
         void onUnauthorized();
     }
     
-    public void getLearningResources(String textbookVersionId, LearningResourcesCallback callback) {
+    public void getLearningPackage(String textbookVersionId, LearningPackageCallback callback) {
         if (!isLoggedIn()) {
             callback.onError("Not logged in");
             return;
@@ -280,7 +280,7 @@ public class LearnResourceManager {
             }
             
             @Override
-            public void onResponse(Call call, Response response) throws IOException {
+            public void onResponse(Call call, Response response) {
                 if (response.code() == 401) {
                     mainHandler.post(callback::onUnauthorized);
                     return;
@@ -372,7 +372,7 @@ public class LearnResourceManager {
     }
     
     public void downloadAllResources(TextbookVersion textbook, DownloadProgressCallback callback) {
-        getLearningResources(textbook.id, new LearningResourcesCallback() {
+        getLearningPackage(textbook.id, new LearningPackageCallback() {
             @Override
             public void onSuccess(List<LearningPackage> resources) {
                 executorService.execute(() -> downloadResourcesInBackground(textbook, resources, callback));
