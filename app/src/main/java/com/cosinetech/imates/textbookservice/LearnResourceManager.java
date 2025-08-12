@@ -6,6 +6,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -19,8 +21,10 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -35,10 +39,11 @@ import okhttp3.Response;
 
 public class LearnResourceManager {
     private static final String TAG = "LearnResourceManager";
-    private static final String BASE_URL = "https://43.138.16.5:50013"; // Replace with actual domain
+    private static final String BASE_URL = "https://your-api-domain.com"; // Replace with actual domain
     private static final String PREF_NAME = "LearnResourceManager";
     private static final String KEY_TOKEN = "token";
     private static final String KEY_USER_ID = "userId";
+    private static final String KEY_USERNAME = "username";
     
     private final Context context;
     private final OkHttpClient httpClient;
@@ -50,6 +55,7 @@ public class LearnResourceManager {
     
     private String currentToken;
     private String currentUserId;
+    private String currentUsername;
     
     public LearnResourceManager(Context context) {
         this.context = context.getApplicationContext();
@@ -77,7 +83,7 @@ public class LearnResourceManager {
         void onError(String error);
     }
     
-    public void login(String account, String password, LoginCallback callback) {
+    public void login(String username, String account, String password, LoginCallback callback) {
         try {
             String md5Password = md5(password);
             LoginRequest request = new LoginRequest(account, md5Password);
@@ -91,21 +97,28 @@ public class LearnResourceManager {
             
             httpClient.newCall(httpRequest).enqueue(new Callback() {
                 @Override
-                public void onFailure(Call call, IOException e) {
+                public void onFailure(@NonNull Call call, @NonNull IOException e) {
                     mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
                 }
                 
                 @Override
-                public void onResponse(Call call, Response response) {
+                public void onResponse(@NonNull Call call, @NonNull Response response) {
                     try {
                         String responseBody = response.body().string();
                         ApiResponse<LoginData> apiResponse = gson.fromJson(responseBody, 
                                 new TypeToken<ApiResponse<LoginData>>(){}.getType());
                         
                         if (apiResponse.success && apiResponse.data != null) {
+                            boolean userChanged = currentUsername != null && !currentUsername.equals(username);
+                            
                             currentToken = apiResponse.data.token;
                             currentUserId = apiResponse.data.userId;
+                            currentUsername = username;
                             saveCredentials();
+                            
+                            if (userChanged || getUserLearnData() == null) {
+                                initializeUserLearnData();
+                            }
                             
                             LoginResponse loginResponse = new LoginResponse(
                                     apiResponse.data.token,
@@ -131,21 +144,24 @@ public class LearnResourceManager {
         preferences.edit()
                 .putString(KEY_TOKEN, currentToken)
                 .putString(KEY_USER_ID, currentUserId)
+                .putString(KEY_USERNAME, currentUsername)
                 .apply();
     }
     
     private void loadCredentials() {
         currentToken = preferences.getString(KEY_TOKEN, null);
         currentUserId = preferences.getString(KEY_USER_ID, null);
+        currentUsername = preferences.getString(KEY_USERNAME, null);
     }
     
     public boolean isLoggedIn() {
-        return currentToken != null && !currentToken.isEmpty();
+        return currentToken != null && !currentToken.isEmpty() && currentUsername != null;
     }
     
     public void logout() {
         currentToken = null;
         currentUserId = null;
+        currentUsername = null;
         preferences.edit().clear().apply();
     }
     
@@ -171,12 +187,12 @@ public class LearnResourceManager {
         
         httpClient.newCall(request).enqueue(new Callback() {
             @Override
-            public void onFailure(Call call, IOException e) {
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
                 mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
             }
             
             @Override
-            public void onResponse(Call call, Response response) {
+            public void onResponse(@NonNull Call call, @NonNull Response response) {
                 if (response.code() == 401) {
                     mainHandler.post(callback::onUnauthorized);
                     return;
@@ -223,12 +239,12 @@ public class LearnResourceManager {
         
         httpClient.newCall(httpRequest).enqueue(new Callback() {
             @Override
-            public void onFailure(Call call, IOException e) {
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
                 mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
             }
             
             @Override
-            public void onResponse(Call call, Response response) {
+            public void onResponse(@NonNull Call call, @NonNull Response response) {
                 if (response.code() == 401) {
                     mainHandler.post(callback::onUnauthorized);
                     return;
@@ -251,13 +267,13 @@ public class LearnResourceManager {
         });
     }
     
-    public interface LearningPackageCallback {
+    public interface LearningResourcesCallback {
         void onSuccess(List<LearningPackage> resources);
         void onError(String error);
         void onUnauthorized();
     }
     
-    public void getLearningPackage(String textbookVersionId, LearningPackageCallback callback) {
+    public void getLearningResources(String textbookVersionId, LearningResourcesCallback callback) {
         if (!isLoggedIn()) {
             callback.onError("Not logged in");
             return;
@@ -275,12 +291,12 @@ public class LearnResourceManager {
         
         httpClient.newCall(httpRequest).enqueue(new Callback() {
             @Override
-            public void onFailure(Call call, IOException e) {
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
                 mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
             }
             
             @Override
-            public void onResponse(Call call, Response response) {
+            public void onResponse(@NonNull Call call, @NonNull Response response) {
                 if (response.code() == 401) {
                     mainHandler.post(callback::onUnauthorized);
                     return;
@@ -318,10 +334,13 @@ public class LearnResourceManager {
                 executorService.execute(() -> {
                     try {
                         List<TextbookVersion> updatedTextbooks = new ArrayList<>();
+                        UserLearnData userLearnData = getUserLearnData();
                         
                         for (TextbookVersion version : versions) {
-                            String lastUpdateTime = getLastUpdateTime(version.id);
-                            if (lastUpdateTime == null || isNewer(version.textbookUpdateTime, lastUpdateTime)) {
+                            UserTextbookInfo localInfo = userLearnData != null ? 
+                                    userLearnData.findTextbook(version.id) : null;
+                            
+                            if (localInfo == null || isNewer(version.textbookUpdateTime, localInfo.textbookUpdateTime)) {
                                 updatedTextbooks.add(version);
                             }
                         }
@@ -372,7 +391,7 @@ public class LearnResourceManager {
     }
     
     public void downloadAllResources(TextbookVersion textbook, DownloadProgressCallback callback) {
-        getLearningPackage(textbook.id, new LearningPackageCallback() {
+        getLearningResources(textbook.id, new LearningResourcesCallback() {
             @Override
             public void onSuccess(List<LearningPackage> resources) {
                 executorService.execute(() -> downloadResourcesInBackground(textbook, resources, callback));
@@ -392,10 +411,8 @@ public class LearnResourceManager {
     
     private void downloadResourcesInBackground(TextbookVersion textbook, List<LearningPackage> packages, DownloadProgressCallback callback) {
         try {
-            // Create directory structure
-            File textbookDir = createTextbookDirectory(textbook);
+            File textbookDir = createUserTextbookDirectory(textbook);
             
-            // Create resource index
             ResourceIndex index = new ResourceIndex();
             index.textbook = textbook;
             index.packages = packages;
@@ -416,14 +433,12 @@ public class LearnResourceManager {
                     try {
                         File localFile = new File(packageDir, resource.fileName);
                         
-                        // Check if file exists and has correct checksum
                         if (localFile.exists() && verifyChecksum(localFile, resource.checksum)) {
                             completedFiles++;
                             mainHandler.post(() -> callback.onFileCompleted(resource.fileName, localFile.getAbsolutePath()));
                             continue;
                         }
                         
-                        // Download file
                         downloadFile(resource, localFile, new SingleFileDownloadCallback() {
                             @Override
                             public void onProgress(long downloadedBytes, long totalBytes, int percentage) {
@@ -450,11 +465,9 @@ public class LearnResourceManager {
                 }
             }
             
-            // Save resource index
             saveResourceIndex(textbookDir, index);
             
-            // Update last update time
-            saveLastUpdateTime(textbook.id, textbook.textbookUpdateTime);
+            updateUserTextbookInfo(textbook, totalFiles, completedFiles, true);
             
             mainHandler.post(callback::onAllCompleted);
             
@@ -503,7 +516,6 @@ public class LearnResourceManager {
             outputStream.close();
             inputStream.close();
             
-            // Verify checksum
             if (verifyChecksum(localFile, resource.checksum)) {
                 callback.onCompleted(localFile.getAbsolutePath());
             } else {
@@ -518,9 +530,11 @@ public class LearnResourceManager {
     
     // ==================== File Management ====================
     
-    private File createTextbookDirectory(TextbookVersion textbook) {
+    private File createUserTextbookDirectory(TextbookVersion textbook) {
         File baseDir = new File(context.getExternalFilesDir(null), "LearnResources");
-        File subjectDir = new File(baseDir, sanitizeFileName(textbook.textbookSubjectLabel));
+        File userDir = new File(baseDir, sanitizeFileName(currentUsername));
+        File learnDir = new File(userDir, "learn");
+        File subjectDir = new File(learnDir, sanitizeFileName(textbook.textbookSubjectLabel));
         File textbookDir = new File(subjectDir, sanitizeFileName(
                 textbook.textbookName + "_" + textbook.textbookGradeLabel + "_" + textbook.textbookSemesterLabel
         ));
@@ -528,6 +542,15 @@ public class LearnResourceManager {
         return textbookDir;
     }
     
+    private File getUserLearnDirectory() {
+        if (currentUsername == null) return null;
+        File baseDir = new File(context.getExternalFilesDir(null), "LearnResources");
+        File userDir = new File(baseDir, sanitizeFileName(currentUsername));
+        File learnDir = new File(userDir, "learn");
+        learnDir.mkdirs();
+        return learnDir;
+    }
+
     private String sanitizeFileName(String fileName) {
         return fileName.replaceAll("[^a-zA-Z0-9\u4e00-\u9fa5._-]", "_");
     }
@@ -587,12 +610,250 @@ public class LearnResourceManager {
         }
     }
     
-    private String getLastUpdateTime(String textbookId) {
-        return preferences.getString("update_time_" + textbookId, null);
+    private UserLearnData getUserLearnData() {
+        try {
+            File learnDir = getUserLearnDirectory();
+            if (learnDir == null) return null;
+            
+            File dataFile = new File(learnDir, "user_learn_data.json");
+            if (!dataFile.exists()) return null;
+            
+            byte[] bytes = new byte[(int) dataFile.length()];
+            java.io.FileInputStream fis = new java.io.FileInputStream(dataFile);
+            fis.read(bytes);
+            fis.close();
+            
+            String json = new String(bytes, "UTF-8");
+            return gson.fromJson(json, UserLearnData.class);
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading user learn data", e);
+            return null;
+        }
     }
     
-    private void saveLastUpdateTime(String textbookId, String updateTime) {
-        preferences.edit().putString("update_time_" + textbookId, updateTime).apply();
+    private void saveUserLearnData(UserLearnData data) {
+        try {
+            File learnDir = getUserLearnDirectory();
+            if (learnDir == null) return;
+            
+            File dataFile = new File(learnDir, "user_learn_data.json");
+            String json = gson.toJson(data);
+            FileOutputStream fos = new FileOutputStream(dataFile);
+            fos.write(json.getBytes("UTF-8"));
+            fos.close();
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving user learn data", e);
+        }
+    }
+    
+    private void initializeUserLearnData() {
+        UserLearnData data = new UserLearnData(currentUsername);
+        data.lastSyncTime = dateFormat.format(new Date());
+        saveUserLearnData(data);
+    }
+    
+    private void updateUserTextbookInfo(TextbookVersion textbook, int totalFiles, int downloadedFiles, boolean isDownloaded) {
+        UserLearnData data = getUserLearnData();
+        if (data == null) {
+            data = new UserLearnData(currentUsername);
+        }
+        
+        UserTextbookInfo info = new UserTextbookInfo(textbook);
+        info.totalFiles = totalFiles;
+        info.downloadedFiles = downloadedFiles;
+        info.isDownloaded = isDownloaded;
+        info.lastDownloadTime = dateFormat.format(new Date());
+        
+        data.updateOrAddTextbook(info);
+        data.lastSyncTime = dateFormat.format(new Date());
+        saveUserLearnData(data);
+    }
+    
+    public interface AllTextbooksCallback {
+        void onSuccess(List<UserTextbookInfo> textbooks);
+        void onError(String error);
+    }
+    
+    public void loadAllUserTextbooks(AllTextbooksCallback callback) {
+        executorService.execute(() -> {
+            try {
+                UserLearnData data = getUserLearnData();
+                if (data == null) {
+                    mainHandler.post(() -> callback.onSuccess(new ArrayList<>()));
+                    return;
+                }
+                
+                getTextbookVersions(new TextbookVersionsCallback() {
+                    @Override
+                    public void onSuccess(List<TextbookVersion> serverTextbooks) {
+                        executorService.execute(() -> {
+                            try {
+                                for (TextbookVersion serverTextbook : serverTextbooks) {
+                                    UserTextbookInfo localInfo = data.findTextbook(serverTextbook.id);
+                                    if (localInfo == null) {
+                                        localInfo = new UserTextbookInfo(serverTextbook);
+                                        data.updateOrAddTextbook(localInfo);
+                                    } else {
+                                        localInfo.textbookUpdateTime = serverTextbook.textbookUpdateTime;
+                                        localInfo.textbookName = serverTextbook.textbookName;
+                                        localInfo.textbookSubjectLabel = serverTextbook.textbookSubjectLabel;
+                                        localInfo.textbookGradeLabel = serverTextbook.textbookGradeLabel;
+                                        localInfo.textbookSemesterLabel = serverTextbook.textbookSemesterLabel;
+                                    }
+                                }
+                                
+                                saveUserLearnData(data);
+                                mainHandler.post(() -> callback.onSuccess(data.textbooks));
+                            } catch (Exception e) {
+                                mainHandler.post(() -> callback.onError("Error processing textbooks: " + e.getMessage()));
+                            }
+                        });
+                    }
+                    
+                    @Override
+                    public void onError(String error) {
+                        mainHandler.post(() -> callback.onSuccess(data.textbooks));
+                    }
+                    
+                    @Override
+                    public void onUnauthorized() {
+                        mainHandler.post(() -> callback.onError("Authentication required"));
+                    }
+                });
+                
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onError("Error loading textbooks: " + e.getMessage()));
+            }
+        });
+    }
+    
+    public interface CleanupCallback {
+        void onProgress(String message);
+        void onCompleted(long freedSpace, int deletedFiles);
+        void onError(String error);
+    }
+    
+    public void cleanupUnreferencedFiles(CleanupCallback callback) {
+        executorService.execute(() -> {
+            try {
+                File learnDir = getUserLearnDirectory();
+                if (learnDir == null || !learnDir.exists()) {
+                    mainHandler.post(() -> callback.onCompleted(0, 0));
+                    return;
+                }
+                
+                mainHandler.post(() -> callback.onProgress("Scanning referenced files..."));
+                
+                Set<String> referencedFiles = new HashSet<>();
+                UserLearnData data = getUserLearnData();
+                if (data != null) {
+                    for (UserTextbookInfo textbook : data.textbooks) {
+                        if (textbook.isDownloaded) {
+                            File textbookDir = getTextbookDirectoryById(textbook.textbookId);
+                            if (textbookDir != null && textbookDir.exists()) {
+                                addReferencedFiles(textbookDir, referencedFiles);
+                            }
+                        }
+                    }
+                }
+                
+                mainHandler.post(() -> callback.onProgress("Scanning for unreferenced files..."));
+                
+                long freedSpace = 0;
+                int deletedFiles = 0;
+                List<File> allFiles = getAllFiles(learnDir);
+                
+                for (File file : allFiles) {
+                    if (file.isFile() && !file.getName().equals("user_learn_data.json")) {
+                        String relativePath = getRelativePath(learnDir, file);
+                        if (!referencedFiles.contains(relativePath)) {
+                            long fileSize = file.length();
+                            if (file.delete()) {
+                                freedSpace += fileSize;
+                                deletedFiles++;
+                                mainHandler.post(() -> callback.onProgress("Deleted: " + file.getName()));
+                            }
+                        }
+                    }
+                }
+                
+                cleanupEmptyDirectories(learnDir);
+                
+                final long finalFreedSpace = freedSpace;
+                final int finalDeletedFiles = deletedFiles;
+                mainHandler.post(() -> callback.onCompleted(finalFreedSpace, finalDeletedFiles));
+                
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onError("Cleanup error: " + e.getMessage()));
+            }
+        });
+    }
+    
+    private File getTextbookDirectoryById(String textbookId) {
+        UserLearnData data = getUserLearnData();
+        if (data == null) return null;
+        
+        UserTextbookInfo textbook = data.findTextbook(textbookId);
+        if (textbook == null) return null;
+        
+        File learnDir = getUserLearnDirectory();
+        File subjectDir = new File(learnDir, sanitizeFileName(textbook.textbookSubjectLabel));
+        File textbookDir = new File(subjectDir, sanitizeFileName(
+                textbook.textbookName + "_" + textbook.textbookGradeLabel + "_" + textbook.textbookSemesterLabel
+        ));
+        
+        return textbookDir;
+    }
+    
+    private void addReferencedFiles(File dir, Set<String> referencedFiles) {
+        File learnDir = getUserLearnDirectory();
+        if (learnDir == null) return;
+        
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isFile()) {
+                    String relativePath = getRelativePath(learnDir, file);
+                    referencedFiles.add(relativePath);
+                } else if (file.isDirectory()) {
+                    addReferencedFiles(file, referencedFiles);
+                }
+            }
+        }
+    }
+    
+    private List<File> getAllFiles(File dir) {
+        List<File> files = new ArrayList<>();
+        File[] dirFiles = dir.listFiles();
+        if (dirFiles != null) {
+            for (File file : dirFiles) {
+                if (file.isFile()) {
+                    files.add(file);
+                } else if (file.isDirectory()) {
+                    files.addAll(getAllFiles(file));
+                }
+            }
+        }
+        return files;
+    }
+    
+    private String getRelativePath(File baseDir, File file) {
+        return baseDir.toURI().relativize(file.toURI()).getPath();
+    }
+    
+    private void cleanupEmptyDirectories(File dir) {
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    cleanupEmptyDirectories(file);
+                    File[] remainingFiles = file.listFiles();
+                    if (remainingFiles != null && remainingFiles.length == 0) {
+                        file.delete();
+                    }
+                }
+            }
+        }
     }
     
     // ==================== Utility Methods ====================
