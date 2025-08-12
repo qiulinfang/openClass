@@ -83,7 +83,7 @@ public class LearnResourceManager {
         void onError(String error);
     }
     
-    public void login(String username, String account, String password, LoginCallback callback) {
+    public void login(String account, String password, LoginCallback callback) {
         try {
             String md5Password = md5(password);
             LoginRequest request = new LoginRequest(account, md5Password);
@@ -109,11 +109,11 @@ public class LearnResourceManager {
                                 new TypeToken<ApiResponse<LoginData>>(){}.getType());
                         
                         if (apiResponse.success && apiResponse.data != null) {
-                            boolean userChanged = currentUsername != null && !currentUsername.equals(username);
+                            boolean userChanged = currentUsername != null && !currentUsername.equals(account);
                             
                             currentToken = apiResponse.data.token;
                             currentUserId = apiResponse.data.userId;
-                            currentUsername = username;
+                            currentUsername = account;
                             saveCredentials();
                             
                             if (userChanged || getUserLearnData() == null) {
