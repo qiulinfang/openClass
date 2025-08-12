@@ -76,13 +76,15 @@ public class AdapterMultiSelectSimilarQuestionList extends RecyclerView.Adapter<
 
     public void resetSelection(){
         selectedPosition = -1;
+        notifyDataSetChanged();
     }
 
     public void setSelectedPosition(int position) {
         int previousPosition = selectedPosition;
         selectedPosition = position;
-        notifyItemChanged(previousPosition);
-        notifyItemChanged(selectedPosition);
+//        notifyItemChanged(previousPosition);
+//        notifyItemChanged(selectedPosition);
+        notifyDataSetChanged();
     }
 
     @Override

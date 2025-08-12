@@ -63,7 +63,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        initializeManager(this);
+        //initializeManager(this);
 
         WebView webView = findViewById(R.id.knowledge_view);
         webView.getSettings().setJavaScriptEnabled(true);
@@ -96,19 +96,19 @@ public class KnowledgeGraphActivity extends BaseActivity {
     @Override
     protected void onStop() {
         super.onStop();
-        timer.cancel();
+        //timer.cancel();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        timer.schedule(task, 0, 60000);
+        //timer.schedule(task, 0, 60000);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        timer.cancel();
+        //timer.cancel();
     }
 
     public class WebAppInterface {
