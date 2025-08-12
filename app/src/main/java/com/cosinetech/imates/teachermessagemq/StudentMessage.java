@@ -1,4 +1,4 @@
-package com.cosinetech.imates.mq;
+package com.cosinetech.imates.teachermessagemq;
 
 import org.json.JSONException;
 import org.json.JSONObject;

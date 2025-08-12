@@ -37,9 +37,9 @@ import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.views.MarkdownTextView;
-import com.cosinetech.imates.webservice.ApiGateWayService;
-import com.cosinetech.imates.webservice.ApiUrl;
-import com.cosinetech.imates.webservice.Question;
+import com.cosinetech.imates.coreapiservice.ApiGateWayService;
+import com.cosinetech.imates.coreapiservice.ApiUrl;
+import com.cosinetech.imates.coreapiservice.Question;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;

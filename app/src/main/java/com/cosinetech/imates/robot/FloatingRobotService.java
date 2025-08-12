@@ -1,4 +1,4 @@
-package com.cosinetech.imates.service;
+package com.cosinetech.imates.robot;
 
 import android.annotation.SuppressLint;
 import android.app.Notification;
@@ -37,15 +37,13 @@ import com.cosinetech.imates.activities.ScreenShotActivity;
 import com.cosinetech.imates.models.ChatAiParam;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.models.ChatMessageHistoryDB;
-import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.UserInfoViewModel;
-import com.cosinetech.imates.mq.MessagingManager;
-import com.cosinetech.imates.mq.TeacherMessage;
+import com.cosinetech.imates.teachermessagemq.MessagingManager;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.ScreenUtils;
 import com.cosinetech.imates.views.ChatAiView;
-import com.cosinetech.imates.webservice.ApiUrl;
+import com.cosinetech.imates.coreapiservice.ApiUrl;
 
 public class FloatingRobotService extends Service implements MessagingManager.MessageListener {
     private static final String CHANNEL_ID = "floating_window_channel";

@@ -1,4 +1,4 @@
-package com.cosinetech.imates.webservice;
+package com.cosinetech.imates.coreapiservice;
 
 import java.util.concurrent.TimeUnit;
 

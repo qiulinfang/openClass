@@ -8,14 +8,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
-import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.Nullable;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.cardview.widget.CardView;
 import androidx.lifecycle.ViewModelProvider;
@@ -31,21 +28,16 @@ import com.cosinetech.imates.screencasting.H264IFrameCache;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.screencasting.UdpForwarderManager;
-import com.cosinetech.imates.service.FloatingRobotService;
+import com.cosinetech.imates.robot.FloatingRobotService;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.SimpleImageCompressor;
 import com.cosinetech.imates.util.WindowUtils;
 
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.webservice.ApiUrl;
+import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.lzf.easyfloat.EasyFloat;
-import com.lzf.easyfloat.anim.DefaultAnimator;
-import com.lzf.easyfloat.enums.ShowPattern;
-import com.lzf.easyfloat.enums.SidePattern;
-import com.lzf.easyfloat.interfaces.OnFloatCallbacks;
 import com.xuexiang.xupdate.easy.EasyUpdate;
 
-import org.jetbrains.annotations.NotNull;
 import org.loka.screensharekit.EncodeBuilder;
 import org.loka.screensharekit.ScreenShareKit;
 

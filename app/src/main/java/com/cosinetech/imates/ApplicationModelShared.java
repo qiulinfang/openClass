@@ -23,9 +23,9 @@ import com.cosinetech.imates.screencasting.H264IFrameCache;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.screencasting.UdpForwarderManager;
-import com.cosinetech.imates.service.FloatingRobotService;
+import com.cosinetech.imates.robot.FloatingRobotService;
 import com.cosinetech.imates.util.AssetsCopyUtils;
-import com.cosinetech.imates.webservice.AiChatMessageRequest;
+import com.cosinetech.imates.coreapiservice.AiChatMessageRequest;
 
 public class ApplicationModelShared extends Application implements ViewModelStoreOwner {
     private final ViewModelStore viewModelStore = new ViewModelStore();

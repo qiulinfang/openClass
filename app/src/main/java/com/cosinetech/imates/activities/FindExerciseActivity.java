@@ -23,9 +23,9 @@ import com.cosinetech.imates.models.FindSimilarQuestionRequest;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.util.WindowUtils;
-import com.cosinetech.imates.webservice.ApiGateWayService;
-import com.cosinetech.imates.webservice.ApiUrl;
-import com.cosinetech.imates.webservice.Question;
+import com.cosinetech.imates.coreapiservice.ApiGateWayService;
+import com.cosinetech.imates.coreapiservice.ApiUrl;
+import com.cosinetech.imates.coreapiservice.Question;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
 import java.util.ArrayList;

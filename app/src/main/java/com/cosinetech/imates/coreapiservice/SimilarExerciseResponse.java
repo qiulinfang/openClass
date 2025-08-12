@@ -1,4 +1,5 @@
-package com.cosinetech.imates.webservice;
+package com.cosinetech.imates.coreapiservice;
+
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -8,7 +9,7 @@ import com.google.gson.annotations.SerializedName;
 import java.util.ArrayList;
 import java.util.List;
 
-public class QueryQuestionListResponse {
+public class SimilarExerciseResponse {
     @SerializedName("success")
     private boolean success;
 
@@ -17,6 +18,15 @@ public class QueryQuestionListResponse {
 
     @SerializedName("message")
     private String message;
+
+    @SerializedName("pageNo")
+    private long pageNo;
+
+    @SerializedName("pageSize")
+    private long pageSize;
+
+    @SerializedName("totalCount")
+    private long totalCount;
 
     @SerializedName("data")
     private Data data;
@@ -38,6 +48,30 @@ public class QueryQuestionListResponse {
         this.code = code;
     }
 
+    public long getPageSize(){
+        return  pageSize;
+    }
+
+    public void setPageSize(long pageSize) {
+        this.pageSize = pageSize;
+    }
+
+    public long getPageNo() {
+        return pageNo;
+    }
+
+    public void setPageNo(long pageNo) {
+        this.pageNo = pageNo;
+    }
+
+    public long getTotalCount() {
+        return totalCount;
+    }
+
+    public void setTotalCount(long totalCount) {
+        this.totalCount = totalCount;
+    }
+
     public String getMessage() {
         return message;
     }
@@ -54,37 +88,38 @@ public class QueryQuestionListResponse {
         this.data = data;
     }
 
-    public static QueryQuestionListResponse fromJson(String json) {
+    public static SimilarExerciseResponse fromJson(String json) {
         Gson gson = new GsonBuilder()
                 .setStrictness(Strictness.LENIENT)
                 .create();
-        QueryQuestionListResponse question = gson.fromJson(json, QueryQuestionListResponse.class);
+        SimilarExerciseResponse question = gson.fromJson(json, SimilarExerciseResponse.class);
         if(question.message == null) {
             question.message = "";
         }
 
         if(question.data == null) {
-            question.data = new QueryQuestionListResponse.Data();
+            question.data = new SimilarExerciseResponse.Data();
         }
 
-        if(question.data.getQuestionsList() == null) {
-            question.data.setQuestionsList(new ArrayList<>());
+        if(question.data.getQuestions() == null) {
+            question.data.setQuestions(new ArrayList<>());
         }
 
         return question;
     }
 
     public static class Data {
-        @SerializedName("questionsList")
-        private List<Question> questionsList;
+        @SerializedName("questions")
+        private List<Question> questions;
 
         // Getters and Setters
-        public List<Question> getQuestionsList() {
-            return questionsList;
+        public List<Question> getQuestions() {
+            return questions;
         }
 
-        public void setQuestionsList(List<Question> questionsList) {
-            this.questionsList = questionsList;
+        public void setQuestions(List<Question> questionsList) {
+            this.questions = questionsList;
         }
     }
 }
+

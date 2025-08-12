@@ -208,12 +208,6 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                     public void onContentUpdate(String content) {
                         adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(content));
                         adapter.notifyDataSetChanged();
-                        //recyclerView.post(() -> );
-
-                        // 滚动到底部
-//                        if (mRecyclerView != null) {
-//                            mRecyclerView.scrollToPosition(items.size() - 1);
-//                        }
                     }
 
                     @Override
@@ -223,7 +217,6 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                     }
                 });
             } else {
-                // 直接显示完整内容，参考 VoiceListAdapter 的方式
                 adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(message.content));
                 adapter.notifyDataSetChanged();
             }

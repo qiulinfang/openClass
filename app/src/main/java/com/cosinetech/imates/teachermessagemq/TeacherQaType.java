@@ -1,4 +1,4 @@
-package com.cosinetech.imates.mq;
+package com.cosinetech.imates.teachermessagemq;
 
 public class TeacherQaType {
     public final static String SCHOOL_SUBJECT_BIOLOGY = "6";

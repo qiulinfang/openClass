@@ -5,7 +5,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
-import android.widget.CompoundButton;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -13,7 +12,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.views.MarkdownTextView;
-import com.cosinetech.imates.webservice.Question;
+import com.cosinetech.imates.coreapiservice.Question;
 
 import java.util.List;
 

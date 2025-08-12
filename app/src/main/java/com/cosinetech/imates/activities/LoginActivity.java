@@ -40,7 +40,7 @@ import com.cosinetech.imates.databinding.ActivityLoginBinding;
 import com.cosinetech.imates.models.UserInfo;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.util.WindowUtils;
-import com.cosinetech.imates.webservice.ApiUrl;
+import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.xuexiang.xupdate.easy.EasyUpdate;
 
 import java.io.File;

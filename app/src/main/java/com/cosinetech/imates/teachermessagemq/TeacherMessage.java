@@ -1,6 +1,5 @@
-package com.cosinetech.imates.mq;
+package com.cosinetech.imates.teachermessagemq;
 
-import com.cosinetech.imates.models.ChatDisplayItem;
 import com.cosinetech.imates.models.ChatMessage;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.ImageUtils;

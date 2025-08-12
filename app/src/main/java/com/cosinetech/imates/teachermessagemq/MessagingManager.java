@@ -1,4 +1,4 @@
-package com.cosinetech.imates.mq;
+package com.cosinetech.imates.teachermessagemq;
 
 import android.content.Context;
 import android.os.Handler;

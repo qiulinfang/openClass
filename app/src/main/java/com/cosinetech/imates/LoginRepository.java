@@ -1,7 +1,7 @@
 package com.cosinetech.imates;
 
 import com.cosinetech.imates.models.UserInfo;
-import com.cosinetech.imates.webservice.ApiUrl;
+import com.cosinetech.imates.coreapiservice.ApiUrl;
 
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;

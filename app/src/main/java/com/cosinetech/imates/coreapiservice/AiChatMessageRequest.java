@@ -1,4 +1,4 @@
-package com.cosinetech.imates.webservice;
+package com.cosinetech.imates.coreapiservice;
 
 public class AiChatMessageRequest {
     private String sessionId;

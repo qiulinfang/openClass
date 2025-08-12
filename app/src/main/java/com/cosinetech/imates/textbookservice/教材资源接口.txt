@@ -1,0 +1,432 @@
+1 学生登录接口
+    方法: POST
+    路径: /blw-edu-yb/auth/login-student
+    参数:
+    {
+        "account": "anxu", //用户名
+        "password": "670b14728ad9902aecba32e22fa4f6bd" //密码的md5
+    }
+
+    返回值:
+    {
+        "code": 200,
+        "success": true,
+        "message": "登录成功",
+        "data": {
+            "token": "SQHV4nAiRnKcZ6z53oFq1xHO7BhVv5tQeDIFEdS59BnAnSC1bQbnC4XE6yWcIuLW6bfgJT41yiWWCyh0ac6drCXcF82rShOLeCThhUGPBuwNsBrXWWYhq1mvICW2Af9C",
+            "userId": "1871381966685110274",
+            "defaultPassword": false
+        }
+    }
+
+    说明:
+    返回成功后需要保存token;
+
+2 查询所有教材版本
+    方法: POST
+    路径:/blw-edu-yb/api/app/teacher-textbook
+    参数: 无
+    HTTP附加header:
+    sa-token:${token} //即登录后获取的token
+
+    返回值:
+    {
+        "code": 200,
+        "success": true,
+        "message": "成功",
+        "data": [
+            {
+            "id": "2f91a127e2fb4b5a9289d97974a790fd",
+            "textbookId": "309599971637723136",
+            "textbookGrade": 10,
+            "textbookGradeLabel": "高一",
+            "textbookSemester": 1,
+            "textbookSemesterLabel": "上册",
+            "textbookSubject": 6,
+            "textbookSubjectLabel": "生物",
+            "textbookName": "人教版",
+            "textbookEditionYear": "2019",
+            "textbookIsbn": "978-7-107-33565-5",
+            "textbookPublisher": "人民教育出版社出版",
+            "textbookCover": "https://example.com/cover.jpg",
+            "textbookUpdateTime": "2025-08-01 12:09:19"
+            }
+        ]
+    }
+
+3  查询某本教材的章节列表
+    方法: POST
+    路径: /blw-edu-yb/api/app/teacher-textbook-section-tree
+    参数:
+    {
+        "id": "309599971637723136" // 教材的textbookId
+    }
+
+    HTTP附加header:
+    sa-token:${token} //即登录后获取的token
+
+    返回值:
+    {
+        "code": 200,
+        "success": true,
+        "message": "成功",
+        "data": [
+            {
+            "id": "309599971637723136",
+            "name": "人教版",
+            "parentId": null,
+            "label": "人教版",
+            "level": null,
+            "isRoot": true,
+            "children": [
+                {
+                "id": "1628285388617848832",
+                "name": "第一章 集合与常用逻辑用语",
+                "parentId": "309599971637723136",
+                "label": "第一章 集合与常用逻辑用语",
+                "level": 0,
+                "isRoot": true,
+                "children": [
+                    {
+                    "id": "1628285388617848833",
+                    "name": "1.1 集合的概念",
+                    "parentId": "1628285388617848832",
+                    "label": "1.1 集合的概念",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848834",
+                    "name": "1.2 集合间的基本关系",
+                    "parentId": "1628285388617848832",
+                    "label": "1.2 集合间的基本关系",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848835",
+                    "name": "1.3 集合的基本运算",
+                    "parentId": "1628285388617848832",
+                    "label": "1.3 集合的基本运算",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848836",
+                    "name": "1.4 充分条件与必要条件",
+                    "parentId": "1628285388617848832",
+                    "label": "1.4 充分条件与必要条件",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848837",
+                    "name": "1.5 全称量词与存在量词",
+                    "parentId": "1628285388617848832",
+                    "label": "1.5 全称量词与存在量词",
+                    "level": 1,
+                    "isRoot": false
+                    }
+                ]
+                },
+                {
+                "id": "1628285388617848838",
+                "name": "第二章 一元二次函数、方程和不等式",
+                "parentId": "309599971637723136",
+                "label": "第二章 一元二次函数、方程和不等式",
+                "level": 0,
+                "isRoot": true,
+                "children": [
+                    {
+                    "id": "1628285388617848839",
+                    "name": "2.1 等式性质与不等式性质",
+                    "parentId": "1628285388617848838",
+                    "label": "2.1 等式性质与不等式性质",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848840",
+                    "name": "2.2 基本不等式",
+                    "parentId": "1628285388617848838",
+                    "label": "2.2 基本不等式",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848841",
+                    "name": "2.3 二次函数与一元二次方程、不等式",
+                    "parentId": "1628285388617848838",
+                    "label": "2.3 二次函数与一元二次方程、不等式",
+                    "level": 1,
+                    "isRoot": false
+                    }
+                ]
+                },
+                {
+                "id": "1628285388617848842",
+                "name": "第三章 函数的概念与性质",
+                "parentId": "309599971637723136",
+                "label": "第三章 函数的概念与性质",
+                "level": 0,
+                "isRoot": true,
+                "children": [
+                    {
+                    "id": "1628285388617848843",
+                    "name": "3.1 函数的概念及其表示",
+                    "parentId": "1628285388617848842",
+                    "label": "3.1 函数的概念及其表示",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848844",
+                    "name": "3.2 函数的基本性质",
+                    "parentId": "1628285388617848842",
+                    "label": "3.2 函数的基本性质",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848845",
+                    "name": "3.3 幂函数",
+                    "parentId": "1628285388617848842",
+                    "label": "3.3 幂函数",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848846",
+                    "name": "3.4 函数的应用（一）",
+                    "parentId": "1628285388617848842",
+                    "label": "3.4 函数的应用（一）",
+                    "level": 1,
+                    "isRoot": false
+                    }
+                ]
+                },
+                {
+                "id": "1628285388617848847",
+                "name": "第四章 指数函数与对数函数",
+                "parentId": "309599971637723136",
+                "label": "第四章 指数函数与对数函数",
+                "level": 0,
+                "isRoot": true,
+                "children": [
+                    {
+                    "id": "1628285388617848848",
+                    "name": "4.1 指数",
+                    "parentId": "1628285388617848847",
+                    "label": "4.1 指数",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848849",
+                    "name": "4.2 指数函数",
+                    "parentId": "1628285388617848847",
+                    "label": "4.2 指数函数",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848850",
+                    "name": "4.3 对数",
+                    "parentId": "1628285388617848847",
+                    "label": "4.3 对数",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848851",
+                    "name": "4.4 对数函数",
+                    "parentId": "1628285388617848847",
+                    "label": "4.4 对数函数",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848852",
+                    "name": "4.5 函数的应用（二）",
+                    "parentId": "1628285388617848847",
+                    "label": "4.5 函数的应用（二）",
+                    "level": 1,
+                    "isRoot": false
+                    }
+                ]
+                },
+                {
+                "id": "1628285388617848853",
+                "name": "第五章 三角函数",
+                "parentId": "309599971637723136",
+                "label": "第五章 三角函数",
+                "level": 0,
+                "isRoot": true,
+                "children": [
+                    {
+                    "id": "1628285388617848854",
+                    "name": "5.1 任意角和弧度制",
+                    "parentId": "1628285388617848853",
+                    "label": "5.1 任意角和弧度制",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848855",
+                    "name": "5.2 三角函数的概念",
+                    "parentId": "1628285388617848853",
+                    "label": "5.2 三角函数的概念",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848856",
+                    "name": "5.3 诱导公式",
+                    "parentId": "1628285388617848853",
+                    "label": "5.3 诱导公式",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848857",
+                    "name": "5.4 三角函数的图象与性质",
+                    "parentId": "1628285388617848853",
+                    "label": "5.4 三角函数的图象与性质",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848858",
+                    "name": "5.5 三角恒等变换",
+                    "parentId": "1628285388617848853",
+                    "label": "5.5 三角恒等变换",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848859",
+                    "name": "5.6 函数y = A sin(ωx+φ)",
+                    "parentId": "1628285388617848853",
+                    "label": "5.6 函数y = A sin(ωx+φ)",
+                    "level": 1,
+                    "isRoot": false
+                    },
+                    {
+                    "id": "1628285388617848860",
+                    "name": "5.7 三角函数的应用",
+                    "parentId": "1628285388617848853",
+                    "label": "5.7 三角函数的应用",
+                    "level": 1,
+                    "isRoot": false
+                    }
+                ]
+                }
+            ]
+            }
+        ]
+    }
+
+    返回的是教材的章节的树结构, 通过parentId标识父子关系.textbookUpdateTime表示最近有没有更新.
+
+4  查询某本书的所有章节的学习资源文件
+    方法: POST
+    路径: /blw-edu-yb/api/app/teacher-textbook-learning-package
+    参数:
+    {
+        "id": "2f91a127e2fb4b5a9289d97974a790fd" //id是教材版本的id, 注意不是textbookid
+    }
+    HTTP附加header:
+    sa-token:${token} //即登录后获取的token
+
+    返回值:
+    {
+        "code": 200,
+        "success": true,
+        "message": "成功",
+        "data": [
+            {
+            "id": "aa229b727321432488f6c322264893ea",
+            "sectionId": "1628285388617848833", //对应章节结构的id
+            "packageName": "集合的概念",
+            "description": "集合的概念",
+            "updateTime": "2025-08-01 13:09:20", // 此章节的资源更新时间
+            "isDefault": 0,
+            "userId": "1866415958645596162",
+            "releaseStatus": false,
+            "visibility": 0,
+            "authors": "{}",
+            "tags": "{}",
+            "resourceList": [
+                {
+                "id": "310257116773580800",
+                "packageId": "aa229b727321432488f6c322264893ea",
+                "fileName": "教材.pdf",
+                "fileUrl": "http://example.com/resource/20250805/2a469937bf404d3c826cbe7d59791648.pdf",
+                "checksum": "352a9cab11d5dfdea63cae3c9b8adcbe",
+                "size": 156458,
+                "mimeType": null,
+                "directoryId": null,
+                "uploadTime": "2025-08-05 16:32:01",
+                "previewCount": 0,
+                "downloadCount": 0
+                },
+                {
+                "id": "310527551008374784",
+                "packageId": "aa229b727321432488f6c322264893ea",
+                "fileName": "G6.txt",
+                "fileUrl": "http://example.com/resource/20250806/c2df25556f9247d3950fe53f4223798a.txt",
+                "checksum": "283b5af64ce876338cfc8969b19e90a5",
+                "size": 28362,
+                "mimeType": null,
+                "directoryId": null,
+                "uploadTime": "2025-08-06 10:26:37",
+                "previewCount": 0,
+                "downloadCount": 0
+                },
+                {
+                "id": "310575094660562944",
+                "packageId": "aa229b727321432488f6c322264893ea",
+                "fileName": "雪山.jpg",
+                "fileUrl": "http://example.com/resource/20250806/958634dfa88d4bca9d7bb8f49595e4bc.jpg",
+                "checksum": "28255290148c911ead72044e16c6002e",
+                "size": 130951,
+                "mimeType": null,
+                "directoryId": null,
+                "uploadTime": "2025-08-06 13:35:33",
+                "previewCount": 0,
+                "downloadCount": 0
+                },
+                {
+                "id": "310575202319958016",
+                "packageId": "aa229b727321432488f6c322264893ea",
+                "fileName": "小哥.jpg",
+                "fileUrl": "http://example.com/resource/20250806/896b630939ff4dd3999d7304bd4568a6.jpg",
+                "checksum": "9fb048346bc1b7365346e833bee26773",
+                "size": 87169,
+                "mimeType": null,
+                "directoryId": null,
+                "uploadTime": "2025-08-06 13:35:58",
+                "previewCount": 0,
+                "downloadCount": 0
+                },
+                {
+                "id": "310575202319958017",
+                "packageId": "aa229b727321432488f6c322264893ea",
+                "fileName": "铁三角.jpg",
+                "fileUrl": "http://example.com/resource/20250806/f8fac48ec2b74d09873ff5e423033b26.jpg",
+                "checksum": "78fd9ccec7e275e4bb1d9a00cb5d657b",
+                "size": 129127,
+                "mimeType": null,
+                "directoryId": null,
+                "uploadTime": "2025-08-06 13:35:58",
+                "previewCount": 0,
+                "downloadCount": 0
+                }
+            ]
+            }
+        ]
+    }
+
+
+
+

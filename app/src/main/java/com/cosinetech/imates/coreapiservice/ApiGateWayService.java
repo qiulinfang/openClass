@@ -1,7 +1,6 @@
-package com.cosinetech.imates.webservice;
+package com.cosinetech.imates.coreapiservice;
 
 import android.graphics.Bitmap;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
@@ -13,7 +12,6 @@ import com.cosinetech.imates.util.AppUtils;
 
 import org.json.JSONObject;
 
-import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
@@ -23,7 +21,6 @@ import okhttp3.Response;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.URLEncoder;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;

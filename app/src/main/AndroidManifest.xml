@@ -200,7 +200,7 @@
             android:theme="@style/AppTheme" />
 
         <service
-            android:name=".service.FloatingRobotService"
+            android:name=".robot.FloatingRobotService"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:enabled="true"
             android:exported="false"

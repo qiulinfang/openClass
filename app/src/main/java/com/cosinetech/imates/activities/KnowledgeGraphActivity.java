@@ -6,19 +6,16 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.DisplayMetrics;
 import android.view.MotionEvent;
 import android.webkit.JavascriptInterface;
-import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Button;
 import android.widget.Toast;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.models.Subject;
-import com.cosinetech.imates.webservice.ApiUrl;
+import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 

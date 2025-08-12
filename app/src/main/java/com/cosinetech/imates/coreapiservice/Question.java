@@ -1,4 +1,4 @@
-package com.cosinetech.imates.webservice;
+package com.cosinetech.imates.coreapiservice;
 
 import com.cosinetech.imates.views.MarkdownTextView;
 import com.google.gson.annotations.Expose;

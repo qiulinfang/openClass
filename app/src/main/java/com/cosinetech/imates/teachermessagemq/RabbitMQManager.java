@@ -1,8 +1,8 @@
-package com.cosinetech.imates.mq;
+package com.cosinetech.imates.teachermessagemq;
 
 import android.util.Log;
 
-import com.cosinetech.imates.webservice.ApiUrl;
+import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;

@@ -1,7 +1,6 @@
-package com.cosinetech.imates.webservice;
+package com.cosinetech.imates.coreapiservice;
 
 import android.content.Context;
-import android.os.Environment;
 
 import com.cosinetech.imates.models.Textbook;
 

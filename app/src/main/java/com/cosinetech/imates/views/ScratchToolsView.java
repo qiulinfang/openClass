@@ -19,17 +19,14 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
-
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.colorpicker.ColorListener;
 import com.cosinetech.imates.colorpicker.ColorPickerDialog;
-import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.util.ImageUtils;
 import com.cosinetech.imates.util.ScreenUtils;
-import com.cosinetech.imates.webservice.AiChatMessageRequest;
-import com.cosinetech.imates.webservice.ApiUrl;
+import com.cosinetech.imates.coreapiservice.AiChatMessageRequest;
+import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.litao.slider.NiftySlider;
 import com.lzf.easyfloat.EasyFloat;
 

@@ -16,7 +16,7 @@ import androidx.core.view.WindowInsetsCompat;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.util.WindowUtils;
-import com.cosinetech.imates.webservice.ApiUrl;
+import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public abstract class BaseActivity extends AppCompatActivity {
