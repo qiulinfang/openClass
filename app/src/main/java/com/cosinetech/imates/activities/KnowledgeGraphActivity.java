@@ -249,11 +249,6 @@ public class KnowledgeGraphActivity extends BaseActivity {
             public void onError(String error) {
                 Log.e(TAG, "Update check failed: " + error);
             }
-
-            @Override
-            public void onUnauthorized() {
-                userInfoViewModel.ybLogin.postValue(false);
-            }
         });
     }
 
