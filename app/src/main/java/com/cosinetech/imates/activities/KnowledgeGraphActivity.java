@@ -1,7 +1,10 @@
 package com.cosinetech.imates.activities;
 
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
+import android.app.DatePickerDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -31,7 +34,6 @@ import java.util.List;
 
 public class KnowledgeGraphActivity extends BaseActivity {
     private static final String TAG = "KnowledgeGraphActivity";
-    //private LearnResourceManager mLearnResManager;
 
     @Override
     protected int getLayoutResId() {
@@ -47,7 +49,6 @@ public class KnowledgeGraphActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        //initializeManager();
 
         WebView webView = findViewById(R.id.knowledge_view);
         webView.getSettings().setJavaScriptEnabled(true);
@@ -77,57 +78,53 @@ public class KnowledgeGraphActivity extends BaseActivity {
         });
     }
 
-//    public void initializeManager() {
-//        mLearnResManager = LearnResourceManager.getInstance();
-//        mLearnResManager.login(AppUtils.getUserId(), AppUtils.getUserPassword(), new LearnResourceManager.LoginCallback() {
-//            @Override
-//            public void onSuccess(LoginResponse response) {
-//
-//            }
-//
-//            @Override
-//            public void onError(String error) {
-//
-//            }
-//        });
-//    }
-//
-//    private void promptToDownloadResource() {
-//
-//    }
-//
-//    private void presentLocalLearnResource(List<UserTextbookInfo> textbooks) {
-//
-//    }
-//
-//    private void checkUserLearnResources() {
-//        mLearnResManager.loadAllUserTextbooks(new LearnResourceManager.AllTextbooksCallback() {
-//            @Override
-//            public void onSuccess(List<UserTextbookInfo> textbooks) {
-//                if(textbooks == null) {
-//                    promptToDownloadResource();
-//                } else {
-//                    List<UserTextbookInfo> localTextbooks = new ArrayList<>();
-//                    for (UserTextbookInfo textbook: textbooks) {
-//                        if(textbook.isDownloaded) {
-//                            localTextbooks.add(textbook);
-//                        }
-//                    }
-//
-//                    if(localTextbooks.isEmpty()) {
-//                        promptToDownloadResource();
-//                    } else {
-//                        presentLocalLearnResource(localTextbooks);
-//                    }
-//                }
-//            }
-//
-//            @Override
-//            public void onError(String error) {
-//                Toast.makeText(KnowledgeGraphActivity.this, "加载本地资源失败:" + error, Toast.LENGTH_SHORT).show();
-//            }
-//        });
-//    }
+    private void promptToDownloadResource() {
+        new AlertDialog.Builder(this)
+                .setTitle("学习资源")
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setMessage("没有学习资源, 请先下载资源再来学习")
+                .setPositiveButton("确定", (dialog, which) -> {
+                    Intent intent = new Intent(this, TextbookDownloadActivity.class);
+                    startActivity(intent);
+                })
+                .setNegativeButton("取消", ((dialog, which) -> {
+                }))
+                .create()
+                .show();
+    }
+
+    private void presentLocalLearnResource(List<UserTextbookInfo> textbooks) {
+
+    }
+
+    private void checkUserLearnResources() {
+        LearnResourceManager.getInstance().loadAllUserTextbooks(new LearnResourceManager.AllTextbooksCallback() {
+            @Override
+            public void onSuccess(List<UserTextbookInfo> textbooks) {
+                if(textbooks == null) {
+                    promptToDownloadResource();
+                } else {
+                    List<UserTextbookInfo> localTextbooks = new ArrayList<>();
+                    for (UserTextbookInfo textbook: textbooks) {
+                        if(textbook.isDownloaded) {
+                            localTextbooks.add(textbook);
+                        }
+                    }
+
+                    if(localTextbooks.isEmpty()) {
+                        promptToDownloadResource();
+                    } else {
+                        presentLocalLearnResource(localTextbooks);
+                    }
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                Toast.makeText(KnowledgeGraphActivity.this, "加载本地资源失败:" + error, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
 
     @Override
     protected void onStop() {
@@ -137,27 +134,27 @@ public class KnowledgeGraphActivity extends BaseActivity {
     @Override
     protected void onResume() {
         super.onResume();
-//        if (mLearnResManager.isLoggedIn()) {
-//            checkUserLearnResources();
-//        } else {
-//            mLearnResManager.login(AppUtils.getUserId(), AppUtils.getUserPassword(), new LearnResourceManager.LoginCallback() {
-//                @Override
-//                public void onSuccess(LoginResponse response) {
-//                    checkUserLearnResources();
-//                }
-//
-//                @Override
-//                public void onError(String error) {
-//                    Toast.makeText(KnowledgeGraphActivity.this, "登录研伴失败, 无法获取在线资源", Toast.LENGTH_SHORT).show();
-//                }
-//            });
-//        }
+        if (LearnResourceManager.getInstance().isLoggedIn()) {
+            checkUserLearnResources();
+        } else {
+            LearnResourceManager.getInstance().login(AppUtils.getUserId(), AppUtils.getUserPassword(), new LearnResourceManager.LoginCallback() {
+                @Override
+                public void onSuccess(LoginResponse response) {
+                    checkUserLearnResources();
+                }
+
+                @Override
+                public void onError(String error) {
+                    Toast.makeText(KnowledgeGraphActivity.this, "登录研伴失败, 无法获取在线资源", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        //LearnResourceManager.getInstance().logout();
+        LearnResourceManager.getInstance().logout();
     }
 
     public class WebAppInterface {
