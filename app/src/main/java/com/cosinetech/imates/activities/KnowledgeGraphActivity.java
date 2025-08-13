@@ -154,7 +154,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        LearnResourceManager.getInstance().logout();
+        //LearnResourceManager.getInstance().logout();
     }
 
     public class WebAppInterface {

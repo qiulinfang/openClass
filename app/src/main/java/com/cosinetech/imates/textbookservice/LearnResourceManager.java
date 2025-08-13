@@ -521,7 +521,7 @@ public class LearnResourceManager {
     
     private void downloadFile(ResourceFile resource, File localFile, SingleFileDownloadCallback callback) {
         Request request = new Request.Builder()
-                .url(resource.fileUrl)
+                .url(BASE_URL + (resource.fileUrl.startsWith("/") ? resource.fileUrl : ("/" + resource.fileUrl)))
                 .build();
         
         try {
@@ -730,6 +730,10 @@ public class LearnResourceManager {
                                         localInfo = new UserTextbookInfo(serverTextbook);
                                         data.updateOrAddTextbook(localInfo);
                                     } else {
+                                        localInfo.textbookIsbn = serverTextbook.textbookIsbn;
+                                        localInfo.textbookEditionYear = serverTextbook.textbookEditionYear;
+                                        localInfo.textbookPublisher = serverTextbook.textbookPublisher;
+                                        localInfo.textbookCover = BASE_URL + serverTextbook.textbookCover;
                                         localInfo.textbookUpdateTime = serverTextbook.textbookUpdateTime;
                                         localInfo.textbookName = serverTextbook.textbookName;
                                         localInfo.textbookSubjectLabel = serverTextbook.textbookSubjectLabel;
@@ -911,35 +915,6 @@ public class LearnResourceManager {
     public void cleanup() {
         if (executorService != null && !executorService.isShutdown()) {
             executorService.shutdown();
-        }
-    }
-
-    private SSLSocketFactory createSSLSocketFactory() {
-        SSLSocketFactory ssfFactory = null;
-        try {
-            MyTrustManager mMyTrustManager = new MyTrustManager();
-            SSLContext sc = SSLContext.getInstance("TLS");
-            sc.init(null, new TrustManager[]{mMyTrustManager}, new SecureRandom());
-            ssfFactory = sc.getSocketFactory();
-        } catch (Exception ignored) {
-            ignored.printStackTrace();
-        }
-
-        return ssfFactory;
-    }
-    //实现X509TrustManager接口
-    public static class MyTrustManager implements X509TrustManager {
-        @Override
-        public void checkClientTrusted(X509Certificate[] chain, String authType) {
-        }
-
-        @Override
-        public void checkServerTrusted(X509Certificate[] chain, String authType) {
-        }
-
-        @Override
-        public X509Certificate[] getAcceptedIssuers() {
-            return new X509Certificate[0];
         }
     }
 }

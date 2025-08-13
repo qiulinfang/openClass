@@ -2,6 +2,7 @@ package com.cosinetech.imates.activities;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
@@ -28,7 +29,6 @@ import java.util.Set;
 
 public class TextbookManagementActivity extends AppCompatActivity {
     private static final String TAG = "TextbookManagement";
-    private LearnResourceManager resourceManager;
     private TextbookAdapter textbookAdapter;
     private final List<UserTextbookInfo> allTextbooks = new ArrayList<>();
     private final List<UserTextbookInfo> filteredTextbooks = new ArrayList<>();
@@ -72,7 +72,7 @@ public class TextbookManagementActivity extends AppCompatActivity {
     }
     
     private void initResourceManager() {
-        resourceManager = LearnResourceManager.getInstance();
+        LearnResourceManager resourceManager = LearnResourceManager.getInstance();
         
         // Check if user is logged in
         if (!resourceManager.isLoggedIn()) {
@@ -112,19 +112,16 @@ public class TextbookManagementActivity extends AppCompatActivity {
             
             @Override
             public void onPauseClick(UserTextbookInfo textbook) {
-                // TODO: Implement pause functionality
                 showMessage("暂停下载功能开发中");
             }
             
             @Override
             public void onViewClick(UserTextbookInfo textbook) {
-                // TODO: Open textbook viewer
                 showMessage("查看教材功能开发中");
             }
             
             @Override
             public void onDeleteClick(UserTextbookInfo textbook) {
-                // TODO: Implement delete functionality
                 showMessage("删除功能开发中");
             }
         });
@@ -152,8 +149,8 @@ public class TextbookManagementActivity extends AppCompatActivity {
     private void loadTextbooks() {
         showLoading(true);
         showEmptyState(false);
-        
-        resourceManager.loadAllUserTextbooks(new LearnResourceManager.AllTextbooksCallback() {
+
+        LearnResourceManager.getInstance().loadAllUserTextbooks(new LearnResourceManager.AllTextbooksCallback() {
             @Override
             public void onSuccess(List<UserTextbookInfo> textbooks) {
                 showLoading(false);
@@ -221,8 +218,8 @@ public class TextbookManagementActivity extends AppCompatActivity {
     
     private void checkForUpdates() {
         showLoading(true);
-        
-        resourceManager.checkForUpdates(new LearnResourceManager.UpdateCheckCallback() {
+
+        LearnResourceManager.getInstance().checkForUpdates(new LearnResourceManager.UpdateCheckCallback() {
             @Override
             public void onUpdateAvailable(List<TextbookVersion> updatedTextbooks) {
                 showLoading(false);
@@ -253,8 +250,8 @@ public class TextbookManagementActivity extends AppCompatActivity {
         version.textbookGradeLabel = textbook.textbookGradeLabel;
         version.textbookSemesterLabel = textbook.textbookSemesterLabel;
         version.textbookUpdateTime = textbook.textbookUpdateTime;
-        
-        resourceManager.downloadAllResources(version, new LearnResourceManager.DownloadProgressCallback() {
+
+        LearnResourceManager.getInstance().downloadAllResources(version, new LearnResourceManager.DownloadProgressCallback() {
             @Override
             public void onProgress(String fileName, long downloadedBytes, long totalBytes, int percentage) {
                 // Update progress in adapter
@@ -300,17 +297,22 @@ public class TextbookManagementActivity extends AppCompatActivity {
     }
     
     private void redirectToLogin() {
-        // TODO: Replace with actual login activity
         Intent intent = new Intent(this, LoginActivity.class);
         startActivity(intent);
         finish();
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) { // 返回按钮的 ID 是 android.R.id.home
+            finish();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
     
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (resourceManager != null) {
-            resourceManager.cleanup();
-        }
     }
 }
