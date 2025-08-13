@@ -40,21 +40,15 @@ import okhttp3.Response;
 public class LearnResourceManager {
     private static final String TAG = "LearnResourceManager";
     private static final String BASE_URL = "https://your-api-domain.com"; // Replace with actual domain
-    private static final String PREF_NAME = "LearnResourceManager";
-    private static final String KEY_TOKEN = "token";
-    private static final String KEY_USER_ID = "userId";
-    private static final String KEY_USERNAME = "username";
     
     private final Context context;
     private final OkHttpClient httpClient;
     private final Gson gson;
-    private final SharedPreferences preferences;
     private final Handler mainHandler;
     private final ExecutorService executorService;
     private final SimpleDateFormat dateFormat;
     
     private String currentToken;
-    private String currentUserId;
     private String currentUsername;
     
     public LearnResourceManager(Context context) {
@@ -67,13 +61,9 @@ public class LearnResourceManager {
         this.gson = new GsonBuilder()
                 .setDateFormat("yyyy-MM-dd HH:mm:ss")
                 .create();
-        this.preferences = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         this.mainHandler = new Handler(Looper.getMainLooper());
         this.executorService = Executors.newFixedThreadPool(4);
         this.dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
-        
-        // Load saved credentials
-        loadCredentials();
     }
     
     // ==================== Authentication ====================
@@ -112,9 +102,7 @@ public class LearnResourceManager {
                             boolean userChanged = currentUsername != null && !currentUsername.equals(account);
                             
                             currentToken = apiResponse.data.token;
-                            currentUserId = apiResponse.data.userId;
                             currentUsername = account;
-                            saveCredentials();
                             
                             if (userChanged || getUserLearnData() == null) {
                                 initializeUserLearnData();
@@ -140,29 +128,13 @@ public class LearnResourceManager {
         }
     }
     
-    private void saveCredentials() {
-        preferences.edit()
-                .putString(KEY_TOKEN, currentToken)
-                .putString(KEY_USER_ID, currentUserId)
-                .putString(KEY_USERNAME, currentUsername)
-                .apply();
-    }
-    
-    private void loadCredentials() {
-        currentToken = preferences.getString(KEY_TOKEN, null);
-        currentUserId = preferences.getString(KEY_USER_ID, null);
-        currentUsername = preferences.getString(KEY_USERNAME, null);
-    }
-    
     public boolean isLoggedIn() {
         return currentToken != null && !currentToken.isEmpty() && currentUsername != null;
     }
     
     public void logout() {
         currentToken = null;
-        currentUserId = null;
         currentUsername = null;
-        preferences.edit().clear().apply();
     }
     
     // ==================== Textbook APIs ====================
