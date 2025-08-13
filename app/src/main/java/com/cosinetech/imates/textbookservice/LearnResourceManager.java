@@ -17,14 +17,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
-import java.security.SecureRandom;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -52,7 +49,6 @@ public class LearnResourceManager {
     private static final String BASE_URL = "https://43.138.16.5:50013"; // Replace with actual domain
     
     private final Context context;
-    //private final OkHttpClient httpClient;
     private final Gson gson;
     private final Handler mainHandler;
     private final ExecutorService executorService;
@@ -69,7 +65,7 @@ public class LearnResourceManager {
         }
         return instance;
     }
-    
+
     private LearnResourceManager() {
         this.context = ApplicationModelShared.getInstance();
 //        this.httpClient = new OkHttpClient.Builder()
@@ -91,11 +87,11 @@ public class LearnResourceManager {
             final TrustManager[] trustAllCerts = new TrustManager[]{
                     new X509TrustManager() {
                         @Override
-                        public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+                        public void checkClientTrusted(X509Certificate[] chain, String authType) {
                         }
 
                         @Override
-                        public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+                        public void checkServerTrusted(X509Certificate[] chain, String authType) {
                         }
 
                         @Override
@@ -220,7 +216,7 @@ public class LearnResourceManager {
                 .post(RequestBody.create("", MediaType.get("application/json")))
                 .addHeader("sa-token", currentToken)
                 .build();
-
+        
         getUnsafeOkHttpClient().newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
@@ -272,7 +268,7 @@ public class LearnResourceManager {
                 .post(body)
                 .addHeader("sa-token", currentToken)
                 .build();
-
+        
         getUnsafeOkHttpClient().newCall(httpRequest).enqueue(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
@@ -324,7 +320,7 @@ public class LearnResourceManager {
                 .post(body)
                 .addHeader("sa-token", currentToken)
                 .build();
-
+        
         getUnsafeOkHttpClient().newCall(httpRequest).enqueue(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
@@ -354,6 +350,68 @@ public class LearnResourceManager {
             }
         });
     }
+
+    public interface AllTextbooksCallback {
+        void onSuccess(List<UserTextbookInfo> textbooks);
+        void onError(String error);
+    }
+
+    public void loadAllUserTextbooks(AllTextbooksCallback callback) {
+        executorService.execute(() -> {
+            try {
+                UserLearnData data = loadUserLearnData();
+                if (data == null) {
+                    mainHandler.post(() -> callback.onSuccess(new ArrayList<>()));
+                    return;
+                }
+
+                getTextbookVersions(new TextbookVersionsCallback() {
+                    @Override
+                    public void onSuccess(List<TextbookVersion> serverTextbooks) {
+                        executorService.execute(() -> {
+                            try {
+                                for (TextbookVersion serverTextbook : serverTextbooks) {
+                                    UserTextbookInfo localInfo = data.findTextbook(serverTextbook.textbookId);
+                                    if (localInfo == null) {
+                                        localInfo = new UserTextbookInfo(serverTextbook);
+                                        data.updateOrAddTextbook(localInfo);
+                                    } else {
+                                        localInfo.textbookIsbn = serverTextbook.textbookIsbn;
+                                        localInfo.textbookEditionYear = serverTextbook.textbookEditionYear;
+                                        localInfo.textbookPublisher = serverTextbook.textbookPublisher;
+                                        localInfo.textbookCover = BASE_URL + serverTextbook.textbookCover;
+                                        localInfo.textbookUpdateTime = serverTextbook.textbookUpdateTime;
+                                        localInfo.textbookName = serverTextbook.textbookName;
+                                        localInfo.textbookSubjectLabel = serverTextbook.textbookSubjectLabel;
+                                        localInfo.textbookGradeLabel = serverTextbook.textbookGradeLabel;
+                                        localInfo.textbookSemesterLabel = serverTextbook.textbookSemesterLabel;
+                                    }
+                                }
+
+                                saveUserLearnData(data);
+                                mainHandler.post(() -> callback.onSuccess(data.textbooks));
+                            } catch (Exception e) {
+                                mainHandler.post(() -> callback.onError("Error processing textbooks: " + e.getMessage()));
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        mainHandler.post(() -> callback.onSuccess(data.textbooks));
+                    }
+
+                    @Override
+                    public void onUnauthorized() {
+                        mainHandler.post(() -> callback.onError("Authentication required"));
+                    }
+                });
+
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onError("Error loading textbooks: " + e.getMessage()));
+            }
+        });
+    }
     
     // ==================== Update Detection ====================
     
@@ -374,7 +432,7 @@ public class LearnResourceManager {
                         
                         for (TextbookVersion version : versions) {
                             UserTextbookInfo localInfo = userLearnData != null ? 
-                                    userLearnData.findTextbook(version.id) : null;
+                                    userLearnData.findTextbook(version.textbookId) : null;
                             
                             if (localInfo == null || isNewer(version.textbookUpdateTime, localInfo.textbookUpdateTime)) {
                                 updatedTextbooks.add(version);
@@ -449,6 +507,34 @@ public class LearnResourceManager {
         try {
             File textbookDir = createUserTextbookDirectory(textbook);
             
+            getTextbookStructure(textbook.textbookId, new TextbookStructureCallback() {
+                @Override
+                public void onSuccess(List<ChapterNode> structure) {
+                    // Continue with download and save structure
+                    continueDownloadWithStructure(textbook, packages, structure, textbookDir, callback);
+                }
+                
+                @Override
+                public void onError(String error) {
+                    Log.w(TAG, "Failed to get structure, continuing without it: " + error);
+                    continueDownloadWithStructure(textbook, packages, new ArrayList<>(), textbookDir, callback);
+                }
+                
+                @Override
+                public void onUnauthorized() {
+                    callback.onError("", "Authentication required");
+                }
+            });
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error in downloadResourcesInBackground", e);
+            mainHandler.post(() -> callback.onError("", "Download error: " + e.getMessage()));
+        }
+    }
+    
+    private void continueDownloadWithStructure(TextbookVersion textbook, List<LearningPackage> packages, 
+                                             List<ChapterNode> structure, File textbookDir, DownloadProgressCallback callback) {
+        try {
             ResourceIndex index = new ResourceIndex();
             index.textbook = textbook;
             index.packages = packages;
@@ -503,64 +589,13 @@ public class LearnResourceManager {
             
             saveResourceIndex(textbookDir, index);
             
-            updateUserTextbookInfo(textbook, totalFiles, completedFiles, true);
+            updateUserTextbookInfoWithStructureAndPackages(textbook, structure, packages, totalFiles, completedFiles, true);
             
             mainHandler.post(callback::onAllCompleted);
             
         } catch (Exception e) {
-            Log.e(TAG, "Error in downloadResourcesInBackground", e);
+            Log.e(TAG, "Error in continueDownloadWithStructure", e);
             mainHandler.post(() -> callback.onError("", "Download error: " + e.getMessage()));
-        }
-    }
-    
-    private interface SingleFileDownloadCallback {
-        void onProgress(long downloadedBytes, long totalBytes, int percentage);
-        void onCompleted(String localPath);
-        void onError(String error);
-    }
-    
-    private void downloadFile(ResourceFile resource, File localFile, SingleFileDownloadCallback callback) {
-        Request request = new Request.Builder()
-                .url(BASE_URL + (resource.fileUrl.startsWith("/") ? resource.fileUrl : ("/" + resource.fileUrl)))
-                .build();
-        
-        try {
-            Response response = getUnsafeOkHttpClient().newCall(request).execute();
-            if (!response.isSuccessful()) {
-                callback.onError("HTTP " + response.code());
-                return;
-            }
-            
-            InputStream inputStream = response.body().byteStream();
-            FileOutputStream outputStream = new FileOutputStream(localFile);
-            
-            long totalBytes = response.body().contentLength();
-            long downloadedBytes = 0;
-            byte[] buffer = new byte[8192];
-            int bytesRead;
-            
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, bytesRead);
-                downloadedBytes += bytesRead;
-                
-                if (totalBytes > 0) {
-                    int percentage = (int) ((downloadedBytes * 100) / totalBytes);
-                    callback.onProgress(downloadedBytes, totalBytes, percentage);
-                }
-            }
-            
-            outputStream.close();
-            inputStream.close();
-            
-            if (verifyChecksum(localFile, resource.checksum)) {
-                callback.onCompleted(localFile.getAbsolutePath());
-            } else {
-                localFile.delete();
-                callback.onError("Checksum verification failed");
-            }
-            
-        } catch (Exception e) {
-            callback.onError("Download failed: " + e.getMessage());
         }
     }
     
@@ -569,9 +604,8 @@ public class LearnResourceManager {
     private File createUserTextbookDirectory(TextbookVersion textbook) {
         File baseDir = new File(context.getExternalFilesDir(null), "LearnResources");
         File userDir = new File(baseDir, sanitizeFileName(currentUsername));
-        File learnDir = new File(userDir, "learn");
-        File subjectDir = new File(learnDir, sanitizeFileName(textbook.textbookSubjectLabel));
-        File textbookDir = new File(subjectDir, sanitizeFileName(
+        File subjectDir = new File(userDir, sanitizeFileName(textbook.textbookSubjectLabel));
+        File textbookDir = new File(subjectDir, sanitizeFileName(textbook.textbookId + "_" +
                 textbook.textbookName + "_" + textbook.textbookGradeLabel + "_" + textbook.textbookSemesterLabel
         ));
         textbookDir.mkdirs();
@@ -582,13 +616,8 @@ public class LearnResourceManager {
         if (currentUsername == null) return null;
         File baseDir = new File(context.getExternalFilesDir(null), "LearnResources");
         File userDir = new File(baseDir, sanitizeFileName(currentUsername));
-        File learnDir = new File(userDir, "learn");
-        learnDir.mkdirs();
-        return learnDir;
-    }
-
-    private String sanitizeFileName(String fileName) {
-        return fileName.replaceAll("[^a-zA-Z0-9\u4e00-\u9fa5._-]", "_");
+        userDir.mkdirs();
+        return userDir;
     }
     
     private void saveResourceIndex(File textbookDir, ResourceIndex index) {
@@ -603,7 +632,7 @@ public class LearnResourceManager {
         }
     }
     
-    public ResourceIndex loadResourceIndex(File textbookDir) {
+    private ResourceIndex loadResourceIndex(File textbookDir) {
         try {
             File indexFile = new File(textbookDir, "resource_index.json");
             if (!indexFile.exists()) return null;
@@ -688,29 +717,96 @@ public class LearnResourceManager {
         saveUserLearnData(data);
     }
     
-    private void updateUserTextbookInfo(TextbookVersion textbook, int totalFiles, int downloadedFiles, boolean isDownloaded) {
+    private void updateUserTextbookInfoWithStructureAndPackages(TextbookVersion textbook, List<ChapterNode> structure, 
+                                                               List<LearningPackage> packages, int totalFiles, int downloadedFiles, boolean isDownloaded) {
         UserLearnData data = loadUserLearnData();
         if (data == null) {
             data = new UserLearnData(currentUsername);
         }
         
-        UserTextbookInfo info = new UserTextbookInfo(textbook);
+        UserTextbookInfo info = data.findTextbook(textbook.textbookId);
+        if (info == null) {
+            info = new UserTextbookInfo(textbook);
+            data.updateOrAddTextbook(info);
+        }
+        
+        // Update basic info
         info.totalFiles = totalFiles;
         info.downloadedFiles = downloadedFiles;
         info.isDownloaded = isDownloaded;
         info.lastDownloadTime = dateFormat.format(new Date());
         
-        data.updateOrAddTextbook(info);
+        info.updateStructure(structure);
+        info.updatePackages(packages);
+        
+        // Update local file status
+        updateLocalFileStatus(info);
+        
         data.lastSyncTime = dateFormat.format(new Date());
         saveUserLearnData(data);
     }
     
-    public interface AllTextbooksCallback {
-        void onSuccess(List<UserTextbookInfo> textbooks);
+    // ==================== Local Access ====================
+    
+    /**
+     * Interface to get textbook structure from local metadata
+     */
+    public interface TextbookStructureLocalCallback {
+        void onSuccess(List<ChapterNode> structure);
+        void onNotFound(); // Structure not cached locally
         void onError(String error);
     }
     
-    public void loadAllUserTextbooks(AllTextbooksCallback callback) {
+    /**
+     * Get textbook structure from local cache first, fallback to server if needed
+     */
+    public void getTextbookStructureLocal(String textbookId, boolean allowServerFallback, TextbookStructureLocalCallback callback) {
+        executorService.execute(() -> {
+            try {
+                UserLearnData data = loadUserLearnData();
+                if (data != null) {
+                    UserTextbookInfo textbook = data.findTextbook(textbookId);
+                    if (textbook != null && textbook.structure != null && !textbook.structure.isEmpty()) {
+                        mainHandler.post(() -> callback.onSuccess(textbook.structure));
+                        return;
+                    }
+                }
+                
+                if (allowServerFallback) {
+                    // Fallback to server
+                    getTextbookStructure(textbookId, new TextbookStructureCallback() {
+                        @Override
+                        public void onSuccess(List<ChapterNode> structure) {
+                            // Save structure to local metadata
+                            saveTextbookStructure(textbookId, structure);
+                            callback.onSuccess(structure);
+                        }
+                        
+                        @Override
+                        public void onError(String error) {
+                            callback.onError(error);
+                        }
+                        
+                        @Override
+                        public void onUnauthorized() {
+                            callback.onError("Authentication required");
+                        }
+                    });
+                } else {
+                    mainHandler.post(callback::onNotFound);
+                }
+            } catch (Exception e) {
+                mainHandler.post(() -> callback.onError("Error loading structure: " + e.getMessage()));
+            }
+        });
+    }
+    
+    public interface TextbookPackagesCallback {
+        void onSuccess(List<LocalPackageInfo> packages);
+        void onError(String error);
+    }
+    
+    public void getTextbookPackagesWithLocalFiles(String textbookId, TextbookPackagesCallback callback) {
         executorService.execute(() -> {
             try {
                 UserLearnData data = loadUserLearnData();
@@ -719,114 +815,105 @@ public class LearnResourceManager {
                     return;
                 }
                 
-                getTextbookVersions(new TextbookVersionsCallback() {
-                    @Override
-                    public void onSuccess(List<TextbookVersion> serverTextbooks) {
-                        executorService.execute(() -> {
-                            try {
-                                for (TextbookVersion serverTextbook : serverTextbooks) {
-                                    UserTextbookInfo localInfo = data.findTextbook(serverTextbook.id);
-                                    if (localInfo == null) {
-                                        localInfo = new UserTextbookInfo(serverTextbook);
-                                        data.updateOrAddTextbook(localInfo);
-                                    } else {
-                                        localInfo.textbookIsbn = serverTextbook.textbookIsbn;
-                                        localInfo.textbookEditionYear = serverTextbook.textbookEditionYear;
-                                        localInfo.textbookPublisher = serverTextbook.textbookPublisher;
-                                        localInfo.textbookCover = BASE_URL + serverTextbook.textbookCover;
-                                        localInfo.textbookUpdateTime = serverTextbook.textbookUpdateTime;
-                                        localInfo.textbookName = serverTextbook.textbookName;
-                                        localInfo.textbookSubjectLabel = serverTextbook.textbookSubjectLabel;
-                                        localInfo.textbookGradeLabel = serverTextbook.textbookGradeLabel;
-                                        localInfo.textbookSemesterLabel = serverTextbook.textbookSemesterLabel;
-                                    }
-                                }
-                                
-                                saveUserLearnData(data);
-                                mainHandler.post(() -> callback.onSuccess(data.textbooks));
-                            } catch (Exception e) {
-                                mainHandler.post(() -> callback.onError("Error processing textbooks: " + e.getMessage()));
-                            }
-                        });
-                    }
-                    
-                    @Override
-                    public void onError(String error) {
-                        mainHandler.post(() -> callback.onSuccess(data.textbooks));
-                    }
-                    
-                    @Override
-                    public void onUnauthorized() {
-                        mainHandler.post(() -> callback.onError("Authentication required"));
-                    }
-                });
-                
-            } catch (Exception e) {
-                mainHandler.post(() -> callback.onError("Error loading textbooks: " + e.getMessage()));
-            }
-        });
-    }
-    
-    public interface CleanupCallback {
-        void onProgress(String message);
-        void onCompleted(long freedSpace, int deletedFiles);
-        void onError(String error);
-    }
-    
-    public void cleanupUnreferencedFiles(CleanupCallback callback) {
-        executorService.execute(() -> {
-            try {
-                File learnDir = getUserLearnDirectory();
-                if (learnDir == null || !learnDir.exists()) {
-                    mainHandler.post(() -> callback.onCompleted(0, 0));
+                UserTextbookInfo textbook = data.findTextbook(textbookId);
+                if (textbook == null) {
+                    mainHandler.post(() -> callback.onSuccess(new ArrayList<>()));
                     return;
                 }
                 
-                mainHandler.post(() -> callback.onProgress("Scanning referenced files..."));
+                // Update local file status by checking actual files
+                updateLocalFileStatus(textbook);
                 
-                Set<String> referencedFiles = new HashSet<>();
-                UserLearnData data = loadUserLearnData();
-                if (data != null) {
-                    for (UserTextbookInfo textbook : data.textbooks) {
-                        if (textbook.isDownloaded) {
-                            File textbookDir = getTextbookDirectoryById(textbook.textbookId);
-                            if (textbookDir != null && textbookDir.exists()) {
-                                addReferencedFiles(textbookDir, referencedFiles);
-                            }
-                        }
-                    }
-                }
-                
-                mainHandler.post(() -> callback.onProgress("Scanning for unreferenced files..."));
-                
-                long freedSpace = 0;
-                int deletedFiles = 0;
-                List<File> allFiles = getAllFiles(learnDir);
-                
-                for (File file : allFiles) {
-                    if (file.isFile() && !file.getName().equals("user_learn_data.json")) {
-                        String relativePath = getRelativePath(learnDir, file);
-                        if (!referencedFiles.contains(relativePath)) {
-                            long fileSize = file.length();
-                            if (file.delete()) {
-                                freedSpace += fileSize;
-                                deletedFiles++;
-                                mainHandler.post(() -> callback.onProgress("Deleted: " + file.getName()));
-                            }
-                        }
-                    }
-                }
-                
-                cleanupEmptyDirectories(learnDir);
-                
-                final long finalFreedSpace = freedSpace;
-                final int finalDeletedFiles = deletedFiles;
-                mainHandler.post(() -> callback.onCompleted(finalFreedSpace, finalDeletedFiles));
-                
+                mainHandler.post(() -> callback.onSuccess(textbook.localPackages));
             } catch (Exception e) {
-                mainHandler.post(() -> callback.onError("Cleanup error: " + e.getMessage()));
+                mainHandler.post(() -> callback.onError("Error loading packages: " + e.getMessage()));
             }
         });
+    }
+    
+    // ==================== Utility Methods ====================
+    
+    private String md5(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            byte[] digest = md.digest(input.getBytes());
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            throw new RuntimeException("MD5 hash failed", e);
+        }
+    }
+    
+    public void cleanup() {
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdown();
+        }
+    }
+    
+    private void saveTextbookStructure(String textbookId, List<ChapterNode> structure) {
+        executorService.execute(() -> {
+            try {
+                UserLearnData data = loadUserLearnData();
+                if (data == null) return;
+                
+                UserTextbookInfo textbook = data.findTextbook(textbookId);
+                if (textbook != null) {
+                    textbook.updateStructure(structure);
+                    saveUserLearnData(data);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error saving textbook structure", e);
+            }
+        });
+    }
+    
+    private void updateLocalFileStatus(UserTextbookInfo textbook) {
+        File textbookDir = getTextbookDirectoryById(textbook.textbookId);
+        if (textbookDir == null || !textbookDir.exists()) {
+            // Mark all files as not downloaded
+            for (LocalPackageInfo pkg : textbook.localPackages) {
+                for (LocalFileInfo file : pkg.localFiles) {
+                    file.isDownloaded = false;
+                    file.localPath = null;
+                }
+                pkg.updateDownloadStatus();
+            }
+            return;
+        }
+        
+        for (LocalPackageInfo pkg : textbook.localPackages) {
+            File packageDir = new File(textbookDir, sanitizeFileName(pkg.packageName));
+            
+            for (LocalFileInfo file : pkg.localFiles) {
+                File localFile = new File(packageDir, file.fileName);
+                if (localFile.exists() && verifyChecksum(localFile, file.checksum)) {
+                    file.isDownloaded = true;
+                    file.localPath = localFile.getAbsolutePath();
+                    file.fileSize = localFile.length();
+                } else {
+                    file.isDownloaded = false;
+                    file.localPath = null;
+                    file.fileSize = 0;
+                }
+            }
+            pkg.updateDownloadStatus();
+        }
+        
+        // Update overall textbook download status
+        int totalFiles = 0;
+        int downloadedFiles = 0;
+        for (LocalPackageInfo pkg : textbook.localPackages) {
+            totalFiles += pkg.totalFiles;
+            downloadedFiles += pkg.downloadedFiles;
+        }
+        
+        textbook.totalFiles = totalFiles;
+        textbook.downloadedFiles = downloadedFiles;
+        textbook.isDownloaded = (downloadedFiles == totalFiles && totalFiles > 0);
+        textbook.downloadStatus = calculateDownloadStatus(downloadedFiles, totalFiles);
     }
     
     private File getTextbookDirectoryById(String textbookId) {
@@ -838,7 +925,7 @@ public class LearnResourceManager {
         
         File learnDir = getUserLearnDirectory();
         File subjectDir = new File(learnDir, sanitizeFileName(textbook.textbookSubjectLabel));
-        File textbookDir = new File(subjectDir, sanitizeFileName(
+        File textbookDir = new File(subjectDir, sanitizeFileName(textbook.textbookId + "_" +
                 textbook.textbookName + "_" + textbook.textbookGradeLabel + "_" + textbook.textbookSemesterLabel
         ));
         
@@ -895,26 +982,64 @@ public class LearnResourceManager {
             }
         }
     }
-    
-    // ==================== Utility Methods ====================
-    
-    private String md5(String input) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            byte[] digest = md.digest(input.getBytes());
-            StringBuilder sb = new StringBuilder();
-            for (byte b : digest) {
-                sb.append(String.format("%02x", b));
-            }
-            return sb.toString();
-        } catch (Exception e) {
-            throw new RuntimeException("MD5 hash failed", e);
-        }
+
+    private String sanitizeFileName(String fileName) {
+        return fileName.replaceAll("[^a-zA-Z0-9\u4e00-\u9fa5._-]", "_");
     }
     
-    public void cleanup() {
-        if (executorService != null && !executorService.isShutdown()) {
-            executorService.shutdown();
+    private int calculateDownloadStatus(int downloadedFiles, int totalFiles) {
+        if (totalFiles == 0) return 100; // No files to download
+        return (int) ((downloadedFiles * 100) / totalFiles);
+    }
+    
+    private interface SingleFileDownloadCallback {
+        void onProgress(long downloadedBytes, long totalBytes, int percentage);
+        void onCompleted(String localPath);
+        void onError(String error);
+    }
+    
+    private void downloadFile(ResourceFile resource, File localFile, SingleFileDownloadCallback callback) {
+        Request request = new Request.Builder()
+                .url(BASE_URL + resource.fileUrl)
+                .build();
+        
+        try {
+            Response response = getUnsafeOkHttpClient().newCall(request).execute();
+            if (!response.isSuccessful()) {
+                callback.onError("HTTP " + response.code());
+                return;
+            }
+            
+            InputStream inputStream = response.body().byteStream();
+            FileOutputStream outputStream = new FileOutputStream(localFile);
+            
+            long totalBytes = response.body().contentLength();
+            long downloadedBytes = 0;
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+                downloadedBytes += bytesRead;
+                
+                if (totalBytes > 0) {
+                    int percentage = (int) ((downloadedBytes * 100) / totalBytes);
+                    callback.onProgress(downloadedBytes, totalBytes, percentage);
+                }
+            }
+            
+            outputStream.close();
+            inputStream.close();
+            
+            if (verifyChecksum(localFile, resource.checksum)) {
+                callback.onCompleted(localFile.getAbsolutePath());
+            } else {
+                localFile.delete();
+                callback.onError("Checksum verification failed");
+            }
+            
+        } catch (Exception e) {
+            callback.onError("Download failed: " + e.getMessage());
         }
     }
 }

@@ -1,32 +1,50 @@
 package com.cosinetech.imates.textbookservice;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class UserTextbookInfo {
+    public String versionId;
     public String textbookId;
-    public String textbookName;
-    public String textbookSubjectLabel;
+    public int textbookGrade;
     public String textbookGradeLabel;
+    public int textbookSemester;
     public String textbookSemesterLabel;
+    public int textbookSubject;
+    public String textbookSubjectLabel;
+    public String textbookName;
+    public String textbookEditionYear;
+    public String textbookIsbn;
+    public String textbookPublisher;
+    public String textbookCover;
     public String textbookUpdateTime;
+
+
     public String lastDownloadTime;
     public boolean isDownloaded;
     public long totalSize;
     public int totalFiles;
     public int downloadedFiles;
     
-    public String textbookCover;
-    public String textbookPublisher;
-    public String textbookEditionYear;
-    public String textbookIsbn;
+    public List<ChapterNode> structure;
+    public List<LocalPackageInfo> localPackages;
+    public int downloadStatus; // Progress percentage 0-100
     
-    public UserTextbookInfo() {}
+    public UserTextbookInfo() {
+        this.structure = new ArrayList<>();
+        this.localPackages = new ArrayList<>();
+        this.downloadStatus = 0;
+    }
     
     public UserTextbookInfo(TextbookVersion textbook) {
-        this.textbookId = textbook.id;
+        this.versionId = textbook.id;
+        this.textbookId = textbook.textbookId;
         this.textbookName = textbook.textbookName;
-        this.textbookSubjectLabel = textbook.textbookSubjectLabel;
+        this.textbookGrade = textbook.textbookGrade;
         this.textbookGradeLabel = textbook.textbookGradeLabel;
+        this.textbookSubject = textbook.textbookSubject;
+        this.textbookSubjectLabel = textbook.textbookSubjectLabel;
+        this.textbookSemester = textbook.textbookSemester;
         this.textbookSemesterLabel = textbook.textbookSemesterLabel;
         this.textbookUpdateTime = textbook.textbookUpdateTime;
         this.textbookCover = textbook.textbookCover;
@@ -38,6 +56,39 @@ public class UserTextbookInfo {
         this.totalSize = 0;
         this.totalFiles = 0;
         this.downloadedFiles = 0;
+        this.structure = new ArrayList<>();
+        this.localPackages = new ArrayList<>();
+        this.downloadStatus = 0;
+    }
+    
+    public void updateStructure(List<ChapterNode> newStructure) {
+        this.structure = newStructure != null ? new ArrayList<>(newStructure) : new ArrayList<>();
+    }
+    
+    public void updatePackages(List<LearningPackage> packages) {
+        this.localPackages = new ArrayList<>();
+        if (packages != null) {
+            for (LearningPackage pkg : packages) {
+                LocalPackageInfo localPkg = new LocalPackageInfo();
+                localPkg.packageId = pkg.id;
+                localPkg.packageName = pkg.packageName;
+                localPkg.localFiles = new ArrayList<>();
+                
+                if (pkg.resourceList != null) {
+                    for (ResourceFile resource : pkg.resourceList) {
+                        LocalFileInfo localFile = new LocalFileInfo();
+                        localFile.fileName = resource.fileName;
+                        localFile.originalUrl = resource.fileUrl;
+                        localFile.checksum = resource.checksum;
+                        localFile.isDownloaded = false;
+                        localPkg.localFiles.add(localFile);
+                    }
+                }
+                
+                localPkg.updateDownloadStatus();
+                this.localPackages.add(localPkg);
+            }
+        }
     }
     
     public enum DownloadStatus {

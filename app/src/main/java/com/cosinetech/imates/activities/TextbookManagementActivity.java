@@ -243,13 +243,7 @@ public class TextbookManagementActivity extends AppCompatActivity {
     
     private void downloadTextbook(UserTextbookInfo textbook) {
         // Create TextbookVersion from UserTextbookInfo for download
-        TextbookVersion version = new TextbookVersion();
-        version.id = textbook.textbookId;
-        version.textbookName = textbook.textbookName;
-        version.textbookSubjectLabel = textbook.textbookSubjectLabel;
-        version.textbookGradeLabel = textbook.textbookGradeLabel;
-        version.textbookSemesterLabel = textbook.textbookSemesterLabel;
-        version.textbookUpdateTime = textbook.textbookUpdateTime;
+        TextbookVersion version = new TextbookVersion(textbook);
 
         LearnResourceManager.getInstance().downloadAllResources(version, new LearnResourceManager.DownloadProgressCallback() {
             @Override
