@@ -511,13 +511,13 @@ public class LearnResourceManager {
                 @Override
                 public void onSuccess(List<ChapterNode> structure) {
                     // Continue with download and save structure
-                    continueDownloadWithStructure(textbook, packages, structure, textbookDir, callback);
+                    executorService.execute(() -> continueDownloadWithStructure(textbook, packages, structure, textbookDir, callback));
                 }
                 
                 @Override
                 public void onError(String error) {
                     Log.w(TAG, "Failed to get structure, continuing without it: " + error);
-                    continueDownloadWithStructure(textbook, packages, new ArrayList<>(), textbookDir, callback);
+                    executorService.execute(() -> continueDownloadWithStructure(textbook, packages, new ArrayList<>(), textbookDir, callback));
                 }
                 
                 @Override
@@ -915,20 +915,20 @@ public class LearnResourceManager {
         textbook.isDownloaded = (downloadedFiles == totalFiles && totalFiles > 0);
         textbook.downloadStatus = calculateDownloadStatus(downloadedFiles, totalFiles);
     }
-    
+
     private File getTextbookDirectoryById(String textbookId) {
         UserLearnData data = loadUserLearnData();
         if (data == null) return null;
-        
+
         UserTextbookInfo textbook = data.findTextbook(textbookId);
         if (textbook == null) return null;
-        
+
         File learnDir = getUserLearnDirectory();
         File subjectDir = new File(learnDir, sanitizeFileName(textbook.textbookSubjectLabel));
         File textbookDir = new File(subjectDir, sanitizeFileName(textbook.textbookId + "_" +
                 textbook.textbookName + "_" + textbook.textbookGradeLabel + "_" + textbook.textbookSemesterLabel
         ));
-        
+
         return textbookDir;
     }
     
