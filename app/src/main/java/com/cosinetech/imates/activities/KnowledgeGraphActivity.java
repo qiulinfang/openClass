@@ -17,6 +17,7 @@ import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.cosinetech.imates.textbookservice.*;
+import com.cosinetech.imates.util.AppUtils;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
@@ -30,7 +31,7 @@ import java.util.List;
 
 public class KnowledgeGraphActivity extends BaseActivity {
     private static final String TAG = "KnowledgeGraphActivity";
-    private LearnResourceManager manager;
+    //private LearnResourceManager mLearnResManager;
 
     @Override
     protected int getLayoutResId() {
@@ -46,7 +47,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        initializeManager(this);
+        //initializeManager();
 
         WebView webView = findViewById(R.id.knowledge_view);
         webView.getSettings().setJavaScriptEnabled(true);
@@ -76,6 +77,58 @@ public class KnowledgeGraphActivity extends BaseActivity {
         });
     }
 
+//    public void initializeManager() {
+//        mLearnResManager = LearnResourceManager.getInstance();
+//        mLearnResManager.login(AppUtils.getUserId(), AppUtils.getUserPassword(), new LearnResourceManager.LoginCallback() {
+//            @Override
+//            public void onSuccess(LoginResponse response) {
+//
+//            }
+//
+//            @Override
+//            public void onError(String error) {
+//
+//            }
+//        });
+//    }
+//
+//    private void promptToDownloadResource() {
+//
+//    }
+//
+//    private void presentLocalLearnResource(List<UserTextbookInfo> textbooks) {
+//
+//    }
+//
+//    private void checkUserLearnResources() {
+//        mLearnResManager.loadAllUserTextbooks(new LearnResourceManager.AllTextbooksCallback() {
+//            @Override
+//            public void onSuccess(List<UserTextbookInfo> textbooks) {
+//                if(textbooks == null) {
+//                    promptToDownloadResource();
+//                } else {
+//                    List<UserTextbookInfo> localTextbooks = new ArrayList<>();
+//                    for (UserTextbookInfo textbook: textbooks) {
+//                        if(textbook.isDownloaded) {
+//                            localTextbooks.add(textbook);
+//                        }
+//                    }
+//
+//                    if(localTextbooks.isEmpty()) {
+//                        promptToDownloadResource();
+//                    } else {
+//                        presentLocalLearnResource(localTextbooks);
+//                    }
+//                }
+//            }
+//
+//            @Override
+//            public void onError(String error) {
+//                Toast.makeText(KnowledgeGraphActivity.this, "加载本地资源失败:" + error, Toast.LENGTH_SHORT).show();
+//            }
+//        });
+//    }
+
     @Override
     protected void onStop() {
         super.onStop();
@@ -84,12 +137,27 @@ public class KnowledgeGraphActivity extends BaseActivity {
     @Override
     protected void onResume() {
         super.onResume();
-
+//        if (mLearnResManager.isLoggedIn()) {
+//            checkUserLearnResources();
+//        } else {
+//            mLearnResManager.login(AppUtils.getUserId(), AppUtils.getUserPassword(), new LearnResourceManager.LoginCallback() {
+//                @Override
+//                public void onSuccess(LoginResponse response) {
+//                    checkUserLearnResources();
+//                }
+//
+//                @Override
+//                public void onError(String error) {
+//                    Toast.makeText(KnowledgeGraphActivity.this, "登录研伴失败, 无法获取在线资源", Toast.LENGTH_SHORT).show();
+//                }
+//            });
+//        }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        //LearnResourceManager.getInstance().logout();
     }
 
     public class WebAppInterface {
@@ -182,9 +250,5 @@ public class KnowledgeGraphActivity extends BaseActivity {
             }
             return null;
         }
-    }
-
-    public void initializeManager(Context context) {
-        manager = new LearnResourceManager(context);
     }
 }

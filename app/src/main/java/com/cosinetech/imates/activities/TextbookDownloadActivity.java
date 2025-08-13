@@ -19,6 +19,7 @@ import com.cosinetech.imates.models.TextbookVersion;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.textbookservice.LearnResourceManager;
 import com.cosinetech.imates.textbookservice.LoginResponse;
+import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.coreapiservice.TextbookApiClient;
 import com.cosinetech.imates.coreapiservice.TextbookDownloadManager;
@@ -44,7 +45,7 @@ public class TextbookDownloadActivity extends AppCompatActivity implements
     private RecyclerView textbookRecyclerView;
     private TextbookAdapter textbookAdapter;
 
-    private Map<String, TextbookResponse> subjectData = new HashMap<>();
+    private final Map<String, TextbookResponse> subjectData = new HashMap<>();
     private String currentSubject = "biology";
     private String currentVersion = "";
     private List<Textbook> currentTextbooks = new ArrayList<>();
@@ -52,7 +53,6 @@ public class TextbookDownloadActivity extends AppCompatActivity implements
     private TextbookDownloadManager downloadManager;
 
     private LearnResourceManager manager;
-    private UserInfoViewModel userInfoViewModel;
 
     Timer timer = new Timer();
     TimerTask task = new TimerTask() {
@@ -109,22 +109,20 @@ public class TextbookDownloadActivity extends AppCompatActivity implements
 
 
     public void loginYb() {
-        if(userInfoViewModel.ybLogin.getValue() != null && userInfoViewModel.ybLogin.getValue()) {
+        if(manager.isLoggedIn()) {
             return;
         }
 
-        manager.login(userInfoViewModel.userId.getValue(), userInfoViewModel.password.getValue(),
+        manager.login(AppUtils.getUserId(), AppUtils.getUserPassword(),
                 new LearnResourceManager.LoginCallback() {
                     @Override
                     public void onSuccess(LoginResponse response) {
                         Log.d(TAG, "Login successful: " + response.token);
-                        userInfoViewModel.ybLogin.postValue(true);
                     }
 
                     @Override
                     public void onError(String error) {
                         Log.e(TAG, "Login failed: " + error);
-                        userInfoViewModel.ybLogin.postValue(false);
                     }
                 });
     }

@@ -12,11 +12,11 @@ android {
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.cosinetech.imates"
+        applicationId "com.cosinetech.imates.bj101"
         minSdk 24
         targetSdk 34
         versionCode 52
-        versionName "1.0.52"
+        versionName "1.0.53"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {

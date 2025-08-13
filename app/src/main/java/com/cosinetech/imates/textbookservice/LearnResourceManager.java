@@ -1,13 +1,13 @@
 package com.cosinetech.imates.textbookservice;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.cosinetech.imates.ApplicationModelShared;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -50,9 +50,18 @@ public class LearnResourceManager {
     
     private String currentToken;
     private String currentUsername;
+
+    private static LearnResourceManager instance;
+
+    synchronized  public static LearnResourceManager getInstance() {
+        if (instance == null) {
+            instance = new LearnResourceManager();
+        }
+        return instance;
+    }
     
-    public LearnResourceManager(Context context) {
-        this.context = context.getApplicationContext();
+    private LearnResourceManager() {
+        this.context = ApplicationModelShared.getInstance();
         this.httpClient = new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(60, TimeUnit.SECONDS)
@@ -104,7 +113,7 @@ public class LearnResourceManager {
                             currentToken = apiResponse.data.token;
                             currentUsername = account;
                             
-                            if (userChanged || getUserLearnData() == null) {
+                            if (userChanged || loadUserLearnData() == null) {
                                 initializeUserLearnData();
                             }
                             
@@ -306,7 +315,7 @@ public class LearnResourceManager {
                 executorService.execute(() -> {
                     try {
                         List<TextbookVersion> updatedTextbooks = new ArrayList<>();
-                        UserLearnData userLearnData = getUserLearnData();
+                        UserLearnData userLearnData = loadUserLearnData();
                         
                         for (TextbookVersion version : versions) {
                             UserTextbookInfo localInfo = userLearnData != null ? 
@@ -582,7 +591,7 @@ public class LearnResourceManager {
         }
     }
     
-    private UserLearnData getUserLearnData() {
+    private UserLearnData loadUserLearnData() {
         try {
             File learnDir = getUserLearnDirectory();
             if (learnDir == null) return null;
@@ -625,7 +634,7 @@ public class LearnResourceManager {
     }
     
     private void updateUserTextbookInfo(TextbookVersion textbook, int totalFiles, int downloadedFiles, boolean isDownloaded) {
-        UserLearnData data = getUserLearnData();
+        UserLearnData data = loadUserLearnData();
         if (data == null) {
             data = new UserLearnData(currentUsername);
         }
@@ -649,7 +658,7 @@ public class LearnResourceManager {
     public void loadAllUserTextbooks(AllTextbooksCallback callback) {
         executorService.execute(() -> {
             try {
-                UserLearnData data = getUserLearnData();
+                UserLearnData data = loadUserLearnData();
                 if (data == null) {
                     mainHandler.post(() -> callback.onSuccess(new ArrayList<>()));
                     return;
@@ -717,7 +726,7 @@ public class LearnResourceManager {
                 mainHandler.post(() -> callback.onProgress("Scanning referenced files..."));
                 
                 Set<String> referencedFiles = new HashSet<>();
-                UserLearnData data = getUserLearnData();
+                UserLearnData data = loadUserLearnData();
                 if (data != null) {
                     for (UserTextbookInfo textbook : data.textbooks) {
                         if (textbook.isDownloaded) {
@@ -762,7 +771,7 @@ public class LearnResourceManager {
     }
     
     private File getTextbookDirectoryById(String textbookId) {
-        UserLearnData data = getUserLearnData();
+        UserLearnData data = loadUserLearnData();
         if (data == null) return null;
         
         UserTextbookInfo textbook = data.findTextbook(textbookId);

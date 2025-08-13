@@ -57,6 +57,14 @@ public class AppUtils {
         return userInfoViewModel.userId.getValue();
     }
 
+    public static String getUserPassword() {
+        UserInfoViewModel userInfoViewModel = new ViewModelProvider(
+                ApplicationModelShared.getInstance(),
+                new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance())
+        ).get(UserInfoViewModel.class);
+        return userInfoViewModel.password.getValue();
+    }
+
     public static File getUserFilePath() {
         ViewModelStoreOwner owner = ApplicationModelShared.getInstance();
         UserInfoViewModel userInfoViewModel = new ViewModelProvider(
