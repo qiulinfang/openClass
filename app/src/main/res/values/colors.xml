@@ -14,11 +14,11 @@
     <!--mupdf -->
     <color name="canvas">#404040</color>
     <color name="button_normal">#00000000</color>
-    <color name="colorAccent">#D81B60</color>
+<!--    <color name="colorAccent">#D81B60</color>-->
     <color name="colorAccentTrans">#80ffa000</color>
     <color name="colorDarkTrans">#80607d8b</color>
-    <color name="colorPrimary">#008577</color>
-    <color name="colorPrimaryDark">#00574B</color>
+<!--    <color name="colorPrimary">#008577</color>-->
+<!--    <color name="colorPrimaryDark">#00574B</color>-->
     <color name="link_bg">#2200ffff</color>
     <color name="search_bg">#440000ff</color>
     <color name="muPDFReaderView_bg">#808080</color>
@@ -33,4 +33,11 @@
     <color name="light_blue_A400">#FF00B0FF</color>
     <color name="black_overlay">#66000000</color>
     <color name="selected_background">#E3F2FD</color>
+
+    <color name="colorPrimary">#2196F3</color>
+    <color name="colorPrimaryDark">#1976D2</color>
+    <color name="colorAccent">#FF4081</color>
+    <color name="colorSuccess">#4CAF50</color>
+    <color name="colorWarning">#FF9800</color>
+    <color name="colorError">#F44336</color>
 </resources>

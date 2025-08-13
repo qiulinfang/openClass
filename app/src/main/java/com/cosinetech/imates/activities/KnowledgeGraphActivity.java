@@ -73,7 +73,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
         });
 
         findViewById(R.id.btn_res_center).setOnClickListener(v -> {
-            Intent intent = new Intent(KnowledgeGraphActivity.this, TextbookDownloadActivity.class);
+            Intent intent = new Intent(KnowledgeGraphActivity.this, TextbookManagementActivity.class);
             startActivity(intent);
         });
     }
@@ -84,7 +84,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .setMessage("没有学习资源, 请先下载资源再来学习")
                 .setPositiveButton("确定", (dialog, which) -> {
-                    Intent intent = new Intent(this, TextbookDownloadActivity.class);
+                    Intent intent = new Intent(this, TextbookManagementActivity.class);
                     startActivity(intent);
                 })
                 .setNegativeButton("取消", ((dialog, which) -> {

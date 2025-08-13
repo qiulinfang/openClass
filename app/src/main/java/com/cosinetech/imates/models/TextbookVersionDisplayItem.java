@@ -3,16 +3,16 @@ package com.cosinetech.imates.models;
 import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
-public class TextbookVersion {
+public class TextbookVersionDisplayItem {
     @SerializedName("versionName")
     private String versionName;
 
     @SerializedName("books")
     private List<Textbook> books;
 
-    public TextbookVersion() {}
+    public TextbookVersionDisplayItem() {}
 
-    public TextbookVersion(String versionName, List<Textbook> books) {
+    public TextbookVersionDisplayItem(String versionName, List<Textbook> books) {
         this.versionName = versionName;
         this.books = books;
     }

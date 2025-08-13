@@ -30,6 +30,7 @@ public class Textbook {
         NOT_DOWNLOADED,
         DOWNLOADING,
         DOWNLOADED,
+        PARTIAL,
         UPDATE_AVAILABLE,
         DOWNLOAD_FAILED
     }
