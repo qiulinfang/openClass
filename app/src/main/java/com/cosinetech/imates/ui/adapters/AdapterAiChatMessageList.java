@@ -345,7 +345,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                 displayMsg.showWithTypingEffect = showWithTypingEffect;
                 displayMsg.msgIsFinished = msgIsFinished;
 
-                notifyDataSetChanged();
+                notifyItemChanged(i, displayMsg.showWithTypingEffect);
                 break;
             }
         }
