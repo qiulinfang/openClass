@@ -74,7 +74,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
         // Add JavaScript interface
         webView.addJavascriptInterface(mWebViewInterface, "Android");
         // Load the local HTML file
-        webView.loadUrl("file:///android_asset/knowledge_graph_math.html");
+        webView.loadUrl("file:///android_asset/knowledge_graph.html");
         webView.setOnTouchListener((v, event) -> {
             // 禁止ViewPager2拦截触摸事件
             if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_MOVE) {
