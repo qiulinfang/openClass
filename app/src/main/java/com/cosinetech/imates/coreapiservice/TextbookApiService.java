@@ -1,6 +1,6 @@
 package com.cosinetech.imates.coreapiservice;
 
-import com.cosinetech.imates.models.TextbookResponse;
+import com.cosinetech.imates.ui.data.models.TextbookResponse;
 
 import retrofit2.Call;
 import retrofit2.http.GET;

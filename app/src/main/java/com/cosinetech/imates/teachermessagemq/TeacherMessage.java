@@ -1,10 +1,10 @@
 package com.cosinetech.imates.teachermessagemq;
 
-import com.cosinetech.imates.models.ChatMessage;
-import com.cosinetech.imates.util.AppUtils;
-import com.cosinetech.imates.util.ImageUtils;
-import com.cosinetech.imates.util.VoiceDbUtil;
-import com.cosinetech.imates.views.ChatAiView;
+import com.cosinetech.imates.ui.data.models.ChatMessage;
+import com.cosinetech.imates.utils.AppUtils;
+import com.cosinetech.imates.utils.ImageUtils;
+import com.cosinetech.imates.utils.VoiceDbUtil;
+import com.cosinetech.imates.ui.views.ChatAiView;
 
 import org.json.JSONException;
 import org.json.JSONObject;

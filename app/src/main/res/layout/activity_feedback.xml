@@ -7,7 +7,7 @@
     android:layout_height="match_parent"
     android:background="?attr/fullscreenBackgroundColor"
     android:theme="@style/ThemeOverlay.IMatesApp.FullscreenContainer"
-    tools:context=".feedback.FeedbackActivity">
+    tools:context=".ui.feedback.FeedbackActivity">
 
     <FrameLayout
         android:layout_width="match_parent"

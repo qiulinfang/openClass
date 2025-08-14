@@ -1,6 +1,6 @@
 package com.cosinetech.imates.coreapiservice;
 
-import com.cosinetech.imates.views.MarkdownTextView;
+import com.cosinetech.imates.ui.views.MarkdownTextView;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 

@@ -5,7 +5,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
-import com.cosinetech.imates.models.ChatMessage;
+import com.cosinetech.imates.ui.data.models.ChatMessage;
 
 import java.io.IOException;
 import java.util.ArrayList;

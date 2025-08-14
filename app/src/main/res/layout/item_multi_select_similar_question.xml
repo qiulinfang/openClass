@@ -22,7 +22,7 @@
         android:layout_alignParentTop="true"/>
 
     <!--        android:lineSpacingMultiplier="1.5"-->
-    <com.cosinetech.imates.views.MarkdownTextView
+    <com.cosinetech.imates.ui.views.MarkdownTextView
         android:id="@+id/question_text"
         android:clickable="true"
         android:focusable="false"

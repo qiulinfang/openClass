@@ -2,7 +2,7 @@ package com.cosinetech.imates.coreapiservice;
 
 import android.content.Context;
 
-import com.cosinetech.imates.models.Textbook;
+import com.cosinetech.imates.ui.data.models.Textbook;
 
 import java.io.File;
 import java.io.FileOutputStream;

@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#808080"
-    tools:context=".mupdfviewer.activity.AllPDFActivity">
+    tools:context=".ui.mupdfviewer.activity.AllPDFActivity">
 
     <com.artifex.mupdfdemo.MuPDFReaderView
         android:id="@+id/mu_pdf_mupdfreaderview"
@@ -14,7 +14,7 @@
 
     <include layout="@layout/pdf_tools" />
 
-    <com.cosinetech.imates.views.ScratchToolsView
+    <com.cosinetech.imates.ui.views.ScratchToolsView
         android:id="@+id/scratch_tool"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />

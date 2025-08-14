@@ -5,7 +5,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical">
 
-    <com.cosinetech.imates.colorpicker.ColorPickerView
+    <com.cosinetech.imates.ui.colorpicker.ColorPickerView
         android:id="@+id/colorPickerView"
         android:layout_width="260dp"
         android:layout_height="260dp"

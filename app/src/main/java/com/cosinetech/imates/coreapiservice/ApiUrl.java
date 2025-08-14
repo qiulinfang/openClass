@@ -1,6 +1,6 @@
 package com.cosinetech.imates.coreapiservice;
 
-import com.cosinetech.imates.AppEnvConfig;
+import com.cosinetech.imates.appenv.AppEnvConfig;
 
 public class ApiUrl {
     private static String baseUrl;

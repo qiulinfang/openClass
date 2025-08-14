@@ -6,9 +6,9 @@ import android.os.Looper;
 import android.widget.Toast;
 
 import com.cosinetech.imates.ApplicationModelShared;
-import com.cosinetech.imates.models.AddQuestionRequest;
-import com.cosinetech.imates.models.FindSimilarQuestionRequest;
-import com.cosinetech.imates.util.AppUtils;
+import com.cosinetech.imates.ui.data.models.AddQuestionRequest;
+import com.cosinetech.imates.ui.data.models.FindSimilarQuestionRequest;
+import com.cosinetech.imates.utils.AppUtils;
 
 import org.json.JSONObject;
 
