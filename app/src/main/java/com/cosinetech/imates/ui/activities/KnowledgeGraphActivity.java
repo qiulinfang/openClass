@@ -8,12 +8,16 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.MotionEvent;
+import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.AdapterView;
+import android.widget.Spinner;
 import android.widget.Toast;
 
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.ui.adapters.TextbookVersionSpinnerAdapter;
 import com.cosinetech.imates.ui.data.models.Chapter;
 import com.cosinetech.imates.ui.data.models.Subject;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
@@ -33,6 +37,10 @@ import java.util.List;
 public class KnowledgeGraphActivity extends BaseActivity {
     private static final String TAG = "KnowledgeGraphActivity";
 
+    private Spinner mTextbookVersionSpinner;
+    private TextbookVersionSpinnerAdapter mTextbookVersionSpinnerAdapter;
+    private List<UserTextbookInfo> mTextbookVersions;
+
     @Override
     protected int getLayoutResId() {
         return R.layout.activity_knowledge_graph;
@@ -47,7 +55,6 @@ public class KnowledgeGraphActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         WebView webView = findViewById(R.id.knowledge_view);
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true); // 启用 DOM storage
@@ -74,6 +81,24 @@ public class KnowledgeGraphActivity extends BaseActivity {
             Intent intent = new Intent(KnowledgeGraphActivity.this, TextbookManagementActivity.class);
             startActivity(intent);
         });
+
+        mTextbookVersions = new ArrayList<>();
+        mTextbookVersionSpinner = findViewById(R.id.textbook_version_spinner);
+        mTextbookVersionSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                UserTextbookInfo selected = (UserTextbookInfo) parent.getItemAtPosition(position);
+                Toast.makeText(getApplicationContext(),
+                        "选择了：" + selected.textbookName + " | " + selected.textbookPublisher,
+                        Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) { }
+        });
+        mTextbookVersionSpinnerAdapter = new TextbookVersionSpinnerAdapter(this, mTextbookVersions);
+        mTextbookVersionSpinner.setAdapter(mTextbookVersionSpinnerAdapter);
+
     }
 
     private void promptToDownloadResource() {
@@ -92,7 +117,9 @@ public class KnowledgeGraphActivity extends BaseActivity {
     }
 
     private void presentLocalLearnResource(List<UserTextbookInfo> textbooks) {
-
+        mTextbookVersions.clear();
+        mTextbookVersions.addAll(textbooks);
+        mTextbookVersionSpinnerAdapter.notifyDataSetChanged();
     }
 
     private void checkUserLearnResources() {

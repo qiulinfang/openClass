@@ -1,7 +1,5 @@
 package com.cosinetech.imates.textbookservice;
 
-import org.w3c.dom.Text;
-
 public class TextbookVersion {
     public String id;
     public String textbookId;
