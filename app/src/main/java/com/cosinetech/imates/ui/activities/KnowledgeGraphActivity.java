@@ -181,7 +181,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
 
             @Override
             public void onNoUpdates() {
-
+                mTextViewUpdateBadge.setVisibility(View.GONE);
             }
 
             @Override
