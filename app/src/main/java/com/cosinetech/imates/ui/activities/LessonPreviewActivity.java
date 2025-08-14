@@ -16,7 +16,7 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.ui.data.models.Chapter;
+import com.cosinetech.imates.data.models.Chapter;
 import com.cosinetech.imates.ui.mupdfviewer.activity.MuPDFActivity;
 import com.cosinetech.imates.utils.WindowUtils;
 import com.github.spareyaya.SimpleRatingView;

@@ -53,7 +53,7 @@ import com.cosinetech.imates.ui.activities.KnowledgeGraphActivity;
 import com.cosinetech.imates.ui.activities.VideoPlayActivity;
 import com.cosinetech.imates.ui.colorpicker.ColorListener;
 import com.cosinetech.imates.ui.colorpicker.ColorPickerDialog;
-import com.cosinetech.imates.ui.data.models.Chapter;
+import com.cosinetech.imates.data.models.Chapter;
 import com.cosinetech.imates.utils.WindowUtils;
 import com.cosinetech.imates.ui.views.FloatingResizableVideoView;
 import com.cosinetech.imates.ui.views.ScratchToolsView;

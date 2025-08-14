@@ -8,6 +8,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.cosinetech.imates.ApplicationModelShared;
+import com.cosinetech.imates.network.UnsafeOkHttpClient;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -17,7 +18,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
-import java.security.cert.X509Certificate;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -27,19 +27,10 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
 
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
@@ -68,11 +59,6 @@ public class LearnResourceManager {
 
     private LearnResourceManager() {
         this.context = ApplicationModelShared.getInstance();
-//        this.httpClient = new OkHttpClient.Builder()
-//                .connectTimeout(30, TimeUnit.SECONDS)
-//                .readTimeout(60, TimeUnit.SECONDS)
-//                .writeTimeout(60, TimeUnit.SECONDS)
-//                .build();
         this.gson = new GsonBuilder()
                 .setDateFormat("yyyy-MM-dd HH:mm:ss")
                 .create();
@@ -81,51 +67,6 @@ public class LearnResourceManager {
         this.dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
     }
 
-    public static OkHttpClient getUnsafeOkHttpClient() {
-        try {
-            // 创建一个不验证证书链的信任管理器
-            final TrustManager[] trustAllCerts = new TrustManager[]{
-                    new X509TrustManager() {
-                        @Override
-                        public void checkClientTrusted(X509Certificate[] chain, String authType) {
-                        }
-
-                        @Override
-                        public void checkServerTrusted(X509Certificate[] chain, String authType) {
-                        }
-
-                        @Override
-                        public X509Certificate[] getAcceptedIssuers() {
-                            return new X509Certificate[]{};
-                        }
-                    }
-            };
-
-            // 安装全信任的信任管理器
-            final SSLContext sslContext = SSLContext.getInstance("SSL");
-            sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
-
-            // 创建不验证主机名的SSLSocketFactory
-            final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
-
-            OkHttpClient.Builder builder = new OkHttpClient.Builder();
-            builder.sslSocketFactory(sslSocketFactory, (X509TrustManager)trustAllCerts[0]);
-            builder.hostnameVerifier(new HostnameVerifier() {
-                @Override
-                public boolean verify(String hostname, SSLSession session) {
-                    return true; // 验证所有主机名
-                }
-            });
-
-            return builder
-                    .connectTimeout(30, TimeUnit.SECONDS)
-                    .readTimeout(30, TimeUnit.SECONDS)
-                    .writeTimeout(30, TimeUnit.SECONDS)
-                    .build();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
     // ==================== Authentication ====================
     
     public interface LoginCallback {
@@ -144,8 +85,8 @@ public class LearnResourceManager {
                     .url(BASE_URL + "/blw-edu-yb/auth/login-student")
                     .post(body)
                     .build();
-            
-            getUnsafeOkHttpClient().newCall(httpRequest).enqueue(new Callback() {
+
+            UnsafeOkHttpClient.getUnsafeOkHttpClient().newCall(httpRequest).enqueue(new Callback() {
                 @Override
                 public void onFailure(@NonNull Call call, @NonNull IOException e) {
                     mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
@@ -216,8 +157,8 @@ public class LearnResourceManager {
                 .post(RequestBody.create("", MediaType.get("application/json")))
                 .addHeader("sa-token", currentToken)
                 .build();
-        
-        getUnsafeOkHttpClient().newCall(request).enqueue(new Callback() {
+
+        UnsafeOkHttpClient.getUnsafeOkHttpClient().newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
                 mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
@@ -268,8 +209,8 @@ public class LearnResourceManager {
                 .post(body)
                 .addHeader("sa-token", currentToken)
                 .build();
-        
-        getUnsafeOkHttpClient().newCall(httpRequest).enqueue(new Callback() {
+
+        UnsafeOkHttpClient.getUnsafeOkHttpClient().newCall(httpRequest).enqueue(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
                 mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
@@ -320,8 +261,8 @@ public class LearnResourceManager {
                 .post(body)
                 .addHeader("sa-token", currentToken)
                 .build();
-        
-        getUnsafeOkHttpClient().newCall(httpRequest).enqueue(new Callback() {
+
+        UnsafeOkHttpClient.getUnsafeOkHttpClient().newCall(httpRequest).enqueue(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
                 mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
@@ -1004,7 +945,7 @@ public class LearnResourceManager {
                 .build();
         
         try {
-            Response response = getUnsafeOkHttpClient().newCall(request).execute();
+            Response response = UnsafeOkHttpClient.getUnsafeOkHttpClient().newCall(request).execute();
             if (!response.isSuccessful()) {
                 callback.onError("HTTP " + response.code());
                 return;

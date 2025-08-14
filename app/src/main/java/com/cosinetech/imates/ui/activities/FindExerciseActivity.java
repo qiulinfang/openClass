@@ -18,10 +18,10 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.ui.adapters.AdapterMultiSelectSimilarQuestionList;
-import com.cosinetech.imates.ui.data.models.AddQuestionRequest;
-import com.cosinetech.imates.ui.data.models.FindSimilarQuestionRequest;
-import com.cosinetech.imates.ui.data.models.Subject;
-import com.cosinetech.imates.ui.data.models.UserInfoViewModel;
+import com.cosinetech.imates.data.models.AddQuestionRequest;
+import com.cosinetech.imates.data.models.FindSimilarQuestionRequest;
+import com.cosinetech.imates.data.models.Subject;
+import com.cosinetech.imates.data.models.UserInfoViewModel;
 import com.cosinetech.imates.utils.WindowUtils;
 import com.cosinetech.imates.coreapiservice.ApiGateWayService;
 import com.cosinetech.imates.coreapiservice.ApiUrl;

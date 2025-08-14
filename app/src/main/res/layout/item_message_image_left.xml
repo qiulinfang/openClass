@@ -4,10 +4,10 @@
     <data>
         <variable
             name="data"
-            type="com.cosinetech.imates.ui.data.models.ChatDisplayItem" />
+            type="com.cosinetech.imates.data.models.ChatDisplayItem" />
         <variable
             name="message"
-            type="com.cosinetech.imates.ui.data.models.ChatMessage" />
+            type="com.cosinetech.imates.data.models.ChatMessage" />
         <variable
             name="position"
             type="int" />

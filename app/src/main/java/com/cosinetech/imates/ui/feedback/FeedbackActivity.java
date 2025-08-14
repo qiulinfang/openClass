@@ -17,7 +17,7 @@ import android.widget.Toast;
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.databinding.ActivityFeedbackBinding;
-import com.cosinetech.imates.ui.data.models.UserInfoViewModel;
+import com.cosinetech.imates.data.models.UserInfoViewModel;
 import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.SimpleImageCompressor;
 import com.cosinetech.imates.utils.WindowUtils;

@@ -1,6 +1,6 @@
-package com.cosinetech.imates.ui.data.models;
+package com.cosinetech.imates.data.models;
 
-import static com.cosinetech.imates.ui.data.models.ChatMessageCatalogue.CATALOG_ID_DEFAULT;
+import static com.cosinetech.imates.data.models.ChatMessageCatalogue.CATALOG_ID_DEFAULT;
 
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;

@@ -1,6 +1,6 @@
 package com.cosinetech.imates.teachermessagemq;
 
-import com.cosinetech.imates.ui.data.models.ChatMessage;
+import com.cosinetech.imates.data.models.ChatMessage;
 import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.ImageUtils;
 import com.cosinetech.imates.utils.VoiceDbUtil;

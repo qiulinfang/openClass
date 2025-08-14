@@ -1,6 +1,6 @@
-package com.cosinetech.imates.ui.data.models;
+package com.cosinetech.imates.data.models;
 
-import static com.cosinetech.imates.ui.data.models.Subject.*;
+import static com.cosinetech.imates.data.models.Subject.*;
 
 public class SubjectUtils {
     public static String getSubjectDisplayName(String subject) {

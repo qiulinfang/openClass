@@ -156,7 +156,7 @@ dependencies {
     // ======== lottie animate ========
     implementation libs.lottie
 
-    // ======== smartrefreshlayout ========
+    // ======== smart refresh layout ========
     implementation libs.refresh.layout.kernel // 核心库
     implementation libs.refresh.header.classics // 经典 Header
     implementation libs.refresh.footer.classics // 经典 Footer
@@ -177,8 +177,8 @@ dependencies {
 ////// ====== local version
     implementation libs.commonmark
     implementation libs.commonmark.parent
-    implementation("com.atlassian.commonmark:commonmark-ext-gfm-strikethrough:0.13.0")
-    implementation 'com.atlassian.commonmark:commonmark-ext-gfm-tables:0.13.0'
+    implementation(libs.commonmark.ext.gfm.strikethrough)
+    implementation libs.commonmark.ext.gfm.tables
     implementation libs.jlatexmath.android
     implementation libs.jlatexmath.android.font.cyrillic
     implementation libs.jlatexmath.android.font.greek
@@ -211,11 +211,9 @@ dependencies {
 //    implementation libs.image.glide
 //    implementation libs.ext.latex
     implementation libs.glide.v4120
-    implementation libs.compiler
-    // Network
-    implementation 'com.squareup.retrofit2:retrofit:2.10.0'
-    implementation 'com.squareup.retrofit2:converter-gson:2.11.0'
-    implementation 'com.squareup.okhttp3:logging-interceptor:4.12.0'
+    annotationProcessor libs.glide.compiler
+    // Glide 与 OkHttp 集成
+    implementation libs.glide.okhttp3.integration
 
     // Progress bar
     implementation 'com.daimajia.numberprogressbar:library:1.4@aar'
@@ -232,22 +230,16 @@ dependencies {
     //implementation 'com.github.dhaval2404:imagepicker:2.1'
 
     // ======== http/https请求库 ========
-    implementation platform(libs.okhttp.bom)
+    implementation platform(libs.okhttp3.bom)
     // define any required OkHttp artifacts without version
-    implementation libs.okhttp
-    implementation libs.logging.interceptor
+    implementation libs.okhttp3
+    implementation libs.okhttp3.logging.interceptor
 
     // ======== Viewer pager for tab layout
     implementation libs.viewpager2
-    //implementation libs.material.v175
 
     // ======== graph view
     implementation libs.graphview
-
-    // ======== pdf
-//    implementation 'com.github.mhiew:android-pdf-viewer:3.2.0-beta.1'
-//
-//    implementation 'com.github.sendtion:XRichText:1.9.4'
 //
     implementation 'com.github.chrisbanes:PhotoView:2.3.0'
 

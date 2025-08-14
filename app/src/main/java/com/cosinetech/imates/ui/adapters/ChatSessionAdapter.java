@@ -8,7 +8,7 @@ import android.widget.BaseAdapter;
 import android.widget.TextView;
 
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.ui.data.models.ChatMessageSession;
+import com.cosinetech.imates.data.models.ChatMessageSession;
 
 import java.util.List;
 

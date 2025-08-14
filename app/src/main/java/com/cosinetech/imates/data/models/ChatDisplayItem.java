@@ -1,4 +1,4 @@
-package com.cosinetech.imates.ui.data.models;
+package com.cosinetech.imates.data.models;
 
 import android.content.Context;
 import android.os.Handler;

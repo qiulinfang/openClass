@@ -1,4 +1,4 @@
-package com.cosinetech.imates.ui.data.models;
+package com.cosinetech.imates.data.models;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -8,8 +8,8 @@ import android.widget.BaseAdapter;
 import android.widget.TextView;
 
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.ui.data.models.ChatMessageCatalogue;
-import com.cosinetech.imates.ui.data.models.SubjectUtils;
+import com.cosinetech.imates.data.models.ChatMessageCatalogue;
+import com.cosinetech.imates.data.models.SubjectUtils;
 import com.cosinetech.imates.ui.views.OnInitSelectedPosition;
 
 import java.util.ArrayList;

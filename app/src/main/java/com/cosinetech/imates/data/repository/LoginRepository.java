@@ -1,6 +1,6 @@
-package com.cosinetech.imates.ui.data.repository;
+package com.cosinetech.imates.data.repository;
 
-import com.cosinetech.imates.ui.data.models.UserInfo;
+import com.cosinetech.imates.data.models.UserInfo;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
 
 import okhttp3.MediaType;

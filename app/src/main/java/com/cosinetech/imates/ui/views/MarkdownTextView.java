@@ -12,7 +12,7 @@ import android.widget.TextView;
 
 import androidx.appcompat.widget.AppCompatTextView;
 
-import com.cosinetech.imates.ui.data.models.ChatDisplayItem;
+import com.cosinetech.imates.data.models.ChatDisplayItem;
 import io.noties.markwon.Markwon;
 import io.noties.markwon.ext.tables.TablePlugin;
 import io.noties.markwon.html.HtmlPlugin;

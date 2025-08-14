@@ -6,8 +6,8 @@ import android.os.Looper;
 import android.widget.Toast;
 
 import com.cosinetech.imates.ApplicationModelShared;
-import com.cosinetech.imates.ui.data.models.AddQuestionRequest;
-import com.cosinetech.imates.ui.data.models.FindSimilarQuestionRequest;
+import com.cosinetech.imates.data.models.AddQuestionRequest;
+import com.cosinetech.imates.data.models.FindSimilarQuestionRequest;
 import com.cosinetech.imates.utils.AppUtils;
 
 import org.json.JSONObject;

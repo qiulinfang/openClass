@@ -18,8 +18,8 @@ import android.widget.Toast;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.ui.adapters.TextbookVersionSpinnerAdapter;
-import com.cosinetech.imates.ui.data.models.Chapter;
-import com.cosinetech.imates.ui.data.models.Subject;
+import com.cosinetech.imates.data.models.Chapter;
+import com.cosinetech.imates.data.models.Subject;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.cosinetech.imates.textbookservice.*;
 import com.cosinetech.imates.utils.AppUtils;

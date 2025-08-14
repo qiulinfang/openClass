@@ -14,7 +14,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.ui.data.models.Subject;
+import com.cosinetech.imates.data.models.Subject;
 import com.cosinetech.imates.utils.WindowUtils;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.google.android.material.bottomnavigation.BottomNavigationView;

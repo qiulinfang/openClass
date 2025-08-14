@@ -13,9 +13,9 @@ import android.widget.TextView;
 import androidx.appcompat.widget.PopupMenu;
 
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.ui.data.models.ChatMessageCatalogue;
-import com.cosinetech.imates.ui.data.models.ChatMessageHistoryDB;
-import com.cosinetech.imates.ui.data.models.ChatMessageSession;
+import com.cosinetech.imates.data.models.ChatMessageCatalogue;
+import com.cosinetech.imates.data.models.ChatMessageHistoryDB;
+import com.cosinetech.imates.data.models.ChatMessageSession;
 import com.cosinetech.imates.utils.AppUtils;
 
 import java.util.ArrayList;

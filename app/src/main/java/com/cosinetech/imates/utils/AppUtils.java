@@ -13,7 +13,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 
 import com.cosinetech.imates.ApplicationModelShared;
-import com.cosinetech.imates.ui.data.models.UserInfoViewModel;
+import com.cosinetech.imates.data.models.UserInfoViewModel;
 
 import java.io.File;
 import java.io.FileOutputStream;
