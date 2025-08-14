@@ -19,6 +19,7 @@ import com.cosinetech.imates.textbookservice.LoginResponse;
 import com.cosinetech.imates.textbookservice.TextbookVersion;
 import com.cosinetech.imates.textbookservice.UserTextbookInfo;
 import com.cosinetech.imates.utils.AppUtils;
+import com.cosinetech.imates.utils.WindowUtils;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 
@@ -44,6 +45,8 @@ public class TextbookManagementActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        WindowUtils.hideSystemUI(this);
+        WindowUtils.setFullScreenMode(this);
         setContentView(R.layout.activity_textbook_management);
         
         initViews();
@@ -303,6 +306,18 @@ public class TextbookManagementActivity extends AppCompatActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        WindowUtils.hideSystemUI(this);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        WindowUtils.hideSystemUI(this);
     }
     
     @Override
