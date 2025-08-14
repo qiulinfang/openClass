@@ -6,6 +6,9 @@ import java.util.List;
 public class LocalPackageInfo {
     public String packageId;
     public String packageName;
+
+    public String description;
+    public String updateTime;
     public List<LocalFileInfo> localFiles;
     public int totalFiles;
     public int downloadedFiles;

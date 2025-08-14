@@ -1,6 +1,7 @@
 package com.cosinetech.imates.textbookservice;
 
 public class LocalFileInfo {
+    public  String id;
     public String fileName;
     public String localPath;
     public String originalUrl;

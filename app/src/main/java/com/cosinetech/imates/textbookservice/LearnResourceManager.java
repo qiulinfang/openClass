@@ -361,50 +361,242 @@ public class LearnResourceManager {
         void onNoUpdates();
         void onError(String error);
     }
-    
+
     public void checkForUpdates(UpdateCheckCallback callback) {
         getTextbookVersions(new TextbookVersionsCallback() {
             @Override
             public void onSuccess(List<TextbookVersion> versions) {
                 executorService.execute(() -> {
                     try {
-                        List<TextbookVersion> updatedTextbooks = new ArrayList<>();
-                        UserLearnData userLearnData = loadUserLearnData();
-                        
-                        for (TextbookVersion version : versions) {
-                            UserTextbookInfo localInfo = userLearnData != null ? 
-                                    userLearnData.findTextbook(version.textbookId) : null;
-                            
-                            if (localInfo == null || isNewer(version.textbookUpdateTime, localInfo.textbookUpdateTime)) {
-                                updatedTextbooks.add(version);
-                            }
-                        }
-                        
-                        mainHandler.post(() -> {
-                            if (updatedTextbooks.isEmpty()) {
-                                callback.onNoUpdates();
-                            } else {
-                                callback.onUpdateAvailable(updatedTextbooks);
-                            }
-                        });
+                        checkTextbooksAndPackagesForUpdates(versions, callback);
                     } catch (Exception e) {
                         mainHandler.post(() -> callback.onError("Update check error: " + e.getMessage()));
                     }
                 });
             }
-            
+
             @Override
             public void onError(String error) {
                 callback.onError(error);
             }
-            
+
             @Override
             public void onUnauthorized() {
                 callback.onError("Authentication required");
             }
         });
     }
-    
+
+    private void checkTextbooksAndPackagesForUpdates(List<TextbookVersion> versions, UpdateCheckCallback callback) {
+        List<TextbookVersion> updatedTextbooks = new ArrayList<>();
+        UserLearnData userLearnData = loadUserLearnData();
+
+        // Counter to track async operations
+        final int[] pendingChecks = {versions.size()};
+        final Object lock = new Object();
+
+        for (TextbookVersion version : versions) {
+            UserTextbookInfo localInfo = userLearnData != null ?
+                    userLearnData.findTextbook(version.textbookId) : null;
+
+            // First check if textbook itself is updated
+            boolean textbookUpdated = localInfo == null ||
+                    isNewer(version.textbookUpdateTime, localInfo.textbookUpdateTime);
+
+            if (textbookUpdated) {
+                synchronized (lock) {
+                    updatedTextbooks.add(version);
+                    pendingChecks[0]--;
+                    if (pendingChecks[0] == 0) {
+                        finishUpdateCheck(updatedTextbooks, callback);
+                    }
+                }
+            } else {
+                // Check if any learning packages are updated
+                checkLearningPackageUpdates(version, localInfo, new PackageUpdateCheckCallback() {
+                    @Override
+                    public void onPackageUpdated() {
+                        synchronized (lock) {
+                            if (!updatedTextbooks.contains(version)) {
+                                updatedTextbooks.add(version);
+                            }
+                            pendingChecks[0]--;
+                            if (pendingChecks[0] == 0) {
+                                finishUpdateCheck(updatedTextbooks, callback);
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onNoPackageUpdate() {
+                        synchronized (lock) {
+                            pendingChecks[0]--;
+                            if (pendingChecks[0] == 0) {
+                                finishUpdateCheck(updatedTextbooks, callback);
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        Log.w(TAG, "Error checking package updates for " + version.textbookName + ": " + error);
+                        // Treat error as no update to avoid blocking
+                        synchronized (lock) {
+                            pendingChecks[0]--;
+                            if (pendingChecks[0] == 0) {
+                                finishUpdateCheck(updatedTextbooks, callback);
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    }
+
+    private interface PackageUpdateCheckCallback {
+        void onPackageUpdated();
+        void onNoPackageUpdate();
+        void onError(String error);
+    }
+
+    private void checkLearningPackageUpdates(TextbookVersion textbook, UserTextbookInfo localInfo,
+                                             PackageUpdateCheckCallback callback) {
+        if (localInfo == null || localInfo.localPackages == null || localInfo.localPackages.isEmpty()) {
+            // No local packages, consider as update needed
+            callback.onPackageUpdated();
+            return;
+        }
+
+        getLearningResources(textbook.id, new LearningResourcesCallback() {
+            @Override
+            public void onSuccess(List<LearningPackage> serverPackages) {
+                executorService.execute(() -> {
+                    try {
+                        boolean hasPackageUpdate = false;
+
+                        // Check if any server package is newer than local package
+                        for (LearningPackage serverPackage : serverPackages) {
+                            LocalPackageInfo localPackage = findLocalPackage(localInfo.localPackages, serverPackage.id);
+
+                            if (localPackage == null) {
+                                // New package found
+                                hasPackageUpdate = true;
+                                break;
+                            }
+
+                            // Compare package update times
+                            if (isNewer(serverPackage.updateTime, localPackage.updateTime)) {
+                                hasPackageUpdate = true;
+                                break;
+                            }
+
+                            // Check if any files in the package are updated
+                            if (hasFileUpdates(serverPackage, localPackage)) {
+                                hasPackageUpdate = true;
+                                break;
+                            }
+                        }
+
+                        // Check if any local packages are no longer on server (removed packages)
+                        if (!hasPackageUpdate) {
+                            for (LocalPackageInfo localPackage : localInfo.localPackages) {
+                                boolean foundOnServer = false;
+                                for (LearningPackage serverPackage : serverPackages) {
+                                    if (serverPackage.id.equals(localPackage.packageId)) {
+                                        foundOnServer = true;
+                                        break;
+                                    }
+                                }
+                                if (!foundOnServer) {
+                                    hasPackageUpdate = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (hasPackageUpdate) {
+                            callback.onPackageUpdated();
+                        } else {
+                            callback.onNoPackageUpdate();
+                        }
+                    } catch (Exception e) {
+                        callback.onError("Error comparing packages: " + e.getMessage());
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String error) {
+                callback.onError("Failed to get server packages: " + error);
+            }
+
+            @Override
+            public void onUnauthorized() {
+                callback.onError("Authentication required");
+            }
+        });
+    }
+
+    private LocalPackageInfo findLocalPackage(List<LocalPackageInfo> localPackages, String packageId) {
+        for (LocalPackageInfo localPackage : localPackages) {
+            if (localPackage.packageId.equals(packageId)) {
+                return localPackage;
+            }
+        }
+        return null;
+    }
+
+    private boolean hasFileUpdates(LearningPackage serverPackage, LocalPackageInfo localPackage) {
+        for (ResourceFile serverFile : serverPackage.resourceList) {
+            LocalFileInfo localFile = findLocalFile(localPackage.localFiles, serverFile.id);
+
+            if (localFile == null) {
+                // New file found
+                return true;
+            }
+
+            // Compare file checksums (if checksum changed, file is updated)
+            if (!serverFile.checksum.equals(localFile.checksum)) {
+                return true;
+            }
+        }
+
+        // Check if any local files are no longer on server (removed files)
+        for (LocalFileInfo localFile : localPackage.localFiles) {
+            boolean foundOnServer = false;
+            for (ResourceFile serverFile : serverPackage.resourceList) {
+                if (serverFile.id.equals(localFile.id)) {
+                    foundOnServer = true;
+                    break;
+                }
+            }
+            if (!foundOnServer) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private LocalFileInfo findLocalFile(List<LocalFileInfo> localFiles, String fileId) {
+        for (LocalFileInfo localFile : localFiles) {
+            if (localFile.id.equals(fileId)) {
+                return localFile;
+            }
+        }
+        return null;
+    }
+
+    private void finishUpdateCheck(List<TextbookVersion> updatedTextbooks, UpdateCheckCallback callback) {
+        mainHandler.post(() -> {
+            if (updatedTextbooks.isEmpty()) {
+                callback.onNoUpdates();
+            } else {
+                callback.onUpdateAvailable(updatedTextbooks);
+            }
+        });
+    }
+
     private boolean isNewer(String newTime, String oldTime) {
         try {
             Date newDate = dateFormat.parse(newTime);

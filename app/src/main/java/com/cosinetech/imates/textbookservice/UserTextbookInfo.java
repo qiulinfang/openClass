@@ -71,12 +71,15 @@ public class UserTextbookInfo {
             for (LearningPackage pkg : packages) {
                 LocalPackageInfo localPkg = new LocalPackageInfo();
                 localPkg.packageId = pkg.id;
+                localPkg.updateTime = pkg.updateTime;
+                localPkg.description = pkg.description;
                 localPkg.packageName = pkg.packageName;
                 localPkg.localFiles = new ArrayList<>();
                 
                 if (pkg.resourceList != null) {
                     for (ResourceFile resource : pkg.resourceList) {
                         LocalFileInfo localFile = new LocalFileInfo();
+                        localFile.id = resource.id;
                         localFile.fileName = resource.fileName;
                         localFile.originalUrl = resource.fileUrl;
                         localFile.checksum = resource.checksum;
