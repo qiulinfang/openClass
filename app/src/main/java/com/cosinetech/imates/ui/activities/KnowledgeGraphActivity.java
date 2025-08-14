@@ -18,7 +18,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.data.models.UserInfo;
 import com.cosinetech.imates.ui.adapters.TextbookVersionSpinnerAdapter;
 import com.cosinetech.imates.data.models.Chapter;
 import com.cosinetech.imates.data.models.Subject;
@@ -229,23 +228,23 @@ public class KnowledgeGraphActivity extends BaseActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (LearnResourceManager.getInstance().isLoggedIn()) {
-            checkUserLearnResources();
-            checkUpdateLearnResource();
-        } else {
-            LearnResourceManager.getInstance().login(AppUtils.getUserId(), AppUtils.getUserPassword(), new LearnResourceManager.LoginCallback() {
-                @Override
-                public void onSuccess(LoginResponse response) {
-                    checkUserLearnResources();
-                    checkUpdateLearnResource();
-                }
-
-                @Override
-                public void onError(String error) {
-                    Toast.makeText(KnowledgeGraphActivity.this, "登录研伴失败, 无法获取在线资源", Toast.LENGTH_SHORT).show();
-                }
-            });
-        }
+//        if (LearnResourceManager.getInstance().isLoggedIn()) {
+//            checkUserLearnResources();
+//            checkUpdateLearnResource();
+//        } else {
+//            LearnResourceManager.getInstance().login(AppUtils.getUserId(), AppUtils.getUserPassword(), new LearnResourceManager.LoginCallback() {
+//                @Override
+//                public void onSuccess(LoginResponse response) {
+//                    checkUserLearnResources();
+//                    checkUpdateLearnResource();
+//                }
+//
+//                @Override
+//                public void onError(String error) {
+//                    Toast.makeText(KnowledgeGraphActivity.this, "登录研伴失败, 无法获取在线资源", Toast.LENGTH_SHORT).show();
+//                }
+//            });
+//        }
     }
 
     @Override

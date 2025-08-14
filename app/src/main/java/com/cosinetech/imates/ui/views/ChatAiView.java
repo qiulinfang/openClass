@@ -533,6 +533,7 @@ public class ChatAiView extends RelativeLayout {
         });
 
         // Initialize RecyclerView
+        mMsgDetailListView.setItemViewCacheSize(0);
         mMsgDetailListView.setLayoutManager(new LinearLayoutManager(mContext, LinearLayoutManager.VERTICAL, false));
         mMsgDetailListView.addItemDecoration(new RecyclerViewOverscrollDecoration());
         mMsgDetailListView.setClipToPadding(false);// disabling clip to padding is critical
