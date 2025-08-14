@@ -10,6 +10,7 @@ import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
@@ -105,7 +106,7 @@ public class ExerciseSolveActivity extends BaseActivity implements MessagingMana
     }
 
     @Override
-    protected void onSaveInstanceState(Bundle outState) {
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putString(KEY_CHATBOT_URL, chatBotUrl);
         outState.putString(KEY_SUBJECT, subject.name());
@@ -247,16 +248,16 @@ public class ExerciseSolveActivity extends BaseActivity implements MessagingMana
                 MarkdownTextView answer = findViewById(R.id.answerView);
                 answer.setContent(mCurrentQuestion.getAnswer() + "   \n" + mCurrentQuestion.getAnswerAnalysis());
 
-                if(mCurrentQuestion.beginGuideToSolve) {
-                    mChatView.setChatEnable(true);
-                    if(chatResponseTimes >= VIEW_ANSWER_CHAT_TIMES) {
-                        setViewAnswer(true);
-                    }
-                } else {
-                    mChatView.setChatEnable(false);
-                    chatResponseTimes = 0;
-                    setViewAnswer(false);
-                }
+//                if(mCurrentQuestion.beginGuideToSolve) {
+//                    mChatView.setChatEnable(true);
+//                    if(chatResponseTimes >= VIEW_ANSWER_CHAT_TIMES) {
+//                        setViewAnswer(true);
+//                    }
+//                } else {
+//                    mChatView.setChatEnable(false);
+//                    chatResponseTimes = 0;
+//                    setViewAnswer(false);
+//                }
 
                 //先生成ai的session
                 ChatMessageSession session = onChatQuestionSessionChange(false);
@@ -264,6 +265,10 @@ public class ExerciseSolveActivity extends BaseActivity implements MessagingMana
                 if(session != null) {
                     onChatTeacherSessionChange(session.sessionId, session.sessionName);
                 }
+
+                int msgCount = mChatView.getCurrentSessionMsgCount();
+                mChatView.setChatEnable(msgCount > 0);
+                setViewAnswer(msgCount >= VIEW_ANSWER_CHAT_TIMES * 2);
             }
 
             @Override
@@ -278,7 +283,7 @@ public class ExerciseSolveActivity extends BaseActivity implements MessagingMana
                 }
                 onChatQuestionSessionChange(true);
                 runOnUiThread(() -> {
-                    mChatView.sendMessageToAi(aiChatMessageRequest);
+                    mChatView.sendMessageToAi(aiChatMessageRequest, false);
                     mChatView.setChatEnable(true);
                 });
             }
