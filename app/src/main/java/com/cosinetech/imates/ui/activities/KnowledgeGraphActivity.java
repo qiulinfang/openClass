@@ -14,6 +14,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.AdapterView;
 import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.cosinetech.imates.R;
@@ -39,6 +40,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
     private static final String TAG = "KnowledgeGraphActivity";
 
     private Spinner mTextbookVersionSpinner;
+    private TextView mTextViewUpdateBadge;
     private TextbookVersionSpinnerAdapter mTextbookVersionSpinnerAdapter;
     private List<UserTextbookInfo> mTextbookVersions;
     private UserTextbookInfo mCurrentUserTextbookInfo;
@@ -60,6 +62,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         WebView webView = findViewById(R.id.knowledge_view);
+        mTextViewUpdateBadge = findViewById(R.id.update_badge);
         mWebViewInterface = new KnowledgeGraphActivity.WebAppInterface(this);
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true); // 启用 DOM storage
@@ -161,6 +164,33 @@ public class KnowledgeGraphActivity extends BaseActivity {
         });
     }
 
+    private void checkUpdateLearnResource() {
+        LearnResourceManager.getInstance().checkForUpdates(new LearnResourceManager.UpdateCheckCallback() {
+            @Override
+            public void onUpdateAvailable(List<TextbookVersion> updatedTextbooks) {
+                runOnUiThread(() -> {
+                    if(updatedTextbooks.isEmpty()) {
+                        mTextViewUpdateBadge.setVisibility(View.GONE);
+                    } else {
+                        int count = updatedTextbooks.size();
+                        mTextViewUpdateBadge.setText(count >= 99 ? "99+" : String.valueOf(count));
+                        mTextViewUpdateBadge.setVisibility(View.VISIBLE);
+                    }
+                });
+            }
+
+            @Override
+            public void onNoUpdates() {
+
+            }
+
+            @Override
+            public void onError(String error) {
+
+            }
+        });
+    }
+
     interface TextbookMindDataCallback {
         void onGetTextbookMindData(String mindData);
     }
@@ -201,11 +231,13 @@ public class KnowledgeGraphActivity extends BaseActivity {
         super.onResume();
         if (LearnResourceManager.getInstance().isLoggedIn()) {
             checkUserLearnResources();
+            checkUpdateLearnResource();
         } else {
             LearnResourceManager.getInstance().login(AppUtils.getUserId(), AppUtils.getUserPassword(), new LearnResourceManager.LoginCallback() {
                 @Override
                 public void onSuccess(LoginResponse response) {
                     checkUserLearnResources();
+                    checkUpdateLearnResource();
                 }
 
                 @Override
