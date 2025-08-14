@@ -17,6 +17,7 @@ import android.widget.Spinner;
 import android.widget.Toast;
 
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.data.models.UserInfo;
 import com.cosinetech.imates.ui.adapters.TextbookVersionSpinnerAdapter;
 import com.cosinetech.imates.data.models.Chapter;
 import com.cosinetech.imates.data.models.Subject;
@@ -40,6 +41,9 @@ public class KnowledgeGraphActivity extends BaseActivity {
     private Spinner mTextbookVersionSpinner;
     private TextbookVersionSpinnerAdapter mTextbookVersionSpinnerAdapter;
     private List<UserTextbookInfo> mTextbookVersions;
+    private UserTextbookInfo mCurrentUserTextbookInfo;
+
+    private WebAppInterface mWebViewInterface;
 
     @Override
     protected int getLayoutResId() {
@@ -56,6 +60,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         WebView webView = findViewById(R.id.knowledge_view);
+        mWebViewInterface = new KnowledgeGraphActivity.WebAppInterface(this);
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true); // 启用 DOM storage
         webView.getSettings().setSupportZoom(true);
@@ -64,7 +69,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
         // 设置WebViewClient以防止外部浏览器打开链接
         webView.setWebViewClient(new WebViewClient());
         // Add JavaScript interface
-        webView.addJavascriptInterface(new KnowledgeGraphActivity.WebAppInterface(this), "Android");
+        webView.addJavascriptInterface(mWebViewInterface, "Android");
         // Load the local HTML file
         webView.loadUrl("file:///android_asset/knowledge_graph_math.html");
         webView.setOnTouchListener((v, event) -> {
@@ -87,10 +92,16 @@ public class KnowledgeGraphActivity extends BaseActivity {
         mTextbookVersionSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                UserTextbookInfo selected = (UserTextbookInfo) parent.getItemAtPosition(position);
-                Toast.makeText(getApplicationContext(),
-                        "选择了：" + selected.textbookName + " | " + selected.textbookPublisher,
-                        Toast.LENGTH_SHORT).show();
+                mCurrentUserTextbookInfo = (UserTextbookInfo) parent.getItemAtPosition(position);
+                new Thread(() -> {
+                    getTextbookMindData(mCurrentUserTextbookInfo, mindData -> {
+                        mWebViewInterface.updateMindData(mindData);
+                        runOnUiThread(() -> {
+                            webView.evaluateJavascript("refreshMindData()", null);
+                        });
+                    });
+
+                }).start();
             }
 
             @Override
@@ -98,7 +109,6 @@ public class KnowledgeGraphActivity extends BaseActivity {
         });
         mTextbookVersionSpinnerAdapter = new TextbookVersionSpinnerAdapter(this, mTextbookVersions);
         mTextbookVersionSpinner.setAdapter(mTextbookVersionSpinnerAdapter);
-
     }
 
     private void promptToDownloadResource() {
@@ -151,6 +161,36 @@ public class KnowledgeGraphActivity extends BaseActivity {
         });
     }
 
+    interface TextbookMindDataCallback {
+        void onGetTextbookMindData(String mindData);
+    }
+    private void getTextbookMindData(UserTextbookInfo textbook, TextbookMindDataCallback callback) {
+        LearnResourceManager.getInstance().getTextbookStructureLocal(textbook.textbookId,
+                true,
+                new LearnResourceManager.TextbookStructureLocalCallback() {
+            @Override
+            public void onSuccess(List<ChapterNode> structure) {
+                if(!structure.isEmpty()) {
+                    String mindData = ChapterNodeConverter.convertToMindJson(structure.get(0).children, textbook.textbookGradeLabel
+                            + textbook.textbookSubjectLabel + textbook.textbookName);
+                    if (callback != null) {
+                        callback.onGetTextbookMindData(mindData);
+                    }
+                }
+            }
+
+            @Override
+            public void onNotFound() {
+
+            }
+
+            @Override
+            public void onError(String error) {
+
+            }
+        });
+    }
+
     @Override
     protected void onStop() {
         super.onStop();
@@ -179,14 +219,23 @@ public class KnowledgeGraphActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        //LearnResourceManager.getInstance().logout();
     }
 
     public class WebAppInterface {
         private Context context;
+        private String mMindData = "";
 
         WebAppInterface(Context context) {
             this.context = context;
+        }
+
+        public void updateMindData(String mindData) {
+            mMindData = mindData;
+        }
+
+        @JavascriptInterface
+        public String getMindData() {
+            return mMindData;
         }
 
         @JavascriptInterface
@@ -271,6 +320,62 @@ public class KnowledgeGraphActivity extends BaseActivity {
                 }
             }
             return null;
+        }
+    }
+
+    public static class ChapterNodeConverter {
+
+        private static final Gson gson = new Gson();
+
+        public static String convertToMindJson(List<ChapterNode> chapters, String bookTitle) {
+            // 构建根节点
+            MindNode root = new MindNode();
+            root.id = "book";
+            root.topic = bookTitle;
+
+            // 处理每个章节
+            for (int i = 0; i < chapters.size(); i++) {
+                ChapterNode chapter = chapters.get(i);
+                MindNode chapterNode = convertChapterNode(chapter);
+
+                // 设置方向：奇数左，偶数右
+                chapterNode.direction = (i % 2 == 0) ? "left" : "right";
+
+                root.children.add(chapterNode);
+            }
+
+            // 构建最终数据结构
+            MindData data = new MindData();
+            data.data = root;
+
+            return gson.toJson(data);
+        }
+
+        private static MindNode convertChapterNode(ChapterNode chapter) {
+            MindNode node = new MindNode();
+            node.id = chapter.id;
+            node.topic = chapter.label != null ? chapter.label : chapter.name;
+
+            // 递归处理子节点
+            if (chapter.children != null && !chapter.children.isEmpty()) {
+                for (ChapterNode child : chapter.children) {
+                    node.children.add(convertChapterNode(child));
+                }
+            }
+
+            return node;
+        }
+
+        // 定义目标JSON结构对应的类
+        private static class MindData {
+            MindNode data;
+        }
+
+        private static class MindNode {
+            String id;
+            String topic;
+            String direction; // 只有一级章节需要
+            List<MindNode> children = new ArrayList<>();
         }
     }
 }

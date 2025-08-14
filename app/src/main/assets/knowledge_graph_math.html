@@ -190,7 +190,7 @@
                 draggable: true,
                 enable_device_pixel_ratio: true,
                 zoom: {             // 配置缩放
-                   min: 0.5,       // 最小的缩放比例
+                   min: 0.2,       // 最小的缩放比例
                    max: 3.0,       // 最大的缩放比例
                    step: 0.1,      // 缩放比例间隔
                }
@@ -204,6 +204,39 @@
     };
 
     var mind = new jsMind(options);
+
+    // 从Android接口获取数据并刷新思维导图
+    function loadMindData() {
+        if (window.Android && window.Android.getMindData) {
+            try {
+                var mindData = JSON.parse(window.Android.getMindData());
+                if (mindData && mindData.data) {
+                    var graph = {
+                        "meta": {
+                            "name": "知识导图",
+                            "author": "imates",
+                            "version": "0.1"
+                        },
+                        "format": "node_tree",
+                        "data": mindData.data
+                    };
+                    mind.show(graph);
+                    resizeToFit();
+                }
+            } catch (e) {
+                console.error("Error parsing mind data:", e);
+            }
+        } else {
+            console.log("Android interface not available, using default data");
+            // 可以在这里设置默认数据或显示错误信息
+        }
+    }
+
+    // 提供给Android调用的刷新接口
+    function refreshMindData() {
+        loadMindData();
+    }
+
     // 自适应缩放到容器大小
     function resizeToFit() {
         const container = document.getElementById('jsmind_container');
@@ -218,8 +251,8 @@
         const scale = Math.min(scaleWidth, scaleHeight);
 
         // 限制缩放范围（避免太小或太大）
-        const minZoom = 0.2;
-        const maxZoom = 2.0;
+        const minZoom = 0.1;
+        const maxZoom = 3.0;
         const finalScale = Math.max(minZoom, Math.min(maxZoom, scale));
 
         mind.view.setZoom(finalScale);
@@ -250,7 +283,7 @@
 
             var nodeId = nodeElement.getAttribute('nodeid');
             // 只处理章节节点
-            if (nodeId && (nodeId.startsWith("section") || nodeId.startsWith("section"))) {
+            if (nodeId && (nodeId.startsWith("section") || nodeId.startsWith("chapter"))) {
                 showContextMenu(event, nodeElement);
             }
         }
