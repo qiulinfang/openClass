@@ -321,7 +321,7 @@ public class LearnResourceManager {
                                         localInfo.textbookEditionYear = serverTextbook.textbookEditionYear;
                                         localInfo.textbookPublisher = serverTextbook.textbookPublisher;
                                         localInfo.textbookCover = BASE_URL + serverTextbook.textbookCover;
-                                        localInfo.textbookUpdateTime = serverTextbook.textbookUpdateTime;
+//                                        localInfo.textbookUpdateTime = serverTextbook.textbookUpdateTime;
                                         localInfo.textbookName = serverTextbook.textbookName;
                                         localInfo.textbookSubjectLabel = serverTextbook.textbookSubjectLabel;
                                         localInfo.textbookGradeLabel = serverTextbook.textbookGradeLabel;
