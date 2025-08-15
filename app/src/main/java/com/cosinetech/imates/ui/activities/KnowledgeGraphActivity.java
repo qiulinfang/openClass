@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.webkit.JavascriptInterface;
@@ -228,22 +229,32 @@ public class KnowledgeGraphActivity extends BaseActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (LearnResourceManager.getInstance().isLoggedIn()) {
-            checkUserLearnResources();
-            checkUpdateLearnResource();
-        } else {
-            LearnResourceManager.getInstance().login(AppUtils.getUserId(), AppUtils.getUserPassword(), new LearnResourceManager.LoginCallback() {
-                @Override
-                public void onSuccess(LoginResponse response) {
-                    checkUserLearnResources();
-                    checkUpdateLearnResource();
-                }
+        //preformResourcesChecks();
+    }
 
-                @Override
-                public void onError(String error) {
-                    Toast.makeText(KnowledgeGraphActivity.this, "登录研伴失败, 无法获取在线资源", Toast.LENGTH_SHORT).show();
-                }
-            });
+    private void preformResourcesChecks() {
+        try {
+
+
+            if (LearnResourceManager.getInstance().isLoggedIn()) {
+                checkUserLearnResources();
+                checkUpdateLearnResource();
+            } else {
+                LearnResourceManager.getInstance().login(AppUtils.getUserId(), AppUtils.getUserPassword(), new LearnResourceManager.LoginCallback() {
+                    @Override
+                    public void onSuccess(LoginResponse response) {
+                        checkUserLearnResources();
+                        checkUpdateLearnResource();
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        Toast.makeText(KnowledgeGraphActivity.this, "登录研伴失败, 无法获取在线资源", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Perform resource check:" + e.getMessage());
         }
     }
 

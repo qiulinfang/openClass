@@ -56,7 +56,6 @@
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:largeHeap="true"
@@ -65,7 +64,12 @@
         android:screenOrientation="landscape"
         android:supportsRtl="true"
         android:theme="@style/Theme.IMatesApp.FullScreen"
+        android:usesCleartextTraffic="true"
         tools:targetApi="31">
+        <activity
+            android:name=".ui.activities.DocsViewerActivity"
+            android:exported="true">
+        </activity>
         <activity
             android:name=".ui.activities.KnowledgeGraphActivity"
             android:exported="false" />
@@ -130,26 +134,9 @@
             android:theme="@style/Theme.IMatesApp.FullScreen">
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.MONKEY" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-
-            <!-- 主要的HOME Intent过滤器 -->
-            <intent-filter android:priority="1000">
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.HOME" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-
-            <!-- 确保响应所有HOME相关的Intent -->
-            <intent-filter android:priority="1000">
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

@@ -261,6 +261,8 @@ dependencies {
     implementation 'com.rabbitmq:amqp-client:5.13.0'
     implementation 'com.google.guava:guava:30.1.1-android'
 
+    implementation 'com.github.Victor2018:DocViewer:3.0.6'
+
     implementation project(path: ':pdflibrary')
     implementation project(path: ':image')
 

@@ -17,6 +17,7 @@ import io.noties.markwon.Markwon;
 import io.noties.markwon.MarkwonConfiguration;
 import io.noties.markwon.MarkwonVisitor;
 import io.noties.markwon.ext.latex.JLatexMathPlugin;
+import io.noties.markwon.ext.latex.JLatexMathTheme;
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin;
 import io.noties.markwon.ext.tasklist.TaskListPlugin;
 import io.noties.markwon.html.HtmlPlugin;
@@ -90,7 +91,7 @@ public class ChatDisplayItem {
                     })
                     .usePlugin(MarkwonInlineParserPlugin.create())
                     .usePlugin(GlideImagesPlugin.create(context))
-                    .usePlugin(JLatexMathPlugin.create(36, builder -> {
+                    .usePlugin(JLatexMathPlugin.create(28, builder -> {
                         // background provider for both inlines and blocks
                         //  or more specific: `inlineBackgroundProvider` & `blockBackgroundProvider`
                         builder.inlinesEnabled(true);
@@ -113,8 +114,7 @@ public class ChatDisplayItem {
                         //builder.theme().padding(JLatexMathTheme.Padding.all(8));
 
                         // padding for inlines
-                        //builder.theme().inlinePadding(JLatexMathTheme.Padding.symmetric(16, 8));
-
+                        builder.theme().inlinePadding(JLatexMathTheme.Padding.symmetric(16, 8));
                         // padding for blocks
                         //builder.theme().blockPadding(new JLatexMathTheme.Padding(0, 1, 2, 3));
 

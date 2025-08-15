@@ -167,6 +167,7 @@ public class LearnResourceManager {
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) {
                 if (response.code() == 401) {
+                    currentToken = "";
                     mainHandler.post(callback::onUnauthorized);
                     return;
                 }
@@ -219,6 +220,7 @@ public class LearnResourceManager {
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) {
                 if (response.code() == 401) {
+                    currentToken = "";
                     mainHandler.post(callback::onUnauthorized);
                     return;
                 }
@@ -271,6 +273,7 @@ public class LearnResourceManager {
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) {
                 if (response.code() == 401) {
+                    currentToken = "";
                     mainHandler.post(callback::onUnauthorized);
                     return;
                 }

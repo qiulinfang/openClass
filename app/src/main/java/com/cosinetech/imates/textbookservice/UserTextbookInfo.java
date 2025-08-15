@@ -105,13 +105,12 @@ public class UserTextbookInfo {
     }
 
     public DownloadStatus getDownloadStatus() {
-        if (hasUpdatesAvailable) {
-            return DownloadStatus.UPDATE_AVAILABLE;
-        }
-
         if (!isDownloaded && downloadedFiles == 0) {
             return DownloadStatus.NOT_DOWNLOADED;
         } else if (isDownloaded && downloadedFiles == totalFiles) {
+            if (hasUpdatesAvailable) {
+                return DownloadStatus.UPDATE_AVAILABLE;
+            }
             return DownloadStatus.FULLY_DOWNLOADED;
         } else if (downloadedFiles > 0 && downloadedFiles < totalFiles) {
             return DownloadStatus.PARTIALLY_DOWNLOADED;
