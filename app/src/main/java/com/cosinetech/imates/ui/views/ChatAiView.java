@@ -78,9 +78,9 @@ import java.util.UUID;
 
 public class ChatAiView extends RelativeLayout {
     public enum ChatRole {
-        CHAT_ROLE_AI_MATE("探讨模式", R.drawable.chat_ai_avatar_ai_mate, "mate"),
-        CHAT_ROLE_AI_MENTOR("引导模式", R.drawable.chat_ai_avatar_ai_mentor, "mentor"),
-        CHAT_ROLE_AI_RESEARCHER("专家模式", R.drawable.chat_ai_avatar_ai_researcher, "researcher"),
+        CHAT_ROLE_AI_MATE("同桌", R.drawable.chat_ai_avatar_ai_mate, "mate"),
+        CHAT_ROLE_AI_MENTOR("学长", R.drawable.chat_ai_avatar_ai_mentor, "mentor"),
+        CHAT_ROLE_AI_RESEARCHER("大神", R.drawable.chat_ai_avatar_ai_researcher, "researcher"),
 
         CHAT_ROLE_MYSELF("我自己", R.drawable.chat_ai_avatar_user, "myself"),
         CHAT_ROLE_TEACHER("老师", R.drawable.chat_ai_avatar_teacher_woman, "teacher");

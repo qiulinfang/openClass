@@ -7,7 +7,7 @@
     android:breakStrategy="simple"
     android:hyphenationFrequency="none"
     android:lineSpacingExtra="4dip"
-    android:lineSpacingMultiplier="1.2"
+    android:lineSpacingMultiplier="1.0"
     android:paddingTop="2dip"
     android:paddingBottom="2dip"
     android:textAppearance="?android:attr/textAppearanceMedium"

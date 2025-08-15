@@ -288,7 +288,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
         public void onReviewLesson(String nodeId, String nodeName) {
             Chapter.Section s = getSection(nodeId);
             if(s == null) {
-                Toast.makeText(context, "未查询到相关的学习资料", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "选择小节去练习", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -310,7 +310,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
                     }
                 }
                 if(validSchemas.isEmpty()) {
-                    Toast.makeText(context, "未查询到相关的课程", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, "选择小节去学习", Toast.LENGTH_SHORT).show();
                     return;
                 }
                 s.setSchemas(validSchemas);
@@ -319,7 +319,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
                 previewLessonActivity.putExtra(LessonPreviewActivity.KEY_SECTION_SCHEMA, s);
                 startActivity(previewLessonActivity);
             } else {
-                Toast.makeText(context, "未查询到相关的课程", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "选择小节去学习", Toast.LENGTH_SHORT).show();
             }
         }
 
