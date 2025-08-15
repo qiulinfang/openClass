@@ -29,11 +29,13 @@ public class UserTextbookInfo {
     public List<ChapterNode> structure;
     public List<LocalPackageInfo> localPackages;
     public int downloadStatus; // Progress percentage 0-100
+    public boolean hasUpdatesAvailable;
     
     public UserTextbookInfo() {
         this.structure = new ArrayList<>();
         this.localPackages = new ArrayList<>();
         this.downloadStatus = 0;
+        this.hasUpdatesAvailable = false;
     }
     
     public UserTextbookInfo(TextbookVersion textbook) {
@@ -59,6 +61,7 @@ public class UserTextbookInfo {
         this.structure = new ArrayList<>();
         this.localPackages = new ArrayList<>();
         this.downloadStatus = 0;
+        this.hasUpdatesAvailable = false;
     }
     
     public void updateStructure(List<ChapterNode> newStructure) {
@@ -102,6 +105,10 @@ public class UserTextbookInfo {
     }
 
     public DownloadStatus getDownloadStatus() {
+        if (hasUpdatesAvailable) {
+            return DownloadStatus.UPDATE_AVAILABLE;
+        }
+
         if (!isDownloaded && downloadedFiles == 0) {
             return DownloadStatus.NOT_DOWNLOADED;
         } else if (isDownloaded && downloadedFiles == totalFiles) {

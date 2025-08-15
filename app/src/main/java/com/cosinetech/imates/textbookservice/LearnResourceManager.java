@@ -588,6 +588,19 @@ public class LearnResourceManager {
     }
 
     private void finishUpdateCheck(List<TextbookVersion> updatedTextbooks, UpdateCheckCallback callback) {
+        if (!updatedTextbooks.isEmpty()) {
+            UserLearnData userLearnData = loadUserLearnData();
+            if (userLearnData != null) {
+                for (TextbookVersion updatedTextbook : updatedTextbooks) {
+                    UserTextbookInfo localInfo = userLearnData.findTextbook(updatedTextbook.textbookId);
+                    if (localInfo != null) {
+                        localInfo.hasUpdatesAvailable = true;
+                    }
+                }
+                // Save the updated user data
+                saveUserLearnData(userLearnData);
+            }
+        }
         mainHandler.post(() -> {
             if (updatedTextbooks.isEmpty()) {
                 callback.onNoUpdates();
@@ -723,7 +736,15 @@ public class LearnResourceManager {
             saveResourceIndex(textbookDir, index);
             
             updateUserTextbookInfoWithStructureAndPackages(textbook, structure, packages, totalFiles, completedFiles, true);
-            
+
+            UserLearnData userData = loadUserLearnData();
+            if (userData != null) {
+                UserTextbookInfo localInfo = userData.findTextbook(textbook.textbookId);
+                if (localInfo != null) {
+                    localInfo.hasUpdatesAvailable = false;
+                    saveUserLearnData(userData);
+                }
+            }
             mainHandler.post(callback::onAllCompleted);
             
         } catch (Exception e) {
