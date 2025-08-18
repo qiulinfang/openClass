@@ -300,59 +300,66 @@ public class LearnResourceManager {
         void onError(String error);
     }
 
-    public void loadAllUserTextbooks(AllTextbooksCallback callback) {
+    public void loadUserAllLocalTextbooks(AllTextbooksCallback callback) {
         executorService.execute(() -> {
             try {
                 UserLearnData data = loadUserLearnData();
                 if (data == null) {
                     mainHandler.post(() -> callback.onSuccess(new ArrayList<>()));
-                    return;
+                } else {
+                    mainHandler.post(() -> callback.onSuccess(data.textbooks));
                 }
-
-                getTextbookVersions(new TextbookVersionsCallback() {
-                    @Override
-                    public void onSuccess(List<TextbookVersion> serverTextbooks) {
-                        executorService.execute(() -> {
-                            try {
-                                for (TextbookVersion serverTextbook : serverTextbooks) {
-                                    UserTextbookInfo localInfo = data.findTextbook(serverTextbook.textbookId);
-                                    if (localInfo == null) {
-                                        localInfo = new UserTextbookInfo(serverTextbook);
-                                        data.updateOrAddTextbook(localInfo);
-                                    } else {
-                                        localInfo.textbookIsbn = serverTextbook.textbookIsbn;
-                                        localInfo.textbookEditionYear = serverTextbook.textbookEditionYear;
-                                        localInfo.textbookPublisher = serverTextbook.textbookPublisher;
-                                        localInfo.textbookCover = BASE_URL + serverTextbook.textbookCover;
-//                                        localInfo.textbookUpdateTime = serverTextbook.textbookUpdateTime;
-                                        localInfo.textbookName = serverTextbook.textbookName;
-                                        localInfo.textbookSubjectLabel = serverTextbook.textbookSubjectLabel;
-                                        localInfo.textbookGradeLabel = serverTextbook.textbookGradeLabel;
-                                        localInfo.textbookSemesterLabel = serverTextbook.textbookSemesterLabel;
-                                    }
-                                }
-
-                                saveUserLearnData(data);
-                                mainHandler.post(() -> callback.onSuccess(data.textbooks));
-                            } catch (Exception e) {
-                                mainHandler.post(() -> callback.onError("Error processing textbooks: " + e.getMessage()));
-                            }
-                        });
-                    }
-
-                    @Override
-                    public void onError(String error) {
-                        mainHandler.post(() -> callback.onSuccess(data.textbooks));
-                    }
-
-                    @Override
-                    public void onUnauthorized() {
-                        mainHandler.post(() -> callback.onError("Authentication required"));
-                    }
-                });
-
             } catch (Exception e) {
                 mainHandler.post(() -> callback.onError("Error loading textbooks: " + e.getMessage()));
+            }
+        });
+    }
+
+    public void fetchUserAllOnlineTextbooks(AllTextbooksCallback callback) {
+        UserLearnData data = loadUserLearnData();
+        if (data == null) {
+            data = new UserLearnData();
+        }
+        UserLearnData finalData = data;
+        getTextbookVersions(new TextbookVersionsCallback() {
+            @Override
+            public void onSuccess(List<TextbookVersion> serverTextbooks) {
+                executorService.execute(() -> {
+                    try {
+                        for (TextbookVersion serverTextbook : serverTextbooks) {
+                            UserTextbookInfo localInfo = finalData.findTextbook(serverTextbook.textbookId);
+                            if (localInfo == null) {
+                                localInfo = new UserTextbookInfo(serverTextbook);
+                                finalData.updateOrAddTextbook(localInfo);
+                            } else {
+                                localInfo.textbookIsbn = serverTextbook.textbookIsbn;
+                                localInfo.textbookEditionYear = serverTextbook.textbookEditionYear;
+                                localInfo.textbookPublisher = serverTextbook.textbookPublisher;
+                                localInfo.textbookCover = BASE_URL + serverTextbook.textbookCover;
+//                                        localInfo.textbookUpdateTime = serverTextbook.textbookUpdateTime;
+                                localInfo.textbookName = serverTextbook.textbookName;
+                                localInfo.textbookSubjectLabel = serverTextbook.textbookSubjectLabel;
+                                localInfo.textbookGradeLabel = serverTextbook.textbookGradeLabel;
+                                localInfo.textbookSemesterLabel = serverTextbook.textbookSemesterLabel;
+                            }
+                        }
+
+                        saveUserLearnData(finalData);
+                        mainHandler.post(() -> callback.onSuccess(finalData.textbooks));
+                    } catch (Exception e) {
+                        mainHandler.post(() -> callback.onError("Error processing textbooks: " + e.getMessage()));
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String error) {
+                mainHandler.post(() -> callback.onSuccess(finalData.textbooks));
+            }
+
+            @Override
+            public void onUnauthorized() {
+                mainHandler.post(() -> callback.onError("Authentication required"));
             }
         });
     }

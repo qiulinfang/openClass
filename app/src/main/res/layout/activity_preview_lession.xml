@@ -62,7 +62,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            app:layout_constraintGuide_percent="0.58" />
+            app:layout_constraintGuide_percent="0.56" />
 
         <RelativeLayout
             android:id="@+id/intro_title"
@@ -200,6 +200,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="套餐资源:"
+            android:textSize="@dimen/head2_size"
             android:layout_marginHorizontal="12dp"
             android:textColor="@color/black"
             app:layout_constraintStart_toStartOf="parent"

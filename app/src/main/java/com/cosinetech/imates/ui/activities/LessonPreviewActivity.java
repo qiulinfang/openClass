@@ -56,7 +56,6 @@ public class LessonPreviewActivity extends AppCompatActivity {
                 .create().fromJson(learnPackage, new TypeToken<List<LocalPackageInfo>>(){}.getType());
 
         mFileDisplayView.setDisplayMode(FileDisplayView.DisplayMode.GRID_LARGE);
-        mFileDisplayView.setLearningPackage(mLocalPkgs.get(0));
         mPreviewSectionName = getIntent().getStringExtra(KEY_PREVIEW_SECTION_NAME);
 
         String sectionId = "";//mPreviewSection.getSection();
@@ -119,7 +118,8 @@ public class LessonPreviewActivity extends AppCompatActivity {
                     rating = sharedPreferences.getInt(sectionId + "schema_rating" + i, 0);
                     ratingView.setRating(rating);
 
-                    updateSchemaIntroduction(findViewById(R.id.schema_intro));
+                    ((MarkdownTextView)(findViewById(R.id.schema_intro))).setContent(mLocalPkgs.get(mCurrentSchemaIndex).description);
+                    mFileDisplayView.setLearningPackage(mLocalPkgs.get(mCurrentSchemaIndex));
 
                     TextView v = findViewById(R.id.schema_stat);
                     boolean learned = sharedPreferences.getBoolean(sectionId + "_schema" + i, false);
@@ -208,10 +208,6 @@ public class LessonPreviewActivity extends AppCompatActivity {
         videoPlayIntent.putExtra(VideoPlayActivity.KEY_VIDEO_PATH, path);
         videoPlayIntent.putExtra(VideoPlayActivity.KEY_TEXTBOOK_SECTION, mPreviewSectionName);
         startActivity(videoPlayIntent);
-    }
-
-    private void updateSchemaIntroduction(MarkdownTextView view) {
-        view.setContent(mLocalPkgs.get(mCurrentSchemaIndex).description);
     }
 
     @Override

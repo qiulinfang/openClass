@@ -155,8 +155,8 @@ public class KnowledgeGraphActivity extends BaseActivity {
         mTextbookVersionSpinnerAdapter.notifyDataSetChanged();
     }
 
-    private void checkUserLearnResources() {
-        LearnResourceManager.getInstance().loadAllUserTextbooks(new LearnResourceManager.AllTextbooksCallback() {
+    private void checkUserLocalLearnResources() {
+        LearnResourceManager.getInstance().loadUserAllLocalTextbooks(new LearnResourceManager.AllTextbooksCallback() {
             @Override
             public void onSuccess(List<UserTextbookInfo> textbooks) {
                 if(textbooks == null) {
@@ -255,18 +255,19 @@ public class KnowledgeGraphActivity extends BaseActivity {
     private void preformResourcesChecks() {
         try {
             if (LearnResourceManager.getInstance().isLoggedIn()) {
-                checkUserLearnResources();
+                checkUserLocalLearnResources();
                 checkUpdateLearnResource();
             } else {
                 LearnResourceManager.getInstance().login(AppUtils.getUserId(), AppUtils.getUserPassword(), new LearnResourceManager.LoginCallback() {
                     @Override
                     public void onSuccess(LoginResponse response) {
-                        checkUserLearnResources();
+                        checkUserLocalLearnResources();
                         checkUpdateLearnResource();
                     }
 
                     @Override
                     public void onError(String error) {
+                        checkUserLocalLearnResources();
                         Toast.makeText(KnowledgeGraphActivity.this, "登录研伴失败, 无法获取在线资源", Toast.LENGTH_SHORT).show();
                     }
                 });

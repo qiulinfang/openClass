@@ -153,7 +153,7 @@ public class TextbookManagementActivity extends AppCompatActivity {
         showLoading(true);
         showEmptyState(false);
 
-        LearnResourceManager.getInstance().loadAllUserTextbooks(new LearnResourceManager.AllTextbooksCallback() {
+        LearnResourceManager.getInstance().fetchUserAllOnlineTextbooks(new LearnResourceManager.AllTextbooksCallback() {
             @Override
             public void onSuccess(List<UserTextbookInfo> textbooks) {
                 showLoading(false);

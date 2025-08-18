@@ -29,10 +29,11 @@
                 android:layout_marginStart="32dp"
                 android:layout_centerVertical="true"
                 android:layout_alignParentStart="true"
-                android:text="数学 人教B版必修一"/>
+                android:text="数学 人教B版必修一"
+                android:visibility="invisible"/>
 
             <Spinner
-                android:visibility="invisible"
+                android:visibility="visible"
                 android:id="@+id/textbook_version_spinner"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -42,7 +43,7 @@
                 android:layout_toEndOf="@id/title"/>
 
             <Button
-                android:visibility="invisible"
+                android:visibility="visible"
                 android:id="@+id/btn_res_center"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -71,7 +72,7 @@
 
             <TextView
                 android:id="@+id/update_badge"
-                android:visibility="gone"
+                android:visibility="visible"
                 android:layout_width="20dp"
                 android:layout_height="20dp"
                 android:layout_gravity="end|top"
@@ -81,9 +82,8 @@
                 android:textSize="10sp"
                 android:textAlignment="center"
                 android:gravity="center"
-                android:layout_marginEnd="32dp"
                 android:layout_alignTop="@id/btn_res_center"
-                android:layout_alignParentEnd="true"
+                android:layout_alignEnd="@id/btn_res_center"
                 android:translationZ="1000dp"/>
 
         </RelativeLayout>
