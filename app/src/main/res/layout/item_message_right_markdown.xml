@@ -43,14 +43,15 @@
                 android:layout_height="wrap_content"
                 android:textColor="#ffffff"
                 android:textIsSelectable="true"
-                android:visibility="gone"/>
+                android:visibility="visible"/>
 
             <!-- 新增的 RecyclerView 用于 Markdown 渲染 -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/recycler_view"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:nestedScrollingEnabled="false" />
+                android:nestedScrollingEnabled="false"
+                android:visibility="gone"/>
 
         </LinearLayout>
 
