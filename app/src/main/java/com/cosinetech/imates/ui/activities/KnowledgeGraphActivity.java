@@ -21,20 +21,13 @@ import android.widget.Toast;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.ui.adapters.TextbookVersionSpinnerAdapter;
-import com.cosinetech.imates.data.models.Chapter;
 import com.cosinetech.imates.data.models.Subject;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.cosinetech.imates.textbookservice.*;
 import com.cosinetech.imates.utils.AppUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -310,24 +303,24 @@ public class KnowledgeGraphActivity extends BaseActivity {
         }
         @JavascriptInterface
         public void onReviewLesson(String nodeId, String nodeName) {
-            Chapter.Section s = getSection(nodeId);
-            if(s == null) {
-                Toast.makeText(context, "选择小节去练习", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            if(s.getKnowledgeNo().trim().isEmpty()) {
-                Toast.makeText(context, "没有相关的习题", Toast.LENGTH_SHORT).show();
-            } else {
-                // 在 UI 线程上执行的代码
-                new Handler(Looper.getMainLooper()).post(() -> startFindExerciseActivity(s.getKnowledgeNo()));
-            }
+            // 找练习题
+//            Chapter.Section s = getSection(nodeId);
+//            if(s == null) {
+//                Toast.makeText(context, "选择小节去练习", Toast.LENGTH_SHORT).show();
+//                return;
+//            }
+//
+//            if(s.getKnowledgeNo().trim().isEmpty()) {
+//                Toast.makeText(context, "没有相关的习题", Toast.LENGTH_SHORT).show();
+//            } else {
+//                // 在 UI 线程上执行的代码
+//                new Handler(Looper.getMainLooper()).post(() -> startFindExerciseActivity(s.getKnowledgeNo()));
+//            }
         }
 
         public void startPreviewLessonActivity(String sectionId, String sectionName) {
             Intent previewLessonActivity = new Intent(context, LessonPreviewActivity.class);
             previewLessonActivity.putExtra(LessonPreviewActivity.KEY_PREVIEW_SECTION_NAME, sectionName);
-            //previewLessonActivity.putExtra(LessonPreviewActivity.KEY_SECTION_SCHEMA, s);
             Gson gson = new GsonBuilder()
                     .setDateFormat("yyyy-MM-dd HH:mm:ss")
                     .create();
@@ -361,39 +354,6 @@ public class KnowledgeGraphActivity extends BaseActivity {
             intent.putExtra(FindExerciseActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_MATH.name());
             intent.putExtra(FindExerciseActivity.KEY_KNOWLEDGE_LIST, knowledgeList);
             startActivity(intent);
-        }
-
-        public Chapter.Section getSection(String sectionId) {
-            StringBuilder newstringBuilder = new StringBuilder();
-            InputStream inputStream;
-            try {
-                inputStream = context.getResources().getAssets().open("math_learn_schema.json");
-                InputStreamReader isr = new InputStreamReader(inputStream);
-                BufferedReader reader = new BufferedReader(isr);
-                String jsonLine;
-                while ((jsonLine = reader.readLine()) != null) {
-                    newstringBuilder.append(jsonLine);
-                }
-                reader.close();
-                isr.close();
-                inputStream.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            Gson gson = new Gson();
-            // 使用 TypeToken 反序列化
-            Type listType = new TypeToken<List<Chapter>>() {}.getType();
-            List<Chapter> chapters = gson.fromJson(newstringBuilder.toString(), listType);
-
-            for(Chapter c : chapters) {
-                for (Chapter.Section s : c.getSections()) {
-                    if (s.getSection().equals(sectionId)) {
-                        return s;
-                    }
-                }
-            }
-            return null;
         }
     }
 

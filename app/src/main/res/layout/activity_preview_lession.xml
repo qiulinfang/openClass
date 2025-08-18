@@ -57,6 +57,13 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
 
+        <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/h_guide_line"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            app:layout_constraintGuide_percent="0.58" />
+
         <RelativeLayout
             android:id="@+id/intro_title"
             android:layout_width="match_parent"
@@ -174,10 +181,11 @@
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_margin="12dp"
+            android:background="@drawable/app_main_background"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@id/rate_layout"
-            app:layout_constraintBottom_toTopOf="@id/fileDisplayView">
+            app:layout_constraintBottom_toTopOf="@id/h_guide_line">
             <com.cosinetech.imates.ui.views.MarkdownTextView
                 android:id="@+id/schema_intro"
                 android:layout_width="match_parent"
@@ -187,14 +195,25 @@
                 android:textColor="#000000"/>
         </ScrollView>
 
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="套餐资源:"
+            android:layout_marginHorizontal="12dp"
+            android:textColor="@color/black"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/h_guide_line"/>
+
         <com.cosinetech.imates.ui.views.FileDisplayView
             android:id="@+id/fileDisplayView"
             android:layout_width="0dp"
-            android:layout_height="400dp"
+            android:layout_height="0dp"
             android:layout_margin="12dp"
             android:background="@drawable/app_main_background"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tv_title"
             app:layout_constraintBottom_toTopOf="@id/btn_go_prepare"/>
 
         <Button
@@ -213,69 +232,7 @@
             android:stateListAnimator="@animator/app_button_click_scale"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
-
-
-
     </androidx.constraintlayout.widget.ConstraintLayout>
-
-    <LinearLayout
-        android:id="@+id/tool_bar"
-        android:visibility="gone"
-        android:layout_width="0dp"
-        android:layout_height="100dp"
-        android:layout_marginHorizontal="32dp"
-        android:layout_marginTop="16dp"
-        android:background="@drawable/lesson_preview_todo_bg"
-        android:minHeight="80dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/guideline"
-        app:layout_constraintTop_toBottomOf="@id/preview_section_name">
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/schema_tip"
-        android:visibility="gone"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="24dp"
-        android:layout_marginTop="8dp"
-        android:text="这里有我为你准备的各种学习方案,快来挑选最适合你的, 开启高效预习之旅吧!🍭"
-        android:textColor="#000000"
-        android:textSize="@dimen/head2_size"
-        android:layout_marginEnd="16dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/guideline"
-        app:layout_constraintTop_toBottomOf="@id/tool_bar" />
-
-    <TextView
-        android:id="@+id/teacher_video1"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="18sp"
-        android:textColor="#0000FF"
-        android:text="第一课时视频课"
-        android:clickable="true"
-        android:visibility="gone"
-        android:layout_marginStart="24dp"
-        android:layout_marginTop="8dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/schema_tip"/>
-
-    <TextView
-        android:id="@+id/teacher_video2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="18sp"
-        android:textColor="#0000FF"
-        android:text="第二课时视频课"
-        android:clickable="true"
-        android:visibility="gone"
-        android:layout_marginStart="36dp"
-        android:layout_marginTop="8dp"
-        app:layout_constraintStart_toEndOf="@id/teacher_video1"
-        app:layout_constraintTop_toBottomOf="@id/schema_tip"/>
 
     <ScrollView
         android:id="@+id/schema_layout"
@@ -285,7 +242,7 @@
         android:layout_margin="16dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@id/guideline"
-        app:layout_constraintTop_toBottomOf="@id/teacher_video1"
+        app:layout_constraintTop_toBottomOf="@id/preview_section_name"
         app:layout_constraintBottom_toBottomOf="parent">
         <RadioGroup
             android:id="@+id/schema_group"
@@ -295,7 +252,7 @@
 
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toStartOf="@id/guideline"
-            app:layout_constraintTop_toBottomOf="@id/teacher_video1"
+            app:layout_constraintTop_toBottomOf="@id/preview_section_name"
             app:layout_constraintBottom_toBottomOf="parent">
 
             <RadioButton

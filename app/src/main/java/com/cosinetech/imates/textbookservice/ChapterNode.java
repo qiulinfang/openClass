@@ -8,6 +8,7 @@ public class ChapterNode {
     public String parentId;
     public String label;
     public Integer level;
+    public String knowledgeList;
     public boolean isRoot;
     public List<ChapterNode> children;
 }

@@ -53,7 +53,6 @@ import com.cosinetech.imates.ui.activities.KnowledgeGraphActivity;
 import com.cosinetech.imates.ui.activities.VideoPlayActivity;
 import com.cosinetech.imates.ui.colorpicker.ColorListener;
 import com.cosinetech.imates.ui.colorpicker.ColorPickerDialog;
-import com.cosinetech.imates.data.models.Chapter;
 import com.cosinetech.imates.utils.WindowUtils;
 import com.cosinetech.imates.ui.views.FloatingResizableVideoView;
 import com.cosinetech.imates.ui.views.ScratchToolsView;
@@ -74,7 +73,6 @@ public class MuPDFActivity extends AppCompatActivity {
     private static final String TAG = MuPDFActivity.class.getSimpleName();
     private final int OUTLINE_REQUEST = 0;// 目录回调
     private String mFilePath; // 文件路径
-
     private AlertDialog.Builder mAlertBuilder;// 弹出框
 
     private MuPDFCore muPDFCore;// 加载mupdf.so文件
@@ -119,9 +117,6 @@ public class MuPDFActivity extends AppCompatActivity {
     // 视频播放相关
     private static final String mFloatingVideoTag = "FLOATING_VIDEO_PLAYER";
     private boolean mIsPlayingVideo = false;
-
-    private Chapter.Schema mSchema;
-    private Chapter.Section mSection;
 
     private int mInkPenSize = 5;
     private int mInkColor = 0xFF000000;
