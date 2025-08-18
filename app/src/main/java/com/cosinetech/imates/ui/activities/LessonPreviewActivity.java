@@ -4,7 +4,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -16,29 +15,19 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.data.models.Chapter;
-import com.cosinetech.imates.textbookservice.ApiResponse;
 import com.cosinetech.imates.textbookservice.LocalPackageInfo;
-import com.cosinetech.imates.textbookservice.LoginData;
-import com.cosinetech.imates.ui.mupdfviewer.activity.MuPDFActivity;
 import com.cosinetech.imates.ui.views.FileDisplayView;
+import com.cosinetech.imates.ui.views.MarkdownTextView;
 import com.cosinetech.imates.utils.WindowUtils;
 import com.github.spareyaya.SimpleRatingView;
-import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
 public class LessonPreviewActivity extends AppCompatActivity {
     public static final String KEY_PREVIEW_SECTION_NAME = "PREVIEW_SECTION_NAME";
-    //public static final String KEY_SECTION_SCHEMA = "SECTION_SCHEMA";
     public static final String KEY_LEARN_PACKAGE = "LEARN_PACKAGE";
     private String mPreviewSectionName = "";
 
@@ -62,19 +51,14 @@ public class LessonPreviewActivity extends AppCompatActivity {
         setContentView(R.layout.activity_preview_lession);
         mFileDisplayView = findViewById(R.id.fileDisplayView);
         String learnPackage = getIntent().getStringExtra(KEY_LEARN_PACKAGE);
-        List<LocalPackageInfo> learnPkgs = new GsonBuilder()
+        mLocalPkgs = new GsonBuilder()
                 .setDateFormat("yyyy-MM-dd HH:mm:ss")
                 .create().fromJson(learnPackage, new TypeToken<List<LocalPackageInfo>>(){}.getType());
 
         mFileDisplayView.setDisplayMode(FileDisplayView.DisplayMode.GRID_LARGE);
-        mFileDisplayView.setLearningPackage(learnPkgs.get(0));
+        mFileDisplayView.setLearningPackage(mLocalPkgs.get(0));
         mPreviewSectionName = getIntent().getStringExtra(KEY_PREVIEW_SECTION_NAME);
-        //mPreviewSection = getIntent().getParcelableExtra(KEY_SECTION_SCHEMA);
-//
-//        if(!mPreviewSectionName.contains("5.1")) {
-//            findViewById(R.id.teacher_video1).setVisibility(View.GONE);
-//            findViewById(R.id.teacher_video2).setVisibility(View.GONE);
-//        }
+
         String sectionId = "";//mPreviewSection.getSection();
         TextView textPreview = findViewById(R.id.label);
         textPreview.setOnClickListener(v -> finish());
@@ -84,7 +68,6 @@ public class LessonPreviewActivity extends AppCompatActivity {
 
         SimpleRatingView ratingView = findViewById(R.id.rating);
         ratingView.setOnRatingChangeListener((oldRating, newRating) ->  {
-            //Toast.makeText(getContext(), "oldRating:" + oldRating + " newRating:" + newRating, Toast.LENGTH_SHORT).show();
             if(mCurrentSchemaIndex >= 0) {
                 SharedPreferences.Editor editor = sharedPreferences.edit();
                 editor.putInt(sectionId + "schema_rating" + mCurrentSchemaIndex, newRating);
@@ -106,19 +89,19 @@ public class LessonPreviewActivity extends AppCompatActivity {
 
         sharedPreferences = getSharedPreferences(CONFIG_NAME, Context.MODE_PRIVATE);
 
-        int [] rdoButonIds = new int[] {
+        int [] rdButtonIds = new int[] {
                 R.id.opt_scheme_1, R.id.opt_scheme_2, R.id.opt_scheme_3,
                 R.id.opt_scheme_4, R.id.opt_scheme_5, R.id.opt_scheme_6
         };
 
 
-        for(int i = 0; i < rdoButonIds.length; i++) {
-            RadioButton rdoButton = findViewById(rdoButonIds[i]);
+        for(int i = 0; i < rdButtonIds.length; i++) {
+            RadioButton rdoButton = findViewById(rdButtonIds[i]);
             rdoButton.setVisibility(View.INVISIBLE);
         }
 
-        for(int i = 0; i < mLocalPkgs.size() && i < rdoButonIds.length; i++) {
-            RadioButton rdoButton = findViewById(rdoButonIds[i]);
+        for(int i = 0; i < mLocalPkgs.size() && i < rdButtonIds.length; i++) {
+            RadioButton rdoButton = findViewById(rdButtonIds[i]);
             rdoButton.setVisibility(View.VISIBLE);
         }
 
@@ -127,8 +110,8 @@ public class LessonPreviewActivity extends AppCompatActivity {
             ratingView.setEnabled(true);
             ratingDifficult.setEnabled(true);
 
-            for(int i = 0; i < mLocalPkgs.size() && i < rdoButonIds.length; i++) {
-                if(checkedId == rdoButonIds[i]) {
+            for(int i = 0; i < mLocalPkgs.size() && i < rdButtonIds.length; i++) {
+                if(checkedId == rdButtonIds[i]) {
                     mCurrentSchemaIndex = i;
                     int rating = sharedPreferences.getInt(sectionId + "schema_rating_difficulty" + i, 0);
                     ratingDifficult.setRating(rating);
@@ -155,8 +138,8 @@ public class LessonPreviewActivity extends AppCompatActivity {
 
         Button goPreview = findViewById(R.id.btn_go_prepare);
         goPreview.setOnClickListener(v -> {
-            for(int i = 0; i < rdoButonIds.length; i++) {
-                RadioButton rdoButton = findViewById(rdoButonIds[i]);
+            for(int i = 0; i < rdButtonIds.length; i++) {
+                RadioButton rdoButton = findViewById(rdButtonIds[i]);
                 if(rdoButton.isChecked()) {
                     mCurrentSchemaIndex = i;
                     break;
@@ -204,43 +187,18 @@ public class LessonPreviewActivity extends AppCompatActivity {
 //                }
             }
         });
-
-        TextView textView1 = findViewById(R.id.teacher_video1);
-        TextView textView2 = findViewById(R.id.teacher_video2);
-
-        textView1.setOnClickListener(v->{
-            String path = getExternalFilesDir(null) + "/videos/1.mp4";
-            File file = new File(path);
-            if(file.exists()) {
-                playVideo(path);
-            } else {
-                Toast.makeText(this, "视频文件不存在", Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        textView2.setOnClickListener(v->{
-            String path = getExternalFilesDir(null) + "/videos/2.mp4";
-            File file = new File(path);
-            if(file.exists()) {
-                playVideo(path);
-            } else {
-                Toast.makeText(this, "视频文件不存在", Toast.LENGTH_SHORT).show();
-            }
-        });
     }
 
     @Override
     protected void onSaveInstanceState(@androidx.annotation.NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putString(KEY_PREVIEW_SECTION_NAME, mPreviewSectionName);
-        //outState.putParcelable(KEY_SECTION_SCHEMA, mPreviewSection);
     }
 
     @Override
     protected void onRestoreInstanceState(@androidx.annotation.NonNull Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
         mPreviewSectionName = savedInstanceState.getString(KEY_PREVIEW_SECTION_NAME);
-        //mPreviewSection = savedInstanceState.getParcelable(KEY_SECTION_SCHEMA);
     }
 
     private void playVideo(String path) {
@@ -248,28 +206,12 @@ public class LessonPreviewActivity extends AppCompatActivity {
                 VideoPlayActivity.class);
 
         videoPlayIntent.putExtra(VideoPlayActivity.KEY_VIDEO_PATH, path);
-        //videoPlayIntent.putExtra(VideoPlayActivity.KEY_TEXTBOOK_SECTION, mPreviewSection.getTitle());
+        videoPlayIntent.putExtra(VideoPlayActivity.KEY_TEXTBOOK_SECTION, mPreviewSectionName);
         startActivity(videoPlayIntent);
     }
 
-    private void updateSchemaIntroduction(TextView view) {
-//        StringBuilder stringBuilder = new StringBuilder();
-//        InputStream inputStream = null;
-//        try {
-//            inputStream = getResources().getAssets().open(mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getIntroduction());
-//            InputStreamReader isr = new InputStreamReader(inputStream);
-//            BufferedReader reader = new BufferedReader(isr);
-//            String line;
-//            while ((line = reader.readLine()) != null) {
-//                stringBuilder.append(line).append("\n");
-//            }
-//            reader.close();
-//            isr.close();
-//            inputStream.close();
-//            view.setText(stringBuilder.toString());
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
+    private void updateSchemaIntroduction(MarkdownTextView view) {
+        view.setContent(mLocalPkgs.get(mCurrentSchemaIndex).description);
     }
 
     @Override

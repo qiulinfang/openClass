@@ -129,10 +129,9 @@ public class MuPDFActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_mupdf);
         mFilePath = getIntent().getData().getPath();
-        mSchema = getIntent().getParcelableExtra("Schema");
-        mSection = getIntent().getParcelableExtra("Section");
+        //mSchema = getIntent().getParcelableExtra("Schema");
         ScratchToolsView scratchToolsView = findViewById(R.id.scratch_tool);
-        scratchToolsView.setAskAiContextPrompt(mSection.getTitle());
+        //scratchToolsView.setAskAiContextPrompt(mSection.getTitle());
         scratchToolsView.setOnScratchToolsListener(new ScratchToolsView.OnScratchToolsListener() {
             @Override
             public void onEnterScratchMode() {
@@ -1189,43 +1188,43 @@ public class MuPDFActivity extends AppCompatActivity {
             muPDFReaderView.setHorizontalScrolling(false);
         });
 
-        ImageButton btnWatchVideo = findViewById(R.id.btn_watch_video);
-        btnWatchVideo.setOnClickListener(v-> {
-            String path = getExternalFilesDir(null) + "/videos/1.mp4";
-            if(!mIsPlayingVideo) {
-                startVideoPlayActivityForResult(0, path, mSection.getTitle());
-            }
-        });
-
-        ImageButton btnToTextBook = findViewById(R.id.btn_to_textbook);
-        btnToTextBook.setOnClickListener(v->{
-            if(mSchema != null && !mSchema.getTextBook().isEmpty()) {
-                Intent intent = getIntent();
-                intent.putExtra("AssetsPdf", mSchema.getTextBook());
-                mFilePath = getExternalFilesDir(null) + "/" + mSchema.getTextBook();
-                switchToNewFile();
-            }
-        });
-
-        ImageButton btnToPpt = findViewById(R.id.btn_to_ppt);
-        btnToPpt.setOnClickListener(v -> {
-            if(mSchema != null && !mSchema.getLecture().isEmpty()) {
-                Intent intent = getIntent();
-                intent.putExtra("AssetsPdf", mSchema.getLecture());
-                mFilePath = getExternalFilesDir(null) + "/" + mSchema.getLecture();
-                switchToNewFile();
-            }
-        });
-
-        ImageButton btnToGuide= findViewById(R.id.btn_to_guide);
-        btnToGuide.setOnClickListener(v -> {
-            if(mSchema != null && !mSchema.getLearnGuide().isEmpty()) {
-                Intent intent = getIntent();
-                intent.putExtra("AssetsPdf", mSchema.getLearnGuide());
-                mFilePath = getExternalFilesDir(null) + "/" + mSchema.getLearnGuide();
-                switchToNewFile();
-            }
-        });
+//        ImageButton btnWatchVideo = findViewById(R.id.btn_watch_video);
+//        btnWatchVideo.setOnClickListener(v-> {
+//            String path = getExternalFilesDir(null) + "/videos/1.mp4";
+//            if(!mIsPlayingVideo) {
+//                startVideoPlayActivityForResult(0, path, mSection.getTitle());
+//            }
+//        });
+//
+//        ImageButton btnToTextBook = findViewById(R.id.btn_to_textbook);
+//        btnToTextBook.setOnClickListener(v->{
+//            if(mSchema != null && !mSchema.getTextBook().isEmpty()) {
+//                Intent intent = getIntent();
+//                intent.putExtra("AssetsPdf", mSchema.getTextBook());
+//                mFilePath = getExternalFilesDir(null) + "/" + mSchema.getTextBook();
+//                switchToNewFile();
+//            }
+//        });
+//
+//        ImageButton btnToPpt = findViewById(R.id.btn_to_ppt);
+//        btnToPpt.setOnClickListener(v -> {
+//            if(mSchema != null && !mSchema.getLecture().isEmpty()) {
+//                Intent intent = getIntent();
+//                intent.putExtra("AssetsPdf", mSchema.getLecture());
+//                mFilePath = getExternalFilesDir(null) + "/" + mSchema.getLecture();
+//                switchToNewFile();
+//            }
+//        });
+//
+//        ImageButton btnToGuide= findViewById(R.id.btn_to_guide);
+//        btnToGuide.setOnClickListener(v -> {
+//            if(mSchema != null && !mSchema.getLearnGuide().isEmpty()) {
+//                Intent intent = getIntent();
+//                intent.putExtra("AssetsPdf", mSchema.getLearnGuide());
+//                mFilePath = getExternalFilesDir(null) + "/" + mSchema.getLearnGuide();
+//                switchToNewFile();
+//            }
+//        });
 
         ImageButton btnHome = findViewById(R.id.btn_home);
         btnHome.setOnClickListener(v->{
@@ -1241,8 +1240,8 @@ public class MuPDFActivity extends AppCompatActivity {
         intent.setAction(Intent.ACTION_VIEW);
         intent.setData(Uri.fromFile(new File(mFilePath)));
         intent.putExtra("AssetsPdf", mFilePath);
-        intent.putExtra("Schema", mSchema);
-        intent.putExtra("Section", mSection);
+        //intent.putExtra("Schema", mSchema);
+        //intent.putExtra("Section", mSection);
         startActivity(intent);
         finish();
     }

@@ -29,12 +29,13 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 
 public class KnowledgeGraphActivity extends BaseActivity {
     private static final String TAG = "KnowledgeGraphActivity";
 
-    private Spinner mTextbookVersionSpinner;
     private TextView mTextViewUpdateBadge;
     private TextbookVersionSpinnerAdapter mTextbookVersionSpinnerAdapter;
     private List<UserTextbookInfo> mTextbookVersions;
@@ -88,7 +89,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
         });
 
         mTextbookVersions = new ArrayList<>();
-        mTextbookVersionSpinner = findViewById(R.id.textbook_version_spinner);
+        Spinner mTextbookVersionSpinner = findViewById(R.id.textbook_version_spinner);
         mTextbookVersionSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -281,7 +282,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
     }
 
     public class WebAppInterface {
-        private Context context;
+        private final Context context;
         private String mMindData = "";
 
         WebAppInterface(Context context) {
@@ -290,6 +291,91 @@ public class KnowledgeGraphActivity extends BaseActivity {
 
         public void updateMindData(String mindData) {
             mMindData = mindData;
+        }
+
+        public List<String> getAllKnowledgeLists(List<ChapterNode> roots, String targetId) {
+            List<String> knowledgeLists = new ArrayList<>();
+
+            // Find the target node
+            ChapterNode targetNode = findChapterNodeById(roots, targetId);
+
+            if (targetNode == null) {
+                return knowledgeLists; // return empty list if node not found
+            }
+
+            // Add knowledge lists recursively
+            addKnowledgeListsRecursive(targetNode, knowledgeLists);
+
+            return knowledgeLists;
+        }
+
+        private void addKnowledgeListsRecursive(ChapterNode node, List<String> knowledgeLists) {
+            // Add current node's knowledgeList if not null/empty
+            if (node.knowledgeList != null && !node.knowledgeList.isEmpty()) {
+                knowledgeLists.add(node.knowledgeList);
+            }
+
+            // Process children recursively
+            if (node.children != null) {
+                for (ChapterNode child : node.children) {
+                    addKnowledgeListsRecursive(child, knowledgeLists);
+                }
+            }
+        }
+
+        // Helper function from previous solution to find a node by ID
+        private ChapterNode findChapterNodeById(List<ChapterNode> roots, String targetId) {
+            if (roots == null || targetId == null) {
+                return null;
+            }
+
+            for (ChapterNode node : roots) {
+                ChapterNode foundNode = findNodeRecursive(node, targetId);
+                if (foundNode != null) {
+                    return foundNode;
+                }
+            }
+
+            return null;
+        }
+
+        private ChapterNode findNodeRecursive(ChapterNode currentNode, String targetId) {
+            if (currentNode != null && targetId.equals(currentNode.id)) {
+                return currentNode;
+            }
+
+            if (currentNode != null && currentNode.children != null) {
+                for (ChapterNode child : currentNode.children) {
+                    ChapterNode foundNode = findNodeRecursive(child, targetId);
+                    if (foundNode != null) {
+                        return foundNode;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        public ChapterNode findChapterNodeBFS(List<ChapterNode> roots, String targetId) {
+            if (roots == null || targetId == null) {
+                return null;
+            }
+
+            Queue<ChapterNode> queue = new LinkedList<>(roots);
+
+            while (!queue.isEmpty()) {
+                ChapterNode currentNode = queue.poll();
+
+                if (targetId.equals(currentNode.id)) {
+                    return currentNode;
+                }
+
+                if (currentNode.children != null) {
+                    queue.addAll(currentNode.children);
+                }
+            }
+
+            return null;
         }
 
         @JavascriptInterface
@@ -304,28 +390,46 @@ public class KnowledgeGraphActivity extends BaseActivity {
         @JavascriptInterface
         public void onReviewLesson(String nodeId, String nodeName) {
             // 找练习题
-//            Chapter.Section s = getSection(nodeId);
-//            if(s == null) {
-//                Toast.makeText(context, "选择小节去练习", Toast.LENGTH_SHORT).show();
-//                return;
-//            }
-//
-//            if(s.getKnowledgeNo().trim().isEmpty()) {
-//                Toast.makeText(context, "没有相关的习题", Toast.LENGTH_SHORT).show();
-//            } else {
-//                // 在 UI 线程上执行的代码
-//                new Handler(Looper.getMainLooper()).post(() -> startFindExerciseActivity(s.getKnowledgeNo()));
-//            }
+            if(mCurrentUserTextbookInfo == null) {
+                Toast.makeText(context, "当前课本没有练习题", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            ChapterNode node = findChapterNodeById(mCurrentUserTextbookInfo.structure, nodeId);
+            if(node == null) {
+                Toast.makeText(context, "选择小节去练习", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            List<String> knowledgeIds = getAllKnowledgeLists(mCurrentUserTextbookInfo.structure, nodeId);
+            StringBuilder knowledgeId = new StringBuilder();
+            for (String id : knowledgeIds) {
+                knowledgeId.append(id).append(",");
+            }
+
+            if(knowledgeId.toString().trim().isEmpty()) {
+                Toast.makeText(context, "没有相关的习题", Toast.LENGTH_SHORT).show();
+            } else {
+                // 在 UI 线程上执行的代码
+                new Handler(Looper.getMainLooper()).post(() -> startFindExerciseActivity(knowledgeId.toString().trim()));
+            }
         }
 
+        ///
+        /// 去学习课本的套餐
+        ///
         public void startPreviewLessonActivity(String sectionId, String sectionName) {
             Intent previewLessonActivity = new Intent(context, LessonPreviewActivity.class);
             previewLessonActivity.putExtra(LessonPreviewActivity.KEY_PREVIEW_SECTION_NAME, sectionName);
             Gson gson = new GsonBuilder()
                     .setDateFormat("yyyy-MM-dd HH:mm:ss")
                     .create();
-            previewLessonActivity.putExtra(LessonPreviewActivity.KEY_LEARN_PACKAGE, gson.toJson(mLearnPackages));
-            startActivity(previewLessonActivity);
+            if(!mLearnPackages.isEmpty()) {
+                previewLessonActivity.putExtra(LessonPreviewActivity.KEY_LEARN_PACKAGE, gson.toJson(mLearnPackages));
+                startActivity(previewLessonActivity);
+            } else {
+                Toast.makeText(context, "选择小节去学习", Toast.LENGTH_SHORT).show();
+            }
 //            Chapter.Section s = getSection(sectionId);
 //            if(s != null) {
 //                List<Chapter.Schema> validSchemas = new ArrayList<>();
