@@ -260,7 +260,7 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void startMainActivityAndFinish() {
-        Intent intent = new Intent(this, MyProfileActivity.class);
+        Intent intent = new Intent(this, KnowledgeGraphActivity.class);
         //intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(intent);
         finish();

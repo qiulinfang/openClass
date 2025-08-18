@@ -87,16 +87,12 @@ public class ExerciseSolveActivity extends BaseActivity implements MessagingMana
 
     @Override
     protected int getCurrentNavItemId() {
-        return R.id.nav_exercise_list;
+        return R.id.nav_textbook_knowledge;
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-//        WindowUtils.hideSystemUI(this);
-//        WindowUtils.setFullScreenMode(this);
-//        EdgeToEdge.enable(this);
-//        setContentView(R.layout.activity_question_solve);
         chatBotUrl = getIntent().getStringExtra(KEY_CHATBOT_URL);
         subject = Subject.valueOf(getIntent().getStringExtra(KEY_SUBJECT));
         mChatDb = ChatMessageHistoryDB.getInstance(this, AppUtils.getUserId());

@@ -14,6 +14,7 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.AdapterView;
+import android.widget.Button;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -112,6 +113,14 @@ public class KnowledgeGraphActivity extends BaseActivity {
         });
         mTextbookVersionSpinnerAdapter = new TextbookVersionSpinnerAdapter(this, mTextbookVersions);
         mTextbookVersionSpinner.setAdapter(mTextbookVersionSpinnerAdapter);
+
+        Button btnGoExerciseList = findViewById(R.id.btn_my_exercise);
+        btnGoExerciseList.setOnClickListener(v->{
+            Intent    intent = new Intent(this, ExerciseSolveActivity.class);
+                intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
+                intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, Subject.SUBJECT_MATH.name());
+            startActivity(intent);
+        });
     }
 
     private void promptToDownloadResource() {

@@ -51,17 +51,8 @@ public abstract class BaseActivity extends AppCompatActivity {
             if (itemId == getCurrentNavItemId()) return true;
 
             Intent intent = null;
-            if (itemId == R.id.nav_photo_search) {
-                intent = new Intent(this, PhotoSearchActivity.class);
-                intent.putExtra(PhotoSearchActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_MATH.name());
-                startActivity(intent);
-            } else if (itemId == R.id.nav_textbook_knowledge) {
+            if (itemId == R.id.nav_textbook_knowledge) {
                 intent = new Intent(this, KnowledgeGraphActivity.class);
-            } else if (itemId == R.id.nav_exercise_list) {
-                intent = new Intent(this, ExerciseSolveActivity.class);
-                intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
-                intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, Subject.SUBJECT_MATH.name());
-                startActivity(intent);
             } else if (itemId == R.id.nav_my_profile) {
                 intent = new Intent(this, MyProfileActivity.class);
             }

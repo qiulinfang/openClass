@@ -1,6 +1,8 @@
 package com.cosinetech.imates.data.models;
 
 import android.content.Context;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -96,13 +98,13 @@ public class ChatDisplayItem {
                         //  or more specific: `inlineBackgroundProvider` & `blockBackgroundProvider`
                         builder.inlinesEnabled(true);
                         builder.allowInlinesSingleDollar(true);
-//                        builder.theme().backgroundProvider(new JLatexMathTheme.BackgroundProvider() {
-//                            @NonNull
-//                            @Override
-//                            public Drawable provide() {
-//                                return new ColorDrawable(0xFFff0000);
-//                            }
-//                        });
+                        builder.theme().backgroundProvider(new JLatexMathTheme.BackgroundProvider() {
+                            @NonNull
+                            @Override
+                            public Drawable provide() {
+                                return new ColorDrawable(0xFFff0000);
+                            }
+                        });
 
                         // should block fit the whole canvas width, by default true
                         builder.theme().blockFitCanvas(true);

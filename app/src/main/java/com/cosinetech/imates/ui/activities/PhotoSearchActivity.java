@@ -85,7 +85,7 @@ public class PhotoSearchActivity extends BaseActivity {
 
     @Override
     protected int getCurrentNavItemId() {
-        return R.id.nav_photo_search;
+        return R.id.nav_textbook_knowledge;
     }
 
     @Override

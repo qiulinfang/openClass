@@ -6,8 +6,6 @@
     android:layout_height="wrap_content"
     android:breakStrategy="simple"
     android:hyphenationFrequency="none"
-    android:lineSpacingExtra="4dip"
-    android:lineSpacingMultiplier="1.0"
     android:paddingTop="2dip"
     android:paddingBottom="2dip"
     android:textAppearance="?android:attr/textAppearanceMedium"
@@ -15,6 +13,5 @@
     android:textSize="16sp"
     android:focusable="true"
     android:textIsSelectable="true"
-    android:gravity="center_vertical"
     android:includeFontPadding="false"
     tools:text="Hello" /> 
