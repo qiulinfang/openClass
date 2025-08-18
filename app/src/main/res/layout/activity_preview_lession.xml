@@ -177,8 +177,8 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@id/rate_layout"
-            app:layout_constraintBottom_toTopOf="@id/btn_go_prepare">
-            <TextView
+            app:layout_constraintBottom_toTopOf="@id/fileDisplayView">
+            <com.cosinetech.imates.ui.views.MarkdownTextView
                 android:id="@+id/schema_intro"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -186,6 +186,16 @@
                 android:textSize="@dimen/head2_size"
                 android:textColor="#000000"/>
         </ScrollView>
+
+        <com.cosinetech.imates.ui.views.FileDisplayView
+            android:id="@+id/fileDisplayView"
+            android:layout_width="0dp"
+            android:layout_height="400dp"
+            android:layout_margin="12dp"
+            android:background="@drawable/app_main_background"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/btn_go_prepare"/>
 
         <Button
             android:id="@+id/btn_go_prepare"
@@ -204,6 +214,8 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
+
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <LinearLayout
@@ -220,42 +232,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@id/guideline"
         app:layout_constraintTop_toBottomOf="@id/preview_section_name">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="32dp"
-            android:layout_weight="1"
-            android:text="待办事项"
-            android:textColor="#000000"
-            android:textSize="@dimen/head2_size"
-            android:textStyle="bold" />
-
-        <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginEnd="16dp"
-            android:src="@drawable/lesson_preview_todo_expand"
-            />
-
-        <TextView
-            android:visibility="gone"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:background="@android:color/transparent"
-            android:text="①复习5.1学过的内容"
-            android:textColor="#000000" />
-
-        <TextView
-            android:visibility="gone"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:background="@android:color/transparent"
-            android:text="②预习5.2的内容"
-            android:textColor="#000000" />
-
     </LinearLayout>
 
     <TextView

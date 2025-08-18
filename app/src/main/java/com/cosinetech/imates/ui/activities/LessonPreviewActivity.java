@@ -17,28 +17,38 @@ import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.data.models.Chapter;
+import com.cosinetech.imates.textbookservice.ApiResponse;
+import com.cosinetech.imates.textbookservice.LocalPackageInfo;
+import com.cosinetech.imates.textbookservice.LoginData;
 import com.cosinetech.imates.ui.mupdfviewer.activity.MuPDFActivity;
+import com.cosinetech.imates.ui.views.FileDisplayView;
 import com.cosinetech.imates.utils.WindowUtils;
 import com.github.spareyaya.SimpleRatingView;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 
 public class LessonPreviewActivity extends AppCompatActivity {
     public static final String KEY_PREVIEW_SECTION_NAME = "PREVIEW_SECTION_NAME";
-    public static final String KEY_SECTION_SCHEMA = "SECTION_SCHEMA";
-
-    // TODO: Rename and change types of parameters
-    private String mPreviewSectionName;
+    //public static final String KEY_SECTION_SCHEMA = "SECTION_SCHEMA";
+    public static final String KEY_LEARN_PACKAGE = "LEARN_PACKAGE";
+    private String mPreviewSectionName = "";
 
     private int mCurrentSchemaIndex = -1;
 
-    private Chapter.Section mPreviewSection;
+    private FileDisplayView mFileDisplayView;
 
     private SharedPreferences sharedPreferences;
+
+    private List<LocalPackageInfo> mLocalPkgs = new ArrayList<>();
     private final String CONFIG_NAME = "SCHEMA_LEARN_STAT";
 
     @Override
@@ -50,15 +60,22 @@ public class LessonPreviewActivity extends AppCompatActivity {
 
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_preview_lession);
+        mFileDisplayView = findViewById(R.id.fileDisplayView);
+        String learnPackage = getIntent().getStringExtra(KEY_LEARN_PACKAGE);
+        List<LocalPackageInfo> learnPkgs = new GsonBuilder()
+                .setDateFormat("yyyy-MM-dd HH:mm:ss")
+                .create().fromJson(learnPackage, new TypeToken<List<LocalPackageInfo>>(){}.getType());
 
+        mFileDisplayView.setDisplayMode(FileDisplayView.DisplayMode.GRID_LARGE);
+        mFileDisplayView.setLearningPackage(learnPkgs.get(0));
         mPreviewSectionName = getIntent().getStringExtra(KEY_PREVIEW_SECTION_NAME);
-        mPreviewSection = getIntent().getParcelableExtra(KEY_SECTION_SCHEMA);
-
-        if(!mPreviewSectionName.contains("5.1")) {
-            findViewById(R.id.teacher_video1).setVisibility(View.GONE);
-            findViewById(R.id.teacher_video2).setVisibility(View.GONE);
-        }
-        String sectionId = mPreviewSection.getSection();
+        //mPreviewSection = getIntent().getParcelableExtra(KEY_SECTION_SCHEMA);
+//
+//        if(!mPreviewSectionName.contains("5.1")) {
+//            findViewById(R.id.teacher_video1).setVisibility(View.GONE);
+//            findViewById(R.id.teacher_video2).setVisibility(View.GONE);
+//        }
+        String sectionId = "";//mPreviewSection.getSection();
         TextView textPreview = findViewById(R.id.label);
         textPreview.setOnClickListener(v -> finish());
 
@@ -100,7 +117,7 @@ public class LessonPreviewActivity extends AppCompatActivity {
             rdoButton.setVisibility(View.INVISIBLE);
         }
 
-        for(int i = 0; i < mPreviewSection.getSchemas().size() && i < rdoButonIds.length; i++) {
+        for(int i = 0; i < mLocalPkgs.size() && i < rdoButonIds.length; i++) {
             RadioButton rdoButton = findViewById(rdoButonIds[i]);
             rdoButton.setVisibility(View.VISIBLE);
         }
@@ -110,7 +127,7 @@ public class LessonPreviewActivity extends AppCompatActivity {
             ratingView.setEnabled(true);
             ratingDifficult.setEnabled(true);
 
-            for(int i = 0; i < mPreviewSection.getSchemas().size() && i < rdoButonIds.length; i++) {
+            for(int i = 0; i < mLocalPkgs.size() && i < rdoButonIds.length; i++) {
                 if(checkedId == rdoButonIds[i]) {
                     mCurrentSchemaIndex = i;
                     int rating = sharedPreferences.getInt(sectionId + "schema_rating_difficulty" + i, 0);
@@ -161,30 +178,30 @@ public class LessonPreviewActivity extends AppCompatActivity {
 //                intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
 //                intent.putExtra("Section", mPreviewSection);
 //                startActivity(intent);q
-
-                String path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getTextBook();
-                File file = new  File(path);
-                if(!file.exists()) {
-                    path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getLecture();
-                    file = new File(path);
-                }
-
-                if(!file.exists()) {
-                    path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getLearnGuide();
-                    file = new File(path);
-                }
-
-                if(file.exists()) {
-                    Intent intent = new Intent(this, MuPDFActivity.class);
-                    intent.setAction(Intent.ACTION_VIEW);
-                    intent.setData(Uri.fromFile(new File(path)));
-                    intent.putExtra("AssetsPdf", path);
-                    intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
-                    intent.putExtra("Section", mPreviewSection);
-                    startActivity(intent);
-                } else {
-                    Toast.makeText(this, "没有可学习的资源", Toast.LENGTH_SHORT).show();
-                }
+  ////////==================================
+//                String path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getTextBook();
+//                File file = new  File(path);
+//                if(!file.exists()) {
+//                    path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getLecture();
+//                    file = new File(path);
+//                }
+//
+//                if(!file.exists()) {
+//                    path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getLearnGuide();
+//                    file = new File(path);
+//                }
+//
+//                if(file.exists()) {
+//                    Intent intent = new Intent(this, MuPDFActivity.class);
+//                    intent.setAction(Intent.ACTION_VIEW);
+//                    intent.setData(Uri.fromFile(new File(path)));
+//                    intent.putExtra("AssetsPdf", path);
+//                    intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
+//                    intent.putExtra("Section", mPreviewSection);
+//                    startActivity(intent);
+//                } else {
+//                    Toast.makeText(this, "没有可学习的资源", Toast.LENGTH_SHORT).show();
+//                }
             }
         });
 
@@ -216,14 +233,14 @@ public class LessonPreviewActivity extends AppCompatActivity {
     protected void onSaveInstanceState(@androidx.annotation.NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putString(KEY_PREVIEW_SECTION_NAME, mPreviewSectionName);
-        outState.putParcelable(KEY_SECTION_SCHEMA, mPreviewSection);
+        //outState.putParcelable(KEY_SECTION_SCHEMA, mPreviewSection);
     }
 
     @Override
     protected void onRestoreInstanceState(@androidx.annotation.NonNull Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
         mPreviewSectionName = savedInstanceState.getString(KEY_PREVIEW_SECTION_NAME);
-        mPreviewSection = savedInstanceState.getParcelable(KEY_SECTION_SCHEMA);
+        //mPreviewSection = savedInstanceState.getParcelable(KEY_SECTION_SCHEMA);
     }
 
     private void playVideo(String path) {
@@ -231,28 +248,28 @@ public class LessonPreviewActivity extends AppCompatActivity {
                 VideoPlayActivity.class);
 
         videoPlayIntent.putExtra(VideoPlayActivity.KEY_VIDEO_PATH, path);
-        videoPlayIntent.putExtra(VideoPlayActivity.KEY_TEXTBOOK_SECTION, mPreviewSection.getTitle());
+        //videoPlayIntent.putExtra(VideoPlayActivity.KEY_TEXTBOOK_SECTION, mPreviewSection.getTitle());
         startActivity(videoPlayIntent);
     }
 
     private void updateSchemaIntroduction(TextView view) {
-        StringBuilder stringBuilder = new StringBuilder();
-        InputStream inputStream = null;
-        try {
-            inputStream = getResources().getAssets().open(mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getIntroduction());
-            InputStreamReader isr = new InputStreamReader(inputStream);
-            BufferedReader reader = new BufferedReader(isr);
-            String line;
-            while ((line = reader.readLine()) != null) {
-                stringBuilder.append(line).append("\n");
-            }
-            reader.close();
-            isr.close();
-            inputStream.close();
-            view.setText(stringBuilder.toString());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+//        StringBuilder stringBuilder = new StringBuilder();
+//        InputStream inputStream = null;
+//        try {
+//            inputStream = getResources().getAssets().open(mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getIntroduction());
+//            InputStreamReader isr = new InputStreamReader(inputStream);
+//            BufferedReader reader = new BufferedReader(isr);
+//            String line;
+//            while ((line = reader.readLine()) != null) {
+//                stringBuilder.append(line).append("\n");
+//            }
+//            reader.close();
+//            isr.close();
+//            inputStream.close();
+//            view.setText(stringBuilder.toString());
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
     }
 
     @Override

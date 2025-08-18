@@ -27,6 +27,7 @@ import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.cosinetech.imates.textbookservice.*;
 import com.cosinetech.imates.utils.AppUtils;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
 import java.io.BufferedReader;
@@ -47,6 +48,8 @@ public class KnowledgeGraphActivity extends BaseActivity {
     private UserTextbookInfo mCurrentUserTextbookInfo;
 
     private WebAppInterface mWebViewInterface;
+
+    private List<LocalPackageInfo> mLearnPackages = new ArrayList<>();
 
     @Override
     protected int getLayoutResId() {
@@ -103,6 +106,20 @@ public class KnowledgeGraphActivity extends BaseActivity {
                         runOnUiThread(() -> {
                             webView.evaluateJavascript("refreshMindData()", null);
                         });
+
+                        LearnResourceManager.getInstance().getTextbookPackagesWithLocalFiles(mCurrentUserTextbookInfo.textbookId,
+                                new LearnResourceManager.TextbookPackagesCallback() {
+                            @Override
+                            public void onSuccess(List<LocalPackageInfo> packages) {
+                                mLearnPackages = packages;
+                            }
+
+                            @Override
+                            public void onError(String error) {
+                                mLearnPackages.clear();
+                            }
+                        });
+
                     });
 
                 }).start();
@@ -116,7 +133,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
 
         Button btnGoExerciseList = findViewById(R.id.btn_my_exercise);
         btnGoExerciseList.setOnClickListener(v->{
-            Intent    intent = new Intent(this, ExerciseSolveActivity.class);
+            Intent intent = new Intent(this, ExerciseSolveActivity.class);
                 intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
                 intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, Subject.SUBJECT_MATH.name());
             startActivity(intent);
@@ -238,13 +255,11 @@ public class KnowledgeGraphActivity extends BaseActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        //preformResourcesChecks();
+        preformResourcesChecks();
     }
 
     private void preformResourcesChecks() {
         try {
-
-
             if (LearnResourceManager.getInstance().isLoggedIn()) {
                 checkUserLearnResources();
                 checkUpdateLearnResource();
@@ -310,26 +325,34 @@ public class KnowledgeGraphActivity extends BaseActivity {
         }
 
         public void startPreviewLessonActivity(String sectionId, String sectionName) {
-            Chapter.Section s = getSection(sectionId);
-            if(s != null) {
-                List<Chapter.Schema> validSchemas = new ArrayList<>();
-                for (Chapter.Schema schema : s.getSchemas()) {
-                    if(!schema.getTextBook().trim().isEmpty()) {
-                        validSchemas.add(schema);
-                    }
-                }
-                if(validSchemas.isEmpty()) {
-                    Toast.makeText(context, "选择小节去学习", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                s.setSchemas(validSchemas);
-                Intent previewLessonActivity = new Intent(context, LessonPreviewActivity.class);
-                previewLessonActivity.putExtra(LessonPreviewActivity.KEY_PREVIEW_SECTION_NAME, sectionName);
-                previewLessonActivity.putExtra(LessonPreviewActivity.KEY_SECTION_SCHEMA, s);
-                startActivity(previewLessonActivity);
-            } else {
-                Toast.makeText(context, "选择小节去学习", Toast.LENGTH_SHORT).show();
-            }
+            Intent previewLessonActivity = new Intent(context, LessonPreviewActivity.class);
+            previewLessonActivity.putExtra(LessonPreviewActivity.KEY_PREVIEW_SECTION_NAME, sectionName);
+            //previewLessonActivity.putExtra(LessonPreviewActivity.KEY_SECTION_SCHEMA, s);
+            Gson gson = new GsonBuilder()
+                    .setDateFormat("yyyy-MM-dd HH:mm:ss")
+                    .create();
+            previewLessonActivity.putExtra(LessonPreviewActivity.KEY_LEARN_PACKAGE, gson.toJson(mLearnPackages));
+            startActivity(previewLessonActivity);
+//            Chapter.Section s = getSection(sectionId);
+//            if(s != null) {
+//                List<Chapter.Schema> validSchemas = new ArrayList<>();
+//                for (Chapter.Schema schema : s.getSchemas()) {
+//                    if(!schema.getTextBook().trim().isEmpty()) {
+//                        validSchemas.add(schema);
+//                    }
+//                }
+//                if(validSchemas.isEmpty()) {
+//                    Toast.makeText(context, "选择小节去学习", Toast.LENGTH_SHORT).show();
+//                    return;
+//                }
+//                s.setSchemas(validSchemas);
+//                Intent previewLessonActivity = new Intent(context, LessonPreviewActivity.class);
+//                previewLessonActivity.putExtra(LessonPreviewActivity.KEY_PREVIEW_SECTION_NAME, sectionName);
+//                previewLessonActivity.putExtra(LessonPreviewActivity.KEY_SECTION_SCHEMA, s);
+//                startActivity(previewLessonActivity);
+//            } else {
+//                Toast.makeText(context, "选择小节去学习", Toast.LENGTH_SHORT).show();
+//            }
         }
 
         public void startFindExerciseActivity(String knowledgeList) {

@@ -283,7 +283,7 @@
 
             var nodeId = nodeElement.getAttribute('nodeid');
             // 只处理章节节点
-            if (nodeId && (nodeId.startsWith("section") || nodeId.startsWith("chapter"))) {
+            if (nodeId) {
                 showContextMenu(event, nodeElement);
             }
         }
