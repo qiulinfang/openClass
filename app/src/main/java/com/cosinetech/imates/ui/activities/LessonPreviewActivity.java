@@ -135,6 +135,7 @@ public class LessonPreviewActivity extends AppCompatActivity {
             }
 
         });
+        schemaGroup.check(rdButtonIds[0]);
 
         Button goPreview = findViewById(R.id.btn_go_prepare);
         goPreview.setOnClickListener(v -> {
