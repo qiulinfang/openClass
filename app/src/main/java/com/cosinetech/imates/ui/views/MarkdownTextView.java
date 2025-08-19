@@ -65,14 +65,7 @@ public class MarkdownTextView extends AppCompatTextView {
 
     public static String filterLatexString(String src) {
         src = "   \n\f" + src + "   \n\f";
-        //行内公式
-        //块公式
-        return src.replace("\\(", "$")
-                .replace("\\)", "$") //行内公式
-                .replace("$$", "\n$$\n") //块公式
-                .replace("\\[", "\n$$\n")
-                .replace("\\]", "\n$$\n")
-                .replace("<p>", "")
+        return src.replace("<p>", "")
                 .replace("</p>", "  \n");
     }
 

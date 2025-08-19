@@ -1,8 +1,6 @@
 package com.cosinetech.imates.data.models;
 
 import android.content.Context;
-import android.graphics.drawable.ColorDrawable;
-import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -13,11 +11,15 @@ import com.cosinetech.imates.R;
 
 import org.commonmark.ext.gfm.tables.TableBlock;
 import org.commonmark.node.FencedCodeBlock;
+import org.commonmark.node.Node;
+
+import java.util.regex.Pattern;
 
 import io.noties.markwon.AbstractMarkwonPlugin;
 import io.noties.markwon.Markwon;
 import io.noties.markwon.MarkwonConfiguration;
 import io.noties.markwon.MarkwonVisitor;
+import io.noties.markwon.ext.latex.JLatexMathNode;
 import io.noties.markwon.ext.latex.JLatexMathPlugin;
 import io.noties.markwon.ext.latex.JLatexMathTheme;
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin;
@@ -25,6 +27,7 @@ import io.noties.markwon.ext.tasklist.TaskListPlugin;
 import io.noties.markwon.html.HtmlPlugin;
 import io.noties.markwon.image.ImagesPlugin;
 import io.noties.markwon.image.glide.GlideImagesPlugin;
+import io.noties.markwon.inlineparser.InlineProcessor;
 import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin;
 import io.noties.markwon.linkify.LinkifyPlugin;
 import io.noties.markwon.recycler.MarkwonAdapter;
@@ -64,6 +67,14 @@ public class ChatDisplayItem {
      * 创建 Markwon 实例
      */
     public Markwon createMarkwon() {
+        MarkwonInlineParserPlugin markwonInlineParserPlugin = MarkwonInlineParserPlugin.create();
+        markwonInlineParserPlugin.factoryBuilder()
+                // 块级
+                .addInlineProcessor(new LatexMarkProcessor("$$", "$$", true))    // 块级
+                .addInlineProcessor(new LatexMarkProcessor("\\[", "\\]", true))  // 块级
+                // 行内其次
+                .addInlineProcessor(new LatexMarkProcessor("$", "$", false))     // 行内
+                .addInlineProcessor(new LatexMarkProcessor("\\(", "\\)", false));// 行内
         if (markwon == null) {
             markwon = Markwon.builder(context)
                     .usePlugin(HtmlPlugin.create())
@@ -91,20 +102,20 @@ public class ChatDisplayItem {
                             });
                         }
                     })
-                    .usePlugin(MarkwonInlineParserPlugin.create())
+                    .usePlugin(markwonInlineParserPlugin)
                     .usePlugin(GlideImagesPlugin.create(context))
                     .usePlugin(JLatexMathPlugin.create(28, builder -> {
                         // background provider for both inlines and blocks
                         //  or more specific: `inlineBackgroundProvider` & `blockBackgroundProvider`
                         builder.inlinesEnabled(true);
-                        builder.allowInlinesSingleDollar(true);
-                        builder.theme().backgroundProvider(new JLatexMathTheme.BackgroundProvider() {
-                            @NonNull
-                            @Override
-                            public Drawable provide() {
-                                return new ColorDrawable(0xFFff0000);
-                            }
-                        });
+                        //builder.allowInlinesSingleDollar(true);
+//                        builder.theme().backgroundProvider(new JLatexMathTheme.BackgroundProvider() {
+//                            @NonNull
+//                            @Override
+//                            public Drawable provide() {
+//                                return new ColorDrawable(0xFFff0000);
+//                            }
+//                        });
 
                         // should block fit the whole canvas width, by default true
                         builder.theme().blockFitCanvas(true);
@@ -266,5 +277,53 @@ public class ChatDisplayItem {
     public interface TypingEffectCallback {
         void onContentUpdate(String content);
         void onTypingComplete(String content);
+    }
+
+    // 处理$latex$形式
+    public static class LatexMarkProcessor extends InlineProcessor {
+        private final String open;
+        private final String close;
+        private final boolean isBlock;
+        private final Pattern pattern;
+
+        public LatexMarkProcessor(String open, String close, boolean isBlock) {
+            this.open = open;
+            this.close = close;
+            this.isBlock = isBlock;
+
+            if ("$".equals(open) && "$".equals(close)) {
+                // 特殊处理单 $
+                this.pattern = Pattern.compile("(?<!\\\\)\\$(?!\\$)(.+?)(?<!\\\\)\\$(?!\\$)");
+            } else {
+                // 普通情况，支持多字符定界符
+                this.pattern = Pattern.compile(
+                        Pattern.quote(open) + "(.+?)" + Pattern.quote(close),
+                        Pattern.DOTALL
+                );
+            }
+        }
+
+        @Override
+        public char specialCharacter() {
+            return open.charAt(0); // 用起始符的首字符触发
+        }
+
+        @Override
+        public Node parse() {
+            String latex = match(pattern);
+            if (latex == null) return null;
+
+            JLatexMathNode node = new JLatexMathNode();
+            node.latex(latex.substring(open.length(), latex.length() - close.length()));
+
+            if (isBlock) {
+                // 包成段落节点，使其独占一行
+                org.commonmark.node.Paragraph paragraph = new org.commonmark.node.Paragraph();
+                paragraph.appendChild(node);
+                return paragraph;
+            }
+
+            return node;
+        }
     }
 }
