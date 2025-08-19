@@ -71,6 +71,7 @@ import java.util.concurrent.Executor;
 
 public class MuPDFActivity extends AppCompatActivity {
     private static final String TAG = MuPDFActivity.class.getSimpleName();
+    public static final String KEY_SECTION_NAME = "SECTION_NAME";
     private final int OUTLINE_REQUEST = 0;// 目录回调
     private String mFilePath; // 文件路径
     private AlertDialog.Builder mAlertBuilder;// 弹出框
@@ -117,6 +118,7 @@ public class MuPDFActivity extends AppCompatActivity {
     // 视频播放相关
     private static final String mFloatingVideoTag = "FLOATING_VIDEO_PLAYER";
     private boolean mIsPlayingVideo = false;
+    private String mSectionName = "";
 
     private int mInkPenSize = 5;
     private int mInkColor = 0xFF000000;
@@ -129,9 +131,12 @@ public class MuPDFActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_mupdf);
         mFilePath = getIntent().getData().getPath();
-        //mSchema = getIntent().getParcelableExtra("Schema");
+        mSectionName = getIntent().getStringExtra(KEY_SECTION_NAME);
+        if(mSectionName == null) {
+            mSectionName = "";
+        }
         ScratchToolsView scratchToolsView = findViewById(R.id.scratch_tool);
-        //scratchToolsView.setAskAiContextPrompt(mSection.getTitle());
+        scratchToolsView.setAskAiContextPrompt(mSectionName);
         scratchToolsView.setOnScratchToolsListener(new ScratchToolsView.OnScratchToolsListener() {
             @Override
             public void onEnterScratchMode() {

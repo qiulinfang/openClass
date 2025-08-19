@@ -44,9 +44,7 @@ public class FileShareUtils {
             Intent intent = new Intent(context, MuPDFActivity.class);
             intent.setAction(Intent.ACTION_VIEW);
             intent.setData(Uri.fromFile(file));
-            intent.putExtra("AssetsPdf", filePath);
-            intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
-            intent.putExtra("Section", mPreviewSection);
+            intent.putExtra(MuPDFActivity.KEY_SECTION_NAME, sectionName);
             context.startActivity(intent);
         } else if(mimeType.contains("audio")
             || mimeType.contains("video")) {
@@ -90,6 +88,7 @@ public class FileShareUtils {
         return switch (extension) {
             // 文档类型
             case "pdf" -> "application/pdf";
+
             case "doc", "dot" -> "application/msword";
             case "docx" ->
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document";

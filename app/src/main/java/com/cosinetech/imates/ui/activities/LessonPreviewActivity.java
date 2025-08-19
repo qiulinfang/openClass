@@ -183,7 +183,10 @@ public class LessonPreviewActivity extends AppCompatActivity {
                     return;
                 }
 
-                FileShareUtils.shareOpenFile();
+                FileShareUtils.shareOpenFile(this,
+                        mCurrentSelectedFile.localPath,
+                        mPreviewSectionName,
+                        getIntent().getStringExtra(KEY_LEARN_PACKAGE));
             }
         });
     }
