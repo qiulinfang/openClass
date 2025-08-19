@@ -93,7 +93,7 @@ public class ChatDisplayItem {
                     })
                     .usePlugin(MarkwonInlineParserPlugin.create())
                     .usePlugin(GlideImagesPlugin.create(context))
-                    .usePlugin(JLatexMathPlugin.create(28, builder -> {
+                    .usePlugin(JLatexMathPlugin.create(32, builder -> {
                         // background provider for both inlines and blocks
                         //  or more specific: `inlineBackgroundProvider` & `blockBackgroundProvider`
                         builder.inlinesEnabled(true);
