@@ -45,7 +45,7 @@ public class PermissionHelper {
         // 普通权限
         permissionQueue.add(new PermissionItem(Manifest.permission.CAMERA, PermissionType.NORMAL));
         permissionQueue.add(new PermissionItem(Manifest.permission.RECORD_AUDIO, PermissionType.NORMAL));
-
+        permissionQueue.add(new PermissionItem(Manifest.permission.READ_EXTERNAL_STORAGE, PermissionType.NORMAL));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // Android 13+ 媒体权限
             permissionQueue.add(new PermissionItem(Manifest.permission.READ_MEDIA_IMAGES, PermissionType.NORMAL));
@@ -56,7 +56,7 @@ public class PermissionHelper {
             permissionQueue.add(new PermissionItem("MANAGE_ALL_FILES", PermissionType.SPECIAL));
         } else {
             // Android 6~10
-            permissionQueue.add(new PermissionItem(Manifest.permission.READ_EXTERNAL_STORAGE, PermissionType.NORMAL));
+//            permissionQueue.add(new PermissionItem(Manifest.permission.READ_EXTERNAL_STORAGE, PermissionType.NORMAL));
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                 permissionQueue.add(new PermissionItem(Manifest.permission.WRITE_EXTERNAL_STORAGE, PermissionType.NORMAL));
             }
