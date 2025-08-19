@@ -2,6 +2,9 @@ package com.cosinetech.imates.ui.feedback;
 
 import static com.cosinetech.imates.ui.feedback.OkHttpTicketCreator.createTicketWithAttachments;
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
@@ -21,11 +24,14 @@ import com.cosinetech.imates.data.models.UserInfoViewModel;
 import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.SimpleImageCompressor;
 import com.cosinetech.imates.utils.WindowUtils;
+import com.github.drjacky.imagepicker.ImagePicker;
+import com.github.drjacky.imagepicker.constant.ImageProvider;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
-import gun0912.tedimagepicker.builder.TedImagePicker;
 import me.minetsh.imaging.IMGEditActivity;
 
 /**
@@ -38,6 +44,21 @@ public class FeedbackActivity extends AppCompatActivity {
     private ActivityFeedbackBinding binding;
 
     private String mFeedbackImagePath;
+    private final ActivityResultLauncher<Intent> launcher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),(ActivityResult result)->{
+                if(result.getResultCode()==RESULT_OK){
+                    if(result.getData() != null) {
+                        ArrayList<Uri> uriList = result.getData().getParcelableArrayListExtra(ImagePicker.MULTIPLE_FILES_PATH);
+                        if(uriList == null) {
+                            uriList = new ArrayList<>();
+                            Uri uri = result.getData().getData();
+                            uriList.add(uri);
+                        }
+                        processPostSelectImage(uriList);
+                    }
+                }else if(result.getResultCode()== ImagePicker.RESULT_ERROR){
+                    Log.e("IMGPICKER", ImagePicker.Companion.getError(result.getData()));// to show an error
+                }});
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -100,32 +121,40 @@ public class FeedbackActivity extends AppCompatActivity {
         });
 
         binding.uploadImageButton.setOnClickListener(v->{
-            TedImagePicker.with(this)
-                    .startMultiImage(uriList -> {
-                        String paths = "";
-                        for(Uri uri : uriList) {
-                            if(uri != null) {
-                                // 复制图片到外部存储
-                                String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + UUID.randomUUID().toString() + ".png";
-                                boolean success = AppUtils.copyImageToExternalFilesDir(getApplicationContext(), uri, filePath);
-                                if (success) {
-                                    SimpleImageCompressor.compressInPlace(filePath, 40);
-                                    paths = filePath;
-                                } else {
-                                    Log.e("PhotoPicker", "Failed to copy image.");
-                                    Toast.makeText(getApplicationContext(), "照片读取失败", Toast.LENGTH_SHORT).show();
-                                }
-                            } else {
-                                Toast.makeText(getApplicationContext(), "没有选择相片", Toast.LENGTH_SHORT).show();
-                            }
-                        }
-
-                        if(!paths.isEmpty()) {
-                            mFeedbackImagePath = paths;
-                            binding.feedImage.setImageURI(Uri.fromFile(new File(mFeedbackImagePath)));
-                        }
+            ImagePicker.Companion.with(this)
+                    .provider(ImageProvider.BOTH)
+                    .setOutputFormat(Bitmap.CompressFormat.JPEG)
+                    .setMultipleAllowed(true)
+                    .createIntentFromDialog(it -> {
+                        launcher.launch(it);
+                        return null;
                     });
         });
+    }
+
+    private void processPostSelectImage(List<Uri> uriList) {
+        String paths = "";
+        for(Uri uri : uriList) {
+            if(uri != null) {
+                // 复制图片到外部存储
+                String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + UUID.randomUUID().toString() + ".png";
+                boolean success = AppUtils.copyImageToExternalFilesDir(getApplicationContext(), uri, filePath);
+                if (success) {
+                    SimpleImageCompressor.compressInPlace(filePath, 40);
+                    paths = filePath;
+                } else {
+                    Log.e("PhotoPicker", "Failed to copy image.");
+                    Toast.makeText(getApplicationContext(), "照片读取失败", Toast.LENGTH_SHORT).show();
+                }
+            } else {
+                Toast.makeText(getApplicationContext(), "没有选择相片", Toast.LENGTH_SHORT).show();
+            }
+        }
+
+        if(!paths.isEmpty()) {
+            mFeedbackImagePath = paths;
+            binding.feedImage.setImageURI(Uri.fromFile(new File(mFeedbackImagePath)));
+        }
     }
 
     @Override

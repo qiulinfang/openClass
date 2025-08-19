@@ -3,6 +3,7 @@ package com.cosinetech.imates.ui.activities;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
@@ -11,6 +12,9 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.cardview.widget.CardView;
 import androidx.lifecycle.ViewModelProvider;
@@ -18,8 +22,8 @@ import androidx.lifecycle.ViewModelStoreOwner;
 
 import com.cosinetech.imates.appenv.AppEnvConfig;
 import com.cosinetech.imates.ApplicationModelShared;
-import com.cosinetech.imates.ui.feedback.FeedbackActivity;
 import com.cosinetech.imates.data.models.ChatAiParam;
+import com.cosinetech.imates.ui.feedback.FeedbackActivity;
 import com.cosinetech.imates.data.models.UserInfo;
 import com.cosinetech.imates.data.models.UserInfoViewModel;
 import com.cosinetech.imates.screencasting.FFmpegPipeStreamer;
@@ -33,17 +37,18 @@ import com.cosinetech.imates.utils.WindowUtils;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
+import com.github.drjacky.imagepicker.ImagePicker;
+import com.github.drjacky.imagepicker.constant.ImageProvider;
 
 import org.loka.screensharekit.EncodeBuilder;
 import org.loka.screensharekit.ScreenShareKit;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
-
-import gun0912.tedimagepicker.builder.TedImagePicker;
 
 public class MyProfileActivity extends BaseActivity {
     FFmpegPipeStreamer h264ToTsStreamer = null;
-
     @Override
     protected int getLayoutResId() {
         return R.layout.activity_my_profile;
@@ -180,50 +185,76 @@ public class MyProfileActivity extends BaseActivity {
         startActivity(intent);
     }
 
+    private final ActivityResultLauncher<Intent> launcher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),(ActivityResult result)->{
+                if(result.getResultCode()==RESULT_OK){
+                    if(result.getData() != null) {
+                        ArrayList<Uri> uriList = result.getData().getParcelableArrayListExtra(ImagePicker.MULTIPLE_FILES_PATH);
+                        if(uriList == null) {
+                            uriList = new ArrayList<>();
+                            Uri uri = result.getData().getData();
+                            uriList.add(uri);
+                        }
+                        processPostSelectImage(uriList);
+                    }
+                }else if(result.getResultCode()== ImagePicker.RESULT_ERROR){
+                    Log.e("IMGPICKER", ImagePicker.Companion.getError(result.getData()));// to show an error
+                }});
     @SuppressLint("CheckResult")
     private void takePictureToTeacher() {
-        TedImagePicker.with(this)
-                .startMultiImage(uriList -> {
-                    String paths = "";
-                    for(Uri uri : uriList) {
-                        if(uri != null) {
-                            // 复制图片到外部存储
-                            String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + UUID.randomUUID().toString() + ".png";
-                            boolean success = AppUtils.copyImageToExternalFilesDir(getApplicationContext(), uri, filePath);
-                            if (success) {
-                                SimpleImageCompressor.compressInPlace(filePath, 40);
-                                paths += filePath + ",";
-                            } else {
-                                Log.e("PhotoPicker", "Failed to copy image.");
-                                Toast.makeText(getApplicationContext(), "照片读取失败", Toast.LENGTH_SHORT).show();
-                            }
-                        } else {
-                            Toast.makeText(getApplicationContext(), "没有选择相片", Toast.LENGTH_SHORT).show();
-                        }
-                    }
-
-                    String finalPaths = paths;
-                    if(!finalPaths.isEmpty()) {
-                        runOnUiThread(() -> {
-                            ChatAiParam param = new ChatAiParam();
-                            //param.sessionId = tag;
-                            param.chatBotUrl = ApiUrl.URL_CHAT_GENERAL;
-                            param.showHeader = true;
-                            param.streamDisplay = true;
-                            param.showHistory = true;
-                            param.initialSendEnable = true;
-                            param.showTeacherSessionOnly = true;
-
-                            Intent intent = new Intent(this, ChatAiActivity.class);
-                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈
-                            intent.putExtra(ChatAiActivity.KEY_CHAT_AI_PARAM, param);
-                            intent.putExtra(ChatAiActivity.KEY_SUBMIT_PICTURE_PATH, finalPaths);
-                            startActivity(intent);
-
-                            ApplicationModelShared.getInstance().getFloatingWindowService().hideRobot();
-                        });
-                    }
+        ImagePicker.Companion.with(this)
+                .provider(ImageProvider.BOTH) //Or bothCameraGallery()
+                .setOutputFormat(Bitmap.CompressFormat.JPEG)
+                .setMultipleAllowed(true)
+                .createIntentFromDialog(it -> {
+                    launcher.launch(it);
+                    return null;
                 });
+    }
+
+    private void processPostSelectImage(List<Uri> uriList) {
+        if(uriList == null) {
+            return;
+        }
+        String paths = "";
+        for(Uri uri : uriList) {
+            if(uri != null) {
+                // 复制图片到外部存储
+                String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + UUID.randomUUID().toString() + ".png";
+                boolean success = AppUtils.copyImageToExternalFilesDir(getApplicationContext(), uri, filePath);
+                if (success) {
+                    SimpleImageCompressor.compressInPlace(filePath, 40);
+                    paths += filePath + ",";
+                } else {
+                    Log.e("PhotoPicker", "Failed to copy image.");
+                    Toast.makeText(getApplicationContext(), "照片读取失败", Toast.LENGTH_SHORT).show();
+                }
+            } else {
+                Toast.makeText(getApplicationContext(), "没有选择相片", Toast.LENGTH_SHORT).show();
+            }
+        }
+
+        String finalPaths = paths;
+        if(!finalPaths.isEmpty()) {
+            runOnUiThread(() -> {
+                ChatAiParam param = new ChatAiParam();
+                //param.sessionId = tag;
+                param.chatBotUrl = ApiUrl.URL_CHAT_GENERAL;
+                param.showHeader = true;
+                param.streamDisplay = true;
+                param.showHistory = true;
+                param.initialSendEnable = true;
+                param.showTeacherSessionOnly = true;
+
+                Intent intent = new Intent(this, ChatAiActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈
+                intent.putExtra(ChatAiActivity.KEY_CHAT_AI_PARAM, param);
+                intent.putExtra(ChatAiActivity.KEY_SUBMIT_PICTURE_PATH, finalPaths);
+                startActivity(intent);
+
+                ApplicationModelShared.getInstance().getFloatingWindowService().hideRobot();
+            });
+        }
     }
 
     private void logout() {

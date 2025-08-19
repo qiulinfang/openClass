@@ -219,14 +219,16 @@ dependencies {
     implementation 'com.daimajia.numberprogressbar:library:1.4@aar'
 
     // ======== CameraX core library ========
-    def camerax_version = "1.4.0" // 使用最新版本号
     implementation libs.camera.core
     implementation libs.camera.camera2
     implementation libs.camera.lifecycle
     implementation libs.camera.view
     implementation libs.android.image.cropper
-    implementation 'io.github.ParkSangGwon:tedimagepicker:1.6.1'
-    implementation("io.github.ParkSangGwon:tedpermission-normal:3.4.2")
+
+    implementation 'com.github.Drjacky:ImagePicker:2.3.22'
+
+//    implementation 'io.github.ParkSangGwon:tedimagepicker:1.6.1'
+//    implementation("io.github.ParkSangGwon:tedpermission-normal:3.4.2")
     //implementation 'com.github.dhaval2404:imagepicker:2.1'
 
     // ======== http/https请求库 ========

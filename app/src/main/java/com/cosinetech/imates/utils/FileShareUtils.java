@@ -72,7 +72,7 @@ public class FileShareUtils {
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
             // 6. 启动Activity（带选择器）
-            Intent chooser = Intent.createChooser(intent, "用Office应用打开");
+            Intent chooser = Intent.createChooser(intent, "选择应用");
             try {
                 context.startActivity(chooser);
             } catch (Exception e) {
