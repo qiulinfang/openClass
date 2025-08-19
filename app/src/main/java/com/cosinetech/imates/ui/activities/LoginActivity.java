@@ -146,15 +146,16 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     public void onStart() {
         super.onStart();
+        if (!hasRequestedPermissions) {
+            hasRequestedPermissions = true;
+            permissionHelper.requestAllPermissionsWithPreDialog();
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (!hasRequestedPermissions) {
-            hasRequestedPermissions = true;
-            permissionHelper.requestAllPermissionsWithPreDialog();
-        }
+        permissionHelper.onResumeCheck();
         if(userInfoViewModel.token.getValue() != null && !userInfoViewModel.token.getValue().isEmpty()) {
             // 跳转到 MainActivity
             startMainActivityAndFinish();
