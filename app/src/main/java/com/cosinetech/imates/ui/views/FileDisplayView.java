@@ -11,7 +11,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.textbookservice.LocalFileInfo;
 import com.cosinetech.imates.textbookservice.LocalPackageInfo;
-import com.cosinetech.imates.ui.adapters.FileAdapter;
+import com.cosinetech.imates.ui.adapters.FileDisplayViewAdapter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,7 +29,7 @@ public class FileDisplayView extends LinearLayout {
     }
     
     private RecyclerView recyclerView;
-    private FileAdapter adapter;
+    private FileDisplayViewAdapter adapter;
     private DisplayMode currentMode = DisplayMode.LIST;
     private OnFileSelectedListener listener;
     private LocalFileInfo selectedFile;
@@ -54,7 +54,7 @@ public class FileDisplayView extends LinearLayout {
         LayoutInflater.from(context).inflate(R.layout.view_file_display, this, true);
         
         recyclerView = findViewById(R.id.recyclerView);
-        adapter = new FileAdapter(context);
+        adapter = new FileDisplayViewAdapter(context);
         adapter.setOnItemClickListener(this::onFileItemClick);
         recyclerView.setAdapter(adapter);
         
@@ -83,15 +83,15 @@ public class FileDisplayView extends LinearLayout {
         switch (mode) {
             case LIST:
                 recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-                adapter.setDisplayMode(FileAdapter.ViewType.LIST);
+                adapter.setDisplayMode(FileDisplayViewAdapter.ViewType.LIST);
                 break;
             case GRID_SMALL:
                 recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 8));
-                adapter.setDisplayMode(FileAdapter.ViewType.GRID_SMALL);
+                adapter.setDisplayMode(FileDisplayViewAdapter.ViewType.GRID_SMALL);
                 break;
             case GRID_LARGE:
                 recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 4));
-                adapter.setDisplayMode(FileAdapter.ViewType.GRID_LARGE);
+                adapter.setDisplayMode(FileDisplayViewAdapter.ViewType.GRID_LARGE);
                 break;
         }
     }

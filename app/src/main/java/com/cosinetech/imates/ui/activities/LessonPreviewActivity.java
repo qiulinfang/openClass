@@ -15,14 +15,17 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.textbookservice.LocalFileInfo;
 import com.cosinetech.imates.textbookservice.LocalPackageInfo;
 import com.cosinetech.imates.ui.views.FileDisplayView;
 import com.cosinetech.imates.ui.views.MarkdownTextView;
+import com.cosinetech.imates.utils.FileShareUtils;
 import com.cosinetech.imates.utils.WindowUtils;
 import com.github.spareyaya.SimpleRatingView;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,10 +33,10 @@ public class LessonPreviewActivity extends AppCompatActivity {
     public static final String KEY_PREVIEW_SECTION_NAME = "PREVIEW_SECTION_NAME";
     public static final String KEY_LEARN_PACKAGE = "LEARN_PACKAGE";
     private String mPreviewSectionName = "";
-
     private int mCurrentSchemaIndex = -1;
 
     private FileDisplayView mFileDisplayView;
+    private LocalFileInfo mCurrentSelectedFile;
 
     private SharedPreferences sharedPreferences;
 
@@ -56,6 +59,16 @@ public class LessonPreviewActivity extends AppCompatActivity {
                 .create().fromJson(learnPackage, new TypeToken<List<LocalPackageInfo>>(){}.getType());
 
         mFileDisplayView.setDisplayMode(FileDisplayView.DisplayMode.GRID_LARGE);
+        mFileDisplayView.setOnFileSelectedListener(new FileDisplayView.OnFileSelectedListener() {
+            @Override
+            public void onFileSelected(LocalFileInfo fileInfo) {
+                mCurrentSelectedFile = fileInfo;
+            }
+
+            @Override
+            public void onFileDeselected() {
+            }
+        });
         mPreviewSectionName = getIntent().getStringExtra(KEY_PREVIEW_SECTION_NAME);
 
         String sectionId = "";//mPreviewSection.getSection();
@@ -159,35 +172,18 @@ public class LessonPreviewActivity extends AppCompatActivity {
                 textView.setText("已学习");
                 textView.setTextColor(Color.GREEN);
 
-//                Intent intent = new Intent(this, com.cosinetech.imates.pdfui.PDFActivity.class);
-//                intent.putExtra("AssetsPdf", mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getTextBook());
-//                intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
-//                intent.putExtra("Section", mPreviewSection);
-//                startActivity(intent);q
-  ////////==================================
-//                String path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getTextBook();
-//                File file = new  File(path);
-//                if(!file.exists()) {
-//                    path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getLecture();
-//                    file = new File(path);
-//                }
-//
-//                if(!file.exists()) {
-//                    path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getLearnGuide();
-//                    file = new File(path);
-//                }
-//
-//                if(file.exists()) {
-//                    Intent intent = new Intent(this, MuPDFActivity.class);
-//                    intent.setAction(Intent.ACTION_VIEW);
-//                    intent.setData(Uri.fromFile(new File(path)));
-//                    intent.putExtra("AssetsPdf", path);
-//                    intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
-//                    intent.putExtra("Section", mPreviewSection);
-//                    startActivity(intent);
-//                } else {
-//                    Toast.makeText(this, "没有可学习的资源", Toast.LENGTH_SHORT).show();
-//                }
+                if(mCurrentSelectedFile == null) {
+                    Toast.makeText(this, "先选择一个文件去学习", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                File file = new File(mCurrentSelectedFile.localPath);
+                if(!file.exists()) {
+                    Toast.makeText(this, "文件未下载或不存在", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                FileShareUtils.shareOpenFile();
             }
         });
     }

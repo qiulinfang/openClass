@@ -17,7 +17,7 @@ import com.cosinetech.imates.textbookservice.LocalFileInfo;
 import java.util.ArrayList;
 import java.util.List;
 
-public class FileAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+public class FileDisplayViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     
     public enum ViewType {
         LIST(0),
@@ -39,7 +39,7 @@ public class FileAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private OnItemClickListener clickListener;
     private LocalFileInfo selectedFile;
     
-    public FileAdapter(Context context) {
+    public FileDisplayViewAdapter(Context context) {
         this.context = context;
         this.files = new ArrayList<>();
     }
