@@ -19,12 +19,8 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.appenv.AppEnvConfig;
-import com.cosinetech.imates.screencasting.FFmpegPipeStreamer;
-import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
-import com.cosinetech.imates.screencasting.ScreenCastingManager;
-import com.cosinetech.imates.screencasting.UdpForwarderManager;
 import com.cosinetech.imates.ui.adapters.TextbookVersionSpinnerAdapter;
 import com.cosinetech.imates.data.models.Chapter;
 import com.cosinetech.imates.data.models.Subject;
@@ -264,6 +260,10 @@ public class KnowledgeGraphActivity extends BaseActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        ApplicationModelShared app = (ApplicationModelShared) getApplication();
+        if (app.getFloatingWindowService() != null) {
+            app.getFloatingWindowService().showRobot();
+        }
         //preformResourcesChecks();
     }
 

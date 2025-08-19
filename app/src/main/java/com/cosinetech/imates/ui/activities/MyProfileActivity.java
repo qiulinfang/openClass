@@ -5,8 +5,6 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
@@ -29,15 +27,12 @@ import com.cosinetech.imates.screencasting.H264IFrameCache;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.screencasting.UdpForwarderManager;
-import com.cosinetech.imates.ui.robot.FloatingRobotService;
 import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.SimpleImageCompressor;
 import com.cosinetech.imates.utils.WindowUtils;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
-import com.lzf.easyfloat.EasyFloat;
-import com.xuexiang.xupdate.easy.EasyUpdate;
 
 import org.loka.screensharekit.EncodeBuilder;
 import org.loka.screensharekit.ScreenShareKit;
