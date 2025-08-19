@@ -51,7 +51,7 @@ public class MarkdownTextView extends AppCompatTextView {
                 .usePlugin(JLatexMathPlugin.create(this.getTextSize(), builder -> {
                     // enable inlines (require `MarkwonInlineParserPlugin`), by default `false`
                     builder.inlinesEnabled(true);
-                    builder.allowInlinesSingleDollar(true);
+                    //builder.allowInlinesSingleDollar(true);
                 }))
                 .usePlugin(TablePlugin.create(context))
                 .build();
