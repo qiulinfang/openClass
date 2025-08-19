@@ -5,8 +5,6 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
@@ -29,15 +27,12 @@ import com.cosinetech.imates.screencasting.H264IFrameCache;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.screencasting.UdpForwarderManager;
-import com.cosinetech.imates.ui.robot.FloatingRobotService;
 import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.SimpleImageCompressor;
 import com.cosinetech.imates.utils.WindowUtils;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
-import com.lzf.easyfloat.EasyFloat;
-import com.xuexiang.xupdate.easy.EasyUpdate;
 
 import org.loka.screensharekit.EncodeBuilder;
 import org.loka.screensharekit.ScreenShareKit;
@@ -47,24 +42,7 @@ import java.util.UUID;
 import gun0912.tedimagepicker.builder.TedImagePicker;
 
 public class MyProfileActivity extends BaseActivity {
-    private UserInfoViewModel userInfoViewModel;
-    private final static String FLOAT_ACTION_TAG = "MAIN_FLOAT_ACTION";
-    private long mCheckUpdateTick = 0;
     FFmpegPipeStreamer h264ToTsStreamer = null;
-    private final Handler mMainHandler = new Handler(Looper.getMainLooper());
-    private final Runnable mCheckUpdateRunnable = new Runnable() {
-        @Override
-        public void run() {
-            long tick = System.currentTimeMillis();
-            if(tick - mCheckUpdateTick >= 3600000) {
-                mCheckUpdateTick = tick;
-                EasyUpdate.create(MyProfileActivity.this, ApiUrl.URL_APP_UPDATE)
-                        .isAutoMode(false)
-                        .update();
-            }
-            mMainHandler.postDelayed(this, 60000); // 每秒执行一次
-        }
-    };
 
     @Override
     protected int getLayoutResId() {
@@ -75,14 +53,10 @@ public class MyProfileActivity extends BaseActivity {
     protected int getCurrentNavItemId() {
         return R.id.nav_my_profile;
     }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        ViewModelStoreOwner owner = (ViewModelStoreOwner) this.getApplication();
-        userInfoViewModel = new ViewModelProvider(
-                owner,
-                new ViewModelProvider.AndroidViewModelFactory(getApplication())
-        ).get(UserInfoViewModel.class);
         // 初始化视图
         ImageView ivAvatar = findViewById(R.id.ivAvatar);
         TextView tvUserId = findViewById(R.id.tvUserId);
@@ -94,7 +68,7 @@ public class MyProfileActivity extends BaseActivity {
         CardView cardLogout = findViewById(R.id.cardLogout);
 
         // 设置用户信息
-        tvUserId.setText(userInfoViewModel.userInfo.getValue().getName());
+        tvUserId.setText(AppUtils.getUserNickName());
         tvGrade.setText("高三(1)班");
 
         // 头像点击事件
@@ -121,19 +95,12 @@ public class MyProfileActivity extends BaseActivity {
         miscellaneousInitialization();
     }
     private void miscellaneousInitialization() {
-        stopFloatingWindowService();
-        startFloatingWindowService();
         TextView versionText = findViewById(R.id.version);
         versionText.setText(AppEnvConfig.getAppVersion(this));
-        EasyUpdate.create(this, ApiUrl.URL_APP_UPDATE)
-                .isAutoMode(false)
-                .update();
-        mCheckUpdateTick = System.currentTimeMillis();
-        mMainHandler.postDelayed(mCheckUpdateRunnable, 60000);
         h264ToTsStreamer = H264MpegTSStreamerManager.getInstance();
         ScreenCastingManager.startLoop(this,
-                userInfoViewModel.userId.getValue(),
-                userInfoViewModel.userInfo.getValue().getName(),
+                AppUtils.getUserId(),
+                AppUtils.getUserNickName(),
                 UdpForwarderManager.getInstance());
         h264ToTsStreamer = H264MpegTSStreamerManager.getInstance();
     }
@@ -147,17 +114,6 @@ public class MyProfileActivity extends BaseActivity {
             app.getFloatingWindowService().showRobot();
         }
     }
-
-    private void startFloatingWindowService() {
-        Intent intent = new Intent(this, FloatingRobotService.class);
-        startService(intent);
-    }
-
-    private void stopFloatingWindowService() {
-        Intent intent = new Intent(this, FloatingRobotService.class);
-        stopService(intent);
-    }
-
     private void chatWithTeacher() {
         ((ApplicationModelShared)getApplication()).getFloatingWindowService().popupChatBot(ApiUrl.URL_CHAT_GENERAL, true);
     }
@@ -294,9 +250,6 @@ public class MyProfileActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        EasyFloat.dismiss(FLOAT_ACTION_TAG);
-        stopFloatingWindowService();
-        mMainHandler.removeCallbacksAndMessages(null); // 彻底清除
         Log.e("++++++++++++++++", "onDestroy");
     }
 }

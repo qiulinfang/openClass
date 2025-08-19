@@ -118,7 +118,9 @@ public class LessonPreviewActivity extends AppCompatActivity {
                     rating = sharedPreferences.getInt(sectionId + "schema_rating" + i, 0);
                     ratingView.setRating(rating);
 
-                    ((MarkdownTextView)(findViewById(R.id.schema_intro))).setContent(mLocalPkgs.get(mCurrentSchemaIndex).description);
+                    ((MarkdownTextView)(findViewById(R.id.schema_intro))).setContent(
+                            mLocalPkgs.get(mCurrentSchemaIndex).description == null ?
+                            "" : mLocalPkgs.get(mCurrentSchemaIndex).description);
                     mFileDisplayView.setLearningPackage(mLocalPkgs.get(mCurrentSchemaIndex));
 
                     TextView v = findViewById(R.id.schema_stat);

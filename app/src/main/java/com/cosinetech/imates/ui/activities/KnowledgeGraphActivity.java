@@ -19,14 +19,22 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.appenv.AppEnvConfig;
+import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
+import com.cosinetech.imates.screencasting.ScreenCastingManager;
+import com.cosinetech.imates.screencasting.UdpForwarderManager;
 import com.cosinetech.imates.ui.adapters.TextbookVersionSpinnerAdapter;
 import com.cosinetech.imates.data.models.Subject;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.cosinetech.imates.textbookservice.*;
+import com.cosinetech.imates.ui.robot.FloatingRobotService;
 import com.cosinetech.imates.utils.AppUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.lzf.easyfloat.EasyFloat;
+import com.xuexiang.xupdate.easy.EasyUpdate;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -35,6 +43,22 @@ import java.util.Queue;
 
 public class KnowledgeGraphActivity extends BaseActivity {
     private static final String TAG = "KnowledgeGraphActivity";
+    private final static String FLOAT_ACTION_TAG = "MAIN_FLOAT_ACTION";
+    private long mCheckUpdateTick = 0;
+    private final Handler mMainHandler = new Handler(Looper.getMainLooper());
+    private final Runnable mCheckUpdateRunnable = new Runnable() {
+        @Override
+        public void run() {
+            long tick = System.currentTimeMillis();
+            if(tick - mCheckUpdateTick >= 3600000) {
+                mCheckUpdateTick = tick;
+                EasyUpdate.create(KnowledgeGraphActivity.this, ApiUrl.URL_APP_UPDATE)
+                        .isAutoMode(false)
+                        .update();
+            }
+            mMainHandler.postDelayed(this, 60000); // 每秒执行一次
+        }
+    };
 
     private TextView mTextViewUpdateBadge;
     private TextbookVersionSpinnerAdapter mTextbookVersionSpinnerAdapter;
@@ -132,6 +156,18 @@ public class KnowledgeGraphActivity extends BaseActivity {
                 intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, Subject.SUBJECT_MATH.name());
             startActivity(intent);
         });
+
+        miscellaneousInitialization();
+    }
+
+    private void miscellaneousInitialization() {
+        stopFloatingWindowService();
+        startFloatingWindowService();
+        EasyUpdate.create(this, ApiUrl.URL_APP_UPDATE)
+                .isAutoMode(false)
+                .update();
+        mCheckUpdateTick = System.currentTimeMillis();
+        mMainHandler.postDelayed(mCheckUpdateRunnable, 60000);
     }
 
     private void promptToDownloadResource() {
@@ -249,6 +285,10 @@ public class KnowledgeGraphActivity extends BaseActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        ApplicationModelShared app = (ApplicationModelShared) getApplication();
+        if (app.getFloatingWindowService() != null) {
+            app.getFloatingWindowService().showRobot();
+        }
         preformResourcesChecks();
     }
 
@@ -277,9 +317,22 @@ public class KnowledgeGraphActivity extends BaseActivity {
         }
     }
 
+    private void startFloatingWindowService() {
+        Intent intent = new Intent(this, FloatingRobotService.class);
+        startService(intent);
+    }
+
+    private void stopFloatingWindowService() {
+        Intent intent = new Intent(this, FloatingRobotService.class);
+        stopService(intent);
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        EasyFloat.dismiss(FLOAT_ACTION_TAG);
+        stopFloatingWindowService();
+        mMainHandler.removeCallbacksAndMessages(null); // 彻底清除
     }
 
     public class WebAppInterface {
