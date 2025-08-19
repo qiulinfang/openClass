@@ -48,23 +48,7 @@ import gun0912.tedimagepicker.builder.TedImagePicker;
 
 public class MyProfileActivity extends BaseActivity {
     private UserInfoViewModel userInfoViewModel;
-    private final static String FLOAT_ACTION_TAG = "MAIN_FLOAT_ACTION";
-    private long mCheckUpdateTick = 0;
     FFmpegPipeStreamer h264ToTsStreamer = null;
-    private final Handler mMainHandler = new Handler(Looper.getMainLooper());
-    private final Runnable mCheckUpdateRunnable = new Runnable() {
-        @Override
-        public void run() {
-            long tick = System.currentTimeMillis();
-            if(tick - mCheckUpdateTick >= 3600000) {
-                mCheckUpdateTick = tick;
-                EasyUpdate.create(MyProfileActivity.this, ApiUrl.URL_APP_UPDATE)
-                        .isAutoMode(false)
-                        .update();
-            }
-            mMainHandler.postDelayed(this, 60000); // 每秒执行一次
-        }
-    };
 
     @Override
     protected int getLayoutResId() {
@@ -118,26 +102,16 @@ public class MyProfileActivity extends BaseActivity {
 
         cardLogout.setOnClickListener(v -> logout());
 
-        miscellaneousInitialization();
-    }
-    private void miscellaneousInitialization() {
-        stopFloatingWindowService();
-        startFloatingWindowService();
-        TextView versionText = findViewById(R.id.version);
-        versionText.setText(AppEnvConfig.getAppVersion(this));
-        EasyUpdate.create(this, ApiUrl.URL_APP_UPDATE)
-                .isAutoMode(false)
-                .update();
-        mCheckUpdateTick = System.currentTimeMillis();
-        mMainHandler.postDelayed(mCheckUpdateRunnable, 60000);
         h264ToTsStreamer = H264MpegTSStreamerManager.getInstance();
         ScreenCastingManager.startLoop(this,
                 userInfoViewModel.userId.getValue(),
                 userInfoViewModel.userInfo.getValue().getName(),
                 UdpForwarderManager.getInstance());
         h264ToTsStreamer = H264MpegTSStreamerManager.getInstance();
-    }
 
+        TextView versionText = findViewById(R.id.version);
+        versionText.setText(AppEnvConfig.getAppVersion(this));
+    }
     @Override
     protected void onResume() {
         super.onResume();
@@ -146,16 +120,6 @@ public class MyProfileActivity extends BaseActivity {
         if (app.getFloatingWindowService() != null) {
             app.getFloatingWindowService().showRobot();
         }
-    }
-
-    private void startFloatingWindowService() {
-        Intent intent = new Intent(this, FloatingRobotService.class);
-        startService(intent);
-    }
-
-    private void stopFloatingWindowService() {
-        Intent intent = new Intent(this, FloatingRobotService.class);
-        stopService(intent);
     }
 
     private void chatWithTeacher() {
@@ -294,9 +258,6 @@ public class MyProfileActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        EasyFloat.dismiss(FLOAT_ACTION_TAG);
-        stopFloatingWindowService();
-        mMainHandler.removeCallbacksAndMessages(null); // 彻底清除
         Log.e("++++++++++++++++", "onDestroy");
     }
 }
