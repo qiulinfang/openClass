@@ -204,7 +204,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         setAvatarImage(binding, item);
         Log.e("bindMarkdownItem", "bindMarkdownItem!!!");
         // 获取 Markwon 和 MarkwonAdapter 实例
-        final Markwon markwon = item.getMarkwon();
+        final Markwon markwon = item.getMarkwon(32);
         final MarkwonAdapter adapter = item.getMarkwonAdapter();
 
 //        MarkdownTextView textView = binding.getRoot().findViewById(R.id.tv_message);
