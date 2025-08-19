@@ -118,12 +118,6 @@ public class PhotoSearchActivity extends BaseActivity {
 
         viewFinder.setScaleType(PreviewView.ScaleType.FIT_CENTER);
 
-        if (allPermissionsGranted()) {
-            startCamera();
-        } else {
-            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CODE_PERMISSIONS);
-        }
-
         btnCapture.setOnClickListener(v -> {
             takePhoto();
         });
@@ -223,6 +217,7 @@ public class PhotoSearchActivity extends BaseActivity {
             proceedSuccessView("");
         });
         fetchQuestionList();
+        startCamera();
     }
 
     @Override
@@ -471,10 +466,6 @@ public class PhotoSearchActivity extends BaseActivity {
         scanLine.requestLayout();
     }
 
-    private boolean allPermissionsGranted() {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
-    }
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -503,18 +494,6 @@ public class PhotoSearchActivity extends BaseActivity {
             }
         }
 
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_CODE_PERMISSIONS) {
-            if (allPermissionsGranted()) {
-                startCamera();
-            } else {
-                Toast.makeText(this, "拍照授权失败", Toast.LENGTH_SHORT).show();
-            }
-        }
     }
 
     @Override
