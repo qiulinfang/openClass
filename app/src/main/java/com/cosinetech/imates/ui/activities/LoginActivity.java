@@ -1,28 +1,18 @@
 package com.cosinetech.imates.ui.activities;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
 
-import android.Manifest;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
-import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 
-import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelStoreOwner;
 
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -39,6 +29,7 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.databinding.ActivityLoginBinding;
 import com.cosinetech.imates.data.models.UserInfo;
 import com.cosinetech.imates.data.models.UserInfoViewModel;
+import com.cosinetech.imates.utils.PermissionHelper;
 import com.cosinetech.imates.utils.WindowUtils;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.xuexiang.xupdate.easy.EasyUpdate;
@@ -46,40 +37,22 @@ import com.xuexiang.xupdate.easy.EasyUpdate;
 import java.io.File;
 
 public class LoginActivity extends AppCompatActivity {
-    private static final int REQUEST_CODE_DRAW_OVERLAY = 1001;
     private UserInfoViewModel userInfoViewModel;
-    private TextView textView;
     private Button loginButton;
-    private String fullText = null;
     private ProgressBar loadingProgressBar;
     private SharedPreferences sharedPreferences;
     private final String CONFIG_NAME = "LOGIN_USER";
     private final String KEY_USER_NAME = "USER_NAME";
     private final String KEY_PASSWD = "PASSWORD";
-    private int index = 0; // 当前显示的字符索引
     private int clickCount = 0; // 记录点击次数
+    private boolean hasRequestedPermissions = false;
+    PermissionHelper permissionHelper = new com.cosinetech.imates.utils.PermissionHelper(this);
     private final Handler handler = new Handler(Looper.getMainLooper()); // 用于更新 UI
     private final Runnable resetClickCountRunnable = new Runnable() {
         @Override
         public void run() {
             clickCount = 0; // 重置点击次数
             handler.postDelayed(this, 2000);
-        }
-    };
-    private final Runnable typeWriterRunnable = new Runnable() {
-        @Override
-        public void run() {
-            if (index <= fullText.length()) {
-                textView.setText(fullText.substring(0, index)); // 更新显示的文字
-                index++; // 更新索引
-                // 每个字符显示的间隔时间，单位：毫秒
-                long delay = 200;
-                handler.postDelayed(this, delay); // 延迟后继续执行
-            } else {
-                long delay = 200;
-                handler.postDelayed(this, delay); // 延迟后继续执行
-                index = 0;
-            }
         }
     };
 
@@ -143,10 +116,6 @@ public class LoginActivity extends AppCompatActivity {
             loadingProgressBar.setVisibility(View.VISIBLE);
         });
 
-        fullText = getString(R.string.login_moto);
-        textView = findViewById(R.id.moto_text); // 获取 TextView
-        startTypingEffect(); // 启动打字机效果
-
         mCheckUpdateTick = System.currentTimeMillis();
         mCheckUpdateHandler.postDelayed(mCheckUpdateRunnable, 60000);
 
@@ -175,24 +144,17 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     @Override
+    public void onStart() {
+        super.onStart();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
-        // 检查权限
-        if (!Settings.canDrawOverlays(this)) {
-            // 如果没有权限，请求权限
-            requestOverlayPermission();
-        } else {
-            // 有权限
+        if (!hasRequestedPermissions) {
+            hasRequestedPermissions = true;
+            permissionHelper.requestAllPermissionsWithPreDialog();
         }
-
-        final int REQUEST_CODE_RECORD_AUDIO = 101;
-        requestPermission(Manifest.permission.RECORD_AUDIO, REQUEST_CODE_RECORD_AUDIO,
-                "需要录音权限才能正常使用此功能", () -> {
-                    // 录音权限被授予后执行的操作
-                    Toast.makeText(this, "录音权限已授予", Toast.LENGTH_SHORT).show();
-        });
-
-
         if(userInfoViewModel.token.getValue() != null && !userInfoViewModel.token.getValue().isEmpty()) {
             // 跳转到 MainActivity
             startMainActivityAndFinish();
@@ -261,61 +223,8 @@ public class LoginActivity extends AppCompatActivity {
 
     private void startMainActivityAndFinish() {
         Intent intent = new Intent(this, KnowledgeGraphActivity.class);
-        //intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(intent);
         finish();
-    }
-    private void startTypingEffect() {
-        index = 0;
-        handler.post(typeWriterRunnable); // 启动打字机效果
-    }
-
-    private void showLoginFailed(@StringRes Integer errorString) {
-        Toast.makeText(getApplicationContext(), errorString, Toast.LENGTH_SHORT).show();
-    }
-
-    private void requestOverlayPermission() {
-        // 创建 AlertDialog
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("权限提示");
-        builder.setMessage("需要悬浮窗权限才能正常使用此功能。是否前往设置页面授权？");
-
-        // 设置“前往设置”按钮
-        builder.setPositiveButton("前往设置", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                // 跳转到系统设置页面
-                Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:" + getPackageName()));
-                startActivityForResult(intent, REQUEST_CODE_DRAW_OVERLAY);
-            }
-        });
-
-        // 设置“取消”按钮
-        builder.setNegativeButton("取消", (dialog, which) -> {
-            // 用户取消，提示用户
-            Toast.makeText(LoginActivity.this, "您拒绝了权限，功能无法使用", Toast.LENGTH_SHORT).show();
-        });
-
-        // 显示对话框
-        builder.show();
-    }
-
-    private void requestPermission(String permission, int requestCode, String rationale, Runnable onGranted) {
-        if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
-            // 权限已授权，直接执行回调
-            onGranted.run();
-        } else {
-            // 显示权限申请对话框
-            new AlertDialog.Builder(this)
-                    .setTitle("权限请求")
-                    .setMessage(rationale)
-                    .setPositiveButton("允许", (dialog, which) ->
-                            ActivityCompat.requestPermissions(this, new String[]{permission}, requestCode))
-                    .setNegativeButton("取消", (dialog, which) ->
-                            Toast.makeText(this, "您拒绝了权限，功能可能无法正常使用", Toast.LENGTH_SHORT).show())
-                    .show();
-        }
     }
 
     @Override
@@ -327,27 +236,11 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(this, "权限已授予", Toast.LENGTH_SHORT).show();
-        } else {
-            Toast.makeText(this, "权限被拒绝，功能无法使用", Toast.LENGTH_SHORT).show();
-        }
+        permissionHelper.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_CODE_DRAW_OVERLAY) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                if (Settings.canDrawOverlays(this)) {
-                    // 权限已授予
-                } else {
-                    // 权限未授予
-                    requestOverlayPermission();
-                }
-            }
-        }
-    }
 }

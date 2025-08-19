@@ -225,15 +225,10 @@ dependencies {
     implementation libs.camera.view
     implementation libs.android.image.cropper
 
-    implementation 'com.github.Drjacky:ImagePicker:2.3.22'
-
-//    implementation 'io.github.ParkSangGwon:tedimagepicker:1.6.1'
-//    implementation("io.github.ParkSangGwon:tedpermission-normal:3.4.2")
-    //implementation 'com.github.dhaval2404:imagepicker:2.1'
+    implementation libs.drjacky.imagepicker
 
     // ======== http/https请求库 ========
     implementation platform(libs.okhttp3.bom)
-    // define any required OkHttp artifacts without version
     implementation libs.okhttp3
     implementation libs.okhttp3.logging.interceptor
 
@@ -243,7 +238,7 @@ dependencies {
     // ======== graph view
     implementation libs.graphview
 //
-    implementation 'com.github.chrisbanes:PhotoView:2.3.0'
+    implementation libs.chrisbanes.photoview
 
     // ======== rating
     implementation libs.simpleratingview
