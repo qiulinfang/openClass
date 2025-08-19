@@ -71,7 +71,7 @@ public class PermissionHelper {
         initQueue();
         if (!allPermissionsGranted()) {
             new AlertDialog.Builder(activity)
-                    .setTitle("权限提示")
+                    .setTitle("应用授权")
                     .setMessage("本应用需要获取全部权限才能正常使用，点击确定后将依次请求权限，否则无法使用应用。")
                     .setCancelable(false)
                     .setPositiveButton("确定", (dialog, which) -> processNextPermission())
