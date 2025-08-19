@@ -66,7 +66,7 @@ public class ChatDisplayItem {
     /**
      * 创建 Markwon 实例
      */
-    public Markwon createMarkwon() {
+    public static Markwon createMarkwon(Context context, float textSize) {
         MarkwonInlineParserPlugin markwonInlineParserPlugin = MarkwonInlineParserPlugin.create();
         markwonInlineParserPlugin.factoryBuilder()
                 // 块级
@@ -75,40 +75,39 @@ public class ChatDisplayItem {
                 // 行内其次
                 .addInlineProcessor(new LatexMarkProcessor("$", "$", false))     // 行内
                 .addInlineProcessor(new LatexMarkProcessor("\\(", "\\)", false));// 行内
-        if (markwon == null) {
-            markwon = Markwon.builder(context)
-                    .usePlugin(HtmlPlugin.create())
-                    .usePlugin(ImagesPlugin.create())
-                    .usePlugin(TableEntryPlugin.create(context))
-                    .usePlugin(StrikethroughPlugin.create())
-                    .usePlugin(TaskListPlugin.create(context))
-                    .usePlugin(new AbstractMarkwonPlugin() {
-                        @Override
-                        public void configureConfiguration(@NonNull MarkwonConfiguration.Builder builder) {
-                            //builder.imageDestinationProcessor(new GithubImageDestinationProcessor());
-                        }
+        return Markwon.builder(context)
+                .usePlugin(HtmlPlugin.create())
+                .usePlugin(ImagesPlugin.create())
+                .usePlugin(TableEntryPlugin.create(context))
+                .usePlugin(StrikethroughPlugin.create())
+                .usePlugin(TaskListPlugin.create(context))
+                .usePlugin(new AbstractMarkwonPlugin() {
+                    @Override
+                    public void configureConfiguration(@NonNull MarkwonConfiguration.Builder builder) {
+                        //builder.imageDestinationProcessor(new GithubImageDestinationProcessor());
+                    }
 
-                        @Override
-                        public void configureVisitor(@NonNull MarkwonVisitor.Builder builder) {
-                            builder.on(FencedCodeBlock.class, (visitor, fencedCodeBlock) -> {
-                                // we actually won't be applying code spans here, as our custom view will
-                                // draw background and apply mono typeface
-                                //
-                                // NB the `trim` operation on literal (as code will have a new line at the end)
-                                final CharSequence code = visitor.configuration()
-                                        .syntaxHighlight()
-                                        .highlight(fencedCodeBlock.getInfo(), fencedCodeBlock.getLiteral().trim());
-                                visitor.builder().append(code);
-                            });
-                        }
-                    })
-                    .usePlugin(markwonInlineParserPlugin)
-                    .usePlugin(GlideImagesPlugin.create(context))
-                    .usePlugin(JLatexMathPlugin.create(28, builder -> {
-                        // background provider for both inlines and blocks
-                        //  or more specific: `inlineBackgroundProvider` & `blockBackgroundProvider`
-                        builder.inlinesEnabled(true);
-                        //builder.allowInlinesSingleDollar(true);
+                    @Override
+                    public void configureVisitor(@NonNull MarkwonVisitor.Builder builder) {
+                        builder.on(FencedCodeBlock.class, (visitor, fencedCodeBlock) -> {
+                            // we actually won't be applying code spans here, as our custom view will
+                            // draw background and apply mono typeface
+                            //
+                            // NB the `trim` operation on literal (as code will have a new line at the end)
+                            final CharSequence code = visitor.configuration()
+                                    .syntaxHighlight()
+                                    .highlight(fencedCodeBlock.getInfo(), fencedCodeBlock.getLiteral().trim());
+                            visitor.builder().append(code);
+                        });
+                    }
+                })
+                .usePlugin(markwonInlineParserPlugin)
+                .usePlugin(GlideImagesPlugin.create(context))
+                .usePlugin(JLatexMathPlugin.create(textSize, builder -> {
+                    // background provider for both inlines and blocks
+                    //  or more specific: `inlineBackgroundProvider` & `blockBackgroundProvider`
+                    builder.inlinesEnabled(true);
+                    //builder.allowInlinesSingleDollar(true);
 //                        builder.theme().backgroundProvider(new JLatexMathTheme.BackgroundProvider() {
 //                            @NonNull
 //                            @Override
@@ -117,28 +116,26 @@ public class ChatDisplayItem {
 //                            }
 //                        });
 
-                        // should block fit the whole canvas width, by default true
-                        builder.theme().blockFitCanvas(true);
+                    // should block fit the whole canvas width, by default true
+                    builder.theme().blockFitCanvas(true);
 
-                        // horizontal alignment for block, by default ALIGN_CENTER
-                        builder.theme().blockHorizontalAlignment(JLatexMathDrawable.ALIGN_CENTER);
+                    // horizontal alignment for block, by default ALIGN_CENTER
+                    builder.theme().blockHorizontalAlignment(JLatexMathDrawable.ALIGN_CENTER);
 
-                        // padding for both inlines and blocks
-                        //builder.theme().padding(JLatexMathTheme.Padding.all(8));
+                    // padding for both inlines and blocks
+                    //builder.theme().padding(JLatexMathTheme.Padding.all(8));
 
-                        // padding for inlines
-                        builder.theme().inlinePadding(JLatexMathTheme.Padding.symmetric(16, 8));
-                        // padding for blocks
-                        //builder.theme().blockPadding(new JLatexMathTheme.Padding(0, 1, 2, 3));
+                    // padding for inlines
+                    builder.theme().inlinePadding(JLatexMathTheme.Padding.symmetric(16, 8));
+                    // padding for blocks
+                    //builder.theme().blockPadding(new JLatexMathTheme.Padding(0, 1, 2, 3));
 
-                        // text color of LaTeX content for both inlines and blocks
-                        //  or more specific: `inlineTextColor` & `blockTextColor`
-                        //builder.theme().textColor(Color.BLUE);
-                    }))
-                    .usePlugin(LinkifyPlugin.create())
-                    .build();
-        }
-        return markwon;
+                    // text color of LaTeX content for both inlines and blocks
+                    //  or more specific: `inlineTextColor` & `blockTextColor`
+                    //builder.theme().textColor(Color.BLUE);
+                }))
+                .usePlugin(LinkifyPlugin.create())
+                .build();
     }
 
     /**
@@ -249,8 +246,8 @@ public class ChatDisplayItem {
     /**
      * 获取 Markwon 实例
      */
-    public Markwon getMarkwon() {
-        return markwon != null ? markwon : createMarkwon();
+    public Markwon getMarkwon(float textSize) {
+        return markwon != null ? markwon : (markwon = createMarkwon(context, textSize));
     }
 
     /**

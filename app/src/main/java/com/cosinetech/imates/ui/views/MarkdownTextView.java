@@ -40,17 +40,7 @@ public class MarkdownTextView extends AppCompatTextView {
 
     private void init(Context context) {
         mMainHandler = new Handler(Looper.getMainLooper());
-        mMarkwon = Markwon.builder(getContext())
-                .usePlugin(MarkwonInlineParserPlugin.create())
-                .usePlugin(GlideImagesPlugin.create(getContext()))
-                .usePlugin(HtmlPlugin.create())
-                .usePlugin(JLatexMathPlugin.create(this.getTextSize(), builder -> {
-                    // enable inlines (require `MarkwonInlineParserPlugin`), by default `false`
-                    builder.inlinesEnabled(true);
-//                    builder.allowInlinesSingleDollar(true);
-                }))
-                .usePlugin(TablePlugin.create(context))
-                .build();
+        mMarkwon = ChatDisplayItem.createMarkwon(getContext(), getTextSize());
     }
 
     public void setContent(String content) {

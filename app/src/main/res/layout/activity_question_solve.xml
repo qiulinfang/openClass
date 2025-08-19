@@ -7,13 +7,13 @@
 
     <Button
         android:id="@+id/btn_exit"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
-        android:visibility="gone"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_margin="16dp"
+        android:visibility="visible"
         android:background="@drawable/ic_back"
         android:stateListAnimator="@animator/app_button_click_scale"
-        android:layout_marginHorizontal="@dimen/min_margin_size"
-        android:scaleType="center"
+        android:scaleType="fitXY"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"/>
 
@@ -59,7 +59,7 @@
         app:layout_constraintEnd_toEndOf="@id/verticalGuide"
         app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/txt_empty_question"
+        app:layout_constraintTop_toBottomOf="@id/spliter"
         app:layout_constraintVertical_bias="1.0" />
 
 
@@ -116,11 +116,11 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="bottom"
+        android:gravity="center_vertical"
         android:minHeight="36dp"
-        android:paddingHorizontal="10dp"
         android:layout_marginHorizontal="8dp"
-        app:layout_constraintTop_toBottomOf="@id/spliter0"
+        android:layout_marginVertical="16dp"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="@id/verticalGuide">
 
         <RadioButton
@@ -179,17 +179,17 @@
         android:background="@drawable/app_transparent_button_background"
         android:textColor="@drawable/app_button_text_color"
         android:layout_marginHorizontal="10dp"
-        app:layout_constraintTop_toBottomOf="@id/spliter0"
+        app:layout_constraintTop_toTopOf="@id/radioGroup"
+        app:layout_constraintBottom_toBottomOf="@id/radioGroup"
         app:layout_constraintStart_toEndOf="@id/radioGroup"/>
 
     <View
         android:id="@+id/spliter"
         android:layout_width="0dp"
         android:layout_height="2dp"
-        android:layout_marginHorizontal="8dp"
-        android:layout_marginVertical="2dp"
-        app:layout_constraintTop_toBottomOf="@id/btn_capture"
-        app:layout_constraintStart_toStartOf="@id/verticalGuide"
+        android:layout_marginVertical="16dp"
+        app:layout_constraintTop_toBottomOf="@id/btn_exit"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:background="#80808080"/>
 
@@ -198,7 +198,7 @@
         android:layout_height="0dp"
         android:background="#000000"
         app:layout_constraintStart_toStartOf="@id/verticalGuide"
-        app:layout_constraintTop_toBottomOf="@id/spliter0"
+        app:layout_constraintTop_toBottomOf="@id/spliter"
         app:layout_constraintBottom_toBottomOf="parent"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
