@@ -313,11 +313,12 @@ public class ChatDisplayItem {
             String latex = match(pattern);
             if (latex == null) return null;
 
-            JLatexMathNode node = new JLatexMathNode();
-            node.latex(latex.substring(open.length(), latex.length() - close.length()));
+            // 截取公式内容
+            String content = latex.substring(open.length(), latex.length() - close.length());
+
+            JLatexMathNode node = new JLatexMathNode(content);
 
             if (isBlock) {
-                // 包成段落节点，使其独占一行
                 org.commonmark.node.Paragraph paragraph = new org.commonmark.node.Paragraph();
                 paragraph.appendChild(node);
                 return paragraph;
