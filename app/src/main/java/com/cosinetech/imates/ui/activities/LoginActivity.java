@@ -46,7 +46,7 @@ public class LoginActivity extends AppCompatActivity {
     private final String KEY_PASSWD = "PASSWORD";
     private int clickCount = 0; // 记录点击次数
     private boolean hasRequestedPermissions = false;
-    PermissionHelper permissionHelper = new com.cosinetech.imates.utils.PermissionHelper(this);
+    PermissionHelper permissionHelper;
     private final Handler handler = new Handler(Looper.getMainLooper()); // 用于更新 UI
     private final Runnable resetClickCountRunnable = new Runnable() {
         @Override
@@ -141,6 +141,22 @@ public class LoginActivity extends AppCompatActivity {
         });
 
         handler.postDelayed(resetClickCountRunnable, 2000);
+
+        permissionHelper = new PermissionHelper(this, new PermissionHelper.Callback() {
+            @Override
+            public void onAllPermissionsGranted() {
+                Toast.makeText(LoginActivity.this, "所有权限已授权", Toast.LENGTH_SHORT).show();
+                // 这里执行应用正常逻辑
+            }
+
+            @Override
+            public void onPermissionDenied(String permission) {
+                Toast.makeText(LoginActivity.this, "应用无法正常使用, 权限被拒绝 " + permission, Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // 第一次启动请求权限
+        permissionHelper.requestAllPermissionsWithPreDialog();
     }
 
     @Override
@@ -155,7 +171,6 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        permissionHelper.onResumeCheck();
         if(userInfoViewModel.token.getValue() != null && !userInfoViewModel.token.getValue().isEmpty()) {
             // 跳转到 MainActivity
             startMainActivityAndFinish();
