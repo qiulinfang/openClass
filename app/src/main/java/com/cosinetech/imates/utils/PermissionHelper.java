@@ -123,16 +123,15 @@ public class PermissionHelper {
     }
 
     private boolean checkSpecialPermissionGranted(String permission) {
-        switch (permission) {
-            case "DRAW_OVERLAY":
-                return Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(activity);
-            case "INSTALL_UNKNOWN_APPS":
-                return Build.VERSION.SDK_INT < Build.VERSION_CODES.O || activity.getPackageManager().canRequestPackageInstalls();
-            case "MANAGE_ALL_FILES":
-                return Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager();
-            default:
-                return true;
-        }
+        return switch (permission) {
+            case "DRAW_OVERLAY" ->
+                    Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(activity);
+            case "INSTALL_UNKNOWN_APPS" ->
+                    Build.VERSION.SDK_INT < Build.VERSION_CODES.O || activity.getPackageManager().canRequestPackageInstalls();
+            case "MANAGE_ALL_FILES" ->
+                    Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager();
+            default -> true;
+        };
     }
 
     private void showSpecialPermissionDialog(String permission) {
@@ -185,7 +184,8 @@ public class PermissionHelper {
     }
 
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        if (requestCode != REQUEST_CODE_PERMISSION) return;
+        if (requestCode != REQUEST_CODE_PERMISSION
+                || permissions.length == 0) return;
 
         if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             permissionQueue.poll();
