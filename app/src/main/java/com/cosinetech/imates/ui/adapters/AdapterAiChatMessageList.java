@@ -203,39 +203,47 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         setSelectionState(binding, item);
         setAvatarImage(binding, item);
         Log.e("bindMarkdownItem", "bindMarkdownItem!!!");
-        // 获取 Markwon 和 MarkwonAdapter 实例
-        final Markwon markwon = item.getMarkwon(32);
-        final MarkwonAdapter adapter = item.getMarkwonAdapter();
-
 //        MarkdownTextView textView = binding.getRoot().findViewById(R.id.tv_message);
 //        setMarkdownTextLegacy(textView, item);
 
         // 获取 RecyclerView
+        // 获取 Markwon 和 MarkwonAdapter 实例
+        final Markwon markwon = item.getMarkwon(32);
+        final MarkwonAdapter adapter = item.getMarkwonAdapter();
         RecyclerView recyclerView = binding.getRoot().findViewById(R.id.recycler_view);
-        if (recyclerView != null) {
+        if(!item.initialDisplayed) {
+            recyclerView.setItemViewCacheSize(10);
+            recyclerView.setItemAnimator(null);
             recyclerView.setLayoutManager(new LinearLayoutManager(context));
             recyclerView.setAdapter(adapter);
-
-            // 处理打字效果或直接显示
-            if (item.shouldShowTypingEffect()) {
-                item.startTypingEffect(new ChatDisplayItem.TypingEffectCallback() {
-                    @Override
-                    public void onContentUpdate(String content) {
-                        adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(content));
-                        adapter.notifyDataSetChanged();
-                    }
-
-                    @Override
-                    public void onTypingComplete(String content) {
-                        adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(content));
-                        adapter.notifyDataSetChanged();
-                    }
-                });
-            } else {
-                adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(message.content));
-                adapter.notifyDataSetChanged();
-            }
         }
+        // 处理打字效果或直接显示
+        if (item.shouldShowTypingEffect()) {
+            item.startTypingEffect(new ChatDisplayItem.TypingEffectCallback() {
+                @Override
+                public void onContentUpdate(String oldContent, String content) {
+                    adapter.setMarkdown(markwon, content);
+//                    if(item.initialDisplayed) {
+//                        adapter.continueUpdateMarkdown(markwon, MarkdownTextView.filterLatexString(content));
+////                        adapter.notifyDataSetChanged();
+//                    } else {
+//                        adapter.initialUpdateMarkdown(markwon, content);
+//                        item.initialDisplayed = true;
+//                    }
+                }
+
+                @Override
+                public void onTypingComplete(String content) {
+//                        adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(content));
+//                        adapter.notifyDataSetChanged();
+                }
+            });
+        } else {
+            adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(message.content));
+            adapter.notifyDataSetChanged();
+        }
+
+        item.initialDisplayed = true;
     }
 
     private void bindImageItem(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item, ChatMessage message) {
