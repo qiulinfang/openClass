@@ -284,6 +284,9 @@ public class LearnResourceManager {
                             new TypeToken<ApiResponse<List<LearningPackage>>>(){}.getType());
                     
                     if (apiResponse.success && apiResponse.data != null) {
+                        for(LearningPackage pkg : apiResponse.data) {
+                            pkg.eliminateNull();
+                        }
                         mainHandler.post(() -> callback.onSuccess(apiResponse.data));
                     } else {
                         mainHandler.post(() -> callback.onError(apiResponse.message));
