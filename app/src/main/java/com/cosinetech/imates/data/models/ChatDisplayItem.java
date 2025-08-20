@@ -53,6 +53,8 @@ public class ChatDisplayItem {
     private boolean isTypingActive = false;
     private Context context;
 
+    public boolean initialDisplayed = false;
+
     public ChatDisplayItem(ChatMessage msg, boolean showWithTypingEffect, Context context) {
         this.chatMessage = msg;
         this.showWithTypingEffect = showWithTypingEffect;
@@ -165,7 +167,7 @@ public class ChatDisplayItem {
         if (!showWithTypingEffect || chatMessage.isSelf || msgIsFinished) {
             // 直接显示完整内容
             if (callback != null) {
-                callback.onContentUpdate(chatMessage.content);
+                callback.onContentUpdate(chatMessage.content, chatMessage.content);
             }
             return;
         }
@@ -180,14 +182,14 @@ public class ChatDisplayItem {
             public void run() {
                 if (currentDisplayCharIndex < chatMessage.content.length() && isTypingActive) {
                     String lastPartialContent = chatMessage.content.substring(0, currentDisplayCharIndex);
-                    currentDisplayCharIndex += 10;
+                    currentDisplayCharIndex += 1;
                     if(currentDisplayCharIndex >= chatMessage.content.length()) {
                         currentDisplayCharIndex = chatMessage.content.length();
                     }
                     String partialContent = chatMessage.content.substring(0, currentDisplayCharIndex);
 
                     if (callback != null && !partialContent.isEmpty() && !partialContent.equals(lastPartialContent)) {
-                        callback.onContentUpdate(partialContent);
+                        callback.onContentUpdate(lastPartialContent, partialContent);
                     }
                 }
 
@@ -272,7 +274,7 @@ public class ChatDisplayItem {
      * 打字效果回调接口
      */
     public interface TypingEffectCallback {
-        void onContentUpdate(String content);
+        void onContentUpdate(String oldContent, String newContent);
         void onTypingComplete(String content);
     }
 
