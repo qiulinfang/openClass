@@ -34,6 +34,7 @@ import com.cosinetech.imates.screencasting.UdpForwarderManager;
 import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.SimpleImageCompressor;
 import com.cosinetech.imates.utils.WindowUtils;
+import com.cosinetech.imates.ui.login.LoginActivity;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
