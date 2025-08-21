@@ -209,7 +209,7 @@
         android:layout_height="0dp"
         android:background="#000000"
         app:layout_constraintStart_toStartOf="@id/verticalGuide"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/spliter"
         app:layout_constraintBottom_toBottomOf="parent"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
