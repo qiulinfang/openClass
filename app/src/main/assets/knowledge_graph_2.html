@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <link type="text/css" rel="stylesheet" href="jsmind.css" />
+    <script type="text/javascript" src="jsmind.js"></script>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* 添加自定义菜单样式 */
+        .custom-menu {
+            position: absolute;
+            background: white;
+            border: 1px solid #ccc;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            border-radius: 4px;
+            z-index: 1000;
+            min-width: 80px; /* 确保菜单不会太窄 */
+        }
+        .custom-menu-item {
+            padding: 2px 2px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #1d85ce;
+            white-space: nowrap; /* 防止换行 */
+            min-width: 80px; /* 确保菜单项足够宽 */
+        }
+        .custom-menu-item:hover {
+            background: #f0f0f0;
+        }
+
+
+    </style>
+</head>
+<body>
+<div id="jsmind_container" style="width: 100%; height: 100%;"></div>
+<script type="text/javascript">
+    var graph = {
+        "meta": {
+            "name": "数学知识导图",
+            "author": "imates",
+            "version": "0.1"
+        },
+        "format": "node_tree",
+        "data": {
+            "id": "book2",
+            "topic": "数学人教B版 必修二",
+            "children": [
+                 {
+                    "id": "chapter4",
+                    "topic": "第4章 指数函数、对数函数与幂函数",
+                    "direction": "left",
+                    "children": [
+                        {
+                            "id": "section4.1",
+                            "topic": "4.1指数与指数函数",
+                            "children": [
+                                {
+                                    "id": "section4.1.1",
+                                    "topic": "4.1.1 实数指数幂及其运算"
+                                },
+                                {
+                                    "id": "section4.1.2",
+                                    "topic": "4.1.2 指数函数的性质与图象"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "section4.2",
+                            "topic": "4.2对数与对数函数",
+                            "children": [
+                                {
+                                    "id": "section4.2.1",
+                                    "topic": "4.2.1 对数的运算"
+                                },
+                                {
+                                    "id": "section4.2.2",
+                                    "topic": "4.2.2 对数运算法则"
+                                },
+                                {
+                                    "id": "section4.2.3",
+                                    "topic": "4.2.3 对数函数的性质与图象"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "section4.3",
+                            "topic": "4.3 指数函数与对数函数的关系"
+                        },
+                        {
+                            "id": "section4.4",
+                            "topic": "4.4 幂函数"
+                        },
+                        {
+                            "id": "section4.5",
+                            "topic": "4.5 增长速度的比较"
+                        },
+                        {
+                            "id": "section4.6",
+                            "topic": "4.6 函数的应用 (二)"
+                        },
+                        {
+                            "id": "section4.7",
+                            "topic": "4.7 数学建模活动"
+                        }
+                    ]
+                },
+                {
+                    "id": "chapter5",
+                    "topic": "第5章 统计与概率",
+                    "direction": "right",
+                    "children": [
+                        {
+                            "id": "section5.1",
+                            "topic": "5.1 统计",
+                            "children": [
+                                {
+                                    "id": "section5.1.1",
+                                    "topic": "5.1.1 数据的收集"
+                                },
+                                {
+                                    "id": "section5.1.2",
+                                    "topic": "5.1.2 数据的数字特征"
+                                },
+                                {
+                                    "id": "section5.1.3",
+                                    "topic": "5.1.3 数据的直观表示"
+                                },
+                                {
+                                    "id": "section5.1.4",
+                                    "topic": "5.1.4 用样本估计总体"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "section5.2",
+                            "topic": "5.2 数学探究活动"
+                        },
+                        {
+                            "id": "section5.3",
+                            "topic": "5.3 概率",
+                            "children": [
+                                {
+                                    "id": "section5.3.1",
+                                    "topic": "5.3.1 样本空间与事件"
+                                },
+                                {
+                                    "id": "section5.3.2",
+                                    "topic": "5.3.2 事件之间的关系与运算"
+                                },
+                                {
+                                    "id": "section5.3.3",
+                                    "topic": "5.3.3 古典概型"
+                                },
+                                {
+                                    "id": "section5.3.4",
+                                    "topic": "5.3.4 频率与概率"
+                                },
+                                {
+                                    "id": "section5.3.5",
+                                    "topic": "5.3.5 随机事件的独立性"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "section5.4",
+                            "topic": "5.4 统计与概率的应用"
+                        }
+                    ]
+                },
+                {
+                    "id": "chapter6",
+                    "topic": "第6章 平面向量初步",
+                    "direction": "left",
+                    "children": [
+                        {
+                            "id": "section6.1",
+                            "topic": "6.1 平面向量及其线性运算",
+                            "children": [
+                                {
+                                    "id": "section6.1.1",
+                                    "topic": "6.1.1 向量的概念"
+                                },
+                                {
+                                    "id": "section6.1.2",
+                                    "topic": "6.1.2 向量的加法"
+                                },
+                                {
+                                    "id": "section6.1.3",
+                                    "topic": "6.1.3 向量的减法"
+                                },
+                                {
+                                    "id": "section6.1.4",
+                                    "topic": "6.1.4 数乘向量"
+                                },
+                                {
+                                    "id": "section6.1.5",
+                                    "topic": "6.1.5 向量的线性运算"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "section6.2",
+                            "topic": "6.2 向量基本定理与向量的坐标",
+                            "children": [
+                                {
+                                    "id": "section6.2.1",
+                                    "topic": "6.2.1 向量基本定理"
+                                },
+                                {
+                                    "id": "section6.2.2",
+                                    "topic": "6.2.2 直线上向量的坐标及其运算"
+                                },
+                                {
+                                    "id": "section6.2.3",
+                                    "topic": "6.2.3 平面向量的坐标及其运算"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "section6.3",
+                            "topic": "6.3 平面向量线性运算的应用"
+                        }
+                    ]
+                }
+            ]
+        }
+    };
+
+    var options = {
+        container: 'jsmind_container',
+        theme: 'primary',
+        editable: false,
+        support_html: true,
+        view: { engine: 'canvas',
+                draggable: true,
+                enable_device_pixel_ratio: true,
+                zoom: {             // 配置缩放
+                   min: 0.2,       // 最小的缩放比例
+                   max: 3.0,       // 最大的缩放比例
+                   step: 0.1,      // 缩放比例间隔
+               }
+        },
+        layout:{
+           hspace:30,          // 节点之间的水平间距
+           vspace:40,          // 节点之间的垂直间距
+           pspace:13,          // 节点与连接线之间的水平间距（用于容纳节点收缩/展开控制器）
+           cousin_space:10      // 相邻节点的子节点之间的额外的垂直间距
+        }
+    };
+
+    var mind = new jsMind(options);
+
+    // 从Android接口获取数据并刷新思维导图
+    function loadMindData() {
+        if (window.Android && window.Android.getMindData) {
+            try {
+                var mindData = JSON.parse(window.Android.getMindData());
+                if (mindData && mindData.data) {
+                    var graph = {
+                        "meta": {
+                            "name": "知识导图",
+                            "author": "imates",
+                            "version": "0.1"
+                        },
+                        "format": "node_tree",
+                        "data": mindData.data
+                    };
+                    mind.show(graph);
+                    resizeToFit();
+                }
+            } catch (e) {
+                console.error("Error parsing mind data:", e);
+            }
+        } else {
+            console.log("Android interface not available, using default data");
+            // 可以在这里设置默认数据或显示错误信息
+        }
+    }
+
+    // 提供给Android调用的刷新接口
+    function refreshMindData() {
+        loadMindData();
+    }
+
+    // 自适应缩放到容器大小
+    function resizeToFit() {
+        const container = document.getElementById('jsmind_container');
+        if (!mind || !container) return;
+
+        const mindSize = mind.view.size; // mindmap 实际宽高
+        if (!mindSize || !mindSize.w || !mindSize.h) return;
+
+        // 计算适合比例
+        const scaleWidth = container.clientWidth / mindSize.w;
+        const scaleHeight = container.clientHeight / mindSize.h;
+        const scale = Math.min(scaleWidth, scaleHeight);
+
+        // 限制缩放范围（避免太小或太大）
+        const minZoom = 0.1;
+        const maxZoom = 3.0;
+        const finalScale = Math.max(minZoom, Math.min(maxZoom, scale));
+
+        mind.view.setZoom(finalScale);
+    }
+
+    // 当窗口大小变化时自动调整
+    window.addEventListener('resize', resizeToFit);
+
+    // 初次显示后调用
+    mind.show(graph);
+    resizeToFit();
+
+    // 在初始加载和窗口大小改变时调用 resizeToFit
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            resizeToFit();
+        }, 100); // 延迟 100ms 确保布局完成
+    });
+
+    var currentContextMenu = null;
+
+    // 修改为click事件监听
+    document.addEventListener('click', function(event) {
+        var nodeElement = event.target.closest('jmnode');
+        if (nodeElement) {
+            event.stopPropagation(); // 阻止事件冒泡
+            event.preventDefault(); // 阻止默认行为
+
+            var nodeId = nodeElement.getAttribute('nodeid');
+            // 只处理章节节点
+            if (nodeId && (nodeId.startsWith("section") || nodeId.startsWith("chapter"))) {
+                showContextMenu(event, nodeElement);
+            }
+        }
+    }, true); // 使用捕获阶段确保优先处理
+
+    // 显示上下文菜单的函数
+    function showContextMenu(event, node) {
+        // 清理现有菜单
+        if (currentContextMenu) {
+            document.body.removeChild(currentContextMenu);
+            currentContextMenu = null;
+        }
+
+        var nodeId = node.getAttribute('nodeid');
+        var nodeName = node.textContent.trim();
+
+        // 创建菜单容器
+        var contextMenu = document.createElement('div');
+        contextMenu.className = 'custom-menu';
+
+        // 定位菜单（向右下方偏移5px）
+        contextMenu.style.left = (event.pageX) + 'px';
+        contextMenu.style.top = (event.pageY) + 'px';
+
+        // 添加菜单项
+        var menuItems = [
+            {text: '去学习', action: () => {
+                            document.body.removeChild(contextMenu);
+                            currentContextMenu = null;
+                            window.Android.onPrepareLesson(nodeId, nodeName);
+                        }},
+            {text: '去练习', action: () => {
+                            document.body.removeChild(contextMenu);
+                            currentContextMenu = null;
+                            window.Android.onReviewLesson(nodeId, nodeName);
+                        }}
+        ];
+
+        menuItems.forEach(item => {
+            var div = document.createElement('div');
+            div.className = 'custom-menu-item';
+            div.textContent = item.text;
+            div.onclick = function(e) {
+                e.stopPropagation();
+                item.action();
+                document.body.removeChild(contextMenu);
+            };
+            contextMenu.appendChild(div);
+        });
+
+        document.body.appendChild(contextMenu);
+        currentContextMenu = contextMenu;
+    }
+
+    // 点击任意位置关闭菜单
+    document.addEventListener('click', function(e) {
+         try {
+            if (currentContextMenu && !currentContextMenu.contains(e.target)) {
+                document.body.removeChild(currentContextMenu);
+                currentContextMenu = null;
+            }
+         } catch (e) {
+            // 捕获并处理异常
+            console.log(e.toString());
+        }
+    });
+</script>
+</body>
+</html>

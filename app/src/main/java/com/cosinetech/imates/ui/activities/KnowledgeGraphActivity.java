@@ -14,6 +14,7 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -65,6 +66,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
     private TextbookVersionSpinnerAdapter mTextbookVersionSpinnerAdapter;
     private List<UserTextbookInfo> mTextbookVersions;
     private UserTextbookInfo mCurrentUserTextbookInfo;
+    private String mCurrentSchema;
 
     private WebAppInterface mWebViewInterface;
 
@@ -95,7 +97,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
         // Add JavaScript interface
         webView.addJavascriptInterface(mWebViewInterface, "Android");
         // Load the local HTML file
-        webView.loadUrl("file:///android_asset/knowledge_graph.html");
+        //webView.loadUrl("file:///android_asset/knowledge_graph.html");
         webView.setOnTouchListener((v, event) -> {
             // 禁止ViewPager2拦截触摸事件
             if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_MOVE) {
@@ -113,26 +115,36 @@ public class KnowledgeGraphActivity extends BaseActivity {
 
         mTextbookVersions = new ArrayList<>();
         mTextbookVersionSpinner = findViewById(R.id.textbook_version_spinner);
-        mTextbookVersionSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                mCurrentUserTextbookInfo = (UserTextbookInfo) parent.getItemAtPosition(position);
-                new Thread(() -> {
-                    getTextbookMindData(mCurrentUserTextbookInfo, mindData -> {
-                        mWebViewInterface.updateMindData(mindData);
-                        runOnUiThread(() -> {
-                            webView.evaluateJavascript("refreshMindData()", null);
-                        });
-                    });
+        // 数据源（字符串数组）
+        String[] items = {"数学人教B版必修一资源", "数学人教B版必修二资源"};
+        String[] urls = {"file:///android_asset/knowledge_graph.html", "file:///android_asset/knowledge_graph_2.html"};
+        String[] schemas = {"math_learn_schema.json", "math_learn_schema_2.json"};
 
-                }).start();
+        // 创建 ArrayAdapter
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_spinner_item,  // 系统自带的布局
+                items
+        );
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+
+        // 设置适配器
+        mTextbookVersionSpinner.setAdapter(adapter);
+
+        // 监听选择事件（可选）
+        mTextbookVersionSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> parent, android.view.View view, int position, long id) {
+                if(position >= 0 && position < items.length) {
+                    webView.loadUrl(urls[position]);
+                    mCurrentSchema = schemas[position];
+                }
             }
 
             @Override
-            public void onNothingSelected(AdapterView<?> parent) { }
+            public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
-        mTextbookVersionSpinnerAdapter = new TextbookVersionSpinnerAdapter(this, mTextbookVersions);
-        mTextbookVersionSpinner.setAdapter(mTextbookVersionSpinnerAdapter);
+        mTextbookVersionSpinner.setSelection(0);
 
         Button btnGoExerciseList = findViewById(R.id.btn_my_exercise);
         btnGoExerciseList.setOnClickListener(v->{
@@ -340,11 +352,11 @@ public class KnowledgeGraphActivity extends BaseActivity {
 
         @JavascriptInterface
         public void onPrepareLesson(String nodeId, String nodeName) {
-            new Handler(Looper.getMainLooper()).post(()->startPreviewLessonActivity(nodeId, nodeName));
+            new Handler(Looper.getMainLooper()).post(()->startPreviewLessonActivity(mCurrentSchema, nodeId, nodeName));
         }
         @JavascriptInterface
         public void onReviewLesson(String nodeId, String nodeName) {
-            Chapter.Section s = getSection(nodeId);
+            Chapter.Section s = getSection(mCurrentSchema, nodeId);
             if(s == null) {
                 Toast.makeText(context, "选择小节去练习", Toast.LENGTH_SHORT).show();
                 return;
@@ -358,8 +370,8 @@ public class KnowledgeGraphActivity extends BaseActivity {
             }
         }
 
-        public void startPreviewLessonActivity(String sectionId, String sectionName) {
-            Chapter.Section s = getSection(sectionId);
+        public void startPreviewLessonActivity(String schemaFile, String sectionId, String sectionName) {
+            Chapter.Section s = getSection(schemaFile, sectionId);
             if(s != null) {
                 List<Chapter.Schema> validSchemas = new ArrayList<>();
                 for (Chapter.Schema schema : s.getSchemas()) {
@@ -389,11 +401,11 @@ public class KnowledgeGraphActivity extends BaseActivity {
             startActivity(intent);
         }
 
-        public Chapter.Section getSection(String sectionId) {
+        public Chapter.Section getSection(String fileName, String sectionId) {
             StringBuilder newstringBuilder = new StringBuilder();
             InputStream inputStream;
             try {
-                inputStream = context.getResources().getAssets().open("math_learn_schema.json");
+                inputStream = context.getResources().getAssets().open(fileName);
                 InputStreamReader isr = new InputStreamReader(inputStream);
                 BufferedReader reader = new BufferedReader(isr);
                 String jsonLine;
