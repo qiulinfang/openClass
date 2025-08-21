@@ -129,7 +129,7 @@ public class ExerciseSolveActivity extends BaseActivity implements MessagingMana
         ChatAiParam param = new ChatAiParam();
         param.showHeader = false;
         param.chatBotUrl = chatBotUrl;
-        param.streamDisplay = subject == Subject.SUBJECT_BIOLOGY;
+        param.streamDisplay = true;
         param.showHistory = false;
         mChatView.setChatResponseListener( success -> {
             if(mCurrentQuestionIndex >= 0 && mCurrentQuestionIndex < mQuestions.size()) {

@@ -176,6 +176,15 @@ public class RichInputBoardActivity extends AppCompatActivity {
                 finish(); // 关闭当前 Activity
             });
         }
+
+        @JavascriptInterface
+        public void onExitEditor() {
+            runOnUiThread(() -> {
+                Intent resultIntent = new Intent();
+                setResult(RESULT_CANCELED, resultIntent);
+                finish(); // 关闭当前 Activity
+            });
+        }
     }
 
     /**
