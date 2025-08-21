@@ -13,7 +13,10 @@ import org.json.JSONObject;
 public class LoginRepository {
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
-    private final OkHttpClient client = new OkHttpClient();
+    private final OkHttpClient client;
+    public LoginRepository() {
+        this.client = new OkHttpClient();
+    }
 
     public String login(String account, String password) throws Exception {
         JSONObject json = new JSONObject();
@@ -34,7 +37,6 @@ public class LoginRepository {
                 } else {
                     throw new Exception(responseJson.getString("message"));
                 }
-
             } else {
                 throw new Exception("登录失败, 请检查网络连接:" + response.message());
             }

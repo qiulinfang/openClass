@@ -38,7 +38,7 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:required="false" />
-
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-feature
         android:name="android.hardware.touchscreen"
         android:required="false" />
@@ -132,7 +132,7 @@
             android:supportsPictureInPicture="true"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
-            android:name=".ui.activities.LoginActivity"
+            android:name=".ui.login.LoginActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="true"
             android:screenOrientation="landscape"
