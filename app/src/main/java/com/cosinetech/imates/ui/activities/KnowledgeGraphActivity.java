@@ -10,7 +10,7 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
-import android.webkit.JavascriptInterface;
+
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.AdapterView;
@@ -37,9 +37,8 @@ import com.lzf.easyfloat.EasyFloat;
 import com.xuexiang.xupdate.easy.EasyUpdate;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Queue;
 
 public class KnowledgeGraphActivity extends BaseActivity {
     private static final String TAG = "KnowledgeGraphActivity";
@@ -50,7 +49,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
         @Override
         public void run() {
             long tick = System.currentTimeMillis();
-            if(tick - mCheckUpdateTick >= 3600000) {
+            if (tick - mCheckUpdateTick >= 3600000) {
                 mCheckUpdateTick = tick;
                 EasyUpdate.create(KnowledgeGraphActivity.this, ApiUrl.URL_APP_UPDATE)
                         .isAutoMode(false)
@@ -65,7 +64,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
     private List<UserTextbookInfo> mTextbookVersions;
     private UserTextbookInfo mCurrentUserTextbookInfo;
 
-    private WebAppInterface mWebViewInterface;
+    private KnowledgeGraphWebInterface mWebViewInterface;
 
     private List<LocalPackageInfo> mLearnPackages = new ArrayList<>();
 
@@ -85,7 +84,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         WebView webView = findViewById(R.id.knowledge_view);
         mTextViewUpdateBadge = findViewById(R.id.update_badge);
-        mWebViewInterface = new KnowledgeGraphActivity.WebAppInterface(this);
+        mWebViewInterface = new KnowledgeGraphWebInterface(this);
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true); // 启用 DOM storage
         webView.getSettings().setSupportZoom(true);
@@ -125,18 +124,19 @@ public class KnowledgeGraphActivity extends BaseActivity {
                             webView.evaluateJavascript("refreshMindData()", null);
                         });
 
-                        LearnResourceManager.getInstance().getTextbookPackagesWithLocalFiles(mCurrentUserTextbookInfo.textbookId,
+                        LearnResourceManager.getInstance().getTextbookPackagesWithLocalFiles(
+                                mCurrentUserTextbookInfo.textbookId,
                                 new LearnResourceManager.TextbookPackagesCallback() {
-                            @Override
-                            public void onSuccess(List<LocalPackageInfo> packages) {
-                                mLearnPackages = packages;
-                            }
+                                    @Override
+                                    public void onSuccess(List<LocalPackageInfo> packages) {
+                                        mLearnPackages = packages;
+                                    }
 
-                            @Override
-                            public void onError(String error) {
-                                mLearnPackages.clear();
-                            }
-                        });
+                                    @Override
+                                    public void onError(String error) {
+                                        mLearnPackages.clear();
+                                    }
+                                });
 
                     });
 
@@ -144,16 +144,17 @@ public class KnowledgeGraphActivity extends BaseActivity {
             }
 
             @Override
-            public void onNothingSelected(AdapterView<?> parent) { }
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
         });
         mTextbookVersionSpinnerAdapter = new TextbookVersionSpinnerAdapter(this, mTextbookVersions);
         mTextbookVersionSpinner.setAdapter(mTextbookVersionSpinnerAdapter);
 
         Button btnGoExerciseList = findViewById(R.id.btn_my_exercise);
-        btnGoExerciseList.setOnClickListener(v->{
+        btnGoExerciseList.setOnClickListener(v -> {
             Intent intent = new Intent(this, ExerciseSolveActivity.class);
-                intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
-                intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, Subject.SUBJECT_MATH.name());
+            intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
+            intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, Subject.SUBJECT_MATH.name());
             startActivity(intent);
         });
 
@@ -195,17 +196,17 @@ public class KnowledgeGraphActivity extends BaseActivity {
         LearnResourceManager.getInstance().loadUserAllLocalTextbooks(new LearnResourceManager.AllTextbooksCallback() {
             @Override
             public void onSuccess(List<UserTextbookInfo> textbooks) {
-                if(textbooks == null) {
+                if (textbooks == null) {
                     promptToDownloadResource();
                 } else {
                     List<UserTextbookInfo> localTextbooks = new ArrayList<>();
-                    for (UserTextbookInfo textbook: textbooks) {
-                        if(textbook.isDownloaded) {
+                    for (UserTextbookInfo textbook : textbooks) {
+                        if (textbook.isDownloaded) {
                             localTextbooks.add(textbook);
                         }
                     }
 
-                    if(localTextbooks.isEmpty()) {
+                    if (localTextbooks.isEmpty()) {
                         promptToDownloadResource();
                     } else {
                         presentLocalLearnResource(localTextbooks);
@@ -225,7 +226,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
             @Override
             public void onUpdateAvailable(List<TextbookVersion> updatedTextbooks) {
                 runOnUiThread(() -> {
-                    if(updatedTextbooks.isEmpty()) {
+                    if (updatedTextbooks.isEmpty()) {
                         mTextViewUpdateBadge.setVisibility(View.GONE);
                     } else {
                         int count = updatedTextbooks.size();
@@ -250,31 +251,33 @@ public class KnowledgeGraphActivity extends BaseActivity {
     interface TextbookMindDataCallback {
         void onGetTextbookMindData(String mindData);
     }
+
     private void getTextbookMindData(UserTextbookInfo textbook, TextbookMindDataCallback callback) {
         LearnResourceManager.getInstance().getTextbookStructureLocal(textbook.textbookId,
                 true,
                 new LearnResourceManager.TextbookStructureLocalCallback() {
-            @Override
-            public void onSuccess(List<ChapterNode> structure) {
-                if(!structure.isEmpty()) {
-                    String mindData = ChapterNodeConverter.convertToMindJson(structure.get(0).children, textbook.textbookGradeLabel
-                            + textbook.textbookSubjectLabel + textbook.textbookName);
-                    if (callback != null) {
-                        callback.onGetTextbookMindData(mindData);
+                    @Override
+                    public void onSuccess(List<ChapterNode> structure) {
+                        if (!structure.isEmpty()) {
+                            String mindData = ChapterNodeConverter.convertToMindJson(structure.get(0).children,
+                                    textbook.textbookGradeLabel
+                                            + textbook.textbookSubjectLabel + textbook.textbookName);
+                            if (callback != null) {
+                                callback.onGetTextbookMindData(mindData);
+                            }
+                        }
                     }
-                }
-            }
 
-            @Override
-            public void onNotFound() {
+                    @Override
+                    public void onNotFound() {
 
-            }
+                    }
 
-            @Override
-            public void onError(String error) {
+                    @Override
+                    public void onError(String error) {
 
-            }
-        });
+                    }
+                });
     }
 
     @Override
@@ -298,19 +301,21 @@ public class KnowledgeGraphActivity extends BaseActivity {
                 checkUserLocalLearnResources();
                 checkUpdateLearnResource();
             } else {
-                LearnResourceManager.getInstance().login(AppUtils.getUserId(), AppUtils.getUserPassword(), new LearnResourceManager.LoginCallback() {
-                    @Override
-                    public void onSuccess(LoginResponse response) {
-                        checkUserLocalLearnResources();
-                        checkUpdateLearnResource();
-                    }
+                LearnResourceManager.getInstance().login(AppUtils.getUserId(), AppUtils.getUserPassword(),
+                        new LearnResourceManager.LoginCallback() {
+                            @Override
+                            public void onSuccess(LoginResponse response) {
+                                checkUserLocalLearnResources();
+                                checkUpdateLearnResource();
+                            }
 
-                    @Override
-                    public void onError(String error) {
-                        checkUserLocalLearnResources();
-                        Toast.makeText(KnowledgeGraphActivity.this, "登录研伴失败, 无法获取在线资源", Toast.LENGTH_SHORT).show();
-                    }
-                });
+                            @Override
+                            public void onError(String error) {
+                                checkUserLocalLearnResources();
+                                Toast.makeText(KnowledgeGraphActivity.this, "登录研伴失败, 无法获取在线资源", Toast.LENGTH_SHORT)
+                                        .show();
+                            }
+                        });
             }
         } catch (Exception e) {
             Log.e(TAG, "Perform resource check:" + e.getMessage());
@@ -333,186 +338,6 @@ public class KnowledgeGraphActivity extends BaseActivity {
         EasyFloat.dismiss(FLOAT_ACTION_TAG);
         stopFloatingWindowService();
         mMainHandler.removeCallbacksAndMessages(null); // 彻底清除
-    }
-
-    public class WebAppInterface {
-        private final Context context;
-        private String mMindData = "";
-
-        WebAppInterface(Context context) {
-            this.context = context;
-        }
-
-        public void updateMindData(String mindData) {
-            mMindData = mindData;
-        }
-
-        public List<String> getAllKnowledgeLists(List<ChapterNode> roots, String targetId) {
-            List<String> knowledgeLists = new ArrayList<>();
-
-            // Find the target node
-            ChapterNode targetNode = findChapterNodeById(roots, targetId);
-
-            if (targetNode == null) {
-                return knowledgeLists; // return empty list if node not found
-            }
-
-            // Add knowledge lists recursively
-            addKnowledgeListsRecursive(targetNode, knowledgeLists);
-
-            return knowledgeLists;
-        }
-
-        private void addKnowledgeListsRecursive(ChapterNode node, List<String> knowledgeLists) {
-            // Add current node's knowledgeList if not null/empty
-            if (node.knowledgeList != null && !node.knowledgeList.isEmpty()) {
-                knowledgeLists.add(node.knowledgeList);
-            }
-
-            // Process children recursively
-            if (node.children != null) {
-                for (ChapterNode child : node.children) {
-                    addKnowledgeListsRecursive(child, knowledgeLists);
-                }
-            }
-        }
-
-        // Helper function from previous solution to find a node by ID
-        private ChapterNode findChapterNodeById(List<ChapterNode> roots, String targetId) {
-            if (roots == null || targetId == null) {
-                return null;
-            }
-
-            for (ChapterNode node : roots) {
-                ChapterNode foundNode = findNodeRecursive(node, targetId);
-                if (foundNode != null) {
-                    return foundNode;
-                }
-            }
-
-            return null;
-        }
-
-        private ChapterNode findNodeRecursive(ChapterNode currentNode, String targetId) {
-            if (currentNode != null && targetId.equals(currentNode.id)) {
-                return currentNode;
-            }
-
-            if (currentNode != null && currentNode.children != null) {
-                for (ChapterNode child : currentNode.children) {
-                    ChapterNode foundNode = findNodeRecursive(child, targetId);
-                    if (foundNode != null) {
-                        return foundNode;
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        public ChapterNode findChapterNodeBFS(List<ChapterNode> roots, String targetId) {
-            if (roots == null || targetId == null) {
-                return null;
-            }
-
-            Queue<ChapterNode> queue = new LinkedList<>(roots);
-
-            while (!queue.isEmpty()) {
-                ChapterNode currentNode = queue.poll();
-
-                if (targetId.equals(currentNode.id)) {
-                    return currentNode;
-                }
-
-                if (currentNode.children != null) {
-                    queue.addAll(currentNode.children);
-                }
-            }
-
-            return null;
-        }
-
-        @JavascriptInterface
-        public String getMindData() {
-            return mMindData;
-        }
-
-        @JavascriptInterface
-        public void onPrepareLesson(String nodeId, String nodeName) {
-            new Handler(Looper.getMainLooper()).post(()->startPreviewLessonActivity(nodeId, nodeName));
-        }
-        @JavascriptInterface
-        public void onReviewLesson(String nodeId, String nodeName) {
-            // 找练习题
-            if(mCurrentUserTextbookInfo == null) {
-                Toast.makeText(context, "当前课本没有练习题", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            ChapterNode node = findChapterNodeById(mCurrentUserTextbookInfo.structure, nodeId);
-            if(node == null) {
-                Toast.makeText(context, "选择小节去练习", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            List<String> knowledgeIds = getAllKnowledgeLists(mCurrentUserTextbookInfo.structure, nodeId);
-            StringBuilder knowledgeId = new StringBuilder();
-            for (String id : knowledgeIds) {
-                knowledgeId.append(id).append(",");
-            }
-
-            if(knowledgeId.toString().trim().isEmpty()) {
-                Toast.makeText(context, "没有相关的习题", Toast.LENGTH_SHORT).show();
-            } else {
-                // 在 UI 线程上执行的代码
-                new Handler(Looper.getMainLooper()).post(() -> startFindExerciseActivity(knowledgeId.toString().trim()));
-            }
-        }
-
-        ///
-        /// 去学习课本的套餐
-        ///
-        public void startPreviewLessonActivity(String sectionId, String sectionName) {
-            Intent previewLessonActivity = new Intent(context, LessonPreviewActivity.class);
-            previewLessonActivity.putExtra(LessonPreviewActivity.KEY_PREVIEW_SECTION_NAME, sectionName);
-            Gson gson = new GsonBuilder()
-                    .setDateFormat("yyyy-MM-dd HH:mm:ss")
-                    .create();
-            if(!mLearnPackages.isEmpty()) {
-                previewLessonActivity.putExtra(LessonPreviewActivity.KEY_LEARN_PACKAGE, gson.toJson(mLearnPackages));
-                startActivity(previewLessonActivity);
-            } else {
-                Toast.makeText(context, "选择小节去学习", Toast.LENGTH_SHORT).show();
-            }
-//            Chapter.Section s = getSection(sectionId);
-//            if(s != null) {
-//                List<Chapter.Schema> validSchemas = new ArrayList<>();
-//                for (Chapter.Schema schema : s.getSchemas()) {
-//                    if(!schema.getTextBook().trim().isEmpty()) {
-//                        validSchemas.add(schema);
-//                    }
-//                }
-//                if(validSchemas.isEmpty()) {
-//                    Toast.makeText(context, "选择小节去学习", Toast.LENGTH_SHORT).show();
-//                    return;
-//                }
-//                s.setSchemas(validSchemas);
-//                Intent previewLessonActivity = new Intent(context, LessonPreviewActivity.class);
-//                previewLessonActivity.putExtra(LessonPreviewActivity.KEY_PREVIEW_SECTION_NAME, sectionName);
-//                previewLessonActivity.putExtra(LessonPreviewActivity.KEY_SECTION_SCHEMA, s);
-//                startActivity(previewLessonActivity);
-//            } else {
-//                Toast.makeText(context, "选择小节去学习", Toast.LENGTH_SHORT).show();
-//            }
-        }
-
-        public void startFindExerciseActivity(String knowledgeList) {
-            Intent intent = new Intent(context, FindExerciseActivity.class);
-            intent.putExtra(FindExerciseActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
-            intent.putExtra(FindExerciseActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_MATH.name());
-            intent.putExtra(FindExerciseActivity.KEY_KNOWLEDGE_LIST, knowledgeList);
-            startActivity(intent);
-        }
     }
 
     public static class ChapterNodeConverter {
