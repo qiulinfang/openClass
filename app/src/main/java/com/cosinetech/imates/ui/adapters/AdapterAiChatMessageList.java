@@ -208,7 +208,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
 
         // 获取 RecyclerView
         // 获取 Markwon 和 MarkwonAdapter 实例
-        final Markwon markwon = item.getMarkwon(32);
+        final Markwon markwon = item.getMarkwon(32, true);
         final MarkwonAdapter adapter = item.getMarkwonAdapter();
         RecyclerView recyclerView = binding.getRoot().findViewById(R.id.recycler_view);
         if(!item.initialDisplayed) {

@@ -18,11 +18,13 @@ import java.util.regex.Pattern;
 import io.noties.markwon.AbstractMarkwonPlugin;
 import io.noties.markwon.Markwon;
 import io.noties.markwon.MarkwonConfiguration;
+import io.noties.markwon.MarkwonPlugin;
 import io.noties.markwon.MarkwonVisitor;
 import io.noties.markwon.ext.latex.JLatexMathNode;
 import io.noties.markwon.ext.latex.JLatexMathPlugin;
 import io.noties.markwon.ext.latex.JLatexMathTheme;
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin;
+import io.noties.markwon.ext.tables.TablePlugin;
 import io.noties.markwon.ext.tasklist.TaskListPlugin;
 import io.noties.markwon.html.HtmlPlugin;
 import io.noties.markwon.image.ImagesPlugin;
@@ -68,7 +70,13 @@ public class ChatDisplayItem {
     /**
      * 创建 Markwon 实例
      */
-    public static Markwon createMarkwon(Context context, float textSize) {
+    public static Markwon createMarkwon(Context context, float textSize, boolean hasTableLayout) {
+        MarkwonPlugin tablePlugin;
+        if (hasTableLayout) {
+            tablePlugin = TableEntryPlugin.create(context);
+        } else {
+            tablePlugin = TablePlugin.create(context);
+        }
         MarkwonInlineParserPlugin markwonInlineParserPlugin = MarkwonInlineParserPlugin.create();
         markwonInlineParserPlugin.factoryBuilder()
                 // 块级
@@ -80,7 +88,7 @@ public class ChatDisplayItem {
         return Markwon.builder(context)
                 .usePlugin(HtmlPlugin.create())
                 .usePlugin(ImagesPlugin.create())
-                .usePlugin(TableEntryPlugin.create(context))
+                .usePlugin(tablePlugin)
                 .usePlugin(StrikethroughPlugin.create())
                 .usePlugin(TaskListPlugin.create(context))
                 .usePlugin(new AbstractMarkwonPlugin() {
@@ -248,8 +256,8 @@ public class ChatDisplayItem {
     /**
      * 获取 Markwon 实例
      */
-    public Markwon getMarkwon(float textSize) {
-        return markwon != null ? markwon : (markwon = createMarkwon(context, textSize));
+    public Markwon getMarkwon(float textSize, boolean hasTableLayout) {
+        return markwon != null ? markwon : (markwon = createMarkwon(context, textSize, hasTableLayout));
     }
 
     /**
