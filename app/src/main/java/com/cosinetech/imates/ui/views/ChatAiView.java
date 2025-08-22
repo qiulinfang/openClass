@@ -533,7 +533,8 @@ public class ChatAiView extends RelativeLayout {
         });
 
         // Initialize RecyclerView
-        mMsgDetailListView.setItemViewCacheSize(10);
+        mMsgDetailListView.setItemViewCacheSize(-100);
+        mMsgDetailListView.setItemAnimator(null);
         mMsgDetailListView.setLayoutManager(new LinearLayoutManager(mContext, LinearLayoutManager.VERTICAL, false));
         mMsgDetailListView.addItemDecoration(new RecyclerViewOverscrollDecoration());
         mMsgDetailListView.setClipToPadding(false);// disabling clip to padding is critical
@@ -1480,7 +1481,7 @@ public class ChatAiView extends RelativeLayout {
         List<ChatMessage> allMessage =  mChatDb.getChatMessageDetail(mCurrentSession.sessionId);
 
         int curSize = mAdapterAiChatMessageList.getItems().size();
-        int n = curSize + 2;
+        int n = curSize + 5;
         if (allMessage.size() <= n) {
             mAdapterAiChatMessageList.getItems().clear();
             mAdapterAiChatMessageList.getItems().addAll(convertChatDisplayList(allMessage, true));

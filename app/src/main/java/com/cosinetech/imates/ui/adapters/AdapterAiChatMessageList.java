@@ -36,7 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem, androidx.databinding.ViewDataBinding> {
-
+    private static String TAG = "AdapterAiChatMessageList";
     public enum MessageDisplayType {
         TYPE_NONE(-1),
         TYPE_DATE(0),
@@ -202,7 +202,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         // 设置选择状态和头像
         setSelectionState(binding, item);
         setAvatarImage(binding, item);
-        Log.e("bindMarkdownItem", "bindMarkdownItem!!!");
+//        Log.e("bindMarkdownItem", "bindMarkdownItem!!!");
 //        MarkdownTextView textView = binding.getRoot().findViewById(R.id.tv_message);
 //        setMarkdownTextLegacy(textView, item);
 
@@ -216,26 +216,22 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
             recyclerView.setItemAnimator(null);
             recyclerView.setLayoutManager(new LinearLayoutManager(context));
             recyclerView.setAdapter(adapter);
+            adapter.setMarkdown(markwon, "");
+            adapter.notifyDataSetChanged();
         }
         // 处理打字效果或直接显示
         if (item.shouldShowTypingEffect()) {
             item.startTypingEffect(new ChatDisplayItem.TypingEffectCallback() {
                 @Override
                 public void onContentUpdate(String oldContent, String content) {
-                    adapter.setMarkdown(markwon, content);
-//                    if(item.initialDisplayed) {
-//                        adapter.continueUpdateMarkdown(markwon, MarkdownTextView.filterLatexString(content));
-////                        adapter.notifyDataSetChanged();
-//                    } else {
-//                        adapter.initialUpdateMarkdown(markwon, content);
-//                        item.initialDisplayed = true;
-//                    }
+                    adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(content));
+                    adapter.notifyDataSetChanged();
                 }
 
                 @Override
                 public void onTypingComplete(String content) {
-//                        adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(content));
-//                        adapter.notifyDataSetChanged();
+                    adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(content));
+                    adapter.notifyDataSetChanged();
                 }
             });
         } else {
@@ -368,7 +364,8 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                 displayMsg.showWithTypingEffect = showWithTypingEffect;
                 displayMsg.msgIsFinished = msgIsFinished;
 
-                notifyItemChanged(i, displayMsg.showWithTypingEffect);
+                //notifyItemChanged(i, displayMsg.showWithTypingEffect);
+                notifyDataSetChanged();
                 break;
             }
         }
@@ -380,6 +377,60 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         // 清理资源
         if (holder instanceof BaseBindingViewHolder) {
             // 可以在这里添加清理逻辑
+            int position = holder.getBindingAdapterPosition();
+            if (position == RecyclerView.NO_POSITION) return;
+
+            ChatDisplayItem item = items.get(position);
+            if (item == null) return;
+
+            int viewType = getItemViewType(position);
+            MessageDisplayType type = MessageDisplayType.fromValue(viewType);
+
+            switch (type) {
+                case TYPE_TEXT_LEFT_MARKDOWN:
+                case TYPE_TEXT_RIGHT_MARKDOWN:
+                    // 停止 Markdown 打字效果
+                    item.stopTypingEffect();
+                    // 如果有 MarkwonAdapter 或 RecyclerView 嵌套
+                    RecyclerView recyclerView = holder.itemView.findViewById(R.id.recycler_view);
+                    if (recyclerView != null) {
+                        recyclerView.setAdapter(null);
+                    }
+                    break;
+
+                case TYPE_IMAGE_LEFT:
+                case TYPE_IMAGE_RIGHT:
+                    // 清理 Glide 图片
+                    ImageView imageView = holder.itemView.findViewById(R.id.iv_message_image);
+                    if (imageView != null) {
+                        Glide.with(imageView.getContext()).clear(imageView);
+                    }
+                    break;
+
+                case TYPE_VOICE_LEFT:
+                case TYPE_VOICE_RIGHT:
+                    // 停止 Lottie 动画
+                    LottieAnimationView ivVoiceIcon = holder.itemView.findViewById(R.id.iv_voice_icon);
+                    if (ivVoiceIcon != null) ivVoiceIcon.cancelAnimation();
+
+                    // 停止音频播放（如果当前播放的是这个 item）
+                    if (position == mAudioPlayingItemIndex) {
+                        AudioPlayManager.getInstance().stopPlay();
+                        mAudioPlayingItemIndex = -1;
+                    }
+                    break;
+
+                case TYPE_DATE:
+                default:
+                    // 一般不需要额外清理
+                    break;
+            }
+
+            // 公共清理
+            CheckBox checkBox = holder.itemView.findViewById(R.id.iv_select);
+            if (checkBox != null) checkBox.setOnCheckedChangeListener(null);
+
+            item.initialDisplayed = false;
         }
     }
 }
