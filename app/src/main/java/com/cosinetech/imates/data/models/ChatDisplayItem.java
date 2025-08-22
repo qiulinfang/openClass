@@ -23,6 +23,7 @@ import io.noties.markwon.MarkwonVisitor;
 import io.noties.markwon.ext.latex.JLatexMathNode;
 import io.noties.markwon.ext.latex.JLatexMathPlugin;
 import io.noties.markwon.ext.latex.JLatexMathTheme;
+import io.noties.markwon.ext.latex.LatexParseStyle;
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin;
 import io.noties.markwon.ext.tables.TablePlugin;
 import io.noties.markwon.ext.tasklist.TaskListPlugin;
@@ -117,6 +118,8 @@ public class ChatDisplayItem {
                     // background provider for both inlines and blocks
                     //  or more specific: `inlineBackgroundProvider` & `blockBackgroundProvider`
                     builder.inlinesEnabled(true);
+                    builder.blockStyle(LatexParseStyle.STYLE_DOLLAR);
+                    builder.inlineStyle(LatexParseStyle.STYLE_BRACKETS);
                     //builder.allowInlinesSingleDollar(true);
 //                        builder.theme().backgroundProvider(new JLatexMathTheme.BackgroundProvider() {
 //                            @NonNull
@@ -172,7 +175,9 @@ public class ChatDisplayItem {
             return;
         }
 
-        if (!showWithTypingEffect || chatMessage.isSelf || msgIsFinished) {
+        if (!showWithTypingEffect
+                || chatMessage.isSelf
+                || (msgIsFinished && currentDisplayCharIndex >= chatMessage.content.length())) {
             // 直接显示完整内容
             if (callback != null) {
                 callback.onContentUpdate(chatMessage.content, chatMessage.content);
