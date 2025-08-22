@@ -40,7 +40,7 @@ public class MarkdownTextView extends AppCompatTextView {
 
     private void init(Context context) {
         mMainHandler = new Handler(Looper.getMainLooper());
-        mMarkwon = ChatDisplayItem.createMarkwon(getContext(), getTextSize());
+        mMarkwon = ChatDisplayItem.createMarkwon(getContext(), getTextSize(), false);
     }
 
     public void setContent(String content) {
