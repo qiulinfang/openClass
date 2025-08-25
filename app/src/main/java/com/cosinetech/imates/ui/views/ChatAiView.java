@@ -648,10 +648,10 @@ public class ChatAiView extends RelativeLayout {
 
         if(mChatAiParam.showHistory) {
             List<ChatMessage> msgs = mChatDb.getChatMessageDetail(mCurrentSession.sessionId);
-            if(msgs.size() > 2) {
-                mAdapterAiChatMessageList.getItems().addAll(convertChatDisplayList(msgs.subList(msgs.size() - 2, msgs.size()), true));
-            } else if(msgs.size() > 1) {
-                mAdapterAiChatMessageList.getItems().addAll(convertChatDisplayList(msgs.subList(msgs.size() - 1, msgs.size()), true));
+            if(msgs.size() > 10) {
+                mAdapterAiChatMessageList.getItems().addAll(convertChatDisplayList(msgs.subList(msgs.size() - 10, msgs.size()), true));
+            } else if(!msgs.isEmpty()) {
+                mAdapterAiChatMessageList.getItems().addAll(convertChatDisplayList(msgs, true));
             }
             if(!mAdapterAiChatMessageList.getItems().isEmpty()) {
                 //mAdapterAiChatMessageList.notifyDataSetChanged();
@@ -1481,7 +1481,7 @@ public class ChatAiView extends RelativeLayout {
         List<ChatMessage> allMessage =  mChatDb.getChatMessageDetail(mCurrentSession.sessionId);
 
         int curSize = mAdapterAiChatMessageList.getItems().size();
-        int n = curSize + 5;
+        int n = curSize + 10;
         if (allMessage.size() <= n) {
             mAdapterAiChatMessageList.getItems().clear();
             mAdapterAiChatMessageList.getItems().addAll(convertChatDisplayList(allMessage, true));
