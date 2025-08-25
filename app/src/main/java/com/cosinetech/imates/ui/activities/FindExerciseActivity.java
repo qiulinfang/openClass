@@ -112,7 +112,7 @@ public class FindExerciseActivity extends AppCompatActivity {
     }
     private void initView() {
         mRecyclerViewSimilarQuestion = findViewById(R.id.question_list);
-        mRecyclerViewSimilarQuestion.setItemViewCacheSize(0);
+        //mRecyclerViewSimilarQuestion.setItemViewCacheSize(0);
         mRecyclerViewSimilarQuestion.setLayoutManager(new LinearLayoutManager(this));
         adapterMultiSelectSimilarQuestionList = new AdapterMultiSelectSimilarQuestionList(mSimilarQuestion);
         mRecyclerViewSimilarQuestion.setAdapter(adapterMultiSelectSimilarQuestionList);
