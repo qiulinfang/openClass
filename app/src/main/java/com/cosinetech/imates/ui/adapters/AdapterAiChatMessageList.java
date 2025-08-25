@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
@@ -157,22 +158,13 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
             case TYPE_DATE:
                 bindDateItem((ItemMessageDateBinding) binding, message);
                 break;
-            case TYPE_TEXT_LEFT_MARKDOWN:
+            case TYPE_TEXT_LEFT_MARKDOWN, TYPE_TEXT_RIGHT_MARKDOWN:
                 bindMarkdownItem(binding, item, message, position);
                 break;
-            case TYPE_TEXT_RIGHT_MARKDOWN:
-                bindMarkdownItem(binding, item, message, position);
-                break;
-            case TYPE_IMAGE_LEFT:
+            case TYPE_IMAGE_LEFT, TYPE_IMAGE_RIGHT:
                 bindImageItem(binding, item, message);
                 break;
-            case TYPE_IMAGE_RIGHT:
-                bindImageItem(binding, item, message);
-                break;
-            case TYPE_VOICE_LEFT:
-                bindVoiceItem(binding, item, message, position);
-                break;
-            case TYPE_VOICE_RIGHT:
+            case TYPE_VOICE_LEFT, TYPE_VOICE_RIGHT:
                 bindVoiceItem(binding, item, message, position);
                 break;
         }
@@ -211,12 +203,10 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         final MarkwonAdapter adapter = item.getMarkwonAdapter();
         RecyclerView recyclerView = binding.getRoot().findViewById(R.id.recycler_view);
         if(!item.initialDisplayed) {
-            recyclerView.setItemViewCacheSize(10);
+            recyclerView.setItemViewCacheSize(-100);
             recyclerView.setItemAnimator(null);
             recyclerView.setLayoutManager(new LinearLayoutManager(context));
             recyclerView.setAdapter(adapter);
-            adapter.setMarkdown(markwon, "");
-            adapter.notifyDataSetChanged();
         }
         // 处理打字效果或直接显示
         if (item.shouldShowTypingEffect()) {
@@ -424,6 +414,25 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
             // 公共清理
             CheckBox checkBox = holder.itemView.findViewById(R.id.iv_select);
             if (checkBox != null) checkBox.setOnCheckedChangeListener(null);
+        }
+    }
+
+    @Override
+    public void onViewAttachedToWindow(@NonNull RecyclerView.ViewHolder holder) {
+        super.onViewAttachedToWindow(holder);
+
+        int pos = holder.getBindingAdapterPosition();
+        if(pos == RecyclerView.NO_POSITION) {
+            return;
+        }
+        MessageDisplayType type = MessageDisplayType.fromValue(getItemViewType(pos));
+        if(type == MessageDisplayType.TYPE_TEXT_LEFT_MARKDOWN
+            || type == MessageDisplayType.TYPE_TEXT_RIGHT_MARKDOWN)  {
+            ChatDisplayItem item = items.get(pos);
+            //setMarkdownTextLegacy(holder.itemView.findViewById(R.id.tv_message), item);
+            MarkwonAdapter adapter = item.getMarkwonAdapter();
+            adapter.notifyDataSetChanged();
+            Log.e(TAG, "View Displayed");
         }
     }
 }
