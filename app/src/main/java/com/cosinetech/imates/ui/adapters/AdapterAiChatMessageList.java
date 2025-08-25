@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
@@ -364,8 +363,8 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                 displayMsg.showWithTypingEffect = showWithTypingEffect;
                 displayMsg.msgIsFinished = msgIsFinished;
 
-                //notifyItemChanged(i, displayMsg.showWithTypingEffect);
-                notifyDataSetChanged();
+                notifyItemChanged(i, displayMsg.showWithTypingEffect);
+                //notifyDataSetChanged();
                 break;
             }
         }
@@ -382,6 +381,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
 
             ChatDisplayItem item = items.get(position);
             if (item == null) return;
+            item.getMarkwonAdapter().clear();
 
             int viewType = getItemViewType(position);
             MessageDisplayType type = MessageDisplayType.fromValue(viewType);
@@ -391,11 +391,6 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                 case TYPE_TEXT_RIGHT_MARKDOWN:
                     // 停止 Markdown 打字效果
                     item.stopTypingEffect();
-                    // 如果有 MarkwonAdapter 或 RecyclerView 嵌套
-                    RecyclerView recyclerView = holder.itemView.findViewById(R.id.recycler_view);
-                    if (recyclerView != null) {
-                        recyclerView.setAdapter(null);
-                    }
                     break;
 
                 case TYPE_IMAGE_LEFT:
@@ -429,8 +424,6 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
             // 公共清理
             CheckBox checkBox = holder.itemView.findViewById(R.id.iv_select);
             if (checkBox != null) checkBox.setOnCheckedChangeListener(null);
-
-            item.initialDisplayed = false;
         }
     }
 }
