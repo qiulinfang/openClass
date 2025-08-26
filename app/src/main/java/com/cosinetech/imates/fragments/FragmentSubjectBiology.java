@@ -12,11 +12,14 @@ import androidx.fragment.app.Fragment;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ArrayAdapter;
@@ -137,6 +140,19 @@ public class FragmentSubjectBiology extends Fragment {
             return false; // 返回false，让HScrollView继续处理触摸事件
         });
 
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+                Log.e("WebViewJS", consoleMessage.message()
+                        + " -- From line "
+                        + consoleMessage.lineNumber()
+                        + " of "
+                        + consoleMessage.sourceId());
+                return true;
+            }
+        });
+
+
         mTextbookVersionSpinner = view.findViewById(R.id.textbook_version_spinner);
         // 数据源（字符串数组）
         String[] items = {"人教版生物 必修一", "人教版生物 必修二"};
@@ -159,6 +175,7 @@ public class FragmentSubjectBiology extends Fragment {
             @Override
             public void onItemSelected(android.widget.AdapterView<?> parent, android.view.View view, int position, long id) {
                 if(position >= 0 && position < items.length) {
+                    webView.clearCache(true);
                     webView.loadUrl(urls[position]);
                     mCurrentSchema = schemas[position];
                 }
