@@ -122,6 +122,9 @@ public class FragmentSubjectMath extends Fragment {
         WebView webView = view.findViewById(R.id.knowledge_view);
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true); // 启用 DOM storage
+        webView.getSettings().setSupportZoom(true);
+        webView.getSettings().setBuiltInZoomControls(true);
+        webView.getSettings().setDisplayZoomControls(false);
         // 设置WebViewClient以防止外部浏览器打开链接
         webView.setWebViewClient(new WebViewClient());
         // Add JavaScript interface

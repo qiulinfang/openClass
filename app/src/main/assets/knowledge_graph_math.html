@@ -5,6 +5,12 @@
     <link type="text/css" rel="stylesheet" href="jsmind.css" />
     <script type="text/javascript" src="jsmind.js"></script>
     <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+
         /* 添加自定义菜单样式 */
         .custom-menu {
             position: absolute;
@@ -13,12 +19,12 @@
             box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
             border-radius: 4px;
             z-index: 1000;
-            min-width: 90px; /* 确保菜单不会太窄 */
+            min-width: 80px; /* 确保菜单不会太窄 */
         }
         .custom-menu-item {
-            padding: 8px 15px;
+            padding: 2px 2px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 12px;
             color: #1d85ce;
             white-space: nowrap; /* 防止换行 */
             min-width: 80px; /* 确保菜单项足够宽 */
@@ -29,7 +35,7 @@
     </style>
 </head>
 <body>
-<div id="jsmind_container" style="width: 1000px; height: 800px;"></div>
+<div id="jsmind_container" style="width: 100%; height: 100%;"></div>
 <script type="text/javascript">
     var graph = {
         "meta": {
@@ -129,11 +135,92 @@
         theme: 'primary',
         editable: false,
         support_html: true,
-        view: { engine: 'svg', draggable: true }
+        view: { engine: 'canvas',
+                draggable: true,
+                enable_device_pixel_ratio: true,
+                zoom: {             // 配置缩放
+                   min: 0.2,       // 最小的缩放比例
+                   max: 3.0,       // 最大的缩放比例
+                   step: 0.1,      // 缩放比例间隔
+               }
+        },
+        layout:{
+           hspace:30,          // 节点之间的水平间距
+           vspace:40,          // 节点之间的垂直间距
+           pspace:13,          // 节点与连接线之间的水平间距（用于容纳节点收缩/展开控制器）
+           cousin_space:10      // 相邻节点的子节点之间的额外的垂直间距
+        }
     };
 
     var mind = new jsMind(options);
+
+    // 从Android接口获取数据并刷新思维导图
+    function loadMindData() {
+        if (window.Android && window.Android.getMindData) {
+            try {
+                var mindData = JSON.parse(window.Android.getMindData());
+                if (mindData && mindData.data) {
+                    var graph = {
+                        "meta": {
+                            "name": "知识导图",
+                            "author": "imates",
+                            "version": "0.1"
+                        },
+                        "format": "node_tree",
+                        "data": mindData.data
+                    };
+                    mind.show(graph);
+                    resizeToFit();
+                }
+            } catch (e) {
+                console.error("Error parsing mind data:", e);
+            }
+        } else {
+            console.log("Android interface not available, using default data");
+            // 可以在这里设置默认数据或显示错误信息
+        }
+    }
+
+    // 提供给Android调用的刷新接口
+    function refreshMindData() {
+        loadMindData();
+    }
+
+    // 自适应缩放到容器大小
+    function resizeToFit() {
+        const container = document.getElementById('jsmind_container');
+        if (!mind || !container) return;
+
+        const mindSize = mind.view.size; // mindmap 实际宽高
+        if (!mindSize || !mindSize.w || !mindSize.h) return;
+
+        // 计算适合比例
+        const scaleWidth = container.clientWidth / mindSize.w + 0.05;
+        const scaleHeight = container.clientHeight / mindSize.h + 0.05;
+        const scale = Math.min(scaleWidth, scaleHeight);
+
+        // 限制缩放范围（避免太小或太大）
+        const minZoom = 0.1;
+        const maxZoom = 3.0;
+        const finalScale = Math.max(minZoom, Math.min(maxZoom, scale));
+
+        mind.view.setZoom(finalScale);
+    }
+
+    // 当窗口大小变化时自动调整
+    window.addEventListener('resize', resizeToFit);
+
+    // 初次显示后调用
     mind.show(graph);
+    resizeToFit();
+
+    // 在初始加载和窗口大小改变时调用 resizeToFit
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            resizeToFit();
+        }, 100); // 延迟 100ms 确保布局完成
+    });
+
     var currentContextMenu = null;
 
     // 修改为click事件监听
@@ -145,7 +232,7 @@
 
             var nodeId = nodeElement.getAttribute('nodeid');
             // 只处理章节节点
-            if (nodeId && nodeId.startsWith("section")) {
+            if (nodeId && (nodeId.startsWith("section") || nodeId.startsWith("chapter"))) {
                 showContextMenu(event, nodeElement);
             }
         }
@@ -172,11 +259,11 @@
 
         // 添加菜单项
         var menuItems = [
-<!--            {text: '去学习', action: () => {-->
-<!--                            document.body.removeChild(contextMenu);-->
-<!--                            currentContextMenu = null;-->
-<!--                            window.Android.onPrepareLesson(nodeId, nodeName);-->
-<!--                        }},-->
+            {text: '去学习', action: () => {
+                            document.body.removeChild(contextMenu);
+                            currentContextMenu = null;
+                            window.Android.onPrepareLesson(nodeId, nodeName);
+                        }},
             {text: '去练习', action: () => {
                             document.body.removeChild(contextMenu);
                             currentContextMenu = null;

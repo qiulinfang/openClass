@@ -251,7 +251,7 @@
                 draggable: true,
                 enable_device_pixel_ratio: true,
                 zoom: {             // 配置缩放
-                   min: 0.2,       // 最小的缩放比例
+                   min: 0.1,       // 最小的缩放比例
                    max: 3.0,       // 最大的缩放比例
                    step: 0.1,      // 缩放比例间隔
                }
@@ -307,15 +307,15 @@
         if (!mindSize || !mindSize.w || !mindSize.h) return;
 
         // 计算适合比例
-        const scaleWidth = container.clientWidth / mindSize.w;
-        const scaleHeight = container.clientHeight / mindSize.h;
+        const scaleWidth = container.clientWidth / mindSize.w + 0.05;
+        const scaleHeight = container.clientHeight / mindSize.h + 0.05;
         const scale = Math.min(scaleWidth, scaleHeight);
 
         // 限制缩放范围（避免太小或太大）
         const minZoom = 0.1;
         const maxZoom = 3.0;
         const finalScale = Math.max(minZoom, Math.min(maxZoom, scale));
-
+        console.log("scale to " + finalScale)
         mind.view.setZoom(finalScale);
     }
 
