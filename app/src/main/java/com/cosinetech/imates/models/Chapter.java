@@ -155,6 +155,7 @@ public class Chapter implements Parcelable {
         private int bookPageStart;
         private String lecture;
         private String learnGuide; // 注意：这里假设 "learnGuide" 和 "learnGuideFile" 是同一个字段
+        private String title;
 
         // 构造方法
         public Schema() {
@@ -167,6 +168,7 @@ public class Chapter implements Parcelable {
             bookPageStart = in.readInt();
             lecture = in.readString();
             learnGuide = in.readString();
+            title = in.readString();
         }
 
         @Override
@@ -176,6 +178,7 @@ public class Chapter implements Parcelable {
             dest.writeInt(bookPageStart);
             dest.writeString(lecture);
             dest.writeString(learnGuide);
+            dest.writeString(title);
         }
 
         @Override
@@ -234,6 +237,14 @@ public class Chapter implements Parcelable {
 
         public void setLearnGuide(String learnGuide) {
             this.learnGuide = learnGuide;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public void setTitle(String title) {
+            this.title = title;
         }
     }
 }

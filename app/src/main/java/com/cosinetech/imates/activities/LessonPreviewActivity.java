@@ -103,8 +103,11 @@ public class LessonPreviewActivity extends AppCompatActivity {
         for(int i = 0; i < mPreviewSection.getSchemas().size() && i < rdoButonIds.length; i++) {
             RadioButton rdoButton = findViewById(rdoButonIds[i]);
             rdoButton.setVisibility(View.VISIBLE);
+            if(mPreviewSection.getSchemas().get(i).getTitle() != null
+                && !mPreviewSection.getSchemas().get(i).getTitle().isEmpty()) {
+                rdoButton.setText(mPreviewSection.getSchemas().get(i).getTitle());
+            }
         }
-
         RadioGroup schemaGroup = findViewById(R.id.schema_group);
         schemaGroup.setOnCheckedChangeListener((group, checkedId) -> {
             ratingView.setEnabled(true);

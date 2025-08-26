@@ -10,11 +10,11 @@
           "schemas": [
             {
               "comments": "",
-              "introduction":"biology/chapter1/section1_1/schema1_intro.txt",
-              "textBook":"biology/chapter1/1_1.pdf",
+              "introduction":"biology/人教必修2/chapter1/section1_1/schema1_intro.txt",
+              "textBook":"biology/人教必修2/chapter1/1_1.pdf",
               "bookPageStart": 1,
-              "lecture":"biology/chapter1/section1_1/schema1_lecture.pdf",
-              "learnGuide":"biology/chapter1/section1_1/schema1_guide.pdf"
+              "lecture":"biology/人教必修2/chapter1/section1_1/schema1_lecture.pdf",
+              "learnGuide":"biology/人教必修2/chapter1/section1_1/schema1_guide.pdf"
             }
           ]
         },
@@ -25,11 +25,11 @@
           "schemas": [
             {
               "comments": "",
-              "introduction":"biology/chapter1/section1_2/schema1_intro.txt",
-              "textBook":"biology/chapter1/1_2.pdf",
+              "introduction":"biology/人教必修2/chapter1/section1_2/schema1_intro.txt",
+              "textBook":"biology/人教必修2/chapter1/1_2.pdf",
               "bookPageStart": 1,
-              "lecture":"biology/chapter1/section1_2/schema1_lecture.pdf",
-              "learnGuide":"biology/chapter1/section1_2/schema1_guide.pdf"
+              "lecture":"biology/人教必修2/chapter1/section1_2/schema1_lecture.pdf",
+              "learnGuide":"biology/人教必修2/chapter1/section1_2/schema1_guide.pdf"
             }
           ]
         }
@@ -46,11 +46,11 @@
           "schemas": [
             {
               "comments": "",
-              "introduction":"biology/chapter2/section2_1/schema1_intro.txt",
-              "textBook":"biology/chapter2/2_1.pdf",
+              "introduction":"biology/人教必修2/chapter2/section2_1/schema1_intro.txt",
+              "textBook":"biology/人教必修2/chapter2/2_1.pdf",
               "bookPageStart": 1,
-              "lecture":"biology/chapter2/section2_1/schema1_lecture.pdf",
-              "learnGuide":"biology/chapter2/section2_1/schema1_guide.pdf"
+              "lecture":"biology/人教必修2/chapter2/section2_1/schema1_lecture.pdf",
+              "learnGuide":"biology/人教必修2/chapter2/section2_1/schema1_guide.pdf"
             }
           ]
         },
@@ -61,11 +61,11 @@
           "schemas": [
             {
               "comments": "",
-              "introduction":"biology/chapter2/section2_2/schema1_intro.txt",
-              "textBook":"biology/chapter2/2_2.pdf",
+              "introduction":"biology/人教必修2/chapter2/section2_2/schema1_intro.txt",
+              "textBook":"biology/人教必修2/chapter2/2_2.pdf",
               "bookPageStart": 1,
-              "lecture":"biology/chapter2/section2_2/schema1_lecture.pdf",
-              "learnGuide":"biology/chapter2/section2_2/schema1_guide.pdf"
+              "lecture":"biology/人教必修2/chapter2/section2_2/schema1_lecture.pdf",
+              "learnGuide":"biology/人教必修2/chapter2/section2_2/schema1_guide.pdf"
             }
           ]
         },
@@ -76,11 +76,11 @@
           "schemas": [
             {
               "comments": "",
-              "introduction":"biology/chapter2/section2_3/schema1_intro.txt",
-              "textBook":"biology/chapter2/2_3.pdf",
+              "introduction":"biology/人教必修2/chapter2/section2_3/schema1_intro.txt",
+              "textBook":"biology/人教必修2/chapter2/2_3.pdf",
               "bookPageStart": 1,
-              "lecture":"biology/chapter2/section2_3/schema1_lecture.pdf",
-              "learnGuide":"biology/chapter2/section2_3/schema1_guide.pdf"
+              "lecture":"biology/人教必修2/chapter2/section2_3/schema1_lecture.pdf",
+              "learnGuide":"biology/人教必修2/chapter2/section2_3/schema1_guide.pdf"
             }
           ]
         }
@@ -97,11 +97,11 @@
           "schemas": [
             {
               "comments": "",
-              "introduction":"biology/chapter3/section3_1/schema1_intro.txt",
-              "textBook":"biology/chapter3/3_1.pdf",
+              "introduction":"biology/人教必修2/chapter3/section3_1/schema1_intro.txt",
+              "textBook":"biology/人教必修2/chapter3/3_1.pdf",
               "bookPageStart": 1,
-              "lecture":"biology/chapter3/section3_1/schema1_lecture.pdf",
-              "learnGuide":"biology/chapter3/section3_1/schema1_guide.pdf"
+              "lecture":"biology/人教必修2/chapter3/section3_1/schema1_lecture.pdf",
+              "learnGuide":"biology/人教必修2/chapter3/section3_1/schema1_guide.pdf"
             }
           ]
         },
@@ -112,11 +112,11 @@
           "schemas": [
             {
               "comments": "",
-              "introduction":"biology/chapter3/section3_2/schema1_intro.txt",
-              "textBook":"biology/chapter3/3_2.pdf",
+              "introduction":"biology/人教必修2/chapter3/section3_2/schema1_intro.txt",
+              "textBook":"biology/人教必修2/chapter3/3_2.pdf",
               "bookPageStart": 1,
-              "lecture":"biology/chapter3/section3_2/schema1_lecture.pdf",
-              "learnGuide":"biology/chapter3/section3_2/schema1_guide.pdf"
+              "lecture":"biology/人教必修2/chapter3/section3_2/schema1_lecture.pdf",
+              "learnGuide":"biology/人教必修2/chapter3/section3_2/schema1_guide.pdf"
             }
           ]
         },
@@ -127,11 +127,11 @@
           "schemas": [
             {
               "comments": "",
-              "introduction":"biology/chapter3/section3_3/schema1_intro.txt",
-              "textBook":"biology/chapter3/3_3.pdf",
+              "introduction":"biology/人教必修2/chapter3/section3_3/schema1_intro.txt",
+              "textBook":"biology/人教必修2/chapter3/3_3.pdf",
               "bookPageStart": 1,
-              "lecture":"biology/chapter3/section3_3/schema1_lecture.pdf",
-              "learnGuide":"biology/chapter3/section3_3/schema1_guide.pdf"
+              "lecture":"biology/人教必修2/chapter3/section3_3/schema1_lecture.pdf",
+              "learnGuide":"biology/人教必修2/chapter3/section3_3/schema1_guide.pdf"
             }
           ]
         },
@@ -142,11 +142,11 @@
           "schemas": [
             {
               "comments": "",
-              "introduction":"biology/chapter3/section3_4/schema1_intro.txt",
-              "textBook":"biology/chapter3/3_4.pdf",
+              "introduction":"biology/人教必修2/chapter3/section3_4/schema1_intro.txt",
+              "textBook":"biology/人教必修2/chapter3/3_4.pdf",
               "bookPageStart": 1,
-              "lecture":"biology/chapter3/section3_4/schema1_lecture.pdf",
-              "learnGuide":"biology/chapter3/section3_4/schema1_guide.pdf"
+              "lecture":"biology/人教必修2/chapter3/section3_4/schema1_lecture.pdf",
+              "learnGuide":"biology/人教必修2/chapter3/section3_4/schema1_guide.pdf"
             }
           ]
         }
@@ -163,11 +163,11 @@
               "schemas": [
                 {
                   "comments": "",
-                  "introduction":"biology/chapter4/section4_1/schema1_intro.txt",
-                  "textBook":"biology/chapter4/4_1.pdf",
+                  "introduction":"biology/人教必修2/chapter4/section4_1/schema1_intro.txt",
+                  "textBook":"biology/人教必修2/chapter4/4_1.pdf",
                   "bookPageStart": 1,
-                  "lecture":"biology/chapter4/section4_1/schema1_lecture.pdf",
-                  "learnGuide":"biology/chapter4/section4_1/schema1_guide.pdf"
+                  "lecture":"biology/人教必修2/chapter4/section4_1/schema1_lecture.pdf",
+                  "learnGuide":"biology/人教必修2/chapter4/section4_1/schema1_guide.pdf"
                 }
               ]
             },
@@ -178,11 +178,11 @@
               "schemas": [
                 {
                   "comments": "",
-                  "introduction":"biology/chapter4/section4_2/schema1_intro.txt",
-                  "textBook":"biology/chapter4/4_2.pdf",
+                  "introduction":"biology/人教必修2/chapter4/section4_2/schema1_intro.txt",
+                  "textBook":"biology/人教必修2/chapter4/4_2.pdf",
                   "bookPageStart": 1,
-                  "lecture":"biology/chapter4/section4_2/schema1_lecture.pdf",
-                  "learnGuide":"biology/chapter4/section4_2/schema1_guide.pdf"
+                  "lecture":"biology/人教必修2/chapter4/section4_2/schema1_lecture.pdf",
+                  "learnGuide":"biology/人教必修2/chapter4/section4_2/schema1_guide.pdf"
                 }
               ]
             }
@@ -199,11 +199,11 @@
               "schemas": [
                 {
                   "comments": "",
-                  "introduction":"biology/chapter5/section5_1/schema1_intro.txt",
-                  "textBook":"biology/chapter5/5_1.pdf",
+                  "introduction":"biology/人教必修2/chapter5/section5_1/schema1_intro.txt",
+                  "textBook":"biology/人教必修2/chapter5/5_1.pdf",
                   "bookPageStart": 1,
-                  "lecture":"biology/chapter5/section5_1/schema1_lecture.pdf",
-                  "learnGuide":"biology/chapter5/section5_1/schema1_guide.pdf"
+                  "lecture":"biology/人教必修2/chapter5/section5_1/schema1_lecture.pdf",
+                  "learnGuide":"biology/人教必修2/chapter5/section5_1/schema1_guide.pdf"
                 }
               ]
             },
@@ -214,19 +214,19 @@
               "schemas": [
                 {
                   "comments": "",
-                  "introduction":"biology/chapter5/section5_2/schema1_intro.txt",
-                  "textBook":"biology/chapter5/5_2.pdf",
+                  "introduction":"biology/人教必修2/chapter5/section5_2/schema1_intro.txt",
+                  "textBook":"biology/人教必修2/chapter5/5_2.pdf",
                   "bookPageStart": 1,
-                  "lecture":"biology/chapter5/section5_2/schema2_lecture.pdf",
-                  "learnGuide":"biology/chapter5/section5_2/schema2_guide.pdf"
+                  "lecture":"biology/人教必修2/chapter5/section5_2/schema2_lecture.pdf",
+                  "learnGuide":"biology/人教必修2/chapter5/section5_2/schema2_guide.pdf"
                 },
                 {
                   "comments": "",
-                  "introduction":"biology/chapter5/section5_2/schema1_intro.txt",
-                  "textBook":"biology/chapter5/5_2.pdf",
+                  "introduction":"biology/人教必修2/chapter5/section5_2/schema1_intro.txt",
+                  "textBook":"biology/人教必修2/chapter5/5_2.pdf",
                   "bookPageStart": 1,
-                  "lecture":"biology/chapter5/section5_2/schema1_lecture.pdf",
-                  "learnGuide":"biology/chapter5/section5_2/schema1_guide.pdf"
+                  "lecture":"biology/人教必修2/chapter5/section5_2/schema1_lecture.pdf",
+                  "learnGuide":"biology/人教必修2/chapter5/section5_2/schema1_guide.pdf"
                 }
               ]
             },
@@ -237,11 +237,11 @@
               "schemas": [
                 {
                   "comments": "",
-                  "introduction":"biology/chapter5/section5_3/schema1_intro.txt",
-                  "textBook":"biology/chapter5/5_3.pdf",
+                  "introduction":"biology/人教必修2/chapter5/section5_3/schema1_intro.txt",
+                  "textBook":"biology/人教必修2/chapter5/5_3.pdf",
                   "bookPageStart": 1,
-                  "lecture":"biology/chapter5/section5_3/schema1_lecture.pdf",
-                  "learnGuide":"biology/chapter5/section5_3/schema1_guide.pdf"
+                  "lecture":"biology/人教必修2/chapter5/section5_3/schema1_lecture.pdf",
+                  "learnGuide":"biology/人教必修2/chapter5/section5_3/schema1_guide.pdf"
                 }
               ]
             }
@@ -258,11 +258,11 @@
               "schemas": [
                 {
                   "comments": "",
-                  "introduction":"biology/chapter6/section6_1/schema1_intro.txt",
-                  "textBook":"biology/chapter6/6_1.pdf",
+                  "introduction":"biology/人教必修2/chapter6/section6_1/schema1_intro.txt",
+                  "textBook":"biology/人教必修2/chapter6/6_1.pdf",
                   "bookPageStart": 1,
-                  "lecture":"biology/chapter6/section6_1/schema1_lecture.pdf",
-                  "learnGuide":"biology/chapter6/section6_1/schema1_guide.pdf"
+                  "lecture":"biology/人教必修2/chapter6/section6_1/schema1_lecture.pdf",
+                  "learnGuide":"biology/人教必修2/chapter6/section6_1/schema1_guide.pdf"
                 }
               ]
             },
@@ -273,11 +273,11 @@
               "schemas": [
                 {
                   "comments": "",
-                  "introduction":"biology/chapter6/section6_2/schema1_intro.txt",
-                  "textBook":"biology/chapter6/6_2.pdf",
+                  "introduction":"biology/人教必修2/chapter6/section6_2/schema1_intro.txt",
+                  "textBook":"biology/人教必修2/chapter6/6_2.pdf",
                   "bookPageStart": 1,
-                  "lecture":"biology/chapter6/section6_2/schema1_lecture.pdf",
-                  "learnGuide":"biology/chapter6/section6_2/schema1_guide.pdf"
+                  "lecture":"biology/人教必修2/chapter6/section6_2/schema1_lecture.pdf",
+                  "learnGuide":"biology/人教必修2/chapter6/section6_2/schema1_guide.pdf"
                 }
               ]
             },
@@ -288,11 +288,11 @@
               "schemas": [
                 {
                   "comments": "",
-                  "introduction":"biology/chapter6/section6_3/schema1_intro.txt",
-                  "textBook":"biology/chapter6/6_3.pdf",
+                  "introduction":"biology/人教必修2/chapter6/section6_3/schema1_intro.txt",
+                  "textBook":"biology/人教必修2/chapter6/6_3.pdf",
                   "bookPageStart": 1,
-                  "lecture":"biology/chapter6/section6_3/schema1_lecture.pdf",
-                  "learnGuide":"biology/chapter6/section6_3/schema1_guide.pdf"
+                  "lecture":"biology/人教必修2/chapter6/section6_3/schema1_lecture.pdf",
+                  "learnGuide":"biology/人教必修2/chapter6/section6_3/schema1_guide.pdf"
                 }
               ]
             },
@@ -303,11 +303,11 @@
               "schemas": [
                 {
                   "comments": "",
-                  "introduction":"biology/chapter6/section6_4/schema1_intro.txt",
-                  "textBook":"biology/chapter6/6_4.pdf",
+                  "introduction":"biology/人教必修2/chapter6/section6_4/schema1_intro.txt",
+                  "textBook":"biology/人教必修2/chapter6/6_4.pdf",
                   "bookPageStart": 1,
-                  "lecture":"biology/chapter6/section6_4/schema1_lecture.pdf",
-                  "learnGuide":"biology/chapter6/section6_4/schema1_guide.pdf"
+                  "lecture":"biology/人教必修2/chapter6/section6_4/schema1_lecture.pdf",
+                  "learnGuide":"biology/人教必修2/chapter6/section6_4/schema1_guide.pdf"
                 }
               ]
             }

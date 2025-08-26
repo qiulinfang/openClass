@@ -1,0 +1,449 @@
+[
+    {
+      "chapter": "1",
+      "title":"第1章 走近细胞",
+      "sections": [
+        {
+          "section":"section1.1",
+          "knowledgeNo":"1943148334245797889,1943148334308712450,1943148334438735874,1943148319603482626",
+          "title":"1.1 细胞是生命活动的基本单位",
+          "schemas": [
+            {
+              "comments": "",
+              "introduction": "",
+              "textBook": "biology/人教必修1/一 走近细胞/1.1 细胞是生命活动的基本单位/1.1 细胞是生命活动的基本单位.pdf",
+              "bookPageStart": 1,
+              "lecture": "biology/人教必修1/一 走近细胞/1.1 细胞是生命活动的基本单位/PPT1.pdf",
+              "learnGuide": "biology/人教必修1/一 走近细胞/1.1 细胞是生命活动的基本单位/学案1.pdf"
+            }
+          ]
+        },
+        {
+          "section":"section1.2",
+          "title":"1.2 细胞的多样性和统一性",
+          "knowledgeNo": "1943149687999361025,1943149688133578753,1943149688066469889,1943149687936446466,1943149687869337601,1943149687802228738",
+          "schemas": [
+            {
+              "comments": "",
+              "introduction": "",
+              "textBook": "biology/人教必修1/一 走近细胞/1.2 细胞的多样性和统一性/1.2 细胞的多样性和统一性.pdf",
+              "bookPageStart": 1,
+              "lecture": "biology/人教必修1/一 走近细胞/1.2 细胞的多样性和统一性/PPT1.pdf",
+              "learnGuide": "biology/人教必修1/一 走近细胞/1.2 细胞的多样性和统一性/学案1.pdf"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": "2",
+      "title":"第2章 组成细胞的分子",
+      "sections": [
+        {
+          "section":"section2.1",
+          "knowledgeNo":"1943148947419545602,1943148947239190529,1943148947352436738,1943148947285327873",
+          "title":"2.1 细胞中的元素和化合物",
+          "schemas": [
+            {
+              "comments": "",
+              "introduction": "",
+              "textBook": "biology/人教必修1/二 组成细胞的分子/2.1 细胞中的元素和化合物/2.1 细胞中的元素和化合物.pdf",
+              "bookPageStart": 1,
+              "lecture": "biology/人教必修1/二 组成细胞的分子/2.1 细胞中的元素和化合物/PPT1.pdf",
+              "learnGuide": "biology/人教必修1/二 组成细胞的分子/2.1 细胞中的元素和化合物/学案1.pdf"
+            }
+          ]
+        },
+        {
+          "section":"section2.2",
+          "title":"2.2 细胞中的无机物",
+          "knowledgeNo": "1943149062607642625,1943149062548922370,1943149062674751490",
+          "schemas": [
+            {
+              "comments": "",
+              "introduction": "",
+              "textBook": "biology/人教必修1/二 组成细胞的分子/2.2 细胞中的无机物/2.2 细胞中的无机物.pdf",
+              "bookPageStart": 1,
+              "lecture": "biology/人教必修1/二 组成细胞的分子/2.2 细胞中的无机物/PPT1.pdf",
+              "learnGuide": "biology/人教必修1/二 组成细胞的分子/2.2 细胞中的无机物/学案1.pdf"
+            }
+          ]
+        },
+        {
+          "section":"section2.3",
+          "title":"2.3 细胞中的糖类和脂质",
+          "knowledgeNo": "1943150120901926913,1943150121493323777,1943150121359106050,1943150121099059201,1943150120969035778,1943150120834818049,1943150120704794625",
+          "schemas": [
+            {
+              "comments": "",
+              "introduction": "",
+              "textBook": "biology/人教必修1/二 组成细胞的分子/2.3 细胞中的糖类和脂质/2.3 细胞中的糖类和脂质.pdf",
+              "bookPageStart": 1,
+              "lecture": "biology/人教必修1/二 组成细胞的分子/2.3 细胞中的糖类和脂质/PPT1.pdf",
+              "learnGuide": "biology/人教必修1/二 组成细胞的分子/2.3 细胞中的糖类和脂质/学案1.pdf"
+            }
+          ]
+        },
+        {
+          "section":"section2.4",
+          "title":"2.4 蛋白质是生命活动的主要承担者",
+          "knowledgeNo": "1943150238145224706,1943150238346551297,1943150238279442433,1943150238212333571,1943150238212333570,1943150238040367105,1943150238078115842",
+          "schemas": [
+            {
+              "title": "一课时",
+              "comments": "",
+              "introduction": "",
+              "textBook": "biology/人教必修1/二 组成细胞的分子/2.4 蛋白质是生命活动的主要承担者/2.4 蛋白质是生命活动的主要承担者.pdf",
+              "bookPageStart": 1,
+              "lecture": "biology/人教必修1/二 组成细胞的分子/2.4 蛋白质是生命活动的主要承担者/PPT1.pdf",
+              "learnGuide": "biology/人教必修1/二 组成细胞的分子/2.4 蛋白质是生命活动的主要承担者/学案1.pdf"
+            },
+            {
+              "title": "二课时",
+              "comments": "",
+              "introduction": "",
+              "textBook": "biology/人教必修1/二 组成细胞的分子/2.4 蛋白质是生命活动的主要承担者/2.4 蛋白质是生命活动的主要承担者.pdf",
+              "bookPageStart": 1,
+              "lecture": "biology/人教必修1/二 组成细胞的分子/2.4 蛋白质是生命活动的主要承担者/PPT2.pdf",
+              "learnGuide": "biology/人教必修1/二 组成细胞的分子/2.4 蛋白质是生命活动的主要承担者/学案1.pdf"
+            }
+          ]
+        },
+        {
+          "section":"section2.5",
+          "title":"2.5 核酸是遗传信息的携带者",
+          "knowledgeNo": "1943150359364829185,1943150359394189313,1943150359457103873,1943150359520018434,1943150359587127298,1943150359650041858,1943150359712956418",
+          "schemas": [
+            {
+              "comments": "",
+              "introduction": "",
+              "textBook": "biology/人教必修1/二 组成细胞的分子/2.5 核酸是遗传信息的携带者/2.5 核酸是遗传信息的携带者.pdf",
+              "bookPageStart": 1,
+              "lecture": "biology/人教必修1/二 组成细胞的分子/2.5 核酸是遗传信息的携带者/PPT1.pdf",
+              "learnGuide": "biology/人教必修1/二 组成细胞的分子/2.5 核酸是遗传信息的携带者/学案1.pdf"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": "3",
+      "title":"第3章 细胞的基本结构",
+      "sections": [
+        {
+          "section":"section3.1",
+          "knowledgeNo":"1943154543451516929,1943154543585734657,1943154543518625794,1943154543384408066,1943154543325687809",
+          "title":"3.1 细胞膜的结构和功能",
+          "schemas": [
+            {
+              "title": "一课时",
+              "comments": "",
+              "introduction": "",
+              "textBook": "biology/人教必修1/三 细胞的基本结构/3.1 细胞膜的结构和功能/3.1 细胞膜的结构和功能.pdf",
+              "bookPageStart": 1,
+              "lecture": "biology/人教必修1/三 细胞的基本结构/3.1 细胞膜的结构和功能/PPT1.pdf",
+              "learnGuide": "biology/人教必修1/三 细胞的基本结构/3.1 细胞膜的结构和功能/学案1.pdf"
+            },
+            {
+              "title": "二课时",
+              "comments": "",
+              "introduction": "",
+              "textBook": "biology/人教必修1/三 细胞的基本结构/3.1 细胞膜的结构和功能/3.1 细胞膜的结构和功能.pdf",
+              "bookPageStart": 1,
+              "lecture": "biology/人教必修1/三 细胞的基本结构/3.1 细胞膜的结构和功能/PPT2.pdf",
+              "learnGuide": "biology/人教必修1/三 细胞的基本结构/3.1 细胞膜的结构和功能/学案1.pdf"
+            }
+          ]
+        },
+        {
+          "section":"section3.2",
+          "title":"3.2 细胞器之间的分工合作",
+          "knowledgeNo": "1943154686158491649,1943154686200434689,1943154686263349250,1943154686330458114,1943154686330458115,1943154686393372674,1943154686464675841",
+          "schemas": [
+            {
+              "title": "一课时",
+              "comments": "",
+              "introduction": "",
+              "textBook": "biology/人教必修1/三 细胞的基本结构/3.2 细胞器之间的分工合作/3.2 细胞器之间的分工合作.pdf",
+              "bookPageStart": 1,
+              "lecture": "biology/人教必修1/三 细胞的基本结构/3.2 细胞器之间的分工合作/PPT1.pdf",
+              "learnGuide": "biology/人教必修1/三 细胞的基本结构/3.2 细胞器之间的分工合作/学案1.pdf"
+            },
+            {
+              "title": "二课时",
+              "comments": "",
+              "introduction": "",
+              "textBook": "biology/人教必修1/三 细胞的基本结构/3.2 细胞器之间的分工合作/3.2 细胞器之间的分工合作.pdf",
+              "bookPageStart": 1,
+              "lecture": "biology/人教必修1/三 细胞的基本结构/3.2 细胞器之间的分工合作/PPT2.pdf",
+              "learnGuide": "biology/人教必修1/三 细胞的基本结构/3.2 细胞器之间的分工合作/学案1.pdf"
+            }
+          ]
+        },
+        {
+          "section":"section3.3",
+          "title":"3.3 细胞核的结构和功能",
+          "knowledgeNo": "1943154820082618369,1943154820145532929,1943154819952594945,1943154819910651906,1943154820019703810",
+          "schemas": [
+            {
+              "comments": "",
+              "introduction": "",
+              "textBook": "biology/人教必修1/三 细胞的基本结构/3.3 细胞核的结构和功能/3.3 细胞核的结构和功能.pdf",
+              "bookPageStart": 1,
+              "lecture": "biology/人教必修1/三 细胞的基本结构/3.3 细胞核的结构和功能/PPT1.pdf",
+              "learnGuide": "biology/人教必修1/三 细胞的基本结构/3.3 细胞核的结构和功能/学案1.pdf"
+            }
+          ]
+        }
+      ]
+    },
+    {
+        "chapter": "4",
+        "title":"第4章 细胞的物质输入和输出",
+        "sections": [
+            {
+              "section":"section4.1",
+              "knowledgeNo":"1943154946368937985,1943154946398298114,1943154946461212674,1943154946528321537,1943154946595430401,1943154946662539265",
+              "title":"4.1 被动运输",
+              "schemas": [
+                {
+                  "title": "一课时",
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/四 细胞的物质输入和输出/4.1 被动运输/4.1 被动运输.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/四 细胞的物质输入和输出/4.1 被动运输/PPT1.pdf",
+                  "learnGuide": "biology/人教必修1/四 细胞的物质输入和输出/4.1 被动运输/学案1.pdf"
+                },
+                {
+                  "title": "二课时",
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/四 细胞的物质输入和输出/4.1 被动运输/4.1 被动运输.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/四 细胞的物质输入和输出/4.1 被动运输/PPT2.pdf",
+                  "learnGuide": "biology/人教必修1/四 细胞的物质输入和输出/4.1 被动运输/学案2.pdf"
+                }
+              ]
+            },
+            {
+              "section":"section4.2",
+              "title":"4.2 主动运输与胞吞、胞吐",
+              "knowledgeNo": "1943155071640195073,1943155071703109634,1943155071594057730",
+              "schemas": [
+                {
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/四 细胞的物质输入和输出/4.2 主动运输与胞吞、胞吐/4.2 主动运输与胞吞、胞吐.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/四 细胞的物质输入和输出/4.2 主动运输与胞吞、胞吐/PPT1.pdf",
+                  "learnGuide": "biology/人教必修1/四 细胞的物质输入和输出/4.2 主动运输与胞吞、胞吐/学案1.pdf"
+                }
+              ]
+            }
+        ]
+    },
+    {
+        "chapter": "5",
+        "title":"第5章 细胞的能量供应和利用",
+        "sections": [
+            {
+              "section":"section5.1",
+              "knowledgeNo":"1943155197507043329,1943155197519626241,1943155197586735106,1943155197649649666,1943155197779673090,1943155197779673091",
+              "title":"5.1 降低化学反应活化能的酶",
+              "schemas": [
+                {
+                  "title": "一课时",
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/五 细胞的能量供应和利用/5.1 降低化学反应活化能的酶/5.1 降低化学反应活化能的酶.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/五 细胞的能量供应和利用/5.1 降低化学反应活化能的酶/PPT1.pdf",
+                  "learnGuide": "biology/人教必修1/五 细胞的能量供应和利用/5.1 降低化学反应活化能的酶/学案1.pdf"
+                },
+                {
+                  "title": "二课时",
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/五 细胞的能量供应和利用/5.1 降低化学反应活化能的酶/5.1 降低化学反应活化能的酶.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/五 细胞的能量供应和利用/5.1 降低化学反应活化能的酶/PPT2.pdf",
+                  "learnGuide": "biology/人教必修1/五 细胞的能量供应和利用/5.1 降低化学反应活化能的酶/学案2.pdf"
+                }
+              ]
+            },
+            {
+              "section":"section5.2",
+              "title":"5.2 细胞的能量 “货币” ATP",
+              "knowledgeNo": "1943155311357321218,1943155311604785154,1943155311541870594,1943155311474761730,1943155311411847170,1943155311411847169",
+              "schemas": [
+                {
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/五 细胞的能量供应和利用/5.2 细胞的能量 “货币” ATP/5.2 细胞的能量 “货币” ATP.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/五 细胞的能量供应和利用/5.2 细胞的能量 “货币” ATP/PPT1.pdf",
+                  "learnGuide": "biology/人教必修1/五 细胞的能量供应和利用/5.2 细胞的能量 “货币” ATP/学案1.pdf"
+                }
+              ]
+            },
+            {
+              "section":"section5.3",
+              "title":"5.3 细胞呼吸的原理和应用",
+              "knowledgeNo": "1943155427040337921,1943155427086475265,1943155427153584129",
+              "schemas": [
+                {
+                  "title": "一课时",
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/五 细胞的能量供应和利用/5.3 细胞呼吸的原理和应用/5.3 细胞呼吸的原理和应用.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/五 细胞的能量供应和利用/5.3 细胞呼吸的原理和应用/PPT1.pdf",
+                  "learnGuide": "biology/人教必修1/五 细胞的能量供应和利用/5.3 细胞呼吸的原理和应用/学案1.pdf"
+                },
+                {
+                  "title": "二课时",
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/五 细胞的能量供应和利用/5.3 细胞呼吸的原理和应用/5.3 细胞呼吸的原理和应用.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/五 细胞的能量供应和利用/5.3 细胞呼吸的原理和应用/PPT2.pdf",
+                  "learnGuide": "biology/人教必修1/五 细胞的能量供应和利用/5.3 细胞呼吸的原理和应用/学案1.pdf"
+                },
+                {
+                  "title": "三课时",
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/五 细胞的能量供应和利用/5.3 细胞呼吸的原理和应用/5.3 细胞呼吸的原理和应用.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/五 细胞的能量供应和利用/5.3 细胞呼吸的原理和应用/PPT3.pdf",
+                  "learnGuide": "biology/人教必修1/五 细胞的能量供应和利用/5.3 细胞呼吸的原理和应用/学案1.pdf"
+                }
+              ]
+            },
+            {
+              "section":"section5.4",
+              "title":"5.4 光合作用与能量转化",
+              "knowledgeNo": "1943155547781754882,1943155546875785218,1943155547718840321,1943155547651731457,1943155547588816897,1943155547525902338,1943155547525902337,1943155547458793473,1943155547395878914,1943155547265855489,1943155547202940930,1943155547135832066,1943155547068723201,1943155547005808642,1943155547005808641,1943155546938699777,1943155546817064961,1943155547328770050",
+              "schemas": [
+                {
+                  "title": "一课时",
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/五 细胞的能量供应和利用/5.4 光合作用与能量转化/5.4 光合作用与能量转化.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/五 细胞的能量供应和利用/5.4 光合作用与能量转化/PPT1.pdf",
+                  "learnGuide": "biology/人教必修1/五 细胞的能量供应和利用/5.4 光合作用与能量转化/学案1.pdf"
+                },
+                {
+                  "title": "二课时",
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/五 细胞的能量供应和利用/5.4 光合作用与能量转化/5.4 光合作用与能量转化.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/五 细胞的能量供应和利用/5.4 光合作用与能量转化/PPT2.pdf",
+                  "learnGuide": "biology/人教必修1/五 细胞的能量供应和利用/5.4 光合作用与能量转化/学案2.pdf"
+                },
+                {
+                  "title": "三课时",
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/五 细胞的能量供应和利用/5.4 光合作用与能量转化/5.4 光合作用与能量转化.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/五 细胞的能量供应和利用/5.4 光合作用与能量转化/PPT3.pdf",
+                  "learnGuide": "biology/人教必修1/五 细胞的能量供应和利用/5.4 光合作用与能量转化/学案3.pdf"
+                },
+                {
+                  "title": "四课时",
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/五 细胞的能量供应和利用/5.4 光合作用与能量转化/5.4 光合作用与能量转化.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/五 细胞的能量供应和利用/5.4 光合作用与能量转化/PPT4.pdf",
+                  "learnGuide": "biology/人教必修1/五 细胞的能量供应和利用/5.4 光合作用与能量转化/学案3.pdf"
+                }
+              ]
+            }
+        ]
+    },
+    {
+        "chapter": "6",
+        "title":"第6章 细胞的生命历程",
+        "sections": [
+            {
+              "section":"section6.1",
+              "knowledgeNo":"1943155726991769602,1943155727121793027,1943155727121793026,1943155727058878465,1943155726974992385",
+              "title":"6.1 细胞的增殖",
+              "schemas": [
+                {
+                  "title": "一课时",
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/六 细胞的生命历程/6.1 细胞的增殖/6.1 细胞的增殖.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/六 细胞的生命历程/6.1 细胞的增殖/PPT1.pdf",
+                  "learnGuide": "biology/人教必修1/六 细胞的生命历程/6.1 细胞的增殖/学案1.pdf"
+                },
+                {
+                  "title": "二课时",
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/六 细胞的生命历程/6.1 细胞的增殖/6.1 细胞的增殖.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/六 细胞的生命历程/6.1 细胞的增殖/PPT2.pdf",
+                  "learnGuide": "biology/人教必修1/六 细胞的生命历程/6.1 细胞的增殖/学案2.pdf"
+                },
+                {
+                  "title": "三课时",
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/六 细胞的生命历程/6.1 细胞的增殖/6.1 细胞的增殖.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/六 细胞的生命历程/6.1 细胞的增殖/PPT3.pdf",
+                  "learnGuide": "biology/人教必修1/六 细胞的生命历程/6.1 细胞的增殖/学案2.pdf"
+                }
+              ]
+            },
+            {
+              "section":"section6.2",
+              "title":"6.2 细胞的分化",
+              "knowledgeNo": "1943155843022991362,1943155843035574274",
+              "schemas": [
+                {
+                  "title": "一课时",
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/六 细胞的生命历程/6.2 细胞的分化/6.2 细胞的分化.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/六 细胞的生命历程/6.2 细胞的分化/PPT1.pdf",
+                  "learnGuide": "biology/人教必修1/六 细胞的生命历程/6.2 细胞的分化/学案1.pdf"
+                },
+                {
+                  "title": "二课时",
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/六 细胞的生命历程/6.2 细胞的分化/6.2 细胞的分化.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/六 细胞的生命历程/6.2 细胞的分化/PPT2.pdf",
+                  "learnGuide": "biology/人教必修1/六 细胞的生命历程/6.2 细胞的分化/学案1.pdf"
+                }
+              ]
+            },
+            {
+              "section":"section6.3",
+              "title":"6.3 细胞的衰老和死亡",
+              "knowledgeNo": "1943155953731653633,1943155953756819457,1943155953823928322,1943155953891037186,1943155953953951746",
+              "schemas": [
+                {
+                  "comments": "",
+                  "introduction": "",
+                  "textBook": "biology/人教必修1/六 细胞的生命历程/6.3 细胞的衰老和死亡/6.3 细胞的衰老和死亡.pdf",
+                  "bookPageStart": 1,
+                  "lecture": "biology/人教必修1/六 细胞的生命历程/6.3 细胞的衰老和死亡/PPT1.pdf",
+                  "learnGuide": "biology/人教必修1/六 细胞的生命历程/6.3 细胞的衰老和死亡/学案1.pdf"
+                }
+              ]
+            }
+        ]
+    }
+]

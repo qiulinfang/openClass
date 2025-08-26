@@ -9,11 +9,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentManager;
 
 import android.os.Handler;
 import android.os.Looper;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -21,11 +19,11 @@ import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.PopupWindow;
+import android.widget.ArrayAdapter;
+import android.widget.Spinner;
 import android.widget.Toast;
 
+import com.cosinetech.imates.R;
 import com.cosinetech.imates.activities.FindExerciseActivity;
 import com.cosinetech.imates.activities.LessonPreviewActivity;
 import com.cosinetech.imates.activities.MyFavorCenterActivity;
@@ -33,7 +31,6 @@ import com.cosinetech.imates.activities.MyHistoryActivity;
 import com.cosinetech.imates.activities.PhotoQuestionLookupActivity;
 import com.cosinetech.imates.activities.QuestionSolveActivity;
 import com.cosinetech.imates.models.Subject;
-import com.cosinetech.imates.R;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.webservice.ApiUrl;
 import com.google.gson.Gson;
@@ -44,6 +41,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -55,6 +53,9 @@ public class FragmentSubjectBiology extends Fragment {
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
     private int previousBackStackCount = 0;
+    private Spinner mTextbookVersionSpinner;
+    private WebAppInterface mWebViewInterface;
+    private String mCurrentSchema;
 
     // TODO: Rename and change types of parameters
     private String mParam1;
@@ -93,7 +94,7 @@ public class FragmentSubjectBiology extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         initPopStackListner(view);
-
+        mWebViewInterface = new WebAppInterface(getContext());
         CardView button = view.findViewById(R.id.photo_to_solve);
         button.setOnClickListener(v -> startPhotoQuestionLookupActivity());
 
@@ -117,12 +118,15 @@ public class FragmentSubjectBiology extends Fragment {
         WebView webView = view.findViewById(R.id.knowledge_view);
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true); // 启用 DOM storage
+        webView.getSettings().setSupportZoom(true);
+        webView.getSettings().setBuiltInZoomControls(true);
+        webView.getSettings().setDisplayZoomControls(false);
         // 设置WebViewClient以防止外部浏览器打开链接
         webView.setWebViewClient(new WebViewClient());
         // Add JavaScript interface
-        webView.addJavascriptInterface(new WebAppInterface(getContext()), "Android");
+        webView.addJavascriptInterface(mWebViewInterface, "Android");
         // Load the local HTML file
-        webView.loadUrl("file:///android_asset/knowledge_graph_biology.html");
+        //webView.loadUrl("file:///android_asset/knowledge_graph_biology.html");
         webView.setOnTouchListener((v, event) -> {
             // 禁止ViewPager2拦截触摸事件
             if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_MOVE) {
@@ -132,56 +136,105 @@ public class FragmentSubjectBiology extends Fragment {
             }
             return false; // 返回false，让HScrollView继续处理触摸事件
         });
+
+        mTextbookVersionSpinner = view.findViewById(R.id.textbook_version_spinner);
+        // 数据源（字符串数组）
+        String[] items = {"人教版生物 必修一", "人教版生物 必修二"};
+        String[] urls = {"file:///android_asset/knowledge_graph_biology_0.html", "file:///android_asset/knowledge_graph_biology.html"};
+        String[] schemas = {"biology_learn_schema_0.json", "biology_learn_schema.json"};
+
+        // 创建 ArrayAdapter
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                getContext(),
+                android.R.layout.simple_spinner_item,  // 系统自带的布局
+                items
+        );
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+
+        // 设置适配器
+        mTextbookVersionSpinner.setAdapter(adapter);
+
+        // 监听选择事件（可选）
+        mTextbookVersionSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> parent, android.view.View view, int position, long id) {
+                if(position >= 0 && position < items.length) {
+                    webView.loadUrl(urls[position]);
+                    mCurrentSchema = schemas[position];
+                }
+            }
+
+            @Override
+            public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
+        mTextbookVersionSpinner.setSelection(0);
     }
 
     public class WebAppInterface {
         private Context context;
+        private String mMindData = "";
 
         WebAppInterface(Context context) {
             this.context = context;
         }
 
+        public void updateMindData(String mindData) {
+            mMindData = mindData;
+        }
+
+        @JavascriptInterface
+        public String getMindData() {
+            return mMindData;
+        }
+
         @JavascriptInterface
         public void onPrepareLesson(String nodeId, String nodeName) {
-            startPreviewLessonActivity(nodeId, nodeName);
+            new Handler(Looper.getMainLooper()).post(()->startPreviewLessonActivity(mCurrentSchema, nodeId, nodeName));
         }
 
         @JavascriptInterface
         public void onReviewLesson(String nodeId, String nodeName) {
-            Chapter.Section s = getSection(nodeId);
+            Chapter.Section s = getSection(mCurrentSchema, nodeId);
             if(s == null) {
-                Toast.makeText(getContext(), "未查询到相关的练习资料", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "选择小节去练习", Toast.LENGTH_SHORT).show();
                 return;
             }
-            new Handler(Looper.getMainLooper()).post(() -> startFindExerciseActivity(s.getKnowledgeNo()));
+
+            if(s.getKnowledgeNo().trim().isEmpty()) {
+                Toast.makeText(context, "没有相关的习题", Toast.LENGTH_SHORT).show();
+            } else {
+                // 在 UI 线程上执行的代码
+                new Handler(Looper.getMainLooper()).post(() -> startFindExerciseActivity(s.getKnowledgeNo()));
+            }
         }
     }
+
     public void startPhotoQuestionLookupActivity() {
-        Intent intent = new Intent(requireActivity(), PhotoQuestionLookupActivity.class);
+        Intent intent = new Intent(getActivity(), PhotoQuestionLookupActivity.class);
         intent.putExtra(PhotoQuestionLookupActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_BIOLOGY.name());
         startActivity(intent);
     }
 
     public void startQuestionSolveActivity() {
-        Intent intent = new Intent(requireActivity(), QuestionSolveActivity.class);
+        Intent intent = new Intent(getActivity(), QuestionSolveActivity.class);
         intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_BIOLOGY);
         intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, Subject.SUBJECT_BIOLOGY.name());
         startActivity(intent);
     }
 
     public void startFindExerciseActivity(String knowledgeList) {
-        Intent intent = new Intent(requireActivity(), FindExerciseActivity.class);
+        Intent intent = new Intent(getActivity(), FindExerciseActivity.class);
         intent.putExtra(FindExerciseActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_BIOLOGY);
         intent.putExtra(FindExerciseActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_BIOLOGY.name());
         intent.putExtra(FindExerciseActivity.KEY_KNOWLEDGE_LIST, knowledgeList);
         startActivity(intent);
     }
 
-    public Chapter.Section getSection(String sectionId) {
+    public Chapter.Section getSection(String fileName, String sectionId) {
         StringBuilder newstringBuilder = new StringBuilder();
         InputStream inputStream;
         try {
-            inputStream = getResources().getAssets().open("biology_learn_schema.json");
+            inputStream = getContext().getResources().getAssets().open(fileName);
             InputStreamReader isr = new InputStreamReader(inputStream);
             BufferedReader reader = new BufferedReader(isr);
             String jsonLine;
@@ -199,7 +252,7 @@ public class FragmentSubjectBiology extends Fragment {
         // 使用 TypeToken 反序列化
         Type listType = new TypeToken<List<Chapter>>() {}.getType();
         List<Chapter> chapters = gson.fromJson(newstringBuilder.toString(), listType);
-        //Chapter chapter = gson.fromJson(newstringBuilder.toString(), Chapter.class);
+
         for(Chapter c : chapters) {
             for (Chapter.Section s : c.getSections()) {
                 if (s.getSection().equals(sectionId)) {
@@ -210,41 +263,49 @@ public class FragmentSubjectBiology extends Fragment {
         return null;
     }
 
-    public void startPreviewLessonActivity(String sectionId, String sectionName) {
-        Chapter.Section s = getSection(sectionId);
+    public void startPreviewLessonActivity(String schemaFile, String sectionId, String sectionName) {
+        Chapter.Section s = getSection(schemaFile, sectionId);
         if(s != null) {
-            Intent previewLessonActivity = new Intent(requireActivity(), LessonPreviewActivity.class);
+            List<Chapter.Schema> validSchemas = new ArrayList<>();
+            for (Chapter.Schema schema : s.getSchemas()) {
+                if(!schema.getTextBook().trim().isEmpty()) {
+                    validSchemas.add(schema);
+                }
+            }
+            if(validSchemas.isEmpty()) {
+                Toast.makeText(getContext(), "选择小节去学习", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            s.setSchemas(validSchemas);
+            Intent previewLessonActivity = new Intent(getActivity(), LessonPreviewActivity.class);
             previewLessonActivity.putExtra(LessonPreviewActivity.KEY_PREVIEW_SECTION_NAME, sectionName);
             previewLessonActivity.putExtra(LessonPreviewActivity.KEY_SECTION_SCHEMA, s);
 
             startActivity(previewLessonActivity);
         } else {
-            Toast.makeText(this.getContext(), "未查询到相关的课程", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this.getContext(), "请选择小节去学习", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void initPopStackListner(View view) {
         // 添加 OnBackStackChangedListener
-        getChildFragmentManager().addOnBackStackChangedListener(new FragmentManager.OnBackStackChangedListener() {
-            @Override
-            public void onBackStackChanged() {
-                // 获取当前 BackStack 中的数量
-                int currentBackStackCount = getChildFragmentManager().getBackStackEntryCount();
+        getChildFragmentManager().addOnBackStackChangedListener(() -> {
+            // 获取当前 BackStack 中的数量
+            int currentBackStackCount = getChildFragmentManager().getBackStackEntryCount();
 
-                // 如果 BackStack 数量减少，说明有 Fragment 被 pop
-                if (currentBackStackCount < previousBackStackCount) {
-                    onChildFragmentPopped();
-                }
+            // 如果 BackStack 数量减少，说明有 Fragment 被 pop
+            if (currentBackStackCount < previousBackStackCount) {
+                onChildFragmentPopped();
+            }
 
-                // 更新记录的 BackStack 数量
-                previousBackStackCount = currentBackStackCount;
-                if(currentBackStackCount > 0) {
-                    view.findViewById(R.id.container).setClickable(true);
-                    view.findViewById(R.id.container).setFocusable(true);
-                } else {
-                    view.findViewById(R.id.container).setClickable(false);
-                    view.findViewById(R.id.container).setFocusable(false);
-                }
+            // 更新记录的 BackStack 数量
+            previousBackStackCount = currentBackStackCount;
+            if(currentBackStackCount > 0) {
+                view.findViewById(R.id.container).setClickable(true);
+                view.findViewById(R.id.container).setFocusable(true);
+            } else {
+                view.findViewById(R.id.container).setClickable(false);
+                view.findViewById(R.id.container).setFocusable(false);
             }
         });
 
