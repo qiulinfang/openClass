@@ -246,8 +246,8 @@
         if (!mindSize || !mindSize.w || !mindSize.h) return;
 
         // 计算适合比例
-        const scaleWidth = container.clientWidth / mindSize.w;
-        const scaleHeight = container.clientHeight / mindSize.h;
+        const scaleWidth = container.clientWidth / mindSize.w + 0.02;
+        const scaleHeight = container.clientHeight / mindSize.h + 0.02;
         const scale = Math.min(scaleWidth, scaleHeight);
 
         // 限制缩放范围（避免太小或太大）
