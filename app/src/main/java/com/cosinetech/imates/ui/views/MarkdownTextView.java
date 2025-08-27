@@ -88,6 +88,7 @@ public class MarkdownTextView extends AppCompatTextView {
                     // 如果前面不是换行，先加换行
                     if (sb.length() > 0 && sb.charAt(sb.length() - 1) != '\n') sb.append('\n');
                     sb.append("$$");
+                    if(inDoubleDollar) sb.append('\n');
                     inDoubleDollar = !inDoubleDollar; // 切换 $$ 状态
                     i += 2;
                     // 如果切换到关闭 $$，在后面加换行
