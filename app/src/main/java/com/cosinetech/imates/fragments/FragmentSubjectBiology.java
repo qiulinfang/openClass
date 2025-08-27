@@ -31,8 +31,8 @@ import com.cosinetech.imates.activities.FindExerciseActivity;
 import com.cosinetech.imates.activities.LessonPreviewActivity;
 import com.cosinetech.imates.activities.MyFavorCenterActivity;
 import com.cosinetech.imates.activities.MyHistoryActivity;
-import com.cosinetech.imates.activities.PhotoQuestionLookupActivity;
-import com.cosinetech.imates.activities.QuestionSolveActivity;
+import com.cosinetech.imates.activities.PhotoSearchActivity;
+import com.cosinetech.imates.activities.ExerciseSolveActivity;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.Chapter;
 import com.cosinetech.imates.webservice.ApiUrl;
@@ -227,15 +227,15 @@ public class FragmentSubjectBiology extends Fragment {
     }
 
     public void startPhotoQuestionLookupActivity() {
-        Intent intent = new Intent(getActivity(), PhotoQuestionLookupActivity.class);
-        intent.putExtra(PhotoQuestionLookupActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_BIOLOGY.name());
+        Intent intent = new Intent(getActivity(), PhotoSearchActivity.class);
+        intent.putExtra(PhotoSearchActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_BIOLOGY.name());
         startActivity(intent);
     }
 
     public void startQuestionSolveActivity() {
-        Intent intent = new Intent(getActivity(), QuestionSolveActivity.class);
-        intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_BIOLOGY);
-        intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, Subject.SUBJECT_BIOLOGY.name());
+        Intent intent = new Intent(getActivity(), ExerciseSolveActivity.class);
+        intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_BIOLOGY);
+        intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, Subject.SUBJECT_BIOLOGY.name());
         startActivity(intent);
     }
 

@@ -52,7 +52,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class PhotoQuestionLookupActivity extends AppCompatActivity {
+public class PhotoSearchActivity extends AppCompatActivity {
     private PreviewView viewFinder;
     private ImageCapture imageCapture;
     private CropImageView cropImageView;
@@ -133,10 +133,10 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
             if(question != null) {
                 addExerciseToList();
                 stopCamera();
-                Intent intent = new Intent(this, QuestionSolveActivity.class);
-                intent.putExtra(QuestionSolveActivity.KEY_CHATBOT_URL, subject == Subject.SUBJECT_BIOLOGY ? ApiUrl.URL_CHAT_BIOLOGY : ApiUrl.URL_CHAT_MATH);
-                intent.putExtra(QuestionSolveActivity.KEY_SUBJECT, subject.name());
-                intent.putExtra(QuestionSolveActivity.KEY_SHOW_LAST_QUESTION, false);
+                Intent intent = new Intent(this, ExerciseSolveActivity.class);
+                intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, subject == Subject.SUBJECT_BIOLOGY ? ApiUrl.URL_CHAT_BIOLOGY : ApiUrl.URL_CHAT_MATH);
+                intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, subject.name());
+                intent.putExtra(ExerciseSolveActivity.KEY_SHOW_LAST_QUESTION, false);
                 startActivity(intent);
             }
         });
@@ -203,7 +203,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         findViewById(R.id.loading).setVisibility(View.INVISIBLE);
                         findViewById(R.id.btn_text_search).setVisibility(View.VISIBLE);
-                        Toast.makeText(PhotoQuestionLookupActivity.this,  "没有搜索到题目" + msg, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(PhotoSearchActivity.this,  "没有搜索到题目" + msg, Toast.LENGTH_SHORT).show();
                         stopScanAnimation(scanLine);
                     });
 
@@ -311,7 +311,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                 @Override
                 public void onError(@NonNull ImageCaptureException exception) {
                     runOnUiThread(() ->
-                            Toast.makeText(PhotoQuestionLookupActivity.this, "无法拍照: " + exception.getMessage(), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(PhotoSearchActivity.this, "无法拍照: " + exception.getMessage(), Toast.LENGTH_SHORT).show()
                     );
                 }
             });
@@ -355,7 +355,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                 @Override
                 public void onFailure(String msg, int code) {
                     runOnUiThread(() -> {
-                        Toast.makeText(PhotoQuestionLookupActivity.this, msg, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(PhotoSearchActivity.this, msg, Toast.LENGTH_SHORT).show();
                     });
                 }
             });
@@ -401,7 +401,7 @@ public class PhotoQuestionLookupActivity extends AppCompatActivity {
                 @Override
                 public void onFailure(String msg, int code) {
                     runOnUiThread(() -> {
-                        Toast.makeText(PhotoQuestionLookupActivity.this, "没有搜到题目" + msg, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(PhotoSearchActivity.this, "没有搜到题目" + msg, Toast.LENGTH_SHORT).show();
                         stopScanAnimation(scanLine);
                         btnSearch.setVisibility(View.VISIBLE);
                         viewLinkTextSearch.setVisibility(View.VISIBLE);

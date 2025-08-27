@@ -10,8 +10,11 @@ public class ChatMessageSession {
     public enum SessionType {
         USER_TALK_AI(0), // 用户创建的
         SYSTEM_TALK_AI(100), // 内置的Session, 不可删除或修改
+
+        USER_TALK_TEACHER_BEGIN(199),
         USER_TALK_TEACHER_BIOLOGY(200), // 用户和生物老师的对话
         USER_TALK_TEACHER_MATH(300), // 用户和数学老师的对话
+        USER_TALK_TEACHER_END(301),
         USER_FAVOR(999);  // 用户收藏的搜索结果
 
         private final int value;
@@ -71,6 +74,6 @@ public class ChatMessageSession {
 
     public static final ChatMessageSession SESSION_DEFAULT_SYSTEM = new ChatMessageSession(SESSION_ID_DEFAULT, CATALOG_ID_DEFAULT,
             ApplicationModelShared.getInstance().getString(R.string.chat_ai_default_session_name),
-            ChatMessageSession.SessionType.SYSTEM_TALK_AI,
+            SessionType.SYSTEM_TALK_AI,
             Long.MAX_VALUE - 100, 0, Long.MAX_VALUE - 100);
 }

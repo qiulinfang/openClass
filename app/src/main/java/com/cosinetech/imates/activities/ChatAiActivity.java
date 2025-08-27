@@ -1,6 +1,7 @@
 package com.cosinetech.imates.activities;
 
-import static com.cosinetech.imates.activities.QuestionSolveActivity.createChatTeacherSession;
+
+import static com.cosinetech.imates.activities.ExerciseSolveActivity.createChatTeacherSession;
 
 import android.annotation.SuppressLint;
 import android.os.Bundle;
@@ -61,8 +62,10 @@ public class ChatAiActivity extends AppCompatActivity implements MessagingManage
 
         mChatView.registerScreenShotForActivityResult(this);
         mChatView.registerPickImageForActivityResult(this);
+        mChatView.registerRichInputBoardForActivityResult(this);
         // Set listener to be notified when screenshot is captured
-        mChatView.setOnPictureSelectedListener(mChatView::sendPictureToTeacher);
+        mChatView.setOnPictureSelectedListener(mChatView::sendPicture);
+        mChatView.setRichInputFinishListener(resultString -> mChatView.sendTextContent(resultString));
 
         MessagingManager.getInstance().addMessageListener(this);
 
@@ -70,7 +73,7 @@ public class ChatAiActivity extends AppCompatActivity implements MessagingManage
         DisplayMetrics metrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(metrics);
         int screenWidth = metrics.widthPixels;
-        getWindow().setLayout((int) (screenWidth * 0.67), metrics.heightPixels);
+        getWindow().setLayout((int) (screenWidth * 0.70), metrics.heightPixels);
 
         ApplicationModelShared.getInstance().getFloatingWindowService().hideRobot();
 
@@ -141,9 +144,7 @@ public class ChatAiActivity extends AppCompatActivity implements MessagingManage
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) {
-            WindowUtils.hideSystemUI(this);
-        }
+        WindowUtils.hideSystemUI(this);
     }
 
     @Override

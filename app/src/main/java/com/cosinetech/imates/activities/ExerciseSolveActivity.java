@@ -10,10 +10,9 @@ import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -34,7 +33,6 @@ import com.cosinetech.imates.models.FindSimilarQuestionRequest;
 import com.cosinetech.imates.models.Subject;
 import com.cosinetech.imates.models.UserInfoViewModel;
 import com.cosinetech.imates.mq.MessagingManager;
-import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.util.AppUtils;
 import com.cosinetech.imates.util.WindowUtils;
 import com.cosinetech.imates.views.ChatAiView;
@@ -45,13 +43,11 @@ import com.cosinetech.imates.webservice.ApiGateWayService;
 import com.cosinetech.imates.webservice.ApiUrl;
 import com.cosinetech.imates.webservice.Question;
 
-import org.loka.screensharekit.ScreenShareKit;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class QuestionSolveActivity extends AppCompatActivity implements MessagingManager.MessageListener {
+public class ExerciseSolveActivity extends AppCompatActivity implements MessagingManager.MessageListener {
     public static final String KEY_CHATBOT_URL = "KEY_CHAT_BOT_URL";
     public static final String KEY_SUBJECT = "KEY_SUBJECT";
     public static final String KEY_SHOW_LAST_QUESTION = "KEY_SHOW_LAST";
@@ -88,9 +84,6 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        WindowUtils.hideSystemUI(this);
-        WindowUtils.setFullScreenMode(this);
-        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_question_solve);
         chatBotUrl = getIntent().getStringExtra(KEY_CHATBOT_URL);
         subject = Subject.valueOf(getIntent().getStringExtra(KEY_SUBJECT));
@@ -101,7 +94,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
     }
 
     @Override
-    protected void onSaveInstanceState(Bundle outState) {
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putString(KEY_CHATBOT_URL, chatBotUrl);
         outState.putString(KEY_SUBJECT, subject.name());
@@ -128,7 +121,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         ChatAiParam param = new ChatAiParam();
         param.showHeader = false;
         param.chatBotUrl = chatBotUrl;
-        param.streamDisplay = subject == Subject.SUBJECT_BIOLOGY;
+        param.streamDisplay = true;
         param.showHistory = false;
         mChatView.setChatResponseListener( success -> {
             if(mCurrentQuestionIndex >= 0 && mCurrentQuestionIndex < mQuestions.size()) {
@@ -144,16 +137,18 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
         mChatView.setChatAiParam(param);
         mChatView.registerScreenShotForActivityResult(this);
         mChatView.registerPickImageForActivityResult(this);
+        mChatView.registerRichInputBoardForActivityResult(this);
         // Set listener to be notified when screenshot is captured
-        mChatView.setOnPictureSelectedListener(mChatView::sendPictureToTeacher);
+        mChatView.setOnPictureSelectedListener(mChatView::sendPicture);
+        mChatView.setRichInputFinishListener(resultString -> mChatView.sendTextContent(resultString));
 
         findViewById(R.id.btn_exit).setOnClickListener(v->{
             finish();
         });
 
         findViewById(R.id.btn_capture).setOnClickListener(v-> {
-            Intent intent = new Intent(this, PhotoQuestionLookupActivity.class);
-            intent.putExtra(PhotoQuestionLookupActivity.KEY_PARAM_SUBJECT, subject.name());
+            Intent intent = new Intent(this, PhotoSearchActivity.class);
+            intent.putExtra(PhotoSearchActivity.KEY_PARAM_SUBJECT, subject.name());
             startActivity(intent);
         });
 
@@ -177,7 +172,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 if(position < 0 || position >= mQuestions.size()) {
                     return;
                 }
-                new AlertDialog.Builder(QuestionSolveActivity.this)
+                new AlertDialog.Builder(ExerciseSolveActivity.this)
                         .setTitle("提示")
                         .setMessage("确认删除习题吗?")
                         .setPositiveButton("确认", (dialog, which) -> {
@@ -202,7 +197,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
 
                                 @Override
                                 public void onDeleteFailed(String msg) {
-                                    runOnUiThread(() -> Toast.makeText(QuestionSolveActivity.this, "删除失败, 稍后重试", Toast.LENGTH_SHORT).show());
+                                    runOnUiThread(() -> Toast.makeText(ExerciseSolveActivity.this, "删除失败, 稍后重试", Toast.LENGTH_SHORT).show());
                                 }
                             });
                         })
@@ -241,16 +236,16 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 MarkdownTextView answer = findViewById(R.id.answerView);
                 answer.setContent(mCurrentQuestion.getAnswer() + "   \n" + mCurrentQuestion.getAnswerAnalysis());
 
-                if(mCurrentQuestion.beginGuideToSolve) {
-                    mChatView.setChatEnable(true);
-                    if(chatResponseTimes >= VIEW_ANSWER_CHAT_TIMES) {
-                        setViewAnswer(true);
-                    }
-                } else {
-                    mChatView.setChatEnable(false);
-                    chatResponseTimes = 0;
-                    setViewAnswer(false);
-                }
+//                if(mCurrentQuestion.beginGuideToSolve) {
+//                    mChatView.setChatEnable(true);
+//                    if(chatResponseTimes >= VIEW_ANSWER_CHAT_TIMES) {
+//                        setViewAnswer(true);
+//                    }
+//                } else {
+//                    mChatView.setChatEnable(false);
+//                    chatResponseTimes = 0;
+//                    setViewAnswer(false);
+//                }
 
                 //先生成ai的session
                 ChatMessageSession session = onChatQuestionSessionChange(false);
@@ -258,6 +253,10 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 if(session != null) {
                     onChatTeacherSessionChange(session.sessionId, session.sessionName);
                 }
+
+                int msgCount = mChatView.getCurrentSessionMsgCount();
+                mChatView.setChatEnable(msgCount > 0);
+                setViewAnswer(msgCount >= VIEW_ANSWER_CHAT_TIMES * 2);
             }
 
             @Override
@@ -272,7 +271,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
                 }
                 onChatQuestionSessionChange(true);
                 runOnUiThread(() -> {
-                    mChatView.sendTextMessageToAi(aiChatMessageRequest);
+                    mChatView.sendMessageToAi(aiChatMessageRequest, false);
                     mChatView.setChatEnable(true);
                 });
             }
@@ -473,7 +472,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
             @Override
             public void onFailure(String msg, int code) {
                 runOnUiThread(() -> {
-                    Toast.makeText(QuestionSolveActivity.this, msg, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(ExerciseSolveActivity.this, msg, Toast.LENGTH_SHORT).show();
                 });
             }
         });
@@ -509,7 +508,7 @@ public class QuestionSolveActivity extends AppCompatActivity implements Messagin
             public void onFailure(String msg, int code) {
                 runOnUiThread(() -> {
                     updateQuestionListTip();
-                    Toast.makeText(QuestionSolveActivity.this, msg, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(ExerciseSolveActivity.this, msg, Toast.LENGTH_SHORT).show();
                 });
             }
         });

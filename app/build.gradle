@@ -150,6 +150,7 @@ dependencies {
     implementation libs.commonmark
     implementation libs.commonmark.parent
     implementation 'com.atlassian.commonmark:commonmark-ext-gfm-tables:0.13.0'
+    implementation('com.atlassian.commonmark:commonmark-ext-gfm-strikethrough:0.13.0')
     implementation libs.jlatexmath.android
     implementation libs.jlatexmath.android.font.cyrillic
     implementation libs.jlatexmath.android.font.greek
@@ -159,8 +160,16 @@ dependencies {
     implementation files('libs/markwon-image.aar')
     implementation files('libs/markwon-image-glide.aar')
     implementation files('libs/markwon-inline-parser.aar')
-    implementation files('libs/markwon-syntax-highlight.aar')
+    //implementation files('libs/markwon-syntax-highlight.aar')
     implementation files('libs/markwon-ext-latex.aar')
+    implementation files('libs/markwon-linkify.aar')
+
+    implementation files('libs/markwon-recycler.aar')
+    implementation files('libs/markwon-recycler-table.aar')
+    implementation files('libs/markwon-ext-strikethrough.aar')
+    implementation files('libs/markwon-ext-tasklist.aar')
+
+
     implementation files('libs/ffmpeg-kit.aar')
     implementation files('libs/smart-exception-java-0.2.1.jar')
     implementation files('libs/smart-exception-common-0.2.1.jar')

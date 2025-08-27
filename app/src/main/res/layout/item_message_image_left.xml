@@ -1,28 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:padding="10dp">
+<layout xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <CheckBox
-        android:id="@+id/iv_select"
-        android:layout_marginHorizontal="8dp"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:visibility="gone"/>
+    <data>
+        <variable
+            name="data"
+            type="com.cosinetech.imates.models.ChatDisplayItem" />
+        <variable
+            name="message"
+            type="com.cosinetech.imates.models.ChatMessage" />
+        <variable
+            name="position"
+            type="int" />
+    </data>
 
-    <ImageView
-        android:id="@+id/iv_avatar"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:src="@drawable/chat_ai_avatar_teacher_woman" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="10dp">
 
-    <ImageView
-        android:id="@+id/iv_message_image"
-        android:layout_width="120dp"
-        android:layout_height="120dp"
-        android:layout_marginStart="10dp"
-        android:scaleType="centerCrop"
-        android:background="@drawable/chat_ai_msg_ai_bg" />
-</LinearLayout>
+        <CheckBox
+            android:id="@+id/iv_select"
+            android:layout_marginHorizontal="8dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:visibility="gone"/>
+
+        <ImageView
+            android:id="@+id/iv_avatar"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/chat_ai_avatar_teacher_woman" />
+
+        <ImageView
+            android:id="@+id/iv_message_image"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_marginStart="10dp"
+            android:scaleType="centerCrop"
+            android:background="@drawable/chat_ai_msg_ai_bg" />
+    </LinearLayout>
+
+</layout>
