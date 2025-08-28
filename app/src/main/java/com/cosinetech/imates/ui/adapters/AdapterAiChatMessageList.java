@@ -213,18 +213,18 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
             item.startTypingEffect(new ChatDisplayItem.TypingEffectCallback() {
                 @Override
                 public void onContentUpdate(String oldContent, String content) {
-                    adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(content));
+                    adapter.setMarkdown(markwon, content);
                     adapter.notifyDataSetChanged();
                 }
 
                 @Override
                 public void onTypingComplete(String content) {
-                    adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(content));
-                    adapter.notifyDataSetChanged();
+//                    adapter.setMarkdown(markwon, ChatDisplayItem.filterLatexString(content));
+//                    adapter.notifyDataSetChanged();
                 }
             });
         } else {
-            adapter.setMarkdown(markwon, MarkdownTextView.filterLatexString(message.content));
+            adapter.setMarkdown(markwon, ChatDisplayItem.filterLatexString(message.content));
             adapter.notifyDataSetChanged();
         }
 

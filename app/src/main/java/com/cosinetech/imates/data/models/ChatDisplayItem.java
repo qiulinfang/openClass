@@ -58,6 +58,8 @@ public class ChatDisplayItem {
 
     public boolean initialDisplayed = false;
 
+    private IncrementalStringProcessor processor = new  IncrementalStringProcessor();
+
     public ChatDisplayItem(ChatMessage msg, boolean showWithTypingEffect, Context context) {
         this.chatMessage = msg;
         this.showWithTypingEffect = showWithTypingEffect;
@@ -78,14 +80,14 @@ public class ChatDisplayItem {
         } else {
             tablePlugin = TablePlugin.create(context);
         }
-        MarkwonInlineParserPlugin markwonInlineParserPlugin = MarkwonInlineParserPlugin.create();
-        markwonInlineParserPlugin.factoryBuilder()
-                // 块级
-                .addInlineProcessor(new LatexMarkProcessor("$$", "$$", true))    // 块级
-                .addInlineProcessor(new LatexMarkProcessor("\\[", "\\]", true))  // 块级
-                // 行内其次
-                .addInlineProcessor(new LatexMarkProcessor("$", "$", false))     // 行内
-                .addInlineProcessor(new LatexMarkProcessor("\\(", "\\)", false));// 行内
+//        MarkwonInlineParserPlugin markwonInlineParserPlugin = MarkwonInlineParserPlugin.create();
+//        markwonInlineParserPlugin.factoryBuilder()
+//                // 块级
+//                .addInlineProcessor(new LatexMarkProcessor("$$", "$$", true))    // 块级
+//                .addInlineProcessor(new LatexMarkProcessor("\\[", "\\]", true))  // 块级
+//                // 行内其次
+//                .addInlineProcessor(new LatexMarkProcessor("$", "$", false))     // 行内
+//                .addInlineProcessor(new LatexMarkProcessor("\\(", "\\)", false));// 行内
         return Markwon.builder(context)
                 .usePlugin(HtmlPlugin.create())
                 .usePlugin(ImagesPlugin.create())
@@ -112,14 +114,13 @@ public class ChatDisplayItem {
                         });
                     }
                 })
-                .usePlugin(markwonInlineParserPlugin)
+                .usePlugin(MarkwonInlineParserPlugin.create())
                 .usePlugin(GlideImagesPlugin.create(context))
                 .usePlugin(JLatexMathPlugin.create(textSize, builder -> {
                     // background provider for both inlines and blocks
                     //  or more specific: `inlineBackgroundProvider` & `blockBackgroundProvider`
                     builder.inlinesEnabled(true);
-                    builder.blockStyle(LatexParseStyle.STYLE_DOLLAR);
-                    builder.inlineStyle(LatexParseStyle.STYLE_BRACKETS);
+                    builder.blocksEnabled(true);
                     //builder.allowInlinesSingleDollar(true);
 //                        builder.theme().backgroundProvider(new JLatexMathTheme.BackgroundProvider() {
 //                            @NonNull
@@ -202,7 +203,7 @@ public class ChatDisplayItem {
                     String partialContent = chatMessage.content.substring(0, currentDisplayCharIndex);
 
                     if (callback != null && !partialContent.isEmpty() && !partialContent.equals(lastPartialContent)) {
-                        callback.onContentUpdate(lastPartialContent, partialContent);
+                        callback.onContentUpdate(lastPartialContent, processor.process(partialContent));
                     }
                 }
 
@@ -283,6 +284,60 @@ public class ChatDisplayItem {
         }
     }
 
+    public static String filterLatexString(String src) {
+        src = "   \n\f" + src + "   \n\f";
+        return new IncrementalStringProcessor().process(src);
+//        return src.replace("<p>", "")
+//                .replace("</p>", "  \n");
+//                .replace("\\(", "$")
+//                .replace("\\)", "$")
+//                .replace("\\[", "$$")
+//                .replace("\\]", "$$")
+//                .replace("$$", "\n$$\n");
+
+//        StringBuilder sb = new StringBuilder(src.length() * 2);
+//        int length = src.length();
+//        int i = 0;
+//        boolean inDoubleDollar = false; // 标记是否在 $$...$$ 块内
+//
+//        while (i < length) {
+//            // 处理 <p>
+//            if (i + 2 < length && src.charAt(i) == '<' && src.charAt(i + 1) == 'p' && src.charAt(i + 2) == '>') {
+//                i += 3; // 跳过 <p>
+//            }
+//            // 处理 </p>
+//            else if (i + 3 < length && src.startsWith("</p>", i)) {
+//                sb.append("  \n");
+//                i += 4;
+//            }
+//            // 处理 \(...\) 和 \[...\]
+//            else if (i + 1 < length && src.charAt(i) == '\\') {
+//                char next = src.charAt(i + 1);
+//                if (next == '(' || next == ')') {
+//                    sb.append('\\').append(next);
+//                    i += 2;
+//                } else if (next == '[' || next == ']') {
+//                    // 如果前面不是换行，先加换行
+//                    if (sb.length() > 0 && sb.charAt(sb.length() - 1) != '\n') sb.append('\n');
+//                    sb.append("$$");
+//                    if(inDoubleDollar) sb.append('\n');
+//                    inDoubleDollar = !inDoubleDollar; // 切换 $$ 状态
+//                    i += 2;
+//                    // 如果切换到关闭 $$，在后面加换行
+//                    if (!inDoubleDollar) sb.append('\n');
+//                } else {
+//                    sb.append(src.charAt(i++));
+//                }
+//            }
+//            // 普通字符
+//            else {
+//                sb.append(src.charAt(i++));
+//            }
+//        }
+//
+//        return sb.toString();
+    }
+
     /**
      * 打字效果回调接口
      */
@@ -339,4 +394,140 @@ public class ChatDisplayItem {
             return node;
         }
     }
+
+    public static class IncrementalStringProcessor {
+
+        // 内部状态类
+        private static class State {
+            int col = 0;              // 当前列
+            int leadingSpaces = 0;    // 当前行首空格数
+        }
+
+        private final StringBuilder sb = new StringBuilder(); // 累积处理结果
+        private final State state = new State();
+        private int processedLength = 0; // 上次已处理的原始字符串长度
+
+        public IncrementalStringProcessor() {}
+
+        /**
+         * 处理完整字符串，只处理新增部分
+         * @param fullText 新完整字符串
+         * @return 处理后的完整字符串
+         */
+        public String process(String fullText) {
+            int len = fullText.length();
+            int i = processedLength; // 从上次处理结束处开始
+
+            while (i < len) {
+                char ch = fullText.charAt(i);
+
+                // 换行处理
+                if (ch == '\n' || ch == '\r') {
+                    sb.append(ch);
+                    i++;
+                    state.col = 0;
+                    state.leadingSpaces = 0; // 新行重置空格计数
+                    continue;
+                }
+
+                // 行首空格统计
+                if (state.col == state.leadingSpaces && ch == ' ') {
+                    state.leadingSpaces++;
+                    sb.append(ch);
+                    i++; state.col++;
+                    continue;
+                }
+
+                // 1️⃣ 转义序列
+                if (ch == '\\') {
+                    if (i + 1 < len) {
+                        char next = fullText.charAt(i + 1);
+                        if (next == '\\') { // e0 或 ea/eb
+                            if (i + 2 < len) {
+                                char next2 = fullText.charAt(i + 2);
+                                if (next2 == '[') { // ea
+                                    sb.append("\\\\[");
+                                    i += 3; state.col += 3; state.leadingSpaces = 0; continue;
+                                } else if (next2 == ']') { // eb
+                                    sb.append("\\\\]");
+                                    i += 3; state.col += 3; state.leadingSpaces = 0; continue;
+                                }
+                            }
+                            // e0
+                            sb.append("\\\\");
+                            i += 2; state.col += 2; state.leadingSpaces = 0; continue;
+                        } else if (next == '$') { // ec
+                            sb.append("\\$");
+                            i += 2; state.col += 2; state.leadingSpaces = 0; continue;
+                        }
+                    }
+                }
+
+                // 2️⃣ <p> 和 </p>
+                if (ch == '<') {
+                    if (i + 2 < len && fullText.charAt(i + 1) == 'p' && fullText.charAt(i + 2) == '>') {
+                        i += 3; continue; // 删除 <p>
+                    } else if (i + 3 < len && fullText.charAt(i + 1) == '/' && fullText.charAt(i + 2) == 'p' && fullText.charAt(i + 3) == '>') {
+                        sb.append("  \n");
+                        i += 4; state.col = 0; state.leadingSpaces = 0; continue;
+                    }
+                }
+
+                // 3️⃣ 定界符独占一行
+                boolean isDelimiter = false;
+                int delimiterLength = 0;
+                if (ch == '\\' && i + 1 < len && (fullText.charAt(i + 1) == '[' || fullText.charAt(i + 1) == ']')) {
+                    isDelimiter = true; delimiterLength = 2;
+                } else if (ch == '$' && i + 1 < len && fullText.charAt(i + 1) == '$') {
+                    isDelimiter = true; delimiterLength = 2;
+                }
+
+                if (isDelimiter) {
+                    // 前置换行判断
+                    if (state.leadingSpaces > 8 || state.col > state.leadingSpaces) {
+                        sb.append('\n');
+                    }
+
+                    // 输出定界符
+                    sb.append(fullText, i, i + delimiterLength);
+                    i += delimiterLength;
+                    state.col = delimiterLength;
+                    state.leadingSpaces = 0;
+
+                    // 后置换行判断
+                    // 扫描定界符后连续空格，直到遇到换行或非空格
+                    int j = i;
+                    boolean needAppendNewline = true;
+                    while (j < len) {
+                        char nextChar = fullText.charAt(j);
+                        if (nextChar == ' ') {
+                            j++;
+                            // 跳过空格
+                        } else if (nextChar == '\n' || nextChar == '\r') {
+                            needAppendNewline = false; // 已有换行，不加
+                            break;
+                        } else {
+                            break; // 遇到其他字符，需要换行
+                        }
+                    }
+
+                    if (needAppendNewline) {
+                        sb.append('\n');
+                        state.col = 0;
+                        state.leadingSpaces = 0;
+                    }
+
+                    continue;
+                }
+
+                // 4️⃣ 普通字符
+                sb.append(ch);
+                i++; state.col++; state.leadingSpaces = 0;
+            }
+
+            processedLength = len; // 更新已处理长度
+            return sb.toString();  // 返回完整处理结果
+        }
+    }
+
 }
