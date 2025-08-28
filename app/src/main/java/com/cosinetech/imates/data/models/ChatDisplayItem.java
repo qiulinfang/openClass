@@ -210,7 +210,7 @@ public class ChatDisplayItem {
 
                 if (!msgIsFinished || currentDisplayCharIndex < chatMessage.content.length()) {
                     // 计算下一个字符的延迟时间
-                    long delay = 200;
+                    long delay = 100;
                     typingHandler.postDelayed(this, delay);
                 } else {
                     if (callback != null) {
