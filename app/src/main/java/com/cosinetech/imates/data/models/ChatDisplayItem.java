@@ -1,9 +1,9 @@
 package com.cosinetech.imates.data.models;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -21,10 +21,10 @@ import io.noties.markwon.Markwon;
 import io.noties.markwon.MarkwonConfiguration;
 import io.noties.markwon.MarkwonPlugin;
 import io.noties.markwon.MarkwonVisitor;
+import io.noties.markwon.core.MarkwonTheme;
 import io.noties.markwon.ext.latex.JLatexMathNode;
 import io.noties.markwon.ext.latex.JLatexMathPlugin;
 import io.noties.markwon.ext.latex.JLatexMathTheme;
-import io.noties.markwon.ext.latex.LatexParseStyle;
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin;
 import io.noties.markwon.ext.tables.TablePlugin;
 import io.noties.markwon.ext.tasklist.TaskListPlugin;
@@ -113,6 +113,12 @@ public class ChatDisplayItem {
                                     .highlight(fencedCodeBlock.getInfo(), fencedCodeBlock.getLiteral().trim());
                             visitor.builder().append(code);
                         });
+                    }
+
+                    @Override
+                    public void configureTheme(@NonNull MarkwonTheme.Builder builder) {
+                        builder.codeBackgroundColor(Color.GRAY)
+                                .blockQuoteColor(Color.GRAY);
                     }
                 })
                 .usePlugin(MarkwonInlineParserPlugin.create())
