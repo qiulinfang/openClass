@@ -2,6 +2,7 @@ package com.cosinetech.imates.data.models;
 
 import android.content.Context;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Log;
 
@@ -187,7 +188,7 @@ public class ChatDisplayItem {
         }
 
         // 初始化打字效果
-        typingHandler = new Handler(Looper.getMainLooper());
+        typingHandler = TypingScheduler.getHandler();
         isTypingActive = true;
 
         // 开始打字效果
@@ -196,7 +197,7 @@ public class ChatDisplayItem {
             public void run() {
                 if (currentDisplayCharIndex < chatMessage.content.length() && isTypingActive) {
                     String lastPartialContent = chatMessage.content.substring(0, currentDisplayCharIndex);
-                    currentDisplayCharIndex += 1;
+                    currentDisplayCharIndex += 5;
                     if(currentDisplayCharIndex >= chatMessage.content.length()) {
                         currentDisplayCharIndex = chatMessage.content.length();
                     }
@@ -209,7 +210,7 @@ public class ChatDisplayItem {
 
                 if (!msgIsFinished || currentDisplayCharIndex < chatMessage.content.length()) {
                     // 计算下一个字符的延迟时间
-                    long delay = 50;
+                    long delay = 200;
                     typingHandler.postDelayed(this, delay);
                 } else {
                     if (callback != null) {
@@ -287,55 +288,6 @@ public class ChatDisplayItem {
     public static String filterLatexString(String src) {
         src = "   \n\f" + src + "   \n\f";
         return new IncrementalStringProcessor().process(src);
-//        return src.replace("<p>", "")
-//                .replace("</p>", "  \n");
-//                .replace("\\(", "$")
-//                .replace("\\)", "$")
-//                .replace("\\[", "$$")
-//                .replace("\\]", "$$")
-//                .replace("$$", "\n$$\n");
-
-//        StringBuilder sb = new StringBuilder(src.length() * 2);
-//        int length = src.length();
-//        int i = 0;
-//        boolean inDoubleDollar = false; // 标记是否在 $$...$$ 块内
-//
-//        while (i < length) {
-//            // 处理 <p>
-//            if (i + 2 < length && src.charAt(i) == '<' && src.charAt(i + 1) == 'p' && src.charAt(i + 2) == '>') {
-//                i += 3; // 跳过 <p>
-//            }
-//            // 处理 </p>
-//            else if (i + 3 < length && src.startsWith("</p>", i)) {
-//                sb.append("  \n");
-//                i += 4;
-//            }
-//            // 处理 \(...\) 和 \[...\]
-//            else if (i + 1 < length && src.charAt(i) == '\\') {
-//                char next = src.charAt(i + 1);
-//                if (next == '(' || next == ')') {
-//                    sb.append('\\').append(next);
-//                    i += 2;
-//                } else if (next == '[' || next == ']') {
-//                    // 如果前面不是换行，先加换行
-//                    if (sb.length() > 0 && sb.charAt(sb.length() - 1) != '\n') sb.append('\n');
-//                    sb.append("$$");
-//                    if(inDoubleDollar) sb.append('\n');
-//                    inDoubleDollar = !inDoubleDollar; // 切换 $$ 状态
-//                    i += 2;
-//                    // 如果切换到关闭 $$，在后面加换行
-//                    if (!inDoubleDollar) sb.append('\n');
-//                } else {
-//                    sb.append(src.charAt(i++));
-//                }
-//            }
-//            // 普通字符
-//            else {
-//                sb.append(src.charAt(i++));
-//            }
-//        }
-//
-//        return sb.toString();
     }
 
     /**
@@ -527,6 +479,44 @@ public class ChatDisplayItem {
 
             processedLength = len; // 更新已处理长度
             return sb.toString();  // 返回完整处理结果
+        }
+    }
+
+    public static class TypingScheduler {
+        private static HandlerThread handlerThread;
+        private static Handler handler;
+
+        private TypingScheduler() {
+            // 私有构造，禁止实例化
+        }
+
+        private static void ensureInit() {
+            if (handlerThread == null) {
+                synchronized (TypingScheduler.class) {
+                    if (handlerThread == null) {
+                        handlerThread = new HandlerThread("TypingSchedulerThread");
+                        handlerThread.start();
+                        handler = new Handler(handlerThread.getLooper());
+                    }
+                }
+            }
+        }
+
+        /** 获取全局后台 Handler */
+        public static Handler getHandler() {
+            ensureInit();
+            return handler;
+        }
+
+        /** 退出调度器 */
+        public static void shutdown() {
+            synchronized (TypingScheduler.class) {
+                if (handlerThread != null) {
+                    handlerThread.quitSafely();
+                    handlerThread = null;
+                    handler = null;
+                }
+            }
         }
     }
 

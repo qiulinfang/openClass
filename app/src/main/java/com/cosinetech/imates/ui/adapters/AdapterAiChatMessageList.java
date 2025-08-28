@@ -213,8 +213,10 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
             item.startTypingEffect(new ChatDisplayItem.TypingEffectCallback() {
                 @Override
                 public void onContentUpdate(String oldContent, String content) {
-                    adapter.setMarkdown(markwon, content);
-                    adapter.notifyDataSetChanged();
+                    recyclerView.post(() -> {
+                        adapter.setMarkdown(markwon, content);
+                        adapter.notifyDataSetChanged();
+                    });
                 }
 
                 @Override
