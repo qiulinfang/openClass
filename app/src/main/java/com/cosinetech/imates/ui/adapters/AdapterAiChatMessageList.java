@@ -13,11 +13,17 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.databinding.ViewDataBinding;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.airbnb.lottie.LottieAnimationView;
 import com.bumptech.glide.Glide;
+import com.cosinetech.imates.databinding.ItemMessageImageLeftBinding;
+import com.cosinetech.imates.databinding.ItemMessageImageRightBinding;
+import com.cosinetech.imates.databinding.ItemMessageLeftMarkdownBinding;
+import com.cosinetech.imates.databinding.ItemMessageVoiceLeftBinding;
+import com.cosinetech.imates.databinding.ItemMessageVoiceRightBinding;
 import com.cosinetech.imates.ui.activities.ImageViewerActivity;
 import com.cosinetech.imates.audio.AudioPlayManager;
 import com.cosinetech.imates.audio.IAudioPlayListener;
@@ -37,7 +43,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem, androidx.databinding.ViewDataBinding> {
-    private static String TAG = "AdapterAiChatMessageList";
+    private static final String TAG = "AdapterAiChatMessageList";
     public enum MessageDisplayType {
         TYPE_NONE(-1),
         TYPE_DATE(0),
@@ -125,24 +131,16 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
     @Override
     protected int getLayoutResId(int viewType) {
         MessageDisplayType type = MessageDisplayType.fromValue(viewType);
-        switch (type) {
-            case TYPE_DATE:
-                return R.layout.item_message_date;
-            case TYPE_TEXT_LEFT_MARKDOWN:
-                return R.layout.item_message_left_markdown;
-            case TYPE_TEXT_RIGHT_MARKDOWN:
-                return R.layout.item_message_right_markdown;
-            case TYPE_IMAGE_LEFT:
-                return R.layout.item_message_image_left;
-            case TYPE_IMAGE_RIGHT:
-                return R.layout.item_message_image_right;
-            case TYPE_VOICE_LEFT:
-                return R.layout.item_message_voice_left;
-            case TYPE_VOICE_RIGHT:
-                return R.layout.item_message_voice_right;
-            default:
-                return R.layout.item_message_date; // fallback
-        }
+        return switch (type) {
+            case TYPE_DATE -> R.layout.item_message_date;
+            case TYPE_TEXT_LEFT_MARKDOWN -> R.layout.item_message_left_markdown;
+            case TYPE_TEXT_RIGHT_MARKDOWN -> R.layout.item_message_right_markdown;
+            case TYPE_IMAGE_LEFT -> R.layout.item_message_image_left;
+            case TYPE_IMAGE_RIGHT -> R.layout.item_message_image_right;
+            case TYPE_VOICE_LEFT -> R.layout.item_message_voice_left;
+            case TYPE_VOICE_RIGHT -> R.layout.item_message_voice_right;
+            default -> R.layout.item_message_date; // fallback
+        };
     }
 
     @Override
@@ -183,7 +181,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         tvMessage.clearContent();
         tvMessage.setTypingEffectDisplayItem(item);
         tvMessage.disableTypingEffectDisplay();
-        if(item.showWithTypingEffect) {
+        if(item.showTypingAnimation) {
             tvMessage.enableTypingEffectDisplay();
         } else {
             tvMessage.setContent(message.content);
@@ -192,20 +190,13 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
 
     private void bindMarkdownItem(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item, ChatMessage message, int position) {
         // 设置选择状态和头像
-        setSelectionState(binding, item);
-        setAvatarImage(binding, item);
-//        Log.e("bindMarkdownItem", "bindMarkdownItem!!!");
-//        MarkdownTextView textView = binding.getRoot().findViewById(R.id.tv_message);
-//        setMarkdownTextLegacy(textView, item);
+        setItemSelectionState(binding, item);
+        setItemAvatarImage(binding, item);
+        setMarkdownItemContent(binding, item, message);
+        setMarkdownAiItemAnimate(binding, item, message);
+    }
 
-        ImageView loading = binding.getRoot().findViewById(R.id.iv_loading_dots);
-        if(loading != null) {
-            // 获取AnimatedVectorDrawable并开始动画
-            if (loading.getDrawable() instanceof AnimatedVectorDrawable drawable) {
-                drawable.start();
-            }
-        }
-
+    private void setMarkdownItemContent(ViewDataBinding binding, ChatDisplayItem item, ChatMessage message) {
         // 获取 RecyclerView
         // 获取 Markwon 和 MarkwonAdapter 实例
         final Markwon markwon = item.getMarkwon(32, true);
@@ -225,13 +216,16 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                     recyclerView.post(() -> {
                         adapter.setMarkdown(markwon, content);
                         adapter.notifyDataSetChanged();
+                        updateMarkdownAiItemAnimate(binding, item, message);
                     });
                 }
 
                 @Override
                 public void onTypingComplete(String content) {
-//                    adapter.setMarkdown(markwon, ChatDisplayItem.filterLatexString(content));
-//                    adapter.notifyDataSetChanged();
+                    recyclerView.post(() -> {
+                        updateMarkdownAiItemAnimate(binding, item, message);
+                    });
+
                 }
             });
         } else {
@@ -242,62 +236,114 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         item.initialDisplayed = true;
     }
 
+    private void setMarkdownAiItemAnimate(ViewDataBinding binding, ChatDisplayItem item, ChatMessage message) {
+        if(item.chatMessage.isSelf) {
+            Log.d(TAG, "Sending animation");
+        } else {
+            ImageView loading = ((ItemMessageLeftMarkdownBinding)binding).ivLoadingDots;
+            if (loading.getDrawable() instanceof AnimatedVectorDrawable drawable) {
+                if(!drawable.isRunning()) {
+                    drawable.start();
+                }
+            }
+
+            updateMarkdownAiItemAnimate(binding, item, message);
+        }
+    }
+
+    private void updateMarkdownAiItemAnimate(ViewDataBinding binding, ChatDisplayItem item, ChatMessage message) {
+        if(item.chatMessage.isSelf) {
+            return;
+        }
+        View messageContainer = ((ItemMessageLeftMarkdownBinding)binding).messageContainer;
+        ImageView loading = ((ItemMessageLeftMarkdownBinding)binding).ivLoadingDots;
+        if(message.content.isEmpty()) {
+            if (messageContainer.getVisibility() != View.GONE) {
+                messageContainer.setVisibility(View.GONE);
+            }
+        } else {
+            if (messageContainer.getVisibility() != View.VISIBLE) {
+                messageContainer.setVisibility(View.VISIBLE);
+            }
+        }
+
+        if(item.shouldShowTypingEffect()) {
+            if(loading.getVisibility() != View.VISIBLE){
+                loading.setVisibility(View.VISIBLE);
+            }
+        } else {
+            if(loading.getVisibility() != View.INVISIBLE) {
+                loading.setVisibility(View.INVISIBLE);
+            }
+        }
+    }
+
     private void bindImageItem(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item, ChatMessage message) {
-        setSelectionState(binding, item);
-        setAvatarImage(binding, item);
+        setItemSelectionState(binding, item);
+        setItemAvatarImage(binding, item);
 
         // 获取 ImageView 并加载图片
-        ImageView imageView = binding.getRoot().findViewById(R.id.iv_message_image);
-        if (imageView != null) {
-            Glide.with(context)
-                    .load(message.content)
-                    .into(imageView);
-
-            imageView.setOnClickListener(v -> {
-                Intent intent = new Intent(context, ImageViewerActivity.class);
-                intent.putExtra("image_path", message.content);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                context.startActivity(intent);
-            });
+        ImageView imageView;
+        if(item.chatMessage.isSelf) {
+            imageView = ((ItemMessageImageLeftBinding)binding).ivMessageImage;
+        } else {
+            imageView = ((ItemMessageImageRightBinding)binding).ivMessageImage;
         }
+        Glide.with(context)
+                .load(message.content)
+                .into(imageView);
+
+        imageView.setOnClickListener(v -> {
+            Intent intent = new Intent(context, ImageViewerActivity.class);
+            intent.putExtra("image_path", message.content);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+        });
     }
 
     @SuppressLint("SetTextI18n")
     private void bindVoiceItem(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item, ChatMessage message, int position) {
-        setSelectionState(binding, item);
-        setAvatarImage(binding, item);
+        setItemSelectionState(binding, item);
+        setItemAvatarImage(binding, item);
 
         VoiceDbUtil.VoiceDbItem vi = VoiceDbUtil.extractDbVoiceContent(message.content);
 
         // 获取控件
-        View voiceLayout = binding.getRoot().findViewById(R.id.voice_layout);
-        TextView tvVoiceLength = binding.getRoot().findViewById(R.id.tv_voice_length);
-        LottieAnimationView ivVoiceIcon = binding.getRoot().findViewById(R.id.iv_voice_icon);
-
-        if (voiceLayout != null && tvVoiceLength != null && ivVoiceIcon != null) {
-            // 计算语音布局宽度
-            int baseWidth = ScreenUtils.dpToPx(context, 100);
-            int minWidth = ScreenUtils.dpToPx(context, 100);
-            int maxWidth = ScreenUtils.dpToPx(context, 600);
-            int calculatedWidth = baseWidth + (vi.duration * ScreenUtils.dpToPx(context, 5));
-            calculatedWidth = Math.min(Math.max(calculatedWidth, minWidth), maxWidth);
-
-            ViewGroup.LayoutParams params = voiceLayout.getLayoutParams();
-            params.width = calculatedWidth;
-            voiceLayout.setLayoutParams(params);
-
-            tvVoiceLength.setText(vi.duration + "\"");
-
-            // 处理动画状态
-            if (mAudioPlayingItemIndex == position) {
-                ivVoiceIcon.playAnimation();
-            } else {
-                ivVoiceIcon.cancelAnimation();
-            }
-
-            // 设置点击监听器
-            ivVoiceIcon.setOnClickListener(v -> handleVoiceClick(position, vi.voicePath));
+        View voiceLayout;
+        TextView tvVoiceLength;
+        LottieAnimationView ivVoiceIcon;
+        if(item.chatMessage.isSelf) {
+            voiceLayout = ((ItemMessageVoiceLeftBinding)binding).voiceLayout;
+            tvVoiceLength = ((ItemMessageVoiceLeftBinding)binding).tvVoiceLength;
+            ivVoiceIcon = ((ItemMessageVoiceLeftBinding)binding).ivVoiceIcon;
+        } else {
+            voiceLayout = ((ItemMessageVoiceRightBinding)binding).voiceLayout;
+            tvVoiceLength = ((ItemMessageVoiceRightBinding)binding).tvVoiceLength;
+            ivVoiceIcon = ((ItemMessageVoiceRightBinding)binding).ivVoiceIcon;
         }
+
+        // 计算语音布局宽度
+        int baseWidth = ScreenUtils.dpToPx(context, 100);
+        int minWidth = ScreenUtils.dpToPx(context, 100);
+        int maxWidth = ScreenUtils.dpToPx(context, 600);
+        int calculatedWidth = baseWidth + (vi.duration * ScreenUtils.dpToPx(context, 5));
+        calculatedWidth = Math.min(Math.max(calculatedWidth, minWidth), maxWidth);
+
+        ViewGroup.LayoutParams params = voiceLayout.getLayoutParams();
+        params.width = calculatedWidth;
+        voiceLayout.setLayoutParams(params);
+
+        tvVoiceLength.setText(vi.duration + "\"");
+
+        // 处理动画状态
+        if (mAudioPlayingItemIndex == position) {
+            ivVoiceIcon.playAnimation();
+        } else {
+            ivVoiceIcon.cancelAnimation();
+        }
+
+        // 设置点击监听器
+        ivVoiceIcon.setOnClickListener(v -> handleVoiceClick(position, vi.voicePath));
     }
 
     private void handleVoiceClick(int position, String voicePath) {
@@ -332,7 +378,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         }
     }
 
-    private void setSelectionState(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item) {
+    private void setItemSelectionState(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item) {
         CheckBox checkBox = binding.getRoot().findViewById(R.id.iv_select);
         if (checkBox != null) {
             checkBox.setChecked(item.isSelected);
@@ -341,7 +387,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         }
     }
 
-    private void setAvatarImage(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item) {
+    private void setItemAvatarImage(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item) {
         ImageView avatarView = binding.getRoot().findViewById(R.id.iv_avatar);
         if (avatarView != null) {
             if (item.chatMessage.isSelf) {
@@ -361,11 +407,10 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         for (int i = items.size() - 1; i >= 0; i--) {
             if (items.get(i).chatMessage.messageId.equals(msgId)) {
                 ChatDisplayItem displayMsg = items.get(i);
-                displayMsg.showWithTypingEffect = showWithTypingEffect;
-                displayMsg.msgIsFinished = msgIsFinished;
+                displayMsg.showTypingAnimation = showWithTypingEffect;
+                displayMsg.msgContentIsFinished = msgIsFinished;
 
-                notifyItemChanged(i, displayMsg.showWithTypingEffect);
-                //notifyDataSetChanged();
+                notifyItemChanged(i, displayMsg.showTypingAnimation);
                 break;
             }
         }
@@ -389,9 +434,13 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
 
             switch (type) {
                 case TYPE_TEXT_LEFT_MARKDOWN:
-                case TYPE_TEXT_RIGHT_MARKDOWN:
-                    // 停止 Markdown 打字效果
                     item.stopTypingEffect();
+                    View msgContainer = holder.itemView.findViewById(R.id.message_container);
+                    msgContainer.setVisibility(View.GONE);
+                    ImageView loading = holder.itemView.findViewById(R.id.iv_loading_dots);
+                    loading.setVisibility(View.VISIBLE);
+                    break;
+                case TYPE_TEXT_RIGHT_MARKDOWN:
                     break;
 
                 case TYPE_IMAGE_LEFT:

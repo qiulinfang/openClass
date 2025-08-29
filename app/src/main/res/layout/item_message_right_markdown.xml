@@ -29,7 +29,7 @@
             android:id="@+id/message_container"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="80dp"
+            android:layout_marginStart="10dp"
             android:layout_marginEnd="10dp"
             android:layout_toStartOf="@id/iv_avatar"
             android:background="@drawable/chat_ai_msg_self_bg"
@@ -61,6 +61,19 @@
             android:layout_height="40dp"
             android:layout_alignParentEnd="true"
             android:src="@drawable/chat_ai_avatar_user" />
+
+        <ProgressBar
+            android:id="@+id/send_progress"
+            style="?android:attr/progressBarStyleLarge"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:max="100"
+            android:progress="100"
+            android:indeterminateDrawable="@drawable/app_progress_circle_bg"
+            android:secondaryProgress="100"
+            android:layout_centerVertical="true"
+            android:layout_toStartOf="@id/message_container"
+            android:visibility="gone"/>
     </RelativeLayout>
 
 </layout>
