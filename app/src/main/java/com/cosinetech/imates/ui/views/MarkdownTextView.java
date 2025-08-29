@@ -10,11 +10,6 @@ import androidx.appcompat.widget.AppCompatTextView;
 
 import com.cosinetech.imates.data.models.ChatDisplayItem;
 import io.noties.markwon.Markwon;
-import io.noties.markwon.ext.tables.TablePlugin;
-import io.noties.markwon.html.HtmlPlugin;
-import io.noties.markwon.image.glide.GlideImagesPlugin;
-import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin;
-import io.noties.markwon.ext.latex.JLatexMathPlugin;
 
 public class MarkdownTextView extends AppCompatTextView {
     private ChatDisplayItem mTypingEffectDisplayItem;
@@ -60,7 +55,7 @@ public class MarkdownTextView extends AppCompatTextView {
     final Runnable displayOneChar = new Runnable() {
         @Override
         public void run() {
-            if(!mTypingEffectDisplayItem.showWithTypingEffect) {
+            if(!mTypingEffectDisplayItem.showTypingAnimation) {
                 setContent(mTypingEffectDisplayItem.chatMessage.content);
                 return;
             }
