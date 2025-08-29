@@ -201,6 +201,8 @@ dependencies {
     implementation files('libs/smart-exception-java-0.2.1.jar')
     implementation files('libs/smart-exception-common-0.2.1.jar')
     implementation files('libs/screenShareKit.aar')
+
+    implementation files('libs/loadingdrawable.aar')
 //
 //    implementation 'com.github.LxzBUG:ScreenShare:1.1.6'
 // FFmpegKit依赖
