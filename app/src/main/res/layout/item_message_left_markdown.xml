@@ -45,7 +45,7 @@
             app:layout_constraintStart_toEndOf="@id/iv_avatar"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintBottom_toTopOf="@id/response_loading">
+            app:layout_constraintBottom_toTopOf="@id/iv_loading_dots">
 
             <com.cosinetech.imates.ui.views.MarkdownTextView
                 android:id="@+id/tv_message"
@@ -61,21 +61,47 @@
                 android:id="@+id/recycler_view"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:minWidth="20dp"
+                android:minHeight="20dp"
                 android:padding="10dp"
                 android:nestedScrollingEnabled="false"
                 android:background="@drawable/chat_ai_msg_ai_bg"
                 android:visibility="visible"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
+
+<!--            <ProgressBar-->
+<!--                android:id="@+id/ai_response_progress"-->
+<!--                style="?android:attr/progressBarStyleLarge"-->
+<!--                android:layout_width="10dp"-->
+<!--                android:layout_height="10dp"-->
+<!--                android:max="100"-->
+<!--                android:progress="100"-->
+<!--                android:indeterminateDrawable="@drawable/app_progress_circle_bg"-->
+<!--                android:secondaryProgress="100"-->
+<!--                app:layout_constraintStart_toStartOf="parent"-->
+<!--                app:layout_constraintTop_toTopOf="parent"-->
+<!--                android:visibility="gone"/>-->
+
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <app.dinus.com.loadingdrawable.LoadingView
-            android:id="@+id/response_loading"
+<!--        <app.dinus.com.loadingdrawable.LoadingView-->
+<!--            android:id="@+id/response_loading"-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="40dp"-->
+<!--            android:visibility="gone"-->
+<!--            android:background="@color/transparent"-->
+<!--            app:loading_renderer="CollisionLoadingRenderer"-->
+<!--            app:layout_constraintStart_toStartOf="parent"-->
+<!--            app:layout_constraintBottom_toBottomOf="parent"/>-->
+
+        <ImageView
+            android:id="@+id/iv_loading_dots"
             android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:background="@color/transparent"
-            app:loading_renderer="CollisionLoadingRenderer"
-            app:layout_constraintStart_toStartOf="parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:src="@drawable/dots_animation"
+            app:layout_constraintStart_toEndOf="@id/iv_avatar"
             app:layout_constraintBottom_toBottomOf="parent"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
