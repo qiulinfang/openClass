@@ -3,6 +3,7 @@ package com.cosinetech.imates.ui.adapters;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.drawable.AnimatedVectorDrawable;
 import android.net.Uri;
 import android.util.Log;
 import android.view.View;
@@ -196,6 +197,14 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
 //        Log.e("bindMarkdownItem", "bindMarkdownItem!!!");
 //        MarkdownTextView textView = binding.getRoot().findViewById(R.id.tv_message);
 //        setMarkdownTextLegacy(textView, item);
+
+        ImageView loading = binding.getRoot().findViewById(R.id.iv_loading_dots);
+        if(loading != null) {
+            // 获取AnimatedVectorDrawable并开始动画
+            if (loading.getDrawable() instanceof AnimatedVectorDrawable drawable) {
+                drawable.start();
+            }
+        }
 
         // 获取 RecyclerView
         // 获取 Markwon 和 MarkwonAdapter 实例
