@@ -529,6 +529,10 @@ public class ChatAiView extends RelativeLayout {
                     InputMethodManager imm = (InputMethodManager) mEditMsg.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
                     imm.showSoftInput(mEditMsg, InputMethodManager.SHOW_IMPLICIT);
                 }, 500); // 延迟 200 毫秒
+            } else {
+                // 失去焦点时隐藏键盘
+                InputMethodManager imm = (InputMethodManager) mEditMsg.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+                imm.hideSoftInputFromWindow(mEditMsg.getWindowToken(), 0);
             }
         });
 
@@ -558,6 +562,7 @@ public class ChatAiView extends RelativeLayout {
             }
             sendTextContent(content);
             mEditMsg.setText("");
+            mEditMsg.clearFocus();
         });
 
 
@@ -888,6 +893,10 @@ public class ChatAiView extends RelativeLayout {
         } else {
             setChatAiSendMode(true);
         }
+
+        mAdapterAiChatMessageList.setOnAiMessageAnimationCallback(() -> {
+            mBtnSendText.setEnabled(true);
+        });
         addView(view);
     }
 
@@ -1194,7 +1203,7 @@ public class ChatAiView extends RelativeLayout {
                         }
                         mAiChatRequest.setDstUrl("");
 
-                        mBtnSendText.setEnabled(true);
+                        //mBtnSendText.setEnabled(true);
                         if(mListener != null) {
                             mListener.onAiChatResponse(true);
                         }
@@ -1210,7 +1219,7 @@ public class ChatAiView extends RelativeLayout {
 
                     mLastReceivingMsg.appendContent("‼️消息接收失败");
                     mAdapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, false, true);
-                    mBtnSendText.setEnabled(true);
+                    //mBtnSendText.setEnabled(true);
                     if(mListener != null) {
                         mListener.onAiChatResponse(false);
                     }
