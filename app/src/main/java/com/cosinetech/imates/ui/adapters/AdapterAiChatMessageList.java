@@ -82,11 +82,9 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
 
     private boolean mItemCanSelect = false;
     private int mAudioPlayingItemIndex = -1;
-    private final RecyclerView mRecyclerView;
 
     public AdapterAiChatMessageList(Context context, List<ChatDisplayItem> msgList, RecyclerView view) {
         super(context);
-        this.mRecyclerView = view;
         if (msgList != null) {
             this.items.addAll(msgList);
         }
@@ -206,6 +204,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         setMarkdownAiItemAnimate(binding, item, message);
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     private void setMarkdownItemContent(ViewDataBinding binding, ChatDisplayItem item, ChatMessage message) {
         // 获取 RecyclerView
         // 获取 Markwon 和 MarkwonAdapter 实例
@@ -243,10 +242,6 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         } else {
             adapter.setMarkdown(markwon, ChatDisplayItem.filterLatexString(message.content));
             adapter.notifyDataSetChanged();
-
-            if(!message.isSelf && onAiMessageAnimationCallback != null) {
-                onAiMessageAnimationCallback.onMessageDisplayFinish();
-            }
         }
 
         item.initialDisplayed = true;
@@ -425,76 +420,78 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                 ChatDisplayItem displayMsg = items.get(i);
                 displayMsg.showTypingAnimation = showWithTypingEffect;
                 displayMsg.msgContentIsFinished = msgIsFinished;
-
                 notifyItemChanged(i, displayMsg.showTypingAnimation);
-                break;
+                if(msgIsFinished && !showWithTypingEffect && onAiMessageAnimationCallback != null) {
+                    onAiMessageAnimationCallback.onMessageDisplayFinish();
+                }
+                return;
             }
+        }
+        // 正常应该不会到这里, 没有找到要显示的消息?
+        if(onAiMessageAnimationCallback != null) {
+            onAiMessageAnimationCallback.onMessageDisplayFinish();
         }
     }
 
     @Override
-    public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
+    public void onViewRecycled(@NonNull BaseBindingViewHolder<ViewDataBinding, ChatDisplayItem> holder) {
         super.onViewRecycled(holder);
+        Log.e(TAG, "View Recycled:" + holder);
         // 清理资源
-        if (holder instanceof BaseBindingViewHolder) {
-            // 可以在这里添加清理逻辑
-            int position = holder.getBindingAdapterPosition();
-            if (position == RecyclerView.NO_POSITION) return;
+        ChatDisplayItem item = (ChatDisplayItem) ((BaseBindingViewHolder<?, ?>) holder).getBindItem();
+        if (item == null) return;
+        item.getMarkwonAdapter().clear();
 
-            ChatDisplayItem item = items.get(position);
-            if (item == null) return;
-            item.getMarkwonAdapter().clear();
+        int viewType = holder.getViewType();
+        MessageDisplayType type = MessageDisplayType.fromValue(viewType);
 
-            int viewType = getItemViewType(position);
-            MessageDisplayType type = MessageDisplayType.fromValue(viewType);
+        switch (type) {
+            case TYPE_TEXT_LEFT_MARKDOWN:
+                item.stopTypingEffect();
+                View msgContainer = holder.itemView.findViewById(R.id.message_container);
+                msgContainer.setVisibility(View.GONE);
+                ImageView loading = holder.itemView.findViewById(R.id.iv_loading_dots);
+                loading.setVisibility(View.VISIBLE);
+                break;
+            case TYPE_TEXT_RIGHT_MARKDOWN:
+                break;
 
-            switch (type) {
-                case TYPE_TEXT_LEFT_MARKDOWN:
-                    item.stopTypingEffect();
-                    View msgContainer = holder.itemView.findViewById(R.id.message_container);
-                    msgContainer.setVisibility(View.GONE);
-                    ImageView loading = holder.itemView.findViewById(R.id.iv_loading_dots);
-                    loading.setVisibility(View.VISIBLE);
-                    break;
-                case TYPE_TEXT_RIGHT_MARKDOWN:
-                    break;
+            case TYPE_IMAGE_LEFT:
+            case TYPE_IMAGE_RIGHT:
+                // 清理 Glide 图片
+                ImageView imageView = holder.itemView.findViewById(R.id.iv_message_image);
+                if (imageView != null) {
+                    Glide.with(imageView.getContext()).clear(imageView);
+                }
+                break;
 
-                case TYPE_IMAGE_LEFT:
-                case TYPE_IMAGE_RIGHT:
-                    // 清理 Glide 图片
-                    ImageView imageView = holder.itemView.findViewById(R.id.iv_message_image);
-                    if (imageView != null) {
-                        Glide.with(imageView.getContext()).clear(imageView);
-                    }
-                    break;
+            case TYPE_VOICE_LEFT:
+            case TYPE_VOICE_RIGHT:
+                // 停止 Lottie 动画
+                LottieAnimationView ivVoiceIcon = holder.itemView.findViewById(R.id.iv_voice_icon);
+                if (ivVoiceIcon != null) ivVoiceIcon.cancelAnimation();
 
-                case TYPE_VOICE_LEFT:
-                case TYPE_VOICE_RIGHT:
-                    // 停止 Lottie 动画
-                    LottieAnimationView ivVoiceIcon = holder.itemView.findViewById(R.id.iv_voice_icon);
-                    if (ivVoiceIcon != null) ivVoiceIcon.cancelAnimation();
+                // 停止音频播放（如果当前播放的是这个 item）
+//                    if (position == mAudioPlayingItemIndex) {
+//                        AudioPlayManager.getInstance().stopPlay();
+//                        mAudioPlayingItemIndex = -1;
+//                    }
+                break;
 
-                    // 停止音频播放（如果当前播放的是这个 item）
-                    if (position == mAudioPlayingItemIndex) {
-                        AudioPlayManager.getInstance().stopPlay();
-                        mAudioPlayingItemIndex = -1;
-                    }
-                    break;
-
-                case TYPE_DATE:
-                default:
-                    // 一般不需要额外清理
-                    break;
-            }
-
-            // 公共清理
-            CheckBox checkBox = holder.itemView.findViewById(R.id.iv_select);
-            if (checkBox != null) checkBox.setOnCheckedChangeListener(null);
+            case TYPE_DATE:
+            default:
+                // 一般不需要额外清理
+                break;
         }
+
+        // 公共清理
+        CheckBox checkBox = holder.itemView.findViewById(R.id.iv_select);
+        if (checkBox != null) checkBox.setOnCheckedChangeListener(null);
+        item.initialDisplayed = false;
     }
 
     @Override
-    public void onViewAttachedToWindow(@NonNull RecyclerView.ViewHolder holder) {
+    public void onViewAttachedToWindow(BaseBindingViewHolder<ViewDataBinding, ChatDisplayItem> holder) {
         super.onViewAttachedToWindow(holder);
 
         int pos = holder.getBindingAdapterPosition();
@@ -504,11 +501,9 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         MessageDisplayType type = MessageDisplayType.fromValue(getItemViewType(pos));
         if(type == MessageDisplayType.TYPE_TEXT_LEFT_MARKDOWN
             || type == MessageDisplayType.TYPE_TEXT_RIGHT_MARKDOWN)  {
-            ChatDisplayItem item = items.get(pos);
-            //setMarkdownTextLegacy(holder.itemView.findViewById(R.id.tv_message), item);
-            MarkwonAdapter adapter = item.getMarkwonAdapter();
-            adapter.notifyDataSetChanged();
-            Log.e(TAG, "View Displayed");
+            holder.getBindItem().initialDisplayed = false;
+            setMarkdownItemContent(holder.getBinding(), holder.getBindItem(), holder.getBindItem().chatMessage);
+            Log.e(TAG, "View Displayed:" + holder);
         }
     }
 }
