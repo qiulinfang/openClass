@@ -1511,7 +1511,7 @@ public class ChatAiView extends RelativeLayout {
         mAdapterAiChatMessageList.notifyItemRangeInserted(0, newMessagesToLoad);
 
         // 滚动到新添加的消息位置
-        mMsgDetailListView.smoothScrollToPosition(newMessagesToLoad);
+        mMsgDetailListView.smoothScrollToPosition(0);
     }
 
     public void setChatEnable(boolean b) {
