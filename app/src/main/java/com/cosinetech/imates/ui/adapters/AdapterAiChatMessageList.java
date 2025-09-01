@@ -44,6 +44,12 @@ import java.util.List;
 
 public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem, androidx.databinding.ViewDataBinding> {
     private static final String TAG = "AdapterAiChatMessageList";
+
+    public interface OnAiMessageAnimationCallback {
+        void onMessageDisplayFinish();
+    }
+
+    private OnAiMessageAnimationCallback onAiMessageAnimationCallback;
     public enum MessageDisplayType {
         TYPE_NONE(-1),
         TYPE_DATE(0),
@@ -88,6 +94,10 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
 
     public void setItemCanSelect(boolean canSelect) {
         mItemCanSelect = canSelect;
+    }
+
+    public void setOnAiMessageAnimationCallback(OnAiMessageAnimationCallback callback) {
+        onAiMessageAnimationCallback = callback;
     }
 
     public List<ChatDisplayItem> getSelectedItem() {
@@ -224,13 +234,19 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
                 public void onTypingComplete(String content) {
                     recyclerView.post(() -> {
                         updateMarkdownAiItemAnimate(binding, item, message);
+                        if(onAiMessageAnimationCallback != null) {
+                            onAiMessageAnimationCallback.onMessageDisplayFinish();
+                        }
                     });
-
                 }
             });
         } else {
             adapter.setMarkdown(markwon, ChatDisplayItem.filterLatexString(message.content));
             adapter.notifyDataSetChanged();
+
+            if(!message.isSelf && onAiMessageAnimationCallback != null) {
+                onAiMessageAnimationCallback.onMessageDisplayFinish();
+            }
         }
 
         item.initialDisplayed = true;
