@@ -85,18 +85,18 @@ public class ChatAiView extends RelativeLayout {
         CHAT_ROLE_MYSELF("我自己", R.drawable.chat_ai_avatar_user, "myself"),
         CHAT_ROLE_TEACHER("老师", R.drawable.chat_ai_avatar_teacher_woman, "teacher");
 
-        private final String displayName;
+        private final String friendlyName;
         private final int iconResId;
-        private final String paramName;
+        private final String name;
 
-        ChatRole(String displayName, int iconResId, String paramName) {
-            this.displayName = displayName;
+        ChatRole(String friendlyName, int iconResId, String paramName) {
+            this.friendlyName = friendlyName;
             this.iconResId = iconResId;
-            this.paramName = paramName;
+            this.name = paramName;
         }
 
-        public String getDisplayName() {
-            return displayName;
+        public String getFriendlyName() {
+            return friendlyName;
         }
 
         public int getIconResId() {
@@ -104,7 +104,7 @@ public class ChatAiView extends RelativeLayout {
         }
 
         public  String getParamName() {
-            return paramName;
+            return name;
         }
     }
 
@@ -371,7 +371,7 @@ public class ChatAiView extends RelativeLayout {
         mCurrentSession = ChatMessageSession.SESSION_DEFAULT_SYSTEM;
     }
 
-    @SuppressLint("ClickableViewAccessibility")
+    @SuppressLint({"ClickableViewAccessibility", "NotifyDataSetChanged"})
     private void initView(Context context) {
         // Inflate the layout for this fragment
         View view = LayoutInflater.from(mContext).inflate(R.layout.view_chat_ai, this, false);
@@ -429,7 +429,7 @@ public class ChatAiView extends RelativeLayout {
 
                 // 保存选择到 SharedPreferences
                 saveSelectedRole();
-                mAiChatRequest.setChatRole(mSelectedRole.paramName);
+                mAiChatRequest.setChatRole(mSelectedRole.getParamName());
 
                 // 更新所有项目以反映选择状态
                 for (int i = 0; i < mAiRoleSettingsItems.size(); i++) {
@@ -635,7 +635,6 @@ public class ChatAiView extends RelativeLayout {
             return false;
         });
 
-
         btnAddFavor.setOnClickListener(v->{
             if(!mAdapterAiChatMessageList.getItems().isEmpty()) {
                 showAddMyFavorEditDialog();
@@ -786,7 +785,7 @@ public class ChatAiView extends RelativeLayout {
             return false;
         });
 
-        mAiChatRequest.setName(Objects.requireNonNull(mUserInfoViewModel.userInfo.getValue()).getName());
+        mAiChatRequest.setName(mUserInfoViewModel.userInfo.getValue().getName());
         mExpandableListView.setOnGroupClickListener((parent, v, groupPosition, id) -> {
             if(mExpandableListView.isGroupExpanded(groupPosition)) {
                 mExpandableListView.collapseGroup(groupPosition);
@@ -925,7 +924,7 @@ public class ChatAiView extends RelativeLayout {
             mSelectedRole = ChatRole.CHAT_ROLE_AI_MATE;
         }
 
-        mAiChatRequest.setChatRole(mSelectedRole.paramName);
+        mAiChatRequest.setChatRole(mSelectedRole.getParamName());
     }
     private void saveSelectedRole() {
         SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -947,7 +946,7 @@ public class ChatAiView extends RelativeLayout {
             boolean isSelected = (role == mSelectedRole);
             boolean isEnabled = true; // 默认所有项目都启用
 
-            mAiRoleSettingsItems.add(new AiRoleSettingsItem(role.getDisplayName(), role.getIconResId(), isSelected, isEnabled, role));
+            mAiRoleSettingsItems.add(new AiRoleSettingsItem(role.getFriendlyName(), role.getIconResId(), isSelected, isEnabled, role));
 
             // 如果这是当前选择的角色，更新selectedPosition
             if (isSelected) {
@@ -1178,58 +1177,56 @@ public class ChatAiView extends RelativeLayout {
     private void pollChat() {
         String url = mChatAiParam.chatBotUrl;
         //优先使用Request里自带的url, 没有就用默认的
-        if(mAiChatRequest.getDstUrl() != null && !mAiChatRequest.getDstUrl().isEmpty()) {
+        if (mAiChatRequest.getDstUrl() != null && !mAiChatRequest.getDstUrl().isEmpty()) {
             url = mAiChatRequest.getDstUrl();
         }
 
-        ApiGateWayService.sendChatMessage(mAiChatRequest, mLastReceivingMsg.messageId, url, mUserInfoViewModel.token.getValue(), (success, response, sessionId, msgId) -> {
-            handler.post(() -> {
-                if (success) {
-                    if(!response.trim().isEmpty() && !response.equals("end")) {
-                        mLastReceivingMsg.appendContent(response);
-                        mAdapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, mChatAiParam.streamDisplay, false);
+        ApiGateWayService.sendChatMessage(mAiChatRequest,
+                mLastReceivingMsg.messageId,
+                url,
+                mUserInfoViewModel.token.getValue(),
+                (success, response, sessionId, msgId) -> handler.post(() -> {
+                    if (success) {
+                        if (!response.trim().isEmpty() && !response.equals("end")) {
+                            mLastReceivingMsg.appendContent(response);
+                            mAdapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, mChatAiParam.streamDisplay, false);
 
-                        Log.d("%%%%%%%%", response);
-                    }
+                            Log.d("%%%%%%%%", response);
+                        }
 
-                    if(!response.equals("end")) {
-                        mAiChatRequest.setReason("continue");
-                        pollChat();
+                        if (!response.equals("end")) {
+                            mAiChatRequest.setReason("continue");
+                            pollChat();
+                        } else {
+                            mAdapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, mChatAiParam.streamDisplay, true);
+                            ApplicationModelShared app = ApplicationModelShared.getInstance();
+                            if (app.chatRequest != null) {
+                                app.chatRequest = null;
+                            }
+                            mAiChatRequest.setDstUrl("");
+                            if (mListener != null) {
+                                mListener.onAiChatResponse(true);
+                            }
+
+                            mChatDb.addChatMessageDetail(mLastReceivingMsg);
+                        }
                     } else {
-                        mAdapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, mChatAiParam.streamDisplay, true);
                         ApplicationModelShared app = ApplicationModelShared.getInstance();
-                        if(app.chatRequest != null) {
+                        if (app.chatRequest != null) {
                             app.chatRequest = null;
                         }
                         mAiChatRequest.setDstUrl("");
 
-                        //mBtnSendText.setEnabled(true);
-                        if(mListener != null) {
-                            mListener.onAiChatResponse(true);
+                        mLastReceivingMsg.appendContent("‼️消息接收失败");
+                        mAdapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, mChatAiParam.streamDisplay, true);
+                        if (mListener != null) {
+                            mListener.onAiChatResponse(false);
                         }
-
-                        mChatDb.addChatMessageDetail(mLastReceivingMsg);
+                        if (!mAdapterAiChatMessageList.getItems().isEmpty()) {
+                            mChatDb.addChatMessageDetail(mLastReceivingMsg);
+                        }
                     }
-                } else {
-                    ApplicationModelShared app = ApplicationModelShared.getInstance();
-                    if(app.chatRequest != null) {
-                        app.chatRequest = null;
-                    }
-                    mAiChatRequest.setDstUrl("");
-
-                    mLastReceivingMsg.appendContent("‼️消息接收失败");
-                    mAdapterAiChatMessageList.updateReceivingMessage(mLastReceivingMsg.messageId, false, true);
-                    //mBtnSendText.setEnabled(true);
-                    if(mListener != null) {
-                        mListener.onAiChatResponse(false);
-                    }
-                    if(!mAdapterAiChatMessageList.getItems().isEmpty()) {
-                        mChatDb.addChatMessageDetail(mLastReceivingMsg);
-                    }
-                }
-            });
-        });
-
+                }));
     }
 
     private void sendTextMessageToAi(String content) {
@@ -1276,7 +1273,7 @@ public class ChatAiView extends RelativeLayout {
             mAiChatRequest = mo;
             mAiChatRequest.setReason("start");
             mAiChatRequest.setIsWebSearch(mCheckSearchWeb.isChecked() ? "1" : "0");
-            mAiChatRequest.setChatRole(mSelectedRole.paramName);
+            mAiChatRequest.setChatRole(mSelectedRole.getParamName());
             ChatMessage message = new ChatMessage(mAiChatRequest.getCoversation(),
                     true,
                     ChatMessage.MessageType.TEXT,
@@ -1484,22 +1481,37 @@ public class ChatAiView extends RelativeLayout {
     }
 
     private void loadHistoryMessages() {
-        if(mInSearchMode) {
+        if (mInSearchMode) {
             return;
         }
-        List<ChatMessage> allMessage =  mChatDb.getChatMessageDetail(mCurrentSession.sessionId);
 
-        int curSize = mAdapterAiChatMessageList.getItems().size();
-        int n = curSize + 10;
-        if (allMessage.size() <= n) {
-            mAdapterAiChatMessageList.getItems().clear();
-            mAdapterAiChatMessageList.getItems().addAll(convertChatDisplayList(allMessage, true));
-        } else {
-            mAdapterAiChatMessageList.getItems().clear();
-            mAdapterAiChatMessageList.getItems().addAll(convertChatDisplayList(allMessage.subList(allMessage.size() - n, allMessage.size()), true));
+        List<ChatMessage> allMessages = mChatDb.getChatMessageDetail(mCurrentSession.sessionId);
+        int currentDisplayedCount = mAdapterAiChatMessageList.getItems().size();
+
+        // 如果所有消息都已经显示，则不需要加载更多
+        if (currentDisplayedCount >= allMessages.size()) {
+            return;
         }
-        //mAdapterAiChatMessageList.notifyDataSetChanged();
-        mMsgDetailListView.smoothScrollToPosition(0);
+
+        // 计算需要加载的新消息数量（最多10条）
+        int newMessagesToLoad = Math.min(10, allMessages.size() - currentDisplayedCount);
+
+        // 计算要加载的历史消息范围
+        // 当前已显示的是最新的 currentDisplayedCount 条消息
+        // 所以要加载的是比当前显示更早的 newMessagesToLoad 条消息
+        int startIndex = allMessages.size() - currentDisplayedCount - newMessagesToLoad;
+        int endIndex = allMessages.size() - currentDisplayedCount;
+
+        List<ChatMessage> historyMessages = allMessages.subList(startIndex, endIndex);
+
+        // 将历史消息添加到列表的开头
+        mAdapterAiChatMessageList.getItems().addAll(0, convertChatDisplayList(historyMessages, true));
+
+        // 通知适配器数据变化
+        mAdapterAiChatMessageList.notifyItemRangeInserted(0, newMessagesToLoad);
+
+        // 滚动到新添加的消息位置
+        mMsgDetailListView.smoothScrollToPosition(newMessagesToLoad);
     }
 
     public void setChatEnable(boolean b) {

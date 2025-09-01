@@ -1,17 +1,20 @@
 package com.cosinetech.imates.ui.adapters;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
 import androidx.annotation.LayoutRes;
+import androidx.annotation.NonNull;
 import androidx.databinding.DataBindingUtil;
 import androidx.databinding.ObservableArrayList;
 import androidx.databinding.ViewDataBinding;
 import androidx.recyclerview.widget.RecyclerView;
 
-public abstract class BaseBindingAdapter<M, B extends ViewDataBinding> extends RecyclerView.Adapter
-{
+public abstract class BaseBindingAdapter<M, B extends ViewDataBinding>
+        extends RecyclerView.Adapter<BaseBindingViewHolder<B, M>> {
     protected Context context;
     protected ObservableArrayList<M> items;
     protected ListChangedCallback itemsChangeCallback;
@@ -31,31 +34,38 @@ public abstract class BaseBindingAdapter<M, B extends ViewDataBinding> extends R
         return this.items.size();
     }
 
+    @NonNull
     @Override
-    public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+    public BaseBindingViewHolder<B, M> onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         B binding = DataBindingUtil.inflate(LayoutInflater.from(this.context), this.getLayoutResId(viewType), parent, false);
-        return new BaseBindingViewHolder(binding.getRoot());
+        BaseBindingViewHolder<B, M> viewHolder = new BaseBindingViewHolder<>(binding.getRoot());
+        viewHolder.setViewType(viewType);
+        viewHolder.setBinding(binding);
+        return viewHolder;
     }
 
     @Override
-    public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+    public void onBindViewHolder(@NonNull BaseBindingViewHolder<B, M> holder, int position) {
+        holder.setBindItem(this.items.get(position));
         B binding = DataBindingUtil.getBinding(holder.itemView);
+        Log.e("BaseBindingAdapter", "View bind: " + holder);
         this.onBindItem(binding, this.items.get(position), position);
     }
 
     @Override
-    public void onAttachedToRecyclerView(RecyclerView recyclerView) {
+    public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
         super.onAttachedToRecyclerView(recyclerView);
         this.items.addOnListChangedCallback(itemsChangeCallback);
     }
 
     @Override
-    public void onDetachedFromRecyclerView(RecyclerView recyclerView) {
+    public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
         super.onDetachedFromRecyclerView(recyclerView);
         this.items.removeOnListChangedCallback(itemsChangeCallback);
     }
 
     //region 处理数据集变化
+    @SuppressLint("NotifyDataSetChanged")
     protected void onChanged(ObservableArrayList<M> newItems) {
         resetItems(newItems);
         notifyDataSetChanged();
@@ -71,6 +81,7 @@ public abstract class BaseBindingAdapter<M, B extends ViewDataBinding> extends R
         notifyItemRangeInserted(positionStart,itemCount);
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     protected void onItemRangeMoved(ObservableArrayList<M> newItems) {
         resetItems(newItems);
         notifyDataSetChanged();
@@ -91,7 +102,7 @@ public abstract class BaseBindingAdapter<M, B extends ViewDataBinding> extends R
 
     protected abstract void onBindItem(B binding, M item, int position);
 
-    class ListChangedCallback extends ObservableArrayList.OnListChangedCallback<ObservableArrayList<M>> {
+    protected  class ListChangedCallback extends ObservableArrayList.OnListChangedCallback<ObservableArrayList<M>> {
         @Override
         public void onChanged(ObservableArrayList<M> newItems) {
             BaseBindingAdapter.this.onChanged(newItems);
