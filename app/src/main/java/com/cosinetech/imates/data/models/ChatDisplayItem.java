@@ -13,6 +13,9 @@ import com.cosinetech.imates.R;
 import org.commonmark.ext.gfm.tables.TableBlock;
 import org.commonmark.node.FencedCodeBlock;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import io.noties.markwon.AbstractMarkwonPlugin;
 import io.noties.markwon.Markwon;
 import io.noties.markwon.MarkwonConfiguration;
@@ -398,7 +401,55 @@ public class ChatDisplayItem {
             }
 
             processedLength = len; // 更新已处理长度
-            return sb.toString();  // 返回完整处理结果
+            String result = preprocess(sb.toString());
+            Log.d("ChatDisplayItem", "Processed string: " + result);
+            return result;  // 返回完整处理结果
+        }
+
+        private static String preprocess(String input) {
+            if (input == null || input.isEmpty()) return input;
+
+            String[] lines = input.split("\n");
+            List<String> output = new ArrayList<>();
+
+            int i = 0;
+            while (i < lines.length) {
+                String line = lines[i].trim();
+
+                if (isTableLine(line)) {
+                    // 表格前空行
+                    if (!output.isEmpty() && !output.get(output.size() - 1).trim().isEmpty()) {
+                        output.add("");
+                    }
+
+                    // 把整个表格块加入 output
+                    while (i < lines.length && isTableLine(lines[i].trim())) {
+                        output.add(lines[i]);
+                        i++;
+                    }
+
+                    // 表格后空行
+                    if (i < lines.length && !lines[i].trim().isEmpty()) {
+                        output.add("");
+                    }
+                } else {
+                    output.add(lines[i]);
+                    i++;
+                }
+            }
+
+            return String.join("\n", output);
+        }
+
+        /**
+         * 判断一行是否是表格行
+         */
+        private static boolean isTableLine(String line) {
+            if (line == null) return false;
+            line = line.trim();
+            if (!line.contains("|")) return false;
+            // 至少两列才算表格
+            return line.split("\\|").length > 2;
         }
     }
 

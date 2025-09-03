@@ -179,7 +179,8 @@ dependencies {
     implementation libs.commonmark.parent
     implementation(libs.commonmark.ext.gfm.strikethrough)
     implementation libs.commonmark.ext.gfm.tables
-    implementation libs.jlatexmath.android
+    //implementation libs.jlatexmath.android
+    implementation files('libs/jlatexmath.aar')
     implementation libs.jlatexmath.android.font.cyrillic
     implementation libs.jlatexmath.android.font.greek
     implementation files('libs/markwon-core.aar')
@@ -201,8 +202,6 @@ dependencies {
     implementation files('libs/smart-exception-java-0.2.1.jar')
     implementation files('libs/smart-exception-common-0.2.1.jar')
     implementation files('libs/screenShareKit.aar')
-
-//    implementation files('libs/loadingdrawable.aar')
 //
 //    implementation 'com.github.LxzBUG:ScreenShare:1.1.6'
 // FFmpegKit依赖
