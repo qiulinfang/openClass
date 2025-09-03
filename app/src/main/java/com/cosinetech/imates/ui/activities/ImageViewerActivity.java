@@ -12,7 +12,6 @@ import com.cosinetech.imates.utils.WindowUtils;
 import com.github.chrisbanes.photoview.PhotoView;
 
 public class ImageViewerActivity extends AppCompatActivity {
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
