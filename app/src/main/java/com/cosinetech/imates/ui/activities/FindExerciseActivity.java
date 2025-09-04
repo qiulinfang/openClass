@@ -105,7 +105,7 @@ public class FindExerciseActivity extends AppCompatActivity {
                         mFindSimilarQuestionRequest.setCurrentPage(mFindSimilarQuestionRequest.getCurrentPage() - 1);
                     }
                     mRefreshLayout.finishLoadMore();// 加载完成后等待的时间
-                    Toast.makeText(FindExerciseActivity.this, "没有查到对应的题目", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(FindExerciseActivity.this, "没有更多的题目了", Toast.LENGTH_SHORT).show();
                 });
             }
         };
