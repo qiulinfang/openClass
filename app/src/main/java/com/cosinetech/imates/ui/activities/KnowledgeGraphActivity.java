@@ -128,19 +128,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
                         runOnUiThread(() -> {
                             webView.evaluateJavascript("refreshMindData()", null);
                         });
-
-                        LearnResourceManager.getInstance().getTextbookPackagesWithLocalFiles(mCurrentUserTextbookInfo.textbookId,
-                                new LearnResourceManager.TextbookPackagesCallback() {
-                            @Override
-                            public void onSuccess(List<LocalPackageInfo> packages) {
-                                mLearnPackages = packages;
-                            }
-
-                            @Override
-                            public void onError(String error) {
-                                mLearnPackages.clear();
-                            }
-                        });
+                        updateLearnPackages();
 
                     });
 
@@ -162,6 +150,25 @@ public class KnowledgeGraphActivity extends BaseActivity {
         });
 
         miscellaneousInitialization();
+    }
+
+    private void updateLearnPackages() {
+        try {
+            LearnResourceManager.getInstance().getTextbookPackagesWithLocalFiles(mCurrentUserTextbookInfo.textbookId,
+                    new LearnResourceManager.TextbookPackagesCallback() {
+                        @Override
+                        public void onSuccess(List<LocalPackageInfo> packages) {
+                            mLearnPackages = packages;
+                        }
+
+                        @Override
+                        public void onError(String error) {
+                            mLearnPackages.clear();
+                        }
+                    });
+        } catch (Exception e) {
+            Log.e(TAG, "Update learn packages:" + e.getMessage());
+        }
     }
 
     private void miscellaneousInitialization() {
@@ -294,6 +301,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
             app.getFloatingWindowService().showRobot();
         }
         preformResourcesChecks();
+        updateLearnPackages();
     }
 
     private void preformResourcesChecks() {

@@ -85,7 +85,6 @@ public class TextbookAdapter extends RecyclerView.Adapter<TextbookAdapter.Textbo
         
         public TextbookViewHolder(@NonNull View itemView) {
             super(itemView);
-            
             imgTextbookCover = itemView.findViewById(R.id.imgTextbookCover);
             txtTextbookName = itemView.findViewById(R.id.txtTextbookName);
             txtGradeInfo = itemView.findViewById(R.id.txtGradeInfo);

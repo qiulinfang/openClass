@@ -637,13 +637,14 @@ public class LearnResourceManager {
     // ==================== File Download ====================
     
     public interface DownloadProgressCallback {
-        void onProgress(String fileName, long downloadedBytes, long totalBytes, int percentage);
+        void onSingleFileDownloadProgress(String fileName, long downloadedBytes, long totalBytes, int percentage);
         void onFileCompleted(String fileName, String localPath);
+        void onAllFilesDownloadProgress(int totalFiles, int completedFiles, int percentage);
         void onAllCompleted();
         void onError(String fileName, String error);
     }
     
-    public void downloadAllResources(TextbookVersion textbook, DownloadProgressCallback callback) {
+    public void downloadAllResources(TextbookVersion textbook, @NonNull DownloadProgressCallback callback) {
         getLearningResources(textbook.id, new LearningResourcesCallback() {
             @Override
             public void onSuccess(List<LearningPackage> resources) {
@@ -662,7 +663,7 @@ public class LearnResourceManager {
         });
     }
     
-    private void downloadResourcesInBackground(TextbookVersion textbook, List<LearningPackage> packages, DownloadProgressCallback callback) {
+    private void downloadResourcesInBackground(TextbookVersion textbook, List<LearningPackage> packages, @NonNull  DownloadProgressCallback callback) {
         try {
             File textbookDir = createUserTextbookDirectory(textbook);
             
@@ -692,7 +693,7 @@ public class LearnResourceManager {
     }
     
     private void continueDownloadWithStructure(TextbookVersion textbook, List<LearningPackage> packages, 
-                                             List<ChapterNode> structure, File textbookDir, DownloadProgressCallback callback) {
+                                             List<ChapterNode> structure, File textbookDir, @NonNull  DownloadProgressCallback callback) {
         try {
             ResourceIndex index = new ResourceIndex();
             index.textbook = textbook;
@@ -716,14 +717,18 @@ public class LearnResourceManager {
                         
                         if (localFile.exists() && verifyChecksum(localFile, resource.checksum)) {
                             completedFiles++;
+                            final int percentage = (int)(completedFiles * 100.0 / totalFiles);
+                            final int fCompleteFiles = completedFiles;
+                            final int fTotalFiles = totalFiles;
                             mainHandler.post(() -> callback.onFileCompleted(resource.fileName, localFile.getAbsolutePath()));
+                            mainHandler.post(() -> callback.onAllFilesDownloadProgress(fTotalFiles, fCompleteFiles, percentage));
                             continue;
                         }
                         
-                        downloadFile(resource, localFile, new SingleFileDownloadCallback() {
+                        boolean result = downloadFile(resource, localFile, new SingleFileDownloadCallback() {
                             @Override
                             public void onProgress(long downloadedBytes, long totalBytes, int percentage) {
-                                mainHandler.post(() -> callback.onProgress(resource.fileName, downloadedBytes, totalBytes, percentage));
+                                mainHandler.post(() -> callback.onSingleFileDownloadProgress(resource.fileName, downloadedBytes, totalBytes, percentage));
                             }
                             
                             @Override
@@ -736,9 +741,14 @@ public class LearnResourceManager {
                                 mainHandler.post(() -> callback.onError(resource.fileName, error));
                             }
                         });
-                        
-                        completedFiles++;
-                        
+
+                        if(result) {
+                            completedFiles++;
+                            final int percentage = (int) (completedFiles * 100.0 / totalFiles);
+                            final int fCompleteFiles = completedFiles;
+                            final int fTotalFiles = totalFiles;
+                            mainHandler.post(() -> callback.onAllFilesDownloadProgress(fTotalFiles, fCompleteFiles, percentage));
+                        }
                     } catch (Exception e) {
                         Log.e(TAG, "Error downloading file: " + resource.fileName, e);
                         mainHandler.post(() -> callback.onError(resource.fileName, e.getMessage()));
@@ -1165,7 +1175,7 @@ public class LearnResourceManager {
         void onError(String error);
     }
     
-    private void downloadFile(ResourceFile resource, File localFile, SingleFileDownloadCallback callback) {
+    private boolean downloadFile(ResourceFile resource, File localFile, SingleFileDownloadCallback callback) {
         Request request = new Request.Builder()
                 .url(BASE_URL + resource.fileUrl)
                 .build();
@@ -1174,7 +1184,7 @@ public class LearnResourceManager {
             Response response = UnsafeOkHttpClient.getUnsafeOkHttpClient().newCall(request).execute();
             if (!response.isSuccessful()) {
                 callback.onError("HTTP " + response.code());
-                return;
+                return false;
             }
             
             InputStream inputStream = response.body().byteStream();
@@ -1200,13 +1210,16 @@ public class LearnResourceManager {
             
             if (verifyChecksum(localFile, resource.checksum)) {
                 callback.onCompleted(localFile.getAbsolutePath());
+                return  true;
             } else {
                 localFile.delete();
-                callback.onError("Checksum verification failed");
+                callback.onError("文件校验失败, 请稍后重新下载");
+                return false;
             }
             
         } catch (Exception e) {
-            callback.onError("Download failed: " + e.getMessage());
+            callback.onError("下载文件失败: " + e.getMessage());
+            return false;
         }
     }
 }

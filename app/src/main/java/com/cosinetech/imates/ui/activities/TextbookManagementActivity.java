@@ -67,6 +67,7 @@ public class TextbookManagementActivity extends AppCompatActivity {
         progressLoading = findViewById(R.id.progressLoading);
         layoutEmptyState = findViewById(R.id.layoutEmptyState);
         recyclerViewTextbooks = findViewById(R.id.recyclerViewTextbooks);
+        recyclerViewTextbooks.setItemAnimator(null);
         
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
@@ -250,16 +251,22 @@ public class TextbookManagementActivity extends AppCompatActivity {
 
         LearnResourceManager.getInstance().downloadAllResources(version, new LearnResourceManager.DownloadProgressCallback() {
             @Override
-            public void onProgress(String fileName, long downloadedBytes, long totalBytes, int percentage) {
+            public void onSingleFileDownloadProgress(String fileName, long downloadedBytes, long totalBytes, int percentage) {
                 // Update progress in adapter
-                textbookAdapter.updateDownloadProgress(textbook.textbookId, percentage);
             }
             
             @Override
             public void onFileCompleted(String fileName, String localPath) {
                 // File completed - could show individual file progress
             }
-            
+
+            @Override
+            public void onAllFilesDownloadProgress(int totalFiles, int completedFiles, int percentage) {
+                textbook.downloadedFiles = completedFiles;
+                textbook.totalFiles = totalFiles;
+                textbookAdapter.updateDownloadProgress(textbook.textbookId, percentage);
+            }
+
             @Override
             public void onAllCompleted() {
                 showMessage("《" + textbook.textbookName + "》下载完成");
