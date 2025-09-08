@@ -37,6 +37,7 @@ import com.lzf.easyfloat.EasyFloat;
 import com.xuexiang.xupdate.easy.EasyUpdate;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -483,8 +484,21 @@ public class KnowledgeGraphActivity extends BaseActivity {
                     .setDateFormat("yyyy-MM-dd HH:mm:ss")
                     .create();
             if(!mLearnPackages.isEmpty()) {
-                previewLessonActivity.putExtra(LessonPreviewActivity.KEY_LEARN_PACKAGE, gson.toJson(mLearnPackages));
-                startActivity(previewLessonActivity);
+                LocalPackageInfo info = null;
+                for (LocalPackageInfo pkg : mLearnPackages) {
+                    if(pkg.sectionId != null && pkg.sectionId.toLowerCase().equals(sectionId.toLowerCase())) {
+                        info = pkg;
+                        break;
+                    }
+                }
+                if(info != null) {
+                    List<LocalPackageInfo> packages = new ArrayList<>();
+                    packages.add(info);
+                    previewLessonActivity.putExtra(LessonPreviewActivity.KEY_LEARN_PACKAGE, gson.toJson(packages));
+                    startActivity(previewLessonActivity);
+                } else {
+                    Toast.makeText(context, "没有对应的学习资源", Toast.LENGTH_SHORT).show();
+                }
             } else {
                 Toast.makeText(context, "选择小节去学习", Toast.LENGTH_SHORT).show();
             }

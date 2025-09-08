@@ -712,7 +712,7 @@ public class LearnResourceManager {
                 
                 for (ResourceFile resource : pkg.resourceList) {
                     try {
-                        File localFile = new File(packageDir, resource.fileName);
+                        File localFile = new File(packageDir, UserTextbookInfo.getLocalResourceFileName(resource));
                         
                         if (localFile.exists() && verifyChecksum(localFile, resource.checksum)) {
                             completedFiles++;

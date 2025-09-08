@@ -236,7 +236,7 @@ public class FileDisplayViewAdapter extends RecyclerView.Adapter<RecyclerView.Vi
         
         void bind(LocalFileInfo file, boolean isSelected) {
             iconView.setImageDrawable(getFileIcon(file.fileName));
-            nameView.setText(getFileNameWithoutExtension(file.fileName));
+            nameView.setText(getFileNameWithoutExtension((file.displayName == null || file.displayName.isEmpty()) ? file.fileName : file.displayName));
             sizeView.setText(formatFileSize(file.fileSize));
             
             rootView.setSelected(isSelected);

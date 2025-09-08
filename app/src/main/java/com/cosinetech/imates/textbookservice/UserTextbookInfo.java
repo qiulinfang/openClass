@@ -77,13 +77,15 @@ public class UserTextbookInfo {
                 localPkg.updateTime = pkg.updateTime;
                 localPkg.description = pkg.description;
                 localPkg.packageName = pkg.packageName;
+                localPkg.sectionId = pkg.sectionId;
                 localPkg.localFiles = new ArrayList<>();
                 
                 if (pkg.resourceList != null) {
                     for (ResourceFile resource : pkg.resourceList) {
                         LocalFileInfo localFile = new LocalFileInfo();
                         localFile.id = resource.id;
-                        localFile.fileName = resource.fileName;
+                        localFile.fileName = getLocalResourceFileName(resource);
+                        localFile.displayName = resource.fileName;
                         localFile.originalUrl = resource.fileUrl;
                         localFile.checksum = resource.checksum;
                         localFile.isDownloaded = false;
@@ -96,7 +98,20 @@ public class UserTextbookInfo {
             }
         }
     }
-    
+
+    public static String getLocalResourceFileName(ResourceFile resource) {
+        String fileName = resource.fileName;
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex == -1) {
+            // 没有扩展名的情况
+            return fileName + "_" + resource.checksum;
+        } else {
+            String name = fileName.substring(0, dotIndex);
+            String ext = fileName.substring(dotIndex); // 包含点
+            return name + "_" + resource.checksum + ext;
+        }
+    }
+
     public enum DownloadStatus {
         NOT_DOWNLOADED,
         PARTIALLY_DOWNLOADED,

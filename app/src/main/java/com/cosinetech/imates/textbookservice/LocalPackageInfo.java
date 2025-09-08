@@ -8,6 +8,7 @@ public class LocalPackageInfo {
     public String packageName;
 
     public String description;
+    public String sectionId;
     public String updateTime;
     public List<LocalFileInfo> localFiles;
     public int totalFiles;
