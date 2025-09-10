@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <link type="text/css" rel="stylesheet" href="jsmind.css" />
+    <script type="text/javascript" src="jsmind.js"></script>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* 添加自定义菜单样式 */
+        .custom-menu {
+            position: absolute;
+            background: white;
+            border: 1px solid #ccc;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            border-radius: 4px;
+            z-index: 1000;
+            min-width: 80px; /* 确保菜单不会太窄 */
+        }
+        .custom-menu-item {
+            padding: 2px 2px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #1d85ce;
+            white-space: nowrap; /* 防止换行 */
+            min-width: 80px; /* 确保菜单项足够宽 */
+        }
+        .custom-menu-item:hover {
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+<div id="jsmind_container" style="width: 100%; height: 100%;"></div>
+<script type="text/javascript">
+    var graph = {
+        "meta": { "name": "生物知识导图", "author": "imates", "version": "0.1" },
+        "format": "node_tree",
+        "data": {
+            "id": "biology",
+            "topic": "生物(选择性必修一)",
+            "background-color": "#0D3390",
+            "children": [
+                {
+                    "id": "chapter1",
+                    "topic": "第1章 人体的内环境与稳态",
+                    "background-color": "#3788f6",
+                    "leading-line-color": "#1c217e",
+                    "foreground-color": "#ffffff",
+                    "direction": "left",
+                    "children": [
+                        {
+                            "id": "section1.1",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "1.1 细胞生活的环境"
+                        },
+                        {
+                            "id": "section1.2",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "1.2 内环境的稳态"
+                        }
+                    ]
+                },
+                {
+                    "id": "chapter2",
+                    "topic": "第2章 神经调节",
+                    "background-color": "#3788f6",
+                    "leading-line-color": "#1c217e",
+                    "foreground-color": "#ffffff",
+                    "direction": "left",
+                    "children": [
+                        {
+                            "id": "section2.1",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "2.1 神经调节的结构基础"
+                        },
+                        {
+                            "id": "section2.2",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "2.2 神经调节的基本方式"
+                        },
+                        {
+                            "id": "section2.3",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "2.3 神经冲动的产生和传导"
+                        },
+                        {
+                            "id": "section2.4",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "2.4 神经系统的分级调节"
+                        },
+                        {
+                            "id": "section2.5",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "2.5 人脑的高级功能"
+                        }
+                    ]
+                },
+                {
+                    "id": "chapter3",
+                    "topic": "第3章 体液调节",
+                    "background-color": "#3788f6",
+                    "leading-line-color": "#1c217e",
+                    "foreground-color": "#ffffff",
+                    "direction": "left",
+                    "children": [
+                        {
+                            "id": "section3.1",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "3.1 激素与内分泌系统"
+                        },
+                        {
+                            "id": "section3.2",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "3.2 激素调节的过程"
+                        },
+                        {
+                            "id": "section3.3",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "3.3 体液调节与神经调节的关系"
+                        }
+                    ]
+                },
+                {
+                    "id": "chapter4",
+                    "topic": "第4章 免疫调节",
+                    "background-color": "#3788f6",
+                    "leading-line-color": "#1c217e",
+                    "foreground-color": "#ffffff",
+                    "direction": "right",
+                    "children": [
+                        {
+                            "id": "section4.1",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "4.1 免疫系统的组成和功能"
+                        },
+                        {
+                            "id": "section4.2",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "4.2 特异性免疫"
+                        },
+                        {
+                            "id": "section4.3",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "4.3 免疫失调"
+                        },
+                        {
+                            "id": "section4.4",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "4.4 免疫学的应用"
+                        }
+                    ]
+                },
+                {
+                    "id": "chapter5",
+                    "topic": "第5章 植物生命活动的调节",
+                    "background-color": "#3788f6",
+                    "leading-line-color": "#1c217e",
+                    "foreground-color": "#ffffff",
+                    "direction": "right",
+                    "children": [
+                        {
+                            "id": "section5.1",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "5.1 植物生长素"
+                        },
+                        {
+                            "id": "section5.2",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "5.2 其他植物激素"
+                        },
+                        {
+                            "id": "section5.3",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "5.3 植物生长调节剂的应用"
+                        },
+                        {
+                            "id": "section5.4",
+                            "background-color": "#e4f8ff",
+                            "leading-line-color": "#1f82f0",
+                            "foreground-color": "#0b294a",
+                            "topic": "5.4 环境因素参与调节植物的生命活动"
+                        }
+                    ]
+                }
+            ]
+        }
+    };
+
+    var options = {
+        container: 'jsmind_container',
+        theme: 'primary',
+        editable: false,
+        support_html: true,
+        view: { engine: 'canvas',
+                draggable: true,
+                enable_device_pixel_ratio: true,
+                zoom: {             // 配置缩放
+                   min: 0.1,       // 最小的缩放比例
+                   max: 3.0,       // 最大的缩放比例
+                   step: 0.1,      // 缩放比例间隔
+               }
+        },
+        layout:{
+           hspace:30,          // 节点之间的水平间距
+           vspace:40,          // 节点之间的垂直间距
+           pspace:13,          // 节点与连接线之间的水平间距（用于容纳节点收缩/展开控制器）
+           cousin_space:10      // 相邻节点的子节点之间的额外的垂直间距
+        }
+    };
+
+    var mind = new jsMind(options);
+
+    // 从Android接口获取数据并刷新思维导图
+    function loadMindData() {
+        if (window.Android && window.Android.getMindData) {
+            try {
+                var mindData = JSON.parse(window.Android.getMindData());
+                if (mindData && mindData.data) {
+                    var graph = {
+                        "meta": {
+                            "name": "知识导图",
+                            "author": "imates",
+                            "version": "0.1"
+                        },
+                        "format": "node_tree",
+                        "data": mindData.data
+                    };
+                    mind.show(graph);
+                    resizeToFit();
+                }
+            } catch (e) {
+                console.error("Error parsing mind data:", e);
+            }
+        } else {
+            console.log("Android interface not available, using default data");
+            // 可以在这里设置默认数据或显示错误信息
+        }
+    }
+
+    // 提供给Android调用的刷新接口
+    function refreshMindData() {
+        loadMindData();
+    }
+
+    // 自适应缩放到容器大小
+    function resizeToFit() {
+        const container = document.getElementById('jsmind_container');
+        if (!mind || !container) return;
+
+        const mindSize = mind.view.size; // mindmap 实际宽高
+        if (!mindSize || !mindSize.w || !mindSize.h) return;
+
+        // 计算适合比例
+        const scaleWidth = container.clientWidth / mindSize.w + 0.05;
+        const scaleHeight = container.clientHeight / mindSize.h + 0.05;
+        const scale = Math.min(scaleWidth, scaleHeight);
+
+        // 限制缩放范围（避免太小或太大）
+        const minZoom = 0.1;
+        const maxZoom = 3.0;
+        const finalScale = Math.max(minZoom, Math.min(maxZoom, scale));
+        console.log("scale to " + finalScale)
+        mind.view.setZoom(finalScale);
+    }
+
+    // 当窗口大小变化时自动调整
+    window.addEventListener('resize', resizeToFit);
+
+    // 初次显示后调用
+    mind.show(graph);
+    resizeToFit();
+
+    // 在初始加载和窗口大小改变时调用 resizeToFit
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            resizeToFit();
+        }, 100); // 延迟 100ms 确保布局完成
+    });
+
+    var currentContextMenu = null;
+
+    // 修改为click事件监听
+    document.addEventListener('click', function(event) {
+        var nodeElement = event.target.closest('jmnode');
+        if (nodeElement) {
+            event.stopPropagation(); // 阻止事件冒泡
+            event.preventDefault(); // 阻止默认行为
+
+            var nodeId = nodeElement.getAttribute('nodeid');
+            // 只处理章节节点
+            if (nodeId && (nodeId.startsWith("section") || nodeId.startsWith("chapter"))) {
+                showContextMenu(event, nodeElement);
+            }
+        }
+    }, true); // 使用捕获阶段确保优先处理
+
+    // 显示上下文菜单的函数
+    function showContextMenu(event, node) {
+        // 清理现有菜单
+        if (currentContextMenu) {
+            document.body.removeChild(currentContextMenu);
+            currentContextMenu = null;
+        }
+
+        var nodeId = node.getAttribute('nodeid');
+        var nodeName = node.textContent.trim();
+
+        // 创建菜单容器
+        var contextMenu = document.createElement('div');
+        contextMenu.className = 'custom-menu';
+
+        // 定位菜单（向右下方偏移5px）
+        contextMenu.style.left = (event.pageX) + 'px';
+        contextMenu.style.top = (event.pageY) + 'px';
+
+        // 添加菜单项
+        var menuItems = [
+            {text: '去学习', action: () => {
+                            document.body.removeChild(contextMenu);
+                            currentContextMenu = null;
+                            window.Android.onPrepareLesson(nodeId, nodeName);
+                        }},
+            {text: '去练习', action: () => {
+                            document.body.removeChild(contextMenu);
+                            currentContextMenu = null;
+                            window.Android.onReviewLesson(nodeId, nodeName);
+                        }}
+        ];
+
+        menuItems.forEach(item => {
+            var div = document.createElement('div');
+            div.className = 'custom-menu-item';
+            div.textContent = item.text;
+            div.onclick = function(e) {
+                e.stopPropagation();
+                item.action();
+                document.body.removeChild(contextMenu);
+            };
+            contextMenu.appendChild(div);
+        });
+
+        document.body.appendChild(contextMenu);
+        currentContextMenu = contextMenu;
+    }
+
+    // 点击任意位置关闭菜单
+    document.addEventListener('click', function(e) {
+         try {
+            if (currentContextMenu && !currentContextMenu.contains(e.target)) {
+                document.body.removeChild(currentContextMenu);
+                currentContextMenu = null;
+            }
+         } catch (e) {
+            // 捕获并处理异常
+            console.log(e.toString());
+        }
+    });
+</script>
+</body>
+</html>

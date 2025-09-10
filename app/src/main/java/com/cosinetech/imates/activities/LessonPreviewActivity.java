@@ -159,23 +159,17 @@ public class LessonPreviewActivity extends AppCompatActivity {
                 textView.setText("已学习");
                 textView.setTextColor(Color.GREEN);
 
-//                Intent intent = new Intent(this, com.cosinetech.imates.pdfui.PDFActivity.class);
-//                intent.putExtra("AssetsPdf", mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getTextBook());
-//                intent.putExtra("Schema", mPreviewSection.getSchemas().get(mCurrentSchemaIndex));
-//                intent.putExtra("Section", mPreviewSection);
-//                startActivity(intent);q
-
                 String path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getTextBook();
                 File file = new  File(path);
-                if(!file.exists()) {
-                    path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getLecture();
-                    file = new File(path);
-                }
-
-                if(!file.exists()) {
-                    path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getLearnGuide();
-                    file = new File(path);
-                }
+//                if(!file.exists()) {
+//                    path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getLecture();
+//                    file = new File(path);
+//                }
+//
+//                if(!file.exists()) {
+//                    path = getExternalFilesDir(null) + "/" + mPreviewSection.getSchemas().get(mCurrentSchemaIndex).getLearnGuide();
+//                    file = new File(path);
+//                }
 
                 if(file.exists()) {
                     Intent intent = new Intent(this, MuPDFActivity.class);

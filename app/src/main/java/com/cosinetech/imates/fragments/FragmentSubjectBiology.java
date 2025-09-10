@@ -155,9 +155,15 @@ public class FragmentSubjectBiology extends Fragment {
 
         mTextbookVersionSpinner = view.findViewById(R.id.textbook_version_spinner);
         // 数据源（字符串数组）
-        String[] items = {"人教版生物 必修一", "人教版生物 必修二"};
-        String[] urls = {"file:///android_asset/knowledge_graph_biology_0.html", "file:///android_asset/knowledge_graph_biology.html"};
-        String[] schemas = {"biology_learn_schema_0.json", "biology_learn_schema.json"};
+        String[] items = {"人教版生物 必修一",
+                        "人教版生物 必修二",
+                        "人教版生物 选择性必修一"};
+        String[] urls = {"file:///android_asset/knowledge_graph_biology_0.html",
+                        "file:///android_asset/knowledge_graph_biology.html",
+                        "file:///android_asset/knowledge_graph_biology_1.html"};
+        String[] schemas = {"biology_learn_schema_0.json",
+                        "biology_learn_schema.json",
+                        "biology_learn_schema_1.json"};
 
         // 创建 ArrayAdapter
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
