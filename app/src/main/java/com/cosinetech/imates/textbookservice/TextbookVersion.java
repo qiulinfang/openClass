@@ -20,7 +20,7 @@ public class TextbookVersion {
     }
 
     public TextbookVersion(UserTextbookInfo textbook) {
-        this.id = textbook.versionId;
+        this.id = textbook.id;
         this.textbookId = textbook.textbookId;
         this.textbookName = textbook.textbookName;
         this.textbookGrade = textbook.textbookGrade;

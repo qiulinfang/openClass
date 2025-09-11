@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class UserTextbookInfo {
-    public String versionId;
+    public String id;
     public String textbookId;
     public int textbookGrade;
     public String textbookGradeLabel;
@@ -39,7 +39,7 @@ public class UserTextbookInfo {
     }
     
     public UserTextbookInfo(TextbookVersion textbook) {
-        this.versionId = textbook.id;
+        this.id = textbook.id;
         this.textbookId = textbook.textbookId;
         this.textbookName = textbook.textbookName;
         this.textbookGrade = textbook.textbookGrade;

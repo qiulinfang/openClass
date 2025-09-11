@@ -248,13 +248,13 @@ public class LearnResourceManager {
         void onUnauthorized();
     }
     
-    public void getLearningResources(String textbookVersionId, LearningResourcesCallback callback) {
+    public void getLearningResources(String textbookId, LearningResourcesCallback callback) {
         if (!isLoggedIn()) {
             callback.onError("Not logged in");
             return;
         }
         
-        LearningResourcesRequest request = new LearningResourcesRequest(textbookVersionId);
+        LearningResourcesRequest request = new LearningResourcesRequest(textbookId);
         String json = gson.toJson(request);
         
         RequestBody body = RequestBody.create(json, MediaType.get("application/json"));
@@ -335,6 +335,7 @@ public class LearnResourceManager {
                                 localInfo = new UserTextbookInfo(serverTextbook);
                                 finalData.updateOrAddTextbook(localInfo);
                             } else {
+                                localInfo.id = serverTextbook.id;
                                 localInfo.textbookIsbn = serverTextbook.textbookIsbn;
                                 localInfo.textbookEditionYear = serverTextbook.textbookEditionYear;
                                 localInfo.textbookPublisher = serverTextbook.textbookPublisher;
