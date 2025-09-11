@@ -67,6 +67,7 @@
                 android:src="@drawable/reader_tools_page_tile" />
 
             <ImageButton
+                android:visibility="invisible"
                 android:id="@+id/btn_watch_video"
                 android:layout_width="42dp"
                 android:layout_height="42dp"
@@ -80,6 +81,7 @@
                 android:layout_toEndOf="@id/btn_fit_width"/>
 
             <ImageButton
+                android:visibility="gone"
                 android:id="@+id/btn_to_guide"
                 android:layout_width="42dp"
                 android:layout_height="42dp"
@@ -94,6 +96,7 @@
                 />
 
             <ImageButton
+                android:visibility="gone"
                 android:id="@+id/btn_to_ppt"
                 android:layout_width="42dp"
                 android:layout_height="42dp"
@@ -107,6 +110,7 @@
                 android:layout_toEndOf="@id/btn_to_guide"/>
 
             <ImageButton
+                android:visibility="gone"
                 android:id="@+id/btn_to_textbook"
                 android:layout_width="42dp"
                 android:layout_height="42dp"

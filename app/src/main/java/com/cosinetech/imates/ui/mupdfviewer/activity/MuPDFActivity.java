@@ -1152,11 +1152,11 @@ public class MuPDFActivity extends AppCompatActivity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if(event.getKeyCode() == KeyEvent.KEYCODE_BACK
-                || event.getKeyCode() == KeyEvent.KEYCODE_HOME
-                || event.getKeyCode() == KeyEvent.KEYCODE_MENU){
-            return true;
-        }
+//        if(event.getKeyCode() == KeyEvent.KEYCODE_BACK
+//                || event.getKeyCode() == KeyEvent.KEYCODE_HOME
+//                || event.getKeyCode() == KeyEvent.KEYCODE_MENU){
+//            return true;
+//        }
         return super.dispatchKeyEvent(event);
     }
 
