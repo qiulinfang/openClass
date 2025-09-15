@@ -53,7 +53,20 @@ public class AppUtils {
                 ApplicationModelShared.getInstance(),
                 new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance())
         ).get(UserInfoViewModel.class);
-        return userInfoViewModel.userId.getValue();
+        String userId = userInfoViewModel.userId.getValue();
+        return userId != null ? userId : "";
+    }
+
+    /**
+     * 获取用户Token（JWT格式）
+     */
+    public static String getUserToken() {
+        UserInfoViewModel userInfoViewModel = new ViewModelProvider(
+                ApplicationModelShared.getInstance(),
+                new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance())
+        ).get(UserInfoViewModel.class);
+        String token = userInfoViewModel.token.getValue();
+        return token != null ? token : "";
     }
 
     public static String getUserPassword() {

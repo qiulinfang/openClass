@@ -30,6 +30,7 @@ import com.cosinetech.imates.data.models.Subject;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.cosinetech.imates.textbookservice.*;
 import com.cosinetech.imates.ui.robot.FloatingRobotService;
+import com.cosinetech.imates.ui.webview.ExerciseSolveWebViewActivity;
 import com.cosinetech.imates.utils.AppUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -142,10 +143,10 @@ public class KnowledgeGraphActivity extends BaseActivity {
         mTextbookVersionSpinner.setAdapter(mTextbookVersionSpinnerAdapter);
 
         Button btnGoExerciseList = findViewById(R.id.btn_my_exercise);
-        btnGoExerciseList.setOnClickListener(v->{
-            Intent intent = new Intent(this, ExerciseSolveActivity.class);
-                intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
-                intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, Subject.SUBJECT_MATH.name());
+        btnGoExerciseList.setOnClickListener(v -> {
+            Intent intent = new Intent(this, ExerciseSolveWebViewActivity.class);
+            intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
+            intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, Subject.SUBJECT_MATH.name());
             startActivity(intent);
         });
 
@@ -174,9 +175,9 @@ public class KnowledgeGraphActivity extends BaseActivity {
     private void miscellaneousInitialization() {
         stopFloatingWindowService();
         startFloatingWindowService();
-        EasyUpdate.create(this, ApiUrl.URL_APP_UPDATE)
-                .isAutoMode(false)
-                .update();
+            EasyUpdate.create(this, ApiUrl.URL_APP_UPDATE)
+                    .isAutoMode(false)
+                    .update();
         mCheckUpdateTick = System.currentTimeMillis();
         mMainHandler.postDelayed(mCheckUpdateRunnable, 60000);
     }
@@ -265,27 +266,27 @@ public class KnowledgeGraphActivity extends BaseActivity {
         LearnResourceManager.getInstance().getTextbookStructureLocal(textbook.textbookId,
                 true,
                 new LearnResourceManager.TextbookStructureLocalCallback() {
-            @Override
-            public void onSuccess(List<ChapterNode> structure) {
+                    @Override
+                    public void onSuccess(List<ChapterNode> structure) {
                 if(!structure.isEmpty()) {
                     String mindData = ChapterNodeConverter.convertToMindJson(structure.get(0).children, textbook.textbookGradeLabel
-                            + textbook.textbookSubjectLabel + textbook.textbookName);
-                    if (callback != null) {
-                        callback.onGetTextbookMindData(mindData);
+                                            + textbook.textbookSubjectLabel + textbook.textbookName);
+                            if (callback != null) {
+                                callback.onGetTextbookMindData(mindData);
+                            }
+                        }
                     }
-                }
-            }
 
-            @Override
-            public void onNotFound() {
+                    @Override
+                    public void onNotFound() {
 
-            }
+                    }
 
-            @Override
-            public void onError(String error) {
+                    @Override
+                    public void onError(String error) {
 
-            }
-        });
+                    }
+                });
     }
 
     @Override
@@ -311,18 +312,18 @@ public class KnowledgeGraphActivity extends BaseActivity {
                 checkUpdateLearnResource();
             } else {
                 LearnResourceManager.getInstance().login(AppUtils.getUserId(), AppUtils.getUserPassword(), new LearnResourceManager.LoginCallback() {
-                    @Override
-                    public void onSuccess(LoginResponse response) {
-                        checkUserLocalLearnResources();
-                        checkUpdateLearnResource();
-                    }
+                            @Override
+                            public void onSuccess(LoginResponse response) {
+                                checkUserLocalLearnResources();
+                                checkUpdateLearnResource();
+                            }
 
-                    @Override
-                    public void onError(String error) {
-                        checkUserLocalLearnResources();
+                            @Override
+                            public void onError(String error) {
+                                checkUserLocalLearnResources();
                         Toast.makeText(KnowledgeGraphActivity.this, "登录研伴失败, 无法获取在线资源", Toast.LENGTH_SHORT).show();
-                    }
-                });
+                            }
+                        });
             }
         } catch (Exception e) {
             Log.e(TAG, "Perform resource check:" + e.getMessage());

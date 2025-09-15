@@ -1,0 +1,585 @@
+/* 
+ * 原生应用样式规范
+ * 确保Web组件与Android原生应用保持一致的视觉效果
+ */
+
+/* ==================== 基础尺寸规范 ==================== */
+:root {
+  /* 字体大小 */
+  --native-font-size-xs: 9px;
+  --native-font-size-sm: 10px;
+  --native-font-size-base: 11px;
+  --native-font-size-md: 12px;
+  --native-font-size-lg: 13px;
+  --native-font-size-xl: 14px;
+  --native-font-size-2xl: 15px;
+  --native-font-size-3xl: 16px;
+
+  /* 高度规范 */
+  --native-toolbar-height: 48px;
+  --native-toolbar-height-mobile: 44px;
+  --native-button-height: 36px;
+  --native-button-height-sm: 32px;
+  --native-button-height-mobile: 32px;
+  --native-input-height: 80px;
+  --native-input-height-mobile: 72px;
+  --native-list-item-height: 80px;
+  --native-list-item-height-mobile: 72px;
+  --native-quick-option-height: 32px;
+  --native-quick-option-height-mobile: 28px;
+
+  /* 宽度规范 */
+  --native-button-width: 36px;
+  --native-button-width-sm: 32px;
+  --native-button-width-mobile: 32px;
+  --native-send-button-width: 72px;
+  --native-send-button-width-mobile: 64px;
+
+  /* 内边距规范 */
+  --native-padding-xs: 4px;
+  --native-padding-sm: 6px;
+  --native-padding-md: 8px;
+  --native-padding-lg: 12px;
+  --native-padding-xl: 16px;
+  --native-padding-2xl: 20px;
+
+  /* 外边距规范 */
+  --native-margin-xs: 3px;
+  --native-margin-sm: 4px;
+  --native-margin-md: 6px;
+  --native-margin-lg: 8px;
+  --native-margin-xl: 12px;
+  --native-margin-2xl: 16px;
+
+  /* 圆角规范 */
+  --native-border-radius-sm: 3px;
+  --native-border-radius-md: 4px;
+  --native-border-radius-lg: 6px;
+  --native-border-radius-xl: 8px;
+  --native-border-radius-pill: 12px;
+
+  /* 图标大小 */
+  --native-icon-size-sm: 14px;
+  --native-icon-size-md: 16px;
+  --native-icon-size-lg: 18px;
+  --native-icon-size-xl: 20px;
+  --native-icon-size-2xl: 24px;
+
+  /* 头像大小 */
+  --native-avatar-size: 32px;
+  --native-avatar-size-mobile: 28px;
+
+  /* 标签高度 */
+  --native-chip-height: 20px;
+  --native-chip-height-mobile: 18px;
+}
+
+/* ==================== 工具栏样式 ==================== */
+.native-toolbar {
+  height: var(--native-toolbar-height);
+  padding: 0 var(--native-padding-xl);
+  min-height: var(--native-toolbar-height);
+  font-size: var(--native-font-size-3xl);
+}
+
+.native-toolbar-title {
+  font-size: var(--native-font-size-3xl);
+  font-weight: 500;
+}
+
+.native-toolbar-title .q-icon {
+  font-size: var(--native-icon-size-xl);
+}
+
+.native-toolbar .q-btn {
+  width: var(--native-button-width);
+  height: var(--native-button-width);
+  min-width: var(--native-button-width);
+}
+
+.native-toolbar .q-btn .q-icon {
+  font-size: var(--native-icon-size-lg);
+}
+
+/* ==================== 按钮样式 ==================== */
+.native-btn {
+  height: var(--native-button-height);
+  font-size: var(--native-font-size-md);
+  padding: 0 var(--native-padding-xl);
+}
+
+.native-btn-sm {
+  width: var(--native-button-width-sm);
+  height: var(--native-button-width-sm);
+  min-width: var(--native-button-width-sm);
+}
+
+.native-btn-sm .q-icon {
+  font-size: var(--native-icon-size-md);
+}
+
+.native-send-btn {
+  min-width: var(--native-send-button-width);
+  height: var(--native-button-height);
+  font-size: var(--native-font-size-md);
+  font-weight: 500;
+}
+
+.native-send-btn .q-icon {
+  font-size: var(--native-icon-size-md);
+}
+
+/* ==================== 输入框样式 ==================== */
+.native-input {
+  font-size: var(--native-font-size-xl);
+}
+
+.native-input .q-field__control {
+  min-height: var(--native-input-height);
+}
+
+.native-input .q-field__native {
+  font-size: var(--native-font-size-xl);
+  line-height: 1.4;
+}
+
+.native-textarea {
+  font-size: var(--native-font-size-xl);
+}
+
+.native-textarea .q-field__control {
+  min-height: var(--native-input-height);
+}
+
+/* ==================== 列表项样式 ==================== */
+.native-list-item {
+  padding: var(--native-padding-lg) var(--native-padding-xl);
+  min-height: var(--native-list-item-height);
+  font-size: var(--native-font-size-xl);
+}
+
+.native-list-item .q-item-label {
+  font-size: var(--native-font-size-xl);
+  line-height: 1.4;
+}
+
+.native-list-item .q-item-label.text-h6 {
+  font-size: var(--native-font-size-2xl);
+  font-weight: 500;
+  margin-bottom: var(--native-margin-sm);
+}
+
+.native-list-item .q-item-label[caption] {
+  font-size: var(--native-font-size-md);
+  color: #666;
+  line-height: 1.3;
+}
+
+/* ==================== 消息样式 ==================== */
+.native-message {
+  margin-bottom: var(--native-margin-md);
+  font-size: var(--native-font-size-xl);
+}
+
+.native-message .q-message-text {
+  font-size: var(--native-font-size-xl);
+  line-height: 1.4;
+  padding: var(--native-padding-md) var(--native-padding-lg);
+}
+
+.native-message .q-message-stamp {
+  font-size: var(--native-font-size-sm);
+}
+
+.native-message .q-avatar {
+  width: var(--native-avatar-size);
+  height: var(--native-avatar-size);
+  font-size: var(--native-icon-size-md);
+}
+
+/* ==================== 标签样式 ==================== */
+.native-chip {
+  height: var(--native-chip-height);
+  font-size: var(--native-font-size-sm);
+  padding: 0 var(--native-padding-md);
+}
+
+/* ==================== 快捷选项样式 ==================== */
+.native-quick-options-container {
+  background: #f5f5f5;
+  border-top: 1px solid #e0e0e0;
+  padding: var(--native-padding-xs) 0;
+}
+
+.native-quick-options-scroll {
+  height: var(--native-quick-option-height);
+}
+
+.native-quick-options {
+  display: flex;
+  gap: var(--native-margin-md);
+  padding: 0 var(--native-padding-xl);
+  align-items: center;
+  white-space: nowrap;
+}
+
+.native-quick-option-btn {
+  flex-shrink: 0;
+  font-size: var(--native-font-size-base);
+  padding: var(--native-padding-xs) var(--native-padding-lg);
+  border-radius: var(--native-border-radius-pill);
+  height: 24px;
+  min-height: 24px;
+}
+
+/* ==================== 输入区域样式 ==================== */
+.native-input-container {
+  background: white;
+  border-top: 1px solid #e0e0e0;
+}
+
+.native-input-main-area {
+  padding: var(--native-padding-md) var(--native-padding-xl) var(--native-padding-xs);
+}
+
+.native-input-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--native-padding-xs) var(--native-padding-xl) var(--native-padding-md);
+  gap: var(--native-margin-md);
+  background: #fafafa;
+  border-top: 1px solid #f0f0f0;
+  min-height: var(--native-toolbar-height);
+}
+
+.native-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--native-margin-md);
+}
+
+.native-toolbar-center {
+  display: flex;
+  align-items: center;
+  gap: var(--native-margin-md);
+  flex: 1;
+  justify-content: center;
+}
+
+.native-toolbar-right {
+  display: flex;
+  align-items: center;
+}
+
+/* ==================== 对话框样式 ==================== */
+.native-dialog .q-card {
+  border-radius: var(--native-border-radius-xl);
+}
+
+.native-dialog .q-card-section {
+  padding: var(--native-padding-xl);
+}
+
+.native-dialog .text-h6 {
+  font-size: var(--native-font-size-3xl);
+  font-weight: 500;
+}
+
+.native-dialog .q-input {
+  font-size: var(--native-font-size-xl);
+}
+
+.native-dialog .q-btn {
+  height: var(--native-button-height);
+  font-size: var(--native-font-size-md);
+  padding: 0 var(--native-padding-xl);
+}
+
+/* ==================== 加载和空状态样式 ==================== */
+.native-loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px var(--native-padding-xl);
+}
+
+.native-loading-container .q-spinner-dots {
+  font-size: 40px;
+}
+
+.native-loading-container .text-h6 {
+  font-size: var(--native-font-size-xl);
+  margin-top: var(--native-margin-xl);
+}
+
+.native-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px var(--native-padding-xl);
+  text-align: center;
+}
+
+.native-empty-state .q-icon {
+  font-size: 64px;
+}
+
+.native-empty-state .text-h6 {
+  font-size: var(--native-font-size-3xl);
+  margin-top: var(--native-margin-xl);
+}
+
+.native-empty-state .text-body2 {
+  font-size: var(--native-font-size-md);
+  margin-top: var(--native-margin-md);
+}
+
+.native-empty-state .q-btn {
+  margin-top: var(--native-margin-xl);
+  height: var(--native-button-height-sm);
+  font-size: var(--native-font-size-md);
+}
+
+/* ==================== 选择器样式 ==================== */
+.native-select {
+  font-size: var(--native-font-size-base);
+  min-width: 100px;
+}
+
+.native-select .q-field__control {
+  min-height: var(--native-button-height-sm);
+  height: var(--native-button-height-sm);
+}
+
+.native-checkbox {
+  font-size: var(--native-font-size-base);
+}
+
+.native-checkbox .q-checkbox__label {
+  font-size: var(--native-font-size-base);
+}
+
+/* ==================== 响应式设计 ==================== */
+@media (max-width: 768px) {
+  :root {
+    /* 移动端调整字体大小 */
+    --native-font-size-xs: 8px;
+    --native-font-size-sm: 9px;
+    --native-font-size-base: 10px;
+    --native-font-size-md: 11px;
+    --native-font-size-lg: 12px;
+    --native-font-size-xl: 13px;
+    --native-font-size-2xl: 14px;
+    --native-font-size-3xl: 15px;
+  }
+
+  .native-toolbar {
+    height: var(--native-toolbar-height-mobile);
+    padding: 0 var(--native-padding-lg);
+  }
+
+  .native-toolbar-title {
+    font-size: var(--native-font-size-2xl);
+  }
+
+  .native-list-item {
+    padding: var(--native-padding-sm) var(--native-padding-lg);
+    min-height: var(--native-list-item-height-mobile);
+  }
+
+  .native-list-item .q-item-label.text-h6 {
+    font-size: var(--native-font-size-xl);
+  }
+
+  .native-list-item .q-item-label[caption] {
+    font-size: var(--native-font-size-base);
+  }
+
+  .native-btn-sm,
+  .native-toolbar .q-btn {
+    width: var(--native-button-width-mobile);
+    height: var(--native-button-width-mobile);
+    min-width: var(--native-button-width-mobile);
+  }
+
+  .native-send-btn {
+    min-width: var(--native-send-button-width-mobile);
+    height: var(--native-button-height-mobile);
+    font-size: var(--native-font-size-base);
+  }
+
+  .native-input .q-field__control,
+  .native-textarea .q-field__control {
+    min-height: var(--native-input-height-mobile);
+  }
+
+  .native-input-main-area {
+    padding: var(--native-padding-sm) var(--native-padding-lg) var(--native-padding-xs);
+  }
+
+  .native-input-toolbar {
+    flex-wrap: wrap;
+    gap: var(--native-margin-sm);
+    padding: var(--native-padding-xs) var(--native-padding-lg) var(--native-margin-md);
+    min-height: var(--native-toolbar-height-mobile);
+  }
+
+  .native-toolbar-center {
+    order: 3;
+    width: 100%;
+    justify-content: flex-start;
+    margin-top: var(--native-margin-sm);
+  }
+
+  .native-quick-options {
+    padding: 0 var(--native-padding-lg);
+  }
+
+  .native-quick-options-scroll {
+    height: var(--native-quick-option-height-mobile);
+  }
+
+  .native-quick-option-btn {
+    font-size: var(--native-font-size-sm);
+    padding: var(--native-padding-xs) var(--native-padding-md);
+    height: 20px;
+    min-height: 20px;
+  }
+
+  .native-message .q-message-text {
+    font-size: var(--native-font-size-lg);
+    padding: var(--native-padding-sm) var(--native-padding-md);
+  }
+
+  .native-message .q-avatar {
+    width: var(--native-avatar-size-mobile);
+    height: var(--native-avatar-size-mobile);
+    font-size: var(--native-icon-size-sm);
+  }
+
+  .native-chip {
+    height: var(--native-chip-height-mobile);
+    font-size: var(--native-font-size-xs);
+    padding: 0 var(--native-padding-sm);
+  }
+
+  .native-loading-container,
+  .native-empty-state {
+    padding: var(--native-padding-2xl) var(--native-padding-xl);
+  }
+
+  .native-empty-state .q-icon {
+    font-size: 48px;
+  }
+}
+
+/* ==================== 深色模式支持 ==================== */
+@media (prefers-color-scheme: dark) {
+  .native-input-container {
+    background: #1e1e1e;
+    border-top-color: #333;
+  }
+  
+  .native-input-toolbar {
+    background: #2a2a2a;
+    border-top-color: #333;
+  }
+  
+  .native-quick-options-container {
+    background: #2a2a2a;
+    border-top-color: #333;
+  }
+}
+
+/* ==================== 动画效果 ==================== */
+.native-pulse {
+  animation: native-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes native-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.native-btn-active {
+  transition: all 0.2s ease;
+}
+
+.native-btn-active:active {
+  transform: scale(0.95);
+}
+
+/* ==================== 通用工具栏样式 ==================== */
+.native-toolbar-layout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 8px 16px;
+}
+
+.native-toolbar-center {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  justify-content: center;
+  gap: 8px;
+}
+
+.native-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+}
+
+.native-action-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  transition: all 0.2s ease;
+}
+
+.native-action-btn:hover {
+  background-color: rgba(26, 115, 232, 0.08);
+  transform: scale(1.05);
+}
+
+.native-action-btn:active {
+  transform: scale(0.95);
+}
+
+/* ==================== 工具类 ==================== */
+.native-text-xs { font-size: var(--native-font-size-xs); }
+.native-text-sm { font-size: var(--native-font-size-sm); }
+.native-text-base { font-size: var(--native-font-size-base); }
+.native-text-md { font-size: var(--native-font-size-md); }
+.native-text-lg { font-size: var(--native-font-size-lg); }
+.native-text-xl { font-size: var(--native-font-size-xl); }
+.native-text-2xl { font-size: var(--native-font-size-2xl); }
+.native-text-3xl { font-size: var(--native-font-size-3xl); }
+
+.native-p-xs { padding: var(--native-padding-xs); }
+.native-p-sm { padding: var(--native-padding-sm); }
+.native-p-md { padding: var(--native-padding-md); }
+.native-p-lg { padding: var(--native-padding-lg); }
+.native-p-xl { padding: var(--native-padding-xl); }
+
+.native-m-xs { margin: var(--native-margin-xs); }
+.native-m-sm { margin: var(--native-margin-sm); }
+.native-m-md { margin: var(--native-margin-md); }
+.native-m-lg { margin: var(--native-margin-lg); }
+.native-m-xl { margin: var(--native-margin-xl); }

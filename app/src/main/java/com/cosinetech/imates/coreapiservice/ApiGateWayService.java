@@ -3,6 +3,7 @@ package com.cosinetech.imates.coreapiservice;
 import android.graphics.Bitmap;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.widget.Toast;
 
 import com.cosinetech.imates.ApplicationModelShared;
@@ -296,14 +297,18 @@ public class ApiGateWayService {
         void onFailure(String msg, int code);
     }
 
+    /**
+     * 查询题目列表 - 通过完整URL
+     */
     public static void queryExerciseList(String url, String token, QueryExerciseListCallback callback) {
         Runnable task = () -> {
             try {
+                Log.e("====", token);
                 OkHttpClient client = createClient();
 
                 // 创建请求
                 Request request = new Request.Builder()
-                        .url(url) // 替换为你的 API 地址
+                        .url(url) // 完整的API地址
                         .get()
                         .addHeader("token", token)
                         .build();
@@ -336,6 +341,43 @@ public class ApiGateWayService {
         };
 
         executor.submit(task);
+    }
+
+    /**
+     * 查询题目列表 - 通过科目类型（语义化接口）
+     */
+    public static void queryExerciseListBySubject(String subjectType, String token, QueryExerciseListCallback callback) {
+        String baseUrl = getBaseUrl(); // 需要添加获取baseUrl的方法
+        String url;
+        
+        // 根据科目类型构建URL
+        switch (subjectType.toLowerCase()) {
+            case "math":
+            case "数学":
+                url = baseUrl + "/permission/selectExercises/math";
+                break;
+            case "biology":
+            case "生物":
+                url = baseUrl + "/permission/selectExercises/biology";
+                break;
+            default:
+                if (callback != null) {
+                    callback.onFailure("不支持的科目类型: " + subjectType, 400);
+                }
+                return;
+        }
+        
+        // 调用原有方法
+        queryExerciseList(url, token, callback);
+    }
+    
+    /**
+     * 获取基础URL（需要根据实际情况实现）
+     */
+    private static String getBaseUrl() {
+        // 这里应该从ApiUrl类获取baseUrl
+        // 暂时返回一个占位符，实际实现需要访问ApiUrl的baseUrl
+        return "https://api.showcode.xyz/blw-edu-service-alc";
     }
 
     // ========查询相似题接口========
