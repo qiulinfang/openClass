@@ -500,9 +500,389 @@ export const useExerciseStore = defineStore('exercise', () => {
     }
   }
 
+  // ==================== 聊天消息处理辅助函数 ====================
+
+  /**
+   * 构建AI聊天消息对象
+   * @param content 消息内容
+   * @param chatRole 学习伙伴角色
+   * @param imageData 图片数据
+   * @returns AI聊天消息对象
+   */
+  const buildAiMessage = (content: string, chatRole: string, imageData?: { filePath: string, base64DataUrl?: string }): AiChatMessageRequest => {
+    const isImageMessage = imageData && imageData.base64DataUrl
+    
+    return {
+      sessionId: currentQuestion.value?.id || '',
+      newValue: '1',
+      coversation: content,
+      question: isImageMessage 
+        ? `<img src="${imageData.base64DataUrl}" />`
+        : (currentQuestion.value?.question || currentQuestion.value?.title || ''),
+      answer: currentQuestion.value?.answer || '',
+      name: userInfo.value?.userName || 'User',
+      reason: 'start',
+      bmNo: currentQuestion.value?.bmNo || currentQuestion.value?.id || '',
+      isWebSearch: enableWebSearch.value ? '1' : '0',
+      chatRole: chatRole,
+      dstUrl: isImageMessage ? '/permission/previewPictureQA' : undefined,
+    }
+  }
+
+  /**
+   * 创建用户消息对象
+   * @param content 消息内容
+   * @param imageData 图片数据
+   * @param hidePrefix 是否隐藏前缀
+   * @returns 用户消息对象
+   */
+  const createUserMessage = (content: string, imageData?: { filePath: string, base64DataUrl?: string }, hidePrefix: boolean = false): ChatBubble => {
+    const isImageMessage = imageData && imageData.base64DataUrl
+    
+    // 处理显示内容：如果需要隐藏前缀，则去掉"我们开始吧"及后面的逗号
+    let displayContent = content
+    if (hidePrefix && content.startsWith('我们开始吧')) {
+      displayContent = content.replace(/^我们开始吧[，,]\s*/, '')
+    }
+
+    return {
+      id: Date.now().toString(),
+      content: isImageMessage ? '' : displayContent,
+      sender: 'user',
+      type: 'user',
+      timestamp: new Date().toISOString(),
+      messageType: isImageMessage ? 'image' : 'text',
+      imageData: isImageMessage ? {
+        filePath: imageData.filePath,
+        width: 0,
+        height: 0,
+        fileSize: 0
+      } : undefined
+    }
+  }
+
+  /**
+   * 创建临时AI回复消息
+   * @param type 消息类型
+   * @returns 临时消息对象和ID
+   */
+  const createTempReplyMessage = (type: 'ai' | 'teacher'): { message: ChatBubble, id: string } => {
+    const tempReplyId = (Date.now() + 1).toString()
+    const tempReplyMessage: ChatBubble = {
+      id: tempReplyId,
+      content: '',
+      sender: type,
+      type,
+      timestamp: new Date().toISOString(),
+      messageId: 'temp_' + Date.now(),
+      isStreaming: true,
+    }
+    return { message: tempReplyMessage, id: tempReplyId }
+  }
+
+  /**
+   * 更新临时消息内容
+   * @param tempReplyId 临时消息ID
+   * @param updates 要更新的字段
+   */
+  const updateTempMessage = (tempReplyId: string, updates: Partial<ChatBubble>) => {
+    const tempIndex = chatMessages.value.findIndex((msg) => msg.id === tempReplyId)
+    if (tempIndex !== -1) {
+      chatMessages.value[tempIndex] = {
+        ...chatMessages.value[tempIndex],
+        ...updates
+      }
+    }
+  }
+
+  /**
+   * 设置超时处理
+   * @param tempReplyId 临时消息ID
+   * @param content 原始消息内容
+   * @param timeoutMs 超时时间（毫秒）
+   * @returns 超时定时器ID
+   */
+  const setupTimeoutHandler = (tempReplyId: string, content: string, timeoutMs: number = 10000): ReturnType<typeof setTimeout> => {
+    return setTimeout(() => {
+      const tempIndex = chatMessages.value.findIndex((msg) => msg.id === tempReplyId)
+      if (tempIndex !== -1 && chatMessages.value[tempIndex].isStreaming) {
+        updateTempMessage(tempReplyId, {
+          content: '请求失败，请重试。',
+          timestamp: new Date().toISOString(),
+          messageId: 'timeout_' + Date.now(),
+          isStreaming: false,
+          isError: true,
+          canRetry: true,
+          retryCount: 0,
+          originalMessage: content,
+        })
+        saveChatHistory()
+      }
+    }, timeoutMs)
+  }
+
+  /**
+   * 处理AI流式响应
+   * @param tempReplyId 临时消息ID
+   * @param timeoutId 超时定时器ID
+   * @param streamContentRef 流式内容引用
+   * @returns 流式响应处理函数
+   */
+  const createStreamHandler = (tempReplyId: string, timeoutId: ReturnType<typeof setTimeout>, streamContentRef: { current: string }) => {
+    return (chunk: string, isComplete: boolean) => {
+      console.log('收到AI流式数据:', chunk, '是否完成:', isComplete)
+      
+      if (!isComplete && chunk) {
+        streamContentRef.current += chunk
+        updateTempMessage(tempReplyId, {
+          content: streamContentRef.current,
+          isStreaming: true,
+        })
+      } else if (isComplete) {
+        const finalContent = streamContentRef.current || '抱歉，我暂时无法回答这个问题。'
+        const isError = !streamContentRef.current || streamContentRef.current === '抱歉，我暂时无法回答这个问题。'
+        
+        updateTempMessage(tempReplyId, {
+          content: finalContent,
+          isStreaming: false,
+          isError: isError,
+          canRetry: isError,
+          retryCount: isError ? 0 : undefined,
+          originalMessage: isError ? (chunk as any).originalContent : undefined,
+        })
+        
+        clearTimeout(timeoutId)
+        saveChatHistory()
+      }
+    }
+  }
+
+  /**
+   * 创建直接流处理器（用于重试，直接更新现有消息）
+   */
+  const createDirectStreamHandler = (messageId: string, timeoutId: ReturnType<typeof setTimeout>, streamContentRef: { current: string }) => {
+    return (chunk: string, isComplete: boolean) => {
+      console.log('收到AI流式数据（重试）:', chunk, '是否完成:', isComplete)
+      
+      const messageIndex = chatMessages.value.findIndex(msg => msg.id === messageId)
+      if (messageIndex !== -1) {
+        if (!isComplete && chunk) {
+          streamContentRef.current += chunk
+          chatMessages.value[messageIndex] = {
+            ...chatMessages.value[messageIndex],
+            content: streamContentRef.current,
+            isStreaming: true,
+          }
+        } else if (isComplete) {
+          const finalContent = streamContentRef.current || '抱歉，我暂时无法回答这个问题。'
+          const isError = !streamContentRef.current || streamContentRef.current === '抱歉，我暂时无法回答这个问题。'
+          
+          chatMessages.value[messageIndex] = {
+            ...chatMessages.value[messageIndex],
+            content: finalContent,
+            isStreaming: false,
+            isError: isError,
+            canRetry: isError,
+            retryCount: isError ? (chatMessages.value[messageIndex].retryCount || 0) : undefined,
+            originalMessage: isError ? (chunk as any).originalContent : undefined,
+          }
+          
+          clearTimeout(timeoutId)
+          saveChatHistory()
+        }
+      }
+    }
+  }
+
+  /**
+   * 处理AI完整响应回调
+   * @param tempReplyId 临时消息ID
+   * @param timeoutId 超时定时器ID
+   * @param streamContentRef 流式内容引用
+   * @returns 完整响应处理函数
+   */
+  const createCompleteHandler = (tempReplyId: string, timeoutId: ReturnType<typeof setTimeout>, streamContentRef: { current: string }) => {
+    return (asyncResponse: { reply?: string; timestamp?: number | string; messageId?: string; success?: boolean }) => {
+      clearTimeout(timeoutId)
+      
+      const finalContent = streamContentRef.current || asyncResponse.reply || '抱歉，我暂时无法回答这个问题。'
+      const isError = !asyncResponse.reply || asyncResponse.reply === '抱歉，我暂时无法回答这个问题。' || finalContent === '抱歉，我暂时无法回答这个问题。'
+      
+      updateTempMessage(tempReplyId, {
+        content: finalContent,
+        timestamp: typeof asyncResponse.timestamp === 'number'
+          ? new Date(asyncResponse.timestamp).toISOString()
+          : new Date().toISOString(),
+        messageId: asyncResponse.messageId,
+        isStreaming: false,
+        isError: isError,
+        canRetry: isError,
+        retryCount: isError ? 0 : undefined,
+        originalMessage: isError ? (asyncResponse as any).originalContent : undefined,
+      })
+
+      if (asyncResponse.success) {
+        chatResponseTimes.value++
+      }
+
+      saveChatHistory()
+    }
+  }
+
+  /**
+   * 创建直接完成处理器（用于重试，直接更新现有消息）
+   */
+  const createDirectCompleteHandler = (messageId: string, timeoutId: ReturnType<typeof setTimeout>, streamContentRef: { current: string }) => {
+    return (asyncResponse: { reply?: string; timestamp?: number | string; messageId?: string; success?: boolean }) => {
+      clearTimeout(timeoutId)
+      
+      const messageIndex = chatMessages.value.findIndex(msg => msg.id === messageId)
+      if (messageIndex !== -1) {
+        const finalContent = streamContentRef.current || asyncResponse.reply || '抱歉，我暂时无法回答这个问题。'
+        const isError = !asyncResponse.reply || asyncResponse.reply === '抱歉，我暂时无法回答这个问题。'
+        
+        chatMessages.value[messageIndex] = {
+          ...chatMessages.value[messageIndex],
+          content: finalContent,
+          timestamp: typeof asyncResponse.timestamp === 'number'
+            ? new Date(asyncResponse.timestamp).toISOString()
+            : new Date().toISOString(),
+          messageId: asyncResponse.messageId,
+          isStreaming: false,
+          isError: isError,
+          canRetry: isError,
+          retryCount: isError ? (chatMessages.value[messageIndex].retryCount || 0) : undefined,
+          originalMessage: isError ? (asyncResponse as any).originalContent : undefined,
+        }
+
+        if (asyncResponse.success) {
+          chatResponseTimes.value++
+        }
+
+        saveChatHistory()
+      }
+    }
+  }
+
+  /**
+   * 处理AI消息发送
+   * @param aiMessage AI消息对象
+   * @param tempReplyId 临时消息ID
+   * @param content 原始消息内容
+   * @returns Promise<any>
+   */
+  const handleAiMessage = async (aiMessage: AiChatMessageRequest, tempReplyId: string, content: string): Promise<{ reply?: string; messageId?: string; success?: boolean }> => {
+    return new Promise(async (resolve, reject) => {
+      const timeoutId = setupTimeoutHandler(tempReplyId, content)
+      const streamContentRef = { current: '' }
+      
+      try {
+        const response = await apiService.sendChatMessage(
+          aiMessage,
+          createCompleteHandler(tempReplyId, timeoutId, streamContentRef),
+          createStreamHandler(tempReplyId, timeoutId, streamContentRef)
+        )
+
+        // 处理同步响应
+        if (response) {
+          clearTimeout(timeoutId)
+          const replyContent = response.reply || '请求失败，请重试。'
+          const isError = !response.reply || response.reply === '请求失败，请重试。'
+          
+          updateTempMessage(tempReplyId, {
+            content: replyContent,
+            timestamp: new Date().toISOString(),
+            messageId: response.messageId,
+            isStreaming: false,
+            isError: isError,
+            canRetry: isError,
+            retryCount: isError ? 0 : undefined,
+            originalMessage: isError ? content : undefined,
+          })
+          saveChatHistory()
+          resolve(response)
+        }
+      } catch (error) {
+        clearTimeout(timeoutId)
+        updateTempMessage(tempReplyId, {
+          content: '抱歉，AI暂时无法回答这个问题，请稍后重试。',
+          timestamp: new Date().toISOString(),
+          messageId: 'error_' + Date.now(),
+          isStreaming: false,
+          isError: true,
+          canRetry: true,
+          retryCount: 0,
+          originalMessage: content,
+        })
+        saveChatHistory()
+        reject(error)
+      }
+    })
+  }
+
+  /**
+   * 直接处理AI消息（用于重试，不创建新消息）
+   * @param aiMessage AI消息对象
+   * @param messageId 现有消息ID
+   * @param content 原始消息内容
+   * @returns Promise<any>
+   */
+  const handleAiMessageDirectly = async (aiMessage: AiChatMessageRequest, messageId: string, content: string): Promise<{ reply?: string; messageId?: string; success?: boolean }> => {
+    return new Promise(async (resolve, reject) => {
+      const timeoutId = setupTimeoutHandler(messageId, content)
+      const streamContentRef = { current: '' }
+      
+      try {
+        const response = await apiService.sendChatMessage(
+          aiMessage,
+          createDirectCompleteHandler(messageId, timeoutId, streamContentRef),
+          createDirectStreamHandler(messageId, timeoutId, streamContentRef)
+        )
+
+        // 处理同步响应
+        if (response) {
+          clearTimeout(timeoutId)
+          resolve(response)
+        }
+      } catch (error) {
+        clearTimeout(timeoutId)
+        reject(error)
+      }
+    })
+  }
+
+  /**
+   * 处理老师消息发送
+   * @param content 消息内容
+   * @param chatRole 学习伙伴角色
+   * @param tempReplyId 临时消息ID
+   * @returns Promise<any>
+   */
+  const handleTeacherMessage = async (content: string, chatRole: string, tempReplyId: string): Promise<{ status?: string; timestamp?: number | string; messageId?: string }> => {
+    const teacherMessage: import('../types').BridgeChatMessageData = {
+      content,
+      type: 'teacher',
+      exerciseId: currentQuestion.value?.id,
+      chatRole,
+    }
+    
+    const response = await apiService.sendMessageToTeacher(teacherMessage)
+    
+    const replyContent: string = response.status || '收到您的消息，正在处理中...'
+    updateTempMessage(tempReplyId, {
+      content: replyContent,
+      timestamp: typeof response.timestamp === 'number'
+        ? new Date(response.timestamp).toISOString()
+        : response.timestamp || new Date().toISOString(),
+      messageId: response.messageId,
+    })
+    
+    saveChatHistory()
+    return response
+  }
+
   /**
    * 发送聊天消息（流式响应）
-   * 向AI助手或老师发送消息并处理回复
    * @param content 消息内容
    * @param type 消息类型：'ai' 或 'teacher'
    * @param chatRole 学习伙伴角色：'mate' | 'mentor' | 'researcher'
@@ -512,255 +892,33 @@ export const useExerciseStore = defineStore('exercise', () => {
    */
   const sendChatMessage = async (content: string, type: 'ai' | 'teacher' = 'ai', chatRole: string = 'mate', imageData?: { filePath: string, base64DataUrl?: string }, hidePrefix: boolean = false) => {
     try {
-
-      // 检查是否已选择题目
+      // 步骤1: 验证当前题目是否存在
       if (!currentQuestion.value) {
         throw new Error('请先选择一道题目')
       }
 
-      // 判断是否为图片消息
-      const isImageMessage = imageData && imageData.base64DataUrl
-      
-      // 构造AI聊天消息对象
-      const aiMessage: AiChatMessageRequest = {
-        sessionId: currentQuestion.value?.id || '',
-        newValue: '1',
-        coversation: content, // 用户的对话输入
-        question: isImageMessage 
-          ? `<img src="${imageData.base64DataUrl}" />` // 图片消息：封装为HTML img标签
-          : (currentQuestion.value?.question || currentQuestion.value?.title || ''), // 文本消息：使用题目内容
-        answer: currentQuestion.value?.answer || '', // 题目答案
-        name: userInfo.value?.userName || 'User',
-        reason: 'start', // 轮询机制：第一次请求使用 "start"
-        bmNo: currentQuestion.value?.bmNo || currentQuestion.value?.id || '',
-        isWebSearch: enableWebSearch.value ? '1' : '0',
-        chatRole: chatRole,
-        dstUrl: isImageMessage ? '/permission/previewPictureQA' : undefined, // 图片消息使用专用接口
-      }
-      
+      // 步骤2: 构建AI消息对象（根据是否为图片消息）
+      const aiMessage = buildAiMessage(content, chatRole, imageData)
 
-      // 处理显示内容：如果需要隐藏前缀，则去掉"我们开始吧"及后面的逗号
-      let displayContent = content
-      if (hidePrefix && content.startsWith('我们开始吧')) {
-        displayContent = content.replace(/^我们开始吧[，,]\s*/, '')
-      }
-
-      // 添加用户消息到聊天记录
-      const userMessage: ChatBubble = {
-        id: Date.now().toString(),
-        content: isImageMessage ? '' : displayContent, // 如果是图片消息，不显示文字内容
-        sender: 'user',
-        type: 'user',
-        timestamp: new Date().toISOString(),
-        messageType: isImageMessage ? 'image' : 'text', // 设置消息类型
-        imageData: isImageMessage ? {
-          filePath: imageData.filePath, // 使用原始URI用于本地渲染
-          width: 0, // 这些值会在图片加载后更新
-          height: 0,
-          fileSize: 0
-        } : undefined
-      }
+      // 步骤3: 创建并添加用户消息到聊天记录
+      const userMessage = createUserMessage(content, imageData, hidePrefix)
       chatMessages.value.push(userMessage)
 
-      // 添加临时的AI回复消息（用于流式更新）
-      const tempReplyId = (Date.now() + 1).toString()
-      const tempReplyMessage: ChatBubble = {
-        id: tempReplyId,
-        content: '',
-        sender: type,
-        type,
-        timestamp: new Date().toISOString(),
-        messageId: 'temp_' + Date.now(),
-        isStreaming: true, // 标记为流式消息
-      }
+      // 步骤4: 创建临时AI回复消息（用于流式更新）
+      const { message: tempReplyMessage, id: tempReplyId } = createTempReplyMessage(type)
       chatMessages.value.push(tempReplyMessage)
 
-      // 保存聊天记录到本地存储
+      // 步骤5: 保存聊天记录到本地存储
       saveChatHistory()
 
-      return new Promise(async (resolve, reject) => {
-        // 根据类型发送消息到不同的接口
-        if (type === 'ai') {
-          let streamContent = '' // 累积流式内容
-          let timeoutId: ReturnType<typeof setTimeout> | null = null
-          
-          // 设置超时机制，30秒后如果还没有完成就显示错误
-          timeoutId = setTimeout(() => {
-            const tempIndex = chatMessages.value.findIndex((msg) => msg.id === tempReplyId)
-            if (tempIndex !== -1 && chatMessages.value[tempIndex].isStreaming) {
-              chatMessages.value[tempIndex] = {
-                ...chatMessages.value[tempIndex],
-                content: '抱歉，AI回复超时，请稍后重试。',
-                timestamp: new Date().toISOString(),
-                messageId: 'timeout_' + Date.now(),
-                isStreaming: false,
-                isError: true,
-                canRetry: true, // 允许重发
-                retryCount: 0, // 重试次数
-                originalMessage: content, // 保存原始消息
-              }
-              saveChatHistory()
-            }
-          }, 30000) // 30秒超时
-          
-          try {
-            // HTTP请求使用API服务发送AI消息
-            const response = await apiService.sendChatMessage(
-              aiMessage,
-              (asyncResponse: any) => {
-                // 完整回复回调处理
-                
-                // 清除超时定时器
-                if (timeoutId) {
-                  clearTimeout(timeoutId)
-                  timeoutId = null
-                }
-
-                // 找到并更新临时消息
-                const tempIndex = chatMessages.value.findIndex((msg) => msg.id === tempReplyId)
-                if (tempIndex !== -1) {
-                  const finalContent = streamContent || asyncResponse.reply || '抱歉，我暂时无法回答这个问题。'
-
-                  chatMessages.value[tempIndex] = {
-                    ...chatMessages.value[tempIndex],
-                    content: finalContent,
-                    timestamp:
-                      typeof asyncResponse.timestamp === 'number'
-                        ? new Date(asyncResponse.timestamp).toISOString()
-                        : new Date().toISOString(),
-                    messageId: asyncResponse.messageId,
-                    isStreaming: false, // 完成响应，移除流式状态
-                  }
-
-                  // AI回复成功时增加交互次数
-                  if (asyncResponse.success) {
-                    chatResponseTimes.value++
-                  }
-
-                  // 保存聊天记录到本地存储
-                  saveChatHistory()
-
-                  resolve(asyncResponse)
-                }
-              },
-              (chunk: string, isComplete: boolean) => {
-                // 流式回复回调处理
-                console.log('收到AI流式数据:', chunk, '是否完成:', isComplete)
-                
-                if (!isComplete && chunk) {
-                  streamContent += chunk
-                  
-                  // 实时更新临时消息内容
-                  const tempIndex = chatMessages.value.findIndex((msg) => msg.id === tempReplyId)
-                  if (tempIndex !== -1) {
-                    chatMessages.value[tempIndex] = {
-                      ...chatMessages.value[tempIndex],
-                      content: streamContent,
-                      isStreaming: true, // 保持流式状态
-                    }
-                  }
-                } else if (isComplete) {
-                  // 流式完成，移除流式状态
-                  const tempIndex = chatMessages.value.findIndex((msg) => msg.id === tempReplyId)
-                  if (tempIndex !== -1) {
-                    chatMessages.value[tempIndex] = {
-                      ...chatMessages.value[tempIndex],
-                      content: streamContent,
-                      isStreaming: false, // 完成流式响应
-                    }
-                  }
-                  
-                  // 清除超时定时器
-                  if (timeoutId) {
-                    clearTimeout(timeoutId)
-                    timeoutId = null
-                  }
-                  
-                  // 保存聊天记录到本地存储
-                  saveChatHistory()
-                }
-              }
-            )
-
-            // 如果是同步响应，直接处理
-            if (response) {
-              // 清除超时定时器
-              if (timeoutId) {
-                clearTimeout(timeoutId)
-                timeoutId = null
-              }
-              
-              const tempIndex = chatMessages.value.findIndex((msg) => msg.id === tempReplyId)
-              if (tempIndex !== -1) {
-                const replyContent = response.reply || '模拟AI回复'
-                chatMessages.value[tempIndex] = {
-                  ...chatMessages.value[tempIndex],
-                  content: replyContent,
-                  timestamp: new Date().toISOString(),
-                  messageId: response.messageId,
-                  isStreaming: false, // 确保移除流式状态
-                }
-                saveChatHistory()
-              }
-              resolve(response)
-            }
-          } catch (error) {
-            // 处理AI回复失败的情况
-            // 清除超时定时器
-            if (timeoutId) {
-              clearTimeout(timeoutId)
-              timeoutId = null
-            }
-            
-            const tempIndex = chatMessages.value.findIndex((msg) => msg.id === tempReplyId)
-            if (tempIndex !== -1) {
-              chatMessages.value[tempIndex] = {
-                ...chatMessages.value[tempIndex],
-                content: '抱歉，AI暂时无法回答这个问题，请稍后重试。',
-                timestamp: new Date().toISOString(),
-                messageId: 'error_' + Date.now(),
-                isStreaming: false, // 确保移除流式状态
-                isError: true, // 标记为错误消息
-                canRetry: true, // 允许重发
-                retryCount: 0, // 重试次数
-                originalMessage: content, // 保存原始消息
-              }
-              saveChatHistory()
-            }
-            reject(error)
-          }
-        } else {
-          // 老师消息不使用流式响应 - HTTP请求使用API服务
-          const teacherMessage: import('../types').BridgeChatMessageData = {
-            content,
-            type: 'teacher',
-            exerciseId: currentQuestion.value?.id,
-            chatRole,
-          }
-          const response = await apiService.sendMessageToTeacher(teacherMessage)
-
-          // 更新临时消息
-          const tempIndex = chatMessages.value.findIndex((msg) => msg.id === tempReplyId)
-          if (tempIndex !== -1) {
-            const replyContent: string = response.status || '收到您的消息，正在处理中...'
-
-            chatMessages.value[tempIndex] = {
-              ...chatMessages.value[tempIndex],
-              content: replyContent,
-              timestamp:
-                typeof response.timestamp === 'number'
-                  ? new Date(response.timestamp).toISOString()
-                  : response.timestamp || new Date().toISOString(),
-              messageId: response.messageId,
-            }
-          }
-
-          // 保存聊天记录到本地存储
-          saveChatHistory()
-
-          resolve(response)
-        }
-      })
+      // 步骤6: 根据消息类型分别处理
+      if (type === 'ai') {
+        // AI消息：设置超时机制，处理流式响应和完整响应
+        return await handleAiMessage(aiMessage, tempReplyId, content)
+      } else {
+        // 老师消息：直接发送并更新临时消息
+        return await handleTeacherMessage(content, chatRole, tempReplyId)
+      }
     } catch (error) {
       console.error('Failed to send message:', error)
       showMessage('发送消息失败: ' + (error as Error).message, 'error')
@@ -1087,6 +1245,7 @@ export const useExerciseStore = defineStore('exercise', () => {
   /**
    * 重发AI消息
    * 重新发送失败的消息，最多重试3次
+   * 直接在现有消息气泡内更新内容，不新增消息
    * @param messageId 要重发的消息ID
    * @param chatRole 学习伙伴角色
    * @param imageData 可选的图片数据
@@ -1110,10 +1269,10 @@ export const useExerciseStore = defineStore('exercise', () => {
     }
 
     try {
-      // 更新消息状态为重试中
+      // 更新消息状态为重试中 - 显示友好的重试提示
       chatMessages.value[messageIndex] = {
         ...message,
-        content: '正在重试...',
+        content: '',
         isError: false,
         isStreaming: true,
         canRetry: false,
@@ -1121,11 +1280,27 @@ export const useExerciseStore = defineStore('exercise', () => {
       }
       saveChatHistory()
 
-      // 重新发送消息
-      await sendChatMessage(message.originalMessage, 'ai', chatRole, imageData)
+      // 构建AI消息对象
+      const aiMessage = buildAiMessage(message.originalMessage, chatRole, imageData)
+      
+      // 直接处理AI消息，不创建新消息
+      const response = await handleAiMessageDirectly(aiMessage, messageId, message.originalMessage)
 
-      // 重发成功，移除原消息
-      chatMessages.value.splice(messageIndex, 1)
+      // 判断是否真正成功
+      const isActuallySuccess = response.success && response.reply && response.reply !== '请求失败，请重试。'
+      
+      // 重试完成，更新消息内容
+      chatMessages.value[messageIndex] = {
+        ...message,
+        content: response.reply || '请求失败，请重试。',
+        timestamp: new Date().toISOString(),
+        messageId: response.messageId,
+        isStreaming: false,
+        isError: !isActuallySuccess,
+        canRetry: !isActuallySuccess && (currentRetryCount + 1 < maxRetries),
+        retryCount: !isActuallySuccess ? currentRetryCount + 1 : undefined,
+        originalMessage: !isActuallySuccess ? message.originalMessage : undefined,
+      }
       saveChatHistory()
 
     } catch (error) {

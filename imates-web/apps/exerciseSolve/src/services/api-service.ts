@@ -197,7 +197,9 @@ export class ApiService {
   }
 
   /**
-   * 轮询聊天消息（模拟Android端的轮询机制）
+   * 轮询聊天消息 - 主流程控制函数
+   * 负责协调整个轮询过程，包括请求发送、响应处理和错误处理
+   * 模拟Android端的轮询机制
    */
   private async pollChatMessage(
     message: AiChatMessageRequest,
@@ -208,120 +210,226 @@ export class ApiService {
     messageId: string = 'ai_' + Date.now(),
   ): Promise<any> {
     try {
-      // 构造与Android端一致的请求体
-      const requestBody = {
-        sessionId: message.sessionId,
-        newValue: message.newValue,
-        coversation: message.coversation,
-        question: message.question,
-        answer: message.answer,
-        name: message.name,
-        reason: message.reason, // "start" 或 "continue"
-        bmNo: message.bmNo,
-        isWebSearch: message.isWebSearch,
-        role: message.chatRole,
-      }
-
-
-      const response = await httpClient.post<{
-        success: boolean
-        message: string
-        sessionId: string
-      }>(url, requestBody)
-
-      if (response.success && response.data) {
-        const chunk = response.data.message || ''
-
-        // 检查是否结束
-        if (chunk.trim() === 'end') {
-          // 轮询结束
-
-          if (onStream) {
-            onStream('', true) // 发送完成信号
-          }
-
-          const finalResult = {
-            success: true,
-            messageId,
-            reply: accumulatedContent,
-            sessionId: response.data.sessionId || message.sessionId,
-            timestamp: Date.now(),
-          }
-
-          if (onComplete) {
-            onComplete(finalResult)
-          }
-
-          return finalResult
-        } else if (chunk.trim() !== '') {
-          // 有新内容，累积并继续轮询
-          const newAccumulatedContent = accumulatedContent + chunk
-
-          // 发送流式数据
-          if (onStream) {
-            onStream(chunk, false)
-          }
-
-          // 设置为继续轮询并递归调用
-          const continueMessage = { ...message, reason: 'continue' }
-          return await this.pollChatMessage(
-            continueMessage,
-            url,
-            onComplete,
-            onStream,
-            newAccumulatedContent,
-            messageId,
-          )
-        } else {
-          // 空内容但未结束，继续轮询
-          const continueMessage = { ...message, reason: 'continue' }
-          return await this.pollChatMessage(
-            continueMessage,
-            url,
-            onComplete,
-            onStream,
-            accumulatedContent,
-            messageId,
-          )
-        }
-      } else {
-        // 请求失败
-        const errorResult = {
-          success: false,
-          messageId,
-          reply: accumulatedContent || '请求失败',
-          timestamp: Date.now(),
-        }
-
-        if (onStream) {
-          onStream('', true) // 发送完成信号
-        }
-
-        if (onComplete) {
-          onComplete(errorResult)
-        }
-
-        return errorResult
-      }
+      // 1. 构建请求体
+      const requestBody = this.buildChatRequestBody(message)
+      
+      // 2. 发送HTTP请求
+      const response = await this.sendChatRequest(url, requestBody)
+      
+      // 3. 处理响应
+      return await this.handleChatResponse(
+        response,
+        message,
+        url,
+        onComplete,
+        onStream,
+        accumulatedContent,
+        messageId
+      )
     } catch (error) {
-
-      const errorResult = {
-        success: false,
-        messageId: messageId,
-        reply: accumulatedContent || '网络错误: ' + (error as Error).message,
-        timestamp: Date.now(),
-      }
-
-      if (onStream) {
-        onStream('', true) // 发送完成信号
-      }
-
-      if (onComplete) {
-        onComplete(errorResult)
-      }
-
-      return errorResult
+      // 4. 处理异常
+      return this.handleChatError(error, messageId, accumulatedContent, onComplete, onStream)
     }
+  }
+
+  /**
+   * 构建聊天请求体
+   * 将消息对象转换为与Android端一致的请求格式
+   */
+  private buildChatRequestBody(message: AiChatMessageRequest) {
+    return {
+      sessionId: message.sessionId,
+      newValue: message.newValue,
+      coversation: message.coversation,
+      question: message.question,
+      answer: message.answer,
+      name: message.name,
+      reason: message.reason, // "start" 或 "continue"
+      bmNo: message.bmNo,
+      isWebSearch: message.isWebSearch,
+      role: message.chatRole,
+    }
+  }
+
+  /**
+   * 发送聊天请求
+   * 执行HTTP POST请求并返回响应
+   * 禁用HTTP层自动重试，由上层业务逻辑控制重试
+   */
+  private async sendChatRequest(url: string, requestBody: any) {
+    return await httpClient.post<{
+      success: boolean
+      message: string
+      sessionId: string
+    }>(url, requestBody, {
+      retries: 0, // 禁用HTTP层自动重试，避免与业务层重试冲突
+      timeout: 10000 // 设置10秒超时
+    })
+  }
+
+  /**
+   * 处理聊天响应
+   * 根据响应内容决定是结束轮询、继续轮询还是处理错误
+   */
+  private async handleChatResponse(
+    response: any,
+    message: AiChatMessageRequest,
+    url: string,
+    onComplete?: (response: any) => void,
+    onStream?: (chunk: string, isComplete: boolean) => void,
+    accumulatedContent: string = '',
+    messageId: string = 'ai_' + Date.now(),
+  ): Promise<any> {
+    // 检查响应是否成功
+    if (!response.success || !response.data) {
+      return this.createErrorResult(messageId, accumulatedContent || '请求失败，请重试。', onComplete, onStream)
+    }
+
+    const chunk = response.data.message || ''
+    const trimmedChunk = chunk.trim()
+
+    // 根据响应内容类型进行处理
+    if (trimmedChunk === 'end') {
+      // 轮询结束 - 返回最终结果
+      return this.handlePollingEnd(messageId, accumulatedContent, response.data.sessionId, message.sessionId, onComplete, onStream)
+    } else if (trimmedChunk !== '') {
+      // 有新内容 - 累积内容并继续轮询
+      return this.handleNewContent(chunk, message, url, onComplete, onStream, accumulatedContent, messageId)
+    } else {
+      // 空内容但未结束 - 继续轮询
+      return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId)
+    }
+  }
+
+  /**
+   * 处理轮询结束
+   * 当收到"end"信号时，返回最终结果
+   */
+  private handlePollingEnd(
+    messageId: string,
+    accumulatedContent: string,
+    responseSessionId: string,
+    messageSessionId: string,
+    onComplete?: (response: any) => void,
+    onStream?: (chunk: string, isComplete: boolean) => void,
+  ) {
+    // 发送完成信号
+    if (onStream) {
+      onStream('', true)
+    }
+
+    const finalResult = {
+      success: true,
+      messageId,
+      reply: accumulatedContent,
+      sessionId: responseSessionId || messageSessionId,
+      timestamp: Date.now(),
+    }
+
+    if (onComplete) {
+      onComplete(finalResult)
+    }
+
+    return finalResult
+  }
+
+  /**
+   * 处理新内容
+   * 当收到新内容时，累积内容并继续轮询
+   */
+  private async handleNewContent(
+    chunk: string,
+    message: AiChatMessageRequest,
+    url: string,
+    onComplete?: (response: any) => void,
+    onStream?: (chunk: string, isComplete: boolean) => void,
+    accumulatedContent: string = '',
+    messageId: string = 'ai_' + Date.now(),
+  ) {
+    const newAccumulatedContent = accumulatedContent + chunk
+
+    // 发送流式数据
+    if (onStream) {
+      onStream(chunk, false)
+    }
+
+    // 设置为继续轮询并递归调用
+    const continueMessage = { ...message, reason: 'continue' }
+    return await this.pollChatMessage(
+      continueMessage,
+      url,
+      onComplete,
+      onStream,
+      newAccumulatedContent,
+      messageId,
+    )
+  }
+
+  /**
+   * 处理空内容
+   * 当收到空内容但未结束时，继续轮询
+   */
+  private async handleEmptyContent(
+    message: AiChatMessageRequest,
+    url: string,
+    onComplete?: (response: any) => void,
+    onStream?: (chunk: string, isComplete: boolean) => void,
+    accumulatedContent: string = '',
+    messageId: string = 'ai_' + Date.now(),
+  ) {
+    const continueMessage = { ...message, reason: 'continue' }
+    return await this.pollChatMessage(
+      continueMessage,
+      url,
+      onComplete,
+      onStream,
+      accumulatedContent,
+      messageId,
+    )
+  }
+
+  /**
+   * 处理聊天错误
+   * 统一处理网络错误和其他异常情况
+   */
+  private handleChatError(
+    error: any,
+    messageId: string,
+    accumulatedContent: string,
+    onComplete?: (response: any) => void,
+    onStream?: (chunk: string, isComplete: boolean) => void,
+  ) {
+    const errorMessage = accumulatedContent || '网络错误: ' + (error as Error).message
+    return this.createErrorResult(messageId, errorMessage, onComplete, onStream)
+  }
+
+  /**
+   * 创建错误结果
+   * 统一创建错误响应格式
+   */
+  private createErrorResult(
+    messageId: string,
+    errorMessage: string,
+    onComplete?: (response: any) => void,
+    onStream?: (chunk: string, isComplete: boolean) => void,
+  ) {
+    const errorResult = {
+      success: false,
+      messageId,
+      reply: errorMessage,
+      timestamp: Date.now(),
+    }
+
+    // 发送完成信号
+    if (onStream) {
+      onStream('', true)
+    }
+
+    if (onComplete) {
+      onComplete(errorResult)
+    }
+
+    return errorResult
   }
 
   /**

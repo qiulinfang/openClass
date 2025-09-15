@@ -36,7 +36,9 @@
         </q-avatar>
       </div>
       <div class="ai-content">
-        <div class="ai-bubble" :ref="(el) => setBubbleRef(el, 'ai')">
+        <!-- Flex容器包裹ai-bubble和重试按钮 -->
+        <div class="ai-bubble-container">
+          <div class="ai-bubble" :ref="(el) => setBubbleRef(el, 'ai')">
           <!-- 语音消息 -->
           <VoiceMessage
             v-if="message.messageType === 'voice' && message.voiceData"
@@ -69,26 +71,11 @@
               :typewriter-speed="30"
               :ref="(el) => setStreamingRef(el)"
             />
-            <div v-else-if="message.isError" class="error-message" :ref="(el) => setStaticRef(el)">
-              <div class="error-icon">⚠️</div>
-              <div class="error-content">
-                <div v-html="renderedContent"></div>
-                <div v-if="message.canRetry" class="retry-section">
-                  <q-btn 
-                    flat 
-                    dense 
-                    size="sm" 
-                    color="primary" 
-                    icon="refresh" 
-                    @click="handleRetry"
-                    :loading="isRetrying"
-                    class="retry-btn"
-                  >
-                    重发
-                  </q-btn>
-                  <span v-if="message.retryCount && message.retryCount > 0" class="retry-count">
-                    ({{ message.retryCount }}/3)
-                  </span>
+            <div v-else-if="message.isError" class="error-message-wrapper" :ref="(el) => setStaticRef(el)">
+              <div class="error-message">
+                <div  v-html="renderedContent"></div>
+                <div v-if="message.retryCount && message.retryCount > 0" class="retry-count">
+                  {{ message.retryCount }}/3
                 </div>
               </div>
             </div>
@@ -123,6 +110,23 @@
               </q-list>
             </q-card>
           </q-popup-proxy>
+          </div>
+          
+          <!-- 重试按钮 - 在flex容器中，有左边距并触底对齐 -->
+          <div v-if="message.isError && message.canRetry" class="retry-button-wrapper">
+            <button 
+              @click="handleRetry"
+              :disabled="isRetrying"
+              class="retry-button"
+              :class="{ 'retry-button--loading': isRetrying }"
+            >
+              <div class="retry-icon" :class="{ 'retry-icon--spinning': isRetrying }">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 12a8 8 0 0 1 8-8V2.5L16 5l-4 2.5V6a6 6 0 1 0 6 6h1.5a7.5 7.5 0 1 1-15 0z" fill="currentColor"/>
+                </svg>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -621,15 +625,22 @@ onUnmounted(() => {
   max-width: calc(100% - 60px);
   display: flex;
   flex-direction: column;
+  position: relative;
   align-items: flex-start;
 }
 
-.ai-bubble {
-  max-width: 80%; /* 与用户消息保持一致的最大宽度 */
-  word-wrap: break-word;
+/* AI气泡容器 - flex布局包裹气泡和重试按钮 */
+.ai-bubble-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  width: fit-content; /* 根据内容自适应宽度 */
+  max-width: 100%;   /* 最大不超过容器宽度 */
 }
 
 .ai-bubble {
+  word-wrap: break-word;
+  width: fit-content; /* 根据内容自适应宽度 */
   background: #f8f9fa;
   border: 1px solid #e9ecef;
   border-radius: 12px;
@@ -720,48 +731,112 @@ onUnmounted(() => {
 
 
 
-/* 错误消息样式 */
-.error-message {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 12px 16px;
-  background: #ffebee;
-  border: 1px solid #ffcdd2;
-  border-radius: 12px;
-  color: #c62828;
+/* 错误消息包装器 - 现在重试按钮在气泡外部 */
+.error-message-wrapper {
+  position: relative;
 }
 
-.error-icon {
-  font-size: 16px;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
+/* 错误消息样式 - 与普通AI回复相同 */
 
-.error-content {
-  flex: 1;
-  line-height: 1.4;
-}
-
-.retry-section {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #ffcdd2;
-}
-
-.retry-btn {
-  font-size: 12px;
-  padding: 4px 8px;
-  min-height: 24px;
-}
 
 .retry-count {
-  font-size: 11px;
-  color: #666;
-  font-style: italic;
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+}
+
+/* 重试按钮包装器 - 在flex容器中，触底对齐 */
+.retry-button-wrapper {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  margin-left: 8px; /* 与ai-bubble产生间距 */
+}
+
+/* 重试按钮 - 大尺寸灰色风格 */
+.retry-button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: #f8f9fa;
+  color: #6c757d;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.retry-button:hover {
+  background: #e9ecef;
+  color: #495057;
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.retry-button:active {
+  transform: scale(0.95);
+  background: #dee2e6;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.retry-button:disabled {
+  background: #f8f9fa;
+  color: #adb5bd;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.retry-button--loading {
+  background: #f8f9fa;
+  color: #adb5bd;
+  cursor: not-allowed;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* 重试图标 */
+.retry-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+}
+
+.retry-icon--spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 重试按钮的波纹效果 */
+.retry-button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.retry-button:active::before {
+  width: 100%;
+  height: 100%;
 }
 
 /* 消息选择相关样式 */
@@ -809,6 +884,27 @@ onUnmounted(() => {
 
   .message-selected {
     background-color: rgba(25, 118, 210, 0.15);
+  }
+
+  /* 深色模式下的重试按钮样式 */
+  .retry-button {
+    background: transparent;
+    color: #666;
+  }
+
+  .retry-button:hover {
+    background: #333;
+    color: #999;
+  }
+
+  .retry-button:active {
+    background: #444;
+  }
+
+  .retry-button:disabled,
+  .retry-button--loading {
+    background: transparent;
+    color: #444;
   }
 
   /* 移除深色模式下的hover效果 - 已禁用背景色变化 */
