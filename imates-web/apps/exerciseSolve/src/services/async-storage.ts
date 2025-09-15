@@ -117,6 +117,44 @@ export class AsyncStorageService {
   }
 
   /**
+   * 保存老师聊天历史记录
+   * @param questionId 题目ID
+   * @param data 老师聊天数据
+   */
+  async saveTeacherChatHistory(questionId: string, data: ChatHistoryData): Promise<void> {
+    try {
+      await this.initialize()
+      const key = `teacher_chat_history_${questionId}`
+      
+      // 序列化数据，确保可以被存储
+      const serializedData = this.serializeChatData(data)
+      
+      console.log(`[TEACHER_CHAT_DEBUG] 💾 AsyncStorage保存老师聊天记录:`, {
+        questionId,
+        key,
+        messageCount: serializedData.messages.length,
+        lastUpdated: new Date(serializedData.lastUpdated).toLocaleString(),
+        dataSize: JSON.stringify(serializedData).length + ' bytes'
+      })
+      
+      await localforage.setItem(key, serializedData)
+      console.log(`[TEACHER_CHAT_DEBUG] ✅ AsyncStorage老师聊天记录保存成功: ${questionId}`)
+    } catch (error) {
+      console.warn('[TEACHER_CHAT_DEBUG] ❌ IndexedDB保存老师聊天记录失败，降级到 localStorage:', error)
+      // 降级到 localStorage
+      try {
+        const key = `teacher_chat_history_${questionId}`
+        const serializedData = this.serializeChatData(data)
+        localStorage.setItem(key, JSON.stringify(serializedData))
+        console.log(`[TEACHER_CHAT_DEBUG] ✅ localStorage老师聊天记录保存成功: ${questionId}`)
+      } catch (localError) {
+        console.error('[TEACHER_CHAT_DEBUG] ❌ localStorage保存老师聊天记录也失败:', localError)
+        throw localError
+      }
+    }
+  }
+
+  /**
    * 加载聊天历史记录
    * @param questionId 题目ID
    * @returns 聊天数据或 null
@@ -169,6 +207,56 @@ export class AsyncStorageService {
   }
 
   /**
+   * 加载老师聊天历史记录
+   * @param questionId 题目ID
+   * @returns 老师聊天数据或 null
+   */
+  async loadTeacherChatHistory(questionId: string): Promise<ChatHistoryData | null> {
+    try {
+      await this.initialize()
+      const key = `teacher_chat_history_${questionId}`
+      
+      console.log(`[TEACHER_CHAT_DEBUG] 📥 AsyncStorage加载老师聊天记录: ${questionId}`)
+      const data = await localforage.getItem<ChatHistoryData>(key)
+      
+      if (data) {
+        console.log(`[TEACHER_CHAT_DEBUG] ✅ AsyncStorage老师聊天记录加载成功:`, {
+          questionId,
+          messageCount: data.messages.length,
+          lastUpdated: new Date(data.lastUpdated).toLocaleString()
+        })
+      } else {
+        console.log(`[TEACHER_CHAT_DEBUG] 📭 AsyncStorage无老师聊天记录: ${questionId}`)
+      }
+      
+      return data
+    } catch (error) {
+      console.warn('[TEACHER_CHAT_DEBUG] ❌ IndexedDB加载老师聊天记录失败，降级到 localStorage:', error)
+      // 降级到 localStorage
+      try {
+        const key = `teacher_chat_history_${questionId}`
+        const data = localStorage.getItem(key)
+        const parsedData = data ? JSON.parse(data) : null
+        
+        if (parsedData) {
+          console.log(`[TEACHER_CHAT_DEBUG] ✅ localStorage老师聊天记录加载成功:`, {
+            questionId,
+            messageCount: parsedData.messages.length,
+            lastUpdated: new Date(parsedData.lastUpdated).toLocaleString()
+          })
+        } else {
+          console.log(`[TEACHER_CHAT_DEBUG] 📭 localStorage无老师聊天记录: ${questionId}`)
+        }
+        
+        return parsedData
+      } catch (localError) {
+        console.error('[TEACHER_CHAT_DEBUG] ❌ localStorage 加载也失败:', localError)
+        return null
+      }
+    }
+  }
+
+  /**
    * 删除聊天历史记录
    * @param questionId 题目ID
    */
@@ -186,6 +274,29 @@ export class AsyncStorageService {
         localStorage.removeItem(key)
       } catch (localError) {
         console.error('localStorage 删除也失败:', localError)
+        throw localError
+      }
+    }
+  }
+
+  /**
+   * 删除老师聊天历史记录
+   * @param questionId 题目ID
+   */
+  async removeTeacherChatHistory(questionId: string): Promise<void> {
+    try {
+      await this.initialize()
+      const key = `teacher_chat_history_${questionId}`
+      await localforage.removeItem(key)
+      console.log(`🗑️ 老师聊天记录已删除: ${questionId}`)
+    } catch (error) {
+      console.warn('删除老师聊天记录失败，降级到 localStorage:', error)
+      // 降级到 localStorage
+      try {
+        const key = `teacher_chat_history_${questionId}`
+        localStorage.removeItem(key)
+      } catch (localError) {
+        console.error('localStorage 删除老师聊天记录也失败:', localError)
         throw localError
       }
     }

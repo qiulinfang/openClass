@@ -24,8 +24,11 @@ export const useExerciseStore = defineStore('exercise', () => {
   /** 当前选中的题目索引 - -1表示未选中任何题目 */
   const currentQuestionIndex = ref(-1)
 
-  /** 聊天消息记录 - 存储当前题目的AI指导或问老师的对话历史 */
+  /** 聊天消息记录 - 存储当前题目的AI指导对话历史 */
   const chatMessages = ref<ChatBubble[]>([])
+
+  /** 老师消息记录 - 存储当前题目的老师对话历史 */
+  const teacherMessages = ref<ChatBubble[]>([])
 
   /** 用户信息 - 当前登录用户的基本信息 */
   const userInfo = ref<UserInfo | null>(null)
@@ -247,6 +250,11 @@ export const useExerciseStore = defineStore('exercise', () => {
         console.log(`[CHAT_DEBUG] 💾 保存当前题目聊天记录: ${currentQuestion.value.id}`)
         await saveChatHistory()
         console.log(`[CHAT_DEBUG] ✅ 当前题目聊天记录已保存`)
+        
+        // 保存当前题目的老师聊天记录到本地存储
+        console.log(`[TEACHER_CHAT_DEBUG] 💾 保存当前题目老师聊天记录: ${currentQuestion.value.id}`)
+        await saveTeacherChatHistory()
+        console.log(`[TEACHER_CHAT_DEBUG] ✅ 当前题目老师聊天记录已保存`)
       }
 
       // 更新当前选中的题目索引
@@ -264,6 +272,12 @@ export const useExerciseStore = defineStore('exercise', () => {
       console.log(`[CHAT_DEBUG] 📥 开始加载新题目聊天记录: ${newQuestion.id}`)
       await loadChatHistory()
       console.log(`[CHAT_DEBUG] 📊 切换后聊天记录数量: ${chatMessages.value.length}`)
+      
+      // 异步加载新选中题目的老师聊天历史记录
+      console.log(`[TEACHER_CHAT_DEBUG] 📥 开始加载新题目老师聊天记录: ${newQuestion.id}`)
+      await loadTeacherChatHistory()
+      console.log(`[TEACHER_CHAT_DEBUG] 📊 切换后老师聊天记录数量: ${teacherMessages.value.length}`)
+      
       console.log(`[CHAT_DEBUG] ✅ 题目切换完成: ${newQuestion.id}`)
 
       // 题目选择成功，无需显示提示
@@ -843,6 +857,55 @@ export const useExerciseStore = defineStore('exercise', () => {
   }
 
   /**
+   * 保存老师聊天历史记录（带防抖）
+   * 将当前题目的老师对话记录异步保存到本地存储，使用防抖机制避免频繁保存
+   */
+  const saveTeacherChatHistory = async (immediate: boolean = false) => {
+    // 清除之前的防抖定时器
+    if (saveDebounceTimer) {
+      clearTimeout(saveDebounceTimer)
+      saveDebounceTimer = null
+    }
+
+    const doSave = async () => {
+      if (currentQuestion.value && teacherMessages.value.length > 0) {
+        const historyData: ChatHistoryData = {
+          questionId: currentQuestion.value.id, // 题目ID
+          messages: teacherMessages.value,  // 整个老师消息数组
+          chatResponseTimes: 0, // 老师对话不计算AI回复次数
+          lastUpdated: Date.now(), // 最后更新时间
+        }
+
+        console.log(`[TEACHER_CHAT_DEBUG] 💾 保存老师聊天记录详情:`, {
+          questionId: currentQuestion.value.id,
+          messageCount: teacherMessages.value.length,
+          lastUpdated: new Date(historyData.lastUpdated).toLocaleString()
+        })
+
+        try {
+          await asyncStorage.saveTeacherChatHistory(currentQuestion.value.id, historyData)
+          console.log(`[TEACHER_CHAT_DEBUG] ✅ 老师聊天记录保存成功: ${currentQuestion.value.id}`)
+        } catch (error) {
+          console.error('[TEACHER_CHAT_DEBUG] ❌ 保存老师聊天记录失败:', error)
+        }
+      } else {
+        console.log(`[TEACHER_CHAT_DEBUG] ⚠️ 跳过保存老师聊天记录:`, {
+          hasCurrentQuestion: !!currentQuestion.value,
+          messageCount: teacherMessages.value.length,
+          reason: !currentQuestion.value ? '无当前题目' : '无老师聊天记录'
+        })
+      }
+    }
+
+    if (immediate) {
+      await doSave()
+    } else {
+      // 使用防抖，500ms内只保存一次
+      saveDebounceTimer = setTimeout(doSave, 500)
+    }
+  }
+
+  /**
    * 加载聊天历史记录
    * 从本地存储中异步加载当前题目的聊天记录，支持分批次渲染
    */
@@ -886,6 +949,48 @@ export const useExerciseStore = defineStore('exercise', () => {
       // 加载失败时初始化为空
       chatMessages.value = []
       chatResponseTimes.value = 0
+    } finally {
+      isChatLoading.value = false
+    }
+  }
+
+  /**
+   * 加载老师聊天历史记录
+   * 从本地存储中异步加载当前题目的老师对话记录
+   */
+  const loadTeacherChatHistory = async () => {
+    if (!currentQuestion.value) {
+      console.log(`[TEACHER_CHAT_DEBUG] ⚠️ 跳过加载老师聊天记录: 无当前题目`)
+      return
+    }
+
+    console.log(`[TEACHER_CHAT_DEBUG] 📥 开始加载老师聊天记录: ${currentQuestion.value.id}`)
+
+    try {
+      isChatLoading.value = true
+      
+      // 异步从 IndexedDB 加载老师聊天记录
+      const historyData = await asyncStorage.loadTeacherChatHistory(currentQuestion.value.id)
+      
+      if (historyData && historyData.messages) {
+        console.log(`[TEACHER_CHAT_DEBUG] 📦 从存储加载到老师聊天记录:`, {
+          questionId: historyData.questionId,
+          messageCount: historyData.messages.length,
+          lastUpdated: new Date(historyData.lastUpdated).toLocaleString()
+        })
+        
+        // 直接设置老师消息，不需要分批次渲染（老师消息通常较少）
+        teacherMessages.value = historyData.messages
+        console.log(`[TEACHER_CHAT_DEBUG] ✅ 老师聊天记录加载完成: ${historyData.messages.length}条消息`)
+      } else {
+        console.log(`[TEACHER_CHAT_DEBUG] 📭 无老师聊天记录: ${currentQuestion.value.id}`)
+        // 如果没有历史记录，初始化为空
+        teacherMessages.value = []
+      }
+    } catch (error) {
+      console.error('[TEACHER_CHAT_DEBUG] ❌ 加载老师聊天记录失败:', error)
+      // 加载失败时初始化为空
+      teacherMessages.value = []
     } finally {
       isChatLoading.value = false
     }
@@ -953,6 +1058,27 @@ export const useExerciseStore = defineStore('exercise', () => {
         console.log('聊天记录已清除:', currentQuestion.value.id)
       } catch (error) {
         console.warn('清除聊天记录失败:', error)
+        throw error
+      }
+    }
+  }
+
+  /**
+   * 清除当前题目的老师聊天记录
+   * 清空当前题目的所有老师对话历史
+   */
+  const clearTeacherChatHistory = async () => {
+    if (currentQuestion.value) {
+      try {
+        // 从异步存储中删除老师聊天记录
+        await asyncStorage.removeTeacherChatHistory(currentQuestion.value.id)
+        
+        // 清空内存中的老师聊天记录
+        teacherMessages.value = []
+        
+        console.log('老师聊天记录已清除:', currentQuestion.value.id)
+      } catch (error) {
+        console.warn('清除老师聊天记录失败:', error)
         throw error
       }
     }
@@ -1103,6 +1229,7 @@ export const useExerciseStore = defineStore('exercise', () => {
     similarQuestions, // 相似题目列表
     currentQuestionIndex, // 当前选中题目索引
     chatMessages, // 聊天消息记录
+    teacherMessages, // 老师消息记录
     userInfo, // 用户信息
     enableWebSearch, // 联网搜索状态
     subject, // 当前科目
@@ -1136,7 +1263,10 @@ export const useExerciseStore = defineStore('exercise', () => {
     exitActivity, // 退出应用
     saveChatHistory, // 保存聊天历史
     loadChatHistory, // 加载聊天历史
+    saveTeacherChatHistory, // 保存老师聊天历史
+    loadTeacherChatHistory, // 加载老师聊天历史
     clearChatHistory, // 清除当前题目聊天记录
+    clearTeacherChatHistory, // 清除当前题目老师聊天记录
     retryAiMessage, // 重发AI消息
     toggleWebSearch, // 切换联网搜索状态
     renderMessagesInBatches, // 分批次渲染消息
