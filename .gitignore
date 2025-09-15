@@ -16,3 +16,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+node_modules
+项目文档
+.gitignore
+.idea
