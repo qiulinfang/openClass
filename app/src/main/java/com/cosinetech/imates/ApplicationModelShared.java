@@ -27,6 +27,7 @@ import com.cosinetech.imates.screencasting.UdpForwarderManager;
 import com.cosinetech.imates.ui.robot.FloatingRobotService;
 import com.cosinetech.imates.utils.AssetsCopyUtils;
 import com.cosinetech.imates.coreapiservice.AiChatMessageRequest;
+import android.webkit.WebView;
 
 public class ApplicationModelShared extends Application implements ViewModelStoreOwner {
     private final ViewModelStore viewModelStore = new ViewModelStore();
@@ -43,6 +44,12 @@ public class ApplicationModelShared extends Application implements ViewModelStor
     public void onCreate() {
         super.onCreate();
         appInstance = this;
+        
+        // 启用 WebView 调试 - 在应用启动时全局启用
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
+        
         Glide.get(this);
         // 拷贝文件到 Documents 目录
         AssetsCopyUtils.copyAssetsToDocuments(this);

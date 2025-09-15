@@ -1,0 +1,68 @@
+/* 键盘相关样式 - 使用Android原生动画参数 */
+:root {
+  /* Android原生键盘动画参数 */
+  --keyboard-animation-duration: 300ms;
+  --keyboard-animation-curve: cubic-bezier(0.4, 0.0, 0.2, 1); /* Android fast_out_slow_in */
+  --keyboard-animation-delay: 50ms;
+}
+
+.keyboard-open {
+  /* 当键盘打开时，调整页面布局 */
+  --safe-area-inset-bottom: var(--keyboard-height, 0px);
+}
+
+/* 输入框聚焦时的样式 */
+.q-field--focused {
+  position: relative;
+  z-index: 1000;
+}
+
+/* 确保输入框在键盘上方可见 - 使用Android原生动画 */
+.keyboard-open .q-page-container {
+  padding-bottom: var(--keyboard-height, 0px);
+  transition: padding-bottom var(--keyboard-animation-duration) var(--keyboard-animation-curve);
+}
+
+/* 聊天输入框特殊处理 */
+.chat-input-container {
+  position: sticky;
+  bottom: 0;
+  background: white;
+  z-index: 999;
+  padding: 8px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.keyboard-open .chat-input-container {
+  bottom: var(--keyboard-height, 0px);
+  transition: bottom var(--keyboard-animation-duration) var(--keyboard-animation-curve);
+}
+
+/* 防止键盘遮挡时的滚动优化 - 使用Android原生动画 */
+.keyboard-open .q-page {
+  padding-bottom: calc(var(--keyboard-height, 0px) + 20px);
+  transition: padding-bottom var(--keyboard-animation-duration) var(--keyboard-animation-curve);
+}
+
+/* 移动端特定样式 */
+@media (max-width: 768px) {
+  .keyboard-open {
+    /* 在移动设备上，确保视口调整正确 */
+    height: calc(100vh - var(--keyboard-height, 0px));
+    overflow: hidden;
+  }
+  
+  .keyboard-open .q-layout {
+    height: calc(100vh - var(--keyboard-height, 0px));
+  }
+}
+
+/* iOS 特定样式 */
+@supports (-webkit-touch-callout: none) {
+  .keyboard-open {
+    /* iOS 设备的特殊处理 */
+    position: fixed;
+    width: 100%;
+    height: calc(100vh - var(--keyboard-height, 0px));
+  }
+}

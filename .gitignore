@@ -1,4 +1,4 @@
-*.iml
+.*.iml
 .gradle
 /local.properties
 /.idea/caches
@@ -16,7 +16,8 @@
 .externalNativeBuild
 .cxx
 local.properties
-node_modules
-项目文档
-.gitignore
+.pnpm
 .idea
+.vscode
+项目文档
+node_modules
