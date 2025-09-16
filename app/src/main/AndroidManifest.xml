@@ -118,7 +118,14 @@
             android:windowSoftInputMode="adjustPan" />
         <!-- WebView版本的ExerciseSolve -->
         <activity
-            android:name=".ui.webview.ExerciseSolveWebViewActivity"
+            android:name=".ui.webview.exercisesolve.ExerciseSolveWebViewActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:windowSoftInputMode="adjustPan" />
+        <!-- WebView版本的FindExercise -->
+        <activity
+            android:name=".ui.webview.findexercise.FindExerciseWebViewActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
             android:screenOrientation="landscape"

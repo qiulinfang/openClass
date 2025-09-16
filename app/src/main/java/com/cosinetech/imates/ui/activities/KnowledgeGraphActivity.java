@@ -28,9 +28,10 @@ import com.cosinetech.imates.screencasting.UdpForwarderManager;
 import com.cosinetech.imates.ui.adapters.TextbookVersionSpinnerAdapter;
 import com.cosinetech.imates.data.models.Subject;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
+import com.cosinetech.imates.ui.webview.findexercise.FindExerciseWebViewActivity;
 import com.cosinetech.imates.textbookservice.*;
 import com.cosinetech.imates.ui.robot.FloatingRobotService;
-import com.cosinetech.imates.ui.webview.ExerciseSolveWebViewActivity;
+import com.cosinetech.imates.ui.webview.exercisesolve.ExerciseSolveWebViewActivity;
 import com.cosinetech.imates.utils.AppUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -534,11 +535,13 @@ public class KnowledgeGraphActivity extends BaseActivity {
         }
 
         public void startFindExerciseActivity(String knowledgeList) {
-            Intent intent = new Intent(context, FindExerciseActivity.class);
-            intent.putExtra(FindExerciseActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
-            intent.putExtra(FindExerciseActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_MATH.name());
-            intent.putExtra(FindExerciseActivity.KEY_KNOWLEDGE_LIST, knowledgeList);
-            startActivity(intent);
+            // 使用新的WebView版本
+            FindExerciseWebViewActivity.startActivity(
+                context, 
+                ApiUrl.URL_CHAT_MATH, 
+                Subject.SUBJECT_MATH, 
+                knowledgeList
+            );
         }
     }
 
