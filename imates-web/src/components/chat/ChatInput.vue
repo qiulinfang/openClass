@@ -123,9 +123,8 @@
             <q-tooltip>添加图片</q-tooltip>
           </q-btn>
 
-          <!-- 插入公式按钮 - 生产环境隐藏 -->
+          <!-- 插入公式按钮 -->
           <q-btn
-            v-if="false"
             round
             icon="functions"
             color="primary"
@@ -311,40 +310,6 @@ const generateBlockId = () => {
   })
   
   return blockId
-}
-
-// 向后兼容的函数（已不再使用，但保留以防需要）
-const getBlockClass = (block: ContentBlock) => {
-  const classes = ['content-block']
-  if (block.type === 'text') {
-    classes.push('text-block')
-  } else if (block.type === 'formula') {
-    classes.push('formula-block')
-    if (block.isEditing) {
-      classes.push('editing')
-    }
-  }
-  return classes
-}
-
-// 向后兼容的函数（已不再使用，但保留以防需要）
-const setFormulaRef = (el: any, blockId: string) => {
-  if (el && el instanceof HTMLElement) {
-    formulaRefs.value.set(blockId, el)
-  }
-}
-
-// 公式按钮点击处理
-const handleFormulaButtonClick = (event: Event) => {
-  console.log('🔧 [公式按钮] 检测到公式按钮点击')
-  
-  // 使用光标位置计算插入位置
-  const insertPosition = calculateInsertPositionFromCursor()
-  
-  console.log('📍 [公式按钮] 插入位置', { insertPosition })
-  
-  // 调用插入公式函数（异步执行，不等待结果）
-  insertFormula(insertPosition)
 }
 
 // 插入公式
@@ -581,10 +546,8 @@ const initMathLiveForBlock = async (blockId: string) => {
       console.warn('⚠️ [MathLive初始化] 属性配置失败，使用默认配置:', configError)
     }
     
-    // 7. 设置事件监听器
-    console.log('🎧 [MathLive初始化] 开始设置事件监听器')
-    setupMathLiveEventListeners(mathfield, blockId)
-    console.log('✅ [MathLive初始化] 事件监听器设置完成')
+    // 7. 事件监听器已由 TiptapEditor 统一管理，无需重复设置
+    console.log('🎧 [MathLive初始化] 事件监听器由 TiptapEditor 统一管理')
     
     // 8. 设置进入动画
     console.log('🎭 [MathLive初始化] 设置进入动画样式')
@@ -675,123 +638,7 @@ const initMathLiveForBlock = async (blockId: string) => {
   }
 }
 
-// 设置MathLive事件监听器
-const setupMathLiveEventListeners = (mathfield: any, blockId: string) => {
-  console.log('🎧 [事件监听器] 开始设置MathLive事件监听器', { blockId })
-  
-  // 1. 内容变化监听 - 使用防抖优化性能
-  console.log('📝 [事件监听器] 设置内容变化监听器')
-  let inputTimeout: number
-  mathfield.addEventListener('input', () => {
-    console.log('📝 [事件监听器] 检测到内容变化', {
-      blockId,
-      currentValue: mathfield.value,
-      valueLength: mathfield.value?.length || 0
-    })
-    clearTimeout(inputTimeout)
-    inputTimeout = window.setTimeout(() => {
-      console.log('⏰ [事件监听器] 防抖超时，更新公式内容')
-      updateFormulaContent(blockId, mathfield.value)
-    }, 100)
-  }, { passive: true })
-  console.log('✅ [事件监听器] 内容变化监听器设置完成')
-  
-  // 2. 键盘事件监听
-  console.log('⌨️ [事件监听器] 设置键盘事件监听器')
-  mathfield.addEventListener('keydown', (event: KeyboardEvent) => {
-    console.log('⌨️ [事件监听器] 检测到键盘事件', {
-      blockId,
-      key: event.key,
-      shiftKey: event.shiftKey,
-      ctrlKey: event.ctrlKey,
-      altKey: event.altKey
-    })
-    
-    if (event.key === 'Enter' && !event.shiftKey) {
-      console.log('📤 [事件监听器] 检测到回车键，完成编辑并发送消息')
-      event.preventDefault()
-      finishFormulaEditing(blockId)
-      // 延迟发送消息，确保公式编辑完成
-      setTimeout(() => {
-        handleSendMessage()
-      }, 100)
-    }
-    if (event.key === 'Escape') {
-      console.log('🚫 [事件监听器] 检测到ESC键，完成编辑')
-      event.preventDefault()
-      finishFormulaEditing(blockId)
-    }
-  }, { passive: false })
-  console.log('✅ [事件监听器] 键盘事件监听器设置完成')
-  
-  // 3. 失去焦点监听 - 添加延迟避免意外触发
-  console.log('👁️ [事件监听器] 设置失去焦点监听器')
-  let blurTimeout: number
-  let isBlurHandled = false // 防止重复处理
-  
-  mathfield.addEventListener('blur', () => {
-    if (isBlurHandled) {
-      console.log('⚠️ [事件监听器] 失去焦点事件已处理，跳过')
-      return
-    }
-    
-    console.log('👁️ [事件监听器] 检测到失去焦点事件', { blockId })
-    isBlurHandled = true
-    
-    clearTimeout(blurTimeout)
-    blurTimeout = window.setTimeout(() => {
-      // 检查是否有内容，如果没有内容则取消编辑
-      const content = mathfield.value || ''
-      if (!content.trim()) {
-        console.log('⚠️ [事件监听器] 公式内容为空，取消编辑')
-        // 取消编辑，不保存空内容
-        currentEditingFormula.value = null
-        isKeyboardTransitioning.value = false
-        isBlurHandled = false
-        return
-      }
-      console.log('⏰ [事件监听器] 失去焦点延迟超时，完成编辑')
-      finishFormulaEditing(blockId)
-      isBlurHandled = false
-    }, 1500) // 增加延迟时间到1.5秒
-  }, { passive: true })
-  console.log('✅ [事件监听器] 失去焦点监听器设置完成')
-  
-  console.log('✅ [事件监听器] 所有MathLive事件监听器设置完成')
-}
 
-// 更新公式内容
-const updateFormulaContent = (blockId: string, content: string) => {
-  console.log('📝 [公式内容更新] 开始更新公式内容', {
-    blockId,
-    content,
-    contentLength: content?.length || 0,
-    currentEditingFormulaId: currentEditingFormula.value?.id
-  })
-  
-  // 1. 检查是否为当前编辑的公式
-  if (currentEditingFormula.value && currentEditingFormula.value.id === blockId) {
-    console.log('✅ [公式内容更新] 确认为当前编辑的公式，开始更新内容')
-    
-    // 2. 更新公式内容
-    const oldContent = currentEditingFormula.value.content
-    currentEditingFormula.value.content = content
-    console.log('✅ [公式内容更新] 公式内容更新完成', {
-      blockId,
-      oldContent,
-      newContent: content,
-      contentChanged: oldContent !== content
-    })
-  } else {
-    console.log('⚠️ [公式内容更新] 不是当前编辑的公式，跳过更新', {
-      blockId,
-      currentEditingFormulaId: currentEditingFormula.value?.id,
-      isCurrentEditing: currentEditingFormula.value?.id === blockId
-    })
-  }
-  
-  console.log('✅ [公式内容更新] 公式内容更新流程完成')
-}
 
 // 完成公式编辑
 const finishFormulaEditing = async (blockId: string) => {
@@ -968,194 +815,32 @@ const cleanupAllMathLiveInstances = () => {
   console.log('✅ [清理所有MathLive] 所有实例清理完成')
 }
 
-// 向后兼容的函数（已不再使用，但保留以防需要）
-const handleCanvasFocus = (event: FocusEvent) => {
-  isPlaceholderClicked.value = true
-  isReadyForTextInput.value = true
-  emit('focus')
-}
-
-const handleCanvasBlur = (event: FocusEvent) => {
-  if (!hasAnyContent.value) {
-    isPlaceholderClicked.value = false
-  }
-  emit('blur')
-}
-
-const handlePlaceholderClick = (event: MouseEvent) => {
-  event.stopPropagation()
-  contentCanvasRef.value?.focus()
-}
-
-const handleCanvasClick = (event: MouseEvent) => {
-  if (event.target === contentCanvasRef.value) {
-    if (currentEditingFormula.value) {
-      const mathfield = mathfields.value.get(currentEditingFormula.value.id)
-      if (mathfield && mathfield.isConnected) {
-        try {
-          mathfield.focus()
-        } catch (error) {
-          console.warn('公式重新聚焦失败:', error)
-        }
-      }
-    } else {
-      contentCanvasRef.value?.focus()
-    }
-  }
-}
-
-// 获取光标在文本中的位置
-const getCursorPosition = (): { blockIndex: number, textPosition: number } | null => {
-  if (!contentCanvasRef.value) {
-    return null
-  }
-  
-  const selection = window.getSelection()
-  if (!selection || selection.rangeCount === 0) {
-    return null
-  }
-  
-  const range = selection.getRangeAt(0)
-  const container = range.commonAncestorContainer
-  
-  // 查找光标所在的内容块
-  let blockElement = container.nodeType === Node.TEXT_NODE 
-    ? container.parentElement 
-    : container as HTMLElement
-  
-  // 向上查找带有 data-block-index 的元素
-  while (blockElement && !blockElement.dataset.blockIndex) {
-    blockElement = blockElement.parentElement as HTMLElement
-  }
-  
-  if (!blockElement || !blockElement.dataset.blockIndex) {
-    return null
-  }
-  
-  const blockIndex = parseInt(blockElement.dataset.blockIndex)
-  const block = contentBlocks.value[blockIndex]
-  
-  if (!block || block.type !== 'text') {
-    return null
-  }
-  
-  // 计算光标在文本块中的位置
-  let textPosition = 0
-  if (container.nodeType === Node.TEXT_NODE) {
-    textPosition = range.startOffset
-  } else {
-    // 如果是元素节点，需要计算前面的文本长度
-    const textNodes = getTextNodesInRange(range)
-    textPosition = textNodes.reduce((length, node) => {
-      return length + (node === container ? range.startOffset : node.textContent?.length || 0)
-    }, 0)
-  }
-  
-  console.log('📍 [光标位置] 获取光标位置', {
-    blockIndex,
-    textPosition,
-    blockContent: block.content,
-    blockContentLength: block.content.length
-  })
-  
-  return { blockIndex, textPosition }
-}
-
-// 获取范围内的文本节点
-const getTextNodesInRange = (range: Range): Text[] => {
-  const textNodes: Text[] = []
-  const walker = document.createTreeWalker(
-    range.commonAncestorContainer,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode: (node) => {
-        if (range.intersectsNode(node)) {
-          return NodeFilter.FILTER_ACCEPT
-        }
-        return NodeFilter.FILTER_REJECT
-      }
-    }
-  )
-  
-  let node
-  while (node = walker.nextNode()) {
-    textNodes.push(node as Text)
-  }
-  
-  return textNodes
-}
-
-
-// 基于光标位置计算插入位置
-const calculateInsertPositionFromCursor = (): number => {
-  const cursorPos = getCursorPosition()
-  
-  if (!cursorPos) {
-    // 如果没有光标位置，返回尾部
-    console.log('📍 [光标插入] 没有光标位置，插入到尾部')
-    return contentBlocks.value.length
-  }
-  
-  const { blockIndex, textPosition } = cursorPos
-  const block = contentBlocks.value[blockIndex]
-  
-  if (!block || block.type !== 'text') {
-    console.log('📍 [光标插入] 光标不在文本块中，插入到下一个位置')
-    return blockIndex + 1
-  }
-  
-  // 如果光标在文本块中间，需要分割文本块
-  if (textPosition > 0 && textPosition < block.content.length) {
-    console.log('📍 [光标插入] 光标在文本块中间，分割文本块', {
-      blockIndex,
-      textPosition,
-      blockContent: block.content
-    })
-    
-    // 分割文本块
-    const beforeText = block.content.substring(0, textPosition)
-    const afterText = block.content.substring(textPosition)
-    
-    // 更新当前文本块
-    block.content = beforeText
-    
-    // 创建新的文本块
-    const newTextBlock: ContentBlock = {
-      id: generateBlockId(),
-      type: 'text',
-      content: afterText
-    }
-    
-    // 在下一个位置插入新文本块
-    contentBlocks.value.splice(blockIndex + 1, 0, newTextBlock)
-    
-    console.log('✅ [光标插入] 文本块分割完成', {
-      beforeText,
-      afterText,
-      newBlockIndex: blockIndex + 1
-    })
-    
-    return blockIndex + 1
-  } else if (textPosition === 0) {
-    // 光标在文本块开头
-    console.log('📍 [光标插入] 光标在文本块开头')
-    return blockIndex
-  } else {
-    // 光标在文本块末尾
-    console.log('📍 [光标插入] 光标在文本块末尾')
-    return blockIndex + 1
-  }
-}
-
 
 // 插入数学公式处理
 const handleInsertMathFormula = async () => {
   console.log('🔢 [插入公式] 触发插入数学公式')
-  await tiptapEditorRef.value?.insertMathFormula()
   
-  // 插入公式后触发滚动到底部事件
-  console.log('📜 [插入公式] 触发滚动到底部事件')
-  emit('scroll-to-bottom')
+  // 检查 TiptapEditor 组件是否已经正确初始化
+  if (!tiptapEditorRef.value) {
+    console.error('❌ [插入公式] TiptapEditor 组件未初始化')
+    return
+  }
+  
+  // 检查 insertMathFormula 方法是否存在
+  if (typeof tiptapEditorRef.value.insertMathFormula !== 'function') {
+    console.error('❌ [插入公式] insertMathFormula 方法不存在', tiptapEditorRef.value)
+    return
+  }
+  
+  try {
+    await tiptapEditorRef.value.insertMathFormula()
+    
+    // 插入公式后触发滚动到底部事件
+    console.log('📜 [插入公式] 触发滚动到底部事件')
+    emit('scroll-to-bottom')
+  } catch (error) {
+    console.error('❌ [插入公式] 插入公式失败:', error)
+  }
 }
 
 // 发送消息处理
@@ -1188,102 +873,52 @@ const handleSendMessage = () => {
 const clearInputContent = () => {
   console.log('🧹 [清空内容] 开始清空输入内容')
 
-  // 1. 直接调用 TiptapEditor 实例的命令来清空内容
+  // 1. 先隐藏所有公式键盘并失活所有公式（确保虚拟键盘被隐藏）
+  if (tiptapEditorRef.value) {
+    console.log('🧮 [清空内容] 隐藏所有公式键盘')
+    // 调用 TiptapEditor 的隐藏键盘方法
+    if (typeof tiptapEditorRef.value.hideAllVirtualKeyboards === 'function') {
+      tiptapEditorRef.value.hideAllVirtualKeyboards()
+    }
+    if (typeof tiptapEditorRef.value.deactivateAllFormulas === 'function') {
+      tiptapEditorRef.value.deactivateAllFormulas()
+    }
+  }
+
+  // 2. 直接调用 TiptapEditor 实例的命令来清空内容
   if (tiptapEditorRef.value && tiptapEditorRef.value.editor) {
     // 参数 true 表示同时发射一个 update 事件，这样 v-model 会自动同步
     tiptapEditorRef.value.editor.commands.clearContent(true);
   }
   
-  // 2. 确保父组件的 v-model 也被清空
+  // 3. 确保父组件的 v-model 也被清空
   emit('update:modelValue', '');
 
-  // 3. 清理所有MathLive实例（向后兼容）
+  // 4. 清理所有MathLive实例（向后兼容）
   cleanupAllMathLiveInstances()
   
-  // 4. 清空内容块（向后兼容）
+  // 5. 清空内容块（向后兼容）
   contentBlocks.value = []
   
-  // 4. 清空当前编辑公式（向后兼容）
+  // 6. 清空当前编辑公式（向后兼容）
   currentEditingFormula.value = null
   
-  // 5. 重置选中状态（向后兼容）
+  // 7. 重置选中状态（向后兼容）
   selectedBlockIndex.value = -1
   
-  // 6. 重置键盘切换状态（向后兼容）
+  // 8. 重置键盘切换状态（向后兼容）
   isKeyboardTransitioning.value = false
   
-  // 7. 重置文本输入准备状态（向后兼容）
+  // 9. 重置文本输入准备状态（向后兼容）
   isReadyForTextInput.value = false
   
-  // 8. 重置占位符状态（向后兼容）
+  // 10. 重置占位符状态（向后兼容）
   isPlaceholderClicked.value = false
   
-  // 9. 更新modelValue
+  // 11. 更新modelValue
   emit('update:modelValue', '')
   
   console.log('✅ [清空内容] 输入内容清空完成')
-}
-
-// 向后兼容的函数（已不再使用，但保留以防需要）
-const handleContentClick = (event: MouseEvent) => {
-  // 已由TiptapEditor处理
-}
-
-// 查找点击的元素对应的内容块
-const findBlockElement = (target: HTMLElement): HTMLElement | null => {
-  let element = target
-  
-  // 向上查找，直到找到带有 data-block-id 属性的元素
-  while (element && element !== document.body) {
-    if (element.dataset.blockId) {
-      return element
-    }
-    element = element.parentElement as HTMLElement
-  }
-  
-  return null
-}
-
-// 向后兼容的函数（已不再使用，但保留以防需要）
-const handleContentKeydown = (event: KeyboardEvent) => {
-  // 已由TiptapEditor处理
-}
-
-// 向后兼容的函数（已不再使用，但保留以防需要）
-const handleBlockClick = (block: ContentBlock, index: number, event: MouseEvent) => {
-  // 已由TiptapEditor处理
-}
-
-const handleBlockKeydown = (block: ContentBlock, index: number, event: KeyboardEvent) => {
-  // 已由TiptapEditor处理
-}
-
-// 块删除处理（原子化删除）
-const handleBlockDeletion = (event: KeyboardEvent, blockIndex?: number) => {
-  // 1. 确定要删除的块索引
-  const index = blockIndex ?? selectedBlockIndex.value
-  if (index < 0 || index >= contentBlocks.value.length) return
-  
-  // 2. 获取要删除的块
-  const block = contentBlocks.value[index]
-  
-  // 3. 根据块类型执行删除逻辑
-  if (block.type === 'formula') {
-    // 3.1 公式块的两步删除
-    if (block.isSelected) {
-      // 第二步：真正删除
-      contentBlocks.value.splice(index, 1)
-      selectedBlockIndex.value = -1
-    } else {
-      // 第一步：选中
-      block.isSelected = true
-      event.preventDefault()
-    }
-  } else {
-    // 3.2 文本块直接删除
-    contentBlocks.value.splice(index, 1)
-    selectedBlockIndex.value = -1
-  }
 }
 
 // 监听modelValue变化，同步到编辑器
@@ -1347,15 +982,6 @@ watch(() => isReadyForTextInput.value, (newValue, oldValue) => {
   })
 })
 
-// 向后兼容的函数（已不再使用，但保留以防需要）
-const parseContentToBlocks = (content: string) => {
-  // 已由TiptapEditor处理
-}
-
-const addTextContent = (text: string) => {
-  // 已由TiptapEditor处理
-}
-
 const handleNativeKeyboardClose = () => {
   console.log('ChatInput.vue 监听到 nativeKeyboardClose 事件');
   
@@ -1368,6 +994,39 @@ const handleNativeKeyboardClose = () => {
   // 让主输入区域失焦
   if (contentCanvasRef.value) {
     contentCanvasRef.value.blur();
+  }
+}
+
+const handleFormulaEnterPressed = () => {
+  console.log('📤 [ChatInput] 接收到公式回车键事件，准备发送消息')
+  // 延迟发送消息，确保公式编辑完成
+  setTimeout(() => {
+    handleSendMessage()
+  }, 100)
+}
+
+const handleFormulaContentUpdated = (event: Event) => {
+  const customEvent = event as CustomEvent
+  const { nodeId, content } = customEvent.detail
+  console.log('📝 [ChatInput] 接收到公式内容更新事件', { nodeId, content })
+  
+  // 更新当前编辑公式的内容
+  if (currentEditingFormula.value && currentEditingFormula.value.id === nodeId) {
+    currentEditingFormula.value.content = content
+    console.log('✅ [ChatInput] 当前编辑公式内容已更新')
+  }
+}
+
+const handleFormulaCancelEdit = (event: Event) => {
+  const customEvent = event as CustomEvent
+  const { nodeId } = customEvent.detail
+  console.log('🚫 [ChatInput] 接收到公式取消编辑事件', { nodeId })
+  
+  // 取消当前编辑状态
+  if (currentEditingFormula.value && currentEditingFormula.value.id === nodeId) {
+    currentEditingFormula.value = null
+    isKeyboardTransitioning.value = false
+    console.log('✅ [ChatInput] 公式编辑已取消')
   }
 }
 
@@ -1392,6 +1051,15 @@ onMounted(() => {
   
   // 2. 添加键盘关闭监听器
   window.addEventListener('nativeKeyboardClose', handleNativeKeyboardClose);
+  
+  // 3. 添加公式回车键监听器（由 TiptapEditor 触发）
+  window.addEventListener('formula-enter-pressed', handleFormulaEnterPressed);
+  
+  // 4. 添加公式内容更新监听器（由 TiptapEditor 触发）
+  window.addEventListener('formula-content-updated', handleFormulaContentUpdated);
+  
+  // 5. 添加公式取消编辑监听器（由 TiptapEditor 触发）
+  window.addEventListener('formula-cancel-edit', handleFormulaCancelEdit);
 
   console.log('✅ [组件挂载] ChatInput组件挂载完成')
 })
@@ -1432,6 +1100,15 @@ onUnmounted(() => {
   
   // 6. 移除键盘关闭监听器
   window.removeEventListener('nativeKeyboardClose', handleNativeKeyboardClose);
+  
+  // 7. 移除公式回车键监听器
+  window.removeEventListener('formula-enter-pressed', handleFormulaEnterPressed);
+  
+  // 8. 移除公式内容更新监听器
+  window.removeEventListener('formula-content-updated', handleFormulaContentUpdated);
+  
+  // 9. 移除公式取消编辑监听器
+  window.removeEventListener('formula-cancel-edit', handleFormulaCancelEdit);
 
   console.log('✅ [组件卸载] 组件状态清理完成')
 })

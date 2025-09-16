@@ -7,6 +7,8 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { Quasar } from 'quasar'
 import router from './router'
+import { initPolyfills } from './utils/polyfills'
+import { initializeAppConfig } from './utils/config-utils'
 
 // 导入 Quasar 样式
 import 'quasar/src/css/index.sass'
@@ -35,6 +37,12 @@ async function loadPageComponent() {
 
 // 创建应用
 async function createWebViewApp() {
+  // 初始化 WebView 兼容性 polyfills
+  initPolyfills()
+  
+  // 初始化应用配置（包括认证 token）
+  await initializeAppConfig()
+  
   const PageComponent = await loadPageComponent()
   
   const app = createApp(PageComponent)

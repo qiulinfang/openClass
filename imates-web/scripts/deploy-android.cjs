@@ -7,7 +7,6 @@
 
 const fs = require('fs')
 const path = require('path')
-const { execSync } = require('child_process')
 
 // 配置路径
 const ANDROID_ASSETS_PATH = path.join(__dirname, '../../app/src/main/assets')
@@ -187,14 +186,7 @@ async function deployToAndroid() {
   // 步骤 3: 清理目标目录中的旧文件
   logStep(3, '清理目标目录')
   try {
-    // 只清理webview目录，保留现有的页面目录
-    const webviewDir = path.join(ANDROID_ASSETS_PATH, 'webview')
-    if (fs.existsSync(webviewDir)) {
-      fs.rmSync(webviewDir, { recursive: true, force: true })
-      logSuccess('已清理旧webview目录')
-    }
-    
-    // 只清理当前要部署的页面目录
+    // 根据页面类型清理对应的页面目录
     const pageDirToClean = getPageDirToClean(pageType)
     if (pageDirToClean) {
       const pagePath = path.join(ANDROID_ASSETS_PATH, pageDirToClean)
@@ -203,6 +195,16 @@ async function deployToAndroid() {
         logSuccess(`已清理旧页面目录: ${pageDirToClean}`)
       } else {
         logInfo(`页面目录不存在，无需清理: ${pageDirToClean}`)
+      }
+    } else if (pageType === 'all') {
+      // 部署所有页面时，清理所有页面目录
+      const pageDirs = ['exerciseSolve', 'findExercise']
+      for (const pageDir of pageDirs) {
+        const pagePath = path.join(ANDROID_ASSETS_PATH, pageDir)
+        if (fs.existsSync(pagePath)) {
+          fs.rmSync(pagePath, { recursive: true, force: true })
+          logSuccess(`已清理页面目录: ${pageDir}`)
+        }
       }
     } else {
       logInfo('未指定页面类型，跳过页面目录清理')
@@ -303,7 +305,7 @@ function getPageDirToClean(pageType) {
     case 'findExercise':
       return 'findExercise'
     case 'all':
-      return null // 部署所有页面时，不清理任何页面目录
+      return null // 部署所有页面时，在步骤3中单独处理
     default:
       return null // 不清理任何页面目录
   }

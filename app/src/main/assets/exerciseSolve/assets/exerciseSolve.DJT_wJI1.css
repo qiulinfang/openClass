@@ -2009,7 +2009,7 @@ to {
   -o-user-drag: none !important;
 }
 
-.tiptap-editor-container[data-v-a32e6045] {
+.tiptap-editor-container[data-v-a60b16d0] {
   width: 100%;
   background: transparent;
   border-radius: 24px;
@@ -2019,7 +2019,7 @@ to {
   box-shadow: none;
   position: relative;
 }
-.tiptap-editor-container[data-v-a32e6045]:focus-within {
+.tiptap-editor-container[data-v-a60b16d0]:focus-within {
   box-shadow: none;
   transform: none;
   background: transparent;
@@ -2027,15 +2027,15 @@ to {
 }
 
 /* 编辑器包装器 */
-.editor-wrapper[data-v-a32e6045] {
+.editor-wrapper[data-v-a60b16d0] {
   position: relative;
   min-height: 40px;
-  max-height: var(--351d3f56);
+  max-height: var(--48385246);
   overflow-y: auto;
 }
 
 /* 编辑器内容 */
-.editor-content[data-v-a32e6045] {
+.editor-content[data-v-a60b16d0] {
   padding: 12px 16px;
   min-height: 40px;
   outline: none !important;
@@ -2043,42 +2043,46 @@ to {
   line-height: 1.4;
   color: #3c4043;
   background: transparent;
-  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
   letter-spacing: 0;
 }
-.editor-content[data-v-a32e6045]:focus {
+.editor-content[data-v-a60b16d0]:focus {
   outline: none !important;
   box-shadow: none !important;
   border: none !important;
 }
 
 /* 覆盖TipTap编辑器内部元素的focus样式 */
-[data-v-a32e6045] .editor-content * {
+[data-v-a60b16d0] .editor-content * {
   outline: none !important;
 }
-[data-v-a32e6045] .editor-content *:focus {
+[data-v-a60b16d0] .editor-content *:focus {
   outline: none !important;
   box-shadow: none !important;
   border: none !important;
 }
-[data-v-a32e6045] .ProseMirror {
+[data-v-a60b16d0] .ProseMirror {
   outline: none !important;
 }
-[data-v-a32e6045] .ProseMirror:focus {
+[data-v-a60b16d0] .ProseMirror:focus {
   outline: none !important;
   box-shadow: none !important;
   border: none !important;
 }
 
 /* 占位符 */
-.editor-placeholder[data-v-a32e6045] {
+.editor-placeholder[data-v-a60b16d0] {
   position: absolute;
   top: 12px;
   left: 16px;
   right: 16px;
   color: #9aa0a6;
   font-size: 16px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
   pointer-events: none;
   user-select: none;
   z-index: 1;
@@ -2087,32 +2091,32 @@ to {
 }
 
 /* FormulaNode 样式 - 简洁版本 */
-[data-v-a32e6045] .formula-node-container {
+[data-v-a60b16d0] .formula-node-container {
   display: inline-flex;
   vertical-align: baseline;
   transition: all 0.2s ease-in-out;
   /* 添加适当的边距 */
   margin: 0 4px; /* 左右边距 */
   padding: 2px 4px; /* 内边距 */
-  border: none; 
+  border: none;
   background: transparent;
 }
 
 /* 暂存模式 (readOnly) */
-[data-v-a32e6045] .formula-inactive {
+[data-v-a60b16d0] .formula-inactive {
   background-color: transparent;
   border: none;
   box-shadow: none;
   cursor: pointer;
 }
-[data-v-a32e6045] .formula-inactive:hover {
+[data-v-a60b16d0] .formula-inactive:hover {
   background-color: transparent;
   border: none;
   box-shadow: none;
 }
 
 /* 激活模式 */
-[data-v-a32e6045] .formula-active {
+[data-v-a60b16d0] .formula-active {
   background-color: transparent;
   border: none;
   box-shadow: none;
@@ -2120,7 +2124,7 @@ to {
 }
 
 /* 统一控制 math-field 的外观 */
-[data-v-a32e6045] math-field {
+[data-v-a60b16d0] math-field {
   /* 移除所有 math-field 自身的边框和背景，让它完全受控于外部容器 */
   --math-field-background-color: transparent !important;
   --math-field-border: none !important;
@@ -2128,27 +2132,25 @@ to {
 }
 
 /* 控制暂存模式下公式的颜色 */
-[data-v-a32e6045] .formula-inactive math-field {
+[data-v-a60b16d0] .formula-inactive math-field {
   color: #1a73e8;
 }
 
 /* 控制激活模式下公式的颜色 */
-[data-v-a32e6045] .formula-active math-field {
+[data-v-a60b16d0] .formula-active math-field {
   color: #000000;
 }
 
-
-
 /* 响应式设计 */
 @media (max-width: 768px) {
-.tiptap-editor-container[data-v-a32e6045] {
+.tiptap-editor-container[data-v-a60b16d0] {
     border-radius: 20px;
 }
-.editor-content[data-v-a32e6045] {
+.editor-content[data-v-a60b16d0] {
     padding: 10px 12px;
     font-size: 15px;
 }
-.editor-placeholder[data-v-a32e6045] {
+.editor-placeholder[data-v-a60b16d0] {
     top: 10px;
     left: 12px;
     right: 12px;
@@ -2156,9 +2158,8 @@ to {
 }
 }
 
-
 /* 现代聊天输入容器 */
-.modern-chat-container[data-v-bb5d48eb] {
+.modern-chat-container[data-v-1ef628cf] {
   width: 100%;
   max-width: 100%;
   padding: 0 16px 8px 16px;
@@ -2170,7 +2171,7 @@ to {
 }
 
 /* 主容器 - 现代感设计 */
-.chat-input-wrapper[data-v-bb5d48eb] {
+.chat-input-wrapper[data-v-1ef628cf] {
   background: #f8f9fa;
   border-radius: 16px;
   box-shadow: 
@@ -2189,19 +2190,19 @@ to {
   max-width: 100%;
   box-sizing: border-box;
 }
-.chat-input-wrapper[data-v-bb5d48eb]:hover {
+.chat-input-wrapper[data-v-1ef628cf]:hover {
   box-shadow: 
     0 4px 16px rgba(0, 0, 0, 0.1),
     0 2px 4px rgba(0, 0, 0, 0.06);
 }
-.chat-input-wrapper[data-v-bb5d48eb]:focus-within {
+.chat-input-wrapper[data-v-1ef628cf]:focus-within {
   box-shadow: 
     0 2px 8px rgba(0, 0, 0, 0.06),
     0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 /* 附件栏 */
-.attachments-bar[data-v-bb5d48eb] {
+.attachments-bar[data-v-1ef628cf] {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
@@ -2211,12 +2212,12 @@ to {
   max-width: 100%;
   box-sizing: border-box;
 }
-.uploaded-files[data-v-bb5d48eb] {
+.uploaded-files[data-v-1ef628cf] {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
-.file-tag[data-v-bb5d48eb] {
+.file-tag[data-v-1ef628cf] {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2226,19 +2227,19 @@ to {
   font-size: 13px;
   color: #3c4043;
 }
-.file-name[data-v-bb5d48eb] {
+.file-name[data-v-1ef628cf] {
   max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.remove-btn[data-v-bb5d48eb] {
+.remove-btn[data-v-1ef628cf] {
   width: 16px;
   height: 16px;
   min-height: 16px;
   color: #5f6368;
 }
-.mode-indicator[data-v-bb5d48eb] {
+.mode-indicator[data-v-1ef628cf] {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2250,7 +2251,7 @@ to {
 }
 
 /* 统一输入区域 */
-.unified-input-area[data-v-bb5d48eb] {
+.unified-input-area[data-v-1ef628cf] {
   background: transparent;
   border: none;
   border-radius: 12px;
@@ -2260,15 +2261,15 @@ to {
   max-width: 100%;
   box-sizing: border-box;
 }
-.unified-input-area[data-v-bb5d48eb]:hover {
+.unified-input-area[data-v-1ef628cf]:hover {
   border-color: rgba(0, 0, 0, 0.2);
 }
-.unified-input-area[data-v-bb5d48eb]:focus-within {
+.unified-input-area[data-v-1ef628cf]:focus-within {
   box-shadow: none;
 }
 
 /* 智能内容画布 */
-.content-canvas[data-v-bb5d48eb] {
+.content-canvas[data-v-1ef628cf] {
   min-height: 40px;
   padding: 8px 12px;
   background: transparent;
@@ -2285,7 +2286,7 @@ to {
 }
 
 /* 隐藏contenteditable的文本内容，只显示Vue模板内容 */
-.content-canvas[data-v-bb5d48eb] {
+.content-canvas[data-v-1ef628cf] {
   color: transparent !important;
   /* 使用更彻底的方法隐藏文本，不占用空间 */
   font-size: 0 !important;
@@ -2293,7 +2294,7 @@ to {
 }
 
 /* 只对contenteditable的直接文本节点应用透明样式，不影响content-block */
-.content-canvas[data-v-bb5d48eb] > *:not(.canvas-content) {
+.content-canvas[data-v-1ef628cf] > *:not(.canvas-content) {
   color: transparent !important;
   font-size: 0 !important;
   line-height: 0 !important;
@@ -2301,34 +2302,34 @@ to {
 }
 
 /* 确保contenteditable内的所有元素都没有下划线 */
-.content-canvas[data-v-bb5d48eb] * {
+.content-canvas[data-v-1ef628cf] * {
   text-decoration: none !important;
 }
 
 /* 确保canvas-content内的内容正常显示 */
-.canvas-content[data-v-bb5d48eb] {
+.canvas-content[data-v-1ef628cf] {
   font-size: 16px !important;
   line-height: 1.4 !important;
   color: #3c4043 !important;
 }
 
 /* 但是content-block要正常显示 */
-.content-block[data-v-bb5d48eb] {
+.content-block[data-v-1ef628cf] {
   color: #3c4043 !important;
   font-size: 16px !important; /* 恢复正常字体大小 */
   line-height: 1.4 !important; /* 恢复正常行高 */
 }
-.text-block[data-v-bb5d48eb] {
+.text-block[data-v-1ef628cf] {
   color: #3c4043 !important;
   font-size: 16px !important; /* 恢复正常字体大小 */
   line-height: 1.4 !important; /* 恢复正常行高 */
 }
-.content-canvas[data-v-bb5d48eb]:focus {
+.content-canvas[data-v-1ef628cf]:focus {
   outline: none;
 }
 
 /* 画布占位符 */
-.canvas-placeholder[data-v-bb5d48eb] {
+.canvas-placeholder[data-v-1ef628cf] {
   color: #9aa0a6 !important; /* 确保占位符可见 */
   font-weight: 400;
   pointer-events: auto; /* 允许点击 */
@@ -2343,13 +2344,13 @@ to {
 }
 
 /* Hover效果 - 占位符悬停时变透明 */
-.canvas-placeholder[data-v-bb5d48eb]:hover {
+.canvas-placeholder[data-v-1ef628cf]:hover {
   opacity: 0.3;
   transform: translateY(-1px);
 }
 
 /* 内容区域 */
-.canvas-content[data-v-bb5d48eb] {
+.canvas-content[data-v-1ef628cf] {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -2360,21 +2361,21 @@ to {
 }
 
 /* 内容块基础样式 */
-.content-block[data-v-bb5d48eb] {
+.content-block[data-v-1ef628cf] {
   display: inline-block;
   position: relative;
   transition: all 0.2s ease;
 }
 
 /* 文本块样式 */
-.text-block[data-v-bb5d48eb] {
+.text-block[data-v-1ef628cf] {
   color: #3c4043;
   word-wrap: break-word;
   white-space: nowrap; /* 防止文本换行，保持在一行显示 */
 }
 
 /* 公式块样式 */
-.formula-block[data-v-bb5d48eb] {
+.formula-block[data-v-1ef628cf] {
   display: inline-block;
   position: relative;
   margin: 0 2px;
@@ -2382,7 +2383,7 @@ to {
 }
 
 /* 公式编辑状态 */
-.formula-block.editing[data-v-bb5d48eb] {
+.formula-block.editing[data-v-1ef628cf] {
   background: rgba(0, 0, 0, 0.05);
   border: 1px dashed rgba(0, 0, 0, 0.2);
   border-radius: 4px;
@@ -2391,14 +2392,14 @@ to {
 }
 
 /* 公式编辑器容器 */
-.formula-editor[data-v-bb5d48eb] {
+.formula-editor[data-v-1ef628cf] {
   min-width: 60px;
   min-height: 24px;
   display: inline-block;
 }
 
 /* 公式渲染内容 */
-.formula-rendered[data-v-bb5d48eb] {
+.formula-rendered[data-v-1ef628cf] {
   display: inline-block;
   vertical-align: baseline;
   font-family: 'Times New Roman', serif;
@@ -2406,7 +2407,7 @@ to {
 }
 
 /* 公式块选中状态 */
-.formula-block.selected[data-v-bb5d48eb] {
+.formula-block.selected[data-v-1ef628cf] {
   background: rgba(0, 0, 0, 0.08);
   border: 1px solid rgba(0, 0, 0, 0.3);
   border-radius: 4px;
@@ -2415,38 +2416,38 @@ to {
 }
 
 /* 键盘切换动画 */
-.keyboard-transitioning[data-v-bb5d48eb] {
+.keyboard-transitioning[data-v-1ef628cf] {
   pointer-events: none;
 }
-.keyboard-transitioning .content-canvas[data-v-bb5d48eb] {
+.keyboard-transitioning .content-canvas[data-v-1ef628cf] {
   opacity: 0.7;
   transform: scale(0.98);
 }
 
 /* 公式编辑器进入动画 */
-.formula-editor[data-v-bb5d48eb] {
+.formula-editor[data-v-1ef628cf] {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* 内容块动画 */
-.content-block[data-v-bb5d48eb] {
+.content-block[data-v-1ef628cf] {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.content-block[data-v-bb5d48eb]:hover {
+.content-block[data-v-1ef628cf]:hover {
   transform: translateY(-1px);
 }
 
 /* 公式块特殊动画 */
-.formula-block[data-v-bb5d48eb] {
+.formula-block[data-v-1ef628cf] {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.formula-block[data-v-bb5d48eb]:hover {
+.formula-block[data-v-1ef628cf]:hover {
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* 控制栏 */
-.control-bar[data-v-bb5d48eb] {
+.control-bar[data-v-1ef628cf] {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -2460,7 +2461,7 @@ to {
   margin-top: 4px;
   padding-top: 4px;
 }
-.left-controls[data-v-bb5d48eb] {
+.left-controls[data-v-1ef628cf] {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2468,7 +2469,7 @@ to {
   min-width: 0;
   overflow: hidden;
 }
-.right-controls[data-v-bb5d48eb] {
+.right-controls[data-v-1ef628cf] {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2478,7 +2479,7 @@ to {
 }
 
 /* 模式选择器 */
-.mode-selector[data-v-bb5d48eb] {
+.mode-selector[data-v-1ef628cf] {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -2494,29 +2495,29 @@ to {
   max-width: 120px;
   overflow: hidden;
 }
-.mode-selector[data-v-bb5d48eb] .q-btn__content {
+.mode-selector[data-v-1ef628cf] .q-btn__content {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
 /* 隐藏下拉箭头 */
-.mode-selector[data-v-bb5d48eb] .q-btn-dropdown__arrow {
+.mode-selector[data-v-1ef628cf] .q-btn-dropdown__arrow {
   display: none;
 }
-.mode-selector[data-v-bb5d48eb]:hover {
+.mode-selector[data-v-1ef628cf]:hover {
   background: #f8f9fa;
 }
-.mode-selector.active[data-v-bb5d48eb] {
+.mode-selector.active[data-v-1ef628cf] {
   background: #e8f0fe;
   color: #1a73e8;
 }
-.mode-text[data-v-bb5d48eb] {
+.mode-text[data-v-1ef628cf] {
   font-weight: 500;
 }
 
 /* 当前模式显示 */
-.current-mode[data-v-bb5d48eb] {
+.current-mode[data-v-1ef628cf] {
   display: flex;
   align-items: center;
   padding: 6px 12px;
@@ -2526,12 +2527,12 @@ to {
   font-size: 14px;
   font-weight: 500;
 }
-.mode-label[data-v-bb5d48eb] {
+.mode-label[data-v-1ef628cf] {
   white-space: nowrap;
 }
 
 /* 编辑状态指示器 */
-.edit-indicator[data-v-bb5d48eb] {
+.edit-indicator[data-v-1ef628cf] {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2545,23 +2546,23 @@ to {
   flex-shrink: 0;
   border: 1px solid #bbdefb;
 }
-.edit-text[data-v-bb5d48eb] {
+.edit-text[data-v-1ef628cf] {
   font-size: 13px;
   font-weight: 500;
 }
-.cancel-edit-btn[data-v-bb5d48eb] {
+.cancel-edit-btn[data-v-1ef628cf] {
   width: 20px;
   height: 20px;
   min-height: 20px;
   color: #666;
 }
-.cancel-edit-btn[data-v-bb5d48eb]:hover {
+.cancel-edit-btn[data-v-1ef628cf]:hover {
   background-color: rgba(0, 0, 0, 0.1);
   color: #333;
 }
 
 /* 联网搜索按钮 */
-.web-search-btn[data-v-bb5d48eb] {
+.web-search-btn[data-v-1ef628cf] {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -2577,37 +2578,37 @@ to {
   max-width: 120px;
   overflow: hidden;
 }
-.web-search-btn[data-v-bb5d48eb]:hover {
+.web-search-btn[data-v-1ef628cf]:hover {
   background: #f8f9fa;
 }
-.web-search-btn.active[data-v-bb5d48eb] {
+.web-search-btn.active[data-v-1ef628cf] {
   background: #e8f5e8;
   color: #34a853;
 }
 
 /* 控制图标按钮 */
-.control-icon-btn[data-v-bb5d48eb] {
+.control-icon-btn[data-v-1ef628cf] {
   width: 36px;
   height: 36px;
   color: #5f6368;
   transition: all 0.2s ease;
 }
-.control-icon-btn[data-v-bb5d48eb]:hover {
+.control-icon-btn[data-v-1ef628cf]:hover {
   background-color: rgba(95, 99, 104, 0.12);
   color: #3c4043;
 }
-.control-icon-btn.active[data-v-bb5d48eb] {
+.control-icon-btn.active[data-v-1ef628cf] {
   background-color: rgba(0, 0, 0, 0.08);
   color: #1a73e8;
 }
 
 /* 公式插入按钮特殊样式 */
-.formula-insert-btn[data-v-bb5d48eb] {
+.formula-insert-btn[data-v-1ef628cf] {
   background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
   color: #1976d2;
   border: 1px solid rgba(0, 0, 0, 0.1);
 }
-.formula-insert-btn[data-v-bb5d48eb]:hover {
+.formula-insert-btn[data-v-1ef628cf]:hover {
   background: linear-gradient(135deg, #bbdefb 0%, #e1bee7 100%);
   color: #1565c0;
   transform: translateY(-1px);
@@ -2615,21 +2616,21 @@ to {
 }
 
 /* 语音按钮特殊样式 */
-.voice-btn.recording[data-v-bb5d48eb] {
+.voice-btn.recording[data-v-1ef628cf] {
   color: #ea4335;
   background-color: rgba(234, 67, 53, 0.1);
 }
-.voice-btn.recording[data-v-bb5d48eb]:hover {
+.voice-btn.recording[data-v-1ef628cf]:hover {
   background: rgba(0, 0, 0, 0.05);
   color: #3c4043;
 }
-.control-icon-btn.active[data-v-bb5d48eb] {
+.control-icon-btn.active[data-v-1ef628cf] {
   background: #e8f0fe;
   color: #1a73e8;
 }
 
 /* 发送按钮 */
-.send-button[data-v-bb5d48eb] {
+.send-button[data-v-1ef628cf] {
   width: 40px;
   height: 40px;
   background: #1a73e8;
@@ -2640,17 +2641,17 @@ to {
     0 1px 2px rgba(0, 0, 0, 0.1);
   border: none;
 }
-.send-button[data-v-bb5d48eb]:hover {
+.send-button[data-v-1ef628cf]:hover {
   background: #1557b0;
   box-shadow: 
     0 4px 12px rgba(0, 0, 0, 0.3),
     0 2px 4px rgba(0, 0, 0, 0.2);
   transform: translateY(-1px) scale(1.05);
 }
-.send-button[data-v-bb5d48eb]:active {
+.send-button[data-v-1ef628cf]:active {
   transform: translateY(0) scale(0.98);
 }
-.send-button[data-v-bb5d48eb]:disabled {
+.send-button[data-v-1ef628cf]:disabled {
   background: #e8eaed;
   color: #9aa0a6;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
@@ -2658,7 +2659,7 @@ to {
 }
 
 /* 插入公式按钮 */
-.math-formula-btn[data-v-bb5d48eb] {
+.math-formula-btn[data-v-1ef628cf] {
   width: 40px;
   height: 40px;
   background: transparent;
@@ -2667,24 +2668,24 @@ to {
   transition: all 0.2s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
-.math-formula-btn[data-v-bb5d48eb]:hover {
+.math-formula-btn[data-v-1ef628cf]:hover {
   background: #1a73e8;
   color: white;
   box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
   transform: translateY(-1px) scale(1.05);
 }
-.math-formula-btn[data-v-bb5d48eb]:active {
+.math-formula-btn[data-v-1ef628cf]:active {
   transform: translateY(0) scale(0.98);
 }
 
 /* 状态指示器 */
-.status-indicators[data-v-bb5d48eb] {
+.status-indicators[data-v-1ef628cf] {
   display: flex;
   gap: 8px;
   padding: 0 4px;
   flex-wrap: wrap;
 }
-.status-tag[data-v-bb5d48eb] {
+.status-tag[data-v-1ef628cf] {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -2694,18 +2695,18 @@ to {
   font-size: 12px;
   color: #5f6368;
 }
-.status-tag.search-enabled[data-v-bb5d48eb] {
+.status-tag.search-enabled[data-v-1ef628cf] {
   background: #e8f5e8;
   color: #137333;
 }
-.status-tag.role-selected[data-v-bb5d48eb] {
+.status-tag.role-selected[data-v-1ef628cf] {
   background: #fce8e6;
   color: #c5221f;
 }
 
 
 /* 脉冲动画 */
-@keyframes pulse-bb5d48eb {
+@keyframes pulse-1ef628cf {
 0%, 100% {
     transform: scale(1);
 }
@@ -2716,87 +2717,87 @@ to {
 
 /* 平板优化 */
 @media (min-width: 769px) and (max-width: 1024px) {
-.chat-input-wrapper[data-v-bb5d48eb] {
+.chat-input-wrapper[data-v-1ef628cf] {
     padding: 6px;
     border-radius: 20px;
 }
-.input-area[data-v-bb5d48eb] {
+.input-area[data-v-1ef628cf] {
     padding: 3px 5px;
     border-radius: 14px;
 }
-.control-icon-btn[data-v-bb5d48eb] {
+.control-icon-btn[data-v-1ef628cf] {
     width: 40px;
     height: 40px;
 }
-.math-formula-btn[data-v-bb5d48eb] {
+.math-formula-btn[data-v-1ef628cf] {
     width: 48px;
     height: 48px;
 }
-.send-button[data-v-bb5d48eb] {
+.send-button[data-v-1ef628cf] {
     width: 48px;
     height: 48px;
 }
-.main-textarea[data-v-bb5d48eb] .q-field__native {
+.main-textarea[data-v-1ef628cf] .q-field__native {
     font-size: 17px;
     padding: 3px 0;
 }
-.control-bar[data-v-bb5d48eb] {
+.control-bar[data-v-1ef628cf] {
     padding: 2px 0;
     gap: 18px;
 }
-.left-controls[data-v-bb5d48eb] {
+.left-controls[data-v-1ef628cf] {
     gap: 14px;
 }
-.right-controls[data-v-bb5d48eb] {
+.right-controls[data-v-1ef628cf] {
     gap: 8px;
 }
 }
 
 /* 手机响应式设计 */
 @media (max-width: 768px) {
-.chat-input-wrapper[data-v-bb5d48eb] {
+.chat-input-wrapper[data-v-1ef628cf] {
     padding: 3px;
     border-radius: 16px;
     gap: 6px;
 }
-.input-area[data-v-bb5d48eb] {
+.input-area[data-v-1ef628cf] {
     padding: 2px 4px;
     border-radius: 12px;
 }
-.control-icon-btn[data-v-bb5d48eb] {
+.control-icon-btn[data-v-1ef628cf] {
     width: 32px;
     height: 32px;
 }
-.math-formula-btn[data-v-bb5d48eb] {
+.math-formula-btn[data-v-1ef628cf] {
     width: 40px;
     height: 40px;
 }
-.send-button[data-v-bb5d48eb] {
+.send-button[data-v-1ef628cf] {
     width: 40px;
     height: 40px;
 }
-.control-bar[data-v-bb5d48eb] {
+.control-bar[data-v-1ef628cf] {
     padding: 1px 0;
     gap: 12px;
 }
-.left-controls[data-v-bb5d48eb] {
+.left-controls[data-v-1ef628cf] {
     gap: 8px;
 }
-.right-controls[data-v-bb5d48eb] {
+.right-controls[data-v-1ef628cf] {
     gap: 4px;
 }
-.mode-selector[data-v-bb5d48eb],
-  .web-search-btn[data-v-bb5d48eb] {
+.mode-selector[data-v-1ef628cf],
+  .web-search-btn[data-v-1ef628cf] {
     padding: 4px 8px;
     font-size: 13px;
     max-width: 100px;
 }
-.content-canvas[data-v-bb5d48eb] {
+.content-canvas[data-v-1ef628cf] {
     font-size: 15px;
     padding: 6px 8px;
     min-height: 36px;
 }
-.formula-editor[data-v-bb5d48eb] {
+.formula-editor[data-v-1ef628cf] {
     min-width: 50px;
     min-height: 20px;
 }
@@ -2804,56 +2805,56 @@ to {
 
 
 /* 学习伙伴选择弹出框样式 */
-.model-select-popup[data-v-bb5d48eb] {
+.model-select-popup[data-v-1ef628cf] {
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   overflow: hidden;
   z-index: 9999;
 }
-.model-select-list[data-v-bb5d48eb] {
+.model-select-list[data-v-1ef628cf] {
   min-width: 120px;
   padding: 4px 0;
 }
-.model-select-item[data-v-bb5d48eb] {
+.model-select-item[data-v-1ef628cf] {
   padding: 8px 16px;
   min-height: 40px;
   transition: all 0.2s ease;
 }
-.model-select-item[data-v-bb5d48eb]:hover {
+.model-select-item[data-v-1ef628cf]:hover {
   background-color: rgba(0, 0, 0, 0.05);
 }
-.model-select-item.active[data-v-bb5d48eb] {
+.model-select-item.active[data-v-1ef628cf] {
   background-color: rgba(0, 0, 0, 0.08);
   color: #1976d2;
 }
-.model-select-item .q-item__label[data-v-bb5d48eb] {
+.model-select-item .q-item__label[data-v-1ef628cf] {
   font-size: 14px;
   font-weight: 500;
 }
 
 
 /* 减少动画效果 */
-[data-v-bb5d48eb] {
+[data-v-1ef628cf] {
   animation-duration: 0.2s !important;
   transition-duration: 0.2s !important;
 }
 
 /* 隐藏MathLive的所有装饰元素 */
-.formula-editor[data-v-bb5d48eb] .ML__base {
+.formula-editor[data-v-1ef628cf] .ML__base {
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
   padding: 0 !important;
   margin: 0 !important;
 }
-.formula-editor[data-v-bb5d48eb] .ML__fieldcontainer {
+.formula-editor[data-v-1ef628cf] .ML__fieldcontainer {
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
   padding: 0 !important;
   margin: 0 !important;
 }
-.formula-editor[data-v-bb5d48eb] .ML__field {
+.formula-editor[data-v-1ef628cf] .ML__field {
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -2861,51 +2862,51 @@ to {
   margin: 0 !important;
   min-height: auto !important;
 }
-.formula-editor[data-v-bb5d48eb] .ML__caret {
+.formula-editor[data-v-1ef628cf] .ML__caret {
   display: none !important;
 }
-.formula-editor[data-v-bb5d48eb] .ML__selection {
+.formula-editor[data-v-1ef628cf] .ML__selection {
   display: none !important;
 }
-.formula-editor[data-v-bb5d48eb] .ML__virtual-keyboard-toggle {
+.formula-editor[data-v-1ef628cf] .ML__virtual-keyboard-toggle {
   display: none !important;
 }
-.formula-editor[data-v-bb5d48eb] .ML__toolbar {
+.formula-editor[data-v-1ef628cf] .ML__toolbar {
   display: none !important;
 }
-.formula-editor[data-v-bb5d48eb] .ML__popover {
+.formula-editor[data-v-1ef628cf] .ML__popover {
   display: none !important;
 }
 
 
 /* 桌面端优化 */
 @media (min-width: 1025px) {
-.chat-input-wrapper[data-v-bb5d48eb] {
+.chat-input-wrapper[data-v-1ef628cf] {
     padding: 8px;
     border-radius: 20px;
 }
-.input-area[data-v-bb5d48eb] {
+.input-area[data-v-1ef628cf] {
     padding: 6px 8px;
 }
-.control-bar[data-v-bb5d48eb] {
+.control-bar[data-v-1ef628cf] {
     padding: 4px 0;
     gap: 20px;
 }
-.left-controls[data-v-bb5d48eb] {
+.left-controls[data-v-1ef628cf] {
     gap: 16px;
 }
-.right-controls[data-v-bb5d48eb] {
+.right-controls[data-v-1ef628cf] {
     gap: 12px;
 }
-.control-icon-btn[data-v-bb5d48eb] {
+.control-icon-btn[data-v-1ef628cf] {
     width: 40px;
     height: 40px;
 }
-.math-formula-btn[data-v-bb5d48eb] {
+.math-formula-btn[data-v-1ef628cf] {
     width: 44px;
     height: 44px;
 }
-.send-button[data-v-bb5d48eb] {
+.send-button[data-v-1ef628cf] {
     width: 44px;
     height: 44px;
 }
