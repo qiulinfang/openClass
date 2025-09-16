@@ -102,7 +102,6 @@
                 <ChatView 
                   v-if="currentFunction === 'askTeacher'" 
                   type="teacher"
-                  :forwarded-messages="forwardedMessages"
                   @scroll-to-question-and-select="handleScrollToQuestionAndSelect"
                   @scroll-to-bottom="scrollToBottom"
                 />
@@ -132,20 +131,16 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useExerciseStore } from '../stores/exerciseStore'
 import { storeToRefs } from 'pinia'
-import { androidBridge } from '../services/android-bridge'
 import QuestionList from '../components/QuestionList.vue'
 import ChatView from '../components/ChatView.vue'
 import AnswerView from '../components/AnswerView.vue'
 import SimilarQuestionList from '../components/SimilarQuestionList.vue'
 
 const exerciseStore = useExerciseStore()
-const { currentQuestion, canViewAnswer, subject, chatResponseTimes, currentQuestionIndex } = storeToRefs(exerciseStore)
+const { currentQuestion, canViewAnswer } = storeToRefs(exerciseStore)
 
 const currentFunction = ref<'chatAi' | 'askTeacher' | 'viewAnswer' | 'similarQuestion'>('chatAi')
-const forwardedMessages = ref<any[]>([])
 
-// 添加初始化状态标记，避免重复初始化
-const isInitialized = ref(false)
 
 // 退出状态标记
 const isExiting = ref(false)
@@ -158,22 +153,19 @@ const hasSelectedQuestion = computed(() => {
 })
 
 const canAskTeacher = computed(() => {
-  return hasSelectedQuestion.value && forwardedMessages.value.length > 0
+  return hasSelectedQuestion.value && exerciseStore.teacherMessages.length > 0
 })
 
 const handleChatResponse = () => {
   // AI回复后的处理逻辑
 }
 
-const handleSwitchToTeacher = (data: { messages: any[], currentQuestion: any }) => {
-  // 保存转发的消息
-  forwardedMessages.value = data.messages
-  
-  // 切换到老师界面
+const handleSwitchToTeacher = () => {
+  // 切换到老师界面（消息已经持久化到store中）
   currentFunction.value = 'askTeacher'
 }
 
-const handleStartAiGuidance = async (question: any) => {
+const handleStartAiGuidance = async () => {
   try {
     // 切换到AI聊天界面
     currentFunction.value = 'chatAi'
@@ -181,12 +173,12 @@ const handleStartAiGuidance = async (question: any) => {
     // 注意：题目选择已经在QuestionList的sendToAi方法中完成，
     // 这里不需要重复选择，避免覆盖正确的选择结果
     // startAiGuidance 方法已经会自动发送题目内容给AI，这里不需要重复发送
-  } catch (error) {
+  } catch {
     // Handle error silently
   }
 }
 
-const handleQuestionSelected = async (question: any, index: number) => {
+const handleQuestionSelected = async () => {
   // 如果当前不在AI指导模式，自动切换到AI指导模式
   if (currentFunction.value !== 'chatAi') {
     currentFunction.value = 'chatAi'
@@ -273,7 +265,7 @@ const exitActivity = async () => {
   
   try {
     // 使用快速保存方法，不阻塞退出操作
-    exerciseStore.quickSaveProgress().catch(error => {
+    exerciseStore.quickSaveProgress().catch(() => {
     })
     
     // 立即退出，不等待保存完成

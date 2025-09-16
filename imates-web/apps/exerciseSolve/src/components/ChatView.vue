@@ -30,6 +30,7 @@
           :color="selectedMessages.size === displayedMessages.length ? 'primary' : 'grey-6'"
         />
         <q-btn 
+          v-if="type === 'ai'"
           flat 
           round 
           icon="forward" 
@@ -115,7 +116,6 @@
     <!-- 图片选择器 -->
     <ImagePicker v-model="showImagePicker" @image-selected="onImageSelected" />
 
-    <!-- 对话框组件 -->
 
     <!-- 转发模式选择对话框 -->
     <ForwardModeDialog
@@ -124,12 +124,6 @@
       @confirm="handleForwardModeConfirm"
     />
 
-    <!-- 编辑模式确认对话框 -->
-    <EditModeConfirmDialog
-      ref="editModeConfirmDialogRef"
-      @confirm="handleEditModeConfirm"
-      @cancel="handleEditModeCancel"
-    />
   </div>
 </template>
 
@@ -146,7 +140,6 @@ import { androidBridge } from '../services/android-bridge'
 import ChatMessageComponent from './chat/ChatMessage.vue'
 import ChatInput from './chat/ChatInput.vue'
 import ForwardModeDialog from './chat/ForwardModeDialog.vue'
-import EditModeConfirmDialog from './chat/EditModeConfirmDialog.vue'
 
 import VoiceRecorder from './chat/VoiceRecorder.vue'
 import ImagePicker from './chat/ImagePicker.vue'
@@ -160,7 +153,6 @@ import { SessionType } from '../types'
 interface Props {
   type: 'ai' | 'teacher'
   currentQuestionId?: string
-  forwardedMessages?: ChatBubble[]
 }
 
 const props = defineProps<Props>()
@@ -292,22 +284,16 @@ const messages = computed(() => {
 
 // 使用 watch 来同步UI显示的消息列表
 watch(
-  () => [props.type, exerciseStore.chatMessages, props.forwardedMessages],
+  () => [props.type, exerciseStore.chatMessages, exerciseStore.teacherMessages],
   () => {
     if (props.type === 'ai') {
       // AI 模式下，直接使用 store 中的消息
       displayedMessages.value = exerciseStore.chatMessages
-    } else if (props.type === 'teacher' && props.forwardedMessages && props.forwardedMessages.length > 0) {
-      // 老师模式且有转发消息时，使用转发的消息，不修改 store
-      const convertedMessages = props.forwardedMessages.map((msg) => ({
-        ...msg,
-        id: msg.id.startsWith('forwarded_') ? msg.id : 'forwarded_' + msg.id,
-        sender: 'user' as const,
-        type: 'user' as const,
-      }))
-      displayedMessages.value = convertedMessages
+    } else if (props.type === 'teacher') {
+      // 老师模式下，使用老师消息存储
+      displayedMessages.value = exerciseStore.teacherMessages
     } else {
-      // 其他情况（如直接进入老师答疑），显示 store 的内容（或为空）
+      // 其他情况，显示 AI 消息存储的内容（或为空）
       displayedMessages.value = exerciseStore.chatMessages
     }
   },
@@ -325,15 +311,13 @@ const originalMessageContent = ref<string>('')
 const editingQuestionId = ref<string | null>(null) // 记录正在编辑的题目ID
 
 // 编辑模式确认对话框状态
-const editModeConfirmDialogRef = ref<InstanceType<typeof EditModeConfirmDialog> | null>(null)
 const pendingSwitchAction = ref<(() => void) | null>(null)
 
 // 辅助函数：添加消息到 store
 // 作用：将单条消息添加到store或本地消息列表，根据对话类型选择不同的存储方式
 const addMessageToStore = async (message: ChatBubble) => {
-  // 这个函数现在只应该在 AI 模式下被调用
   if (props.type === 'ai') {
-    console.log(`[CHAT_DEBUG] 📝 ChatView添加消息到内存:`, {
+    console.log(`[CHAT_DEBUG] 📝 ChatView添加AI消息到内存:`, {
       id: message.id,
       content: message.content?.substring(0, 50) + '...' || '[无内容]',
       sender: message.sender,
@@ -343,21 +327,32 @@ const addMessageToStore = async (message: ChatBubble) => {
     exerciseStore.chatMessages.push(message)
     
     // 保存聊天记录到存储
-    console.log(`[CHAT_DEBUG] 💾 ChatView保存聊天记录到存储...`)
+    console.log(`[CHAT_DEBUG] 💾 ChatView保存AI聊天记录到存储...`)
     await exerciseStore.saveChatHistory()
-    console.log(`[CHAT_DEBUG] ✅ ChatView消息添加完成`)
-  } else {
-    // 老师模式下，添加到本地列表
-    displayedMessages.value.push(message)
+    console.log(`[CHAT_DEBUG] ✅ ChatView AI消息添加完成`)
+  } else if (props.type === 'teacher') {
+    console.log(`[TEACHER_CHAT_DEBUG] 📝 ChatView添加老师消息到内存:`, {
+      id: message.id,
+      content: message.content?.substring(0, 50) + '...' || '[无内容]',
+      sender: message.sender,
+      type: message.type
+    })
+    
+    // 添加到老师消息存储
+    exerciseStore.teacherMessages.push(message)
+    
+    // 保存老师聊天记录到存储
+    console.log(`[TEACHER_CHAT_DEBUG] 💾 ChatView保存老师聊天记录到存储...`)
+    await exerciseStore.saveTeacherChatHistory()
+    console.log(`[TEACHER_CHAT_DEBUG] ✅ ChatView老师消息添加完成`)
   }
 }
 
 // 辅助函数：添加多个消息到 store
 // 作用：批量添加消息到store或本地消息列表，用于处理多条消息的添加操作
 const addMessagesToStore = async (messages: ChatBubble[]) => {
-  // 这个函数现在只应该在 AI 模式下被调用
   if (props.type === 'ai') {
-    console.log(`[CHAT_DEBUG] 📝 ChatView批量添加消息到内存:`, {
+    console.log(`[CHAT_DEBUG] 📝 ChatView批量添加AI消息到内存:`, {
       count: messages.length,
       messages: messages.map(msg => ({
         id: msg.id,
@@ -369,12 +364,26 @@ const addMessagesToStore = async (messages: ChatBubble[]) => {
     exerciseStore.chatMessages.push(...messages)
     
     // 保存聊天记录到存储
-    console.log(`[CHAT_DEBUG] 💾 ChatView批量保存聊天记录到存储...`)
+    console.log(`[CHAT_DEBUG] 💾 ChatView批量保存AI聊天记录到存储...`)
     await exerciseStore.saveChatHistory()
-    console.log(`[CHAT_DEBUG] ✅ ChatView批量消息添加完成`)
-  } else {
-    // 老师模式下，添加到本地列表
-    displayedMessages.value.push(...messages)
+    console.log(`[CHAT_DEBUG] ✅ ChatView批量AI消息添加完成`)
+  } else if (props.type === 'teacher') {
+    console.log(`[TEACHER_CHAT_DEBUG] 📝 ChatView批量添加老师消息到内存:`, {
+      count: messages.length,
+      messages: messages.map(msg => ({
+        id: msg.id,
+        content: msg.content?.substring(0, 30) + '...' || '[无内容]',
+        sender: msg.sender
+      }))
+    })
+    
+    // 添加到老师消息存储
+    exerciseStore.teacherMessages.push(...messages)
+    
+    // 保存老师聊天记录到存储
+    console.log(`[TEACHER_CHAT_DEBUG] 💾 ChatView批量保存老师聊天记录到存储...`)
+    await exerciseStore.saveTeacherChatHistory()
+    console.log(`[TEACHER_CHAT_DEBUG] ✅ ChatView批量老师消息添加完成`)
   }
 }
 const uploadedFiles = ref<Array<{ id: string; name: string; file: File }>>([])
@@ -633,9 +642,7 @@ const animateKeyboardHide = () => {
   }, parseInt(cssParams.duration))
 }
 
-// 不再需要复杂的贝塞尔曲线计算，直接使用CSS动画
-// Methods
-// 作用：初始化聊天消息，设置科目、创建老师会话、处理转发消息或添加引导消息
+// 作用：初始化聊天消息，设置科目、创建老师会话、加载持久化数据或添加引导消息
 const initializeMessages = async () => {
   // 设置当前科目
   currentSubject.value = exerciseStore.subject === 'BIOLOGY' ? 'biology' : 'math'
@@ -645,25 +652,19 @@ const initializeMessages = async () => {
     await initializeTeacherSession()
   }
 
-  // 如果是老师场景且有转发消息，先清空现有消息再处理转发
-  if (props.type === 'teacher' && props.forwardedMessages && props.forwardedMessages.length > 0) {
-    // 【关键修改】不再清空 exerciseStore.chatMessages
-    // exerciseStore.chatMessages = [] // <-- 删除这一行
-    await handleForwardedMessages()
-    return
-  }
-
   // 加载历史消息（如果有选中的题目）
-  // 注意：老师对话模式不加载AI聊天历史，每个题目都有独立的老师会话
   // 注意：这里不直接调用 loadChatHistory，因为 selectQuestion 已经会调用
   // 避免重复加载导致的问题
-  if (hasSelectedQuestion.value && props.type === 'ai') {
-    console.log(`[CHAT_DEBUG] 📝 ChatView检测到题目选中，等待selectQuestion加载聊天记录`)
+  if (hasSelectedQuestion.value) {
+    if (props.type === 'ai') {
+      console.log(`[CHAT_DEBUG] 📝 ChatView检测到题目选中，等待selectQuestion加载AI聊天记录`)
+    } else if (props.type === 'teacher') {
+      console.log(`[TEACHER_CHAT_DEBUG] 📝 ChatView检测到题目选中，等待selectQuestion加载老师聊天记录`)
+    }
   }
 
   // 只有在没有选择题目且没有聊天记录时才添加引导消息
-  // 老师对话模式在有选中题目时不需要引导消息，保持聊天记录为空
-  if (exerciseStore.chatMessages.length === 0 && !hasSelectedQuestion.value) {
+  if (!hasSelectedQuestion.value) {
     const welcomeMessage: ChatBubble = {
       id: 'welcome_' + Date.now(),
       content: '请先选择一道题目，然后我们可以开始讨论。你可以从题目列表中选择一道感兴趣的题目。',
@@ -672,10 +673,10 @@ const initializeMessages = async () => {
       sender: props.type === 'ai' ? 'ai' : 'teacher',
     }
     
-    if (props.type === 'ai') {
+    if (props.type === 'ai' && exerciseStore.chatMessages.length === 0) {
         exerciseStore.chatMessages = [welcomeMessage]
-    } else {
-        displayedMessages.value = [welcomeMessage]
+    } else if (props.type === 'teacher' && exerciseStore.teacherMessages.length === 0) {
+        exerciseStore.teacherMessages = [welcomeMessage]
     }
   }
 }
@@ -767,71 +768,9 @@ const initializeTeacherSession = async () => {
   }
 }
 
-// 处理转发的消息
-// 作用：处理从AI对话转发到老师对话的消息，调用API进行转发
-const handleForwardedMessages = async () => {
-  if (!props.forwardedMessages || props.forwardedMessages.length === 0) return
-
-  try {
-    // 确保老师会话已创建
-    if (!teacherSession.value) {
-      await initializeTeacherSession()
-    }
-
-    if (teacherSession.value) {
-      // 转发消息给老师
-      const cleanedMessages = props.forwardedMessages.map(convertMessageForForwarding)
-      
-      
-      const selectedMessagesData = JSON.stringify(cleanedMessages)
-      
-      const forwardResult = await apiService.forwardAiChatToTeacher(
-        selectedMessagesData,
-        teacherSession.value.sessionId,
-      )
-
-      if (forwardResult) {
-        // 【关键修改】将消息添加到本地的 displayedMessages，而不是全局的 store
-        // const convertedMessages = props.forwardedMessages.map((msg) => ({
-        //   ...msg,
-        //   id: msg.id.startsWith('forwarded_') ? msg.id : 'forwarded_' + msg.id,
-        //   sender: 'user' as const,
-        //   type: 'user' as const,
-        // }))
-        
-        // 不再调用 addMessagesToStore，因为 watchEffect 已经处理了UI更新
-        // displayedMessages.value = convertedMessages // watchEffect 会处理这个逻辑
-      } else {
-        // 临时方案：即使API失败也显示转发的消息
-        // const convertedMessages = props.forwardedMessages.map((msg) => ({
-        //   ...msg,
-        //   id: msg.id.startsWith('forwarded_') ? msg.id : 'forwarded_' + msg.id,
-        //   sender: 'user' as const,
-        //   type: 'user' as const,
-        // }))
-        
-        // 不再调用 addMessagesToStore，因为 watchEffect 已经处理了UI更新
-        // displayedMessages.value = convertedMessages // watchEffect 会处理这个逻辑
-      }
-    } else {
-      // 临时方案：即使没有老师会话也显示转发的消息
-      // const convertedMessages = props.forwardedMessages.map((msg) => ({
-      //   ...msg,
-      //   id: msg.id.startsWith('forwarded_') ? msg.id : 'forwarded_' + msg.id,
-      //   sender: 'user' as const,
-      //   type: 'user' as const,
-      // }))
-      
-      // 不再调用 addMessagesToStore，因为 watchEffect 已经处理了UI更新
-      // displayedMessages.value = convertedMessages // watchEffect 会处理这个逻辑
-    }
-  } catch {
-    // 转发消息失败，静默处理
-  }
-}
 
 // 加载老师聊天历史
-// 作用：从API加载老师对话的历史消息记录
+// 作用：从API加载老师对话的历史消息记录（现在主要用于同步远程消息到本地存储）
 const loadTeacherChatHistory = async () => {
   if (!teacherSession.value) return
 
@@ -839,7 +778,7 @@ const loadTeacherChatHistory = async () => {
     const history = await apiService.getTeacherChatHistory(teacherSession.value.sessionId)
     if (history && history.length > 0) {
       // 获取当前已存在的消息ID集合，避免覆盖已正确设置的消息
-      const existingMessageIds = new Set(exerciseStore.chatMessages.map(msg => msg.id))
+      const existingMessageIds = new Set(exerciseStore.teacherMessages.map(msg => msg.id))
       
       const historyMessages: ChatBubble[] = history.map((msg) => ({
         id: msg.messageId,
@@ -1440,46 +1379,76 @@ const convertMessageForForwarding = (msg: ChatBubble) => {
 }
 
 /**
- * 处理单条消息转发
- * 流程：1. 检查当前对话类型 2. 转发到老师对话 3. 更新UI状态
- * 作用：处理单条消息的转发操作，根据当前对话类型选择转发方式
+ * 处理单条消息转发（仅在AI页面触发）
+ * 流程：1. 验证当前页面类型 2. 创建老师会话 3. 转发消息 4. 切换页面
+ * 作用：处理AI对话中的单条消息转发到老师对话
  */
 const handleForwardMessage = async (message: ChatBubble) => {
+  // 确保只在AI页面触发
+  if (props.type !== 'ai') {
+    console.warn('[CHAT_DEBUG] ⚠️ handleForwardMessage只能在AI页面触发')
+    return
+  }
+
   try {
-    if (props.type === 'teacher' && teacherSession.value !== null) {
-      // 流程1：当前是老师对话，直接转发
-      const selectedMessagesData = JSON.stringify([convertMessageForForwarding(message)])
-      
-      const success = await apiService.forwardAiChatToTeacher(
-        selectedMessagesData,
-        teacherSession.value!.sessionId,
-      )
+    console.log('[CHAT_DEBUG] 📤 开始转发AI消息到老师:', {
+      messageId: message.id,
+      messageType: message.type
+    })
+
+    // 确保老师会话已创建
+    if (!teacherSession.value) {
+      await initializeTeacherSession()
+    }
+    
+    if (teacherSession.value) {
+      // 转发消息到老师
+      const success = await forwardMessageToTeacher([message])
       
       if (success) {
-        const forwardedMessage = {
-          ...message,
-          id: 'forwarded_' + message.id,
-          sender: 'user' as const,
-          type: 'user' as const,
-        }
-        await addMessageToStore(forwardedMessage)
-        androidBridge.showToast('消息转发成功')
-        await scrollToBottom()
+        console.log('[CHAT_DEBUG] ✅ 消息转发成功，准备切换页面')
+        // 转发成功后切换页面
+        emit('switchToTeacher', { 
+          messages: [message], 
+          currentQuestion: exerciseStore.currentQuestion 
+        })
       } else {
         androidBridge.showToast('转发失败，请重试')
       }
     } else {
-      // 流程2：当前是AI对话，切换到老师对话
-      // 传递当前题目信息，确保老师对话使用正确的题目
-      const forwardData = {
-        messages: [message],
-        currentQuestion: exerciseStore.currentQuestion
-      }
-      emit('switchToTeacher', forwardData)
+      console.error('[CHAT_DEBUG] ❌ 无法创建老师会话')
+      androidBridge.showToast('无法创建老师会话')
     }
-  } catch {
+  } catch (error) {
+    console.error('[CHAT_DEBUG] ❌ 转发消息失败:', error)
     androidBridge.showToast('转发失败')
   }
+}
+
+// 统一的转发函数
+const forwardMessageToTeacher = async (messages: ChatBubble[]) => {
+  const cleanedMessages = messages.map(convertMessageForForwarding)
+  const selectedMessagesData = JSON.stringify(cleanedMessages)
+  
+  const success = await apiService.forwardAiChatToTeacher(
+    selectedMessagesData,
+    teacherSession.value!.sessionId,
+  )
+  
+  if (success) {
+    const convertedMessages = messages.map((msg) => ({
+      ...msg,
+      id: msg.id.startsWith('forwarded_') ? msg.id : 'forwarded_' + msg.id,
+      sender: 'user' as const,
+      type: 'user' as const,
+    }))
+    
+    // 直接添加到老师消息存储并持久化
+    exerciseStore.teacherMessages.push(...convertedMessages)
+    await exerciseStore.saveTeacherChatHistory()
+  }
+  
+  return success
 }
 
 // 处理进入多选模式
@@ -1726,16 +1695,27 @@ const selectAllMessages = () => {
 }
 
 /**
- * 处理多选消息转发
- * 流程：1. 获取选中消息 2. 显示转发模式选择对话框 3. 根据选择执行转发
- * 作用：处理多条消息的转发操作，显示转发模式选择对话框
+ * 处理多选消息转发（仅在AI页面触发）
+ * 流程：1. 验证页面类型 2. 获取选中消息 3. 显示转发模式选择对话框
+ * 作用：处理AI对话中的多条消息转发操作，显示转发模式选择对话框
  */
 const forwardToTeacher = async (messageList?: ChatBubble[]) => {
+  // 确保只在AI页面触发
+  if (props.type !== 'ai') {
+    console.warn('[CHAT_DEBUG] ⚠️ forwardToTeacher只能在AI页面触发')
+    return
+  }
+
   // 流程1：获取要转发的消息列表
   const selectedMessageList = messageList || displayedMessages.value.filter((message) =>
     selectedMessages.value.has(message.id)
   )
   if (selectedMessageList.length === 0) return
+
+  console.log('[CHAT_DEBUG] 📤 开始处理多选消息转发:', {
+    messageCount: selectedMessageList.length,
+    isSelectionMode: isSelectionMode.value
+  })
 
   // 流程2：显示转发模式选择对话框
   if (isSelectionMode.value) {
@@ -1771,103 +1751,150 @@ const handleForwardModeConfirm = async (mode: 'merge' | 'separate', additionalMe
 }
 
 /**
- * 合并转发：创建聊天记录卡片
- * 流程：1. 检查当前会话类型 2. 创建聊天记录卡片 3. 发送到后端 4. 更新UI
+ * 合并转发：创建聊天记录卡片（仅在AI页面触发）
+ * 流程：1. 验证页面类型 2. 创建老师会话 3. 发送到后端 4. 切换页面
  * 作用：将多条消息合并为聊天记录卡片进行转发
  */
 const forwardAsChatRecord = async (messages: ChatBubble[], additionalMessage: string) => {
-  if (props.type === 'teacher' && teacherSession.value !== null) {
-    // 流程1-2：创建聊天记录卡片消息
-    const chatRecordMessage: ChatBubble = {
-      id: 'chat_record_' + Date.now(),
-      content: '', // 内容为空，由ChatRecordCard组件渲染
-      type: 'user',
-      timestamp: '',
-      sender: 'user',
-      messageType: 'chat_record',
-      chatRecordData: {
-        messages: messages,
-        additionalMessage: additionalMessage
+  // 确保只在AI页面触发
+  if (props.type !== 'ai') {
+    console.warn('[CHAT_DEBUG] ⚠️ forwardAsChatRecord只能在AI页面触发')
+    return
+  }
+
+  try {
+    console.log('[CHAT_DEBUG] 📤 开始合并转发聊天记录:', {
+      messageCount: messages.length,
+      additionalMessage: additionalMessage
+    })
+
+    // 确保老师会话已创建
+    if (!teacherSession.value) {
+      await initializeTeacherSession()
+    }
+
+    if (teacherSession.value) {
+      // 发送到后端
+      const selectedMessagesData = JSON.stringify(messages.map(convertMessageForForwarding))
+      
+      const success = await apiService.forwardAiChatToTeacher(
+        selectedMessagesData,
+        teacherSession.value.sessionId,
+      )
+      
+      if (success) {
+        console.log('[CHAT_DEBUG] ✅ 聊天记录转发成功，开始本地持久化')
+        // 转发成功后，将消息添加到老师消息存储并持久化
+        const convertedMessages = messages.map((msg) => ({
+          ...msg,
+          id: msg.id.startsWith('forwarded_') ? msg.id : 'forwarded_' + msg.id,
+          sender: 'user' as const,
+          type: 'user' as const,
+        }))
+        
+        // 直接添加到老师消息存储
+        exerciseStore.teacherMessages.push(...convertedMessages)
+        await exerciseStore.saveTeacherChatHistory()
+        
+        console.log('[CHAT_DEBUG] ✅ 聊天记录本地持久化完成，准备切换页面')
+        // 转发成功后切换页面
+        const forwardData = {
+          messages: messages,
+          currentQuestion: exerciseStore.currentQuestion,
+          additionalMessage: additionalMessage,
+          forwardMode: 'merge'
+        }
+        emit('switchToTeacher', forwardData)
+      } else {
+        androidBridge.showToast('转发失败，请重试')
       }
-    }
-    
-    // 流程3：发送到后端
-    const selectedMessagesData = JSON.stringify(messages.map(convertMessageForForwarding))
-    
-    const success = await apiService.forwardAiChatToTeacher(
-      selectedMessagesData,
-      teacherSession.value!.sessionId,
-    )
-    
-    if (success) {
-      // 流程4：更新UI
-      await addMessageToStore(chatRecordMessage)
-      androidBridge.showToast('聊天记录转发成功')
-      await scrollToBottom()
     } else {
-      androidBridge.showToast('转发失败，请重试')
+      console.error('[CHAT_DEBUG] ❌ 无法创建老师会话')
+      androidBridge.showToast('无法创建老师会话')
     }
-  } else {
-    // 流程2：切换到老师对话
-    // 传递当前题目信息，确保老师对话使用正确的题目
-    const forwardData = {
-      messages: messages,
-      currentQuestion: exerciseStore.currentQuestion
-    }
-    emit('switchToTeacher', forwardData)
+  } catch (error) {
+    console.error('[CHAT_DEBUG] ❌ 合并转发失败:', error)
+    androidBridge.showToast('转发失败')
   }
 }
 
 /**
- * 逐条转发：一条一条发送
- * 流程：1. 检查当前会话类型 2. 发送附加留言 3. 逐条转发消息 4. 更新UI
+ * 逐条转发：一条一条发送（仅在AI页面触发）
+ * 流程：1. 验证页面类型 2. 创建老师会话 3. 发送到后端 4. 切换页面
  * 作用：将多条消息逐条发送给老师
  */
 const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessage: string) => {
-  if (props.type === 'teacher' && teacherSession.value !== null) {
-    // 流程2：发送附加留言（如果有）
-    if (additionalMessage.trim()) {
-      const additionalMsg: ChatBubble = {
-        id: 'additional_' + Date.now(),
-        content: additionalMessage,
-        type: 'user',
-        timestamp: '',
-        sender: 'user',
-      }
-      await addMessageToStore(additionalMsg)
+  // 确保只在AI页面触发
+  if (props.type !== 'ai') {
+    console.warn('[CHAT_DEBUG] ⚠️ forwardAsSeparateMessages只能在AI页面触发')
+    return
+  }
+
+  try {
+    console.log('[CHAT_DEBUG] 📤 开始逐条转发消息:', {
+      messageCount: messages.length,
+      additionalMessage: additionalMessage
+    })
+
+    // 确保老师会话已创建
+    if (!teacherSession.value) {
+      await initializeTeacherSession()
     }
 
-    // 流程3：逐条转发消息
-    for (const message of messages) {
-      const selectedMessagesData = JSON.stringify([convertMessageForForwarding(message)])
+    if (teacherSession.value) {
+      // 逐条转发消息
+      let successCount = 0
+      for (const message of messages) {
+        const selectedMessagesData = JSON.stringify([convertMessageForForwarding(message)])
+        
+        const success = await apiService.forwardAiChatToTeacher(
+          selectedMessagesData,
+          teacherSession.value!.sessionId,
+        )
+        
+        if (success) {
+          successCount++
+        }
+      }
       
-      const success = await apiService.forwardAiChatToTeacher(
-        selectedMessagesData,
-        teacherSession.value!.sessionId,
-      )
-      
-      if (success) {
-        const forwardedMessage = {
-          ...message,
-          id: 'forwarded_' + message.id,
+      if (successCount > 0) {
+        console.log('[CHAT_DEBUG] ✅ 逐条转发完成，开始本地持久化:', {
+          successCount,
+          totalCount: messages.length
+        })
+        
+        // 转发成功后，将消息添加到老师消息存储并持久化
+        const convertedMessages = messages.map((msg) => ({
+          ...msg,
+          id: msg.id.startsWith('forwarded_') ? msg.id : 'forwarded_' + msg.id,
           sender: 'user' as const,
           type: 'user' as const,
+        }))
+        
+        // 直接添加到老师消息存储
+        exerciseStore.teacherMessages.push(...convertedMessages)
+        await exerciseStore.saveTeacherChatHistory()
+        
+        console.log('[CHAT_DEBUG] ✅ 逐条转发本地持久化完成，准备切换页面')
+        // 转发成功后切换页面
+        const forwardData = {
+          messages: messages,
+          currentQuestion: exerciseStore.currentQuestion,
+          additionalMessage: additionalMessage,
+          forwardMode: 'separate',
+          successCount: successCount
         }
-        await addMessageToStore(forwardedMessage)
+        emit('switchToTeacher', forwardData)
+      } else {
+        androidBridge.showToast('转发失败，请重试')
       }
+    } else {
+      console.error('[CHAT_DEBUG] ❌ 无法创建老师会话')
+      androidBridge.showToast('无法创建老师会话')
     }
-    
-    // 流程4：更新UI
-    androidBridge.showToast(`已逐条转发 ${messages.length} 条消息`)
-    await scrollToBottom()
-  } else {
-    // 流程2：切换到老师对话
-    // 传递当前题目信息，确保老师对话使用正确的题目
-    const forwardData = {
-      messages: messages,
-      currentQuestion: exerciseStore.currentQuestion
-    }
-    emit('switchToTeacher', forwardData)
+  } catch (error) {
+    console.error('[CHAT_DEBUG] ❌ 逐条转发失败:', error)
+    androidBridge.showToast('转发失败')
   }
 }
 
@@ -2065,8 +2092,6 @@ watch(
           // 执行正常的切换逻辑
           executeQuestionSwitch(newQuestion, oldQuestion)
         }
-        // 显示确认对话框
-        editModeConfirmDialogRef.value?.showDialog()
         return
       }
       
@@ -2096,8 +2121,6 @@ watch(
         // 执行正常的切换逻辑
         executeSubjectSwitch(newSubject)
       }
-      // 显示确认对话框
-      editModeConfirmDialogRef.value?.showDialog()
       return
     }
 
@@ -2149,40 +2172,6 @@ const executeSubjectSwitch = (newSubject: string) => {
   }
 }
 
-// 处理编辑模式确认对话框确认
-// 作用：处理用户确认编辑模式切换，执行待执行的切换操作
-const handleEditModeConfirm = () => {
-  console.log('✅ [编辑模式确认] 用户确认切换')
-  if (pendingSwitchAction.value) {
-    pendingSwitchAction.value()
-    pendingSwitchAction.value = null
-  }
-}
-
-// 处理编辑模式确认对话框取消
-// 作用：处理用户取消编辑模式切换，切换回正在编辑的题目
-const handleEditModeCancel = () => {
-  console.log('❌ [编辑模式确认] 用户取消切换')
-  // 清理状态
-  pendingSwitchAction.value = null
-  
-  // 如果正在编辑题目，切换回正在编辑的题目
-  if (editingQuestionId.value) {
-    console.log('🔄 [编辑模式确认] 切换回正在编辑的题目', editingQuestionId.value)
-    // 找到正在编辑的题目索引
-    const editingQuestionIndex = exerciseStore.questions.findIndex(q => q.id === editingQuestionId.value)
-    if (editingQuestionIndex >= 0) {
-      // 触发题目列表滚动到正在编辑的题目并设置为选中状态
-      console.log('📍 [编辑模式确认] 触发题目列表滚动到正在编辑的题目并设置为选中状态', editingQuestionIndex)
-      emit('scrollToQuestionAndSelect', editingQuestionIndex)
-      
-      // 滚动到底部
-      nextTick(() => {
-        scrollToBottom()
-      })
-    }
-  }
-}
 </script>
 
 <style scoped>

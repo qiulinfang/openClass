@@ -161,7 +161,7 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed } from 'vue'
 import { useQuasar } from 'quasar'
-import { showMessage, ThrottleUtils } from '../utils'
+import { showMessage, ThrottleUtils, throttle } from '../utils'
 import { useExerciseStore } from '../stores/exerciseStore'
 import type { ExerciseItem } from '../types'
 import { MathJaxUtils } from '../utils/mathjax'
@@ -240,9 +240,9 @@ const handleQuestionSelected = async (question: ExerciseItem, index: number) => 
 }
 
 // 处理AI指导事件（来自虚拟滚动组件）
-const handleStartAiGuidance = (question: ExerciseItem) => {
+const handleStartAiGuidance = throttle((question: ExerciseItem) => {
   sendToAi(question)
-}
+}, 3000) // 3秒节流，防止频繁发送给AI
 
 // 创建节流版本的方法
 const throttledStartPhotoSearch = ThrottleUtils.verySlow(() => {

@@ -94,7 +94,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
-import { showMessage, ThrottleUtils } from '../utils'
+import { showMessage, ThrottleUtils, throttle } from '../utils'
 import type { ExerciseItem } from '../types'
 import { MathJaxUtils } from '../utils/mathjax'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
@@ -192,9 +192,9 @@ const throttledHandleCardClick = ThrottleUtils.fast(async (question: ExerciseIte
   await selectQuestion(index)
 })
 
-const throttledSendToAi = ThrottleUtils.standard((question: ExerciseItem) => {
+const throttledSendToAi = throttle((question: ExerciseItem) => {
   sendToAi(question)
-})
+}, 3000) // 3秒节流，防止频繁发送给AI
 
 const throttledDeleteQuestion = ThrottleUtils.slow((questionId: string) => {
   deleteQuestion(questionId)
