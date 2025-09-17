@@ -49,7 +49,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { androidBridge } from '../../services/android-bridge'
-import { uriToBase64DataUrl } from '../../utils/imageUtils'
+import { uriToBase64DataUrl } from '../../utils/common/imageUtils'
 import type { ImageData } from '../../types'
 
 interface Props {

@@ -4,7 +4,7 @@
  */
 
 import type { ApiResponse, RequestConfig } from '../types'
-import { createTimeoutController } from '../utils/polyfills'
+import { createTimeoutController } from '../utils/common/polyfills'
 
 export class HttpClient {
   private baseURL: string

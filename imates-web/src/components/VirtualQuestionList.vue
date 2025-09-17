@@ -96,7 +96,7 @@ import { ref, computed, onUnmounted, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
 import { showMessage, ThrottleUtils, throttle } from '../utils'
 import type { ExerciseItem } from '../types'
-import { MathJaxUtils } from '../utils/mathjax'
+import { MathJaxUtils } from '../utils/math/mathjax'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { apiService } from '../services/api-service'
 const $q = useQuasar()

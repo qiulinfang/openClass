@@ -7,8 +7,8 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { Quasar } from 'quasar'
 import router from './router'
-import { initPolyfills } from './utils/polyfills'
-import { initializeAppConfig } from './utils/config-utils'
+import { initPolyfills } from './utils/common/polyfills'
+import { initializeAppConfig } from './utils/config/config-utils'
 
 // 导入 Quasar 样式
 import 'quasar/src/css/index.sass'

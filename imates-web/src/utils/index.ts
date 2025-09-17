@@ -4,15 +4,15 @@
  */
 
 // 消息提示工具
-export { MessageUtils, showMessage, message } from './message'
-export { GeminiNotify, geminiNotify } from './gemini-notify'
+export { MessageUtils, showMessage, message } from './notification/message'
+export { GeminiNotify, geminiNotify } from './notification/gemini-notify'
 
 
 // MathJax 工具
-export { MathJaxUtils } from './mathjax'
+export { MathJaxUtils } from './math/mathjax'
 
 // 节流和防抖工具
-export { throttle, debounce, ThrottleUtils, DebounceUtils } from './throttle'
+export { throttle, debounce, ThrottleUtils, DebounceUtils } from './common/throttle'
 
 // 类型定义
 export type { ExerciseItem, SimilarExercise } from '../types'

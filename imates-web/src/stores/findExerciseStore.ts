@@ -64,7 +64,7 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
    */
   const initializeStore = async (newConfig: FindExerciseConfig) => {
     // 初始化应用配置（包括设置基础URL）
-    const { initializeAppConfig } = await import('../utils/config-utils')
+    const { initializeAppConfig } = await import('../utils/config/config-utils')
     await initializeAppConfig(newConfig)
     
     config.value = newConfig

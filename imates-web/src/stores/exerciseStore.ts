@@ -98,7 +98,7 @@ export const useExerciseStore = defineStore('exercise', () => {
    * 初始化Store状态
    */
   const initializeStore = async (initData: unknown) => {
-    const { getUserInfo, initializeAppConfig } = await import('../utils/config-utils')
+    const { getUserInfo, initializeAppConfig } = await import('../utils/config/config-utils')
     
     // 初始化应用配置（包括设置基础URL）
     await initializeAppConfig(initData)

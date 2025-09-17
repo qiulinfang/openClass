@@ -1,4 +1,4 @@
-import type { ExerciseItem } from '../types'
+import type { ExerciseItem } from '../../types'
 
 /**
  * 生成数学题目假数据

@@ -19,7 +19,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { streamingManager } from '../../config/streaming'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
-import { MathJaxUtils } from '../../utils/mathjax'
+import { MathJaxUtils } from '../../utils/math/mathjax'
 
 interface Props {
   content: string

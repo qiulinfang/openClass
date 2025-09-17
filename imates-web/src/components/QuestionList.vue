@@ -164,13 +164,13 @@ import { useQuasar } from 'quasar'
 import { showMessage, ThrottleUtils, throttle } from '../utils'
 import { useExerciseStore } from '../stores/exerciseStore'
 import type { ExerciseItem } from '../types'
-import { MathJaxUtils } from '../utils/mathjax'
+import { MathJaxUtils } from '../utils/math/mathjax'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { apiService } from '../services/api-service'
 import { androidBridge } from '../services/android-bridge'
 import VirtualQuestionList from './VirtualQuestionList.vue'
 import ChatTestPanel from './ChatTestPanel.vue'
-import { generateMathQuestions, generateBiologyQuestions, generateSpecialCharacterQuestions } from '../utils/mockDataGenerator'
+import { generateMathQuestions, generateBiologyQuestions, generateSpecialCharacterQuestions } from '../utils/dev/mockDataGenerator'
 
 const $q = useQuasar()
 const emit = defineEmits<{

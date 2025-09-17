@@ -816,31 +816,46 @@ const cleanupAllMathLiveInstances = () => {
 }
 
 
+// 防抖定时器
+let insertFormulaDebounceTimer: number | null = null
+
 // 插入数学公式处理
 const handleInsertMathFormula = async () => {
   console.log('🔢 [插入公式] 触发插入数学公式')
   
-  // 检查 TiptapEditor 组件是否已经正确初始化
-  if (!tiptapEditorRef.value) {
-    console.error('❌ [插入公式] TiptapEditor 组件未初始化')
-    return
+  // 防抖保护：清除之前的定时器
+  if (insertFormulaDebounceTimer) {
+    console.log('⚠️ [插入公式] 检测到重复点击，取消之前的操作')
+    clearTimeout(insertFormulaDebounceTimer)
   }
   
-  // 检查 insertMathFormula 方法是否存在
-  if (typeof tiptapEditorRef.value.insertMathFormula !== 'function') {
-    console.error('❌ [插入公式] insertMathFormula 方法不存在', tiptapEditorRef.value)
-    return
-  }
-  
-  try {
-    await tiptapEditorRef.value.insertMathFormula()
+  // 设置新的防抖定时器
+  insertFormulaDebounceTimer = setTimeout(async () => {
+    // 检查 TiptapEditor 组件是否已经正确初始化
+    if (!tiptapEditorRef.value) {
+      console.error('❌ [插入公式] TiptapEditor 组件未初始化')
+      return
+    }
     
-    // 插入公式后触发滚动到底部事件
-    console.log('📜 [插入公式] 触发滚动到底部事件')
-    emit('scroll-to-bottom')
-  } catch (error) {
-    console.error('❌ [插入公式] 插入公式失败:', error)
-  }
+    // 检查 insertMathFormula 方法是否存在
+    if (typeof tiptapEditorRef.value.insertMathFormula !== 'function') {
+      console.error('❌ [插入公式] insertMathFormula 方法不存在', tiptapEditorRef.value)
+      return
+    }
+    
+    try {
+      await tiptapEditorRef.value.insertMathFormula()
+      
+      // 插入公式后触发滚动到底部事件
+      console.log('📜 [插入公式] 触发滚动到底部事件')
+      emit('scroll-to-bottom')
+    } catch (error) {
+      console.error('❌ [插入公式] 插入公式失败:', error)
+    }
+    
+    // 清除定时器引用
+    insertFormulaDebounceTimer = null
+  }, 300) // 300ms防抖延迟
 }
 
 // 发送消息处理

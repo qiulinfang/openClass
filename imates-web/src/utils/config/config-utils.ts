@@ -3,9 +3,9 @@
  * 简单的配置初始化和管理
  */
 
-import { httpClient } from '../services/http-client'
-import { androidBridge } from '../services/android-bridge'
-import { setBaseUrl } from '../services/api-endpoints'
+import { httpClient } from '../../services/http-client'
+import { androidBridge } from '../../services/android-bridge'
+import { setBaseUrl } from '../../services/api-endpoints'
 
 /**
  * 初始化应用配置

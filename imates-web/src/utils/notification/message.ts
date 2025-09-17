@@ -1,4 +1,4 @@
-import { androidBridge } from '../services/android-bridge'
+import { androidBridge } from '../../services/android-bridge'
 
 /**
  * 消息提示工具类

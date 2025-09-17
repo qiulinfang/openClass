@@ -209,9 +209,9 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, onUnmounted, type ComponentPublicInstance, type Ref } from 'vue'
-import { MathJaxUtils } from '../../utils/mathjax'
+import { MathJaxUtils } from '../../utils/math/mathjax'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
-import { useLazyMessageRender } from '../../utils/lazy-message-renderer'
+import { useLazyMessageRender } from '../../utils/render/lazy-message-renderer'
 import { useExerciseStore } from '../../stores/exerciseStore'
 import VoiceMessage from './VoiceMessage.vue'
 import ImageMessage from './ImageMessage.vue'

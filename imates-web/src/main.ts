@@ -1,14 +1,15 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import quasarUserOptions from './quasar'
-import { initPolyfills } from './utils/polyfills'
-import { initializeAppConfig } from './utils/config-utils'
+import { initPolyfills } from './utils/common/polyfills'
+import { initializeAppConfig } from './utils/config/config-utils'
 import './styles/keyboard.css'
 import './styles/native-app.css'
 import './styles/mathlive-custom.css'
 import './styles/gemini-notify.css'
 
 import App from './App.vue'
+import router from './router'
 
 // 初始化 WebView 兼容性 polyfills
 initPolyfills()
@@ -17,6 +18,7 @@ initializeAppConfig()
 const app = createApp(App)
 
 app.use(createPinia())
+app.use(router)
 quasarUserOptions(app)
 
 // 处理 MathLive 虚拟键盘切换事件
