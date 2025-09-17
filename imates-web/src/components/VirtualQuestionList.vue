@@ -107,11 +107,11 @@ const emit = defineEmits<{
 }>()
 
 // Props
-interface Props {
-  questions: ExerciseItem[]
-  selectedQuestionIndex: number
-  searchQuery?: string
-}
+// 导入类型定义
+import type { VirtualQuestionListProps } from '../types'
+
+// 定义Props
+interface Props extends VirtualQuestionListProps {}
 
 const props = withDefaults(defineProps<Props>(), {
   searchQuery: ''

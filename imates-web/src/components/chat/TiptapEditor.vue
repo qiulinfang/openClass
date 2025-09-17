@@ -42,13 +42,11 @@ import Image from '@tiptap/extension-image'
 import { FormulaService } from '../../services/FormulaService'
 import { FORMULA_EVENTS } from '../../utils/math/FormulaEventManager'
 
+// 导入类型定义
+import type { TiptapEditorProps } from '../../types'
+
 // 定义Props
-interface Props {
-  modelValue?: string
-  placeholder?: string
-  editable?: boolean
-  showDebugControls?: boolean
-}
+interface Props extends TiptapEditorProps {}
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: '',

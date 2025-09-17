@@ -54,10 +54,11 @@
 import { ref, computed } from 'vue'
 import type { ChatBubble } from '../../types'
 
-interface Props {
-  messages: ChatBubble[]
-  additionalMessage?: string
-}
+// 导入类型定义
+import type { ChatRecordCardProps } from '../../types'
+
+// 定义Props
+interface Props extends ChatRecordCardProps {}
 
 const props = defineProps<Props>()
 

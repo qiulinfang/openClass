@@ -2,8 +2,10 @@
  * 公式节点构建器 - 负责创建和配置公式节点
  */
 
-import { Node } from '@tiptap/core'
+import { Node, Editor } from '@tiptap/core'
 import { mergeAttributes } from '@tiptap/core'
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
+import type { FormulaNodeAttrs, FormulaNode, MathField } from '../../types'
 import { FormulaManager } from './FormulaManager'
 import { FormulaEventManager, FORMULA_EVENTS } from './FormulaEventManager'
 import { MathLiveLoader } from './MathLiveLoader'
@@ -106,14 +108,14 @@ export class FormulaNodeBuilder {
 
       addNodeView() {
         return ({ node, getPos, editor }) => {
-          return builder.buildNodeView(node, getPos, editor)
+          return builder.buildNodeView(node as FormulaNode, getPos, editor)
         }
       },
     })
   }
 
   // 构建节点视图
-  private buildNodeView(node: unknown, getPos: () => number | undefined, editor: unknown) {
+  private buildNodeView(node: FormulaNode, getPos: () => number | undefined, editor: Editor) {
     console.log('🔧 [FORMULA-NODE-BUILDER] 构建节点视图')
     
     // 1. 创建容器元素
@@ -125,13 +127,13 @@ export class FormulaNodeBuilder {
     // 3. 返回NodeView接口
     return {
       dom: container,
-      update: (updatedNode: any) => this.updateNode(updatedNode, container, getPos, editor),
+      update: (updatedNode: ProseMirrorNode) => this.updateNode(updatedNode, container),
       destroy: () => this.destroyNode(container),
     }
   }
 
   // 创建容器元素
-  private createContainer(node: any): HTMLElement {
+  private createContainer(node: FormulaNode): HTMLElement {
     console.log('🔧 [FORMULA-NODE-BUILDER] 创建容器元素')
     
     const container = document.createElement('span')
@@ -153,9 +155,9 @@ export class FormulaNodeBuilder {
   // 异步初始化MathLive
   private async initializeMathLive(
     container: HTMLElement, 
-    node: any, 
+    node: FormulaNode, 
     getPos: () => number | undefined, 
-    editor: any
+    editor: Editor
   ): Promise<void> {
     console.log('🔧 [FORMULA-NODE-BUILDER] 开始异步初始化MathLive')
     
@@ -167,7 +169,7 @@ export class FormulaNodeBuilder {
       const MathfieldElement = await this.mathLiveLoader.loadMathLive()
       
       // 2. 创建MathField实例
-      const mathField = new (MathfieldElement as any)()
+      const mathField = new (MathfieldElement as unknown as new () => MathField)()
       
       // 3. 配置MathField
       this.configureMathField(mathField, isNew)
@@ -176,7 +178,7 @@ export class FormulaNodeBuilder {
       this.setupMathFieldListeners(mathField, container, getPos, editor)
       
       // 5. 添加到容器
-      container.appendChild(mathField)
+      container.appendChild(mathField as unknown as HTMLElement)
       
       // 6. 更新公式管理器中的节点信息
       this.updateFormulaManagerNode(nodeId, mathField, container)
@@ -211,7 +213,7 @@ export class FormulaNodeBuilder {
   }
 
   // 配置MathField
-  private configureMathField(mathField: any, isInitiallyActive: boolean): void {
+  private configureMathField(mathField: MathField, isInitiallyActive: boolean): void {
     console.log('🔧 [FORMULA-NODE-BUILDER] 配置MathField')
     
     mathField.setOptions({
@@ -238,18 +240,19 @@ export class FormulaNodeBuilder {
 
   // 设置MathField事件监听器
   private setupMathFieldListeners(
-    mathField: any, 
+    mathField: MathField, 
     container: HTMLElement, 
     getPos: () => number | undefined, 
-    editor: any
+    editor: Editor
   ): void {
     console.log('🔧 [FORMULA-NODE-BUILDER] 设置MathField事件监听器')
     
     const nodeId = container.getAttribute('data-node-id')!
     
     // 输入事件
-    mathField.addEventListener('input', (event: any) => {
-      const value = event.target.value || ''
+    mathField.addEventListener('input', (event: Event) => {
+      const target = event.target as unknown as MathField
+      const value = target.value || target.getValue() || ''
       console.log('🧮 [FORMULA-INPUT] 公式内容变化', { nodeId, value })
       
       // 更新公式管理器中的内容
@@ -288,11 +291,12 @@ export class FormulaNodeBuilder {
     })
     
     // 键盘事件
-    mathField.addEventListener('keydown', (event: KeyboardEvent) => {
-      console.log('⌨️ [FORMULA-KEYDOWN] 键盘事件', { nodeId, key: event.key })
+    mathField.addEventListener('keydown', (event: Event) => {
+      const keyboardEvent = event as KeyboardEvent
+      console.log('⌨️ [FORMULA-KEYDOWN] 键盘事件', { nodeId, key: keyboardEvent.key })
       
-      if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault()
+      if (keyboardEvent.key === 'Enter' && !keyboardEvent.shiftKey) {
+        keyboardEvent.preventDefault()
         console.log('📤 [FORMULA-ENTER] 回车键完成编辑', { nodeId })
         
         // 失活公式节点
@@ -301,8 +305,8 @@ export class FormulaNodeBuilder {
         // 发出回车事件
         this.eventManager.emit(FORMULA_EVENTS.ENTER, { nodeId, mathField })
         
-      } else if (event.key === 'Escape') {
-        event.preventDefault()
+      } else if (keyboardEvent.key === 'Escape') {
+        keyboardEvent.preventDefault()
         console.log('🚫 [FORMULA-ESCAPE] ESC键取消编辑', { nodeId })
         
         // 失活公式节点
@@ -316,10 +320,10 @@ export class FormulaNodeBuilder {
 
   // 处理新节点聚焦
   private async handleNewNodeFocus(
-    mathField: any, 
+    mathField: MathField, 
     nodeId: string, 
     getPos: () => number | undefined, 
-    editor: any
+    editor: Editor
   ): Promise<void> {
     console.log('🔧 [FORMULA-NODE-BUILDER] 处理新节点聚焦', { nodeId })
     
@@ -328,7 +332,7 @@ export class FormulaNodeBuilder {
       await this.formulaManager.activateFormula(nodeId)
       
       // 智能聚焦
-      await this.focusManager.focusFormula(mathField, nodeId, {
+      await this.focusManager.focusFormula(nodeId, mathField, {
         scrollIntoView: true,
         showKeyboard: true,
         delay: 100,
@@ -350,7 +354,7 @@ export class FormulaNodeBuilder {
   }
 
   // 更新公式管理器中的节点信息
-  private updateFormulaManagerNode(nodeId: string, mathField: any, container: HTMLElement): void {
+  private updateFormulaManagerNode(nodeId: string, mathField: MathField, container: HTMLElement): void {
     console.log('🔧 [FORMULA-NODE-BUILDER] 更新公式管理器节点信息', { nodeId })
     
     const node = this.formulaManager.getNode(nodeId)
@@ -361,7 +365,7 @@ export class FormulaNodeBuilder {
   }
 
   // 更新编辑器节点
-  private updateEditorNode(getPos: () => number | undefined, editor: any, value: string): void {
+  private updateEditorNode(getPos: () => number | undefined, editor: Editor, value: string): void {
     if (typeof getPos === 'function' && getPos() !== undefined) {
       const pos = getPos()
       if (pos !== undefined) {
@@ -374,7 +378,7 @@ export class FormulaNodeBuilder {
   }
 
   // 更新节点
-  private updateNode(updatedNode: any, container: HTMLElement, _getPos: () => number | undefined, _editor: any): boolean { 
+  private updateNode(updatedNode: ProseMirrorNode, container: HTMLElement): boolean { 
     console.log('🔧 [FORMULA-NODE-BUILDER] 更新节点')
     
     const nodeId = container.getAttribute('data-node-id')
@@ -388,8 +392,9 @@ export class FormulaNodeBuilder {
       return false
     }
     
-    const newFormula = updatedNode.attrs.formula
-    const mathField = container.querySelector('math-field') as any; // 假设 math-field 是存在的
+    const formulaNode = updatedNode as FormulaNode
+    const newFormula = formulaNode.attrs.formula
+    const mathField = container.querySelector('math-field') as unknown as MathField; // 假设 math-field 是存在的
     
     if (mathField && mathField.getValue() !== newFormula) {
       console.log(`🔄 [FORMULA-NODE-BUILDER] 更新公式内容: ${newFormula}`)

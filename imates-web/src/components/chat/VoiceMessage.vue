@@ -39,11 +39,11 @@
 import { ref, onUnmounted } from 'vue'
 import { androidBridge } from '../../services/android-bridge'
 
-interface Props {
-  filePath: string
-  duration: number
-  isUser?: boolean
-}
+// 导入类型定义
+import type { VoiceMessageProps } from '../../types'
+
+// 定义Props
+interface Props extends VoiceMessageProps {}
 
 const props = withDefaults(defineProps<Props>(), {
   isUser: false

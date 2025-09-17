@@ -21,11 +21,11 @@ import { streamingManager } from '../../config/streaming'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import { MathJaxUtils } from '../../utils/math/mathjax'
 
-interface Props {
-  content: string
-  isStreaming?: boolean
-  typewriterSpeed?: number // 打字机速度（毫秒）
-}
+// 导入类型定义
+import type { StreamingMessageProps } from '../../types'
+
+// 定义Props
+interface Props extends StreamingMessageProps {}
 
 const props = withDefaults(defineProps<Props>(), {
   isStreaming: false,

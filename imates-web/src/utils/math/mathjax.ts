@@ -1,4 +1,6 @@
 // MathJax 工具类 - 性能优化版本
+import type { RenderTask } from '../../types'
+
 declare global {
   interface Window {
     MathJax: {
@@ -9,12 +11,6 @@ declare global {
       typesetClear?: (elements: HTMLElement[]) => void;
     };
   }
-}
-
-interface RenderTask {
-  element: HTMLElement;
-  priority: number;
-  timestamp: number;
 }
 
 export class MathJaxUtils {

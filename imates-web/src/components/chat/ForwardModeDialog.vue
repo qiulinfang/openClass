@@ -122,10 +122,11 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 
-interface Props {
-  modelValue: boolean
-  messageCount: number
-}
+// 导入类型定义
+import type { ForwardModeDialogProps } from '../../types'
+
+// 定义Props
+interface Props extends ForwardModeDialogProps {}
 
 const props = defineProps<Props>()
 

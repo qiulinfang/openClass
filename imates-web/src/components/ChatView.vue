@@ -150,10 +150,11 @@ import ImagePicker from './chat/ImagePicker.vue'
 import type { ChatMessageSession } from '../types'
 import { SessionType } from '../types'
 
-interface Props {
-  type: 'ai' | 'teacher'
-  currentQuestionId?: string
-}
+// 导入类型定义
+import type { ChatViewProps } from '../types'
+
+// 定义Props
+interface Props extends ChatViewProps {}
 
 const props = defineProps<Props>()
 const emit = defineEmits<{

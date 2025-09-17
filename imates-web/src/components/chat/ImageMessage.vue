@@ -74,16 +74,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 
-interface Props {
-  filePath: string
-  width?: number
-  height?: number
-  fileSize?: number
-  isUser?: boolean
-  maxWidth?: number
-  maxHeight?: number
-  showInfo?: boolean
-}
+// 导入类型定义
+import type { ImageMessageProps } from '../../types'
+
+// 定义Props
+interface Props extends ImageMessageProps {}
 
 const props = withDefaults(defineProps<Props>(), {
   width: 0,

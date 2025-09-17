@@ -27,10 +27,11 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from 'vue'
 
-interface Props {
-  isRecording: boolean
-  showCancelHint?: boolean
-}
+// 导入类型定义
+import type { VoiceRecorderProps } from '../../types'
+
+// 定义Props
+interface Props extends VoiceRecorderProps {}
 
 const props = withDefaults(defineProps<Props>(), {
   showCancelHint: false

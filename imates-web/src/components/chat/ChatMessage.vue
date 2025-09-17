@@ -219,13 +219,11 @@ import StreamingMessage from './StreamingMessage.vue'
 import ChatRecordCard from './ChatRecordCard.vue'
 import type  { ChatBubble } from '../../types'
 
-interface Props {
-  message: ChatBubble
-  type: 'ai' | 'teacher'
-  isSelected?: boolean
-  isSelectionMode?: boolean
-  messageIndex?: number
-}
+// 导入类型定义
+import type { ChatMessageProps } from '../../types'
+
+// 定义Props
+interface Props extends ChatMessageProps {}
 
 const props = withDefaults(defineProps<Props>(), {
   isSelected: false,

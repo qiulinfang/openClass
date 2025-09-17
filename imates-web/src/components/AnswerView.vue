@@ -39,10 +39,11 @@
 import { computed } from 'vue'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 
-interface Props {
-  answer: string
-  analysis: string
-}
+// 导入类型定义
+import type { AnswerViewProps } from '../types'
+
+// 定义Props
+interface Props extends AnswerViewProps {}
 
 const props = withDefaults(defineProps<Props>(), {
   answer: '',

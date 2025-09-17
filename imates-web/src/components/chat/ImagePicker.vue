@@ -52,9 +52,11 @@ import { androidBridge } from '../../services/android-bridge'
 import { uriToBase64DataUrl } from '../../utils/common/imageUtils'
 import type { ImageData } from '../../types'
 
-interface Props {
-  modelValue: boolean
-}
+// 导入类型定义
+import type { ImagePickerProps } from '../../types'
+
+// 定义Props
+interface Props extends ImagePickerProps {}
 
 const props = defineProps<Props>()
 
