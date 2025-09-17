@@ -492,16 +492,13 @@ public class KnowledgeGraphActivity extends BaseActivity {
                     .setDateFormat("yyyy-MM-dd HH:mm:ss")
                     .create();
             if(!mLearnPackages.isEmpty()) {
-                LocalPackageInfo info = null;
+                List<LocalPackageInfo> packages = new ArrayList<>();
                 for (LocalPackageInfo pkg : mLearnPackages) {
                     if(pkg.sectionId != null && pkg.sectionId.toLowerCase().equals(sectionId.toLowerCase())) {
-                        info = pkg;
-                        break;
+                        packages.add(pkg);
                     }
                 }
-                if(info != null) {
-                    List<LocalPackageInfo> packages = new ArrayList<>();
-                    packages.add(info);
+                if(!packages.isEmpty()) {
                     previewLessonActivity.putExtra(LessonPreviewActivity.KEY_LEARN_PACKAGE, gson.toJson(packages));
                     startActivity(previewLessonActivity);
                 } else {
