@@ -113,15 +113,6 @@ const initializeEditor = () => {
       console.log('📝 [TIPTAP-EDITOR] 编辑器内容更新', { content })
       emit('update:modelValue', content)
     },
-    onSelectionUpdate: () => {
-      console.log('🎯 [TIPTAP-EDITOR] 选择更新')
-    },
-    onFocus: () => {
-      console.log('🎯 [TIPTAP-EDITOR] 编辑器获得焦点')
-    },
-    onBlur: () => {
-      console.log('🎯 [TIPTAP-EDITOR] 编辑器失去焦点')
-    },
   })
 
   console.log('✅ [TIPTAP-EDITOR] 编辑器初始化完成')

@@ -97,15 +97,28 @@ export class SmartFocusManager {
     console.log('🎯 [FOCUS-MANAGER] 失焦公式节点', { nodeId })
     
     try {
-      // 1. 隐藏虚拟键盘
-      await this.hideVirtualKeyboard(mathField, nodeId)
-
-      // 2. 失焦MathField
-      if (mathField && typeof mathField.blur === 'function') {
-        mathField.blur()
+      // 1. 设置MathField为只读状态，防止光标闪烁
+      if (mathField && typeof (mathField as any).setOptions === 'function') {
+        try {
+          (mathField as any).setOptions({
+            readOnly: true,
+            selectionMode: 'none'
+          })
+          console.log('✅ [FOCUS-MANAGER] MathField已设置为只读状态', { nodeId })
+        } catch (error) {
+          console.error('❌ [FOCUS-MANAGER] 设置只读状态失败', { nodeId, error })
+        }
       }
 
-      // 3. 发出失焦事件
+      // 2. 隐藏虚拟键盘
+      await this.hideVirtualKeyboard(mathField, nodeId)
+
+      // 3. 失焦MathField
+      if (mathField && typeof (mathField as any).blur === 'function') {
+        (mathField as any).blur()
+      }
+
+      // 4. 发出失焦事件
       this.eventManager.emit(FORMULA_EVENTS.BLUR, { nodeId, mathField })
 
       console.log('✅ [FOCUS-MANAGER] 公式节点失焦完成', { nodeId })
@@ -139,14 +152,27 @@ export class SmartFocusManager {
       throw new Error('MathField实例不存在')
     }
 
+    // 设置MathField为可编辑状态
+    if (typeof (mathField as any).setOptions === 'function') {
+      try {
+        (mathField as any).setOptions({
+          readOnly: false,
+          selectionMode: 'none'
+        })
+        console.log('✅ [FOCUS-MANAGER] MathField已设置为可编辑状态', { nodeId })
+      } catch (error) {
+        console.error('❌ [FOCUS-MANAGER] 设置可编辑状态失败', { nodeId, error })
+      }
+    }
+
     // 聚焦MathField
-    if (typeof mathField.focus === 'function') {
-      mathField.focus()
+    if (typeof (mathField as any).focus === 'function') {
+      (mathField as any).focus()
     }
 
     // 执行滚动到视图命令
-    if (typeof mathField.executeCommand === 'function') {
-      mathField.executeCommand('scrollIntoView')
+    if (typeof (mathField as any).executeCommand === 'function') {
+      (mathField as any).executeCommand('scrollIntoView')
     }
   }
 

@@ -214,6 +214,11 @@ export class FormulaService {
     this.eventManager.off(event, handler)
   }
 
+  // 获取FormulaManager实例（用于调试）
+  getFormulaManager(): FormulaManager {
+    return this.formulaManager
+  }
+
   // 重置服务状态
   reset(): void {
     console.log('🔄 [FORMULA-SERVICE] 重置服务状态')

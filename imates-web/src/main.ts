@@ -21,27 +21,6 @@ app.use(createPinia())
 app.use(router)
 quasarUserOptions(app)
 
-// 处理 MathLive 虚拟键盘切换事件
-window.addEventListener('mathlive-virtual-keyboard-toggle', (ev) => {
-  const keyboardContainer = document.querySelector('.ML__keyboard-container');
-  if (!keyboardContainer) return;
-
-  const { visible, height } = (ev as CustomEvent).detail;
-  
-  // 只管理键盘容器的显示状态，不修改页面布局
-  if (visible) {
-    keyboardContainer.classList.add('is-visible');
-  } else {
-    keyboardContainer.classList.remove('is-visible');
-  }
-
-  // 派发自定义事件，通知 ChatView 键盘状态变化
-  // ChatView 会通过调整自身高度来适应键盘，而不是通过 padding-bottom
-  const keyboardEvent = new CustomEvent('custom-keyboard-toggle', {
-    detail: { visible, height }
-  });
-  window.dispatchEvent(keyboardEvent);
-});
 
 // 设置全局Android回调函数
 declare global {

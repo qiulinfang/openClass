@@ -203,7 +203,6 @@ const handleScrollToQuestionAndSelect = (targetIndex: number) => {
 
 // 滚动到页面底部的方法
 const scrollToBottom = () => {
-  console.log('📜 [ExerciseSolveView] 滚动到页面底部')
   
   // 使用 nextTick 确保 DOM 更新完成
   nextTick(() => {
@@ -219,8 +218,6 @@ const scrollToBottom = () => {
     }
     
     const scrollHeight = getScrollHeight()
-    console.log('📜 [ExerciseSolveView] 页面高度:', scrollHeight)
-    console.log('📜 [ExerciseSolveView] 当前滚动位置:', window.pageYOffset)
     
     // 方法1: 使用 window.scrollTo 滚动到页面底部
     window.scrollTo({
@@ -233,9 +230,6 @@ const scrollToBottom = () => {
       const viewportHeight = window.innerHeight
       const currentScroll = window.pageYOffset
       const targetScroll = currentScroll + viewportHeight
-      
-      console.log('📜 [ExerciseSolveView] 视口高度:', viewportHeight)
-      console.log('📜 [ExerciseSolveView] 目标滚动位置:', targetScroll)
       
       window.scrollTo({
         top: targetScroll,
@@ -252,7 +246,6 @@ const scrollToBottom = () => {
         document.body.offsetHeight
       )
       
-      console.log('📜 [ExerciseSolveView] 强制滚动到最大高度:', maxHeight)
       window.scrollTo(0, maxHeight)
     }, 300)
   })

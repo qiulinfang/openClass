@@ -158,7 +158,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, nextTick, watch, getCurrentInstance } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import TiptapEditor from './TiptapEditor.vue'
 import type { 
@@ -167,8 +167,6 @@ import type {
   ChatInputEmits 
 } from '../../types'
 
-// 动态导入MathLive（向后兼容）
-let MathfieldElement: any = null
 
 const props = defineProps<ChatInputProps>()
 
@@ -188,18 +186,15 @@ const contentCanvasRef = ref<HTMLElement>()
 const contentBlocks = ref<ContentBlock[]>([])
 const currentEditingFormula = ref<ContentBlock | null>(null)
 const formulaRefs = ref<Map<string, HTMLElement>>(new Map())
-const mathfields = ref<Map<string, any>>(new Map())
+const mathfields = ref<Map<string, unknown>>(new Map())
 const selectedBlockIndex = ref<number>(-1)
 const isKeyboardTransitioning = ref(false)
-const isInsertingFormula = ref(false)
 const isPlaceholderClicked = ref(false)
 const isReadyForTextInput = ref(false)
 
 // 消息渲染器
 const { renderMessageContent } = useMessageRenderer()
 
-// 获取当前组件实例
-const instance = getCurrentInstance()
 
 // 新的编辑器相关计算属性
 const hasAnyContent = computed(() => {
@@ -292,351 +287,8 @@ const handleVoiceMove = (event: TouchEvent | MouseEvent) => {
   emit('voice-move', event)
 }
 
-// 统一输入核心方法
-const generateBlockId = () => {
-  // 1. 生成时间戳
-  const timestamp = Date.now()
-  
-  // 2. 生成随机字符串
-  const randomStr = Math.random().toString(36).substr(2, 9)
-  
-  // 3. 组合生成唯一ID
-  const blockId = `block_${timestamp}_${randomStr}`
-  
-  console.log('🆔 [生成块ID] 创建新的内容块ID', {
-    timestamp,
-    randomStr,
-    blockId
-  })
-  
-  return blockId
-}
 
-// 插入公式
-const insertFormula = async (clickPosition?: number) => {
-  console.log('🔧 [插入公式] 开始插入公式流程', { clickPosition })
-  
-  // 1. 防止重复点击
-  if (isInsertingFormula.value || isKeyboardTransitioning.value) {
-    console.log('⚠️ [插入公式] 检测到重复点击，跳过执行', {
-      isInsertingFormula: isInsertingFormula.value,
-      isKeyboardTransitioning: isKeyboardTransitioning.value
-    })
-    return
-  }
-  
-  // 1.1 检查组件实例和挂载状态
-  if (!instance || !instance.isMounted || !contentCanvasRef.value) {
-    console.log('❌ [插入公式] 组件未挂载或实例无效，跳过执行', {
-      hasInstance: !!instance,
-      isMounted: instance?.isMounted,
-      hasContentCanvasRef: !!contentCanvasRef.value
-    })
-    return
-  }
-  
-  // 1.2 清理之前的编辑状态和实例
-  if (currentEditingFormula.value) {
-    console.log('🧹 [插入公式] 清理之前的编辑状态', {
-      previousEditingId: currentEditingFormula.value.id
-    })
-    // 清理对应的MathLive实例
-    const oldMathfield = mathfields.value.get(currentEditingFormula.value.id)
-    if (oldMathfield) {
-      console.log('🗑️ [插入公式] 清理旧的MathLive实例')
-      cleanupMathLiveInstance(oldMathfield, currentEditingFormula.value.id)
-    }
-    currentEditingFormula.value = null
-  }
-  
-  // 1.3 清理所有现有的MathLive实例
-  if (mathfields.value.size > 0) {
-    console.log('🧹 [插入公式] 清理所有现有MathLive实例', {
-      instanceCount: mathfields.value.size
-    })
-    cleanupAllMathLiveInstances()
-  }
-  
-  try {
-    // 2. 设置插入状态
-    console.log('📝 [插入公式] 设置插入状态为true')
-    isInsertingFormula.value = true
-    
-    // 3. 再次检查组件挂载状态
-    if (!contentCanvasRef.value) {
-      console.log('❌ [插入公式] 组件在设置状态后未挂载，contentCanvasRef为空')
-      isInsertingFormula.value = false
-      return
-    }
-    console.log('✅ [插入公式] 组件挂载状态正常')
-    
-    // 4. 创建公式块对象
-    const formulaBlock: ContentBlock = {
-      id: generateBlockId(),
-      type: 'formula',
-      content: '',
-      isEditing: true
-    }
-    console.log('📦 [插入公式] 创建公式块对象', {
-      blockId: formulaBlock.id,
-      type: formulaBlock.type,
-      isEditing: formulaBlock.isEditing
-    })
-    
-    // 5. 在指定位置插入公式块到contentBlocks中
-    if (clickPosition !== undefined && clickPosition >= 0 && clickPosition < contentBlocks.value.length) {
-      // 在指定位置插入
-      contentBlocks.value.splice(clickPosition, 0, formulaBlock)
-      console.log('📍 [插入公式] 在指定位置插入公式块', {
-        position: clickPosition,
-        totalBlocks: contentBlocks.value.length
-      })
-    } else {
-      // 在尾部插入（默认行为）
-      contentBlocks.value.push(formulaBlock)
-      console.log('📍 [插入公式] 在尾部插入公式块', {
-        totalBlocks: contentBlocks.value.length
-      })
-    }
-    
-    // 6. 设置当前编辑公式
-    currentEditingFormula.value = formulaBlock
-    console.log('🎯 [插入公式] 设置当前编辑公式', {
-      currentEditingFormulaId: currentEditingFormula.value?.id
-    })
-    
-    // 6. 等待DOM更新
-    console.log('⏳ [插入公式] 等待DOM更新')
-    await nextTick()
-    console.log('✅ [插入公式] DOM更新完成')
-    
-    // 7. 再次验证组件状态
-    if (!contentCanvasRef.value || !currentEditingFormula.value) {
-      console.log('❌ [插入公式] DOM更新后组件状态异常', {
-        contentCanvasRef: !!contentCanvasRef.value,
-        currentEditingFormula: !!currentEditingFormula.value
-      })
-      isInsertingFormula.value = false
-      return
-    }
-    console.log('✅ [插入公式] DOM更新后组件状态正常')
-    
-    // 8. 初始化MathLive编辑器
-    console.log('🚀 [插入公式] 开始初始化MathLive编辑器', {
-      blockId: formulaBlock.id
-    })
-    await initMathLiveForBlock(formulaBlock.id)
-    console.log('✅ [插入公式] MathLive编辑器初始化完成')
-    
-  } catch (error) {
-    // 9. 错误处理
-    console.error('💥 [插入公式] 插入公式失败:', error)
-    console.log('🧹 [插入公式] 清理错误状态')
-    
-    // 检查组件是否仍然有效
-    if (instance && instance.isMounted) {
-      currentEditingFormula.value = null
-      isKeyboardTransitioning.value = false
-    }
-  } finally {
-    // 10. 清理插入状态
-    console.log('🏁 [插入公式] 清理插入状态')
-    if (instance && instance.isMounted) {
-      isInsertingFormula.value = false
-    }
-    console.log('✅ [插入公式] 插入公式流程完成')
-  }
-}
 
-// 为特定块初始化MathLive
-const initMathLiveForBlock = async (blockId: string) => {
-  console.log('🔧 [MathLive初始化] 开始初始化MathLive', { blockId })
-  
-  // 添加全局错误处理来捕获MathLive的选择错误
-  const originalConsoleError = console.error
-  console.error = (...args) => {
-    if (args[0] && typeof args[0] === 'string' && args[0].includes('Invalid selection')) {
-      console.warn('⚠️ [MathLive初始化] 捕获到MathLive选择错误，已忽略:', ...args)
-      return
-    }
-    originalConsoleError.apply(console, args)
-  }
-  
-  try {
-    // 1. 检查组件实例和挂载状态
-    if (!instance || !instance.isMounted || !contentCanvasRef.value) {
-      console.log('❌ [MathLive初始化] 组件未挂载或实例无效', {
-        hasInstance: !!instance,
-        isMounted: instance?.isMounted,
-        hasContentCanvasRef: !!contentCanvasRef.value
-      })
-      isKeyboardTransitioning.value = false
-      return
-    }
-    console.log('✅ [MathLive初始化] 组件挂载状态正常')
-    
-    // 2. 开始键盘切换动画
-    console.log('🎬 [MathLive初始化] 开始键盘切换动画')
-    isKeyboardTransitioning.value = true
-    
-    // 3. 获取容器元素
-    const container = formulaRefs.value.get(blockId)
-    if (!container) {
-      console.log('❌ [MathLive初始化] 未找到容器元素', { blockId })
-      isKeyboardTransitioning.value = false
-      return
-    }
-    console.log('✅ [MathLive初始化] 找到容器元素', {
-      containerTagName: container.tagName,
-      containerClassName: container.className
-    })
-    
-    // 4. 动态导入MathLive
-    if (!MathfieldElement) {
-      console.log('📦 [MathLive初始化] 开始动态导入MathLive模块')
-      const mathlive = await import('mathlive')
-      MathfieldElement = mathlive.MathfieldElement
-      console.log('✅ [MathLive初始化] MathLive模块导入成功')
-    } else {
-      console.log('✅ [MathLive初始化] MathLive模块已存在，跳过导入')
-    }
-    
-    // 5. 创建MathLive实例
-    console.log('🏗️ [MathLive初始化] 创建MathLive实例')
-    const mathfield = new MathfieldElement()
-    console.log('✅ [MathLive初始化] MathLive实例创建成功', {
-      mathfieldType: typeof mathfield,
-      mathfieldConstructor: mathfield.constructor.name
-    })
-    
-    // 6. 配置MathLive属性
-    console.log('⚙️ [MathLive初始化] 开始配置MathLive属性')
-    try {
-      // 使用最简配置，只保留核心功能，不依赖外部资源
-      const config = {
-        mathVirtualKeyboardPolicy: 'off',
-        defaultMode: 'math',
-        fontSize: 18,
-        placeholder: '输入数学公式...',
-        smartMode: true,
-        smartSuperscript: true,
-        theme: 'light',
-        toolbar: 'none',
-        autoComplete: 'off',
-        selectionMode: 'none',
-        contextMenu: 'none',
-        dragMode: 'none',
-        readOnly: false,
-        border: 'none',
-        backgroundColor: 'transparent',
-        decorations: false
-      }
-      
-      // 逐个设置属性，避免批量设置可能的问题
-      Object.entries(config).forEach(([key, value]) => {
-        try {
-          mathfield[key] = value
-        } catch (propError) {
-          console.warn(`⚠️ [MathLive初始化] 设置属性 ${key} 失败:`, propError)
-        }
-      })
-      
-      console.log('✅ [MathLive初始化] MathLive属性配置完成')
-    } catch (configError) {
-      console.warn('⚠️ [MathLive初始化] 属性配置失败，使用默认配置:', configError)
-    }
-    
-    // 7. 事件监听器已由 TiptapEditor 统一管理，无需重复设置
-    console.log('🎧 [MathLive初始化] 事件监听器由 TiptapEditor 统一管理')
-    
-    // 8. 设置进入动画
-    console.log('🎭 [MathLive初始化] 设置进入动画样式')
-    mathfield.style.opacity = '0'
-    mathfield.style.transform = 'translateY(10px)'
-    console.log('✅ [MathLive初始化] 进入动画样式设置完成')
-    
-    // 9. 添加到DOM并存储引用
-    console.log('🌐 [MathLive初始化] 添加MathLive到DOM')
-    try {
-      // 检查容器是否仍然有效
-      if (!container || !container.isConnected) {
-        throw new Error('容器元素无效或已断开连接')
-      }
-      
-      container.appendChild(mathfield)
-      mathfields.value.set(blockId, mathfield)
-      console.log('✅ [MathLive初始化] MathLive已添加到DOM并存储引用', {
-        mathfieldsCount: mathfields.value.size,
-        containerChildrenCount: container.children.length
-      })
-    } catch (error) {
-      console.warn('⚠️ [MathLive初始化] 添加MathLive到DOM时出错:', error)
-      // 清理失败的实例
-      try {
-        if (mathfield && typeof mathfield.remove === 'function') {
-          mathfield.remove()
-        }
-      } catch (cleanupError) {
-        console.warn('⚠️ [MathLive初始化] 清理失败实例时出错:', cleanupError)
-      }
-      throw error // 重新抛出错误，让上层处理
-    }
-    
-    // 10. 触发进入动画
-    console.log('🎬 [MathLive初始化] 触发进入动画')
-    await nextTick()
-    mathfield.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-    mathfield.style.opacity = '1'
-    mathfield.style.transform = 'translateY(0)'
-    console.log('✅ [MathLive初始化] 进入动画已触发')
-    
-    // 11. 延迟聚焦
-    console.log('🎯 [MathLive初始化] 设置延迟聚焦')
-    setTimeout(() => {
-      try {
-        if (mathfield && mathfield.isConnected) {
-          console.log('🔍 [MathLive初始化] 开始聚焦MathLive')
-          // 使用更安全的聚焦方式，增加延迟避免立即失去焦点
-          setTimeout(() => {
-            try {
-              mathfield.focus({ preventScroll: true })
-              console.log('✅ [MathLive初始化] MathLive聚焦成功')
-            } catch (focusError) {
-              console.warn('⚠️ [MathLive初始化] MathLive聚焦失败:', focusError)
-            }
-          }, 100)
-        } else {
-          console.log('⚠️ [MathLive初始化] MathLive未连接到DOM，跳过聚焦', {
-            mathfieldExists: !!mathfield,
-            isConnected: mathfield?.isConnected
-          })
-        }
-      } catch (error) {
-        console.warn('⚠️ [MathLive初始化] MathLive聚焦失败:', error)
-        // 聚焦失败不影响整体功能
-      }
-      console.log('🏁 [MathLive初始化] 键盘切换动画结束')
-      isKeyboardTransitioning.value = false
-    }, 500) // 增加延迟时间
-    
-    console.log('✅ [MathLive初始化] MathLive初始化流程完成')
-    
-  } catch (error) {
-    // 12. 错误处理
-    console.error('💥 [MathLive初始化] MathLive初始化失败:', error)
-    console.log('🧹 [MathLive初始化] 清理错误状态')
-    
-    // 清理当前编辑公式状态
-    if (currentEditingFormula.value && currentEditingFormula.value.id === blockId) {
-      currentEditingFormula.value = null
-    }
-    
-    isKeyboardTransitioning.value = false
-  } finally {
-    // 13. 恢复原始console.error
-    console.error = originalConsoleError
-  }
-}
 
 
 
@@ -645,7 +297,7 @@ const finishFormulaEditing = async (blockId: string) => {
   console.log('🏁 [公式编辑完成] 开始完成公式编辑流程', { blockId })
   
   // 1. 获取MathLive实例
-  const mathfield = mathfields.value.get(blockId)
+  const mathfield = mathfields.value.get(blockId) as any
   if (!mathfield) {
     console.log('❌ [公式编辑完成] 未找到MathLive实例', { blockId })
     return
@@ -797,7 +449,7 @@ const cleanupAllMathLiveInstances = () => {
   console.log('🧹 [清理所有MathLive] 开始清理所有MathLive实例')
   
   // 1. 遍历所有MathLive实例
-  mathfields.value.forEach((mathfield, blockId) => {
+  mathfields.value.forEach((mathfield: any, blockId) => {
     console.log('🗑️ [清理所有MathLive] 清理实例', { blockId })
     try {
       if (mathfield && typeof mathfield.remove === 'function') {
@@ -1131,7 +783,6 @@ onUnmounted(() => {
 // 暴露方法给父组件
 defineExpose({
   clearInputContent,
-  insertFormula,
   focus: () => {
     if (tiptapEditorRef.value && tiptapEditorRef.value.editor) {
       tiptapEditorRef.value.editor.commands.focus()
