@@ -4,6 +4,7 @@
 
 import { FormulaEventManager, FORMULA_EVENTS } from './FormulaEventManager'
 import { FormulaErrorHandler, FormulaErrorType } from './FormulaErrorHandler'
+import { FormulaManager } from './FormulaManager'
 
 export interface FocusOptions {
   scrollIntoView?: boolean
@@ -16,6 +17,7 @@ export class SmartFocusManager {
   private static instance: SmartFocusManager | null = null
   private eventManager: FormulaEventManager
   private errorHandler: FormulaErrorHandler
+  private formulaManager: FormulaManager
   private focusQueue: string[] = []
   private isProcessing = false
 
@@ -30,15 +32,153 @@ export class SmartFocusManager {
   constructor() {
     this.eventManager = FormulaEventManager.getInstance()
     this.errorHandler = FormulaErrorHandler.getInstance()
+    this.formulaManager = FormulaManager.getInstance()
   }
 
-  // 智能聚焦公式节点
+  /**
+   * 统一激活公式节点
+   * 整合状态管理 + 聚焦实现，提供完整的激活功能
+   * 
+   * 职责：
+   * - 状态管理（通过 FormulaManager）
+   * - 聚焦实现（调用 focusFormula）
+   * - 事件发出（ACTIVATED + FOCUS）
+   * - 错误处理和回滚
+   * 
+   * @param nodeId 节点ID
+   * @param mathField MathField实例
+   * @param options 聚焦选项
+   * @returns 是否激活成功
+   */
+  async activateFormula(
+    nodeId: string, 
+    mathField: unknown, 
+    options: FocusOptions = {}
+  ): Promise<boolean> {
+    console.log('🎯 [FOCUS-MANAGER] 统一激活公式节点', { nodeId, options })
+    
+    try {
+      // 1. 状态管理（通过 FormulaManager）
+      const stateSuccess = await this.formulaManager.activateFormula(nodeId)
+      if (!stateSuccess) {
+        console.error('❌ [FOCUS-MANAGER] 状态激活失败', { nodeId })
+        return false
+      }
+
+      // 2. 聚焦实现
+      const focusSuccess = await this.focusFormula(nodeId, mathField, options)
+      if (!focusSuccess) {
+        // 状态激活成功但聚焦失败，需要回滚状态
+        console.warn('⚠️ [FOCUS-MANAGER] 聚焦失败，回滚状态', { nodeId })
+        await this.formulaManager.deactivateFormula(nodeId)
+        return false
+      }
+
+      // 3. 发出激活和聚焦事件
+      this.eventManager.emit(FORMULA_EVENTS.ACTIVATED, { nodeId, mathField })
+      this.eventManager.emit(FORMULA_EVENTS.FOCUS, { nodeId, mathField })
+
+      console.log('✅ [FOCUS-MANAGER] 统一激活完成', { nodeId })
+      return true
+
+    } catch (error) {
+      console.error('❌ [FOCUS-MANAGER] 统一激活失败', { nodeId, error })
+      
+      // 确保状态回滚
+      await this.formulaManager.deactivateFormula(nodeId)
+      
+      const formulaError = this.errorHandler.createError(
+        FormulaErrorType.FOCUS_FAILED,
+        `统一激活失败: ${error instanceof Error ? error.message : String(error)}`,
+        nodeId,
+        error instanceof Error ? error : undefined
+      )
+      
+      await this.errorHandler.handleError(formulaError)
+      return false
+    }
+  }
+
+  /**
+   * 统一失活公式节点
+   * 整合状态管理 + 失焦实现，提供完整的失活功能
+   * 
+   * 职责：
+   * - 失焦实现（调用 blurFormula）
+   * - 状态管理（通过 FormulaManager）
+   * - 事件发出（BLUR + DEACTIVATED）
+   * - 错误处理
+   * 
+   * @param nodeId 节点ID
+   * @param mathField MathField实例
+   * @returns 是否失活成功
+   */
+  async deactivateFormula(
+    nodeId: string, 
+    mathField: unknown
+  ): Promise<boolean> {
+    console.log('🎯 [FOCUS-MANAGER] 统一失活公式节点', { nodeId })
+    
+    try {
+      // 1. 失焦实现
+      const blurSuccess = await this.blurFormula(nodeId, mathField)
+      
+      // 2. 状态管理（无论失焦是否成功都要更新状态）
+      const stateSuccess = await this.formulaManager.deactivateFormula(nodeId)
+      
+      // 3. 发出失焦和失活事件
+      this.eventManager.emit(FORMULA_EVENTS.BLUR, { nodeId, mathField })
+      this.eventManager.emit(FORMULA_EVENTS.DEACTIVATED, { nodeId, mathField })
+
+      console.log('✅ [FOCUS-MANAGER] 统一失活完成', { nodeId })
+      return blurSuccess && stateSuccess
+
+    } catch (error) {
+      console.error('❌ [FOCUS-MANAGER] 统一失活失败', { nodeId, error })
+      
+      // 确保状态更新
+      await this.formulaManager.deactivateFormula(nodeId)
+      return false
+    }
+  }
+
+  /**
+   * 检查节点是否激活
+   * 
+   * @param nodeId 节点ID
+   * @returns 是否激活
+   */
+  isNodeActive(nodeId: string): boolean {
+    return this.formulaManager.isActive(nodeId)
+  }
+
+  /**
+   * 获取激活的节点
+   * 
+   * @returns 激活的节点对象
+   */
+  getActiveNode() {
+    return this.formulaManager.getActiveNode()
+  }
+
+  /**
+   * 纯聚焦实现 - 只负责聚焦相关的技术实现
+   * 
+   * 职责：
+   * - 滚动到可见区域
+   * - 延迟处理
+   * - MathField 聚焦
+   * - 虚拟键盘显示
+   * - 键盘可见性确保
+   * 
+   * 注意：不负责状态管理和事件发出
+   */
   async focusFormula(
     nodeId: string, 
     mathField: unknown, 
     options: FocusOptions = {}
   ): Promise<boolean> {
-    console.log('🎯 [FOCUS-MANAGER] 开始智能聚焦公式节点', { nodeId, options })
+    console.log('🎯 [FOCUS-MANAGER] 开始聚焦实现', { nodeId, options })
     
     const {
       scrollIntoView = true,
@@ -71,36 +211,33 @@ export class SmartFocusManager {
         await this.ensureKeyboardVisible(mathField, nodeId)
       }
 
-      // 6. 发出聚焦事件
-      this.eventManager.emit(FORMULA_EVENTS.FOCUS, { nodeId, mathField })
-
-      console.log('✅ [FOCUS-MANAGER] 公式节点聚焦完成', { nodeId })
+      console.log('✅ [FOCUS-MANAGER] 聚焦实现完成', { nodeId })
       return true
 
     } catch (error) {
-      console.error('❌ [FOCUS-MANAGER] 公式节点聚焦失败', { nodeId, error })
-      
-      const formulaError = this.errorHandler.createError(
-        FormulaErrorType.FOCUS_FAILED,
-        `公式节点聚焦失败: ${error instanceof Error ? error.message : String(error)}`,
-        nodeId,
-        error instanceof Error ? error : undefined
-      )
-      
-      await this.errorHandler.handleError(formulaError)
+      console.error('❌ [FOCUS-MANAGER] 聚焦实现失败', { nodeId, error })
       return false
     }
   }
 
-  // 失焦公式节点
+  /**
+   * 纯失焦实现 - 只负责失焦相关的技术实现
+   * 
+   * 职责：
+   * - MathField 只读状态设置
+   * - 虚拟键盘隐藏
+   * - MathField 失焦
+   * 
+   * 注意：不负责状态管理和事件发出
+   */
   async blurFormula(nodeId: string, mathField: unknown): Promise<boolean> {
-    console.log('🎯 [FOCUS-MANAGER] 失焦公式节点', { nodeId })
+    console.log('🎯 [FOCUS-MANAGER] 开始失焦实现', { nodeId })
     
     try {
       // 1. 设置MathField为只读状态，防止光标闪烁
-      if (mathField && typeof (mathField as any).setOptions === 'function') {
+      if (mathField && typeof (mathField as Record<string, unknown>).setOptions === 'function') {
         try {
-          (mathField as any).setOptions({
+          ;(mathField as { setOptions: (options: Record<string, unknown>) => void }).setOptions({
             readOnly: true,
             selectionMode: 'none'
           })
@@ -114,18 +251,15 @@ export class SmartFocusManager {
       await this.hideVirtualKeyboard(mathField, nodeId)
 
       // 3. 失焦MathField
-      if (mathField && typeof (mathField as any).blur === 'function') {
-        (mathField as any).blur()
+      if (mathField && typeof (mathField as Record<string, unknown>).blur === 'function') {
+        ;(mathField as { blur: () => void }).blur()
       }
 
-      // 4. 发出失焦事件
-      this.eventManager.emit(FORMULA_EVENTS.BLUR, { nodeId, mathField })
-
-      console.log('✅ [FOCUS-MANAGER] 公式节点失焦完成', { nodeId })
+      console.log('✅ [FOCUS-MANAGER] 失焦实现完成', { nodeId })
       return true
 
     } catch (error) {
-      console.error('❌ [FOCUS-MANAGER] 公式节点失焦失败', { nodeId, error })
+      console.error('❌ [FOCUS-MANAGER] 失焦实现失败', { nodeId, error })
       return false
     }
   }
@@ -153,9 +287,9 @@ export class SmartFocusManager {
     }
 
     // 设置MathField为可编辑状态
-    if (typeof (mathField as any).setOptions === 'function') {
+    if (typeof (mathField as Record<string, unknown>).setOptions === 'function') {
       try {
-        (mathField as any).setOptions({
+        ;(mathField as { setOptions: (options: Record<string, unknown>) => void }).setOptions({
           readOnly: false,
           selectionMode: 'none'
         })
@@ -166,13 +300,13 @@ export class SmartFocusManager {
     }
 
     // 聚焦MathField
-    if (typeof (mathField as any).focus === 'function') {
-      (mathField as any).focus()
+    if (typeof (mathField as Record<string, unknown>).focus === 'function') {
+      ;(mathField as { focus: () => void }).focus()
     }
 
     // 执行滚动到视图命令
-    if (typeof (mathField as any).executeCommand === 'function') {
-      (mathField as any).executeCommand('scrollIntoView')
+    if (typeof (mathField as Record<string, unknown>).executeCommand === 'function') {
+      ;(mathField as { executeCommand: (command: string) => void }).executeCommand('scrollIntoView')
     }
   }
 
@@ -186,8 +320,8 @@ export class SmartFocusManager {
 
     try {
       // 显示虚拟键盘
-      if (typeof mathField.executeCommand === 'function') {
-        mathField.executeCommand('showVirtualKeyboard')
+      if (typeof (mathField as Record<string, unknown>).executeCommand === 'function') {
+        ;(mathField as { executeCommand: (command: string) => void }).executeCommand('showVirtualKeyboard')
       }
 
       // 发出键盘显示事件
@@ -217,8 +351,8 @@ export class SmartFocusManager {
 
     try {
       // 隐藏虚拟键盘
-      if (typeof mathField.executeCommand === 'function') {
-        mathField.executeCommand('hideVirtualKeyboard')
+      if (typeof (mathField as Record<string, unknown>).executeCommand === 'function') {
+        ;(mathField as { executeCommand: (command: string) => void }).executeCommand('hideVirtualKeyboard')
       }
 
       // 发出键盘隐藏事件
@@ -240,8 +374,9 @@ export class SmartFocusManager {
     // 延迟确保键盘可见
     setTimeout(() => {
       try {
-        if (typeof mathField.executeCommand === 'function') {
-          mathField.executeCommand('showVirtualKeyboard')
+        const mathFieldTyped = mathField as Record<string, unknown>
+        if (typeof mathFieldTyped.executeCommand === 'function') {
+          ;(mathFieldTyped as { executeCommand: (command: string) => void }).executeCommand('showVirtualKeyboard')
         }
       } catch (error) {
         console.error('❌ [FOCUS-MANAGER] 确保键盘可见失败', { nodeId, error })

@@ -136,6 +136,19 @@
             <q-tooltip>插入数学公式</q-tooltip>
           </q-btn>
 
+          <!-- 调试按钮 -->
+          <q-btn
+            round
+            icon="bug_report"
+            color="orange"
+            outline
+            @click="handleDebugFormulas"
+            class="debug-formula-btn"
+            size="md"
+          >
+            <q-tooltip>调试公式状态</q-tooltip>
+          </q-btn>
+
           <!-- 发送按钮 -->
           <q-btn
             round
@@ -161,6 +174,7 @@
 import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import TiptapEditor from './TiptapEditor.vue'
+import { FormulaManager } from '../../utils/math/FormulaManager'
 import type { 
   ContentBlock, 
   ChatInputProps, 
@@ -194,6 +208,9 @@ const isReadyForTextInput = ref(false)
 
 // 消息渲染器
 const { renderMessageContent } = useMessageRenderer()
+
+// 公式管理器实例
+const formulaManager = FormulaManager.getInstance()
 
 
 // 新的编辑器相关计算属性
@@ -536,6 +553,80 @@ const handleSendMessage = () => {
   });
 }
 
+// 调试公式状态函数
+const handleDebugFormulas = () => {
+  console.log('🐛 [调试] 开始调试公式状态')
+  
+  // 1. 打印FormulaManager状态
+  console.log('📊 [调试] FormulaManager状态:', {
+    state: formulaManager.getState(),
+    allNodes: formulaManager.getAllNodes(),
+    activeNode: formulaManager.getActiveNode()
+  })
+  
+  // 2. 打印TiptapEditor中的公式信息
+  if (tiptapEditorRef.value) {
+    console.log('📝 [调试] TiptapEditor信息:', {
+      editor: tiptapEditorRef.value,
+      hasEditor: !!(tiptapEditorRef.value as any).editor,
+      content: tiptapEditorRef.value.getHTML(),
+      text: tiptapEditorRef.value.getText(),
+      markdown: tiptapEditorRef.value.getMarkdown()
+    })
+    
+    // 3. 打印编辑器中的公式节点
+    if ((tiptapEditorRef.value as any).editor) {
+      const editor = (tiptapEditorRef.value as any).editor
+      const doc = editor.state.doc
+      const formulaNodes: any[] = []
+      
+      doc.descendants((node: any, pos: any) => {
+        if (node.type.name === 'formula') {
+          formulaNodes.push({
+            position: pos,
+            attrs: node.attrs,
+            content: node.textContent,
+            isActive: node.attrs?.isActive || false,
+            nodeId: node.attrs?.nodeId || 'unknown'
+          })
+        }
+      })
+      
+      console.log('🧮 [调试] 编辑器中的公式节点:', formulaNodes)
+    }
+  }
+  
+  // 4. 打印ChatInput组件状态
+  console.log('💬 [调试] ChatInput组件状态:', {
+    editorContent: editorContent.value,
+    editorContentLength: editorContent.value.length,
+    contentBlocks: contentBlocks.value,
+    currentEditingFormula: currentEditingFormula.value,
+    mathfieldsCount: mathfields.value.size,
+    formulaRefsCount: formulaRefs.value.size,
+    selectedBlockIndex: selectedBlockIndex.value,
+    isKeyboardTransitioning: isKeyboardTransitioning.value,
+    isReadyForTextInput: isReadyForTextInput.value,
+    isPlaceholderClicked: isPlaceholderClicked.value
+  })
+  
+  // 5. 格式化输出到控制台
+  console.group('🐛 公式调试信息')
+  console.log('📊 FormulaManager状态:', formulaManager.getState())
+  console.log('🧮 所有公式节点:', formulaManager.getAllNodes())
+  console.log('⭐ 当前激活节点:', formulaManager.getActiveNode())
+  console.log('📝 编辑器内容:', tiptapEditorRef.value?.getHTML())
+  console.log('📄 Markdown内容:', tiptapEditorRef.value?.getMarkdown())
+  console.log('💬 组件状态:', {
+    editorContent: editorContent.value,
+    contentBlocks: contentBlocks.value,
+    mathfieldsCount: mathfields.value.size
+  })
+  console.groupEnd()
+  
+  console.log('✅ [调试] 公式状态调试完成')
+}
+
 // 清空输入内容
 const clearInputContent = () => {
   console.log('🧹 [清空内容] 开始清空输入内容')
@@ -544,18 +635,18 @@ const clearInputContent = () => {
   if (tiptapEditorRef.value) {
     console.log('🧮 [清空内容] 隐藏所有公式键盘')
     // 调用 TiptapEditor 的隐藏键盘方法
-    if (typeof tiptapEditorRef.value.hideAllVirtualKeyboards === 'function') {
-      tiptapEditorRef.value.hideAllVirtualKeyboards()
+    if (typeof (tiptapEditorRef.value as any).hideAllVirtualKeyboards === 'function') {
+      (tiptapEditorRef.value as any).hideAllVirtualKeyboards()
     }
-    if (typeof tiptapEditorRef.value.deactivateAllFormulas === 'function') {
-      tiptapEditorRef.value.deactivateAllFormulas()
+    if (typeof (tiptapEditorRef.value as any).deactivateAllFormulas === 'function') {
+      (tiptapEditorRef.value as any).deactivateAllFormulas()
     }
   }
 
   // 2. 直接调用 TiptapEditor 实例的命令来清空内容
-  if (tiptapEditorRef.value && tiptapEditorRef.value.editor) {
+  if (tiptapEditorRef.value && (tiptapEditorRef.value as any).editor) {
     // 参数 true 表示同时发射一个 update 事件，这样 v-model 会自动同步
-    tiptapEditorRef.value.editor.commands.clearContent(true);
+    (tiptapEditorRef.value as any).editor.commands.clearContent(true);
   }
   
   // 3. 确保父组件的 v-model 也被清空
@@ -784,8 +875,8 @@ onUnmounted(() => {
 defineExpose({
   clearInputContent,
   focus: () => {
-    if (tiptapEditorRef.value && tiptapEditorRef.value.editor) {
-      tiptapEditorRef.value.editor.commands.focus()
+    if (tiptapEditorRef.value && (tiptapEditorRef.value as any).editor) {
+      (tiptapEditorRef.value as any).editor.commands.focus()
     }
   }
 })
@@ -1346,6 +1437,28 @@ defineExpose({
 }
 
 .math-formula-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* 调试公式按钮 */
+.debug-formula-btn {
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  color: #ff9800;
+  border: 2px solid #ff9800;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.debug-formula-btn:hover {
+  background: #ff9800;
+  color: white;
+  box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+  transform: translateY(-1px) scale(1.05);
+}
+
+.debug-formula-btn:active {
   transform: translateY(0) scale(0.98);
 }
 

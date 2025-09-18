@@ -20,11 +20,8 @@ export class FormulaNodeBuilder {
   private focusManager: SmartFocusManager
   private errorHandler: FormulaErrorHandler
   
-  // 🔧 简化：只维护必要的状态
-  private nodeStates = new Map<string, {
-    isActive: boolean
-    focusTimeout: number | null
-  }>()
+  // 🔧 简化：只维护必要的本地状态（聚焦超时）
+  private focusTimeouts = new Map<string, number | null>()
 
   // 单例模式
   static getInstance(): FormulaNodeBuilder {
@@ -42,24 +39,27 @@ export class FormulaNodeBuilder {
     this.errorHandler = FormulaErrorHandler.getInstance()
   }
 
-  // 🔧 简化：获取节点状态
-  private getNodeState(nodeId: string) {
-    if (!this.nodeStates.has(nodeId)) {
-      this.nodeStates.set(nodeId, {
-        isActive: false,
-        focusTimeout: null
-      })
-    }
-    return this.nodeStates.get(nodeId)!
+  // 🔧 简化：获取节点激活状态（从 FormulaManager）
+  private isNodeActive(nodeId: string): boolean {
+    return this.formulaManager.isActive(nodeId)
   }
 
-  // 🔧 简化：清理节点状态
-  private clearNodeState(nodeId: string) {
-    const state = this.nodeStates.get(nodeId)
-    if (state?.focusTimeout) {
-      clearTimeout(state.focusTimeout)
+  // 🔧 简化：设置聚焦超时
+  private setFocusTimeout(nodeId: string, timeout: number | null): void {
+    if (timeout) {
+      this.focusTimeouts.set(nodeId, timeout)
+    } else {
+      this.focusTimeouts.delete(nodeId)
     }
-    this.nodeStates.delete(nodeId)
+  }
+
+  // 🔧 简化：清理聚焦超时
+  private clearFocusTimeout(nodeId: string): void {
+    const timeout = this.focusTimeouts.get(nodeId)
+    if (timeout) {
+      clearTimeout(timeout)
+      this.focusTimeouts.delete(nodeId)
+    }
   }
 
   // 创建FormulaNode
@@ -298,70 +298,44 @@ export class FormulaNodeBuilder {
     mathField.addEventListener('focus', () => {
       console.log('🎯 [FORMULA-FOCUS] 公式获得焦点', { nodeId })
       
-      const nodeState = this.getNodeState(nodeId)
-      
-      // 防止重复聚焦
-      if (nodeState.isActive) {
+      // 防止重复聚焦（使用 SmartFocusManager 的状态）
+      if (this.focusManager.isNodeActive(nodeId)) {
         console.log('⚠️ [FORMULA-FOCUS] 公式已激活，跳过重复聚焦', { nodeId })
         return
       }
       
       // 添加防循环延迟
-      if (nodeState.focusTimeout) {
-        clearTimeout(nodeState.focusTimeout)
-      }
+      this.clearFocusTimeout(nodeId)
       
-      nodeState.focusTimeout = setTimeout(() => {
-        nodeState.isActive = true
-        
-        // 激活公式节点
-        this.formulaManager.activateFormula(nodeId)
-        
-        // 设置可编辑状态
-        this.setMathFieldEditable(mathField, nodeId, true)
-        
-        // 显示虚拟键盘
-        this.showVirtualKeyboard(mathField, nodeId)
-        
-        // 发出聚焦事件
-        this.eventManager.emit(FORMULA_EVENTS.FOCUS, { nodeId, mathField })
+      const timeout = setTimeout(async () => {
+        // 使用 SmartFocusManager 统一激活
+        await this.focusManager.activateFormula(nodeId, mathField, {
+          scrollIntoView: false, // focus 事件不需要滚动
+          showKeyboard: true,
+          delay: 0
+        })
         
         console.log('✅ [FORMULA-FOCUS] 聚焦处理完成', { nodeId })
       }, 50) // 50ms 防循环延迟
+      
+      this.setFocusTimeout(nodeId, timeout)
     })
     
     // 失焦事件 - 添加防循环机制
     mathField.addEventListener('blur', () => {
-      const nodeState = this.getNodeState(nodeId)
-      
-      // 防止重复失焦
-      if (!nodeState.isActive) {
+      // 防止重复失焦（使用 SmartFocusManager 的状态）
+      if (!this.focusManager.isNodeActive(nodeId)) {
         console.log('⚠️ [FORMULA-BLUR] 公式未激活，跳过失焦', { nodeId })
         return
       }
       
       console.log('🎯 [FORMULA-BLUR] 公式失去焦点', { nodeId })
       
-      // 立即设置状态，防止重复处理
-      nodeState.isActive = false
-      
       // 清除聚焦定时器
-      if (nodeState.focusTimeout) {
-        clearTimeout(nodeState.focusTimeout)
-        nodeState.focusTimeout = null
-      }
+      this.clearFocusTimeout(nodeId)
       
-      // 失活公式节点
-      this.formulaManager.deactivateFormula(nodeId)
-      
-      // 设置只读状态
-      this.setMathFieldEditable(mathField, nodeId, false)
-      
-      // 隐藏虚拟键盘
-      this.hideVirtualKeyboard(mathField, nodeId)
-      
-      // 发出失焦事件
-      this.eventManager.emit(FORMULA_EVENTS.BLUR, { nodeId, mathField })
+      // 使用 SmartFocusManager 统一失活
+      this.focusManager.deactivateFormula(nodeId, mathField)
       
       console.log('✅ [FORMULA-BLUR] 失焦处理完成', { nodeId })
     })
@@ -375,8 +349,8 @@ export class FormulaNodeBuilder {
         keyboardEvent.preventDefault()
         console.log('📤 [FORMULA-ENTER] 回车键完成编辑', { nodeId })
         
-        // 失活公式节点
-        this.formulaManager.deactivateFormula(nodeId)
+        // 使用 SmartFocusManager 统一失活
+        this.focusManager.deactivateFormula(nodeId, mathField)
         
         // 发出回车事件
         this.eventManager.emit(FORMULA_EVENTS.ENTER, { nodeId, mathField })
@@ -385,8 +359,8 @@ export class FormulaNodeBuilder {
         keyboardEvent.preventDefault()
         console.log('🚫 [FORMULA-ESCAPE] ESC键取消编辑', { nodeId })
         
-        // 失活公式节点
-        this.formulaManager.deactivateFormula(nodeId)
+        // 使用 SmartFocusManager 统一失活
+        this.focusManager.deactivateFormula(nodeId, mathField)
         
         // 发出ESC事件
         this.eventManager.emit(FORMULA_EVENTS.ESCAPE, { nodeId, mathField })
@@ -472,45 +446,31 @@ export class FormulaNodeBuilder {
     console.log('🔧 [FORMULA-NODE-BUILDER] 处理新节点聚焦', { nodeId })
     
     try {
-      // 激活公式节点
-      await this.formulaManager.activateFormula(nodeId)
+      // 使用 SmartFocusManager 统一激活
+      const success = await this.focusManager.activateFormula(nodeId, mathField, {
+        scrollIntoView: true,
+        showKeyboard: true,
+        delay: 300, // 等待DOM稳定
+        ensureVisible: true
+      })
       
-      // 设置节点为活跃状态
-      const nodeState = this.getNodeState(nodeId)
-      nodeState.isActive = true
-      
-      // 设置可编辑状态
-      this.setMathFieldEditable(mathField, nodeId, true)
-      
-      // 显示虚拟键盘
-      this.showVirtualKeyboard(mathField, nodeId)
-      
-      // 延迟聚焦，等待DOM稳定
-      setTimeout(async () => {
-        try {
-          await this.focusManager.focusFormula(nodeId, mathField, {
-            scrollIntoView: true,
-            showKeyboard: false,
-            delay: 0,
-            ensureVisible: true
-          })
-          console.log('✅ [FORMULA-NODE-BUILDER] 聚焦完成', { nodeId })
-        } catch (error) {
-          console.error('❌ [FORMULA-NODE-BUILDER] 聚焦失败', { nodeId, error })
+      if (success) {
+        // 移除isNew标记
+        if (typeof getPos === 'function' && getPos() !== undefined) {
+          const pos = getPos()
+          if (pos !== undefined) {
+            const transaction = editor.view.state.tr.setNodeMarkup(pos, undefined, { isNew: false })
+            editor.view.dispatch(transaction)
+          }
         }
-      }, 300)
-      
-      // 移除isNew标记
-      if (typeof getPos === 'function' && getPos() !== undefined) {
-        const pos = getPos()
-        if (pos !== undefined) {
-          const transaction = editor.view.state.tr.setNodeMarkup(pos, undefined, { isNew: false })
-          editor.view.dispatch(transaction)
-        }
+        
+        console.log('✅ [FORMULA-NODE-BUILDER] 新节点聚焦完成', { nodeId })
+      } else {
+        console.error('❌ [FORMULA-NODE-BUILDER] 新节点聚焦失败', { nodeId })
       }
       
     } catch (error) {
-      console.error('❌ [FORMULA-NODE-BUILDER] 新节点聚焦失败', { nodeId, error })
+      console.error('❌ [FORMULA-NODE-BUILDER] 新节点聚焦异常', { nodeId, error })
     }
   }
 
@@ -573,9 +533,10 @@ export class FormulaNodeBuilder {
     
     const nodeId = container.getAttribute('data-node-id')
     if (nodeId) {
-      // 🔧 修复：清理节点独立状态
-      this.clearNodeState(nodeId)
+      // 清理聚焦超时
+      this.clearFocusTimeout(nodeId)
       
+      // 删除公式节点（FormulaManager 会处理状态清理）
       this.formulaManager.deleteFormula(nodeId)
       this.eventManager.emit(FORMULA_EVENTS.DELETED, { nodeId })
       

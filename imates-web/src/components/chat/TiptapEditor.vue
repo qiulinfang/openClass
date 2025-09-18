@@ -38,9 +38,17 @@ import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 
-// 导入新的公式服务
-import { FormulaService } from '../../services/FormulaService'
-import { FORMULA_EVENTS } from '../../utils/math/FormulaEventManager'
+// 直接使用底层管理器
+import { 
+  focusManager, 
+  eventManager, 
+  nodeBuilder,
+  createFormula,
+  getAllFormulaNodes,
+  getActiveFormulaNode,
+  resetAll,
+  FORMULA_EVENTS 
+} from '../../utils/math'
 
 // 导入类型定义
 import type { TiptapEditorProps } from '../../types'
@@ -65,11 +73,8 @@ const emit = defineEmits<{
   'formula-deleted': [nodeId: string]
 }>()
 
-// 初始化公式服务
-const formulaService = FormulaService.getInstance()
-
 // 使用新的FormulaNode
-const FormulaNode = formulaService.createFormulaNode() as any
+const FormulaNode = nodeBuilder.createFormulaNode() as any
 
 // 编辑器实例
 const editor = ref<Editor | null>(null)
@@ -153,7 +158,7 @@ const focusEditor = () => {
 // 调试函数
 const debugShowKeyboard = () => {
   console.log('🔧 [DEBUG] 显示虚拟键盘')
-  const activeNode = formulaService.getActiveFormulaNode()
+  const activeNode = getActiveFormulaNode()
   if (activeNode?.mathField && typeof (activeNode.mathField as any).executeCommand === 'function') {
     (activeNode.mathField as any).executeCommand('showVirtualKeyboard')
   }
@@ -161,7 +166,7 @@ const debugShowKeyboard = () => {
 
 const debugHideKeyboard = () => {
   console.log('🔧 [DEBUG] 隐藏虚拟键盘')
-  const activeNode = formulaService.getActiveFormulaNode()
+  const activeNode = getActiveFormulaNode()
   if (activeNode?.mathField && typeof (activeNode.mathField as any).executeCommand === 'function') {
     (activeNode.mathField as any).executeCommand('hideVirtualKeyboard')
   }
@@ -180,8 +185,8 @@ const debugCreateFormula = async () => {
     const { from } = editor.value.state.selection
     console.log('🔧 [DEBUG] 当前光标位置', { from })
     
-    // 使用公式服务创建公式
-    const nodeId = await formulaService.createFormula(from)
+    // 使用公式管理器创建公式
+    const nodeId = await createFormula(from)
     
     if (nodeId) {
       // 插入公式节点到编辑器
@@ -209,10 +214,10 @@ const debugClearAll = () => {
   console.log('🔧 [DEBUG] 清理所有公式')
   
   // 失活所有公式
-  const allNodes = formulaService.getAllFormulaNodes()
+  const allNodes = getAllFormulaNodes()
   allNodes.forEach(node => {
-    if (node.isActive) {
-      formulaService.deactivateFormula(node.id)
+    if (node.isActive && node.mathField) {
+      focusManager.deactivateFormula(node.id, node.mathField)
     }
   })
   
@@ -253,8 +258,8 @@ const insertMathFormula = async () => {
     const { from } = editor.value.state.selection
     console.log('🔢 [TIPTAP-EDITOR] 在位置', from, '插入数学公式')
     
-    // 使用公式服务创建公式
-    const formulaId = await formulaService.createFormula(from)
+    // 使用公式管理器创建公式
+    const formulaId = await createFormula(from)
     if (formulaId) {
       // 插入公式节点到编辑器，传递nodeId
       editor.value
@@ -289,6 +294,27 @@ defineExpose({
   getHTML: () => editor.value?.getHTML() || '',
   getText: () => editor.value?.getText() || '',
   insertMathFormula,
+  // 调试相关方法
+  hideAllVirtualKeyboards: () => {
+    console.log('🔧 [TIPTAP-EDITOR] 隐藏所有虚拟键盘')
+    const allNodes = getAllFormulaNodes()
+    allNodes.forEach(node => {
+      if (node.mathField && typeof (node.mathField as any).executeCommand === 'function') {
+        (node.mathField as any).executeCommand('hideVirtualKeyboard')
+      }
+    })
+  },
+  deactivateAllFormulas: () => {
+    console.log('🔧 [TIPTAP-EDITOR] 失活所有公式')
+    const allNodes = getAllFormulaNodes()
+    allNodes.forEach(node => {
+      if (node.isActive && node.mathField) {
+        focusManager.deactivateFormula(node.id, node.mathField)
+      }
+    })
+  },
+  // 获取编辑器实例（用于调试）
+  editor: computed(() => editor.value)
 })
 
 // 监听modelValue变化
@@ -303,29 +329,29 @@ watch(() => props.modelValue, (newValue) => {
 const setupFormulaEventListeners = () => {
   console.log('🎧 [TIPTAP-EDITOR] 设置公式服务事件监听器')
   
-  // 监听公式激活事件
-  formulaService.on(FORMULA_EVENTS.ACTIVATED, (data: any) => {
-    console.log('🧮 [TIPTAP-EDITOR] 公式激活事件', data)
-    emit('formula-activated', data.nodeId)
-  })
-  
-  // 监听公式失活事件
-  formulaService.on(FORMULA_EVENTS.DEACTIVATED, (data: any) => {
-    console.log('🧮 [TIPTAP-EDITOR] 公式失活事件', data)
-    emit('formula-deactivated', data.nodeId)
-  })
-  
-  // 监听公式内容变化事件
-  formulaService.on(FORMULA_EVENTS.CONTENT_CHANGED, (data: any) => {
-    console.log('🧮 [TIPTAP-EDITOR] 公式内容变化事件', data)
-    emit('formula-content-changed', data.nodeId, data.content)
-  })
-  
-  // 监听公式删除事件
-  formulaService.on(FORMULA_EVENTS.DELETED, (data: any) => {
-    console.log('🧮 [TIPTAP-EDITOR] 公式删除事件', data)
-    emit('formula-deleted', data.nodeId)
-  })
+// 监听公式激活事件
+eventManager.on(FORMULA_EVENTS.ACTIVATED, (data: any) => {
+  console.log('🧮 [TIPTAP-EDITOR] 公式激活事件', data)
+  emit('formula-activated', data.nodeId)
+})
+
+// 监听公式失活事件
+eventManager.on(FORMULA_EVENTS.DEACTIVATED, (data: any) => {
+  console.log('🧮 [TIPTAP-EDITOR] 公式失活事件', data)
+  emit('formula-deactivated', data.nodeId)
+})
+
+// 监听公式内容变化事件
+eventManager.on(FORMULA_EVENTS.CONTENT_CHANGED, (data: any) => {
+  console.log('🧮 [TIPTAP-EDITOR] 公式内容变化事件', data)
+  emit('formula-content-changed', data.nodeId, data.content)
+})
+
+// 监听公式删除事件
+eventManager.on(FORMULA_EVENTS.DELETED, (data: any) => {
+  console.log('🧮 [TIPTAP-EDITOR] 公式删除事件', data)
+  emit('formula-deleted', data.nodeId)
+})
 }
 
 // 生命周期钩子
@@ -345,8 +371,8 @@ onUnmounted(() => {
     editor.value.destroy()
   }
   
-  // 重置公式服务状态
-  formulaService.reset()
+  // 重置所有状态
+  resetAll()
   
   console.log('✅ [TIPTAP-EDITOR] 组件卸载完成')
 })

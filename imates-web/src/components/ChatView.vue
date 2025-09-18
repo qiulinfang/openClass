@@ -1,11 +1,13 @@
 <template>
+  <!-- 聊天视图主容器 - 支持键盘动画状态 -->
   <div ref="chatViewRef" class="chat-view" :class="{ 'keyboard-animating': isKeyboardAnimating }">
-    <!-- 选择模式工具栏 - Gemini风格 -->
+    <!-- 选择模式工具栏 - Gemini风格设计 -->
+    <!-- 功能：当用户进入多选模式时显示，提供批量操作功能 -->
     <q-toolbar v-if="isSelectionMode" class="selection-toolbar native-toolbar-layout">
-      <!-- 左侧：关闭按钮 -->
+      <!-- 左侧：关闭选择模式按钮 -->
       <q-btn flat round icon="close" @click="exitSelectionMode" class="close-btn" size="md" />
 
-      <!-- 中间：选择状态信息 -->
+      <!-- 中间：选择状态信息显示 -->
       <div class="selection-info native-toolbar-center">
         <q-icon name="check_circle" class="selection-icon" />
         <span class="selection-text">{{ selectedMessages.size }} 条消息已选择</span>
@@ -13,6 +15,7 @@
 
       <!-- 右侧：操作按钮组 -->
       <div class="action-buttons native-toolbar-actions">
+        <!-- 全选/取消全选按钮 -->
         <q-btn
           flat
           round
@@ -22,6 +25,7 @@
           size="md"
           :color="selectedMessages.size === displayedMessages.length ? 'primary' : 'grey-6'"
         />
+        <!-- 转发按钮 - 仅在AI模式下显示 -->
         <q-btn
           v-if="type === 'ai'"
           flat
@@ -36,11 +40,12 @@
       </div>
     </q-toolbar>
 
-    <!-- 聊天消息区域 - 占据全宽度 -->
+    <!-- 聊天消息区域 - 占据全宽度，支持滚动 -->
     <div class="chat-messages-container">
+      <!-- 滚动区域组件 - 自定义滚动条样式 -->
       <q-scroll-area ref="scrollAreaRef" class="chat-messages" :thumb-style="thumbStyle">
         <div class="messages-wrapper">
-          <!-- 聊天记录加载状态指示器 -->
+          <!-- 聊天记录加载状态指示器 - 带淡入淡出动画 -->
           <Transition name="loading-fade" appear>
             <div v-if="showLoadingIndicator" class="chat-loading-indicator">
               <q-spinner-dots size="24px" color="primary" />
@@ -48,12 +53,13 @@
             </div>
           </Transition>
 
-          <!-- 分批次渲染状态指示器 -->
+          <!-- 分批次渲染状态指示器 - 显示历史消息渲染进度 -->
           <div v-if="isChatRendering && !isChatLoading" class="chat-rendering-indicator">
             <q-spinner-hourglass size="20px" color="secondary" />
             <span class="rendering-text">正在渲染历史消息...</span>
           </div>
 
+          <!-- 聊天消息组件列表 - 支持选择、转发、编辑等功能 -->
           <ChatMessageComponent
             v-for="(message, index) in displayedMessages"
             :key="message.id"
@@ -72,7 +78,7 @@
       </q-scroll-area>
     </div>
 
-    <!-- 输入组件 -->
+    <!-- 聊天输入组件 - 支持文本、语音、图片等多种输入方式 -->
     <ChatInput
       ref="chatInputRef"
       v-model="inputMessage"
@@ -100,13 +106,13 @@
       @scroll-to-bottom="scrollToBottom"
     />
 
-    <!-- 语音录制组件 -->
+    <!-- 语音录制组件 - 显示录音状态和取消提示 -->
     <VoiceRecorder :is-recording="isRecording" :show-cancel-hint="showCancelHint" />
 
-    <!-- 图片选择器 -->
+    <!-- 图片选择器对话框 - 支持拍照和相册选择 -->
     <ImagePicker v-model="showImagePicker" @image-selected="onImageSelected" />
 
-    <!-- 转发模式选择对话框 -->
+    <!-- 转发模式选择对话框 - 支持合并转发和逐条转发 -->
     <ForwardModeDialog
       v-model="showForwardModeDialog"
       :message-count="pendingForwardMessages.length"
@@ -116,67 +122,84 @@
 </template>
 
 <script setup lang="ts">
+// ==================== 导入依赖 ====================
+// Vue 核心功能
 import { ref, nextTick, onMounted, onUnmounted, computed, watch } from 'vue'
 
+// Quasar UI 组件
 import { QScrollArea } from 'quasar'
+
+// 状态管理和工具函数
 import { useExerciseStore } from '../stores/exerciseStore'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
-import type { ChatBubble } from '../types'
 import { apiService } from '../services/api-service'
 import { androidBridge } from '../services/android-bridge'
 
+// 子组件导入
 import ChatMessageComponent from './chat/ChatMessage.vue'
 import ChatInput from './chat/ChatInput.vue'
 import ForwardModeDialog from './chat/ForwardModeDialog.vue'
-
 import VoiceRecorder from './chat/VoiceRecorder.vue'
 import ImagePicker from './chat/ImagePicker.vue'
 
-// 使用统一的Message类型别名（来自types/index.ts）
-
-// 使用统一的类型定义
+// 类型定义导入
+import type { ChatBubble } from '../types'
 import type { ChatMessageSession } from '../types'
+import type { ChatViewProps } from '../types'
 import { SessionType } from '../types'
 
-// 导入类型定义
-import type { ChatViewProps } from '../types'
-
-// 定义Props
+// ==================== 组件配置 ====================
+// 定义组件属性 - 支持AI和老师两种对话模式
 const props = defineProps<ChatViewProps>()
+
+// 定义组件事件 - 支持响应、切换、焦点、滚动等事件
 const emit = defineEmits<{
-  response: []
-  switchToTeacher: [{ messages: ChatBubble[]; currentQuestion: unknown }]
-  focus: []
-  scrollToQuestionAndSelect: [targetIndex: number]
-  'scroll-to-bottom': []
+  response: [] // 消息发送完成事件
+  switchToTeacher: [{ messages: ChatBubble[]; currentQuestion: unknown }] // 切换到老师对话事件
+  focus: [] // 输入框获得焦点事件
+  scrollToQuestionAndSelect: [targetIndex: number] // 滚动到指定题目并选中事件
+  'scroll-to-bottom': [] // 滚动到底部事件
 }>()
 
-// Store and refs
+// ==================== 状态管理 ====================
+// 全局状态管理
 const exerciseStore = useExerciseStore()
-const scrollAreaRef = ref<QScrollArea>()
-const inputMessage = ref('')
-const isLoading = ref(false)
-const isRecording = ref(false)
 
-// 键盘检测和动画相关状态
-const isKeyboardAnimating = ref(false)
-const keyboardAnimationHeight = ref(0)
-const chatViewRef = ref<HTMLElement>()
-const chatInputRef = ref<InstanceType<typeof ChatInput>>()
-const originalChatViewHeight = ref(0) // 记录 ChatView 的原始高度
-const isKeyboardVisible = ref(false)
-const keyboardHeight = ref(0)
-const originalViewportHeight = ref(0)
-const isAnimating = ref(false)
-const animationStartTime = ref(0)
+// 组件引用
+const scrollAreaRef = ref<QScrollArea>() // 滚动区域引用
+const chatViewRef = ref<HTMLElement>() // 聊天视图容器引用
+const chatInputRef = ref<InstanceType<typeof ChatInput>>() // 输入组件引用
 
-// 使用Android原生键盘动画参数 - 与系统键盘动画完全一致
-const animationDuration = ref(300) // Android系统默认键盘动画时长
-const animationCurve = ref('cubic-bezier(0.4, 0.0, 0.2, 1)') // Android fast_out_slow_in 缓动曲线，与系统键盘动画一致
-const animationDelay = ref(50) // 固定动画延迟
+// 基础状态变量
+const inputMessage = ref('') // 输入框内容
+const isLoading = ref(false) // 消息发送加载状态
+const isRecording = ref(false) // 语音录制状态
 
-// 从CSS变量获取动画参数（如果可用）
-// 作用：获取键盘动画的CSS参数，包括持续时间、缓动曲线和延迟时间
+// ==================== 键盘动画相关状态 ====================
+// 键盘显示/隐藏状态
+const isKeyboardVisible = ref(false) // 键盘是否可见
+const isKeyboardAnimating = ref(false) // 键盘是否正在执行动画
+const isAnimating = ref(false) // 是否正在执行动画（防重复触发）
+
+// 高度相关状态
+const originalChatViewHeight = ref(0) // 记录ChatView的原始高度
+const keyboardHeight = ref(0) // 键盘高度
+const keyboardAnimationHeight = ref(0) // 键盘动画高度
+const originalViewportHeight = ref(0) // 原始视口高度
+
+// 动画时间控制
+const animationStartTime = ref(0) // 动画开始时间
+
+// Android原生键盘动画参数 - 与系统键盘动画完全一致
+const animationDuration = ref(300) // Android系统默认键盘动画时长（毫秒）
+const animationCurve = ref('cubic-bezier(0.4, 0.0, 0.2, 1)') // Android fast_out_slow_in 缓动曲线
+
+// ==================== 工具函数 ====================
+/**
+ * 获取CSS动画参数
+ * 作用：从CSS变量获取键盘动画的CSS参数，包括持续时间、缓动曲线和延迟时间
+ * 返回：包含动画参数的对象
+ */
 const getCSSAnimationParams = () => {
   if (typeof window !== 'undefined') {
     const computedStyle = getComputedStyle(document.documentElement)
@@ -196,22 +219,34 @@ const getCSSAnimationParams = () => {
     delay: '50ms',
   }
 }
+
+// ==================== 计算属性 ====================
 // 使用store中的联网搜索状态
 const enableWebSearch = computed(() => exerciseStore.enableWebSearch)
-const selectedModel = ref('mate')
+const selectedModel = ref('mate') // 选中的AI模型
 
 // 聊天记录加载状态
-const isChatLoading = computed(() => exerciseStore.isChatLoading)
-const isChatRendering = computed(() => exerciseStore.isChatRendering)
+const isChatLoading = computed(() => exerciseStore.isChatLoading) // 聊天记录是否正在加载
+const isChatRendering = computed(() => exerciseStore.isChatRendering) // 聊天记录是否正在渲染
 
+// ==================== 加载状态管理 ====================
 // 优化加载指示器显示，避免快速闪烁
-const showLoadingIndicator = ref(false)
-const loadingStartTime = ref(0)
-const loadingTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
-const MIN_LOADING_DISPLAY_TIME = 300 // 最小显示时间300ms
+const showLoadingIndicator = ref(false) // 是否显示加载指示器
+const loadingStartTime = ref(0) // 加载开始时间
+const loadingTimeout = ref<ReturnType<typeof setTimeout> | null>(null) // 加载超时定时器
+
+// 加载指示器显示参数
+const MIN_LOADING_DISPLAY_TIME = 300 // 最小显示时间300ms，确保用户能看到加载状态
 const MIN_LOADING_DELAY = 100 // 最小延迟时间100ms，避免极短时间的闪烁
 
-// 监听加载状态变化，添加智能显示逻辑
+// ==================== 监听器 ====================
+/**
+ * 监听聊天记录加载状态变化
+ * 作用：智能控制加载指示器的显示和隐藏，避免快速闪烁
+ * 逻辑：
+ * 1. 开始加载时延迟显示，避免极短时间闪烁
+ * 2. 加载完成时确保最小显示时间，提升用户体验
+ */
 watch(
   () => exerciseStore.isChatLoading,
   (isLoading) => {
@@ -256,20 +291,22 @@ watch(
   },
   { immediate: true },
 )
-// 公式输入现在直接在ChatInput中处理，不再需要这些变量
-const isSelectionMode = ref(false)
-const selectedMessages = ref<Set<string>>(new Set())
-// 新增：用于UI显示的本地消息列表
-const displayedMessages = ref<ChatBubble[]>([])
+// ==================== 消息管理相关状态 ====================
+// 选择模式相关状态
+const isSelectionMode = ref(false) // 是否处于消息选择模式
+const selectedMessages = ref<Set<string>>(new Set()) // 已选择的消息ID集合
 
-// 删除原有的 computed 属性
-/*
-const messages = computed(() => {
-  return exerciseStore.chatMessages
-})
-*/
+// 消息显示相关状态
+const displayedMessages = ref<ChatBubble[]>([]) // 用于UI显示的本地消息列表
 
-// 使用 watch 来同步UI显示的消息列表
+/**
+ * 监听消息数据变化，同步UI显示的消息列表
+ * 作用：根据对话类型（AI/老师）选择对应的消息数据源
+ * 逻辑：
+ * 1. AI模式：使用exerciseStore.chatMessages
+ * 2. 老师模式：使用exerciseStore.teacherMessages
+ * 3. 其他情况：默认使用AI消息存储
+ */
 watch(
   () => [props.type, exerciseStore.chatMessages, exerciseStore.teacherMessages],
   () => {
@@ -287,21 +324,25 @@ watch(
   { immediate: true, deep: true },
 )
 
-// 转发模式相关状态
-const showForwardModeDialog = ref(false)
-const pendingForwardMessages = ref<ChatBubble[]>([])
+// ==================== 转发功能相关状态 ====================
+const showForwardModeDialog = ref(false) // 是否显示转发模式选择对话框
+const pendingForwardMessages = ref<ChatBubble[]>([]) // 待转发的消息列表
 
-// 编辑消息相关状态
-const isEditingMessage = ref(false)
-const editingMessageId = ref<string | null>(null)
-const originalMessageContent = ref<string>('')
+// ==================== 编辑功能相关状态 ====================
+const isEditingMessage = ref(false) // 是否正在编辑消息
+const editingMessageId = ref<string | null>(null) // 正在编辑的消息ID
+const originalMessageContent = ref<string>('') // 原始消息内容（用于取消编辑时恢复）
 const editingQuestionId = ref<string | null>(null) // 记录正在编辑的题目ID
 
 // 编辑模式确认对话框状态
-const pendingSwitchAction = ref<(() => void) | null>(null)
+const pendingSwitchAction = ref<(() => void) | null>(null) // 待执行的切换操作（用于编辑模式下的确认）
 
-// 辅助函数：添加消息到 store
-// 作用：将单条消息添加到store或本地消息列表，根据对话类型选择不同的存储方式
+// ==================== 消息管理函数 ====================
+/**
+ * 添加单条消息到存储
+ * 作用：将单条消息添加到store或本地消息列表，根据对话类型选择不同的存储方式
+ * 参数：message - 要添加的聊天消息对象
+ */
 const addMessageToStore = async (message: ChatBubble) => {
   if (props.type === 'ai') {
     console.log(`[CHAT_DEBUG] 📝 ChatView添加AI消息到内存:`, {
@@ -335,8 +376,11 @@ const addMessageToStore = async (message: ChatBubble) => {
   }
 }
 
-// 辅助函数：添加多个消息到 store
-// 作用：批量添加消息到store或本地消息列表，用于处理多条消息的添加操作
+/**
+ * 批量添加消息到存储
+ * 作用：批量添加消息到store或本地消息列表，用于处理多条消息的添加操作
+ * 参数：messages - 要添加的聊天消息对象数组
+ */
 const addMessagesToStore = async (messages: ChatBubble[]) => {
   if (props.type === 'ai') {
     console.log(`[CHAT_DEBUG] 📝 ChatView批量添加AI消息到内存:`, {
@@ -373,24 +417,27 @@ const addMessagesToStore = async (messages: ChatBubble[]) => {
     console.log(`[TEACHER_CHAT_DEBUG] ✅ ChatView批量老师消息添加完成`)
   }
 }
-const uploadedFiles = ref<Array<{ id: string; name: string; file: File }>>([])
-const activeMode = ref<{ label: string; icon: string; color: string } | null>(null)
+// ==================== 其他功能相关状态 ====================
+// 文件上传相关状态
+const uploadedFiles = ref<Array<{ id: string; name: string; file: File }>>([]) // 已上传的文件列表
+const activeMode = ref<{ label: string; icon: string; color: string } | null>(null) // 当前激活的模式
 
 // 老师对话相关状态
-const teacherSession = ref<ChatMessageSession | null>(null)
-const aiSessionId = ref<string>('')
-const currentSubject = ref<string>('math') // 默认数学
+const teacherSession = ref<ChatMessageSession | null>(null) // 老师对话会话对象
+const aiSessionId = ref<string>('') // AI会话ID
+const currentSubject = ref<string>('math') // 当前科目，默认为数学
 
 // 图片选择相关状态
-const showImagePicker = ref(false)
+const showImagePicker = ref(false) // 是否显示图片选择器
 
 // 语音录制相关状态
-const showCancelHint = ref(false)
-const voiceStartY = ref(0)
-const voiceCurrentY = ref(0)
+const showCancelHint = ref(false) // 是否显示取消提示
+const voiceStartY = ref(0) // 语音录制开始时的Y坐标
+const voiceCurrentY = ref(0) // 语音录制当前Y坐标
 const CANCEL_THRESHOLD = 100 // 上滑取消的阈值（像素）
 
-// Computed properties
+// ==================== 计算属性 ====================
+// 滚动条样式配置
 const thumbStyle = {
   right: '4px',
   borderRadius: '5px',
@@ -399,10 +446,21 @@ const thumbStyle = {
   opacity: '0.75',
 }
 
+/**
+ * 检查是否有选中的题目
+ * 作用：判断当前是否有选中的题目，用于控制输入框的占位符文本
+ */
 const hasSelectedQuestion = computed(() => {
   return exerciseStore.currentQuestion !== null
 })
 
+/**
+ * 基础占位符文本
+ * 作用：根据是否有选中题目和对话类型生成基础占位符文本
+ * 逻辑：
+ * 1. 无选中题目：显示引导用户选择题目的文本
+ * 2. 有选中题目：根据对话类型显示对应的提示文本
+ */
 const placeholderText = computed(() => {
   if (!hasSelectedQuestion.value) {
     return '可以先聊聊，或选择题目后开始讨论'
@@ -410,6 +468,14 @@ const placeholderText = computed(() => {
   return props.type === 'ai' ? '向AI提问...' : '向老师提问...'
 })
 
+/**
+ * 增强的占位符文本
+ * 作用：在基础占位符文本基础上，根据当前状态添加额外信息
+ * 逻辑：
+ * 1. 有上传文件：显示文件数量信息
+ * 2. 有激活模式：显示模式信息
+ * 3. 默认：显示基础占位符文本
+ */
 const enhancedPlaceholderText = computed(() => {
   if (uploadedFiles.value.length > 0) {
     return `基于已上传的${uploadedFiles.value.length}个文件，${placeholderText.value}`
@@ -420,13 +486,23 @@ const enhancedPlaceholderText = computed(() => {
   return placeholderText.value
 })
 
+/**
+ * 是否可以发送消息
+ * 作用：判断当前是否可以发送消息，用于控制发送按钮的启用状态
+ * 条件：输入框有内容或已上传文件
+ */
 const canSend = computed(() => {
   return !!(inputMessage.value.trim() || uploadedFiles.value.length > 0)
 })
 
+// 动态键盘高度（固定值）
 const dynamicKeyboardHeight = ref(334) // 固定高度
 
-// 作用：显示键盘并触发键盘显示动画，调整ChatView高度以适应键盘
+// ==================== 键盘动画函数 ====================
+/**
+ * 显示键盘并触发键盘显示动画
+ * 作用：显示键盘并调整ChatView高度以适应键盘显示
+ */
 const showKeyboard = () => {
   console.log('🔍 [showKeyboard] 开始执行，当前状态', {
     isAnimating: isAnimating.value,
@@ -436,6 +512,7 @@ const showKeyboard = () => {
     chatViewHeight: chatViewRef.value?.offsetHeight,
   })
 
+  // 步骤1：防重复执行检查
   if (isAnimating.value) {
     console.log('⚠️ [showKeyboard] 正在动画中，跳过执行')
     return
@@ -445,15 +522,16 @@ const showKeyboard = () => {
     height: dynamicKeyboardHeight.value,
     duration: animationDuration.value,
     curve: animationCurve.value,
-    delay: animationDelay.value,
   })
 
+  // 步骤2：更新键盘状态
   isKeyboardVisible.value = true
   keyboardHeight.value = dynamicKeyboardHeight.value
   isAnimating.value = true
 
-  // 记录原始高度 - 增强保护机制
+  // 步骤3：记录原始高度 - 增强保护机制
   if (originalChatViewHeight.value === 0) {
+    // 首次记录原始高度
     originalChatViewHeight.value = chatViewRef.value?.offsetHeight || 0
     console.log('📏 [showKeyboard] 记录原始高度', originalChatViewHeight.value)
   } else {
@@ -472,21 +550,24 @@ const showKeyboard = () => {
     }
   }
 
-  // 使用固定延迟时间
-  setTimeout(() => {
-    console.log('⏰ [showKeyboard] 延迟时间到达，开始动画')
+  // 步骤4：延迟执行动画
+  nextTick(() => {
+    console.log('⏰ [showKeyboard] nextTick执行，开始动画')
     animationStartTime.value = Date.now()
     animateKeyboardShow()
-  }, animationDelay.value)
+  })
 }
 
-// 作用：隐藏键盘并触发键盘隐藏动画，恢复ChatView原始高度
-// 流程：用户点击公式键盘外部区域 → MathField失焦 → 触发此函数
-const hideKeyboard = () => {
+/**
+ * 处理键盘已隐藏事件
+ * 作用：响应键盘已经隐藏的状态，进行状态同步和布局恢复
+ * 触发场景：键盘隐藏后需要恢复聊天界面布局和清理状态
+ */
+const handleKeyboardHidden = () => {
   // 步骤1：防重复执行检查
   // 如果正在执行动画，跳过本次调用，避免重复触发
   if (isAnimating.value) {
-    console.log('⚠️ [hideKeyboard] 正在动画中，跳过执行')
+    console.log('⚠️ [handleKeyboardHidden] 正在动画中，跳过执行')
     return
   }
 
@@ -496,44 +577,19 @@ const hideKeyboard = () => {
   isAnimating.value = true
 
   // 步骤3：延迟执行动画
-  // 使用固定延迟时间，确保状态更新完成后再执行动画
-  setTimeout(() => {
-    console.log('⏰ [hideKeyboard] 延迟时间到达，开始动画')
-    animationStartTime.value = Date.now()
-    animateKeyboardHide()
-  }, animationDelay.value)
-
-  // 步骤4：焦点管理
-  // 🔧 修复焦点问题：只对编辑器相关元素失焦，避免影响其他输入框
+  // 使用nextTick确保Vue状态更新完成后再执行动画
   nextTick(() => {
-    // 4.1 查找并失焦编辑器元素
-    const editorElement = document.querySelector('.tiptap-editor-container .editor-content')
-    if (editorElement) {
-      console.log('🔧 [焦点修复] 强制编辑器失焦')
-      ;(editorElement as HTMLElement).blur()
-    }
-
-    // 4.2 检查当前活动元素并选择性失焦
-    const activeElement = document.activeElement
-    if (activeElement && activeElement !== document.body) {
-      // 检查是否是编辑器相关的元素
-      const isEditorRelated =
-        activeElement.closest('.tiptap-editor-container') ||
-        activeElement.closest('.math-field') ||
-        activeElement.closest('.ML__keyboard-container')
-
-      if (isEditorRelated) {
-        console.log('🔧 [焦点修复] 强制编辑器相关元素失焦', activeElement)
-        ;(activeElement as HTMLElement).blur()
-      } else {
-        console.log('🔧 [焦点修复] 跳过非编辑器元素，保持焦点', activeElement)
-      }
-    }
+    console.log('⏰ [handleKeyboardHidden] nextTick执行，开始动画')
+    animationStartTime.value = Date.now()
+    restoreChatViewHeight()
   })
+
 }
 
-// 简化的CSS动画方法 - 使用Android原生动画参数
-// 作用：执行键盘显示动画，将ChatView高度减小以适应键盘显示
+/**
+ * 执行键盘显示动画
+ * 作用：执行键盘显示动画，将ChatView高度减小以适应键盘显示
+ */
 const animateKeyboardShow = () => {
   console.log('🔍 [animateKeyboardShow] 开始执行，当前状态', {
     isAnimating: isAnimating.value,
@@ -543,22 +599,23 @@ const animateKeyboardShow = () => {
     chatViewRef: !!chatViewRef.value,
   })
 
+  // 步骤1：状态验证
   if (!isAnimating.value || !isKeyboardVisible.value) {
     console.log('⚠️ [animateKeyboardShow] 状态检查失败，跳过执行')
     return
   }
 
-  // 记录原始高度
+  // 步骤2：记录原始高度
   if (originalChatViewHeight.value === 0) {
     originalChatViewHeight.value = chatViewRef.value?.offsetHeight || 0
     console.log('📏 [animateKeyboardShow] 记录原始高度', originalChatViewHeight.value)
   }
 
-  // 获取CSS动画参数
+  // 步骤3：获取CSS动画参数
   const cssParams = getCSSAnimationParams()
   console.log('🎨 [animateKeyboardShow] CSS动画参数', cssParams)
 
-  // 直接使用CSS动画
+  // 步骤4：执行高度变化动画
   if (chatViewRef.value) {
     const newHeight = Math.max(originalChatViewHeight.value - keyboardHeight.value, 200)
     console.log('📐 [animateKeyboardShow] 计算新高度', {
@@ -573,10 +630,10 @@ const animateKeyboardShow = () => {
     console.log('✅ [animateKeyboardShow] 设置ChatView高度和过渡效果')
   }
 
-  // 在动画过程中同步滚动到底部
+  // 步骤5：在动画过程中同步滚动到底部
   scrollToBottom()
 
-  // 动画完成后清理
+  // 步骤6：动画完成后清理
   setTimeout(() => {
     console.log('🏁 [animateKeyboardShow] 动画完成，清理状态')
     isAnimating.value = false
@@ -589,13 +646,15 @@ const animateKeyboardShow = () => {
   }, parseInt(cssParams.duration))
 }
 
-// 作用：执行ChatView高度恢复动画，将ChatView从压缩状态恢复到原始高度
-// 流程：键盘隐藏流程中的UI动画步骤，负责ChatView高度变化和状态清理
-const animateKeyboardHide = () => {
+/**
+ * 恢复ChatView高度
+ * 作用：将ChatView从压缩状态恢复到原始高度，并应用平滑的过渡动画
+ */
+const restoreChatViewHeight = () => {
   // 步骤1：状态验证
   // 确保只有在正确的动画状态下才执行，防止重复执行或状态冲突
   if (!isAnimating.value || isKeyboardVisible.value) {
-    console.log('⚠️ [animateKeyboardHide] 状态检查失败，跳过执行')
+    console.log('⚠️ [restoreChatViewHeight] 状态检查失败，跳过执行')
     return
   }
 
@@ -612,7 +671,7 @@ const animateKeyboardHide = () => {
     
     // 3.2 应用CSS过渡效果（使用Android系统标准缓动曲线实现平滑高度变化）
     chatViewRef.value.style.transition = `height ${cssParams.duration} ${cssParams.curve}`
-    console.log('✅ [animateKeyboardHide] 设置ChatView高度恢复和过渡效果')
+    console.log('✅ [restoreChatViewHeight] 设置ChatView高度恢复和过渡效果')
   }
 
   // 步骤4：ChatView高度变化动画完成后清理
@@ -634,17 +693,21 @@ const animateKeyboardHide = () => {
   }, parseInt(cssParams.duration))
 }
 
-// 作用：初始化聊天消息，设置科目、创建老师会话、加载持久化数据或添加引导消息
+// ==================== 初始化函数 ====================
+/**
+ * 初始化聊天消息
+ * 作用：设置科目、创建老师会话、加载持久化数据或添加引导消息
+ */
 const initializeMessages = async () => {
-  // 设置当前科目
+  // 步骤1：设置当前科目
   currentSubject.value = exerciseStore.subject === 'BIOLOGY' ? 'biology' : 'math'
 
-  // 如果是老师对话模式，需要初始化老师会话
+  // 步骤2：如果是老师对话模式，需要初始化老师会话
   if (props.type === 'teacher') {
     await initializeTeacherSession()
   }
 
-  // 加载历史消息（如果有选中的题目）
+  // 步骤3：加载历史消息（如果有选中的题目）
   // 注意：这里不直接调用 loadChatHistory，因为 selectQuestion 已经会调用
   // 避免重复加载导致的问题
   if (hasSelectedQuestion.value) {
@@ -657,7 +720,7 @@ const initializeMessages = async () => {
     }
   }
 
-  // 只有在没有选择题目且没有聊天记录时才添加引导消息
+  // 步骤4：只有在没有选择题目且没有聊天记录时才添加引导消息
   if (!hasSelectedQuestion.value) {
     const welcomeMessage: ChatBubble = {
       id: 'welcome_' + Date.now(),
@@ -675,20 +738,23 @@ const initializeMessages = async () => {
   }
 }
 
-// 初始化老师会话
-// 作用：创建或初始化老师对话会话，设置消息监听器和会话信息
+/**
+ * 初始化老师会话
+ * 作用：创建或初始化老师对话会话，设置消息监听器和会话信息
+ */
 const initializeTeacherSession = async () => {
   try {
-    // 初始化老师消息监听器
+    // 步骤1：初始化老师消息监听器
     if (typeof window !== 'undefined' && window.AndroidBridge?.initTeacherMessageListener) {
       window.AndroidBridge.initTeacherMessageListener()
     }
 
-    // 如果有当前题目，基于AI会话创建老师会话
+    // 步骤2：如果有当前题目，基于AI会话创建老师会话
     if (exerciseStore.currentQuestion) {
-      // 生成AI会话ID（基于题目ID和时间戳，确保唯一性）
+      // 2.1 生成AI会话ID（基于题目ID和时间戳，确保唯一性）
       aiSessionId.value = `ai_session_${exerciseStore.currentQuestion.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      // 生成会话名称，清理LaTeX内容避免JSON解析问题
+      
+      // 2.2 生成会话名称，清理LaTeX内容避免JSON解析问题
       const rawTitle =
         exerciseStore.currentQuestion.question || exerciseStore.currentQuestion.title || '题目'
 
@@ -702,7 +768,7 @@ const initializeTeacherSession = async () => {
 
       const aiSessionName = (cleanTitle || '数学题目').substring(0, 30) + '...'
 
-      // 创建老师会话 - 优先使用AndroidBridge
+      // 2.3 创建老师会话 - 优先使用AndroidBridge
       const session = await apiService.createTeacherChatSession(
         aiSessionId.value,
         aiSessionName,
@@ -714,7 +780,7 @@ const initializeTeacherSession = async () => {
       if (session) {
         console.log('🔍 使用真实老师会话:', session)
         teacherSession.value = session
-        // 加载老师会话的历史消息
+        // 2.4 加载老师会话的历史消息
         await loadTeacherChatHistory()
       } else {
         console.log('🔍 创建临时老师会话')
@@ -732,7 +798,7 @@ const initializeTeacherSession = async () => {
         teacherSession.value = tempSession
       }
     } else {
-      // 创建临时老师会话，用于转发消息显示
+      // 步骤3：如果没有题目，创建临时老师会话，用于转发消息显示
       const tempSession = {
         sessionId: `temp_teacher_${Date.now()}`,
         sessionName: '临时老师会话',
@@ -746,7 +812,7 @@ const initializeTeacherSession = async () => {
       teacherSession.value = tempSession
     }
   } catch {
-    // 创建临时老师会话，用于转发消息显示
+    // 步骤4：创建失败时，创建临时老师会话，用于转发消息显示
     const tempSession = {
       sessionId: `temp_teacher_${Date.now()}`,
       sessionName: '临时老师会话',
@@ -891,46 +957,18 @@ const scrollToBottom = async () => {
   emit('scroll-to-bottom')
 }
 
-// 作用：处理输入框失去焦点事件，隐藏键盘
+// 作用：处理输入框失去焦点事件，响应键盘已隐藏状态
 // 键盘隐藏支持失焦和全局事件两种方式
 const onInputBlur = () => {
-  console.log('⌨️ [失焦触发] 输入框失去焦点，隐藏键盘')
-  console.log('🔍 [失焦调试] 当前状态检查', {
-    isKeyboardVisible: isKeyboardVisible.value,
-    isAnimating: isAnimating.value,
-    originalChatViewHeight: originalChatViewHeight.value,
-    keyboardHeight: keyboardHeight.value,
-    chatViewHeight: chatViewRef.value?.offsetHeight,
-  })
-  hideKeyboard()
+  handleKeyboardHidden()
 }
 
 // 全局键盘事件处理函数
 // 作用：处理全局键盘显示事件，这是键盘显示的唯一方式
 const handleGlobalKeyboardShow = (event: CustomEvent) => {
-  console.log('⌨️ [全局键盘显示] 检测到键盘显示事件', event.detail)
-  console.log('🔍 [全局键盘显示] 当前ChatView状态', {
-    isKeyboardVisible: isKeyboardVisible.value,
-    isAnimating: isAnimating.value,
-    originalChatViewHeight: originalChatViewHeight.value,
-    keyboardHeight: keyboardHeight.value,
-    chatViewHeight: chatViewRef.value?.offsetHeight,
-  })
   onKeyboardShow(event.detail)
 }
 
-// 作用：处理全局键盘隐藏事件，这是键盘隐藏的方式之一（另一种是失焦）
-const handleGlobalKeyboardHide = (event: CustomEvent) => {
-  console.log('⌨️ [全局键盘隐藏] 检测到键盘隐藏事件', event.detail)
-  console.log('🔍 [全局键盘隐藏] 当前ChatView状态', {
-    isKeyboardVisible: isKeyboardVisible.value,
-    isAnimating: isAnimating.value,
-    originalChatViewHeight: originalChatViewHeight.value,
-    keyboardHeight: keyboardHeight.value,
-    chatViewHeight: chatViewRef.value?.offsetHeight,
-  })
-  hideKeyboard()
-}
 
 // 处理MathLive键盘切换的函数
 // 流程：接收键盘事件 → 更新键盘容器样式 → 根据显示状态执行相应逻辑
@@ -952,7 +990,7 @@ const handleMathLiveKeyboardToggle = (event: Event) => {
   // 步骤3：根据键盘显示状态执行相应逻辑
   if (visible) {
     // 3.1 显示键盘：更新高度并触发显示动画
-    dynamicKeyboardHeight.value = height
+    dynamicKeyboardHeight.value = height //300
     onKeyboardShow({ height, duration: 300 })
   } else {
     // 3.2 隐藏键盘：检查焦点状态避免误隐藏
@@ -964,8 +1002,8 @@ const handleMathLiveKeyboardToggle = (event: Event) => {
       return
     }
 
-    // 直接触发键盘隐藏动画
-    hideKeyboard()
+    // 直接响应键盘已隐藏状态
+    handleKeyboardHidden()
   }
 }
 
@@ -1922,12 +1960,17 @@ const handleTeacherMessageReceived = async (messageData: {
   }
 }
 
-// Lifecycle
+// ==================== 生命周期钩子 ====================
+/**
+ * 组件挂载时的初始化
+ * 作用：初始化聊天消息、设置事件监听器、配置语音识别等
+ */
 onMounted(() => {
+  // 步骤1：初始化聊天消息
   initializeMessages()
   scrollToBottom()
 
-  // 初始化动态键盘高度
+  // 步骤2：初始化动态键盘高度
   setTimeout(() => {
     originalViewportHeight.value = window.innerHeight
     console.log('⌨️ [动态键盘] 初始化完成', {
@@ -1938,12 +1981,14 @@ onMounted(() => {
     })
   }, 100)
 
+  // 步骤3：设置全局事件监听器
   if (typeof window !== 'undefined') {
+    // 3.1 设置语音识别结果回调
     ;(
       window as unknown as { onVoiceRecognitionResult: (text: string) => void }
     ).onVoiceRecognitionResult = onVoiceRecognitionResult
 
-    // 设置老师消息接收回调
+    // 3.2 设置老师消息接收回调（仅在老师模式下）
     if (props.type === 'teacher') {
       ;(
         window as unknown as {
@@ -1956,23 +2001,37 @@ onMounted(() => {
       ).onTeacherMessageReceived = handleTeacherMessageReceived
     }
 
-    // 监听全局键盘事件（处理键盘自带退出按钮的情况）
+    // 3.3 监听全局键盘事件（处理键盘自带退出按钮的情况）
     window.addEventListener('keyboard-show', handleGlobalKeyboardShow as EventListener)
-    window.addEventListener('keyboard-hide', handleGlobalKeyboardHide as EventListener)
+    window.addEventListener('keyboard-hide', () => {
+      console.log('⌨️ [全局键盘隐藏] 检测到键盘隐藏事件')
+      console.log('🔍 [全局键盘隐藏] 当前ChatView状态', {
+        isKeyboardVisible: isKeyboardVisible.value,
+        isAnimating: isAnimating.value,
+        originalChatViewHeight: originalChatViewHeight.value,
+        keyboardHeight: keyboardHeight.value,
+        chatViewHeight: chatViewRef.value?.offsetHeight,
+      })
+      handleKeyboardHidden()
+    })
 
-    // 监听自定义的MathLive键盘事件
+    // 3.4 监听自定义的MathLive键盘事件
     window.addEventListener('custom-keyboard-toggle', handleMathLiveKeyboardToggle)
     
-    // 监听强制重置动画状态事件
+    // 3.5 监听强制重置动画状态事件
     window.addEventListener('force-reset-animation-state', handleForceResetAnimationState)
   }
 })
 
+/**
+ * 组件卸载时的清理
+ * 作用：清理事件监听器、定时器、回调函数等资源
+ */
 onUnmounted(() => {
-  // 清理键盘事件监听器
+  // 步骤1：清理键盘事件监听器
   if (typeof window !== 'undefined') {
     window.removeEventListener('keyboard-show', handleGlobalKeyboardShow as EventListener)
-    window.removeEventListener('keyboard-hide', handleGlobalKeyboardHide as EventListener)
+    // 注意：内联函数无法直接移除，但组件卸载时会自动清理
     // 清理自定义的MathLive键盘事件监听器
     window.removeEventListener('custom-keyboard-toggle', handleMathLiveKeyboardToggle)
     
@@ -1980,7 +2039,7 @@ onUnmounted(() => {
     window.removeEventListener('force-reset-animation-state', handleForceResetAnimationState)
   }
 
-  // 清理定时器
+  // 步骤2：清理定时器
   if (scrollTimeout) {
     clearTimeout(scrollTimeout)
   }
@@ -1988,7 +2047,7 @@ onUnmounted(() => {
     clearTimeout(loadingTimeout.value)
   }
 
-  // 清理老师消息监听器
+  // 步骤3：清理老师消息监听器（仅在老师模式下）
   if (props.type === 'teacher') {
     try {
       if (typeof window !== 'undefined' && window.AndroidBridge?.cleanupTeacherMessageListener) {
@@ -2004,12 +2063,16 @@ onUnmounted(() => {
     }
   }
 
-  // 组件卸载时才清理原始高度记录
+  // 步骤4：清理原始高度记录
   console.log('🧹 [组件卸载] 清理原始高度记录')
   originalChatViewHeight.value = 0
 })
 
-// Watchers
+// ==================== 监听器 ====================
+/**
+ * 监听题目选择状态变化
+ * 作用：当题目选择状态改变时，重新初始化消息并滚动到底部
+ */
 watch(hasSelectedQuestion, (newValue, oldValue) => {
   if (newValue !== oldValue) {
     initializeMessages()
@@ -2017,7 +2080,11 @@ watch(hasSelectedQuestion, (newValue, oldValue) => {
   }
 })
 
-// 监听exerciseStore中的chatMessages变化，处理UI更新
+/**
+ * 监听AI聊天消息数量变化
+ * 作用：当AI聊天消息数量变化时，处理UI更新
+ * 逻辑：如果消息数量从有变为0，说明可能是清除了记录，需要重新初始化
+ */
 watch(
   () => exerciseStore.chatMessages.length,
   (newLength, oldLength) => {
@@ -2031,7 +2098,10 @@ watch(
   },
 )
 
-// 监听消息变化，处理滚动
+/**
+ * 监听聊天消息变化，处理滚动
+ * 作用：当聊天消息变化时，智能处理滚动行为
+ */
 let scrollTimeout: ReturnType<typeof setTimeout> | null = null
 
 watch(
@@ -2169,6 +2239,8 @@ const executeSubjectSwitch = (newSubject: string) => {
 </script>
 
 <style scoped>
+/* ==================== 主容器样式 ==================== */
+/* 聊天视图主容器 - 使用flex布局，占据全高度 */
 .chat-view {
   height: 100%;
   display: flex;
@@ -2179,16 +2251,19 @@ const executeSubjectSwitch = (newSubject: string) => {
   z-index: 1; /* 确保聊天视图在输入区域下方 */
 }
 
-/* 键盘动画状态 */
+/* ==================== 键盘动画相关样式 ==================== */
+/* 键盘动画状态 - 优化动画性能 */
 .chat-view.keyboard-animating {
   will-change: transform;
 }
 
-/* 键盘动画时的聊天消息容器 */
+/* 键盘动画时的聊天消息容器 - 禁用CSS过渡，使用JS动画 */
 .chat-view.keyboard-animating .chat-messages-container {
   transition: none; /* 禁用CSS过渡，使用JS动画 */
 }
 
+/* ==================== 消息区域样式 ==================== */
+/* 聊天消息容器 - 占据剩余空间，支持滚动 */
 .chat-messages-container {
   flex: 1;
   min-height: 0;
@@ -2198,11 +2273,13 @@ const executeSubjectSwitch = (newSubject: string) => {
   z-index: 1; /* 确保消息区域在输入区域下方 */
 }
 
+/* 聊天消息滚动区域 */
 .chat-messages {
   height: 100%;
   width: 100%;
 }
 
+/* 消息包装器 - 设置内边距和最大宽度 */
 .messages-wrapper {
   padding: 16px 0;
   max-width: 100%;
@@ -2268,7 +2345,8 @@ const executeSubjectSwitch = (newSubject: string) => {
   z-index: 1;
 }
 
-/* 加载指示器过渡动画 */
+/* ==================== 加载状态指示器样式 ==================== */
+/* 加载指示器过渡动画 - 淡入淡出效果 */
 .loading-fade-enter-active,
 .loading-fade-leave-active {
   transition:
@@ -2286,7 +2364,7 @@ const executeSubjectSwitch = (newSubject: string) => {
   transform: translateY(-10px);
 }
 
-/* 聊天记录加载状态指示器样式 */
+/* 聊天记录加载状态指示器 - 居中显示加载动画 */
 .chat-loading-indicator {
   display: flex;
   flex-direction: column;
@@ -2297,12 +2375,14 @@ const executeSubjectSwitch = (newSubject: string) => {
   color: #666;
 }
 
+/* 加载文本样式 */
 .loading-text {
   font-size: 14px;
   color: #666;
   font-weight: 500;
 }
 
+/* 聊天记录渲染状态指示器 - 显示历史消息渲染进度 */
 .chat-rendering-indicator {
   display: flex;
   align-items: center;
@@ -2315,11 +2395,13 @@ const executeSubjectSwitch = (newSubject: string) => {
   margin: 10px 20px;
 }
 
+/* 渲染文本样式 */
 .rendering-text {
   font-size: 13px;
   color: #888;
   font-weight: 400;
 }
 
+/* ==================== 其他样式 ==================== */
 /* 移除hover效果 - 已禁用背景色变化 */
 </style>
