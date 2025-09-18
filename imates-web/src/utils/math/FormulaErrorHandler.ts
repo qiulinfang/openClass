@@ -2,8 +2,6 @@
  * 公式错误处理器 - 负责处理公式相关的所有错误
  */
 
-import { FormulaEventManager, FORMULA_EVENTS } from './FormulaEventManager'
-import type { FormulaEventData } from './FormulaEventManager'
 
 export enum FormulaErrorType {
   INITIALIZATION_FAILED = 'INITIALIZATION_FAILED',
@@ -25,7 +23,6 @@ export interface FormulaError {
 
 export class FormulaErrorHandler {
   private static instance: FormulaErrorHandler | null = null
-  private eventManager: FormulaEventManager
 
   // 单例模式
   static getInstance(): FormulaErrorHandler {
@@ -36,21 +33,14 @@ export class FormulaErrorHandler {
   }
 
   constructor() {
-    this.eventManager = FormulaEventManager.getInstance()
+    // 移除事件管理器依赖
   }
 
   // 处理错误
   async handleError(error: FormulaError): Promise<void> {
     console.error('❌ [FORMULA-ERROR] 处理公式错误', error)
     
-    // 发出错误事件
-    this.eventManager.emit(FORMULA_EVENTS.ERROR, {
-      type: error.type,
-      message: error.message,
-      nodeId: error.nodeId,
-      originalError: error.originalError,
-      context: error.context
-    })
+    // 错误处理完成（移除事件发送）
 
     // 根据错误类型执行不同的恢复策略
     switch (error.type) {
@@ -58,7 +48,7 @@ export class FormulaErrorHandler {
         await this.handleInitializationError(error)
         break
       case FormulaErrorType.MATHLIVE_LOAD_FAILED:
-        await this.handleMathLiveLoadError(error)
+        await this.handleMathLiveLoadError()
         break
       case FormulaErrorType.NODE_CREATION_FAILED:
         await this.handleNodeCreationError(error)
@@ -99,12 +89,9 @@ export class FormulaErrorHandler {
     console.log('🔄 [FORMULA-ERROR] 处理初始化错误', { nodeId: error.nodeId })
     
     if (error.nodeId) {
-      // 尝试重新初始化
+      // 尝试重新初始化（移除事件发送）
       try {
-        this.eventManager.emit(FORMULA_EVENTS.INITIALIZATION_FAILED, {
-          nodeId: error.nodeId,
-          error: error.originalError
-        })
+        console.log('🔄 [FORMULA-ERROR] 尝试重新初始化', { nodeId: error.nodeId })
       } catch (retryError) {
         console.error('❌ [FORMULA-ERROR] 重新初始化失败', retryError)
       }
@@ -112,16 +99,11 @@ export class FormulaErrorHandler {
   }
 
   // 处理MathLive加载错误
-  private async handleMathLiveLoadError(error: FormulaError): Promise<void> {
+  private async handleMathLiveLoadError(): Promise<void> {
     console.log('🔄 [FORMULA-ERROR] 处理MathLive加载错误')
     
     try {
-      // 发出MathLive加载失败事件
-      this.eventManager.emit(FORMULA_EVENTS.MATHLIVE_LOAD_FAILED, {
-        error: error.originalError
-      })
-      
-      // 可以在这里实现降级方案，比如使用文本输入
+      // MathLive加载失败处理（移除事件发送）
       console.log('💡 [FORMULA-ERROR] 建议使用文本输入作为降级方案')
     } catch (fallbackError) {
       console.error('❌ [FORMULA-ERROR] 降级方案执行失败', fallbackError)
@@ -132,10 +114,7 @@ export class FormulaErrorHandler {
   private async handleNodeCreationError(error: FormulaError): Promise<void> {
     console.log('🔄 [FORMULA-ERROR] 处理节点创建错误', { nodeId: error.nodeId })
     
-    this.eventManager.emit(FORMULA_EVENTS.NODE_CREATION_FAILED, {
-      nodeId: error.nodeId,
-      error: error.originalError
-    })
+    // 节点创建失败处理（移除事件发送）
   }
 
   // 处理键盘显示错误
@@ -143,11 +122,8 @@ export class FormulaErrorHandler {
     console.log('🔄 [FORMULA-ERROR] 处理键盘显示错误', { nodeId: error.nodeId })
     
     try {
-      // 尝试显示替代键盘
-      this.eventManager.emit(FORMULA_EVENTS.KEYBOARD_SHOW_FAILED, {
-        nodeId: error.nodeId,
-        error: error.originalError
-      })
+      // 尝试显示替代键盘（移除事件发送）
+      console.log('🔄 [FORMULA-ERROR] 尝试显示替代键盘', { nodeId: error.nodeId })
     } catch (fallbackError) {
       console.error('❌ [FORMULA-ERROR] 替代键盘显示失败', fallbackError)
     }
@@ -157,20 +133,14 @@ export class FormulaErrorHandler {
   private async handleFocusError(error: FormulaError): Promise<void> {
     console.log('🔄 [FORMULA-ERROR] 处理聚焦错误', { nodeId: error.nodeId })
     
-    this.eventManager.emit(FORMULA_EVENTS.FOCUS_FAILED, {
-      nodeId: error.nodeId,
-      error: error.originalError
-    })
+    // 聚焦失败处理（移除事件发送）
   }
 
   // 处理内容保存错误
   private async handleContentSaveError(error: FormulaError): Promise<void> {
     console.log('🔄 [FORMULA-ERROR] 处理内容保存错误', { nodeId: error.nodeId })
     
-    this.eventManager.emit(FORMULA_EVENTS.CONTENT_SAVE_FAILED, {
-      nodeId: error.nodeId,
-      error: error.originalError
-    })
+    // 内容保存失败处理（移除事件发送）
   }
 
   // 处理未知错误

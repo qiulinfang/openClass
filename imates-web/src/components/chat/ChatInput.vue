@@ -224,29 +224,16 @@ const currentInputValue = computed(() => {
 
 // 编辑器事件处理
 const handleEditorFocus = () => {
-  console.log('🎯 [编辑器] 编辑器获得焦点')
-  console.log('🔍 [编辑器焦点] 当前状态检查', {
-    isEditorFocused: isEditorFocused.value,
-    editorContent: editorContent.value,
-    editorContentLength: editorContent.value?.length || 0
-  })
   isEditorFocused.value = true
   emit('focus')
 }
 
 const handleEditorBlur = () => {
-  console.log('🎯 [编辑器] 编辑器失去焦点')
-  console.log('🔍 [编辑器失焦] 当前状态检查', {
-    isEditorFocused: isEditorFocused.value,
-    editorContent: editorContent.value,
-    editorContentLength: editorContent.value?.length || 0
-  })
   isEditorFocused.value = false
   emit('blur')
 }
 
 const handleEditorKeydown = (event: KeyboardEvent) => {
-  console.log('⌨️ [编辑器] 编辑器键盘事件', { key: event.key })
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
     handleSendMessage()
@@ -254,7 +241,6 @@ const handleEditorKeydown = (event: KeyboardEvent) => {
 }
 
 const handleEditorUpdate = (content: string) => {
-  console.log('📝 [编辑器] 编辑器内容更新', { content })
   editorContent.value = content
   emit('update:modelValue', content)
 }
@@ -311,52 +297,35 @@ const handleVoiceMove = (event: TouchEvent | MouseEvent) => {
 
 // 完成公式编辑
 const finishFormulaEditing = async (blockId: string) => {
-  console.log('🏁 [公式编辑完成] 开始完成公式编辑流程', { blockId })
   
   // 1. 获取MathLive实例
   const mathfield = mathfields.value.get(blockId) as any
   if (!mathfield) {
-    console.log('❌ [公式编辑完成] 未找到MathLive实例', { blockId })
     return
   }
-  console.log('✅ [公式编辑完成] 找到MathLive实例')
   
   // 2. 获取公式内容
   const content = mathfield.value || ''
-  console.log('📝 [公式编辑完成] 获取公式内容', {
-    blockId,
-    content,
-    contentLength: content.length,
-    isEmpty: !content.trim()
-  })
   
   // 3. 开始退出动画
-  console.log('🎬 [公式编辑完成] 开始退出动画')
   isKeyboardTransitioning.value = true
   mathfield.style.transition = 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
   mathfield.style.opacity = '0'
   mathfield.style.transform = 'translateY(-5px)'
-  console.log('✅ [公式编辑完成] 退出动画样式已设置')
   
   // 4. 等待动画完成
-  console.log('⏳ [公式编辑完成] 等待退出动画完成')
   setTimeout(() => {
-    console.log('🎬 [公式编辑完成] 退出动画完成，开始处理公式块保存')
     
     // 5. 检查组件挂载状态
     if (!contentCanvasRef.value) {
-      console.log('❌ [公式编辑完成] 组件未挂载，跳过保存')
       return
     }
-    console.log('✅ [公式编辑完成] 组件挂载状态正常')
     
     // 6. 处理公式块保存
     if (currentEditingFormula.value && currentEditingFormula.value.id === blockId) {
-      console.log('📦 [公式编辑完成] 处理新公式块保存')
       
       // 6.1 检查内容是否为空
       if (!content.trim()) {
-        console.log('⚠️ [公式编辑完成] 公式内容为空，取消保存')
         currentEditingFormula.value = null
         return
       }
@@ -369,119 +338,67 @@ const finishFormulaEditing = async (blockId: string) => {
         renderedContent: content ? renderMessageContent(content) : '',
         isEditing: false
       }
-      console.log('✅ [公式编辑完成] 新公式块创建完成', {
-        blockId: formulaBlock.id,
-        type: formulaBlock.type,
-        content: formulaBlock.content,
-        hasRenderedContent: !!formulaBlock.renderedContent,
-        isEditing: formulaBlock.isEditing
-      })
       
       // 6.3 添加到内容块列表
       contentBlocks.value.push(formulaBlock)
       currentEditingFormula.value = null
-      console.log('✅ [公式编辑完成] 新公式块已添加到内容块列表', {
-        totalBlocks: contentBlocks.value.length,
-        currentEditingFormulaCleared: !currentEditingFormula.value
-      })
     } else {
-      console.log('🔄 [公式编辑完成] 处理现有公式块更新')
       
       // 6.3 更新现有公式块
       const blockIndex = contentBlocks.value.findIndex(block => block.id === blockId)
       if (blockIndex !== -1) {
-        const oldContent = contentBlocks.value[blockIndex].content
         contentBlocks.value[blockIndex].content = content
         contentBlocks.value[blockIndex].renderedContent = content ? renderMessageContent(content) : ''
         contentBlocks.value[blockIndex].isEditing = false
-        console.log('✅ [公式编辑完成] 现有公式块更新完成', {
-          blockIndex,
-          blockId,
-          oldContent,
-          newContent: content,
-          contentChanged: oldContent !== content,
-          isEditing: contentBlocks.value[blockIndex].isEditing
-        })
       } else {
-        console.log('⚠️ [公式编辑完成] 未找到要更新的公式块', { blockId, blockIndex })
       }
     }
     
     // 7. 清理MathLive实例
-    console.log('🧹 [公式编辑完成] 开始清理MathLive实例')
     cleanupMathLiveInstance(mathfield, blockId)
     
     // 8. 更新modelValue
     const newModelValue = currentInputValue.value
-    console.log('📤 [公式编辑完成] 更新modelValue', {
-      newModelValue,
-      modelValueLength: newModelValue.length
-    })
     emit('update:modelValue', newModelValue)
     
     // 9. 重置键盘切换状态
-    console.log('🔄 [公式编辑完成] 重置键盘切换状态')
     isKeyboardTransitioning.value = false
     
-    console.log('✅ [公式编辑完成] 公式编辑完成流程结束')
   }, 200)
 }
 
 // 清理MathLive实例
 const cleanupMathLiveInstance = (mathfield: any, blockId: string) => {
-  console.log('🧹 [清理MathLive] 开始清理MathLive实例', {
-    blockId,
-    mathfieldType: typeof mathfield,
-    hasRemoveMethod: typeof mathfield?.remove === 'function',
-    isConnected: mathfield?.isConnected
-  })
   
   // 1. 从DOM中移除元素
   try {
     if (mathfield && typeof mathfield.remove === 'function') {
-      console.log('🗑️ [清理MathLive] 从DOM中移除MathLive元素')
       mathfield.remove()
-      console.log('✅ [清理MathLive] MathLive元素已从DOM中移除')
     } else {
-      console.log('⚠️ [清理MathLive] MathLive实例无效，跳过移除')
     }
   } catch (error) {
-    console.warn('⚠️ [清理MathLive] 移除MathLive元素时出错:', error)
   }
   
   // 2. 从引用映射中删除
   const hadInstance = mathfields.value.has(blockId)
   mathfields.value.delete(blockId)
-  console.log('✅ [清理MathLive] 从引用映射中删除MathLive实例', {
-    blockId,
-    hadInstance,
-    remainingInstances: mathfields.value.size
-  })
-  
-  console.log('✅ [清理MathLive] MathLive实例清理完成')
 }
 
 // 清理所有MathLive实例
 const cleanupAllMathLiveInstances = () => {
-  console.log('🧹 [清理所有MathLive] 开始清理所有MathLive实例')
-  
   // 1. 遍历所有MathLive实例
   mathfields.value.forEach((mathfield: any, blockId) => {
-    console.log('🗑️ [清理所有MathLive] 清理实例', { blockId })
     try {
       if (mathfield && typeof mathfield.remove === 'function') {
         mathfield.remove()
-        console.log('✅ [清理所有MathLive] 实例清理成功', { blockId })
       }
     } catch (error) {
-      console.warn('⚠️ [清理所有MathLive] 实例清理失败:', { blockId, error })
     }
   })
   
   // 2. 清空引用映射
   mathfields.value.clear()
   formulaRefs.value.clear()
-  console.log('✅ [清理所有MathLive] 所有实例清理完成')
 }
 
 
@@ -490,11 +407,9 @@ let insertFormulaDebounceTimer: number | null = null
 
 // 插入数学公式处理
 const handleInsertMathFormula = async () => {
-  console.log('🔢 [插入公式] 触发插入数学公式')
   
   // 防抖保护：清除之前的定时器
   if (insertFormulaDebounceTimer) {
-    console.log('⚠️ [插入公式] 检测到重复点击，取消之前的操作')
     clearTimeout(insertFormulaDebounceTimer)
   }
   
@@ -502,13 +417,11 @@ const handleInsertMathFormula = async () => {
   insertFormulaDebounceTimer = setTimeout(async () => {
     // 检查 TiptapEditor 组件是否已经正确初始化
     if (!tiptapEditorRef.value) {
-      console.error('❌ [插入公式] TiptapEditor 组件未初始化')
       return
     }
     
     // 检查 insertMathFormula 方法是否存在
     if (typeof tiptapEditorRef.value.insertMathFormula !== 'function') {
-      console.error('❌ [插入公式] insertMathFormula 方法不存在', tiptapEditorRef.value)
       return
     }
     
@@ -516,10 +429,8 @@ const handleInsertMathFormula = async () => {
       await tiptapEditorRef.value.insertMathFormula()
       
       // 插入公式后触发滚动到底部事件
-      console.log('📜 [插入公式] 触发滚动到底部事件')
       emit('scroll-to-bottom')
     } catch (error) {
-      console.error('❌ [插入公式] 插入公式失败:', error)
     }
     
     // 清除定时器引用
@@ -529,14 +440,12 @@ const handleInsertMathFormula = async () => {
 
 // 发送消息处理
 const handleSendMessage = () => {
-  console.log('📤 [发送消息] 开始发送消息流程')
   
   // 1. 调用 TiptapEditor 的 getMarkdown 方法获取完整内容
   const markdownContent = tiptapEditorRef.value?.getMarkdown();
 
   // 2. 检查内容是否为空
   if (!markdownContent || !markdownContent.trim()) {
-    console.log('⚠️ [发送消息] 没有内容可发送')
     return
   }
 
@@ -545,34 +454,17 @@ const handleSendMessage = () => {
 
   // 4. 使用 nextTick 确保父组件的 v-model 更新后再发送消息
   nextTick(() => {
-    console.log('📤 [发送消息] 触发发送消息事件')
     emit('send-message');
-
-    console.log('🧹 [发送消息] 清空输入内容')
     clearInputContent();
   });
 }
 
 // 调试公式状态函数
 const handleDebugFormulas = () => {
-  console.log('🐛 [调试] 开始调试公式状态')
-  
   // 1. 打印FormulaManager状态
-  console.log('📊 [调试] FormulaManager状态:', {
-    state: formulaManager.getState(),
-    allNodes: formulaManager.getAllNodes(),
-    activeNode: formulaManager.getActiveNode()
-  })
   
   // 2. 打印TiptapEditor中的公式信息
   if (tiptapEditorRef.value) {
-    console.log('📝 [调试] TiptapEditor信息:', {
-      editor: tiptapEditorRef.value,
-      hasEditor: !!(tiptapEditorRef.value as any).editor,
-      content: tiptapEditorRef.value.getHTML(),
-      text: tiptapEditorRef.value.getText(),
-      markdown: tiptapEditorRef.value.getMarkdown()
-    })
     
     // 3. 打印编辑器中的公式节点
     if ((tiptapEditorRef.value as any).editor) {
@@ -591,49 +483,14 @@ const handleDebugFormulas = () => {
           })
         }
       })
-      
-      console.log('🧮 [调试] 编辑器中的公式节点:', formulaNodes)
     }
   }
-  
-  // 4. 打印ChatInput组件状态
-  console.log('💬 [调试] ChatInput组件状态:', {
-    editorContent: editorContent.value,
-    editorContentLength: editorContent.value.length,
-    contentBlocks: contentBlocks.value,
-    currentEditingFormula: currentEditingFormula.value,
-    mathfieldsCount: mathfields.value.size,
-    formulaRefsCount: formulaRefs.value.size,
-    selectedBlockIndex: selectedBlockIndex.value,
-    isKeyboardTransitioning: isKeyboardTransitioning.value,
-    isReadyForTextInput: isReadyForTextInput.value,
-    isPlaceholderClicked: isPlaceholderClicked.value
-  })
-  
-  // 5. 格式化输出到控制台
-  console.group('🐛 公式调试信息')
-  console.log('📊 FormulaManager状态:', formulaManager.getState())
-  console.log('🧮 所有公式节点:', formulaManager.getAllNodes())
-  console.log('⭐ 当前激活节点:', formulaManager.getActiveNode())
-  console.log('📝 编辑器内容:', tiptapEditorRef.value?.getHTML())
-  console.log('📄 Markdown内容:', tiptapEditorRef.value?.getMarkdown())
-  console.log('💬 组件状态:', {
-    editorContent: editorContent.value,
-    contentBlocks: contentBlocks.value,
-    mathfieldsCount: mathfields.value.size
-  })
-  console.groupEnd()
-  
-  console.log('✅ [调试] 公式状态调试完成')
 }
 
 // 清空输入内容
 const clearInputContent = () => {
-  console.log('🧹 [清空内容] 开始清空输入内容')
-
   // 1. 先隐藏所有公式键盘并失活所有公式（确保虚拟键盘被隐藏）
   if (tiptapEditorRef.value) {
-    console.log('🧮 [清空内容] 隐藏所有公式键盘')
     // 调用 TiptapEditor 的隐藏键盘方法
     if (typeof (tiptapEditorRef.value as any).hideAllVirtualKeyboards === 'function') {
       (tiptapEditorRef.value as any).hideAllVirtualKeyboards()
@@ -675,74 +532,18 @@ const clearInputContent = () => {
   
   // 11. 更新modelValue
   emit('update:modelValue', '')
-  
-  console.log('✅ [清空内容] 输入内容清空完成')
 }
 
 // 监听modelValue变化，同步到编辑器
 watch(() => props.modelValue, (newValue, oldValue) => {
-  console.log('👀 [监听modelValue] 检测到modelValue变化', {
-    oldValue,
-    newValue,
-    oldValueLength: oldValue?.length || 0,
-    newValueLength: newValue?.length || 0,
-    currentEditorContent: editorContent.value,
-    currentEditorContentLength: editorContent.value.length
-  })
-  
   // 1. 检查值是否有效且与当前编辑器内容不同
   if (newValue !== editorContent.value) {
-    console.log('📝 [监听modelValue] 同步到编辑器')
     editorContent.value = newValue || ''
   }
 }, { immediate: true })
 
-// 监听内容块变化
-watch(() => contentBlocks.value, (newBlocks, oldBlocks) => {
-  console.log('👀 [监听内容块] 检测到内容块变化', {
-    oldBlocksCount: oldBlocks?.length || 0,
-    newBlocksCount: newBlocks?.length || 0,
-    blocks: newBlocks.map(block => ({
-      id: block.id,
-      type: block.type,
-      content: block.content,
-      contentLength: block.content.length,
-      isEditing: block.isEditing,
-      isSelected: block.isSelected
-    }))
-  })
-}, { deep: true })
-
-// 监听当前编辑公式变化
-watch(() => currentEditingFormula.value, (newFormula, oldFormula) => {
-  console.log('👀 [监听编辑公式] 检测到当前编辑公式变化', {
-    oldFormula: oldFormula ? {
-      id: oldFormula.id,
-      type: oldFormula.type,
-      content: oldFormula.content,
-      isEditing: oldFormula.isEditing
-    } : null,
-    newFormula: newFormula ? {
-      id: newFormula.id,
-      type: newFormula.type,
-      content: newFormula.content,
-      isEditing: newFormula.isEditing
-    } : null
-  })
-})
-
-// 监听文本输入准备状态变化
-watch(() => isReadyForTextInput.value, (newValue, oldValue) => {
-  console.log('👀 [监听文本输入] 检测到文本输入准备状态变化', {
-    oldValue,
-    newValue,
-    hasAnyContent: hasAnyContent.value
-  })
-})
 
 const handleNativeKeyboardClose = () => {
-  console.log('ChatInput.vue 监听到 nativeKeyboardClose 事件');
-  
   // 检查是否有正在编辑的公式
   if (currentEditingFormula.value) {
     // 如果有，则完成编辑
@@ -756,7 +557,6 @@ const handleNativeKeyboardClose = () => {
 }
 
 const handleFormulaEnterPressed = () => {
-  console.log('📤 [ChatInput] 接收到公式回车键事件，准备发送消息')
   // 延迟发送消息，确保公式编辑完成
   setTimeout(() => {
     handleSendMessage()
@@ -766,45 +566,31 @@ const handleFormulaEnterPressed = () => {
 const handleFormulaContentUpdated = (event: Event) => {
   const customEvent = event as CustomEvent
   const { nodeId, content } = customEvent.detail
-  console.log('📝 [ChatInput] 接收到公式内容更新事件', { nodeId, content })
   
   // 更新当前编辑公式的内容
   if (currentEditingFormula.value && currentEditingFormula.value.id === nodeId) {
     currentEditingFormula.value.content = content
-    console.log('✅ [ChatInput] 当前编辑公式内容已更新')
   }
 }
 
 const handleFormulaCancelEdit = (event: Event) => {
   const customEvent = event as CustomEvent
   const { nodeId } = customEvent.detail
-  console.log('🚫 [ChatInput] 接收到公式取消编辑事件', { nodeId })
   
   // 取消当前编辑状态
   if (currentEditingFormula.value && currentEditingFormula.value.id === nodeId) {
     currentEditingFormula.value = null
     isKeyboardTransitioning.value = false
-    console.log('✅ [ChatInput] 公式编辑已取消')
   }
 }
 
 
 // 生命周期
 onMounted(() => {
-  console.log('🚀 [组件挂载] ChatInput组件开始挂载', {
-    modelValue: props.modelValue,
-    modelValueLength: props.modelValue?.length || 0,
-    placeholderText: props.placeholderText,
-    type: props.type,
-    canSend: props.canSend
-  })
-  
   // 1. 初始化编辑器内容
   if (props.modelValue) {
-    console.log('📝 [组件挂载] 初始化编辑器内容')
     editorContent.value = props.modelValue
   } else {
-    console.log('📝 [组件挂载] 没有初始内容，跳过编辑器初始化')
   }
   
   // 2. 添加键盘关闭监听器
@@ -819,42 +605,27 @@ onMounted(() => {
   // 5. 添加公式取消编辑监听器（由 TiptapEditor 触发）
   window.addEventListener('formula-cancel-edit', handleFormulaCancelEdit);
 
-  console.log('✅ [组件挂载] ChatInput组件挂载完成')
 })
 
 onUnmounted(() => {
-  console.log('🔄 [组件卸载] 开始清理组件状态', {
-    editorContent: editorContent.value,
-    editorContentLength: editorContent.value.length,
-    contentBlocksCount: contentBlocks.value.length,
-    hasCurrentEditingFormula: !!currentEditingFormula.value,
-    mathfieldsCount: mathfields.value.size,
-    formulaRefsCount: formulaRefs.value.size
-  })
   
   // 1. 清理编辑器内容
   editorContent.value = ''
-  console.log('🧹 [组件卸载] 编辑器内容已清理')
   
   // 2. 清理编辑状态（向后兼容）
   currentEditingFormula.value = null
-  console.log('🧹 [组件卸载] 编辑状态已清理')
   
   // 3. 清理所有MathLive实例（向后兼容）
   cleanupAllMathLiveInstances()
-  console.log('🧹 [组件卸载] MathLive实例已清理')
   
   // 4. 清理内容块（向后兼容）
-  const blocksCount = contentBlocks.value.length
   contentBlocks.value = []
   selectedBlockIndex.value = -1
-  console.log('🧹 [组件卸载] 内容块已清理', { clearedBlocksCount: blocksCount })
   
   // 5. 重置其他状态（向后兼容）
   isReadyForTextInput.value = false
   isKeyboardTransitioning.value = false
   isPlaceholderClicked.value = false
-  console.log('🧹 [组件卸载] 其他状态已重置')
   
   // 6. 移除键盘关闭监听器
   window.removeEventListener('nativeKeyboardClose', handleNativeKeyboardClose);
@@ -868,7 +639,6 @@ onUnmounted(() => {
   // 9. 移除公式取消编辑监听器
   window.removeEventListener('formula-cancel-edit', handleFormulaCancelEdit);
 
-  console.log('✅ [组件卸载] 组件状态清理完成')
 })
 
 // 暴露方法给父组件

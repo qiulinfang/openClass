@@ -1,7 +1,5 @@
 <template>
   <q-layout view="lHh Lpr lFf">
-    <!-- MathLive 虚拟键盘容器 -->
-    <div class="ML__keyboard-container"></div>
     <!-- 顶部工具栏 -->
     <q-header elevated class="bg-white text-primary app-header" reveal>
       <q-toolbar class="app-toolbar">

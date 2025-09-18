@@ -20,7 +20,27 @@ export interface FormulaNode {
 
 /** MathField接口 */
 export interface MathField {
-  setOptions(options: Record<string, unknown>): void
+  // 直接属性设置（替代废弃的setOptions方法）
+  readOnly: boolean
+  selectionMode: string
+  mathVirtualKeyboardPolicy: string
+  virtualKeyboardMode: string
+  defaultMode: string
+  fontSize: number
+  placeholder: string
+  smartMode: boolean
+  smartSuperscript: boolean
+  theme: string
+  toolbar: string
+  autoComplete: string
+  contextMenu: string
+  dragMode: string
+  border: string
+  backgroundColor: string
+  decorations: boolean
+  inputMode: string
+  
+  // 方法
   addEventListener(event: string, handler: (event: Event) => void): void
   focus(): void
   blur(): void

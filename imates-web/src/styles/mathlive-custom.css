@@ -1,22 +1,6 @@
 /* MathLive 中学数学场景自定义样式 */
 
-/* 虚拟键盘容器样式 - 固定在底部 */
-.ML__keyboard-container {
-  position: fixed !important;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  z-index: 2000 !important; /* 确保在最上层 */
-  background: white;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
-  transform: translateY(100%);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.ML__keyboard-container.is-visible {
-  transform: translateY(0);
-}
+/* 注意：ML__keyboard-container 相关样式已移除，因为该容器在DOM中为空且未被实际使用 */
 
 /* 虚拟键盘样式优化 */
 .ML__keyboard {

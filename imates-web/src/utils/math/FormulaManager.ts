@@ -6,6 +6,11 @@
  * 2. 维护全局公式状态（确保同时只有一个公式处于编辑状态）
  * 3. 提供节点查询和状态检查接口
  * 4. 管理MathField实例和DOM容器的引用
+ * 
+ * 方法命名说明：
+ * - setNodeActive/setNodeInactive: 纯状态管理方法，只处理内存中的状态更新
+ * 
+ * 注意：此类只负责状态管理，不涉及UI操作（如聚焦、键盘显示等）
  */
 export interface FormulaNode {
   id: string              // 节点唯一标识符
@@ -64,7 +69,6 @@ export class FormulaManager {
    * @returns 新创建的节点ID
    */
   async createFormula(position: number): Promise<string> {
-    console.log('🧮 [FORMULA-MANAGER] 开始创建公式节点')
     
     // 1. 清理现有公式状态（确保同时只有一个公式处于激活状态）
     await this.cleanupExistingFormulas()
@@ -88,53 +92,43 @@ export class FormulaManager {
     
     // 5. 标记为待处理状态（等待MathLive初始化完成）
     this.state.pendingNodes.add(nodeId)
-    
-    console.log('✅ [FORMULA-MANAGER] 公式节点创建完成', { nodeId, position })
     return nodeId
   }
 
   /**
-   * 激活公式节点（开始编辑）
+   * 设置节点为激活状态（纯状态管理）
    * 
    * 流程：
    * 1. 检查节点是否存在
-   * 2. 失活其他激活的节点（确保同时只有一个激活）
-   * 3. 更新节点状态为激活
-   * 4. 更新全局状态
-   * 5. 从待处理列表中移除
+   * 2. 更新节点状态为激活
+   * 3. 更新全局状态
+   * 4. 从待处理列表中移除
+   * 
+   * 注意：此方法只负责状态管理，不处理其他节点的失活逻辑
+   * 失活其他节点的逻辑由 SmartFocusManager 负责
    * 
    * @param nodeId 要激活的节点ID
    * @returns 是否激活成功
    */
-  async activateFormula(nodeId: string): Promise<boolean> {
-    console.log('🧮 [FORMULA-MANAGER] 激活公式节点', { nodeId })
-    
+  async setNodeActive(nodeId: string): Promise<boolean> {
     // 1. 检查节点是否存在
     const node = this.nodes.get(nodeId)
     if (!node) {
-      console.error('❌ [FORMULA-MANAGER] 节点不存在', { nodeId })
       return false
     }
 
-    // 2. 失活其他激活的节点（确保同时只有一个公式处于编辑状态）
-    if (this.state.activeNodeId && this.state.activeNodeId !== nodeId) {
-      await this.deactivateFormula(this.state.activeNodeId)
-    }
-
-    // 3. 更新节点状态
+    // 2. 更新节点状态
     node.isActive = true
     this.state.activeNodeId = nodeId
     this.state.editingMode = true
 
-    // 4. 从待处理列表中移除（节点已完全初始化）
+    // 3. 从待处理列表中移除（节点已完全初始化）
     this.state.pendingNodes.delete(nodeId)
-
-    console.log('✅ [FORMULA-MANAGER] 公式节点激活完成', { nodeId })
     return true
   }
 
   /**
-   * 失活公式节点（结束编辑）
+   * 设置节点为非激活状态（纯状态管理）
    * 
    * 流程：
    * 1. 检查节点是否存在
@@ -144,13 +138,10 @@ export class FormulaManager {
    * @param nodeId 要失活的节点ID
    * @returns 是否失活成功
    */
-  async deactivateFormula(nodeId: string): Promise<boolean> {
-    console.log('🧮 [FORMULA-MANAGER] 失活公式节点', { nodeId })
-    
+  async setNodeInactive(nodeId: string): Promise<boolean> {
     // 1. 检查节点是否存在
     const node = this.nodes.get(nodeId)
     if (!node) {
-      console.error('❌ [FORMULA-MANAGER] 节点不存在', { nodeId })
       return false
     }
 
@@ -162,9 +153,13 @@ export class FormulaManager {
     if (this.state.activeNodeId === nodeId) {
       this.state.activeNodeId = null  // 清除激活节点ID
     }
-    this.state.editingMode = false    // 退出编辑模式
+    
+    // 4. 检查是否还有其他激活的节点
+    const hasActiveNodes = Array.from(this.nodes.values()).some(n => n.isActive)
+    if (!hasActiveNodes) {
+      this.state.editingMode = false  // 没有激活节点时退出编辑模式
+    }
 
-    console.log('✅ [FORMULA-MANAGER] 公式节点失活完成', { nodeId })
     return true
   }
 
@@ -178,18 +173,15 @@ export class FormulaManager {
    * @returns 是否更新成功
    */
   updateFormulaContent(nodeId: string, content: string): boolean {
-    console.log('🧮 [FORMULA-MANAGER] 更新公式内容', { nodeId, content })
     
     // 1. 检查节点是否存在
     const node = this.nodes.get(nodeId)
     if (!node) {
-      console.error('❌ [FORMULA-MANAGER] 节点不存在', { nodeId })
       return false
     }
 
     // 2. 更新节点内容
     node.content = content
-    console.log('✅ [FORMULA-MANAGER] 公式内容更新完成', { nodeId, content })
     return true
   }
 
@@ -206,18 +198,16 @@ export class FormulaManager {
    * @returns 是否删除成功
    */
   deleteFormula(nodeId: string): boolean {
-    console.log('🧮 [FORMULA-MANAGER] 删除公式节点', { nodeId })
     
     // 1. 检查节点是否存在
     const node = this.nodes.get(nodeId)
     if (!node) {
-      console.error('❌ [FORMULA-MANAGER] 节点不存在', { nodeId })
       return false
     }
 
     // 2. 如果节点正在编辑，先失活（避免状态不一致）
     if (node.isActive) {
-      this.deactivateFormula(nodeId)
+      this.setNodeInactive(nodeId)
     }
 
     // 3. 从节点映射表中移除
@@ -226,7 +216,6 @@ export class FormulaManager {
     // 4. 从待处理列表中移除
     this.state.pendingNodes.delete(nodeId)
 
-    console.log('✅ [FORMULA-MANAGER] 公式节点删除完成', { nodeId })
     return true
   }
 
@@ -285,12 +274,11 @@ export class FormulaManager {
    * 这确保了同时只有一个公式处于编辑状态
    */
   private async cleanupExistingFormulas(): Promise<void> {
-    console.log('🧮 [FORMULA-MANAGER] 清理现有公式状态')
     
     // 1. 失活所有激活的节点
     for (const [nodeId, node] of this.nodes) {
       if (node.isActive) {
-        await this.deactivateFormula(nodeId)
+        await this.setNodeInactive(nodeId)
       }
     }
 
@@ -299,7 +287,6 @@ export class FormulaManager {
     this.state.keyboardVisible = false
     this.state.editingMode = false
 
-    console.log('✅ [FORMULA-MANAGER] 现有公式状态清理完成')
   }
 
   /**
@@ -320,7 +307,6 @@ export class FormulaManager {
    * 清空所有节点和状态，用于组件卸载或重新初始化
    */
   reset(): void {
-    console.log('🔄 [FORMULA-MANAGER] 重置管理器状态')
     
     // 清空所有节点
     this.nodes.clear()
@@ -333,6 +319,6 @@ export class FormulaManager {
       editingMode: false
     }
 
-    console.log('✅ [FORMULA-MANAGER] 管理器状态重置完成')
   }
+
 }

@@ -181,6 +181,9 @@ const isKeyboardVisible = ref(false) // 键盘是否可见
 const isKeyboardAnimating = ref(false) // 键盘是否正在执行动画
 const isAnimating = ref(false) // 是否正在执行动画（防重复触发）
 
+// 公式键盘状态标记 - 用于解决平板设备双重键盘事件冲突
+const isFormulaKeyboardVisible = ref(false) // 公式虚拟键盘是否可见
+
 // 高度相关状态
 const originalChatViewHeight = ref(0) // 记录ChatView的原始高度
 const keyboardHeight = ref(0) // 键盘高度
@@ -345,34 +348,18 @@ const pendingSwitchAction = ref<(() => void) | null>(null) // 待执行的切换
  */
 const addMessageToStore = async (message: ChatBubble) => {
   if (props.type === 'ai') {
-    console.log(`[CHAT_DEBUG] 📝 ChatView添加AI消息到内存:`, {
-      id: message.id,
-      content: message.content?.substring(0, 50) + '...' || '[无内容]',
-      sender: message.sender,
-      type: message.type,
-    })
 
     exerciseStore.chatMessages.push(message)
 
     // 保存聊天记录到存储
-    console.log(`[CHAT_DEBUG] 💾 ChatView保存AI聊天记录到存储...`)
     await exerciseStore.saveChatHistory()
-    console.log(`[CHAT_DEBUG] ✅ ChatView AI消息添加完成`)
   } else if (props.type === 'teacher') {
-    console.log(`[TEACHER_CHAT_DEBUG] 📝 ChatView添加老师消息到内存:`, {
-      id: message.id,
-      content: message.content?.substring(0, 50) + '...' || '[无内容]',
-      sender: message.sender,
-      type: message.type,
-    })
 
     // 添加到老师消息存储
     exerciseStore.teacherMessages.push(message)
 
     // 保存老师聊天记录到存储
-    console.log(`[TEACHER_CHAT_DEBUG] 💾 ChatView保存老师聊天记录到存储...`)
     await exerciseStore.saveTeacherChatHistory()
-    console.log(`[TEACHER_CHAT_DEBUG] ✅ ChatView老师消息添加完成`)
   }
 }
 
@@ -383,38 +370,18 @@ const addMessageToStore = async (message: ChatBubble) => {
  */
 const addMessagesToStore = async (messages: ChatBubble[]) => {
   if (props.type === 'ai') {
-    console.log(`[CHAT_DEBUG] 📝 ChatView批量添加AI消息到内存:`, {
-      count: messages.length,
-      messages: messages.map((msg) => ({
-        id: msg.id,
-        content: msg.content?.substring(0, 30) + '...' || '[无内容]',
-        sender: msg.sender,
-      })),
-    })
 
     exerciseStore.chatMessages.push(...messages)
 
     // 保存聊天记录到存储
-    console.log(`[CHAT_DEBUG] 💾 ChatView批量保存AI聊天记录到存储...`)
     await exerciseStore.saveChatHistory()
-    console.log(`[CHAT_DEBUG] ✅ ChatView批量AI消息添加完成`)
   } else if (props.type === 'teacher') {
-    console.log(`[TEACHER_CHAT_DEBUG] 📝 ChatView批量添加老师消息到内存:`, {
-      count: messages.length,
-      messages: messages.map((msg) => ({
-        id: msg.id,
-        content: msg.content?.substring(0, 30) + '...' || '[无内容]',
-        sender: msg.sender,
-      })),
-    })
 
     // 添加到老师消息存储
     exerciseStore.teacherMessages.push(...messages)
 
     // 保存老师聊天记录到存储
-    console.log(`[TEACHER_CHAT_DEBUG] 💾 ChatView批量保存老师聊天记录到存储...`)
     await exerciseStore.saveTeacherChatHistory()
-    console.log(`[TEACHER_CHAT_DEBUG] ✅ ChatView批量老师消息添加完成`)
   }
 }
 // ==================== 其他功能相关状态 ====================
@@ -499,75 +466,16 @@ const canSend = computed(() => {
 const dynamicKeyboardHeight = ref(334) // 固定高度
 
 // ==================== 键盘动画函数 ====================
-/**
- * 显示键盘并触发键盘显示动画
- * 作用：显示键盘并调整ChatView高度以适应键盘显示
- */
-const showKeyboard = () => {
-  console.log('🔍 [showKeyboard] 开始执行，当前状态', {
-    isAnimating: isAnimating.value,
-    isKeyboardVisible: isKeyboardVisible.value,
-    originalChatViewHeight: originalChatViewHeight.value,
-    chatViewRef: !!chatViewRef.value,
-    chatViewHeight: chatViewRef.value?.offsetHeight,
-  })
-
-  // 步骤1：防重复执行检查
-  if (isAnimating.value) {
-    console.log('⚠️ [showKeyboard] 正在动画中，跳过执行')
-    return
-  }
-
-  console.log('⌨️ [键盘动画] 开始显示键盘动画', {
-    height: dynamicKeyboardHeight.value,
-    duration: animationDuration.value,
-    curve: animationCurve.value,
-  })
-
-  // 步骤2：更新键盘状态
-  isKeyboardVisible.value = true
-  keyboardHeight.value = dynamicKeyboardHeight.value
-  isAnimating.value = true
-
-  // 步骤3：记录原始高度 - 增强保护机制
-  if (originalChatViewHeight.value === 0) {
-    // 首次记录原始高度
-    originalChatViewHeight.value = chatViewRef.value?.offsetHeight || 0
-    console.log('📏 [showKeyboard] 记录原始高度', originalChatViewHeight.value)
-  } else {
-    // 验证已记录的高度是否仍然有效
-    const currentHeight = chatViewRef.value?.offsetHeight || 0
-    if (Math.abs(originalChatViewHeight.value - currentHeight) > 50) {
-      // 如果高度差异过大，重新记录
-      console.log('⚠️ [showKeyboard] 检测到高度差异过大，重新记录原始高度', {
-        recordedHeight: originalChatViewHeight.value,
-        currentHeight: currentHeight,
-        difference: Math.abs(originalChatViewHeight.value - currentHeight),
-      })
-      originalChatViewHeight.value = currentHeight
-    } else {
-      console.log('📏 [showKeyboard] 使用已记录的原始高度', originalChatViewHeight.value)
-    }
-  }
-
-  // 步骤4：延迟执行动画
-  nextTick(() => {
-    console.log('⏰ [showKeyboard] nextTick执行，开始动画')
-    animationStartTime.value = Date.now()
-    animateKeyboardShow()
-  })
-}
 
 /**
- * 处理键盘已隐藏事件
- * 作用：响应键盘已经隐藏的状态，进行状态同步和布局恢复
- * 触发场景：键盘隐藏后需要恢复聊天界面布局和清理状态
+ * 处理原生键盘隐藏事件
+ * 作用：响应原生键盘隐藏状态，恢复页面高度和清理状态
+ * 触发场景：原生键盘隐藏后需要恢复聊天界面布局
  */
 const handleKeyboardHidden = () => {
   // 步骤1：防重复执行检查
   // 如果正在执行动画，跳过本次调用，避免重复触发
   if (isAnimating.value) {
-    console.log('⚠️ [handleKeyboardHidden] 正在动画中，跳过执行')
     return
   }
 
@@ -579,7 +487,6 @@ const handleKeyboardHidden = () => {
   // 步骤3：延迟执行动画
   // 使用nextTick确保Vue状态更新完成后再执行动画
   nextTick(() => {
-    console.log('⏰ [handleKeyboardHidden] nextTick执行，开始动画')
     animationStartTime.value = Date.now()
     restoreChatViewHeight()
   })
@@ -587,74 +494,54 @@ const handleKeyboardHidden = () => {
 }
 
 /**
- * 执行键盘显示动画
- * 作用：执行键盘显示动画，将ChatView高度减小以适应键盘显示
+ * 压缩ChatView高度（仅用于原生键盘）
+ * 作用：将ChatView高度压缩以适应原生键盘显示，并应用平滑的过渡动画
+ * 注意：原生键盘不需要滚动，因为压缩后输入框会自动保持在可见区域
  */
-const animateKeyboardShow = () => {
-  console.log('🔍 [animateKeyboardShow] 开始执行，当前状态', {
-    isAnimating: isAnimating.value,
-    isKeyboardVisible: isKeyboardVisible.value,
-    originalChatViewHeight: originalChatViewHeight.value,
-    keyboardHeight: keyboardHeight.value,
-    chatViewRef: !!chatViewRef.value,
-  })
+const compressChatViewHeight = () => {
+
 
   // 步骤1：状态验证
   if (!isAnimating.value || !isKeyboardVisible.value) {
-    console.log('⚠️ [animateKeyboardShow] 状态检查失败，跳过执行')
     return
   }
 
   // 步骤2：记录原始高度
   if (originalChatViewHeight.value === 0) {
     originalChatViewHeight.value = chatViewRef.value?.offsetHeight || 0
-    console.log('📏 [animateKeyboardShow] 记录原始高度', originalChatViewHeight.value)
   }
 
   // 步骤3：获取CSS动画参数
   const cssParams = getCSSAnimationParams()
-  console.log('🎨 [animateKeyboardShow] CSS动画参数', cssParams)
 
   // 步骤4：执行高度变化动画
   if (chatViewRef.value) {
     const newHeight = Math.max(originalChatViewHeight.value - keyboardHeight.value, 200)
-    console.log('📐 [animateKeyboardShow] 计算新高度', {
-      originalHeight: originalChatViewHeight.value,
-      keyboardHeight: keyboardHeight.value,
-      newHeight,
-      finalHeight: Math.max(newHeight, 200),
-    })
 
     chatViewRef.value.style.height = `${newHeight}px`
     chatViewRef.value.style.transition = `height ${cssParams.duration} ${cssParams.curve}`
-    console.log('✅ [animateKeyboardShow] 设置ChatView高度和过渡效果')
   }
 
-  // 步骤5：在动画过程中同步滚动到底部
-  scrollToBottom()
-
-  // 步骤6：动画完成后清理
+  // 步骤5：动画完成后清理
   setTimeout(() => {
-    console.log('🏁 [animateKeyboardShow] 动画完成，清理状态')
     isAnimating.value = false
     if (chatViewRef.value) {
       chatViewRef.value.style.transition = ''
     }
     // 动画完成后再次确保滚动到底部
     scrollToBottom()
-    console.log('⌨️ [键盘动画] 键盘显示动画完成')
   }, parseInt(cssParams.duration))
 }
 
 /**
- * 恢复ChatView高度
+ * 恢复ChatView高度（仅用于原生键盘）
  * 作用：将ChatView从压缩状态恢复到原始高度，并应用平滑的过渡动画
+ * 注意：仅用于原生键盘隐藏后的页面恢复
  */
 const restoreChatViewHeight = () => {
   // 步骤1：状态验证
   // 确保只有在正确的动画状态下才执行，防止重复执行或状态冲突
   if (!isAnimating.value || isKeyboardVisible.value) {
-    console.log('⚠️ [restoreChatViewHeight] 状态检查失败，跳过执行')
     return
   }
 
@@ -671,7 +558,6 @@ const restoreChatViewHeight = () => {
     
     // 3.2 应用CSS过渡效果（使用Android系统标准缓动曲线实现平滑高度变化）
     chatViewRef.value.style.transition = `height ${cssParams.duration} ${cssParams.curve}`
-    console.log('✅ [restoreChatViewHeight] 设置ChatView高度恢复和过渡效果')
   }
 
   // 步骤4：ChatView高度变化动画完成后清理
@@ -710,15 +596,6 @@ const initializeMessages = async () => {
   // 步骤3：加载历史消息（如果有选中的题目）
   // 注意：这里不直接调用 loadChatHistory，因为 selectQuestion 已经会调用
   // 避免重复加载导致的问题
-  if (hasSelectedQuestion.value) {
-    if (props.type === 'ai') {
-      console.log(`[CHAT_DEBUG] 📝 ChatView检测到题目选中，等待selectQuestion加载AI聊天记录`)
-    } else if (props.type === 'teacher') {
-      console.log(
-        `[TEACHER_CHAT_DEBUG] 📝 ChatView检测到题目选中，等待selectQuestion加载老师聊天记录`,
-      )
-    }
-  }
 
   // 步骤4：只有在没有选择题目且没有聊天记录时才添加引导消息
   if (!hasSelectedQuestion.value) {
@@ -775,15 +652,12 @@ const initializeTeacherSession = async () => {
         currentSubject.value,
       )
 
-      console.log('🔍 创建老师会话结果:', session)
 
       if (session) {
-        console.log('🔍 使用真实老师会话:', session)
         teacherSession.value = session
         // 2.4 加载老师会话的历史消息
         await loadTeacherChatHistory()
       } else {
-        console.log('🔍 创建临时老师会话')
         // 创建临时老师会话，用于转发消息显示
         const tempSession = {
           sessionId: `temp_teacher_${Date.now()}`,
@@ -963,37 +837,25 @@ const onInputBlur = () => {
   handleKeyboardHidden()
 }
 
-// 全局键盘事件处理函数
-// 作用：处理全局键盘显示事件，这是键盘显示的唯一方式
-const handleGlobalKeyboardShow = (event: CustomEvent) => {
-  onKeyboardShow(event.detail)
-}
 
 
-// 处理MathLive键盘切换的函数
-// 流程：接收键盘事件 → 更新键盘容器样式 → 根据显示状态执行相应逻辑
-const handleMathLiveKeyboardToggle = (event: Event) => {
+// 处理公式键盘切换的函数
+// 流程：接收公式键盘事件 → 滚动到底部（不压缩页面）
+const handleFormulaKeyboardToggle = (event: Event) => {
   // 步骤1：解析事件数据
   const customEvent = event as CustomEvent
-  const { visible, height } = customEvent.detail
+  const { visible, height, keyboardType } = customEvent.detail
 
-  // 步骤2：更新键盘容器样式状态
-  const keyboardContainer = document.querySelector('.ML__keyboard-container')
-  if (keyboardContainer) {
-    if (visible) {
-      keyboardContainer.classList.add('is-visible')
-    } else {
-      keyboardContainer.classList.remove('is-visible')
-    }
-  }
+
+  // 步骤2：更新公式键盘状态标记
+  isFormulaKeyboardVisible.value = visible
 
   // 步骤3：根据键盘显示状态执行相应逻辑
   if (visible) {
-    // 3.1 显示键盘：更新高度并触发显示动画
-    dynamicKeyboardHeight.value = height //300
-    onKeyboardShow({ height, duration: 300 })
+    // 3.1 显示公式键盘：只滚动到底部，不压缩页面
+    scrollToBottom()
   } else {
-    // 3.2 隐藏键盘：检查焦点状态避免误隐藏
+    // 3.2 隐藏公式键盘：检查焦点状态避免误隐藏
     const isEditorFocused = document.activeElement?.closest('.tiptap-editor-container')
     const isMathFieldFocused = document.activeElement?.tagName === 'MATH-FIELD'
 
@@ -1002,43 +864,62 @@ const handleMathLiveKeyboardToggle = (event: Event) => {
       return
     }
 
-    // 直接响应键盘已隐藏状态
-    handleKeyboardHidden()
   }
 }
 
 // 处理强制重置动画状态事件
 const handleForceResetAnimationState = () => {
-  console.log('🔄 [ANIMATION] 收到强制重置动画状态事件')
-  
   // 强制重置所有动画相关状态
   isAnimating.value = false
   isKeyboardAnimating.value = false
   keyboardAnimationHeight.value = 0
   keyboardHeight.value = 0
   
+  // 重置公式键盘状态
+  isFormulaKeyboardVisible.value = false
+  
   // 清理CSS过渡效果
   if (chatViewRef.value) {
     chatViewRef.value.style.transition = ''
     chatViewRef.value.style.height = ''
   }
-  
-  console.log('✅ [ANIMATION] 动画状态已强制重置')
 }
 
-const onKeyboardShow = async (data: { height: number; duration: number }) => {
-  isKeyboardAnimating.value = true
-  keyboardAnimationHeight.value = data.height
+// 处理原生键盘显示的函数
+// 流程：压缩页面高度 → 焦点处理（不滚动，因为压缩后输入框自动可见）
+const handleKeyboardShown = async (data: { height: number; duration: number }) => {
 
-  // 记录 ChatView 的原始高度
-  if (chatViewRef.value && originalChatViewHeight.value === 0) {
-    originalChatViewHeight.value = chatViewRef.value.offsetHeight
+  // 步骤1：检查公式键盘状态 - 如果公式键盘正在显示，跳过原生键盘处理
+  if (isFormulaKeyboardVisible.value) {
+    return
   }
 
-  // 立即滚动到底部，不延迟（整合了原来的 onInputFocus 逻辑）
-  await scrollToBottom()
+  // 步骤2：防重复执行检查
+  if (isAnimating.value) {
+    return
+  }
 
-  // 移动端焦点处理（整合了原来的 onInputFocus 逻辑）
+  // 步骤3：数据预处理
+  isKeyboardAnimating.value = true
+  keyboardAnimationHeight.value = data.height
+  isKeyboardVisible.value = true
+  keyboardHeight.value = dynamicKeyboardHeight.value
+  isAnimating.value = true
+
+  // 步骤4：记录原始高度 - 增强保护机制
+  if (originalChatViewHeight.value === 0) {
+    // 首次记录原始高度
+    originalChatViewHeight.value = chatViewRef.value?.offsetHeight || 0
+  } else {
+    // 验证已记录的高度是否仍然有效
+    const currentHeight = chatViewRef.value?.offsetHeight || 0
+    if (Math.abs(originalChatViewHeight.value - currentHeight) > 50) {
+      originalChatViewHeight.value = currentHeight
+    }
+  }
+
+  // 步骤5：移动端焦点处理
+  // 原生键盘显示时不需要滚动，因为页面压缩后输入框会自动可见
   if (typeof window !== 'undefined' && window.innerWidth <= 768) {
     const inputElement = document.querySelector('.chat-input-field input') as HTMLInputElement
     if (inputElement) {
@@ -1046,7 +927,11 @@ const onKeyboardShow = async (data: { height: number; duration: number }) => {
     }
   }
 
-  showKeyboard() // 调用键盘显示动画
+  // 步骤6：延迟执行动画
+  nextTick(() => {
+    animationStartTime.value = Date.now()
+    compressChatViewHeight()
+  })
 }
 
 // 作用：开始语音输入，记录触摸位置并调用录音接口
@@ -1135,42 +1020,23 @@ const handleVoiceMove = (event: TouchEvent | MouseEvent) => {
 const sendMessageToTeacher = async (
   content: string,
 ): Promise<{ success: boolean; reply: string; messageId: string; timestamp: string }> => {
-  console.log('🔍 发送消息给老师 - 开始', {
-    content: content.substring(0, 50) + '...',
-    hasTeacherSession: !!teacherSession.value,
-    sessionId: teacherSession.value?.sessionId,
-  })
 
   if (!teacherSession.value) {
-    console.log('🔍 发送消息给老师 - 老师会话不存在，尝试创建')
     await initializeTeacherSession()
   }
 
   if (!teacherSession.value) {
-    console.log('🔍 发送消息给老师 - 无法创建老师会话')
     throw new Error('无法创建老师会话')
   }
 
   try {
-    console.log('🔍 发送消息给老师 - 调用API', {
-      content: content.substring(0, 50) + '...',
-      sessionId: teacherSession.value.sessionId,
-      subject: currentSubject.value,
-    })
-
     const success = await apiService.sendTextMessageToTeacher(
       content,
       teacherSession.value.sessionId,
       currentSubject.value,
     )
 
-    console.log('🔍 发送消息给老师 - API返回结果', {
-      success,
-      sessionId: teacherSession.value.sessionId,
-    })
-
     if (success) {
-      console.log('🔍 发送消息给老师 - 发送成功')
       return {
         success: true,
         reply: '消息已发送给老师，请等待回复...',
@@ -1178,11 +1044,9 @@ const sendMessageToTeacher = async (
         timestamp: '',
       }
     } else {
-      console.log('🔍 发送消息给老师 - 发送失败')
       throw new Error('发送消息失败')
     }
   } catch (error) {
-    console.log('🔍 发送消息给老师 - 发生错误', error)
     throw error
   }
 }
@@ -1397,16 +1261,10 @@ const convertMessageForForwarding = (msg: ChatBubble) => {
 const handleForwardMessage = async (message: ChatBubble) => {
   // 确保只在AI页面触发
   if (props.type !== 'ai') {
-    console.warn('[CHAT_DEBUG] ⚠️ handleForwardMessage只能在AI页面触发')
     return
   }
 
   try {
-    console.log('[CHAT_DEBUG] 📤 开始转发AI消息到老师:', {
-      messageId: message.id,
-      messageType: message.type,
-    })
-
     // 确保老师会话已创建
     if (!teacherSession.value) {
       await initializeTeacherSession()
@@ -1417,7 +1275,6 @@ const handleForwardMessage = async (message: ChatBubble) => {
       const success = await forwardMessageToTeacher([message])
 
       if (success) {
-        console.log('[CHAT_DEBUG] ✅ 消息转发成功，准备切换页面')
         // 转发成功后切换页面
         emit('switchToTeacher', {
           messages: [message],
@@ -1427,7 +1284,6 @@ const handleForwardMessage = async (message: ChatBubble) => {
         androidBridge.showToast('转发失败，请重试')
       }
     } else {
-      console.error('[CHAT_DEBUG] ❌ 无法创建老师会话')
       androidBridge.showToast('无法创建老师会话')
     }
   } catch (error) {
@@ -1471,11 +1327,6 @@ const handleEnterMultiSelect = () => {
 // 处理编辑消息
 // 作用：开始编辑指定消息，将消息内容复制到输入框并设置编辑状态
 const handleEditMessage = (message: ChatBubble) => {
-  console.log('📝 [编辑消息] 开始编辑消息', {
-    messageId: message.id,
-    content: message.content?.substring(0, 50) + '...',
-    sender: message.sender,
-  })
 
   // 检查是否已经在编辑其他消息
   if (isEditingMessage.value && editingMessageId.value !== message.id) {
@@ -1499,12 +1350,6 @@ const handleEditMessage = (message: ChatBubble) => {
   nextTick(() => {
     // 触发输入框的focus事件
     emit('focus')
-  })
-
-  console.log('✅ [编辑消息] 编辑状态已设置', {
-    isEditing: isEditingMessage.value,
-    editingMessageId: editingMessageId.value,
-    inputContent: inputMessage.value,
   })
 }
 
@@ -1590,10 +1435,6 @@ const extractLatexFromMathJax = (mathJaxContent: string): string | null => {
 // 取消编辑消息
 // 作用：取消当前的消息编辑状态，清空编辑相关变量
 const cancelEditMessage = () => {
-  console.log('🚫 [取消编辑] 取消编辑消息', {
-    wasEditing: isEditingMessage.value,
-    editingMessageId: editingMessageId.value,
-  })
 
   isEditingMessage.value = false
   editingMessageId.value = null
@@ -1601,7 +1442,6 @@ const cancelEditMessage = () => {
   editingQuestionId.value = null
   inputMessage.value = ''
 
-  console.log('✅ [取消编辑] 编辑状态已清除')
 }
 
 // 更新编辑的消息
@@ -1609,11 +1449,6 @@ const cancelEditMessage = () => {
 const updateEditedMessage = async (newContent: string) => {
   if (!editingMessageId.value) return
 
-  console.log('📝 [更新消息] 开始更新编辑的消息', {
-    messageId: editingMessageId.value,
-    newContent: newContent.substring(0, 50) + '...',
-    originalContent: originalMessageContent.value.substring(0, 50) + '...',
-  })
 
   try {
     // 查找要更新的消息
@@ -1621,21 +1456,12 @@ const updateEditedMessage = async (newContent: string) => {
       (msg) => msg.id === editingMessageId.value,
     )
     if (messageIndex === -1) {
-      console.error('❌ [更新消息] 未找到要更新的消息', { messageId: editingMessageId.value })
       cancelEditMessage()
       return
     }
 
     // 删除该消息之后的所有消息（因为编辑会改变对话上下文）
     const messagesToKeep = exerciseStore.chatMessages.slice(0, messageIndex)
-    const deletedCount = exerciseStore.chatMessages.length - messagesToKeep.length
-
-    console.log('🗑️ [更新消息] 删除编辑消息及其之后的消息', {
-      originalCount: exerciseStore.chatMessages.length,
-      keptCount: messagesToKeep.length,
-      deletedCount,
-      editingMessageId: editingMessageId.value,
-    })
 
     exerciseStore.chatMessages = messagesToKeep
 
@@ -1647,7 +1473,6 @@ const updateEditedMessage = async (newContent: string) => {
 
     // 发送编辑后的消息给AI（这会自动添加用户消息和AI回复）
     if (props.type === 'ai') {
-      console.log('🤖 [更新消息] 发送编辑后的消息给AI')
       isLoading.value = true
 
       try {
@@ -1662,7 +1487,6 @@ const updateEditedMessage = async (newContent: string) => {
           hidePrefix,
         )
 
-        console.log('✅ [更新消息] AI回复发送成功')
       } catch (aiError) {
         console.error('❌ [更新消息] AI回复发送失败:', aiError)
         androidBridge.showToast('发送消息失败')
@@ -1671,7 +1495,6 @@ const updateEditedMessage = async (newContent: string) => {
       }
     }
 
-    console.log('✅ [更新消息] 消息更新完成')
 
     // 滚动到底部
     await scrollToBottom()
@@ -1722,7 +1545,6 @@ const selectAllMessages = () => {
 const forwardToTeacher = async (messageList?: ChatBubble[]) => {
   // 确保只在AI页面触发
   if (props.type !== 'ai') {
-    console.warn('[CHAT_DEBUG] ⚠️ forwardToTeacher只能在AI页面触发')
     return
   }
 
@@ -1732,10 +1554,6 @@ const forwardToTeacher = async (messageList?: ChatBubble[]) => {
     displayedMessages.value.filter((message) => selectedMessages.value.has(message.id))
   if (selectedMessageList.length === 0) return
 
-  console.log('[CHAT_DEBUG] 📤 开始处理多选消息转发:', {
-    messageCount: selectedMessageList.length,
-    isSelectionMode: isSelectionMode.value,
-  })
 
   // 流程2：显示转发模式选择对话框
   if (isSelectionMode.value) {
@@ -1778,16 +1596,10 @@ const handleForwardModeConfirm = async (mode: 'merge' | 'separate', additionalMe
 const forwardAsChatRecord = async (messages: ChatBubble[], additionalMessage: string) => {
   // 确保只在AI页面触发
   if (props.type !== 'ai') {
-    console.warn('[CHAT_DEBUG] ⚠️ forwardAsChatRecord只能在AI页面触发')
     return
   }
 
   try {
-    console.log('[CHAT_DEBUG] 📤 开始合并转发聊天记录:', {
-      messageCount: messages.length,
-      additionalMessage: additionalMessage,
-    })
-
     // 确保老师会话已创建
     if (!teacherSession.value) {
       await initializeTeacherSession()
@@ -1803,7 +1615,6 @@ const forwardAsChatRecord = async (messages: ChatBubble[], additionalMessage: st
       )
 
       if (success) {
-        console.log('[CHAT_DEBUG] ✅ 聊天记录转发成功，开始本地持久化')
         // 转发成功后，将消息添加到老师消息存储并持久化
         const convertedMessages = messages.map((msg) => ({
           ...msg,
@@ -1816,7 +1627,6 @@ const forwardAsChatRecord = async (messages: ChatBubble[], additionalMessage: st
         exerciseStore.teacherMessages.push(...convertedMessages)
         await exerciseStore.saveTeacherChatHistory()
 
-        console.log('[CHAT_DEBUG] ✅ 聊天记录本地持久化完成，准备切换页面')
         // 转发成功后切换页面
         const forwardData = {
           messages: messages,
@@ -1846,16 +1656,10 @@ const forwardAsChatRecord = async (messages: ChatBubble[], additionalMessage: st
 const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessage: string) => {
   // 确保只在AI页面触发
   if (props.type !== 'ai') {
-    console.warn('[CHAT_DEBUG] ⚠️ forwardAsSeparateMessages只能在AI页面触发')
     return
   }
 
   try {
-    console.log('[CHAT_DEBUG] 📤 开始逐条转发消息:', {
-      messageCount: messages.length,
-      additionalMessage: additionalMessage,
-    })
-
     // 确保老师会话已创建
     if (!teacherSession.value) {
       await initializeTeacherSession()
@@ -1878,11 +1682,6 @@ const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessa
       }
 
       if (successCount > 0) {
-        console.log('[CHAT_DEBUG] ✅ 逐条转发完成，开始本地持久化:', {
-          successCount,
-          totalCount: messages.length,
-        })
-
         // 转发成功后，将消息添加到老师消息存储并持久化
         const convertedMessages = messages.map((msg) => ({
           ...msg,
@@ -1895,7 +1694,6 @@ const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessa
         exerciseStore.teacherMessages.push(...convertedMessages)
         await exerciseStore.saveTeacherChatHistory()
 
-        console.log('[CHAT_DEBUG] ✅ 逐条转发本地持久化完成，准备切换页面')
         // 转发成功后切换页面
         const forwardData = {
           messages: messages,
@@ -1909,7 +1707,6 @@ const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessa
         androidBridge.showToast('转发失败，请重试')
       }
     } else {
-      console.error('[CHAT_DEBUG] ❌ 无法创建老师会话')
       androidBridge.showToast('无法创建老师会话')
     }
   } catch (error) {
@@ -1973,12 +1770,6 @@ onMounted(() => {
   // 步骤2：初始化动态键盘高度
   setTimeout(() => {
     originalViewportHeight.value = window.innerHeight
-    console.log('⌨️ [动态键盘] 初始化完成', {
-      originalHeight: originalViewportHeight.value,
-      dynamicKeyboardHeight: dynamicKeyboardHeight.value,
-      windowHeight: window.innerHeight,
-      windowWidth: window.innerWidth,
-    })
   }, 100)
 
   // 步骤3：设置全局事件监听器
@@ -2001,22 +1792,19 @@ onMounted(() => {
       ).onTeacherMessageReceived = handleTeacherMessageReceived
     }
 
-    // 3.3 监听全局键盘事件（处理键盘自带退出按钮的情况）
-    window.addEventListener('keyboard-show', handleGlobalKeyboardShow as EventListener)
+    // 3.3 监听原生键盘事件（处理系统键盘，只压缩页面不滚动）
+    window.addEventListener('keyboard-show', (event: Event) => {
+      const customEvent = event as CustomEvent
+      // 原生键盘显示时只压缩页面，不滚动（压缩后输入框自动可见）
+      handleKeyboardShown(customEvent.detail)
+    })
     window.addEventListener('keyboard-hide', () => {
-      console.log('⌨️ [全局键盘隐藏] 检测到键盘隐藏事件')
-      console.log('🔍 [全局键盘隐藏] 当前ChatView状态', {
-        isKeyboardVisible: isKeyboardVisible.value,
-        isAnimating: isAnimating.value,
-        originalChatViewHeight: originalChatViewHeight.value,
-        keyboardHeight: keyboardHeight.value,
-        chatViewHeight: chatViewRef.value?.offsetHeight,
-      })
+      // 原生键盘隐藏时恢复页面
       handleKeyboardHidden()
     })
 
-    // 3.4 监听自定义的MathLive键盘事件
-    window.addEventListener('custom-keyboard-toggle', handleMathLiveKeyboardToggle)
+    // 3.4 监听公式键盘事件（MathLive虚拟键盘，只滚动不压缩）
+    window.addEventListener('formula-keyboard-toggle', handleFormulaKeyboardToggle)
     
     // 3.5 监听强制重置动画状态事件
     window.addEventListener('force-reset-animation-state', handleForceResetAnimationState)
@@ -2030,10 +1818,9 @@ onMounted(() => {
 onUnmounted(() => {
   // 步骤1：清理键盘事件监听器
   if (typeof window !== 'undefined') {
-    window.removeEventListener('keyboard-show', handleGlobalKeyboardShow as EventListener)
     // 注意：内联函数无法直接移除，但组件卸载时会自动清理
-    // 清理自定义的MathLive键盘事件监听器
-    window.removeEventListener('custom-keyboard-toggle', handleMathLiveKeyboardToggle)
+    // 清理公式键盘事件监听器
+    window.removeEventListener('formula-keyboard-toggle', handleFormulaKeyboardToggle)
     
     // 清理强制重置动画状态事件监听器
     window.removeEventListener('force-reset-animation-state', handleForceResetAnimationState)
@@ -2064,7 +1851,6 @@ onUnmounted(() => {
   }
 
   // 步骤4：清理原始高度记录
-  console.log('🧹 [组件卸载] 清理原始高度记录')
   originalChatViewHeight.value = 0
 })
 
@@ -2138,16 +1924,13 @@ watch(
       if (isEditingMessage.value) {
         // 检查是否切换回正在编辑的题目
         if (editingQuestionId.value && newQuestion && newQuestion.id === editingQuestionId.value) {
-          console.log('📝 [题目切换] 切换回正在编辑的题目，直接执行切换')
           // 直接执行切换，不显示确认对话框
           executeQuestionSwitch(newQuestion, oldQuestion)
           return
         }
 
-        console.log('📝 [题目切换] 检测到编辑状态，显示确认对话框')
         // 设置待执行的切换操作
         pendingSwitchAction.value = () => {
-          console.log('📝 [题目切换] 用户确认，执行切换操作')
           // 退出编辑模式
           cancelEditMessage()
           // 清空输入内容
@@ -2173,10 +1956,8 @@ watch(
 
     // 检查是否正在编辑消息
     if (isEditingMessage.value) {
-      console.log('📝 [科目切换] 检测到编辑状态，显示确认对话框')
       // 设置待执行的切换操作
       pendingSwitchAction.value = () => {
-        console.log('📝 [科目切换] 用户确认，执行切换操作')
         // 退出编辑模式
         cancelEditMessage()
         // 清空输入内容
@@ -2197,10 +1978,6 @@ watch(
 // 执行题目切换逻辑
 // 作用：执行题目切换，退出选择模式，重置老师会话状态并重新初始化消息
 const executeQuestionSwitch = (newQuestion: unknown, oldQuestion: unknown) => {
-  console.log('🔄 [题目切换] 执行题目切换逻辑', {
-    from: (oldQuestion as { id?: string })?.id,
-    to: (newQuestion as { id?: string })?.id,
-  })
 
   // 退出选择模式（如果正在选择模式）
   if (isSelectionMode.value) {
@@ -2226,9 +2003,6 @@ const executeQuestionSwitch = (newQuestion: unknown, oldQuestion: unknown) => {
 // 执行科目切换逻辑
 // 作用：执行科目切换，重新初始化老师会话
 const executeSubjectSwitch = (newSubject: string) => {
-  console.log('🔄 [科目切换] 执行科目切换逻辑', {
-    to: newSubject,
-  })
 
   // 如果是老师对话模式，需要重新初始化会话
   if (props.type === 'teacher') {

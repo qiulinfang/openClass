@@ -7,7 +7,6 @@ import { mergeAttributes } from '@tiptap/core'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import type { FormulaNode, MathField } from '../../types'
 import { FormulaManager } from './FormulaManager'
-import { FormulaEventManager, FORMULA_EVENTS } from './FormulaEventManager'
 import { MathLiveLoader } from './MathLiveLoader'
 import { SmartFocusManager } from './SmartFocusManager'
 import { FormulaErrorHandler, FormulaErrorType } from './FormulaErrorHandler'
@@ -15,7 +14,6 @@ import { FormulaErrorHandler, FormulaErrorType } from './FormulaErrorHandler'
 export class FormulaNodeBuilder {
   private static instance: FormulaNodeBuilder | null = null
   private formulaManager: FormulaManager
-  private eventManager: FormulaEventManager
   private mathLiveLoader: MathLiveLoader
   private focusManager: SmartFocusManager
   private errorHandler: FormulaErrorHandler
@@ -33,16 +31,11 @@ export class FormulaNodeBuilder {
 
   constructor() {
     this.formulaManager = FormulaManager.getInstance()
-    this.eventManager = FormulaEventManager.getInstance()
     this.mathLiveLoader = MathLiveLoader.getInstance()
     this.focusManager = SmartFocusManager.getInstance()
     this.errorHandler = FormulaErrorHandler.getInstance()
   }
 
-  // 🔧 简化：获取节点激活状态（从 FormulaManager）
-  private isNodeActive(nodeId: string): boolean {
-    return this.formulaManager.isActive(nodeId)
-  }
 
   // 🔧 简化：设置聚焦超时
   private setFocusTimeout(nodeId: string, timeout: number | null): void {
@@ -64,7 +57,6 @@ export class FormulaNodeBuilder {
 
   // 创建FormulaNode
   createFormulaNode(): unknown {
-    console.log('🔧 [FORMULA-NODE-BUILDER] 创建FormulaNode')
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const builder = this;
 
@@ -142,8 +134,6 @@ export class FormulaNodeBuilder {
 
   // 构建节点视图
   private buildNodeView(node: FormulaNode, getPos: () => number | undefined, editor: Editor) {
-    console.log('🔧 [FORMULA-NODE-BUILDER] 构建节点视图')
-    
     // 1. 创建容器元素
     const container = this.createContainer(node)
     
@@ -160,22 +150,79 @@ export class FormulaNodeBuilder {
 
   // 创建容器元素
   private createContainer(node: FormulaNode): HTMLElement {
-    console.log('🔧 [FORMULA-NODE-BUILDER] 创建容器元素')
-    
     const container = document.createElement('span')
-    const { isNew, nodeId } = node.attrs
+    const { nodeId } = node.attrs
     
     // 使用传入的nodeId，如果没有则生成新的
     const finalNodeId = nodeId || `formula-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     container.setAttribute('data-node-id', finalNodeId)
     
-    // 设置初始样式类
-    container.className = isNew
+    // 基于FormulaManager的状态判断激活状态
+    const formulaNode = this.formulaManager.getNode(finalNodeId)
+    const isActive = formulaNode?.isActive || false
+    
+    // 设置初始样式类和定位
+    container.className = isActive
       ? 'formula-node-container formula-active'
       : 'formula-node-container formula-inactive'
     
-    console.log('✅ [FORMULA-NODE-BUILDER] 容器元素创建完成', { nodeId: finalNodeId, isNew })
+    // 设置相对定位，确保ID标签能正确显示
+    container.style.position = 'relative'
+    
+    // 创建ID显示标签
+    this.createIdDisplayLabel(container, finalNodeId)
     return container
+  }
+
+  // 创建ID显示标签
+  private createIdDisplayLabel(container: HTMLElement, nodeId: string): void {
+    // 提取ID的后6位数字/字符作为显示标识
+    const displayId = nodeId.slice(-6)
+    
+    // 创建ID显示标签
+    const idLabel = document.createElement('span')
+    idLabel.className = 'formula-id-label'
+    idLabel.textContent = `#${displayId}`
+    idLabel.title = `公式ID: ${nodeId}` // 鼠标悬停显示完整ID
+    idLabel.setAttribute('data-node-id', nodeId) // 存储完整ID用于后续操作
+    
+    // 设置基础样式
+    this.updateIdLabelStyle(idLabel, false)
+    
+    // 将标签添加到容器
+    container.appendChild(idLabel)
+  }
+
+  // 更新ID标签样式
+  private updateIdLabelStyle(idLabel: HTMLElement, isActive: boolean): void {
+    const baseStyle = `
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      font-size: 10px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-family: monospace;
+      z-index: 1000;
+      pointer-events: none;
+      line-height: 1;
+      transition: all 0.2s ease;
+    `
+    
+    const activeStyle = `
+      background: rgba(33, 150, 243, 0.9);
+      color: white;
+      opacity: 1;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    `
+    
+    const inactiveStyle = `
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      opacity: 0.6;
+    `
+    
+    idLabel.style.cssText = baseStyle + (isActive ? activeStyle : inactiveStyle)
   }
 
   // 异步初始化MathLive
@@ -185,8 +232,6 @@ export class FormulaNodeBuilder {
     getPos: () => number | undefined, 
     editor: Editor
   ): Promise<void> {
-    console.log('🔧 [FORMULA-NODE-BUILDER] 开始异步初始化MathLive')
-    
     const nodeId = container.getAttribute('data-node-id')!
     const { isNew } = node.attrs
     
@@ -214,19 +259,8 @@ export class FormulaNodeBuilder {
         await this.handleNewNodeFocus(mathField, nodeId, getPos, editor)
       }
       
-      // 8. 发出初始化完成事件
-      this.eventManager.emit(FORMULA_EVENTS.CREATED, {
-        nodeId,
-        mathField,
-        container,
-        isNew
-      })
-      
-      console.log('✅ [FORMULA-NODE-BUILDER] MathLive初始化完成', { nodeId })
-      
+      // 8. 初始化完成（移除事件发送）
     } catch (error) {
-      console.error('❌ [FORMULA-NODE-BUILDER] MathLive初始化失败', { nodeId, error })
-      
       const formulaError = this.errorHandler.createError(
         FormulaErrorType.INITIALIZATION_FAILED,
         `MathLive初始化失败: ${error instanceof Error ? error.message : String(error)}`,
@@ -240,28 +274,25 @@ export class FormulaNodeBuilder {
 
   // 配置MathField
   private configureMathField(mathField: MathField, isInitiallyActive: boolean): void {
-    console.log('🔧 [FORMULA-NODE-BUILDER] 配置MathField')
-    
-    mathField.setOptions({
-      mathVirtualKeyboardPolicy: 'manual',
-      virtualKeyboardMode: 'manual',
-      defaultMode: 'math',
-      fontSize: 16,
-      placeholder: '输入内容...',
-      smartMode: true,
-      smartSuperscript: true,
-      theme: 'light',
-      toolbar: 'none',
-      autoComplete: 'off',
-      selectionMode: 'none',
-      contextMenu: 'none',
-      dragMode: 'none',
-      readOnly: !isInitiallyActive,
-      border: 'none',
-      backgroundColor: 'transparent',
-      decorations: false,
-      inputMode: 'none',
-    })
+    // 使用直接属性设置替代废弃的setOptions方法
+    mathField.mathVirtualKeyboardPolicy = 'manual'
+    mathField.virtualKeyboardMode = 'manual'
+    mathField.defaultMode = 'math'
+    mathField.fontSize = 16
+    mathField.placeholder = '输入内容...'
+    mathField.smartMode = true
+    mathField.smartSuperscript = true
+    mathField.theme = 'light'
+    mathField.toolbar = 'none'
+    mathField.autoComplete = 'off'
+    mathField.selectionMode = 'text'
+    mathField.contextMenu = 'none'
+    mathField.dragMode = 'none'
+    mathField.readOnly = !isInitiallyActive
+    mathField.border = 'none'
+    mathField.backgroundColor = 'transparent'
+    mathField.decorations = false
+    mathField.inputMode = 'none'
   }
 
   // 设置MathField事件监听器
@@ -271,15 +302,27 @@ export class FormulaNodeBuilder {
     getPos: () => number | undefined, 
     editor: Editor
   ): void {
-    console.log('🔧 [FORMULA-NODE-BUILDER] 设置MathField事件监听器')
-    
     const nodeId = container.getAttribute('data-node-id')!
+    
+    // 点击事件 - 阻止冒泡到编辑器
+    mathField.addEventListener('click', (event: Event) => {
+      // 阻止事件冒泡到 TiptapEditor 的 handleEditorClick
+      event.stopPropagation()
+      
+      // 阻止默认行为（如果有的话）
+      event.preventDefault()
+    })
+    
+    // 容器点击事件 - 双重保险，确保整个公式节点区域都阻止冒泡
+    container.addEventListener('click', (event: Event) => {
+      // 阻止事件冒泡到 TiptapEditor 的 handleEditorClick
+      event.stopPropagation()
+    })
     
     // 输入事件
     mathField.addEventListener('input', (event: Event) => {
       const target = event.target as unknown as MathField
       const value = target.value || target.getValue() || ''
-      console.log('🧮 [FORMULA-INPUT] 公式内容变化', { nodeId, value })
       
       // 更新公式管理器中的内容
       this.formulaManager.updateFormulaContent(nodeId, value)
@@ -287,20 +330,14 @@ export class FormulaNodeBuilder {
       // 更新编辑器中的节点
       this.updateEditorNode(getPos, editor, value)
       
-      // 发出内容变化事件
-      this.eventManager.emit(FORMULA_EVENTS.CONTENT_CHANGED, {
-        nodeId,
-        content: value
-      })
+      // 内容变化处理完成（移除事件发送）
     })
     
     // 聚焦事件 - 添加防循环机制
     mathField.addEventListener('focus', () => {
-      console.log('🎯 [FORMULA-FOCUS] 公式获得焦点', { nodeId })
       
       // 防止重复聚焦（使用 SmartFocusManager 的状态）
       if (this.focusManager.isNodeActive(nodeId)) {
-        console.log('⚠️ [FORMULA-FOCUS] 公式已激活，跳过重复聚焦', { nodeId })
         return
       }
       
@@ -315,7 +352,6 @@ export class FormulaNodeBuilder {
           delay: 0
         })
         
-        console.log('✅ [FORMULA-FOCUS] 聚焦处理完成', { nodeId })
       }, 50) // 50ms 防循环延迟
       
       this.setFocusTimeout(nodeId, timeout)
@@ -325,116 +361,38 @@ export class FormulaNodeBuilder {
     mathField.addEventListener('blur', () => {
       // 防止重复失焦（使用 SmartFocusManager 的状态）
       if (!this.focusManager.isNodeActive(nodeId)) {
-        console.log('⚠️ [FORMULA-BLUR] 公式未激活，跳过失焦', { nodeId })
         return
       }
-      
-      console.log('🎯 [FORMULA-BLUR] 公式失去焦点', { nodeId })
       
       // 清除聚焦定时器
       this.clearFocusTimeout(nodeId)
       
       // 使用 SmartFocusManager 统一失活
       this.focusManager.deactivateFormula(nodeId, mathField)
-      
-      console.log('✅ [FORMULA-BLUR] 失焦处理完成', { nodeId })
     })
     
     // 键盘事件
     mathField.addEventListener('keydown', (event: Event) => {
       const keyboardEvent = event as KeyboardEvent
-      console.log('⌨️ [FORMULA-KEYDOWN] 键盘事件', { nodeId, key: keyboardEvent.key })
-      
       if (keyboardEvent.key === 'Enter' && !keyboardEvent.shiftKey) {
         keyboardEvent.preventDefault()
-        console.log('📤 [FORMULA-ENTER] 回车键完成编辑', { nodeId })
-        
         // 使用 SmartFocusManager 统一失活
         this.focusManager.deactivateFormula(nodeId, mathField)
         
-        // 发出回车事件
-        this.eventManager.emit(FORMULA_EVENTS.ENTER, { nodeId, mathField })
+        // 回车处理完成（移除事件发送）
         
       } else if (keyboardEvent.key === 'Escape') {
         keyboardEvent.preventDefault()
-        console.log('🚫 [FORMULA-ESCAPE] ESC键取消编辑', { nodeId })
-        
         // 使用 SmartFocusManager 统一失活
         this.focusManager.deactivateFormula(nodeId, mathField)
         
-        // 发出ESC事件
-        this.eventManager.emit(FORMULA_EVENTS.ESCAPE, { nodeId, mathField })
+        // ESC处理完成（移除事件发送）
       }
     })
   }
 
-  // 设置MathField编辑状态
-  private setMathFieldEditable(mathField: MathField, nodeId: string, editable: boolean): void {
-    try {
-      if (typeof mathField.setOptions === 'function') {
-        mathField.setOptions({
-          readOnly: !editable,
-          selectionMode: 'none'
-        })
-        console.log(`✅ [MATH-FIELD] 设置为${editable ? '可编辑' : '只读'}状态`, { nodeId })
-      }
-    } catch (error) {
-      console.error(`❌ [MATH-FIELD] 设置${editable ? '可编辑' : '只读'}状态失败`, { nodeId, error })
-    }
-  }
-
-  // 显示虚拟键盘
-  private showVirtualKeyboard(mathField: MathField, nodeId: string): void {
-    try {
-      if (typeof mathField.executeCommand === 'function') {
-        mathField.executeCommand('showVirtualKeyboard')
-        console.log('✅ [KEYBOARD] 虚拟键盘已显示', { nodeId })
-      }
-    } catch (error) {
-      console.error('❌ [KEYBOARD] 显示虚拟键盘失败', { nodeId, error })
-    }
-    
-    // 触发键盘显示事件
-    const keyboardEvent = new CustomEvent('custom-keyboard-toggle', {
-      detail: { visible: true, height: 300 }
-    })
-    window.dispatchEvent(keyboardEvent)
-    
-    // 添加强制重置动画状态的机制
-    this.forceResetAnimationState()
-  }
-
-  // 隐藏虚拟键盘
-  private hideVirtualKeyboard(mathField: MathField, nodeId: string): void {
-    try {
-      if (typeof mathField.executeCommand === 'function') {
-        mathField.executeCommand('hideVirtualKeyboard')
-        console.log('✅ [KEYBOARD] 虚拟键盘已隐藏', { nodeId })
-      }
-    } catch (error) {
-      console.error('❌ [KEYBOARD] 隐藏虚拟键盘失败', { nodeId, error })
-    }
-    
-    // 触发键盘隐藏事件
-    const keyboardEvent = new CustomEvent('custom-keyboard-toggle', {
-      detail: { visible: false, height: 0 }
-    })
-    window.dispatchEvent(keyboardEvent)
-    
-    // 添加强制重置动画状态的机制
-    this.forceResetAnimationState()
-  }
-
-  // 强制重置动画状态
-  private forceResetAnimationState(): void {
-    // 延迟重置，确保动画状态能够正确恢复
-    setTimeout(() => {
-      // 通过事件通知 ChatView 重置动画状态
-      const resetEvent = new CustomEvent('force-reset-animation-state')
-      window.dispatchEvent(resetEvent)
-      console.log('🔄 [ANIMATION] 强制重置动画状态事件已发送')
-    }, 100)
-  }
+  // 注意：MathField编辑状态设置和动画状态重置功能已移至 SmartFocusManager 中统一管理
+  // 这里不再需要重复的相关方法
 
   // 处理新节点聚焦 - 简化版本
   private async handleNewNodeFocus(
@@ -443,8 +401,6 @@ export class FormulaNodeBuilder {
     getPos: () => number | undefined, 
     editor: Editor
   ): Promise<void> {
-    console.log('🔧 [FORMULA-NODE-BUILDER] 处理新节点聚焦', { nodeId })
-    
     try {
       // 使用 SmartFocusManager 统一激活
       const success = await this.focusManager.activateFormula(nodeId, mathField, {
@@ -463,21 +419,13 @@ export class FormulaNodeBuilder {
             editor.view.dispatch(transaction)
           }
         }
-        
-        console.log('✅ [FORMULA-NODE-BUILDER] 新节点聚焦完成', { nodeId })
-      } else {
-        console.error('❌ [FORMULA-NODE-BUILDER] 新节点聚焦失败', { nodeId })
       }
-      
-    } catch (error) {
-      console.error('❌ [FORMULA-NODE-BUILDER] 新节点聚焦异常', { nodeId, error })
+    } catch {
     }
   }
 
   // 更新公式管理器中的节点信息
   private updateFormulaManagerNode(nodeId: string, mathField: MathField, container: HTMLElement): void {
-    console.log('🔧 [FORMULA-NODE-BUILDER] 更新公式管理器节点信息', { nodeId })
-    
     const node = this.formulaManager.getNode(nodeId)
     if (node) {
       node.mathField = mathField      // 保存MathField实例
@@ -500,8 +448,6 @@ export class FormulaNodeBuilder {
 
   // 更新节点
   private updateNode(updatedNode: ProseMirrorNode, container: HTMLElement): boolean { 
-    console.log('🔧 [FORMULA-NODE-BUILDER] 更新节点')
-    
     const nodeId = container.getAttribute('data-node-id')
     if (!nodeId) {
       // 如果无法处理，理论上应该返回 false
@@ -518,7 +464,6 @@ export class FormulaNodeBuilder {
     const mathField = container.querySelector('math-field') as unknown as MathField; // 假设 math-field 是存在的
     
     if (mathField && mathField.getValue() !== newFormula) {
-      console.log(`🔄 [FORMULA-NODE-BUILDER] 更新公式内容: ${newFormula}`)
       mathField.setValue(newFormula)
       this.formulaManager.updateFormulaContent(nodeId, newFormula)
     }
@@ -529,7 +474,6 @@ export class FormulaNodeBuilder {
 
   // 销毁节点
   private destroyNode(container: HTMLElement): void {
-    console.log('🔧 [FORMULA-NODE-BUILDER] 销毁节点')
     
     const nodeId = container.getAttribute('data-node-id')
     if (nodeId) {
@@ -538,9 +482,6 @@ export class FormulaNodeBuilder {
       
       // 删除公式节点（FormulaManager 会处理状态清理）
       this.formulaManager.deleteFormula(nodeId)
-      this.eventManager.emit(FORMULA_EVENTS.DELETED, { nodeId })
-      
-      console.log('✅ [FORMULA-NODE-BUILDER] 节点销毁完成，状态已清理', { nodeId })
     }
   }
 }
