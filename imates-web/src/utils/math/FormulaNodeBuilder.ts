@@ -283,6 +283,21 @@ export class FormulaNodeBuilder {
         return
       }
 
+      // 禁用原生键盘事件监听器，避免冲突
+      if (typeof (window as any).disableNativeKeyboardListeners === 'function') {
+        (window as any).disableNativeKeyboardListeners()
+      }
+      
+      // 调用Android API禁用原生键盘
+      if (typeof (window as any).AndroidBridge?.disableNativeKeyboard === 'function') {
+        try {
+          const result = (window as any).AndroidBridge.disableNativeKeyboard()
+          console.log('🎯 [FORMULA_NODE_BUILDER] Android禁用原生键盘结果:', result)
+        } catch (error) {
+          console.warn('🎯 [FORMULA_NODE_BUILDER] Android禁用原生键盘失败:', error)
+        }
+      }
+
       // 隐藏纯文本显示，显示公式编辑器
       this.toggleDisplayMode(container, true)
 
@@ -295,6 +310,10 @@ export class FormulaNodeBuilder {
       })
     } catch (error) {
       console.error('Failed to activate formula from text display:', error)
+      // 出错时也要重新启用原生键盘监听器
+      if (typeof (window as any).enableNativeKeyboardListeners === 'function') {
+        (window as any).enableNativeKeyboardListeners()
+      }
     }
   }
 
@@ -476,6 +495,21 @@ export class FormulaNodeBuilder {
       
       // 使用 SmartFocusManager 统一失活
       this.focusManager.deactivateFormula(nodeId, mathField)
+      
+      // 重新启用原生键盘事件监听器
+      if (typeof (window as any).enableNativeKeyboardListeners === 'function') {
+        (window as any).enableNativeKeyboardListeners()
+      }
+      
+      // 调用Android API启用原生键盘
+      if (typeof (window as any).AndroidBridge?.enableNativeKeyboard === 'function') {
+        try {
+          const result = (window as any).AndroidBridge.enableNativeKeyboard()
+          console.log('🎯 [FORMULA_NODE_BUILDER] Android启用原生键盘结果:', result)
+        } catch (error) {
+          console.warn('🎯 [FORMULA_NODE_BUILDER] Android启用原生键盘失败:', error)
+        }
+      }
     })
     
     // 键盘事件
@@ -486,12 +520,42 @@ export class FormulaNodeBuilder {
         // 使用 SmartFocusManager 统一失活
         this.focusManager.deactivateFormula(nodeId, mathField)
         
+        // 重新启用原生键盘事件监听器
+        if (typeof (window as any).enableNativeKeyboardListeners === 'function') {
+          (window as any).enableNativeKeyboardListeners()
+        }
+        
+        // 调用Android API启用原生键盘
+        if (typeof (window as any).AndroidBridge?.enableNativeKeyboard === 'function') {
+          try {
+            const result = (window as any).AndroidBridge.enableNativeKeyboard()
+            console.log('🎯 [FORMULA_NODE_BUILDER] Android启用原生键盘结果:', result)
+          } catch (error) {
+            console.warn('🎯 [FORMULA_NODE_BUILDER] Android启用原生键盘失败:', error)
+          }
+        }
+        
         // 回车处理完成（移除事件发送）
         
       } else if (keyboardEvent.key === 'Escape') {
         keyboardEvent.preventDefault()
         // 使用 SmartFocusManager 统一失活
         this.focusManager.deactivateFormula(nodeId, mathField)
+        
+        // 重新启用原生键盘事件监听器
+        if (typeof (window as any).enableNativeKeyboardListeners === 'function') {
+          (window as any).enableNativeKeyboardListeners()
+        }
+        
+        // 调用Android API启用原生键盘
+        if (typeof (window as any).AndroidBridge?.enableNativeKeyboard === 'function') {
+          try {
+            const result = (window as any).AndroidBridge.enableNativeKeyboard()
+            console.log('🎯 [FORMULA_NODE_BUILDER] Android启用原生键盘结果:', result)
+          } catch (error) {
+            console.warn('🎯 [FORMULA_NODE_BUILDER] Android启用原生键盘失败:', error)
+          }
+        }
         
         // ESC处理完成（移除事件发送）
       }

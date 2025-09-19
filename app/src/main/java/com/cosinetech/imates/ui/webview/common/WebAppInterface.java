@@ -3,6 +3,7 @@ package com.cosinetech.imates.ui.webview.common;
 import android.content.Context;
 import android.content.Intent;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
 import android.widget.Toast;
 import android.app.Activity;
 import android.media.MediaRecorder;
@@ -1473,6 +1474,99 @@ public class WebAppInterface {
             findExerciseBridge.showToast(message);
         } else if (exerciseBridge instanceof FindExerciseActivityBridge) {
             ((FindExerciseActivityBridge) exerciseBridge).showToast(message);
+        }
+    }
+
+    // ========== 键盘控制相关接口 ==========
+    
+    /**
+     * 禁用原生键盘弹出
+     * 通过设置WebView中所有输入元素的属性来阻止键盘弹出
+     */
+    @JavascriptInterface
+    public String disableNativeKeyboard() {
+        try {
+            Log.d(TAG, "🎯 [ANDROID] 禁用原生键盘弹出");
+            
+            // 通过JavaScript设置所有输入元素的属性
+            String script = 
+                "document.querySelectorAll('input, textarea, [contenteditable], math-field').forEach(el => {" +
+                "  el.setAttribute('inputmode', 'none');" +
+                "  el.setAttribute('readonly', 'true');" +
+                "  el.style.setProperty('-webkit-user-select', 'none');" +
+                "  el.style.setProperty('pointer-events', 'none');" +
+                "  console.log('🎯 [ANDROID] 禁用元素键盘:', el.tagName, el.className);" +
+                "});" +
+                "console.log('🎯 [ANDROID] 原生键盘已禁用');";
+            
+            // 执行JavaScript
+            executeJavaScript(script);
+            
+            return createResponse(true, "原生键盘已禁用", null);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "禁用原生键盘失败", e);
+            return createResponse(false, "禁用原生键盘失败: " + e.getMessage(), null);
+        }
+    }
+    
+    /**
+     * 启用原生键盘弹出
+     * 恢复WebView中所有输入元素的正常属性
+     */
+    @JavascriptInterface
+    public String enableNativeKeyboard() {
+        try {
+            Log.d(TAG, "🎯 [ANDROID] 启用原生键盘弹出");
+            
+            // 通过JavaScript恢复所有输入元素的属性
+            String script = 
+                "document.querySelectorAll('input, textarea, [contenteditable], math-field').forEach(el => {" +
+                "  el.removeAttribute('inputmode');" +
+                "  el.removeAttribute('readonly');" +
+                "  el.style.removeProperty('-webkit-user-select');" +
+                "  el.style.removeProperty('pointer-events');" +
+                "  console.log('🎯 [ANDROID] 启用元素键盘:', el.tagName, el.className);" +
+                "});" +
+                "console.log('🎯 [ANDROID] 原生键盘已启用');";
+            
+            // 执行JavaScript
+            executeJavaScript(script);
+            
+            return createResponse(true, "原生键盘已启用", null);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "启用原生键盘失败", e);
+            return createResponse(false, "启用原生键盘失败: " + e.getMessage(), null);
+        }
+    }
+    
+    // WebView实例引用，用于执行JavaScript
+    private WebView webView;
+    
+    /**
+     * 设置WebView实例
+     */
+    public void setWebView(WebView webView) {
+        this.webView = webView;
+    }
+    
+    /**
+     * 执行JavaScript代码
+     * 确保在主线程上执行WebView操作
+     */
+    public void executeJavaScript(String script) {
+        if (webView != null) {
+            if (mContext instanceof Activity) {
+                ((Activity) mContext).runOnUiThread(() -> {
+                    webView.evaluateJavascript(script, null);
+                    Log.d(TAG, "🎯 [ANDROID] 执行JavaScript: " + script);
+                });
+            } else {
+                Log.w(TAG, "🎯 [ANDROID] Context不是Activity，无法执行JavaScript");
+            }
+        } else {
+            Log.w(TAG, "🎯 [ANDROID] WebView实例为空，无法执行JavaScript");
         }
     }
 

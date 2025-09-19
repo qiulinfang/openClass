@@ -3855,7 +3855,7 @@ to {
 
 /* ==================== 主容器样式 ==================== */
 /* 聊天视图主容器 - 使用flex布局，占据全高度 */
-.chat-view[data-v-5df8b1f9] {
+.chat-view[data-v-85c284e8] {
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -3867,18 +3867,18 @@ to {
 
 /* ==================== 键盘动画相关样式 ==================== */
 /* 键盘动画状态 - 优化动画性能 */
-.chat-view.keyboard-animating[data-v-5df8b1f9] {
+.chat-view.keyboard-animating[data-v-85c284e8] {
   will-change: transform;
 }
 
 /* 键盘动画时的聊天消息容器 - 禁用CSS过渡，使用JS动画 */
-.chat-view.keyboard-animating .chat-messages-container[data-v-5df8b1f9] {
+.chat-view.keyboard-animating .chat-messages-container[data-v-85c284e8] {
   transition: none; /* 禁用CSS过渡，使用JS动画 */
 }
 
 /* ==================== 消息区域样式 ==================== */
 /* 聊天消息容器 - 占据剩余空间，支持滚动 */
-.chat-messages-container[data-v-5df8b1f9] {
+.chat-messages-container[data-v-85c284e8] {
   flex: 1;
   min-height: 0;
   width: 100%;
@@ -3888,60 +3888,60 @@ to {
 }
 
 /* 聊天消息滚动区域 */
-.chat-messages[data-v-5df8b1f9] {
+.chat-messages[data-v-85c284e8] {
   height: 100%;
   width: 100%;
 }
 
 /* 消息包装器 - 设置内边距和最大宽度 */
-.messages-wrapper[data-v-5df8b1f9] {
+.messages-wrapper[data-v-85c284e8] {
   padding: 16px 0;
   max-width: 100%;
   width: 100%;
 }
 
 /* 选择模式工具栏特定样式 */
-.selection-toolbar[data-v-5df8b1f9] {
+.selection-toolbar[data-v-85c284e8] {
   background: #f8f9fa;
   border-bottom: 1px solid #e8eaed;
 }
-.close-btn[data-v-5df8b1f9] {
+.close-btn[data-v-85c284e8] {
   color: #5f6368;
   margin-right: 16px;
 }
-.close-btn[data-v-5df8b1f9]:hover {
+.close-btn[data-v-85c284e8]:hover {
   background-color: rgba(60, 64, 67, 0.08);
 }
-.selection-icon[data-v-5df8b1f9] {
+.selection-icon[data-v-85c284e8] {
   font-size: 20px;
   color: #1a73e8;
 }
-.selection-text[data-v-5df8b1f9] {
+.selection-text[data-v-85c284e8] {
   font-size: 14px;
   font-weight: 500;
   color: #3c4043;
   letter-spacing: 0.25px;
 }
-.action-btn[color='primary'][data-v-5df8b1f9] {
+.action-btn[color='primary'][data-v-85c284e8] {
   background-color: rgba(26, 115, 232, 0.12);
 }
-.action-btn[color='grey-6'][data-v-5df8b1f9]:hover {
+.action-btn[color='grey-6'][data-v-85c284e8]:hover {
   background-color: rgba(95, 99, 104, 0.08);
 }
-.message-selectable[data-v-5df8b1f9] {
+.message-selectable[data-v-85c284e8] {
   cursor: pointer;
 }
-.message-selectable .ai-message[data-v-5df8b1f9],
-.message-selectable .user-message[data-v-5df8b1f9] {
+.message-selectable .ai-message[data-v-85c284e8],
+.message-selectable .user-message[data-v-85c284e8] {
   padding-left: 60px;
 }
-.message-selected[data-v-5df8b1f9] {
+.message-selected[data-v-85c284e8] {
   background-color: rgba(25, 118, 210, 0.08);
   border-radius: 8px;
   margin: 0 12px;
   padding: 8px 0;
 }
-.message-checkbox[data-v-5df8b1f9] {
+.message-checkbox[data-v-85c284e8] {
   position: absolute;
   left: 20px;
   top: 50%;
@@ -3951,23 +3951,23 @@ to {
 
 /* ==================== 加载状态指示器样式 ==================== */
 /* 加载指示器过渡动画 - 淡入淡出效果 */
-.loading-fade-enter-active[data-v-5df8b1f9],
-.loading-fade-leave-active[data-v-5df8b1f9] {
+.loading-fade-enter-active[data-v-85c284e8],
+.loading-fade-leave-active[data-v-85c284e8] {
   transition:
     opacity 0.2s ease-in-out,
     transform 0.2s ease-in-out;
 }
-.loading-fade-enter-from[data-v-5df8b1f9] {
+.loading-fade-enter-from[data-v-85c284e8] {
   opacity: 0;
   transform: translateY(-10px);
 }
-.loading-fade-leave-to[data-v-5df8b1f9] {
+.loading-fade-leave-to[data-v-85c284e8] {
   opacity: 0;
   transform: translateY(-10px);
 }
 
 /* 聊天记录加载状态指示器 - 居中显示加载动画 */
-.chat-loading-indicator[data-v-5df8b1f9] {
+.chat-loading-indicator[data-v-85c284e8] {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3978,14 +3978,14 @@ to {
 }
 
 /* 加载文本样式 */
-.loading-text[data-v-5df8b1f9] {
+.loading-text[data-v-85c284e8] {
   font-size: 14px;
   color: #666;
   font-weight: 500;
 }
 
 /* 聊天记录渲染状态指示器 - 显示历史消息渲染进度 */
-.chat-rendering-indicator[data-v-5df8b1f9] {
+.chat-rendering-indicator[data-v-85c284e8] {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3998,7 +3998,7 @@ to {
 }
 
 /* 渲染文本样式 */
-.rendering-text[data-v-5df8b1f9] {
+.rendering-text[data-v-85c284e8] {
   font-size: 13px;
   color: #888;
   font-weight: 400;

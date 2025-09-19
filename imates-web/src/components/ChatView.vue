@@ -1793,15 +1793,43 @@ onMounted(() => {
     }
 
     // 3.3 监听原生键盘事件（处理系统键盘，只压缩页面不滚动）
-    window.addEventListener('keyboard-show', (event: Event) => {
+    // 动态控制原生键盘事件监听，避免与公式键盘冲突
+    let nativeKeyboardListenersEnabled = true
+    
+    const handleNativeKeyboardShow = (event: Event) => {
+      if (!nativeKeyboardListenersEnabled) {
+        console.log('🎯 [CHAT_VIEW] 原生键盘显示事件被忽略（公式编辑中）')
+        return
+      }
+      console.log('🎯 [CHAT_VIEW] 原生键盘显示事件')
       const customEvent = event as CustomEvent
       // 原生键盘显示时只压缩页面，不滚动（压缩后输入框自动可见）
       handleKeyboardShown(customEvent.detail)
-    })
-    window.addEventListener('keyboard-hide', () => {
+    }
+    
+    const handleNativeKeyboardHide = () => {
+      if (!nativeKeyboardListenersEnabled) {
+        console.log('🎯 [CHAT_VIEW] 原生键盘隐藏事件被忽略（公式编辑中）')
+        return
+      }
+      console.log('🎯 [CHAT_VIEW] 原生键盘隐藏事件')
       // 原生键盘隐藏时恢复页面
       handleKeyboardHidden()
-    })
+    }
+    
+    window.addEventListener('keyboard-show', handleNativeKeyboardShow)
+    window.addEventListener('keyboard-hide', handleNativeKeyboardHide)
+    
+    // 暴露控制函数给全局使用
+    window.disableNativeKeyboardListeners = () => {
+      console.log('🎯 [CHAT_VIEW] 禁用原生键盘事件监听器')
+      nativeKeyboardListenersEnabled = false
+    }
+    
+    window.enableNativeKeyboardListeners = () => {
+      console.log('🎯 [CHAT_VIEW] 启用原生键盘事件监听器')
+      nativeKeyboardListenersEnabled = true
+    }
 
     // 3.4 监听公式键盘事件（MathLive虚拟键盘，只滚动不压缩）
     window.addEventListener('formula-keyboard-toggle', handleFormulaKeyboardToggle)

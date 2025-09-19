@@ -288,6 +288,7 @@ public class ExerciseSolveWebViewActivity extends BaseActivity implements WebApp
         webAppInterface = new WebAppInterface(this);
         webAppInterface.setExerciseBridge(this);
         webAppInterface.setImageLaunchers(imagePickLauncher, imageCaptureLauncher);
+        webAppInterface.setWebView(webView); // 设置WebView实例用于执行JavaScript
         webView.addJavascriptInterface(webAppInterface, "AndroidBridge");
 
         // 设置WebViewClient
