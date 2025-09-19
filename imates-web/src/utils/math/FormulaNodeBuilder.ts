@@ -169,9 +169,33 @@ export class FormulaNodeBuilder {
     // 设置相对定位，确保ID标签能正确显示
     container.style.position = 'relative'
     
+    // 创建纯文本显示元素
+    this.createTextDisplay(container, finalNodeId, node.attrs.formula || '')
+    
     // 创建ID显示标签
     this.createIdDisplayLabel(container, finalNodeId)
     return container
+  }
+
+  // 创建纯文本显示元素
+  private createTextDisplay(container: HTMLElement, nodeId: string, formula: string): void {
+    // 创建纯文本显示元素
+    const textDisplay = document.createElement('span')
+    textDisplay.className = 'formula-text-display'
+    textDisplay.textContent = formula || '点击编辑公式'
+    textDisplay.setAttribute('data-node-id', nodeId)
+    
+    // 设置基础样式
+    this.updateTextDisplayStyle(textDisplay, false)
+    
+    // 添加点击事件监听器
+    textDisplay.addEventListener('click', (event) => {
+      event.stopPropagation()
+      this.handleTextDisplayClick(nodeId, container)
+    })
+    
+    // 将纯文本显示元素添加到容器
+    container.appendChild(textDisplay)
   }
 
   // 创建ID显示标签
@@ -191,6 +215,29 @@ export class FormulaNodeBuilder {
     
     // 将标签添加到容器
     container.appendChild(idLabel)
+  }
+
+  // 更新纯文本显示样式
+  private updateTextDisplayStyle(textDisplay: HTMLElement, isActive: boolean): void {
+    const baseStyle = `
+      display: ${isActive ? 'none' : 'inline-block'};
+      padding: 2px 6px;
+      margin: 0 2px;
+      border: 1px solid #e0e0e0;
+      border-radius: 3px;
+      background: #f8f9fa;
+      color: #333;
+      cursor: pointer;
+      font-family: monospace;
+      font-size: 14px;
+      line-height: 1.2;
+      min-width: 20px;
+      min-height: 20px;
+      transition: all 0.2s ease;
+      user-select: none;
+    `
+    
+    textDisplay.style.cssText = baseStyle
   }
 
   // 更新ID标签样式
@@ -225,6 +272,53 @@ export class FormulaNodeBuilder {
     idLabel.style.cssText = baseStyle + (isActive ? activeStyle : inactiveStyle)
   }
 
+  // 处理纯文本显示点击事件
+  private async handleTextDisplayClick(nodeId: string, container: HTMLElement): Promise<void> {
+    try {
+      // 获取MathField实例
+      const mathField = container.querySelector('math-field') as unknown as MathField
+      if (!mathField) {
+        console.warn('MathField not found for node:', nodeId)
+        return
+      }
+
+      // 隐藏纯文本显示，显示公式编辑器
+      this.toggleDisplayMode(container, true)
+
+      // 激活公式编辑器
+      await this.focusManager.activateFormula(nodeId, mathField, {
+        scrollIntoView: true,
+        showKeyboard: true,
+        delay: 100,
+        ensureVisible: true
+      })
+    } catch (error) {
+      console.error('Failed to activate formula from text display:', error)
+    }
+  }
+
+  // 切换显示模式（纯文本/公式编辑器）
+  private toggleDisplayMode(container: HTMLElement, showEditor: boolean): void {
+    const textDisplay = container.querySelector('.formula-text-display') as HTMLElement
+    const mathField = container.querySelector('math-field') as HTMLElement
+    
+    if (textDisplay) {
+      this.updateTextDisplayStyle(textDisplay, showEditor)
+    }
+    
+    if (mathField) {
+      mathField.style.display = showEditor ? 'inline-block' : 'none'
+    }
+  }
+
+  // 更新纯文本显示内容
+  private updateTextDisplayContent(container: HTMLElement, formula: string): void {
+    const textDisplay = container.querySelector('.formula-text-display') as HTMLElement
+    if (textDisplay) {
+      textDisplay.textContent = formula || '点击编辑公式'
+    }
+  }
+
   // 异步初始化MathLive
   private async initializeMathLive(
     container: HTMLElement, 
@@ -251,10 +345,13 @@ export class FormulaNodeBuilder {
       // 5. 添加到容器
       container.appendChild(mathField as unknown as HTMLElement)
       
-      // 6. !!将MathLive编辑器的实例信息同步到FormulaManager中!!
+      // 6. 设置初始显示模式（新节点显示编辑器，已存在节点显示纯文本）
+      this.toggleDisplayMode(container, isNew)
+      
+      // 7. !!将MathLive编辑器的实例信息同步到FormulaManager中!!
       this.updateFormulaManagerNode(nodeId, mathField, container)
       
-      // 7. 如果是新节点，执行聚焦流程
+      // 8. 如果是新节点，执行聚焦流程
       if (isNew) {
         await this.handleNewNodeFocus(mathField, nodeId, getPos, editor)
       }
@@ -330,6 +427,9 @@ export class FormulaNodeBuilder {
       // 更新编辑器中的节点
       this.updateEditorNode(getPos, editor, value)
       
+      // 更新纯文本显示内容
+      this.updateTextDisplayContent(container, value)
+      
       // 内容变化处理完成（移除事件发送）
     })
     
@@ -340,6 +440,9 @@ export class FormulaNodeBuilder {
       if (this.focusManager.isNodeActive(nodeId)) {
         return
       }
+      
+      // 切换到公式编辑器显示模式
+      this.toggleDisplayMode(container, true)
       
       // 添加防循环延迟
       this.clearFocusTimeout(nodeId)
@@ -366,6 +469,9 @@ export class FormulaNodeBuilder {
       
       // 清除聚焦定时器
       this.clearFocusTimeout(nodeId)
+      
+      // 切换到纯文本显示模式
+      this.toggleDisplayMode(container, false)
       
       // 使用 SmartFocusManager 统一失活
       this.focusManager.deactivateFormula(nodeId, mathField)
@@ -466,6 +572,9 @@ export class FormulaNodeBuilder {
     if (mathField && mathField.getValue() !== newFormula) {
       mathField.setValue(newFormula)
       this.formulaManager.updateFormulaContent(nodeId, newFormula)
+      
+      // 更新纯文本显示内容
+      this.updateTextDisplayContent(container, newFormula)
     }
   
     // 表示我们成功处理了更新

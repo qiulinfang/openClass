@@ -30,7 +30,7 @@ export class MathLiveLoader {
       this.mathLivePromise = this.doLoadMathLive()
       const mathlive = await this.mathLivePromise
       
-      this.MathfieldElement = mathlive.MathfieldElement
+      this.MathfieldElement = (mathlive as any).MathfieldElement
       this.isLoaded = true
       
       return this.MathfieldElement
@@ -43,7 +43,7 @@ export class MathLiveLoader {
   // 创建MathField实例
   async createMathField(): Promise<unknown> {
     const MathfieldElement = await this.loadMathLive()
-    const mathField = new MathfieldElement()
+    const mathField = new (MathfieldElement as any)()
     return mathField
   }
 

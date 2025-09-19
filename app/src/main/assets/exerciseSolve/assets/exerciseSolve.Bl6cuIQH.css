@@ -2009,12 +2009,12 @@ to {
   -o-user-drag: none !important;
 }
 
-.tiptap-editor-container[data-v-d4937eae] {
+.tiptap-editor-container[data-v-ae9667b8] {
   position: relative;
   width: 100%;
   height: 100%;
 }
-.debug-controls[data-v-d4937eae] {
+.debug-controls[data-v-ae9667b8] {
   position: absolute;
   top: -40px;
   left: 0;
@@ -2026,7 +2026,7 @@ to {
   border-radius: 4px;
   z-index: 1000;
 }
-.debug-btn[data-v-d4937eae] {
+.debug-btn[data-v-ae9667b8] {
   padding: 4px 8px;
   background: #007bff;
   color: white;
@@ -2035,21 +2035,21 @@ to {
   cursor: pointer;
   font-size: 12px;
 }
-.debug-btn[data-v-d4937eae]:hover {
+.debug-btn[data-v-ae9667b8]:hover {
   background: #0056b3;
 }
-.debug-toggle[data-v-d4937eae] {
+.debug-toggle[data-v-ae9667b8] {
   background: #dc3545;
 }
-.debug-toggle[data-v-d4937eae]:hover {
+.debug-toggle[data-v-ae9667b8]:hover {
   background: #c82333;
 }
-.editor-wrapper[data-v-d4937eae] {
+.editor-wrapper[data-v-ae9667b8] {
   position: relative;
   width: 100%;
   height: 100%;
 }
-.editor-content[data-v-d4937eae] {
+.editor-content[data-v-ae9667b8] {
   width: 100%;
   height: 100%;
   padding: 12px;
@@ -2060,11 +2060,11 @@ to {
   line-height: 1.5;
   overflow-y: auto;
 }
-.editor-content[data-v-d4937eae]:focus {
+.editor-content[data-v-ae9667b8]:focus {
   border-color: #007bff;
   box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
-.editor-placeholder[data-v-d4937eae] {
+.editor-placeholder[data-v-ae9667b8] {
   position: absolute;
   top: 12px;
   left: 12px;
@@ -2075,7 +2075,7 @@ to {
 }
 
 /* FormulaNode 样式 */
-[data-v-d4937eae] .formula-node-container {
+[data-v-ae9667b8] .formula-node-container {
   display: inline-block;
   position: relative;
   margin: 0 2px;
@@ -2087,20 +2087,43 @@ to {
   cursor: pointer;
   vertical-align: baseline;
 }
-[data-v-d4937eae] .formula-node-container.formula-active {
+[data-v-ae9667b8] .formula-node-container.formula-active {
   border-color: #007bff;
   background: rgba(0, 123, 255, 0.1);
   box-shadow: 0 0 0 1px rgba(0, 123, 255, 0.3);
 }
-[data-v-d4937eae] .formula-node-container.formula-inactive {
+[data-v-ae9667b8] .formula-node-container.formula-inactive {
   border-color: #e0e0e0;
   background: #f8f9fa;
 }
-[data-v-d4937eae] .formula-node-container:hover {
+[data-v-ae9667b8] .formula-node-container:hover {
   border-color: #007bff;
   background: rgba(0, 123, 255, 0.05);
 }
-[data-v-d4937eae] math-field {
+
+/* 纯文本显示样式 */
+[data-v-ae9667b8] .formula-text-display {
+  display: inline-block;
+  padding: 2px 6px;
+  margin: 0 2px;
+  border: 1px solid #e0e0e0;
+  border-radius: 3px;
+  background: #f8f9fa;
+  color: #333;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 14px;
+  line-height: 1.2;
+  min-width: 20px;
+  min-height: 20px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+[data-v-ae9667b8] .formula-text-display:hover {
+  border-color: #007bff;
+  background: rgba(0, 123, 255, 0.05);
+}
+[data-v-ae9667b8] math-field {
   display: inline-block;
   min-width: 20px;
   min-height: 20px;
@@ -2110,22 +2133,22 @@ to {
   font-size: 16px;
   line-height: 1.2;
 }
-[data-v-d4937eae] math-field:focus {
+[data-v-ae9667b8] math-field:focus {
   outline: none;
 }
 
 /* 编辑器链接样式 */
-[data-v-d4937eae] .editor-link {
+[data-v-ae9667b8] .editor-link {
   color: #007bff;
   text-decoration: underline;
   cursor: pointer;
 }
-[data-v-d4937eae] .editor-link:hover {
+[data-v-ae9667b8] .editor-link:hover {
   color: #0056b3;
 }
 
 /* 编辑器图片样式 */
-[data-v-d4937eae] .editor-image {
+[data-v-ae9667b8] .editor-image {
   max-width: 100%;
   height: auto;
   border-radius: 4px;

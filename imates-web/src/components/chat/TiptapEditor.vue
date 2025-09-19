@@ -197,7 +197,8 @@ const debugCreateFormula = async () => {
         .run()
       
     }
-  } catch (error) {
+  } catch {
+    // 忽略错误，静默处理
   }
 }
 
@@ -430,6 +431,30 @@ onUnmounted(() => {
 }
 
 :deep(.formula-node-container:hover) {
+  border-color: #007bff;
+  background: rgba(0, 123, 255, 0.05);
+}
+
+/* 纯文本显示样式 */
+:deep(.formula-text-display) {
+  display: inline-block;
+  padding: 2px 6px;
+  margin: 0 2px;
+  border: 1px solid #e0e0e0;
+  border-radius: 3px;
+  background: #f8f9fa;
+  color: #333;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 14px;
+  line-height: 1.2;
+  min-width: 20px;
+  min-height: 20px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+:deep(.formula-text-display:hover) {
   border-color: #007bff;
   background: rgba(0, 123, 255, 0.05);
 }
