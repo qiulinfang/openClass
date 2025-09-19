@@ -223,9 +223,9 @@ export class FormulaNodeBuilder {
       display: ${isActive ? 'none' : 'inline-block'};
       padding: 2px 6px;
       margin: 0 2px;
-      border: 1px solid #e0e0e0;
+      border: 1px solid ${isActive ? '#007bff' : '#e0e0e0'};
       border-radius: 3px;
-      background: #f8f9fa;
+      background: ${isActive ? 'rgba(0, 123, 255, 0.1)' : '#f8f9fa'};
       color: #333;
       cursor: pointer;
       font-family: monospace;
@@ -235,6 +235,7 @@ export class FormulaNodeBuilder {
       min-height: 20px;
       transition: all 0.2s ease;
       user-select: none;
+      box-shadow: ${isActive ? '0 0 0 1px rgba(0, 123, 255, 0.3)' : 'none'};
     `
     
     textDisplay.style.cssText = baseStyle

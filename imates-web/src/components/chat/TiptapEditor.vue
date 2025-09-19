@@ -409,31 +409,18 @@ onUnmounted(() => {
 :deep(.formula-node-container) {
   display: inline-block;
   position: relative;
-  margin: 0 2px;
-  padding: 2px 4px;
-  border: 1px solid transparent;
-  border-radius: 3px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
   background: transparent;
   transition: all 0.2s ease;
   cursor: pointer;
   vertical-align: baseline;
 }
 
-:deep(.formula-node-container.formula-active) {
-  border-color: #007bff;
-  background: rgba(0, 123, 255, 0.1);
-  box-shadow: 0 0 0 1px rgba(0, 123, 255, 0.3);
-}
+/* 注意：容器的激活/非激活状态样式已移除，现在完全依靠内部元素（.formula-text-display 和 math-field）来体现状态和间距 */
 
-:deep(.formula-node-container.formula-inactive) {
-  border-color: #e0e0e0;
-  background: #f8f9fa;
-}
-
-:deep(.formula-node-container:hover) {
-  border-color: #007bff;
-  background: rgba(0, 123, 255, 0.05);
-}
 
 /* 纯文本显示样式 */
 :deep(.formula-text-display) {
@@ -463,11 +450,16 @@ onUnmounted(() => {
   display: inline-block;
   min-width: 20px;
   min-height: 20px;
-  border: none;
+  margin: 0 2px;
+  padding: 2px 6px;
+  border: 1px solid #007bff;
+  border-radius: 3px;
   outline: none;
-  background: transparent;
+  background: rgba(0, 123, 255, 0.1);
   font-size: 16px;
   line-height: 1.2;
+  box-shadow: 0 0 0 1px rgba(0, 123, 255, 0.3);
+  transition: all 0.2s ease;
 }
 
 :deep(math-field:focus) {
