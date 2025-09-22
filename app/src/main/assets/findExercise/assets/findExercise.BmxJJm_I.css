@@ -2278,7 +2278,7 @@ to {
 }
 
 /* 现代聊天输入容器 */
-.modern-chat-container[data-v-3aedd8a7] {
+.modern-chat-container[data-v-cd74e75c] {
   width: 100%;
   max-width: 100%;
   padding: 0 16px 8px 16px;
@@ -2290,7 +2290,7 @@ to {
 }
 
 /* 主容器 - 现代感设计 */
-.chat-input-wrapper[data-v-3aedd8a7] {
+.chat-input-wrapper[data-v-cd74e75c] {
   background: #f8f9fa;
   border-radius: 16px;
   box-shadow: 
@@ -2309,19 +2309,19 @@ to {
   max-width: 100%;
   box-sizing: border-box;
 }
-.chat-input-wrapper[data-v-3aedd8a7]:hover {
+.chat-input-wrapper[data-v-cd74e75c]:hover {
   box-shadow: 
     0 4px 16px rgba(0, 0, 0, 0.1),
     0 2px 4px rgba(0, 0, 0, 0.06);
 }
-.chat-input-wrapper[data-v-3aedd8a7]:focus-within {
+.chat-input-wrapper[data-v-cd74e75c]:focus-within {
   box-shadow: 
     0 2px 8px rgba(0, 0, 0, 0.06),
     0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 /* 附件栏 */
-.attachments-bar[data-v-3aedd8a7] {
+.attachments-bar[data-v-cd74e75c] {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
@@ -2331,12 +2331,12 @@ to {
   max-width: 100%;
   box-sizing: border-box;
 }
-.uploaded-files[data-v-3aedd8a7] {
+.uploaded-files[data-v-cd74e75c] {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
-.file-tag[data-v-3aedd8a7] {
+.file-tag[data-v-cd74e75c] {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2346,19 +2346,19 @@ to {
   font-size: 13px;
   color: #3c4043;
 }
-.file-name[data-v-3aedd8a7] {
+.file-name[data-v-cd74e75c] {
   max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.remove-btn[data-v-3aedd8a7] {
+.remove-btn[data-v-cd74e75c] {
   width: 16px;
   height: 16px;
   min-height: 16px;
   color: #5f6368;
 }
-.mode-indicator[data-v-3aedd8a7] {
+.mode-indicator[data-v-cd74e75c] {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2370,7 +2370,7 @@ to {
 }
 
 /* 统一输入区域 */
-.unified-input-area[data-v-3aedd8a7] {
+.unified-input-area[data-v-cd74e75c] {
   background: transparent;
   border: none;
   border-radius: 12px;
@@ -2380,15 +2380,15 @@ to {
   max-width: 100%;
   box-sizing: border-box;
 }
-.unified-input-area[data-v-3aedd8a7]:hover {
+.unified-input-area[data-v-cd74e75c]:hover {
   border-color: rgba(0, 0, 0, 0.2);
 }
-.unified-input-area[data-v-3aedd8a7]:focus-within {
+.unified-input-area[data-v-cd74e75c]:focus-within {
   box-shadow: none;
 }
 
 /* 智能内容画布 */
-.content-canvas[data-v-3aedd8a7] {
+.content-canvas[data-v-cd74e75c] {
   min-height: 40px;
   padding: 8px 12px;
   background: transparent;
@@ -2405,7 +2405,7 @@ to {
 }
 
 /* 隐藏contenteditable的文本内容，只显示Vue模板内容 */
-.content-canvas[data-v-3aedd8a7] {
+.content-canvas[data-v-cd74e75c] {
   color: transparent !important;
   /* 使用更彻底的方法隐藏文本，不占用空间 */
   font-size: 0 !important;
@@ -2413,7 +2413,7 @@ to {
 }
 
 /* 只对contenteditable的直接文本节点应用透明样式，不影响content-block */
-.content-canvas[data-v-3aedd8a7] > *:not(.canvas-content) {
+.content-canvas[data-v-cd74e75c] > *:not(.canvas-content) {
   color: transparent !important;
   font-size: 0 !important;
   line-height: 0 !important;
@@ -2421,34 +2421,34 @@ to {
 }
 
 /* 确保contenteditable内的所有元素都没有下划线 */
-.content-canvas[data-v-3aedd8a7] * {
+.content-canvas[data-v-cd74e75c] * {
   text-decoration: none !important;
 }
 
 /* 确保canvas-content内的内容正常显示 */
-.canvas-content[data-v-3aedd8a7] {
+.canvas-content[data-v-cd74e75c] {
   font-size: 16px !important;
   line-height: 1.4 !important;
   color: #3c4043 !important;
 }
 
 /* 但是content-block要正常显示 */
-.content-block[data-v-3aedd8a7] {
+.content-block[data-v-cd74e75c] {
   color: #3c4043 !important;
   font-size: 16px !important; /* 恢复正常字体大小 */
   line-height: 1.4 !important; /* 恢复正常行高 */
 }
-.text-block[data-v-3aedd8a7] {
+.text-block[data-v-cd74e75c] {
   color: #3c4043 !important;
   font-size: 16px !important; /* 恢复正常字体大小 */
   line-height: 1.4 !important; /* 恢复正常行高 */
 }
-.content-canvas[data-v-3aedd8a7]:focus {
+.content-canvas[data-v-cd74e75c]:focus {
   outline: none;
 }
 
 /* 画布占位符 */
-.canvas-placeholder[data-v-3aedd8a7] {
+.canvas-placeholder[data-v-cd74e75c] {
   color: #9aa0a6 !important; /* 确保占位符可见 */
   font-weight: 400;
   pointer-events: auto; /* 允许点击 */
@@ -2463,13 +2463,13 @@ to {
 }
 
 /* Hover效果 - 占位符悬停时变透明 */
-.canvas-placeholder[data-v-3aedd8a7]:hover {
+.canvas-placeholder[data-v-cd74e75c]:hover {
   opacity: 0.3;
   transform: translateY(-1px);
 }
 
 /* 内容区域 */
-.canvas-content[data-v-3aedd8a7] {
+.canvas-content[data-v-cd74e75c] {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -2480,21 +2480,21 @@ to {
 }
 
 /* 内容块基础样式 */
-.content-block[data-v-3aedd8a7] {
+.content-block[data-v-cd74e75c] {
   display: inline-block;
   position: relative;
   transition: all 0.2s ease;
 }
 
 /* 文本块样式 */
-.text-block[data-v-3aedd8a7] {
+.text-block[data-v-cd74e75c] {
   color: #3c4043;
   word-wrap: break-word;
   white-space: nowrap; /* 防止文本换行，保持在一行显示 */
 }
 
 /* 公式块样式 */
-.formula-block[data-v-3aedd8a7] {
+.formula-block[data-v-cd74e75c] {
   display: inline-block;
   position: relative;
   margin: 0 2px;
@@ -2502,7 +2502,7 @@ to {
 }
 
 /* 公式编辑状态 */
-.formula-block.editing[data-v-3aedd8a7] {
+.formula-block.editing[data-v-cd74e75c] {
   background: rgba(0, 0, 0, 0.05);
   border: 1px dashed rgba(0, 0, 0, 0.2);
   border-radius: 4px;
@@ -2511,14 +2511,14 @@ to {
 }
 
 /* 公式编辑器容器 */
-.formula-editor[data-v-3aedd8a7] {
+.formula-editor[data-v-cd74e75c] {
   min-width: 60px;
   min-height: 24px;
   display: inline-block;
 }
 
 /* 公式渲染内容 */
-.formula-rendered[data-v-3aedd8a7] {
+.formula-rendered[data-v-cd74e75c] {
   display: inline-block;
   vertical-align: baseline;
   font-family: 'Times New Roman', serif;
@@ -2526,7 +2526,7 @@ to {
 }
 
 /* 公式块选中状态 */
-.formula-block.selected[data-v-3aedd8a7] {
+.formula-block.selected[data-v-cd74e75c] {
   background: rgba(0, 0, 0, 0.08);
   border: 1px solid rgba(0, 0, 0, 0.3);
   border-radius: 4px;
@@ -2535,38 +2535,38 @@ to {
 }
 
 /* 键盘切换动画 */
-.keyboard-transitioning[data-v-3aedd8a7] {
+.keyboard-transitioning[data-v-cd74e75c] {
   pointer-events: none;
 }
-.keyboard-transitioning .content-canvas[data-v-3aedd8a7] {
+.keyboard-transitioning .content-canvas[data-v-cd74e75c] {
   opacity: 0.7;
   transform: scale(0.98);
 }
 
 /* 公式编辑器进入动画 */
-.formula-editor[data-v-3aedd8a7] {
+.formula-editor[data-v-cd74e75c] {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* 内容块动画 */
-.content-block[data-v-3aedd8a7] {
+.content-block[data-v-cd74e75c] {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.content-block[data-v-3aedd8a7]:hover {
+.content-block[data-v-cd74e75c]:hover {
   transform: translateY(-1px);
 }
 
 /* 公式块特殊动画 */
-.formula-block[data-v-3aedd8a7] {
+.formula-block[data-v-cd74e75c] {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.formula-block[data-v-3aedd8a7]:hover {
+.formula-block[data-v-cd74e75c]:hover {
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* 控制栏 */
-.control-bar[data-v-3aedd8a7] {
+.control-bar[data-v-cd74e75c] {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -2580,7 +2580,7 @@ to {
   margin-top: 4px;
   padding-top: 4px;
 }
-.left-controls[data-v-3aedd8a7] {
+.left-controls[data-v-cd74e75c] {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2588,7 +2588,7 @@ to {
   min-width: 0;
   overflow: hidden;
 }
-.right-controls[data-v-3aedd8a7] {
+.right-controls[data-v-cd74e75c] {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2598,7 +2598,7 @@ to {
 }
 
 /* 模式选择器 */
-.mode-selector[data-v-3aedd8a7] {
+.mode-selector[data-v-cd74e75c] {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -2614,29 +2614,29 @@ to {
   max-width: 120px;
   overflow: hidden;
 }
-.mode-selector[data-v-3aedd8a7] .q-btn__content {
+.mode-selector[data-v-cd74e75c] .q-btn__content {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
 /* 隐藏下拉箭头 */
-.mode-selector[data-v-3aedd8a7] .q-btn-dropdown__arrow {
+.mode-selector[data-v-cd74e75c] .q-btn-dropdown__arrow {
   display: none;
 }
-.mode-selector[data-v-3aedd8a7]:hover {
+.mode-selector[data-v-cd74e75c]:hover {
   background: #f8f9fa;
 }
-.mode-selector.active[data-v-3aedd8a7] {
+.mode-selector.active[data-v-cd74e75c] {
   background: #e8f0fe;
   color: #1a73e8;
 }
-.mode-text[data-v-3aedd8a7] {
+.mode-text[data-v-cd74e75c] {
   font-weight: 500;
 }
 
 /* 当前模式显示 */
-.current-mode[data-v-3aedd8a7] {
+.current-mode[data-v-cd74e75c] {
   display: flex;
   align-items: center;
   padding: 6px 12px;
@@ -2646,12 +2646,12 @@ to {
   font-size: 14px;
   font-weight: 500;
 }
-.mode-label[data-v-3aedd8a7] {
+.mode-label[data-v-cd74e75c] {
   white-space: nowrap;
 }
 
 /* 编辑状态指示器 */
-.edit-indicator[data-v-3aedd8a7] {
+.edit-indicator[data-v-cd74e75c] {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2665,23 +2665,23 @@ to {
   flex-shrink: 0;
   border: 1px solid #bbdefb;
 }
-.edit-text[data-v-3aedd8a7] {
+.edit-text[data-v-cd74e75c] {
   font-size: 13px;
   font-weight: 500;
 }
-.cancel-edit-btn[data-v-3aedd8a7] {
+.cancel-edit-btn[data-v-cd74e75c] {
   width: 20px;
   height: 20px;
   min-height: 20px;
   color: #666;
 }
-.cancel-edit-btn[data-v-3aedd8a7]:hover {
+.cancel-edit-btn[data-v-cd74e75c]:hover {
   background-color: rgba(0, 0, 0, 0.1);
   color: #333;
 }
 
 /* 联网搜索按钮 */
-.web-search-btn[data-v-3aedd8a7] {
+.web-search-btn[data-v-cd74e75c] {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -2697,37 +2697,37 @@ to {
   max-width: 120px;
   overflow: hidden;
 }
-.web-search-btn[data-v-3aedd8a7]:hover {
+.web-search-btn[data-v-cd74e75c]:hover {
   background: #f8f9fa;
 }
-.web-search-btn.active[data-v-3aedd8a7] {
+.web-search-btn.active[data-v-cd74e75c] {
   background: #e8f5e8;
   color: #34a853;
 }
 
 /* 控制图标按钮 */
-.control-icon-btn[data-v-3aedd8a7] {
+.control-icon-btn[data-v-cd74e75c] {
   width: 36px;
   height: 36px;
   color: #5f6368;
   transition: all 0.2s ease;
 }
-.control-icon-btn[data-v-3aedd8a7]:hover {
+.control-icon-btn[data-v-cd74e75c]:hover {
   background-color: rgba(95, 99, 104, 0.12);
   color: #3c4043;
 }
-.control-icon-btn.active[data-v-3aedd8a7] {
+.control-icon-btn.active[data-v-cd74e75c] {
   background-color: rgba(0, 0, 0, 0.08);
   color: #1a73e8;
 }
 
 /* 公式插入按钮特殊样式 */
-.formula-insert-btn[data-v-3aedd8a7] {
+.formula-insert-btn[data-v-cd74e75c] {
   background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
   color: #1976d2;
   border: 1px solid rgba(0, 0, 0, 0.1);
 }
-.formula-insert-btn[data-v-3aedd8a7]:hover {
+.formula-insert-btn[data-v-cd74e75c]:hover {
   background: linear-gradient(135deg, #bbdefb 0%, #e1bee7 100%);
   color: #1565c0;
   transform: translateY(-1px);
@@ -2735,21 +2735,21 @@ to {
 }
 
 /* 语音按钮特殊样式 */
-.voice-btn.recording[data-v-3aedd8a7] {
+.voice-btn.recording[data-v-cd74e75c] {
   color: #ea4335;
   background-color: rgba(234, 67, 53, 0.1);
 }
-.voice-btn.recording[data-v-3aedd8a7]:hover {
+.voice-btn.recording[data-v-cd74e75c]:hover {
   background: rgba(0, 0, 0, 0.05);
   color: #3c4043;
 }
-.control-icon-btn.active[data-v-3aedd8a7] {
+.control-icon-btn.active[data-v-cd74e75c] {
   background: #e8f0fe;
   color: #1a73e8;
 }
 
 /* 发送按钮 */
-.send-button[data-v-3aedd8a7] {
+.send-button[data-v-cd74e75c] {
   width: 40px;
   height: 40px;
   background: #1a73e8;
@@ -2760,52 +2760,50 @@ to {
     0 1px 2px rgba(0, 0, 0, 0.1);
   border: none;
 }
-.send-button[data-v-3aedd8a7]:hover {
+.send-button[data-v-cd74e75c]:hover {
   background: #1557b0;
   box-shadow: 
     0 4px 12px rgba(0, 0, 0, 0.3),
     0 2px 4px rgba(0, 0, 0, 0.2);
   transform: translateY(-1px) scale(1.05);
 }
-.send-button[data-v-3aedd8a7]:active {
+.send-button[data-v-cd74e75c]:active {
   transform: translateY(0) scale(0.98);
 }
-.send-button[data-v-3aedd8a7]:disabled {
+.send-button[data-v-cd74e75c]:disabled {
   background: #e8eaed;
   color: #9aa0a6;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   transform: none;
 }
 
-/* 插入公式按钮 */
-.math-formula-btn[data-v-3aedd8a7] {
-  width: 40px;
-  height: 40px;
-  background: transparent;
-  color: #1a73e8;
-  border: 2px solid #1a73e8;
+/* 插入公式按钮 - 与其他控制按钮样式一致 */
+.math-formula-btn[data-v-cd74e75c] {
+  width: 36px;
+  height: 36px;
+  color: #5f6368;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: transparent;
+  border: none;
 }
-.math-formula-btn[data-v-3aedd8a7]:hover {
-  background: #1a73e8;
-  color: white;
-  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
-  transform: translateY(-1px) scale(1.05);
+.math-formula-btn[data-v-cd74e75c]:hover {
+  background-color: rgba(95, 99, 104, 0.12);
+  color: #3c4043;
 }
-.math-formula-btn[data-v-3aedd8a7]:active {
-  transform: translateY(0) scale(0.98);
+.math-formula-btn[data-v-cd74e75c]:active {
+  background-color: rgba(0, 0, 0, 0.08);
+  color: #1a73e8;
 }
 
 
 /* 状态指示器 */
-.status-indicators[data-v-3aedd8a7] {
+.status-indicators[data-v-cd74e75c] {
   display: flex;
   gap: 8px;
   padding: 0 4px;
   flex-wrap: wrap;
 }
-.status-tag[data-v-3aedd8a7] {
+.status-tag[data-v-cd74e75c] {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -2815,18 +2813,18 @@ to {
   font-size: 12px;
   color: #5f6368;
 }
-.status-tag.search-enabled[data-v-3aedd8a7] {
+.status-tag.search-enabled[data-v-cd74e75c] {
   background: #e8f5e8;
   color: #137333;
 }
-.status-tag.role-selected[data-v-3aedd8a7] {
+.status-tag.role-selected[data-v-cd74e75c] {
   background: #fce8e6;
   color: #c5221f;
 }
 
 
 /* 脉冲动画 */
-@keyframes pulse-3aedd8a7 {
+@keyframes pulse-cd74e75c {
 0%, 100% {
     transform: scale(1);
 }
@@ -2837,87 +2835,87 @@ to {
 
 /* 平板优化 */
 @media (min-width: 769px) and (max-width: 1024px) {
-.chat-input-wrapper[data-v-3aedd8a7] {
+.chat-input-wrapper[data-v-cd74e75c] {
     padding: 6px;
     border-radius: 20px;
 }
-.input-area[data-v-3aedd8a7] {
+.input-area[data-v-cd74e75c] {
     padding: 3px 5px;
     border-radius: 14px;
 }
-.control-icon-btn[data-v-3aedd8a7] {
+.control-icon-btn[data-v-cd74e75c] {
     width: 40px;
     height: 40px;
 }
-.math-formula-btn[data-v-3aedd8a7] {
+.math-formula-btn[data-v-cd74e75c] {
     width: 48px;
     height: 48px;
 }
-.send-button[data-v-3aedd8a7] {
+.send-button[data-v-cd74e75c] {
     width: 48px;
     height: 48px;
 }
-.main-textarea[data-v-3aedd8a7] .q-field__native {
+.main-textarea[data-v-cd74e75c] .q-field__native {
     font-size: 17px;
     padding: 3px 0;
 }
-.control-bar[data-v-3aedd8a7] {
+.control-bar[data-v-cd74e75c] {
     padding: 2px 0;
     gap: 18px;
 }
-.left-controls[data-v-3aedd8a7] {
+.left-controls[data-v-cd74e75c] {
     gap: 14px;
 }
-.right-controls[data-v-3aedd8a7] {
+.right-controls[data-v-cd74e75c] {
     gap: 8px;
 }
 }
 
 /* 手机响应式设计 */
 @media (max-width: 768px) {
-.chat-input-wrapper[data-v-3aedd8a7] {
+.chat-input-wrapper[data-v-cd74e75c] {
     padding: 3px;
     border-radius: 16px;
     gap: 6px;
 }
-.input-area[data-v-3aedd8a7] {
+.input-area[data-v-cd74e75c] {
     padding: 2px 4px;
     border-radius: 12px;
 }
-.control-icon-btn[data-v-3aedd8a7] {
+.control-icon-btn[data-v-cd74e75c] {
     width: 32px;
     height: 32px;
 }
-.math-formula-btn[data-v-3aedd8a7] {
+.math-formula-btn[data-v-cd74e75c] {
     width: 40px;
     height: 40px;
 }
-.send-button[data-v-3aedd8a7] {
+.send-button[data-v-cd74e75c] {
     width: 40px;
     height: 40px;
 }
-.control-bar[data-v-3aedd8a7] {
+.control-bar[data-v-cd74e75c] {
     padding: 1px 0;
     gap: 12px;
 }
-.left-controls[data-v-3aedd8a7] {
+.left-controls[data-v-cd74e75c] {
     gap: 8px;
 }
-.right-controls[data-v-3aedd8a7] {
+.right-controls[data-v-cd74e75c] {
     gap: 4px;
 }
-.mode-selector[data-v-3aedd8a7],
-  .web-search-btn[data-v-3aedd8a7] {
+.mode-selector[data-v-cd74e75c],
+  .web-search-btn[data-v-cd74e75c] {
     padding: 4px 8px;
     font-size: 13px;
     max-width: 100px;
 }
-.content-canvas[data-v-3aedd8a7] {
+.content-canvas[data-v-cd74e75c] {
     font-size: 15px;
     padding: 6px 8px;
     min-height: 36px;
 }
-.formula-editor[data-v-3aedd8a7] {
+.formula-editor[data-v-cd74e75c] {
     min-width: 50px;
     min-height: 20px;
 }
@@ -2925,56 +2923,56 @@ to {
 
 
 /* 学习伙伴选择弹出框样式 */
-.model-select-popup[data-v-3aedd8a7] {
+.model-select-popup[data-v-cd74e75c] {
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   overflow: hidden;
   z-index: 9999;
 }
-.model-select-list[data-v-3aedd8a7] {
+.model-select-list[data-v-cd74e75c] {
   min-width: 120px;
   padding: 4px 0;
 }
-.model-select-item[data-v-3aedd8a7] {
+.model-select-item[data-v-cd74e75c] {
   padding: 8px 16px;
   min-height: 40px;
   transition: all 0.2s ease;
 }
-.model-select-item[data-v-3aedd8a7]:hover {
+.model-select-item[data-v-cd74e75c]:hover {
   background-color: rgba(0, 0, 0, 0.05);
 }
-.model-select-item.active[data-v-3aedd8a7] {
+.model-select-item.active[data-v-cd74e75c] {
   background-color: rgba(0, 0, 0, 0.08);
   color: #1976d2;
 }
-.model-select-item .q-item__label[data-v-3aedd8a7] {
+.model-select-item .q-item__label[data-v-cd74e75c] {
   font-size: 14px;
   font-weight: 500;
 }
 
 
 /* 减少动画效果 */
-[data-v-3aedd8a7] {
+[data-v-cd74e75c] {
   animation-duration: 0.2s !important;
   transition-duration: 0.2s !important;
 }
 
 /* 隐藏MathLive的所有装饰元素 */
-.formula-editor[data-v-3aedd8a7] .ML__base {
+.formula-editor[data-v-cd74e75c] .ML__base {
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
   padding: 0 !important;
   margin: 0 !important;
 }
-.formula-editor[data-v-3aedd8a7] .ML__fieldcontainer {
+.formula-editor[data-v-cd74e75c] .ML__fieldcontainer {
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
   padding: 0 !important;
   margin: 0 !important;
 }
-.formula-editor[data-v-3aedd8a7] .ML__field {
+.formula-editor[data-v-cd74e75c] .ML__field {
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -2982,51 +2980,51 @@ to {
   margin: 0 !important;
   min-height: auto !important;
 }
-.formula-editor[data-v-3aedd8a7] .ML__caret {
+.formula-editor[data-v-cd74e75c] .ML__caret {
   display: none !important;
 }
-.formula-editor[data-v-3aedd8a7] .ML__selection {
+.formula-editor[data-v-cd74e75c] .ML__selection {
   display: none !important;
 }
-.formula-editor[data-v-3aedd8a7] .ML__virtual-keyboard-toggle {
+.formula-editor[data-v-cd74e75c] .ML__virtual-keyboard-toggle {
   display: none !important;
 }
-.formula-editor[data-v-3aedd8a7] .ML__toolbar {
+.formula-editor[data-v-cd74e75c] .ML__toolbar {
   display: none !important;
 }
-.formula-editor[data-v-3aedd8a7] .ML__popover {
+.formula-editor[data-v-cd74e75c] .ML__popover {
   display: none !important;
 }
 
 
 /* 桌面端优化 */
 @media (min-width: 1025px) {
-.chat-input-wrapper[data-v-3aedd8a7] {
+.chat-input-wrapper[data-v-cd74e75c] {
     padding: 8px;
     border-radius: 20px;
 }
-.input-area[data-v-3aedd8a7] {
+.input-area[data-v-cd74e75c] {
     padding: 6px 8px;
 }
-.control-bar[data-v-3aedd8a7] {
+.control-bar[data-v-cd74e75c] {
     padding: 4px 0;
     gap: 20px;
 }
-.left-controls[data-v-3aedd8a7] {
+.left-controls[data-v-cd74e75c] {
     gap: 16px;
 }
-.right-controls[data-v-3aedd8a7] {
+.right-controls[data-v-cd74e75c] {
     gap: 12px;
 }
-.control-icon-btn[data-v-3aedd8a7] {
+.control-icon-btn[data-v-cd74e75c] {
     width: 40px;
     height: 40px;
 }
-.math-formula-btn[data-v-3aedd8a7] {
+.math-formula-btn[data-v-cd74e75c] {
     width: 44px;
     height: 44px;
 }
-.send-button[data-v-3aedd8a7] {
+.send-button[data-v-cd74e75c] {
     width: 44px;
     height: 44px;
 }
