@@ -118,6 +118,7 @@
       :message-count="pendingForwardMessages.length"
       @confirm="handleForwardModeConfirm"
     />
+
   </div>
 </template>
 
@@ -184,6 +185,7 @@ const isAnimating = ref(false) // 是否正在执行动画（防重复触发）
 // 公式键盘状态标记 - 用于解决平板设备双重键盘事件冲突
 const isFormulaKeyboardVisible = ref(false) // 公式虚拟键盘是否可见
 
+
 // 高度相关状态
 const originalChatViewHeight = ref(0) // 记录ChatView的原始高度
 const keyboardHeight = ref(0) // 键盘高度
@@ -194,8 +196,8 @@ const originalViewportHeight = ref(0) // 原始视口高度
 const animationStartTime = ref(0) // 动画开始时间
 
 // Android原生键盘动画参数 - 与系统键盘动画完全一致
-const animationDuration = ref(300) // Android系统默认键盘动画时长（毫秒）
-const animationCurve = ref('cubic-bezier(0.4, 0.0, 0.2, 1)') // Android fast_out_slow_in 缓动曲线
+// const animationDuration = ref(300) // Android系统默认键盘动画时长（毫秒）
+// const animationCurve = ref('cubic-bezier(0.4, 0.0, 0.2, 1)') // Android fast_out_slow_in 缓动曲线
 
 // ==================== 工具函数 ====================
 /**
@@ -844,7 +846,7 @@ const onInputBlur = () => {
 const handleFormulaKeyboardToggle = (event: Event) => {
   // 步骤1：解析事件数据
   const customEvent = event as CustomEvent
-  const { visible, height, keyboardType } = customEvent.detail
+  const { visible } = customEvent.detail
 
 
   // 步骤2：更新公式键盘状态标记
@@ -884,6 +886,8 @@ const handleForceResetAnimationState = () => {
     chatViewRef.value.style.height = ''
   }
 }
+
+
 
 // 处理原生键盘显示的函数
 // 流程：压缩页面高度 → 焦点处理（不滚动，因为压缩后输入框自动可见）
@@ -1821,12 +1825,12 @@ onMounted(() => {
     window.addEventListener('keyboard-hide', handleNativeKeyboardHide)
     
     // 暴露控制函数给全局使用
-    window.disableNativeKeyboardListeners = () => {
+    ;(window as unknown as Record<string, unknown>).disableNativeKeyboardListeners = () => {
       console.log('🎯 [CHAT_VIEW] 禁用原生键盘事件监听器')
       nativeKeyboardListenersEnabled = false
     }
     
-    window.enableNativeKeyboardListeners = () => {
+    ;(window as unknown as Record<string, unknown>).enableNativeKeyboardListeners = () => {
       console.log('🎯 [CHAT_VIEW] 启用原生键盘事件监听器')
       nativeKeyboardListenersEnabled = true
     }
@@ -1834,7 +1838,8 @@ onMounted(() => {
     // 3.4 监听公式键盘事件（MathLive虚拟键盘，只滚动不压缩）
     window.addEventListener('formula-keyboard-toggle', handleFormulaKeyboardToggle)
     
-    // 3.5 监听强制重置动画状态事件
+    
+    // 3.6 监听强制重置动画状态事件
     window.addEventListener('force-reset-animation-state', handleForceResetAnimationState)
   }
 })
@@ -1849,6 +1854,7 @@ onUnmounted(() => {
     // 注意：内联函数无法直接移除，但组件卸载时会自动清理
     // 清理公式键盘事件监听器
     window.removeEventListener('formula-keyboard-toggle', handleFormulaKeyboardToggle)
+    
     
     // 清理强制重置动画状态事件监听器
     window.removeEventListener('force-reset-animation-state', handleForceResetAnimationState)
@@ -1953,7 +1959,7 @@ watch(
         // 检查是否切换回正在编辑的题目
         if (editingQuestionId.value && newQuestion && newQuestion.id === editingQuestionId.value) {
           // 直接执行切换，不显示确认对话框
-          executeQuestionSwitch(newQuestion, oldQuestion)
+          executeQuestionSwitch()
           return
         }
 
@@ -1966,13 +1972,13 @@ watch(
             chatInputRef.value.clearInputContent()
           }
           // 执行正常的切换逻辑
-          executeQuestionSwitch(newQuestion, oldQuestion)
+          executeQuestionSwitch()
         }
         return
       }
 
       // 如果没有编辑状态，直接执行切换
-      executeQuestionSwitch(newQuestion, oldQuestion)
+      executeQuestionSwitch()
     }
   },
 )
@@ -1993,19 +1999,19 @@ watch(
           chatInputRef.value.clearInputContent()
         }
         // 执行正常的切换逻辑
-        executeSubjectSwitch(newSubject)
+        executeSubjectSwitch()
       }
       return
     }
 
     // 如果没有编辑状态，直接执行切换
-    executeSubjectSwitch(newSubject)
+    executeSubjectSwitch()
   },
 )
 
 // 执行题目切换逻辑
 // 作用：执行题目切换，退出选择模式，重置老师会话状态并重新初始化消息
-const executeQuestionSwitch = (newQuestion: unknown, oldQuestion: unknown) => {
+const executeQuestionSwitch = () => {
 
   // 退出选择模式（如果正在选择模式）
   if (isSelectionMode.value) {
@@ -2030,7 +2036,7 @@ const executeQuestionSwitch = (newQuestion: unknown, oldQuestion: unknown) => {
 
 // 执行科目切换逻辑
 // 作用：执行科目切换，重新初始化老师会话
-const executeSubjectSwitch = (newSubject: string) => {
+const executeSubjectSwitch = () => {
 
   // 如果是老师对话模式，需要重新初始化会话
   if (props.type === 'teacher') {

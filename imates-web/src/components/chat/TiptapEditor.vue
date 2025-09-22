@@ -237,18 +237,23 @@ const getMarkdown = (): string => {
 // 插入数学公式方法
 const insertMathFormula = async () => {
   if (!editor.value) {
+    console.warn('🎯 [TIPTAP_EDITOR] 编辑器未初始化')
     return
   }
   
   try {
+    console.log('🎯 [TIPTAP_EDITOR] 开始创建数学公式节点')
     // 设置插入公式状态标记，防止触发原生键盘
     isInsertingFormula.value = true
     
     // 获取当前光标位置
     const { from } = editor.value.state.selection
+    console.log('🎯 [TIPTAP_EDITOR] 光标位置:', from)
     
     // 使用公式管理器创建公式
     const formulaId = await createFormula(from)
+    console.log('🎯 [TIPTAP_EDITOR] 公式节点ID:', formulaId)
+    
     if (formulaId) {
       // 插入公式节点到编辑器，不调用 focus() 避免触发原生键盘
       editor.value
@@ -263,11 +268,13 @@ const insertMathFormula = async () => {
         })
         .run()
       
+      console.log('🎯 [TIPTAP_EDITOR] 公式节点已插入到编辑器')
     } else {
+      console.warn('🎯 [TIPTAP_EDITOR] 公式节点创建失败')
       isInsertingFormula.value = false
     }
   } catch (error) {
-    console.error('❌ [TIPTAP-EDITOR] 插入数学公式失败:', error)
+    console.error('❌ [TIPTAP_EDITOR] 插入数学公式失败:', error)
     isInsertingFormula.value = false
   }
 }
