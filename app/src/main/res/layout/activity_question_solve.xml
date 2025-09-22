@@ -1,21 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF"
-    xmlns:tools="http://schemas.android.com/tools"
-    tools:context=".fragments.FragmentSubjectBiology">
+    android:background="@drawable/app_main_background">
 
     <Button
         android:id="@+id/btn_exit"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_margin="16dp"
+        android:visibility="visible"
         android:background="@drawable/ic_back"
         android:stateListAnimator="@animator/app_button_click_scale"
-        android:layout_marginHorizontal="@dimen/min_margin_size"
-        android:scaleType="center"
+        android:scaleType="fitXY"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"/>
 
@@ -23,6 +21,7 @@
         android:id="@+id/title"
         android:layout_width="30dp"
         android:layout_height="30dp"
+        android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toEndOf="@id/btn_exit"/>
 
@@ -32,22 +31,28 @@
         android:layout_width="match_parent"
         android:layout_height="2dp"
         android:layout_marginTop="8dp"
+        android:visibility="gone"
         android:background="#000000"
         app:layout_constraintTop_toBottomOf="@id/btn_exit"
         app:layout_constraintStart_toStartOf="parent"/>
 
     <TextView
         android:id="@+id/txt_empty_question"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         android:textColor="#800000"
         android:textSize="18sp"
         android:layout_marginStart="8dp"
-        android:visibility="gone"
+        android:visibility="visible"
+        android:gravity="center"
+        android:padding="16dp"
         android:text="没有习题? 可以拍照搜题或者从练习知识点获取题目."
+        app:layout_constraintEnd_toEndOf="@id/verticalGuide"
         app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/spliter0"/>
+        app:layout_constraintTop_toBottomOf="@id/spliter"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintVertical_bias="1.0" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/exerciseList"
@@ -59,7 +64,7 @@
         app:layout_constraintEnd_toEndOf="@id/verticalGuide"
         app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/txt_empty_question"
+        app:layout_constraintTop_toBottomOf="@id/spliter"
         app:layout_constraintVertical_bias="1.0" />
 
 
@@ -68,7 +73,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.6" />
+        app:layout_constraintGuide_percent="0.3" />
 
     <com.cosinetech.imates.ui.views.MarkdownTextView
         android:id="@+id/answerView"
@@ -106,7 +111,7 @@
         android:layout_marginHorizontal="8dp"
         android:layout_marginBottom="8dp"
         android:layout_marginTop="1dp"
-        app:layout_constraintTop_toBottomOf="@id/btn_capture"
+        app:layout_constraintTop_toBottomOf="@id/spliter"
         app:layout_constraintStart_toStartOf="@id/verticalGuide"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent" />
@@ -116,80 +121,86 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="bottom"
+        android:gravity="center_vertical"
+        android:padding="8dp"
+        android:background="@drawable/bg_tab_group"
         android:minHeight="36dp"
-        android:paddingHorizontal="10dp"
         android:layout_marginHorizontal="8dp"
-        app:layout_constraintTop_toBottomOf="@id/spliter0"
+        android:layout_marginVertical="16dp"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="@id/verticalGuide">
 
         <RadioButton
             android:id="@+id/optChatAi"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            style="@style/TabRadioButton"
             android:text="@string/ai_guide_question"
             android:button="@null"
             android:checked="true"
             android:layout_marginEnd="32dp"
-            android:background="@drawable/button_background"
-            android:textColor="@drawable/button_text_color" />
+            android:background="@drawable/app_transparent_button_background"
+            android:textColor="@drawable/app_button_text_color" />
 
         <RadioButton
             android:id="@+id/optChatTeacher"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            style="@style/TabRadioButton"
             android:text="@string/question_solve_ask_teacher"
             android:button="@null"
             android:checked="true"
             android:enabled="false"
             android:layout_marginEnd="32dp"
-            android:background="@drawable/button_background"
-            android:textColor="@drawable/button_text_color" />
+            android:background="@drawable/app_transparent_button_background"
+            android:textColor="@drawable/app_button_text_color" />
 
         <RadioButton
             android:id="@+id/optAnswer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            style="@style/TabRadioButton"
             android:text="@string/check_answer"
             android:enabled="false"
             android:button="@null"
             android:layout_marginEnd="32dp"
-            android:background="@drawable/button_background"
-            android:textColor="@drawable/button_text_color"
+            android:background="@drawable/app_transparent_button_background"
+            android:textColor="@drawable/app_button_text_color"
             android:layout_marginHorizontal="4dp" />
 
         <RadioButton
             android:id="@+id/optSimilar"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            style="@style/TabRadioButton"
             android:text="@string/similar_questions"
             android:enabled="false"
             android:button="@null"
             android:layout_marginEnd="32dp"
-            android:background="@drawable/button_background"
-            android:textColor="@drawable/button_text_color"
+            android:background="@drawable/app_transparent_button_background"
+            android:textColor="@drawable/app_button_text_color"
             android:layout_marginHorizontal="4dp" />
     </RadioGroup>
 
     <Button
         android:id="@+id/btn_capture"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
+        android:background="@drawable/bg_tab_group"
         android:text="@string/shoot_question"
-        android:background="@drawable/button_background"
-        android:textColor="@drawable/button_text_color"
+        android:textColor="@drawable/app_button_text_color"
         android:layout_marginHorizontal="10dp"
-        app:layout_constraintTop_toBottomOf="@id/spliter0"
+        app:layout_constraintTop_toTopOf="@id/radioGroup"
+        app:layout_constraintBottom_toBottomOf="@id/radioGroup"
         app:layout_constraintStart_toEndOf="@id/radioGroup"/>
 
     <View
         android:id="@+id/spliter"
         android:layout_width="0dp"
         android:layout_height="2dp"
-        android:layout_marginHorizontal="8dp"
-        android:layout_marginVertical="2dp"
-        app:layout_constraintTop_toBottomOf="@id/btn_capture"
-        app:layout_constraintStart_toStartOf="@id/verticalGuide"
+        android:layout_marginVertical="16dp"
+        app:layout_constraintTop_toBottomOf="@id/btn_exit"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:background="#80808080"/>
 
@@ -198,7 +209,19 @@
         android:layout_height="0dp"
         android:background="#000000"
         app:layout_constraintStart_toStartOf="@id/verticalGuide"
-        app:layout_constraintTop_toBottomOf="@id/spliter0"
+        app:layout_constraintTop_toBottomOf="@id/spliter"
         app:layout_constraintBottom_toBottomOf="parent"/>
+
+    <Button
+        android:id="@+id/btn_mini_class"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="    微课"
+        android:textColor="#ffffff"
+        android:background="#00ffffff"
+        android:drawableEnd="@drawable/chat_ai_mini_class"
+        android:layout_marginEnd="16dp"
+        app:layout_constraintTop_toTopOf="@id/chat_view"
+        app:layout_constraintEnd_toEndOf="@id/chat_view"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

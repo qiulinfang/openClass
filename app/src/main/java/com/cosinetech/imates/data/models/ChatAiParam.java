@@ -10,8 +10,7 @@ public class ChatAiParam implements Parcelable {
     public boolean showHistory;
     public boolean initialSendEnable;
 
-//    public transient AiChatResponseListener listener; // 不能序列化，需要手动设置
-
+    public boolean showTeacherSessionOnly;
     public ChatAiParam() {
     }
 
@@ -21,6 +20,7 @@ public class ChatAiParam implements Parcelable {
         streamDisplay = in.readByte() != 0;
         showHistory = in.readByte() != 0;
         initialSendEnable = in.readByte() != 0;
+        showTeacherSessionOnly = in.readByte() != 0;
     }
 
     @Override
@@ -30,6 +30,7 @@ public class ChatAiParam implements Parcelable {
         dest.writeByte((byte) (streamDisplay ? 1 : 0));
         dest.writeByte((byte) (showHistory ? 1 : 0));
         dest.writeByte((byte) (initialSendEnable ? 1 : 0));
+        dest.writeByte((byte) (showTeacherSessionOnly ? 1 : 0));
     }
 
     @Override

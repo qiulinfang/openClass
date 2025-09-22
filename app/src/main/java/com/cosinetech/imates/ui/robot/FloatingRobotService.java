@@ -37,7 +37,6 @@ import com.cosinetech.imates.ui.activities.ScreenShotActivity;
 import com.cosinetech.imates.data.models.ChatAiParam;
 import com.cosinetech.imates.data.models.ChatMessage;
 import com.cosinetech.imates.data.models.ChatMessageHistoryDB;
-import com.cosinetech.imates.data.models.Subject;
 import com.cosinetech.imates.data.models.UserInfoViewModel;
 import com.cosinetech.imates.teachermessagemq.MessagingManager;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
@@ -166,7 +165,7 @@ public class FloatingRobotService extends Service implements MessagingManager.Me
                         float deltaY = event.getRawY() - initialTouchY;
                         if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
                             // 如果移动距离小于阈值，认为是点击事件
-                            popupChatBot(ApiUrl.URL_CHAT_GENERAL, Subject.SUBJECT_ALL.name());
+                            popupChatBot(ApiUrl.URL_CHAT_GENERAL, false);
                         }
                         return true;
                 }
@@ -322,14 +321,14 @@ public class FloatingRobotService extends Service implements MessagingManager.Me
         chatView.setChatAiParam(param);
     }
 
-    public void popupChatBot(String url, String catalog) {
+    public void popupChatBot(String url, boolean showOnlyTeacher) {
         ChatAiParam param = new ChatAiParam();
-        //param.sessionId = tag;
         param.chatBotUrl = url;
         param.showHeader = true;
         param.streamDisplay = true;
         param.showHistory = true;
         param.initialSendEnable = true;
+        param.showTeacherSessionOnly = showOnlyTeacher;
 
         Intent intent = new Intent(this, ChatAiActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈

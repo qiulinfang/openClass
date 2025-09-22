@@ -102,6 +102,16 @@ public class AdapterSingleSelectSimilarQuestionList extends RecyclerView.Adapter
         return dataList.size();
     }
 
+    @Override
+    public void onViewAttachedToWindow(@NonNull SimilarQuestionItemViewHolder holder) {
+        super.onViewAttachedToWindow(holder);
+        int pos = holder.getBindingAdapterPosition();
+        if(pos == RecyclerView.NO_POSITION) {
+            return;
+        }
+        onBindViewHolder(holder, pos);
+    }
+
     // ViewHolder静态内部类
     public static class SimilarQuestionItemViewHolder extends RecyclerView.ViewHolder {
         View container;

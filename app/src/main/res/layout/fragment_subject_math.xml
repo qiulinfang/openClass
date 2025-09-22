@@ -8,7 +8,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:paddingTop="40dp"
     android:paddingStart="30dp"
-    tools:context=".fragments.FragmentSubjectMath">
+    tools:context=".ui.fragments.FragmentSubjectMath">
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="0dp"
@@ -19,41 +19,79 @@
         android:layout_margin="16dp"
         android:orientation="vertical"
         android:background="@drawable/subject_biology_todo_list_bg">
-        <LinearLayout
+        <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="84dp"
-            android:background="@drawable/subject_biology_todo_list_top_bg"
-            >
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="30dp"
-                android:textColor="#000000"
-                android:textSize="22sp"
-                android:layout_marginStart="32dp"
-                android:layout_marginTop="20dp"
-                android:text="我的知识图谱"/>
+            android:background="@drawable/activity_knowledge_top_bar_bg">
             <ImageView
-                android:layout_width="15dp"
-                android:layout_height="8dp"
-                android:layout_marginLeft="13dp"
-                android:layout_marginTop="38dp"
-                android:src="@drawable/subject_biology_todo_list_arrow"/>
+                android:id="@+id/img_book"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@drawable/textbook"
+                android:layout_marginStart="4dp"
+                android:layout_centerVertical="true"
+                android:layout_alignParentStart="true"/>
+
+            <Spinner
+                android:visibility="visible"
+                android:id="@+id/textbook_version_spinner"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:spinnerMode="dropdown"
+                android:layout_marginStart="8dp"
+                android:layout_centerVertical="true"
+                android:layout_toEndOf="@id/img_book"/>
+
             <Button
-                android:layout_width="129dp"
-                android:layout_height="56dp"
-                android:layout_marginTop="14dp"
-                android:layout_marginEnd="35dp"
-                android:layout_marginStart="500dp"
-                android:text="待办"
-                android:textColor="#ffffff"
-                android:textSize="19sp"
+                android:visibility="visible"
+                android:id="@+id/btn_res_center"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/app_blue_rounded_bg"
+                android:drawableLeft="@drawable/textbook"
+                android:text="我的资源"
+                android:textSize="20sp"
+                android:paddingHorizontal="16dp"
+                android:layout_marginEnd="32dp"
+                android:layout_centerVertical="true"
+                android:layout_alignParentEnd="true"/>
+
+            <Button
+                android:visibility="gone"
+                android:id="@+id/btn_my_exercise"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/app_blue_rounded_bg"
+                android:drawableLeft="@drawable/exercise_list"
+                android:text="我的习题"
+                android:textSize="20sp"
+                android:paddingHorizontal="16dp"
+                android:layout_marginEnd="32dp"
+                android:layout_centerVertical="true"
+                android:layout_alignParentEnd="true"/>
+
+            <TextView
+                android:id="@+id/update_badge"
                 android:visibility="invisible"
-                android:background="@drawable/subject_biology_todo_button_bg"></Button>
-        </LinearLayout>
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="end|top"
+                android:background="@drawable/bg_red_circle"
+                android:text="99+"
+                android:textColor="#ffffff"
+                android:textSize="10sp"
+                android:textAlignment="center"
+                android:gravity="center"
+                android:layout_alignTop="@id/btn_res_center"
+                android:layout_alignEnd="@id/btn_res_center"
+                android:translationZ="1000dp"/>
+
+        </RelativeLayout>
+
         <View
             android:layout_width="match_parent"
             android:layout_height="2dp"
-            android:background="#c0c0c0"></View>
+            android:background="#c0c0c0"/>
         <WebView
             android:id="@+id/knowledge_view"
             android:layout_width="match_parent"
@@ -61,8 +99,7 @@
             android:layout_margin="8dp"
             android:background="@drawable/round_corner"
             android:focusable="true"
-            android:focusableInTouchMode="true"></WebView>
-
+            android:focusableInTouchMode="true"/>
     </LinearLayout>
 
     <LinearLayout

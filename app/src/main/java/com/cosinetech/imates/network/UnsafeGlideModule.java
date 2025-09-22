@@ -13,6 +13,7 @@ import okhttp3.OkHttpClient;
 
 @GlideModule
 public class UnsafeGlideModule extends AppGlideModule {
+
     @Override
     public void registerComponents(@NonNull Context context, @NonNull Glide glide, @NonNull Registry registry) {
         OkHttpClient unsafeClient = UnsafeOkHttpClient.getUnsafeOkHttpClient();

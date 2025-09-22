@@ -15,6 +15,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStore;
 import androidx.lifecycle.ViewModelStoreOwner;
 
+import com.bumptech.glide.Glide;
 import com.cosinetech.imates.deviceadmin.AppMonitorService;
 import com.cosinetech.imates.deviceadmin.KioskManager;
 import com.cosinetech.imates.data.models.UserInfo;
@@ -42,6 +43,7 @@ public class ApplicationModelShared extends Application implements ViewModelStor
     public void onCreate() {
         super.onCreate();
         appInstance = this;
+        Glide.get(this);
         // 拷贝文件到 Documents 目录
         AssetsCopyUtils.copyAssetsToDocuments(this);
         UdpForwarderManager.getInstance().start();

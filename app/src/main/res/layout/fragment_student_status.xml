@@ -192,7 +192,7 @@
         android:layout_width="60dp"
         android:layout_height="wrap_content"
         android:background="#00ffffff"
-        android:drawableTop="@drawable/app_photo"
+        android:drawableTop="@drawable/app_photo0"
         android:visibility="invisible"
         android:text="拍作业"
         android:textColor="#808080"

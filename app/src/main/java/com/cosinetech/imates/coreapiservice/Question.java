@@ -1,5 +1,7 @@
 package com.cosinetech.imates.coreapiservice;
 
+import com.cosinetech.imates.data.models.ChatDisplayItem;
+import com.cosinetech.imates.ui.views.MarkdownTextView;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
@@ -66,10 +68,8 @@ public class Question {
     public String getQuestion() {
         StringBuilder result = new StringBuilder();
         emitNull();
-        result.append(title).append("\n\n");
-        return result.toString().trim().replace("<p>", "")
-                .replace("</p>", "  \n")
-                .replace("_", "\\_");
+        result.append(title).append("  \n");
+        return ChatDisplayItem.filterLatexString(result.toString());
     }
 
     public String getAnswer() {

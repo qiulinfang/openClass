@@ -33,4 +33,8 @@
     <color name="light_blue_A400">#FF00B0FF</color>
     <color name="black_overlay">#66000000</color>
     <color name="selected_background">#E3F2FD</color>
+
+    <color name="colorSuccess">#4CAF50</color>
+    <color name="colorWarning">#FF9800</color>
+    <color name="colorError">#F44336</color>
 </resources>

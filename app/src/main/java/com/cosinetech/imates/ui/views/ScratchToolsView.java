@@ -307,7 +307,7 @@ public class ScratchToolsView extends RelativeLayout {
             try {
                 app.chatRequest = chatRequest;
 
-                app.getFloatingWindowService().popupChatBot(ApiUrl.URL_CHAT_GENERAL, Subject.SUBJECT_ALL.name());
+                app.getFloatingWindowService().popupChatBot(ApiUrl.URL_CHAT_GENERAL, false);
             } catch (Exception e) {
                 Toast.makeText(context, "请输入要问的问题", Toast.LENGTH_SHORT).show();
             }

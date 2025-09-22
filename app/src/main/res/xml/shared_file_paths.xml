@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 允许共享外部存储中应用私有目录的所有文件（包括子目录） -->
+    <external-files-path
+        name="shared_storage"
+        path="." />
+</paths>

@@ -54,13 +54,10 @@ public class ApiGateWayService {
     public static void fileterFailedResponse(Response response) {
         if(response.code() == HTTP_STATE_UNAUTHORIZED || response.code() == HTTP_STATE_FORBIDDEN) {
             Handler handler = new Handler(Looper.getMainLooper());
-            handler.post(new Runnable() {
-                @Override
-                public void run() {
-                    // 更新UI
-                    Toast.makeText(ApplicationModelShared.getInstance(), "账号已在其他设备登录!", Toast.LENGTH_LONG).show();
-                    AppUtils.restartApp(ApplicationModelShared.getInstance());
-                }
+            handler.post(() -> {
+                // 更新UI
+                Toast.makeText(ApplicationModelShared.getInstance(), "账号已在其他设备登录!", Toast.LENGTH_LONG).show();
+                AppUtils.restartApp(ApplicationModelShared.getInstance());
             });
         }
     }

@@ -52,7 +52,7 @@
         android:layout_marginHorizontal="16dp"
         android:visibility="gone"
         android:textColor="#ffffff"
-        android:background="@drawable/button_bk"
+        android:background="@drawable/app_button_bk"
         android:text = "加入我的收藏"/>
 
     <View

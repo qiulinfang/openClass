@@ -11,5 +11,6 @@ public class UserInfoViewModel extends ViewModel {
 
     public MutableLiveData<String> userId = new MutableLiveData<>();
 
+    public MutableLiveData<String> password = new MutableLiveData<>();
     public MutableLiveData<File> userPath = new MutableLiveData<>();
 }

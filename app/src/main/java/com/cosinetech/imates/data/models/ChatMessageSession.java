@@ -74,6 +74,6 @@ public class ChatMessageSession {
 
     public static final ChatMessageSession SESSION_DEFAULT_SYSTEM = new ChatMessageSession(SESSION_ID_DEFAULT, CATALOG_ID_DEFAULT,
             ApplicationModelShared.getInstance().getString(R.string.chat_ai_default_session_name),
-            SessionType.SYSTEM_TALK_AI,
+            ChatMessageSession.SessionType.SYSTEM_TALK_AI,
             Long.MAX_VALUE - 100, 0, Long.MAX_VALUE - 100);
 }
