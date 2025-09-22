@@ -13,8 +13,10 @@
     @click="handleClick"
     @contextmenu.prevent="handleContextMenu"
     @touchstart="handleTouchStart"
+    @touchmove="handleTouchMove"
     @touchend="handleTouchEnd"
     @mousedown="handleMouseDown"
+    @mousemove="handleMouseMove"
     @mouseup="handleMouseUp"
     @mouseleave="handleMouseLeave"
   >
@@ -257,6 +259,10 @@ const longPressTimer = ref<number | null>(null)
 const isLongPressing = ref(false)
 const touchStartTime = ref(0)
 const mouseDownTime = ref(0)
+const touchStartX = ref(0)
+const touchStartY = ref(0)
+const mouseStartX = ref(0)
+const mouseStartY = ref(0)
 
 // 气泡定位 - 动态计算
 const anchor = ref('top middle')
@@ -359,6 +365,13 @@ const handleTouchStart = (event: TouchEvent) => {
   touchStartTime.value = Date.now()
   isLongPressing.value = false
   
+  // 记录触摸开始坐标
+  const touch = event.touches[0]
+  if (touch) {
+    touchStartX.value = touch.clientX
+    touchStartY.value = touch.clientY
+  }
+  
   // 设置长按定时器
   longPressTimer.value = window.setTimeout(() => {
     if (!props.isSelectionMode) {
@@ -368,6 +381,33 @@ const handleTouchStart = (event: TouchEvent) => {
       showActionMenu.value = true
     }
   }, 400) // 400ms长按触发
+}
+
+// 触摸移动
+const handleTouchMove = (event: TouchEvent) => {
+  // 如果正在长按，取消长按定时器，防止在滚动时出现气泡框
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+  
+  // 只有在已经显示气泡框的情况下才隐藏，避免在长按过程中轻微移动就隐藏气泡框
+  if (showActionMenu.value) {
+    // 检查移动距离，只有移动距离较大时才隐藏气泡框
+    const touch = event.touches[0]
+    if (touch) {
+      const moveDistance = Math.sqrt(
+        Math.pow(touch.clientX - (touchStartX.value || touch.clientX), 2) +
+        Math.pow(touch.clientY - (touchStartY.value || touch.clientY), 2)
+      )
+      
+      // 只有移动距离超过 10px 时才隐藏气泡框
+      if (moveDistance > 10) {
+        showActionMenu.value = false
+        isLongPressing.value = false
+      }
+    }
+  }
 }
 
 // 触摸结束
@@ -422,6 +462,10 @@ const handleMouseDown = (event: MouseEvent) => {
   mouseDownTime.value = Date.now()
   isLongPressing.value = false
   
+  // 记录鼠标按下坐标
+  mouseStartX.value = event.clientX
+  mouseStartY.value = event.clientY
+  
   // 设置长按定时器
   longPressTimer.value = window.setTimeout(() => {
     if (!props.isSelectionMode) {
@@ -431,6 +475,45 @@ const handleMouseDown = (event: MouseEvent) => {
       showActionMenu.value = true
     }
   }, 500) // 500ms长按触发
+}
+
+// 鼠标移动
+const handleMouseMove = (event: MouseEvent) => {
+  // 检查是否点击在公式元素上
+  const target = event.target as HTMLElement
+  if (target && (
+    target.classList.contains('mjx-chtml') ||
+    target.classList.contains('mjx-math') ||
+    target.hasAttribute('data-mjx-texclass') ||
+    target.closest('.mjx-chtml') ||
+    target.closest('.mjx-math') ||
+    target.closest('[data-mjx-texclass]')
+  )) {
+    // 如果是公式元素，阻止事件传播
+    event.stopPropagation()
+    return
+  }
+  
+  // 如果正在长按，取消长按定时器，防止在滚动时出现气泡框
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+  
+  // 只有在已经显示气泡框的情况下才隐藏，避免在长按过程中轻微移动就隐藏气泡框
+  if (showActionMenu.value) {
+    // 检查移动距离，只有移动距离较大时才隐藏气泡框
+    const moveDistance = Math.sqrt(
+      Math.pow(event.clientX - (mouseStartX.value || event.clientX), 2) +
+      Math.pow(event.clientY - (mouseStartY.value || event.clientY), 2)
+    )
+    
+    // 只有移动距离超过 10px 时才隐藏气泡框
+    if (moveDistance > 10) {
+      showActionMenu.value = false
+      isLongPressing.value = false
+    }
+  }
 }
 
 // 鼠标抬起

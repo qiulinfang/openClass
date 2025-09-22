@@ -201,7 +201,7 @@ const handleScrollToQuestionAndSelect = (targetIndex: number) => {
 
 // 滚动到页面底部的方法
 const scrollToBottom = () => {
-  
+  console.log('🎯 [ExerciseSolveView] 滚动到页面底部')
   // 使用 nextTick 确保 DOM 更新完成
   nextTick(() => {
     // 获取页面的实际滚动高度

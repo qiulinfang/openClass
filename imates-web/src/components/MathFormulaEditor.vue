@@ -101,6 +101,13 @@ class MathBlot extends Embed {
     // 监听焦点事件
     mathField.addEventListener("focus", () => {
       // 焦点获得时不需要提示
+      // 触发虚拟键盘事件，确保滚动到底部
+      if (typeof window !== 'undefined') {
+        const customEvent = new CustomEvent('formula-keyboard-toggle', {
+          detail: { visible: true }
+        })
+        window.dispatchEvent(customEvent)
+      }
     })
 
     mathField.addEventListener("blur", () => {
@@ -108,6 +115,28 @@ class MathBlot extends Embed {
       node.setAttribute("data-value", currentValue)
       mathField.setAttribute("data-value", currentValue)
       // 失焦时不需要提示
+      
+      // 修复：失焦时同步更新全局公式键盘状态
+      if (typeof window !== 'undefined') {
+        const customEvent = new CustomEvent('formula-keyboard-toggle', {
+          detail: { visible: false }
+        })
+        window.dispatchEvent(customEvent)
+      }
+    })
+
+    // 监听虚拟键盘事件
+    mathField.addEventListener("virtual-keyboard-toggle", (event: any) => {
+      const { visible } = event.detail || {}
+      console.log('🎯 [MATH_FORMULA_EDITOR] 虚拟键盘状态变化:', visible)
+      
+      // 触发全局公式键盘事件，让 ChatView 处理滚动
+      if (typeof window !== 'undefined') {
+        const customEvent = new CustomEvent('formula-keyboard-toggle', {
+          detail: { visible }
+        })
+        window.dispatchEvent(customEvent)
+      }
     })
 
     // 点击编辑

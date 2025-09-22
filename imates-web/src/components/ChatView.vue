@@ -866,6 +866,8 @@ const handleFormulaKeyboardToggle = (event: Event) => {
       return
     }
 
+    // 修复：公式键盘隐藏时，确保状态正确更新，为后续原生键盘处理做准备
+    console.log('🎯 [CHAT_VIEW] 公式键盘隐藏，状态已更新')
   }
 }
 
