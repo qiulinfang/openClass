@@ -94,14 +94,12 @@ class MathBlot extends Embed {
     // 监听输入事件
     mathField.addEventListener("input", () => {
       const currentValue = mathField.value
-      console.log('🎯 [MATH_FORMULA_EDITOR] 公式内容输入变化:', currentValue)
       node.setAttribute("data-value", currentValue)
       mathField.setAttribute("data-value", currentValue)
     })
 
     // 监听焦点事件
     mathField.addEventListener("focus", () => {
-      console.log('🎯 [MATH_FORMULA_EDITOR] 公式字段获得焦点，开始编辑')
       // 焦点获得时不需要提示
       // 触发虚拟键盘事件，确保滚动到底部
       if (typeof window !== 'undefined') {
@@ -114,17 +112,15 @@ class MathBlot extends Embed {
 
     mathField.addEventListener("blur", () => {
       const currentValue = mathField.value
-      console.log('🎯 [MATH_FORMULA_EDITOR] 公式字段失去焦点，编辑完成，最终内容:', currentValue)
       node.setAttribute("data-value", currentValue)
       mathField.setAttribute("data-value", currentValue)
       
-      // 强制触发Quill内容更新，确保Delta结构同步
+      // 失焦时清理HTML结构，确保没有多余的br和p标签
       if (quill) {
-        console.log('🎯 [MATH_FORMULA_EDITOR] 触发Quill内容更新')
-        quill.updateContents(quill.getContents())
+        setTimeout(() => {
+          cleanInitialHTMLStructure()
+        }, 10)
       }
-      
-      // 失焦时不需要提示
       
       // 修复：失焦时同步更新全局公式键盘状态
       if (typeof window !== 'undefined') {
@@ -138,7 +134,6 @@ class MathBlot extends Embed {
     // 监听虚拟键盘事件
     mathField.addEventListener("virtual-keyboard-toggle", (event: any) => {
       const { visible } = event.detail || {}
-      console.log('🎯 [MATH_FORMULA_EDITOR] 虚拟键盘状态变化:', visible)
       
       // 触发全局公式键盘事件，让 ChatView 处理滚动
       if (typeof window !== 'undefined') {
@@ -168,19 +163,16 @@ class MathBlot extends Embed {
   static value(node: any) {
     const mathField = node.querySelector("math-field")
     if (mathField) {
-      const value = (
-        mathField.value ||
+      const value = mathField.value ||
         mathField.getAttribute("value") ||
         mathField.getAttribute("data-value") ||
         node.getAttribute("data-value") ||
         ""
-      )
-      console.log('🎯 [MATH_FORMULA_EDITOR] MathBlot获取公式值:', value)
-      return value
+      // 关键修复：返回对象格式而不是字符串
+      return { math: value }  
     }
-    const fallbackValue = node.getAttribute("data-value") || ""
-    console.log('🎯 [MATH_FORMULA_EDITOR] MathBlot获取公式值(备用):', fallbackValue)
-    return fallbackValue
+    const dataValue = node.getAttribute("data-value") || ""
+    return { math: dataValue }
   }
 
   static formats(node: any) {
@@ -190,27 +182,24 @@ class MathBlot extends Embed {
   value() {
     const mathField = (this as any).domNode.querySelector("math-field")
     if (mathField) {
-      return (
-        mathField.value ||
+      const value = mathField.value ||
         mathField.getAttribute("value") ||
         mathField.getAttribute("data-value") ||
         (this as any).domNode.getAttribute("data-value") ||
         ""
-      )
+      // 关键修复：返回对象格式而不是字符串
+      return { math: value }
     }
-    return (this as any).domNode.getAttribute("data-value") || ""
+    const dataValue = (this as any).domNode.getAttribute("data-value") || ""
+    return { math: dataValue }
   }
 }
 
-// @ts-expect-error - Quill Blot static properties
 MathBlot.blotName = "math"
-// @ts-expect-error - Quill Blot static properties
 MathBlot.tagName = "span"
-// @ts-expect-error - Quill Blot static properties
 MathBlot.className = "ql-math-embed"
 
 // 注册自定义Blot
-// @ts-expect-error - Quill register method
 Quill.register(MathBlot)
 
 // 初始化编辑器
@@ -230,11 +219,24 @@ const initializeEditor = async () => {
     
     quill = new Quill(`#${editorId.value}`, editorConfig)
 
-    // 设置初始内容为空，避免自动插入 br
+    // 立即设置初始内容为空，避免自动插入 br
     quill.setContents([])
+    
+    // 立即清理初始HTML结构，移除不必要的br和p标签
+    cleanInitialHTMLStructure()
+    
+    // 再次确保清理，防止异步问题
+    setTimeout(() => {
+      cleanInitialHTMLStructure()
+    }, 50)
 
     // 监听内容变化
-    quill?.on("text-change", () => {
+    quill?.on("text-change", (delta: any, oldDelta: any, source: any) => {
+      // 只在用户操作时清理HTML结构，避免API操作时的过度清理
+      if (source === 'user') {
+        cleanInitialHTMLStructure()
+      }
+      
       const content = getMarkdownContent()
       emit('update:modelValue', content)
     })
@@ -299,50 +301,73 @@ const initializeEditor = async () => {
 
 // 插入数学公式字段
 const insertMathField = (latex = "") => {
-  console.log('🎯 [MATH_FORMULA_EDITOR] 开始插入数学公式字段', { latex })
-  
   if (!quill) {
-    console.warn('🎯 [MATH_FORMULA_EDITOR] Quill编辑器未初始化，无法插入公式')
     return
+  }
+
+  // 获取当前内容
+  const currentContent = quill.getContents()
+  const hasContent = currentContent.ops && currentContent.ops.some((op: any) => {
+    if (typeof op.insert === 'string') {
+      return op.insert.trim() !== ''
+    }
+    return op.insert && op.insert.math
+  })
+
+  // 如果没有实际内容，确保编辑器完全清空
+  if (!hasContent) {
+    quill.setContents([])
   }
 
   // 获取当前光标位置，如果没有选择则插入到末尾
   const range = quill.getSelection() || { index: quill.getLength() }
-  console.log('🎯 [MATH_FORMULA_EDITOR] 当前光标位置:', range)
   
-  // 检查当前光标是否在空段落中，如果是则先插入空格
-  const currentText = quill.getText(range.index, 1)
-  if (currentText === '\n' || (range.index === 0 && currentText === '')) {
-    console.log('🎯 [MATH_FORMULA_EDITOR] 在空段落中，先插入空格')
-    quill.insertText(range.index, ' ')
-    range.index += 1
+  // 确保光标位置有效
+  const editorLength = quill.getLength()
+  if (range.index > editorLength) {
+    range.index = editorLength
   }
   
-  // 插入数学公式作为行内元素
-  console.log('🎯 [MATH_FORMULA_EDITOR] 插入数学公式到位置:', range.index)
-  quill.insertEmbed(range.index, "math", latex)
+  // 直接插入数学公式，Quill会自动处理位置
+  quill.insertEmbed(range.index, "math", { math: latex })
   
-  // 在公式后插入空格，确保后续文本不会紧贴公式
-  quill.insertText(range.index + 1, ' ')
-  console.log('🎯 [MATH_FORMULA_EDITOR] 数学公式插入完成，已添加后续空格')
+  // 插入后延迟清理HTML结构，确保数学公式已经正确插入
+  setTimeout(() => {
+    // 只清理多余的br和p标签，保留数学公式
+    const editorElement = document.getElementById(editorId.value)
+    if (editorElement) {
+      const quillEditor = editorElement.querySelector('.ql-editor')
+      if (quillEditor) {
+        // 移除空的p标签和只包含br的p标签
+        const emptyParagraphs = quillEditor.querySelectorAll('p:empty, p:has(br:only-child)')
+        emptyParagraphs.forEach(p => p.remove())
+        
+        // 移除所有br标签
+        const brTags = quillEditor.querySelectorAll('br')
+        brTags.forEach(br => {
+          const parentP = br.parentElement
+          if (parentP && parentP.tagName === 'P' && parentP.children.length === 1) {
+            parentP.remove()
+          } else {
+            br.remove()
+          }
+        })
+      }
+    }
+  }, 50)
   
-  // 聚焦到新插入的公式编辑器（不聚焦 Quill）
+  // 聚焦到新插入的公式编辑器
   const focusNewMathField = (attempt = 1) => {
-    console.log(`🎯 [MATH_FORMULA_EDITOR] 尝试聚焦到新公式字段，第${attempt}次尝试`)
     const [blot] = quill?.getLeaf(range.index) || []
     if (blot && (blot as any).domNode && typeof (blot as any).domNode.querySelector === 'function') {
       const mathField = (blot as any).domNode.querySelector("math-field")
       if (mathField) {
-        console.log('🎯 [MATH_FORMULA_EDITOR] 成功聚焦到数学公式字段')
         mathField.focus()
         return
       }
     }
     if (attempt < 3) {
-      console.log(`🎯 [MATH_FORMULA_EDITOR] 聚焦失败，${100}ms后重试`)
       setTimeout(() => focusNewMathField(attempt + 1), 100)
-    } else {
-      console.warn('🎯 [MATH_FORMULA_EDITOR] 聚焦到数学公式字段失败，已达到最大重试次数')
     }
   }
   setTimeout(() => focusNewMathField(), 120)
@@ -351,52 +376,55 @@ const insertMathField = (latex = "") => {
 // 获取 Markdown 内容
 const getMarkdownContent = () => {
   if (!quill) {
-    console.log('🎯 [MATH_FORMULA_EDITOR] Quill编辑器未初始化，无法获取内容')
     return ''
   }
   
-  // 直接从DOM获取数学公式内容，绕过Quill的Delta结构问题
-  const editorElement = document.getElementById(editorId.value)
-  const mathFields = editorElement?.querySelectorAll('math-field') || []
+  // 从Quill的Delta获取完整内容，包括文本和公式
+  const delta = quill.getContents()
+  console.log('📄 Delta内容:', delta)
+  
+  // 获取完整的编辑器内容，包括所有历史内容
+  const fullContent = quill.getContents()
   let markdown = ''
   
-  console.log('🎯 [MATH_FORMULA_EDITOR] 找到的数学公式字段数量:', mathFields.length)
+  // 使用完整内容而不是当前delta
+  const contentToProcess = fullContent || delta
   
-  // 遍历所有数学公式字段
-  mathFields.forEach((mathField: any, index: number) => {
-    const latex = mathField.value || ''
-    console.log(`🎯 [MATH_FORMULA_EDITOR] 数学公式字段 ${index} 内容:`, latex)
-    if (latex.trim()) {
-      markdown += `$${latex}$`
-    }
-  })
-  
-  // 如果没有找到数学公式，尝试从Quill的Delta获取
-  if (!markdown.trim()) {
-    console.log('🎯 [MATH_FORMULA_EDITOR] 未找到数学公式，尝试从Delta获取')
-    const delta = quill.getContents()
-    console.log('🎯 [MATH_FORMULA_EDITOR] 获取到的Delta内容:', delta)
-    
-    delta.ops?.forEach((op: any, index: number) => {
-      console.log(`🎯 [MATH_FORMULA_EDITOR] 处理Delta操作 ${index}:`, op)
-      
+  if (contentToProcess.ops) {
+    contentToProcess.ops.forEach((op: any) => {
       if (op.insert) {
         if (typeof op.insert === 'string') {
-          console.log(`🎯 [MATH_FORMULA_EDITOR] 添加文本: "${op.insert}"`)
-          markdown += op.insert
+          // 检查是否有attributes，如果有且看起来像数学公式，则处理为公式
+          if (op.attributes && Object.keys(op.attributes).length > 0) {
+            // 从attributes中重构完整的数学公式
+            const attributes = op.attributes
+            const latexParts = []
+            
+            // 按索引顺序重新组合公式
+            for (let i = 0; i < Object.keys(attributes).length; i++) {
+              if (attributes[i]) {
+                latexParts.push(attributes[i])
+              }
+            }
+            
+            const reconstructedLatex = latexParts.join('')
+            
+            if (reconstructedLatex.trim()) {
+              markdown += `$${reconstructedLatex}$`
+            }
+          } else {
+            // 处理普通文本
+            markdown += op.insert
+          }
         } else if (op.insert.math) {
           // 处理数学公式
           const latex = op.insert.math
-          console.log(`🎯 [MATH_FORMULA_EDITOR] 添加数学公式: "${latex}"`)
           markdown += `$${latex}$`
-        } else {
-          console.log(`🎯 [MATH_FORMULA_EDITOR] 未知的插入类型:`, op.insert)
         }
       }
       
-      if (op.attributes) {
-        console.log(`🎯 [MATH_FORMULA_EDITOR] 处理格式属性:`, op.attributes)
-        // 处理格式属性（如粗体、斜体等）
+      // 处理其他格式属性（如粗体、斜体等）
+      if (op.attributes && !Object.keys(op.attributes).some(key => !isNaN(Number(key)))) {
         if (op.attributes.bold) {
           markdown = markdown.replace(/(.+)/, '**$1**')
         }
@@ -407,7 +435,19 @@ const getMarkdownContent = () => {
     })
   }
   
-  console.log('🎯 [MATH_FORMULA_EDITOR] 最终生成的Markdown内容:', markdown)
+  // 如果从Delta没有获取到内容，尝试从DOM获取数学公式
+  if (!markdown || markdown.trim() === '') {
+    const editorElement = document.getElementById(editorId.value)
+    const mathFields = editorElement?.querySelectorAll('math-field') || []
+    
+    mathFields.forEach((mathField: any) => {
+      const latex = mathField.value || ''
+      if (latex.trim()) {
+        markdown += `$${latex}$`
+      }
+    })
+  }
+  
   return markdown.trim()
 }
 
@@ -463,6 +503,97 @@ const setContent = (content: any) => {
 const clearContent = () => {
   if (quill) {
     quill.setContents([])
+  }
+}
+
+// 清理初始HTML结构，移除不必要的br和p标签
+const cleanInitialHTMLStructure = () => {
+  if (!quill) return
+  
+  const editorElement = document.getElementById(editorId.value)
+  if (!editorElement) return
+  
+  // 获取Quill编辑器的DOM元素
+  const quillEditor = editorElement.querySelector('.ql-editor')
+  if (!quillEditor) return
+  
+  // 获取当前内容
+  const currentContent = quill.getContents()
+  
+  // 检查是否有实际内容（非空的数学公式或文本）
+  const hasRealContent = currentContent.ops && currentContent.ops.some((op: any) => {
+    if (typeof op.insert === 'string') {
+      return op.insert.trim() !== '' && op.insert !== '\n'
+    }
+    return op.insert && op.insert.math
+  })
+  
+  // 检查DOM中是否有数学公式字段
+  const hasMathFields = quillEditor.querySelectorAll('math-field').length > 0
+  
+  // 如果没有实际内容且没有数学公式字段，完全清空
+  if (!hasRealContent && !hasMathFields) {
+    quillEditor.innerHTML = ''
+    quill.setContents([])
+    return
+  }
+  
+  // 移除空的p标签和只包含br的p标签
+  const emptyParagraphs = quillEditor.querySelectorAll('p:empty, p:has(br:only-child)')
+  emptyParagraphs.forEach(p => p.remove())
+  
+  // 移除所有br标签
+  const brTags = quillEditor.querySelectorAll('br')
+  brTags.forEach(br => {
+    const parentP = br.parentElement
+    if (parentP && parentP.tagName === 'P' && parentP.children.length === 1) {
+      // 如果p标签只包含br，移除整个p标签
+      parentP.remove()
+    } else {
+      // 否则只移除br标签
+      br.remove()
+    }
+  })
+  
+  // 移除只包含空格的p标签
+  const whitespaceParagraphs = quillEditor.querySelectorAll('p')
+  whitespaceParagraphs.forEach(p => {
+    if (p.textContent?.trim() === '' && p.children.length === 0) {
+      p.remove()
+    }
+  })
+  
+  // 最终检查：如果编辑器为空或只包含无意义的HTML，完全清空
+  const finalContent = quillEditor.innerHTML.trim()
+  if (finalContent === '' || finalContent === '<p></p>' || finalContent === '<p><br></p>') {
+    quillEditor.innerHTML = ''
+    quill.setContents([])
+  }
+}
+
+// 清理编辑器内容，移除多余的空段落和文本
+const cleanEditorContent = () => {
+  if (!quill) return
+  
+  const currentContent = quill.getContents()
+  if (!currentContent.ops || currentContent.ops.length === 0) return
+  
+  // 过滤掉空段落和只有换行符的内容
+  const cleanedOps = currentContent.ops.filter((op: any) => {
+    if (typeof op.insert === 'string') {
+      // 保留有实际内容的文本
+      return op.insert.trim() !== '' && op.insert !== '\n'
+    }
+    // 保留数学公式
+    return op.insert && op.insert.math
+  })
+  
+  // 如果清理后没有内容，清空编辑器
+  if (cleanedOps.length === 0) {
+    quill.setContents([])
+  } else {
+    // 更新内容
+    quill.setContents(cleanedOps)
   }
 }
 
@@ -791,17 +922,43 @@ defineExpose({
   padding: 0;
 }
 
-/* 隐藏空的 br 标签 */
+/* 隐藏空的 br 标签和段落 */
 .ql-editor br:only-child {
-  display: none;
+  display: none !important;
 }
 
 .ql-editor p:empty {
-  display: none;
+  display: none !important;
 }
 
 .ql-editor p:has(br:only-child) {
+  display: none !important;
+}
+
+/* 隐藏只包含空格的段落 */
+.ql-editor p:has(br) {
+  display: none !important;
+}
+
+/* 确保空的编辑器不显示任何内容 */
+.ql-editor:empty {
   display: none;
+}
+
+.ql-editor:has(p:empty) {
+  display: none;
+}
+
+/* 强制移除不必要的换行和空格 */
+.ql-editor br {
+  display: none !important;
+}
+
+/* 确保段落标签不产生额外的垂直空间 */
+.ql-editor p {
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1 !important;
 }
 
 

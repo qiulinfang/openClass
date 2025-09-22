@@ -363,12 +363,12 @@ const cleanupMathLiveInstance = (mathfield: HTMLElement, blockId: string) => {
 // 清理所有MathLive实例
 const cleanupAllMathLiveInstances = () => {
   // 1. 遍历所有MathLive实例
-  mathfields.value.forEach((mathfield: any, blockId) => {
+  mathfields.value.forEach((mathfield: any) => {
     try {
       if (mathfield && typeof mathfield.remove === 'function') {
         mathfield.remove()
       }
-    } catch (error) {
+    } catch {
     }
   })
   
@@ -383,8 +383,6 @@ let insertFormulaDebounceTimer: number | null = null
 
 // 插入数学公式处理
 const handleInsertMathFormula = async () => {
-  console.log('🎯 [CHAT_INPUT] 用户点击插入公式按钮')
-  
   // 防抖保护：清除之前的定时器
   if (insertFormulaDebounceTimer) {
     clearTimeout(insertFormulaDebounceTimer)
@@ -394,25 +392,21 @@ const handleInsertMathFormula = async () => {
   insertFormulaDebounceTimer = setTimeout(async () => {
     // 检查 MathFormulaEditor 组件是否已经正确初始化
     if (!mathEditorRef.value) {
-      console.warn('🎯 [CHAT_INPUT] MathFormulaEditor 组件未初始化')
       return
     }
     
     // 检查 insertMathField 方法是否存在
     if (typeof mathEditorRef.value.insertMathField !== 'function') {
-      console.warn('🎯 [CHAT_INPUT] insertMathField 方法不存在')
       return
     }
     
     try {
-      console.log('🎯 [CHAT_INPUT] 开始插入数学公式')
       mathEditorRef.value.insertMathField()
       
       // 插入公式后触发滚动到底部事件
       emit('scroll-to-bottom')
-      console.log('🎯 [CHAT_INPUT] 数学公式插入完成')
     } catch (error) {
-      console.error('🎯 [CHAT_INPUT] 插入数学公式失败:', error)
+      console.error('插入数学公式失败:', error)
     }
     
     // 清除定时器引用
@@ -422,27 +416,20 @@ const handleInsertMathFormula = async () => {
 
 // 发送消息处理
 const handleSendMessage = () => {
-  console.log('🎯 [CHAT_INPUT] 开始处理发送消息')
-  
   // 1. 调用 MathFormulaEditor 的 getMarkdownContent 方法获取完整内容
   const markdownContent = mathEditorRef.value?.getMarkdownContent();
-  console.log('🎯 [CHAT_INPUT] 获取到的Markdown内容:', markdownContent)
 
   // 2. 检查内容是否为空
   if (!markdownContent || !markdownContent.trim()) {
-    console.log('🎯 [CHAT_INPUT] 内容为空，取消发送')
     return
   }
 
   // 3. 更新 v-model 的值，将完整的 markdown 内容传递给父组件
-  console.log('🎯 [CHAT_INPUT] 更新v-model值并发送消息')
   emit('update:modelValue', markdownContent);
 
   // 4. 使用 nextTick 确保父组件的 v-model 更新后再发送消息
   nextTick(() => {
-    console.log('🎯 [CHAT_INPUT] 触发send-message事件')
     emit('send-message');
-    console.log('🎯 [CHAT_INPUT] 清空输入内容')
     clearInputContent();
   });
 }
@@ -481,7 +468,7 @@ const clearInputContent = () => {
 }
 
 // 监听modelValue变化，同步到编辑器
-watch(() => props.modelValue, (newValue, oldValue) => {
+watch(() => props.modelValue, (newValue) => {
   // 1. 检查值是否有效且与当前编辑器内容不同
   if (newValue !== editorContent.value) {
     editorContent.value = newValue || ''

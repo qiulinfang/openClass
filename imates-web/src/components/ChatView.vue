@@ -132,7 +132,6 @@ import { QScrollArea } from 'quasar'
 
 // 状态管理和工具函数
 import { useExerciseStore } from '../stores/exerciseStore'
-import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { apiService } from '../services/api-service'
 import { androidBridge } from '../services/android-bridge'
 
@@ -735,28 +734,17 @@ const loadTeacherChatHistory = async () => {
 
 // 作用：发送用户消息，支持文本和文件附件，根据对话类型选择AI或老师
 const sendMessage = async (attachedFile?: File) => {
-  console.log('🎯 [CHAT_VIEW] 开始处理发送消息', { 
-    hasContent: !!inputMessage.value.trim(), 
-    hasFile: !!attachedFile, 
-    isLoading: isLoading.value,
-    isEditing: isEditingMessage.value,
-    editingId: editingMessageId.value
-  })
-  
   if ((!inputMessage.value.trim() && !attachedFile) || isLoading.value) {
-    console.log('🎯 [CHAT_VIEW] 消息内容为空或正在加载中，取消发送')
     return
   }
 
   // 检查是否在编辑模式
   if (isEditingMessage.value && editingMessageId.value) {
-    console.log('🎯 [CHAT_VIEW] 处于编辑模式，更新消息内容:', inputMessage.value)
     await updateEditedMessage(inputMessage.value)
     return
   }
 
   if (!hasSelectedQuestion.value) {
-    console.log('🎯 [CHAT_VIEW] 未选择题目，发送提示消息')
     const userMessage: ChatBubble = {
       id: Date.now().toString(),
       content: inputMessage.value || (attachedFile ? '[图片消息]' : ''),
@@ -773,7 +761,6 @@ const sendMessage = async (attachedFile?: File) => {
       sender: props.type === 'ai' ? 'ai' : 'teacher',
     }
 
-    console.log('🎯 [CHAT_VIEW] 添加用户消息和提示消息到store')
     await addMessagesToStore([userMessage, botReply])
     inputMessage.value = ''
     await scrollToBottom()
@@ -781,16 +768,13 @@ const sendMessage = async (attachedFile?: File) => {
   }
 
   const messageContent = inputMessage.value
-  console.log('🎯 [CHAT_VIEW] 准备发送消息内容:', messageContent)
   inputMessage.value = ''
   isLoading.value = true
 
   try {
     if (props.type === 'ai') {
-      console.log('🎯 [CHAT_VIEW] 发送AI消息，学习伙伴角色:', selectedModel.value)
       // 检查是否包含"我们开始吧"前缀，如果包含则隐藏显示
       const hidePrefix = messageContent.includes('我们开始吧')
-      console.log('🎯 [CHAT_VIEW] 是否隐藏前缀:', hidePrefix)
       // 使用exerciseStore的流式响应功能，传递选中的学习伙伴角色
       await exerciseStore.sendChatMessage(
         messageContent,
@@ -799,14 +783,11 @@ const sendMessage = async (attachedFile?: File) => {
         undefined,
         hidePrefix,
       )
-      console.log('🎯 [CHAT_VIEW] AI消息发送完成')
 
       // 计算属性会自动响应 store 变化，无需手动同步
     } else {
-      console.log('🎯 [CHAT_VIEW] 发送老师消息')
       // 发送消息给老师（不使用流式响应）
       await sendMessageToTeacher(messageContent)
-      console.log('🎯 [CHAT_VIEW] 老师消息发送完成')
 
       const userMessage: ChatBubble = {
         id: Date.now().toString(),
@@ -816,17 +797,13 @@ const sendMessage = async (attachedFile?: File) => {
         sender: 'user',
       }
 
-      console.log('🎯 [CHAT_VIEW] 添加用户消息到store')
       await addMessageToStore(userMessage)
     }
 
-    console.log('🎯 [CHAT_VIEW] 滚动到底部')
     await scrollToBottom()
-
-    console.log('🎯 [CHAT_VIEW] 触发response事件')
     emit('response')
   } catch (error) {
-    console.error('🎯 [CHAT_VIEW] 消息发送失败:', error)
+    console.error('消息发送失败:', error)
     const errorMessage: ChatBubble = {
       id: (Date.now() + 1).toString(),
       content: '抱歉，消息发送失败，请稍后重试。',
@@ -835,11 +812,9 @@ const sendMessage = async (attachedFile?: File) => {
       sender: props.type === 'ai' ? 'ai' : 'teacher',
     }
 
-    console.log('🎯 [CHAT_VIEW] 添加错误消息到store')
     await addMessageToStore(errorMessage)
     await scrollToBottom()
   } finally {
-    console.log('🎯 [CHAT_VIEW] 发送消息处理完成，重置加载状态')
     isLoading.value = false
   }
 }
@@ -1386,62 +1361,56 @@ const handleEditMessage = (message: ChatBubble) => {
 }
 
 // 将消息内容转换为编辑器可识别的格式
-// 作用：将消息内容转换为TiptapEditor可识别的格式，处理数学公式
+// 作用：将消息内容转换为MathFormulaEditor可识别的Markdown格式，处理数学公式
 const convertMessageContentForEditor = (content: string): string => {
   if (!content) return ''
 
-  // 使用消息渲染器渲染内容
-  const { renderMessageContent } = useMessageRenderer()
-  const renderedContent = renderMessageContent(content)
+  // 直接处理Markdown格式的内容，不需要渲染为HTML
+  // 因为MathFormulaEditor需要的是Markdown格式的LaTeX内容
+  let processedContent = content
 
-  // 将渲染后的HTML中的公式转换为TiptapEditor的FormulaNode格式
-  return convertHtmlToTiptapFormat(renderedContent)
-}
-
-// 将HTML内容转换为TiptapEditor格式
-// 作用：将HTML内容转换为TiptapEditor的FormulaNode格式，处理数学公式
-const convertHtmlToTiptapFormat = (htmlContent: string): string => {
-  if (!htmlContent) return ''
-
-  let processedHtml = htmlContent
-
+  // 处理可能存在的HTML格式的公式，转换为Markdown格式
   // 1. 处理MathJax渲染的公式（行内公式）
-  const inlineFormulaRegex =
-    /<span[^>]*class="[^"]*mjx[^"]*"[^>]*data-mjx-texclass="mord"[^>]*>(.*?)<\/span>/gs
-  processedHtml = processedHtml.replace(inlineFormulaRegex, (match, content) => {
+  const inlineFormulaRegex = /<span[^>]*class="[^"]*mjx[^"]*"[^>]*data-mjx-texclass="mord"[^>]*>(.*?)<\/span>/gs
+  processedContent = processedContent.replace(inlineFormulaRegex, (match, content) => {
     const latexContent = extractLatexFromMathJax(content)
     if (latexContent) {
-      return `<span data-formula="${latexContent}" class="formula-node"></span>`
+      return `$${latexContent}$`
     }
     return match
   })
 
   // 2. 处理MathJax渲染的公式（块级公式）
-  const displayFormulaRegex =
-    /<span[^>]*class="[^"]*mjx[^"]*"[^>]*data-mjx-texclass="mord"[^>]*>(.*?)<\/span>/gs
-  processedHtml = processedHtml.replace(displayFormulaRegex, (match, content) => {
+  const displayFormulaRegex = /<span[^>]*class="[^"]*mjx[^"]*"[^>]*data-mjx-texclass="mord"[^>]*>(.*?)<\/span>/gs
+  processedContent = processedContent.replace(displayFormulaRegex, (match, content) => {
     const latexContent = extractLatexFromMathJax(content)
     if (latexContent) {
-      return `<span data-formula="${latexContent}" class="formula-node"></span>`
+      return `$${latexContent}$`
     }
     return match
   })
 
-  // 3. 处理原始的LaTeX格式（$...$ 和 $$...$$）
-  const latexInlineRegex = /\$([^$]+)\$/g
-  processedHtml = processedHtml.replace(latexInlineRegex, (match, content) => {
-    const cleanContent = content.trim()
-    return `<span data-formula="${cleanContent}" class="formula-node"></span>`
+  // 3. 处理可能存在的其他HTML格式的公式
+  const htmlFormulaRegex = /<span[^>]*data-formula="([^"]*)"[^>]*class="[^"]*formula[^"]*"[^>]*>.*?<\/span>/gs
+  processedContent = processedContent.replace(htmlFormulaRegex, (match, formula) => {
+    return `$${formula}$`
   })
 
-  const latexDisplayRegex = /\$\$([^$]+)\$\$/g
-  processedHtml = processedHtml.replace(latexDisplayRegex, (match, content) => {
-    const cleanContent = content.trim()
-    return `<span data-formula="${cleanContent}" class="formula-node"></span>`
-  })
+  // 4. 处理可能存在的HTML实体
+  processedContent = processedContent
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&nbsp;/g, ' ')
 
-  return processedHtml
+  // 5. 清理多余的空白字符
+  processedContent = processedContent.replace(/\s+/g, ' ').trim()
+
+  return processedContent
 }
+
 
 // 从MathJax渲染的内容中提取LaTeX
 // 作用：从MathJax渲染的HTML中提取原始LaTeX代码
