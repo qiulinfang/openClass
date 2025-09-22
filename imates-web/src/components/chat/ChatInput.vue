@@ -125,13 +125,12 @@
 
           <!-- 插入公式按钮 -->
           <q-btn
+            flat
             round
+            dense
             icon="functions"
-            color="primary"
-            outline
             @click="handleInsertMathFormula"
-            class="math-formula-btn"
-            size="md"
+            class="math-formula-btn control-icon-btn"
           >
             <q-tooltip>插入数学公式</q-tooltip>
           </q-btn>
@@ -1129,26 +1128,24 @@ defineExpose({
   transform: none;
 }
 
-/* 插入公式按钮 */
+/* 插入公式按钮 - 与其他控制按钮样式一致 */
 .math-formula-btn {
-  width: 40px;
-  height: 40px;
-  background: transparent;
-  color: #1a73e8;
-  border: 2px solid #1a73e8;
+  width: 36px;
+  height: 36px;
+  color: #5f6368;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: transparent;
+  border: none;
 }
 
 .math-formula-btn:hover {
-  background: #1a73e8;
-  color: white;
-  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
-  transform: translateY(-1px) scale(1.05);
+  background-color: rgba(95, 99, 104, 0.12);
+  color: #3c4043;
 }
 
 .math-formula-btn:active {
-  transform: translateY(0) scale(0.98);
+  background-color: rgba(0, 0, 0, 0.08);
+  color: #1a73e8;
 }
 
 
