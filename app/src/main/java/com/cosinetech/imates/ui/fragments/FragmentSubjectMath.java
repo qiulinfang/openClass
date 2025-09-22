@@ -359,21 +359,21 @@ public class FragmentSubjectMath extends Fragment {
 
     public void startPhotoQuestionLookupActivity() {
         Intent intent = new Intent(getActivity(), PhotoSearchActivity.class);
-        intent.putExtra(PhotoSearchActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_BIOLOGY.name());
+        intent.putExtra(PhotoSearchActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_MATH.name());
         startActivity(intent);
     }
 
     public void startQuestionSolveActivity() {
         Intent intent = new Intent(getActivity(), ExerciseSolveActivity.class);
-        intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_BIOLOGY);
-        intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, Subject.SUBJECT_BIOLOGY.name());
+        intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
+        intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, Subject.SUBJECT_MATH.name());
         startActivity(intent);
     }
 
     public void startFindExerciseActivity(String knowledgeList) {
         Intent intent = new Intent(getActivity(), FindExerciseActivity.class);
-        intent.putExtra(FindExerciseActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_BIOLOGY);
-        intent.putExtra(FindExerciseActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_BIOLOGY.name());
+        intent.putExtra(FindExerciseActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
+        intent.putExtra(FindExerciseActivity.KEY_PARAM_SUBJECT, Subject.SUBJECT_MATH.name());
         intent.putExtra(FindExerciseActivity.KEY_KNOWLEDGE_LIST, knowledgeList);
         startActivity(intent);
     }
