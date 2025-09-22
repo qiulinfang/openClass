@@ -187,6 +187,9 @@ const initializeEditor = async () => {
     
     quill = new Quill(`#${editorId.value}`, editorConfig)
 
+    // 设置初始内容为空，避免自动插入 br
+    quill.setContents([])
+
     // 监听内容变化
     quill?.on("text-change", () => {
       const content = getMarkdownContent()
@@ -699,6 +702,19 @@ defineExpose({
   display: inline;
   margin: 0;
   padding: 0;
+}
+
+/* 隐藏空的 br 标签 */
+.ql-editor br:only-child {
+  display: none;
+}
+
+.ql-editor p:empty {
+  display: none;
+}
+
+.ql-editor p:has(br:only-child) {
+  display: none;
 }
 
 

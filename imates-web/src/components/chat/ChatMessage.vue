@@ -95,6 +95,12 @@
           >
             <q-card class="action-card">
               <q-list dense>
+                <q-item clickable @click="handleCopy">
+                  <q-item-section avatar>
+                    <q-icon name="content_copy" color="primary" size="20px" />
+                  </q-item-section>
+                  <q-item-section>复制</q-item-section>
+                </q-item>
                 <q-item clickable @click="handleForward" v-if="canForward">
                   <q-item-section avatar>
                     <q-icon name="forward" color="primary" size="20px" />
@@ -174,6 +180,12 @@
           >
             <q-card class="action-card">
               <q-list dense>
+                <q-item clickable @click="handleCopy">
+                  <q-item-section avatar>
+                    <q-icon name="content_copy" color="primary" size="20px" />
+                  </q-item-section>
+                  <q-item-section>复制</q-item-section>
+                </q-item>
                 <q-item clickable @click="handleEdit" v-if="canEdit">
                   <q-item-section avatar>
                     <q-icon name="edit" color="primary" size="20px" />
@@ -349,13 +361,13 @@ const handleTouchStart = (event: TouchEvent) => {
   
   // 设置长按定时器
   longPressTimer.value = window.setTimeout(() => {
-    if (!props.isSelectionMode && canForward.value) {
+    if (!props.isSelectionMode) {
       isLongPressing.value = true
       // 计算气泡框位置
       calculateBubblePosition()
       showActionMenu.value = true
     }
-  }, 400) // 500ms长按触发
+  }, 400) // 400ms长按触发
 }
 
 // 触摸结束
@@ -412,7 +424,7 @@ const handleMouseDown = (event: MouseEvent) => {
   
   // 设置长按定时器
   longPressTimer.value = window.setTimeout(() => {
-    if (!props.isSelectionMode && canForward.value) {
+    if (!props.isSelectionMode) {
       isLongPressing.value = true
       // 计算气泡框位置
       calculateBubblePosition()
@@ -476,6 +488,52 @@ const handleMultiSelect = () => {
 const handleEdit = () => {
   showActionMenu.value = false
   emit('edit-message', props.message)
+}
+
+// 处理复制消息
+const handleCopy = async () => {
+  try {
+    // 获取消息的纯文本内容
+    let textContent = ''
+    
+    if (props.message.messageType === 'voice') {
+      textContent = '[语音消息]'
+    } else if (props.message.messageType === 'image') {
+      textContent = '[图片消息]'
+    } else if (props.message.messageType === 'chat_record') {
+      textContent = '[聊天记录]'
+    } else {
+      // 对于文本消息，获取纯文本内容
+      textContent = props.message.content
+      
+      // 移除HTML标签，获取纯文本
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = textContent
+      textContent = tempDiv.textContent || tempDiv.innerText || textContent
+    }
+    
+    // 复制到剪贴板
+    await navigator.clipboard.writeText(textContent)
+    
+    // 显示复制成功提示（可选）
+    // 这里可以添加一个toast提示
+    
+    showActionMenu.value = false
+  } catch (error) {
+    console.error('复制失败:', error)
+    // 降级方案：使用传统的复制方法
+    try {
+      const textArea = document.createElement('textarea')
+      textArea.value = props.message.content
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      showActionMenu.value = false
+    } catch (fallbackError) {
+      console.error('降级复制也失败:', fallbackError)
+    }
+  }
 }
 
 // 气泡框显示时的处理
