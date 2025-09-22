@@ -15,9 +15,9 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.activities.LoginActivity;
-import com.cosinetech.imates.models.UserInfo;
-import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.ui.activities.LoginActivity;
+import com.cosinetech.imates.data.models.UserInfo;
+import com.cosinetech.imates.data.models.UserInfoViewModel;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.helper.StaticLabelsFormatter;

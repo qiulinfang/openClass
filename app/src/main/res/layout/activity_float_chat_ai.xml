@@ -5,9 +5,9 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".activities.FloatChatAiActivity">
+    tools:context=".ui.activities.FloatChatAiActivity">
 
-    <com.cosinetech.imates.views.ChatAiView
+    <com.cosinetech.imates.ui.views.ChatAiView
         android:id="@+id/chat_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>

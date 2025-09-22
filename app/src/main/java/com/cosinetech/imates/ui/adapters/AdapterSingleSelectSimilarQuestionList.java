@@ -1,0 +1,121 @@
+package com.cosinetech.imates.ui.adapters;
+
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.cosinetech.imates.R;
+import com.cosinetech.imates.coreapiservice.Question;
+import com.cosinetech.imates.ui.views.MarkdownTextView;
+
+import java.util.List;
+
+public class AdapterSingleSelectSimilarQuestionList extends RecyclerView.Adapter<AdapterSingleSelectSimilarQuestionList.SimilarQuestionItemViewHolder> {
+    public interface SimilarQuestionListChangedListener {
+        void onExerciseAddToMyList(int pos, Question q);
+        void onExerciseAddToMyFavor(int pos, Question q);
+    }
+    private final List<Question> dataList;
+    private int selectedPosition = -1;
+
+    private final SimilarQuestionListChangedListener listener;
+
+    // 构造函数接收数据列表
+    public AdapterSingleSelectSimilarQuestionList(List<Question> dataList, SimilarQuestionListChangedListener listener) {
+        this.dataList = dataList;
+        this.listener = listener;
+    }
+
+    @NonNull
+    @Override
+    public SimilarQuestionItemViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+        View itemView = LayoutInflater.from(parent.getContext())
+                .inflate(R.layout.item_single_select_similar_question, parent, false);
+
+        return new SimilarQuestionItemViewHolder(itemView);
+    }
+
+    @Override
+    public void onBindViewHolder(SimilarQuestionItemViewHolder holder, int position) {
+        Question data = dataList.get(position);
+        holder.itemNo.setText(position + 1 + ".");
+        holder.itemText.setContent(data.getQuestion());
+
+        // 设置选中状态
+        if (selectedPosition == position) {
+            holder.itemView.setSelected(true);
+        } else {
+            holder.itemView.setSelected(false);
+        }
+
+        if(data.atUserList) {
+            holder.btnAddToList.setEnabled(false);
+        } else {
+            holder.btnAddToList.setEnabled(true);
+        }
+
+        // 设置点击监听器
+        holder.container.setOnClickListener(v -> {
+            setSelectedPosition(holder.getBindingAdapterPosition());
+        });
+        holder.itemText.setOnClickListener(v -> {
+            setSelectedPosition(holder.getBindingAdapterPosition());
+        });
+
+        holder.btnAddToList.setOnClickListener(v -> {
+            if(listener != null)  {
+                int pos = holder.getBindingAdapterPosition();
+                if(pos >= 0) {
+                    listener.onExerciseAddToMyList(pos, dataList.get(pos));
+                }
+            }
+        });
+
+        holder.btnAddToFavor.setOnClickListener(v -> {
+            if(listener != null)  {
+                int pos = holder.getBindingAdapterPosition();
+                if(pos >= 0) {
+                    listener.onExerciseAddToMyFavor(pos, dataList.get(pos));
+                }
+            }
+        });
+    }
+
+    public void resetSelection(){
+        selectedPosition = -1;
+    }
+
+    public void setSelectedPosition(int position) {
+        int previousPosition = selectedPosition;
+        selectedPosition = position;
+        notifyItemChanged(previousPosition);
+        notifyItemChanged(selectedPosition);
+    }
+
+    @Override
+    public int getItemCount() {
+        return dataList.size();
+    }
+
+    // ViewHolder静态内部类
+    public static class SimilarQuestionItemViewHolder extends RecyclerView.ViewHolder {
+        View container;
+        MarkdownTextView itemText;
+        TextView itemNo;
+        Button btnAddToList;
+        Button btnAddToFavor;
+        SimilarQuestionItemViewHolder(View view) {
+            super(view);
+            container = view.findViewById(R.id.container);
+            itemText = view.findViewById(R.id.question_text);
+            itemNo = view.findViewById(R.id.item_number);
+            btnAddToList = view.findViewById(R.id.add_to_list);
+            btnAddToFavor = view.findViewById(R.id.add_to_favor);
+        }
+    }
+}

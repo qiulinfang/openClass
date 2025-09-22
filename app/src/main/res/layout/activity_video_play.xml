@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <com.cosinetech.imates.views.VideoPlayView
+    <com.cosinetech.imates.ui.views.VideoPlayView
         android:id="@+id/video_play_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>

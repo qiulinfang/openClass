@@ -71,54 +71,54 @@
         android:theme="@style/Theme.IMatesApp.FullScreen"
         tools:targetApi="31">
         <activity
-            android:name=".activities.RichInputBoardActivity"
+            android:name=".ui.activities.RichInputBoardActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
             android:screenOrientation="landscape"
             android:windowSoftInputMode="adjustPan" />
         <activity
-            android:name=".activities.MyFavorCenterActivity"
+            android:name=".ui.activities.MyFavorCenterActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.MyHistoryActivity"
+            android:name=".ui.activities.MyHistoryActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.FindExerciseActivity"
+            android:name=".ui.activities.FindExerciseActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.ImageViewerActivity"
+            android:name=".ui.activities.ImageViewerActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:exported="false"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
-            android:name=".activities.FeedbackActivity"
+            android:name=".ui.feedback.FeedbackActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:exported="false"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
-            android:name=".activities.PhotoSearchActivity"
+            android:name=".ui.activities.PhotoSearchActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
             android:screenOrientation="landscape"
             android:windowSoftInputMode="adjustPan" />
         <activity
-            android:name=".activities.ExerciseSolveActivity"
+            android:name=".ui.activities.ExerciseSolveActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
             android:screenOrientation="landscape"
             android:windowSoftInputMode="adjustPan" />
         <activity
-            android:name=".activities.FloatChatAiActivity"
+            android:name=".ui.activities.FloatChatAiActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
             android:screenOrientation="landscape" />
         <activity
-            android:name=".activities.LessonPreviewActivity"
+            android:name=".ui.activities.LessonPreviewActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
             android:screenOrientation="landscape" />
         <activity
-            android:name=".activities.VideoPlayActivity"
+            android:name=".ui.activities.VideoPlayActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
             android:launchMode="singleTask"
@@ -126,7 +126,7 @@
             android:supportsPictureInPicture="true"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
-            android:name=".activities.LoginActivity"
+            android:name=".ui.activities.LoginActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="true"
             android:screenOrientation="landscape"
@@ -154,7 +154,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".activities.MainActivity"
+            android:name=".ui.activities.MainActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="true"
             android:resizeableActivity="true"
@@ -163,55 +163,55 @@
             android:windowSoftInputMode="adjustPan"
             tools:ignore="DiscouragedApi" />
         <activity
-            android:name=".activities.ScreenShotActivity"
+            android:name=".ui.activities.ScreenShotActivity"
             android:exported="false"
             android:launchMode="singleTask"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <activity
-            android:name=".activities.ChatAiActivity"
+            android:name=".ui.activities.ChatAiActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.ActivityDialogStyle"
             android:windowSoftInputMode="adjustPan" />
         <activity
-            android:name=".mupdfviewer.activity.MuPDFActivity"
+            android:name=".ui.mupdfviewer.activity.MuPDFActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
-            android:name=".mupdfviewer.activity.OutlineActivity"
+            android:name=".ui.mupdfviewer.activity.OutlineActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
-            android:name=".mupdfviewer.activity.AllPDFActivity"
+            android:name=".ui.mupdfviewer.activity.AllPDFActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
-            android:name=".mupdfviewer.activity.BasePDFActivity"
+            android:name=".ui.mupdfviewer.activity.BasePDFActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
-            android:name=".mupdfviewer.activity.MoreSetActivity"
+            android:name=".ui.mupdfviewer.activity.MoreSetActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
-            android:name=".mupdfviewer.activity.SignActivity"
+            android:name=".ui.mupdfviewer.activity.SignActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.IMatesApp.FullScreen" />
         <service
-            android:name=".service.FloatingRobotService"
+            android:name=".ui.robot.FloatingRobotService"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync|mediaProjection" />
         <!-- Device Admin Receiver -->
         <receiver
-            android:name=".admin.KioskDeviceAdminReceiver"
+            android:name=".deviceadmin.KioskDeviceAdminReceiver"
             android:exported="true"
             android:permission="android.permission.BIND_DEVICE_ADMIN">
             <meta-data
@@ -225,7 +225,7 @@
 
         <!-- 警告对话框Activity -->
         <activity
-            android:name=".admin.WarningDialogActivity"
+            android:name=".deviceadmin.WarningDialogActivity"
             android:exported="false"
             android:launchMode="singleTop"
             android:screenOrientation="landscape"
@@ -235,14 +235,14 @@
 
         <!-- 应用监控服务 -->
         <service
-            android:name=".admin.AppMonitorService"
+            android:name=".deviceadmin.AppMonitorService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse" />
 
         <!-- 开机自启动 -->
         <receiver
-            android:name=".admin.BootReceiver"
+            android:name=".deviceadmin.BootReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter android:priority="1000">

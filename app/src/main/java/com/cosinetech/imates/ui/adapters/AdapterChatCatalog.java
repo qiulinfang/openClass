@@ -1,0 +1,72 @@
+package com.cosinetech.imates.ui.adapters;
+
+import android.content.Context;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.BaseAdapter;
+import android.widget.TextView;
+
+import com.cosinetech.imates.R;
+import com.cosinetech.imates.data.models.ChatMessageCatalogue;
+import com.cosinetech.imates.data.models.SubjectUtils;
+import com.cosinetech.imates.ui.views.OnInitSelectedPosition;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class AdapterChatCatalog<T> extends BaseAdapter implements OnInitSelectedPosition {
+
+    private final Context mContext;
+    private final List<ChatMessageCatalogue> mDataList;
+
+    public AdapterChatCatalog(Context context) {
+        this.mContext = context;
+        mDataList = new ArrayList<>();
+    }
+
+    @Override
+    public int getCount() {
+        return mDataList.size();
+    }
+
+    @Override
+    public ChatMessageCatalogue getItem(int position) {
+        return mDataList.get(position);
+    }
+
+    @Override
+    public long getItemId(int position) {
+        return position;
+    }
+
+    @Override
+    public View getView(int position, View convertView, ViewGroup parent) {
+
+        if(convertView == null) {
+            convertView = LayoutInflater.from(mContext).inflate(R.layout.chat_msg_catalog_item, null);
+        }
+
+        TextView textView =  convertView.findViewById(R.id.tv_tag);
+        String t = mDataList.get(position).catalogName;
+
+        textView.setText(SubjectUtils.getSubjectDisplayName(t));
+        return convertView;
+    }
+
+    public void onlyAddAll(List<ChatMessageCatalogue> datas) {
+        mDataList.addAll(datas);
+        notifyDataSetChanged();
+    }
+
+    public void clearAndAddAll(List<ChatMessageCatalogue> datas) {
+        mDataList.clear();
+        onlyAddAll(datas);
+    }
+
+    @Override
+    public boolean isSelectedPosition(int position) {
+        //return position % 2 == 0;
+        return false;
+    }
+}

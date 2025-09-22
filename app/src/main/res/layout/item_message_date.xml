@@ -4,16 +4,16 @@
     <data>
         <variable
             name="data"
-            type="com.cosinetech.imates.models.ChatDisplayItem" />
+            type="com.cosinetech.imates.data.models.ChatDisplayItem" />
         <variable
             name="message"
-            type="com.cosinetech.imates.models.ChatMessage" />
+            type="com.cosinetech.imates.data.models.ChatMessage" />
         <variable
             name="position"
             type="int" />
     </data>
 
-    <com.cosinetech.imates.views.MarkdownTextView
+    <com.cosinetech.imates.ui.views.MarkdownTextView
         android:id="@+id/tv_date"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

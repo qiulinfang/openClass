@@ -79,7 +79,7 @@
                 app:cardCornerRadius="4dp"
                 app:cardElevation="4dp"
                 app:cardBackgroundColor="@android:color/white">
-                <com.cosinetech.imates.views.MarkdownTextView
+                <com.cosinetech.imates.ui.views.MarkdownTextView
                     android:id="@+id/question_view"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"

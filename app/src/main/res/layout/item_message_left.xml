@@ -18,7 +18,7 @@
         android:layout_height="40dp"
         android:src="@drawable/chat_ai_avatar_robot" />
 
-    <com.cosinetech.imates.views.MarkdownTextView
+    <com.cosinetech.imates.ui.views.MarkdownTextView
         android:id="@+id/tv_message"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

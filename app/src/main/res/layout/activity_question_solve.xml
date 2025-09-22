@@ -70,7 +70,7 @@
         android:orientation="vertical"
         app:layout_constraintGuide_percent="0.6" />
 
-    <com.cosinetech.imates.views.MarkdownTextView
+    <com.cosinetech.imates.ui.views.MarkdownTextView
         android:id="@+id/answerView"
         android:layout_width="0dp"
         android:layout_height="0dp"
@@ -99,7 +99,7 @@
 
     </androidx.recyclerview.widget.RecyclerView>
 
-    <com.cosinetech.imates.views.ChatAiView
+    <com.cosinetech.imates.ui.views.ChatAiView
         android:id="@+id/chat_view"
         android:layout_width="0dp"
         android:layout_height="0dp"

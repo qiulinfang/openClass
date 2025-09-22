@@ -15,17 +15,17 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStore;
 import androidx.lifecycle.ViewModelStoreOwner;
 
-import com.cosinetech.imates.admin.AppMonitorService;
-import com.cosinetech.imates.admin.KioskManager;
-import com.cosinetech.imates.models.UserInfo;
-import com.cosinetech.imates.models.UserInfoViewModel;
+import com.cosinetech.imates.deviceadmin.AppMonitorService;
+import com.cosinetech.imates.deviceadmin.KioskManager;
+import com.cosinetech.imates.data.models.UserInfo;
+import com.cosinetech.imates.data.models.UserInfoViewModel;
 import com.cosinetech.imates.screencasting.H264IFrameCache;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.screencasting.UdpForwarderManager;
-import com.cosinetech.imates.service.FloatingRobotService;
-import com.cosinetech.imates.util.AssetsCopyUtils;
-import com.cosinetech.imates.webservice.AiChatMessageRequest;
+import com.cosinetech.imates.ui.robot.FloatingRobotService;
+import com.cosinetech.imates.utils.AssetsCopyUtils;
+import com.cosinetech.imates.coreapiservice.AiChatMessageRequest;
 
 public class ApplicationModelShared extends Application implements ViewModelStoreOwner {
     private final ViewModelStore viewModelStore = new ViewModelStore();

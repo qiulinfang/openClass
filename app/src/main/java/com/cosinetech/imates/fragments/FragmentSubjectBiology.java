@@ -27,15 +27,15 @@ import android.widget.Spinner;
 import android.widget.Toast;
 
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.activities.FindExerciseActivity;
-import com.cosinetech.imates.activities.LessonPreviewActivity;
-import com.cosinetech.imates.activities.MyFavorCenterActivity;
-import com.cosinetech.imates.activities.MyHistoryActivity;
-import com.cosinetech.imates.activities.PhotoSearchActivity;
-import com.cosinetech.imates.activities.ExerciseSolveActivity;
-import com.cosinetech.imates.models.Subject;
-import com.cosinetech.imates.models.Chapter;
-import com.cosinetech.imates.webservice.ApiUrl;
+import com.cosinetech.imates.ui.activities.FindExerciseActivity;
+import com.cosinetech.imates.ui.activities.LessonPreviewActivity;
+import com.cosinetech.imates.ui.activities.MyFavorCenterActivity;
+import com.cosinetech.imates.ui.activities.MyHistoryActivity;
+import com.cosinetech.imates.ui.activities.PhotoSearchActivity;
+import com.cosinetech.imates.ui.activities.ExerciseSolveActivity;
+import com.cosinetech.imates.data.models.Subject;
+import com.cosinetech.imates.data.models.Chapter;
+import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 

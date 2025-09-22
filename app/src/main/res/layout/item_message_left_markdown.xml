@@ -4,10 +4,10 @@
     <data>
         <variable
             name="data"
-            type="com.cosinetech.imates.models.ChatDisplayItem" />
+            type="com.cosinetech.imates.data.models.ChatDisplayItem" />
         <variable
             name="message"
-            type="com.cosinetech.imates.models.ChatMessage" />
+            type="com.cosinetech.imates.data.models.ChatMessage" />
         <variable
             name="position"
             type="int" />
@@ -41,7 +41,7 @@
             android:orientation="vertical">
 
             <!-- 原有的 TextView 用于打字效果 -->
-            <com.cosinetech.imates.views.MarkdownTextView
+            <com.cosinetech.imates.ui.views.MarkdownTextView
                 android:id="@+id/tv_message"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
