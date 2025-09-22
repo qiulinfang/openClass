@@ -282,7 +282,7 @@ const finishFormulaEditing = async (blockId: string) => {
   }
   
   // 2. 获取公式内容
-  const content = mathfield.value || ''
+  const content = (mathfield as any).value || ''
   
   // 3. 开始退出动画
   isKeyboardTransitioning.value = true
@@ -422,21 +422,27 @@ const handleInsertMathFormula = async () => {
 
 // 发送消息处理
 const handleSendMessage = () => {
+  console.log('🎯 [CHAT_INPUT] 开始处理发送消息')
   
   // 1. 调用 MathFormulaEditor 的 getMarkdownContent 方法获取完整内容
   const markdownContent = mathEditorRef.value?.getMarkdownContent();
+  console.log('🎯 [CHAT_INPUT] 获取到的Markdown内容:', markdownContent)
 
   // 2. 检查内容是否为空
   if (!markdownContent || !markdownContent.trim()) {
+    console.log('🎯 [CHAT_INPUT] 内容为空，取消发送')
     return
   }
 
   // 3. 更新 v-model 的值，将完整的 markdown 内容传递给父组件
+  console.log('🎯 [CHAT_INPUT] 更新v-model值并发送消息')
   emit('update:modelValue', markdownContent);
 
   // 4. 使用 nextTick 确保父组件的 v-model 更新后再发送消息
   nextTick(() => {
+    console.log('🎯 [CHAT_INPUT] 触发send-message事件')
     emit('send-message');
+    console.log('🎯 [CHAT_INPUT] 清空输入内容')
     clearInputContent();
   });
 }

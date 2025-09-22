@@ -94,12 +94,14 @@ class MathBlot extends Embed {
     // 监听输入事件
     mathField.addEventListener("input", () => {
       const currentValue = mathField.value
+      console.log('🎯 [MATH_FORMULA_EDITOR] 公式内容输入变化:', currentValue)
       node.setAttribute("data-value", currentValue)
       mathField.setAttribute("data-value", currentValue)
     })
 
     // 监听焦点事件
     mathField.addEventListener("focus", () => {
+      console.log('🎯 [MATH_FORMULA_EDITOR] 公式字段获得焦点，开始编辑')
       // 焦点获得时不需要提示
       // 触发虚拟键盘事件，确保滚动到底部
       if (typeof window !== 'undefined') {
@@ -112,8 +114,16 @@ class MathBlot extends Embed {
 
     mathField.addEventListener("blur", () => {
       const currentValue = mathField.value
+      console.log('🎯 [MATH_FORMULA_EDITOR] 公式字段失去焦点，编辑完成，最终内容:', currentValue)
       node.setAttribute("data-value", currentValue)
       mathField.setAttribute("data-value", currentValue)
+      
+      // 强制触发Quill内容更新，确保Delta结构同步
+      if (quill) {
+        console.log('🎯 [MATH_FORMULA_EDITOR] 触发Quill内容更新')
+        quill.updateContents(quill.getContents())
+      }
+      
       // 失焦时不需要提示
       
       // 修复：失焦时同步更新全局公式键盘状态
@@ -158,15 +168,19 @@ class MathBlot extends Embed {
   static value(node: any) {
     const mathField = node.querySelector("math-field")
     if (mathField) {
-      return (
+      const value = (
         mathField.value ||
         mathField.getAttribute("value") ||
         mathField.getAttribute("data-value") ||
         node.getAttribute("data-value") ||
         ""
       )
+      console.log('🎯 [MATH_FORMULA_EDITOR] MathBlot获取公式值:', value)
+      return value
     }
-    return node.getAttribute("data-value") || ""
+    const fallbackValue = node.getAttribute("data-value") || ""
+    console.log('🎯 [MATH_FORMULA_EDITOR] MathBlot获取公式值(备用):', fallbackValue)
+    return fallbackValue
   }
 
   static formats(node: any) {
@@ -285,38 +299,50 @@ const initializeEditor = async () => {
 
 // 插入数学公式字段
 const insertMathField = (latex = "") => {
+  console.log('🎯 [MATH_FORMULA_EDITOR] 开始插入数学公式字段', { latex })
+  
   if (!quill) {
+    console.warn('🎯 [MATH_FORMULA_EDITOR] Quill编辑器未初始化，无法插入公式')
     return
   }
 
   // 获取当前光标位置，如果没有选择则插入到末尾
   const range = quill.getSelection() || { index: quill.getLength() }
+  console.log('🎯 [MATH_FORMULA_EDITOR] 当前光标位置:', range)
   
   // 检查当前光标是否在空段落中，如果是则先插入空格
   const currentText = quill.getText(range.index, 1)
   if (currentText === '\n' || (range.index === 0 && currentText === '')) {
+    console.log('🎯 [MATH_FORMULA_EDITOR] 在空段落中，先插入空格')
     quill.insertText(range.index, ' ')
     range.index += 1
   }
   
   // 插入数学公式作为行内元素
+  console.log('🎯 [MATH_FORMULA_EDITOR] 插入数学公式到位置:', range.index)
   quill.insertEmbed(range.index, "math", latex)
   
   // 在公式后插入空格，确保后续文本不会紧贴公式
   quill.insertText(range.index + 1, ' ')
+  console.log('🎯 [MATH_FORMULA_EDITOR] 数学公式插入完成，已添加后续空格')
   
   // 聚焦到新插入的公式编辑器（不聚焦 Quill）
   const focusNewMathField = (attempt = 1) => {
+    console.log(`🎯 [MATH_FORMULA_EDITOR] 尝试聚焦到新公式字段，第${attempt}次尝试`)
     const [blot] = quill?.getLeaf(range.index) || []
     if (blot && (blot as any).domNode && typeof (blot as any).domNode.querySelector === 'function') {
       const mathField = (blot as any).domNode.querySelector("math-field")
       if (mathField) {
+        console.log('🎯 [MATH_FORMULA_EDITOR] 成功聚焦到数学公式字段')
         mathField.focus()
         return
       }
     }
     if (attempt < 3) {
+      console.log(`🎯 [MATH_FORMULA_EDITOR] 聚焦失败，${100}ms后重试`)
       setTimeout(() => focusNewMathField(attempt + 1), 100)
+    } else {
+      console.warn('🎯 [MATH_FORMULA_EDITOR] 聚焦到数学公式字段失败，已达到最大重试次数')
     }
   }
   setTimeout(() => focusNewMathField(), 120)
@@ -324,32 +350,64 @@ const insertMathField = (latex = "") => {
 
 // 获取 Markdown 内容
 const getMarkdownContent = () => {
-  if (!quill) return ''
+  if (!quill) {
+    console.log('🎯 [MATH_FORMULA_EDITOR] Quill编辑器未初始化，无法获取内容')
+    return ''
+  }
   
-  const delta = quill.getContents()
+  // 直接从DOM获取数学公式内容，绕过Quill的Delta结构问题
+  const editorElement = document.getElementById(editorId.value)
+  const mathFields = editorElement?.querySelectorAll('math-field') || []
   let markdown = ''
   
-  delta.ops?.forEach((op: any) => {
-    if (op.insert) {
-      if (typeof op.insert === 'string') {
-        markdown += op.insert
-      } else if (op.insert.math) {
-        // 处理数学公式
-        const latex = op.insert.math
-        markdown += `$${latex}$`
-      }
-    }
-    if (op.attributes) {
-      // 处理格式属性（如粗体、斜体等）
-      if (op.attributes.bold) {
-        markdown = markdown.replace(/(.+)/, '**$1**')
-      }
-      if (op.attributes.italic) {
-        markdown = markdown.replace(/(.+)/, '*$1*')
-      }
+  console.log('🎯 [MATH_FORMULA_EDITOR] 找到的数学公式字段数量:', mathFields.length)
+  
+  // 遍历所有数学公式字段
+  mathFields.forEach((mathField: any, index: number) => {
+    const latex = mathField.value || ''
+    console.log(`🎯 [MATH_FORMULA_EDITOR] 数学公式字段 ${index} 内容:`, latex)
+    if (latex.trim()) {
+      markdown += `$${latex}$`
     }
   })
   
+  // 如果没有找到数学公式，尝试从Quill的Delta获取
+  if (!markdown.trim()) {
+    console.log('🎯 [MATH_FORMULA_EDITOR] 未找到数学公式，尝试从Delta获取')
+    const delta = quill.getContents()
+    console.log('🎯 [MATH_FORMULA_EDITOR] 获取到的Delta内容:', delta)
+    
+    delta.ops?.forEach((op: any, index: number) => {
+      console.log(`🎯 [MATH_FORMULA_EDITOR] 处理Delta操作 ${index}:`, op)
+      
+      if (op.insert) {
+        if (typeof op.insert === 'string') {
+          console.log(`🎯 [MATH_FORMULA_EDITOR] 添加文本: "${op.insert}"`)
+          markdown += op.insert
+        } else if (op.insert.math) {
+          // 处理数学公式
+          const latex = op.insert.math
+          console.log(`🎯 [MATH_FORMULA_EDITOR] 添加数学公式: "${latex}"`)
+          markdown += `$${latex}$`
+        } else {
+          console.log(`🎯 [MATH_FORMULA_EDITOR] 未知的插入类型:`, op.insert)
+        }
+      }
+      
+      if (op.attributes) {
+        console.log(`🎯 [MATH_FORMULA_EDITOR] 处理格式属性:`, op.attributes)
+        // 处理格式属性（如粗体、斜体等）
+        if (op.attributes.bold) {
+          markdown = markdown.replace(/(.+)/, '**$1**')
+        }
+        if (op.attributes.italic) {
+          markdown = markdown.replace(/(.+)/, '*$1*')
+        }
+      }
+    })
+  }
+  
+  console.log('🎯 [MATH_FORMULA_EDITOR] 最终生成的Markdown内容:', markdown)
   return markdown.trim()
 }
 
