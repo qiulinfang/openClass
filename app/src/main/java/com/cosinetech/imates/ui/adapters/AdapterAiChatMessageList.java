@@ -189,7 +189,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         tvMessage.clearContent();
         tvMessage.setTypingEffectDisplayItem(item);
         tvMessage.disableTypingEffectDisplay();
-        if(item.showWithTypingEffect) {
+        if(item.showTypingAnimation) {
             tvMessage.enableTypingEffectDisplay();
         } else {
             tvMessage.setContent(message.content);
@@ -418,9 +418,9 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         for (int i = items.size() - 1; i >= 0; i--) {
             if (items.get(i).chatMessage.messageId.equals(msgId)) {
                 ChatDisplayItem displayMsg = items.get(i);
-                displayMsg.showWithTypingEffect = showWithTypingEffect;
+                displayMsg.showTypingAnimation = showWithTypingEffect;
                 displayMsg.msgContentIsFinished = msgIsFinished;
-                notifyItemChanged(i, displayMsg.showWithTypingEffect);
+                notifyItemChanged(i, displayMsg.showTypingAnimation);
                 if(msgIsFinished && !showWithTypingEffect && onAiMessageAnimationCallback != null) {
                     onAiMessageAnimationCallback.onMessageDisplayFinish();
                 }

@@ -40,7 +40,7 @@ import ru.noties.jlatexmath.JLatexMathDrawable;
 
 public class ChatDisplayItem {
     public ChatMessage chatMessage; // 数据模型
-    public boolean showWithTypingEffect; // 是否显示打字效果
+    public boolean showTypingAnimation; // 是否显示打字效果
     public boolean msgContentIsFinished; // 消息是否完成
     public int currentDisplayCharIndex;  // 流式显示的字符索引
 
@@ -61,7 +61,7 @@ public class ChatDisplayItem {
 
     public ChatDisplayItem(ChatMessage msg, boolean showWithTypingEffect, Context context) {
         this.chatMessage = msg;
-        this.showWithTypingEffect = showWithTypingEffect;
+        this.showTypingAnimation = showWithTypingEffect;
         this.currentDisplayCharIndex = 0;
         this.canSelectItem = false;
         this.isSelected = false;
@@ -173,7 +173,7 @@ public class ChatDisplayItem {
             return;
         }
 
-        if (!showWithTypingEffect
+        if (!showTypingAnimation
                 || chatMessage.isSelf
                 || (msgContentIsFinished && currentDisplayCharIndex >= chatMessage.content.length())) {
             // 直接显示完整内容
@@ -238,7 +238,7 @@ public class ChatDisplayItem {
      * 检查是否应该显示打字效果
      */
     public boolean shouldShowTypingEffect() {
-        return showWithTypingEffect &&
+        return showTypingAnimation &&
                 (!msgContentIsFinished || currentDisplayCharIndex < chatMessage.content.length());
     }
 
