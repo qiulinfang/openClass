@@ -1,22 +1,22 @@
 package com.cosinetech.imates.ui.activities;
 
+import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.WindowManager;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
 
-import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
-import com.bumptech.glide.Glide;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.utils.WindowUtils;
-import com.github.chrisbanes.photoview.PhotoView;
 
 public class MiniClassActivity extends AppCompatActivity {
     public static final String KEY_MINI_CLASS_URL = "class_url";
@@ -37,13 +37,67 @@ public class MiniClassActivity extends AppCompatActivity {
         String classUrl = getIntent().getStringExtra(KEY_MINI_CLASS_URL);
 
         WebView webView = findViewById(R.id.web_view);
-        webView.getSettings().setJavaScriptEnabled(true);
-        webView.getSettings().setDomStorageEnabled(true); // 启用 DOM storage
-        webView.getSettings().setSupportZoom(true);
-        webView.getSettings().setBuiltInZoomControls(true);
-        webView.getSettings().setDisplayZoomControls(false);
-        // 设置WebViewClient以防止外部浏览器打开链接
-        webView.setWebViewClient(new WebViewClient());
+        // 启用 JavaScript
+        WebSettings webSettings = webView.getSettings();
+        webSettings.setJavaScriptEnabled(true);
+
+// 其他重要设置
+        webSettings.setDomStorageEnabled(true); // 启用 DOM 存储
+        webSettings.setAllowFileAccess(true); // 允许文件访问
+        webSettings.setAllowContentAccess(true); // 允许内容访问
+        webSettings.setDatabaseEnabled(true); // 启用数据库
+        //webSettings.setCacheMode(true); // 启用应用缓存
+
+// 处理混合内容（HTTP/HTTPS）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        }
+
+// 启用缩放控制
+        webSettings.setBuiltInZoomControls(true);
+        webSettings.setDisplayZoomControls(false);
+
+// 设置 WebViewClient
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                view.loadUrl(request.getUrl().toString());
+                return true;
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                super.onReceivedError(view, request, error);
+                Log.e("WebView", "加载错误: " + error.getDescription());
+            }
+
+            @Override
+            public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                Log.d("WebView", "开始加载: " + url);
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                Log.d("WebView", "加载完成: " + url);
+            }
+        });
+
+// 设置 WebChromeClient 来显示进度等
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onProgressChanged(WebView view, int newProgress) {
+                super.onProgressChanged(view, newProgress);
+                Log.d("WebView", "加载进度: " + newProgress + "%");
+            }
+
+            @Override
+            public void onReceivedTitle(WebView view, String title) {
+                super.onReceivedTitle(view, title);
+                Log.d("WebView", "网页标题: " + title);
+            }
+        });
         // Load the local HTML file
         if(classUrl != null && !classUrl.trim().isEmpty()) {
             webView.loadUrl(classUrl);
