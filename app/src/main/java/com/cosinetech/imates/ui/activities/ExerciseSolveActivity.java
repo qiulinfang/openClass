@@ -83,34 +83,7 @@ public class ExerciseSolveActivity extends BaseActivity implements MessagingMana
     private ChatMessageSession mAskTeacherChatSession;
 
     private String getMiniClassUrl() {
-        String defaultUrl = "";
-        String [] titles = new String[]{
-                "已知函数  $f(x) = \\left\\{ \\begin{array}{l l}{x^{2} - 6x + 6,x\\geqslant 0,}\\\\ {3x + 4,x< 0,} \\end{array} \\right.$  若互不相等的实数  $x_{1},x_{2},x_{3}$  满足  $f(x_{1}) =$ $f(x_{2}) = f(x_{3})$  ,则  $x_{1} + x_{2} + x_{3}$  的取值范围是______.",
-                "若不等式  $ax^{2} - 5x + b < 0$  的解集是  $\\left\\{x \\mid \\frac{1}{3} < x < \\frac{1}{2} \\right\\}$ , 则 a = $\\underline{}$,b=$\\underline{}$.",
-                "若方程  $x^{3} + x - a = 0$  在(1,2)内有实数解,则实数  $a$  的取值范围是_______.",
-                "已知  $c\\in \\mathbf{R}$  ,函数  $f(x)={\\left\\{\\begin{array}{l l}{x^{2}-1};{x\\leqslant c,}\\\\ {x-2};{x>c,}\\end{array}\\right.}$  当  $c = 1$  时,不等式  $f\\left(x\\right)< 0$  的解集是;若函数  $f(x)$  恰有2个零点,则  $c$  的取值范围是_______.",
-                "若函数 $f(x)=\\begin{cases}x-1,x\\leqslant 1,\\\\x^{2}+a,x>1,\\end{cases}$ 在 $\\mathbb{R}$ 上单调递增，则实数 $a$ 的取值范围是 ___________。",
-                "已知函数  $f(x) = \\left\\{ \\begin{array}{l l}{x^{2},} & {x\\geqslant t,}\\\\ {x,} & {0< x< t} \\end{array} \\right.$  \\n（1）当  $t = 1$  时,  $f(x)$  的值域为_______。  \\n（2）若  $f(x)$  在区间  $(0, + \\infty)$  上单调递增,则  $t$  的取值范围是_______。",
-                "函数  $f(x) = \\left\\{ \\begin{array}{ll}f(x + 1), & x\\leqslant 0,\\\\ 2x - 3, & x > 0, \\end{array} \\right.$  则  $f(-2) =$_______.",
-                "已知函数  $f(x),g(x)$  分别由下表给出,则  $f[g(1)]$  的值为_______ ,满足  $f[g(x)] = g[f(x)]$  的  $x$  的值是_______.  \\n  \\n![](http://imates.com.cn/temporaryImg/1754639891784.png)"
-        };
-        try {
-            if(mCurrentQuestionIndex >= 0 && mCurrentQuestionIndex < mQuestions.size()){
-                String title =  mQuestions.get(mCurrentQuestionIndex).title;
-                for(int i=0; i<title.length(); i++) {
-                    if(titles[i].equals(title)) {
-                        return "https://www.imates.com.cn/miniclass/t" + (i +1) + ".html";
-                    }
-                }
-                //return "https://www.imates.com.cn/miniclass/" + mQuestions.get(mCurrentQuestionIndex).bmNo + ".html";
-            } else {
-                return defaultUrl;
-            }
-        } catch (Exception e) {
-            return defaultUrl;
-        }
-
-        return "";
+        return "https://www.imates.com.cn:9099/demo/demo1.html";
     }
 
     @Override
