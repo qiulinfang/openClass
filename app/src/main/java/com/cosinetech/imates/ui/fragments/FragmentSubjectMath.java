@@ -168,8 +168,7 @@ public class FragmentSubjectMath extends Fragment {
         });
 
         view.findViewById(R.id.btn_res_center).setOnClickListener(v -> {
-            Intent intent = new Intent(getContext(), TextbookManagementActivity.class);
-            startActivity(intent);
+            startTextbookManagement();
         });
 
         mTextbookVersions = new ArrayList<>();
@@ -206,6 +205,12 @@ public class FragmentSubjectMath extends Fragment {
         });
     }
 
+    private void startTextbookManagement() {
+        Intent intent = new Intent(getContext(), TextbookManagementActivity.class);
+        intent.putExtra(TextbookManagementActivity.KEY_SUBJECT, UserTextbookInfo.TEXTBOOK_SUBJECT.MATH.getValue());
+        startActivity(intent);
+    }
+
     private void updateLearnPackages() {
         try {
             LearnResourceManager.getInstance().getTextbookPackagesWithLocalFiles(mCurrentUserTextbookInfo.textbookId,
@@ -231,8 +236,7 @@ public class FragmentSubjectMath extends Fragment {
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .setMessage("没有学习资源, 请先下载资源再来学习")
                 .setPositiveButton("确定", (dialog, which) -> {
-                    Intent intent = new Intent(getContext(), TextbookManagementActivity.class);
-                    startActivity(intent);
+                    startTextbookManagement();
                 })
                 .setNegativeButton("取消", ((dialog, which) -> {
                 }))
@@ -255,7 +259,8 @@ public class FragmentSubjectMath extends Fragment {
                 } else {
                     List<UserTextbookInfo> localTextbooks = new ArrayList<>();
                     for (UserTextbookInfo textbook: textbooks) {
-                        if(textbook.isDownloaded) {
+                        if(textbook.textbookSubject == UserTextbookInfo.TEXTBOOK_SUBJECT.MATH.getValue()
+                                && textbook.isDownloaded) {
                             localTextbooks.add(textbook);
                         }
                     }
@@ -280,10 +285,16 @@ public class FragmentSubjectMath extends Fragment {
             @Override
             public void onUpdateAvailable(List<TextbookVersion> updatedTextbooks) {
                 getActivity().runOnUiThread(() -> {
-                    if(updatedTextbooks.isEmpty()) {
+                    List<TextbookVersion> updates = new ArrayList<>();
+                    for(TextbookVersion textbook : updatedTextbooks) {
+                        if(textbook.textbookSubject == UserTextbookInfo.TEXTBOOK_SUBJECT.MATH.getValue()) {
+                            updates.add(textbook);
+                        }
+                    }
+                    if(updates.isEmpty()) {
                         mTextViewUpdateBadge.setVisibility(View.GONE);
                     } else {
-                        int count = updatedTextbooks.size();
+                        int count = updates.size();
                         mTextViewUpdateBadge.setText(count >= 99 ? "99+" : String.valueOf(count));
                         mTextViewUpdateBadge.setVisibility(View.VISIBLE);
                     }
