@@ -5,17 +5,19 @@ import java.util.List;
 
 public class UserTextbookInfo {
     public enum TEXTBOOK_SUBJECT {
-        MATH(0),
-        BIOLOGY(1),
+        MATH(2),
+        BIOLOGY(6),
         ;
 
         TEXTBOOK_SUBJECT(int i) {
-
+            value = i;
         }
 
-        public static TEXTBOOK_SUBJECT fromInt(int value) {
+        private final int value;
+
+        public static TEXTBOOK_SUBJECT fromValue(int value) {
             for (TEXTBOOK_SUBJECT subject : values()) {
-                if (subject.ordinal() == value) {
+                if (subject.getValue() == value) {
                     return subject;
                 }
             }
@@ -23,7 +25,7 @@ public class UserTextbookInfo {
         }
 
         public int getValue() {
-            return ordinal();
+            return value;
         }
     }
 
@@ -53,12 +55,15 @@ public class UserTextbookInfo {
     public List<LocalPackageInfo> localPackages;
     public int downloadStatus; // Progress percentage 0-100
     public boolean hasUpdatesAvailable;
+
+    public boolean downloadBeginning;
     
     public UserTextbookInfo() {
         this.structure = new ArrayList<>();
         this.localPackages = new ArrayList<>();
         this.downloadStatus = 0;
         this.hasUpdatesAvailable = false;
+        this.downloadBeginning = false;
     }
     
     public UserTextbookInfo(TextbookVersion textbook) {
@@ -85,6 +90,7 @@ public class UserTextbookInfo {
         this.localPackages = new ArrayList<>();
         this.downloadStatus = 0;
         this.hasUpdatesAvailable = false;
+        this.downloadBeginning = false;
     }
     
     public void updateStructure(List<ChapterNode> newStructure) {

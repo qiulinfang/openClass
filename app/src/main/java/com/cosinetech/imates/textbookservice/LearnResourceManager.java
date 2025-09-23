@@ -705,9 +705,10 @@ public class LearnResourceManager {
             for (LearningPackage pkg : packages) {
                 totalFiles += pkg.resourceList.size();
             }
-            
+
             int completedFiles = 0;
-            
+            final int lTotals = totalFiles;
+            mainHandler.post(() -> callback.onAllFilesDownloadProgress(lTotals, 0, 1));
             for (LearningPackage pkg : packages) {
                 File packageDir = new File(textbookDir, sanitizeFileName(pkg.packageName));
                 packageDir.mkdirs();
