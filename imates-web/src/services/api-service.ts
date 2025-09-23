@@ -156,24 +156,47 @@ export class ApiService {
    * 根据知识点查找相似题目
    * 对应Android中的findSimilarKnowledgeQuestion方法
    */
-  public async findSimilarQuestionsByKnowledge(request: any): Promise<any[]> {
+  public async findSimilarQuestionsByKnowledge(request: any): Promise<{
+    questions: any[]
+    totalCount: number
+    currentPage: number
+    pageSize: number
+  }> {
     try {
       const url = getApiUrl(API_ENDPOINTS.EXERCISES.SIMILAR_BY_KNOWLEDGE)
       
       const response = await httpClient.post<{
         success: boolean
+        totalCount?: string
+        pageNo?: string
+        pageSize?: string
         data: {
           questions: any[]
         }
       }>(url, request)
       
       if (response.success && response.data?.data?.questions) {
-        return response.data.data.questions
+        return {
+          questions: response.data.data.questions,
+          totalCount: parseInt(response.data.totalCount || '0') || response.data.data.questions.length,
+          currentPage: parseInt(response.data.pageNo || '1') || request.current,
+          pageSize: parseInt(response.data.pageSize || '5') || request.size
+        }
       }
-      return []
+      return {
+        questions: [],
+        totalCount: 0,
+        currentPage: request.current,
+        pageSize: request.size
+      }
     } catch (error) {
       console.error('查找相似题目失败:', error)
-      return []
+      return {
+        questions: [],
+        totalCount: 0,
+        currentPage: request.current,
+        pageSize: request.size
+      }
     }
   }
 

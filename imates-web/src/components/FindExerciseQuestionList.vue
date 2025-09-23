@@ -1,16 +1,20 @@
 <template>
   <div class="find-exercise-question-list">
     <!-- 题目列表内容 -->
-    <q-scroll-area class="questions-scroll" :thumb-style="thumbStyle">
+    <q-scroll-area 
+      class="questions-scroll" 
+      :thumb-style="thumbStyle"
+      @scroll="handleScrollEvent"
+    >
       <div class="q-pa-md">
         <!-- 加载状态 -->
-        <div v-if="isLoading" class="native-loading-container">
+        <div v-if="isLoading && similarQuestions.length === 0" class="native-loading-container">
           <q-spinner-dots size="50px" color="primary" />
           <div class="text-h6 q-mt-md native-text-xl">正在查找相似题目...</div>
         </div>
 
         <!-- 空状态 -->
-        <div v-else-if="similarQuestions.length === 0" class="native-empty-state">
+        <div v-else-if="similarQuestions.length === 0 && !isLoading" class="native-empty-state">
           <q-icon name="search_off" size="80px" color="grey-5" />
           <div class="text-h6 q-mt-md text-grey-7 native-text-3xl">未找到相似题目</div>
           <div class="text-body2 text-grey-6 q-mt-sm native-text-md">
@@ -66,6 +70,30 @@
               </div>
             </div>
           </div>
+
+          <!-- 加载更多指示器 -->
+          <div v-if="isLoading && similarQuestions.length > 0" class="load-more-indicator">
+            <q-spinner-dots size="24px" color="primary" />
+            <span class="loading-text">正在加载更多题目...</span>
+          </div>
+
+          <!-- 没有更多数据提示 -->
+          <div v-else-if="!canLoadMore && similarQuestions.length > 0" class="no-more-data">
+            <q-icon name="check_circle" size="20px" color="grey-5" />
+            <span class="no-more-text">没有更多题目了</span>
+          </div>
+
+          <!-- 加载更多按钮 -->
+          <div v-else-if="canLoadMore && !isLoading" class="load-more-button">
+            <q-btn
+              flat
+              color="primary"
+              label="加载更多题目"
+              icon="expand_more"
+              @click="handleLoadMore"
+              class="load-more-btn"
+            />
+          </div>
         </div>
       </div>
     </q-scroll-area>
@@ -73,6 +101,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useFindExerciseStore } from '../stores/findExerciseStore'
 import { storeToRefs } from 'pinia'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
@@ -86,10 +115,14 @@ const emit = defineEmits<{
 
 // 使用store
 const findExerciseStore = useFindExerciseStore()
-const { similarQuestions, selectedQuestionIds, isLoading } = storeToRefs(findExerciseStore)
+const { similarQuestions, selectedQuestionIds, isLoading, canLoadMore } = storeToRefs(findExerciseStore)
 
 // 使用消息渲染器
 const { renderMessageContent } = useMessageRenderer()
+
+// 防抖相关状态
+const isLoadMorePending = ref(false)
+const loadMoreTimeout = ref<number | null>(null)
 
 // 滚动条样式
 const thumbStyle = {
@@ -139,6 +172,42 @@ const handleRefresh = () => {
   emit('refresh')
 }
 
+// 处理滚动事件 - 实现滚动到底部自动加载更多（带防抖）
+const handleScrollEvent = (info: { verticalPosition: number; verticalPercentage: number; verticalSize: number; verticalContainerSize: number }) => {
+  const { verticalPosition, verticalSize, verticalContainerSize } = info
+  
+  // 当滚动到距离底部100px时触发加载更多
+  if (verticalPosition + verticalContainerSize >= verticalSize - 100) {
+    // 防抖处理，避免重复触发
+    if (loadMoreTimeout.value) {
+      clearTimeout(loadMoreTimeout.value)
+    }
+    
+    loadMoreTimeout.value = setTimeout(() => {
+      handleLoadMore()
+    }, 300) // 300ms防抖
+  }
+}
+
+// 处理加载更多按钮点击
+const handleLoadMore = async () => {
+  if (isLoading.value || !canLoadMore.value || isLoadMorePending.value) return
+  
+  try {
+    isLoadMorePending.value = true
+    const success = await findExerciseStore.loadMoreQuestions()
+    if (success) {
+      console.log('成功加载更多题目')
+    } else {
+      console.log('没有更多题目了')
+    }
+  } catch (error) {
+    console.error('加载更多题目失败:', error)
+  } finally {
+    isLoadMorePending.value = false
+  }
+}
+
 // 渲染题目内容（支持Markdown和公式）
 const renderQuestionContent = (question: { question?: string; title?: string; content?: string }) => {
   const content = question.question || question.title || question.content || ''
@@ -147,7 +216,8 @@ const renderQuestionContent = (question: { question?: string; title?: string; co
 
 // 暴露方法给父组件
 defineExpose({
-  refresh: handleRefresh
+  refresh: handleRefresh,
+  loadMore: handleLoadMore
 })
 </script>
 
@@ -582,6 +652,48 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   }
 }
 
+// ===== 加载更多相关样式 =====
+.load-more-indicator {
+  @include flex-center;
+  flex-direction: column;
+  padding: 20px;
+  color: $text-secondary;
+  
+  .loading-text {
+    margin-top: 8px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+}
+
+.no-more-data {
+  @include flex-center;
+  padding: 16px;
+  color: $text-tertiary;
+  
+  .no-more-text {
+    margin-left: 8px;
+    font-size: 14px;
+  }
+}
+
+.load-more-button {
+  @include flex-center;
+  padding: 16px;
+  
+  .load-more-btn {
+    border-radius: 20px;
+    padding: 8px 24px;
+    font-weight: 500;
+    text-transform: none;
+    @include card-shadow(subtle);
+    
+    &:hover {
+      @include card-shadow(hover);
+    }
+  }
+}
+
 // ===== 响应式设计 - 与 SimilarQuestionList 保持一致 =====
 @media (max-width: 768px) {
   .question-item {
@@ -604,6 +716,22 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
     font-size: 13px !important;
     overflow: visible;
   }
+  
+  .load-more-indicator {
+    padding: 16px;
+    
+    .loading-text {
+      font-size: 13px;
+    }
+  }
+  
+  .no-more-data {
+    padding: 12px;
+    
+    .no-more-text {
+      font-size: 13px;
+    }
+  }
 }
 
 @media (max-width: 480px) {
@@ -620,6 +748,15 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
       border-radius: 11px;
       background-color: $background-grey !important;
       color: $text-secondary !important;
+    }
+  }
+  
+  .load-more-button {
+    padding: 12px;
+    
+    .load-more-btn {
+      padding: 6px 20px;
+      font-size: 13px;
     }
   }
 }

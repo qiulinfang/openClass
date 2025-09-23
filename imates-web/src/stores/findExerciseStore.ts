@@ -36,6 +36,9 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
     totalCount: 0
   })
   
+  /** 是否遇到空页面（用于防止无限加载） */
+  const hasEmptyPage = ref(false)
+  
   /** 选中的题目ID列表 */
   const selectedQuestionIds = ref<string[]>([])
   
@@ -139,25 +142,100 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
       console.log('🔍 查找相似题目请求参数:', JSON.stringify(request, null, 2))
       
       // 调用API查找相似题目
-      const questions = await apiService.findSimilarQuestionsByKnowledge(request)
+      const result = await apiService.findSimilarQuestionsByKnowledge(request)
       
       // 标记题目是否已在用户列表中
-      questions.forEach(question => {
+      result.questions.forEach(question => {
         question.atUserList = questionsInFavor.value.some(fav => fav.bmNo === question.bmNo)
       })
       
-      // 如果是第一页，清空现有列表；否则追加
-      if (pagination.value.currentPage === 0) {
-        similarQuestions.value = questions
-      } else {
-        similarQuestions.value.push(...questions)
+      // 更新分页信息
+      pagination.value.totalCount = result.totalCount
+      pagination.value.pageSize = result.pageSize
+      
+      // 检测是否遇到空页面
+      if (result.questions.length === 0 && pagination.value.currentPage > 0) {
+        hasEmptyPage.value = true
+        console.log(`第${pagination.value.currentPage + 1}页返回空数据，停止加载更多`)
       }
       
-      pagination.value.currentPage = request.current - 1  // 修复：current 是1-based，需要转换为0-based
+      // 如果是第一页，清空现有列表；否则追加
+      if (pagination.value.currentPage === 0) {
+        similarQuestions.value = result.questions
+        hasEmptyPage.value = false  // 重置空页面状态
+      } else {
+        similarQuestions.value.push(...result.questions)
+      }
+      
+      pagination.value.currentPage = result.currentPage - 1  // 修复：current 是1-based，需要转换为0-based
     } catch (error) {
       console.error('查找相似题目失败:', error)
       // 静默处理错误
     }
+  }
+
+  /**
+   * 加载更多题目（分页加载）
+   * 对应Android中的上拉加载更多功能
+   */
+  const loadMoreQuestions = async (): Promise<boolean> => {
+    if (!config.value) return false
+    
+    // 检查是否遇到空页面
+    if (hasEmptyPage.value) {
+      console.log('已遇到空页面，停止加载更多')
+      return false
+    }
+    
+    // 检查是否还有更多数据
+    if (similarQuestions.value.length >= pagination.value.totalCount) {
+      console.log('没有更多题目了')
+      return false
+    }
+    
+    try {
+      // 设置加载更多状态
+      isLoading.value = true
+      
+      // 增加页码
+      pagination.value.currentPage += 1
+      
+      // 调用API获取下一页数据
+      await findSimilarQuestions()
+      
+      console.log(`已加载第${pagination.value.currentPage + 1}页，当前题目总数: ${similarQuestions.value.length}`)
+      return true
+    } catch (error) {
+      console.error('加载更多题目失败:', error)
+      // 如果加载失败，回退页码
+      if (pagination.value.currentPage > 0) {
+        pagination.value.currentPage -= 1
+      }
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  /**
+   * 检查是否可以加载更多
+   */
+  const canLoadMore = computed(() => {
+    // 如果遇到空页面，则不能加载更多
+    if (hasEmptyPage.value) {
+      return false
+    }
+    // 如果已加载的题目数量达到总数，则不能加载更多
+    return similarQuestions.value.length < pagination.value.totalCount
+  })
+
+  /**
+   * 重置分页状态
+   */
+  const resetPagination = () => {
+    pagination.value.currentPage = 0
+    pagination.value.totalCount = 0
+    hasEmptyPage.value = false
   }
 
   /**
@@ -275,6 +353,7 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
       pageSize: 5,
       totalCount: 0
     }
+    hasEmptyPage.value = false
   }
   
   /**
@@ -285,11 +364,7 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
     // 只重置题目列表，保留选中状态
     questionsInFavor.value = []
     similarQuestions.value = []
-    pagination.value = {
-      currentPage: 0,
-      pageSize: 5,
-      totalCount: 0
-    }
+    resetPagination()  // 这会重置 hasEmptyPage.value
     // 注意：不重置 selectedQuestionIds.value
   }
   
@@ -301,19 +376,23 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
     similarQuestions,
     pagination,
     selectedQuestionIds,
+    hasEmptyPage,
     
     // 计算属性
     hasSelectedQuestions,
     selectedQuestions,
+    canLoadMore,
     
     // 方法
     initializeStore,
     fetchQuestionList,
     findSimilarQuestions: findSimilarQuestionsWithLoading, // 使用带加载状态的方法
+    loadMoreQuestions,
     toggleQuestionSelection,
     toggleSelectAll,
     addSelectedQuestionsToList,
     resetState,
-    partialResetState
+    partialResetState,
+    resetPagination
   }
 })

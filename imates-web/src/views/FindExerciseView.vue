@@ -65,7 +65,7 @@
           <!-- 初始化加载状态 -->
           <div v-if="isInitializing" class="initialization-loading">
             <q-spinner-dots size="50px" color="primary" />
-            <div class="text-h6 q-mt-md">正在初始化...</div>
+            <div class="text-h6 q-mt-md">正在加载练习题...</div>
           </div>
           
           <!-- 题目列表 -->
@@ -165,7 +165,8 @@ const handleQuestionDeselected = (questionId: string) => {
 
 const handleRefresh = async () => {
   try {
-    // 使用带加载状态的方法，避免显示空状态
+    // 重置分页状态并重新加载
+    findExerciseStore.resetPagination()
     await findExerciseStore.findSimilarQuestions()
   } catch (error) {
     console.error('刷新失败:', error)
