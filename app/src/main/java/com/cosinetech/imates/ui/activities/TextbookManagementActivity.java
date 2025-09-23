@@ -31,6 +31,7 @@ import java.util.Set;
 
 public class TextbookManagementActivity extends AppCompatActivity {
     private static final String TAG = "TextbookManagement";
+    public static final String KEY_SUBJECT = "KEY_SUBJECT";
     private TextbookAdapter textbookAdapter;
     private final List<UserTextbookInfo> allTextbooks = new ArrayList<>();
     private final List<UserTextbookInfo> filteredTextbooks = new ArrayList<>();
@@ -42,6 +43,7 @@ public class TextbookManagementActivity extends AppCompatActivity {
     private ProgressBar progressLoading;
     private View layoutEmptyState;
     private RecyclerView recyclerViewTextbooks;
+    private int filterSubject;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,6 +51,7 @@ public class TextbookManagementActivity extends AppCompatActivity {
         WindowUtils.hideSystemUI(this);
         WindowUtils.setFullScreenMode(this);
         setContentView(R.layout.activity_textbook_management);
+        filterSubject = getIntent().getIntExtra(KEY_SUBJECT, -1);
         
         initViews();
         initResourceManager();
@@ -160,7 +163,15 @@ public class TextbookManagementActivity extends AppCompatActivity {
             public void onSuccess(List<UserTextbookInfo> textbooks) {
                 showLoading(false);
                 allTextbooks.clear();
-                allTextbooks.addAll(textbooks);
+                if(filterSubject >= 0) {
+                    for (UserTextbookInfo textbook : textbooks) {
+                        if (textbook.textbookSubject == filterSubject) {
+                            allTextbooks.add(textbook);
+                        }
+                    }
+                } else {
+                    allTextbooks.addAll(textbooks);
+                }
                 
                 updateSubjectChips();
                 filterTextbooks();

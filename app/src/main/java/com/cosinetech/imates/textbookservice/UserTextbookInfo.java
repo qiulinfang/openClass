@@ -4,6 +4,29 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class UserTextbookInfo {
+    public enum TEXTBOOK_SUBJECT {
+        MATH(0),
+        BIOLOGY(1),
+        ;
+
+        TEXTBOOK_SUBJECT(int i) {
+
+        }
+
+        public static TEXTBOOK_SUBJECT fromInt(int value) {
+            for (TEXTBOOK_SUBJECT subject : values()) {
+                if (subject.ordinal() == value) {
+                    return subject;
+                }
+            }
+            return null;
+        }
+
+        public int getValue() {
+            return ordinal();
+        }
+    }
+
     public String id;
     public String textbookId;
     public int textbookGrade;
