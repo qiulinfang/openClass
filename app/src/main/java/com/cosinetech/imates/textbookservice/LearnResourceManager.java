@@ -1064,7 +1064,7 @@ public class LearnResourceManager {
         }
         
         for (LocalPackageInfo pkg : textbook.localPackages) {
-            File packageDir = new File(textbookDir, sanitizeFileName(pkg.packageName));
+            File packageDir = new File(textbookDir, sanitizeFileName(pkg.packageId + "_" + pkg.packageName));
             
             for (LocalFileInfo file : pkg.localFiles) {
                 File localFile = new File(packageDir, file.fileName);
