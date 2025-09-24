@@ -42,6 +42,8 @@ public class ApiUrl {
 
     public static  String URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE;
 
+    public static String URL_QUERY_KNOWLEDGE_ID_BY_CHAPTER_ID;
+
     public static void switchEnv(AppEnvConfig.AppEnvType envType) {
         if(envType == AppEnvConfig.AppEnvType.RELEASE) {
             baseUrl = "http://www.imates.com.cn:8222/blw-edu-service-alc";
@@ -103,5 +105,7 @@ public class ApiUrl {
 
         // 根据知识点查题
         URL_QUERY_SIMILAR_EXERCISE_BY_KNOWLEDGE = baseUrl + "/biologyTopicKnowledge/knowledgeTopicAndAck";
+
+        URL_QUERY_KNOWLEDGE_ID_BY_CHAPTER_ID = "http://www.imates.com.cn:8090/knowledge";
     }
 }

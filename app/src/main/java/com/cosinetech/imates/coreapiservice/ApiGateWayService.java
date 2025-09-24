@@ -8,6 +8,7 @@ import android.widget.Toast;
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.data.models.AddQuestionRequest;
 import com.cosinetech.imates.data.models.FindSimilarQuestionRequest;
+import com.cosinetech.imates.network.UnsafeOkHttpClient;
 import com.cosinetech.imates.utils.AppUtils;
 
 import org.json.JSONObject;
@@ -296,6 +297,11 @@ public class ApiGateWayService {
         void onFailure(String msg, int code);
     }
 
+    public interface QueryKnowledgeIdCallback {
+        void onSuccess(String ids);
+        void onFailure(String msg, int code);
+    }
+
     public static void queryExerciseList(String url, String token, QueryExerciseListCallback callback) {
         Runnable task = () -> {
             try {
@@ -387,6 +393,60 @@ public class ApiGateWayService {
         executor.submit(task);
     }
 
+    public static void queryKnowledgeIdsByNodeId(String url, String reqBody, QueryKnowledgeIdCallback callback) {
+        Runnable task = () -> {
+            try {
+                OkHttpClient client = UnsafeOkHttpClient.getUnsafeOkHttpClient(); // 你已有的方法，跳过证书验证
+
+                // 创建请求体
+                RequestBody body = RequestBody.create(
+                        MediaType.parse("application/json; charset=utf-8"),
+                        reqBody
+                );
+                Request request = new Request.Builder()
+                        .url(url)
+                        .post(body)
+                        .build();
+
+                try (Response response = client.newCall(request).execute();) {
+                    if (response.isSuccessful()) {
+                        if (callback != null && response.body() != null) {
+                            int code = response.code();
+
+                            String respBody = response.body().string();
+
+                            // 假设返回 JSON 结构如下：
+                            // {"success":true,"subject":"math","knowledge":"KN001,KN002"}
+                            try {
+                                com.google.gson.JsonObject json = new com.google.gson.JsonParser()
+                                        .parse(respBody)
+                                        .getAsJsonObject();
+                                boolean success = json.get("success").getAsBoolean();
+                                if (success) {
+                                    String ids = json.get("knowledge").getAsString();
+                                    callback.onSuccess(ids);
+                                } else {
+                                    callback.onFailure("查询知识点失败", code);
+                                }
+                            } catch (Exception e) {
+                                callback.onFailure("解析响应失败: " + e.getMessage(), code);
+                            }
+                        }
+                    } else {
+                        if (callback != null) {
+                            callback.onFailure(response.message(), response.code());
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        };
+
+        executor.submit(task);
+    }
     public interface ExerciseDeleteLister{
         void onDeleteSuccess();
         void onDeleteFailed(String msg);

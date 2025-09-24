@@ -41,7 +41,8 @@ public class FindExerciseActivity extends AppCompatActivity {
     private RecyclerView mRecyclerViewSimilarQuestion;
     private SmartRefreshLayout mRefreshLayout;
     private View mProgressView;
-    private String mKnowledgeList;
+    private String mKnowledgeList = "";
+    private String mKnowledgeQueryRequest;
     private final List<Question> mSimilarQuestion = new ArrayList<>();
     private final ArrayList<String> mQuestionIdsInFavor = new ArrayList<>();
 
@@ -62,12 +63,12 @@ public class FindExerciseActivity extends AppCompatActivity {
         setContentView(R.layout.activity_find_exercise);
         initData();
         initView();
-        fetchQuestionList();
+        fetchKnowledgeIds();
     }
 
     private void initData() {
         mSubject = Subject.valueOf(getIntent().getStringExtra(KEY_PARAM_SUBJECT));
-        mKnowledgeList = getIntent().getStringExtra(KEY_KNOWLEDGE_LIST);
+        mKnowledgeQueryRequest = getIntent().getStringExtra(KEY_KNOWLEDGE_LIST);
         mChatBotUrl = getIntent().getStringExtra(KEY_CHATBOT_URL);
 
         ViewModelStoreOwner owner = (ViewModelStoreOwner) this.getApplication();
@@ -208,6 +209,23 @@ public class FindExerciseActivity extends AppCompatActivity {
                     Toast.makeText(FindExerciseActivity.this, msg, Toast.LENGTH_SHORT).show();
                 });
                 findSimilarKnowledgeQuestion();
+            }
+        });
+    }
+
+    private void fetchKnowledgeIds() {
+        ApiGateWayService.queryKnowledgeIdsByNodeId(ApiUrl.URL_QUERY_KNOWLEDGE_ID_BY_CHAPTER_ID, mKnowledgeQueryRequest, new ApiGateWayService.QueryKnowledgeIdCallback() {
+            @Override
+            public void onSuccess(String ids) {
+                mKnowledgeList = ids;
+                fetchQuestionList();
+            }
+
+            @Override
+            public void onFailure(String msg, int code) {
+                runOnUiThread(() -> {
+                    Toast.makeText(FindExerciseActivity.this, msg, Toast.LENGTH_SHORT).show();
+                });
             }
         });
     }
