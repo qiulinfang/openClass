@@ -218,7 +218,14 @@ public class FindExerciseActivity extends AppCompatActivity {
             @Override
             public void onSuccess(String ids) {
                 mKnowledgeList = ids;
-                fetchQuestionList();
+                if(mKnowledgeList != null && !mKnowledgeList.trim().isEmpty()) {
+                    fetchQuestionList();
+                } else {
+                    runOnUiThread(() -> {
+                        Toast.makeText(FindExerciseActivity.this, "没有找到习题", Toast.LENGTH_SHORT).show();
+                        finish();
+                    });
+                }
             }
 
             @Override

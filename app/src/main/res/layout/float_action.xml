@@ -20,6 +20,7 @@
 
     <Button
         android:id="@+id/switch_button"
+        android:visibility="gone"
         style="?android:attr/buttonBarButtonStyle"
         android:layout_width="60dp"
         android:layout_height="wrap_content"
