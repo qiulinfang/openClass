@@ -352,6 +352,29 @@ public class ExerciseSolveActivity extends AppCompatActivity implements Messagin
                 mChatView.resetCurrentSession(ChatMessageCatalogue.CATEGORY_TEACHER_QA, mAskTeacherChatSession);
             }
         });
+
+        findViewById(R.id.btn_mini_class).setOnClickListener(v -> {
+            String url = getMiniClassUrl();
+            if(url != null && !url.isEmpty()) {
+                Intent intent = new Intent(this, MiniClassActivity.class);
+                intent.putExtra(MiniClassActivity.KEY_MINI_CLASS_URL, getMiniClassUrl());
+                startActivity(intent);
+            }
+        });
+    }
+
+    private String getMiniClassUrl() {
+        String prefix = subject.name();
+        try {
+            if(mCurrentQuestionIndex >= 0 && mCurrentQuestionIndex < mQuestions.size()){
+                String id =  mQuestions.get(mCurrentQuestionIndex).bmNo;
+                return "https://www.imates.com.cn:9099/miniclass/" + prefix + "/" + id + ".html";
+            } else {
+                return "";
+            }
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     public static ChatMessageSession createChatTeacherSession(String chatAiSessionId, String chatAiSessionName, ChatMessageSession.SessionType type) {

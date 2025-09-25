@@ -77,6 +77,13 @@
             android:screenOrientation="landscape"
             android:windowSoftInputMode="adjustPan" />
         <activity
+            android:name=".ui.activities.MiniClassActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:windowSoftInputMode="adjustPan" />
+
+        <activity
             android:name=".ui.activities.MyFavorCenterActivity"
             android:exported="false" />
         <activity
