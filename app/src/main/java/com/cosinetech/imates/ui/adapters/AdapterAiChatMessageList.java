@@ -42,7 +42,7 @@ import io.noties.markwon.recycler.MarkwonAdapter;
 import java.util.ArrayList;
 import java.util.List;
 
-public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem, ViewDataBinding> {
+public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem, androidx.databinding.ViewDataBinding> {
     private static final String TAG = "AdapterAiChatMessageList";
 
     public interface OnAiMessageAnimationCallback {
@@ -152,7 +152,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
     }
 
     @Override
-    protected void onBindItem(ViewDataBinding binding, ChatDisplayItem item, int position) {
+    protected void onBindItem(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item, int position) {
         ChatMessage message = item.chatMessage;
         MessageDisplayType type = MessageDisplayType.fromValue(getItemViewType(position));
 
@@ -196,7 +196,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         }
     }
 
-    private void bindMarkdownItem(ViewDataBinding binding, ChatDisplayItem item, ChatMessage message, int position) {
+    private void bindMarkdownItem(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item, ChatMessage message, int position) {
         // 设置选择状态和头像
         setItemSelectionState(binding, item);
         setItemAvatarImage(binding, item);
@@ -289,7 +289,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         }
     }
 
-    private void bindImageItem(ViewDataBinding binding, ChatDisplayItem item, ChatMessage message) {
+    private void bindImageItem(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item, ChatMessage message) {
         setItemSelectionState(binding, item);
         setItemAvatarImage(binding, item);
 
@@ -313,7 +313,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
     }
 
     @SuppressLint("SetTextI18n")
-    private void bindVoiceItem(ViewDataBinding binding, ChatDisplayItem item, ChatMessage message, int position) {
+    private void bindVoiceItem(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item, ChatMessage message, int position) {
         setItemSelectionState(binding, item);
         setItemAvatarImage(binding, item);
 
@@ -389,7 +389,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         }
     }
 
-    private void setItemSelectionState(ViewDataBinding binding, ChatDisplayItem item) {
+    private void setItemSelectionState(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item) {
         CheckBox checkBox = binding.getRoot().findViewById(R.id.iv_select);
         if (checkBox != null) {
             checkBox.setChecked(item.isSelected);
@@ -398,7 +398,7 @@ public class AdapterAiChatMessageList extends BaseBindingAdapter<ChatDisplayItem
         }
     }
 
-    private void setItemAvatarImage(ViewDataBinding binding, ChatDisplayItem item) {
+    private void setItemAvatarImage(androidx.databinding.ViewDataBinding binding, ChatDisplayItem item) {
         ImageView avatarView = binding.getRoot().findViewById(R.id.iv_avatar);
         if (avatarView != null) {
             if (item.chatMessage.isSelf) {

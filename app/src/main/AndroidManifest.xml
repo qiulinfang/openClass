@@ -71,13 +71,18 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
         <activity
-            android:name=".ui.activities.RichInputBoardActivity"
+            android:name=".ui.activities.MiniClassActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
             android:screenOrientation="landscape"
             android:windowSoftInputMode="adjustPan" />
+
+        <meta-data
+            android:name="com.google.android.actions"
+            android:resource="@xml/shared_file_paths" />
+
         <activity
-            android:name=".ui.activities.MiniClassActivity"
+            android:name=".ui.activities.RichInputBoardActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
             android:screenOrientation="landscape"
@@ -239,12 +244,12 @@
         <!-- 警告对话框Activity -->
         <activity
             android:name=".deviceadmin.WarningDialogActivity"
+            android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTop"
+            android:noHistory="true"
             android:screenOrientation="landscape"
-            android:theme="@style/DialogTheme"
-            android:excludeFromRecents="true"
-            android:noHistory="true" />
+            android:theme="@style/DialogTheme"/>
 
         <!-- 应用监控服务 -->
         <service

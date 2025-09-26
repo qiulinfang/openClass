@@ -109,6 +109,8 @@ public class PhotoSearchActivity extends AppCompatActivity {
         questionLayout = findViewById(R.id.question_layout);
         splitLine = findViewById(R.id.split_line);
         viewLinkTextSearch = findViewById(R.id.link_search_text);
+		
+		viewFinder.setScaleType(PreviewView.ScaleType.FIT_CENTER);
 
         if (allPermissionsGranted()) {
             startCamera();
