@@ -364,18 +364,17 @@ public class ExerciseSolveActivity extends AppCompatActivity implements Messagin
     }
 
     private String getMiniClassUrl() {
-        return "https://www.imates.com.cn:9099/demo/demo1.html";
-//        String prefix = subject.name();
-//        try {
-//            if(mCurrentQuestionIndex >= 0 && mCurrentQuestionIndex < mQuestions.size()){
-//                String id =  mQuestions.get(mCurrentQuestionIndex).bmNo;
-//                return "https://www.imates.com.cn:9099/miniclass/" + prefix + "/" + id + ".html";
-//            } else {
-//                return "";
-//            }
-//        } catch (Exception e) {
-//            return "";
-//        }
+        String prefix = subject.name();
+        try {
+            if(mCurrentQuestionIndex >= 0 && mCurrentQuestionIndex < mQuestions.size()){
+                String id =  mQuestions.get(mCurrentQuestionIndex).bmNo;
+                return "https://www.imates.com.cn:9099/miniclass/" + prefix + "/" + id + ".html";
+            } else {
+                return "";
+            }
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     public static ChatMessageSession createChatTeacherSession(String chatAiSessionId, String chatAiSessionName, ChatMessageSession.SessionType type) {
