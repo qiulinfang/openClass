@@ -713,14 +713,58 @@ export class ApiService {
   }
 
   /**
-   * 获取用户信息
+   * 用户登录
+   * @param account 账号
+   * @param password 密码（明文，与Android端LoginActivity保持一致）
+   * @returns Promise<string> 返回token
    */
-  public async getUserInfo(): Promise<any | null> {
+  public async login(account: string, password: string): Promise<string> {
     try {
-      const response = await httpClient.get('/api/user/info')
-      return response.success ? response.data : null
-    } catch (error) {
-      return null
+      const response = await httpClient.post<{
+        success: boolean
+        message: string
+        data: {
+          token: string
+        }
+      }>('http://www.imates.com.cn:8222/blw-edu-service-alc/admin/login', {
+        account,
+        password
+      })
+      
+      if (!response.success || !response.data) {
+        throw new Error(response.message || '登录失败')
+      }
+
+      return response.data.data.token
+    } catch (error: unknown) {
+      throw new Error(error instanceof Error ? error.message : '登录失败')
+    }
+  }
+
+  /**
+   * 获取用户信息
+   * @param token 用户token
+   * @returns Promise<UserInfo> 用户信息
+   */
+  public async getUserInfo(token: string): Promise<UserInfo> {
+    try {
+      const response = await httpClient.get<{
+        success: boolean
+        message: string
+        data: UserInfo
+      }>('http://www.imates.com.cn:8222/blw-edu-service-alc/admin/info', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (!response.success || !response.data) {
+        throw new Error(response.message || '获取用户信息失败')
+      }
+
+      return response.data.data
+    } catch (error: unknown) {
+      throw new Error(error instanceof Error ? error.message : '获取用户信息失败')
     }
   }
 

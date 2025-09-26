@@ -87,6 +87,33 @@
               </q-card-section>
             </q-card>
 
+            <!-- 知识图谱功能 -->
+            <q-card 
+              class="feature-card knowledge-graph-card"
+              @click="navigateToKnowledgeGraph"
+            >
+              <q-card-section class="card-content">
+                <div class="card-icon">
+                  <q-icon name="account_tree" size="48px" />
+                </div>
+                <div class="card-title">知识图谱</div>
+                <div class="card-description">
+                  可视化知识结构，探索知识点关系，构建学习网络
+                </div>
+                <div class="card-features">
+                  <q-chip size="sm" color="purple" text-color="white" icon="account_tree">
+                    知识网络
+                  </q-chip>
+                  <q-chip size="sm" color="teal" text-color="white" icon="explore">
+                    关系探索
+                  </q-chip>
+                  <q-chip size="sm" color="indigo" text-color="white" icon="hub">
+                    智能推荐
+                  </q-chip>
+                </div>
+              </q-card-section>
+            </q-card>
+
             <!-- 学习统计功能 -->
             <q-card 
               class="feature-card statistics-card"
@@ -106,6 +133,30 @@
                   </q-chip>
                   <q-chip size="sm" color="teal" text-color="white" icon="insights">
                     效果分析
+                  </q-chip>
+                </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- 登录功能 -->
+            <q-card 
+              class="feature-card login-card"
+              @click="navigateToLogin"
+            >
+              <q-card-section class="card-content">
+                <div class="card-icon">
+                  <q-icon name="login" size="48px" />
+                </div>
+                <div class="card-title">用户登录</div>
+                <div class="card-description">
+                  登录您的账户，享受个性化学习体验
+                </div>
+                <div class="card-features">
+                  <q-chip size="sm" color="primary" text-color="white" icon="person">
+                    账户登录
+                  </q-chip>
+                  <q-chip size="sm" color="secondary" text-color="white" icon="security">
+                    安全认证
                   </q-chip>
                 </div>
               </q-card-section>
@@ -155,9 +206,17 @@ const navigateToFindExercise = () => {
   router.push('/find-exercise')
 }
 
+const navigateToKnowledgeGraph = () => {
+  router.push('/knowledge-graph')
+}
+
 const navigateToStatistics = () => {
   // 暂时显示提示，后续可以添加统计页面
   console.log('学习统计功能开发中...')
+}
+
+const navigateToLogin = () => {
+  router.push('/login')
 }
 
 const navigateToSettings = () => {
@@ -320,9 +379,21 @@ $card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
   }
 }
 
+.knowledge-graph-card {
+  .card-icon {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+}
+
 .statistics-card {
   .card-icon {
     background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  }
+}
+
+.login-card {
+  .card-icon {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
   }
 }
 

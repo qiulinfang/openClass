@@ -4,11 +4,11 @@
  */
 
 export const API_ENDPOINTS = {
-  // 基础配置 - 与Android ApiUrl.java保持一致
+  // 基础配置 - 通过代理服务器访问知识图谱API
   BASE_URL: {
-    RELEASE: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
-    INTERNAL_TEST: 'https://api.showcode.xyz/blw-edu-service-alc',
-    DEVELOPMENT: 'http://localhost:3000' // 本地开发环境
+    RELEASE: 'http://localhost:3001', // 代理服务器地址
+    INTERNAL_TEST: 'http://localhost:3001', // 代理服务器地址
+    DEVELOPMENT: 'http://localhost:3001' // 代理服务器地址
   },
 
   // 资源基础URL
@@ -77,6 +77,19 @@ export const API_ENDPOINTS = {
   APP_UPDATE: {
     RELEASE: 'https://www.imates.com.cn/bj101/appupdate.json',
     INTERNAL_TEST: 'https://www.imates.com.cn/appupdate_test.json'
+  },
+
+  // 学习资源管理相关 - 通过代理服务器访问
+  LEARNING_RESOURCE: {
+    // 用户认证
+    LOGIN_STUDENT: '/auth/login-student',
+    
+    // 教材相关
+    TEXTBOOK: {
+      VERSIONS: '/api/app/teacher-textbook',
+      STRUCTURE: '/api/app/teacher-textbook-section-tree',
+      LEARNING_PACKAGE: '/api/app/teacher-textbook-learning-package'
+    }
   }
 } as const
 
@@ -104,7 +117,7 @@ export function getApiUrl(endpoint: string): string {
   // 如果基础URL为空，使用默认值
   if (!currentBaseUrl) {
     console.warn('API基础URL未设置，使用默认值')
-    currentBaseUrl = 'http://www.imates.com.cn:8222/blw-edu-service-alc'
+    currentBaseUrl = 'http://localhost:3001'
   }
   
   return `${currentBaseUrl}${endpoint}`

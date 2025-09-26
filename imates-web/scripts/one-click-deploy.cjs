@@ -247,40 +247,6 @@ async function oneClickDeploy() {
     runCommand('node scripts/deploy-android.cjs deploy all', 'Android 项目部署')
     logSuccess('Android 项目部署完成')
 
-    // 步骤 4: 构建 Android 项目
-    logStep(4, '构建 Android 项目')
-    
-    // 检查构建类型
-    const buildType = process.argv[2] || 'debug'
-    const buildCommand = buildType === 'release' ? 'assembleRelease' : 'assembleDebug'
-    
-    logInfo(`构建类型: ${buildType}`)
-    runCommand(`${gradlewCommand} ${buildCommand}`, 'Android 项目构建', { 
-      cwd: androidProjectPath 
-    })
-    logSuccess('Android 项目构建完成')
-
-    // 步骤 5: 显示结果
-    logStep(5, '显示构建结果')
-    
-    const endTime = Date.now()
-    const duration = ((endTime - startTime) / 1000).toFixed(2)
-    
-    log('\n🎉 一键构建和部署完成！', 'green')
-    log(`⏱️  总耗时: ${duration} 秒`, 'blue')
-    
-    // 显示 APK 位置
-    const apkPath = buildType === 'release' 
-      ? path.join(androidProjectPath, 'app/build/outputs/apk/release/app-release.apk')
-      : path.join(androidProjectPath, 'app/build/outputs/apk/debug/app-debug.apk')
-    
-    if (fs.existsSync(apkPath)) {
-      const stats = fs.statSync(apkPath)
-      const size = (stats.size / 1024 / 1024).toFixed(2)
-      log(`📱 APK 文件: ${apkPath}`, 'yellow')
-      log(`📦 APK 大小: ${size} MB`, 'yellow')
-    }
-
     // 步骤 6: 清理源目录
     logStep(6, '清理源目录')
     const distWebviewPath = path.join(__dirname, '../dist-webview')
