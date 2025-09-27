@@ -281,7 +281,7 @@ onMounted(async () => {
       config = {
         apiBaseURL: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
         subject: Subject.SUBJECT_MATH,
-        token: localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '',
+        token: localStorage.getItem('token') || '',
         knowledgeList: urlParams.get('knowledgeList') || ''
       }
     }

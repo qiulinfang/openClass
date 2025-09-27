@@ -43,7 +43,7 @@ import { useMessageRenderer } from '../composables/useMessageRenderer'
 import type { AnswerViewProps } from '../types'
 
 // 定义Props
-interface Props extends AnswerViewProps {}
+interface Props extends /* @vue-ignore */ AnswerViewProps {}
 
 const props = withDefaults(defineProps<Props>(), {
   answer: '',

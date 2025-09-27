@@ -21,10 +21,10 @@ export class HttpClient {
 
   /**
    * 设置认证 Token
-   * 与Android原生保持一致，使用Token头而不是Authorization
+   * 与Android原生保持一致，使用sa-token头
    */
   setAuthToken(token: string) {
-    this.defaultHeaders['Token'] = token
+    this.defaultHeaders['sa-token'] = token
     // 同时保留Authorization头以兼容其他可能的API
     this.defaultHeaders['Authorization'] = `Bearer ${token}`
   }

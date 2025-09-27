@@ -35,3 +35,6 @@ export * from './math'
 
 // ========== Android Bridge相关 ==========
 export * from './bridge'
+
+// ========== 教材相关 ==========
+export * from './textbook'

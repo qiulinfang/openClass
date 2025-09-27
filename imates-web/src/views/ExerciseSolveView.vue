@@ -273,7 +273,7 @@ onMounted(async () => {
     const config = {
       apiBaseURL: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
       subject: 'MATH',
-      token: localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
+      token: localStorage.getItem('token') || ''
     }
     
     // 静默初始化，不显示加载状态

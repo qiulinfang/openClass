@@ -150,6 +150,8 @@ const handleLogin = async () => {
     // 保存到本地存储
     localStorage.setItem('token', token)
     localStorage.setItem('userInfo', JSON.stringify(userInfo))
+    localStorage.setItem('userId', loginForm.account)
+    localStorage.setItem('userPassword', loginForm.password)
     
     // 跳转到知识图谱页面
     router.push('/knowledge-graph')

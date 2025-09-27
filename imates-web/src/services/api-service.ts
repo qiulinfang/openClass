@@ -4,6 +4,7 @@
  */
 
 import { httpClient } from './http-client'
+import * as CryptoJS from 'crypto-js'
 import {
   getApiUrl,
   getExerciseListUrl,
@@ -12,20 +13,21 @@ import {
   API_ENDPOINTS,
 } from './api-endpoints'
 import { AndroidBridge } from './android-bridge'
-import { mockChatService } from './mock-chat-service'
 // 不再需要导入fileToBase64DataUrl，直接使用传入的Base64数据 
 
 // 使用统一类型定义
 import type {
-  ExerciseItem,
   UserInfo,
-  ChatResponse,
-  SimilarExercise,
-  BridgeProgressData,
-  ChatMessageSession,
-  ConversationRecord,
   AiChatMessageRequest,
-  EnvType,
+  TextbookVersion,
+  TextbookOption,
+  TextbookStructureRequest,
+  LearningResourcesRequest,
+  ChapterNode,
+  LearningPackage,
+  LoginResponse,
+  LoginRequest,
+  LoginData,
 } from '../types'
 
 // 使用统一的类型定义，不再重复定义
@@ -33,7 +35,6 @@ import type {
 export class ApiService {
   private static instance: ApiService
   private androidBridge: AndroidBridge
-  private testMode: boolean = false
 
   private constructor() {
     this.androidBridge = AndroidBridge.getInstance()
@@ -46,20 +47,6 @@ export class ApiService {
     return ApiService.instance
   }
 
-  /**
-   * 设置测试模式
-   */
-  public setTestMode(enabled: boolean): void {
-    this.testMode = enabled
-    console.log('🧪 API服务测试模式:', enabled ? '开启' : '关闭')
-  }
-
-  /**
-   * 获取测试模式状态
-   */
-  public isTestMode(): boolean {
-    return this.testMode
-  }
 
   /**
    * 获取习题列表
@@ -209,11 +196,6 @@ export class ApiService {
     onStream?: (chunk: string, isComplete: boolean) => void,
   ): Promise<any> {
     try {
-      // 测试模式：使用模拟聊天服务
-      if (this.testMode) {
-        console.log('🧪 测试模式：使用模拟聊天服务发送消息')
-        return await mockChatService.simulateSendMessage(message, onComplete, onStream, true)
-      }
 
       // 确定请求URL：优先使用message中的dstUrl，否则根据科目动态生成
       let url: string
@@ -713,7 +695,7 @@ export class ApiService {
   }
 
   /**
-   * 用户登录
+   * 用户登录（管理员登录）
    * @param account 账号
    * @param password 密码（明文，与Android端LoginActivity保持一致）
    * @returns Promise<string> 返回token
@@ -741,6 +723,7 @@ export class ApiService {
     }
   }
 
+
   /**
    * 获取用户信息
    * @param token 用户token
@@ -752,9 +735,9 @@ export class ApiService {
         success: boolean
         message: string
         data: UserInfo
-      }>('http://www.imates.com.cn:8222/blw-edu-service-alc/admin/info', {
+      }>(`http://www.imates.com.cn:8222/blw-edu-service-alc/admin/info?token=${token}`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Token': token
         }
       })
       
@@ -768,38 +751,232 @@ export class ApiService {
     }
   }
 
-  // ==================== 测试相关方法 ====================
+
+  // ==================== 教材相关 API ====================
 
   /**
-   * 生成测试聊天历史记录
+   * 学生登录 - 与Android端LearnResourceManager.login保持一致
    */
-  public generateTestChatHistory(questionId: string, messageCount: number = 10): any {
-    return mockChatService.generateTestChatData(questionId)
+  public async loginStudent(account: string, password: string): Promise<LoginResponse | null> {
+    try {
+      // 使用MD5加密密码，与Android端保持一致
+      const md5Password = this.md5(password)
+      
+      const loginRequest: LoginRequest = {
+        account,
+        password: md5Password
+      }
+      
+        // 使用代理路径，避免CORS问题
+        const response = await httpClient.post<{
+          code: number
+          success: boolean
+          message: string
+          data: LoginData
+        }>(
+          API_ENDPOINTS.LEARNING_RESOURCE.LOGIN_STUDENT,
+          loginRequest
+        )
+      
+      if (response.success && response.data && response.data.data) {
+        const loginResponse: LoginResponse = {
+          token: response.data.data.token,
+          userId: response.data.data.userId,
+          defaultPassword: response.data.data.defaultPassword
+        }
+        
+        // 确保token和userId都保存到localStorage
+        localStorage.setItem('studentToken', response.data.data.token)
+        localStorage.setItem('studentUserId', response.data.data.userId)
+        
+        console.log('学生登录成功:', loginResponse)
+        return loginResponse
+      } else {
+        console.error('学生登录失败:', response.message)
+        return null
+      }
+    } catch (error) {
+      console.error('学生登录异常:', error)
+      return null
+    }
   }
 
   /**
-   * 启动自动回复测试
+   * 检查学生登录状态
    */
-  public startAutoReplyTest(
-    questionId: string,
-    onNewMessage: (message: any) => void,
-    interval: number = 10000
-  ): () => void {
-    return mockChatService.startAutoReply(questionId, onNewMessage, interval)
+  public isStudentLoggedIn(): boolean {
+    const token = localStorage.getItem('studentToken')
+    const userId = localStorage.getItem('studentUserId')
+    console.log('🔍 检查学生登录状态:', { token, userId })
+    return !!(token && userId && token !== 'undefined' && userId !== 'undefined' && token.trim() !== '' && userId.trim() !== '')
   }
 
   /**
-   * 生成模拟用户消息
+   * 学生登出
    */
-  public generateMockUserMessage(): string {
-    return mockChatService.generateMockUserMessage()
+  public logoutStudent(): void {
+    localStorage.removeItem('studentToken')
+    localStorage.removeItem('studentUserId')
+    console.log('学生已登出')
   }
 
   /**
-   * 生成模拟AI回复
+   * MD5加密 - 与Android端保持一致
    */
-  public generateMockResponse(subject: 'math' | 'biology' | 'general' = 'general'): string {
-    return mockChatService.generateMockResponse(subject)
+  private md5(input: string): string {
+    return CryptoJS.MD5(input).toString()
+  }
+
+  /**
+   * 获取教材版本列表 - 修正为与Android端一致的流程
+   */
+  public async getTextbookVersions(): Promise<TextbookVersion[]> {
+    try {
+      // 检查学生登录状态，如果未登录则先登录
+      if (!this.isStudentLoggedIn()) {
+        console.log('学生未登录，尝试自动登录...')
+        
+        // 从localStorage获取用户凭据
+        const userId = localStorage.getItem('userId')
+        const password = localStorage.getItem('userPassword')
+        
+        if (!userId || !password || userId === 'undefined' || password === 'undefined' || userId.trim() === '' || password.trim() === '') {
+          console.warn('无法获取用户凭据，请先进行主应用登录')
+          return []
+        }
+        
+        const loginResult = await this.loginStudent(userId, password)
+        if (!loginResult) {
+          console.error('学生自动登录失败')
+          return []
+        }
+      }
+      
+      const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.VERSIONS
+      
+        // 设置认证token
+        const studentToken = localStorage.getItem('studentToken')
+        if (studentToken && studentToken !== 'undefined' && studentToken.trim() !== '') {
+          httpClient.setAuthToken(studentToken)
+        }
+        
+        const response = await httpClient.post<TextbookVersion[]>(endpoint, {})
+      
+      if (response.success && response.data) {
+        return response.data
+      }
+      return []
+    } catch (error) {
+      console.error('获取教材版本失败:', error)
+      return []
+    }
+  }
+
+
+  /**
+   * 获取教材结构 - 修正为与Android端一致的流程
+   */
+  public async getTextbookStructure(textbookId: string): Promise<ChapterNode[]> {
+    try {
+      // 检查学生登录状态，如果未登录则先登录
+      if (!this.isStudentLoggedIn()) {
+        console.log('学生未登录，尝试自动登录...')
+        
+        const userId = localStorage.getItem('userId')
+        const password = localStorage.getItem('userPassword')
+        
+        if (!userId || !password || userId === 'undefined' || password === 'undefined' || userId.trim() === '' || password.trim() === '') {
+          console.warn('无法获取用户凭据，请先进行主应用登录')
+          return []
+        }
+        
+        const loginResult = await this.loginStudent(userId, password)
+        if (!loginResult) {
+          console.error('学生自动登录失败')
+          return []
+        }
+      }
+      
+      const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.STRUCTURE
+      
+        // 设置认证token
+        const studentToken = localStorage.getItem('studentToken')
+        if (studentToken && studentToken !== 'undefined' && studentToken.trim() !== '') {
+          httpClient.setAuthToken(studentToken)
+        }
+        
+        const request: TextbookStructureRequest = { textbookId }
+        const response = await httpClient.post<ChapterNode[]>(endpoint, request)
+      
+      if (response.success && response.data) {
+        return response.data
+      }
+      return []
+    } catch (error) {
+      console.error('获取教材结构失败:', error)
+      return []
+    }
+  }
+
+  /**
+   * 获取学习资源包 - 修正为与Android端一致的流程
+   */
+  public async getLearningResources(textbookId: string): Promise<LearningPackage[]> {
+    try {
+      // 检查学生登录状态，如果未登录则先登录
+      if (!this.isStudentLoggedIn()) {
+        console.log('学生未登录，尝试自动登录...')
+        
+        const userId = localStorage.getItem('userId')
+        const password = localStorage.getItem('userPassword')
+        
+        if (!userId || !password || userId === 'undefined' || password === 'undefined' || userId.trim() === '' || password.trim() === '') {
+          console.warn('无法获取用户凭据，请先进行主应用登录')
+          return []
+        }
+        
+        const loginResult = await this.loginStudent(userId, password)
+        if (!loginResult) {
+          console.error('学生自动登录失败')
+          return []
+        }
+      }
+      
+      const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.LEARNING_PACKAGE
+      
+        // 设置认证token
+        const studentToken = localStorage.getItem('studentToken')
+        if (studentToken && studentToken !== 'undefined' && studentToken.trim() !== '') {
+          httpClient.setAuthToken(studentToken)
+        }
+        
+        const request: LearningResourcesRequest = { textbookId }
+        const response = await httpClient.post<LearningPackage[]>(endpoint, request)
+      
+      if (response.success && response.data) {
+        return response.data
+      }
+      return []
+    } catch (error) {
+      console.error('获取学习资源失败:', error)
+      return []
+    }
+  }
+
+  /**
+   * 将教材版本转换为选择器选项
+   */
+  public convertToTextbookOptions(versions: TextbookVersion[]): TextbookOption[] {
+    return versions.map(version => ({
+      value: `${version.textbookSubjectLabel}-${version.textbookGradeLabel}-${version.textbookSemesterLabel}-${version.id}`,
+      label: `${version.textbookSemesterLabel}/${version.textbookPublisher}/${version.textbookGradeLabel}`,
+      textbookId: version.textbookId,
+      subject: version.textbookSubjectLabel,
+      grade: version.textbookGradeLabel,
+      semester: version.textbookSemesterLabel,
+      publisher: version.textbookPublisher,
+      cover: version.textbookCover
+    }))
   }
 }
 

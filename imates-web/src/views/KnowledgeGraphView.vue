@@ -255,13 +255,15 @@
               outlined
               use-chips
             />
-            <q-range
-              v-model="difficultyRange"
-              :min="1"
-              :max="5"
-              :step="1"
-              label="难度范围"
-            />
+            <div class="q-mb-md">
+              <div class="text-subtitle2 q-mb-sm">难度范围</div>
+              <q-range
+                v-model="difficultyRange"
+                :min="1"
+                :max="5"
+                :step="1"
+              />
+            </div>
           </div>
         </q-card-section>
         <q-card-actions align="right">
@@ -320,6 +322,8 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, nextTick, computed } from 'vue'
+import { apiService } from '../services/api-service'
+import type { TextbookVersion, TextbookOption } from '../types'
 
 // 响应式数据
 const loading = ref(true)
@@ -330,7 +334,7 @@ const showAddNodeDialog = ref(false)
 const showTextbookDialog = ref(false)
 const searchQuery = ref('')
 const selectedTypes = ref<string[]>([])
-const difficultyRange = ref({ min: 1, max: 5 })
+const difficultyRange = ref<{ min: number; max: number }>({ min: 1, max: 5 })
 const selectedNode = ref<Record<string, unknown> | null>(null)
 const selectedChapter = ref(0)
 const graphContainer = ref<HTMLElement>()
@@ -340,18 +344,12 @@ const sidebarCollapsed = ref(false)
 const chapterCollapsed = ref(false)
 const selectedStatus = ref('all')
 
+// 开发环境检测
+
 // 教材选择器
-const selectedTextbook = ref('math-up-renjiao-bixiu1')
-const textbookOptions = ref([
-  { value: 'math-up-renjiao-bixiu1', label: '上册/人教版/必修一' },
-  { value: 'math-down-renjiao-bixiu1', label: '下册/人教版/必修一' },
-  { value: 'math-up-renjiao-bixiu2', label: '上册/人教版/必修二' },
-  { value: 'math-down-renjiao-bixiu2', label: '下册/人教版/必修二' },
-  { value: 'math-up-beishida-bixiu1', label: '上册/北师大版/必修一' },
-  { value: 'math-down-beishida-bixiu1', label: '下册/北师大版/必修一' },
-  { value: 'math-up-beishida-bixiu2', label: '上册/北师大版/必修二' },
-  { value: 'math-down-beishida-bixiu2', label: '下册/北师大版/必修二' }
-])
+const selectedTextbook = ref('')
+const textbookOptions = ref<TextbookOption[]>([])
+const textbookVersions = ref<TextbookVersion[]>([])
 
 // 计算属性：当前选中的教材标签
 const selectedTextbookLabel = computed(() => {
@@ -533,11 +531,42 @@ const getNodeColor = (type: unknown) => {
   return colors[String(type)] || 'grey'
 }
 
+// 加载教材数据
+const loadTextbookData = async () => {
+  try {
+    // 检查学生登录状态
+    if (!apiService.isStudentLoggedIn()) {
+      console.log('🔐 学生未登录，将尝试自动登录...')
+    }
+    
+    const versions = await apiService.getTextbookVersions()
+    
+    if (versions && versions.length > 0) {
+      textbookVersions.value = versions
+      textbookOptions.value = apiService.convertToTextbookOptions(versions)
+      
+      // 设置默认选中的教材
+      if (textbookOptions.value.length > 0) {
+        selectedTextbook.value = textbookOptions.value[0].value
+      }
+    } else {
+      textbookVersions.value = []
+      textbookOptions.value = []
+    }
+    
+  } catch (error) {
+    console.error('❌ 加载教材数据失败:', error)
+  }
+}
+
 // 初始化图谱
 const initGraph = async () => {
   loading.value = true
   
   try {
+    // 先加载教材数据
+    await loadTextbookData()
+    
     // 模拟加载延迟
     await new Promise(resolve => setTimeout(resolve, 1000))
     
@@ -647,12 +676,37 @@ const applyFilter = () => {
 }
 
 // 教材切换
-const onTextbookChange = (value: string) => {
+const onTextbookChange = async (value: string) => {
   console.log('切换教材:', value)
-  // 这里可以根据选择的教材重新加载对应的知识图谱数据
-  // 例如：重新初始化图谱数据、更新章节列表等
-  initGraphData()
-  renderGraph()
+  
+  try {
+    // 找到选中的教材选项
+    const selectedOption = textbookOptions.value.find(opt => opt.value === value)
+    if (!selectedOption) {
+      console.warn('未找到选中的教材选项')
+      return
+    }
+    
+    console.log('选中的教材信息:', selectedOption)
+    
+    // 根据教材ID加载章节结构
+    if (selectedOption.textbookId && selectedOption.textbookId !== 'default') {
+      const chapterStructure = await apiService.getTextbookStructure(selectedOption.textbookId)
+      console.log('获取到章节结构:', chapterStructure)
+      
+      // 更新章节列表
+      if (chapterStructure.length > 0) {
+        chapters.value = chapterStructure.map(chapter => chapter.name)
+      }
+    }
+    
+    // 重新初始化图谱数据
+    initGraphData()
+    renderGraph()
+    
+  } catch (error) {
+    console.error('切换教材失败:', error)
+  }
 }
 
 // 添加节点
@@ -683,6 +737,7 @@ const cancelAddNode = () => {
   newNode.description = ''
   newNode.difficulty = 1
 }
+
 
 // 选择章节
 const selectChapter = (index: number) => {

@@ -79,16 +79,17 @@ export const API_ENDPOINTS = {
     INTERNAL_TEST: 'https://www.imates.com.cn/appupdate_test.json'
   },
 
-  // 学习资源管理相关 - 通过代理服务器访问
+  // 学习资源管理相关 - 与Android端LearnResourceManager保持一致
   LEARNING_RESOURCE: {
-    // 用户认证
-    LOGIN_STUDENT: '/auth/login-student',
+    // 用户认证 - 与Android端BASE_URL + "/blw-edu-yb/auth/login-student"一致
+    LOGIN_STUDENT: '/blw-edu-yb/auth/login-student',
     
-    // 教材相关
+    // 教材相关 - 使用与Android端相同的BASE_URL
     TEXTBOOK: {
-      VERSIONS: '/api/app/teacher-textbook',
-      STRUCTURE: '/api/app/teacher-textbook-section-tree',
-      LEARNING_PACKAGE: '/api/app/teacher-textbook-learning-package'
+      BASE_URL: 'https://43.138.16.5:50013', // 与Android端LearnResourceManager.BASE_URL一致
+      VERSIONS: '/blw-edu-yb/api/app/teacher-textbook',
+      STRUCTURE: '/blw-edu-yb/api/app/teacher-textbook-section-tree',
+      LEARNING_PACKAGE: '/blw-edu-yb/api/app/teacher-textbook-learning-package'
     }
   }
 } as const

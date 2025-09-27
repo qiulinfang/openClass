@@ -390,55 +390,6 @@ export class AsyncStorageService {
     }
   }
 
-  // ==================== 测试相关方法 ====================
-
-  /**
-   * 生成测试聊天记录并保存
-   * @param questionId 题目ID
-   * @param messageCount 消息数量
-   */
-  async generateAndSaveTestChatHistory(questionId: string, messageCount: number = 10): Promise<void> {
-    try {
-      // 导入模拟聊天服务
-      const { mockChatService } = await import('./mock-chat-service')
-      const testData = mockChatService.generateTestChatData(questionId)
-      
-      // 调整消息数量
-      if (messageCount !== 10) {
-        testData.messages = mockChatService.generateMockChatHistory(questionId, messageCount)
-      }
-      
-      await this.saveChatHistory(questionId, testData)
-      console.log(`🧪 测试聊天记录已生成并保存: ${questionId} (${testData.messages.length}条消息)`)
-    } catch (error) {
-      console.error('生成测试聊天记录失败:', error)
-      throw error
-    }
-  }
-
-  /**
-   * 批量生成测试聊天记录
-   * @param questionIds 题目ID列表
-   * @param messageCount 每个题目的消息数量
-   */
-  async generateBatchTestChatHistory(questionIds: string[], messageCount: number = 8): Promise<void> {
-    try {
-      const { mockChatService } = await import('./mock-chat-service')
-      
-      for (const questionId of questionIds) {
-        const testData = mockChatService.generateTestChatData(questionId)
-        if (messageCount !== 10) {
-          testData.messages = mockChatService.generateMockChatHistory(questionId, messageCount)
-        }
-        await this.saveChatHistory(questionId, testData)
-      }
-      
-      console.log(`🧪 批量测试聊天记录已生成: ${questionIds.length}个题目`)
-    } catch (error) {
-      console.error('批量生成测试聊天记录失败:', error)
-      throw error
-    }
-  }
 
   /**
    * 清空所有聊天记录

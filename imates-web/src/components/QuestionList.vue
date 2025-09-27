@@ -42,18 +42,6 @@
           <q-tooltip>拍照搜题</q-tooltip>
         </q-btn>
 
-        <!-- 调试模式切换按钮 - 生产环境隐藏 -->
-        <q-btn
-          v-if="false"
-          icon="bug_report"
-          color="orange"
-          outline
-          round
-          @click="debugMode = !debugMode"
-          class="debug-toggle-btn"
-        >
-          <q-tooltip>切换调试模式</q-tooltip>
-        </q-btn>
       </div>
     </div>
 
@@ -94,67 +82,6 @@
         />
       </div>
     </div>
-
-    <!-- 聊天测试面板 - 生产环境隐藏 -->
-    <ChatTestPanel v-if="false" />
-
-    <!-- 调试控制面板 - 生产环境隐藏 -->
-    <div v-if="false" class="debug-panel q-mt-md">
-      <q-card flat bordered class="q-pa-md">
-        <div class="text-h6 q-mb-md">调试控制面板</div>
-        
-        <div class="row q-gutter-md q-mb-md">
-          <q-toggle
-            v-model="useMockData"
-            label="使用假数据"
-            @update:model-value="onMockDataToggle"
-            color="primary"
-          />
-          
-          <q-input
-            v-model.number="mockDataCount"
-            type="number"
-            label="假数据数量"
-            min="1"
-            max="100"
-            style="width: 150px"
-            dense
-          />
-        </div>
-        
-        <div class="row q-gutter-sm">
-          <q-btn
-            color="primary"
-            outline
-            size="sm"
-            @click="loadMockData"
-            class="debug-toggle-btn"
-          >
-            加载数学假数据
-          </q-btn>
-          
-          <q-btn
-            color="secondary"
-            outline
-            size="sm"
-            @click="loadSpecialQuestions"
-            class="debug-toggle-btn"
-          >
-            加载特殊字符题目
-          </q-btn>
-          
-          <q-btn
-            color="negative"
-            outline
-            size="sm"
-            @click="clearQuestions"
-            class="debug-toggle-btn"
-          >
-            清空题目
-          </q-btn>
-        </div>
-      </q-card>
-    </div>
   </div>
 </template>
 
@@ -169,8 +96,6 @@ import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { apiService } from '../services/api-service'
 import { androidBridge } from '../services/android-bridge'
 import VirtualQuestionList from './VirtualQuestionList.vue'
-import ChatTestPanel from './ChatTestPanel.vue'
-import { generateMathQuestions, generateBiologyQuestions, generateSpecialCharacterQuestions } from '../utils/dev/mockDataGenerator'
 
 const $q = useQuasar()
 const emit = defineEmits<{
@@ -190,10 +115,6 @@ const contentRefs = ref<Map<string, HTMLElement>>(new Map())
 const searchQuery = ref('')
 const searchTimeout = ref<number | null>(null)
 
-// 假数据相关
-const debugMode = ref(false)
-const mockDataCount = ref(10)
-const useMockData = ref(false)
 
 
 // 计算属性
@@ -258,19 +179,7 @@ const loadQuestions = async () => {
   try {
     let convertedQuestions: ExerciseItem[] = []
 
-    if (useMockData.value) {
-      // 使用假数据
-      switch (selectedSubject.value) {
-        case 'math':
-          convertedQuestions = generateMathQuestions(mockDataCount.value)
-          break
-        case 'biology':
-          convertedQuestions = generateBiologyQuestions(mockDataCount.value)
-          break
-        default:
-          convertedQuestions = generateMathQuestions(mockDataCount.value)
-      }
-    } else {
+    // 使用真实数据
       // 使用API服务获取题目列表
       const questionList = await apiService.getExerciseList(selectedSubject.value)
 
@@ -288,7 +197,6 @@ const loadQuestions = async () => {
           subject: (question.subject as string) || selectedSubject.value.toLowerCase(),
         }
       })
-    }
 
     // 同步到全局 store，确保 selectQuestion 能够定位
     // store会自动进行去重处理
@@ -641,37 +549,6 @@ const sendToAi = async (question: ExerciseItem) => {
   }
 }
 
-// 假数据相关方法
-const onMockDataToggle = () => {
-  useMockData.value = !useMockData.value
-  if (useMockData.value) {
-    showMessage('已切换到假数据模式', 'info')
-  } else {
-    showMessage('已切换到真实数据模式', 'info')
-  }
-  loadQuestions()
-}
-
-const loadMockData = () => {
-  useMockData.value = true
-  loadQuestions()
-}
-
-const loadSpecialQuestions = () => {
-  useMockData.value = true
-  const specialQuestions = generateSpecialCharacterQuestions(5)
-  const store = useExerciseStore()
-  store.setQuestions(specialQuestions)
-  questions.value = [...store.questions]
-  showMessage('已加载特殊字符题目', 'info')
-}
-
-const clearQuestions = () => {
-  questions.value = []
-  const store = useExerciseStore()
-  store.setQuestions([])
-  showMessage('已清空题目列表', 'info')
-}
 
 // 生命周期
 onMounted(() => {
@@ -819,21 +696,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
         }
       }
 
-      .debug-toggle-btn {
-        @include button-base;
-        flex-shrink: 0;
-        width: 44px;
-        height: 44px;
-        border-radius: 22px;
-        background-color: $background-light;
-        border: 1px solid $border-color;
-        
-        &:hover {
-          background-color: rgba(255, 152, 0, 0.1);
-          border-color: rgba(255, 152, 0, 0.3);
-          @include card-shadow(hover);
-        }
-      }
     }
   }
 
@@ -1209,29 +1071,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   }
 }
 
-.debug-content {
-  padding: 12px;
-  background-color: $background-light;
-  border-radius: 8px;
-  margin-top: 12px;
-  font-size: 12px;
-  border-left: 3px solid #ff9800;
-  color: $text-secondary;
-  font-family: 'Google Sans Mono', 'Courier New', monospace;
-}
-
-.debug-panel {
-  .debug-toggle-btn {
-    @include button-base;
-    border-radius: 8px;
-    font-weight: 500;
-    text-transform: none;
-    
-    &:hover {
-      @include card-shadow(hover);
-    }
-  }
-}
 
 // ===== 响应式设计 =====
 @media (max-width: 768px) {
