@@ -34,8 +34,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, ref, onMounted } from 'vue'
-import { gsap } from 'gsap'
+import { ref, onMounted } from 'vue'
 
 interface ChapterDetails {
   id: string
@@ -56,13 +55,10 @@ interface Props {
   chapterDetails: ChapterDetails
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 
 // 模板引用
 const svgRef = ref<SVGElement>()
-
-// 动画时间线
-let linesTimeline: gsap.core.Timeline | null = null
 
 // 计算圆周节点位置
 const getCircularNodePosition = (index: number, total: number) => {
@@ -94,111 +90,23 @@ const getOuterNodePosition = (index: number, total: number, parentIndex: number,
   }
 }
 
-// 连接线动画
+// 连接线动画 - 已移除
 const animateLines = () => {
-  if (!svgRef.value) return
-  
-  // 清除之前的动画
-  if (linesTimeline) {
-    linesTimeline.kill()
-  }
-  
-  linesTimeline = gsap.timeline()
-  
-  // 获取所有连接线
-  const mainLines = svgRef.value.querySelectorAll('.main-line')
-  const outerLines = svgRef.value.querySelectorAll('.outer-line')
-  
-  // 设置初始状态
-  gsap.set(mainLines, { 
-    strokeDasharray: "0, 1000",
-    opacity: 0 
-  })
-  gsap.set(outerLines, { 
-    strokeDasharray: "0, 1000",
-    opacity: 0 
-  })
-  
-  // 主连接线动画
-  linesTimeline
-    .to(mainLines, {
-      opacity: 1,
-      duration: 0.3,
-      ease: "power2.out"
-    })
-    .to(mainLines, {
-      strokeDasharray: "5, 5",
-      duration: 1.5,
-      ease: "power2.out"
-    }, "-=0.2")
-    // 外围连接线动画
-    .to(outerLines, {
-      opacity: 1,
-      duration: 0.3,
-      ease: "power2.out"
-    }, "-=0.5")
-    .to(outerLines, {
-      strokeDasharray: "3, 3",
-      duration: 1.2,
-      ease: "power2.out"
-    }, "-=0.2")
-    // 添加流动效果
-    .to(mainLines, {
-      strokeDashoffset: -10,
-      duration: 2,
-      ease: "none",
-      repeat: -1
-    }, "-=0.5")
-    .to(outerLines, {
-      strokeDashoffset: -6,
-      duration: 3,
-      ease: "none",
-      repeat: -1
-    }, "-=1.5")
+  // 保留方法但不执行动画
 }
 
-// 高亮连接线
-const highlightLines = (nodeId: string) => {
-  if (!svgRef.value) return
-  
-  const allLines = svgRef.value.querySelectorAll('.connection-line')
-  
-  // 重置所有线条
-  gsap.to(allLines, {
-    strokeWidth: 2,
-    opacity: 0.6,
-    duration: 0.3,
-    ease: "power2.out"
-  })
-  
-  // 高亮相关线条
-  const relatedLines = svgRef.value.querySelectorAll(`[data-node-id="${nodeId}"]`)
-  gsap.to(relatedLines, {
-    strokeWidth: 4,
-    opacity: 1,
-    duration: 0.3,
-    ease: "power2.out"
-  })
+// 高亮连接线 - 已移除
+const highlightLines = () => {
+  // 保留方法但不执行动画
 }
 
-// 重置连接线
+// 重置连接线 - 已移除
 const resetLines = () => {
-  if (!svgRef.value) return
-  
-  const allLines = svgRef.value.querySelectorAll('.connection-line')
-  gsap.to(allLines, {
-    strokeWidth: 2,
-    opacity: 0.6,
-    duration: 0.3,
-    ease: "power2.out"
-  })
+  // 保留方法但不执行动画
 }
 
 onMounted(() => {
-  // 延迟执行连接线动画，等待节点动画完成
-  setTimeout(() => {
-    animateLines()
-  }, 1500)
+  // 连接线动画已移除
 })
 
 // 暴露方法给父组件
@@ -220,7 +128,5 @@ defineExpose({
   z-index: 1;
 }
 
-.connection-line {
-  /* GSAP will handle all animations */
-}
+/* 连接线样式已移除 */
 </style>

@@ -12,17 +12,12 @@
      <div class="node-content">
        <div class="node-title">{{ formatNodeName(node) }}</div>
        <div v-if="node.label" class="node-label">{{ node.label }}</div>
-      <!-- 中心节点进度条 -->
-      <div v-if="type === 'center'" class="progress-container">
-        <div class="progress-bar" :style="{ width: `${progress}%` }"></div>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, defineProps, defineEmits, onMounted, watch } from 'vue'
-import { gsap } from 'gsap'
+import { computed, ref, defineProps, defineEmits, onMounted } from 'vue'
 
 interface Node {
   id: string
@@ -40,7 +35,6 @@ interface Props {
   totalParents?: number
   highlighted?: boolean
   blue?: boolean
-  progress?: number
 }
 
 interface Emits {
@@ -50,8 +44,7 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   highlighted: false,
-  blue: false,
-  progress: 0
+  blue: false
 })
 
 const emit = defineEmits<Emits>()
@@ -114,207 +107,18 @@ const nodeStyle = computed(() => {
   return {}
 })
 
-// GSAP动画相关
-let hoverAnimation: gsap.core.Timeline | null = null
-let pulseAnimation: gsap.core.Timeline | null = null
-
 const handleMouseEnter = (event: Event) => {
   emit('mouseenter', event, true)
-  animateHover(true)
 }
 
 const handleMouseLeave = (event: Event) => {
   emit('mouseleave', event, false)
-  animateHover(false)
 }
 
-// 悬停动画
-const animateHover = (isEnter: boolean) => {
-  if (!nodeRef.value) return
-  
-  if (hoverAnimation) {
-    hoverAnimation.kill()
-  }
-  
-  if (isEnter) {
-    hoverAnimation = gsap.timeline()
-    hoverAnimation
-      .to(nodeRef.value, {
-        scale: 1.1,
-        duration: 0.3,
-        ease: "back.out(1.7)"
-      })
-      .to(nodeRef.value, {
-        boxShadow: "0 8px 25px rgba(0, 0, 0, 0.15)",
-        duration: 0.3,
-        ease: "power2.out"
-      }, 0)
-  } else {
-    hoverAnimation = gsap.timeline()
-    hoverAnimation
-      .to(nodeRef.value, {
-        scale: 1,
-        duration: 0.3,
-        ease: "power2.out"
-      })
-      .to(nodeRef.value, {
-        boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
-        duration: 0.3,
-        ease: "power2.out"
-      }, 0)
-  }
-}
-
-// 高亮动画
-const animateHighlight = (isHighlighted: boolean) => {
-  if (!nodeRef.value) return
-  
-  if (isHighlighted) {
-    gsap.to(nodeRef.value, {
-      scale: 1.15,
-      boxShadow: "0 0 20px rgba(139, 92, 246, 0.6)",
-      duration: 0.4,
-      ease: "power2.out"
-    })
-    
-    // 添加脉冲效果
-    if (pulseAnimation) {
-      pulseAnimation.kill()
-    }
-    pulseAnimation = gsap.timeline({ repeat: -1 })
-    pulseAnimation
-      .to(nodeRef.value, {
-        scale: 1.2,
-        duration: 1,
-        ease: "power2.inOut"
-      })
-      .to(nodeRef.value, {
-        scale: 1.15,
-        duration: 1,
-        ease: "power2.inOut"
-      })
-  } else {
-    if (pulseAnimation) {
-      pulseAnimation.kill()
-    }
-    gsap.to(nodeRef.value, {
-      scale: 1,
-      boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
-      duration: 0.4,
-      ease: "power2.out"
-    })
-  }
-}
-
-// 蓝色状态动画
-const animateBlueState = (isBlue: boolean) => {
-  if (!nodeRef.value) return
-  
-  if (isBlue) {
-    gsap.to(nodeRef.value, {
-      scale: 1.1,
-      boxShadow: "0 0 15px rgba(59, 130, 246, 0.5)",
-      duration: 0.3,
-      ease: "power2.out"
-    })
-  } else {
-    gsap.to(nodeRef.value, {
-      scale: 1,
-      boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
-      duration: 0.3,
-      ease: "power2.out"
-    })
-  }
-}
-
-// 进度条动画
-const animateProgress = () => {
-  if (!nodeRef.value || props.type !== 'center') return
-  
-  const progressBar = nodeRef.value.querySelector('.progress-bar')
-  if (progressBar) {
-    gsap.fromTo(progressBar, 
-      { width: "0%" },
-      { 
-        width: `${props.progress}%`,
-        duration: 1.5,
-        ease: "power2.out",
-        delay: 0.5
-      }
-    )
-  }
-}
-
-// 暴露动画方法给父组件
-defineExpose({
-  animateHover,
-  animateHighlight,
-  animateBlueState,
-  animateProgress
-})
-
-// 监听高亮状态变化
-watch(() => props.highlighted, (newVal) => {
-  animateHighlight(newVal)
-})
-
-// 监听蓝色状态变化
-watch(() => props.blue, (newVal) => {
-  animateBlueState(newVal)
-})
+// 进度条动画已移除
 
 onMounted(() => {
-  if (nodeRef.value) {
-    // 设置初始状态
-    gsap.set(nodeRef.value, {
-      scale: 0,
-      opacity: 0,
-      rotation: props.type === 'center' ? 180 : 0
-    })
-    
-    // 根据节点类型设置不同的入场动画
-    let animationConfig = {}
-    
-    switch (props.type) {
-      case 'center':
-        animationConfig = {
-          scale: 1,
-          opacity: 1,
-          rotation: 0,
-          duration: 0.8,
-          ease: "back.out(1.7)"
-        }
-        break
-      case 'circular':
-        animationConfig = {
-          scale: 1,
-          opacity: 1,
-          duration: 0.6,
-          ease: "back.out(1.7)"
-        }
-        break
-      case 'outer':
-        animationConfig = {
-          scale: 1,
-          opacity: 1,
-          y: 0,
-          duration: 0.5,
-          ease: "power2.out"
-        }
-        gsap.set(nodeRef.value, { y: 20 })
-        break
-    }
-    
-    // 执行入场动画
-    gsap.to(nodeRef.value, animationConfig)
-    
-    // 如果是中心节点，延迟执行进度条动画
-    if (props.type === 'center') {
-      setTimeout(() => {
-        animateProgress()
-      }, 1000)
-    }
-  }
+  // 进度条动画已移除
 })
 </script>
 
@@ -340,7 +144,6 @@ onMounted(() => {
 }
 
 .graph-node--center:hover {
-  transform: scale(1.05);
   box-shadow: 0 12px 40px rgba(139, 92, 246, 0.4);
 }
 
@@ -355,7 +158,6 @@ onMounted(() => {
 }
 
 .graph-node--circular:hover {
-  transform: scale(1.1) !important;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
 }
 
@@ -370,7 +172,6 @@ onMounted(() => {
 }
 
 .graph-node--outer:hover {
-  transform: scale(1.1) !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
 }
@@ -461,20 +262,5 @@ onMounted(() => {
   z-index: 10;
 }
 
-/* 进度条样式 */
-.progress-container {
-  width: 80px;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-top: 8px;
-}
-
-.progress-bar {
-  height: 100%;
-  background: white;
-  border-radius: 2px;
-  transition: width 0.3s ease;
-}
+/* 进度条样式已移除 */
 </style>

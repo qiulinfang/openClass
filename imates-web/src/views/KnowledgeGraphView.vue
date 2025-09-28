@@ -135,7 +135,17 @@
           <!-- 圆形轨迹指示器 -->
           <div class="circular-track"></div>
           <!-- 圆形布局容器 -->
-          <div class="circular-layout" ref="circularLayoutRef">
+          <div 
+            class="circular-layout" 
+            ref="circularLayoutRef"
+            @touchstart="handleTouchStart"
+            @touchmove="handleTouchMove"
+            @touchend="handleTouchEnd"
+            @mousedown="handleMouseDown"
+            @mousemove="handleMouseMove"
+            @mouseup="handleMouseUp"
+            @mouseleave="handleMouseUp"
+          >
             <div 
               v-for="(subChapter, index) in getSubChapters(selectedChapterDetails)" 
               :key="subChapter.id"
@@ -152,15 +162,6 @@
           </div>
         </div>
         
-        <!-- 滚动指示器 -->
-        <div class="scroll-indicator">
-          <div class="scroll-progress">
-            <div class="progress-bar" :style="{ width: scrollProgress + '%' }"></div>
-          </div>
-          <div class="scroll-hint">
-            {{ isScrolling ? '滚动中...' : '滚动屏幕控制旋转' }}
-          </div>
-        </div>
       </div>
       
     </div>
@@ -187,20 +188,109 @@ const chapterCollapsed = ref(false)
 
 // GSAP动画相关
 const tl = ref<gsap.core.Timeline | null>(null)
-const isAnimating = ref(false)
 const selectedStatus = ref('all')
 
 // 圆形布局相关
 const circularContainerRef = ref<HTMLElement>()
 const circularLayoutRef = ref<HTMLElement>()
-const currentRotation = ref(0)
 
-// 滚动控制相关
-const scrollProgress = ref(0)
-const scrollSensitivity = 0.8 // 滚动敏感度
-const snapThreshold = 0.1 // 吸附阈值
-const isScrolling = ref(false)
-const scrollTimeout = ref<number | null>(null)
+// 旋转控制相关
+const rotationAngle = ref(0) // 当前旋转角度（度）
+const isDragging = ref(false) // 是否正在拖拽
+const startY = ref(0) // 开始触摸的Y坐标
+const lastY = ref(0) // 上次触摸的Y坐标
+const screenHeight = ref(window.innerHeight) // 屏幕高度
+
+// 触摸事件处理函数
+const handleTouchStart = (event: TouchEvent) => {
+  console.log('触摸开始')
+  if (!circularLayoutRef.value) return
+  
+  isDragging.value = true
+  startY.value = event.touches[0].clientY
+  lastY.value = event.touches[0].clientY
+  
+  // 阻止默认滚动行为
+  event.preventDefault()
+}
+
+const handleTouchMove = (event: TouchEvent) => {
+  console.log('触摸移动')
+  if (!isDragging.value || !circularLayoutRef.value) return
+  
+  const currentY = event.touches[0].clientY
+  const deltaY = currentY - lastY.value
+  
+  // 计算旋转角度：滑动距离与屏幕高度的比例 * 360度
+  const rotationDelta = (deltaY / screenHeight.value) * 360
+  
+  // 更新旋转角度（向上滑动为正，向下滑动为负）
+  rotationAngle.value -= rotationDelta
+  
+  // 更新上次位置
+  lastY.value = currentY
+  
+  // 应用旋转
+  applyRotation()
+  
+  // 阻止默认滚动行为
+  event.preventDefault()
+}
+
+const handleTouchEnd = () => {
+  console.log('触摸结束')
+  isDragging.value = false
+  // 松手后保持最终角度，无回弹
+}
+
+// 鼠标事件处理函数（可选功能）
+const handleMouseDown = (event: MouseEvent) => {
+  console.log('鼠标按下')
+  if (!circularLayoutRef.value) return
+  
+  isDragging.value = true
+  startY.value = event.clientY
+  lastY.value = event.clientY
+  
+  // 阻止默认行为
+  event.preventDefault()
+}
+
+const handleMouseMove = (event: MouseEvent) => {
+  console.log('鼠标移动')
+  if (!isDragging.value || !circularLayoutRef.value) return
+  
+  const currentY = event.clientY
+  const deltaY = currentY - lastY.value
+  
+  // 计算旋转角度：滑动距离与屏幕高度的比例 * 360度
+  const rotationDelta = (deltaY / screenHeight.value) * 360
+  
+  // 更新旋转角度（向上滑动为正，向下滑动为负）
+  rotationAngle.value -= rotationDelta
+  
+  // 更新上次位置
+  lastY.value = currentY
+  
+  // 应用旋转
+  applyRotation()
+  
+  // 阻止默认行为
+  event.preventDefault()
+}
+
+const handleMouseUp = () => {
+  console.log('鼠标抬起')
+  isDragging.value = false
+}
+
+// 应用旋转变换
+const applyRotation = () => {
+  console.log('应用旋转变换')
+  if (!circularLayoutRef.value) return
+  
+  circularLayoutRef.value.style.transform = `rotate(${rotationAngle.value}deg)`
+}
 
 // 开发环境检测
 
@@ -433,90 +523,6 @@ const initGSAPAnimations = () => {
 //   )
 // }
 
-const animateConnectionLine = (line: SVGLineElement, delay: number = 0) => {
-  const length = line.getTotalLength()
-  gsap.fromTo(line,
-    {
-      strokeDasharray: length,
-      strokeDashoffset: length
-    },
-    {
-      strokeDashoffset: 0,
-      duration: 1,
-      delay: delay,
-      ease: "power2.out"
-    }
-  )
-}
-
-const animateLayoutTransition = () => {
-  if (isAnimating.value) return
-  isAnimating.value = true
-  
-  // 创建新的时间线
-  tl.value = gsap.timeline({
-    onComplete: () => {
-      isAnimating.value = false
-    }
-  })
-  
-  // 隐藏当前节点
-  const currentNodes = document.querySelectorAll('.graph-node')
-  tl.value.to(currentNodes, {
-    scale: 0,
-    opacity: 0,
-    duration: 0.3,
-    ease: "power2.in"
-  })
-  
-  // 等待DOM更新后显示新节点
-  tl.value.call(() => {
-    nextTick(() => {
-      animateNewLayout()
-    })
-  })
-}
-
-const animateNewLayout = () => {
-  const newTimeline = gsap.timeline()
-  
-  // 动画中心节点
-  const centerNode = document.querySelector('.center-node')
-  if (centerNode) {
-    newTimeline.fromTo(centerNode,
-      { scale: 0, opacity: 0, rotation: -180 },
-      { scale: 1, opacity: 1, rotation: 0, duration: 0.8, ease: "back.out(1.7)" }
-    )
-  }
-  
-  // 动画圆周节点
-  const circularNodes = document.querySelectorAll('.circular-node')
-  circularNodes.forEach((node, index) => {
-    newTimeline.fromTo(node,
-      { scale: 0, opacity: 0, y: -50 },
-      { scale: 1, opacity: 1, y: 0, duration: 0.6, ease: "back.out(1.7)" },
-      index * 0.1
-    )
-  })
-  
-  // 动画连接线
-  const connectionLines = document.querySelectorAll('.connection-line')
-  connectionLines.forEach((line, index) => {
-    newTimeline.call(() => {
-      animateConnectionLine(line as SVGLineElement)
-    }, [], index * 0.1 + 0.3)
-  })
-  
-  // 动画外围节点
-  const outerNodes = document.querySelectorAll('.outer-node')
-  outerNodes.forEach((node, index) => {
-    newTimeline.fromTo(node,
-      { scale: 0, opacity: 0, y: 20 },
-      { scale: 1, opacity: 1, y: 0, duration: 0.5, ease: "back.out(1.7)" },
-      index * 0.05 + 0.8
-    )
-  })
-}
 
 
 const cleanupAnimations = () => {
@@ -575,11 +581,6 @@ const selectChapter = (index: number) => {
     selectedChapterDetails.value = chapterStructure.value[index]
     console.log('选择章节:', chapters.value[index])
     console.log('章节详情:', selectedChapterDetails.value)
-    
-    // 触发布局动画
-    nextTick(() => {
-      animateLayoutTransition()
-    })
   }
 }
 
@@ -638,158 +639,6 @@ const getGraphRotation = (index: number) => {
   return angle * (180 / Math.PI) // 转换为度数
 }
 
-// 滚动事件处理
-const handleScroll = (event: WheelEvent) => {
-  if (!selectedChapterDetails.value) return
-  
-  event.preventDefault()
-  
-  // 清除之前的定时器
-  if (scrollTimeout.value) {
-    clearTimeout(scrollTimeout.value)
-  }
-  
-  isScrolling.value = true
-  
-  const delta = event.deltaY
-  const rotationDelta = delta * scrollSensitivity * 0.02 // 增加滚动敏感度，使旋转更明显
-  
-  currentRotation.value += rotationDelta
-  
-  // 更新滚动进度
-  const normalizedRotation = ((currentRotation.value % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI)
-  scrollProgress.value = (normalizedRotation / (2 * Math.PI)) * 100
-  
-  // 平滑旋转动画
-  animateCircularRotation()
-  
-  // 设置滚动结束检测
-  scrollTimeout.value = window.setTimeout(() => {
-    isScrolling.value = false
-    snapToNearestPosition()
-  }, 150) // 150ms后检测滚动是否结束
-}
-
-// 触摸滚动处理（移动端支持）
-const handleTouchStart = (event: TouchEvent) => {
-  if (!selectedChapterDetails.value) return
-  
-  // 清除之前的定时器
-  if (scrollTimeout.value) {
-    clearTimeout(scrollTimeout.value)
-  }
-  
-  isScrolling.value = true
-  
-  // 记录触摸起始位置
-  const touch = event.touches[0]
-  const startY = touch.clientY
-  const startRotation = currentRotation.value
-  
-  const handleTouchMove = (e: TouchEvent) => {
-    e.preventDefault()
-    const touch = e.touches[0]
-    const deltaY = startY - touch.clientY
-    const rotationDelta = deltaY * scrollSensitivity * 0.03 // 增加触摸滚动敏感度
-    
-    currentRotation.value = startRotation + rotationDelta
-    
-    // 更新滚动进度
-    const normalizedRotation = ((currentRotation.value % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI)
-    scrollProgress.value = (normalizedRotation / (2 * Math.PI)) * 100
-    
-    animateCircularRotation()
-  }
-  
-  const handleTouchEnd = () => {
-    isScrolling.value = false
-    snapToNearestPosition()
-    document.removeEventListener('touchmove', handleTouchMove)
-    document.removeEventListener('touchend', handleTouchEnd)
-  }
-  
-  document.addEventListener('touchmove', handleTouchMove, { passive: false })
-  document.addEventListener('touchend', handleTouchEnd)
-}
-
-// 自动对齐到最近位置（确保有一个元素在最左点）
-const snapToNearestPosition = () => {
-  if (!selectedChapterDetails.value) return
-  
-  const subChapters = getSubChapters(selectedChapterDetails.value)
-  if (subChapters.length === 0) return
-  
-  // 计算每个元素的角度间隔
-  const angleStep = (2 * Math.PI) / subChapters.length
-  
-  // 将当前旋转角度标准化到 [0, 2π] 范围
-  const normalizedRotation = ((currentRotation.value % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI)
-  
-  // 找到最接近的吸附位置（确保有一个元素在12点钟方向，即角度为0）
-  let targetRotation = normalizedRotation
-  
-  // 找到最接近的吸附位置
-  const snapIndex = Math.round(normalizedRotation / angleStep)
-  const targetAngle = snapIndex * angleStep
-  
-  // 计算需要调整的角度
-  let angleDiff = targetAngle - normalizedRotation
-  
-  // 确保选择最短路径
-  if (angleDiff > Math.PI) {
-    angleDiff -= 2 * Math.PI
-  } else if (angleDiff < -Math.PI) {
-    angleDiff += 2 * Math.PI
-  }
-  
-  // 只有当角度差超过阈值时才进行吸附
-  if (Math.abs(angleDiff) > snapThreshold) {
-    targetRotation = normalizedRotation + angleDiff
-    currentRotation.value = targetRotation
-    
-    // 更新滚动进度
-    const newNormalizedRotation = ((targetRotation % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI)
-    scrollProgress.value = (newNormalizedRotation / (2 * Math.PI)) * 100
-    
-    // 执行平滑吸附动画
-    animateSnapToPosition()
-  }
-}
-
-// 圆形旋转动画 - 实时同步旋转
-const animateCircularRotation = () => {
-  if (!circularLayoutRef.value) return
-  
-  // 使用 requestAnimationFrame 实现最流畅的实时旋转
-  requestAnimationFrame(() => {
-    if (circularLayoutRef.value) {
-      circularLayoutRef.value.style.transform = `rotate(${currentRotation.value * (180 / Math.PI)}deg)`
-    }
-  })
-}
-
-// 吸附动画
-const animateSnapToPosition = () => {
-  if (!circularLayoutRef.value) return
-  
-  gsap.to(circularLayoutRef.value, {
-    rotation: currentRotation.value * (180 / Math.PI),
-    duration: 0.5,
-    ease: "back.out(1.2)"
-  })
-}
-
-// 齿轮旋转效果
-const animateGearRotation = () => {
-  if (!circularLayoutRef.value) return
-  
-  gsap.to(circularLayoutRef.value, {
-    rotation: `+=${360}`,
-    duration: 10,
-    ease: "none",
-    repeat: -1
-  })
-}
 
 
 
@@ -798,74 +647,28 @@ onMounted(() => {
   initGraph()
   initGSAPAnimations()
   
-  // 添加滚动事件监听器
-  window.addEventListener('wheel', handleScroll, { passive: false })
-  window.addEventListener('touchstart', handleTouchStart, { passive: false })
+  // 添加全局鼠标事件监听器
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
   
-  // 初始加载动画
-  nextTick(() => {
-    animateInitialLoad()
-    // 启动齿轮旋转效果
-    setTimeout(() => {
-      animateGearRotation()
-    }, 2000)
+  // 更新屏幕高度
+  const updateScreenHeight = () => {
+    screenHeight.value = window.innerHeight
+  }
+  
+  window.addEventListener('resize', updateScreenHeight)
+  
+  // 清理函数
+  onUnmounted(() => {
+    document.removeEventListener('mousemove', handleMouseMove)
+    document.removeEventListener('mouseup', handleMouseUp)
+    window.removeEventListener('resize', updateScreenHeight)
   })
 })
 
-const animateInitialLoad = () => {
-  if (!selectedChapterDetails.value) return
-  
-  const timeline = gsap.timeline()
-  
-  // 动画中心节点
-  const centerNode = document.querySelector('.center-node')
-  if (centerNode) {
-    timeline.fromTo(centerNode,
-      { scale: 0, opacity: 0, rotation: -180 },
-      { scale: 1, opacity: 1, rotation: 0, duration: 1, ease: "back.out(1.7)" }
-    )
-  }
-  
-  // 动画圆周节点
-  const circularNodes = document.querySelectorAll('.circular-node')
-  circularNodes.forEach((node, index) => {
-    timeline.fromTo(node,
-      { scale: 0, opacity: 0, y: -50 },
-      { scale: 1, opacity: 1, y: 0, duration: 0.8, ease: "back.out(1.7)" },
-      index * 0.15 + 0.3
-    )
-  })
-  
-  // 动画连接线
-  const connectionLines = document.querySelectorAll('.connection-line')
-  connectionLines.forEach((line, index) => {
-    timeline.call(() => {
-      animateConnectionLine(line as SVGLineElement)
-    }, [], index * 0.1 + 0.8)
-  })
-  
-  // 动画外围节点
-  const outerNodes = document.querySelectorAll('.outer-node')
-  outerNodes.forEach((node, index) => {
-    timeline.fromTo(node,
-      { scale: 0, opacity: 0, y: 20 },
-      { scale: 1, opacity: 1, y: 0, duration: 0.6, ease: "back.out(1.7)" },
-      index * 0.05 + 1.2
-    )
-  })
-}
 
 onUnmounted(() => {
   cleanupAnimations()
-  
-  // 清理滚动定时器
-  if (scrollTimeout.value) {
-    clearTimeout(scrollTimeout.value)
-  }
-  
-  // 移除滚动事件监听器
-  window.removeEventListener('wheel', handleScroll)
-  window.removeEventListener('touchstart', handleTouchStart)
 })
 </script>
 
@@ -1104,6 +907,9 @@ onUnmounted(() => {
   position: relative;
   overflow: hidden;
   background: linear-gradient(135deg, #f8f7ff 0%, #ffffff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 // 视口裁剪区域
@@ -1127,18 +933,6 @@ onUnmounted(() => {
   border: 2px dashed rgba(139, 92, 246, 0.3);
   border-radius: 50%;
   z-index: 1;
-  animation: trackPulse 3s ease-in-out infinite;
-}
-
-@keyframes trackPulse {
-  0%, 100% {
-    opacity: 0.3;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.6;
-    transform: scale(1.02);
-  }
 }
 
 
@@ -1152,7 +946,13 @@ onUnmounted(() => {
   transform-origin: center center;
   margin-left: -500px;
   margin-top: -500px;
-  transition: transform 0.8s ease;
+  cursor: grab;
+  user-select: none;
+  touch-action: none; // 禁用默认触摸行为
+  
+  &:active {
+    cursor: grabbing;
+  }
 }
 
 // 知识图谱位置容器
@@ -1170,58 +970,6 @@ onUnmounted(() => {
   transform-origin: center center;
 }
 
-// 滚动指示器样式
-.scroll-indicator {
-  position: absolute;
-  left: 100%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 10;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  border-radius: 25px;
-  padding: 12px 20px;
-  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.2);
-  min-width: 200px;
-  text-align: center;
-}
-
-.scroll-progress {
-  width: 100%;
-  height: 4px;
-  background: rgba(139, 92, 246, 0.2);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-
-.progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #8b5cf6 0%, #a855f7 100%);
-  border-radius: 2px;
-  transition: width 0.3s ease;
-  position: relative;
-  
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 2px;
-    height: 100%;
-    background: #ffffff;
-    box-shadow: 0 0 4px rgba(139, 92, 246, 0.5);
-  }
-}
-
-.scroll-hint {
-  font-size: 12px;
-  color: #8b5cf6;
-  text-align: center;
-  font-weight: 500;
-  opacity: 0.8;
-}
 
 
 .filter-section {
