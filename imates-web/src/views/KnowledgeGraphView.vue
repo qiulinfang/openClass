@@ -569,8 +569,6 @@ const onTextbookChange = async (value: string) => {
   }
 }
 
-
-
 // 选择章节
 const selectChapter = (index: number) => {
   selectedChapter.value = index
@@ -610,10 +608,25 @@ const getSubChapters = (chapterDetails: ChapterNode | null) => {
   }
   
   // 过滤出level=1的子章节（x.x格式）
-  return chapterDetails.children.filter(child => child.level === 1)
+  const subChapters = chapterDetails.children.filter(child => child.level === 1)
+  
+  // 为每个章节添加章节练习节点
+  const exerciseNode: ChapterNode = {
+    id: `${chapterDetails.id}_exercise`,
+    name: '章节练习',
+    parentId: chapterDetails.id,
+    label: '章节练习',
+    level: 1, // 确保是x.x层级
+    isRoot: false,
+    updateTime: new Date().toISOString(),
+    children: []
+  }
+  
+  // 将章节练习节点添加到子章节列表的末尾
+  return [...subChapters, exerciseNode]
 }
 
-// 计算知识图谱在圆周上的位置
+// 计算知识图谱在圆周上的位置（SVG方法）
 const getGraphPosition = (index: number, total: number) => {
   const angle = (2 * Math.PI * index) / total
   const radius = 400 // 大圆半径
@@ -630,11 +643,12 @@ const getGraphPosition = (index: number, total: number) => {
   }
 }
 
-// 计算知识图谱的旋转角度
-const getGraphRotation = (index: number) => {
-  const total = getSubChapters(selectedChapterDetails.value).length
-  const angle = (2 * Math.PI * index) / total
-  return angle * (180 / Math.PI) // 转换为度数
+// 计算知识图谱的旋转角度（保持水平，不旋转内容）
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const getGraphRotation = (_index: number) => {
+  // 根据SVG方法，知识图谱内容保持水平，不进行旋转
+  // 只让位置随容器旋转，但内容本身不旋转
+  return 0
 }
 
 
@@ -930,7 +944,6 @@ onUnmounted(() => {
   margin-top: -400px;
   border: 2px dashed rgba(139, 92, 246, 0.3);
   border-radius: 50%;
-  z-index: 1;
 }
 
 
@@ -961,11 +974,13 @@ onUnmounted(() => {
   transform-origin: center center;
 }
 
-// 知识图谱包装器
+// 知识图谱包装器（SVG方法：内容保持水平）
 .knowledge-graph-wrapper {
   width: 100%;
   height: 100%;
   transform-origin: center center;
+  // 确保内容不随容器旋转而旋转
+  transform: none !important;
 }
 
 

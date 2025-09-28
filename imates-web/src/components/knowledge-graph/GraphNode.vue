@@ -1,18 +1,27 @@
 <template>
-  <div 
-    :class="nodeClasses"
-    :style="nodeStyle"
-    @mouseenter="handleMouseEnter"
-    @mouseleave="handleMouseLeave"
-    @click="handleClick"
-    :ref="(el) => { nodeRef = el as HTMLElement }"
-  >
-    <!-- 学习标签 -->
-    <div v-if="highlighted" class="learning-tag">上次学到</div>
+  <div class="node-wrapper" :style="nodeStyle">
+    <!-- 节点圆形 -->
+    <div 
+      :class="nodeClasses"
+      @mouseenter="handleMouseEnter"
+      @mouseleave="handleMouseLeave"
+      @click="handleClick"
+      :ref="(el) => { nodeRef = el as HTMLElement }"
+    >
+      <!-- 学习标签 -->
+      <div v-if="highlighted" class="learning-tag">上次学到</div>
+      
+      <!-- 中心节点内容在节点内部 -->
+      <div v-if="type === 'center'" class="node-content node-content--center">
+        <div class="node-title">{{ formatNodeName(node) }}</div>
+        <div v-if="node.label" class="node-label">{{ node.label }}</div>
+      </div>
+    </div>
     
-     <div class="node-content">
-       <div class="node-title">{{ formatNodeName(node) }}</div>
-       <div v-if="node.label" class="node-label">{{ node.label }}</div>
+    <!-- 非中心节点的内容通过绝对定位脱离文档流 -->
+    <div v-if="type === 'circular'" :class="contentClasses">
+      <div class="node-title">{{ formatNodeName(node) }}</div>
+      <div v-if="node.label" class="node-label">{{ node.label }}</div>
     </div>
   </div>
 </template>
@@ -29,13 +38,14 @@ interface Node {
 
 interface Props {
   node: Node
-  type: 'center' | 'circular' | 'outer'
+  type: 'center' | 'circular'
   index?: number
   total?: number
-  parentIndex?: number
-  totalParents?: number
   highlighted?: boolean
   blue?: boolean
+  radius?: number
+  show?: boolean
+  animationState?: 'idle' | 'expanding' | 'expanded' | 'collapsing'
 }
 
 interface Emits {
@@ -46,7 +56,10 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   highlighted: false,
-  blue: false
+  blue: false,
+  radius: 180,
+  show: false,
+  animationState: 'idle'
 })
 
 const emit = defineEmits<Emits>()
@@ -71,6 +84,35 @@ const nodeClasses = computed(() => {
   const classes = ['graph-node', `graph-node--${props.type}`]
   if (props.highlighted) classes.push('graph-node--highlighted')
   if (props.blue) classes.push('graph-node--blue')
+  
+  // 根据动画状态添加相应的类
+  if (props.type === 'circular') {
+    if (props.animationState === 'expanding') {
+      classes.push('node-enter')
+    } else if (props.animationState === 'expanded') {
+      classes.push('node-enter') // 保持显示状态，利用forwards保持动画结束状态
+    } else if (props.animationState === 'collapsing') {
+      classes.push('node-exit')
+    }
+  }
+  
+  return classes
+})
+
+const contentClasses = computed(() => {
+  const classes = ['node-content', 'node-content--circular']
+  
+  // 根据动画状态添加相应的类
+  if (props.type === 'circular') {
+    if (props.animationState === 'expanding') {
+      classes.push('content-enter')
+    } else if (props.animationState === 'expanded') {
+      classes.push('content-enter') // 保持显示状态，利用forwards保持动画结束状态
+    } else if (props.animationState === 'collapsing') {
+      classes.push('content-exit')
+    }
+  }
+  
   return classes
 })
 
@@ -79,34 +121,36 @@ const nodeStyle = computed(() => {
     return {}
   }
   
+  // 为圆周节点添加动画延迟
+  const style: Record<string, string | number> = {}
+  if (props.type === 'circular' && props.index !== undefined) {
+    if (props.animationState === 'expanding') {
+      style.animationDelay = `${props.index * 0.1}s`
+    } else if (props.animationState === 'collapsing') {
+      style.animationDelay = `${props.index * 0.05}s`
+    }
+  }
+  
   if (props.type === 'circular') {
+    // 使用KnowledgeGraphView.vue的正确分布算法
     const angle = (2 * Math.PI * (props.index || 0)) / (props.total || 1)
-    const radius = 180  // 调整半径，让子节点分布在大圆边上
+    const radius = props.radius || 180  // 使用传入的半径值，与背景圆保持一致
+    
+    // 计算节点在圆周上的位置，让节点圆心在圆周上
     const x = Math.cos(angle) * radius
     const y = Math.sin(angle) * radius
-    return {
-      transform: `translate(${x}px, ${y}px)`
-    }
+    
+    // 设置容器居中定位，确保圆形分布以容器中心为圆心
+    style.position = 'absolute'
+    style.left = '50%'
+    style.top = '50%'
+    style.marginLeft = '-40px'  // 节点宽度的一半（80px/2）
+    style.marginTop = '-40px'   // 节点高度的一半（80px/2）
+    // SVG方法：只进行位置变换，不旋转内容
+    style.transform = `translate(${x}px, ${y}px)`
   }
   
-  if (props.type === 'outer') {
-    // 计算外围节点的位置
-    const parentAngle = (2 * Math.PI * (props.parentIndex || 0)) / (props.totalParents || 1)
-    const parentRadius = 200
-    const parentX = Math.cos(parentAngle) * parentRadius
-    const parentY = Math.sin(parentAngle) * parentRadius
-    
-    const childAngle = (2 * Math.PI * (props.index || 0)) / (props.total || 1)
-    const childRadius = 80
-    const childX = Math.cos(childAngle) * childRadius
-    const childY = Math.sin(childAngle) * childRadius
-    
-    return {
-      transform: `translate(${parentX + childX}px, ${parentY + childY}px)`
-    }
-  }
-  
-  return {}
+  return style
 })
 
 const handleMouseEnter = (event: Event) => {
@@ -129,14 +173,21 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.graph-node {
+.node-wrapper {
   position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.graph-node {
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.3s ease;
-  text-align: center;
+  position: relative;
 }
 
 /* 中心节点样式 - 大圆 */
@@ -161,26 +212,18 @@ onMounted(() => {
   border: 2px solid #d1d5db;
   border-radius: 50%;
   z-index: 5;
+  /* 初始状态隐藏 */
+  opacity: 0;
+  transform: scale(0);
+  transform-origin: center center;
+  transition: all 0.3s ease;
 }
+
 
 .graph-node--circular:hover {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
 }
 
-/* 外围节点样式 */
-.graph-node--outer {
-  width: 80px;
-  height: 80px;
-  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
-  border: 1px solid #d1d5db;
-  border-radius: 50%;
-  z-index: 3;
-}
-
-.graph-node--outer:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
-}
 
 /* 高亮状态 */
 .graph-node--highlighted {
@@ -198,23 +241,67 @@ onMounted(() => {
 /* 节点内容 */
 .node-content {
   color: #374151;
-  padding: 8px;
+  padding: 8px 4px;
+  margin-top: 8px;
+  max-width: 120px;
+  word-wrap: break-word;
 }
 
-.graph-node--center .node-content {
+/* 非中心节点内容通过绝对定位脱离文档流 */
+.node-content--circular {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  font-size: 11px;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-50%) scale(0.8);
+  transition: opacity 0.6s cubic-bezier(0.4, 0.0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* 节点展开时自动显示内容 - 通过动画类控制，移除静态显示 */
+
+/* 悬停时增强显示效果 */
+.graph-node--circular:hover + .node-content--circular {
+  opacity: 1;
+  transform: translateX(-50%) scale(1.05);
+}
+
+/* 中心节点内部内容 */
+.node-content--center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   color: white;
   padding: 8px;
+  margin-top: 0;
+  max-width: 120px;
+  text-align: center;
+  z-index: 1;
 }
 
-.graph-node--highlighted .node-content,
-.graph-node--blue .node-content {
-  color: white;
+/* 中心节点内容样式保持不变 */
+.graph-node--center + .node-content {
+  color: #374151;
+  margin-top: 12px;
+  max-width: 140px;
 }
 
-.graph-node--outer .node-content {
-  color: #6b7280;
-  padding: 6px;
-}
 
 /* 标题样式 */
 .node-title {
@@ -224,18 +311,25 @@ onMounted(() => {
   word-break: break-word;
 }
 
-.graph-node--center .node-title {
+/* 中心节点内部标题 */
+.node-content--center .node-title {
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: white;
+}
+
+.graph-node--center + .node-content .node-title {
   font-size: 12px;
   margin-bottom: 8px;
 }
 
-.graph-node--circular .node-title {
+/* 非中心节点标题样式 */
+.node-content--circular .node-title {
   font-size: 11px;
-}
-
-.graph-node--outer .node-title {
-  font-size: 10px;
+  font-weight: 600;
+  color: #374151;
   margin-bottom: 2px;
+  line-height: 1.2;
 }
 
 /* 标签样式 */
@@ -244,13 +338,21 @@ onMounted(() => {
   line-height: 1.1;
 }
 
-.graph-node--circular .node-label {
+/* 中心节点内部标签 */
+.node-content--center .node-label {
   font-size: 9px;
+  color: white;
+  opacity: 0.9;
 }
 
-.graph-node--outer .node-label {
-  font-size: 8px;
+/* 非中心节点标签样式 */
+.node-content--circular .node-label {
+  font-size: 9px;
+  color: #6b7280;
+  opacity: 0.8;
+  margin-top: 2px;
 }
+
 
 /* 学习标签 */
 .learning-tag {
@@ -268,5 +370,71 @@ onMounted(() => {
   z-index: 10;
 }
 
-/* 进度条样式已移除 */
+/* 节点进入动画 */
+@keyframes node-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 节点退出动画 */
+@keyframes node-exit {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+/* 内容进入动画 */
+@keyframes content-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+/* 内容退出动画 */
+@keyframes content-exit {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.8);
+  }
+}
+
+/* 节点进入动画类 */
+.graph-node--circular.node-enter {
+  animation: node-enter 0.6s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+/* 节点退出动画类 */
+.graph-node--circular.node-exit {
+  animation: node-exit 0.6s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+/* 内容进入动画类 */
+.node-content--circular.content-enter {
+  animation: content-enter 0.6s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+/* 内容退出动画类 */
+.node-content--circular.content-exit {
+  animation: content-exit 0.6s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
 </style>

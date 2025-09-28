@@ -3,8 +3,8 @@
     <div class="knowledge-graph" ref="graphRef">
       <!-- 背景圆形区域表示包含关系 -->
       <div 
-        class="containment-background" 
-        @click="handleBackgroundClick"
+        ref="backgroundRef"
+        class="containment-background"
         :class="{ 'expanded': isExpanded }"
       ></div>
       
@@ -13,7 +13,6 @@
          ref="centerNodeRef"
          :node="{ id: 'center', name: chapterDetails.name, level: chapterDetails.level }"
          type="center"
-         :class="{ 'expanded': isExpanded }"
          @click="handleCenterNodeClick"
        />
       
@@ -26,16 +25,18 @@
          type="circular"
          :index="index"
          :total="getCircularNodes(chapterDetails).length"
+         :radius="backgroundRadius"
          :highlighted="index === 3"
          :blue="index === 1"
-         :class="{ 'expanded': isExpanded }"
+         :show="isExpanded"
+         :animation-state="animationState"
        />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import GraphNode from './GraphNode.vue'
 
 interface ChapterDetails {
@@ -70,9 +71,28 @@ const props = withDefaults(defineProps<Props>(), {
 const containerRef = ref<HTMLElement>()
 const graphRef = ref<HTMLElement>()
 const centerNodeRef = ref<InstanceType<typeof GraphNode>>()
+const backgroundRef = ref<HTMLElement>()
 
 // 展开状态
 const isExpanded = ref(false)
+
+// 动画状态
+const animationState = ref<'idle' | 'expanding' | 'expanded' | 'collapsing'>('idle')
+
+// 计算背景圆半径
+const backgroundRadius = computed(() => {
+  if (!containerRef.value) return 180 // 默认值
+  
+  const container = containerRef.value
+  const containerWidth = container.offsetWidth
+  const containerHeight = container.offsetHeight
+  
+  // 背景圆是正方形的内切圆，半径是较小边的一半
+  const radius = Math.min(containerWidth, containerHeight) / 2
+  
+  // 减去边框宽度（2px）和一点内边距，让子节点在圆内
+  return Math.max(radius, 100) // 最小半径100px
+})
 
 // 动画时间线 - 已移除
 
@@ -103,10 +123,19 @@ const getCircularNodes = (chapterDetails: ChapterDetails) => {
 }
 
 
-// 处理背景圆形区域点击
-const handleBackgroundClick = () => {
-  console.log("handleBackgroundClick", isExpanded.value)
-  isExpanded.value = !isExpanded.value
+// 动画控制方法
+const animateExpand = () => {
+  animationState.value = 'expanding'
+  
+  // 延迟设置展开状态，让动画有时间播放（与背景圆形区域动画时间一致）
+    animationState.value = 'expanded'
+}
+
+const animateCollapse = () => {
+  animationState.value = 'collapsing'
+  
+  // 延迟设置收起状态，让动画有时间播放（与背景圆形区域动画时间一致）
+    animationState.value = 'idle'
 }
 
 // 处理中心节点点击
@@ -117,12 +146,20 @@ const handleCenterNodeClick = (event: Event) => {
 }
 
 
-// 初始化动画
-const initAnimations = async () => {
-  await nextTick()
-  
-  if (!graphRef.value) return
+// 初始化动画状态
+const initAnimations = () => {
+  animationState.value = 'idle'
+  isExpanded.value = false
 }
+
+// 监听展开状态变化
+watch(isExpanded, (newValue) => {
+  if (newValue) {
+    animateExpand()
+  } else {
+    animateCollapse()
+  }
+})
 
 // 暴露动画方法给父组件
 defineExpose({
@@ -136,10 +173,14 @@ watch(() => props.chapterDetails, () => {
   }
 }, { immediate: true })
 
-// 监听旋转角度变化
-watch(() => props.rotation, (newRotation) => {
+// 监听旋转角度变化（SVG方法：内容保持水平，不旋转）
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+watch(() => props.rotation, (_newRotation) => {
+  // 根据SVG方法，知识图谱内容保持水平，不进行旋转
+  // 位置变化由父容器的旋转控制，内容本身保持水平
   if (graphRef.value) {
-    graphRef.value.style.transform = `rotate(${newRotation}deg)`
+    // 不应用旋转，保持内容水平
+    graphRef.value.style.transform = 'none'
   }
 })
 
@@ -182,17 +223,21 @@ onMounted(() => {
   border-radius: 50%;
   z-index: 1;
   cursor: pointer;
-  transition: all 0.3s ease;
   transform-origin: center center;
+  /* 初始状态隐藏 */
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
   
   &:hover {
     background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(168, 85, 247, 0.08) 100%);
     border-color: rgba(139, 92, 246, 0.3);
   }
   
+  /* 展开状态 */
   &.expanded {
-    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(168, 85, 247, 0.1) 100%);
-    border-color: rgba(139, 92, 246, 0.4);
+    opacity: 1;
+    transform: scale(1);
   }
 }
 </style>
