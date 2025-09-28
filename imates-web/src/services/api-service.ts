@@ -832,38 +832,30 @@ export class ApiService {
    */
   public async getTextbookVersions(): Promise<TextbookVersion[]> {
     try {
-      // 检查学生登录状态，如果未登录则先登录
-      if (!this.isStudentLoggedIn()) {
-        console.log('学生未登录，尝试自动登录...')
-        
-        // 从localStorage获取用户凭据
-        const userId = localStorage.getItem('userId')
-        const password = localStorage.getItem('userPassword')
-        
-        if (!userId || !password || userId === 'undefined' || password === 'undefined' || userId.trim() === '' || password.trim() === '') {
-          console.warn('无法获取用户凭据，请先进行主应用登录')
-          return []
-        }
-        
-        const loginResult = await this.loginStudent(userId, password)
-        if (!loginResult) {
-          console.error('学生自动登录失败')
-          return []
-        }
-      }
-      
       const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.VERSIONS
       
-        // 设置认证token
-        const studentToken = localStorage.getItem('studentToken')
-        if (studentToken && studentToken !== 'undefined' && studentToken.trim() !== '') {
-          httpClient.setAuthToken(studentToken)
-        }
-        
-        const response = await httpClient.post<TextbookVersion[]>(endpoint, {})
+      // 获取学生token并设置到请求头
+      const studentToken = localStorage.getItem('studentToken')
+      if (!studentToken) {
+        console.error('未找到学生token，请先登录')
+        return []
+      }
       
-      if (response.success && response.data) {
-        return response.data
+      const response = await httpClient.post<{
+        code: number
+        success: boolean
+        message: string
+        data: TextbookVersion[]
+      }>(endpoint, {}, {
+        headers: {
+          'sa-token': studentToken,
+          'Authorization': `Bearer ${studentToken}`,
+          'Cookie': `sa-token=${studentToken}`
+        }
+      })
+      
+      if (response.success && response.data && response.data.data) {
+        return response.data.data
       }
       return []
     } catch (error) {
@@ -878,43 +870,37 @@ export class ApiService {
    */
   public async getTextbookStructure(textbookId: string): Promise<ChapterNode[]> {
     try {
-      // 检查学生登录状态，如果未登录则先登录
-      if (!this.isStudentLoggedIn()) {
-        console.log('学生未登录，尝试自动登录...')
-        
-        const userId = localStorage.getItem('userId')
-        const password = localStorage.getItem('userPassword')
-        
-        if (!userId || !password || userId === 'undefined' || password === 'undefined' || userId.trim() === '' || password.trim() === '') {
-          console.warn('无法获取用户凭据，请先进行主应用登录')
-          return []
-        }
-        
-        const loginResult = await this.loginStudent(userId, password)
-        if (!loginResult) {
-          console.error('学生自动登录失败')
-          return []
-        }
-      }
-      
       const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.STRUCTURE
       
-        // 设置认证token
-        const studentToken = localStorage.getItem('studentToken')
-        if (studentToken && studentToken !== 'undefined' && studentToken.trim() !== '') {
-          httpClient.setAuthToken(studentToken)
-        }
-        
-        const request: TextbookStructureRequest = { textbookId }
-        const response = await httpClient.post<ChapterNode[]>(endpoint, request)
-      
-      if (response.success && response.data) {
-        return response.data
+      // 获取学生token并设置到请求头
+      const studentToken = localStorage.getItem('studentToken')
+      if (!studentToken) {
+        console.error('未找到学生token，请先登录')
+        return []
       }
+      
+      const request: TextbookStructureRequest = { id : textbookId }
+      const response = await httpClient.post<{
+        code: number
+        success: boolean
+        message: string
+        data: ChapterNode[]
+      }>(endpoint, request, {
+        headers: {
+          'sa-token': studentToken,
+          'Authorization': `Bearer ${studentToken}`,
+          'Cookie': `sa-token=${studentToken}`
+        }
+      })
+      
+      if (response.success && response.data && response.data.data && response.data.data.length > 0 && response.data.data[0]?.children && response.data.data[0].children.length > 0) {
+        return response.data.data[0].children
+      }
+      
       return []
     } catch (error) {
       console.error('获取教材结构失败:', error)
-      return []
+      throw error
     }
   }
 
@@ -923,38 +909,31 @@ export class ApiService {
    */
   public async getLearningResources(textbookId: string): Promise<LearningPackage[]> {
     try {
-      // 检查学生登录状态，如果未登录则先登录
-      if (!this.isStudentLoggedIn()) {
-        console.log('学生未登录，尝试自动登录...')
-        
-        const userId = localStorage.getItem('userId')
-        const password = localStorage.getItem('userPassword')
-        
-        if (!userId || !password || userId === 'undefined' || password === 'undefined' || userId.trim() === '' || password.trim() === '') {
-          console.warn('无法获取用户凭据，请先进行主应用登录')
-          return []
-        }
-        
-        const loginResult = await this.loginStudent(userId, password)
-        if (!loginResult) {
-          console.error('学生自动登录失败')
-          return []
-        }
-      }
-      
       const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.LEARNING_PACKAGE
       
-        // 设置认证token
-        const studentToken = localStorage.getItem('studentToken')
-        if (studentToken && studentToken !== 'undefined' && studentToken.trim() !== '') {
-          httpClient.setAuthToken(studentToken)
-        }
-        
-        const request: LearningResourcesRequest = { textbookId }
-        const response = await httpClient.post<LearningPackage[]>(endpoint, request)
+      // 获取学生token并设置到请求头
+      const studentToken = localStorage.getItem('studentToken')
+      if (!studentToken) {
+        console.error('未找到学生token，请先登录')
+        return []
+      }
       
-      if (response.success && response.data) {
-        return response.data
+      const request: LearningResourcesRequest = { textbookId }
+      const response = await httpClient.post<{
+        code: number
+        success: boolean
+        message: string
+        data: LearningPackage[]
+      }>(endpoint, request, {
+        headers: {
+          'sa-token': studentToken,
+          'Authorization': `Bearer ${studentToken}`,
+          'Cookie': `sa-token=${studentToken}`
+        }
+      })
+      
+      if (response.success && response.data && response.data.data) {
+        return response.data.data
       }
       return []
     } catch (error) {
@@ -969,7 +948,7 @@ export class ApiService {
   public convertToTextbookOptions(versions: TextbookVersion[]): TextbookOption[] {
     return versions.map(version => ({
       value: `${version.textbookSubjectLabel}-${version.textbookGradeLabel}-${version.textbookSemesterLabel}-${version.id}`,
-      label: `${version.textbookSemesterLabel}/${version.textbookPublisher}/${version.textbookGradeLabel}`,
+      label: `${version.textbookGradeLabel} ${version.textbookSemesterLabel} ${version.textbookSubjectLabel} ${version.textbookName}`,
       textbookId: version.textbookId,
       subject: version.textbookSubjectLabel,
       grade: version.textbookGradeLabel,

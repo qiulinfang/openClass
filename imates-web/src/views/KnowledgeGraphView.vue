@@ -55,7 +55,7 @@
       <div class="subject-info" v-show="!chapterCollapsed">
         <div class="subject-header">
           <q-icon name="menu_book" size="20px" color="grey-7" />
-          <span class="subject-text">数学</span>
+          <span class="subject-text">{{ currentSubjectLabel }}</span>
         </div>
         <div class="textbook-info">
         <q-select
@@ -83,7 +83,12 @@
 
       <!-- 章节目录列表 -->
       <div class="chapter-list" v-show="!chapterCollapsed">
+        <div v-if="chapters.length === 0" class="empty-chapters">
+          <q-icon name="menu_book" size="32px" color="grey-4" />
+          <div class="empty-text">暂无章节数据</div>
+        </div>
         <div 
+          v-else
           v-for="(chapter, index) in chapters" 
           :key="index"
           class="chapter-item"
@@ -121,228 +126,81 @@
             {{ status.label }}
           </q-chip>
         </div>
-        <div class="filter-actions">
-          <q-btn 
-            flat 
-            dense 
-            icon="search" 
-            @click="showSearchDialog = true"
-            class="search-btn"
-          >
-            <q-tooltip>搜索知识点</q-tooltip>
-          </q-btn>
-          <q-btn 
-            flat 
-            dense 
-            icon="filter_list" 
-            @click="showFilterDialog = true"
-            class="filter-btn"
-          >
-            <q-tooltip>高级筛选</q-tooltip>
-          </q-btn>
-        </div>
       </div>
 
-      <!-- 知识图谱容器 -->
-      <div class="graph-container" ref="graphContainer">
-        <div id="knowledge-graph" class="graph-canvas">
-          <!-- 中心节点 -->
-          <div class="center-node">
-            <div class="star-node main-star">
-              <span class="node-number">2.1</span>
-            </div>
-            <div class="node-title">方程组的解集</div>
-            <div class="node-underline"></div>
-          </div>
-
-          <!-- 周围节点 -->
-          <div class="surrounding-nodes">
+      <!-- 圆形知识图谱容器 -->
+      <div class="circular-graphs-container" v-if="selectedChapterDetails" ref="circularContainerRef">
+        <!-- 视口裁剪区域 -->
+        <div class="viewport-clipper">
+          <!-- 圆形轨迹指示器 -->
+          <div class="circular-track"></div>
+          <!-- 圆形布局容器 -->
+          <div class="circular-layout" ref="circularLayoutRef">
             <div 
-              v-for="(node, index) in surroundingNodes" 
-              :key="index"
-              class="star-node"
-              :class="node.status"
-              :style="node.style"
+              v-for="(subChapter, index) in getSubChapters(selectedChapterDetails)" 
+              :key="subChapter.id"
+              class="graph-position"
+              :style="getGraphPosition(index, getSubChapters(selectedChapterDetails).length)"
             >
-              <span class="node-number">{{ node.number }}</span>
-              <div class="node-label">{{ node.label }}</div>
-              <div v-if="node.tag" class="node-tag">{{ node.tag }}</div>
-            </div>
-          </div>
-
-          <!-- 图例 -->
-          <div class="legend">
-            <div class="legend-item">
-              <div class="legend-star not-learned"></div>
-              <span>未学习</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-star learning"></div>
-              <span>正在学</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-star learned"></div>
-              <span>已学习</span>
+              <KnowledgeGraph
+                :chapter-details="subChapter"
+                :graph-index="index"
+                :rotation="getGraphRotation(index)"
+                class="knowledge-graph-wrapper"
+              />
             </div>
           </div>
         </div>
         
-        <!-- 加载状态 -->
-        <div v-if="loading" class="loading-overlay">
-          <q-spinner-dots size="40px" color="primary" />
-          <div class="loading-text">正在加载知识图谱...</div>
+        <!-- 滚动指示器 -->
+        <div class="scroll-indicator">
+          <div class="scroll-progress">
+            <div class="progress-bar" :style="{ width: scrollProgress + '%' }"></div>
+          </div>
+          <div class="scroll-hint">
+            {{ isScrolling ? '滚动中...' : '滚动屏幕控制旋转' }}
+          </div>
         </div>
       </div>
+      
     </div>
 
-    <!-- 教材选择对话框 -->
-    <q-dialog v-model="showTextbookDialog">
-      <q-card style="min-width: 300px">
-        <q-card-section>
-          <div class="text-h6">选择教材</div>
-        </q-card-section>
-        <q-card-section>
-          <q-list>
-            <q-item clickable v-close-popup>
-              <q-item-section>上册/人教版/必修一</q-item-section>
-            </q-item>
-            <q-item clickable v-close-popup>
-              <q-item-section>下册/人教版/必修二</q-item-section>
-            </q-item>
-          </q-list>
-        </q-card-section>
-      </q-card>
-    </q-dialog>
 
-    <!-- 搜索对话框 -->
-    <q-dialog v-model="showSearchDialog">
-      <q-card style="min-width: 400px">
-        <q-card-section>
-          <div class="text-h6">搜索知识点</div>
-        </q-card-section>
-        <q-card-section>
-          <q-input
-            v-model="searchQuery"
-            placeholder="输入知识点名称..."
-            outlined
-            @keyup.enter="searchNodes"
-          >
-            <template v-slot:prepend>
-              <q-icon name="search" />
-            </template>
-          </q-input>
-        </q-card-section>
-        <q-card-actions align="right">
-          <q-btn flat label="取消" @click="showSearchDialog = false" />
-          <q-btn color="primary" label="搜索" @click="searchNodes" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
-
-    <!-- 筛选对话框 -->
-    <q-dialog v-model="showFilterDialog">
-      <q-card style="min-width: 400px">
-        <q-card-section>
-          <div class="text-h6">筛选条件</div>
-        </q-card-section>
-        <q-card-section>
-          <div class="q-gutter-md">
-            <q-select
-              v-model="selectedTypes"
-              :options="nodeTypes"
-              label="知识点类型"
-              multiple
-              outlined
-              use-chips
-            />
-            <div class="q-mb-md">
-              <div class="text-subtitle2 q-mb-sm">难度范围</div>
-              <q-range
-                v-model="difficultyRange"
-                :min="1"
-                :max="5"
-                :step="1"
-              />
-            </div>
-          </div>
-        </q-card-section>
-        <q-card-actions align="right">
-          <q-btn flat label="取消" @click="showFilterDialog = false" />
-          <q-btn color="primary" label="应用筛选" @click="applyFilter" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
-
-    <!-- 添加节点对话框 -->
-    <q-dialog v-model="showAddNodeDialog">
-      <q-card style="min-width: 500px">
-        <q-card-section>
-          <div class="text-h6">添加知识点</div>
-        </q-card-section>
-        <q-card-section>
-          <div class="q-gutter-md">
-            <q-input
-              v-model="newNode.label"
-              label="知识点名称"
-              outlined
-              required
-            />
-            <q-select
-              v-model="newNode.type"
-              :options="nodeTypes"
-              label="知识点类型"
-              outlined
-              required
-            />
-            <q-input
-              v-model="newNode.description"
-              label="描述"
-              type="textarea"
-              outlined
-              rows="3"
-            />
-            <q-input
-              v-model.number="newNode.difficulty"
-              label="难度等级"
-              type="number"
-              min="1"
-              max="5"
-              outlined
-            />
-          </div>
-        </q-card-section>
-        <q-card-actions align="right">
-          <q-btn flat label="取消" @click="cancelAddNode" />
-          <q-btn color="primary" label="添加" @click="addNode" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, nextTick, computed } from 'vue'
+import { ref, onMounted, nextTick, computed, onUnmounted } from 'vue'
 import { apiService } from '../services/api-service'
-import type { TextbookVersion, TextbookOption } from '../types'
+import type { TextbookVersion, TextbookOption, ChapterNode } from '../types'
+import { gsap } from 'gsap'
+import KnowledgeGraph from '../components/knowledge-graph/KnowledgeGraph.vue'
 
 // 响应式数据
 const loading = ref(true)
-const showNodeDetails = ref(false)
-const showSearchDialog = ref(false)
-const showFilterDialog = ref(false)
-const showAddNodeDialog = ref(false)
-const showTextbookDialog = ref(false)
-const searchQuery = ref('')
-const selectedTypes = ref<string[]>([])
-const difficultyRange = ref<{ min: number; max: number }>({ min: 1, max: 5 })
-const selectedNode = ref<Record<string, unknown> | null>(null)
 const selectedChapter = ref(0)
-const graphContainer = ref<HTMLElement>()
+const selectedChapterDetails = ref<ChapterNode | null>(null)
 
 // 布局控制
 const sidebarCollapsed = ref(false)
 const chapterCollapsed = ref(false)
+
+// GSAP动画相关
+const tl = ref<gsap.core.Timeline | null>(null)
+const isAnimating = ref(false)
 const selectedStatus = ref('all')
+
+// 圆形布局相关
+const circularContainerRef = ref<HTMLElement>()
+const circularLayoutRef = ref<HTMLElement>()
+const currentRotation = ref(0)
+
+// 滚动控制相关
+const scrollProgress = ref(0)
+const scrollSensitivity = 0.8 // 滚动敏感度
+const snapThreshold = 0.1 // 吸附阈值
+const isScrolling = ref(false)
+const scrollTimeout = ref<number | null>(null)
 
 // 开发环境检测
 
@@ -354,7 +212,13 @@ const textbookVersions = ref<TextbookVersion[]>([])
 // 计算属性：当前选中的教材标签
 const selectedTextbookLabel = computed(() => {
   const option = textbookOptions.value.find(opt => opt.value === selectedTextbook.value)
-  return option ? option.label : '上册/人教版/必修一'
+  return option ? option.label : '请选择教材'
+})
+
+// 计算属性：当前科目标签
+const currentSubjectLabel = computed(() => {
+  const option = textbookOptions.value.find(opt => opt.value === selectedTextbook.value)
+  return option ? option.subject : '数学'
 })
 
 // 学习状态选项
@@ -366,188 +230,46 @@ const learningStatuses = ref([
 ])
 
 // 章节数据
-const chapters = ref([
-  '第一章 集合与常用逻辑用语',
-  '第二章 集合与常用逻辑用语',
-  '第三章 集合',
-  '第四章 集合与常用逻辑用语的的的...',
-  '第五章 集合与常用逻辑用语'
-])
+const chapters = ref<string[]>([])
+const chapterStructure = ref<ChapterNode[]>([])
 
-// 周围节点数据
-const surroundingNodes = ref([
-  {
-    number: '2.1',
-    label: '方程组的解集',
-    status: 'not-learned',
-    style: { top: '20%', left: '10%' }
-  },
-  {
-    number: '2.1',
-    label: '方程组的解集',
-    status: 'not-learned',
-    style: { top: '20%', right: '10%' }
-  },
-  {
-    number: '2.1',
-    label: '方程组的解集',
-    status: 'last-learned',
-    tag: '上次学到',
-    style: { top: '40%', right: '15%' }
-  },
-  {
-    number: '2.1',
-    label: '方程组的解集',
-    status: 'learned',
-    style: { top: '60%', left: '15%' }
-  },
-  {
-    number: '2.1',
-    label: '方程组的解集',
-    status: 'learned',
-    style: { top: '60%', right: '15%' }
-  },
-  {
-    number: '2.2',
-    label: '方程组的解集',
-    status: 'faded',
-    style: { top: '10%', right: '5%' }
-  },
-  {
-    number: '2.2',
-    label: '方程组的解集',
-    status: 'faded',
-    style: { bottom: '10%', right: '5%' }
-  }
-])
+// 周围节点数据已移除
 
 // 图谱数据
 const nodes = ref<Record<string, unknown>[]>([])
 const edges = ref<Record<string, unknown>[]>([])
 
-// 节点类型
-const nodeTypes = [
-  { label: '概念', value: 'concept' },
-  { label: '定理', value: 'theorem' },
-  { label: '公式', value: 'formula' },
-  { label: '方法', value: 'method' },
-  { label: '应用', value: 'application' }
-]
-
-// 新节点数据
-const newNode = reactive({
-  label: '',
-  type: 'concept',
-  description: '',
-  difficulty: 1
-})
 
 // 初始化图谱数据
 const initGraphData = () => {
-  // 模拟数据
-  nodes.value = [
-    {
-      id: '1',
-      label: '线性代数',
-      type: 'concept',
-      description: '数学的一个重要分支，研究向量空间和线性变换',
-      difficulty: 3,
-      x: 0,
-      y: 0,
-      related: [
-        { id: '2', label: '矩阵', type: 'concept' },
-        { id: '3', label: '向量', type: 'concept' }
-      ]
-    },
-    {
-      id: '2',
-      label: '矩阵',
-      type: 'concept',
-      description: '由数字排列成的矩形阵列',
-      difficulty: 2,
-      x: 200,
-      y: 100,
-      related: [
-        { id: '1', label: '线性代数', type: 'concept' },
-        { id: '4', label: '矩阵乘法', type: 'method' }
-      ]
-    },
-    {
-      id: '3',
-      label: '向量',
-      type: 'concept',
-      description: '具有大小和方向的量',
-      difficulty: 2,
-      x: -200,
-      y: 100,
-      related: [
-        { id: '1', label: '线性代数', type: 'concept' },
-        { id: '5', label: '向量运算', type: 'method' }
-      ]
-    },
-    {
-      id: '4',
-      label: '矩阵乘法',
-      type: 'method',
-      description: '两个矩阵相乘的运算方法',
-      difficulty: 3,
-      x: 300,
-      y: 200,
-      related: [
-        { id: '2', label: '矩阵', type: 'concept' }
-      ]
-    },
-    {
-      id: '5',
-      label: '向量运算',
-      type: 'method',
-      description: '向量的加法、减法、数乘等运算',
-      difficulty: 2,
-      x: -300,
-      y: 200,
-      related: [
-        { id: '3', label: '向量', type: 'concept' }
-      ]
-    }
-  ]
-
-  edges.value = [
-    { from: '1', to: '2', label: '包含' },
-    { from: '1', to: '3', label: '包含' },
-    { from: '2', to: '4', label: '应用' },
-    { from: '3', to: '5', label: '应用' }
-  ]
+  // 清空图谱数据
+  nodes.value = []
+  edges.value = []
 }
 
-// 获取节点颜色
-const getNodeColor = (type: unknown) => {
-  const colors: { [key: string]: string } = {
-    concept: 'primary',
-    theorem: 'secondary',
-    formula: 'positive',
-    method: 'warning',
-    application: 'info'
-  }
-  return colors[String(type)] || 'grey'
-}
+// 获取节点颜色方法已移除
 
 // 加载教材数据
 const loadTextbookData = async () => {
   try {
-    // 检查学生登录状态
-    if (!apiService.isStudentLoggedIn()) {
-      console.log('🔐 学生未登录，将尝试自动登录...')
-    }
-    
     const versions = await apiService.getTextbookVersions()
     
     if (versions && versions.length > 0) {
+      console.log('教材版本:', versions)
       textbookVersions.value = versions
       textbookOptions.value = apiService.convertToTextbookOptions(versions)
       
       // 设置默认选中的教材
       if (textbookOptions.value.length > 0) {
+        console.log('教材选项:', textbookOptions.value)
         selectedTextbook.value = textbookOptions.value[0].value
+        
+        // 加载默认教材的章节结构
+        const defaultOption = textbookOptions.value[0]
+        if (defaultOption.textbookId) {
+          console.log('加载默认教材的章节结构:', defaultOption.textbookId)
+          await loadChapterStructure(defaultOption.textbookId)
+        }
       }
     } else {
       textbookVersions.value = []
@@ -559,11 +281,102 @@ const loadTextbookData = async () => {
   }
 }
 
+// 将阿拉伯数字转换为中文数字
+const convertToChineseNumber = (str: string): string => {
+  const chineseNumbers = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
+  
+  return str.replace(/第(\d+)章/g, (match, num) => {
+    const number = parseInt(num)
+    if (number >= 1 && number <= 9) {
+      return `第${chineseNumbers[number]}章`
+    } else if (number >= 10) {
+      // 处理两位数的情况
+      const tens = Math.floor(number / 10)
+      const ones = number % 10
+      if (tens === 1) {
+        return ones === 0 ? '第十章' : `第十${chineseNumbers[ones]}章`
+      } else {
+        return ones === 0 ? `第${chineseNumbers[tens]}十章` : `第${chineseNumbers[tens]}十${chineseNumbers[ones]}章`
+      }
+    }
+    return match
+  })
+}
+
+// 加载章节结构
+const loadChapterStructure = async (textbookId: string) => {
+  try {
+    const chapterData = await apiService.getTextbookStructure(textbookId)
+    console.log('章节结构数据:', chapterData)
+    if (chapterData && chapterData.length > 0) {
+      // 对章节进行排序：按照children[0].name的第一个数字排序
+      const sortedChapterData = chapterData.sort((a, b) => {
+        // 获取每个章节的第一个子章节名称
+        const aFirstChild = a.children && a.children.length > 0 ? a.children[0].name : ''
+        const bFirstChild = b.children && b.children.length > 0 ? b.children[0].name : ''
+        
+        // 提取第一个数字进行比较
+        const aChapterNum = parseInt(aFirstChild.match(/^(\d+)/)?.[1] || '0')
+        const bChapterNum = parseInt(bFirstChild.match(/^(\d+)/)?.[1] || '0')
+        
+        return aChapterNum - bChapterNum
+      })
+      
+      chapterStructure.value = sortedChapterData
+      
+      // 提取章节名称列表（所有level=0的章节），并转换为中文数字
+      chapters.value = sortedChapterData.map(chapter => convertToChineseNumber(chapter.name))
+    } else {
+      console.log('章节结构数据为空')
+      chapterStructure.value = []
+      chapters.value = []
+    }
+  } catch (error) {
+    console.error('❌ 加载章节结构失败:', error)
+    chapterStructure.value = []
+    chapters.value = []
+  }
+}
+
+// 重新登录学生
+const reLoginStudent = async (): Promise<boolean> => {
+  try {
+    console.log('🔐 重新登录学生...')
+    
+    // 从localStorage获取用户凭据
+    const userId = localStorage.getItem('userId')
+    const password = localStorage.getItem('userPassword')
+    
+    if (!userId || !password || userId === 'undefined' || password === 'undefined' || userId.trim() === '' || password.trim() === '') {
+      console.warn('无法获取用户凭据，请先进行主应用登录')
+      return false
+    }
+    
+    const loginResult = await apiService.loginStudent(userId, password)
+    if (!loginResult) {
+      console.error('学生自动登录失败')
+      return false
+    }
+    
+    console.log('✅ 学生登录成功')
+    return true
+  } catch (error) {
+    console.error('重新登录学生时发生错误:', error)
+    return false
+  }
+}
+
 // 初始化图谱
 const initGraph = async () => {
   loading.value = true
   
   try {
+    // 重新登录学生
+    const loginSuccess = await reLoginStudent()
+    if (!loginSuccess) {
+      return
+    }
+    
     // 先加载教材数据
     await loadTextbookData()
     
@@ -584,96 +397,145 @@ const initGraph = async () => {
   }
 }
 
+// GSAP动画方法
+const initGSAPAnimations = () => {
+  // 设置GSAP默认配置
+  gsap.defaults({
+    duration: 0.6,
+    ease: "power2.out"
+  })
+  
+  // 注册GSAP插件（如果需要）
+  gsap.registerPlugin()
+  
+  // 设置性能优化
+  gsap.config({
+    nullTargetWarn: false
+  })
+}
+
+// 单个节点进入动画（备用方法）
+// const animateNodeEnter = (element: HTMLElement, delay: number = 0) => {
+//   gsap.fromTo(element, 
+//     {
+//       scale: 0,
+//       opacity: 0,
+//       rotation: -180
+//     },
+//     {
+//       scale: 1,
+//       opacity: 1,
+//       rotation: 0,
+//       duration: 0.8,
+//       delay: delay,
+//       ease: "back.out(1.7)"
+//     }
+//   )
+// }
+
+const animateConnectionLine = (line: SVGLineElement, delay: number = 0) => {
+  const length = line.getTotalLength()
+  gsap.fromTo(line,
+    {
+      strokeDasharray: length,
+      strokeDashoffset: length
+    },
+    {
+      strokeDashoffset: 0,
+      duration: 1,
+      delay: delay,
+      ease: "power2.out"
+    }
+  )
+}
+
+const animateLayoutTransition = () => {
+  if (isAnimating.value) return
+  isAnimating.value = true
+  
+  // 创建新的时间线
+  tl.value = gsap.timeline({
+    onComplete: () => {
+      isAnimating.value = false
+    }
+  })
+  
+  // 隐藏当前节点
+  const currentNodes = document.querySelectorAll('.graph-node')
+  tl.value.to(currentNodes, {
+    scale: 0,
+    opacity: 0,
+    duration: 0.3,
+    ease: "power2.in"
+  })
+  
+  // 等待DOM更新后显示新节点
+  tl.value.call(() => {
+    nextTick(() => {
+      animateNewLayout()
+    })
+  })
+}
+
+const animateNewLayout = () => {
+  const newTimeline = gsap.timeline()
+  
+  // 动画中心节点
+  const centerNode = document.querySelector('.center-node')
+  if (centerNode) {
+    newTimeline.fromTo(centerNode,
+      { scale: 0, opacity: 0, rotation: -180 },
+      { scale: 1, opacity: 1, rotation: 0, duration: 0.8, ease: "back.out(1.7)" }
+    )
+  }
+  
+  // 动画圆周节点
+  const circularNodes = document.querySelectorAll('.circular-node')
+  circularNodes.forEach((node, index) => {
+    newTimeline.fromTo(node,
+      { scale: 0, opacity: 0, y: -50 },
+      { scale: 1, opacity: 1, y: 0, duration: 0.6, ease: "back.out(1.7)" },
+      index * 0.1
+    )
+  })
+  
+  // 动画连接线
+  const connectionLines = document.querySelectorAll('.connection-line')
+  connectionLines.forEach((line, index) => {
+    newTimeline.call(() => {
+      animateConnectionLine(line as SVGLineElement)
+    }, [], index * 0.1 + 0.3)
+  })
+  
+  // 动画外围节点
+  const outerNodes = document.querySelectorAll('.outer-node')
+  outerNodes.forEach((node, index) => {
+    newTimeline.fromTo(node,
+      { scale: 0, opacity: 0, y: 20 },
+      { scale: 1, opacity: 1, y: 0, duration: 0.5, ease: "back.out(1.7)" },
+      index * 0.05 + 0.8
+    )
+  })
+}
+
+
+const cleanupAnimations = () => {
+  if (tl.value) {
+    tl.value.kill()
+    tl.value = null
+  }
+  gsap.killTweensOf("*")
+}
+
 // 渲染图谱
 const renderGraph = () => {
   const container = document.getElementById('knowledge-graph')
   if (!container) return
 
-  // 简单的图谱渲染实现
-  container.innerHTML = `
-    <div class="graph-nodes">
-      ${nodes.value.map(node => `
-        <div 
-          class="graph-node ${getNodeColor(node.type)}"
-          style="left: ${(node.x as number) + 400}px; top: ${(node.y as number) + 200}px;"
-          data-node-id="${node.id}"
-        >
-          <div class="node-label">${node.label}</div>
-          <div class="node-type">${nodeTypes.find(t => t.value === node.type)?.label}</div>
-        </div>
-      `).join('')}
-    </div>
-    <svg class="graph-edges">
-      ${edges.value.map(edge => {
-        const fromNode = nodes.value.find(n => n.id === edge.from)
-        const toNode = nodes.value.find(n => n.id === edge.to)
-        if (!fromNode || !toNode) return ''
-        
-        const x1 = (fromNode.x as number) + 400 + 50
-        const y1 = (fromNode.y as number) + 200 + 25
-        const x2 = (toNode.x as number) + 400 + 50
-        const y2 = (toNode.y as number) + 200 + 25
-        
-        return `
-          <line 
-            x1="${x1}" y1="${y1}" 
-            x2="${x2}" y2="${y2}" 
-            stroke="#666" 
-            stroke-width="2"
-            marker-end="url(#arrowhead)"
-          />
-          <text 
-            x="${(x1 + x2) / 2}" 
-            y="${(y1 + y2) / 2 - 5}" 
-            text-anchor="middle" 
-            font-size="12" 
-            fill="#666"
-          >
-            ${edge.label}
-          </text>
-        `
-      }).join('')}
-      <defs>
-        <marker id="arrowhead" markerWidth="10" markerHeight="7" 
-                refX="9" refY="3.5" orient="auto">
-          <polygon points="0 0, 10 3.5, 0 7" fill="#666" />
-        </marker>
-      </defs>
-    </svg>
-  `
-
-  // 添加节点点击事件
-  container.querySelectorAll('.graph-node').forEach(nodeEl => {
-    nodeEl.addEventListener('click', (e) => {
-      const nodeId = (e.currentTarget as HTMLElement).dataset.nodeId
-      const node = nodes.value.find(n => n.id === nodeId)
-      if (node) {
-        selectedNode.value = node
-        showNodeDetails.value = true
-      }
-    })
-  })
+  // 清空容器内容
+  container.innerHTML = ''
 }
 
-// 搜索节点
-const searchNodes = () => {
-  if (!searchQuery.value.trim()) return
-  
-  const query = searchQuery.value.toLowerCase()
-  const filteredNodes = nodes.value.filter(node => 
-    String(node.label).toLowerCase().includes(query) ||
-    String(node.description).toLowerCase().includes(query)
-  )
-  
-  console.log('搜索结果:', filteredNodes)
-  showSearchDialog.value = false
-}
-
-// 应用筛选
-const applyFilter = () => {
-  console.log('应用筛选:', { selectedTypes: selectedTypes.value, difficultyRange: difficultyRange.value })
-  showFilterDialog.value = false
-}
 
 // 教材切换
 const onTextbookChange = async (value: string) => {
@@ -691,13 +553,7 @@ const onTextbookChange = async (value: string) => {
     
     // 根据教材ID加载章节结构
     if (selectedOption.textbookId && selectedOption.textbookId !== 'default') {
-      const chapterStructure = await apiService.getTextbookStructure(selectedOption.textbookId)
-      console.log('获取到章节结构:', chapterStructure)
-      
-      // 更新章节列表
-      if (chapterStructure.length > 0) {
-        chapters.value = chapterStructure.map(chapter => chapter.name)
-      }
+      await loadChapterStructure(selectedOption.textbookId)
     }
     
     // 重新初始化图谱数据
@@ -709,41 +565,22 @@ const onTextbookChange = async (value: string) => {
   }
 }
 
-// 添加节点
-const addNode = () => {
-  if (!newNode.label.trim()) return
-  
-  const id = (nodes.value.length + 1).toString()
-  const newNodeData = {
-    ...newNode,
-    id,
-    x: Math.random() * 400 - 200,
-    y: Math.random() * 400 - 200,
-    related: []
-  }
-  
-  nodes.value.push(newNodeData)
-  renderGraph()
-  
-  // 重置表单
-  cancelAddNode()
-  showAddNodeDialog.value = false
-}
-
-// 取消添加节点
-const cancelAddNode = () => {
-  newNode.label = ''
-  newNode.type = 'concept'
-  newNode.description = ''
-  newNode.difficulty = 1
-}
 
 
 // 选择章节
 const selectChapter = (index: number) => {
   selectedChapter.value = index
-  // 这里可以添加切换章节的逻辑
-  console.log('选择章节:', chapters.value[index])
+  // 获取选中章节的详细信息
+  if (chapterStructure.value && chapterStructure.value.length > index) {
+    selectedChapterDetails.value = chapterStructure.value[index]
+    console.log('选择章节:', chapters.value[index])
+    console.log('章节详情:', selectedChapterDetails.value)
+    
+    // 触发布局动画
+    nextTick(() => {
+      animateLayoutTransition()
+    })
+  }
 }
 
 // 布局控制方法
@@ -764,22 +601,271 @@ const selectStatus = (status: string) => {
 
 // 根据状态筛选节点
 const filterNodesByStatus = (status: string) => {
-  if (status === 'all') {
-    // 显示所有节点
-    surroundingNodes.value.forEach(node => {
-      (node as Record<string, unknown>).visible = true
-    })
-  } else {
-    // 只显示指定状态的节点
-    surroundingNodes.value.forEach(node => {
-      (node as Record<string, unknown>).visible = node.status === status
-    })
+  console.log('筛选功能暂未实现:', status)
+}
+
+// 获取子章节（x.x格式的小节）
+const getSubChapters = (chapterDetails: ChapterNode | null) => {
+  if (!chapterDetails || !chapterDetails.children) {
+    return []
+  }
+  
+  // 过滤出level=1的子章节（x.x格式）
+  return chapterDetails.children.filter(child => child.level === 1)
+}
+
+// 计算知识图谱在圆周上的位置
+const getGraphPosition = (index: number, total: number) => {
+  const angle = (2 * Math.PI * index) / total
+  const radius = 400 // 大圆半径
+  const x = Math.cos(angle) * radius
+  const y = Math.sin(angle) * radius
+  
+  return {
+    transform: `translate(${x}px, ${y}px)`,
+    position: 'absolute' as const,
+    left: '50%',
+    top: '50%',
+    marginLeft: '-250px', // 知识图谱宽度的一半
+    marginTop: '-250px'   // 知识图谱高度的一半
   }
 }
+
+// 计算知识图谱的旋转角度
+const getGraphRotation = (index: number) => {
+  const total = getSubChapters(selectedChapterDetails.value).length
+  const angle = (2 * Math.PI * index) / total
+  return angle * (180 / Math.PI) // 转换为度数
+}
+
+// 滚动事件处理
+const handleScroll = (event: WheelEvent) => {
+  if (!selectedChapterDetails.value) return
+  
+  event.preventDefault()
+  
+  // 清除之前的定时器
+  if (scrollTimeout.value) {
+    clearTimeout(scrollTimeout.value)
+  }
+  
+  isScrolling.value = true
+  
+  const delta = event.deltaY
+  const rotationDelta = delta * scrollSensitivity * 0.02 // 增加滚动敏感度，使旋转更明显
+  
+  currentRotation.value += rotationDelta
+  
+  // 更新滚动进度
+  const normalizedRotation = ((currentRotation.value % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI)
+  scrollProgress.value = (normalizedRotation / (2 * Math.PI)) * 100
+  
+  // 平滑旋转动画
+  animateCircularRotation()
+  
+  // 设置滚动结束检测
+  scrollTimeout.value = window.setTimeout(() => {
+    isScrolling.value = false
+    snapToNearestPosition()
+  }, 150) // 150ms后检测滚动是否结束
+}
+
+// 触摸滚动处理（移动端支持）
+const handleTouchStart = (event: TouchEvent) => {
+  if (!selectedChapterDetails.value) return
+  
+  // 清除之前的定时器
+  if (scrollTimeout.value) {
+    clearTimeout(scrollTimeout.value)
+  }
+  
+  isScrolling.value = true
+  
+  // 记录触摸起始位置
+  const touch = event.touches[0]
+  const startY = touch.clientY
+  const startRotation = currentRotation.value
+  
+  const handleTouchMove = (e: TouchEvent) => {
+    e.preventDefault()
+    const touch = e.touches[0]
+    const deltaY = startY - touch.clientY
+    const rotationDelta = deltaY * scrollSensitivity * 0.03 // 增加触摸滚动敏感度
+    
+    currentRotation.value = startRotation + rotationDelta
+    
+    // 更新滚动进度
+    const normalizedRotation = ((currentRotation.value % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI)
+    scrollProgress.value = (normalizedRotation / (2 * Math.PI)) * 100
+    
+    animateCircularRotation()
+  }
+  
+  const handleTouchEnd = () => {
+    isScrolling.value = false
+    snapToNearestPosition()
+    document.removeEventListener('touchmove', handleTouchMove)
+    document.removeEventListener('touchend', handleTouchEnd)
+  }
+  
+  document.addEventListener('touchmove', handleTouchMove, { passive: false })
+  document.addEventListener('touchend', handleTouchEnd)
+}
+
+// 自动对齐到最近位置（确保有一个元素在最左点）
+const snapToNearestPosition = () => {
+  if (!selectedChapterDetails.value) return
+  
+  const subChapters = getSubChapters(selectedChapterDetails.value)
+  if (subChapters.length === 0) return
+  
+  // 计算每个元素的角度间隔
+  const angleStep = (2 * Math.PI) / subChapters.length
+  
+  // 将当前旋转角度标准化到 [0, 2π] 范围
+  const normalizedRotation = ((currentRotation.value % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI)
+  
+  // 找到最接近的吸附位置（确保有一个元素在12点钟方向，即角度为0）
+  let targetRotation = normalizedRotation
+  
+  // 找到最接近的吸附位置
+  const snapIndex = Math.round(normalizedRotation / angleStep)
+  const targetAngle = snapIndex * angleStep
+  
+  // 计算需要调整的角度
+  let angleDiff = targetAngle - normalizedRotation
+  
+  // 确保选择最短路径
+  if (angleDiff > Math.PI) {
+    angleDiff -= 2 * Math.PI
+  } else if (angleDiff < -Math.PI) {
+    angleDiff += 2 * Math.PI
+  }
+  
+  // 只有当角度差超过阈值时才进行吸附
+  if (Math.abs(angleDiff) > snapThreshold) {
+    targetRotation = normalizedRotation + angleDiff
+    currentRotation.value = targetRotation
+    
+    // 更新滚动进度
+    const newNormalizedRotation = ((targetRotation % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI)
+    scrollProgress.value = (newNormalizedRotation / (2 * Math.PI)) * 100
+    
+    // 执行平滑吸附动画
+    animateSnapToPosition()
+  }
+}
+
+// 圆形旋转动画 - 实时同步旋转
+const animateCircularRotation = () => {
+  if (!circularLayoutRef.value) return
+  
+  // 使用 requestAnimationFrame 实现最流畅的实时旋转
+  requestAnimationFrame(() => {
+    if (circularLayoutRef.value) {
+      circularLayoutRef.value.style.transform = `rotate(${currentRotation.value * (180 / Math.PI)}deg)`
+    }
+  })
+}
+
+// 吸附动画
+const animateSnapToPosition = () => {
+  if (!circularLayoutRef.value) return
+  
+  gsap.to(circularLayoutRef.value, {
+    rotation: currentRotation.value * (180 / Math.PI),
+    duration: 0.5,
+    ease: "back.out(1.2)"
+  })
+}
+
+// 齿轮旋转效果
+const animateGearRotation = () => {
+  if (!circularLayoutRef.value) return
+  
+  gsap.to(circularLayoutRef.value, {
+    rotation: `+=${360}`,
+    duration: 10,
+    ease: "none",
+    repeat: -1
+  })
+}
+
+
 
 // 组件挂载时初始化
 onMounted(() => {
   initGraph()
+  initGSAPAnimations()
+  
+  // 添加滚动事件监听器
+  window.addEventListener('wheel', handleScroll, { passive: false })
+  window.addEventListener('touchstart', handleTouchStart, { passive: false })
+  
+  // 初始加载动画
+  nextTick(() => {
+    animateInitialLoad()
+    // 启动齿轮旋转效果
+    setTimeout(() => {
+      animateGearRotation()
+    }, 2000)
+  })
+})
+
+const animateInitialLoad = () => {
+  if (!selectedChapterDetails.value) return
+  
+  const timeline = gsap.timeline()
+  
+  // 动画中心节点
+  const centerNode = document.querySelector('.center-node')
+  if (centerNode) {
+    timeline.fromTo(centerNode,
+      { scale: 0, opacity: 0, rotation: -180 },
+      { scale: 1, opacity: 1, rotation: 0, duration: 1, ease: "back.out(1.7)" }
+    )
+  }
+  
+  // 动画圆周节点
+  const circularNodes = document.querySelectorAll('.circular-node')
+  circularNodes.forEach((node, index) => {
+    timeline.fromTo(node,
+      { scale: 0, opacity: 0, y: -50 },
+      { scale: 1, opacity: 1, y: 0, duration: 0.8, ease: "back.out(1.7)" },
+      index * 0.15 + 0.3
+    )
+  })
+  
+  // 动画连接线
+  const connectionLines = document.querySelectorAll('.connection-line')
+  connectionLines.forEach((line, index) => {
+    timeline.call(() => {
+      animateConnectionLine(line as SVGLineElement)
+    }, [], index * 0.1 + 0.8)
+  })
+  
+  // 动画外围节点
+  const outerNodes = document.querySelectorAll('.outer-node')
+  outerNodes.forEach((node, index) => {
+    timeline.fromTo(node,
+      { scale: 0, opacity: 0, y: 20 },
+      { scale: 1, opacity: 1, y: 0, duration: 0.6, ease: "back.out(1.7)" },
+      index * 0.05 + 1.2
+    )
+  })
+}
+
+onUnmounted(() => {
+  cleanupAnimations()
+  
+  // 清理滚动定时器
+  if (scrollTimeout.value) {
+    clearTimeout(scrollTimeout.value)
+  }
+  
+  // 移除滚动事件监听器
+  window.removeEventListener('wheel', handleScroll)
+  window.removeEventListener('touchstart', handleTouchStart)
 })
 </script>
 
@@ -955,6 +1041,20 @@ onMounted(() => {
   padding: 16px 0;
   overflow-y: auto;
   
+  .empty-chapters {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    color: #9ca3af;
+    
+    .empty-text {
+      margin-top: 12px;
+      font-size: 14px;
+    }
+  }
+  
   .chapter-item {
     padding: 12px 20px;
     cursor: pointer;
@@ -998,6 +1098,132 @@ onMounted(() => {
   min-width: 0;
 }
 
+// 圆形知识图谱容器
+.circular-graphs-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f8f7ff 0%, #ffffff 100%);
+}
+
+// 视口裁剪区域
+.viewport-clipper {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  // 移除 clip-path，显示完整视口区域
+}
+
+// 圆形轨迹指示器
+.circular-track {
+  position: absolute;
+  width: 800px;
+  height: 800px;
+  left: 100%;
+  top: 50%;
+  margin-left: -400px;
+  margin-top: -400px;
+  border: 2px dashed rgba(139, 92, 246, 0.3);
+  border-radius: 50%;
+  z-index: 1;
+  animation: trackPulse 3s ease-in-out infinite;
+}
+
+@keyframes trackPulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.02);
+  }
+}
+
+
+// 圆形布局容器
+.circular-layout {
+  position: relative;
+  width: 1000px;
+  height: 1000px;
+  left: 100%;
+  top: 50%;
+  transform-origin: center center;
+  margin-left: -500px;
+  margin-top: -500px;
+  transition: transform 0.8s ease;
+}
+
+// 知识图谱位置容器
+.graph-position {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  transform-origin: center center;
+}
+
+// 知识图谱包装器
+.knowledge-graph-wrapper {
+  width: 100%;
+  height: 100%;
+  transform-origin: center center;
+}
+
+// 滚动指示器样式
+.scroll-indicator {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 25px;
+  padding: 12px 20px;
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.2);
+  min-width: 200px;
+  text-align: center;
+}
+
+.scroll-progress {
+  width: 100%;
+  height: 4px;
+  background: rgba(139, 92, 246, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #8b5cf6 0%, #a855f7 100%);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+  position: relative;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 2px;
+    height: 100%;
+    background: #ffffff;
+    box-shadow: 0 0 4px rgba(139, 92, 246, 0.5);
+  }
+}
+
+.scroll-hint {
+  font-size: 12px;
+  color: #8b5cf6;
+  text-align: center;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+
 .filter-section {
   display: flex;
   align-items: center;
@@ -1021,379 +1247,18 @@ onMounted(() => {
     }
   }
   
-  .filter-actions {
-    display: flex;
-    gap: 8px;
-    
-    .search-btn, .filter-btn {
-      color: #6b7280;
-      
-      &:hover {
-        color: #374151;
-        background: #f3f4f6;
-      }
-    }
-  }
 }
 
-.user-section {
-  display: flex;
-  align-items: center;
-  padding: 0 20px 20px;
-  gap: 12px;
-}
 
-.user-avatar {
-  flex-shrink: 0;
-}
-
-.subject-selector {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  
-  .subject-text {
-    font-size: 16px;
-    font-weight: 500;
-    color: #374151;
-  }
-}
-
-.textbook-selector {
-  padding: 0 20px 20px;
-}
-
-.textbook-btn {
-  width: 100%;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  
-  .textbook-text {
-    font-size: 14px;
-    color: #374151;
-  }
-}
-
-.navigation-menu {
-  padding: 0 20px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  
-  &.active {
-    background: #8b5cf6;
-    
-    .nav-text {
-      color: white;
-    }
-  }
-  
-  .nav-text {
-    font-size: 14px;
-    font-weight: 500;
-    color: #6b7280;
-  }
-}
-
-.chapter-list {
-  flex: 1;
-  padding: 0 20px;
-  overflow-y: auto;
-}
-
-.chapter-item {
-  padding: 12px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  margin-bottom: 4px;
-  
-  &.active {
-    background: #f3f0ff;
-    
-    .chapter-text {
-      color: #8b5cf6;
-      font-weight: 500;
-    }
-  }
-  
-  .chapter-text {
-    font-size: 14px;
-    color: #6b7280;
-    line-height: 1.4;
-  }
-}
-
-.bottom-menu {
-  padding: 20px;
-  display: flex;
-  justify-content: center;
-}
-
-.menu-btn {
-  position: relative;
-}
-
-.graph-container {
-  flex: 1;
-  position: relative;
-  background: 
-    radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.8) 0%, transparent 50%);
-}
-
-.graph-canvas {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-// 中心节点
-.center-node {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  z-index: 10;
-}
-
-.star-node {
-  width: 80px;
-  height: 80px;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    background: #8b5cf6;
-    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-    z-index: -1;
-  }
-  
-  &.main-star {
-    width: 100px;
-    height: 100px;
-    
-    &::before {
-      background: #8b5cf6;
-    }
-  }
-  
-  &.not-learned {
-    &::before {
-      background: #e5e7eb;
-    }
-  }
-  
-  &.learning {
-    &::before {
-      background: #fbbf24;
-    }
-  }
-  
-  &.learned {
-    &::before {
-      background: #8b5cf6;
-    }
-  }
-  
-  &.last-learned {
-    &::before {
-      background: #f97316;
-    }
-  }
-  
-  &.faded {
-    opacity: 0.3;
-    
-    &::before {
-      background: #d1d5db;
-    }
-  }
-  
-  &:hover {
-    transform: scale(1.1);
-  }
-}
-
-.node-number {
-  color: white;
-  font-size: 18px;
-  font-weight: 600;
-  z-index: 1;
-}
-
-.node-title {
-  margin-top: 12px;
-  font-size: 16px;
-  font-weight: 500;
-  color: #374151;
-  text-align: center;
-}
-
-.node-underline {
-  width: 60px;
-  height: 2px;
-  background: #8b5cf6;
-  margin-top: 4px;
-}
-
-.node-label {
-  position: absolute;
-  bottom: -30px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 12px;
-  color: #6b7280;
-  white-space: nowrap;
-  z-index: 1;
-}
-
-.node-tag {
-  position: absolute;
-  top: -25px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #ef4444;
-  color: white;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  white-space: nowrap;
-  z-index: 1;
-}
-
-// 周围节点
-.surrounding-nodes {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-}
-
-// 图例
-.legend {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 20px;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 12px 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.legend-star {
-  width: 16px;
-  height: 16px;
-  position: relative;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-  }
-  
-  &.not-learned::before {
-    background: #e5e7eb;
-  }
-  
-  &.learning::before {
-    background: #fbbf24;
-  }
-  
-  &.learned::before {
-    background: #8b5cf6;
-  }
-}
-
-.loading-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.9);
-  z-index: 1000;
-
-  .loading-text {
-    margin-top: 16px;
-    color: #666;
-    font-size: 14px;
-  }
-}
 
 // 响应式设计
 @media (max-width: 768px) {
-  .left-sidebar {
+  .function-sidebar {
     width: 240px;
   }
   
-  .star-node {
-    width: 60px;
-    height: 60px;
-    
-    &.main-star {
-      width: 80px;
-      height: 80px;
-    }
-  }
-  
-  .node-number {
-    font-size: 14px;
-  }
-  
-  .node-title {
-    font-size: 14px;
-  }
-  
-  .legend {
-    flex-direction: column;
-    gap: 8px;
+  .chapter-sidebar {
+    width: 240px;
   }
 }
 </style>

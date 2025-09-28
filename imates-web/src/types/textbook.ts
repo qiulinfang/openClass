@@ -9,13 +9,16 @@
 export interface TextbookVersion {
   id: string
   textbookId: string
-  textbookName: string
-  textbookSubjectLabel: string
+  textbookGrade: number
   textbookGradeLabel: string
+  textbookSemester: number
   textbookSemesterLabel: string
-  textbookPublisher: string
+  textbookSubject: number
+  textbookSubjectLabel: string
+  textbookName: string
   textbookEditionYear: string
   textbookIsbn: string
+  textbookPublisher: string
   textbookCover: string
   textbookUpdateTime: string
 }
@@ -38,7 +41,7 @@ export interface TextbookOption {
  * 教材结构请求
  */
 export interface TextbookStructureRequest {
-  textbookId: string
+  id: string
 }
 
 /**
@@ -54,10 +57,12 @@ export interface LearningResourcesRequest {
 export interface ChapterNode {
   id: string
   name: string
-  level: number
-  parentId?: string
+  parentId?: string | null
+  label: string
+  level: number | null
+  isRoot: boolean
+  updateTime: string
   children?: ChapterNode[]
-  order: number
 }
 
 /**
