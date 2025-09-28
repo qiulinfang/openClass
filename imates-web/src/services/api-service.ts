@@ -28,6 +28,8 @@ import type {
   LoginResponse,
   LoginRequest,
   LoginData,
+  FeedbackTicketRequest,
+  FeedbackTicketResponse,
 } from '../types'
 
 // 使用统一的类型定义，不再重复定义
@@ -956,6 +958,83 @@ export class ApiService {
       publisher: version.textbookPublisher,
       cover: version.textbookCover
     }))
+  }
+
+  // ========== 反馈相关API ==========
+
+  /**
+   * 创建反馈工单
+   * @param title 工单标题
+   * @param body 反馈内容
+   * @param imageFile 附件图片文件（可选）
+   * @returns Promise<void> 与Android保持一致，只依赖HTTP状态码
+   */
+  public async createFeedbackTicket(
+    title: string, 
+    body: string, 
+    imageFile?: File
+  ): Promise<void> {
+    try {
+      const requestData: FeedbackTicketRequest = {
+        title,
+        group: 'Users',
+        customer: 'app@imates.com.cn',
+        article: {
+          subject: title,
+          body,
+          type: 'note',
+          internal: false
+        }
+      }
+
+      // 如果有图片附件，添加到请求中
+      if (imageFile) {
+        const base64Data = await this.fileToBase64(imageFile)
+        const mimeType = imageFile.type || 'image/jpeg'
+        
+        requestData.article.attachments = [{
+          filename: imageFile.name,
+          data: base64Data,
+          'mime-type': mimeType
+        }]
+      }
+
+      // 与Android保持一致：只依赖HTTP状态码判断成功/失败
+      // HTTP状态码为2xx时，axios不会抛出异常，直接返回void表示成功
+      await httpClient.post<FeedbackTicketResponse>(
+        `${API_ENDPOINTS.ZAMMAD.BASE_URL}/tickets`,
+        requestData,
+        {
+          headers: {
+            'Authorization': 'Token token=tOsDC4Qjw-W9zPwK93p_o2DvwxQ6lYC9o2AKUT2zP736YbExUNiiUvbHlTQYn2tk',
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+    } catch (error) {
+      console.error('创建反馈工单失败:', error)
+      // 与Android保持一致：网络异常直接抛出，不返回包装对象
+      throw error
+    }
+  }
+
+  /**
+   * 将文件转换为Base64字符串
+   * @param file 文件对象
+   * @returns Promise<string> Base64字符串
+   */
+  private async fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = reader.result as string
+        // 移除data:image/jpeg;base64,前缀
+        const base64 = result.split(',')[1]
+        resolve(base64)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
   }
 }
 

@@ -19,7 +19,6 @@
        />
       
        <!-- 圆周上的子节点 -->
-        {{ getCircularNodes(chapterDetails) }}
        <GraphNode
          v-for="(child, index) in getCircularNodes(chapterDetails)" 
          :key="child.id"

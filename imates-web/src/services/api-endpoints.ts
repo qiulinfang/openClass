@@ -70,7 +70,7 @@ export const API_ENDPOINTS = {
 
   // Zammad相关
   ZAMMAD: {
-    BASE_URL: 'http://app.imates.com.cn:8080/api/v1'
+    BASE_URL: '/api/v1'
   },
 
   // 应用更新相关

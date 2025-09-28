@@ -7,6 +7,7 @@
 export interface UserInfo {
   userId: string
   userName: string
+  nickName?: string
   avatar?: string
   grade?: string
   token?: string

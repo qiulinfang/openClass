@@ -4,6 +4,8 @@ import ExerciseSolveView from '@/views/ExerciseSolveView.vue'
 import FindExerciseView from '@/views/FindExerciseView.vue'
 import LoginView from '@/views/LoginView.vue'
 import KnowledgeGraphView from '@/views/KnowledgeGraphView.vue'
+import MyProfileView from '@/views/MyProfileView.vue'
+import FeedbackView from '@/views/FeedbackView.vue'
 
 const router = createRouter({
   history: createWebHashHistory(), // 必须使用Hash模式
@@ -32,6 +34,16 @@ const router = createRouter({
       path: '/knowledge-graph',
       name: 'knowledgeGraph',
       component: KnowledgeGraphView
+    },
+    {
+      path: '/my-profile',
+      name: 'myProfile',
+      component: MyProfileView
+    },
+    {
+      path: '/feedback',
+      name: 'feedback',
+      component: FeedbackView
     }
   ]
 })

@@ -65,3 +65,37 @@ export interface FindSimilarQuestionByKnowledgeRequest {
   current: number     // 修复：与后端字段名一致
   totalCount?: number
 }
+
+// ========== 反馈相关API ==========
+
+/** 反馈工单创建请求接口 */
+export interface FeedbackTicketRequest {
+  title: string
+  group: string
+  customer: string
+  article: {
+    subject: string
+    body: string
+    type: string
+    internal: boolean
+    attachments?: Array<{
+      filename: string
+      data: string
+      'mime-type': string
+    }>
+  }
+}
+
+/** 反馈工单创建响应接口 */
+export interface FeedbackTicketResponse {
+  success: boolean
+  message?: string
+  data?: {
+    id: number
+    number: string
+    title: string
+    state: string
+    priority: string
+    created_at: string
+  }
+}

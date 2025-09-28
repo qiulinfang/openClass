@@ -162,25 +162,25 @@
               </q-card-section>
             </q-card>
 
-            <!-- 设置功能 -->
+            <!-- 个人资料功能 -->
             <q-card 
-              class="feature-card settings-card"
-              @click="navigateToSettings"
+              class="feature-card profile-card"
+              @click="navigateToProfile"
             >
               <q-card-section class="card-content">
                 <div class="card-icon">
-                  <q-icon name="settings" size="48px" />
+                  <q-icon name="person" size="48px" />
                 </div>
-                <div class="card-title">设置</div>
+                <div class="card-title">个人资料</div>
                 <div class="card-description">
-                  个性化设置，账户管理，系统配置
+                  查看个人信息，课堂管理，账户设置
                 </div>
                 <div class="card-features">
                   <q-chip size="sm" color="grey" text-color="white" icon="person">
-                    个人设置
+                    个人信息
                   </q-chip>
-                  <q-chip size="sm" color="grey-6" text-color="white" icon="tune">
-                    系统配置
+                  <q-chip size="sm" color="grey-6" text-color="white" icon="class">
+                    课堂管理
                   </q-chip>
                 </div>
               </q-card-section>
@@ -219,9 +219,8 @@ const navigateToLogin = () => {
   router.push('/login')
 }
 
-const navigateToSettings = () => {
-  // 暂时显示提示，后续可以添加设置页面
-  console.log('设置功能开发中...')
+const navigateToProfile = () => {
+  router.push('/my-profile')
 }
 </script>
 
@@ -397,7 +396,7 @@ $card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
   }
 }
 
-.settings-card {
+.profile-card {
   .card-icon {
     background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
   }

@@ -38,6 +38,19 @@ export default defineConfig({
         target: 'https://43.138.16.5:50013', // 后端基础地址
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 若后端 HTTPS 证书不合法（如自签证书），需设为 false
+      },
+      // 匹配以 "/api/v1/tickets" 开头的请求，转发到Zammad工单系统
+      '/api/v1/tickets': {
+        target: 'http://app.imates.com.cn:8080', // Zammad工单系统地址
+        changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
+        secure: false, // 使用HTTP协议
+        // 可选：添加请求头
+        configure: (proxy, options) => {
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            // 可以在这里添加额外的请求头
+            console.log('代理请求到Zammad:', req.url)
+          })
+        }
       }
     }
   },
