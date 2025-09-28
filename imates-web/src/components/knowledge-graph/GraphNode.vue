@@ -4,6 +4,7 @@
     :style="nodeStyle"
     @mouseenter="handleMouseEnter"
     @mouseleave="handleMouseLeave"
+    @click="handleClick"
     :ref="(el) => { nodeRef = el as HTMLElement }"
   >
     <!-- 学习标签 -->
@@ -40,6 +41,7 @@ interface Props {
 interface Emits {
   (e: 'mouseenter', event: Event, isEnter: boolean): void
   (e: 'mouseleave', event: Event, isEnter: boolean): void
+  (e: 'click', event: Event): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -113,6 +115,10 @@ const handleMouseEnter = (event: Event) => {
 
 const handleMouseLeave = (event: Event) => {
   emit('mouseleave', event, false)
+}
+
+const handleClick = (event: Event) => {
+  emit('click', event)
 }
 
 // 进度条动画已移除

@@ -131,20 +131,21 @@
       <!-- 圆形知识图谱容器 -->
       <div class="circular-graphs-container" v-if="selectedChapterDetails" ref="circularContainerRef">
         <!-- 视口裁剪区域 -->
-        <div class="viewport-clipper">
+        <div class="viewport-clipper"
+          @touchstart="handleTouchStart"
+          @touchmove="handleTouchMove"
+          @touchend="handleTouchEnd"
+          @mousedown="handleMouseDown"
+          @mousemove="handleMouseMove"
+          @mouseup="handleMouseUp"
+          @mouseleave="handleMouseUp"
+        >
           <!-- 圆形轨迹指示器 -->
           <div class="circular-track"></div>
           <!-- 圆形布局容器 -->
           <div 
             class="circular-layout" 
             ref="circularLayoutRef"
-            @touchstart="handleTouchStart"
-            @touchmove="handleTouchMove"
-            @touchend="handleTouchEnd"
-            @mousedown="handleMouseDown"
-            @mousemove="handleMouseMove"
-            @mouseup="handleMouseUp"
-            @mouseleave="handleMouseUp"
           >
             <div 
               v-for="(subChapter, index) in getSubChapters(selectedChapterDetails)" 
@@ -152,6 +153,7 @@
               class="graph-position"
               :style="getGraphPosition(index, getSubChapters(selectedChapterDetails).length)"
             >
+              <!-- 知识图谱 -->
               <KnowledgeGraph
                 :chapter-details="subChapter"
                 :graph-index="index"
@@ -161,12 +163,8 @@
             </div>
           </div>
         </div>
-        
       </div>
-      
     </div>
-
-
   </div>
 </template>
 
@@ -211,7 +209,7 @@ const handleTouchStart = (event: TouchEvent) => {
   lastY.value = event.touches[0].clientY
   
   // 阻止默认滚动行为
-  event.preventDefault()
+  
 }
 
 const handleTouchMove = (event: TouchEvent) => {
@@ -234,7 +232,7 @@ const handleTouchMove = (event: TouchEvent) => {
   applyRotation()
   
   // 阻止默认滚动行为
-  event.preventDefault()
+  
 }
 
 const handleTouchEnd = () => {
@@ -253,7 +251,7 @@ const handleMouseDown = (event: MouseEvent) => {
   lastY.value = event.clientY
   
   // 阻止默认行为
-  event.preventDefault()
+  
 }
 
 const handleMouseMove = (event: MouseEvent) => {
@@ -276,7 +274,7 @@ const handleMouseMove = (event: MouseEvent) => {
   applyRotation()
   
   // 阻止默认行为
-  event.preventDefault()
+  
 }
 
 const handleMouseUp = () => {

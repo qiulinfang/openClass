@@ -14,8 +14,7 @@
          :node="{ id: 'center', name: chapterDetails.name, level: chapterDetails.level }"
          type="center"
          :class="{ 'expanded': isExpanded }"
-         @mouseenter="handleNodeHover"
-         @mouseleave="handleNodeHover"
+         @click="handleCenterNodeClick"
        />
       
        <!-- 圆周上的子节点 -->
@@ -30,8 +29,6 @@
          :highlighted="index === 3"
          :blue="index === 1"
          :class="{ 'expanded': isExpanded }"
-         @mouseenter="handleNodeHover"
-         @mouseleave="handleNodeHover"
        />
     </div>
   </div>
@@ -84,12 +81,19 @@ const getCircularNodes = (chapterDetails: ChapterDetails) => {
   console.log('获取圆周上的子节点', chapterDetails)
   if (!chapterDetails.children) return []
   
-  // 如果是子章节（level=1），显示其子节点（level=2的节点）
+  // 初始情况下，只显示level=1的节点（x.x层）
+  // 只有在展开状态下，才显示level=2的节点
   if (chapterDetails.level === 1) {
-    return chapterDetails.children.filter(child => child.level === 2)
+    if (isExpanded.value) {
+      // 展开状态：显示level=2的子节点
+      return chapterDetails.children.filter(child => child.level === 2)
+    } else {
+      // 收起状态：不显示任何子节点
+      return []
+    }
   }
   
-  // 如果是主章节（level=0），显示其子节点（level=1的节点）
+  // 如果是主章节（level=0），始终显示其子节点（level=1的节点）
   if (chapterDetails.level === 0) {
     return chapterDetails.children.filter(child => child.level === 1)
   }
@@ -98,13 +102,17 @@ const getCircularNodes = (chapterDetails: ChapterDetails) => {
   return chapterDetails.children
 }
 
-const handleNodeHover = () => {
-  // 保留事件处理，但不执行动画
-}
 
 // 处理背景圆形区域点击
 const handleBackgroundClick = () => {
   console.log("handleBackgroundClick", isExpanded.value)
+  isExpanded.value = !isExpanded.value
+}
+
+// 处理中心节点点击
+const handleCenterNodeClick = (event: Event) => {
+  event.stopPropagation() // 阻止事件冒泡到背景
+  console.log("handleCenterNodeClick", isExpanded.value)
   isExpanded.value = !isExpanded.value
 }
 
@@ -167,10 +175,8 @@ onMounted(() => {
 /* 背景圆形区域表示包含关系 */
 .containment-background {
   position: absolute;
-  width: 60%;
-  height: 60%;
-  min-width: 300px;
-  min-height: 300px;
+  width: 100%; /* 占满整个容器，容器已经是可视区域的三分之二 */
+  height: 100%;
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(168, 85, 247, 0.05) 100%);
   border: 2px solid rgba(139, 92, 246, 0.2);
   border-radius: 50%;
