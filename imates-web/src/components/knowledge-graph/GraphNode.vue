@@ -87,6 +87,8 @@ interface Props {
   show?: boolean
   animationState?: 'idle' | 'expanding' | 'expanded' | 'collapsing'
   isMenuVisible?: boolean
+  isExpanded?: boolean
+  hasExpandedGraph?: boolean
 }
 
 interface Emits {
@@ -104,7 +106,9 @@ const props = withDefaults(defineProps<Props>(), {
   radius: 180,
   show: false,
   animationState: 'idle',
-  isMenuVisible: false
+  isMenuVisible: false,
+  isExpanded: false,
+  hasExpandedGraph: false
 })
 
 const emit = defineEmits<Emits>()
@@ -130,6 +134,16 @@ const nodeClasses = computed(() => {
   if (props.highlighted) classes.push('graph-node--highlighted')
   if (props.blue) classes.push('graph-node--blue')
   
+  // 中心节点展开状态
+  if (props.type === 'center' && props.isExpanded) {
+    classes.push('graph-node--expanded')
+  }
+  
+  // 中心节点在其他图谱展开时变小
+  if (props.type === 'center' && props.hasExpandedGraph && !props.isExpanded) {
+    classes.push('graph-node--shrunk')
+  }
+  
   // 根据动画状态添加相应的类
   if (props.type === 'circular') {
     if (props.animationState === 'expanding') {
@@ -146,6 +160,16 @@ const nodeClasses = computed(() => {
 
 const contentClasses = computed(() => {
   const classes = ['node-content', 'node-content--circular']
+  
+  // 中心节点内容展开状态
+  if (props.type === 'center' && props.isExpanded) {
+    classes.push('node-content--expanded')
+  }
+  
+  // 中心节点内容在其他图谱展开时变小
+  if (props.type === 'center' && props.hasExpandedGraph && !props.isExpanded) {
+    classes.push('node-content--shrunk')
+  }
   
   // 根据动画状态添加相应的类
   if (props.type === 'circular') {
@@ -261,6 +285,21 @@ const handlePractice = () => {
   border-radius: 50%;
   box-shadow: 0 8px 32px rgba(139, 92, 246, 0.3);
   z-index: 10;
+  transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* 中心节点展开状态 - 变大 */
+.graph-node--center.graph-node--expanded {
+  width: 200px;
+  height: 200px;
+  box-shadow: 0 12px 48px rgba(139, 92, 246, 0.4);
+}
+
+/* 中心节点在其他图谱展开时变小 */
+.graph-node--center.graph-node--shrunk {
+  width: 120px;
+  height: 120px;
+  box-shadow: 0 6px 24px rgba(139, 92, 246, 0.2);
 }
 
 .graph-node--center:hover {
@@ -356,6 +395,17 @@ const handlePractice = () => {
   max-width: 120px;
   text-align: center;
   z-index: 1;
+  transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* 中心节点内容展开状态 - 字体变大 */
+.node-content--center.node-content--expanded {
+  max-width: 160px;
+}
+
+/* 中心节点内容在其他图谱展开时变小 */
+.node-content--center.node-content--shrunk {
+  max-width: 100px;
 }
 
 /* 中心节点内容样式保持不变 */
@@ -379,6 +429,19 @@ const handlePractice = () => {
   font-size: 12px;
   margin-bottom: 8px;
   color: white;
+  transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* 中心节点标题展开状态 - 字体变大 */
+.node-content--center.node-content--expanded .node-title {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+/* 中心节点标题在其他图谱展开时变小 */
+.node-content--center.node-content--shrunk .node-title {
+  font-size: 10px;
+  margin-bottom: 6px;
 }
 
 .graph-node--center + .node-content .node-title {
@@ -406,6 +469,17 @@ const handlePractice = () => {
   font-size: 9px;
   color: white;
   opacity: 0.9;
+  transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* 中心节点标签展开状态 - 字体变大 */
+.node-content--center.node-content--expanded .node-label {
+  font-size: 12px;
+}
+
+/* 中心节点标签在其他图谱展开时变小 */
+.node-content--center.node-content--shrunk .node-label {
+  font-size: 8px;
 }
 
 /* 非中心节点标签样式 */

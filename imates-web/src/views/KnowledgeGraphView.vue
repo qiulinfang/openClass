@@ -162,6 +162,7 @@
                 :graph-index="index"
                 :rotation="getGraphRotation(index)"
                 :is-expanded="expandedGraphId === subChapter.id"
+                :has-expanded-graph="expandedGraphId !== null"
                 @expand="handleGraphExpand(subChapter.id)"
                 class="knowledge-graph-wrapper"
               />
@@ -203,6 +204,7 @@ const isDragging = ref(false) // 是否正在拖拽
 const startY = ref(0) // 开始触摸的Y坐标
 const lastY = ref(0) // 上次触摸的Y坐标
 const screenHeight = ref(window.innerHeight) // 屏幕高度
+const lastRotationTime = ref(0) // 上次旋转时间戳，用于检测快速滑动
 
 // 全局展开状态管理
 const expandedGraphId = ref<string | null>(null) // 当前展开的知识图谱ID
@@ -236,6 +238,7 @@ const handleTouchMove = (event: TouchEvent) => {
   
   const currentY = event.touches[0].clientY
   const deltaY = currentY - lastY.value
+  const currentTime = Date.now()
   
   // 计算旋转角度：滑动距离与屏幕高度的比例 * 360度
   const rotationDelta = (deltaY / screenHeight.value) * 360
@@ -243,8 +246,9 @@ const handleTouchMove = (event: TouchEvent) => {
   // 更新旋转角度（向上滑动为正，向下滑动为负）
   rotationAngle.value -= rotationDelta
   
-  // 更新上次位置
+  // 更新上次位置和时间戳
   lastY.value = currentY
+  lastRotationTime.value = currentTime
   
   // 应用旋转
   applyRotation()
@@ -292,6 +296,7 @@ const handleMouseMove = (event: MouseEvent) => {
   
   const currentY = event.clientY
   const deltaY = currentY - lastY.value
+  const currentTime = Date.now()
   
   // 计算旋转角度：滑动距离与屏幕高度的比例 * 360度
   const rotationDelta = (deltaY / screenHeight.value) * 360
@@ -299,8 +304,9 @@ const handleMouseMove = (event: MouseEvent) => {
   // 更新旋转角度（向上滑动为正，向下滑动为负）
   rotationAngle.value -= rotationDelta
   
-  // 更新上次位置
+  // 更新上次位置和时间戳
   lastY.value = currentY
+  lastRotationTime.value = currentTime
   
   // 应用旋转
   applyRotation()
@@ -315,9 +321,111 @@ const handleMouseUp = () => {
 
 // 应用旋转变换
 const applyRotation = () => {
-  if (!circularLayoutRef.value) return
+  if (!circularLayoutRef.value) {
+    console.log(`❌ applyRotation: 圆形布局引用不存在`)
+    return
+  }
   
   circularLayoutRef.value.style.transform = `rotate(${rotationAngle.value}deg)`
+}
+
+// 圆形轨迹指示器坐标系 - 统一的角度计算函数
+const calculateCircularTrackAngle = (index: number, total: number) => {
+  // 基础角度：第一节在圆形轨迹指示器左侧位置（180度），逆时针排列
+  // 从左侧（π）开始，逆时针（正角度）排列
+  let baseAngle = Math.PI + (2 * Math.PI * index) / total
+  // 当前角度：基础角度 + 容器旋转角度
+  let currentAngle = baseAngle + (rotationAngle.value * Math.PI / 180)
+  
+  // 将角度标准化到 [0, 2π] 范围
+  while (baseAngle >= 2 * Math.PI) baseAngle -= 2 * Math.PI
+  while (baseAngle < 0) baseAngle += 2 * Math.PI
+  while (currentAngle >= 2 * Math.PI) currentAngle -= 2 * Math.PI
+  while (currentAngle < 0) currentAngle += 2 * Math.PI
+  
+  return { baseAngle, currentAngle }
+}
+
+// 圆形轨迹指示器坐标系 - 统一的位置计算函数
+const calculateCircularTrackPosition = (angle: number, radius: number = 400) => {
+  // 使用圆形轨迹指示器的坐标系：0度为正右方，逆时针为正
+  const x = Math.cos(angle) * radius
+  const y = Math.sin(angle) * radius
+  return { x, y }
+}
+
+// 自动转动指定知识图谱到圆形轨迹指示器的左侧定点位置
+// 新逻辑：将目标知识图谱旋转到左侧位置（180度），保持其他知识图谱的相对位置
+const rotateToLeftPosition = (graphId: string) => {
+  console.log("🎯 rotateToLeftPosition - 将知识图谱旋转到左侧位置", graphId)
+  
+  // 1. 检查章节详情是否存在
+  if (!selectedChapterDetails.value) return
+  
+  // 2. 获取子章节列表并查找目标图谱索引
+  const subChapters = getSubChapters(selectedChapterDetails.value)
+  const targetIndex = subChapters.findIndex(chapter => chapter.id === graphId)
+  
+  // 3. 验证目标图谱是否存在
+  if (targetIndex === -1) {
+    console.log(`❌ 未找到目标知识图谱: ${graphId}`)
+    return
+  }
+  
+  // 4. 使用圆形轨迹指示器坐标系计算目标图谱的基础角度
+  const total = subChapters.length
+  const { baseAngle } = calculateCircularTrackAngle(targetIndex, total)
+  
+  // 5. 定义圆形轨迹指示器左侧定点位置角度（π，即正左方）
+  const circularTrackLeftAngle = Math.PI
+  
+  // 6. 计算需要旋转的角度差值
+  // 目标：让目标知识图谱的基础角度 + 容器旋转角度 = 左侧位置角度
+  // 即：baseAngle + currentRotation + targetRotation = circularTrackLeftAngle
+  // 所以：targetRotation = circularTrackLeftAngle - baseAngle - currentRotation
+  let targetRotation = circularTrackLeftAngle - baseAngle
+  
+  // 7. 标准化角度到 [-π, π] 范围，选择最短路径
+  while (targetRotation > Math.PI) targetRotation -= 2 * Math.PI
+  while (targetRotation < -Math.PI) targetRotation += 2 * Math.PI
+  
+  console.log(`🎯 圆形轨迹指示器坐标系旋转计算:`, {
+    targetIndex,
+    targetGraphName: subChapters[targetIndex]?.name || '未知',
+    baseAngle: `${(baseAngle * 180 / Math.PI).toFixed(2)}°`,
+    currentRotationAngle: `${rotationAngle.value.toFixed(2)}°`,
+    targetRotation: `${(targetRotation * 180 / Math.PI).toFixed(2)}°`,
+    direction: targetRotation > 0 ? '逆时针' : '顺时针',
+    finalPosition: '左侧位置 (180°)'
+  })
+  
+  // 8. 将弧度转换为度数
+  const targetRotationDegrees = (targetRotation * 180) / Math.PI
+  
+  console.log(`🎬 动画参数:`, {
+    currentRotationAngle: `${rotationAngle.value.toFixed(2)}°`,
+    targetRotationDegrees: `${targetRotationDegrees.toFixed(2)}°`,
+    finalRotationAngle: `${(rotationAngle.value + targetRotationDegrees).toFixed(2)}°`,
+    duration: '0.8s',
+    ease: 'power2.out'
+  })
+  
+  // 9. 使用GSAP执行平滑旋转动画
+  if (circularLayoutRef.value) {
+    gsap.to(rotationAngle, {
+      value: rotationAngle.value + targetRotationDegrees,
+      duration: 0.8,
+      ease: "power2.out",
+      onUpdate: () => {
+        applyRotation()
+      },
+      onComplete: () => {
+        console.log(`✅ 知识图谱 "${subChapters[targetIndex]?.name}" 已旋转到左侧位置`)
+      }
+    })
+  } else {
+    console.log(`❌ 圆形布局引用不存在，无法执行旋转动画`)
+  }
 }
 
 // 开发环境检测
@@ -607,6 +715,12 @@ const selectChapter = (index: number) => {
     selectedChapterDetails.value = chapterStructure.value[index]
     console.log('选择章节:', chapters.value[index])
     console.log('章节详情:', selectedChapterDetails.value)
+    
+    // 🔍 输出新章节的角度分布
+    nextTick(() => {
+      console.log(`🔄 切换到新章节: ${selectedChapterDetails.value?.name || '未知章节'}`)
+      logAngleDistribution()
+    })
   }
 }
 
@@ -641,6 +755,9 @@ const handleGraphExpand = (graphId: string) => {
     expandedGraphId.value = graphId
     // 重置拖拽状态，确保展开时不会有滚动干扰
     resetDraggingState()
+    
+    // 自动转动到左侧定点位置
+    rotateToLeftPosition(graphId)
   }
 }
 
@@ -670,6 +787,29 @@ const getSubChapters = (chapterDetails: ChapterNode | null) => {
   // 过滤出level=1的子章节（x.x格式）
   const subChapters = chapterDetails.children.filter(child => child.level === 1)
   
+  // 按节的顺序排序：提取名称中的数字进行排序
+  const sortedSubChapters = subChapters.sort((a, b) => {
+    // 提取名称中的数字进行比较（如"1.1"、"1.2"、"2.1"等）
+    const aMatch = a.name.match(/(\d+)\.(\d+)/)
+    const bMatch = b.name.match(/(\d+)\.(\d+)/)
+    
+    if (aMatch && bMatch) {
+      const aChapter = parseInt(aMatch[1])
+      const aSection = parseInt(aMatch[2])
+      const bChapter = parseInt(bMatch[1])
+      const bSection = parseInt(bMatch[2])
+      
+      // 先按章排序，再按节排序
+      if (aChapter !== bChapter) {
+        return aChapter - bChapter
+      }
+      return aSection - bSection
+    }
+    
+    // 如果无法提取数字，按名称排序
+    return a.name.localeCompare(b.name)
+  })
+  
   // 为每个章节添加章节练习节点
   const exerciseNode: ChapterNode = {
     id: `${chapterDetails.id}_exercise`,
@@ -683,15 +823,111 @@ const getSubChapters = (chapterDetails: ChapterNode | null) => {
   }
   
   // 将章节练习节点添加到子章节列表的末尾
-  return [...subChapters, exerciseNode]
+  return [...sortedSubChapters, exerciseNode]
 }
 
-// 计算知识图谱在圆周上的位置（SVG方法）
+// 计算知识图谱在圆形轨迹指示器中的位置（统一坐标系）
 const getGraphPosition = (index: number, total: number) => {
-  const angle = (2 * Math.PI * index) / total
-  const radius = 400 // 大圆半径
-  const x = Math.cos(angle) * radius
-  const y = Math.sin(angle) * radius
+  const subChapters = getSubChapters(selectedChapterDetails.value)
+  const expandedIndex = expandedGraphId.value ? 
+    subChapters.findIndex(chapter => chapter.id === expandedGraphId.value) : -1
+  
+  // 使用统一的圆形轨迹指示器坐标系计算角度
+  const { currentAngle } = calculateCircularTrackAngle(index, total)
+  console.log('currentAngle', currentAngle)
+  const angle = currentAngle
+  
+  let radius = 400 // 默认大圆半径（与圆形轨迹指示器一致）
+  
+  // 如果有知识图谱展开，调整其他知识图谱的位置
+  // 添加更严格的条件：只有在非拖拽状态下且非快速滑动时才进行位置调整
+  const isRapidScrolling = isDragging.value && (Date.now() - lastRotationTime.value) < 100
+  if (expandedGraphId.value !== null && expandedIndex !== -1 && !isDragging.value && !isRapidScrolling) {
+    // 如果当前知识图谱就是展开的，保持在原位置
+    if (index === expandedIndex) {
+      radius = 400 // 展开的知识图谱保持在圆形轨迹指示器上
+    } else {
+      // 使用统一的圆形轨迹指示器坐标系计算展开知识图谱的角度
+      const { currentAngle: expandedAngle } = calculateCircularTrackAngle(expandedIndex, total)
+      
+      // 计算当前知识图谱与展开知识图谱的角度差
+      let angleDiff = Math.abs(angle - expandedAngle)
+      // 处理跨越0度的情况
+      if (angleDiff > Math.PI) {
+        angleDiff = 2 * Math.PI - angleDiff
+      }
+      
+      // 如果角度差小于150度（5π/6），则让其他知识图谱沿切线向右侧移动
+      if (angleDiff < (5 * Math.PI) / 6) {
+        // 计算切线移动的距离：角度差越小，移动距离越大
+        // 使用更大的移动距离确保能够移出视口
+        const tangentDistance = ((5 * Math.PI) / 6 - angleDiff) / ((5 * Math.PI) / 6) * 1200 // 最大移动1200px
+        
+        // 根据角度范围计算切线方向
+        // 上半圆（π 到 2π）：向右上移动
+        // 下半圆（0 到 π）：向右下移动
+        
+        let tangentX, tangentY
+        let circleRegion = ''
+        
+        if (angle > Math.PI && angle <= 2 * Math.PI) {
+          // 上半圆：切线方向向右上
+          circleRegion = '上半圆'
+          // 切线方向 = 半径方向 - 90度
+          const tangentAngle = angle + Math.PI / 2
+          tangentX = Math.cos(tangentAngle) * tangentDistance
+          tangentY = Math.sin(tangentAngle) * tangentDistance
+        } else {
+          // 下半圆：切线方向向右下
+          circleRegion = '下半圆'
+          // 切线方向 = 半径方向 + 90度
+          const tangentAngle = angle - Math.PI / 2
+          tangentX = Math.cos(tangentAngle) * tangentDistance
+          tangentY = Math.sin(tangentAngle) * tangentDistance
+        }
+        
+        // 输出角度和区域信息
+        const angleDegrees = (angle * 180 / Math.PI).toFixed(2)
+        console.log(`🎯 知识图谱${index + 1} "${subChapters[index]?.name || '未知'}" 角度分析:`, {
+          angle: `${angleDegrees}°`,
+          region: circleRegion,
+          tangentDirection: circleRegion === '上半圆' ? '右上' : '右下',
+          tangentDistance: `${tangentDistance.toFixed(2)}px`
+        })
+        
+        // 使用统一的圆形轨迹指示器坐标系计算原始位置
+        const { x: originalX, y: originalY } = calculateCircularTrackPosition(angle, radius)
+        
+        // 计算最终位置
+        const finalX = originalX + tangentX
+        const finalY = originalY + tangentY
+        
+        // 检查是否移出视口（视口中心为(0,0)，半径约为400px）
+        const distanceFromCenter = Math.sqrt(finalX * finalX + finalY * finalY)
+        const isOutOfViewport = distanceFromCenter > 600 // 600px为视口边界
+        
+        // 计算动画延迟：距离展开图谱越近，延迟越短
+        const animationDelay = (angleDiff / ((5 * Math.PI) / 6)) * 0.3 // 最大延迟0.3秒
+        
+        // 返回切线移动后的位置
+        return {
+          transform: `translate(${finalX}px, ${finalY}px)`,
+          position: 'absolute' as const,
+          left: '50%',
+          top: '50%',
+          marginLeft: '-250px', // 知识图谱宽度的一半
+          marginTop: '-250px',   // 知识图谱高度的一半
+          // 如果移出视口，添加透明度动画
+          opacity: isOutOfViewport ? 0 : 1,
+          // 只有在非拖拽状态下才应用过渡动画，避免快速滑动时的视觉干扰
+          transition: isDragging.value ? 'none' : `transform 1.0s cubic-bezier(0.4, 0.0, 0.2, 1) ${animationDelay}s, opacity 1.0s cubic-bezier(0.4, 0.0, 0.2, 1) ${animationDelay}s`
+        }
+      }
+    }
+  }
+  
+  // 使用统一的圆形轨迹指示器坐标系计算位置
+  const { x, y } = calculateCircularTrackPosition(angle, radius)
   
   return {
     transform: `translate(${x}px, ${y}px)`,
@@ -699,16 +935,78 @@ const getGraphPosition = (index: number, total: number) => {
     left: '50%',
     top: '50%',
     marginLeft: '-250px', // 知识图谱宽度的一半
-    marginTop: '-250px'   // 知识图谱高度的一半
+    marginTop: '-250px',   // 知识图谱高度的一半
+    // 只有在非拖拽状态下才应用过渡动画，避免快速滑动时的视觉干扰
+    transition: isDragging.value ? 'none' : 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)'
   }
 }
 
-// 计算知识图谱的旋转角度（保持水平，不旋转内容）
+// 计算知识图谱的旋转角度（圆形轨迹指示器坐标系 - 保持水平，不旋转内容）
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const getGraphRotation = (_index: number) => {
-  // 根据SVG方法，知识图谱内容保持水平，不进行旋转
-  // 只让位置随容器旋转，但内容本身不旋转
+  // 在圆形轨迹指示器坐标系中，知识图谱内容保持水平，不进行旋转
+  // 只有位置会随容器旋转而改变，内容本身保持水平状态
   return 0
+}
+
+// 🔍 圆形轨迹指示器坐标系角度分布总览日志函数
+const logAngleDistribution = () => {
+  const subChapters = getSubChapters(selectedChapterDetails.value)
+  const total = subChapters.length
+  
+  console.log('🎯 圆形轨迹指示器坐标系角度分布总览')
+  console.log('═'.repeat(60))
+  console.log(`📊 总知识图谱数量: ${total}`)
+  console.log(`📐 起始位置: 正左方 (180°) - 第一节`)
+  console.log(`🔄 排列方向: 逆时针`)
+  console.log(`🔄 容器旋转角度: ${rotationAngle.value.toFixed(2)}°`)
+  console.log(`🎯 圆形轨迹指示器半径: 400px`)
+  console.log('─'.repeat(60))
+  
+  for (let i = 0; i < total; i++) {
+    // 使用统一的圆形轨迹指示器坐标系计算角度
+    const { baseAngle, currentAngle } = calculateCircularTrackAngle(i, total)
+    const baseDegrees = baseAngle * 180 / Math.PI
+    const currentDegrees = currentAngle * 180 / Math.PI
+    
+    // 使用统一的圆形轨迹指示器坐标系计算位置
+    const { x, y } = calculateCircularTrackPosition(currentAngle, 400)
+    
+    let direction = ''
+    let circleRegion = ''
+    
+    if (Math.abs(currentDegrees) < 5 || Math.abs(currentDegrees - 360) < 5) {
+      direction = '正右方'
+      circleRegion = '边界点'
+    } else if (Math.abs(currentDegrees - 90) < 5) {
+      direction = '正下方'
+      circleRegion = '下半圆'
+    } else if (Math.abs(currentDegrees - 180) < 5) {
+      direction = '正左方 (起始位置)'
+      circleRegion = '边界点'
+    } else if (Math.abs(currentDegrees - 270) < 5) {
+      direction = '正上方'
+      circleRegion = '上半圆'
+    } else if (currentDegrees > 0 && currentDegrees < 90) {
+      direction = '右下方'
+      circleRegion = '下半圆'
+    } else if (currentDegrees > 90 && currentDegrees < 180) {
+      direction = '左下方'
+      circleRegion = '下半圆'
+    } else if (currentDegrees > 180 && currentDegrees < 270) {
+      direction = '左上方'
+      circleRegion = '上半圆'
+    } else if (currentDegrees > 270 && currentDegrees < 360) {
+      direction = '右上方'
+      circleRegion = '上半圆'
+    }
+    
+    console.log(`📌 图谱${i + 1}: 基础角度 ${baseDegrees.toFixed(2)}° → 当前角度 ${currentDegrees.toFixed(2)}° (${direction}) [${circleRegion}]`)
+    console.log(`   中心节点: "${subChapters[i].name}"`)
+    console.log(`   坐标: (${x.toFixed(2)}, ${y.toFixed(2)})`)
+  }
+  
+  console.log('═'.repeat(60))
 }
 
 
@@ -718,6 +1016,11 @@ const getGraphRotation = (_index: number) => {
 onMounted(() => {
   initGraph()
   initGSAPAnimations()
+  
+  // 🔍 输出角度分布总览
+  nextTick(() => {
+    logAngleDistribution()
+  })
   
   // 添加全局鼠标事件监听器
   document.addEventListener('mousemove', handleMouseMove)

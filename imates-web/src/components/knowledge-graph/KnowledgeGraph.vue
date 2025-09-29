@@ -14,6 +14,8 @@
          :node="{ id: 'center', name: chapterDetails.name, level: chapterDetails.level }"
          type="center"
          :is-menu-visible="activeNodeId === 'center'"
+         :is-expanded="isExpanded"
+         :has-expanded-graph="hasExpandedGraph"
          @click="handleCenterNodeClick"
          @toggle-menu="handleToggleMenu"
          @learn="handleLearn"
@@ -71,11 +73,13 @@ interface Props {
   graphIndex?: number
   rotation?: number
   isExpanded?: boolean
+  hasExpandedGraph?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   rotation: 0,
-  isExpanded: false
+  isExpanded: false,
+  hasExpandedGraph: false
 })
 
 // 定义事件
