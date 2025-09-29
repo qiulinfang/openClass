@@ -158,6 +158,8 @@
                 :chapter-details="subChapter"
                 :graph-index="index"
                 :rotation="getGraphRotation(index)"
+                :is-expanded="expandedGraphId === subChapter.id"
+                @expand="handleGraphExpand(subChapter.id)"
                 class="knowledge-graph-wrapper"
               />
             </div>
@@ -199,21 +201,24 @@ const startY = ref(0) // 开始触摸的Y坐标
 const lastY = ref(0) // 上次触摸的Y坐标
 const screenHeight = ref(window.innerHeight) // 屏幕高度
 
+// 全局展开状态管理
+const expandedGraphId = ref<string | null>(null) // 当前展开的知识图谱ID
+
 // 触摸事件处理函数
 const handleTouchStart = (event: TouchEvent) => {
-  console.log('触摸开始')
   if (!circularLayoutRef.value) return
   
   isDragging.value = true
   startY.value = event.touches[0].clientY
   lastY.value = event.touches[0].clientY
   
-  // 阻止默认滚动行为
-  
+  // 只在拖拽容器上阻止默认滚动行为，不阻止点击事件
+  if (event.target === circularLayoutRef.value) {
+    event.preventDefault()
+  }
 }
 
 const handleTouchMove = (event: TouchEvent) => {
-  console.log('触摸移动')
   if (!isDragging.value || !circularLayoutRef.value) return
   
   const currentY = event.touches[0].clientY
@@ -231,19 +236,19 @@ const handleTouchMove = (event: TouchEvent) => {
   // 应用旋转
   applyRotation()
   
-  // 阻止默认滚动行为
-  
+  // 只在拖拽容器上阻止默认滚动行为
+  if (event.target === circularLayoutRef.value) {
+    event.preventDefault()
+  }
 }
 
 const handleTouchEnd = () => {
-  console.log('触摸结束')
   isDragging.value = false
   // 松手后保持最终角度，无回弹
 }
 
 // 鼠标事件处理函数（可选功能）
 const handleMouseDown = (event: MouseEvent) => {
-  console.log('鼠标按下')
   if (!circularLayoutRef.value) return
   
   isDragging.value = true
@@ -255,7 +260,6 @@ const handleMouseDown = (event: MouseEvent) => {
 }
 
 const handleMouseMove = (event: MouseEvent) => {
-  console.log('鼠标移动')
   if (!isDragging.value || !circularLayoutRef.value) return
   
   const currentY = event.clientY
@@ -278,13 +282,11 @@ const handleMouseMove = (event: MouseEvent) => {
 }
 
 const handleMouseUp = () => {
-  console.log('鼠标抬起')
   isDragging.value = false
 }
 
 // 应用旋转变换
 const applyRotation = () => {
-  console.log('应用旋转变换')
   if (!circularLayoutRef.value) return
   
   circularLayoutRef.value.style.transform = `rotate(${rotationAngle.value}deg)`
@@ -599,6 +601,17 @@ const selectStatus = (status: string) => {
 // 根据状态筛选节点
 const filterNodesByStatus = (status: string) => {
   console.log('筛选功能暂未实现:', status)
+}
+
+// 处理知识图谱展开状态
+const handleGraphExpand = (graphId: string) => {
+  // 如果点击的是当前展开的图谱，则收起
+  if (expandedGraphId.value === graphId) {
+    expandedGraphId.value = null
+  } else {
+    // 否则展开新的图谱（自动收起其他图谱）
+    expandedGraphId.value = graphId
+  }
 }
 
 // 获取子章节（x.x格式的小节）

@@ -1,5 +1,5 @@
 <template>
-  <div class="knowledge-graph-container" ref="containerRef">
+  <div class="knowledge-graph-container" ref="containerRef" >
     <div class="knowledge-graph" ref="graphRef">
       <!-- 背景圆形区域表示包含关系 -->
       <div 
@@ -13,7 +13,11 @@
          ref="centerNodeRef"
          :node="{ id: 'center', name: chapterDetails.name, level: chapterDetails.level }"
          type="center"
+         :is-menu-visible="activeNodeId === 'center'"
          @click="handleCenterNodeClick"
+         @toggle-menu="handleToggleMenu"
+         @learn="handleLearn"
+         @practice="handlePractice"
        />
       
        <!-- 圆周上的子节点 -->
@@ -30,6 +34,10 @@
          :blue="index === 1"
          :show="isExpanded"
          :animation-state="animationState"
+         :is-menu-visible="activeNodeId === child.id"
+         @toggle-menu="handleToggleMenu"
+         @learn="handleLearn"
+         @practice="handlePractice"
        />
     </div>
   </div>
@@ -61,11 +69,18 @@ interface Props {
   chapterDetails: ChapterDetails
   graphIndex?: number
   rotation?: number
+  isExpanded?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  rotation: 0
+  rotation: 0,
+  isExpanded: false
 })
+
+// 定义事件
+const emit = defineEmits<{
+  expand: [graphId: string]
+}>()
 
 // 模板引用
 const containerRef = ref<HTMLElement>()
@@ -73,11 +88,15 @@ const graphRef = ref<HTMLElement>()
 const centerNodeRef = ref<InstanceType<typeof GraphNode>>()
 const backgroundRef = ref<HTMLElement>()
 
-// 展开状态
-const isExpanded = ref(false)
+// 展开状态 - 使用外部传入的 props
+const isExpanded = computed(() => props.isExpanded)
 
 // 动画状态
 const animationState = ref<'idle' | 'expanding' | 'expanded' | 'collapsing'>('idle')
+
+// 气泡框状态管理
+const activeNodeId = ref<string | null>(null)
+
 
 // 计算背景圆半径
 const backgroundRadius = computed(() => {
@@ -94,11 +113,8 @@ const backgroundRadius = computed(() => {
   return Math.max(radius, 100) // 最小半径100px
 })
 
-// 动画时间线 - 已移除
-
 // 获取圆周上的子节点
 const getCircularNodes = (chapterDetails: ChapterDetails) => {
-  console.log('获取圆周上的子节点', chapterDetails)
   if (!chapterDetails.children) return []
   
   // 初始情况下，只显示level=1的节点（x.x层）
@@ -140,16 +156,50 @@ const animateCollapse = () => {
 
 // 处理中心节点点击
 const handleCenterNodeClick = (event: Event) => {
+  console.log('handleCenterNodeClick', props.chapterDetails.id)
   event.stopPropagation() // 阻止事件冒泡到背景
-  console.log("handleCenterNodeClick", isExpanded.value)
-  isExpanded.value = !isExpanded.value
+  
+  console.log('props.chapterDetails.children?.length', props.chapterDetails.children?.length)
+  // 如果没有周围节点，则不执行展开逻辑
+  if (!props.chapterDetails.children?.length) {
+    console.log('No circular nodes, skipping expand logic')
+    return
+  }
+  
+  // 发出展开事件，让父组件控制展开状态
+  emit('expand', props.chapterDetails.id)
 }
 
+// 处理气泡框切换
+const handleToggleMenu = (nodeId: string) => {
+  if (activeNodeId.value === nodeId) {
+    // 如果点击的是当前激活的节点，关闭气泡框
+    activeNodeId.value = null
+  } else {
+    // 否则切换到新的节点
+    activeNodeId.value = nodeId
+  }
+}
+
+
+// 处理去学习
+const handleLearn = (node: { id: string; name: string; level?: number | null }) => {
+  console.log('去学习:', node)
+  activeNodeId.value = null // 关闭气泡框
+  // 这里可以添加跳转到学习页面的逻辑
+}
+
+// 处理去练习
+const handlePractice = (node: { id: string; name: string; level?: number | null }) => {
+  console.log('去练习:', node)
+  activeNodeId.value = null // 关闭气泡框
+  // 这里可以添加跳转到练习页面的逻辑
+}
 
 // 初始化动画状态
 const initAnimations = () => {
   animationState.value = 'idle'
-  isExpanded.value = false
+  // 展开状态由外部控制，不需要在这里设置
 }
 
 // 监听展开状态变化
@@ -159,7 +209,7 @@ watch(isExpanded, (newValue) => {
   } else {
     animateCollapse()
   }
-})
+}, { immediate: true })
 
 // 暴露动画方法给父组件
 defineExpose({
@@ -222,7 +272,7 @@ onMounted(() => {
   border: 2px solid rgba(139, 92, 246, 0.2);
   border-radius: 50%;
   z-index: 1;
-  cursor: pointer;
+  pointer-events: none; /* 不拦截点击事件，让子节点可以正常点击 */
   transform-origin: center center;
   /* 初始状态隐藏 */
   opacity: 0;

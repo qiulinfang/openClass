@@ -6,6 +6,7 @@
       @mouseenter="handleMouseEnter"
       @mouseleave="handleMouseLeave"
       @click="handleClick"
+      @contextmenu="handleContextMenu"
       :ref="(el) => { nodeRef = el as HTMLElement }"
     >
       <!-- 学习标签 -->
@@ -16,6 +17,7 @@
         <div class="node-title">{{ formatNodeName(node) }}</div>
         <div v-if="node.label" class="node-label">{{ node.label }}</div>
       </div>
+      
     </div>
     
     <!-- 非中心节点的内容通过绝对定位脱离文档流 -->
@@ -23,11 +25,49 @@
       <div class="node-title">{{ formatNodeName(node) }}</div>
       <div v-if="node.label" class="node-label">{{ node.label }}</div>
     </div>
+
+    <!-- 气泡框菜单 -->
+    <q-menu 
+      :model-value="isMenuVisible" 
+      anchor="bottom middle" 
+      self="top middle"
+      :offset="[0, 8]"
+      class="node-popup-menu"
+    >
+      <q-list class="popup-list">
+        <q-item 
+          clickable 
+          v-close-popup 
+          @click="handleLearn"
+          class="popup-item"
+        >
+          <q-item-section avatar>
+            <q-icon name="school" color="primary" />
+          </q-item-section>
+          <q-item-section>
+            <q-item-label>去学习</q-item-label>
+          </q-item-section>
+        </q-item>
+        <q-item 
+          clickable 
+          v-close-popup 
+          @click="handlePractice"
+          class="popup-item"
+        >
+          <q-item-section avatar>
+            <q-icon name="quiz" color="secondary" />
+          </q-item-section>
+          <q-item-section>
+            <q-item-label>去练习</q-item-label>
+          </q-item-section>
+        </q-item>
+      </q-list>
+    </q-menu>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, defineProps, defineEmits, onMounted } from 'vue'
+import { computed, ref, defineProps, defineEmits } from 'vue'
 
 interface Node {
   id: string
@@ -46,12 +86,16 @@ interface Props {
   radius?: number
   show?: boolean
   animationState?: 'idle' | 'expanding' | 'expanded' | 'collapsing'
+  isMenuVisible?: boolean
 }
 
 interface Emits {
   (e: 'mouseenter', event: Event, isEnter: boolean): void
   (e: 'mouseleave', event: Event, isEnter: boolean): void
   (e: 'click', event: Event): void
+  (e: 'learn', node: Node): void
+  (e: 'practice', node: Node): void
+  (e: 'toggle-menu', nodeId: string): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -59,16 +103,17 @@ const props = withDefaults(defineProps<Props>(), {
   blue: false,
   radius: 180,
   show: false,
-  animationState: 'idle'
+  animationState: 'idle',
+  isMenuVisible: false
 })
 
 const emit = defineEmits<Emits>()
 
 const nodeRef = ref<HTMLElement>()
 
+
 // 格式化节点名称 - 根据层级显示不同格式
 const formatNodeName = (node: Node) => {
-  console.log("格式化节点名称",node)
   if (props.type === 'center') {
     // 中心节点使用对应数据结构的name
     return node.name
@@ -162,14 +207,31 @@ const handleMouseLeave = (event: Event) => {
 }
 
 const handleClick = (event: Event) => {
+  console.log("handleClick", props.node.id)
+  event.stopPropagation() // 阻止事件冒泡
+  emit('toggle-menu', props.node.id)
   emit('click', event)
 }
 
-// 进度条动画已移除
+// 处理右键菜单
+const handleContextMenu = (event: MouseEvent) => {
+  event.preventDefault() // 阻止浏览器原生右键菜单
+  event.stopPropagation() // 阻止事件冒泡
+}
 
-onMounted(() => {
-  // 进度条动画已移除
-})
+// 处理去学习
+const handleLearn = () => {
+  emit('learn', props.node)
+}
+
+// 处理去练习
+const handlePractice = () => {
+  emit('practice', props.node)
+}
+
+
+
+
 </script>
 
 <style scoped>
@@ -179,6 +241,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   text-align: center;
+  z-index: 2;
 }
 
 .graph-node {
@@ -437,4 +500,40 @@ onMounted(() => {
 .node-content--circular.content-exit {
   animation: content-exit 0.6s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
 }
+
+/* 气泡框菜单样式 */
+.node-popup-menu {
+  .q-menu {
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e5e7eb;
+    background: white;
+    min-width: 120px;
+  }
+}
+
+.popup-list {
+  padding: 4px;
+  
+  .popup-item {
+    border-radius: 6px;
+    margin: 2px 0;
+    padding: 8px 12px;
+    
+    &:hover {
+      background: #f3f4f6;
+    }
+    
+    .q-item__section--avatar {
+      min-width: 32px;
+    }
+    
+    .q-item__label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #374151;
+    }
+  }
+}
+
 </style>
