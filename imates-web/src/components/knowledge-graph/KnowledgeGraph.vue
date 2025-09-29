@@ -45,6 +45,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import GraphNode from './GraphNode.vue'
 
 interface ChapterDetails {
@@ -81,6 +82,9 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   expand: [graphId: string]
 }>()
+
+// 路由
+const router = useRouter()
 
 // 模板引用
 const containerRef = ref<HTMLElement>()
@@ -193,7 +197,9 @@ const handleLearn = (node: { id: string; name: string; level?: number | null }) 
 const handlePractice = (node: { id: string; name: string; level?: number | null }) => {
   console.log('去练习:', node)
   activeNodeId.value = null // 关闭气泡框
-  // 这里可以添加跳转到练习页面的逻辑
+  
+  // 跳转到练习页面
+  router.push('/find-exercise')
 }
 
 // 初始化动画状态

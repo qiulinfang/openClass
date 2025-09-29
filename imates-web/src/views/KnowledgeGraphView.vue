@@ -132,6 +132,7 @@
       <div class="circular-graphs-container" v-if="selectedChapterDetails" ref="circularContainerRef">
         <!-- 视口裁剪区域 -->
         <div class="viewport-clipper"
+          :class="{ 'has-expanded': expandedGraphId !== null }"
           @touchstart="handleTouchStart"
           @touchmove="handleTouchMove"
           @touchend="handleTouchEnd"
@@ -139,12 +140,14 @@
           @mousemove="handleMouseMove"
           @mouseup="handleMouseUp"
           @mouseleave="handleMouseUp"
+          @click="handleBackgroundClick"
         >
           <!-- 圆形轨迹指示器 -->
           <div class="circular-track"></div>
           <!-- 圆形布局容器 -->
           <div 
             class="circular-layout" 
+            :class="{ 'scroll-disabled': expandedGraphId !== null }"
             ref="circularLayoutRef"
           >
             <div 
@@ -208,6 +211,11 @@ const expandedGraphId = ref<string | null>(null) // 当前展开的知识图谱I
 const handleTouchStart = (event: TouchEvent) => {
   if (!circularLayoutRef.value) return
   
+  // 如果有知识图谱处于展开状态，禁用滚动
+  if (expandedGraphId.value !== null) {
+    return
+  }
+  
   isDragging.value = true
   startY.value = event.touches[0].clientY
   lastY.value = event.touches[0].clientY
@@ -220,6 +228,11 @@ const handleTouchStart = (event: TouchEvent) => {
 
 const handleTouchMove = (event: TouchEvent) => {
   if (!isDragging.value || !circularLayoutRef.value) return
+  
+  // 如果有知识图谱处于展开状态，禁用滚动
+  if (expandedGraphId.value !== null) {
+    return
+  }
   
   const currentY = event.touches[0].clientY
   const deltaY = currentY - lastY.value
@@ -247,9 +260,19 @@ const handleTouchEnd = () => {
   // 松手后保持最终角度，无回弹
 }
 
+// 重置拖拽状态（当有图谱展开时调用）
+const resetDraggingState = () => {
+  isDragging.value = false
+}
+
 // 鼠标事件处理函数（可选功能）
 const handleMouseDown = (event: MouseEvent) => {
   if (!circularLayoutRef.value) return
+  
+  // 如果有知识图谱处于展开状态，禁用滚动
+  if (expandedGraphId.value !== null) {
+    return
+  }
   
   isDragging.value = true
   startY.value = event.clientY
@@ -261,6 +284,11 @@ const handleMouseDown = (event: MouseEvent) => {
 
 const handleMouseMove = (event: MouseEvent) => {
   if (!isDragging.value || !circularLayoutRef.value) return
+  
+  // 如果有知识图谱处于展开状态，禁用滚动
+  if (expandedGraphId.value !== null) {
+    return
+  }
   
   const currentY = event.clientY
   const deltaY = currentY - lastY.value
@@ -611,6 +639,25 @@ const handleGraphExpand = (graphId: string) => {
   } else {
     // 否则展开新的图谱（自动收起其他图谱）
     expandedGraphId.value = graphId
+    // 重置拖拽状态，确保展开时不会有滚动干扰
+    resetDraggingState()
+  }
+}
+
+// 处理背景点击事件
+const handleBackgroundClick = (event: MouseEvent) => {
+  console.log('handleBackgroundClick', expandedGraphId.value)
+  // 如果当前没有展开的图谱，不需要处理
+  if (expandedGraphId.value === null) {
+    return
+  }
+  
+  // 检查点击的目标元素
+  const target = event.target as HTMLElement
+  
+  // 如果点击的是视口裁剪区域或其子元素（背景），关闭展开状态
+  if (target.closest('.viewport-clipper')) {
+    expandedGraphId.value = null
   }
 }
 
@@ -944,6 +991,28 @@ onUnmounted(() => {
   position: relative;
   overflow: hidden;
   // 移除 clip-path，显示完整视口区域
+  
+  // 当有图谱展开时，提供视觉反馈
+  &.has-expanded {
+    cursor: pointer;
+    
+    // 添加一个微妙的背景提示
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(139, 92, 246, 0.02);
+      pointer-events: none;
+      transition: background-color 0.2s ease;
+    }
+    
+    &:hover::before {
+      background: rgba(139, 92, 246, 0.05);
+    }
+  }
 }
 
 // 圆形轨迹指示器
@@ -976,6 +1045,15 @@ onUnmounted(() => {
   
   &:active {
     cursor: grabbing;
+  }
+  
+  // 当有图谱展开时，禁用滚动交互
+  &.scroll-disabled {
+    cursor: default;
+    
+    &:active {
+      cursor: default;
+    }
   }
 }
 
