@@ -21,6 +21,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.data.models.SubjectUtils;
 import com.cosinetech.imates.ui.adapters.AdapterQuestionList;
 import com.cosinetech.imates.ui.adapters.AdapterSingleSelectSimilarQuestionList;
 import com.cosinetech.imates.audio.AudioPlayManager;
@@ -364,11 +365,11 @@ public class ExerciseSolveActivity extends AppCompatActivity implements Messagin
     }
 
     private String getMiniClassUrl() {
-        String prefix = subject.name();
+        String prefix = SubjectUtils.getSubjectNormalizedName(subject);
         try {
             if(mCurrentQuestionIndex >= 0 && mCurrentQuestionIndex < mQuestions.size()){
                 String id =  mQuestions.get(mCurrentQuestionIndex).bmNo;
-                return "https://www.imates.com.cn:9099/miniclass/" + prefix + "/" + id + ".html";
+                return "https://www.imates.com.cn:9099/wk/" + prefix + "/" + id + "/" + id + ".html";
             } else {
                 return "";
             }
@@ -475,12 +476,7 @@ public class ExerciseSolveActivity extends AppCompatActivity implements Messagin
         for (Question qq:mQuestions) {
             ids.append(qq.bmNo).append(",");
         }
-        String subjectName = "";
-        if(subject == Subject.SUBJECT_BIOLOGY) {
-            subjectName = "biology";
-        } else if(subject == Subject.SUBJECT_MATH) {
-            subjectName = "math";
-        }
+        String subjectName = SubjectUtils.getSubjectNormalizedName(subject);
 
         FindSimilarQuestionRequest item = FindSimilarQuestionRequest.fromQuestion(mQuestions.get(mCurrentQuestionIndex), ids.toString(), subjectName);
         ApiGateWayService.querySimilarExerciseList(item, ApiUrl.URL_QUERY_SIMILAR_EXERCISE, userInfoViewModel.token.getValue(), new ApiGateWayService.QueryExerciseListCallback() {
