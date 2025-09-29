@@ -1,0 +1,38 @@
+/**
+ * 枚举类型定义
+ * 所有枚举类型定义
+ */
+
+/** 消息类型枚举 */
+export enum MessageType {
+  TEXT = 'TEXT',
+  VOICE = 'VOICE',
+  IMAGE = 'IMAGE'
+}
+
+/** 聊天角色枚举 */
+export enum ChatRole {
+  CHAT_ROLE_MYSELF = 'CHAT_ROLE_MYSELF',
+  CHAT_ROLE_TEACHER = 'CHAT_ROLE_TEACHER',
+  CHAT_ROLE_AI = 'CHAT_ROLE_AI'
+}
+
+/** 会话类型枚举 */
+export enum SessionType {
+  USER_TALK_AI = 'USER_TALK_AI',
+  USER_TALK_TEACHER_BIOLOGY = 'USER_TALK_TEACHER_BIOLOGY',
+  USER_TALK_TEACHER_MATH = 'USER_TALK_TEACHER_MATH'
+}
+
+/** 科目枚举 */
+export enum Subject {
+  SUBJECT_MATH = 'SUBJECT_MATH',
+  SUBJECT_BIOLOGY = 'SUBJECT_BIOLOGY',
+  SUBJECT_CHEMISTRY = 'SUBJECT_CHEMISTRY',
+  SUBJECT_PHYSICS = 'SUBJECT_PHYSICS',
+  SUBJECT_CHINESE = 'SUBJECT_CHINESE',
+  SUBJECT_ENGLISH = 'SUBJECT_ENGLISH'
+}
+
+/** 环境类型枚举 */
+export type EnvType = 'RELEASE' | 'INTERNAL_TEST' | 'DEVELOPMENT'
