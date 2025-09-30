@@ -28,9 +28,8 @@ public class AppEnvConfig {
     }
 
     // 密码相关配置
-    private static final String TEST_ENV_PASSWORD = "148259"; // 测试环境切换密码
+    private static final String TEST_ENV_PASSWORD = "985211"; // 测试环境切换密码
     private static final String PASSWORD_HASH = "hashed_password"; // 实际应用中应存储哈希值
-
     private static final String PREFS_NAME = "app_env_config";
     private static final String KEY_ENV_TYPE = "env_type";
 

@@ -61,7 +61,7 @@ public class ExerciseSolveActivity extends AppCompatActivity implements Messagin
     private UserInfoViewModel userInfoViewModel;
     private AdapterQuestionList adapterQuestionList;
     private AdapterSingleSelectSimilarQuestionList adapterSingleSelectSimilarQuestionList;
-    private final AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "", false);
+    private final AiChatMessageRequest aiChatMessageRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "", false, "all");
     private int mCurrentQuestionIndex = -1;
 
     private RadioButton mRdoChatAi;

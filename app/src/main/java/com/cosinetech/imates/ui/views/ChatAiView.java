@@ -126,7 +126,7 @@ public class ChatAiView extends RelativeLayout {
 
     private UserInfoViewModel mUserInfoViewModel;
     private Context mContext;
-    private AiChatMessageRequest mAiChatRequest = new AiChatMessageRequest("", "", "", "", "", "", "start", "", false);
+    private AiChatMessageRequest mAiChatRequest = new AiChatMessageRequest("", "", "", "", "", AppUtils.getUserNickName(), "start", "", false, "all");
     private AdapterAiChatMessageList mAdapterAiChatMessageList;
     private RecyclerView mMsgDetailListView;
     private SmartRefreshLayout mMsgRefreshLayout;

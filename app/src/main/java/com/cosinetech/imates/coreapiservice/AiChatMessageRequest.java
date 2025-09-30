@@ -16,6 +16,8 @@ public class AiChatMessageRequest {
 
     private String chatRole;
 
+    private String subject;
+
     public String getBmNo() {
         return bmNo;
     }
@@ -40,13 +42,18 @@ public class AiChatMessageRequest {
         return this.chatRole;
     }
 
+    public String getSubject() {
+        return subject;
+    }
+
     // 构造函数
     public AiChatMessageRequest(String sessionId, String newValue,
                                 String conversation, String question,
                                 String answer,
                                 String name, String reason,
                                 String bmNo,
-                                boolean isWebSearch) {
+                                boolean isWebSearch,
+                                String subject) {
         this.sessionId = sessionId;
         this.newValue = newValue;
         this.coversation = conversation;
@@ -56,6 +63,7 @@ public class AiChatMessageRequest {
         this.reason = reason;
         this.bmNo = bmNo;
         this.isWebSearch = isWebSearch ? "1" : "0";
+        this.subject = subject;
     }
 
     // Getters 和 Setters 方法
