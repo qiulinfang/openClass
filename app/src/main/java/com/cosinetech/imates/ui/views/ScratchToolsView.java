@@ -21,9 +21,11 @@ import android.widget.Toast;
 
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.data.models.SubjectUtils;
 import com.cosinetech.imates.ui.colorpicker.ColorListener;
 import com.cosinetech.imates.ui.colorpicker.ColorPickerDialog;
 import com.cosinetech.imates.data.models.Subject;
+import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.ImageUtils;
 import com.cosinetech.imates.utils.ScreenUtils;
 import com.cosinetech.imates.coreapiservice.AiChatMessageRequest;
@@ -299,10 +301,11 @@ public class ScratchToolsView extends RelativeLayout {
                     editText.getText().toString(),
                     ImageUtils.bitmapToHtmlJpgBase64(bmp),
                     mAiPrompt,
-                    "",
+                    AppUtils.getUserNickName(),
                     "start",
                     "",
-                    false);
+                    false,
+                    "math");
             chatRequest.setDstUrl(ApiUrl.URL_CHAT_PREVIEW_PICTURE);
             try {
                 app.chatRequest = chatRequest;
