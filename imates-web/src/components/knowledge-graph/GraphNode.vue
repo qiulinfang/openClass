@@ -9,13 +9,16 @@
       @contextmenu="handleContextMenu"
       :ref="(el) => { nodeRef = el as HTMLElement }"
     >
+      <!-- 背景图标 -->
+      <div class="node-icon" :style="{ backgroundImage: `url(${nodeIcon})` }"></div>
+      
       <!-- 学习标签 -->
       <div v-if="highlighted" class="learning-tag">上次学到</div>
       
       <!-- 中心节点内容在节点内部 -->
       <div v-if="type === 'center'" class="node-content node-content--center">
-        <div class="node-title">{{ formatNodeName(node) }}</div>
-        <div v-if="node.label" class="node-label">{{ node.label }}</div>
+        <div class="node-title">{{ formatNodeTitle(node) }}</div>
+        <div class="node-chapter">{{ formatNodeChapter(node) }}</div>
       </div>
       
     </div>
@@ -23,46 +26,29 @@
     <!-- 非中心节点的内容通过绝对定位脱离文档流 -->
     <div v-if="type === 'circular'" :class="contentClasses">
       <div class="node-title">{{ formatNodeName(node) }}</div>
-      <div v-if="node.label" class="node-label">{{ node.label }}</div>
     </div>
 
-    <!-- 气泡框菜单 -->
-    <q-menu 
-      :model-value="isMenuVisible" 
-      anchor="bottom middle" 
-      self="top middle"
-      :offset="[0, 8]"
-      class="node-popup-menu"
+    <!-- 手动定位的气泡框菜单 - 仅对圆周节点显示 -->
+    <div 
+      v-if="type === 'circular' && isMenuVisible" 
+      class="manual-bubble-menu"
+      :style="bubbleMenuStyle"
     >
-      <q-list class="popup-list">
-        <q-item 
-          clickable 
-          v-close-popup 
+      <div class="bubble-menu-container">
+        <button 
+          class="bubble-menu-button bubble-menu-button--learn"
           @click="handleLearn"
-          class="popup-item"
         >
-          <q-item-section avatar>
-            <q-icon name="school" color="primary" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>去学习</q-item-label>
-          </q-item-section>
-        </q-item>
-        <q-item 
-          clickable 
-          v-close-popup 
+          去学习
+        </button>
+        <button 
+          class="bubble-menu-button bubble-menu-button--practice"
           @click="handlePractice"
-          class="popup-item"
         >
-          <q-item-section avatar>
-            <q-icon name="quiz" color="secondary" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>去练习</q-item-label>
-          </q-item-section>
-        </q-item>
-      </q-list>
-    </q-menu>
+          去练习
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -89,6 +75,7 @@ interface Props {
   isMenuVisible?: boolean
   isExpanded?: boolean
   hasExpandedGraph?: boolean
+  learningStatus?: 'notLearned' | 'learned' | 'lastLearned'
 }
 
 interface Emits {
@@ -108,13 +95,31 @@ const props = withDefaults(defineProps<Props>(), {
   animationState: 'idle',
   isMenuVisible: false,
   isExpanded: false,
-  hasExpandedGraph: false
+  hasExpandedGraph: false,
+  learningStatus: 'notLearned'
 })
 
 const emit = defineEmits<Emits>()
 
 const nodeRef = ref<HTMLElement>()
 
+// 获取节点背景图标
+const nodeIcon = computed(() => {
+  if (props.type === 'center') {
+    return '/icons/centerNode.svg'
+  } else {
+    // 圆周节点根据学习状态选择图标
+    switch (props.learningStatus) {
+      case 'learned':
+        return '/icons/learned.svg'
+      case 'lastLearned':
+        return '/icons/lastLearned.svg'
+      case 'notLearned':
+      default:
+        return '/icons/notLearned.svg'
+    }
+  }
+})
 
 // 格式化节点名称 - 根据层级显示不同格式
 const formatNodeName = (node: Node) => {
@@ -127,6 +132,26 @@ const formatNodeName = (node: Node) => {
   }
   
   return node.name
+}
+
+// 格式化中心节点标题（编号部分）
+const formatNodeTitle = (node: Node) => {
+  if (props.type === 'center' && node.name) {
+    // 解析格式如 "5.2 数学探究活动：由编号样本估计总数及其模拟"
+    const match = node.name.match(/^(\d+\.\d+)/)
+    return match ? match[1] : node.name
+  }
+  return node.name
+}
+
+// 格式化中心节点章节名
+const formatNodeChapter = (node: Node) => {
+  if (props.type === 'center' && node.name) {
+    // 解析格式如 "5.2 数学探究活动：由编号样本估计总数及其模拟"
+    const match = node.name.match(/^\d+\.\d+\s+(.+)/)
+    return match ? match[1] : ''
+  }
+  return ''
 }
 
 const nodeClasses = computed(() => {
@@ -222,6 +247,24 @@ const nodeStyle = computed(() => {
   return style
 })
 
+// 计算气泡框菜单的定位样式
+const bubbleMenuStyle = computed(() => {
+  if (props.type !== 'circular') {
+    return {}
+  }
+  
+  // 气泡框定位在非中心节点内容下面
+  // 节点内容已经通过绝对定位在节点下方，气泡框需要定位在内容下方
+  return {
+    position: 'absolute' as const,
+    top: '100%', // 在节点内容下方
+    left: '50%',
+    transform: 'translateX(-50%)',
+    marginTop: '8px', // 与内容保持一定间距
+    zIndex: 20 // 确保在其他元素之上
+  }
+})
+
 const handleMouseEnter = (event: Event) => {
   emit('mouseenter', event, true)
 }
@@ -281,11 +324,13 @@ const handlePractice = () => {
 .graph-node--center {
   width: 150px;
   height: 150px;
-  background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+  background: transparent;
   border-radius: 50%;
   box-shadow: 0 8px 32px rgba(139, 92, 246, 0.3);
   z-index: 10;
   transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
 }
 
 /* 中心节点展开状态 - 变大 */
@@ -310,8 +355,8 @@ const handlePractice = () => {
 .graph-node--circular {
   width: 80px;
   height: 80px;
-  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-  border: 2px solid #d1d5db;
+  background: transparent;
+  border: none;
   border-radius: 50%;
   z-index: 5;
   /* 初始状态隐藏 */
@@ -319,6 +364,8 @@ const handlePractice = () => {
   transform: scale(0);
   transform-origin: center center;
   transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 
@@ -326,17 +373,52 @@ const handlePractice = () => {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
 }
 
+/* 节点图标样式 */
+.node-icon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  z-index: 1;
+}
 
-/* 高亮状态 */
+/* 高亮状态 - 通过覆盖层实现 */
+.graph-node--highlighted::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.3) 0%, rgba(245, 158, 11, 0.3) 100%);
+  border-radius: 50%;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .graph-node--highlighted {
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  border-color: #f59e0b;
   box-shadow: 0 4px 20px rgba(251, 191, 36, 0.3);
 }
 
+/* 蓝色状态 - 通过覆盖层实现 */
+.graph-node--blue::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3) 0%, rgba(37, 99, 235, 0.3) 100%);
+  border-radius: 50%;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .graph-node--blue {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  border-color: #2563eb;
   box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
 }
 
@@ -357,17 +439,11 @@ const handlePractice = () => {
   transform: translateX(-50%);
   margin-top: 8px;
   padding: 4px 8px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   font-size: 11px;
   font-weight: 600;
-  color: #374151;
-  white-space: nowrap;
-  max-width: 120px;
+  color: white;
+  width: 150%;
   overflow: hidden;
-  text-overflow: ellipsis;
   z-index: 10;
   pointer-events: none;
   opacity: 0;
@@ -390,12 +466,19 @@ const handlePractice = () => {
   left: 50%;
   transform: translate(-50%, -50%);
   color: white;
-  padding: 8px;
+  padding: 4px;
   margin-top: 0;
   max-width: 120px;
   text-align: center;
   z-index: 1;
   transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 /* 中心节点内容展开状态 - 字体变大 */
@@ -426,22 +509,33 @@ const handlePractice = () => {
 
 /* 中心节点内部标题 */
 .node-content--center .node-title {
-  font-size: 12px;
-  margin-bottom: 8px;
+  font-size: 150%; /* 节点宽度的150% */
+  margin-top: -8px; /* 向上占据一些空间 */
+  margin-bottom: 4px; /* 增加与章节名的间距 */
   color: white;
+  font-family: '优设标题黑', 'YouSheBiaoTiHei', sans-serif;
+  font-weight: bold;
+  text-align: center;
+  line-height: 1.0;
   transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  width: 100%;
+  display: block;
 }
 
 /* 中心节点标题展开状态 - 字体变大 */
 .node-content--center.node-content--expanded .node-title {
-  font-size: 16px;
-  margin-bottom: 10px;
+  font-size: 150%; /* 节点宽度的150% */
+  margin-top: -8px; /* 向上占据一些空间 */
+  margin-bottom: 6px; /* 增加与章节名的间距 */
+  line-height: 0.9;
 }
 
 /* 中心节点标题在其他图谱展开时变小 */
 .node-content--center.node-content--shrunk .node-title {
-  font-size: 10px;
-  margin-bottom: 6px;
+  font-size: 150%; /* 节点宽度的150% */
+  margin-top: -8px; /* 向上占据一些空间 */
+  margin-bottom: 4px; /* 增加与章节名的间距 */
+  line-height: 1.0;
 }
 
 .graph-node--center + .node-content .node-title {
@@ -453,42 +547,52 @@ const handlePractice = () => {
 .node-content--circular .node-title {
   font-size: 11px;
   font-weight: 600;
-  color: #374151;
+  color: white;
   margin-bottom: 2px;
   line-height: 1.2;
+  width: 100%;
+  text-align: center;
+  /* 多行文本截断：最多显示两行，超出部分用省略号 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
 }
 
-/* 标签样式 */
-.node-label {
-  opacity: 0.8;
-  line-height: 1.1;
-}
 
-/* 中心节点内部标签 */
-.node-content--center .node-label {
-  font-size: 9px;
+/* 中心节点章节名样式 */
+.node-content--center .node-chapter {
+  font-size: 100%; /* 节点宽度的100% */
   color: white;
+  font-family: 'PingFang SC', 'PingFangSC-Regular', sans-serif;
+  font-weight: normal;
+  text-align: center;
+  line-height: 1.2; /* 增加行高，改善可读性 */
   opacity: 0.9;
   transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  width: 100%;
+  display: block;
+  word-break: break-word;
+  margin-bottom: 2px; /* 底部留一些间距 */
 }
 
-/* 中心节点标签展开状态 - 字体变大 */
-.node-content--center.node-content--expanded .node-label {
-  font-size: 12px;
+/* 中心节点章节名展开状态 - 字体变大 */
+.node-content--center.node-content--expanded .node-chapter {
+  font-size: 100%; /* 节点宽度的100% */
+  line-height: 1.1; /* 稍微增加行高 */
+  margin-bottom: 3px; /* 底部留一些间距 */
 }
 
-/* 中心节点标签在其他图谱展开时变小 */
-.node-content--center.node-content--shrunk .node-label {
-  font-size: 8px;
+/* 中心节点章节名在其他图谱展开时变小 */
+.node-content--center.node-content--shrunk .node-chapter {
+  font-size: 100%; /* 节点宽度的100% */
+  line-height: 1.2; /* 增加行高，改善可读性 */
+  margin-bottom: 2px; /* 底部留一些间距 */
 }
 
-/* 非中心节点标签样式 */
-.node-content--circular .node-label {
-  font-size: 9px;
-  color: #6b7280;
-  opacity: 0.8;
-  margin-top: 2px;
-}
 
 
 /* 学习标签 */
@@ -575,38 +679,66 @@ const handlePractice = () => {
   animation: content-exit 0.6s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
 }
 
-/* 气泡框菜单样式 */
-.node-popup-menu {
-  .q-menu {
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    border: 1px solid #e5e7eb;
-    background: white;
-    min-width: 120px;
+/* 手动定位的气泡框菜单 */
+.manual-bubble-menu {
+  position: absolute;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+/* 气泡框容器 */
+.bubble-menu-container {
+  background: #4A3A6B; /* 深紫色背景 */
+  border-radius: 20px;
+  padding: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 120px;
+}
+
+/* 气泡框按钮基础样式 */
+.bubble-menu-button {
+  border: none;
+  border-radius: 16px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'PingFang SC', 'PingFangSC-Regular', sans-serif;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+  
+  &:active {
+    transform: translateY(0);
   }
 }
 
-.popup-list {
-  padding: 4px;
+/* 学习按钮样式 - 紫色 */
+.bubble-menu-button--learn {
+  background: #8B5CF6; /* 紫色背景 */
   
-  .popup-item {
-    border-radius: 6px;
-    margin: 2px 0;
-    padding: 8px 12px;
-    
-    &:hover {
-      background: #f3f4f6;
-    }
-    
-    .q-item__section--avatar {
-      min-width: 32px;
-    }
-    
-    .q-item__label {
-      font-size: 14px;
-      font-weight: 500;
-      color: #374151;
-    }
+  &:hover {
+    background: #7C3AED;
+  }
+}
+
+/* 练习按钮样式 - 橙色 */
+.bubble-menu-button--practice {
+  background: #F97316; /* 橙色背景 */
+  
+  &:hover {
+    background: #EA580C;
   }
 }
 

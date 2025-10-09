@@ -34,9 +34,10 @@
          :radius="backgroundRadius"
          :highlighted="index === 3"
          :blue="index === 1"
-         :show="isExpanded"
+         :show="isExpanded || hasExpandedGraph"
          :animation-state="animationState"
          :is-menu-visible="activeNodeId === child.id"
+         :learning-status="getLearningStatus(child, index)"
          @toggle-menu="handleToggleMenu"
          @learn="handleLearn"
          @practice="handlePractice"
@@ -105,6 +106,42 @@ const animationState = ref<'idle' | 'expanding' | 'expanded' | 'collapsing'>('id
 // 气泡框状态管理
 const activeNodeId = ref<string | null>(null)
 
+// 监听展开状态变化，管理动画状态
+watch([() => props.isExpanded, () => props.hasExpandedGraph], ([newIsExpanded, newHasExpandedGraph], [oldIsExpanded, oldHasExpandedGraph]) => {
+  // 如果当前图谱被展开
+  if (newIsExpanded && !oldIsExpanded) {
+    animationState.value = 'expanding'
+    setTimeout(() => {
+      animationState.value = 'expanded'
+    }, 600) // 与CSS动画时间一致
+  }
+  // 如果当前图谱被收起
+  else if (!newIsExpanded && oldIsExpanded) {
+    animationState.value = 'collapsing'
+    setTimeout(() => {
+      animationState.value = 'idle'
+    }, 600) // 与CSS动画时间一致
+  }
+  // 如果其他图谱被展开，当前图谱需要淡出
+  else if (newHasExpandedGraph && !newIsExpanded && !oldHasExpandedGraph) {
+    animationState.value = 'collapsing'
+    setTimeout(() => {
+      animationState.value = 'idle'
+    }, 600) // 与CSS动画时间一致
+  }
+  // 如果其他图谱被收起，当前图谱需要淡入
+  else if (!newHasExpandedGraph && oldHasExpandedGraph && !newIsExpanded) {
+    animationState.value = 'expanding'
+    setTimeout(() => {
+      animationState.value = 'expanded'
+    }, 600) // 与CSS动画时间一致
+  }
+  // 初始状态：如果都没有展开，设置为idle
+  else if (!newIsExpanded && !newHasExpandedGraph && animationState.value === 'idle') {
+    // 保持idle状态，不需要动画
+  }
+}, { immediate: false }) // 改为false，避免初始加载时触发动画
+
 
 // 计算背景圆半径
 const backgroundRadius = computed(() => {
@@ -128,8 +165,8 @@ const getCircularNodes = (chapterDetails: ChapterDetails) => {
   // 初始情况下，只显示level=1的节点（x.x层）
   // 只有在展开状态下，才显示level=2的节点
   if (chapterDetails.level === 1) {
-    if (isExpanded.value) {
-      // 展开状态：显示level=2的子节点
+    if (isExpanded.value || props.hasExpandedGraph) {
+      // 展开状态或有其他图谱展开时：显示level=2的子节点
       return chapterDetails.children.filter(child => child.level === 2)
     } else {
       // 收起状态：不显示任何子节点
@@ -146,6 +183,25 @@ const getCircularNodes = (chapterDetails: ChapterDetails) => {
   return chapterDetails.children
 }
 
+// 获取节点的学习状态
+const getLearningStatus = (child: { id: string; name: string; label: string; level?: number | null }, index: number): 'notLearned' | 'learned' | 'lastLearned' => {
+  // 模拟学习状态逻辑
+  // 这里可以根据实际的学习进度数据来确定状态
+  
+  // 示例逻辑：
+  // index === 3 表示"上次学到"的节点
+  if (index === 3) {
+    return 'lastLearned'
+  }
+  
+  // index === 1 表示已学习的节点
+  if (index === 1) {
+    return 'learned'
+  }
+  
+  // 其他节点默认为未学习
+  return 'notLearned'
+}
 
 // 动画控制方法
 const animateExpand = () => {
@@ -206,11 +262,6 @@ const handlePractice = (node: { id: string; name: string; level?: number | null 
   router.push('/find-exercise')
 }
 
-// 初始化动画状态
-const initAnimations = () => {
-  animationState.value = 'idle'
-  // 展开状态由外部控制，不需要在这里设置
-}
 
 // 监听展开状态变化
 watch(isExpanded, (newValue) => {
@@ -221,15 +272,11 @@ watch(isExpanded, (newValue) => {
   }
 }, { immediate: true })
 
-// 暴露动画方法给父组件
-defineExpose({
-  initAnimations
-})
 
-// 监听数据变化，重新初始化动画
+// 监听数据变化，重新初始化动画状态
 watch(() => props.chapterDetails, () => {
   if (props.chapterDetails) {
-    initAnimations()
+    animationState.value = 'idle'
   }
 }, { immediate: true })
 
@@ -245,7 +292,7 @@ watch(() => props.rotation, (_newRotation) => {
 })
 
 onMounted(() => {
-  initAnimations()
+  animationState.value = 'idle'
 })
 </script>
 

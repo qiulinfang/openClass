@@ -110,24 +110,6 @@
 
     <!-- 第三列：核心内容/知识图谱（最右侧） -->
     <div class="main-content">
-      <!-- 筛选器 -->
-      <div class="filter-section">
-        <div class="filter-tags">
-          <q-chip 
-            v-for="status in learningStatuses" 
-            :key="status.value"
-            :color="status.color"
-            :text-color="status.textColor"
-            :outline="selectedStatus !== status.value"
-            clickable
-            @click="selectStatus(status.value)"
-            class="status-chip"
-          >
-            {{ status.label }}
-          </q-chip>
-        </div>
-      </div>
-
       <!-- 圆形知识图谱容器 -->
       <div class="circular-graphs-container" v-if="selectedChapterDetails" ref="circularContainerRef">
         <!-- 视口裁剪区域 -->
@@ -142,9 +124,9 @@
           @mouseleave="handleMouseUp"
           @click="handleBackgroundClick"
         >
-          <!-- 圆形轨迹指示器 -->
+          <!-- 椭圆轨迹指示器 -->
           <div class="circular-track"></div>
-          <!-- 圆形布局容器 -->
+          <!-- 椭圆布局容器 -->
           <div 
             class="circular-layout" 
             :class="{ 'scroll-disabled': expandedGraphId !== null }"
@@ -170,6 +152,22 @@
           </div>
         </div>
       </div>
+
+      <!-- 底部状态标识 -->
+      <div class="status-indicators">
+        <div class="status-item">
+          <img src="/icons/notLearnedStar.svg" alt="未学习" class="status-icon" />
+          <span class="status-label">未学习</span>
+        </div>
+        <div class="status-item">
+          <img src="/icons/learnedStar.svg" alt="已学习" class="status-icon" />
+          <span class="status-label">已学习</span>
+        </div>
+        <div class="status-item">
+          <img src="/icons/lastLearnedStar.svg" alt="上次学到" class="status-icon" />
+          <span class="status-label">上次学到</span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -178,7 +176,6 @@
 import { ref, onMounted, nextTick, computed, onUnmounted } from 'vue'
 import { apiService } from '../services/api-service'
 import type { TextbookVersion, TextbookOption, ChapterNode } from '../types'
-import { gsap } from 'gsap'
 import KnowledgeGraph from '../components/knowledge-graph/KnowledgeGraph.vue'
 
 // 响应式数据
@@ -190,21 +187,26 @@ const selectedChapterDetails = ref<ChapterNode | null>(null)
 const sidebarCollapsed = ref(false)
 const chapterCollapsed = ref(false)
 
-// GSAP动画相关
-const tl = ref<gsap.core.Timeline | null>(null)
-const selectedStatus = ref('all')
+// 动画相关
 
-// 圆形布局相关
+// 椭圆布局相关
 const circularContainerRef = ref<HTMLElement>()
 const circularLayoutRef = ref<HTMLElement>()
 
 // 旋转控制相关
 const rotationAngle = ref(0) // 当前旋转角度（度）
 const isDragging = ref(false) // 是否正在拖拽
+const isAnimating = ref(false) // 是否正在执行自动旋转动画
 const startY = ref(0) // 开始触摸的Y坐标
 const lastY = ref(0) // 上次触摸的Y坐标
 const screenHeight = ref(window.innerHeight) // 屏幕高度
 const lastRotationTime = ref(0) // 上次旋转时间戳，用于检测快速滑动
+
+// 展开时的旋转状态管理
+const isExpandingRotation = ref(false) // 是否正在执行展开旋转动画
+const expandingRotationStartAngle = ref(0) // 展开旋转起始角度
+const expandingRotationTargetAngle = ref(0) // 展开旋转目标角度
+const expandingRotationStartTime = ref(0) // 展开旋转开始时间
 
 // 全局展开状态管理
 const expandedGraphId = ref<string | null>(null) // 当前展开的知识图谱ID
@@ -241,7 +243,7 @@ const handleTouchMove = (event: TouchEvent) => {
   const currentTime = Date.now()
   
   // 计算旋转角度：滑动距离与屏幕高度的比例 * 360度
-  const rotationDelta = (deltaY / screenHeight.value) * 360
+  const rotationDelta = (deltaY / screenHeight.value * 2/ 3) * 360
   
   // 更新旋转角度（向上滑动为正，向下滑动为负）
   rotationAngle.value -= rotationDelta
@@ -249,9 +251,6 @@ const handleTouchMove = (event: TouchEvent) => {
   // 更新上次位置和时间戳
   lastY.value = currentY
   lastRotationTime.value = currentTime
-  
-  // 应用旋转
-  applyRotation()
   
   // 只在拖拽容器上阻止默认滚动行为
   if (event.target === circularLayoutRef.value) {
@@ -307,32 +306,16 @@ const handleMouseMove = (event: MouseEvent) => {
   // 更新上次位置和时间戳
   lastY.value = currentY
   lastRotationTime.value = currentTime
-  
-  // 应用旋转
-  applyRotation()
-  
-  // 阻止默认行为
-  
 }
 
 const handleMouseUp = () => {
   isDragging.value = false
 }
 
-// 应用旋转变换
-const applyRotation = () => {
-  if (!circularLayoutRef.value) {
-    console.log(`❌ applyRotation: 圆形布局引用不存在`)
-    return
-  }
-  
-  circularLayoutRef.value.style.transform = `rotate(${rotationAngle.value}deg)`
-}
-
-// 圆形轨迹指示器坐标系 - 统一的角度计算函数
+// 椭圆轨迹指示器坐标系 - 统一的角度计算函数
 const calculateCircularTrackAngle = (index: number, total: number) => {
-  // 基础角度：第一节在圆形轨迹指示器左侧位置（180度），逆时针排列
-  // 从左侧（π）开始，逆时针（正角度）排列
+  // 基础角度：第一节在椭圆轨迹指示器160度位置，逆时针排列
+  // 360度，分成total份，每份的角度是2 * Math.PI / total
   let baseAngle = Math.PI + (2 * Math.PI * index) / total
   // 当前角度：基础角度 + 容器旋转角度
   let currentAngle = baseAngle + (rotationAngle.value * Math.PI / 180)
@@ -346,19 +329,16 @@ const calculateCircularTrackAngle = (index: number, total: number) => {
   return { baseAngle, currentAngle }
 }
 
-// 圆形轨迹指示器坐标系 - 统一的位置计算函数
-const calculateCircularTrackPosition = (angle: number, radius: number = 400) => {
-  // 使用圆形轨迹指示器的坐标系：0度为正右方，逆时针为正
-  const x = Math.cos(angle) * radius
-  const y = Math.sin(angle) * radius
+// 椭圆轨迹指示器坐标系 - 统一的位置计算函数
+const calculateCircularTrackPosition = (angle: number, radiusX: number = 569, radiusY: number = 400) => {
+  // 使用椭圆轨迹指示器的坐标系：0度为正右方，逆时针为正
+  const x = Math.cos(angle) * radiusX
+  const y = Math.sin(angle) * radiusY
   return { x, y }
 }
 
-// 自动转动指定知识图谱到圆形轨迹指示器的左侧定点位置
-// 新逻辑：将目标知识图谱旋转到左侧位置（180度），保持其他知识图谱的相对位置
-const rotateToLeftPosition = (graphId: string) => {
-  console.log("🎯 rotateToLeftPosition - 将知识图谱旋转到左侧位置", graphId)
-  
+// 立即开始展开旋转动画（让其他节点立即开始旋转）
+const startExpandingRotation = (graphId: string) => {
   // 1. 检查章节详情是否存在
   if (!selectedChapterDetails.value) return
   
@@ -368,67 +348,67 @@ const rotateToLeftPosition = (graphId: string) => {
   
   // 3. 验证目标图谱是否存在
   if (targetIndex === -1) {
-    console.log(`❌ 未找到目标知识图谱: ${graphId}`)
     return
   }
   
-  // 4. 使用圆形轨迹指示器坐标系计算目标图谱的基础角度
+  // 4. 使用椭圆轨迹指示器坐标系计算目标图谱的当前角度
   const total = subChapters.length
-  const { baseAngle } = calculateCircularTrackAngle(targetIndex, total)
+  const { currentAngle } = calculateCircularTrackAngle(targetIndex, total)
   
-  // 5. 定义圆形轨迹指示器左侧定点位置角度（π，即正左方）
-  const circularTrackLeftAngle = Math.PI
+  // 5. 定义椭圆轨迹指示器160度位置角度（160度 = 160 * π / 180 弧度）
+  const circularTrack160Angle = (160 * Math.PI) / 180
   
-  // 6. 计算需要旋转的角度差值
-  // 目标：让目标知识图谱的基础角度 + 容器旋转角度 = 左侧位置角度
-  // 即：baseAngle + currentRotation + targetRotation = circularTrackLeftAngle
-  // 所以：targetRotation = circularTrackLeftAngle - baseAngle - currentRotation
-  let targetRotation = circularTrackLeftAngle - baseAngle
+  // 6. 计算角度差的绝对值 alpha
+  const alpha = Math.abs(currentAngle - circularTrack160Angle)
   
-  // 7. 标准化角度到 [-π, π] 范围，选择最短路径
-  while (targetRotation > Math.PI) targetRotation -= 2 * Math.PI
-  while (targetRotation < -Math.PI) targetRotation += 2 * Math.PI
+  // 7. 判断目标知识图谱当前所在的半圆区域
+  const currentAngleDegrees = (currentAngle * 180) / Math.PI
+  let targetRotationDegrees = 0
   
-  console.log(`🎯 圆形轨迹指示器坐标系旋转计算:`, {
-    targetIndex,
-    targetGraphName: subChapters[targetIndex]?.name || '未知',
-    baseAngle: `${(baseAngle * 180 / Math.PI).toFixed(2)}°`,
-    currentRotationAngle: `${rotationAngle.value.toFixed(2)}°`,
-    targetRotation: `${(targetRotation * 180 / Math.PI).toFixed(2)}°`,
-    direction: targetRotation > 0 ? '逆时针' : '顺时针',
-    finalPosition: '左侧位置 (180°)'
-  })
-  
-  // 8. 将弧度转换为度数
-  const targetRotationDegrees = (targetRotation * 180) / Math.PI
-  
-  console.log(`🎬 动画参数:`, {
-    currentRotationAngle: `${rotationAngle.value.toFixed(2)}°`,
-    targetRotationDegrees: `${targetRotationDegrees.toFixed(2)}°`,
-    finalRotationAngle: `${(rotationAngle.value + targetRotationDegrees).toFixed(2)}°`,
-    duration: '0.8s',
-    ease: 'power2.out'
-  })
-  
-  // 9. 使用GSAP执行平滑旋转动画
-  if (circularLayoutRef.value) {
-    gsap.to(rotationAngle, {
-      value: rotationAngle.value + targetRotationDegrees,
-      duration: 0.8,
-      ease: "power2.out",
-      onUpdate: () => {
-        applyRotation()
-      },
-      onComplete: () => {
-        console.log(`✅ 知识图谱 "${subChapters[targetIndex]?.name}" 已旋转到左侧位置`)
-      }
-    })
+  if (currentAngleDegrees > 180 && currentAngleDegrees <= 360) {
+    // 上半圆：所有角度减少 alpha（逆时针转动）
+    targetRotationDegrees = -(alpha * 180) / Math.PI
   } else {
-    console.log(`❌ 圆形布局引用不存在，无法执行旋转动画`)
+    // 下半圆：所有角度增加 alpha（顺时针转动）
+    targetRotationDegrees = (alpha * 180) / Math.PI
   }
+  
+  // 8. 设置展开旋转状态
+  isExpandingRotation.value = true
+  expandingRotationStartAngle.value = rotationAngle.value
+  expandingRotationTargetAngle.value = rotationAngle.value + targetRotationDegrees
+  expandingRotationStartTime.value = performance.now()
+  
+  // 9. 开始展开旋转动画
+  const animateExpandingRotation = (currentTime: number) => {
+    const elapsed = currentTime - expandingRotationStartTime.value
+    const duration = 1200 // 动画持续时间（毫秒）
+    const progress = Math.min(elapsed / duration, 1)
+    
+    // 使用缓动函数实现平滑的动画效果
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
+    const easedProgress = easeOutCubic(progress)
+    
+    // 计算当前角度（线性插值）
+    const currentAngle = expandingRotationStartAngle.value + 
+      (expandingRotationTargetAngle.value - expandingRotationStartAngle.value) * easedProgress
+    
+    // 更新旋转角度
+    rotationAngle.value = currentAngle
+    
+    // 如果动画未完成，继续下一帧
+    if (progress < 1) {
+      requestAnimationFrame(animateExpandingRotation)
+    } else {
+      // 动画完成
+      isExpandingRotation.value = false
+    }
+  }
+  
+  // 开始动画
+  requestAnimationFrame(animateExpandingRotation)
 }
 
-// 开发环境检测
 
 // 教材选择器
 const selectedTextbook = ref('')
@@ -447,13 +427,6 @@ const currentSubjectLabel = computed(() => {
   return option ? option.subject : '数学'
 })
 
-// 学习状态选项
-const learningStatuses = ref([
-  { value: 'all', label: '全部', color: 'grey-5', textColor: 'white' },
-  { value: 'not-learned', label: '未学习', color: 'red-4', textColor: 'white' },
-  { value: 'learning', label: '正在学', color: 'orange-4', textColor: 'white' },
-  { value: 'learned', label: '已学习', color: 'green-4', textColor: 'white' }
-])
 
 // 章节数据
 const chapters = ref<string[]>([])
@@ -481,19 +454,16 @@ const loadTextbookData = async () => {
     const versions = await apiService.getTextbookVersions()
     
     if (versions && versions.length > 0) {
-      console.log('教材版本:', versions)
       textbookVersions.value = versions
       textbookOptions.value = apiService.convertToTextbookOptions(versions)
       
       // 设置默认选中的教材
       if (textbookOptions.value.length > 0) {
-        console.log('教材选项:', textbookOptions.value)
         selectedTextbook.value = textbookOptions.value[0].value
         
         // 加载默认教材的章节结构
         const defaultOption = textbookOptions.value[0]
         if (defaultOption.textbookId) {
-          console.log('加载默认教材的章节结构:', defaultOption.textbookId)
           await loadChapterStructure(defaultOption.textbookId)
         }
       }
@@ -502,8 +472,8 @@ const loadTextbookData = async () => {
       textbookOptions.value = []
     }
     
-  } catch (error) {
-    console.error('❌ 加载教材数据失败:', error)
+  } catch {
+    // 加载教材数据失败
   }
 }
 
@@ -533,7 +503,6 @@ const convertToChineseNumber = (str: string): string => {
 const loadChapterStructure = async (textbookId: string) => {
   try {
     const chapterData = await apiService.getTextbookStructure(textbookId)
-    console.log('章节结构数据:', chapterData)
     if (chapterData && chapterData.length > 0) {
       // 对章节进行排序：按照children[0].name的第一个数字排序
       const sortedChapterData = chapterData.sort((a, b) => {
@@ -553,12 +522,10 @@ const loadChapterStructure = async (textbookId: string) => {
       // 提取章节名称列表（所有level=0的章节），并转换为中文数字
       chapters.value = sortedChapterData.map(chapter => convertToChineseNumber(chapter.name))
     } else {
-      console.log('章节结构数据为空')
       chapterStructure.value = []
       chapters.value = []
     }
-  } catch (error) {
-    console.error('❌ 加载章节结构失败:', error)
+  } catch {
     chapterStructure.value = []
     chapters.value = []
   }
@@ -567,27 +534,21 @@ const loadChapterStructure = async (textbookId: string) => {
 // 重新登录学生
 const reLoginStudent = async (): Promise<boolean> => {
   try {
-    console.log('🔐 重新登录学生...')
-    
     // 从localStorage获取用户凭据
     const userId = localStorage.getItem('userId')
     const password = localStorage.getItem('userPassword')
     
     if (!userId || !password || userId === 'undefined' || password === 'undefined' || userId.trim() === '' || password.trim() === '') {
-      console.warn('无法获取用户凭据，请先进行主应用登录')
       return false
     }
     
     const loginResult = await apiService.loginStudent(userId, password)
     if (!loginResult) {
-      console.error('学生自动登录失败')
       return false
     }
     
-    console.log('✅ 学生登录成功')
     return true
-  } catch (error) {
-    console.error('重新登录学生时发生错误:', error)
+  } catch {
     return false
   }
 }
@@ -616,57 +577,22 @@ const initGraph = async () => {
     await nextTick()
     renderGraph()
     
-  } catch (error) {
-    console.error('初始化知识图谱失败:', error)
+  } catch {
+    // 初始化知识图谱失败
   } finally {
     loading.value = false
   }
 }
 
-// GSAP动画方法
-const initGSAPAnimations = () => {
-  // 设置GSAP默认配置
-  gsap.defaults({
-    duration: 0.6,
-    ease: "power2.out"
-  })
-  
-  // 注册GSAP插件（如果需要）
-  gsap.registerPlugin()
-  
-  // 设置性能优化
-  gsap.config({
-    nullTargetWarn: false
-  })
+// CSS动画方法
+const initCSSAnimations = () => {
+  // CSS动画初始化（如果需要的话）
+  // 这里可以设置CSS动画的默认配置
 }
 
-// 单个节点进入动画（备用方法）
-// const animateNodeEnter = (element: HTMLElement, delay: number = 0) => {
-//   gsap.fromTo(element, 
-//     {
-//       scale: 0,
-//       opacity: 0,
-//       rotation: -180
-//     },
-//     {
-//       scale: 1,
-//       opacity: 1,
-//       rotation: 0,
-//       duration: 0.8,
-//       delay: delay,
-//       ease: "back.out(1.7)"
-//     }
-//   )
-// }
-
-
-
 const cleanupAnimations = () => {
-  if (tl.value) {
-    tl.value.kill()
-    tl.value = null
-  }
-  gsap.killTweensOf("*")
+  // 清理动画状态
+  isAnimating.value = false
 }
 
 // 渲染图谱
@@ -681,17 +607,12 @@ const renderGraph = () => {
 
 // 教材切换
 const onTextbookChange = async (value: string) => {
-  console.log('切换教材:', value)
-  
   try {
     // 找到选中的教材选项
     const selectedOption = textbookOptions.value.find(opt => opt.value === value)
     if (!selectedOption) {
-      console.warn('未找到选中的教材选项')
       return
     }
-    
-    console.log('选中的教材信息:', selectedOption)
     
     // 根据教材ID加载章节结构
     if (selectedOption.textbookId && selectedOption.textbookId !== 'default') {
@@ -702,8 +623,8 @@ const onTextbookChange = async (value: string) => {
     initGraphData()
     renderGraph()
     
-  } catch (error) {
-    console.error('切换教材失败:', error)
+  } catch {
+    // 切换教材失败
   }
 }
 
@@ -713,12 +634,9 @@ const selectChapter = (index: number) => {
   // 获取选中章节的详细信息
   if (chapterStructure.value && chapterStructure.value.length > index) {
     selectedChapterDetails.value = chapterStructure.value[index]
-    console.log('选择章节:', chapters.value[index])
-    console.log('章节详情:', selectedChapterDetails.value)
     
-    // 🔍 输出新章节的角度分布
+    // 输出新章节的角度分布
     nextTick(() => {
-      console.log(`🔄 切换到新章节: ${selectedChapterDetails.value?.name || '未知章节'}`)
       logAngleDistribution()
     })
   }
@@ -733,37 +651,28 @@ const toggleChapter = () => {
   chapterCollapsed.value = !chapterCollapsed.value
 }
 
-// 选择学习状态
-const selectStatus = (status: string) => {
-  selectedStatus.value = status
-  // 这里可以根据状态筛选节点
-  filterNodesByStatus(status)
-}
-
-// 根据状态筛选节点
-const filterNodesByStatus = (status: string) => {
-  console.log('筛选功能暂未实现:', status)
-}
 
 // 处理知识图谱展开状态
 const handleGraphExpand = (graphId: string) => {
   // 如果点击的是当前展开的图谱，则收起
   if (expandedGraphId.value === graphId) {
     expandedGraphId.value = null
+    // 停止展开旋转动画
+    isExpandingRotation.value = false
   } else {
-    // 否则展开新的图谱（自动收起其他图谱）
-    expandedGraphId.value = graphId
     // 重置拖拽状态，确保展开时不会有滚动干扰
     resetDraggingState()
     
-    // 自动转动到左侧定点位置
-    rotateToLeftPosition(graphId)
+    // 立即设置展开状态，让膨胀动画立即开始
+    expandedGraphId.value = graphId
+    
+    // 立即开始展开旋转动画，让其他节点立即开始旋转
+    startExpandingRotation(graphId)
   }
 }
 
 // 处理背景点击事件
 const handleBackgroundClick = (event: MouseEvent) => {
-  console.log('handleBackgroundClick', expandedGraphId.value)
   // 如果当前没有展开的图谱，不需要处理
   if (expandedGraphId.value === null) {
     return
@@ -826,187 +735,173 @@ const getSubChapters = (chapterDetails: ChapterNode | null) => {
   return [...sortedSubChapters, exerciseNode]
 }
 
-// 计算知识图谱在圆形轨迹指示器中的位置（统一坐标系）
+/**
+ * 计算知识图谱在圆形轨迹指示器中的位置（统一坐标系）
+ * 
+ * 功能原理：
+ * 1. 基础圆形布局：将知识图谱均匀分布在圆形轨迹上
+ * 2. 展开状态处理：当某个图谱展开时，其他图谱沿切线方向移动，避免遮挡
+ * 3. 坐标转换：从圆形坐标系转换为CSS定位坐标
+ * 4. 动画优化：根据拖拽状态和角度差动态调整动画效果
+ * 
+ * @param index 当前知识图谱的索引
+ * @param total 知识图谱的总数量
+ * @returns CSS样式对象，包含位置和动画属性
+ */
 const getGraphPosition = (index: number, total: number) => {
+  
+  // ========== 第一步：获取基础数据 ==========
+  // 获取当前章节的所有子章节列表
   const subChapters = getSubChapters(selectedChapterDetails.value)
+  
+  // 查找当前展开的知识图谱索引（如果有的话）
   const expandedIndex = expandedGraphId.value ? 
     subChapters.findIndex(chapter => chapter.id === expandedGraphId.value) : -1
   
-  // 使用统一的圆形轨迹指示器坐标系计算角度
+  // ========== 第二步：计算基础角度和半径 ==========
+  // 使用统一的圆形轨迹指示器坐标系计算当前图谱的角度
   const { currentAngle } = calculateCircularTrackAngle(index, total)
-  console.log('currentAngle', currentAngle)
   const angle = currentAngle
   
-  let radius = 400 // 默认大圆半径（与圆形轨迹指示器一致）
+  // 设置默认椭圆轨迹半径（与椭圆轨迹指示器保持一致）
   
-  // 如果有知识图谱展开，调整其他知识图谱的位置
-  // 添加更严格的条件：只有在非拖拽状态下且非快速滑动时才进行位置调整
+  // ========== 第三步：展开状态的位置调整逻辑 ==========
+  // 检测是否为快速滑动状态（避免快速滑动时的视觉干扰）
   const isRapidScrolling = isDragging.value && (Date.now() - lastRotationTime.value) < 100
+  
+  // 条件判断：有展开图谱 + 找到展开索引 + 非拖拽状态 + 非快速滑动
   if (expandedGraphId.value !== null && expandedIndex !== -1 && !isDragging.value && !isRapidScrolling) {
-    // 如果当前知识图谱就是展开的，保持在原位置
+    
+    // ========== 第四步：处理展开图谱自身 ==========
+    // 如果当前图谱就是展开的，保持在椭圆轨迹上的原位置
     if (index === expandedIndex) {
-      radius = 400 // 展开的知识图谱保持在圆形轨迹指示器上
+      // 展开的知识图谱保持在椭圆轨迹指示器上
     } else {
-      // 使用统一的圆形轨迹指示器坐标系计算展开知识图谱的角度
+      // ========== 第五步：处理其他图谱的切线移动 ==========
+      // 计算展开图谱的当前角度
       const { currentAngle: expandedAngle } = calculateCircularTrackAngle(expandedIndex, total)
       
-      // 计算当前知识图谱与展开知识图谱的角度差
+      // 计算当前图谱与展开图谱的角度差
       let angleDiff = Math.abs(angle - expandedAngle)
-      // 处理跨越0度的情况
+      
+      // 处理跨越0度/360度边界的情况（取较小的角度差）
       if (angleDiff > Math.PI) {
         angleDiff = 2 * Math.PI - angleDiff
       }
       
-      // 如果角度差小于150度（5π/6），则让其他知识图谱沿切线向右侧移动
+      // ========== 第六步：切线移动条件判断 ==========
+      // 如果角度差小于150度（5π/6），则进行切线移动避免遮挡
       if (angleDiff < (5 * Math.PI) / 6) {
-        // 计算切线移动的距离：角度差越小，移动距离越大
-        // 使用更大的移动距离确保能够移出视口
-        const tangentDistance = ((5 * Math.PI) / 6 - angleDiff) / ((5 * Math.PI) / 6) * 1200 // 最大移动1200px
         
-        // 根据角度范围计算切线方向
-        // 上半圆（π 到 2π）：向右上移动
-        // 下半圆（0 到 π）：向右下移动
+        // ========== 第七步：计算切线移动距离 ==========
+        // 角度差越小，移动距离越大（确保能够移出视口）
+        // 使用线性插值：角度差0时移动1200px，角度差150度时移动0px
+        const tangentDistance = ((5 * Math.PI) / 6 - angleDiff) / ((5 * Math.PI) / 6) * 1200
         
+        // ========== 第八步：计算切线方向 ==========
         let tangentX, tangentY
-        let circleRegion = ''
         
         if (angle > Math.PI && angle <= 2 * Math.PI) {
-          // 上半圆：切线方向向右上
-          circleRegion = '上半圆'
-          // 切线方向 = 半径方向 - 90度
+          // 上半圆（π 到 2π）：切线方向向右上移动
+          // 切线方向 = 半径方向 + 90度（逆时针）
           const tangentAngle = angle + Math.PI / 2
           tangentX = Math.cos(tangentAngle) * tangentDistance
           tangentY = Math.sin(tangentAngle) * tangentDistance
         } else {
-          // 下半圆：切线方向向右下
-          circleRegion = '下半圆'
-          // 切线方向 = 半径方向 + 90度
+          // 下半圆（0 到 π）：切线方向向右下移动
+          // 切线方向 = 半径方向 - 90度（顺时针）
           const tangentAngle = angle - Math.PI / 2
           tangentX = Math.cos(tangentAngle) * tangentDistance
           tangentY = Math.sin(tangentAngle) * tangentDistance
         }
         
-        // 输出角度和区域信息
-        const angleDegrees = (angle * 180 / Math.PI).toFixed(2)
-        console.log(`🎯 知识图谱${index + 1} "${subChapters[index]?.name || '未知'}" 角度分析:`, {
-          angle: `${angleDegrees}°`,
-          region: circleRegion,
-          tangentDirection: circleRegion === '上半圆' ? '右上' : '右下',
-          tangentDistance: `${tangentDistance.toFixed(2)}px`
-        })
+        // ========== 第九步：计算最终位置 ==========
+        // 获取原始椭圆轨迹位置
+        const { x: originalX, y: originalY } = calculateCircularTrackPosition(angle, 569, 400)
         
-        // 使用统一的圆形轨迹指示器坐标系计算原始位置
-        const { x: originalX, y: originalY } = calculateCircularTrackPosition(angle, radius)
-        
-        // 计算最终位置
+        // 原始位置 + 切线移动偏移 = 最终位置
         const finalX = originalX + tangentX
         const finalY = originalY + tangentY
         
-        // 检查是否移出视口（视口中心为(0,0)，半径约为400px）
+        // ========== 第十步：视口边界检测 ==========
+        // 计算到中心的距离，判断是否移出视口
         const distanceFromCenter = Math.sqrt(finalX * finalX + finalY * finalY)
-        const isOutOfViewport = distanceFromCenter > 600 // 600px为视口边界
+        const isOutOfViewport = distanceFromCenter > 675 // 675px为视口边界（半径450px + 225px缓冲）
         
-        // 计算动画延迟：距离展开图谱越近，延迟越短
+        // ========== 第十一步：计算动画延迟 ==========
+        // 距离展开图谱越近，延迟越短（创造波浪式动画效果）
         const animationDelay = (angleDiff / ((5 * Math.PI) / 6)) * 0.3 // 最大延迟0.3秒
         
-        // 返回切线移动后的位置
+        // ========== 第十二步：返回切线移动后的样式 ==========
         return {
+          // CSS变换：平移到计算出的位置
           transform: `translate(${finalX}px, ${finalY}px)`,
+          // 绝对定位
           position: 'absolute' as const,
+          // 相对于父容器居中
           left: '50%',
           top: '50%',
+          // 偏移知识图谱尺寸的一半，使中心对齐
           marginLeft: '-250px', // 知识图谱宽度的一半
           marginTop: '-250px',   // 知识图谱高度的一半
-          // 如果移出视口，添加透明度动画
+          // 移出视口的元素设置为透明
           opacity: isOutOfViewport ? 0 : 1,
-          // 只有在非拖拽状态下才应用过渡动画，避免快速滑动时的视觉干扰
-          transition: isDragging.value ? 'none' : `transform 1.0s cubic-bezier(0.4, 0.0, 0.2, 1) ${animationDelay}s, opacity 1.0s cubic-bezier(0.4, 0.0, 0.2, 1) ${animationDelay}s`
+          // 动态过渡动画：非拖拽状态才应用，避免快速滑动时的视觉干扰
+          transition: isDragging.value ? 'none' : 
+            isExpandingRotation.value ? 'none' :
+            `transform 1.0s cubic-bezier(0.4, 0.0, 0.2, 1) ${animationDelay}s, 
+             opacity 1.0s cubic-bezier(0.4, 0.0, 0.2, 1) ${animationDelay}s`
         }
       }
     }
   }
   
-  // 使用统一的圆形轨迹指示器坐标系计算位置
-  const { x, y } = calculateCircularTrackPosition(angle, radius)
+  // ========== 第十三步：默认椭圆轨迹位置计算 ==========
+  // 使用统一的椭圆轨迹指示器坐标系计算标准椭圆位置
+  const { x, y } = calculateCircularTrackPosition(angle, 569, 400)
   
+  // ========== 第十四步：返回标准椭圆布局样式 ==========
   return {
+    // CSS变换：平移到椭圆轨迹位置
     transform: `translate(${x}px, ${y}px)`,
+    // 绝对定位
     position: 'absolute' as const,
+    // 相对于父容器居中
     left: '50%',
     top: '50%',
+    // 偏移知识图谱尺寸的一半，使中心对齐
     marginLeft: '-250px', // 知识图谱宽度的一半
     marginTop: '-250px',   // 知识图谱高度的一半
-    // 只有在非拖拽状态下才应用过渡动画，避免快速滑动时的视觉干扰
-    transition: isDragging.value ? 'none' : 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)'
+    // 动态过渡动画：根据状态选择不同的动画配置
+    // 当使用JavaScript动画时，禁用CSS过渡以避免冲突
+    transition: isDragging.value ? 'none' : 
+                isAnimating.value ? 'none' : 
+                isExpandingRotation.value ? 'none' :
+                'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)'
   }
 }
 
-// 计算知识图谱的旋转角度（圆形轨迹指示器坐标系 - 保持水平，不旋转内容）
+// 计算知识图谱的旋转角度（椭圆轨迹指示器坐标系 - 保持水平，不旋转内容）
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const getGraphRotation = (_index: number) => {
-  // 在圆形轨迹指示器坐标系中，知识图谱内容保持水平，不进行旋转
+  // 在椭圆轨迹指示器坐标系中，知识图谱内容保持水平，不进行旋转
   // 只有位置会随容器旋转而改变，内容本身保持水平状态
   return 0
 }
 
-// 🔍 圆形轨迹指示器坐标系角度分布总览日志函数
+// 椭圆轨迹指示器坐标系角度分布总览函数
 const logAngleDistribution = () => {
   const subChapters = getSubChapters(selectedChapterDetails.value)
   const total = subChapters.length
   
-  console.log('🎯 圆形轨迹指示器坐标系角度分布总览')
-  console.log('═'.repeat(60))
-  console.log(`📊 总知识图谱数量: ${total}`)
-  console.log(`📐 起始位置: 正左方 (180°) - 第一节`)
-  console.log(`🔄 排列方向: 逆时针`)
-  console.log(`🔄 容器旋转角度: ${rotationAngle.value.toFixed(2)}°`)
-  console.log(`🎯 圆形轨迹指示器半径: 400px`)
-  console.log('─'.repeat(60))
-  
   for (let i = 0; i < total; i++) {
-    // 使用统一的圆形轨迹指示器坐标系计算角度
-    const { baseAngle, currentAngle } = calculateCircularTrackAngle(i, total)
-    const baseDegrees = baseAngle * 180 / Math.PI
-    const currentDegrees = currentAngle * 180 / Math.PI
+    // 使用统一的椭圆轨迹指示器坐标系计算角度
+    calculateCircularTrackAngle(i, total)
     
-    // 使用统一的圆形轨迹指示器坐标系计算位置
-    const { x, y } = calculateCircularTrackPosition(currentAngle, 400)
-    
-    let direction = ''
-    let circleRegion = ''
-    
-    if (Math.abs(currentDegrees) < 5 || Math.abs(currentDegrees - 360) < 5) {
-      direction = '正右方'
-      circleRegion = '边界点'
-    } else if (Math.abs(currentDegrees - 90) < 5) {
-      direction = '正下方'
-      circleRegion = '下半圆'
-    } else if (Math.abs(currentDegrees - 180) < 5) {
-      direction = '正左方 (起始位置)'
-      circleRegion = '边界点'
-    } else if (Math.abs(currentDegrees - 270) < 5) {
-      direction = '正上方'
-      circleRegion = '上半圆'
-    } else if (currentDegrees > 0 && currentDegrees < 90) {
-      direction = '右下方'
-      circleRegion = '下半圆'
-    } else if (currentDegrees > 90 && currentDegrees < 180) {
-      direction = '左下方'
-      circleRegion = '下半圆'
-    } else if (currentDegrees > 180 && currentDegrees < 270) {
-      direction = '左上方'
-      circleRegion = '上半圆'
-    } else if (currentDegrees > 270 && currentDegrees < 360) {
-      direction = '右上方'
-      circleRegion = '上半圆'
-    }
-    
-    console.log(`📌 图谱${i + 1}: 基础角度 ${baseDegrees.toFixed(2)}° → 当前角度 ${currentDegrees.toFixed(2)}° (${direction}) [${circleRegion}]`)
-    console.log(`   中心节点: "${subChapters[i].name}"`)
-    console.log(`   坐标: (${x.toFixed(2)}, ${y.toFixed(2)})`)
+    // 使用统一的椭圆轨迹指示器坐标系计算位置
+    calculateCircularTrackPosition(calculateCircularTrackAngle(i, total).currentAngle, 569, 400)
   }
   
-  console.log('═'.repeat(60))
 }
 
 
@@ -1015,9 +910,9 @@ const logAngleDistribution = () => {
 // 组件挂载时初始化
 onMounted(() => {
   initGraph()
-  initGSAPAnimations()
+  initCSSAnimations()
   
-  // 🔍 输出角度分布总览
+  // 输出角度分布总览
   nextTick(() => {
     logAngleDistribution()
   })
@@ -1051,14 +946,17 @@ onUnmounted(() => {
 .knowledge-graph-layout {
   display: flex;
   height: 100vh;
-  background: linear-gradient(135deg, #f8f7ff 0%, #ffffff 100%);
+  background: url('/icons/background.svg') no-repeat center center;
+  background-size: cover;
+  background-attachment: fixed;
 }
 
 // 第一列：功能箱/侧边栏（最左侧）
 .function-sidebar {
   width: 60px;
-  background: white;
-  border-right: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(5px);
+  border-right: 1px solid rgba(229, 231, 235, 0.3);
   display: flex;
   flex-direction: column;
   transition: width 0.3s ease;
@@ -1118,8 +1016,9 @@ onUnmounted(() => {
 // 第二列：章节目录/内容导航（中间）
 .chapter-sidebar {
   width: 280px;
-  background: white;
-  border-right: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(5px);
+  border-right: 1px solid rgba(229, 231, 235, 0.3);
   display: flex;
   flex-direction: column;
   transition: width 0.3s ease;
@@ -1281,7 +1180,7 @@ onUnmounted(() => {
   flex: 1;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #f8f7ff 0%, #ffffff 100%);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1318,30 +1217,28 @@ onUnmounted(() => {
   }
 }
 
-// 圆形轨迹指示器
+// 椭圆轨迹指示器
 .circular-track {
   position: absolute;
-  width: 800px;
+  width: 1139px;
   height: 800px;
-  left: 100%;
-  top: 50%;
-  margin-left: -400px;
+  left: 106%;
+  top: 38%;
+  margin-left: -569px;
   margin-top: -400px;
-  border: 2px dashed rgba(139, 92, 246, 0.3);
   border-radius: 50%;
 }
 
 
-// 圆形布局容器
+// 椭圆布局容器 - 不再需要旋转，只作为定位容器
 .circular-layout {
   position: relative;
-  width: 1000px;
-  height: 1000px;
-  left: 100%;
-  top: 50%;
-  transform-origin: center center;
-  margin-left: -500px;
-  margin-top: -500px;
+  width: 1239px;
+  height: 900px;
+  left: 106%;
+  top: 38%;
+  margin-left: -619px;
+  margin-top: -450px;
   cursor: grab;
   user-select: none;
   touch-action: none; // 禁用默认触摸行为
@@ -1368,40 +1265,52 @@ onUnmounted(() => {
   transform-origin: center center;
 }
 
-// 知识图谱包装器（SVG方法：内容保持水平）
+// 知识图谱包装器
 .knowledge-graph-wrapper {
   width: 100%;
   height: 100%;
   transform-origin: center center;
-  // 确保内容不随容器旋转而旋转
-  transform: none !important;
 }
 
 
 
-.filter-section {
+// 底部状态标识样式
+.status-indicators {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 32px;
   padding: 16px 24px;
-  background: white;
-  border-bottom: 1px solid #e5e7eb;
   
-  .filter-tags {
+  .status-item {
     display: flex;
+    flex-direction: row;
+    align-items: center;
     gap: 8px;
     
-    .status-chip {
-      cursor: pointer;
-      transition: all 0.2s ease;
+    .status-icon {
+      width: 24px;
+      height: 24px;
+      opacity: 0.8;
+      transition: opacity 0.2s ease;
+    }
+    
+    .status-label {
+      font-size: 12px;
+      color: #FFFFFF;
+      font-weight: 500;
+    }
+    
+    &:hover {
+      .status-icon {
+        opacity: 1;
+      }
       
-      &:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      .status-label {
+        color: #374151;
       }
     }
   }
-  
 }
 
 
