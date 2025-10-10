@@ -13,10 +13,10 @@
       <div class="node-icon" :style="{ backgroundImage: `url(${nodeIcon})` }"></div>
       
       <!-- 学习标签 -->
-      <div v-if="highlighted" class="learning-tag">上次学到</div>
+      <div v-if="learningStatus === 'lastLearned'" class="learning-tag">上次学到</div>
       
       <!-- 中心节点内容在节点内部 -->
-      <div v-if="type === 'center'" class="node-content node-content--center">
+      <div v-if="type === 'center'" :class="contentClasses">
         <div class="node-title">{{ formatNodeTitle(node) }}</div>
         <div class="node-chapter">{{ formatNodeChapter(node) }}</div>
       </div>
@@ -67,8 +67,6 @@ interface Props {
   type: 'center' | 'circular'
   index?: number
   total?: number
-  highlighted?: boolean
-  blue?: boolean
   radius?: number
   show?: boolean
   animationState?: 'idle' | 'expanding' | 'expanded' | 'collapsing'
@@ -88,8 +86,6 @@ interface Emits {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  highlighted: false,
-  blue: false,
   radius: 180,
   show: false,
   animationState: 'idle',
@@ -102,6 +98,35 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>()
 
 const nodeRef = ref<HTMLElement>()
+
+/**
+ * 获取节点在圆周上的角度（弧度制）
+ * 根据节点数量使用固定角度分布或等间距分布
+ * 
+ * @param index 节点索引（从0开始）
+ * @param total 节点总数
+ * @returns 角度（弧度）
+ */
+const getNodeAngle = (index: number, total: number): number => {
+  // 固定角度分布表（角度制，需转换为弧度）
+  const fixedAngles: Record<number, number[]> = {
+    1: [180],
+    2: [0, 180],
+    3: [270, 30, 150],
+    4: [270, 0, 90, 180],
+    5: [270, 342, 54, 126, 198]
+  }
+  
+  // 如果节点数量在1-5之间，使用固定角度分布
+  if (total >= 1 && total <= 5 && fixedAngles[total]) {
+    const angleDegrees = fixedAngles[total][index] || 0
+    // 将角度转换为弧度（角度 * π / 180）
+    return (angleDegrees * Math.PI) / 180
+  }
+  
+  // 超过5个节点，使用等间距分布
+  return (2 * Math.PI * index) / total
+}
 
 // 获取节点背景图标
 const nodeIcon = computed(() => {
@@ -156,8 +181,6 @@ const formatNodeChapter = (node: Node) => {
 
 const nodeClasses = computed(() => {
   const classes = ['graph-node', `graph-node--${props.type}`]
-  if (props.highlighted) classes.push('graph-node--highlighted')
-  if (props.blue) classes.push('graph-node--blue')
   
   // 中心节点展开状态
   if (props.type === 'center' && props.isExpanded) {
@@ -178,13 +201,25 @@ const nodeClasses = computed(() => {
     } else if (props.animationState === 'collapsing') {
       classes.push('node-exit')
     }
+    
+    // 圆周节点在其他图谱展开时变小
+    if (props.hasExpandedGraph && !props.isExpanded) {
+      classes.push('graph-node--shrunk')
+    }
   }
   
   return classes
 })
 
 const contentClasses = computed(() => {
-  const classes = ['node-content', 'node-content--circular']
+  const classes = ['node-content']
+  
+  // 根据节点类型添加基础类
+  if (props.type === 'center') {
+    classes.push('node-content--center')
+  } else {
+    classes.push('node-content--circular')
+  }
   
   // 中心节点内容展开状态
   if (props.type === 'center' && props.isExpanded) {
@@ -204,6 +239,11 @@ const contentClasses = computed(() => {
       classes.push('content-enter') // 保持显示状态，利用forwards保持动画结束状态
     } else if (props.animationState === 'collapsing') {
       classes.push('content-exit')
+    }
+    
+    // 圆周节点内容在其他图谱展开时变小
+    if (props.hasExpandedGraph && !props.isExpanded) {
+      classes.push('node-content--shrunk')
     }
   }
   
@@ -226,8 +266,8 @@ const nodeStyle = computed(() => {
   }
   
   if (props.type === 'circular') {
-    // 使用KnowledgeGraphView.vue的正确分布算法
-    const angle = (2 * Math.PI * (props.index || 0)) / (props.total || 1)
+    // 使用固定角度分布或等间距分布
+    const angle = getNodeAngle(props.index || 0, props.total || 1)
     const radius = props.radius || 180  // 使用传入的半径值，与背景圆保持一致
     
     // 计算节点在圆周上的位置，让节点圆心在圆周上
@@ -325,8 +365,6 @@ const handlePractice = () => {
   width: 150px;
   height: 150px;
   background: transparent;
-  border-radius: 50%;
-  box-shadow: 0 8px 32px rgba(139, 92, 246, 0.3);
   z-index: 10;
   transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
   position: relative;
@@ -337,18 +375,12 @@ const handlePractice = () => {
 .graph-node--center.graph-node--expanded {
   width: 200px;
   height: 200px;
-  box-shadow: 0 12px 48px rgba(139, 92, 246, 0.4);
 }
 
 /* 中心节点在其他图谱展开时变小 */
 .graph-node--center.graph-node--shrunk {
   width: 120px;
   height: 120px;
-  box-shadow: 0 6px 24px rgba(139, 92, 246, 0.2);
-}
-
-.graph-node--center:hover {
-  box-shadow: 0 12px 40px rgba(139, 92, 246, 0.4);
 }
 
 /* 圆周节点样式 - 小圆 */
@@ -386,41 +418,8 @@ const handlePractice = () => {
   z-index: 1;
 }
 
-/* 高亮状态 - 通过覆盖层实现 */
-.graph-node--highlighted::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.3) 0%, rgba(245, 158, 11, 0.3) 100%);
-  border-radius: 50%;
-  z-index: 2;
-  pointer-events: none;
-}
 
-.graph-node--highlighted {
-  box-shadow: 0 4px 20px rgba(251, 191, 36, 0.3);
-}
 
-/* 蓝色状态 - 通过覆盖层实现 */
-.graph-node--blue::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3) 0%, rgba(37, 99, 235, 0.3) 100%);
-  border-radius: 50%;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.graph-node--blue {
-  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
-}
 
 /* 节点内容 */
 .node-content {
@@ -439,8 +438,8 @@ const handlePractice = () => {
   transform: translateX(-50%);
   margin-top: 8px;
   padding: 4px 8px;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 0.6875rem; /* 11px × 1.75 = 19.25px */
+  font-weight: normal;
   color: white;
   width: 150%;
   overflow: hidden;
@@ -524,7 +523,7 @@ const handlePractice = () => {
 
 /* 中心节点标题展开状态 - 字体变大 */
 .node-content--center.node-content--expanded .node-title {
-  font-size: 150%; /* 节点宽度的150% */
+  font-size: 180%; /* 展开时字体更大，节点宽度的180% */
   margin-top: -8px; /* 向上占据一些空间 */
   margin-bottom: 6px; /* 增加与章节名的间距 */
   line-height: 0.9;
@@ -532,7 +531,7 @@ const handlePractice = () => {
 
 /* 中心节点标题在其他图谱展开时变小 */
 .node-content--center.node-content--shrunk .node-title {
-  font-size: 150%; /* 节点宽度的150% */
+  font-size: 120%; /* 缩小时字体更小，节点宽度的120% */
   margin-top: -8px; /* 向上占据一些空间 */
   margin-bottom: 4px; /* 增加与章节名的间距 */
   line-height: 1.0;
@@ -545,8 +544,8 @@ const handlePractice = () => {
 
 /* 非中心节点标题样式 */
 .node-content--circular .node-title {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 0.6875rem; /* 11px × 1.75 = 19.25px */
+  font-weight: normal;
   color: white;
   margin-bottom: 2px;
   line-height: 1.2;
@@ -560,6 +559,13 @@ const handlePractice = () => {
   overflow: hidden;
   text-overflow: ellipsis;
   word-break: break-word;
+  transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* 圆周节点标题在其他图谱展开时变小 */
+.node-content--circular.node-content--shrunk .node-title {
+  font-size: 0.5625rem; /* 9px × 1.75 = 15.75px */
+  line-height: 1.1;
 }
 
 
@@ -581,14 +587,14 @@ const handlePractice = () => {
 
 /* 中心节点章节名展开状态 - 字体变大 */
 .node-content--center.node-content--expanded .node-chapter {
-  font-size: 100%; /* 节点宽度的100% */
+  font-size: 120%; /* 展开时字体更大，节点宽度的120% */
   line-height: 1.1; /* 稍微增加行高 */
   margin-bottom: 3px; /* 底部留一些间距 */
 }
 
 /* 中心节点章节名在其他图谱展开时变小 */
 .node-content--center.node-content--shrunk .node-chapter {
-  font-size: 100%; /* 节点宽度的100% */
+  font-size: 80%; /* 缩小时字体更小，节点宽度的80% */
   line-height: 1.2; /* 增加行高，改善可读性 */
   margin-bottom: 2px; /* 底部留一些间距 */
 }
@@ -609,6 +615,13 @@ const handlePractice = () => {
   font-weight: 600;
   white-space: nowrap;
   z-index: 10;
+  transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* 学习标签在节点缩小时变小 */
+.graph-node--shrunk .learning-tag {
+  font-size: 6px;
+  padding: 1px 4px;
 }
 
 /* 节点进入动画 */

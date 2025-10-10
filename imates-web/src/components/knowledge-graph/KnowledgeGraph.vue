@@ -6,6 +6,11 @@
         ref="backgroundRef"
         class="containment-background"
         :class="{ 'expanded': isExpanded }"
+        :style="{ 
+          transitionDuration: backgroundTransitionDuration,
+          width: `${backgroundRadius * 2}px`,
+          height: `${backgroundRadius * 2}px`
+        }"
       ></div>
       
        <!-- 中心节点 -->
@@ -32,8 +37,6 @@
          :index="index"
          :total="getCircularNodes(chapterDetails).length"
          :radius="backgroundRadius"
-         :highlighted="index === 3"
-         :blue="index === 1"
          :show="isExpanded || hasExpandedGraph"
          :animation-state="animationState"
          :is-menu-visible="activeNodeId === child.id"
@@ -75,12 +78,14 @@ interface Props {
   rotation?: number
   isExpanded?: boolean
   hasExpandedGraph?: boolean
+  rotationDirection?: 'clockwise' | 'counterclockwise' | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
   rotation: 0,
   isExpanded: false,
-  hasExpandedGraph: false
+  hasExpandedGraph: false,
+  rotationDirection: null
 })
 
 // 定义事件
@@ -143,7 +148,7 @@ watch([() => props.isExpanded, () => props.hasExpandedGraph], ([newIsExpanded, n
 }, { immediate: false }) // 改为false，避免初始加载时触发动画
 
 
-// 计算背景圆半径
+// 计算背景圆半径 - 根据圆周节点数量动态调整
 const backgroundRadius = computed(() => {
   if (!containerRef.value) return 180 // 默认值
   
@@ -152,10 +157,40 @@ const backgroundRadius = computed(() => {
   const containerHeight = container.offsetHeight
   
   // 背景圆是正方形的内切圆，半径是较小边的一半
-  const radius = Math.min(containerWidth, containerHeight) / 2
+  const baseRadius = Math.min(containerWidth, containerHeight) / 2
+  const radius = Math.max(baseRadius, 100) // 最小半径100px
   
-  // 减去边框宽度（2px）和一点内边距，让子节点在圆内
-  return Math.max(radius, 100) // 最小半径100px
+  // 获取圆周节点数量
+  const circularNodes = getCircularNodes(props.chapterDetails)
+  const nodeCount = circularNodes.length
+  
+  // 根据节点数量调整半径大小
+  if (nodeCount <= 2) {
+    // 1-2个节点：背景圆形区域半径小
+    return radius * 0.6
+  } else if (nodeCount <= 4) {
+    // 3-4个节点：背景圆形区域半径中
+    return radius * 0.8
+  } else {
+    // 超过4个节点：背景圆形区域半径大
+    return radius * 1.0
+  }
+})
+
+// 计算背景圆形的动态过渡时间
+const backgroundTransitionDuration = computed(() => {
+  // 如果当前图谱是展开状态，根据旋转方向调整收缩速度
+  if (props.isExpanded && props.rotationDirection) {
+    if (props.rotationDirection === 'clockwise') {
+      // 下半圆点击，顺时针旋转，收缩更快
+      return '0.2s'
+    } else if (props.rotationDirection === 'counterclockwise') {
+      // 上半圆点击，逆时针旋转，保持默认速度
+      return '0.6s'
+    }
+  }
+  // 默认情况或展开动画使用默认时间
+  return '0.6s'
 })
 
 // 获取圆周上的子节点
@@ -317,8 +352,7 @@ onMounted(() => {
 /* 背景圆形区域表示包含关系 */
 .containment-background {
   position: absolute;
-  width: 100%; /* 占满整个容器，容器已经是可视区域的三分之二 */
-  height: 100%;
+  /* 宽高通过动态样式设置，根据节点数量调整 */
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(168, 85, 247, 0.05) 100%);
   border: 2px solid rgba(139, 92, 246, 0.2);
   border-radius: 50%;

@@ -25,14 +25,6 @@
           <q-icon name="account_tree" size="24px" color="white" />
           <span class="nav-text">知识图谱</span>
         </div>
-        <div class="nav-item">
-          <q-icon name="school" size="24px" color="grey-6" />
-          <span class="nav-text">学习进度</span>
-        </div>
-        <div class="nav-item">
-          <q-icon name="analytics" size="24px" color="grey-6" />
-          <span class="nav-text">数据分析</span>
-        </div>
       </div>
     </div>
 
@@ -68,7 +60,6 @@
           outlined
           dense
           class="textbook-select"
-          popup-content-class="textbook-popup"
           @update:model-value="onTextbookChange"
         >
             <template v-slot:selected>
@@ -145,6 +136,7 @@
                 :rotation="getGraphRotation(index)"
                 :is-expanded="expandedGraphId === subChapter.id"
                 :has-expanded-graph="expandedGraphId !== null"
+                :rotation-direction="rotationDirection"
                 @expand="handleGraphExpand(subChapter.id)"
                 class="knowledge-graph-wrapper"
               />
@@ -175,7 +167,7 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed, onUnmounted } from 'vue'
 import { apiService } from '../services/api-service'
-import type { TextbookVersion, TextbookOption, ChapterNode } from '../types'
+import type { TextbookOption, ChapterNode } from '../types'
 import KnowledgeGraph from '../components/knowledge-graph/KnowledgeGraph.vue'
 
 // 响应式数据
@@ -187,20 +179,28 @@ const selectedChapterDetails = ref<ChapterNode | null>(null)
 const sidebarCollapsed = ref(false)
 const chapterCollapsed = ref(false)
 
-// 动画相关
-
 // 椭圆布局相关
 const circularContainerRef = ref<HTMLElement>()
 const circularLayoutRef = ref<HTMLElement>()
 
 // 旋转控制相关
-const rotationAngle = ref(0) // 当前旋转角度（度）
+const chapterRotationAngles = ref<Map<number, number>>(new Map()) // 各章节的旋转角度（度）
 const isDragging = ref(false) // 是否正在拖拽
 const isAnimating = ref(false) // 是否正在执行自动旋转动画
 const startY = ref(0) // 开始触摸的Y坐标
 const lastY = ref(0) // 上次触摸的Y坐标
 const screenHeight = ref(window.innerHeight) // 屏幕高度
 const lastRotationTime = ref(0) // 上次旋转时间戳，用于检测快速滑动
+
+// 获取指定章节的旋转角度，如果不存在则返回0
+const getChapterRotation = (chapterIndex: number): number => {
+  return chapterRotationAngles.value.get(chapterIndex) ?? 0
+}
+
+// 设置指定章节的旋转角度
+const setChapterRotation = (chapterIndex: number, angle: number) => {
+  chapterRotationAngles.value.set(chapterIndex, angle)
+}
 
 // 展开时的旋转状态管理
 const isExpandingRotation = ref(false) // 是否正在执行展开旋转动画
@@ -210,7 +210,9 @@ const expandingRotationStartTime = ref(0) // 展开旋转开始时间
 
 // 收缩动画状态管理
 const isCollapsing = ref(false) // 是否正在执行收缩动画
-const collapsingStartTime = ref(0) // 收缩动画开始时间
+
+// 旋转方向状态管理
+const rotationDirection = ref<'clockwise' | 'counterclockwise' | null>(null) // 当前旋转方向
 
 // 全局展开状态管理
 const expandedGraphId = ref<string | null>(null) // 当前展开的知识图谱ID
@@ -249,8 +251,9 @@ const handleTouchMove = (event: TouchEvent) => {
   // 计算旋转角度：滑动距离与屏幕高度的比例 * 360度
   const rotationDelta = (deltaY / screenHeight.value * 2/ 3) * 360
   
-  // 更新旋转角度（向上滑动为正，向下滑动为负）
-  rotationAngle.value -= rotationDelta
+  // 更新当前章节的旋转角度（向上滑动为正，向下滑动为负）
+  const currentRotation = getChapterRotation(selectedChapter.value)
+  setChapterRotation(selectedChapter.value, currentRotation - rotationDelta)
   
   // 更新上次位置和时间戳
   lastY.value = currentY
@@ -304,8 +307,9 @@ const handleMouseMove = (event: MouseEvent) => {
   // 计算旋转角度：滑动距离与屏幕高度的比例 * 360度
   const rotationDelta = (deltaY / screenHeight.value) * 360
   
-  // 更新旋转角度（向上滑动为正，向下滑动为负）
-  rotationAngle.value -= rotationDelta
+  // 更新当前章节的旋转角度（向上滑动为正，向下滑动为负）
+  const currentRotation = getChapterRotation(selectedChapter.value)
+  setChapterRotation(selectedChapter.value, currentRotation - rotationDelta)
   
   // 更新上次位置和时间戳
   lastY.value = currentY
@@ -321,8 +325,8 @@ const calculateCircularTrackAngle = (index: number, total: number) => {
   // 基础角度：第一节在椭圆轨迹指示器160度位置，逆时针排列
   // 360度，分成total份，每份的角度是2 * Math.PI / total
   let baseAngle = Math.PI + (2 * Math.PI * index) / total
-  // 当前角度：基础角度 + 容器旋转角度
-  let currentAngle = baseAngle + (rotationAngle.value * Math.PI / 180)
+  // 当前角度：基础角度 + 当前章节的旋转角度
+  let currentAngle = baseAngle + (getChapterRotation(selectedChapter.value) * Math.PI / 180)
   
   // 将角度标准化到 [0, 2π] 范围
   while (baseAngle >= 2 * Math.PI) baseAngle -= 2 * Math.PI
@@ -372,21 +376,24 @@ const startExpandingRotation = (graphId: string) => {
   if (currentAngleDegrees > 180 && currentAngleDegrees <= 360) {
     // 上半圆：所有角度减少 alpha（逆时针转动）
     targetRotationDegrees = -(alpha * 180) / Math.PI
+    rotationDirection.value = 'counterclockwise'
   } else {
     // 下半圆：所有角度增加 alpha（顺时针转动）
     targetRotationDegrees = (alpha * 180) / Math.PI
+    rotationDirection.value = 'clockwise'
   }
   
   // 8. 设置展开旋转状态
   isExpandingRotation.value = true
-  expandingRotationStartAngle.value = rotationAngle.value
-  expandingRotationTargetAngle.value = rotationAngle.value + targetRotationDegrees
+  const currentChapterRotation = getChapterRotation(selectedChapter.value)
+  expandingRotationStartAngle.value = currentChapterRotation
+  expandingRotationTargetAngle.value = currentChapterRotation + targetRotationDegrees
   expandingRotationStartTime.value = performance.now()
   
   // 9. 开始展开旋转动画
   const animateExpandingRotation = (currentTime: number) => {
     const elapsed = currentTime - expandingRotationStartTime.value
-    const duration = 900 // 动画持续时间（毫秒）- 进一步缩短让移动更流畅
+    const duration = 800 // 动画持续时间（毫秒）- 缩短展开旋转时间，为位置移动留出时间
     const progress = Math.min(elapsed / duration, 1)
     
     // 使用更平滑的缓动函数实现流畅的动画效果
@@ -397,15 +404,17 @@ const startExpandingRotation = (graphId: string) => {
     const currentAngle = expandingRotationStartAngle.value + 
       (expandingRotationTargetAngle.value - expandingRotationStartAngle.value) * easedProgress
     
-    // 更新旋转角度
-    rotationAngle.value = currentAngle
+    // 更新当前章节的旋转角度
+    setChapterRotation(selectedChapter.value, currentAngle)
     
     // 如果动画未完成，继续下一帧
     if (progress < 1) {
       requestAnimationFrame(animateExpandingRotation)
     } else {
-      // 动画完成
-      isExpandingRotation.value = false
+      // 动画完成，延迟一点时间让其他图谱开始位置移动动画
+      setTimeout(() => {
+        isExpandingRotation.value = false
+      }, 100) // 给其他图谱的位置移动动画留出启动时间
     }
   }
   
@@ -417,7 +426,6 @@ const startExpandingRotation = (graphId: string) => {
 // 教材选择器
 const selectedTextbook = ref('')
 const textbookOptions = ref<TextbookOption[]>([])
-const textbookVersions = ref<TextbookVersion[]>([])
 
 // 计算属性：当前选中的教材标签
 const selectedTextbookLabel = computed(() => {
@@ -436,21 +444,10 @@ const currentSubjectLabel = computed(() => {
 const chapters = ref<string[]>([])
 const chapterStructure = ref<ChapterNode[]>([])
 
-// 周围节点数据已移除
-
-// 图谱数据
-const nodes = ref<Record<string, unknown>[]>([])
-const edges = ref<Record<string, unknown>[]>([])
-
-
 // 初始化图谱数据
 const initGraphData = () => {
   // 清空图谱数据
-  nodes.value = []
-  edges.value = []
 }
-
-// 获取节点颜色方法已移除
 
 // 加载教材数据
 const loadTextbookData = async () => {
@@ -458,7 +455,6 @@ const loadTextbookData = async () => {
     const versions = await apiService.getTextbookVersions()
     
     if (versions && versions.length > 0) {
-      textbookVersions.value = versions
       textbookOptions.value = apiService.convertToTextbookOptions(versions)
       
       // 设置默认选中的教材
@@ -472,7 +468,6 @@ const loadTextbookData = async () => {
         }
       }
     } else {
-      textbookVersions.value = []
       textbookOptions.value = []
     }
     
@@ -571,8 +566,22 @@ const initGraph = async () => {
     // 先加载教材数据
     await loadTextbookData()
     
-    // 模拟加载延迟
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // 如果有教材数据，自动选择第一个教材并加载章节
+    if (textbookOptions.value.length > 0) {
+      const firstTextbook = textbookOptions.value[0]
+      selectedTextbook.value = firstTextbook.value
+      
+      // 加载第一个教材的章节结构
+      if (firstTextbook.textbookId && firstTextbook.textbookId !== 'default') {
+        await loadChapterStructure(firstTextbook.textbookId)
+        
+        // 自动选择第一个章节
+        if (chapterStructure.value.length > 0) {
+          selectedChapter.value = 0
+          selectedChapterDetails.value = chapterStructure.value[0]
+        }
+      }
+    }
     
     initGraphData()
     
@@ -580,6 +589,11 @@ const initGraph = async () => {
     // 目前使用简单的DOM渲染
     await nextTick()
     renderGraph()
+    
+    // 自动展开第一个子章节
+    if (selectedChapterDetails.value) {
+      await autoExpandFirstSubChapter()
+    }
     
   } catch {
     // 初始化知识图谱失败
@@ -612,6 +626,15 @@ const renderGraph = () => {
 // 教材切换
 const onTextbookChange = async (value: string) => {
   try {
+    // 如果当前有展开的知识图谱，先收缩它
+    if (expandedGraphId.value !== null) {
+      // 启动收缩动画
+      startCollapsingAnimation()
+      expandedGraphId.value = null
+      // 停止展开旋转动画
+      isExpandingRotation.value = false
+    }
+    
     // 找到选中的教材选项
     const selectedOption = textbookOptions.value.find(opt => opt.value === value)
     if (!selectedOption) {
@@ -621,6 +644,16 @@ const onTextbookChange = async (value: string) => {
     // 根据教材ID加载章节结构
     if (selectedOption.textbookId && selectedOption.textbookId !== 'default') {
       await loadChapterStructure(selectedOption.textbookId)
+      
+      // 自动选择第一个章节
+      if (chapterStructure.value.length > 0) {
+        selectedChapter.value = 0
+        selectedChapterDetails.value = chapterStructure.value[0]
+        
+        // 等待DOM更新后自动展开第一个子章节
+        await nextTick()
+        await autoExpandFirstSubChapter()
+      }
     }
     
     // 重新初始化图谱数据
@@ -634,7 +667,22 @@ const onTextbookChange = async (value: string) => {
 
 // 选择章节
 const selectChapter = (index: number) => {
+  // 如果当前有展开的知识图谱，先收缩它
+  if (expandedGraphId.value !== null) {
+    // 启动收缩动画
+    startCollapsingAnimation()
+    expandedGraphId.value = null
+    // 停止展开旋转动画
+    isExpandingRotation.value = false
+  }
+  
   selectedChapter.value = index
+  
+  // 确保新章节有初始旋转角度（如果不存在则初始化为0）
+  if (!chapterRotationAngles.value.has(index)) {
+    setChapterRotation(index, 0)
+  }
+  
   // 获取选中章节的详细信息
   if (chapterStructure.value && chapterStructure.value.length > index) {
     selectedChapterDetails.value = chapterStructure.value[index]
@@ -649,7 +697,6 @@ const selectChapter = (index: number) => {
 // 启动收缩动画
 const startCollapsingAnimation = () => {
   isCollapsing.value = true
-  collapsingStartTime.value = performance.now()
   
   // 设置收缩动画持续时间（与CSS过渡时间一致）
   const collapseDuration = 800 // 800ms，与CSS中的0.8s一致
@@ -719,6 +766,21 @@ const handleBackgroundClick = (event: MouseEvent) => {
   }
 }
 
+// 自动展开第一个子章节（xx.1）
+const autoExpandFirstSubChapter = async () => {
+  if (!selectedChapterDetails.value) return
+  
+  const subChapters = getSubChapters(selectedChapterDetails.value)
+  if (subChapters.length > 0) {
+    // 找到第一个子章节（通常是 xx.1）
+    const firstSubChapter = subChapters[0]
+    
+    // 等待DOM更新后展开第一个子章节
+    await nextTick()
+    handleGraphExpand(firstSubChapter.id)
+  }
+}
+
 // 获取子章节（x.x格式的小节）
 const getSubChapters = (chapterDetails: ChapterNode | null) => {
   if (!chapterDetails || !chapterDetails.children) {
@@ -768,17 +830,11 @@ const getSubChapters = (chapterDetails: ChapterNode | null) => {
 }
 
 /**
- * 计算知识图谱在圆形轨迹指示器中的位置（统一坐标系）
- * 
- * 功能原理：
- * 1. 基础圆形布局：将知识图谱均匀分布在圆形轨迹上
- * 2. 展开状态处理：当某个图谱展开时，其他图谱沿切线方向移动，避免遮挡
- * 3. 坐标转换：从圆形坐标系转换为CSS定位坐标
- * 4. 动画优化：根据拖拽状态和角度差动态调整动画效果
+ * 计算知识图谱在椭圆轨迹中的位置和样式
  * 
  * @param index 当前知识图谱的索引
  * @param total 知识图谱的总数量
- * @returns CSS样式对象，包含位置和动画属性
+ * @returns CSS样式对象，包含位置、缩放、透明度和动画属性
  */
 const getGraphPosition = (index: number, total: number) => {
   
@@ -787,7 +843,7 @@ const getGraphPosition = (index: number, total: number) => {
   const expandedIndex = expandedGraphId.value ? 
     subChapters.findIndex(chapter => chapter.id === expandedGraphId.value) : -1
   
-  // 计算基础角度
+  // 计算基础角度 - 使用当前章节的旋转角度
   const { currentAngle } = calculateCircularTrackAngle(index, total)
   const angle = currentAngle
   
@@ -805,23 +861,32 @@ const getGraphPosition = (index: number, total: number) => {
         top: '50%',
         marginLeft: '-250px',
         marginTop: '-250px',
+        opacity: 0.9, // 展开的知识图谱保持完全不透明
+        zIndex: 100, // 展开的知识图谱获得最高层级
         transition: isDragging.value ? 'none' : 
                     isExpandingRotation.value ? 'none' :
                     isCollapsing.value ? 'none' :
-                    'transform 1.0s cubic-bezier(0.4, 0.0, 0.2, 1)'
+                    'transform 1.0s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 1.0s cubic-bezier(0.4, 0.0, 0.2, 1)'
       }
     } else {
       // 其他知识图谱在轨道上平滑移动且不展开
       const { currentAngle: expandedAngle } = calculateCircularTrackAngle(expandedIndex, total)
       let angleDiff = Math.abs(angle - expandedAngle)
       
+      // 处理椭圆轨迹首尾相接的边界情况（角度跨越0度/360度）
       if (angleDiff > Math.PI) {
         angleDiff = 2 * Math.PI - angleDiff
       }
       
-      if (angleDiff < (5 * Math.PI) / 6) {
-        // 计算额外旋转角度（距离越近旋转越多，最大60度）
-        const extraRotationDegrees = ((5 * Math.PI) / 6 - angleDiff) / ((5 * Math.PI) / 6) * 60
+      // 定义影响范围：只影响展开图谱前后2个节点（约90度范围）
+      const influenceRange = Math.PI / 2 // 90度
+      const maxPushAngle = 30 // 最大推开角度30度，确保不会移出视口
+      
+      if (angleDiff < influenceRange) {
+        // 计算距离因子：距离越近，推开角度越大
+        const distanceFactor = 1 - (angleDiff / influenceRange)
+        // 使用二次缓动函数实现距离越近推得越远的效果
+        const pushAngle = maxPushAngle * Math.pow(distanceFactor, 2)
         
         // 判断旋转方向：上半圆顺时针，下半圆逆时针
         let rotationDirection = 1
@@ -831,17 +896,16 @@ const getGraphPosition = (index: number, total: number) => {
           rotationDirection = -1 // 下半圆：逆时针
         }
         
-        // 应用额外旋转，让其他节点沿轨道移动
-        const adjustedAngle = angle + (rotationDirection * extraRotationDegrees * Math.PI / 180)
+        // 应用推开旋转，让其他节点沿轨道移动
+        const adjustedAngle = angle + (rotationDirection * pushAngle * Math.PI / 180)
         const { x, y } = calculateCircularTrackPosition(adjustedAngle, 569, 400)
         
-        // 计算缩放和透明度 - 其他节点保持正常大小，只调整透明度
-        const distanceFactor = angleDiff / ((5 * Math.PI) / 6)
-        const scale = 1 - (distanceFactor * 0.2) // 减少缩放幅度，保持节点可见
-        const opacity = 0.7 - (distanceFactor * 0.2) // 调整透明度，让节点更清晰
+        // 计算缩放和透明度 - 距离展开图谱越近，透明度越低
+        const scale = 1 - (distanceFactor * 0.1) // 减少缩放幅度
+        const opacity = 0.5 + (distanceFactor * 0.1) // 距离越近越透明，范围0.3-0.5
         
-        // 计算动画延迟 - 减少延迟让移动更同步
-        const animationDelay = (angleDiff / ((5 * Math.PI) / 6)) * 0.05
+        // 计算动画延迟 - 距离越近延迟越短，移动更同步
+        const animationDelay = distanceFactor * 0.03
         
         return {
           transform: `translate(${x}px, ${y}px) scale(${scale})`,
@@ -851,11 +915,30 @@ const getGraphPosition = (index: number, total: number) => {
           marginLeft: '-250px',
           marginTop: '-250px',
           opacity: opacity,
+          zIndex: 1 + index, // 基于索引的基础层级
+          // 关键修改：确保在展开旋转完成后才开始位置移动动画
           transition: isDragging.value ? 'none' : 
             isExpandingRotation.value ? 'none' :
             isCollapsing.value ? 'none' :
-            `transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${animationDelay}s, 
-             opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${animationDelay}s`
+            `transform 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${animationDelay + 0.3}s, 
+             opacity 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${animationDelay + 0.3}s`
+        }
+      } else {
+        // 距离展开图谱较远的节点，保持当前位置但变为半透明
+        const { x, y } = calculateCircularTrackPosition(angle, 569, 400)
+        return {
+          transform: `translate(${x}px, ${y}px)`,
+          position: 'absolute' as const,
+          left: '50%',
+          top: '50%',
+          marginLeft: '-250px',
+          marginTop: '-250px',
+          opacity: 0.4, // 距离较远的节点也变为半透明
+          zIndex: 1 + index, // 基于索引的基础层级
+          transition: isDragging.value ? 'none' : 
+            isExpandingRotation.value ? 'none' :
+            isCollapsing.value ? 'none' :
+            `opacity 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.3s`
         }
       }
     }
@@ -871,10 +954,12 @@ const getGraphPosition = (index: number, total: number) => {
     top: '50%',
     marginLeft: '-250px',
     marginTop: '-250px',
+    opacity: 0.8, // 确保默认状态下完全可见
+    zIndex: 1 + index, // 基于索引的基础层级
     transition: isDragging.value ? 'none' : 
                 isAnimating.value ? 'none' : 
                 isExpandingRotation.value ? 'none' :
-                isCollapsing.value ? 'none' :
+                isCollapsing.value ? 'transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)' :
                 'transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
   }
 }
@@ -899,7 +984,6 @@ const logAngleDistribution = () => {
     // 使用统一的椭圆轨迹指示器坐标系计算位置
     calculateCircularTrackPosition(calculateCircularTrackAngle(i, total).currentAngle, 569, 400)
   }
-  
 }
 
 
@@ -1085,31 +1169,6 @@ onUnmounted(() => {
   }
 }
 
-// 教材选择器弹出样式
-:deep(.textbook-popup) {
-  .q-menu {
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    border: 1px solid #e5e7eb;
-    max-height: 300px;
-    overflow-y: auto;
-  }
-  
-  .q-item {
-    padding: 12px 16px;
-    font-size: 14px;
-    color: #374151;
-    
-    &:hover {
-      background: #f3f4f6;
-    }
-    
-    &.q-item--active {
-      background: #eff6ff;
-      color: #2563eb;
-    }
-  }
-}
 
 .chapter-list {
   flex: 1;
@@ -1192,27 +1251,7 @@ onUnmounted(() => {
   overflow: hidden;
   // 移除 clip-path，显示完整视口区域
   
-  // 当有图谱展开时，提供视觉反馈
-  &.has-expanded {
-    cursor: pointer;
-    
-    // 添加一个微妙的背景提示
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(139, 92, 246, 0.02);
-      pointer-events: none;
-      transition: background-color 0.2s ease;
-    }
-    
-    &:hover::before {
-      background: rgba(139, 92, 246, 0.05);
-    }
-  }
+  // 当有图谱展开时，移除视觉反馈
 }
 
 // 椭圆轨迹指示器
