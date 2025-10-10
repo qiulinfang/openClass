@@ -165,11 +165,10 @@ const getCircularNodes = (chapterDetails: ChapterDetails) => {
   // 初始情况下，只显示level=1的节点（x.x层）
   // 只有在展开状态下，才显示level=2的节点
   if (chapterDetails.level === 1) {
-    if (isExpanded.value || props.hasExpandedGraph) {
-      // 展开状态或有其他图谱展开时：显示level=2的子节点
+    // 只有当前图谱被展开时才显示子节点，其他情况都不显示
+    if (isExpanded.value) {
       return chapterDetails.children.filter(child => child.level === 2)
     } else {
-      // 收起状态：不显示任何子节点
       return []
     }
   }
@@ -224,13 +223,8 @@ const handleCenterNodeClick = (event: Event) => {
   event.stopPropagation() // 阻止事件冒泡到背景
   
   console.log('props.chapterDetails.children?.length', props.chapterDetails.children?.length)
-  // 如果没有周围节点，则不执行展开逻辑
-  if (!props.chapterDetails.children?.length) {
-    console.log('No circular nodes, skipping expand logic')
-    return
-  }
-  
-  // 发出展开事件，让父组件控制展开状态
+  // 无论是否有圆周节点，都执行展开逻辑，让知识图谱旋转到160度位置
+  // 发出展开事件，让父组件控制展开状态和旋转动画
   emit('expand', props.chapterDetails.id)
 }
 
