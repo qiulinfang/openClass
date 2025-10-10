@@ -208,6 +208,10 @@ const expandingRotationStartAngle = ref(0) // 展开旋转起始角度
 const expandingRotationTargetAngle = ref(0) // 展开旋转目标角度
 const expandingRotationStartTime = ref(0) // 展开旋转开始时间
 
+// 收缩动画状态管理
+const isCollapsing = ref(false) // 是否正在执行收缩动画
+const collapsingStartTime = ref(0) // 收缩动画开始时间
+
 // 全局展开状态管理
 const expandedGraphId = ref<string | null>(null) // 当前展开的知识图谱ID
 
@@ -382,12 +386,12 @@ const startExpandingRotation = (graphId: string) => {
   // 9. 开始展开旋转动画
   const animateExpandingRotation = (currentTime: number) => {
     const elapsed = currentTime - expandingRotationStartTime.value
-    const duration = 1200 // 动画持续时间（毫秒）
+    const duration = 900 // 动画持续时间（毫秒）- 进一步缩短让移动更流畅
     const progress = Math.min(elapsed / duration, 1)
     
-    // 使用缓动函数实现平滑的动画效果
-    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
-    const easedProgress = easeOutCubic(progress)
+    // 使用更平滑的缓动函数实现流畅的动画效果
+    const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4)
+    const easedProgress = easeOutQuart(progress)
     
     // 计算当前角度（线性插值）
     const currentAngle = expandingRotationStartAngle.value + 
@@ -642,6 +646,20 @@ const selectChapter = (index: number) => {
   }
 }
 
+// 启动收缩动画
+const startCollapsingAnimation = () => {
+  isCollapsing.value = true
+  collapsingStartTime.value = performance.now()
+  
+  // 设置收缩动画持续时间（与CSS过渡时间一致）
+  const collapseDuration = 800 // 800ms，与CSS中的0.8s一致
+  
+  // 在动画完成后重置状态
+  setTimeout(() => {
+    isCollapsing.value = false
+  }, collapseDuration)
+}
+
 // 布局控制方法
 const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
@@ -654,8 +672,15 @@ const toggleChapter = () => {
 
 // 处理知识图谱展开状态
 const handleGraphExpand = (graphId: string) => {
+  // 如果正在执行展开旋转动画或收缩动画，禁用点击切换功能
+  if (isExpandingRotation.value || isCollapsing.value) {
+    return
+  }
+  
   // 如果点击的是当前展开的图谱，则收起
   if (expandedGraphId.value === graphId) {
+    // 启动收缩动画
+    startCollapsingAnimation()
     expandedGraphId.value = null
     // 停止展开旋转动画
     isExpandingRotation.value = false
@@ -678,11 +703,18 @@ const handleBackgroundClick = (event: MouseEvent) => {
     return
   }
   
+  // 如果正在执行展开旋转动画或收缩动画，禁用背景点击收缩功能
+  if (isExpandingRotation.value || isCollapsing.value) {
+    return
+  }
+  
   // 检查点击的目标元素
   const target = event.target as HTMLElement
   
   // 如果点击的是视口裁剪区域或其子元素（背景），关闭展开状态
   if (target.closest('.viewport-clipper')) {
+    // 启动收缩动画
+    startCollapsingAnimation()
     expandedGraphId.value = null
   }
 }
@@ -750,134 +782,100 @@ const getSubChapters = (chapterDetails: ChapterNode | null) => {
  */
 const getGraphPosition = (index: number, total: number) => {
   
-  // ========== 第一步：获取基础数据 ==========
-  // 获取当前章节的所有子章节列表
+  // 获取基础数据
   const subChapters = getSubChapters(selectedChapterDetails.value)
-  
-  // 查找当前展开的知识图谱索引（如果有的话）
   const expandedIndex = expandedGraphId.value ? 
     subChapters.findIndex(chapter => chapter.id === expandedGraphId.value) : -1
   
-  // ========== 第二步：计算基础角度和半径 ==========
-  // 使用统一的圆形轨迹指示器坐标系计算当前图谱的角度
+  // 计算基础角度
   const { currentAngle } = calculateCircularTrackAngle(index, total)
   const angle = currentAngle
   
-  // 设置默认椭圆轨迹半径（与椭圆轨迹指示器保持一致）
-  
-  // ========== 第三步：展开状态的位置调整逻辑 ==========
-  // 检测是否为快速滑动状态（避免快速滑动时的视觉干扰）
+  // 展开状态的位置调整逻辑
   const isRapidScrolling = isDragging.value && (Date.now() - lastRotationTime.value) < 100
   
-  // 条件判断：有展开图谱 + 找到展开索引 + 非拖拽状态 + 非快速滑动
   if (expandedGraphId.value !== null && expandedIndex !== -1 && !isDragging.value && !isRapidScrolling) {
-    
-    // ========== 第四步：处理展开图谱自身 ==========
-    // 如果当前图谱就是展开的，保持在椭圆轨迹上的原位置
     if (index === expandedIndex) {
-      // 展开的知识图谱保持在椭圆轨迹指示器上
+      // 展开的知识图谱保持在椭圆轨迹上，移动到160度位置
+      const { x, y } = calculateCircularTrackPosition(angle, 569, 400)
+      return {
+        transform: `translate(${x}px, ${y}px)`,
+        position: 'absolute' as const,
+        left: '50%',
+        top: '50%',
+        marginLeft: '-250px',
+        marginTop: '-250px',
+        transition: isDragging.value ? 'none' : 
+                    isExpandingRotation.value ? 'none' :
+                    isCollapsing.value ? 'none' :
+                    'transform 1.0s cubic-bezier(0.4, 0.0, 0.2, 1)'
+      }
     } else {
-      // ========== 第五步：处理其他图谱的切线移动 ==========
-      // 计算展开图谱的当前角度
+      // 其他知识图谱在轨道上平滑移动且不展开
       const { currentAngle: expandedAngle } = calculateCircularTrackAngle(expandedIndex, total)
-      
-      // 计算当前图谱与展开图谱的角度差
       let angleDiff = Math.abs(angle - expandedAngle)
       
-      // 处理跨越0度/360度边界的情况（取较小的角度差）
       if (angleDiff > Math.PI) {
         angleDiff = 2 * Math.PI - angleDiff
       }
       
-      // ========== 第六步：切线移动条件判断 ==========
-      // 如果角度差小于150度（5π/6），则进行切线移动避免遮挡
       if (angleDiff < (5 * Math.PI) / 6) {
+        // 计算额外旋转角度（距离越近旋转越多，最大60度）
+        const extraRotationDegrees = ((5 * Math.PI) / 6 - angleDiff) / ((5 * Math.PI) / 6) * 60
         
-        // ========== 第七步：计算切线移动距离 ==========
-        // 角度差越小，移动距离越大（确保能够移出视口）
-        // 使用线性插值：角度差0时移动1200px，角度差150度时移动0px
-        const tangentDistance = ((5 * Math.PI) / 6 - angleDiff) / ((5 * Math.PI) / 6) * 1200
-        
-        // ========== 第八步：计算切线方向 ==========
-        let tangentX, tangentY
-        
+        // 判断旋转方向：上半圆顺时针，下半圆逆时针
+        let rotationDirection = 1
         if (angle > Math.PI && angle <= 2 * Math.PI) {
-          // 上半圆（π 到 2π）：切线方向向右上移动
-          // 切线方向 = 半径方向 + 90度（逆时针）
-          const tangentAngle = angle + Math.PI / 2
-          tangentX = Math.cos(tangentAngle) * tangentDistance
-          tangentY = Math.sin(tangentAngle) * tangentDistance
+          rotationDirection = 1  // 上半圆：顺时针
         } else {
-          // 下半圆（0 到 π）：切线方向向右下移动
-          // 切线方向 = 半径方向 - 90度（顺时针）
-          const tangentAngle = angle - Math.PI / 2
-          tangentX = Math.cos(tangentAngle) * tangentDistance
-          tangentY = Math.sin(tangentAngle) * tangentDistance
+          rotationDirection = -1 // 下半圆：逆时针
         }
         
-        // ========== 第九步：计算最终位置 ==========
-        // 获取原始椭圆轨迹位置
-        const { x: originalX, y: originalY } = calculateCircularTrackPosition(angle, 569, 400)
+        // 应用额外旋转，让其他节点沿轨道移动
+        const adjustedAngle = angle + (rotationDirection * extraRotationDegrees * Math.PI / 180)
+        const { x, y } = calculateCircularTrackPosition(adjustedAngle, 569, 400)
         
-        // 原始位置 + 切线移动偏移 = 最终位置
-        const finalX = originalX + tangentX
-        const finalY = originalY + tangentY
+        // 计算缩放和透明度 - 其他节点保持正常大小，只调整透明度
+        const distanceFactor = angleDiff / ((5 * Math.PI) / 6)
+        const scale = 1 - (distanceFactor * 0.2) // 减少缩放幅度，保持节点可见
+        const opacity = 0.7 - (distanceFactor * 0.2) // 调整透明度，让节点更清晰
         
-        // ========== 第十步：视口边界检测 ==========
-        // 计算到中心的距离，判断是否移出视口
-        const distanceFromCenter = Math.sqrt(finalX * finalX + finalY * finalY)
-        const isOutOfViewport = distanceFromCenter > 675 // 675px为视口边界（半径450px + 225px缓冲）
+        // 计算动画延迟 - 减少延迟让移动更同步
+        const animationDelay = (angleDiff / ((5 * Math.PI) / 6)) * 0.05
         
-        // ========== 第十一步：计算动画延迟 ==========
-        // 距离展开图谱越近，延迟越短（创造波浪式动画效果）
-        const animationDelay = (angleDiff / ((5 * Math.PI) / 6)) * 0.3 // 最大延迟0.3秒
-        
-        // ========== 第十二步：返回切线移动后的样式 ==========
         return {
-          // CSS变换：平移到计算出的位置
-          transform: `translate(${finalX}px, ${finalY}px)`,
-          // 绝对定位
+          transform: `translate(${x}px, ${y}px) scale(${scale})`,
           position: 'absolute' as const,
-          // 相对于父容器居中
           left: '50%',
           top: '50%',
-          // 偏移知识图谱尺寸的一半，使中心对齐
-          marginLeft: '-250px', // 知识图谱宽度的一半
-          marginTop: '-250px',   // 知识图谱高度的一半
-          // 移出视口的元素设置为透明
-          opacity: isOutOfViewport ? 0 : 1,
-          // 动态过渡动画：非拖拽状态才应用，避免快速滑动时的视觉干扰
+          marginLeft: '-250px',
+          marginTop: '-250px',
+          opacity: opacity,
           transition: isDragging.value ? 'none' : 
             isExpandingRotation.value ? 'none' :
-            `transform 1.0s cubic-bezier(0.4, 0.0, 0.2, 1) ${animationDelay}s, 
-             opacity 1.0s cubic-bezier(0.4, 0.0, 0.2, 1) ${animationDelay}s`
+            isCollapsing.value ? 'none' :
+            `transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${animationDelay}s, 
+             opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${animationDelay}s`
         }
       }
     }
   }
   
-  // ========== 第十三步：默认椭圆轨迹位置计算 ==========
-  // 使用统一的椭圆轨迹指示器坐标系计算标准椭圆位置
+  // 默认椭圆轨迹位置计算
   const { x, y } = calculateCircularTrackPosition(angle, 569, 400)
   
-  // ========== 第十四步：返回标准椭圆布局样式 ==========
   return {
-    // CSS变换：平移到椭圆轨迹位置
     transform: `translate(${x}px, ${y}px)`,
-    // 绝对定位
     position: 'absolute' as const,
-    // 相对于父容器居中
     left: '50%',
     top: '50%',
-    // 偏移知识图谱尺寸的一半，使中心对齐
-    marginLeft: '-250px', // 知识图谱宽度的一半
-    marginTop: '-250px',   // 知识图谱高度的一半
-    // 动态过渡动画：根据状态选择不同的动画配置
-    // 当使用JavaScript动画时，禁用CSS过渡以避免冲突
+    marginLeft: '-250px',
+    marginTop: '-250px',
     transition: isDragging.value ? 'none' : 
                 isAnimating.value ? 'none' : 
                 isExpandingRotation.value ? 'none' :
-                'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)'
+                isCollapsing.value ? 'none' :
+                'transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
   }
 }
 
