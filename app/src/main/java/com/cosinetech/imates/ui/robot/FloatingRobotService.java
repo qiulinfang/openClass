@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.util.Log;
 import android.view.Gravity;
@@ -85,7 +86,12 @@ public class FloatingRobotService extends Service implements MessagingManager.Me
         // 创建并启动前台服务
         Notification notification = createNotification();
 
-        startForeground(NOTIFICATION_ID, notification);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIFICATION_ID, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+        } else {
+            startForeground(NOTIFICATION_ID, notification);
+        }
 
         // Log to verify
         Log.d("FloatingRobotService", "Service started as foreground.");
