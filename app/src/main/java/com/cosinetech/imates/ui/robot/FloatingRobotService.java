@@ -20,7 +20,6 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.PopupWindow;
-import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -34,13 +33,12 @@ import com.airbnb.lottie.LottieAnimationView;
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.ui.activities.ChatAiActivity;
-import com.cosinetech.imates.ui.activities.ScreenShotActivity;
 import com.cosinetech.imates.data.models.ChatAiParam;
 import com.cosinetech.imates.data.models.ChatMessage;
 import com.cosinetech.imates.data.models.ChatMessageHistoryDB;
 import com.cosinetech.imates.data.models.UserInfoViewModel;
 import com.cosinetech.imates.teachermessagemq.MessagingManager;
-import com.cosinetech.imates.screencasting.ScreenCastingManager;
+import com.cosinetech.imates.ui.feedback.FeedbackActivity;
 import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.ScreenUtils;
 import com.cosinetech.imates.ui.views.ChatAiView;
@@ -240,21 +238,23 @@ public class FloatingRobotService extends Service implements MessagingManager.Me
     }
 
     private void performFeedback() {
-        if(ScreenCastingManager.isHavingClass()) {
-            Toast.makeText(getApplicationContext(), "请在退出课堂后再进行反馈", Toast.LENGTH_SHORT).show();
-            return;
-        }
+//        if(ScreenCastingManager.isHavingClass()) {
+//            Toast.makeText(getApplicationContext(), "请在退出课堂后再进行反馈", Toast.LENGTH_SHORT).show();
+//            return;
+//        }
+//
+//        String userId = AppUtils.getUserId();
+//        if(userId == null
+//                || userId.isEmpty()
+//                || userId.equals("guest000")) {
+//            Toast.makeText(getApplicationContext(), "请用其他账户进行反馈", Toast.LENGTH_SHORT).show();
+//            return;
+//        }
+//
+//        Intent intent = new Intent(this, FeedbackActivity.class);
+//        startActivity(intent);
 
-        String userId = AppUtils.getUserId();
-        if(userId == null
-                || userId.isEmpty()
-                || userId.equals("guest000")) {
-            Toast.makeText(getApplicationContext(), "请用其他账户进行反馈", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        Intent intent = new Intent(this, ScreenShotActivity.class);
-        intent.setAction(ScreenShotActivity.ACTION_START_FEED_BACK);
+        Intent intent = new Intent(this, FeedbackActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈
         startActivity(intent);
     }
