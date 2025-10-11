@@ -123,6 +123,13 @@
             :class="{ 'scroll-disabled': expandedGraphId !== null }"
             ref="circularLayoutRef"
           >
+            <!-- 右边框中心位置指示器 -->
+            <div 
+              class="right-border-indicator"
+            >
+              <div class="indicator-dot"></div>
+              <div class="indicator-line"></div>
+            </div>
             <div 
               v-for="(subChapter, index) in getSubChapters(selectedChapterDetails)" 
               :key="subChapter.id"
@@ -1294,6 +1301,40 @@ onUnmounted(() => {
   }
 }
 
+// 右边框中心位置指示器
+.right-border-indicator {
+  position: absolute;
+  right: 54%;
+  top: 43%;
+  z-index: 200;
+  height: 20%;
+  background: transparent;
+  pointer-events: none;
+  
+  .indicator-dot {
+    width: 12px;
+    height: 12px;
+    background: #8b5cf6;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+    animation: pulse 2s infinite;
+    position: relative;
+    left: 6px; // 让圆点稍微突出右边框
+  }
+  
+  .indicator-line {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    width: 20px;
+    height: 2px;
+    background: linear-gradient(to right, #8b5cf6, transparent);
+    transform: translateY(-50%);
+    transform-origin: right center;
+  }
+}
+
 // 知识图谱位置容器
 .graph-position {
   position: absolute;
@@ -1360,6 +1401,17 @@ onUnmounted(() => {
   
   .chapter-sidebar {
     width: 240px;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
   }
 }
 </style>
