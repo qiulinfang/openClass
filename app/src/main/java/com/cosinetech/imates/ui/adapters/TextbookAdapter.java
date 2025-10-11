@@ -1,4 +1,4 @@
-package com.cosinetech.imates.ui.activities;
+package com.cosinetech.imates.ui.adapters;
 
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -148,7 +148,13 @@ public class TextbookAdapter extends RecyclerView.Adapter<TextbookAdapter.Textbo
                         txtDownloadStatus.setTextColor(context.getResources().getColor(R.color.colorError));
                         btnAction.setImageResource(R.drawable.ic_download);
                         txtActionLabel.setText("下载");
-                        btnAction.setOnClickListener(v -> listener.onDownloadClick(textbook));
+                        btnAction.setOnClickListener(v -> {
+                            if(!textbook.downloadBeginning) {
+                                updateDownloadProgress(textbook.textbookId, 1);
+                                textbook.downloadBeginning = true;
+                                listener.onDownloadClick(textbook);
+                            }
+                        });
                         break;
                         
                     case PARTIALLY_DOWNLOADED:

@@ -705,11 +705,12 @@ public class LearnResourceManager {
             for (LearningPackage pkg : packages) {
                 totalFiles += pkg.resourceList.size();
             }
-            
+
             int completedFiles = 0;
-            
+            final int lTotals = totalFiles;
+            mainHandler.post(() -> callback.onAllFilesDownloadProgress(lTotals, 0, 1));
             for (LearningPackage pkg : packages) {
-                File packageDir = new File(textbookDir, sanitizeFileName(pkg.packageName));
+                File packageDir = new File(textbookDir, sanitizeFileName(pkg.id + "_" + pkg.packageName));
                 packageDir.mkdirs();
                 
                 for (ResourceFile resource : pkg.resourceList) {
@@ -1063,7 +1064,7 @@ public class LearnResourceManager {
         }
         
         for (LocalPackageInfo pkg : textbook.localPackages) {
-            File packageDir = new File(textbookDir, sanitizeFileName(pkg.packageName));
+            File packageDir = new File(textbookDir, sanitizeFileName(pkg.packageId + "_" + pkg.packageName));
             
             for (LocalFileInfo file : pkg.localFiles) {
                 File localFile = new File(packageDir, file.fileName);

@@ -18,6 +18,7 @@ import com.cosinetech.imates.textbookservice.LearnResourceManager;
 import com.cosinetech.imates.textbookservice.LoginResponse;
 import com.cosinetech.imates.textbookservice.TextbookVersion;
 import com.cosinetech.imates.textbookservice.UserTextbookInfo;
+import com.cosinetech.imates.ui.adapters.TextbookAdapter;
 import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.WindowUtils;
 import com.google.android.material.chip.Chip;
