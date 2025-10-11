@@ -1,55 +1,52 @@
 <template>
   <div class="knowledge-graph-layout">
     <!-- 第一列：功能箱/侧边栏（最左侧） -->
-    <div class="function-sidebar" :class="{ collapsed: sidebarCollapsed }">
-      <!-- 展开/收起按钮 -->
-      <div class="sidebar-toggle">
-        <q-btn 
-          flat 
-          dense 
-          round 
-          class="toggle-btn"
-          @click="toggleSidebar"
-        >
-          <q-icon name="menu" size="20px" color="grey-6" />
-        </q-btn>
-      </div>
-
+    <div class="function-sidebar">
       <!-- 功能菜单 -->
-      <div class="function-menu" v-show="!sidebarCollapsed">
-        <div class="nav-item" :class="{ active: false }">
-          <q-icon name="apps" size="24px" color="grey-6" />
-          <span class="nav-text">功能箱</span>
+      <div class="function-menu">
+        <!-- 用户头像 -->
+        <div class="user-avatar">
+            <img src="/icons/avatar.svg" alt="avatar" style="width: 52px; height: 52px;" />
         </div>
-        <div class="nav-item active">
-          <q-icon name="account_tree" size="24px" color="white" />
-          <span class="nav-text">知识图谱</span>
+        
+        <div class="nav-items-container">
+          <div class="nav-item" :class="{ active: false }" @click="handleToolBoxClick">
+            <img src="/icons/toolBox.svg" alt="功能箱" class="nav-icon" />
+            <span class="nav-text">功能箱</span>
+          </div>
+          <div class="nav-item active">
+            <img src="/icons/isKnowledgeGraphSelected.svg" alt="知识图谱" class="nav-icon" />
+            <span class="nav-text">知识图谱</span>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- 第二列：章节目录/内容导航（中间） -->
-    <div class="chapter-sidebar" :class="{ collapsed: chapterCollapsed }">
-      <!-- 收起按钮 -->
-      <div class="chapter-toggle">
-        <q-btn 
-          flat 
-          dense 
-          round 
-          class="toggle-btn"
-          @click="toggleChapter"
-        >
-          <q-icon name="chevron_left" size="20px" color="grey-6" />
-        </q-btn>
-      </div>
-
+    <div class="chapter-sidebar">
       <!-- 科目和版本信息 -->
-      <div class="subject-info" v-show="!chapterCollapsed">
-        <div class="subject-header">
-          <q-icon name="menu_book" size="20px" color="grey-7" />
-          <span class="subject-text">{{ currentSubjectLabel }}</span>
-        </div>
-        <div class="textbook-info">
+      <div class="subject-header">
+        <img src="/icons/book.svg" class="subject-icon" />
+        <q-select
+          v-model="selectedSubject"
+          :options="subjectOptions"
+          option-value="value"
+          option-label="label"
+          emit-value
+          map-options
+          outlined
+          dense
+          class="subject-select"
+          @update:model-value="onSubjectChange"
+        >
+          <template v-slot:selected>
+            <div class="subject-selected">
+              <span class="subject-text">{{ currentSubjectLabel }}</span>
+            </div>
+          </template>
+        </q-select>
+      </div>
+      <div class="textbook-info">
         <q-select
           v-model="selectedTextbook"
           :options="textbookOptions"
@@ -65,15 +62,13 @@
             <template v-slot:selected>
               <div class="textbook-selected">
                 <span class="textbook-text">{{ selectedTextbookLabel }}</span>
-                <q-icon name="keyboard_arrow_down" size="16px" color="grey-6" />
               </div>
             </template>
           </q-select>
-        </div>
       </div>
 
       <!-- 章节目录列表 -->
-      <div class="chapter-list" v-show="!chapterCollapsed">
+      <div class="chapter-list">
         <div v-if="chapters.length === 0" class="empty-chapters">
           <q-icon name="menu_book" size="32px" color="grey-4" />
           <div class="empty-text">暂无章节数据</div>
@@ -87,14 +82,6 @@
           @click="selectChapter(index)"
         >
           <span class="chapter-text">{{ chapter }}</span>
-          <div class="chapter-progress" v-if="index === selectedChapter">
-            <q-linear-progress 
-              :value="0.6" 
-              color="primary" 
-              size="2px"
-              class="progress-bar"
-            />
-          </div>
         </div>
       </div>
     </div>
@@ -173,18 +160,25 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { apiService } from '../services/api-service'
 import type { TextbookOption, ChapterNode } from '../types'
 import KnowledgeGraph from '../components/knowledge-graph/KnowledgeGraph.vue'
+
+// 路由
+const router = useRouter()
 
 // 响应式数据
 const loading = ref(true)
 const selectedChapter = ref(0)
 const selectedChapterDetails = ref<ChapterNode | null>(null)
 
-// 布局控制
-const sidebarCollapsed = ref(false)
-const chapterCollapsed = ref(false)
+// 导航处理函数
+const handleToolBoxClick = () => {
+  router.push('/my-profile')
+}
+
+// 布局控制（已移除展开/收起功能）
 
 // 椭圆布局相关
 const circularContainerRef = ref<HTMLElement>()
@@ -430,6 +424,20 @@ const startExpandingRotation = (graphId: string) => {
 }
 
 
+// 学科选择器
+const selectedSubject = ref('')
+const subjectOptions = ref([
+  { value: 'math', label: '数学' },
+  { value: 'chinese', label: '语文' },
+  { value: 'english', label: '英语' },
+  { value: 'physics', label: '物理' },
+  { value: 'chemistry', label: '化学' },
+  { value: 'biology', label: '生物' },
+  { value: 'geography', label: '地理' },
+  { value: 'history', label: '历史' },
+  { value: 'politics', label: '政治' }
+])
+
 // 教材选择器
 const selectedTextbook = ref('')
 const textbookOptions = ref<TextbookOption[]>([])
@@ -442,8 +450,8 @@ const selectedTextbookLabel = computed(() => {
 
 // 计算属性：当前科目标签
 const currentSubjectLabel = computed(() => {
-  const option = textbookOptions.value.find(opt => opt.value === selectedTextbook.value)
-  return option ? option.subject : '数学'
+  const option = subjectOptions.value.find(opt => opt.value === selectedSubject.value)
+  return option ? option.label : '数学'
 })
 
 
@@ -473,6 +481,52 @@ const loadTextbookData = async () => {
         if (defaultOption.textbookId) {
           await loadChapterStructure(defaultOption.textbookId)
         }
+      }
+    } else {
+      textbookOptions.value = []
+    }
+    
+  } catch {
+    // 加载教材数据失败
+  }
+}
+
+// 根据学科筛选教材数据
+const loadTextbookDataBySubject = async (subjectValue: string) => {
+  try {
+    const versions = await apiService.getTextbookVersions()
+    
+    if (versions && versions.length > 0) {
+      const allOptions = apiService.convertToTextbookOptions(versions)
+      
+      // 根据学科筛选教材选项
+      const subjectMap: { [key: string]: string } = {
+        'math': '数学',
+        'chinese': '语文', 
+        'english': '英语',
+        'physics': '物理',
+        'chemistry': '化学',
+        'biology': '生物',
+        'geography': '地理',
+        'history': '历史',
+        'politics': '政治'
+      }
+      
+      const subjectLabel = subjectMap[subjectValue] || '数学'
+      textbookOptions.value = allOptions.filter(option => option.subject === subjectLabel)
+      
+      // 设置默认选中的教材
+      if (textbookOptions.value.length > 0) {
+        selectedTextbook.value = textbookOptions.value[0].value
+        
+        // 加载默认教材的章节结构
+        const defaultOption = textbookOptions.value[0]
+        if (defaultOption.textbookId) {
+          await loadChapterStructure(defaultOption.textbookId)
+        }
+      } else {
+        textbookOptions.value = []
+        selectedTextbook.value = ''
       }
     } else {
       textbookOptions.value = []
@@ -570,6 +624,9 @@ const initGraph = async () => {
       return
     }
     
+    // 设置默认学科
+    selectedSubject.value = 'math'
+    
     // 先加载教材数据
     await loadTextbookData()
     
@@ -629,6 +686,34 @@ const renderGraph = () => {
   container.innerHTML = ''
 }
 
+
+// 学科切换
+const onSubjectChange = async (subjectValue: string) => {
+  try {
+    // 如果当前有展开的知识图谱，先收缩它
+    if (expandedGraphId.value !== null) {
+      // 启动收缩动画
+      startCollapsingAnimation()
+      expandedGraphId.value = null
+      // 停止展开旋转动画
+      isExpandingRotation.value = false
+    }
+    
+    // 根据学科筛选教材选项
+    await loadTextbookDataBySubject(subjectValue)
+    
+    // 重置选中的教材和章节
+    selectedTextbook.value = ''
+    selectedChapter.value = 0
+    selectedChapterDetails.value = null
+    
+    // 清空图谱数据
+    initGraphData()
+    
+  } catch (error) {
+    console.error('切换学科失败:', error)
+  }
+}
 
 // 教材切换
 const onTextbookChange = async (value: string) => {
@@ -714,14 +799,7 @@ const startCollapsingAnimation = () => {
   }, collapseDuration)
 }
 
-// 布局控制方法
-const toggleSidebar = () => {
-  sidebarCollapsed.value = !sidebarCollapsed.value
-}
-
-const toggleChapter = () => {
-  chapterCollapsed.value = !chapterCollapsed.value
-}
+// 布局控制方法（已移除展开/收起功能）
 
 
 // 处理知识图谱展开状态
@@ -1042,123 +1120,189 @@ onUnmounted(() => {
 
 // 第一列：功能箱/侧边栏（最左侧）
 .function-sidebar {
-  width: 60px;
-  background: rgba(255, 255, 255, 0.1);
+  width: 7%;
+  background: #100035;
   backdrop-filter: blur(5px);
   border-right: 1px solid rgba(229, 231, 235, 0.3);
   display: flex;
   flex-direction: column;
-  transition: width 0.3s ease;
   position: relative;
-  
-  &.collapsed {
-    width: 60px;
-  }
-  
-  &:not(.collapsed) {
-    width: 200px;
-  }
-}
-
-.sidebar-toggle {
-  padding: 16px;
-  border-bottom: 1px solid #e5e7eb;
-  display: flex;
-  justify-content: center;
+  align-items: stretch;
 }
 
 .function-menu {
   flex: 1;
   padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  
+  .user-avatar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 17px 0;
+    height: 115px;
+    flex-shrink: 0;
+  }
+  
+  .nav-items-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
   
   .nav-item {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    padding: 12px 16px;
-    margin: 4px 8px;
+    padding: 12px 8px;
+    margin: 4px 4px;
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s ease;
+    flex-shrink: 0;
     
     &.active {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+      background: #2a1c4e;
+      color: #9059FF;
+      
+      .nav-icon {
+        filter: none;
+        width: 30px;
+        height: 30px;
+      }
       
       .nav-text {
         color: white;
+        font-family: 'PingFang SC', sans-serif;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
       }
     }
     
     &:hover:not(.active) {
-      background: #f3f4f6;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .nav-icon {
+      width: 30px;
+      height: 30px;
+      filter: brightness(0) invert(1);
     }
     
     .nav-text {
-      margin-left: 12px;
-      font-size: 14px;
+      margin-top: 8px;
+      font-size: 16px;
       font-weight: 500;
-      color: #374151;
+      color: white;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
     }
   }
 }
 
 // 第二列：章节目录/内容导航（中间）
 .chapter-sidebar {
-  width: 280px;
+  width: 30%;
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(5px);
-  border-right: 1px solid rgba(229, 231, 235, 0.3);
   display: flex;
   flex-direction: column;
-  transition: width 0.3s ease;
   position: relative;
   
-  &.collapsed {
-    width: 50px;
+  .subject-header {
+    flex-shrink: 0;
+    margin-top: 16px;
+  }
+  
+  .textbook-info {
+    flex-shrink: 0;
+  }
+  
+  .chapter-list {
+    flex: 1;
+    overflow-y: auto;
+    margin-top: 16px;
   }
 }
 
-.chapter-toggle {
-  padding: 16px;
-  border-bottom: 1px solid #e5e7eb;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.subject-info {
-  padding: 20px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
 .subject-header {
+  padding: 15px 15px;
+  margin: 2px 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  border-radius: 12px;
+  font-family: 'PingFang SC', sans-serif;
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  min-height: 85px;
   
-  .subject-text {
-    font-size: 16px;
-    font-weight: 500;
-    color: #374151;
+  .subject-icon {
+    width: 85px;
+    height: 85px;
+  }
+
+    .subject-select {
+      width: fit-content;
+      
+      .subject-selected {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        
+        .subject-text {
+          font-size: 36px;
+          font-weight: 500;
+          color: #ffffff;
+      }
+    }
   }
 }
 
 .textbook-info {
+  padding: 6px 5px;
+  margin: 14px 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  border-radius: 12px;
+  font-family: 'PingFang SC', sans-serif;
+  border: 1px solid rgba(227, 224, 235, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  
   .textbook-select {
     width: 100%;
     
     .q-field__control {
       border-radius: 6px;
-      border: 1px solid #d1d5db;
-      background: white;
+      border: none;
+      background: transparent;
       
       &:hover {
-        background: #f9fafb;
+        background: rgba(255, 255, 255, 0.1);
+      }
+      
+      &:focus {
+        border: none;
+        box-shadow: none;
       }
     }
     
     .q-field__native {
       padding: 8px 12px;
+      color: #FFFFFF;
     }
   }
   
@@ -1170,16 +1314,21 @@ onUnmounted(() => {
   }
   
   .textbook-text {
-    font-size: 14px;
-    color: #374151;
-    font-weight: 500;
+    font-size: 19px;
+    color: #FFFFFF;
+    font-weight: 350;
+  }
+  
+  .textbook-arrow {
+    color: #FFFFFF;
+    font-size: 18px;
+    transition: transform 0.2s ease;
   }
 }
 
 
 .chapter-list {
   flex: 1;
-  padding: 16px 0;
   overflow-y: auto;
   
   .empty-chapters {
@@ -1197,17 +1346,19 @@ onUnmounted(() => {
   }
   
   .chapter-item {
-    padding: 12px 20px;
+    padding: 11px 15px;
+    margin: 2px 20px;
     cursor: pointer;
     transition: all 0.2s ease;
     position: relative;
+    border-radius: 12px;
+    font-family: 'PingFang SC', sans-serif;
     
     &.active {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+      background-color: #e0dbff;
       
       .chapter-text {
-        color: white;
+        color: #393548;
       }
     }
     
@@ -1216,17 +1367,9 @@ onUnmounted(() => {
     }
     
     .chapter-text {
-      font-size: 14px;
-      color: #374151;
-    }
-    
-    .chapter-progress {
-      margin-top: 8px;
-      
-      .progress-bar {
-        height: 2px;
-        border-radius: 1px;
-      }
+      font-size: 19px;
+      font-weight: 500;
+      color: #9E9AAD;
     }
   }
 }
