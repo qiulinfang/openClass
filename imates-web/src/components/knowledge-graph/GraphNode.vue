@@ -1,5 +1,8 @@
 <template>
   <div class="node-wrapper" :style="nodeStyle">
+    <!-- 学习标签 -->
+    <div v-if="learningStatus === 'lastLearned'" class="learning-tag">上次学到</div>
+      
     <!-- 节点圆形 -->
     <div 
       :class="nodeClasses"
@@ -11,9 +14,6 @@
     >
       <!-- 背景图标 -->
       <div class="node-icon" :style="{ backgroundImage: `url(${nodeIcon})` }"></div>
-      
-      <!-- 学习标签 -->
-      <div v-if="learningStatus === 'lastLearned'" class="learning-tag">上次学到</div>
       
       <!-- 中心节点内容在节点内部 -->
       <div v-if="type === 'center'" :class="contentClasses">
@@ -278,8 +278,8 @@ const nodeStyle = computed(() => {
     style.position = 'absolute'
     style.left = '50%'
     style.top = '50%'
-    style.marginLeft = '-40px'  // 节点宽度的一半（80px/2）
-    style.marginTop = '-40px'   // 节点高度的一半（80px/2）
+    style.marginLeft = '-50px'  // 节点宽度的一半（100px/2）
+    style.marginTop = '-50px'   // 节点高度的一半（100px/2）
     // SVG方法：只进行位置变换，不旋转内容
     style.transform = `translate(${x}px, ${y}px)`
   }
@@ -293,14 +293,13 @@ const bubbleMenuStyle = computed(() => {
     return {}
   }
   
-  // 气泡框定位在非中心节点内容下面
-  // 节点内容已经通过绝对定位在节点下方，气泡框需要定位在内容下方
+  // 气泡框定位在node-title文字下面
+  // node-content--circular已经定位在节点下方，气泡框需要定位在内容下方
   return {
     position: 'absolute' as const,
-    top: '100%', // 在节点内容下方
+    top: 'calc(100% + 8px + 3.5rem)', // 节点下方 + 间距 + node-title高度（字体增大后需要更多空间）+ 额外下移
     left: '50%',
     transform: 'translateX(-50%)',
-    marginTop: '8px', // 与内容保持一定间距
     zIndex: 20 // 确保在其他元素之上
   }
 })
@@ -362,8 +361,8 @@ const handlePractice = () => {
 
 /* 中心节点样式 - 大圆 */
 .graph-node--center {
-  width: 150px;
-  height: 150px;
+  width: 180px;
+  height: 180px;
   background: transparent;
   z-index: 10;
   transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
@@ -373,20 +372,20 @@ const handlePractice = () => {
 
 /* 中心节点展开状态 - 变大 */
 .graph-node--center.graph-node--expanded {
-  width: 200px;
-  height: 200px;
+  width: 240px;
+  height: 240px;
 }
 
 /* 中心节点在其他图谱展开时变小 */
 .graph-node--center.graph-node--shrunk {
-  width: 120px;
-  height: 120px;
+  width: 140px;
+  height: 140px;
 }
 
 /* 圆周节点样式 - 小圆 */
 .graph-node--circular {
-  width: 80px;
-  height: 80px;
+  width: 100px;
+  height: 100px;
   background: transparent;
   border: none;
   border-radius: 50%;
@@ -426,7 +425,7 @@ const handlePractice = () => {
   color: #374151;
   padding: 8px 4px;
   margin-top: 8px;
-  max-width: 120px;
+  max-width: 140px;
   word-wrap: break-word;
 }
 
@@ -438,7 +437,7 @@ const handlePractice = () => {
   transform: translateX(-50%);
   margin-top: 8px;
   padding: 4px 8px;
-  font-size: 0.6875rem; /* 11px × 1.75 = 19.25px */
+  font-size: 0.875rem; /* 14px × 1.75 = 24.5px */
   font-weight: normal;
   color: white;
   width: 150%;
@@ -482,12 +481,12 @@ const handlePractice = () => {
 
 /* 中心节点内容展开状态 - 字体变大 */
 .node-content--center.node-content--expanded {
-  max-width: 160px;
+  max-width: 200px;
 }
 
 /* 中心节点内容在其他图谱展开时变小 */
 .node-content--center.node-content--shrunk {
-  max-width: 100px;
+  max-width: 120px;
 }
 
 /* 中心节点内容样式保持不变 */
@@ -508,7 +507,7 @@ const handlePractice = () => {
 
 /* 中心节点内部标题 */
 .node-content--center .node-title {
-  font-size: 150%; /* 节点宽度的150% */
+  font-size: 190%; /* 节点宽度的180% */
   margin-top: -8px; /* 向上占据一些空间 */
   margin-bottom: 4px; /* 增加与章节名的间距 */
   color: white;
@@ -523,7 +522,7 @@ const handlePractice = () => {
 
 /* 中心节点标题展开状态 - 字体变大 */
 .node-content--center.node-content--expanded .node-title {
-  font-size: 180%; /* 展开时字体更大，节点宽度的180% */
+  font-size: 240%; /* 展开时字体更大，节点宽度的220% */
   margin-top: -8px; /* 向上占据一些空间 */
   margin-bottom: 6px; /* 增加与章节名的间距 */
   line-height: 0.9;
@@ -531,7 +530,7 @@ const handlePractice = () => {
 
 /* 中心节点标题在其他图谱展开时变小 */
 .node-content--center.node-content--shrunk .node-title {
-  font-size: 120%; /* 缩小时字体更小，节点宽度的120% */
+  font-size: 150%; /* 缩小时字体更小，节点宽度的150% */
   margin-top: -8px; /* 向上占据一些空间 */
   margin-bottom: 4px; /* 增加与章节名的间距 */
   line-height: 1.0;
@@ -544,7 +543,7 @@ const handlePractice = () => {
 
 /* 非中心节点标题样式 */
 .node-content--circular .node-title {
-  font-size: 0.6875rem; /* 11px × 1.75 = 19.25px */
+  font-size: 1.2rem; /* 16px × 1.75 = 28px */
   font-weight: normal;
   color: white;
   margin-bottom: 2px;
@@ -564,19 +563,19 @@ const handlePractice = () => {
 
 /* 圆周节点标题在其他图谱展开时变小 */
 .node-content--circular.node-content--shrunk .node-title {
-  font-size: 0.5625rem; /* 9px × 1.75 = 15.75px */
+  font-size: 0.875rem; /* 14px × 1.75 = 24.5px */
   line-height: 1.1;
 }
 
 
 /* 中心节点章节名样式 */
 .node-content--center .node-chapter {
-  font-size: 100%; /* 节点宽度的100% */
+  font-size: 140%; /* 节点宽度的130% */
   color: white;
   font-family: 'PingFang SC', 'PingFangSC-Regular', sans-serif;
   font-weight: normal;
   text-align: center;
-  line-height: 1.2; /* 增加行高，改善可读性 */
+  line-height: 1.4; /* 增加行高，改善可读性 */
   opacity: 0.9;
   transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
   width: 100%;
@@ -587,15 +586,15 @@ const handlePractice = () => {
 
 /* 中心节点章节名展开状态 - 字体变大 */
 .node-content--center.node-content--expanded .node-chapter {
-  font-size: 120%; /* 展开时字体更大，节点宽度的120% */
-  line-height: 1.1; /* 稍微增加行高 */
+  font-size: 160%; /* 展开时字体更大，节点宽度的150% */
+  line-height: 1.3; /* 稍微增加行高 */
   margin-bottom: 3px; /* 底部留一些间距 */
 }
 
 /* 中心节点章节名在其他图谱展开时变小 */
 .node-content--center.node-content--shrunk .node-chapter {
-  font-size: 80%; /* 缩小时字体更小，节点宽度的80% */
-  line-height: 1.2; /* 增加行高，改善可读性 */
+  font-size: 120%; /* 缩小时字体更小，节点宽度的110% */
+  line-height: 1.3; /* 增加行高，改善可读性 */
   margin-bottom: 2px; /* 底部留一些间距 */
 }
 
@@ -604,23 +603,27 @@ const handlePractice = () => {
 /* 学习标签 */
 .learning-tag {
   position: absolute;
-  top: -8px;
-  left: 50%;
+  top: 3%;
+  left: 100%;
   transform: translateX(-50%);
-  background: #fbbf24;
+  background: #ff6767;
   color: white;
-  font-size: 8px;
+  font-size: 14px;
   padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 600;
+  border-radius: 14px 9px 9px 0;
+  font-weight: 400;
   white-space: nowrap;
+  width: 70px;
+  height: 20px;
+  line-height: 16px;
   z-index: 10;
   transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  pointer-events: none; /* 禁用点击事件 */
 }
 
 /* 学习标签在节点缩小时变小 */
 .graph-node--shrunk .learning-tag {
-  font-size: 6px;
+  font-size: 9px;
   padding: 1px 4px;
 }
 
@@ -714,7 +717,7 @@ const handlePractice = () => {
 /* 气泡框按钮基础样式 */
 .bubble-menu-button {
   border: none;
-  border-radius: 16px;
+  border-radius: 21px;
   padding: 12px 20px;
   font-size: 14px;
   font-weight: 600;
@@ -737,21 +740,21 @@ const handlePractice = () => {
   }
 }
 
-/* 学习按钮样式 - 紫色 */
+/* 学习按钮样式 - 紫色半透明 */
 .bubble-menu-button--learn {
-  background: #8B5CF6; /* 紫色背景 */
+  background: rgba(129, 95, 255, 0.9); /* 学习按钮半透明背景 #815FFF */
   
   &:hover {
-    background: #7C3AED;
+    background: rgba(107, 79, 255, 1); /* 悬停时稍深的紫色半透明 */
   }
 }
 
-/* 练习按钮样式 - 橙色 */
+/* 练习按钮样式 - 橙色半透明 */
 .bubble-menu-button--practice {
-  background: #F97316; /* 橙色背景 */
+  background: rgba(255, 151, 103, 0.9); /* 练习按钮半透明背景 #FF9767 */
   
   &:hover {
-    background: #EA580C;
+    background: rgba(255, 138, 77, 1); /* 悬停时稍深的橙色半透明 */
   }
 }
 

@@ -145,7 +145,7 @@ watch([() => props.isExpanded, () => props.hasExpandedGraph], ([newIsExpanded, n
   else if (!newIsExpanded && !newHasExpandedGraph && animationState.value === 'idle') {
     // 保持idle状态，不需要动画
   }
-}, { immediate: false }) // 改为false，避免初始加载时触发动画
+}, { immediate: true }) // 改为true，确保初始加载时也能正确处理状态
 
 
 // 计算背景圆半径 - 根据圆周节点数量动态调整
@@ -158,7 +158,7 @@ const backgroundRadius = computed(() => {
   
   // 背景圆是正方形的内切圆，半径是较小边的一半
   const baseRadius = Math.min(containerWidth, containerHeight) / 2
-  const radius = Math.max(baseRadius, 100) // 最小半径100px
+  const radius = Math.max(baseRadius, 120) // 最小半径120px
   
   // 获取圆周节点数量
   const circularNodes = getCircularNodes(props.chapterDetails)
@@ -167,13 +167,13 @@ const backgroundRadius = computed(() => {
   // 根据节点数量调整半径大小
   if (nodeCount <= 2) {
     // 1-2个节点：背景圆形区域半径小
-    return radius * 0.6
+    return radius * 0.8
   } else if (nodeCount <= 4) {
     // 3-4个节点：背景圆形区域半径中
-    return radius * 0.8
+    return radius * 1.0
   } else {
     // 超过4个节点：背景圆形区域半径大
-    return radius * 1.0
+    return radius * 1.1
   }
 })
 
@@ -305,7 +305,8 @@ watch(isExpanded, (newValue) => {
 // 监听数据变化，重新初始化动画状态
 watch(() => props.chapterDetails, () => {
   if (props.chapterDetails) {
-    animationState.value = 'idle'
+    // 如果图谱是展开的，初始状态应该是expanded，否则是idle
+    animationState.value = isExpanded.value ? 'expanded' : 'idle'
   }
 }, { immediate: true })
 
@@ -321,7 +322,8 @@ watch(() => props.rotation, (_newRotation) => {
 })
 
 onMounted(() => {
-  animationState.value = 'idle'
+  // 根据展开状态初始化动画状态
+  animationState.value = isExpanded.value ? 'expanded' : 'idle'
 })
 </script>
 

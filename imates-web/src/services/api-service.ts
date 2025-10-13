@@ -791,6 +791,9 @@ export class ApiService {
         localStorage.setItem('studentToken', response.data.data.token)
         localStorage.setItem('studentUserId', response.data.data.userId)
         
+        // 更新登录时间戳，用于会话管理
+        localStorage.setItem('lastLoginTime', Date.now().toString())
+        
         console.log('学生登录成功:', loginResponse)
         return loginResponse
       } else {
