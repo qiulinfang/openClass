@@ -53,8 +53,8 @@ public class ApiUrl {
             MQ_HOST_PORT = 5673;
             ZAMMAD_URL = "http://app.imates.com.cn:8080/api/v1";
         } else if(envType == AppEnvConfig.AppEnvType.INTERNAL_TEST) {
-            baseUrl = "http://172.168.0.99:8222/blw-edu-service-alc";
-            URL_RESOURCE_BASE = "http://172.168.0.99";
+            baseUrl = "http://www.imates.com.cn:9222/blw-edu-service-alc";
+            URL_RESOURCE_BASE = "https://www.imates.com.cn";
             URL_APP_UPDATE = "https://www.imates.com.cn/appupdate_test.json";
             MQ_HOST_BASE = "www.imates.com.cn";
             MQ_HOST_PORT = 5673;
