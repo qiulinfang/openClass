@@ -186,7 +186,7 @@ public class LessonPreviewActivity extends AppCompatActivity {
                 FileShareUtils.shareOpenFile(this,
                         mCurrentSelectedFile.localPath,
                         mPreviewSectionName,
-                        getIntent().getStringExtra(KEY_LEARN_PACKAGE));
+                        mCurrentSelectedFile.displayName);
             }
         });
     }

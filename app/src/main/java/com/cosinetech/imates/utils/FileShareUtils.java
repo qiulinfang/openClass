@@ -7,6 +7,7 @@ import android.widget.Toast;
 import androidx.core.content.FileProvider;
 
 import com.cosinetech.imates.ui.activities.ImageViewerActivity;
+import com.cosinetech.imates.ui.activities.MiniClassActivity;
 import com.cosinetech.imates.ui.activities.VideoPlayActivity;
 import com.cosinetech.imates.ui.mupdfviewer.activity.MuPDFActivity;
 
@@ -19,15 +20,14 @@ public class FileShareUtils {
      * @param relativePath 相对于getExternalFilesDir的子目录路径（如"Documents/Reports"）
      * @param fileName 文件名（如"report.docx"）
      * @param sectionName 章节名
-     * @param serializedLocalPackages 序列化后的LocalLearnPackage
      */
-    public static void shareOpenFile(Context context, String relativePath, String fileName, String sectionName, String serializedLocalPackages) {
+    public static void shareOpenFile(Context context, String relativePath, String fileName, String sectionName, String displayName) {
         File parentDir = context.getExternalFilesDir(relativePath);
         File file = new File(parentDir, fileName);
-        shareOpenFile(context, file.getAbsolutePath(), sectionName, serializedLocalPackages);
+        shareOpenFile(context, file.getAbsolutePath(), sectionName, displayName);
     }
 
-    public static void shareOpenFile(Context context, String filePath, String sectionName, String serializedLocalPackages) {
+    public static void shareOpenFile(Context context, String filePath, String sectionName, String displayName) {
         // 1. 构建文件对象
         File file = new File(filePath);
 
@@ -56,6 +56,11 @@ public class FileShareUtils {
         } else if(mimeType.contains("image")) {
             Intent intent = new Intent(context, ImageViewerActivity.class);
             intent.putExtra("image_path", filePath);
+            context.startActivity(intent);
+        } else if(mimeType.contains("html")) {
+            Intent intent = new Intent(context, MiniClassActivity.class);
+            intent.putExtra(MiniClassActivity.KEY_MINI_CLASS_URL, "file://" + file.getAbsolutePath());
+            intent.putExtra(MiniClassActivity.KEY_MINI_CLASS_TITLE, getFileNameWithoutExtension(displayName));
             context.startActivity(intent);
         }
         else {
@@ -100,7 +105,7 @@ public class FileShareUtils {
             case "txt" -> "text/plain";
 //            case "rtf" -> "application/rtf";
 //            case "csv" -> "text/csv";
-//            case "html", "htm" -> "text/html";
+            case "html", "htm" -> "text/html";
 //            case "xml" -> "text/xml";
 //            case "json" -> "application/json";
 
@@ -150,5 +155,20 @@ public class FileShareUtils {
 //            case "ps" -> "application/postscript";
             default -> "*/*"; // 默认通用类型
         };
+    }
+
+    public static String getFileNameWithoutExtension(String filePath) {
+        if (filePath == null || filePath.isEmpty()) {
+            return "";
+        }
+
+        String fileName = new File(filePath).getName();
+        String[] parts = fileName.split("\\.");
+
+        if (parts.length > 1) {
+            return parts[0];
+        } else {
+            return fileName;
+        }
     }
 }

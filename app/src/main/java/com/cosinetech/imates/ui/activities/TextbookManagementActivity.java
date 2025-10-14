@@ -120,17 +120,17 @@ public class TextbookManagementActivity extends AppCompatActivity {
             
             @Override
             public void onPauseClick(UserTextbookInfo textbook) {
-                showMessage("暂停下载功能开发中");
+                showMessage("暂停下载");
             }
             
             @Override
             public void onViewClick(UserTextbookInfo textbook) {
-                showMessage("查看教材功能开发中");
+                showMessage("查看教材");
             }
             
             @Override
             public void onDeleteClick(UserTextbookInfo textbook) {
-                showMessage("删除功能开发中");
+                showMessage("删除");
             }
         });
         
