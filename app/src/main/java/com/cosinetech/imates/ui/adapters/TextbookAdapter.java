@@ -128,7 +128,7 @@ public class TextbookAdapter extends RecyclerView.Adapter<TextbookAdapter.Textbo
             UserTextbookInfo.DownloadStatus status = textbook.getDownloadStatus();
             Integer currentProgress = downloadProgressMap.get(textbook.textbookId);
             
-            if (currentProgress != null && currentProgress > 0 && currentProgress < 100) {
+            if (currentProgress != null && currentProgress < 100) {
                 // Currently downloading
                 txtDownloadStatus.setText("下载中 " + currentProgress + "%");
                 txtDownloadStatus.setTextColor(context.getResources().getColor(R.color.colorPrimary));
@@ -150,7 +150,7 @@ public class TextbookAdapter extends RecyclerView.Adapter<TextbookAdapter.Textbo
                         txtActionLabel.setText("下载");
                         btnAction.setOnClickListener(v -> {
                             if(!textbook.downloadBeginning) {
-                                updateDownloadProgress(textbook.textbookId, 1);
+                                updateDownloadProgress(textbook.textbookId, 0);
                                 textbook.downloadBeginning = true;
                                 listener.onDownloadClick(textbook);
                             }
@@ -162,7 +162,13 @@ public class TextbookAdapter extends RecyclerView.Adapter<TextbookAdapter.Textbo
                         txtDownloadStatus.setTextColor(context.getResources().getColor(R.color.colorWarning));
                         btnAction.setImageResource(R.drawable.ic_download);
                         txtActionLabel.setText("继续");
-                        btnAction.setOnClickListener(v -> listener.onDownloadClick(textbook));
+                        btnAction.setOnClickListener(v -> {
+                            if(!textbook.downloadBeginning) {
+                                updateDownloadProgress(textbook.textbookId, textbook.getDownloadProgress());
+                                textbook.downloadBeginning = true;
+                                listener.onDownloadClick(textbook);
+                            }
+                        });
                         break;
                         
                     case FULLY_DOWNLOADED:
@@ -170,6 +176,7 @@ public class TextbookAdapter extends RecyclerView.Adapter<TextbookAdapter.Textbo
                         txtDownloadStatus.setTextColor(context.getResources().getColor(R.color.colorSuccess));
                         btnAction.setImageResource(R.drawable.ic_view);
                         txtActionLabel.setText("查看");
+                        textbook.downloadBeginning = false;
                         btnAction.setOnClickListener(v -> listener.onViewClick(textbook));
                         break;
                         
@@ -178,7 +185,13 @@ public class TextbookAdapter extends RecyclerView.Adapter<TextbookAdapter.Textbo
                         txtDownloadStatus.setTextColor(context.getResources().getColor(R.color.colorPrimary));
                         btnAction.setImageResource(R.drawable.ic_update);
                         txtActionLabel.setText("更新");
-                        btnAction.setOnClickListener(v -> listener.onDownloadClick(textbook));
+                        btnAction.setOnClickListener(v -> {
+                            if(!textbook.downloadBeginning) {
+                                updateDownloadProgress(textbook.textbookId, 0);
+                                textbook.downloadBeginning = true;
+                                listener.onDownloadClick(textbook);
+                            }
+                        });
                         break;
                 }
             }

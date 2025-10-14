@@ -708,7 +708,7 @@ public class LearnResourceManager {
 
             int completedFiles = 0;
             final int lTotals = totalFiles;
-            mainHandler.post(() -> callback.onAllFilesDownloadProgress(lTotals, 0, 1));
+            mainHandler.post(() -> callback.onAllFilesDownloadProgress(lTotals, 0, 0));
             for (LearningPackage pkg : packages) {
                 File packageDir = new File(textbookDir, sanitizeFileName(pkg.id + "_" + pkg.packageName));
                 packageDir.mkdirs();

@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.textbookservice.LocalFileInfo;
+import com.cosinetech.imates.utils.FileShareUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -104,12 +105,6 @@ public class FileDisplayViewAdapter extends RecyclerView.Adapter<RecyclerView.Vi
         return files.size();
     }
     
-    private String getFileNameWithoutExtension(String fileName) {
-        if (fileName == null) return "";
-        int lastDot = fileName.lastIndexOf('.');
-        return lastDot > 0 ? fileName.substring(0, lastDot) : fileName;
-    }
-    
     private Drawable getFileIcon(String fileName) {
         if (fileName == null) return ContextCompat.getDrawable(context, R.drawable.ic_file_default);
         
@@ -145,6 +140,9 @@ public class FileDisplayViewAdapter extends RecyclerView.Adapter<RecyclerView.Vi
                 return ContextCompat.getDrawable(context, R.drawable.ic_file_audio);
             case "txt":
                 return ContextCompat.getDrawable(context, R.drawable.ic_file_text);
+            case "htm":
+            case "html":
+                return ContextCompat.getDrawable(context, R.drawable.ic_file_html);
             default:
                 return ContextCompat.getDrawable(context, R.drawable.ic_file_default);
         }
@@ -173,7 +171,7 @@ public class FileDisplayViewAdapter extends RecyclerView.Adapter<RecyclerView.Vi
         
         void bind(LocalFileInfo file, boolean isSelected) {
             iconView.setImageDrawable(getFileIcon(file.fileName));
-            nameView.setText(getFileNameWithoutExtension(file.fileName));
+            nameView.setText(FileShareUtils.getFileNameWithoutExtension(file.fileName));
             sizeView.setText(formatFileSize(file.fileSize));
             
             rootView.setSelected(isSelected);
@@ -204,7 +202,7 @@ public class FileDisplayViewAdapter extends RecyclerView.Adapter<RecyclerView.Vi
         
         void bind(LocalFileInfo file, boolean isSelected) {
             iconView.setImageDrawable(getFileIcon(file.fileName));
-            nameView.setText(getFileNameWithoutExtension(file.fileName));
+            nameView.setText(FileShareUtils.getFileNameWithoutExtension(file.fileName));
             
             rootView.setSelected(isSelected);
             rootView.setBackgroundColor(isSelected ? 
@@ -236,7 +234,7 @@ public class FileDisplayViewAdapter extends RecyclerView.Adapter<RecyclerView.Vi
         
         void bind(LocalFileInfo file, boolean isSelected) {
             iconView.setImageDrawable(getFileIcon(file.fileName));
-            nameView.setText(getFileNameWithoutExtension((file.displayName == null || file.displayName.isEmpty()) ? file.fileName : file.displayName));
+            nameView.setText(FileShareUtils.getFileNameWithoutExtension((file.displayName == null || file.displayName.isEmpty()) ? file.fileName : file.displayName));
             sizeView.setText(formatFileSize(file.fileSize));
             
             rootView.setSelected(isSelected);

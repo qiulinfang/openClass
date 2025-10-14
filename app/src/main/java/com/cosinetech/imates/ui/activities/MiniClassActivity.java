@@ -14,6 +14,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -28,6 +29,7 @@ import com.github.chrisbanes.photoview.PhotoView;
 
 public class MiniClassActivity extends AppCompatActivity {
     public static final String KEY_MINI_CLASS_URL = "class_url";
+    public static final String KEY_MINI_CLASS_TITLE = "class_title";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,6 +45,12 @@ public class MiniClassActivity extends AppCompatActivity {
 
         // 获取传递的图片路径
         String classUrl = getIntent().getStringExtra(KEY_MINI_CLASS_URL);
+        String title = getIntent().getStringExtra(KEY_MINI_CLASS_TITLE);
+        if(title == null || title.trim().isEmpty()) {
+            title = "微课";
+        }
+        TextView titleView = findViewById(R.id.title);
+        titleView.setText(title);
 
         WebView webView = findViewById(R.id.web_view);
         // 启用 JavaScript
