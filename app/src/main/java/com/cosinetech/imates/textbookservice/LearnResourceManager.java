@@ -340,7 +340,7 @@ public class LearnResourceManager {
                                 localInfo.textbookEditionYear = serverTextbook.textbookEditionYear;
                                 localInfo.textbookPublisher = serverTextbook.textbookPublisher;
                                 localInfo.textbookCover = BASE_URL + serverTextbook.textbookCover;
-//                                        localInfo.textbookUpdateTime = serverTextbook.textbookUpdateTime;
+                                localInfo.newlyUpdateTime = serverTextbook.textbookUpdateTime;
                                 localInfo.textbookName = serverTextbook.textbookName;
                                 localInfo.textbookSubjectLabel = serverTextbook.textbookSubjectLabel;
                                 localInfo.textbookGradeLabel = serverTextbook.textbookGradeLabel;
@@ -909,6 +909,8 @@ public class LearnResourceManager {
         if (info == null) {
             info = new UserTextbookInfo(textbook);
             data.updateOrAddTextbook(info);
+        } else {
+            info.textbookUpdateTime = info.newlyUpdateTime;
         }
         
         // Update basic info

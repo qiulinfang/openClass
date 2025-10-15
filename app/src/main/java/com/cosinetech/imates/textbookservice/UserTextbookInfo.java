@@ -45,6 +45,7 @@ public class UserTextbookInfo {
     public String textbookUpdateTime;
 
 
+    public String newlyUpdateTime;
     public String lastDownloadTime;
     public boolean isDownloaded;
     public long totalSize;
@@ -81,7 +82,7 @@ public class UserTextbookInfo {
         this.textbookPublisher = textbook.textbookPublisher;
         this.textbookEditionYear = textbook.textbookEditionYear;
         this.textbookIsbn = textbook.textbookIsbn;
-        
+        this.newlyUpdateTime = textbook.textbookUpdateTime;
         this.isDownloaded = false;
         this.totalSize = 0;
         this.totalFiles = 0;
