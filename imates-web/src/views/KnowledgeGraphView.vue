@@ -144,18 +144,6 @@
         </div>
       </div>
     </div>
-
-    <!-- 第三列：核心内容/知识图谱（右侧） -->
-    <div class="main-content">
-      <!-- 知识图谱容器 -->
-      <div class="knowledge-graph-container">
-        <KnowledgeGraph 
-          v-if="selectedChapterDetails"
-          :chapter-details="selectedChapterDetails"
-          @expand="handleGraphExpand"
-        />
-      </div>
-    </div>
   </div>
 </template>
 
@@ -530,12 +518,6 @@ const startExpandingRotation = (graphId: string) => {
   expandingRotationTargetAngle.value = currentChapterRotation + targetRotationDegrees
   expandingRotationStartTime.value = performance.now()
   
-  console.log('=== 开始展开旋转动画 ===')
-  console.log(`目标图谱索引: ${targetIndex}`)
-  console.log(`目标图谱当前角度: ${currentAngleDegrees.toFixed(2)}度`)
-  console.log(`需要旋转角度: ${targetRotationDegrees.toFixed(2)}度`)
-  console.log(`起始角度: ${currentChapterRotation.toFixed(2)}度`)
-  console.log(`目标角度: ${expandingRotationTargetAngle.value.toFixed(2)}度`)
   
   // 9. 开始展开旋转动画
   const animateExpandingRotation = (currentTime: number) => {
@@ -1262,6 +1244,29 @@ const selectChapter = (index: number) => {
   }
 }
 
+// 处理知识图谱展开状态
+const handleGraphExpand = (graphId: string) => {
+  // 如果正在执行展开旋转动画、收缩动画或拖拽操作，禁用点击切换功能
+  if (isExpandingRotation.value || isCollapsing.value || isDragging.value) {
+    return
+  }
+  
+  // 如果点击的是当前展开的图谱，保持展开状态
+  if (getCurrentChapterExpandedGraph() === graphId) {
+    // 不执行收缩逻辑，保持展开状态
+    return
+  } else {
+    // 重置拖拽状态，确保展开时不会有滚动干扰
+    resetDraggingState()
+    
+    // 立即设置展开状态，让膨胀动画立即开始
+    setCurrentChapterExpandedGraph(graphId)
+    
+    // 立即开始展开旋转动画，让其他节点立即开始旋转
+    startExpandingRotation(graphId)
+  }
+}
+
 // 处理指示器点击事件
 const handleIndicatorClick = (graphId: string) => {
   // 如果正在执行展开旋转动画、收缩动画或拖拽操作，禁用点击功能
@@ -1514,12 +1519,6 @@ const logAngleDistribution = () => {
     // 使用统一的椭圆轨迹指示器坐标系计算位置
     calculateCircularTrackPosition(calculateCircularTrackAngle(i, total).currentAngle, 569, 400)
   }
-}
-
-// 知识图谱展开事件处理
-const handleGraphExpand = (graphId: string) => {
-  console.log('知识图谱展开:', graphId)
-  // 这里可以添加展开知识图谱的逻辑
 }
 
 // 组件挂载时初始化

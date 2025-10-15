@@ -84,13 +84,21 @@ export const API_ENDPOINTS = {
     // 用户认证 - 与Android端BASE_URL + "/blw-edu-yb/auth/login-student"一致
     YANBAN_LOGIN: '/blw-edu-yb/auth/login-student',
     
-    // 教材相关 - 使用与Android端相同的BASE_URL
+    // 教材相关 - 使用与Android端相同的BASE_URL和接口路径
     TEXTBOOK: {
       BASE_URL: 'https://43.138.16.5:50013', // 与Android端LearnResourceManager.BASE_URL一致
-      VERSIONS: '/blw-edu-yb/api/app/teacher-textbook',
-      STRUCTURE: '/blw-edu-yb/api/app/teacher-textbook-section-tree',
-      LEARNING_PACKAGE: '/blw-edu-yb/api/app/teacher-textbook-learning-package'
-    }
+      VERSIONS: '/blw-edu-yb/api/app/teacher-textbook', // 获取教材版本列表
+      STRUCTURE: '/blw-edu-yb/api/app/teacher-textbook-section-tree', // 获取教材结构
+      LEARNING_PACKAGE: '/blw-edu-yb/api/app/teacher-textbook-learning-package' // 获取学习资源包
+    },
+    
+    // 教材管理相关接口 - 统一管理所有教材相关endpoint
+    TEXTBOOK_MANAGEMENT: {
+      FETCH_ONLINE: '/blw-edu-yb/api/app/teacher-textbook', // 获取用户所有在线教材
+      LOAD_LOCAL: '/blw-edu-yb/api/app/teacher-textbook', // 获取用户所有本地教材
+      CHECK_UPDATES: '/blw-edu-yb/api/app/teacher-textbook' // 检查教材更新
+    },
+    
   }
 } as const
 

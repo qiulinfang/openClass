@@ -30,6 +30,8 @@ import type {
   LoginData,
   FeedbackTicketRequest,
   FeedbackTicketResponse,
+  UserTextbookInfo,
+  LocalPackageInfo,
 } from '../types'
 
 // 使用统一的类型定义，不再重复定义
@@ -1003,6 +1005,101 @@ export class ApiService {
       reader.readAsDataURL(file)
     })
   }
+
+  // ========== 资源管理相关API ==========
+
+  /**
+   * 获取用户所有在线教材
+   * 对应Android LearnResourceManager.fetchUserAllOnlineTextbooks
+   * 使用与安卓原生一致的接口路径和认证方式
+   */
+  public async fetchUserAllOnlineTextbooks(): Promise<UserTextbookInfo[]> {
+    try {
+      const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK_MANAGEMENT.FETCH_ONLINE
+      const response = await httpClient.post<{
+        code: number
+        success: boolean
+        message: string
+        data: UserTextbookInfo[]
+      }>(endpoint, {}, {
+        headers: {
+          'sa-token': localStorage.getItem('YANBAN_TOKEN') || ''
+        }
+      })
+      
+      if (response.success && response.data && response.data.data) {
+        return response.data.data
+      }
+      return []
+    } catch (error) {
+      console.error('获取用户在线教材失败:', error)
+      return []
+    }
+  }
+
+  /**
+   * 获取用户所有本地教材
+   * 对应Android LearnResourceManager.loadUserAllLocalTextbooks
+   * 使用与安卓原生一致的接口路径和认证方式
+   */
+  public async loadUserAllLocalTextbooks(): Promise<UserTextbookInfo[]> {
+    try {
+      const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK_MANAGEMENT.LOAD_LOCAL
+      const response = await httpClient.post<{
+        code: number
+        success: boolean
+        message: string
+        data: UserTextbookInfo[]
+      }>(endpoint, {}, {
+        headers: {
+          'sa-token': localStorage.getItem('YANBAN_TOKEN') || ''
+        }
+      })
+      
+      if (response.success && response.data && response.data.data) {
+        return response.data.data
+      }
+      return []
+    } catch (error) {
+      console.error('获取用户本地教材失败:', error)
+      return []
+    }
+  }
+
+  /**
+   * 检查教材更新
+   * 对应Android LearnResourceManager.checkForUpdates
+   * 使用与安卓原生一致的接口路径和认证方式
+   */
+  public async checkForUpdates(): Promise<TextbookVersion[]> {
+    try {
+      const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK_MANAGEMENT.CHECK_UPDATES
+      const response = await httpClient.post<{
+        code: number
+        success: boolean
+        message: string
+        data: TextbookVersion[]
+      }>(endpoint, {}, {
+        headers: {
+          'sa-token': localStorage.getItem('YANBAN_TOKEN') || ''
+        }
+      })
+      
+      if (response.success && response.data && response.data.data) {
+        return response.data.data
+      }
+      return []
+    } catch (error) {
+      console.error('检查教材更新失败:', error)
+      return []
+    }
+  }
+
+
+
+
+
+
 }
 
 // 创建默认的 API 服务实例

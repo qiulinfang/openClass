@@ -535,13 +535,8 @@ public class KnowledgeGraphActivity extends BaseActivity {
         }
 
         public void startFindExerciseActivity(String knowledgeList) {
-            // 使用新的WebView版本
-            FindExerciseWebViewActivity.startActivity(
-                context, 
-                ApiUrl.URL_CHAT_MATH, 
-                Subject.SUBJECT_MATH, 
-                knowledgeList
-            );
+            // 使用MainWebViewActivity并导航到FindExercise页面
+            MainWebViewActivity.startActivity(context, "/find-exercise?knowledgeList=" + knowledgeList);
         }
     }
 

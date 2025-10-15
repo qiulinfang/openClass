@@ -117,6 +117,7 @@ export interface UserTextbookInfo {
   downloadedFiles: number
   isDownloaded: boolean
   downloadStatus: number
+  downloadPath: string
   lastDownloadTime: string
   hasUpdatesAvailable: boolean
   structure: ChapterNode[]

@@ -1,18 +1,8 @@
 <template>
-  <q-layout view="lHh Lpr lFf">
+  <div class="exercise-solve-container">
     <!-- 顶部工具栏 -->
-    <q-header elevated class="bg-white text-primary app-header" reveal>
-      <q-toolbar class="app-toolbar">
-        <q-btn 
-          flat 
-          round 
-          dense 
-          icon="arrow_back" 
-          @click="exitActivity" 
-          class="q-mr-sm"
-          :loading="isExiting"
-          :disable="isExiting"
-        />
+    <div class="app-header">
+      <div class="app-toolbar">
         
         <!-- 居中的功能按钮组 -->
         <div class="toolbar-center">
@@ -62,67 +52,64 @@
         
         <!-- 占位元素保持布局平衡 -->
         <div class="toolbar-spacer"></div>
-      </q-toolbar>
-    </q-header>
-    <q-page-container>
-      <q-page class="exercise-solve-page">
-        <!-- 主要内容区域 -->
-        <div class="main-content row no-wrap">
-          <!-- 左侧题目列表 -->
-          <div class="question-panel col-4">
-            <q-card flat bordered class="full-height">
-              <q-card-section class="q-pa-none full-height">
-                <QuestionList 
-                  ref="questionListRef"
-                  @start-ai-guidance="handleStartAiGuidance"
-                  @question-selected="handleQuestionSelected"
-                />
-              </q-card-section>
-            </q-card>
-          </div>
+      </div>
+    </div>
 
-          <!-- 右侧功能区域 -->
-          <div class="function-panel col-8">
-            <q-card flat class="full-height">
-              <!-- 功能内容区域 -->
-              <q-card-section class="function-content q-pa-none">
-                <!-- AI聊天界面 -->
-                <ChatView
-                  v-if="currentFunction === 'chatAi'"
-                  type="ai"
-                  @response="handleChatResponse"
-                  @switch-to-teacher="handleSwitchToTeacher"
-                  @scroll-to-question-and-select="handleScrollToQuestionAndSelect"
-                  @scroll-to-bottom="scrollToBottom"
-                />
+    <!-- 主要内容区域 -->
+    <div class="main-content row no-wrap">
+      <!-- 左侧题目列表 -->
+      <div class="question-panel col-4">
+        <q-card flat bordered class="full-height">
+          <q-card-section class="q-pa-none full-height">
+            <QuestionList 
+              ref="questionListRef"
+              @start-ai-guidance="handleStartAiGuidance"
+              @question-selected="handleQuestionSelected"
+            />
+          </q-card-section>
+        </q-card>
+      </div>
 
-                <!-- 问老师界面 -->
-                <ChatView 
-                  v-if="currentFunction === 'askTeacher'" 
-                  type="teacher"
-                  @scroll-to-question-and-select="handleScrollToQuestionAndSelect"
-                  @scroll-to-bottom="scrollToBottom"
-                />
+      <!-- 右侧功能区域 -->
+      <div class="function-panel col-8">
+        <q-card flat class="full-height">
+          <!-- 功能内容区域 -->
+          <q-card-section class="function-content q-pa-none">
+            <!-- AI聊天界面 -->
+            <ChatView
+              v-if="currentFunction === 'chatAi'"
+              type="ai"
+              @response="handleChatResponse"
+              @switch-to-teacher="handleSwitchToTeacher"
+              @scroll-to-question-and-select="handleScrollToQuestionAndSelect"
+              @scroll-to-bottom="scrollToBottom"
+            />
 
-                <!-- 答案显示 -->
-                <AnswerView
-                  v-if="currentFunction === 'viewAnswer'"
-                  :answer="currentQuestion?.answer || ''"
-                  :analysis="currentQuestion?.analysisData || ''"
-                />
+            <!-- 问老师界面 -->
+            <ChatView 
+              v-if="currentFunction === 'askTeacher'" 
+              type="teacher"
+              @scroll-to-question-and-select="handleScrollToQuestionAndSelect"
+              @scroll-to-bottom="scrollToBottom"
+            />
 
-                <!-- 相似题目 -->
-                <SimilarQuestionList 
-                  v-if="currentFunction === 'similarQuestion'" 
-                  @question-added="handleQuestionAdded"
-                />
-              </q-card-section>
-            </q-card>
-          </div>
-        </div>
-      </q-page>
-    </q-page-container>
-  </q-layout>
+            <!-- 答案显示 -->
+            <AnswerView
+              v-if="currentFunction === 'viewAnswer'"
+              :answer="currentQuestion?.answer || ''"
+              :analysis="currentQuestion?.analysisData || ''"
+            />
+
+            <!-- 相似题目 -->
+            <SimilarQuestionList 
+              v-if="currentFunction === 'similarQuestion'" 
+              @question-added="handleQuestionAdded"
+            />
+          </q-card-section>
+        </q-card>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -352,11 +339,13 @@ $desktop-breakpoint: 1025px;
 }
 
 // 主要样式
-.exercise-solve-page {
-  height: calc(100vh - #{$header-height});
-  max-height: calc(100vh - #{$header-height});
+.exercise-solve-container {
+  height: 100vh;
+  max-height: 100vh;
   overflow: hidden;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .app-header {
@@ -365,6 +354,8 @@ $desktop-breakpoint: 1025px;
   max-height: $header-height;
   border-bottom: $border-width solid $border-color;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background-color: #ffffff;
+  flex-shrink: 0;
 }
 
 .app-toolbar {
@@ -387,11 +378,11 @@ $desktop-breakpoint: 1025px;
 }
 
 .main-content {
-  height: 100%;
-  max-height: 100%;
+  flex: 1;
   overflow: hidden;
   display: flex;
   background-color: #f8f9fa; /* Gemini 风格的整体背景 */
+  min-height: 0;
 }
 
 .question-panel {
@@ -628,8 +619,8 @@ $desktop-breakpoint: 1025px;
 @media (max-width: $mobile-breakpoint) {
   .main-content {
     flex-direction: column !important;
-    height: calc(100vh - #{$header-height});
-    max-height: calc(100vh - #{$header-height});
+    flex: 1;
+    min-height: 0;
   }
 
   .question-panel {

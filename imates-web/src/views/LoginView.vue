@@ -155,7 +155,7 @@ const handleLogin = async () => {
     localStorage.setItem('userInfo', JSON.stringify(userInfo))
     
     // 跳转到首页
-    router.push('/home')
+    router.push('/app')
     
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '登录失败，请检查网络连接'

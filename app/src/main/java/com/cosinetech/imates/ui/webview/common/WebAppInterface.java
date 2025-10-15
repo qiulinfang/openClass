@@ -52,7 +52,6 @@ import org.json.JSONObject;
 public class WebAppInterface {
     Context mContext;
     private ExerciseSolveActivityBridge exerciseBridge;
-    private FindExerciseActivityBridge findExerciseBridge;
 
     // 语音录制相关
     private MediaRecorder mediaRecorder;
@@ -83,11 +82,6 @@ public class WebAppInterface {
     // 设置ExerciseSolve桥接器
     public void setExerciseBridge(ExerciseSolveActivityBridge bridge) {
         this.exerciseBridge = bridge;
-    }
-
-    // 设置FindExercise桥接器
-    public void setFindExerciseBridge(FindExerciseActivityBridge bridge) {
-        this.findExerciseBridge = bridge;
     }
 
     /**
@@ -1418,10 +1412,11 @@ public class WebAppInterface {
      */
     @JavascriptInterface
     public void startExerciseSolve() {
-        if (findExerciseBridge != null) {
-            findExerciseBridge.startExerciseSolve();
-        } else if (exerciseBridge instanceof FindExerciseActivityBridge) {
-            ((FindExerciseActivityBridge) exerciseBridge).startExerciseSolve();
+        if (exerciseBridge != null) {
+            // 这里可以添加启动练习页面的逻辑
+            Log.d(TAG, "启动练习页面");
+        } else {
+            Log.e(TAG, "没有可用的桥接器来启动练习页面");
         }
     }
 
@@ -1568,15 +1563,5 @@ public class WebAppInterface {
         } else {
             Log.w(TAG, "🎯 [ANDROID] WebView实例为空，无法执行JavaScript");
         }
-    }
-
-    /**
-     * FindExercise Activity桥接接口
-     */
-    public interface FindExerciseActivityBridge {
-        void startExerciseSolve();
-        void startExerciseSolveWebView();
-        void finishActivity();
-        void showToast(String message);
     }
 }

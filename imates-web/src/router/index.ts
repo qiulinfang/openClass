@@ -18,6 +18,7 @@ const router = createRouter({
     {
       path: '/app',
       component: MainView,
+      redirect: '/app/my-profile', // 默认重定向到知识图谱
       children: [
         {
           path: 'exercise-solve',
