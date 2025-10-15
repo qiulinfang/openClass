@@ -626,9 +626,11 @@ public class LearnResourceManager {
 
     private boolean isNewer(String newTime, String oldTime) {
         try {
-            Date newDate = dateFormat.parse(newTime);
-            Date oldDate = dateFormat.parse(oldTime);
-            return newDate.after(oldDate);
+            SimpleDateFormat dft = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+            Date newDate = dft.parse(newTime);
+            Date oldDate = dft.parse(oldTime);
+            if (newDate == null || oldDate == null) return true;
+            return newDate.getTime() > oldDate.getTime();
         } catch (ParseException e) {
             Log.e(TAG, "Date parse error", e);
             return true; // Assume newer if can't parse
@@ -1001,7 +1003,7 @@ public class LearnResourceManager {
                 }
                 
                 // Update local file status by checking actual files
-                updateLocalFileStatus(textbook);
+                //updateLocalFileStatus(textbook);
                 
                 mainHandler.post(() -> callback.onSuccess(textbook.localPackages));
             } catch (Exception e) {
@@ -1068,7 +1070,7 @@ public class LearnResourceManager {
             
             for (LocalFileInfo file : pkg.localFiles) {
                 File localFile = new File(packageDir, file.fileName);
-                if (localFile.exists() && verifyChecksum(localFile, file.checksum)) {
+                if (localFile.exists()) { //if (localFile.exists() && verifyChecksum(localFile, file.checksum)) {
                     file.isDownloaded = true;
                     file.localPath = localFile.getAbsolutePath();
                     file.fileSize = localFile.length();
