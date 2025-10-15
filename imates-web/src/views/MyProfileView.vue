@@ -1,25 +1,5 @@
 <template>
   <q-layout view="lHh Lpr lFf">
-    <!-- 顶部工具栏 -->
-    <q-header elevated class="bg-white text-primary app-header" reveal>
-      <q-toolbar class="app-toolbar">
-        <q-btn
-          flat
-          dense
-          round
-          icon="arrow_back"
-          @click="goBack"
-          class="q-mr-sm"
-        />
-        <div class="toolbar-title">
-          <q-icon name="person" size="24px" class="q-mr-sm" />
-          <span>个人资料</span>
-        </div>
-        
-        <q-space />
-      </q-toolbar>
-    </q-header>
-
     <q-page-container>
       <q-page class="profile-page">
         <div class="main-content">
@@ -199,7 +179,7 @@ onMounted(() => {
 const loadUserInfo = async () => {
   try {
     // 从localStorage获取用户信息
-    const token = localStorage.getItem('studentToken')
+    const token = localStorage.getItem('YANBAN_TOKEN')
     if (token) {
       const userData = await apiService.getUserInfo(token)
       userInfo.value = {
@@ -216,11 +196,6 @@ const loadUserInfo = async () => {
 const loadAppVersion = () => {
   // 这里可以从环境变量或配置中获取版本号
   appVersion.value = '1.0.0'
-}
-
-// 返回上一页
-const goBack = () => {
-  router.back()
 }
 
 // 更换头像
@@ -335,7 +310,6 @@ const logout = async () => {
 
 <style lang="scss" scoped>
 // 变量定义
-$header-height: 56px;
 $border-color: #e5e7eb;
 $primary-color: #1976d2;
 $card-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -343,32 +317,8 @@ $card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
 
 // 主要样式
 .profile-page {
-  min-height: calc(100vh - #{$header-height});
+  min-height: 100vh;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-}
-
-.app-header {
-  height: $header-height;
-  min-height: $header-height;
-  max-height: $header-height;
-  border-bottom: 1px solid $border-color;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.app-toolbar {
-  height: $header-height;
-  min-height: $header-height;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-}
-
-.toolbar-title {
-  display: flex;
-  align-items: center;
-  font-size: 18px;
-  font-weight: 600;
-  color: #1f2937;
 }
 
 .main-content {

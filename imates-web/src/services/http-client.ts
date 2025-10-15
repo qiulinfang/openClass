@@ -10,6 +10,7 @@ export class HttpClient {
   private baseURL: string
   private defaultHeaders: Record<string, string>
   private timeout: number
+  // 全局认证配置已删除，所有认证配置都通过getDynamicAuthConfig动态获取
 
   constructor(baseURL: string = '', timeout: number = 5000) {
     this.baseURL = baseURL
@@ -19,15 +20,45 @@ export class HttpClient {
     }
   }
 
+
+
   /**
-   * 设置认证 Token
-   * 与Android原生保持一致，使用sa-token头
+   * 动态获取认证配置，根据请求路径选择不同的token
+   * 将选择的token同时赋值给cookie、saToken、authorization、token字段
    */
-  setAuthToken(token: string) {
-    this.defaultHeaders['sa-token'] = token
-    // 同时保留Authorization头以兼容其他可能的API
-    this.defaultHeaders['Authorization'] = `Bearer ${token}`
+  private getDynamicAuthConfig(url: string): Record<string, string> {
+    const authConfig: Record<string, string> = {}
+    
+    // 登录接口不需要认证头
+    if (url === '/admin/login') {
+      return authConfig
+    }
+    
+    // 根据请求路径选择不同的token
+    let selectedToken: string | null = null
+    
+    if (url.startsWith('/permission') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
+      // /permission、/admin/info和/biologyTopicKnowledge开头的请求使用XUEBAN_TOKEN
+      selectedToken = localStorage.getItem('XUEBAN_TOKEN')
+    } else if (url.startsWith('/blw-edu-yb')) {
+      // /blw-edu-yb开头的请求使用YANBAN_TOKEN
+      selectedToken = localStorage.getItem('YANBAN_TOKEN')
+    } else {
+      // 其他请求使用默认token
+      selectedToken = localStorage.getItem('token')
+    }
+    
+    // 如果找到了token，将其赋值给所有认证字段
+    if (selectedToken) {
+      // 其他认证头直接使用token
+      authConfig['saToken'] = selectedToken
+      authConfig['authorization'] = selectedToken
+      authConfig['token'] = selectedToken
+    }
+    
+    return authConfig
   }
+
 
   /**
    * 设置基础 URL
@@ -38,75 +69,97 @@ export class HttpClient {
 
   /**
    * 通用请求方法
+   * @template T 响应数据的类型
+   * @param url 请求URL（可以是相对路径或绝对URL）
+   * @param config 请求配置选项
+   * @param config.method HTTP方法，默认为'GET'
+   * @param config.headers 额外的请求头，会与默认请求头合并
+   * @param config.body 请求体数据（GET请求时会被忽略）
+   * @param config.timeout 超时时间（毫秒），默认使用实例的timeout值
+   * @param config.retries 重试次数，默认为3次
+   * @returns Promise<ApiResponse<T>> 统一的API响应格式
    */
   private async request<T>(
     url: string,
     config: RequestConfig & { body?: any } = {}
   ): Promise<ApiResponse<T>> {
+    // 解构配置参数，设置默认值
     const {
-      method = 'GET',
-      headers = {},
-      body,
-      timeout = this.timeout,
-      retries = 3
+      method = 'GET',           // HTTP方法，默认为GET
+      headers = {},             // 额外请求头，默认为空对象
+      body,                     // 请求体数据
+      timeout = this.timeout,  // 超时时间，使用实例默认值
+      retries = 3              // 重试次数，默认为3次
     } = config
 
+    // 构建完整URL：如果是绝对URL则直接使用，否则拼接baseURL
     const fullUrl = url.startsWith('http') ? url : `${this.baseURL}${url}`
     
+    // 记录最后一次错误，用于重试失败后的错误信息
     let lastError: Error | null = null
 
-    // 重试机制
+    // 重试机制：最多尝试 retries + 1 次（包括首次尝试）
     for (let attempt = 0; attempt <= retries; attempt++) {
-      // 为每次尝试创建新的 AbortController
+      // 为每次尝试创建新的超时控制器，避免重复使用已取消的AbortController
       const { controller, cleanup } = createTimeoutController(timeout)
       
+      // 构建请求选项
       const requestOptions: RequestInit = {
-        method,
+        method,                    // HTTP方法
         headers: {
-          ...this.defaultHeaders,
-          ...headers,
+          ...this.defaultHeaders,  // 默认请求头（如Content-Type）
+          ...this.getDynamicAuthConfig(url), // 动态获取认证配置（包含全局认证配置和路径相关token）
+          ...headers,              // 用户自定义请求头（优先级最高）
         },
-        ...(controller && { signal: controller.signal }),
+        ...(controller && { signal: controller.signal }), // 超时控制信号
       }
 
+      // 处理请求体：只有非GET请求才添加body，且自动序列化JSON
       if (body && method !== 'GET') {
         requestOptions.body = typeof body === 'string' ? body : JSON.stringify(body)
       }
 
       try {
+        // 发送HTTP请求
         const response = await fetch(fullUrl, requestOptions)
         
-        // 清除超时定时器
+        // 请求成功，清除超时定时器
         cleanup()
         
+        // 检查HTTP状态码，非2xx状态码视为错误
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`)
         }
 
+        // 解析响应JSON数据
         const data = await response.json()
+        
+        // 返回统一的API响应格式
         return {
-          success: data.success,
-          data,
-          code: response.status
+          success: data.success,  // 业务层成功标识
+          data,                   // 响应数据
+          code: response.status   // HTTP状态码
         }
       } catch (error) {
+        // 请求失败，记录错误信息
         lastError = error as Error
         
         // 清除超时定时器
         cleanup()
         
         // 如果不是最后一次尝试，等待后重试
+        // 使用递增延迟：第1次重试等待1秒，第2次等待2秒，第3次等待3秒
         if (attempt < retries) {
           await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)))
         }
       }
     }
 
-    // 所有重试都失败了
+    // 所有重试都失败了，返回错误响应
     return {
       success: false,
       message: lastError?.message || '网络请求失败',
-      code: 0
+      code: 0  // 0表示网络错误或重试失败
     }
   }
 

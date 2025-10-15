@@ -39,6 +39,31 @@ export interface BridgeProgressData {
   timestamp: number
 }
 
+/** Android Bridge 课堂状态接口 */
+export interface BridgeClassroomStatus {
+  isInClass: boolean
+  studentId: string
+  studentName: string
+  localIp: string
+  tsStreamPort: number
+  status: 'ready' | 'streaming'
+}
+
+/** Android Bridge 加入课堂请求接口 */
+export interface BridgeJoinClassroomRequest {
+  studentId: string
+  studentName: string
+  isGuest: boolean
+}
+
+/** Android Bridge 课堂命令接口 */
+export interface BridgeClassroomCommand {
+  type: 'projection_pad' | 'snapshot_pad' | 'projection_pc'
+  teacherIp?: string
+  studentIds?: string[]
+  commandId?: string
+}
+
 // ========== Android Bridge 接口声明 ==========
 
 declare global {
@@ -103,6 +128,15 @@ declare global {
       getCurrentSessionMessageCount(sessionId: string): string
       initTeacherMessageListener(): string
       cleanupTeacherMessageListener(): string
+
+      // ========== 加入课堂功能 ==========
+      joinClassroom(studentId: string, studentName: string, isGuest: boolean): string
+      exitClassroom(): string
+      getClassroomStatus(): string
+      startScreenProjection(): string
+      stopScreenProjection(): string
+      takeSnapshot(commandId: string): string
+      setClassroomMode(classMode: boolean): string
     }
 
     // ========== Android 事件回调 ==========
@@ -122,6 +156,15 @@ declare global {
     onTeacherMessageReceived?(messageData: unknown): void
     onStreamResponse?(requestId: string, chunk: string, isComplete: boolean): void
     onChatResponse?(requestId: string, response: unknown): void
+    
+    // ========== 课堂相关事件回调 ==========
+    onClassroomJoined?(status: unknown): void
+    onClassroomExited?(): void
+    onClassroomStatusChanged?(status: unknown): void
+    onScreenProjectionStarted?(): void
+    onScreenProjectionStopped?(): void
+    onSnapshotTaken?(imageData: unknown): void
+    onClassroomError?(error: string): void
   }
 }
 

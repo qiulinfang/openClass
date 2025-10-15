@@ -56,6 +56,8 @@ export class ApiService {
   public async getExerciseList(subject: string): Promise<any[]> {
     try {
       const url = getExerciseListUrl(subject)
+      
+      // HTTP客户端会自动根据接口路径选择合适的token
       const response = await httpClient.get<{
         success: boolean
         data: {
@@ -78,6 +80,8 @@ export class ApiService {
   public async deleteExercise(exerciseId: string, subject: string): Promise<boolean> {
     try {
       const url = getDeleteExerciseUrl(exerciseId, subject)
+      
+      // HTTP客户端会自动根据接口路径选择合适的token
       const response = await httpClient.delete(url)
       return response.success
     } catch (error) {
@@ -100,6 +104,7 @@ export class ApiService {
         ...questionData,
       }
 
+      // HTTP客户端会自动根据接口路径选择合适的token
       const response = await httpClient.post(url, requestBody)
       return response.success
     } catch (error) {
@@ -125,6 +130,7 @@ export class ApiService {
         type: subject.toLowerCase(),
       }
 
+      // HTTP客户端会自动根据接口路径选择合适的token
       const response = await httpClient.post<{
         success: boolean
         data: {
@@ -702,7 +708,7 @@ export class ApiService {
    * @param password 密码（明文，与Android端LoginActivity保持一致）
    * @returns Promise<string> 返回token
    */
-  public async login(account: string, password: string): Promise<string> {
+  public async loginXueban(account: string, password: string): Promise<string> {
     try {
       const response = await httpClient.post<{
         success: boolean
@@ -710,7 +716,7 @@ export class ApiService {
         data: {
           token: string
         }
-      }>('http://www.imates.com.cn:8222/blw-edu-service-alc/admin/login', {
+      }>(getApiUrl(API_ENDPOINTS.USER.XUEBAN_LOGIN), {
         account,
         password
       })
@@ -733,15 +739,12 @@ export class ApiService {
    */
   public async getUserInfo(token: string): Promise<UserInfo> {
     try {
+      // 只通过URL参数传递token，http-client会自动添加认证头
       const response = await httpClient.get<{
         success: boolean
         message: string
         data: UserInfo
-      }>(`http://www.imates.com.cn:8222/blw-edu-service-alc/admin/info?token=${token}`, {
-        headers: {
-          'Token': token
-        }
-      })
+      }>(`${getApiUrl(API_ENDPOINTS.USER.ADMIN_INFO)}?token=${token}`)
       
       if (!response.success || !response.data) {
         throw new Error(response.message || '获取用户信息失败')
@@ -759,7 +762,7 @@ export class ApiService {
   /**
    * 学生登录 - 与Android端LearnResourceManager.login保持一致
    */
-  public async loginStudent(account: string, password: string): Promise<LoginResponse | null> {
+  public async loginYanban(account: string, password: string): Promise<LoginResponse | null> {
     try {
       // 使用MD5加密密码，与Android端保持一致
       const md5Password = this.md5(password)
@@ -776,7 +779,7 @@ export class ApiService {
           message: string
           data: LoginData
         }>(
-          API_ENDPOINTS.LEARNING_RESOURCE.LOGIN_STUDENT,
+          API_ENDPOINTS.LEARNING_RESOURCE.YANBAN_LOGIN,
           loginRequest
         )
       
@@ -788,7 +791,7 @@ export class ApiService {
         }
         
         // 确保token和userId都保存到localStorage
-        localStorage.setItem('studentToken', response.data.data.token)
+        localStorage.setItem('YANBAN_TOKEN', response.data.data.token)
         localStorage.setItem('studentUserId', response.data.data.userId)
         
         // 更新登录时间戳，用于会话管理
@@ -810,7 +813,7 @@ export class ApiService {
    * 检查学生登录状态
    */
   public isStudentLoggedIn(): boolean {
-    const token = localStorage.getItem('studentToken')
+    const token = localStorage.getItem('YANBAN_TOKEN')
     const userId = localStorage.getItem('studentUserId')
     console.log('🔍 检查学生登录状态:', { token, userId })
     return !!(token && userId && token !== 'undefined' && userId !== 'undefined' && token.trim() !== '' && userId.trim() !== '')
@@ -820,7 +823,7 @@ export class ApiService {
    * 学生登出
    */
   public logoutStudent(): void {
-    localStorage.removeItem('studentToken')
+    localStorage.removeItem('YANBAN_TOKEN')
     localStorage.removeItem('studentUserId')
     console.log('学生已登出')
   }
@@ -839,25 +842,12 @@ export class ApiService {
     try {
       const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.VERSIONS
       
-      // 获取学生token并设置到请求头
-      const studentToken = localStorage.getItem('studentToken')
-      if (!studentToken) {
-        console.error('未找到学生token，请先登录')
-        return []
-      }
-      
       const response = await httpClient.post<{
         code: number
         success: boolean
         message: string
         data: TextbookVersion[]
-      }>(endpoint, {}, {
-        headers: {
-          'sa-token': studentToken,
-          'Authorization': `Bearer ${studentToken}`,
-          'Cookie': `sa-token=${studentToken}`
-        }
-      })
+      }>(endpoint, {})
       
       if (response.success && response.data && response.data.data) {
         return response.data.data
@@ -877,26 +867,13 @@ export class ApiService {
     try {
       const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.STRUCTURE
       
-      // 获取学生token并设置到请求头
-      const studentToken = localStorage.getItem('studentToken')
-      if (!studentToken) {
-        console.error('未找到学生token，请先登录')
-        return []
-      }
-      
       const request: TextbookStructureRequest = { id : textbookId }
       const response = await httpClient.post<{
         code: number
         success: boolean
         message: string
         data: ChapterNode[]
-      }>(endpoint, request, {
-        headers: {
-          'sa-token': studentToken,
-          'Authorization': `Bearer ${studentToken}`,
-          'Cookie': `sa-token=${studentToken}`
-        }
-      })
+      }>(endpoint, request)
       
       if (response.success && response.data && response.data.data && response.data.data.length > 0 && response.data.data[0]?.children && response.data.data[0].children.length > 0) {
         return response.data.data[0].children
@@ -916,26 +893,13 @@ export class ApiService {
     try {
       const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.LEARNING_PACKAGE
       
-      // 获取学生token并设置到请求头
-      const studentToken = localStorage.getItem('studentToken')
-      if (!studentToken) {
-        console.error('未找到学生token，请先登录')
-        return []
-      }
-      
       const request: LearningResourcesRequest = { textbookId }
       const response = await httpClient.post<{
         code: number
         success: boolean
         message: string
         data: LearningPackage[]
-      }>(endpoint, request, {
-        headers: {
-          'sa-token': studentToken,
-          'Authorization': `Bearer ${studentToken}`,
-          'Cookie': `sa-token=${studentToken}`
-        }
-      })
+      }>(endpoint, request)
       
       if (response.success && response.data && response.data.data) {
         return response.data.data

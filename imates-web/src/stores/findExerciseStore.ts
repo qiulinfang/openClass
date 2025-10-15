@@ -72,9 +72,6 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
     
     config.value = newConfig
     pagination.value.currentPage = 0
-    
-    // 创建API服务实例
-    ApiService.getInstance()
   }
   
   /**

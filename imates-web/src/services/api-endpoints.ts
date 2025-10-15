@@ -4,11 +4,11 @@
  */
 
 export const API_ENDPOINTS = {
-  // 基础配置 - 通过代理服务器访问知识图谱API
+  // 基础配置 - 通过Vite代理访问知识图谱API
   BASE_URL: {
-    RELEASE: 'http://localhost:3001', // 代理服务器地址
-    INTERNAL_TEST: 'http://localhost:3001', // 代理服务器地址
-    DEVELOPMENT: 'http://localhost:3001' // 代理服务器地址
+    RELEASE: '', // 使用相对路径，通过Vite代理转发
+    INTERNAL_TEST: '', // 使用相对路径，通过Vite代理转发
+    DEVELOPMENT: '' // 使用相对路径，通过Vite代理转发
   },
 
   // 资源基础URL
@@ -20,8 +20,8 @@ export const API_ENDPOINTS = {
 
   // 用户相关 - 与Android原生一致
   USER: {
-    LOGIN: '/admin/login',
-    INFO: '/admin/info',
+    XUEBAN_LOGIN: '/admin/login',
+    ADMIN_INFO: '/admin/info',
   },
 
   // 图像识别相关 - 与Android原生一致
@@ -82,7 +82,7 @@ export const API_ENDPOINTS = {
   // 学习资源管理相关 - 与Android端LearnResourceManager保持一致
   LEARNING_RESOURCE: {
     // 用户认证 - 与Android端BASE_URL + "/blw-edu-yb/auth/login-student"一致
-    LOGIN_STUDENT: '/blw-edu-yb/auth/login-student',
+    YANBAN_LOGIN: '/blw-edu-yb/auth/login-student',
     
     // 教材相关 - 使用与Android端相同的BASE_URL
     TEXTBOOK: {
@@ -115,10 +115,10 @@ export function getApiUrl(endpoint: string): string {
     return endpoint
   }
   
-  // 如果基础URL为空，使用默认值
+  // 如果基础URL为空，直接返回endpoint（使用相对路径，通过Vite代理转发）
   if (!currentBaseUrl) {
-    console.warn('API基础URL未设置，使用默认值')
-    currentBaseUrl = 'http://localhost:3001'
+    console.log('使用相对路径，通过Vite代理转发:', endpoint)
+    return endpoint
   }
   
   return `${currentBaseUrl}${endpoint}`

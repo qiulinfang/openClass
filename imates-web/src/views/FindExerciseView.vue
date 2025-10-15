@@ -89,7 +89,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useFindExerciseStore } from '../stores/findExerciseStore'
 import { storeToRefs } from 'pinia'
 import QuestionList from '../components/FindExerciseQuestionList.vue'
@@ -113,6 +113,7 @@ defineOptions({
 })
 
 const router = useRouter()
+const route = useRoute()
 
 // 组件引用
 const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
@@ -275,14 +276,13 @@ onMounted(async () => {
         knowledgeList: window.AndroidConfig.knowledgeList || ''
       }
     } else {
-      // 从URL参数获取配置
-      const urlParams = new URLSearchParams(window.location.search)
-      console.log('使用URL参数配置')
+      // 从Vue Router的query参数获取配置
+      console.log('使用Vue Router query参数配置')
       config = {
         apiBaseURL: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
-        subject: Subject.SUBJECT_MATH,
-        token: localStorage.getItem('token') || '',
-        knowledgeList: urlParams.get('knowledgeList') || ''
+        subject: (route.query.subject as string) === 'SUBJECT_BIOLOGY' ? Subject.SUBJECT_BIOLOGY : Subject.SUBJECT_MATH,
+        token: (route.query.token as string) || localStorage.getItem('token') || '',
+        knowledgeList: (route.query.knowledgeList as string) || ''
       }
     }
     

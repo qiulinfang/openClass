@@ -68,41 +68,70 @@ export class TextbookChapterStateManager {
   getChapterState(chapterIndex: number): ChapterState {
     const states = this.getCurrentTextbookChapterStates()
     if (!states.has(chapterIndex)) {
+      // 只有在明确需要时才创建新状态，避免意外重置
       states.set(chapterIndex, { expandedGraphId: null, rotationAngle: 0 })
     }
     return states.get(chapterIndex)!
   }
 
   /**
+   * 安全获取指定章节的状态，如果不存在则返回null（不自动创建）
+   */
+  getChapterStateSafe(chapterIndex: number): ChapterState | null {
+    const states = this.getCurrentTextbookChapterStates()
+    return states.get(chapterIndex) || null
+  }
+
+  /**
    * 获取指定章节的旋转角度
    */
   getChapterRotation(chapterIndex: number): number {
-    return this.getChapterState(chapterIndex).rotationAngle
+    const state = this.getChapterStateSafe(chapterIndex)
+    return state ? state.rotationAngle : 0
   }
 
   /**
    * 设置指定章节的旋转角度
    */
   setChapterRotation(chapterIndex: number, angle: number): void {
-    const state = this.getChapterState(chapterIndex)
+    const states = this.getCurrentTextbookChapterStates()
+    let state = states.get(chapterIndex)
+    
+    // 如果状态不存在，创建新状态
+    if (!state) {
+      state = { expandedGraphId: null, rotationAngle: 0 }
+      states.set(chapterIndex, state)
+    }
+    
     state.rotationAngle = angle
-    this.getCurrentTextbookChapterStates().set(chapterIndex, state)
+    console.log(`设置章节 ${chapterIndex} 旋转角度: ${angle.toFixed(2)}度 (当前章节: ${this.currentChapterIndex.value})`)
+    // 更新状态到Map中
+    states.set(chapterIndex, state)
   }
 
   /**
    * 获取当前章节的展开状态
    */
   getCurrentChapterExpandedGraph(): string | null {
-    return this.getChapterState(this.currentChapterIndex.value).expandedGraphId
+    const state = this.getChapterStateSafe(this.currentChapterIndex.value)
+    return state ? state.expandedGraphId : null
   }
 
   /**
    * 设置当前章节的展开状态
    */
   setCurrentChapterExpandedGraph(graphId: string | null): void {
-    const state = this.getChapterState(this.currentChapterIndex.value)
+    const states = this.getCurrentTextbookChapterStates()
+    let state = states.get(this.currentChapterIndex.value)
+    
+    // 如果状态不存在，创建新状态
+    if (!state) {
+      state = { expandedGraphId: null, rotationAngle: 0 }
+      states.set(this.currentChapterIndex.value, state)
+    }
+    
     state.expandedGraphId = graphId
-    this.getCurrentTextbookChapterStates().set(this.currentChapterIndex.value, state)
+    states.set(this.currentChapterIndex.value, state)
   }
 
   /**
@@ -157,6 +186,9 @@ export class TextbookChapterStateManager {
         }
         
         states.set(index, chapterState)
+        console.log(`📝 [状态初始化] 为章节 ${index} 创建初始状态，旋转角度: 0°`)
+      } else {
+        console.log(`📋 [状态检查] 章节 ${index} 状态已存在，旋转角度: ${states.get(index)!.rotationAngle.toFixed(2)}°`)
       }
     })
     
@@ -167,6 +199,19 @@ export class TextbookChapterStateManager {
         rotationAngle: state.rotationAngle
       }))
     })
+  }
+
+  /**
+   * 确保章节状态存在（用于初始化时）
+   */
+  ensureChapterState(chapterIndex: number): ChapterState {
+    const states = this.getCurrentTextbookChapterStates()
+    if (!states.has(chapterIndex)) {
+      const state: ChapterState = { expandedGraphId: null, rotationAngle: 0 }
+      states.set(chapterIndex, state)
+      console.log(`📝 [状态初始化] 为章节 ${chapterIndex} 创建初始状态`)
+    }
+    return states.get(chapterIndex)!
   }
 
   /**
@@ -200,6 +245,8 @@ export const useTextbookChapterState = () => {
     
     // 章节状态方法
     getChapterState: textbookChapterStateManager.getChapterState.bind(textbookChapterStateManager),
+    getChapterStateSafe: textbookChapterStateManager.getChapterStateSafe.bind(textbookChapterStateManager),
+    ensureChapterState: textbookChapterStateManager.ensureChapterState.bind(textbookChapterStateManager),
     getChapterRotation: textbookChapterStateManager.getChapterRotation.bind(textbookChapterStateManager),
     setChapterRotation: textbookChapterStateManager.setChapterRotation.bind(textbookChapterStateManager),
     

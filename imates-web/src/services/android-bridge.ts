@@ -177,6 +177,9 @@ export class AndroidBridge {
 
     // 设置图片相关回调
     this.setupImageCallbacks()
+    
+    // 设置课堂相关回调
+    this.setupClassroomCallbacks()
   }
 
   /**
@@ -726,6 +729,69 @@ export class AndroidBridge {
     }
   }
 
+  /**
+   * 设置课堂相关回调
+   */
+  public setupClassroomCallbacks(): void {
+    if (typeof window === 'undefined') return
+
+    // 课堂加入完成回调
+    if (!window.onClassroomJoined) {
+      window.onClassroomJoined = (status: any) => {
+        this.safeLog('课堂加入完成:', status)
+        this.emit('classroomJoined', status)
+      }
+    }
+
+    // 课堂退出完成回调
+    if (!window.onClassroomExited) {
+      window.onClassroomExited = () => {
+        this.safeLog('课堂退出完成')
+        this.emit('classroomExited')
+      }
+    }
+
+    // 课堂状态变化回调
+    if (!window.onClassroomStatusChanged) {
+      window.onClassroomStatusChanged = (status: any) => {
+        this.safeLog('课堂状态变化:', status)
+        this.emit('classroomStatusChanged', status)
+      }
+    }
+
+    // 屏幕投屏开始回调
+    if (!window.onScreenProjectionStarted) {
+      window.onScreenProjectionStarted = () => {
+        this.safeLog('屏幕投屏开始')
+        this.emit('screenProjectionStarted')
+      }
+    }
+
+    // 屏幕投屏停止回调
+    if (!window.onScreenProjectionStopped) {
+      window.onScreenProjectionStopped = () => {
+        this.safeLog('屏幕投屏停止')
+        this.emit('screenProjectionStopped')
+      }
+    }
+
+    // 截图完成回调
+    if (!window.onSnapshotTaken) {
+      window.onSnapshotTaken = (imageData: any) => {
+        this.safeLog('截图完成:', imageData)
+        this.emit('snapshotTaken', imageData)
+      }
+    }
+
+    // 课堂错误回调
+    if (!window.onClassroomError) {
+      window.onClassroomError = (error: string) => {
+        this.safeLog('课堂错误:', error)
+        this.emit('classroomError', error)
+      }
+    }
+  }
+
 
   /**
    * 监听图片选择事件
@@ -912,6 +978,224 @@ export class AndroidBridge {
       ),
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
     }
+  }
+
+  // ========== 加入课堂相关接口 ==========
+
+  /**
+   * 加入课堂
+   * @param studentId 学生ID
+   * @param studentName 学生姓名
+   * @param isGuest 是否为游客模式
+   * @returns 操作结果
+   */
+  public joinClassroom(studentId: string, studentName: string, isGuest: boolean = false): boolean {
+    console.log('🔍 AndroidBridge加入课堂 - 开始', {
+      studentId,
+      studentName,
+      isGuest,
+      hasAndroidBridge: !!(window.AndroidBridge?.joinClassroom)
+    })
+
+    try {
+      if (window.AndroidBridge?.joinClassroom) {
+        const result = window.AndroidBridge.joinClassroom(studentId, studentName, isGuest)
+        console.log('🔍 AndroidBridge加入课堂 - 原生方法返回', result)
+        return this.parseJSON<boolean>(result, false)
+      }
+      
+      console.log('🔍 AndroidBridge加入课堂 - AndroidBridge不可用')
+      return false
+    } catch (error) {
+      console.error('🔍 AndroidBridge加入课堂 - 发生错误', error)
+      return false
+    }
+  }
+
+  /**
+   * 退出课堂
+   * @returns 操作结果
+   */
+  public exitClassroom(): boolean {
+    console.log('🔍 AndroidBridge退出课堂 - 开始')
+
+    try {
+      if (window.AndroidBridge?.exitClassroom) {
+        const result = window.AndroidBridge.exitClassroom()
+        console.log('🔍 AndroidBridge退出课堂 - 原生方法返回', result)
+        return this.parseJSON<boolean>(result, false)
+      }
+      
+      console.log('🔍 AndroidBridge退出课堂 - AndroidBridge不可用')
+      return false
+    } catch (error) {
+      console.error('🔍 AndroidBridge退出课堂 - 发生错误', error)
+      return false
+    }
+  }
+
+  /**
+   * 获取课堂状态
+   * @returns 课堂状态信息
+   */
+  public getClassroomStatus(): import('../types').BridgeClassroomStatus | null {
+    console.log('🔍 AndroidBridge获取课堂状态 - 开始')
+
+    try {
+      if (window.AndroidBridge?.getClassroomStatus) {
+        const result = window.AndroidBridge.getClassroomStatus()
+        console.log('🔍 AndroidBridge获取课堂状态 - 原生方法返回', result)
+        const parsedResult = this.parseJSON<import('../types').BridgeClassroomStatus>(result, null)
+        return parsedResult
+      }
+      
+      console.log('🔍 AndroidBridge获取课堂状态 - AndroidBridge不可用')
+      return null
+    } catch (error) {
+      console.error('🔍 AndroidBridge获取课堂状态 - 发生错误', error)
+      return null
+    }
+  }
+
+  /**
+   * 开始屏幕投屏
+   * @returns 操作结果
+   */
+  public startScreenProjection(): boolean {
+    console.log('🔍 AndroidBridge开始屏幕投屏 - 开始')
+
+    try {
+      if (window.AndroidBridge?.startScreenProjection) {
+        const result = window.AndroidBridge.startScreenProjection()
+        console.log('🔍 AndroidBridge开始屏幕投屏 - 原生方法返回', result)
+        return this.parseJSON<boolean>(result, false)
+      }
+      
+      console.log('🔍 AndroidBridge开始屏幕投屏 - AndroidBridge不可用')
+      return false
+    } catch (error) {
+      console.error('🔍 AndroidBridge开始屏幕投屏 - 发生错误', error)
+      return false
+    }
+  }
+
+  /**
+   * 停止屏幕投屏
+   * @returns 操作结果
+   */
+  public stopScreenProjection(): boolean {
+    console.log('🔍 AndroidBridge停止屏幕投屏 - 开始')
+
+    try {
+      if (window.AndroidBridge?.stopScreenProjection) {
+        const result = window.AndroidBridge.stopScreenProjection()
+        console.log('🔍 AndroidBridge停止屏幕投屏 - 原生方法返回', result)
+        return this.parseJSON<boolean>(result, false)
+      }
+      
+      console.log('🔍 AndroidBridge停止屏幕投屏 - AndroidBridge不可用')
+      return false
+    } catch (error) {
+      console.error('🔍 AndroidBridge停止屏幕投屏 - 发生错误', error)
+      return false
+    }
+  }
+
+  /**
+   * 截图
+   * @param commandId 命令ID
+   * @returns 操作结果
+   */
+  public takeSnapshot(commandId: string): boolean {
+    console.log('🔍 AndroidBridge截图 - 开始', { commandId })
+
+    try {
+      if (window.AndroidBridge?.takeSnapshot) {
+        const result = window.AndroidBridge.takeSnapshot(commandId)
+        console.log('🔍 AndroidBridge截图 - 原生方法返回', result)
+        return this.parseJSON<boolean>(result, false)
+      }
+      
+      console.log('🔍 AndroidBridge截图 - AndroidBridge不可用')
+      return false
+    } catch (error) {
+      console.error('🔍 AndroidBridge截图 - 发生错误', error)
+      return false
+    }
+  }
+
+  /**
+   * 设置课堂模式
+   * @param classMode 课堂模式状态
+   * @returns 操作结果
+   */
+  public setClassroomMode(classMode: boolean): boolean {
+    console.log('🔍 AndroidBridge设置课堂模式 - 开始', { classMode })
+
+    try {
+      if (window.AndroidBridge?.setClassroomMode) {
+        const result = window.AndroidBridge.setClassroomMode(classMode)
+        console.log('🔍 AndroidBridge设置课堂模式 - 原生方法返回', result)
+        return this.parseJSON<boolean>(result, false)
+      }
+      
+      console.log('🔍 AndroidBridge设置课堂模式 - AndroidBridge不可用')
+      return false
+    } catch (error) {
+      console.error('🔍 AndroidBridge设置课堂模式 - 发生错误', error)
+      return false
+    }
+  }
+
+  // ========== 课堂相关事件监听 ==========
+
+  /**
+   * 监听课堂加入事件
+   */
+  public onClassroomJoined(callback: (status: import('../types').BridgeClassroomStatus) => void): void {
+    this.addEventListener('classroomJoined', callback)
+  }
+
+  /**
+   * 监听课堂退出事件
+   */
+  public onClassroomExited(callback: () => void): void {
+    this.addEventListener('classroomExited', callback)
+  }
+
+  /**
+   * 监听课堂状态变化事件
+   */
+  public onClassroomStatusChanged(callback: (status: import('../types').BridgeClassroomStatus) => void): void {
+    this.addEventListener('classroomStatusChanged', callback)
+  }
+
+  /**
+   * 监听屏幕投屏开始事件
+   */
+  public onScreenProjectionStarted(callback: () => void): void {
+    this.addEventListener('screenProjectionStarted', callback)
+  }
+
+  /**
+   * 监听屏幕投屏停止事件
+   */
+  public onScreenProjectionStopped(callback: () => void): void {
+    this.addEventListener('screenProjectionStopped', callback)
+  }
+
+  /**
+   * 监听截图完成事件
+   */
+  public onSnapshotTaken(callback: (imageData: any) => void): void {
+    this.addEventListener('snapshotTaken', callback)
+  }
+
+  /**
+   * 监听课堂错误事件
+   */
+  public onClassroomError(callback: (error: string) => void): void {
+    this.addEventListener('classroomError', callback)
   }
 }
 

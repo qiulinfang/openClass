@@ -1,27 +1,5 @@
 <template>
-  <div class="knowledge-graph-layout">
-    <!-- 第一列：功能箱/侧边栏（最左侧） -->
-    <div class="function-sidebar">
-      <!-- 功能菜单 -->
-      <div class="function-menu">
-        <!-- 用户头像 -->
-        <div class="user-avatar">
-            <img src="/icons/avatar.svg" alt="avatar" style="width: 52px; height: 52px;" />
-        </div>
-        
-        <div class="nav-items-container">
-          <div class="nav-item" :class="{ active: false }" @click="handleToolBoxClick">
-            <img src="/icons/toolBox.svg" alt="功能箱" class="nav-icon" />
-            <span class="nav-text">功能箱</span>
-          </div>
-          <div class="nav-item active">
-            <img src="/icons/isKnowledgeGraphSelected.svg" alt="知识图谱" class="nav-icon" />
-            <span class="nav-text">知识图谱</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
+  <div class="knowledge-graph-content">
     <!-- 第二列：章节目录/内容导航（中间） -->
     <div class="chapter-sidebar">
       <!-- 科目和版本信息 -->
@@ -166,19 +144,27 @@
         </div>
       </div>
     </div>
+
+    <!-- 第三列：核心内容/知识图谱（右侧） -->
+    <div class="main-content">
+      <!-- 知识图谱容器 -->
+      <div class="knowledge-graph-container">
+        <KnowledgeGraph 
+          v-if="selectedChapterDetails"
+          :chapter-details="selectedChapterDetails"
+          @expand="handleGraphExpand"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { apiService } from '../services/api-service'
 import type { TextbookOption, ChapterNode } from '../types'
 import KnowledgeGraph from '../components/knowledge-graph/KnowledgeGraph.vue'
 import { useTextbookChapterState } from '../stores/textbookChapterState'
-
-// 路由
-const router = useRouter()
 
 // 使用统一的章节状态管理
 const {
@@ -197,11 +183,6 @@ const {
 // 响应式数据
 const loading = ref(true)
 const selectedChapterDetails = ref<ChapterNode | null>(null)
-
-// 导航处理函数
-const handleToolBoxClick = () => {
-  router.push('/my-profile')
-}
 
 // 椭圆布局相关
 const circularContainerRef = ref<HTMLElement>()
@@ -348,6 +329,13 @@ const autoPositionToNearestGraph = () => {
   let nearestIndex = 0
   let minDistance = Infinity
   
+  console.log('=== 自动定位到160度最近的知识图谱 ===')
+  console.log(`目标角度: ${targetAngle}度`)
+  console.log(`当前旋转角度: ${currentRotation}度`)
+  console.log(`当前章节索引: ${getCurrentChapter()}`)
+  console.log(`子章节总数: ${subChapters.length}`)
+  console.log('--- 各章节角度和距离计算 ---')
+  
   for (let i = 0; i < subChapters.length; i++) {
     const { currentAngle } = calculateCircularTrackAngle(i, subChapters.length)
     let angleInDegrees = (currentAngle * 180 / Math.PI) % 360
@@ -360,11 +348,22 @@ const autoPositionToNearestGraph = () => {
       Math.abs(angleInDegrees - targetAngle - 360)
     )
     
+    // 打印每个章节的信息
+    console.log(`章节 ${i}: ${subChapters[i].name || `ID:${subChapters[i].id}`}`)
+    console.log(`  当前角度: ${angleInDegrees.toFixed(2)}度`)
+    console.log(`  到160度距离: ${distance.toFixed(2)}度`)
+    console.log(`  是否最近: ${distance < minDistance ? '是' : '否'}`)
+    
     if (distance < minDistance) {
       minDistance = distance
       nearestIndex = i
     }
   }
+  
+  console.log('--- 最终结果 ---')
+  console.log(`最近章节索引: ${nearestIndex}`)
+  console.log(`最近章节: ${subChapters[nearestIndex].name || `ID:${subChapters[nearestIndex].id}`}`)
+  console.log(`最小距离: ${minDistance.toFixed(2)}度`)
   
   // 计算需要旋转的角度来让最近的知识图谱到达160度位置
   const { currentAngle } = calculateCircularTrackAngle(nearestIndex, subChapters.length)
@@ -373,50 +372,19 @@ const autoPositionToNearestGraph = () => {
   
   const rotationNeeded = targetAngle - currentAngleInDegrees
   
-  // 立即设置展开状态，让展开动画和定位动画同步进行
+  console.log('--- 旋转计算 ---')
+  console.log(`最近章节当前角度: ${currentAngleInDegrees.toFixed(2)}度`)
+  console.log(`需要旋转角度: ${rotationNeeded.toFixed(2)}度`)
+  console.log(`目标旋转角度: ${(currentRotation + rotationNeeded).toFixed(2)}度`)
+  console.log('=== 开始执行动画 ===')
+  
+  // 立即设置展开状态，让展开动画开始
   setCurrentChapterExpandedGraph(subChapters[nearestIndex].id)
   
-  // 执行平滑旋转动画到目标位置，同时开始展开旋转动画
-  animateToTargetRotation(currentRotation + rotationNeeded)
+  // 只执行展开旋转动画，让它处理所有旋转逻辑（包括定位到目标位置）
   startExpandingRotation(subChapters[nearestIndex].id)
 }
 
-// 平滑旋转到目标角度的动画函数
-const animateToTargetRotation = (targetRotation: number, onComplete?: () => void) => {
-  const startRotation = getChapterRotation(getCurrentChapter())
-  const startTime = Date.now()
-  
-  // 根据滑动速度调整动画持续时间
-  const baseDuration = 500 // 减少基础动画时间
-  const velocityFactor = Math.min(swipeVelocity.value / swipeThreshold, 3.0) // 增加最大倍率
-  const duration = baseDuration / (1 + velocityFactor * 0.8) // 快速滑动时动画更快
-  
-  const animate = () => {
-    const elapsed = Date.now() - startTime
-    const progress = Math.min(elapsed / duration, 1)
-    
-    // 使用更快的缓动函数
-    const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4)
-    const easedProgress = easeOutQuart(progress)
-    
-    // 计算当前角度
-    const currentRotation = startRotation + (targetRotation - startRotation) * easedProgress
-    
-    // 更新旋转角度
-    setChapterRotation(getCurrentChapter(), currentRotation)
-    
-    if (progress < 1) {
-      requestAnimationFrame(animate)
-    } else {
-      // 动画完成
-      if (onComplete) {
-        onComplete()
-      }
-    }
-  }
-  
-  animate()
-}
 
 // 鼠标事件处理函数（可选功能）
 const handleMouseDown = (event: MouseEvent) => {
@@ -562,10 +530,17 @@ const startExpandingRotation = (graphId: string) => {
   expandingRotationTargetAngle.value = currentChapterRotation + targetRotationDegrees
   expandingRotationStartTime.value = performance.now()
   
+  console.log('=== 开始展开旋转动画 ===')
+  console.log(`目标图谱索引: ${targetIndex}`)
+  console.log(`目标图谱当前角度: ${currentAngleDegrees.toFixed(2)}度`)
+  console.log(`需要旋转角度: ${targetRotationDegrees.toFixed(2)}度`)
+  console.log(`起始角度: ${currentChapterRotation.toFixed(2)}度`)
+  console.log(`目标角度: ${expandingRotationTargetAngle.value.toFixed(2)}度`)
+  
   // 9. 开始展开旋转动画
   const animateExpandingRotation = (currentTime: number) => {
     const elapsed = currentTime - expandingRotationStartTime.value
-    const duration = 500 // 与定位动画同步的持续时间
+    const duration = 500 // 动画持续时间
     const progress = Math.min(elapsed / duration, 1)
     
     // 使用更平滑的缓动函数实现流畅的动画效果
@@ -583,6 +558,13 @@ const startExpandingRotation = (graphId: string) => {
     if (progress < 1) {
       requestAnimationFrame(animateExpandingRotation)
     } else {
+      // 动画完成，确保角度完全一致
+      setChapterRotation(getCurrentChapter(), expandingRotationTargetAngle.value)
+      
+      console.log('=== 展开旋转动画完成 ===')
+      console.log(`最终角度: ${expandingRotationTargetAngle.value.toFixed(2)}度`)
+      console.log(`实际存储角度: ${getChapterRotation(getCurrentChapter()).toFixed(2)}度`)
+      
       // 动画完成，立即结束展开旋转状态，让远离动画同步进行
       isExpandingRotation.value = false
     }
@@ -771,6 +753,7 @@ const loadTextbookData = async () => {
           await loadChapterStructure(defaultOption.textbookId)
         }
       }
+      console.log('textbookOptions.value', textbookOptions.value)
       return
     }
 
@@ -796,7 +779,6 @@ const loadTextbookData = async () => {
     } else {
       textbookOptions.value = []
     }
-    
   } catch {
     // 加载教材数据失败
   }
@@ -922,7 +904,7 @@ const loadChapterStructure = async (textbookId: string) => {
       
       // 提取章节名称列表（所有level=0的章节），并转换为中文数字
       chapters.value = cachedChapterData.map((chapter: { name: string }) => convertToChineseNumber(chapter.name))
-      
+      console.log('chapters.value', chapters.value)
       // 初始化所有章节的状态
       initializeChapterStates(textbookId, cachedChapterData, getSubChapters)
       return
@@ -1021,7 +1003,7 @@ const sessionManager = {
     
     try {
       // 检查本地存储的token和userId
-      const token = localStorage.getItem('studentToken')
+      const token = localStorage.getItem('YANBAN_TOKEN')
       const userId = localStorage.getItem('studentUserId')
       
       if (!token || !userId || token === 'undefined' || userId === 'undefined') {
@@ -1087,7 +1069,7 @@ const reLoginStudent = async (): Promise<boolean> => {
       return false
     }
     
-    const loginResult = await apiService.loginStudent(userId, password)
+    const loginResult = await apiService.loginYanban(userId, password)
     if (!loginResult) {
       return false
     }
@@ -1256,6 +1238,14 @@ const onTextbookChange = async (value: string) => {
 // 选择章节
 const selectChapter = (index: number) => {
   console.log('444')
+  
+  // 🔍 重复点击检测：检查是否点击的是当前已选中的章节
+  const currentChapterIndex = getCurrentChapter()
+  if (currentChapterIndex === index) {
+    console.log('🔄 重复点击同一章节，跳过处理')
+    return
+  }
+  
   setCurrentChapter(index)
   
   // 打印所有状态
@@ -1269,30 +1259,6 @@ const selectChapter = (index: number) => {
     nextTick(() => {
       logAngleDistribution()
     })
-  }
-}
-
-// 处理知识图谱展开状态
-const handleGraphExpand = (graphId: string) => {
-  console.log('handleGraphExpand', graphId)
-  // 如果正在执行展开旋转动画、收缩动画或拖拽操作，禁用点击切换功能
-  if (isExpandingRotation.value || isCollapsing.value || isDragging.value) {
-    return
-  }
-  
-  // 如果点击的是当前展开的图谱，保持展开状态
-  if (getCurrentChapterExpandedGraph() === graphId) {
-    // 不执行收缩逻辑，保持展开状态
-    return
-  } else {
-    // 重置拖拽状态，确保展开时不会有滚动干扰
-    resetDraggingState()
-    
-    // 立即设置展开状态，让膨胀动画立即开始
-    setCurrentChapterExpandedGraph(graphId)
-    
-    // 立即开始展开旋转动画，让其他节点立即开始旋转
-    startExpandingRotation(graphId)
   }
 }
 
@@ -1550,6 +1516,12 @@ const logAngleDistribution = () => {
   }
 }
 
+// 知识图谱展开事件处理
+const handleGraphExpand = (graphId: string) => {
+  console.log('知识图谱展开:', graphId)
+  // 这里可以添加展开知识图谱的逻辑
+}
+
 // 组件挂载时初始化
 onMounted(() => {
   // 清理过期的缓存数据
@@ -1567,9 +1539,6 @@ onMounted(() => {
     logAngleDistribution()
   })
   
-  // 添加全局鼠标事件监听器
-  document.addEventListener('mousemove', handleMouseMove)
-  document.addEventListener('mouseup', handleMouseUp)
   
   // 更新屏幕高度
   const updateScreenHeight = () => {
@@ -1580,8 +1549,6 @@ onMounted(() => {
   
   // 清理函数
   onUnmounted(() => {
-    document.removeEventListener('mousemove', handleMouseMove)
-    document.removeEventListener('mouseup', handleMouseUp)
     window.removeEventListener('resize', updateScreenHeight)
     
     // 清理防抖定时器
@@ -1598,101 +1565,12 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.knowledge-graph-layout {
+.knowledge-graph-content {
   display: flex;
   height: 100vh;
   background: url('/icons/background.svg') no-repeat center center;
   background-size: cover;
   background-attachment: fixed;
-}
-
-// 第一列：功能箱/侧边栏（最左侧）
-.function-sidebar {
-  width: 7%;
-  background: #100035;
-  backdrop-filter: blur(5px);
-  border-right: 1px solid rgba(229, 231, 235, 0.3);
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  align-items: stretch;
-}
-
-.function-menu {
-  flex: 1;
-  padding: 16px 0;
-  display: flex;
-  flex-direction: column;
-  
-  .user-avatar {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 17px 0;
-    height: 115px;
-    flex-shrink: 0;
-  }
-  
-  .nav-items-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-  }
-  
-  .nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 12px 8px;
-    margin: 4px 4px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-    
-    &.active {
-      background: #2a1c4e;
-      color: #9059FF;
-      
-      .nav-icon {
-        filter: none;
-        width: 30px;
-        height: 30px;
-      }
-      
-      .nav-text {
-        color: white;
-        font-family: 'PingFang SC', sans-serif;
-        font-weight: 500;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 100%;
-      }
-    }
-    
-    &:hover:not(.active) {
-      background: rgba(255, 255, 255, 0.1);
-    }
-    
-    .nav-icon {
-      width: 30px;
-      height: 30px;
-      filter: brightness(0) invert(1);
-    }
-    
-    .nav-text {
-      margin-top: 8px;
-      font-size: 16px;
-      font-weight: 500;
-      color: white;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 100%;
-    }
-  }
 }
 
 // 第二列：章节目录/内容导航（中间）
@@ -2033,10 +1911,6 @@ onUnmounted(() => {
 
 // 响应式设计
 @media (max-width: 768px) {
-  .function-sidebar {
-    width: 240px;
-  }
-  
   .chapter-sidebar {
     width: 240px;
   }

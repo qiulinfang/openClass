@@ -5,10 +5,12 @@
         <div class="login-container">
           <q-card class="login-card" flat>
             <q-card-section class="login-header">
-              <div class="text-center">
-                <q-icon name="school" size="4rem" color="primary" class="q-mb-md" />
-                <div class="text-h4 text-weight-bold text-primary q-mb-sm">研伴登录</div>
-                <div class="text-subtitle1 text-grey-7">请输入您的账号和密码</div>
+                <div class="text-center">
+                <div class="app-logo">
+                  <q-icon name="school" size="4rem" color="white" class="q-mb-md" />
+                </div>
+                <div class="text-h4 text-weight-bold text-white q-mb-sm">研伴学习助手</div>
+                <div class="text-subtitle1 text-white text-opacity-80">请输入您的账号和密码开始学习之旅</div>
               </div>
             </q-card-section>
             
@@ -142,19 +144,18 @@ const handleLogin = async () => {
   
   try {
     // 直接发送明文密码，与Android端LoginActivity保持一致
-    const token = await apiService.login(loginForm.account, loginForm.password)
-    
-    // 获取用户信息
-    const userInfo = await apiService.getUserInfo(token)
-    
+    const token = await apiService.loginXueban(loginForm.account, loginForm.password)
     // 保存到本地存储
-    localStorage.setItem('token', token)
-    localStorage.setItem('userInfo', JSON.stringify(userInfo))
+    localStorage.setItem('XUEBAN_TOKEN', token)
     localStorage.setItem('userId', loginForm.account)
     localStorage.setItem('userPassword', loginForm.password)
+
+    // 获取用户信息
+    const userInfo = await apiService.getUserInfo(token)
+    localStorage.setItem('userInfo', JSON.stringify(userInfo))
     
-    // 跳转到知识图谱页面
-    router.push('/knowledge-graph')
+    // 跳转到首页
+    router.push('/home')
     
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '登录失败，请检查网络连接'
@@ -173,27 +174,69 @@ const handleLogin = async () => {
   align-items: center;
   justify-content: center;
   padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-page::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(180deg); }
 }
 
 .login-container {
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
+  position: relative;
+  z-index: 1;
 }
 
 .login-card {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .login-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 2rem;
+  padding: 2.5rem 2rem;
+  position: relative;
+}
+
+.login-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.1));
+}
+
+.app-logo {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 
 .login-form {
-  padding: 0;
+  padding: 2rem;
 }
 </style>

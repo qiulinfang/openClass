@@ -54,22 +54,17 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import GraphNode from './GraphNode.vue'
 
-interface ChapterDetails {
+interface ChapterNode {
   id: string
   name: string
+  label: string
   level?: number | null
-  children?: Array<{
-    id: string
-    name: string
-    label: string
-    level?: number | null
-    children?: Array<{
-      id: string
-      name: string
-      label: string
-      level?: number | null
-    }>
-  }>
+  knowledgeList?: string
+  children?: ChapterNode[]
+}
+
+interface ChapterDetails extends ChapterNode {
+  children?: ChapterNode[]
 }
 
 interface Props {
@@ -287,9 +282,73 @@ const handlePractice = (node: { id: string; name: string; level?: number | null 
   console.log('去练习:', node)
   activeNodeId.value = null // 关闭气泡框
   
-  // 跳转到练习页面
-  router.push('/find-exercise')
+  // 使用递归方法从节点数据中获取知识点ID列表
+  const knowledgeList = getAllKnowledgeListsFromNode(node.id)
+  
+  if (!knowledgeList || knowledgeList.trim() === '') {
+    console.warn('没有找到对应的知识点ID列表:', node.id)
+    // 显示用户友好的提示信息
+    alert('该知识点暂无相关练习题，请选择其他知识点进行练习')
+    return
+  }
+  
+  // 跳转到练习页面，传递知识点参数
+  router.push({
+    path: '/find-exercise',
+    query: {
+      knowledgeList: knowledgeList,
+      subject: 'SUBJECT_MATH', // 可以根据实际情况动态设置
+      token: localStorage.getItem('token') || ''
+    }
+  })
 }
+
+// 递归查找节点及其所有子节点的知识点列表
+const getAllKnowledgeListsFromNode = (nodeId: string): string => {
+  const knowledgeIds: string[] = []
+  
+  // 递归函数，遍历节点树收集知识点ID
+  const collectKnowledgeIds = (node: ChapterNode): void => {
+    // 如果当前节点有知识点列表，添加到结果中
+    if (node.id && node.id.trim() !== '') {
+      const ids = node.id.split(',').map(id => id.trim()).filter(id => id !== '')
+      knowledgeIds.push(...ids)
+    }
+    
+    // 递归处理子节点
+    if (node.children && node.children.length > 0) {
+      node.children.forEach(child => collectKnowledgeIds(child))
+    }
+  }
+  
+  // 查找目标节点
+  const findNodeById = (node: ChapterNode, targetId: string): ChapterNode | null => {
+    if (node.id === targetId) {
+      return node
+    }
+    
+    if (node.children && node.children.length > 0) {
+      for (const child of node.children) {
+        const found = findNodeById(child, targetId)
+        if (found) return found
+      }
+    }
+    
+    return null
+  }
+  
+  // 从根节点开始查找目标节点
+  const targetNode = findNodeById(props.chapterDetails, nodeId)
+  
+  if (targetNode) {
+    collectKnowledgeIds(targetNode)
+  }
+  
+  // 去重并返回逗号分隔的字符串
+  const uniqueIds = [...new Set(knowledgeIds)]
+  return uniqueIds.join(',')
+}
+
 
 
 // 监听展开状态变化

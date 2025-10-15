@@ -7,12 +7,12 @@
       @scroll="handleScrollEvent"
     >
       <div class="q-pa-md">
+        {{ similarQuestions.length}}
         <!-- 加载状态 -->
         <div v-if="isLoading && similarQuestions.length === 0" class="native-loading-container">
           <q-spinner-dots size="50px" color="primary" />
           <div class="text-h6 q-mt-md native-text-xl">正在查找相似题目...</div>
         </div>
-
         <!-- 空状态 -->
         <div v-else-if="similarQuestions.length === 0 && !isLoading" class="native-empty-state">
           <q-icon name="search_off" size="80px" color="grey-5" />
