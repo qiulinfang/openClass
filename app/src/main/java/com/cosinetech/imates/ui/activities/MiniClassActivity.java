@@ -5,6 +5,7 @@ import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.view.WindowManager;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
@@ -31,6 +32,8 @@ public class MiniClassActivity extends AppCompatActivity {
     public static final String KEY_MINI_CLASS_URL = "class_url";
     public static final String KEY_MINI_CLASS_TITLE = "class_title";
 
+    private WebView webView;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -52,7 +55,7 @@ public class MiniClassActivity extends AppCompatActivity {
         TextView titleView = findViewById(R.id.title);
         titleView.setText(title);
 
-        WebView webView = findViewById(R.id.web_view);
+        webView = findViewById(R.id.web_view);
         // 启用 JavaScript
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
@@ -63,8 +66,20 @@ public class MiniClassActivity extends AppCompatActivity {
         webSettings.setAllowContentAccess(true); // 允许内容访问
         webSettings.setDatabaseEnabled(true); // 启用数据库
         //webSettings.setCacheMode(true); // 启用应用缓存
+        webSettings.setLoadWithOverviewMode(true);  // 页面自适应屏幕宽度
+        webSettings.setUseWideViewPort(true);       // 允许meta viewport生效
+        webSettings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING); // 自动调整文字大小
+        webSettings.setJavaScriptEnabled(true);
+        webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        webView.clearCache(true);
 
-// 处理混合内容（HTTP/HTTPS）
+        // 禁止滚动条遮挡内容（可选）
+        webView.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
+
+        // 居中显示
+        webView.setInitialScale(1); // 不缩放
+
+        // 处理混合内容（HTTP/HTTPS）
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         }
@@ -121,6 +136,7 @@ public class MiniClassActivity extends AppCompatActivity {
         });
         // Load the local HTML file
         if(classUrl != null && !classUrl.trim().isEmpty()) {
+            webView.clearHistory();
             webView.loadUrl(classUrl);
         }
 
@@ -140,7 +156,7 @@ public class MiniClassActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
+        webView.loadUrl("about:blank");
         // 移除浮窗
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION); // 恢复为普通窗口类型
