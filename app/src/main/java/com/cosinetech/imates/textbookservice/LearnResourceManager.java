@@ -37,7 +37,7 @@ import okhttp3.Response;
 
 public class LearnResourceManager {
     private static final String TAG = "LearnResourceManager";
-    private static final String BASE_URL = "https://43.138.16.5:50013"; // Replace with actual domain
+    private static final String BASE_URL = "https://www.imates.com.cn:9099"; // Replace with actual domain
     
     private final Context context;
     private final Gson gson;
