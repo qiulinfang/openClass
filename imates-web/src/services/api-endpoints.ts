@@ -84,9 +84,9 @@ export const API_ENDPOINTS = {
     // 用户认证 - 与Android端BASE_URL + "/blw-edu-yb/auth/login-student"一致
     YANBAN_LOGIN: '/blw-edu-yb/auth/login-student',
     
-    // 教材相关 - 使用与Android端相同的BASE_URL和接口路径
+    // 教材相关 - 使用相对路径通过Vite代理，解决CORS问题
     TEXTBOOK: {
-      BASE_URL: 'https://43.138.16.5:50013', // 与Android端LearnResourceManager.BASE_URL一致
+      BASE_URL: '', // 🔥 使用空字符串，通过Vite代理转发到 https://43.138.16.5:50013
       VERSIONS: '/blw-edu-yb/api/app/teacher-textbook', // 获取教材版本列表
       STRUCTURE: '/blw-edu-yb/api/app/teacher-textbook-section-tree', // 获取教材结构
       LEARNING_PACKAGE: '/blw-edu-yb/api/app/teacher-textbook-learning-package' // 获取学习资源包

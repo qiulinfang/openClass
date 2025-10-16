@@ -4,6 +4,7 @@
       <q-page class="my-resources-view">
 
     <!-- 筛选区域 -->
+    <h6>图片资源问一下涛哥</h6>
     <div class="filter-section q-pa-md">
       <q-card flat bordered class="q-pa-md">
         <div class="row items-center q-gutter-md">
@@ -36,6 +37,26 @@
               unelevated
             />
           </div>
+          <div class="col-auto">
+            <q-btn
+              color="primary"
+              icon="download"
+              label="批量下载"
+              @click="downloadAllTextbooks"
+              :disable="loading || checkingUpdates"
+              unelevated
+            />
+          </div>
+          <div class="col-auto">
+            <q-btn
+              color="orange"
+              icon="pause"
+              label="暂停全部"
+              @click="pauseAllDownloads"
+              :disable="loading || checkingUpdates"
+              unelevated
+            />
+          </div>
         </div>
       </q-card>
     </div>
@@ -46,14 +67,16 @@
       <div class="text-h6 text-grey-6 q-mt-md">正在加载资源...</div>
     </div>
 
+
     <!-- 教材列表 -->
     <div v-else class="textbooks-container q-pa-md">
-      <div class="row q-gutter-md">
-        <div 
-          v-for="textbook in filteredTextbooks" 
-          :key="textbook.textbookId"
-          class="col-12 col-sm-6 col-md-4 col-lg-3"
-        >
+      <div class="textbooks-scroll-container">
+        <div class="textbooks-grid">
+          <div 
+            v-for="textbook in filteredTextbooks" 
+            :key="textbook.textbookId"
+            class="textbook-item-wrapper"
+          >
           <q-card 
             class="textbook-card"
             :class="{ 'downloading': textbook.downloadStatus === 1 }"
@@ -108,27 +131,67 @@
                   color="primary"
                   size="8px"
                   rounded
+                  animated
                 />
                 <div class="text-caption text-grey-6 q-mt-xs text-center">
                   {{ textbook.downloadedFiles }}/{{ textbook.totalFiles }} 文件
+                  <span class="q-ml-xs">
+                    ({{ Math.round((textbook.downloadedFiles / textbook.totalFiles) * 100) }}%)
+                  </span>
+                </div>
+              </div>
+              
+              <!-- 下载状态信息 -->
+              <div v-else-if="textbook.downloadStatus === 2" class="q-mt-sm">
+                <div class="text-caption text-positive text-center">
+                  <q-icon name="check_circle" size="xs" class="q-mr-xs" />
+                  已下载完成
+                </div>
+                <div v-if="textbook.lastDownloadTime" class="text-caption text-grey-5 text-center q-mt-xs">
+                  下载时间: {{ formatDownloadTime(textbook.lastDownloadTime) }}
+                </div>
+              </div>
+              
+              <!-- 部分下载状态 -->
+              <div v-else-if="textbook.downloadedFiles > 0 && textbook.downloadedFiles < textbook.totalFiles" class="q-mt-sm">
+                <q-linear-progress
+                  :value="textbook.downloadedFiles / textbook.totalFiles"
+                  color="warning"
+                  size="6px"
+                  rounded
+                />
+                <div class="text-caption text-warning text-center q-mt-xs">
+                  部分下载 {{ textbook.downloadedFiles }}/{{ textbook.totalFiles }} 文件
                 </div>
               </div>
             </q-card-section>
-
             <!-- 操作按钮 -->
             <q-card-actions align="around" class="q-pa-md">
-              <!-- 下载按钮 -->
+              <!-- 下载按钮 - 未下载状态 -->
               <q-btn
-                v-if="!textbook.isDownloaded && textbook.downloadStatus !== 1"
+                v-if="!textbook.isDownloaded && textbook.downloadStatus !== 1 && textbook.downloadedFiles === 0"
                 color="primary"
                 icon="download"
                 label="下载"
                 @click="downloadTextbook(textbook)"
                 unelevated
                 rounded
+                :loading="false"
               />
               
-              <!-- 暂停按钮 -->
+              <!-- 继续下载按钮 - 部分下载状态 -->
+              <q-btn
+                v-if="textbook.downloadedFiles > 0 && textbook.downloadedFiles < textbook.totalFiles && textbook.downloadStatus !== 1"
+                color="primary"
+                icon="play_arrow"
+                label="继续"
+                @click="downloadTextbook(textbook)"
+                unelevated
+                rounded
+                :loading="false"
+              />
+              
+              <!-- 暂停按钮 - 下载中状态 -->
               <q-btn
                 v-if="textbook.downloadStatus === 1"
                 color="orange"
@@ -137,11 +200,12 @@
                 @click="pauseDownload(textbook)"
                 unelevated
                 rounded
+                :loading="false"
               />
               
-              <!-- 查看按钮 -->
+              <!-- 查看按钮 - 已下载状态 -->
               <q-btn
-                v-if="textbook.isDownloaded"
+                v-if="textbook.isDownloaded && textbook.downloadStatus === 2"
                 color="positive"
                 icon="visibility"
                 label="查看"
@@ -150,9 +214,9 @@
                 rounded
               />
               
-              <!-- 更新按钮 -->
+              <!-- 更新按钮 - 有更新可用 -->
               <q-btn
-                v-if="textbook.hasUpdatesAvailable"
+                v-if="textbook.hasUpdatesAvailable && textbook.downloadStatus !== 1"
                 color="secondary"
                 icon="system_update"
                 label="更新"
@@ -161,27 +225,56 @@
                 rounded
               />
               
+              <!-- 重新下载按钮 - 下载失败状态 -->
+              <q-btn
+                v-if="textbook.downloadStatus === 0 && textbook.downloadedFiles === 0"
+                color="negative"
+                icon="refresh"
+                label="重试"
+                @click="downloadTextbook(textbook)"
+                unelevated
+                rounded
+              />
+              
               <!-- 更多操作菜单 -->
               <q-btn
-                v-if="textbook.isDownloaded"
+                v-if="textbook.isDownloaded || textbook.downloadedFiles > 0"
                 color="grey-7"
                 icon="more_vert"
                 round
                 flat
               >
                 <q-menu>
-                  <q-list style="min-width: 100px">
+                  <q-list style="min-width: 120px">
+                    <!-- 重新下载选项 -->
+                    <q-item clickable v-close-popup @click="downloadTextbook(textbook)">
+                      <q-item-section avatar>
+                        <q-icon name="refresh" color="primary" />
+                      </q-item-section>
+                      <q-item-section>重新下载</q-item-section>
+                    </q-item>
+                    
+                    <!-- 删除选项 -->
                     <q-item clickable v-close-popup @click="deleteTextbook(textbook)">
                       <q-item-section avatar>
                         <q-icon name="delete" color="negative" />
                       </q-item-section>
                       <q-item-section>删除</q-item-section>
                     </q-item>
+                    
+                    <!-- 查看详情选项 -->
+                    <q-item clickable v-close-popup @click="viewTextbookDetails(textbook)">
+                      <q-item-section avatar>
+                        <q-icon name="info" color="info" />
+                      </q-item-section>
+                      <q-item-section>详情</q-item-section>
+                    </q-item>
                   </q-list>
                 </q-menu>
               </q-btn>
             </q-card-actions>
           </q-card>
+          </div>
         </div>
       </div>
     </div>
@@ -227,6 +320,75 @@
       </q-card>
     </q-dialog>
 
+    <!-- 下载进度对话框 -->
+    <q-dialog v-model="showDownloadDialog" persistent>
+      <q-card style="min-width: 400px">
+        <q-card-section class="row items-center">
+          <q-avatar icon="download" color="primary" text-color="white" />
+          <span class="q-ml-sm text-h6">下载进度</span>
+        </q-card-section>
+
+        <q-card-section>
+          <div class="text-body1 q-mb-md">{{ currentDownloadTextbook?.textbookName }}</div>
+          
+          <!-- 总体进度 -->
+          <div class="q-mb-md">
+            <div class="text-caption text-grey-6 q-mb-xs">总体进度</div>
+            <q-linear-progress
+              :value="overallProgress"
+              color="primary"
+              size="12px"
+              rounded
+              animated
+            />
+            <div class="text-caption text-grey-6 q-mt-xs text-center">
+              {{ Math.round(overallProgress * 100) }}%
+            </div>
+          </div>
+          
+          <!-- 文件进度 -->
+          <div class="q-mb-md">
+            <div class="text-caption text-grey-6 q-mb-xs">文件进度</div>
+            <div class="text-body2 text-center">
+              {{ currentDownloadedFiles }}/{{ currentTotalFiles }} 文件
+            </div>
+          </div>
+          
+          <!-- 当前下载文件 -->
+          <div v-if="currentDownloadingFile" class="q-mb-md">
+            <div class="text-caption text-grey-6 q-mb-xs">正在下载</div>
+            <div class="text-body2">{{ currentDownloadingFile }}</div>
+            <q-linear-progress
+              :value="currentFileProgress"
+              color="secondary"
+              size="8px"
+              rounded
+              animated
+            />
+            <div class="text-caption text-grey-6 q-mt-xs text-center">
+              {{ Math.round(currentFileProgress * 100) }}%
+            </div>
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn 
+            flat 
+            label="暂停" 
+            color="orange" 
+            @click="pauseCurrentDownload"
+            v-if="currentDownloadTextbook"
+          />
+          <q-btn 
+            flat 
+            label="关闭" 
+            color="grey" 
+            v-close-popup
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
     <!-- 通知消息 -->
     <q-banner
       v-if="notification.show"
@@ -250,6 +412,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { resourceManager } from '../services/resource-manager'
+import { apiService } from '../services/api-service'
 import type { UserTextbookInfo } from '../types'
 
 // 路由
@@ -278,6 +441,15 @@ const notification = ref({
   icon: 'check'
 })
 
+// 下载进度对话框
+const showDownloadDialog = ref(false)
+const currentDownloadTextbook = ref<UserTextbookInfo | null>(null)
+const currentDownloadingFile = ref('')
+const currentFileProgress = ref(0)
+const currentDownloadedFiles = ref(0)
+const currentTotalFiles = ref(0)
+const overallProgress = ref(0)
+
 // 分类选项 - 基于学科动态生成
 const categories = ref([
   { label: '全部', value: 'all' }
@@ -294,7 +466,9 @@ const filteredTextbooks = computed(() => {
   )
 })
 
+
 // 方法
+
 // 切换学科选择
 const toggleSubject = (subject: string) => {
   if (subject === 'all') {
@@ -321,9 +495,17 @@ const loadResources = async () => {
   try {
     // 检查登录状态
     if (!resourceManager.isLoggedIn()) {
-      console.warn('用户未登录，无法加载资源')
-      textbooks.value = []
-      return
+      console.warn('用户未登录，尝试自动登录...')
+      
+      // 尝试自动登录
+      const autoLoginSuccess = await apiService.autoLogin(true)
+      if (!autoLoginSuccess) {
+        console.warn('自动登录失败，无法加载资源')
+        textbooks.value = []
+        return
+      }
+      
+      console.log('自动登录成功，继续加载资源')
     }
 
     // 使用与安卓原生一致的数据获取策略：优先服务器数据，与本地数据合并
@@ -334,11 +516,13 @@ const loadResources = async () => {
       },
       onError: (error) => {
         console.error('加载教材失败:', error)
+        showMessage('加载教材失败，请稍后重试', 'error')
         textbooks.value = []
       }
     })
   } catch (error) {
     console.error('加载资源失败:', error)
+    showMessage('加载资源失败，请稍后重试', 'error')
     textbooks.value = []
   } finally {
     loading.value = false
@@ -382,41 +566,90 @@ const checkForUpdates = () => {
       updateCount.value = 0
       showMessage('所有教材都是最新版本', 'info')
     },
-    onError: (error) => {
-      console.error('检查更新失败:', error)
-      showMessage(`检查更新失败: ${error}`, 'error')
-    }
+      onError: (error) => {
+        console.error('检查更新失败:', error)
+        showMessage('检查更新失败，请稍后重试', 'error')
+      }
   })
   checkingUpdates.value = false
 }
 
-// 下载教材
+// 下载教材 - 基于安卓原生下载逻辑完善
 const downloadTextbook = (textbook: UserTextbookInfo) => {
-  resourceManager.downloadTextbook(textbook.textbookId, {
+  console.log(`开始下载教材: ${textbook.textbookName}`)
+  
+  // 设置下载状态
+  textbook.downloadStatus = 1 // 下载中
+  textbook.isDownloaded = false
+  
+  // 显示下载进度对话框
+  currentDownloadTextbook.value = textbook
+  currentTotalFiles.value = textbook.totalFiles
+  currentDownloadedFiles.value = textbook.downloadedFiles
+  overallProgress.value = textbook.downloadedFiles / textbook.totalFiles
+  showDownloadDialog.value = true
+  
+  resourceManager.downloadTextbook(textbook.id, {
     onSuccess: () => {
       textbook.isDownloaded = true
       textbook.downloadStatus = 2 // 下载完成
-      showMessage('下载完成', 'success')
+      textbook.downloadedFiles = textbook.totalFiles
+      textbook.lastDownloadTime = new Date().toISOString()
+      textbook.hasUpdatesAvailable = false
+      
+      // 更新进度对话框
+      overallProgress.value = 1
+      currentDownloadedFiles.value = textbook.totalFiles
+      
+      showMessage(`《${textbook.textbookName}》下载完成`, 'success')
+      console.log(`教材 ${textbook.textbookName} 下载完成`)
+      
+      // 延迟关闭对话框
+      setTimeout(() => {
+        showDownloadDialog.value = false
+        currentDownloadTextbook.value = null
+      }, 2000)
     },
     onError: (error) => {
-      showMessage(`下载失败: ${error}`, 'error')
+      textbook.downloadStatus = 0 // 下载失败
+      textbook.isDownloaded = false
+      
+      console.error('下载失败:', error)
+      showMessage(`《${textbook.textbookName}》下载失败: ${error}`, 'error')
+      
+      // 关闭对话框
+      showDownloadDialog.value = false
+      currentDownloadTextbook.value = null
     },
     onProgress: (progress) => {
       textbook.downloadStatus = 1 // 下载中
       textbook.downloadedFiles = Math.floor((progress / 100) * textbook.totalFiles)
+      
+      // 更新进度对话框
+      overallProgress.value = progress / 100
+      currentDownloadedFiles.value = textbook.downloadedFiles
+      
+      // 实时更新UI进度
+      console.log(`教材 ${textbook.textbookName} 下载进度: ${progress}%`)
     }
   })
 }
 
-// 暂停下载
+// 暂停下载 - 基于安卓原生逻辑完善
 const pauseDownload = (textbook: UserTextbookInfo) => {
+  console.log(`暂停下载教材: ${textbook.textbookName}`)
+  
   resourceManager.pauseDownload(textbook.textbookId, {
     onSuccess: () => {
-      textbook.downloadStatus = 0 // 暂停
-      showMessage('下载已暂停', 'warning')
+      textbook.downloadStatus = 0 // 暂停状态
+      textbook.isDownloaded = false
+      
+      showMessage(`《${textbook.textbookName}》下载已暂停`, 'warning')
+      console.log(`教材 ${textbook.textbookName} 下载已暂停`)
     },
     onError: (error) => {
-      showMessage(`暂停失败: ${error}`, 'error')
+      console.error('暂停下载失败:', error)
+      showMessage(`暂停《${textbook.textbookName}》失败: ${error}`, 'error')
     }
   })
 }
@@ -433,35 +666,49 @@ const viewTextbook = (textbook: UserTextbookInfo) => {
   })
 }
 
-// 更新教材
+// 更新教材 - 基于安卓原生逻辑完善
 const updateTextbook = (textbook: UserTextbookInfo) => {
+  console.log(`开始更新教材: ${textbook.textbookName}`)
+  
   showConfirmDialog.value = true
   confirmDialog.value = {
     title: '更新教材',
-    message: `确定要更新教材"${textbook.textbookName}"吗？`,
+    message: `确定要更新教材"${textbook.textbookName}"吗？更新将下载最新的资源文件。`,
     action: () => {
+      // 重置更新状态
+      textbook.hasUpdatesAvailable = false
+      textbook.downloadStatus = 1 // 开始更新下载
+      textbook.isDownloaded = false
+      
+      // 开始下载更新
       downloadTextbook(textbook)
     }
   }
 }
 
-// 删除教材
+// 删除教材 - 基于安卓原生逻辑完善
 const deleteTextbook = (textbook: UserTextbookInfo) => {
+  console.log(`准备删除教材: ${textbook.textbookName}`)
+  
   showConfirmDialog.value = true
   confirmDialog.value = {
     title: '删除教材',
-    message: `确定要删除教材"${textbook.textbookName}"吗？删除后需要重新下载。`,
+    message: `确定要删除教材"${textbook.textbookName}"吗？删除后将清除所有本地文件，需要重新下载。`,
     action: () => {
       resourceManager.deleteTextbook(textbook.textbookId, {
         onSuccess: () => {
+          // 从列表中移除教材
           const index = textbooks.value.findIndex(t => t.textbookId === textbook.textbookId)
           if (index > -1) {
             textbooks.value.splice(index, 1)
           }
-          showMessage('删除成功', 'success')
+          
+          showMessage(`《${textbook.textbookName}》删除成功`, 'success')
+          console.log(`教材 ${textbook.textbookName} 删除成功`)
         },
         onError: (error) => {
-          showMessage(`删除失败: ${error}`, 'error')
+          console.error('删除教材失败:', error)
+          showMessage(`删除《${textbook.textbookName}》失败: ${error}`, 'error')
         }
       })
     }
@@ -484,6 +731,110 @@ const closeConfirmDialog = () => {
     message: '',
     action: null
   }
+}
+
+// 格式化下载时间
+const formatDownloadTime = (timeString: string): string => {
+  try {
+    const date = new Date(timeString)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMinutes = Math.floor(diffMs / (1000 * 60))
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+    
+    if (diffMinutes < 1) {
+      return '刚刚'
+    } else if (diffMinutes < 60) {
+      return `${diffMinutes}分钟前`
+    } else if (diffHours < 24) {
+      return `${diffHours}小时前`
+    } else if (diffDays < 7) {
+      return `${diffDays}天前`
+    } else {
+      return date.toLocaleDateString('zh-CN')
+    }
+  } catch {
+    return '未知时间'
+  }
+}
+
+// 查看教材详情
+const viewTextbookDetails = (textbook: UserTextbookInfo) => {
+  console.log('查看教材详情:', textbook.textbookName)
+  
+  // 显示教材详细信息
+  const details = `
+教材名称: ${textbook.textbookName}
+学科: ${textbook.textbookSubjectLabel}
+年级: ${textbook.textbookGradeLabel} ${textbook.textbookSemesterLabel}
+出版社: ${textbook.textbookPublisher}
+ISBN: ${textbook.textbookIsbn}
+总文件数: ${textbook.totalFiles}
+已下载: ${textbook.downloadedFiles}
+下载状态: ${getDownloadStatusText(textbook.downloadStatus)}
+最后下载时间: ${textbook.lastDownloadTime ? formatDownloadTime(textbook.lastDownloadTime) : '未下载'}
+更新状态: ${textbook.hasUpdatesAvailable ? '有更新可用' : '已是最新版本'}
+  `
+  
+  showMessage(details, 'info')
+}
+
+// 获取下载状态文本
+const getDownloadStatusText = (status: number): string => {
+  switch (status) {
+    case 0: return '未下载'
+    case 1: return '下载中'
+    case 2: return '已下载'
+    default: return '未知状态'
+  }
+}
+
+// 批量操作 - 下载所有教材
+const downloadAllTextbooks = () => {
+  const undownloadedTextbooks = filteredTextbooks.value.filter(t => !t.isDownloaded && t.downloadStatus !== 1)
+  
+  if (undownloadedTextbooks.length === 0) {
+    showMessage('没有可下载的教材', 'info')
+    return
+  }
+  
+  showConfirmDialog.value = true
+  confirmDialog.value = {
+    title: '批量下载',
+    message: `确定要下载所有 ${undownloadedTextbooks.length} 个教材吗？`,
+    action: () => {
+      undownloadedTextbooks.forEach(textbook => {
+        downloadTextbook(textbook)
+      })
+      showMessage(`开始批量下载 ${undownloadedTextbooks.length} 个教材`, 'success')
+    }
+  }
+}
+
+// 暂停当前下载
+const pauseCurrentDownload = () => {
+  if (currentDownloadTextbook.value) {
+    pauseDownload(currentDownloadTextbook.value)
+    showDownloadDialog.value = false
+    currentDownloadTextbook.value = null
+  }
+}
+
+// 批量操作 - 暂停所有下载
+const pauseAllDownloads = () => {
+  const downloadingTextbooks = filteredTextbooks.value.filter(t => t.downloadStatus === 1)
+  
+  if (downloadingTextbooks.length === 0) {
+    showMessage('没有正在下载的教材', 'info')
+    return
+  }
+  
+  downloadingTextbooks.forEach(textbook => {
+    pauseDownload(textbook)
+  })
+  
+  showMessage(`已暂停 ${downloadingTextbooks.length} 个教材的下载`, 'warning')
 }
 
 // 显示消息
@@ -514,6 +865,13 @@ onMounted(async () => {
   
   // 清理过期数据
   resourceManager.cleanupExpiredData()
+  
+  // 定期检查更新（每5分钟）
+  setInterval(() => {
+    if (!loading.value && !checkingUpdates.value) {
+      checkForUpdates()
+    }
+  }, 5 * 60 * 1000)
 })
 </script>
 
@@ -638,37 +996,127 @@ onMounted(async () => {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    
+    .textbooks-scroll-container {
+      max-height: calc(100vh - 200px); // 减去筛选区域和页面的其他高度
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 8px; // 为滚动条留出空间
+      
+      // 自定义滚动条样式
+      &::-webkit-scrollbar {
+        width: 8px;
+      }
+      
+      &::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+      }
+      
+      &::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+        
+        &:hover {
+          background: #a8a8a8;
+        }
+      }
+      
+      // Firefox 滚动条样式
+      scrollbar-width: thin;
+      scrollbar-color: #c1c1c1 #f1f1f1;
+    }
+
+    // 教材网格布局
+    .textbooks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+      justify-items: center;
+      align-items: start;
+      padding: 10px 0;
+      
+      // 响应式调整
+      @media (max-width: 600px) {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 16px;
+      }
+      
+      @media (min-width: 1200px) {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 24px;
+      }
+    }
+
+    // 教材项包装器
+    .textbook-item-wrapper {
+      width: 100%;
+      max-width: 320px;
+      display: flex;
+      justify-content: center;
+    }
+
+    // Material Design 教材卡片样式
+    .textbook-card {
+      width: 100%;
+      max-width: 300px;
+      border-radius: 4px; // Material Design 使用较小的圆角
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05); // Material Design 阴影
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); // Material Design 缓动函数
+      overflow: hidden;
+      background: #ffffff;
+
+      &:hover {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.08);
+        transform: translateY(-1px);
+      }
+
+      &:active {
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
+        transform: translateY(0);
+      }
+
+      &.downloading {
+        border-left: 4px solid #2196F3; // Material Design 蓝色
+      }
+    }
 
     .textbook-item {
-      background: white;
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      transition: transform 0.2s ease;
+      background: #ffffff;
+      border-radius: 4px; // Material Design 圆角
+      padding: 16px; // Material Design 间距
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       display: flex;
       gap: 16px;
 
       &:hover {
-        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.08);
+        transform: translateY(-1px);
+      }
+
+      &:active {
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
+        transform: translateY(0);
       }
 
       &.downloading {
-        border-left: 4px solid #007bff;
+        border-left: 4px solid #2196F3; // Material Design 蓝色
       }
 
       .textbook-icon {
-        width: 60px;
-        height: 60px;
-        background: #f0f0f0;
-        border-radius: 8px;
+        width: 56px; // Material Design 标准尺寸
+        height: 56px;
+        background: #f5f5f5; // Material Design 背景色
+        border-radius: 4px; // Material Design 圆角
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
 
         img {
-          width: 32px;
-          height: 32px;
+          width: 28px;
+          height: 28px;
           object-fit: cover;
         }
       }
@@ -679,24 +1127,27 @@ onMounted(async () => {
 
         .textbook-name {
           font-size: 16px;
-          font-weight: 600;
-          color: #1a1a1a;
-          margin: 0 0 8px 0;
+          font-weight: 500; // Material Design 字重
+          color: rgba(0, 0, 0, 0.87); // Material Design 主文本色
+          margin: 0 0 4px 0;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          line-height: 1.5;
         }
 
         .textbook-subject {
           font-size: 14px;
-          color: #666;
-          margin: 0 0 4px 0;
+          color: rgba(0, 0, 0, 0.6); // Material Design 次要文本色
+          margin: 0 0 2px 0;
+          line-height: 1.4;
         }
 
         .textbook-publisher {
           font-size: 12px;
-          color: #999;
-          margin: 0 0 12px 0;
+          color: rgba(0, 0, 0, 0.38); // Material Design 禁用文本色
+          margin: 0 0 8px 0;
+          line-height: 1.3;
         }
 
         .download-progress {
@@ -706,22 +1157,23 @@ onMounted(async () => {
 
           .progress-bar {
             flex: 1;
-            height: 6px;
-            background: #f0f0f0;
-            border-radius: 3px;
+            height: 4px; // Material Design 进度条高度
+            background: rgba(0, 0, 0, 0.12); // Material Design 进度条背景
+            border-radius: 2px;
             overflow: hidden;
 
             .progress-fill {
               height: 100%;
-              background: #007bff;
-              transition: width 0.3s ease;
+              background: #2196F3; // Material Design 蓝色
+              transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             }
           }
 
           .progress-text {
             font-size: 12px;
-            color: #666;
+            color: rgba(0, 0, 0, 0.6); // Material Design 次要文本色
             white-space: nowrap;
+            line-height: 1.3;
           }
         }
       }
@@ -733,56 +1185,71 @@ onMounted(async () => {
         align-items: flex-end;
 
         .action-btn {
-          padding: 6px 12px;
+          padding: 8px 16px; // Material Design 按钮内边距
           border: none;
-          border-radius: 6px;
-          font-size: 12px;
+          border-radius: 4px; // Material Design 圆角
+          font-size: 14px;
+          font-weight: 500; // Material Design 字重
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           white-space: nowrap;
+          text-transform: uppercase; // Material Design 大写文本
+          letter-spacing: 0.5px; // Material Design 字母间距
+          min-height: 36px; // Material Design 最小高度
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          &:hover {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+          }
+
+          &:active {
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+          }
 
           &.download {
-            background: #007bff;
+            background: #2196F3; // Material Design 蓝色
             color: white;
 
             &:hover {
-              background: #0056b3;
+              background: #1976D2;
             }
           }
 
           &.pause {
-            background: #ffc107;
-            color: #1a1a1a;
+            background: #FF9800; // Material Design 橙色
+            color: white;
 
             &:hover {
-              background: #e0a800;
+              background: #F57C00;
             }
           }
 
           &.view {
-            background: #28a745;
+            background: #4CAF50; // Material Design 绿色
             color: white;
 
             &:hover {
-              background: #1e7e34;
+              background: #388E3C;
             }
           }
 
           &.update {
-            background: #ff6b6b;
+            background: #FF5722; // Material Design 深橙色
             color: white;
 
             &:hover {
-              background: #e55a5a;
+              background: #E64A19;
             }
           }
 
           &.delete {
-            background: #dc3545;
+            background: #F44336; // Material Design 红色
             color: white;
 
             &:hover {
-              background: #c82333;
+              background: #D32F2F;
             }
           }
         }
@@ -792,29 +1259,31 @@ onMounted(async () => {
 
   .empty-state {
     text-align: center;
-    padding: 60px 20px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 48px 24px; // Material Design 间距
+    background: #ffffff;
+    border-radius: 4px; // Material Design 圆角
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
 
     .empty-icon {
       width: 80px;
       height: 80px;
-      opacity: 0.5;
-      margin-bottom: 20px;
+      opacity: 0.38; // Material Design 禁用状态透明度
+      margin-bottom: 16px;
     }
 
     .empty-title {
       font-size: 20px;
-      font-weight: 600;
-      color: #1a1a1a;
+      font-weight: 500; // Material Design 字重
+      color: rgba(0, 0, 0, 0.87); // Material Design 主文本色
       margin: 0 0 8px 0;
+      line-height: 1.4;
     }
 
     .empty-description {
       font-size: 16px;
-      color: #666;
+      color: rgba(0, 0, 0, 0.6); // Material Design 次要文本色
       margin: 0;
+      line-height: 1.5;
     }
   }
 
@@ -924,14 +1393,63 @@ onMounted(async () => {
     }
 
     .textbooks-container {
+      .textbooks-scroll-container {
+        max-height: calc(100vh - 150px); // 移动端调整高度
+        padding-right: 4px; // 移动端减少滚动条空间
+      }
+      
+      .textbooks-grid {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 8px; // Material Design 移动端间距
+        padding: 8px 0;
+      }
+      
+      .textbook-item-wrapper {
+        max-width: 250px;
+      }
+      
+      .textbook-card {
+        max-width: 250px;
+      }
+      
       .textbook-item {
         flex-direction: column;
         text-align: center;
+        padding: 12px; // Material Design 移动端内边距
+
+        .textbook-icon {
+          width: 48px; // Material Design 移动端图标尺寸
+          height: 48px;
+          margin: 0 auto 8px;
+        }
+
+        .textbook-info {
+          .textbook-name {
+            font-size: 14px; // Material Design 移动端字体
+            margin-bottom: 4px;
+          }
+
+          .textbook-subject {
+            font-size: 12px;
+          }
+
+          .textbook-publisher {
+            font-size: 11px;
+            margin-bottom: 8px;
+          }
+        }
 
         .textbook-actions {
           flex-direction: row;
           justify-content: center;
           align-items: center;
+          gap: 4px;
+
+          .action-btn {
+            padding: 6px 12px; // Material Design 移动端按钮内边距
+            font-size: 12px;
+            min-height: 32px;
+          }
         }
       }
     }

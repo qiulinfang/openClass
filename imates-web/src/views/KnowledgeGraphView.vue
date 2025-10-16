@@ -1028,7 +1028,7 @@ const sessionManager = {
       return true
     }
     
-    const result = await reLoginStudent()
+    const result = await apiService.autoLogin(false)
     const endTime = performance.now()
     performanceMonitor.recordPerformance('智能认证-重新登录', endTime - startTime)
     return result
@@ -1040,29 +1040,6 @@ const sessionManager = {
   }
 }
 
-// 重新登录学生
-const reLoginStudent = async (): Promise<boolean> => {
-  try {
-    // 从localStorage获取用户凭据
-    const userId = localStorage.getItem('userId')
-    const password = localStorage.getItem('userPassword')
-    
-    if (!userId || !password || userId === 'undefined' || password === 'undefined' || userId.trim() === '' || password.trim() === '') {
-      return false
-    }
-    
-    const loginResult = await apiService.loginYanban(userId, password)
-    if (!loginResult) {
-      return false
-    }
-    
-    // 更新登录时间戳
-    sessionManager.updateLoginTimestamp()
-    return true
-  } catch {
-    return false
-  }
-}
 
 // 初始化图谱
 const initGraph = async () => {

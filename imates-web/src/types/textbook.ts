@@ -7,186 +7,186 @@
  * 教材版本信息
  */
 export interface TextbookVersion {
-  id: string
-  textbookId: string
-  textbookGrade: number
-  textbookGradeLabel: string
-  textbookSemester: number
-  textbookSemesterLabel: string
-  textbookSubject: number
-  textbookSubjectLabel: string
-  textbookName: string
-  textbookEditionYear: string
-  textbookIsbn: string
-  textbookPublisher: string
-  textbookCover: string
-  textbookUpdateTime: string
+  id: string // 教材版本唯一标识
+  textbookId: string // 教材ID
+  textbookGrade: number // 年级编号
+  textbookGradeLabel: string // 年级标签
+  textbookSemester: number // 学期编号
+  textbookSemesterLabel: string // 学期标签
+  textbookSubject: number // 学科编号
+  textbookSubjectLabel: string // 学科标签
+  textbookName: string // 教材名称
+  textbookEditionYear: string // 教材版本年份
+  textbookIsbn: string // 教材ISBN号
+  textbookPublisher: string // 出版社
+  textbookCover: string // 教材封面图片URL
+  textbookUpdateTime: string // 教材更新时间
 }
 
 /**
  * 教材选择器选项
  */
 export interface TextbookOption {
-  value: string
-  label: string
-  textbookId: string
-  subject: string
-  grade: string
-  semester: string
-  publisher: string
-  cover: string
+  value: string // 选项值
+  label: string // 显示标签
+  textbookId: string // 教材ID
+  subject: string // 学科
+  grade: string // 年级
+  semester: string // 学期
+  publisher: string // 出版社
+  cover: string // 封面图片URL
 }
 
 /**
  * 教材结构请求
  */
 export interface TextbookStructureRequest {
-  id: string
+  id: string // 教材版本ID
 }
 
 /**
  * 学习资源请求
  */
 export interface LearningResourcesRequest {
-  textbookId: string
+  id: string // 教材版本ID
 }
 
 /**
  * 章节节点
  */
 export interface ChapterNode {
-  id: string
-  name: string
-  parentId?: string | null
-  label: string
-  level: number | null
-  isRoot: boolean
-  updateTime: string
-  children?: ChapterNode[]
+  id: string // 章节唯一标识
+  name: string // 章节名称
+  parentId?: string | null // 父章节ID
+  label: string // 章节标签
+  level: number | null // 章节层级
+  isRoot: boolean // 是否为根节点
+  updateTime: string // 更新时间
+  children?: ChapterNode[] // 子章节列表
 }
 
 /**
  * 学习资源包
  */
 export interface LearningPackage {
-  id: string
-  packageName: string
-  packageDescription: string
-  updateTime: string
-  resourceList: ResourceFile[]
-  eliminateNull(): void
+  id: string // 资源包唯一标识
+  packageName: string // 资源包名称
+  packageDescription: string // 资源包描述
+  updateTime: string // 更新时间
+  resourceList: ResourceFile[] // 资源文件列表
+  eliminateNull(): void // 清除空值方法
 }
 
 /**
  * 资源文件
  */
 export interface ResourceFile {
-  id: string
-  fileName: string
-  fileUrl: string
-  fileSize: number
-  checksum: string
-  fileType: string
+  id: string // 资源文件唯一标识
+  fileName: string // 文件名
+  fileUrl: string // 文件下载URL
+  fileSize: number // 文件大小（字节）
+  checksum: string // 文件校验和
+  fileType: string // 文件类型
 }
 
 /**
  * 用户学习数据
  */
 export interface UserLearnData {
-  username: string
-  lastSyncTime: string
-  textbooks: UserTextbookInfo[]
+  username: string // 用户名
+  lastSyncTime: string // 最后同步时间
+  textbooks: UserTextbookInfo[] // 用户教材信息列表
 }
 
 /**
  * 用户教材信息
  */
 export interface UserTextbookInfo {
-  id: string
-  textbookId: string
-  textbookName: string
-  textbookSubjectLabel: string
-  textbookGradeLabel: string
-  textbookSemesterLabel: string
-  textbookPublisher: string
-  textbookEditionYear: string
-  textbookIsbn: string
-  textbookCover: string
-  textbookUpdateTime: string
-  totalFiles: number
-  downloadedFiles: number
-  isDownloaded: boolean
-  downloadStatus: number
-  downloadPath: string
-  lastDownloadTime: string
-  hasUpdatesAvailable: boolean
-  structure: ChapterNode[]
-  localPackages: LocalPackageInfo[]
+  id: string // 用户教材信息唯一标识
+  textbookId: string // 教材ID
+  textbookName: string // 教材名称
+  textbookSubjectLabel: string // 学科标签
+  textbookGradeLabel: string // 年级标签
+  textbookSemesterLabel: string // 学期标签
+  textbookPublisher: string // 出版社
+  textbookEditionYear: string // 版本年份
+  textbookIsbn: string // ISBN号
+  textbookCover: string // 封面图片URL
+  textbookUpdateTime: string // 教材更新时间
+  totalFiles: number // 总文件数
+  downloadedFiles: number // 已下载文件数
+  isDownloaded: boolean // 是否已下载
+  downloadStatus: number // 下载状态
+  downloadPath: string // 下载路径
+  lastDownloadTime: string // 最后下载时间
+  hasUpdatesAvailable: boolean // 是否有可用更新
+  structure: ChapterNode[] // 教材结构
+  localPackages: LocalPackageInfo[] // 本地资源包信息
   
-  updateStructure(structure: ChapterNode[]): void
-  updatePackages(packages: LearningPackage[]): void
-  getLocalResourceFileName(resource: ResourceFile): string
+  updateStructure(structure: ChapterNode[]): void // 更新教材结构方法
+  updatePackages(packages: LearningPackage[]): void // 更新资源包方法
+  getLocalResourceFileName(resource: ResourceFile): string // 获取本地资源文件名方法
 }
 
 /**
  * 本地资源包信息
  */
 export interface LocalPackageInfo {
-  packageId: string
-  packageName: string
-  packageDescription: string
-  updateTime: string
-  totalFiles: number
-  downloadedFiles: number
-  downloadStatus: number
-  localFiles: LocalFileInfo[]
+  packageId: string // 资源包ID
+  packageName: string // 资源包名称
+  packageDescription: string // 资源包描述
+  updateTime: string // 更新时间
+  totalFiles: number // 总文件数
+  downloadedFiles: number // 已下载文件数
+  downloadStatus: number // 下载状态
+  localFiles: LocalFileInfo[] // 本地文件信息列表
   
-  updateDownloadStatus(): void
+  updateDownloadStatus(): void // 更新下载状态方法
 }
 
 /**
  * 本地文件信息
  */
 export interface LocalFileInfo {
-  id: string
-  fileName: string
-  fileSize: number
-  checksum: string
-  isDownloaded: boolean
-  localPath?: string
+  id: string // 文件唯一标识
+  fileName: string // 文件名
+  fileSize: number // 文件大小（字节）
+  checksum: string // 文件校验和
+  isDownloaded: boolean // 是否已下载
+  localPath?: string // 本地文件路径
 }
 
 /**
  * 资源索引
  */
 export interface ResourceIndex {
-  textbook: TextbookVersion
-  packages: LearningPackage[]
-  downloadTime: string
+  textbook: TextbookVersion // 教材版本信息
+  packages: LearningPackage[] // 学习资源包列表
+  downloadTime: string // 下载时间
 }
 
 /**
  * 登录响应
  */
 export interface LoginResponse {
-  token: string
-  userId: string
-  defaultPassword: boolean
+  token: string // 认证令牌
+  userId: string // 用户ID
+  defaultPassword: boolean // 是否为默认密码
 }
 
 /**
  * 登录请求
  */
 export interface LoginRequest {
-  account: string
-  password: string
+  account: string // 账号
+  password: string // 密码
 }
 
 /**
  * 登录数据
  */
 export interface LoginData {
-  token: string
-  userId: string
-  defaultPassword: boolean
+  token: string // 认证令牌
+  userId: string // 用户ID
+  defaultPassword: boolean // 是否为默认密码
 }

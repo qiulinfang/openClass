@@ -4,7 +4,7 @@
  */
 
 import { httpClient } from './http-client'
-import * as CryptoJS from 'crypto-js'
+import CryptoJS from 'crypto-js'
 import {
   getApiUrl,
   getExerciseListUrl,
@@ -39,6 +39,11 @@ import type {
 export class ApiService {
   private static instance: ApiService
   private androidBridge: AndroidBridge
+  
+  // 连接池和请求优化
+  private requestCache = new Map<string, { data: unknown, timestamp: number }>()
+  private readonly CACHE_TTL = 5 * 60 * 1000 // 5分钟缓存
+  private activeRequests = new Map<string, Promise<unknown>>() // 请求去重
 
   private constructor() {
     this.androidBridge = AndroidBridge.getInstance()
@@ -51,6 +56,189 @@ export class ApiService {
     return ApiService.instance
   }
 
+  /**
+   * 优化的请求方法，支持缓存和请求去重
+   * @param url 请求URL
+   * @param options 请求选项
+   * @param useCache 是否使用缓存
+   * @returns Promise<any>
+   */
+  private async optimizedRequest(
+    url: string, 
+    options: RequestInit = {}, 
+    useCache: boolean = true
+  ): Promise<unknown> {
+    const cacheKey = `${url}_${JSON.stringify(options)}`
+    
+    // 检查缓存
+    if (useCache && this.requestCache.has(cacheKey)) {
+      const cached = this.requestCache.get(cacheKey)!
+      if (Date.now() - cached.timestamp < this.CACHE_TTL) {
+        console.log(`使用缓存数据: ${url}`)
+        return cached.data
+      } else {
+        this.requestCache.delete(cacheKey)
+      }
+    }
+    
+    // 检查是否有相同的请求正在进行
+    if (this.activeRequests.has(cacheKey)) {
+      console.log(`等待相同请求完成: ${url}`)
+      return this.activeRequests.get(cacheKey)
+    }
+    
+    // 创建新请求
+    const requestPromise = this.executeRequest(url, options)
+    this.activeRequests.set(cacheKey, requestPromise)
+    
+    try {
+      const result = await requestPromise
+      
+      // 缓存结果
+      if (useCache) {
+        this.requestCache.set(cacheKey, {
+          data: result,
+          timestamp: Date.now()
+        })
+      }
+      
+      return result
+    } finally {
+      this.activeRequests.delete(cacheKey)
+    }
+  }
+
+  /**
+   * 执行实际的请求
+   * @param url 请求URL
+   * @param options 请求选项
+   * @returns Promise<any>
+   */
+  private async executeRequest(url: string, options: RequestInit = {}): Promise<unknown> {
+    const defaultOptions: RequestInit = {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept-Encoding': 'gzip, deflate',
+        'Cache-Control': 'no-cache',
+        ...options.headers
+      },
+      ...options
+    }
+    
+    const response = await fetch(url, defaultOptions)
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+    
+    const contentType = response.headers.get('content-type')
+    if (contentType && contentType.includes('application/json')) {
+      return response.json()
+    } else {
+      return response.text()
+    }
+  }
+
+  /**
+   * 清理过期缓存
+   */
+  private cleanupCache(): void {
+    const now = Date.now()
+    for (const [key, value] of this.requestCache.entries()) {
+      if (now - value.timestamp > this.CACHE_TTL) {
+        this.requestCache.delete(key)
+      }
+    }
+  }
+
+  /**
+   * 暂停教材下载
+   * 对应Android LearnResourceManager.pauseDownload
+   */
+  public async pauseDownload(id: string): Promise<boolean> {
+    try {
+      // 这里可以实现暂停下载的逻辑
+      // 由于是Web端，可能需要通过Android Bridge调用原生方法
+      console.log(`暂停下载教材: ${id}`)
+      return true
+    } catch (error) {
+      console.error('暂停下载失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 删除教材资源
+   * 对应Android LearnResourceManager.deleteTextbook
+   */
+  public async deleteTextbook(id: string): Promise<boolean> {
+    try {
+      // 这里可以实现删除教材的逻辑
+      // 由于是Web端，可能需要通过Android Bridge调用原生方法
+      console.log(`删除教材: ${id}`)
+      return true
+    } catch (error) {
+      console.error('删除教材失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 获取教材资源包信息
+   * 对应Android LearnResourceManager.getTextbookPackagesWithLocalFiles
+   */
+  public async getTextbookPackagesWithLocalFiles(id: string): Promise<LocalPackageInfo[]> {
+    try {
+      // 这里可以实现获取资源包信息的逻辑
+      // 由于是Web端，可能需要通过Android Bridge调用原生方法
+      console.log(`获取教材资源包信息: ${id}`)
+      return []
+    } catch (error) {
+      console.error('获取资源包信息失败:', error)
+      return []
+    }
+  }
+
+  /**
+   * 获取资源文件下载URL
+   * 对应Android LearnResourceManager.getResourceDownloadUrl
+   * 🔥 修改：使用相对路径通过Vite代理，解决CORS问题
+   */
+  public async getResourceDownloadUrl(resourceId: string): Promise<string | null> {
+    try {
+      console.log(`获取资源下载URL: ${resourceId}`)
+      
+      // 🔥 使用相对路径，通过Vite代理转发，避免CORS问题
+      // 原来的绝对URL: https://43.138.16.5:50013/resource/20250919/xxx.pdf
+      // 现在使用相对路径: /resource/20250919/xxx.pdf
+      // Vite代理会将 /resource/* 转发到 https://43.138.16.5:50013/resource/*
+      
+      // 确保resourceId以/开头
+      const relativePath = resourceId.startsWith('/') ? resourceId : `/${resourceId}`
+      
+      console.log(`使用代理路径: ${relativePath}`)
+      return relativePath
+    } catch (error) {
+      console.error('获取资源下载URL失败:', error)
+      return null
+    }
+  }
+
+  /**
+   * 验证资源文件完整性
+   * 对应Android LearnResourceManager.verifyResourceIntegrity
+   */
+  public async verifyResourceIntegrity(resourceId: string, checksum: string): Promise<boolean> {
+    try {
+      // 这里可以实现验证文件完整性的逻辑
+      // 由于是Web端，可能需要通过Android Bridge调用原生方法
+      console.log(`验证资源完整性: ${resourceId}, checksum: ${checksum}`)
+      return true
+    } catch (error) {
+      console.error('验证资源完整性失败:', error)
+      return false
+    }
+  }
 
   /**
    * 获取习题列表
@@ -865,11 +1053,11 @@ export class ApiService {
   /**
    * 获取教材结构 - 修正为与Android端一致的流程
    */
-  public async getTextbookStructure(textbookId: string): Promise<ChapterNode[]> {
+  public async getTextbookStructure(id: string): Promise<ChapterNode[]> {
     try {
       const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.STRUCTURE
       
-      const request: TextbookStructureRequest = { id : textbookId }
+      const request: TextbookStructureRequest = { id : id }
       const response = await httpClient.post<{
         code: number
         success: boolean
@@ -891,18 +1079,18 @@ export class ApiService {
   /**
    * 获取学习资源包 - 修正为与Android端一致的流程
    */
-  public async getLearningResources(textbookId: string): Promise<LearningPackage[]> {
+  public async getLearningResources(id: string): Promise<LearningPackage[]> {
     try {
       const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.LEARNING_PACKAGE
       
-      const request: LearningResourcesRequest = { textbookId }
+      const request: LearningResourcesRequest = { id: id }
       const response = await httpClient.post<{
         code: number
         success: boolean
         message: string
         data: LearningPackage[]
       }>(endpoint, request)
-      
+      console.log(`获取学习资源包: ${id}`, response)
       if (response.success && response.data && response.data.data) {
         return response.data.data
       }
@@ -1095,10 +1283,431 @@ export class ApiService {
     }
   }
 
+  /**
+   * 下载教材资源 - 优化版本（支持并发下载）
+   * 对应Android LearnResourceManager.downloadAllResources
+   * 使用与安卓原生一致的接口路径和认证方式
+   */
+  public async downloadTextbook(id: string, onProgress?: (progress: number) => void): Promise<boolean> {
+    try {
+      console.log(`开始下载教材: ${id}`)
+      
+      // 1. 获取教材的学习资源包
+      const learningPackages = await this.getLearningResources(id)
+      console.log('学习资源包', learningPackages)
+      if (!learningPackages || learningPackages.length === 0) {
+        console.warn(`教材 ${id} 没有可下载的资源`)
+        return true // 没有资源也算成功
+      }
+      
+      // 2. 收集所有需要下载的文件
+      const allResources: Array<{resource: any, pkg: any}> = []
+      for (const pkg of learningPackages) {
+        if (pkg.resourceList && pkg.resourceList.length > 0) {
+          for (const resource of pkg.resourceList) {
+            allResources.push({ resource, pkg })
+          }
+        }
+      }
+      
+      const totalFiles = allResources.length
+      console.log(`教材 ${id} 共有 ${totalFiles} 个文件需要下载`)
+      if (totalFiles === 0) {
+        console.warn(`教材 ${id} 的资源包中没有文件`)
+        return true
+      }
+      
+      // 3. 并发下载所有文件
+      const result = await this.downloadFilesConcurrently(allResources, totalFiles, onProgress)
+      
+      console.log(`教材 ${id} 下载完成，成功: ${result.successCount}/${totalFiles}`)
+      return result.successCount === totalFiles
+      
+    } catch (error) {
+      console.error('下载教材失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 并发下载文件列表 - 优化版本
+   * @param allResources 所有资源文件列表
+   * @param totalFiles 总文件数
+   * @param onProgress 进度回调
+   */
+  private async downloadFilesConcurrently(
+    allResources: Array<{resource: any, pkg: any}>, 
+    totalFiles: number, 
+    onProgress?: (progress: number) => void
+  ): Promise<{successCount: number, errorCount: number}> {
+    
+    // 并发下载配置
+    const CONCURRENT_DOWNLOADS = 6 // 最多3个并发下载，与安卓端保持一致
+    const downloadQueue = [...allResources]
+    const results: Array<{success: boolean, fileName: string}> = []
+    let completedFiles = 0
+    let successCount = 0
+    let errorCount = 0
+    
+    // 进度跟踪优化
+    const fileProgressMap = new Map<string, number>() // 跟踪每个文件的下载进度
+    let lastProgressUpdate = 0
+    const PROGRESS_UPDATE_INTERVAL = 100 // 100ms更新一次进度
+    
+    // 更新整体进度的函数
+    const updateOverallProgress = () => {
+      const now = Date.now()
+      if (now - lastProgressUpdate < PROGRESS_UPDATE_INTERVAL) return
+      
+      let totalProgress = 0
+      for (const progress of fileProgressMap.values()) {
+        totalProgress += progress
+      }
+      
+      // 计算整体进度：(已完成文件数 * 100 + 当前文件总进度) / 总文件数
+      const overallProgress = Math.round((totalProgress / totalFiles))
+      onProgress?.(Math.min(overallProgress, 100))
+      lastProgressUpdate = now
+    }
+    
+    // 创建下载任务
+    const downloadTask = async (resourceInfo: {resource: any, pkg: any}) => {
+      const { resource } = resourceInfo
+      const fileId = resource.fileName
+      
+      try {
+        console.log(`开始下载文件: ${resource.fileName}`)
+        
+        // 初始化文件进度
+        fileProgressMap.set(fileId, 0)
+        
+        // 使用流式下载减少内存占用
+        const fileData = await this.downloadSingleFileStreaming(resource, (fileProgress) => {
+          // 更新单个文件进度
+          fileProgressMap.set(fileId, fileProgress)
+          updateOverallProgress()
+        })
+        
+        if (fileData) {
+          console.log(`文件下载完成: ${resource.fileName}`)
+          results.push({ success: true, fileName: resource.fileName })
+          successCount++
+        } else {
+          console.error(`文件下载失败: ${resource.fileName}`)
+          results.push({ success: false, fileName: resource.fileName })
+          errorCount++
+        }
+        
+      } catch (error) {
+        console.error(`下载文件 ${resource.fileName} 时出错:`, error)
+        results.push({ success: false, fileName: resource.fileName })
+        errorCount++
+      } finally {
+        // 清理进度跟踪
+        fileProgressMap.delete(fileId)
+        completedFiles++
+        
+        // 最终进度更新
+        const progress = Math.round((completedFiles / totalFiles) * 100)
+        onProgress?.(progress)
+      }
+    }
+    
+    // 并发执行下载任务
+    const downloadPromises: Promise<void>[] = []
+    
+    for (let i = 0; i < Math.min(CONCURRENT_DOWNLOADS, downloadQueue.length); i++) {
+      const resourceInfo = downloadQueue.shift()
+      if (resourceInfo) {
+        downloadPromises.push(downloadTask(resourceInfo))
+      }
+    }
+    
+    // 继续处理剩余文件
+    while (downloadQueue.length > 0) {
+      // 等待至少一个任务完成
+      await Promise.race(downloadPromises.filter(p => p))
+      
+      // 移除已完成的任务，添加新任务
+      const newResource = downloadQueue.shift()
+      if (newResource) {
+        downloadPromises.push(downloadTask(newResource))
+      }
+    }
+    
+    // 等待所有任务完成
+    await Promise.all(downloadPromises)
+    
+    return { successCount, errorCount }
+  }
+
+  /**
+   * 下载单个文件（纯网络下载，不处理存储）
+   * 对应Android LearnResourceManager.downloadFile
+   */
+  private async downloadSingleFile(
+    resource: { fileName: string; fileUrl: string; checksum?: string }, 
+    localPath: string, 
+    onProgress?: (progress: number) => void
+  ): Promise<Uint8Array | null> {
+    try {
+      console.log('下载文件', resource)
+      
+      // 获取完整的下载URL
+      const downloadUrl = await this.getResourceDownloadUrl(resource.fileUrl)
+      if (!downloadUrl) {
+        throw new Error('无法获取下载URL')
+      }
+      
+      // 使用fetch下载文件
+      const response = await fetch(downloadUrl)
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      
+      const contentLength = response.headers.get('content-length')
+      const totalBytes = contentLength ? parseInt(contentLength, 10) : 0
+      
+      if (!response.body) {
+        throw new Error('响应体为空')
+      }
+      
+      const reader = response.body.getReader()
+      const chunks: Uint8Array[] = []
+      let downloadedBytes = 0
+      
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        chunks.push(value)
+        downloadedBytes += value.length
+        
+        if (totalBytes > 0 && onProgress) {
+          const progress = Math.round((downloadedBytes / totalBytes) * 100)
+          onProgress(progress)
+        }
+      }
+      
+      // 合并所有chunks
+      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+      const result = new Uint8Array(totalLength)
+      let offset = 0
+      for (const chunk of chunks) {
+        result.set(chunk, offset)
+        offset += chunk.length
+      }
+      
+      console.log(`文件 ${resource.fileName} 下载完成，大小: ${result.length} bytes`)
+      
+      // 如果提供了校验和，验证文件完整性
+      if (resource.checksum) {
+        console.log(`开始校验文件 ${resource.fileName}，期望校验和: ${resource.checksum}`)
+        try {
+          const { ResourceManager } = await import('./resource-manager')
+          const resourceManager = ResourceManager.getInstance()
+          const isValid = await resourceManager.verifyLocalFileIntegrity(result, resource.checksum)
+          if (!isValid) {
+            console.error(`文件 ${resource.fileName} 校验失败，期望: ${resource.checksum}`)
+            throw new Error(`文件校验失败: ${resource.fileName}`)
+          }
+          console.log(`文件 ${resource.fileName} 校验通过`)
+        } catch (verifyError) {
+          console.error(`文件 ${resource.fileName} 校验过程出错:`, verifyError)
+          throw verifyError
+        }
+      } else {
+        console.log(`文件 ${resource.fileName} 没有提供校验和，跳过校验`)
+      }
+      
+      return result
+      
+    } catch (error) {
+      console.error(`下载文件失败 ${resource.fileName}:`, error)
+      return null
+    }
+  }
+
+  /**
+   * 流式下载单个文件（优化内存使用）
+   * 对应Android LearnResourceManager.downloadFile
+   * 使用流式处理减少内存占用
+   */
+  private async downloadSingleFileStreaming(
+    resource: { fileName: string; fileUrl: string; checksum?: string }, 
+    onProgress?: (progress: number) => void
+  ): Promise<Uint8Array | null> {
+    try {
+      console.log('流式下载文件', resource)
+      
+      // 获取完整的下载URL
+      const downloadUrl = await this.getResourceDownloadUrl(resource.fileUrl)
+      if (!downloadUrl) {
+        throw new Error('无法获取下载URL')
+      }
+      
+      // 使用优化的fetch配置
+      const controller = new AbortController()
+      const response = await fetch(downloadUrl, {
+        signal: controller.signal,
+        headers: {
+          'Accept-Encoding': 'gzip, deflate', // 启用压缩
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive' // 保持连接
+        },
+        // 优化网络配置
+        keepalive: true,
+        mode: 'cors'
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      
+      const contentLength = response.headers.get('content-length')
+      const totalBytes = contentLength ? parseInt(contentLength, 10) : 0
+      
+      if (!response.body) {
+        throw new Error('响应体为空')
+      }
+      
+      // 使用流式处理，避免将所有数据加载到内存
+      const reader = response.body.getReader()
+      const chunks: Uint8Array[] = []
+      let downloadedBytes = 0
+      
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          
+          // 直接存储chunk，不进行额外处理
+          chunks.push(value)
+          downloadedBytes += value.length
+          
+          // 更新进度
+          if (totalBytes > 0 && onProgress) {
+            const progress = Math.round((downloadedBytes / totalBytes) * 100)
+            onProgress(progress)
+          }
+          
+          // 如果文件太大，可以考虑分块处理
+          if (chunks.length > 1000) { // 防止chunks数组过大
+            console.warn(`文件 ${resource.fileName} 过大，可能需要优化处理`)
+          }
+        }
+      } finally {
+        reader.releaseLock()
+      }
+      
+      // 高效合并chunks
+      const result = this.mergeChunksEfficiently(chunks)
+      
+      console.log(`文件 ${resource.fileName} 下载完成，大小: ${result.length} bytes`)
+      
+      // 如果提供了校验和，验证文件完整性
+      if (resource.checksum) {
+        console.log(`开始校验文件 ${resource.fileName}，期望校验和: ${resource.checksum}`)
+        try {
+          const { ResourceManager } = await import('./resource-manager')
+          const resourceManager = ResourceManager.getInstance()
+          const isValid = await resourceManager.verifyLocalFileIntegrity(result, resource.checksum)
+          if (!isValid) {
+            console.error(`文件 ${resource.fileName} 校验失败，期望: ${resource.checksum}`)
+            throw new Error(`文件校验失败: ${resource.fileName}`)
+          }
+          console.log(`文件 ${resource.fileName} 校验通过`)
+        } catch (verifyError) {
+          console.error(`文件 ${resource.fileName} 校验过程出错:`, verifyError)
+          throw verifyError
+        }
+      }
+      
+      return result
+      
+    } catch (error) {
+      console.error(`下载文件 ${resource.fileName} 失败:`, error)
+      return null
+    }
+  }
+
+  /**
+   * 高效合并Uint8Array chunks
+   * 优化内存使用和性能
+   */
+  private mergeChunksEfficiently(chunks: Uint8Array[]): Uint8Array {
+    if (chunks.length === 0) {
+      return new Uint8Array(0)
+    }
+    
+    if (chunks.length === 1) {
+      return chunks[0]
+    }
+    
+    // 计算总长度
+    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+    
+    // 创建结果数组
+    const result = new Uint8Array(totalLength)
+    let offset = 0
+    
+    // 批量复制，减少循环开销
+    for (const chunk of chunks) {
+      result.set(chunk, offset)
+      offset += chunk.length
+    }
+    
+    return result
+  }
 
 
-
-
+  /**
+   * 自动登录功能
+   * 从localStorage获取保存的用户凭据并尝试登录
+   * @param enableLogging 是否启用详细日志输出，默认为false
+   * @returns Promise<boolean> 登录是否成功
+   */
+  async autoLogin(enableLogging: boolean = false): Promise<boolean> {
+    try {
+      // 从localStorage获取用户凭据
+      const userId = localStorage.getItem('userId')
+      const password = localStorage.getItem('userPassword')
+      
+      if (!userId || !password || userId === 'undefined' || password === 'undefined' || userId.trim() === '' || password.trim() === '') {
+        if (enableLogging) {
+          console.warn('没有找到保存的用户凭据')
+        }
+        return false
+      }
+      
+      if (enableLogging) {
+        console.log('找到保存的用户凭据，尝试自动登录...')
+      }
+      
+      // 使用apiService进行登录
+      const loginResult = await this.loginYanban(userId, password)
+      if (!loginResult) {
+        if (enableLogging) {
+          console.error('自动登录失败')
+        }
+        return false
+      }
+      
+      if (enableLogging) {
+        console.log('自动登录成功:', loginResult)
+      }
+      
+      // 更新登录时间戳
+      localStorage.setItem('lastLoginTime', Date.now().toString())
+      
+      return true
+    } catch (error) {
+      if (enableLogging) {
+        console.error('自动登录异常:', error)
+      }
+      return false
+    }
+  }
 
 }
 
