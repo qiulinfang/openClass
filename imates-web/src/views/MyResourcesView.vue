@@ -37,26 +37,6 @@
               unelevated
             />
           </div>
-          <div class="col-auto">
-            <q-btn
-              color="primary"
-              icon="download"
-              label="批量下载"
-              @click="downloadAllTextbooks"
-              :disable="loading || checkingUpdates"
-              unelevated
-            />
-          </div>
-          <div class="col-auto">
-            <q-btn
-              color="orange"
-              icon="pause"
-              label="暂停全部"
-              @click="pauseAllDownloads"
-              :disable="loading || checkingUpdates"
-              unelevated
-            />
-          </div>
         </div>
       </q-card>
     </div>
@@ -214,6 +194,17 @@
                 rounded
               />
               
+              <!-- 去学习按钮 - 已下载状态 -->
+              <q-btn
+                v-if="textbook.isDownloaded && textbook.downloadStatus === 2"
+                color="primary"
+                icon="school"
+                label="去学习"
+                @click="goToKnowledgeGraph(textbook)"
+                unelevated
+                rounded
+              />
+              
               <!-- 更新按钮 - 有更新可用 -->
               <q-btn
                 v-if="textbook.hasUpdatesAvailable && textbook.downloadStatus !== 1"
@@ -262,13 +253,6 @@
                       <q-item-section>删除</q-item-section>
                     </q-item>
                     
-                    <!-- 查看详情选项 -->
-                    <q-item clickable v-close-popup @click="viewTextbookDetails(textbook)">
-                      <q-item-section avatar>
-                        <q-icon name="info" color="info" />
-                      </q-item-section>
-                      <q-item-section>详情</q-item-section>
-                    </q-item>
                   </q-list>
                 </q-menu>
               </q-btn>
@@ -489,6 +473,61 @@ const toggleSubject = (subject: string) => {
   }
 }
 
+// 合并服务器数据和本地数据 - 优化版本：先解构本地数据，再解构服务器数据
+const mergeServerAndLocalData = (serverTextbooks: UserTextbookInfo[], localTextbooks: UserTextbookInfo[]): UserTextbookInfo[] => {
+  const mergedTextbooks: UserTextbookInfo[] = []
+  
+  // 1. 先添加所有服务器教材
+  serverTextbooks.forEach(serverTextbook => {
+    // 查找对应的本地教材
+    const localTextbook = localTextbooks.find(local => local.textbookId === serverTextbook.textbookId)
+    
+    if (localTextbook) {
+      // 🔥 优化：先解构本地数据，再解构服务器数据，避免属性丢失
+      const mergedTextbook: UserTextbookInfo = {
+        // 先解构本地数据，保留本地状态和进度信息
+        ...localTextbook,
+        // 再解构服务器数据，更新服务器的最新信息（会覆盖本地的旧信息）
+        ...serverTextbook,
+        // 保留方法（如果存在）
+        updateStructure: localTextbook.updateStructure || (() => {}),
+        updatePackages: localTextbook.updatePackages || (() => {}),
+        getLocalResourceFileName: localTextbook.getLocalResourceFileName || (() => '')
+      }
+      mergedTextbooks.push(mergedTextbook)
+    } else {
+      // 服务器新教材，添加到列表
+      mergedTextbooks.push({
+        ...serverTextbook,
+        isDownloaded: false,
+        downloadStatus: 0,
+        downloadedFiles: 0,
+        totalFiles: 0,
+        downloadPath: '',
+        lastDownloadTime: '',
+        learningPackages: [],
+        structure: [], // 🔥 初始化空结构
+        hasUpdatesAvailable: false, // 🔥 初始化更新状态
+        fileData: {}, // 🔥 初始化空文件数据
+        // 初始化方法
+        updateStructure: () => {},
+        updatePackages: () => {},
+        getLocalResourceFileName: () => ''
+      })
+    }
+  })
+  
+  // 2. 添加本地独有的教材（如果存在）
+  localTextbooks.forEach(localTextbook => {
+    const existsInServer = serverTextbooks.some(server => server.textbookId === localTextbook.textbookId)
+    if (!existsInServer) {
+      mergedTextbooks.push(localTextbook)
+    }
+  })
+  
+  return mergedTextbooks
+}
+
 // 加载资源数据
 const loadResources = async () => {
   loading.value = true
@@ -508,18 +547,23 @@ const loadResources = async () => {
       console.log('自动登录成功，继续加载资源')
     }
 
-    // 使用与安卓原生一致的数据获取策略：优先服务器数据，与本地数据合并
-    resourceManager.fetchUserAllOnlineTextbooks({
-      onSuccess: (data) => {
-        textbooks.value = data
-        updateSubjectChips()
-      },
-      onError: (error) => {
-        console.error('加载教材失败:', error)
-        showMessage('加载教材失败，请稍后重试', 'error')
-        textbooks.value = []
-      }
-    })
+    // 直接使用ApiService获取服务器教材
+    const serverTextbooks = await apiService.fetchUserAllOnlineTextbooks()
+    
+    // 获取本地教材数据
+    const localTextbooks = await resourceManager.indexedDB.getAll('textbooks') as UserTextbookInfo[]
+    
+    // 合并服务器数据和本地数据
+    const mergedTextbooks = mergeServerAndLocalData(serverTextbooks, localTextbooks)
+    
+    // 更新本地教材数据
+    for (const textbook of mergedTextbooks) {
+      await resourceManager.updateTextbookInfo(textbook)
+    }
+    
+    // 更新教材列表
+    textbooks.value = mergedTextbooks
+    updateSubjectChips()
   } catch (error) {
     console.error('加载资源失败:', error)
     showMessage('加载资源失败，请稍后重试', 'error')
@@ -546,36 +590,55 @@ const updateSubjectChips = () => {
   }
 }
 
-// 检查更新
-const checkForUpdates = () => {
+  // 检查更新 - 三级对比版本
+const checkForUpdates = async () => {
   checkingUpdates.value = true
-  resourceManager.checkForUpdates({
-    onUpdateAvailable: (updatedTextbooks) => {
+  
+  try {
+    console.log('开始执行三级更新检查...')
+    const updatedTextbooks = await apiService.checkForUpdates()
+    console.log('updatedTextbooks', updatedTextbooks) 
+    if (updatedTextbooks.length > 0) {
       // 更新教材的更新状态
-      textbooks.value.forEach(textbook => {
+      textbooks.value.forEach(async textbook => {
         const hasUpdate = updatedTextbooks.some(update => update.textbookId === textbook.textbookId)
         textbook.hasUpdatesAvailable = hasUpdate
+        console.log('updatedTextbooks', textbook.textbookName, textbook.hasUpdatesAvailable)
+        if (hasUpdate) {
+          console.log(`教材 ${textbook.textbookName} 标记为需要更新`)
+        }
+        
+        // 🔥 保存更新状态到 IndexedDB（使用批量更新）
+        await resourceManager.updateTextbookInfo(textbook, {
+          hasUpdatesAvailable: hasUpdate
+        }, false)
       })
       updateCount.value = updatedTextbooks.length
       showMessage(`发现 ${updatedTextbooks.length} 个教材有更新`, 'success')
-    },
-    onNoUpdates: () => {
-      textbooks.value.forEach(textbook => {
+      console.log(`三级对比检查完成，发现 ${updatedTextbooks.length} 个教材需要更新`)
+    } else {
+      textbooks.value.forEach(async textbook => {
         textbook.hasUpdatesAvailable = false
+        
+        // 🔥 保存更新状态到 IndexedDB（使用批量更新）
+        await resourceManager.updateTextbookInfo(textbook, {
+          hasUpdatesAvailable: false
+        }, false)
       })
       updateCount.value = 0
       showMessage('所有教材都是最新版本', 'info')
-    },
-      onError: (error) => {
-        console.error('检查更新失败:', error)
-        showMessage('检查更新失败，请稍后重试', 'error')
-      }
-  })
-  checkingUpdates.value = false
+      console.log('三级对比检查完成，所有教材都是最新版本')
+    }
+  } catch (error) {
+    console.error('检查更新失败:', error)
+    showMessage('检查更新失败，请稍后重试', 'error')
+  } finally {
+    checkingUpdates.value = false
+  }
 }
 
-// 下载教材 - 基于安卓原生下载逻辑完善
-const downloadTextbook = (textbook: UserTextbookInfo) => {
+// 下载教材 - 直接使用ApiService，移除不必要的中介方法
+const downloadTextbook = async (textbook: UserTextbookInfo) => {
   console.log(`开始下载教材: ${textbook.textbookName}`)
   
   // 设置下载状态
@@ -589,13 +652,31 @@ const downloadTextbook = (textbook: UserTextbookInfo) => {
   overallProgress.value = textbook.downloadedFiles / textbook.totalFiles
   showDownloadDialog.value = true
   
-  resourceManager.downloadTextbook(textbook.id, {
-    onSuccess: () => {
+  try {
+    // 1. 直接使用ApiService下载（内部会获取学习资源包）
+    const success = await apiService.downloadTextbook(textbook, async (progress) => {
+      // 更新下载进度 - 优化版本（基于实际下载进度）
+      // progress是0-100的百分比，直接使用
+      overallProgress.value = progress / 100
+      
+      // 计算已下载文件数：基于当前进度和总文件数
+      textbook.downloadedFiles = Math.floor((progress / 100) * textbook.totalFiles)
+      currentDownloadedFiles.value = textbook.downloadedFiles
+      
+      // 实时更新UI进度
+      console.log(`教材 ${textbook.textbookName} 下载进度: ${progress}% (${textbook.downloadedFiles}/${textbook.totalFiles})`)
+    })
+    
+    if (success) {
+      // 下载成功
       textbook.isDownloaded = true
       textbook.downloadStatus = 2 // 下载完成
       textbook.downloadedFiles = textbook.totalFiles
       textbook.lastDownloadTime = new Date().toISOString()
       textbook.hasUpdatesAvailable = false
+      
+      // 立即保存下载状态到IndexedDB（使用立即更新）
+      await resourceManager.updateTextbookInfo(textbook, undefined, true)
       
       // 更新进度对话框
       overallProgress.value = 1
@@ -609,54 +690,72 @@ const downloadTextbook = (textbook: UserTextbookInfo) => {
         showDownloadDialog.value = false
         currentDownloadTextbook.value = null
       }, 2000)
-    },
-    onError: (error) => {
+    } else {
+      // 下载失败
       textbook.downloadStatus = 0 // 下载失败
       textbook.isDownloaded = false
       
-      console.error('下载失败:', error)
-      showMessage(`《${textbook.textbookName}》下载失败: ${error}`, 'error')
+      console.error('下载失败')
+      showMessage(`《${textbook.textbookName}》下载失败`, 'error')
       
       // 关闭对话框
       showDownloadDialog.value = false
       currentDownloadTextbook.value = null
-    },
-    onProgress: (progress) => {
-      textbook.downloadStatus = 1 // 下载中
-      textbook.downloadedFiles = Math.floor((progress / 100) * textbook.totalFiles)
-      
-      // 更新进度对话框
-      overallProgress.value = progress / 100
-      currentDownloadedFiles.value = textbook.downloadedFiles
-      
-      // 实时更新UI进度
-      console.log(`教材 ${textbook.textbookName} 下载进度: ${progress}%`)
     }
-  })
+  } catch (error) {
+    // 下载异常
+    textbook.downloadStatus = 0 // 下载失败
+    textbook.isDownloaded = false
+    
+    console.error('下载失败:', error)
+    showMessage(`《${textbook.textbookName}》下载失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
+    
+    // 关闭对话框
+    showDownloadDialog.value = false
+    currentDownloadTextbook.value = null
+  }
 }
 
-// 暂停下载 - 基于安卓原生逻辑完善
-const pauseDownload = (textbook: UserTextbookInfo) => {
+// 暂停下载 - 直接使用ApiService
+const pauseDownload = async (textbook: UserTextbookInfo) => {
   console.log(`暂停下载教材: ${textbook.textbookName}`)
   
-  resourceManager.pauseDownload(textbook.textbookId, {
-    onSuccess: () => {
+  try {
+    const success = await apiService.pauseDownload(textbook.textbookId)
+    
+    if (success) {
       textbook.downloadStatus = 0 // 暂停状态
       textbook.isDownloaded = false
       
+      // 保存暂停状态到IndexedDB（使用立即更新）
+      await resourceManager.updateTextbookInfo(textbook, undefined, true)
+      
       showMessage(`《${textbook.textbookName}》下载已暂停`, 'warning')
       console.log(`教材 ${textbook.textbookName} 下载已暂停`)
-    },
-    onError: (error) => {
-      console.error('暂停下载失败:', error)
-      showMessage(`暂停《${textbook.textbookName}》失败: ${error}`, 'error')
+    } else {
+      showMessage(`暂停《${textbook.textbookName}》失败`, 'error')
     }
-  })
+  } catch (error) {
+    console.error('暂停下载失败:', error)
+    showMessage(`暂停《${textbook.textbookName}》失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
+  }
 }
 
 // 查看教材
 const viewTextbook = (textbook: UserTextbookInfo) => {
-  // 跳转到知识图谱页面，并传递教材信息
+  // 跳转到PDF查看页面，并传递教材信息
+  console.log('textbook', textbook)
+  router.push({
+    name: 'pdfViewer',
+    query: {
+      textbookId: textbook.textbookId,
+      textbookName: textbook.textbookName
+    }
+  })
+}
+
+// 跳转到知识图谱
+const goToKnowledgeGraph = (textbook: UserTextbookInfo) => {
   router.push({
     name: 'knowledgeGraph',
     query: {
@@ -686,7 +785,7 @@ const updateTextbook = (textbook: UserTextbookInfo) => {
   }
 }
 
-// 删除教材 - 基于安卓原生逻辑完善
+// 删除教材 - 直接使用ApiService
 const deleteTextbook = (textbook: UserTextbookInfo) => {
   console.log(`准备删除教材: ${textbook.textbookName}`)
   
@@ -694,9 +793,41 @@ const deleteTextbook = (textbook: UserTextbookInfo) => {
   confirmDialog.value = {
     title: '删除教材',
     message: `确定要删除教材"${textbook.textbookName}"吗？删除后将清除所有本地文件，需要重新下载。`,
-    action: () => {
-      resourceManager.deleteTextbook(textbook.textbookId, {
-        onSuccess: () => {
+    action: async () => {
+      try {
+        const success = await apiService.deleteTextbook(textbook.textbookId)
+        
+        if (success) {
+          // 从IndexedDB中删除教材数据
+          if (resourceManager.getUserLearnData()) {
+            resourceManager.getUserLearnData()!.textbooks = resourceManager.getUserLearnData()!.textbooks.filter(
+              t => t.textbookId !== textbook.textbookId
+            )
+          }
+          
+          // 删除相关的资源包和文件数据
+          try {
+            await resourceManager.indexedDB.delete('textbooks', textbook.textbookId)
+            // 删除相关的资源包
+            const packages = await resourceManager.indexedDB.query('packages', { 
+              index: 'textbookId', 
+              range: IDBKeyRange.only(textbook.textbookId) 
+            })
+            for (const pkg of packages) {
+              await resourceManager.indexedDB.delete('packages', (pkg as { packageId: string }).packageId)
+              // 删除相关的文件
+              const files = await resourceManager.indexedDB.query('files', { 
+                index: 'packageId', 
+                range: IDBKeyRange.only((pkg as { packageId: string }).packageId) 
+              })
+              for (const file of files) {
+                await resourceManager.indexedDB.delete('files', (file as { id: string }).id)
+              }
+            }
+          } catch (dbError) {
+            console.error('从IndexedDB删除教材数据失败:', dbError)
+          }
+          
           // 从列表中移除教材
           const index = textbooks.value.findIndex(t => t.textbookId === textbook.textbookId)
           if (index > -1) {
@@ -705,12 +836,13 @@ const deleteTextbook = (textbook: UserTextbookInfo) => {
           
           showMessage(`《${textbook.textbookName}》删除成功`, 'success')
           console.log(`教材 ${textbook.textbookName} 删除成功`)
-        },
-        onError: (error) => {
-          console.error('删除教材失败:', error)
-          showMessage(`删除《${textbook.textbookName}》失败: ${error}`, 'error')
+        } else {
+          showMessage(`删除《${textbook.textbookName}》失败`, 'error')
         }
-      })
+      } catch (error) {
+        console.error('删除教材失败:', error)
+        showMessage(`删除《${textbook.textbookName}》失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
+      }
     }
   }
 }
@@ -759,58 +891,8 @@ const formatDownloadTime = (timeString: string): string => {
   }
 }
 
-// 查看教材详情
-const viewTextbookDetails = (textbook: UserTextbookInfo) => {
-  console.log('查看教材详情:', textbook.textbookName)
-  
-  // 显示教材详细信息
-  const details = `
-教材名称: ${textbook.textbookName}
-学科: ${textbook.textbookSubjectLabel}
-年级: ${textbook.textbookGradeLabel} ${textbook.textbookSemesterLabel}
-出版社: ${textbook.textbookPublisher}
-ISBN: ${textbook.textbookIsbn}
-总文件数: ${textbook.totalFiles}
-已下载: ${textbook.downloadedFiles}
-下载状态: ${getDownloadStatusText(textbook.downloadStatus)}
-最后下载时间: ${textbook.lastDownloadTime ? formatDownloadTime(textbook.lastDownloadTime) : '未下载'}
-更新状态: ${textbook.hasUpdatesAvailable ? '有更新可用' : '已是最新版本'}
-  `
-  
-  showMessage(details, 'info')
-}
 
-// 获取下载状态文本
-const getDownloadStatusText = (status: number): string => {
-  switch (status) {
-    case 0: return '未下载'
-    case 1: return '下载中'
-    case 2: return '已下载'
-    default: return '未知状态'
-  }
-}
 
-// 批量操作 - 下载所有教材
-const downloadAllTextbooks = () => {
-  const undownloadedTextbooks = filteredTextbooks.value.filter(t => !t.isDownloaded && t.downloadStatus !== 1)
-  
-  if (undownloadedTextbooks.length === 0) {
-    showMessage('没有可下载的教材', 'info')
-    return
-  }
-  
-  showConfirmDialog.value = true
-  confirmDialog.value = {
-    title: '批量下载',
-    message: `确定要下载所有 ${undownloadedTextbooks.length} 个教材吗？`,
-    action: () => {
-      undownloadedTextbooks.forEach(textbook => {
-        downloadTextbook(textbook)
-      })
-      showMessage(`开始批量下载 ${undownloadedTextbooks.length} 个教材`, 'success')
-    }
-  }
-}
 
 // 暂停当前下载
 const pauseCurrentDownload = () => {
@@ -821,21 +903,6 @@ const pauseCurrentDownload = () => {
   }
 }
 
-// 批量操作 - 暂停所有下载
-const pauseAllDownloads = () => {
-  const downloadingTextbooks = filteredTextbooks.value.filter(t => t.downloadStatus === 1)
-  
-  if (downloadingTextbooks.length === 0) {
-    showMessage('没有正在下载的教材', 'info')
-    return
-  }
-  
-  downloadingTextbooks.forEach(textbook => {
-    pauseDownload(textbook)
-  })
-  
-  showMessage(`已暂停 ${downloadingTextbooks.length} 个教材的下载`, 'warning')
-}
 
 // 显示消息
 const showMessage = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {

@@ -4,6 +4,7 @@
  */
 
 import { httpClient } from './http-client'
+import { resourceManager } from './resource-manager'
 import CryptoJS from 'crypto-js'
 import {
   getApiUrl,
@@ -31,7 +32,6 @@ import type {
   FeedbackTicketRequest,
   FeedbackTicketResponse,
   UserTextbookInfo,
-  LocalPackageInfo,
 } from '../types'
 
 // 使用统一的类型定义，不再重复定义
@@ -183,21 +183,6 @@ export class ApiService {
     }
   }
 
-  /**
-   * 获取教材资源包信息
-   * 对应Android LearnResourceManager.getTextbookPackagesWithLocalFiles
-   */
-  public async getTextbookPackagesWithLocalFiles(id: string): Promise<LocalPackageInfo[]> {
-    try {
-      // 这里可以实现获取资源包信息的逻辑
-      // 由于是Web端，可能需要通过Android Bridge调用原生方法
-      console.log(`获取教材资源包信息: ${id}`)
-      return []
-    } catch (error) {
-      console.error('获取资源包信息失败:', error)
-      return []
-    }
-  }
 
   /**
    * 获取资源文件下载URL
@@ -1092,7 +1077,11 @@ export class ApiService {
       }>(endpoint, request)
       console.log(`获取学习资源包: ${id}`, response)
       if (response.success && response.data && response.data.data) {
-        return response.data.data
+        // 确保每个学习包都有packageId字段
+        return response.data.data.map(pkg => ({
+          ...pkg,
+          packageId: pkg.id // 设置packageId为id的值
+        }))
       }
       return []
     } catch (error) {
@@ -1255,28 +1244,40 @@ export class ApiService {
   }
 
   /**
-   * 检查教材更新
+   * 检查教材更新 - 三级对比版本
    * 对应Android LearnResourceManager.checkForUpdates
-   * 使用与安卓原生一致的接口路径和认证方式
+   * 实现教材→包→文件三级对比逻辑
    */
   public async checkForUpdates(): Promise<TextbookVersion[]> {
     try {
-      const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK_MANAGEMENT.CHECK_UPDATES
-      const response = await httpClient.post<{
-        code: number
-        success: boolean
-        message: string
-        data: TextbookVersion[]
-      }>(endpoint, {}, {
-        headers: {
-          'sa-token': localStorage.getItem('YANBAN_TOKEN') || ''
-        }
-      })
+      console.log('开始三级更新检查...')
       
-      if (response.success && response.data && response.data.data) {
-        return response.data.data
+      // 1. 获取服务器端教材版本列表
+      const serverTextbooks = await this.getTextbookVersions()
+      console.log('服务器教材版本:', serverTextbooks)
+      
+      // 2. 获取本地教材信息
+      const localTextbooks = await resourceManager.getUserLocalTextbooks()
+      console.log('本地教材信息:', localTextbooks)
+      
+      // 3. 执行三级对比检查
+      const updatedTextbooks: TextbookVersion[] = []
+      
+      for (const serverTextbook of serverTextbooks) {
+        const localTextbook = localTextbooks.find((t: UserTextbookInfo) => t.textbookId === serverTextbook.textbookId)
+        
+        // 检查是否需要更新
+        const needsUpdate = await this.checkTextbookUpdate(serverTextbook, localTextbook)
+        
+        if (needsUpdate) {
+          updatedTextbooks.push(serverTextbook)
+          console.log(`教材 ${serverTextbook.textbookName} 需要更新`)
+        }
       }
-      return []
+      
+      console.log(`发现 ${updatedTextbooks.length} 个教材需要更新`)
+      return updatedTextbooks
+      
     } catch (error) {
       console.error('检查教材更新失败:', error)
       return []
@@ -1284,44 +1285,272 @@ export class ApiService {
   }
 
   /**
-   * 下载教材资源 - 优化版本（支持并发下载）
+   * 检查单个教材是否需要更新 - 三级对比逻辑
+   * 对应Android LearnResourceManager.checkTextbookUpdate
+   */
+  private async checkTextbookUpdate(serverTextbook: TextbookVersion, localTextbook?: UserTextbookInfo): Promise<boolean> {
+    try {
+      // 第一级：教材级别检查
+      if (!localTextbook) {
+        console.log(`教材 ${serverTextbook.textbookName} 本地不存在，需要下载`)
+        return true
+      }
+      
+      // 教材更新时间比较
+      const textbookUpdated = this.isNewer(serverTextbook.textbookUpdateTime, localTextbook.textbookUpdateTime)
+      if (textbookUpdated) {
+        console.log(`教材 ${serverTextbook.textbookName} 教材级别已更新`)
+        return true
+      }
+      
+      // 第二级：包级别检查
+      const packageUpdated = await this.checkLearningPackageUpdates(serverTextbook, localTextbook)
+      if (packageUpdated) {
+        console.log(`教材 ${serverTextbook.textbookName} 包级别有更新`)
+        return true
+      }
+      
+      console.log(`教材 ${serverTextbook.textbookName} 无需更新`)
+      return false
+      
+    } catch (error) {
+      console.error(`检查教材 ${serverTextbook.textbookName} 更新失败:`, error)
+      return true // 出错时默认需要更新（安全策略）
+    }
+  }
+
+  /**
+   * 检查学习包更新
+   * 对应Android LearnResourceManager.checkLearningPackageUpdates
+   */
+  private async checkLearningPackageUpdates(serverTextbook: TextbookVersion, localTextbook: UserTextbookInfo): Promise<boolean> {
+    try {
+      // 获取服务器端学习包
+      const serverPackages = await this.getLearningResources(serverTextbook.id)
+      
+      // 获取本地学习包
+      const localPackages = localTextbook.learningPackages || []
+      
+      for (const serverPackage of serverPackages) {
+        const localPackage = localPackages.find(p => p.id === serverPackage.id)
+        
+        if (!localPackage) {
+          console.log(`发现新学习包: ${serverPackage.packageName}`)
+          return true
+        }
+        
+        // 包更新时间比较
+        if (this.isNewer(serverPackage.updateTime, localPackage.updateTime)) {
+          console.log(`学习包 ${serverPackage.packageName} 已更新`)
+          return true
+        }
+        
+        // 第三级：文件级别检查
+        const fileUpdated = this.hasFileUpdates(serverPackage, localPackage)
+        if (fileUpdated) {
+          console.log(`学习包 ${serverPackage.packageName} 文件有更新`)
+          return true
+        }
+      }
+      
+      // 检查是否有包被删除
+      for (const localPackage of localPackages) {
+        const foundOnServer = serverPackages.some(p => p.id === localPackage.id)
+        if (!foundOnServer) {
+          console.log(`学习包 ${localPackage.packageName} 已被删除`)
+          return true
+        }
+      }
+      
+      return false
+      
+    } catch (error) {
+      console.error('检查学习包更新失败:', error)
+      return true
+    }
+  }
+
+  /**
+   * 检查文件更新
+   * 对应Android LearnResourceManager.hasFileUpdates
+   */
+  private hasFileUpdates(serverPackage: LearningPackage, localPackage: any): boolean {
+    try {
+      // 如果本地包没有localFiles属性，说明还没有下载过，需要更新
+      if (!localPackage.localFiles || !Array.isArray(localPackage.localFiles)) {
+        console.log(`学习包 ${serverPackage.packageName} 尚未下载，需要更新`)
+        return true
+      }
+      
+      // 检查服务器文件
+      for (const serverFile of serverPackage.resourceList) {
+        const localFile = localPackage.localFiles.find((f: any) => f.id === serverFile.id)
+        
+        if (!localFile) {
+          console.log(`发现新文件: ${serverFile.fileName}`)
+          return true
+        }
+        
+        // 文件校验和比较
+        if (serverFile.checksum !== localFile.checksum) {
+          console.log(`文件 ${serverFile.fileName} 校验和不匹配`)
+          return true
+        }
+      }
+      
+      // 检查是否有文件被删除
+      for (const localFile of localPackage.localFiles) {
+        const foundOnServer = serverPackage.resourceList.some(f => f.id === localFile.id)
+        if (!foundOnServer) {
+          console.log(`文件 ${localFile.fileName} 已被删除`)
+          return true
+        }
+      }
+      
+      return false
+      
+    } catch (error) {
+      console.error('检查文件更新失败:', error)
+      return true
+    }
+  }
+
+  /**
+   * 时间比较方法
+   * 对应Android LearnResourceManager.isNewer
+   */
+  private isNewer(newTime: string, oldTime: string): boolean {
+    try {
+      const newDate = new Date(newTime)
+      const oldDate = new Date(oldTime)
+      
+      if (isNaN(newDate.getTime()) || isNaN(oldDate.getTime())) {
+        console.warn('时间格式解析失败:', { newTime, oldTime })
+        return true // 解析失败时默认需要更新（安全策略）
+      }
+      
+      return newDate > oldDate
+    } catch (error) {
+      console.error('时间比较失败:', error)
+      return true // 出错时默认需要更新（安全策略）
+    }
+  }
+
+  /**
+   * 下载教材资源 - 增量下载优化版本（只下载需要更新的文件）
    * 对应Android LearnResourceManager.downloadAllResources
    * 使用与安卓原生一致的接口路径和认证方式
    */
-  public async downloadTextbook(id: string, onProgress?: (progress: number) => void): Promise<boolean> {
+  public async downloadTextbook(textbook: UserTextbookInfo, onProgress?: (progress: number) => void): Promise<boolean> {
     try {
-      console.log(`开始下载教材: ${id}`)
+      console.log(`开始下载教材: ${textbook.id}`)
       
-      // 1. 获取教材的学习资源包
-      const learningPackages = await this.getLearningResources(id)
-      console.log('学习资源包', learningPackages)
-      if (!learningPackages || learningPackages.length === 0) {
-        console.warn(`教材 ${id} 没有可下载的资源`)
+      // 1. 获取服务器端的学习资源包
+      const serverPackages = await this.getLearningResources(textbook.id)
+      console.log('服务器学习资源包', serverPackages)
+      
+      if (!serverPackages || serverPackages.length === 0) {
+        console.warn(`教材 ${textbook.id} 没有可下载的资源`)
         return true // 没有资源也算成功
       }
       
-      // 2. 收集所有需要下载的文件
-      const allResources: Array<{resource: any, pkg: any}> = []
-      for (const pkg of learningPackages) {
-        if (pkg.resourceList && pkg.resourceList.length > 0) {
-          for (const resource of pkg.resourceList) {
-            allResources.push({ resource, pkg })
+      // 2. 获取本地学习资源包
+      const localPackages = textbook.learningPackages || []
+      console.log(`本地已有 ${localPackages.length} 个学习资源包`)
+      
+      // 3. 收集需要更新的文件（增量下载逻辑）
+      const filesToUpdate: Array<{resource: any, pkg: any}> = []
+      let totalServerFiles = 0
+      
+      for (const serverPackage of serverPackages) {
+        if (serverPackage.resourceList && serverPackage.resourceList.length > 0) {
+          totalServerFiles += serverPackage.resourceList.length
+          
+          // 查找对应的本地包
+          const localPackage = localPackages.find(p => p.packageId === serverPackage.packageId)
+          
+          if (!localPackage) {
+            // 新包：下载所有文件
+            console.log(`发现新学习包: ${serverPackage.packageName}，将下载所有 ${serverPackage.resourceList.length} 个文件`)
+            for (const resource of serverPackage.resourceList) {
+              filesToUpdate.push({ resource, pkg: serverPackage })
+            }
+          } else {
+            // 已存在的包：检查文件更新
+            const localFiles = localPackage.localFiles || []
+            let updatedFilesCount = 0
+            
+            for (const serverFile of serverPackage.resourceList) {
+              const localFile = localFiles.find(f => f.id === serverFile.id)
+              
+              if (!localFile) {
+                // 新文件
+                filesToUpdate.push({ resource: serverFile, pkg: serverPackage })
+                updatedFilesCount++
+              } else if (serverFile.checksum !== localFile.checksum) {
+                // 文件已更新（校验和不匹配）
+                filesToUpdate.push({ resource: serverFile, pkg: serverPackage })
+                updatedFilesCount++
+              }
+            }
+            
+            if (updatedFilesCount > 0) {
+              console.log(`学习包 ${serverPackage.packageName} 有 ${updatedFilesCount} 个文件需要更新`)
+            }
           }
         }
       }
       
-      const totalFiles = allResources.length
-      console.log(`教材 ${id} 共有 ${totalFiles} 个文件需要下载`)
-      if (totalFiles === 0) {
-        console.warn(`教材 ${id} 的资源包中没有文件`)
+      const filesToDownload = filesToUpdate.length
+      console.log(`教材 ${textbook.id} 总计 ${totalServerFiles} 个文件，需要下载 ${filesToDownload} 个文件`)
+      
+      // 4. 更新教材的学习资源包信息
+      textbook.learningPackages = serverPackages
+      
+      // 保存学习资源包到IndexedDB（使用批量更新）
+      try {
+        const { ResourceManager } = await import('./resource-manager')
+        const resourceManager = ResourceManager.getInstance()
+        const updateSuccess = await resourceManager.updateTextbookInfo(textbook, undefined, false)
+        
+        if (updateSuccess) {
+          console.log(`教材 ${textbook.textbookName} 学习资源包保存到IndexedDB成功`)
+        } else {
+          console.error(`教材 ${textbook.textbookName} 学习资源包保存到IndexedDB失败`)
+        }
+      } catch (storageError) {
+        console.error('保存学习资源包到IndexedDB失败:', storageError)
+      }
+      
+      // 5. 设置教材的总文件数（基于服务器端文件数）
+      try {
+        const { ResourceManager } = await import('./resource-manager')
+        const resourceManager = ResourceManager.getInstance()
+        await resourceManager.setTextbookTotalFiles(textbook.textbookId, totalServerFiles)
+      } catch (error) {
+        console.error('设置教材总文件数失败:', error)
+      }
+      
+      if (filesToDownload === 0) {
+        console.log(`教材 ${textbook.id} 所有文件都是最新的，无需下载`)
         return true
       }
       
-      // 3. 并发下载所有文件
-      const result = await this.downloadFilesConcurrently(allResources, totalFiles, onProgress)
+      // 6. 并发下载需要更新的文件
+      const result = await this.downloadFilesConcurrently(filesToUpdate, filesToDownload, textbook.textbookId, onProgress)
       
-      console.log(`教材 ${id} 下载完成，成功: ${result.successCount}/${totalFiles}`)
-      return result.successCount === totalFiles
+      // 7. 下载完成后强制刷新所有待更新的数据到IndexedDB
+      try {
+        const { ResourceManager } = await import('./resource-manager')
+        const resourceManager = ResourceManager.getInstance()
+        await resourceManager.forceFlushPendingUpdates()
+        console.log('下载完成后强制刷新IndexedDB成功')
+      } catch (flushError) {
+        console.error('下载完成后强制刷新IndexedDB失败:', flushError)
+      }
+      
+      console.log(`教材 ${textbook.id} 增量下载完成，成功: ${result.successCount}/${filesToDownload}`)
+      return result.successCount === filesToDownload
       
     } catch (error) {
       console.error('下载教材失败:', error)
@@ -1330,14 +1559,158 @@ export class ApiService {
   }
 
   /**
+   * 获取教材学习资源包 - 用于存储到UserTextbookInfo中
+   * @param id 教材版本ID
+   * @returns 学习资源包列表
+   */
+  public async getTextbookLearningPackages(id: string): Promise<LearningPackage[]> {
+    try {
+      return await this.getLearningResources(id)
+    } catch (error) {
+      console.error('获取教材学习资源包失败:', error)
+      return []
+    }
+  }
+
+  /**
+   * 更新学习包的本地文件信息
+   * @param textbookId 教材ID
+   * @param packageId 学习包ID
+   * @param resource 资源文件信息
+   * @param fileSize 文件大小
+   * @param immediate 是否立即更新到IndexedDB（默认false，使用批量更新）
+   */
+  private async updateLocalFileInfo(textbookId: string, packageId: string, resource: any, fileSize: number, immediate: boolean = false): Promise<void> {
+    try {
+      const { ResourceManager } = await import('./resource-manager')
+      const resourceManager = ResourceManager.getInstance()
+      
+      // 获取教材信息
+      const textbook = await resourceManager.getTextbookInfo(textbookId)
+      if (!textbook) {
+        console.error(`教材 ${textbookId} 不存在`)
+        return
+      }
+      
+      // 查找对应的学习包
+      const packageIndex = textbook.learningPackages.findIndex(p => p.packageId === packageId)
+      if (packageIndex === -1) {
+        console.error(`学习包 ${packageId} 不存在`)
+        return
+      }
+      
+      // 初始化localFiles数组
+      if (!textbook.learningPackages[packageIndex].localFiles) {
+        textbook.learningPackages[packageIndex].localFiles = []
+      }
+      
+      // 查找或创建本地文件信息
+      const localFileIndex = textbook.learningPackages[packageIndex].localFiles.findIndex(f => f.id === resource.id)
+      
+      const localFileInfo = {
+        id: resource.id,
+        fileName: resource.fileName,
+        fileSize: fileSize,
+        checksum: resource.checksum,
+        isDownloaded: true,
+        localPath: `${textbookId}/${packageId}/${resource.fileName}`
+      }
+      
+      if (localFileIndex === -1) {
+        // 添加新的本地文件信息
+        textbook.learningPackages[packageIndex].localFiles.push(localFileInfo)
+      } else {
+        // 更新现有的本地文件信息
+        textbook.learningPackages[packageIndex].localFiles[localFileIndex] = localFileInfo
+      }
+      
+      // 保存更新后的教材信息（使用批量更新）
+      await resourceManager.updateTextbookInfo(textbook, undefined, immediate)
+      console.log(`✅ 更新学习包 ${packageId} 的本地文件信息: ${resource.fileName}`)
+      
+    } catch (error) {
+      console.error('更新本地文件信息失败:', error)
+    }
+  }
+
+  /**
+   * 解析文件名中的章节顺序
+   * @param fileName 文件名
+   * @returns 章节顺序数字
+   */
+  private parseChapterOrderFromFileName(fileName: string): number {
+    // 常见的章节命名模式
+    const patterns = [
+      // 模式1: 第X章、第X节、第X课
+      /第(\d+)[章节课]/,
+      // 模式2: Chapter X、ChapterX
+      /Chapter\s*(\d+)/i,
+      // 模式3: 纯数字开头
+      /^(\d+)/,
+      // 模式4: 数字-数字格式 (如: 1-1, 2-3)
+      /^(\d+)-\d+/,
+      // 模式5: 数字.数字格式 (如: 1.1, 2.3)
+      /^(\d+)\.\d+/,
+      // 模式6: 数字_数字格式 (如: 1_1, 2_3)
+      /^(\d+)_\d+/,
+      // 模式7: 数字-数字-数字格式 (如: 1-1-1)
+      /^(\d+)-\d+-\d+/,
+      // 模式8: 数字.数字.数字格式 (如: 1.1.1)
+      /^(\d+)\.\d+\.\d+/,
+      // 模式9: 数字_数字_数字格式 (如: 1_1_1)
+      /^(\d+)_\d+_\d+/,
+      // 模式10: 中文数字 (一、二、三等)
+      /[一二三四五六七八九十百千万]+/,
+    ]
+    
+    for (let i = 0; i < patterns.length; i++) {
+      const match = fileName.match(patterns[i])
+      if (match) {
+        if (i === 9) {
+          // 中文数字转换
+          return this.convertChineseNumberToArabic(match[0])
+        } else {
+          return parseInt(match[1], 10)
+        }
+      }
+    }
+    
+    // 如果没有匹配到任何模式，返回一个很大的数字，排在最后
+    return 9999
+  }
+
+  /**
+   * 中文数字转阿拉伯数字
+   * @param chineseNum 中文数字
+   * @returns 阿拉伯数字
+   */
+  private convertChineseNumberToArabic(chineseNum: string): number {
+    // 简单的转换逻辑，可以根据需要扩展
+    if (chineseNum === '一') return 1
+    if (chineseNum === '二') return 2
+    if (chineseNum === '三') return 3
+    if (chineseNum === '四') return 4
+    if (chineseNum === '五') return 5
+    if (chineseNum === '六') return 6
+    if (chineseNum === '七') return 7
+    if (chineseNum === '八') return 8
+    if (chineseNum === '九') return 9
+    if (chineseNum === '十') return 10
+    
+    return 9999
+  }
+
+  /**
    * 并发下载文件列表 - 优化版本
    * @param allResources 所有资源文件列表
    * @param totalFiles 总文件数
+   * @param textbookId 教材ID
    * @param onProgress 进度回调
    */
   private async downloadFilesConcurrently(
     allResources: Array<{resource: any, pkg: any}>, 
     totalFiles: number, 
+    textbookId: string,
     onProgress?: (progress: number) => void
   ): Promise<{successCount: number, errorCount: number}> {
     
@@ -1354,7 +1727,7 @@ export class ApiService {
     let lastProgressUpdate = 0
     const PROGRESS_UPDATE_INTERVAL = 100 // 100ms更新一次进度
     
-    // 更新整体进度的函数
+    // 更新整体进度的函数 - 优化版本（基于实际需要下载的文件数）
     const updateOverallProgress = () => {
       const now = Date.now()
       if (now - lastProgressUpdate < PROGRESS_UPDATE_INTERVAL) return
@@ -1364,7 +1737,14 @@ export class ApiService {
         totalProgress += progress
       }
       
-      // 计算整体进度：(已完成文件数 * 100 + 当前文件总进度) / 总文件数
+      // 计算整体进度：基于实际需要下载的文件数
+      // 如果totalFiles为0（没有文件需要下载），直接返回100%
+      if (totalFiles === 0) {
+        onProgress?.(100)
+        return
+      }
+      
+      // 计算整体进度：(已完成文件数 * 100 + 当前文件总进度) / 需要下载的文件数
       const overallProgress = Math.round((totalProgress / totalFiles))
       onProgress?.(Math.min(overallProgress, 100))
       lastProgressUpdate = now
@@ -1372,7 +1752,7 @@ export class ApiService {
     
     // 创建下载任务
     const downloadTask = async (resourceInfo: {resource: any, pkg: any}) => {
-      const { resource } = resourceInfo
+      const { resource, pkg } = resourceInfo
       const fileId = resource.fileName
       
       try {
@@ -1390,6 +1770,39 @@ export class ApiService {
         
         if (fileData) {
           console.log(`文件下载完成: ${resource.fileName}`)
+          
+          // 保存文件二进制数据到IndexedDB
+          try {
+            const { ResourceManager } = await import('./resource-manager')
+            const resourceManager = ResourceManager.getInstance()
+            
+            // 解析章节顺序
+            const chapterOrder = this.parseChapterOrderFromFileName(resource.fileName)
+            
+            // 构建文件信息
+            const fileInfo = {
+              id: `${textbookId}_${resource.fileName}`, // 使用教材ID+文件名作为唯一ID
+              textbookId: textbookId, // 使用传入的教材ID
+              packageId: pkg.packageId,
+              fileName: resource.fileName,
+              fileType: resource.fileType || 'unknown',
+              fileSize: fileData.length,
+              checksum: resource.checksum,
+              chapterOrder: chapterOrder,
+              sortOrder: chapterOrder
+            }
+            // 保存文件数据（使用批量更新）
+            await resourceManager.storeFileData(fileInfo, fileData, false)
+            
+            // 更新学习包的本地文件信息（使用批量更新）
+            await this.updateLocalFileInfo(textbookId, pkg.packageId, resource, fileData.length, false)
+            
+            console.log(`✅ 文件数据已保存到IndexedDB: ${resource.fileName}`)
+          } catch (storageError) {
+            console.error(`❌ 保存文件数据失败: ${resource.fileName}`, storageError)
+            // 即使存储失败，也认为下载成功，但记录错误
+          }
+          
           results.push({ success: true, fileName: resource.fileName })
           successCount++
         } else {

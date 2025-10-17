@@ -70,11 +70,14 @@ export interface ChapterNode {
  */
 export interface LearningPackage {
   id: string // 资源包唯一标识
+  packageId: string // 资源包ID（与id相同，用于兼容性）
   packageName: string // 资源包名称
   packageDescription: string // 资源包描述
   updateTime: string // 更新时间
   resourceList: ResourceFile[] // 资源文件列表
+  localFiles?: LocalFileInfo[] // 本地文件信息列表
   eliminateNull(): void // 清除空值方法
+  updateDownloadStatus(): void // 更新下载状态方法
 }
 
 /**
@@ -121,27 +124,24 @@ export interface UserTextbookInfo {
   lastDownloadTime: string // 最后下载时间
   hasUpdatesAvailable: boolean // 是否有可用更新
   structure: ChapterNode[] // 教材结构
-  localPackages: LocalPackageInfo[] // 本地资源包信息
+  learningPackages: LearningPackage[] // 学习资源包列表
+  
+  // 新增：存储文件二进制数据的字段
+  fileData?: Record<string, Uint8Array> // 文件ID到二进制数据的映射
   
   updateStructure(structure: ChapterNode[]): void // 更新教材结构方法
   updatePackages(packages: LearningPackage[]): void // 更新资源包方法
   getLocalResourceFileName(resource: ResourceFile): string // 获取本地资源文件名方法
 }
 
+
 /**
- * 本地资源包信息
+ * 资源索引
  */
-export interface LocalPackageInfo {
-  packageId: string // 资源包ID
-  packageName: string // 资源包名称
-  packageDescription: string // 资源包描述
-  updateTime: string // 更新时间
-  totalFiles: number // 总文件数
-  downloadedFiles: number // 已下载文件数
-  downloadStatus: number // 下载状态
-  localFiles: LocalFileInfo[] // 本地文件信息列表
-  
-  updateDownloadStatus(): void // 更新下载状态方法
+export interface ResourceIndex {
+  textbook: TextbookVersion // 教材版本信息
+  packages: LearningPackage[] // 学习资源包列表
+  downloadTime: string // 下载时间
 }
 
 /**
@@ -154,15 +154,6 @@ export interface LocalFileInfo {
   checksum: string // 文件校验和
   isDownloaded: boolean // 是否已下载
   localPath?: string // 本地文件路径
-}
-
-/**
- * 资源索引
- */
-export interface ResourceIndex {
-  textbook: TextbookVersion // 教材版本信息
-  packages: LearningPackage[] // 学习资源包列表
-  downloadTime: string // 下载时间
 }
 
 /**

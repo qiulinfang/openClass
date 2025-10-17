@@ -34,7 +34,7 @@ export class IndexedDBService {
   private static instances: Map<string, IndexedDBService> = new Map()
   private db: IDBDatabase | null = null
   private config: IndexedDBConfig
-  private isInitialized = false
+  public isInitialized = false
 
   private constructor(config: IndexedDBConfig) {
     this.config = config
@@ -50,6 +50,7 @@ export class IndexedDBService {
     }
     return IndexedDBService.instances.get(key)!
   }
+
 
   /**
    * 初始化数据库连接
@@ -69,6 +70,9 @@ export class IndexedDBService {
       request.onsuccess = () => {
         this.db = request.result
         this.isInitialized = true
+        
+        // 确保所有存储都存在
+        this.ensureStoresExist()
         resolve()
       }
 
@@ -84,29 +88,41 @@ export class IndexedDBService {
    */
   private createStores(db: IDBDatabase): void {
     this.config.stores.forEach(storeConfig => {
-      // 如果存储已存在，先删除
-      if (db.objectStoreNames.contains(storeConfig.name)) {
-        db.deleteObjectStore(storeConfig.name)
-      }
-
-      // 创建存储
-      const store = db.createObjectStore(storeConfig.name, {
-        keyPath: storeConfig.keyPath,
-        autoIncrement: storeConfig.autoIncrement
-      })
-
-      // 创建索引
-      if (storeConfig.indexes) {
-        storeConfig.indexes.forEach(indexConfig => {
-          store.createIndex(
-            indexConfig.name,
-            indexConfig.keyPath,
-            {
-              unique: indexConfig.unique,
-              multiEntry: indexConfig.multiEntry
-            }
-          )
+      // 只有存储不存在时才创建
+      if (!db.objectStoreNames.contains(storeConfig.name)) {
+        // 创建存储
+        const store = db.createObjectStore(storeConfig.name, {
+          keyPath: storeConfig.keyPath,
+          autoIncrement: storeConfig.autoIncrement
         })
+
+        // 创建索引
+        if (storeConfig.indexes) {
+          storeConfig.indexes.forEach(indexConfig => {
+            store.createIndex(
+              indexConfig.name,
+              indexConfig.keyPath,
+              {
+                unique: indexConfig.unique,
+                multiEntry: indexConfig.multiEntry
+              }
+            )
+          })
+        }
+      }
+    })
+  }
+
+  /**
+   * 确保所有存储都存在（用于已存在的数据库）
+   */
+  private ensureStoresExist(): void {
+    if (!this.db) return
+    
+    this.config.stores.forEach(storeConfig => {
+      if (!this.db!.objectStoreNames.contains(storeConfig.name)) {
+        console.warn(`存储 ${storeConfig.name} 不存在，需要升级数据库版本`)
+        // 这里可以触发数据库升级或者使用降级方案
       }
     })
   }
@@ -168,14 +184,24 @@ export class IndexedDBService {
   public async get<T>(storeName: string, key: IDBValidKey): Promise<T | undefined> {
     await this.ensureInitialized()
     
+    // 检查存储是否存在
+    if (!this.db!.objectStoreNames.contains(storeName)) {
+      console.warn(`存储 ${storeName} 不存在，返回 undefined`)
+      return undefined
+    }
+    
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readonly')
-      const store = transaction.objectStore(storeName)
-      const request = store.get(key)
+      try {
+        const transaction = this.db!.transaction([storeName], 'readonly')
+        const store = transaction.objectStore(storeName)
+        const request = store.get(key)
 
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => {
-        reject(new Error(`获取数据失败: ${request.error?.message}`))
+        request.onsuccess = () => resolve(request.result)
+        request.onerror = () => {
+          reject(new Error(`获取数据失败: ${request.error?.message}`))
+        }
+      } catch (error) {
+        reject(new Error(`创建事务失败: ${error}`))
       }
     })
   }
@@ -204,6 +230,12 @@ export class IndexedDBService {
    */
   public async query<T>(storeName: string, options: QueryOptions = {}): Promise<T[]> {
     await this.ensureInitialized()
+    
+    // 检查存储是否存在
+    if (!this.db!.objectStoreNames.contains(storeName)) {
+      console.warn(`存储 ${storeName} 不存在，返回空数组`)
+      return []
+    }
     
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([storeName], 'readonly')
@@ -246,8 +278,9 @@ export class IndexedDBService {
 
   /**
    * 更新数据
+   * @returns Promise<boolean> 返回更新是否成功
    */
-  public async update<T>(storeName: string, data: T): Promise<void> {
+  public async update<T>(storeName: string, data: T): Promise<boolean> {
     await this.ensureInitialized()
     
     return new Promise((resolve, reject) => {
@@ -255,11 +288,23 @@ export class IndexedDBService {
       const store = transaction.objectStore(storeName)
       const request = store.put(data)
 
-      request.onsuccess = () => resolve()
+      request.onsuccess = () => {
+        console.log(`数据更新成功: ${storeName}`)
+        resolve(true)
+      }
       request.onerror = () => {
+        console.error(`更新数据失败: ${request.error?.message}`)
         reject(new Error(`更新数据失败: ${request.error?.message}`))
       }
     })
+  }
+
+  /**
+   * 添加或更新数据（put方法的别名）
+   * @returns Promise<boolean> 返回操作是否成功
+   */
+  public async put<T>(storeName: string, data: T): Promise<boolean> {
+    return this.update(storeName, data)
   }
 
   /**

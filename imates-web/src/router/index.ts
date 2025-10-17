@@ -6,6 +6,7 @@ import KnowledgeGraphView from '@/views/KnowledgeGraphView.vue'
 import MyProfileView from '@/views/MyProfileView.vue'
 import MyResourcesView from '@/views/MyResourcesView.vue'
 import FeedbackView from '@/views/FeedbackView.vue'
+import PdfViewerView from '@/views/PdfViewerView.vue'
 
 const router = createRouter({
   history: createWebHashHistory(), // 必须使用Hash模式
@@ -44,6 +45,11 @@ const router = createRouter({
           path: 'feedback',
           name: 'feedback',
           component: FeedbackView
+        },
+        {
+          path: 'pdf-viewer',
+          name: 'pdfViewer',
+          component: PdfViewerView
         }
       ]
     },
