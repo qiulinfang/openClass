@@ -11,6 +11,7 @@ const path = require('path')
 // 配置路径
 const ANDROID_ASSETS_PATH = path.join(__dirname, '../../app/src/main/assets')
 const WEBVIEW_SOURCE_PATH = path.join(__dirname, '../dist-webview')
+const FULL_APP_SOURCE_PATH = path.join(__dirname, '../dist-full')
 
 // 颜色输出
 const colors = {
@@ -167,12 +168,16 @@ function showDirectoryStructure(dirPath, prefix = '') {
  * 主部署函数
  */
 async function deployToAndroid() {
-  log('🚀 开始部署 WebView 页面到 Android 项目...', 'bright')
+  const isFullApp = pageType === 'full'
+  const sourcePath = isFullApp ? FULL_APP_SOURCE_PATH : WEBVIEW_SOURCE_PATH
+  const buildCommand = isFullApp ? 'npm run build:full' : 'npm run build:webview'
+  
+  log(`🚀 开始部署 ${isFullApp ? 'Vue.js 整体应用' : 'WebView 页面'}到 Android 项目...`, 'bright')
 
   // 步骤 1: 检查源目录
   logStep(1, '检查源目录')
-  if (!checkPathExists(WEBVIEW_SOURCE_PATH, 'WebView 构建目录')) {
-    logError('请先运行构建命令: npm run build:webview')
+  if (!checkPathExists(sourcePath, isFullApp ? 'Vue.js 整体应用构建目录' : 'WebView 构建目录')) {
+    logError(`请先运行构建命令: ${buildCommand}`)
     process.exit(1)
   }
 
@@ -186,28 +191,39 @@ async function deployToAndroid() {
   // 步骤 3: 清理目标目录中的旧文件
   logStep(3, '清理目标目录')
   try {
-    // 根据页面类型清理对应的页面目录
-    const pageDirToClean = getPageDirToClean(pageType)
-    if (pageDirToClean) {
-      const pagePath = path.join(ANDROID_ASSETS_PATH, pageDirToClean)
-      if (fs.existsSync(pagePath)) {
-        fs.rmSync(pagePath, { recursive: true, force: true })
-        logSuccess(`已清理旧页面目录: ${pageDirToClean}`)
+    if (isFullApp) {
+      // 清理整体应用目录
+      const fullAppPath = path.join(ANDROID_ASSETS_PATH, 'webapp')
+      if (fs.existsSync(fullAppPath)) {
+        fs.rmSync(fullAppPath, { recursive: true, force: true })
+        logSuccess('已清理旧整体应用目录: webapp')
       } else {
-        logInfo(`页面目录不存在，无需清理: ${pageDirToClean}`)
-      }
-    } else if (pageType === 'all') {
-      // 部署所有页面时，清理所有页面目录
-      const pageDirs = ['exerciseSolve', 'findExercise']
-      for (const pageDir of pageDirs) {
-        const pagePath = path.join(ANDROID_ASSETS_PATH, pageDir)
-        if (fs.existsSync(pagePath)) {
-          fs.rmSync(pagePath, { recursive: true, force: true })
-          logSuccess(`已清理页面目录: ${pageDir}`)
-        }
+        logInfo('整体应用目录不存在，无需清理: webapp')
       }
     } else {
-      logInfo('未指定页面类型，跳过页面目录清理')
+      // 根据页面类型清理对应的页面目录
+      const pageDirToClean = getPageDirToClean(pageType)
+      if (pageDirToClean) {
+        const pagePath = path.join(ANDROID_ASSETS_PATH, pageDirToClean)
+        if (fs.existsSync(pagePath)) {
+          fs.rmSync(pagePath, { recursive: true, force: true })
+          logSuccess(`已清理旧页面目录: ${pageDirToClean}`)
+        } else {
+          logInfo(`页面目录不存在，无需清理: ${pageDirToClean}`)
+        }
+      } else if (pageType === 'all') {
+        // 部署所有页面时，清理所有页面目录
+        const pageDirs = ['exerciseSolve', 'findExercise']
+        for (const pageDir of pageDirs) {
+          const pagePath = path.join(ANDROID_ASSETS_PATH, pageDir)
+          if (fs.existsSync(pagePath)) {
+            fs.rmSync(pagePath, { recursive: true, force: true })
+            logSuccess(`已清理页面目录: ${pageDir}`)
+          }
+        }
+      } else {
+        logInfo('未指定页面类型，跳过页面目录清理')
+      }
     }
     
     logSuccess('目标目录清理完成')
@@ -217,8 +233,9 @@ async function deployToAndroid() {
   }
 
   // 步骤 4: 复制文件
-  logStep(4, '复制 WebView 文件')
-  if (copyDirectory(WEBVIEW_SOURCE_PATH, ANDROID_ASSETS_PATH)) {
+  logStep(4, `复制 ${isFullApp ? 'Vue.js 整体应用' : 'WebView'} 文件`)
+  const targetPath = isFullApp ? path.join(ANDROID_ASSETS_PATH, 'webapp') : ANDROID_ASSETS_PATH
+  if (copyDirectory(sourcePath, targetPath)) {
     logSuccess('文件复制完成')
   } else {
     logError('文件复制失败')
@@ -239,29 +256,36 @@ async function deployToAndroid() {
   logStep(7, '使用说明')
   log('\n📱 Android WebView 集成说明:', 'bright')
   log('1. 在 Android 代码中加载页面:', 'yellow')
-  log('   String url = "file:///android_asset/exerciseSolve/index.html";', 'reset')
-  log('   webView.loadUrl(url);', 'reset')
   
-  log('\n2. 可用的页面路径:', 'yellow')
-  log('   - 习题解答: file:///android_asset/exerciseSolve/index.html', 'reset')
-  log('   - 习题查找: file:///android_asset/findExercise/index.html', 'reset')
-
-  log('\n3. 重新构建 Android 项目:', 'yellow')
-  log('   ./gradlew assembleDebug', 'reset')
+  if (isFullApp) {
+    log('   String url = "file:///android_asset/webapp/index.html";', 'reset')
+    log('   webView.loadUrl(url);', 'reset')
+    
+    log('\n2. Vue.js 整体应用路径:', 'yellow')
+    log('   - 主应用: file:///android_asset/webapp/index.html', 'reset')
+    log('   - 支持路由导航和完整功能', 'reset')
+  } else {
+    log('   String url = "file:///android_asset/exerciseSolve/index.html";', 'reset')
+    log('   webView.loadUrl(url);', 'reset')
+    
+    log('\n2. 可用的页面路径:', 'yellow')
+    log('   - 习题解答: file:///android_asset/exerciseSolve/index.html', 'reset')
+    log('   - 习题查找: file:///android_asset/findExercise/index.html', 'reset')
+  }
 
   log('\n🎉 部署完成！', 'green')
   
   // 步骤 8: 清理源目录
   logStep(8, '清理源目录')
   try {
-    if (fs.existsSync(WEBVIEW_SOURCE_PATH)) {
-      fs.rmSync(WEBVIEW_SOURCE_PATH, { recursive: true, force: true })
-      logSuccess('已删除 dist-webview 目录')
+    if (fs.existsSync(sourcePath)) {
+      fs.rmSync(sourcePath, { recursive: true, force: true })
+      logSuccess(`已删除 ${isFullApp ? 'dist-full' : 'dist-webview'} 目录`)
     } else {
-      logInfo('dist-webview 目录不存在，无需清理')
+      logInfo(`${isFullApp ? 'dist-full' : 'dist-webview'} 目录不存在，无需清理`)
     }
   } catch (error) {
-    logWarning(`清理 dist-webview 目录失败: ${error.message}`)
+    logWarning(`清理 ${isFullApp ? 'dist-full' : 'dist-webview'} 目录失败: ${error.message}`)
   }
 }
 
@@ -304,6 +328,8 @@ function getPageDirToClean(pageType) {
     case 'find':
     case 'findExercise':
       return 'findExercise'
+    case 'full':
+      return 'webapp' // 整体应用部署到 webapp 目录
     case 'all':
       return null // 部署所有页面时，在步骤3中单独处理
     default:
@@ -328,8 +354,12 @@ switch (command) {
     log('\n页面类型:', 'yellow')
     log('  exercise 或 exerciseSolve  - 习题解答页面', 'reset')
     log('  find 或 findExercise       - 习题查找页面', 'reset')
+    log('  full                       - Vue.js 整体应用', 'reset')
+    log('  all                        - 所有 WebView 页面', 'reset')
     log('\n示例:', 'yellow')
-    log('  npm run deploy:android          - 构建并部署', 'reset')
-    log('  npm run deploy:android:cleanup  - 清理备份', 'reset')
+    log('  npm run deploy:full         - 构建并部署整体应用', 'reset')
+    log('  npm run deploy:exercise     - 构建并部署习题解答页面', 'reset')
+    log('  npm run deploy:find        - 构建并部署习题查找页面', 'reset')
+    log('  npm run deploy             - 构建并部署所有 WebView 页面', 'reset')
     break
 }

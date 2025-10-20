@@ -36,6 +36,12 @@ import com.cosinetech.imates.teachermessagemq.MessagingManager;
 import com.cosinetech.imates.teachermessagemq.StudentMessage;
 import com.cosinetech.imates.utils.ImageUtils;
 import com.cosinetech.imates.utils.VoiceDbUtil;
+import com.cosinetech.imates.screencasting.ScreenCastingManager;
+import com.cosinetech.imates.ApplicationModelShared;
+import org.loka.screensharekit.ScreenShareKit;
+import org.loka.screensharekit.EncodeBuilder;
+import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
+import com.cosinetech.imates.screencasting.H264IFrameCache;
 
 import java.io.File;
 import java.io.IOException;
@@ -52,6 +58,7 @@ import org.json.JSONObject;
 public class WebAppInterface {
     Context mContext;
     private ExerciseSolveActivityBridge exerciseBridge;
+    private FindExerciseActivityBridge findExerciseBridge;
 
     // 语音录制相关
     private MediaRecorder mediaRecorder;
@@ -82,6 +89,11 @@ public class WebAppInterface {
     // 设置ExerciseSolve桥接器
     public void setExerciseBridge(ExerciseSolveActivityBridge bridge) {
         this.exerciseBridge = bridge;
+    }
+
+    // 设置FindExercise桥接器
+    public void setFindExerciseBridge(FindExerciseActivityBridge bridge) {
+        this.findExerciseBridge = bridge;
     }
 
     /**
@@ -1405,6 +1417,13 @@ public class WebAppInterface {
         void onTeacherMessageReceived(String messageData);
     }
 
+    // FindExercise桥接器接口
+    public interface FindExerciseActivityBridge {
+        void startExerciseSolveWebView();
+        void finishActivity();
+        void showToast(String message);
+    }
+
     // ========== FindExercise 相关接口 ==========
     
     /**
@@ -1470,6 +1489,175 @@ public class WebAppInterface {
         } else if (exerciseBridge instanceof FindExerciseActivityBridge) {
             ((FindExerciseActivityBridge) exerciseBridge).showToast(message);
         }
+    }
+
+    // ========== 加入课堂相关接口 ==========
+    
+    /**
+     * 加入课堂
+     * @param studentId 学生ID
+     * @param studentName 学生姓名
+     * @param isGuest 是否为游客模式
+     * @returns 操作结果
+     */
+    @JavascriptInterface
+    public String joinClassroom(String studentId, String studentName, boolean isGuest) {
+        Log.d(TAG, "🔍 WebAppInterface加入课堂 - 开始: studentId=" + studentId + ", studentName=" + studentName + ", isGuest=" + isGuest);
+        
+        try {
+            // 检查是否已在课堂中
+            if (ScreenCastingManager.isHavingClass()) {
+                Log.d(TAG, "🔍 WebAppInterface加入课堂 - 已在课堂中");
+                return createResponse(false, "已在课堂中", null);
+            }
+            
+            // 获取用户ID
+            String userId = AppUtils.getUserId();
+            if (userId == null || userId.isEmpty()) {
+                return createResponse(false, "用户未登录", null);
+            }
+            
+            // 游客模式处理
+            if (isGuest || userId.equals("guest000")) {
+                Log.d(TAG, "🔍 WebAppInterface加入课堂 - 游客模式");
+                ApplicationModelShared.getInstance().fakeClassMode = true;
+                return createResponse(true, "游客模式加入课堂成功", "{\"mode\":\"guest\",\"isInClass\":true}");
+            }
+            
+            // 正式用户模式 - 这里需要Activity上下文来初始化ScreenShareKit
+            if (mContext instanceof androidx.fragment.app.FragmentActivity) {
+                androidx.fragment.app.FragmentActivity activity = (androidx.fragment.app.FragmentActivity) mContext;
+                activity.runOnUiThread(() -> {
+                    try {
+                        // 初始化ScreenShareKit
+                        ScreenShareKit.INSTANCE.init(activity)
+                            .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000, 
+                                   EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
+                            .onH264((buffer, isKeyFrame, width, height, ts) -> {
+                                try {
+                                    // 编码后的数据
+                                    byte[] bytes = new byte[buffer.remaining()];
+                                    buffer.get(bytes);
+                                    
+                                    // 这里需要H264MpegTSStreamerManager实例，暂时跳过
+                                    Log.d(TAG, "🔍 WebAppInterface加入课堂 - H264数据接收");
+                                    if (isKeyFrame) {
+                                        H264IFrameCache.getInstance().onH264Frame(bytes);
+                                    }
+                                } catch (Exception e) {
+                                    Log.e(TAG, "🔍 WebAppInterface加入课堂 - H264回调错误", e);
+                                }
+                            })
+                            .onError(errorInfo -> Log.e(TAG, "🔍 WebAppInterface加入课堂 - ScreenShareKit错误: " + errorInfo.getMessage()))
+                            .onStart(() -> {
+                                ScreenCastingManager.setClassMode(true);
+                                Log.d(TAG, "🔍 WebAppInterface加入课堂 - ScreenShareKit启动成功");
+                            })
+                            .start();
+                    } catch (Exception e) {
+                        Log.e(TAG, "🔍 WebAppInterface加入课堂 - ScreenShareKit初始化失败", e);
+                    }
+                });
+                
+                return createResponse(true, "正在加入课堂", "{\"mode\":\"formal\",\"isJoining\":true}");
+            } else {
+                return createResponse(false, "需要FragmentActivity上下文", null);
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "🔍 WebAppInterface加入课堂 - 发生错误", e);
+            return createResponse(false, "加入课堂失败: " + e.getMessage(), null);
+        }
+    }
+    
+    /**
+     * 退出课堂
+     * @returns 操作结果
+     */
+    @JavascriptInterface
+    public String exitClassroom() {
+        Log.d(TAG, "🔍 WebAppInterface退出课堂 - 开始");
+        
+        try {
+            // 检查是否在课堂中
+            if (!ScreenCastingManager.isHavingClass()) {
+                Log.d(TAG, "🔍 WebAppInterface退出课堂 - 未在课堂中");
+                return createResponse(false, "未在课堂中", null);
+            }
+            
+            // 获取用户ID
+            String userId = AppUtils.getUserId();
+            if (userId == null || userId.isEmpty()) {
+                return createResponse(false, "用户未登录", null);
+            }
+            
+            // 游客模式处理
+            if (userId.equals("guest000")) {
+                Log.d(TAG, "🔍 WebAppInterface退出课堂 - 游客模式");
+                ApplicationModelShared.getInstance().fakeClassMode = false;
+                return createResponse(true, "游客模式退出课堂成功", "{\"mode\":\"guest\",\"isInClass\":false}");
+            }
+            
+            // 正式用户模式
+            Log.d(TAG, "🔍 WebAppInterface退出课堂 - 正式用户模式");
+            ScreenCastingManager.setClassMode(false);
+            ScreenShareKit.INSTANCE.stop();
+            
+            return createResponse(true, "退出课堂成功", "{\"mode\":\"formal\",\"isInClass\":false}");
+            
+        } catch (Exception e) {
+            Log.e(TAG, "🔍 WebAppInterface退出课堂 - 发生错误", e);
+            return createResponse(false, "退出课堂失败: " + e.getMessage(), null);
+        }
+    }
+    
+    /**
+     * 获取课堂状态
+     * @returns 课堂状态信息
+     */
+    @JavascriptInterface
+    public String getClassroomStatus() {
+        Log.d(TAG, "🔍 WebAppInterface获取课堂状态 - 开始");
+        
+        try {
+            String userId = AppUtils.getUserId();
+            boolean isInClass = ScreenCastingManager.isHavingClass();
+            boolean isProjecting = ScreenCastingManager.isProjecting();
+            boolean isGuest = userId != null && userId.equals("guest000");
+            
+            String status = String.format(Locale.getDefault(),
+                "{\"isInClass\":%b,\"isProjecting\":%b,\"isGuest\":%b,\"userId\":\"%s\"}",
+                isInClass, isProjecting, isGuest, userId != null ? userId : "");
+            
+            Log.d(TAG, "🔍 WebAppInterface获取课堂状态 - 状态: " + status);
+            return createResponseWithJsonData(true, "获取课堂状态成功", status);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "🔍 WebAppInterface获取课堂状态 - 发生错误", e);
+            return createResponse(false, "获取课堂状态失败: " + e.getMessage(), null);
+        }
+    }
+    
+    /**
+     * 检查是否在课堂中
+     * @returns 是否在课堂中
+     */
+    @JavascriptInterface
+    public boolean isInClassroom() {
+        boolean isInClass = ScreenCastingManager.isHavingClass();
+        Log.d(TAG, "🔍 WebAppInterface检查课堂状态 - isInClass: " + isInClass);
+        return isInClass;
+    }
+    
+    /**
+     * 检查是否正在投影
+     * @returns 是否正在投影
+     */
+    @JavascriptInterface
+    public boolean isProjecting() {
+        boolean isProjecting = ScreenCastingManager.isProjecting();
+        Log.d(TAG, "🔍 WebAppInterface检查投影状态 - isProjecting: " + isProjecting);
+        return isProjecting;
     }
 
     // ========== 键盘控制相关接口 ==========

@@ -130,7 +130,14 @@ export default defineConfig({
         // 确保文件名不包含特殊字符
         entryFileNames: 'assets/[name].[hash].js',
         chunkFileNames: 'assets/[name].[hash].js',
-        assetFileNames: 'assets/[name].[hash].[ext]'
+        assetFileNames: 'assets/[name].[hash].[ext]',
+        // 手动分割代码块以减少单个文件大小
+        manualChunks: {
+          'vendor': ['vue', 'vue-router', 'pinia'],
+          'quasar': ['quasar'],
+          'mathlive': ['mathlive'],
+          'tiptap': ['@tiptap/core', '@tiptap/vue-3', '@tiptap/starter-kit']
+        }
       }
     }
   }

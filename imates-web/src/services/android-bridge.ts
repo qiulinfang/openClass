@@ -1045,7 +1045,7 @@ export class AndroidBridge {
       if (window.AndroidBridge?.getClassroomStatus) {
         const result = window.AndroidBridge.getClassroomStatus()
         console.log('🔍 AndroidBridge获取课堂状态 - 原生方法返回', result)
-        const parsedResult = this.parseJSON<import('../types').BridgeClassroomStatus>(result, null)
+        const parsedResult = this.parseJSON<import('../types').BridgeClassroomStatus>(result, null as any)
         return parsedResult
       }
       

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="">
+  <head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vite App</title>
+    
+    <!-- MathJax Configuration -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'],
+          // 完全禁用右键菜单和MathLive功能列表
+          menuOptions: {
+            context: 'None', // 禁用右键菜单
+            semantics: false, // 禁用语义菜单
+            zoom: 'None', // 禁用缩放菜单
+            assistiveMml: false, // 禁用辅助功能
+            collapsible: false, // 禁用折叠功能
+            inTabOrder: false, // 禁用Tab键导航
+            renderer: 'CHTML' // 强制使用CHTML渲染器
+          },
+          // 禁用MathJax的交互功能
+          enableMenu: false, // 完全禁用菜单
+          enableExplorer: false, // 禁用探索器
+          enableAssistiveMml: false, // 禁用辅助MathML
+          enableCollapsible: false, // 禁用折叠功能
+          enableEnrichment: false // 禁用富化功能
+        },
+        startup: {
+          ready: function () {
+            // 正常启动MathJax
+            MathJax.startup.defaultReady();
+            
+            // 延迟添加事件监听器，确保MathJax完全加载后再禁用右键菜单
+            setTimeout(() => {
+              // 添加全局事件监听器，禁用公式元素的右键菜单
+              document.addEventListener('contextmenu', function(e) {
+                const target = e.target;
+                if (target && (
+                  target.classList.contains('mjx-chtml') ||
+                  target.classList.contains('mjx-math') ||
+                  target.hasAttribute('data-mjx-texclass') ||
+                  target.closest('.mjx-chtml') ||
+                  target.closest('.mjx-math') ||
+                  target.closest('[data-mjx-texclass]')
+                )) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  return false;
+                }
+              }, true);
+              
+              // 禁用公式元素的长按事件
+              document.addEventListener('touchstart', function(e) {
+                const target = e.target;
+                if (target && (
+                  target.classList.contains('mjx-chtml') ||
+                  target.classList.contains('mjx-math') ||
+                  target.hasAttribute('data-mjx-texclass') ||
+                  target.closest('.mjx-chtml') ||
+                  target.closest('.mjx-math') ||
+                  target.closest('[data-mjx-texclass]')
+                )) {
+                  e.stopPropagation();
+                }
+              }, true);
+              
+              document.addEventListener('touchend', function(e) {
+                const target = e.target;
+                if (target && (
+                  target.classList.contains('mjx-chtml') ||
+                  target.classList.contains('mjx-math') ||
+                  target.hasAttribute('data-mjx-texclass') ||
+                  target.closest('.mjx-chtml') ||
+                  target.closest('.mjx-math') ||
+                  target.closest('[data-mjx-texclass]')
+                )) {
+                  e.stopPropagation();
+                }
+              }, true);
+            }, 1000); // 延迟1秒确保MathJax完全加载
+          }
+        }
+      };
+    </script>
+    <script type="text/javascript" id="MathJax-script" async
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+    </script>
+    <script type="module" crossorigin src="./assets/index.BYL4xqZB.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/vendor.2ZcNzhav.js">
+    <link rel="stylesheet" crossorigin href="./assets/index.BXwuxB7D.css">
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+</html>

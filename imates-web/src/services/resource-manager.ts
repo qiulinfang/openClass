@@ -38,17 +38,18 @@ export class ResourceManager {
     // 初始化IndexedDB配置 - 简化设计，移除files表，文件数据直接存储在textbooks中
     this.indexedDBInstance = IndexedDBService.getInstance({
       dbName: 'TextbookStorage',
-      version: 5, // 升级版本号，移除files表
+      version: 6, // 升级版本号，修改主键为id
       stores: [
         {
           name: 'textbooks',
-          keyPath: 'textbookId',
+          keyPath: 'id',
           indexes: [
             { name: 'isDownloaded', keyPath: 'isDownloaded' },
             { name: 'downloadStatus', keyPath: 'downloadStatus' },
             { name: 'lastDownloadTime', keyPath: 'lastDownloadTime' },
             { name: 'subjectLabel', keyPath: 'textbookSubjectLabel' },
-            { name: 'gradeLabel', keyPath: 'textbookGradeLabel' }
+            { name: 'gradeLabel', keyPath: 'textbookGradeLabel' },
+            { name: 'textbookId', keyPath: 'textbookId' }
           ]
         }
       ]
@@ -226,10 +227,9 @@ export class ResourceManager {
   }
 
   /**
-   * 更新教材信息 - 优化版本，支持批量更新
+   * 更新教材信息到IndexedDB
    * @param textbook 教材信息对象
    * @param updates 可选的部分更新数据
-   * @param immediate 是否立即更新到IndexedDB（默认true，立即保存）
    * @returns Promise<boolean> 返回更新是否成功
    */
   public async updateTextbookInfo(
@@ -241,8 +241,7 @@ export class ResourceManager {
       lastDownloadTime?: string
       hasUpdatesAvailable?: boolean
       [key: string]: unknown
-    },
-    immediate: boolean = true
+    }
   ): Promise<boolean> {
     try {
       // 如果提供了更新数据，则合并到教材信息中
@@ -250,24 +249,17 @@ export class ResourceManager {
         Object.assign(textbook, updates)
       }
       
-      if (immediate) {
-        // 立即更新到IndexedDB
-        try {
-          // 使用深度序列化方法创建可存储到IndexedDB的数据
-          const serializableTextbook = this.deepSerialize(textbook)
-          
-          // 更新到IndexedDB
-          const result = await this.indexedDBInstance.update('textbooks', serializableTextbook)
-          
-          return result
-        } catch (error) {
-          return false
-        }
-      } else {
-        // 添加到批量更新队列
-        this.pendingUpdates.set(textbook.textbookId, textbook)
-        this.debouncedFlush()
-        return true
+      // 立即更新到IndexedDB
+      try {
+        // 使用深度序列化方法创建可存储到IndexedDB的数据
+        const serializableTextbook = this.deepSerialize(textbook)
+        
+        // 更新到IndexedDB
+        const result = await this.indexedDBInstance.update('textbooks', serializableTextbook)
+        
+        return result
+      } catch (error) {
+        return false
       }
     } catch (error) {
       return false
@@ -337,14 +329,14 @@ export class ResourceManager {
     checksum?: string
     chapterOrder?: number
     sortOrder?: number
-  }, fileData: Uint8Array, immediate: boolean = true, textbook?: UserTextbookInfo): Promise<void> {
+  }, fileData: Uint8Array, textbook?: UserTextbookInfo): Promise<void> {
     try {
       // 获取教材信息 - 优先使用传入的教材信息，避免并发时重复获取
       let textbookInfo: UserTextbookInfo
       if (textbook) {
         textbookInfo = textbook
       } else {
-        textbookInfo = await this.indexedDBInstance.get('textbooks', fileInfo.textbookId) as UserTextbookInfo
+        textbookInfo = await this.indexedDBInstance.getByIndex('textbooks', 'textbookId', fileInfo.textbookId) as UserTextbookInfo
         if (!textbookInfo) {
           throw new Error(`教材 ${fileInfo.textbookId} 不存在`)
         }
@@ -387,9 +379,8 @@ export class ResourceManager {
         }
       }
       
-      // 使用优化的更新方法（默认使用批量更新）
-      // 注意：immediate=true时，确保使用最新的textbookInfo数据
-      const success = await this.updateTextbookInfo(textbookInfo, undefined, immediate)
+      // 更新教材信息到IndexedDB
+      const success = await this.updateTextbookInfo(textbookInfo, undefined)
       
       if (!success) {
         throw new Error('更新教材信息失败')
@@ -480,30 +471,6 @@ export class ResourceManager {
     }
   }
   
-  /**
-   * 设置教材的总文件数
-   * @param textbookId 教材ID
-   * @param totalFiles 总文件数
-   */
-  public async setTextbookTotalFiles(textbookId: string, totalFiles: number): Promise<void> {
-    try {
-      
-      // 使用教材ID查找教材记录
-      const textbooks = await this.indexedDBInstance.getAll('textbooks') as Record<string, unknown>[]
-      const textbook = textbooks.find(t => (t as Record<string, unknown>).textbookId === textbookId)
-      
-      if (!textbook) {
-        return
-      }
-      
-      textbook.totalFiles = totalFiles
-      await this.indexedDBInstance.update('textbooks', textbook)
-      
-      // 总文件数设置成功
-    } catch (error) {
-      throw error
-    }
-  }
 
 
   /**
@@ -512,7 +479,7 @@ export class ResourceManager {
   private async cleanupTextbookRelatedData(textbookId: string): Promise<void> {
     try {
       // 获取教材信息
-      const textbook = await this.indexedDBInstance.get('textbooks', textbookId) as Record<string, unknown>
+      const textbook = await this.indexedDBInstance.getByIndex('textbooks', 'textbookId', textbookId) as Record<string, unknown>
       if (textbook && textbook.fileData) {
         // 清空教材中的文件数据
         textbook.fileData = {}
@@ -535,7 +502,7 @@ export class ResourceManager {
       
       // 从IndexedDB获取所有教材
       const textbooks = await this.indexedDBInstance.getAll('textbooks')
-      
+      console.log('textbooks', textbooks)
       // 转换为UserTextbookInfo对象
       const userTextbooks: UserTextbookInfo[] = textbooks.map((data: unknown) => {
         const dataRecord = data as Record<string, unknown>
@@ -608,10 +575,34 @@ export class ResourceManager {
    */
   public async getTextbookInfo(textbookId: string): Promise<UserTextbookInfo | null> {
     try {
-      const textbook = await this.indexedDBInstance.get('textbooks', textbookId) as UserTextbookInfo
+      // 现在主键是id，需要通过textbookId索引查询
+      const textbook = await this.indexedDBInstance.getByIndex('textbooks', 'textbookId', textbookId) as UserTextbookInfo
       return textbook || null
     } catch {
       return null
+    }
+  }
+
+  /**
+   * 清理教材文件数据
+   * @param textbookId 教材ID
+   */
+  public async clearTextbookFiles(textbookId: string): Promise<void> {
+    try {
+      // 获取教材信息
+      const textbook = await this.indexedDBInstance.getByIndex('textbooks', 'textbookId', textbookId) as Record<string, unknown>
+      if (textbook && textbook.fileData) {
+        // 清空教材中的文件数据
+        textbook.fileData = {}
+        textbook.localFiles = []
+        textbook.downloadedFiles = 0
+        textbook.isDownloaded = false
+        textbook.downloadStatus = 0
+        textbook.lastDownloadTime = ''
+        await this.indexedDBInstance.update('textbooks', textbook)
+      }
+    } catch {
+      // 清理教材相关数据失败
     }
   }
 

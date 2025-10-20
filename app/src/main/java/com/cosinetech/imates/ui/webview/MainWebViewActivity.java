@@ -16,11 +16,8 @@ import com.cosinetech.imates.R;
 import com.cosinetech.imates.ui.activities.BaseActivity;
 import com.cosinetech.imates.ui.webview.common.WebAppInterface;
 import com.cosinetech.imates.ui.webview.common.WebViewConfig;
-import com.cosinetech.imates.ui.webview.common.ImatesWebIntegration;
-import com.cosinetech.imates.ui.webview.common.WebViewNavigationManager;
 import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.WindowUtils;
-import com.cosinetech.imates.BuildConfig;
 
 /**
  * 主WebView Activity
@@ -40,7 +37,7 @@ public class MainWebViewActivity extends BaseActivity implements WebAppInterface
     private ActivityResultLauncher<Intent> imageCaptureLauncher;
     
     // 页面URL配置
-    private String webAppUrl = "file:///android_asset/index.html"; // 默认加载本地文件
+    private String webAppUrl = "file:///android_asset/webapp/index.html"; // 默认加载Vue.js整体应用
     
     /**
      * 启动MainWebViewActivity的静态方法
@@ -154,13 +151,12 @@ public class MainWebViewActivity extends BaseActivity implements WebAppInterface
     private void loadWebApp() {
         Log.d(TAG, "开始加载Web应用: " + webAppUrl);
         
-        // 如果是远程URL，使用集成工具类处理
+        // 如果是远程URL，直接加载
         if (webAppUrl.startsWith("http://") || webAppUrl.startsWith("https://")) {
-            webAppUrl = ImatesWebIntegration.getRemoteWebAppUrl(webAppUrl);
-            Log.d(TAG, "处理后的远程URL: " + webAppUrl);
+            Log.d(TAG, "加载远程URL: " + webAppUrl);
         } else {
-            // 本地文件，使用默认URL
-            webAppUrl = ImatesWebIntegration.getDefaultWebAppUrl(this);
+            // 本地文件，使用webapp路径
+            webAppUrl = "file:///android_asset/webapp/index.html";
             Log.d(TAG, "使用默认本地URL: " + webAppUrl);
         }
         
@@ -223,22 +219,50 @@ public class MainWebViewActivity extends BaseActivity implements WebAppInterface
     private void initWebApp() {
         Log.d(TAG, "开始初始化Web应用");
         
-        // 使用集成工具类初始化Web应用
-        ImatesWebIntegration.initWebApp(webView, this);
+        // 设置Web应用配置
+        try {
+            org.json.JSONObject config = new org.json.JSONObject();
+            config.put("theme", "light");
+            config.put("language", "zh-CN");
+            config.put("debug", false); // 可以根据需要调整
+            
+            // 通过JavaScript设置配置
+            String jsCode = String.format(
+                "if (window.AndroidBridge && window.AndroidBridge.setConfig) {" +
+                "  window.AndroidBridge.setConfig(%s);" +
+                "}", config.toString()
+            );
+            
+            webView.evaluateJavascript(jsCode, null);
+            
+            Log.d(TAG, "Web应用配置设置完成");
+            
+        } catch (Exception e) {
+            Log.e(TAG, "设置Web应用配置失败", e);
+        }
         
         // 检查Web应用是否就绪
-        ImatesWebIntegration.checkWebAppReady(webView, new ImatesWebIntegration.ReadyCallback() {
-            @Override
-            public void onReady(boolean isReady) {
-                if (isReady) {
-                    Log.d(TAG, "Web应用已就绪");
-                    // Web应用就绪后可以执行其他初始化操作
-                    onWebAppReady();
-                } else {
-                    Log.w(TAG, "Web应用未就绪，稍后重试");
-                    // 可以设置重试机制
-                    retryInitWebApp();
-                }
+        checkWebAppReady();
+    }
+
+    /**
+     * 检查Web应用是否就绪
+     */
+    private void checkWebAppReady() {
+        String jsCode = 
+            "if (typeof window !== 'undefined' && window.Vue && window.Vue.version) {" +
+            "  'ready';" +
+            "} else {" +
+            "  'not_ready';" +
+            "}";
+        
+        webView.evaluateJavascript(jsCode, result -> {
+            if ("ready".equals(result)) {
+                Log.d(TAG, "Web应用已就绪");
+                onWebAppReady();
+            } else {
+                Log.w(TAG, "Web应用未就绪，稍后重试");
+                retryInitWebApp();
             }
         });
     }
@@ -247,20 +271,8 @@ public class MainWebViewActivity extends BaseActivity implements WebAppInterface
      * Web应用就绪后的处理
      */
     private void onWebAppReady() {
-        try {
-            // 设置Web应用配置
-            org.json.JSONObject config = new org.json.JSONObject();
-            config.put("theme", "light");
-            config.put("language", "zh-CN");
-            config.put("debug", BuildConfig.DEBUG);
-            
-            ImatesWebIntegration.setWebAppConfig(webView, config);
-            
-            Log.d(TAG, "Web应用配置设置完成");
-            
-        } catch (Exception e) {
-            Log.e(TAG, "设置Web应用配置失败", e);
-        }
+        Log.d(TAG, "Web应用就绪，执行后续初始化");
+        // Web应用就绪后可以执行其他初始化操作
     }
 
     /**
@@ -269,17 +281,7 @@ public class MainWebViewActivity extends BaseActivity implements WebAppInterface
     private void retryInitWebApp() {
         webView.postDelayed(() -> {
             Log.d(TAG, "重试初始化Web应用");
-            ImatesWebIntegration.checkWebAppReady(webView, new ImatesWebIntegration.ReadyCallback() {
-                @Override
-                public void onReady(boolean isReady) {
-                    if (isReady) {
-                        Log.d(TAG, "重试成功，Web应用已就绪");
-                        onWebAppReady();
-                    } else {
-                        Log.w(TAG, "重试失败，Web应用仍未就绪");
-                    }
-                }
-            });
+            checkWebAppReady();
         }, 1000); // 1秒后重试
     }
 
@@ -349,8 +351,10 @@ public class MainWebViewActivity extends BaseActivity implements WebAppInterface
 
     @Override
     public void onBackPressed() {
-        // 使用导航管理器处理返回操作
-        if (!WebViewNavigationManager.handleBackPress(webView)) {
+        // 处理WebView的返回操作
+        if (webView != null && webView.canGoBack()) {
+            webView.goBack();
+        } else {
             super.onBackPressed();
         }
     }

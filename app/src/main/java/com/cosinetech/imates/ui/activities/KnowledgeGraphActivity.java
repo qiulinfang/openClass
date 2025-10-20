@@ -28,10 +28,8 @@ import com.cosinetech.imates.screencasting.UdpForwarderManager;
 import com.cosinetech.imates.ui.adapters.TextbookVersionSpinnerAdapter;
 import com.cosinetech.imates.data.models.Subject;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
-import com.cosinetech.imates.ui.webview.findexercise.FindExerciseWebViewActivity;
 import com.cosinetech.imates.textbookservice.*;
 import com.cosinetech.imates.ui.robot.FloatingRobotService;
-import com.cosinetech.imates.ui.webview.exercisesolve.ExerciseSolveWebViewActivity;
 import com.cosinetech.imates.utils.AppUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -145,10 +143,8 @@ public class KnowledgeGraphActivity extends BaseActivity {
 
         Button btnGoExerciseList = findViewById(R.id.btn_my_exercise);
         btnGoExerciseList.setOnClickListener(v -> {
-            Intent intent = new Intent(this, ExerciseSolveWebViewActivity.class);
-            intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, ApiUrl.URL_CHAT_MATH);
-            intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, Subject.SUBJECT_MATH.name());
-            startActivity(intent);
+            // 使用MainWebViewActivity替代ExerciseSolveWebViewActivity
+            com.cosinetech.imates.ui.webview.MainWebViewActivity.startActivity(this, "/exercise-solve?subject=math");
         });
 
         miscellaneousInitialization();
@@ -536,7 +532,7 @@ public class KnowledgeGraphActivity extends BaseActivity {
 
         public void startFindExerciseActivity(String knowledgeList) {
             // 使用MainWebViewActivity并导航到FindExercise页面
-            MainWebViewActivity.startActivity(context, "/find-exercise?knowledgeList=" + knowledgeList);
+            com.cosinetech.imates.ui.webview.MainWebViewActivity.startActivity(context, "/find-exercise?knowledgeList=" + knowledgeList);
         }
     }
 

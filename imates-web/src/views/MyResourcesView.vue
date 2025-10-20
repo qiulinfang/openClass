@@ -58,12 +58,12 @@
 
 
     <!-- 教材列表 -->
-    <div v-else class="textbooks-container q-pa-md">
+    <div v-if="textbooks.length > 0" class="textbooks-container q-pa-md">
       <div class="textbooks-scroll-container">
         <div class="textbooks-grid">
           <div 
             v-for="textbook in filteredTextbooks" 
-            :key="textbook.textbookId"
+            :key="textbook.id"
             class="textbook-item-wrapper"
           >
           <q-card 
@@ -72,8 +72,6 @@
             flat
             bordered
           >
-          {{ textbook.downloadStatus }}
-          
             <!-- 教材封面 -->
             <q-img
               :src="textbook.textbookCover || '/icons/book.svg'"
@@ -166,6 +164,18 @@
                 :loading="false"
               />
               
+              <!-- 取消按钮 - 下载中状态或暂停状态 -->
+              <q-btn
+                v-if="textbook.downloadStatus === 1 || textbook.downloadStatus === 3"
+                color="negative"
+                icon="cancel"
+                label="取消"
+                @click="cancelDownload(textbook)"
+                unelevated
+                rounded
+                :loading="false"
+              />
+              
               <!-- 查看按钮 - 已下载状态 -->
               <q-btn
                 v-if="textbook.isDownloaded && textbook.downloadStatus === 2"
@@ -199,39 +209,6 @@
                 rounded
               />
               
-              <!-- 重新下载按钮 - 下载失败状态 -->
-              <q-btn
-                v-if="textbook.downloadStatus === 0 && textbook.downloadedFiles === 0"
-                color="negative"
-                icon="refresh"
-                label="重试"
-                @click="downloadTextbook(textbook)"
-                unelevated
-                rounded
-              />
-              
-              <!-- 更多操作菜单 -->
-              <q-btn
-                v-if="textbook.isDownloaded || textbook.downloadedFiles > 0"
-                color="grey-7"
-                icon="more_vert"
-                round
-                flat
-              >
-                <q-menu>
-                  <q-list style="min-width: 120px">
-                    <!-- 重新下载选项 -->
-                    <q-item clickable v-close-popup @click="downloadTextbook(textbook)">
-                      <q-item-section avatar>
-                        <q-icon name="refresh" color="primary" />
-                      </q-item-section>
-                      <q-item-section>重新下载</q-item-section>
-                    </q-item>
-                    
-                    
-                  </q-list>
-                </q-menu>
-              </q-btn>
             </q-card-actions>
           </q-card>
           </div>
@@ -240,7 +217,7 @@
     </div>
 
     <!-- 空状态 -->
-    <div v-if="!loading && filteredTextbooks.length === 0" class="empty-state q-pa-xl text-center">
+    <div v-if="initialLoadCompleted && textbooks.length === 0" class="empty-state q-pa-xl text-center">
       <q-icon name="book" size="80px" color="grey-4" />
       <div class="text-h6 text-grey-6 q-mt-md">暂无教材数据</div>
       <div class="text-body2 text-grey-5 q-mt-sm">请检查网络连接或重新登录</div>
@@ -324,6 +301,10 @@ const selectedSubjects = ref(new Set<string>())
 const updateCount = ref(0)
 const showDebugPanel = ref(false)
 
+// 新增：本地数据优先显示相关状态
+const hasLocalData = ref(false)
+const initialLoadCompleted = ref(false)
+
 // 确认对话框
 const showConfirmDialog = ref(false)
 const confirmDialog = ref({
@@ -345,15 +326,31 @@ const categories = ref([
   { label: '全部', value: 'all' }
 ])
 
-// 计算属性 - 简化的筛选逻辑
+// 计算属性 - 简化的筛选逻辑，添加排序确保顺序一致
 const filteredTextbooks = computed(() => {
+  let result: UserTextbookInfo[]
+  
   if (selectedSubjects.value.has('all') || selectedSubjects.value.size === 0) {
-    return textbooks.value
+    result = textbooks.value
+  } else {
+    result = textbooks.value.filter(textbook => 
+      selectedSubjects.value.has(textbook.textbookSubjectLabel)
+    )
   }
   
-  return textbooks.value.filter(textbook => 
-    selectedSubjects.value.has(textbook.textbookSubjectLabel)
-  )
+  // 排序确保每次加载顺序一致
+  return result.sort((a, b) => {
+    // 先按学科排序
+    if (a.textbookSubjectLabel !== b.textbookSubjectLabel) {
+      return a.textbookSubjectLabel.localeCompare(b.textbookSubjectLabel)
+    }
+    // 再按年级排序
+    if (a.textbookGradeLabel !== b.textbookGradeLabel) {
+      return a.textbookGradeLabel.localeCompare(b.textbookGradeLabel)
+    }
+    // 最后按教材名称排序
+    return a.textbookName.localeCompare(b.textbookName)
+  })
 })
 
 // 切换学科选择
@@ -380,9 +377,31 @@ const toggleSubject = (subject: string) => {
 const mergeServerAndLocalData = (serverTextbooks: UserTextbookInfo[], localTextbooks: UserTextbookInfo[]): UserTextbookInfo[] => {
   const mergedTextbooks: UserTextbookInfo[] = []
   
-  // 1. 先添加所有服务器教材
-  serverTextbooks.forEach(serverTextbook => {
-    // 查找对应的本地教材
+  // 0. 先对服务器数据进行去重处理（基于id）
+  const uniqueServerTextbooks = serverTextbooks.reduce((acc: UserTextbookInfo[], current) => {
+    const existingIndex = acc.findIndex(item => item.id === current.id)
+    if (existingIndex === -1) {
+      // 不存在，直接添加
+      acc.push(current)
+    } else {
+      // 存在重复，保留最新的（使用更大的id值）
+      const existing = acc[existingIndex]
+      if (current.id && existing.id && current.id > existing.id) {
+        acc[existingIndex] = current
+        console.log(`去重处理: 替换教材 ${current.textbookName} (id: ${current.id}) 使用更新的ID: ${current.id}`)
+      } else {
+        console.log(`去重处理: 保留教材 ${existing.textbookName} (id: ${existing.id}) 使用ID: ${existing.id}`)
+      }
+    }
+    return acc
+  }, [])
+  
+  console.log('服务器教材原始数据:', serverTextbooks.map(t => ({ name: t.textbookName, id: t.id, textbookId: t.textbookId })))
+  console.log('去重后服务器教材数据:', uniqueServerTextbooks.map(t => ({ name: t.textbookName, id: t.id, textbookId: t.textbookId })))
+  
+  // 1. 先添加所有去重后的服务器教材
+  uniqueServerTextbooks.forEach(serverTextbook => {
+    // 查找对应的本地教材（通过textbookId匹配）
     const localTextbook = localTextbooks.find(local => local.textbookId === serverTextbook.textbookId)
     
     if (localTextbook) {
@@ -392,6 +411,8 @@ const mergeServerAndLocalData = (serverTextbooks: UserTextbookInfo[], localTextb
         ...localTextbook,
         // 再解构服务器数据，更新服务器的最新信息（会覆盖本地的旧信息）
         ...serverTextbook,
+        // 确保使用服务器的id字段作为主键
+        id: serverTextbook.id || serverTextbook.textbookId,
         // 保留方法（如果存在）
         updateStructure: localTextbook.updateStructure || (() => {}),
         updatePackages: localTextbook.updatePackages || (() => {}),
@@ -402,6 +423,7 @@ const mergeServerAndLocalData = (serverTextbooks: UserTextbookInfo[], localTextb
       // 服务器新教材，添加到列表
       mergedTextbooks.push({
         ...serverTextbook,
+        id: serverTextbook.id || serverTextbook.textbookId, // 🔥 确保有id字段作为主键
         isDownloaded: false,
         downloadStatus: 0,
         downloadedFiles: 0,
@@ -422,51 +444,186 @@ const mergeServerAndLocalData = (serverTextbooks: UserTextbookInfo[], localTextb
   
   // 2. 添加本地独有的教材（如果存在）
   localTextbooks.forEach(localTextbook => {
-    const existsInServer = serverTextbooks.some(server => server.textbookId === localTextbook.textbookId)
+    const existsInServer = uniqueServerTextbooks.some(server => server.textbookId === localTextbook.textbookId)
     if (!existsInServer) {
       mergedTextbooks.push(localTextbook)
     }
   })
   
+  console.log('合并后教材数量:', mergedTextbooks.length, '去重后服务器教材数量:', uniqueServerTextbooks.length, '原始服务器教材数量:', serverTextbooks.length)
   return mergedTextbooks
 }
 
-// 加载资源数据
-const loadResources = async () => {
-  loading.value = true
+// 加载本地数据（优先显示）
+const loadLocalData = async (): Promise<UserTextbookInfo[]> => {
+  try {
+    // 从IndexedDB获取本地教材数据
+    const localTextbooks = await resourceManager.getUserLocalTextbooks()
+    
+    if (localTextbooks && localTextbooks.length > 0) {
+      hasLocalData.value = true
+      return localTextbooks
+    } else {
+      hasLocalData.value = false
+      return []
+    }
+  } catch {
+    hasLocalData.value = false
+    return []
+  }
+}
+
+// 后台更新服务器数据
+const updateServerData = async () => {
   try {
     // 检查登录状态
     if (!resourceManager.isLoggedIn()) {
       // 尝试自动登录
       const autoLoginSuccess = await apiService.autoLogin(true)
       if (!autoLoginSuccess) {
-        textbooks.value = []
         return
       }
     }
 
-    // 直接使用ApiService获取服务器教材
+    // 获取服务器教材数据
     const serverTextbooks = await apiService.fetchUserAllOnlineTextbooks()
     
-    // 获取本地教材数据
-    const localTextbooks = await resourceManager.indexedDB.getAll('textbooks') as UserTextbookInfo[]
+    // 获取当前本地数据
+    const localTextbooks = await resourceManager.getUserLocalTextbooks()
     
     // 合并服务器数据和本地数据
     const mergedTextbooks = mergeServerAndLocalData(serverTextbooks, localTextbooks)
     
     // 更新本地教材数据
+    console.log('开始更新教材到IndexedDB，数量:', mergedTextbooks.length)
     for (const textbook of mergedTextbooks) {
-      await resourceManager.updateTextbookInfo(textbook)
+      console.log('更新教材:', textbook.textbookName, 'ID:', textbook.id, 'textbookId:', textbook.textbookId)
+      const success = await resourceManager.updateTextbookInfo(textbook)
+      console.log('更新结果:', success)
     }
-    
-    // 更新教材列表
+    // 从IndexedDB获取所有教材
+    const textbooks1 = await resourceManager.indexedDB.getAll('textbooks')
+    console.log('textbooks1', textbooks1)
+    // 平滑替换数据
     textbooks.value = mergedTextbooks
     updateSubjectChips()
+    
+    
   } catch {
-    showMessage('加载资源失败，请稍后重试', 'error')
-    textbooks.value = []
-  } finally {
-    loading.value = false
+    showMessage('后台更新失败，请稍后重试', 'error')
+  }
+}
+
+// 检测和修复不一致的下载状态
+const fixInconsistentDownloadStatus = async (textbooks: UserTextbookInfo[]) => {
+  let fixedCount = 0
+  
+  const fixPromises = textbooks.map(async (textbook) => {
+    // 检查是否有downloadStatus为1但没有实际下载任务的情况
+    if (textbook.downloadStatus === 1) {
+      // 检查ApiService中是否有对应的下载控制器
+      const hasActiveDownload = apiService.hasActiveDownload(textbook.textbookId)
+      
+      if (!hasActiveDownload) {
+        console.log(`修复不一致的下载状态: ${textbook.textbookName}`)
+        fixedCount++
+        
+        // 根据下载进度判断状态
+        if (textbook.downloadedFiles > 0 && textbook.downloadedFiles < textbook.totalFiles) {
+          // 部分下载，设置为暂停状态
+          textbook.downloadStatus = 3
+          textbook.isDownloaded = false
+          console.log(`  -> 设置为暂停状态 (${textbook.downloadedFiles}/${textbook.totalFiles})`)
+        } else if (textbook.downloadedFiles === textbook.totalFiles && textbook.totalFiles > 0) {
+          // 完全下载，设置为完成状态
+          textbook.downloadStatus = 2
+          textbook.isDownloaded = true
+          console.log(`  -> 设置为完成状态 (${textbook.downloadedFiles}/${textbook.totalFiles})`)
+        } else {
+          // 没有下载进度，设置为未下载状态
+          textbook.downloadStatus = 0
+          textbook.isDownloaded = false
+          textbook.downloadedFiles = 0
+          console.log(`  -> 设置为未下载状态`)
+        }
+        
+        // 保存修复后的状态到IndexedDB
+        await resourceManager.updateTextbookInfo(textbook, {
+          downloadStatus: textbook.downloadStatus,
+          isDownloaded: textbook.isDownloaded,
+          downloadedFiles: textbook.downloadedFiles
+        })
+      }
+    }
+  })
+  
+  await Promise.all(fixPromises)
+  
+  if (fixedCount > 0) {
+    console.log(`已修复 ${fixedCount} 个不一致的下载状态`)
+  }
+}
+
+// 加载资源数据（优化版本：本地数据优先显示）
+const loadResources = async () => {
+  // 重置初始加载状态
+  initialLoadCompleted.value = false
+  
+  // 第一步：立即加载本地数据
+  const localTextbooks = await loadLocalData()
+  console.log('localTextbooks', localTextbooks)
+  
+  if (localTextbooks.length > 0) {
+    // 检测和修复不一致的下载状态
+    await fixInconsistentDownloadStatus(localTextbooks)
+    
+    // 有本地数据，立即显示
+    textbooks.value = localTextbooks
+    updateSubjectChips()
+    initialLoadCompleted.value = true
+    
+    // 在后台更新服务器数据
+    setTimeout(() => {
+      updateServerData()
+    }, 100) // 延迟100ms开始后台更新，确保UI先渲染
+  } else {
+    // 无本地数据，显示加载状态并获取服务器数据
+    loading.value = true
+    
+    try {
+      // 检查登录状态
+      if (!resourceManager.isLoggedIn()) {
+        // 尝试自动登录
+        const autoLoginSuccess = await apiService.autoLogin(true)
+        if (!autoLoginSuccess) {
+          textbooks.value = []
+          initialLoadCompleted.value = true
+          return
+        }
+      }
+
+      // 获取服务器教材数据
+      const serverTextbooks = await apiService.fetchUserAllOnlineTextbooks()
+      
+      // 合并服务器数据和本地数据
+      const mergedTextbooks = mergeServerAndLocalData(serverTextbooks, [])
+      
+      // 更新本地教材数据
+      for (const textbook of mergedTextbooks) {
+        await resourceManager.updateTextbookInfo(textbook)
+      }
+      
+      // 更新教材列表
+      textbooks.value = mergedTextbooks
+      updateSubjectChips()
+      
+    } catch {
+      showMessage('加载资源失败，请稍后重试', 'error')
+      textbooks.value = []
+    } finally {
+      loading.value = false
+      initialLoadCompleted.value = true
+    }
   }
 }
 
@@ -494,28 +651,39 @@ const checkForUpdates = async () => {
   try {
     // 开始执行三级更新检查
     const updatedTextbooks = await apiService.checkForUpdates()
+    
     if (updatedTextbooks.length > 0) {
       // 更新教材的更新状态
-      textbooks.value.forEach(async textbook => {
+      const updatePromises = textbooks.value.map(async textbook => {
         const hasUpdate = updatedTextbooks.some(update => update.textbookId === textbook.textbookId)
+        
         textbook.hasUpdatesAvailable = hasUpdate
         
         // 🔥 保存更新状态到 IndexedDB（使用批量更新）
         await resourceManager.updateTextbookInfo(textbook, {
           hasUpdatesAvailable: hasUpdate
-        }, false)
+        })
       })
+      
+      // 等待所有更新完成
+      await Promise.all(updatePromises)
+      
       updateCount.value = updatedTextbooks.length
       showMessage(`发现 ${updatedTextbooks.length} 个教材有更新`, 'success')
     } else {
-      textbooks.value.forEach(async textbook => {
+      // 清除所有教材的更新状态
+      const clearPromises = textbooks.value.map(async textbook => {
         textbook.hasUpdatesAvailable = false
         
         // 🔥 保存更新状态到 IndexedDB（使用批量更新）
         await resourceManager.updateTextbookInfo(textbook, {
           hasUpdatesAvailable: false
-        }, false)
+        })
       })
+      
+      // 等待所有清除完成
+      await Promise.all(clearPromises)
+      
       updateCount.value = 0
       showMessage('所有教材都是最新版本', 'info')
     }
@@ -558,7 +726,6 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
         latestTextbook.downloadedFiles = latestTextbook.totalFiles
         latestTextbook.lastDownloadTime = new Date().toISOString()
         latestTextbook.hasUpdatesAvailable = false
-        console.log('latestTextbook.localFiles:', latestTextbook.localFiles)
         // 只更新下载状态，不覆盖localFiles数据
         await resourceManager.updateTextbookInfo(latestTextbook, {
           isDownloaded: true,
@@ -566,7 +733,7 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
           downloadedFiles: latestTextbook.totalFiles,
           lastDownloadTime: new Date().toISOString(),
           hasUpdatesAvailable: false
-        }, true)
+        })
         
         // 更新Vue组件中的textbook对象
         Object.assign(textbook, latestTextbook)
@@ -578,14 +745,14 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
         textbook.lastDownloadTime = new Date().toISOString()
         textbook.hasUpdatesAvailable = false
         
-        // 立即保存下载状态到IndexedDB（使用立即更新）
+        // 立即保存下载状态到IndexedDB
         await resourceManager.updateTextbookInfo(textbook, {
           isDownloaded: true,
           downloadStatus: 2,
           downloadedFiles: textbook.totalFiles,
           lastDownloadTime: new Date().toISOString(),
           hasUpdatesAvailable: false
-        }, true)
+        })
       }
       
       showMessage(`《${textbook.textbookName}》下载完成`, 'success')
@@ -606,8 +773,9 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
       // 保存暂停状态到IndexedDB（使用立即更新）
       await resourceManager.updateTextbookInfo(textbook, {
         downloadStatus: 3,
-        isDownloaded: false
-      }, true)
+        isDownloaded: false,
+        downloadedFiles: textbook.downloadedFiles // 🔥 保存已下载的文件数量
+      })
       
       showMessage(`《${textbook.textbookName}》下载已暂停`, 'warning')
     } else {
@@ -633,8 +801,9 @@ const pauseDownload = async (textbook: UserTextbookInfo) => {
       // 保存暂停状态到IndexedDB（使用立即更新）
       await resourceManager.updateTextbookInfo(textbook, {
         downloadStatus: 3,
-        isDownloaded: false
-      }, true)
+        isDownloaded: false,
+        downloadedFiles: textbook.downloadedFiles // 🔥 保存已下载的文件数量
+      })
       
       showMessage(`《${textbook.textbookName}》下载已暂停`, 'warning')
     } else {
@@ -642,6 +811,43 @@ const pauseDownload = async (textbook: UserTextbookInfo) => {
     }
   } catch (error) {
     showMessage(`暂停《${textbook.textbookName}》失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
+  }
+}
+
+// 取消下载 - 直接使用ApiService
+const cancelDownload = async (textbook: UserTextbookInfo) => {
+  // 确认取消操作
+  const confirmed = confirm(`确定要取消《${textbook.textbookName}》的下载吗？已下载的文件将被删除。`)
+  if (!confirmed) {
+    return
+  }
+  
+  try {
+    const success = await apiService.cancelDownload(textbook.textbookId)
+    
+    if (success) {
+      // 重置下载状态
+      textbook.downloadStatus = 0 // 未下载
+      textbook.isDownloaded = false
+      textbook.downloadedFiles = 0
+      textbook.totalFiles = 0
+      textbook.lastDownloadTime = ''
+      
+      // 保存取消状态到IndexedDB（使用立即更新）
+      await resourceManager.updateTextbookInfo(textbook, {
+        downloadStatus: 0,
+        isDownloaded: false,
+        downloadedFiles: 0,
+        totalFiles: 0,
+        lastDownloadTime: ''
+      })
+      
+      showMessage(`《${textbook.textbookName}》下载已取消`, 'info')
+    } else {
+      showMessage(`取消《${textbook.textbookName}》下载失败`, 'error')
+    }
+  } catch (error) {
+    showMessage(`取消《${textbook.textbookName}》下载失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
   }
 }
 
@@ -754,7 +960,7 @@ const printLocalFilesData = async () => {
     userTextbooks.forEach((textbook) => {
       // 打印localFiles数据
       if (textbook.localFiles && textbook.localFiles.length > 0) {
-        textbook.localFiles.forEach((file, index) => {
+        textbook.localFiles.forEach((file) => {
           if (file.fileData && file.fileData.length > 0) {
             // 文件数据存在
           } else {
@@ -765,7 +971,7 @@ const printLocalFilesData = async () => {
       
       // 打印学习包信息
       if (textbook.learningPackages && textbook.learningPackages.length > 0) {
-        textbook.learningPackages.forEach((pkg, index) => {
+        textbook.learningPackages.forEach(() => {
           // 学习包信息已处理
         })
       }
@@ -897,6 +1103,7 @@ const toggleDebugPanel = () => {
       margin: 0;
     }
   }
+
 
   .textbooks-container {
     display: flex;

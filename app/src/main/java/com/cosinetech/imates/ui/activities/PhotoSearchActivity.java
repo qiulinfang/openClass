@@ -135,11 +135,9 @@ public class PhotoSearchActivity extends BaseActivity {
             if(question != null) {
                 addExerciseToList();
                 stopCamera();
-                Intent intent = new Intent(this, com.cosinetech.imates.ui.webview.exercisesolve.ExerciseSolveWebViewActivity.class);
-                intent.putExtra(ExerciseSolveActivity.KEY_CHATBOT_URL, subject == Subject.SUBJECT_BIOLOGY ? ApiUrl.URL_CHAT_BIOLOGY : ApiUrl.URL_CHAT_MATH);
-                intent.putExtra(ExerciseSolveActivity.KEY_SUBJECT, subject.name());
-                intent.putExtra(ExerciseSolveActivity.KEY_SHOW_LAST_QUESTION, false);
-                startActivity(intent);
+                // 使用MainWebViewActivity替代ExerciseSolveWebViewActivity
+                String subjectParam = subject == Subject.SUBJECT_BIOLOGY ? "biology" : "math";
+                com.cosinetech.imates.ui.webview.MainWebViewActivity.startActivity(this, "/exercise-solve?subject=" + subjectParam);
             }
         });
 

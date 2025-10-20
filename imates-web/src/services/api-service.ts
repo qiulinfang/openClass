@@ -177,6 +177,41 @@ export class ApiService {
     }
   }
 
+  /**
+   * 取消教材下载
+   * 取消下载会清理已下载的文件数据
+   */
+  public async cancelDownload(id: string): Promise<boolean> {
+    try {
+      // 获取该教材的下载控制器
+      const controller = this.downloadControllers.get(id)
+      if (controller) {
+        // 取消所有正在进行的下载请求
+        controller.abort()
+        
+        // 清理控制器
+        this.downloadControllers.delete(id)
+      }
+      
+      // 清理已下载的文件数据
+      const resourceManager = ResourceManager.getInstance()
+      await resourceManager.clearTextbookFiles(id)
+      
+      return true
+    } catch (error) {
+      return false
+    }
+  }
+
+  /**
+   * 检查是否有活跃的下载任务
+   * @param textbookId 教材ID
+   * @returns boolean 是否有活跃的下载任务
+   */
+  public hasActiveDownload(textbookId: string): boolean {
+    return this.downloadControllers.has(textbookId)
+  }
+
 
 
   /**
@@ -1208,30 +1243,44 @@ export class ApiService {
    * 实现教材→包→文件三级对比逻辑
    */
   public async checkForUpdates(): Promise<TextbookVersion[]> {
+    console.log('[检查更新] 开始执行教材更新检查')
+    
     try {
       // 1. 获取服务器端教材版本列表
+      console.log('[检查更新] 步骤1: 获取服务器端教材版本列表')
       const serverTextbooks = await this.getTextbookVersions()
+      console.log(`[检查更新] 服务器端教材数量: ${serverTextbooks.length}`)
       
       // 2. 获取本地教材信息
+      console.log('[检查更新] 步骤2: 获取本地教材信息')
       const localTextbooks = await resourceManager.getUserLocalTextbooks()
+      console.log(`[检查更新] 本地教材数量: ${localTextbooks.length}`)
       
       // 3. 执行三级对比检查
+      console.log('[检查更新] 步骤3: 执行三级对比检查')
       const updatedTextbooks: TextbookVersion[] = []
       
       for (const serverTextbook of serverTextbooks) {
         const localTextbook = localTextbooks.find((t: UserTextbookInfo) => t.textbookId === serverTextbook.textbookId)
         
+        console.log(`[检查更新] 检查教材: ${serverTextbook.textbookName} (ID: ${serverTextbook.textbookId})`)
+        console.log(`[检查更新] 本地教材存在: ${!!localTextbook}`)
+        
         // 检查是否需要更新
         const needsUpdate = await this.checkTextbookUpdate(serverTextbook, localTextbook)
+        console.log(`[检查更新] 教材 ${serverTextbook.textbookName} 需要更新: ${needsUpdate}`)
         
         if (needsUpdate) {
           updatedTextbooks.push(serverTextbook)
+          console.log(`[检查更新] 添加需要更新的教材: ${serverTextbook.textbookName}`)
         }
       }
       
+      console.log(`[检查更新] 检查完成，需要更新的教材数量: ${updatedTextbooks.length}`)
       return updatedTextbooks
       
     } catch (error) {
+      console.error('[检查更新] 检查更新过程中发生错误:', error)
       return []
     }
   }
@@ -1241,28 +1290,45 @@ export class ApiService {
    * 对应Android LearnResourceManager.checkTextbookUpdate
    */
   private async checkTextbookUpdate(serverTextbook: TextbookVersion, localTextbook?: UserTextbookInfo): Promise<boolean> {
+    console.log(`[教材更新检查] 开始检查教材: ${serverTextbook.textbookName}`)
+    
     try {
       // 第一级：教材级别检查
       if (!localTextbook) {
+        console.log(`[教材更新检查] ${serverTextbook.textbookName}: 本地教材不存在，需要更新`)
         return true
       }
       
+      console.log(`[教材更新检查] ${serverTextbook.textbookName}: 本地教材存在，开始版本比较`)
+      console.log(`[教材更新检查] 服务器更新时间: ${serverTextbook.textbookUpdateTime}`)
+      console.log(`[教材更新检查] 本地更新时间: ${localTextbook.textbookUpdateTime}`)
+      
       // 教材更新时间比较
       const textbookUpdated = this.isNewer(serverTextbook.textbookUpdateTime, localTextbook.textbookUpdateTime)
+      console.log(`[教材更新检查] ${serverTextbook.textbookName}: 教材级别更新检查结果: ${textbookUpdated}`)
+      
       if (textbookUpdated) {
+        console.log(`[教材更新检查] ${serverTextbook.textbookName}: 教材级别需要更新`)
         return true
       }
       
       // 第二级：包级别检查
+      console.log(`[教材更新检查] ${serverTextbook.textbookName}: 开始包级别检查`)
       const packageUpdated = await this.checkLearningPackageUpdates(serverTextbook, localTextbook)
+      console.log(`[教材更新检查] ${serverTextbook.textbookName}: 包级别更新检查结果: ${packageUpdated}`)
+      
       if (packageUpdated) {
+        console.log(`[教材更新检查] ${serverTextbook.textbookName}: 包级别需要更新`)
         return true
       }
       
+      console.log(`[教材更新检查] ${serverTextbook.textbookName}: 无需更新`)
       return false
       
     } catch (error) {
-      return true // 出错时默认需要更新（安全策略）
+      console.error(`[教材更新检查] ${serverTextbook.textbookName}: 检查过程中发生错误:`, error)
+      // 出错时默认需要更新（安全策略）
+      return true
     }
   }
 
@@ -1271,43 +1337,62 @@ export class ApiService {
    * 对应Android LearnResourceManager.checkLearningPackageUpdates
    */
   private async checkLearningPackageUpdates(serverTextbook: TextbookVersion, localTextbook: UserTextbookInfo): Promise<boolean> {
+    console.log(`[包更新检查] 开始检查学习包更新: ${serverTextbook.textbookName}`)
+    
     try {
       // 获取服务器端学习包
+      console.log(`[包更新检查] 获取服务器端学习包`)
       const serverPackages = await this.getLearningResources(serverTextbook.id)
+      console.log(`[包更新检查] 服务器端学习包数量: ${serverPackages.length}`)
       
       // 获取本地学习包
       const localPackages = localTextbook.learningPackages || []
+      console.log(`[包更新检查] 本地学习包数量: ${localPackages.length}`)
       
       for (const serverPackage of serverPackages) {
         const localPackage = localPackages.find(p => p.id === serverPackage.id)
         
         if (!localPackage) {
+          console.log(`[包更新检查] 发现新包: ${serverPackage.id}`)
           return true
         }
         
+        console.log(`[包更新检查] 检查包: ${serverPackage.id}`)
+        console.log(`[包更新检查] 服务器包更新时间: ${serverPackage.updateTime}`)
+        console.log(`[包更新检查] 本地包更新时间: ${localPackage.updateTime}`)
+        
         // 包更新时间比较
         if (this.isNewer(serverPackage.updateTime, localPackage.updateTime)) {
+          console.log(`[包更新检查] 包 ${serverPackage.id} 需要更新`)
           return true
         }
         
         // 第三级：文件级别检查
-        const fileUpdated = this.hasFileUpdates(serverPackage, localTextbook)
+        console.log(`[包更新检查] 开始文件级别检查: ${serverPackage.id}`)
+        const fileUpdated = this.hasFileUpdates(serverPackages, localTextbook)
+        console.log(`[包更新检查] 包 ${serverPackage.id} 文件更新检查结果: ${fileUpdated}`)
+        
         if (fileUpdated) {
+          console.log(`[包更新检查] 包 ${serverPackage.id} 文件需要更新`)
           return true
         }
       }
       
       // 检查是否有包被删除
+      console.log(`[包更新检查] 检查是否有包被删除`)
       for (const localPackage of localPackages) {
         const foundOnServer = serverPackages.some(p => p.id === localPackage.id)
         if (!foundOnServer) {
+          console.log(`[包更新检查] 发现被删除的包: ${localPackage.id}`)
           return true
         }
       }
       
+      console.log(`[包更新检查] ${serverTextbook.textbookName}: 所有包都无需更新`)
       return false
       
     } catch (error) {
+      console.error(`[包更新检查] ${serverTextbook.textbookName}: 检查过程中发生错误:`, error)
       return true
     }
   }
@@ -1315,41 +1400,61 @@ export class ApiService {
   /**
    * 检查文件更新 - 重构版本，现在使用textbook.localFiles
    * 对应Android LearnResourceManager.hasFileUpdates
+   * 检查整个教材的所有文件，而不是单个包的文件
    */
-  private hasFileUpdates(serverPackage: LearningPackage, textbook: UserTextbookInfo): boolean {
+  private hasFileUpdates(serverPackages: LearningPackage[], textbook: UserTextbookInfo): boolean {
+    console.log(`[文件更新检查] 开始检查整个教材的文件更新: ${textbook.textbookName}`)
+    
     try {
       // 如果教材没有localFiles属性，说明还没有下载过，需要更新
       if (!textbook.localFiles || !Array.isArray(textbook.localFiles)) {
+        console.log(`[文件更新检查] 教材 ${textbook.textbookName} 没有localFiles，需要更新`)
         return true
       }
       
+      // 收集所有服务器文件
+      const allServerFiles: ResourceFile[] = []
+      for (const serverPackage of serverPackages) {
+        if (serverPackage.resourceList && serverPackage.resourceList.length > 0) {
+          allServerFiles.push(...serverPackage.resourceList)
+        }
+      }
+      
+      console.log(`[文件更新检查] 本地文件数量: ${textbook.localFiles.length}`)
+      console.log(`[文件更新检查] 服务器文件总数: ${allServerFiles.length}`)
+      
       // 检查服务器文件
-      for (const serverFile of serverPackage.resourceList) {
+      for (const serverFile of allServerFiles) {
         const localFile = textbook.localFiles.find(f => f.id === serverFile.id)
         
         if (!localFile) {
+          console.log(`[文件更新检查] 发现新文件: ${serverFile.fileName} (ID: ${serverFile.id})`)
           return true
         }
         
         // 文件校验和比较
         if (serverFile.checksum !== localFile.checksum) {
+          console.log(`[文件更新检查] 文件 ${serverFile.fileName} 校验和不匹配，需要更新`)
           return true
         }
       }
       
       // 检查是否有文件被删除
+      console.log(`[文件更新检查] 检查是否有文件被删除`)
       for (const localFile of textbook.localFiles) {
-        const foundOnServer = serverPackage.resourceList.some(f => f.id === localFile.id)
+        const foundOnServer = allServerFiles.some(f => f.id === localFile.id)
         if (!foundOnServer) {
+          console.log(`[文件更新检查] 发现被删除的文件: ${localFile.fileName} (ID: ${localFile.id})`)
           return true
         }
       }
       
+      console.log(`[文件更新检查] 教材 ${textbook.textbookName} 所有文件都无需更新`)
       return false
       
     } catch (error) {
-      console.error('检查文件更新失败:', error)
-      return true // 出错时默认需要更新
+      console.error(`[文件更新检查] 教材 ${textbook.textbookName}: 检查过程中发生错误:`, error)
+      return true
     }
   }
 
@@ -1368,6 +1473,7 @@ export class ApiService {
       
       return newDate > oldDate
     } catch (error) {
+      console.error(`[时间比较] 时间比较过程中发生错误:`, error)
       return true // 出错时默认需要更新（安全策略）
     }
   }
@@ -1439,7 +1545,7 @@ export class ApiService {
           
           for (const serverFile of serverPackage.resourceList) {
             const localFile = localFiles.find(f => f.id === serverFile.id)
-            const fileId = `${textbook.textbookId}_${serverFile.fileName}`
+            const fileId = serverFile.id // 使用原生文件ID，保持一致性
             
             // 检查文件是否需要下载：
             // 1. localFiles中没有记录（新文件）
@@ -1482,34 +1588,6 @@ export class ApiService {
     return { filesToUpdate, totalServerFiles }
   }
 
-  /**
-   * 保存学习资源包到IndexedDB
-   * @param textbook 教材信息
-   */
-  private async saveLearningPackagesToIndexedDB(textbook: UserTextbookInfo): Promise<void> {
-    try {
-      const resourceManager = ResourceManager.getInstance()
-      await resourceManager.updateTextbookInfo(textbook, undefined, false)
-      
-
-    } catch (storageError) {
-    }
-  }
-
-  /**
-   * 设置教材总文件数
-   * @param textbook 教材信息
-   * @param totalFiles 总文件数
-   */
-  private async setTextbookTotalFiles(textbook: UserTextbookInfo, totalFiles: number): Promise<void> {
-    try {
-      const resourceManager = ResourceManager.getInstance()
-      await resourceManager.setTextbookTotalFiles(textbook.textbookId, totalFiles)
-      // 同时更新内存中的textbook对象
-      textbook.totalFiles = totalFiles
-    } catch (error) {
-    }
-  }
 
   /**
    * 下载教材资源 - 增量下载优化版本（只下载需要更新的文件）
@@ -1533,10 +1611,18 @@ export class ApiService {
       const filesToDownload = filesToUpdate.length // 计算需要下载的文件数量
       
       // ==================== 步骤4: 保存学习资源包到IndexedDB ====================
-      await this.saveLearningPackagesToIndexedDB(textbook) // 保存学习资源包信息到本地存储
+      const resourceManager = ResourceManager.getInstance()
+      await resourceManager.updateTextbookInfo(textbook, undefined) // 保存学习资源包信息到本地存储
       
       // ==================== 步骤5: 设置教材总文件数 ====================
-      await this.setTextbookTotalFiles(textbook, totalServerFiles) // 设置教材的总文件数
+      // 使用教材ID查找教材记录并设置总文件数
+      const textbooks = await resourceManager.getUserLocalTextbooks()
+      const textbookRecord = textbooks.find(t => t.textbookId === textbook.textbookId)
+      if (textbookRecord) {
+        textbookRecord.totalFiles = totalServerFiles
+        await resourceManager.updateTextbookInfo(textbookRecord, { totalFiles: totalServerFiles })
+      }
+      textbook.totalFiles = totalServerFiles // 同时更新内存中的textbook对象
       
       // 如果没有文件需要下载，直接返回成功
       if (filesToDownload === 0) {
@@ -1544,13 +1630,17 @@ export class ApiService {
       }
       
       // ==================== 步骤6: 并发下载需要更新的文件 ====================
-      const result = await this.downloadFilesConcurrently(filesToUpdate, filesToDownload, textbook.textbookId, controller, (progress, downloadedCount) => {
-        // 传递进度和已下载文件数给外部回调函数
-        onProgress?.(progress, downloadedCount, filesToDownload)
-      }, textbook) // 传递教材信息避免并发时重复获取
+      // 获取当前已下载的文件数（用于计算累计进度）
+      const currentDownloadedFiles = textbook.downloadedFiles || 0
+      
+      const result = await this.downloadFilesConcurrently(filesToUpdate, filesToDownload, textbook.textbookId, controller, (progress, newlyDownloadedCount) => {
+        // 计算累计已下载文件数：当前已下载 + 本次新下载
+        const totalDownloadedFiles = currentDownloadedFiles + newlyDownloadedCount
+        // 传递进度和累计已下载文件数给外部回调函数
+        onProgress?.(progress, totalDownloadedFiles, filesToDownload)
+      }, textbook) // 传递教材信息避免并发时重复获取  
       
       // ==================== 步骤7: 强制刷新IndexedDB ====================
-      const resourceManager = ResourceManager.getInstance()
       await resourceManager.forceFlushPendingUpdates()
             
       // ==================== 步骤8: 清理下载控制器 ====================
@@ -1593,9 +1683,8 @@ export class ApiService {
    * @param packageId 学习包ID
    * @param resource 资源文件信息
    * @param fileSize 文件大小
-   * @param immediate 是否立即更新到IndexedDB（默认false，使用批量更新）
    */
-  private async updateLocalFileInfo(textbookId: string, packageId: string, resource: ResourceFile, fileSize: number, immediate: boolean = false): Promise<void> {
+  private async updateLocalFileInfo(textbookId: string, packageId: string, resource: ResourceFile, fileSize: number): Promise<void> {
     try {
       const resourceManager = ResourceManager.getInstance()
       
@@ -1624,8 +1713,8 @@ export class ApiService {
           localPath: `${textbookId}/${packageId}/${resource.fileName}`
         }
         
-        // 保存更新后的教材信息（使用批量更新）
-        await resourceManager.updateTextbookInfo(textbook, undefined, immediate)
+        // 保存更新后的教材信息
+        await resourceManager.updateTextbookInfo(textbook, undefined)
       } else {
         // 创建新的本地文件信息
         textbook.localFiles.push({
@@ -1638,8 +1727,8 @@ export class ApiService {
           fileData: new Uint8Array(0) // 空数据，实际数据由storeFileData方法设置
         })
         
-        // 保存更新后的教材信息（使用批量更新）
-        await resourceManager.updateTextbookInfo(textbook, undefined, immediate)
+        // 保存更新后的教材信息
+        await resourceManager.updateTextbookInfo(textbook, undefined)
       }
       
     } catch (error) {
@@ -1757,20 +1846,20 @@ export class ApiService {
       // 计算整体进度：基于实际需要下载的文件数
       // 如果totalFiles为0（没有文件需要下载），直接返回100%
       if (totalFiles === 0) {
-        onProgress?.(100, successCount)
+        onProgress?.(100, successCount) // successCount 是本次新下载的文件数
         return
       }
       
       // 计算整体进度：(已完成文件数 * 100 + 当前文件总进度) / 需要下载的文件数
       const overallProgress = Math.round((totalProgress / totalFiles))
-      onProgress?.(Math.min(overallProgress, 100), successCount)
+      onProgress?.(Math.min(overallProgress, 100), successCount) // successCount 是本次新下载的文件数
       lastProgressUpdate = now
     }
     
     // 创建下载任务
     const downloadTask = async (resourceInfo: {resource: any, pkg: any}): Promise<void> => {
       const { resource, pkg } = resourceInfo
-      const fileId = resource.fileName
+      const fileId = resource.id // 使用原生文件ID，保持一致性
       
       // 检查是否已被取消
       if (controller.signal.aborted) {
@@ -1801,7 +1890,7 @@ export class ApiService {
             
             // 构建文件信息
             const fileInfo = {
-              id: `${textbookId}_${resource.fileName}`, // 使用教材ID+文件名作为唯一ID
+              id: resource.id, // 使用原生文件ID，保持一致性
               textbookId: textbookId, // 使用传入的教材ID
               packageId: pkg.packageId,
               fileName: resource.fileName,
@@ -1813,7 +1902,7 @@ export class ApiService {
             }
             
             // 保存文件数据（使用批量更新）- 现在直接存储到localFiles中，传递教材信息避免并发问题
-            await resourceManager.storeFileData(fileInfo, fileData, false, textbook)
+            await resourceManager.storeFileData(fileInfo, fileData, textbook)
             
           } catch (storageError) {
             // 即使存储失败，也认为下载成功，但记录错误
@@ -1842,7 +1931,7 @@ export class ApiService {
         
         // 最终进度更新
         const progress = Math.round((completedFiles / totalFiles) * 100)
-        onProgress?.(progress, successCount)
+        onProgress?.(progress, successCount) // successCount 是本次新下载的文件数
       }
     }
     

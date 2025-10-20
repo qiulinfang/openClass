@@ -81,7 +81,7 @@ export class HttpClient {
    */
   private async request<T>(
     url: string,
-    config: RequestConfig & { body?: any } = {}
+    config: RequestConfig & { body?: unknown } = {}
   ): Promise<ApiResponse<T>> {
     // 解构配置参数，设置默认值
     const {
@@ -92,8 +92,38 @@ export class HttpClient {
       retries = 3              // 重试次数，默认为3次
     } = config
 
-    // 构建完整URL：如果是绝对URL则直接使用，否则拼接baseURL
-    const fullUrl = url.startsWith('http') ? url : `${this.baseURL}${url}`
+    // 构建完整URL：
+    // 1) 绝对URL直接使用
+    // 2) 相对URL：在正常 http(s) 环境下用 baseURL 拼接
+    // 3) 在 file:// 环境（Android WebView/本地静态文件）下，改用环境变量 VITE_API_BASE 或内置映射表
+    let fullUrl = url
+    if (!url.startsWith('http')) {
+      const isFileEnv = typeof window !== 'undefined' && window.location?.protocol === 'file:'
+      if (isFileEnv) {
+        // 根据首段路径路由到后端网关
+        const routeBaseMap: Record<string, string> = {
+          // 学班服务
+          '/admin': 'http://www.imates.com.cn:8222/blw-edu-service-alc',
+          '/permission': 'http://www.imates.com.cn:8222/blw-edu-service-alc',
+          '/biologyTopicKnowledge': 'http://www.imates.com.cn:8222/blw-edu-service-alc',
+          // 研伴/教材等走 43.138.16.5:50013
+          '/blw-edu-yb': 'https://43.138.16.5:50013',
+          // Zammad 示例
+          '/api/v1': 'http://app.imates.com.cn:8080',
+          // 资源服务器
+          '/resource': 'https://43.138.16.5:50013'
+        }
+        const matchedBase = Object.keys(routeBaseMap).find(prefix => url.startsWith(prefix))
+        if (matchedBase) {
+          fullUrl = `${routeBaseMap[matchedBase]}${url}`
+        } else {
+          // 无法匹配时回退 baseURL（避免 file:///）
+          fullUrl = `${this.baseURL}${url}`
+        }
+      } else {
+        fullUrl = `${this.baseURL}${url}`
+      }
+    }
     
     // 记录最后一次错误，用于重试失败后的错误信息
     let lastError: Error | null = null
@@ -173,14 +203,14 @@ export class HttpClient {
   /**
    * POST 请求
    */
-  async post<T>(url: string, body?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
+  async post<T>(url: string, body?: unknown, config?: RequestConfig): Promise<ApiResponse<T>> {
     return this.request<T>(url, { ...config, method: 'POST', body })
   }
 
   /**
    * PUT 请求
    */
-  async put<T>(url: string, body?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
+  async put<T>(url: string, body?: unknown, config?: RequestConfig): Promise<ApiResponse<T>> {
     return this.request<T>(url, { ...config, method: 'PUT', body })
   }
 
@@ -196,7 +226,7 @@ export class HttpClient {
    */
   async streamRequest(
     url: string,
-    body: any,
+    body: unknown,
     onChunk: (chunk: string, isComplete: boolean) => void,
     config?: RequestConfig
   ): Promise<void> {
@@ -259,7 +289,7 @@ export class HttpClient {
                 if (content) {
                   onChunk(content, false)
                 }
-              } catch (e) {
+              } catch {
                 // 如果不是 JSON 格式，直接作为文本处理
                 onChunk(data, false)
               }
