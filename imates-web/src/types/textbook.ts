@@ -93,15 +93,6 @@ export interface ResourceFile {
 }
 
 /**
- * 用户学习数据
- */
-export interface UserLearnData {
-  username: string // 用户名
-  lastSyncTime: string // 最后同步时间
-  textbooks: UserTextbookInfo[] // 用户教材信息列表
-}
-
-/**
  * 用户教材信息
  */
 export interface UserTextbookInfo {
@@ -119,15 +110,13 @@ export interface UserTextbookInfo {
   totalFiles: number // 总文件数
   downloadedFiles: number // 已下载文件数
   isDownloaded: boolean // 是否已下载
-  downloadStatus: number // 下载状态
+  downloadStatus: number // 下载状态: 0=未下载/下载失败, 1=下载中, 2=下载完成, 3=已暂停
   downloadPath: string // 下载路径
   lastDownloadTime: string // 最后下载时间
   hasUpdatesAvailable: boolean // 是否有可用更新
   structure: ChapterNode[] // 教材结构
   learningPackages: LearningPackage[] // 学习资源包列表
-  
-  // 新增：存储文件二进制数据的字段
-  fileData?: Record<string, Uint8Array> // 文件ID到二进制数据的映射
+  localFiles: LocalFileInfo[] // 本地文件信息列表
   
   updateStructure(structure: ChapterNode[]): void // 更新教材结构方法
   updatePackages(packages: LearningPackage[]): void // 更新资源包方法
@@ -154,6 +143,7 @@ export interface LocalFileInfo {
   checksum: string // 文件校验和
   isDownloaded: boolean // 是否已下载
   localPath?: string // 本地文件路径
+  fileData?: Uint8Array // 文件二进制数据
 }
 
 /**

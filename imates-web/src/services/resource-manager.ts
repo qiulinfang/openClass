@@ -6,12 +6,13 @@
 import { apiService } from './api-service'
 import { IndexedDBService } from './indexeddb-service'
 import CryptoJS from 'crypto-js'
+import { DebounceUtils } from '../utils'
 import type {
   UserTextbookInfo,
-  UserLearnData,
   ResourceFile,
   ChapterNode,
-  LearningPackage
+  LearningPackage,
+  LocalFileInfo
 } from '../types'
 
 // 移除不再使用的回调接口 - 直接使用ApiService后不再需要
@@ -20,13 +21,11 @@ export class ResourceManager {
   private static instance: ResourceManager
   private currentToken: string | null = null
   private currentUsername: string | null = null
-  private userLearnData: UserLearnData | null = null
   private indexedDBInstance: IndexedDBService
   
   // 批量更新优化相关
   private pendingUpdates: Map<string, UserTextbookInfo> = new Map()
-  private updateTimer: number | null = null
-  private readonly BATCH_UPDATE_DELAY = 1000 // 1秒延迟批量更新
+  private debouncedFlush: () => void
   
   /**
    * 获取IndexedDB实例 - 供外部访问
@@ -53,6 +52,43 @@ export class ResourceManager {
           ]
         }
       ]
+    })
+    
+    // 初始化防抖函数 - 使用1秒延迟的防抖
+    this.debouncedFlush = DebounceUtils.verySlow(async () => {
+      // 刷新所有待更新的教材信息到IndexedDB
+      if (this.pendingUpdates.size === 0) {
+        return
+      }
+
+      try {
+        // 批量更新所有待更新的教材
+        const updatePromises: Promise<boolean>[] = []
+        
+        for (const [, textbook] of this.pendingUpdates) {
+          // 立即刷新教材信息到IndexedDB
+          updatePromises.push((async () => {
+            try {
+              // 使用深度序列化方法创建可存储到IndexedDB的数据
+              const serializableTextbook = this.deepSerialize(textbook)
+              
+              // 更新到IndexedDB
+              return await this.indexedDBInstance.update('textbooks', serializableTextbook)
+            } catch {
+              return false
+            }
+          })())
+        }
+        
+        // 等待所有更新完成
+        await Promise.all(updatePromises)
+        
+        // 清空待更新队列
+        this.pendingUpdates.clear()
+        
+      } catch {
+        // 批量更新失败
+      }
     })
     
     this.loadUserData()
@@ -97,15 +133,9 @@ export class ResourceManager {
       if (userInfo) {
         this.currentToken = userInfo.token
         this.currentUsername = userInfo.username
-        // 直接初始化空的用户学习数据
-        this.userLearnData = {
-          username: userInfo.username,
-          lastSyncTime: new Date().toISOString(),
-          textbooks: []
-        }
       }
-    } catch (error) {
-      console.error('初始化IndexedDB失败:', error)
+    } catch {
+      // 初始化失败
     }
   }
 
@@ -117,8 +147,7 @@ export class ResourceManager {
   public async getResourceDownloadUrl(resourceId: string): Promise<string | null> {
     try {
       return await apiService.getResourceDownloadUrl(resourceId)
-    } catch (error) {
-      console.error('获取资源下载URL失败:', error)
+    } catch {
       return null
     }
   }
@@ -140,20 +169,13 @@ export class ResourceManager {
       const isValid = hashHex === expectedChecksum.toLowerCase()
       
       return isValid
-    } catch (error) {
-      console.error('本地文件校验失败:', error)
+    } catch {
       return false
     }
   }
 
 
 
-  /**
-   * 获取用户学习数据
-   */
-  public getUserLearnData(): UserLearnData | null {
-    return this.userLearnData
-  }
 
   /**
    * 深度序列化对象，确保可以存储到IndexedDB
@@ -176,6 +198,11 @@ export class ResourceManager {
     // 处理ArrayBuffer - 转换为Uint8Array以便序列化
     if (obj instanceof ArrayBuffer) {
       return new Uint8Array(obj)
+    }
+    
+    // 处理Uint8Array - IndexedDB可以直接存储Uint8Array，无需特殊处理
+    if (obj instanceof Uint8Array) {
+      return obj
     }
     
     if (Array.isArray(obj)) {
@@ -202,7 +229,7 @@ export class ResourceManager {
    * 更新教材信息 - 优化版本，支持批量更新
    * @param textbook 教材信息对象
    * @param updates 可选的部分更新数据
-   * @param immediate 是否立即更新到IndexedDB（默认false，使用批量更新）
+   * @param immediate 是否立即更新到IndexedDB（默认true，立即保存）
    * @returns Promise<boolean> 返回更新是否成功
    */
   public async updateTextbookInfo(
@@ -215,135 +242,90 @@ export class ResourceManager {
       hasUpdatesAvailable?: boolean
       [key: string]: unknown
     },
-    immediate: boolean = false
+    immediate: boolean = true
   ): Promise<boolean> {
     try {
-      console.log('更新教材信息:', textbook.textbookName, immediate ? '(立即更新)' : '(批量更新)')
-      
       // 如果提供了更新数据，则合并到教材信息中
       if (updates) {
         Object.assign(textbook, updates)
-        console.log('合并更新数据:', updates)
-      }
-      
-      // 更新内存中的数据
-      if (this.userLearnData) {
-        const index = this.userLearnData.textbooks.findIndex(t => t.textbookId === textbook.textbookId)
-        if (index >= 0) {
-          this.userLearnData.textbooks[index] = textbook
-        } else {
-          this.userLearnData.textbooks.push(textbook)
-        }
       }
       
       if (immediate) {
         // 立即更新到IndexedDB
-        return await this.flushTextbookToIndexedDB(textbook)
+        try {
+          // 使用深度序列化方法创建可存储到IndexedDB的数据
+          const serializableTextbook = this.deepSerialize(textbook)
+          
+          // 更新到IndexedDB
+          const result = await this.indexedDBInstance.update('textbooks', serializableTextbook)
+          
+          return result
+        } catch (error) {
+          return false
+        }
       } else {
         // 添加到批量更新队列
         this.pendingUpdates.set(textbook.textbookId, textbook)
-        this.scheduleBatchUpdate()
+        this.debouncedFlush()
         return true
       }
     } catch (error) {
-      console.error('更新教材信息失败:', error)
       return false
     }
   }
 
-  /**
-   * 立即刷新教材信息到IndexedDB
-   * @param textbook 教材信息对象
-   * @returns Promise<boolean> 返回更新是否成功
-   */
-  private async flushTextbookToIndexedDB(textbook: UserTextbookInfo): Promise<boolean> {
-    try {
-      // 使用深度序列化方法创建可存储到IndexedDB的数据
-      const serializableTextbook = this.deepSerialize(textbook)
-      
-      // 更新到IndexedDB
-      const updateSuccess = await this.indexedDBInstance.update('textbooks', serializableTextbook)
-      
-      if (updateSuccess) {
-        console.log(`教材 ${textbook.textbookName} 信息立即更新成功`)
-        return true
-      } else {
-        console.error(`教材 ${textbook.textbookName} 信息立即更新失败`)
-        return false
-      }
-    } catch (error) {
-      console.error('立即更新教材信息失败:', error)
-      return false
-    }
-  }
-
-  /**
-   * 安排批量更新
-   */
-  private scheduleBatchUpdate(): void {
-    // 清除之前的定时器
-    if (this.updateTimer) {
-      window.clearTimeout(this.updateTimer)
-    }
-    
-    // 设置新的定时器
-    this.updateTimer = window.setTimeout(async () => {
-      await this.flushPendingUpdates()
-    }, this.BATCH_UPDATE_DELAY)
-  }
-
-  /**
-   * 刷新所有待更新的教材信息到IndexedDB
-   */
-  private async flushPendingUpdates(): Promise<void> {
-    if (this.pendingUpdates.size === 0) {
-      return
-    }
-
-    console.log(`开始批量更新 ${this.pendingUpdates.size} 个教材信息`)
-    
-    try {
-      // 批量更新所有待更新的教材
-      const updatePromises: Promise<boolean>[] = []
-      
-      for (const [, textbook] of this.pendingUpdates) {
-        updatePromises.push(this.flushTextbookToIndexedDB(textbook))
-      }
-      
-      // 等待所有更新完成
-      const results = await Promise.all(updatePromises)
-      const successCount = results.filter(result => result).length
-      
-      console.log(`批量更新完成: ${successCount}/${this.pendingUpdates.size} 个教材更新成功`)
-      
-      // 清空待更新队列
-      this.pendingUpdates.clear()
-      
-    } catch (error) {
-      console.error('批量更新失败:', error)
-    }
-  }
 
   /**
    * 强制刷新所有待更新的数据到IndexedDB
    * 在关键操作（如下载完成、应用关闭）时调用
    */
   public async forceFlushPendingUpdates(): Promise<void> {
-    // 清除定时器
-    if (this.updateTimer) {
-      window.clearTimeout(this.updateTimer)
-      this.updateTimer = null
+    // 刷新所有待更新的教材信息到IndexedDB
+    if (this.pendingUpdates.size === 0) {
+      return
     }
-    
-    // 立即刷新所有待更新数据
-    await this.flushPendingUpdates()
+
+    try {
+      // 批量更新所有待更新的教材
+      const updatePromises: Promise<boolean>[] = []
+      
+      for (const [textbookId, textbook] of this.pendingUpdates) {
+        // 立即刷新教材信息到IndexedDB
+        updatePromises.push((async () => {
+          try {
+            // 使用深度序列化方法创建可存储到IndexedDB的数据
+            const serializableTextbook = this.deepSerialize(textbook)
+            
+            // 更新到IndexedDB
+            const result = await this.indexedDBInstance.update('textbooks', serializableTextbook)
+            
+            return result
+          } catch (error) {
+            return false
+          }
+        })())
+      }
+      
+      // 等待所有更新完成
+      const results = await Promise.all(updatePromises)
+      
+      const successCount = results.filter(r => r).length
+      const failCount = results.filter(r => !r).length
+      
+      // 清空待更新队列
+      this.pendingUpdates.clear()
+      
+    } catch (error) {
+      // 批量更新失败
+    }
   }
 
   /**
-   * 保存文件二进制数据到教材信息中 - 优化版本，使用批量更新
+   * 保存文件二进制数据到教材信息中 - 重构版本，直接存储到localFiles中
    * @param fileInfo 文件信息
    * @param fileData 文件二进制数据
-   * @param immediate 是否立即更新到IndexedDB（默认false，使用批量更新）
+   * @param immediate 是否立即更新到IndexedDB（默认true，立即保存）
+   * @param textbook 可选的教材信息，避免并发时重复获取
    */
   public async storeFileData(fileInfo: {
     id: string
@@ -355,39 +337,123 @@ export class ResourceManager {
     checksum?: string
     chapterOrder?: number
     sortOrder?: number
-  }, fileData: Uint8Array, immediate: boolean = false): Promise<void> {
+  }, fileData: Uint8Array, immediate: boolean = true, textbook?: UserTextbookInfo): Promise<void> {
     try {
-      console.log(`保存文件数据到教材信息: ${fileInfo.fileName}, 大小: ${fileData.length} bytes`)
-      
-      // 获取教材信息
-      const textbook = await this.indexedDBInstance.get('textbooks', fileInfo.textbookId) as UserTextbookInfo
-      if (!textbook) {
-        throw new Error(`教材 ${fileInfo.textbookId} 不存在`)
+      // 获取教材信息 - 优先使用传入的教材信息，避免并发时重复获取
+      let textbookInfo: UserTextbookInfo
+      if (textbook) {
+        textbookInfo = textbook
+      } else {
+        textbookInfo = await this.indexedDBInstance.get('textbooks', fileInfo.textbookId) as UserTextbookInfo
+        if (!textbookInfo) {
+          throw new Error(`教材 ${fileInfo.textbookId} 不存在`)
+        }
       }
       
-      // 初始化fileData字段
-      if (!textbook.fileData) {
-        textbook.fileData = {}
+      // 查找对应的学习包
+      const packageIndex = textbookInfo.learningPackages.findIndex(p => p.packageId === fileInfo.packageId)
+      if (packageIndex === -1) {
+        throw new Error(`学习包 ${fileInfo.packageId} 不存在`)
       }
       
-      // 保存文件数据到教材的fileData中
-      textbook.fileData[fileInfo.id] = fileData
+      // 初始化textbookInfo.localFiles数组
+      if (!textbookInfo.localFiles) {
+        textbookInfo.localFiles = []
+      }
+      
+      // 查找或创建本地文件信息 - 存储到textbookInfo.localFiles而不是learningPackages
+      const localFiles = textbookInfo.localFiles
+      const localFileIndex = localFiles.findIndex(f => f.id === fileInfo.id)
+      
+      if (localFileIndex === -1) {
+        // 创建新的本地文件信息
+        localFiles.push({
+          id: fileInfo.id,
+          fileName: fileInfo.fileName,
+          fileSize: fileData.length,
+          checksum: fileInfo.checksum || '',
+          isDownloaded: true,
+          fileData: fileData
+        })
+      } else {
+        // 更新现有的本地文件信息
+        localFiles[localFileIndex] = {
+          ...localFiles[localFileIndex],
+          fileName: fileInfo.fileName,
+          fileSize: fileData.length,
+          checksum: fileInfo.checksum || '',
+          isDownloaded: true,
+          fileData: fileData
+        }
+      }
       
       // 使用优化的更新方法（默认使用批量更新）
-      const success = await this.updateTextbookInfo(textbook, undefined, immediate)
+      // 注意：immediate=true时，确保使用最新的textbookInfo数据
+      const success = await this.updateTextbookInfo(textbookInfo, undefined, immediate)
       
-      if (success) {
-        console.log(`✅ 文件数据保存成功: ${fileInfo.fileName}`)
-        console.log(`📊 教材统计更新: 已下载 ${textbook.downloadedFiles}/${textbook.totalFiles} 个文件`)
-      } else {
+      if (!success) {
         throw new Error('更新教材信息失败')
       }
+      
     } catch (error) {
-      console.error(`❌ 保存文件数据失败: ${fileInfo.fileName}`, error)
       throw error
     }
   }
 
+
+  /**
+   * 获取文件数据 - 重构版本，从localFiles中获取fileData
+   * @param textbookId 教材ID
+   * @param fileId 文件ID
+   * @returns 文件二进制数据，如果不存在则返回null
+   */
+  public async getFileData(textbookId: string, fileId: string): Promise<Uint8Array | null> {
+    try {
+      const textbook = await this.getTextbookInfo(textbookId)
+      if (!textbook) {
+        return null
+      }
+      
+      // 在textbook.localFiles中查找文件
+      if (textbook.localFiles) {
+        const localFile = textbook.localFiles.find(f => f.id === fileId)
+        if (localFile && localFile.fileData && localFile.fileData.length > 0) {
+          return localFile.fileData
+        }
+      }
+      
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * 检查文件数据是否存在 - 重构版本，检查localFiles中的fileData
+   * @param textbookId 教材ID
+   * @param fileId 文件ID
+   * @returns 文件数据是否存在
+   */
+  public async hasFileData(textbookId: string, fileId: string): Promise<boolean> {
+    try {
+      const textbook = await this.getTextbookInfo(textbookId)
+      if (!textbook) {
+        return false
+      }
+      
+      // 在textbook.localFiles中查找文件
+      if (textbook.localFiles) {
+        const localFile = textbook.localFiles.find(f => f.id === fileId)
+        if (localFile && localFile.fileData && localFile.fileData.length > 0) {
+          return true
+        }
+      }
+      
+      return false
+    } catch {
+      return false
+    }
+  }
 
   /**
    * 清理过期数据 - 简化版本
@@ -405,13 +471,12 @@ export class ResourceManager {
         const textbookData = textbook as UserTextbookInfo
         const lastDownloadTime = new Date(textbookData.lastDownloadTime)
         if (lastDownloadTime < thirtyDaysAgo && !textbookData.isDownloaded) {
-          console.log(`清理过期教材数据: ${textbookData.textbookName}`)
           await this.cleanupTextbookRelatedData(textbookData.textbookId)
           await this.indexedDBInstance.delete('textbooks', textbookData.textbookId)
         }
       }
-    } catch (error) {
-      console.error('清理过期数据失败:', error)
+    } catch {
+      // 清理过期数据失败
     }
   }
   
@@ -422,23 +487,20 @@ export class ResourceManager {
    */
   public async setTextbookTotalFiles(textbookId: string, totalFiles: number): Promise<void> {
     try {
-      console.log(`设置教材 ${textbookId} 总文件数: ${totalFiles}`)
       
       // 使用教材ID查找教材记录
       const textbooks = await this.indexedDBInstance.getAll('textbooks') as Record<string, unknown>[]
       const textbook = textbooks.find(t => (t as Record<string, unknown>).textbookId === textbookId)
       
       if (!textbook) {
-        console.error(`❌ 教材 ${textbookId} 不存在`)
         return
       }
       
       textbook.totalFiles = totalFiles
       await this.indexedDBInstance.update('textbooks', textbook)
       
-      console.log(`✅ 教材 ${textbookId} 总文件数设置成功: ${totalFiles}`)
+      // 总文件数设置成功
     } catch (error) {
-      console.error(`❌ 设置教材总文件数失败:`, error)
       throw error
     }
   }
@@ -455,10 +517,9 @@ export class ResourceManager {
         // 清空教材中的文件数据
         textbook.fileData = {}
         await this.indexedDBInstance.update('textbooks', textbook)
-        console.log(`已清理教材 ${textbookId} 的文件数据`)
       }
-    } catch (error) {
-      console.error('清理教材相关数据失败:', error)
+    } catch {
+      // 清理教材相关数据失败
     }
   }
 
@@ -499,7 +560,10 @@ export class ResourceManager {
           hasUpdatesAvailable: (dataRecord.hasUpdatesAvailable as boolean) || false,
           structure: (dataRecord.structure as ChapterNode[]) || [],
           learningPackages: (dataRecord.learningPackages as LearningPackage[]) || [],
-          fileData: (dataRecord.fileData as Record<string, Uint8Array>) || {}, // 添加文件数据字段
+          localFiles: (() => {
+            const localFiles = (dataRecord.localFiles as LocalFileInfo[]) || []
+            return localFiles
+          })(), // 从数据库读取localFiles数据
           
           // 添加方法
           updateStructure: function(structure: ChapterNode[]) {
@@ -518,16 +582,21 @@ export class ResourceManager {
               const ext = fileName.substring(dotIndex)
               return name + "_" + resource.checksum + ext
             }
-          }
+          },
         }
         return textbook
       })
       
-      console.log(`获取到 ${userTextbooks.length} 个本地教材`)
+      // 调试：验证localFiles数据
+      userTextbooks.forEach(textbook => {
+        if (textbook.localFiles.length > 0) {
+        }
+      })
+      
+      // 获取本地教材完成
       return userTextbooks
       
-    } catch (error) {
-      console.error('获取本地教材失败:', error)
+    } catch {
       return []
     }
   }
@@ -541,8 +610,7 @@ export class ResourceManager {
     try {
       const textbook = await this.indexedDBInstance.get('textbooks', textbookId) as UserTextbookInfo
       return textbook || null
-    } catch (error) {
-      console.error(`获取教材 ${textbookId} 信息失败:`, error)
+    } catch {
       return null
     }
   }

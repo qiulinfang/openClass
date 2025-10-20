@@ -4,7 +4,6 @@
       <q-page class="my-resources-view">
 
     <!-- 筛选区域 -->
-    <h6>图片资源问一下涛哥</h6>
     <div class="filter-section q-pa-md">
       <q-card flat bordered class="q-pa-md">
         <div class="row items-center q-gutter-md">
@@ -37,6 +36,16 @@
               unelevated
             />
           </div>
+          <div class="col-auto">
+            <q-btn
+              color="info"
+              icon="bug_report"
+              label="调试面板"
+              @click="toggleDebugPanel"
+              :disable="loading"
+              unelevated
+            />
+          </div>
         </div>
       </q-card>
     </div>
@@ -59,10 +68,12 @@
           >
           <q-card 
             class="textbook-card"
-            :class="{ 'downloading': textbook.downloadStatus === 1 }"
+            :class="{ 'downloading': textbook.downloadStatus === 1, 'paused': textbook.downloadStatus === 3 }"
             flat
             bordered
           >
+          {{ textbook.downloadStatus }}
+          
             <!-- 教材封面 -->
             <q-img
               :src="textbook.textbookCover || '/icons/book.svg'"
@@ -73,23 +84,34 @@
               <!-- 下载状态覆盖层 -->
               <div v-if="textbook.downloadStatus === 1" class="absolute-full flex flex-center bg-black-50">
                 <q-circular-progress
-                  :value="textbook.downloadedFiles / textbook.totalFiles"
+                  :value="textbook.downloadedFiles"
                   size="60px"
                   :thickness="0.22"
                   color="white"
                   track-color="grey-8"
                   class="q-ma-md"
+                  show-value
+                  :min="0"
+                  :max="textbook.totalFiles"
                 >
                   <div class="text-white text-caption">
-                    {{ Math.round((textbook.downloadedFiles / textbook.totalFiles) * 100) }}%
+                    {{ textbook.downloadedFiles }}/{{ textbook.totalFiles }}
                   </div>
                 </q-circular-progress>
               </div>
-              
-              <!-- 更新徽章 -->
-              <div v-if="textbook.hasUpdatesAvailable" class="absolute-top-right">
-                <q-badge color="red" floating>更新</q-badge>
+              <!-- 暂停状态覆盖层 -->
+              <div v-if="textbook.downloadStatus === 3" class="absolute-full flex flex-center bg-orange-50">
+                <div class="text-center">
+                  <q-icon name="pause_circle_filled" size="60px" color="orange-6" />
+                  <div class="text-orange-8 text-caption q-mt-sm">
+                    已暂停
+                  </div>
+                  <div class="text-orange-7 text-caption">
+                    {{ textbook.downloadedFiles }}/{{ textbook.totalFiles }}
+                  </div>
+                </div>
               </div>
+              
             </q-img>
 
             <!-- 教材信息 -->
@@ -104,52 +126,13 @@
                 {{ textbook.textbookPublisher }}
               </div>
               
-              <!-- 下载进度条 -->
-              <div v-if="textbook.downloadStatus === 1" class="q-mt-sm">
-                <q-linear-progress
-                  :value="textbook.downloadedFiles / textbook.totalFiles"
-                  color="primary"
-                  size="8px"
-                  rounded
-                  animated
-                />
-                <div class="text-caption text-grey-6 q-mt-xs text-center">
-                  {{ textbook.downloadedFiles }}/{{ textbook.totalFiles }} 文件
-                  <span class="q-ml-xs">
-                    ({{ Math.round((textbook.downloadedFiles / textbook.totalFiles) * 100) }}%)
-                  </span>
-                </div>
-              </div>
               
-              <!-- 下载状态信息 -->
-              <div v-else-if="textbook.downloadStatus === 2" class="q-mt-sm">
-                <div class="text-caption text-positive text-center">
-                  <q-icon name="check_circle" size="xs" class="q-mr-xs" />
-                  已下载完成
-                </div>
-                <div v-if="textbook.lastDownloadTime" class="text-caption text-grey-5 text-center q-mt-xs">
-                  下载时间: {{ formatDownloadTime(textbook.lastDownloadTime) }}
-                </div>
-              </div>
-              
-              <!-- 部分下载状态 -->
-              <div v-else-if="textbook.downloadedFiles > 0 && textbook.downloadedFiles < textbook.totalFiles" class="q-mt-sm">
-                <q-linear-progress
-                  :value="textbook.downloadedFiles / textbook.totalFiles"
-                  color="warning"
-                  size="6px"
-                  rounded
-                />
-                <div class="text-caption text-warning text-center q-mt-xs">
-                  部分下载 {{ textbook.downloadedFiles }}/{{ textbook.totalFiles }} 文件
-                </div>
-              </div>
             </q-card-section>
             <!-- 操作按钮 -->
             <q-card-actions align="around" class="q-pa-md">
-              <!-- 下载按钮 - 未下载状态 -->
+              <!-- 下载按钮 - 未下载状态且非暂停状态 -->
               <q-btn
-                v-if="!textbook.isDownloaded && textbook.downloadStatus !== 1 && textbook.downloadedFiles === 0"
+                v-if="!textbook.isDownloaded && textbook.downloadStatus !== 1 && textbook.downloadStatus !== 3 && textbook.downloadedFiles === 0"
                 color="primary"
                 icon="download"
                 label="下载"
@@ -159,9 +142,9 @@
                 :loading="false"
               />
               
-              <!-- 继续下载按钮 - 部分下载状态 -->
+              <!-- 继续下载按钮 - 部分下载状态或暂停状态 -->
               <q-btn
-                v-if="textbook.downloadedFiles > 0 && textbook.downloadedFiles < textbook.totalFiles && textbook.downloadStatus !== 1"
+                v-if="(textbook.downloadedFiles > 0 && textbook.downloadedFiles < textbook.totalFiles && textbook.downloadStatus !== 1) || textbook.downloadStatus === 3"
                 color="primary"
                 icon="play_arrow"
                 label="继续"
@@ -205,9 +188,9 @@
                 rounded
               />
               
-              <!-- 更新按钮 - 有更新可用 -->
+              <!-- 更新按钮 - 有更新可用且非下载中/暂停状态 -->
               <q-btn
-                v-if="textbook.hasUpdatesAvailable && textbook.downloadStatus !== 1"
+                v-if="textbook.hasUpdatesAvailable && textbook.downloadStatus !== 1 && textbook.downloadStatus !== 3"
                 color="secondary"
                 icon="system_update"
                 label="更新"
@@ -245,13 +228,6 @@
                       <q-item-section>重新下载</q-item-section>
                     </q-item>
                     
-                    <!-- 删除选项 -->
-                    <q-item clickable v-close-popup @click="deleteTextbook(textbook)">
-                      <q-item-section avatar>
-                        <q-icon name="delete" color="negative" />
-                      </q-item-section>
-                      <q-item-section>删除</q-item-section>
-                    </q-item>
                     
                   </q-list>
                 </q-menu>
@@ -304,75 +280,6 @@
       </q-card>
     </q-dialog>
 
-    <!-- 下载进度对话框 -->
-    <q-dialog v-model="showDownloadDialog" persistent>
-      <q-card style="min-width: 400px">
-        <q-card-section class="row items-center">
-          <q-avatar icon="download" color="primary" text-color="white" />
-          <span class="q-ml-sm text-h6">下载进度</span>
-        </q-card-section>
-
-        <q-card-section>
-          <div class="text-body1 q-mb-md">{{ currentDownloadTextbook?.textbookName }}</div>
-          
-          <!-- 总体进度 -->
-          <div class="q-mb-md">
-            <div class="text-caption text-grey-6 q-mb-xs">总体进度</div>
-            <q-linear-progress
-              :value="overallProgress"
-              color="primary"
-              size="12px"
-              rounded
-              animated
-            />
-            <div class="text-caption text-grey-6 q-mt-xs text-center">
-              {{ Math.round(overallProgress * 100) }}%
-            </div>
-          </div>
-          
-          <!-- 文件进度 -->
-          <div class="q-mb-md">
-            <div class="text-caption text-grey-6 q-mb-xs">文件进度</div>
-            <div class="text-body2 text-center">
-              {{ currentDownloadedFiles }}/{{ currentTotalFiles }} 文件
-            </div>
-          </div>
-          
-          <!-- 当前下载文件 -->
-          <div v-if="currentDownloadingFile" class="q-mb-md">
-            <div class="text-caption text-grey-6 q-mb-xs">正在下载</div>
-            <div class="text-body2">{{ currentDownloadingFile }}</div>
-            <q-linear-progress
-              :value="currentFileProgress"
-              color="secondary"
-              size="8px"
-              rounded
-              animated
-            />
-            <div class="text-caption text-grey-6 q-mt-xs text-center">
-              {{ Math.round(currentFileProgress * 100) }}%
-            </div>
-          </div>
-        </q-card-section>
-
-        <q-card-actions align="right">
-          <q-btn 
-            flat 
-            label="暂停" 
-            color="orange" 
-            @click="pauseCurrentDownload"
-            v-if="currentDownloadTextbook"
-          />
-          <q-btn 
-            flat 
-            label="关闭" 
-            color="grey" 
-            v-close-popup
-          />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
-
     <!-- 通知消息 -->
     <q-banner
       v-if="notification.show"
@@ -387,6 +294,12 @@
       </template>
       {{ notification.message }}
     </q-banner>
+
+    <!-- 调试面板 -->
+    <DebugPanel 
+      :visible="showDebugPanel" 
+      @close="showDebugPanel = false"
+    />
       </q-page>
     </q-page-container>
   </q-layout>
@@ -398,6 +311,7 @@ import { useRouter } from 'vue-router'
 import { resourceManager } from '../services/resource-manager'
 import { apiService } from '../services/api-service'
 import type { UserTextbookInfo } from '../types'
+import DebugPanel from '../components/DebugPanel.vue'
 
 // 路由
 const router = useRouter()
@@ -408,6 +322,7 @@ const checkingUpdates = ref(false)
 const textbooks = ref<UserTextbookInfo[]>([])
 const selectedSubjects = ref(new Set<string>())
 const updateCount = ref(0)
+const showDebugPanel = ref(false)
 
 // 确认对话框
 const showConfirmDialog = ref(false)
@@ -425,15 +340,6 @@ const notification = ref({
   icon: 'check'
 })
 
-// 下载进度对话框
-const showDownloadDialog = ref(false)
-const currentDownloadTextbook = ref<UserTextbookInfo | null>(null)
-const currentDownloadingFile = ref('')
-const currentFileProgress = ref(0)
-const currentDownloadedFiles = ref(0)
-const currentTotalFiles = ref(0)
-const overallProgress = ref(0)
-
 // 分类选项 - 基于学科动态生成
 const categories = ref([
   { label: '全部', value: 'all' }
@@ -449,9 +355,6 @@ const filteredTextbooks = computed(() => {
     selectedSubjects.value.has(textbook.textbookSubjectLabel)
   )
 })
-
-
-// 方法
 
 // 切换学科选择
 const toggleSubject = (subject: string) => {
@@ -508,7 +411,7 @@ const mergeServerAndLocalData = (serverTextbooks: UserTextbookInfo[], localTextb
         learningPackages: [],
         structure: [], // 🔥 初始化空结构
         hasUpdatesAvailable: false, // 🔥 初始化更新状态
-        fileData: {}, // 🔥 初始化空文件数据
+        localFiles: [], // 🔥 初始化空本地文件列表
         // 初始化方法
         updateStructure: () => {},
         updatePackages: () => {},
@@ -534,17 +437,12 @@ const loadResources = async () => {
   try {
     // 检查登录状态
     if (!resourceManager.isLoggedIn()) {
-      console.warn('用户未登录，尝试自动登录...')
-      
       // 尝试自动登录
       const autoLoginSuccess = await apiService.autoLogin(true)
       if (!autoLoginSuccess) {
-        console.warn('自动登录失败，无法加载资源')
         textbooks.value = []
         return
       }
-      
-      console.log('自动登录成功，继续加载资源')
     }
 
     // 直接使用ApiService获取服务器教材
@@ -564,8 +462,7 @@ const loadResources = async () => {
     // 更新教材列表
     textbooks.value = mergedTextbooks
     updateSubjectChips()
-  } catch (error) {
-    console.error('加载资源失败:', error)
+  } catch {
     showMessage('加载资源失败，请稍后重试', 'error')
     textbooks.value = []
   } finally {
@@ -595,18 +492,13 @@ const checkForUpdates = async () => {
   checkingUpdates.value = true
   
   try {
-    console.log('开始执行三级更新检查...')
+    // 开始执行三级更新检查
     const updatedTextbooks = await apiService.checkForUpdates()
-    console.log('updatedTextbooks', updatedTextbooks) 
     if (updatedTextbooks.length > 0) {
       // 更新教材的更新状态
       textbooks.value.forEach(async textbook => {
         const hasUpdate = updatedTextbooks.some(update => update.textbookId === textbook.textbookId)
         textbook.hasUpdatesAvailable = hasUpdate
-        console.log('updatedTextbooks', textbook.textbookName, textbook.hasUpdatesAvailable)
-        if (hasUpdate) {
-          console.log(`教材 ${textbook.textbookName} 标记为需要更新`)
-        }
         
         // 🔥 保存更新状态到 IndexedDB（使用批量更新）
         await resourceManager.updateTextbookInfo(textbook, {
@@ -615,7 +507,6 @@ const checkForUpdates = async () => {
       })
       updateCount.value = updatedTextbooks.length
       showMessage(`发现 ${updatedTextbooks.length} 个教材有更新`, 'success')
-      console.log(`三级对比检查完成，发现 ${updatedTextbooks.length} 个教材需要更新`)
     } else {
       textbooks.value.forEach(async textbook => {
         textbook.hasUpdatesAvailable = false
@@ -627,10 +518,8 @@ const checkForUpdates = async () => {
       })
       updateCount.value = 0
       showMessage('所有教材都是最新版本', 'info')
-      console.log('三级对比检查完成，所有教材都是最新版本')
     }
-  } catch (error) {
-    console.error('检查更新失败:', error)
+  } catch {
     showMessage('检查更新失败，请稍后重试', 'error')
   } finally {
     checkingUpdates.value = false
@@ -639,104 +528,119 @@ const checkForUpdates = async () => {
 
 // 下载教材 - 直接使用ApiService，移除不必要的中介方法
 const downloadTextbook = async (textbook: UserTextbookInfo) => {
-  console.log(`开始下载教材: ${textbook.textbookName}`)
   
   // 设置下载状态
   textbook.downloadStatus = 1 // 下载中
   textbook.isDownloaded = false
   
-  // 显示下载进度对话框
-  currentDownloadTextbook.value = textbook
-  currentTotalFiles.value = textbook.totalFiles
-  currentDownloadedFiles.value = textbook.downloadedFiles
-  overallProgress.value = textbook.downloadedFiles / textbook.totalFiles
-  showDownloadDialog.value = true
+  // ApiService.downloadTextbook内部会自动获取学习资源包并设置totalFiles，无需重复处理
   
   try {
     // 1. 直接使用ApiService下载（内部会获取学习资源包）
-    const success = await apiService.downloadTextbook(textbook, async (progress) => {
-      // 更新下载进度 - 优化版本（基于实际下载进度）
-      // progress是0-100的百分比，直接使用
-      overallProgress.value = progress / 100
-      
-      // 计算已下载文件数：基于当前进度和总文件数
-      textbook.downloadedFiles = Math.floor((progress / 100) * textbook.totalFiles)
-      currentDownloadedFiles.value = textbook.downloadedFiles
-      
-      // 实时更新UI进度
-      console.log(`教材 ${textbook.textbookName} 下载进度: ${progress}% (${textbook.downloadedFiles}/${textbook.totalFiles})`)
+    const success = await apiService.downloadTextbook(textbook, async (progress, downloadedCount) => {
+      // 更新下载进度 - 使用实际下载的文件数
+      textbook.downloadedFiles = downloadedCount
     })
+      
+    // 现在数据会立即保存到IndexedDB，直接打印数据
+    printLocalFilesData()
     
     if (success) {
-      // 下载成功
-      textbook.isDownloaded = true
-      textbook.downloadStatus = 2 // 下载完成
-      textbook.downloadedFiles = textbook.totalFiles
-      textbook.lastDownloadTime = new Date().toISOString()
-      textbook.hasUpdatesAvailable = false
+      // 下载成功 - 重新从IndexedDB获取最新的教材数据，避免使用过时的textbook对象
+      const latestTextbook = await resourceManager.getUserLocalTextbooks().then(textbooks => 
+        textbooks.find(t => t.textbookId === textbook.textbookId)
+      )
       
-      // 立即保存下载状态到IndexedDB（使用立即更新）
-      await resourceManager.updateTextbookInfo(textbook, undefined, true)
-      
-      // 更新进度对话框
-      overallProgress.value = 1
-      currentDownloadedFiles.value = textbook.totalFiles
+      if (latestTextbook) {
+        // 使用最新的教材数据更新状态
+        latestTextbook.isDownloaded = true
+        latestTextbook.downloadStatus = 2 // 下载完成
+        latestTextbook.downloadedFiles = latestTextbook.totalFiles
+        latestTextbook.lastDownloadTime = new Date().toISOString()
+        latestTextbook.hasUpdatesAvailable = false
+        console.log('latestTextbook.localFiles:', latestTextbook.localFiles)
+        // 只更新下载状态，不覆盖localFiles数据
+        await resourceManager.updateTextbookInfo(latestTextbook, {
+          isDownloaded: true,
+          downloadStatus: 2,
+          downloadedFiles: latestTextbook.totalFiles,
+          lastDownloadTime: new Date().toISOString(),
+          hasUpdatesAvailable: false
+        }, true)
+        
+        // 更新Vue组件中的textbook对象
+        Object.assign(textbook, latestTextbook)
+      } else {
+        // 如果无法获取最新数据，使用原有逻辑
+        textbook.isDownloaded = true
+        textbook.downloadStatus = 2 // 下载完成
+        textbook.downloadedFiles = textbook.totalFiles
+        textbook.lastDownloadTime = new Date().toISOString()
+        textbook.hasUpdatesAvailable = false
+        
+        // 立即保存下载状态到IndexedDB（使用立即更新）
+        await resourceManager.updateTextbookInfo(textbook, {
+          isDownloaded: true,
+          downloadStatus: 2,
+          downloadedFiles: textbook.totalFiles,
+          lastDownloadTime: new Date().toISOString(),
+          hasUpdatesAvailable: false
+        }, true)
+      }
       
       showMessage(`《${textbook.textbookName}》下载完成`, 'success')
-      console.log(`教材 ${textbook.textbookName} 下载完成`)
-      
-      // 延迟关闭对话框
-      setTimeout(() => {
-        showDownloadDialog.value = false
-        currentDownloadTextbook.value = null
-      }, 2000)
     } else {
       // 下载失败
       textbook.downloadStatus = 0 // 下载失败
       textbook.isDownloaded = false
       
-      console.error('下载失败')
       showMessage(`《${textbook.textbookName}》下载失败`, 'error')
-      
-      // 关闭对话框
-      showDownloadDialog.value = false
-      currentDownloadTextbook.value = null
     }
   } catch (error) {
-    // 下载异常
-    textbook.downloadStatus = 0 // 下载失败
-    textbook.isDownloaded = false
-    
-    console.error('下载失败:', error)
-    showMessage(`《${textbook.textbookName}》下载失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
-    
-    // 关闭对话框
-    showDownloadDialog.value = false
-    currentDownloadTextbook.value = null
+    // 修复：区分用户主动暂停和真正的下载失败
+    if (error instanceof Error && error.name === 'AbortError') {
+      // 用户主动暂停下载，保持暂停状态
+      textbook.downloadStatus = 3 // 已暂停
+      textbook.isDownloaded = false
+      
+      // 保存暂停状态到IndexedDB（使用立即更新）
+      await resourceManager.updateTextbookInfo(textbook, {
+        downloadStatus: 3,
+        isDownloaded: false
+      }, true)
+      
+      showMessage(`《${textbook.textbookName}》下载已暂停`, 'warning')
+    } else {
+      // 真正的下载失败
+      textbook.downloadStatus = 0 // 下载失败
+      textbook.isDownloaded = false
+      
+      showMessage(`《${textbook.textbookName}》下载失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
+    }
   }
 }
 
 // 暂停下载 - 直接使用ApiService
 const pauseDownload = async (textbook: UserTextbookInfo) => {
-  console.log(`暂停下载教材: ${textbook.textbookName}`)
   
   try {
     const success = await apiService.pauseDownload(textbook.textbookId)
     
     if (success) {
-      textbook.downloadStatus = 0 // 暂停状态
+      textbook.downloadStatus = 3 // 已暂停
       textbook.isDownloaded = false
       
       // 保存暂停状态到IndexedDB（使用立即更新）
-      await resourceManager.updateTextbookInfo(textbook, undefined, true)
+      await resourceManager.updateTextbookInfo(textbook, {
+        downloadStatus: 3,
+        isDownloaded: false
+      }, true)
       
       showMessage(`《${textbook.textbookName}》下载已暂停`, 'warning')
-      console.log(`教材 ${textbook.textbookName} 下载已暂停`)
     } else {
       showMessage(`暂停《${textbook.textbookName}》失败`, 'error')
     }
   } catch (error) {
-    console.error('暂停下载失败:', error)
     showMessage(`暂停《${textbook.textbookName}》失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
   }
 }
@@ -744,7 +648,6 @@ const pauseDownload = async (textbook: UserTextbookInfo) => {
 // 查看教材
 const viewTextbook = (textbook: UserTextbookInfo) => {
   // 跳转到PDF查看页面，并传递教材信息
-  console.log('textbook', textbook)
   router.push({
     name: 'pdfViewer',
     query: {
@@ -767,7 +670,6 @@ const goToKnowledgeGraph = (textbook: UserTextbookInfo) => {
 
 // 更新教材 - 基于安卓原生逻辑完善
 const updateTextbook = (textbook: UserTextbookInfo) => {
-  console.log(`开始更新教材: ${textbook.textbookName}`)
   
   showConfirmDialog.value = true
   confirmDialog.value = {
@@ -785,67 +687,6 @@ const updateTextbook = (textbook: UserTextbookInfo) => {
   }
 }
 
-// 删除教材 - 直接使用ApiService
-const deleteTextbook = (textbook: UserTextbookInfo) => {
-  console.log(`准备删除教材: ${textbook.textbookName}`)
-  
-  showConfirmDialog.value = true
-  confirmDialog.value = {
-    title: '删除教材',
-    message: `确定要删除教材"${textbook.textbookName}"吗？删除后将清除所有本地文件，需要重新下载。`,
-    action: async () => {
-      try {
-        const success = await apiService.deleteTextbook(textbook.textbookId)
-        
-        if (success) {
-          // 从IndexedDB中删除教材数据
-          if (resourceManager.getUserLearnData()) {
-            resourceManager.getUserLearnData()!.textbooks = resourceManager.getUserLearnData()!.textbooks.filter(
-              t => t.textbookId !== textbook.textbookId
-            )
-          }
-          
-          // 删除相关的资源包和文件数据
-          try {
-            await resourceManager.indexedDB.delete('textbooks', textbook.textbookId)
-            // 删除相关的资源包
-            const packages = await resourceManager.indexedDB.query('packages', { 
-              index: 'textbookId', 
-              range: IDBKeyRange.only(textbook.textbookId) 
-            })
-            for (const pkg of packages) {
-              await resourceManager.indexedDB.delete('packages', (pkg as { packageId: string }).packageId)
-              // 删除相关的文件
-              const files = await resourceManager.indexedDB.query('files', { 
-                index: 'packageId', 
-                range: IDBKeyRange.only((pkg as { packageId: string }).packageId) 
-              })
-              for (const file of files) {
-                await resourceManager.indexedDB.delete('files', (file as { id: string }).id)
-              }
-            }
-          } catch (dbError) {
-            console.error('从IndexedDB删除教材数据失败:', dbError)
-          }
-          
-          // 从列表中移除教材
-          const index = textbooks.value.findIndex(t => t.textbookId === textbook.textbookId)
-          if (index > -1) {
-            textbooks.value.splice(index, 1)
-          }
-          
-          showMessage(`《${textbook.textbookName}》删除成功`, 'success')
-          console.log(`教材 ${textbook.textbookName} 删除成功`)
-        } else {
-          showMessage(`删除《${textbook.textbookName}》失败`, 'error')
-        }
-      } catch (error) {
-        console.error('删除教材失败:', error)
-        showMessage(`删除《${textbook.textbookName}》失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
-      }
-    }
-  }
-}
 
 // 确认操作
 const confirmAction = () => {
@@ -865,43 +706,8 @@ const closeConfirmDialog = () => {
   }
 }
 
-// 格式化下载时间
-const formatDownloadTime = (timeString: string): string => {
-  try {
-    const date = new Date(timeString)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMinutes = Math.floor(diffMs / (1000 * 60))
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-    
-    if (diffMinutes < 1) {
-      return '刚刚'
-    } else if (diffMinutes < 60) {
-      return `${diffMinutes}分钟前`
-    } else if (diffHours < 24) {
-      return `${diffHours}小时前`
-    } else if (diffDays < 7) {
-      return `${diffDays}天前`
-    } else {
-      return date.toLocaleDateString('zh-CN')
-    }
-  } catch {
-    return '未知时间'
-  }
-}
 
 
-
-
-// 暂停当前下载
-const pauseCurrentDownload = () => {
-  if (currentDownloadTextbook.value) {
-    pauseDownload(currentDownloadTextbook.value)
-    showDownloadDialog.value = false
-    currentDownloadTextbook.value = null
-  }
-}
 
 
 // 显示消息
@@ -927,7 +733,6 @@ const showMessage = (message: string, type: 'success' | 'error' | 'warning' | 'i
 
 // 生命周期
 onMounted(async () => {
-  console.log('我的资源页面已加载')
   await loadResources()
   
   // 清理过期数据
@@ -940,6 +745,40 @@ onMounted(async () => {
     }
   }, 5 * 60 * 1000)
 })
+
+// 调试方法：打印IndexedDB中的localFiles数据
+const printLocalFilesData = async () => {
+    // 获取所有用户教材
+    const userTextbooks = await resourceManager.getUserLocalTextbooks()
+    
+    userTextbooks.forEach((textbook) => {
+      // 打印localFiles数据
+      if (textbook.localFiles && textbook.localFiles.length > 0) {
+        textbook.localFiles.forEach((file, index) => {
+          if (file.fileData && file.fileData.length > 0) {
+            // 文件数据存在
+          } else {
+            // 文件数据不存在或为空
+          }
+        })
+      }
+      
+      // 打印学习包信息
+      if (textbook.learningPackages && textbook.learningPackages.length > 0) {
+        textbook.learningPackages.forEach((pkg, index) => {
+          // 学习包信息已处理
+        })
+      }
+      
+      // 打印下载状态
+      // 下载状态信息已处理
+    })
+}
+
+// 切换调试面板显示状态
+const toggleDebugPanel = () => {
+  showDebugPanel.value = !showDebugPanel.value
+}
 </script>
 
 <style lang="scss" scoped>
@@ -1146,6 +985,10 @@ onMounted(async () => {
       &.downloading {
         border-left: 4px solid #2196F3; // Material Design 蓝色
       }
+      
+      &.paused {
+        border-left: 4px solid #FF9800; // Material Design 橙色
+      }
     }
 
     .textbook-item {
@@ -1169,6 +1012,10 @@ onMounted(async () => {
 
       &.downloading {
         border-left: 4px solid #2196F3; // Material Design 蓝色
+      }
+      
+      &.paused {
+        border-left: 4px solid #FF9800; // Material Design 橙色
       }
 
       .textbook-icon {
@@ -1308,15 +1155,6 @@ onMounted(async () => {
 
             &:hover {
               background: #E64A19;
-            }
-          }
-
-          &.delete {
-            background: #F44336; // Material Design 红色
-            color: white;
-
-            &:hover {
-              background: #D32F2F;
             }
           }
         }
