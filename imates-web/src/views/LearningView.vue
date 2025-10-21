@@ -282,24 +282,7 @@ const currentResources = computed(() => {
 
 // 方法
 const goBack = () => {
-  // 保存当前学习页面的状态到localStorage，以便知识图谱页面恢复
-  const learningState = {
-    sectionName: sectionName.value,
-    sectionId: sectionId.value,
-    textbookId: textbookId.value,
-    timestamp: Date.now()
-  }
-  localStorage.setItem('learningPageState', JSON.stringify(learningState))
-  
-  // 返回到知识图谱页面，并传递必要参数
-  router.push({
-    name: 'knowledgeGraph',
-    query: {
-      textbookId: textbookId.value,
-      textbookName: sectionName.value,
-      returnFromLearning: 'true'
-    }
-  })
+  router.back()
 }
 
 const selectScheme = (index: number) => {

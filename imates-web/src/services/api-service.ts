@@ -1662,8 +1662,17 @@ export class ApiService {
       const controller = new AbortController() // 创建下载控制器，用于支持取消操作
       this.downloadControllers.set(textbook.textbookId, controller) // 存储控制器，供取消操作使用
       
-      // ==================== 步骤2: 获取学习资源包（区分首次下载和继续下载） ====================
-      const serverPackages = await this.getServerLearningPackages(textbook) // 获取服务器学习资源包
+      // ==================== 步骤2: 获取学习资源包（优先使用本地数据） ====================
+      let serverPackages: any[] = []
+      
+      // 优先使用本地已有的学习资源包数据
+      if (textbook.learningPackages && textbook.learningPackages.length > 0) {
+        serverPackages = textbook.learningPackages
+      } else {
+        // 如果本地没有数据，才从服务器获取
+        serverPackages = await this.getServerLearningPackages(textbook)
+      }
+      
       if (!serverPackages || serverPackages.length === 0) {
         return true // 没有资源也算成功
       }

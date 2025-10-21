@@ -16,9 +16,9 @@
        <!-- 中心节点 -->
        <GraphNode
          ref="centerNodeRef"
-         :node="{ id: 'center', name: chapterDetails.name, level: chapterDetails.level }"
+         :node="{ id: chapterDetails.id, name: chapterDetails.name, level: chapterDetails.level }"
          type="center"
-         :is-menu-visible="activeNodeId === 'center'"
+         :is-menu-visible="activeNodeId === chapterDetails.id"
          :is-expanded="isExpanded"
          :has-expanded-graph="hasExpandedGraph"
          @click="handleCenterNodeClick"
@@ -53,6 +53,8 @@
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import GraphNode from './GraphNode.vue'
+import { ResourceManager } from '../../services/resource-manager'
+import { GeminiNotify } from '../../utils/notification/gemini-notify'
 
 interface ChapterNode {
   id: string
@@ -74,7 +76,7 @@ interface Props {
   isExpanded?: boolean
   hasExpandedGraph?: boolean
   rotationDirection?: 'clockwise' | 'counterclockwise' | null
-  textbookId?: string
+  textbookRecordId?: string // 教材在IndexedDB中的id字段
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -85,13 +87,14 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 // 调试：监听props变化
-watch(() => props.textbookId, (newValue) => {
-  console.log('KnowledgeGraph 接收到的 textbookId:', newValue)
+watch(() => props.textbookRecordId, (newValue) => {
+  console.log('KnowledgeGraph 接收到的 textbookRecordId:', newValue)
 }, { immediate: true })
 
 // 定义事件
 const emit = defineEmits<{
   expand: [graphId: string]
+  'save-state': []
 }>()
 
 // 路由
@@ -124,6 +127,10 @@ watch([() => props.isExpanded, () => props.hasExpandedGraph], ([newIsExpanded, n
   // 如果当前图谱被收起
   else if (!newIsExpanded && oldIsExpanded) {
     animationState.value = 'collapsing'
+    // 隐藏中心节点的气泡框
+    if (activeNodeId.value === props.chapterDetails.id) {
+      activeNodeId.value = null
+    }
     setTimeout(() => {
       animationState.value = 'idle'
     }, 600) // 与CSS动画时间一致
@@ -131,6 +138,10 @@ watch([() => props.isExpanded, () => props.hasExpandedGraph], ([newIsExpanded, n
   // 如果其他图谱被展开，当前图谱需要淡出
   else if (newHasExpandedGraph && !newIsExpanded && !oldHasExpandedGraph) {
     animationState.value = 'collapsing'
+    // 隐藏中心节点的气泡框
+    if (activeNodeId.value === props.chapterDetails.id) {
+      activeNodeId.value = null
+    }
     setTimeout(() => {
       animationState.value = 'idle'
     }, 600) // 与CSS动画时间一致
@@ -258,6 +269,9 @@ const handleCenterNodeClick = (event: Event) => {
   console.log('handleCenterNodeClick', props.chapterDetails.id)
   event.stopPropagation() // 阻止事件冒泡到背景
   
+  // 不需要手动调用handleToggleMenu，因为GraphNode组件已经通过@toggle-menu事件处理了
+  // 这里只需要处理展开逻辑
+  
   console.log('props.chapterDetails.children?.length', props.chapterDetails.children?.length)
   // 无论是否有圆周节点，都执行展开逻辑，让知识图谱旋转到160度位置
   // 发出展开事件，让父组件控制展开状态和旋转动画
@@ -277,28 +291,67 @@ const handleToggleMenu = (nodeId: string) => {
 
 
 // 处理去学习
-const handleLearn = (node: { id: string; name: string; level?: number | null }) => {
+const handleLearn = async (node: { id: string; name: string; level?: number | null }) => {
   console.log('去学习:', node)
-  console.log('当前教材ID:', props.textbookId)
-  console.log('教材ID类型:', typeof props.textbookId)
+  console.log('当前教材ID:', props.textbookRecordId)
+  console.log('教材ID类型:', typeof props.textbookRecordId)
   activeNodeId.value = null // 关闭气泡框
   
-  // 跳转到学习页面
-  router.push({
-    path: '/learning',
-    query: {
-      nodeId: node.id,
-      sectionName: node.name,
-      level: node.level || 1,
-      textbookId: props.textbookId || '' // 传递教材ID
+  try {
+    // 检查学习方案数据
+    if (!props.textbookRecordId) {
+      console.warn('教材ID为空，无法检查学习方案')
+      showNoLearningPackagesAlert(node.name)
+      return
     }
-  })
+    
+    const checkResult = await checkLocalLearningPackages(props.textbookRecordId)
+    
+    if (!checkResult.hasPackages) {
+      // 根据不同的原因显示不同的提示
+      if (checkResult.reason === 'not_downloaded') {
+        showNotDownloadedAlert(node.name)
+      } else if (checkResult.reason === 'no_packages') {
+        showNoLearningPackagesAlert(node.name)
+      } else {
+        showErrorAlert(node.name)
+      }
+      return
+    }
+    
+    // 发出保存状态事件，让父组件保存当前页面状态
+    emit('save-state')
+    
+    // 跳转到学习页面
+    router.push({
+      path: '/learning',
+      query: {
+        nodeId: node.id,
+        sectionName: node.name,
+        level: node.level || 1,
+        textbookId: props.textbookRecordId || '' // 传递教材ID
+      }
+    })
+  } catch (error) {
+    console.error('检查学习方案失败:', error)
+    // 如果检查失败，仍然允许跳转，让学习页面处理空数据情况
+    emit('save-state')
+    router.push({
+      path: '/learning',
+      query: {
+        nodeId: node.id,
+        sectionName: node.name,
+        level: node.level || 1,
+        textbookId: props.textbookRecordId || ''
+      }
+    })
+  }
 }
 
 // 处理去练习
 const handlePractice = (node: { id: string; name: string; level?: number | null }) => {
   activeNodeId.value = null // 关闭气泡框
-  
+  console.log(node)
   // 使用硬编码映射表获取知识点ID
   const knowledgeList = getAllKnowledgeListsFromNode(node.id)
   
@@ -315,6 +368,66 @@ const handlePractice = (node: { id: string; name: string; level?: number | null 
       token: localStorage.getItem('token') || ''
     }
   })
+}
+
+// 检查本地学习方案数据
+const checkLocalLearningPackages = async (textbookRecordId: string): Promise<{hasPackages: boolean, reason: 'no_packages' | 'not_downloaded' | 'error'}> => {
+  try {
+    if (!textbookRecordId) {
+      console.warn('教材记录ID为空，无法检查学习方案')
+      return { hasPackages: false, reason: 'error' }
+    }
+    
+    // 从本地 IndexedDB 获取教材信息
+    // 使用教材记录ID查找对应的教材
+    const resourceManager = ResourceManager.getInstance()
+    const textbooks = await resourceManager.getUserLocalTextbooks()
+    const textbook = textbooks.find(t => t.id === textbookRecordId)
+    
+    if (!textbook) {
+      // 教材不存在于本地，说明没有下载过
+      return { hasPackages: false, reason: 'not_downloaded' }
+    }
+    
+    // 检查是否有本地文件（判断是否已下载）
+    const hasLocalFiles = Boolean(textbook.localFiles && textbook.localFiles.length > 0)
+    
+    if (!hasLocalFiles) {
+      // 没有本地文件，说明没有下载
+      return { hasPackages: false, reason: 'not_downloaded' }
+    }
+    
+    // 检查是否有学习资源包数据
+    const hasLearningPackages = Boolean(textbook.learningPackages && textbook.learningPackages.length > 0)
+    
+    if (!hasLearningPackages) {
+      // 有本地文件但没有学习资源包，说明服务器上没有学习方案
+      return { hasPackages: false, reason: 'no_packages' }
+    }
+    
+    return { hasPackages: true, reason: 'no_packages' } // reason在这里不重要，因为hasPackages为true
+  } catch (error) {
+    console.error('检查本地学习方案失败:', error)
+    return { hasPackages: false, reason: 'error' }
+  }
+}
+
+// 显示没有学习方案的提示
+const showNoLearningPackagesAlert = (sectionName: string) => {
+  // 使用GeminiNotify显示优雅的提示
+  GeminiNotify.warning(`《${sectionName}》暂无学习方案，请选择其他知识点进行学习`, 3000)
+}
+
+// 显示未下载资源的提示
+const showNotDownloadedAlert = (sectionName: string) => {
+  // 使用GeminiNotify显示优雅的提示
+  GeminiNotify.warning(`《${sectionName}》学习资源未下载，请先下载教材资源`, 3000)
+}
+
+// 显示检查错误的提示
+const showErrorAlert = (sectionName: string) => {
+  // 使用GeminiNotify显示优雅的提示
+  GeminiNotify.error(`检查《${sectionName}》学习资源时发生错误，请重试`, 3000)
 }
 
 // 硬编码知识点ID映射表

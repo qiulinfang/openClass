@@ -120,8 +120,9 @@
                 :is-expanded="getCurrentChapterExpandedGraph() === subChapter.id"
                 :has-expanded-graph="getCurrentChapterExpandedGraph() !== null"
                 :rotation-direction="rotationDirection"
-                :textbook-id="getCurrentTextbookId()"
+                :textbook-record-id="getCurrentTextbookId()"
                 @expand="handleGraphExpand(subChapter.id)"
+                @save-state="saveCurrentPageState"
                 class="knowledge-graph-wrapper"
               />
             </div>
@@ -151,7 +152,8 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed, onUnmounted } from 'vue'
 import { apiService } from '../services/api-service'
-import type { TextbookOption, ChapterNode } from '../types'
+import { resourceManager } from '../services/resource-manager'
+import type { TextbookOption, ChapterNode, UserTextbookInfo } from '../types'
 import KnowledgeGraph from '../components/knowledge-graph/KnowledgeGraph.vue'
 import { useTextbookChapterState } from '../stores/textbookChapterState'
 
@@ -166,7 +168,9 @@ const {
   clearTextbookStates,
   initializeChapterStates,
   getCurrentChapter,
-  allStates
+  allStates,
+  savePageState,
+  restorePageState
 } = useTextbookChapterState()
 
 // 响应式数据
@@ -629,9 +633,78 @@ const initGraphDataWithoutReset = () => {
   // 不重置当前选中的章节状态，保持已选择的章节
 }
 
-// 缓存键名常量
+// 保存页面状态
+const saveCurrentPageState = () => {
+  try {
+    const state = {
+      selectedSubject: selectedSubject.value,
+      selectedTextbook: selectedTextbook.value,
+      selectedChapterIndex: getCurrentChapter(),
+      selectedChapterDetails: selectedChapterDetails.value,
+      chapters: chapters.value,
+      chapterStructure: chapterStructure.value
+    }
+    
+    savePageState(state)
+    console.log('💾 [状态保存] 知识图谱页面状态已保存')
+  } catch (error) {
+    console.error('❌ [状态保存] 保存页面状态失败:', error)
+  }
+}
+
+// 恢复页面状态
+const restorePageStateFromStore = async (): Promise<boolean> => {
+  try {
+    const savedState = restorePageState()
+    if (!savedState) {
+      console.log('📋 [状态恢复] 没有保存的页面状态')
+      return false
+    }
+    
+    console.log('🔄 [状态恢复] 开始恢复页面状态:', savedState)
+    
+    // 恢复基本状态
+    selectedSubject.value = savedState.selectedSubject
+    selectedTextbook.value = savedState.selectedTextbook
+    chapters.value = savedState.chapters
+    chapterStructure.value = savedState.chapterStructure
+    
+    // 从IndexedDB重新加载textbookOptions
+    const localOptions = await loadTextbookDataFromIndexedDB()
+    if (localOptions.length > 0) {
+      textbookOptions.value = localOptions
+    }
+    
+    // 恢复章节状态
+    if (savedState.selectedChapterIndex >= 0 && savedState.selectedChapterIndex < chapterStructure.value.length) {
+      setCurrentChapter(savedState.selectedChapterIndex)
+      selectedChapterDetails.value = savedState.selectedChapterDetails
+      
+      // 恢复展开的知识图谱状态
+      if (savedState.selectedChapterDetails) {
+        const subChapters = getSubChapters(savedState.selectedChapterDetails)
+        if (subChapters.length > 0) {
+          // 尝试恢复之前展开的图谱，如果不存在则展开第一个
+          const previousExpandedGraph = getCurrentChapterExpandedGraph()
+          if (previousExpandedGraph && subChapters.some(sub => sub.id === previousExpandedGraph)) {
+            setCurrentChapterExpandedGraph(previousExpandedGraph)
+          } else {
+            setCurrentChapterExpandedGraph(subChapters[0].id)
+          }
+        }
+      }
+    }
+    
+    console.log('✅ [状态恢复] 页面状态恢复完成')
+    return true
+  } catch (error) {
+    console.error('❌ [状态恢复] 恢复页面状态失败:', error)
+    return false
+  }
+}
+
+// 缓存键名常量 - 保留用于章节结构缓存
 const CACHE_KEYS = {
-  TEXTBOOK_OPTIONS: 'knowledge_graph_textbook_options',
   CHAPTER_STRUCTURE: 'knowledge_graph_chapter_structure_',
   CACHE_TIMESTAMP: 'knowledge_graph_cache_timestamp'
 }
@@ -718,24 +791,53 @@ const getCacheStatus = () => {
     
     const status = {
       totalKeys: knowledgeGraphKeys.length,
-      textbookOptions: !!getCachedData(CACHE_KEYS.TEXTBOOK_OPTIONS),
       chapterStructures: knowledgeGraphKeys.filter(key => key.startsWith(CACHE_KEYS.CHAPTER_STRUCTURE)).length
     }
     
     return status
   } catch (error) {
     console.warn('获取缓存状态失败:', error)
-    return { totalKeys: 0, textbookOptions: false, chapterStructures: 0 }
+    return { totalKeys: 0, chapterStructures: 0 }
   }
 }
 
-// 加载教材数据
+// 从IndexedDB获取教材数据并转换为textbookOptions
+const loadTextbookDataFromIndexedDB = async (): Promise<TextbookOption[]> => {
+  try {
+    // 从IndexedDB获取所有教材
+    const textbooks = await resourceManager.getUserLocalTextbooks()
+    
+    if (textbooks && textbooks.length > 0) {
+      // 将UserTextbookInfo转换为TextbookOption格式
+      const options: TextbookOption[] = textbooks.map(textbook => ({
+        value: `${textbook.textbookSubjectLabel}-${textbook.textbookGradeLabel}-${textbook.textbookSemesterLabel}-${textbook.id}`,
+        label: `${textbook.textbookGradeLabel} ${textbook.textbookSemesterLabel} ${textbook.textbookSubjectLabel} ${textbook.textbookName}`,
+        textbookId: textbook.textbookId,
+        subject: textbook.textbookSubjectLabel,
+        grade: textbook.textbookGradeLabel,
+        semester: textbook.textbookSemesterLabel,
+        publisher: textbook.textbookPublisher,
+        cover: textbook.textbookCover
+      }))
+      
+      return options
+    }
+    
+    return []
+  } catch (error) {
+    console.error('从IndexedDB加载教材数据失败:', error)
+    return []
+  }
+}
+
+// 加载教材数据 - 使用IndexedDB
 const loadTextbookData = async () => {
   try {
-    // 先尝试从缓存加载
-    const cachedOptions = getCachedData(CACHE_KEYS.TEXTBOOK_OPTIONS)
-    if (cachedOptions) {
-      textbookOptions.value = cachedOptions
+    // 先尝试从IndexedDB加载
+    const localOptions = await loadTextbookDataFromIndexedDB()
+    
+    if (localOptions.length > 0) {
+      textbookOptions.value = localOptions
       
       // 设置默认选中的教材
       if (textbookOptions.value.length > 0) {
@@ -747,18 +849,18 @@ const loadTextbookData = async () => {
           await loadChapterStructure(defaultOption.textbookId)
         }
       }
-      console.log('textbookOptions.value', textbookOptions.value)
+      console.log('从IndexedDB加载textbookOptions:', textbookOptions.value)
       return
     }
 
-    // 缓存中没有数据，从API获取
+    // IndexedDB中没有数据，从API获取
     const versions = await apiService.getTextbookVersions()
     
     if (versions && versions.length > 0) {
       textbookOptions.value = apiService.convertToTextbookOptions(versions)
       
-      // 缓存教材选项数据
-      setCachedData(CACHE_KEYS.TEXTBOOK_OPTIONS, textbookOptions.value)
+      // 将API数据保存到IndexedDB
+      await saveTextbookDataToIndexedDB(versions)
       
       // 设置默认选中的教材
       if (textbookOptions.value.length > 0) {
@@ -773,18 +875,58 @@ const loadTextbookData = async () => {
     } else {
       textbookOptions.value = []
     }
-  } catch {
-    // 加载教材数据失败
+  } catch (error) {
+    console.error('加载教材数据失败:', error)
+    textbookOptions.value = []
   }
 }
 
-// 根据学科筛选教材数据
+// 将API数据保存到IndexedDB
+const saveTextbookDataToIndexedDB = async (versions: import('../types').TextbookVersion[]) => {
+  try {
+    // 将TextbookVersion转换为UserTextbookInfo格式并保存到IndexedDB
+    for (const version of versions) {
+      const textbookInfo: UserTextbookInfo = {
+        id: version.id,
+        textbookId: version.textbookId,
+        textbookName: version.textbookName,
+        textbookSubjectLabel: version.textbookSubjectLabel,
+        textbookGradeLabel: version.textbookGradeLabel,
+        textbookSemesterLabel: version.textbookSemesterLabel,
+        textbookPublisher: version.textbookPublisher,
+        textbookCover: version.textbookCover,
+        textbookUpdateTime: version.textbookUpdateTime,
+        textbookEditionYear: version.textbookEditionYear || '',
+        textbookIsbn: version.textbookIsbn || '',
+        isDownloaded: false,
+        downloadStatus: 0,
+        downloadedFiles: 0,
+        totalFiles: 0,
+        downloadPath: '',
+        lastDownloadTime: '',
+        learningPackages: [],
+        structure: [],
+        hasUpdatesAvailable: false,
+        localFiles: [],
+        updateStructure: () => {},
+        updatePackages: () => {},
+        getLocalResourceFileName: () => ''
+      }
+      
+      await resourceManager.updateTextbookInfo(textbookInfo)
+    }
+  } catch (error) {
+    console.error('保存教材数据到IndexedDB失败:', error)
+  }
+}
+
+// 根据学科筛选教材数据 - 使用IndexedDB
 const loadTextbookDataBySubject = async (subjectValue: string) => {
   try {
-    // 先尝试从缓存加载
-    const cachedOptions = getCachedData(CACHE_KEYS.TEXTBOOK_OPTIONS)
-    if (cachedOptions) {
-      
+    // 先尝试从IndexedDB加载
+    const localOptions = await loadTextbookDataFromIndexedDB()
+    
+    if (localOptions.length > 0) {
       // 根据学科筛选教材选项
       const subjectMap: { [key: string]: string } = {
         'math': '数学',
@@ -799,7 +941,7 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
       }
       
       const subjectLabel = subjectMap[subjectValue] || '数学'
-      textbookOptions.value = cachedOptions.filter((option: { subject: string }) => option.subject === subjectLabel)
+      textbookOptions.value = localOptions.filter(option => option.subject === subjectLabel)
       
       // 设置默认选中的教材
       if (textbookOptions.value.length > 0) {
@@ -817,14 +959,14 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
       return
     }
 
-    // 缓存中没有数据，从API获取
+    // IndexedDB中没有数据，从API获取
     const versions = await apiService.getTextbookVersions()
     
     if (versions && versions.length > 0) {
       const allOptions = apiService.convertToTextbookOptions(versions)
       
-      // 缓存所有教材选项数据
-      setCachedData(CACHE_KEYS.TEXTBOOK_OPTIONS, allOptions)
+      // 将API数据保存到IndexedDB
+      await saveTextbookDataToIndexedDB(versions)
       
       // 根据学科筛选教材选项
       const subjectMap: { [key: string]: string } = {
@@ -859,8 +1001,9 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
       textbookOptions.value = []
     }
     
-  } catch {
-    // 加载教材数据失败
+  } catch (error) {
+    console.error('根据学科加载教材数据失败:', error)
+    textbookOptions.value = []
   }
 }
 
@@ -1055,6 +1198,7 @@ const sessionManager = {
 
 // 初始化图谱
 const initGraph = async () => {
+  console.log('🚀 [图谱初始化] 开始初始化知识图谱')
   loading.value = true
   
   try {
@@ -1065,6 +1209,18 @@ const initGraph = async () => {
       return
     }
     
+    // 优先尝试恢复保存的页面状态
+    const stateRestored = await restorePageStateFromStore()
+    
+    if (stateRestored) {
+      console.log('✅ [状态恢复] 成功恢复页面状态，跳过重新初始化')
+      // 状态恢复成功，直接渲染图谱
+      await nextTick()
+      renderGraph()
+      return
+    }
+    
+    console.log('🔄 [状态恢复] 没有保存的状态，执行正常初始化流程')
     
     // 设置默认学科
     selectedSubject.value = 'math'
@@ -1554,6 +1710,10 @@ onMounted(() => {
 
 
 onUnmounted(() => {
+  // 保存页面状态
+  saveCurrentPageState()
+  
+  // 清理动画状态
   cleanupAnimations()
 })
 </script>

@@ -28,9 +28,9 @@
       <div class="node-title">{{ formatNodeName(node) }}</div>
     </div>
 
-    <!-- 手动定位的气泡框菜单 - 仅对圆周节点显示 -->
+    <!-- 手动定位的气泡框菜单 - 对圆周节点和中心节点都显示 -->
     <div 
-      v-if="type === 'circular' && isMenuVisible" 
+      v-if="isMenuVisible" 
       class="manual-bubble-menu"
       :style="bubbleMenuStyle"
     >
@@ -289,18 +289,29 @@ const nodeStyle = computed(() => {
 
 // 计算气泡框菜单的定位样式
 const bubbleMenuStyle = computed(() => {
-  if (props.type !== 'circular') {
+  if (!props.isMenuVisible) {
     return {}
   }
   
-  // 气泡框定位在node-title文字下面
-  // node-content--circular已经定位在节点下方，气泡框需要定位在内容下方
-  return {
-    position: 'absolute' as const,
-    top: 'calc(100% + 8px + 3.5rem)', // 节点下方 + 间距 + node-title高度（字体增大后需要更多空间）+ 额外下移
-    left: '50%',
-    transform: 'translateX(-50%)',
-    zIndex: 20 // 确保在其他元素之上
+  if (props.type === 'center') {
+    // 中心节点的气泡框定位在节点下方
+    return {
+      position: 'absolute' as const,
+      top: 'calc(100% + 20px)', // 节点下方 + 间距
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 20 // 确保在其他元素之上
+    }
+  } else {
+    // 圆周节点的气泡框定位在node-title文字下面
+    // node-content--circular已经定位在节点下方，气泡框需要定位在内容下方
+    return {
+      position: 'absolute' as const,
+      top: 'calc(100% + 8px + 3.5rem)', // 节点下方 + 间距 + node-title高度（字体增大后需要更多空间）+ 额外下移
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 20 // 确保在其他元素之上
+    }
   }
 })
 
@@ -313,9 +324,18 @@ const handleMouseLeave = (event: Event) => {
 }
 
 const handleClick = (event: Event) => {
-  console.log("handleClick", props.node.id)
   event.stopPropagation() // 阻止事件冒泡
-  emit('toggle-menu', props.node.id)
+  
+  // 如果是中心节点，只有在知识图谱展开状态下才显示气泡框
+  if (props.type === 'center') {
+    if (props.isExpanded) {
+      emit('toggle-menu', props.node.id)
+    }
+  } else {
+    // 圆周节点正常显示气泡框
+    emit('toggle-menu', props.node.id)
+  }
+  
   emit('click', event)
 }
 
@@ -700,6 +720,8 @@ const handlePractice = () => {
   position: absolute;
   z-index: 20;
   pointer-events: auto;
+  /* 确保气泡框在中心节点下方正确显示 */
+  width: max-content;
 }
 
 /* 气泡框容器 */

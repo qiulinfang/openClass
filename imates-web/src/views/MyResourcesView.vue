@@ -489,6 +489,9 @@ const updateServerData = async () => {
     // 合并服务器数据和本地数据
     const mergedTextbooks = mergeServerAndLocalData(serverTextbooks, localTextbooks)
     
+    // 为每个教材检查学习资源包（并行处理）
+    await checkLearningPackagesForAllTextbooks(mergedTextbooks)
+    
     // 更新本地教材数据
     for (const textbook of mergedTextbooks) {
       await resourceManager.updateTextbookInfo(textbook)
@@ -501,6 +504,31 @@ const updateServerData = async () => {
   } catch {
     showMessage('后台更新失败，请稍后重试', 'error')
   }
+}
+
+// 为所有教材检查学习资源包（并行处理）
+const checkLearningPackagesForAllTextbooks = async (textbooks: UserTextbookInfo[]) => {
+  // 并行处理所有教材的学习资源包检查
+  const checkPromises = textbooks.map(async (textbook) => {
+    try {
+      // 调用 getLearningResources 检查学习资源包
+      const packages = await apiService.getLearningResources(textbook.id, false)
+      
+      if (packages && packages.length > 0) {
+        // 有学习资源包，更新教材信息
+        textbook.learningPackages = packages
+      } else {
+        // 没有学习资源包
+        textbook.learningPackages = []
+      }
+    } catch {
+      // 检查失败，标记为无学习资源
+      textbook.learningPackages = []
+    }
+  })
+  
+  // 等待所有检查完成
+  await Promise.all(checkPromises)
 }
 
 // 检测和修复不一致的下载状态
@@ -590,6 +618,9 @@ const loadResources = async () => {
       
       // 合并服务器数据和本地数据
       const mergedTextbooks = mergeServerAndLocalData(serverTextbooks, [])
+      
+      // 为每个教材检查学习资源包（并行处理）
+      await checkLearningPackagesForAllTextbooks(mergedTextbooks)
       
       // 更新本地教材数据
       for (const textbook of mergedTextbooks) {
@@ -684,10 +715,10 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
   textbook.downloadStatus = 1 // 下载中
   textbook.isDownloaded = false
   
-  // ApiService.downloadTextbook内部会自动获取学习资源包并设置totalFiles，无需重复处理
+  // ApiService.downloadTextbook内部会优先使用本地已有的学习资源包数据，无需重复处理
   
   try {
-    // 1. 直接使用ApiService下载（内部会获取学习资源包）
+    // 1. 直接使用ApiService下载（优先使用本地已有的学习资源包数据）
     const success = await apiService.downloadTextbook(textbook, async (progress, downloadedCount) => {
       // 更新下载进度 - 使用实际下载的文件数
       textbook.downloadedFiles = downloadedCount

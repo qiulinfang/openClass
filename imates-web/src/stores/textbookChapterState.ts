@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import type { ChapterNode } from '@/types'
+import type { ChapterNode, TextbookOption } from '@/types'
 
 /**
  * 章节状态接口
@@ -7,6 +7,19 @@ import type { ChapterNode } from '@/types'
 export interface ChapterState {
   expandedGraphId: string | null  // 展开的知识图谱ID
   rotationAngle: number          // 旋转角度（度）
+}
+
+/**
+ * 页面状态接口
+ */
+export interface PageState {
+  selectedSubject: string
+  selectedTextbook: string
+  selectedChapterIndex: number
+  selectedChapterDetails: ChapterNode | null
+  chapters: string[]
+  chapterStructure: ChapterNode[]
+  timestamp: number
 }
 
 /**
@@ -22,6 +35,9 @@ export class TextbookChapterStateManager {
   
   // 当前选中的章节索引
   private currentChapterIndex = ref<number>(0)
+  
+  // 页面状态存储
+  private pageState = ref<PageState | null>(null)
 
   /**
    * 设置当前教材ID
@@ -228,6 +244,58 @@ export class TextbookChapterStateManager {
     this.states.value.clear()
     this.currentTextbookId.value = ''
     this.currentChapterIndex.value = 0
+    this.pageState.value = null
+  }
+
+  /**
+   * 保存页面状态
+   * @param state 页面状态数据
+   */
+  savePageState(state: Omit<PageState, 'timestamp'>): void {
+    this.pageState.value = {
+      ...state,
+      timestamp: Date.now()
+    }
+    console.log('📝 [状态保存] 页面状态已保存:', this.pageState.value)
+  }
+
+  /**
+   * 恢复页面状态
+   * @returns 页面状态数据，如果不存在则返回null
+   */
+  restorePageState(): PageState | null {
+    if (!this.pageState.value) {
+      return null
+    }
+    
+    // 检查状态是否过期（24小时）
+    const now = Date.now()
+    const stateAge = now - this.pageState.value.timestamp
+    const STATE_EXPIRE_TIME = 24 * 60 * 60 * 1000 // 24小时
+    
+    if (stateAge > STATE_EXPIRE_TIME) {
+      console.log('⏰ [状态恢复] 页面状态已过期，清除状态')
+      this.pageState.value = null
+      return null
+    }
+    
+    console.log('🔄 [状态恢复] 恢复页面状态:', this.pageState.value)
+    return this.pageState.value
+  }
+
+  /**
+   * 清除页面状态
+   */
+  clearPageState(): void {
+    this.pageState.value = null
+    console.log('🗑️ [状态清除] 页面状态已清除')
+  }
+
+  /**
+   * 检查是否有保存的页面状态
+   */
+  hasPageState(): boolean {
+    return this.pageState.value !== null
   }
 }
 
@@ -253,6 +321,12 @@ export const useTextbookChapterState = () => {
     // 展开状态方法
     getCurrentChapterExpandedGraph: textbookChapterStateManager.getCurrentChapterExpandedGraph.bind(textbookChapterStateManager),
     setCurrentChapterExpandedGraph: textbookChapterStateManager.setCurrentChapterExpandedGraph.bind(textbookChapterStateManager),
+    
+    // 页面状态方法
+    savePageState: textbookChapterStateManager.savePageState.bind(textbookChapterStateManager),
+    restorePageState: textbookChapterStateManager.restorePageState.bind(textbookChapterStateManager),
+    clearPageState: textbookChapterStateManager.clearPageState.bind(textbookChapterStateManager),
+    hasPageState: textbookChapterStateManager.hasPageState.bind(textbookChapterStateManager),
     
     // 工具方法
     clearTextbookStates: textbookChapterStateManager.clearTextbookStates.bind(textbookChapterStateManager),
