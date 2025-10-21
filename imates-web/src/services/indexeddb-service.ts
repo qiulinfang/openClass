@@ -289,7 +289,6 @@ export class IndexedDBService {
       const request = store.put(data)
 
       request.onsuccess = () => {
-        console.log(`数据更新成功: ${storeName}`)
         resolve(true)
       }
       request.onerror = () => {

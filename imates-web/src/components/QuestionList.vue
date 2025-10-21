@@ -47,11 +47,8 @@
 
     <!-- 题目列表 - 卡片布局 -->
     <div class="question-cards-container q-pa-md">
-      <!-- 加载状态 -->
-      <div v-if="loading" class="native-loading-container">
-        <q-spinner-dots size="50px" color="primary" />
-        <div class="text-h6 q-mt-md native-text-xl">正在加载题目列表...</div>
-      </div>
+      <!-- 骨架屏加载状态 -->
+      <QuestionListSkeleton v-if="loading" />
 
       <!-- 空状态 -->
       <div v-else-if="filteredQuestions.length === 0" class="native-empty-state">
@@ -87,17 +84,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed } from 'vue'
-import { useQuasar } from 'quasar'
 import { showMessage, ThrottleUtils, throttle } from '../utils'
 import { useExerciseStore } from '../stores/exerciseStore'
 import type { ExerciseItem } from '../types'
-import { MathJaxUtils } from '../utils/math/mathjax'
-import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { apiService } from '../services/api-service'
 import { androidBridge } from '../services/android-bridge'
 import VirtualQuestionList from './VirtualQuestionList.vue'
+import QuestionListSkeleton from './QuestionListSkeleton.vue'
 
-const $q = useQuasar()
 const emit = defineEmits<{
   startAiGuidance: [question: ExerciseItem]
   questionSelected: [question: ExerciseItem, index: number]
@@ -107,9 +101,7 @@ const emit = defineEmits<{
 const questions = ref<ExerciseItem[]>([])
 const selectedSubject = ref('math')
 const selectedQuestionIndex = ref(-1)
-const loading = ref(false)
-const deletingIds = ref(new Set<string>())
-const contentRefs = ref<Map<string, HTMLElement>>(new Map())
+const loading = ref(true)
 
 // 搜索相关
 const searchQuery = ref('')
@@ -134,24 +126,6 @@ const filteredQuestions = computed(() => {
 // 工具方法
 
 
-// 使用与 ChatBubble 相同的渲染器
-const { renderMessageContent } = useMessageRenderer()
-
-// 设置内容引用，使用懒加载优化MathJax渲染
-const renderedQuestions = new Set<string>()
-const setContentRef = (el: HTMLElement | null, questionId: string) => {
-  if (el && el instanceof HTMLElement) {
-    contentRefs.value.set(questionId, el)
-    // 只在首次渲染时处理MathJax，使用懒加载避免阻塞主线程
-    if (!renderedQuestions.has(questionId)) {
-      renderedQuestions.add(questionId)
-      nextTick(() => {
-        // 使用懒加载模式，只有当元素进入视口时才渲染
-        MathJaxUtils.renderMath(el, true)
-      })
-    }
-  }
-}
 
 // 主要方法
 
@@ -207,17 +181,8 @@ const loadQuestions = async () => {
     questions.value = [...store.questions]
 
     if (convertedQuestions.length > 0) {
-      // 等待 DOM 更新，但不立即渲染所有数学公式
-      // 改为懒加载模式，避免阻塞主线程
+      // 等待 DOM 更新
       await nextTick()
-      // 只渲染前几个可见的题目，其余使用懒加载
-      const visibleQuestions = document.querySelectorAll('.question-card')
-      const firstFew = Array.from(visibleQuestions).slice(0, 3)
-      firstFew.forEach(el => {
-        if (el instanceof HTMLElement) {
-          MathJaxUtils.renderMath(el, false) // 立即渲染前几个
-        }
-      })
     }
   } catch (error) {
     showMessage('加载题目失败: ' + (error as Error).message, 'error')
@@ -240,53 +205,6 @@ const refreshQuestions = () => {
   
 }
 
-const deleteQuestion = (questionId: string) => {
-  try {
-    $q.dialog({
-      title: '删除题目',
-      message: '确定要删除这道题目吗？删除后无法恢复。',
-      persistent: true,
-      class: 'gemini-delete-dialog',
-      ok: {
-        label: '删除',
-        color: 'negative',
-        unelevated: true,
-        class: 'gemini-delete-btn'
-      },
-      cancel: {
-        label: '取消',
-        color: 'grey-7',
-        flat: true,
-        class: 'gemini-cancel-btn'
-      }
-    }).onOk(async () => {
-      deletingIds.value.add(questionId)
-
-      // 使用API服务删除题目
-      const success = await apiService.deleteExercise(questionId, selectedSubject.value)
-
-      if (success) {
-        // 删除成功，从本地列表中移除
-        questions.value = questions.value.filter((q) => q.id !== questionId)
-
-        // 同步到 store
-        const store = useExerciseStore()
-        store.setQuestions(questions.value)
-        
-        // 从store获取最新的题目列表（确保数据一致性）
-        questions.value = [...store.questions]
-
-      } else {
-        showMessage('删除题目失败', 'error')
-      }
-
-      deletingIds.value.delete(questionId)
-    })
-  } catch (error) {
-    showMessage('删除题目失败: ' + (error as Error).message, 'error')
-    deletingIds.value.delete(questionId)
-  }
-}
 
 
 // 搜索相关方法
@@ -369,8 +287,8 @@ const scrollToCurrentQuestion = (targetIndex?: number) => {
         console.log('📍 [滚动] 未找到指定题目卡片，跳过滚动')
       }
     })
-  } catch (error) {
-    console.error('📍 [滚动] 滚动失败:', error)
+  } catch {
+    console.error('📍 [滚动] 滚动失败')
   }
 }
 
@@ -433,8 +351,8 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
         console.log('📍 [滚动选择] 未找到指定题目卡片，跳过滚动')
       }
     })
-  } catch (error) {
-    console.error('📍 [滚动选择] 操作失败:', error)
+  } catch {
+    console.error('📍 [滚动选择] 操作失败')
   }
 }
 
@@ -468,7 +386,7 @@ const moveQuestionToTop = async (questionId: string) => {
     if (container) {
       container.scrollTo({ top: 0, behavior: 'smooth' })
     }
-  } catch (error) {
+  } catch {
     showMessage('置顶失败', 'error')
   }
 }
@@ -511,12 +429,12 @@ const startPhotoSearch = () => {
 
           // 同步到store
           const exerciseStore = useExerciseStore()
-          exerciseStore.setQuestions(questions.value as any)
+          exerciseStore.setQuestions(questions.value)
 
         }
       }, 2000)
     }
-  } catch (error) {
+  } catch {
     showMessage('启动拍照搜题失败', 'error')
   }
 }
@@ -544,7 +462,7 @@ const sendToAi = async (question: ExerciseItem) => {
     // 发出事件通知父组件切换到AI聊天界面
     emit('startAiGuidance', question)
 
-  } catch (error) {
+  } catch {
     showMessage('发送给AI失败', 'error')
   }
 }
@@ -1042,8 +960,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 // ===== 其他样式 =====
-// ===== 加载和空状态样式 =====
-.native-loading-container,
+// ===== 空状态样式 =====
 .native-empty-state {
   @include flex-center;
   flex-direction: column;

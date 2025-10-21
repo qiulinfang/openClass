@@ -1,90 +1,83 @@
 <template>
-  <q-layout view="lHh Lpr lFf">
-    <!-- 顶部工具栏 -->
-    <q-header elevated class="bg-white text-primary app-header" reveal>
-      <q-toolbar class="app-toolbar">
-        <q-btn 
-          flat 
-          round 
-          dense 
-          icon="arrow_back" 
-          @click="goBack" 
-          class="q-mr-sm"
-          :loading="isExiting"
-          :disable="isExiting"
+  <div class="find-exercise-view">
+    <!-- 内部工具栏 -->
+    <div class="internal-toolbar">
+      <q-btn 
+        flat 
+        round 
+        dense 
+        icon="arrow_back" 
+        @click="goBack" 
+        class="q-mr-sm"
+        :loading="isExiting"
+        :disable="isExiting"
+      />
+      
+      <div class="toolbar-title">
+        <span>练习题</span>
+      </div>
+      
+      <q-space />
+      
+      <!-- 选中状态显示 -->
+      <div class="selection-info" v-if="hasSelectableQuestions">
+        <span class="selection-count">
+          已选择 {{ selectedCount }} / {{ selectableCount }} 题
+        </span>
+      </div>
+      
+      <q-space />
+      
+      <!-- 操作按钮 -->
+      <div class="toolbar-actions">
+        <!-- 全选/取消全选按钮 -->
+        <q-btn
+          v-if="hasSelectableQuestions"
+          flat
+          dense
+          :icon="isAllSelected ? 'check_box' : 'check_box_outline_blank'"
+          :label="isAllSelected ? '取消全选' : '全选'"
+          :color="isAllSelected ? 'primary' : 'grey-6'"
+          @click="handleToggleSelectAll"
+          class="select-all-btn"
         />
         
-        <div class="toolbar-title">
-          <span>练习题</span>
-        </div>
-        
-        <q-space />
-        
-        <!-- 选中状态显示 -->
-        <div class="selection-info" v-if="hasSelectableQuestions">
-          <span class="selection-count">
-            已选择 {{ selectedCount }} / {{ selectableCount }} 题
-          </span>
-        </div>
-        
-        <q-space />
-        
-        <!-- 操作按钮 -->
-        <div class="toolbar-actions">
-          <!-- 全选/取消全选按钮 -->
-          <q-btn
-            v-if="hasSelectableQuestions"
-            flat
-            dense
-            :icon="isAllSelected ? 'check_box' : 'check_box_outline_blank'"
-            :label="isAllSelected ? '取消全选' : '全选'"
-            :color="isAllSelected ? 'primary' : 'grey-6'"
-            @click="handleToggleSelectAll"
-            class="select-all-btn"
-          />
-          
-          <!-- 开始练习按钮 -->
-          <q-btn
-            flat
-            dense
-            icon="play_arrow"
-            :label="hasSelectedQuestions ? '开始练习' : '请先选择题目'"
-            :color="hasSelectedQuestions ? 'positive' : 'grey-5'"
-            :disable="!hasSelectedQuestions"
-            :loading="isStarting"
-            @click="handleStartExercise"
-          />
-        </div>
-      </q-toolbar>
-    </q-header>
+        <!-- 开始练习按钮 -->
+        <q-btn
+          flat
+          dense
+          icon="play_arrow"
+          :label="hasSelectedQuestions ? '开始练习' : '请先选择题目'"
+          :color="hasSelectedQuestions ? 'positive' : 'grey-5'"
+          :disable="!hasSelectedQuestions"
+          :loading="isStarting"
+          @click="handleStartExercise"
+        />
+      </div>
+    </div>
 
-    <q-page-container>
-      <q-page class="find-exercise-page">
-        <!-- 主要内容区域 -->
-        <div class="main-content">
-          <!-- 初始化加载状态 -->
-          <div v-if="isInitializing" class="initialization-loading">
-            <q-spinner-dots size="50px" color="primary" />
-            <div class="text-h6 q-mt-md">正在加载练习题...</div>
-          </div>
-          
-          <!-- 题目列表 -->
-          <div v-else class="question-list-container">
-            <q-card flat class="full-height">
-              <q-card-section class="q-pa-none full-height">
-                <QuestionList 
-                  ref="questionListRef"
-                  @question-selected="handleQuestionSelected"
-                  @question-deselected="handleQuestionDeselected"
-                  @refresh="handleRefresh"
-                />
-              </q-card-section>
-            </q-card>
-          </div>
-        </div>
-      </q-page>
-    </q-page-container>
-  </q-layout>
+    <!-- 主要内容区域 -->
+    <div class="main-content">
+      <!-- 初始化加载状态 - 使用骨架屏 -->
+      <div v-if="isInitializing" class="initialization-loading">
+        <QuestionListSkeleton animation-speed="slow" :skeleton-count="5" />
+      </div>
+      
+      <!-- 题目列表 -->
+      <div v-else class="question-list-container">
+        <q-card flat class="full-height">
+          <q-card-section class="q-pa-none full-height">
+            <QuestionList 
+              ref="questionListRef"
+              @question-selected="handleQuestionSelected"
+              @question-deselected="handleQuestionDeselected"
+              @refresh="handleRefresh"
+            />
+          </q-card-section>
+        </q-card>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -93,19 +86,9 @@ import { useRouter, useRoute } from 'vue-router'
 import { useFindExerciseStore } from '../stores/findExerciseStore'
 import { storeToRefs } from 'pinia'
 import QuestionList from '../components/FindExerciseQuestionList.vue'
+import QuestionListSkeleton from '../components/QuestionListSkeleton.vue'
 import type { FindExerciseConfig } from '../types'
 import { Subject } from '../types'
-
-// 声明全局 Android 接口类型
-declare global {
-  interface Window {
-    Android: {
-      startExerciseSolve: () => void;
-      startExerciseSolveWebView: () => void;
-      finishActivity: () => void;
-    };
-  }
-}
 
 // 定义组件名称，便于 Vue DevTools 识别
 defineOptions({
@@ -215,15 +198,14 @@ const handleStartExercise = async () => {
       console.log('准备跳转到练习页面')
       
       // 跳转到练习页面
-      if (window.Android && window.Android.startExerciseSolveWebView) {
-        window.Android.startExerciseSolveWebView()
-      } else {
-        console.warn('Android.startExerciseSolveWebView 不可用')
-        // 备用方案：使用原有的 startExerciseSolve 方法
-        if (window.Android && window.Android.startExerciseSolve) {
-          window.Android.startExerciseSolve()
+      router.push({
+        path: '/exercise-solve',
+        query: {
+          questionIds: selectedQuestionIds.value.join(','),
+          subject: findExerciseStore.config?.subject || Subject.SUBJECT_MATH,
+          token: findExerciseStore.config?.token || ''
         }
-      }
+      })
     }
   } catch (error) {
     console.error('开始练习时发生错误:', error)
@@ -242,14 +224,8 @@ const goBack = async () => {
     // 部分清理状态（保留选中状态，以便从练习页面返回时保持选择）
     findExerciseStore.partialResetState()
     
-    // 调用 Android 原生方法关闭当前 Activity，返回到知识图谱页
-    if (window.Android && window.Android.finishActivity) {
-      window.Android.finishActivity()
-    } else {
-      // 备用方案：如果 Android 方法不可用，则使用路由返回
-      console.warn('Android.finishActivity 不可用，使用路由返回')
-      router.push('/')
-    }
+    // 使用路由返回到知识图谱页面
+    router.push({ name: 'knowledgeGraph' })
   } finally {
     isExiting.value = false
   }
@@ -260,30 +236,13 @@ onMounted(async () => {
   try {
     console.log('FindExerciseView 开始初始化...')
     
-    // 等待Android配置注入
-    await waitForAndroidConfig()
-    
-    // 检查Android配置
-    let config: FindExerciseConfig
-    
-    if (window.AndroidConfig) {
-      // 使用Android传递的配置
-      console.log('使用Android配置:', window.AndroidConfig)
-      config = {
-        apiBaseURL: window.AndroidConfig.apiBaseURL || 'http://www.imates.com.cn:8222/blw-edu-service-alc',
-        subject: window.AndroidConfig.subject || Subject.SUBJECT_MATH,
-        token: window.AndroidConfig.token || '',
-        knowledgeList: window.AndroidConfig.knowledgeList || ''
-      }
-    } else {
-      // 从Vue Router的query参数获取配置
-      console.log('使用Vue Router query参数配置')
-      config = {
-        apiBaseURL: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
-        subject: (route.query.subject as string) === 'SUBJECT_BIOLOGY' ? Subject.SUBJECT_BIOLOGY : Subject.SUBJECT_MATH,
-        token: (route.query.token as string) || localStorage.getItem('token') || '',
-        knowledgeList: (route.query.knowledgeList as string) || ''
-      }
+    // 从Vue Router的query参数获取配置
+    console.log('使用Vue Router query参数配置')
+    const config: FindExerciseConfig = {
+      apiBaseURL: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
+      subject: (route.query.subject as string) === 'SUBJECT_BIOLOGY' ? Subject.SUBJECT_BIOLOGY : Subject.SUBJECT_MATH,
+      token: (route.query.token as string) || localStorage.getItem('token') || '',
+      knowledgeList: (route.query.knowledgeList as string) || ''
     }
     
     console.log('最终配置:', config)
@@ -301,35 +260,7 @@ onMounted(async () => {
   }
 })
 
-// 等待Android配置注入
-function waitForAndroidConfig(): Promise<void> {
-  return new Promise((resolve) => {
-    if (window.AndroidConfig) {
-      resolve()
-      return
-    }
-    
-    // 监听配置注入
-    const checkConfig = () => {
-      if (window.AndroidConfig) {
-        console.log('Android配置已注入')
-        resolve()
-      } else {
-        setTimeout(checkConfig, 50)
-      }
-    }
-    
-    // 最多等待2秒
-    setTimeout(() => {
-      console.log('等待Android配置超时，使用默认配置')
-      resolve()
-    }, 2000)
-    
-    checkConfig()
-  })
-}
-
-// 暴露方法给Android调用
+// 暴露方法给Web调用
 defineExpose({
   refreshQuestions: handleRefresh,
   startExercise: handleStartExercise
@@ -373,27 +304,27 @@ $primary-color: #1976d2;
 }
 
 // 主要样式
-.find-exercise-page {
-  height: calc(100vh - #{$header-height});
-  max-height: calc(100vh - #{$header-height});
+.find-exercise-view {
+  height: 100vh;
+  max-height: 100vh;
   overflow: hidden;
   background: #f8f9fa;
+  display: flex;
+  flex-direction: column;
 }
 
-.app-header {
+.internal-toolbar {
   height: $header-height;
   min-height: $header-height;
   max-height: $header-height;
+  background: white;
   border-bottom: 1px solid $border-color;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.app-toolbar {
-  height: $header-height;
-  min-height: $header-height;
   display: flex;
   align-items: center;
   padding: 0 16px;
+  flex-shrink: 0;
+  z-index: 1;
 }
 
 .toolbar-title {
@@ -433,10 +364,12 @@ $primary-color: #1976d2;
 }
 
 .main-content {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   padding: 16px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .question-list-container {
@@ -445,19 +378,10 @@ $primary-color: #1976d2;
 }
 
 .initialization-loading {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 240px;
-  text-align: center;
-  padding: 32px 20px;
-  
-  .text-h6 {
-    color: #6b7280;
-    font-weight: 400;
-    margin-top: 16px;
-  }
 }
 
 .full-height {

@@ -2,17 +2,13 @@
   <div class="virtual-question-list">
     <!-- 题目卡片容器 - 与QuestionList.vue保持一致的内边距 -->
     <div class="question-cards-container">
-      <!-- 虚拟滚动容器 -->
-      <q-virtual-scroll
-        :items="filteredQuestions"
-        :virtual-scroll-item-size="itemHeight"
-        :virtual-scroll-slice-size="sliceSize"
-        :virtual-scroll-slice-ratio-before="sliceRatioBefore"
-        :virtual-scroll-slice-ratio-after="sliceRatioAfter"
-        v-slot="{ item, index }"
-        class="virtual-scroll-container"
-      >
-        <div class="question-item-wrapper" :style="{ minHeight: calculateItemHeight(item) + 'px' }">
+      <!-- 普通题目列表容器 -->
+      <div class="question-list-container">
+        <div 
+          v-for="(item, index) in filteredQuestions" 
+          :key="item.id"
+          class="question-item-wrapper"
+        >
           <div 
             class="question-card"
             :class="{ 
@@ -86,7 +82,7 @@
             </div>
           </div>
         </div>
-      </q-virtual-scroll>
+      </div>
     </div>
   </div>
 </template>
@@ -111,7 +107,7 @@ const emit = defineEmits<{
 import type { VirtualQuestionListProps } from '../types'
 
 // 定义Props
-interface Props extends VirtualQuestionListProps {}
+type Props = VirtualQuestionListProps
 
 const props = withDefaults(defineProps<Props>(), {
   searchQuery: ''
@@ -121,25 +117,9 @@ const props = withDefaults(defineProps<Props>(), {
 const contentRefs = ref<Map<string, HTMLElement>>(new Map())
 const renderedQuestions = new Set<string>()
 const deletingIds = ref(new Set<string>())
+const intersectionObservers = new Map<string, IntersectionObserver>() // 存储观察器，便于清理
 
-// 虚拟滚动配置 - 使用动态高度
-const itemHeight = 200 // 基础高度，实际高度由内容决定
-const sliceSize = 10 // 每次渲染的题目数量
-const sliceRatioBefore = 1 // 提前渲染的比例
-const sliceRatioAfter = 2 // 延后渲染的比例
-
-// 动态计算卡片高度
-const calculateItemHeight = (item: ExerciseItem) => {
-  // 基础高度：头部 + 内容区域最小高度
-  const baseHeight = 80 // 头部高度
-  const contentMinHeight = 60 // 内容最小高度
-  
-  // 根据内容长度估算高度
-  const contentLength = (item.question || item.title || '').length
-  const estimatedContentHeight = Math.max(contentMinHeight, contentLength * 0.5)
-  
-  return baseHeight + estimatedContentHeight
-}
+// 移除虚拟滚动相关配置，使用普通列表渲染
 
 // 使用与 ChatBubble 相同的渲染器
 const { renderMessageContent } = useMessageRenderer()
@@ -158,33 +138,67 @@ const filteredQuestions = computed(() => {
   )
 })
 
-// 设置内容引用，使用懒加载优化MathJax渲染
+// 设置内容引用，使用 Intersection Observer 实现真正的视口懒加载
 const setContentRef = (el: HTMLElement | null, questionId: string) => {
   if (el && el instanceof HTMLElement) {
     contentRefs.value.set(questionId, el)
-    // 只在首次渲染时处理MathJax，使用懒加载避免阻塞主线程
+    
+    // 只在首次渲染时处理MathJax，使用 Intersection Observer 实现懒加载
     if (!renderedQuestions.has(questionId)) {
       renderedQuestions.add(questionId)
-      // 使用懒加载模式，只有当元素进入视口时才渲染
-      MathJaxUtils.renderMath(el, true)
       
-      // 渲染完成后调整高度
-      nextTick(() => {
-        adjustCardHeight(el, questionId)
-      })
+      // 获取题目在列表中的索引
+      const questionIndex = props.questions.findIndex(q => q.id === questionId)
+      
+      // 前3个题目立即渲染，确保首屏快速显示
+      if (questionIndex < 3) {
+        MathJaxUtils.renderMath(el, false) // 立即渲染
+        nextTick(() => {
+          adjustCardHeight(el, questionId)
+        })
+        return
+      }
+      
+      // 其他题目使用 Intersection Observer 懒加载
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              // 元素进入视口，立即渲染 MathJax
+              MathJaxUtils.renderMath(el, false) // 立即渲染，不使用懒加载模式
+              
+              // 渲染完成后调整高度
+              nextTick(() => {
+                adjustCardHeight(el, questionId)
+              })
+              
+              // 停止观察，避免重复渲染
+              observer.unobserve(el)
+              intersectionObservers.delete(questionId) // 从存储中移除
+            }
+          })
+        },
+        {
+          root: null, // 使用视口作为根
+          rootMargin: '100px', // 提前100px开始渲染，确保流畅体验
+          threshold: 0.1 // 元素10%可见时触发
+        }
+      )
+      
+      // 存储观察器，便于清理
+      intersectionObservers.set(questionId, observer)
+      
+      // 开始观察元素
+      observer.observe(el)
     }
   }
 }
 
-// 调整卡片高度
-const adjustCardHeight = (contentEl: HTMLElement, questionId: string) => {
-  const cardEl = contentEl.closest('.question-item-wrapper') as HTMLElement
-  if (cardEl) {
-    const contentHeight = contentEl.scrollHeight
-    const minHeight = calculateItemHeight(props.questions.find(q => q.id === questionId) || {} as ExerciseItem)
-    const newHeight = Math.max(minHeight, contentHeight + 100) // 100px为头部和边距
-    cardEl.style.minHeight = newHeight + 'px'
-  }
+// 调整卡片高度 - 简化版本，不再需要复杂的高度计算
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const adjustCardHeight = (_contentEl: HTMLElement, _questionId: string) => {
+  // 普通列表模式下，让内容自然流动，不需要强制设置高度
+  // 保留此函数是为了兼容现有的 Intersection Observer 调用
 }
 
 // 创建节流版本的方法 - 使用简单的节流工具
@@ -269,6 +283,13 @@ const moveToTop = (questionId: string) => {
 
 // 组件卸载时清理资源
 onUnmounted(() => {
+  // 清理所有 Intersection Observer
+  intersectionObservers.forEach((observer) => {
+    observer.disconnect()
+  })
+  intersectionObservers.clear()
+  
+  // 清理 MathJax
   MathJaxUtils.cleanup()
 })
 </script>
@@ -340,7 +361,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   background-color: $background-light;
 }
 
-.virtual-scroll-container {
+.question-list-container {
   height: 100%;
   overflow-x: hidden; // 隐藏横向滚动条
   overflow-y: visible; // 允许内容自然流动

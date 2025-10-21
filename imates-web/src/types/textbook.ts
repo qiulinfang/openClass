@@ -70,14 +70,19 @@ export interface ChapterNode {
  */
 export interface LearningPackage {
   id: string // 资源包唯一标识
-  packageId: string // 资源包ID（与id相同，用于兼容性）
+  packageId?: string // 资源包ID（与id相同，用于兼容性）
+  sectionId: string // 章节ID
   packageName: string // 资源包名称
-  packageDescription: string // 资源包描述
+  description: string // 资源包描述
   updateTime: string // 更新时间
+  isDefault: number // 是否为默认方案
+  userId: string // 用户ID
+  releaseStatus: boolean // 发布状态
+  visibility: number // 可见性
+  authors: string // 作者信息
+  tags: string // 标签信息
   resourceList: ResourceFile[] // 资源文件列表
   localFiles?: LocalFileInfo[] // 本地文件信息列表
-  eliminateNull(): void // 清除空值方法
-  updateDownloadStatus(): void // 更新下载状态方法
 }
 
 /**
@@ -85,11 +90,16 @@ export interface LearningPackage {
  */
 export interface ResourceFile {
   id: string // 资源文件唯一标识
+  packageId?: string // 资源包ID
   fileName: string // 文件名
   fileUrl: string // 文件下载URL
-  fileSize: number // 文件大小（字节）
   checksum: string // 文件校验和
-  fileType: string // 文件类型
+  size: number // 文件大小（字节）
+  mimeType?: string | null // MIME类型
+  directoryId?: string | null // 目录ID
+  uploadTime: string // 上传时间
+  previewCount: number // 预览次数
+  downloadCount: number // 下载次数
 }
 
 /**

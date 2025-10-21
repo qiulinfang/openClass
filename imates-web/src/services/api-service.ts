@@ -1061,28 +1061,90 @@ export class ApiService {
   }
 
   /**
-   * 获取学习资源包 - 修正为与Android端一致的流程
+   * 获取学习资源包 - 修正为与Android端一致的流程，支持缓存
    */
-  public async getLearningResources(id: string): Promise<LearningPackage[]> {
+  public async getLearningResources(id: string, useCache: boolean = true): Promise<LearningPackage[]> {
     try {
-      const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.LEARNING_PACKAGE
+      console.log('API请求学习资源包:', {
+        textbookId: id,
+        endpoint: API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.LEARNING_PACKAGE,
+        useCache
+      })
       
+      const endpoint = API_ENDPOINTS.LEARNING_RESOURCE.TEXTBOOK.LEARNING_PACKAGE
       const request: LearningResourcesRequest = { id: id }
+      
+      // 使用httpClient而不是optimizedRequest，确保认证头正确添加
       const response = await httpClient.post<{
-        code: number
-        success: boolean
-        message: string
         data: LearningPackage[]
       }>(endpoint, request)
+      
+      console.log('API响应学习资源包:', {
+        success: response.success,
+        code: response.code,
+        message: response.message,
+        dataLength: response.data?.data?.length || 0,
+        rawData: response.data
+      })
+      
       if (response.success && response.data && response.data.data) {
-        // 确保每个学习包都有packageId字段
-        return response.data.data.map(pkg => ({
+        // 处理学习包数据，确保字段完整性
+        const packages = response.data.data.map((pkg: LearningPackage) => ({
           ...pkg,
-          packageId: pkg.id // 设置packageId为id的值
+          packageId: pkg.id, // 设置packageId为id的值
+          // 确保所有字段都有默认值
+          sectionId: pkg.sectionId || '',
+          packageName: pkg.packageName || '未命名方案',
+          description: pkg.description || '暂无描述',
+          updateTime: pkg.updateTime || new Date().toISOString(),
+          isDefault: pkg.isDefault || 0,
+          userId: pkg.userId || '',
+          releaseStatus: pkg.releaseStatus || false,
+          visibility: pkg.visibility || 0,
+          authors: pkg.authors || '{}',
+          tags: pkg.tags || '{}',
+          resourceList: pkg.resourceList || []
         }))
+        
+        console.log('处理后的学习包数据:', packages)
+        
+        // 缓存到本地存储
+        if (useCache) {
+          try {
+            localStorage.setItem(`learning_packages_${id}`, JSON.stringify({
+              data: packages,
+              timestamp: Date.now()
+            }))
+          } catch (storageError) {
+            console.warn('缓存学习包数据失败:', storageError)
+          }
+        }
+        
+        return packages
       }
+      
+      console.log('API返回空数据或失败')
       return []
     } catch (error) {
+      console.error('获取学习资源包失败:', error)
+      
+      // 尝试从本地缓存获取数据
+      if (useCache) {
+        try {
+          const cached = localStorage.getItem(`learning_packages_${id}`)
+          if (cached) {
+            const cachedData = JSON.parse(cached)
+            // 检查缓存是否过期（24小时）
+            if (Date.now() - cachedData.timestamp < 24 * 60 * 60 * 1000) {
+              console.log('使用缓存的学习包数据')
+              return cachedData.data
+            }
+          }
+        } catch (cacheError) {
+          console.warn('读取缓存学习包数据失败:', cacheError)
+        }
+      }
+      
       return []
     }
   }

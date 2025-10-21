@@ -388,16 +388,12 @@ const mergeServerAndLocalData = (serverTextbooks: UserTextbookInfo[], localTextb
       const existing = acc[existingIndex]
       if (current.id && existing.id && current.id > existing.id) {
         acc[existingIndex] = current
-        console.log(`去重处理: 替换教材 ${current.textbookName} (id: ${current.id}) 使用更新的ID: ${current.id}`)
       } else {
-        console.log(`去重处理: 保留教材 ${existing.textbookName} (id: ${existing.id}) 使用ID: ${existing.id}`)
       }
     }
     return acc
   }, [])
   
-  console.log('服务器教材原始数据:', serverTextbooks.map(t => ({ name: t.textbookName, id: t.id, textbookId: t.textbookId })))
-  console.log('去重后服务器教材数据:', uniqueServerTextbooks.map(t => ({ name: t.textbookName, id: t.id, textbookId: t.textbookId })))
   
   // 1. 先添加所有去重后的服务器教材
   uniqueServerTextbooks.forEach(serverTextbook => {
@@ -450,7 +446,6 @@ const mergeServerAndLocalData = (serverTextbooks: UserTextbookInfo[], localTextb
     }
   })
   
-  console.log('合并后教材数量:', mergedTextbooks.length, '去重后服务器教材数量:', uniqueServerTextbooks.length, '原始服务器教材数量:', serverTextbooks.length)
   return mergedTextbooks
 }
 
@@ -495,15 +490,9 @@ const updateServerData = async () => {
     const mergedTextbooks = mergeServerAndLocalData(serverTextbooks, localTextbooks)
     
     // 更新本地教材数据
-    console.log('开始更新教材到IndexedDB，数量:', mergedTextbooks.length)
     for (const textbook of mergedTextbooks) {
-      console.log('更新教材:', textbook.textbookName, 'ID:', textbook.id, 'textbookId:', textbook.textbookId)
-      const success = await resourceManager.updateTextbookInfo(textbook)
-      console.log('更新结果:', success)
+      await resourceManager.updateTextbookInfo(textbook)
     }
-    // 从IndexedDB获取所有教材
-    const textbooks1 = await resourceManager.indexedDB.getAll('textbooks')
-    console.log('textbooks1', textbooks1)
     // 平滑替换数据
     textbooks.value = mergedTextbooks
     updateSubjectChips()
@@ -525,7 +514,6 @@ const fixInconsistentDownloadStatus = async (textbooks: UserTextbookInfo[]) => {
       const hasActiveDownload = apiService.hasActiveDownload(textbook.textbookId)
       
       if (!hasActiveDownload) {
-        console.log(`修复不一致的下载状态: ${textbook.textbookName}`)
         fixedCount++
         
         // 根据下载进度判断状态
@@ -533,18 +521,15 @@ const fixInconsistentDownloadStatus = async (textbooks: UserTextbookInfo[]) => {
           // 部分下载，设置为暂停状态
           textbook.downloadStatus = 3
           textbook.isDownloaded = false
-          console.log(`  -> 设置为暂停状态 (${textbook.downloadedFiles}/${textbook.totalFiles})`)
         } else if (textbook.downloadedFiles === textbook.totalFiles && textbook.totalFiles > 0) {
           // 完全下载，设置为完成状态
           textbook.downloadStatus = 2
           textbook.isDownloaded = true
-          console.log(`  -> 设置为完成状态 (${textbook.downloadedFiles}/${textbook.totalFiles})`)
         } else {
           // 没有下载进度，设置为未下载状态
           textbook.downloadStatus = 0
           textbook.isDownloaded = false
           textbook.downloadedFiles = 0
-          console.log(`  -> 设置为未下载状态`)
         }
         
         // 保存修复后的状态到IndexedDB
@@ -560,7 +545,6 @@ const fixInconsistentDownloadStatus = async (textbooks: UserTextbookInfo[]) => {
   await Promise.all(fixPromises)
   
   if (fixedCount > 0) {
-    console.log(`已修复 ${fixedCount} 个不一致的下载状态`)
   }
 }
 
@@ -571,7 +555,6 @@ const loadResources = async () => {
   
   // 第一步：立即加载本地数据
   const localTextbooks = await loadLocalData()
-  console.log('localTextbooks', localTextbooks)
   
   if (localTextbooks.length > 0) {
     // 检测和修复不一致的下载状态

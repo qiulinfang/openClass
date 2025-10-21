@@ -155,6 +155,8 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiService } from '@/services/api-service'
 import { useQuasar } from 'quasar'
+import { androidBridge } from '@/services/android-bridge'
+import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 
 const router = useRouter()
 const $q = useQuasar()
@@ -171,8 +173,31 @@ const showJoinClassDialog = ref(false)
 
 // 初始化
 onMounted(() => {
+  // 流程：页面初始化 -> 加载用户信息 -> 加载版本号 -> 读取原生课堂状态 -> 绑定课堂事件
   loadUserInfo()
   loadAppVersion()
+
+  // 流程：读取原生课堂状态 -> 更新前端状态
+  const status = androidBridge.getClassroomStatus() as BridgeClassroomStatus | null
+  if (status && status.isInClass === true) {
+    isInClass.value = true
+  }
+
+  // 流程：绑定课堂事件 -> 根据原生回调同步前端状态
+  androidBridge.onClassroomJoined(() => {
+    isInClass.value = true
+    $q.notify({ type: 'positive', message: '已加入课堂', position: 'top' })
+  })
+  androidBridge.onClassroomExited(() => {
+    isInClass.value = false
+    $q.notify({ type: 'positive', message: '已退出课堂', position: 'top' })
+  })
+  androidBridge.onClassroomStatusChanged((newStatus: BridgeClassroomStatus) => {
+    const inClass = !!newStatus?.isInClass
+    if (isInClass.value !== inClass) {
+      isInClass.value = inClass
+    }
+  })
 })
 
 // 加载用户信息
@@ -214,24 +239,34 @@ const toggleJoinClass = () => {
 
 // 确认加入/退出课堂
 const confirmJoinClass = () => {
+  // 流程：关闭确认弹窗 -> 分支(在课堂/不在课堂) -> 调用原生接口 -> 根据结果同步状态与提示
   showJoinClassDialog.value = false
-  
+
   if (isInClass.value) {
-    // 退出课堂
-    isInClass.value = false
-    $q.notify({
-      type: 'positive',
-      message: '已退出课堂',
-      position: 'top'
-    })
-  } else {
-    // 加入课堂
+    // 流程：调用原生退出课堂 -> 成功则更新状态
+    const ok = androidBridge.exitClassroom()
+    if (ok) {
+      isInClass.value = false
+      $q.notify({ type: 'positive', message: '已退出课堂', position: 'top' })
+    } else {
+      $q.notify({ type: 'negative', message: '退出课堂失败', position: 'top' })
+    }
+    return
+  }
+
+  // 流程：准备加入参数 -> 优先读取原生用户信息 -> 兜底使用现有昵称并启用游客模式
+  const nativeUser = androidBridge.getUserInfo() as Partial<BridgeUserInfo> | null
+  const studentId = nativeUser?.userId ?? ''
+  const studentName = (nativeUser?.nickName ?? nativeUser?.userName ?? userInfo.value.nickName) || '用户'
+  const isGuest = !studentId
+
+  // 流程：调用原生加入课堂 -> 成功则更新状态
+  const ok = androidBridge.joinClassroom(studentId, studentName, isGuest)
+  if (ok) {
     isInClass.value = true
-    $q.notify({
-      type: 'positive',
-      message: '已加入课堂',
-      position: 'top'
-    })
+    $q.notify({ type: 'positive', message: '已加入课堂', position: 'top' })
+  } else {
+    $q.notify({ type: 'negative', message: '加入课堂失败', position: 'top' })
   }
 }
 

@@ -32,7 +32,7 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
   /** 分页信息 */
   const pagination = ref({
     currentPage: 0,
-    pageSize: 5,
+    pageSize: 10,
     totalCount: 0
   })
   
@@ -135,10 +135,6 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
         current: Math.max(1, pagination.value.currentPage + 1)  // 确保current至少为1
       }
       
-      // 调试日志：打印请求参数
-      console.log('🔍 查找相似题目请求参数:', JSON.stringify(request, null, 2))
-      
-      // 调用API查找相似题目
       const result = await apiService.findSimilarQuestionsByKnowledge(request)
       
       // 标记题目是否已在用户列表中

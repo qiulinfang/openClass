@@ -7,6 +7,8 @@ import MyProfileView from '@/views/MyProfileView.vue'
 import MyResourcesView from '@/views/MyResourcesView.vue'
 import FeedbackView from '@/views/FeedbackView.vue'
 import PdfViewerView from '@/views/PdfViewerView.vue'
+import FindExerciseView from '@/views/FindExerciseView.vue'
+import LearningView from '@/views/LearningView.vue'
 
 const router = createRouter({
   history: createWebHashHistory(), // 必须使用Hash模式
@@ -50,6 +52,16 @@ const router = createRouter({
           path: 'pdf-viewer',
           name: 'pdfViewer',
           component: PdfViewerView
+        },
+        {
+          path: 'find-exercise',
+          name: 'findExercise',
+          component: FindExerciseView
+        },
+        {
+          path: 'learning',
+          name: 'learning',
+          component: LearningView
         }
       ]
     },
@@ -73,6 +85,14 @@ const router = createRouter({
     {
       path: '/feedback',
       redirect: '/app/feedback'
+    },
+    {
+      path: '/find-exercise',
+      redirect: '/app/find-exercise'
+    },
+    {
+      path: '/learning',
+      redirect: '/app/learning'
     }
   ]
 })

@@ -8,10 +8,9 @@
     >
       <div class="q-pa-md">
         {{ similarQuestions.length}}
-        <!-- 加载状态 -->
+        <!-- 加载状态 - 使用骨架屏 -->
         <div v-if="isLoading && similarQuestions.length === 0" class="native-loading-container">
-          <q-spinner-dots size="50px" color="primary" />
-          <div class="text-h6 q-mt-md native-text-xl">正在查找相似题目...</div>
+          <QuestionListSkeleton animation-speed="fast" :skeleton-count="4" />
         </div>
         <!-- 空状态 -->
         <div v-else-if="similarQuestions.length === 0 && !isLoading" class="native-empty-state">
@@ -105,6 +104,7 @@ import { ref } from 'vue'
 import { useFindExerciseStore } from '../stores/findExerciseStore'
 import { storeToRefs } from 'pinia'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
+import QuestionListSkeleton from './QuestionListSkeleton.vue'
 
 // 定义事件
 const emit = defineEmits<{
@@ -624,7 +624,13 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 // ===== 加载和空状态样式 - 与 SimilarQuestionList 保持一致 =====
-.native-loading-container,
+.native-loading-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .native-empty-state {
   @include flex-center;
   flex-direction: column;

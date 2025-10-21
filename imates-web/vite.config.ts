@@ -122,8 +122,8 @@ export default defineConfig({
     assetsInlineLimit: 4096,
     // 为了兼容性，不使用ES模块
     target: 'es2015',
-    // 生成source map便于调试
-    sourcemap: "inline",
+    // 生成独立 source map 文件，便于在 Android 里查看 .map
+    sourcemap: true,
     // 优化chunk分割
     rollupOptions: {
       output: {

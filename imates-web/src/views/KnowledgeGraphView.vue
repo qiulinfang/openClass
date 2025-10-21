@@ -120,6 +120,7 @@
                 :is-expanded="getCurrentChapterExpandedGraph() === subChapter.id"
                 :has-expanded-graph="getCurrentChapterExpandedGraph() !== null"
                 :rotation-direction="rotationDirection"
+                :textbook-id="getCurrentTextbookId()"
                 @expand="handleGraphExpand(subChapter.id)"
                 class="knowledge-graph-wrapper"
               />
@@ -586,6 +587,17 @@ const currentSubjectLabel = computed(() => {
   const option = subjectOptions.value.find(opt => opt.value === selectedSubject.value)
   return option ? option.label : '数学'
 })
+
+// 获取当前教材的真实ID（教材版本ID）
+const getCurrentTextbookId = () => {
+  const option = textbookOptions.value.find(opt => opt.value === selectedTextbook.value)
+  if (option) {
+    // 从value中提取教材版本ID（最后一个-后面的部分）
+    const parts = option.value.split('-')
+    return parts[parts.length - 1] // 教材版本ID
+  }
+  return ''
+}
 
 
 // 章节数据
@@ -1064,6 +1076,12 @@ const initGraph = async () => {
     if (textbookOptions.value.length > 0) {
       const firstTextbook = textbookOptions.value[0]
       selectedTextbook.value = firstTextbook.value
+      
+      console.log('自动选择教材:', {
+        selectedTextbook: selectedTextbook.value,
+        firstTextbook: firstTextbook,
+        textbookId: firstTextbook.textbookId
+      })
       
       // 加载第一个教材的章节结构
       if (firstTextbook.textbookId && firstTextbook.textbookId !== 'default') {
