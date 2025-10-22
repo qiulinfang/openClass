@@ -113,7 +113,7 @@ public class ChatAiActivity extends AppCompatActivity implements MessagingManage
     @Override
     protected void onResume() {
         super.onResume();
-        Log.e("++++++++++++++++", "onResume");
+        Log.e("++++++++++++++++", "ChatOnResume");
         if(teacherPicturePath != null && !teacherPicturePath.isEmpty()) {
             mChatView.resetCurrentCatalog(ChatMessageCatalogue.CATEGORY_TEACHER_QA);
             String chatAiSessionName = "我的作业" + new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
@@ -145,6 +145,19 @@ public class ChatAiActivity extends AppCompatActivity implements MessagingManage
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         WindowUtils.hideSystemUI(this);
+    }
+
+    @Override
+    public void onStop() {
+        Log.e("++++++++++++++++", "ChatOnStop");
+        super.onStop();
+        finish();
+    }
+
+    @Override
+    public void onPause() {
+        Log.e("++++++++++++++++", "ChatOnPause");
+        super.onPause();
     }
 
     @Override

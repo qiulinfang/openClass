@@ -248,7 +248,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        Log.e("++++++++++++++++", "onPause");
+        Log.e("++++++++++++++++", "MainOnPause");
     }
 
     @Override
@@ -384,19 +384,19 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        Log.e("++++++++++++++++", "onStart");
+        Log.e("++++++++++++++++", "MainOnStart");
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        Log.e("++++++++++++++++", "onStop");
+        Log.e("++++++++++++++++", "MainOnStop");
     }
 
     @Override
     protected  void onRestart() {
         super.onRestart();
-        Log.e("++++++++++++++++", "onRestart");
+        Log.e("++++++++++++++++", "MainOnRestart");
     }
 
     @Override
