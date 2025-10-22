@@ -305,7 +305,7 @@ public class ScratchToolsView extends RelativeLayout {
                     "start",
                     "",
                     false,
-                    "math");
+                    "all");
             chatRequest.setDstUrl(ApiUrl.URL_CHAT_PREVIEW_PICTURE);
             try {
                 app.chatRequest = chatRequest;
