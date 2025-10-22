@@ -1623,7 +1623,7 @@ export class ApiService {
               reason = '文件已更新（校验和不匹配）'
             } else {
               // 检查fileData中是否实际存在文件数据
-              const hasFileData = await resourceManager.hasFileData(textbook.textbookId, fileId)
+              const hasFileData = await resourceManager.hasFileData(textbook.id, fileId)
               if (!hasFileData) {
                 needsDownload = true
                 reason = 'fileData中不存在实际数据（暂停后继续下载）'
@@ -1760,7 +1760,7 @@ export class ApiService {
       const resourceManager = ResourceManager.getInstance()
       
       // 获取教材信息
-      const textbook = await resourceManager.getTextbookInfo(textbookId)
+      const textbook = await resourceManager.indexedDB.getByIndex('textbooks', 'textbookId', textbookId) as UserTextbookInfo
       if (!textbook) {
         return
       }

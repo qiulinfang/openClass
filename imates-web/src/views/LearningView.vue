@@ -51,9 +51,9 @@
             </div>
             
             <!-- 学习方案列表 -->
-            <div v-else-if="learningPackages.length > 0" class="scheme-list">
+            <div v-else-if="filteredLearningPackages.length > 0" class="scheme-list">
               <q-item 
-                v-for="(scheme, index) in learningPackages" 
+                v-for="(scheme, index) in filteredLearningPackages" 
                 :key="scheme.id"
                 clickable
                 :active="selectedSchemeIndex === index"
@@ -84,8 +84,15 @@
             <!-- 无数据状态 -->
             <div v-else class="empty-state">
               <q-icon name="school" size="48px" color="grey-5" />
-              <div class="empty-text">暂无学习方案</div>
-              <div class="empty-desc">该章节暂未配置学习资源</div>
+              <div class="empty-text">该章节暂无学习方案</div>
+              <div class="empty-desc">
+                <span v-if="learningPackages.length > 0">
+                  该章节暂未配置学习资源，但教材中有 {{ learningPackages.length }} 个其他学习方案
+                </span>
+                <span v-else>
+                  该教材暂未配置任何学习资源
+                </span>
+              </div>
             </div>
           </q-card-section>
         </q-card>
@@ -244,7 +251,7 @@ const route = useRoute()
 // 响应式数据
 const sectionName = ref('')
 const sectionId = ref('')
-const textbookId = ref('')
+const id = ref('')
 const selectedSchemeIndex = ref(-1)
 const selectedResourceIndex = ref(-1)
 const rating = ref(0)
@@ -256,9 +263,22 @@ const loadingPackages = ref(false)
 const learningPackages = ref<LearningPackage[]>([])
 
 // 计算属性
+// 根据章节ID筛选学习方案（与安卓原生保持一致）
+const filteredLearningPackages = computed(() => {
+  if (!sectionId.value) {
+    return learningPackages.value
+  }
+  
+  return learningPackages.value.filter(pkg => {
+    const hasSectionId = pkg.sectionId && pkg.sectionId.trim() !== ''
+    return hasSectionId && 
+      pkg.sectionId.toLowerCase() === sectionId.value.toLowerCase()
+  })
+})
+
 const currentScheme = computed(() => {
-  if (selectedSchemeIndex.value >= 0 && selectedSchemeIndex.value < learningPackages.value.length) {
-    return learningPackages.value[selectedSchemeIndex.value]
+  if (selectedSchemeIndex.value >= 0 && selectedSchemeIndex.value < filteredLearningPackages.value.length) {
+    return filteredLearningPackages.value[selectedSchemeIndex.value]
   }
   return null
 })
@@ -366,22 +386,25 @@ const startLearning = async () => {
     const selectedScheme = currentScheme.value
     const selectedResource = currentResources.value[selectedResourceIndex.value]
     
-    // 模拟异步操作
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    if (!selectedScheme || !selectedResource) {
+      console.error('选中的学习方案或资源为空')
+      return
+    }
     
-    // 这里可以添加实际的学习逻辑
-    console.log('开始学习:', {
-      section: sectionName.value,
-      sectionId: sectionId.value,
-      textbookId: textbookId.value,
-      scheme: selectedScheme,
-      resource: selectedResource,
-      rating: rating.value,
-      difficulty: difficulty.value
+    // 跳转到PDF查看器
+    router.push({
+      name: 'pdfViewer',
+      query: {
+        id: id.value,
+        textbookName: sectionName.value,
+        resourceId: selectedResource.id,
+        fileName: selectedResource.fileName,
+        packageId: selectedScheme.id,
+        packageName: selectedScheme.packageName
+      }
     })
-    
-    // 可以跳转到具体的学习页面或打开资源
-    // router.push('/learning-content')
+  } catch (error) {
+    console.error('开始学习失败:', error)
   } finally {
     isLoading.value = false
   }
@@ -389,29 +412,16 @@ const startLearning = async () => {
 
 // 加载学习包数据
 const loadLearningPackages = async () => {
-  if (!textbookId.value) {
-    console.warn('教材ID为空，无法加载学习包')
+  if (!id.value) {
     return
   }
   
   loadingPackages.value = true
   
   try {
-    console.log('开始加载学习包，教材ID:', textbookId.value)
-    
     // 首先尝试从缓存加载
-    const packages = await apiService.getLearningResources(textbookId.value, true)
+    const packages = await apiService.getLearningResources(id.value, true)
     learningPackages.value = packages
-    
-    console.log('加载学习包成功:', packages)
-    console.log('学习包数量:', packages.length)
-    
-    if (packages.length === 0) {
-      console.log('该教材没有学习包数据，可能需要检查：')
-      console.log('1. 服务器是否配置了学习包')
-      console.log('2. 教材ID是否正确')
-      console.log('3. API接口是否正常')
-    }
   } catch (error) {
     console.error('加载学习包失败:', error)
     learningPackages.value = []
@@ -422,7 +432,7 @@ const loadLearningPackages = async () => {
 
 // 刷新学习包数据（强制从服务器获取）
 const refreshLearningPackages = async () => {
-  if (!textbookId.value) {
+  if (!id.value) {
     return
   }
   
@@ -430,10 +440,11 @@ const refreshLearningPackages = async () => {
   
   try {
     // 强制从服务器获取最新数据
-    const packages = await apiService.getLearningResources(textbookId.value, false)
+    const packages = await apiService.getLearningResources(id.value, false)
     learningPackages.value = packages
     
-    console.log('刷新学习包成功:', packages)
+    // 重置选择状态
+    resetSelection()
   } catch (error) {
     console.error('刷新学习包失败:', error)
   } finally {
@@ -441,18 +452,19 @@ const refreshLearningPackages = async () => {
   }
 }
 
+// 当章节ID变化时，重置选择状态
+const resetSelection = () => {
+  selectedSchemeIndex.value = -1
+  selectedResourceIndex.value = -1
+}
+
 // 生命周期
 onMounted(async () => {
+  console.log('route.query', route.query)
   // 从路由参数获取章节信息
   sectionName.value = route.query.sectionName as string || '学习内容'
   sectionId.value = route.query.nodeId as string || ''
-  textbookId.value = route.query.textbookId as string || ''
-  
-  console.log('LearningView 接收到的参数:', {
-    sectionName: sectionName.value,
-    sectionId: sectionId.value,
-    textbookId: textbookId.value
-  })
+  id.value = route.query.id as string || ''
   
   // 加载学习包数据
   await loadLearningPackages()

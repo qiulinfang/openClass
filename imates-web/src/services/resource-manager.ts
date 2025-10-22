@@ -394,20 +394,28 @@ export class ResourceManager {
 
   /**
    * 获取文件数据 - 重构版本，从localFiles中获取fileData
-   * @param textbookId 教材ID
+   * @param id 教材主键ID
    * @param fileId 文件ID
    * @returns 文件二进制数据，如果不存在则返回null
    */
-  public async getFileData(textbookId: string, fileId: string): Promise<Uint8Array | null> {
+  public async getFileData(id: string, fileId: string): Promise<Uint8Array | null> {
     try {
-      const textbook = await this.getTextbookInfo(textbookId)
+      console.log('id', id)
+      console.log('fileId', fileId)
+      
+      // 通过主键id直接查找教材信息
+      const textbook = await this.indexedDBInstance.get('textbooks', id) as UserTextbookInfo
+      console.log('textbook', textbook)
       if (!textbook) {
+        console.log('textbook not found')
         return null
       }
       
       // 在textbook.localFiles中查找文件
       if (textbook.localFiles) {
+        console.log('textbook.localFiles', textbook.localFiles)
         const localFile = textbook.localFiles.find(f => f.id === fileId)
+        console.log('localFile', localFile)
         if (localFile && localFile.fileData && localFile.fileData.length > 0) {
           return localFile.fileData
         }
@@ -421,13 +429,14 @@ export class ResourceManager {
 
   /**
    * 检查文件数据是否存在 - 重构版本，检查localFiles中的fileData
-   * @param textbookId 教材ID
+   * @param id 教材主键ID
    * @param fileId 文件ID
    * @returns 文件数据是否存在
    */
-  public async hasFileData(textbookId: string, fileId: string): Promise<boolean> {
+  public async hasFileData(id: string, fileId: string): Promise<boolean> {
     try {
-      const textbook = await this.getTextbookInfo(textbookId)
+      // 通过主键id直接查找教材信息
+      const textbook = await this.indexedDBInstance.get('textbooks', id) as UserTextbookInfo
       if (!textbook) {
         return false
       }
@@ -569,14 +578,14 @@ export class ResourceManager {
   }
 
   /**
-   * 根据教材ID获取单个教材信息
-   * @param textbookId 教材ID
+   * 根据主键ID获取单个教材信息
+   * @param id 主键ID
    * @returns 教材信息或null
    */
-  public async getTextbookInfo(textbookId: string): Promise<UserTextbookInfo | null> {
+  public async getTextbookInfoById(id: string): Promise<UserTextbookInfo | null> {
     try {
-      // 现在主键是id，需要通过textbookId索引查询
-      const textbook = await this.indexedDBInstance.getByIndex('textbooks', 'textbookId', textbookId) as UserTextbookInfo
+      // 使用主键id直接查询
+      const textbook = await this.indexedDBInstance.get('textbooks', id) as UserTextbookInfo
       return textbook || null
     } catch {
       return null
@@ -585,12 +594,12 @@ export class ResourceManager {
 
   /**
    * 清理教材文件数据
-   * @param textbookId 教材ID
+   * @param id 教材主键ID
    */
-  public async clearTextbookFiles(textbookId: string): Promise<void> {
+  public async clearTextbookFiles(id: string): Promise<void> {
     try {
       // 获取教材信息
-      const textbook = await this.indexedDBInstance.getByIndex('textbooks', 'textbookId', textbookId) as Record<string, unknown>
+      const textbook = await this.indexedDBInstance.get('textbooks', id) as Record<string, unknown>
       if (textbook && textbook.fileData) {
         // 清空教材中的文件数据
         textbook.fileData = {}

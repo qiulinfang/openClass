@@ -321,7 +321,7 @@ const handleLearn = async (node: { id: string; name: string; level?: number | nu
     
     // 发出保存状态事件，让父组件保存当前页面状态
     emit('save-state')
-    
+    console.log('props.textbookRecordId', props.textbookRecordId)
     // 跳转到学习页面
     router.push({
       path: '/learning',
@@ -329,7 +329,7 @@ const handleLearn = async (node: { id: string; name: string; level?: number | nu
         nodeId: node.id,
         sectionName: node.name,
         level: node.level || 1,
-        textbookId: props.textbookRecordId || '' // 传递教材ID
+        id: props.textbookRecordId || '' // 传递教材ID
       }
     })
   } catch (error) {
@@ -342,7 +342,7 @@ const handleLearn = async (node: { id: string; name: string; level?: number | nu
         nodeId: node.id,
         sectionName: node.name,
         level: node.level || 1,
-        textbookId: props.textbookRecordId || ''
+        id: props.textbookRecordId || ''
       }
     })
   }
@@ -353,7 +353,7 @@ const handlePractice = (node: { id: string; name: string; level?: number | null 
   activeNodeId.value = null // 关闭气泡框
   console.log(node)
   // 使用硬编码映射表获取知识点ID
-  const knowledgeList = getAllKnowledgeListsFromNode(node.id)
+  const knowledgeList = getKnowledgeIdFromNodeId(node.id)
   
   if (!knowledgeList || knowledgeList.trim() === '') {
     alert('该知识点暂无相关练习题，请选择其他知识点进行练习')
@@ -495,10 +495,6 @@ const getKnowledgeIdFromNodeId = (nodeId: string): string => {
   return knowledgeMap[nodeId] || ""
 }
 
-// 获取知识点ID
-const getAllKnowledgeListsFromNode = (nodeId: string): string => {
-  return getKnowledgeIdFromNodeId(nodeId)
-}
 
 
 

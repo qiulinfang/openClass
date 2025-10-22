@@ -17,6 +17,9 @@ export default (app: App) => {
       Notify,
       Loading,
     },
+    components: {
+      QVirtualScroll: true
+    },
     config: {
       brand: {
         primary: '#1976D2',
