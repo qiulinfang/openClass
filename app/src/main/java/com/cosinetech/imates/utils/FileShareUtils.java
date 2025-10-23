@@ -163,10 +163,10 @@ public class FileShareUtils {
         }
 
         String fileName = new File(filePath).getName();
-        String[] parts = fileName.split("\\.");
+        int lastDotIndex = fileName.lastIndexOf('.');
 
-        if (parts.length > 1) {
-            return parts[0];
+        if (lastDotIndex > 0) {
+            return fileName.substring(0, lastDotIndex);
         } else {
             return fileName;
         }
