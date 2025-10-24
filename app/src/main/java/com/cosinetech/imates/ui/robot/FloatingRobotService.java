@@ -101,7 +101,7 @@ public class FloatingRobotService extends Service implements MessagingManager.Me
 
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         initFloatingRobot();
-        initFeedbackView();
+        //initFeedbackView();
 
         // 初始化MessageManager
         UserInfoViewModel userInfoViewModel = new ViewModelProvider(
