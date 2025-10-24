@@ -84,13 +84,13 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
     // 工具状态
     selectedTool: 'none',
     drawingConfig: {
-      highlighterColor: '#00FFFF',
-      highlighterWidth: 0.6,
-      highlighterOpacity: 32,
-      penColor: 'black',
-      penWidth: 3,
-      eraserMode: 'pixel',
-      eraserSize: 0.6
+      highlighterColor: '#FFFF00', // 黄色（第一个选项）
+      highlighterWidth: 5, // 荧光笔细（新范围 3-15）
+      highlighterOpacity: 50, // 默认浓度 50%
+      penColor: '#ff0000', // 红色（第一个选项）
+      penWidth: 1.0, // 签字笔中等（新范围 0.3-3）
+      eraserMode: 'stroke', // 橡皮擦默认为整笔擦除模式
+      eraserSize: 15 // 橡皮擦中等（新范围 5-30）
     } as DrawingConfig,
     
     // 笔记状态
@@ -117,11 +117,12 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
     
     // 签字笔颜色选项
     penColors: [
-      { label: '黑色', value: 'black', color: '#000000' },
-      { label: '红色', value: 'red', color: '#ff0000' },
-      { label: '蓝色', value: 'blue', color: '#0000ff' },
-      { label: '绿色', value: 'green', color: '#008000' },
-      { label: '紫色', value: 'purple', color: '#800080' }
+      { label: '红色', value: '#ff0000', color: '#ff0000' },
+      { label: '黄色', value: '#ffd400', color: '#ffd400' },
+      { label: '蓝色', value: '#007bff', color: '#007bff' },
+      { label: '绿色', value: '#13df00', color: '#13df00' },
+      { label: '紫色', value: '#8000ff', color: '#8000ff' },
+      { label: '黑色', value: '#111111', color: '#111111' }
     ] as ColorOption[],
     
     
@@ -134,11 +135,9 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
       { label: '5px', value: 5 }
     ],
     
-    // 橡皮模式选项
+    // 橡皮模式选项（只保留整笔擦除）
     eraserModeOptions: [
-      { label: '像素擦除', value: 'pixel' },
-      { label: '整笔擦除', value: 'stroke' },
-      { label: '清除页面', value: 'page' }
+      { label: '整笔擦除', value: 'stroke' }
     ]
   }),
 

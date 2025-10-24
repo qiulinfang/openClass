@@ -1,117 +1,6 @@
 // ===== Gemini Material Design 对话框样式 =====
 // 统一的对话框样式，确保所有弹出框都有一致的外观
 
-// 主对话框容器
-:deep(.gemini-dialog) {
-  .q-dialog__inner {
-    padding: 24px;
-    border-radius: 20px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
-    background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    max-width: 400px;
-    width: 90vw;
-    animation: gemini-dialog-enter 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-  }
-}
-
-// 小尺寸对话框容器
-:deep(.gemini-dialog-small) {
-  .q-dialog__inner {
-    padding: 20px;
-    border-radius: 16px;
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
-    background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    max-width: 320px;
-    width: 90vw;
-    animation: gemini-dialog-enter 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-  }
-
-  .q-dialog__title {
-    font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 18px;
-    font-weight: 500;
-    color: #202124;
-    margin-bottom: 8px;
-    line-height: 1.3;
-  }
-
-  .q-dialog__message {
-    font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 14px;
-    color: #5f6368;
-    line-height: 1.5;
-    margin-bottom: 20px;
-  }
-
-  .q-dialog__actions {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-    margin-top: 0;
-    padding-top: 0;
-  }
-}
-
-// 卡片样式对话框
-:deep(.gemini-card-dialog) {
-  .q-card {
-    border-radius: 20px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
-    background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    max-width: 400px;
-    width: 90vw;
-    animation: gemini-dialog-enter 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-  }
-
-  .q-card__section {
-    padding: 24px;
-  }
-
-  .q-card__section:first-child {
-    padding-bottom: 16px;
-  }
-
-  .q-card__section:last-child {
-    padding-top: 16px;
-  }
-
-  .q-card__actions {
-    padding: 0 24px 24px 24px;
-    gap: 12px;
-  }
-}
-
-// 主对话框样式
-:deep(.gemini-dialog) {
-  .q-dialog__title {
-    font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 20px;
-    font-weight: 500;
-    color: #202124;
-    margin-bottom: 8px;
-    line-height: 1.3;
-  }
-
-  .q-dialog__message {
-    font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 14px;
-    color: #5f6368;
-    line-height: 1.5;
-    margin-bottom: 24px;
-  }
-
-  .q-dialog__actions {
-    display: flex;
-    gap: 12px;
-    justify-content: flex-end;
-    margin-top: 0;
-    padding-top: 0;
-  }
-}
-
 // 卡片样式对话框
 :deep(.gemini-card-dialog) {
   .q-card {
@@ -194,92 +83,6 @@
   }
 }
 
-:deep(.gemini-danger-btn) {
-  font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-weight: 500;
-  font-size: 14px;
-  text-transform: none;
-  letter-spacing: 0.25px;
-  border-radius: 20px;
-  padding: 10px 24px;
-  min-width: 80px;
-  height: 40px;
-  background: linear-gradient(135deg, #ea4335 0%, #d33b2c 100%);
-  color: white;
-  box-shadow: 0 2px 8px rgba(234, 67, 53, 0.3);
-  transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
-  
-  &:hover {
-    background: linear-gradient(135deg, #d33b2c 0%, #b52d20 100%);
-    box-shadow: 0 4px 12px rgba(234, 67, 53, 0.4);
-    transform: translateY(-1px);
-  }
-  
-  &:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 6px rgba(234, 67, 53, 0.3);
-  }
-}
-
-:deep(.gemini-warning-btn) {
-  font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-weight: 500;
-  font-size: 14px;
-  text-transform: none;
-  letter-spacing: 0.25px;
-  border-radius: 20px;
-  padding: 10px 24px;
-  min-width: 80px;
-  height: 40px;
-  background: linear-gradient(135deg, #fbbc04 0%, #f9ab00 100%);
-  color: #202124;
-  box-shadow: 0 2px 8px rgba(251, 188, 4, 0.3);
-  transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
-  
-  &:hover {
-    background: linear-gradient(135deg, #f9ab00 0%, #f57f17 100%);
-    box-shadow: 0 4px 12px rgba(251, 188, 4, 0.4);
-    transform: translateY(-1px);
-  }
-  
-  &:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 6px rgba(251, 188, 4, 0.3);
-  }
-}
-
-// 图标样式
-:deep(.gemini-dialog-icon) {
-  width: 48px;
-  height: 48px;
-  border-radius: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 16px;
-  flex-shrink: 0;
-}
-
-:deep(.gemini-dialog-icon--primary) {
-  background: linear-gradient(135deg, #e8f0fe 0%, #d2e3fc 100%);
-  color: #1a73e8;
-}
-
-:deep(.gemini-dialog-icon--warning) {
-  background: linear-gradient(135deg, #fef7e0 0%, #fce4a3 100%);
-  color: #f9ab00;
-}
-
-:deep(.gemini-dialog-icon--danger) {
-  background: linear-gradient(135deg, #fce8e6 0%, #f4c2c2 100%);
-  color: #ea4335;
-}
-
-:deep(.gemini-dialog-icon--success) {
-  background: linear-gradient(135deg, #e6f4ea 0%, #c8e6c9 100%);
-  color: #34a853;
-}
-
 // 对话框进入动画
 @keyframes gemini-dialog-enter {
   0% {
@@ -294,24 +97,19 @@
 
 // 响应式设计
 @media (max-width: 480px) {
-  :deep(.gemini-dialog),
   :deep(.gemini-card-dialog) {
-    .q-dialog__inner,
     .q-card {
       max-width: 95vw;
       margin: 16px;
     }
     
-    .q-dialog__actions,
     .q-card__actions {
       flex-direction: column;
       gap: 8px;
     }
     
     .gemini-primary-btn,
-    .gemini-secondary-btn,
-    .gemini-danger-btn,
-    .gemini-warning-btn {
+    .gemini-secondary-btn {
       width: 100%;
       justify-content: center;
     }

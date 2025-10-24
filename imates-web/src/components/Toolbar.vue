@@ -12,11 +12,7 @@
           <!-- 工具选择和配置 -->
           <div class="tool-section">
             <div class="tool-buttons">
-              <div
-                v-for="tool in toolOptions"
-                :key="tool.value"
-                class="tool-icon-wrapper"
-              >
+              <div v-for="tool in toolOptions" :key="tool.value" class="tool-icon-wrapper">
                 <img
                   :src="getToolIcon(tool.value)"
                   :class="getToolClass(tool.value)"
@@ -24,90 +20,21 @@
                   @click="setSelectedTool(tool.value)"
                 />
               </div>
-              
+
               <!-- 弹出图标 -->
               <div class="popup-icon-wrapper">
                 <img
                   :src="getPopupIconSrc()"
-                  :class="getPopupIconClass()"
+                  :style="getPopupIconStyle()"
                   class="popup-icon"
                   @click="togglePopupIcon"
                 />
-                
+
                 <!-- 自定义弹出气泡框 -->
-                <div
-                  v-if="showPopup"
-                  class="custom-popup"
-                  :style="getPopupStyle()"
-                >
+                <div v-if="showPopup" class="custom-popup" :style="getPopupStyle()">
                   <div class="popup-content">
-                    <!-- 高亮笔配置 -->
-                    <div v-if="selectedTool === 'highlighter'" class="config-popup">
-                      <!-- 颜色配置 -->
-                      <div class="config-section">
-                        <div class="section-header">
-                          <span class="section-title">颜色</span>
-                          <q-btn
-                            flat
-                            round
-                            dense
-                            size="sm"
-                            @click="resetHighlighterColor"
-                            class="reset-button"
-                          >
-                            <img src="/icons/reset.svg" alt="重置" class="reset-icon" />
-                          </q-btn>
-                        </div>
-                        <div class="color-options">
-                          <div
-                            v-for="color in highlighterColors"
-                            :key="color.value"
-                            :class="['color-option', { 'color-selected': drawingConfig.highlighterColor === color.value }]"
-                            :style="{ backgroundColor: color.value }"
-                            @click="updateDrawingConfig({ highlighterColor: color.value })"
-                          />
-                        </div>
-                      </div>
-                      
-                      <!-- 粗细配置 -->
-                      <div class="config-section">
-                        <div class="section-header">
-                          <span class="section-title">粗细</span>
-                        </div>
-                        <div class="thickness-slider">
-                        <q-slider
-                          v-model="drawingConfig.highlighterWidth"
-                            :min="0.5"
-                            :max="5"
-                            :step="0.1"
-                            color="primary"
-                            class="custom-slider"
-                          />
-                          <span class="thickness-value">{{ drawingConfig.highlighterWidth.toFixed(1) }}MM</span>
-                        </div>
-                      </div>
-                      
-                      <!-- 浓度配置 -->
-                      <div class="config-section">
-                        <div class="section-header">
-                          <span class="section-title">浓度</span>
-                        </div>
-                        <div class="opacity-slider">
-                          <q-slider
-                            v-model="drawingConfig.highlighterOpacity"
-                            :min="10"
-                            :max="100"
-                          :step="1"
-                          color="primary"
-                            class="custom-slider"
-                        />
-                          <span class="opacity-value">{{ drawingConfig.highlighterOpacity }}%</span>
-                        </div>
-                      </div>
-                    </div>
-                    
                     <!-- 画笔配置 -->
-                    <div v-else-if="selectedTool === 'pen'" class="config-popup">
+                    <div v-if="selectedTool === 'pen'" class="config-popup">
                       <!-- 颜色配置 -->
                       <div class="config-section">
                         <div class="section-header">
@@ -123,54 +50,163 @@
                             <img src="/icons/reset.svg" alt="重置" class="reset-icon" />
                           </q-btn>
                         </div>
-                        <div class="color-options">
-                          <div
-                            v-for="color in penColors"
-                            :key="color.value"
-                            :class="['color-option', { 'color-selected': drawingConfig.penColor === color.value }]"
-                            :style="{ backgroundColor: color.value }"
-                            @click="updateDrawingConfig({ penColor: color.value })"
-                          />
+                        <div class="section-content">
+                          <div class="color-options">
+                            <div
+                              v-for="color in penColors"
+                              :key="color.value"
+                              :class="[
+                                'color-option',
+                                { 'color-selected': drawingConfig.penColor === color.value },
+                              ]"
+                              :style="{ backgroundColor: color.value }"
+                              @click="updateDrawingConfig({ penColor: color.value })"
+                            />
+                          </div>
                         </div>
                       </div>
-                      
+
                       <!-- 粗细配置 -->
                       <div class="config-section">
                         <div class="section-header">
                           <span class="section-title">粗细</span>
                         </div>
-                        <!-- 预设粗细按钮 -->
-                        <div class="thickness-presets">
-                          <div
-                            v-for="preset in thicknessPresets"
-                            :key="preset.value"
-                            :class="['thickness-preset', { 'preset-selected': drawingConfig.penWidth === preset.value }]"
-                            @click="updateDrawingConfig({ penWidth: preset.value })"
-                          >
-                            <div 
-                              class="thickness-line"
-                              :style="{ 
-                                width: preset.value * 2 + 'px',
-                                height: preset.value + 'px'
-                              }"
-                            ></div>
+                        <div class="section-content">
+                          <!-- 预设粗细按钮 -->
+                          <div class="thickness-presets">
+                            <div
+                              v-for="preset in thicknessPresets"
+                              :key="preset.value"
+                              :class="[
+                                'pen-preset-icon',
+                                { 'preset-selected': drawingConfig.penWidth === preset.value },
+                              ]"
+                              @click="updateDrawingConfig({ penWidth: preset.value })"
+                            >
+                              <div
+                                class="pen-thickness-line"
+                                :style="{ height: preset.displayHeight }"
+                              ></div>
+                            </div>
                           </div>
-                        </div>
-                        <!-- 滑块 -->
-                        <div class="thickness-slider">
-                        <q-slider
-                          v-model="drawingConfig.penWidth"
-                            :min="0.5"
-                            :max="5"
-                            :step="0.1"
-                          color="primary"
-                            class="custom-slider"
-                        />
-                          <span class="thickness-value">{{ drawingConfig.penWidth.toFixed(1) }}MM</span>
+                          <!-- 滑块 -->
+                          <div class="thickness-slider">
+                            <q-slider
+                              v-model="drawingConfig.penWidth"
+                              :min="0.3"
+                              :max="3"
+                              :step="0.1"
+                              class="custom-slider"
+                            />
+                            <span class="thickness-value"
+                              >{{ drawingConfig.penWidth.toFixed(1) }}MM</span
+                            >
+                          </div>
                         </div>
                       </div>
                     </div>
-                    
+
+                    <!-- 高亮笔配置 -->
+                    <div v-else-if="selectedTool === 'highlighter'" class="config-popup">
+                      <!-- 颜色配置 -->
+                      <div class="config-section">
+                        <div class="section-header">
+                          <span class="section-title">颜色</span>
+                          <q-btn
+                            flat
+                            round
+                            dense
+                            size="sm"
+                            @click="resetHighlighterColor"
+                            class="reset-button"
+                          >
+                            <img src="/icons/reset.svg" alt="重置" class="reset-icon" />
+                          </q-btn>
+                        </div>
+                        <div class="section-content">
+                          <div class="color-options">
+                            <div
+                              v-for="color in highlighterColors"
+                              :key="color.value"
+                              :class="[
+                                'color-option',
+                                {
+                                  'color-selected': drawingConfig.highlighterColor === color.value,
+                                },
+                              ]"
+                              :style="{ backgroundColor: color.value }"
+                              @click="updateDrawingConfig({ highlighterColor: color.value })"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 粗细配置 -->
+                      <div class="config-section">
+                        <div class="section-header">
+                          <span class="section-title">粗细</span>
+                        </div>
+                        <div class="section-content">
+                          <!-- 预设粗细按钮 -->
+                          <div class="thickness-presets">
+                            <div
+                              v-for="preset in highlighterPresets"
+                              :key="preset.value"
+                              :class="[
+                                'pen-preset-icon',
+                                {
+                                  'preset-selected':
+                                    drawingConfig.highlighterWidth === preset.value,
+                                },
+                              ]"
+                              @click="updateDrawingConfig({ highlighterWidth: preset.value })"
+                            >
+                              <div
+                                class="pen-thickness-line"
+                                :style="{ height: preset.displayHeight }"
+                              ></div>
+                            </div>
+                          </div>
+                          <!-- 滑块 -->
+                          <div class="thickness-slider">
+                            <q-slider
+                              v-model="drawingConfig.highlighterWidth"
+                              :min="3"
+                              :max="15"
+                              :step="0.5"
+                              color="primary"
+                              class="custom-slider"
+                            />
+                            <span class="thickness-value"
+                              >{{ drawingConfig.highlighterWidth.toFixed(1) }}MM</span
+                            >
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 浓度配置 -->
+                      <div class="config-section">
+                        <div class="section-header">
+                          <span class="section-title">浓度</span>
+                        </div>
+                        <div class="section-content">
+                          <div class="opacity-slider">
+                            <q-slider
+                              v-model="drawingConfig.highlighterOpacity"
+                              :min="10"
+                              :max="100"
+                              :step="1"
+                              color="primary"
+                              class="custom-slider"
+                            />
+                            <span class="opacity-value"
+                              >{{ drawingConfig.highlighterOpacity }}%</span
+                            >
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     <!-- 橡皮擦配置 -->
                     <div v-else-if="selectedTool === 'eraser'" class="config-popup">
                       <!-- 大小配置 -->
@@ -178,68 +214,56 @@
                         <div class="section-header">
                           <span class="section-title">大小</span>
                         </div>
-                        <!-- 预设大小按钮 -->
-                        <div class="size-presets">
-                          <div
-                            v-for="preset in eraserSizePresets"
-                            :key="preset.value"
-                            :class="['size-preset', { 'preset-selected': drawingConfig.eraserSize === preset.value }]"
-                            @click="updateDrawingConfig({ eraserSize: preset.value })"
-                          >
-                            <img :src="preset.icon" :alt="preset.label" class="eraser-preset-icon" />
+                        <div class="section-content">
+                          <!-- 预设大小按钮 -->
+                          <div class="size-presets">
+                            <div
+                              v-for="preset in eraserSizePresets"
+                              :key="preset.value"
+                              :class="[
+                                'eraser-preset-wrapper',
+                                { 'preset-selected': drawingConfig.eraserSize === preset.value },
+                              ]"
+                              @click="updateDrawingConfig({ eraserSize: preset.value })"
+                            >
+                              <img
+                                :src="preset.icon"
+                                :alt="preset.label"
+                                class="eraser-preset-icon"
+                                :style="{ width: getEraserIconSize(preset.value), height: getEraserIconSize(preset.value) }"
+                              />
+                            </div>
                           </div>
-                        </div>
-                        <!-- 滑块 -->
-                        <div class="size-slider">
-                          <q-slider
-                            v-model="drawingConfig.eraserSize"
-                            :min="0.5"
-                            :max="5"
-                            :step="0.1"
-                            color="primary"
-                            class="custom-slider"
-                          />
-                          <span class="size-value">{{ drawingConfig.eraserSize.toFixed(1) }}MM</span>
-                        </div>
-                      </div>
-                      
-                      <!-- 擦除模式配置 -->
-                      <div class="config-section">
-                        <div class="section-header">
-                          <span class="section-title">擦除模式</span>
-                        </div>
-                        <div class="mode-options">
-                          <div class="mode-option">
-                            <span class="mode-label">像素擦除</span>
-                            <q-toggle
-                              v-model="isPixelMode"
+                          <!-- 滑块 -->
+                          <div class="size-slider">
+                            <q-slider
+                              v-model="drawingConfig.eraserSize"
+                              :min="5"
+                              :max="30"
+                              :step="1"
                               color="primary"
-                              @update:model-value="updateEraserMode"
+                              class="custom-slider"
                             />
-                          </div>
-                          <div class="mode-option">
-                            <span class="mode-label">整笔擦除</span>
-                            <q-toggle
-                              v-model="isStrokeMode"
-                              color="primary"
-                              @update:model-value="updateEraserMode"
-                            />
+                            <span class="size-value"
+                              >{{ drawingConfig.eraserSize.toFixed(0) }}MM</span
+                            >
                           </div>
                         </div>
                       </div>
-                      
+
+
                       <!-- 整页删除按钮 -->
                       <div class="config-section">
-                        <q-btn
-                          color="negative"
-                          label="整页删除"
+                        <div 
+                          class="section-content delete-page-btn" 
                           @click="deleteEntirePage"
-                          class="delete-page-btn"
-                          size="sm"
-                        />
+                          v-ripple="{ color: 'red' }"
+                        >
+                          整页删除
+                        </div>
                       </div>
                     </div>
-                    
+
                     <!-- 圈选截图配置 -->
                     <div v-else-if="selectedTool === 'screenshot'" class="config-popup">
                       <!-- 截图模式配置 -->
@@ -247,43 +271,47 @@
                         <div class="section-header">
                           <span class="section-title">截图模式</span>
                         </div>
-                        <div class="mode-options">
-                          <div class="mode-option">
-                            <span class="mode-label">自定义形状</span>
-                            <q-toggle
-                              v-model="isCustomShape"
-                              color="primary"
-                              @update:model-value="updateScreenshotMode"
-                            />
-                          </div>
-                          <div class="mode-option">
-                            <span class="mode-label">矩形区域</span>
-                            <q-toggle
-                              v-model="isRectShape"
-                              color="primary"
-                              @update:model-value="updateScreenshotMode"
-                            />
+                        <div class="section-content">
+                          <div class="mode-options">
+                            <div class="mode-option">
+                              <span class="mode-label">自定义形状</span>
+                              <q-toggle
+                                v-model="isCustomShape"
+                                color="primary"
+                                @update:model-value="updateScreenshotMode"
+                              />
+                            </div>
+                            <div class="mode-option">
+                              <span class="mode-label">矩形区域</span>
+                              <q-toggle
+                                v-model="isRectShape"
+                                color="primary"
+                                @update:model-value="updateScreenshotMode"
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
-                      
+
                       <!-- 截图操作按钮 -->
                       <div class="config-section">
-                        <q-btn
-                          color="primary"
-                          label="开始截图"
-                          @click="startScreenshot"
-                          class="screenshot-btn"
-                          size="sm"
-                        />
-                        <q-btn
-                          color="grey"
-                          label="取消截图"
-                          @click="cancelScreenshot"
-                          class="cancel-btn"
-                          size="sm"
-                          flat
-                        />
+                        <div class="section-content">
+                          <q-btn
+                            color="primary"
+                            label="开始截图"
+                            @click="startScreenshot"
+                            class="screenshot-btn"
+                            size="sm"
+                          />
+                          <q-btn
+                            color="grey"
+                            label="取消截图"
+                            @click="cancelScreenshot"
+                            class="cancel-btn"
+                            size="sm"
+                            flat
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -296,11 +324,11 @@
         </div>
         <!-- 右侧：对话按钮 -->
         <div class="right-section">
-          <q-btn 
-            flat 
-            round 
-            dense 
-            icon="chat" 
+          <q-btn
+            flat
+            round
+            dense
+            icon="chat"
             @click="toggleChatPanel"
             class="chat-button"
             :class="{ 'chat-button-active': chatPanelVisible }"
@@ -338,7 +366,7 @@ const popupPosition = ref<{ x: number; y: number }>({ x: 0, y: 0 })
 // 计算属性
 const selectedTool = computed({
   get: () => store.selectedTool,
-  set: (value) => store.setSelectedTool(value)
+  set: (value) => store.setSelectedTool(value),
 })
 const drawingConfig = computed(() => store.drawingConfig)
 
@@ -350,38 +378,28 @@ const penColors = computed(() => store.penColors)
 // const textSizes = computed(() => store.textSizes)
 // const eraserModeOptions = computed(() => store.eraserModeOptions)
 
-// 厚度预设选项
+// 签字笔粗细预设选项（用于书写和签名）
 const thicknessPresets = computed(() => [
-  { value: 0.5, label: '细' },
-  { value: 1.5, label: '中' },
-  { value: 3.0, label: '粗' }
+  { value: 0.5, label: '细', displayHeight: '1px' },
+  { value: 1.0, label: '中', displayHeight: '2px' },
+  { value: 2.0, label: '粗', displayHeight: '3px' },
 ])
 
-// 橡皮擦大小预设选项
+// 荧光笔粗细预设选项（用于标注重点）
+const highlighterPresets = computed(() => [
+  { value: 5, label: '细', displayHeight: '4px' },
+  { value: 10, label: '中', displayHeight: '7px' },
+  { value: 15, label: '粗', displayHeight: '10px' },
+])
+
+// 橡皮擦大小预设选项（用于擦除）
 const eraserSizePresets = computed(() => [
-  { value: 0.6, label: '小', icon: '/icons/eraserSmall.svg' },
-  { value: 2.0, label: '中', icon: '/icons/eraserMedium.svg' },
-  { value: 4.0, label: '大', icon: '/icons/eraserLarge.svg' }
+  { value: 8, label: '小', icon: '/icons/eraserSmall.svg' },
+  { value: 15, label: '中', icon: '/icons/eraserMedium.svg' },
+  { value: 25, label: '大', icon: '/icons/eraserLarge.svg' },
 ])
 
-// 橡皮擦模式状态
-const isPixelMode = computed({
-  get: () => drawingConfig.value.eraserMode === 'pixel',
-  set: (value) => {
-    if (value) {
-      updateDrawingConfig({ eraserMode: 'pixel' })
-    }
-  }
-})
-
-const isStrokeMode = computed({
-  get: () => drawingConfig.value.eraserMode === 'stroke',
-  set: (value) => {
-    if (value) {
-      updateDrawingConfig({ eraserMode: 'stroke' })
-    }
-  }
-})
+// 橡皮擦模式固定为整笔擦除模式（已移除像素擦除）
 
 // 截图模式状态
 const screenshotMode = ref('custom') // 默认自定义形状
@@ -393,7 +411,7 @@ const isCustomShape = computed({
     if (value) {
       screenshotMode.value = 'custom'
     }
-  }
+  },
 })
 
 const isRectShape = computed({
@@ -402,7 +420,7 @@ const isRectShape = computed({
     if (value) {
       screenshotMode.value = 'rect'
     }
-  }
+  },
 })
 
 // 获取教材名称（从路由参数）
@@ -416,25 +434,47 @@ const goBack = () => {
   router.back()
 }
 
-const updateDrawingConfig =  (config: Partial<typeof store.drawingConfig>) => {
+const updateDrawingConfig = (config: Partial<typeof store.drawingConfig>) => {
   store.updateDrawingConfig(config)
 }
 
-// 重置画笔颜色
+// 根据橡皮擦大小计算图标尺寸
+const getEraserIconSize = (eraserSize: number): string => {
+  const sizeMap: Record<number, string> = {
+    8: '16px',
+    15: '20px',
+    25: '22px',
+  }
+  return sizeMap[eraserSize] || '22px'
+}
+
+// 重置签字笔配置（恢复所有配置为第一个选项）
 const resetPenColor = () => {
-  store.updateDrawingConfig({ penColor: '#000000' }) // 重置为黑色
+  // 获取第一个颜色和第一个粗细选项
+  const firstColor = penColors.value[0]?.value || '#ff0000' // 红色
+  const firstThickness = thicknessPresets.value[0]?.value || 0.5 // 细
+
+  // 重置所有签字笔配置
+  store.updateDrawingConfig({
+    penColor: firstColor,
+    penWidth: firstThickness,
+  })
 }
 
-// 重置荧光笔颜色
+// 重置荧光笔配置（恢复所有配置为第一个选项）
 const resetHighlighterColor = () => {
-  store.updateDrawingConfig({ highlighterColor: '#00FFFF' }) // 重置为青色
+  // 获取第一个颜色和第一个粗细选项
+  const firstColor = highlighterColors.value[0]?.value || '#FFFF00' // 黄色
+  const firstThickness = highlighterPresets.value[0]?.value || 5 // 细
+
+  // 重置所有荧光笔配置
+  store.updateDrawingConfig({
+    highlighterColor: firstColor,
+    highlighterWidth: firstThickness,
+    highlighterOpacity: 50, // 默认浓度 50%
+  })
 }
 
-// 更新橡皮擦模式
-const updateEraserMode = () => {
-  // 这个方法会在 toggle 的 update:model-value 事件中被调用
-  // 实际的模式更新已经在 computed 的 setter 中处理
-}
 
 // 整页删除
 const deleteEntirePage = () => {
@@ -487,19 +527,19 @@ const calculatePopupPosition = () => {
       popupPosition.value = { x: 0, y: 0 }
       return
     }
-    
+
     // 获取弹出图标包装器的位置和尺寸
     const rect = popupIconWrapper.getBoundingClientRect()
-    
+
     // 计算弹出框位置
     // x: 弹出图标包装器宽度的一半
     // y: 弹出图标包装器底部 + 8px间距
     const x = rect.width / 2
     const y = rect.height + 8
-    
-    popupPosition.value = { 
+
+    popupPosition.value = {
       x: x,
-      y: y 
+      y: y,
     }
   })
 }
@@ -508,28 +548,109 @@ const calculatePopupPosition = () => {
 const getPopupStyle = () => {
   return {
     left: `${popupPosition.value.x}px`,
-    top: `${popupPosition.value.y}px`
+    top: `${popupPosition.value.y}px`,
   }
 }
 
 // 获取弹出图标源
 const getPopupIconSrc = () => {
   const iconMap: Record<string, string> = {
-    'highlighter': '/icons/highlightersettingsIcon.svg',
-    'pen': '/icons/signaturePensettingsIcon.svg',
-    'eraser': '/icons/erasersettingsIcon.svg',
-    'screenshot': '/icons/screenshot.svg', // 截图工具没有专门的设置图标，使用原图标
-    'select': '/icons/toolBox.svg' // 选择工具没有专门的设置图标，使用原图标
+    highlighter: '/icons/highlightersettingsIcon.svg',
+    pen: '/icons/signaturePensettingsIcon.svg',
+    eraser: '/icons/erasersettingsIcon.svg',
+    screenshot: '/icons/screenshot.svg', // 截图工具没有专门的设置图标，使用原图标
+    select: '/icons/toolBox.svg', // 选择工具没有专门的设置图标，使用原图标
   }
   return iconMap[selectedTool.value] || '/icons/toolBox.svg'
 }
 
-// 获取弹出图标样式类
-const getPopupIconClass = () => {
-  return {
-    'cursor-pointer': true,
-    'popup-icon-active': showPopup.value
+// 获取弹出图标的动态样式（根据当前工具颜色）
+const getPopupIconStyle = () => {
+  // 获取当前工具的颜色
+  let currentColor = '#ffffff' // 默认白色
+
+  switch (selectedTool.value) {
+    case 'pen':
+      currentColor = drawingConfig.value.penColor
+      break
+    case 'highlighter':
+      currentColor = drawingConfig.value.highlighterColor
+      break
+    case 'eraser':
+      // 橡皮擦使用白色
+      currentColor = '#ffffff'
+      break
+    default:
+      currentColor = '#ffffff'
   }
+
+  // 只使用 filter 来改变图标颜色
+  // 如果是白色，使用原有的白色滤镜
+  if (currentColor === '#ffffff' || currentColor === '#FFFFFF') {
+    return {
+      filter: 'brightness(0) invert(1)',
+    }
+  }
+
+  // 对于其他颜色，使用 CSS filter 转换
+  // 将颜色转换为对应的 filter
+  const colorFilter = getColorFilter(currentColor)
+  return {
+    filter: colorFilter,
+  }
+}
+
+// 将颜色转换为 CSS filter
+const getColorFilter = (color: string) => {
+  // 颜色映射表 - 项目中实际使用的颜色的 filter 配置
+  const colorFilterMap: Record<string, string> = {
+    // === 签字笔颜色 ===
+    // 红色
+    '#ff0000':
+      'brightness(0) saturate(100%) invert(17%) sepia(100%) saturate(7463%) hue-rotate(0deg) brightness(100%) contrast(115%)',
+    // 黄色
+    '#ffd400':
+      'brightness(0) saturate(100%) invert(85%) sepia(79%) saturate(1476%) hue-rotate(360deg) brightness(102%) contrast(104%)',
+    // 蓝色
+    '#007bff':
+      'brightness(0) saturate(100%) invert(37%) sepia(99%) saturate(2527%) hue-rotate(202deg) brightness(102%) contrast(105%)',
+    // 绿色
+    '#13df00':
+      'brightness(0) saturate(100%) invert(64%) sepia(98%) saturate(1651%) hue-rotate(75deg) brightness(103%) contrast(106%)',
+    // 紫色
+    '#8000ff':
+      'brightness(0) saturate(100%) invert(22%) sepia(97%) saturate(6543%) hue-rotate(264deg) brightness(102%) contrast(107%)',
+    // 黑色
+    '#111111': 'brightness(0) saturate(100%) invert(5%)',
+
+    // === 荧光笔颜色 ===
+    // 黄色
+    '#ffff00':
+      'brightness(0) saturate(100%) invert(95%) sepia(97%) saturate(4234%) hue-rotate(359deg) brightness(103%) contrast(107%)',
+    // 绿色
+    '#00ff00':
+      'brightness(0) saturate(100%) invert(73%) sepia(74%) saturate(5552%) hue-rotate(75deg) brightness(118%) contrast(119%)',
+    // 蓝色
+    '#0080ff':
+      'brightness(0) saturate(100%) invert(38%) sepia(100%) saturate(2688%) hue-rotate(210deg) brightness(103%) contrast(107%)',
+    // 青色
+    '#00ffff':
+      'brightness(0) saturate(100%) invert(82%) sepia(91%) saturate(6299%) hue-rotate(142deg) brightness(105%) contrast(106%)',
+    // 粉色
+    '#ff80ff':
+      'brightness(0) saturate(100%) invert(75%) sepia(49%) saturate(6292%) hue-rotate(270deg) brightness(101%) contrast(103%)',
+  }
+
+  // 转换为小写进行匹配
+  const lowerColor = color.toLowerCase()
+
+  // 如果有精确匹配，使用预定义的 filter
+  if (colorFilterMap[lowerColor]) {
+    return colorFilterMap[lowerColor]
+  }
+
+  // 对于其他颜色，使用通用的着色方法（降级方案）
+  return `brightness(0) saturate(100%) invert(50%) sepia(100%) saturate(500%) hue-rotate(0deg) contrast(120%)`
 }
 
 // 点击外部关闭弹出框
@@ -572,11 +693,11 @@ const toggleChatPanel = () => {
 // 获取工具图标
 const getToolIcon = (toolValue: string) => {
   const iconMap: Record<string, string> = {
-    'highlighter': '/icons/highlighter.svg',
-    'pen': '/icons/signaturePen.svg',
-    'eraser': '/icons/eraser.svg',
-    'screenshot': '/icons/screenshot.svg',
-    'select': '/icons/toolBox.svg'
+    highlighter: '/icons/highlighter.svg',
+    pen: '/icons/signaturePen.svg',
+    eraser: '/icons/eraser.svg',
+    screenshot: '/icons/screenshot.svg',
+    select: '/icons/toolBox.svg',
   }
   return iconMap[toolValue] || '/icons/toolBox.svg'
 }
@@ -586,7 +707,7 @@ const getToolClass = (toolValue: string) => {
   const isSelected = selectedTool.value === toolValue
   return {
     'cursor-pointer': true,
-    'tool-icon-selected': isSelected
+    'tool-icon-selected': isSelected,
   }
 }
 
@@ -600,7 +721,6 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
   document.removeEventListener('touchstart', handleTouchOutside)
 })
-
 </script>
 
 <style scoped>
@@ -681,6 +801,7 @@ onUnmounted(() => {
   justify-content: center;
   width: 54px;
   height: 54px;
+  filter: brightness(0) invert(1);
 }
 
 .popup-icon-wrapper {
@@ -706,13 +827,50 @@ onUnmounted(() => {
 }
 
 .reset-icon {
-  width: 36px;
-  height: 36px;
+  width: 25px;
+  height: 25px;
 }
 
+.eraser-preset-wrapper {
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
 .eraser-preset-icon {
-  width: 18px;
-  height: 18px;
+  display: block;
+  background-color: #ffffff;
+  border-radius: 50%;
+}
+
+.pen-preset-icon {
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pen-thickness-line {
+  width: 24px;
+  background: #000000;
+  border-radius: 10px;
+  transition: all 0.2s ease;
 }
 
 /* 自定义弹出气泡框样式 */
@@ -723,12 +881,16 @@ onUnmounted(() => {
   transform: translateX(-50%);
   z-index: 1000;
   animation: popupFadeIn 0.2s ease-out;
+  background: #f1f1f1;
+  border-radius: 27px;
 }
 
 .popup-content {
-  background: white;
-  border-radius: 4px;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12), 0 3px 6px rgba(0, 0, 0, 0.16);
+  background: #f1f1f1;
+  border-radius: 16px;
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.12),
+    0 3px 6px rgba(0, 0, 0, 0.16);
   border: none;
   overflow: hidden;
 }
@@ -742,7 +904,7 @@ onUnmounted(() => {
   height: 0;
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
-  border-bottom: 6px solid white;
+  border-bottom: 6px solid #f1f1f1;
   filter: drop-shadow(0 -2px 4px rgba(0, 0, 0, 0.12));
 }
 
@@ -758,35 +920,44 @@ onUnmounted(() => {
 }
 
 .tool-icon-selected {
-  background-color: rgba(255, 255, 255, 0.2);
-  filter: brightness(1.2);
+  filter: brightness(0) saturate(100%) invert(66%) sepia(52%) saturate(1685%) hue-rotate(207deg)
+    brightness(102%) contrast(101%);
 }
-
-
 
 .color-options {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 12px;
+  flex-wrap: nowrap;
+  justify-content: space-between;
 }
 
 .selected-color {
-  border: 2px solid #1976D2 !important;
+  border: 2px solid #1976d2 !important;
   box-shadow: 0 2px 4px rgba(25, 118, 210, 0.3);
 }
 
 .config-popup {
-  min-width: 240px;
-  max-width: 320px;
-  padding: 16px;
+  min-width: 300px;
+  max-width: 400px;
+  padding: 12px;
+  border-radius: 16px;
 }
 
 .config-section {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .config-section:last-child {
   margin-bottom: 0;
+}
+
+.section-content {
+  padding: 12px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  margin-top: 8px;
 }
 
 .section-header {
@@ -797,7 +968,7 @@ onUnmounted(() => {
 }
 
 .section-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   color: rgba(0, 0, 0, 0.87);
   letter-spacing: 0.25px;
@@ -814,8 +985,9 @@ onUnmounted(() => {
 
 .color-options {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 12px;
+  flex-wrap: nowrap;
+  justify-content: space-between;
 }
 
 .color-option {
@@ -823,7 +995,7 @@ onUnmounted(() => {
   height: 32px;
   border-radius: 50%;
   cursor: pointer;
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   transition: all 0.2s ease;
   position: relative;
 }
@@ -833,41 +1005,20 @@ onUnmounted(() => {
 }
 
 .color-selected {
-  border-color: #1976D2;
-  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+  position: relative;
+  box-shadow: inset 0 0 0 5px white;
 }
 
 .thickness-presets {
   display: flex;
+  justify-content: space-between;
   gap: 8px;
   margin-bottom: 12px;
 }
 
-.thickness-preset {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  cursor: pointer;
-  border: 2px solid transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.04);
-  transition: all 0.2s ease;
-}
-
-.thickness-preset:hover {
-  background: rgba(0, 0, 0, 0.08);
-}
-
 .preset-selected {
-  background: rgba(25, 118, 210, 0.1);
-  border-color: #1976D2;
-}
-
-.thickness-line {
-  background: #1976D2;
-  border-radius: 1px;
+  background: var(--theme-primary-light);
+  border-color: var(--theme-primary);
 }
 
 .thickness-slider {
@@ -880,9 +1031,17 @@ onUnmounted(() => {
   flex: 1;
 }
 
+/* 激活的轨道（已选择部分） */
+.custom-slider :deep(.q-slider__selection) {
+  background: var(--theme-primary);
+}
+.custom-slider :deep(.q-slider__thumb) {
+  color: var(--theme-primary);
+}
+
 .thickness-value {
-  font-size: 14px;
-  color: #1976D2;
+  font-size: 12px;
+  color: var(--theme-primary);
   font-weight: 500;
   min-width: 50px;
   text-align: right;
@@ -897,7 +1056,7 @@ onUnmounted(() => {
 
 .opacity-value {
   font-size: 14px;
-  color: #1976D2;
+  color: #1976d2;
   font-weight: 500;
   min-width: 50px;
   text-align: right;
@@ -906,32 +1065,10 @@ onUnmounted(() => {
 
 .size-presets {
   display: flex;
+  justify-content: space-between;
   gap: 8px;
   margin-bottom: 12px;
 }
-
-.size-preset {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  cursor: pointer;
-  border: 2px solid transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.04);
-  transition: all 0.2s ease;
-}
-
-.size-preset:hover {
-  background: rgba(0, 0, 0, 0.08);
-}
-
-.preset-selected {
-  background: rgba(25, 118, 210, 0.1);
-  border-color: #1976D2;
-}
-
 
 .size-slider {
   display: flex;
@@ -941,7 +1078,7 @@ onUnmounted(() => {
 
 .size-value {
   font-size: 14px;
-  color: #1976D2;
+  color: #1976d2;
   font-weight: 500;
   min-width: 50px;
   text-align: right;
@@ -969,7 +1106,17 @@ onUnmounted(() => {
 
 .delete-page-btn {
   width: 100%;
-  margin-top: 8px;
+  height: 100%;
+  font-weight: 500;
+  color: #d32f2f;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: background-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .screenshot-btn {
@@ -1014,7 +1161,7 @@ onUnmounted(() => {
 
 .config-value {
   font-size: 14px;
-  color: #1976D2;
+  color: #1976d2;
   font-weight: 500;
   min-width: 40px;
   text-align: right;
@@ -1027,90 +1174,106 @@ onUnmounted(() => {
     padding: 8px 12px;
     min-height: 56px;
   }
-  
+
   .left-section {
     gap: 8px;
   }
-  
+
   .center-section {
     gap: 8px;
   }
-  
+
   .tool-section {
     gap: 4px;
   }
-  
+
   .tool-buttons {
     gap: 2px;
   }
-  
+
   .tool-icon {
     padding: 6px;
     width: 45px;
     height: 45px;
   }
-  
+
   .popup-icon {
     padding: 6px;
     width: 45px;
     height: 45px;
   }
-  
+
   .reset-icon {
     width: 32px;
     height: 32px;
   }
-  
-  .eraser-preset-icon {
-    width: 16px;
-    height: 16px;
+
+  .eraser-preset-wrapper {
+    width: 36px;
+    height: 36px;
   }
-  
- 
-  
+
+  .pen-preset-icon {
+    width: 36px;
+    height: 36px;
+    padding: 6px;
+  }
+
   .toolbar-title {
     font-size: 16px;
   }
-  
+
   .config-popup {
-    min-width: 200px;
-    max-width: 280px;
-    padding: 12px;
+    min-width: 280px;
+    max-width: 340px;
+    padding: 10px;
+    border-radius: 14px;
   }
-  
+
+  .section-content {
+    padding: 10px;
+    border-radius: 10px;
+    margin-top: 6px;
+  }
+
+  .config-section {
+    margin-bottom: 10px;
+  }
+
   .config-title {
     font-size: 14px;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }
-  
+
   .config-item {
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: 6px;
+    margin-bottom: 10px;
     padding: 4px 0;
   }
-  
+
   .config-label {
     min-width: auto;
     font-size: 13px;
   }
-  
+
   .config-value {
     font-size: 13px;
   }
-  
+
   .config-item .q-slider {
     width: 140px !important;
   }
-  
+
   /* 移动端弹出气泡框调整 */
   .custom-popup {
     top: calc(100% + 4px);
+    border-radius: 20px;
   }
-  
+
   .popup-content {
-    border-radius: 6px;
+    border-radius: 14px;
   }
 }
 </style>

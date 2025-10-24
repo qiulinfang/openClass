@@ -304,6 +304,19 @@ const setupCanvasEvents = () => {
     saveState()
   })
   
+  // 路径创建事件（绘制完成）
+  fabricCanvas.value.on('path:created', (event) => {
+    // 如果是橡皮擦模式，设置路径为擦除模式
+    if (selectedTool.value === 'eraser') {
+      const path = event.path
+      if (path) {
+        // 设置路径的合成操作为擦除模式
+        path.set({ globalCompositeOperation: 'destination-out' })
+      }
+    }
+    saveState()
+  })
+  
   // 鼠标点击事件
   fabricCanvas.value.on('mouse:down', (e) => {
     handleMouseDown(e)
@@ -432,14 +445,21 @@ const updateToolMode = () => {
       fabricCanvas.value.isDrawingMode = true
       fabricCanvas.value.selection = false
       setupBrush()
+      // 重置为正常绘制模式
+      if (fabricCanvas.value.freeDrawingBrush) {
+        Object.assign(fabricCanvas.value.freeDrawingBrush, { globalCompositeOperation: 'source-over' })
+      }
       break
     case 'eraser':
       fabricCanvas.value.isDrawingMode = true
       fabricCanvas.value.selection = false
-      if (fabricCanvas.value.freeDrawingBrush) {
-        fabricCanvas.value.freeDrawingBrush.color = 'rgba(255,255,255,1)'
-        fabricCanvas.value.freeDrawingBrush.width = strokeWidth.value
-      }
+      // 创建橡皮擦画笔
+      const eraserBrush = new PencilBrush(fabricCanvas.value as unknown as Canvas)
+      eraserBrush.width = strokeWidth.value
+      eraserBrush.color = 'red'
+      // 设置为擦除模式
+      Object.assign(eraserBrush, { globalCompositeOperation: 'destination-out' })
+      fabricCanvas.value.freeDrawingBrush = eraserBrush
       break
     default:
       fabricCanvas.value.isDrawingMode = false
