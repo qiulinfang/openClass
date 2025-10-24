@@ -122,6 +122,7 @@
                 :rotation-direction="rotationDirection"
                 :textbook-record-id="getCurrentTextbookId()"
                 @expand="handleGraphExpand(subChapter.id)"
+                @learn="handleLearnDialog"
                 @save-state="saveCurrentPageState"
                 class="knowledge-graph-wrapper"
               />
@@ -146,6 +147,25 @@
         </div>
       </div>
     </div>
+
+    <!-- 学习对话框 -->
+    <q-dialog 
+      v-model="learningDialogVisible" 
+      transition-show="scale"
+      transition-hide="scale"
+    >
+      <q-card class="learning-dialog-card">
+        <LearningView 
+          v-if="learningDialogData"
+          :key="`${learningDialogData.nodeId}-${learningDialogData.textbookId}`"
+          :node-id="learningDialogData.nodeId"
+          :section-name="learningDialogData.sectionName"
+          :level="learningDialogData.level"
+          :textbook-id="learningDialogData.textbookId"
+          @close="closeLearningDialog"
+        />
+      </q-card>
+    </q-dialog>
   </div>
 </template>
 
@@ -155,6 +175,7 @@ import { apiService } from '../services/api-service'
 import { resourceManager } from '../services/resource-manager'
 import type { TextbookOption, ChapterNode, UserTextbookInfo } from '../types'
 import KnowledgeGraph from '../components/knowledge-graph/KnowledgeGraph.vue'
+import LearningView from './LearningView.vue'
 import { useTextbookChapterState } from '../stores/textbookChapterState'
 
 // 使用统一的章节状态管理
@@ -177,6 +198,15 @@ const {
 const loading = ref(true)
 const selectedChapterDetails = ref<ChapterNode | null>(null)
 
+// 学习对话框状态管理
+const learningDialogVisible = ref(false)
+const learningDialogData = ref<{
+  nodeId: string
+  sectionName: string
+  level: number
+  textbookId: string
+} | null>(null)
+
 // 椭圆布局相关
 const circularContainerRef = ref<HTMLElement>()
 const circularLayoutRef = ref<HTMLElement>()
@@ -195,7 +225,7 @@ const lastRotationTime = ref(0) // 上次旋转时间戳，用于检测快速滑
 const DRAG_THRESHOLD = 5 // 像素，超过此距离才认为是实际拖拽
 
 // 防抖定时器
-const debounceTimer = ref<number | null>(null)
+const debounceTimer = ref<NodeJS.Timeout | null>(null)
 
 // 滑动速度检测
 const swipeVelocity = ref(0) // 滑动速度（像素/毫秒）
@@ -1395,6 +1425,28 @@ const selectChapter = (index: number) => {
   }
 }
 
+// 处理学习对话框
+const handleLearnDialog = (node: { id: string; name: string; level?: number | null }) => {
+  console.log('打开学习对话框:', node)
+  
+  // 设置对话框数据
+  learningDialogData.value = {
+    nodeId: node.id,
+    sectionName: node.name,
+    level: node.level || 1,
+    textbookId: getCurrentTextbookId()
+  }
+  
+  // 显示对话框
+  learningDialogVisible.value = true
+}
+
+// 关闭学习对话框
+const closeLearningDialog = () => {
+  learningDialogVisible.value = false
+  learningDialogData.value = null
+}
+
 // 处理知识图谱展开状态
 const handleGraphExpand = (graphId: string) => {
   // 如果正在执行展开旋转动画、收缩动画或拖拽操作，禁用点击切换功能
@@ -2079,5 +2131,20 @@ onUnmounted(() => {
     transform: scale(1.2);
     opacity: 0.8;
   }
+}
+
+// 学习对话框样式
+.learning-dialog-card {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 90vw;
+  max-width: 1400px;
+  height: 85vh;
+  max-height: 900px;
+  min-width: 800px;
+  min-height: 600px;
+  padding: 0;
+  overflow: hidden;
+  aspect-ratio: 16/10;
 }
 </style>

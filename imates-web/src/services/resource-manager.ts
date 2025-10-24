@@ -7,6 +7,7 @@ import { apiService } from './api-service'
 import { IndexedDBService } from './indexeddb-service'
 import CryptoJS from 'crypto-js'
 import { DebounceUtils } from '../utils'
+import { generatePdfThumbnail, isPdfFile } from '../utils/pdf-thumbnail'
 import type {
   UserTextbookInfo,
   ResourceFile,
@@ -258,10 +259,10 @@ export class ResourceManager {
         const result = await this.indexedDBInstance.update('textbooks', serializableTextbook)
         
         return result
-      } catch (error) {
+      } catch {
         return false
       }
-    } catch (error) {
+    } catch {
       return false
     }
   }
@@ -281,7 +282,7 @@ export class ResourceManager {
       // 批量更新所有待更新的教材
       const updatePromises: Promise<boolean>[] = []
       
-      for (const [textbookId, textbook] of this.pendingUpdates) {
+      for (const [, textbook] of this.pendingUpdates) {
         // 立即刷新教材信息到IndexedDB
         updatePromises.push((async () => {
           try {
@@ -292,22 +293,19 @@ export class ResourceManager {
             const result = await this.indexedDBInstance.update('textbooks', serializableTextbook)
             
             return result
-          } catch (error) {
+          } catch {
             return false
           }
         })())
       }
       
       // 等待所有更新完成
-      const results = await Promise.all(updatePromises)
-      
-      const successCount = results.filter(r => r).length
-      const failCount = results.filter(r => !r).length
+      await Promise.all(updatePromises)
       
       // 清空待更新队列
       this.pendingUpdates.clear()
       
-    } catch (error) {
+    } catch {
       // 批量更新失败
     }
   }
@@ -357,6 +355,17 @@ export class ResourceManager {
       const localFiles = textbookInfo.localFiles
       const localFileIndex = localFiles.findIndex(f => f.id === fileInfo.id)
       
+      // 生成PDF缩略图（如果是PDF文件）
+      let thumbnail: string | undefined
+      if (isPdfFile(fileInfo.fileName)) {
+        try {
+          thumbnail = await generatePdfThumbnail(fileData)
+        } catch (error) {
+          console.warn(`生成PDF缩略图失败: ${fileInfo.fileName}`, error)
+          // 缩略图生成失败不影响文件存储
+        }
+      }
+      
       if (localFileIndex === -1) {
         // 创建新的本地文件信息
         localFiles.push({
@@ -365,7 +374,8 @@ export class ResourceManager {
           fileSize: fileData.length,
           checksum: fileInfo.checksum || '',
           isDownloaded: true,
-          fileData: fileData
+          fileData: fileData,
+          thumbnail: thumbnail
         })
       } else {
         // 更新现有的本地文件信息
@@ -375,7 +385,8 @@ export class ResourceManager {
           fileSize: fileData.length,
           checksum: fileInfo.checksum || '',
           isDownloaded: true,
-          fileData: fileData
+          fileData: fileData,
+          thumbnail: thumbnail
         }
       }
       

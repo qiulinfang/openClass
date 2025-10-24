@@ -9,6 +9,7 @@ import FeedbackView from '@/views/FeedbackView.vue'
 import PdfViewerView from '@/views/PdfViewerView.vue'
 import FindExerciseView from '@/views/FindExerciseView.vue'
 import LearningView from '@/views/LearningView.vue'
+import DrawingBoard from '@/components/DrawingBoard.vue'
 
 const router = createRouter({
   history: createWebHashHistory(), // 必须使用Hash模式
@@ -62,6 +63,11 @@ const router = createRouter({
           path: 'learning',
           name: 'learning',
           component: LearningView
+        },
+        {
+          path: 'drawing-board',
+          name: 'drawingBoard',
+          component: DrawingBoard
         }
       ]
     },

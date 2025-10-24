@@ -25,9 +25,9 @@
           size="md"
           :color="selectedMessages.size === displayedMessages.length ? 'primary' : 'grey-6'"
         />
-        <!-- 转发按钮 - 仅在AI模式下显示 -->
+        <!-- 转发按钮 - 仅在AI通用、AI题目和AI教材模式下显示 -->
         <q-btn
-          v-if="type === 'ai'"
+          v-if="type === 'ai-general' || type === 'ai-exercise' || type === 'ai-textbook'"
           flat
           round
           icon="forward"
@@ -305,24 +305,32 @@ const displayedMessages = ref<ChatBubble[]>([]) // 用于UI显示的本地消息
 
 /**
  * 监听消息数据变化，同步UI显示的消息列表
- * 作用：根据对话类型（AI/老师）选择对应的消息数据源
+ * 作用：根据对话类型（AI通用/AI题目/AI教材/老师）选择对应的消息数据源
  * 逻辑：
- * 1. AI模式：使用exerciseStore.chatMessages
- * 2. 老师模式：使用exerciseStore.teacherMessages
- * 3. 其他情况：默认使用AI消息存储
+ * 1. AI通用模式：使用exerciseStore.aiGeneralMessages
+ * 2. AI题目模式：使用exerciseStore.aiExerciseMessages
+ * 3. AI教材模式：使用exerciseStore.aiTextbookMessages
+ * 4. 老师模式：使用exerciseStore.teacherMessages
+ * 5. 其他情况：默认使用AI消息存储
  */
 watch(
-  () => [props.type, exerciseStore.chatMessages, exerciseStore.teacherMessages],
+  () => [props.type, exerciseStore.aiGeneralMessages, exerciseStore.aiExerciseMessages, exerciseStore.aiTextbookMessages, exerciseStore.teacherMessages],
   () => {
-    if (props.type === 'ai') {
-      // AI 模式下，直接使用 store 中的消息
-      displayedMessages.value = exerciseStore.chatMessages
+    if (props.type === 'ai-general') {
+      // AI通用模式下，使用AI通用消息存储
+      displayedMessages.value = exerciseStore.aiGeneralMessages
+    } else if (props.type === 'ai-exercise') {
+      // AI题目模式下，使用AI题目消息存储
+      displayedMessages.value = exerciseStore.aiExerciseMessages
+    } else if (props.type === 'ai-textbook') {
+      // AI教材模式下，使用AI教材消息存储
+      displayedMessages.value = exerciseStore.aiTextbookMessages
     } else if (props.type === 'teacher') {
       // 老师模式下，使用老师消息存储
       displayedMessages.value = exerciseStore.teacherMessages
     } else {
       // 其他情况，显示 AI 消息存储的内容（或为空）
-      displayedMessages.value = exerciseStore.chatMessages
+      displayedMessages.value = exerciseStore.aiExerciseMessages
     }
   },
   { immediate: true, deep: true },
@@ -348,17 +356,24 @@ const pendingSwitchAction = ref<(() => void) | null>(null) // 待执行的切换
  * 参数：message - 要添加的聊天消息对象
  */
 const addMessageToStore = async (message: ChatBubble) => {
-  if (props.type === 'ai') {
-
-    exerciseStore.chatMessages.push(message)
-
+  if (props.type === 'ai-general') {
+    // AI通用模式下，添加到AI通用消息存储
+    exerciseStore.aiGeneralMessages.push(message)
     // 保存聊天记录到存储
-    await exerciseStore.saveChatHistory()
+    await exerciseStore.saveChatHistory(false, 'ai-general')
+  } else if (props.type === 'ai-exercise') {
+    // AI题目模式下，添加到AI题目消息存储
+    exerciseStore.aiExerciseMessages.push(message)
+    // 保存聊天记录到存储
+    await exerciseStore.saveChatHistory(false, 'ai-exercise')
+  } else if (props.type === 'ai-textbook') {
+    // AI教材模式下，添加到AI教材消息存储
+    exerciseStore.aiTextbookMessages.push(message)
+    // 保存聊天记录到存储
+    await exerciseStore.saveChatHistory(false, 'ai-textbook')
   } else if (props.type === 'teacher') {
-
     // 添加到老师消息存储
     exerciseStore.teacherMessages.push(message)
-
     // 保存老师聊天记录到存储
     await exerciseStore.saveTeacherChatHistory()
   }
@@ -370,17 +385,24 @@ const addMessageToStore = async (message: ChatBubble) => {
  * 参数：messages - 要添加的聊天消息对象数组
  */
 const addMessagesToStore = async (messages: ChatBubble[]) => {
-  if (props.type === 'ai') {
-
-    exerciseStore.chatMessages.push(...messages)
-
+  if (props.type === 'ai-general') {
+    // AI通用模式下，添加到AI通用消息存储
+    exerciseStore.aiGeneralMessages.push(...messages)
     // 保存聊天记录到存储
-    await exerciseStore.saveChatHistory()
+    await exerciseStore.saveChatHistory(false, 'ai-general')
+  } else if (props.type === 'ai-exercise') {
+    // AI题目模式下，添加到AI题目消息存储
+    exerciseStore.aiExerciseMessages.push(...messages)
+    // 保存聊天记录到存储
+    await exerciseStore.saveChatHistory(false, 'ai-exercise')
+  } else if (props.type === 'ai-textbook') {
+    // AI教材模式下，添加到AI教材消息存储
+    exerciseStore.aiTextbookMessages.push(...messages)
+    // 保存聊天记录到存储
+    await exerciseStore.saveChatHistory(false, 'ai-textbook')
   } else if (props.type === 'teacher') {
-
     // 添加到老师消息存储
     exerciseStore.teacherMessages.push(...messages)
-
     // 保存老师聊天记录到存储
     await exerciseStore.saveTeacherChatHistory()
   }
@@ -433,7 +455,16 @@ const placeholderText = computed(() => {
   if (!hasSelectedQuestion.value) {
     return '可以先聊聊，或选择题目后开始讨论'
   }
-  return props.type === 'ai' ? '向AI提问...' : '向老师提问...'
+  if (props.type === 'ai-general') {
+    return '向AI助手提问...'
+  } else if (props.type === 'ai-exercise') {
+    return '向AI题目助手提问...'
+  } else if (props.type === 'ai-textbook') {
+    return '向AI教材助手提问...'
+  } else if (props.type === 'teacher') {
+    return '向老师提问...'
+  }
+  return '向AI助手提问...'
 })
 
 /**
@@ -603,13 +634,31 @@ const initializeMessages = async () => {
     const welcomeMessage: ChatBubble = {
       id: 'welcome_' + Date.now(),
       content: '请先选择一道题目，然后我们可以开始讨论。你可以从题目列表中选择一道感兴趣的题目。',
-      type: props.type === 'ai' ? 'ai' : 'teacher',
+      type: (() => {
+        if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
+          return 'ai'
+        } else if (props.type === 'teacher') {
+          return 'teacher'
+        }
+        return 'ai'
+      })(),
       timestamp: '',
-      sender: props.type === 'ai' ? 'ai' : 'teacher',
+      sender: (() => {
+        if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
+          return 'ai'
+        } else if (props.type === 'teacher') {
+          return 'teacher'
+        }
+        return 'ai'
+      })(),
     }
 
-    if (props.type === 'ai' && exerciseStore.chatMessages.length === 0) {
-      exerciseStore.chatMessages = [welcomeMessage]
+    if (props.type === 'ai-general' && exerciseStore.aiGeneralMessages.length === 0) {
+      exerciseStore.aiGeneralMessages = [welcomeMessage]
+    } else if (props.type === 'ai-exercise' && exerciseStore.aiExerciseMessages.length === 0) {
+      exerciseStore.aiExerciseMessages = [welcomeMessage]
+    } else if (props.type === 'ai-textbook' && exerciseStore.aiTextbookMessages.length === 0) {
+      exerciseStore.aiTextbookMessages = [welcomeMessage]
     } else if (props.type === 'teacher' && exerciseStore.teacherMessages.length === 0) {
       exerciseStore.teacherMessages = [welcomeMessage]
     }
@@ -756,9 +805,23 @@ const sendMessage = async (attachedFile?: File) => {
     const botReply: ChatBubble = {
       id: (Date.now() + 1).toString(),
       content: '请先选择一道题目，然后我们可以开始讨论。你可以从题目列表中选择一道感兴趣的题目。',
-      type: props.type === 'ai' ? 'ai' : 'teacher',
+      type: (() => {
+        if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
+          return 'ai'
+        } else if (props.type === 'teacher') {
+          return 'teacher'
+        }
+        return 'ai'
+      })(),
       timestamp: '',
-      sender: props.type === 'ai' ? 'ai' : 'teacher',
+      sender: (() => {
+        if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
+          return 'ai'
+        } else if (props.type === 'teacher') {
+          return 'teacher'
+        }
+        return 'ai'
+      })(),
     }
 
     await addMessagesToStore([userMessage, botReply])
@@ -772,20 +835,21 @@ const sendMessage = async (attachedFile?: File) => {
   isLoading.value = true
 
   try {
-    if (props.type === 'ai') {
-      // 检查是否包含"我们开始吧"前缀，如果包含则隐藏显示
+    if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
+      // AI通用、AI题目和AI教材模式：检查是否包含"我们开始吧"前缀，如果包含则隐藏显示
       const hidePrefix = messageContent.includes('我们开始吧')
-      // 使用exerciseStore的流式响应功能，传递选中的学习伙伴角色
+      // 使用exerciseStore的流式响应功能，传递选中的学习伙伴角色和AI类型
       await exerciseStore.sendChatMessage(
         messageContent,
         'ai',
         selectedModel.value,
         undefined,
         hidePrefix,
+        props.type,
       )
 
       // 计算属性会自动响应 store 变化，无需手动同步
-    } else {
+    } else if (props.type === 'teacher') {
       // 发送消息给老师（不使用流式响应）
       await sendMessageToTeacher(messageContent)
 
@@ -807,9 +871,23 @@ const sendMessage = async (attachedFile?: File) => {
     const errorMessage: ChatBubble = {
       id: (Date.now() + 1).toString(),
       content: '抱歉，消息发送失败，请稍后重试。',
-      type: props.type === 'ai' ? 'ai' : 'teacher',
+      type: (() => {
+        if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
+          return 'ai'
+        } else if (props.type === 'teacher') {
+          return 'teacher'
+        }
+        return 'ai'
+      })(),
       timestamp: '',
-      sender: props.type === 'ai' ? 'ai' : 'teacher',
+      sender: (() => {
+        if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
+          return 'ai'
+        } else if (props.type === 'teacher') {
+          return 'teacher'
+        }
+        return 'ai'
+      })(),
     }
 
     await addMessageToStore(errorMessage)
@@ -1181,13 +1259,13 @@ const onImageSelected = async (imageInfo: {
           androidBridge.showToast('发送失败')
         }
       } else {
-        // 发送图片消息给AI
+        // 发送图片消息给AI（AI通用、AI题目和AI教材模式）
         if (imageInfo.base64DataUrl) {
           // 检查是否包含"我们开始吧"前缀，如果包含则隐藏显示
           const messageText = inputMessage.value || ''
           const hidePrefix = messageText.includes('我们开始吧')
           // 使用exerciseStore的流式响应功能发送图片消息
-          // 传递包含filePath和base64DataUrl的imageData对象
+          // 传递包含filePath和base64DataUrl的imageData对象和AI类型
           await exerciseStore.sendChatMessage(
             messageText,
             'ai',
@@ -1197,6 +1275,7 @@ const onImageSelected = async (imageInfo: {
               base64DataUrl: imageInfo.base64DataUrl,
             },
             hidePrefix,
+            props.type,
           )
 
           // 清空输入框
@@ -1261,13 +1340,13 @@ const convertMessageForForwarding = (msg: ChatBubble) => {
 }
 
 /**
- * 处理单条消息转发（仅在AI页面触发）
+ * 处理单条消息转发（仅在AI通用、AI题目和AI教材页面触发）
  * 流程：1. 验证当前页面类型 2. 创建老师会话 3. 转发消息 4. 切换页面
  * 作用：处理AI对话中的单条消息转发到老师对话
  */
 const handleForwardMessage = async (message: ChatBubble) => {
-  // 确保只在AI页面触发
-  if (props.type !== 'ai') {
+  // 确保只在AI通用、AI题目和AI教材页面触发
+  if (props.type !== 'ai-general' && props.type !== 'ai-exercise' && props.type !== 'ai-textbook') {
     return
   }
 
@@ -1450,10 +1529,21 @@ const cancelEditMessage = () => {
 const updateEditedMessage = async (newContent: string) => {
   if (!editingMessageId.value) return
 
-
   try {
+    // 根据AI类型获取对应的消息记录
+    let targetMessages: ChatBubble[]
+    if (props.type === 'ai-general') {
+      targetMessages = exerciseStore.aiGeneralMessages
+    } else if (props.type === 'ai-exercise') {
+      targetMessages = exerciseStore.aiExerciseMessages
+    } else if (props.type === 'ai-textbook') {
+      targetMessages = exerciseStore.aiTextbookMessages
+    } else {
+      targetMessages = exerciseStore.aiExerciseMessages
+    }
+
     // 查找要更新的消息
-    const messageIndex = exerciseStore.chatMessages.findIndex(
+    const messageIndex = targetMessages.findIndex(
       (msg) => msg.id === editingMessageId.value,
     )
     if (messageIndex === -1) {
@@ -1462,30 +1552,40 @@ const updateEditedMessage = async (newContent: string) => {
     }
 
     // 删除该消息之后的所有消息（因为编辑会改变对话上下文）
-    const messagesToKeep = exerciseStore.chatMessages.slice(0, messageIndex)
+    const messagesToKeep = targetMessages.slice(0, messageIndex)
 
-    exerciseStore.chatMessages = messagesToKeep
+    // 根据AI类型更新对应的消息记录
+    if (props.type === 'ai-general') {
+      exerciseStore.aiGeneralMessages = messagesToKeep
+    } else if (props.type === 'ai-exercise') {
+      exerciseStore.aiExerciseMessages = messagesToKeep
+    } else if (props.type === 'ai-textbook') {
+      exerciseStore.aiTextbookMessages = messagesToKeep
+    } else {
+      exerciseStore.aiExerciseMessages = messagesToKeep
+    }
 
     // 保存聊天记录
-    await exerciseStore.saveChatHistory()
+    await exerciseStore.saveChatHistory(false, props.type)
 
     // 清除编辑状态
     cancelEditMessage()
 
     // 发送编辑后的消息给AI（这会自动添加用户消息和AI回复）
-    if (props.type === 'ai') {
+    if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
       isLoading.value = true
 
       try {
         // 检查是否包含"我们开始吧"前缀，如果包含则隐藏显示
         const hidePrefix = newContent.includes('我们开始吧')
-        // 使用exerciseStore的流式响应功能，传递选中的学习伙伴角色
+        // 使用exerciseStore的流式响应功能，传递选中的学习伙伴角色和AI类型
         await exerciseStore.sendChatMessage(
           newContent,
           'ai',
           selectedModel.value,
           undefined,
           hidePrefix,
+          props.type,
         )
 
       } catch (aiError) {
@@ -1495,7 +1595,6 @@ const updateEditedMessage = async (newContent: string) => {
         isLoading.value = false
       }
     }
-
 
     // 滚动到底部
     await scrollToBottom()
@@ -1539,13 +1638,13 @@ const selectAllMessages = () => {
 }
 
 /**
- * 处理多选消息转发（仅在AI页面触发）
+ * 处理多选消息转发（仅在AI通用、AI题目和AI教材页面触发）
  * 流程：1. 验证页面类型 2. 获取选中消息 3. 显示转发模式选择对话框
  * 作用：处理AI对话中的多条消息转发操作，显示转发模式选择对话框
  */
 const forwardToTeacher = async (messageList?: ChatBubble[]) => {
-  // 确保只在AI页面触发
-  if (props.type !== 'ai') {
+  // 确保只在AI通用、AI题目和AI教材页面触发
+  if (props.type !== 'ai-general' && props.type !== 'ai-exercise' && props.type !== 'ai-textbook') {
     return
   }
 
@@ -1590,13 +1689,13 @@ const handleForwardModeConfirm = async (mode: 'merge' | 'separate', additionalMe
 }
 
 /**
- * 合并转发：创建聊天记录卡片（仅在AI页面触发）
+ * 合并转发：创建聊天记录卡片（仅在AI通用、AI题目和AI教材页面触发）
  * 流程：1. 验证页面类型 2. 创建老师会话 3. 发送到后端 4. 切换页面
  * 作用：将多条消息合并为聊天记录卡片进行转发
  */
 const forwardAsChatRecord = async (messages: ChatBubble[], additionalMessage: string) => {
-  // 确保只在AI页面触发
-  if (props.type !== 'ai') {
+  // 确保只在AI通用、AI题目和AI教材页面触发
+  if (props.type !== 'ai-general' && props.type !== 'ai-exercise' && props.type !== 'ai-textbook') {
     return
   }
 
@@ -1650,13 +1749,13 @@ const forwardAsChatRecord = async (messages: ChatBubble[], additionalMessage: st
 }
 
 /**
- * 逐条转发：一条一条发送（仅在AI页面触发）
+ * 逐条转发：一条一条发送（仅在AI通用、AI题目和AI教材页面触发）
  * 流程：1. 验证页面类型 2. 创建老师会话 3. 发送到后端 4. 切换页面
  * 作用：将多条消息逐条发送给老师
  */
 const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessage: string) => {
-  // 确保只在AI页面触发
-  if (props.type !== 'ai') {
+  // 确保只在AI通用、AI题目和AI教材页面触发
+  if (props.type !== 'ai-general' && props.type !== 'ai-exercise' && props.type !== 'ai-textbook') {
     return
   }
 
@@ -1903,10 +2002,21 @@ watch(hasSelectedQuestion, (newValue, oldValue) => {
  * 逻辑：如果消息数量从有变为0，说明可能是清除了记录，需要重新初始化
  */
 watch(
-  () => exerciseStore.chatMessages.length,
+  () => {
+    // 根据AI类型返回对应的消息数量
+    if (props.type === 'ai-general') {
+      return exerciseStore.aiGeneralMessages.length
+    } else if (props.type === 'ai-exercise') {
+      return exerciseStore.aiExerciseMessages.length
+    } else if (props.type === 'ai-textbook') {
+      return exerciseStore.aiTextbookMessages.length
+    } else {
+      return exerciseStore.aiExerciseMessages.length
+    }
+  },
   (newLength, oldLength) => {
     // 如果消息数量从有变为0，说明可能是清除了记录，需要重新初始化
-    if (oldLength > 0 && newLength === 0 && props.type === 'ai') {
+    if (oldLength > 0 && newLength === 0 && (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook')) {
       initializeMessages()
       nextTick(() => {
         scrollToBottom()
@@ -1922,7 +2032,18 @@ watch(
 let scrollTimeout: ReturnType<typeof setTimeout> | null = null
 
 watch(
-  () => exerciseStore.chatMessages,
+  () => {
+    // 根据AI类型返回对应的消息数组
+    if (props.type === 'ai-general') {
+      return exerciseStore.aiGeneralMessages
+    } else if (props.type === 'ai-exercise') {
+      return exerciseStore.aiExerciseMessages
+    } else if (props.type === 'ai-textbook') {
+      return exerciseStore.aiTextbookMessages
+    } else {
+      return exerciseStore.aiExerciseMessages
+    }
+  },
   (newMessages) => {
     if (newMessages && newMessages.length > 0) {
       // 如果是键盘显示状态，立即滚动；否则防抖滚动

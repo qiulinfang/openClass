@@ -30,14 +30,11 @@ interface PageLayout {
 interface DrawingConfig {
   highlighterColor: string
   highlighterWidth: number
+  highlighterOpacity: number
   penColor: string
   penWidth: number
   eraserMode: string
   eraserSize: number
-  textColor: string
-  textSize: number
-  shapeColor: string
-  shapeStrokeWidth: number
 }
 
 // 笔记数据类型
@@ -87,16 +84,13 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
     // 工具状态
     selectedTool: 'none',
     drawingConfig: {
-      highlighterColor: 'yellow',
-      highlighterWidth: 15,
+      highlighterColor: '#00FFFF',
+      highlighterWidth: 0.6,
+      highlighterOpacity: 32,
       penColor: 'black',
       penWidth: 3,
       eraserMode: 'pixel',
-      eraserSize: 20,
-      textColor: 'black',
-      textSize: 16,
-      shapeColor: 'black',
-      shapeStrokeWidth: 2
+      eraserSize: 0.6
     } as DrawingConfig,
     
     // 笔记状态
@@ -105,24 +99,20 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
     
     // 工具选项
     toolOptions: [
-      { label: '无', value: 'none', icon: 'mouse' },
-      { label: '荧光笔', value: 'highlighter', icon: 'highlight' },
       { label: '签字笔', value: 'pen', icon: 'edit' },
+      { label: '荧光笔', value: 'highlighter', icon: 'highlight' },
       { label: '橡皮', value: 'eraser', icon: 'eraser' },
-      { label: '文本框', value: 'text', icon: 'text_fields' },
-      { label: '矩形', value: 'rectangle', icon: 'crop_square' },
-      { label: '圆形', value: 'circle', icon: 'radio_button_unchecked' },
-      { label: '直线', value: 'line', icon: 'horizontal_rule' },
-      { label: '箭头', value: 'arrow', icon: 'arrow_forward' }
+      { label: '圈选截图', value: 'screenshot', icon: 'crop_free' }
     ] as ToolOption[],
     
     // 荧光笔颜色选项
     highlighterColors: [
-      { label: '黄色', value: 'yellow', color: '#ffff00' },
-      { label: '绿色', value: 'green', color: '#00ff00' },
-      { label: '蓝色', value: 'blue', color: '#0080ff' },
-      { label: '粉色', value: 'pink', color: '#ff80ff' },
-      { label: '橙色', value: 'orange', color: '#ff8000' }
+      { label: '黄色', value: '#FFFF00', color: '#FFFF00' },
+      { label: '绿色', value: '#00FF00', color: '#00FF00' },
+      { label: '蓝色', value: '#0080FF', color: '#0080FF' },
+      { label: '青色', value: '#00FFFF', color: '#00FFFF' },
+      { label: '粉色', value: '#FF80FF', color: '#FF80FF' },
+      { label: '紫色', value: '#8000FF', color: '#8000FF' }
     ] as ColorOption[],
     
     // 签字笔颜色选项
@@ -134,33 +124,6 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
       { label: '紫色', value: 'purple', color: '#800080' }
     ] as ColorOption[],
     
-    // 文本颜色选项
-    textColors: [
-      { label: '黑色', value: 'black', color: '#000000' },
-      { label: '红色', value: 'red', color: '#ff0000' },
-      { label: '蓝色', value: 'blue', color: '#0000ff' },
-      { label: '绿色', value: 'green', color: '#008000' },
-      { label: '紫色', value: 'purple', color: '#800080' }
-    ] as ColorOption[],
-    
-    // 形状颜色选项
-    shapeColors: [
-      { label: '黑色', value: 'black', color: '#000000' },
-      { label: '红色', value: 'red', color: '#ff0000' },
-      { label: '蓝色', value: 'blue', color: '#0000ff' },
-      { label: '绿色', value: 'green', color: '#008000' },
-      { label: '紫色', value: 'purple', color: '#800080' }
-    ] as ColorOption[],
-    
-    // 文本大小选项
-    textSizes: [
-      { label: '12px', value: 12 },
-      { label: '14px', value: 14 },
-      { label: '16px', value: 16 },
-      { label: '18px', value: 18 },
-      { label: '20px', value: 20 },
-      { label: '24px', value: 24 }
-    ],
     
     // 形状线条粗细选项
     shapeStrokeWidths: [
@@ -420,7 +383,6 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
     
     // 设置选中的工具
     setSelectedTool(tool: string) {
-      console.log('🎨 [PDFViewerStore] 设置选中的工具:', tool)
       this.selectedTool = tool
     },
     

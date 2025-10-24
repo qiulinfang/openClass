@@ -24,8 +24,14 @@ export const useExerciseStore = defineStore('exercise', () => {
   /** 当前选中的题目索引 - -1表示未选中任何题目 */
   const currentQuestionIndex = ref(-1)
 
-  /** 聊天消息记录 - 存储当前题目的AI指导对话历史 */
-  const chatMessages = ref<ChatBubble[]>([])
+  /** AI题目消息记录 - 存储当前题目的AI指导对话历史 */
+  const aiExerciseMessages = ref<ChatBubble[]>([])
+
+  /** AI通用消息记录 - 存储AI通用对话历史 */
+  const aiGeneralMessages = ref<ChatBubble[]>([])
+
+  /** AI教材消息记录 - 存储AI教材对话历史 */
+  const aiTextbookMessages = ref<ChatBubble[]>([])
 
   /** 老师消息记录 - 存储当前题目的老师对话历史 */
   const teacherMessages = ref<ChatBubble[]>([])
@@ -55,7 +61,7 @@ export const useExerciseStore = defineStore('exercise', () => {
   const chatResponseTimes = ref(0)
 
   /** 保存防抖定时器 - 避免频繁保存聊天记录 */
-  let saveDebounceTimer: number | null = null
+  let saveDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
   /** 查看答案所需的最小AI交互次数 */
   const VIEW_ANSWER_CHAT_TIMES = 3
@@ -91,6 +97,25 @@ export const useExerciseStore = defineStore('exercise', () => {
   const hasQuestions = computed(() => {
     return questions.value.length > 0
   })
+
+  /**
+   * 获取当前AI类型的消息记录
+   * 根据当前AI类型返回对应的消息记录
+   * @param aiType AI类型：'ai-general' | 'ai-exercise' | 'ai-textbook'
+   * @returns 对应的消息记录数组
+   */
+  const getCurrentAiMessages = (aiType: string) => {
+    switch (aiType) {
+      case 'ai-general':
+        return aiGeneralMessages.value
+      case 'ai-exercise':
+        return aiExerciseMessages.value
+      case 'ai-textbook':
+        return aiTextbookMessages.value
+      default:
+        return aiExerciseMessages.value
+    }
+  }
 
   // ==================== 动作方法定义 ====================
 
@@ -245,7 +270,7 @@ export const useExerciseStore = defineStore('exercise', () => {
       const oldQuestion = currentQuestion.value
       
       console.log(`[CHAT_DEBUG] 🔄 题目切换开始: ${oldQuestion?.id || '无'} → ${newQuestion.id}`)
-      console.log(`[CHAT_DEBUG] 📊 切换前聊天记录数量: ${chatMessages.value.length}`)
+      console.log(`[CHAT_DEBUG] 📊 切换前聊天记录数量: ${aiExerciseMessages.value.length}`)
       
       // 保存当前题目的聊天记录到本地存储
       if (currentQuestion.value) {
@@ -273,7 +298,7 @@ export const useExerciseStore = defineStore('exercise', () => {
       // 异步加载新选中题目的聊天历史记录
       console.log(`[CHAT_DEBUG] 📥 开始加载新题目聊天记录: ${newQuestion.id}`)
       await loadChatHistory()
-      console.log(`[CHAT_DEBUG] 📊 切换后聊天记录数量: ${chatMessages.value.length}`)
+      console.log(`[CHAT_DEBUG] 📊 切换后聊天记录数量: ${aiExerciseMessages.value.length}`)
       
       // 异步加载新选中题目的老师聊天历史记录
       console.log(`[TEACHER_CHAT_DEBUG] 📥 开始加载新题目老师聊天记录: ${newQuestion.id}`)
@@ -586,12 +611,16 @@ export const useExerciseStore = defineStore('exercise', () => {
    * 更新临时消息内容
    * @param tempReplyId 临时消息ID
    * @param updates 要更新的字段
+   * @param aiType AI类型，用于确定更新哪个消息记录
    */
-  const updateTempMessage = (tempReplyId: string, updates: Partial<ChatBubble>) => {
-    const tempIndex = chatMessages.value.findIndex((msg) => msg.id === tempReplyId)
+  const updateTempMessage = (tempReplyId: string, updates: Partial<ChatBubble>, aiType?: string) => {
+    // 根据AI类型获取对应的消息记录
+    const targetMessages = aiType ? getCurrentAiMessages(aiType) : aiExerciseMessages.value
+    
+    const tempIndex = targetMessages.findIndex((msg) => msg.id === tempReplyId)
     if (tempIndex !== -1) {
-      chatMessages.value[tempIndex] = {
-        ...chatMessages.value[tempIndex],
+      targetMessages[tempIndex] = {
+        ...targetMessages[tempIndex],
         ...updates
       }
     }
@@ -602,12 +631,16 @@ export const useExerciseStore = defineStore('exercise', () => {
    * @param tempReplyId 临时消息ID
    * @param content 原始消息内容
    * @param timeoutMs 超时时间（毫秒）
+   * @param aiType AI类型，用于确定更新哪个消息记录
    * @returns 超时定时器ID
    */
-  const setupTimeoutHandler = (tempReplyId: string, content: string, timeoutMs: number = 10000): ReturnType<typeof setTimeout> => {
+  const setupTimeoutHandler = (tempReplyId: string, content: string, timeoutMs: number = 10000, aiType?: string): ReturnType<typeof setTimeout> => {
     return setTimeout(() => {
-      const tempIndex = chatMessages.value.findIndex((msg) => msg.id === tempReplyId)
-      if (tempIndex !== -1 && chatMessages.value[tempIndex].isStreaming) {
+      // 根据AI类型获取对应的消息记录
+      const targetMessages = aiType ? getCurrentAiMessages(aiType) : aiExerciseMessages.value
+      
+      const tempIndex = targetMessages.findIndex((msg) => msg.id === tempReplyId)
+      if (tempIndex !== -1 && targetMessages[tempIndex].isStreaming) {
         updateTempMessage(tempReplyId, {
           content: '请求失败，请重试。',
           timestamp: new Date().toISOString(),
@@ -617,8 +650,8 @@ export const useExerciseStore = defineStore('exercise', () => {
           canRetry: true,
           retryCount: 0,
           originalMessage: content,
-        })
-        saveChatHistory()
+        }, aiType)
+        saveChatHistory(false, aiType)
       }
     }, timeoutMs)
   }
@@ -628,9 +661,10 @@ export const useExerciseStore = defineStore('exercise', () => {
    * @param tempReplyId 临时消息ID
    * @param timeoutId 超时定时器ID
    * @param streamContentRef 流式内容引用
+   * @param aiType AI类型，用于确定更新哪个消息记录
    * @returns 流式响应处理函数
    */
-  const createStreamHandler = (tempReplyId: string, timeoutId: ReturnType<typeof setTimeout>, streamContentRef: { current: string }) => {
+  const createStreamHandler = (tempReplyId: string, timeoutId: ReturnType<typeof setTimeout>, streamContentRef: { current: string }, aiType?: string) => {
     return (chunk: string, isComplete: boolean) => {
       console.log('收到AI流式数据:', chunk, '是否完成:', isComplete)
       
@@ -639,7 +673,7 @@ export const useExerciseStore = defineStore('exercise', () => {
         updateTempMessage(tempReplyId, {
           content: streamContentRef.current,
           isStreaming: true,
-        })
+        }, aiType)
       } else if (isComplete) {
         const finalContent = streamContentRef.current || '抱歉，我暂时无法回答这个问题。'
         const isError = !streamContentRef.current || streamContentRef.current === '抱歉，我暂时无法回答这个问题。'
@@ -651,27 +685,34 @@ export const useExerciseStore = defineStore('exercise', () => {
           canRetry: isError,
           retryCount: isError ? 0 : undefined,
           originalMessage: isError ? (chunk as any).originalContent : undefined,
-        })
+        }, aiType)
         
         clearTimeout(timeoutId)
-        saveChatHistory()
+        saveChatHistory(false, aiType)
       }
     }
   }
 
   /**
    * 创建直接流处理器（用于重试，直接更新现有消息）
+   * @param messageId 消息ID
+   * @param timeoutId 超时定时器ID
+   * @param streamContentRef 流式内容引用
+   * @param aiType AI类型，用于确定更新哪个消息记录
    */
-  const createDirectStreamHandler = (messageId: string, timeoutId: ReturnType<typeof setTimeout>, streamContentRef: { current: string }) => {
+  const createDirectStreamHandler = (messageId: string, timeoutId: ReturnType<typeof setTimeout>, streamContentRef: { current: string }, aiType?: string) => {
     return (chunk: string, isComplete: boolean) => {
       console.log('收到AI流式数据（重试）:', chunk, '是否完成:', isComplete)
       
-      const messageIndex = chatMessages.value.findIndex(msg => msg.id === messageId)
+      // 根据AI类型获取对应的消息记录
+      const targetMessages = aiType ? getCurrentAiMessages(aiType) : aiExerciseMessages.value
+      
+      const messageIndex = targetMessages.findIndex(msg => msg.id === messageId)
       if (messageIndex !== -1) {
         if (!isComplete && chunk) {
           streamContentRef.current += chunk
-          chatMessages.value[messageIndex] = {
-            ...chatMessages.value[messageIndex],
+          targetMessages[messageIndex] = {
+            ...targetMessages[messageIndex],
             content: streamContentRef.current,
             isStreaming: true,
           }
@@ -679,18 +720,18 @@ export const useExerciseStore = defineStore('exercise', () => {
           const finalContent = streamContentRef.current || '抱歉，我暂时无法回答这个问题。'
           const isError = !streamContentRef.current || streamContentRef.current === '抱歉，我暂时无法回答这个问题。'
           
-          chatMessages.value[messageIndex] = {
-            ...chatMessages.value[messageIndex],
+          targetMessages[messageIndex] = {
+            ...targetMessages[messageIndex],
             content: finalContent,
             isStreaming: false,
             isError: isError,
             canRetry: isError,
-            retryCount: isError ? (chatMessages.value[messageIndex].retryCount || 0) : undefined,
+            retryCount: isError ? (targetMessages[messageIndex].retryCount || 0) : undefined,
             originalMessage: isError ? (chunk as any).originalContent : undefined,
           }
           
           clearTimeout(timeoutId)
-          saveChatHistory()
+          saveChatHistory(false, aiType)
         }
       }
     }
@@ -701,9 +742,10 @@ export const useExerciseStore = defineStore('exercise', () => {
    * @param tempReplyId 临时消息ID
    * @param timeoutId 超时定时器ID
    * @param streamContentRef 流式内容引用
+   * @param aiType AI类型，用于确定更新哪个消息记录
    * @returns 完整响应处理函数
    */
-  const createCompleteHandler = (tempReplyId: string, timeoutId: ReturnType<typeof setTimeout>, streamContentRef: { current: string }) => {
+  const createCompleteHandler = (tempReplyId: string, timeoutId: ReturnType<typeof setTimeout>, streamContentRef: { current: string }, aiType?: string) => {
     return (asyncResponse: { reply?: string; timestamp?: number | string; messageId?: string; success?: boolean }) => {
       clearTimeout(timeoutId)
       
@@ -721,30 +763,37 @@ export const useExerciseStore = defineStore('exercise', () => {
         canRetry: isError,
         retryCount: isError ? 0 : undefined,
         originalMessage: isError ? (asyncResponse as any).originalContent : undefined,
-      })
+      }, aiType)
 
       if (asyncResponse.success) {
         chatResponseTimes.value++
       }
 
-      saveChatHistory()
+      saveChatHistory(false, aiType)
     }
   }
 
   /**
    * 创建直接完成处理器（用于重试，直接更新现有消息）
+   * @param messageId 消息ID
+   * @param timeoutId 超时定时器ID
+   * @param streamContentRef 流式内容引用
+   * @param aiType AI类型，用于确定更新哪个消息记录
    */
-  const createDirectCompleteHandler = (messageId: string, timeoutId: ReturnType<typeof setTimeout>, streamContentRef: { current: string }) => {
+  const createDirectCompleteHandler = (messageId: string, timeoutId: ReturnType<typeof setTimeout>, streamContentRef: { current: string }, aiType?: string) => {
     return (asyncResponse: { reply?: string; timestamp?: number | string; messageId?: string; success?: boolean }) => {
       clearTimeout(timeoutId)
       
-      const messageIndex = chatMessages.value.findIndex(msg => msg.id === messageId)
+      // 根据AI类型获取对应的消息记录
+      const targetMessages = aiType ? getCurrentAiMessages(aiType) : aiExerciseMessages.value
+      
+      const messageIndex = targetMessages.findIndex(msg => msg.id === messageId)
       if (messageIndex !== -1) {
         const finalContent = streamContentRef.current || asyncResponse.reply || '抱歉，我暂时无法回答这个问题。'
         const isError = !asyncResponse.reply || asyncResponse.reply === '抱歉，我暂时无法回答这个问题。'
         
-        chatMessages.value[messageIndex] = {
-          ...chatMessages.value[messageIndex],
+        targetMessages[messageIndex] = {
+          ...targetMessages[messageIndex],
           content: finalContent,
           timestamp: typeof asyncResponse.timestamp === 'number'
             ? new Date(asyncResponse.timestamp).toISOString()
@@ -753,7 +802,7 @@ export const useExerciseStore = defineStore('exercise', () => {
           isStreaming: false,
           isError: isError,
           canRetry: isError,
-          retryCount: isError ? (chatMessages.value[messageIndex].retryCount || 0) : undefined,
+          retryCount: isError ? (targetMessages[messageIndex].retryCount || 0) : undefined,
           originalMessage: isError ? (asyncResponse as any).originalContent : undefined,
         }
 
@@ -761,7 +810,7 @@ export const useExerciseStore = defineStore('exercise', () => {
           chatResponseTimes.value++
         }
 
-        saveChatHistory()
+        saveChatHistory(false, aiType)
       }
     }
   }
@@ -771,18 +820,19 @@ export const useExerciseStore = defineStore('exercise', () => {
    * @param aiMessage AI消息对象
    * @param tempReplyId 临时消息ID
    * @param content 原始消息内容
+   * @param aiType AI类型，用于确定更新哪个消息记录
    * @returns Promise<any>
    */
-  const handleAiMessage = async (aiMessage: AiChatMessageRequest, tempReplyId: string, content: string): Promise<{ reply?: string; messageId?: string; success?: boolean }> => {
+  const handleAiMessage = async (aiMessage: AiChatMessageRequest, tempReplyId: string, content: string, aiType?: string): Promise<{ reply?: string; messageId?: string; success?: boolean }> => {
     return new Promise(async (resolve, reject) => {
-      const timeoutId = setupTimeoutHandler(tempReplyId, content)
+      const timeoutId = setupTimeoutHandler(tempReplyId, content, 10000, aiType)
       const streamContentRef = { current: '' }
       
       try {
         const response = await apiService.sendChatMessage(
           aiMessage,
-          createCompleteHandler(tempReplyId, timeoutId, streamContentRef),
-          createStreamHandler(tempReplyId, timeoutId, streamContentRef)
+          createCompleteHandler(tempReplyId, timeoutId, streamContentRef, aiType),
+          createStreamHandler(tempReplyId, timeoutId, streamContentRef, aiType)
         )
 
         // 处理同步响应
@@ -800,8 +850,8 @@ export const useExerciseStore = defineStore('exercise', () => {
             canRetry: isError,
             retryCount: isError ? 0 : undefined,
             originalMessage: isError ? content : undefined,
-          })
-          saveChatHistory()
+          }, aiType)
+          saveChatHistory(false, aiType)
           resolve(response)
         }
       } catch (error) {
@@ -815,8 +865,8 @@ export const useExerciseStore = defineStore('exercise', () => {
           canRetry: true,
           retryCount: 0,
           originalMessage: content,
-        })
-        saveChatHistory()
+        }, aiType)
+        saveChatHistory(false, aiType)
         reject(error)
       }
     })
@@ -827,18 +877,19 @@ export const useExerciseStore = defineStore('exercise', () => {
    * @param aiMessage AI消息对象
    * @param messageId 现有消息ID
    * @param content 原始消息内容
+   * @param aiType AI类型，用于确定更新哪个消息记录
    * @returns Promise<any>
    */
-  const handleAiMessageDirectly = async (aiMessage: AiChatMessageRequest, messageId: string, content: string): Promise<{ reply?: string; messageId?: string; success?: boolean }> => {
+  const handleAiMessageDirectly = async (aiMessage: AiChatMessageRequest, messageId: string, content: string, aiType?: string): Promise<{ reply?: string; messageId?: string; success?: boolean }> => {
     return new Promise(async (resolve, reject) => {
-      const timeoutId = setupTimeoutHandler(messageId, content)
+      const timeoutId = setupTimeoutHandler(messageId, content, 10000, aiType)
       const streamContentRef = { current: '' }
       
       try {
         const response = await apiService.sendChatMessage(
           aiMessage,
-          createDirectCompleteHandler(messageId, timeoutId, streamContentRef),
-          createDirectStreamHandler(messageId, timeoutId, streamContentRef)
+          createDirectCompleteHandler(messageId, timeoutId, streamContentRef, aiType),
+          createDirectStreamHandler(messageId, timeoutId, streamContentRef, aiType)
         )
 
         // 处理同步响应
@@ -890,9 +941,10 @@ export const useExerciseStore = defineStore('exercise', () => {
    * @param chatRole 学习伙伴角色：'mate' | 'mentor' | 'researcher'
    * @param imageData 可选的图片数据，包含filePath和base64DataUrl
    * @param hidePrefix 是否隐藏"我们开始吧"前缀（默认false）
+   * @param aiType AI类型，用于确定保存到哪个消息记录
    * @returns Promise<any> 服务端响应数据
    */
-  const sendChatMessage = async (content: string, type: 'ai' | 'teacher' = 'ai', chatRole: string = 'mate', imageData?: { filePath: string, base64DataUrl?: string }, hidePrefix: boolean = false) => {
+  const sendChatMessage = async (content: string, type: 'ai' | 'teacher' = 'ai', chatRole: string = 'mate', imageData?: { filePath: string, base64DataUrl?: string }, hidePrefix: boolean = false, aiType?: string) => {
     try {
       // 步骤1: 验证当前题目是否存在
       if (!currentQuestion.value) {
@@ -902,21 +954,24 @@ export const useExerciseStore = defineStore('exercise', () => {
       // 步骤2: 构建AI消息对象（根据是否为图片消息）
       const aiMessage = buildAiMessage(content, chatRole, imageData)
 
-      // 步骤3: 创建并添加用户消息到聊天记录
+      // 步骤3: 根据AI类型获取对应的消息记录
+      const targetMessages = aiType ? getCurrentAiMessages(aiType) : aiExerciseMessages.value
+      
+      // 步骤4: 创建并添加用户消息到聊天记录
       const userMessage = createUserMessage(content, imageData, hidePrefix)
-      chatMessages.value.push(userMessage)
+      targetMessages.push(userMessage)
 
-      // 步骤4: 创建临时AI回复消息（用于流式更新）
+      // 步骤5: 创建临时AI回复消息（用于流式更新）
       const { message: tempReplyMessage, id: tempReplyId } = createTempReplyMessage(type)
-      chatMessages.value.push(tempReplyMessage)
+      targetMessages.push(tempReplyMessage)
 
-      // 步骤5: 保存聊天记录到本地存储
-      saveChatHistory()
+      // 步骤6: 保存聊天记录到本地存储
+      saveChatHistory(false, aiType)
 
-      // 步骤6: 根据消息类型分别处理
+      // 步骤7: 根据消息类型分别处理
       if (type === 'ai') {
         // AI消息：设置超时机制，处理流式响应和完整响应
-        return await handleAiMessage(aiMessage, tempReplyId, content)
+        return await handleAiMessage(aiMessage, tempReplyId, content, aiType)
       } else {
         // 老师消息：直接发送并更新临时消息
         return await handleTeacherMessage(content, chatRole, tempReplyId)
@@ -931,9 +986,10 @@ export const useExerciseStore = defineStore('exercise', () => {
   /**
    * 开始AI指导
    * 为当前选中的题目启动AI指导模式
+   * @param aiType AI类型，用于确定使用哪个消息记录
    * @returns Promise<void>
    */
-  const startAiGuidance = async () => {
+  const startAiGuidance = async (aiType?: string) => {
     if (!currentQuestion.value) {
       showMessage('请先选择一道题目', 'warning')
       return
@@ -945,14 +1001,14 @@ export const useExerciseStore = defineStore('exercise', () => {
       currentQuestion.value.beginGuideToSolve = true
 
       // 先清除当前题目的聊天记录，确保每次都是重新开始对话
-      await clearChatHistory()
+      await clearChatHistory(aiType)
       
       // 发送题目内容给AI进行分析（每次都是新的开始）
       const questionContent = currentQuestion.value.question || '题目内容为空'
       // 在开头加上"我们开始吧"，但不渲染显示
       const initialMessage = `我们开始吧，${questionContent}`
 
-      await sendChatMessage(initialMessage, 'ai', 'mate', undefined, true) // 隐藏"我们开始吧"前缀
+      await sendChatMessage(initialMessage, 'ai', 'mate', undefined, true, aiType) // 隐藏"我们开始吧"前缀
 
       // AI指导开始，通过界面状态变化反馈给用户
     } catch (error) {
@@ -969,8 +1025,9 @@ export const useExerciseStore = defineStore('exercise', () => {
   /**
    * 保存聊天历史记录（带防抖）
    * 将当前题目的聊天记录异步保存到本地存储，使用防抖机制避免频繁保存
+   * @param aiType AI类型，用于确定保存到哪个消息记录
    */
-  const saveChatHistory = async (immediate: boolean = false) => {
+  const saveChatHistory = async (immediate: boolean = false, aiType?: string) => {
     // 清除之前的防抖定时器
     if (saveDebounceTimer) {
       clearTimeout(saveDebounceTimer)
@@ -978,31 +1035,38 @@ export const useExerciseStore = defineStore('exercise', () => {
     }
 
     const doSave = async () => {
-      if (currentQuestion.value && chatMessages.value.length > 0) {
+      // 根据AI类型获取对应的消息记录
+      const messagesToSave = aiType ? getCurrentAiMessages(aiType) : aiExerciseMessages.value
+      
+      if (currentQuestion.value && messagesToSave.length > 0) {
         const historyData: ChatHistoryData = {
           questionId: currentQuestion.value.id, //题目ID
-          messages: chatMessages.value,  // 整个消息数组
+          messages: messagesToSave,  // 对应的消息数组
           chatResponseTimes: chatResponseTimes.value, //AI回复次数
           lastUpdated: Date.now(), //最后更新时间
         }
 
         console.log(`[CHAT_DEBUG] 💾 保存聊天记录详情:`, {
           questionId: currentQuestion.value.id,
-          messageCount: chatMessages.value.length,
+          aiType: aiType || 'default',
+          messageCount: messagesToSave.length,
           chatResponseTimes: chatResponseTimes.value,
           lastUpdated: new Date(historyData.lastUpdated).toLocaleString()
         })
 
         try {
-          await asyncStorage.saveChatHistory(currentQuestion.value.id, historyData)
-          console.log(`[CHAT_DEBUG] ✅ 聊天记录保存成功: ${currentQuestion.value.id}`)
+          // 根据AI类型使用不同的存储键
+          const storageKey = aiType ? `${currentQuestion.value.id}_${aiType}` : currentQuestion.value.id
+          await asyncStorage.saveChatHistory(storageKey, historyData)
+          console.log(`[CHAT_DEBUG] ✅ 聊天记录保存成功: ${storageKey}`)
         } catch (error) {
           console.error('[CHAT_DEBUG] ❌ 保存聊天记录失败:', error)
         }
       } else {
         console.log(`[CHAT_DEBUG] ⚠️ 跳过保存聊天记录:`, {
           hasCurrentQuestion: !!currentQuestion.value,
-          messageCount: chatMessages.value.length,
+          aiType: aiType || 'default',
+          messageCount: messagesToSave.length,
           reason: !currentQuestion.value ? '无当前题目' : '无聊天记录'
         })
       }
@@ -1068,24 +1132,29 @@ export const useExerciseStore = defineStore('exercise', () => {
   /**
    * 加载聊天历史记录
    * 从本地存储中异步加载当前题目的聊天记录，支持分批次渲染
+   * @param aiType AI类型，用于确定加载哪个消息记录
    */
-  const loadChatHistory = async () => {
+  const loadChatHistory = async (aiType?: string) => {
     if (!currentQuestion.value) {
       console.log(`[CHAT_DEBUG] ⚠️ 跳过加载聊天记录: 无当前题目`)
       return
     }
 
-    console.log(`[CHAT_DEBUG] 📥 开始加载聊天记录: ${currentQuestion.value.id}`)
+    console.log(`[CHAT_DEBUG] 📥 开始加载聊天记录: ${currentQuestion.value.id}, AI类型: ${aiType || 'default'}`)
 
     try {
       isChatLoading.value = true
       
+      // 根据AI类型使用不同的存储键
+      const storageKey = aiType ? `${currentQuestion.value.id}_${aiType}` : currentQuestion.value.id
+      
       // 异步从 IndexedDB 加载聊天记录
-      const historyData = await asyncStorage.loadChatHistory(currentQuestion.value.id)
+      const historyData = await asyncStorage.loadChatHistory(storageKey)
       
       if (historyData && historyData.messages) {
         console.log(`[CHAT_DEBUG] 📦 从存储加载到聊天记录:`, {
           questionId: historyData.questionId,
+          aiType: aiType || 'default',
           messageCount: historyData.messages.length,
           chatResponseTimes: historyData.chatResponseTimes,
           lastUpdated: new Date(historyData.lastUpdated).toLocaleString()
@@ -1094,20 +1163,36 @@ export const useExerciseStore = defineStore('exercise', () => {
         // 更新聊天回复次数
         chatResponseTimes.value = historyData.chatResponseTimes || 0
         
-        // 分批次渲染消息，避免一次性渲染大量消息造成卡顿
-        // renderMessagesInBatches会处理聊天记录的设置
-        await renderMessagesInBatches(historyData.messages)
+        // 根据AI类型设置对应的消息记录
+        if (aiType) {
+          const targetMessages = getCurrentAiMessages(aiType)
+          await renderMessagesInBatches(historyData.messages, targetMessages)
+        } else {
+          // 默认使用aiExerciseMessages
+          await renderMessagesInBatches(historyData.messages, aiExerciseMessages.value)
+        }
+        
         console.log(`[CHAT_DEBUG] ✅ 聊天记录加载完成: ${historyData.messages.length}条消息`)
       } else {
-        console.log(`[CHAT_DEBUG] 📭 无聊天记录: ${currentQuestion.value.id}`)
+        console.log(`[CHAT_DEBUG] 📭 无聊天记录: ${storageKey}`)
         // 如果没有历史记录，初始化为空
-        chatMessages.value = []
+        if (aiType) {
+          const targetMessages = getCurrentAiMessages(aiType)
+          targetMessages.length = 0
+        } else {
+          aiExerciseMessages.value = []
+        }
         chatResponseTimes.value = 0
       }
     } catch (error) {
       console.error('[CHAT_DEBUG] ❌ 加载聊天记录失败:', error)
       // 加载失败时初始化为空
-      chatMessages.value = []
+      if (aiType) {
+        const targetMessages = getCurrentAiMessages(aiType)
+        targetMessages.length = 0
+      } else {
+        aiExerciseMessages.value = []
+      }
       chatResponseTimes.value = 0
     } finally {
       isChatLoading.value = false
@@ -1160,8 +1245,9 @@ export const useExerciseStore = defineStore('exercise', () => {
    * 分批次渲染消息
    * 将大量消息分批次渲染，避免阻塞主线程
    * @param messages 要渲染的消息数组
+   * @param targetMessages 目标消息数组，如果不指定则使用aiExerciseMessages
    */
-  const renderMessagesInBatches = async (messages: ChatBubble[]) => {
+  const renderMessagesInBatches = async (messages: ChatBubble[], targetMessages?: ChatBubble[]) => {
     if (!messages || messages.length === 0) return
 
     const BATCH_SIZE = 20 // 每批渲染20条消息
@@ -1170,9 +1256,13 @@ export const useExerciseStore = defineStore('exercise', () => {
     isChatRendering.value = true
     
     try {
+      // 使用指定的目标消息数组，如果没有指定则使用aiExerciseMessages
+      const target = targetMessages || aiExerciseMessages.value
+      
       // 先渲染最新的消息（最后20条）
       const latestMessages = messages.slice(-BATCH_SIZE)
-      chatMessages.value = [...latestMessages]
+      target.length = 0
+      target.push(...latestMessages)
       
       // 如果还有更多消息，分批加载更早的消息
       if (messages.length > BATCH_SIZE) {
@@ -1183,13 +1273,13 @@ export const useExerciseStore = defineStore('exercise', () => {
           await new Promise(resolve => setTimeout(resolve, BATCH_DELAY))
           
           const batch = remainingMessages.slice(Math.max(0, i), i + BATCH_SIZE)
-          chatMessages.value = [...batch, ...chatMessages.value]
+          target.unshift(...batch)
         }
         
         // 处理剩余的消息
         if (remainingMessages.length % BATCH_SIZE !== 0) {
           const remainingBatch = remainingMessages.slice(0, remainingMessages.length % BATCH_SIZE)
-          chatMessages.value = [...remainingBatch, ...chatMessages.value]
+          target.unshift(...remainingBatch)
         }
       }
     } finally {
@@ -1200,22 +1290,32 @@ export const useExerciseStore = defineStore('exercise', () => {
   /**
    * 清除当前题目的聊天记录
    * 清空当前题目的所有对话历史和相关状态，并刷新消息列表
+   * @param aiType AI类型，用于确定清除哪个消息记录
    */
-  const clearChatHistory = async () => {
+  const clearChatHistory = async (aiType?: string) => {
     if (currentQuestion.value) {
       try {
-        // 从异步存储中删除聊天记录
-        await asyncStorage.removeChatHistory(currentQuestion.value.id)
+        // 根据AI类型使用不同的存储键
+        const storageKey = aiType ? `${currentQuestion.value.id}_${aiType}` : currentQuestion.value.id
         
-        // 清空内存中的聊天记录
-        chatMessages.value = []
+        // 从异步存储中删除聊天记录
+        await asyncStorage.removeChatHistory(storageKey)
+        
+        // 根据AI类型清空对应的消息记录
+        if (aiType) {
+          const targetMessages = getCurrentAiMessages(aiType)
+          targetMessages.length = 0
+        } else {
+          // 清空内存中的聊天记录
+          aiExerciseMessages.value = []
+        }
         chatResponseTimes.value = 0
         
         // 重置AI指导状态
         currentQuestion.value.isAiGuiding = false
         currentQuestion.value.beginGuideToSolve = false
         
-        console.log('聊天记录已清除:', currentQuestion.value.id)
+        console.log('聊天记录已清除:', storageKey)
       } catch (error) {
         console.warn('清除聊天记录失败:', error)
         throw error
@@ -1251,14 +1351,18 @@ export const useExerciseStore = defineStore('exercise', () => {
    * @param messageId 要重发的消息ID
    * @param chatRole 学习伙伴角色
    * @param imageData 可选的图片数据
+   * @param aiType AI类型，用于确定更新哪个消息记录
    */
-  const retryAiMessage = async (messageId: string, chatRole: string = 'mate', imageData?: { filePath: string, base64DataUrl?: string }) => {
-    const messageIndex = chatMessages.value.findIndex(msg => msg.id === messageId)
+  const retryAiMessage = async (messageId: string, chatRole: string = 'mate', imageData?: { filePath: string, base64DataUrl?: string }, aiType?: string) => {
+    // 根据AI类型获取对应的消息记录
+    const targetMessages = aiType ? getCurrentAiMessages(aiType) : aiExerciseMessages.value
+    
+    const messageIndex = targetMessages.findIndex(msg => msg.id === messageId)
     if (messageIndex === -1) {
       throw new Error('消息不存在')
     }
 
-    const message = chatMessages.value[messageIndex]
+    const message = targetMessages[messageIndex]
     if (!message.canRetry || !message.originalMessage) {
       throw new Error('该消息不支持重发')
     }
@@ -1272,7 +1376,7 @@ export const useExerciseStore = defineStore('exercise', () => {
 
     try {
       // 更新消息状态为重试中 - 显示友好的重试提示
-      chatMessages.value[messageIndex] = {
+      targetMessages[messageIndex] = {
         ...message,
         content: '',
         isError: false,
@@ -1280,19 +1384,19 @@ export const useExerciseStore = defineStore('exercise', () => {
         canRetry: false,
         retryCount: currentRetryCount + 1,
       }
-      saveChatHistory()
+      saveChatHistory(false, aiType)
 
       // 构建AI消息对象
       const aiMessage = buildAiMessage(message.originalMessage, chatRole, imageData)
       
       // 直接处理AI消息，不创建新消息
-      const response = await handleAiMessageDirectly(aiMessage, messageId, message.originalMessage)
+      const response = await handleAiMessageDirectly(aiMessage, messageId, message.originalMessage, aiType)
 
       // 判断是否真正成功
       const isActuallySuccess = response.success && response.reply && response.reply !== '请求失败，请重试。'
       
       // 重试完成，更新消息内容
-      chatMessages.value[messageIndex] = {
+      targetMessages[messageIndex] = {
         ...message,
         content: response.reply || '请求失败，请重试。',
         timestamp: new Date().toISOString(),
@@ -1303,11 +1407,11 @@ export const useExerciseStore = defineStore('exercise', () => {
         retryCount: !isActuallySuccess ? currentRetryCount + 1 : undefined,
         originalMessage: !isActuallySuccess ? message.originalMessage : undefined,
       }
-      saveChatHistory()
+      saveChatHistory(false, aiType)
 
     } catch (error) {
       // 重发失败，更新错误状态
-      chatMessages.value[messageIndex] = {
+      targetMessages[messageIndex] = {
         ...message,
         content: `重试失败 (${currentRetryCount + 1}/${maxRetries})，请稍后重试。`,
         isError: true,
@@ -1315,7 +1419,7 @@ export const useExerciseStore = defineStore('exercise', () => {
         canRetry: currentRetryCount + 1 < maxRetries, // 如果还有重试次数则允许重发
         retryCount: currentRetryCount + 1,
       }
-      saveChatHistory()
+      saveChatHistory(false, aiType)
       throw error
     }
   }
@@ -1405,7 +1509,9 @@ export const useExerciseStore = defineStore('exercise', () => {
     questions, // 题目列表
     similarQuestions, // 相似题目列表
     currentQuestionIndex, // 当前选中题目索引
-    chatMessages, // 聊天消息记录
+    aiExerciseMessages, // AI题目消息记录
+    aiGeneralMessages, // AI通用消息记录
+    aiTextbookMessages, // AI教材消息记录
     teacherMessages, // 老师消息记录
     userInfo, // 用户信息
     enableWebSearch, // 联网搜索状态
@@ -1447,6 +1553,7 @@ export const useExerciseStore = defineStore('exercise', () => {
     retryAiMessage, // 重发AI消息
     toggleWebSearch, // 切换联网搜索状态
     renderMessagesInBatches, // 分批次渲染消息
+    getCurrentAiMessages, // 获取当前AI类型的消息记录
     
     // 去重相关方法
     deduplicateQuestions, // 高效题目去重算法

@@ -78,7 +78,7 @@
             <!-- AI聊天界面 -->
             <ChatView
               v-if="currentFunction === 'chatAi'"
-              type="ai"
+              type="ai-exercise"
               @response="handleChatResponse"
               @switch-to-teacher="handleSwitchToTeacher"
               @scroll-to-question-and-select="handleScrollToQuestionAndSelect"

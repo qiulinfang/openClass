@@ -39,9 +39,9 @@
             </q-btn>
           </div>
 
-          <!-- 模式选择器 - 仅在AI模式下显示且非编辑状态 -->
+          <!-- 模式选择器 - 仅在AI通用、AI题目和AI教材模式下显示且非编辑状态 -->
           <q-btn-dropdown
-            v-if="props.type === 'ai' && !props.isEditing"
+            v-if="(props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') && !props.isEditing"
             flat
             dense
             class="mode-selector"
@@ -74,9 +74,9 @@
             </q-list>
           </q-btn-dropdown>
 
-          <!-- 联网搜索 - 仅在AI对话时显示且非编辑状态 -->
+          <!-- 联网搜索 - 仅在AI通用、AI题目和AI教材对话时显示且非编辑状态 -->
           <q-btn
-            v-if="props.type === 'ai' && !props.isEditing"
+            v-if="(props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') && !props.isEditing"
             flat
             dense
             class="web-search-btn"
@@ -109,9 +109,9 @@
             <q-tooltip>{{ props.isRecording ? '松开结束录音' : '按住说话' }}</q-tooltip>
           </q-btn>
 
-          <!-- 图片上传 - AI模式下隐藏 -->
+          <!-- 图片上传 - AI通用、AI题目和AI教材模式下隐藏 -->
           <q-btn
-            v-if="props.type !== 'ai'"
+            v-if="props.type !== 'ai-general' && props.type !== 'ai-exercise' && props.type !== 'ai-textbook'"
             flat
             round
             dense

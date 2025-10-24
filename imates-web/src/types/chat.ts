@@ -82,7 +82,7 @@ export interface ChatInputProps {
   isRecording: boolean
   enableWebSearch: boolean
   selectedModel: string
-  type: 'ai' | 'teacher'
+  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
   uploadedFiles: UploadedFile[]
   activeMode: ActiveMode | null
   canSend: boolean
@@ -112,7 +112,7 @@ export interface ChatInputEmits {
 /** ChatMessage Props接口 */
 export interface ChatMessageProps {
   message: ChatBubble
-  type: 'ai' | 'teacher'
+  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
   isSelected?: boolean
   isSelectionMode?: boolean
   messageIndex?: number
@@ -127,7 +127,7 @@ export interface StreamingMessageProps {
 
 /** ChatView Props接口 */
 export interface ChatViewProps {
-  type: 'ai' | 'teacher'
+  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
   currentQuestionId?: string
 }
 

@@ -154,6 +154,7 @@ export interface LocalFileInfo {
   isDownloaded: boolean // 是否已下载
   localPath?: string // 本地文件路径
   fileData?: Uint8Array // 文件二进制数据
+  thumbnail?: string // PDF缩略图（base64格式）
   annotations?: Record<number, object[]> // PDF注释数据，key为页码，value为fabric对象数组
 }
 

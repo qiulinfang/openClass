@@ -8,13 +8,13 @@
     ></canvas>
     
     <!-- Fabric.js 标注层容器 -->
-    <div 
+    <canvas 
       ref="fabricWrapper"
       class="canvas-container"
       :style="fabricWrapperStyle"
     >
-      <!-- Fabric.js 会自动创建 lower-canvas 和 upper-canvas -->
-    </div>
+      <!-- Fabric.js 会在这个 canvas 元素上创建绘图上下文 -->
+    </canvas>
     
     <!-- 加载状态 -->
     <div v-if="isLoading" class="page-loading">
@@ -59,7 +59,7 @@ const store = usePdfViewerStore()
 
 // 组件状态
 const pdfCanvas = ref<HTMLCanvasElement>()
-const fabricWrapper = ref<HTMLDivElement>()
+const fabricWrapper = ref<HTMLCanvasElement>()
 const fabricInstance = ref<Canvas | null>(null)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
@@ -83,15 +83,19 @@ const pdfCanvasStyle = computed(() => ({
   left: '0',
   width: '100%',
   height: '100%',
-  pointerEvents: 'auto' as const
+  pointerEvents: 'none' as const  // 修改为 none，让 Fabric canvas 处理所有事件
 }))
 
 // Fabric.js 容器样式
 const fabricWrapperStyle = computed(() => ({
-  position: 'relative' as const,
+  position: 'absolute' as const,
+  top: '0',
+  left: '0',
   userSelect: 'none' as const,
-  width: `${props.layout.width}px`,
-  height: `${props.layout.height}px`
+  width: '100%',
+  height: '100%',
+  pointerEvents: 'auto' as const,  // 确保 Fabric canvas 能接收事件
+  zIndex: 2  // 确保在最上层
 }))
 
 // 初始化 PDF 页面
@@ -141,20 +145,29 @@ const initPdfPage = async () => {
 
 // 初始化 Fabric.js Canvas
 const initFabricCanvas = async () => {
-  if (!fabricWrapper.value) {
+  if (!fabricWrapper.value || !pdfCanvas.value) {
     return
   }
   
   try {
-    // 创建 Fabric Canvas 实例，使用 wrapper 容器
-    fabricInstance.value = new Canvas(fabricWrapper.value as unknown as HTMLCanvasElement, {
-      width: props.layout.width,
-      height: props.layout.height,
+    // 确保使用与PDF canvas相同的尺寸
+    const pdfCanvasElement = pdfCanvas.value
+    const canvasWidth = pdfCanvasElement.width
+    const canvasHeight = pdfCanvasElement.height
+    
+    console.log(`第 ${props.layout.pageNum} 页初始化Fabric Canvas，尺寸: ${canvasWidth}x${canvasHeight}`)
+    
+    // 创建 Fabric Canvas 实例，使用与PDF相同的尺寸
+    fabricInstance.value = new Canvas(fabricWrapper.value, {
+      width: canvasWidth,
+      height: canvasHeight,
       backgroundColor: 'transparent',
       selection: true,
       preserveObjectStacking: true,
       // 确保 Canvas 正确覆盖 PDF
-      absolutePositioned: true
+      absolutePositioned: true,
+      // 添加调试信息
+      enablePointerEvents: true
     })
     
     // 设置绘制模式
@@ -166,7 +179,7 @@ const initFabricCanvas = async () => {
     // 监听 Fabric 事件
     setupFabricEvents()
     
-    console.log(`第 ${props.layout.pageNum} 页 Fabric Canvas 初始化完成`)
+    console.log(`第 ${props.layout.pageNum} 页 Fabric Canvas 初始化完成，尺寸: ${canvasWidth}x${canvasHeight}`)
     
   } catch (err) {
     console.error(`第 ${props.layout.pageNum} 页 Fabric Canvas 初始化失败:`, err)
@@ -176,13 +189,17 @@ const initFabricCanvas = async () => {
 // 更新 Fabric 模式
 const updateFabricMode = () => {
   console.log('🎨 [PdfPage] 更新 Fabric 模式:', store.selectedTool)
-  if (!fabricInstance.value) return
+  if (!fabricInstance.value) {
+    console.warn('🎨 [PdfPage] Fabric实例不存在，无法更新模式')
+    return
+  }
   
   const tool = store.selectedTool
   
   // 重置所有模式
   fabricInstance.value.isDrawingMode = false
   fabricInstance.value.selection = true
+  
   
   switch (tool) {
     case 'highlighter':
@@ -212,21 +229,16 @@ const updateFabricMode = () => {
       fabricInstance.value.selection = true
       break
       
-    case 'rectangle':
-    case 'circle':
-    case 'line':
-    case 'arrow':
-      // 形状模式
-      fabricInstance.value.isDrawingMode = false
-      fabricInstance.value.selection = true
-      break
-      
     default:
       // 选择模式
       fabricInstance.value.isDrawingMode = false
       fabricInstance.value.selection = true
+      console.log('🎨 [PdfPage] 选择模式激活')
       break
   }
+  
+  // 强制重新渲染
+  fabricInstance.value.renderAll()
 }
 
 // 加载笔记
@@ -268,26 +280,86 @@ const saveAnnotations = () => {
 const setupFabricEvents = () => {
   if (!fabricInstance.value) return
   
+  console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页设置Fabric事件监听`)
+  
   // 对象修改事件
-  fabricInstance.value.on('object:modified', saveAnnotations)
+  fabricInstance.value.on('object:modified', () => {
+    console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页对象被修改`)
+    saveAnnotations()
+  })
   
   // 对象添加事件
-  fabricInstance.value.on('object:added', saveAnnotations)
+  fabricInstance.value.on('object:added', () => {
+    console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页对象被添加`)
+    saveAnnotations()
+  })
   
   // 对象删除事件
-  fabricInstance.value.on('object:removed', saveAnnotations)
+  fabricInstance.value.on('object:removed', () => {
+    console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页对象被删除`)
+    saveAnnotations()
+  })
   
   // 路径创建事件（绘制完成）
-  fabricInstance.value.on('path:created', saveAnnotations)
+  fabricInstance.value.on('path:created', () => {
+    console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页路径被创建`)
+    saveAnnotations()
+  })
   
   // 文本编辑事件
-  fabricInstance.value.on('text:changed', saveAnnotations)
+  fabricInstance.value.on('text:changed', () => {
+    console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页文本被修改`)
+    saveAnnotations()
+  })
   
-  // 点击事件（用于添加文本框）
+  // 鼠标按下事件
   fabricInstance.value.on('mouse:down', (event) => {
-    if (store.selectedTool === 'text' && event.target === null) {
-      addTextObject(event.pointer)
+    console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页鼠标按下:`, event.pointer)
+    console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页点击目标:`, event.target)
+    console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页当前工具:`, store.selectedTool)
+    
+    const tool = store.selectedTool
+    
+    // 对于形状工具和文本工具，直接创建对象（不检查target）
+    if (['text', 'rectangle', 'circle', 'line', 'arrow', 'triangle'].includes(tool)) {
+      console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页创建 ${tool} 对象`)
+      
+      switch (tool) {
+        case 'text':
+          addTextObject(event.pointer)
+          break
+        case 'rectangle':
+          addRectangle(event.pointer)
+          break
+        case 'circle':
+          addCircle(event.pointer)
+          break
+        case 'line':
+          addLine(event.pointer)
+          break
+        case 'arrow':
+          addArrow(event.pointer)
+          break
+        case 'triangle':
+          addTriangle(event.pointer)
+          break
+      }
+    } else {
+      console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页工具 ${tool} 不需要点击创建对象`)
     }
+  })
+  
+  // 鼠标移动事件（用于调试）
+  fabricInstance.value.on('mouse:move', (event) => {
+    // 只在绘制模式下记录，避免日志过多
+    if (fabricInstance.value?.isDrawingMode) {
+      console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页鼠标移动:`, event.pointer)
+    }
+  })
+  
+  // 绘制开始事件
+  fabricInstance.value.on('path:created', (event) => {
+    console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页开始绘制:`, event.path)
   })
 }
 
@@ -306,6 +378,91 @@ const addTextObject = (pointer: { x: number; y: number }) => {
   fabricInstance.value.add(text)
   fabricInstance.value.setActiveObject(text)
   text.enterEditing()
+}
+
+// 添加矩形
+const addRectangle = (pointer: { x: number; y: number }) => {
+  if (!fabricInstance.value) return
+  
+  const rect = new Rect({
+    left: pointer.x,
+    top: pointer.y,
+    width: 100,
+    height: 60,
+    fill: 'transparent',
+    stroke: store.drawingConfig.shapeColor,
+    strokeWidth: store.drawingConfig.shapeStrokeWidth
+  })
+  
+  fabricInstance.value.add(rect)
+  fabricInstance.value.setActiveObject(rect)
+  console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页添加矩形`)
+}
+
+// 添加圆形
+const addCircle = (pointer: { x: number; y: number }) => {
+  if (!fabricInstance.value) return
+  
+  const circle = new Circle({
+    left: pointer.x,
+    top: pointer.y,
+    radius: 50,
+    fill: 'transparent',
+    stroke: store.drawingConfig.shapeColor,
+    strokeWidth: store.drawingConfig.shapeStrokeWidth
+  })
+  
+  fabricInstance.value.add(circle)
+  fabricInstance.value.setActiveObject(circle)
+  console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页添加圆形`)
+}
+
+// 添加直线
+const addLine = (pointer: { x: number; y: number }) => {
+  if (!fabricInstance.value) return
+  
+  const line = new Line([pointer.x, pointer.y, pointer.x + 100, pointer.y], {
+    stroke: store.drawingConfig.shapeColor,
+    strokeWidth: store.drawingConfig.shapeStrokeWidth
+  })
+  
+  fabricInstance.value.add(line)
+  fabricInstance.value.setActiveObject(line)
+  console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页添加直线`)
+}
+
+// 添加三角形
+const addTriangle = (pointer: { x: number; y: number }) => {
+  if (!fabricInstance.value) return
+  
+  const triangle = new Triangle({
+    left: pointer.x,
+    top: pointer.y,
+    width: 80,
+    height: 80,
+    fill: 'transparent',
+    stroke: store.drawingConfig.shapeColor,
+    strokeWidth: store.drawingConfig.shapeStrokeWidth
+  })
+  
+  fabricInstance.value.add(triangle)
+  fabricInstance.value.setActiveObject(triangle)
+  console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页添加三角形`)
+}
+
+// 添加箭头（使用Line实现）
+const addArrow = (pointer: { x: number; y: number }) => {
+  if (!fabricInstance.value) return
+  
+  // 创建箭头线条
+  const line = new Line([pointer.x, pointer.y, pointer.x + 100, pointer.y], {
+    stroke: store.drawingConfig.shapeColor,
+    strokeWidth: store.drawingConfig.shapeStrokeWidth
+  })
+  
+  fabricInstance.value.add(line)
+  fabricInstance.value.setActiveObject(line)
+  console.log(`🎨 [PdfPage] 第${props.layout.pageNum}页添加箭头`)
 }
 
 // 重试加载
@@ -387,6 +544,7 @@ watch(() => store.scale, async () => {
   pointer-events: auto !important;
   touch-action: none !important;
   user-select: none !important;
+  z-index: 2 !important;  /* 确保 Fabric canvas 在最上层 */
 }
 
 .page-loading {

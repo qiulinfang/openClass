@@ -94,6 +94,7 @@ watch(() => props.textbookRecordId, (newValue) => {
 // 定义事件
 const emit = defineEmits<{
   expand: [graphId: string]
+  learn: [node: { id: string; name: string; level?: number | null }]
   'save-state': []
 }>()
 
@@ -322,29 +323,14 @@ const handleLearn = async (node: { id: string; name: string; level?: number | nu
     // 发出保存状态事件，让父组件保存当前页面状态
     emit('save-state')
     console.log('props.textbookRecordId', props.textbookRecordId)
-    // 跳转到学习页面
-    router.push({
-      path: '/learning',
-      query: {
-        nodeId: node.id,
-        sectionName: node.name,
-        level: node.level || 1,
-        id: props.textbookRecordId || '' // 传递教材ID
-      }
-    })
+    
+    // 触发学习事件，让父组件打开对话框
+    emit('learn', node)
   } catch (error) {
     console.error('检查学习方案失败:', error)
-    // 如果检查失败，仍然允许跳转，让学习页面处理空数据情况
+    // 如果检查失败，仍然允许打开对话框，让学习页面处理空数据情况
     emit('save-state')
-    router.push({
-      path: '/learning',
-      query: {
-        nodeId: node.id,
-        sectionName: node.name,
-        level: node.level || 1,
-        id: props.textbookRecordId || ''
-      }
-    })
+    emit('learn', node)
   }
 }
 

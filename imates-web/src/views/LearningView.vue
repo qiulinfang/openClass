@@ -1,237 +1,122 @@
 <template>
   <div class="learning-content">
-    <div class="app-bar">
-      <div class="app-bar-content">
-        <q-btn 
-          flat 
-          round 
-          icon="arrow_back" 
-          @click="goBack"
-          class="back-button"
-        />
-        <div class="app-bar-title">
-          <div class="breadcrumb">
-            <span class="breadcrumb-item">去学习</span>
-            <q-icon name="chevron_right" size="16px" class="breadcrumb-separator" />
-            <span class="breadcrumb-current">{{ sectionName }}</span>
-          </div>
-        </div>
+    <!-- 标题栏 -->
+    <div class="dialog-header">
+      <div class="dialog-title">
+        <span>{{ sectionName }}</span>
       </div>
+      <q-btn 
+        flat 
+        round 
+        icon="close" 
+        @click="emit('close')"
+        class="close-btn"
+      />
     </div>
 
     <!-- 主要内容区域 -->
     <div class="main-content">
-      <!-- 左侧：学习方案选择卡片 -->
+      <!-- 左侧：学习方案选择 -->
       <div class="left-panel">
-        <q-card class="scheme-card" elevation="2">
-          <q-card-section class="card-header">
-            <div class="card-title">
-              <q-icon name="school" size="24px" class="title-icon" />
-              <span>学习方案</span>
-              <q-btn 
-                flat 
-                round 
-                dense 
-                icon="refresh" 
-                size="sm"
-                @click="refreshLearningPackages"
-                :loading="loadingPackages"
-                class="refresh-btn"
-              >
-                <q-tooltip>刷新学习方案</q-tooltip>
-              </q-btn>
-            </div>
-          </q-card-section>
+        <div class="scheme-section">
           
-          <q-card-section class="card-content">
-            <!-- 加载状态 -->
-            <div v-if="loadingPackages" class="loading-container">
-              <q-spinner color="primary" size="40px" />
-              <div class="loading-text">正在加载学习方案...</div>
-            </div>
-            
-            <!-- 学习方案列表 -->
-            <div v-else-if="filteredLearningPackages.length > 0" class="scheme-list">
-              <q-item 
-                v-for="(scheme, index) in filteredLearningPackages" 
-                :key="scheme.id"
-                clickable
-                :active="selectedSchemeIndex === index"
-                @click="selectScheme(index)"
-                class="scheme-item"
-              >
-                <q-item-section avatar>
-                  <q-avatar 
-                    :color="selectedSchemeIndex === index ? 'primary' : 'grey-4'"
-                    text-color="white"
-                    size="32px"
-                  >
-                    {{ index + 1 }}
-                  </q-avatar>
-                </q-item-section>
-                
-                <q-item-section>
-                  <q-item-label class="scheme-name">{{ scheme.packageName }}</q-item-label>
-                  <q-item-label caption class="scheme-desc">{{ scheme.description }}</q-item-label>
-                </q-item-section>
-                
-                <q-item-section side v-if="selectedSchemeIndex === index">
-                  <q-icon name="check_circle" color="primary" size="20px" />
-                </q-item-section>
-              </q-item>
-            </div>
-            
-            <!-- 无数据状态 -->
-            <div v-else class="empty-state">
-              <q-icon name="school" size="48px" color="grey-5" />
-              <div class="empty-text">该章节暂无学习方案</div>
-              <div class="empty-desc">
-                <span v-if="learningPackages.length > 0">
-                  该章节暂未配置学习资源，但教材中有 {{ learningPackages.length }} 个其他学习方案
-                </span>
-                <span v-else>
-                  该教材暂未配置任何学习资源
-                </span>
-              </div>
-            </div>
-          </q-card-section>
-        </q-card>
-      </div>
-
-      <!-- 右侧：教学内容详情 -->
-      <div class="right-panel">
-        <!-- 教学内容简介卡片 -->
-        <q-card class="intro-card" elevation="2">
-          <q-card-section class="card-header">
-            <div class="card-title">
-              <q-icon name="description" size="24px" class="title-icon" />
-              <span>教学内容简介</span>
-            </div>
-            <div class="learning-status">
-              <q-chip 
-                :color="selectedSchemeIndex >= 0 ? 'positive' : 'grey-5'"
-                text-color="white"
-                :icon="selectedSchemeIndex >= 0 ? 'check_circle' : 'radio_button_unchecked'"
-              >
-                {{ learningStatus }}
-              </q-chip>
-            </div>
-          </q-card-section>
+          <!-- 加载状态 -->
+          <div v-if="loadingPackages" class="loading-container">
+            <q-spinner color="primary" size="40px" />
+            <div class="loading-text">正在加载学习方案...</div>
+          </div>
           
-          <!-- 评价区域 -->
-          <q-card-section class="rating-section">
-            <div class="rating-container">
-              <div class="rating-item">
-                <div class="rating-label">
-                  <q-icon name="star" size="20px" color="amber" />
-                  <span>评价</span>
-                </div>
-                <q-rating
-                  v-model="rating"
-                  max="5"
-                  size="2em"
-                  color="amber"
-                  icon="star"
-                  @update:model-value="setRating"
-                />
-              </div>
-              
-              <div class="rating-item">
-                <div class="rating-label">
-                  <q-icon name="trending_up" size="20px" color="blue" />
-                  <span>难度</span>
-                </div>
-                <q-rating
-                  v-model="difficulty"
-                  max="5"
-                  size="2em"
-                  color="blue"
-                  icon="star"
-                  @update:model-value="setDifficulty"
-                />
-              </div>
-            </div>
-          </q-card-section>
-
-          <!-- 教学内容描述 -->
-          <q-card-section class="content-description">
-            <div class="description-text">
-              {{ currentScheme?.description || '请选择学习方案查看详细内容' }}
-            </div>
-          </q-card-section>
-        </q-card>
-
-        <!-- 套餐资源卡片 -->
-        <q-card class="resources-card" elevation="2">
-          <q-card-section class="card-header">
-            <div class="card-title">
-              <q-icon name="folder" size="24px" class="title-icon" />
-              <span>套餐资源</span>
-            </div>
-          </q-card-section>
-          
-          <q-card-section class="card-content">
-            <!-- 无方案选择状态 -->
-            <div v-if="!currentScheme" class="empty-resources">
-              <q-icon name="folder_open" size="48px" color="grey-5" />
-              <div class="empty-text">请先选择学习方案</div>
-              <div class="empty-desc">选择学习方案后即可查看相关资源</div>
-            </div>
-            
-            <!-- 资源文件列表 -->
-            <div v-else-if="currentResources.length > 0" class="resources-grid">
-              <q-card 
-                v-for="(resource, index) in currentResources" 
-                :key="resource.id"
-                flat
-                bordered
-                :class="['resource-item', { 'resource-selected': selectedResourceIndex === index }]"
-                @click="selectResource(index)"
-                class="resource-card"
-              >
-                <q-card-section class="resource-content">
-                  <div class="resource-icon">
+          <!-- 学习方案列表 -->
+          <div v-else-if="filteredLearningPackages.length > 0" class="scheme-list">
+            <div 
+              v-for="(scheme, index) in filteredLearningPackages" 
+              :key="scheme.id"
+              :class="['scheme-item', { 'scheme-selected': selectedSchemeIndex === index }]"
+              @click="selectScheme(index)"
+            >
+              <div class="scheme-header">
+                <span class="scheme-name">方案{{ index + 1 }}</span>
+                <div class="difficulty-rating">
+                  <span class="difficulty-label">难度</span>
+                  <div class="stars">
                     <q-icon 
-                      :name="getResourceIcon(resource.fileName)" 
-                      size="40px" 
-                      :color="selectedResourceIndex === index ? 'primary' : 'grey-6'"
+                      v-for="star in 5" 
+                      :key="star"
+                      name="star" 
+                      size="18px" 
+                      :color="star <= 3 ? '#ffc107' : '#e0e0e0'"
                     />
                   </div>
-                  <div class="resource-info">
-                    <div class="resource-name">{{ resource.fileName }}</div>
-                    <div class="resource-type">{{ getResourceType(resource.fileName) }}</div>
-                    <div class="resource-size">{{ formatFileSize(resource.size) }}</div>
-                  </div>
-                  <div v-if="selectedResourceIndex === index" class="resource-check">
-                    <q-icon name="check_circle" color="primary" size="20px" />
-                  </div>
-                </q-card-section>
-              </q-card>
+                </div>
+              </div>
             </div>
-            
-            <!-- 无资源状态 -->
-            <div v-else class="empty-resources">
-              <q-icon name="folder_open" size="48px" color="grey-5" />
-              <div class="empty-text">该方案暂无资源文件</div>
-              <div class="empty-desc">请联系管理员添加学习资源</div>
-            </div>
-          </q-card-section>
-        </q-card>
+          </div>
+          
+          <!-- 无数据状态 -->
+          <div v-else class="empty-state">
+            <q-icon name="school" size="48px" color="grey-5" />
+            <div class="empty-text">该章节暂无学习方案</div>
+          </div>
+        </div>
+      </div>
 
-        <!-- 操作按钮 -->
-        <div class="action-section">
-          <q-btn 
-            class="learning-btn"
-            color="primary"
-            size="lg"
-            @click="startLearning"
-            :disable="!canStartLearning"
-            :loading="isLoading"
-            icon="play_arrow"
-            label="开始学习"
-            no-caps
-            rounded
-          />
+      <!-- 右侧：学习资源列表 -->
+      <div class="right-panel">
+        <div class="resources-section">
+          <!-- 无方案选择状态 -->
+          <div v-if="selectedSchemeIndex < 0" class="empty-resources">
+            <q-icon name="folder_open" size="48px" color="grey-5" />
+            <div class="empty-text">请先选择学习方案</div>
+          </div>
+          
+          <!-- 资源文件列表 -->
+          <div v-else-if="currentResources.length > 0" class="resources-list">
+            <div 
+              v-for="(resource, index) in currentResources" 
+              :key="resource.id"
+              class="resource-item"
+              tabindex="0"
+              @click="selectResource(index)"
+              @focus="handleResourceFocus(index)"
+              @keydown.enter="selectResource(index)"
+            >
+              <div class="resource-thumbnail">
+                <!-- 如果有缩略图则显示缩略图，否则显示图标 -->
+                <img 
+                  v-if="resource.thumbnail" 
+                  :src="resource.thumbnail" 
+                  :alt="resource.fileName"
+                  class="thumbnail-image"
+                />
+                <q-icon 
+                  v-else
+                  :name="getResourceIcon(resource.fileName)" 
+                  size="50px" 
+                  color="grey-6"
+                />
+              </div>
+              <div class="resource-info">
+                <div class="resource-title">{{ resource.fileName }}</div>
+                <div class="resource-size">{{ formatFileSize(resource.size) }}</div>
+              </div>
+              <div class="resource-action">
+                <q-btn 
+                  size="xl"
+                  label="去学习"
+                  @click.stop="startLearning(resource)"
+                  no-caps
+                  rounded
+                  class="learning-btn"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <!-- 无资源状态 -->
+          <div v-else class="empty-resources">
+            <q-icon name="folder_open" size="48px" color="grey-5" />
+            <div class="empty-text">该方案暂无资源文件</div>
+          </div>
         </div>
       </div>
     </div>
@@ -239,28 +124,47 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { apiService } from '../services/api-service'
-import type { LearningPackage } from '../types'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { resourceManager } from '../services/resource-manager'
+import type { LearningPackage, ResourceFile, LocalFileInfo } from '../types'
+
+// Props 定义
+interface Props {
+  nodeId?: string
+  sectionName?: string
+  level?: number
+  textbookId?: string
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  nodeId: '',
+  sectionName: '学习内容',
+  level: 1,
+  textbookId: ''
+})
+
+// Emits 定义
+const emit = defineEmits<{
+  close: []
+}>()
 
 // 路由
 const router = useRouter()
-const route = useRoute()
 
 // 响应式数据
-const sectionName = ref('')
-const sectionId = ref('')
-const id = ref('')
+const sectionName = ref(props.sectionName)
+const sectionId = ref(props.nodeId)
+const id = ref(props.textbookId)
 const selectedSchemeIndex = ref(-1)
 const selectedResourceIndex = ref(-1)
-const rating = ref(0)
-const difficulty = ref(0)
 const isLoading = ref(false)
 const loadingPackages = ref(false)
 
 // 学习方案数据 - 从API获取
 const learningPackages = ref<LearningPackage[]>([])
+// 本地文件信息 - 用于获取缩略图
+const localFiles = ref<LocalFileInfo[]>([])
 
 // 计算属性
 // 根据章节ID筛选学习方案（与安卓原生保持一致）
@@ -283,28 +187,23 @@ const currentScheme = computed(() => {
   return null
 })
 
-const learningStatus = computed(() => {
-  if (selectedSchemeIndex.value >= 0) {
-    return '已选择'
-  }
-  return '未选择'
-})
-
-const canStartLearning = computed(() => {
-  return selectedSchemeIndex.value >= 0 && selectedResourceIndex.value >= 0
-})
-
-// 获取当前方案的所有资源文件
+// 获取当前方案的所有资源文件（带缩略图信息）
 const currentResources = computed(() => {
   if (!currentScheme.value) return []
-  return currentScheme.value.resourceList || []
+  
+  const resources = currentScheme.value.resourceList || []
+  
+  // 为每个资源添加缩略图信息
+  return resources.map(resource => {
+    const localFile = localFiles.value.find(file => file.id === resource.id)
+    return {
+      ...resource,
+      thumbnail: localFile?.thumbnail
+    }
+  })
 })
 
 // 方法
-const goBack = () => {
-  router.back()
-}
-
 const selectScheme = (index: number) => {
   selectedSchemeIndex.value = index
   // 重置资源选择
@@ -315,12 +214,9 @@ const selectResource = (index: number) => {
   selectedResourceIndex.value = index
 }
 
-const setRating = (value: number) => {
-  rating.value = value
-}
-
-const setDifficulty = (value: number) => {
-  difficulty.value = value
+// 处理资源项获得焦点
+const handleResourceFocus = (index: number) => {
+  selectedResourceIndex.value = index
 }
 
 const getResourceIcon = (fileName: string) => {
@@ -345,28 +241,6 @@ const getResourceIcon = (fileName: string) => {
   return iconMap[extension || ''] || 'folder'
 }
 
-const getResourceType = (fileName: string) => {
-  const extension = fileName.split('.').pop()?.toLowerCase()
-  const typeMap: Record<string, string> = {
-    pdf: 'PDF文档',
-    doc: 'Word文档',
-    docx: 'Word文档',
-    txt: '文本文件',
-    jpg: '图片文件',
-    jpeg: '图片文件',
-    png: '图片文件',
-    gif: '图片文件',
-    mp4: '视频文件',
-    avi: '视频文件',
-    mov: '视频文件',
-    mp3: '音频文件',
-    wav: '音频文件',
-    zip: '压缩文件',
-    rar: '压缩文件'
-  }
-  return typeMap[extension || ''] || '未知文件'
-}
-
 const formatFileSize = (bytes: number) => {
   if (bytes === 0) return '0 B'
   const k = 1024
@@ -375,8 +249,9 @@ const formatFileSize = (bytes: number) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-const startLearning = async () => {
-  if (!canStartLearning.value) {
+const startLearning = async (resource: ResourceFile) => {
+  if (!currentScheme.value) {
+    console.error('没有选中的学习方案')
     return
   }
   
@@ -384,25 +259,24 @@ const startLearning = async () => {
   
   try {
     const selectedScheme = currentScheme.value
-    const selectedResource = currentResources.value[selectedResourceIndex.value]
     
-    if (!selectedScheme || !selectedResource) {
-      console.error('选中的学习方案或资源为空')
-      return
-    }
+    // 关闭对话框，让父组件处理后续的路由跳转
+    emit('close')
     
-    // 跳转到PDF查看器
-    router.push({
-      name: 'pdfViewer',
-      query: {
-        id: id.value,
-        textbookName: sectionName.value,
-        resourceId: selectedResource.id,
-        fileName: selectedResource.fileName,
-        packageId: selectedScheme.id,
-        packageName: selectedScheme.packageName
-      }
-    })
+    // 延迟执行路由跳转，确保对话框关闭动画完成
+    setTimeout(() => {
+      router.push({
+        name: 'pdfViewer',
+        query: {
+          id: id.value,
+          textbookName: sectionName.value,
+          resourceId: resource.id,
+          fileName: resource.fileName,
+          packageId: selectedScheme.id,
+          packageName: selectedScheme.packageName
+        }
+      })
+    }, 300)
   } catch (error) {
     console.error('开始学习失败:', error)
   } finally {
@@ -419,34 +293,31 @@ const loadLearningPackages = async () => {
   loadingPackages.value = true
   
   try {
-    // 首先尝试从缓存加载
-    const packages = await apiService.getLearningResources(id.value, true)
-    learningPackages.value = packages
+    // 直接从IndexedDB获取教材信息，包含学习包数据
+    const textbook = await resourceManager.getTextbookInfoById(id.value)
+    
+    if (textbook && textbook.learningPackages) {
+      // 使用本地存储的学习包数据
+      learningPackages.value = textbook.learningPackages
+      
+      // 同时加载本地文件信息（用于获取缩略图）
+      if (textbook.localFiles) {
+        localFiles.value = textbook.localFiles
+      }
+      
+      // 自动选择第一个方案
+      if (textbook.learningPackages.length > 0) {
+        selectedSchemeIndex.value = 0
+      }
+    } else {
+      // 如果没有本地数据，显示空状态
+      learningPackages.value = []
+      localFiles.value = []
+    }
   } catch (error) {
     console.error('加载学习包失败:', error)
     learningPackages.value = []
-  } finally {
-    loadingPackages.value = false
-  }
-}
-
-// 刷新学习包数据（强制从服务器获取）
-const refreshLearningPackages = async () => {
-  if (!id.value) {
-    return
-  }
-  
-  loadingPackages.value = true
-  
-  try {
-    // 强制从服务器获取最新数据
-    const packages = await apiService.getLearningResources(id.value, false)
-    learningPackages.value = packages
-    
-    // 重置选择状态
-    resetSelection()
-  } catch (error) {
-    console.error('刷新学习包失败:', error)
+    localFiles.value = []
   } finally {
     loadingPackages.value = false
   }
@@ -458,14 +329,25 @@ const resetSelection = () => {
   selectedResourceIndex.value = -1
 }
 
+// 监听 props 变化
+watch(() => props.nodeId, (newNodeId) => {
+  sectionId.value = newNodeId
+  resetSelection()
+  loadLearningPackages()
+})
+
+watch(() => props.sectionName, (newSectionName) => {
+  sectionName.value = newSectionName
+})
+
+watch(() => props.textbookId, (newTextbookId) => {
+  id.value = newTextbookId
+  resetSelection()
+  loadLearningPackages()
+})
+
 // 生命周期
 onMounted(async () => {
-  console.log('route.query', route.query)
-  // 从路由参数获取章节信息
-  sectionName.value = route.query.sectionName as string || '学习内容'
-  sectionId.value = route.query.nodeId as string || ''
-  id.value = route.query.id as string || ''
-  
   // 加载学习包数据
   await loadLearningPackages()
 })
@@ -502,58 +384,41 @@ $spacing-lg: 24px;
 $spacing-xl: 32px;
 
 .learning-content {
-  min-height: 100vh;
-  background-color: $background-color;
+  height: 100%;
+  max-height: 100%;
+  background-color: #1a094c;
   font-family: 'Roboto', 'Noto Sans', sans-serif;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-// Material Design App Bar
-.app-bar {
-  background-color: $primary-color;
-  color: white;
-  box-shadow: $elevation-2;
-  position: sticky;
-  top: 0;
-  z-index: 1000;
+// 对话框标题栏
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 32px 0;
+  border-radius: 12px 12px 0 0;
+  flex-shrink: 0;
   
-  .app-bar-content {
+  .dialog-title {
     display: flex;
     align-items: center;
-    padding: $spacing-md $spacing-lg;
-    max-width: 1200px;
-    margin: 0 auto;
+    font-size: 28px;
+    font-weight: 500;
+    color: #ffffff;
+  }
+  
+  .close-btn {
+    color: #ffffff;
+    width: 48px;
+    height: 48px;
+    font-size: 24px;
     
-    .back-button {
-      margin-right: $spacing-md;
-    }
-    
-    .app-bar-title {
-      flex: 1;
-      
-      .breadcrumb {
-        display: flex;
-        align-items: center;
-        gap: $spacing-sm;
-        
-        .breadcrumb-item {
-          font-size: 16px;
-          font-weight: 500;
-          opacity: 0.8;
-        }
-        
-        .breadcrumb-separator {
-          opacity: 0.6;
-        }
-        
-        .breadcrumb-current {
-          font-size: 16px;
-          font-weight: 500;
-          max-width: 300px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-      }
+    &:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.1);
     }
   }
 }
@@ -561,25 +426,51 @@ $spacing-xl: 32px;
 // 主要内容区域
 .main-content {
   display: flex;
-  gap: $spacing-lg;
-  padding: $spacing-lg;
-  max-width: 1200px;
-  margin: 0 auto;
-  min-height: calc(100vh - 80px);
+  gap: 32px;
+  padding: 0 32px;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  max-height: calc(100% - 80px); // 减去标题栏的高度
 }
 
 // 左侧面板
 .left-panel {
-  width: 35%;
-  min-width: 300px;
+  width: 300px;
+  flex-shrink: 0;
+  height: 100%;
+  max-height: 100%;
+  
+  .scheme-section {
+    height: 100%;
+    max-height: 100%;
+    background-color: #1a094c;
+    border-radius: 50px;
+    padding: 24px 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
 }
 
 // 右侧面板
 .right-panel {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-lg;
+  overflow: hidden;
+  min-width: 0;
+  height: 100%;
+  max-height: 100%;
+  
+  .resources-section {
+    height: 100%;
+    max-height: 100%;
+    background-color: #1a094c;
+    border-radius: 30px;
+    padding: 24px 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
 }
 
 // Material Design 卡片样式
@@ -608,7 +499,7 @@ $spacing-xl: 32px;
     align-items: center;
     gap: $spacing-sm;
     font-size: 18px;
-    font-weight: 500;
+    font-weight: 400;
     color: $secondary-color;
     
     .title-icon {
@@ -633,28 +524,56 @@ $spacing-xl: 32px;
 
 // 学习方案列表
 .scheme-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  
   .scheme-item {
-    border-radius: $border-radius-small;
-    margin-bottom: $spacing-xs;
-    transition: background-color 0.2s ease;
+    border-radius: 20px;
+    padding: 32px 36px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background-color: rgba(255, 255, 255, 0.05);
     
-    &:hover {
-      background-color: rgba(25, 118, 210, 0.04);
+    &.scheme-selected {
+      background-color: #312363;
+      box-shadow: 0 4px 12px rgba(49, 35, 99, 0.3);
     }
     
-    &.q-item--active {
-      background-color: rgba(25, 118, 210, 0.08);
-    }
-    
-    .scheme-name {
-      font-size: 16px;
-      font-weight: 500;
-      color: $secondary-color;
-    }
-    
-    .scheme-desc {
-      font-size: 14px;
-      color: rgba(0, 0, 0, 0.6);
+    .scheme-header {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      
+      .scheme-name {
+        font-size: 26px;
+        font-weight: 500;
+        color: #ffffff;
+        margin-bottom: 8px;
+      }
+      
+      .difficulty-rating {
+        display: flex;
+        align-items: center;
+        
+        .difficulty-label {
+          font-size: 20px;
+          color: #ffffff;
+          opacity: 0.8;
+          padding-right: 12px;
+        }
+        
+        .stars {
+          flex: 0.8;
+          display: flex;
+          align-items: center;
+          justify-content: space-around;
+          gap: 10px;
+        }
+      }
     }
   }
 }
@@ -663,7 +582,7 @@ $spacing-xl: 32px;
 .learning-status {
   .q-chip {
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 400;
   }
 }
 
@@ -685,7 +604,7 @@ $spacing-xl: 32px;
       align-items: center;
       gap: $spacing-sm;
       font-size: 16px;
-      font-weight: 500;
+      font-weight: 400;
       color: $secondary-color;
     }
   }
@@ -704,11 +623,81 @@ $spacing-xl: 32px;
   }
 }
 
-// 资源网格
-.resources-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: $spacing-md;
+// 资源列表
+.resources-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border-radius: 20px;
+  background-color: #312263;
+  
+  .resource-item {
+    display: flex;
+    align-items: center;
+    margin: 7px 24px 0;
+    padding: 20px 28px 20px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    outline: none;
+    
+    &:focus {
+      background-color: rgba(25, 118, 210, 0.1);
+    }
+    
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+    
+    .resource-thumbnail {
+      width: 120px;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      margin-right: 24px;
+      flex-shrink: 0;
+      overflow: hidden;
+      
+      .thumbnail-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 12px;
+      }
+    }
+    
+    .resource-info {
+      flex: 1;
+      min-width: 0;
+      
+      .resource-title {
+        font-size: 22px;
+        font-weight: 500;
+        color: #ffffff;
+        margin-bottom: 8px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      
+      .resource-size {
+        font-size: 18px;
+        color: #ffffff;
+        opacity: 0.7;
+      }
+    }
+    
+    .resource-action {
+      flex-shrink: 0;
+      margin-left: 24px;
+    }
+  }
 }
 
 // 加载状态样式
@@ -717,12 +706,12 @@ $spacing-xl: 32px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: $spacing-xl;
-  gap: $spacing-md;
+  padding: 40px 20px;
+  gap: 16px;
   
   .loading-text {
-    color: $secondary-color;
-    font-size: 14px;
+    color: #ffffff;
+    font-size: 19px;
   }
 }
 
@@ -732,178 +721,164 @@ $spacing-xl: 32px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: $spacing-xl;
-  gap: $spacing-md;
+  padding: 40px 20px;
+  gap: 16px;
   
   .empty-text {
-    color: $secondary-color;
-    font-size: 16px;
+    color: #ffffff;
+    font-size: 19px;
     font-weight: 500;
   }
+}
+
+// 学习按钮样式
+.learning-btn {
+  font-size: 18px ;
+  padding: 16px 32px ;
+  min-height: 52px ;
+  font-weight: 500 ;
+  border-radius: 8px ;
+  background-color: #6e55ff ;
+  color: #ffffff ;
+}
+
+// 响应式设计
+@media (max-width: 1200px) {
+  .learning-dialog-card {
+    width: 95vw;
+    height: 90vh;
+    min-width: 700px;
+    min-height: 500px;
+  }
   
-  .empty-desc {
-    color: $secondary-color;
-    font-size: 14px;
-    opacity: 0.7;
-    text-align: center;
+  .main-content {
+    gap: 24px;
+    padding: 24px;
+  }
+  
+  .left-panel {
+    width: 350px;
   }
 }
 
-// 资源卡片
-.resource-card {
-  border-radius: $border-radius-medium;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  
-  &:hover {
-    box-shadow: $elevation-3;
-    transform: translateY(-2px);
-  }
-  
-  &.resource-selected {
-    border: 2px solid $primary-color;
-    box-shadow: $elevation-3;
-  }
-  
-  .resource-content {
-    display: flex;
-    align-items: center;
-    gap: $spacing-md;
-    padding: $spacing-md;
-    
-    .resource-icon {
-      flex-shrink: 0;
-    }
-    
-    .resource-info {
-      flex: 1;
-      
-      .resource-name {
-        font-size: 16px;
-        font-weight: 500;
-        color: $secondary-color;
-        margin-bottom: $spacing-xs;
-      }
-      
-      .resource-type {
-        font-size: 14px;
-        color: rgba(0, 0, 0, 0.6);
-        text-transform: capitalize;
-        margin-bottom: $spacing-xs;
-      }
-      
-      .resource-size {
-        font-size: 12px;
-        color: rgba(0, 0, 0, 0.5);
-      }
-    }
-    
-    .resource-check {
-      flex-shrink: 0;
-    }
-  }
-}
-
-// 操作按钮区域
-.action-section {
-  display: flex;
-  justify-content: flex-end;
-  padding: $spacing-lg 0;
-  
-  .learning-btn {
-    min-width: 160px;
-    height: 48px;
-    font-size: 16px;
-    font-weight: 500;
-    border-radius: $border-radius-large;
-    box-shadow: $elevation-2;
-    transition: all 0.3s ease;
-    
-    &:hover:not(:disabled) {
-      box-shadow: $elevation-3;
-      transform: translateY(-1px);
-    }
-    
-    &:active:not(:disabled) {
-      transform: translateY(0);
-      box-shadow: $elevation-1;
-    }
-    
-    &:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-  }
-}
-
-// Material Design 响应式设计
 @media (max-width: 1024px) {
+  .learning-dialog-card {
+    width: 95vw;
+    height: 90vh;
+    min-width: 600px;
+    min-height: 500px;
+  }
+  
   .main-content {
     flex-direction: column;
-    gap: $spacing-md;
+    gap: 20px;
+    max-height: calc(100% - 80px);
   }
   
   .left-panel {
     width: 100%;
-    min-width: auto;
+    flex-shrink: 1;
+    height: 300px;
+    
+    .scheme-section {
+      height: 100%;
+    }
   }
   
-  .resources-grid {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  .right-panel {
+    height: 400px;
+    
+    .resources-section {
+      height: 100%;
+    }
   }
 }
 
 @media (max-width: 768px) {
+  .learning-dialog-card {
+    width: 95vw;
+    height: 95vh;
+    min-width: 400px;
+    min-height: 400px;
+  }
+  
   .main-content {
-    padding: $spacing-md;
+    padding: 16px;
+    gap: 16px;
   }
   
-  .app-bar-content {
-    padding: $spacing-md;
+  .left-panel .scheme-section,
+  .right-panel .resources-section {
+    padding: 16px;
   }
   
-  .card-header {
-    padding: $spacing-md;
+  .scheme-item {
+    padding: 20px 24px;
+    
+    .scheme-name {
+      font-size: 22px;
+    }
+    
+    .difficulty-label {
+      font-size: 18px;
+    }
   }
   
-  .card-content {
-    padding: $spacing-md;
-  }
-  
-  .resources-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: $spacing-sm;
-  }
-  
-  .resource-card .resource-content {
-    flex-direction: column;
-    text-align: center;
-    gap: $spacing-sm;
-  }
-  
-  .rating-container {
-    gap: $spacing-md;
-  }
-  
-  .rating-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: $spacing-sm;
+  .resource-item {
+    padding: 16px 20px;
+    
+    .resource-title {
+      font-size: 19px;
+    }
+    
+    .resource-size {
+      font-size: 15px;
+    }
+    
+    .resource-thumbnail {
+      width: 80px;
+      height: 80px;
+      margin-right: 16px;
+    }
   }
 }
 
 @media (max-width: 480px) {
-  .resources-grid {
-    grid-template-columns: 1fr;
+  .learning-dialog-card {
+    width: 95vw;
+    height: 95vh;
+    min-width: 300px;
+    min-height: 400px;
   }
   
-  .action-section {
-    justify-content: center;
+  .main-content {
+    padding: 12px;
+    gap: 12px;
   }
   
-  .learning-btn {
-    width: 100%;
-    max-width: 300px;
+  .left-panel .scheme-section,
+  .right-panel .resources-section {
+    padding: 12px;
+  }
+  
+  .scheme-item,
+  .resource-item {
+    padding: 12px 16px;
+  }
+  
+  .resource-item {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+    
+    .resource-thumbnail {
+      margin-right: 0;
+      margin-bottom: 8px;
+    }
+    
+    .resource-action {
+      margin-left: 0;
+    }
   }
 }
 

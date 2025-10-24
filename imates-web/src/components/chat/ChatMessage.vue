@@ -305,12 +305,16 @@ const handleRetry = async () => {
 }
 
 const avatarIcon = computed(() => {
-  return props.type === 'ai' ? 'smart_toy' : 'school'
+  if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
+    return 'smart_toy'
+  } else {
+    return 'school'
+  }
 })
 
-// 判断是否可以转发（仅在AI对话场景下可用）
+// 判断是否可以转发（仅在AI通用、AI题目和AI教材对话场景下可用）
 const canForward = computed(() => {
-  return props.type === 'ai'
+  return props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook'
 })
 
 // 判断是否为第一个消息（题目消息）
