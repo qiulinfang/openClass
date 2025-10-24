@@ -119,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue'
+import { onMounted, onBeforeUnmount, computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { resourceManager } from '@/services/resource-manager'
@@ -335,6 +335,11 @@ onMounted(async () => {
   } catch (err) {
     console.error('PDF 加载失败:', err)
   }
+})
+
+// 页面卸载前立即保存笔记
+onBeforeUnmount(async () => {
+  await store.flushSave()
 })
 </script>
 

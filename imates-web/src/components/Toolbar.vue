@@ -266,51 +266,52 @@
 
                     <!-- 圈选截图配置 -->
                     <div v-else-if="selectedTool === 'screenshot'" class="config-popup">
-                      <!-- 截图模式配置 -->
+                      <!-- 截图形状配置 -->
                       <div class="config-section">
                         <div class="section-header">
-                          <span class="section-title">截图模式</span>
+                          <span class="section-title">截图形状</span>
+                          <q-btn
+                            flat
+                            round
+                            dense
+                            size="sm"
+                            @click="resetScreenshotShape"
+                            class="reset-button"
+                          >
+                            <img src="/icons/reset.svg" alt="重置" class="reset-icon" />
+                          </q-btn>
                         </div>
                         <div class="section-content">
-                          <div class="mode-options">
-                            <div class="mode-option">
-                              <span class="mode-label">自定义形状</span>
-                              <q-toggle
-                                v-model="isCustomShape"
-                                color="primary"
-                                @update:model-value="updateScreenshotMode"
-                              />
-                            </div>
-                            <div class="mode-option">
-                              <span class="mode-label">矩形区域</span>
-                              <q-toggle
-                                v-model="isRectShape"
-                                color="primary"
-                                @update:model-value="updateScreenshotMode"
-                              />
+                          <div class="shape-options">
+                            <div
+                              v-for="shape in screenshotShapeOptions"
+                              :key="shape.value"
+                              :class="[
+                                'shape-option',
+                                { 'shape-selected': drawingConfig.screenshotShape === shape.value },
+                              ]"
+                              @click="updateDrawingConfig({ screenshotShape: shape.value })"
+                            >
+                              <q-icon :name="shape.icon" size="28px" />
+                              <span class="shape-label">{{ shape.label }}</span>
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      <!-- 截图操作按钮 -->
+                      <!-- 使用说明 -->
                       <div class="config-section">
                         <div class="section-content">
-                          <q-btn
-                            color="primary"
-                            label="开始截图"
-                            @click="startScreenshot"
-                            class="screenshot-btn"
-                            size="sm"
-                          />
-                          <q-btn
-                            color="grey"
-                            label="取消截图"
-                            @click="cancelScreenshot"
-                            class="cancel-btn"
-                            size="sm"
-                            flat
-                          />
+                          <div class="screenshot-tips">
+                            <div class="tip-item" v-if="drawingConfig.screenshotShape === 'rectangle'">
+                              <q-icon name="info" size="16px" color="primary" />
+                              <span class="tip-text">拖拽鼠标绘制矩形选区</span>
+                            </div>
+                            <div class="tip-item" v-else>
+                              <q-icon name="info" size="16px" color="primary" />
+                              <span class="tip-text">点击绘制多边形，双击完成</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -374,6 +375,7 @@ const drawingConfig = computed(() => store.drawingConfig)
 const toolOptions = computed(() => store.toolOptions)
 const highlighterColors = computed(() => store.highlighterColors)
 const penColors = computed(() => store.penColors)
+const screenshotShapeOptions = computed(() => store.screenshotShapeOptions)
 // const textColors = computed(() => store.textColors)
 // const textSizes = computed(() => store.textSizes)
 // const eraserModeOptions = computed(() => store.eraserModeOptions)
@@ -400,28 +402,6 @@ const eraserSizePresets = computed(() => [
 ])
 
 // 橡皮擦模式固定为整笔擦除模式（已移除像素擦除）
-
-// 截图模式状态
-const screenshotMode = ref('custom') // 默认自定义形状
-
-// 圈选截图模式状态
-const isCustomShape = computed({
-  get: () => screenshotMode.value === 'custom',
-  set: (value) => {
-    if (value) {
-      screenshotMode.value = 'custom'
-    }
-  },
-})
-
-const isRectShape = computed({
-  get: () => screenshotMode.value === 'rect',
-  set: (value) => {
-    if (value) {
-      screenshotMode.value = 'rect'
-    }
-  },
-})
 
 // 获取教材名称（从路由参数）
 // const textbookName = computed(() => {
@@ -475,6 +455,11 @@ const resetHighlighterColor = () => {
   })
 }
 
+// 重置截图形状
+const resetScreenshotShape = () => {
+  store.updateDrawingConfig({ screenshotShape: 'rectangle' })
+}
+
 
 // 整页删除
 const deleteEntirePage = () => {
@@ -482,26 +467,6 @@ const deleteEntirePage = () => {
   console.log('整页删除功能')
   // 可以通过事件向父组件发送删除信号
   emit('delete-entire-page')
-}
-
-// 更新截图模式
-const updateScreenshotMode = () => {
-  // 这个方法会在 toggle 的 update:model-value 事件中被调用
-  // 实际的模式更新已经在 computed 的 setter 中处理
-}
-
-// 开始截图
-const startScreenshot = () => {
-  console.log('开始截图，模式:', screenshotMode.value)
-  // 通过事件向父组件发送开始截图信号
-  emit('start-screenshot', screenshotMode.value)
-}
-
-// 取消截图
-const cancelScreenshot = () => {
-  console.log('取消截图')
-  // 通过事件向父组件发送取消截图信号
-  emit('cancel-screenshot')
 }
 
 const setSelectedTool = (tool: string) => {
@@ -1126,6 +1091,63 @@ onUnmounted(() => {
 
 .cancel-btn {
   width: 100%;
+}
+
+/* 截图形状选择样式 */
+.shape-options {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+
+.shape-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-color: rgba(25, 118, 210, 0.05);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+}
+
+.shape-option:hover {
+  background-color: rgba(25, 118, 210, 0.1);
+  transform: translateY(-2px);
+}
+
+.shape-option.shape-selected {
+  border-color: #1976d2;
+  background-color: rgba(25, 118, 210, 0.15);
+}
+
+.shape-label {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.87);
+  font-weight: 500;
+}
+
+/* 截图使用说明样式 */
+.screenshot-tips {
+  padding: 12px;
+  background-color: rgba(25, 118, 210, 0.05);
+  border-radius: 8px;
+  border-left: 3px solid #1976d2;
+}
+
+.tip-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tip-text {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.7);
+  line-height: 1.5;
 }
 
 /* 保留原有的通用样式 */

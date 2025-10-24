@@ -41,6 +41,61 @@ export class IndexedDBService {
   }
 
   /**
+   * 深度序列化对象，确保可以存储到IndexedDB
+   * 处理函数、日期、ArrayBuffer、Uint8Array、循环引用等不可克隆的数据
+   * @param obj 要序列化的对象
+   * @returns 序列化后的对象
+   */
+  public static deepSerialize<T = unknown>(obj: unknown): T {
+    // 处理基础类型和null/undefined
+    if (obj === null || obj === undefined) {
+      return obj as T
+    }
+    
+    // 排除函数
+    if (typeof obj === 'function') {
+      return undefined as T
+    }
+    
+    // 处理日期对象
+    if (obj instanceof Date) {
+      return obj.toISOString() as T
+    }
+    
+    // 处理ArrayBuffer - 转换为Uint8Array以便序列化
+    if (obj instanceof ArrayBuffer) {
+      return new Uint8Array(obj) as T
+    }
+    
+    // 处理Uint8Array - IndexedDB可以直接存储Uint8Array
+    if (obj instanceof Uint8Array) {
+      return obj as T
+    }
+    
+    // 处理数组
+    if (Array.isArray(obj)) {
+      return obj.map(item => IndexedDBService.deepSerialize(item)).filter(item => item !== undefined) as T
+    }
+    
+    // 处理对象
+    if (typeof obj === 'object') {
+      const serialized: Record<string, unknown> = {}
+      for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          const value = IndexedDBService.deepSerialize((obj as Record<string, unknown>)[key])
+          if (value !== undefined) {
+            serialized[key] = value
+          }
+        }
+      }
+      return serialized as T
+    }
+    
+    // 基础类型直接返回
+    return obj as T
+  }
+
+  /**
    * 获取或创建IndexedDB服务实例
    */
   public static getInstance(config: IndexedDBConfig): IndexedDBService {
@@ -129,14 +184,18 @@ export class IndexedDBService {
 
   /**
    * 添加数据
+   * @param autoSerialize 是否自动进行深度序列化（默认true）
    */
-  public async add<T>(storeName: string, data: T): Promise<void> {
+  public async add<T>(storeName: string, data: T, autoSerialize = true): Promise<void> {
     await this.ensureInitialized()
+    
+    // 自动序列化数据，确保可以存储到IndexedDB
+    const serializedData = autoSerialize ? IndexedDBService.deepSerialize<T>(data) : data
     
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([storeName], 'readwrite')
       const store = transaction.objectStore(storeName)
-      const request = store.add(data)
+      const request = store.add(serializedData)
 
       request.onsuccess = () => resolve()
       request.onerror = () => {
@@ -278,15 +337,19 @@ export class IndexedDBService {
 
   /**
    * 更新数据
+   * @param autoSerialize 是否自动进行深度序列化（默认true）
    * @returns Promise<boolean> 返回更新是否成功
    */
-  public async update<T>(storeName: string, data: T): Promise<boolean> {
+  public async update<T>(storeName: string, data: T, autoSerialize = true): Promise<boolean> {
     await this.ensureInitialized()
+    
+    // 自动序列化数据，确保可以存储到IndexedDB
+    const serializedData = autoSerialize ? IndexedDBService.deepSerialize<T>(data) : data
     
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([storeName], 'readwrite')
       const store = transaction.objectStore(storeName)
-      const request = store.put(data)
+      const request = store.put(serializedData)
 
       request.onsuccess = () => {
         resolve(true)
@@ -300,10 +363,11 @@ export class IndexedDBService {
 
   /**
    * 添加或更新数据（put方法的别名）
+   * @param autoSerialize 是否自动进行深度序列化（默认true）
    * @returns Promise<boolean> 返回操作是否成功
    */
-  public async put<T>(storeName: string, data: T): Promise<boolean> {
-    return this.update(storeName, data)
+  public async put<T>(storeName: string, data: T, autoSerialize = true): Promise<boolean> {
+    return this.update(storeName, data, autoSerialize)
   }
 
   /**

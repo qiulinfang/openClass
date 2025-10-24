@@ -35,6 +35,10 @@ interface DrawingConfig {
   penWidth: number
   eraserMode: string
   eraserSize: number
+  screenshotShape: string // 截图形状类型：'rectangle' | 'polygon'
+  screenshotStrokeColor: string // 截图选区边框颜色
+  screenshotFillColor: string // 截图选区填充颜色
+  screenshotStrokeWidth: number // 截图选区边框宽度
 }
 
 // 笔记数据类型
@@ -61,6 +65,9 @@ interface ColorOption {
   value: string
   color: string
 }
+
+// 防抖定时器（在 store 外部定义，避免被代理）
+let saveDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 // PDF查看器状态管理
 export const usePdfViewerStore = defineStore('pdfViewer', {
@@ -90,12 +97,19 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
       penColor: '#ff0000', // 红色（第一个选项）
       penWidth: 1.0, // 签字笔中等（新范围 0.3-3）
       eraserMode: 'stroke', // 橡皮擦默认为整笔擦除模式
-      eraserSize: 15 // 橡皮擦中等（新范围 5-30）
+      eraserSize: 15, // 橡皮擦中等（新范围 5-30）
+      screenshotShape: 'rectangle', // 截图形状：矩形
+      screenshotStrokeColor: '#ff0000', // 红色边框
+      screenshotFillColor: 'rgba(255, 0, 0, 0.1)', // 半透明红色填充
+      screenshotStrokeWidth: 2 // 边框宽度2px
     } as DrawingConfig,
     
     // 笔记状态
     notes: new Map<string, NoteData[]>(),
     error: null as string | null,
+    
+    // 自动保存状态
+    isSaving: false,
     
     // 工具选项
     toolOptions: [
@@ -138,6 +152,12 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
     // 橡皮模式选项（只保留整笔擦除）
     eraserModeOptions: [
       { label: '整笔擦除', value: 'stroke' }
+    ],
+    
+    // 截图形状选项
+    screenshotShapeOptions: [
+      { label: '矩形', value: 'rectangle', icon: 'crop_square' },
+      { label: '自由形状', value: 'polygon', icon: 'polyline' }
     ]
   }),
 
@@ -252,16 +272,17 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
     
     // 更新指定页面的笔记
     updateAnnotations(pageNum: number, fabricJson: object[]) {
+      // 1. 更新内存中的笔记数据
       if (fabricJson && fabricJson.length > 0) {
         this.allAnnotations[pageNum] = fabricJson
       } else {
         delete this.allAnnotations[pageNum]
       }
       
-      // 同时更新 notes Map（保持兼容性）
+      // 2. 同时更新 notes Map（保持兼容性）
       const pageId = `page-${pageNum}`
       if (fabricJson && fabricJson.length > 0) {
-        const noteData: NoteData[] = fabricJson.map((obj, index) => ({
+        const noteData: NoteData[] = fabricJson.map((obj: object, index: number) => ({
           id: `${pageId}-${index}`,
           pageId,
           type: 'fabric',
@@ -274,6 +295,57 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
       } else {
         this.notes.delete(pageId)
       }
+      
+      // 3. 触发防抖自动保存
+      this.debouncedSave()
+    },
+    
+    // 防抖保存笔记到 IndexedDB
+    debouncedSave() {
+      // 清除之前的定时器
+      if (saveDebounceTimer) {
+        clearTimeout(saveDebounceTimer)
+        saveDebounceTimer = null
+      }
+      
+      // 设置新的定时器（2秒后保存）
+      saveDebounceTimer = setTimeout(async () => {
+        await this.autoSaveAnnotations()
+      }, 2000)
+    },
+    
+    // 自动保存笔记到 IndexedDB
+    async autoSaveAnnotations() {
+      // 如果没有文件信息，跳过保存
+      if (!this.currentFileId || !this.currentResourceId) {
+        return
+      }
+      
+      // 如果正在保存，跳过
+      if (this.isSaving) {
+        return
+      }
+      
+      try {
+        this.isSaving = true
+        await this.saveAnnotationsToLocalFile()
+      } catch (error) {
+        console.error('自动保存笔记失败:', error)
+      } finally {
+        this.isSaving = false
+      }
+    },
+    
+    // 立即保存笔记（用于组件卸载等场景）
+    async flushSave() {
+      // 清除防抖定时器
+      if (saveDebounceTimer) {
+        clearTimeout(saveDebounceTimer)
+        saveDebounceTimer = null
+      }
+      
+      // 立即保存
+      await this.autoSaveAnnotations()
     },
     
     // 保存项目（将笔记保存到localFiles）
@@ -327,22 +399,27 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
       }
       
       try {
-        // 获取教材信息
+        // 1. 获取教材信息
         const textbook = await resourceManager.indexedDB.get('textbooks', this.currentFileId) as UserTextbookInfo
         if (!textbook || !textbook.localFiles) {
           throw new Error('教材信息不存在')
         }
         
-        // 查找对应的本地文件
+        // 2. 查找对应的本地文件
         const localFileIndex = textbook.localFiles.findIndex((file: LocalFileInfo) => file.id === this.currentResourceId)
         if (localFileIndex === -1) {
           throw new Error('本地文件不存在')
         }
         
-        // 更新注释数据
-        textbook.localFiles[localFileIndex].annotations = this.allAnnotations
-        
-        // 保存到IndexedDB
+        // 3. 移除Vue响应式代理
+        const rawAnnotations = toRaw(this.allAnnotations)
+        console.log('rawAnnotations', rawAnnotations)
+        console.log('localFileIndex', localFileIndex)
+        // 4. 更新注释数据
+        textbook.localFiles[localFileIndex].annotations = rawAnnotations
+        console.log('textbook.localFiles[localFileIndex].annotations', textbook.localFiles[localFileIndex].annotations)
+        console.log('textbook', textbook)
+        // 5. 保存到IndexedDB（IndexedDB会自动进行深度序列化）
         await resourceManager.indexedDB.put('textbooks', textbook)
         
         console.log('笔记数据已保存到localFiles')

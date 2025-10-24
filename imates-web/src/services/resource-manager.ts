@@ -68,14 +68,10 @@ export class ResourceManager {
         const updatePromises: Promise<boolean>[] = []
         
         for (const [, textbook] of this.pendingUpdates) {
-          // 立即刷新教材信息到IndexedDB
+          // 立即刷新教材信息到IndexedDB（自动序列化）
           updatePromises.push((async () => {
             try {
-              // 使用深度序列化方法创建可存储到IndexedDB的数据
-              const serializableTextbook = this.deepSerialize(textbook)
-              
-              // 更新到IndexedDB
-              return await this.indexedDBInstance.update('textbooks', serializableTextbook)
+              return await this.indexedDBInstance.update('textbooks', textbook)
             } catch {
               return false
             }
@@ -179,53 +175,6 @@ export class ResourceManager {
 
 
 
-  /**
-   * 深度序列化对象，确保可以存储到IndexedDB
-   * @param obj 要序列化的对象
-   * @returns 序列化后的对象
-   */
-  private deepSerialize(obj: unknown): unknown {
-    if (obj === null || obj === undefined) {
-      return obj
-    }
-    
-    if (typeof obj === 'function') {
-      return undefined // 排除函数
-    }
-    
-    if (obj instanceof Date) {
-      return obj.toISOString()
-    }
-    
-    // 处理ArrayBuffer - 转换为Uint8Array以便序列化
-    if (obj instanceof ArrayBuffer) {
-      return new Uint8Array(obj)
-    }
-    
-    // 处理Uint8Array - IndexedDB可以直接存储Uint8Array，无需特殊处理
-    if (obj instanceof Uint8Array) {
-      return obj
-    }
-    
-    if (Array.isArray(obj)) {
-      return obj.map(item => this.deepSerialize(item)).filter(item => item !== undefined)
-    }
-    
-    if (typeof obj === 'object') {
-      const serialized: Record<string, unknown> = {}
-      for (const key in obj) {
-        if (obj.hasOwnProperty(key)) {
-          const value = this.deepSerialize((obj as Record<string, unknown>)[key])
-          if (value !== undefined) {
-            serialized[key] = value
-          }
-        }
-      }
-      return serialized
-    }
-    
-    return obj
-  }
 
   /**
    * 更新教材信息到IndexedDB
@@ -250,14 +199,9 @@ export class ResourceManager {
         Object.assign(textbook, updates)
       }
       
-      // 立即更新到IndexedDB
+      // 立即更新到IndexedDB（自动序列化）
       try {
-        // 使用深度序列化方法创建可存储到IndexedDB的数据
-        const serializableTextbook = this.deepSerialize(textbook)
-        
-        // 更新到IndexedDB
-        const result = await this.indexedDBInstance.update('textbooks', serializableTextbook)
-        
+        const result = await this.indexedDBInstance.update('textbooks', textbook)
         return result
       } catch {
         return false
@@ -283,15 +227,10 @@ export class ResourceManager {
       const updatePromises: Promise<boolean>[] = []
       
       for (const [, textbook] of this.pendingUpdates) {
-        // 立即刷新教材信息到IndexedDB
+        // 立即刷新教材信息到IndexedDB（自动序列化）
         updatePromises.push((async () => {
           try {
-            // 使用深度序列化方法创建可存储到IndexedDB的数据
-            const serializableTextbook = this.deepSerialize(textbook)
-            
-            // 更新到IndexedDB
-            const result = await this.indexedDBInstance.update('textbooks', serializableTextbook)
-            
+            const result = await this.indexedDBInstance.update('textbooks', textbook)
             return result
           } catch {
             return false
