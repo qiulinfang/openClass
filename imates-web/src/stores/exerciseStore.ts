@@ -537,22 +537,58 @@ export const useExerciseStore = defineStore('exercise', () => {
    * @returns AI聊天消息对象
    */
   const buildAiMessage = (content: string, chatRole: string, imageData?: { filePath: string, base64DataUrl?: string }): AiChatMessageRequest => {
+      // 流程：判断是否为图片消息
     const isImageMessage = imageData && imageData.base64DataUrl
     
-    return {
-      sessionId: currentQuestion.value?.id || '',
-      newValue: '1',
-      coversation: content,
-      question: isImageMessage 
-        ? `<img src="${imageData.base64DataUrl}" />`
-        : (currentQuestion.value?.question || currentQuestion.value?.title || ''),
-      answer: currentQuestion.value?.answer || '',
-      name: userInfo.value?.userName || 'User',
-      reason: 'start',
-      bmNo: currentQuestion.value?.bmNo || currentQuestion.value?.id || '',
-      isWebSearch: enableWebSearch.value ? '1' : '0',
-      chatRole: chatRole,
-      dstUrl: isImageMessage ? '/permission/previewPictureQA' : undefined,
+    // 流程：根据消息类型构建不同的请求参数（与安卓原生保持一致）
+    if (isImageMessage) {
+      const contextPrompt = currentQuestion.value?.title || '教材内容截图'
+      const sessionId = `textbook-session-${Date.now()}`
+      
+      const message = {
+        sessionId,
+        newValue: '1',
+        coversation: content, // 用户输入的问题文本
+        question: imageData.base64DataUrl || '', // 图片Base64（与安卓保持HTML格式一致）
+        answer: contextPrompt, // 上下文提示（章节名称）
+        name: userInfo.value?.userName || 'User',
+        reason: 'start',
+        bmNo: currentQuestion.value?.bmNo || '',
+        isWebSearch: enableWebSearch.value ? '1' : '0',
+        chatRole: chatRole,
+        dstUrl: '/permission/previewPictureQA', // 截图问答专用接口
+      }
+      
+      // 流程：打印调试信息
+      console.log('[buildAiMessage] 📦 构建图片消息:', {
+        sessionId: message.sessionId,
+        coversation: message.coversation || '(空)',
+        questionLength: message.question.length,
+        questionPrefix: message.question.substring(0, 50),
+        answer: message.answer,
+        dstUrl: message.dstUrl
+      })
+      
+      return message
+    } else {
+      // 流程：普通文本消息 - 保持原有逻辑
+      const sessionId = currentQuestion.value?.id || `textbook-session-${Date.now()}`
+      const question = currentQuestion.value?.question || currentQuestion.value?.title || '教材内容'
+      const bmNo = currentQuestion.value?.bmNo || currentQuestion.value?.id || sessionId
+      
+      return {
+        sessionId,
+        newValue: '1',
+        coversation: content,
+        question,
+        answer: currentQuestion.value?.answer || '',
+        name: userInfo.value?.userName || 'User',
+        reason: 'start',
+        bmNo,
+        isWebSearch: enableWebSearch.value ? '1' : '0',
+        chatRole: chatRole,
+        dstUrl: undefined,
+      }
     }
   }
 
@@ -564,14 +600,16 @@ export const useExerciseStore = defineStore('exercise', () => {
    * @returns 用户消息对象
    */
   const createUserMessage = (content: string, imageData?: { filePath: string, base64DataUrl?: string }, hidePrefix: boolean = false): ChatBubble => {
+    // 流程：判断是否为图片消息
     const isImageMessage = imageData && imageData.base64DataUrl
     
-    // 处理显示内容：如果需要隐藏前缀，则去掉"我们开始吧"及后面的逗号
+    // 流程：处理显示内容 - 如果需要隐藏前缀，则去掉"我们开始吧"及后面的逗号
     let displayContent = content
     if (hidePrefix && content.startsWith('我们开始吧')) {
       displayContent = content.replace(/^我们开始吧[，,]\s*/, '')
     }
 
+    // 流程：创建并返回用户消息对象
     return {
       id: Date.now().toString(),
       content: isImageMessage ? '' : displayContent,
@@ -580,7 +618,7 @@ export const useExerciseStore = defineStore('exercise', () => {
       timestamp: new Date().toISOString(),
       messageType: isImageMessage ? 'image' : 'text',
       imageData: isImageMessage ? {
-        filePath: imageData.filePath,
+        filePath: imageData.base64DataUrl || imageData.filePath, // 使用base64DataUrl作为显示路径，这样ImageMessage组件可以直接显示
         width: 0,
         height: 0,
         fileSize: 0
@@ -946,8 +984,8 @@ export const useExerciseStore = defineStore('exercise', () => {
    */
   const sendChatMessage = async (content: string, type: 'ai' | 'teacher' = 'ai', chatRole: string = 'mate', imageData?: { filePath: string, base64DataUrl?: string }, hidePrefix: boolean = false, aiType?: string) => {
     try {
-      // 步骤1: 验证当前题目是否存在
-      if (!currentQuestion.value) {
+      // 步骤1: 验证当前题目是否存在（ai-textbook模式下可以没有题目）
+      if (!currentQuestion.value && aiType !== 'ai-textbook') {
         throw new Error('请先选择一道题目')
       }
 

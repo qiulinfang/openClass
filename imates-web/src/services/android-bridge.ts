@@ -1001,7 +1001,31 @@ export class AndroidBridge {
       if (window.AndroidBridge?.joinClassroom) {
         const result = window.AndroidBridge.joinClassroom(studentId, studentName, isGuest)
         console.log('🔍 AndroidBridge加入课堂 - 原生方法返回', result)
-        return this.parseJSON<boolean>(result, false)
+        
+        // 流程：解析原生返回的JSON对象（包含success、message、data字段）
+        const response = this.parseJSON<{ success: boolean, message: string, data?: string }>(result, { 
+          success: false, 
+          message: '解析失败' 
+        })
+        
+        console.log('🔍 AndroidBridge加入课堂 - 解析结果', {
+          success: response.success,
+          message: response.message,
+          hasData: !!response.data
+        })
+        
+        // 流程：如果data字段是字符串形式的JSON，进行二次解析（可选）
+        if (response.success && response.data && typeof response.data === 'string') {
+          try {
+            const dataObj = JSON.parse(response.data)
+            console.log('🔍 AndroidBridge加入课堂 - data字段解析', dataObj)
+          } catch (e) {
+            // data字段解析失败不影响整体成功状态
+            this.safeWarn('data字段JSON解析失败，但不影响加入课堂结果', e)
+          }
+        }
+        
+        return response.success
       }
       
       console.log('🔍 AndroidBridge加入课堂 - AndroidBridge不可用')
@@ -1023,7 +1047,20 @@ export class AndroidBridge {
       if (window.AndroidBridge?.exitClassroom) {
         const result = window.AndroidBridge.exitClassroom()
         console.log('🔍 AndroidBridge退出课堂 - 原生方法返回', result)
-        return this.parseJSON<boolean>(result, false)
+        
+        // 流程：解析原生返回的JSON对象（包含success、message、data字段）
+        const response = this.parseJSON<{ success: boolean, message: string, data?: string }>(result, { 
+          success: false, 
+          message: '解析失败' 
+        })
+        
+        console.log('🔍 AndroidBridge退出课堂 - 解析结果', {
+          success: response.success,
+          message: response.message,
+          hasData: !!response.data
+        })
+        
+        return response.success
       }
       
       console.log('🔍 AndroidBridge退出课堂 - AndroidBridge不可用')

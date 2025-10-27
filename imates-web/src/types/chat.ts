@@ -158,3 +158,13 @@ export interface ActiveMode {
   icon: string
   color: string
 }
+
+// ========== 问题记录相关类型 ==========
+
+/** 问题记录接口 */
+export interface QuestionRecord {
+  id: string
+  question: string
+  answer?: string
+  timestamp: number
+}

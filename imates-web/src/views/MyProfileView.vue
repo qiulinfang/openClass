@@ -147,15 +147,80 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <!-- 学科选择对话框 -->
+    <q-dialog v-model="showSubjectDialog">
+      <q-card class="dialog-card subject-dialog">
+        <q-card-section class="dialog-header">
+          <div class="text-h6">选择学科</div>
+        </q-card-section>
+        <q-card-section class="dialog-content">
+          <p class="subject-tip">请选择您要咨询的学科老师</p>
+          <div class="subject-buttons">
+            <q-btn
+              unelevated
+              color="primary"
+              label="生物老师"
+              icon="science"
+              class="subject-btn"
+              @click="selectSubject('biology')"
+            />
+            <q-btn
+              unelevated
+              color="secondary"
+              label="数学老师"
+              icon="calculate"
+              class="subject-btn"
+              @click="selectSubject('math')"
+            />
+          </div>
+        </q-card-section>
+        <q-card-actions align="right" class="dialog-actions">
+          <q-btn flat label="取消" @click="showSubjectDialog = false" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <!-- 教师对话全屏对话框 -->
+    <q-dialog 
+      v-model="showTeacherChatDialog" 
+      maximized 
+      transition-show="slide-up" 
+      transition-hide="slide-down"
+    >
+      <q-card class="teacher-chat-card-dialog">
+        <!-- 对话框头部 -->
+        <q-toolbar class="teacher-chat-toolbar">
+          <q-btn flat round dense icon="arrow_back" @click="closeTeacherChat" />
+          <q-toolbar-title>
+            <div class="toolbar-title-content">
+              <q-icon :name="selectedSubject === 'biology' ? 'science' : 'calculate'" size="24px" class="q-mr-sm" />
+              <span>{{ selectedSubject === 'biology' ? '生物' : '数学' }}老师答疑</span>
+            </div>
+          </q-toolbar-title>
+        </q-toolbar>
+
+        <!-- ChatView组件 -->
+        <q-card-section class="teacher-chat-content q-pa-none">
+          <ChatView 
+            v-if="teacherSessionId"
+            type="teacher"
+            :key="teacherSessionId"
+            @scroll-to-bottom="handleScrollToBottom"
+          />
+        </q-card-section>
+      </q-card>
+    </q-dialog>
   </q-layout>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiService } from '@/services/api-service'
 import { useQuasar } from 'quasar'
 import { androidBridge } from '@/services/android-bridge'
+import ChatView from '@/components/ChatView.vue'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 
 const router = useRouter()
@@ -170,6 +235,12 @@ const isInClass = ref(false)
 const appVersion = ref('1.0.0')
 const showLogoutDialog = ref(false)
 const showJoinClassDialog = ref(false)
+
+// 教师对话相关状态
+const showSubjectDialog = ref(false)
+const showTeacherChatDialog = ref(false)
+const selectedSubject = ref<'biology' | 'math'>('biology')
+const teacherSessionId = ref<string>('')
 
 // 初始化
 onMounted(() => {
@@ -198,6 +269,14 @@ onMounted(() => {
       isInClass.value = inClass
     }
   })
+})
+
+// 组件卸载时清理
+onUnmounted(() => {
+  // 流程：清理教师消息监听器
+  if (teacherSessionId.value) {
+    androidBridge.cleanupTeacherMessageListener()
+  }
 })
 
 // 加载用户信息
@@ -262,6 +341,7 @@ const confirmJoinClass = () => {
 
   // 流程：调用原生加入课堂 -> 成功则更新状态
   const ok = androidBridge.joinClassroom(studentId, studentName, isGuest)
+  console.log('joinClassroom', ok)
   if (ok) {
     isInClass.value = true
     $q.notify({ type: 'positive', message: '已加入课堂', position: 'top' })
@@ -272,37 +352,114 @@ const confirmJoinClass = () => {
 
 // 与老师对话
 const chatWithTeacher = () => {
-  // 这里可以调用Android Bridge或跳转到聊天页面
-  $q.notify({
-    type: 'info',
-    message: '正在打开与老师的对话...',
-    position: 'top'
-  })
-  
-  // 模拟调用Android Bridge - 使用现有的方法
-  if (typeof window !== 'undefined' && window.AndroidBridge?.sendMessageToTeacher) {
-    const messageData = {
-      content: '开始与老师对话',
-      type: 'user',
-      chatRole: 'student'
+  // 流程：点击卡片 -> 显示学科选择对话框
+  showSubjectDialog.value = true
+}
+
+// 选择学科
+const selectSubject = async (subject: 'biology' | 'math') => {
+  // 流程：关闭学科选择对话框 -> 保存选择的学科 -> 创建教师会话 -> 打开对话界面
+  showSubjectDialog.value = false
+  selectedSubject.value = subject
+
+  try {
+    // 流程：显示加载提示
+    $q.loading.show({ message: '正在创建教师会话...' })
+
+    // 流程：生成会话ID和名称（基于当前时间戳）
+    const timestamp = Date.now()
+    const aiSessionId = `teacher-chat-${timestamp}`
+    const aiSessionName = `${subject === 'biology' ? '生物' : '数学'}老师答疑 - ${new Date().toLocaleString()}`
+
+    // 流程：调用Android Bridge创建教师会话
+    const result = androidBridge.createTeacherChatSession(aiSessionId, aiSessionName, subject)
+
+    if (result && result.sessionId) {
+      // 流程：创建成功 -> 保存会话ID -> 初始化消息监听 -> 打开对话框
+      teacherSessionId.value = result.sessionId
+      
+      // 流程：初始化教师消息监听器
+      androidBridge.initTeacherMessageListener()
+
+      // 流程：打开教师对话Dialog
+      showTeacherChatDialog.value = true
+
+      $q.notify({
+        type: 'positive',
+        message: '教师会话已创建',
+        position: 'top'
+      })
+    } else {
+      throw new Error('创建会话失败')
     }
-    window.AndroidBridge.sendMessageToTeacher(JSON.stringify(messageData))
+  } catch (error) {
+    console.error('创建教师会话失败:', error)
+    $q.notify({
+      type: 'negative',
+      message: '创建教师会话失败，请重试',
+      position: 'top'
+    })
+  } finally {
+    $q.loading.hide()
   }
+}
+
+// 关闭教师对话
+const closeTeacherChat = () => {
+  // 流程：关闭对话框 -> 清理会话ID
+  showTeacherChatDialog.value = false
+  // 注意：不清理teacherSessionId，保留会话以便下次继续
+}
+
+// 处理滚动到底部
+const handleScrollToBottom = () => {
+  // ChatView内部已处理滚动，这里可以添加额外逻辑
 }
 
 // 拍照给老师
 const takePictureToTeacher = () => {
-  // 这里可以调用Android Bridge打开相机
-  $q.notify({
-    type: 'info',
-    message: '正在打开相机...',
-    position: 'top'
-  })
-  
-  // 模拟调用Android Bridge - 使用现有的方法
-  if (typeof window !== 'undefined' && window.AndroidBridge?.captureImageFromCamera) {
-    window.AndroidBridge.captureImageFromCamera()
+  // 流程：点击卡片 -> 检查是否有教师会话 -> 打开相机或提示
+  if (!teacherSessionId.value) {
+    // 流程：无会话 -> 提示先创建会话
+    $q.notify({
+      type: 'warning',
+      message: '请先选择学科并创建教师会话',
+      position: 'top'
+    })
+    showSubjectDialog.value = true
+    return
   }
+
+  // 流程：有会话 -> 设置图片选择回调 -> 打开相机
+  androidBridge.onImageCapture((imageInfo) => {
+    if (imageInfo && imageInfo.filePath) {
+      // 流程：拍照成功 -> 发送图片给老师
+      const success = androidBridge.sendPictureToTeacher(
+        imageInfo.filePath,
+        teacherSessionId.value,
+        selectedSubject.value
+      )
+      
+      if (success) {
+        $q.notify({
+          type: 'positive',
+          message: '图片已发送给老师',
+          position: 'top'
+        })
+        // 流程：打开教师对话界面
+        showTeacherChatDialog.value = true
+      } else {
+        $q.notify({
+          type: 'negative',
+          message: '发送图片失败',
+          position: 'top'
+        })
+      }
+    }
+  })
+
+  // 流程：调用原生拍照
+  androidBridge.captureImageFromCamera()
 }
 
 // 显示反馈
@@ -555,6 +712,58 @@ $card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
 .dialog-actions {
   padding-top: 16px;
   border-top: 1px solid #e5e7eb;
+}
+
+// 学科选择对话框样式
+.subject-dialog {
+  min-width: 340px;
+
+  .subject-tip {
+    color: #6b7280;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  .subject-buttons {
+    display: flex;
+    gap: 16px;
+
+    .subject-btn {
+      flex: 1;
+      height: 80px;
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+  }
+}
+
+// 教师对话全屏对话框样式
+.teacher-chat-card-dialog {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+
+  .teacher-chat-toolbar {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    flex-shrink: 0;
+
+    .toolbar-title-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+
+  .teacher-chat-content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
 }
 
 // 响应式设计

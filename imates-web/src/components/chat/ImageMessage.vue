@@ -6,7 +6,6 @@
         <q-spinner-dots color="primary" size="24px" />
         <span class="loading-text">加载中...</span>
       </div>
-      
       <!-- 图片内容 -->
       <img
         v-else-if="!loadError"

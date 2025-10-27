@@ -5,7 +5,17 @@
     <div class="pdf-viewer-content" :class="{ 'with-chat': chatPanelVisible }">
       <div class="pdf-viewer-container">
         <!-- 工具栏 -->
-        <Toolbar @toggle-chat-panel="handleToggleChatPanel" />
+        <UnifiedToolbar
+          :tools="['pen', 'highlighter', 'eraser', 'screenshot', 'reset']"
+          :selected-tool="store.selectedTool"
+          :tool-config="currentToolConfig"
+          :show-back="true"
+          :show-chat="true"
+          @tool-change="handleToolChange"
+          @config-change="handleConfigChange"
+          @back="handleGoBack"
+          @toggle-chat="handleToggleChatPanel"
+        />
         <!-- PDF页面列表 -->
         <q-virtual-scroll 
           v-if="!isLoading && !error"
@@ -17,7 +27,7 @@
           class="virtual-scroll"
           v-slot="{ item }"
         >
-          <PdfPage :layout="item" :key="item.pageNum" class="pdf-page-item" />
+          <PdfPage :layout="item" :key="item.pageNum" class="pdf-page-item" @screenshot-captured="handleScreenshotCaptured" />
         </q-virtual-scroll>
 
         <!-- 加载状态 -->
@@ -93,25 +103,22 @@
        
        <!-- Tab 内容区域 -->
        <div class="chat-content-container">
-         <!-- AI 问答 Tab -->
-         <div v-if="activeTab === 'ai-chat'" class="tab-content">
-           <ChatView 
-             type="ai-textbook"
-             @response="handleChatResponse"
-             @focus="handleChatFocus"
-             @scroll-to-bottom="handleScrollToBottom"
-           />
-         </div>
+        <!-- AI 问答 Tab -->
+        <div v-if="activeTab === 'ai-chat'" class="tab-content">
+          <ChatView 
+            type="ai-textbook"
+            @response="handleChatResponse"
+            @focus="handleChatFocus"
+            @scroll-to-bottom="handleScrollToBottom"
+          />
+        </div>
          
          <!-- 问题记录 Tab -->
          <div v-if="activeTab === 'question-record'" class="tab-content">
-           <div class="question-record-content">
-             <div class="empty-state">
-               <q-icon name="quiz" size="48px" color="grey-5" />
-               <div class="q-mt-md text-h6 text-grey-6">问题记录</div>
-               <div class="q-mt-sm text-caption text-grey-5">您的问题记录将显示在这里</div>
-             </div>
-           </div>
+           <QuestionRecordList 
+             :records="questionRecords"
+             @record-click="handleQuestionRecordClick"
+           />
          </div>
        </div>
      </div>
@@ -120,17 +127,23 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, computed, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
+import { useExerciseStore } from '@/stores/exerciseStore'
 import { resourceManager } from '@/services/resource-manager'
-import type { UserTextbookInfo, LocalFileInfo } from '@/types'
-import Toolbar from '@/components/Toolbar.vue'
+import type { UserTextbookInfo, LocalFileInfo, QuestionRecord } from '@/types'
+import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
 import ChatView from '@/components/ChatView.vue'
+import QuestionRecordList from '@/components/QuestionRecordList.vue'
 
 // 使用 Store 和路由
 const store = usePdfViewerStore()
 const route = useRoute()
+const router = useRouter()
+
+// 使用 exerciseStore 来发送AI消息
+const exerciseStore = useExerciseStore()
 
 // 组件状态
 const renderProgress = ref({
@@ -154,10 +167,92 @@ const tabOptions = [
   { label: 'AI问答', value: 'ai-chat', icon: 'chat' }
 ]
 
+// 问题记录数据
+const questionRecords = ref<QuestionRecord[]>([])
+
+// 处理问题记录点击
+const handleQuestionRecordClick = () => {
+  activeTab.value = 'ai-chat'
+}
+
 // 计算属性
 const pageLayouts = computed(() => store.pageLayouts)
 const isLoading = computed(() => store.isLoading)
 const error = computed(() => store.error)
+
+// 当前工具配置
+const currentToolConfig = computed(() => {
+  const config = store.drawingConfig
+  
+  // 1. 根据当前工具返回对应的配置
+  switch (store.selectedTool) {
+    case 'pen':
+      return {
+        color: config.penColor,
+        size: config.penWidth,
+      }
+    case 'highlighter':
+      return {
+        color: config.highlighterColor,
+        size: config.highlighterWidth,
+      }
+    case 'eraser':
+      return {
+        size: config.eraserSize,
+      }
+    case 'screenshot':
+      return {
+        shape: config.screenshotShape,
+      }
+    default:
+      return {}
+  }
+})
+
+// 处理工具切换
+const handleToolChange = (tool: string) => {
+  // 1. 更新 store 中的选中工具
+  store.setSelectedTool(tool)
+}
+
+// 处理配置变化
+const handleConfigChange = (config: { [key: string]: string | number | boolean | undefined }) => {
+  // 1. 根据当前工具更新对应的配置
+  switch (store.selectedTool) {
+    case 'pen':
+      if (config.color) {
+        store.updateDrawingConfig({ penColor: config.color as string })
+      }
+      if (config.size !== undefined) {
+        store.updateDrawingConfig({ penWidth: config.size as number })
+      }
+      break
+    case 'highlighter':
+      if (config.color) {
+        store.updateDrawingConfig({ highlighterColor: config.color as string })
+      }
+      if (config.size !== undefined) {
+        store.updateDrawingConfig({ highlighterWidth: config.size as number })
+      }
+      break
+    case 'eraser':
+      if (config.size !== undefined) {
+        store.updateDrawingConfig({ eraserSize: config.size as number })
+      }
+      break
+    case 'screenshot':
+      if (config.shape) {
+        store.updateDrawingConfig({ screenshotShape: config.shape as string })
+      }
+      break
+  }
+}
+
+// 处理返回
+const handleGoBack = () => {
+  // 1. 使用路由返回
+  router.back()
+}
 
 // 从路由参数加载文件
 const loadFileFromRoute = async () => {
@@ -231,8 +326,10 @@ const retry = async () => {
 }
 
 // 处理对话面板切换
-const handleToggleChatPanel = (visible: boolean) => {
-  chatPanelVisible.value = visible
+const handleToggleChatPanel = (visible?: boolean) => {
+  // 1. 如果提供了参数，使用参数值
+  // 2. 如果没有提供参数，切换当前状态
+  chatPanelVisible.value = visible !== undefined ? visible : !chatPanelVisible.value
 }
 
 // 处理对话面板关闭
@@ -325,6 +422,119 @@ const stopResizeTouch = () => {
   isTouchResizing.value = false
   document.removeEventListener('touchmove', handleResizeTouch)
   document.removeEventListener('touchend', stopResizeTouch)
+}
+
+// 处理截图捕获事件
+// 流程：接收截图blob → 转换为base64 → 打开对话面板 → 发送给AI
+const handleScreenshotCaptured = async (blob: Blob) => {
+  const startTime = Date.now()
+  console.log('[截图→AI] 🚀 ========== 开始处理截图 ==========')
+  
+  try {
+    // 步骤1：接收截图数据
+    console.log('[截图→AI] 步骤1/5 📥 接收到截图数据', {
+      时间戳: new Date().toLocaleTimeString(),
+      文件大小: `${(blob.size / 1024).toFixed(2)} KB`,
+      文件类型: blob.type,
+      原始大小: `${blob.size} bytes`
+    })
+    
+    // 步骤2：将blob转换为base64DataUrl
+    console.log('[截图→AI] 步骤2/5 🔄 开始转换为Base64格式...')
+    const base64DataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+    
+    const base64Size = base64DataUrl.length
+    console.log('[截图→AI] 步骤2/5 ✓ Base64转换完成', {
+      Base64长度: `${(base64Size / 1024).toFixed(2)} KB`,
+      压缩比: `${((base64Size / blob.size) * 100).toFixed(1)}%`
+    })
+    
+    // 步骤3：打开对话面板并切换到AI问答Tab
+    console.log('[截图→AI] 步骤3/5 📂 打开对话面板...')
+    chatPanelVisible.value = true
+    activeTab.value = 'ai-chat'
+    console.log('[截图→AI] 步骤3/5 ✓ 对话面板已打开', {
+      当前Tab: 'AI问答',
+      面板可见: chatPanelVisible.value
+    })
+    
+    // 步骤4：创建临时图片以获取宽高
+    console.log('[截图→AI] 步骤4/5 🖼️ 加载图片获取尺寸...')
+    const img = new Image()
+    img.src = base64DataUrl
+    
+    await new Promise<void>((resolve) => {
+      img.onload = () => resolve()
+    })
+    
+    console.log('[截图→AI] 步骤4/5 ✓ 图片加载完成', {
+      宽度: `${img.width}px`,
+      高度: `${img.height}px`,
+      分辨率: `${img.width}x${img.height}`,
+      像素总数: `${(img.width * img.height / 1000000).toFixed(2)}M`
+    })
+    
+    // 步骤5：使用exerciseStore直接发送图片消息给AI
+    // 流程：文件名使用.jpg后缀（与安卓原生保持一致）
+    const fileName = `screenshot-${Date.now()}.jpg`
+    console.log('[截图→AI] 步骤5/5 📤 发送图片到AI...', {
+      文件名: fileName,
+      AI类型: 'ai-textbook',
+      AI模型: 'mate',
+      消息类型: '纯图片消息（无文本）',
+      说明: '教材模式下无需选择题目',
+      Base64长度: base64DataUrl.length,
+      Base64前缀: base64DataUrl.substring(0, 50),
+      图片尺寸: `${img.width}x${img.height}`,
+      图片格式: 'JPEG (质量40%)'
+    })
+    
+    // 🔍 调试：打印即将发送的数据预览
+    console.log('[截图→AI] 🔍 请求数据预览:', {
+      content: '',
+      type: 'ai',
+      chatRole: 'mate',
+      imageData: {
+        filePath: fileName,
+        base64Length: base64DataUrl.length,
+        format: base64DataUrl.substring(0, 30)
+      },
+      aiType: 'ai-textbook'
+    })
+    
+    await exerciseStore.sendChatMessage(
+      '', // 空文本，只发送图片
+      'ai', // 发送给AI
+      'mate', // 使用默认AI模型
+      {
+        filePath: fileName,
+        base64DataUrl: base64DataUrl
+      },
+      false, // 不隐藏前缀
+      'ai-textbook' // AI教材类型
+    )
+    
+    const endTime = Date.now()
+    const duration = endTime - startTime
+    console.log('[截图→AI] 步骤5/5 ✓ AI发送完成')
+    console.log('[截图→AI] 🎉 ========== 截图处理完成 ==========', {
+      总耗时: `${duration}ms`,
+      成功状态: '✅ 成功'
+    })
+  } catch (error) {
+    const endTime = Date.now()
+    const duration = endTime - startTime
+    console.error('[截图→AI] ❌ ========== 处理失败 ==========', {
+      错误信息: error,
+      失败位置: '截图处理流程',
+      已耗时: `${duration}ms`
+    })
+  }
 }
 
 // 生命周期
@@ -450,14 +660,6 @@ onBeforeUnmount(async () => {
 .tab-content {
   height: 100%;
   overflow: hidden;
-}
-
-.question-record-content {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
 }
 
 .resizer {

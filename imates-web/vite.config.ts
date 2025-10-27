@@ -70,11 +70,54 @@ export default defineConfig({
         target: 'http://www.imates.com.cn:8222/blw-edu-service-alc', // 学班服务地址
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 使用HTTP协议
-        // 可选：添加请求头
-        configure: (proxy) => {
-          proxy.on('proxyReq', (proxyReq, req) => {
-            // 可以在这里添加额外的请求头
-            console.log('代理请求到学班服务(permission):', req.url)
+        // 增加请求体大小限制（支持大图片Base64）
+        configure: (proxy, options) => {
+          // 监听代理请求
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            console.log('🔵 [代理请求] permission:', req.url)
+            console.log('  - 请求方法:', req.method)
+            console.log('  - Content-Type:', req.headers['content-type'])
+            console.log('  - Content-Length:', req.headers['content-length'])
+            
+            // 记录请求头中的token
+            if (req.headers['token']) {
+              console.log('  - Token存在:', req.headers['token'] ? '是' : '否')
+            }
+          })
+          
+          // 监听代理响应
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            console.log('🟢 [代理响应] permission:', req.url)
+            console.log('  - 状态码:', proxyRes.statusCode)
+            console.log('  - 状态信息:', proxyRes.statusMessage)
+            
+            // 如果是错误响应，记录更多信息
+            if (proxyRes.statusCode >= 400) {
+              console.error('❌ [代理错误] permission:', {
+                url: req.url,
+                status: proxyRes.statusCode,
+                headers: proxyRes.headers
+              })
+              
+              // 尝试读取错误响应体
+              let errorBody = ''
+              proxyRes.on('data', (chunk) => {
+                errorBody += chunk.toString()
+              })
+              proxyRes.on('end', () => {
+                if (errorBody) {
+                  console.error('  - 错误详情:', errorBody.substring(0, 500))
+                }
+              })
+            }
+          })
+          
+          // 监听代理错误
+          proxy.on('error', (err, req, res) => {
+            console.error('❌ [代理失败] permission:', {
+              url: req.url,
+              error: err.message
+            })
           })
         }
       },

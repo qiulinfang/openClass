@@ -62,6 +62,11 @@ interface Props {
 
 const props = defineProps<Props>()
 
+// 定义事件emit
+const emit = defineEmits<{
+  'screenshot-captured': [blob: Blob]
+}>()
+
 // 使用 Store
 const store = usePdfViewerStore()
 
@@ -405,10 +410,19 @@ const handleScreenshotMouseDown = (event: any) => {
   const pointer = fabricInstance.value.getPointer(event.e)
   const shapeType = store.drawingConfig.screenshotShape
   
+  console.log('[截图] 🖱️ 鼠标按下', {
+    形状类型: shapeType,
+    坐标: `(${pointer.x.toFixed(2)}, ${pointer.y.toFixed(2)})`
+  })
+  
   if (shapeType === 'rectangle') {
     // 矩形截图：记录起始点并开始绘制
     screenshotState.value.isDrawing = true
     screenshotState.value.startPoint = { x: pointer.x, y: pointer.y }
+    
+    console.log('[截图] 📐 开始绘制矩形选区', {
+      起始点: `(${pointer.x.toFixed(2)}, ${pointer.y.toFixed(2)})`
+    })
     
     // 创建初始矩形
     const rect = new Rect({
@@ -428,6 +442,12 @@ const handleScreenshotMouseDown = (event: any) => {
   } else if (shapeType === 'polygon') {
     // 多边形截图：添加点到点集
     screenshotState.value.polygonPoints.push({ x: pointer.x, y: pointer.y })
+    
+    console.log('[截图] 🔷 添加多边形顶点', {
+      顶点序号: screenshotState.value.polygonPoints.length,
+      坐标: `(${pointer.x.toFixed(2)}, ${pointer.y.toFixed(2)})`,
+      总顶点数: screenshotState.value.polygonPoints.length
+    })
     
     // 更新或创建多边形
     updatePolygonPreview()
@@ -471,6 +491,13 @@ const handleScreenshotMouseUp = () => {
     screenshotState.value.isDrawing = false
     
     if (screenshotState.value.currentRect) {
+      const rect = screenshotState.value.currentRect
+      console.log('[截图] ✅ 矩形选区绘制完成', {
+        左上角: `(${rect.left?.toFixed(2)}, ${rect.top?.toFixed(2)})`,
+        宽度: rect.width?.toFixed(2),
+        高度: rect.height?.toFixed(2)
+      })
+      
       captureScreenshotArea(screenshotState.value.currentRect as unknown as FabricObject)
     }
   }
@@ -483,6 +510,11 @@ const updatePolygonPreview = () => {
   const points = screenshotState.value.polygonPoints
   
   if (points.length < 2) return
+  
+  console.log('[截图] 🔄 更新多边形预览', {
+    顶点数: points.length,
+    顶点坐标: points.map((p, i) => `P${i+1}(${p.x.toFixed(2)}, ${p.y.toFixed(2)})`).join(', ')
+  })
   
   // 移除旧的多边形
   if (screenshotState.value.currentPolygon) {
@@ -507,6 +539,11 @@ const updatePolygonPreview = () => {
 const finishPolygonScreenshot = () => {
   if (!fabricInstance.value || !screenshotState.value.currentPolygon) return
   
+  console.log('[截图] ✅ 多边形选区绘制完成（双击）', {
+    顶点数: screenshotState.value.polygonPoints.length,
+    边界框: screenshotState.value.currentPolygon.getBoundingRect()
+  })
+  
   // 捕获多边形区域的图像
   captureScreenshotArea(screenshotState.value.currentPolygon as unknown as FabricObject)
   
@@ -519,85 +556,142 @@ const finishPolygonScreenshot = () => {
 const captureScreenshotArea = async (shape: FabricObject) => {
   if (!pdfCanvas.value || !fabricInstance.value || !fabricWrapper.value) return
   
+  const startTime = Date.now()
+  console.log('[截图生成] 🎬 ========== 开始捕获截图区域 ==========', {
+    页码: props.layout.pageNum,
+    时间: new Date().toLocaleTimeString()
+  })
+  
   try {
-    // 1. 获取形状的边界框
+    // 步骤1：更新对象坐标（确保边界框计算正确）
+    console.log('[截图生成] 步骤1/7 📐 计算选区边界...')
+    shape.setCoords()
+    
+    // 步骤2：获取形状的边界框
     const boundingRect = shape.getBoundingRect()
     
-    // 2. 创建临时canvas用于合成图像
+    // 调试：输出shape的原始属性
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const shapeAny = shape as any
+    console.log('[截图生成] 步骤1/7 ✓ 边界计算完成', {
+      形状类型: shape.type,
+      左上角: `(${boundingRect.left.toFixed(2)}, ${boundingRect.top.toFixed(2)})`,
+      原始宽度: shapeAny.width,
+      原始高度: shapeAny.height,
+      缩放比例: `X:${shapeAny.scaleX} Y:${shapeAny.scaleY}`
+    })
+    
+    // 步骤3：确保边界框尺寸有效（至少1x1像素）
+    const validWidth = Math.max(1, Math.round(boundingRect.width))
+    const validHeight = Math.max(1, Math.round(boundingRect.height))
+    
+    console.log('[截图生成] 步骤2/7 📏 验证选区尺寸', {
+      宽度: `${validWidth}px`,
+      高度: `${validHeight}px`,
+      面积: `${(validWidth * validHeight).toFixed(0)} px²`,
+      分辨率: `${validWidth}x${validHeight}`
+    })
+    
+    // 步骤4：创建临时canvas用于合成图像（使用有效尺寸）
+    console.log('[截图生成] 步骤3/7 📦 创建临时画布...')
     const tempCanvas = document.createElement('canvas')
-    tempCanvas.width = boundingRect.width
-    tempCanvas.height = boundingRect.height
+    tempCanvas.width = validWidth
+    tempCanvas.height = validHeight
     const tempCtx = tempCanvas.getContext('2d')
     
-    if (!tempCtx) return
+    if (!tempCtx) {
+      console.error('[截图生成] ❌ 无法创建临时Canvas上下文')
+      return
+    }
     
-    // 3. 第一层：从PDF canvas中提取对应区域
+    console.log('[截图生成] 步骤3/7 ✓ 临时画布创建完成', {
+      画布尺寸: `${validWidth} x ${validHeight}`,
+      画布类型: '2D Context'
+    })
+    
+    // 步骤5：第一层 - 从PDF canvas中提取对应区域
+    console.log('[截图生成] 步骤4/7 📄 提取PDF内容层...')
     tempCtx.drawImage(
       pdfCanvas.value,
-      boundingRect.left, boundingRect.top,
-      boundingRect.width, boundingRect.height,
+      Math.round(boundingRect.left), 
+      Math.round(boundingRect.top),
+      validWidth, 
+      validHeight,
       0, 0,
-      boundingRect.width, boundingRect.height
+      validWidth, 
+      validHeight
     )
+    console.log('[截图生成] 步骤4/7 ✓ PDF内容层提取完成')
     
-    // 4. 第二层：从Fabric canvas中提取对应区域（包含所有标注）
+    // 步骤6：第二层 - 从Fabric canvas中提取对应区域（包含所有标注）
+    console.log('[截图生成] 步骤5/7 ✏️ 叠加标注层...')
+    
     // 先临时隐藏截图选区形状，避免它出现在截图中
     const shapeVisible = shape.visible
     shape.set({ visible: false })
     fabricInstance.value.renderAll()
+    console.log('[截图生成] 步骤5/7   → 临时隐藏选区框')
     
     // 绘制Fabric层到临时canvas
     tempCtx.drawImage(
       fabricWrapper.value,
-      boundingRect.left, boundingRect.top,
-      boundingRect.width, boundingRect.height,
+      Math.round(boundingRect.left), 
+      Math.round(boundingRect.top),
+      validWidth, 
+      validHeight,
       0, 0,
-      boundingRect.width, boundingRect.height
+      validWidth, 
+      validHeight
     )
     
     // 恢复截图选区形状的可见性
     shape.set({ visible: shapeVisible })
     fabricInstance.value.renderAll()
+    console.log('[截图生成] 步骤5/7   → 恢复选区框可见性')
+    console.log('[截图生成] 步骤5/7 ✓ 标注层叠加完成')
     
-    // 5. 转换为图片并下载
+    console.log('[截图生成] 步骤6/7 ✨ 双层合成完成（PDF + 标注）')
+    
+    // 步骤7：转换为图片并发送到对话面板
+    // 流程：使用JPEG格式，压缩质量40%（与安卓原生保持一致）
+    console.log('[截图生成] 步骤7/7 🔄 转换为JPEG格式（质量40%）...')
     tempCanvas.toBlob((blob) => {
       if (blob) {
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = `screenshot-page${props.layout.pageNum}-${Date.now()}.png`
-        link.click()
-        URL.revokeObjectURL(url)
+        const captureTime = Date.now() - startTime
+        console.log('[截图生成] 步骤7/7 ✓ JPEG转换完成', {
+          文件大小: `${(blob.size / 1024).toFixed(2)} KB`,
+          格式: 'JPEG (质量40%)',
+          原始大小: `${blob.size} bytes`
+        })
         
-        // 同时尝试复制到剪贴板
-        copyImageToClipboard(blob)
+        // emit事件，将blob传递给父组件
+        emit('screenshot-captured', blob)
+        console.log('[截图生成] 📤 图片已发送到父组件（PdfViewerView）')
+        
+        // 清除绘制的选区形状
+        fabricInstance.value?.remove(shape)
+        fabricInstance.value?.renderAll()
+        console.log('[截图生成] 🧹 清除选区形状')
+        
+        // 重置截图状态
+        resetScreenshotState()
+        console.log('[截图生成] 🔄 重置截图状态')
+        
+        console.log('[截图生成] 🎉 ========== 截图生成完成 ==========', {
+          总耗时: `${captureTime}ms`,
+          成功状态: '✅ 成功',
+          下一步: '等待发送到AI'
+        })
       }
-      
-      // 6. 清除绘制的选区形状
-      fabricInstance.value?.remove(shape)
-      fabricInstance.value?.renderAll()
-      
-      // 7. 重置截图状态
-      resetScreenshotState()
-    }, 'image/png')
+    }, 'image/jpeg', 0.4)
     
   } catch (error) {
-    console.error('捕获截图失败:', error)
-  }
-}
-
-// 复制图片到剪贴板
-const copyImageToClipboard = async (blob: Blob) => {
-  try {
-    // 使用Clipboard API复制图片
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        'image/png': blob
-      })
-    ])
-    console.log('截图已复制到剪贴板')
-  } catch (error) {
-    console.warn('复制到剪贴板失败:', error)
+    const captureTime = Date.now() - startTime
+    console.error('[截图生成] ❌ ========== 捕获失败 ==========', {
+      错误信息: error,
+      失败位置: '截图生成流程',
+      已耗时: `${captureTime}ms`
+    })
   }
 }
 
@@ -608,6 +702,7 @@ const resetScreenshotState = () => {
   screenshotState.value.currentRect = null
   screenshotState.value.polygonPoints = []
   screenshotState.value.currentPolygon = null
+  console.log('[截图] 🔄 截图状态已重置')
 }
 
 // 检查并删除与橡皮擦相交的对象

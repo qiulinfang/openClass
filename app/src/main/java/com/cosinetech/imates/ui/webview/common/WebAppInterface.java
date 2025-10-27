@@ -1521,7 +1521,8 @@ public class WebAppInterface {
             if (isGuest || userId.equals("guest000")) {
                 Log.d(TAG, "🔍 WebAppInterface加入课堂 - 游客模式");
                 ApplicationModelShared.getInstance().fakeClassMode = true;
-                return createResponse(true, "游客模式加入课堂成功", "{\"mode\":\"guest\",\"isInClass\":true}");
+                // 流程：使用createResponseWithJsonData方法返回JSON对象（而非字符串）
+                return createResponseWithJsonData(true, "游客模式加入课堂成功", "{\"mode\":\"guest\",\"isInClass\":true}");
             }
             
             // 正式用户模式 - 这里需要Activity上下文来初始化ScreenShareKit
@@ -1559,7 +1560,8 @@ public class WebAppInterface {
                     }
                 });
                 
-                return createResponse(true, "正在加入课堂", "{\"mode\":\"formal\",\"isJoining\":true}");
+                // 流程：使用createResponseWithJsonData方法返回JSON对象（而非字符串）
+                return createResponseWithJsonData(true, "正在加入课堂", "{\"mode\":\"formal\",\"isJoining\":true}");
             } else {
                 return createResponse(false, "需要FragmentActivity上下文", null);
             }
