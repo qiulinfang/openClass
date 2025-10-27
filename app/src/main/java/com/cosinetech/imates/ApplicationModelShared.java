@@ -105,7 +105,10 @@ public class ApplicationModelShared extends Application implements ViewModelStor
         ScreenCastingManager.stopLoop();
         UdpForwarderManager.getInstance().stop();
         H264MpegTSStreamerManager.getInstance().stop();
-        multicastLock.release();
+        if(multicastLock != null) {
+            multicastLock.release();
+            multicastLock = null;
+        }
         fakeClassMode = false;
     }
 
