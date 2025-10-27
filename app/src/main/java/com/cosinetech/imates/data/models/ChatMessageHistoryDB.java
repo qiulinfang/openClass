@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ChatMessageHistoryDB extends SQLiteOpenHelper {
-    private static final String DATABASE_NAME = "chat_history_v17.db";
+    private static final String DATABASE_NAME = "chat_history_v18.db";
     private static final int DATABASE_VERSION = 1;
 
     // Table Names
