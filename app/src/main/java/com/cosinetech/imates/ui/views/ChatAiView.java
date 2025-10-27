@@ -369,6 +369,7 @@ public class ChatAiView extends RelativeLayout {
 
         mCurrentCatalog = ChatMessageCatalogue.CATEGORY_DEFAULT_SYSTEM;
         mCurrentSession = ChatMessageSession.SESSION_DEFAULT_SYSTEM;
+        mCurrentSession.sessionId =  UUID.nameUUIDFromBytes((AppUtils.getUserId() + mCurrentSession.sessionId).getBytes()).toString();
     }
 
     @SuppressLint({"ClickableViewAccessibility", "NotifyDataSetChanged"})
