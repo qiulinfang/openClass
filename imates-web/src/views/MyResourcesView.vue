@@ -5,7 +5,7 @@
         <!-- 筛选区域 (固定在顶部) -->
         <div class="filter-section">
           <div class="filter-content">
-            <!-- 学科筛选 -->
+            <!-- 第1步：学科筛选 -->
             <div class="filter-chips">
               <q-chip
                 v-for="category in categories"
@@ -20,6 +20,19 @@
                 class="filter-chip"
               />
             </div>
+            
+            <!-- 第2步：检查更新按钮 -->
+            <q-btn
+              color="primary"
+              icon="refresh"
+              label="检查更新"
+              @click="handleCheckUpdates"
+              :loading="checkingUpdates"
+              size="md"
+              unelevated
+              no-caps
+              class="check-updates-btn"
+            />
           </div>
         </div>
 
@@ -32,195 +45,105 @@
         <!-- better-scroll 滚动容器 (仅包含教材列表) -->
         <div v-if="!loading && textbooks.length > 0" ref="scrollWrapper" class="scroll-wrapper">
           <div class="scroll-content">
-            <!-- 下拉刷新提示 -->
-            <div class="pulldown-wrapper">
-              <div v-if="pullDownRefreshStatus === 'pulling'" class="pulldown-tips">
-                <q-icon name="arrow_downward" size="sm" class="text-primary" />
-                <span class="q-ml-xs text-grey-7">下拉刷新</span>
-              </div>
-              <div v-else-if="pullDownRefreshStatus === 'enough'" class="pulldown-tips">
-                <q-icon name="arrow_upward" size="sm" class="text-primary" />
-                <span class="q-ml-xs text-grey-7">释放刷新</span>
-              </div>
-              <div v-else-if="pullDownRefreshStatus === 'refreshing'" class="pulldown-tips">
-                <q-spinner color="primary" size="sm" />
-                <span class="q-ml-xs text-grey-7">刷新中...</span>
-              </div>
-            </div>
-
             <!-- 教材列表 -->
             <div class="textbooks-container q-pa-md">
               <div class="textbooks-scroll-container">
                 <div class="textbooks-grid">
+                  <!-- 第1步：简化卡片结构，减少DOM层级 -->
                   <div
                     v-for="textbook in filteredTextbooks"
                     :key="textbook.id"
-                    class="textbook-item-wrapper"
+                    class="textbook-card"
+                    :class="{
+                      downloading: textbook.downloadStatus === 1,
+                      paused: textbook.downloadStatus === 3,
+                    }"
                   >
-                    <q-card
-                      class="textbook-card"
-                      :class="{
-                        downloading: textbook.downloadStatus === 1,
-                        paused: textbook.downloadStatus === 3,
-                      }"
-                      flat
-                      bordered
-                    >
-                      <!-- 教材封面 -->
-                      <q-img
+                    <!-- 第2步：教材封面容器 - 用原生div替换q-img -->
+                    <div class="textbook-cover">
+                      <!-- 第3步：原生img标签，比q-img性能更好 -->
+                      <img
                         :src="getCoverImageUrl(textbook.textbookCover)"
                         :alt="textbook.textbookName"
-                        :ratio="2/3"
-                        fit="contain"
-                        class="textbook-cover"
+                        loading="lazy"
+                      />
+                      
+                      <!-- 第4步：下载/暂停状态覆盖层 - 合并为单一覆盖层 -->
+                      <div
+                        v-if="textbook.downloadStatus === 1 || textbook.downloadStatus === 3"
+                        class="status-overlay"
                       >
-                        <!-- 下载状态覆盖层 -->
-                        <div
-                          v-if="textbook.downloadStatus === 1"
-                          class="absolute-full flex flex-center bg-black-50"
-                        >
-                          <q-circular-progress
-                            :value="textbook.downloadedFiles"
-                            size="60px"
-                            :thickness="0.22"
-                            color="white"
-                            track-color="grey-8"
-                            class="q-ma-md"
-                            show-value
-                            :min="0"
-                            :max="textbook.totalFiles"
-                          >
-                            <div class="text-white text-caption">
-                              {{ textbook.downloadedFiles }}/{{ textbook.totalFiles }}
-                            </div>
-                          </q-circular-progress>
-                        </div>
-                        <!-- 暂停状态覆盖层 -->
-                        <div
-                          v-if="textbook.downloadStatus === 3"
-                          class="absolute-full flex flex-center bg-orange-50"
-                        >
-                          <div class="text-center">
-                            <q-icon name="pause_circle_filled" size="60px" color="orange-6" />
-                            <div class="text-orange-8 text-caption q-mt-sm">已暂停</div>
-                            <div class="text-orange-7 text-caption">
-                              {{ textbook.downloadedFiles }}/{{ textbook.totalFiles }}
-                            </div>
+                        <!-- 第5步：纯CSS圆形进度条替换q-circular-progress -->
+                        <div v-if="textbook.downloadStatus === 1" class="progress-ring">
+                          <svg width="60" height="60">
+                            <circle class="progress-ring-circle-bg" cx="30" cy="30" r="26" />
+                            <circle
+                              class="progress-ring-circle"
+                              cx="30"
+                              cy="30"
+                              r="26"
+                              :style="{
+                                strokeDashoffset: 163.36 * (1 - textbook.downloadedFiles / textbook.totalFiles)
+                              }"
+                            />
+                          </svg>
+                          <div class="progress-text">
+                            {{ textbook.downloadedFiles }}/{{ textbook.totalFiles }}
                           </div>
                         </div>
-
-                        <!-- 教材信息覆盖层 (底部) -->
-                        <div class="textbook-info-overlay">
-                          <div class="textbook-name-overlay">
-                            {{ textbook.textbookName }}
-                          </div>
-                          <div class="textbook-meta-overlay">
-                            {{ textbook.textbookSubjectLabel }} {{ textbook.textbookGradeLabel }} {{ textbook.textbookSemesterLabel }}
+                        
+                        <!-- 第6步：暂停图标 - 用CSS图标替代 -->
+                        <div v-else class="pause-indicator">
+                          <div class="pause-icon"></div>
+                          <div class="pause-text">已暂停</div>
+                          <div class="pause-progress">
+                            {{ textbook.downloadedFiles }}/{{ textbook.totalFiles }}
                           </div>
                         </div>
-                      </q-img>
-                      <!-- 操作按钮 -->
-                      <q-card-actions align="around" class="q-pa-sm q-pt-none textbook-actions">
-                        <!-- 下载按钮 - 未下载状态且非暂停状态 -->
-                        <q-btn
-                          v-if="
-                            !textbook.isDownloaded &&
-                            textbook.downloadStatus !== 1 &&
-                            textbook.downloadStatus !== 3 &&
-                            textbook.downloadedFiles === 0
-                          "
-                          color="primary"
-                          icon="download"
-                          label="下载"
-                          @click="downloadTextbook(textbook)"
-                          size="sm"
-                          unelevated
-                          no-caps
-                        />
+                      </div>
 
-                        <!-- 继续下载按钮 - 部分下载状态或暂停状态 -->
-                        <q-btn
-                          v-if="
-                            (textbook.downloadedFiles > 0 &&
-                              textbook.downloadedFiles < textbook.totalFiles &&
-                              textbook.downloadStatus !== 1) ||
-                            textbook.downloadStatus === 3
-                          "
-                          color="primary"
-                          icon="play_arrow"
-                          label="继续"
-                          @click="downloadTextbook(textbook)"
-                          size="sm"
-                          unelevated
-                          no-caps
-                        />
-
-                        <!-- 暂停按钮 - 下载中状态 -->
-                        <q-btn
-                          v-if="textbook.downloadStatus === 1"
-                          color="orange"
-                          icon="pause"
-                          label="暂停"
-                          @click="pauseDownload(textbook)"
-                          size="sm"
-                          unelevated
-                          no-caps
-                        />
-
-                        <!-- 取消按钮 - 下载中状态或暂停状态 -->
-                        <q-btn
-                          v-if="textbook.downloadStatus === 1 || textbook.downloadStatus === 3"
-                          color="negative"
-                          icon="cancel"
-                          label="取消"
-                          @click="cancelDownload(textbook)"
-                          size="sm"
-                          unelevated
-                          no-caps
-                        />
-
-                        <!-- 查看按钮 - 已下载状态 -->
-                        <q-btn
-                          v-if="textbook.isDownloaded && textbook.downloadStatus === 2"
-                          color="positive"
-                          icon="visibility"
-                          label="查看"
-                          @click="viewTextbook(textbook)"
-                          size="sm"
-                          unelevated
-                          no-caps
-                        />
-
-                        <!-- 去学习按钮 - 已下载状态 -->
-                        <q-btn
-                          v-if="textbook.isDownloaded && textbook.downloadStatus === 2"
-                          color="primary"
-                          icon="school"
-                          label="去学习"
-                          @click="goToKnowledgeGraph(textbook)"
-                          size="sm"
-                          unelevated
-                          no-caps
-                        />
-
-                        <!-- 更新按钮 - 有更新可用且非下载中/暂停状态 -->
-                        <q-btn
-                          v-if="
-                            textbook.hasUpdatesAvailable &&
-                            textbook.downloadStatus !== 1 &&
-                            textbook.downloadStatus !== 3
-                          "
-                          color="secondary"
-                          icon="system_update"
-                          label="更新"
-                          @click="updateTextbook(textbook)"
-                          size="sm"
-                          unelevated
-                          no-caps
-                        />
-                      </q-card-actions>
-                    </q-card>
-                   </div>
+                      <!-- 第7步：教材信息覆盖层 (底部) -->
+                      <div class="textbook-info-overlay">
+                        <div class="textbook-name-overlay">
+                          {{ textbook.textbookName }}
+                        </div>
+                        <div class="textbook-meta-overlay">
+                          {{ textbook.textbookSubjectLabel }} {{ textbook.textbookGradeLabel }} {{ textbook.textbookSemesterLabel }}
+                        </div>
+                      </div>
+                    </div>
+                    <!-- 第8步：操作按钮区 - 简化条件逻辑 -->
+                    <div class="textbook-actions">
+                      <!-- 下载中状态：显示暂停和取消 -->
+                      <template v-if="textbook.downloadStatus === 1">
+                        <q-btn color="orange" icon="pause" label="暂停" @click="pauseDownload(textbook)" size="sm" unelevated no-caps />
+                        <q-btn color="negative" icon="cancel" label="取消" @click="cancelDownload(textbook)" size="sm" unelevated no-caps />
+                      </template>
+                      
+                      <!-- 暂停状态：显示继续和取消 -->
+                      <template v-else-if="textbook.downloadStatus === 3">
+                        <q-btn color="primary" icon="play_arrow" label="继续" @click="downloadTextbook(textbook)" size="sm" unelevated no-caps />
+                        <q-btn color="negative" icon="cancel" label="取消" @click="cancelDownload(textbook)" size="sm" unelevated no-caps />
+                      </template>
+                      
+                      <!-- 已下载状态：显示查看和去学习 -->
+                      <template v-else-if="textbook.isDownloaded && textbook.downloadStatus === 2">
+                        <q-btn color="positive" icon="visibility" label="查看" @click="viewTextbook(textbook)" size="sm" unelevated no-caps />
+                        <q-btn color="primary" icon="school" label="去学习" @click="goToKnowledgeGraph(textbook)" size="sm" unelevated no-caps />
+                        <q-btn v-if="textbook.hasUpdatesAvailable" color="secondary" icon="system_update" label="更新" @click="updateTextbook(textbook)" size="sm" unelevated no-caps />
+                      </template>
+                      
+                      <!-- 部分下载状态：显示继续 -->
+                      <template v-else-if="textbook.downloadedFiles > 0 && textbook.downloadedFiles < textbook.totalFiles">
+                        <q-btn color="primary" icon="play_arrow" label="继续" @click="downloadTextbook(textbook)" size="sm" unelevated no-caps />
+                      </template>
+                      
+                      <!-- 未下载状态：显示下载 -->
+                      <template v-else>
+                        <q-btn color="primary" icon="download" label="下载" @click="downloadTextbook(textbook)" size="sm" unelevated no-caps />
+                      </template>
+                    </div>
+                  </div>
                  </div>
                </div>
              </div>
@@ -282,10 +205,7 @@ import { httpClient } from '../services/http-client'
 import type { UserTextbookInfo } from '../types'
 import DebugPanel from '../components/DebugPanel.vue'
 import BScroll from '@better-scroll/core'
-import PullDown from '@better-scroll/pull-down'
-
-// 注册下拉刷新插件
-BScroll.use(PullDown)
+// 第1步：移除PullDown插件导入，不再使用下拉刷新功能
 
 // Quasar 实例
 const $q = useQuasar()
@@ -311,7 +231,7 @@ const initialLoadCompleted = ref(false)
 // better-scroll 相关
 const scrollWrapper = ref<HTMLElement | null>(null)
 let bscroll: BScroll | null = null
-const pullDownRefreshStatus = ref<'pulling' | 'enough' | 'refreshing' | ''>('')
+// 第2步：移除pullDownRefreshStatus状态，不再需要下拉刷新状态管理
 
 // 确认对话框
 const showConfirmDialog = ref(false)
@@ -662,57 +582,25 @@ const initBScroll = async () => {
     bscroll.destroy()
   }
 
-  // 创建 BScroll 实例
+  // 第3步：创建 BScroll 实例，优化性能配置
   bscroll = new BScroll(scrollWrapper.value, {
-    // 基础配置
+    // 第4步：基础配置
     scrollY: true,
     scrollX: false,
     click: true,
-    probeType: 3,
+    probeType: 2, // 降低probeType从3到2，减少滚动事件频率，提升性能
     bounce: {
-      top: true,
-      bottom: true,
+      top: true,  // 第5步：保留橡皮筋效果（顶部）
+      bottom: true, // 第6步：保留橡皮筋效果（底部）
     },
-    // 下拉刷新配置
-    pullDownRefresh: {
-      threshold: 60,
-      stop: 40,
-    },
+    // 第7步：移除pullDownRefresh配置，不再使用下拉刷新
+    // 第8步：性能优化配置
+    useTransition: true, // 使用CSS transition提升性能
+    HWCompositing: true, // 启用硬件加速
   })
 
-  // 监听下拉状态变化
-  bscroll.on('pullingDown', async () => {
-    pullDownRefreshStatus.value = 'refreshing'
-
-    try {
-      // 重新加载资源数据
-      await loadResources()
-      // 显示刷新成功提示
-      showMessage('刷新成功', 'success')
-    } catch {
-      // 刷新失败提示
-      showMessage('刷新失败，请稍后重试', 'error')
-    } finally {
-      // 结束下拉刷新
-      pullDownRefreshStatus.value = ''
-      bscroll?.finishPullDown()
-      // 等待一下再刷新
-      setTimeout(() => {
-        bscroll?.refresh()
-      }, 300)
-    }
-  })
-
-  // 监听滚动状态
-  bscroll.on('scroll', (pos: { y: number }) => {
-    if (pos.y > 40 && pullDownRefreshStatus.value !== 'refreshing') {
-      pullDownRefreshStatus.value = 'enough'
-    } else if (pos.y > 0 && pos.y <= 40 && pullDownRefreshStatus.value !== 'refreshing') {
-      pullDownRefreshStatus.value = 'pulling'
-    } else if (pos.y <= 0 && pullDownRefreshStatus.value !== 'refreshing') {
-      pullDownRefreshStatus.value = ''
-    }
-  })
+  // 第9步：移除下拉刷新监听事件
+  // 第10步：移除滚动状态监听（之前用于显示下拉刷新提示）
 }
 
 // 更新学科筛选选项
@@ -730,6 +618,12 @@ const updateSubjectChips = () => {
   if (selectedSubjects.value.size === 0) {
     selectedSubjects.value.add('all')
   }
+}
+
+// 第11步：处理检查更新按钮点击
+const handleCheckUpdates = async () => {
+  // 第12步：调用检查更新逻辑
+  await checkForUpdates()
 }
 
 // 检查更新 - 三级对比版本
@@ -1128,28 +1022,7 @@ const printLocalFilesData = async () => {
     min-height: calc(100% + 1px);
   }
 
-  // 下拉刷新提示
-  .pulldown-wrapper {
-    position: absolute;
-    width: 100%;
-    left: 0;
-    top: -60px;
-    height: 60px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s;
-  }
-
-  .pulldown-tips {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 8px 16px;
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
+  // 第13步：移除下拉刷新提示样式
 
   // 空状态固定
   .empty-state {
@@ -1193,6 +1066,24 @@ const printLocalFilesData = async () => {
       
       &:hover {
         transform: translateY(-1px);
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
+    }
+
+    // 第14步：检查更新按钮样式
+    .check-updates-btn {
+      flex-shrink: 0;
+      border-radius: 8px;
+      padding: 8px 20px;
+      font-weight: 500;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
       }
 
       &:active {
@@ -1253,29 +1144,133 @@ const printLocalFilesData = async () => {
       }
     }
 
-    // 教材项包装器
-    .textbook-item-wrapper {
-      width: 100%;
-      max-width: 260px;
-      display: flex;
-      justify-content: center;
-    }
-
-    // Material Design 教材卡片样式
+    // 第1步：简化后的教材卡片样式
     .textbook-card {
       width: 100%;
       max-width: 240px;
-      border-radius: 4px; // Material Design 使用较小的圆角
-      box-shadow:
-        0 2px 4px rgba(0, 0, 0, 0.1),
-        0 0 0 1px rgba(0, 0, 0, 0.05); // Material Design 阴影
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); // Material Design 缓动函数
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       overflow: hidden;
       background: #ffffff;
+      /* 第2步：性能优化 */
+      contain: layout style paint;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      will-change: transform;
 
+      // 第3步：教材封面容器
       .textbook-cover {
         background: #f5f5f5;
         position: relative;
+        padding-bottom: 150%; // 2:3比例
+        overflow: hidden;
+        transform: translateZ(0);
+
+        // 第4步：原生img样式
+        img {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+        }
+      }
+
+      // 第5步：状态覆盖层
+      .status-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 2;
+      }
+
+      // 第6步：纯CSS圆形进度环
+      .progress-ring {
+        position: relative;
+        
+        svg {
+          transform: rotate(-90deg);
+        }
+        
+        .progress-ring-circle-bg {
+          fill: none;
+          stroke: rgba(255, 255, 255, 0.3);
+          stroke-width: 4;
+        }
+        
+        .progress-ring-circle {
+          fill: none;
+          stroke: #fff;
+          stroke-width: 4;
+          stroke-linecap: round;
+          stroke-dasharray: 163.36;
+          transition: stroke-dashoffset 0.3s ease;
+        }
+        
+        .progress-text {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          color: white;
+          font-size: 12px;
+          font-weight: 600;
+        }
+      }
+
+      // 第7步：暂停指示器
+      .pause-indicator {
+        text-align: center;
+        color: #ff9800;
+        
+        .pause-icon {
+          width: 60px;
+          height: 60px;
+          margin: 0 auto 8px;
+          background: #ff9800;
+          border-radius: 50%;
+          position: relative;
+          
+          &::before,
+          &::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 6px;
+            height: 24px;
+            background: white;
+            border-radius: 2px;
+          }
+          
+          &::before {
+            left: 20px;
+          }
+          
+          &::after {
+            right: 20px;
+          }
+        }
+        
+        .pause-text {
+          font-size: 14px;
+          font-weight: 600;
+          color: white;
+          margin-bottom: 4px;
+        }
+        
+        .pause-progress {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.9);
+        }
       }
 
       // 教材信息覆盖层样式 - 半透明+毛玻璃组合
@@ -1338,9 +1333,19 @@ const printLocalFilesData = async () => {
       &.paused {
         border-left: 4px solid #ff9800; // Material Design 橙色
       }
+
+      // 第10步：简化后的操作按钮区
+      .textbook-actions {
+        display: flex;
+        gap: 8px;
+        padding: 8px;
+        justify-content: space-around;
+        align-items: center;
+      }
     }
 
-    .textbook-item {
+    // 以下为已删除的旧样式，不再使用
+    .textbook-item-old {
       background: #ffffff;
       border-radius: 4px; // Material Design 圆角
       padding: 16px; // Material Design 间距
