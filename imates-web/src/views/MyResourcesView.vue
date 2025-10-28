@@ -74,7 +74,7 @@
           >
             <!-- 教材封面 -->
             <q-img
-              :src="textbook.textbookCover || '/icons/book.svg'"
+              :src="textbook.textbookCover || bookIcon"
               :alt="textbook.textbookName"
               height="200px"
               class="textbook-cover"
@@ -289,6 +289,9 @@ import { resourceManager } from '../services/resource-manager'
 import { apiService } from '../services/api-service'
 import type { UserTextbookInfo } from '../types'
 import DebugPanel from '../components/DebugPanel.vue'
+
+// 流程：导入图标资源
+import bookIcon from '/icons/book.svg'
 
 // 路由
 const router = useRouter()

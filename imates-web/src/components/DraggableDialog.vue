@@ -1,5 +1,5 @@
 <template>
-  <q-dialog v-model="isOpen" position="standard" @hide="handleClose">
+  <q-dialog v-model="isOpen" position="standard" seamless @hide="handleClose">
     <q-card 
       class="draggable-dialog-card"
       :style="dialogStyle"
@@ -14,7 +14,15 @@
         @touchstart.prevent="startDrag"
       >
         <div class="text-h6">{{ title }}</div>
-        <q-btn flat round dense icon="close" @click="handleClose" />
+        <q-btn 
+          flat 
+          round 
+          dense 
+          icon="close" 
+          @click="handleClose"
+          @mousedown.stop
+          @touchstart.stop
+        />
       </q-card-section>
 
       <q-card-section class="dialog-content-section">
@@ -66,10 +74,12 @@ const dialogSize = ref({ width: props.initialWidth, height: props.initialHeight 
 const isResizing = ref(false)
 const resizeStart = ref({ x: 0, y: 0, width: 0, height: 0 })
 
+// 计算对话框样式，拖动或缩放时禁用过渡动画
 const dialogStyle = computed(() => ({
   transform: `translate(${dialogPosition.value.x}px, ${dialogPosition.value.y}px)`,
   width: `${dialogSize.value.width}px`,
-  height: `${dialogSize.value.height}px`
+  height: `${dialogSize.value.height}px`,
+  transition: (isDragging.value || isResizing.value) ? 'none' : 'transform 0.1s ease-out'
 }))
 
 const startDrag = (event: MouseEvent | TouchEvent) => {
@@ -145,22 +155,45 @@ watch(isOpen, (newValue) => {
 .draggable-dialog-card {
   max-width: 90vw;
   max-height: 90vh;
-  transition: transform 0.1s ease-out;
   position: relative;
   display: flex;
   flex-direction: column;
+  border-radius: 16px;
+  box-shadow: 
+    0 0 0 1px rgba(0, 0, 0, 0.05),
+    0 10px 40px rgba(0, 0, 0, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  background: #ffffff;
   
   .dialog-header-section {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 16px 20px;
-    background: rgba(144, 89, 255, 0.2);
-    border-bottom: 1px solid rgba(144, 89, 255, 0.3);
+    background: #fafafb;
+    border-bottom: 1px solid #e8e8e8;
     
     &.draggable-header {
       cursor: move;
       user-select: none;
+    }
+    
+    .text-h6 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1e1e1e;
+      letter-spacing: -0.01em;
+    }
+    
+    :deep(.q-btn) {
+      color: #6b6b6b;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+        color: #1e1e1e;
+      }
     }
   }
   
@@ -170,31 +203,53 @@ watch(isOpen, (newValue) => {
     overflow: auto;
     display: flex;
     flex-direction: column;
+    background: #ffffff;
   }
   
   .resize-handle {
     position: absolute;
     bottom: 0;
     right: 0;
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     cursor: nwse-resize;
     z-index: 10;
     
     &::after {
       content: '';
       position: absolute;
-      bottom: 4px;
-      right: 4px;
+      bottom: 6px;
+      right: 6px;
       width: 12px;
       height: 12px;
-      border-right: 2px solid rgba(144, 89, 255, 0.6);
-      border-bottom: 2px solid rgba(144, 89, 255, 0.6);
+      border-right: 2px solid #d1d1d1;
+      border-bottom: 2px solid #d1d1d1;
+      border-radius: 0 0 2px 0;
+      transition: border-color 0.2s ease;
     }
     
     &:hover::after {
-      border-color: rgba(144, 89, 255, 1);
+      border-color: #6b6b6b;
     }
+  }
+}
+
+/* Excalidraw 风格的滚动条 */
+.dialog-content-section::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dialog-content-section::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dialog-content-section::-webkit-scrollbar-thumb {
+  background: #d1d1d1;
+  border-radius: 4px;
+  
+  &:hover {
+    background: #b1b1b1;
   }
 }
 </style>

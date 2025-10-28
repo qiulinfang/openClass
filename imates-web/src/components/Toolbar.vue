@@ -47,7 +47,7 @@
                             @click="resetPenColor"
                             class="reset-button"
                           >
-                            <img src="/icons/reset.svg" alt="重置" class="reset-icon" />
+                            <img :src="resetIcon" alt="重置" class="reset-icon" />
                           </q-btn>
                         </div>
                         <div class="section-content">
@@ -120,7 +120,7 @@
                             @click="resetHighlighterColor"
                             class="reset-button"
                           >
-                            <img src="/icons/reset.svg" alt="重置" class="reset-icon" />
+                            <img :src="resetIcon" alt="重置" class="reset-icon" />
                           </q-btn>
                         </div>
                         <div class="section-content">
@@ -278,7 +278,7 @@
                             @click="resetScreenshotShape"
                             class="reset-button"
                           >
-                            <img src="/icons/reset.svg" alt="重置" class="reset-icon" />
+                            <img :src="resetIcon" alt="重置" class="reset-icon" />
                           </q-btn>
                         </div>
                         <div class="section-content">
@@ -345,6 +345,20 @@ import { computed, ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 
+// 流程：导入图标资源
+import resetIcon from '/icons/reset.svg'
+import eraserSmallIcon from '/icons/eraserSmall.svg'
+import eraserMediumIcon from '/icons/eraserMedium.svg'
+import eraserLargeIcon from '/icons/eraserLarge.svg'
+import highlighterSettingsIcon from '/icons/highlightersettingsIcon.svg'
+import signaturePenSettingsIcon from '/icons/signaturePensettingsIcon.svg'
+import eraserSettingsIcon from '/icons/erasersettingsIcon.svg'
+import screenshotIcon from '/icons/screenshot.svg'
+import toolBoxIcon from '/icons/toolBox.svg'
+import highlighterIcon from '/icons/highlighter.svg'
+import signaturePenIcon from '/icons/signaturePen.svg'
+import eraserIcon from '/icons/eraser.svg'
+
 // 定义事件
 const emit = defineEmits<{
   'toggle-chat-panel': [visible: boolean]
@@ -396,9 +410,9 @@ const highlighterPresets = computed(() => [
 
 // 橡皮擦大小预设选项（用于擦除）
 const eraserSizePresets = computed(() => [
-  { value: 8, label: '小', icon: '/icons/eraserSmall.svg' },
-  { value: 15, label: '中', icon: '/icons/eraserMedium.svg' },
-  { value: 25, label: '大', icon: '/icons/eraserLarge.svg' },
+  { value: 8, label: '小', icon: eraserSmallIcon },
+  { value: 15, label: '中', icon: eraserMediumIcon },
+  { value: 25, label: '大', icon: eraserLargeIcon },
 ])
 
 // 橡皮擦模式固定为整笔擦除模式（已移除像素擦除）
@@ -520,13 +534,13 @@ const getPopupStyle = () => {
 // 获取弹出图标源
 const getPopupIconSrc = () => {
   const iconMap: Record<string, string> = {
-    highlighter: '/icons/highlightersettingsIcon.svg',
-    pen: '/icons/signaturePensettingsIcon.svg',
-    eraser: '/icons/erasersettingsIcon.svg',
-    screenshot: '/icons/screenshot.svg', // 截图工具没有专门的设置图标，使用原图标
-    select: '/icons/toolBox.svg', // 选择工具没有专门的设置图标，使用原图标
+    highlighter: highlighterSettingsIcon,
+    pen: signaturePenSettingsIcon,
+    eraser: eraserSettingsIcon,
+    screenshot: screenshotIcon, // 截图工具没有专门的设置图标，使用原图标
+    select: toolBoxIcon, // 选择工具没有专门的设置图标，使用原图标
   }
-  return iconMap[selectedTool.value] || '/icons/toolBox.svg'
+  return iconMap[selectedTool.value] || toolBoxIcon
 }
 
 // 获取弹出图标的动态样式（根据当前工具颜色）
@@ -658,13 +672,13 @@ const toggleChatPanel = () => {
 // 获取工具图标
 const getToolIcon = (toolValue: string) => {
   const iconMap: Record<string, string> = {
-    highlighter: '/icons/highlighter.svg',
-    pen: '/icons/signaturePen.svg',
-    eraser: '/icons/eraser.svg',
-    screenshot: '/icons/screenshot.svg',
-    select: '/icons/toolBox.svg',
+    highlighter: highlighterIcon,
+    pen: signaturePenIcon,
+    eraser: eraserIcon,
+    screenshot: screenshotIcon,
+    select: toolBoxIcon,
   }
-  return iconMap[toolValue] || '/icons/toolBox.svg'
+  return iconMap[toolValue] || toolBoxIcon
 }
 
 // 获取工具样式类

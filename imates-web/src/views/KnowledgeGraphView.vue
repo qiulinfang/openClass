@@ -4,7 +4,7 @@
     <div class="chapter-sidebar">
       <!-- 科目和版本信息 -->
       <div class="subject-header">
-        <img src="/icons/book.svg" class="subject-icon" />
+        <img :src="bookIcon" class="subject-icon" />
         <q-select
           v-model="selectedSubject"
           :options="subjectOptions"
@@ -100,7 +100,7 @@
               >
                 <img 
                   v-if="getCurrentChapterExpandedGraph() === subChapter.id" 
-                  src="/icons/Indicator.svg" 
+                  :src="indicatorIcon" 
                   alt="Indicator" 
                   class="indicator-icon"
                 />
@@ -134,15 +134,15 @@
       <!-- 底部状态标识 - 只在选择了章节时显示 -->
       <div v-if="selectedChapterDetails" class="status-indicators">
         <div class="status-item">
-          <img src="/icons/notLearnedStar.svg" alt="未学习" class="status-icon" />
+          <img :src="notLearnedStarIcon" alt="未学习" class="status-icon" />
           <span class="status-label">未学习</span>
         </div>
         <div class="status-item">
-          <img src="/icons/learnedStar.svg" alt="已学习" class="status-icon" />
+          <img :src="learnedStarIcon" alt="已学习" class="status-icon" />
           <span class="status-label">已学习</span>
         </div>
         <div class="status-item">
-          <img src="/icons/lastLearnedStar.svg" alt="上次学到" class="status-icon" />
+          <img :src="lastLearnedStarIcon" alt="上次学到" class="status-icon" />
           <span class="status-label">上次学到</span>
         </div>
       </div>
@@ -177,6 +177,14 @@ import type { TextbookOption, ChapterNode, UserTextbookInfo } from '../types'
 import KnowledgeGraph from '../components/knowledge-graph/KnowledgeGraph.vue'
 import LearningView from './LearningView.vue'
 import { useTextbookChapterState } from '../stores/textbookChapterState'
+
+// 流程：导入图标资源
+import bookIcon from '/icons/book.svg'
+import indicatorIcon from '/icons/Indicator.svg'
+import notLearnedStarIcon from '/icons/notLearnedStar.svg'
+import learnedStarIcon from '/icons/learnedStar.svg'
+import lastLearnedStarIcon from '/icons/lastLearnedStar.svg'
+import backgroundImage from '/icons/background.svg'
 
 // 使用统一的章节状态管理
 const {
@@ -1774,7 +1782,7 @@ onUnmounted(() => {
 .knowledge-graph-content {
   display: flex;
   height: 100vh;
-  background: url('/icons/background.svg') no-repeat center center;
+  background: v-bind('`url(${backgroundImage})`') no-repeat center center;
   background-size: cover;
   background-attachment: fixed;
 }

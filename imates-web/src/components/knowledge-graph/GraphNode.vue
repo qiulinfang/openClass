@@ -55,6 +55,12 @@
 <script setup lang="ts">
 import { computed, ref, defineProps, defineEmits } from 'vue'
 
+// 流程：导入图标资源
+import centerNodeIcon from '/icons/centerNode.svg'
+import learnedIcon from '/icons/learned.svg'
+import lastLearnedIcon from '/icons/lastLearned.svg'
+import notLearnedIcon from '/icons/notLearned.svg'
+
 interface Node {
   id: string
   name: string
@@ -131,17 +137,17 @@ const getNodeAngle = (index: number, total: number): number => {
 // 获取节点背景图标
 const nodeIcon = computed(() => {
   if (props.type === 'center') {
-    return '/icons/centerNode.svg'
+    return centerNodeIcon
   } else {
     // 圆周节点根据学习状态选择图标
     switch (props.learningStatus) {
       case 'learned':
-        return '/icons/learned.svg'
+        return learnedIcon
       case 'lastLearned':
-        return '/icons/lastLearned.svg'
+        return lastLearnedIcon
       case 'notLearned':
       default:
-        return '/icons/notLearned.svg'
+        return notLearnedIcon
     }
   }
 })

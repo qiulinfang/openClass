@@ -5,11 +5,26 @@
       <div class="toolbar-content">
         <!-- 左侧区域 -->
         <div class="left-section">
-          <!-- 1. 插槽优先 -->
-          <slot name="left">
-            <!-- 2. 默认显示返回按钮 -->
-            <q-btn v-if="showBack" flat round dense icon="arrow_back" @click="emit('back')" />
-          </slot>
+          <!-- 左侧工具按钮 -->
+          <q-btn
+            v-for="tool in leftTools"
+            :key="tool.value"
+            flat
+            round
+            dense
+            :icon="isImageIcon(tool.icon) ? undefined : tool.icon"
+            :disable="toolStates[tool.value] === false"
+            @click="handleActionClick(tool.value)"
+            class="action-btn"
+          >
+            <!-- SVG 图标 -->
+            <img
+              v-if="isImageIcon(tool.icon)"
+              :src="tool.icon"
+              class="action-icon"
+            />
+            <q-tooltip>{{ tool.label }}</q-tooltip>
+          </q-btn>
         </div>
 
         <!-- 中间区域 -->
@@ -17,8 +32,8 @@
           <!-- 1. 工具按钮组 -->
           <div class="tool-section">
             <div class="tool-buttons">
-              <!-- 遍历工具列表 -->
-              <div v-for="tool in toolOptions" :key="tool.value" class="tool-icon-wrapper">
+              <!-- 遍历绘图工具列表 -->
+              <div v-for="tool in drawingTools" :key="tool.value" class="tool-icon-wrapper">
                 <img
                   :src="tool.icon"
                   :class="{ 'tool-icon-selected': selectedTool === tool.value }"
@@ -31,7 +46,7 @@
               <div v-if="hasConfigurableTools" class="popup-icon-wrapper" @click.stop>
                 <!-- 配置按钮 -->
                 <img
-                  src="/icons/erasersettingsIcon.svg"
+                  :src="eraserSettingsIcon"
                   :class="{ 'popup-icon-active': showPopup }"
                   class="popup-icon"
                   @click.stop="togglePopup"
@@ -119,26 +134,30 @@
               </div>
             </div>
           </div>
-
-          <!-- 2. 中间插槽（可以放额外的操作按钮） -->
-          <slot name="center"></slot>
         </div>
 
         <!-- 右侧区域 -->
         <div class="right-section">
-          <!-- 1. 插槽优先 -->
-          <slot name="right">
-            <!-- 2. 默认显示聊天按钮 -->
-            <q-btn
-              v-if="showChat"
-              flat
-              round
-              dense
-              icon="chat"
-              @click="emit('toggle-chat')"
-              class="chat-button"
+          <!-- 右侧工具按钮 -->
+          <q-btn
+            v-for="tool in rightTools"
+            :key="tool.value"
+            flat
+            round
+            dense
+            :icon="isImageIcon(tool.icon) ? undefined : tool.icon"
+            :disable="toolStates[tool.value] === false"
+            @click="handleActionClick(tool.value)"
+            class="action-btn"
+          >
+            <!-- SVG 图标 -->
+            <img
+              v-if="isImageIcon(tool.icon)"
+              :src="tool.icon"
+              class="action-icon"
             />
-          </slot>
+            <q-tooltip>{{ tool.label }}</q-tooltip>
+          </q-btn>
         </div>
       </div>
     </div>
@@ -147,6 +166,20 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+
+// 流程：导入图标资源
+import eraserSettingsIcon from '/icons/erasersettingsIcon.svg'
+import signaturePenIcon from '/icons/signaturePen.svg'
+import highlighterIcon from '/icons/highlighter.svg'
+import eraserIcon from '/icons/eraser.svg'
+import eraserSmallIcon from '/icons/eraserSmall.svg'
+import eraserMediumIcon from '/icons/eraserMedium.svg'
+import eraserLargeIcon from '/icons/eraserLarge.svg'
+import screenshotIcon from '/icons/screenshot.svg'
+import resetIcon from '/icons/reset.svg'
+import selectIcon from '/icons/select.svg'
+import handIcon from '/icons/hand.svg'
+import insertTextIcon from '/icons/InsertText.svg'
 
 // 工具配置接口
 interface ToolOption {
@@ -173,24 +206,21 @@ interface ToolConfig {
 
 // Props 定义
 interface Props {
-  // 工具名称列表（如 ['pen', 'highlighter', 'eraser']）
+  // 工具名称列表（如 ['pen', 'highlighter', 'eraser', 'undo', 'redo', 'back', 'chat']）
   tools: string[]
   // 当前选中的工具
   selectedTool: string
   // 工具配置
   toolConfig?: ToolConfig
-  // 是否显示返回按钮
-  showBack?: boolean
-  // 是否显示聊天按钮
-  showChat?: boolean
+  // 工具状态（用于禁用某些工具，如 { undo: false, redo: false }）
+  toolStates?: Record<string, boolean>
 }
 
 const props = withDefaults(defineProps<Props>(), {
   tools: () => [],
   selectedTool: '',
   toolConfig: () => ({}),
-  showBack: true,
-  showChat: false,
+  toolStates: () => ({}),
 })
 
 // 内置的所有工具配置定义
@@ -199,7 +229,7 @@ const ALL_TOOLS: Record<string, ToolOption> = {
   pen: {
     value: 'pen',
     label: '签字笔',
-    icon: '/icons/signaturePen.svg',
+    icon: signaturePenIcon,
     showColorPicker: true,
     colors: [
       { value: '#ff0000', label: '红色' },
@@ -220,7 +250,7 @@ const ALL_TOOLS: Record<string, ToolOption> = {
   highlighter: {
     value: 'highlighter',
     label: '荧光笔',
-    icon: '/icons/highlighter.svg',
+    icon: highlighterIcon,
     showColorPicker: true,
     colors: [
       { value: '#FFFF00', label: '黄色' },
@@ -241,19 +271,19 @@ const ALL_TOOLS: Record<string, ToolOption> = {
   eraser: {
     value: 'eraser',
     label: '橡皮擦',
-    icon: '/icons/eraser.svg',
+    icon: eraserIcon,
     showSizePicker: true,
     sizes: [
-      { value: 8, label: '小', icon: '/icons/eraserSmall.svg' },
-      { value: 15, label: '中', icon: '/icons/eraserMedium.svg' },
-      { value: 25, label: '大', icon: '/icons/eraserLarge.svg' },
+      { value: 8, label: '小', icon: eraserSmallIcon },
+      { value: 15, label: '中', icon: eraserMediumIcon },
+      { value: 25, label: '大', icon: eraserLargeIcon },
     ],
     sizeLabel: '大小',
   },
   screenshot: {
     value: 'screenshot',
     label: '圈选截图',
-    icon: '/icons/screenshot.svg',
+    icon: screenshotIcon,
     showShapePicker: true,
     shapes: [
       { value: 'rectangle', label: '矩形', icon: 'crop_square' },
@@ -263,19 +293,24 @@ const ALL_TOOLS: Record<string, ToolOption> = {
   reset: {
     value: 'reset',
     label: '重置',
-    icon: '/icons/reset.svg',
+    icon: resetIcon,
   },
   
   // 绘图工具
   select: {
     value: 'select',
     label: '选择',
-    icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBkPSJNMTMgMWwtMiAyIDYgNiAyLTIgNiA2di02eiIvPjwvc3ZnPg==',
+    icon: selectIcon,
+  },
+  hand: {
+    value: 'hand',
+    label: '移动画布',
+    icon: handIcon,
   },
   draw: {
     value: 'draw',
     label: '画笔',
-    icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBkPSJNMyAxNy4yNVYyMWgzLjc1TDE3LjgxIDkuOTRsLTMuNzUtMy43NUwzIDE3LjI1ek0yMC43MSA3LjA0YTEgMSAwIDAgMCAwLTEuNDFsLTIuMzQtMi4zNGExIDEgMCAwIDAtMS40MSAwbC0xLjgzIDEuODMgMy43NSAzLjc1IDEuODMtMS44M3oiLz48L3N2Zz4=',
+    icon: signaturePenIcon,
     showColorPicker: true,
     colors: [
       { value: '#000000', label: '黑色' },
@@ -297,20 +332,19 @@ const ALL_TOOLS: Record<string, ToolOption> = {
   'eraser-draw': {
     value: 'eraser-draw',
     label: '橡皮',
-    icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCI+PHBhdGggZD0iTTYuNCA2LjRMMTIgMTJsNS42LTUuNkwyMCA4bC02IDYgNiA2LTIuNiAxLjZMMTIgMTZsLTUuNiA1LjZMMiAyMGw2LTYtNi02IDIuNC0yLjR6Ii8+PC9zdmc+',
+    icon: eraserIcon,
     showSizePicker: true,
     sizes: [
-      { value: 1, label: '细', displayHeight: '1px' },
-      { value: 3, label: '中', displayHeight: '3px' },
-      { value: 5, label: '粗', displayHeight: '5px' },
-      { value: 10, label: '特粗', displayHeight: '8px' },
+      { value: 1, label: '小', icon: eraserSmallIcon },
+      { value: 3, label: '中', icon: eraserMediumIcon },
+      { value: 5, label: '大', icon: eraserLargeIcon },
     ],
     sizeLabel: '大小',
   },
   text: {
     value: 'text',
     label: '文本',
-    icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCI+PHBhdGggZD0iTTUgNHYzaDQuNXY5aDNoVjdIMTdWNHoiLz48L3N2Zz4=',
+    icon: insertTextIcon,
     showColorPicker: true,
     colors: [
       { value: '#000000', label: '黑色' },
@@ -417,6 +451,35 @@ const ALL_TOOLS: Record<string, ToolOption> = {
     ],
     sizeLabel: '边框粗细',
   },
+  
+  // 操作工具（渲染到右侧）
+  undo: {
+    value: 'undo',
+    label: '撤销',
+    icon: 'undo',
+  },
+  redo: {
+    value: 'redo',
+    label: '重做',
+    icon: 'redo',
+  },
+  clear: {
+    value: 'clear',
+    label: '清空画布',
+    icon: 'delete',
+  },
+  
+  // 导航工具
+  back: {
+    value: 'back',
+    label: '返回',
+    icon: 'arrow_back',
+  },
+  chat: {
+    value: 'chat',
+    label: '聊天',
+    icon: 'chat',
+  },
 }
 
 // Emits 定义
@@ -424,17 +487,41 @@ const emit = defineEmits<{
   'tool-change': [tool: string]
   'config-change': [config: ToolConfig]
   'back': []
-  'toggle-chat': []
+  'chat': []
+  'undo': []
+  'redo': []
+  'clear': []
 }>()
 
 // 弹出框状态
 const showPopup = ref(false)
+
+// 工具位置分类
+const LEFT_TOOLS = ['back']
+const RIGHT_TOOLS = ['undo', 'redo', 'clear', 'chat']
 
 // 根据传入的工具名称列表获取完整的工具配置
 const toolOptions = computed(() => {
   return props.tools
     .map((toolName) => ALL_TOOLS[toolName])
     .filter((tool) => tool !== undefined)
+})
+
+// 左侧工具
+const leftTools = computed(() => {
+  return toolOptions.value.filter((tool) => LEFT_TOOLS.includes(tool.value))
+})
+
+// 绘图工具（渲染到中间）
+const drawingTools = computed(() => {
+  return toolOptions.value.filter((tool) => 
+    !LEFT_TOOLS.includes(tool.value) && !RIGHT_TOOLS.includes(tool.value)
+  )
+})
+
+// 右侧工具
+const rightTools = computed(() => {
+  return toolOptions.value.filter((tool) => RIGHT_TOOLS.includes(tool.value))
 })
 
 // 是否有可配置的工具
@@ -450,10 +537,40 @@ const currentToolConfig = computed((): ToolOption => {
   return tool || { value: '', label: '', icon: '' }
 })
 
+// 判断是否为图片图标（SVG 或图片路径）
+const isImageIcon = (icon: string) => {
+  // 1. 包含路径分隔符（/）表示是文件路径
+  // 2. 包含扩展名（.）表示是文件
+  // 3. 以 data:image 开头表示是 base64 编码图片
+  return icon.includes('/') || icon.includes('.') || icon.startsWith('data:image')
+}
+
 // 处理工具点击
 const handleToolClick = (tool: string) => {
   // 1. 通知父组件工具变化
   emit('tool-change', tool)
+}
+
+// 处理操作工具点击
+const handleActionClick = (action: string) => {
+  // 1. 根据操作类型触发对应的事件
+  switch (action) {
+    case 'back':
+      emit('back')
+      break
+    case 'chat':
+      emit('chat')
+      break
+    case 'undo':
+      emit('undo')
+      break
+    case 'redo':
+      emit('redo')
+      break
+    case 'clear':
+      emit('clear')
+      break
+  }
 }
 
 // 切换弹出框
@@ -485,57 +602,70 @@ defineExpose({
 </script>
 
 <style scoped>
+/* Excalidraw 风格容器 */
 .unified-toolbar-container {
   width: 100%;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  padding: 16px 0;
 }
 
+/* Excalidraw 风格悬浮工具栏 */
 .unified-toolbar {
-  background: #100035;
-  color: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  border: 1px solid #e8e8e8;
+  border-radius: 14px;
+  box-shadow: 
+    0 0 0 1px rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.08),
+    0 2px 6px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  max-width: fit-content;
+}
+
+.unified-toolbar:hover {
+  box-shadow: 
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 12px 32px rgba(0, 0, 0, 0.1),
+    0 4px 8px rgba(0, 0, 0, 0.06);
 }
 
 .toolbar-content {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 16px;
-  min-height: 64px;
+  justify-content: center;
+  padding: 6px 10px;
+  gap: 2px;
 }
 
 .left-section {
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex-shrink: 0;
+  gap: 2px;
 }
 
 .center-section {
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex: 1;
-  justify-content: center;
+  gap: 2px;
 }
 
 .right-section {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
+  gap: 2px;
 }
 
 .tool-section {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
 }
 
 .tool-buttons {
   display: flex;
-  gap: 4px;
+  gap: 2px;
 }
 
 .tool-icon-wrapper {
@@ -545,25 +675,30 @@ defineExpose({
   justify-content: center;
 }
 
+/* Excalidraw 风格工具图标 */
 .tool-icon {
-  padding: 8px;
-  border-radius: 4px;
-  transition: all 0.2s ease;
+  padding: 10px;
+  border-radius: 8px;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 54px;
-  height: 54px;
-  filter: brightness(0) invert(1);
+  width: 40px;
+  height: 40px;
   cursor: pointer;
+  filter: none;
 }
 
 .tool-icon:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: #f5f5f5;
+}
+
+.tool-icon:active {
+  transform: scale(0.96);
 }
 
 .tool-icon-selected {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: #e3e2fe;
 }
 
 .popup-icon-wrapper {
@@ -573,26 +708,33 @@ defineExpose({
   justify-content: center;
 }
 
+/* Excalidraw 风格弹出图标 */
 .popup-icon {
-  padding: 8px;
-  border-radius: 4px;
-  transition: all 0.2s ease;
+  padding: 10px;
+  border-radius: 8px;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 54px;
-  height: 54px;
+  width: 40px;
+  height: 40px;
   cursor: pointer;
-  filter: brightness(0) invert(0.8);
+  filter: none;
+  opacity: 0.7;
 }
 
 .popup-icon:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: #f5f5f5;
+  opacity: 1;
+}
+
+.popup-icon:active {
+  transform: scale(0.96);
 }
 
 .popup-icon-active {
-  background-color: rgba(255, 255, 255, 0.2);
-  filter: brightness(0) invert(1);
+  background-color: #e3e2fe;
+  opacity: 1;
 }
 
 .config-popup {
@@ -617,10 +759,15 @@ defineExpose({
   }
 }
 
+/* Excalidraw 风格弹窗内容 */
 .popup-content {
-  background: white;
+  background: #ffffff;
+  border: 1px solid #e8e8e8;
   border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 
+    0 0 0 1px rgba(0, 0, 0, 0.04),
+    0 12px 32px rgba(0, 0, 0, 0.1),
+    0 4px 8px rgba(0, 0, 0, 0.06);
   overflow: hidden;
 }
 
@@ -648,19 +795,21 @@ defineExpose({
   margin-bottom: 0;
 }
 
+/* Excalidraw 风格章节标题 */
 .section-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #100035;
+  color: #1e1e1e;
   font-weight: 600;
   margin-bottom: 12px;
-  font-size: 14px;
+  font-size: 13px;
+  letter-spacing: -0.01em;
   user-select: none;
 }
 
 .section-content {
-  color: #100035;
+  color: #1e1e1e;
 }
 
 /* 颜色选项 */
@@ -670,27 +819,35 @@ defineExpose({
   flex-wrap: wrap;
 }
 
+/* Excalidraw 风格颜色选项 */
 .color-option {
   position: relative;
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .color-option:hover {
-  transform: scale(1.1);
+  transform: scale(1.08);
+}
+
+.color-option:active {
+  transform: scale(0.98);
 }
 
 .color-display {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 2px solid #e0e0e0;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 2px solid #e8e8e8;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .color-selected .color-display {
-  box-shadow: inset 0 0 0 5px white;
+  border-color: #6965db;
+  box-shadow: 
+    inset 0 0 0 4px white,
+    0 2px 6px rgba(105, 101, 219, 0.3);
 }
 
 /* 大小选项 */
@@ -700,26 +857,32 @@ defineExpose({
   flex-wrap: wrap;
 }
 
+/* Excalidraw 风格尺寸选项 */
 .size-option {
   cursor: pointer;
   padding: 8px 12px;
   border-radius: 8px;
-  border: 2px solid #e0e0e0;
-  transition: all 0.2s ease;
+  border: 1.5px solid #e8e8e8;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 60px;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #ffffff;
 }
 
 .size-option:hover {
-  border-color: #100035;
-  background-color: rgba(16, 0, 53, 0.05);
+  border-color: #6965db;
+  background-color: #fafafb;
+}
+
+.size-option:active {
+  transform: scale(0.98);
 }
 
 .size-selected {
-  border-color: #100035;
-  background-color: rgba(16, 0, 53, 0.1);
+  border-color: #6965db;
+  background-color: #e3e2fe;
   font-weight: 600;
 }
 
@@ -737,16 +900,17 @@ defineExpose({
 
 .size-line {
   width: 40px;
-  background-color: #100035;
+  background-color: #1e1e1e;
   border-radius: 2px;
 }
 
 .size-label {
   font-size: 12px;
-  color: #666;
+  color: #6b6b6b;
+  font-weight: 500;
 }
 
-/* 形状选项 */
+/* Excalidraw 风格形状选项 */
 .shape-options {
   display: flex;
   gap: 12px;
@@ -757,37 +921,64 @@ defineExpose({
   cursor: pointer;
   padding: 12px;
   border-radius: 8px;
-  border: 2px solid #e0e0e0;
-  transition: all 0.2s ease;
+  border: 1.5px solid #e8e8e8;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
   min-width: 80px;
+  background: #ffffff;
 }
 
 .shape-option:hover {
-  border-color: #100035;
-  background-color: rgba(16, 0, 53, 0.05);
+  border-color: #6965db;
+  background-color: #fafafb;
+}
+
+.shape-option:active {
+  transform: scale(0.98);
 }
 
 .shape-selected {
-  border-color: #100035;
-  background-color: rgba(16, 0, 53, 0.1);
+  border-color: #6965db;
+  background-color: #e3e2fe;
   font-weight: 600;
 }
 
 .shape-label {
   font-size: 12px;
-  color: #666;
+  color: #6b6b6b;
+  font-weight: 500;
 }
 
-.chat-button {
-  transition: all 0.2s ease;
+/* Excalidraw 风格操作按钮 */
+.action-btn {
+  color: #6b6b6b;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
 }
 
-.chat-button:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+.action-btn:hover:not(:disabled) {
+  background-color: #f5f5f5;
+  color: #1e1e1e;
+}
+
+.action-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.action-btn:disabled {
+  color: #d1d1d1;
+  cursor: not-allowed;
+}
+
+.action-icon {
+  width: 20px;
+  height: 20px;
+  filter: none;
 }
 
 /* 禁用用户选择，避免拖动时选中文本 */
@@ -802,26 +993,36 @@ defineExpose({
   -ms-user-select: none;
 }
 
-/* 响应式设计 */
+/* Excalidraw 风格响应式设计 */
 @media (max-width: 768px) {
+  .unified-toolbar-container {
+    padding: 12px 0;
+  }
+
   .toolbar-content {
-    padding: 6px 12px;
-    min-height: 56px;
+    padding: 4px 8px;
   }
 
   .tool-icon,
-  .popup-icon {
-    width: 48px;
-    height: 48px;
-    padding: 6px;
+  .popup-icon,
+  .action-btn {
+    width: 36px;
+    height: 36px;
+    padding: 8px;
   }
 
-  .center-section {
-    gap: 8px;
+  .left-section,
+  .center-section,
+  .right-section {
+    gap: 1px;
+  }
+
+  .tool-section {
+    gap: 1px;
   }
 
   .tool-buttons {
-    gap: 2px;
+    gap: 1px;
   }
 
   .config-popup {

@@ -5,30 +5,29 @@
     @mouseup="stopDrag"
     @touchmove="handleDrag"
     @touchend="stopDrag"
-    @click="handleMainViewClick"
   >
     <!-- 功能菜单 -->
     <div class="function-menu">
       <!-- 用户头像 -->
       <div class="user-avatar">
-        <img src="/icons/avatar.svg" alt="avatar" style="width: 40px; height: 40px;" />
+        <img :src="avatarIcon" alt="avatar" style="width: 40px; height: 40px;" />
       </div>
       
       <div class="nav-items-container">
         <div class="nav-item" :class="{ active: activeNavItem === 'toolbox' }" @click="handleToolBoxClick">
-          <img src="/icons/toolBox.svg" alt="功能箱" class="nav-icon" />
+          <img :src="toolBoxIcon" alt="功能箱" class="nav-icon" />
           <span class="nav-text">功能箱</span>
         </div>
         <div class="nav-item" :class="{ active: activeNavItem === 'resources' }" @click="handleMyResourcesClick">
-          <img src="/icons/downloadResources.svg" alt="我的资源" class="nav-icon" />
+          <img :src="downloadResourcesIcon" alt="我的资源" class="nav-icon" />
           <span class="nav-text">我的资源</span>
         </div>
         <div class="nav-item" :class="{ active: activeNavItem === 'exercises' }" @click="handleMyExercisesClick">
-          <img src="/icons/book.svg" alt="我的习题" class="nav-icon" />
+          <img :src="bookIcon" alt="我的习题" class="nav-icon" />
           <span class="nav-text">我的习题</span>
         </div>
         <div class="nav-item" :class="{ active: activeNavItem === 'knowledge' }" @click="handleKnowledgeGraphClick">
-          <img src="/icons/isKnowledgeGraphSelected.svg" alt="知识图谱" class="nav-icon" />
+          <img :src="knowledgeGraphIcon" alt="知识图谱" class="nav-icon" />
           <span class="nav-text">知识图谱</span>
         </div>
       </div>
@@ -39,34 +38,35 @@
       <router-view />
     </div>
 
-    <!-- 悬浮可拖动图标 -->
+    <!-- 悬浮功能按钮 -->
     <div 
-      class="floating-icon"
-      :style="floatingIconStyle"
-      @mousedown.prevent="startDrag"
-      @touchstart.prevent="startDrag"
-      @click.stop
+      class="floating-fab"
+      :style="fabStyle"
+      @mousedown="startDrag"
+      @touchstart="startDrag"
     >
-      <img src="/icons/toolBox.svg" alt="悬浮图标" />
+      <q-fab
+        icon="add"
+        direction="up"
+        color="purple"
+        padding="md"
+      >
+        <q-fab-action
+          color="purple-7"
+          @click="handleDraftClick"
+          icon="edit_note"
+          label="草稿本"
+          label-position="left"
+        />
+        <q-fab-action
+          color="orange-7"
+          @click="handleAIChatClick"
+          icon="chat"
+          label="与AI聊天"
+          label-position="left"
+        />
+      </q-fab>
     </div>
-
-    <!-- 气泡框 -->
-    <div 
-      v-if="showBubble"
-      class="bubble-menu"
-      :style="bubbleMenuStyle"
-    >
-      <div class="bubble-option" @click="handleDraftClick">
-        <img src="/icons/book.svg" alt="草稿本" class="option-icon" />
-        <span>草稿本</span>
-      </div>
-      <div class="bubble-option" @click="handleAIChatClick">
-        <img src="/icons/avatar.svg" alt="与AI聊天" class="option-icon" />
-        <span>与AI聊天</span>
-      </div>
-    </div>
-    <button @click="showDraftDialog = true">显示草稿本对话框</button>
-    <button @click="showAIChatDialog = true">显示AI聊天对话框</button>
     <!-- 草稿本对话框 -->
     <DraggableDialog 
       v-model="showDraftDialog" 
@@ -120,6 +120,13 @@ import ChatView from '@/components/ChatView.vue'
 import DraggableDialog from '@/components/DraggableDialog.vue'
 import type { QuestionRecord } from '@/types'
 
+// 流程：导入图标资源
+import avatarIcon from '/icons/avatar.svg'
+import toolBoxIcon from '/icons/toolBox.svg'
+import downloadResourcesIcon from '/icons/downloadResources.svg'
+import bookIcon from '/icons/book.svg'
+import knowledgeGraphIcon from '/icons/isKnowledgeGraphSelected.svg'
+
 // 定义 props
 interface Props {
   activeNavItem?: string
@@ -141,15 +148,6 @@ const route = useRoute()
 // 响应式数据
 const activeNavItem = ref(props.activeNavItem)
 
-// 悬浮图标拖动相关状态
-const floatingIconPosition = ref({ x: window.innerWidth - 80, y: window.innerHeight - 80 })
-const isDragging = ref(false)
-const dragOffset = ref({ x: 0, y: 0 })
-const dragStartPosition = ref({ x: 0, y: 0 })
-
-// 气泡框相关状态
-const showBubble = ref(false)
-
 // 对话框显示状态
 const showDraftDialog = ref(false)
 const showAIChatDialog = ref(false)
@@ -157,52 +155,44 @@ const showAIChatDialog = ref(false)
 // 问题记录数据
 const questionRecords = ref<QuestionRecord[]>([])
 
-// 计算悬浮图标样式
-const floatingIconStyle = computed(() => ({
-  left: `${floatingIconPosition.value.x}px`,
-  top: `${floatingIconPosition.value.y}px`
-}))
+// 悬浮按钮拖动相关状态
+const fabPosition = ref({ x: 0, y: 0 })
+const isDragging = ref(false)
+const dragStartPos = ref({ x: 0, y: 0 })
+const dragOffset = ref({ x: 0, y: 0 })
+const hasMoved = ref(false)
 
-// 计算气泡框样式
-const bubbleMenuStyle = computed(() => {
-  const iconSize = 60
-  const bubbleWidth = 160
-  const bubbleHeight = 120
-  
-  let left = floatingIconPosition.value.x + iconSize + 10
-  let top = floatingIconPosition.value.y
-  
-  if (left + bubbleWidth > window.innerWidth) {
-    left = floatingIconPosition.value.x - bubbleWidth - 10
-  }
-  
-  if (top + bubbleHeight > window.innerHeight) {
-    top = window.innerHeight - bubbleHeight - 10
-  }
-  
-  return {
-    left: `${left}px`,
-    top: `${top}px`
-  }
-})
+// 计算悬浮按钮样式
+const fabStyle = computed(() => ({
+  right: `${fabPosition.value.x}px`,
+  bottom: `${fabPosition.value.y}px`
+}))
 
 // 开始拖动
 const startDrag = (event: MouseEvent | TouchEvent) => {
   // 设置拖动状态
   isDragging.value = true
+  hasMoved.value = false
   
-  // 计算鼠标/触摸点相对图标左上角的偏移
+  // 获取当前鼠标/触摸点位置
   const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX
   const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY
   
-  dragOffset.value = {
-    x: clientX - floatingIconPosition.value.x,
-    y: clientY - floatingIconPosition.value.y
-  }
+  // 记录起始位置
+  dragStartPos.value = { x: clientX, y: clientY }
   
-  dragStartPosition.value = {
-    x: floatingIconPosition.value.x,
-    y: floatingIconPosition.value.y
+  // 计算当前按钮的实际位置（从右下角算起）
+  const currentRight = fabPosition.value.x
+  const currentBottom = fabPosition.value.y
+  
+  // 计算按钮左上角的位置
+  const buttonLeft = window.innerWidth - currentRight - 56 // 56是按钮宽度
+  const buttonTop = window.innerHeight - currentBottom - 56 // 56是按钮高度
+  
+  // 保存鼠标相对按钮左上角的偏移
+  dragOffset.value = {
+    x: clientX - buttonLeft,
+    y: clientY - buttonTop
   }
 }
 
@@ -215,57 +205,49 @@ const handleDrag = (event: MouseEvent | TouchEvent) => {
   const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX
   const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY
   
-  // 计算新位置
-  let newX = clientX - dragOffset.value.x
-  let newY = clientY - dragOffset.value.y
+  // 计算移动距离
+  const deltaX = Math.abs(clientX - dragStartPos.value.x)
+  const deltaY = Math.abs(clientY - dragStartPos.value.y)
   
-  // 限制在视口范围内
-  const iconSize = 60
-  newX = Math.max(0, Math.min(window.innerWidth - iconSize, newX))
-  newY = Math.max(0, Math.min(window.innerHeight - iconSize, newY))
-  
-  // 更新位置
-  floatingIconPosition.value = { x: newX, y: newY }
+  // 如果移动距离超过5px，认为是拖动而不是点击
+  if (deltaX > 5 || deltaY > 5) {
+    hasMoved.value = true
+    
+    // 计算按钮左上角的新位置
+    const newLeft = clientX - dragOffset.value.x
+    const newTop = clientY - dragOffset.value.y
+    
+    // 限制在视口范围内
+    const buttonSize = 56
+    const constrainedLeft = Math.max(0, Math.min(window.innerWidth - buttonSize, newLeft))
+    const constrainedTop = Math.max(0, Math.min(window.innerHeight - buttonSize, newTop))
+    
+    // 转换为 right 和 bottom 值
+    fabPosition.value = {
+      x: window.innerWidth - constrainedLeft - buttonSize,
+      y: window.innerHeight - constrainedTop - buttonSize
+    }
+  }
 }
 
 // 停止拖动
 const stopDrag = () => {
-  // 计算拖动距离
-  const dragDistance = Math.sqrt(
-    Math.pow(floatingIconPosition.value.x - dragStartPosition.value.x, 2) +
-    Math.pow(floatingIconPosition.value.y - dragStartPosition.value.y, 2)
-  )
-  
-  // 判断是否是点击（拖动距离小于5px认为是点击）
-  if (dragDistance < 5) {
-    showBubble.value = !showBubble.value
-  }
-  
-  // 重置拖动状态
   isDragging.value = false
+  hasMoved.value = false
 }
 
-// 关闭气泡框
-const closeBubble = () => {
-  showBubble.value = false
-}
-
-// 处理主视图点击（点击其他区域关闭气泡框）
-const handleMainViewClick = () => {
-  if (showBubble.value) {
-    closeBubble()
-  }
-}
+// 初始化按钮位置
+onMounted(() => {
+  fabPosition.value = { x: 18, y: 18 }
+})
 
 // 处理草稿本点击
 const handleDraftClick = () => {
-  closeBubble()
   showDraftDialog.value = true
 }
 
 // 处理AI聊天点击
 const handleAIChatClick = () => {
-  closeBubble()
   showAIChatDialog.value = true
 }
 
@@ -273,15 +255,6 @@ const handleAIChatClick = () => {
 const handleQuestionRecordClick = () => {
   // 可以在这里处理点击记录后的逻辑
 }
-
-// 组件挂载时初始化位置
-onMounted(() => {
-  // 设置初始位置在右下角
-  floatingIconPosition.value = {
-    x: window.innerWidth - 80,
-    y: window.innerHeight - 80
-  }
-})
 
 // 监听路由变化，更新激活状态
 watch(() => route.name, (newRouteName) => {
@@ -436,112 +409,16 @@ const handleKnowledgeGraphClick = () => {
   overflow: hidden;
 }
 
-// 悬浮可拖动图标
-.floating-icon {
+// 悬浮功能按钮
+.floating-fab {
   position: fixed;
-  width: 60px;
-  height: 60px;
-  background: rgba(144, 89, 255, 0.9);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: move;
   z-index: 9999;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  transition: transform 0.2s ease;
+  cursor: move;
   user-select: none;
   
-  &:hover {
-    transform: scale(1.1);
-    background: rgba(144, 89, 255, 1);
-  }
-  
+  // 拖动时禁用 QFab 的点击动画
   &:active {
-    transform: scale(0.95);
-  }
-  
-  img {
-    width: 32px;
-    height: 32px;
-    filter: brightness(0) invert(1);
-  }
-}
-
-// 气泡框 - 参考 KnowledgeGraph 样式
-.bubble-menu {
-  position: fixed;
-  background: #4A3A6B;
-  border-radius: 20px;
-  padding: 12px;
-  z-index: 10000;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  animation: bubbleIn 0.2s ease;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 120px;
-  
-  .bubble-option {
-    border: none;
-    border-radius: 21px;
-    padding: 12px 20px;
-    font-size: 14px;
-    font-weight: 600;
-    color: white;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-family: 'PingFang SC', 'PingFangSC-Regular', sans-serif;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    
-    &:first-child {
-      background: rgba(129, 95, 255, 0.9);
-      
-      &:hover {
-        background: rgba(107, 79, 255, 1);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-      }
-    }
-    
-    &:last-child {
-      background: rgba(255, 151, 103, 0.9);
-      
-      &:hover {
-        background: rgba(255, 138, 77, 1);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-      }
-    }
-    
-    &:active {
-      transform: translateY(0);
-    }
-    
-    .option-icon {
-      width: 20px;
-      height: 20px;
-      filter: brightness(0) invert(1);
-    }
-    
-    span {
-      white-space: nowrap;
-    }
-  }
-}
-
-@keyframes bubbleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
+    cursor: grabbing;
   }
 }
 

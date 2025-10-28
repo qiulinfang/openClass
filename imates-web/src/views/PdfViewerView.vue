@@ -1,127 +1,184 @@
 <template>
   <!-- 内容区域和对话面板 -->
   <div class="content-layout">
-    <!-- PDF内容区域 -->
-    <div class="pdf-viewer-content" :class="{ 'with-chat': chatPanelVisible }">
-      <div class="pdf-viewer-container">
-        <!-- 工具栏 -->
-        <UnifiedToolbar
-          :tools="['pen', 'highlighter', 'eraser', 'screenshot', 'reset']"
-          :selected-tool="store.selectedTool"
-          :tool-config="currentToolConfig"
-          :show-back="true"
-          :show-chat="true"
-          @tool-change="handleToolChange"
-          @config-change="handleConfigChange"
-          @back="handleGoBack"
-          @toggle-chat="handleToggleChatPanel"
-        />
-        <!-- PDF页面列表 -->
-        <q-virtual-scroll 
-          v-if="!isLoading && !error"
-          :items="pageLayouts"
-          virtual-scroll-item-size="800"
-          virtual-scroll-slice-size="5"
-          virtual-scroll-slice-ratio-before="2"
-          virtual-scroll-slice-ratio-after="2"
-          class="virtual-scroll"
-          v-slot="{ item }"
-        >
-          <PdfPage :layout="item" :key="item.pageNum" class="pdf-page-item" @screenshot-captured="handleScreenshotCaptured" />
-        </q-virtual-scroll>
+    <q-splitter
+      v-if="chatPanelVisible"
+      v-model="splitterModel"
+      :limits="[30, 70]"
+      class="full-height"
+    >
+      <!-- PDF内容区域 -->
+      <template v-slot:before>
+        <div class="pdf-viewer-container">
+          <!-- 工具栏 -->
+          <UnifiedToolbar
+            :tools="['back', 'pen', 'highlighter', 'eraser', 'screenshot', 'reset', 'chat']"
+            :selected-tool="store.selectedTool"
+            :tool-config="currentToolConfig"
+            @tool-change="handleToolChange"
+            @config-change="handleConfigChange"
+            @back="handleGoBack"
+            @chat="handleToggleChatPanel"
+          />
+          <!-- PDF页面列表 -->
+          <q-virtual-scroll 
+            v-if="!isLoading && !error"
+            :items="pageLayouts"
+            virtual-scroll-item-size="800"
+            virtual-scroll-slice-size="5"
+            virtual-scroll-slice-ratio-before="2"
+            virtual-scroll-slice-ratio-after="2"
+            class="virtual-scroll"
+            v-slot="{ item }"
+          >
+            <PdfPage :layout="item" :key="item.pageNum" class="pdf-page-item" @screenshot-captured="handleScreenshotCaptured" />
+          </q-virtual-scroll>
 
-        <!-- 加载状态 -->
-        <div v-if="isLoading" class="loading-overlay">
-          <div class="loading-state text-center q-pa-xl">
-            <q-spinner-dots size="50px" color="primary" />
-            <div class="q-mt-md">正在加载PDF...</div>
-            <div v-if="renderProgress.current > 0" class="q-mt-sm">
-              进度: {{ renderProgress.current }} / {{ renderProgress.total }}
+          <!-- 加载状态 -->
+          <div v-if="isLoading" class="loading-overlay">
+            <div class="loading-state text-center q-pa-xl">
+              <q-spinner-dots size="50px" color="primary" />
+              <div class="q-mt-md">正在加载PDF...</div>
+              <div v-if="renderProgress.current > 0" class="q-mt-sm">
+                进度: {{ renderProgress.current }} / {{ renderProgress.total }}
+              </div>
+              <div class="q-mt-sm text-caption">支持文本选择、注释工具和自动保存</div>
             </div>
-            <div class="q-mt-sm text-caption">支持文本选择、注释工具和自动保存</div>
+          </div>
+
+          <!-- 错误状态 -->
+          <div v-if="error" class="error-overlay">
+            <div class="error-state text-center q-pa-xl">
+              <q-icon name="error" size="50px" color="negative" />
+              <div class="q-mt-md">{{ error }}</div>
+              <div class="q-mt-sm text-caption">请检查文件是否损坏或网络连接是否正常</div>
+              <q-btn color="primary" @click="retry" class="q-mt-md">重试</q-btn>
+            </div>
+          </div>
+
+          <!-- 空状态 -->
+          <div v-if="!isLoading && !error && pageLayouts.length === 0" class="empty-state">
+            <div class="empty-content text-center q-pa-xl">
+              <q-icon name="picture_as_pdf" size="80px" color="grey-5" />
+              <div class="q-mt-md text-h6 text-grey-6">暂无PDF文档</div>
+              <div class="q-mt-sm text-caption text-grey-5">请选择或加载PDF文件开始查看</div>
+            </div>
           </div>
         </div>
+      </template>
 
-        <!-- 错误状态 -->
-        <div v-if="error" class="error-overlay">
-          <div class="error-state text-center q-pa-xl">
-            <q-icon name="error" size="50px" color="negative" />
-            <div class="q-mt-md">{{ error }}</div>
-            <div class="q-mt-sm text-caption">请检查文件是否损坏或网络连接是否正常</div>
-            <q-btn color="primary" @click="retry" class="q-mt-md">重试</q-btn>
+      <!-- 对话面板 -->
+      <template v-slot:after>
+        <div class="chat-panel-container">
+          <!-- 对话面板头部 -->
+          <div class="chat-panel-header">
+            <!-- Tab 切换 -->
+            <div class="chat-tabs">
+              <div class="tab-list">
+                <div
+                  v-for="tab in tabOptions"
+                  :key="tab.value"
+                  :class="['tab-item', { 'tab-active': activeTab === tab.value }]"
+                  @click="activeTab = tab.value"
+                >
+                  <q-icon :name="tab.icon" size="sm" />
+                  <span>{{ tab.label }}</span>
+                </div>
+              </div>
+            </div>
+            <!-- 关闭按钮 -->
+            <q-btn 
+              flat 
+              round 
+              dense 
+              icon="close" 
+              size="sm"
+              @click="handleCloseChatPanel"
+              class="close-button"
+            />
+          </div>
+          
+          <!-- Tab 内容区域 -->
+          <div class="chat-content-container">
+            <!-- AI 问答 Tab -->
+            <div v-if="activeTab === 'ai-chat'" class="tab-content">
+              <ChatView 
+                type="ai-textbook"
+                @response="handleChatResponse"
+                @focus="handleChatFocus"
+                @scroll-to-bottom="handleScrollToBottom"
+              />
+            </div>
+            
+            <!-- 问题记录 Tab -->
+            <div v-if="activeTab === 'question-record'" class="tab-content">
+              <QuestionRecordList 
+                :records="questionRecords"
+                @record-click="handleQuestionRecordClick"
+              />
+            </div>
           </div>
         </div>
+      </template>
+    </q-splitter>
 
-        <!-- 空状态 -->
-        <div v-if="!isLoading && !error && pageLayouts.length === 0" class="empty-state">
-          <div class="empty-content text-center q-pa-xl">
-            <q-icon name="picture_as_pdf" size="80px" color="grey-5" />
-            <div class="q-mt-md text-h6 text-grey-6">暂无PDF文档</div>
-            <div class="q-mt-sm text-caption text-grey-5">请选择或加载PDF文件开始查看</div>
+    <!-- PDF内容区域（无对话面板时） -->
+    <div v-else class="pdf-viewer-container full-height">
+      <!-- 工具栏 -->
+      <UnifiedToolbar
+        :tools="['back', 'pen', 'highlighter', 'eraser', 'screenshot', 'reset', 'chat']"
+        :selected-tool="store.selectedTool"
+        :tool-config="currentToolConfig"
+        @tool-change="handleToolChange"
+        @config-change="handleConfigChange"
+        @back="handleGoBack"
+        @chat="handleToggleChatPanel"
+      />
+      <!-- PDF页面列表 -->
+      <q-virtual-scroll 
+        v-if="!isLoading && !error"
+        :items="pageLayouts"
+        virtual-scroll-item-size="800"
+        virtual-scroll-slice-size="5"
+        virtual-scroll-slice-ratio-before="2"
+        virtual-scroll-slice-ratio-after="2"
+        class="virtual-scroll"
+        v-slot="{ item }"
+      >
+        <PdfPage :layout="item" :key="item.pageNum" class="pdf-page-item" @screenshot-captured="handleScreenshotCaptured" />
+      </q-virtual-scroll>
+
+      <!-- 加载状态 -->
+      <div v-if="isLoading" class="loading-overlay">
+        <div class="loading-state text-center q-pa-xl">
+          <q-spinner-dots size="50px" color="primary" />
+          <div class="q-mt-md">正在加载PDF...</div>
+          <div v-if="renderProgress.current > 0" class="q-mt-sm">
+            进度: {{ renderProgress.current }} / {{ renderProgress.total }}
           </div>
+          <div class="q-mt-sm text-caption">支持文本选择、注释工具和自动保存</div>
+        </div>
+      </div>
+
+      <!-- 错误状态 -->
+      <div v-if="error" class="error-overlay">
+        <div class="error-state text-center q-pa-xl">
+          <q-icon name="error" size="50px" color="negative" />
+          <div class="q-mt-md">{{ error }}</div>
+          <div class="q-mt-sm text-caption">请检查文件是否损坏或网络连接是否正常</div>
+          <q-btn color="primary" @click="retry" class="q-mt-md">重试</q-btn>
+        </div>
+      </div>
+
+      <!-- 空状态 -->
+      <div v-if="!isLoading && !error && pageLayouts.length === 0" class="empty-state">
+        <div class="empty-content text-center q-pa-xl">
+          <q-icon name="picture_as_pdf" size="80px" color="grey-5" />
+          <div class="q-mt-md text-h6 text-grey-6">暂无PDF文档</div>
+          <div class="q-mt-sm text-caption text-grey-5">请选择或加载PDF文件开始查看</div>
         </div>
       </div>
     </div>
-
-     <!-- 分隔条 -->
-     <div 
-       v-if="chatPanelVisible" 
-       class="resizer"
-       @mousedown="startResize"
-       @touchstart="startResizeTouch"
-     ></div>
-    
-     <!-- 对话面板 -->
-     <div v-if="chatPanelVisible" class="chat-panel-container" :style="{ width: chatPanelWidth + 'px' }">
-       <!-- 对话面板头部 -->
-       <div class="chat-panel-header">
-         <!-- Tab 切换 -->
-         <div class="chat-tabs">
-           <div class="tab-list">
-             <div
-               v-for="tab in tabOptions"
-               :key="tab.value"
-               :class="['tab-item', { 'tab-active': activeTab === tab.value }]"
-               @click="activeTab = tab.value"
-             >
-               <q-icon :name="tab.icon" size="sm" />
-               <span>{{ tab.label }}</span>
-             </div>
-           </div>
-         </div>
-         <!-- 关闭按钮 -->
-         <q-btn 
-           flat 
-           round 
-           dense 
-           icon="close" 
-           size="sm"
-           @click="handleCloseChatPanel"
-           class="close-button"
-         />
-       </div>
-       
-       <!-- Tab 内容区域 -->
-       <div class="chat-content-container">
-        <!-- AI 问答 Tab -->
-        <div v-if="activeTab === 'ai-chat'" class="tab-content">
-          <ChatView 
-            type="ai-textbook"
-            @response="handleChatResponse"
-            @focus="handleChatFocus"
-            @scroll-to-bottom="handleScrollToBottom"
-          />
-        </div>
-         
-         <!-- 问题记录 Tab -->
-         <div v-if="activeTab === 'question-record'" class="tab-content">
-           <QuestionRecordList 
-             :records="questionRecords"
-             @record-click="handleQuestionRecordClick"
-           />
-         </div>
-       </div>
-     </div>
   </div>
 </template>
 
@@ -153,10 +210,7 @@ const renderProgress = ref({
 
 // 对话面板状态
 const chatPanelVisible = ref(false)
-const chatPanelWidth = ref(400) // 对话面板宽度
-const isResizing = ref(false) // 是否正在调整大小
-const isTouchResizing = ref(false) // 是否正在触摸调整大小
-const startX = ref(0) // 开始触摸的X坐标
+const splitterModel = ref(60) // 分隔比例（左侧占60%）
 
 // Tab 状态
 const activeTab = ref('ai-chat') // 当前激活的 tab
@@ -340,88 +394,16 @@ const handleCloseChatPanel = () => {
 // 处理聊天响应事件
 const handleChatResponse = () => {
   // 聊天响应完成，可以在这里添加额外逻辑
-  console.log('聊天响应完成')
 }
 
 // 处理聊天焦点事件
 const handleChatFocus = () => {
   // 聊天输入框获得焦点
-  console.log('聊天输入框获得焦点')
 }
 
 // 处理滚动到底部事件
 const handleScrollToBottom = () => {
   // 滚动到底部
-  console.log('滚动到底部')
-}
-
-// 开始调整大小
-const startResize = (e: MouseEvent) => {
-  isResizing.value = true
-  document.addEventListener('mousemove', handleResize)
-  document.addEventListener('mouseup', stopResize)
-  e.preventDefault()
-}
-
-// 处理调整大小
-const handleResize = (e: MouseEvent) => {
-  if (!isResizing.value) return
-  
-  const containerWidth = document.querySelector('.content-layout')?.clientWidth || 0
-  const newWidth = containerWidth - e.clientX
-  
-  // 设置最小和最大宽度限制
-  const minWidth = 300
-  const maxWidth = containerWidth * 0.7 // 最大不超过70%
-  
-  if (newWidth >= minWidth && newWidth <= maxWidth) {
-    chatPanelWidth.value = newWidth
-  }
-}
-
-// 停止调整大小
-const stopResize = () => {
-  isResizing.value = false
-  document.removeEventListener('mousemove', handleResize)
-  document.removeEventListener('mouseup', stopResize)
-}
-
-// 开始触摸调整大小
-const startResizeTouch = (e: TouchEvent) => {
-  isTouchResizing.value = true
-  startX.value = e.touches[0].clientX
-  
-  document.addEventListener('touchmove', handleResizeTouch, { passive: false })
-  document.addEventListener('touchend', stopResizeTouch)
-  e.preventDefault()
-}
-
-// 处理触摸调整大小
-const handleResizeTouch = (e: TouchEvent) => {
-  if (!isTouchResizing.value) return
-  
-  const containerWidth = document.querySelector('.content-layout')?.clientWidth || 0
-  const currentX = e.touches[0].clientX
-  const deltaX = startX.value - currentX
-  const newWidth = chatPanelWidth.value + deltaX
-  
-  // 设置最小和最大宽度限制
-  const minWidth = 300
-  const maxWidth = containerWidth * 0.7 // 最大不超过70%
-  
-  if (newWidth >= minWidth && newWidth <= maxWidth) {
-    chatPanelWidth.value = newWidth
-    startX.value = currentX // 更新起始位置
-  }
-  
-  e.preventDefault()
-}
-
-// 停止触摸调整大小
-const stopResizeTouch = () => {
-  isTouchResizing.value = false
-  document.removeEventListener('touchmove', handleResizeTouch)
-  document.removeEventListener('touchend', stopResizeTouch)
 }
 
 // 处理截图捕获事件
@@ -562,16 +544,12 @@ onBeforeUnmount(async () => {
   width: 100%;
 }
 
-.pdf-viewer-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  transition: width 0.3s ease;
+.full-height {
+  height: 100%;
+  width: 100%;
 }
 
 .chat-panel-container {
-  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -662,42 +640,6 @@ onBeforeUnmount(async () => {
   overflow: hidden;
 }
 
-.resizer {
-  width: 8px;
-  background: #000000;
-  cursor: col-resize;
-  flex-shrink: 0;
-  position: relative;
-  transition: all 0.2s ease;
-  touch-action: none; /* 防止触摸时的默认行为 */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.resizer::before {
-  content: '';
-  position: absolute;
-  width: 3px;
-  height: 45px;
-  background: #a29d9d;
-  border-radius: 1px;
-  transition: all 0.2s ease;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.resizer:hover::before {
-  background: #888888;
-  width: 3px;
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.15);
-}
-
-.resizer:active::before {
-  background: #aaaaaa;
-  width: 3px;
-}
-
 .pdf-viewer-container {
   width: 100%;
   height: 100%;
@@ -764,35 +706,6 @@ onBeforeUnmount(async () => {
     margin: 16px;
     max-width: calc(100% - 32px);
   }
-
-  .pdf-viewer-content.with-chat {
-    width: calc(100% - 300px);
-  }
-
-  .resizer {
-    width: 10px;
-    background: #000000;
-  }
-  
-  .resizer::before {
-    width: 3px;
-    height: 80px;
-    background: #666666;
-    box-shadow: 0 0 6px rgba(0, 0, 0, 0.1);
-    left: 50%;
-    transform: translateX(-50%);
-  }
-  
-  .resizer:hover::before,
-  .resizer:active::before {
-    background: #888888;
-    width: 4px;
-    box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
-  }
-  
-  .chat-panel-container {
-    min-width: 250px;
-  }
   
   .tab-item {
     padding: 10px 12px;
@@ -806,17 +719,6 @@ onBeforeUnmount(async () => {
   
   .tab-list {
     padding: 2px;
-  }
-}
-
-@media (max-width: 480px) {
-  .pdf-viewer-content.with-chat {
-    width: 0;
-    overflow: hidden;
-  }
-
-  .chat-panel-container {
-    width: 100%;
   }
 }
 </style>
