@@ -4,8 +4,9 @@ import * as pdfjsLib from 'pdfjs-dist'
 import { resourceManager } from '@/services/resource-manager'
 import type { LocalFileInfo, UserTextbookInfo } from '@/types/textbook'
 
-// 配置PDF.js worker路径
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
+// 动态导入PDF.js worker
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
 // 文件类型定义
 interface FileData {

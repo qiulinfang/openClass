@@ -492,7 +492,6 @@ const handlePractice = () => {
   color: white;
   padding: 4px;
   margin-top: 0;
-  max-width: 120px;
   text-align: center;
   z-index: 1;
   transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
@@ -503,16 +502,6 @@ const handlePractice = () => {
   width: 100%;
   height: 100%;
   box-sizing: border-box;
-}
-
-/* 中心节点内容展开状态 - 字体变大 */
-.node-content--center.node-content--expanded {
-  max-width: 200px;
-}
-
-/* 中心节点内容在其他图谱展开时变小 */
-.node-content--center.node-content--shrunk {
-  max-width: 120px;
 }
 
 /* 中心节点内容样式保持不变 */
@@ -534,8 +523,8 @@ const handlePractice = () => {
 /* 中心节点内部标题 */
 .node-content--center .node-title {
   font-size: 190%; /* 节点宽度的180% */
-  margin-top: -8px; /* 向上占据一些空间 */
-  margin-bottom: 4px; /* 增加与章节名的间距 */
+  margin-top: -8px; /* 第1步：向上占据一些空间 */
+  margin-bottom: 4px; /* 第2步：增加与章节名的间距 */
   color: white;
   font-family: '优设标题黑', 'YouSheBiaoTiHei', sans-serif;
   font-weight: bold;
@@ -544,22 +533,25 @@ const handlePractice = () => {
   transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
   width: 100%;
   display: block;
+  white-space: nowrap; /* 第3步：禁止文字换行 */
 }
 
-/* 中心节点标题展开状态 - 字体变大 */
+/* 中心节点标题展开状态 - 字体保持不变 */
 .node-content--center.node-content--expanded .node-title {
-  font-size: 240%; /* 展开时字体更大，节点宽度的220% */
-  margin-top: -8px; /* 向上占据一些空间 */
-  margin-bottom: 6px; /* 增加与章节名的间距 */
-  line-height: 0.9;
+  font-size: 190%; /* 第1步：保持与默认状态相同的字体大小 */
+  margin-top: -8px; /* 第2步：向上占据一些空间 */
+  margin-bottom: 4px; /* 第3步：增加与章节名的间距 */
+  line-height: 1.0;
+  white-space: nowrap; /* 第4步：禁止文字换行 */
 }
 
-/* 中心节点标题在其他图谱展开时变小 */
+/* 中心节点标题在其他图谱展开时字体保持不变 */
 .node-content--center.node-content--shrunk .node-title {
-  font-size: 150%; /* 缩小时字体更小，节点宽度的150% */
-  margin-top: -8px; /* 向上占据一些空间 */
-  margin-bottom: 4px; /* 增加与章节名的间距 */
+  font-size: 190%; /* 第1步：保持与默认状态相同的字体大小 */
+  margin-top: -8px; /* 第2步：向上占据一些空间 */
+  margin-bottom: 4px; /* 第3步：增加与章节名的间距 */
   line-height: 1.0;
+  white-space: nowrap; /* 第4步：禁止文字换行 */
 }
 
 .graph-node--center + .node-content .node-title {
@@ -601,27 +593,35 @@ const handlePractice = () => {
   font-family: 'PingFang SC', 'PingFangSC-Regular', sans-serif;
   font-weight: normal;
   text-align: center;
-  line-height: 1.4; /* 增加行高，改善可读性 */
+  line-height: 1.4; /* 第1步：增加行高，改善可读性 */
   opacity: 0.9;
   transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
   width: 100%;
   display: block;
-  word-break: break-word;
-  margin-bottom: 2px; /* 底部留一些间距 */
+  white-space: nowrap; /* 第2步：禁止文字换行 */
+  overflow: hidden; /* 第3步：隐藏超出部分 */
+  text-overflow: ellipsis; /* 第4步：超出部分显示省略号 */
+  margin-bottom: 2px; /* 第5步：底部留一些间距 */
 }
 
-/* 中心节点章节名展开状态 - 字体变大 */
+/* 中心节点章节名展开状态 - 字体保持不变 */
 .node-content--center.node-content--expanded .node-chapter {
-  font-size: 160%; /* 展开时字体更大，节点宽度的150% */
-  line-height: 1.3; /* 稍微增加行高 */
-  margin-bottom: 3px; /* 底部留一些间距 */
+  font-size: 140%; /* 第1步：保持与默认状态相同的字体大小 */
+  line-height: 1.4; /* 第2步：增加行高，改善可读性 */
+  white-space: nowrap; /* 第3步：禁止文字换行 */
+  overflow: hidden; /* 第4步：隐藏超出部分 */
+  text-overflow: ellipsis; /* 第5步：超出部分显示省略号 */
+  margin-bottom: 2px; /* 第6步：底部留一些间距 */
 }
 
-/* 中心节点章节名在其他图谱展开时变小 */
+/* 中心节点章节名在其他图谱展开时字体保持不变 */
 .node-content--center.node-content--shrunk .node-chapter {
-  font-size: 120%; /* 缩小时字体更小，节点宽度的110% */
-  line-height: 1.3; /* 增加行高，改善可读性 */
-  margin-bottom: 2px; /* 底部留一些间距 */
+  font-size: 140%; /* 第1步：保持与默认状态相同的字体大小 */
+  line-height: 1.4; /* 第2步：增加行高，改善可读性 */
+  white-space: nowrap; /* 第3步：禁止文字换行 */
+  overflow: hidden; /* 第4步：隐藏超出部分 */
+  text-overflow: ellipsis; /* 第5步：超出部分显示省略号 */
+  margin-bottom: 2px; /* 第6步：底部留一些间距 */
 }
 
 

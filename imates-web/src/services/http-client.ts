@@ -118,11 +118,12 @@ export class HttpClient {
    * @param config.body 请求体数据（GET请求时会被忽略）
    * @param config.timeout 超时时间（毫秒），默认使用实例的timeout值
    * @param config.retries 重试次数，默认为3次
+   * @param config.skipAuth401Retry 跳过401认证重试（内部使用，避免无限循环）
    * @returns Promise<ApiResponse<T>> 统一的API响应格式
    */
   private async request<T>(
     url: string,
-    config: RequestConfig & { body?: unknown } = {}
+    config: RequestConfig & { body?: unknown; skipAuth401Retry?: boolean } = {}
   ): Promise<ApiResponse<T>> {
     // 解构配置参数，设置默认值
     const {
@@ -130,7 +131,8 @@ export class HttpClient {
       headers = {},             // 额外请求头，默认为空对象
       body,                     // 请求体数据
       timeout = this.timeout,  // 超时时间，使用实例默认值
-      retries = 3              // 重试次数，默认为3次
+      retries = 3,              // 重试次数，默认为3次
+      skipAuth401Retry = false  // 是否跳过401认证重试
     } = config
 
     // 流程：构建完整URL（统一处理file://和http(s)环境）
@@ -166,6 +168,37 @@ export class HttpClient {
         
         // 请求成功，清除超时定时器
         cleanup()
+        
+        // 第1步：检测401未授权错误
+        if (response.status === 401 && !skipAuth401Retry) {
+          // 第2步：判断是否为研伴相关接口（/blw-edu-yb开头）
+          if (url.startsWith('/blw-edu-yb')) {
+            // 第3步：删除过期的YANBAN_TOKEN
+            localStorage.removeItem('YANBAN_TOKEN')
+            
+            // 第4步：尝试自动登录获取新token
+            const userId = localStorage.getItem('userId')
+            const password = localStorage.getItem('userPassword')
+            
+            if (userId && password && userId !== 'undefined' && password !== 'undefined') {
+              // 第5步：调用登录接口（需要动态导入避免循环依赖）
+              try {
+                const { apiService } = await import('./api-service')
+                const loginSuccess = await apiService.autoLogin(false)
+                
+                // 第6步：如果登录成功，重新发起请求（只重试一次）
+                if (loginSuccess) {
+                  return await this.request<T>(url, { 
+                    ...config, 
+                    skipAuth401Retry: true // 设置标志位避免无限循环
+                  })
+                }
+              } catch {
+                // 自动登录失败，继续抛出401错误
+              }
+            }
+          }
+        }
         
         // 检查HTTP状态码，非2xx状态码视为错误
         if (!response.ok) {

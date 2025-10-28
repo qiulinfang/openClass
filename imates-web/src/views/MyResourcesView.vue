@@ -1235,7 +1235,7 @@ const printLocalFilesData = async () => {
     // 教材网格布局
     .textbooks-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 20px;
       justify-items: center;
       align-items: start;
@@ -1243,13 +1243,13 @@ const printLocalFilesData = async () => {
 
       // 响应式调整
       @media (max-width: 600px) {
-        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        grid-template-columns: repeat(2, 1fr);
         gap: 16px;
       }
 
-      @media (min-width: 1200px) {
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-        gap: 24px;
+      @media (max-width: 400px) {
+        grid-template-columns: repeat(1, 1fr);
+        gap: 16px;
       }
     }
 
@@ -1671,8 +1671,8 @@ const printLocalFilesData = async () => {
       }
 
       .textbooks-grid {
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-        gap: 12px; // Material Design 移动端间距
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
         padding: 8px 0;
       }
 

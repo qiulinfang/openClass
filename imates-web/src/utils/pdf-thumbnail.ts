@@ -5,8 +5,9 @@
 
 import * as pdfjsLib from 'pdfjs-dist'
 
-// 设置PDF.js worker路径
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
+// 动态导入PDF.js worker
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
 /**
  * 从PDF文件数据生成第一页缩略图
