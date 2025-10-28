@@ -27,7 +27,7 @@ export default defineConfig({
     proxy: {
       // 匹配以 "/blw-edu-yb/api" 开头的请求，转发到后端
       '/blw-edu-yb/api': {
-        target: 'https://43.138.16.5:50013', // 后端基础地址
+        target: 'https://www.imates.com.cn:9099', // 后端基础地址
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 若后端 HTTPS 证书不合法（如自签证书），需设为 false
         // 可选：若后端接口路径无需额外前缀，可省略 rewrite
@@ -35,7 +35,7 @@ export default defineConfig({
       },
       // 匹配以 "/blw-edu-yb/auth" 开头的请求，转发到后端（用于登录等认证接口）
       '/blw-edu-yb/auth': {
-        target: 'https://43.138.16.5:50013', // 后端基础地址
+        target: 'https://www.imates.com.cn:9099', // 后端基础地址
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 若后端 HTTPS 证书不合法（如自签证书），需设为 false
       },
@@ -136,7 +136,7 @@ export default defineConfig({
       },
       // 🔥 新增：匹配以 "/resource" 开头的请求，转发到资源服务器（解决CORS问题）
       '/resource': {
-        target: 'https://43.138.16.5:50013', // 资源服务器地址
+        target: 'https://www.imates.com.cn:9099', // 资源服务器地址
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 若后端 HTTPS 证书不合法（如自签证书），需设为 false
         // 添加CORS头信息

@@ -215,28 +215,6 @@ export class ApiService {
 
 
   /**
-   * 获取资源文件下载URL
-   * 对应Android LearnResourceManager.getResourceDownloadUrl
-   * 🔥 修改：使用相对路径通过Vite代理，解决CORS问题
-   */
-  public async getResourceDownloadUrl(resourceId: string): Promise<string | null> {
-    try {
-      
-      // 🔥 使用相对路径，通过Vite代理转发，避免CORS问题
-      // 原来的绝对URL: https://43.138.16.5:50013/resource/20250919/xxx.pdf
-      // 现在使用相对路径: /resource/20250919/xxx.pdf
-      // Vite代理会将 /resource/* 转发到 https://43.138.16.5:50013/resource/*
-      
-      // 确保resourceId以/开头
-      const relativePath = resourceId.startsWith('/') ? resourceId : `/${resourceId}`
-      
-      return relativePath
-    } catch (error) {
-      return null
-    }
-  }
-
-  /**
    * 验证资源文件完整性
    * 对应Android LearnResourceManager.verifyResourceIntegrity
    */
@@ -2054,15 +2032,11 @@ export class ApiService {
     onProgress?: (progress: number) => void
   ): Promise<Uint8Array | null> {
     try {
+      // 流程：确保资源URL格式正确（以/开头的相对路径）
+      const resourceUrl = resource.fileUrl.startsWith('/') ? resource.fileUrl : `/${resource.fileUrl}`
       
-      // 获取完整的下载URL
-      const downloadUrl = await this.getResourceDownloadUrl(resource.fileUrl)
-      if (!downloadUrl) {
-        throw new Error('无法获取下载URL')
-      }
-      
-      // 使用fetch下载文件
-      const response = await fetch(downloadUrl)
+      // 流程：使用httpClient下载文件（此方法已废弃，建议使用downloadSingleFileStreaming）
+      const response = await httpClient.downloadStream(resourceUrl, {})
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
@@ -2133,29 +2107,15 @@ export class ApiService {
     onProgress?: (progress: number) => void
   ): Promise<Uint8Array | null> {
     try {
-      // 获取完整的下载URL
-      const downloadUrl = await this.getResourceDownloadUrl(resource.fileUrl)
-      if (!downloadUrl) {
-        throw new Error('无法获取下载URL')
-      }
+      // 流程：确保资源URL格式正确（以/开头的相对路径）
+      const resourceUrl = resource.fileUrl.startsWith('/') ? resource.fileUrl : `/${resource.fileUrl}`
       
-      // 使用优化的fetch配置
-      const response = await fetch(downloadUrl, {
-        signal: controller.signal,
-        headers: {
-          'Accept-Encoding': 'gzip, deflate', // 启用压缩
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive' // 保持连接
-        },
-        // 优化网络配置
-        keepalive: true,
-        mode: 'cors'
+      // 流程：使用httpClient下载文件流，支持file://协议和认证
+      const response = await httpClient.downloadStream(resourceUrl, {
+        signal: controller.signal
       })
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-      
+      // 流程：获取文件大小
       const contentLength = response.headers.get('content-length')
       const totalBytes = contentLength ? parseInt(contentLength, 10) : 0
       

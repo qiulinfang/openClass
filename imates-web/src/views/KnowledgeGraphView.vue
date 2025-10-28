@@ -1,5 +1,5 @@
 <template>
-  <div class="knowledge-graph-content">
+  <div class="knowledge-graph-content" :style="{ backgroundImage: `url(${backgroundImage})` }">
     <!-- 第二列：章节目录/内容导航（中间） -->
     <div class="chapter-sidebar">
       <!-- 科目和版本信息 -->
@@ -185,11 +185,10 @@ import notLearnedStarIcon from '/icons/notLearnedStar.svg'
 import learnedStarIcon from '/icons/learnedStar.svg'
 import lastLearnedStarIcon from '/icons/lastLearnedStar.svg'
 import backgroundImage from '/icons/background.svg'
-
 // 使用统一的章节状态管理
 const {
-  setCurrentTextbook,
   setCurrentChapter,
+  setCurrentTextbook,
   getChapterRotation,
   setChapterRotation,
   getCurrentChapterExpandedGraph,
@@ -1782,7 +1781,8 @@ onUnmounted(() => {
 .knowledge-graph-content {
   display: flex;
   height: 100vh;
-  background: v-bind('`url(${backgroundImage})`') no-repeat center center;
+  background-repeat: no-repeat;
+  background-position: center center;
   background-size: cover;
   background-attachment: fixed;
 }

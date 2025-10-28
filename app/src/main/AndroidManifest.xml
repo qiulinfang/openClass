@@ -120,9 +120,18 @@
         <activity
             android:name=".ui.webview.MainWebViewActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:exported="false"
+            android:exported="true"
             android:screenOrientation="portrait"
-            android:windowSoftInputMode="adjustResize" />
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter android:priority="1000">
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.MONKEY" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".ui.activities.FloatChatAiActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
@@ -144,18 +153,9 @@
         <activity
             android:name=".ui.activities.LoginActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:exported="true"
+            android:exported="false"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.IMatesApp.FullScreen">
-            <intent-filter android:priority="1000">
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.HOME" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.MONKEY" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:theme="@style/Theme.IMatesApp.FullScreen" />
         <activity
             android:name=".ui.activities.ScreenShotActivity"
             android:exported="false"

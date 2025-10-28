@@ -11,9 +11,9 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.cosinetech.imates.R;
-import com.cosinetech.imates.ui.activities.BaseActivity;
 import com.cosinetech.imates.ui.webview.common.WebAppInterface;
 import com.cosinetech.imates.ui.webview.common.WebViewConfig;
 import com.cosinetech.imates.utils.AppUtils;
@@ -24,7 +24,7 @@ import com.cosinetech.imates.utils.WindowUtils;
  * 用于渲染整个imates-web项目构建后的页面
  * 提供完整的Vue应用容器
  */
-public class MainWebViewActivity extends BaseActivity implements WebAppInterface.ExerciseSolveActivityBridge {
+public class MainWebViewActivity extends AppCompatActivity implements WebAppInterface.ExerciseSolveActivityBridge {
 
     private static final String TAG = "MainWebViewActivity";
     
@@ -53,18 +53,13 @@ public class MainWebViewActivity extends BaseActivity implements WebAppInterface
     }
 
     @Override
-    protected int getLayoutResId() {
-        return R.layout.activity_main_webview;
-    }
-
-    @Override
-    protected int getCurrentNavItemId() {
-        return R.id.nav_textbook_knowledge;
-    }
-
-    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        WindowUtils.hideSystemUI(this);
+        WindowUtils.setFullScreenMode(this);
+        
+        setContentView(R.layout.activity_main_webview);
         
         Log.d(TAG, "MainWebViewActivity onCreate 开始");
         
@@ -102,6 +97,15 @@ public class MainWebViewActivity extends BaseActivity implements WebAppInterface
         
         // 使用统一的WebView配置
         WebViewConfig.configureWebView(webView, this);
+        
+        // 禁用长按弹出右键菜单
+        webView.setLongClickable(false);
+        webView.setOnLongClickListener(v -> true);
+        webView.setHapticFeedbackEnabled(false);
+        
+        // 隐藏滚动条
+        webView.setVerticalScrollBarEnabled(false);
+        webView.setHorizontalScrollBarEnabled(false);
         
         // 创建并设置WebAppInterface
         webAppInterface = new WebAppInterface(this);
@@ -328,6 +332,7 @@ public class MainWebViewActivity extends BaseActivity implements WebAppInterface
     @Override
     protected void onResume() {
         super.onResume();
+        WindowUtils.hideSystemUI(this);
         if (webView != null) {
             webView.onResume();
         }
@@ -351,11 +356,16 @@ public class MainWebViewActivity extends BaseActivity implements WebAppInterface
 
     @Override
     public void onBackPressed() {
-        // 处理WebView的返回操作
         if (webView != null && webView.canGoBack()) {
             webView.goBack();
         } else {
             super.onBackPressed();
         }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        WindowUtils.hideSystemUI(this);
     }
 }

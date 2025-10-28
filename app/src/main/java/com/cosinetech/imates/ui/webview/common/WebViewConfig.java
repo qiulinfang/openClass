@@ -38,9 +38,9 @@ public class WebViewConfig {
         settings.setRenderPriority(WebSettings.RenderPriority.HIGH);
         settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING);
         
-        // 缩放设置
-        settings.setSupportZoom(true);
-        settings.setBuiltInZoomControls(true);
+        // 禁用缩放功能
+        settings.setSupportZoom(false);
+        settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
         
         // 混合内容设置

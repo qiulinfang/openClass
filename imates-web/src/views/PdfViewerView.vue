@@ -343,10 +343,11 @@ const loadFileFromRoute = async () => {
       }
     }
 
-    // 3. 如果没有找到本地文件，尝试从服务器下载
+    // 3. 如果没有找到本地文件，提示用户先下载
     if (!fileData) {
-      console.log('本地文件不存在，尝试从服务器下载...')
-      const downloadUrl = await resourceManager.getResourceDownloadUrl(resourceId)
+      console.log('本地文件不存在，需要先下载')
+      // 流程：格式化资源路径（确保以/开头）
+      const downloadUrl = resourceId.startsWith('/') ? resourceId : `/${resourceId}`
       if (downloadUrl) {
         // 这里可以实现下载逻辑，暂时抛出错误提示用户
         throw new Error('文件未下载到本地，请先在资源管理页面下载该文件')

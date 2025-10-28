@@ -3,7 +3,6 @@
  * 对应Android LearnResourceManager，提供统一的资源管理功能
  */
 
-import { apiService } from './api-service'
 import { IndexedDBService } from './indexeddb-service'
 import CryptoJS from 'crypto-js'
 import { DebounceUtils } from '../utils'
@@ -134,19 +133,6 @@ export class ResourceManager {
       }
     } catch {
       // 初始化失败
-    }
-  }
-
-
-  /**
-   * 获取资源文件下载URL
-   * 对应Android LearnResourceManager.getResourceDownloadUrl
-   */
-  public async getResourceDownloadUrl(resourceId: string): Promise<string | null> {
-    try {
-      return await apiService.getResourceDownloadUrl(resourceId)
-    } catch {
-      return null
     }
   }
 

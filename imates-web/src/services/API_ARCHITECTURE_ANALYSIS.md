@@ -171,14 +171,14 @@ server: {
   proxy: {
     // 教材API代理
     '/blw-edu-yb/api': {
-      target: 'https://43.138.16.5:50013',
+      target: 'https://www.imates.com.cn:9099',
       changeOrigin: true,
       secure: false
     },
     
     // 认证API代理
     '/blw-edu-yb/auth': {
-      target: 'https://43.138.16.5:50013',
+      target: 'https://www.imates.com.cn:9099',
       changeOrigin: true,
       secure: false
     },

@@ -12,6 +12,20 @@ export class HttpClient {
   private timeout: number
   // 全局认证配置已删除，所有认证配置都通过getDynamicAuthConfig动态获取
 
+  // 流程：file://环境下的路由映射表（统一管理，避免重复）
+  private readonly routeBaseMap: Record<string, string> = {
+    // 学班服务
+    '/admin': 'http://www.imates.com.cn:8222/blw-edu-service-alc',
+    '/permission': 'http://www.imates.com.cn:8222/blw-edu-service-alc',
+    '/biologyTopicKnowledge': 'http://www.imates.com.cn:8222/blw-edu-service-alc',
+    // 研伴/教材等走 www.imates.com.cn:9099
+    '/blw-edu-yb': 'https://www.imates.com.cn:9099',
+    // Zammad 示例
+    '/api/v1': 'http://app.imates.com.cn:8080',
+    // 资源服务器
+    '/resource': 'https://www.imates.com.cn:9099'
+  }
+
   constructor(baseURL: string = '', timeout: number = 5000) {
     this.baseURL = baseURL
     this.timeout = timeout
@@ -21,6 +35,33 @@ export class HttpClient {
   }
 
 
+
+  /**
+   * 构建完整URL
+   * 流程：处理相对路径和绝对路径，支持file://环境的路由映射
+   */
+  public buildFullUrl(url: string): string {
+    // 流程：绝对URL直接使用
+    if (url.startsWith('http')) {
+      return url
+    }
+
+    // 流程：判断是否为file://环境（Android WebView）
+    const isFileEnv = typeof window !== 'undefined' && window.location?.protocol === 'file:'
+    
+    if (isFileEnv) {
+      // 流程：根据首段路径路由到后端网关
+      const matchedBase = Object.keys(this.routeBaseMap).find(prefix => url.startsWith(prefix))
+      if (matchedBase) {
+        return `${this.routeBaseMap[matchedBase]}${url}`
+      }
+      // 流程：无法匹配时回退baseURL（避免file:///）
+      return `${this.baseURL}${url}`
+    }
+    
+    // 流程：http(s)环境下使用baseURL拼接
+    return `${this.baseURL}${url}`
+  }
 
   /**
    * 动态获取认证配置，根据请求路径选择不同的token
@@ -50,8 +91,8 @@ export class HttpClient {
     
     // 如果找到了token，将其赋值给所有认证字段
     if (selectedToken) {
-      // 其他认证头直接使用token
-      authConfig['saToken'] = selectedToken
+      // 使用sa-token格式（与Android原生保持一致）
+      authConfig['sa-token'] = selectedToken
       authConfig['authorization'] = selectedToken
       authConfig['token'] = selectedToken
     }
@@ -92,38 +133,8 @@ export class HttpClient {
       retries = 3              // 重试次数，默认为3次
     } = config
 
-    // 构建完整URL：
-    // 1) 绝对URL直接使用
-    // 2) 相对URL：在正常 http(s) 环境下用 baseURL 拼接
-    // 3) 在 file:// 环境（Android WebView/本地静态文件）下，改用环境变量 VITE_API_BASE 或内置映射表
-    let fullUrl = url
-    if (!url.startsWith('http')) {
-      const isFileEnv = typeof window !== 'undefined' && window.location?.protocol === 'file:'
-      if (isFileEnv) {
-        // 根据首段路径路由到后端网关
-        const routeBaseMap: Record<string, string> = {
-          // 学班服务
-          '/admin': 'http://www.imates.com.cn:8222/blw-edu-service-alc',
-          '/permission': 'http://www.imates.com.cn:8222/blw-edu-service-alc',
-          '/biologyTopicKnowledge': 'http://www.imates.com.cn:8222/blw-edu-service-alc',
-          // 研伴/教材等走 43.138.16.5:50013
-          '/blw-edu-yb': 'https://43.138.16.5:50013',
-          // Zammad 示例
-          '/api/v1': 'http://app.imates.com.cn:8080',
-          // 资源服务器
-          '/resource': 'https://43.138.16.5:50013'
-        }
-        const matchedBase = Object.keys(routeBaseMap).find(prefix => url.startsWith(prefix))
-        if (matchedBase) {
-          fullUrl = `${routeBaseMap[matchedBase]}${url}`
-        } else {
-          // 无法匹配时回退 baseURL（避免 file:///）
-          fullUrl = `${this.baseURL}${url}`
-        }
-      } else {
-        fullUrl = `${this.baseURL}${url}`
-      }
-    }
+    // 流程：构建完整URL（统一处理file://和http(s)环境）
+    const fullUrl = this.buildFullUrl(url)
     
     // 记录最后一次错误，用于重试失败后的错误信息
     let lastError: Error | null = null
@@ -219,6 +230,42 @@ export class HttpClient {
    */
   async delete<T>(url: string, config?: RequestConfig): Promise<ApiResponse<T>> {
     return this.request<T>(url, { ...config, method: 'DELETE' })
+  }
+
+  /**
+   * 文件下载流（用于下载二进制文件）
+   * 返回原始Response对象，调用方可以使用response.body获取ReadableStream
+   */
+  async downloadStream(
+    url: string,
+    config?: RequestConfig & { signal?: AbortSignal }
+  ): Promise<Response> {
+    // 流程：构建完整URL（统一处理file://和http(s)环境）
+    const fullUrl = this.buildFullUrl(url)
+    
+    // 流程：构建请求选项，包含认证头和下载优化配置
+    const requestOptions: RequestInit = {
+      method: config?.method || 'GET',
+      headers: {
+        ...this.getDynamicAuthConfig(url), // 动态获取认证配置
+        'Accept-Encoding': 'gzip, deflate', // 启用压缩
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        ...config?.headers, // 用户自定义请求头（优先级最高）
+      },
+      signal: config?.signal, // 支持取消下载
+      keepalive: true,
+      mode: 'cors'
+    }
+    
+    // 流程：发送请求并返回原始Response
+    const response = await fetch(fullUrl, requestOptions)
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+    
+    return response
   }
 
   /**
