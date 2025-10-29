@@ -6,8 +6,9 @@
 import { IndexedDBService } from './indexeddb-service'
 import CryptoJS from 'crypto-js'
 import { DebounceUtils } from '../utils'
-import { isPdfFile } from '../utils/pdf-thumbnail'
-import { thumbnailQueue } from '../utils/thumbnail-queue'
+// 注释掉缩略图相关导入以提升性能
+// import { isPdfFile } from '../utils/pdf-thumbnail'
+// import { thumbnailQueue } from '../utils/thumbnail-queue'
 import type {
   UserTextbookInfo,
   ResourceFile,
@@ -313,6 +314,8 @@ export class ResourceManager {
       }
       
       // 如果是PDF文件，添加到异步缩略图生成队列
+      // 注释掉缩略图生成逻辑以提升性能
+      /*
       if (isPdfFile(fileInfo.fileName)) {
         
         thumbnailQueue.addTask({
@@ -322,6 +325,7 @@ export class ResourceManager {
           fileData: fileData
         })
       }
+      */
       
     } catch (error) {
       throw error

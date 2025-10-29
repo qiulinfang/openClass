@@ -73,6 +73,7 @@
                       paused: textbook.downloadStatus === 3,
                     }"
                   >
+                  {{ textbook.downloadStatus }}
                     <!-- 第2步：教材封面容器 - 用原生div替换q-img -->
                     <div class="textbook-cover">
                       <!-- 第3步：原生img标签，比q-img性能更好 -->
@@ -354,6 +355,13 @@ const mergeServerAndLocalData = (
         ...serverTextbook,
         // 确保使用服务器的id字段作为主键
         id: serverTextbook.id || serverTextbook.textbookId,
+        // 🔥 显式保留本地的localFiles字段（包含fileData），防止被服务器数据覆盖
+        localFiles: localTextbook.localFiles || [],
+        // 🔥 保留本地的下载状态字段
+        downloadStatus: localTextbook.downloadStatus,
+        downloadedFiles: localTextbook.downloadedFiles,
+        isDownloaded: localTextbook.isDownloaded,
+        lastDownloadTime: localTextbook.lastDownloadTime,
         // 保留方法（如果存在）
         updateStructure: localTextbook.updateStructure || (() => {}),
         updatePackages: localTextbook.updatePackages || (() => {}),
@@ -439,8 +447,17 @@ const updateServerData = async () => {
     // 为每个教材检查学习资源包（并行处理）
     await checkLearningPackagesForAllTextbooks(mergedTextbooks)
 
-    // 更新本地教材数据
+    // 流程：更新本地教材数据时，保留IndexedDB中的完整localFiles数据（包含fileData）
     for (const textbook of mergedTextbooks) {
+      // 流程：从IndexedDB获取完整的教材数据（包含fileData）
+      const fullTextbook = await resourceManager.indexedDB.get('textbooks', textbook.id) as UserTextbookInfo
+      
+      if (fullTextbook && fullTextbook.localFiles && fullTextbook.localFiles.length > 0) {
+        // 流程：保留完整的localFiles数据（包含fileData），避免被瘦身版数据覆盖
+        textbook.localFiles = fullTextbook.localFiles
+      }
+      
+      // 流程：现在可以安全地更新教材信息，不会丢失fileData
       await resourceManager.updateTextbookInfo(textbook)
     }
     // 平滑替换数据
@@ -552,10 +569,7 @@ const loadResources = async () => {
     // 第6步：在DOM更新后后台更新服务器数据和修复下载状态
     nextTick(() => {
       updateServerData()
-      // 延迟执行下载状态修复，避免阻塞UI显示
-      setTimeout(() => {
-        fixInconsistentDownloadStatus(localTextbooks)
-      }, 100)
+      fixInconsistentDownloadStatus(localTextbooks)
     })
   } else {
     // 无本地数据，显示加载状态并获取服务器数据
@@ -732,6 +746,20 @@ const checkForUpdates = async () => {
 
 // 下载教材 - 直接使用ApiService，移除不必要的中介方法
 const downloadTextbook = async (textbook: UserTextbookInfo) => {
+  // 🔒 防重复下载：检查是否已在下载中
+  if (textbook.downloadStatus === 1) {
+    console.warn(`[防重复下载] 教材《${textbook.textbookName}》已在下载中，忽略重复请求`)
+    showMessage(`《${textbook.textbookName}》正在下载中，请勿重复操作`, 'warning')
+    return
+  }
+
+  // 🔒 防重复下载：检查是否已下载完成
+  if (textbook.downloadStatus === 2 && textbook.isDownloaded) {
+    console.warn(`[防重复下载] 教材《${textbook.textbookName}》已下载完成，忽略重复请求`)
+    showMessage(`《${textbook.textbookName}》已下载完成`, 'info')
+    return
+  }
+
   // 设置下载状态
   textbook.downloadStatus = 1 // 下载中
   textbook.isDownloaded = false
@@ -754,38 +782,43 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
     printLocalFilesData()
 
     if (success) {
-      // 下载成功 - 重新从IndexedDB获取最新的教材数据，避免使用过时的textbook对象
-      const latestTextbook = await resourceManager
-        .getUserLocalTextbooks()
-        .then((textbooks) => textbooks.find((t) => t.textbookId === textbook.textbookId))
+      // 下载成功 - 需要从 IndexedDB 获取完整数据（包含 fileData）后再更新状态
+      // 因为当前的 textbook 对象中的 localFiles 可能不包含 fileData（被瘦身处理了）
+      const fullTextbook = await resourceManager.indexedDB.get('textbooks', textbook.id) as UserTextbookInfo
+      
+      if (fullTextbook) {
+        // 更新完整教材的状态
+        fullTextbook.isDownloaded = true
+        fullTextbook.downloadStatus = 2 // 下载完成
+        fullTextbook.downloadedFiles = fullTextbook.totalFiles
+        fullTextbook.lastDownloadTime = new Date().toISOString()
+        fullTextbook.hasUpdatesAvailable = false
 
-      if (latestTextbook) {
-        // 使用最新的教材数据更新状态
-        latestTextbook.isDownloaded = true
-        latestTextbook.downloadStatus = 2 // 下载完成
-        latestTextbook.downloadedFiles = latestTextbook.totalFiles
-        latestTextbook.lastDownloadTime = new Date().toISOString()
-        latestTextbook.hasUpdatesAvailable = false
-        // 只更新下载状态，不覆盖localFiles数据
-        await resourceManager.updateTextbookInfo(latestTextbook, {
+        // 保存完整教材数据到IndexedDB（包含 localFiles 中的 fileData）
+        await resourceManager.updateTextbookInfo(fullTextbook, {
           isDownloaded: true,
           downloadStatus: 2,
-          downloadedFiles: latestTextbook.totalFiles,
+          downloadedFiles: fullTextbook.totalFiles,
           lastDownloadTime: new Date().toISOString(),
           hasUpdatesAvailable: false,
         })
 
-        // 更新Vue组件中的textbook对象
-        Object.assign(textbook, latestTextbook)
+        // 更新Vue组件中的textbook对象（用于显示）
+        Object.assign(textbook, {
+          ...fullTextbook,
+          // 保留显示用的方法
+          updateStructure: textbook.updateStructure,
+          updatePackages: textbook.updatePackages,
+          getLocalResourceFileName: textbook.getLocalResourceFileName
+        })
       } else {
-        // 如果无法获取最新数据，使用原有逻辑
+        // 如果无法获取完整数据，使用当前textbook更新
         textbook.isDownloaded = true
-        textbook.downloadStatus = 2 // 下载完成
+        textbook.downloadStatus = 2
         textbook.downloadedFiles = textbook.totalFiles
         textbook.lastDownloadTime = new Date().toISOString()
         textbook.hasUpdatesAvailable = false
 
-        // 立即保存下载状态到IndexedDB
         await resourceManager.updateTextbookInfo(textbook, {
           isDownloaded: true,
           downloadStatus: 2,
@@ -835,7 +868,7 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
 const pauseDownload = async (textbook: UserTextbookInfo) => {
   try {
     const success = await apiService.pauseDownload(textbook.textbookId)
-
+    console.log('暂停')
     if (success) {
       textbook.downloadStatus = 3 // 已暂停
       textbook.isDownloaded = false
@@ -1001,11 +1034,8 @@ onMounted(async () => {
   const initBScrollEndTime = performance.now()
   console.warn(`[onMounted] initBScroll 耗时: ${(initBScrollEndTime - initBScrollStartTime).toFixed(2)}ms`)
 
-  // 第4步：清理过期数据
-  const cleanupStartTime = performance.now()
-  resourceManager.cleanupExpiredData()
-  const cleanupEndTime = performance.now()
-  console.warn(`[onMounted] cleanupExpiredData 耗时: ${(cleanupEndTime - cleanupStartTime).toFixed(2)}ms`)
+  // 第4步：清理过期数据 - 延迟到后台执行
+    resourceManager.cleanupExpiredData()
 
   // 第5步：记录 onMounted 总耗时
   const mountEndTime = performance.now()
@@ -1013,19 +1043,73 @@ onMounted(async () => {
   console.warn(`[onMounted] 总耗时: ${totalTime.toFixed(2)}ms (${(totalTime / 1000).toFixed(2)}s)`)
   console.warn(`[onMounted] 完成时间: ${new Date().toLocaleTimeString('zh-CN')}`)
 
-  // 定期检查更新（每60分钟）
-  setInterval(
-    () => {
-      if (!loading.value && !checkingUpdates.value) {
-        checkForUpdates()
-      }
-    },
-    60 * 60 * 1000,
-  )
+  // 定期检查更新（每60分钟）- 延迟启动
+    setInterval(
+      () => {
+        if (!loading.value && !checkingUpdates.value) {
+          checkForUpdates()
+        }
+      },
+      60 * 60 * 1000,
+    )
 })
 
-// 组件卸载时销毁 better-scroll
-onUnmounted(() => {
+// 暂停所有正在下载的任务
+const pauseAllDownloadingTasks = async () => {
+  try {
+    // 流程：查找所有正在下载的教材（downloadStatus === 1）
+    const downloadingTextbooks = textbooks.value.filter(
+      textbook => textbook.downloadStatus === 1
+    )
+    
+    if (downloadingTextbooks.length === 0) {
+      return
+    }
+    
+    console.log(`[页面离开] 发现 ${downloadingTextbooks.length} 个正在下载的任务，开始暂停...`)
+    
+    // 流程：批量暂停所有正在下载的任务
+    const pausePromises = downloadingTextbooks.map(async (textbook) => {
+      try {
+        // 调用API服务暂停下载
+        const success = await apiService.pauseDownload(textbook.textbookId)
+        
+        if (success) {
+          // 更新教材状态为已暂停
+          textbook.downloadStatus = 3
+          textbook.isDownloaded = false
+          
+          // 保存暂停状态到IndexedDB
+          await resourceManager.updateTextbookInfo(textbook, {
+            downloadStatus: 3,
+            isDownloaded: false,
+            downloadedFiles: textbook.downloadedFiles,
+          })
+          
+          console.log(`[页面离开] ✅ 已暂停教材: ${textbook.textbookName}`)
+        } else {
+          console.warn(`[页面离开] ⚠️ 暂停教材失败: ${textbook.textbookName}`)
+        }
+      } catch (error) {
+        console.error(`[页面离开] ❌ 暂停教材出错: ${textbook.textbookName}`, error)
+      }
+    })
+    
+    // 等待所有暂停操作完成
+    await Promise.all(pausePromises)
+    
+    console.log(`[页面离开] 🎉 所有下载任务已暂停`)
+  } catch (error) {
+    console.error('[页面离开] 暂停下载任务时发生错误:', error)
+  }
+}
+
+// 组件卸载时销毁 better-scroll 并暂停所有下载任务
+onUnmounted(async () => {
+  // 流程：页面离开时立即暂停所有正在下载的任务
+  await pauseAllDownloadingTasks()
+  
+  // 销毁 better-scroll
   if (bscroll) {
     bscroll.destroy()
     bscroll = null

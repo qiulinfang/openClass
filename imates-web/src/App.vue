@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount } from 'vue'
-import { thumbnailQueue } from './utils/thumbnail-queue'
+// 注释掉缩略图相关导入以提升性能
+// import { thumbnailQueue } from './utils/thumbnail-queue'
 
 onMounted(() => {
+  // 注释掉缩略图恢复逻辑以提升性能
+  /*
   // 第1步：延迟恢复缩略图任务，避免阻塞应用启动
   setTimeout(() => {
     // 第2步：恢复被打断的缩略图生成任务
     thumbnailQueue.recoverPendingTasks()
   }, 2000) // 等待2秒，让应用完全启动
+  */
 })
 
 onBeforeUnmount(() => {
