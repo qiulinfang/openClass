@@ -496,8 +496,18 @@ export class ResourceManager {
           learningPackages: (dataRecord.learningPackages as LearningPackage[]) || [],
           localFiles: (() => {
             const localFiles = (dataRecord.localFiles as LocalFileInfo[]) || []
-            return localFiles
-          })(), // 从数据库读取localFiles数据
+            // 第1步：瘦身处理 - 去掉fileData字段，避免响应式化大型二进制数据
+            return localFiles.map(file => ({
+              id: file.id,
+              fileName: file.fileName,
+              fileSize: file.fileSize,
+              checksum: file.checksum,
+              isDownloaded: file.isDownloaded,
+              thumbnail: file.thumbnail,
+              localPath: file.localPath
+              // 注意：不包含fileData，需要时通过getFileData(id, fileId)按需获取
+            }))
+          })(), // 从数据库读取localFiles数据（瘦身版）
           
           // 添加方法
           updateStructure: function(structure: ChapterNode[]) {

@@ -33,6 +33,7 @@ import type {
   FeedbackTicketResponse,
   UserTextbookInfo,
   ResourceFile,
+  LocalFileInfo,
 } from '../types'
 
 // 使用统一的类型定义，不再重复定义
@@ -1474,7 +1475,7 @@ export class ApiService {
   }
 
   /**
-   * 收集需要更新的文件（增量下载逻辑）
+   * 收集需要更新的文件（增量下载逻辑）- 性能优化版本
    * @param textbook 教材信息
    * @param serverPackages 服务器学习资源包
    * @returns 需要更新的文件列表和总文件数
@@ -1485,14 +1486,23 @@ export class ApiService {
   }> {
     const filesToUpdate: Array<{resource: any, pkg: any}> = []
     let totalServerFiles = 0
-    // 获取本地学习资源包（用于增量对比）
+    
+    // 第1步：获取本地学习资源包（用于增量对比）
     const localLearningPackages = textbook.learningPackages || []
     
-    
-    // 获取ResourceManager实例用于检查文件数据
+    // 第2步：一次性从IndexedDB获取最新的教材数据（包含所有localFiles和fileData）
+    // 避免在循环中多次查询数据库，提升性能
     const resourceManager = ResourceManager.getInstance()
+    const latestTextbook = await resourceManager.indexedDB.get<UserTextbookInfo>('textbooks', textbook.id)
+    const localFiles = latestTextbook?.localFiles || []
     
-    // 遍历服务器学习资源包，收集需要更新的文件
+    // 第3步：构建文件ID到localFile的映射表，避免重复查找
+    const localFileMap = new Map<string, LocalFileInfo>()
+    for (const file of localFiles) {
+      localFileMap.set(file.id, file)
+    }
+    
+    // 第4步：遍历服务器学习资源包，收集需要更新的文件
     for (const serverPackage of serverPackages) {
       if (serverPackage.resourceList && serverPackage.resourceList.length > 0) {
         totalServerFiles += serverPackage.resourceList.length
@@ -1506,40 +1516,28 @@ export class ApiService {
           }
         } else {
           // 已存在的包：检查文件更新和fileData存在性
-          const localFiles = textbook.localFiles || []
-          let updatedFilesCount = 0
-          let skippedFilesCount = 0
-          
           for (const serverFile of serverPackage.resourceList) {
-            const localFile = localFiles.find(f => f.id === serverFile.id)
-            const fileId = serverFile.id // 使用原生文件ID，保持一致性
+            const localFile = localFileMap.get(serverFile.id)
             
             // 检查文件是否需要下载：
             // 1. localFiles中没有记录（新文件）
             // 2. 校验和不匹配（文件已更新）
             // 3. fileData中不存在实际数据（暂停后继续下载）
             let needsDownload = false
-            let reason = ''
             if (!localFile) {
               needsDownload = true
-              reason = '新文件'
             } else if (serverFile.checksum !== localFile.checksum) {
               needsDownload = true
-              reason = '文件已更新（校验和不匹配）'
             } else {
-              // 检查fileData中是否实际存在文件数据
-              const hasFileData = await resourceManager.hasFileData(textbook.id, fileId)
+              // 直接检查内存中的fileData，避免数据库查询
+              const hasFileData = localFile.fileData && localFile.fileData.length > 0
               if (!hasFileData) {
                 needsDownload = true
-                reason = 'fileData中不存在实际数据（暂停后继续下载）'
               }
             }
             
             if (needsDownload) {
               filesToUpdate.push({ resource: serverFile, pkg: serverPackage })
-              updatedFilesCount++
-            } else {
-              skippedFilesCount++
             }
           }
         }
@@ -1551,38 +1549,70 @@ export class ApiService {
 
 
   /**
+   * 获取格式化时间（HH:mm:ss.SSS）
+   */
+  private getFormattedTime(): string {
+    const now = new Date()
+    const hours = String(now.getHours()).padStart(2, '0')
+    const minutes = String(now.getMinutes()).padStart(2, '0')
+    const seconds = String(now.getSeconds()).padStart(2, '0')
+    const milliseconds = String(now.getMilliseconds()).padStart(3, '0')
+    return `${hours}:${minutes}:${seconds}.${milliseconds}`
+  }
+
+  /**
    * 下载教材资源 - 增量下载优化版本（只下载需要更新的文件）
    * 对应Android LearnResourceManager.downloadAllResources
    * 使用与安卓原生一致的接口路径和认证方式
    */
   public async downloadTextbook(textbook: UserTextbookInfo, onProgress?: (progress: number, downloadedCount: number, totalToDownload: number) => void): Promise<boolean> {
+    const startTime = Date.now()
+    console.log(`[${this.getFormattedTime()}] 📥 开始下载教材: ${textbook.textbookName}`)
+    
     try {
       // 第1步：初始化下载控制器
+      console.log(`[${this.getFormattedTime()}] ⚙️ 步骤1: 初始化下载控制器`)
+      const step1Start = Date.now()
       const controller = new AbortController()
       this.downloadControllers.set(textbook.textbookId, controller)
+      console.log(`[${this.getFormattedTime()}] ✅ 步骤1完成 (耗时: ${Date.now() - step1Start}ms)`)
       
       // 第2步：获取学习资源包（优先使用本地数据）
+      console.log(`[${this.getFormattedTime()}] ⚙️ 步骤2: 获取学习资源包`)
+      const step2Start = Date.now()
       let serverPackages: any[] = []
       
       if (textbook.learningPackages && textbook.learningPackages.length > 0) {
         serverPackages = textbook.learningPackages
+        console.log(`[${this.getFormattedTime()}] 📦 使用本地缓存的学习包 (${serverPackages.length}个)`)
       } else {
         serverPackages = await this.getServerLearningPackages(textbook)
+        console.log(`[${this.getFormattedTime()}] 📦 从服务器获取学习包 (${serverPackages.length}个)`)
       }
+      console.log(`[${this.getFormattedTime()}] ✅ 步骤2完成 (耗时: ${Date.now() - step2Start}ms)`)
       
       if (!serverPackages || serverPackages.length === 0) {
+        console.log(`[${this.getFormattedTime()}] ⚠️ 无学习包，下载结束`)
         return true
       }
       
       // 第3步：增量文件筛选（收集需要更新的文件）
+      console.log(`[${this.getFormattedTime()}] ⚙️ 步骤3: 增量文件筛选`)
+      const step3Start = Date.now()
       const { filesToUpdate, totalServerFiles } = await this.collectFilesToUpdate(textbook, serverPackages)
       const filesToDownload = filesToUpdate.length
+      console.log(`[${this.getFormattedTime()}] ✅ 步骤3完成 (耗时: ${Date.now() - step3Start}ms) - 需下载: ${filesToDownload}/${totalServerFiles}`)
       
       // 第4步：保存学习资源包到IndexedDB
+      console.log(`[${this.getFormattedTime()}] ⚙️ 步骤4: 保存学习资源包到IndexedDB`)
+      const step4Start = Date.now()
       const resourceManager = ResourceManager.getInstance()
       await resourceManager.updateTextbookInfo(textbook, undefined)
+      console.log(`[${this.getFormattedTime()}] ✅ 步骤4完成 (耗时: ${Date.now() - step4Start}ms)`)
       
       // 第5步：设置教材总文件数
+      console.log(`[${this.getFormattedTime()}] ⚙️ 步骤5: 设置教材总文件数`)
+      const step5Start = Date.now()
       const textbooks = await resourceManager.getUserLocalTextbooks()
       const textbookRecord = textbooks.find(t => t.textbookId === textbook.textbookId)
       if (textbookRecord) {
@@ -1590,12 +1620,17 @@ export class ApiService {
         await resourceManager.updateTextbookInfo(textbookRecord, { totalFiles: totalServerFiles })
       }
       textbook.totalFiles = totalServerFiles
+      console.log(`[${this.getFormattedTime()}] ✅ 步骤5完成 (耗时: ${Date.now() - step5Start}ms) - 总文件数: ${totalServerFiles}`)
       
       if (filesToDownload === 0) {
+        console.log(`[${this.getFormattedTime()}] ✅ 所有文件已是最新，无需下载`)
+        console.log(`[${this.getFormattedTime()}] 🎉 下载流程完成 (总耗时: ${Date.now() - startTime}ms)`)
         return true
       }
       
       // 第6步：并发下载需要更新的文件
+      console.log(`[${this.getFormattedTime()}] ⚙️ 步骤6: 并发下载文件 (${filesToDownload}个)`)
+      const step6Start = Date.now()
       const currentDownloadedFiles = textbook.downloadedFiles || 0
       
       const result = await this.downloadFilesConcurrently(
@@ -1609,18 +1644,29 @@ export class ApiService {
         }, 
         textbook
       )
+      console.log(`[${this.getFormattedTime()}] ✅ 步骤6完成 (耗时: ${Date.now() - step6Start}ms) - 成功: ${result.successCount}, 失败: ${result.errorCount}, 平均速度: ${result.averageSpeed}`)
       
       // 第7步：强制刷新IndexedDB
+      console.log(`[${this.getFormattedTime()}] ⚙️ 步骤7: 强制刷新IndexedDB`)
+      const step7Start = Date.now()
       await resourceManager.forceFlushPendingUpdates()
+      console.log(`[${this.getFormattedTime()}] ✅ 步骤7完成 (耗时: ${Date.now() - step7Start}ms)`)
             
       // 第8步：清理下载控制器
+      console.log(`[${this.getFormattedTime()}] ⚙️ 步骤8: 清理下载控制器`)
+      const step8Start = Date.now()
       this.downloadControllers.delete(textbook.textbookId)
+      console.log(`[${this.getFormattedTime()}] ✅ 步骤8完成 (耗时: ${Date.now() - step8Start}ms)`)
       
       const isSuccess = result.successCount === filesToDownload
+      
+      const totalTime = Date.now() - startTime
+      console.log(`[${this.getFormattedTime()}] ${isSuccess ? '🎉' : '❌'} 下载流程${isSuccess ? '成功' : '失败'} (总耗时: ${totalTime}ms = ${(totalTime / 1000).toFixed(2)}秒)`)
       
       return isSuccess
       
     } catch (error) {
+      console.log(`[${this.getFormattedTime()}] ❌ 下载出错 (总耗时: ${Date.now() - startTime}ms)`, error)
       this.downloadControllers.delete(textbook.textbookId)
       
       if (error instanceof Error && error.name === 'AbortError') {

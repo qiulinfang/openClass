@@ -21,18 +21,32 @@
               />
             </div>
             
-            <!-- 第2步：检查更新按钮 -->
-            <q-btn
-              color="primary"
-              icon="refresh"
-              label="检查更新"
-              @click="handleCheckUpdates"
-              :loading="checkingUpdates"
-              size="md"
-              unelevated
-              no-caps
-              class="check-updates-btn"
-            />
+            <!-- 第2步：操作按钮组 -->
+            <div class="action-buttons">
+              <q-btn
+                color="primary"
+                icon="refresh"
+                label="检查更新"
+                @click="handleCheckUpdates"
+                :loading="checkingUpdates"
+                size="md"
+                unelevated
+                no-caps
+                class="check-updates-btn"
+              />
+              
+              <!-- 调试面板按钮 -->
+              <q-btn
+                color="secondary"
+                icon="bug_report"
+                label="调试面板"
+                @click="showDebugPanel = true"
+                size="md"
+                unelevated
+                no-caps
+                class="debug-btn"
+              />
+            </div>
           </div>
         </div>
 
@@ -257,7 +271,7 @@ const filteredTextbooks = computed(() => {
   }
 
   // 排序确保每次加载顺序一致
-  return result.sort((a, b) => {
+  return [...result].sort((a, b) => {
     // 先按学科排序
     if (a.textbookSubjectLabel !== b.textbookSubjectLabel) {
       return a.textbookSubjectLabel.localeCompare(b.textbookSubjectLabel)
@@ -462,48 +476,63 @@ const checkLearningPackagesForAllTextbooks = async (textbooks: UserTextbookInfo[
   await Promise.all(checkPromises)
 }
 
-// 检测和修复不一致的下载状态
+// 检测和修复不一致的下载状态 - 优化版本，批量处理
 const fixInconsistentDownloadStatus = async (textbooks: UserTextbookInfo[]) => {
-  let fixedCount = 0
+  const updatesToSave: Array<{textbook: UserTextbookInfo, updates: {
+    downloadStatus: number
+    isDownloaded: boolean
+    downloadedFiles: number
+  }}> = []
 
-  const fixPromises = textbooks.map(async (textbook) => {
-    // 检查是否有downloadStatus为1但没有实际下载任务的情况
+  // 第1步：快速检查需要修复的教材
+  for (const textbook of textbooks) {
     if (textbook.downloadStatus === 1) {
-      // 检查ApiService中是否有对应的下载控制器
       const hasActiveDownload = apiService.hasActiveDownload(textbook.textbookId)
-
+      
       if (!hasActiveDownload) {
-        fixedCount++
-
         // 根据下载进度判断状态
+        let newStatus: number
+        let isDownloaded: boolean
+        let downloadedFiles: number
+        
         if (textbook.downloadedFiles > 0 && textbook.downloadedFiles < textbook.totalFiles) {
-          // 部分下载，设置为暂停状态
-          textbook.downloadStatus = 3
-          textbook.isDownloaded = false
+          newStatus = 3
+          isDownloaded = false
+          downloadedFiles = textbook.downloadedFiles
         } else if (textbook.downloadedFiles === textbook.totalFiles && textbook.totalFiles > 0) {
-          // 完全下载，设置为完成状态
-          textbook.downloadStatus = 2
-          textbook.isDownloaded = true
+          newStatus = 2
+          isDownloaded = true
+          downloadedFiles = textbook.downloadedFiles
         } else {
-          // 没有下载进度，设置为未下载状态
-          textbook.downloadStatus = 0
-          textbook.isDownloaded = false
-          textbook.downloadedFiles = 0
+          newStatus = 0
+          isDownloaded = false
+          downloadedFiles = 0
         }
-
-        // 保存修复后的状态到IndexedDB
-        await resourceManager.updateTextbookInfo(textbook, {
-          downloadStatus: textbook.downloadStatus,
-          isDownloaded: textbook.isDownloaded,
-          downloadedFiles: textbook.downloadedFiles,
+        
+        // 更新内存中的状态
+        textbook.downloadStatus = newStatus
+        textbook.isDownloaded = isDownloaded
+        textbook.downloadedFiles = downloadedFiles
+        
+        // 收集需要保存的更新
+        updatesToSave.push({
+          textbook,
+          updates: {
+            downloadStatus: newStatus,
+            isDownloaded,
+            downloadedFiles
+          }
         })
       }
     }
-  })
+  }
 
-  await Promise.all(fixPromises)
-
-  if (fixedCount > 0) {
+  // 第2步：批量保存更新（如果有需要修复的）
+  if (updatesToSave.length > 0) {
+    const savePromises = updatesToSave.map(({textbook, updates}) => 
+      resourceManager.updateTextbookInfo(textbook, updates)
+    )
+    await Promise.all(savePromises)
   }
 }
 
@@ -515,17 +544,18 @@ const loadResources = async () => {
   // 第一步：立即加载本地数据
   const localTextbooks = await loadLocalData()
   if (localTextbooks.length > 0) {
-    // 检测和修复不一致的下载状态
-    await fixInconsistentDownloadStatus(localTextbooks)
-
-    // 有本地数据，立即显示
+    // 有本地数据，立即显示（延迟修复下载状态到后台）
     textbooks.value = localTextbooks
     updateSubjectChips()
     initialLoadCompleted.value = true
 
-    // 第6步：在DOM更新后后台更新服务器数据
+    // 第6步：在DOM更新后后台更新服务器数据和修复下载状态
     nextTick(() => {
       updateServerData()
+      // 延迟执行下载状态修复，避免阻塞UI显示
+      setTimeout(() => {
+        fixInconsistentDownloadStatus(localTextbooks)
+      }, 100)
     })
   } else {
     // 无本地数据，显示加载状态并获取服务器数据
@@ -613,18 +643,30 @@ const initBScroll = async () => {
   // 第10步：移除滚动状态监听（之前用于显示下拉刷新提示）
 }
 
-// 更新学科筛选选项
+// 更新学科筛选选项 - 优化版本，避免重复计算
 const updateSubjectChips = () => {
-  const subjects = new Set(textbooks.value.map((t) => t.textbookSubjectLabel))
-  const newCategories = [{ label: '全部', value: 'all' }]
+  // 第1步：检查是否需要更新（避免重复计算）
+  const currentSubjects = new Set(textbooks.value.map((t) => t.textbookSubjectLabel))
+  const currentSubjectKeys = Array.from(currentSubjects).sort().join(',')
+  const lastSubjectKeys = categories.value.map(c => c.value).sort().join(',')
+  
+  if (currentSubjectKeys === lastSubjectKeys) {
+    // 学科没有变化，跳过更新
+    if (selectedSubjects.value.size === 0) {
+      selectedSubjects.value.add('all')
+    }
+    return
+  }
 
-  subjects.forEach((subject) => {
+  // 第2步：构建新的学科选项
+  const newCategories = [{ label: '全部', value: 'all' }]
+  currentSubjects.forEach((subject) => {
     newCategories.push({ label: subject, value: subject })
   })
 
   categories.value = newCategories
 
-  // 默认选择"全部"
+  // 第3步：默认选择"全部"
   if (selectedSubjects.value.size === 0) {
     selectedSubjects.value.add('all')
   }
@@ -701,6 +743,8 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
     const success = await apiService.downloadTextbook(
       textbook,
       async (progress, downloadedCount) => {
+        console.log('progress', progress, 'downloadedCount', downloadedCount)
+        console.log(new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit'}))
         // 更新下载进度 - 使用实际下载的文件数
         textbook.downloadedFiles = downloadedCount
       },
@@ -941,15 +985,35 @@ const showMessage = (message: string, type: 'success' | 'error' | 'warning' | 'i
 
 // 生命周期
 onMounted(async () => {
+  // 第1步：记录 onMounted 开始时间
+  const mountStartTime = performance.now()
+  console.warn(`[onMounted] 开始时间: ${new Date().toLocaleTimeString('zh-CN')}`)
+
+  // 第2步：加载资源数据
+  const loadResourcesStartTime = performance.now()
   await loadResources()
+  const loadResourcesEndTime = performance.now()
+  console.warn(`[onMounted] loadResources 耗时: ${(loadResourcesEndTime - loadResourcesStartTime).toFixed(2)}ms`)
 
-  // 初始化 better-scroll
+  // 第3步：初始化 better-scroll
+  const initBScrollStartTime = performance.now()
   await initBScroll()
+  const initBScrollEndTime = performance.now()
+  console.warn(`[onMounted] initBScroll 耗时: ${(initBScrollEndTime - initBScrollStartTime).toFixed(2)}ms`)
 
-  // 清理过期数据
+  // 第4步：清理过期数据
+  const cleanupStartTime = performance.now()
   resourceManager.cleanupExpiredData()
+  const cleanupEndTime = performance.now()
+  console.warn(`[onMounted] cleanupExpiredData 耗时: ${(cleanupEndTime - cleanupStartTime).toFixed(2)}ms`)
 
-  // 定期检查更新（每5分钟）
+  // 第5步：记录 onMounted 总耗时
+  const mountEndTime = performance.now()
+  const totalTime = mountEndTime - mountStartTime
+  console.warn(`[onMounted] 总耗时: ${totalTime.toFixed(2)}ms (${(totalTime / 1000).toFixed(2)}s)`)
+  console.warn(`[onMounted] 完成时间: ${new Date().toLocaleTimeString('zh-CN')}`)
+
+  // 定期检查更新（每60分钟）
   setInterval(
     () => {
       if (!loading.value && !checkingUpdates.value) {
@@ -1080,6 +1144,20 @@ const printLocalFilesData = async () => {
 
       &:active {
         transform: translateY(0);
+      }
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      
+      .debug-btn {
+        min-width: 100px;
+      }
+      
+      .check-updates-btn {
+        min-width: 100px;
       }
     }
 

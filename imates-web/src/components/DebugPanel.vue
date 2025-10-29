@@ -301,47 +301,41 @@ const exportData = () => {
 }
 
 const clearAllData = async () => {
-  if (confirm('确定要清空所有IndexedDB数据吗？此操作不可恢复！')) {
-    try {
-      // 清空所有存储的数据
-      await resourceManager.indexedDB.clear('textbooks')
-      await resourceManager.indexedDB.clear('files')
-      await refreshData()
-      console.log('所有数据已清空')
-    } catch (error) {
-      console.error('清空数据失败:', error)
-    }
+  try {
+    // 清空所有存储的数据
+    await resourceManager.indexedDB.clear('textbooks')
+    await resourceManager.indexedDB.clear('files')
+    await refreshData()
+    console.log('所有数据已清空')
+  } catch (error) {
+    console.error('清空数据失败:', error)
   }
 }
 
 const deleteTextbook = async (textbookId: string) => {
-  if (confirm(`确定要删除教材 ${textbookId} 吗？`)) {
-    try {
-      // 删除教材数据
-      await resourceManager.indexedDB.delete('textbooks', textbookId)
-      await refreshData()
-      console.log('教材已删除:', textbookId)
-    } catch (error) {
-      console.error('删除教材失败:', error)
-    }
+  try {
+    // 删除教材数据
+    await resourceManager.indexedDB.delete('textbooks', textbookId)
+    await refreshData()
+    console.log('教材已删除:', textbookId)
+  } catch (error) {
+    console.error('删除教材失败:', error)
   }
 }
 
 const clearTextbookFiles = async (textbookId: string) => {
-  if (confirm(`确定要清空教材 ${textbookId} 的所有文件吗？`)) {
-    try {
-      const textbook = textbooks.value.find(t => t.textbookId === textbookId)
-      if (textbook) {
-        await resourceManager.updateTextbookInfo(textbook, {
-          fileData: {},
-          downloadedFiles: 0
-        })
-        await refreshData()
-        console.log('教材文件已清空:', textbookId)
-      }
-    } catch (error) {
-      console.error('清空教材文件失败:', error)
+  try {
+    const textbook = textbooks.value.find(t => t.textbookId === textbookId)
+    if (textbook) {
+      await resourceManager.updateTextbookInfo(textbook, {
+        fileData: {},
+        downloadedFiles: 0
+      })
+      await refreshData()
+      console.log('教材文件已清空:', textbookId)
     }
+  } catch (error) {
+    console.error('清空教材文件失败:', error)
   }
 }
 
