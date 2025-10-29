@@ -144,7 +144,8 @@ export interface ResourceIndex {
 }
 
 /**
- * 本地文件信息
+ * 本地文件信息（元数据）
+ * 注意：fileData已分离存储到textbook_files表，不在localFiles中
  */
 export interface LocalFileInfo {
   id: string // 文件唯一标识
@@ -153,7 +154,7 @@ export interface LocalFileInfo {
   checksum: string // 文件校验和
   isDownloaded: boolean // 是否已下载
   localPath?: string // 本地文件路径
-  fileData?: Uint8Array // 文件二进制数据
+  fileData?: Uint8Array // 已弃用：文件二进制数据已分离存储到textbook_files表，通过resourceManager.getFileData()获取
   thumbnail?: string // PDF缩略图（base64格式）
   annotations?: Record<number, object[]> // PDF注释数据，key为页码，value为fabric对象数组
 }

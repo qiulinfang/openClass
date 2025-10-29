@@ -330,16 +330,19 @@ const loadFileFromRoute = async () => {
 
     console.log('找到教材:', textbook)
 
-    // 2. 在教材的 localFiles 中查找对应的文件
+    // 2. 在教材的 localFiles 中查找对应的文件元数据
     let fileData: Uint8Array | null = null
     let fileName = 'unknown.pdf'
 
     if (textbook.localFiles && Array.isArray(textbook.localFiles)) {
       const localFile = textbook.localFiles.find((file: LocalFileInfo) => file.id === resourceId)
-      if (localFile && localFile.fileData) {
-        fileData = localFile.fileData
+      if (localFile) {
         fileName = localFile.fileName || fileName
-        console.log('找到本地文件:', { fileName, fileSize: fileData.length })
+        // 从textbook_files表按需读取文件数据
+        fileData = await resourceManager.getFileData(id, resourceId)
+        if (fileData) {
+          console.log('找到本地文件:', { fileName, fileSize: fileData.length })
+        }
       }
     }
 

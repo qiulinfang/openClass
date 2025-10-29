@@ -127,19 +127,22 @@ class ThumbnailQueue {
         for (const file of textbook.localFiles) {
           // 第3步：检查是否是已下载的PDF文件且没有缩略图
           if (file.isDownloaded && 
-              file.fileData && 
               file.fileName.toLowerCase().endsWith('.pdf') &&
               !file.thumbnail) {
             
-            // 第4步：添加到队列
-            this.addTask({
-              fileId: file.id,
-              textbookId: textbook.textbookId,
-              fileName: file.fileName,
-              fileData: file.fileData
-            })
-            
-            recoveredCount++
+            // 第4步：从textbook_files表读取文件数据
+            const fileData = await resourceManager.getFileData(textbook.id, file.id)
+            if (fileData && fileData.length > 0) {
+              // 第5步：添加到队列
+              this.addTask({
+                fileId: file.id,
+                textbookId: textbook.textbookId,
+                fileName: file.fileName,
+                fileData: fileData
+              })
+              
+              recoveredCount++
+            }
           }
         }
       }

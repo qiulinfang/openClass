@@ -1512,11 +1512,14 @@ export class ApiService {
     // 第1步：获取本地学习资源包（用于增量对比）
     const localLearningPackages = textbook.learningPackages || []
     
-    // 第2步：一次性从IndexedDB获取最新的教材数据（包含所有localFiles和fileData）
+    // 第2步：一次性从IndexedDB获取最新的教材数据（包含所有localFiles）
     // 避免在循环中多次查询数据库，提升性能
     const resourceManager = ResourceManager.getInstance()
     const latestTextbook = await resourceManager.indexedDB.get<UserTextbookInfo>('textbooks', textbook.id)
-    const localFiles = latestTextbook?.localFiles || []
+    if (!latestTextbook) {
+      return { filesToUpdate: [], totalServerFiles: 0 }
+    }
+    const localFiles = latestTextbook.localFiles || []
     
     // 第3步：构建文件ID到localFile的映射表，避免重复查找
     const localFileMap = new Map<string, LocalFileInfo>()
@@ -1544,15 +1547,15 @@ export class ApiService {
             // 检查文件是否需要下载：
             // 1. localFiles中没有记录（新文件）
             // 2. 校验和不匹配（文件已更新）
-            // 3. fileData中不存在实际数据（暂停后继续下载）
+            // 3. textbook_files表中不存在实际数据（暂停后继续下载）
             let needsDownload = false
             if (!localFile) {
               needsDownload = true
             } else if (serverFile.checksum !== localFile.checksum) {
               needsDownload = true
             } else {
-              // 直接检查内存中的fileData，避免数据库查询
-              const hasFileData = localFile.fileData && localFile.fileData.length > 0
+              // 检查textbook_files表中是否存在文件数据
+              const hasFileData = await resourceManager.hasFileData(latestTextbook.id, serverFile.id)
               if (!hasFileData) {
                 needsDownload = true
               }
@@ -1794,8 +1797,8 @@ export class ApiService {
   }
 
   /**
-   * 更新学习包的本地文件信息 - 重构版本，现在fileData已直接存储在textbook.localFiles中
-   * 此方法主要用于更新文件的其他元数据信息（如localPath等）
+   * 更新学习包的本地文件信息 - 分离存储版本
+   * 此方法只更新元数据（localFiles），fileData存储在独立的textbook_files表中
    * @param textbookId 教材ID
    * @param packageId 学习包ID
    * @param resource 资源文件信息
@@ -1820,7 +1823,7 @@ export class ApiService {
       const localFileIndex = textbook.localFiles.findIndex(f => f.id === resource.id)
       
       if (localFileIndex !== -1) {
-        // 更新现有的本地文件信息（保留fileData，只更新其他属性）
+        // 更新现有的本地文件元数据
         textbook.localFiles[localFileIndex] = {
           ...textbook.localFiles[localFileIndex],
           fileName: resource.fileName,
@@ -1833,15 +1836,15 @@ export class ApiService {
         // 保存更新后的教材信息
         await resourceManager.updateTextbookInfo(textbook, undefined)
       } else {
-        // 创建新的本地文件信息
+        // 创建新的本地文件信息（元数据，不含fileData）
         textbook.localFiles.push({
           id: resource.id,
           fileName: resource.fileName,
           fileSize: fileSize,
           checksum: resource.checksum,
           isDownloaded: true,
-          localPath: `${textbookId}/${packageId}/${resource.fileName}`,
-          fileData: new Uint8Array(0) // 空数据，实际数据由storeFileData方法设置
+          localPath: `${textbookId}/${packageId}/${resource.fileName}`
+          // 注意：fileData存储在独立的textbook_files表中
         })
         
         // 保存更新后的教材信息

@@ -37,10 +37,10 @@ export class ResourceManager {
   }
 
   private constructor() {
-    // 初始化IndexedDB配置 - 简化设计，移除files表，文件数据直接存储在textbooks中
+    // 初始化IndexedDB配置 - 分离存储架构：元数据和二进制数据分离
     this.indexedDBInstance = IndexedDBService.getInstance({
       dbName: 'TextbookStorage',
-      version: 6, // 升级版本号，修改主键为id
+      version: 7, // 升级版本号，分离文件数据到独立表
       stores: [
         {
           name: 'textbooks',
@@ -51,6 +51,13 @@ export class ResourceManager {
             { name: 'lastDownloadTime', keyPath: 'lastDownloadTime' },
             { name: 'subjectLabel', keyPath: 'textbookSubjectLabel' },
             { name: 'gradeLabel', keyPath: 'textbookGradeLabel' },
+            { name: 'textbookId', keyPath: 'textbookId' }
+          ]
+        },
+        {
+          name: 'textbook_files',
+          keyPath: 'fileId',
+          indexes: [
             { name: 'textbookId', keyPath: 'textbookId' }
           ]
         }
@@ -238,7 +245,9 @@ export class ResourceManager {
   }
 
   /**
-   * 保存文件二进制数据到教材信息中 - 重构版本，直接存储到localFiles中
+   * 保存文件二进制数据 - 分离存储版本
+   * 第1步：文件数据存储到textbook_files表
+   * 第2步：元数据（不含fileData）存储到textbooks表的localFiles中
    * @param fileInfo 文件信息
    * @param fileData 文件二进制数据
    * @param immediate 是否立即更新到IndexedDB（默认true，立即保存）
@@ -256,7 +265,14 @@ export class ResourceManager {
     sortOrder?: number
   }, fileData: Uint8Array, textbook?: UserTextbookInfo): Promise<void> {
     try {
-      // 获取教材信息 - 优先使用传入的教材信息，避免并发时重复获取
+      // 第1步：存储文件数据到textbook_files表（分离存储）
+      await this.indexedDBInstance.update('textbook_files', {
+        fileId: fileInfo.id,
+        textbookId: fileInfo.textbookId,
+        fileData: fileData
+      })
+      
+      // 第2步：获取教材信息 - 优先使用传入的教材信息，避免并发时重复获取
       let textbookInfo: UserTextbookInfo
       if (textbook) {
         textbookInfo = textbook
@@ -267,53 +283,51 @@ export class ResourceManager {
         }
       }
       
-      // 查找对应的学习包
+      // 第3步：查找对应的学习包
       const packageIndex = textbookInfo.learningPackages.findIndex(p => p.packageId === fileInfo.packageId)
       if (packageIndex === -1) {
         throw new Error(`学习包 ${fileInfo.packageId} 不存在`)
       }
       
-      // 初始化textbookInfo.localFiles数组
+      // 第4步：初始化textbookInfo.localFiles数组
       if (!textbookInfo.localFiles) {
         textbookInfo.localFiles = []
       }
       
-      // 查找或创建本地文件信息 - 存储到textbookInfo.localFiles而不是learningPackages
+      // 第5步：查找或创建本地文件元数据（不含fileData）
       const localFiles = textbookInfo.localFiles
       const localFileIndex = localFiles.findIndex(f => f.id === fileInfo.id)
       
       if (localFileIndex === -1) {
-        // 创建新的本地文件信息
+        // 创建新的本地文件元数据
         localFiles.push({
           id: fileInfo.id,
           fileName: fileInfo.fileName,
           fileSize: fileData.length,
           checksum: fileInfo.checksum || '',
           isDownloaded: true,
-          fileData: fileData,
           thumbnail: undefined // 缩略图将异步生成
         })
       } else {
-        // 更新现有的本地文件信息
+        // 更新现有的本地文件元数据
         localFiles[localFileIndex] = {
           ...localFiles[localFileIndex],
           fileName: fileInfo.fileName,
           fileSize: fileData.length,
           checksum: fileInfo.checksum || '',
           isDownloaded: true,
-          fileData: fileData,
           thumbnail: localFiles[localFileIndex].thumbnail // 保留已有缩略图
         }
       }
       
-      // 更新教材信息到IndexedDB
+      // 第6步：更新教材元数据到IndexedDB
       const success = await this.updateTextbookInfo(textbookInfo, undefined)
       
       if (!success) {
         throw new Error('更新教材信息失败')
       }
       
-      // 如果是PDF文件，添加到异步缩略图生成队列
+      // 第7步：如果是PDF文件，添加到异步缩略图生成队列
       // 注释掉缩略图生成逻辑以提升性能
       /*
       if (isPdfFile(fileInfo.fileName)) {
@@ -334,25 +348,18 @@ export class ResourceManager {
 
 
   /**
-   * 获取文件数据 - 重构版本，从localFiles中获取fileData
-   * @param id 教材主键ID
+   * 获取文件数据 - 分离存储版本，从textbook_files表按需读取
+   * 第1步：直接从textbook_files表查询文件数据
+   * @param id 教材主键ID（保留参数以兼容旧代码，实际不使用）
    * @param fileId 文件ID
    * @returns 文件二进制数据，如果不存在则返回null
    */
   public async getFileData(id: string, fileId: string): Promise<Uint8Array | null> {
     try {
-      // 通过主键id直接查找教材信息
-      const textbook = await this.indexedDBInstance.get('textbooks', id) as UserTextbookInfo
-      if (!textbook) {
-        return null
-      }
-      
-      // 在textbook.localFiles中查找文件
-      if (textbook.localFiles) {
-        const localFile = textbook.localFiles.find(f => f.id === fileId)
-        if (localFile && localFile.fileData && localFile.fileData.length > 0) {
-          return localFile.fileData
-        }
+      // 直接从textbook_files表查询文件数据（按需读取，性能优化）
+      const fileRecord = await this.indexedDBInstance.get('textbook_files', fileId) as { fileId: string; textbookId: string; fileData: Uint8Array } | null
+      if (fileRecord && fileRecord.fileData && fileRecord.fileData.length > 0) {
+        return fileRecord.fileData
       }
       
       return null
@@ -362,28 +369,17 @@ export class ResourceManager {
   }
 
   /**
-   * 检查文件数据是否存在 - 重构版本，检查localFiles中的fileData
-   * @param id 教材主键ID
+   * 检查文件数据是否存在 - 分离存储版本，检查textbook_files表
+   * 第1步：直接从textbook_files表查询是否存在
+   * @param id 教材主键ID（保留参数以兼容旧代码，实际不使用）
    * @param fileId 文件ID
    * @returns 文件数据是否存在
    */
   public async hasFileData(id: string, fileId: string): Promise<boolean> {
     try {
-      // 通过主键id直接查找教材信息
-      const textbook = await this.indexedDBInstance.get('textbooks', id) as UserTextbookInfo
-      if (!textbook) {
-        return false
-      }
-      
-      // 在textbook.localFiles中查找文件
-      if (textbook.localFiles) {
-        const localFile = textbook.localFiles.find(f => f.id === fileId)
-        if (localFile && localFile.fileData && localFile.fileData.length > 0) {
-          return true
-        }
-      }
-      
-      return false
+      // 直接从textbook_files表查询是否存在（轻量级查询）
+      const fileRecord = await this.indexedDBInstance.get('textbook_files', fileId) as { fileId: string; textbookId: string; fileData: Uint8Array } | null
+      return !!(fileRecord && fileRecord.fileData && fileRecord.fileData.length > 0)
     } catch {
       return false
     }
@@ -446,17 +442,33 @@ export class ResourceManager {
 
 
   /**
-   * 清理教材相关的所有数据 - 简化版本
+   * 清理教材相关的所有数据 - 分离存储版本
+   * 第1步：清理textbook_files表中的文件数据
+   * 第2步：清理textbooks表中的元数据
    */
   private async cleanupTextbookRelatedData(textbookId: string): Promise<void> {
     try {
-      // 获取教材信息
-      const textbook = await this.indexedDBInstance.getByIndex('textbooks', 'textbookId', textbookId) as Record<string, unknown>
-      if (textbook && textbook.fileData) {
-        // 清空教材中的文件数据
-        textbook.fileData = {}
-        await this.indexedDBInstance.update('textbooks', textbook)
+      // 第1步：获取教材信息
+      const textbook = await this.indexedDBInstance.getByIndex('textbooks', 'textbookId', textbookId) as UserTextbookInfo
+      if (!textbook) {
+        return
       }
+      
+      // 第2步：删除textbook_files表中该教材的所有文件
+      if (textbook.localFiles && textbook.localFiles.length > 0) {
+        const deletePromises = textbook.localFiles.map(file => 
+          this.indexedDBInstance.delete('textbook_files', file.id)
+        )
+        await Promise.all(deletePromises)
+      }
+      
+      // 第3步：清空教材中的元数据
+      textbook.localFiles = []
+      textbook.downloadedFiles = 0
+      textbook.isDownloaded = false
+      textbook.downloadStatus = 0
+      await this.indexedDBInstance.update('textbooks', textbook)
+      
     } catch {
       // 清理教材相关数据失败
     }
@@ -565,23 +577,35 @@ export class ResourceManager {
   }
 
   /**
-   * 清理教材文件数据
+   * 清理教材文件数据 - 分离存储版本
+   * 第1步：清理textbook_files表中的文件数据
+   * 第2步：清理textbooks表中的元数据
    * @param id 教材主键ID
    */
   public async clearTextbookFiles(id: string): Promise<void> {
     try {
-      // 获取教材信息
-      const textbook = await this.indexedDBInstance.get('textbooks', id) as Record<string, unknown>
-      if (textbook && textbook.fileData) {
-        // 清空教材中的文件数据
-        textbook.fileData = {}
-        textbook.localFiles = []
-        textbook.downloadedFiles = 0
-        textbook.isDownloaded = false
-        textbook.downloadStatus = 0
-        textbook.lastDownloadTime = ''
-        await this.indexedDBInstance.update('textbooks', textbook)
+      // 第1步：获取教材信息
+      const textbook = await this.indexedDBInstance.get('textbooks', id) as UserTextbookInfo
+      if (!textbook) {
+        return
       }
+      
+      // 第2步：删除textbook_files表中该教材的所有文件
+      if (textbook.localFiles && textbook.localFiles.length > 0) {
+        const deletePromises = textbook.localFiles.map(file => 
+          this.indexedDBInstance.delete('textbook_files', file.id)
+        )
+        await Promise.all(deletePromises)
+      }
+      
+      // 第3步：清空教材中的元数据
+      textbook.localFiles = []
+      textbook.downloadedFiles = 0
+      textbook.isDownloaded = false
+      textbook.downloadStatus = 0
+      textbook.lastDownloadTime = ''
+      await this.indexedDBInstance.update('textbooks', textbook)
+      
     } catch {
       // 清理教材相关数据失败
     }

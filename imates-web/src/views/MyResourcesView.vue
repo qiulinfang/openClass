@@ -184,25 +184,6 @@
               />
             </div>
 
-            <!-- 操作确认对话框 -->
-            <q-dialog v-model="showConfirmDialog" persistent>
-              <q-card style="min-width: 350px">
-                <q-card-section class="row items-center">
-                  <q-avatar icon="warning" color="orange" text-color="white" />
-                  <span class="q-ml-sm text-h6">{{ confirmDialog.title }}</span>
-                </q-card-section>
-
-                <q-card-section>
-                  <div class="text-body1">{{ confirmDialog.message }}</div>
-                </q-card-section>
-
-                <q-card-actions align="right">
-                  <q-btn flat label="取消" color="grey" v-close-popup />
-                  <q-btn flat label="确认" color="primary" @click="confirmAction" v-close-popup />
-                </q-card-actions>
-              </q-card>
-            </q-dialog>
-
         <!-- 调试面板 -->
         <DebugPanel :visible="showDebugPanel" @close="showDebugPanel = false" />
       </q-page>
@@ -247,14 +228,6 @@ const initialLoadCompleted = ref(false)
 const scrollWrapper = ref<HTMLElement | null>(null)
 let bscroll: BScroll | null = null
 // 第2步：移除pullDownRefreshStatus状态，不再需要下拉刷新状态管理
-
-// 确认对话框
-const showConfirmDialog = ref(false)
-const confirmDialog = ref({
-  title: '',
-  message: '',
-  action: null as (() => void) | null,
-})
 
 // 分类选项 - 基于学科动态生成
 const categories = ref([{ label: '全部', value: 'all' }])
@@ -423,51 +396,6 @@ const loadLocalData = async (): Promise<UserTextbookInfo[]> => {
   }
 }
 
-// 后台更新服务器数据
-const updateServerData = async () => {
-  try {
-    // 检查登录状态
-    if (!resourceManager.isLoggedIn()) {
-      // 尝试自动登录
-      const autoLoginSuccess = await apiService.autoLogin(true)
-      if (!autoLoginSuccess) {
-        return
-      }
-    }
-
-    // 获取服务器教材数据
-    const serverTextbooks = await apiService.fetchUserAllOnlineTextbooks()
-
-    // 获取当前本地数据
-    const localTextbooks = await resourceManager.getUserLocalTextbooks()
-
-    // 合并服务器数据和本地数据
-    const mergedTextbooks = mergeServerAndLocalData(serverTextbooks, localTextbooks)
-
-    // 为每个教材检查学习资源包（并行处理）
-    await checkLearningPackagesForAllTextbooks(mergedTextbooks)
-
-    // 流程：更新本地教材数据时，保留IndexedDB中的完整localFiles数据（包含fileData）
-    for (const textbook of mergedTextbooks) {
-      // 流程：从IndexedDB获取完整的教材数据（包含fileData）
-      const fullTextbook = await resourceManager.indexedDB.get('textbooks', textbook.id) as UserTextbookInfo
-      
-      if (fullTextbook && fullTextbook.localFiles && fullTextbook.localFiles.length > 0) {
-        // 流程：保留完整的localFiles数据（包含fileData），避免被瘦身版数据覆盖
-        textbook.localFiles = fullTextbook.localFiles
-      }
-      
-      // 流程：现在可以安全地更新教材信息，不会丢失fileData
-      await resourceManager.updateTextbookInfo(textbook)
-    }
-    // 平滑替换数据
-    textbooks.value = mergedTextbooks
-    updateSubjectChips()
-  } catch {
-    showMessage('后台更新失败，请稍后重试', 'error')
-  }
-}
-
 // 为所有教材检查学习资源包（并行处理）
 const checkLearningPackagesForAllTextbooks = async (textbooks: UserTextbookInfo[]) => {
   // 并行处理所有教材的学习资源包检查
@@ -558,17 +486,16 @@ const loadResources = async () => {
   // 重置初始加载状态
   initialLoadCompleted.value = false
 
-  // 第一步：立即加载本地数据
+  // 流程：立即加载本地数据
   const localTextbooks = await loadLocalData()
   if (localTextbooks.length > 0) {
-    // 有本地数据，立即显示（延迟修复下载状态到后台）
+    // 流程：有本地数据，立即显示
     textbooks.value = localTextbooks
     updateSubjectChips()
     initialLoadCompleted.value = true
 
-    // 第6步：在DOM更新后后台更新服务器数据和修复下载状态
+    // 流程：在DOM更新后修复下载状态（不后台同步，用户可通过"检查更新"按钮手动同步）
     nextTick(() => {
-      updateServerData()
       fixInconsistentDownloadStatus(localTextbooks)
     })
   } else {
@@ -894,44 +821,54 @@ const pauseDownload = async (textbook: UserTextbookInfo) => {
 
 // 取消下载 - 直接使用ApiService
 const cancelDownload = async (textbook: UserTextbookInfo) => {
-  // 确认取消操作
-  const confirmed = confirm(
-    `确定要取消《${textbook.textbookName}》的下载吗？已下载的文件将被删除。`,
-  )
-  if (!confirmed) {
-    return
-  }
+  // 流程：使用Quasar的Dialog进行确认
+  $q.dialog({
+    title: '取消下载',
+    message: `确定要取消《${textbook.textbookName}》的下载吗？已下载的文件将被删除。`,
+    cancel: {
+      label: '取消',
+      color: 'grey',
+      flat: true
+    },
+    ok: {
+      label: '确定',
+      color: 'negative',
+      flat: true
+    },
+    persistent: true
+  }).onOk(async () => {
+    // 流程：用户确认取消下载
+    try {
+      const success = await apiService.cancelDownload(textbook.textbookId)
 
-  try {
-    const success = await apiService.cancelDownload(textbook.textbookId)
+      if (success) {
+        // 重置下载状态
+        textbook.downloadStatus = 0 // 未下载
+        textbook.isDownloaded = false
+        textbook.downloadedFiles = 0
+        textbook.totalFiles = 0
+        textbook.lastDownloadTime = ''
 
-    if (success) {
-      // 重置下载状态
-      textbook.downloadStatus = 0 // 未下载
-      textbook.isDownloaded = false
-      textbook.downloadedFiles = 0
-      textbook.totalFiles = 0
-      textbook.lastDownloadTime = ''
+        // 保存取消状态到IndexedDB（使用立即更新）
+        await resourceManager.updateTextbookInfo(textbook, {
+          downloadStatus: 0,
+          isDownloaded: false,
+          downloadedFiles: 0,
+          totalFiles: 0,
+          lastDownloadTime: '',
+        })
 
-      // 保存取消状态到IndexedDB（使用立即更新）
-      await resourceManager.updateTextbookInfo(textbook, {
-        downloadStatus: 0,
-        isDownloaded: false,
-        downloadedFiles: 0,
-        totalFiles: 0,
-        lastDownloadTime: '',
-      })
-
-      showMessage(`《${textbook.textbookName}》下载已取消`, 'info')
-    } else {
-      showMessage(`取消《${textbook.textbookName}》下载失败`, 'error')
+        showMessage(`《${textbook.textbookName}》下载已取消`, 'info')
+      } else {
+        showMessage(`取消《${textbook.textbookName}》下载失败`, 'error')
+      }
+    } catch (error) {
+      showMessage(
+        `取消《${textbook.textbookName}》下载失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        'error',
+      )
     }
-  } catch (error) {
-    showMessage(
-      `取消《${textbook.textbookName}》下载失败: ${error instanceof Error ? error.message : '未知错误'}`,
-      'error',
-    )
-  }
+  })
 }
 
 // 查看教材
@@ -959,38 +896,31 @@ const goToKnowledgeGraph = (textbook: UserTextbookInfo) => {
 
 // 更新教材 - 基于安卓原生逻辑完善
 const updateTextbook = (textbook: UserTextbookInfo) => {
-  showConfirmDialog.value = true
-  confirmDialog.value = {
+  // 流程：使用Quasar的Dialog进行确认
+  $q.dialog({
     title: '更新教材',
     message: `确定要更新教材"${textbook.textbookName}"吗？更新将下载最新的资源文件。`,
-    action: () => {
-      // 重置更新状态
-      textbook.hasUpdatesAvailable = false
-      textbook.downloadStatus = 1 // 开始更新下载
-      textbook.isDownloaded = false
-
-      // 开始下载更新
-      downloadTextbook(textbook)
+    cancel: {
+      label: '取消',
+      color: 'grey',
+      flat: true
     },
-  }
-}
+    ok: {
+      label: '确定',
+      color: 'primary',
+      flat: true
+    },
+    persistent: true
+  }).onOk(() => {
+    // 流程：用户确认更新
+    // 重置更新状态
+    textbook.hasUpdatesAvailable = false
+    textbook.downloadStatus = 1 // 开始更新下载
+    textbook.isDownloaded = false
 
-// 确认操作
-const confirmAction = () => {
-  if (confirmDialog.value.action) {
-    confirmDialog.value.action()
-  }
-  closeConfirmDialog()
-}
-
-// 关闭确认对话框
-const closeConfirmDialog = () => {
-  showConfirmDialog.value = false
-  confirmDialog.value = {
-    title: '',
-    message: '',
-    action: null,
-  }
+    // 开始下载更新
+    downloadTextbook(textbook)
+  })
 }
 
 // 显示消息 (使用 Quasar Notify)
@@ -1124,13 +1054,9 @@ const printLocalFilesData = async () => {
   userTextbooks.forEach((textbook) => {
     // 打印localFiles数据
     if (textbook.localFiles && textbook.localFiles.length > 0) {
-      textbook.localFiles.forEach((file) => {
-        if (file.fileData && file.fileData.length > 0) {
-          // 文件数据存在
-        } else {
-          // 文件数据不存在或为空
-        }
-      })
+      // 注意：fileData已分离存储到textbook_files表，不在localFiles中
+      // 如需检查文件数据是否存在，使用 resourceManager.hasFileData(textbook.id, file.id)
+      // 文件元数据已存在
     }
 
     // 打印学习包信息
@@ -1726,78 +1652,6 @@ const printLocalFilesData = async () => {
     }
   }
 
-  .confirm-dialog-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2000;
-
-    .confirm-dialog {
-      background: white;
-      border-radius: 12px;
-      padding: 24px;
-      max-width: 400px;
-      width: 90%;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-
-      .dialog-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #1a1a1a;
-        margin: 0 0 12px 0;
-      }
-
-      .dialog-message {
-        font-size: 16px;
-        color: #666;
-        margin: 0 0 24px 0;
-        line-height: 1.5;
-      }
-
-      .dialog-actions {
-        display: flex;
-        gap: 12px;
-        justify-content: flex-end;
-
-        .btn-cancel {
-          padding: 10px 20px;
-          border: 2px solid #e0e0e0;
-          border-radius: 6px;
-          background: white;
-          color: #666;
-          font-size: 14px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-
-          &:hover {
-            border-color: #ccc;
-            color: #333;
-          }
-        }
-
-        .btn-confirm {
-          padding: 10px 20px;
-          border: none;
-          border-radius: 6px;
-          background: #dc3545;
-          color: white;
-          font-size: 14px;
-          cursor: pointer;
-          transition: background 0.2s ease;
-
-          &:hover {
-            background: #c82333;
-          }
-        }
-      }
-    }
-  }
 }
 
 @keyframes spin {
