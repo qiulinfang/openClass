@@ -87,7 +87,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiService } from '../services/api-service'
 
@@ -105,6 +105,22 @@ const errors = reactive({
 
 const isLoading = ref(false)
 const errorMessage = ref('')
+
+// 第1步：页面加载时从localStorage读取已保存的账号密码
+onMounted(() => {
+  // 第2步：获取保存的账号
+  const savedUserId = localStorage.getItem('userId')
+  // 第3步：获取保存的密码
+  const savedPassword = localStorage.getItem('userPassword')
+  
+  // 第4步：如果账号密码都存在且有效，则自动填充表单
+  if (savedUserId && savedPassword && 
+      savedUserId !== 'undefined' && savedPassword !== 'undefined' &&
+      savedUserId.trim() !== '' && savedPassword.trim() !== '') {
+    loginForm.account = savedUserId
+    loginForm.password = savedPassword
+  }
+})
 
 const isFormValid = computed(() => {
   return loginForm.account.trim() && loginForm.password.trim()

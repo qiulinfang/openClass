@@ -71,13 +71,13 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
         
         Log.d(TAG, "加载URL: " + webAppUrl);
         
-        // 初始化WebView
-        initWebView();
-        
-        // 初始化Activity Result Launchers
+        // 第1步：先初始化Activity Result Launchers（必须在initWebView之前）
         initActivityResultLaunchers();
         
-        // 加载页面
+        // 第2步：初始化WebView（需要使用已初始化的launchers）
+        initWebView();
+        
+        // 第3步：加载页面
         loadWebApp();
         
         Log.d(TAG, "MainWebViewActivity onCreate 完成");

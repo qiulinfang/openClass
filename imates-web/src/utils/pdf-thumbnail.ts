@@ -22,21 +22,21 @@ export async function generatePdfThumbnail(
   maxHeight: number = 280
 ): Promise<string> {
   try {
-    // 1. 将Uint8Array转换为ArrayBuffer
+    // 第1步：将Uint8Array转换为ArrayBuffer
     const arrayBuffer = fileData.buffer.slice(fileData.byteOffset, fileData.byteOffset + fileData.byteLength)
     
-    // 2. 加载PDF文档
+    // 第2步：加载PDF文档
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer as ArrayBuffer }).promise
     
-    // 3. 获取第一页
+    // 第3步：获取第一页
     const page = await pdf.getPage(1)
     
-    // 4. 计算缩略图尺寸
+    // 第4步：计算缩略图尺寸
     const viewport = page.getViewport({ scale: 1.0 })
     const scale = Math.min(maxWidth / viewport.width, maxHeight / viewport.height)
     const scaledViewport = page.getViewport({ scale })
     
-    // 5. 创建canvas元素
+    // 第5步：创建canvas元素
     const canvas = document.createElement('canvas')
     const context = canvas.getContext('2d')
     
@@ -44,11 +44,11 @@ export async function generatePdfThumbnail(
       throw new Error('无法创建canvas上下文')
     }
     
-    // 6. 设置canvas尺寸
+    // 第6步：设置canvas尺寸
     canvas.width = scaledViewport.width
     canvas.height = scaledViewport.height
     
-    // 7. 渲染PDF页面到canvas
+    // 第7步：渲染PDF页面到canvas
     const renderContext = {
       canvasContext: context,
       viewport: scaledViewport,
@@ -57,10 +57,10 @@ export async function generatePdfThumbnail(
     
     await page.render(renderContext).promise
     
-    // 8. 转换为base64数据URL
+    // 第8步：转换为base64数据URL
     const thumbnailDataUrl = canvas.toDataURL('image/jpeg', 0.8)
     
-    // 9. 清理资源
+    // 第9步：清理资源
     page.cleanup()
     
     return thumbnailDataUrl

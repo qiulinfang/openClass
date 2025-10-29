@@ -6,7 +6,8 @@
 import { IndexedDBService } from './indexeddb-service'
 import CryptoJS from 'crypto-js'
 import { DebounceUtils } from '../utils'
-import { generatePdfThumbnail, isPdfFile } from '../utils/pdf-thumbnail'
+import { isPdfFile } from '../utils/pdf-thumbnail'
+import { thumbnailQueue } from '../utils/thumbnail-queue'
 import type {
   UserTextbookInfo,
   ResourceFile,
@@ -280,17 +281,6 @@ export class ResourceManager {
       const localFiles = textbookInfo.localFiles
       const localFileIndex = localFiles.findIndex(f => f.id === fileInfo.id)
       
-      // 生成PDF缩略图（如果是PDF文件）
-      let thumbnail: string | undefined
-      if (isPdfFile(fileInfo.fileName)) {
-        try {
-          thumbnail = await generatePdfThumbnail(fileData)
-        } catch (error) {
-          console.warn(`生成PDF缩略图失败: ${fileInfo.fileName}`, error)
-          // 缩略图生成失败不影响文件存储
-        }
-      }
-      
       if (localFileIndex === -1) {
         // 创建新的本地文件信息
         localFiles.push({
@@ -300,7 +290,7 @@ export class ResourceManager {
           checksum: fileInfo.checksum || '',
           isDownloaded: true,
           fileData: fileData,
-          thumbnail: thumbnail
+          thumbnail: undefined // 缩略图将异步生成
         })
       } else {
         // 更新现有的本地文件信息
@@ -311,7 +301,7 @@ export class ResourceManager {
           checksum: fileInfo.checksum || '',
           isDownloaded: true,
           fileData: fileData,
-          thumbnail: thumbnail
+          thumbnail: localFiles[localFileIndex].thumbnail // 保留已有缩略图
         }
       }
       
@@ -320,6 +310,17 @@ export class ResourceManager {
       
       if (!success) {
         throw new Error('更新教材信息失败')
+      }
+      
+      // 如果是PDF文件，添加到异步缩略图生成队列
+      if (isPdfFile(fileInfo.fileName)) {
+        
+        thumbnailQueue.addTask({
+          fileId: fileInfo.id,
+          textbookId: fileInfo.textbookId,
+          fileName: fileInfo.fileName,
+          fileData: fileData
+        })
       }
       
     } catch (error) {
@@ -336,22 +337,15 @@ export class ResourceManager {
    */
   public async getFileData(id: string, fileId: string): Promise<Uint8Array | null> {
     try {
-      console.log('id', id)
-      console.log('fileId', fileId)
-      
       // 通过主键id直接查找教材信息
       const textbook = await this.indexedDBInstance.get('textbooks', id) as UserTextbookInfo
-      console.log('textbook', textbook)
       if (!textbook) {
-        console.log('textbook not found')
         return null
       }
       
       // 在textbook.localFiles中查找文件
       if (textbook.localFiles) {
-        console.log('textbook.localFiles', textbook.localFiles)
         const localFile = textbook.localFiles.find(f => f.id === fileId)
-        console.log('localFile', localFile)
         if (localFile && localFile.fileData && localFile.fileData.length > 0) {
           return localFile.fileData
         }
@@ -388,6 +382,35 @@ export class ResourceManager {
       return false
     } catch {
       return false
+    }
+  }
+
+  /**
+   * 更新文件的缩略图（异步缩略图生成完成后调用）
+   * @param textbookId 教材ID
+   * @param fileId 文件ID
+   * @param thumbnail 缩略图base64数据
+   */
+  public async updateThumbnail(textbookId: string, fileId: string, thumbnail: string): Promise<void> {
+    try {
+      // 第1步：获取教材信息
+      const textbook = await this.indexedDBInstance.getByIndex('textbooks', 'textbookId', textbookId) as UserTextbookInfo
+      if (!textbook) {
+        return
+      }
+      
+      // 第2步：查找并更新文件的缩略图
+      if (textbook.localFiles) {
+        const localFile = textbook.localFiles.find(f => f.id === fileId)
+        if (localFile) {
+          localFile.thumbnail = thumbnail
+          
+          // 第3步：保存更新后的教材信息
+          await this.updateTextbookInfo(textbook, undefined)
+        }
+      }
+    } catch (error) {
+      console.warn(`更新缩略图失败 (textbookId: ${textbookId}, fileId: ${fileId}):`, error)
     }
   }
 
@@ -447,7 +470,6 @@ export class ResourceManager {
       
       // 从IndexedDB获取所有教材
       const textbooks = await this.indexedDBInstance.getAll('textbooks')
-      console.log('textbooks', textbooks)
       // 转换为UserTextbookInfo对象
       const userTextbooks: UserTextbookInfo[] = textbooks.map((data: unknown) => {
         const dataRecord = data as Record<string, unknown>

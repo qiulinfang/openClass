@@ -383,6 +383,9 @@ const handlePractice = () => {
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 /* 中心节点样式 - 大圆 */
@@ -394,6 +397,13 @@ const handlePractice = () => {
   transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
   position: relative;
   overflow: hidden;
+  padding: 10px;
+  margin: -10px;
+}
+
+.graph-node--center:active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
 }
 
 /* 中心节点展开状态 - 变大 */
@@ -416,18 +426,23 @@ const handlePractice = () => {
   border: none;
   border-radius: 50%;
   z-index: 5;
-  /* 初始状态隐藏 */
   opacity: 0;
   transform: scale(0);
   transform-origin: center center;
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  padding: 12px;
+  margin: -12px;
 }
-
 
 .graph-node--circular:hover {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.graph-node--circular:active {
+  transform: scale(0.95);
+  transition: transform 0.1s ease;
 }
 
 /* 节点图标样式 */
@@ -732,7 +747,7 @@ const handlePractice = () => {
 
 /* 气泡框容器 */
 .bubble-menu-container {
-  background: #4A3A6B; /* 深紫色背景 */
+  background: #4A3A6B;
   border-radius: 20px;
   padding: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
@@ -740,6 +755,14 @@ const handlePractice = () => {
   flex-direction: column;
   gap: 8px;
   min-width: 120px;
+}
+
+@media (max-width: 768px) {
+  .bubble-menu-container {
+    padding: 16px;
+    gap: 12px;
+    min-width: 140px;
+  }
 }
 
 /* 气泡框按钮基础样式 */
@@ -757,33 +780,44 @@ const handlePractice = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  }
-  
-  &:active {
-    transform: translateY(0);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.bubble-menu-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.bubble-menu-button:active {
+  transform: translateY(0) scale(0.97);
+}
+
+@media (max-width: 768px) {
+  .bubble-menu-button {
+    padding: 14px 24px;
+    font-size: 16px;
+    min-height: 48px;
   }
 }
 
 /* 学习按钮样式 - 紫色半透明 */
 .bubble-menu-button--learn {
-  background: rgba(129, 95, 255, 0.9); /* 学习按钮半透明背景 #815FFF */
-  
-  &:hover {
-    background: rgba(107, 79, 255, 1); /* 悬停时稍深的紫色半透明 */
-  }
+  background: rgba(129, 95, 255, 0.9);
+}
+
+.bubble-menu-button--learn:hover {
+  background: rgba(107, 79, 255, 1);
 }
 
 /* 练习按钮样式 - 橙色半透明 */
 .bubble-menu-button--practice {
-  background: rgba(255, 151, 103, 0.9); /* 练习按钮半透明背景 #FF9767 */
-  
-  &:hover {
-    background: rgba(255, 138, 77, 1); /* 悬停时稍深的橙色半透明 */
-  }
+  background: rgba(255, 151, 103, 0.9);
+}
+
+.bubble-menu-button--practice:hover {
+  background: rgba(255, 138, 77, 1);
 }
 
 </style>

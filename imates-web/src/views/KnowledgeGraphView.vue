@@ -45,21 +45,51 @@
           </q-select>
       </div>
 
+      <!-- 第1步：添加章节搜索框 -->
+      <div class="chapter-search">
+        <q-input
+          v-model="searchQuery"
+          outlined
+          dense
+          placeholder="搜索章节..."
+          class="search-input"
+          @update:model-value="handleSearchInput"
+        >
+          <template v-slot:prepend>
+            <q-icon name="search" color="white" />
+          </template>
+          <template v-slot:append v-if="searchQuery">
+            <q-icon 
+              name="close" 
+              color="white" 
+              class="cursor-pointer touch-target" 
+              @click="clearSearch" 
+            />
+          </template>
+        </q-input>
+      </div>
+
       <!-- 章节目录列表 -->
       <div class="chapter-list">
-        <div v-if="chapters.length === 0" class="empty-chapters">
+        <!-- 第2步：显示无搜索结果提示 -->
+        <div v-if="filteredChapters.length === 0 && searchQuery" class="empty-chapters">
+          <q-icon name="search_off" size="32px" color="grey-4" />
+          <div class="empty-text">未找到匹配的章节</div>
+        </div>
+        <div v-else-if="filteredChapters.length === 0" class="empty-chapters">
           <q-icon name="menu_book" size="32px" color="grey-4" />
           <div class="empty-text">暂无章节数据</div>
         </div>
+        <!-- 第3步：使用过滤后的章节列表，支持高亮显示 -->
         <div 
           v-else
-          v-for="(chapter, index) in chapters" 
-          :key="index"
-          class="chapter-item"
-          :class="{ active: index === getCurrentChapter() }"
-          @click="selectChapter(index)"
+          v-for="item in filteredChapters" 
+          :key="item.index"
+          class="chapter-item touch-target"
+          :class="{ active: item.index === getCurrentChapter() }"
+          @click="selectChapter(item.index)"
         >
-          <span class="chapter-text">{{ chapter }}</span>
+          <span class="chapter-text" v-html="highlightText(item.chapter)"></span>
         </div>
       </div>
     </div>
@@ -196,10 +226,22 @@ const {
   clearTextbookStates,
   initializeChapterStates,
   getCurrentChapter,
-  allStates,
   savePageState,
   restorePageState
 } = useTextbookChapterState()
+
+// 第4步：添加搜索相关的响应式数据
+const searchQuery = ref('')
+const filteredChapters = computed(() => {
+  if (!searchQuery.value.trim()) {
+    return chapters.value.map((chapter, index) => ({ chapter, index }))
+  }
+  
+  const query = searchQuery.value.trim().toLowerCase()
+  return chapters.value
+    .map((chapter, index) => ({ chapter, index }))
+    .filter(item => item.chapter.toLowerCase().includes(query))
+})
 
 // 响应式数据
 const loading = ref(true)
@@ -228,8 +270,8 @@ const lastY = ref(0) // 上次触摸的Y坐标
 const screenHeight = ref(window.innerHeight) // 屏幕高度
 const lastRotationTime = ref(0) // 上次旋转时间戳，用于检测快速滑动
 
-// 拖拽阈值常量
-const DRAG_THRESHOLD = 5 // 像素，超过此距离才认为是实际拖拽
+// 第21步：优化拖拽阈值常量 - 降低以提高灵敏度
+const DRAG_THRESHOLD = 3 // 像素，超过此距离才认为是实际拖拽（降低以提高灵敏度）
 
 // 防抖定时器
 const debounceTimer = ref<NodeJS.Timeout | null>(null)
@@ -294,9 +336,9 @@ const handleTouchMove = (event: TouchEvent) => {
     swipeVelocity.value = Math.abs(deltaY) / timeDelta
   }
   
-  // 计算旋转角度：滑动距离与屏幕高度的比例 * 360度
-  // 快速滑动时增加旋转灵敏度
-  const sensitivityMultiplier = swipeVelocity.value > swipeThreshold ? 1.5 : 1.0
+  // 第22步：计算旋转角度：滑动距离与屏幕高度的比例 * 360度
+  // 快速滑动时增加旋转灵敏度，慢速滑动时也提高基础灵敏度
+  const sensitivityMultiplier = swipeVelocity.value > swipeThreshold ? 1.8 : 1.2
   const rotationDelta = (deltaY / screenHeight.value * 2/ 3) * 360 * sensitivityMultiplier
   
   // 如果有知识图谱处于展开状态，先收缩它
@@ -352,20 +394,13 @@ const autoPositionToNearestGraph = () => {
   const subChapters = getSubChapters(selectedChapterDetails.value)
   if (subChapters.length === 0) return
   
-  const currentRotation = getChapterRotation(getCurrentChapter())
   const targetAngle = 160 // 目标角度
   
   // 计算每个知识图谱当前的角度
   let nearestIndex = 0
   let minDistance = Infinity
   
-  console.log('=== 自动定位到160度最近的知识图谱 ===')
-  console.log(`目标角度: ${targetAngle}度`)
-  console.log(`当前旋转角度: ${currentRotation}度`)
-  console.log(`当前章节索引: ${getCurrentChapter()}`)
-  console.log(`子章节总数: ${subChapters.length}`)
-  console.log('--- 各章节角度和距离计算 ---')
-  
+  // 第26步：遍历所有子章节，找到距离160度最近的节点
   for (let i = 0; i < subChapters.length; i++) {
     const { currentAngle } = calculateCircularTrackAngle(i, subChapters.length)
     let angleInDegrees = (currentAngle * 180 / Math.PI) % 360
@@ -378,37 +413,13 @@ const autoPositionToNearestGraph = () => {
       Math.abs(angleInDegrees - targetAngle - 360)
     )
     
-    // 打印每个章节的信息
-    console.log(`章节 ${i}: ${subChapters[i].name || `ID:${subChapters[i].id}`}`)
-    console.log(`  当前角度: ${angleInDegrees.toFixed(2)}度`)
-    console.log(`  到160度距离: ${distance.toFixed(2)}度`)
-    console.log(`  是否最近: ${distance < minDistance ? '是' : '否'}`)
-    
     if (distance < minDistance) {
       minDistance = distance
       nearestIndex = i
     }
   }
   
-  console.log('--- 最终结果 ---')
-  console.log(`最近章节索引: ${nearestIndex}`)
-  console.log(`最近章节: ${subChapters[nearestIndex].name || `ID:${subChapters[nearestIndex].id}`}`)
-  console.log(`最小距离: ${minDistance.toFixed(2)}度`)
-  
-  // 计算需要旋转的角度来让最近的知识图谱到达160度位置
-  const { currentAngle } = calculateCircularTrackAngle(nearestIndex, subChapters.length)
-  let currentAngleInDegrees = (currentAngle * 180 / Math.PI) % 360
-  if (currentAngleInDegrees < 0) currentAngleInDegrees += 360
-  
-  const rotationNeeded = targetAngle - currentAngleInDegrees
-  
-  console.log('--- 旋转计算 ---')
-  console.log(`最近章节当前角度: ${currentAngleInDegrees.toFixed(2)}度`)
-  console.log(`需要旋转角度: ${rotationNeeded.toFixed(2)}度`)
-  console.log(`目标旋转角度: ${(currentRotation + rotationNeeded).toFixed(2)}度`)
-  console.log('=== 开始执行动画 ===')
-  
-  // 立即设置展开状态，让展开动画开始
+  // 第27步：立即设置展开状态，让展开动画开始
   setCurrentChapterExpandedGraph(subChapters[nearestIndex].id)
   
   // 只执行展开旋转动画，让它处理所有旋转逻辑（包括定位到目标位置）
@@ -578,16 +589,12 @@ const startExpandingRotation = (graphId: string) => {
     // 更新当前章节的旋转角度
     setChapterRotation(getCurrentChapter(), currentAngle)
     
-    // 如果动画未完成，继续下一帧
+    // 第28步：检查动画是否完成
     if (progress < 1) {
       requestAnimationFrame(animateExpandingRotation)
     } else {
       // 动画完成，确保角度完全一致
       setChapterRotation(getCurrentChapter(), expandingRotationTargetAngle.value)
-      
-      console.log('=== 展开旋转动画完成 ===')
-      console.log(`最终角度: ${expandingRotationTargetAngle.value.toFixed(2)}度`)
-      console.log(`实际存储角度: ${getChapterRotation(getCurrentChapter()).toFixed(2)}度`)
       
       // 动画完成，立即结束展开旋转状态，让远离动画同步进行
       isExpandingRotation.value = false
@@ -670,7 +677,7 @@ const initGraphDataWithoutReset = () => {
   // 不重置当前选中的章节状态，保持已选择的章节
 }
 
-// 保存页面状态
+// 第29步：保存页面状态
 const saveCurrentPageState = () => {
   try {
     const state = {
@@ -683,22 +690,18 @@ const saveCurrentPageState = () => {
     }
     
     savePageState(state)
-    console.log('💾 [状态保存] 知识图谱页面状态已保存')
   } catch (error) {
     console.error('❌ [状态保存] 保存页面状态失败:', error)
   }
 }
 
-// 恢复页面状态
+// 第30步：恢复页面状态
 const restorePageStateFromStore = async (): Promise<boolean> => {
   try {
     const savedState = restorePageState()
     if (!savedState) {
-      console.log('📋 [状态恢复] 没有保存的页面状态')
       return false
     }
-    
-    console.log('🔄 [状态恢复] 开始恢复页面状态:', savedState)
     
     // 恢复基本状态
     selectedSubject.value = savedState.selectedSubject
@@ -732,7 +735,6 @@ const restorePageStateFromStore = async (): Promise<boolean> => {
       }
     }
     
-    console.log('✅ [状态恢复] 页面状态恢复完成')
     return true
   } catch (error) {
     console.error('❌ [状态恢复] 恢复页面状态失败:', error)
@@ -1076,9 +1078,8 @@ const loadChapterStructure = async (textbookId: string) => {
     if (cachedChapterData) {
       chapterStructure.value = cachedChapterData
       
-      // 提取章节名称列表（所有level=0的章节），并转换为中文数字
+      // 第31步：提取章节名称列表（所有level=0的章节），并转换为中文数字
       chapters.value = cachedChapterData.map((chapter: { name: string }) => convertToChineseNumber(chapter.name))
-      console.log('chapters.value', chapters.value)
       // 初始化所有章节的状态
       initializeChapterStates(textbookId, cachedChapterData, getSubChapters)
       return
@@ -1233,9 +1234,8 @@ const sessionManager = {
 }
 
 
-// 初始化图谱
+// 第32步：初始化图谱
 const initGraph = async () => {
-  console.log('🚀 [图谱初始化] 开始初始化知识图谱')
   loading.value = true
   
   try {
@@ -1246,18 +1246,15 @@ const initGraph = async () => {
       return
     }
     
-    // 优先尝试恢复保存的页面状态
+    // 第33步：优先尝试恢复保存的页面状态
     const stateRestored = await restorePageStateFromStore()
     
     if (stateRestored) {
-      console.log('✅ [状态恢复] 成功恢复页面状态，跳过重新初始化')
       // 状态恢复成功，直接渲染图谱
       await nextTick()
       renderGraph()
       return
     }
-    
-    console.log('🔄 [状态恢复] 没有保存的状态，执行正常初始化流程')
     
     // 设置默认学科
     selectedSubject.value = 'math'
@@ -1270,13 +1267,7 @@ const initGraph = async () => {
       const firstTextbook = textbookOptions.value[0]
       selectedTextbook.value = firstTextbook.value
       
-      console.log('自动选择教材:', {
-        selectedTextbook: selectedTextbook.value,
-        firstTextbook: firstTextbook,
-        textbookId: firstTextbook.textbookId
-      })
-      
-      // 加载第一个教材的章节结构
+      // 第34步：加载第一个教材的章节结构
       if (firstTextbook.textbookId && firstTextbook.textbookId !== 'default') {
         await loadChapterStructure(firstTextbook.textbookId)
         
@@ -1304,7 +1295,6 @@ const initGraph = async () => {
     
     
   } catch (error) {
-    // 初始化知识图谱失败
     console.error('❌ 图谱初始化失败:', error)
   } finally {
     loading.value = false
@@ -1369,10 +1359,9 @@ const onSubjectChange = async (subjectValue: string) => {
   }
 }
 
-// 教材切换
+// 第35步：教材切换
 const onTextbookChange = async (value: string) => {
   try {
-    console.log('333')
     // 找到选中的教材选项
     const selectedOption = textbookOptions.value.find(opt => opt.value === value)
     if (!selectedOption) {
@@ -1405,25 +1394,40 @@ const onTextbookChange = async (value: string) => {
   }
 }
 
+// 第5步：添加搜索处理方法
+const handleSearchInput = () => {
+  // 搜索输入时不需要额外处理，computed会自动更新
+}
+
+// 第6步：清空搜索
+const clearSearch = () => {
+  searchQuery.value = ''
+}
+
+// 第7步：高亮匹配文本
+const highlightText = (text: string): string => {
+  if (!searchQuery.value.trim()) {
+    return text
+  }
+  
+  const query = searchQuery.value.trim()
+  const regex = new RegExp(`(${query})`, 'gi')
+  return text.replace(regex, '<mark class="search-highlight">$1</mark>')
+}
+
 // 选择章节
 const selectChapter = (index: number) => {
-  console.log('444')
   
-  // 🔍 重复点击检测：检查是否点击的是当前已选中的章节
+  // 第8步：重复点击检测：检查是否点击的是当前已选中的章节
   const currentChapterIndex = getCurrentChapter()
   if (currentChapterIndex === index) {
-    console.log('🔄 重复点击同一章节，跳过处理')
     return
   }
   
   setCurrentChapter(index)
   
-  // 打印所有状态
-  console.log('📊 All States:', Array.from(allStates.value.entries()))
-  
   // 获取选中章节的详细信息
   if (chapterStructure.value && chapterStructure.value.length > index) {
-    console.log('666', chapterStructure.value[index])
     selectedChapterDetails.value = chapterStructure.value[index]
     // 输出新章节的角度分布
     nextTick(() => {
@@ -1848,6 +1852,71 @@ onUnmounted(() => {
   }
 }
 
+// 第9步：添加搜索框样式
+.chapter-search {
+  padding: 6px 5px;
+  margin: 14px 20px;
+  border-radius: 12px;
+  font-family: 'PingFang SC', sans-serif;
+  
+  .search-input {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    
+    :deep(.q-field__control) {
+      border-radius: 12px;
+      border: 1px solid rgba(227, 224, 235, 0.3);
+      background: rgba(255, 255, 255, 0.1);
+      color: #FFFFFF;
+      min-height: 44px; // 增加触摸区域
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(227, 224, 235, 0.4);
+      }
+      
+      &:focus-within {
+        border-color: rgba(139, 92, 246, 0.5);
+        background: rgba(255, 255, 255, 0.15);
+      }
+    }
+    
+    :deep(.q-field__native) {
+      color: #FFFFFF;
+      padding: 8px 12px;
+      font-size: 16px; // 移动端避免自动缩放
+    }
+    
+    :deep(.q-placeholder) {
+      color: rgba(255, 255, 255, 0.6);
+    }
+  }
+  
+  // 触摸目标优化
+  .touch-target {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+}
+
+// 第10步：搜索高亮样式
+:deep(.search-highlight) {
+  background: rgba(255, 215, 0, 0.4);
+  color: #ffffff;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
 .textbook-info {
   padding: 6px 5px;
   margin: 14px 20px;
@@ -1858,7 +1927,7 @@ onUnmounted(() => {
   font-family: 'PingFang SC', sans-serif;
   border: 1px solid rgba(227, 224, 235, 0.3);
   background: rgba(255, 255, 255, 0.1);
-  min-height: 40px;
+  min-height: 44px; // 增加触摸区域
   display: flex;
   align-items: center;
   
@@ -1910,6 +1979,10 @@ onUnmounted(() => {
 .chapter-list {
   flex: 1;
   overflow-y: auto;
+  // 第11步：平滑滚动
+  scroll-behavior: smooth;
+  // 移动端优化
+  -webkit-overflow-scrolling: touch;
   
   .empty-chapters {
     display: flex;
@@ -1933,6 +2006,12 @@ onUnmounted(() => {
     position: relative;
     border-radius: 12px;
     font-family: 'PingFang SC', sans-serif;
+    min-height: 44px; // 第12步：增加触摸区域
+    display: flex;
+    align-items: center;
+    // 触摸反馈优化
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
     
     &.active {
       background-color: #e0dbff;
@@ -1946,10 +2025,17 @@ onUnmounted(() => {
       background: #f3f4f6;
     }
     
+    // 第13步：触摸状态
+    &:active {
+      transform: scale(0.98);
+      transition: transform 0.1s ease;
+    }
+    
     .chapter-text {
       font-size: 19px;
       font-weight: 500;
       color: #9E9AAD;
+      line-height: 1.4;
     }
   }
 }
@@ -2008,8 +2094,11 @@ onUnmounted(() => {
   margin-top: -450px;
   cursor: grab;
   user-select: none;
-  touch-action: none; // 禁用默认触摸行为
+  touch-action: pan-y; // 第23步：允许垂直滑动，提高触摸响应
   z-index: 100; // 设置基础层级
+  // 移动端优化
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   
   &:active {
     cursor: grabbing;
@@ -2018,10 +2107,18 @@ onUnmounted(() => {
   // 当有图谱展开时，禁用滚动交互
   &.scroll-disabled {
     cursor: default;
+    touch-action: none;
     
     &:active {
       cursor: default;
     }
+  }
+  
+  // 第24步：移动端响应式优化
+  @media (max-width: 768px) {
+    // 移动端增加可交互区域
+    padding: 20px;
+    margin: -20px;
   }
 }
 
@@ -2049,10 +2146,22 @@ onUnmounted(() => {
     cursor: pointer; // 添加指针样式
     position: relative;
     z-index: 1001; // 确保圆点在最上层
+    // 第25步：移动端触控优化
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    // 增加触摸区域
+    padding: 12px;
+    margin: -12px;
     
     &:hover {
       background: rgba(139, 92, 246, 0.5);
       transform: scale(1.1);
+    }
+    
+    &:active {
+      transform: scale(0.95);
+      transition: transform 0.1s ease;
     }
     
     &.active {
@@ -2061,6 +2170,17 @@ onUnmounted(() => {
       background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 50%, #6d28d9 100%);
       box-shadow: 0 0 8px rgba(139, 92, 246, 0.6);
       position: relative;
+    }
+    
+    // 移动端增大触摸区域
+    @media (max-width: 768px) {
+      width: 28px;
+      height: 28px;
+      
+      &.active {
+        width: 44px;
+        height: 44px;
+      }
     }
   }
   

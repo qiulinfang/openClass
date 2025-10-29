@@ -514,7 +514,6 @@ const loadResources = async () => {
 
   // 第一步：立即加载本地数据
   const localTextbooks = await loadLocalData()
-
   if (localTextbooks.length > 0) {
     // 检测和修复不一致的下载状态
     await fixInconsistentDownloadStatus(localTextbooks)
@@ -524,10 +523,10 @@ const loadResources = async () => {
     updateSubjectChips()
     initialLoadCompleted.value = true
 
-    // 在后台更新服务器数据
-    setTimeout(() => {
+    // 第6步：在DOM更新后后台更新服务器数据
+    nextTick(() => {
       updateServerData()
-    }, 100) // 延迟100ms开始后台更新，确保UI先渲染
+    })
   } else {
     // 无本地数据，显示加载状态并获取服务器数据
     loading.value = true
@@ -589,12 +588,23 @@ const initBScroll = async () => {
     scrollX: false,
     click: true,
     probeType: 2, // 降低probeType从3到2，减少滚动事件频率，提升性能
+    
+    // 第5步：橡皮筋效果配置
     bounce: {
-      top: true,  // 第5步：保留橡皮筋效果（顶部）
-      bottom: true, // 第6步：保留橡皮筋效果（底部）
+      top: true,  // 启用顶部橡皮筋效果
+      bottom: true, // 启用底部橡皮筋效果
     },
-    // 第7步：移除pullDownRefresh配置，不再使用下拉刷新
-    // 第8步：性能优化配置
+    bounceTime: 800, // 第6步：回弹动画时长（毫秒）- 调整此值改变回弹速度
+                     // 默认700-800ms，值越大回弹越慢，越有弹性感
+                     // 推荐范围：500-1500ms
+    
+    // 第7步：滚动减速度（影响惯性滚动和橡皮筋拉伸程度）
+    deceleration: 0.003, // 默认0.0015-0.003，值越小减速越慢，惯性滚动距离越长
+                         // 值越大，滚动停得越快，橡皮筋拉伸距离越短
+                         // 推荐范围：0.001-0.006
+    
+    // 第8步：移除pullDownRefresh配置，不再使用下拉刷新
+    // 第9步：性能优化配置
     useTransition: true, // 使用CSS transition提升性能
     HWCompositing: true, // 启用硬件加速
   })
@@ -946,7 +956,7 @@ onMounted(async () => {
         checkForUpdates()
       }
     },
-    5 * 60 * 1000,
+    60 * 60 * 1000,
   )
 })
 

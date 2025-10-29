@@ -358,48 +358,59 @@ const chatWithTeacher = () => {
 
 // 选择学科
 const selectSubject = async (subject: 'biology' | 'math') => {
-  // 流程：关闭学科选择对话框 -> 保存选择的学科 -> 创建教师会话 -> 打开对话界面
+  // 第1步：关闭学科选择对话框
   showSubjectDialog.value = false
+  
+  // 第2步：保存选择的学科
   selectedSubject.value = subject
 
   try {
-    // 流程：显示加载提示
-    $q.loading.show({ message: '正在创建教师会话...' })
+    // 第3步：显示加载提示
+    $q.loading.show({ message: '正在准备教师对话...' })
 
-    // 流程：生成会话ID和名称（基于当前时间戳）
-    const timestamp = Date.now()
-    const aiSessionId = `teacher-chat-${timestamp}`
-    const aiSessionName = `${subject === 'biology' ? '生物' : '数学'}老师答疑 - ${new Date().toLocaleString()}`
+    // 第4步：设置exerciseStore中的科目信息（biology -> BIOLOGY, math -> MATH）
+    const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
+    // 注意：这里暂时使用localStorage存储科目，因为exerciseStore可能需要初始化
+    localStorage.setItem('currentTeacherSubject', storeSubject)
+    
+    // 第5步：生成临时会话ID供后续使用
+    teacherSessionId.value = `teacher-chat-${Date.now()}`
+    
+    // 第6步：初始化教师消息监听器（ChatView会创建实际会话）
+    androidBridge.initTeacherMessageListener()
 
-    // 流程：调用Android Bridge创建教师会话
-    const result = androidBridge.createTeacherChatSession(aiSessionId, aiSessionName, subject)
-
-    if (result && result.sessionId) {
-      // 流程：创建成功 -> 保存会话ID -> 初始化消息监听 -> 打开对话框
-      teacherSessionId.value = result.sessionId
-      
-      // 流程：初始化教师消息监听器
-      androidBridge.initTeacherMessageListener()
-
-      // 流程：打开教师对话Dialog
-      showTeacherChatDialog.value = true
-
+    // 第7步：检查是否是拍照模式
+    if (pendingPhotoCapture.value) {
+      // 拍照模式：准备就绪后直接触发拍照，不打开对话框
+      pendingPhotoCapture.value = false
       $q.notify({
         type: 'positive',
-        message: '教师会话已创建',
+        message: `已选择${subject === 'biology' ? '生物' : '数学'}老师`,
         position: 'top'
       })
+      $q.loading.hide()
+      
+      // 延迟一下确保会话已准备好
+      setTimeout(() => {
+        startPhotoCapture()
+      }, 300)
     } else {
-      throw new Error('创建会话失败')
+      // 对话模式：打开教师对话Dialog，ChatView会自动初始化会话
+      showTeacherChatDialog.value = true
+      $q.notify({
+        type: 'positive',
+        message: '已进入教师答疑',
+        position: 'top'
+      })
+      $q.loading.hide()
     }
   } catch (error) {
-    console.error('创建教师会话失败:', error)
+    console.error('准备教师对话失败:', error)
     $q.notify({
       type: 'negative',
-      message: '创建教师会话失败，请重试',
+      message: '准备教师对话失败，请重试',
       position: 'top'
     })
-  } finally {
     $q.loading.hide()
   }
 }
@@ -417,49 +428,83 @@ const handleScrollToBottom = () => {
 }
 
 // 拍照给老师
-const takePictureToTeacher = () => {
-  // 流程：点击卡片 -> 检查是否有教师会话 -> 打开相机或提示
+const takePictureToTeacher = async () => {
+  // 第1步：检查是否已有教师会话
   if (!teacherSessionId.value) {
-    // 流程：无会话 -> 提示先创建会话
+    // 第2步：无会话 -> 显示学科选择对话框，并标记为拍照模式
     $q.notify({
-      type: 'warning',
-      message: '请先选择学科并创建教师会话',
+      type: 'info',
+      message: '请先选择要咨询的学科老师',
       position: 'top'
     })
     showSubjectDialog.value = true
+    // 标记拍照模式，在selectSubject中会直接触发拍照
+    pendingPhotoCapture.value = true
     return
   }
 
-  // 流程：有会话 -> 设置图片选择回调 -> 打开相机
-  androidBridge.onImageCapture((imageInfo) => {
+  // 第3步：已有会话 -> 直接开始拍照流程
+  startPhotoCapture()
+}
+
+// 标记是否有待处理的拍照操作
+const pendingPhotoCapture = ref(false)
+
+// 开始拍照流程
+const startPhotoCapture = () => {
+  // 第1步：设置图片捕获回调
+  androidBridge.onImageCapture(async (imageInfo) => {
     if (imageInfo && imageInfo.filePath) {
-      // 流程：拍照成功 -> 发送图片给老师
-      const success = androidBridge.sendPictureToTeacher(
-        imageInfo.filePath,
-        teacherSessionId.value,
-        selectedSubject.value
-      )
-      
-      if (success) {
-        $q.notify({
-          type: 'positive',
-          message: '图片已发送给老师',
-          position: 'top'
-        })
-        // 流程：打开教师对话界面
-        showTeacherChatDialog.value = true
-      } else {
+      try {
+        // 第2步：显示发送中提示
+        $q.loading.show({ message: '正在发送图片...' })
+
+        // 第3步：发送图片给老师
+        const success = androidBridge.sendPictureToTeacher(
+          imageInfo.filePath,
+          teacherSessionId.value,
+          selectedSubject.value
+        )
+        
+        if (success) {
+          // 第4步：发送成功 -> 显示成功提示
+          $q.notify({
+            type: 'positive',
+            message: '图片已发送给老师',
+            position: 'top'
+          })
+          
+          // 第5步：打开教师对话界面，让用户可以看到发送的图片和后续对话
+          showTeacherChatDialog.value = true
+        } else {
+          $q.notify({
+            type: 'negative',
+            message: '发送图片失败，请重试',
+            position: 'top'
+          })
+        }
+      } catch (error) {
+        console.error('发送图片失败:', error)
         $q.notify({
           type: 'negative',
-          message: '发送图片失败',
+          message: '发送图片失败，请重试',
           position: 'top'
         })
+      } finally {
+        $q.loading.hide()
       }
     }
   })
 
-  // 流程：调用原生拍照
-  androidBridge.captureImageFromCamera()
+  // 第2步：调用原生拍照
+  const result = androidBridge.captureImageFromCamera()
+  if (!result.success) {
+    $q.notify({
+      type: 'negative',
+      message: result.message || '无法启动相机',
+      position: 'top'
+    })
+  }
 }
 
 // 显示反馈

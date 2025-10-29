@@ -617,10 +617,17 @@ const restoreChatViewHeight = () => {
  * 作用：设置科目、创建老师会话、加载持久化数据或添加引导消息
  */
 const initializeMessages = async () => {
-  // 步骤1：设置当前科目
-  currentSubject.value = exerciseStore.subject === 'BIOLOGY' ? 'biology' : 'math'
+  // 第1步：设置当前科目
+  // 如果是老师对话模式，从localStorage读取科目（由MyProfileView设置）
+  if (props.type === 'teacher') {
+    const teacherSubject = localStorage.getItem('currentTeacherSubject') || 'MATH'
+    currentSubject.value = teacherSubject === 'BIOLOGY' ? 'biology' : 'math'
+  } else {
+    // 其他模式使用exerciseStore中的科目
+    currentSubject.value = exerciseStore.subject === 'BIOLOGY' ? 'biology' : 'math'
+  }
 
-  // 步骤2：如果是老师对话模式，需要初始化老师会话
+  // 第2步：如果是老师对话模式，需要初始化老师会话
   if (props.type === 'teacher') {
     await initializeTeacherSession()
   }
@@ -629,11 +636,20 @@ const initializeMessages = async () => {
   // 注意：这里不直接调用 loadChatHistory，因为 selectQuestion 已经会调用
   // 避免重复加载导致的问题
 
-  // 步骤4：只有在没有选择题目且没有聊天记录时才添加引导消息
+  // 第3步：只有在没有选择题目且没有聊天记录时才添加引导消息
   if (!hasSelectedQuestion.value) {
+    // 3.1 根据对话类型和科目生成欢迎消息内容
+    let welcomeContent = '请先选择一道题目，然后我们可以开始讨论。你可以从题目列表中选择一道感兴趣的题目。'
+    
+    if (props.type === 'teacher') {
+      // 教师对话模式的欢迎消息，根据科目显示
+      const subjectName = currentSubject.value === 'biology' ? '生物' : '数学'
+      welcomeContent = `你好！我是${subjectName}老师，有什么问题可以随时向我提问。如果有具体的题目需要讨论，也可以先选择题目再开始。`
+    }
+    
     const welcomeMessage: ChatBubble = {
       id: 'welcome_' + Date.now(),
-      content: '请先选择一道题目，然后我们可以开始讨论。你可以从题目列表中选择一道感兴趣的题目。',
+      content: welcomeContent,
       type: (() => {
         if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
           return 'ai'
@@ -722,24 +738,53 @@ const initializeTeacherSession = async () => {
         teacherSession.value = tempSession
       }
     } else {
-      // 步骤3：如果没有题目，创建临时老师会话，用于转发消息显示
-      const tempSession = {
-        sessionId: `temp_teacher_${Date.now()}`,
-        sessionName: '临时老师会话',
-        catalogId: 'CATEGORY_TEACHER_QA',
-        sessionType: SessionType.USER_TALK_TEACHER_MATH,
-        createTime: Date.now(),
-        updateTime: Date.now(),
-        msgCount: 0,
+      // 步骤3：如果没有题目，创建通用教师会话（适用于个人中心场景）
+      // 3.1 从localStorage读取当前教师科目（由MyProfileView设置）
+      const teacherSubject = localStorage.getItem('currentTeacherSubject') || 'MATH'
+      currentSubject.value = teacherSubject === 'BIOLOGY' ? 'biology' : 'math'
+      
+      // 3.2 生成会话ID
+      aiSessionId.value = `teacher_general_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      
+      // 3.3 生成会话名称
+      const subjectName = teacherSubject === 'BIOLOGY' ? '生物' : '数学'
+      const aiSessionName = `${subjectName}老师答疑 - ${new Date().toLocaleString()}`
+      
+      // 3.4 创建老师会话
+      const session = await apiService.createTeacherChatSession(
+        aiSessionId.value,
+        aiSessionName,
+        currentSubject.value,
+      )
+      
+      if (session) {
+        teacherSession.value = session
+        // 3.5 加载老师会话的历史消息（如果有）
+        await loadTeacherChatHistory()
+      } else {
+        // 创建临时老师会话
+        const tempSession = {
+          sessionId: `temp_teacher_${Date.now()}`,
+          sessionName: `${subjectName}老师答疑`,
+          catalogId: 'CATEGORY_TEACHER_QA',
+          sessionType: SessionType.USER_TALK_TEACHER_MATH,
+          createTime: Date.now(),
+          updateTime: Date.now(),
+          msgCount: 0,
+        }
+        
+        teacherSession.value = tempSession
       }
-
-      teacherSession.value = tempSession
     }
-  } catch {
+  } catch (error) {
+    console.error('初始化教师会话失败:', error)
     // 步骤4：创建失败时，创建临时老师会话，用于转发消息显示
+    const teacherSubject = localStorage.getItem('currentTeacherSubject') || 'MATH'
+    const subjectName = teacherSubject === 'BIOLOGY' ? '生物' : '数学'
+    
     const tempSession = {
       sessionId: `temp_teacher_${Date.now()}`,
-      sessionName: '临时老师会话',
+      sessionName: `${subjectName}老师答疑`,
       catalogId: 'CATEGORY_TEACHER_QA',
       sessionType: SessionType.USER_TALK_TEACHER_MATH,
       createTime: Date.now(),
