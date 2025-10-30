@@ -237,7 +237,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Dialog } from 'quasar'
 import { resourceManager } from '@/services/resource-manager'
 import type { UserTextbookInfo } from '@/types'
 
@@ -338,19 +337,12 @@ const calculateStorageSize = async () => {
 
 // 第3步：清理过期数据
 const cleanupExpiredData = async () => {
-  Dialog.create({
-    title: '清理过期数据',
-    message: '确定要清理过期的缓存数据吗？',
-    cancel: true,
-    persistent: true
-  }).onOk(async () => {
-    try {
-      await resourceManager.cleanupExpiredData()
-      await refreshData()
-    } catch (error) {
-      console.error('清理失败:', error)
-    }
-  })
+  try {
+    await resourceManager.cleanupExpiredData()
+    await refreshData()
+  } catch (error) {
+    console.error('清理失败:', error)
+  }
 }
 
 // 第4步：导出教材数据
@@ -375,28 +367,20 @@ const exportTextbooksData = async () => {
 }
 
 // 第5步：清空所有资源
-const clearAllResources = () => {
-  Dialog.create({
-    title: '⚠️ 危险操作',
-    message: '确定要清空所有教材资源吗？此操作将删除所有下载的教材文件，无法撤销！',
-    cancel: true,
-    persistent: true,
-    color: 'negative'
-  }).onOk(async () => {
-    try {
-      // 删除所有教材数据
-      for (const textbook of textbooks.value) {
-        await resourceManager.indexedDB.delete('textbooks', textbook.id)
-      }
-      
-      // 清空教材文件数据
-      await resourceManager.indexedDB.clear('textbook_files')
-      
-      await refreshData()
-    } catch (error) {
-      console.error('清空失败:', error)
+const clearAllResources = async () => {
+  try {
+    // 删除所有教材数据
+    for (const textbook of textbooks.value) {
+      await resourceManager.indexedDB.delete('textbooks', textbook.id)
     }
-  })
+    
+    // 清空教材文件数据
+    await resourceManager.indexedDB.clear('textbook_files')
+    
+    await refreshData()
+  } catch (error) {
+    console.error('清空失败:', error)
+  }
 }
 
 // 第6步：查看教材详情
@@ -406,20 +390,13 @@ const viewTextbookDetail = (textbook: UserTextbookInfo) => {
 }
 
 // 第7步：删除教材
-const deleteTextbook = (textbook: UserTextbookInfo) => {
-  Dialog.create({
-    title: '确认删除',
-    message: `确定要删除教材"${textbook.textbookName}"吗？`,
-    cancel: true,
-    persistent: true
-  }).onOk(async () => {
-    try {
-      await resourceManager.indexedDB.delete('textbooks', textbook.id)
-      await refreshData()
-    } catch (error) {
-      console.error('删除失败:', error)
-    }
-  })
+const deleteTextbook = async (textbook: UserTextbookInfo) => {
+  try {
+    await resourceManager.indexedDB.delete('textbooks', textbook.id)
+    await refreshData()
+  } catch (error) {
+    console.error('删除失败:', error)
+  }
 }
 
 // 获取状态颜色

@@ -147,6 +147,7 @@
         <!-- 左侧聊天记录 -->
         <div class="left-panel">
           <SessionList 
+            ref="teacherSessionListRef"
             :records="teacherRecords"
             :selected-record-id="teacherSessionId"
             title="聊天记录"
@@ -199,14 +200,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { useUIStore } from '@/stores/uiStore'
 import { useUserStore } from '@/stores/userStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
+import { useImagePicker } from '@/composables/useImagePicker'
 import { apiService } from '@/services/api-service'
-import { useQuasar } from 'quasar'
 import { androidBridge } from '@/services/android-bridge'
+import { showMessage } from '@/utils'
 import DraggableDialog from '@/components/DraggableDialog.vue'
 import ChatView from '@/components/ChatView.vue'
 import SessionList from '@/components/SessionList.vue'
@@ -215,10 +216,11 @@ import type { QuestionRecord } from '@/types'
 import avatarIcon from '/icons/avatar.svg'
 
 const router = useRouter()
-const $q = useQuasar()
-const uiStore = useUIStore()
 const userStore = useUserStore()
 const teacherStore = useTeacherChatStore()
+
+// DOM 引用
+const teacherSessionListRef = ref<InstanceType<typeof SessionList> | null>(null)
 
 // 响应式数据
 const isInClass = ref(false)
@@ -227,6 +229,8 @@ const showLogoutDialog = ref(false)
 const showJoinClassDialog = ref(false)
 const showTeacherChatDialog = ref(false)
 const teacherSessionId = ref<string>('')
+// 全局图片选择器
+const { pickImage } = useImagePicker()
 const teacherSessions = ref<Array<{
   sessionId: string
   sessionName: string
@@ -269,11 +273,11 @@ onMounted(() => {
   // 流程：绑定课堂事件 -> 根据原生回调同步前端状态
   androidBridge.onClassroomJoined(() => {
     isInClass.value = true
-    $q.notify({ type: 'positive', message: '已加入课堂', position: 'top' })
+    showMessage('已加入课堂', 'success')
   })
   androidBridge.onClassroomExited(() => {
     isInClass.value = false
-    $q.notify({ type: 'positive', message: '已退出课堂', position: 'top' })
+    showMessage('已退出课堂', 'info')
   })
   androidBridge.onClassroomStatusChanged((newStatus: BridgeClassroomStatus) => {
     const inClass = !!newStatus?.isInClass
@@ -360,11 +364,7 @@ const loadAppVersion = () => {
 
 // 更换头像
 const changeAvatar = () => {
-  $q.notify({
-    type: 'info',
-    message: '更换头像功能开发中...',
-    position: 'top'
-  })
+  showMessage('更换头像功能开发中...', 'info')
 }
 
 // 切换加入课堂状态
@@ -382,9 +382,9 @@ const confirmJoinClass = () => {
     const ok = androidBridge.exitClassroom()
     if (ok) {
       isInClass.value = false
-      $q.notify({ type: 'positive', message: '已退出课堂', position: 'top' })
+      showMessage('已退出课堂', 'success')
     } else {
-      $q.notify({ type: 'negative', message: '退出课堂失败', position: 'top' })
+      showMessage('退出课堂失败', 'error')
     }
     return
   }
@@ -400,9 +400,9 @@ const confirmJoinClass = () => {
   console.log('joinClassroom', ok)
   if (ok) {
     isInClass.value = true
-    $q.notify({ type: 'positive', message: '已加入课堂', position: 'top' })
+    showMessage('已加入课堂', 'success')
   } else {
-    $q.notify({ type: 'negative', message: '加入课堂失败', position: 'top' })
+    showMessage('加入课堂失败', 'error')
   }
 }
 
@@ -463,105 +463,71 @@ const handleTeacherRecordClick = async (record: QuestionRecord) => {
 }
 
 // 处理教师记录删除
-const handleTeacherRecordDelete = (record: QuestionRecord) => {
-  $q.dialog({
-    title: '确认删除',
-    message: '确定要删除这个会话吗？删除后无法恢复。',
-    cancel: true,
-    persistent: true
-  }).onOk(async () => {
-    try {
-      // 第1步：删除localStorage中的会话数据
-      localStorage.removeItem(`teacher_chat_${record.id}_session`)
-      
-      // 第2步：删除IndexedDB中的聊天历史
-      await teacherStore.clearChatHistory(record.id)
-      
-      // 第3步：刷新列表
-      loadTeacherSessions()
-      
-      // 第4步：如果删除的是当前会话，清空选择
-      if (teacherSessionId.value === record.id) {
-        teacherSessionId.value = ''
-        teacherStore.clearSession()
-      }
-      
-      $q.notify({
-        type: 'positive',
-        message: '会话已删除',
-        position: 'top'
-      })
-    } catch (error) {
-      console.error('删除会话失败:', error)
-      $q.notify({
-        type: 'negative',
-        message: '删除失败，请重试',
-        position: 'top'
-      })
+const handleTeacherRecordDelete = async (record: QuestionRecord) => {
+  try {
+    // 第1步：删除localStorage中的会话数据
+    localStorage.removeItem(`teacher_chat_${record.id}_session`)
+    
+    // 第2步：删除IndexedDB中的聊天历史
+    await teacherStore.clearChatHistory(record.id)
+    
+    // 第3步：刷新列表
+    loadTeacherSessions()
+    
+    // 第4步：如果删除的是当前会话，清空选择
+    if (teacherSessionId.value === record.id) {
+      teacherSessionId.value = ''
+      teacherStore.clearSession()
     }
-  })
+    
+    showMessage('会话已删除', 'success')
+  } catch (error) {
+    console.error('删除会话失败:', error)
+    showMessage('删除失败，请重试', 'error')
+  }
 }
 
 // 处理批量删除教师会话
-const handleTeacherBatchDelete = (recordIds: string[]) => {
-  $q.dialog({
-    title: '确认删除',
-    message: `确定要删除选中的 ${recordIds.length} 个会话吗？删除后无法恢复。`,
-    cancel: true,
-    persistent: true
-  }).onOk(async () => {
-    try {
-      let successCount = 0
-      let failedCount = 0
-      
-      // 第1步：批量删除
-      for (const id of recordIds) {
-        try {
-          // 删除localStorage中的会话数据
-          localStorage.removeItem(`teacher_chat_${id}_session`)
-          
-          // 删除IndexedDB中的聊天历史
-          await teacherStore.clearChatHistory(id)
-          
-          // 如果删除的是当前会话，清空选择
-          if (teacherSessionId.value === id) {
-            teacherSessionId.value = ''
-            teacherStore.clearSession()
-          }
-          
-          successCount++
-        } catch (error) {
-          console.error(`删除会话 ${id} 失败:`, error)
-          failedCount++
+const handleTeacherBatchDelete = async (recordIds: string[]) => {
+  try {
+    let successCount = 0
+    let failedCount = 0
+    
+    // 第1步：批量删除
+    for (const id of recordIds) {
+      try {
+        // 删除localStorage中的会话数据
+        localStorage.removeItem(`teacher_chat_${id}_session`)
+        
+        // 删除IndexedDB中的聊天历史
+        await teacherStore.clearChatHistory(id)
+        
+        // 如果删除的是当前会话，清空选择
+        if (teacherSessionId.value === id) {
+          teacherSessionId.value = ''
+          teacherStore.clearSession()
         }
+        
+        successCount++
+      } catch (error) {
+        console.error(`删除会话 ${id} 失败:`, error)
+        failedCount++
       }
-      
-      // 第2步：刷新列表
-      loadTeacherSessions()
-      
-      // 第3步：显示结果
-      if (failedCount === 0) {
-        $q.notify({
-          type: 'positive',
-          message: `已删除 ${successCount} 个会话`,
-          position: 'top'
-        })
-      } else {
-        $q.notify({
-          type: 'warning',
-          message: `成功删除 ${successCount} 个，失败 ${failedCount} 个`,
-          position: 'top'
-        })
-      }
-    } catch (error) {
-      console.error('批量删除失败:', error)
-      $q.notify({
-        type: 'negative',
-        message: '批量删除失败，请重试',
-        position: 'top'
-      })
     }
-  })
+    
+    // 第2步：刷新列表
+    loadTeacherSessions()
+    
+    // 第3步：显示结果
+    if (failedCount === 0) {
+      showMessage(`已删除 ${successCount} 个会话`, 'success')
+    } else {
+      showMessage(`成功删除 ${successCount} 个，失败 ${failedCount} 个`, 'warning')
+    }
+  } catch (error) {
+    console.error('批量删除失败:', error)
+    showMessage('批量删除失败，请重试', 'error')
+  }
 }
 
 // 与老师对话（从卡片进入）
@@ -579,17 +545,30 @@ const chatWithTeacher = () => {
 }
 
 // 新建教师对话（从SessionList的新增按钮进入）
-const handleNewTeacherChat = () => {
-  // 直接使用数学学科
-  selectSubject('math')
+const handleNewTeacherChat = async () => {
+  console.log('[MyProfileView] 🆕 handleNewTeacherChat() - 新建教师对话')
+  
+  // 第1步：创建新会话
+  await selectSubject('math')
+  
+  // 第2步：等待一帧确保DOM更新
+  await nextTick()
+  
+  // 第3步：滚动到SessionList顶部
+  if (teacherSessionListRef.value) {
+    console.log('[MyProfileView] 📜 滚动到SessionList顶部')
+    teacherSessionListRef.value.scrollToTop()
+  }
 }
 
 // 初始化教师对话（直接使用数学学科）
 const selectSubject = async (subject: 'biology' | 'math') => {
+  console.log('[MyProfileView] 🎯 selectSubject() - 初始化教师对话')
   try {
-    // 第1步：显示加载提示
-    $q.loading.show({ message: '正在准备教师对话...' })
-
+    // 第1步：清空上一个会话的聊天记录（修复新建对话时显示旧记录的问题）
+    console.log('[MyProfileView] 🧹 清空上一个会话的状态')
+    teacherStore.clearSession()
+    
     // 第2步：确保用户信息已加载（修复"用户未登录"错误）
     if (!userInfo.value?.id) {
       await loadUserInfo()
@@ -597,12 +576,7 @@ const selectSubject = async (subject: 'biology' | 'math') => {
     
     // 第3步：再次检查用户信息
     if (!userInfo.value?.id) {
-      $q.loading.hide()
-      $q.notify({
-        type: 'negative',
-        message: '无法获取用户信息，请重新登录',
-        position: 'top'
-      })
+      showMessage('无法获取用户信息，请重新登录', 'error')
       return
     }
 
@@ -610,73 +584,72 @@ const selectSubject = async (subject: 'biology' | 'math') => {
     const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
     localStorage.setItem('currentTeacherSubject', storeSubject)
     
-    // 第5步：生成临时会话ID供后续使用
-    teacherSessionId.value = `teacher-chat-${Date.now()}`
+    // 第5步：生成临时会话ID供后续使用（新的会话ID）
+    const newSessionId = `teacher-${Date.now()}`
+    console.log('[MyProfileView] 🆔 新会话ID:', newSessionId)
     
-    // 第6步：初始化教师消息监听器（使用 Store 统一方法）
+    // 第6步：创建并保存会话信息（这样 loadTeacherSessions 才能加载到新会话）
+    const newSession = {
+      sessionId: newSessionId,
+      sessionName: subject === 'biology' ? '生物答疑' : '数学答疑',
+      subject: subject,
+      createTime: Date.now()
+    }
+    localStorage.setItem(`teacher_chat_${newSessionId}_session`, JSON.stringify(newSession))
+    console.log('[MyProfileView] 💾 保存新会话信息到 localStorage')
+    
+    // 第7步：设置为当前会话ID
+    teacherSessionId.value = newSessionId
+    
+    // 第8步：初始化教师消息监听器（使用 Store 统一方法）
     await teacherStore.initMessageReceiver()
 
-    // 第7步：刷新会话列表
+    // 第9步：刷新会话列表（现在可以加载到新会话了）
     loadTeacherSessions()
+    console.log('[MyProfileView] 📋 刷新会话列表，新会话应该已加载')
     
-    // 第8步：打开教师对话Dialog
+    // 第10步：打开教师对话Dialog
     showTeacherChatDialog.value = true
-    $q.notify({
-      type: 'positive',
-      message: '已进入教师答疑',
-      position: 'top'
-    })
-    $q.loading.hide()
+    console.log('[MyProfileView] ✅ 教师对话准备完成')
   } catch (error) {
-    console.error('准备教师对话失败:', error)
-    $q.notify({
-      type: 'negative',
-      message: '准备教师对话失败，请重试',
-      position: 'top'
-    })
-    $q.loading.hide()
+    console.error('[MyProfileView] ❌ 准备教师对话失败:', error)
+    showMessage('准备教师对话失败，请重试', 'error')
   }
 }
 
-// 拍照给老师
+// 拍照给老师（总是新建一个教师会话后再发送）
 const takePictureToTeacher = async () => {
-  // 第1步：设置图片捕获回调
-  androidBridge.onImageCapture(async (imageInfo) => {
-    if (imageInfo && imageInfo.filePath) {
-      try {
-        // 第2步：显示处理中提示
-        $q.loading.show({ message: '正在处理图片...' })
-        
-        // 第3步：打开 AI 聊天对话框
-        uiStore.openAIChatDialog()
-        
-        // 第4步：显示成功提示
-        $q.notify({
-          type: 'positive',
-          message: '图片已准备好，请在 AI 聊天对话框中继续',
-          position: 'top'
-        })
-      } catch (error) {
-        console.error('处理图片失败:', error)
-        $q.notify({
-          type: 'negative',
-          message: '处理图片失败，请重试',
-          position: 'top'
-        })
-      } finally {
-        $q.loading.hide()
+  try {
+    // 第1步：选择图片
+    const imageInfo = await pickImage()
+    if (!imageInfo) {
+      return
+    }
+
+    // 第2步：无条件新建一个教师会话（默认数学）
+    await selectSubject('math')
+    await nextTick()
+
+    // 第3步：打开教师对话框
+    showTeacherChatDialog.value = true
+
+    // 第4步：将新会话设置到 Store
+    if (teacherSessionId.value) {
+      const sessionData = localStorage.getItem(`teacher_chat_${teacherSessionId.value}_session`)
+      if (sessionData) {
+        teacherStore.setSession(JSON.parse(sessionData))
       }
     }
-  })
 
-  // 第2步：调用原生拍照
-  const result = androidBridge.captureImageFromCamera()
-  if (!result.success) {
-    $q.notify({
-      type: 'negative',
-      message: result.message || '无法启动相机',
-      position: 'top'
+    // 第5步：通过原生RabbitMQ发送图片给老师
+    await teacherStore.sendChatMessage('', {
+      filePath: imageInfo.filePath,
+      // 为了让 createUserMessage 判定为图片消息，需提供 base64DataUrl（此处复用文件路径）
+      base64DataUrl: imageInfo.filePath
     })
+  } catch (error) {
+    console.error('[MyProfileView] ❌ 处理图片失败:', error)
+    showMessage('处理图片失败，请重试', 'error')
   }
 }
 
@@ -702,21 +675,13 @@ const logout = async () => {
     // 第2步：清除 Store 中的用户信息和持久化数据
     userStore.clearUserInfo()
     
-    $q.notify({
-      type: 'positive',
-      message: '已安全退出',
-      position: 'top'
-    })
+    showMessage('已安全退出', 'success')
     
     // 第3步：跳转到登录页面
     router.push('/login')
   } catch (error) {
     console.error('退出登录失败:', error)
-    $q.notify({
-      type: 'negative',
-      message: '退出登录失败',
-      position: 'top'
-    })
+    showMessage('退出登录失败', 'error')
   }
 }
 </script>

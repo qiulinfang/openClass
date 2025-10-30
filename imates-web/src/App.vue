@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount } from 'vue'
+import ImagePicker from './components/chat/ImagePicker.vue'
 // 注释掉缩略图相关导入以提升性能
 // import { thumbnailQueue } from './utils/thumbnail-queue'
 
@@ -24,5 +25,7 @@ onBeforeUnmount(() => {
 <template>
   <q-app>
     <router-view />
+    <!-- 全局单例图片选择器 -->
+    <ImagePicker />
   </q-app>
 </template>

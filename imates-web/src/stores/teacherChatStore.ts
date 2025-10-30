@@ -75,9 +75,13 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
   
   /**
    * 清除会话
+   * 第1步：清空当前会话信息
+   * 第2步：清空消息列表
    */
   const clearSession = (): void => {
+    console.log('[TeacherStore] 🧹 clearSession() - 清空会话和消息')
     currentSession.value = null
+    clearMessages()
   }
   
   // ==================== 消息管理 ====================
@@ -199,8 +203,6 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
             console.warn('[TeacherStore] ⚠️ 自动生成标题失败:', error)
           })
         }
-        
-        showMessage('消息已发送，等待老师回复', 'success')
       } else {
         console.error('[TeacherStore] ❌ 消息发送失败:', data.message)
         throw new Error(data.message || '发送失败')
@@ -513,17 +515,11 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
         .join('\n')
       
       // 第3步：构建生成标题的提示词
-      const titlePrompt = `请为以下师生对话生成一个简洁的标题（不超过15个字）。只返回标题文本，不要有引号或其他说明。
+      const titlePrompt = `你是一个对话标题生成器。请为以下对话生成一个使用动宾结构或名词短语的标题（不超过15个字）。只返回标题文本，不要有引号或其他说明。
 
 对话内容：
 ${conversationSummary}
 
-要求：
-1. 标题要简洁明了，能概括对话主题
-2. 不超过15个字
-3. 不要使用标点符号
-4. 只返回标题文本，不要有其他内容
-5. 不允许出现用户等角色名称
 
 标题：`
       

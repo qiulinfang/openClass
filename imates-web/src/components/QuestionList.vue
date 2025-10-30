@@ -400,11 +400,8 @@ const startPhotoSearch = () => {
     if (androidBridge.isAndroidBridgeAvailable()) {
       // 在Android环境中调用原生拍照搜题
       androidBridge.takePicture(subjectName)
-      showMessage('正在启动拍照搜题...', 'info')
     } else {
       // 在非Android环境中模拟拍照搜题
-      showMessage('模拟拍照搜题...', 'info')
-
       // 模拟延迟后添加一个示例题目
       setTimeout(async () => {
         const mockQuestion: ExerciseItem = {

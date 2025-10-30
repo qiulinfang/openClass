@@ -1,42 +1,120 @@
 <template>
   <q-dialog v-model="isOpen" position="standard" seamless @hide="handleClose">
-    <q-card 
-      class="draggable-dialog-card"
+    <div 
+      class="dialog-container" 
       :style="dialogStyle"
       @mousemove="handleDrag"
       @mouseup="stopDrag"
       @touchmove="handleDrag"
       @touchend="stopDrag"
     >
-      <q-card-section 
-        class="dialog-header-section draggable-header"
-        @mousedown.prevent="startDrag"
-        @touchstart.prevent="startDrag"
+      <q-splitter
+        v-if="$slots['left-panel']"
+        v-model="splitterModel"
+        :limits="[12, 20]"
+        separator-class="custom-splitter-separator"
+        @update:model-value="handleSplitterChange"
+        class="splitter-container"
       >
-        <div class="text-h6">{{ title }}</div>
-        <button 
-          class="close-btn"
-          @click="handleClose"
-          @mousedown.stop
-          @touchstart.stop
+        <!-- 左侧面板 -->
+        <template #before>
+          <div class="left-panel">
+            <slot name="left-panel"></slot>
+          </div>
+        </template>
+
+        <!-- 主内容卡片 -->
+        <template #after>
+          <q-card class="draggable-dialog-card">
+            <q-card-section 
+              class="dialog-header-section draggable-header"
+              @mousedown.prevent="startDrag"
+              @touchstart.prevent="startDrag"
+            >
+              <!-- 左侧插槽 -->
+              <div 
+                v-if="$slots['header-left']" 
+                class="header-left"
+                @mousedown.stop
+                @touchstart.stop
+              >
+                <slot name="header-left"></slot>
+              </div>
+              
+              <div class="text-h6">{{ title }}</div>
+              
+              <button 
+                class="close-btn"
+                @click="handleClose"
+                @mousedown.stop
+                @touchstart.stop
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </q-card-section>
+
+            <q-card-section class="dialog-content-section">
+              <slot></slot>
+            </q-card-section>
+
+            <div 
+              class="resize-handle"
+              @mousedown.prevent.stop="startResize"
+              @touchstart.prevent.stop="startResize"
+            ></div>
+          </q-card>
+        </template>
+      </q-splitter>
+
+      <!-- 无左侧面板时的主内容 -->
+      <q-card 
+        v-else
+        class="draggable-dialog-card"
+      >
+        <q-card-section 
+          class="dialog-header-section draggable-header"
+          @mousedown.prevent="startDrag"
+          @touchstart.prevent="startDrag"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-      </q-card-section>
+          <!-- 左侧插槽 -->
+          <div 
+            v-if="$slots['header-left']" 
+            class="header-left"
+            @mousedown.stop
+            @touchstart.stop
+          >
+            <slot name="header-left"></slot>
+          </div>
+          
+          <div class="text-h6">{{ title }}</div>
+          
+          <button 
+            class="close-btn"
+            @click="handleClose"
+            @mousedown.stop
+            @touchstart.stop
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </q-card-section>
 
-      <q-card-section class="dialog-content-section">
-        <slot></slot>
-      </q-card-section>
+        <q-card-section class="dialog-content-section">
+          <slot></slot>
+        </q-card-section>
 
-      <div 
-        class="resize-handle"
-        @mousedown.prevent.stop="startResize"
-        @touchstart.prevent.stop="startResize"
-      ></div>
-    </q-card>
+        <div 
+          class="resize-handle"
+          @mousedown.prevent.stop="startResize"
+          @touchstart.prevent.stop="startResize"
+        ></div>
+      </q-card>
+    </div>
   </q-dialog>
 </template>
 
@@ -61,6 +139,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
+  'splitter-change': [value: number]
 }>()
 
 const isOpen = computed({
@@ -75,6 +154,14 @@ const dragOffset = ref({ x: 0, y: 0 })
 const dialogSize = ref({ width: props.initialWidth, height: props.initialHeight })
 const isResizing = ref(false)
 const resizeStart = ref({ x: 0, y: 0, width: 0, height: 0 })
+
+// 流程：分屏比例（左侧面板占比）
+const splitterModel = ref(18)
+
+// 流程：处理分屏比例变化
+const handleSplitterChange = (value: number) => {
+  emit('splitter-change', value)
+}
 
 // 计算对话框样式，拖动或缩放时禁用过渡动画
 const dialogStyle = computed(() => ({
@@ -154,31 +241,93 @@ watch(isOpen, (newValue) => {
 </script>
 
 <style lang="scss" scoped>
-.draggable-dialog-card {
+/* 对话框容器 */
+.dialog-container {
   max-width: 90vw;
   max-height: 90vh;
   position: relative;
-  display: flex;
-  flex-direction: column;
   border-radius: 16px;
   box-shadow: 
     0 0 0 1px rgba(0, 0, 0, 0.05),
     0 10px 40px rgba(0, 0, 0, 0.08),
     0 4px 12px rgba(0, 0, 0, 0.04);
   overflow: hidden;
+}
+
+/* 分屏容器 */
+.splitter-container {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  
+  :deep(.q-splitter__panel) {
+    overflow: visible;
+  }
+  
+  :deep(.q-splitter__before) {
+    overflow: visible;
+  }
+  
+  :deep(.q-splitter__after) {
+    overflow: visible;
+  }
+}
+
+/* 自定义分隔条样式 */
+:deep(.custom-splitter-separator) {
+  background: #e8e8e8;
+  width: 1px !important;
+  
+  &:hover {
+    background: #9059ff;
+  }
+  
+  .q-splitter__separator-area {
+    background: transparent;
+  }
+}
+
+/* 左侧插槽面板 */
+.left-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.draggable-dialog-card {
+  height: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
   background: #ffffff;
   
   .dialog-header-section {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     padding: 16px 20px;
     background: #fafafb;
     border-bottom: 1px solid #e8e8e8;
+    position: relative;
     
     &.draggable-header {
       cursor: move;
       user-select: none;
+    }
+    
+    .header-left {
+      position: absolute;
+      left: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     
     .text-h6 {
@@ -186,12 +335,19 @@ watch(isOpen, (newValue) => {
       font-weight: 600;
       color: #1e1e1e;
       letter-spacing: -0.01em;
+      text-align: center;
+      flex: 1;
+      padding: 0 32px;
     }
     
     .close-btn {
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
       display: flex;
       align-items: center;
-      justify-content: right;
+      justify-content: center;
       width: 32px;
       height: 32px;
       border: none;

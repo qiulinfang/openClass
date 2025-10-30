@@ -11,6 +11,22 @@
       </div>
     </div>
     
+    <!-- 搜索栏 -->
+    <div v-if="!isSelectionMode && showHeader" class="search-bar">
+      <q-input
+        v-model="searchKeyword"
+        dense
+        outlined
+        placeholder="搜索会话..."
+        clearable
+        class="search-input"
+      >
+        <template v-slot:prepend>
+          <q-icon name="search" size="xs" />
+        </template>
+      </q-input>
+    </div>
+    
     <!-- 批量选择工具栏 -->
     <q-toolbar v-if="isSelectionMode" class="selection-toolbar">
       <!-- 左侧：关闭按钮 -->
@@ -52,16 +68,16 @@
     </q-toolbar>
     
     <!-- 空状态 -->
-    <div v-if="!records || records.length === 0" class="empty-state">
+    <div v-if="!filteredRecords || filteredRecords.length === 0" class="empty-state">
       <q-icon name="chat" size="48px" color="grey-5" />
-      <div class="q-mt-md text-h6 text-grey-6">暂无会话</div>
-      <div class="q-mt-sm text-caption text-grey-5">您的会话记录将显示在这里</div>
+      <div class="q-mt-md text-h6 text-grey-6">{{ searchKeyword ? '未找到匹配的会话' : '暂无会话' }}</div>
+      <div class="q-mt-sm text-caption text-grey-5">{{ searchKeyword ? '尝试使用其他关键词搜索' : '您的会话记录将显示在这里' }}</div>
     </div>
 
     <!-- 会话列表 -->
-    <div v-else class="session-items">
+    <div v-else ref="sessionItemsRef" class="session-items">
       <div
-        v-for="record in records"
+        v-for="record in filteredRecords"
         :key="record.id"
         class="session-item"
         :class="{ 
@@ -167,7 +183,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { QuestionRecord } from '@/types'
 
 // 定义 props
@@ -194,6 +210,9 @@ const emit = defineEmits<{
   'batch-delete': [recordIds: string[]]
 }>()
 
+// 搜索关键词
+const searchKeyword = ref('')
+
 // 重命名对话框
 const showRenameDialog = ref(false)
 const currentRecord = ref<QuestionRecord | null>(null)
@@ -202,6 +221,24 @@ const newRecordName = ref('')
 // 批量选择相关状态
 const isSelectionMode = ref(false)
 const selectedRecords = ref<Set<string>>(new Set())
+
+// ==================== 计算属性 ====================
+
+// 第1步：根据搜索关键词过滤会话列表
+const filteredRecords = computed(() => {
+  if (!searchKeyword.value || !searchKeyword.value.trim()) {
+    return props.records
+  }
+  
+  const keyword = searchKeyword.value.toLowerCase().trim()
+  
+  return props.records.filter(record => {
+    const question = record.question?.toLowerCase() || ''
+    const answer = record.answer?.toLowerCase() || ''
+    
+    return question.includes(keyword) || answer.includes(keyword)
+  })
+})
 
 // ==================== 批量选择相关方法 ====================
 
@@ -296,6 +333,24 @@ const truncateText = (text: string, maxLength: number): string => {
   if (text.length <= maxLength) return text
   return text.substring(0, maxLength) + '...'
 }
+
+// ==================== DOM 引用 ====================
+const sessionItemsRef = ref<HTMLElement | null>(null)
+
+// 流程：滚动到列表顶部
+const scrollToTop = () => {
+  if (sessionItemsRef.value) {
+    sessionItemsRef.value.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
+  }
+}
+
+// 暴露方法给父组件
+defineExpose({
+  scrollToTop
+})
 </script>
 
 <style lang="scss" scoped>
@@ -330,6 +385,18 @@ const truncateText = (text: string, maxLength: number): string => {
   .header-actions {
     display: flex;
     gap: 4px;
+  }
+}
+
+// 搜索栏
+.search-bar {
+  padding: 8px 16px 12px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  
+  .search-input {
+    width: 100%;
+    font-size: 14px;
   }
 }
 

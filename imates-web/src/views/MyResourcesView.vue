@@ -194,7 +194,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { useQuasar } from 'quasar'
 import { resourceManager } from '../services/resource-manager'
 import { apiService } from '../services/api-service'
 import { httpClient } from '../services/http-client'
@@ -203,9 +202,6 @@ import type { UserTextbookInfo } from '../types'
 import ResourceDebugPanel from '../components/ResourceDebugPanel.vue'
 import BScroll from '@better-scroll/core'
 // 第1步：移除PullDown插件导入，不再使用下拉刷新功能
-
-// Quasar 实例
-const $q = useQuasar()
 
 // 流程：导入图标资源
 import bookIcon from '/icons/book.svg'
@@ -684,7 +680,6 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
   // 🔒 防重复下载：检查是否已下载完成
   if (textbook.downloadStatus === 2 && textbook.isDownloaded) {
     console.warn(`[防重复下载] 教材《${textbook.textbookName}》已下载完成，忽略重复请求`)
-    showMessage(`《${textbook.textbookName}》已下载完成`, 'info')
     return
   }
 
@@ -777,8 +772,6 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
         isDownloaded: false,
         downloadedFiles: textbook.downloadedFiles, // 🔥 保存已下载的文件数量
       })
-
-      showMessage(`《${textbook.textbookName}》下载已暂停`, 'warning')
     } else {
       // 真正的下载失败
       textbook.downloadStatus = 0 // 下载失败
@@ -807,8 +800,6 @@ const pauseDownload = async (textbook: UserTextbookInfo) => {
         isDownloaded: false,
         downloadedFiles: textbook.downloadedFiles, // 🔥 保存已下载的文件数量
       })
-
-      showMessage(`《${textbook.textbookName}》下载已暂停`, 'warning')
     } else {
       showMessage(`暂停《${textbook.textbookName}》失败`, 'error')
     }
@@ -822,31 +813,14 @@ const pauseDownload = async (textbook: UserTextbookInfo) => {
 
 // 取消下载 - 直接使用ApiService
 const cancelDownload = async (textbook: UserTextbookInfo) => {
-  // 流程：使用Quasar的Dialog进行确认
-  $q.dialog({
-    title: '取消下载',
-    message: `确定要取消《${textbook.textbookName}》的下载吗？已下载的文件将被删除。`,
-    cancel: {
-      label: '取消',
-      color: 'grey',
-      flat: true
-    },
-    ok: {
-      label: '确定',
-      color: 'negative',
-      flat: true
-    },
-    persistent: true
-  }).onOk(async () => {
-    // 流程：用户确认取消下载
-    try {
-      const success = await apiService.cancelDownload(textbook.textbookId)
+  try {
+    const success = await apiService.cancelDownload(textbook.textbookId)
 
-      if (success) {
-        // 重置下载状态
-        textbook.downloadStatus = 0 // 未下载
-        textbook.isDownloaded = false
-        textbook.downloadedFiles = 0
+    if (success) {
+      // 重置下载状态
+      textbook.downloadStatus = 0 // 未下载
+      textbook.isDownloaded = false
+      textbook.downloadedFiles = 0
         textbook.totalFiles = 0
         textbook.lastDownloadTime = ''
 
@@ -858,18 +832,15 @@ const cancelDownload = async (textbook: UserTextbookInfo) => {
           totalFiles: 0,
           lastDownloadTime: '',
         })
-
-        showMessage(`《${textbook.textbookName}》下载已取消`, 'info')
-      } else {
-        showMessage(`取消《${textbook.textbookName}》下载失败`, 'error')
-      }
-    } catch (error) {
-      showMessage(
-        `取消《${textbook.textbookName}》下载失败: ${error instanceof Error ? error.message : '未知错误'}`,
-        'error',
-      )
+    } else {
+      showMessage(`取消《${textbook.textbookName}》下载失败`, 'error')
     }
-  })
+  } catch (error) {
+    showMessage(
+      `取消《${textbook.textbookName}》下载失败: ${error instanceof Error ? error.message : '未知错误'}`,
+      'error',
+    )
+  }
 }
 
 // 查看教材
@@ -897,31 +868,13 @@ const goToKnowledgeGraph = (textbook: UserTextbookInfo) => {
 
 // 更新教材 - 基于安卓原生逻辑完善
 const updateTextbook = (textbook: UserTextbookInfo) => {
-  // 流程：使用Quasar的Dialog进行确认
-  $q.dialog({
-    title: '更新教材',
-    message: `确定要更新教材"${textbook.textbookName}"吗？更新将下载最新的资源文件。`,
-    cancel: {
-      label: '取消',
-      color: 'grey',
-      flat: true
-    },
-    ok: {
-      label: '确定',
-      color: 'primary',
-      flat: true
-    },
-    persistent: true
-  }).onOk(() => {
-    // 流程：用户确认更新
-    // 重置更新状态
-    textbook.hasUpdatesAvailable = false
-    textbook.downloadStatus = 1 // 开始更新下载
-    textbook.isDownloaded = false
+  // 重置更新状态
+  textbook.hasUpdatesAvailable = false
+  textbook.downloadStatus = 1 // 开始更新下载
+  textbook.isDownloaded = false
 
-    // 开始下载更新
-    downloadTextbook(textbook)
-  })
+  // 开始下载更新
+  downloadTextbook(textbook)
 }
 
 // 生命周期

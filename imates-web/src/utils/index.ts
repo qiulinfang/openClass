@@ -4,38 +4,46 @@
  */
 
 import { Notify } from 'quasar'
+import { androidBridge } from '../services/android-bridge'
 
 /**
- * 统一的消息提示函数（使用 Quasar Notify + Gemini 风格样式）
- * 第1步：映射消息类型到 Quasar 类型
- * 第2步：显示通知
+ * 统一的消息提示函数（智能选择实现方式）
+ * 第1步：判断运行环境（Android WebView 或 Web）
+ * 第2步：Android WebView 使用 androidBridge.showToast
+ * 第3步：Web 环境使用 Quasar Notify
  */
 export const showMessage = (
   message: string,
   type: 'positive' | 'negative' | 'warning' | 'info' | 'success' | 'error' = 'positive',
   timeout: number = 2000
 ) => {
-  // 映射类型到 Quasar Notify 类型
-  const typeMap: Record<string, { color: string; icon: string }> = {
-    success: { color: 'positive', icon: 'check_circle' },
-    positive: { color: 'positive', icon: 'check_circle' },
-    error: { color: 'negative', icon: 'error' },
-    negative: { color: 'negative', icon: 'error' },
-    warning: { color: 'warning', icon: 'warning' },
-    info: { color: 'info', icon: 'info' }
+  // 第1步：判断是否在 Android WebView 环境
+  if (androidBridge.isAndroidBridgeAvailable()) {
+    // 第2步：使用原生 Toast
+    androidBridge.showToast(message)
+  } else {
+    // 第3步：使用 Quasar Notify（Web 环境）
+    const typeMap: Record<string, { color: string; icon: string }> = {
+      success: { color: 'positive', icon: 'check_circle' },
+      positive: { color: 'positive', icon: 'check_circle' },
+      error: { color: 'negative', icon: 'error' },
+      negative: { color: 'negative', icon: 'error' },
+      warning: { color: 'warning', icon: 'warning' },
+      info: { color: 'info', icon: 'info' }
+    }
+
+    const config = typeMap[type] || typeMap.info
+
+    Notify.create({
+      message,
+      color: config.color,
+      icon: config.icon,
+      position: 'top',
+      timeout,
+      classes: 'gemini-notify',
+      actions: [{ icon: 'close', color: 'white', round: true, size: 'sm' }]
+    })
   }
-
-  const config = typeMap[type] || typeMap.info
-
-  Notify.create({
-    message,
-    color: config.color,
-    icon: config.icon,
-    position: 'top',
-    timeout,
-    classes: 'gemini-notify',
-    actions: [{ icon: 'close', color: 'white', round: true, size: 'sm' }]
-  })
 }
 
 // MathJax 工具

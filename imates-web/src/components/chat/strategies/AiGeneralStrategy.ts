@@ -25,12 +25,16 @@ export class AiGeneralStrategy implements ChatStrategy {
   
   // 第3步：发送消息
   async sendMessage(content: string, options: SendMessageOptions = {}): Promise<void> {
-    // 调用Store的sendMessage方法，传递所有必需参数
+    // 当 options.imageData 存在时，说明上游已插入了图片用户消息
+    // 为避免再次插入空文本用户消息，传递 skipUserMessage 标记给 Store
+    const skipUserMessage = !!options.imageData || !!options.skipUserMessage
+
     await this.aiGeneralStore.sendMessage(
       content,
       this.userStore.userInfo,
       this.userStore.subject as 'MATH' | 'BIOLOGY',
-      options.selectedModel || 'mate'
+      options.selectedModel || 'mate',
+      skipUserMessage
     )
   }
   

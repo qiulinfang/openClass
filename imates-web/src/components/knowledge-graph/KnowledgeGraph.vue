@@ -342,7 +342,7 @@ const handlePractice = (node: { id: string; name: string; level?: number | null 
   const knowledgeList = getKnowledgeIdFromNodeId(node.id)
   
   if (!knowledgeList || knowledgeList.trim() === '') {
-    alert('该知识点暂无相关练习题，请选择其他知识点进行练习')
+    showMessage('该知识点暂无相关练习题，请选择其他知识点进行练习', 'warning')
     return
   }
   

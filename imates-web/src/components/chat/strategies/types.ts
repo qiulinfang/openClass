@@ -11,6 +11,8 @@ export interface SendMessageOptions {
     filePath: string
     base64DataUrl: string
   }
+  // 若上游已手动插入了用户图片消息，则跳过在策略/Store内再次创建用户文本消息
+  skipUserMessage?: boolean
 }
 
 /**

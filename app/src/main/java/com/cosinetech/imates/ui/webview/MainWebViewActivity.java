@@ -132,6 +132,9 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
                     android.net.Uri imageUri = result.getData().getData();
                     String resultJson = webAppInterface.handleImagePickResult(imageUri);
                     Log.d(TAG, "图片选择结果: " + resultJson);
+                    
+                    // 触发WebView事件，通知前端图片选择完成
+                    dispatchImagePickResultToWebView(resultJson);
                 }
             }
         );
@@ -143,10 +146,119 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
                 boolean success = result.getResultCode() == RESULT_OK;
                 String resultJson = webAppInterface.handleImageCaptureResult(success);
                 Log.d(TAG, "拍照结果: " + resultJson);
+                
+                // 触发WebView事件，通知前端拍照完成
+                dispatchImageCaptureResultToWebView(resultJson);
             }
         );
         
         Log.d(TAG, "Activity Result Launchers初始化完成");
+    }
+    
+    /**
+     * 触发WebView事件 - 图片选择完成
+     */
+    private void dispatchImagePickResultToWebView(String resultJson) {
+        runOnUiThread(() -> {
+            try {
+                // 解析JSON结果
+                org.json.JSONObject jsonObj = new org.json.JSONObject(resultJson);
+                boolean success = jsonObj.optBoolean("success", false);
+                
+                // 获取data字段（JSON对象）
+                org.json.JSONObject dataObj = jsonObj.optJSONObject("data");
+                
+                // 构造完整的detail对象
+                org.json.JSONObject detailObj = new org.json.JSONObject();
+                detailObj.put("success", success);
+                
+                if (dataObj != null) {
+                    // 将data对象的所有字段复制到detail对象
+                    java.util.Iterator<String> keys = dataObj.keys();
+                    while (keys.hasNext()) {
+                        String key = keys.next();
+                        detailObj.put(key, dataObj.get(key));
+                    }
+                }
+                
+                // 转换为JSON字符串（自动转义）
+                String detailJson = detailObj.toString();
+                
+                // 构造JavaScript代码
+                // 使用单引号包裹JSON字符串，避免双引号冲突
+                String jsCode = 
+                    "javascript:(function() {" +
+                    "  try {" +
+                    "    var detailStr = '" + detailJson.replace("'", "\\'") + "';" +
+                    "    var detail = JSON.parse(detailStr);" +
+                    "    var event = new CustomEvent('nativeImagePickResult', { detail: detail });" +
+                    "    window.dispatchEvent(event);" +
+                    "    console.log('📡 [Android] 触发 nativeImagePickResult 事件', detail);" +
+                    "  } catch(e) {" +
+                    "    console.error('📡 [Android] 触发事件失败:', e);" +
+                    "  }" +
+                    "})()";
+                
+                webView.evaluateJavascript(jsCode, null);
+                Log.d(TAG, "已触发 nativeImagePickResult 事件");
+            } catch (Exception e) {
+                Log.e(TAG, "触发WebView事件失败", e);
+                e.printStackTrace();
+            }
+        });
+    }
+    
+    /**
+     * 触发WebView事件 - 拍照完成
+     */
+    private void dispatchImageCaptureResultToWebView(String resultJson) {
+        runOnUiThread(() -> {
+            try {
+                // 解析JSON结果
+                org.json.JSONObject jsonObj = new org.json.JSONObject(resultJson);
+                boolean success = jsonObj.optBoolean("success", false);
+                
+                // 获取data字段（JSON对象）
+                org.json.JSONObject dataObj = jsonObj.optJSONObject("data");
+                
+                // 构造完整的detail对象
+                org.json.JSONObject detailObj = new org.json.JSONObject();
+                detailObj.put("success", success);
+                
+                if (dataObj != null) {
+                    // 将data对象的所有字段复制到detail对象
+                    java.util.Iterator<String> keys = dataObj.keys();
+                    while (keys.hasNext()) {
+                        String key = keys.next();
+                        detailObj.put(key, dataObj.get(key));
+                    }
+                }
+                
+                // 转换为JSON字符串（自动转义）
+                String detailJson = detailObj.toString();
+                
+                // 构造JavaScript代码
+                // 使用单引号包裹JSON字符串，避免双引号冲突
+                String jsCode = 
+                    "javascript:(function() {" +
+                    "  try {" +
+                    "    var detailStr = '" + detailJson.replace("'", "\\'") + "';" +
+                    "    var detail = JSON.parse(detailStr);" +
+                    "    var event = new CustomEvent('nativeImageCaptureResult', { detail: detail });" +
+                    "    window.dispatchEvent(event);" +
+                    "    console.log('📡 [Android] 触发 nativeImageCaptureResult 事件', detail);" +
+                    "  } catch(e) {" +
+                    "    console.error('📡 [Android] 触发事件失败:', e);" +
+                    "  }" +
+                    "})()";
+                
+                webView.evaluateJavascript(jsCode, null);
+                Log.d(TAG, "已触发 nativeImageCaptureResult 事件");
+            } catch (Exception e) {
+                Log.e(TAG, "触发WebView事件失败", e);
+                e.printStackTrace();
+            }
+        });
     }
 
     /**

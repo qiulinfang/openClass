@@ -245,9 +245,6 @@ export class HttpClient {
           
           // 第4步：如果登录成功，重新发起请求（只重试一次）
           if (loginSuccess) {
-            // 提示用户已自动重新登录
-            showMessage('登录已过期，已自动重新登录', 'info')
-            
             return await this.request<T>(url, { 
               ...config, 
               skipAuth401Retry: true // 设置标志位避免无限循环

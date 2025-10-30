@@ -42,7 +42,14 @@
       <canvas ref="canvasRef" class="canvas-container" :style="canvasStyle"></canvas>
 
       <!-- 浮动缩放控制面板 -->
-      <div class="zoom-control-panel">
+      <div
+        class="zoom-control-panel"
+        @mousedown.stop
+        @mouseup.stop
+        @touchstart.stop
+        @touchmove.stop
+        @touchend.stop
+      >
         <q-btn
           flat
           round
@@ -69,17 +76,22 @@
           <q-tooltip>放大</q-tooltip>
         </q-btn>
 
-        <q-btn flat round dense icon="fit_screen" @click="resetZoom" class="zoom-btn">
-          <q-tooltip>适应全部内容</q-tooltip>
-        </q-btn>
+        
       </div>
     </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import UnifiedToolbar from './UnifiedToolbar.vue'
+
+// 新增：定义对外事件
+const emit = defineEmits<{
+  // 内容变化事件（用于父组件更新缩略图）
+  'content-change': []
+}>()
 
 // 绘图对象类型定义
 interface DrawObject {
@@ -132,12 +144,13 @@ const toolConfig = ref<{ color?: string; size?: number }>({
   size: 3,
 })
 
+// ==================== 绘制对象管理 ====================
 // 绘制对象列表
 const objects = ref<DrawObject[]>([])
 
 // 历史记录
-const history = ref<DrawObject[][]>([])
-const historyIndex = ref(-1)
+const history = ref<DrawObject[][]>([[]])
+const historyIndex = ref(0)
 
 // 计算是否可以撤销/重做
 const canUndo = computed(() => historyIndex.value > 0)
@@ -454,6 +467,8 @@ const getObjectBounds = (
   return null
 }
 
+// （已去除自动扩容逻辑）
+
 // 检查点是否在对象内
 const isPointInObject = (x: number, y: number, obj: DrawObject): boolean => {
   const bounds = getObjectBounds(obj)
@@ -764,6 +779,8 @@ const handleMouseUp = () => {
     if (isDraggingObjects.value) {
       // 拖拽结束，保存状态
       saveState()
+      // 第X步：通知父组件内容已变化
+      emit('content-change')
     } else if (
       selectionBox.value &&
       selectionBox.value.width > 5 &&
@@ -794,6 +811,8 @@ const handleMouseUp = () => {
     objects.value.push(tempObject.value)
     tempObject.value = null
     saveState()
+    // 第X步：通知父组件内容已变化
+    emit('content-change')
   }
 
   // 统一重置绘制状态
@@ -1133,6 +1152,8 @@ const handleEraser = (coords: { x: number; y: number }) => {
     objects.value = objects.value.filter((_, index) => !toDelete.includes(index))
     saveState()
     render()
+    // 第X步：通知父组件内容已变化
+    emit('content-change')
   }
 }
 
@@ -1154,6 +1175,8 @@ const addText = (coords: { x: number; y: number }) => {
   objects.value.push(textObj)
   saveState()
   render()
+  // 第X步：通知父组件内容已变化
+  emit('content-change')
 }
 
 // 保存状态到历史记录
@@ -1172,6 +1195,9 @@ const saveState = () => {
     history.value.shift()
     historyIndex.value--
   }
+
+  // 第X步：通知父组件内容已变化
+  emit('content-change')
 }
 
 // 撤销
@@ -1181,6 +1207,8 @@ const undo = () => {
   historyIndex.value--
   objects.value = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
   render()
+  // 第X步：通知父组件内容已变化
+  emit('content-change')
 }
 
 // 重做
@@ -1190,6 +1218,8 @@ const redo = () => {
   historyIndex.value++
   objects.value = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
   render()
+  // 第X步：通知父组件内容已变化
+  emit('content-change')
 }
 
 // 清空画布
@@ -1204,6 +1234,8 @@ const clearCanvas = () => {
   // 保存状态并重新渲染
   saveState()
   render()
+  // 第X步：通知父组件内容已变化
+  emit('content-change')
 }
 
 // 工具切换
@@ -1232,96 +1264,37 @@ const handleConfigChange = (config: { color?: string; size?: number }) => {
 
 // 缩放控制
 const zoomIn = () => {
-  if (zoomLevel.value >= 3) return
+  // 第1步：边界检查
+  if (zoomLevel.value >= 3) {
+    console.warn('[DrawingBoard] zoomIn: 已达最大缩放，忽略。当前=', zoomLevel.value)
+    return
+  }
+  // 第2步：更新缩放
+  const before = zoomLevel.value
   zoomLevel.value = Math.min(3, zoomLevel.value + 0.1)
+  // 第3步：记录缩放变化
+  console.warn('[DrawingBoard] zoomIn: 触发点击，缩放从', before, '到', zoomLevel.value)
 }
 
 const zoomOut = () => {
-  if (zoomLevel.value <= 0.1) return
+  // 第1步：边界检查
+  if (zoomLevel.value <= 0.1) {
+    console.warn('[DrawingBoard] zoomOut: 已达最小缩放，忽略。当前=', zoomLevel.value)
+    return
+  }
+  // 第2步：更新缩放
+  const before = zoomLevel.value
   zoomLevel.value = Math.max(0.1, zoomLevel.value - 0.1)
+  // 第3步：记录缩放变化
+  console.warn('[DrawingBoard] zoomOut: 触发点击，缩放从', before, '到', zoomLevel.value)
 }
 
-const resetZoom = () => {
-  // 如果没有对象，重置到默认状态
-  if (objects.value.length === 0) {
-    zoomLevel.value = 1
-    canvasOffset.value = { x: 0, y: 0 }
-    return
-  }
+// 已移除适应全部内容按钮，删除对应重置函数以避免未使用
 
-  // 流程步骤1：计算所有对象的边界框
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-
-  objects.value.forEach((obj) => {
-    const bounds = getObjectBounds(obj)
-    if (bounds) {
-      minX = Math.min(minX, bounds.x)
-      minY = Math.min(minY, bounds.y)
-      maxX = Math.max(maxX, bounds.x + bounds.width)
-      maxY = Math.max(maxY, bounds.y + bounds.height)
-    }
-  })
-
-  // 如果没有有效边界，重置到默认状态
-  if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) {
-    zoomLevel.value = 1
-    canvasOffset.value = { x: 0, y: 0 }
-    return
-  }
-
-  // 流程步骤2：获取可视区域尺寸
-  const canvasWrapperEl = document.querySelector('.canvas-wrapper') as HTMLElement
-  if (!canvasWrapperEl) {
-    zoomLevel.value = 1
-    canvasOffset.value = { x: 0, y: 0 }
-    return
-  }
-
-  // 流程步骤2：获取 wrapper 的 padding
-  const wrapperPaddingLeft = 24
-  const wrapperPaddingTop = 80
-  const wrapperPaddingRight = 24
-  const wrapperPaddingBottom = 24
-
-  // 计算可视区域大小（减去padding）
-  const viewportWidth = canvasWrapperEl.clientWidth - wrapperPaddingLeft - wrapperPaddingRight
-  const viewportHeight = canvasWrapperEl.clientHeight - wrapperPaddingTop - wrapperPaddingBottom
-
-  // 流程步骤3：计算内容尺寸（添加边距让内容更舒适）
-  const padding = 40
-  const contentWidth = maxX - minX + padding * 2
-  const contentHeight = maxY - minY + padding * 2
-
-  // 流程步骤4：计算缩放比例（取较小值确保完全显示，限制最大3倍）
-  const scaleX = viewportWidth / contentWidth
-  const scaleY = viewportHeight / contentHeight
-  const targetZoom = Math.min(scaleX, scaleY, 3)
-
-  // 应用缩放（最小0.1倍）
-  zoomLevel.value = Math.max(0.1, targetZoom)
-
-  // 流程步骤5：计算偏移使内容在视口中居中
-  const contentCenterX = (minX + maxX) / 2
-  const contentCenterY = (minY + maxY) / 2
-
-  // 计算视口中心（物理像素，相对于 wrapper 左上角，需要加上 padding）
-  const viewportCenterX = wrapperPaddingLeft + viewportWidth / 2
-  const viewportCenterY = wrapperPaddingTop + viewportHeight / 2
-
-  // 计算偏移量（canvas-area 的 translate 是在缩放前应用的）
-  // 公式：translate = viewportCenter / zoom - contentCenter
-  const translateX = viewportCenterX / zoomLevel.value - contentCenterX
-  const translateY = viewportCenterY / zoomLevel.value - contentCenterY
-
-  // 应用偏移量
-  canvasOffset.value = {
-    x: translateX,
-    y: translateY,
-  }
-}
+// 监控缩放变化并记录应用到样式的transform
+watch(zoomLevel, (val, oldVal) => {
+  console.warn('[DrawingBoard] zoomLevel变更:', oldVal, '=>', val)
+})
 
 // 键盘事件处理
 const handleKeyDown = (e: KeyboardEvent) => {
@@ -1361,10 +1334,15 @@ const handleKeyDown = (e: KeyboardEvent) => {
 
 // 生命周期
 onMounted(() => {
+  console.log('[DrawingBoard] 🚀 组件挂载 - onMounted')
+  
+  // 流程：初始化画布
   initCanvas()
 
-  // 添加键盘事件监听
+  // 流程：添加键盘事件监听
   window.addEventListener('keydown', handleKeyDown)
+  
+  console.log('[DrawingBoard] ✅ 组件初始化完成')
 })
 
 onUnmounted(() => {
@@ -1379,6 +1357,70 @@ onUnmounted(() => {
 
   // 流程：移除键盘事件监听
   window.removeEventListener('keydown', handleKeyDown)
+})
+
+// 暴露方法给父组件
+defineExpose({
+  // 流程：保存当前绘图数据
+  saveData: () => {
+    return {
+      objects: objects.value,
+      history: history.value,
+      historyIndex: historyIndex.value
+    }
+  },
+  
+  // 流程：加载绘图数据
+  loadData: (data: { objects: DrawObject[]; history: DrawObject[][]; historyIndex: number }) => {
+    console.log('[DrawingBoard] 📥 加载绘图数据:', {
+      objectsCount: data.objects.length,
+      historyLength: data.history.length,
+      historyIndex: data.historyIndex
+    })
+    
+    objects.value = data.objects
+    history.value = data.history
+    historyIndex.value = data.historyIndex
+    
+    // 重新渲染
+    nextTick(() => {
+      render()
+      console.log('[DrawingBoard] ✅ 绘图数据已加载并重新渲染')
+    })
+  },
+  
+  // 流程：清空画布
+  clearAll: () => {
+    objects.value = []
+    history.value = [[]]
+    historyIndex.value = 0
+    render()
+  },
+  
+  // 流程：获取缩略图
+  getThumbnail: (maxWidth = 200, maxHeight = 150): string => {
+    // 第1步：检查canvas是否存在
+    if (!canvasRef.value) return ''
+    
+    // 第2步：创建临时canvas生成缩略图
+    const sourceCanvas = canvasRef.value
+    const tempCanvas = document.createElement('canvas')
+    const tempCtx = tempCanvas.getContext('2d')
+    if (!tempCtx) return ''
+    
+    // 第3步：计算缩放比例
+    const scale = Math.min(maxWidth / sourceCanvas.width, maxHeight / sourceCanvas.height)
+    tempCanvas.width = sourceCanvas.width * scale
+    tempCanvas.height = sourceCanvas.height * scale
+    
+    // 第4步：绘制缩略图
+    tempCtx.fillStyle = '#ffffff'
+    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height)
+    tempCtx.drawImage(sourceCanvas, 0, 0, tempCanvas.width, tempCanvas.height)
+    
+    // 第5步：返回base64数据
+    return tempCanvas.toDataURL('image/png', 0.8)
+  }
 })
 </script>
 
@@ -1460,7 +1502,7 @@ onUnmounted(() => {
     0 0 0 1px rgba(0, 0, 0, 0.04),
     0 8px 24px rgba(0, 0, 0, 0.08),
     0 2px 6px rgba(0, 0, 0, 0.04);
-  z-index: 50;
+  z-index: 200; /* 提高层级，避免被带有 transform 的 canvas 叠盖 */
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: auto;
 }
@@ -1533,6 +1575,219 @@ onUnmounted(() => {
     font-size: 12px;
     min-width: 45px;
     padding: 0 6px;
+  }
+}
+
+/* ==================== 页面管理抽屉样式 ==================== */
+/* 触发按钮 */
+.pages-drawer-trigger {
+  position: absolute;
+  top: 80px;
+  left: 16px;
+  z-index: 150;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s;
+  
+  &:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+  }
+}
+
+/* 抽屉对话框 */
+.pages-drawer-dialog {
+  :deep(.q-dialog__backdrop) {
+    background: rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* 抽屉卡片 */
+.pages-drawer-card {
+  width: 320px;
+  height: 100vh;
+  max-height: 100vh;
+  margin: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  
+  .drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    flex-shrink: 0;
+  }
+  
+  .drawer-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  
+  .drawer-content {
+    flex: 1;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+  }
+}
+
+/* 草稿卡片 */
+.draft-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: white;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover {
+    border-color: rgba(33, 150, 243, 0.5);
+    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.2);
+    transform: translateX(4px);
+  }
+  
+  &.is-active {
+    border-color: #2196f3;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    box-shadow: 0 2px 12px rgba(33, 150, 243, 0.3);
+  }
+}
+
+/* 页面编号徽章（左侧，小字号） */
+.page-number-badge {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.draft-card.is-active .page-number-badge {
+  background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+}
+
+/* 草稿缩略图 */
+.draft-thumbnail {
+  flex: 1;
+  height: 80px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.thumbnail-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+/* 删除按钮（右上角） */
+.delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  background: rgba(255, 255, 255, 0.9);
+  
+  &:hover {
+    background: white;
+  }
+}
+
+.draft-card:hover .delete-btn {
+  opacity: 1;
+}
+
+/* 新增页面卡片 */
+.add-page-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  border: 2px dashed rgba(33, 150, 243, 0.3);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: rgba(33, 150, 243, 0.02);
+  
+  &:hover {
+    border-color: rgba(33, 150, 243, 0.6);
+    background: rgba(33, 150, 243, 0.05);
+    transform: scale(1.02);
+  }
+}
+
+.add-page-text {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2196f3;
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .pages-drawer-trigger {
+    background: rgba(30, 30, 30, 0.95);
+  }
+  
+  .pages-drawer-card {
+    background: #1e1e1e;
+    
+    .drawer-header {
+      border-bottom-color: rgba(255, 255, 255, 0.1);
+    }
+  }
+  
+  .draft-card {
+    background: #2a2a2a;
+    border-color: rgba(255, 255, 255, 0.1);
+    
+    &:hover {
+      border-color: rgba(33, 150, 243, 0.5);
+    }
+    
+    &.is-active {
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+    }
+  }
+  
+  .add-page-card {
+    border-color: rgba(33, 150, 243, 0.3);
+    background: rgba(33, 150, 243, 0.05);
+    
+    &:hover {
+      background: rgba(33, 150, 243, 0.1);
+    }
   }
 }
 </style>

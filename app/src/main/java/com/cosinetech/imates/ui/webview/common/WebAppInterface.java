@@ -28,11 +28,11 @@ import com.cosinetech.imates.ui.activities.ExerciseSolveActivity;
 import com.cosinetech.imates.ui.activities.PhotoSearchActivity;
 import com.cosinetech.imates.data.models.Subject;
 import com.cosinetech.imates.utils.AppUtils;
+import com.cosinetech.imates.utils.ImageUtils;
 import com.cosinetech.imates.data.models.ChatMessage;
 import com.cosinetech.imates.data.models.UserInfoViewModel;
 import com.cosinetech.imates.teachermessagemq.MessagingManager;
 import com.cosinetech.imates.teachermessagemq.StudentMessage;
-import com.cosinetech.imates.utils.ImageUtils;
 import com.cosinetech.imates.utils.VoiceDbUtil;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.ApplicationModelShared;
@@ -791,11 +791,18 @@ public class WebAppInterface {
             File imageFile = new File(savedImagePath);
             long fileSize = imageFile.length();
 
-            String result = String.format(Locale.getDefault(),
-                    "{\"filePath\":\"%s\",\"width\":%d,\"height\":%d,\"fileSize\":%d}",
-                    savedImagePath, options.outWidth, options.outHeight, fileSize);
+            // 读取图片并转换为Base64（不含data:image前缀）
+            String base64 = ImageUtils.loadImageFileToBase64(savedImagePath);
+            // 移除 "data:image/png;base64," 前缀，只保留base64字符串
+            if (base64.startsWith("data:image")) {
+                base64 = base64.split(",")[1];
+            }
 
-            Log.d(TAG, "图片选择完成: " + result);
+            String result = String.format(Locale.getDefault(),
+                    "{\"filePath\":\"%s\",\"width\":%d,\"height\":%d,\"fileSize\":%d,\"base64\":\"%s\"}",
+                    savedImagePath, options.outWidth, options.outHeight, fileSize, base64);
+
+            Log.d(TAG, "图片选择完成: filePath=" + savedImagePath + ", base64Length=" + base64.length());
 
             // 图片选择完成，结果已返回
 
@@ -828,11 +835,18 @@ public class WebAppInterface {
 
             long fileSize = imageFile.length();
 
-            String result = String.format(Locale.getDefault(),
-                    "{\"filePath\":\"%s\",\"width\":%d,\"height\":%d,\"fileSize\":%d}",
-                    currentImageFilePath, options.outWidth, options.outHeight, fileSize);
+            // 读取图片并转换为Base64（不含data:image前缀）
+            String base64 = ImageUtils.loadImageFileToBase64(currentImageFilePath);
+            // 移除 "data:image/png;base64," 前缀，只保留base64字符串
+            if (base64.startsWith("data:image")) {
+                base64 = base64.split(",")[1];
+            }
 
-            Log.d(TAG, "拍照完成: " + result);
+            String result = String.format(Locale.getDefault(),
+                    "{\"filePath\":\"%s\",\"width\":%d,\"height\":%d,\"fileSize\":%d,\"base64\":\"%s\"}",
+                    currentImageFilePath, options.outWidth, options.outHeight, fileSize, base64);
+
+            Log.d(TAG, "拍照完成: filePath=" + currentImageFilePath + ", base64Length=" + base64.length());
 
             // 拍照完成，结果已返回
 

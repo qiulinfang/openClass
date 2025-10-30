@@ -109,9 +109,6 @@
     <!-- 语音录制组件 - 显示录音状态和取消提示 -->
     <VoiceRecorder :is-recording="isRecording" :show-cancel-hint="showCancelHint" />
 
-    <!-- 图片选择器对话框 - 支持拍照和相册选择 -->
-    <ImagePicker v-model="showImagePicker" @image-selected="onImageSelected" />
-
     <!-- 转发模式选择对话框 - 支持合并转发和逐条转发 -->
     <ForwardModeDialog
       v-model="showForwardModeDialog"
@@ -137,15 +134,16 @@ import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
 import { useAiGeneralChatStore } from '../stores/aiGeneralChatStore'
 import { useAiTextbookChatStore } from '../stores/aiTextbookChatStore'
 import { useTeacherChatStore } from '../stores/teacherChatStore'
+import { useImagePicker } from '../composables/useImagePicker'
 import { apiService } from '../services/api-service'
 import { androidBridge } from '../services/android-bridge'
+import { showMessage } from '../utils'
 
 // 子组件导入
 import ChatMessageComponent from './chat/ChatMessage.vue'
 import ChatInput from './chat/ChatInput.vue'
 import ForwardModeDialog from './chat/ForwardModeDialog.vue'
 import VoiceRecorder from './chat/VoiceRecorder.vue'
-import ImagePicker from './chat/ImagePicker.vue'
 
 // 类型定义导入
 import type { ChatBubble } from '../types'
@@ -429,8 +427,8 @@ const addMessagesToStore = async (messages: ChatBubble[]) => {
 const uploadedFiles = ref<Array<{ id: string; name: string; file: File }>>([]) // 已上传的文件列表
 const activeMode = ref<{ label: string; icon: string; color: string } | null>(null) // 当前激活的模式
 
-// 图片选择相关状态
-const showImagePicker = ref(false) // 是否显示图片选择器
+// 全局图片选择器
+const { pickImage } = useImagePicker()
 
 // 语音录制相关状态
 const showCancelHint = ref(false) // 是否显示取消提示
@@ -1079,12 +1077,12 @@ const startVoiceInput = (event?: TouchEvent | MouseEvent) => {
   try {
     const result = androidBridge.startVoiceRecording()
     if (!result.success) {
-      androidBridge.showToast(result.message || '开始录音失败')
+      showMessage(result.message || '开始录音失败', 'error')
       isRecording.value = false
       return
     }
   } catch {
-    androidBridge.showToast('录音功能不可用')
+    showMessage('录音功能不可用', 'error')
     isRecording.value = false
   }
 }
@@ -1109,21 +1107,18 @@ const stopVoiceInput = async (event?: TouchEvent | MouseEvent) => {
   try {
     if (shouldCancel) {
       // 取消录音 - 使用AndroidBridge
-      const result = androidBridge.cancelVoiceRecording()
-      if (result.success) {
-        androidBridge.showToast('已取消发送')
-      }
+      androidBridge.cancelVoiceRecording()
     } else {
       // 停止录音并发送 - 使用AndroidBridge
       const result = androidBridge.stopVoiceRecording()
       if (result.success && result.voiceInfo) {
         await sendVoiceMessage(result.voiceInfo)
       } else {
-        androidBridge.showToast(result.message || '录音失败')
+        showMessage(result.message || '录音失败', 'error')
       }
     }
   } catch {
-    androidBridge.showToast('录音操作失败')
+    showMessage('录音操作失败', 'error')
   }
 }
 
@@ -1148,8 +1143,10 @@ const sendVoiceMessage = async (voiceInfo: {
   duration: number
   fileSize: number
 }) => {
-  if (!hasSelectedQuestion.value) {
-    androidBridge.showToast('请先选择题目')
+  // 第1步：检查是否需要选择题目（策略模式重构版）
+  // 策略模式：使用策略的 requiresQuestion() 方法判断是否需要选择题目
+  if (!hasSelectedQuestion.value && chatStrategy.value?.requiresQuestion()) {
+    showMessage('请先选择题目', 'warning')
     return
   }
 
@@ -1191,10 +1188,10 @@ const sendVoiceMessage = async (voiceInfo: {
       await scrollToBottom()
       emit('response')
     } else {
-      androidBridge.showToast(sendResult.message || '发送失败')
+      showMessage(sendResult.message || '发送失败', 'error')
     }
   } catch {
-    androidBridge.showToast('发送失败')
+    showMessage('发送失败', 'error')
   } finally {
     isLoading.value = false
   }
@@ -1207,9 +1204,36 @@ const onVoiceRecognitionResult = (text: string) => {
   }
 }
 
-// 作用：显示图片选择器对话框
-const showImagePickerDialog = () => {
-  showImagePicker.value = true
+// 作用：显示图片选择器对话框并处理选择结果
+const showImagePickerDialog = async () => {
+  console.log('[ChatView] 🎬 showImagePickerDialog() 开始')
+  
+  // 第1步：检查是否需要选择题目（策略模式重构版）
+  if (!hasSelectedQuestion.value && chatStrategy.value?.requiresQuestion()) {
+    console.log('[ChatView] ❌ 未选择题目，终止')
+    androidBridge.showToast('请先选择题目')
+    return
+  }
+
+  // 第2步：打开全局图片选择器并等待结果
+  console.log('[ChatView] ⏳ 调用 pickImage()，等待用户选择...')
+  const imageInfo = await pickImage()
+  console.log('[ChatView] 📥 pickImage() 返回:', imageInfo ? '有图片数据' : 'null（用户取消）')
+  
+  // 第3步：如果用户取消，直接返回
+  if (!imageInfo) {
+    console.log('[ChatView] 🚫 用户取消，退出')
+    return
+  }
+  
+  // 第4步：处理选择的图片
+  console.log('[ChatView] ✅ 开始处理图片:', {
+    filePath: imageInfo.filePath,
+    width: imageInfo.width,
+    height: imageInfo.height
+  })
+  await onImageSelected(imageInfo)
+  console.log('[ChatView] 🎉 图片处理完成')
 }
 
 // 作用：处理图片选择结果，创建图片消息并发送到后端
@@ -1221,12 +1245,6 @@ const onImageSelected = async (imageInfo: {
   base64DataUrl?: string
 }): Promise<void> => {
   if (typeof imageInfo === 'object' && 'filePath' in imageInfo) {
-    // 创建sendImageMessage方法来处理图片消息
-    if (!hasSelectedQuestion.value) {
-      androidBridge.showToast('请先选择题目')
-      return
-    }
-
     // 创建图片消息
     const imageMessage: ChatBubble = {
       id: Date.now().toString(),
@@ -1250,45 +1268,40 @@ const onImageSelected = async (imageInfo: {
     isLoading.value = true
     try {
       if (props.type === 'teacher' && teacherSession.value) {
-        // 发送图片消息给老师 - 使用API服务
-        const success = await apiService.sendPictureToTeacher(
-          imageInfo.filePath,
-          teacherSession.value.sessionId,
-          currentSubject.value,
-        )
-
-        if (success) {
-          // 图片消息发送成功，等待真实回复
-          await scrollToBottom()
-          emit('response')
-        } else {
-          androidBridge.showToast('发送失败')
-        }
+        // 统一走策略/Store → AndroidBridge（RabbitMQ），避免与HTTP双轨
+        await chatStrategy.value?.sendMessage('', {
+          imageData: {
+            filePath: imageInfo.filePath,
+            // 老师通道不需要base64
+            base64DataUrl: ''
+          },
+          skipUserMessage: true
+        })
+        await scrollToBottom()
+        emit('response')
       } else {
         // 发送图片消息给AI（AI通用、AI题目和AI教材模式）
-        if (imageInfo.base64DataUrl) {
-          const messageText = inputMessage.value || ''
-          // 使用策略模式发送图片消息
-          await chatStrategy.value?.sendMessage(messageText, { 
-            selectedModel: selectedModel.value,
-            imageData: {
-              filePath: imageInfo.filePath,
-              base64DataUrl: imageInfo.base64DataUrl
-            }
-          })
+        const messageText = inputMessage.value || ''
+        // 使用策略模式发送图片消息（放宽条件：允许仅 filePath）
+        await chatStrategy.value?.sendMessage(messageText, { 
+          selectedModel: selectedModel.value,
+          imageData: {
+            filePath: imageInfo.filePath,
+            base64DataUrl: imageInfo.base64DataUrl || ''
+          },
+          // 上游已插入图片用户消息，策略内跳过再次创建文本用户消息
+          skipUserMessage: true
+        })
 
-          // 清空输入框
-          inputMessage.value = ''
+        // 清空输入框
+        inputMessage.value = ''
 
-          // 计算属性会自动响应 store 变化，无需手动同步
-          await scrollToBottom()
-          emit('response')
-        } else {
-          androidBridge.showToast('图片处理失败，缺少Base64数据')
-        }
+        // 计算属性会自动响应 store 变化，无需手动同步
+        await scrollToBottom()
+        emit('response')
       }
     } catch {
-      androidBridge.showToast('发送失败')
+      showMessage('发送失败', 'error')
     } finally {
       isLoading.value = false
     }
@@ -1366,14 +1379,14 @@ const handleForwardMessage = async (message: ChatBubble) => {
           currentQuestion: questionStore.currentQuestion,
         })
       } else {
-        androidBridge.showToast('转发失败，请重试')
+        showMessage('转发失败，请重试', 'error')
       }
     } else {
-      androidBridge.showToast('无法创建老师会话')
+      showMessage('无法创建老师会话', 'error')
     }
   } catch (error) {
     console.error('[CHAT_DEBUG] ❌ 转发消息失败:', error)
-    androidBridge.showToast('转发失败')
+    showMessage('转发失败', 'error')
   }
 }
 
@@ -1573,7 +1586,7 @@ const updateEditedMessage = async (newContent: string) => {
 
       } catch (aiError) {
         console.error('❌ [更新消息] AI回复发送失败:', aiError)
-        androidBridge.showToast('发送消息失败')
+        showMessage('发送消息失败', 'error')
       } finally {
         isLoading.value = false
       }
@@ -1583,7 +1596,7 @@ const updateEditedMessage = async (newContent: string) => {
     await scrollToBottom()
   } catch (error) {
     console.error('❌ [更新消息] 更新消息失败:', error)
-    androidBridge.showToast('更新消息失败')
+    showMessage('更新消息失败', 'error')
     cancelEditMessage()
   }
 }
@@ -1667,7 +1680,7 @@ const handleForwardModeConfirm = async (mode: 'merge' | 'separate', additionalMe
     }
   } catch {
     // 流程3：处理错误
-    androidBridge.showToast('转发失败')
+    showMessage('转发失败', 'error')
   }
 }
 
@@ -1719,15 +1732,15 @@ const forwardAsChatRecord = async (messages: ChatBubble[], additionalMessage: st
         }
         emit('switchToTeacher', forwardData)
       } else {
-        androidBridge.showToast('转发失败，请重试')
+        showMessage('转发失败，请重试', 'error')
       }
     } else {
       console.error('[CHAT_DEBUG] ❌ 无法创建老师会话')
-      androidBridge.showToast('无法创建老师会话')
+      showMessage('无法创建老师会话', 'error')
     }
   } catch (error) {
     console.error('[CHAT_DEBUG] ❌ 合并转发失败:', error)
-    androidBridge.showToast('转发失败')
+    showMessage('转发失败', 'error')
   }
 }
 
@@ -1787,14 +1800,14 @@ const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessa
         }
         emit('switchToTeacher', forwardData)
       } else {
-        androidBridge.showToast('转发失败，请重试')
+        showMessage('转发失败，请重试', 'error')
       }
     } else {
-      androidBridge.showToast('无法创建老师会话')
+      showMessage('无法创建老师会话', 'error')
     }
   } catch (error) {
     console.error('[CHAT_DEBUG] ❌ 逐条转发失败:', error)
-    androidBridge.showToast('转发失败')
+    showMessage('转发失败', 'error')
   }
 }
 
@@ -2086,6 +2099,43 @@ watch(
     // 如果没有编辑状态，直接执行切换
     executeSubjectSwitch()
   },
+)
+
+/**
+ * 监听待发送图片状态（用于拍作业场景）
+ * 流程：检测到待发送图片 → 自动调用onImageSelected发送图片 → 清除待发送图片状态
+ */
+watch(
+  () => aiGeneralStore.pendingImage,
+  async (pendingImageData) => {
+    // 第1步：检查是否为AI通用聊天场景
+    if (props.type !== 'ai-general') {
+      return
+    }
+    
+    // 第2步：检查是否有待发送图片
+    if (!pendingImageData) {
+      return
+    }
+    
+    console.log('[ChatView] 📸 检测到待发送图片，开始自动发送')
+    
+    try {
+      // 第3步：调用onImageSelected发送图片
+      await onImageSelected(pendingImageData)
+      
+      // 第4步：清除待发送图片状态
+      aiGeneralStore.clearPendingImage()
+      
+      console.log('[ChatView] ✅ 图片发送完成')
+    } catch (error) {
+      console.error('[ChatView] ❌ 自动发送图片失败:', error)
+      // 清除待发送图片状态（即使失败也要清除，避免重复发送）
+      aiGeneralStore.clearPendingImage()
+      showMessage('图片发送失败，请重试', 'error')
+    }
+  },
+  { immediate: true } // 立即执行一次，检查是否有待发送图片
 )
 
 // 执行题目切换逻辑

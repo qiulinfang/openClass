@@ -1,7 +1,7 @@
 <template>
   <div class="image-picker">
     <!-- 图片选择对话框 -->
-    <q-dialog v-model="showDialog" class="gemini-card-dialog image-picker-dialog">
+    <q-dialog v-model="isPickerVisible" class="gemini-card-dialog image-picker-dialog">
       <q-card class="picker-card">
         <q-card-section class="picker-header">
           <div class="text-h6">选择图片</div>
@@ -31,135 +31,160 @@
         </q-card-section>
       </q-card>
     </q-dialog>
-    
-
-    
-    <!-- 加载对话框 -->
-    <q-dialog v-model="showLoading" persistent>
-      <q-card class="loading-card">
-        <q-card-section class="text-center">
-          <q-spinner-dots color="primary" size="40px" />
-          <div class="loading-text">{{ loadingText }}</div>
-        </q-card-section>
-      </q-card>
-    </q-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import { androidBridge } from '../../services/android-bridge'
-import { uriToBase64DataUrl } from '../../utils/common/imageUtils'
-import type { ImageData } from '../../types'
+import { showMessage } from '../../utils'
+import { useImagePicker } from '../../composables/useImagePicker'
 
-// 导入类型定义
-import type { ImagePickerProps } from '../../types'
-
-// 定义Props
-interface Props extends ImagePickerProps {}
-
-const props = defineProps<Props>()
-
-const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
-  'image-selected': [imageInfo: ImageData]
-}>()
-
-const showDialog = computed({
-  get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value)
-})
-
-const showLoading = ref(false)
-const loadingText = ref('处理中...')
+// 使用全局图片选择器 composable
+const { isPickerVisible, handleImageSelected, handleCancel } = useImagePicker()
 
 // 防重复发送标记
 let isProcessingImage = false
 const PROCESSING_TIMEOUT = 2000 // 2秒防重复时间
 
+// 流程：用户点击X按钮 -> 关闭对话框 -> 取消Promise
 const closeDialog = () => {
-  showDialog.value = false
+  console.log('[ImagePicker.vue] 🚪 closeDialog() - 用户点击X取消')
+  isPickerVisible.value = false
+  handleCancel()
+}
+
+// 流程：用户选择了拍照或相册 -> 关闭选择对话框 -> 等待原生返回结果
+const closeDialogWithoutCancel = () => {
+  console.log('[ImagePicker.vue] 🚪 closeDialogWithoutCancel() - 关闭对话框但不取消Promise')
+  isPickerVisible.value = false
 }
 
 const captureFromCamera = async () => {
+  console.log('[ImagePicker.vue] 📸 captureFromCamera() - 用户点击拍照')
   try {
-    showLoading.value = true
-    loadingText.value = '启动相机...'
+    // 第1步：关闭选择对话框（不取消Promise，等待原生返回）
+    closeDialogWithoutCancel()
     
+    // 第2步：调用原生拍照（原生会在拍照完成后触发事件）
     const result = androidBridge.captureImageFromCamera()
+    console.log('[ImagePicker.vue] 📱 原生拍照调用结果:', result)
     
-    if (result.success) {
-      closeDialog()
-      // 相机启动成功，等待回调
+    if (!result.success) {
+      console.error('[ImagePicker.vue] ❌ 启动相机失败')
+      showMessage(result.message || '启动相机失败', 'error')
+      handleCancel()
     } else {
-      androidBridge.showToast(result.message || '启动相机失败')
-      showLoading.value = false
+      console.log('[ImagePicker.vue] ⏳ 等待原生拍照完成...')
     }
+    // 注意：不需要显示加载状态，因为原生会打开相机界面
+    // 拍照完成后，原生会触发 nativeImageCaptureResult 事件
+    // 然后 processImageResult 会调用 handleImageSelected 完成 Promise
   } catch (error) {
-    androidBridge.showToast('拍照功能异常')
-    showLoading.value = false
+    console.error('[ImagePicker.vue] ❌ 拍照功能异常:', error)
+    showMessage('拍照功能异常', 'error')
+    handleCancel()
   }
 }
 
 const selectFromGallery = async () => {
+  console.log('[ImagePicker.vue] 🖼️ selectFromGallery() - 用户点击相册')
   try {
-    showLoading.value = true
-    loadingText.value = '打开相册...'
+    // 第1步：关闭选择对话框（不取消Promise，等待原生返回）
+    closeDialogWithoutCancel()
     
+    // 第2步：调用原生相册（原生会在选择完成后触发事件）
     const result = androidBridge.selectImageFromGallery()
+    console.log('[ImagePicker.vue] 📱 原生相册调用结果:', result)
     
-    if (result.success) {
-      closeDialog()
-      // 相册打开成功，等待回调
+    if (!result.success) {
+      console.error('[ImagePicker.vue] ❌ 打开相册失败')
+      showMessage(result.message || '打开相册失败', 'error')
+      handleCancel()
     } else {
-      androidBridge.showToast(result.message || '打开相册失败')
-      showLoading.value = false
+      console.log('[ImagePicker.vue] ⏳ 等待原生相册选择...')
     }
+    // 注意：不需要显示加载状态，因为原生会打开相册界面
+    // 选择完成后，原生会触发 nativeImagePickResult 事件
+    // 然后 processImageResult 会调用 handleImageSelected 完成 Promise
   } catch (error) {
-    androidBridge.showToast('图片选择功能异常')
-    showLoading.value = false
+    console.error('[ImagePicker.vue] ❌ 图片选择功能异常:', error)
+    showMessage('图片选择功能异常', 'error')
+    handleCancel()
   }
 }
 
 
 // 统一的图片处理函数
-const processImageResult = async (imageData: any, source: 'camera' | 'gallery') => {
+// 处理原生通过事件返回的图片数据
+const processImageResult = async (imageData: {
+  success: boolean
+  filePath?: string
+  imageUri?: string
+  width?: number
+  height?: number
+  fileSize?: number
+  base64?: string
+}, source: 'camera' | 'gallery') => {
+  console.log('[ImagePicker.vue] 📦 processImageResult() 开始处理', {
+    source,
+    success: imageData.success,
+    hasFilePath: !!imageData.filePath,
+    hasBase64: !!imageData.base64,
+    isProcessing: isProcessingImage
+  })
+  
   if (isProcessingImage) {
+    console.warn('[ImagePicker.vue] ⚠️ 正在处理中，跳过重复处理')
     return
   }
   
   isProcessingImage = true
-  showLoading.value = false
   
   try {
-    const { success, filePath, imageUri, width, height, fileSize } = imageData
+    const { success, filePath, imageUri, width, height, fileSize, base64 } = imageData
     const uri = filePath || imageUri
     
-    if (success && uri) {
+    if (success && uri && base64) {
+      console.log('[ImagePicker.vue] ✅ 图片数据完整，开始构造图片信息')
+      // 流程：构造图片信息 -> 通过全局composable返回结果 -> 显示成功提示
+      const base64DataUrl = `data:image/jpg;base64,${base64}`
       
-      // 转换为Base64 Data URL（用于API请求）
-      const base64DataUrl = await uriToBase64DataUrl(uri)
-      
-      // 构造图片信息，同时包含用于渲染的原始filePath和用于API请求的base64DataUrl
-      const imageInfo: ImageData & { base64DataUrl?: string } = {
-        filePath: uri, // 保留原始URI用于本地渲染
+      const imageInfo = {
+        filePath: uri,
         width: width || 0,
         height: height || 0,
         fileSize: fileSize || 0,
-        base64DataUrl: base64DataUrl // 添加Base64 Data URL用于API请求
+        base64DataUrl: base64DataUrl
       }
       
-      emit('image-selected', imageInfo)
-      androidBridge.showToast(`${source === 'camera' ? '拍照' : '图片选择'}成功并发送`)
+      console.log('[ImagePicker.vue] 🎯 调用 handleImageSelected()', {
+        filePath: imageInfo.filePath,
+        width: imageInfo.width,
+        height: imageInfo.height,
+        fileSize: imageInfo.fileSize,
+        base64Length: base64.length
+      })
+      handleImageSelected(imageInfo)
+    } else if (success && uri && !base64) {
+      // 原生端返回成功但没有base64数据
+      console.error('[ImagePicker.vue] ❌ 原生端未返回Base64数据')
+      showMessage('图片处理失败：原生端未返回Base64数据', 'error')
+      handleCancel()
     } else {
-      androidBridge.showToast(`${source === 'camera' ? '拍照' : '图片选择'}已取消`)
+      // 用户在原生界面取消了选择
+      console.log('[ImagePicker.vue] 🚫 用户在原生界面取消了选择')
+      handleCancel()
     }
   } catch (error) {
-    androidBridge.showToast('图片处理失败')
+    console.error('[ImagePicker.vue] ❌ 图片处理失败:', error)
+    showMessage('图片处理失败', 'error')
+    handleCancel()
   }
   
   // 重置处理标记
   setTimeout(() => {
+    console.log('[ImagePicker.vue] 🔄 重置处理标记')
     isProcessingImage = false
   }, PROCESSING_TIMEOUT)
 }
@@ -176,19 +201,22 @@ const handleNativeImageCaptureResult = async (event: Event) => {
   await processImageResult(customEvent.detail, 'camera')
 }
 
-// 生命周期钩子
+// 流程：组件挂载时添加事件监听 -> 组件卸载时移除事件监听
+// 目的：全局单例模式，确保事件监听器始终存在以接收原生返回结果
 onMounted(() => {
-  
-  // 使用统一的事件监听机制
-  if (typeof window !== 'undefined') {
-    window.addEventListener('nativeImagePickResult', handleNativeImagePickResult)
-    window.addEventListener('nativeImageCaptureResult', handleNativeImageCaptureResult)
+  if (typeof window === 'undefined') {
+    return
   }
+
+  // 第1步：添加原生事件监听器
+  console.log('[ImagePicker.vue] 📡 添加原生事件监听器')
+  window.addEventListener('nativeImagePickResult', handleNativeImagePickResult)
+  window.addEventListener('nativeImageCaptureResult', handleNativeImageCaptureResult)
 })
 
+// 第2步：组件卸载时清理事件监听器
 onUnmounted(() => {
-  
-  // 清理事件监听器
+  console.log('[ImagePicker.vue] 🧹 清理原生事件监听器')
   if (typeof window !== 'undefined') {
     window.removeEventListener('nativeImagePickResult', handleNativeImagePickResult)
     window.removeEventListener('nativeImageCaptureResult', handleNativeImageCaptureResult)

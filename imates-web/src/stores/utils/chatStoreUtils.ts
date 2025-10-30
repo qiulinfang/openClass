@@ -31,8 +31,8 @@ export function createUserMessage(
     displayContent = content.replace('我们开始吧，', '')
   }
   
-  // 第2步：判断是否为图片消息
-  const isImageMessage = imageData && imageData.base64DataUrl
+  // 第2步：判断是否为图片消息（放宽条件：只要有 filePath 即视为图片）
+  const isImageMessage = !!(imageData && imageData.filePath)
   
   // 第3步：如果有图片数据，转换为标准ImageData格式
   let standardImageData: { filePath: string; width: number; height: number; fileSize: number } | undefined = undefined

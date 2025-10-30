@@ -92,12 +92,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useQuasar } from 'quasar'
 import { apiService } from '@/services/api-service'
 import { getUserInfo } from '@/utils/config/config-utils'
+import { showMessage } from '@/utils'
 
 const router = useRouter()
-const $q = useQuasar()
 
 // 响应式数据
 const feedbackText = ref('')
@@ -139,21 +138,13 @@ const handleFileSelect = (event: Event) => {
   if (file) {
     // 检查文件大小（限制5MB）
     if (file.size > 5 * 1024 * 1024) {
-      $q.notify({
-        type: 'negative',
-        message: '图片大小不能超过5MB',
-        position: 'top'
-      })
+      showMessage('图片大小不能超过5MB', 'error')
       return
     }
     
     // 检查文件类型
     if (!file.type.startsWith('image/')) {
-      $q.notify({
-        type: 'negative',
-        message: '请选择图片文件',
-        position: 'top'
-      })
+      showMessage('请选择图片文件', 'error')
       return
     }
     
@@ -208,12 +199,7 @@ const submitFeedback = async () => {
     )
     
     // HTTP状态码为2xx，表示成功
-    $q.notify({
-      type: 'positive',
-      message: '感谢您的反馈！我们会尽快处理。',
-      position: 'top',
-      timeout: 3000
-    })
+    showMessage('感谢您的反馈！我们会尽快处理。', 'success')
     
     // 清空表单
     feedbackText.value = ''
@@ -227,11 +213,7 @@ const submitFeedback = async () => {
   } catch (error) {
     // HTTP状态码非2xx或网络异常，表示失败
     console.error('提交反馈失败:', error)
-    $q.notify({
-      type: 'negative',
-      message: error instanceof Error ? error.message : '提交失败，请重试',
-      position: 'top'
-    })
+    showMessage(error instanceof Error ? error.message : '提交失败，请重试', 'error')
   } finally {
     isSubmitting.value = false
   }

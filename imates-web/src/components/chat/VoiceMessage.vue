@@ -38,6 +38,7 @@
 <script setup lang="ts">
 import { ref, onUnmounted } from 'vue'
 import { androidBridge } from '../../services/android-bridge'
+import { showMessage } from '../../utils'
 
 // 导入类型定义
 import type { VoiceMessageProps } from '../../types'
@@ -78,11 +79,11 @@ const togglePlayback = async () => {
       if (result.success) {
         startPlayback()
       } else {
-        androidBridge.showToast(result.message || '播放失败')
+        showMessage(result.message || '播放失败', 'error')
       }
     }
   } catch (error) {
-    androidBridge.showToast('播放操作失败')
+    showMessage('播放操作失败', 'error')
   } finally {
     isLoading.value = false
   }

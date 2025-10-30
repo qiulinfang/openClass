@@ -132,8 +132,6 @@ const addToMyList = async (question: any) => {
 
     // 通知父组件刷新题目列表
     emit('questionAdded')
-
-    showMessage('题目已添加到第一题位置', 'success')
   } catch (error) {
     // 根据错误类型显示不同的提示信息
     const errorMessage = error instanceof Error && error.message.includes('已存在') 

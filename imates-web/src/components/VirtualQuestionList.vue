@@ -89,13 +89,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onUnmounted, nextTick } from 'vue'
-import { useQuasar } from 'quasar'
 import { showMessage, ThrottleUtils, throttle } from '../utils'
 import type { ExerciseItem } from '../types'
 import { MathJaxUtils } from '../utils/math/mathjax'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { apiService } from '../services/api-service'
-const $q = useQuasar()
 const emit = defineEmits<{
   startAiGuidance: [question: ExerciseItem]
   questionSelected: [question: ExerciseItem, index: number]
@@ -229,47 +227,25 @@ const sendToAi = (question: ExerciseItem) => {
 }
 
 // 删除题目
-const deleteQuestion = (questionId: string) => {
+const deleteQuestion = async (questionId: string) => {
   try {
-    $q.dialog({
-      title: '删除题目',
-      message: '确定要删除这道题目吗？删除后无法恢复。',
-      persistent: true,
-      class: 'gemini-delete-dialog',
-      ok: {
-        label: '删除',
-        color: 'negative',
-        unelevated: true,
-        class: 'gemini-delete-btn'
-      },
-      cancel: {
-        label: '取消',
-        color: 'grey-7',
-        flat: true,
-        class: 'gemini-cancel-btn'
-      }
-    }).onOk(async () => {
-      deletingIds.value.add(questionId)
+    deletingIds.value.add(questionId)
 
-      try {
-        // 使用API服务删除题目
-        const success = await apiService.deleteExercise(questionId, 'math')
+    try {
+      // 使用API服务删除题目
+      const success = await apiService.deleteExercise(questionId, 'math')
 
-        if (success) {
-          showMessage('题目删除成功', 'positive')
-          // 这里可以触发父组件刷新题目列表
-        } else {
-          showMessage('题目删除失败', 'error')
-        }
-      } catch (error) {
-        showMessage('删除题目时出错: ' + (error as Error).message, 'error')
-      } finally {
-        deletingIds.value.delete(questionId)
+      if (success) {
+        showMessage('题目删除成功', 'positive')
+        // 这里可以触发父组件刷新题目列表
+      } else {
+        showMessage('题目删除失败', 'error')
       }
-    }).onCancel(() => {
-      // 用户取消删除，清理处理状态
+    } catch (error) {
+      showMessage('删除题目时出错: ' + (error as Error).message, 'error')
+    } finally {
       deletingIds.value.delete(questionId)
-    })
+    }
   } catch (error) {
     showMessage('删除题目时出错: ' + (error as Error).message, 'error')
     deletingIds.value.delete(questionId)

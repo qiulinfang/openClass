@@ -215,7 +215,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Dialog } from 'quasar'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import type { AiGeneralSession, ChatBubble } from '@/types'
 import localforage from 'localforage'
@@ -308,52 +307,37 @@ const calculateStorageSize = async () => {
 }
 
 // 第3步：清空所有会话
-const clearAllSessions = () => {
-  Dialog.create({
-    title: '⚠️ 危险操作',
-    message: '确定要清空所有会话数据吗？此操作无法撤销！',
-    cancel: true,
-    persistent: true,
-    color: 'negative'
-  }).onOk(async () => {
-    try {
-      // 删除所有会话的聊天历史
-      for (const session of sessions.value) {
-        const key = `chat_history_session_${session.sessionId}`
-        await localforage.removeItem(key)
-      }
-      
-      // 清空会话列表
-      await localforage.removeItem('ai_general_sessions')
-      
-      // 重置Store
-      aiGeneralStore.sessions = []
-      aiGeneralStore.currentSession = null
-      aiGeneralStore.messages = []
-      
-      // 刷新数据
+const clearAllSessions = async () => {
+  try {
+    // 删除所有会话的聊天历史
+    for (const session of sessions.value) {
+      const key = `chat_history_session_${session.sessionId}`
+      await localforage.removeItem(key)
+    }
+    
+    // 清空会话列表
+    await localforage.removeItem('ai_general_sessions')
+    
+    // 重置Store
+    aiGeneralStore.sessions = []
+    aiGeneralStore.currentSession = null
+    aiGeneralStore.messages = []
+    
+    // 刷新数据
     await refreshData()
   } catch (error) {
-      console.error('清空失败:', error)
-    }
-  })
+    console.error('清空失败:', error)
+  }
 }
 
 // 第4步：删除单个会话
-const deleteSession = (session: AiGeneralSession) => {
-  Dialog.create({
-    title: '确认删除',
-    message: `确定要删除会话"${session.sessionName}"吗？`,
-    cancel: true,
-    persistent: true
-  }).onOk(async () => {
-    try {
-      await aiGeneralStore.deleteSession(session.sessionId)
+const deleteSession = async (session: AiGeneralSession) => {
+  try {
+    await aiGeneralStore.deleteSession(session.sessionId)
     await refreshData()
   } catch (error) {
-      console.error('删除失败:', error)
-    }
-  })
+    console.error('删除失败:', error)
+  }
 }
 
 // 第5步：查看会话详情
@@ -433,29 +417,22 @@ const handleFileImport = async (event: Event) => {
       throw new Error('无效的数据格式')
     }
     
-    Dialog.create({
-      title: '确认导入',
-      message: `将导入 ${importData.sessions.length} 个会话，是否覆盖现有数据？`,
-      cancel: true,
-      persistent: true
-    }).onOk(async () => {
-      try {
-        // 导入会话列表
-        await localforage.setItem('ai_general_sessions', importData.sessions)
-        
-        // 导入消息
-        for (const sessionId in importData.messages) {
-          const key = `chat_history_session_${sessionId}`
-          await localforage.setItem(key, importData.messages[sessionId])
-        }
-        
-        // 刷新数据
-        await refreshData()
-        await aiGeneralStore.loadSessions()
-      } catch (error) {
-        console.error('导入失败:', error)
+    try {
+      // 导入会话列表
+      await localforage.setItem('ai_general_sessions', importData.sessions)
+      
+      // 导入消息
+      for (const sessionId in importData.messages) {
+        const key = `chat_history_session_${sessionId}`
+        await localforage.setItem(key, importData.messages[sessionId])
       }
-    })
+      
+      // 刷新数据
+      await refreshData()
+      await aiGeneralStore.loadSessions()
+    } catch (error) {
+      console.error('导入失败:', error)
+    }
   } catch (error) {
     console.error('读取文件失败:', error)
   }

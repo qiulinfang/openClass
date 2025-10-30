@@ -38,6 +38,15 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   /** 是否正在创建会话 */
   const isCreatingSession = ref(false)
   
+  /** 待发送图片（用于拍作业场景） */
+  const pendingImage = ref<{
+    filePath: string
+    width: number
+    height: number
+    fileSize: number
+    base64DataUrl?: string
+  } | null>(null)
+  
   // ==================== 私有方法 ====================
   // （已迁移到 aiMessageBuilder.ts 中的 buildAiGeneralMessage）
   
@@ -88,16 +97,19 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     content: string,
     userInfo: UserInfo | null,
     subject: 'MATH' | 'BIOLOGY',
-    selectedModel: string = 'mate'
+    selectedModel: string = 'mate',
+    skipUserMessage?: boolean
   ): Promise<void> => {
     // 第1步：如果没有当前会话，创建新会话
     if (!currentSession.value) {
       await createSession(content)
     }
     
-    // 第2步：创建用户消息
-    const userMessage = createUserMessage(content)
-    messages.value.push(userMessage)
+    // 第2步：创建用户消息（可选）
+    if (!skipUserMessage) {
+      const userMessage = createUserMessage(content)
+      messages.value.push(userMessage)
+    }
     
     // 第3步：创建临时AI回复
     const { message: tempReply, id: tempReplyId } = createTempReplyMessage()
@@ -553,21 +565,12 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         .join('\n')
       
       // 第4步：构建生成标题的提示词
-      const titlePrompt = `你是一个对话标题生成器。请为以下对话生成一个简洁的标题（不超过15个字）。只返回标题文本，不要有引号或其他说明。
+      const titlePrompt = `你是一个对话标题生成器。请为以下对话生成一个使用动宾结构或名词短语的标题（不超过15个字）。只返回标题文本，不要有引号或其他说明。
 
 对话内容：
 ${conversationSummary}
 
-要求：
-1. 标题要简洁明了，能概括对话主题
-2. 不超过15个字
-3. 不要使用标点符号
-4. 只返回标题文本，不要有其他内容
-5. 不允许出现用户等角色名称 
-6. 反映用户核心意图；
-7. 使用动宾结构或名词短语；
-8. 不包含“用户”“AI”“对话”等词；
-9. 不泄露隐私信息。
+
 
 标题：`
       
@@ -624,6 +627,30 @@ ${conversationSummary}
     enableWebSearch.value = !enableWebSearch.value
   }
   
+  /**
+   * 设置待发送图片（用于拍作业场景）
+   * 第1步：保存图片信息到状态
+   */
+  const setPendingImage = (imageData: {
+    filePath: string
+    width: number
+    height: number
+    fileSize: number
+    base64DataUrl?: string
+  }): void => {
+    console.log('[AI_GENERAL] 📸 设置待发送图片:', imageData.filePath)
+    pendingImage.value = imageData
+  }
+  
+  /**
+   * 清除待发送图片
+   * 第1步：清空待发送图片状态
+   */
+  const clearPendingImage = (): void => {
+    console.log('[AI_GENERAL] 🗑️ 清除待发送图片')
+    pendingImage.value = null
+  }
+  
   return {
     // 状态
     messages,
@@ -633,6 +660,7 @@ ${conversationSummary}
     enableWebSearch,
     isCreatingSession,
     canCreateSession,
+    pendingImage,
     
     // 方法
     sendMessage,
@@ -648,7 +676,9 @@ ${conversationSummary}
     saveSessions,
     loadSessions,
     resetState,
-    toggleWebSearch
+    toggleWebSearch,
+    setPendingImage,
+    clearPendingImage
   }
 })
 
