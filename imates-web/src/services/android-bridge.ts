@@ -274,6 +274,46 @@ export class AndroidBridge {
     return info
   }
 
+  /**
+   * 同步Web端用户信息到Android原生ViewModel
+   * 用于Web登录后同步状态，确保Android原生接口能正常工作
+   * 
+   * @param userId 用户ID
+   * @param token 用户Token (JWT)
+   * @param password 用户密码（可选）
+   * @returns 同步是否成功
+   */
+  public syncUserInfo(userId: string, token: string, password?: string): boolean {
+    try {
+      if (!window.AndroidBridge?.syncUserInfo) {
+        console.warn('[AndroidBridge] syncUserInfo接口不存在，跳过同步')
+        return false
+      }
+
+      const result = window.AndroidBridge.syncUserInfo(
+        userId,
+        token,
+        password || ''
+      )
+
+      const response = this.parseJSON<{ success: boolean; message: string }>(result, {
+        success: false,
+        message: '解析响应失败'
+      })
+
+      if (response.success) {
+        console.log('[AndroidBridge] ✅ 用户信息同步成功:', userId)
+        return true
+      } else {
+        console.error('[AndroidBridge] ❌ 用户信息同步失败:', response.message)
+        return false
+      }
+    } catch (error) {
+      console.error('[AndroidBridge] 同步用户信息异常:', error)
+      return false
+    }
+  }
+
   // HTTP相关接口已移至API服务层，此处不再提供
 
   // AI聊天、老师对话、进度保存等HTTP接口已移至API服务层，此处不再提供

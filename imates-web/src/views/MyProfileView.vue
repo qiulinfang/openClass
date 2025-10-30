@@ -21,7 +21,7 @@
             </div>
             <div class="user-details">
               <h2 class="user-name">{{ userInfo.name || '用户' }}</h2>
-              <p class="user-grade">{{ userInfo.roles.length > 0 ? userInfo.roles.join('、') : '学生' }}</p>
+              <p class="user-grade">{{ (userInfo.roles && userInfo.roles.length > 0) ? userInfo.roles.join('、') : '学生' }}</p>
             </div>
           </div>
 
@@ -30,15 +30,16 @@
             <!-- 加入课堂卡片 -->
             <q-card 
               class="feature-card join-class-card"
+              :class="{ 'in-class': isInClass }"
               @click="toggleJoinClass"
             >
               <q-card-section class="card-content">
-                <div class="card-icon card-icon-yellow">
-                  <q-icon name="groups" size="28px" />
+                <div class="card-icon" :class="isInClass ? 'card-icon-red' : 'card-icon-yellow'">
+                  <q-icon :name="isInClass ? 'logout' : 'groups'" size="28px" />
                 </div>
                 <div class="card-text">
-                  <div class="card-title">加入课堂</div>
-                  <div class="card-description">进入实时互动课堂</div>
+                  <div class="card-title">{{ isInClass ? '退出课堂' : '加入课堂' }}</div>
+                  <div class="card-description">{{ isInClass ? '结束实时互动课堂' : '进入实时互动课堂' }}</div>
                 </div>
               </q-card-section>
             </q-card>
@@ -133,104 +134,125 @@
       </q-card>
     </q-dialog>
 
-    <!-- 学科选择对话框 -->
-    <q-dialog v-model="showSubjectDialog">
-      <q-card class="dialog-card subject-dialog">
-        <q-card-section class="dialog-header">
-          <div class="text-h6">选择学科</div>
-        </q-card-section>
-        <q-card-section class="dialog-content">
-          <p class="subject-tip">请选择您要咨询的学科老师</p>
-          <div class="subject-buttons">
-            <q-btn
-              unelevated
-              color="primary"
-              label="生物老师"
-              icon="science"
-              class="subject-btn"
-              @click="selectSubject('biology')"
-            />
-            <q-btn
-              unelevated
-              color="secondary"
-              label="数学老师"
-              icon="calculate"
-              class="subject-btn"
-              @click="selectSubject('math')"
-            />
-          </div>
-        </q-card-section>
-        <q-card-actions align="right" class="dialog-actions">
-          <q-btn flat label="取消" @click="showSubjectDialog = false" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
-
-    <!-- 教师对话全屏对话框 -->
-    <q-dialog 
+    <!-- 教师对话框 -->
+    <DraggableDialog 
       v-model="showTeacherChatDialog" 
-      maximized 
-      transition-show="slide-up" 
-      transition-hide="slide-down"
+      title="教师答疑"
+      :initial-width="1000"
+      :initial-height="600"
+      :min-width="600"
+      :min-height="400"
     >
-      <q-card class="teacher-chat-card-dialog">
-        <!-- 对话框头部 -->
-        <q-toolbar class="teacher-chat-toolbar">
-          <q-btn flat round dense icon="arrow_back" @click="closeTeacherChat" />
-          <q-toolbar-title>
-            <div class="toolbar-title-content">
-              <q-icon :name="selectedSubject === 'biology' ? 'science' : 'calculate'" size="24px" class="q-mr-sm" />
-              <span>{{ selectedSubject === 'biology' ? '生物' : '数学' }}老师答疑</span>
-            </div>
-          </q-toolbar-title>
-        </q-toolbar>
+      <div class="teacher-chat-content">
+        <!-- 左侧聊天记录 -->
+        <div class="left-panel">
+          <SessionList 
+            :records="teacherRecords"
+            :selected-record-id="teacherSessionId"
+            title="聊天记录"
+            @record-click="handleTeacherRecordClick"
+            @record-delete="handleTeacherRecordDelete"
+            @batch-delete="handleTeacherBatchDelete"
+          >
+            <template #header-actions>
+              <q-btn 
+                flat 
+                dense 
+                round 
+                icon="refresh" 
+                size="sm" 
+                @click="loadTeacherSessions"
+              >
+                <q-tooltip>刷新列表</q-tooltip>
+              </q-btn>
+              <q-btn 
+                flat 
+                dense 
+                round 
+                icon="add" 
+                color="primary"
+                size="sm" 
+                @click="handleNewTeacherChat"
+              >
+                <q-tooltip>新增对话</q-tooltip>
+              </q-btn>
+            </template>
+          </SessionList>
+        </div>
 
-        <!-- ChatView组件 -->
-        <q-card-section class="teacher-chat-content q-pa-none">
+        <!-- 右侧聊天界面 -->
+        <div class="right-panel">
           <ChatView 
-            v-if="teacherSessionId"
+            v-if="showTeacherChatDialog && teacherSessionId"
             type="teacher"
+            :session-id="teacherSessionId"
             :key="teacherSessionId"
-            @scroll-to-bottom="handleScrollToBottom"
           />
-        </q-card-section>
-      </q-card>
-    </q-dialog>
+          <div v-else class="empty-chat">
+            <q-icon name="chat" size="64px" color="grey-4" />
+            <div class="text-grey-6 q-mt-md">请选择或创建一个会话</div>
+          </div>
+        </div>
+      </div>
+    </DraggableDialog>
   </q-layout>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUIStore } from '@/stores/uiStore'
+import { useUserStore } from '@/stores/userStore'
+import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { apiService } from '@/services/api-service'
 import { useQuasar } from 'quasar'
 import { androidBridge } from '@/services/android-bridge'
+import DraggableDialog from '@/components/DraggableDialog.vue'
 import ChatView from '@/components/ChatView.vue'
+import SessionList from '@/components/SessionList.vue'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
+import type { QuestionRecord } from '@/types'
 import avatarIcon from '/icons/avatar.svg'
 
 const router = useRouter()
 const $q = useQuasar()
 const uiStore = useUIStore()
+const userStore = useUserStore()
+const teacherStore = useTeacherChatStore()
 
 // 响应式数据
-const userInfo = ref({
+const isInClass = ref(false)
+const appVersion = ref('1.0.0')
+const showLogoutDialog = ref(false)
+const showJoinClassDialog = ref(false)
+const showTeacherChatDialog = ref(false)
+const teacherSessionId = ref<string>('')
+const teacherSessions = ref<Array<{
+  sessionId: string
+  sessionName: string
+  subject: string
+  createTime: number
+}>>([])
+
+// 计算属性：将教师会话映射为QuestionRecord格式
+const teacherRecords = computed<QuestionRecord[]>(() => {
+  return teacherSessions.value.map(session => ({
+    id: session.sessionId,
+    question: session.sessionName,
+    answer: session.subject === 'biology' ? '生物老师' : '数学老师',
+    timestamp: session.createTime,
+    pinned: false
+  }))
+})
+
+// 使用 Store 管理用户信息
+const userInfo = computed(() => userStore.userInfo || {
   id: '',
   name: '',
   avatar: '',
   roles: [] as string[]
 })
-const isInClass = ref(false)
-const appVersion = ref('1.0.0')
-const showLogoutDialog = ref(false)
-const showJoinClassDialog = ref(false)
 
-// 教师对话相关状态
-const showSubjectDialog = ref(false)
-const showTeacherChatDialog = ref(false)
-const selectedSubject = ref<'biology' | 'math'>('biology')
-const teacherSessionId = ref<string>('')
 
 // 初始化
 onMounted(() => {
@@ -261,35 +283,69 @@ onMounted(() => {
   })
 })
 
+// 自动刷新定时器
+let refreshTimer: ReturnType<typeof setInterval> | null = null
+
+// 监听教师对话框的打开/关闭，自动刷新会话列表
+watch(showTeacherChatDialog, (isOpen) => {
+  if (isOpen) {
+    // 对话框打开时，初始加载一次
+    loadTeacherSessions()
+    
+    // 然后每5秒自动刷新一次（用于显示自动生成的标题）
+    refreshTimer = setInterval(() => {
+      loadTeacherSessions()
+    }, 5000)
+  } else {
+    // 对话框关闭时，清除定时器
+    if (refreshTimer) {
+      clearInterval(refreshTimer)
+      refreshTimer = null
+    }
+  }
+})
+
 // 组件卸载时清理
-onUnmounted(() => {
-  // 流程：清理教师消息监听器
+onUnmounted(async () => {
+  // 流程：清理教师消息监听器（使用 Store 统一方法）
   if (teacherSessionId.value) {
-    androidBridge.cleanupTeacherMessageListener()
+    await teacherStore.cleanupMessageReceiver()
+  }
+  
+  // 清理刷新定时器
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
   }
 })
 
 // 加载用户信息
 const loadUserInfo = async () => {
   try {
-    // 第1步：从localStorage获取XUEBAN_TOKEN
+    // 第1步：尝试从持久化存储加载
+    const hasCache = userStore.loadFromStorage()
+    if (hasCache) {
+      return
+    }
+
+    // 第2步：从localStorage获取XUEBAN_TOKEN
     const token = localStorage.getItem('XUEBAN_TOKEN')
     if (!token) {
       console.warn('未找到 XUEBAN_TOKEN')
       return
     }
 
-    // 第2步：调用 /admin/info 接口获取用户信息
+    // 第3步：调用 /admin/info 接口获取用户信息
     const userData = await apiService.getUserInfo(token)
     
-    // 第3步：更新用户信息
+    // 第4步：更新用户信息并持久化
     if (userData) {
-      userInfo.value = {
+      userStore.setUserInfo({
         id: userData.id || '',
         name: userData.name || '用户',
         avatar: userData.avatar || '',
         roles: userData.roles || []
-      }
+      })
     }
   } catch (error) {
     console.error('加载用户信息失败:', error)
@@ -350,35 +406,220 @@ const confirmJoinClass = () => {
   }
 }
 
-// 与老师对话
-const chatWithTeacher = () => {
-  // 第1步：打开教师对话框
-  uiStore.openTeacherChatDialog()
+// 加载教师会话列表
+const loadTeacherSessions = () => {
+  // 第1步：从localStorage获取所有会话
+  const sessions: typeof teacherSessions.value = []
+  const sessionIds = new Set<string>()
+  
+  // 第2步：遍历localStorage查找所有教师会话
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key?.startsWith('teacher_chat_') && key.endsWith('_session')) {
+      try {
+        const sessionData = localStorage.getItem(key)
+        if (sessionData) {
+          const session = JSON.parse(sessionData)
+          
+          // 检查是否重复
+          if (!sessionIds.has(session.sessionId)) {
+            sessions.push(session)
+            sessionIds.add(session.sessionId)
+          }
+        }
+      } catch (error) {
+        console.error('解析会话数据失败:', error)
+      }
+    }
+  }
+  
+  // 第3步：按创建时间降序排序（最新的在前面）
+  sessions.sort((a, b) => b.createTime - a.createTime)
+  
+  // 第4步：更新列表
+  teacherSessions.value = sessions
 }
 
-// 选择学科（保留用于其他功能）
-const selectSubject = async (subject: 'biology' | 'math') => {
-  // 第1步：关闭学科选择对话框
-  showSubjectDialog.value = false
+// 处理教师记录点击
+const handleTeacherRecordClick = async (record: QuestionRecord) => {
+  // 第1步：从teacherSessions中找到对应的会话
+  const session = teacherSessions.value.find(s => s.sessionId === record.id)
+  if (!session) return
   
-  // 第2步：保存选择的学科
-  selectedSubject.value = subject
+  // 第2步：设置当前会话ID
+  teacherSessionId.value = session.sessionId
+  
+  // 第3步：设置科目
+  const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
+  localStorage.setItem('currentTeacherSubject', storeSubject)
+  
+  // 第4步：设置 teacherStore 的会话
+  teacherStore.setSession(session)
+  
+  // 第5步：加载聊天历史
+  await teacherStore.loadChatHistory(session.sessionId)
+  
+  console.log('[MyProfileView] ✅ 选择会话:', session.sessionId)
+}
 
+// 处理教师记录删除
+const handleTeacherRecordDelete = (record: QuestionRecord) => {
+  $q.dialog({
+    title: '确认删除',
+    message: '确定要删除这个会话吗？删除后无法恢复。',
+    cancel: true,
+    persistent: true
+  }).onOk(async () => {
+    try {
+      // 第1步：删除localStorage中的会话数据
+      localStorage.removeItem(`teacher_chat_${record.id}_session`)
+      
+      // 第2步：删除IndexedDB中的聊天历史
+      await teacherStore.clearChatHistory(record.id)
+      
+      // 第3步：刷新列表
+      loadTeacherSessions()
+      
+      // 第4步：如果删除的是当前会话，清空选择
+      if (teacherSessionId.value === record.id) {
+        teacherSessionId.value = ''
+        teacherStore.clearSession()
+      }
+      
+      $q.notify({
+        type: 'positive',
+        message: '会话已删除',
+        position: 'top'
+      })
+    } catch (error) {
+      console.error('删除会话失败:', error)
+      $q.notify({
+        type: 'negative',
+        message: '删除失败，请重试',
+        position: 'top'
+      })
+    }
+  })
+}
+
+// 处理批量删除教师会话
+const handleTeacherBatchDelete = (recordIds: string[]) => {
+  $q.dialog({
+    title: '确认删除',
+    message: `确定要删除选中的 ${recordIds.length} 个会话吗？删除后无法恢复。`,
+    cancel: true,
+    persistent: true
+  }).onOk(async () => {
+    try {
+      let successCount = 0
+      let failedCount = 0
+      
+      // 第1步：批量删除
+      for (const id of recordIds) {
+        try {
+          // 删除localStorage中的会话数据
+          localStorage.removeItem(`teacher_chat_${id}_session`)
+          
+          // 删除IndexedDB中的聊天历史
+          await teacherStore.clearChatHistory(id)
+          
+          // 如果删除的是当前会话，清空选择
+          if (teacherSessionId.value === id) {
+            teacherSessionId.value = ''
+            teacherStore.clearSession()
+          }
+          
+          successCount++
+        } catch (error) {
+          console.error(`删除会话 ${id} 失败:`, error)
+          failedCount++
+        }
+      }
+      
+      // 第2步：刷新列表
+      loadTeacherSessions()
+      
+      // 第3步：显示结果
+      if (failedCount === 0) {
+        $q.notify({
+          type: 'positive',
+          message: `已删除 ${successCount} 个会话`,
+          position: 'top'
+        })
+      } else {
+        $q.notify({
+          type: 'warning',
+          message: `成功删除 ${successCount} 个，失败 ${failedCount} 个`,
+          position: 'top'
+        })
+      }
+    } catch (error) {
+      console.error('批量删除失败:', error)
+      $q.notify({
+        type: 'negative',
+        message: '批量删除失败，请重试',
+        position: 'top'
+      })
+    }
+  })
+}
+
+// 与老师对话（从卡片进入）
+const chatWithTeacher = () => {
+  // 第1步：加载会话列表
+  loadTeacherSessions()
+  
+  // 第2步：如果有历史会话，直接打开对话框
+  if (teacherSessions.value.length > 0) {
+    showTeacherChatDialog.value = true
+  } else {
+    // 第3步：没有历史会话，直接使用数学学科
+    selectSubject('math')
+  }
+}
+
+// 新建教师对话（从SessionList的新增按钮进入）
+const handleNewTeacherChat = () => {
+  // 直接使用数学学科
+  selectSubject('math')
+}
+
+// 初始化教师对话（直接使用数学学科）
+const selectSubject = async (subject: 'biology' | 'math') => {
   try {
-    // 第3步：显示加载提示
+    // 第1步：显示加载提示
     $q.loading.show({ message: '正在准备教师对话...' })
 
-    // 第4步：设置exerciseStore中的科目信息（biology -> BIOLOGY, math -> MATH）
+    // 第2步：确保用户信息已加载（修复"用户未登录"错误）
+    if (!userInfo.value?.id) {
+      await loadUserInfo()
+    }
+    
+    // 第3步：再次检查用户信息
+    if (!userInfo.value?.id) {
+      $q.loading.hide()
+      $q.notify({
+        type: 'negative',
+        message: '无法获取用户信息，请重新登录',
+        position: 'top'
+      })
+      return
+    }
+
+    // 第4步：设置科目信息（biology -> BIOLOGY, math -> MATH）
     const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
     localStorage.setItem('currentTeacherSubject', storeSubject)
     
     // 第5步：生成临时会话ID供后续使用
     teacherSessionId.value = `teacher-chat-${Date.now()}`
     
-    // 第6步：初始化教师消息监听器
-    androidBridge.initTeacherMessageListener()
+    // 第6步：初始化教师消息监听器（使用 Store 统一方法）
+    await teacherStore.initMessageReceiver()
 
-    // 第7步：打开教师对话Dialog
+    // 第7步：刷新会话列表
+    loadTeacherSessions()
+    
+    // 第8步：打开教师对话Dialog
     showTeacherChatDialog.value = true
     $q.notify({
       type: 'positive',
@@ -395,18 +636,6 @@ const selectSubject = async (subject: 'biology' | 'math') => {
     })
     $q.loading.hide()
   }
-}
-
-// 关闭教师对话
-const closeTeacherChat = () => {
-  // 流程：关闭对话框 -> 清理会话ID
-  showTeacherChatDialog.value = false
-  // 注意：不清理teacherSessionId，保留会话以便下次继续
-}
-
-// 处理滚动到底部
-const handleScrollToBottom = () => {
-  // ChatView内部已处理滚动，这里可以添加额外逻辑
 }
 
 // 拍照给老师
@@ -467,8 +696,11 @@ const logout = async () => {
   showLogoutDialog.value = false
   
   try {
-    // 清除本地存储的用户信息
+    // 第1步：清除本地存储的用户信息
     apiService.logoutStudent()
+    
+    // 第2步：清除 Store 中的用户信息和持久化数据
+    userStore.clearUserInfo()
     
     $q.notify({
       type: 'positive',
@@ -476,7 +708,7 @@ const logout = async () => {
       position: 'top'
     })
     
-    // 跳转到登录页面
+    // 第3步：跳转到登录页面
     router.push('/login')
   } catch (error) {
     console.error('退出登录失败:', error)
@@ -586,6 +818,11 @@ $bg-gray: #f9fafb;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 
+  &.in-class {
+    border: 2px solid #EF5350;
+    box-shadow: 0 2px 8px rgba(239, 83, 80, 0.2);
+  }
+
   .card-content {
     padding: 10px 10px;
     display: flex;
@@ -610,6 +847,10 @@ $bg-gray: #f9fafb;
 
   .card-icon-yellow {
     background: #FFA726;
+  }
+
+  .card-icon-red {
+    background: #EF5350;
   }
 
   .card-icon-green {
@@ -714,57 +955,6 @@ $bg-gray: #f9fafb;
   border-top: 1px solid #e5e7eb;
 }
 
-// 学科选择对话框样式
-.subject-dialog {
-  min-width: 340px;
-
-  .subject-tip {
-    color: $text-secondary;
-    margin-bottom: 20px;
-    text-align: center;
-  }
-
-  .subject-buttons {
-    display: flex;
-    gap: 16px;
-
-    .subject-btn {
-      flex: 1;
-      height: 80px;
-      font-size: 16px;
-      font-weight: 600;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-  }
-}
-
-// 教师对话全屏对话框样式
-.teacher-chat-card-dialog {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-
-  .teacher-chat-toolbar {
-    background: $primary-color;
-    color: white;
-    flex-shrink: 0;
-
-    .toolbar-title-content {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-  }
-
-  .teacher-chat-content {
-    flex: 1;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-}
 
 // 响应式设计
 @media (max-width: 768px) {
@@ -831,6 +1021,40 @@ $bg-gray: #f9fafb;
       top: 6px;
       right: 6px;
       font-size: 12px;
+    }
+  }
+}
+
+// 教师聊天对话框样式
+.teacher-chat-content {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+  
+  .left-panel {
+    width: 280px;
+    border-right: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    background: #f5f5f5;
+    overflow: hidden;
+  }
+  
+  .right-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: white;
+    
+    .empty-chat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 60px 20px;
     }
   }
 }

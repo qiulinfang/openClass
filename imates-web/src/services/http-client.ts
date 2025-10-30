@@ -123,11 +123,12 @@ export class HttpClient {
    * 尝试自动重新登录
    * 第1步：获取保存的用户凭据
    * 第2步：根据接口路径选择合适的登录方式
-   * 第3步：执行登录并返回是否成功
+   * 第3步：执行登录并保存新token
+   * 第4步：返回是否成功
    */
   private async tryAutoRelogin(url: string): Promise<boolean> {
     try {
-      // 获取用户凭据
+      // 第1步：获取用户凭据
       const userId = localStorage.getItem('userId')
       const password = localStorage.getItem('userPassword')
       
@@ -139,15 +140,17 @@ export class HttpClient {
       // 动态导入apiService避免循环依赖
       const { apiService } = await import('./api-service')
       
-      // 根据接口路径选择登录方式
+      // 第2步：根据接口路径选择登录方式
       if (url.startsWith('/blw-edu-yb')) {
         // 研伴相关接口：使用研伴登录
         const loginResult = await apiService.loginYanban(userId, password)
+        // 第3步：loginYanban内部已保存token到YANBAN_TOKEN
         return loginResult !== null
       } else if (url.startsWith('/permission') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
         // 学班管理员相关接口：使用学班登录
         try {
           const token = await apiService.loginXueban(userId, password)
+          // 第3步：loginXueban内部已保存token到XUEBAN_TOKEN
           return !!token
         } catch {
           return false
@@ -155,6 +158,7 @@ export class HttpClient {
       } else {
         // 其他接口：尝试通用登录（优先研伴登录）
         const loginResult = await apiService.loginYanban(userId, password)
+        // 第3步：loginYanban内部已保存token
         return loginResult !== null
       }
     } catch {

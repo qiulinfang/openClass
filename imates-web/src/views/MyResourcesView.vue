@@ -185,7 +185,7 @@
             </div>
 
         <!-- 调试面板 -->
-        <DebugPanel :visible="showDebugPanel" @close="showDebugPanel = false" />
+        <ResourceDebugPanel :visible="showDebugPanel" @close="showDebugPanel = false" />
       </q-page>
     </q-page-container>
   </q-layout>
@@ -200,7 +200,7 @@ import { apiService } from '../services/api-service'
 import { httpClient } from '../services/http-client'
 import { showMessage } from '../utils'
 import type { UserTextbookInfo } from '../types'
-import DebugPanel from '../components/DebugPanel.vue'
+import ResourceDebugPanel from '../components/ResourceDebugPanel.vue'
 import BScroll from '@better-scroll/core'
 // 第1步：移除PullDown插件导入，不再使用下拉刷新功能
 

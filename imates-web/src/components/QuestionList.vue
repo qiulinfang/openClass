@@ -85,7 +85,8 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed } from 'vue'
 import { showMessage, ThrottleUtils, throttle } from '../utils'
-import { useExerciseStore } from '../stores/exerciseStore'
+import { useQuestionStore } from '../stores/questionStore'
+import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
 import type { ExerciseItem } from '../types'
 import { apiService } from '../services/api-service'
 import { androidBridge } from '../services/android-bridge'
@@ -174,11 +175,11 @@ const loadQuestions = async () => {
 
     // 同步到全局 store，确保 selectQuestion 能够定位
     // store会自动进行去重处理
-    const store = useExerciseStore()
-    store.setQuestions(convertedQuestions)
+    const questionStore = useQuestionStore()
+    questionStore.setQuestions(convertedQuestions)
     
     // 从store获取去重后的题目列表
-    questions.value = [...store.questions]
+    questions.value = [...questionStore.questions]
 
     if (convertedQuestions.length > 0) {
       // 等待 DOM 更新
@@ -194,11 +195,11 @@ const loadQuestions = async () => {
 // 刷新题目列表数据（不重新加载，保持当前状态）
 const refreshQuestions = () => {
   // 从store同步最新的题目列表
-  const store = useExerciseStore()
-  questions.value = [...store.questions]
+  const questionStore = useQuestionStore()
+  questions.value = [...questionStore.questions]
   
   // 保持当前选中的题目索引
-  const currentIndex = store.currentQuestionIndex
+  const currentIndex = questionStore.currentQuestionIndex
   if (currentIndex >= 0 && currentIndex < questions.value.length) {
     selectedQuestionIndex.value = currentIndex
   }
@@ -225,8 +226,8 @@ const selectQuestion = async (index: number) => {
     selectedQuestionIndex.value = index
 
     // 通知store更新当前选中的题目，这会自动加载历史记录但不开始AI指导
-    const exerciseStore = useExerciseStore()
-    await exerciseStore.selectQuestion(index)
+    const questionStore = useQuestionStore()
+    await questionStore.selectQuestion(index)
 
     // 发出题目选择事件
     const question = questions.value[index]
@@ -309,8 +310,8 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
     selectedQuestionIndex.value = targetIndex
     
     // 通知store更新当前选中的题目
-    const exerciseStore = useExerciseStore()
-    await exerciseStore.selectQuestion(targetIndex)
+    const questionStore = useQuestionStore()
+    await questionStore.selectQuestion(targetIndex)
 
     // 等待DOM更新后滚动
     nextTick(() => {
@@ -376,8 +377,8 @@ const moveQuestionToTop = async (questionId: string) => {
     }
 
     // 同步到store
-    const exerciseStore = useExerciseStore()
-    exerciseStore.setQuestions(questions.value)
+    const questionStore = useQuestionStore()
+    questionStore.setQuestions(questions.value)
 
 
     // 题目置顶后滚动到最顶部
@@ -428,8 +429,8 @@ const startPhotoSearch = () => {
           questions.value.unshift(mockQuestion)
 
           // 同步到store
-          const exerciseStore = useExerciseStore()
-          exerciseStore.setQuestions(questions.value)
+          const questionStore = useQuestionStore()
+          questionStore.setQuestions(questions.value)
 
         }
       }, 2000)
@@ -442,17 +443,39 @@ const startPhotoSearch = () => {
 // 发送给AI
 const sendToAi = async (question: ExerciseItem) => {
   try {
-    const exerciseStore = useExerciseStore()
+    const questionStore = useQuestionStore()
+    const aiExerciseStore = useAiExerciseChatStore()
 
     // 关键修复：在store的questions数组中查找题目索引，而不是在本地questions数组中查找
-    const storeIndex = exerciseStore.questions.findIndex((q) => q.id === question.id)
+    const storeIndex = questionStore.questions.findIndex((q: ExerciseItem) => q.id === question.id)
     if (storeIndex >= 0) {
       // 使用store中的索引来选择题目
-      await exerciseStore.selectQuestion(storeIndex)
+      await questionStore.selectQuestion(storeIndex)
       
-      // 等待题目选择完成后再启动AI指导
-      // startAiGuidance会等待loadChatHistory完成，确保聊天记录正确加载
-      await exerciseStore.startAiGuidance()
+      // 第1步：检查是否选择了题目
+      if (!questionStore.currentQuestion) {
+        showMessage('请先选择一道题目', 'warning')
+        return
+      }
+
+      // 第2步：标记当前题目正在进行AI指导
+      questionStore.currentQuestion.isAiGuiding = true
+      questionStore.currentQuestion.beginGuideToSolve = true
+
+      // 第3步：清除聊天记录
+      await aiExerciseStore.clearChatHistory(questionStore.currentQuestion.id)
+      
+      // 第4步：发送题目内容给AI进行分析（每次都是新的开始）
+      const questionContent = questionStore.currentQuestion.question || '题目内容为空'
+      const initialMessage = `我们开始吧，${questionContent}`
+      
+      await aiExerciseStore.sendMessage(
+        initialMessage,
+        questionStore.currentQuestion,
+        { id: '', userId: '' },
+        'MATH',
+        'mate'
+      )
     } else {
       // 如果store中没有找到题目，说明数据不同步，需要重新同步
       showMessage('题目数据不同步，请重新加载', 'warning')
@@ -462,8 +485,15 @@ const sendToAi = async (question: ExerciseItem) => {
     // 发出事件通知父组件切换到AI聊天界面
     emit('startAiGuidance', question)
 
-  } catch {
-    showMessage('发送给AI失败', 'error')
+  } catch (error) {
+    console.error('启动AI指导失败:', error)
+    // 发生错误时重置AI指导状态
+    const questionStore = useQuestionStore()
+    if (questionStore.currentQuestion) {
+      questionStore.currentQuestion.isAiGuiding = false
+      questionStore.currentQuestion.beginGuideToSolve = false
+    }
+    showMessage('启动AI指导失败', 'error')
   }
 }
 

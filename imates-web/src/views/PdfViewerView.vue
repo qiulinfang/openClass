@@ -112,7 +112,7 @@
             
             <!-- 问题记录 Tab -->
             <div v-if="activeTab === 'question-record'" class="tab-content">
-              <QuestionRecordList 
+              <SessionList 
                 :records="questionRecords"
                 @record-click="handleQuestionRecordClick"
               />
@@ -186,13 +186,13 @@
 import { onMounted, onBeforeUnmount, computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
-import { useExerciseStore } from '@/stores/exerciseStore'
+import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import { resourceManager } from '@/services/resource-manager'
 import type { UserTextbookInfo, LocalFileInfo, QuestionRecord } from '@/types'
 import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
 import ChatView from '@/components/ChatView.vue'
-import QuestionRecordList from '@/components/QuestionRecordList.vue'
+import SessionList from '@/components/SessionList.vue'
 
 // 使用 Store 和路由
 const store = usePdfViewerStore()
@@ -200,7 +200,7 @@ const route = useRoute()
 const router = useRouter()
 
 // 使用 exerciseStore 来发送AI消息
-const exerciseStore = useExerciseStore()
+const aiTextbookStore = useAiTextbookChatStore()
 
 // 组件状态
 const renderProgress = ref({
@@ -493,16 +493,14 @@ const handleScreenshotCaptured = async (blob: Blob) => {
       aiType: 'ai-textbook'
     })
     
-    await exerciseStore.sendChatMessage(
+    await aiTextbookStore.sendChatMessage(
       '', // 空文本，只发送图片
-      'ai', // 发送给AI
       'mate', // 使用默认AI模型
       {
         filePath: fileName,
         base64DataUrl: base64DataUrl
       },
-      false, // 不隐藏前缀
-      'ai-textbook' // AI教材类型
+      false // 不隐藏前缀
     )
     
     const endTime = Date.now()

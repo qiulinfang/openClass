@@ -159,18 +159,17 @@ const handleLogin = async () => {
   isLoading.value = true
   
   try {
-    // 直接发送明文密码，与Android端LoginActivity保持一致
+    // 第1步：直接发送明文密码，与Android端LoginActivity保持一致
+    // loginXueban内部已自动保存token和用户凭据到localStorage
     const token = await apiService.loginXueban(loginForm.account, loginForm.password)
-    // 保存到本地存储
-    localStorage.setItem('XUEBAN_TOKEN', token)
-    localStorage.setItem('userId', loginForm.account)
-    localStorage.setItem('userPassword', loginForm.password)
 
-    // 获取用户信息
-    const userInfo = await apiService.getUserInfo(token)
-    localStorage.setItem('userInfo', JSON.stringify(userInfo))
+    // 第2步：获取用户信息
+    // getUserInfo内部已自动完成：
+    // - 持久化到localStorage
+    // - 同步到Android原生ViewModel
+    await apiService.getUserInfo(token)
     
-    // 跳转到首页
+    // 第3步：跳转到首页
     router.push('/app')
     
   } catch (error: unknown) {

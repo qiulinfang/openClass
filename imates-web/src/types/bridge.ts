@@ -77,6 +77,7 @@ declare global {
       showNotification(message: string, type: string): void
       getUserToken(): string
       getUserInfo(): JSONString
+      syncUserInfo(userId: string, token: string, password: string): JSONString
       exitActivity(): void
 
       // ========== 题目相关功能 ==========

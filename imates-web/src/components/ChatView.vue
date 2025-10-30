@@ -131,7 +131,12 @@ import { ref, nextTick, onMounted, onUnmounted, computed, watch } from 'vue'
 import { QScrollArea } from 'quasar'
 
 // 状态管理和工具函数
-import { useExerciseStore } from '../stores/exerciseStore'
+import { useQuestionStore } from '../stores/questionStore'
+import { useUserStore } from '../stores/userStore'
+import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
+import { useAiGeneralChatStore } from '../stores/aiGeneralChatStore'
+import { useAiTextbookChatStore } from '../stores/aiTextbookChatStore'
+import { useTeacherChatStore } from '../stores/teacherChatStore'
 import { apiService } from '../services/api-service'
 import { androidBridge } from '../services/android-bridge'
 
@@ -148,6 +153,9 @@ import type { ChatMessageSession } from '../types'
 import type { ChatViewProps } from '../types'
 import { SessionType } from '../types'
 
+// 策略模式导入
+import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
+
 // ==================== 组件配置 ====================
 // 定义组件属性 - 支持AI和老师两种对话模式
 const props = defineProps<ChatViewProps>()
@@ -163,7 +171,28 @@ const emit = defineEmits<{
 
 // ==================== 状态管理 ====================
 // 全局状态管理
-const exerciseStore = useExerciseStore()
+const questionStore = useQuestionStore()
+const userStore = useUserStore()
+
+// 场景Store
+const aiExerciseStore = useAiExerciseChatStore()
+const aiGeneralStore = useAiGeneralChatStore()
+const aiTextbookStore = useAiTextbookChatStore()
+const teacherStore = useTeacherChatStore()
+
+// 辅助函数：获取当前场景的Store
+const getScenarioStore = () => {
+  switch (props.type) {
+    case 'ai-exercise': return aiExerciseStore
+    case 'ai-general': return aiGeneralStore
+    case 'ai-textbook': return aiTextbookStore
+    case 'teacher': return teacherStore
+    default: return aiGeneralStore
+  }
+}
+
+// 策略模式：创建聊天策略实例
+const chatStrategy = ref<ChatStrategy>()
 
 // 组件引用
 const scrollAreaRef = ref<QScrollArea>() // 滚动区域引用
@@ -174,6 +203,11 @@ const chatInputRef = ref<InstanceType<typeof ChatInput>>() // 输入组件引用
 const inputMessage = ref('') // 输入框内容
 const isLoading = ref(false) // 消息发送加载状态
 const isRecording = ref(false) // 语音录制状态
+
+// 对话相关状态（需要在策略初始化之前声明）
+const teacherSession = ref<ChatMessageSession | null>(null) // 老师对话会话对象
+const aiSessionId = ref<string>('') // AI会话ID
+const currentSubject = ref<string>('math') // 当前科目，默认为数学
 
 // ==================== 键盘动画相关状态 ====================
 // 键盘显示/隐藏状态
@@ -225,13 +259,16 @@ const getCSSAnimationParams = () => {
 }
 
 // ==================== 计算属性 ====================
-// 使用store中的联网搜索状态
-const enableWebSearch = computed(() => exerciseStore.enableWebSearch)
+// 使用场景Store中的联网搜索状态
+const enableWebSearch = computed(() => getScenarioStore().enableWebSearch)
 const selectedModel = ref('mate') // 选中的AI模型
 
-// 聊天记录加载状态
-const isChatLoading = computed(() => exerciseStore.isChatLoading) // 聊天记录是否正在加载
-const isChatRendering = computed(() => exerciseStore.isChatRendering) // 聊天记录是否正在渲染
+// 聊天记录加载状态（从场景Store获取）
+const isChatLoading = computed(() => getScenarioStore().isChatLoading)
+const isChatRendering = computed(() => {
+  const store = getScenarioStore()
+  return 'isChatRendering' in store ? store.isChatRendering : false
+})
 
 // ==================== 加载状态管理 ====================
 // 优化加载指示器显示，避免快速闪烁
@@ -252,7 +289,7 @@ const MIN_LOADING_DELAY = 100 // 最小延迟时间100ms，避免极短时间的
  * 2. 加载完成时确保最小显示时间，提升用户体验
  */
 watch(
-  () => exerciseStore.isChatLoading,
+  () => isChatLoading.value,
   (isLoading) => {
     if (isLoading) {
       // 开始加载，先延迟一小段时间再显示，避免极短时间的闪烁
@@ -267,7 +304,7 @@ watch(
       // 延迟显示加载指示器
       loadingTimeout.value = setTimeout(() => {
         // 如果此时仍在加载中，才显示指示器
-        if (exerciseStore.isChatLoading) {
+        if (isChatLoading.value) {
           showLoadingIndicator.value = true
         }
         loadingTimeout.value = null
@@ -304,33 +341,49 @@ const selectedMessages = ref<Set<string>>(new Set()) // 已选择的消息ID集�
 const displayedMessages = ref<ChatBubble[]>([]) // 用于UI显示的本地消息列表
 
 /**
+ * 监听对话类型变化，动态切换策略
+ * 策略模式：根据 props.type 创建对应的策略实例
+ */
+watch(() => [props.type, props.sessionId] as const, ([newType, sessionId]) => {
+  // 第1步：如果是教师对话且提供了sessionId，创建session信息
+  let session = undefined
+  if (newType === 'teacher' && sessionId) {
+    // 从localStorage获取科目信息，默认为数学
+    const storeSubject = localStorage.getItem('currentTeacherSubject') || 'MATH'
+    const subject = storeSubject === 'BIOLOGY' ? 'biology' : 'math'
+    
+    session = {
+      sessionId: sessionId,
+      sessionName: `${subject === 'biology' ? '生物' : '数学'}老师答疑`,
+      subject: subject
+    }
+    currentSubject.value = subject
+  } else if (teacherSession.value) {
+    // 使用已有的session
+    session = {
+      sessionId: teacherSession.value.sessionId,
+      sessionName: teacherSession.value.sessionName,
+      subject: currentSubject.value
+    }
+  }
+  
+  // 第2步：创建策略实例
+  chatStrategy.value = ChatStrategyFactory.create(newType, {
+    subject: currentSubject.value,
+    session: session
+  })
+}, { immediate: true })
+
+/**
  * 监听消息数据变化，同步UI显示的消息列表
- * 作用：根据对话类型（AI通用/AI题目/AI教材/老师）选择对应的消息数据源
- * 逻辑：
- * 1. AI通用模式：使用exerciseStore.aiGeneralMessages
- * 2. AI题目模式：使用exerciseStore.aiExerciseMessages
- * 3. AI教材模式：使用exerciseStore.aiTextbookMessages
- * 4. 老师模式：使用exerciseStore.teacherMessages
- * 5. 其他情况：默认使用AI消息存储
+ * 策略模式：使用策略的 getMessages() 方法获取消息
  */
 watch(
-  () => [props.type, exerciseStore.aiGeneralMessages, exerciseStore.aiExerciseMessages, exerciseStore.aiTextbookMessages, exerciseStore.teacherMessages],
+  () => [props.type, aiGeneralStore.messages, aiExerciseStore.messages, aiTextbookStore.messages, teacherStore.messages],
   () => {
-    if (props.type === 'ai-general') {
-      // AI通用模式下，使用AI通用消息存储
-      displayedMessages.value = exerciseStore.aiGeneralMessages
-    } else if (props.type === 'ai-exercise') {
-      // AI题目模式下，使用AI题目消息存储
-      displayedMessages.value = exerciseStore.aiExerciseMessages
-    } else if (props.type === 'ai-textbook') {
-      // AI教材模式下，使用AI教材消息存储
-      displayedMessages.value = exerciseStore.aiTextbookMessages
-    } else if (props.type === 'teacher') {
-      // 老师模式下，使用老师消息存储
-      displayedMessages.value = exerciseStore.teacherMessages
-    } else {
-      // 其他情况，显示 AI 消息存储的内容（或为空）
-      displayedMessages.value = exerciseStore.aiExerciseMessages
+    // 第2步：使用策略获取消息列表
+    if (chatStrategy.value) {
+      displayedMessages.value = chatStrategy.value.getMessages()
     }
   },
   { immediate: true, deep: true },
@@ -351,71 +404,30 @@ const pendingSwitchAction = ref<(() => void) | null>(null) // 待执行的切换
 
 // ==================== 消息管理函数 ====================
 /**
- * 添加单条消息到存储
- * 作用：将单条消息添加到store或本地消息列表，根据对话类型选择不同的存储方式
- * 参数：message - 要添加的聊天消息对象
+ * 添加单条消息到存储（策略模式重构版）
+ * 策略模式：使用策略的 addMessage() 方法
  */
 const addMessageToStore = async (message: ChatBubble) => {
-  if (props.type === 'ai-general') {
-    // AI通用模式下，添加到AI通用消息存储
-    exerciseStore.aiGeneralMessages.push(message)
-    // 保存聊天记录到存储
-    await exerciseStore.saveChatHistory(false, 'ai-general')
-  } else if (props.type === 'ai-exercise') {
-    // AI题目模式下，添加到AI题目消息存储
-    exerciseStore.aiExerciseMessages.push(message)
-    // 保存聊天记录到存储
-    await exerciseStore.saveChatHistory(false, 'ai-exercise')
-  } else if (props.type === 'ai-textbook') {
-    // AI教材模式下，添加到AI教材消息存储
-    exerciseStore.aiTextbookMessages.push(message)
-    // 保存聊天记录到存储
-    await exerciseStore.saveChatHistory(false, 'ai-textbook')
-  } else if (props.type === 'teacher') {
-    // 添加到老师消息存储
-    exerciseStore.teacherMessages.push(message)
-    // 保存老师聊天记录到存储
-    await exerciseStore.saveTeacherChatHistory()
+  if (chatStrategy.value) {
+    await chatStrategy.value.addMessage(message)
   }
 }
 
 /**
- * 批量添加消息到存储
- * 作用：批量添加消息到store或本地消息列表，用于处理多条消息的添加操作
- * 参数：messages - 要添加的聊天消息对象数组
+ * 批量添加消息到存储（策略模式重构版）
+ * 策略模式：循环调用策略的 addMessage() 方法
  */
 const addMessagesToStore = async (messages: ChatBubble[]) => {
-  if (props.type === 'ai-general') {
-    // AI通用模式下，添加到AI通用消息存储
-    exerciseStore.aiGeneralMessages.push(...messages)
-    // 保存聊天记录到存储
-    await exerciseStore.saveChatHistory(false, 'ai-general')
-  } else if (props.type === 'ai-exercise') {
-    // AI题目模式下，添加到AI题目消息存储
-    exerciseStore.aiExerciseMessages.push(...messages)
-    // 保存聊天记录到存储
-    await exerciseStore.saveChatHistory(false, 'ai-exercise')
-  } else if (props.type === 'ai-textbook') {
-    // AI教材模式下，添加到AI教材消息存储
-    exerciseStore.aiTextbookMessages.push(...messages)
-    // 保存聊天记录到存储
-    await exerciseStore.saveChatHistory(false, 'ai-textbook')
-  } else if (props.type === 'teacher') {
-    // 添加到老师消息存储
-    exerciseStore.teacherMessages.push(...messages)
-    // 保存老师聊天记录到存储
-    await exerciseStore.saveTeacherChatHistory()
+  if (chatStrategy.value) {
+    for (const message of messages) {
+      await chatStrategy.value.addMessage(message)
+    }
   }
 }
 // ==================== 其他功能相关状态 ====================
 // 文件上传相关状态
 const uploadedFiles = ref<Array<{ id: string; name: string; file: File }>>([]) // 已上传的文件列表
 const activeMode = ref<{ label: string; icon: string; color: string } | null>(null) // 当前激活的模式
-
-// 老师对话相关状态
-const teacherSession = ref<ChatMessageSession | null>(null) // 老师对话会话对象
-const aiSessionId = ref<string>('') // AI会话ID
-const currentSubject = ref<string>('math') // 当前科目，默认为数学
 
 // 图片选择相关状态
 const showImagePicker = ref(false) // 是否显示图片选择器
@@ -441,7 +453,7 @@ const thumbStyle = {
  * 作用：判断当前是否有选中的题目，用于控制输入框的占位符文本
  */
 const hasSelectedQuestion = computed(() => {
-  return exerciseStore.currentQuestion !== null
+  return questionStore.currentQuestion !== null
 })
 
 /**
@@ -623,8 +635,8 @@ const initializeMessages = async () => {
     const teacherSubject = localStorage.getItem('currentTeacherSubject') || 'MATH'
     currentSubject.value = teacherSubject === 'BIOLOGY' ? 'biology' : 'math'
   } else {
-    // 其他模式使用exerciseStore中的科目
-    currentSubject.value = exerciseStore.subject === 'BIOLOGY' ? 'biology' : 'math'
+    // 其他模式使用userStore中的科目
+    currentSubject.value = userStore.subject === 'BIOLOGY' ? 'biology' : 'math'
   }
 
   // 第2步：如果是老师对话模式，需要初始化老师会话
@@ -636,56 +648,22 @@ const initializeMessages = async () => {
   // 注意：这里不直接调用 loadChatHistory，因为 selectQuestion 已经会调用
   // 避免重复加载导致的问题
 
-  // 第3步：只有在没有选择题目且没有聊天记录时才添加引导消息
-  if (!hasSelectedQuestion.value) {
-    // 3.1 根据对话类型和科目生成欢迎消息内容
-    let welcomeContent = '你好！有什么问题可以随时向我提问。'
-    
-    if (props.type === 'ai-exercise') {
-      // AI题目对话模式需要先选择题目
-      welcomeContent = '请先选择一道题目，然后我们可以开始讨论。你可以从题目列表中选择一道感兴趣的题目。'
-    } else if (props.type === 'teacher') {
-      // 教师对话模式的欢迎消息，根据科目显示
-      const subjectName = currentSubject.value === 'biology' ? '生物' : '数学'
-      welcomeContent = `你好！我是${subjectName}老师，有什么问题可以随时向我提问。如果有具体的题目需要讨论，也可以先选择题目再开始。`
-    } else if (props.type === 'ai-general') {
-      // AI通用对话模式
-      welcomeContent = '你好！我是你的学习伙伴，有什么问题都可以问我。'
-    } else if (props.type === 'ai-textbook') {
-      // AI教材对话模式
-      welcomeContent = '你好！我可以帮你解答教材中的知识点问题，有什么想了解的吗？'
-    }
+  // 第3步：只有在没有选择题目且没有聊天记录时才添加引导消息（策略模式重构版）
+  if (!hasSelectedQuestion.value && chatStrategy.value) {
+    // 策略模式：使用策略获取欢迎消息
+    const welcomeContent = chatStrategy.value.getWelcomeMessage()
     
     const welcomeMessage: ChatBubble = {
       id: 'welcome_' + Date.now(),
       content: welcomeContent,
-      type: (() => {
-        if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
-          return 'ai'
-        } else if (props.type === 'teacher') {
-          return 'teacher'
-        }
-        return 'ai'
-      })(),
+      type: chatStrategy.value.getMessageType(),
       timestamp: '',
-      sender: (() => {
-        if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
-          return 'ai'
-        } else if (props.type === 'teacher') {
-          return 'teacher'
-        }
-        return 'ai'
-      })(),
+      sender: chatStrategy.value.getSenderType(),
     }
 
-    if (props.type === 'ai-general' && exerciseStore.aiGeneralMessages.length === 0) {
-      exerciseStore.aiGeneralMessages = [welcomeMessage]
-    } else if (props.type === 'ai-exercise' && exerciseStore.aiExerciseMessages.length === 0) {
-      exerciseStore.aiExerciseMessages = [welcomeMessage]
-    } else if (props.type === 'ai-textbook' && exerciseStore.aiTextbookMessages.length === 0) {
-      exerciseStore.aiTextbookMessages = [welcomeMessage]
-    } else if (props.type === 'teacher' && exerciseStore.teacherMessages.length === 0) {
-      exerciseStore.teacherMessages = [welcomeMessage]
+    const store = getScenarioStore()
+    if (store.messages.length === 0) {
+      store.messages.push(welcomeMessage)
     }
   }
 }
@@ -696,19 +674,17 @@ const initializeMessages = async () => {
  */
 const initializeTeacherSession = async () => {
   try {
-    // 步骤1：初始化老师消息监听器
-    if (typeof window !== 'undefined' && window.AndroidBridge?.initTeacherMessageListener) {
-      window.AndroidBridge.initTeacherMessageListener()
-    }
+    // 步骤1：初始化老师消息监听器（使用 Store 统一方法）
+    await teacherStore.initMessageReceiver()
 
     // 步骤2：如果有当前题目，基于AI会话创建老师会话
-    if (exerciseStore.currentQuestion) {
+    if (questionStore.currentQuestion) {
       // 2.1 生成AI会话ID（基于题目ID和时间戳，确保唯一性）
-      aiSessionId.value = `ai_session_${exerciseStore.currentQuestion.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      aiSessionId.value = `ai_session_${questionStore.currentQuestion.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       
       // 2.2 生成会话名称，清理LaTeX内容避免JSON解析问题
       const rawTitle =
-        exerciseStore.currentQuestion.question || exerciseStore.currentQuestion.title || '题目'
+        questionStore.currentQuestion.question || questionStore.currentQuestion.title || '题目'
 
       // 移除LaTeX数学公式，只保留纯文本
       const cleanTitle = rawTitle
@@ -720,16 +696,27 @@ const initializeTeacherSession = async () => {
 
       const aiSessionName = (cleanTitle || '数学题目').substring(0, 30) + '...'
 
-      // 2.3 创建老师会话 - 优先使用AndroidBridge
-      const session = await apiService.createTeacherChatSession(
+      // 2.3 创建老师会话（使用 Store 统一方法）
+      const createdSession = teacherStore.createTeacherSession(
         aiSessionId.value,
         aiSessionName,
-        currentSubject.value,
+        currentSubject.value as 'biology' | 'math'
       )
 
-
-      if (session) {
-        teacherSession.value = session
+      if (createdSession) {
+        // 构建 ChatMessageSession 格式的会话对象
+        teacherSession.value = {
+          sessionId: createdSession.sessionId,
+          sessionName: createdSession.sessionName,
+          catalogId: 'CATEGORY_TEACHER_QA',
+          sessionType: currentSubject.value === 'biology' 
+            ? SessionType.USER_TALK_TEACHER_BIOLOGY 
+            : SessionType.USER_TALK_TEACHER_MATH,
+          createTime: createdSession.createTime,
+          updateTime: createdSession.createTime,
+          msgCount: 0,
+        }
+        
         // 2.4 加载老师会话的历史消息
         await loadTeacherChatHistory()
       } else {
@@ -747,27 +734,78 @@ const initializeTeacherSession = async () => {
         teacherSession.value = tempSession
       }
     } else {
-      // 步骤3：如果没有题目，创建通用教师会话（适用于个人中心场景）
-      // 3.1 从localStorage读取当前教师科目（由MyProfileView设置）
+      // 步骤3：如果没有题目，需要区分"加载已有会话"和"创建新会话"
+      // 3.1 从localStorage读取当前教师科目
       const teacherSubject = localStorage.getItem('currentTeacherSubject') || 'MATH'
       currentSubject.value = teacherSubject === 'BIOLOGY' ? 'biology' : 'math'
       
-      // 3.2 生成会话ID
+      // 3.2 判断是否是已存在的会话
+      // sessionId格式：
+      // - 临时ID（新建）: teacher-chat-{timestamp}
+      // - 真实ID（已存在）: teacher-{hex}-{timestamp}
+      const isExistingSession = props.sessionId && 
+                                props.sessionId.startsWith('teacher-') && 
+                                !props.sessionId.startsWith('teacher-chat-')
+      
+      if (isExistingSession) {
+        // 场景A：加载已有会话
+        const sessionKey = `teacher_chat_${props.sessionId}_session`
+        const sessionData = localStorage.getItem(sessionKey)
+        
+        if (sessionData) {
+          const existingSession = JSON.parse(sessionData)
+          
+          // 直接使用已有会话，不创建新的
+          teacherSession.value = {
+            sessionId: existingSession.sessionId,
+            sessionName: existingSession.sessionName,
+            catalogId: 'CATEGORY_TEACHER_QA',
+            sessionType: existingSession.subject === 'biology' 
+              ? SessionType.USER_TALK_TEACHER_BIOLOGY 
+              : SessionType.USER_TALK_TEACHER_MATH,
+            createTime: existingSession.createTime,
+            updateTime: existingSession.createTime,
+            msgCount: 0,
+          }
+          
+          // 设置到store
+          teacherStore.setSession(existingSession)
+          
+          // 加载历史消息
+          await loadTeacherChatHistory()
+          
+          return
+        }
+      }
+      
+      // 场景B：创建新会话（仅当是临时ID或未找到已有会话时）
+      // 3.3 生成会话ID
       aiSessionId.value = `teacher_general_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       
-      // 3.3 生成会话名称
+      // 3.4 生成会话名称
       const subjectName = teacherSubject === 'BIOLOGY' ? '生物' : '数学'
       const aiSessionName = `${subjectName}老师答疑 - ${new Date().toLocaleString()}`
       
-      // 3.4 创建老师会话
-      const session = await apiService.createTeacherChatSession(
+      // 3.5 创建老师会话（使用 Store 统一方法）
+      const createdSession = teacherStore.createTeacherSession(
         aiSessionId.value,
         aiSessionName,
-        currentSubject.value,
+        currentSubject.value as 'biology' | 'math'
       )
       
-      if (session) {
-        teacherSession.value = session
+      if (createdSession) {
+        // 构建 ChatMessageSession 格式的会话对象
+        teacherSession.value = {
+          sessionId: createdSession.sessionId,
+          sessionName: createdSession.sessionName,
+          catalogId: 'CATEGORY_TEACHER_QA',
+          sessionType: currentSubject.value === 'biology' 
+            ? SessionType.USER_TALK_TEACHER_BIOLOGY 
+            : SessionType.USER_TALK_TEACHER_MATH,
+          createTime: createdSession.createTime,
+          updateTime: createdSession.createTime,
+          msgCount: 0,
+        }
         // 3.5 加载老师会话的历史消息（如果有）
         await loadTeacherChatHistory()
       } else {
@@ -814,7 +852,7 @@ const loadTeacherChatHistory = async () => {
     const history = await apiService.getTeacherChatHistory(teacherSession.value.sessionId)
     if (history && history.length > 0) {
       // 获取当前已存在的消息ID集合，避免覆盖已正确设置的消息
-      const existingMessageIds = new Set(exerciseStore.teacherMessages.map((msg) => msg.id))
+      const existingMessageIds = new Set(teacherStore.messages.map((msg: ChatBubble) => msg.id))
 
       const historyMessages: ChatBubble[] = history.map((msg) => ({
         id: msg.messageId,
@@ -847,9 +885,9 @@ const sendMessage = async (attachedFile?: File) => {
     return
   }
 
-  // 第1步：检查是否需要选择题目
-  // 只有AI题目对话模式需要先选择题目，其他模式（AI通用、AI教材、教师）都可以直接对话
-  if (!hasSelectedQuestion.value && props.type === 'ai-exercise') {
+  // 第1步：检查是否需要选择题目（策略模式重构版）
+  // 策略模式：使用策略的 requiresQuestion() 方法判断是否需要选择题目
+  if (!hasSelectedQuestion.value && chatStrategy.value?.requiresQuestion()) {
     const userMessage: ChatBubble = {
       id: Date.now().toString(),
       content: inputMessage.value || (attachedFile ? '[图片消息]' : ''),
@@ -860,10 +898,10 @@ const sendMessage = async (attachedFile?: File) => {
 
     const botReply: ChatBubble = {
       id: (Date.now() + 1).toString(),
-      content: '请先选择一道题目，然后我们可以开始讨论。你可以从题目列表中选择一道感兴趣的题目。',
-      type: 'ai',
+      content: chatStrategy.value.getWelcomeMessage(),
+      type: chatStrategy.value.getMessageType(),
       timestamp: '',
-      sender: 'ai',
+      sender: chatStrategy.value.getSenderType(),
     }
 
     await addMessagesToStore([userMessage, botReply])
@@ -877,59 +915,21 @@ const sendMessage = async (attachedFile?: File) => {
   isLoading.value = true
 
   try {
-    if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
-      // AI通用、AI题目和AI教材模式：检查是否包含"我们开始吧"前缀，如果包含则隐藏显示
-      const hidePrefix = messageContent.includes('我们开始吧')
-      // 使用exerciseStore的流式响应功能，传递选中的学习伙伴角色和AI类型
-      await exerciseStore.sendChatMessage(
-        messageContent,
-        'ai',
-        selectedModel.value,
-        undefined,
-        hidePrefix,
-        props.type,
-      )
-
-      // 计算属性会自动响应 store 变化，无需手动同步
-    } else if (props.type === 'teacher') {
-      // 发送消息给老师（不使用流式响应）
-      await sendMessageToTeacher(messageContent)
-
-      const userMessage: ChatBubble = {
-        id: Date.now().toString(),
-        content: messageContent,
-        type: 'user',
-        timestamp: '',
-        sender: 'user',
-      }
-
-      await addMessageToStore(userMessage)
-    }
-
+    // AI通用、AI题目、AI教材和教师答疑模式：统一使用策略模式发送消息
+    await chatStrategy.value?.sendMessage(messageContent, { 
+      selectedModel: selectedModel.value
+    })
     await scrollToBottom()
     emit('response')
   } catch (error) {
     console.error('消息发送失败:', error)
+    // 策略模式：使用策略获取消息类型和发送者类型
     const errorMessage: ChatBubble = {
       id: (Date.now() + 1).toString(),
       content: '抱歉，消息发送失败，请稍后重试。',
-      type: (() => {
-        if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
-          return 'ai'
-        } else if (props.type === 'teacher') {
-          return 'teacher'
-        }
-        return 'ai'
-      })(),
+      type: chatStrategy.value?.getMessageType() || 'ai',
       timestamp: '',
-      sender: (() => {
-        if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
-          return 'ai'
-        } else if (props.type === 'teacher') {
-          return 'teacher'
-        }
-        return 'ai'
-      })(),
+      sender: chatStrategy.value?.getSenderType() || 'ai',
     }
 
     await addMessageToStore(errorMessage)
@@ -1142,42 +1142,6 @@ const handleVoiceMove = (event: TouchEvent | MouseEvent) => {
   showCancelHint.value = deltaY > CANCEL_THRESHOLD
 }
 
-// 发送消息给老师
-// 作用：向老师发送文本消息，创建会话并调用API
-const sendMessageToTeacher = async (
-  content: string,
-): Promise<{ success: boolean; reply: string; messageId: string; timestamp: string }> => {
-
-  if (!teacherSession.value) {
-    await initializeTeacherSession()
-  }
-
-  if (!teacherSession.value) {
-    throw new Error('无法创建老师会话')
-  }
-
-  try {
-    const success = await apiService.sendTextMessageToTeacher(
-      content,
-      teacherSession.value.sessionId,
-      currentSubject.value,
-    )
-
-    if (success) {
-      return {
-        success: true,
-        reply: '消息已发送给老师，请等待回复...',
-        messageId: 'teacher_msg_' + Date.now(),
-        timestamp: '',
-      }
-    } else {
-      throw new Error('发送消息失败')
-    }
-  } catch (error) {
-    throw error
-  }
-}
-
 // 作用：发送语音消息，创建语音消息对象并发送到后端
 const sendVoiceMessage = async (voiceInfo: {
   filePath: string
@@ -1303,22 +1267,15 @@ const onImageSelected = async (imageInfo: {
       } else {
         // 发送图片消息给AI（AI通用、AI题目和AI教材模式）
         if (imageInfo.base64DataUrl) {
-          // 检查是否包含"我们开始吧"前缀，如果包含则隐藏显示
           const messageText = inputMessage.value || ''
-          const hidePrefix = messageText.includes('我们开始吧')
-          // 使用exerciseStore的流式响应功能发送图片消息
-          // 传递包含filePath和base64DataUrl的imageData对象和AI类型
-          await exerciseStore.sendChatMessage(
-            messageText,
-            'ai',
-            selectedModel.value,
-            {
+          // 使用策略模式发送图片消息
+          await chatStrategy.value?.sendMessage(messageText, { 
+            selectedModel: selectedModel.value,
+            imageData: {
               filePath: imageInfo.filePath,
-              base64DataUrl: imageInfo.base64DataUrl,
-            },
-            hidePrefix,
-            props.type,
-          )
+              base64DataUrl: imageInfo.base64DataUrl
+            }
+          })
 
           // 清空输入框
           inputMessage.value = ''
@@ -1406,7 +1363,7 @@ const handleForwardMessage = async (message: ChatBubble) => {
         // 转发成功后切换页面
         emit('switchToTeacher', {
           messages: [message],
-          currentQuestion: exerciseStore.currentQuestion,
+          currentQuestion: questionStore.currentQuestion,
         })
       } else {
         androidBridge.showToast('转发失败，请重试')
@@ -1439,8 +1396,8 @@ const forwardMessageToTeacher = async (messages: ChatBubble[]) => {
     }))
 
     // 直接添加到老师消息存储并持久化
-    exerciseStore.teacherMessages.push(...convertedMessages)
-    await exerciseStore.saveTeacherChatHistory()
+    teacherStore.messages.push(...convertedMessages)
+    await teacherStore.saveChatHistory()
   }
 
   return success
@@ -1466,7 +1423,7 @@ const handleEditMessage = (message: ChatBubble) => {
   isEditingMessage.value = true
   editingMessageId.value = message.id
   originalMessageContent.value = message.content || ''
-  editingQuestionId.value = exerciseStore.currentQuestion?.id || null
+  editingQuestionId.value = questionStore.currentQuestion?.id || null
 
   // 将消息内容复制到输入框
   // 如果消息包含公式，需要将渲染后的HTML转换为TiptapEditor可识别的格式
@@ -1572,17 +1529,8 @@ const updateEditedMessage = async (newContent: string) => {
   if (!editingMessageId.value) return
 
   try {
-    // 根据AI类型获取对应的消息记录
-    let targetMessages: ChatBubble[]
-    if (props.type === 'ai-general') {
-      targetMessages = exerciseStore.aiGeneralMessages
-    } else if (props.type === 'ai-exercise') {
-      targetMessages = exerciseStore.aiExerciseMessages
-    } else if (props.type === 'ai-textbook') {
-      targetMessages = exerciseStore.aiTextbookMessages
-    } else {
-      targetMessages = exerciseStore.aiExerciseMessages
-    }
+    // 根据场景获取对应的消息记录
+    const targetMessages: ChatBubble[] = getScenarioStore().messages
 
     // 查找要更新的消息
     const messageIndex = targetMessages.findIndex(
@@ -1596,19 +1544,21 @@ const updateEditedMessage = async (newContent: string) => {
     // 删除该消息之后的所有消息（因为编辑会改变对话上下文）
     const messagesToKeep = targetMessages.slice(0, messageIndex)
 
-    // 根据AI类型更新对应的消息记录
-    if (props.type === 'ai-general') {
-      exerciseStore.aiGeneralMessages = messagesToKeep
-    } else if (props.type === 'ai-exercise') {
-      exerciseStore.aiExerciseMessages = messagesToKeep
-    } else if (props.type === 'ai-textbook') {
-      exerciseStore.aiTextbookMessages = messagesToKeep
-    } else {
-      exerciseStore.aiExerciseMessages = messagesToKeep
-    }
+    // 更新场景Store的消息列表
+    const store = getScenarioStore()
+    store.messages.length = 0 // 清空现有消息
+    store.messages.push(...messagesToKeep) // 添加保留的消息
 
-    // 保存聊天记录
-    await exerciseStore.saveChatHistory(false, props.type)
+    // 保存聊天记录（根据场景调用不同的方法）
+    if (props.type === 'ai-exercise' && questionStore.currentQuestion?.id) {
+      await aiExerciseStore.saveChatHistory(questionStore.currentQuestion.id)
+    } else if (props.type === 'ai-general') {
+      await aiGeneralStore.saveChatHistory()
+    } else if (props.type === 'ai-textbook') {
+      await aiTextbookStore.saveChatHistory()
+    } else if (props.type === 'teacher') {
+      await teacherStore.saveChatHistory()
+    }
 
     // 清除编辑状态
     cancelEditMessage()
@@ -1618,17 +1568,8 @@ const updateEditedMessage = async (newContent: string) => {
       isLoading.value = true
 
       try {
-        // 检查是否包含"我们开始吧"前缀，如果包含则隐藏显示
-        const hidePrefix = newContent.includes('我们开始吧')
-        // 使用exerciseStore的流式响应功能，传递选中的学习伙伴角色和AI类型
-        await exerciseStore.sendChatMessage(
-          newContent,
-          'ai',
-          selectedModel.value,
-          undefined,
-          hidePrefix,
-          props.type,
-        )
+        // 使用策略模式发送编辑后的消息
+        await chatStrategy.value?.sendMessage(newContent, { selectedModel: selectedModel.value })
 
       } catch (aiError) {
         console.error('❌ [更新消息] AI回复发送失败:', aiError)
@@ -1766,13 +1707,13 @@ const forwardAsChatRecord = async (messages: ChatBubble[], additionalMessage: st
         }))
 
         // 直接添加到老师消息存储
-        exerciseStore.teacherMessages.push(...convertedMessages)
-        await exerciseStore.saveTeacherChatHistory()
+        teacherStore.messages.push(...convertedMessages)
+        await teacherStore.saveChatHistory()
 
         // 转发成功后切换页面
         const forwardData = {
           messages: messages,
-          currentQuestion: exerciseStore.currentQuestion,
+          currentQuestion: questionStore.currentQuestion,
           additionalMessage: additionalMessage,
           forwardMode: 'merge',
         }
@@ -1833,13 +1774,13 @@ const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessa
         }))
 
         // 直接添加到老师消息存储
-        exerciseStore.teacherMessages.push(...convertedMessages)
-        await exerciseStore.saveTeacherChatHistory()
+        teacherStore.messages.push(...convertedMessages)
+        await teacherStore.saveChatHistory()
 
         // 转发成功后切换页面
         const forwardData = {
           messages: messages,
-          currentQuestion: exerciseStore.currentQuestion,
+          currentQuestion: questionStore.currentQuestion,
           additionalMessage: additionalMessage,
           forwardMode: 'separate',
           successCount: successCount,
@@ -1859,7 +1800,7 @@ const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessa
 
 // 作用：切换联网搜索功能的开启/关闭状态
 const toggleWebSearch = () => {
-  exerciseStore.toggleWebSearch()
+  getScenarioStore().toggleWebSearch()
 }
 
 // 作用：移除已上传的文件
@@ -2044,18 +1985,7 @@ watch(hasSelectedQuestion, (newValue, oldValue) => {
  * 逻辑：如果消息数量从有变为0，说明可能是清除了记录，需要重新初始化
  */
 watch(
-  () => {
-    // 根据AI类型返回对应的消息数量
-    if (props.type === 'ai-general') {
-      return exerciseStore.aiGeneralMessages.length
-    } else if (props.type === 'ai-exercise') {
-      return exerciseStore.aiExerciseMessages.length
-    } else if (props.type === 'ai-textbook') {
-      return exerciseStore.aiTextbookMessages.length
-    } else {
-      return exerciseStore.aiExerciseMessages.length
-    }
-  },
+  () => getScenarioStore().messages.length,
   (newLength, oldLength) => {
     // 如果消息数量从有变为0，说明可能是清除了记录，需要重新初始化
     if (oldLength > 0 && newLength === 0 && (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook')) {
@@ -2074,18 +2004,7 @@ watch(
 let scrollTimeout: ReturnType<typeof setTimeout> | null = null
 
 watch(
-  () => {
-    // 根据AI类型返回对应的消息数组
-    if (props.type === 'ai-general') {
-      return exerciseStore.aiGeneralMessages
-    } else if (props.type === 'ai-exercise') {
-      return exerciseStore.aiExerciseMessages
-    } else if (props.type === 'ai-textbook') {
-      return exerciseStore.aiTextbookMessages
-    } else {
-      return exerciseStore.aiExerciseMessages
-    }
-  },
+  () => getScenarioStore().messages,
   (newMessages) => {
     if (newMessages && newMessages.length > 0) {
       // 如果是键盘显示状态，立即滚动；否则防抖滚动
@@ -2111,7 +2030,7 @@ watch(
 )
 
 watch(
-  () => exerciseStore.currentQuestion,
+  () => questionStore.currentQuestion,
   (newQuestion, oldQuestion) => {
     if (newQuestion?.id !== oldQuestion?.id) {
       // 检查是否正在编辑消息
@@ -2144,7 +2063,7 @@ watch(
 )
 
 watch(
-  () => exerciseStore.subject,
+  () => userStore.subject,
   (newSubject) => {
     currentSubject.value = newSubject === 'BIOLOGY' ? 'biology' : 'math'
 
@@ -2185,7 +2104,7 @@ const executeQuestionSwitch = () => {
   }
 
   // 注意：不要在这里清空聊天记录！
-  // 聊天记录的清空和加载应该由 exerciseStore.selectQuestion 统一管理
+  // 聊天记录的清空和加载应该由 questionStore.selectQuestion 统一管理
   // 避免与 loadChatHistory 产生竞态条件
 
   initializeMessages()

@@ -9,7 +9,6 @@ import CryptoJS from 'crypto-js'
 import {
   getApiUrl,
   getExerciseListUrl,
-  getChatUrl,
   getDeleteExerciseUrl,
   API_ENDPOINTS,
 } from './api-endpoints'
@@ -404,19 +403,15 @@ export class ApiService {
     onStream?: (chunk: string, isComplete: boolean) => void,
   ): Promise<any> {
     try {
-
-      // 确定请求URL：优先使用message中的dstUrl，否则根据科目动态生成
-      let url: string
-      if (message.dstUrl) {
-        // 如果指定了dstUrl，使用它来构造完整的请求URL
-        url = getApiUrl(message.dstUrl)
-      } else {
-        // 回退到原有逻辑：根据bmNo中的科目信息确定URL
-        const subject = this.extractSubjectFromBmNo(message.bmNo)
-        url = getChatUrl(subject)
+      // 第1步：验证 dstUrl 是否存在
+      if (!message.dstUrl) {
+        throw new Error('dstUrl is required. Please set message.dstUrl explicitly in the message builder.')
       }
 
-      // 开始轮询聊天
+      // 第2步：构造完整的请求URL
+      const url = getApiUrl(message.dstUrl)
+
+      // 第3步：开始轮询聊天
       return await this.pollChatMessage(message, url, onComplete, onStream)
     } catch (error) {
       const errorResult = {
@@ -670,17 +665,6 @@ export class ApiService {
     return errorResult
   }
 
-  /**
-   * 从bmNo中提取科目信息
-   */
-  private extractSubjectFromBmNo(bmNo: string): string {
-    // 可以根据bmNo的前缀或其他规则推断科目
-    // 这里简化处理，默认返回数学
-    if (bmNo && bmNo.toLowerCase().includes('bio')) {
-      return 'biology'
-    }
-    return 'math'
-  }
 
   /**
    * 发送消息给老师
@@ -886,12 +870,16 @@ export class ApiService {
 
   /**
    * 用户登录（管理员登录）
+   * 第1步：发送登录请求
+   * 第2步：保存token和用户凭据到localStorage
+   * 第3步：返回token
    * @param account 账号
    * @param password 密码（明文，与Android端LoginActivity保持一致）
    * @returns Promise<string> 返回token
    */
   public async loginXueban(account: string, password: string): Promise<string> {
     try {
+      // 第1步：发送登录请求
       const response = await httpClient.post<{
         success: boolean
         message: string
@@ -907,7 +895,18 @@ export class ApiService {
         throw new Error(response.message || '登录失败')
       }
 
-      return response.data.data.token
+      const token = response.data.data.token
+      
+      // 第2步：保存token和用户凭据到localStorage
+      localStorage.setItem('XUEBAN_TOKEN', token)
+      localStorage.setItem('userId', account)
+      localStorage.setItem('userPassword', password)
+      
+      // 更新登录时间戳，用于会话管理
+      localStorage.setItem('lastLoginTime', Date.now().toString())
+
+      // 第3步：返回token
+      return token
     } catch (error: unknown) {
       throw new Error(error instanceof Error ? error.message : '登录失败')
     }
@@ -916,12 +915,16 @@ export class ApiService {
 
   /**
    * 获取用户信息
+   * 第1步：调用API获取用户信息
+   * 第2步：持久化到localStorage
+   * 第3步：同步到Android原生ViewModel（如果在Android环境）
+   * 
    * @param token 用户token
    * @returns Promise<UserInfo> 用户信息
    */
   public async getUserInfo(token: string): Promise<UserInfo> {
     try {
-      // 只通过URL参数传递token，http-client会自动添加认证头
+      // 第1步：调用API获取用户信息
       const response = await httpClient.get<{
         success: boolean
         message: string
@@ -932,7 +935,40 @@ export class ApiService {
         throw new Error(response.message || '获取用户信息失败')
       }
 
-      return response.data.data
+      const userInfo = response.data.data
+      
+      // 第2步：持久化用户信息到localStorage
+      try {
+        localStorage.setItem('userInfo', JSON.stringify(userInfo))
+        console.log('[API] ✅ 用户信息已持久化到localStorage')
+      } catch (storageError) {
+        console.warn('[API] ⚠️ 持久化用户信息失败:', storageError)
+      }
+      
+      // 第3步：同步用户信息到Android原生ViewModel（关键！）
+      // 确保Android原生接口（如教师消息监听）能正常工作
+      try {
+        const userId = localStorage.getItem('userId')
+        const userPassword = localStorage.getItem('userPassword')
+        
+        if (userId && token) {
+          const syncSuccess = this.androidBridge.syncUserInfo(
+            userId,
+            token,
+            userPassword || ''
+          )
+          
+          if (syncSuccess) {
+            console.log('[API] ✅ 用户信息已同步到Android原生ViewModel')
+          } else {
+            console.warn('[API] ⚠️ 用户信息同步失败（可能不在Android环境）')
+          }
+        }
+      } catch (syncError) {
+        console.warn('[API] ⚠️ 同步用户信息到Android异常:', syncError)
+      }
+
+      return userInfo
     } catch (error: unknown) {
       throw new Error(error instanceof Error ? error.message : '获取用户信息失败')
     }

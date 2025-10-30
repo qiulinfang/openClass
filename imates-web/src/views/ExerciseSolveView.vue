@@ -114,7 +114,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
-import { useExerciseStore } from '../stores/exerciseStore'
+import { useQuestionStore } from '../stores/questionStore'
+import { useUserStore } from '../stores/userStore'
+import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
+import { useTeacherChatStore } from '../stores/teacherChatStore'
 import { storeToRefs } from 'pinia'
 import QuestionList from '../components/QuestionList.vue'
 import ChatView from '../components/ChatView.vue'
@@ -122,8 +125,11 @@ import AnswerView from '../components/AnswerView.vue'
 import SimilarQuestionList from '../components/SimilarQuestionList.vue'
 
 
-const exerciseStore = useExerciseStore()
-const { currentQuestion, canViewAnswer } = storeToRefs(exerciseStore)
+const questionStore = useQuestionStore()
+const userStore = useUserStore()
+const aiExerciseStore = useAiExerciseChatStore()
+const teacherStore = useTeacherChatStore()
+const { currentQuestion } = storeToRefs(questionStore)
 
 const currentFunction = ref<'chatAi' | 'askTeacher' | 'viewAnswer' | 'similarQuestion'>('chatAi')
 
@@ -138,8 +144,11 @@ const hasSelectedQuestion = computed(() => {
   return currentQuestion.value !== null
 })
 
+// 从aiExerciseStore获取canViewAnswer状态
+const canViewAnswer = computed(() => aiExerciseStore.canViewAnswer)
+
 const canAskTeacher = computed(() => {
-  return hasSelectedQuestion.value && exerciseStore.teacherMessages.length > 0
+  return hasSelectedQuestion.value && teacherStore.messages.length > 0
 })
 
 const handleChatResponse = () => {
@@ -244,11 +253,11 @@ const exitActivity = async () => {
   
   try {
     // 使用快速保存方法，不阻塞退出操作
-    exerciseStore.quickSaveProgress().catch(() => {
+    userStore.quickSaveProgress().catch(() => {
     })
     
     // 立即退出，不等待保存完成
-    exerciseStore.exitActivity()
+    userStore.exitActivity()
   } finally {
     // 确保状态被重置（虽然通常不会执行到这里，因为已经退出了）
     isExiting.value = false
@@ -265,8 +274,8 @@ onMounted(async () => {
     
     // 静默初始化，不显示加载状态
     try {
-      await exerciseStore.initializeStore(config)
-      await exerciseStore.fetchQuestions()
+      await userStore.initializeStore()
+      await questionStore.fetchQuestions()
     } catch (error) {
       console.error('初始化失败:', error)
     }

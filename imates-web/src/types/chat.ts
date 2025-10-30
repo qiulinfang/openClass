@@ -129,6 +129,7 @@ export interface StreamingMessageProps {
 export interface ChatViewProps {
   type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
   currentQuestionId?: string
+  sessionId?: string  // 教师对话会话ID
 }
 
 /** ForwardModeDialog Props接口 */
@@ -167,4 +168,18 @@ export interface QuestionRecord {
   question: string
   answer?: string
   timestamp: number
+  pinned?: boolean  // 是否置顶
+}
+
+// ========== AI通用会话相关类型 ==========
+
+/** AI通用会话接口 */
+export interface AiGeneralSession {
+  sessionId: string            // 会话ID
+  sessionName: string          // 会话名称（通常是第一条用户消息）
+  createTime: number           // 创建时间戳
+  updateTime: number           // 最后更新时间戳
+  msgCount: number             // 消息数量
+  pinned?: boolean             // 是否置顶
+  messages?: ChatBubble[]      // 会话的消息列表（可选，用于加载详情）
 }

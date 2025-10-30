@@ -145,18 +145,6 @@ export function getExerciseListUrl(subject: string): string {
   throw new Error(`不支持的科目类型: ${subject}`)
 }
 
-/**
- * 根据科目获取AI聊天URL
- */
-export function getChatUrl(subject: string): string {
-  const subjectLower = subject.toLowerCase()
-  if (subjectLower === 'biology' || subjectLower === '生物') {
-    return getApiUrl(API_ENDPOINTS.CHAT.BIOLOGY)
-  } else if (subjectLower === 'math' || subjectLower === '数学') {
-    return getApiUrl(API_ENDPOINTS.CHAT.MATH)
-  }
-  throw new Error(`不支持的科目类型: ${subject}`)
-}
 
 /**
  * 获取删除习题URL

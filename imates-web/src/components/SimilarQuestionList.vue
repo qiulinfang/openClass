@@ -71,12 +71,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useExerciseStore } from '../stores/exerciseStore'
+import { useQuestionStore } from '../stores/questionStore'
 import { storeToRefs } from 'pinia'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { showMessage } from '../utils'
-const exerciseStore = useExerciseStore()
-const { currentQuestion, similarQuestions } = storeToRefs(exerciseStore)
+const questionStore = useQuestionStore()
+const { currentQuestion, similarQuestions } = storeToRefs(questionStore)
 
 // 定义事件
 const emit = defineEmits<{
@@ -109,7 +109,7 @@ const findSimilarQuestions = async () => {
 
   try {
     loading.value = true
-    await exerciseStore.findSimilarQuestions()
+    await questionStore.findSimilarQuestions(currentQuestion.value?.id || '')
 
     if (similarQuestions.value.length === 0) {
       showMessage('未找到相似题目', 'info')
@@ -128,7 +128,7 @@ const addToMyList = async (question: any) => {
     addingIds.value.add(question.id)
 
     // 添加到题目列表（调用API接口）
-    await exerciseStore.addSimilarQuestionToList(question)
+    questionStore.addSimilarQuestionToList(question)
 
     // 通知父组件刷新题目列表
     emit('questionAdded')

@@ -1,0 +1,362 @@
+/**
+ * AI 题目聊天 Store
+ * 职责：管理AI题目场景下的聊天消息和业务逻辑
+ * 
+ * 场景特点：
+ * - 需要选中题目才能对话
+ * - 发送题目信息给AI
+ * - 支持消息重试
+ * - 保存到题目维度
+ */
+
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+import { apiService } from '../services/api-service'
+import { asyncStorage, type ChatHistoryData } from '../services/async-storage'
+import type { ChatBubble, ExerciseItem, UserInfo } from '../types'
+import { buildAiExerciseMessage } from './utils/aiMessageBuilder'
+import { createUserMessage } from './utils/chatStoreUtils'
+import localforage from 'localforage'
+
+export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
+  // ==================== 状态定义 ====================
+  
+  /** 消息列表 */
+  const messages = ref<ChatBubble[]>([])
+  
+  /** AI回复次数 */
+  const chatResponseTimes = ref(0)
+  
+  /** 聊天加载状态 */
+  const isChatLoading = ref(false)
+  
+  /** Web搜索开关 */
+  const enableWebSearch = ref(false)
+  
+  /** 查看答案所需最小交互次数 */
+  const VIEW_ANSWER_CHAT_TIMES = 3
+  
+  /** 是否可以查看答案 */
+  const canViewAnswer = ref(false)
+  
+  // ==================== 私有方法 ====================
+  // （已迁移到工具函数：aiMessageBuilder.ts 和 chatStoreUtils.ts）
+  
+  // ==================== 公开方法 ====================
+  
+  /**
+   * 发送聊天消息（AI题目场景）
+   * 
+   * 第1步：验证题目
+   * 第2步：创建用户消息
+   * 第3步：创建临时AI回复
+   * 第4步：构建AI请求
+   * 第5步：发送请求
+   * 第6步：更新消息
+   * 第7步：保存历史
+   */
+  const sendMessage = async (
+    content: string,
+    currentQuestion: ExerciseItem | null,
+    userInfo: UserInfo | null,
+    subject: 'MATH' | 'BIOLOGY',
+    selectedModel: string = 'mate',
+    imageData?: { filePath: string; base64DataUrl?: string },
+    hidePrefix: boolean = false
+  ): Promise<void> => {
+    // 第1步：验证题目
+    if (!currentQuestion) {
+      throw new Error('请先选择一道题目')
+    }
+    
+    // 第2步：创建用户消息
+    const userMessage = createUserMessage(content, imageData, hidePrefix)
+    messages.value.push(userMessage)
+    
+    // 第3步：创建临时AI回复（使用工具函数）
+    const tempReplyId = (Date.now() + 1).toString()
+    const tempReply: ChatBubble = {
+      id: tempReplyId,
+      content: '',
+      type: 'ai',
+      timestamp: new Date().toISOString(),
+      sender: 'ai',
+      isStreaming: true
+    }
+    messages.value.push(tempReply)
+    
+    // 第4步：构建AI请求（使用标准构建函数）
+    const aiRequest = buildAiExerciseMessage(
+      content,
+      currentQuestion,
+      userInfo,
+      subject,
+      enableWebSearch.value,
+      selectedModel,
+      imageData
+    )
+    
+    try {
+      // 第5步：发送请求
+      const response = await apiService.sendChatMessage(aiRequest)
+      
+      // 第6步：更新临时消息为实际回复
+      const index = messages.value.findIndex(m => m.id === tempReplyId)
+      if (index >= 0) {
+        messages.value[index] = {
+          ...tempReply,
+          content: response.reply || '回复失败',
+          isStreaming: false,
+          messageId: response.messageId
+        }
+      }
+      
+      // 第7步：更新回复次数
+      chatResponseTimes.value++
+      
+      // 检查是否可以查看答案
+      if (chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES) {
+        canViewAnswer.value = true
+      }
+      
+      // 第8步：保存聊天历史
+      await saveChatHistory(currentQuestion.id)
+      
+    } catch (error) {
+      console.error('[AI_EXERCISE] 发送失败:', error)
+      
+      // 更新消息为错误状态
+      const index = messages.value.findIndex(m => m.id === tempReplyId)
+      if (index >= 0) {
+        // 转换 imageData 类型
+        const standardImageData = imageData && imageData.base64DataUrl ? {
+          filePath: imageData.filePath,
+          width: 0,
+          height: 0,
+          fileSize: 0
+        } : undefined
+        
+        messages.value[index] = {
+          ...tempReply,
+          content: '发送失败，请重试',
+          isStreaming: false,
+          isError: true,
+          canRetry: true,
+          originalMessage: content,
+          imageData: standardImageData
+        }
+      }
+      
+      throw error
+    }
+  }
+  
+  /**
+   * 重试失败的消息（AI题目场景）
+   */
+  const retryMessage = async (
+    messageId: string,
+    currentQuestion: ExerciseItem | null,
+    userInfo: UserInfo | null,
+    subject: 'MATH' | 'BIOLOGY',
+    selectedModel: string = 'mate',
+    imageData?: { filePath: string; base64DataUrl?: string }
+  ): Promise<void> => {
+    // 第1步：验证题目
+    if (!currentQuestion) {
+      throw new Error('请先选择一道题目')
+    }
+    
+    // 第2步：查找消息
+    const index = messages.value.findIndex(m => m.id === messageId)
+    if (index < 0) {
+      throw new Error('消息不存在')
+    }
+    
+    const message = messages.value[index]
+    if (!message.canRetry || !message.originalMessage) {
+      throw new Error('该消息不支持重发')
+    }
+    
+    // 第3步：检查重试次数
+    const maxRetries = 3
+    const retryCount = message.retryCount || 0
+    
+    if (retryCount >= maxRetries) {
+      throw new Error('已达到最大重试次数')
+    }
+    
+    // 第4步：更新为重试中状态
+    messages.value[index] = {
+      ...message,
+      content: '',
+      isStreaming: true,
+      isError: false,
+      canRetry: false,
+      retryCount: retryCount + 1
+    }
+    
+    // 第5步：构建AI请求（使用标准构建函数）
+    const aiRequest = buildAiExerciseMessage(
+      message.originalMessage,
+      currentQuestion,
+      userInfo,
+      subject,
+      enableWebSearch.value,
+      selectedModel,
+      imageData
+    )
+    
+    try {
+      // 第6步：重新发送请求
+      const response = await apiService.sendChatMessage(aiRequest)
+      
+      // 第7步：判断是否成功
+      const isActuallySuccess = response.success && response.reply && response.reply !== '请求失败，请重试。'
+      
+      // 第8步：更新消息
+      messages.value[index] = {
+        ...message,
+        content: response.reply || '请求失败，请重试。',
+        timestamp: new Date().toISOString(),
+        messageId: response.messageId,
+        isStreaming: false,
+        isError: !isActuallySuccess,
+        canRetry: !isActuallySuccess && (retryCount + 1 < maxRetries),
+        retryCount: !isActuallySuccess ? retryCount + 1 : undefined,
+        originalMessage: !isActuallySuccess ? message.originalMessage : undefined
+      }
+      
+      // 第9步：保存聊天历史
+      await saveChatHistory(currentQuestion.id)
+      
+    } catch (error) {
+      console.error('[AI_EXERCISE] 重试失败:', error)
+      
+      // 更新为重试失败状态
+      messages.value[index] = {
+        ...message,
+        content: `重试失败 (${retryCount + 1}/${maxRetries})，请稍后重试。`,
+        isError: true,
+        isStreaming: false,
+        canRetry: retryCount + 1 < maxRetries,
+        retryCount: retryCount + 1
+      }
+      
+      await saveChatHistory(currentQuestion.id)
+      throw error
+    }
+  }
+  
+  /**
+   * 保存聊天历史（AI题目场景）
+   */
+  const saveChatHistory = async (questionId: string): Promise<void> => {
+    if (messages.value.length === 0) return
+    
+    const historyData: ChatHistoryData = {
+      questionId,
+      messages: messages.value,
+      chatResponseTimes: chatResponseTimes.value,
+      lastUpdated: Date.now()
+    }
+    
+    try {
+      await asyncStorage.saveChatHistory(questionId, historyData)
+      console.log(`[AI_EXERCISE] ✅ 保存聊天历史成功: ${questionId}`)
+    } catch (error) {
+      console.error('[AI_EXERCISE] ❌ 保存聊天历史失败:', error)
+    }
+  }
+  
+  /**
+   * 加载聊天历史（AI题目场景）
+   */
+  const loadChatHistory = async (questionId: string): Promise<void> => {
+    try {
+      isChatLoading.value = true
+      
+      const historyData = await asyncStorage.loadChatHistory(questionId)
+      
+      if (historyData) {
+        messages.value = historyData.messages || []
+        chatResponseTimes.value = historyData.chatResponseTimes || 0
+        
+        // 更新是否可以查看答案
+        if (chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES) {
+          canViewAnswer.value = true
+        }
+        
+        console.log(`[AI_EXERCISE] ✅ 加载聊天历史成功: ${questionId}, ${messages.value.length}条消息`)
+      } else {
+        // 无历史记录，清空状态
+        messages.value = []
+        chatResponseTimes.value = 0
+        canViewAnswer.value = false
+      }
+    } catch (error) {
+      console.error('[AI_EXERCISE] ❌ 加载聊天历史失败:', error)
+      messages.value = []
+      chatResponseTimes.value = 0
+      canViewAnswer.value = false
+    } finally {
+      isChatLoading.value = false
+    }
+  }
+  
+  /**
+   * 清空聊天历史（AI题目场景）
+   */
+  const clearChatHistory = async (questionId: string): Promise<void> => {
+    try {
+      const key = `chat_history_${questionId}`
+      await localforage.removeItem(key)
+      messages.value = []
+      chatResponseTimes.value = 0
+      canViewAnswer.value = false
+      console.log(`[AI_EXERCISE] ✅ 清空聊天历史成功: ${questionId}`)
+    } catch (error) {
+      console.error('[AI_EXERCISE] ❌ 清空聊天历史失败:', error)
+      throw error
+    }
+  }
+  
+  /**
+   * 重置状态
+   */
+  const resetState = (): void => {
+    messages.value = []
+    chatResponseTimes.value = 0
+    canViewAnswer.value = false
+    isChatLoading.value = false
+  }
+  
+  // ==================== 返回接口 ====================
+  
+  /**
+   * 切换Web搜索
+   */
+  const toggleWebSearch = (): void => {
+    enableWebSearch.value = !enableWebSearch.value
+  }
+  
+  return {
+    // 状态
+    messages,
+    chatResponseTimes,
+    isChatLoading,
+    enableWebSearch,
+    canViewAnswer,
+    VIEW_ANSWER_CHAT_TIMES,
+    
+    // 方法
+    sendMessage,
+    retryMessage,
+    saveChatHistory,
+    loadChatHistory,
+    clearChatHistory,
+    resetState,
+    toggleWebSearch
+  }
+})
+

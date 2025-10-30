@@ -6,7 +6,7 @@ import { androidBridge } from '../services/android-bridge'
 import { asyncStorage, type ChatHistoryData } from '../services/async-storage'
 
 // 使用统一类型定义
-import type { ExerciseItem, UserInfo, ChatBubble, AiChatMessageRequest } from '../types'
+import type { ExerciseItem, UserInfo, ChatBubble, AiChatMessageRequest, AiGeneralSession } from '../types'
 
 /**
  * 练习解题应用的主要状态管理Store
@@ -29,6 +29,12 @@ export const useExerciseStore = defineStore('exercise', () => {
 
   /** AI通用消息记录 - 存储AI通用对话历史 */
   const aiGeneralMessages = ref<ChatBubble[]>([])
+  
+  /** AI通用会话列表 - 存储所有AI通用对话会话 */
+  const aiGeneralSessions = ref<AiGeneralSession[]>([])
+  
+  /** 当前AI通用会话 - 当前正在进行的会话 */
+  const currentAiGeneralSession = ref<AiGeneralSession | null>(null)
 
   /** AI教材消息记录 - 存储AI教材对话历史 */
   const aiTextbookMessages = ref<ChatBubble[]>([])
@@ -990,8 +996,8 @@ export const useExerciseStore = defineStore('exercise', () => {
    */
   const sendChatMessage = async (content: string, type: 'ai' | 'teacher' = 'ai', chatRole: string = 'mate', imageData?: { filePath: string, base64DataUrl?: string }, hidePrefix: boolean = false, aiType?: string) => {
     try {
-      // 步骤1: 验证当前题目是否存在（ai-textbook模式下可以没有题目）
-      if (!currentQuestion.value && aiType !== 'ai-textbook') {
+      // 步骤1: 验证当前题目是否存在（ai-textbook和ai-general模式下可以没有题目）
+      if (!currentQuestion.value && aiType == 'ai-exercise') {
         throw new Error('请先选择一道题目')
       }
 
@@ -1285,6 +1291,168 @@ export const useExerciseStore = defineStore('exercise', () => {
     }
   }
 
+  // ==================== AI通用会话管理 ====================
+  
+  /**
+   * 创建新的AI通用会话
+   * 第1步：生成会话ID
+   * 第2步：创建会话对象（会话名称从第一条用户消息提取）
+   * 第3步：设置为当前会话
+   * 第4步：清空消息列表
+   * 第5步：保存会话列表
+   */
+  const createAiGeneralSession = async (firstUserMessage?: string) => {
+    // 第1步：生成会话ID
+    const sessionId = `ai-general-${Date.now()}`
+    
+    // 第2步：创建会话对象
+    const newSession: AiGeneralSession = {
+      sessionId,
+      sessionName: firstUserMessage?.substring(0, 30) || '新对话',
+      createTime: Date.now(),
+      updateTime: Date.now(),
+      msgCount: 0
+    }
+    
+    // 第3步：设置为当前会话
+    currentAiGeneralSession.value = newSession
+    
+    // 第4步：清空消息列表
+    aiGeneralMessages.value = []
+    
+    // 第5步：添加到会话列表并保存
+    aiGeneralSessions.value.unshift(newSession)
+    await saveAiGeneralSessions()
+    
+    console.log('[AI_GENERAL_SESSION] ✅ 创建新会话:', newSession)
+  }
+  
+  /**
+   * 切换AI通用会话
+   * 第1步：保存当前会话的消息
+   * 第2步：切换到目标会话
+   * 第3步：加载目标会话的消息
+   */
+  const switchAiGeneralSession = async (sessionId: string) => {
+    // 第1步：保存当前会话的消息
+    if (currentAiGeneralSession.value) {
+      await saveAiGeneralChatHistory()
+    }
+    
+    // 第2步：切换到目标会话
+    const targetSession = aiGeneralSessions.value.find(s => s.sessionId === sessionId)
+    if (!targetSession) {
+      console.error('[AI_GENERAL_SESSION] ❌ 未找到目标会话:', sessionId)
+      return
+    }
+    
+    currentAiGeneralSession.value = targetSession
+    
+    // 第3步：加载目标会话的消息
+    await loadAiGeneralChatHistory(sessionId)
+    
+    console.log('[AI_GENERAL_SESSION] ✅ 切换会话:', targetSession)
+  }
+  
+  /**
+   * 保存AI通用会话列表到本地存储
+   */
+  const saveAiGeneralSessions = async () => {
+    try {
+      const sessionsData = aiGeneralSessions.value.map(session => ({
+        sessionId: session.sessionId,
+        sessionName: session.sessionName,
+        createTime: session.createTime,
+        updateTime: session.updateTime,
+        msgCount: session.msgCount
+      }))
+      
+      // 使用 localStorage 保存会话列表
+      localStorage.setItem('ai_general_sessions', JSON.stringify(sessionsData))
+      console.log('[AI_GENERAL_SESSION] 💾 保存会话列表:', sessionsData.length)
+    } catch (error) {
+      console.error('[AI_GENERAL_SESSION] ❌ 保存会话列表失败:', error)
+    }
+  }
+  
+  /**
+   * 从本地存储加载AI通用会话列表
+   */
+  const loadAiGeneralSessions = async () => {
+    try {
+      const sessionsDataStr = localStorage.getItem('ai_general_sessions')
+      if (sessionsDataStr) {
+        const sessionsData = JSON.parse(sessionsDataStr)
+        if (Array.isArray(sessionsData)) {
+          aiGeneralSessions.value = sessionsData
+          console.log('[AI_GENERAL_SESSION] 📥 加载会话列表:', sessionsData.length)
+        }
+      }
+    } catch (error) {
+      console.error('[AI_GENERAL_SESSION] ❌ 加载会话列表失败:', error)
+    }
+  }
+  
+  /**
+   * 保存AI通用会话的聊天记录
+   */
+  const saveAiGeneralChatHistory = async () => {
+    if (!currentAiGeneralSession.value || aiGeneralMessages.value.length === 0) {
+      return
+    }
+    
+    try {
+      const historyData: ChatHistoryData = {
+        questionId: currentAiGeneralSession.value.sessionId,
+        messages: aiGeneralMessages.value,
+        chatResponseTimes: 0,
+        lastUpdated: Date.now()
+      }
+      
+      await asyncStorage.saveChatHistory(
+        `ai_general_${currentAiGeneralSession.value.sessionId}`,
+        historyData
+      )
+      
+      // 更新会话信息
+      currentAiGeneralSession.value.msgCount = aiGeneralMessages.value.length
+      currentAiGeneralSession.value.updateTime = Date.now()
+      
+      // 更新会话列表中的对应项
+      const index = aiGeneralSessions.value.findIndex(
+        s => s.sessionId === currentAiGeneralSession.value?.sessionId
+      )
+      if (index !== -1) {
+        aiGeneralSessions.value[index] = { ...currentAiGeneralSession.value }
+      }
+      
+      await saveAiGeneralSessions()
+      
+      console.log('[AI_GENERAL_SESSION] 💾 保存聊天记录:', historyData.messages.length)
+    } catch (error) {
+      console.error('[AI_GENERAL_SESSION] ❌ 保存聊天记录失败:', error)
+    }
+  }
+  
+  /**
+   * 加载AI通用会话的聊天记录
+   */
+  const loadAiGeneralChatHistory = async (sessionId: string) => {
+    try {
+      const historyData = await asyncStorage.loadChatHistory(`ai_general_${sessionId}`)
+      
+      if (historyData && historyData.messages) {
+        aiGeneralMessages.value = historyData.messages
+        console.log('[AI_GENERAL_SESSION] 📥 加载聊天记录:', historyData.messages.length)
+      } else {
+        aiGeneralMessages.value = []
+      }
+    } catch (error) {
+      console.error('[AI_GENERAL_SESSION] ❌ 加载聊天记录失败:', error)
+      aiGeneralMessages.value = []
+    }
+  }
+
   /**
    * 分批次渲染消息
    * 将大量消息分批次渲染，避免阻塞主线程
@@ -1555,6 +1723,8 @@ export const useExerciseStore = defineStore('exercise', () => {
     currentQuestionIndex, // 当前选中题目索引
     aiExerciseMessages, // AI题目消息记录
     aiGeneralMessages, // AI通用消息记录
+    aiGeneralSessions, // AI通用会话列表
+    currentAiGeneralSession, // 当前AI通用会话
     aiTextbookMessages, // AI教材消息记录
     teacherMessages, // 老师消息记录
     userInfo, // 用户信息
@@ -1594,6 +1764,14 @@ export const useExerciseStore = defineStore('exercise', () => {
     loadTeacherChatHistory, // 加载老师聊天历史
     clearChatHistory, // 清除当前题目聊天记录
     clearTeacherChatHistory, // 清除当前题目老师聊天记录
+    
+    // AI通用会话管理
+    createAiGeneralSession, // 创建AI通用会话
+    switchAiGeneralSession, // 切换AI通用会话
+    saveAiGeneralSessions, // 保存AI通用会话列表
+    loadAiGeneralSessions, // 加载AI通用会话列表
+    saveAiGeneralChatHistory, // 保存AI通用聊天记录
+    loadAiGeneralChatHistory, // 加载AI通用聊天记录
     retryAiMessage, // 重发AI消息
     toggleWebSearch, // 切换联网搜索状态
     renderMessagesInBatches, // 分批次渲染消息

@@ -29,15 +29,14 @@ import com.cosinetech.imates.ui.activities.PhotoSearchActivity;
 import com.cosinetech.imates.data.models.Subject;
 import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.data.models.ChatMessage;
-import com.cosinetech.imates.data.models.ChatMessageSession;
-import com.cosinetech.imates.data.models.ChatMessageHistoryDB;
-import com.cosinetech.imates.ui.views.ChatAiView;
+import com.cosinetech.imates.data.models.UserInfoViewModel;
 import com.cosinetech.imates.teachermessagemq.MessagingManager;
 import com.cosinetech.imates.teachermessagemq.StudentMessage;
 import com.cosinetech.imates.utils.ImageUtils;
 import com.cosinetech.imates.utils.VoiceDbUtil;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.ApplicationModelShared;
+import androidx.lifecycle.ViewModelProvider;
 import org.loka.screensharekit.ScreenShareKit;
 import org.loka.screensharekit.EncodeBuilder;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
@@ -119,8 +118,49 @@ public class WebAppInterface {
         return AppUtils.getUserToken();
     }
 
+    /**
+     * 同步Web端用户信息到Android原生ViewModel
+     * 用于Web登录后同步状态
+     * 
+     * @param userId 用户ID
+     * @param token 用户Token
+     * @param password 用户密码（可选）
+     * @return 同步结果
+     */
+    @JavascriptInterface
+    public String syncUserInfo(String userId, String token, String password) {
+        try {
+            if (userId == null || userId.isEmpty()) {
+                return createResponse(false, "用户ID不能为空", null);
+            }
+            
+            if (token == null || token.isEmpty()) {
+                return createResponse(false, "Token不能为空", null);
+            }
+            
+            // 第1步：获取UserInfoViewModel实例
+            UserInfoViewModel userInfoViewModel = new ViewModelProvider(
+                    ApplicationModelShared.getInstance(),
+                    new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance())
+            ).get(UserInfoViewModel.class);
+            
+            // 第2步：同步用户信息到ViewModel
+            userInfoViewModel.userId.postValue(userId);
+            userInfoViewModel.token.postValue(token);
+            if (password != null && !password.isEmpty()) {
+                userInfoViewModel.password.postValue(password);
+            }
+            
+            Log.d(TAG, "用户信息同步成功: userId=" + userId);
+            return createResponse(true, "用户信息同步成功", null);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "同步用户信息失败", e);
+            return createResponse(false, "同步用户信息失败: " + e.getMessage(), null);
+        }
+    }
+
     // ========== ExerciseSolve 相关接口 ==========
-    // HTTP接口已移至Vue前端实现，仅保留原生功能接口
 
     @JavascriptInterface
     public void startPhotoSearch(String subject) {
@@ -129,26 +169,24 @@ public class WebAppInterface {
         }
     }
 
-    // ========== 老师双向对话HTTP接口已移至Vue前端实现 ==========
-    // 所有老师对话相关的HTTP接口已删除，仅保留消息监听功能
-
     /**
-     * 发送文本消息给老师
-     * 与ChatAiView.sendTextMessageToTeacher逻辑一致
+     * 发送文本消息给老师（简化版：不保存到本地数据库）
+     * 第1步：验证用户登录
+     * 第2步：构建StudentMessage
+     * 第3步：通过RabbitMQ发送
+     * 第4步：返回结果
      */
     @JavascriptInterface
     public String sendTextMessageToTeacher(String content, String sessionId, String subject) {
-        
         try {
-            // 获取用户ID
+            // 第1步：验证用户登录
             String userId = AppUtils.getUserId();
             if (userId == null || userId.isEmpty()) {
                 return createResponse(false, "用户未登录", null);
             }
 
-            // 确定学科类型（与TeacherQaType定义一致）
+            // 第2步：确定学科类型
             String teacherSubject;
-            int messageType = 0; // QA_MSG_TYPE_TEXT
             if ("biology".equals(subject)) {
                 teacherSubject = "6"; // SCHOOL_SUBJECT_BIOLOGY
             } else if ("math".equals(subject)) {
@@ -157,51 +195,23 @@ public class WebAppInterface {
                 return createResponse(false, "不支持的学科类型", null);
             }
 
-            // 创建StudentMessage（与ChatAiView.sendTextMessageToTeacher逻辑一致）
+            // 第3步：创建StudentMessage
             String messageId = UUID.randomUUID().toString();
             long timestamp = System.currentTimeMillis();
+            
+            StudentMessage studentMsg = new StudentMessage(
+                    userId, sessionId, teacherSubject, 0, content); // 0 = QA_MSG_TYPE_TEXT
+            studentMsg.setMessageId(messageId);
 
-            try {
-                // 构建StudentMessage JSON
-                JSONObject studentMsgJson = new JSONObject();
-                studentMsgJson.put("userId", userId);
-                studentMsgJson.put("messageId", messageId);
-                studentMsgJson.put("sessionId", sessionId);
-                studentMsgJson.put("subjectId", teacherSubject);
-                studentMsgJson.put("messageType", messageType);
-                studentMsgJson.put("content", content);
-                studentMsgJson.put("timestamp", timestamp);
+            // 第4步：通过RabbitMQ发送（不保存到本地数据库）
+            MessagingManager.getInstance().sendMessageToTeacher(studentMsg, null);
 
+            // 第5步：构建返回数据
+            String messageData = String.format(Locale.getDefault(),
+                    "{\"messageId\":\"%s\",\"userId\":\"%s\",\"sessionId\":\"%s\",\"subject\":\"%s\",\"messageType\":\"TEXT\",\"content\":\"%s\",\"timestamp\":%d}",
+                    messageId, userId, sessionId, teacherSubject, content, timestamp);
 
-                // 发送消息到MessagingManager
-                StudentMessage studentMsg = new StudentMessage(
-                        userId, sessionId, teacherSubject, messageType, content);
-                studentMsg.setMessageId(messageId);
-
-                MessagingManager.getInstance().sendMessageToTeacher(studentMsg, null);
-
-                // 保存消息到本地数据库
-                ChatMessageHistoryDB chatDb = ChatMessageHistoryDB.getInstance(mContext, userId);
-                ChatMessage chatMessage = new ChatMessage(
-                        content,
-                        true, // isSelf
-                        ChatMessage.MessageType.TEXT,
-                        sessionId,
-                        timestamp,
-                        ChatAiView.ChatRole.CHAT_ROLE_MYSELF);
-                chatMessage.messageId = messageId;
-                chatDb.addChatMessageDetail(chatMessage);
-
-                // 构建返回数据
-                String messageData = String.format(Locale.getDefault(),
-                        "{\"messageId\":\"%s\",\"userId\":\"%s\",\"sessionId\":\"%s\",\"subject\":\"%s\",\"messageType\":\"TEXT\",\"content\":\"%s\",\"timestamp\":%d}",
-                        messageId, userId, sessionId, teacherSubject, content, timestamp);
-
-                return createResponseWithJsonData(true, "消息发送成功", messageData);
-
-            } catch (JSONException e) {
-                return createResponse(false, "构建消息失败: " + e.getMessage(), null);
-            }
+            return createResponseWithJsonData(true, "消息发送成功", messageData);
 
         } catch (Exception e) {
             return createResponse(false, "发送消息失败: " + e.getMessage(), null);
@@ -209,27 +219,30 @@ public class WebAppInterface {
     }
 
     /**
-     * 发送语音消息给老师
-     * 与ChatAiView.sendVoiceMessageToTeacher逻辑一致
+     * 发送语音消息给老师（简化版：不保存到本地数据库）
+     * 第1步：验证用户登录
+     * 第2步：检查语音文件
+     * 第3步：读取并转Base64
+     * 第4步：通过RabbitMQ发送
+     * 第5步：返回结果
      */
     @JavascriptInterface
     public String sendVoiceMessageToTeacher(String voicePath, String duration, String sessionId, String subject) {
         try {
-            // 获取用户ID
+            // 第1步：验证用户登录
             String userId = AppUtils.getUserId();
             if (userId == null || userId.isEmpty()) {
                 return createResponse(false, "用户未登录", null);
             }
 
-            // 检查语音文件是否存在
+            // 第2步：检查语音文件是否存在
             File voiceFile = new File(voicePath);
             if (!voiceFile.exists()) {
                 return createResponse(false, "语音文件不存在: " + voicePath, null);
             }
 
-            // 确定学科类型
+            // 第3步：确定学科类型
             String teacherSubject;
-            int messageType = 2; // QA_MSG_TYPE_VOICE
             if ("biology".equals(subject)) {
                 teacherSubject = "6"; // SCHOOL_SUBJECT_BIOLOGY
             } else if ("math".equals(subject)) {
@@ -238,72 +251,29 @@ public class WebAppInterface {
                 return createResponse(false, "不支持的学科类型", null);
             }
 
-            // 创建StudentMessage（与ChatAiView.sendVoiceMessageToTeacher逻辑一致）
+            // 第4步：创建StudentMessage
             String messageId = UUID.randomUUID().toString();
             long timestamp = System.currentTimeMillis();
 
-            try {
-                // 读取语音文件并转换为Base64（与VoiceDbUtil.getRawVoiceBase64逻辑一致）
-                String voiceBase64WithPrefix = VoiceDbUtil.getRawVoiceBase64(voicePath);
-                if (voiceBase64WithPrefix == null || voiceBase64WithPrefix.equals("null")) {
-                    return createResponse(false, "语音文件读取失败", null);
-                }
-
-                // 保持完整的Base64内容（包含data:audio前缀），与Android原生版本一致
-                String voiceBase64Content = voiceBase64WithPrefix;
-
-                // 验证Base64内容不为空
-                if (voiceBase64Content == null || voiceBase64Content.trim().isEmpty()) {
-                    return createResponse(false, "语音Base64编码为空", null);
-                }
-
-                // 构建StudentMessage JSON
-                JSONObject studentMsgJson = new JSONObject();
-                studentMsgJson.put("userId", userId);
-                studentMsgJson.put("messageId", messageId);
-                studentMsgJson.put("sessionId", sessionId);
-                studentMsgJson.put("subjectId", teacherSubject);
-                studentMsgJson.put("messageType", messageType);
-                studentMsgJson.put("content", voiceBase64Content);
-                studentMsgJson.put("timestamp", timestamp);
-
-                // 发送消息到MessagingManager
-                StudentMessage studentMsg = new StudentMessage(
-                        userId, sessionId, teacherSubject, messageType, voiceBase64Content);
-                studentMsg.setMessageId(messageId);
-
-                MessagingManager.getInstance().sendMessageToTeacher(studentMsg,
-                        (success, sentMessageId, errorMessage) -> {
-                            // 语音消息发送结果处理
-                        });
-
-                // 保存消息到本地数据库（使用VoiceDbUtil.makeVoiceDbContent格式）
-                VoiceDbUtil.VoiceDbItem voiceItem = new VoiceDbUtil.VoiceDbItem();
-                voiceItem.voicePath = voicePath;
-                voiceItem.duration = Integer.parseInt(duration);
-                String dbContent = VoiceDbUtil.makeVoiceDbContent(voiceItem);
-
-                ChatMessageHistoryDB chatDb = ChatMessageHistoryDB.getInstance(mContext, userId);
-                ChatMessage chatMessage = new ChatMessage(
-                        dbContent,
-                        true, // isSelf
-                        ChatMessage.MessageType.VOICE,
-                        sessionId,
-                        timestamp,
-                        ChatAiView.ChatRole.CHAT_ROLE_MYSELF);
-                chatMessage.messageId = messageId;
-                chatDb.addChatMessageDetail(chatMessage);
-
-                // 构建返回数据
-                String messageData = String.format(Locale.getDefault(),
-                        "{\"messageId\":\"%s\",\"userId\":\"%s\",\"sessionId\":\"%s\",\"subject\":\"%s\",\"messageType\":\"VOICE\",\"voicePath\":\"%s\",\"duration\":%s,\"timestamp\":%d}",
-                        messageId, userId, sessionId, teacherSubject, voicePath, duration, timestamp);
-
-                return createResponseWithJsonData(true, "语音消息发送成功", messageData);
-
-            } catch (JSONException e) {
-                return createResponse(false, "构建语音消息失败: " + e.getMessage(), null);
+            // 第5步：读取语音文件并转换为Base64
+            String voiceBase64Content = VoiceDbUtil.getRawVoiceBase64(voicePath);
+            if (voiceBase64Content == null || voiceBase64Content.equals("null")) {
+                return createResponse(false, "语音文件读取失败", null);
             }
+
+            StudentMessage studentMsg = new StudentMessage(
+                    userId, sessionId, teacherSubject, 2, voiceBase64Content); // 2 = QA_MSG_TYPE_VOICE
+            studentMsg.setMessageId(messageId);
+
+            // 第6步：通过RabbitMQ发送（不保存到本地数据库）
+            MessagingManager.getInstance().sendMessageToTeacher(studentMsg, null);
+
+            // 第7步：构建返回数据
+            String messageData = String.format(Locale.getDefault(),
+                    "{\"messageId\":\"%s\",\"userId\":\"%s\",\"sessionId\":\"%s\",\"subject\":\"%s\",\"messageType\":\"VOICE\",\"voicePath\":\"%s\",\"duration\":%s,\"timestamp\":%d}",
+                    messageId, userId, sessionId, teacherSubject, voicePath, duration, timestamp);
+
+            return createResponseWithJsonData(true, "语音消息发送成功", messageData);
 
         } catch (Exception e) {
             return createResponse(false, "发送语音消息失败: " + e.getMessage(), null);
@@ -311,27 +281,30 @@ public class WebAppInterface {
     }
 
     /**
-     * 发送图片消息给老师
-     * 与ChatAiView.sendPictureToTeacher逻辑一致
+     * 发送图片消息给老师（简化版：不保存到本地数据库）
+     * 第1步：验证用户登录
+     * 第2步：检查图片文件
+     * 第3步：读取并转Base64
+     * 第4步：通过RabbitMQ发送
+     * 第5步：返回结果
      */
     @JavascriptInterface
     public String sendPictureToTeacher(String imagePath, String sessionId, String subject) {
         try {
-            // 获取用户ID
+            // 第1步：验证用户登录
             String userId = AppUtils.getUserId();
             if (userId == null || userId.isEmpty()) {
                 return createResponse(false, "用户未登录", null);
             }
 
-            // 检查图片文件是否存在
+            // 第2步：检查图片文件是否存在
             File imageFile = new File(imagePath);
             if (!imageFile.exists()) {
                 return createResponse(false, "图片文件不存在: " + imagePath, null);
             }
 
-            // 确定学科类型
+            // 第3步：确定学科类型
             String teacherSubject;
-            int messageType = 1; // QA_MSG_TYPE_PICTURE
             if ("biology".equals(subject)) {
                 teacherSubject = "6"; // SCHOOL_SUBJECT_BIOLOGY
             } else if ("math".equals(subject)) {
@@ -340,284 +313,32 @@ public class WebAppInterface {
                 return createResponse(false, "不支持的学科类型", null);
             }
 
-            // 创建StudentMessage（与ChatAiView.sendPictureToTeacher逻辑一致）
+            // 第4步：创建StudentMessage
             String messageId = UUID.randomUUID().toString();
             long timestamp = System.currentTimeMillis();
 
-            try {
-                // 读取图片文件并转换为Base64（与ImageUtils.loadImageFileToBase64逻辑一致）
-                String imageBase64WithPrefix = ImageUtils.loadImageFileToBase64(imagePath);
-                if (imageBase64WithPrefix == null || imageBase64WithPrefix.trim().isEmpty()) {
-                    return createResponse(false, "图片文件读取失败", null);
-                }
-
-                // 保持完整的Base64内容（包含data:image前缀），与Android原生版本一致
-                String imageBase64Content = imageBase64WithPrefix;
-
-                // 验证Base64内容不为空
-                if (imageBase64Content == null || imageBase64Content.trim().isEmpty()) {
-                    return createResponse(false, "图片Base64编码为空", null);
-                }
-
-                // 构建StudentMessage JSON
-                JSONObject studentMsgJson = new JSONObject();
-                studentMsgJson.put("userId", userId);
-                studentMsgJson.put("messageId", messageId);
-                studentMsgJson.put("sessionId", sessionId);
-                studentMsgJson.put("subjectId", teacherSubject);
-                studentMsgJson.put("messageType", messageType);
-                studentMsgJson.put("content", imageBase64Content);
-                studentMsgJson.put("timestamp", timestamp);
-
-                // 发送消息到MessagingManager
-                StudentMessage studentMsg = new StudentMessage(
-                        userId, sessionId, teacherSubject, messageType, imageBase64Content);
-                studentMsg.setMessageId(messageId);
-
-                MessagingManager.getInstance().sendMessageToTeacher(studentMsg,
-                        (success, sentMessageId, errorMessage) -> {
-                            // 图片消息发送结果处理
-                        });
-
-                // 保存消息到本地数据库
-                ChatMessageHistoryDB chatDb = ChatMessageHistoryDB.getInstance(mContext, userId);
-                ChatMessage chatMessage = new ChatMessage(
-                        imagePath, // 存储图片路径
-                        true, // isSelf
-                        ChatMessage.MessageType.IMAGE,
-                        sessionId,
-                        timestamp,
-                        ChatAiView.ChatRole.CHAT_ROLE_MYSELF);
-                chatMessage.messageId = messageId;
-                chatDb.addChatMessageDetail(chatMessage);
-
-                // 构建返回数据
-                String messageData = String.format(Locale.getDefault(),
-                        "{\"messageId\":\"%s\",\"userId\":\"%s\",\"sessionId\":\"%s\",\"subject\":\"%s\",\"messageType\":\"IMAGE\",\"imagePath\":\"%s\",\"timestamp\":%d}",
-                        messageId, userId, sessionId, teacherSubject, imagePath, timestamp);
-
-                return createResponseWithJsonData(true, "图片消息发送成功", messageData);
-
-            } catch (JSONException e) {
-                return createResponse(false, "构建图片消息失败: " + e.getMessage(), null);
+            // 第5步：读取图片文件并转换为Base64
+            String imageBase64Content = ImageUtils.loadImageFileToBase64(imagePath);
+            if (imageBase64Content == null || imageBase64Content.trim().isEmpty()) {
+                return createResponse(false, "图片文件读取失败", null);
             }
+
+            StudentMessage studentMsg = new StudentMessage(
+                    userId, sessionId, teacherSubject, 1, imageBase64Content); // 1 = QA_MSG_TYPE_PICTURE
+            studentMsg.setMessageId(messageId);
+
+            // 第6步：通过RabbitMQ发送（不保存到本地数据库）
+            MessagingManager.getInstance().sendMessageToTeacher(studentMsg, null);
+
+            // 第7步：构建返回数据
+            String messageData = String.format(Locale.getDefault(),
+                    "{\"messageId\":\"%s\",\"userId\":\"%s\",\"sessionId\":\"%s\",\"subject\":\"%s\",\"messageType\":\"IMAGE\",\"imagePath\":\"%s\",\"timestamp\":%d}",
+                    messageId, userId, sessionId, teacherSubject, imagePath, timestamp);
+
+            return createResponseWithJsonData(true, "图片消息发送成功", messageData);
 
         } catch (Exception e) {
             return createResponse(false, "发送图片消息失败: " + e.getMessage(), null);
-        }
-    }
-
-    /**
-     * 转发AI对话记录给老师
-     * 与ChatAiView中选择消息转发逻辑一致
-     */
-    @JavascriptInterface
-    public String forwardAiChatToTeacher(String selectedMessagesData, String teacherSessionId) {
-        
-        try {
-            // 获取用户ID
-            String userId = AppUtils.getUserId();
-            if (userId == null || userId.isEmpty()) {
-                return createResponse(false, "用户未登录", null);
-            }
-
-            // 解析选中的消息数据
-            JSONArray messagesArray = new JSONArray(selectedMessagesData);
-            
-            int forwardedCount = 0;
-
-            // 获取老师会话信息以确定学科
-            ChatMessageHistoryDB chatDb = ChatMessageHistoryDB.getInstance(mContext, userId);
-            ChatMessageSession teacherSession = chatDb.getMessageSessionBySessionId(teacherSessionId);
-            if (teacherSession == null) {
-                return createResponse(false, "老师会话不存在", null);
-            }
-
-            // 确定学科类型
-            String subject = (teacherSession.type == ChatMessageSession.SessionType.USER_TALK_TEACHER_BIOLOGY)
-                    ? "biology"
-                    : "math";
-
-            // 为每条选中的消息创建转发记录
-            for (int i = 0; i < messagesArray.length(); i++) {
-                try {
-                    JSONObject message = messagesArray.getJSONObject(i);
-                    String messageType = message.optString("type", "TEXT");
-                    String content = message.optString("content", "");
-
-                    // 根据消息类型转发
-                    String result;
-                    if ("TEXT".equals(messageType)) {
-                        result = sendTextMessageToTeacher(content, teacherSessionId, subject);
-                    } else if ("IMAGE".equals(messageType)) {
-                        result = sendPictureToTeacher(content, teacherSessionId, subject);
-                    } else if ("VOICE".equals(messageType)) {
-                        // 对于语音消息，需要解析duration
-                        String duration = message.optString("duration", "0");
-                        result = sendVoiceMessageToTeacher(content, duration, teacherSessionId, subject);
-                    } else {
-                        continue; // 跳过不支持的消息类型
-                    }
-
-                    // 检查发送结果
-                    JSONObject resultJson = new JSONObject(result);
-                    boolean success = resultJson.optBoolean("success", false);
-                    
-                    if (success) {
-                        forwardedCount++;
-                    }
-
-                } catch (JSONException e) {
-                    // 解析转发消息失败，跳过此消息
-                }
-            }
-
-            String resultData = String.format(Locale.getDefault(),
-                    "{\"forwardedCount\":%d,\"totalCount\":%d,\"teacherSessionId\":\"%s\"}",
-                    forwardedCount, messagesArray.length(), teacherSessionId);
-
-            return createResponseWithJsonData(true,
-                    String.format("成功转发 %d/%d 条消息", forwardedCount, messagesArray.length()),
-                    resultData);
-
-        } catch (Exception e) {
-            return createResponse(false, "转发消息失败: " + e.getMessage(), null);
-        }
-    }
-
-    /**
-     * 获取老师会话的消息历史
-     */
-    @JavascriptInterface
-    public String getTeacherChatHistory(String sessionId) {
-        try {
-            // 获取用户ID
-            String userId = AppUtils.getUserId();
-            if (userId == null || userId.isEmpty()) {
-                return createResponse(false, "用户未登录", null);
-            }
-
-            // 从数据库获取聊天历史
-            ChatMessageHistoryDB chatDb = ChatMessageHistoryDB.getInstance(mContext, userId);
-            List<ChatMessage> messages = chatDb.getChatMessageDetail(sessionId);
-
-            // 构建消息历史JSON数组
-            JSONArray historyArray = new JSONArray();
-            for (ChatMessage message : messages) {
-                try {
-                    JSONObject messageJson = new JSONObject();
-                    messageJson.put("messageId", message.messageId);
-                    messageJson.put("sessionId", message.sessionId);
-                    messageJson.put("content", message.content);
-                    messageJson.put("messageType", getMessageTypeString(message.type));
-                    messageJson.put("isSelf", message.isSelf);
-                    messageJson.put("timestamp", message.timestamp);
-                    messageJson.put("chatRole", getChatRoleString(message.role));
-
-                    historyArray.put(messageJson);
-                } catch (JSONException e) {
-                    // 构建消息JSON失败，跳过此消息
-                }
-            }
-
-            return createResponseWithJsonData(true, "获取聊天历史成功", historyArray.toString());
-
-        } catch (Exception e) {
-            Log.e(TAG, "获取聊天历史失败", e);
-            return createResponse(false, "获取聊天历史失败: " + e.getMessage(), null);
-        }
-    }
-
-    private String getMessageTypeString(ChatMessage.MessageType type) {
-        switch (type) {
-
-
-
-
-            case TEXT:
-                return "TEXT";
-            case IMAGE:
-                return "IMAGE";
-            case VOICE:
-                return "VOICE";
-            case DATE:
-                return "DATE";
-            default:
-                return "TEXT";
-        }
-    }
-
-    private String getChatRoleString(int role) {
-        // 根据ChatAiView.ChatRole枚举值转换
-        switch (role) {
-            case 0:
-                return "AI_MATE";
-            case 1:
-                return "AI_MENTOR";
-            case 2:
-                return "AI_RESEARCHER";
-            case 3:
-                return "MYSELF";
-            case 4:
-                return "TEACHER";
-            default:
-                return "MYSELF";
-        }
-    }
-
-    /**
-     * 检查老师会话是否存在
-     */
-    @JavascriptInterface
-    public String checkTeacherSessionExists(String sessionId) {
-        try {
-            // 获取用户ID
-            String userId = AppUtils.getUserId();
-            if (userId == null || userId.isEmpty()) {
-                return createResponse(false, "用户未登录", null);
-            }
-
-            // 从数据库查询会话是否存在
-            ChatMessageHistoryDB chatDb = ChatMessageHistoryDB.getInstance(mContext, userId);
-            ChatMessageSession session = chatDb.getMessageSessionBySessionId(sessionId);
-
-            boolean exists = (session != null);
-
-            String result = String.format(Locale.getDefault(),
-                    "{\"exists\":%b,\"sessionId\":\"%s\"}", exists, sessionId);
-
-            return createResponseWithJsonData(true, "检查会话状态成功", result);
-
-        } catch (Exception e) {
-            Log.e(TAG, "检查会话状态失败", e);
-            return createResponse(false, "检查会话状态失败: " + e.getMessage(), null);
-        }
-    }
-
-    /**
-     * 获取当前会话的消息数量
-     */
-    @JavascriptInterface
-    public String getCurrentSessionMessageCount(String sessionId) {
-        try {
-            // 获取用户ID
-            String userId = AppUtils.getUserId();
-            if (userId == null || userId.isEmpty()) {
-                return createResponse(false, "用户未登录", null);
-            }
-
-            // 从数据库获取消息数量
-            ChatMessageHistoryDB chatDb = ChatMessageHistoryDB.getInstance(mContext, userId);
-            List<ChatMessage> messages = chatDb.getChatMessageDetail(sessionId);
-            int count = messages.size();
-
-            String result = String.format(Locale.getDefault(),
-                    "{\"count\":%d,\"sessionId\":\"%s\"}", count, sessionId);
-
-            return createResponseWithJsonData(true, "获取消息数量成功", result);
-
-        } catch (Exception e) {
-            return createResponse(false, "获取消息数量失败: " + e.getMessage(), null);
         }
     }
 
@@ -633,14 +354,16 @@ public class WebAppInterface {
     }
 
     /**
-     * 通知Vue端收到老师消息
-     * 这个方法会被Activity调用，当MessagingManager收到老师回复时
+     * 通知Vue端收到老师消息（简化版：不保存到数据库，由前端保存）
+     * 第1步：构建消息JSON
+     * 第2步：调用JavaScript回调
+     * 第3步：前端负责保存到IndexedDB
      */
-    public void notifyTeacherMessageReceived(ChatMessage teacherMessage) {
+    private void notifyTeacherMessageReceived(ChatMessage teacherMessage) {
         if (mContext instanceof Activity) {
             ((Activity) mContext).runOnUiThread(() -> {
                 try {
-                    // 构建老师消息JSON
+                    // 第1步：构建老师消息JSON
                     JSONObject messageJson = new JSONObject();
                     messageJson.put("messageId", teacherMessage.messageId);
                     messageJson.put("sessionId", teacherMessage.sessionId);
@@ -650,22 +373,13 @@ public class WebAppInterface {
                     messageJson.put("timestamp", teacherMessage.timestamp);
                     messageJson.put("chatRole", "TEACHER");
 
-                    // 保存到数据库
-                    String userId = AppUtils.getUserId();
-                    if (userId != null && !userId.isEmpty()) {
-                        ChatMessageHistoryDB chatDb = ChatMessageHistoryDB.getInstance(mContext, userId);
-                        chatDb.addChatMessageDetail(teacherMessage);
-                    }
-
-                    // 调用JavaScript回调函数
+                    // 第2步：调用JavaScript回调（前端负责保存）
                     String script = String.format(Locale.getDefault(),
                             "if (window.onTeacherMessageReceived) { window.onTeacherMessageReceived(%s); }",
                             messageJson.toString());
 
+                    executeJavaScript(script);
                     Log.d(TAG, "Teacher message received: " + messageJson.toString());
-
-                    // 这里需要WebView实例来执行JavaScript
-                    // 在实际实现中，应该通过Activity获取WebView实例并调用evaluateJavascript
 
                 } catch (Exception e) {
                     Log.e(TAG, "Failed to notify teacher message", e);
@@ -675,83 +389,20 @@ public class WebAppInterface {
     }
 
     /**
-     * 创建老师对话会话
-     * 与ExerciseSolveActivity.createChatTeacherSession逻辑一致
+     * 辅助方法：将消息类型转为字符串
      */
-    @JavascriptInterface
-    public String createTeacherChatSession(String aiSessionId, String aiSessionName, String subject) {
-        Log.d(TAG, "🔍 Android创建老师会话 - 开始");
-        Log.d(TAG, "🔍 Android创建老师会话 - 输入参数: aiSessionId=" + aiSessionId + 
-                ", aiSessionName=" + aiSessionName + ", subject=" + subject);
-        
-        try {
-            // 获取用户ID
-            String userId = AppUtils.getUserId();
-            if (userId == null || userId.isEmpty()) {
-                Log.e(TAG, "🔍 Android创建老师会话 - 用户未登录");
-                return createResponse(false, "用户未登录", null);
-            }
-            Log.d(TAG, "🔍 Android创建老师会话 - 用户ID: " + userId);
-
-            // 生成老师会话ID（与ExerciseSolveActivity.createChatTeacherSession逻辑一致）
-            String teacherSessionId = UUID.nameUUIDFromBytes(aiSessionId.getBytes()).toString();
-            Log.d(TAG, "🔍 Android创建老师会话 - 生成会话ID: " + teacherSessionId);
-
-            // 确定会话类型
-            ChatMessageSession.SessionType sessionType;
-            if ("biology".equals(subject)) {
-                sessionType = ChatMessageSession.SessionType.USER_TALK_TEACHER_BIOLOGY;
-            } else if ("math".equals(subject)) {
-                sessionType = ChatMessageSession.SessionType.USER_TALK_TEACHER_MATH;
-            } else {
-                Log.e(TAG, "🔍 Android创建老师会话 - 不支持的学科类型: " + subject);
-                return createResponse(false, "不支持的学科类型", null);
-            }
-            Log.d(TAG, "🔍 Android创建老师会话 - 会话类型: " + sessionType.name());
-
-            // 创建老师会话
-            long currentTime = System.currentTimeMillis();
-            ChatMessageSession teacherSession = new ChatMessageSession(
-                    teacherSessionId,
-                    "CATEGORY_TEACHER_QA", // ChatMessageCatalogue.CATEGORY_TEACHER_QA.catalogId
-                    aiSessionName,
-                    sessionType,
-                    currentTime,
-                    currentTime,
-                    0);
-            Log.d(TAG, "🔍 Android创建老师会话 - 创建会话对象: " + teacherSession.sessionName);
-
-            // 保存到数据库
-            ChatMessageHistoryDB chatDb = ChatMessageHistoryDB.getInstance(mContext, userId);
-            long result = chatDb.addMessageSession(teacherSession);
-            Log.d(TAG, "🔍 Android创建老师会话 - 数据库操作结果: " + result);
-
-            if (result > 0) {
-                // 新会话创建成功
-                String sessionData = String.format(Locale.getDefault(),
-                        "{\"sessionId\":\"%s\",\"catalogId\":\"%s\",\"sessionName\":\"%s\",\"sessionType\":\"%s\",\"createTime\":%d,\"updateTime\":%d}",
-                        teacherSessionId, teacherSession.catalogId, aiSessionName, sessionType.name(), currentTime,
-                        currentTime);
-
-                Log.d(TAG, "🔍 Android创建老师会话 - 新会话创建成功");
-                return createResponseWithJsonData(true, "老师会话创建成功", sessionData);
-            } else if (result == -1) {
-                // 会话已存在，直接返回现有会话
-                String sessionData = String.format(Locale.getDefault(),
-                        "{\"sessionId\":\"%s\",\"catalogId\":\"%s\",\"sessionName\":\"%s\",\"sessionType\":\"%s\",\"createTime\":%d,\"updateTime\":%d}",
-                        teacherSessionId, teacherSession.catalogId, aiSessionName, sessionType.name(), currentTime,
-                        currentTime);
-
-                Log.d(TAG, "🔍 Android创建老师会话 - 会话已存在");
-                return createResponseWithJsonData(true, "老师会话已存在", sessionData);
-            } else {
-                Log.e(TAG, "🔍 Android创建老师会话 - 会话创建失败");
-                return createResponse(false, "会话创建失败", null);
-            }
-
-        } catch (Exception e) {
-            Log.e(TAG, "🔍 Android创建老师会话 - 创建老师会话失败", e);
-            return createResponse(false, "创建老师会话失败: " + e.getMessage(), null);
+    private String getMessageTypeString(ChatMessage.MessageType type) {
+        switch (type) {
+            case TEXT:
+                return "TEXT";
+            case IMAGE:
+                return "IMAGE";
+            case VOICE:
+                return "VOICE";
+            case DATE:
+                return "DATE";
+            default:
+                return "TEXT";
         }
     }
 
@@ -805,8 +456,6 @@ public class WebAppInterface {
             ((Activity) mContext).finish();
         }
     }
-
-    // HTTP接口已移至Vue前端实现，getUserInfo和saveExerciseProgress已删除
 
     /**
      * 接收来自 JavaScript 的日志消息
@@ -1024,8 +673,6 @@ public class WebAppInterface {
         }
     }
 
-    // HTTP接口已移至Vue前端实现，sendVoiceMessage接口已删除
-
     /**
      * 获取录音状态
      */
@@ -1196,8 +843,6 @@ public class WebAppInterface {
             return createResponse(false, "处理拍照失败: " + e.getMessage(), null);
         }
     }
-
-    // HTTP接口已移至Vue前端实现，sendImageMessage接口已删除
 
     /**
      * 压缩图片
@@ -1393,13 +1038,10 @@ public class WebAppInterface {
     }
 
     // 桥接器接口，用于连接原有的ExerciseSolveActivity功能
-    // HTTP接口已移至Vue前端实现，仅保留原生功能接口
     public interface ExerciseSolveActivityBridge {
         void startPhotoSearch(String subject);
 
-        // HTTP接口已移至Vue前端实现，语音和图片消息发送接口已删除
-
-        // 图片选择回调接口（保留原生功能）
+        // 图片选择回调接口
         default void onImageSelected(String imageInfo) {
             // 默认实现，可以在具体的Activity中重写
         }
@@ -1409,9 +1051,7 @@ public class WebAppInterface {
             Log.e(TAG, "默认实现，可以在具体的Activity中重写");
         }
 
-        // HTTP接口已移至Vue前端实现，老师双向对话接口已删除
-
-        // 老师消息回调接口（保留消息监听功能）
+        // 老师消息回调接口
         void setTeacherMessageCallback(String callbackName);
 
         void onTeacherMessageReceived(String messageData);
