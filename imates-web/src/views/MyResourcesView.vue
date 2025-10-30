@@ -198,6 +198,7 @@ import { useQuasar } from 'quasar'
 import { resourceManager } from '../services/resource-manager'
 import { apiService } from '../services/api-service'
 import { httpClient } from '../services/http-client'
+import { showMessage } from '../utils'
 import type { UserTextbookInfo } from '../types'
 import DebugPanel from '../components/DebugPanel.vue'
 import BScroll from '@better-scroll/core'
@@ -920,29 +921,6 @@ const updateTextbook = (textbook: UserTextbookInfo) => {
 
     // 开始下载更新
     downloadTextbook(textbook)
-  })
-}
-
-// 显示消息 (使用 Quasar Notify)
-const showMessage = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
-  const typeMap = {
-    success: { color: 'positive', icon: 'check_circle' },
-    error: { color: 'negative', icon: 'error' },
-    warning: { color: 'warning', icon: 'warning' },
-    info: { color: 'info', icon: 'info' }
-  }
-
-  const config = typeMap[type]
-
-  $q.notify({
-    message,
-    color: config.color,
-    icon: config.icon,
-    position: 'top',
-    timeout: 2500,
-    actions: [
-      { icon: 'close', color: 'white', flat: true, round: true }
-    ]
   })
 }
 

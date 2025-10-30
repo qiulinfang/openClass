@@ -6,8 +6,8 @@
           <!-- 用户信息区域 -->
           <div class="user-info-section">
             <div class="avatar-container">
-              <q-avatar size="80px" color="primary" text-color="white" class="user-avatar">
-                <q-icon name="person" size="40px" />
+              <q-avatar size="80px" class="user-avatar">
+                <img :src="avatarIcon" alt="avatar" />
               </q-avatar>
               <q-btn
                 round
@@ -20,8 +20,8 @@
               />
             </div>
             <div class="user-details">
-              <h2 class="user-name">{{ userInfo.nickName || '用户' }}</h2>
-              <p class="user-grade">{{ userInfo.grade || '高三(1)班' }}</p>
+              <h2 class="user-name">{{ userInfo.name || '用户' }}</h2>
+              <p class="user-grade">{{ userInfo.roles.length > 0 ? userInfo.roles.join('、') : '学生' }}</p>
             </div>
           </div>
 
@@ -30,80 +30,65 @@
             <!-- 加入课堂卡片 -->
             <q-card 
               class="feature-card join-class-card"
-              :class="{ 'active': isInClass }"
               @click="toggleJoinClass"
             >
               <q-card-section class="card-content">
-                <div class="card-icon">
-                  <q-icon name="class" size="32px" />
+                <div class="card-icon card-icon-yellow">
+                  <q-icon name="groups" size="28px" />
                 </div>
                 <div class="card-text">
-                  <div class="card-title">{{ isInClass ? '退出课堂' : '加入课堂' }}</div>
-                  <div class="card-description">
-                    {{ isInClass ? '点击退出当前课堂' : '加入课堂与老师互动' }}
-                  </div>
+                  <div class="card-title">加入课堂</div>
+                  <div class="card-description">进入实时互动课堂</div>
                 </div>
-                <q-icon 
-                  :name="isInClass ? 'exit_to_app' : 'login'" 
-                  size="24px" 
-                  class="card-arrow"
-                />
               </q-card-section>
             </q-card>
 
-            <!-- 与老师对话卡片 -->
+            <!-- 教师答疑卡片 -->
             <q-card class="feature-card teacher-chat-card" @click="chatWithTeacher">
               <q-card-section class="card-content">
-                <div class="card-icon">
-                  <q-icon name="chat" size="32px" />
+                <div class="card-icon card-icon-green">
+                  <q-icon name="chat_bubble" size="28px" />
                 </div>
                 <div class="card-text">
-                  <div class="card-title">与老师对话</div>
-                  <div class="card-description">向老师提问，获得专业指导</div>
+                  <div class="card-title">教师答疑</div>
+                  <div class="card-description">查看教师解答记录</div>
                 </div>
-                <q-icon name="arrow_forward_ios" size="24px" class="card-arrow" />
               </q-card-section>
             </q-card>
 
-            <!-- 拍照给老师卡片 -->
+            <!-- 拍作业卡片 -->
             <q-card class="feature-card photo-teacher-card" @click="takePictureToTeacher">
               <q-card-section class="card-content">
-                <div class="card-icon">
-                  <q-icon name="camera_alt" size="32px" />
+                <div class="card-icon card-icon-blue">
+                  <q-icon name="photo_camera" size="28px" />
                 </div>
                 <div class="card-text">
-                  <div class="card-title">拍照给老师</div>
-                  <div class="card-description">拍照上传题目，获得解答</div>
+                  <div class="card-title">拍作业</div>
+                  <div class="card-description">拍摄并上传作业</div>
                 </div>
-                <q-icon name="arrow_forward_ios" size="24px" class="card-arrow" />
               </q-card-section>
             </q-card>
 
-            <!-- 反馈卡片 -->
+            <!-- 反馈与建议卡片 -->
             <q-card class="feature-card feedback-card" @click="showFeedback">
               <q-card-section class="card-content">
-                <div class="card-icon">
-                  <q-icon name="feedback" size="32px" />
+                <div class="card-icon card-icon-purple">
+                  <q-icon name="feedback" size="28px" />
                 </div>
                 <div class="card-text">
-                  <div class="card-title">意见反馈</div>
-                  <div class="card-description">提交建议和问题反馈</div>
+                  <div class="card-title">反馈与建议</div>
+                  <div class="card-description">欢迎您提出宝贵的意见！</div>
                 </div>
-                <q-icon name="arrow_forward_ios" size="24px" class="card-arrow" />
               </q-card-section>
             </q-card>
+          </div>
 
-            <!-- 退出登录卡片 -->
-            <q-card class="feature-card logout-card" @click="confirmLogout">
-              <q-card-section class="card-content">
-                <div class="card-icon">
-                  <q-icon name="logout" size="32px" />
-                </div>
-                <div class="card-text">
-                  <div class="card-title">退出登录</div>
-                  <div class="card-description">安全退出当前账户</div>
-                </div>
-                <q-icon name="arrow_forward_ios" size="24px" class="card-arrow" />
+          <!-- 退出账号按钮 -->
+          <div class="logout-section">
+            <q-card class="logout-button" @click="confirmLogout">
+              <q-card-section class="logout-content">
+                <q-icon name="logout" size="24px" color="negative" />
+                <span class="logout-text">退出账号</span>
               </q-card-section>
             </q-card>
           </div>
@@ -217,19 +202,24 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUIStore } from '@/stores/uiStore'
 import { apiService } from '@/services/api-service'
 import { useQuasar } from 'quasar'
 import { androidBridge } from '@/services/android-bridge'
 import ChatView from '@/components/ChatView.vue'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
+import avatarIcon from '/icons/avatar.svg'
 
 const router = useRouter()
 const $q = useQuasar()
+const uiStore = useUIStore()
 
 // 响应式数据
 const userInfo = ref({
-  nickName: '',
-  grade: '高三(1)班'
+  id: '',
+  name: '',
+  avatar: '',
+  roles: [] as string[]
 })
 const isInClass = ref(false)
 const appVersion = ref('1.0.0')
@@ -282,13 +272,23 @@ onUnmounted(() => {
 // 加载用户信息
 const loadUserInfo = async () => {
   try {
-    // 从localStorage获取用户信息
-    const token = localStorage.getItem('YANBAN_TOKEN')
-    if (token) {
-      const userData = await apiService.getUserInfo(token)
+    // 第1步：从localStorage获取XUEBAN_TOKEN
+    const token = localStorage.getItem('XUEBAN_TOKEN')
+    if (!token) {
+      console.warn('未找到 XUEBAN_TOKEN')
+      return
+    }
+
+    // 第2步：调用 /admin/info 接口获取用户信息
+    const userData = await apiService.getUserInfo(token)
+    
+    // 第3步：更新用户信息
+    if (userData) {
       userInfo.value = {
-        nickName: userData.nickName || '用户',
-        grade: userData.grade || '高三(1)班'
+        id: userData.id || '',
+        name: userData.name || '用户',
+        avatar: userData.avatar || '',
+        roles: userData.roles || []
       }
     }
   } catch (error) {
@@ -336,7 +336,7 @@ const confirmJoinClass = () => {
   // 流程：准备加入参数 -> 优先读取原生用户信息 -> 兜底使用现有昵称并启用游客模式
   const nativeUser = androidBridge.getUserInfo() as Partial<BridgeUserInfo> | null
   const studentId = nativeUser?.userId ?? ''
-  const studentName = (nativeUser?.nickName ?? nativeUser?.userName ?? userInfo.value.nickName) || '用户'
+  const studentName = (nativeUser?.nickName ?? nativeUser?.userName ?? userInfo.value.name) || '用户'
   const isGuest = !studentId
 
   // 流程：调用原生加入课堂 -> 成功则更新状态
@@ -352,11 +352,11 @@ const confirmJoinClass = () => {
 
 // 与老师对话
 const chatWithTeacher = () => {
-  // 流程：点击卡片 -> 显示学科选择对话框
-  showSubjectDialog.value = true
+  // 第1步：打开教师对话框
+  uiStore.openTeacherChatDialog()
 }
 
-// 选择学科
+// 选择学科（保留用于其他功能）
 const selectSubject = async (subject: 'biology' | 'math') => {
   // 第1步：关闭学科选择对话框
   showSubjectDialog.value = false
@@ -370,40 +370,22 @@ const selectSubject = async (subject: 'biology' | 'math') => {
 
     // 第4步：设置exerciseStore中的科目信息（biology -> BIOLOGY, math -> MATH）
     const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
-    // 注意：这里暂时使用localStorage存储科目，因为exerciseStore可能需要初始化
     localStorage.setItem('currentTeacherSubject', storeSubject)
     
     // 第5步：生成临时会话ID供后续使用
     teacherSessionId.value = `teacher-chat-${Date.now()}`
     
-    // 第6步：初始化教师消息监听器（ChatView会创建实际会话）
+    // 第6步：初始化教师消息监听器
     androidBridge.initTeacherMessageListener()
 
-    // 第7步：检查是否是拍照模式
-    if (pendingPhotoCapture.value) {
-      // 拍照模式：准备就绪后直接触发拍照，不打开对话框
-      pendingPhotoCapture.value = false
-      $q.notify({
-        type: 'positive',
-        message: `已选择${subject === 'biology' ? '生物' : '数学'}老师`,
-        position: 'top'
-      })
-      $q.loading.hide()
-      
-      // 延迟一下确保会话已准备好
-      setTimeout(() => {
-        startPhotoCapture()
-      }, 300)
-    } else {
-      // 对话模式：打开教师对话Dialog，ChatView会自动初始化会话
-      showTeacherChatDialog.value = true
-      $q.notify({
-        type: 'positive',
-        message: '已进入教师答疑',
-        position: 'top'
-      })
-      $q.loading.hide()
-    }
+    // 第7步：打开教师对话Dialog
+    showTeacherChatDialog.value = true
+    $q.notify({
+      type: 'positive',
+      message: '已进入教师答疑',
+      position: 'top'
+    })
+    $q.loading.hide()
   } catch (error) {
     console.error('准备教师对话失败:', error)
     $q.notify({
@@ -429,65 +411,27 @@ const handleScrollToBottom = () => {
 
 // 拍照给老师
 const takePictureToTeacher = async () => {
-  // 第1步：检查是否已有教师会话
-  if (!teacherSessionId.value) {
-    // 第2步：无会话 -> 显示学科选择对话框，并标记为拍照模式
-    $q.notify({
-      type: 'info',
-      message: '请先选择要咨询的学科老师',
-      position: 'top'
-    })
-    showSubjectDialog.value = true
-    // 标记拍照模式，在selectSubject中会直接触发拍照
-    pendingPhotoCapture.value = true
-    return
-  }
-
-  // 第3步：已有会话 -> 直接开始拍照流程
-  startPhotoCapture()
-}
-
-// 标记是否有待处理的拍照操作
-const pendingPhotoCapture = ref(false)
-
-// 开始拍照流程
-const startPhotoCapture = () => {
   // 第1步：设置图片捕获回调
   androidBridge.onImageCapture(async (imageInfo) => {
     if (imageInfo && imageInfo.filePath) {
       try {
-        // 第2步：显示发送中提示
-        $q.loading.show({ message: '正在发送图片...' })
-
-        // 第3步：发送图片给老师
-        const success = androidBridge.sendPictureToTeacher(
-          imageInfo.filePath,
-          teacherSessionId.value,
-          selectedSubject.value
-        )
+        // 第2步：显示处理中提示
+        $q.loading.show({ message: '正在处理图片...' })
         
-        if (success) {
-          // 第4步：发送成功 -> 显示成功提示
-          $q.notify({
-            type: 'positive',
-            message: '图片已发送给老师',
-            position: 'top'
-          })
-          
-          // 第5步：打开教师对话界面，让用户可以看到发送的图片和后续对话
-          showTeacherChatDialog.value = true
-        } else {
-          $q.notify({
-            type: 'negative',
-            message: '发送图片失败，请重试',
-            position: 'top'
-          })
-        }
+        // 第3步：打开 AI 聊天对话框
+        uiStore.openAIChatDialog()
+        
+        // 第4步：显示成功提示
+        $q.notify({
+          type: 'positive',
+          message: '图片已准备好，请在 AI 聊天对话框中继续',
+          position: 'top'
+        })
       } catch (error) {
-        console.error('发送图片失败:', error)
+        console.error('处理图片失败:', error)
         $q.notify({
           type: 'negative',
-          message: '发送图片失败，请重试',
+          message: '处理图片失败，请重试',
           position: 'top'
         })
       } finally {
@@ -547,19 +491,20 @@ const logout = async () => {
 
 <style lang="scss" scoped>
 // 变量定义
-$border-color: #e5e7eb;
 $primary-color: #1976d2;
-$card-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-$card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
+$text-primary: #1f2937;
+$text-secondary: #6b7280;
+$text-tertiary: #9ca3af;
+$bg-gray: #f9fafb;
 
 // 主要样式
 .profile-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: $bg-gray;
 }
 
 .main-content {
-  padding: 24px;
+  padding: 20px 16px;
   max-width: 600px;
   margin: 0 auto;
 }
@@ -567,174 +512,184 @@ $card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
 // 用户信息区域
 .user-info-section {
   background: white;
-  border-radius: 16px;
-  padding: 32px 24px;
-  margin-bottom: 24px;
-  box-shadow: $card-shadow;
+  border-radius: 20px;
+  padding: 40px 24px 32px;
+  margin-bottom: 20px;
   text-align: center;
 }
 
 .avatar-container {
   position: relative;
   display: inline-block;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .user-avatar {
-  border: 4px solid white;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: none;
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
 }
 
 .avatar-edit-btn {
   position: absolute;
-  bottom: 0;
-  right: 0;
-  background: $primary-color;
-  color: white;
-  border: 2px solid white;
+  bottom: 2px;
+  right: 2px;
+  background: white;
+  color: $primary-color;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .user-details {
   .user-name {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 600;
-    color: #1f2937;
-    margin: 0 0 8px 0;
+    color: $text-primary;
+    margin: 0 0 6px 0;
   }
 
   .user-grade {
-    font-size: 16px;
-    color: #6b7280;
+    font-size: 15px;
+    color: $text-secondary;
     margin: 0;
+    font-weight: 400;
   }
 }
 
 // 功能卡片区域
 .features-section {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-bottom: 32px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 24px;
 }
 
 .feature-card {
   background: white;
-  border-radius: 12px;
-  box-shadow: $card-shadow;
-  transition: all 0.3s ease;
+  border-radius: 10px;
   cursor: pointer;
+  transition: all 0.2s ease;
+  aspect-ratio: 3;
+  position: relative;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: $card-shadow-hover;
+  &:active {
+    transform: scale(0.98);
+    opacity: 0.9;
   }
 
-  &.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-
-    .card-icon {
-      background: rgba(255, 255, 255, 0.2);
-      color: white;
-    }
-
-    .card-title,
-    .card-description {
-      color: white;
-    }
-
-    .card-arrow {
-      color: white;
-    }
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 
   .card-content {
-    padding: 20px 24px;
+    padding: 10px 10px;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 16px;
+    justify-content: center;
+    text-align: center;
+    height: 100%;
+    gap: 6px;
   }
 
   .card-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    background: #f3f4f6;
-    color: $primary-color;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    color: white;
+  }
+
+  .card-icon-yellow {
+    background: #FFA726;
+  }
+
+  .card-icon-green {
+    background: #26A69A;
+  }
+
+  .card-icon-blue {
+    background: #42A5F5;
+  }
+
+  .card-icon-purple {
+    background: #AB47BC;
   }
 
   .card-text {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
 
   .card-title {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
-    color: #1f2937;
+    color: $text-primary;
     margin: 0 0 4px 0;
   }
 
   .card-description {
-    font-size: 14px;
-    color: #6b7280;
+    font-size: 11px;
+    color: $text-secondary;
     margin: 0;
-  }
-
-  .card-arrow {
-    color: #9ca3af;
-    flex-shrink: 0;
+    font-weight: 400;
+    line-height: 1.3;
   }
 }
 
-// 特殊卡片样式
-.join-class-card {
-  &.active {
-    .card-icon {
-      background: rgba(255, 255, 255, 0.2);
-    }
-  }
+// 退出账号区域
+.logout-section {
+  margin: 16px 0 24px;
+  display: flex;
+  justify-content: center;
 }
 
-.teacher-chat-card {
-  .card-icon {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-  }
-}
+.logout-button {
+  background: white;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 280px;
+  max-width: 400px;
 
-.photo-teacher-card {
-  .card-icon {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    color: white;
+  &:active {
+    transform: scale(0.98);
+    opacity: 0.9;
   }
-}
 
-.feedback-card {
-  .card-icon {
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    color: white;
+  .logout-content {
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
   }
-}
 
-.logout-card {
-  .card-icon {
-    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-    color: white;
+  .logout-text {
+    font-size: 15px;
+    font-weight: 500;
+    color: #f44336;
   }
 }
 
 // 版本信息
 .version-info {
   text-align: center;
-  padding: 16px 0;
+  padding: 20px 0;
 
   .version-text {
-    font-size: 14px;
-    color: #9ca3af;
+    font-size: 13px;
+    color: $text-tertiary;
     margin: 0;
   }
 }
@@ -764,7 +719,7 @@ $card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
   min-width: 340px;
 
   .subject-tip {
-    color: #6b7280;
+    color: $text-secondary;
     margin-bottom: 20px;
     text-align: center;
   }
@@ -792,7 +747,7 @@ $card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
   flex-direction: column;
 
   .teacher-chat-toolbar {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: $primary-color;
     color: white;
     flex-shrink: 0;
 
@@ -814,23 +769,29 @@ $card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
 // 响应式设计
 @media (max-width: 768px) {
   .main-content {
-    padding: 16px;
+    padding: 16px 12px;
   }
 
   .user-info-section {
-    padding: 24px 20px;
+    padding: 32px 20px 24px;
   }
 
   .feature-card {
     .card-content {
-      padding: 16px 20px;
+      padding: 8px 8px;
+    }
+
+    .card-icon {
+      width: 28px;
+      height: 28px;
     }
   }
 }
 
 @media (max-width: 480px) {
   .user-info-section {
-    padding: 20px 16px;
+    padding: 28px 16px 20px;
+    border-radius: 16px;
   }
 
   .user-details {
@@ -843,23 +804,33 @@ $card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
     }
   }
 
+  .features-section {
+    gap: 8px;
+  }
+
   .feature-card {
     .card-content {
-      padding: 14px 16px;
-      gap: 12px;
+      padding: 8px 8px;
+      gap: 4px;
     }
 
     .card-icon {
-      width: 40px;
-      height: 40px;
+      width: 26px;
+      height: 26px;
     }
 
     .card-title {
-      font-size: 15px;
+      font-size: 12px;
     }
 
     .card-description {
-      font-size: 13px;
+      font-size: 9px;
+    }
+
+    .card-arrow {
+      top: 6px;
+      right: 6px;
+      font-size: 12px;
     }
   }
 }

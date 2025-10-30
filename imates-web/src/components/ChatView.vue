@@ -639,12 +639,21 @@ const initializeMessages = async () => {
   // 第3步：只有在没有选择题目且没有聊天记录时才添加引导消息
   if (!hasSelectedQuestion.value) {
     // 3.1 根据对话类型和科目生成欢迎消息内容
-    let welcomeContent = '请先选择一道题目，然后我们可以开始讨论。你可以从题目列表中选择一道感兴趣的题目。'
+    let welcomeContent = '你好！有什么问题可以随时向我提问。'
     
-    if (props.type === 'teacher') {
+    if (props.type === 'ai-exercise') {
+      // AI题目对话模式需要先选择题目
+      welcomeContent = '请先选择一道题目，然后我们可以开始讨论。你可以从题目列表中选择一道感兴趣的题目。'
+    } else if (props.type === 'teacher') {
       // 教师对话模式的欢迎消息，根据科目显示
       const subjectName = currentSubject.value === 'biology' ? '生物' : '数学'
       welcomeContent = `你好！我是${subjectName}老师，有什么问题可以随时向我提问。如果有具体的题目需要讨论，也可以先选择题目再开始。`
+    } else if (props.type === 'ai-general') {
+      // AI通用对话模式
+      welcomeContent = '你好！我是你的学习伙伴，有什么问题都可以问我。'
+    } else if (props.type === 'ai-textbook') {
+      // AI教材对话模式
+      welcomeContent = '你好！我可以帮你解答教材中的知识点问题，有什么想了解的吗？'
     }
     
     const welcomeMessage: ChatBubble = {
@@ -838,7 +847,9 @@ const sendMessage = async (attachedFile?: File) => {
     return
   }
 
-  if (!hasSelectedQuestion.value) {
+  // 第1步：检查是否需要选择题目
+  // 只有AI题目对话模式需要先选择题目，其他模式（AI通用、AI教材、教师）都可以直接对话
+  if (!hasSelectedQuestion.value && props.type === 'ai-exercise') {
     const userMessage: ChatBubble = {
       id: Date.now().toString(),
       content: inputMessage.value || (attachedFile ? '[图片消息]' : ''),
@@ -850,23 +861,9 @@ const sendMessage = async (attachedFile?: File) => {
     const botReply: ChatBubble = {
       id: (Date.now() + 1).toString(),
       content: '请先选择一道题目，然后我们可以开始讨论。你可以从题目列表中选择一道感兴趣的题目。',
-      type: (() => {
-        if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
-          return 'ai'
-        } else if (props.type === 'teacher') {
-          return 'teacher'
-        }
-        return 'ai'
-      })(),
+      type: 'ai',
       timestamp: '',
-      sender: (() => {
-        if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
-          return 'ai'
-        } else if (props.type === 'teacher') {
-          return 'teacher'
-        }
-        return 'ai'
-      })(),
+      sender: 'ai',
     }
 
     await addMessagesToStore([userMessage, botReply])

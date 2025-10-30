@@ -10,11 +10,6 @@
         </div>
       </div>
     </div>
-    
-    <!-- 状态指示器 -->
-    <div class="status-indicator" :class="{ show: showStatus, error: statusType === 'error' }" ref="statusIndicatorRef">
-      {{ statusMessage }}
-    </div>
   </div>
 </template>
 
@@ -47,10 +42,6 @@ const emit = defineEmits(['update:modelValue', 'focus', 'blur', 'keydown'])
 
 // 响应式数据
 const editorRef = ref(null)
-const statusIndicatorRef = ref(null)
-const showStatus = ref(false)
-const statusMessage = ref('')
-const statusType = ref('success')
 
 // 生成唯一的编辑器ID
 const editorId = computed(() => `math-editor-${Math.random().toString(36).substr(2, 9)}`)
@@ -295,7 +286,6 @@ const initializeEditor = async () => {
     
   } catch (error) {
     console.error("Failed to initialize editor:", error)
-    showStatusMessage("编辑器初始化失败", "error")
   }
 }
 
@@ -611,19 +601,6 @@ watch(() => props.modelValue, (newValue) => {
   }
 })
 
-
-
-// 显示状态提示
-const showStatusMessage = (message: any, type = "success") => {
-  statusMessage.value = message
-  statusType.value = type
-  showStatus.value = true
-
-  setTimeout(() => {
-    showStatus.value = false
-  }, 3000)
-}
-
 // 生命周期
 onMounted(async () => {
   await nextTick()
@@ -758,34 +735,6 @@ defineExpose({
   opacity: 1 !important;
 }
 
-
-
-/* 状态指示器 */
-.status-indicator {
-  position: fixed;
-  top: 30px;
-  right: 30px;
-  padding: 15px 20px;
-  background: #28a745;
-  color: white;
-  border-radius: 25px;
-  font-size: 14px;
-  font-weight: 600;
-  opacity: 0;
-  transition: all 0.3s ease;
-  z-index: 1000;
-  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
-}
-
-.status-indicator.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.status-indicator.error {
-  background: #dc3545;
-  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
-}
 
 /* 响应式设计 */
 @media (max-width: 1024px) {

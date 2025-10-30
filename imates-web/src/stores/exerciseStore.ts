@@ -536,7 +536,7 @@ export const useExerciseStore = defineStore('exercise', () => {
    * @param imageData 图片数据
    * @returns AI聊天消息对象
    */
-  const buildAiMessage = (content: string, chatRole: string, imageData?: { filePath: string, base64DataUrl?: string }): AiChatMessageRequest => {
+  const buildAiMessage = (content: string, chatRole: string, imageData?: { filePath: string, base64DataUrl?: string }, aiType?: string): AiChatMessageRequest => {
       // 流程：判断是否为图片消息
     const isImageMessage = imageData && imageData.base64DataUrl
     
@@ -571,10 +571,16 @@ export const useExerciseStore = defineStore('exercise', () => {
       
       return message
     } else {
-      // 流程：普通文本消息 - 保持原有逻辑
+      // 流程：普通文本消息 - 根据AI类型选择接口
       const sessionId = currentQuestion.value?.id || `textbook-session-${Date.now()}`
       const question = currentQuestion.value?.question || currentQuestion.value?.title || '教材内容'
       const bmNo = currentQuestion.value?.bmNo || currentQuestion.value?.id || sessionId
+      
+      // 流程：为 ai-general 模式设置通用AI对话接口（与安卓原生悬浮框保持一致）
+      let dstUrl: string | undefined = undefined
+      if (aiType === 'ai-general') {
+        dstUrl = '/permission/chats' // 通用AI对话接口
+      }
       
       return {
         sessionId,
@@ -587,7 +593,7 @@ export const useExerciseStore = defineStore('exercise', () => {
         bmNo,
         isWebSearch: enableWebSearch.value ? '1' : '0',
         chatRole: chatRole,
-        dstUrl: undefined,
+        dstUrl,
       }
     }
   }
@@ -989,8 +995,8 @@ export const useExerciseStore = defineStore('exercise', () => {
         throw new Error('请先选择一道题目')
       }
 
-      // 步骤2: 构建AI消息对象（根据是否为图片消息）
-      const aiMessage = buildAiMessage(content, chatRole, imageData)
+      // 步骤2: 构建AI消息对象（根据是否为图片消息，传递aiType以确定接口）
+      const aiMessage = buildAiMessage(content, chatRole, imageData, aiType)
 
       // 步骤3: 根据AI类型获取对应的消息记录
       const targetMessages = aiType ? getCurrentAiMessages(aiType) : aiExerciseMessages.value
@@ -1424,8 +1430,8 @@ export const useExerciseStore = defineStore('exercise', () => {
       }
       saveChatHistory(false, aiType)
 
-      // 构建AI消息对象
-      const aiMessage = buildAiMessage(message.originalMessage, chatRole, imageData)
+      // 构建AI消息对象（传递aiType以确定接口）
+      const aiMessage = buildAiMessage(message.originalMessage, chatRole, imageData, aiType)
       
       // 直接处理AI消息，不创建新消息
       const response = await handleAiMessageDirectly(aiMessage, messageId, message.originalMessage, aiType)

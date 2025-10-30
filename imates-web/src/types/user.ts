@@ -5,10 +5,14 @@
 
 /** 用户信息接口 */
 export interface UserInfo {
-  userId: string
-  userName: string
+  id?: string
+  userId?: string
+  name?: string
+  userName?: string
   nickName?: string
   avatar?: string
   grade?: string
+  roles?: string[]
   token?: string
+  permissionValueList?: string[]
 }

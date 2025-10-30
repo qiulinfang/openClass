@@ -14,15 +14,17 @@
         @touchstart.prevent="startDrag"
       >
         <div class="text-h6">{{ title }}</div>
-        <q-btn 
-          flat 
-          round 
-          dense 
-          icon="close" 
+        <button 
+          class="close-btn"
           @click="handleClose"
           @mousedown.stop
           @touchstart.stop
-        />
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </q-card-section>
 
       <q-card-section class="dialog-content-section">
@@ -186,13 +188,33 @@ watch(isOpen, (newValue) => {
       letter-spacing: -0.01em;
     }
     
-    :deep(.q-btn) {
+    .close-btn {
+      display: flex;
+      align-items: center;
+      justify-content: right;
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
       color: #6b6b6b;
+      cursor: pointer;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      outline: none;
+      
+      svg {
+        width: 20px;
+        height: 20px;
+      }
       
       &:hover {
         background-color: rgba(0, 0, 0, 0.05);
         color: #1e1e1e;
+      }
+      
+      &:active {
+        background-color: rgba(0, 0, 0, 0.1);
+        transform: scale(0.95);
       }
     }
   }

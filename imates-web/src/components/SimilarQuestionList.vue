@@ -74,7 +74,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useExerciseStore } from '../stores/exerciseStore'
 import { storeToRefs } from 'pinia'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
-import { geminiNotify } from '../utils'
+import { showMessage } from '../utils'
 const exerciseStore = useExerciseStore()
 const { currentQuestion, similarQuestions } = storeToRefs(exerciseStore)
 
@@ -103,7 +103,7 @@ const hasSelectedQuestion = computed(() => {
 // 方法
 const findSimilarQuestions = async () => {
   if (!hasSelectedQuestion.value) {
-    geminiNotify.warning('请先选择一道题目')
+    showMessage('请先选择一道题目', 'warning')
     return
   }
 
@@ -112,10 +112,10 @@ const findSimilarQuestions = async () => {
     await exerciseStore.findSimilarQuestions()
 
     if (similarQuestions.value.length === 0) {
-      geminiNotify.info('未找到相似题目')
+      showMessage('未找到相似题目', 'info')
     }
   } catch (error) {
-    geminiNotify.error('查找相似题目失败')
+    showMessage('查找相似题目失败', 'error')
   } finally {
     loading.value = false
   }
@@ -133,14 +133,14 @@ const addToMyList = async (question: any) => {
     // 通知父组件刷新题目列表
     emit('questionAdded')
 
-    geminiNotify.success('题目已添加到第一题位置')
+    showMessage('题目已添加到第一题位置', 'success')
   } catch (error) {
     // 根据错误类型显示不同的提示信息
     const errorMessage = error instanceof Error && error.message.includes('已存在') 
       ? '该题目已存在于题目列表中，无法重复添加'
       : '添加题目失败，请重试'
     
-    geminiNotify.warning(errorMessage)
+    showMessage(errorMessage, 'warning')
   } finally {
     addingIds.value.delete(question.id)
   }

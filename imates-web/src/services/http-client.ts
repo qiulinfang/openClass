@@ -5,6 +5,7 @@
 
 import type { ApiResponse, RequestConfig } from '../types'
 import { createTimeoutController } from '../utils/common/polyfills'
+import { showMessage } from '../utils'
 
 export class HttpClient {
   private baseURL: string
@@ -100,6 +101,67 @@ export class HttpClient {
     return authConfig
   }
 
+  /**
+   * 根据接口路径清除对应的token
+   * 第1步：判断接口类型
+   * 第2步：删除对应的token
+   */
+  private clearTokenByPath(url: string): void {
+    if (url.startsWith('/permission') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
+      // 学班管理员相关接口：删除XUEBAN_TOKEN
+      localStorage.removeItem('XUEBAN_TOKEN')
+    } else if (url.startsWith('/blw-edu-yb')) {
+      // 研伴相关接口：删除YANBAN_TOKEN
+      localStorage.removeItem('YANBAN_TOKEN')
+    } else {
+      // 其他接口：删除默认token
+      localStorage.removeItem('token')
+    }
+  }
+
+  /**
+   * 尝试自动重新登录
+   * 第1步：获取保存的用户凭据
+   * 第2步：根据接口路径选择合适的登录方式
+   * 第3步：执行登录并返回是否成功
+   */
+  private async tryAutoRelogin(url: string): Promise<boolean> {
+    try {
+      // 获取用户凭据
+      const userId = localStorage.getItem('userId')
+      const password = localStorage.getItem('userPassword')
+      
+      // 如果没有保存的凭据，无法自动登录
+      if (!userId || !password || userId === 'undefined' || password === 'undefined') {
+        return false
+      }
+      
+      // 动态导入apiService避免循环依赖
+      const { apiService } = await import('./api-service')
+      
+      // 根据接口路径选择登录方式
+      if (url.startsWith('/blw-edu-yb')) {
+        // 研伴相关接口：使用研伴登录
+        const loginResult = await apiService.loginYanban(userId, password)
+        return loginResult !== null
+      } else if (url.startsWith('/permission') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
+        // 学班管理员相关接口：使用学班登录
+        try {
+          const token = await apiService.loginXueban(userId, password)
+          return !!token
+        } catch {
+          return false
+        }
+      } else {
+        // 其他接口：尝试通用登录（优先研伴登录）
+        const loginResult = await apiService.loginYanban(userId, password)
+        return loginResult !== null
+      }
+    } catch {
+      return false
+    }
+  }
+
 
   /**
    * 设置基础 URL
@@ -169,35 +231,28 @@ export class HttpClient {
         // 请求成功，清除超时定时器
         cleanup()
         
-        // 第1步：检测401未授权错误
+        // 第1步：检测401未授权错误 - 统一处理所有接口
         if (response.status === 401 && !skipAuth401Retry) {
-          // 第2步：判断是否为研伴相关接口（/blw-edu-yb开头）
-          if (url.startsWith('/blw-edu-yb')) {
-            // 第3步：删除过期的YANBAN_TOKEN
-            localStorage.removeItem('YANBAN_TOKEN')
+          // 第2步：根据接口路径删除对应的token
+          this.clearTokenByPath(url)
+          
+          // 第3步：尝试自动重新登录获取新token
+          const loginSuccess = await this.tryAutoRelogin(url)
+          
+          // 第4步：如果登录成功，重新发起请求（只重试一次）
+          if (loginSuccess) {
+            // 提示用户已自动重新登录
+            showMessage('登录已过期，已自动重新登录', 'info')
             
-            // 第4步：尝试自动登录获取新token
-            const userId = localStorage.getItem('userId')
-            const password = localStorage.getItem('userPassword')
-            
-            if (userId && password && userId !== 'undefined' && password !== 'undefined') {
-              // 第5步：调用登录接口（需要动态导入避免循环依赖）
-              try {
-                const { apiService } = await import('./api-service')
-                const loginSuccess = await apiService.autoLogin(false)
-                
-                // 第6步：如果登录成功，重新发起请求（只重试一次）
-                if (loginSuccess) {
-                  return await this.request<T>(url, { 
-                    ...config, 
-                    skipAuth401Retry: true // 设置标志位避免无限循环
-                  })
-                }
-              } catch {
-                // 自动登录失败，继续抛出401错误
-              }
-            }
+            return await this.request<T>(url, { 
+              ...config, 
+              skipAuth401Retry: true // 设置标志位避免无限循环
+            })
           }
+          
+          // 第5步：登录失败，提示用户并抛出401错误
+          showMessage('登录已过期，请重新登录', 'warning')
+          throw new Error(`认证失败(401): 请重新登录`)
         }
         
         // 检查HTTP状态码，非2xx状态码视为错误

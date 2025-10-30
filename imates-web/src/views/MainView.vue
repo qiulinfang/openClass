@@ -79,7 +79,7 @@
 
     <!-- AI聊天对话框 -->
     <DraggableDialog 
-      v-model="showAIChatDialog" 
+      v-model="uiStore.showAIChatDialog" 
       title="与AI聊天"
       :initial-width="1000"
       :initial-height="600"
@@ -108,12 +108,29 @@
         </div>
       </div>
     </DraggableDialog>
+
+    <!-- 教师对话框 -->
+    <DraggableDialog 
+      v-model="uiStore.showTeacherChatDialog" 
+      title="教师答疑"
+      :initial-width="1000"
+      :initial-height="600"
+      :min-width="600"
+      :min-height="400"
+    >
+      <div class="teacher-chat-content">
+        <ChatView 
+          type="teacher"
+        />
+      </div>
+    </DraggableDialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useUIStore } from '@/stores/uiStore'
 import DrawingBoard from '@/components/DrawingBoard.vue'
 import QuestionRecordList from '@/components/QuestionRecordList.vue'
 import ChatView from '@/components/ChatView.vue'
@@ -145,12 +162,14 @@ const emit = defineEmits<{
 const router = useRouter()
 const route = useRoute()
 
+// UI Store
+const uiStore = useUIStore()
+
 // 响应式数据
 const activeNavItem = ref(props.activeNavItem)
 
 // 对话框显示状态
 const showDraftDialog = ref(false)
-const showAIChatDialog = ref(false)
 
 // 问题记录数据
 const questionRecords = ref<QuestionRecord[]>([])
@@ -248,7 +267,7 @@ const handleDraftClick = () => {
 
 // 处理AI聊天点击
 const handleAIChatClick = () => {
-  showAIChatDialog.value = true
+  uiStore.openAIChatDialog()
 }
 
 // 处理问题记录点击
@@ -457,6 +476,14 @@ const handleKnowledgeGraphClick = () => {
     background: white;
     overflow: hidden;
   }
+}
+
+// 教师对话内容布局样式
+.teacher-chat-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
 }
 
 // 响应式设计

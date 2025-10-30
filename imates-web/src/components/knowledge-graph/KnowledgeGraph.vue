@@ -54,7 +54,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import GraphNode from './GraphNode.vue'
 import { ResourceManager } from '../../services/resource-manager'
-import { GeminiNotify } from '../../utils/notification/gemini-notify'
+import { showMessage } from '../../utils'
 
 interface ChapterNode {
   id: string
@@ -400,20 +400,17 @@ const checkLocalLearningPackages = async (textbookRecordId: string): Promise<{ha
 
 // 显示没有学习方案的提示
 const showNoLearningPackagesAlert = (sectionName: string) => {
-  // 使用GeminiNotify显示优雅的提示
-  GeminiNotify.warning(`《${sectionName}》暂无学习方案，请选择其他知识点进行学习`, 3000)
+  showMessage(`《${sectionName}》暂无学习方案，请选择其他知识点进行学习`, 'warning', 3000)
 }
 
 // 显示未下载资源的提示
 const showNotDownloadedAlert = (sectionName: string) => {
-  // 使用GeminiNotify显示优雅的提示
-  GeminiNotify.warning(`《${sectionName}》学习资源未下载，请先下载教材资源`, 3000)
+  showMessage(`《${sectionName}》学习资源未下载，请先下载教材资源`, 'warning', 3000)
 }
 
 // 显示检查错误的提示
 const showErrorAlert = (sectionName: string) => {
-  // 使用GeminiNotify显示优雅的提示
-  GeminiNotify.error(`检查《${sectionName}》学习资源时发生错误，请重试`, 3000)
+  showMessage(`检查《${sectionName}》学习资源时发生错误，请重试`, 'error', 3000)
 }
 
 // 硬编码知识点ID映射表
