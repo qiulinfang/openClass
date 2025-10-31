@@ -237,7 +237,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { resourceManager } from '@/services/resource-manager'
+import { resourceManager } from '@/services/resource-storage'
 import type { UserTextbookInfo } from '@/types'
 
 // Props

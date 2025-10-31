@@ -41,38 +41,6 @@ export class AndroidBridge {
     return AndroidBridge.instance
   }
 
-  /**
-   * 安全的日志输出
-   */
-  private safeLog(...args: any[]): void {
-    try {
-      console.log(...args)
-    } catch (e) {
-      // 静默处理
-    }
-  }
-
-  /**
-   * 安全的警告输出
-   */
-  private safeWarn(...args: any[]): void {
-    try {
-      console.warn(...args)
-    } catch (e) {
-      // 静默处理
-    }
-  }
-
-  /**
-   * 安全的错误输出
-   */
-  private safeError(...args: any[]): void {
-    try {
-      console.error(...args)
-    } catch (e) {
-      // 静默处理
-    }
-  }
 
   /**
    * 检查Android Bridge是否可用
@@ -80,10 +48,6 @@ export class AndroidBridge {
   private checkAvailability(): void {
     this.isAvailable = typeof window !== 'undefined' && 
                       typeof window.AndroidBridge !== 'undefined'
-    
-    if (!this.isAvailable) {
-      this.safeWarn('Android Bridge 不可用，将使用模拟数据')
-    }
   }
 
   /**
@@ -95,7 +59,6 @@ export class AndroidBridge {
     // 设置流式响应回调
     if (!window.onStreamResponse) {
       window.onStreamResponse = (requestId: string, chunk: string, isComplete: boolean) => {
-        this.safeLog('收到流式响应:', requestId, chunk, isComplete)
         const event = new CustomEvent('nativeStreamResponse', {
           detail: { requestId, chunk, isComplete }
         })
@@ -106,7 +69,6 @@ export class AndroidBridge {
     // 设置完整响应回调
     if (!window.onChatResponse) {
       window.onChatResponse = (requestId: string, response: any) => {
-        this.safeLog('收到完整响应:', requestId, response)
         const event = new CustomEvent('nativeChatResponse', {
           detail: { requestId, response }
         })
@@ -117,7 +79,6 @@ export class AndroidBridge {
     // 确保回调函数存在
     if (!window.onAndroidReady) {
       window.onAndroidReady = () => {
-        this.safeLog('Android Bridge 已准备就绪')
         this.checkAvailability()
         this.onAndroidReady()
       }
@@ -125,28 +86,24 @@ export class AndroidBridge {
 
     if (!window.onExerciseDeleted) {
       window.onExerciseDeleted = (exerciseId: string) => {
-        this.safeLog('题目已删除:', exerciseId)
         this.onExerciseDeleted(exerciseId)
       }
     }
 
     if (!window.onQuestionAdded) {
       window.onQuestionAdded = (questionData: any) => {
-        this.safeLog('题目已添加:', questionData)
         this.onQuestionAdded(questionData)
       }
     }
 
     if (!window.onProgressSaved) {
       window.onProgressSaved = (progressData: any) => {
-        this.safeLog('进度已保存:', progressData)
         this.onProgressSaved(progressData)
       }
     }
 
     if (!window.onDataUpdate) {
       window.onDataUpdate = (type: string, data: any) => {
-        this.safeLog('数据更新:', type, data)
         this.onDataUpdate(type, data)
       }
     }
@@ -154,7 +111,6 @@ export class AndroidBridge {
     // 新增：题目列表更新回调
     if (typeof window !== 'undefined' && !window.onExerciseListUpdated) {
       window.onExerciseListUpdated = (questions: any) => {
-        this.safeLog('题目列表已更新:', questions)
         this.onExerciseListUpdated(questions)
       }
     }
@@ -162,7 +118,6 @@ export class AndroidBridge {
     // 新增：加载状态变化回调
     if (typeof window !== 'undefined' && !window.onLoadingStateChanged) {
       window.onLoadingStateChanged = (isLoading: boolean) => {
-        this.safeLog('加载状态变化:', isLoading)
         this.onLoadingStateChanged(isLoading)
       }
     }
@@ -170,7 +125,6 @@ export class AndroidBridge {
     // 新增：科目变化回调
     if (typeof window !== 'undefined' && !window.onSubjectChanged) {
       window.onSubjectChanged = (subjectName: string) => {
-        this.safeLog('科目已切换:', subjectName)
         this.onSubjectChanged(subjectName)
       }
     }
@@ -192,7 +146,7 @@ export class AndroidBridge {
         return typeof result === 'string' ? result : fallback
       }
     } catch (err) {
-      this.safeError('AndroidBridge 调用失败:', err)
+      // 静默处理
     }
     return fallback
   }
@@ -204,7 +158,7 @@ export class AndroidBridge {
     try {
       if (this.isAvailable && fn) return fn()
     } catch (err) {
-      this.safeError('AndroidBridge 调用失败:', err)
+      // 静默处理
     }
   }
 
@@ -216,7 +170,7 @@ export class AndroidBridge {
       if (!jsonStr) return defaultValue
       return JSON.parse(jsonStr) as T
     } catch (err) {
-      this.safeWarn('AndroidBridge JSON 解析失败，返回默认值', err)
+      // 静默处理
       return defaultValue
     }
   }
@@ -234,8 +188,6 @@ export class AndroidBridge {
   public showToast(message: string): void {
     if (this.isAvailable && window.AndroidBridge) {
       window.AndroidBridge.showToast(message)
-    } else {
-      this.safeLog('Toast:', message)
     }
   }
 
@@ -248,11 +200,9 @@ export class AndroidBridge {
     if (this.isAvailable && window.AndroidBridge && window.AndroidBridge.showNotification) {
       window.AndroidBridge.showNotification(message, type)
     } else {
-      // 降级到Toast或控制台输出
+      // 降级到Toast
       if (this.isAvailable && window.AndroidBridge) {
         window.AndroidBridge.showToast(message)
-      } else {
-        this.safeLog(`Notification [${type}]:`, message)
       }
     }
   }
@@ -286,7 +236,6 @@ export class AndroidBridge {
   public syncUserInfo(userId: string, token: string, password?: string): boolean {
     try {
       if (!window.AndroidBridge?.syncUserInfo) {
-        console.warn('[AndroidBridge] syncUserInfo接口不存在，跳过同步')
         return false
       }
 
@@ -301,15 +250,8 @@ export class AndroidBridge {
         message: '解析响应失败'
       })
 
-      if (response.success) {
-        console.log('[AndroidBridge] ✅ 用户信息同步成功:', userId)
-        return true
-      } else {
-        console.error('[AndroidBridge] ❌ 用户信息同步失败:', response.message)
-        return false
-      }
+      return response.success
     } catch (error) {
-      console.error('[AndroidBridge] 同步用户信息异常:', error)
       return false
     }
   }
@@ -333,7 +275,7 @@ export class AndroidBridge {
     try {
       window.AndroidBridge?.startPhotoSearch?.(subject)
     } catch (err) {
-      this.safeError('调用 startPhotoSearch 失败:', err)
+      // 静默处理
     }
     return Promise.resolve('')
   }
@@ -389,7 +331,7 @@ export class AndroidBridge {
         try {
           callback(...args)
         } catch (err) {
-          this.safeError(`事件监听器执行失败 [${event}]:`, err)
+          // 静默处理
         }
       })
     }
@@ -549,7 +491,7 @@ export class AndroidBridge {
           : result.data as import('../types').VoiceData
         return { ...result, voiceInfo }
       } catch (error) {
-        this.safeError('解析语音录制信息失败:', error)
+        // 静默处理
       }
     }
     
@@ -699,7 +641,7 @@ export class AndroidBridge {
           : result.data as ImageCompressionResult
         return { ...result, compressionResult }
       } catch (error) {
-        this.safeError('解析图片压缩结果失败:', error)
+        // 静默处理
       }
     }
     
@@ -737,7 +679,7 @@ export class AndroidBridge {
           : result.data as import('../types').ImageData
         return { ...result, imageInfo }
       } catch (error) {
-        this.safeError('解析拍照图片信息失败:', error)
+        // 静默处理
       }
     }
     
@@ -755,7 +697,6 @@ export class AndroidBridge {
     // 图片选择完成回调
     if (!window.onImageSelected) {
       window.onImageSelected = (imageInfo: any) => {
-        this.safeLog('图片选择完成:', imageInfo)
         this.emit('imageSelected', imageInfo)
       }
     }
@@ -763,7 +704,6 @@ export class AndroidBridge {
     // 拍照完成回调
     if (!window.onImageCaptured) {
       window.onImageCaptured = (imageInfo: any) => {
-        this.safeLog('拍照完成:', imageInfo)
         this.emit('imageCaptured', imageInfo)
       }
     }
@@ -778,7 +718,6 @@ export class AndroidBridge {
     // 课堂加入完成回调
     if (!window.onClassroomJoined) {
       window.onClassroomJoined = (status: any) => {
-        this.safeLog('课堂加入完成:', status)
         this.emit('classroomJoined', status)
       }
     }
@@ -786,7 +725,6 @@ export class AndroidBridge {
     // 课堂退出完成回调
     if (!window.onClassroomExited) {
       window.onClassroomExited = () => {
-        this.safeLog('课堂退出完成')
         this.emit('classroomExited')
       }
     }
@@ -794,7 +732,6 @@ export class AndroidBridge {
     // 课堂状态变化回调
     if (!window.onClassroomStatusChanged) {
       window.onClassroomStatusChanged = (status: any) => {
-        this.safeLog('课堂状态变化:', status)
         this.emit('classroomStatusChanged', status)
       }
     }
@@ -802,7 +739,6 @@ export class AndroidBridge {
     // 屏幕投屏开始回调
     if (!window.onScreenProjectionStarted) {
       window.onScreenProjectionStarted = () => {
-        this.safeLog('屏幕投屏开始')
         this.emit('screenProjectionStarted')
       }
     }
@@ -810,7 +746,6 @@ export class AndroidBridge {
     // 屏幕投屏停止回调
     if (!window.onScreenProjectionStopped) {
       window.onScreenProjectionStopped = () => {
-        this.safeLog('屏幕投屏停止')
         this.emit('screenProjectionStopped')
       }
     }
@@ -818,7 +753,6 @@ export class AndroidBridge {
     // 截图完成回调
     if (!window.onSnapshotTaken) {
       window.onSnapshotTaken = (imageData: any) => {
-        this.safeLog('截图完成:', imageData)
         this.emit('snapshotTaken', imageData)
       }
     }
@@ -826,7 +760,6 @@ export class AndroidBridge {
     // 课堂错误回调
     if (!window.onClassroomError) {
       window.onClassroomError = (error: string) => {
-        this.safeLog('课堂错误:', error)
         this.emit('classroomError', error)
       }
     }
@@ -854,29 +787,11 @@ export class AndroidBridge {
    * 创建老师对话会话
    */
   public createTeacherChatSession(aiSessionId: string, aiSessionName: string, subject: string): any {
-    console.log('🔍 AndroidBridge创建老师会话 - 开始', {
-      aiSessionId,
-      aiSessionName,
-      subject,
-      hasAndroidBridge: !!(window.AndroidBridge?.createTeacherChatSession)
-    })
-
     const resp = this.callString(() => {
-      console.log('🔍 AndroidBridge创建老师会话 - 调用原生方法')
       return window.AndroidBridge?.createTeacherChatSession?.(aiSessionId, aiSessionName, subject)
     })
     
-    console.log('🔍 AndroidBridge创建老师会话 - 原生方法返回', {
-      resp,
-      respType: typeof resp
-    })
-    
     const result = this.parseJSON<any>(resp, null)
-    
-    console.log('🔍 AndroidBridge创建老师会话 - 解析结果', {
-      result,
-      hasData: !!result
-    })
     
     return result
   }
@@ -885,29 +800,11 @@ export class AndroidBridge {
    * 发送文本消息给老师
    */
   public sendTextMessageToTeacher(content: string, sessionId: string, subject: string): boolean {
-    console.log('🔍 AndroidBridge发送文本消息给老师 - 开始', {
-      content: content.substring(0, 50) + '...',
-      sessionId,
-      subject,
-      hasAndroidBridge: !!(window.AndroidBridge?.sendTextMessageToTeacher)
-    })
-
     const resp = this.callString(() => {
-      console.log('🔍 AndroidBridge发送文本消息给老师 - 调用原生方法')
       return window.AndroidBridge?.sendTextMessageToTeacher?.(content, sessionId, subject)
     })
     
-    console.log('🔍 AndroidBridge发送文本消息给老师 - 原生方法返回', {
-      resp,
-      respType: typeof resp
-    })
-    
     const result = this.parseJSON<{ success: boolean }>(resp, { success: false })
-    
-    console.log('🔍 AndroidBridge发送文本消息给老师 - 解析结果', {
-      result,
-      success: result.success
-    })
     
     return result.success
   }
@@ -1030,17 +927,9 @@ export class AndroidBridge {
    * @returns 操作结果
    */
   public joinClassroom(studentId: string, studentName: string, isGuest: boolean = false): boolean {
-    console.log('🔍 AndroidBridge加入课堂 - 开始', {
-      studentId,
-      studentName,
-      isGuest,
-      hasAndroidBridge: !!(window.AndroidBridge?.joinClassroom)
-    })
-
     try {
       if (window.AndroidBridge?.joinClassroom) {
         const result = window.AndroidBridge.joinClassroom(studentId, studentName, isGuest)
-        console.log('🔍 AndroidBridge加入课堂 - 原生方法返回', result)
         
         // 流程：解析原生返回的JSON对象（包含success、message、data字段）
         const response = this.parseJSON<{ success: boolean, message: string, data?: string }>(result, { 
@@ -1048,30 +937,20 @@ export class AndroidBridge {
           message: '解析失败' 
         })
         
-        console.log('🔍 AndroidBridge加入课堂 - 解析结果', {
-          success: response.success,
-          message: response.message,
-          hasData: !!response.data
-        })
-        
         // 流程：如果data字段是字符串形式的JSON，进行二次解析（可选）
         if (response.success && response.data && typeof response.data === 'string') {
           try {
-            const dataObj = JSON.parse(response.data)
-            console.log('🔍 AndroidBridge加入课堂 - data字段解析', dataObj)
+            JSON.parse(response.data)
           } catch (e) {
             // data字段解析失败不影响整体成功状态
-            this.safeWarn('data字段JSON解析失败，但不影响加入课堂结果', e)
           }
         }
         
         return response.success
       }
       
-      console.log('🔍 AndroidBridge加入课堂 - AndroidBridge不可用')
       return false
     } catch (error) {
-      console.error('🔍 AndroidBridge加入课堂 - 发生错误', error)
       return false
     }
   }
@@ -1081,12 +960,9 @@ export class AndroidBridge {
    * @returns 操作结果
    */
   public exitClassroom(): boolean {
-    console.log('🔍 AndroidBridge退出课堂 - 开始')
-
     try {
       if (window.AndroidBridge?.exitClassroom) {
         const result = window.AndroidBridge.exitClassroom()
-        console.log('🔍 AndroidBridge退出课堂 - 原生方法返回', result)
         
         // 流程：解析原生返回的JSON对象（包含success、message、data字段）
         const response = this.parseJSON<{ success: boolean, message: string, data?: string }>(result, { 
@@ -1094,19 +970,11 @@ export class AndroidBridge {
           message: '解析失败' 
         })
         
-        console.log('🔍 AndroidBridge退出课堂 - 解析结果', {
-          success: response.success,
-          message: response.message,
-          hasData: !!response.data
-        })
-        
         return response.success
       }
       
-      console.log('🔍 AndroidBridge退出课堂 - AndroidBridge不可用')
       return false
     } catch (error) {
-      console.error('🔍 AndroidBridge退出课堂 - 发生错误', error)
       return false
     }
   }
@@ -1116,20 +984,46 @@ export class AndroidBridge {
    * @returns 课堂状态信息
    */
   public getClassroomStatus(): import('../types').BridgeClassroomStatus | null {
-    console.log('🔍 AndroidBridge获取课堂状态 - 开始')
-
     try {
       if (window.AndroidBridge?.getClassroomStatus) {
         const result = window.AndroidBridge.getClassroomStatus()
-        console.log('🔍 AndroidBridge获取课堂状态 - 原生方法返回', result)
-        const parsedResult = this.parseJSON<import('../types').BridgeClassroomStatus>(result, null as any)
-        return parsedResult
+        
+        // 流程：解析原生返回的包装对象（包含success、message、data字段）
+        const response = this.parseJSON<{ 
+          success: boolean, 
+          message: string, 
+          data?: {
+            isInClass?: boolean
+            isProjecting?: boolean
+            isGuest?: boolean
+            userId?: string
+            [key: string]: any
+          } 
+        }>(result, { 
+          success: false, 
+          message: '解析失败' 
+        })
+        
+        // 流程：如果成功且有data字段，从data中提取状态
+        if (response.success && response.data) {
+          const data = response.data
+          // 构造 BridgeClassroomStatus 对象（使用可选字段）
+          const status: import('../types').BridgeClassroomStatus = {
+            isInClass: data.isInClass ?? false,
+            studentId: data.userId ?? '',
+            studentName: '',
+            localIp: '',
+            tsStreamPort: 0,
+            status: data.isProjecting ? 'streaming' : 'ready'
+          }
+          return status
+        }
+        
+        return null
       }
       
-      console.log('🔍 AndroidBridge获取课堂状态 - AndroidBridge不可用')
       return null
     } catch (error) {
-      console.error('🔍 AndroidBridge获取课堂状态 - 发生错误', error)
       return null
     }
   }
@@ -1139,19 +1033,14 @@ export class AndroidBridge {
    * @returns 操作结果
    */
   public startScreenProjection(): boolean {
-    console.log('🔍 AndroidBridge开始屏幕投屏 - 开始')
-
     try {
       if (window.AndroidBridge?.startScreenProjection) {
         const result = window.AndroidBridge.startScreenProjection()
-        console.log('🔍 AndroidBridge开始屏幕投屏 - 原生方法返回', result)
         return this.parseJSON<boolean>(result, false)
       }
       
-      console.log('🔍 AndroidBridge开始屏幕投屏 - AndroidBridge不可用')
       return false
     } catch (error) {
-      console.error('🔍 AndroidBridge开始屏幕投屏 - 发生错误', error)
       return false
     }
   }
@@ -1161,19 +1050,14 @@ export class AndroidBridge {
    * @returns 操作结果
    */
   public stopScreenProjection(): boolean {
-    console.log('🔍 AndroidBridge停止屏幕投屏 - 开始')
-
     try {
       if (window.AndroidBridge?.stopScreenProjection) {
         const result = window.AndroidBridge.stopScreenProjection()
-        console.log('🔍 AndroidBridge停止屏幕投屏 - 原生方法返回', result)
         return this.parseJSON<boolean>(result, false)
       }
       
-      console.log('🔍 AndroidBridge停止屏幕投屏 - AndroidBridge不可用')
       return false
     } catch (error) {
-      console.error('🔍 AndroidBridge停止屏幕投屏 - 发生错误', error)
       return false
     }
   }
@@ -1184,19 +1068,14 @@ export class AndroidBridge {
    * @returns 操作结果
    */
   public takeSnapshot(commandId: string): boolean {
-    console.log('🔍 AndroidBridge截图 - 开始', { commandId })
-
     try {
       if (window.AndroidBridge?.takeSnapshot) {
         const result = window.AndroidBridge.takeSnapshot(commandId)
-        console.log('🔍 AndroidBridge截图 - 原生方法返回', result)
         return this.parseJSON<boolean>(result, false)
       }
       
-      console.log('🔍 AndroidBridge截图 - AndroidBridge不可用')
       return false
     } catch (error) {
-      console.error('🔍 AndroidBridge截图 - 发生错误', error)
       return false
     }
   }
@@ -1207,19 +1086,14 @@ export class AndroidBridge {
    * @returns 操作结果
    */
   public setClassroomMode(classMode: boolean): boolean {
-    console.log('🔍 AndroidBridge设置课堂模式 - 开始', { classMode })
-
     try {
       if (window.AndroidBridge?.setClassroomMode) {
         const result = window.AndroidBridge.setClassroomMode(classMode)
-        console.log('🔍 AndroidBridge设置课堂模式 - 原生方法返回', result)
         return this.parseJSON<boolean>(result, false)
       }
       
-      console.log('🔍 AndroidBridge设置课堂模式 - AndroidBridge不可用')
       return false
     } catch (error) {
-      console.error('🔍 AndroidBridge设置课堂模式 - 发生错误', error)
       return false
     }
   }

@@ -53,7 +53,7 @@
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import GraphNode from './GraphNode.vue'
-import { ResourceManager } from '../../services/resource-manager'
+import { ResourceManager } from '../../services/resource-storage'
 import { showMessage } from '../../utils'
 
 interface ChapterNode {

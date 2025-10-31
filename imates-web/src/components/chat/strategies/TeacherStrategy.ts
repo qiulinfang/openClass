@@ -43,8 +43,12 @@ export class TeacherStrategy implements ChatStrategy {
     // 注意：教师答疑不强制要求选择题目
     // 如果需要题目相关功能，可以在具体场景中检查
     
+    // 第1步：判断是否隐藏前缀
     const hidePrefix = content.includes('我们开始吧')
-    await this.teacherStore.sendChatMessage(
+    
+    // 第2步：调用Store发送消息
+    // 如果有 imageData，sendMessage 会自动跳过创建用户消息（因为上游已手动插入）
+    await this.teacherStore.sendMessage(
       content,
       options.imageData,
       hidePrefix

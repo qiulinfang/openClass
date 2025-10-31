@@ -16,6 +16,10 @@ const router = createRouter({
   routes: [
     {
       path: '/',
+      redirect: '/login'
+    },
+    {
+      path: '/login',
       name: 'login',
       component: LoginView
     },
@@ -109,7 +113,7 @@ router.beforeEach((to, from, next) => {
   const isLoggedIn = !!token
   
   // 如果访问登录页面，直接放行
-  if (to.name === 'login') {
+  if (to.name === 'login' || to.path === '/login') {
     next()
     return
   }

@@ -126,7 +126,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { resourceManager } from '../services/resource-manager'
+import { resourceManager } from '../services/resource-storage'
 import type { LearningPackage, ResourceFile, LocalFileInfo } from '../types'
 
 // Props 定义

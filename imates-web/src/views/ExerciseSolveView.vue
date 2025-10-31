@@ -133,10 +133,6 @@ const { currentQuestion } = storeToRefs(questionStore)
 
 const currentFunction = ref<'chatAi' | 'askTeacher' | 'viewAnswer' | 'similarQuestion'>('chatAi')
 
-
-// 退出状态标记
-const isExiting = ref(false)
-
 // QuestionList 组件引用
 const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
 
@@ -245,37 +241,13 @@ const scrollToBottom = () => {
   })
 }
 
-const exitActivity = async () => {
-  // 防止重复点击
-  if (isExiting.value) return
-  
-  isExiting.value = true
-  
-  try {
-    // 使用快速保存方法，不阻塞退出操作
-    userStore.quickSaveProgress().catch(() => {
-    })
-    
-    // 立即退出，不等待保存完成
-    userStore.exitActivity()
-  } finally {
-    // 确保状态被重置（虽然通常不会执行到这里，因为已经退出了）
-    isExiting.value = false
-  }
-}
-
 onMounted(async () => {
-    // Web环境：直接使用配置
-    const config = {
-      apiBaseURL: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
-      subject: 'MATH',
-      token: localStorage.getItem('token') || ''
-    }
-    
     // 静默初始化，不显示加载状态
     try {
       await userStore.initializeStore()
-      await questionStore.fetchQuestions()
+      // 优先使用本地数据，不立即请求API
+      // fetchQuestions 方法会先尝试从本地存储加载，如果没有数据再请求API
+      await questionStore.fetchQuestions('math', true)
     } catch (error) {
       console.error('初始化失败:', error)
     }

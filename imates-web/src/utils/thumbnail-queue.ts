@@ -4,7 +4,7 @@
  */
 
 import { generatePdfThumbnail } from './pdf-thumbnail'
-import { ResourceManager } from '../services/resource-manager'
+import { ResourceManager } from '../services/resource-storage'
 
 interface ThumbnailTask {
   fileId: string

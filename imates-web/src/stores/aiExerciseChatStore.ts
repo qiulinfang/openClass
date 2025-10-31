@@ -12,7 +12,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { apiService } from '../services/api-service'
-import { asyncStorage, type ChatHistoryData } from '../services/async-storage'
+import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
 import type { ChatBubble, ExerciseItem, UserInfo } from '../types'
 import { buildAiExerciseMessage } from './utils/aiMessageBuilder'
 import { createUserMessage } from './utils/chatStoreUtils'
@@ -130,10 +130,11 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       if (index >= 0) {
         // 转换 imageData 类型
         const standardImageData = imageData && imageData.base64DataUrl ? {
-          filePath: imageData.filePath,
-          width: 0,
-          height: 0,
-          fileSize: 0
+          filePath: imageData.filePath || '',  // 保留原始 filePath，用于发送给后端等用途
+          width: imageData.width || 0,
+          height: imageData.height || 0,
+          fileSize: imageData.fileSize || 0,
+          base64DataUrl: imageData.base64DataUrl  // 使用 base64DataUrl 字段用于UI显示
         } : undefined
         
         messages.value[index] = {

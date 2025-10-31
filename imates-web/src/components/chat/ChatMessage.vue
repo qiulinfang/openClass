@@ -50,8 +50,8 @@
           />
           <!-- 图片消息 -->
           <ImageMessage
-            v-else-if="message.messageType === 'image' && message.imageData"
-            :file-path="message.imageData.filePath"
+            v-else-if="message.messageType === 'image' && message.imageData && message.imageData.base64DataUrl"
+            :base64-data-url="message.imageData.base64DataUrl"
             :width="message.imageData.width"
             :height="message.imageData.height"
             :file-size="message.imageData.fileSize"
@@ -152,8 +152,8 @@
           />
           <!-- 图片消息 -->
           <ImageMessage
-            v-else-if="message.messageType === 'image' && message.imageData"
-            :file-path="message.imageData.filePath"
+            v-else-if="message.messageType === 'image' && message.imageData && message.imageData.base64DataUrl"
+            :base64-data-url="message.imageData.base64DataUrl"
             :width="message.imageData.width"
             :height="message.imageData.height"
             :file-size="message.imageData.fileSize"

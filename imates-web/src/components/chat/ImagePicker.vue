@@ -120,17 +120,16 @@ const selectFromGallery = async () => {
 const processImageResult = async (imageData: {
   success: boolean
   filePath?: string
-  imageUri?: string
   width?: number
   height?: number
   fileSize?: number
-  base64?: string
+  base64DataUrl?: string
 }, source: 'camera' | 'gallery') => {
   console.log('[ImagePicker.vue] 📦 processImageResult() 开始处理', {
     source,
     success: imageData.success,
     hasFilePath: !!imageData.filePath,
-    hasBase64: !!imageData.base64,
+    hasBase64DataUrl: !!imageData.base64DataUrl,
     isProcessing: isProcessingImage
   })
   
@@ -142,34 +141,33 @@ const processImageResult = async (imageData: {
   isProcessingImage = true
   
   try {
-    const { success, filePath, imageUri, width, height, fileSize, base64 } = imageData
-    const uri = filePath || imageUri
+  const { success, filePath, width, height, fileSize, base64DataUrl } = imageData
+  
+  if (success && base64DataUrl) {
+    console.log('[ImagePicker.vue] ✅ 图片数据完整，开始构造图片信息')
+    // 流程：构造图片信息 -> 通过全局composable返回结果 -> 显示成功提示
+    // Android端已直接返回base64DataUrl，无需手动拼接
     
-    if (success && uri && base64) {
-      console.log('[ImagePicker.vue] ✅ 图片数据完整，开始构造图片信息')
-      // 流程：构造图片信息 -> 通过全局composable返回结果 -> 显示成功提示
-      const base64DataUrl = `data:image/jpg;base64,${base64}`
-      
-      const imageInfo = {
-        filePath: uri,
-        width: width || 0,
-        height: height || 0,
-        fileSize: fileSize || 0,
-        base64DataUrl: base64DataUrl
-      }
+    const imageInfo = {
+      filePath: filePath || '',
+      width: width || 0,
+      height: height || 0,
+      fileSize: fileSize || 0,
+      base64DataUrl: base64DataUrl
+    }
       
       console.log('[ImagePicker.vue] 🎯 调用 handleImageSelected()', {
         filePath: imageInfo.filePath,
         width: imageInfo.width,
         height: imageInfo.height,
         fileSize: imageInfo.fileSize,
-        base64Length: base64.length
+        base64DataUrlLength: base64DataUrl.length
       })
       handleImageSelected(imageInfo)
-    } else if (success && uri && !base64) {
-      // 原生端返回成功但没有base64数据
-      console.error('[ImagePicker.vue] ❌ 原生端未返回Base64数据')
-      showMessage('图片处理失败：原生端未返回Base64数据', 'error')
+    } else if (success && !base64DataUrl) {
+      // 原生端返回成功但没有base64DataUrl数据
+      console.error('[ImagePicker.vue] ❌ 原生端未返回base64DataUrl数据')
+      showMessage('图片处理失败：原生端未返回base64DataUrl数据', 'error')
       handleCancel()
     } else {
       // 用户在原生界面取消了选择

@@ -24,7 +24,7 @@ export class AiTextbookStrategy implements ChatStrategy {
   // 第3步：发送消息
   async sendMessage(content: string, options: SendMessageOptions = {}): Promise<void> {
     const hidePrefix = content.includes('我们开始吧')
-    await this.aiTextbookStore.sendChatMessage(
+    await this.aiTextbookStore.sendMessage(
       content,
       options.selectedModel,
       options.imageData,

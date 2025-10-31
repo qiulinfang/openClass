@@ -135,92 +135,34 @@
     </q-dialog>
 
     <!-- 教师对话框 -->
-    <DraggableDialog 
-      v-model="showTeacherChatDialog" 
-      title="教师答疑"
-      :initial-width="1000"
-      :initial-height="600"
-      :min-width="600"
-      :min-height="400"
-    >
-      <div class="teacher-chat-content">
-        <!-- 左侧聊天记录 -->
-        <div class="left-panel">
-          <SessionList 
-            ref="teacherSessionListRef"
-            :records="teacherRecords"
-            :selected-record-id="teacherSessionId"
-            title="聊天记录"
-            @record-click="handleTeacherRecordClick"
-            @record-delete="handleTeacherRecordDelete"
-            @batch-delete="handleTeacherBatchDelete"
-          >
-            <template #header-actions>
-              <q-btn 
-                flat 
-                dense 
-                round 
-                icon="refresh" 
-                size="sm" 
-                @click="loadTeacherSessions"
-              >
-                <q-tooltip>刷新列表</q-tooltip>
-              </q-btn>
-              <q-btn 
-                flat 
-                dense 
-                round 
-                icon="add" 
-                color="primary"
-                size="sm" 
-                @click="handleNewTeacherChat"
-              >
-                <q-tooltip>新增对话</q-tooltip>
-              </q-btn>
-            </template>
-          </SessionList>
-        </div>
-
-        <!-- 右侧聊天界面 -->
-        <div class="right-panel">
-          <ChatView 
-            v-if="showTeacherChatDialog && teacherSessionId"
-            type="teacher"
-            :session-id="teacherSessionId"
-            :key="teacherSessionId"
-          />
-          <div v-else class="empty-chat">
-            <q-icon name="chat" size="64px" color="grey-4" />
-            <div class="text-grey-6 q-mt-md">请选择或创建一个会话</div>
-          </div>
-        </div>
-      </div>
-    </DraggableDialog>
+    <TeacherChatDialog 
+      ref="teacherChatDialogRef"
+      v-model="showTeacherChatDialog"
+      @session-created="handleTeacherSessionCreated"
+    />
   </q-layout>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { useImagePicker } from '@/composables/useImagePicker'
 import { apiService } from '@/services/api-service'
 import { androidBridge } from '@/services/android-bridge'
 import { showMessage } from '@/utils'
-import DraggableDialog from '@/components/DraggableDialog.vue'
-import ChatView from '@/components/ChatView.vue'
-import SessionList from '@/components/SessionList.vue'
+import TeacherChatDialog from '@/components/TeacherChatDialog.vue'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
-import type { QuestionRecord } from '@/types'
 import avatarIcon from '/icons/avatar.svg'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const teacherStore = useTeacherChatStore()
 
 // DOM 引用
-const teacherSessionListRef = ref<InstanceType<typeof SessionList> | null>(null)
+const teacherChatDialogRef = ref<InstanceType<typeof TeacherChatDialog> | null>(null)
 
 // 响应式数据
 const isInClass = ref(false)
@@ -228,26 +170,8 @@ const appVersion = ref('1.0.0')
 const showLogoutDialog = ref(false)
 const showJoinClassDialog = ref(false)
 const showTeacherChatDialog = ref(false)
-const teacherSessionId = ref<string>('')
 // 全局图片选择器
 const { pickImage } = useImagePicker()
-const teacherSessions = ref<Array<{
-  sessionId: string
-  sessionName: string
-  subject: string
-  createTime: number
-}>>([])
-
-// 计算属性：将教师会话映射为QuestionRecord格式
-const teacherRecords = computed<QuestionRecord[]>(() => {
-  return teacherSessions.value.map(session => ({
-    id: session.sessionId,
-    question: session.sessionName,
-    answer: session.subject === 'biology' ? '生物老师' : '数学老师',
-    timestamp: session.createTime,
-    pinned: false
-  }))
-})
 
 // 使用 Store 管理用户信息
 const userInfo = computed(() => userStore.userInfo || {
@@ -258,6 +182,23 @@ const userInfo = computed(() => userStore.userInfo || {
 })
 
 
+// 检查课堂状态的函数
+const checkClassroomStatus = () => {
+  console.log('[MyProfileView] 🔍 checkClassroomStatus() - 开始检查课堂状态')
+  // 流程：读取原生课堂状态 -> 更新前端状态
+  const status = androidBridge.getClassroomStatus() as BridgeClassroomStatus | null
+  console.log('[MyProfileView] 📊 从原生端获取的课堂状态:', status)
+  
+  if (status && status.isInClass === true) {
+    isInClass.value = true
+    console.log('[MyProfileView] ✅ 课堂状态已更新: isInClass = true')
+  } else {
+    isInClass.value = false
+    console.log('[MyProfileView] ✅ 课堂状态已更新: isInClass = false')
+  }
+  console.log('[MyProfileView] 🎯 checkClassroomStatus() - 检查完成, 当前状态:', isInClass.value)
+}
+
 // 初始化
 onMounted(() => {
   // 流程：页面初始化 -> 加载用户信息 -> 加载版本号 -> 读取原生课堂状态 -> 绑定课堂事件
@@ -265,10 +206,7 @@ onMounted(() => {
   loadAppVersion()
 
   // 流程：读取原生课堂状态 -> 更新前端状态
-  const status = androidBridge.getClassroomStatus() as BridgeClassroomStatus | null
-  if (status && status.isInClass === true) {
-    isInClass.value = true
-  }
+  checkClassroomStatus()
 
   // 流程：绑定课堂事件 -> 根据原生回调同步前端状态
   androidBridge.onClassroomJoined(() => {
@@ -287,40 +225,17 @@ onMounted(() => {
   })
 })
 
-// 自动刷新定时器
-let refreshTimer: ReturnType<typeof setInterval> | null = null
-
-// 监听教师对话框的打开/关闭，自动刷新会话列表
-watch(showTeacherChatDialog, (isOpen) => {
-  if (isOpen) {
-    // 对话框打开时，初始加载一次
-    loadTeacherSessions()
-    
-    // 然后每5秒自动刷新一次（用于显示自动生成的标题）
-    refreshTimer = setInterval(() => {
-      loadTeacherSessions()
-    }, 5000)
-  } else {
-    // 对话框关闭时，清除定时器
-    if (refreshTimer) {
-      clearInterval(refreshTimer)
-      refreshTimer = null
-    }
+// 监听路由变化，当进入此页面时重新检查课堂状态
+watch(() => route.name, (routeName) => {
+  if (routeName === 'myProfile') {
+    // 流程：路由进入此页面 -> 重新检查课堂状态 -> 更新前端状态
+    checkClassroomStatus()
   }
 })
 
 // 组件卸载时清理
 onUnmounted(async () => {
-  // 流程：清理教师消息监听器（使用 Store 统一方法）
-  if (teacherSessionId.value) {
-    await teacherStore.cleanupMessageReceiver()
-  }
-  
-  // 清理刷新定时器
-  if (refreshTimer) {
-    clearInterval(refreshTimer)
-    refreshTimer = null
-  }
+  // 清理工作由 TeacherChatDialog 组件内部处理
 })
 
 // 加载用户信息
@@ -389,11 +304,27 @@ const confirmJoinClass = () => {
     return
   }
 
-  // 流程：准备加入参数 -> 优先读取原生用户信息 -> 兜底使用现有昵称并启用游客模式
+  // 流程：准备加入参数 -> 优先使用userStore中的用户信息 -> 其次尝试原生用户信息 -> 兜底使用现有昵称并启用游客模式
+  // 优先使用 userStore 中的用户ID（支持 id 或 userId 字段）
+  const storeUserId = userInfo.value.id || userInfo.value.userId || ''
   const nativeUser = androidBridge.getUserInfo() as Partial<BridgeUserInfo> | null
-  const studentId = nativeUser?.userId ?? ''
+  const nativeUserId = nativeUser?.userId || nativeUser?.id || ''
+  
+  // 优先使用 store 中的用户ID，如果没有再使用原生用户ID
+  const studentId = storeUserId || nativeUserId
   const studentName = (nativeUser?.nickName ?? nativeUser?.userName ?? userInfo.value.name) || '用户'
+  
+  // 只有当完全没有用户ID时才认为是游客模式
   const isGuest = !studentId
+  
+  console.log('🔍 加入课堂参数:', {
+    storeUserId,
+    nativeUserId,
+    studentId,
+    studentName,
+    isGuest,
+    userInfo: userInfo.value
+  })
 
   // 流程：调用原生加入课堂 -> 成功则更新状态
   const ok = androidBridge.joinClassroom(studentId, studentName, isGuest)
@@ -406,214 +337,75 @@ const confirmJoinClass = () => {
   }
 }
 
-// 加载教师会话列表
-const loadTeacherSessions = () => {
-  // 第1步：从localStorage获取所有会话
-  const sessions: typeof teacherSessions.value = []
-  const sessionIds = new Set<string>()
-  
-  // 第2步：遍历localStorage查找所有教师会话
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (key?.startsWith('teacher_chat_') && key.endsWith('_session')) {
-      try {
-        const sessionData = localStorage.getItem(key)
-        if (sessionData) {
-          const session = JSON.parse(sessionData)
-          
-          // 检查是否重复
-          if (!sessionIds.has(session.sessionId)) {
-            sessions.push(session)
-            sessionIds.add(session.sessionId)
-          }
-        }
-      } catch (error) {
-        console.error('解析会话数据失败:', error)
-      }
-    }
-  }
-  
-  // 第3步：按创建时间降序排序（最新的在前面）
-  sessions.sort((a, b) => b.createTime - a.createTime)
-  
-  // 第4步：更新列表
-  teacherSessions.value = sessions
-}
-
-// 处理教师记录点击
-const handleTeacherRecordClick = async (record: QuestionRecord) => {
-  // 第1步：从teacherSessions中找到对应的会话
-  const session = teacherSessions.value.find(s => s.sessionId === record.id)
-  if (!session) return
-  
-  // 第2步：设置当前会话ID
-  teacherSessionId.value = session.sessionId
-  
-  // 第3步：设置科目
-  const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
-  localStorage.setItem('currentTeacherSubject', storeSubject)
-  
-  // 第4步：设置 teacherStore 的会话
-  teacherStore.setSession(session)
-  
-  // 第5步：加载聊天历史
-  await teacherStore.loadChatHistory(session.sessionId)
-  
-  console.log('[MyProfileView] ✅ 选择会话:', session.sessionId)
-}
-
-// 处理教师记录删除
-const handleTeacherRecordDelete = async (record: QuestionRecord) => {
-  try {
-    // 第1步：删除localStorage中的会话数据
-    localStorage.removeItem(`teacher_chat_${record.id}_session`)
-    
-    // 第2步：删除IndexedDB中的聊天历史
-    await teacherStore.clearChatHistory(record.id)
-    
-    // 第3步：刷新列表
-    loadTeacherSessions()
-    
-    // 第4步：如果删除的是当前会话，清空选择
-    if (teacherSessionId.value === record.id) {
-      teacherSessionId.value = ''
-      teacherStore.clearSession()
-    }
-    
-    showMessage('会话已删除', 'success')
-  } catch (error) {
-    console.error('删除会话失败:', error)
-    showMessage('删除失败，请重试', 'error')
-  }
-}
-
-// 处理批量删除教师会话
-const handleTeacherBatchDelete = async (recordIds: string[]) => {
-  try {
-    let successCount = 0
-    let failedCount = 0
-    
-    // 第1步：批量删除
-    for (const id of recordIds) {
-      try {
-        // 删除localStorage中的会话数据
-        localStorage.removeItem(`teacher_chat_${id}_session`)
-        
-        // 删除IndexedDB中的聊天历史
-        await teacherStore.clearChatHistory(id)
-        
-        // 如果删除的是当前会话，清空选择
-        if (teacherSessionId.value === id) {
-          teacherSessionId.value = ''
-          teacherStore.clearSession()
-        }
-        
-        successCount++
-      } catch (error) {
-        console.error(`删除会话 ${id} 失败:`, error)
-        failedCount++
-      }
-    }
-    
-    // 第2步：刷新列表
-    loadTeacherSessions()
-    
-    // 第3步：显示结果
-    if (failedCount === 0) {
-      showMessage(`已删除 ${successCount} 个会话`, 'success')
-    } else {
-      showMessage(`成功删除 ${successCount} 个，失败 ${failedCount} 个`, 'warning')
-    }
-  } catch (error) {
-    console.error('批量删除失败:', error)
-    showMessage('批量删除失败，请重试', 'error')
-  }
-}
-
 // 与老师对话（从卡片进入）
-const chatWithTeacher = () => {
-  // 第1步：加载会话列表
-  loadTeacherSessions()
+const chatWithTeacher = async () => {
+  // 第1步：打开对话框（组件内部会自动加载会话列表）
+  showTeacherChatDialog.value = true
   
-  // 第2步：如果有历史会话，直接打开对话框
-  if (teacherSessions.value.length > 0) {
-    showTeacherChatDialog.value = true
-  } else {
-    // 第3步：没有历史会话，直接使用数学学科
-    selectSubject('math')
-  }
-}
-
-// 新建教师对话（从SessionList的新增按钮进入）
-const handleNewTeacherChat = async () => {
-  console.log('[MyProfileView] 🆕 handleNewTeacherChat() - 新建教师对话')
-  
-  // 第1步：创建新会话
-  await selectSubject('math')
-  
-  // 第2步：等待一帧确保DOM更新
+  // 第2步：等待组件加载完成
   await nextTick()
   
-  // 第3步：滚动到SessionList顶部
-  if (teacherSessionListRef.value) {
-    console.log('[MyProfileView] 📜 滚动到SessionList顶部')
-    teacherSessionListRef.value.scrollToTop()
+  // 第3步：检查是否有会话，如果没有则创建新会话
+  if (teacherChatDialogRef.value) {
+    // 快速检查是否有会话（通过检查 localStorage）
+    let hasSessions = false
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith('teacher_chat_') && key.endsWith('_session')) {
+        hasSessions = true
+        break
+      }
+    }
+    
+    if (!hasSessions) {
+      // 没有历史会话，创建新会话（默认数学）
+      await teacherChatDialogRef.value.createNewSession('math')
+    }
   }
 }
 
-// 初始化教师对话（直接使用数学学科）
+// 初始化教师对话（供外部调用）
 const selectSubject = async (subject: 'biology' | 'math') => {
   console.log('[MyProfileView] 🎯 selectSubject() - 初始化教师对话')
   try {
-    // 第1步：清空上一个会话的聊天记录（修复新建对话时显示旧记录的问题）
-    console.log('[MyProfileView] 🧹 清空上一个会话的状态')
-    teacherStore.clearSession()
-    
-    // 第2步：确保用户信息已加载（修复"用户未登录"错误）
+    // 第1步：确保用户信息已加载
     if (!userInfo.value?.id) {
       await loadUserInfo()
     }
     
-    // 第3步：再次检查用户信息
+    // 第2步：再次检查用户信息
     if (!userInfo.value?.id) {
       showMessage('无法获取用户信息，请重新登录', 'error')
       return
     }
 
-    // 第4步：设置科目信息（biology -> BIOLOGY, math -> MATH）
-    const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
-    localStorage.setItem('currentTeacherSubject', storeSubject)
-    
-    // 第5步：生成临时会话ID供后续使用（新的会话ID）
-    const newSessionId = `teacher-${Date.now()}`
-    console.log('[MyProfileView] 🆔 新会话ID:', newSessionId)
-    
-    // 第6步：创建并保存会话信息（这样 loadTeacherSessions 才能加载到新会话）
-    const newSession = {
-      sessionId: newSessionId,
-      sessionName: subject === 'biology' ? '生物答疑' : '数学答疑',
-      subject: subject,
-      createTime: Date.now()
-    }
-    localStorage.setItem(`teacher_chat_${newSessionId}_session`, JSON.stringify(newSession))
-    console.log('[MyProfileView] 💾 保存新会话信息到 localStorage')
-    
-    // 第7步：设置为当前会话ID
-    teacherSessionId.value = newSessionId
-    
-    // 第8步：初始化教师消息监听器（使用 Store 统一方法）
-    await teacherStore.initMessageReceiver()
-
-    // 第9步：刷新会话列表（现在可以加载到新会话了）
-    loadTeacherSessions()
-    console.log('[MyProfileView] 📋 刷新会话列表，新会话应该已加载')
-    
-    // 第10步：打开教师对话Dialog
+    // 第3步：打开对话框
     showTeacherChatDialog.value = true
+    
+    // 第4步：等待组件加载完成
+    await nextTick()
+    
+    // 第5步：通过组件创建新会话
+    if (teacherChatDialogRef.value) {
+      await teacherChatDialogRef.value.createNewSession(subject)
+    }
+    
     console.log('[MyProfileView] ✅ 教师对话准备完成')
   } catch (error) {
     console.error('[MyProfileView] ❌ 准备教师对话失败:', error)
     showMessage('准备教师对话失败，请重试', 'error')
+  }
+}
+
+// 处理教师会话创建事件
+const handleTeacherSessionCreated = (sessionId: string) => {
+  console.log('[MyProfileView] ✅ 教师会话已创建:', sessionId)
+  
+  // 如果需要，可以在这里设置会话到 Store
+  const sessionData = localStorage.getItem(`teacher_chat_${sessionId}_session`)
+  if (sessionData) {
+    const session = JSON.parse(sessionData)
+    teacherStore.setSession(session)
   }
 }
 
@@ -630,23 +422,55 @@ const takePictureToTeacher = async () => {
     await selectSubject('math')
     await nextTick()
 
-    // 第3步：打开教师对话框
-    showTeacherChatDialog.value = true
-
-    // 第4步：将新会话设置到 Store
-    if (teacherSessionId.value) {
-      const sessionData = localStorage.getItem(`teacher_chat_${teacherSessionId.value}_session`)
-      if (sessionData) {
-        teacherStore.setSession(JSON.parse(sessionData))
+    // 第3步：获取新创建的会话ID（从组件或localStorage）
+    let currentSessionId = ''
+    if (teacherChatDialogRef.value) {
+      // 从组件获取当前会话ID，或者从最新的会话获取
+      // 查找最新的会话
+      const sessions: Array<{ sessionId: string; createTime: number }> = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key?.startsWith('teacher_chat_') && key.endsWith('_session')) {
+          try {
+            const sessionData = localStorage.getItem(key)
+            if (sessionData) {
+              const session = JSON.parse(sessionData)
+              sessions.push(session)
+            }
+          } catch (error) {
+            console.error('解析会话数据失败:', error)
+          }
+        }
+      }
+      
+      if (sessions.length > 0) {
+        sessions.sort((a, b) => b.createTime - a.createTime)
+        currentSessionId = sessions[0].sessionId
+        
+        // 设置会话到 Store
+        const sessionData = localStorage.getItem(`teacher_chat_${currentSessionId}_session`)
+        if (sessionData) {
+          teacherStore.setSession(JSON.parse(sessionData))
+          // 设置到组件
+          teacherChatDialogRef.value.setSession(currentSessionId)
+        }
       }
     }
 
-    // 第5步：通过原生RabbitMQ发送图片给老师
-    await teacherStore.sendChatMessage('', {
-      filePath: imageInfo.filePath,
-      // 为了让 createUserMessage 判定为图片消息，需提供 base64DataUrl（此处复用文件路径）
-      base64DataUrl: imageInfo.filePath
-    })
+    // 第4步：验证图片数据完整性
+    if (!imageInfo.filePath) {
+      showMessage('图片路径不存在，请重试', 'error')
+      return
+    }
+    if (!imageInfo.base64DataUrl) {
+      showMessage('图片数据不完整，请重试', 'error')
+      return
+    }
+    
+    // 第5步：设置待发送图片，由ChatView的watch自动处理发送
+    // 流程：设置pendingImage -> ChatView的watch监听到变化 -> 自动调用onImageSelected发送
+    await nextTick() // 确保ChatView已经挂载完成
+    teacherStore.setPendingImage(imageInfo)
   } catch (error) {
     console.error('[MyProfileView] ❌ 处理图片失败:', error)
     showMessage('处理图片失败，请重试', 'error')
@@ -669,6 +493,18 @@ const logout = async () => {
   showLogoutDialog.value = false
   
   try {
+    // 第0步：如果正在课堂中，先退出课堂
+    if (isInClass.value) {
+      console.log('[MyProfileView] 🔍 退出账号 - 检测到正在课堂中，先退出课堂')
+      const exitSuccess = androidBridge.exitClassroom()
+      if (exitSuccess) {
+        console.log('[MyProfileView] ✅ 退出账号 - 课堂退出成功')
+        isInClass.value = false
+      } else {
+        console.warn('[MyProfileView] ⚠️ 退出账号 - 课堂退出失败，继续执行退出账号流程')
+      }
+    }
+    
     // 第1步：清除本地存储的用户信息
     apiService.logoutStudent()
     
@@ -990,37 +826,4 @@ $bg-gray: #f9fafb;
   }
 }
 
-// 教师聊天对话框样式
-.teacher-chat-content {
-  display: flex;
-  height: 100%;
-  overflow: hidden;
-  
-  .left-panel {
-    width: 280px;
-    border-right: 1px solid #e0e0e0;
-    display: flex;
-    flex-direction: column;
-    background: #f5f5f5;
-    overflow: hidden;
-  }
-  
-  .right-panel {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    background: white;
-    
-    .empty-chat {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 60px 20px;
-    }
-  }
-}
 </style>

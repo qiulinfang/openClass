@@ -5,8 +5,12 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { apiService } from '../services/api-service'
+import { ApiService } from '../services/api-service'
 import type { ExerciseItem } from '../types'
+import {
+  saveQuestionsToIndexedDB,
+  loadQuestionsFromIndexedDB
+} from '../services/question-storage'
 
 export const useQuestionStore = defineStore('question', () => {
   // ==================== 状态定义 ====================
@@ -36,25 +40,94 @@ export const useQuestionStore = defineStore('question', () => {
   /** 是否有题目数据 */
   const hasQuestions = computed(() => questions.value.length > 0)
   
+  // ==================== 持久化方法 ====================
+  
+  /**
+   * 保存题目列表到 IndexedDB
+   * @param subject 科目类型（math 或 biology）
+   */
+  const saveQuestionsToLocal = async (subject: string): Promise<void> => {
+    try {
+      await saveQuestionsToIndexedDB(subject, questions.value)
+      console.log('[QUESTION] ✅ 题目列表已保存到 IndexedDB:', questions.value.length)
+    } catch (error) {
+      console.error('[QUESTION] ❌ 保存题目列表到 IndexedDB 失败:', error)
+    }
+  }
+  
+  /**
+   * 从 IndexedDB 加载题目列表
+   * @param subject 科目类型（math 或 biology）
+   * @returns 是否成功加载
+   */
+  const loadQuestionsFromLocal = async (subject: string): Promise<boolean> => {
+    try {
+      const loadedQuestions = await loadQuestionsFromIndexedDB(subject)
+      
+      if (loadedQuestions && Array.isArray(loadedQuestions) && loadedQuestions.length > 0) {
+        questions.value = deduplicateQuestions(loadedQuestions)
+        console.log('[QUESTION] ✅ 从 IndexedDB 加载题目列表:', questions.value.length)
+        return true
+      }
+      
+      return false
+    } catch (error) {
+      console.error('[QUESTION] ❌ 从 IndexedDB 加载题目列表失败:', error)
+      return false
+    }
+  }
+  
   // ==================== 方法 ====================
   
   /**
    * 获取题目列表
-   * 第1步：调用API获取题目
-   * 第2步：去重并更新状态
+   * 第1步：尝试从本地存储加载
+   * 第2步：如果本地没有数据，调用API获取题目
+   * 第3步：保存到本地存储
+   * 第4步：去重并更新状态
    */
-  const fetchQuestions = async (): Promise<void> => {
+  const fetchQuestions = async (subject: string = 'math', useLocalFirst: boolean = true): Promise<void> => {
     try {
       isLoading.value = true
-      const fetchedQuestions = await apiService.fetchQuestions()
       
-      // 去重
-      questions.value = deduplicateQuestions(fetchedQuestions)
+      // 第1步：优先从 IndexedDB 加载
+      if (useLocalFirst && await loadQuestionsFromLocal(subject)) {
+        console.log('[QUESTION] ✅ 使用 IndexedDB 的题目列表，跳过API请求')
+        return
+      }
       
-      console.log('[QUESTION] ✅ 获取题目:', questions.value.length)
+      // 第2步：从API获取题目
+      const apiService = ApiService.getInstance()
+      const questionList = await apiService.getExerciseList(subject)
+      
+      // 转换 API 响应的 ExerciseItem 类型
+      const convertedQuestions: ExerciseItem[] = questionList.map((q: unknown) => {
+        const question = q as Record<string, unknown>
+        return {
+          id: (question.id as string) || (question.bmNo as string) || '',
+          bmNo: (question.bmNo as string) || (question.id as string) || '',
+          title: (question.title as string) || '',
+          question: (question.content as string) || (question.question as string) || (question.title as string) || '',
+          answer: (question.answer as string) || '',
+          explanation: (question.explanation as string) || '',
+          analysisData: (question.analysisData as string) || '',
+          subject: (question.subject as string) || subject.toLowerCase(),
+        }
+      })
+      
+      // 第3步：去重并更新状态
+      questions.value = deduplicateQuestions(convertedQuestions)
+      
+      // 第4步：保存到 IndexedDB
+      await saveQuestionsToLocal(subject)
+      
+      console.log('[QUESTION] ✅ 从API获取题目:', questions.value.length)
     } catch (error) {
       console.error('[QUESTION] ❌ 获取题目失败:', error)
-      throw error
+      // 如果API失败，尝试使用 IndexedDB 的数据
+      if (!await loadQuestionsFromLocal(subject)) {
+        throw error
+      }
     } finally {
       isLoading.value = false
     }
@@ -73,9 +146,10 @@ export const useQuestionStore = defineStore('question', () => {
     
     currentQuestionIndex.value = index
     
-    // 标记为已查看
+    // 标记为已查看（如果类型支持）
     if (questions.value[index]) {
-      questions.value[index].isViewed = true
+      // 动态添加 isViewed 属性（如果类型允许）
+      ;(questions.value[index] as ExerciseItem & { isViewed?: boolean }).isViewed = true
     }
     
     console.log('[QUESTION] ✅ 选择题目:', index)
@@ -83,8 +157,10 @@ export const useQuestionStore = defineStore('question', () => {
   
   /**
    * 删除题目
+   * @param index 题目索引
+   * @param subject 科目类型（可选，用于保存到 IndexedDB）
    */
-  const deleteQuestion = async (index: number): Promise<void> => {
+  const deleteQuestion = async (index: number, subject?: string): Promise<void> => {
     if (index < 0 || index >= questions.value.length) {
       console.error('[QUESTION] ❌ 无效的题目索引:', index)
       return
@@ -97,6 +173,11 @@ export const useQuestionStore = defineStore('question', () => {
       currentQuestionIndex.value = -1
     } else if (index < currentQuestionIndex.value) {
       currentQuestionIndex.value--
+    }
+    
+    // 如果提供了科目，保存到 IndexedDB
+    if (subject) {
+      await saveQuestionsToLocal(subject)
     }
     
     console.log('[QUESTION] ✅ 删除题目:', index)
@@ -135,11 +216,36 @@ export const useQuestionStore = defineStore('question', () => {
   
   /**
    * 查找相似题目
+   * @param questionId 题目ID（可选，如果不提供则使用当前题目）
+   * @param subject 科目类型（可选，如果不提供则从题目中推断）
    */
-  const findSimilarQuestions = async (questionId: string): Promise<void> => {
+  const findSimilarQuestions = async (questionId?: string, subject?: string): Promise<void> => {
     try {
       isLoading.value = true
-      const similar = await apiService.findSimilarQuestions(questionId)
+      const apiService = ApiService.getInstance()
+      
+      // 确定要查找的题目
+      let targetQuestion: ExerciseItem | null = null
+      
+      if (questionId) {
+        // 根据 questionId 查找题目
+        targetQuestion = questions.value.find(q => q.id === questionId || q.bmNo === questionId) || null
+      } else if (currentQuestion.value) {
+        // 使用当前题目
+        targetQuestion = currentQuestion.value
+      }
+      
+      if (!targetQuestion) {
+        console.error('[QUESTION] ❌ 找不到要查找相似题目的题目')
+        similarQuestions.value = []
+        return
+      }
+      
+      // 确定科目类型
+      const targetSubject = subject || targetQuestion.subject || 'math'
+      
+      // 调用 API 查找相似题目
+      const similar = await apiService.findSimilarQuestions(targetQuestion, targetSubject)
       similarQuestions.value = similar
       console.log('[QUESTION] ✅ 查找相似题目:', similar.length)
     } catch (error) {
@@ -152,22 +258,36 @@ export const useQuestionStore = defineStore('question', () => {
   
   /**
    * 添加相似题目到列表
+   * @param question 题目
+   * @param subject 科目类型（可选，用于保存到 IndexedDB）
    */
-  const addSimilarQuestionToList = (question: ExerciseItem): void => {
+  const addSimilarQuestionToList = async (question: ExerciseItem, subject?: string): Promise<void> => {
     // 检查是否已存在
     const exists = questions.value.some(q => q.id === question.id)
     if (!exists) {
       questions.value.push(question)
       console.log('[QUESTION] ✅ 添加相似题目到列表')
+      
+      // 如果提供了科目，保存到 IndexedDB
+      if (subject) {
+        await saveQuestionsToLocal(subject)
+      }
     }
   }
   
   /**
    * 设置题目列表
+   * @param newQuestions 新的题目列表
+   * @param subject 科目类型（可选，用于保存到 IndexedDB）
    */
-  const setQuestions = (newQuestions: ExerciseItem[]): void => {
+  const setQuestions = async (newQuestions: ExerciseItem[], subject?: string): Promise<void> => {
     questions.value = deduplicateQuestions(newQuestions)
     console.log('[QUESTION] ✅ 设置题目列表:', questions.value.length)
+    
+    // 如果提供了科目，保存到 IndexedDB
+    if (subject) {
+      await saveQuestionsToLocal(subject)
+    }
   }
   
   /**

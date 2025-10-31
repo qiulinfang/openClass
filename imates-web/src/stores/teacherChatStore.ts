@@ -13,12 +13,11 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import localforage from 'localforage'
 import { apiService } from '../services/api-service'
-import { asyncStorage } from '../services/async-storage'
+import { asyncStorage } from '../services/chat-storage'
 import { showMessage } from '../utils'
 import { useUserStore } from './userStore'
 import { useQuestionStore } from './questionStore'
 import {
-  createUserMessage,
   updateMessageSuccess,
   updateMessageError,
   updateMessageRetrying,
@@ -60,6 +59,15 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
   
   const VIEW_ANSWER_CHAT_TIMES = 3
   const canViewAnswer = computed(() => chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES)
+  
+  /** 待发送图片（用于拍作业场景） */
+  const pendingImage = ref<{
+    filePath: string
+    width: number
+    height: number
+    fileSize: number
+    base64DataUrl?: string
+  } | null>(null)
   
   // 防抖定时器
   let saveDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -122,10 +130,9 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
    * 第3步：通过Android Bridge直接发送到RabbitMQ（不使用HTTP接口）
    * 第4步：等待教师回复（通过RabbitMQ接收）
    */
-  const sendChatMessage = async (
+  const sendMessage = async (
     content: string,
     imageData?: ChatImageData,
-    hidePrefix: boolean = false
   ): Promise<void> => {
     console.log('[TeacherStore] 📤 开始发送教师消息:', { content, hasImage: !!imageData })
     
@@ -143,9 +150,8 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
       return
     }
     
-    // 第2步：创建并添加用户消息
-    const userMessage = createUserMessage(content, imageData, hidePrefix)
-    addMessage(userMessage)
+    // 第2步：采用乐观发送，消息已在ChatView中预先添加，这里不再添加
+    // 注意：ChatView会在调用sendMessage前预先添加用户消息到store
     
     // 第3步：设置加载状态
     isChatLoading.value = true
@@ -161,14 +167,27 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
       
       // 第4步：根据消息类型调用不同的Android Bridge方法
       // 教师聊天直接通过RabbitMQ发送，不使用HTTP接口
-      if (imageData?.filePath) {
-        // 图片消息
-        console.log('[TeacherStore] 🖼️ 发送图片消息:', imageData.filePath)
-        result = await window.AndroidBridge.sendPictureToTeacher(
-          imageData.filePath,
-          sessionId,
-          subject
-        )
+      if (imageData?.base64DataUrl) {
+        // 图片消息：使用filePath发送给Android端（如果有），否则回退到base64DataUrl
+        // 渲染时使用base64DataUrl
+        console.log('[TeacherStore] 🖼️ 发送图片消息')
+        if (imageData.filePath) {
+          // 优先使用filePath（更高效，避免传递大base64字符串）
+          console.log('[TeacherStore] 📁 使用filePath发送')
+          result = await window.AndroidBridge.sendPictureToTeacher(
+            imageData.filePath,
+            sessionId,
+            subject
+          )
+        } else {
+          // 如果没有filePath，回退使用base64DataUrl（兼容旧代码）
+          console.warn('[TeacherStore] ⚠️ 缺少filePath，使用base64DataUrl（不推荐）')
+          result = await window.AndroidBridge.sendPictureToTeacher(
+            imageData.base64DataUrl,
+            sessionId,
+            subject
+          )
+        }
       } else {
         // 文本消息
         console.log('[TeacherStore] 💬 发送文本消息:', content.substring(0, 100))
@@ -630,9 +649,11 @@ ${conversationSummary}
           // 第3步：根据消息类型发送
           if (msg.imageData?.filePath) {
             // 图片消息
-            console.log('[TeacherStore] 🖼️ 发送图片消息:', msg.imageData.filePath)
+            // 使用 filePath 发送给 Android 端（Android 端会将文件路径转换为 base64）
+            // base64DataUrl 仅用于前端 UI 显示，不用于发送
+            console.log('[TeacherStore] 🖼️ 转发图片消息')
             result = await window.AndroidBridge.sendPictureToTeacher(
-              msg.imageData.filePath,
+              msg.imageData.filePath,  // 文件路径，用于发送给 Android 端
               currentSession.value.sessionId,
               currentSession.value.subject
             )
@@ -805,6 +826,30 @@ ${conversationSummary}
     enableWebSearch.value = !enableWebSearch.value
   }
   
+  /**
+   * 设置待发送图片（用于拍作业场景）
+   * 第1步：保存图片信息到状态
+   */
+  const setPendingImage = (imageData: {
+    filePath: string
+    width: number
+    height: number
+    fileSize: number
+    base64DataUrl?: string
+  }): void => {
+    console.log('[TeacherStore] 📸 设置待发送图片:', imageData.filePath)
+    pendingImage.value = imageData
+  }
+  
+  /**
+   * 清除待发送图片
+   * 第1步：清空待发送图片状态
+   */
+  const clearPendingImage = (): void => {
+    console.log('[TeacherStore] 🗑️ 清除待发送图片')
+    pendingImage.value = null
+  }
+  
   return {
     // 状态
     messages,
@@ -815,6 +860,7 @@ ${conversationSummary}
     enableWebSearch,
     VIEW_ANSWER_CHAT_TIMES,
     canViewAnswer,
+    pendingImage,
     
     // 会话管理
     setSession,
@@ -828,7 +874,7 @@ ${conversationSummary}
     addMessage,
     updateMessage,
     clearMessages,
-    sendChatMessage,
+    sendMessage,
     retryTeacherMessage,
     forwardMessagesToTeacher,
     
@@ -842,7 +888,9 @@ ${conversationSummary}
     cleanupMessageReceiver,
     
     // 其他
-    toggleWebSearch
+    toggleWebSearch,
+    setPendingImage,
+    clearPendingImage
   }
 })
 

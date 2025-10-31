@@ -12,7 +12,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import localforage from 'localforage'
 import { apiService } from '../services/api-service'
-import { asyncStorage } from '../services/async-storage'
+import { asyncStorage } from '../services/chat-storage'
 import { showMessage } from '../utils'
 import { useUserStore } from './userStore'
 import {
@@ -82,7 +82,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
    * 第3步：处理流式响应
    * 第4步：错误处理和重试
    */
-  const sendChatMessage = async (
+  const sendMessage = async (
     content: string,
     selectedModel?: string,
     imageData?: ChatImageData,
@@ -105,12 +105,16 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       const userStore = useUserStore()
       
       // 第5步：构建AI消息请求（传入科目以确定dstUrl）
+      // 将 chatStoreUtils.ChatImageData 转换为 aiMessageBuilder.ChatImageData
+      const builderImageData = imageData && imageData.base64DataUrl 
+        ? { base64DataUrl: imageData.base64DataUrl } 
+        : undefined
       const aiMessage = buildAiTextbookMessage(
         content,
         userStore.userInfo,
         enableWebSearch.value,
         selectedModel || 'mate',
-        imageData,
+        builderImageData,
         userStore.subject  // ⭐ 传入科目参数
       )
       
@@ -202,12 +206,16 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     // 第4步：重新发送
     try {
       const userStore = useUserStore()
+      // 将 chatStoreUtils.ChatImageData 转换为 aiMessageBuilder.ChatImageData
+      const builderImageData = imageData && imageData.base64DataUrl 
+        ? { base64DataUrl: imageData.base64DataUrl } 
+        : undefined
       const aiMessage = buildAiTextbookMessage(
         message.originalMessage!,
         userStore.userInfo,
         enableWebSearch.value,
         chatRole,
-        imageData,
+        builderImageData,
         userStore.subject  // ⭐ 传入科目参数
       )
       
@@ -345,7 +353,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     addMessage,
     updateMessage,
     clearMessages,
-    sendChatMessage,
+    sendMessage,
     retryAiMessage,
     saveChatHistory,
     loadChatHistory,

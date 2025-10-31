@@ -187,7 +187,7 @@ import { onMounted, onBeforeUnmount, computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
-import { resourceManager } from '@/services/resource-manager'
+import { resourceManager } from '@/services/resource-storage'
 import type { UserTextbookInfo, LocalFileInfo, QuestionRecord } from '@/types'
 import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
@@ -493,7 +493,7 @@ const handleScreenshotCaptured = async (blob: Blob) => {
       aiType: 'ai-textbook'
     })
     
-    await aiTextbookStore.sendChatMessage(
+    await aiTextbookStore.sendMessage(
       '', // 空文本，只发送图片
       'mate', // 使用默认AI模型
       {

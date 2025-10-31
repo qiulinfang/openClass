@@ -11,8 +11,7 @@ import type { AiChatMessageRequest, ExerciseItem, UserInfo } from '../../types'
  * 简化的图片数据接口
  */
 export interface ChatImageData {
-  filePath: string
-  base64DataUrl?: string
+  base64DataUrl: string
 }
 
 /**

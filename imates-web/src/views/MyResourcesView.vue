@@ -194,7 +194,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { resourceManager } from '../services/resource-manager'
+import { resourceManager } from '../services/resource-storage'
 import { apiService } from '../services/api-service'
 import { httpClient } from '../services/http-client'
 import { showMessage } from '../utils'

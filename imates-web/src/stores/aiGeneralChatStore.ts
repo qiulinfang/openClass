@@ -12,7 +12,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiService } from '../services/api-service'
-import { asyncStorage, type ChatHistoryData } from '../services/async-storage'
+import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
 import type { ChatBubble, UserInfo, AiGeneralSession } from '../types'
 import { buildAiGeneralMessage } from './utils/aiMessageBuilder'
 import localforage from 'localforage'

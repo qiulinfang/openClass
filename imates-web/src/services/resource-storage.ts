@@ -170,7 +170,6 @@ export class ResourceManager {
 
 
 
-
   /**
    * 更新教材信息到IndexedDB
    * @param textbook 教材信息对象

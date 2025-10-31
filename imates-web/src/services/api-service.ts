@@ -4,7 +4,7 @@
  */
 
 import { httpClient } from './http-client'
-import { resourceManager, ResourceManager } from './resource-manager'
+import { resourceManager, ResourceManager } from './resource-storage'
 import CryptoJS from 'crypto-js'
 import {
   getApiUrl,
@@ -159,29 +159,19 @@ export class ApiService {
    */
   public async pauseDownload(id: string): Promise<boolean> {
     try {
-      console.log(`[${this.getFormattedTime()}] ⏸️ ========== 暂停下载 ==========`)
-      console.log(`[${this.getFormattedTime()}] 📚 教材ID: ${id}`)
-      
       // 获取该教材的下载控制器
       const controller = this.downloadControllers.get(id)
       if (controller) {
-        console.log(`[${this.getFormattedTime()}] 🔍 找到下载控制器，准备中止...`)
-        
         // 取消所有正在进行的下载请求
         controller.abort()
-        console.log(`[${this.getFormattedTime()}] ✅ 下载请求已中止`)
         
         // 清理控制器
         this.downloadControllers.delete(id)
-        console.log(`[${this.getFormattedTime()}] 🗑️ 控制器已清理`)
-        console.log(`[${this.getFormattedTime()}] 🎉 暂停成功`)
         return true
       } else {
-        console.log(`[${this.getFormattedTime()}] ⚠️ 未找到活跃的下载控制器（可能已完成或未开始）`)
         return true
       }
     } catch (error) {
-      console.error(`[${this.getFormattedTime()}] ❌ 暂停下载失败:`, error)
       return false
     }
   }
@@ -192,35 +182,22 @@ export class ApiService {
    */
   public async cancelDownload(id: string): Promise<boolean> {
     try {
-      console.log(`[${this.getFormattedTime()}] ❌ ========== 取消下载 ==========`)
-      console.log(`[${this.getFormattedTime()}] 📚 教材ID: ${id}`)
-      
       // 获取该教材的下载控制器
       const controller = this.downloadControllers.get(id)
       if (controller) {
-        console.log(`[${this.getFormattedTime()}] 🔍 找到下载控制器，准备中止...`)
-        
         // 取消所有正在进行的下载请求
         controller.abort()
-        console.log(`[${this.getFormattedTime()}] ✅ 下载请求已中止`)
         
         // 清理控制器
         this.downloadControllers.delete(id)
-        console.log(`[${this.getFormattedTime()}] 🗑️ 控制器已清理`)
-      } else {
-        console.log(`[${this.getFormattedTime()}] ⚠️ 未找到活跃的下载控制器`)
       }
       
       // 清理已下载的文件数据
-      console.log(`[${this.getFormattedTime()}] 🗑️ 开始清理已下载的文件数据...`)
       const resourceManager = ResourceManager.getInstance()
       await resourceManager.clearTextbookFiles(id)
-      console.log(`[${this.getFormattedTime()}] ✅ 文件数据已清理`)
-      console.log(`[${this.getFormattedTime()}] 🎉 取消成功`)
       
       return true
     } catch (error) {
-      console.error(`[${this.getFormattedTime()}] ❌ 取消下载失败:`, error)
       return false
     }
   }
@@ -940,9 +917,8 @@ export class ApiService {
       // 第2步：持久化用户信息到localStorage
       try {
         localStorage.setItem('userInfo', JSON.stringify(userInfo))
-        console.log('[API] ✅ 用户信息已持久化到localStorage')
       } catch (storageError) {
-        console.warn('[API] ⚠️ 持久化用户信息失败:', storageError)
+        // 静默处理
       }
       
       // 第3步：同步用户信息到Android原生ViewModel（关键！）
@@ -952,20 +928,14 @@ export class ApiService {
         const userPassword = localStorage.getItem('userPassword')
         
         if (userId && token) {
-          const syncSuccess = this.androidBridge.syncUserInfo(
+          this.androidBridge.syncUserInfo(
             userId,
             token,
             userPassword || ''
           )
-          
-          if (syncSuccess) {
-            console.log('[API] ✅ 用户信息已同步到Android原生ViewModel')
-          } else {
-            console.warn('[API] ⚠️ 用户信息同步失败（可能不在Android环境）')
-          }
         }
       } catch (syncError) {
-        console.warn('[API] ⚠️ 同步用户信息到Android异常:', syncError)
+        // 静默处理
       }
 
       return userInfo
@@ -1136,7 +1106,7 @@ export class ApiService {
               timestamp: Date.now()
             }))
           } catch (storageError) {
-            console.warn('缓存学习包数据失败:', storageError)
+            // 静默处理
           }
         }
         
@@ -1145,8 +1115,6 @@ export class ApiService {
       
       return []
     } catch (error) {
-      console.error('获取学习资源包失败:', error)
-      
       // 尝试从本地缓存获取数据
       if (useCache) {
         try {
@@ -1159,7 +1127,7 @@ export class ApiService {
             }
           }
         } catch (cacheError) {
-          console.warn('读取缓存学习包数据失败:', cacheError)
+          // 静默处理
         }
       }
       
@@ -1347,7 +1315,6 @@ export class ApiService {
       return updatedTextbooks
       
     } catch (error) {
-      console.error('[检查更新] 检查更新过程中发生错误:', error)
       return []
     }
   }
@@ -1380,7 +1347,6 @@ export class ApiService {
       return false
       
     } catch (error) {
-      console.error(`[教材更新检查] ${serverTextbook.textbookName}: 检查过程中发生错误:`, error)
       // 出错时默认需要更新（安全策略）
       return true
     }
@@ -1429,7 +1395,6 @@ export class ApiService {
       return false
       
     } catch (error) {
-      console.error(`[包更新检查] ${serverTextbook.textbookName}: 检查过程中发生错误:`, error)
       return true
     }
   }
@@ -1479,7 +1444,6 @@ export class ApiService {
       return false
       
     } catch (error) {
-      console.error(`[文件更新检查] 教材 ${textbook.textbookName}: 检查过程中发生错误:`, error)
       return true
     }
   }
@@ -1499,7 +1463,6 @@ export class ApiService {
       
       return newDate > oldDate
     } catch (error) {
-      console.error(`[时间比较] 时间比较过程中发生错误:`, error)
       return true // 出错时默认需要更新（安全策略）
     }
   }
@@ -1660,63 +1623,33 @@ export class ApiService {
    * 使用与安卓原生一致的接口路径和认证方式
    */
   public async downloadTextbook(textbook: UserTextbookInfo, onProgress?: (progress: number, downloadedCount: number, totalToDownload: number) => void): Promise<boolean> {
-    const startTime = Date.now()
-    
-    // 流程：判断下载类型（首次下载/继续下载/更新下载）
-    const downloadType = this.getDownloadType(textbook)
-    console.log(`[${this.getFormattedTime()}] 📥 ========== ${downloadType} ==========`)
-    console.log(`[${this.getFormattedTime()}] 📚 教材名称: ${textbook.textbookName}`)
-    console.log(`[${this.getFormattedTime()}] 📊 当前状态: {`)
-    console.log(`[${this.getFormattedTime()}]   - 下载状态: ${this.getStatusLabel(textbook.downloadStatus)}`)
-    console.log(`[${this.getFormattedTime()}]   - 已下载: ${textbook.downloadedFiles || 0} 文件`)
-    console.log(`[${this.getFormattedTime()}]   - 总文件: ${textbook.totalFiles || 0} 文件`)
-    console.log(`[${this.getFormattedTime()}]   - 是否完成: ${textbook.isDownloaded ? '是' : '否'}`)
-    console.log(`[${this.getFormattedTime()}] }`)
-    
     try {
       // 第1步：初始化下载控制器
-      console.log(`[${this.getFormattedTime()}] ⚙️ 步骤1: 初始化下载控制器`)
-      const step1Start = Date.now()
       const controller = new AbortController()
       this.downloadControllers.set(textbook.textbookId, controller)
-      console.log(`[${this.getFormattedTime()}] ✅ 步骤1完成 (耗时: ${Date.now() - step1Start}ms) - 控制器ID: ${textbook.textbookId}`)
       
       // 第2步：获取学习资源包（优先使用本地数据）
-      console.log(`[${this.getFormattedTime()}] ⚙️ 步骤2: 获取学习资源包`)
-      const step2Start = Date.now()
       let serverPackages: any[] = []
       
       if (textbook.learningPackages && textbook.learningPackages.length > 0) {
         serverPackages = textbook.learningPackages
-        console.log(`[${this.getFormattedTime()}] 📦 使用本地缓存的学习包 (${serverPackages.length}个)`)
       } else {
         serverPackages = await this.getServerLearningPackages(textbook)
-        console.log(`[${this.getFormattedTime()}] 📦 从服务器获取学习包 (${serverPackages.length}个)`)
       }
-      console.log(`[${this.getFormattedTime()}] ✅ 步骤2完成 (耗时: ${Date.now() - step2Start}ms)`)
       
       if (!serverPackages || serverPackages.length === 0) {
-        console.log(`[${this.getFormattedTime()}] ⚠️ 无学习包，下载结束`)
         return true
       }
       
       // 第3步：增量文件筛选（收集需要更新的文件）
-      console.log(`[${this.getFormattedTime()}] ⚙️ 步骤3: 增量文件筛选`)
-      const step3Start = Date.now()
       const { filesToUpdate, totalServerFiles } = await this.collectFilesToUpdate(textbook, serverPackages)
       const filesToDownload = filesToUpdate.length
-      console.log(`[${this.getFormattedTime()}] ✅ 步骤3完成 (耗时: ${Date.now() - step3Start}ms) - 需下载: ${filesToDownload}/${totalServerFiles}`)
       
       // 第4步：保存学习资源包到IndexedDB
-      console.log(`[${this.getFormattedTime()}] ⚙️ 步骤4: 保存学习资源包到IndexedDB`)
-      const step4Start = Date.now()
       const resourceManager = ResourceManager.getInstance()
       await resourceManager.updateTextbookInfo(textbook, undefined)
-      console.log(`[${this.getFormattedTime()}] ✅ 步骤4完成 (耗时: ${Date.now() - step4Start}ms)`)
       
       // 第5步：设置教材总文件数
-      console.log(`[${this.getFormattedTime()}] ⚙️ 步骤5: 设置教材总文件数`)
-      const step5Start = Date.now()
       const textbooks = await resourceManager.getUserLocalTextbooks()
       const textbookRecord = textbooks.find(t => t.textbookId === textbook.textbookId)
       if (textbookRecord) {
@@ -1724,23 +1657,15 @@ export class ApiService {
         await resourceManager.updateTextbookInfo(textbookRecord, { totalFiles: totalServerFiles })
       }
       textbook.totalFiles = totalServerFiles
-      console.log(`[${this.getFormattedTime()}] ✅ 步骤5完成 (耗时: ${Date.now() - step5Start}ms) - 总文件数: ${totalServerFiles}`)
       
       if (filesToDownload === 0) {
-        console.log(`[${this.getFormattedTime()}] ✅ 所有文件已是最新，无需下载`)
-        console.log(`[${this.getFormattedTime()}] 🎉 下载流程完成 (总耗时: ${Date.now() - startTime}ms)`)
         return true
       }
       
       // 第6步：并发下载需要更新的文件
-      console.log(`[${this.getFormattedTime()}] ⚙️ 步骤6: 并发下载文件`)
-      console.log(`[${this.getFormattedTime()}]   - 需要下载: ${filesToDownload} 文件`)
       // 流程：计算已下载的文件数（总文件数 - 需要下载的文件数）
       const alreadyDownloadedFiles = totalServerFiles - filesToDownload
-      console.log(`[${this.getFormattedTime()}]   - 已完成文件: ${alreadyDownloadedFiles} 文件`)
-      console.log(`[${this.getFormattedTime()}]   - 总文件数: ${totalServerFiles} 文件`)
       
-      const step6Start = Date.now()
       const result = await this.downloadFilesConcurrently(
         filesToUpdate, 
         filesToDownload, 
@@ -1749,70 +1674,27 @@ export class ApiService {
         (progress, newlyDownloadedCount) => {
           // 流程：总下载文件数 = 已完成的旧文件 + 新下载的文件
           const totalDownloadedFiles = alreadyDownloadedFiles + newlyDownloadedCount
-          console.log(`[${this.getFormattedTime()}] 📊 下载进度: ${progress}% (${totalDownloadedFiles}/${totalServerFiles}) - 本次新增: ${newlyDownloadedCount}`)
           onProgress?.(progress, totalDownloadedFiles, filesToDownload)
         }, 
         textbook
       )
-      console.log(`[${this.getFormattedTime()}] ✅ 步骤6完成 (耗时: ${Date.now() - step6Start}ms)`)
-      console.log(`[${this.getFormattedTime()}]   - 成功: ${result.successCount} 文件`)
-      console.log(`[${this.getFormattedTime()}]   - 失败: ${result.errorCount} 文件`)
-      console.log(`[${this.getFormattedTime()}]   - 平均速度: ${result.averageSpeed}`)
       
       // 第7步：强制刷新IndexedDB
-      console.log(`[${this.getFormattedTime()}] ⚙️ 步骤7: 强制刷新IndexedDB`)
-      const step7Start = Date.now()
       await resourceManager.forceFlushPendingUpdates()
-      console.log(`[${this.getFormattedTime()}] ✅ 步骤7完成 (耗时: ${Date.now() - step7Start}ms)`)
             
       // 第8步：清理下载控制器
-      console.log(`[${this.getFormattedTime()}] ⚙️ 步骤8: 清理下载控制器`)
-      const step8Start = Date.now()
       this.downloadControllers.delete(textbook.textbookId)
-      console.log(`[${this.getFormattedTime()}] ✅ 步骤8完成 (耗时: ${Date.now() - step8Start}ms)`)
       
       const isSuccess = result.successCount === filesToDownload
-      
-      const totalTime = Date.now() - startTime
-      if (isSuccess) {
-        console.log(`[${this.getFormattedTime()}] 🎉 ========== 下载完成 ==========`)
-        console.log(`[${this.getFormattedTime()}] 📚 教材名称: ${textbook.textbookName}`)
-        console.log(`[${this.getFormattedTime()}] ✅ 下载结果: {`)
-        console.log(`[${this.getFormattedTime()}]   - 状态: 成功`)
-        console.log(`[${this.getFormattedTime()}]   - 总耗时: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}秒)`)
-        console.log(`[${this.getFormattedTime()}]   - 成功文件: ${result.successCount}/${filesToDownload}`)
-        console.log(`[${this.getFormattedTime()}]   - 失败文件: ${result.errorCount}`)
-        console.log(`[${this.getFormattedTime()}]   - 平均速度: ${result.averageSpeed}`)
-        console.log(`[${this.getFormattedTime()}] }`)
-      } else {
-        console.log(`[${this.getFormattedTime()}] ❌ ========== 下载失败 ==========`)
-        console.log(`[${this.getFormattedTime()}] 📚 教材名称: ${textbook.textbookName}`)
-        console.log(`[${this.getFormattedTime()}] ❌ 下载结果: {`)
-        console.log(`[${this.getFormattedTime()}]   - 状态: 失败`)
-        console.log(`[${this.getFormattedTime()}]   - 总耗时: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}秒)`)
-        console.log(`[${this.getFormattedTime()}]   - 成功文件: ${result.successCount}/${filesToDownload}`)
-        console.log(`[${this.getFormattedTime()}]   - 失败文件: ${result.errorCount}`)
-        console.log(`[${this.getFormattedTime()}] }`)
-      }
       
       return isSuccess
       
     } catch (error) {
-      const totalTime = Date.now() - startTime
-      
       if (error instanceof Error && error.name === 'AbortError') {
-        console.log(`[${this.getFormattedTime()}] ⏸️ ========== 下载被中断 ==========`)
-        console.log(`[${this.getFormattedTime()}] 📚 教材名称: ${textbook.textbookName}`)
-        console.log(`[${this.getFormattedTime()}] ⚠️ 中断原因: 用户主动暂停`)
-        console.log(`[${this.getFormattedTime()}] ⏱️ 已运行时长: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}秒)`)
         this.downloadControllers.delete(textbook.textbookId)
         throw error
       }
       
-      console.log(`[${this.getFormattedTime()}] ❌ ========== 下载异常 ==========`)
-      console.log(`[${this.getFormattedTime()}] 📚 教材名称: ${textbook.textbookName}`)
-      console.log(`[${this.getFormattedTime()}] ❌ 错误信息:`, error)
-      console.log(`[${this.getFormattedTime()}] ⏱️ 已运行时长: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}秒)`)
       this.downloadControllers.delete(textbook.textbookId)
       
       return false
@@ -1888,7 +1770,7 @@ export class ApiService {
       }
       
     } catch (error) {
-      console.error('更新本地文件信息失败:', error)
+      // 静默处理
     }
   }
 

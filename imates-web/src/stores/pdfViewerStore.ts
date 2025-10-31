@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { toRaw } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
-import { resourceManager } from '@/services/resource-manager'
+import { resourceManager } from '@/services/resource-storage'
 import type { LocalFileInfo, UserTextbookInfo } from '@/types/textbook'
 
 // 动态导入PDF.js worker

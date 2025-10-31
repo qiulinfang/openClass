@@ -29,6 +29,7 @@ export interface ImageData {
   width: number
   height: number
   fileSize: number
+  base64DataUrl?: string  // 可选的base64数据，用于前端渲染显示
 }
 
 /** 图片压缩结果接口 */

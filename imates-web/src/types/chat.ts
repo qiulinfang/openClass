@@ -53,6 +53,7 @@ export interface ChatBubble {
     width: number
     height: number
     fileSize: number
+    base64DataUrl?: string  // base64数据URL，用于UI显示
   }
   chatRecordData?: {
     messages: ChatBubble[]

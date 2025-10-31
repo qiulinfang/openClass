@@ -76,8 +76,8 @@ import { ref, computed, onMounted } from 'vue'
 // 导入类型定义
 import type { ImageMessageProps } from '../../types'
 
-// 定义Props
-interface Props extends ImageMessageProps {}
+// 定义Props（直接使用类型，避免空接口）
+type Props = ImageMessageProps
 
 const props = withDefaults(defineProps<Props>(), {
   width: 0,
@@ -94,7 +94,8 @@ const loadError = ref(false)
 const showPreview = ref(false)
 
 const imageUrl = computed(() => {
-  return props.filePath
+  // 只使用 base64DataUrl
+  return props.base64DataUrl
 })
 
 const altText = computed(() => {

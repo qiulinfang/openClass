@@ -67,30 +67,101 @@
         </q-btn>
       </div>
 
-      <!-- 题目卡片列表 - 使用虚拟滚动优化性能 -->
-      <div v-else class="question-cards-container">
-        <VirtualQuestionList
-          :questions="searchQuery ? filteredQuestions : questions"
-          :selected-question-index="searchQuery ? -1 : selectedQuestionIndex"
-          :search-query="searchQuery"
-          @question-selected="handleQuestionSelected"
-          @start-ai-guidance="handleStartAiGuidance"
-          @move-to-top="moveQuestionToTop"
-        />
+      <!-- 题目卡片列表 -->
+      <div v-else class="question-cards-list">
+        <div 
+          v-for="(item, index) in (searchQuery ? filteredQuestions : questions)" 
+          :key="item.id"
+          class="question-item-wrapper"
+        >
+          <div 
+            class="question-card"
+            :class="{ 
+              'question-selected': (searchQuery ? -1 : selectedQuestionIndex) === index,
+              'question-deleting': deletingIds.has(item.id)
+            }"
+            @click="throttledHandleCardClick(item, index)"
+          >
+            <div class="question-block">
+              <!-- 题目头部 -->
+              <div class="question-header">
+                <!-- 左侧：题目序号 -->
+                <div class="question-number">{{ index + 1 }}</div>
+                
+                <!-- 右侧：功能区 -->
+                <div class="question-actions">
+                  <!-- 按钮组 - 只在选中时显示 -->
+                  <div v-show="(searchQuery ? -1 : selectedQuestionIndex) === index">
+                    <!-- 主要操作按钮 - 发送给AI -->
+                    <q-btn
+                      icon="smart_toy"
+                      color="primary"
+                      flat
+                      round
+                      size="sm"
+                      @click.stop="throttledSendToAi(item)"
+                      class="action-btn primary-action"
+                    >
+                      <q-tooltip>发送给AI</q-tooltip>
+                    </q-btn>
+
+                    <!-- 置顶按钮 -->
+                    <q-btn
+                      v-if="index > 0"
+                      icon="vertical_align_top"
+                      color="orange"
+                      flat
+                      round
+                      size="sm"
+                      @click.stop="throttledMoveToTop(item.id)"
+                      class="action-btn"
+                    >
+                      <q-tooltip>置顶</q-tooltip>
+                    </q-btn>
+
+                    <q-btn
+                      icon="delete"
+                      color="negative"
+                      flat
+                      round
+                      size="sm"
+                      :loading="deletingIds.has(item.id)"
+                      :disable="deletingIds.has(item.id)"
+                      @click.stop="throttledDeleteQuestion(item.id)"
+                      class="action-btn"
+                    >
+                      <q-tooltip>{{ deletingIds.has(item.id) ? '处理中...' : '删除题目' }}</q-tooltip>
+                    </q-btn>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 题目内容 -->
+              <div class="question-content-area">
+                <div
+                  class="markdown-content question-content"
+                  v-html="renderMessageContent(item.question || item.title || '暂无内容')"
+                  :ref="(el) => setContentRef(el as HTMLElement | null, item.id)"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, computed } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import { showMessage, ThrottleUtils, throttle } from '../utils'
 import { useQuestionStore } from '../stores/questionStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
 import type { ExerciseItem } from '../types'
 import { apiService } from '../services/api-service'
 import { androidBridge } from '../services/android-bridge'
-import VirtualQuestionList from './VirtualQuestionList.vue'
+import { MathJaxUtils } from '../utils/math/mathjax'
+import { useMessageRenderer } from '../composables/useMessageRenderer'
 import QuestionListSkeleton from './QuestionListSkeleton.vue'
 
 const emit = defineEmits<{
@@ -107,6 +178,15 @@ const loading = ref(true)
 // 搜索相关
 const searchQuery = ref('')
 const searchTimeout = ref<number | null>(null)
+
+// 题目删除和渲染相关
+const deletingIds = ref(new Set<string>())
+const contentRefs = ref<Map<string, HTMLElement>>(new Map())
+const renderedQuestions = new Set<string>()
+const intersectionObservers = new Map<string, IntersectionObserver>()
+
+// 使用与 ChatBubble 相同的渲染器
+const { renderMessageContent } = useMessageRenderer()
 
 
 
@@ -130,15 +210,85 @@ const filteredQuestions = computed(() => {
 
 // 主要方法
 
-// 处理题目选择事件（来自虚拟滚动组件）
-const handleQuestionSelected = async (question: ExerciseItem, index: number) => {
-  await selectQuestion(index)
+// 设置内容引用，使用 Intersection Observer 实现真正的视口懒加载
+const setContentRef = (el: HTMLElement | null, questionId: string) => {
+  if (el && el instanceof HTMLElement) {
+    contentRefs.value.set(questionId, el)
+    
+    // 只在首次渲染时处理MathJax，使用 Intersection Observer 实现懒加载
+    if (!renderedQuestions.has(questionId)) {
+      renderedQuestions.add(questionId)
+      
+      // 获取题目在列表中的索引
+      const questionIndex = questions.value.findIndex(q => q.id === questionId)
+      
+      // 前3个题目立即渲染，确保首屏快速显示
+      if (questionIndex < 3) {
+        MathJaxUtils.renderMath(el, false) // 立即渲染
+        nextTick(() => {
+          adjustCardHeight(el, questionId)
+        })
+        return
+      }
+      
+      // 其他题目使用 Intersection Observer 懒加载
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              // 元素进入视口，立即渲染 MathJax
+              MathJaxUtils.renderMath(el, false) // 立即渲染，不使用懒加载模式
+              
+              // 渲染完成后调整高度
+              nextTick(() => {
+                adjustCardHeight(el, questionId)
+              })
+              
+              // 停止观察，避免重复渲染
+              observer.unobserve(el)
+              intersectionObservers.delete(questionId) // 从存储中移除
+            }
+          })
+        },
+        {
+          root: null, // 使用视口作为根
+          rootMargin: '100px', // 提前100px开始渲染，确保流畅体验
+          threshold: 0.1 // 元素10%可见时触发
+        }
+      )
+      
+      // 存储观察器，便于清理
+      intersectionObservers.set(questionId, observer)
+      
+      // 开始观察元素
+      observer.observe(el)
+    }
+  }
 }
 
-// 处理AI指导事件（来自虚拟滚动组件）
-const handleStartAiGuidance = throttle((question: ExerciseItem) => {
+// 调整卡片高度 - 简化版本，不再需要复杂的高度计算
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const adjustCardHeight = (_contentEl: HTMLElement, _questionId: string) => {
+  // 普通列表模式下，让内容自然流动，不需要强制设置高度
+  // 保留此函数是为了兼容现有的 Intersection Observer 调用
+}
+
+// 创建节流版本的方法
+const throttledHandleCardClick = ThrottleUtils.fast(async (question: ExerciseItem, index: number) => {
+  await selectQuestion(index)
+})
+
+const throttledSendToAi = throttle((question: ExerciseItem) => {
   sendToAi(question)
 }, 3000) // 3秒节流，防止频繁发送给AI
+
+const throttledDeleteQuestion = ThrottleUtils.slow((questionId: string) => {
+  deleteQuestion(questionId)
+})
+
+const throttledMoveToTop = ThrottleUtils.standard((questionId: string) => {
+  moveQuestionToTop(questionId)
+})
 
 // 创建节流版本的方法
 const throttledStartPhotoSearch = ThrottleUtils.verySlow(() => {
@@ -152,36 +302,15 @@ const throttledLoadQuestions = ThrottleUtils.verySlow(() => {
 const loadQuestions = async () => {
   loading.value = true
   try {
-    let convertedQuestions: ExerciseItem[] = []
-
-    // 使用真实数据
-      // 使用API服务获取题目列表
-      const questionList = await apiService.getExerciseList(selectedSubject.value)
-
-      // 转换 API 响应的 ExerciseItem 类型到 store 的 ExerciseItem 类型
-      convertedQuestions = questionList.map((q: unknown) => {
-        const question = q as Record<string, unknown>
-        return {
-          id: (question.id as string) || (question.bmNo as string) || '',
-          bmNo: (question.bmNo as string) || (question.id as string) || '',
-          title: (question.title as string) || '',
-          question: (question.content as string) || (question.question as string) || (question.title as string) || '',
-          answer: (question.answer as string) || '',
-          explanation: (question.explanation as string) || '',
-          analysisData: (question.analysisData as string) || '',
-          subject: (question.subject as string) || selectedSubject.value.toLowerCase(),
-        }
-      })
-
-    // 同步到全局 store，确保 selectQuestion 能够定位
-    // store会自动进行去重处理
+    // 使用 store 的 fetchQuestions 方法，它会优先从本地存储加载
     const questionStore = useQuestionStore()
-    questionStore.setQuestions(convertedQuestions)
+    // fetchQuestions 方法会先尝试从本地存储加载，如果没有数据再请求API
+    await questionStore.fetchQuestions(selectedSubject.value, true)
     
     // 从store获取去重后的题目列表
     questions.value = [...questionStore.questions]
 
-    if (convertedQuestions.length > 0) {
+    if (questions.value.length > 0) {
       // 等待 DOM 更新
       await nextTick()
     }
@@ -359,6 +488,33 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
 
 
 
+// 删除题目
+const deleteQuestion = async (questionId: string) => {
+  try {
+    deletingIds.value.add(questionId)
+
+    try {
+      // 使用API服务删除题目
+      const success = await apiService.deleteExercise(questionId, selectedSubject.value)
+
+      if (success) {
+        showMessage('题目删除成功', 'positive')
+        // 重新加载题目列表
+        await loadQuestions()
+      } else {
+        showMessage('题目删除失败', 'error')
+      }
+    } catch (error) {
+      showMessage('删除题目时出错: ' + (error as Error).message, 'error')
+    } finally {
+      deletingIds.value.delete(questionId)
+    }
+  } catch (error) {
+    showMessage('删除题目时出错: ' + (error as Error).message, 'error')
+    deletingIds.value.delete(questionId)
+  }
+}
+
 // 题目置顶处理
 const moveQuestionToTop = async (questionId: string) => {
   try {
@@ -378,7 +534,7 @@ const moveQuestionToTop = async (questionId: string) => {
 
     // 同步到store
     const questionStore = useQuestionStore()
-    questionStore.setQuestions(questions.value)
+    await questionStore.setQuestions(questions.value, selectedSubject.value)
 
 
     // 题目置顶后滚动到最顶部
@@ -427,7 +583,7 @@ const startPhotoSearch = () => {
 
           // 同步到store
           const questionStore = useQuestionStore()
-          questionStore.setQuestions(questions.value)
+          await questionStore.setQuestions(questions.value, selectedSubject.value)
 
         }
       }, 2000)
@@ -498,6 +654,18 @@ const sendToAi = async (question: ExerciseItem) => {
 // 生命周期
 onMounted(() => {
   loadQuestions()
+})
+
+// 组件卸载时清理资源
+onUnmounted(() => {
+  // 清理所有 Intersection Observer
+  intersectionObservers.forEach((observer) => {
+    observer.disconnect()
+  })
+  intersectionObservers.clear()
+  
+  // 清理 MathJax
+  MathJaxUtils.cleanup()
 })
 
 // 暴露方法给父组件
@@ -659,6 +827,21 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
     }
   }
 
+  // 题目卡片列表容器
+  .question-cards-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .question-item-wrapper {
+    padding: 0;
+    box-sizing: border-box;
+    width: 100%;
+    overflow: visible;
+  }
+
   // 题目卡片
   .question-card {
     cursor: pointer;
@@ -753,14 +936,35 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
         width: 24px; // 减小图标大小
         height: 24px; // 减小图标大小
         border-radius: 12px;
+        transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
         
-        &:hover {
+        &:hover:not(:disabled) {
           background-color: $background-hover;
           @include card-shadow(subtle);
+          transform: scale(1.05);
+        }
+        
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          transform: none;
+        }
+        
+        &.q-btn--loading {
+          opacity: 0.7;
+          cursor: not-allowed;
         }
         
         :deep(.q-btn__content) {
           font-size: 14px; // 减小图标字体大小
+        }
+        
+        // 主要操作按钮特殊样式
+        &.primary-action {
+          &:hover:not(:disabled) {
+            background-color: rgba(26, 115, 232, 0.1);
+            color: $primary-color;
+          }
         }
       }
     }

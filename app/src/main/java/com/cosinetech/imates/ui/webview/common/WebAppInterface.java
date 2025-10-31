@@ -119,6 +119,57 @@ public class WebAppInterface {
     }
 
     /**
+     * 获取用户信息
+     * 返回JSON格式的用户信息，包含userId、userName、nickName等字段
+     * @return 用户信息JSON字符串
+     */
+    @JavascriptInterface
+    public String getUserInfo() {
+        try {
+            String userId = AppUtils.getUserId();
+            String nickName = AppUtils.getUserNickName();
+            
+            // 获取UserInfoViewModel以获取更多用户信息
+            UserInfoViewModel userInfoViewModel = new ViewModelProvider(
+                    ApplicationModelShared.getInstance(),
+                    new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance())
+            ).get(UserInfoViewModel.class);
+            
+            JSONObject userInfoJson = new JSONObject();
+            if (userId != null && !userId.isEmpty()) {
+                userInfoJson.put("userId", userId);
+                userInfoJson.put("id", userId); // 同时提供id字段以兼容不同前端
+            }
+            if (nickName != null && !nickName.isEmpty()) {
+                userInfoJson.put("nickName", nickName);
+                userInfoJson.put("userName", nickName); // 同时提供userName字段
+            }
+            
+            // 如果UserInfoViewModel中有用户信息，也添加到JSON中
+            if (userInfoViewModel.userInfo.getValue() != null) {
+                com.cosinetech.imates.data.models.UserInfo userInfo = userInfoViewModel.userInfo.getValue();
+                if (userInfo.getName() != null && !userInfo.getName().isEmpty()) {
+                    userInfoJson.put("name", userInfo.getName());
+                }
+                if (userInfo.getAvatar() != null && !userInfo.getAvatar().isEmpty()) {
+                    userInfoJson.put("avatar", userInfo.getAvatar());
+                }
+            }
+            
+            Log.d(TAG, "获取用户信息: " + userInfoJson.toString());
+            return userInfoJson.toString();
+        } catch (JSONException e) {
+            Log.e(TAG, "获取用户信息失败", e);
+            // 返回空对象而不是null，避免前端解析错误
+            return "{}";
+        } catch (Exception e) {
+            Log.e(TAG, "获取用户信息失败", e);
+            // 返回空对象而不是null，避免前端解析错误
+            return "{}";
+        }
+    }
+
+    /**
      * 同步Web端用户信息到Android原生ViewModel
      * 用于Web登录后同步状态
      * 
@@ -297,13 +348,7 @@ public class WebAppInterface {
                 return createResponse(false, "用户未登录", null);
             }
 
-            // 第2步：检查图片文件是否存在
-            File imageFile = new File(imagePath);
-            if (!imageFile.exists()) {
-                return createResponse(false, "图片文件不存在: " + imagePath, null);
-            }
-
-            // 第3步：确定学科类型
+            // 第2步：确定学科类型
             String teacherSubject;
             if ("biology".equals(subject)) {
                 teacherSubject = "6"; // SCHOOL_SUBJECT_BIOLOGY
@@ -313,14 +358,27 @@ public class WebAppInterface {
                 return createResponse(false, "不支持的学科类型", null);
             }
 
-            // 第4步：创建StudentMessage
+            // 第3步：创建StudentMessage
             String messageId = UUID.randomUUID().toString();
             long timestamp = System.currentTimeMillis();
 
-            // 第5步：读取图片文件并转换为Base64
-            String imageBase64Content = ImageUtils.loadImageFileToBase64(imagePath);
-            if (imageBase64Content == null || imageBase64Content.trim().isEmpty()) {
-                return createResponse(false, "图片文件读取失败", null);
+            // 第4步：判断输入参数是文件路径还是base64数据URL
+            String imageBase64Content;
+            if (imagePath != null && imagePath.startsWith("data:image")) {
+                // 如果是base64数据URL，直接使用
+                imageBase64Content = imagePath;
+                Log.d(TAG, "使用base64数据URL发送图片消息");
+            } else {
+                // 如果是文件路径，读取文件并转换为Base64
+                File imageFile = new File(imagePath);
+                if (!imageFile.exists()) {
+                    return createResponse(false, "图片文件不存在: " + imagePath, null);
+                }
+                imageBase64Content = ImageUtils.loadImageFileToBase64(imagePath);
+                if (imageBase64Content == null || imageBase64Content.trim().isEmpty()) {
+                    return createResponse(false, "图片文件读取失败", null);
+                }
+                Log.d(TAG, "使用文件路径发送图片消息: " + imagePath);
             }
 
             StudentMessage studentMsg = new StudentMessage(
@@ -791,18 +849,17 @@ public class WebAppInterface {
             File imageFile = new File(savedImagePath);
             long fileSize = imageFile.length();
 
-            // 读取图片并转换为Base64（不含data:image前缀）
-            String base64 = ImageUtils.loadImageFileToBase64(savedImagePath);
-            // 移除 "data:image/png;base64," 前缀，只保留base64字符串
-            if (base64.startsWith("data:image")) {
-                base64 = base64.split(",")[1];
+            // 读取图片并转换为Base64 Data URL（完整格式，包含data:image前缀）
+            String base64DataUrl = ImageUtils.loadImageFileToBase64(savedImagePath);
+            if (base64DataUrl == null || base64DataUrl.trim().isEmpty()) {
+                return createResponse(false, "图片读取失败", null);
             }
 
             String result = String.format(Locale.getDefault(),
-                    "{\"filePath\":\"%s\",\"width\":%d,\"height\":%d,\"fileSize\":%d,\"base64\":\"%s\"}",
-                    savedImagePath, options.outWidth, options.outHeight, fileSize, base64);
+                    "{\"filePath\":\"%s\",\"width\":%d,\"height\":%d,\"fileSize\":%d,\"base64DataUrl\":\"%s\"}",
+                    savedImagePath, options.outWidth, options.outHeight, fileSize, base64DataUrl);
 
-            Log.d(TAG, "图片选择完成: filePath=" + savedImagePath + ", base64Length=" + base64.length());
+            Log.d(TAG, "图片选择完成: filePath=" + savedImagePath + ", base64DataUrlLength=" + base64DataUrl.length());
 
             // 图片选择完成，结果已返回
 
@@ -835,18 +892,17 @@ public class WebAppInterface {
 
             long fileSize = imageFile.length();
 
-            // 读取图片并转换为Base64（不含data:image前缀）
-            String base64 = ImageUtils.loadImageFileToBase64(currentImageFilePath);
-            // 移除 "data:image/png;base64," 前缀，只保留base64字符串
-            if (base64.startsWith("data:image")) {
-                base64 = base64.split(",")[1];
+            // 读取图片并转换为Base64 Data URL（完整格式，包含data:image前缀）
+            String base64DataUrl = ImageUtils.loadImageFileToBase64(currentImageFilePath);
+            if (base64DataUrl == null || base64DataUrl.trim().isEmpty()) {
+                return createResponse(false, "图片读取失败", null);
             }
 
             String result = String.format(Locale.getDefault(),
-                    "{\"filePath\":\"%s\",\"width\":%d,\"height\":%d,\"fileSize\":%d,\"base64\":\"%s\"}",
-                    currentImageFilePath, options.outWidth, options.outHeight, fileSize, base64);
+                    "{\"filePath\":\"%s\",\"width\":%d,\"height\":%d,\"fileSize\":%d,\"base64DataUrl\":\"%s\"}",
+                    currentImageFilePath, options.outWidth, options.outHeight, fileSize, base64DataUrl);
 
-            Log.d(TAG, "拍照完成: filePath=" + currentImageFilePath + ", base64Length=" + base64.length());
+            Log.d(TAG, "拍照完成: filePath=" + currentImageFilePath + ", base64DataUrlLength=" + base64DataUrl.length());
 
             // 拍照完成，结果已返回
 
@@ -1235,31 +1291,35 @@ public class WebAppInterface {
         Log.d(TAG, "🔍 WebAppInterface退出课堂 - 开始");
         
         try {
-            // 检查是否在课堂中
-            if (!ScreenCastingManager.isHavingClass()) {
+            // 流程：检查游客模式状态 -> 检查正式用户课堂状态 -> 如果都不在课堂则返回失败
+            boolean isFakeClassMode = ApplicationModelShared.getInstance().fakeClassMode;
+            boolean isInFormalClass = ScreenCastingManager.isHavingClass();
+            
+            // 流程：如果既不在游客模式课堂，也不在正式课堂，则返回失败
+            if (!isFakeClassMode && !isInFormalClass) {
                 Log.d(TAG, "🔍 WebAppInterface退出课堂 - 未在课堂中");
                 return createResponse(false, "未在课堂中", null);
             }
             
-            // 获取用户ID
+            // 流程：获取用户ID（用于日志记录）
             String userId = AppUtils.getUserId();
             if (userId == null || userId.isEmpty()) {
-                return createResponse(false, "用户未登录", null);
+                userId = "unknown";
             }
             
-            // 游客模式处理
-            if (userId.equals("guest000")) {
-                Log.d(TAG, "🔍 WebAppInterface退出课堂 - 游客模式");
+            // 流程：处理游客模式退出 -> 设置fakeClassMode为false并返回成功
+            if (isFakeClassMode) {
+                Log.d(TAG, "🔍 WebAppInterface退出课堂 - 游客模式, userId=" + userId);
                 ApplicationModelShared.getInstance().fakeClassMode = false;
-                return createResponse(true, "游客模式退出课堂成功", "{\"mode\":\"guest\",\"isInClass\":false}");
+                return createResponseWithJsonData(true, "游客模式退出课堂成功", "{\"mode\":\"guest\",\"isInClass\":false}");
             }
             
-            // 正式用户模式
-            Log.d(TAG, "🔍 WebAppInterface退出课堂 - 正式用户模式");
+            // 流程：处理正式用户模式退出 -> 设置ScreenCastingManager状态并停止ScreenShareKit
+            Log.d(TAG, "🔍 WebAppInterface退出课堂 - 正式用户模式, userId=" + userId);
             ScreenCastingManager.setClassMode(false);
             ScreenShareKit.INSTANCE.stop();
             
-            return createResponse(true, "退出课堂成功", "{\"mode\":\"formal\",\"isInClass\":false}");
+            return createResponseWithJsonData(true, "退出课堂成功", "{\"mode\":\"formal\",\"isInClass\":false}");
             
         } catch (Exception e) {
             Log.e(TAG, "🔍 WebAppInterface退出课堂 - 发生错误", e);

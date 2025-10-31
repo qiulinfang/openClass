@@ -11,10 +11,15 @@ import type { ChatBubble } from '../../types'
 
 /**
  * 简化的图片数据接口（用于聊天）
+ * - filePath: 用于发送给Android端（文件路径）
+ * - base64DataUrl: 用于前端渲染显示（base64数据）
  */
 export interface ChatImageData {
   filePath: string
-  base64DataUrl?: string
+  base64DataUrl?: string  // 可选，用于UI显示
+  width?: number
+  height?: number
+  fileSize?: number
 }
 
 /**
@@ -31,17 +36,19 @@ export function createUserMessage(
     displayContent = content.replace('我们开始吧，', '')
   }
   
-  // 第2步：判断是否为图片消息（放宽条件：只要有 filePath 即视为图片）
-  const isImageMessage = !!(imageData && imageData.filePath)
+  // 第2步：判断是否为图片消息（只要有 base64DataUrl 即视为图片）
+  const isImageMessage = !!(imageData && imageData.base64DataUrl)
   
   // 第3步：如果有图片数据，转换为标准ImageData格式
-  let standardImageData: { filePath: string; width: number; height: number; fileSize: number } | undefined = undefined
+  // ChatBubble.imageData 现在直接使用 base64DataUrl 字段用于UI显示
+  let standardImageData: { filePath: string; width: number; height: number; fileSize: number; base64DataUrl?: string } | undefined = undefined
   if (isImageMessage && imageData) {
     standardImageData = {
-      filePath: imageData.filePath,
-      width: 0,  // 简化处理，宽高设为0
-      height: 0,
-      fileSize: 0
+      filePath: imageData.filePath || '',  // 保留原始 filePath，用于发送给后端等用途
+      width: imageData.width || 0,  // 使用实际的宽高信息
+      height: imageData.height || 0,
+      fileSize: imageData.fileSize || 0,
+      base64DataUrl: imageData.base64DataUrl  // 使用 base64DataUrl 字段用于UI显示
     }
   }
   
@@ -51,6 +58,7 @@ export function createUserMessage(
     type: 'user',
     timestamp: new Date().toISOString(),
     sender: 'user',
+    messageType: isImageMessage ? 'image' : 'text',  // 设置消息类型，以便ChatMessage组件正确识别
     imageData: standardImageData
   }
 }
@@ -117,9 +125,9 @@ export function updateMessageError(
 ): ChatBubble {
   // 转换imageData为标准格式
   let standardImageData: { filePath: string; width: number; height: number; fileSize: number } | undefined = undefined
-  if (imageData) {
+  if (imageData && imageData.base64DataUrl) {
     standardImageData = {
-      filePath: imageData.filePath,
+      filePath: imageData.base64DataUrl,  // 使用 base64DataUrl 作为显示路径
       width: 0,
       height: 0,
       fileSize: 0

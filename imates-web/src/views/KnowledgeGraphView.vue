@@ -202,7 +202,7 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed, onUnmounted } from 'vue'
 import { apiService } from '../services/api-service'
-import { resourceManager } from '../services/resource-manager'
+import { resourceManager } from '../services/resource-storage'
 import type { TextbookOption, ChapterNode, UserTextbookInfo } from '../types'
 import KnowledgeGraph from '../components/knowledge-graph/KnowledgeGraph.vue'
 import LearningView from './LearningView.vue'

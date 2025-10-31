@@ -913,6 +913,20 @@ const sendMessage = async (attachedFile?: File) => {
   isLoading.value = true
 
   try {
+    // 教师场景：采用乐观发送，预先添加文本消息（与图片消息保持一致）
+    if (props.type === 'teacher' && teacherSession.value) {
+      const userMessage: ChatBubble = {
+        id: Date.now().toString(),
+        content: messageContent,
+        type: 'user',
+        timestamp: new Date().toISOString(),
+        sender: 'user',
+        messageType: 'text'
+      }
+      await addMessageToStore(userMessage)
+      await scrollToBottom()
+    }
+
     // AI通用、AI题目、AI教材和教师答疑模式：统一使用策略模式发送消息
     await chatStrategy.value?.sendMessage(messageContent, { 
       selectedModel: selectedModel.value
@@ -1245,52 +1259,84 @@ const onImageSelected = async (imageInfo: {
   base64DataUrl?: string
 }): Promise<void> => {
   if (typeof imageInfo === 'object' && 'filePath' in imageInfo) {
-    // 创建图片消息
-    const imageMessage: ChatBubble = {
-      id: Date.now().toString(),
-      content: '', // 图片消息不显示文字内容
-      type: 'user',
-      timestamp: '',
-      sender: 'user',
-      messageType: 'image',
-      imageData: {
-        filePath: imageInfo.filePath,
-        width: imageInfo.width,
-        height: imageInfo.height,
-        fileSize: imageInfo.fileSize,
-      },
-    }
-
-    await addMessageToStore(imageMessage)
-    await scrollToBottom()
-
     // 发送图片消息到后端
     isLoading.value = true
     try {
       if (props.type === 'teacher' && teacherSession.value) {
-        // 统一走策略/Store → AndroidBridge（RabbitMQ），避免与HTTP双轨
+        // 教师场景：采用乐观发送，预先添加消息（与AI场景保持一致）
+        // 创建图片消息
+        const imageMessage: ChatBubble = {
+          id: Date.now().toString(),
+          content: '', // 图片消息不显示文字内容
+          type: 'user',
+          timestamp: '',
+          sender: 'user',
+          messageType: 'image',
+          imageData: {
+            filePath: imageInfo.filePath,  // 保留原始 filePath，用于发送给后端等用途
+            width: imageInfo.width,
+            height: imageInfo.height,
+            fileSize: imageInfo.fileSize,
+            base64DataUrl: imageInfo.base64DataUrl,  // 使用 base64DataUrl 字段用于UI显示
+          },
+        }
+
+        await addMessageToStore(imageMessage)
+        await scrollToBottom()
+
+        // 需要确保imageInfo有filePath和base64DataUrl
+        if (!imageInfo.filePath || !imageInfo.base64DataUrl) {
+          showMessage('图片数据不完整，请重试', 'error')
+          return
+        }
         await chatStrategy.value?.sendMessage('', {
           imageData: {
-            filePath: imageInfo.filePath,
-            // 老师通道不需要base64
-            base64DataUrl: ''
-          },
-          skipUserMessage: true
+            filePath: imageInfo.filePath,  // 用于发送给Android端
+            width: imageInfo.width,
+            height: imageInfo.height,
+            fileSize: imageInfo.fileSize,
+            base64DataUrl: imageInfo.base64DataUrl  // 用于前端渲染
+          }
         })
-        await scrollToBottom()
         emit('response')
       } else {
+        // AI场景：需要预先添加消息，因为AI的sendMessage不会自动添加用户消息
+        // 创建图片消息
+        const imageMessage: ChatBubble = {
+          id: Date.now().toString(),
+          content: '', // 图片消息不显示文字内容
+          type: 'user',
+          timestamp: '',
+          sender: 'user',
+          messageType: 'image',
+          imageData: {
+            filePath: imageInfo.filePath,  // 保留原始 filePath，用于发送给后端等用途
+            width: imageInfo.width,
+            height: imageInfo.height,
+            fileSize: imageInfo.fileSize,
+            base64DataUrl: imageInfo.base64DataUrl,  // 使用 base64DataUrl 字段用于UI显示
+          },
+        }
+
+        await addMessageToStore(imageMessage)
+        await scrollToBottom()
+
         // 发送图片消息给AI（AI通用、AI题目和AI教材模式）
         const messageText = inputMessage.value || ''
-        // 使用策略模式发送图片消息（放宽条件：允许仅 filePath）
+        // 需要确保imageInfo有base64DataUrl
+        if (!imageInfo.base64DataUrl) {
+          showMessage('图片数据不完整，请重试', 'error')
+          return
+        }
         await chatStrategy.value?.sendMessage(messageText, { 
           selectedModel: selectedModel.value,
           imageData: {
             filePath: imageInfo.filePath,
-            base64DataUrl: imageInfo.base64DataUrl || ''
-          },
-          // 上游已插入图片用户消息，策略内跳过再次创建文本用户消息
-          skipUserMessage: true
+            width: imageInfo.width,
+            height: imageInfo.height,
+            fileSize: imageInfo.fileSize,
+            base64DataUrl: imageInfo.base64DataUrl
+          }
         })
 
         // 清空输入框
@@ -2118,7 +2164,7 @@ watch(
       return
     }
     
-    console.log('[ChatView] 📸 检测到待发送图片，开始自动发送')
+    console.log('[ChatView] 📸 检测到待发送图片（AI通用），开始自动发送')
     
     try {
       // 第3步：调用onImageSelected发送图片
@@ -2132,6 +2178,43 @@ watch(
       console.error('[ChatView] ❌ 自动发送图片失败:', error)
       // 清除待发送图片状态（即使失败也要清除，避免重复发送）
       aiGeneralStore.clearPendingImage()
+      showMessage('图片发送失败，请重试', 'error')
+    }
+  },
+  { immediate: true } // 立即执行一次，检查是否有待发送图片
+)
+
+/**
+ * 监听待发送图片状态（用于拍作业场景 - 教师场景）
+ * 流程：检测到待发送图片 → 自动调用onImageSelected发送图片 → 清除待发送图片状态
+ */
+watch(
+  () => teacherStore.pendingImage,
+  async (pendingImageData) => {
+    // 第1步：检查是否为教师聊天场景
+    if (props.type !== 'teacher') {
+      return
+    }
+    
+    // 第2步：检查是否有待发送图片
+    if (!pendingImageData) {
+      return
+    }
+    
+    console.log('[ChatView] 📸 检测到待发送图片（教师），开始自动发送')
+    
+    try {
+      // 第3步：调用onImageSelected发送图片
+      await onImageSelected(pendingImageData)
+      
+      // 第4步：清除待发送图片状态
+      teacherStore.clearPendingImage()
+      
+      console.log('[ChatView] ✅ 图片发送完成')
+    } catch (error) {
+      console.error('[ChatView] ❌ 自动发送图片失败:', error)
+      // 清除待发送图片状态（即使失败也要清除，避免重复发送）
+      teacherStore.clearPendingImage()
       showMessage('图片发送失败，请重试', 'error')
     }
   },

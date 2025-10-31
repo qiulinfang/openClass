@@ -65,7 +65,7 @@ export interface VoiceMessageProps {
 
 /** ImageMessage Props接口 */
 export interface ImageMessageProps {
-  filePath: string
+  base64DataUrl: string  // base64数据URL，必需用于UI显示
   width?: number
   height?: number
   fileSize?: number
