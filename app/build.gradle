@@ -41,6 +41,29 @@ android {
         }
     }
 
+    // 产品变体配置 - 用于区分不同发布渠道，避免覆盖已安装的应用
+    flavorDimensions "version"
+    productFlavors {
+        // 正式发布版本（默认）
+        production {
+            dimension "version"
+            applicationId "com.cosinetech.imates.bj101"
+            versionNameSuffix ""
+        }
+        // 测试版本 - 不会覆盖正式版
+        staging {
+            dimension "version"
+            applicationId "com.cosinetech.imates.bj101.staging"
+            versionNameSuffix "-staging"
+        }
+        // 开发版本 - 不会覆盖正式版和测试版
+        dev {
+            dimension "version"
+            applicationId "com.cosinetech.imates.bj101.dev"
+            versionNameSuffix "-dev"
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
@@ -48,22 +71,23 @@ android {
             signingConfig signingConfigs.release
         }
         debug {
-            // 在这里为 debug 版本添加 ID 后缀
-            applicationIdSuffix ".dev"
+            // Debug版本自动使用dev flavor，避免覆盖release版本
+            // applicationIdSuffix 已由productFlavors的dev处理
         }
     }
 
     // 配置APK输出路径和名称
     android.applicationVariants.configureEach { variant ->
         def buildTypeName = variant.buildType.name // 获取构建类型名称
+        def flavorName = variant.flavorName // 获取产品变体名称
         def outputs = variant.outputs
         outputs.configureEach { output ->
             if (output.outputFile != null && output.outputFile.name.endsWith('.apk')) {
                 def versionName = variant.versionName
                 def versionCode = variant.versionCode
 
-                // 定义输出文件的新名称
-                def outputFileName = "app-${versionName}-${versionCode}.apk"
+                // 定义输出文件的新名称，包含flavor信息
+                def outputFileName = "app-${flavorName}-${buildTypeName}-${versionName}-${versionCode}.apk"
 
                 // 修改 APK 文件的输出路径和文件名
                 output.outputFileName = outputFileName

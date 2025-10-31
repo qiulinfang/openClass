@@ -249,6 +249,29 @@ const formatFileSize = (bytes: number) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
+// 根据文件扩展名获取对应的视图路由名称
+const getViewerRouteName = (fileName: string): string => {
+  const extension = fileName.split('.').pop()?.toLowerCase() || ''
+  
+  switch (extension) {
+    case 'pdf':
+      return 'pdfViewer'
+    case 'html':
+    case 'htm':
+      return 'htmlViewer'
+    case 'mp4':
+    case 'avi':
+    case 'mov':
+    case 'wmv':
+    case 'flv':
+    case 'webm':
+      return 'videoViewer'
+    default:
+      // 默认使用PDF查看器
+      return 'pdfViewer'
+  }
+}
+
 const startLearning = async (resource: ResourceFile) => {
   if (!currentScheme.value) {
     console.error('没有选中的学习方案')
@@ -260,13 +283,16 @@ const startLearning = async (resource: ResourceFile) => {
   try {
     const selectedScheme = currentScheme.value
     
+    // 根据文件类型确定要跳转的路由
+    const routeName = getViewerRouteName(resource.fileName)
+    
     // 关闭对话框，让父组件处理后续的路由跳转
     emit('close')
     
     // 延迟执行路由跳转，确保对话框关闭动画完成
     setTimeout(() => {
       router.push({
-        name: 'pdfViewer',
+        name: routeName,
         query: {
           id: id.value,
           textbookName: sectionName.value,

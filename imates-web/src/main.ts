@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import quasarUserOptions from './quasar'
 import { initPolyfills } from './utils/common/polyfills'
 import { initializeAppConfig } from './utils/config/config-utils'
+import { initQuestionStorage } from './services/question-storage'
 import './styles/native-app.css'
 import './styles/mathlive-custom.css'
 import './styles/gemini-notify.css'
@@ -13,6 +14,17 @@ import router from './router'
 // 初始化 WebView 兼容性 polyfills
 initPolyfills()
 initializeAppConfig()
+
+// 提前初始化 IndexedDB（并行加载，不阻塞应用启动）
+const initStartTime = performance.now()
+console.log('[APP] 🔄 提前初始化 IndexedDB')
+initQuestionStorage().then(() => {
+  const initDuration = performance.now() - initStartTime
+  console.log(`[APP] ✅ IndexedDB 提前初始化完成 (耗时: ${initDuration.toFixed(2)}ms)`)
+}).catch((error) => {
+  const initDuration = performance.now() - initStartTime
+  console.error(`[APP] ❌ IndexedDB 提前初始化失败 (耗时: ${initDuration.toFixed(2)}ms):`, error)
+})
 
 const app = createApp(App)
 

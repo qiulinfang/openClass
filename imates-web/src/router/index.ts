@@ -7,6 +7,8 @@ import MyProfileView from '@/views/MyProfileView.vue'
 import MyResourcesView from '@/views/MyResourcesView.vue'
 import FeedbackView from '@/views/FeedbackView.vue'
 import PdfViewerView from '@/views/PdfViewerView.vue'
+import HtmlViewerView from '@/views/HtmlViewerView.vue'
+import VideoViewerView from '@/views/VideoViewerView.vue'
 import FindExerciseView from '@/views/FindExerciseView.vue'
 import LearningView from '@/views/LearningView.vue'
 import DrawingBoard from '@/components/DrawingBoard.vue'
@@ -57,6 +59,16 @@ const router = createRouter({
           path: 'pdf-viewer',
           name: 'pdfViewer',
           component: PdfViewerView
+        },
+        {
+          path: 'html-viewer',
+          name: 'htmlViewer',
+          component: HtmlViewerView
+        },
+        {
+          path: 'video-viewer',
+          name: 'videoViewer',
+          component: VideoViewerView
         },
         {
           path: 'find-exercise',

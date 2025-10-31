@@ -9,6 +9,7 @@ import { Quasar } from 'quasar'
 import router from './router'
 import { initPolyfills } from './utils/common/polyfills'
 import { initializeAppConfig } from './utils/config/config-utils'
+import { initQuestionStorage } from './services/question-storage'
 
 // 导入 Quasar 样式
 import 'quasar/src/css/index.sass'
@@ -48,6 +49,17 @@ async function createWebViewApp() {
   
   // 初始化应用配置（包括认证 token）
   await initializeAppConfig()
+  
+  // 提前初始化 IndexedDB（并行加载，不阻塞应用启动）
+  const initStartTime = performance.now()
+  console.log('[APP] 🔄 提前初始化 IndexedDB')
+  initQuestionStorage().then(() => {
+    const initDuration = performance.now() - initStartTime
+    console.log(`[APP] ✅ IndexedDB 提前初始化完成 (耗时: ${initDuration.toFixed(2)}ms)`)
+  }).catch((error) => {
+    const initDuration = performance.now() - initStartTime
+    console.error(`[APP] ❌ IndexedDB 提前初始化失败 (耗时: ${initDuration.toFixed(2)}ms):`, error)
+  })
   
   const PageComponent = await loadPageComponent()
   

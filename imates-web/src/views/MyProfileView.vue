@@ -140,6 +140,9 @@
       v-model="showTeacherChatDialog"
       @session-created="handleTeacherSessionCreated"
     />
+
+    <!-- 反馈与建议对话框 -->
+    <FeedbackDialog v-model="showFeedbackDialog" />
   </q-layout>
 </template>
 
@@ -153,6 +156,7 @@ import { apiService } from '@/services/api-service'
 import { androidBridge } from '@/services/android-bridge'
 import { showMessage } from '@/utils'
 import TeacherChatDialog from '@/components/TeacherChatDialog.vue'
+import FeedbackDialog from '@/components/FeedbackDialog.vue'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 import avatarIcon from '/icons/avatar.svg'
 
@@ -170,6 +174,7 @@ const appVersion = ref('1.0.0')
 const showLogoutDialog = ref(false)
 const showJoinClassDialog = ref(false)
 const showTeacherChatDialog = ref(false)
+const showFeedbackDialog = ref(false)
 // 全局图片选择器
 const { pickImage } = useImagePicker()
 
@@ -477,10 +482,9 @@ const takePictureToTeacher = async () => {
   }
 }
 
-// 显示反馈
+// 显示反馈对话框
 const showFeedback = () => {
-  // 跳转到反馈页面
-  router.push('/feedback')
+  showFeedbackDialog.value = true
 }
 
 // 确认退出登录
@@ -757,7 +761,8 @@ $bg-gray: #f9fafb;
 }
 
 
-// 响应式设计
+
+  // 响应式设计
 @media (max-width: 768px) {
   .main-content {
     padding: 16px 12px;
@@ -777,6 +782,7 @@ $bg-gray: #f9fafb;
       height: 28px;
     }
   }
+
 }
 
 @media (max-width: 480px) {

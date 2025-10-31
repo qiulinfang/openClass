@@ -65,6 +65,7 @@
               ref="questionListRef"
               @start-ai-guidance="handleStartAiGuidance"
               @question-selected="handleQuestionSelected"
+              @send-question-to-teacher="handleSendQuestionToTeacher"
             />
           </q-card-section>
         </q-card>
@@ -119,17 +120,36 @@ import { useUserStore } from '../stores/userStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
 import { useTeacherChatStore } from '../stores/teacherChatStore'
 import { storeToRefs } from 'pinia'
+import { showMessage } from '../utils'
 import QuestionList from '../components/QuestionList.vue'
 import ChatView from '../components/ChatView.vue'
 import AnswerView from '../components/AnswerView.vue'
 import SimilarQuestionList from '../components/SimilarQuestionList.vue'
+import type { ExerciseItem } from '../types'
 
+// 加载时间日志
+const loadStartTime = performance.now()
+// 获取时间字符串的工具函数
+const getTimeString = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const hours = String(now.getHours()).padStart(2, '0')
+  const minutes = String(now.getMinutes()).padStart(2, '0')
+  const seconds = String(now.getSeconds()).padStart(2, '0')
+  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`
+}
+console.log(`${getTimeString()} [ExerciseSolveView] 组件开始初始化`)
 
 const questionStore = useQuestionStore()
 const userStore = useUserStore()
 const aiExerciseStore = useAiExerciseChatStore()
 const teacherStore = useTeacherChatStore()
 const { currentQuestion } = storeToRefs(questionStore)
+
+const initTime = performance.now()
+console.log(`${getTimeString()} [ExerciseSolveView] Store初始化完成，耗时: ${(initTime - loadStartTime).toFixed(2)}ms`)
 
 const currentFunction = ref<'chatAi' | 'askTeacher' | 'viewAnswer' | 'similarQuestion'>('chatAi')
 
@@ -183,17 +203,102 @@ const handleQuestionAdded = () => {
   }
 }
 
+// 处理拍作业：发送题目给老师
+const handleSendQuestionToTeacher = async (question: ExerciseItem) => {
+  try {
+    console.log(`${getTimeString()} [ExerciseSolveView] 开始处理拍作业，题目ID: ${question.id}`)
+    
+    // 第1步：切换到老师答疑模式（这会触发 ChatView 的初始化）
+    currentFunction.value = 'askTeacher'
+    
+    // 第2步：等待 ChatView 组件挂载并初始化会话
+    await nextTick()
+    
+    // 第3步：等待一会确保 ChatView 的 initializeTeacherSession 完成
+    // ChatView 会自动创建会话（因为有 currentQuestion）
+    await new Promise(resolve => setTimeout(resolve, 300))
+    
+    // 第4步：确保会话已创建，如果没有则创建一个新的会话
+    if (!teacherStore.currentSession && questionStore.currentQuestion) {
+      console.log(`${getTimeString()} [ExerciseSolveView] 会话不存在，创建新会话`)
+      
+      // 生成会话ID和名称
+      const aiSessionId = `ai_session_${question.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      
+      // 清理题目标题（移除LaTeX）
+      const rawTitle = question.question || question.title || '题目'
+      const cleanTitle = rawTitle
+        .replace(/\$[^$]*\$/g, '') // 移除 $...$ 格式的LaTeX
+        .replace(/\\[a-zA-Z]+/g, '') // 移除 \command 格式的LaTeX命令
+        .replace(/[{}()[\]]/g, '') // 移除LaTeX括号
+        .replace(/\s+/g, ' ') // 合并多个空格
+        .trim()
+      
+      const aiSessionName = (cleanTitle || '数学题目').substring(0, 30) + '...'
+      
+      // 创建会话（默认使用数学科目，可以根据实际情况调整）
+      const createdSession = teacherStore.createTeacherSession(
+        aiSessionId,
+        aiSessionName,
+        'math' // 可以根据题目的 subject 字段动态设置
+      )
+      
+      if (createdSession) {
+        // 初始化消息监听器
+        await teacherStore.initMessageReceiver()
+        console.log(`${getTimeString()} [ExerciseSolveView] 新会话已创建: ${createdSession.sessionId}`)
+      }
+    }
+    
+    // 第5步：等待会话初始化完成
+    await nextTick()
+    
+    // 第6步：准备题目内容并发送给老师
+    const questionContent = questionStore.currentQuestion?.question || question.question || question.title || '题目内容为空'
+    
+    // 第7步：发送题目内容给老师
+    if (teacherStore.currentSession) {
+      console.log(`${getTimeString()} [ExerciseSolveView] 发送题目内容给老师`)
+      
+      // 先添加用户消息（题目内容）
+      const userMessage: import('../types').ChatBubble = {
+        id: Date.now().toString(),
+        content: questionContent,
+        type: 'user',
+        timestamp: new Date().toISOString(),
+        sender: 'user',
+        messageType: 'text'
+      }
+      
+      // 添加到消息列表
+      teacherStore.addMessage(userMessage)
+      
+      // 发送消息给老师
+      await teacherStore.sendMessage(questionContent)
+      
+      console.log(`${getTimeString()} [ExerciseSolveView] 题目已发送给老师`)
+      showMessage('题目已发送给老师', 'success')
+    } else {
+      console.error(`${getTimeString()} [ExerciseSolveView] 会话创建失败，无法发送题目`)
+      showMessage('会话创建失败，请重试', 'error')
+    }
+  } catch (error) {
+    console.error(`${getTimeString()} [ExerciseSolveView] 拍作业失败:`, error)
+    showMessage('拍作业失败: ' + (error as Error).message, 'error')
+  }
+}
+
 const handleScrollToQuestionAndSelect = (targetIndex: number) => {
   // 调用题目列表的滚动到指定题目并设置为选中状态方法
   if (questionListRef.value && typeof questionListRef.value.scrollToQuestionAndSelect === 'function') {
-    console.log('📍 [父组件] 调用题目列表滚动到指定题目并设置为选中状态', targetIndex)
+    console.log(`${getTimeString()} [ExerciseSolveView] 调用题目列表滚动到指定题目并设置为选中状态，索引: ${targetIndex}`)
     questionListRef.value.scrollToQuestionAndSelect(targetIndex)
   }
 }
 
 // 滚动到页面底部的方法
 const scrollToBottom = () => {
-  console.log('🎯 [ExerciseSolveView] 滚动到页面底部')
+  console.log(`${getTimeString()} [ExerciseSolveView] 滚动到页面底部`)
   // 使用 nextTick 确保 DOM 更新完成
   nextTick(() => {
     // 获取页面的实际滚动高度
@@ -242,14 +347,45 @@ const scrollToBottom = () => {
 }
 
 onMounted(async () => {
+    // 加载时间日志
+    const mountedStartTime = performance.now()
+    const totalInitTime = mountedStartTime - loadStartTime
+    console.log(`${getTimeString()} [ExerciseSolveView] onMounted 开始，距离组件初始化: ${totalInitTime.toFixed(2)}ms`)
+    
     // 静默初始化，不显示加载状态
     try {
+      // 初始化用户store
+      const userStoreStartTime = performance.now()
+      console.log(`${getTimeString()} [ExerciseSolveView] 开始初始化 userStore.initializeStore()`)
       await userStore.initializeStore()
+      const userStoreEndTime = performance.now()
+      const userStoreDuration = userStoreEndTime - userStoreStartTime
+      console.log(`${getTimeString()} [ExerciseSolveView] userStore.initializeStore() 完成，耗时: ${userStoreDuration.toFixed(2)}ms`)
+      
       // 优先使用本地数据，不立即请求API
       // fetchQuestions 方法会先尝试从本地存储加载，如果没有数据再请求API
+      const fetchQuestionsStartTime = performance.now()
+      console.log(`${getTimeString()} [ExerciseSolveView] 开始获取题目列表 questionStore.fetchQuestions('math', true)`)
       await questionStore.fetchQuestions('math', true)
+      const fetchQuestionsEndTime = performance.now()
+      const fetchQuestionsDuration = fetchQuestionsEndTime - fetchQuestionsStartTime
+      console.log(`${getTimeString()} [ExerciseSolveView] questionStore.fetchQuestions() 完成，耗时: ${fetchQuestionsDuration.toFixed(2)}ms`)
+      
+      // 总耗时统计
+      const mountedEndTime = performance.now()
+      const mountedDuration = mountedEndTime - mountedStartTime
+      const totalDuration = mountedEndTime - loadStartTime
+      console.log(`${getTimeString()} [ExerciseSolveView] onMounted 完成，总耗时: ${mountedDuration.toFixed(2)}ms`)
+      console.log(`${getTimeString()} [ExerciseSolveView] 完整加载统计:`)
+      console.log(`   - 组件初始化到Store初始化: ${totalInitTime.toFixed(2)}ms`)
+      console.log(`   - userStore初始化: ${userStoreDuration.toFixed(2)}ms`)
+      console.log(`   - fetchQuestions: ${fetchQuestionsDuration.toFixed(2)}ms`)
+      console.log(`   - onMounted总耗时: ${mountedDuration.toFixed(2)}ms`)
+      console.log(`   - 组件加载总耗时: ${totalDuration.toFixed(2)}ms`)
     } catch (error) {
-      console.error('初始化失败:', error)
+      const errorTime = performance.now()
+      const errorDuration = errorTime - mountedStartTime
+      console.error(`${getTimeString()} [ExerciseSolveView] 初始化失败，耗时: ${errorDuration.toFixed(2)}ms`, error)
     }
 })
 </script>

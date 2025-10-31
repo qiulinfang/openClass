@@ -105,6 +105,19 @@
                       <q-tooltip>发送给AI</q-tooltip>
                     </q-btn>
 
+                    <!-- 拍作业按钮 -->
+                    <q-btn
+                      icon="photo_camera"
+                      color="blue"
+                      flat
+                      round
+                      size="sm"
+                      @click.stop="throttledSendToTeacher(item)"
+                      class="action-btn teacher-action"
+                    >
+                      <q-tooltip>拍作业</q-tooltip>
+                    </q-btn>
+
                     <!-- 置顶按钮 -->
                     <q-btn
                       v-if="index > 0"
@@ -167,6 +180,7 @@ import QuestionListSkeleton from './QuestionListSkeleton.vue'
 const emit = defineEmits<{
   startAiGuidance: [question: ExerciseItem]
   questionSelected: [question: ExerciseItem, index: number]
+  sendQuestionToTeacher: [question: ExerciseItem]
 }>()
 
 // 响应式数据
@@ -282,6 +296,10 @@ const throttledSendToAi = throttle((question: ExerciseItem) => {
   sendToAi(question)
 }, 3000) // 3秒节流，防止频繁发送给AI
 
+const throttledSendToTeacher = ThrottleUtils.fast((question: ExerciseItem) => {
+  sendToTeacher(question)
+})
+
 const throttledDeleteQuestion = ThrottleUtils.slow((questionId: string) => {
   deleteQuestion(questionId)
 })
@@ -299,8 +317,22 @@ const throttledLoadQuestions = ThrottleUtils.verySlow(() => {
   loadQuestions()
 }) // 1秒节流，防止重复加载
 
+// 获取时间字符串的工具函数
+const getTimeString = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const hours = String(now.getHours()).padStart(2, '0')
+  const minutes = String(now.getMinutes()).padStart(2, '0')
+  const seconds = String(now.getSeconds()).padStart(2, '0')
+  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`
+}
+
 const loadQuestions = async () => {
+  const loadStartTime = performance.now()
   loading.value = true
+  console.log(`${getTimeString()} [QuestionList] 开始加载题目列表`)
   try {
     // 使用 store 的 fetchQuestions 方法，它会优先从本地存储加载
     const questionStore = useQuestionStore()
@@ -314,7 +346,14 @@ const loadQuestions = async () => {
       // 等待 DOM 更新
       await nextTick()
     }
+    
+    const loadEndTime = performance.now()
+    const loadDuration = loadEndTime - loadStartTime
+    console.log(`${getTimeString()} [QuestionList] 题目列表加载完成，共 ${questions.value.length} 道题目，耗时: ${loadDuration.toFixed(2)}ms`)
   } catch (error) {
+    const errorTime = performance.now()
+    const errorDuration = errorTime - loadStartTime
+    console.error(`${getTimeString()} [QuestionList] 加载题目失败，耗时: ${errorDuration.toFixed(2)}ms`, error)
     showMessage('加载题目失败: ' + (error as Error).message, 'error')
   } finally {
     loading.value = false
@@ -373,7 +412,7 @@ const scrollToCurrentQuestion = (targetIndex?: number) => {
   const indexToScroll = targetIndex !== undefined ? targetIndex : selectedQuestionIndex.value
   
   if (indexToScroll < 0) {
-    console.log('📍 [滚动] 没有指定的题目索引，跳过滚动')
+    console.log(`${getTimeString()} [QuestionList] 滚动: 没有指定的题目索引，跳过滚动`)
     return
   }
 
@@ -382,7 +421,7 @@ const scrollToCurrentQuestion = (targetIndex?: number) => {
     nextTick(() => {
       const container = document.querySelector('.question-cards-container')
       if (!container) {
-        console.log('📍 [滚动] 题目列表容器未找到，跳过滚动')
+        console.log(`${getTimeString()} [QuestionList] 滚动: 题目列表容器未找到，跳过滚动`)
         return
       }
 
@@ -391,7 +430,7 @@ const scrollToCurrentQuestion = (targetIndex?: number) => {
       const isVisible = containerRect.width > 0 && containerRect.height > 0
       
       if (!isVisible) {
-        console.log('📍 [滚动] 题目列表不可见，跳过滚动')
+        console.log(`${getTimeString()} [QuestionList] 滚动: 题目列表不可见，跳过滚动`)
         return
       }
 
@@ -400,10 +439,7 @@ const scrollToCurrentQuestion = (targetIndex?: number) => {
       const targetCard = questionCards[indexToScroll]
       
       if (targetCard) {
-        console.log('📍 [滚动] 开始滚动到指定题目', {
-          targetIndex: indexToScroll,
-          totalCards: questionCards.length
-        })
+        console.log(`${getTimeString()} [QuestionList] 滚动: 开始滚动到指定题目，索引: ${indexToScroll}，总数: ${questionCards.length}`)
         
         // 滚动到指定题目卡片
         targetCard.scrollIntoView({
@@ -412,28 +448,25 @@ const scrollToCurrentQuestion = (targetIndex?: number) => {
           inline: 'nearest'
         })
         
-        console.log('📍 [滚动] 滚动完成')
+        console.log(`${getTimeString()} [QuestionList] 滚动: 滚动完成`)
       } else {
-        console.log('📍 [滚动] 未找到指定题目卡片，跳过滚动')
+        console.log(`${getTimeString()} [QuestionList] 滚动: 未找到指定题目卡片，跳过滚动`)
       }
     })
   } catch {
-    console.error('📍 [滚动] 滚动失败')
+    console.error(`${getTimeString()} [QuestionList] 滚动: 滚动失败`)
   }
 }
 
 // 滚动到指定题目并设置为选中状态
 const scrollToQuestionAndSelect = async (targetIndex: number) => {
   if (targetIndex < 0 || targetIndex >= questions.value.length) {
-    console.log('📍 [滚动选择] 无效的题目索引，跳过操作')
+    console.log(`${getTimeString()} [QuestionList] 滚动选择: 无效的题目索引，跳过操作`)
     return
   }
 
   try {
-    console.log('📍 [滚动选择] 开始滚动到题目并设置为选中状态', {
-      targetIndex,
-      totalQuestions: questions.value.length
-    })
+    console.log(`${getTimeString()} [QuestionList] 滚动选择: 开始滚动到题目并设置为选中状态，索引: ${targetIndex}，总数: ${questions.value.length}`)
 
     // 先更新选中状态
     selectedQuestionIndex.value = targetIndex
@@ -446,7 +479,7 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
     nextTick(() => {
       const container = document.querySelector('.question-cards-container')
       if (!container) {
-        console.log('📍 [滚动选择] 题目列表容器未找到，跳过滚动')
+        console.log(`${getTimeString()} [QuestionList] 滚动选择: 题目列表容器未找到，跳过滚动`)
         return
       }
 
@@ -455,7 +488,7 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
       const isVisible = containerRect.width > 0 && containerRect.height > 0
       
       if (!isVisible) {
-        console.log('📍 [滚动选择] 题目列表不可见，跳过滚动')
+        console.log(`${getTimeString()} [QuestionList] 滚动选择: 题目列表不可见，跳过滚动`)
         return
       }
 
@@ -464,10 +497,7 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
       const targetCard = questionCards[targetIndex]
       
       if (targetCard) {
-        console.log('📍 [滚动选择] 开始滚动到指定题目', {
-          targetIndex,
-          totalCards: questionCards.length
-        })
+        console.log(`${getTimeString()} [QuestionList] 滚动选择: 开始滚动到指定题目，索引: ${targetIndex}，总数: ${questionCards.length}`)
         
         // 滚动到指定题目卡片
         targetCard.scrollIntoView({
@@ -476,13 +506,13 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
           inline: 'nearest'
         })
         
-        console.log('📍 [滚动选择] 滚动和选择完成')
+        console.log(`${getTimeString()} [QuestionList] 滚动选择: 滚动和选择完成`)
       } else {
-        console.log('📍 [滚动选择] 未找到指定题目卡片，跳过滚动')
+        console.log(`${getTimeString()} [QuestionList] 滚动选择: 未找到指定题目卡片，跳过滚动`)
       }
     })
   } catch {
-    console.error('📍 [滚动选择] 操作失败')
+    console.error(`${getTimeString()} [QuestionList] 滚动选择: 操作失败`)
   }
 }
 
@@ -639,7 +669,7 @@ const sendToAi = async (question: ExerciseItem) => {
     emit('startAiGuidance', question)
 
   } catch (error) {
-    console.error('启动AI指导失败:', error)
+    console.error(`${getTimeString()} [QuestionList] 启动AI指导失败:`, error)
     // 发生错误时重置AI指导状态
     const questionStore = useQuestionStore()
     if (questionStore.currentQuestion) {
@@ -647,6 +677,36 @@ const sendToAi = async (question: ExerciseItem) => {
       questionStore.currentQuestion.beginGuideToSolve = false
     }
     showMessage('启动AI指导失败', 'error')
+  }
+}
+
+// 拍作业：发送题目给老师
+const sendToTeacher = async (question: ExerciseItem) => {
+  try {
+    const questionStore = useQuestionStore()
+
+    // 关键修复：在store的questions数组中查找题目索引，而不是在本地questions数组中查找
+    const storeIndex = questionStore.questions.findIndex((q: ExerciseItem) => q.id === question.id)
+    if (storeIndex >= 0) {
+      // 使用store中的索引来选择题目
+      await questionStore.selectQuestion(storeIndex)
+      
+      // 检查是否选择了题目
+      if (!questionStore.currentQuestion) {
+        showMessage('请先选择一道题目', 'warning')
+        return
+      }
+
+      // 发出事件通知父组件切换到老师答疑界面并发送题目
+      emit('sendQuestionToTeacher', question)
+    } else {
+      // 如果store中没有找到题目，说明数据不同步，需要重新同步
+      showMessage('题目数据不同步，请重新加载', 'warning')
+      return
+    }
+  } catch (error) {
+    console.error(`${getTimeString()} [QuestionList] 拍作业失败:`, error)
+    showMessage('拍作业失败', 'error')
   }
 }
 

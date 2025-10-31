@@ -29,16 +29,36 @@ const questionStorage = IndexedDBService.getInstance({
 })
 
 /**
- * 初始化数据库
+ * 初始化数据库（带缓存，避免重复初始化）
  */
+let initPromise: Promise<void> | null = null
 export async function initQuestionStorage(): Promise<void> {
-  try {
-    await questionStorage.init()
-    console.log('[QUESTION_STORAGE] ✅ IndexedDB 初始化成功')
-  } catch (error) {
-    console.error('[QUESTION_STORAGE] ❌ IndexedDB 初始化失败:', error)
-    throw error
+  // 如果已经初始化，直接返回
+  if (questionStorage.isInitialized) {
+    return
   }
+  
+  // 如果正在初始化，返回同一个 Promise
+  if (initPromise) {
+    return initPromise
+  }
+  
+  // 开始初始化
+  initPromise = (async () => {
+    const initStartTime = performance.now()
+    try {
+      await questionStorage.init()
+      const initDuration = performance.now() - initStartTime
+      console.log(`[QUESTION_STORAGE] ✅ IndexedDB 初始化成功 (耗时: ${initDuration.toFixed(2)}ms)`)
+    } catch (error) {
+      console.error('[QUESTION_STORAGE] ❌ IndexedDB 初始化失败:', error)
+      throw error
+    } finally {
+      initPromise = null
+    }
+  })()
+  
+  return initPromise
 }
 
 /**
@@ -78,26 +98,32 @@ export async function saveQuestionsToIndexedDB(
 export async function loadQuestionsFromIndexedDB(
   subject: string
 ): Promise<ExerciseItem[] | null> {
+  const loadStartTime = performance.now()
   try {
     await initQuestionStorage()
     
+    const getStartTime = performance.now()
     const data = await questionStorage.get<QuestionListData>('question_lists', subject)
+    const getDuration = performance.now() - getStartTime
     
     if (!data || !data.questions || !Array.isArray(data.questions)) {
-      console.log('[QUESTION_STORAGE] 📭 IndexedDB 中没有题目列表:', subject)
+      const loadDuration = performance.now() - loadStartTime
+      console.log(`[QUESTION_STORAGE] 📭 IndexedDB 中没有题目列表: ${subject} (耗时: ${loadDuration.toFixed(2)}ms)`)
       return null
     }
     
     // 检查科目是否匹配
     if (data.subject !== subject) {
-      console.log('[QUESTION_STORAGE] 📭 IndexedDB 中的科目不匹配:', {
+      const loadDuration = performance.now() - loadStartTime
+      console.log(`[QUESTION_STORAGE] 📭 IndexedDB 中的科目不匹配 (耗时: ${loadDuration.toFixed(2)}ms):`, {
         stored: data.subject,
         requested: subject
       })
       return null
     }
     
-    console.log('[QUESTION_STORAGE] ✅ 从 IndexedDB 加载题目列表:', {
+    const loadDuration = performance.now() - loadStartTime
+    console.log(`[QUESTION_STORAGE] ✅ 从 IndexedDB 加载题目列表 (耗时: ${loadDuration.toFixed(2)}ms, get: ${getDuration.toFixed(2)}ms):`, {
       subject,
       count: data.questions.length,
       timestamp: new Date(data.timestamp).toLocaleString()
@@ -105,7 +131,8 @@ export async function loadQuestionsFromIndexedDB(
     
     return data.questions
   } catch (error) {
-    console.error('[QUESTION_STORAGE] ❌ 从 IndexedDB 加载题目列表失败:', error)
+    const loadDuration = performance.now() - loadStartTime
+    console.error(`[QUESTION_STORAGE] ❌ 从 IndexedDB 加载题目列表失败 (耗时: ${loadDuration.toFixed(2)}ms):`, error)
     return null
   }
 }
