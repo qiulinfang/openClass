@@ -196,16 +196,37 @@
         />
       </q-card>
     </q-dialog>
+
+    <!-- 调试面板 -->
+    <KnowledgeGraphDebugPanel
+      v-model="debugPanelVisible"
+      :params="debugParams"
+      @update:params="handleDebugParamsUpdate"
+    />
+
+    <!-- 调试按钮（浮动按钮） -->
+    <q-btn
+      v-if="!debugPanelVisible"
+      fab
+      icon="bug_report"
+      color="purple"
+      class="debug-fab"
+      @click="debugPanelVisible = true"
+    >
+      <q-tooltip>知识图谱调试面板</q-tooltip>
+    </q-btn>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, computed, onUnmounted } from 'vue'
+import { ref, onMounted, nextTick, computed, onUnmounted, provide } from 'vue'
 import { apiService } from '../services/api-service'
 import { resourceManager } from '../services/resource-storage'
 import type { TextbookOption, ChapterNode, UserTextbookInfo } from '../types'
 import KnowledgeGraph from '../components/knowledge-graph/KnowledgeGraph.vue'
 import LearningView from './LearningView.vue'
+import KnowledgeGraphDebugPanel from '../components/debug/KnowledgeGraphDebugPanel.vue'
+import type { KnowledgeGraphDebugParams } from '../components/debug/KnowledgeGraphDebugPanel.vue'
 import { useTextbookChapterState } from '../stores/textbookChapterState'
 
 // 流程：导入图标资源
@@ -270,8 +291,31 @@ const lastY = ref(0) // 上次触摸的Y坐标
 const screenHeight = ref(window.innerHeight) // 屏幕高度
 const lastRotationTime = ref(0) // 上次旋转时间戳，用于检测快速滑动
 
-// 第21步：优化拖拽阈值常量 - 降低以提高灵敏度
-const DRAG_THRESHOLD = 3 // 像素，超过此距离才认为是实际拖拽（降低以提高灵敏度）
+// 调试面板状态
+const debugPanelVisible = ref(false)
+const debugParams = ref<KnowledgeGraphDebugParams>({
+  radiusX: 569,
+  radiusY: 400,
+  baseSensitivity: 1.2,
+  fastSensitivity: 1.8,
+  swipeThreshold: 0.5,
+  dragThreshold: 3,
+  minBackgroundRadius: 120,
+  radiusScaleSmall: 0.8,
+  radiusScaleMedium: 1.0,
+  radiusScaleLarge: 1.1
+})
+
+// 通过 provide 传递调试参数给子组件
+provide('knowledgeGraphDebugParams', debugParams)
+
+// 处理调试参数更新
+const handleDebugParamsUpdate = (params: KnowledgeGraphDebugParams) => {
+  debugParams.value = { ...params }
+}
+
+// 第21步：优化拖拽阈值常量 - 使用可调参数
+const DRAG_THRESHOLD = computed(() => debugParams.value.dragThreshold)
 
 // 防抖定时器
 const debounceTimer = ref<NodeJS.Timeout | null>(null)
@@ -279,7 +323,7 @@ const debounceTimer = ref<NodeJS.Timeout | null>(null)
 // 滑动速度检测
 const swipeVelocity = ref(0) // 滑动速度（像素/毫秒）
 const lastSwipeTime = ref(0) // 上次滑动时间戳
-const swipeThreshold = 0.5 // 快速滑动的阈值（像素/毫秒）
+const swipeThreshold = computed(() => debugParams.value.swipeThreshold)
 
 // 展开时的旋转状态管理
 const isExpandingRotation = ref(false) // 是否正在执行展开旋转动画
@@ -318,7 +362,7 @@ const handleTouchMove = (event: TouchEvent) => {
   
   // 计算移动距离，判断是否超过拖拽阈值
   const totalDeltaY = Math.abs(currentY - startY.value)
-  if (totalDeltaY > DRAG_THRESHOLD && !isActualDragging.value) {
+  if (totalDeltaY > DRAG_THRESHOLD.value && !isActualDragging.value) {
     isActualDragging.value = true
     isDragging.value = true // ✅ 只有在实际移动超过阈值时才设置 isDragging
   }
@@ -338,7 +382,9 @@ const handleTouchMove = (event: TouchEvent) => {
   
   // 第22步：计算旋转角度：滑动距离与屏幕高度的比例 * 360度
   // 快速滑动时增加旋转灵敏度，慢速滑动时也提高基础灵敏度
-  const sensitivityMultiplier = swipeVelocity.value > swipeThreshold ? 1.8 : 1.2
+  const sensitivityMultiplier = swipeVelocity.value > swipeThreshold.value 
+    ? debugParams.value.fastSensitivity 
+    : debugParams.value.baseSensitivity
   const rotationDelta = (deltaY / screenHeight.value * 2/ 3) * 360 * sensitivityMultiplier
   
   // 如果有知识图谱处于展开状态，先收缩它
@@ -448,7 +494,7 @@ const handleMouseMove = (event: MouseEvent) => {
   
   // 计算移动距离，判断是否超过拖拽阈值
   const totalDeltaY = Math.abs(currentY - startY.value)
-  if (totalDeltaY > DRAG_THRESHOLD && !isActualDragging.value) {
+  if (totalDeltaY > DRAG_THRESHOLD.value && !isActualDragging.value) {
     isActualDragging.value = true
     isDragging.value = true // ✅ 只有在实际移动超过阈值时才设置 isDragging
   }
@@ -519,10 +565,12 @@ const calculateCircularTrackAngle = (index: number, total: number) => {
 }
 
 // 椭圆轨迹指示器坐标系 - 统一的位置计算函数
-const calculateCircularTrackPosition = (angle: number, radiusX: number = 569, radiusY: number = 400) => {
+const calculateCircularTrackPosition = (angle: number, radiusX?: number, radiusY?: number) => {
   // 使用椭圆轨迹指示器的坐标系：0度为正右方，逆时针为正
-  const x = Math.cos(angle) * radiusX
-  const y = Math.sin(angle) * radiusY
+  const xRadius = radiusX ?? debugParams.value.radiusX
+  const yRadius = radiusY ?? debugParams.value.radiusY
+  const x = Math.cos(angle) * xRadius
+  const y = Math.sin(angle) * yRadius
   return { x, y }
 }
 
@@ -1600,7 +1648,7 @@ const getGraphPosition = (index: number, total: number) => {
   if (currentExpandedGraph !== null && expandedIndex !== -1 && !isDragging.value && !isRapidScrolling) {
     if (index === expandedIndex) {
       // 展开的知识图谱保持在椭圆轨迹上，移动到160度位置
-      const { x, y } = calculateCircularTrackPosition(angle, 569, 400)
+      const { x, y } = calculateCircularTrackPosition(angle)
       return {
         transform: `translate(${x}px, ${y}px)`,
         position: 'absolute' as const,
@@ -1647,7 +1695,7 @@ const getGraphPosition = (index: number, total: number) => {
         // 应用推开旋转，让其他节点沿轨道移动
         const adjustedAngle = angle + (rotationDirection * pushAngle)
         
-        const { x, y } = calculateCircularTrackPosition(adjustedAngle, 569, 400)
+        const { x, y } = calculateCircularTrackPosition(adjustedAngle)
         
         // 计算缩放和透明度 - 距离展开图谱越近，透明度越低
         const scale = 1 - (distanceFactor * 0.1) // 减少缩放幅度
@@ -1674,7 +1722,7 @@ const getGraphPosition = (index: number, total: number) => {
         }
       } else {
         // 距离展开图谱较远的节点，保持当前位置但变为半透明
-        const { x, y } = calculateCircularTrackPosition(angle, 569, 400)
+        const { x, y } = calculateCircularTrackPosition(angle)
         return {
           transform: `translate(${x}px, ${y}px)`, // 移除缩小比例，保持原始大小
           position: 'absolute' as const,
@@ -1694,7 +1742,7 @@ const getGraphPosition = (index: number, total: number) => {
   }
   
   // 默认椭圆轨迹位置计算
-  const { x, y } = calculateCircularTrackPosition(angle, 569, 400)
+  const { x, y } = calculateCircularTrackPosition(angle)
   
   return {
     transform: `translate(${x}px, ${y}px)`,
@@ -1731,7 +1779,7 @@ const logAngleDistribution = () => {
     calculateCircularTrackAngle(i, total)
     
     // 使用统一的椭圆轨迹指示器坐标系计算位置
-    calculateCircularTrackPosition(calculateCircularTrackAngle(i, total).currentAngle, 569, 400)
+    calculateCircularTrackPosition(calculateCircularTrackAngle(i, total).currentAngle)
   }
 }
 
@@ -2080,6 +2128,14 @@ onUnmounted(() => {
   margin-left: -569px;
   margin-top: -400px;
   border-radius: 50%;
+}
+
+// 调试按钮样式
+.debug-fab {
+  position: fixed;
+  bottom: 100px;
+  right: 24px;
+  z-index: 9999;
 }
 
 

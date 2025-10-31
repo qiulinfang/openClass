@@ -50,11 +50,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, watch, computed, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import GraphNode from './GraphNode.vue'
 import { ResourceManager } from '../../services/resource-storage'
 import { showMessage } from '../../utils'
+import type { KnowledgeGraphDebugParams } from '../debug/KnowledgeGraphDebugPanel.vue'
 
 interface ChapterNode {
   id: string
@@ -100,6 +101,9 @@ const emit = defineEmits<{
 
 // 路由
 const router = useRouter()
+
+// 注入调试参数（可选）
+const debugParams = inject<{ value: KnowledgeGraphDebugParams } | undefined>('knowledgeGraphDebugParams', undefined)
 
 // 模板引用
 const containerRef = ref<HTMLElement>()
@@ -171,22 +175,28 @@ const backgroundRadius = computed(() => {
   
   // 背景圆是正方形的内切圆，半径是较小边的一半
   const baseRadius = Math.min(containerWidth, containerHeight) / 2
-  const radius = Math.max(baseRadius, 120) // 最小半径120px
+  
+  // 使用可调参数的最小背景半径，如果没有则使用默认值
+  const minRadius = debugParams?.value.minBackgroundRadius ?? 120
+  const radius = Math.max(baseRadius, minRadius)
   
   // 获取圆周节点数量
   const circularNodes = getCircularNodes(props.chapterDetails)
   const nodeCount = circularNodes.length
   
-  // 根据节点数量调整半径大小
+  // 根据节点数量调整半径大小，使用可调参数
   if (nodeCount <= 2) {
     // 1-2个节点：背景圆形区域半径小
-    return radius * 0.8
+    const scale = debugParams?.value.radiusScaleSmall ?? 0.8
+    return radius * scale
   } else if (nodeCount <= 4) {
     // 3-4个节点：背景圆形区域半径中
-    return radius * 1.0
+    const scale = debugParams?.value.radiusScaleMedium ?? 1.0
+    return radius * scale
   } else {
     // 超过4个节点：背景圆形区域半径大
-    return radius * 1.1
+    const scale = debugParams?.value.radiusScaleLarge ?? 1.1
+    return radius * scale
   }
 })
 
