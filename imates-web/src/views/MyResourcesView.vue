@@ -199,7 +199,7 @@ import { apiService } from '../services/api-service'
 import { httpClient } from '../services/http-client'
 import { showMessage } from '../utils'
 import type { UserTextbookInfo } from '../types'
-import ResourceDebugPanel from '../components/ResourceDebugPanel.vue'
+import ResourceDebugPanel from '../components/debug/ResourceDebugPanel.vue'
 import BScroll from '@better-scroll/core'
 // 第1步：移除PullDown插件导入，不再使用下拉刷新功能
 

@@ -125,6 +125,7 @@ export const useQuestionStore = defineStore('question', () => {
       console.log(`[QUESTION] 🔄 开始从API获取题目列表`)
       const apiService = ApiService.getInstance()
       const questionList = await apiService.getExerciseList(subject)
+      console.log(`[QUESTION] ✅ API获取题目列表`,questionList)
       const apiDuration = performance.now() - apiStartTime
       console.log(`[QUESTION] ⏱️ API请求耗时: ${apiDuration.toFixed(2)}ms`)
       
@@ -151,7 +152,7 @@ export const useQuestionStore = defineStore('question', () => {
       questions.value = deduplicateQuestions(convertedQuestions)
       const dedupeDuration = performance.now() - dedupeStartTime
       console.log(`[QUESTION] ⏱️ 去重耗时: ${dedupeDuration.toFixed(2)}ms`)
-      
+      console.log(`[QUESTION] ✅ 去重后题目`,questions.value)
       // 第4步：保存到 IndexedDB
       const saveStartTime = performance.now()
       await saveQuestionsToLocal(subject)
@@ -343,8 +344,8 @@ export const useQuestionStore = defineStore('question', () => {
     const uniqueMap = new Map<string, ExerciseItem>()
     
     for (const question of questionList) {
-      if (question.id && !uniqueMap.has(question.id)) {
-        uniqueMap.set(question.id, question)
+      if (question.title && !uniqueMap.has(question.title)) {
+        uniqueMap.set(question.title, question)
       }
     }
     

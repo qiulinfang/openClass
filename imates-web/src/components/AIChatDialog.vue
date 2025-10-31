@@ -78,7 +78,7 @@ import { showMessage } from '@/utils'
 import DraggableDialog from './DraggableDialog.vue'
 import SessionList from './SessionList.vue'
 import ChatView from './ChatView.vue'
-import ChatSessionDebugPanel from './ChatSessionDebugPanel.vue'
+import ChatSessionDebugPanel from './debug/ChatSessionDebugPanel.vue'
 import type { QuestionRecord, AiGeneralSession } from '@/types'
 
 // ==================== Props & Emits ====================

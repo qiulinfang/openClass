@@ -17,6 +17,18 @@
           </template>
         </q-input>
 
+        <!-- 对比统计按钮 -->
+        <q-btn
+          icon="analytics"
+          color="secondary"
+          outline
+          round
+          @click="outputComparisonStatistics"
+          class="stats-btn"
+        >
+          <q-tooltip>输出对比统计（估算vs真实高度）</q-tooltip>
+        </q-btn>
+
         <!-- 定位到当前题目按钮 -->
         <q-btn
           icon="my_location"
@@ -46,12 +58,15 @@
     </div>
 
     <!-- 题目列表 - 卡片布局 -->
-    <div class="question-cards-container q-pa-md">
+    <div 
+      ref="scrollContainer"
+      class="question-cards-container q-pa-md"
+    >
       <!-- 骨架屏加载状态 -->
       <QuestionListSkeleton v-if="loading" />
 
       <!-- 空状态 -->
-      <div v-else-if="filteredQuestions.length === 0" class="native-empty-state">
+      <div v-else-if="displayList.length === 0" class="native-empty-state">
         <q-icon name="quiz" size="80px" color="grey-5" />
         <div class="text-h6 q-mt-md text-grey-7 native-text-3xl">
           {{ searchQuery ? '未找到匹配的题目' : '暂无题目' }}
@@ -67,31 +82,65 @@
         </q-btn>
       </div>
 
-      <!-- 题目卡片列表 -->
+      <!-- 题目列表 -->
       <div v-else class="question-cards-list">
         <div 
-          v-for="(item, index) in (searchQuery ? filteredQuestions : questions)" 
+          v-for="item in allRenderItems" 
           :key="item.id"
           class="question-item-wrapper"
+          :data-index="item.actualIndex"
         >
+          <!-- 占位符 -->
           <div 
+            v-if="item.isPlaceholder"
+            class="question-card-placeholder"
+            :ref="(el) => observePlaceholderRef(el as HTMLElement | null, item.actualIndex)"
+            :style="{ minHeight: getPlaceholderHeight(item.id, item.actualIndex) + 'px' }"
+          >
+            <div class="question-block">
+              <!-- 占位符头部 -->
+              <div class="question-header">
+                <div class="question-number-placeholder"></div>
+                <div class="question-actions-placeholder">
+                  <div class="placeholder-btn"></div>
+                  <div class="placeholder-btn"></div>
+                  <div class="placeholder-btn"></div>
+                </div>
+              </div>
+              
+              <!-- 占位符内容 -->
+              <div class="question-content-area">
+                <div class="question-content-placeholder">
+                  <div class="placeholder-line placeholder-line-long"></div>
+                  <div class="placeholder-line placeholder-line-medium"></div>
+                  <div class="placeholder-line placeholder-line-short"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 实际题目 -->
+          <div 
+            v-else
+            ref="(el) => setQuestionCardRef(el as HTMLElement | null, item.id, item.actualIndex)"
+            :data-question-id="item.id"
             class="question-card"
             :class="{ 
-              'question-selected': (searchQuery ? -1 : selectedQuestionIndex) === index,
+              'question-selected': (searchQuery ? -1 : selectedQuestionIndex) === item.actualIndex,
               'question-deleting': deletingIds.has(item.id)
             }"
-            @click="throttledHandleCardClick(item, index)"
+            @click="throttledHandleCardClick(item.question!, item.actualIndex)"
           >
             <div class="question-block">
               <!-- 题目头部 -->
               <div class="question-header">
                 <!-- 左侧：题目序号 -->
-                <div class="question-number">{{ index + 1 }}</div>
+                <div class="question-number">{{ item.actualIndex + 1 }}</div>
                 
                 <!-- 右侧：功能区 -->
                 <div class="question-actions">
                   <!-- 按钮组 - 只在选中时显示 -->
-                  <div v-show="(searchQuery ? -1 : selectedQuestionIndex) === index">
+                  <div v-show="(searchQuery ? -1 : selectedQuestionIndex) === item.actualIndex">
                     <!-- 主要操作按钮 - 发送给AI -->
                     <q-btn
                       icon="smart_toy"
@@ -99,7 +148,7 @@
                       flat
                       round
                       size="sm"
-                      @click.stop="throttledSendToAi(item)"
+                      @click.stop="throttledSendToAi(item.question!)"
                       class="action-btn primary-action"
                     >
                       <q-tooltip>发送给AI</q-tooltip>
@@ -112,7 +161,7 @@
                       flat
                       round
                       size="sm"
-                      @click.stop="throttledSendToTeacher(item)"
+                      @click.stop="throttledSendToTeacher(item.question!)"
                       class="action-btn teacher-action"
                     >
                       <q-tooltip>拍作业</q-tooltip>
@@ -120,7 +169,7 @@
 
                     <!-- 置顶按钮 -->
                     <q-btn
-                      v-if="index > 0"
+                      v-if="item.actualIndex > 0"
                       icon="vertical_align_top"
                       color="orange"
                       flat
@@ -153,7 +202,7 @@
               <div class="question-content-area">
                 <div
                   class="markdown-content question-content"
-                  v-html="renderMessageContent(item.question || item.title || '暂无内容')"
+                  v-html="renderMessageContent(item.question?.question || item.question?.title || '暂无内容')"
                   :ref="(el) => setContentRef(el as HTMLElement | null, item.id)"
                 ></div>
               </div>
@@ -166,7 +215,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { showMessage, ThrottleUtils, throttle } from '../utils'
 import { useQuestionStore } from '../stores/questionStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
@@ -175,6 +224,7 @@ import { apiService } from '../services/api-service'
 import { androidBridge } from '../services/android-bridge'
 import { MathJaxUtils } from '../utils/math/mathjax'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
+import { useQuestionStatistics, type TitleHeightStat, type HeightComparison } from '../composables/useQuestionStatistics'
 import QuestionListSkeleton from './QuestionListSkeleton.vue'
 
 const emit = defineEmits<{
@@ -199,6 +249,29 @@ const contentRefs = ref<Map<string, HTMLElement>>(new Map())
 const renderedQuestions = new Set<string>()
 const intersectionObservers = new Map<string, IntersectionObserver>()
 
+// 渐进式渲染相关
+interface RenderItem {
+  id: string
+  actualIndex: number
+  isPlaceholder: boolean
+  question?: ExerciseItem  // 占位符时不存在
+}
+
+const renderedIndexes = ref(new Set<number>())  // 已渲染的索引
+const placeholderHeights = ref<Map<number, number>>(new Map())  // 占位符高度缓存（保留用于兼容）
+const placeholderObservers = new Map<number, IntersectionObserver>()  // 占位符观察器
+const PRE_RENDER_COUNT = 3  // 前N个题目立即渲染
+const ESTIMATED_PLACEHOLDER_HEIGHT = 207  // 估算占位符高度（单位：px，基于统计数据：无图片题目平均高度）
+
+// 动态高度测量相关（方案A）
+const questionHeights = ref<Map<string, number>>(new Map())  // 题目ID -> 高度映射
+const indexToHeight = ref<Map<number, number>>(new Map())  // 索引 -> 高度映射（便于快速查找）
+const questionCardRefs = ref<Map<string, HTMLElement>>(new Map())  // 实际题目卡片引用
+const resizeObservers = new Map<string, ResizeObserver>()  // ResizeObserver映射
+const heightMeasurementTimers = new Map<string, NodeJS.Timeout>()  // 延迟测量定时器
+
+// 所有类型定义和工具函数已迁移到 useQuestionStatistics composable
+
 // 使用与 ChatBubble 相同的渲染器
 const { renderMessageContent } = useMessageRenderer()
 
@@ -218,11 +291,116 @@ const filteredQuestions = computed(() => {
   )
 })
 
+// 显示的列表（搜索时用过滤后的，否则用原始列表）
+const displayList = computed(() => {
+  return searchQuery.value ? filteredQuestions.value : questions.value
+})
+
+// 滚动容器引用（用于滚动定位）
+const scrollContainer = ref<HTMLElement | null>(null)
+
+// 先声明 setQuestionCardRef，稍后实现
+let setQuestionCardRefImpl: (el: HTMLElement | null, questionId: string, index: number) => void = () => {}
+
+// 初始化统计 composable
+const statistics = useQuestionStatistics({
+  displayList,
+  questionHeights,
+  indexToHeight,
+  questionCardRefs,
+  renderedIndexes,
+  scrollContainer,
+  setQuestionCardRef: (el, questionId, index) => {
+    if (setQuestionCardRefImpl) {
+      setQuestionCardRefImpl(el, questionId, index)
+    }
+  }
+})
+
+// 从 composable 解构出需要的函数和状态
+const {
+  heightStats,
+  titleHeightStats,
+  heightComparisons,
+  estimateHeightByStats,
+  recordQuestionHeight: recordQuestionHeightFromStats,
+  outputComparisonStatistics,
+  analyzeTitleHeightRelation,
+  activelyBindQuestionRefs,
+  manuallyMeasureAllQuestions,
+  performMeasurement: performMeasurementFromStats
+} = statistics
+
+// 所有项目的渲染列表：支持渐进式渲染（占位符 + 实际题目）
+const allRenderItems = computed(() => {
+  const list = displayList.value
+  const items: RenderItem[] = []
+  
+  list.forEach((question, index) => {
+    // 前N个题目立即渲染，不使用占位符
+    const shouldRender = index < PRE_RENDER_COUNT || renderedIndexes.value.has(index)
+    
+    items.push({
+      id: question.id,
+      actualIndex: index,
+      isPlaceholder: !shouldRender,
+      question: shouldRender ? question : undefined
+    })
+  })
+  
+  return items
+})
+
+
 // 工具方法
 
 
 
 // 主要方法
+
+// 监听占位符进入视口，替换为实际题目
+const observePlaceholderRef = (el: HTMLElement | null, index: number) => {
+  if (!el || !scrollContainer.value) return
+  
+  // 如果已经渲染，不需要观察
+  if (renderedIndexes.value.has(index)) return
+  
+  // 如果已经有观察器，先清理
+  const existingObserver = placeholderObservers.get(index)
+  if (existingObserver) {
+    existingObserver.disconnect()
+    placeholderObservers.delete(index)
+  }
+  
+  // 创建新的观察器
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && !renderedIndexes.value.has(index)) {
+          // 占位符进入视口，标记为已渲染
+          renderedIndexes.value.add(index)
+          
+          // 记录占位符高度（如果有）
+          if (entry.boundingClientRect.height > 0) {
+            placeholderHeights.value.set(index, entry.boundingClientRect.height)
+          }
+          
+          // 停止观察并清理
+          observer.disconnect()
+          placeholderObservers.delete(index)
+        }
+      })
+    },
+    {
+      root: scrollContainer.value,
+      rootMargin: '200px',  // 提前200px开始渲染
+      threshold: 0.01  // 只要有一点可见就触发
+    }
+  )
+  
+  observer.observe(el)
+  placeholderObservers.set(index, observer)
+}
 
 // 设置内容引用，使用 Intersection Observer 实现真正的视口懒加载
 const setContentRef = (el: HTMLElement | null, questionId: string) => {
@@ -234,14 +412,12 @@ const setContentRef = (el: HTMLElement | null, questionId: string) => {
       renderedQuestions.add(questionId)
       
       // 获取题目在列表中的索引
-      const questionIndex = questions.value.findIndex(q => q.id === questionId)
+      const list = displayList.value
+      const questionIndex = list.findIndex(q => q.id === questionId)
       
       // 前3个题目立即渲染，确保首屏快速显示
       if (questionIndex < 3) {
         MathJaxUtils.renderMath(el, false) // 立即渲染
-        nextTick(() => {
-          adjustCardHeight(el, questionId)
-        })
         return
       }
       
@@ -253,11 +429,6 @@ const setContentRef = (el: HTMLElement | null, questionId: string) => {
               // 元素进入视口，立即渲染 MathJax
               MathJaxUtils.renderMath(el, false) // 立即渲染，不使用懒加载模式
               
-              // 渲染完成后调整高度
-              nextTick(() => {
-                adjustCardHeight(el, questionId)
-              })
-              
               // 停止观察，避免重复渲染
               observer.unobserve(el)
               intersectionObservers.delete(questionId) // 从存储中移除
@@ -265,7 +436,7 @@ const setContentRef = (el: HTMLElement | null, questionId: string) => {
           })
         },
         {
-          root: null, // 使用视口作为根
+          root: scrollContainer.value, // 使用滚动容器作为根
           rootMargin: '100px', // 提前100px开始渲染，确保流畅体验
           threshold: 0.1 // 元素10%可见时触发
         }
@@ -280,12 +451,71 @@ const setContentRef = (el: HTMLElement | null, questionId: string) => {
   }
 }
 
-// 调整卡片高度 - 简化版本，不再需要复杂的高度计算
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const adjustCardHeight = (_contentEl: HTMLElement, _questionId: string) => {
-  // 普通列表模式下，让内容自然流动，不需要强制设置高度
-  // 保留此函数是为了兼容现有的 Intersection Observer 调用
+// 设置实际题目卡片的引用并开始监听高度变化
+setQuestionCardRefImpl = (
+  el: HTMLElement | null,
+  questionId: string,
+  index: number
+) => {
+  if (!el || questionCardRefs.value.has(questionId)) return
+
+  questionCardRefs.value.set(questionId, el)
+
+  // 使用 ResizeObserver 监听高度变化
+  const resizeObserver = new ResizeObserver((entries) => {
+    entries.forEach((entry) => {
+      // 使用 contentRect 或 target 的 getBoundingClientRect
+      const height = entry.target.getBoundingClientRect().height
+
+      // 等待内容稳定后再记录（避免频繁更新）
+      clearTimeout(heightMeasurementTimers.get(questionId))
+      const timer = setTimeout(() => {
+        if (height > 0) {
+          recordQuestionHeightFromStats(questionId, index, height)
+        }
+      }, 200) // 延迟200ms，等待MathJax渲染完成
+
+      heightMeasurementTimers.set(questionId, timer)
+    })
+  })
+
+  resizeObserver.observe(el)
+  resizeObservers.set(questionId, resizeObserver)
+
+  // 立即尝试测量一次（用于快速显示的题目）
+  nextTick(() => {
+    const height = el.getBoundingClientRect().height
+    if (height > 0) {
+      // 延迟测量，等待可能的MathJax渲染
+      setTimeout(() => {
+        const finalHeight = el.getBoundingClientRect().height
+        recordQuestionHeightFromStats(questionId, index, finalHeight)
+      }, 300) // 给MathJax更多时间
+    }
+  })
 }
+
+// 导出给模板使用（在模板中被使用，但 TypeScript 可能无法识别）
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const setQuestionCardRef = setQuestionCardRefImpl
+
+// 以下函数已迁移到 useQuestionStatistics composable
+// 使用 composable 返回的函数：recordQuestionHeightFromStats, updateHeightStats, compareEstimatedAndActualHeight 等
+
+// 删除的旧函数：
+// - recordQuestionHeight (使用 recordQuestionHeightFromStats)
+// - updateHeightStats (使用 composable 的 updateHeightStats)
+// - compareEstimatedAndActualHeight (使用 composable 的 compareEstimatedAndActualHeight)
+// - outputComparisonStatistics (使用 composable 的 outputComparisonStatistics)
+// - recordTitleHeightRelation (使用 composable 的 recordTitleHeightRelation)
+// - analyzeTitleHeightRelation (使用 composable 的 analyzeTitleHeightRelation)
+// - activelyBindQuestionRefs (使用 composable 的 activelyBindQuestionRefs)
+// - manuallyMeasureAllQuestions (使用 composable 的 manuallyMeasureAllQuestions)
+// - performMeasurement (使用 composable 的 performMeasurementFromStats)
+// - estimateHeightByStats (使用 composable 的 estimateHeightByStats)
+
+// 以下函数已迁移到 useQuestionStatistics composable，不再在此文件中定义
+// 使用 composable 返回的函数即可
 
 // 创建节流版本的方法
 const throttledHandleCardClick = ThrottleUtils.fast(async (question: ExerciseItem, index: number) => {
@@ -308,7 +538,6 @@ const throttledMoveToTop = ThrottleUtils.standard((questionId: string) => {
   moveQuestionToTop(questionId)
 })
 
-// 创建节流版本的方法
 const throttledStartPhotoSearch = ThrottleUtils.verySlow(() => {
   startPhotoSearch()
 }) // 1秒节流，防止重复拍照
@@ -316,6 +545,77 @@ const throttledStartPhotoSearch = ThrottleUtils.verySlow(() => {
 const throttledLoadQuestions = ThrottleUtils.verySlow(() => {
   loadQuestions()
 }) // 1秒节流，防止重复加载
+
+// 包装函数：用于调用 composable 的方法
+const wrappedAnalyzeTitleHeightRelation = () => {
+  analyzeTitleHeightRelation(recordQuestionHeightFromStats, computed(() => questions.value))
+}
+
+const wrappedManuallyMeasureAllQuestions = () => {
+  return manuallyMeasureAllQuestions(recordQuestionHeightFromStats)
+}
+
+// 获取占位符高度（优化版 - 支持ID和索引，基于统计数据智能估算）
+const getPlaceholderHeight = (questionId: string, index: number): number => {
+  // 1. 优先使用已测量的该题目高度（如果之前测量过）
+  if (questionHeights.value.has(questionId)) {
+    return questionHeights.value.get(questionId)!
+  }
+
+  // 2. 使用当前索引的高度缓存（如果之前在同一位置测量过）
+  if (indexToHeight.value.has(index)) {
+    return indexToHeight.value.get(index)!
+  }
+
+  // 3. 尝试从题目数据智能估算（基于统计数据分析）
+  try {
+    const list = displayList.value
+    if (index >= 0 && index < list.length) {
+      const question = list[index]
+      if (question && question.id === questionId) {
+        const title = question.title || question.question || ''
+        if (title) {
+          const estimatedHeight = estimateHeightByStats(title)
+          if (estimatedHeight > 0) {
+            return estimatedHeight
+          }
+        }
+      }
+    }
+    
+    // 如果通过ID找不到，尝试通过索引查找
+    if (index >= 0 && index < list.length) {
+      const question = list[index]
+      if (question) {
+        const title = question.title || question.question || ''
+        if (title) {
+          const estimatedHeight = estimateHeightByStats(title)
+          if (estimatedHeight > 0) {
+            return estimatedHeight
+          }
+        }
+      }
+    }
+  } catch (error) {
+    // 如果出错，继续使用下面的兜底策略
+    console.warn('[getPlaceholderHeight] 智能估算出错:', error)
+  }
+
+  // 4. 如果有统计信息，使用智能估算（使用中位数）
+  const stats = heightStats.value
+  if (stats.samples.length > 0) {
+    // 优先使用中位数（更稳定）
+    return stats.median > 0 ? stats.median : stats.avg
+  }
+
+  // 5. 兼容旧的高度缓存（如果有）
+  if (placeholderHeights.value.has(index)) {
+    return placeholderHeights.value.get(index)!
+  }
+
+  // 6. 使用基于统计数据的默认值（无图片题目的平均高度）
+  return ESTIMATED_PLACEHOLDER_HEIGHT
+}
 
 // 获取时间字符串的工具函数
 const getTimeString = () => {
@@ -333,6 +633,15 @@ const loadQuestions = async () => {
   const loadStartTime = performance.now()
   loading.value = true
   console.log(`${getTimeString()} [QuestionList] 开始加载题目列表`)
+  
+  // 重置渐进式渲染状态
+  renderedIndexes.value.clear()
+  placeholderHeights.value.clear()
+  placeholderObservers.forEach((observer) => {
+    observer.disconnect()
+  })
+  placeholderObservers.clear()
+  
   try {
     // 使用 store 的 fetchQuestions 方法，它会优先从本地存储加载
     const questionStore = useQuestionStore()
@@ -345,6 +654,26 @@ const loadQuestions = async () => {
     if (questions.value.length > 0) {
       // 等待 DOM 更新
       await nextTick()
+      
+      // 确保前N个题目标记为已渲染（用于立即渲染）
+      const preRenderCount = Math.min(PRE_RENDER_COUNT, questions.value.length)
+      for (let i = 0; i < preRenderCount; i++) {
+        renderedIndexes.value.add(i)
+      }
+      console.log(`[QuestionList] ✅ 已标记前 ${preRenderCount} 个题目为已渲染`)
+      
+      // 延迟一段时间后，尝试主动绑定和测量（给DOM渲染和MathJax渲染时间）
+      setTimeout(() => {
+        if (renderedIndexes.value.size > 0) {
+          console.log(`[QuestionList] 🔧 自动触发主动绑定和测量，已渲染索引数量: ${renderedIndexes.value.size}`)
+          activelyBindQuestionRefs()
+          setTimeout(() => {
+            performMeasurementFromStats(recordQuestionHeightFromStats)
+          }, 500)
+        } else {
+          console.log(`[QuestionList] ⚠️ 尚未有题目卡片渲染到DOM中，请滚动页面触发渲染`)
+        }
+      }, 1000) // 延迟1秒，等待DOM和MathJax渲染
     }
     
     const loadEndTime = performance.now()
@@ -357,6 +686,8 @@ const loadQuestions = async () => {
     showMessage('加载题目失败: ' + (error as Error).message, 'error')
   } finally {
     loading.value = false
+    await nextTick()
+    console.log(`${getTimeString()} [QuestionList] 题目列表渲染完成`)
   }
 }
 
@@ -411,108 +742,65 @@ const selectQuestion = async (index: number) => {
 const scrollToCurrentQuestion = (targetIndex?: number) => {
   const indexToScroll = targetIndex !== undefined ? targetIndex : selectedQuestionIndex.value
   
-  if (indexToScroll < 0) {
-    console.log(`${getTimeString()} [QuestionList] 滚动: 没有指定的题目索引，跳过滚动`)
+  if (indexToScroll < 0 || !scrollContainer.value) {
     return
   }
 
   try {
-    // 等待DOM更新
-    nextTick(() => {
-      const container = document.querySelector('.question-cards-container')
-      if (!container) {
-        console.log(`${getTimeString()} [QuestionList] 滚动: 题目列表容器未找到，跳过滚动`)
+    const list = displayList.value
+    if (indexToScroll >= list.length) {
         return
       }
 
-      // 检查题目列表是否可见
-      const containerRect = container.getBoundingClientRect()
-      const isVisible = containerRect.width > 0 && containerRect.height > 0
+    // 找到目标元素
+    const targetElement = scrollContainer.value.querySelector(`[data-index="${indexToScroll}"]`)
+    if (targetElement) {
+      const containerHeight = scrollContainer.value.clientHeight
+      const elementTop = (targetElement as HTMLElement).offsetTop
+      const elementHeight = (targetElement as HTMLElement).offsetHeight
       
-      if (!isVisible) {
-        console.log(`${getTimeString()} [QuestionList] 滚动: 题目列表不可见，跳过滚动`)
-        return
-      }
+      // 计算滚动位置，使目标元素居中
+      const targetScrollTop = Math.max(0, elementTop - (containerHeight - elementHeight) / 2)
 
-      // 查找指定索引的题目卡片
-      const questionCards = container.querySelectorAll('.question-card')
-      const targetCard = questionCards[indexToScroll]
-      
-      if (targetCard) {
-        console.log(`${getTimeString()} [QuestionList] 滚动: 开始滚动到指定题目，索引: ${indexToScroll}，总数: ${questionCards.length}`)
-        
-        // 滚动到指定题目卡片
-        targetCard.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-          inline: 'nearest'
-        })
-        
-        console.log(`${getTimeString()} [QuestionList] 滚动: 滚动完成`)
-      } else {
-        console.log(`${getTimeString()} [QuestionList] 滚动: 未找到指定题目卡片，跳过滚动`)
-      }
-    })
-  } catch {
-    console.error(`${getTimeString()} [QuestionList] 滚动: 滚动失败`)
+      // 滚动到目标位置
+      scrollContainer.value.scrollTo({
+        top: targetScrollTop,
+        behavior: 'smooth'
+      })
+    }
+  } catch (error) {
+    console.error(`${getTimeString()} [QuestionList] 滚动失败`, error)
   }
 }
 
 // 滚动到指定题目并设置为选中状态
 const scrollToQuestionAndSelect = async (targetIndex: number) => {
-  if (targetIndex < 0 || targetIndex >= questions.value.length) {
+  const list = displayList.value
+  if (targetIndex < 0 || targetIndex >= list.length) {
     console.log(`${getTimeString()} [QuestionList] 滚动选择: 无效的题目索引，跳过操作`)
     return
   }
 
   try {
-    console.log(`${getTimeString()} [QuestionList] 滚动选择: 开始滚动到题目并设置为选中状态，索引: ${targetIndex}，总数: ${questions.value.length}`)
+    console.log(`${getTimeString()} [QuestionList] 滚动选择: 开始滚动到题目并设置为选中状态，索引: ${targetIndex}，总数: ${list.length}`)
 
     // 先更新选中状态
     selectedQuestionIndex.value = targetIndex
     
-    // 通知store更新当前选中的题目
+    // 通知store更新当前选中的题目（需要转换为原始列表索引）
     const questionStore = useQuestionStore()
-    await questionStore.selectQuestion(targetIndex)
+    const originalIndex = searchQuery.value 
+      ? questions.value.findIndex(q => q.id === list[targetIndex].id)
+      : targetIndex
+    if (originalIndex >= 0) {
+      await questionStore.selectQuestion(originalIndex)
+    }
 
     // 等待DOM更新后滚动
-    nextTick(() => {
-      const container = document.querySelector('.question-cards-container')
-      if (!container) {
-        console.log(`${getTimeString()} [QuestionList] 滚动选择: 题目列表容器未找到，跳过滚动`)
-        return
-      }
-
-      // 检查题目列表是否可见
-      const containerRect = container.getBoundingClientRect()
-      const isVisible = containerRect.width > 0 && containerRect.height > 0
-      
-      if (!isVisible) {
-        console.log(`${getTimeString()} [QuestionList] 滚动选择: 题目列表不可见，跳过滚动`)
-        return
-      }
-
-      // 查找指定索引的题目卡片
-      const questionCards = container.querySelectorAll('.question-card')
-      const targetCard = questionCards[targetIndex]
-      
-      if (targetCard) {
-        console.log(`${getTimeString()} [QuestionList] 滚动选择: 开始滚动到指定题目，索引: ${targetIndex}，总数: ${questionCards.length}`)
-        
-        // 滚动到指定题目卡片
-        targetCard.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-          inline: 'nearest'
-        })
-        
-        console.log(`${getTimeString()} [QuestionList] 滚动选择: 滚动和选择完成`)
-      } else {
-        console.log(`${getTimeString()} [QuestionList] 滚动选择: 未找到指定题目卡片，跳过滚动`)
-      }
-    })
-  } catch {
-    console.error(`${getTimeString()} [QuestionList] 滚动选择: 操作失败`)
+    await nextTick()
+    scrollToCurrentQuestion(targetIndex)
+  } catch (error) {
+    console.error(`${getTimeString()} [QuestionList] 滚动选择: 操作失败`, error)
   }
 }
 
@@ -523,14 +811,19 @@ const deleteQuestion = async (questionId: string) => {
   try {
     deletingIds.value.add(questionId)
 
+    // 清理高度缓存和观察器
+    cleanupQuestionHeight(questionId)
+
     try {
       // 使用API服务删除题目
       const success = await apiService.deleteExercise(questionId, selectedSubject.value)
 
       if (success) {
         showMessage('题目删除成功', 'positive')
-        // 重新加载题目列表
+        // 重新加载题目列表（会自动重置渲染状态）
         await loadQuestions()
+        // 重新映射索引高度
+        remapIndexHeights()
       } else {
         showMessage('题目删除失败', 'error')
       }
@@ -565,6 +858,9 @@ const moveQuestionToTop = async (questionId: string) => {
     // 同步到store
     const questionStore = useQuestionStore()
     await questionStore.setQuestions(questions.value, selectedSubject.value)
+
+    // 重新映射索引高度
+    remapIndexHeights()
 
 
     // 题目置顶后滚动到最顶部
@@ -711,9 +1007,82 @@ const sendToTeacher = async (question: ExerciseItem) => {
 }
 
 
-// 生命周期
-onMounted(() => {
-  loadQuestions()
+// 重新映射索引高度（用于列表变化后）
+const remapIndexHeights = () => {
+  indexToHeight.value.clear()
+  displayList.value.forEach((question, index) => {
+    if (questionHeights.value.has(question.id)) {
+      indexToHeight.value.set(index, questionHeights.value.get(question.id)!)
+    }
+  })
+}
+
+// 清理题目高度缓存和观察器
+const cleanupQuestionHeight = (questionId: string) => {
+  // 清理高度缓存
+  questionHeights.value.delete(questionId)
+
+  // 清理观察器
+  const observer = resizeObservers.get(questionId)
+  if (observer) {
+    observer.disconnect()
+    resizeObservers.delete(questionId)
+  }
+
+  // 清理定时器
+  const timer = heightMeasurementTimers.get(questionId)
+  if (timer) {
+    clearTimeout(timer)
+    heightMeasurementTimers.delete(questionId)
+  }
+
+  // 清理引用
+  questionCardRefs.value.delete(questionId)
+}
+
+// 监听搜索变化，重置渲染状态
+watch(searchQuery, () => {
+  // 搜索时重置所有渲染状态
+  renderedIndexes.value.clear()
+  placeholderHeights.value.clear()
+  
+  // 保留ID映射，清空索引映射（因为列表顺序可能变化）
+  indexToHeight.value.clear()
+  
+  // 清理所有占位符观察器
+  placeholderObservers.forEach((observer) => {
+    observer.disconnect()
+  })
+  placeholderObservers.clear()
+  
+  // 重新映射索引高度
+  remapIndexHeights()
+}, { immediate: false })
+
+// 监听列表变化，更新渲染状态
+watch(() => displayList.value.length, (newLength, oldLength) => {
+  // 如果列表长度减少，清理不再存在的索引
+  if (newLength < oldLength) {
+    const currentIndexes = new Set(Array.from({ length: newLength }, (_, i) => i))
+    const indexesToRemove: number[] = []
+    
+    renderedIndexes.value.forEach((index) => {
+      if (!currentIndexes.has(index)) {
+        indexesToRemove.push(index)
+      }
+    })
+    
+    indexesToRemove.forEach((index) => {
+      renderedIndexes.value.delete(index)
+      placeholderHeights.value.delete(index)
+      
+      const observer = placeholderObservers.get(index)
+      if (observer) {
+        observer.disconnect()
+        placeholderObservers.delete(index)
+      }
+    })
+  }
 })
 
 // 组件卸载时清理资源
@@ -724,8 +1093,61 @@ onUnmounted(() => {
   })
   intersectionObservers.clear()
   
+  // 清理所有占位符观察器
+  placeholderObservers.forEach((observer) => {
+    observer.disconnect()
+  })
+  placeholderObservers.clear()
+  
+  // 清理所有 ResizeObserver
+  resizeObservers.forEach((observer) => {
+    observer.disconnect()
+  })
+  resizeObservers.clear()
+  
+  // 清理所有定时器
+  heightMeasurementTimers.forEach((timer) => {
+    clearTimeout(timer)
+  })
+  heightMeasurementTimers.clear()
+  
+  // 清理窗口大小变化监听（如果有）
+  if (windowResizeCleanup) {
+    window.removeEventListener('resize', windowResizeCleanup)
+    windowResizeCleanup = null
+  }
+  
   // 清理 MathJax
   MathJaxUtils.cleanup()
+})
+
+// 窗口大小变化处理（可选，用于响应式布局）
+let windowResizeCleanup: (() => void) | null = null
+
+// 生命周期
+onMounted(() => {
+  loadQuestions()
+  
+  // 设置窗口大小变化监听
+  let resizeTimeout: NodeJS.Timeout
+  const handleResize = () => {
+    clearTimeout(resizeTimeout)
+    resizeTimeout = setTimeout(() => {
+      // 重新测量所有已渲染的题目
+      questionCardRefs.value.forEach((el, questionId) => {
+        const index = displayList.value.findIndex(q => q.id === questionId)
+        if (index >= 0 && el) {
+          const height = el.getBoundingClientRect().height
+          if (height > 0) {
+            recordQuestionHeightFromStats(questionId, index, height)
+          }
+        }
+      })
+    }, 300)
+  }
+  
+  window.addEventListener('resize', handleResize)
+  windowResizeCleanup = handleResize
 })
 
 // 暴露方法给父组件
@@ -735,7 +1157,46 @@ defineExpose({
   refreshQuestions,
   scrollToCurrentQuestion,
   scrollToQuestionAndSelect,
+  analyzeTitleHeightRelation: wrappedAnalyzeTitleHeightRelation,  // 暴露统计分析方法
+  manuallyMeasureAllQuestions: wrappedManuallyMeasureAllQuestions,  // 暴露手动测量方法
+  getTitleHeightStats: () => titleHeightStats.value,  // 暴露统计数据
+  outputComparisonStatistics,  // 暴露对比统计方法
+  getHeightComparisons: () => heightComparisons.value  // 暴露对比数据
 })
+
+// 将统计方法挂载到 window 对象上，方便在浏览器控制台中调用
+if (typeof window !== 'undefined') {
+  interface WindowWithStats extends Window {
+    analyzeTitleHeightRelation: () => void
+    manuallyMeasureAllQuestions: () => number
+    getTitleHeightStats: () => TitleHeightStat[]
+    outputComparisonStatistics: () => void
+    getHeightComparisons: () => HeightComparison[]
+  }
+  const win = window as unknown as WindowWithStats
+  win.analyzeTitleHeightRelation = wrappedAnalyzeTitleHeightRelation
+  win.manuallyMeasureAllQuestions = wrappedManuallyMeasureAllQuestions
+  win.getTitleHeightStats = () => titleHeightStats.value
+  win.outputComparisonStatistics = outputComparisonStatistics
+  win.getHeightComparisons = () => heightComparisons.value
+  console.log('[QuestionList] 💡 统计方法已挂载到 window 对象:')
+  console.log('  - window.analyzeTitleHeightRelation() - 分析并输出统计结果')
+  console.log('  - window.manuallyMeasureAllQuestions() - 手动测量所有已渲染的题目')
+  console.log('  - window.getTitleHeightStats() - 获取原始统计数据')
+  console.log('  - window.outputComparisonStatistics() - 输出估算vs真实高度对比统计')
+  console.log('  - window.getHeightComparisons() - 获取所有对比数据')
+}
+
+// 监听统计数据的累积，在合适的时候自动输出统计（可选）
+watch(() => titleHeightStats.value.length, () => {
+  // 当有足够的样本时（比如超过20个），可以触发一次统计
+  // 但这可能会产生很多日志，所以注释掉自动触发，改为手动调用
+  // const length = titleHeightStats.value.length
+  // if (length === 20 || length % 50 === 0) {
+  //   console.log(`[STATS] 📊 已收集 ${length} 个样本，自动触发统计...`)
+  //   analyzeTitleHeightRelation()
+  // }
+}, { immediate: false })
 </script>
 
 <style lang="scss" scoped>
@@ -878,6 +1339,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
     overflow-y: auto;
     overflow-x: hidden;
     background-color: $background-light;
+    position: relative;
 
     .question-cards-grid {
       display: flex;
@@ -886,6 +1348,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
       min-height: min-content;
     }
   }
+  
 
   // 题目卡片列表容器
   .question-cards-list {
@@ -900,6 +1363,127 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
     box-sizing: border-box;
     width: 100%;
     overflow: visible;
+  }
+
+  // 占位符卡片样式
+  .question-card-placeholder {
+    cursor: default;
+    overflow: visible;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    border: none;
+    border-radius: 16px;
+    background-color: transparent;
+    padding: 4px;
+    min-width: 0;
+    pointer-events: none; // 禁用交互
+    
+    .question-block {
+      background-color: $background-white;
+      border-radius: 12px;
+      overflow: visible;
+      border: 1px solid $border-color;
+      box-shadow: $shadow-subtle;
+      min-width: 0;
+    }
+    
+    .question-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: transparent;
+      border-bottom: none;
+      padding: 16px 20px;
+      
+      .question-number-placeholder {
+        width: 28px;
+        height: 28px;
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200px 100%;
+        border-radius: 14px;
+        animation: placeholder-shimmer 1.5s infinite;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: transparent; // 隐藏数字
+        font-size: 0; // 隐藏数字
+      }
+      
+      .question-actions-placeholder {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+        height: 32px;
+        
+        .placeholder-btn {
+          width: 24px;
+          height: 24px;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200px 100%;
+          border-radius: 12px;
+          animation: placeholder-shimmer 1.5s infinite;
+          
+          &:nth-child(1) {
+            animation-delay: 0s;
+          }
+          &:nth-child(2) {
+            animation-delay: 0.2s;
+          }
+          &:nth-child(3) {
+            animation-delay: 0.4s;
+          }
+        }
+      }
+    }
+    
+    .question-content-area {
+      background-color: transparent;
+      padding: 16px 20px 20px 20px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      min-width: 0;
+      
+      .question-content-placeholder {
+        min-width: 0;
+        
+        .placeholder-line {
+          height: 16px;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200px 100%;
+          border-radius: 8px;
+          animation: placeholder-shimmer 1.5s infinite;
+          margin-bottom: 12px;
+          
+          &.placeholder-line-long {
+            width: 85%;
+          }
+          
+          &.placeholder-line-medium {
+            width: 65%;
+          }
+          
+          &.placeholder-line-short {
+            width: 45%;
+          }
+          
+          &:last-child {
+            margin-bottom: 0;
+          }
+        }
+      }
+    }
+  }
+
+  // 占位符动画
+  @keyframes placeholder-shimmer {
+    0% {
+      background-position: -200px 0;
+    }
+    100% {
+      background-position: calc(200px + 100%) 0;
+    }
   }
 
   // 题目卡片
@@ -1486,5 +2070,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
     transform: scale(1);
   }
 }
+
 </style>
 
