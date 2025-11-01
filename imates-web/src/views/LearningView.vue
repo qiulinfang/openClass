@@ -27,13 +27,14 @@
           </div>
           
           <!-- 学习方案列表 -->
-          <div v-else-if="filteredLearningPackages.length > 0" class="scheme-list">
-            <div 
-              v-for="(scheme, index) in filteredLearningPackages" 
-              :key="scheme.id"
-              :class="['scheme-item', { 'scheme-selected': selectedSchemeIndex === index }]"
-              @click="selectScheme(index)"
-            >
+          <div v-else-if="filteredLearningPackages.length > 0" ref="schemeListWrapper" class="scroll-wrapper scheme-list">
+            <div class="scroll-content">
+              <div 
+                v-for="(scheme, index) in filteredLearningPackages" 
+                :key="scheme.id"
+                :class="['scheme-item', { 'scheme-selected': selectedSchemeIndex === index }]"
+                @click="selectScheme(index)"
+              >
               <div class="scheme-header">
                 <span class="scheme-name">方案{{ index + 1 }}</span>
                 <div class="difficulty-rating">
@@ -49,6 +50,7 @@
                   </div>
                 </div>
               </div>
+            </div>
             </div>
           </div>
           
@@ -70,16 +72,17 @@
           </div>
           
           <!-- 资源文件列表 -->
-          <div v-else-if="currentResources.length > 0" class="resources-list">
-            <div 
-              v-for="(resource, index) in currentResources" 
-              :key="resource.id"
-              class="resource-item"
-              tabindex="0"
-              @click="selectResource(index)"
-              @focus="handleResourceFocus(index)"
-              @keydown.enter="selectResource(index)"
-            >
+          <div v-else-if="currentResources.length > 0" ref="resourcesListWrapper" class="scroll-wrapper resources-list">
+            <div class="scroll-content">
+              <div 
+                v-for="(resource, index) in currentResources" 
+                :key="resource.id"
+                class="resource-item"
+                tabindex="0"
+                @click="selectResource(index)"
+                @focus="handleResourceFocus(index)"
+                @keydown.enter="selectResource(index)"
+              >
               <div class="resource-thumbnail">
                 <!-- 如果有缩略图则显示缩略图，否则显示图标 -->
                 <img 
@@ -110,6 +113,7 @@
                 />
               </div>
             </div>
+            </div>
           </div>
           
           <!-- 无资源状态 -->
@@ -124,10 +128,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { resourceManager } from '../services/resource-storage'
 import type { LearningPackage, ResourceFile, LocalFileInfo } from '../types'
+import { useBetterScroll } from '../composables/useBetterScroll'
 
 // Props 定义
 interface Props {
@@ -160,6 +165,62 @@ const selectedSchemeIndex = ref(-1)
 const selectedResourceIndex = ref(-1)
 const isLoading = ref(false)
 const loadingPackages = ref(false)
+
+// Better Scroll 实例
+const schemeListWrapper = ref<HTMLElement | null>(null)
+const resourcesListWrapper = ref<HTMLElement | null>(null)
+
+// 使用 Better Scroll 组合式函数 - 学习方案列表
+const {
+  init: initSchemeListBScroll,
+  refresh: refreshSchemeListBScroll
+} = useBetterScroll(
+  schemeListWrapper,
+  {
+    scrollY: true,
+    scrollX: false,
+    click: true,
+    bounce: {
+      top: true,
+      bottom: true,
+      left: false,
+      right: false
+    },
+    deceleration: 0.003,
+    useTransition: true,
+    HWCompositing: true,
+  },
+  true, // 自动监听数据变化
+  [
+    () => filteredLearningPackages.value.length
+  ]
+)
+
+// 使用 Better Scroll 组合式函数 - 资源列表
+const {
+  init: initResourcesListBScroll,
+  refresh: refreshResourcesListBScroll
+} = useBetterScroll(
+  resourcesListWrapper,
+  {
+    scrollY: true,
+    scrollX: false,
+    click: true,
+    bounce: {
+      top: true,
+      bottom: true,
+      left: false,
+      right: false
+    },
+    deceleration: 0.003,
+    useTransition: true,
+    HWCompositing: true,
+  },
+  true, // 自动监听数据变化
+  [
+    () => currentResources.value.length
+  ]
+)
 
 // 学习方案数据 - 从API获取
 const learningPackages = ref<LearningPackage[]>([])
@@ -372,10 +433,19 @@ watch(() => props.textbookId, (newTextbookId) => {
   loadLearningPackages()
 })
 
+// BScroll 初始化和刷新由组合式函数自动处理（已启用 autoWatch）
+
 // 生命周期
 onMounted(async () => {
   // 加载学习包数据
   await loadLearningPackages()
+  // 初始化 BScroll（由组合式函数处理）
+  await initSchemeListBScroll()
+  await initResourcesListBScroll()
+})
+
+onUnmounted(() => {
+  // BScroll 销毁由组合式函数自动处理
 })
 </script>
 
@@ -549,20 +619,26 @@ $spacing-xl: 32px;
 }
 
 // 学习方案列表
-.scheme-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+.scroll-wrapper.scheme-list {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
+  
+  .scroll-content {
+    min-height: calc(100% + 1px);
+  }
   
   .scheme-item {
+    margin-bottom: 16px;
     border-radius: 20px;
     padding: 32px 36px;
     cursor: pointer;
     transition: all 0.2s ease;
     background-color: rgba(255, 255, 255, 0.05);
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
     
     &.scheme-selected {
       background-color: #312363;
@@ -650,15 +726,16 @@ $spacing-xl: 32px;
 }
 
 // 资源列表
-.resources-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+.scroll-wrapper.resources-list {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   border-radius: 20px;
   background-color: #312263;
+  
+  .scroll-content {
+    min-height: calc(100% + 1px);
+  }
   
   .resource-item {
     display: flex;

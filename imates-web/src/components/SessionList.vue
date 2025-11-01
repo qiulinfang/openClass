@@ -75,17 +75,19 @@
     </div>
 
     <!-- 会话列表 -->
-    <div v-else ref="sessionItemsRef" class="session-items">
-      <div
-        v-for="record in filteredRecords"
-        :key="record.id"
-        class="session-item"
-        :class="{ 
-          'is-selected': selectedRecordId === record.id,
-          'is-checked': selectedRecords.has(record.id),
-          'is-selectable': isSelectionMode
-        }"
-      >
+    <div v-else ref="scrollWrapper" class="scroll-wrapper">
+      <div class="scroll-content">
+        <div ref="sessionItemsRef" class="session-items">
+          <div
+            v-for="record in filteredRecords"
+            :key="record.id"
+            class="session-item"
+            :class="{ 
+              'is-selected': selectedRecordId === record.id,
+              'is-checked': selectedRecords.has(record.id),
+              'is-selectable': isSelectionMode
+            }"
+          >
         <!-- 批量选择复选框 -->
         <div v-if="isSelectionMode" class="session-checkbox">
           <q-checkbox
@@ -153,6 +155,8 @@
             </q-menu>
           </q-btn>
         </div>
+          </div>
+        </div>
       </div>
     </div>
     
@@ -183,8 +187,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { QuestionRecord } from '@/types'
+import { useBetterScroll } from '../composables/useBetterScroll'
 
 // 定义 props
 interface Props {
@@ -336,16 +341,48 @@ const truncateText = (text: string, maxLength: number): string => {
 
 // ==================== DOM 引用 ====================
 const sessionItemsRef = ref<HTMLElement | null>(null)
+const scrollWrapper = ref<HTMLElement | null>(null)
+
+// 使用 Better Scroll 组合式函数
+const {
+  init: initBScroll,
+  scrollTo
+} = useBetterScroll(
+  scrollWrapper,
+  {
+    scrollY: true,
+    scrollX: false,
+    click: true,
+    probeType: 2,
+    bounce: {
+      top: true,
+      bottom: true,
+    },
+    bounceTime: 800,
+    deceleration: 0.003,
+    useTransition: true,
+    HWCompositing: true,
+  },
+  true, // 自动监听数据变化
+  [
+    () => filteredRecords.value.length,
+    () => props.records.length
+  ]
+)
 
 // 流程：滚动到列表顶部
 const scrollToTop = () => {
-  if (sessionItemsRef.value) {
-    sessionItemsRef.value.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
-  }
+  scrollTo(0, 0, 300)
 }
+
+// 生命周期
+onMounted(async () => {
+  await initBScroll()
+})
+
+onUnmounted(() => {
+  // BScroll 销毁由组合式函数自动处理
+})
 
 // 暴露方法给父组件
 defineExpose({
@@ -443,9 +480,17 @@ defineExpose({
   padding: 20px;
 }
 
-.session-items {
+.scroll-wrapper {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
+  position: relative;
+}
+
+.scroll-content {
+  min-height: calc(100% + 1px);
+}
+
+.session-items {
   padding: 16px;
   
   &::-webkit-scrollbar {

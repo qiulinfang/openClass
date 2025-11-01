@@ -42,9 +42,10 @@
 
     <!-- 聊天消息区域 - 占据全宽度，支持滚动 -->
     <div class="chat-messages-container">
-      <!-- 滚动区域组件 - 自定义滚动条样式 -->
-      <q-scroll-area ref="scrollAreaRef" class="chat-messages" :thumb-style="thumbStyle">
-        <div class="messages-wrapper">
+      <!-- 滚动区域组件 - 使用 BetterScroll -->
+      <div ref="scrollWrapper" class="scroll-wrapper chat-messages">
+        <div class="scroll-content">
+          <div class="messages-wrapper">
           <!-- 聊天记录加载状态指示器 - 带淡入淡出动画 -->
           <Transition name="loading-fade" appear>
             <div v-if="showLoadingIndicator" class="chat-loading-indicator">
@@ -75,7 +76,8 @@
             @edit-message="handleEditMessage"
           />
         </div>
-      </q-scroll-area>
+        </div>
+      </div>
     </div>
 
     <!-- 聊天输入组件 - 支持文本、语音、图片等多种输入方式 -->
@@ -124,8 +126,8 @@
 // Vue 核心功能
 import { ref, nextTick, onMounted, onUnmounted, computed, watch } from 'vue'
 
-// Quasar UI 组件
-import { QScrollArea } from 'quasar'
+// Better Scroll
+import { useBetterScroll } from '../composables/useBetterScroll'
 
 // 状态管理和工具函数
 import { useQuestionStore } from '../stores/questionStore'
@@ -193,9 +195,33 @@ const getScenarioStore = () => {
 const chatStrategy = ref<ChatStrategy>()
 
 // 组件引用
-const scrollAreaRef = ref<QScrollArea>() // 滚动区域引用
+const scrollWrapper = ref<HTMLElement | null>(null) // 滚动区域引用
 const chatViewRef = ref<HTMLElement>() // 聊天视图容器引用
 const chatInputRef = ref<InstanceType<typeof ChatInput>>() // 输入组件引用
+
+// 使用 Better Scroll 组合式函数
+const {
+  init: initBScroll,
+  refresh: refreshBScroll,
+  scrollTo,
+  getInstance
+} = useBetterScroll(
+  scrollWrapper,
+  {
+    scrollY: true,
+    scrollX: false,
+    click: true,
+    probeType: 2,
+    bounce: {
+      top: true,
+      bottom: true,
+    },
+    bounceTime: 800,
+    deceleration: 0.003,
+    useTransition: true,
+    HWCompositing: true,
+  }
+)
 
 // 基础状态变量
 const inputMessage = ref('') // 输入框内容
@@ -438,13 +464,6 @@ const CANCEL_THRESHOLD = 100 // 上滑取消的阈值（像素）
 
 // ==================== 计算属性 ====================
 // 滚动条样式配置
-const thumbStyle = {
-  right: '4px',
-  borderRadius: '5px',
-  backgroundColor: '#027be3',
-  width: '5px',
-  opacity: '0.75',
-}
 
 /**
  * 检查是否有选中的题目
@@ -954,12 +973,11 @@ const sendMessage = async (attachedFile?: File) => {
 // 作用：滚动聊天区域到底部，确保最新消息可见
 const scrollToBottom = async () => {
   await nextTick()
-  if (scrollAreaRef.value) {
-    // 使用更精确的滚动到底部方法
-    const scrollTarget = scrollAreaRef.value.getScrollTarget()
-    if (scrollTarget) {
-      scrollTarget.scrollTop = scrollTarget.scrollHeight
-    }
+  const bscrollInstance = getInstance()
+  if (bscrollInstance) {
+    // 使用 BScroll 滚动到底部
+    const maxScrollY = bscrollInstance.maxScrollY
+    scrollTo(0, maxScrollY, 300)
   }
 
   // 同时触发父组件的滚动到底部事件
@@ -1904,9 +1922,12 @@ const handleTeacherMessageReceived = async (messageData: {
  * 组件挂载时的初始化
  * 作用：初始化聊天消息、设置事件监听器、配置语音识别等
  */
-onMounted(() => {
+onMounted(async () => {
   // 步骤1：初始化聊天消息
   initializeMessages()
+  
+  // 步骤1.5：初始化 BScroll
+  await initBScroll()
   scrollToBottom()
 
   // 步骤2：初始化动态键盘高度
@@ -1987,6 +2008,8 @@ onMounted(() => {
  * 作用：清理事件监听器、定时器、回调函数等资源
  */
 onUnmounted(() => {
+  // 步骤0：BScroll 销毁由组合式函数自动处理
+  
   // 步骤1：清理键盘事件监听器
   if (typeof window !== 'undefined') {
     // 注意：内联函数无法直接移除，但组件卸载时会自动清理
@@ -2050,6 +2073,7 @@ watch(
     if (oldLength > 0 && newLength === 0 && (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook')) {
       initializeMessages()
       nextTick(() => {
+        refreshBScroll()
         scrollToBottom()
       })
     }
@@ -2066,6 +2090,9 @@ watch(
   () => getScenarioStore().messages,
   (newMessages) => {
     if (newMessages && newMessages.length > 0) {
+      // 刷新 BScroll 以确保内容高度正确
+      refreshBScroll()
+      
       // 如果是键盘显示状态，立即滚动；否则防抖滚动
       if (isKeyboardVisible.value || isKeyboardAnimating.value) {
         // 键盘显示时立即滚动，确保用户体验
@@ -2293,10 +2320,16 @@ const executeSubjectSwitch = () => {
   z-index: 1; /* 确保消息区域在输入区域下方 */
 }
 
-/* 聊天消息滚动区域 */
-.chat-messages {
+/* 聊天消息滚动区域 - Better Scroll */
+.scroll-wrapper.chat-messages {
   height: 100%;
   width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.scroll-content {
+  min-height: calc(100% + 1px);
 }
 
 /* 消息包装器 - 设置内边距和最大宽度 */

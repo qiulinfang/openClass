@@ -1,8 +1,9 @@
 <template>
   <div class="similar-question-list">
     <!-- 相似题目列表 -->
-    <q-scroll-area class="similar-questions-scroll" :thumb-style="thumbStyle">
-      <div class="q-pa-md">
+    <div ref="scrollWrapper" class="scroll-wrapper">
+      <div class="scroll-content">
+        <div class="q-pa-md">
         <!-- 加载状态 -->
         <div v-if="loading" class="native-loading-container">
           <q-spinner-dots size="50px" color="primary" />
@@ -64,8 +65,9 @@
             </div>
           </div>
         </div>
+        </div>
       </div>
-    </q-scroll-area>
+    </div>
   </div>
 </template>
 
@@ -75,6 +77,7 @@ import { useQuestionStore } from '../stores/questionStore'
 import { storeToRefs } from 'pinia'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { showMessage } from '../utils'
+import { useBetterScroll } from '../composables/useBetterScroll'
 const questionStore = useQuestionStore()
 const { currentQuestion, similarQuestions } = storeToRefs(questionStore)
 
@@ -87,13 +90,31 @@ const emit = defineEmits<{
 const loading = ref(false)
 const addingIds = ref(new Set<string>())
 
-const thumbStyle = {
-  right: '4px',
-  borderRadius: '5px',
-  backgroundColor: '#027be3',
-  width: '5px',
-  opacity: '0.75',
-}
+// better-scroll 相关
+const scrollWrapper = ref<HTMLElement | null>(null)
+
+// 使用 Better Scroll 组合式函数
+const { init: initBScroll } = useBetterScroll(
+  scrollWrapper,
+  {
+    scrollY: true,
+    scrollX: false,
+    click: true,
+    probeType: 2,
+    bounce: {
+      top: true,
+      bottom: true,
+    },
+    bounceTime: 800,
+    deceleration: 0.003,
+    useTransition: true,
+    HWCompositing: true,
+  },
+  true, // 自动监听数据变化
+  [
+    () => similarQuestions.value.length
+  ]
+)
 
 // 计算属性
 const hasSelectedQuestion = computed(() => {
@@ -157,13 +178,20 @@ const renderMarkdown = (content: string) => {
   return renderMessageContent(content)
 }
 
+// BScroll 初始化由组合式函数处理
+
 // 生命周期
-onMounted(() => {
+onMounted(async () => {
+  // 初始化 better-scroll
+  await initBScroll()
+  
   // 如果已经选择了题目，自动查找相似题目
   if (hasSelectedQuestion.value) {
     findSimilarQuestions()
   }
 })
+
+// 组件卸载时 BScroll 销毁由组合式函数自动处理
 
 // 暴露方法给父组件
 defineExpose({
@@ -230,10 +258,14 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   background-color: $background-light;
 }
 
-.similar-questions-scroll {
+.scroll-wrapper {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
+  position: relative;
+}
+
+.scroll-content {
+  min-height: calc(100% + 1px);
 }
 
 .similar-questions-container {

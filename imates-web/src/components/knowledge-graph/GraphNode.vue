@@ -1,7 +1,12 @@
 <template>
   <div class="node-wrapper" :style="nodeStyle">
     <!-- 学习标签 -->
-    <div v-if="learningStatus === 'lastLearned'" class="learning-tag">上次学到</div>
+    <div 
+      v-if="learningStatus === 'lastLearned'" 
+      class="learning-tag"
+      :class="learningTagClasses"
+      :style="learningTagStyle"
+    >上次学到</div>
       
       <!-- 节点圆形 -->
     <div 
@@ -41,7 +46,9 @@
     <div 
       v-if="isMenuVisible" 
       class="manual-bubble-menu"
+      :class="{ 'manual-bubble-menu--top': menuPosition === 'top' }"
       :style="bubbleMenuStyle"
+      :ref="(el) => { menuRef = el as HTMLElement }"
     >
       <div class="bubble-menu-container">
         <button 
@@ -62,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, defineProps, defineEmits, inject } from 'vue'
+import { computed, ref, defineProps, defineEmits, inject, nextTick, watch, onUnmounted } from 'vue'
 import type { KnowledgeGraphDebugParams } from '../debug/KnowledgeGraphDebugPanel.vue'
 
 // 流程：导入图标资源
@@ -114,9 +121,13 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>()
 
 const nodeRef = ref<HTMLElement>()
+const menuRef = ref<HTMLElement>()
 
 // 第1步：获取调试参数
 const debugParams = inject<{ value: KnowledgeGraphDebugParams } | undefined>('knowledgeGraphDebugParams', undefined)
+
+// 第2步：气泡框菜单定位方向（'top' 在上方，'bottom' 在下方）
+const menuPosition = ref<'top' | 'bottom'>('bottom')
 
 /**
  * 获取节点在圆周上的角度（弧度制）
@@ -292,7 +303,7 @@ const centerNodeStyle = computed(() => {
   }
   
   // 第4步：获取缩放速度（从 debugParams 中读取）
-  const scaleSpeed = debugParams?.value?.centerNodeScaleSpeed ?? 0.6
+  const scaleSpeed = debugParams?.value?.centerNodeScaleSpeed ?? 0.5
   
   // 第5步：返回样式对象（包括大小和过渡时间）
   return {
@@ -332,13 +343,77 @@ const nodeStyle = computed(() => {
     style.position = 'absolute'
     style.left = '50%'
     style.top = '50%'
-    style.marginLeft = '-50px'  // 节点宽度的一半（100px/2）
-    style.marginTop = '-50px'   // 节点高度的一半（100px/2）
+    // 使用调试参数中的偏移量，默认值为节点宽度/高度的一半（50px）
+    const offsetX = debugParams?.value?.circularNodeOffsetX ?? 50
+    const offsetY = debugParams?.value?.circularNodeOffsetY ?? 50
+    style.marginLeft = `-${offsetX}px`
+    style.marginTop = `-${offsetY}px`
     // SVG方法：只进行位置变换，不旋转内容
     style.transform = `translate(${x}px, ${y}px)`
   }
   
   return style
+})
+
+// 第3步：动态计算气泡框菜单位置
+const calculateMenuPosition = async () => {
+  if (!props.isMenuVisible || !nodeRef.value) {
+    return
+  }
+  
+  await nextTick()
+  
+  // 获取节点在视口中的位置
+  const nodeRect = nodeRef.value.getBoundingClientRect()
+  const viewportHeight = window.innerHeight
+  
+  // 预估气泡框菜单高度（包括按钮和间距）
+  const estimatedMenuHeight = 120 // 两个按钮 + 间距 + padding
+  
+  // 计算节点下方和上方的可用空间
+  let spaceBelow = viewportHeight - nodeRect.bottom
+  const spaceAbove = nodeRect.top
+  
+  // 对于圆周节点，需要考虑内容区域的高度（内容在节点下方）
+  if (props.type === 'circular') {
+    // 圆周节点内容在节点下方，需要加上内容高度
+    const contentOffset = 60 // node-title 高度约 3.5rem = 56px，加上间距约 60px
+    spaceBelow -= contentOffset // 减去内容占用的空间
+  }
+  
+  // 判断是否有足够空间在下方显示
+  // 如果下方空间不足且上方空间更大，则显示在上方
+  if (spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow) {
+    menuPosition.value = 'top'
+  } else {
+    menuPosition.value = 'bottom'
+  }
+}
+
+// 监听菜单可见性变化，重新计算位置
+watch(() => props.isMenuVisible, (newVal) => {
+  if (newVal) {
+    calculateMenuPosition()
+  }
+}, { immediate: true })
+
+// 监听窗口大小变化，重新计算位置
+let resizeHandler: (() => void) | null = null
+if (typeof window !== 'undefined') {
+  resizeHandler = () => {
+    if (props.isMenuVisible) {
+      calculateMenuPosition()
+    }
+  }
+  window.addEventListener('resize', resizeHandler)
+}
+
+// 组件卸载时清理事件监听器
+onUnmounted(() => {
+  if (typeof window !== 'undefined' && resizeHandler) {
+    window.removeEventListener('resize', resizeHandler)
+    resizeHandler = null
+  }
 })
 
 // 计算气泡框菜单的定位样式
@@ -347,24 +422,51 @@ const bubbleMenuStyle = computed(() => {
     return {}
   }
   
+  // 第1步：根据节点类型设置不同的 z-index
+  // 中心节点的气泡框层级要高于圆周节点的气泡框
+  const zIndexValue: number = props.type === 'center' ? 30 : 20
+  
+  const baseStyle = {
+    position: 'absolute' as const,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: zIndexValue
+  }
+  
   if (props.type === 'center') {
-    // 中心节点的气泡框定位在节点下方
-    return {
-      position: 'absolute' as const,
-      top: 'calc(100% + 20px)', // 节点下方 + 间距
-      left: '50%',
-      transform: 'translateX(-50%)',
-      zIndex: 20 // 确保在其他元素之上
+    // 中心节点的气泡框定位
+    if (menuPosition.value === 'top') {
+      // 显示在节点上方
+      return {
+        ...baseStyle,
+        bottom: 'calc(100% + 20px)',
+        top: 'auto'
+      }
+    } else {
+      // 显示在节点下方
+      return {
+        ...baseStyle,
+        top: 'calc(100% + 20px)',
+        bottom: 'auto'
+      }
     }
   } else {
-    // 圆周节点的气泡框定位在node-title文字下面
-    // node-content--circular已经定位在节点下方，气泡框需要定位在内容下方
-    return {
-      position: 'absolute' as const,
-      top: 'calc(100% + 8px + 3.5rem)', // 节点下方 + 间距 + node-title高度（字体增大后需要更多空间）+ 额外下移
-      left: '50%',
-      transform: 'translateX(-50%)',
-      zIndex: 20 // 确保在其他元素之上
+    // 圆周节点的气泡框定位
+    // node-content--circular已经定位在节点下方，气泡框需要定位在内容下方或节点上方
+    if (menuPosition.value === 'top') {
+      // 显示在节点上方（相对于.node-wrapper的顶部，即节点顶部）
+      return {
+        ...baseStyle,
+        bottom: 'calc(100% + 20px)', // node-wrapper高度 + 间距，菜单显示在节点上方20px处
+        top: 'auto'
+      }
+    } else {
+      // 显示在内容下方（相对于.node-wrapper的底部，需要加上内容高度）
+      return {
+        ...baseStyle,
+        top: 'calc(100% + 8px + 3.5rem)', // node-wrapper高度 + 间距 + 内容高度
+        bottom: 'auto'
+      }
     }
   }
 })
@@ -409,6 +511,40 @@ const handlePractice = () => {
   emit('practice', props.node)
 }
 
+// 学习标签类名计算
+const learningTagClasses = computed(() => {
+  const classes = []
+  
+  // 中心节点展开状态
+  if (props.type === 'center' && props.isExpanded) {
+    classes.push('learning-tag--expanded')
+  }
+  
+  // 节点在其他图谱展开时变小
+  if (props.hasExpandedGraph && !props.isExpanded) {
+    classes.push('learning-tag--shrunk')
+  }
+  
+  return classes
+})
+
+// 学习标签样式计算
+const learningTagStyle = computed(() => {
+  const style: Record<string, string> = {}
+  
+  // 使用配置的位置参数
+  const top = debugParams?.value?.learningTagTop ?? 0
+  const left = debugParams?.value?.learningTagLeft ?? 50
+  const translateX = debugParams?.value?.learningTagTranslateX ?? 0
+  
+  // 处理 top 和 left，支持数字（px）和字符串
+  style.top = typeof top === 'number' ? `${top}px` : String(top)
+  style.left = typeof left === 'number' ? `${left}px` : String(left)
+  style.transform = `translateX(${translateX}%)`
+  
+  return style
+})
+
 
 
 
@@ -422,6 +558,9 @@ const handlePractice = () => {
   align-items: center;
   text-align: center;
   z-index: 2;
+  /* 确保容器有最小尺寸，避免因为负边距和 transform scale(0) 导致尺寸为 0 */
+  min-width: 100px;
+  min-height: 100px;
 }
 
 .graph-node {
@@ -592,20 +731,22 @@ const handlePractice = () => {
   font-family: '优设标题黑', 'YouSheBiaoTiHei', sans-serif;
   font-weight: bold;
   text-align: center;
-  line-height: 1.0;
+  line-height: 1.2; /* 调整行高以适应换行 */
   transition: all var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
   width: 100%;
   display: block;
-  white-space: nowrap; /* 第3步：禁止文字换行 */
+  word-wrap: break-word; /* 允许文字换行 */
+  word-break: break-word; /* 确保长文本正确换行 */
 }
 
-/* 中心节点标题展开状态 - 字体保持不变 */
+/* 中心节点标题展开状态 - 字体放大 */
 .node-content--center.node-content--expanded .node-title {
-  font-size: 190%; /* 第1步：保持与默认状态相同的字体大小 */
+  font-size: 230%; /* 第1步：展开时字体放大到230% */
   margin-top: -8px; /* 第2步：向上占据一些空间 */
   margin-bottom: 4px; /* 第3步：增加与章节名的间距 */
-  line-height: 1.0;
-  white-space: nowrap; /* 第4步：禁止文字换行 */
+  line-height: 1.3; /* 调整行高以适应放大后的字体和换行文本 */
+  word-wrap: break-word; /* 允许文字换行 */
+  word-break: break-word; /* 确保长文本正确换行 */
 }
 
 /* 中心节点标题在其他图谱展开时字体保持不变 */
@@ -613,8 +754,9 @@ const handlePractice = () => {
   font-size: 190%; /* 第1步：保持与默认状态相同的字体大小 */
   margin-top: -8px; /* 第2步：向上占据一些空间 */
   margin-bottom: 4px; /* 第3步：增加与章节名的间距 */
-  line-height: 1.0;
-  white-space: nowrap; /* 第4步：禁止文字换行 */
+  line-height: 1.2; /* 调整行高以适应换行 */
+  word-wrap: break-word; /* 允许文字换行 */
+  word-break: break-word; /* 确保长文本正确换行 */
 }
 
 .graph-node--center + .node-content .node-title {
@@ -667,13 +809,14 @@ const handlePractice = () => {
   margin-bottom: 2px; /* 第5步：底部留一些间距 */
 }
 
-/* 中心节点章节名展开状态 - 字体保持不变 */
+/* 中心节点章节名展开状态 - 字体放大 */
 .node-content--center.node-content--expanded .node-chapter {
-  font-size: 140%; /* 第1步：保持与默认状态相同的字体大小 */
-  line-height: 1.4; /* 第2步：增加行高，改善可读性 */
-  white-space: nowrap; /* 第3步：禁止文字换行 */
-  overflow: hidden; /* 第4步：隐藏超出部分 */
-  text-overflow: ellipsis; /* 第5步：超出部分显示省略号 */
+  font-size: 170%; /* 第1步：展开时字体放大到170% */
+  line-height: 1.5; /* 第2步：调整行高以适应放大后的字体 */
+  word-wrap: break-word; /* 允许文字换行 */
+  word-break: break-word; /* 确保长文本正确换行 */
+  overflow: visible; /* 第4步：允许显示换行后的完整内容 */
+  text-overflow: clip; /* 第5步：移除省略号 */
   margin-bottom: 2px; /* 第6步：底部留一些间距 */
 }
 
@@ -692,9 +835,6 @@ const handlePractice = () => {
 /* 学习标签 */
 .learning-tag {
   position: absolute;
-  top: 3%;
-  left: 100%;
-  transform: translateX(-50%);
   background: #ff6767;
   color: white;
   font-size: 14px;
@@ -706,14 +846,38 @@ const handlePractice = () => {
   height: 20px;
   line-height: 16px;
   z-index: 10;
-  transition: all var(--learning-tag-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
+  /* 第1步：初始状态为透明，通过动画变为不透明 */
+  opacity: 0;
+  /* 第2步：添加透明度过渡效果，实现从透明到不透明的淡入动画 */
+  transition: opacity var(--learning-tag-transition-duration, 0.8s) cubic-bezier(0.4, 0.0, 0.2, 1),
+              all var(--learning-tag-transition-duration, 0.8s) cubic-bezier(0.4, 0.0, 0.2, 1);
   pointer-events: none; /* 禁用点击事件 */
+  /* 第3步：使用动画实现淡入效果 */
+  animation: learning-tag-fade-in var(--learning-tag-transition-duration, 0.8s) cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+/* 学习标签在节点展开时变为完全透明 */
+.learning-tag--expanded {
+  opacity: 0;
+  /* 第1步：展开状态时禁用淡入动画，直接变为透明 */
+  animation: none;
 }
 
 /* 学习标签在节点缩小时变小 */
-.graph-node--shrunk .learning-tag {
+.learning-tag--shrunk {
   font-size: 9px;
   padding: 1px 4px;
+  opacity: 0.8;
+}
+
+/* 学习标签淡入动画 */
+@keyframes learning-tag-fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 /* 节点进入动画 */
@@ -787,7 +951,7 @@ const handlePractice = () => {
 /* 手动定位的气泡框菜单 */
 .manual-bubble-menu {
   position: absolute;
-  z-index: 20;
+  /* z-index 通过内联样式动态设置：中心节点为30，圆周节点为20 */
   pointer-events: auto;
   /* 确保气泡框在中心节点下方正确显示 */
   width: max-content;

@@ -1,9 +1,11 @@
 <template>
   <div class="virtual-question-list">
     <!-- 题目卡片容器 - 与QuestionList.vue保持一致的内边距 -->
-    <div class="question-cards-container">
-      <!-- 普通题目列表容器 -->
-      <div class="question-list-container">
+    <div ref="scrollWrapper" class="scroll-wrapper">
+      <div class="scroll-content">
+        <div class="question-cards-container">
+          <!-- 普通题目列表容器 -->
+          <div class="question-list-container">
         <div 
           v-for="(item, index) in filteredQuestions" 
           :key="item.id"
@@ -82,18 +84,21 @@
             </div>
           </div>
         </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onUnmounted, onMounted, nextTick } from 'vue'
 import { showMessage, ThrottleUtils, throttle } from '../utils'
 import type { ExerciseItem } from '../types'
 import { MathJaxUtils } from '../utils/math/mathjax'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { apiService } from '../services/api-service'
+import { useBetterScroll } from '../composables/useBetterScroll'
 const emit = defineEmits<{
   startAiGuidance: [question: ExerciseItem]
   questionSelected: [question: ExerciseItem, index: number]
@@ -116,6 +121,33 @@ const contentRefs = ref<Map<string, HTMLElement>>(new Map())
 const renderedQuestions = new Set<string>()
 const deletingIds = ref(new Set<string>())
 const intersectionObservers = new Map<string, IntersectionObserver>() // 存储观察器，便于清理
+
+// better-scroll 相关
+const scrollWrapper = ref<HTMLElement | null>(null)
+
+// 使用 Better Scroll 组合式函数
+const { init: initBScroll } = useBetterScroll(
+  scrollWrapper,
+  {
+    scrollY: true,
+    scrollX: false,
+    click: true,
+    probeType: 2,
+    bounce: {
+      top: true,
+      bottom: true,
+    },
+    bounceTime: 800,
+    deceleration: 0.003,
+    useTransition: true,
+    HWCompositing: true,
+  },
+  true, // 自动监听数据变化
+  [
+    () => filteredQuestions.value.length,
+    () => props.questions.length
+  ]
+)
 
 // 移除虚拟滚动相关配置，使用普通列表渲染
 
@@ -258,7 +290,16 @@ const moveToTop = (questionId: string) => {
 }
 
 // 组件卸载时清理资源
+// BScroll 初始化由组合式函数处理
+
+// 生命周期
+onMounted(async () => {
+  await initBScroll()
+})
+
 onUnmounted(() => {
+  // BScroll 销毁由组合式函数自动处理
+  
   // 清理所有 Intersection Observer
   intersectionObservers.forEach((observer) => {
     observer.disconnect()
@@ -330,10 +371,18 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 // ===== 题目卡片容器样式 - 与QuestionList.vue保持一致 =====
-.question-cards-container {
+.scroll-wrapper {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
+  position: relative;
+}
+
+.scroll-content {
+  min-height: calc(100% + 1px);
+}
+
+.question-cards-container {
+  padding: 16px;
   background-color: $background-light;
 }
 

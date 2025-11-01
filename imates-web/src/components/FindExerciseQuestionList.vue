@@ -1,12 +1,9 @@
 <template>
   <div class="find-exercise-question-list">
     <!-- 题目列表内容 -->
-    <q-scroll-area 
-      class="questions-scroll" 
-      :thumb-style="thumbStyle"
-      @scroll="handleScrollEvent"
-    >
-      <div class="q-pa-md">
+    <div ref="scrollWrapper" class="scroll-wrapper">
+      <div class="scroll-content">
+        <div class="q-pa-md">
         {{ similarQuestions.length}}
         <!-- 加载状态 - 使用骨架屏 -->
         <div v-if="isLoading && similarQuestions.length === 0" class="native-loading-container">
@@ -95,16 +92,18 @@
           </div>
         </div>
       </div>
-    </q-scroll-area>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useFindExerciseStore } from '../stores/findExerciseStore'
 import { storeToRefs } from 'pinia'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import QuestionListSkeleton from './QuestionListSkeleton.vue'
+import { useBetterScroll } from '../composables/useBetterScroll'
 
 // 定义事件
 const emit = defineEmits<{
@@ -124,13 +123,58 @@ const { renderMessageContent } = useMessageRenderer()
 const isLoadMorePending = ref(false)
 const loadMoreTimeout = ref<number | null>(null)
 
-// 滚动条样式
-const thumbStyle = {
-  right: '4px',
-  borderRadius: '5px',
-  backgroundColor: '#027be3',
-  width: '5px',
-  opacity: '0.75',
+// DOM 引用
+const scrollWrapper = ref<HTMLElement | null>(null)
+
+// 使用 Better Scroll 组合式函数
+const {
+  init: initBScroll,
+  refresh: refreshBScroll,
+  getInstance
+} = useBetterScroll(
+  scrollWrapper,
+  {
+    scrollY: true,
+    scrollX: false,
+    click: true,
+    probeType: 2,
+    bounce: {
+      top: true,
+      bottom: true,
+    },
+    bounceTime: 800,
+    deceleration: 0.003,
+    useTransition: true,
+    HWCompositing: true,
+  },
+  true, // 自动监听数据变化
+  [
+    () => similarQuestions.value.length
+  ]
+)
+
+// 监听滚动事件，实现滚动到底部自动加载更多
+// 需要在初始化后设置监听器
+const setupScrollListener = () => {
+  const bscrollInstance = getInstance()
+  if (bscrollInstance) {
+    bscrollInstance.on('scroll', (position: { x: number; y: number }) => {
+      const maxScrollY = bscrollInstance.maxScrollY
+      const currentY = position.y
+      
+      // 当滚动到距离底部100px时触发加载更多
+      if (currentY <= maxScrollY + 100) {
+        // 防抖处理，避免重复触发
+        if (loadMoreTimeout.value) {
+          clearTimeout(loadMoreTimeout.value)
+        }
+        
+        loadMoreTimeout.value = setTimeout(() => {
+          handleLoadMore()
+        }, 300) // 300ms防抖
+      }
+    })
+  }
 }
 
 // 计算属性
@@ -172,22 +216,7 @@ const handleRefresh = () => {
   emit('refresh')
 }
 
-// 处理滚动事件 - 实现滚动到底部自动加载更多（带防抖）
-const handleScrollEvent = (info: { verticalPosition: number; verticalPercentage: number; verticalSize: number; verticalContainerSize: number }) => {
-  const { verticalPosition, verticalSize, verticalContainerSize } = info
-  
-  // 当滚动到距离底部100px时触发加载更多
-  if (verticalPosition + verticalContainerSize >= verticalSize - 100) {
-    // 防抖处理，避免重复触发
-    if (loadMoreTimeout.value) {
-      clearTimeout(loadMoreTimeout.value)
-    }
-    
-    loadMoreTimeout.value = setTimeout(() => {
-      handleLoadMore()
-    }, 300) // 300ms防抖
-  }
-}
+// 刷新 BScroll 由组合式函数自动处理（已启用 autoWatch）
 
 // 处理加载更多按钮点击
 const handleLoadMore = async () => {
@@ -213,6 +242,23 @@ const renderQuestionContent = (question: { question?: string; title?: string; co
   const content = question.question || question.title || question.content || ''
   return renderMessageContent(content)
 }
+
+// 监听数据变化由组合式函数自动处理（已启用 autoWatch）
+
+// 生命周期
+onMounted(async () => {
+  await initBScroll()
+  // 设置滚动监听器
+  await nextTick()
+  setupScrollListener()
+})
+
+onUnmounted(() => {
+  // BScroll 销毁由组合式函数自动处理
+  if (loadMoreTimeout.value) {
+    clearTimeout(loadMoreTimeout.value)
+  }
+})
 
 // 暴露方法给父组件
 defineExpose({
@@ -280,10 +326,14 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   background-color: $background-light;
 }
 
-.questions-scroll {
+.scroll-wrapper {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
+  position: relative;
+}
+
+.scroll-content {
+  min-height: calc(100% + 1px);
 }
 
 .questions-container {

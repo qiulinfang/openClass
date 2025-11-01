@@ -120,10 +120,41 @@ const animationState = ref<'idle' | 'expanding' | 'expanded' | 'collapsing'>('id
 // 气泡框状态管理
 const activeNodeId = ref<string | null>(null)
 
+// 最后点击去学习的圆周节点ID（用于显示学习标签）
+const LAST_LEARNED_NODE_KEY = 'LAST_LEARNED_NODE_ID'
+const lastLearnedNodeId = ref<string | null>(null)
+
+// 从localStorage加载最后学习的节点ID
+const loadLastLearnedNodeId = () => {
+  try {
+    const saved = localStorage.getItem(LAST_LEARNED_NODE_KEY)
+    if (saved) {
+      lastLearnedNodeId.value = saved
+    }
+  } catch (error) {
+    console.error('加载最后学习的节点ID失败:', error)
+  }
+}
+
+// 保存最后学习的节点ID到localStorage
+const saveLastLearnedNodeId = (nodeId: string) => {
+  try {
+    lastLearnedNodeId.value = nodeId
+    localStorage.setItem(LAST_LEARNED_NODE_KEY, nodeId)
+  } catch (error) {
+    console.error('保存最后学习的节点ID失败:', error)
+  }
+}
+
+// 初始化时加载
+onMounted(() => {
+  loadLastLearnedNodeId()
+})
+
 // 监听展开状态变化，管理动画状态
 watch([() => props.isExpanded, () => props.hasExpandedGraph], ([newIsExpanded, newHasExpandedGraph], [oldIsExpanded, oldHasExpandedGraph]) => {
   // 获取动画持续时间（毫秒）
-  const animationDuration = (debugParams?.value?.nodeEnterExitDuration ?? 0.6) * 1000
+  const animationDuration = (debugParams?.value?.nodeEnterExitDuration ?? 0.8) * 1000
   
   // 如果当前图谱被展开
   if (newIsExpanded && !oldIsExpanded) {
@@ -198,7 +229,7 @@ const backgroundRadius = computed(() => {
     return radius * scale
   } else {
     // 超过4个节点：背景圆形区域半径大
-    const scale = debugParams?.value?.radiusScaleLarge ?? 1.1
+    const scale = debugParams?.value?.radiusScaleLarge ?? 1
     return radius * scale
   }
 })
@@ -215,7 +246,7 @@ const backgroundTransitionDuration = computed(() => {
   if (props.isExpanded && props.rotationDirection) {
     if (props.rotationDirection === 'clockwise') {
       // 下半圆点击，顺时针旋转，收缩更快
-      const duration = debugParams?.value?.backgroundTransitionDurationClockwise ?? 0.2
+      const duration = debugParams?.value?.backgroundTransitionDurationClockwise ?? 0.6
       return `${duration}s`
     } else if (props.rotationDirection === 'counterclockwise') {
       // 上半圆点击，逆时针旋转，保持默认速度
@@ -254,21 +285,13 @@ const getCircularNodes = (chapterDetails: ChapterDetails) => {
 
 // 获取节点的学习状态
 const getLearningStatus = (child: { id: string; name: string; label: string; level?: number | null }, index: number): 'notLearned' | 'learned' | 'lastLearned' => {
-  // 模拟学习状态逻辑
-  // 这里可以根据实际的学习进度数据来确定状态
-  
-  // 示例逻辑：
-  // index === 3 表示"上次学到"的节点
-  if (index === 3) {
+  // 如果当前节点是最后点击去学习的圆周节点，显示学习标签
+  if (lastLearnedNodeId.value === child.id) {
     return 'lastLearned'
   }
   
-  // index === 1 表示已学习的节点
-  if (index === 1) {
-    return 'learned'
-  }
-  
   // 其他节点默认为未学习
+  // 注意：这里可以根据实际的学习进度数据来确定状态
   return 'notLearned'
 }
 
@@ -319,6 +342,15 @@ const handleLearn = async (node: { id: string; name: string; level?: number | nu
   console.log('当前教材ID:', props.textbookRecordId)
   console.log('教材ID类型:', typeof props.textbookRecordId)
   activeNodeId.value = null // 关闭气泡框
+  
+  // 检查是否是圆周节点（通过检查节点是否在圆周节点列表中）
+  const circularNodes = getCircularNodes(props.chapterDetails)
+  const isCircularNode = circularNodes.some(child => child.id === node.id)
+  
+  // 如果是圆周节点，保存为最后学习的节点（用于显示学习标签）
+  if (isCircularNode) {
+    saveLastLearnedNodeId(node.id)
+  }
   
   try {
     // 检查学习方案数据

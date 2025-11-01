@@ -70,7 +70,8 @@
       </div>
 
       <!-- 章节目录列表 / 搜索结果列表 -->
-      <div class="chapter-list">
+      <div ref="chapterListWrapper" class="scroll-wrapper chapter-list">
+        <div class="scroll-content">
         <!-- 显示搜索结果 -->
         <template v-if="searchQuery && searchResults.length > 0">
           <div 
@@ -107,6 +108,7 @@
             <span class="chapter-text" v-html="highlightText(item.chapter)"></span>
           </div>
         </template>
+        </div>
       </div>
     </div>
 
@@ -240,6 +242,7 @@ import LearningView from './LearningView.vue'
 import KnowledgeGraphDebugPanel from '../components/debug/KnowledgeGraphDebugPanel.vue'
 import type { KnowledgeGraphDebugParams } from '../components/debug/KnowledgeGraphDebugPanel.vue'
 import { useTextbookChapterState } from '../stores/textbookChapterState'
+import { useBetterScroll } from '../composables/useBetterScroll'
 
 // 流程：导入图标资源
 import bookIcon from '/icons/book.svg'
@@ -265,6 +268,10 @@ const {
 
 // 第4步：添加搜索相关的响应式数据
 const searchQuery = ref('')
+
+// 章节数据
+const chapters = ref<string[]>([])
+const chapterStructure = ref<ChapterNode[]>([])
 
 // 递归收集所有节点（包括所有层级的子节点）
 const collectAllNodes = (chapter: ChapterNode, chapterIndex: number): Array<{
@@ -359,6 +366,34 @@ const learningDialogData = ref<{
 const circularContainerRef = ref<HTMLElement>()
 const circularLayoutRef = ref<HTMLElement>()
 
+// Better Scroll 实例
+const chapterListWrapper = ref<HTMLElement | null>(null)
+
+// 使用 Better Scroll 组合式函数
+// autoWatch 会自动监听 filteredChapters 和 searchResults 的变化并刷新
+const { init: initChapterListBScroll } = useBetterScroll(
+  chapterListWrapper,
+  {
+    scrollY: true,
+    scrollX: false,
+    click: true,
+    bounce: {
+      top: true,
+      bottom: true,
+      left: false,
+      right: false
+    },
+    deceleration: 0.003,
+    useTransition: true,
+    HWCompositing: true,
+  },
+  true, // 自动监听数据变化
+  [
+    () => filteredChapters.value.length,
+    () => searchResults.value.length
+  ]
+)
+
 // 章节状态接口定义
 // 旋转控制相关
 const isDragging = ref(false) // 是否正在拖拽
@@ -383,7 +418,7 @@ const defaultDebugParams: KnowledgeGraphDebugParams = {
   minBackgroundRadius: 120, // 背景圆形最小半径（像素）
   radiusScaleSmall: 0.7, // 小规模节点（1-2个）的半径缩放系数
   radiusScaleMedium: 0.85, // 中等规模节点（3-4个）的半径缩放系数
-  radiusScaleLarge: 1.1, // 大规模节点（5个以上）的半径缩放系数
+  radiusScaleLarge: 0.95, // 大规模节点（5个以上）的半径缩放系数
   // 动画参数
   transformDuration: 0.8, // 位置变换动画持续时间（秒）
   opacityDuration: 0.8, // 透明度动画持续时间（秒）
@@ -392,15 +427,15 @@ const defaultDebugParams: KnowledgeGraphDebugParams = {
   easingX2: 0.45, // 缓动函数 cubic-bezier 的第二个控制点 X 坐标
   easingY2: 0.94, // 缓动函数 cubic-bezier 的第二个控制点 Y 坐标
   animationDelayFactor: 0.03, // 动画延迟系数（用于基于距离的延迟计算，距离越近延迟越短）
-  backgroundTransitionDurationClockwise: 0.8, // 背景圆形顺时针旋转时的过渡时间（秒）
-  backgroundTransitionDurationCounterclockwise: 0.8, // 背景圆形逆时针旋转时的过渡时间（秒）
+  backgroundTransitionDurationClockwise: 0.6, // 背景圆形顺时针旋转时的过渡时间（秒）
+  backgroundTransitionDurationCounterclockwise: 0.6, // 背景圆形逆时针旋转时的过渡时间（秒）
   // 角度参数
   targetAngle: 150, // 目标角度（度），用于自动定位
   influenceRange: (2 * Math.PI) / 3, // 影响范围（弧度），展开图谱周围的影响范围
-  maxPushAngle: (32 * Math.PI) / 180, // 最大推开角度（弧度），其他节点被推开的最大角度
+  maxPushAngle: (46 * Math.PI) / 180, // 最大推开角度（弧度），其他节点被推开的最大角度
   // 动画时长参数
-  expandingRotationDuration: 500, // 展开旋转动画持续时间（毫秒）
-  debounceDelay: 100, // 防抖延迟（毫秒）
+  expandingRotationDuration: 0.8, // 展开旋转动画持续时间（秒）
+  debounceDelay: 0.1, // 防抖延迟（秒）
   // 透明度参数
   opacityExpanded: 1, // 展开的知识图谱透明度
   opacityNearMin: 0.59, // 距离相关透明度最小值
@@ -408,7 +443,7 @@ const defaultDebugParams: KnowledgeGraphDebugParams = {
   opacityFar: 0.4, // 距离较远节点透明度
   opacityDefault: 0.58, // 默认状态下透明度
   // 缩放参数
-  scaleFactor: 0.1, // 缩放因子，控制距离相关的缩放幅度
+  scaleFactor: 0, // 缩放因子，控制距离相关的缩放幅度
   // 尺寸参数
   graphSize: 475, // 图形尺寸（像素）
   graphMargin: 237, // 图形位置偏移（像素）
@@ -416,20 +451,25 @@ const defaultDebugParams: KnowledgeGraphDebugParams = {
   centerNodeSizeDefault: 180, // 中心节点初始大小（像素）
   centerNodeSizeExpanded: 220, // 中心节点放大后大小（像素）
   centerNodeSizeShrunk: 160, // 中心节点缩小大小（像素）
-  centerNodeScaleSpeed: 0.6, // 中心节点缩放速度（秒），控制缩放动画的持续时间
+  centerNodeScaleSpeed: 0.5, // 中心节点缩放速度（秒），控制缩放动画的持续时间
   // 归一化参考高度比例
   normalizedReferenceHeightRatio: 0.85, // 归一化参考高度比例，参考移动端短视频切换，使用视口高度的比例作为参考
   // 节点动画参数
   nodeEnterExitDuration: 0.6, // 节点进入/退出动画持续时间（秒）
-  nodeExpandDelayInterval: 0.1, // 圆周节点展开动画延迟间隔（秒/节点索引）
-  nodeCollapseDelayInterval: 0.05, // 圆周节点收起动画延迟间隔（秒/节点索引）
+  nodeExpandDelayInterval: 0.01, // 圆周节点展开动画延迟间隔（秒/节点索引）
+  nodeCollapseDelayInterval: 0.01, // 圆周节点收起动画延迟间隔（秒/节点索引）
   nodeContentTransitionDuration: 0.6, // 节点内容transition持续时间（秒）
   nodeBaseTransitionDuration: 0.3, // 节点基础transition持续时间（秒）
   learningTagTransitionDuration: 0.6, // 学习标签transition持续时间（秒）
+  learningTagTop: 0, // 学习标签top位置（像素）
+  learningTagLeft: 50, // 学习标签left位置（像素）
+  learningTagTranslateX: 0, // 学习标签translateX偏移（百分比）
   bubbleButtonTransitionDuration: 0.2, // 气泡框按钮transition持续时间（秒）
   nodeActiveTransitionDuration: 0.1, // 节点active状态transition持续时间（秒）
   // 圆周节点位置参数
-  circularNodeRadiusFactor: 1.0 // 圆周节点半径因子，用于调整圆周节点相对背景圆的位置（1.0表示与背景圆一致）
+  circularNodeRadiusFactor: 1.0, // 圆周节点半径因子，用于调整圆周节点相对背景圆的位置（1.0表示与背景圆一致）
+  circularNodeOffsetX: 50, // 圆周节点X方向偏移量（像素），用于调整节点相对中心的X偏移
+  circularNodeOffsetY: 50 // 圆周节点Y方向偏移量（像素），用于调整节点相对中心的Y偏移
 }
 
 // 当前参数值（可修改）
@@ -735,7 +775,7 @@ const handleTouchEnd = () => {
       // 向下滑动（totalDeltaY < 0）→ 上一个（index - 1）
       const direction = totalDeltaY > 0 ? 'next' : totalDeltaY < 0 ? 'previous' : null
       autoPositionToNearestGraph(direction)
-    }, debugParams.value.debounceDelay) // 防抖延迟
+    }, debugParams.value.debounceDelay * 1000) // 防抖延迟（转换为毫秒）
   }
 }
 
@@ -913,7 +953,7 @@ const handleMouseUp = () => {
       // 向下滑动（totalDeltaY > 0）→ 上一个（index - 1）
       const direction = totalDeltaY < 0 ? 'next' : totalDeltaY > 0 ? 'previous' : null
       autoPositionToNearestGraph(direction)
-    }, debugParams.value.debounceDelay) // 防抖延迟
+    }, debugParams.value.debounceDelay * 1000) // 防抖延迟（转换为毫秒）
   }
 }
 
@@ -996,7 +1036,7 @@ const startExpandingRotation = (graphId: string) => {
   // 9. 开始展开旋转动画
   const animateExpandingRotation = (currentTime: number) => {
     const elapsed = currentTime - expandingRotationStartTime.value
-    const duration = debugParams.value.expandingRotationDuration // 动画持续时间
+    const duration = debugParams.value.expandingRotationDuration * 1000 // 动画持续时间（转换为毫秒）
     const progress = Math.min(elapsed / duration, 1)
     
     // 使用更平滑的缓动函数实现流畅的动画效果
@@ -1067,11 +1107,6 @@ const getCurrentTextbookId = () => {
   }
   return ''
 }
-
-
-// 章节数据
-const chapters = ref<string[]>([])
-const chapterStructure = ref<ChapterNode[]>([])
 
 // 初始化图谱数据（完全重置）- 保留以备将来使用
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -2248,8 +2283,9 @@ provide('knowledgeGraphAngleData', {
   getCurrentChapter
 })
 
+
 // 组件挂载时初始化
-onMounted(() => {
+onMounted(async () => {
   // 清理过期的缓存数据
   cleanupExpiredCache()
   
@@ -2265,6 +2301,8 @@ onMounted(() => {
     logAngleDistribution()
   })
   
+  // 初始化章节列表 BScroll
+  await initChapterListBScroll()
   
   // 更新屏幕高度
   const updateScreenHeight = () => {
@@ -2322,10 +2360,14 @@ onUnmounted(() => {
     flex-shrink: 0;
   }
   
-  .chapter-list {
+  .scroll-wrapper.chapter-list {
     flex: 1;
-    overflow-y: auto;
+    overflow: hidden;
     margin-top: 16px;
+    
+    .scroll-content {
+      min-height: calc(100% + 1px);
+    }
   }
 }
 

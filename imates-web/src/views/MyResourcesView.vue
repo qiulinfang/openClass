@@ -201,7 +201,7 @@ import { httpClient } from '../services/http-client'
 import { showMessage } from '../utils'
 import type { UserTextbookInfo } from '../types'
 import ResourceDebugPanel from '../components/debug/ResourceDebugPanel.vue'
-import BScroll from '@better-scroll/core'
+import { useBetterScroll } from '../composables/useBetterScroll'
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -229,8 +229,6 @@ const initialLoadCompleted = ref(false)
 
 // better-scroll 相关
 const scrollWrapper = ref<HTMLElement | null>(null)
-let bscroll: BScroll | null = null
-// 第2步：移除pullDownRefreshStatus状态，不再需要下拉刷新状态管理
 
 // 分类选项 - 基于学科动态生成
 const categories = ref([{ label: '全部', value: 'all' }])
@@ -261,6 +259,31 @@ const filteredTextbooks = computed(() => {
     return a.textbookName.localeCompare(b.textbookName)
   })
 })
+
+// 使用 Better Scroll 组合式函数
+const { init: initBScroll } = useBetterScroll(
+  scrollWrapper,
+  {
+    scrollY: true,
+    scrollX: false,
+    click: true,
+    probeType: 2,
+    bounce: {
+      top: true,
+      bottom: true,
+    },
+    bounceTime: 800,
+    deceleration: 0.003,
+    useTransition: true,
+    HWCompositing: true,
+  },
+  true, // 自动监听数据变化
+  [
+    () => filteredTextbooks.value.length,
+    () => textbooks.value.length
+  ]
+)
+// 第2步：移除pullDownRefreshStatus状态，不再需要下拉刷新状态管理
 
 // 切换学科选择
 // 流程：获取完整的封面图片URL（处理file://环境）
@@ -544,48 +567,7 @@ const loadResources = async () => {
   }
 }
 
-// 初始化 better-scroll
-const initBScroll = async () => {
-  await nextTick()
-
-  if (!scrollWrapper.value) return
-
-  // 如果已存在实例，先销毁
-  if (bscroll) {
-    bscroll.destroy()
-  }
-
-  // 第3步：创建 BScroll 实例，优化性能配置
-  bscroll = new BScroll(scrollWrapper.value, {
-    // 第4步：基础配置
-    scrollY: true,
-    scrollX: false,
-    click: true,
-    probeType: 2, // 降低probeType从3到2，减少滚动事件频率，提升性能
-    
-    // 第5步：橡皮筋效果配置
-    bounce: {
-      top: true,  // 启用顶部橡皮筋效果
-      bottom: true, // 启用底部橡皮筋效果
-    },
-    bounceTime: 800, // 第6步：回弹动画时长（毫秒）- 调整此值改变回弹速度
-                     // 默认700-800ms，值越大回弹越慢，越有弹性感
-                     // 推荐范围：500-1500ms
-    
-    // 第7步：滚动减速度（影响惯性滚动和橡皮筋拉伸程度）
-    deceleration: 0.003, // 默认0.0015-0.003，值越小减速越慢，惯性滚动距离越长
-                         // 值越大，滚动停得越快，橡皮筋拉伸距离越短
-                         // 推荐范围：0.001-0.006
-    
-    // 第8步：移除pullDownRefresh配置，不再使用下拉刷新
-    // 第9步：性能优化配置
-    useTransition: true, // 使用CSS transition提升性能
-    HWCompositing: true, // 启用硬件加速
-  })
-
-  // 第9步：移除下拉刷新监听事件
-  // 第10步：移除滚动状态监听（之前用于显示下拉刷新提示）
-}
+// BScroll 初始化由组合式函数处理
 
 // 更新学科筛选选项 - 优化版本，避免重复计算
 const updateSubjectChips = () => {
@@ -976,11 +958,7 @@ onUnmounted(async () => {
   // 流程：页面离开时立即暂停所有正在下载的任务
   await pauseAllDownloadingTasks()
   
-  // 销毁 better-scroll
-  if (bscroll) {
-    bscroll.destroy()
-    bscroll = null
-  }
+  // BScroll 销毁由组合式函数自动处理
 })
 
 // 调试方法：打印IndexedDB中的localFiles数据
