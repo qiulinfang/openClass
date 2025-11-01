@@ -1,7 +1,7 @@
 <template>
   <div class="tiptap-editor-container">
     <!-- 调试按钮区域 -->
-    <div class="debug-controls" v-if="showDebugControls">
+    <div class="debug-controls" v-if="isDev && showDebugControls">
       <button @click="debugShowKeyboard" class="debug-btn">显示键盘</button>
       <button @click="debugHideKeyboard" class="debug-btn">隐藏键盘</button>
       <button @click="debugCreateFormula" class="debug-btn">创建公式</button>
@@ -40,6 +40,10 @@ import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 
 // 注意：底层管理器已删除，相关功能已移除
+
+// 第1步：判断是否显示调试功能（仅通过环境变量控制）
+// 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
+const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
 // 导入类型定义
 import type { TiptapEditorProps } from '../../types'

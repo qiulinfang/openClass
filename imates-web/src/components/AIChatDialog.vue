@@ -1,6 +1,6 @@
 <template>
-  <DraggableDialog 
-    v-model="localVisible" 
+  <DraggableDialog
+    v-model="localVisible"
     title="与AI聊天"
     :initial-width="1000"
     :initial-height="600"
@@ -10,7 +10,7 @@
     <div class="ai-chat-content">
       <!-- 左侧聊天记录 -->
       <div class="left-panel">
-        <SessionList 
+        <SessionList
           :records="questionRecords"
           :selected-record-id="aiGeneralStore.currentSession?.sessionId"
           title="聊天记录"
@@ -22,6 +22,7 @@
         >
           <template #header-actions>
             <q-btn
+              v-if="isDev"
               flat
               round
               dense
@@ -45,12 +46,12 @@
               @click="handleNewChatClick"
             >
               <q-tooltip>
-                {{ 
-                  aiGeneralStore.canCreateSession 
-                    ? '新增对话' 
-                    : (aiGeneralStore.isCreatingSession 
-                        ? '创建中...' 
-                        : '请先在当前会话中发送消息')
+                {{
+                  aiGeneralStore.canCreateSession
+                    ? '新增对话'
+                    : aiGeneralStore.isCreatingSession
+                      ? '创建中...'
+                      : '请先在当前会话中发送消息'
                 }}
               </q-tooltip>
             </q-btn>
@@ -60,15 +61,13 @@
 
       <!-- 右侧聊天界面 -->
       <div class="right-panel">
-        <ChatView 
-          type="ai-general"
-        />
+        <ChatView type="ai-general" />
       </div>
     </div>
   </DraggableDialog>
 
   <!-- 调试面板 -->
-  <ChatSessionDebugPanel v-model="showDebugPanel" />
+  <ChatSessionDebugPanel v-if="isDev" v-model="showDebugPanel" />
 </template>
 
 <script setup lang="ts">
@@ -80,6 +79,10 @@ import SessionList from './SessionList.vue'
 import ChatView from './ChatView.vue'
 import ChatSessionDebugPanel from './debug/ChatSessionDebugPanel.vue'
 import type { QuestionRecord, AiGeneralSession } from '@/types'
+
+// 第1步：判断是否显示调试功能（仅通过环境变量控制）
+// 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
+const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
 // ==================== Props & Emits ====================
 interface Props {
@@ -98,7 +101,7 @@ const aiGeneralStore = useAiGeneralChatStore()
 // ==================== 响应式数据 ====================
 const localVisible = computed({
   get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value)
+  set: (value) => emit('update:modelValue', value),
 })
 
 const showDebugPanel = ref(false)
@@ -111,7 +114,7 @@ const questionRecords = computed<QuestionRecord[]>(() => {
     question: session.sessionName,
     answer: '',
     timestamp: session.updateTime,
-    pinned: session.pinned || false
+    pinned: session.pinned || false,
   }))
 })
 
@@ -131,7 +134,7 @@ const handleNewChatClick = async () => {
     }
     return
   }
-  
+
   // 第2步：重置状态，准备新对话
   // 不立即创建会话，等用户发送第一条消息时，sendMessage会自动创建
   // 会话名称将使用用户的第一条消息内容（前30个字符）
@@ -143,14 +146,15 @@ const handleRecordRename = async (record: QuestionRecord, newName: string) => {
   try {
     // 第1步：更新会话名称
     await aiGeneralStore.renameSession(record.id, newName)
-    
+
     // 第2步：更新本地记录名称
-    const index = aiGeneralStore.sessions.findIndex((s: AiGeneralSession) => s.sessionId === record.id)
+    const index = aiGeneralStore.sessions.findIndex(
+      (s: AiGeneralSession) => s.sessionId === record.id,
+    )
     if (index >= 0) {
       aiGeneralStore.sessions[index].sessionName = newName
       await aiGeneralStore.saveSessions()
     }
-    
   } catch (error) {
     console.error('重命名失败:', error)
   }
@@ -198,7 +202,7 @@ watch(localVisible, async (isOpen) => {
   if (isOpen) {
     // 第1步：加载会话列表
     await aiGeneralStore.loadSessions()
-    
+
     // 第2步：如果没有当前会话且有会话列表，加载第一个会话
     if (!aiGeneralStore.currentSession && aiGeneralStore.sessions.length > 0) {
       const firstSession = aiGeneralStore.sessions[0]
@@ -214,7 +218,7 @@ watch(localVisible, async (isOpen) => {
   display: flex;
   height: 100%;
   overflow: hidden;
-  
+
   .left-panel {
     width: 30%;
     border-right: 1px solid #e0e0e0;
@@ -222,34 +226,34 @@ watch(localVisible, async (isOpen) => {
     flex-direction: column;
     background: #f5f5f5;
     overflow: hidden;
-    
+
     // 按钮样式（通过 slot 传递）
     .debug-btn {
       color: rgba(255, 152, 0, 0.9);
       transition: all 0.2s ease;
-      
+
       &:hover {
         color: #ff9800;
         background: rgba(255, 152, 0, 0.1);
       }
     }
-    
+
     .new-chat-btn {
       color: #9059ff;
       transition: all 0.2s ease;
-      
+
       &:hover:not(.disabled) {
         color: #7647cc;
         background: rgba(144, 89, 255, 0.1);
       }
-      
+
       &.disabled {
         opacity: 0.4;
         cursor: not-allowed;
       }
     }
   }
-  
+
   .right-panel {
     flex: 1;
     background: white;
@@ -261,14 +265,14 @@ watch(localVisible, async (isOpen) => {
 @media (max-width: 768px) {
   .ai-chat-content {
     flex-direction: column;
-    
+
     .left-panel {
       width: 100%;
       height: 40%;
       border-right: none;
       border-bottom: 1px solid rgba(144, 89, 255, 0.3);
     }
-    
+
     .right-panel {
       height: 60%;
     }

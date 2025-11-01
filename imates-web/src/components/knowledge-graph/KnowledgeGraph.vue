@@ -206,14 +206,17 @@ const backgroundTransitionDuration = computed(() => {
   if (props.isExpanded && props.rotationDirection) {
     if (props.rotationDirection === 'clockwise') {
       // 下半圆点击，顺时针旋转，收缩更快
-      return '0.2s'
+      const duration = debugParams?.value.backgroundTransitionDurationClockwise ?? 0.2
+      return `${duration}s`
     } else if (props.rotationDirection === 'counterclockwise') {
       // 上半圆点击，逆时针旋转，保持默认速度
-      return '0.6s'
+      const duration = debugParams?.value.backgroundTransitionDurationCounterclockwise ?? 0.6
+      return `${duration}s`
     }
   }
   // 默认情况或展开动画使用默认时间
-  return '0.6s'
+  const duration = debugParams?.value.backgroundTransitionDurationCounterclockwise ?? 0.6
+  return `${duration}s`
 })
 
 // 获取圆周上的子节点

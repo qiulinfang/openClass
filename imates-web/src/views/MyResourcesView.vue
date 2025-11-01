@@ -37,6 +37,7 @@
               
               <!-- 调试面板按钮 -->
               <q-btn
+                v-if="isDev"
                 color="secondary"
                 icon="bug_report"
                 label="调试面板"
@@ -185,7 +186,7 @@
             </div>
 
         <!-- 调试面板 -->
-        <ResourceDebugPanel :visible="showDebugPanel" @close="showDebugPanel = false" />
+        <ResourceDebugPanel v-if="isDev" :visible="showDebugPanel" @close="showDebugPanel = false" />
       </q-page>
     </q-page-container>
   </q-layout>
@@ -201,7 +202,12 @@ import { showMessage } from '../utils'
 import type { UserTextbookInfo } from '../types'
 import ResourceDebugPanel from '../components/debug/ResourceDebugPanel.vue'
 import BScroll from '@better-scroll/core'
-// 第1步：移除PullDown插件导入，不再使用下拉刷新功能
+
+// 第1步：判断是否显示调试功能（仅通过环境变量控制）
+// 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
+const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
+
+// 流程：移除PullDown插件导入，不再使用下拉刷新功能
 
 // 流程：导入图标资源
 import bookIcon from '/icons/book.svg'

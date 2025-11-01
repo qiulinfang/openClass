@@ -140,7 +140,11 @@
               v-for="(subChapter, index) in getSubChapters(selectedChapterDetails)" 
               :key="subChapter.id"
               class="graph-position"
-              :style="getGraphPosition(index, getSubChapters(selectedChapterDetails).length)"
+              :style="{
+                ...getGraphPosition(index, getSubChapters(selectedChapterDetails).length),
+                width: `${debugParams.graphSize}px`,
+                height: `${debugParams.graphSize}px`
+              }"
             >
               <!-- 知识图谱 -->
               <KnowledgeGraph
@@ -201,7 +205,10 @@
     <KnowledgeGraphDebugPanel
       v-model="debugPanelVisible"
       :params="debugParams"
+      :default-params="debugParams"
+      :current-chapter="selectedChapterDetails"
       @update:params="handleDebugParamsUpdate"
+      @update:nodes="handleNodeUpdate"
     />
 
     <!-- 调试按钮（浮动按钮） -->
@@ -294,16 +301,46 @@ const lastRotationTime = ref(0) // 上次旋转时间戳，用于检测快速滑
 // 调试面板状态
 const debugPanelVisible = ref(false)
 const debugParams = ref<KnowledgeGraphDebugParams>({
-  radiusX: 569,
-  radiusY: 400,
-  baseSensitivity: 1.2,
-  fastSensitivity: 1.8,
-  swipeThreshold: 0.5,
-  dragThreshold: 3,
-  minBackgroundRadius: 120,
-  radiusScaleSmall: 0.8,
-  radiusScaleMedium: 1.0,
-  radiusScaleLarge: 1.1
+  radiusX: 500, // 椭圆轨道的X轴半径（水平方向）
+  radiusY: 320, // 椭圆轨道的Y轴半径（垂直方向）
+  baseSensitivity: 1.2, // 基础旋转灵敏度（正常速度拖拽时的旋转系数）
+  fastSensitivity: 1.8, // 快速旋转灵敏度（快速滑动时的旋转系数）
+  swipeThreshold: 0.5, // 快速滑动阈值（像素/毫秒，超过此值判定为快速滑动）
+  dragThreshold: 3, // 拖拽阈值（像素，超过此值才开始真正的拖拽操作）
+  minBackgroundRadius: 120, // 背景圆形最小半径（像素）
+  radiusScaleSmall: 0.8, // 小规模节点（1-2个）的半径缩放系数
+  radiusScaleMedium: 1.0, // 中等规模节点（3-4个）的半径缩放系数
+  radiusScaleLarge: 1.1, // 大规模节点（5个以上）的半径缩放系数
+  // 动画参数
+  transformDuration: 0.8, // 位置变换动画持续时间（秒）
+  opacityDuration: 0.8, // 透明度动画持续时间（秒）
+  easingX1: 0.25, // 缓动函数 cubic-bezier 的第一个控制点 X 坐标
+  easingY1: 0.46, // 缓动函数 cubic-bezier 的第一个控制点 Y 坐标
+  easingX2: 0.45, // 缓动函数 cubic-bezier 的第二个控制点 X 坐标
+  easingY2: 0.94, // 缓动函数 cubic-bezier 的第二个控制点 Y 坐标
+  animationDelayFactor: 0.03, // 动画延迟系数（用于基于距离的延迟计算，距离越近延迟越短）
+  backgroundTransitionDurationClockwise: 0.2, // 背景圆形顺时针旋转时的过渡时间（秒）
+  backgroundTransitionDurationCounterclockwise: 0.6, // 背景圆形逆时针旋转时的过渡时间（秒）
+  // 角度参数
+  targetAngle: 150, // 目标角度（度），用于自动定位
+  influenceRange: (2 * Math.PI) / 3, // 影响范围（弧度），展开图谱周围的影响范围
+  maxPushAngle: (32 * Math.PI) / 180, // 最大推开角度（弧度），其他节点被推开的最大角度
+  // 动画时长参数
+  expandingRotationDuration: 500, // 展开旋转动画持续时间（毫秒）
+  debounceDelay: 100, // 防抖延迟（毫秒）
+  // 透明度参数
+  opacityExpanded: 0.9, // 展开的知识图谱透明度
+  opacityNearMin: 0.5, // 距离相关透明度最小值
+  opacityNearFactor: 0.1, // 距离相关透明度因子
+  opacityFar: 0.4, // 距离较远节点透明度
+  opacityDefault: 0.8, // 默认状态下透明度
+  // 缩放参数
+  scaleFactor: 0.1, // 缩放因子，控制距离相关的缩放幅度
+  // 尺寸参数
+  graphSize: 475, // 图形尺寸（像素）
+  graphMargin: 237, // 图形位置偏移（像素）
+  // 旋转计算参数
+  rotationCoefficient: 2 / 3 // 旋转计算系数，控制旋转角度与滑动距离的比例
 })
 
 // 通过 provide 传递调试参数给子组件
@@ -311,8 +348,141 @@ provide('knowledgeGraphDebugParams', debugParams)
 
 // 处理调试参数更新
 const handleDebugParamsUpdate = (params: KnowledgeGraphDebugParams) => {
-  debugParams.value = { ...params }
+  // 更新参数，保持响应式引用（通过逐个属性赋值而不是替换整个对象）
+  // 这样可以确保 provide 的引用仍然有效
+  Object.assign(debugParams.value, params)
 }
+
+// 处理节点更新
+const handleNodeUpdate = (
+  action: 'add' | 'update' | 'delete',
+  nodeType: 'center' | 'circular',
+  node: ChapterNode,
+  oldNode?: ChapterNode
+) => {
+  if (!selectedChapterDetails.value) {
+    console.warn('无法更新节点：没有选中的章节')
+    return
+  }
+
+  // 深拷贝章节数据，避免直接修改原始数据
+  const updatedChapter = JSON.parse(JSON.stringify(selectedChapterDetails.value))
+
+  if (nodeType === 'center') {
+    // 更新中心节点
+    if (action === 'update') {
+      updatedChapter.id = node.id
+      updatedChapter.name = node.name
+      updatedChapter.level = node.level
+      updatedChapter.label = node.label || node.name
+    } else if (action === 'delete') {
+      // 删除中心节点后，重置为第一个章节（如果有）
+      if (chapterStructure.value.length > 0) {
+        selectChapter(0)
+        return
+      } else {
+        selectedChapterDetails.value = null
+        return
+      }
+    }
+  } else if (nodeType === 'circular') {
+    // 更新圆周节点
+    if (!updatedChapter.children) {
+      updatedChapter.children = []
+    }
+
+    if (action === 'add') {
+      // 添加新节点
+      // 根据中心节点层级确定新节点的层级
+      const centerLevel = updatedChapter.level ?? 0
+      const newNodeLevel = centerLevel === 0 ? 1 : centerLevel === 1 ? 2 : (node.level ?? 1)
+      
+      const newNode: ChapterNode = {
+        ...node,
+        level: newNodeLevel,
+        isRoot: false,
+        updateTime: new Date().toISOString(),
+        parentId: updatedChapter.id || null,
+        label: node.label || node.name
+      }
+      updatedChapter.children.push(newNode)
+      
+      // 按名称排序（如果名称包含数字）
+      updatedChapter.children.sort((a: ChapterNode, b: ChapterNode) => {
+        const aMatch = a.name.match(/(\d+)\.(\d+)/)
+        const bMatch = b.name.match(/(\d+)\.(\d+)/)
+        
+        if (aMatch && bMatch) {
+          const aChapter = parseInt(aMatch[1])
+          const aSection = parseInt(aMatch[2])
+          const bChapter = parseInt(bMatch[1])
+          const bSection = parseInt(bMatch[2])
+          
+          if (aChapter !== bChapter) {
+            return aChapter - bChapter
+          }
+          return aSection - bSection
+        }
+        
+        return a.name.localeCompare(b.name)
+      })
+    } else if (action === 'update' && oldNode) {
+      // 更新现有节点
+      const index = updatedChapter.children.findIndex((n: ChapterNode) => n.id === oldNode.id)
+      if (index !== -1) {
+        updatedChapter.children[index] = {
+          ...node,
+          children: updatedChapter.children[index].children || [],
+          label: node.label || node.name,
+          updateTime: new Date().toISOString()
+        }
+      }
+    } else if (action === 'delete') {
+      // 删除节点
+      const index = updatedChapter.children.findIndex((n: ChapterNode) => n.id === node.id)
+      if (index !== -1) {
+        updatedChapter.children.splice(index, 1)
+      }
+    }
+  }
+
+  // 更新 selectedChapterDetails
+  selectedChapterDetails.value = updatedChapter
+
+  // 同时更新 chapterStructure 中对应的章节
+  const currentIndex = getCurrentChapter()
+  if (currentIndex >= 0 && chapterStructure.value[currentIndex]) {
+    chapterStructure.value[currentIndex] = updatedChapter
+  }
+
+  // 触发重新渲染
+  nextTick(() => {
+    renderGraph()
+  })
+}
+
+// 计算缓动函数字符串
+const easingFunction = computed(() => {
+  const params = debugParams.value
+  return `cubic-bezier(${params.easingX1}, ${params.easingY1}, ${params.easingX2}, ${params.easingY2})`
+})
+
+// 计算位置变换动画字符串
+const transformTransition = computed(() => {
+  const params = debugParams.value
+  return `transform ${params.transformDuration}s ${easingFunction.value}`
+})
+
+// 计算透明度动画字符串
+const opacityTransition = computed(() => {
+  const params = debugParams.value
+  return `opacity ${params.opacityDuration}s ${easingFunction.value}`
+})
+
+// 计算组合动画字符串（transform + opacity）
+const combinedTransition = computed(() => {
+  return `${transformTransition.value}, ${opacityTransition.value}`
+})
 
 // 第21步：优化拖拽阈值常量 - 使用可调参数
 const DRAG_THRESHOLD = computed(() => debugParams.value.dragThreshold)
@@ -385,7 +555,7 @@ const handleTouchMove = (event: TouchEvent) => {
   const sensitivityMultiplier = swipeVelocity.value > swipeThreshold.value 
     ? debugParams.value.fastSensitivity 
     : debugParams.value.baseSensitivity
-  const rotationDelta = (deltaY / screenHeight.value * 2/ 3) * 360 * sensitivityMultiplier
+  const rotationDelta = (deltaY / screenHeight.value * debugParams.value.rotationCoefficient) * 360 * sensitivityMultiplier
   
   // 如果有知识图谱处于展开状态，先收缩它
   if (getCurrentChapterExpandedGraph() !== null) {
@@ -422,9 +592,9 @@ const handleTouchEnd = () => {
     }
     
     debounceTimer.value = setTimeout(() => {
-      // 滑动结束后，自动定位到160度最近的知识图谱
+      // 滑动结束后，自动定位到目标角度最近的知识图谱
       autoPositionToNearestGraph()
-    }, 100) // 100ms防抖
+    }, debugParams.value.debounceDelay) // 防抖延迟
   }
 }
 
@@ -433,26 +603,27 @@ const resetDraggingState = () => {
   isDragging.value = false
 }
 
-// 自动定位到160度最近的知识图谱
+// 自动定位到目标角度最近的知识图谱
 const autoPositionToNearestGraph = () => {
   if (!selectedChapterDetails.value) return
   
   const subChapters = getSubChapters(selectedChapterDetails.value)
   if (subChapters.length === 0) return
   
-  const targetAngle = 160 // 目标角度
+  // 第1步：从调试参数中获取目标角度
+  const targetAngle = debugParams.value.targetAngle
   
-  // 计算每个知识图谱当前的角度
+  // 第2步：计算每个知识图谱当前的角度
   let nearestIndex = 0
   let minDistance = Infinity
   
-  // 第26步：遍历所有子章节，找到距离160度最近的节点
+  // 第3步：遍历所有子章节，找到距离目标角度最近的节点
   for (let i = 0; i < subChapters.length; i++) {
     const { currentAngle } = calculateCircularTrackAngle(i, subChapters.length)
     let angleInDegrees = (currentAngle * 180 / Math.PI) % 360
     if (angleInDegrees < 0) angleInDegrees += 360
     
-    // 计算到目标角度的距离（考虑360度循环）
+    // 第4步：计算到目标角度的距离（考虑360度循环）
     const distance = Math.min(
       Math.abs(angleInDegrees - targetAngle),
       Math.abs(angleInDegrees - targetAngle + 360),
@@ -465,10 +636,10 @@ const autoPositionToNearestGraph = () => {
     }
   }
   
-  // 第27步：立即设置展开状态，让展开动画开始
+  // 第5步：立即设置展开状态，让展开动画开始
   setCurrentChapterExpandedGraph(subChapters[nearestIndex].id)
   
-  // 只执行展开旋转动画，让它处理所有旋转逻辑（包括定位到目标位置）
+  // 第6步：只执行展开旋转动画，让它处理所有旋转逻辑（包括定位到目标位置）
   startExpandingRotation(subChapters[nearestIndex].id)
 }
 
@@ -481,6 +652,9 @@ const handleMouseDown = (event: MouseEvent) => {
   isActualDragging.value = false // 初始为false，需要超过阈值才设为true
   startY.value = event.clientY
   lastY.value = event.clientY
+  const currentTime = Date.now()
+  lastSwipeTime.value = currentTime
+  swipeVelocity.value = 0
   
   // 阻止默认行为
 }
@@ -502,11 +676,22 @@ const handleMouseMove = (event: MouseEvent) => {
   // 只有实际拖拽时才执行旋转逻辑
   if (!isActualDragging.value) {
     lastY.value = currentY
+    lastSwipeTime.value = currentTime
     return
   }
   
+  // 计算滑动速度（用于鼠标拖拽，与触摸事件保持一致）
+  const timeDelta = currentTime - lastSwipeTime.value
+  if (timeDelta > 0) {
+    swipeVelocity.value = Math.abs(deltaY) / timeDelta
+  }
+  
   // 计算旋转角度：滑动距离与屏幕高度的比例 * 360度
-  const rotationDelta = (deltaY / screenHeight.value) * 360
+  // 快速滑动时增加旋转灵敏度，慢速滑动时也提高基础灵敏度（与触摸事件保持一致）
+  const sensitivityMultiplier = swipeVelocity.value > swipeThreshold.value 
+    ? debugParams.value.fastSensitivity 
+    : debugParams.value.baseSensitivity
+  const rotationDelta = (deltaY / screenHeight.value * debugParams.value.rotationCoefficient) * 360 * sensitivityMultiplier
   
   // 如果有知识图谱处于展开状态，先收缩它
   if (getCurrentChapterExpandedGraph() !== null) {
@@ -520,6 +705,7 @@ const handleMouseMove = (event: MouseEvent) => {
   // 更新上次位置和时间戳
   lastY.value = currentY
   lastRotationTime.value = currentTime
+  lastSwipeTime.value = currentTime
 }
 
 const handleMouseUp = () => {
@@ -537,25 +723,24 @@ const handleMouseUp = () => {
     }
     
     debounceTimer.value = setTimeout(() => {
-      // 滑动结束后，自动定位到160度最近的知识图谱
+      // 滑动结束后，自动定位到目标角度最近的知识图谱
       autoPositionToNearestGraph()
-    }, 100) // 100ms防抖
+    }, debugParams.value.debounceDelay) // 防抖延迟
   }
 }
 
 // 椭圆轨迹指示器坐标系 - 统一的角度计算函数
 const calculateCircularTrackAngle = (index: number, total: number) => {
-  // 基础角度：第一节在椭圆轨迹指示器160度位置，逆时针排列
-  // 160度转换为弧度：160 * Math.PI / 180
-  const startAngle = (160 * Math.PI) / 180
-  // 每个节点之间的角度间隔
+  // 第1步：从调试参数中获取起始角度（目标角度），并转换为弧度
+  const startAngle = (debugParams.value.targetAngle * Math.PI) / 180
+  // 第2步：计算每个节点之间的角度间隔
   const angleStep = (2 * Math.PI) / total
-  // 基础角度：从160度开始，按索引逆时针排列
+  // 第3步：基础角度：从起始角度开始，按索引逆时针排列
   let baseAngle = startAngle + (angleStep * index)
-  // 当前角度：基础角度 + 当前章节的旋转角度
+  // 第4步：当前角度：基础角度 + 当前章节的旋转角度
   let currentAngle = baseAngle + (getChapterRotation(getCurrentChapter()) * Math.PI / 180)
   
-  // 将角度标准化到 [0, 2π] 范围
+  // 第5步：将角度标准化到 [0, 2π] 范围
   while (baseAngle >= 2 * Math.PI) baseAngle -= 2 * Math.PI
   while (baseAngle < 0) baseAngle += 2 * Math.PI
   while (currentAngle >= 2 * Math.PI) currentAngle -= 2 * Math.PI
@@ -592,11 +777,11 @@ const startExpandingRotation = (graphId: string) => {
   const total = subChapters.length
   const { currentAngle } = calculateCircularTrackAngle(targetIndex, total)
   
-  // 5. 定义椭圆轨迹指示器160度位置角度（160度 = 160 * π / 180 弧度）
-  const circularTrack160Angle = (160 * Math.PI) / 180
+  // 第5步：从调试参数中获取目标角度，并转换为弧度
+  const targetAngleRadians = (debugParams.value.targetAngle * Math.PI) / 180
   
-  // 6. 计算角度差的绝对值 alpha
-  const alpha = Math.abs(currentAngle - circularTrack160Angle)
+  // 第6步：计算角度差的绝对值 alpha（当前角度与目标角度的差）
+  const alpha = Math.abs(currentAngle - targetAngleRadians)
   
   // 7. 判断目标知识图谱当前所在的半圆区域
   const currentAngleDegrees = (currentAngle * 180) / Math.PI
@@ -623,7 +808,7 @@ const startExpandingRotation = (graphId: string) => {
   // 9. 开始展开旋转动画
   const animateExpandingRotation = (currentTime: number) => {
     const elapsed = currentTime - expandingRotationStartTime.value
-    const duration = 500 // 动画持续时间
+    const duration = debugParams.value.expandingRotationDuration // 动画持续时间
     const progress = Math.min(elapsed / duration, 1)
     
     // 使用更平滑的缓动函数实现流畅的动画效果
@@ -1654,14 +1839,14 @@ const getGraphPosition = (index: number, total: number) => {
         position: 'absolute' as const,
         left: '50%',
         top: '50%',
-        marginLeft: '-237px',
-        marginTop: '-237px',
-        opacity: 0.9, // 展开的知识图谱保持完全不透明
+        marginLeft: `-${debugParams.value.graphMargin}px`,
+        marginTop: `-${debugParams.value.graphMargin}px`,
+        opacity: debugParams.value.opacityExpanded, // 展开的知识图谱透明度
         zIndex: 100, // 展开的知识图谱获得最高层级
         transition: isDragging.value ? 'none' : 
                     isExpandingRotation.value ? 'none' :
                     isCollapsing.value ? 'none' :
-                    'transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+                    combinedTransition.value
       }
     } else {
       // 其他知识图谱在轨道上平滑移动且不展开
@@ -1673,14 +1858,15 @@ const getGraphPosition = (index: number, total: number) => {
         angleDiff = 2 * Math.PI - angleDiff
       }
       
-      // 定义影响范围：影响展开图谱前后2-3个节点（约120度范围）
-      const influenceRange = (2 * Math.PI) / 3 // 120度
+      // 第1步：从调试参数中获取影响范围
+      const influenceRange = debugParams.value.influenceRange
       
+      // 第2步：检查是否在影响范围内
       if (angleDiff < influenceRange) {
-        // 计算距离因子：距离越近，推开角度越大
+        // 第3步：计算距离因子：距离越近，推开角度越大
         const distanceFactor = 1 - (angleDiff / influenceRange)
-        // 使用二次缓动函数实现距离越近推得越远的效果
-        const maxPushAngle = (32 * Math.PI) / 180 // 最大推开角度150度
+        // 第4步：从调试参数中获取最大推开角度，使用二次缓动函数实现距离越近推得越远的效果
+        const maxPushAngle = debugParams.value.maxPushAngle
         const pushAngle = maxPushAngle * Math.pow(distanceFactor, 2)
         
         
@@ -1698,27 +1884,27 @@ const getGraphPosition = (index: number, total: number) => {
         const { x, y } = calculateCircularTrackPosition(adjustedAngle)
         
         // 计算缩放和透明度 - 距离展开图谱越近，透明度越低
-        const scale = 1 - (distanceFactor * 0.1) // 减少缩放幅度
-        const opacity = 0.5 + (distanceFactor * 0.1) // 距离越近越透明，范围0.3-0.5
+        const scale = 1 - (distanceFactor * debugParams.value.scaleFactor) // 缩放幅度
+        const opacity = debugParams.value.opacityNearMin + (distanceFactor * debugParams.value.opacityNearFactor) // 距离相关透明度
         
         // 计算动画延迟 - 距离越近延迟越短，移动更同步
-        const animationDelay = distanceFactor * 0.03
+        const animationDelay = distanceFactor * debugParams.value.animationDelayFactor
         
         return {
           transform: `translate(${x}px, ${y}px) scale(${scale})`,
           position: 'absolute' as const,
           left: '50%',
           top: '50%',
-          marginLeft: '-237px',
-          marginTop: '-237px',
+          marginLeft: `-${debugParams.value.graphMargin}px`,
+          marginTop: `-${debugParams.value.graphMargin}px`,
           opacity: opacity,
           zIndex: 1000 - index, // 反向层级：前面的节点层级更高，确保可点击
           // 与定位动画同步：减少延迟时间，让远离动画与定位动画同时进行
           transition: isDragging.value ? 'none' : 
             isExpandingRotation.value ? 'none' :
             isCollapsing.value ? 'none' :
-            `transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${animationDelay}s, 
-             opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${animationDelay}s`
+            `${transformTransition.value} ${animationDelay}s, 
+             ${opacityTransition.value} ${animationDelay}s`
         }
       } else {
         // 距离展开图谱较远的节点，保持当前位置但变为半透明
@@ -1728,14 +1914,14 @@ const getGraphPosition = (index: number, total: number) => {
           position: 'absolute' as const,
           left: '50%',
           top: '50%',
-          marginLeft: '-237px',
-          marginTop: '-237px',
-          opacity: 0.4, // 距离较远的节点也变为半透明
+          marginLeft: `-${debugParams.value.graphMargin}px`,
+          marginTop: `-${debugParams.value.graphMargin}px`,
+          opacity: debugParams.value.opacityFar, // 距离较远的节点透明度
           zIndex: 1000 - index, // 反向层级：前面的节点层级更高，确保可点击
           transition: isDragging.value ? 'none' : 
             isExpandingRotation.value ? 'none' :
             isCollapsing.value ? 'none' :
-            `transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.1s`
+            `${transformTransition.value}, ${opacityTransition.value} 0.1s`
         }
       }
     }
@@ -1749,15 +1935,15 @@ const getGraphPosition = (index: number, total: number) => {
     position: 'absolute' as const,
     left: '50%',
     top: '50%',
-    marginLeft: '-237px',
-    marginTop: '-237px',
-    opacity: 0.8, // 确保默认状态下完全可见
+    marginLeft: `-${debugParams.value.graphMargin}px`,
+    marginTop: `-${debugParams.value.graphMargin}px`,
+    opacity: debugParams.value.opacityDefault, // 默认状态下透明度
     zIndex: 1000 - index, // 反向层级：前面的节点层级更高，确保可点击
     transition: isDragging.value ? 'none' : 
                 isAnimating.value ? 'none' : 
                 isExpandingRotation.value ? 'none' :
-                isCollapsing.value ? 'transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)' :
-                'transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+                isCollapsing.value ? combinedTransition.value :
+                transformTransition.value
   }
 }
 
@@ -1782,6 +1968,15 @@ const logAngleDistribution = () => {
     calculateCircularTrackPosition(calculateCircularTrackAngle(i, total).currentAngle)
   }
 }
+
+// 通过 provide 传递知识图谱角度数据给调试面板（在所有函数定义之后）
+provide('knowledgeGraphAngleData', {
+  selectedChapterDetails,
+  getSubChapters,
+  calculateCircularTrackAngle,
+  getChapterRotation,
+  getCurrentChapter
+})
 
 // 组件挂载时初始化
 onMounted(() => {
@@ -2254,8 +2449,7 @@ onUnmounted(() => {
 // 知识图谱位置容器
 .graph-position {
   position: absolute;
-  width: 475px;
-  height: 475px;
+  /* width 和 height 通过 style 绑定动态设置 */
   transform-origin: center center;
 }
 
