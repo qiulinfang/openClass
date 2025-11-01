@@ -45,13 +45,13 @@
           </q-select>
       </div>
 
-      <!-- 第1步：添加章节搜索框 -->
+      <!-- 第1步：添加节点搜索框 -->
       <div class="chapter-search">
         <q-input
           v-model="searchQuery"
           outlined
           dense
-          placeholder="搜索章节..."
+          placeholder="搜索节点..."
           class="search-input"
           @update:model-value="handleSearchInput"
         >
@@ -69,28 +69,44 @@
         </q-input>
       </div>
 
-      <!-- 章节目录列表 -->
+      <!-- 章节目录列表 / 搜索结果列表 -->
       <div class="chapter-list">
-        <!-- 第2步：显示无搜索结果提示 -->
-        <div v-if="filteredChapters.length === 0 && searchQuery" class="empty-chapters">
+        <!-- 显示搜索结果 -->
+        <template v-if="searchQuery && searchResults.length > 0">
+          <div 
+            v-for="result in searchResults" 
+            :key="`${result.chapterIndex}-${result.node.id}`"
+            class="chapter-item touch-target search-result-item"
+            @click="handleSearchResultClick(result)"
+          >
+            <div class="search-result-content">
+              <div class="search-result-node" v-html="highlightText(result.node.name || result.node.label)"></div>
+              <div class="search-result-chapter">{{ result.chapterName }}</div>
+            </div>
+          </div>
+        </template>
+        <!-- 显示无搜索结果提示 -->
+        <div v-else-if="searchQuery && searchResults.length === 0" class="empty-chapters">
           <q-icon name="search_off" size="32px" color="grey-4" />
-          <div class="empty-text">未找到匹配的章节</div>
+          <div class="empty-text">未找到匹配的节点</div>
         </div>
-        <div v-else-if="filteredChapters.length === 0" class="empty-chapters">
-          <q-icon name="menu_book" size="32px" color="grey-4" />
-          <div class="empty-text">暂无章节数据</div>
-        </div>
-        <!-- 第3步：使用过滤后的章节列表，支持高亮显示 -->
-        <div 
-          v-else
-          v-for="item in filteredChapters" 
-          :key="item.index"
-          class="chapter-item touch-target"
-          :class="{ active: item.index === getCurrentChapter() }"
-          @click="selectChapter(item.index)"
-        >
-          <span class="chapter-text" v-html="highlightText(item.chapter)"></span>
-        </div>
+        <!-- 显示章节列表 -->
+        <template v-else-if="!searchQuery">
+          <div v-if="filteredChapters.length === 0" class="empty-chapters">
+            <q-icon name="menu_book" size="32px" color="grey-4" />
+            <div class="empty-text">暂无章节数据</div>
+          </div>
+          <div 
+            v-else
+            v-for="item in filteredChapters" 
+            :key="item.index"
+            class="chapter-item touch-target"
+            :class="{ active: item.index === getCurrentChapter() }"
+            @click="selectChapter(item.index)"
+          >
+            <span class="chapter-text" v-html="highlightText(item.chapter)"></span>
+          </div>
+        </template>
       </div>
     </div>
 
@@ -120,6 +136,7 @@
             <!-- 右边框中心位置指示器 -->
             <div 
               class="right-border-indicator"
+              @click.stop
             >
               <div 
                 v-for="subChapter in getSubChapters(selectedChapterDetails)" 
@@ -205,23 +222,11 @@
     <KnowledgeGraphDebugPanel
       v-model="debugPanelVisible"
       :params="debugParams"
-      :default-params="debugParams"
+      :default-params="defaultDebugParams"
       :current-chapter="selectedChapterDetails"
       @update:params="handleDebugParamsUpdate"
       @update:nodes="handleNodeUpdate"
     />
-
-    <!-- 调试按钮（浮动按钮） -->
-    <q-btn
-      v-if="!debugPanelVisible"
-      fab
-      icon="bug_report"
-      color="purple"
-      class="debug-fab"
-      @click="debugPanelVisible = true"
-    >
-      <q-tooltip>知识图谱调试面板</q-tooltip>
-    </q-btn>
   </div>
 </template>
 
@@ -260,15 +265,81 @@ const {
 
 // 第4步：添加搜索相关的响应式数据
 const searchQuery = ref('')
+
+// 递归收集所有节点（包括所有层级的子节点）
+const collectAllNodes = (chapter: ChapterNode, chapterIndex: number): Array<{
+  node: ChapterNode
+  chapterIndex: number
+  chapterName: string
+}> => {
+  const results: Array<{
+    node: ChapterNode
+    chapterIndex: number
+    chapterName: string
+  }> = []
+  
+  // 第1步：添加当前节点
+  const chapterName = chapters.value[chapterIndex] || chapter.name
+  results.push({
+    node: chapter,
+    chapterIndex,
+    chapterName
+  })
+  
+  // 第2步：递归处理子节点
+  const collectChildren = (node: ChapterNode) => {
+    if (node.children && node.children.length > 0) {
+      node.children.forEach(child => {
+        results.push({
+          node: child,
+          chapterIndex,
+          chapterName
+        })
+        // 递归处理子节点的子节点
+        collectChildren(child)
+      })
+    }
+  }
+  
+  collectChildren(chapter)
+  return results
+}
+
+// 搜索节点结果
+const searchResults = computed(() => {
+  if (!searchQuery.value.trim() || chapterStructure.value.length === 0) {
+    return []
+  }
+  
+  // 第1步：收集所有章节的所有节点
+  const allNodes: Array<{
+    node: ChapterNode
+    chapterIndex: number
+    chapterName: string
+  }> = []
+  
+  chapterStructure.value.forEach((chapter, index) => {
+    const nodes = collectAllNodes(chapter, index)
+    allNodes.push(...nodes)
+  })
+  
+  // 第2步：模糊搜索节点（搜索name和label）
+  const query = searchQuery.value.trim().toLowerCase()
+  return allNodes.filter(item => {
+    const node = item.node
+    const name = (node.name || '').toLowerCase()
+    const label = (node.label || '').toLowerCase()
+    return name.includes(query) || label.includes(query)
+  })
+})
+
+// 过滤后的章节列表（当没有搜索时显示）
 const filteredChapters = computed(() => {
   if (!searchQuery.value.trim()) {
     return chapters.value.map((chapter, index) => ({ chapter, index }))
   }
   
-  const query = searchQuery.value.trim().toLowerCase()
-  return chapters.value
-    .map((chapter, index) => ({ chapter, index }))
-    .filter(item => item.chapter.toLowerCase().includes(query))
+  return []
 })
 
 // 响应式数据
@@ -296,20 +367,22 @@ const isAnimating = ref(false) // 是否正在执行自动旋转动画
 const startY = ref(0) // 开始触摸的Y坐标
 const lastY = ref(0) // 上次触摸的Y坐标
 const screenHeight = ref(window.innerHeight) // 屏幕高度
+// 归一化参考高度：参考移动端短视频切换，使用视口高度的比例作为参考
+// 这样滑动大部分屏幕高度就能切换到下一个知识图谱，交互更自然
+const normalizedReferenceHeight = computed(() => screenHeight.value * debugParams.value.normalizedReferenceHeightRatio)
 const lastRotationTime = ref(0) // 上次旋转时间戳，用于检测快速滑动
 
 // 调试面板状态
 const debugPanelVisible = ref(false)
-const debugParams = ref<KnowledgeGraphDebugParams>({
+
+// 默认参数值（固定不变，作为基准）
+const defaultDebugParams: KnowledgeGraphDebugParams = {
   radiusX: 500, // 椭圆轨道的X轴半径（水平方向）
   radiusY: 320, // 椭圆轨道的Y轴半径（垂直方向）
-  baseSensitivity: 1.2, // 基础旋转灵敏度（正常速度拖拽时的旋转系数）
-  fastSensitivity: 1.8, // 快速旋转灵敏度（快速滑动时的旋转系数）
-  swipeThreshold: 0.5, // 快速滑动阈值（像素/毫秒，超过此值判定为快速滑动）
   dragThreshold: 3, // 拖拽阈值（像素，超过此值才开始真正的拖拽操作）
   minBackgroundRadius: 120, // 背景圆形最小半径（像素）
-  radiusScaleSmall: 0.8, // 小规模节点（1-2个）的半径缩放系数
-  radiusScaleMedium: 1.0, // 中等规模节点（3-4个）的半径缩放系数
+  radiusScaleSmall: 0.7, // 小规模节点（1-2个）的半径缩放系数
+  radiusScaleMedium: 0.85, // 中等规模节点（3-4个）的半径缩放系数
   radiusScaleLarge: 1.1, // 大规模节点（5个以上）的半径缩放系数
   // 动画参数
   transformDuration: 0.8, // 位置变换动画持续时间（秒）
@@ -319,8 +392,8 @@ const debugParams = ref<KnowledgeGraphDebugParams>({
   easingX2: 0.45, // 缓动函数 cubic-bezier 的第二个控制点 X 坐标
   easingY2: 0.94, // 缓动函数 cubic-bezier 的第二个控制点 Y 坐标
   animationDelayFactor: 0.03, // 动画延迟系数（用于基于距离的延迟计算，距离越近延迟越短）
-  backgroundTransitionDurationClockwise: 0.2, // 背景圆形顺时针旋转时的过渡时间（秒）
-  backgroundTransitionDurationCounterclockwise: 0.6, // 背景圆形逆时针旋转时的过渡时间（秒）
+  backgroundTransitionDurationClockwise: 0.8, // 背景圆形顺时针旋转时的过渡时间（秒）
+  backgroundTransitionDurationCounterclockwise: 0.8, // 背景圆形逆时针旋转时的过渡时间（秒）
   // 角度参数
   targetAngle: 150, // 目标角度（度），用于自动定位
   influenceRange: (2 * Math.PI) / 3, // 影响范围（弧度），展开图谱周围的影响范围
@@ -329,19 +402,38 @@ const debugParams = ref<KnowledgeGraphDebugParams>({
   expandingRotationDuration: 500, // 展开旋转动画持续时间（毫秒）
   debounceDelay: 100, // 防抖延迟（毫秒）
   // 透明度参数
-  opacityExpanded: 0.9, // 展开的知识图谱透明度
-  opacityNearMin: 0.5, // 距离相关透明度最小值
-  opacityNearFactor: 0.1, // 距离相关透明度因子
+  opacityExpanded: 1, // 展开的知识图谱透明度
+  opacityNearMin: 0.59, // 距离相关透明度最小值
+  opacityNearFactor: 0.22, // 距离相关透明度因子
   opacityFar: 0.4, // 距离较远节点透明度
-  opacityDefault: 0.8, // 默认状态下透明度
+  opacityDefault: 0.58, // 默认状态下透明度
   // 缩放参数
   scaleFactor: 0.1, // 缩放因子，控制距离相关的缩放幅度
   // 尺寸参数
   graphSize: 475, // 图形尺寸（像素）
   graphMargin: 237, // 图形位置偏移（像素）
-  // 旋转计算参数
-  rotationCoefficient: 2 / 3 // 旋转计算系数，控制旋转角度与滑动距离的比例
-})
+  // 中心节点尺寸参数
+  centerNodeSizeDefault: 180, // 中心节点初始大小（像素）
+  centerNodeSizeExpanded: 220, // 中心节点放大后大小（像素）
+  centerNodeSizeShrunk: 160, // 中心节点缩小大小（像素）
+  centerNodeScaleSpeed: 0.6, // 中心节点缩放速度（秒），控制缩放动画的持续时间
+  // 归一化参考高度比例
+  normalizedReferenceHeightRatio: 0.85, // 归一化参考高度比例，参考移动端短视频切换，使用视口高度的比例作为参考
+  // 节点动画参数
+  nodeEnterExitDuration: 0.6, // 节点进入/退出动画持续时间（秒）
+  nodeExpandDelayInterval: 0.1, // 圆周节点展开动画延迟间隔（秒/节点索引）
+  nodeCollapseDelayInterval: 0.05, // 圆周节点收起动画延迟间隔（秒/节点索引）
+  nodeContentTransitionDuration: 0.6, // 节点内容transition持续时间（秒）
+  nodeBaseTransitionDuration: 0.3, // 节点基础transition持续时间（秒）
+  learningTagTransitionDuration: 0.6, // 学习标签transition持续时间（秒）
+  bubbleButtonTransitionDuration: 0.2, // 气泡框按钮transition持续时间（秒）
+  nodeActiveTransitionDuration: 0.1, // 节点active状态transition持续时间（秒）
+  // 圆周节点位置参数
+  circularNodeRadiusFactor: 1.0 // 圆周节点半径因子，用于调整圆周节点相对背景圆的位置（1.0表示与背景圆一致）
+}
+
+// 当前参数值（可修改）
+const debugParams = ref<KnowledgeGraphDebugParams>({ ...defaultDebugParams })
 
 // 通过 provide 传递调试参数给子组件
 provide('knowledgeGraphDebugParams', debugParams)
@@ -393,39 +485,94 @@ const handleNodeUpdate = (
 
     if (action === 'add') {
       // 添加新节点
-      // 根据中心节点层级确定新节点的层级
-      const centerLevel = updatedChapter.level ?? 0
-      const newNodeLevel = centerLevel === 0 ? 1 : centerLevel === 1 ? 2 : (node.level ?? 1)
+      // 第1步：检查传入节点的 parentId，判断是添加到中心节点下还是添加到一级节点下
+      const parentId = node.parentId || updatedChapter.id || null
+      const isAddingToCenter = parentId === updatedChapter.id || !parentId
       
+      // 第2步：根据父节点确定新节点的层级
+      let newNodeLevel: number
+      let targetParentNode: ChapterNode | null = null
+      
+      if (isAddingToCenter) {
+        // 添加到中心节点下，作为一级节点
+        const centerLevel = updatedChapter.level ?? 0
+        newNodeLevel = centerLevel === 0 ? 1 : centerLevel === 1 ? 2 : (node.level ?? 1)
+      } else {
+        // 添加到一级节点下，作为二级节点
+        // 找到对应的一级节点
+        targetParentNode = updatedChapter.children?.find((child: ChapterNode) => child.id === parentId) || null
+        if (targetParentNode) {
+          newNodeLevel = (targetParentNode.level ?? 1) + 1
+        } else {
+          // 如果找不到父节点，默认添加到中心节点下
+          const centerLevel = updatedChapter.level ?? 0
+          newNodeLevel = centerLevel === 0 ? 1 : centerLevel === 1 ? 2 : (node.level ?? 1)
+        }
+      }
+      
+      // 第3步：创建新节点
       const newNode: ChapterNode = {
         ...node,
         level: newNodeLevel,
         isRoot: false,
         updateTime: new Date().toISOString(),
-        parentId: updatedChapter.id || null,
-        label: node.label || node.name
+        parentId: parentId,
+        label: node.label || node.name,
+        children: []
       }
-      updatedChapter.children.push(newNode)
       
-      // 按名称排序（如果名称包含数字）
-      updatedChapter.children.sort((a: ChapterNode, b: ChapterNode) => {
-        const aMatch = a.name.match(/(\d+)\.(\d+)/)
-        const bMatch = b.name.match(/(\d+)\.(\d+)/)
+      // 第4步：根据父节点类型决定添加到哪个位置
+      if (isAddingToCenter || !targetParentNode) {
+        // 添加到中心节点的 children（作为一级节点）
+        updatedChapter.children = updatedChapter.children || []
+        updatedChapter.children.push(newNode)
         
-        if (aMatch && bMatch) {
-          const aChapter = parseInt(aMatch[1])
-          const aSection = parseInt(aMatch[2])
-          const bChapter = parseInt(bMatch[1])
-          const bSection = parseInt(bMatch[2])
+        // 按名称排序（如果名称包含数字）
+        updatedChapter.children.sort((a: ChapterNode, b: ChapterNode) => {
+          const aMatch = a.name.match(/(\d+)\.(\d+)/)
+          const bMatch = b.name.match(/(\d+)\.(\d+)/)
           
-          if (aChapter !== bChapter) {
-            return aChapter - bChapter
+          if (aMatch && bMatch) {
+            const aChapter = parseInt(aMatch[1])
+            const aSection = parseInt(aMatch[2])
+            const bChapter = parseInt(bMatch[1])
+            const bSection = parseInt(bMatch[2])
+            
+            if (aChapter !== bChapter) {
+              return aChapter - bChapter
+            }
+            return aSection - bSection
           }
-          return aSection - bSection
+          
+          return a.name.localeCompare(b.name)
+        })
+      } else {
+        // 添加到一级节点的 children（作为二级节点）
+        if (!targetParentNode.children) {
+          targetParentNode.children = []
         }
+        targetParentNode.children.push(newNode)
         
-        return a.name.localeCompare(b.name)
-      })
+        // 按名称排序（如果名称包含数字）
+        targetParentNode.children.sort((a: ChapterNode, b: ChapterNode) => {
+          const aMatch = a.name.match(/(\d+)\.(\d+)/)
+          const bMatch = b.name.match(/(\d+)\.(\d+)/)
+          
+          if (aMatch && bMatch) {
+            const aChapter = parseInt(aMatch[1])
+            const aSection = parseInt(aMatch[2])
+            const bChapter = parseInt(bMatch[1])
+            const bSection = parseInt(bMatch[2])
+            
+            if (aChapter !== bChapter) {
+              return aChapter - bChapter
+            }
+            return aSection - bSection
+          }
+          
+          return a.name.localeCompare(b.name)
+        })
+      }
     } else if (action === 'update' && oldNode) {
       // 更新现有节点
       const index = updatedChapter.children.findIndex((n: ChapterNode) => n.id === oldNode.id)
@@ -490,10 +637,6 @@ const DRAG_THRESHOLD = computed(() => debugParams.value.dragThreshold)
 // 防抖定时器
 const debounceTimer = ref<NodeJS.Timeout | null>(null)
 
-// 滑动速度检测
-const swipeVelocity = ref(0) // 滑动速度（像素/毫秒）
-const lastSwipeTime = ref(0) // 上次滑动时间戳
-const swipeThreshold = computed(() => debugParams.value.swipeThreshold)
 
 // 展开时的旋转状态管理
 const isExpandingRotation = ref(false) // 是否正在执行展开旋转动画
@@ -514,8 +657,6 @@ const handleTouchStart = (event: TouchEvent) => {
   isActualDragging.value = false // 初始为false，需要超过阈值才设为true
   startY.value = event.touches[0].clientY
   lastY.value = event.touches[0].clientY
-  lastSwipeTime.value = Date.now()
-  swipeVelocity.value = 0
   
   // 只在拖拽容器上阻止默认滚动行为，不阻止点击事件
   if (event.target === circularLayoutRef.value) {
@@ -540,22 +681,17 @@ const handleTouchMove = (event: TouchEvent) => {
   // 只有实际拖拽时才执行旋转逻辑
   if (!isActualDragging.value) {
     lastY.value = currentY
-    lastSwipeTime.value = currentTime
     return
   }
   
-  // 计算滑动速度
-  const timeDelta = currentTime - lastSwipeTime.value
-  if (timeDelta > 0) {
-    swipeVelocity.value = Math.abs(deltaY) / timeDelta
-  }
+  // 计算旋转角度：滑动距离与屏幕高度的比例 * 相邻知识图谱之间的角度差
+  // 获取子章节总数，计算相邻知识图谱之间的角度差
+  const subChapters = getSubChapters(selectedChapterDetails.value)
+  const total = subChapters.length
+  const angleBetweenGraphs = total > 0 ? 360 / total : 360 // 相邻知识图谱之间的角度差
   
-  // 第22步：计算旋转角度：滑动距离与屏幕高度的比例 * 360度
-  // 快速滑动时增加旋转灵敏度，慢速滑动时也提高基础灵敏度
-  const sensitivityMultiplier = swipeVelocity.value > swipeThreshold.value 
-    ? debugParams.value.fastSensitivity 
-    : debugParams.value.baseSensitivity
-  const rotationDelta = (deltaY / screenHeight.value * debugParams.value.rotationCoefficient) * 360 * sensitivityMultiplier
+  // 使用归一化参考高度计算旋转角度
+  const rotationDelta = (deltaY / normalizedReferenceHeight.value) * angleBetweenGraphs
   
   // 如果有知识图谱处于展开状态，先收缩它
   if (getCurrentChapterExpandedGraph() !== null) {
@@ -569,7 +705,6 @@ const handleTouchMove = (event: TouchEvent) => {
   // 更新上次位置和时间戳
   lastY.value = currentY
   lastRotationTime.value = currentTime
-  lastSwipeTime.value = currentTime
   
   // 只在拖拽容器上阻止默认滚动行为
   if (event.target === circularLayoutRef.value) {
@@ -580,6 +715,9 @@ const handleTouchMove = (event: TouchEvent) => {
 const handleTouchEnd = () => {
   // 保存实际拖拽状态，因为后面会重置
   const wasActuallyDragging = isActualDragging.value
+  
+  // 计算总滑动方向
+  const totalDeltaY = lastY.value - startY.value
   
   isDragging.value = false
   isActualDragging.value = false // 重置实际拖拽状态
@@ -592,8 +730,11 @@ const handleTouchEnd = () => {
     }
     
     debounceTimer.value = setTimeout(() => {
-      // 滑动结束后，自动定位到目标角度最近的知识图谱
-      autoPositionToNearestGraph()
+      // 根据滑动方向切换到下一个或上一个知识图谱
+      // 向上滑动（totalDeltaY > 0）→ 下一个（index + 1）
+      // 向下滑动（totalDeltaY < 0）→ 上一个（index - 1）
+      const direction = totalDeltaY > 0 ? 'next' : totalDeltaY < 0 ? 'previous' : null
+      autoPositionToNearestGraph(direction)
     }, debugParams.value.debounceDelay) // 防抖延迟
   }
 }
@@ -603,44 +744,94 @@ const resetDraggingState = () => {
   isDragging.value = false
 }
 
-// 自动定位到目标角度最近的知识图谱
-const autoPositionToNearestGraph = () => {
+// 自动定位到目标角度最近的知识图谱，或根据滑动方向切换到下一个/上一个
+const autoPositionToNearestGraph = (direction?: 'next' | 'previous' | null) => {
   if (!selectedChapterDetails.value) return
   
   const subChapters = getSubChapters(selectedChapterDetails.value)
   if (subChapters.length === 0) return
   
-  // 第1步：从调试参数中获取目标角度
-  const targetAngle = debugParams.value.targetAngle
+  // 如果只有一个子章节，不执行切换
+  if (subChapters.length === 1) {
+    setCurrentChapterExpandedGraph(subChapters[0].id)
+    startExpandingRotation(subChapters[0].id)
+    return
+  }
   
-  // 第2步：计算每个知识图谱当前的角度
-  let nearestIndex = 0
-  let minDistance = Infinity
+  let targetIndex = 0
   
-  // 第3步：遍历所有子章节，找到距离目标角度最近的节点
-  for (let i = 0; i < subChapters.length; i++) {
-    const { currentAngle } = calculateCircularTrackAngle(i, subChapters.length)
-    let angleInDegrees = (currentAngle * 180 / Math.PI) % 360
-    if (angleInDegrees < 0) angleInDegrees += 360
+  // 如果指定了方向（next 或 previous），根据滑动方向切换
+  if (direction === 'next' || direction === 'previous') {
+    // 获取当前展开的知识图谱索引
+    const currentExpandedGraphId = getCurrentChapterExpandedGraph()
+    let currentIndex = -1
     
-    // 第4步：计算到目标角度的距离（考虑360度循环）
-    const distance = Math.min(
-      Math.abs(angleInDegrees - targetAngle),
-      Math.abs(angleInDegrees - targetAngle + 360),
-      Math.abs(angleInDegrees - targetAngle - 360)
-    )
+    if (currentExpandedGraphId) {
+      currentIndex = subChapters.findIndex(chapter => chapter.id === currentExpandedGraphId)
+    }
     
-    if (distance < minDistance) {
-      minDistance = distance
-      nearestIndex = i
+    // 如果找不到当前展开的图谱，先找到距离目标角度最近的知识图谱作为基准
+    if (currentIndex === -1) {
+      const targetAngle = debugParams.value.targetAngle
+      let nearestIndex = 0
+      let minDistance = Infinity
+      
+      for (let i = 0; i < subChapters.length; i++) {
+        const { currentAngle } = calculateCircularTrackAngle(i, subChapters.length)
+        let angleInDegrees = (currentAngle * 180 / Math.PI) % 360
+        if (angleInDegrees < 0) angleInDegrees += 360
+        
+        const distance = Math.min(
+          Math.abs(angleInDegrees - targetAngle),
+          Math.abs(angleInDegrees - targetAngle + 360),
+          Math.abs(angleInDegrees - targetAngle - 360)
+        )
+        
+        if (distance < minDistance) {
+          minDistance = distance
+          nearestIndex = i
+        }
+      }
+      
+      currentIndex = nearestIndex
+    }
+    
+    // 根据方向计算目标索引（循环处理）
+    if (direction === 'next') {
+      // 向上滑动 → 下一个（顺时针方向，index + 1）
+      targetIndex = (currentIndex + 1) % subChapters.length
+    } else {
+      // 向下滑动 → 上一个（逆时针方向，index - 1）
+      targetIndex = (currentIndex - 1 + subChapters.length) % subChapters.length
+    }
+  } else {
+    // 没有指定方向，使用原来的逻辑：找到距离目标角度最近的知识图谱
+    const targetAngle = debugParams.value.targetAngle
+    let minDistance = Infinity
+    
+    for (let i = 0; i < subChapters.length; i++) {
+      const { currentAngle } = calculateCircularTrackAngle(i, subChapters.length)
+      let angleInDegrees = (currentAngle * 180 / Math.PI) % 360
+      if (angleInDegrees < 0) angleInDegrees += 360
+      
+      const distance = Math.min(
+        Math.abs(angleInDegrees - targetAngle),
+        Math.abs(angleInDegrees - targetAngle + 360),
+        Math.abs(angleInDegrees - targetAngle - 360)
+      )
+      
+      if (distance < minDistance) {
+        minDistance = distance
+        targetIndex = i
+      }
     }
   }
   
-  // 第5步：立即设置展开状态，让展开动画开始
-  setCurrentChapterExpandedGraph(subChapters[nearestIndex].id)
+  // 立即设置展开状态，让展开动画开始
+  setCurrentChapterExpandedGraph(subChapters[targetIndex].id)
   
-  // 第6步：只执行展开旋转动画，让它处理所有旋转逻辑（包括定位到目标位置）
-  startExpandingRotation(subChapters[nearestIndex].id)
+  // 只执行展开旋转动画，让它处理所有旋转逻辑（包括定位到目标位置）
+  startExpandingRotation(subChapters[targetIndex].id)
 }
 
 
@@ -652,9 +843,6 @@ const handleMouseDown = (event: MouseEvent) => {
   isActualDragging.value = false // 初始为false，需要超过阈值才设为true
   startY.value = event.clientY
   lastY.value = event.clientY
-  const currentTime = Date.now()
-  lastSwipeTime.value = currentTime
-  swipeVelocity.value = 0
   
   // 阻止默认行为
 }
@@ -676,22 +864,17 @@ const handleMouseMove = (event: MouseEvent) => {
   // 只有实际拖拽时才执行旋转逻辑
   if (!isActualDragging.value) {
     lastY.value = currentY
-    lastSwipeTime.value = currentTime
     return
   }
   
-  // 计算滑动速度（用于鼠标拖拽，与触摸事件保持一致）
-  const timeDelta = currentTime - lastSwipeTime.value
-  if (timeDelta > 0) {
-    swipeVelocity.value = Math.abs(deltaY) / timeDelta
-  }
+  // 计算旋转角度：滑动距离与屏幕高度的比例 * 相邻知识图谱之间的角度差
+  // 获取子章节总数，计算相邻知识图谱之间的角度差
+  const subChapters = getSubChapters(selectedChapterDetails.value)
+  const total = subChapters.length
+  const angleBetweenGraphs = total > 0 ? 360 / total : 360 // 相邻知识图谱之间的角度差
   
-  // 计算旋转角度：滑动距离与屏幕高度的比例 * 360度
-  // 快速滑动时增加旋转灵敏度，慢速滑动时也提高基础灵敏度（与触摸事件保持一致）
-  const sensitivityMultiplier = swipeVelocity.value > swipeThreshold.value 
-    ? debugParams.value.fastSensitivity 
-    : debugParams.value.baseSensitivity
-  const rotationDelta = (deltaY / screenHeight.value * debugParams.value.rotationCoefficient) * 360 * sensitivityMultiplier
+  // 使用归一化参考高度计算旋转角度
+  const rotationDelta = (deltaY / normalizedReferenceHeight.value) * angleBetweenGraphs
   
   // 如果有知识图谱处于展开状态，先收缩它
   if (getCurrentChapterExpandedGraph() !== null) {
@@ -705,12 +888,14 @@ const handleMouseMove = (event: MouseEvent) => {
   // 更新上次位置和时间戳
   lastY.value = currentY
   lastRotationTime.value = currentTime
-  lastSwipeTime.value = currentTime
 }
 
 const handleMouseUp = () => {
   // 保存实际拖拽状态，因为后面会重置
   const wasActuallyDragging = isActualDragging.value
+  
+  // 计算总滑动方向
+  const totalDeltaY = lastY.value - startY.value
   
   isDragging.value = false
   isActualDragging.value = false // 重置实际拖拽状态
@@ -723,8 +908,11 @@ const handleMouseUp = () => {
     }
     
     debounceTimer.value = setTimeout(() => {
-      // 滑动结束后，自动定位到目标角度最近的知识图谱
-      autoPositionToNearestGraph()
+      // 根据滑动方向切换到下一个或上一个知识图谱
+      // 向上滑动（totalDeltaY < 0）→ 下一个（index + 1）
+      // 向下滑动（totalDeltaY > 0）→ 上一个（index - 1）
+      const direction = totalDeltaY < 0 ? 'next' : totalDeltaY > 0 ? 'previous' : null
+      autoPositionToNearestGraph(direction)
     }, debugParams.value.debounceDelay) // 防抖延迟
   }
 }
@@ -957,12 +1145,14 @@ const restorePageStateFromStore = async (): Promise<boolean> => {
       if (savedState.selectedChapterDetails) {
         const subChapters = getSubChapters(savedState.selectedChapterDetails)
         if (subChapters.length > 0) {
-          // 尝试恢复之前展开的图谱，如果不存在则展开第一个
+          // 尝试恢复之前展开的图谱，如果不存在则自动展开位于targetAngle的图谱
           const previousExpandedGraph = getCurrentChapterExpandedGraph()
           if (previousExpandedGraph && subChapters.some(sub => sub.id === previousExpandedGraph)) {
             setCurrentChapterExpandedGraph(previousExpandedGraph)
           } else {
-            setCurrentChapterExpandedGraph(subChapters[0].id)
+            // 如果没有之前保存的展开状态，自动展开位于targetAngle的图谱
+            await nextTick()
+            autoPositionToNearestGraph()
           }
         }
       }
@@ -1102,56 +1292,6 @@ const loadTextbookDataFromIndexedDB = async (): Promise<TextbookOption[]> => {
   }
 }
 
-// 加载教材数据 - 使用IndexedDB
-const loadTextbookData = async () => {
-  try {
-    // 先尝试从IndexedDB加载
-    const localOptions = await loadTextbookDataFromIndexedDB()
-    
-    if (localOptions.length > 0) {
-      textbookOptions.value = localOptions
-      
-      // 设置默认选中的教材
-      if (textbookOptions.value.length > 0) {
-        selectedTextbook.value = textbookOptions.value[0].value
-        
-        // 加载默认教材的章节结构
-        const defaultOption = textbookOptions.value[0]
-        if (defaultOption.textbookId) {
-          await loadChapterStructure(defaultOption.textbookId)
-        }
-      }
-      console.log('从IndexedDB加载textbookOptions:', textbookOptions.value)
-      return
-    }
-
-    // IndexedDB中没有数据，从API获取
-    const versions = await apiService.getTextbookVersions()
-    
-    if (versions && versions.length > 0) {
-      textbookOptions.value = apiService.convertToTextbookOptions(versions)
-      
-      // 将API数据保存到IndexedDB
-      await saveTextbookDataToIndexedDB(versions)
-      
-      // 设置默认选中的教材
-      if (textbookOptions.value.length > 0) {
-        selectedTextbook.value = textbookOptions.value[0].value
-        
-        // 加载默认教材的章节结构
-        const defaultOption = textbookOptions.value[0]
-        if (defaultOption.textbookId) {
-          await loadChapterStructure(defaultOption.textbookId)
-        }
-      }
-    } else {
-      textbookOptions.value = []
-    }
-  } catch (error) {
-    console.error('加载教材数据失败:', error)
-    textbookOptions.value = []
-  }
-}
 
 // 将API数据保存到IndexedDB
 const saveTextbookDataToIndexedDB = async (versions: import('../types').TextbookVersion[]) => {
@@ -1227,6 +1367,10 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
       } else {
         textbookOptions.value = []
         selectedTextbook.value = ''
+        // 清空章节数据
+        chapterStructure.value = []
+        chapters.value = []
+        selectedChapterDetails.value = null
       }
       return
     }
@@ -1268,14 +1412,26 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
       } else {
         textbookOptions.value = []
         selectedTextbook.value = ''
+        // 清空章节数据
+        chapterStructure.value = []
+        chapters.value = []
+        selectedChapterDetails.value = null
       }
     } else {
       textbookOptions.value = []
+      // 清空章节数据
+      chapterStructure.value = []
+      chapters.value = []
+      selectedChapterDetails.value = null
     }
     
   } catch (error) {
     console.error('根据学科加载教材数据失败:', error)
     textbookOptions.value = []
+    // 清空章节数据
+    chapterStructure.value = []
+    chapters.value = []
+    selectedChapterDetails.value = null
   }
 }
 
@@ -1486,14 +1642,17 @@ const initGraph = async () => {
       // 状态恢复成功，直接渲染图谱
       await nextTick()
       renderGraph()
+      
+      // 如果状态恢复时没有展开的图谱，自动展开位于targetAngle的图谱
+      // （这个逻辑已经在restorePageStateFromStore中处理了）
       return
     }
     
     // 设置默认学科
     selectedSubject.value = 'math'
     
-    // 先加载教材数据
-    await loadTextbookData()
+    // 根据科目加载教材数据
+    await loadTextbookDataBySubject(selectedSubject.value)
     
     // 如果有教材数据，自动选择第一个教材并加载章节
     if (textbookOptions.value.length > 0) {
@@ -1509,11 +1668,9 @@ const initGraph = async () => {
           setCurrentChapter(0)
           selectedChapterDetails.value = chapterStructure.value[0]
           
-          // 自动展开第一个图谱
-          const firstSubChapter = getSubChapters(chapterStructure.value[0])
-          if (firstSubChapter.length > 0) {
-            setCurrentChapterExpandedGraph(firstSubChapter[0].id)
-          }
+          // 初始状态下自动展开位于targetAngle的图谱
+          await nextTick()
+          autoPositionToNearestGraph()
         }
       }
     }
@@ -1558,30 +1715,25 @@ const renderGraph = () => {
 // 学科切换
 const onSubjectChange = async (subjectValue: string) => {
   try {
-    // 根据学科筛选教材选项
+    // 先清空旧的教材和章节数据
+    textbookOptions.value = []
+    selectedTextbook.value = ''
+    chapterStructure.value = []
+    chapters.value = []
+    selectedChapterDetails.value = null
+    
+    // 根据学科筛选教材选项（内部会自动加载第一个教材的章节结构）
     await loadTextbookDataBySubject(subjectValue)
     
-    // 如果有教材数据，自动选择第一个教材并加载章节
-    if (textbookOptions.value.length > 0) {
-      const firstTextbook = textbookOptions.value[0]
-      selectedTextbook.value = firstTextbook.value
+    // 如果有教材数据，确保章节数据已加载并自动选择第一个章节
+    if (textbookOptions.value.length > 0 && chapterStructure.value.length > 0) {
+      // 自动选择第一个章节
+      setCurrentChapter(0)
+      selectedChapterDetails.value = chapterStructure.value[0]
       
-      // 加载第一个教材的章节结构
-      if (firstTextbook.textbookId && firstTextbook.textbookId !== 'default') {
-        await loadChapterStructure(firstTextbook.textbookId)
-        
-        // 自动选择第一个章节
-        if (chapterStructure.value.length > 0) {
-          setCurrentChapter(0)
-          selectedChapterDetails.value = chapterStructure.value[0]
-          
-          // 自动展开第一个图谱
-          const firstSubChapter = getSubChapters(chapterStructure.value[0])
-          if (firstSubChapter.length > 0) {
-            setCurrentChapterExpandedGraph(firstSubChapter[0].id)
-          }
-        }
-      }
+      // 自动展开位于targetAngle的图谱
+      await nextTick()
+      autoPositionToNearestGraph()
     }
     
     // 初始化图谱数据（但不重置已选择的章节）
@@ -1589,6 +1741,12 @@ const onSubjectChange = async (subjectValue: string) => {
     
   } catch (error) {
     console.error('切换学科失败:', error)
+    // 出错时也要清空数据
+    textbookOptions.value = []
+    selectedTextbook.value = ''
+    chapterStructure.value = []
+    chapters.value = []
+    selectedChapterDetails.value = null
   }
 }
 
@@ -1614,6 +1772,10 @@ const onTextbookChange = async (value: string) => {
       if (chapterStructure.value.length > 0) {
         setCurrentChapter(0)
         selectedChapterDetails.value = chapterStructure.value[0]
+        
+        // 自动展开位于targetAngle的图谱
+        await nextTick()
+        autoPositionToNearestGraph()
       }
     }
     
@@ -1637,7 +1799,110 @@ const clearSearch = () => {
   searchQuery.value = ''
 }
 
-// 第7步：高亮匹配文本
+// 第7步：处理搜索结果点击
+const handleSearchResultClick = async (result: {
+  node: ChapterNode
+  chapterIndex: number
+  chapterName: string
+}) => {
+  // 第1步：如果节点在其他章节，先跳转到对应章节
+  const currentChapterIndex = getCurrentChapter()
+  if (currentChapterIndex !== result.chapterIndex) {
+    selectChapter(result.chapterIndex)
+    
+    // 等待章节切换完成
+    await nextTick()
+    
+    // 更新selectedChapterDetails（因为selectChapter可能还没完全更新）
+    if (chapterStructure.value && chapterStructure.value.length > result.chapterIndex) {
+      selectedChapterDetails.value = chapterStructure.value[result.chapterIndex]
+    }
+    
+    // 再次等待DOM更新
+    await nextTick()
+  }
+  
+  // 第2步：获取当前章节的子章节列表
+  const chapter = chapterStructure.value[result.chapterIndex]
+  if (!chapter) {
+    return
+  }
+  
+  const subChapters = getSubChapters(chapter)
+  
+  // 第3步：查找节点在子章节列表中的索引
+  // 如果节点本身是level=1的子章节，直接使用其ID
+  // 如果节点是更深层的子节点，需要找到其父节点（level=1的子章节）
+  let targetNodeId: string | null = null
+  
+  // 如果节点是章节点本身（level=0），不需要旋转
+  if (result.node.level === 0) {
+    // 清空搜索并返回，只跳转到章节
+    searchQuery.value = ''
+    return
+  }
+  
+  if (result.node.level === 1) {
+    // 节点本身就是level=1的子章节
+    targetNodeId = result.node.id
+  } else if (result.node.level !== null && result.node.level > 1) {
+    // 节点是更深层的子节点，需要找到其level=1的父节点
+    // 向上查找parentId，直到找到level=1的节点
+    let currentNode: ChapterNode | null = result.node
+    while (currentNode && currentNode.level !== 1 && currentNode.level !== null) {
+      if (currentNode.parentId) {
+        // 在当前章节的所有节点中查找父节点
+        const findNodeById = (nodes: ChapterNode[]): ChapterNode | null => {
+          for (const node of nodes) {
+            if (node.id === currentNode?.parentId) {
+              return node
+            }
+            if (node.children) {
+              const found = findNodeById(node.children)
+              if (found) return found
+            }
+          }
+          return null
+        }
+        
+        currentNode = findNodeById(chapter.children || [])
+        if (!currentNode) {
+          break
+        }
+      } else {
+        break
+      }
+    }
+    
+    if (currentNode && currentNode.level === 1) {
+      targetNodeId = currentNode.id
+    }
+  }
+  
+  // 第4步：如果找到了目标节点ID，旋转到targetAngle
+  if (targetNodeId) {
+    const targetIndex = subChapters.findIndex(sub => sub.id === targetNodeId)
+    if (targetIndex !== -1) {
+      // 确保当前章节详情已更新
+      if (!selectedChapterDetails.value) {
+        selectedChapterDetails.value = chapter
+      }
+      
+      // 等待DOM更新
+      await nextTick()
+      
+      // 设置展开状态并旋转到targetAngle
+      setCurrentChapterExpandedGraph(targetNodeId)
+      await nextTick()
+      startExpandingRotation(targetNodeId)
+      
+      // 清空搜索
+      searchQuery.value = ''
+    }
+  }
+}
+
+// 第8步：高亮匹配文本
 const highlightText = (text: string): string => {
   if (!searchQuery.value.trim()) {
     return text
@@ -1649,7 +1914,7 @@ const highlightText = (text: string): string => {
 }
 
 // 选择章节
-const selectChapter = (index: number) => {
+const selectChapter = async (index: number) => {
   
   // 第8步：重复点击检测：检查是否点击的是当前已选中的章节
   const currentChapterIndex = getCurrentChapter()
@@ -1662,6 +1927,11 @@ const selectChapter = (index: number) => {
   // 获取选中章节的详细信息
   if (chapterStructure.value && chapterStructure.value.length > index) {
     selectedChapterDetails.value = chapterStructure.value[index]
+    
+    // 自动展开位于targetAngle的图谱
+    await nextTick()
+    autoPositionToNearestGraph()
+    
     // 输出新章节的角度分布
     nextTick(() => {
       logAngleDistribution()
@@ -2280,6 +2550,31 @@ onUnmounted(() => {
       color: #9E9AAD;
       line-height: 1.4;
     }
+    
+    // 搜索结果样式
+    &.search-result-item {
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 12px 15px;
+      
+      .search-result-content {
+        width: 100%;
+        
+        .search-result-node {
+          font-size: 18px;
+          font-weight: 500;
+          color: #393548;
+          line-height: 1.5;
+          margin-bottom: 4px;
+        }
+        
+        .search-result-chapter {
+          font-size: 14px;
+          color: #9ca3af;
+          line-height: 1.4;
+        }
+      }
+    }
   }
 }
 
@@ -2324,15 +2619,6 @@ onUnmounted(() => {
   margin-top: -400px;
   border-radius: 50%;
 }
-
-// 调试按钮样式
-.debug-fab {
-  position: fixed;
-  bottom: 100px;
-  right: 24px;
-  z-index: 9999;
-}
-
 
 // 椭圆布局容器 - 不再需要旋转，只作为定位容器
 .circular-layout {

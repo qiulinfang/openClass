@@ -3,9 +3,18 @@
     <!-- 学习标签 -->
     <div v-if="learningStatus === 'lastLearned'" class="learning-tag">上次学到</div>
       
-    <!-- 节点圆形 -->
+      <!-- 节点圆形 -->
     <div 
       :class="nodeClasses"
+      :style="{
+        ...(type === 'circular' ? nodeStyle : centerNodeStyle),
+        '--node-animation-duration': `${nodeAnimationDuration}s`,
+        '--node-base-transition-duration': `${debugParams?.value?.nodeBaseTransitionDuration ?? 0.3}s`,
+        '--node-content-transition-duration': `${debugParams?.value?.nodeContentTransitionDuration ?? 0.6}s`,
+        '--node-active-transition-duration': `${debugParams?.value?.nodeActiveTransitionDuration ?? 0.1}s`,
+        '--learning-tag-transition-duration': `${debugParams?.value?.learningTagTransitionDuration ?? 0.6}s`,
+        '--bubble-button-transition-duration': `${debugParams?.value?.bubbleButtonTransitionDuration ?? 0.2}s`
+      }"
       @mouseenter="handleMouseEnter"
       @mouseleave="handleMouseLeave"
       @click="handleClick"
@@ -53,7 +62,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, defineProps, defineEmits } from 'vue'
+import { computed, ref, defineProps, defineEmits, inject } from 'vue'
+import type { KnowledgeGraphDebugParams } from '../debug/KnowledgeGraphDebugPanel.vue'
 
 // 流程：导入图标资源
 import centerNodeIcon from '/icons/centerNode.svg'
@@ -104,6 +114,9 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>()
 
 const nodeRef = ref<HTMLElement>()
+
+// 第1步：获取调试参数
+const debugParams = inject<{ value: KnowledgeGraphDebugParams } | undefined>('knowledgeGraphDebugParams', undefined)
 
 /**
  * 获取节点在圆周上的角度（弧度制）
@@ -185,6 +198,11 @@ const formatNodeChapter = (node: Node) => {
   return ''
 }
 
+// 计算节点动画持续时间
+const nodeAnimationDuration = computed(() => {
+  return debugParams?.value?.nodeEnterExitDuration ?? 0.6
+})
+
 const nodeClasses = computed(() => {
   const classes = ['graph-node', `graph-node--${props.type}`]
   
@@ -256,6 +274,34 @@ const contentClasses = computed(() => {
   return classes
 })
 
+// 第2步：计算中心节点的样式（包括大小）
+const centerNodeStyle = computed(() => {
+  if (props.type !== 'center') {
+    return {}
+  }
+  
+  // 第3步：根据节点状态获取对应的大小
+  let size = debugParams?.value?.centerNodeSizeDefault ?? 180 // 默认大小
+  
+  if (props.isExpanded) {
+    // 展开状态：使用放大后大小
+    size = debugParams?.value?.centerNodeSizeExpanded ?? 240
+  } else if (props.hasExpandedGraph && !props.isExpanded) {
+    // 缩小状态：其他图谱展开时，中心节点变小
+    size = debugParams?.value?.centerNodeSizeShrunk ?? 140
+  }
+  
+  // 第4步：获取缩放速度（从 debugParams 中读取）
+  const scaleSpeed = debugParams?.value?.centerNodeScaleSpeed ?? 0.6
+  
+  // 第5步：返回样式对象（包括大小和过渡时间）
+  return {
+    width: `${size}px`,
+    height: `${size}px`,
+    transition: `all ${scaleSpeed}s cubic-bezier(0.4, 0.0, 0.2, 1)`
+  }
+})
+
 const nodeStyle = computed(() => {
   if (props.type === 'center') {
     return {}
@@ -265,9 +311,11 @@ const nodeStyle = computed(() => {
   const style: Record<string, string | number> = {}
   if (props.type === 'circular' && props.index !== undefined) {
     if (props.animationState === 'expanding') {
-      style.animationDelay = `${props.index * 0.1}s`
+      const delayInterval = debugParams?.value?.nodeExpandDelayInterval ?? 0.1
+      style.animationDelay = `${props.index * delayInterval}s`
     } else if (props.animationState === 'collapsing') {
-      style.animationDelay = `${props.index * 0.05}s`
+      const delayInterval = debugParams?.value?.nodeCollapseDelayInterval ?? 0.05
+      style.animationDelay = `${props.index * delayInterval}s`
     }
   }
   
@@ -381,7 +429,7 @@ const handlePractice = () => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--node-base-transition-duration, 0.3s) ease;
   position: relative;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -394,7 +442,7 @@ const handlePractice = () => {
   height: 180px;
   background: transparent;
   z-index: 10;
-  transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transition: all var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
   position: relative;
   overflow: hidden;
   padding: 10px;
@@ -403,7 +451,7 @@ const handlePractice = () => {
 
 .graph-node--center:active {
   transform: scale(0.97);
-  transition: transform 0.1s ease;
+  transition: transform var(--node-active-transition-duration, 0.1s) ease;
 }
 
 /* 中心节点展开状态 - 变大 */
@@ -442,7 +490,7 @@ const handlePractice = () => {
 
 .graph-node--circular:active {
   transform: scale(0.95);
-  transition: transform 0.1s ease;
+  transition: transform var(--node-active-transition-duration, 0.1s) ease;
 }
 
 /* 节点图标样式 */
@@ -487,7 +535,7 @@ const handlePractice = () => {
   pointer-events: none;
   opacity: 0;
   transform: translateX(-50%) scale(0.8);
-  transition: opacity 0.6s cubic-bezier(0.4, 0.0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transition: opacity var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1), transform var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 /* 节点展开时自动显示内容 - 通过动画类控制，移除静态显示 */
@@ -509,7 +557,7 @@ const handlePractice = () => {
   margin-top: 0;
   text-align: center;
   z-index: 1;
-  transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transition: all var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -545,7 +593,7 @@ const handlePractice = () => {
   font-weight: bold;
   text-align: center;
   line-height: 1.0;
-  transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transition: all var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
   width: 100%;
   display: block;
   white-space: nowrap; /* 第3步：禁止文字换行 */
@@ -591,7 +639,7 @@ const handlePractice = () => {
   overflow: hidden;
   text-overflow: ellipsis;
   word-break: break-word;
-  transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transition: all var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 /* 圆周节点标题在其他图谱展开时变小 */
@@ -610,7 +658,7 @@ const handlePractice = () => {
   text-align: center;
   line-height: 1.4; /* 第1步：增加行高，改善可读性 */
   opacity: 0.9;
-  transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transition: all var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
   width: 100%;
   display: block;
   white-space: nowrap; /* 第2步：禁止文字换行 */
@@ -658,7 +706,7 @@ const handlePractice = () => {
   height: 20px;
   line-height: 16px;
   z-index: 10;
-  transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transition: all var(--learning-tag-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
   pointer-events: none; /* 禁用点击事件 */
 }
 
@@ -718,22 +766,22 @@ const handlePractice = () => {
 
 /* 节点进入动画类 */
 .graph-node--circular.node-enter {
-  animation: node-enter 0.6s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+  animation: node-enter var(--node-animation-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
 }
 
 /* 节点退出动画类 */
 .graph-node--circular.node-exit {
-  animation: node-exit 0.6s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+  animation: node-exit var(--node-animation-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
 }
 
 /* 内容进入动画类 */
 .node-content--circular.content-enter {
-  animation: content-enter 0.6s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+  animation: content-enter var(--node-animation-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
 }
 
 /* 内容退出动画类 */
 .node-content--circular.content-exit {
-  animation: content-exit 0.6s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+  animation: content-exit var(--node-animation-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
 }
 
 /* 手动定位的气泡框菜单 */
@@ -774,7 +822,7 @@ const handlePractice = () => {
   font-weight: 600;
   color: white;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--bubble-button-transition-duration, 0.2s) ease;
   font-family: 'PingFang SC', 'PingFangSC-Regular', sans-serif;
   min-height: 44px;
   display: flex;

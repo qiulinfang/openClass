@@ -181,19 +181,8 @@ export class TextbookChapterStateManager {
       
       // 如果章节状态不存在，则初始化
       if (!states.has(index)) {
-        const subChapters = getSubChapters(chapter)
-        let expandedGraphId: string | null = null
-        
-        if (subChapters.length > 0) {
-          // 展开第一个子章节
-          const firstSubChapter = subChapters[0]
-          expandedGraphId = firstSubChapter.id
-          console.log(`章节 ${index} 自动展开第一个知识图谱:`, firstSubChapter.id)
-        } else {
-          // 如果没有子章节，设置为null
-          expandedGraphId = null
-          console.log(`章节 ${index} 无子章节，设置为null`)
-        }
+        // 初始状态下所有目录都是收起状态，不自动展开任何知识图谱
+        const expandedGraphId: string | null = null
         
         // 创建章节状态
         const chapterState: ChapterState = {
@@ -202,7 +191,7 @@ export class TextbookChapterStateManager {
         }
         
         states.set(index, chapterState)
-        console.log(`📝 [状态初始化] 为章节 ${index} 创建初始状态，旋转角度: 0°`)
+        console.log(`📝 [状态初始化] 为章节 ${index} 创建初始状态，旋转角度: 0°，展开状态: 收起`)
       } else {
         console.log(`📋 [状态检查] 章节 ${index} 状态已存在，旋转角度: ${states.get(index)!.rotationAngle.toFixed(2)}°`)
       }

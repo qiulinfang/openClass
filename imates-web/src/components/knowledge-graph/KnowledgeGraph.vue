@@ -36,7 +36,7 @@
          type="circular"
          :index="index"
          :total="getCircularNodes(chapterDetails).length"
-         :radius="backgroundRadius"
+         :radius="circularNodeRadius"
          :show="isExpanded || hasExpandedGraph"
          :animation-state="animationState"
          :is-menu-visible="activeNodeId === child.id"
@@ -122,12 +122,15 @@ const activeNodeId = ref<string | null>(null)
 
 // 监听展开状态变化，管理动画状态
 watch([() => props.isExpanded, () => props.hasExpandedGraph], ([newIsExpanded, newHasExpandedGraph], [oldIsExpanded, oldHasExpandedGraph]) => {
+  // 获取动画持续时间（毫秒）
+  const animationDuration = (debugParams?.value?.nodeEnterExitDuration ?? 0.6) * 1000
+  
   // 如果当前图谱被展开
   if (newIsExpanded && !oldIsExpanded) {
     animationState.value = 'expanding'
     setTimeout(() => {
       animationState.value = 'expanded'
-    }, 600) // 与CSS动画时间一致
+    }, animationDuration) // 使用动态动画时间
   }
   // 如果当前图谱被收起
   else if (!newIsExpanded && oldIsExpanded) {
@@ -138,7 +141,7 @@ watch([() => props.isExpanded, () => props.hasExpandedGraph], ([newIsExpanded, n
     }
     setTimeout(() => {
       animationState.value = 'idle'
-    }, 600) // 与CSS动画时间一致
+    }, animationDuration) // 使用动态动画时间
   }
   // 如果其他图谱被展开，当前图谱需要淡出
   else if (newHasExpandedGraph && !newIsExpanded && !oldHasExpandedGraph) {
@@ -149,14 +152,14 @@ watch([() => props.isExpanded, () => props.hasExpandedGraph], ([newIsExpanded, n
     }
     setTimeout(() => {
       animationState.value = 'idle'
-    }, 600) // 与CSS动画时间一致
+    }, animationDuration) // 使用动态动画时间
   }
   // 如果其他图谱被收起，当前图谱需要淡入
   else if (!newHasExpandedGraph && oldHasExpandedGraph && !newIsExpanded) {
     animationState.value = 'expanding'
     setTimeout(() => {
       animationState.value = 'expanded'
-    }, 600) // 与CSS动画时间一致
+    }, animationDuration) // 使用动态动画时间
   }
   // 初始状态：如果都没有展开，设置为idle
   else if (!newIsExpanded && !newHasExpandedGraph && animationState.value === 'idle') {
@@ -177,7 +180,7 @@ const backgroundRadius = computed(() => {
   const baseRadius = Math.min(containerWidth, containerHeight) / 2
   
   // 使用可调参数的最小背景半径，如果没有则使用默认值
-  const minRadius = debugParams?.value.minBackgroundRadius ?? 120
+  const minRadius = debugParams?.value?.minBackgroundRadius ?? 120
   const radius = Math.max(baseRadius, minRadius)
   
   // 获取圆周节点数量
@@ -187,17 +190,23 @@ const backgroundRadius = computed(() => {
   // 根据节点数量调整半径大小，使用可调参数
   if (nodeCount <= 2) {
     // 1-2个节点：背景圆形区域半径小
-    const scale = debugParams?.value.radiusScaleSmall ?? 0.8
+    const scale = debugParams?.value?.radiusScaleSmall ?? 0.8
     return radius * scale
   } else if (nodeCount <= 4) {
     // 3-4个节点：背景圆形区域半径中
-    const scale = debugParams?.value.radiusScaleMedium ?? 1.0
+    const scale = debugParams?.value?.radiusScaleMedium ?? 1.0
     return radius * scale
   } else {
     // 超过4个节点：背景圆形区域半径大
-    const scale = debugParams?.value.radiusScaleLarge ?? 1.1
+    const scale = debugParams?.value?.radiusScaleLarge ?? 1.1
     return radius * scale
   }
+})
+
+// 计算圆周节点的实际半径（应用半径因子）
+const circularNodeRadius = computed(() => {
+  const factor = debugParams?.value?.circularNodeRadiusFactor ?? 1.0
+  return backgroundRadius.value * factor
 })
 
 // 计算背景圆形的动态过渡时间
@@ -206,16 +215,16 @@ const backgroundTransitionDuration = computed(() => {
   if (props.isExpanded && props.rotationDirection) {
     if (props.rotationDirection === 'clockwise') {
       // 下半圆点击，顺时针旋转，收缩更快
-      const duration = debugParams?.value.backgroundTransitionDurationClockwise ?? 0.2
+      const duration = debugParams?.value?.backgroundTransitionDurationClockwise ?? 0.2
       return `${duration}s`
     } else if (props.rotationDirection === 'counterclockwise') {
       // 上半圆点击，逆时针旋转，保持默认速度
-      const duration = debugParams?.value.backgroundTransitionDurationCounterclockwise ?? 0.6
+      const duration = debugParams?.value?.backgroundTransitionDurationCounterclockwise ?? 0.6
       return `${duration}s`
     }
   }
   // 默认情况或展开动画使用默认时间
-  const duration = debugParams?.value.backgroundTransitionDurationCounterclockwise ?? 0.6
+  const duration = debugParams?.value?.backgroundTransitionDurationCounterclockwise ?? 0.6
   return `${duration}s`
 })
 

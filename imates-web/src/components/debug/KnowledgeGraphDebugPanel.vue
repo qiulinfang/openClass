@@ -13,11 +13,68 @@
     
     <!-- 侧边栏面板 -->
     <q-card class="debug-panel-card">
-      <!-- 头部 -->
-      <q-card-section class="row items-center q-pb-none">
-        <div class="text-h6">🔧 知识图谱调试面板</div>
-        <q-space />
-        <q-btn icon="close" flat round dense @click="isVisible = false" />
+      <!-- 头部 - 固定在顶部 -->
+      <q-card-section class="debug-panel-header">
+        <!-- 当前参数数值展示 - 仅显示修改过的参数 -->
+        <div v-if="modifiedParams.length > 0 && showParamsDisplay" class="params-display">
+          <div class="params-content">
+            <div class="params-grid">
+              <div v-for="param in modifiedParams" :key="param.key" class="param-item">
+                <span class="param-label">{{ param.label }}:</span>
+                <span class="param-value">{{ param.formatted }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="header-top">
+          <div class="header-title">🔧 知识图谱调试面板</div>
+          <q-space />
+          <q-btn 
+            :icon="showParamsDisplay ? 'visibility_off' : 'visibility'"
+            flat 
+            round 
+            dense 
+            size="xs" 
+            :title="showParamsDisplay ? '隐藏参数' : '显示参数'"
+            @click="showParamsDisplay = !showParamsDisplay"
+            class="q-mr-xs"
+          />
+          <q-btn icon="close" flat round dense size="xs" @click="isVisible = false" />
+        </div>
+        
+        <!-- 功能按钮 -->
+        <div class="header-actions">
+          <q-btn
+            outline
+            color="primary"
+            icon="refresh"
+            label="重置所有参数"
+            @click="resetAllParams"
+            size="xs"
+            dense
+            class="q-mr-xs"
+          />
+          <q-btn
+            outline
+            color="secondary"
+            icon="save"
+            label="保存到本地"
+            @click="saveToLocalStorage"
+            size="xs"
+            dense
+            class="q-mr-xs"
+          />
+          <q-btn
+            outline
+            color="positive"
+            icon="restore"
+            label="从本地加载"
+            @click="loadFromLocalStorage"
+            size="xs"
+            dense
+          />
+        </div>
       </q-card-section>
 
       <!-- 参数控制区域 -->
@@ -112,135 +169,6 @@
                   @click="resetRadiusY"
                 />
                 <span class="text-caption text-grey-6">默认: {{ defaultParams.radiusY }}px</span>
-              </div>
-              </q-card-section>
-            </q-card>
-          </q-card-section>
-        </q-expansion-item>
-
-        <!-- 角度参数 -->
-        <q-expansion-item
-          icon="navigation"
-          label="角度参数"
-          class="q-mb-sm"
-        >
-          <q-card-section>
-            <!-- 目标角度 -->
-            <q-card flat bordered class="q-mb-md parameter-card">
-              <q-card-section>
-              <div class="row items-center q-mb-sm">
-                <q-icon name="navigation" class="q-mr-sm" />
-                <div class="col">
-                  <div class="row items-center justify-between">
-                    <div class="text-subtitle2">目标角度 (度)</div>
-                    <span class="text-body2 text-primary q-ml-md">当前: {{ localParams.targetAngle.toFixed(1) }}°</span>
-                  </div>
-                  <div class="text-caption text-grey-7 q-mt-xs">
-                    自动定位时的目标角度，用于定位知识图谱<br/>
-                    <strong>增大效果：</strong>节点自动定位时更偏向右侧（顺时针方向），展开位置向右移动<br/>
-                    <strong>减小效果：</strong>节点自动定位时更偏向左侧（逆时针方向），展开位置向左移动
-                  </div>
-                </div>
-              </div>
-              <q-slider
-                v-model="localParams.targetAngle"
-                :min="0"
-                :max="360"
-                :step="1"
-                label
-                :label-value="`${localParams.targetAngle.toFixed(0)}°`"
-                color="primary"
-                @update:model-value="updateParams"
-              />
-              <div class="row justify-between q-mt-xs">
-                <q-btn
-                  flat
-                  dense
-                  size="sm"
-                  label="重置"
-                  @click="resetTargetAngle"
-                />
-                <span class="text-caption text-grey-6">默认: {{ defaultParams.targetAngle.toFixed(1) }}°</span>
-              </div>
-              </q-card-section>
-            </q-card>
-
-            <!-- 影响范围 -->
-            <q-card flat bordered class="q-mb-md parameter-card">
-              <q-card-section>
-              <div class="row items-center q-mb-sm">
-                <q-icon name="radio_button_checked" class="q-mr-sm" />
-                <div class="col">
-                  <div class="row items-center justify-between">
-                    <div class="text-subtitle2">影响范围 (度)</div>
-                    <span class="text-body2 text-primary q-ml-md">当前: {{ (localParams.influenceRange * 180 / Math.PI).toFixed(1) }}°</span>
-                  </div>
-                  <div class="text-caption text-grey-7 q-mt-xs">
-                    展开图谱周围的影响范围，影响附近节点的行为<br/>
-                    <strong>放大效果：</strong>更大范围的节点会受到影响（变透明、被推开），影响区域扩大<br/>
-                    <strong>缩小效果：</strong>只有紧邻的节点会受到影响，影响区域缩小
-                  </div>
-                </div>
-              </div>
-              <q-slider
-                v-model="localParams.influenceRange"
-                :min="Math.PI / 6"
-                :max="Math.PI"
-                :step="Math.PI / 180"
-                label
-                :label-value="`${(localParams.influenceRange * 180 / Math.PI).toFixed(1)}°`"
-                color="primary"
-                @update:model-value="updateParams"
-              />
-              <div class="row justify-between q-mt-xs">
-                <q-btn
-                  flat
-                  dense
-                  size="sm"
-                  label="重置"
-                  @click="resetInfluenceRange"
-                />
-                <span class="text-caption text-grey-6">默认: {{ (defaultParams.influenceRange * 180 / Math.PI).toFixed(1) }}°</span>
-              </div>
-              </q-card-section>
-            </q-card>
-
-            <!-- 最大推开角度 -->
-            <q-card flat bordered class="q-mb-md parameter-card">
-              <q-card-section>
-              <div class="row items-center q-mb-sm">
-                <q-icon name="open_in_full" class="q-mr-sm" />
-                <div class="col">
-                  <div class="row items-center justify-between">
-                    <div class="text-subtitle2">最大推开角度 (度)</div>
-                    <span class="text-body2 text-primary q-ml-md">当前: {{ (localParams.maxPushAngle * 180 / Math.PI).toFixed(1) }}°</span>
-                  </div>
-                  <div class="text-caption text-grey-7 q-mt-xs">
-                    其他节点被推开的最大角度<br/>
-                    <strong>放大效果：</strong>节点被推开的距离更大，展开时周围节点距离更远，空间更开阔<br/>
-                    <strong>缩小效果：</strong>节点被推开的距离更小，展开时周围节点距离更近，空间更紧凑
-                  </div>
-                </div>
-              </div>
-              <q-slider
-                v-model="localParams.maxPushAngle"
-                :min="Math.PI / 36"
-                :max="Math.PI / 2"
-                :step="Math.PI / 180"
-                label
-                :label-value="`${(localParams.maxPushAngle * 180 / Math.PI).toFixed(1)}°`"
-                color="primary"
-                @update:model-value="updateParams"
-              />
-              <div class="row justify-between q-mt-xs">
-                <q-btn
-                  flat
-                  dense
-                  size="sm"
-                  label="重置"
-                  @click="resetMaxPushAngle"
-                />
-                <span class="text-caption text-grey-6">默认: {{ (defaultParams.maxPushAngle * 180 / Math.PI).toFixed(1) }}°</span>
               </div>
               </q-card-section>
             </q-card>
@@ -751,30 +679,30 @@
               </q-card-section>
             </q-card>
 
-            <!-- 旋转计算系数 -->
+            <!-- 归一化参考高度比例 -->
             <q-card flat bordered class="q-mb-md parameter-card">
               <q-card-section>
               <div class="row items-center q-mb-sm">
-                <q-icon name="settings_overscan" class="q-mr-sm" />
+                <q-icon name="vertical_align_center" class="q-mr-sm" />
                 <div class="col">
                   <div class="row items-center justify-between">
-                    <div class="text-subtitle2">旋转计算系数</div>
-                    <span class="text-body2 text-indigo q-ml-md">当前: {{ localParams.rotationCoefficient.toFixed(2) }}</span>
+                    <div class="text-subtitle2">归一化参考高度比例</div>
+                    <span class="text-body2 text-indigo q-ml-md">当前: {{ (localParams.normalizedReferenceHeightRatio * 100).toFixed(0) }}%</span>
                   </div>
                   <div class="text-caption text-grey-7 q-mt-xs">
-                    控制旋转角度与滑动距离的比例关系<br/>
-                    <strong>放大效果：</strong>同样的滑动距离产生更大的旋转角度，节点旋转更快，需要更少滑动就能旋转到位<br/>
-                    <strong>缩小效果：</strong>同样的滑动距离产生更小的旋转角度，节点旋转更慢，需要更多滑动才能旋转到位
+                    控制滑动距离的归一化参考高度，参考移动端短视频切换方式<br/>
+                    <strong>放大效果：</strong>需要滑动更少的屏幕高度就能切换到下一个知识图谱，交互更灵敏<br/>
+                    <strong>缩小效果：</strong>需要滑动更多的屏幕高度才能切换到下一个知识图谱，交互更稳定
                   </div>
                 </div>
               </div>
               <q-slider
-                v-model="localParams.rotationCoefficient"
+                v-model="localParams.normalizedReferenceHeightRatio"
                 :min="0.1"
-                :max="2"
+                :max="1.5"
                 :step="0.01"
                 label
-                :label-value="localParams.rotationCoefficient.toFixed(2)"
+                :label-value="`${(localParams.normalizedReferenceHeightRatio * 100).toFixed(0)}%`"
                 color="indigo"
                 @update:model-value="updateParams"
               />
@@ -784,9 +712,9 @@
                   dense
                   size="sm"
                   label="重置"
-                  @click="resetRotationCoefficient"
+                  @click="resetNormalizedReferenceHeightRatio"
                 />
-                <span class="text-caption text-grey-6">默认: {{ defaultParams.rotationCoefficient.toFixed(2) }}</span>
+                <span class="text-caption text-grey-6">默认: {{ (defaultParams.normalizedReferenceHeightRatio * 100).toFixed(0) }}%</span>
               </div>
               </q-card-section>
             </q-card>
@@ -1536,30 +1464,30 @@
               </q-card-section>
             </q-card>
 
-            <!-- 旋转计算系数 -->
+            <!-- 中心节点初始大小 -->
             <q-card flat bordered class="q-mb-md parameter-card">
               <q-card-section>
               <div class="row items-center q-mb-sm">
-                <q-icon name="settings_overscan" class="q-mr-sm" />
+                <q-icon name="adjust" class="q-mr-sm" />
                 <div class="col">
                   <div class="row items-center justify-between">
-                    <div class="text-subtitle2">旋转计算系数</div>
-                    <span class="text-body2 text-indigo q-ml-md">当前: {{ localParams.rotationCoefficient.toFixed(2) }}</span>
+                    <div class="text-subtitle2">中心节点初始大小 (像素)</div>
+                    <span class="text-body2 text-indigo q-ml-md">当前: {{ localParams.centerNodeSizeDefault }}px</span>
                   </div>
                   <div class="text-caption text-grey-7 q-mt-xs">
-                    控制旋转角度与滑动距离的比例关系<br/>
-                    <strong>放大效果：</strong>同样的滑动距离产生更大的旋转角度，节点旋转更快，需要更少滑动就能旋转到位<br/>
-                    <strong>缩小效果：</strong>同样的滑动距离产生更小的旋转角度，节点旋转更慢，需要更多滑动才能旋转到位
+                    控制中心节点在默认状态下的大小<br/>
+                    <strong>放大效果：</strong>中心节点显示更大，内容更清晰，但占用更多空间<br/>
+                    <strong>缩小效果：</strong>中心节点显示更小，节省空间，但内容可能看不清
                   </div>
                 </div>
               </div>
               <q-slider
-                v-model="localParams.rotationCoefficient"
-                :min="0.1"
-                :max="2"
-                :step="0.01"
+                v-model="localParams.centerNodeSizeDefault"
+                :min="100"
+                :max="300"
+                :step="5"
                 label
-                :label-value="localParams.rotationCoefficient.toFixed(2)"
+                :label-value="`${localParams.centerNodeSizeDefault}px`"
                 color="indigo"
                 @update:model-value="updateParams"
               />
@@ -1569,9 +1497,529 @@
                   dense
                   size="sm"
                   label="重置"
-                  @click="resetRotationCoefficient"
+                  @click="resetCenterNodeSizeDefault"
                 />
-                <span class="text-caption text-grey-6">默认: {{ defaultParams.rotationCoefficient.toFixed(2) }}</span>
+                <span class="text-caption text-grey-6">默认: {{ defaultParams.centerNodeSizeDefault }}px</span>
+              </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- 中心节点放大后大小 -->
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+              <div class="row items-center q-mb-sm">
+                <q-icon name="zoom_in" class="q-mr-sm" />
+                <div class="col">
+                  <div class="row items-center justify-between">
+                    <div class="text-subtitle2">中心节点放大后大小 (像素)</div>
+                    <span class="text-body2 text-indigo q-ml-md">当前: {{ localParams.centerNodeSizeExpanded }}px</span>
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-xs">
+                    控制中心节点在展开状态下的大小<br/>
+                    <strong>放大效果：</strong>展开的中心节点更大，内容更突出，但可能遮挡其他元素<br/>
+                    <strong>缩小效果：</strong>展开的中心节点更小，节省空间，但视觉冲击力减弱
+                  </div>
+                </div>
+              </div>
+              <q-slider
+                v-model="localParams.centerNodeSizeExpanded"
+                :min="150"
+                :max="400"
+                :step="5"
+                label
+                :label-value="`${localParams.centerNodeSizeExpanded}px`"
+                color="indigo"
+                @update:model-value="updateParams"
+              />
+              <div class="row justify-between q-mt-xs">
+                <q-btn
+                  flat
+                  dense
+                  size="sm"
+                  label="重置"
+                  @click="resetCenterNodeSizeExpanded"
+                />
+                <span class="text-caption text-grey-6">默认: {{ defaultParams.centerNodeSizeExpanded }}px</span>
+              </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- 中心节点缩小大小 -->
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+              <div class="row items-center q-mb-sm">
+                <q-icon name="zoom_out" class="q-mr-sm" />
+                <div class="col">
+                  <div class="row items-center justify-between">
+                    <div class="text-subtitle2">中心节点缩小大小 (像素)</div>
+                    <span class="text-body2 text-indigo q-ml-md">当前: {{ localParams.centerNodeSizeShrunk }}px</span>
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-xs">
+                    控制中心节点在其他图谱展开时的缩小大小<br/>
+                    <strong>放大效果：</strong>缩小后的中心节点更大，仍然较明显，但可能干扰展开的图谱<br/>
+                    <strong>缩小效果：</strong>缩小后的中心节点更小，更不显眼，突出展开的图谱
+                  </div>
+                </div>
+              </div>
+              <q-slider
+                v-model="localParams.centerNodeSizeShrunk"
+                :min="80"
+                :max="250"
+                :step="5"
+                label
+                :label-value="`${localParams.centerNodeSizeShrunk}px`"
+                color="indigo"
+                @update:model-value="updateParams"
+              />
+              <div class="row justify-between q-mt-xs">
+                <q-btn
+                  flat
+                  dense
+                  size="sm"
+                  label="重置"
+                  @click="resetCenterNodeSizeShrunk"
+                />
+                <span class="text-caption text-grey-6">默认: {{ defaultParams.centerNodeSizeShrunk }}px</span>
+              </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- 中心节点缩放速度 -->
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+              <div class="row items-center q-mb-sm">
+                <q-icon name="speed" class="q-mr-sm" />
+                <div class="col">
+                  <div class="row items-center justify-between">
+                    <div class="text-subtitle2">中心节点缩放速度 (秒)</div>
+                    <span class="text-body2 text-purple q-ml-md">当前: {{ localParams.centerNodeScaleSpeed.toFixed(2) }}s</span>
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-xs">
+                    控制中心节点在大小变化时的缩放动画持续时间<br/>
+                    <strong>加快效果：</strong>数值越小，缩放动画越快，响应更敏捷，但可能显得突兀<br/>
+                    <strong>减慢效果：</strong>数值越大，缩放动画越慢，过渡更平滑，但响应较慢
+                  </div>
+                </div>
+              </div>
+              <q-slider
+                v-model="localParams.centerNodeScaleSpeed"
+                :min="0.1"
+                :max="2.0"
+                :step="0.1"
+                label
+                :label-value="`${localParams.centerNodeScaleSpeed.toFixed(2)}s`"
+                color="purple"
+                @update:model-value="updateParams"
+              />
+              <div class="row justify-between q-mt-xs">
+                <q-btn
+                  flat
+                  dense
+                  size="sm"
+                  label="重置"
+                  @click="resetCenterNodeScaleSpeed"
+                />
+                <span class="text-caption text-grey-6">默认: {{ defaultParams.centerNodeScaleSpeed.toFixed(2) }}s</span>
+              </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- 节点进入/退出动画持续时间 -->
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+              <div class="row items-center q-mb-sm">
+                <q-icon name="play_circle" class="q-mr-sm" />
+                <div class="col">
+                  <div class="row items-center justify-between">
+                    <div class="text-subtitle2">节点进入/退出动画持续时间 (秒)</div>
+                    <span class="text-body2 text-purple q-ml-md">当前: {{ localParams.nodeEnterExitDuration.toFixed(2) }}s</span>
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-xs">
+                    控制圆周节点进入和退出动画的持续时间<br/>
+                    <strong>加快效果：</strong>数值越小，节点出现/消失动画越快，响应更敏捷<br/>
+                    <strong>减慢效果：</strong>数值越大，节点出现/消失动画越慢，过渡更平滑
+                  </div>
+                </div>
+              </div>
+              <q-slider
+                v-model="localParams.nodeEnterExitDuration"
+                :min="0.1"
+                :max="2.0"
+                :step="0.05"
+                label
+                :label-value="`${localParams.nodeEnterExitDuration.toFixed(2)}s`"
+                color="purple"
+                @update:model-value="updateParams"
+              />
+              <div class="row justify-between q-mt-xs">
+                <q-btn
+                  flat
+                  dense
+                  size="sm"
+                  label="重置"
+                  @click="resetNodeEnterExitDuration"
+                />
+                <span class="text-caption text-grey-6">默认: {{ defaultParams.nodeEnterExitDuration.toFixed(2) }}s</span>
+              </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- 圆周节点展开动画延迟间隔 -->
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+              <div class="row items-center q-mb-sm">
+                <q-icon name="schedule" class="q-mr-sm" />
+                <div class="col">
+                  <div class="row items-center justify-between">
+                    <div class="text-subtitle2">圆周节点展开动画延迟间隔 (秒/索引)</div>
+                    <span class="text-body2 text-purple q-ml-md">当前: {{ localParams.nodeExpandDelayInterval.toFixed(2) }}s</span>
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-xs">
+                    控制圆周节点展开时每个节点之间的延迟间隔，延迟时间 = 索引 × 间隔<br/>
+                    <strong>加快效果：</strong>数值越小，节点依次出现的间隔越短，动画更快速<br/>
+                    <strong>减慢效果：</strong>数值越大，节点依次出现的间隔越长，动画更渐进
+                  </div>
+                </div>
+              </div>
+              <q-slider
+                v-model="localParams.nodeExpandDelayInterval"
+                :min="0.01"
+                :max="0.3"
+                :step="0.01"
+                label
+                :label-value="`${localParams.nodeExpandDelayInterval.toFixed(2)}s`"
+                color="purple"
+                @update:model-value="updateParams"
+              />
+              <div class="row justify-between q-mt-xs">
+                <q-btn
+                  flat
+                  dense
+                  size="sm"
+                  label="重置"
+                  @click="resetNodeExpandDelayInterval"
+                />
+                <span class="text-caption text-grey-6">默认: {{ defaultParams.nodeExpandDelayInterval.toFixed(2) }}s</span>
+              </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- 圆周节点收起动画延迟间隔 -->
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+              <div class="row items-center q-mb-sm">
+                <q-icon name="schedule" class="q-mr-sm" />
+                <div class="col">
+                  <div class="row items-center justify-between">
+                    <div class="text-subtitle2">圆周节点收起动画延迟间隔 (秒/索引)</div>
+                    <span class="text-body2 text-purple q-ml-md">当前: {{ localParams.nodeCollapseDelayInterval.toFixed(2) }}s</span>
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-xs">
+                    控制圆周节点收起时每个节点之间的延迟间隔，延迟时间 = 索引 × 间隔<br/>
+                    <strong>加快效果：</strong>数值越小，节点依次消失的间隔越短，动画更快速<br/>
+                    <strong>减慢效果：</strong>数值越大，节点依次消失的间隔越长，动画更渐进
+                  </div>
+                </div>
+              </div>
+              <q-slider
+                v-model="localParams.nodeCollapseDelayInterval"
+                :min="0.01"
+                :max="0.2"
+                :step="0.01"
+                label
+                :label-value="`${localParams.nodeCollapseDelayInterval.toFixed(2)}s`"
+                color="purple"
+                @update:model-value="updateParams"
+              />
+              <div class="row justify-between q-mt-xs">
+                <q-btn
+                  flat
+                  dense
+                  size="sm"
+                  label="重置"
+                  @click="resetNodeCollapseDelayInterval"
+                />
+                <span class="text-caption text-grey-6">默认: {{ defaultParams.nodeCollapseDelayInterval.toFixed(2) }}s</span>
+              </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- 节点内容transition持续时间 -->
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+              <div class="row items-center q-mb-sm">
+                <q-icon name="text_fields" class="q-mr-sm" />
+                <div class="col">
+                  <div class="row items-center justify-between">
+                    <div class="text-subtitle2">节点内容transition持续时间 (秒)</div>
+                    <span class="text-body2 text-purple q-ml-md">当前: {{ localParams.nodeContentTransitionDuration.toFixed(2) }}s</span>
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-xs">
+                    控制节点内容（标题、章节名等）的transition动画持续时间<br/>
+                    <strong>加快效果：</strong>数值越小，内容变化动画越快<br/>
+                    <strong>减慢效果：</strong>数值越大，内容变化动画越慢
+                  </div>
+                </div>
+              </div>
+              <q-slider
+                v-model="localParams.nodeContentTransitionDuration"
+                :min="0.1"
+                :max="2.0"
+                :step="0.1"
+                label
+                :label-value="`${localParams.nodeContentTransitionDuration.toFixed(2)}s`"
+                color="purple"
+                @update:model-value="updateParams"
+              />
+              <div class="row justify-between q-mt-xs">
+                <q-btn
+                  flat
+                  dense
+                  size="sm"
+                  label="重置"
+                  @click="resetNodeContentTransitionDuration"
+                />
+                <span class="text-caption text-grey-6">默认: {{ defaultParams.nodeContentTransitionDuration.toFixed(2) }}s</span>
+              </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- 节点基础transition持续时间 -->
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+              <div class="row items-center q-mb-sm">
+                <q-icon name="circle" class="q-mr-sm" />
+                <div class="col">
+                  <div class="row items-center justify-between">
+                    <div class="text-subtitle2">节点基础transition持续时间 (秒)</div>
+                    <span class="text-body2 text-purple q-ml-md">当前: {{ localParams.nodeBaseTransitionDuration.toFixed(2) }}s</span>
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-xs">
+                    控制节点基础状态的transition动画持续时间<br/>
+                    <strong>加快效果：</strong>数值越小，节点状态变化动画越快<br/>
+                    <strong>减慢效果：</strong>数值越大，节点状态变化动画越慢
+                  </div>
+                </div>
+              </div>
+              <q-slider
+                v-model="localParams.nodeBaseTransitionDuration"
+                :min="0.1"
+                :max="1.0"
+                :step="0.1"
+                label
+                :label-value="`${localParams.nodeBaseTransitionDuration.toFixed(2)}s`"
+                color="purple"
+                @update:model-value="updateParams"
+              />
+              <div class="row justify-between q-mt-xs">
+                <q-btn
+                  flat
+                  dense
+                  size="sm"
+                  label="重置"
+                  @click="resetNodeBaseTransitionDuration"
+                />
+                <span class="text-caption text-grey-6">默认: {{ defaultParams.nodeBaseTransitionDuration.toFixed(2) }}s</span>
+              </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- 学习标签transition持续时间 -->
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+              <div class="row items-center q-mb-sm">
+                <q-icon name="label" class="q-mr-sm" />
+                <div class="col">
+                  <div class="row items-center justify-between">
+                    <div class="text-subtitle2">学习标签transition持续时间 (秒)</div>
+                    <span class="text-body2 text-purple q-ml-md">当前: {{ localParams.learningTagTransitionDuration.toFixed(2) }}s</span>
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-xs">
+                    控制学习标签的transition动画持续时间<br/>
+                    <strong>加快效果：</strong>数值越小，标签变化动画越快<br/>
+                    <strong>减慢效果：</strong>数值越大，标签变化动画越慢
+                  </div>
+                </div>
+              </div>
+              <q-slider
+                v-model="localParams.learningTagTransitionDuration"
+                :min="0.1"
+                :max="2.0"
+                :step="0.1"
+                label
+                :label-value="`${localParams.learningTagTransitionDuration.toFixed(2)}s`"
+                color="purple"
+                @update:model-value="updateParams"
+              />
+              <div class="row justify-between q-mt-xs">
+                <q-btn
+                  flat
+                  dense
+                  size="sm"
+                  label="重置"
+                  @click="resetLearningTagTransitionDuration"
+                />
+                <span class="text-caption text-grey-6">默认: {{ defaultParams.learningTagTransitionDuration.toFixed(2) }}s</span>
+              </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- 气泡框按钮transition持续时间 -->
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+              <div class="row items-center q-mb-sm">
+                <q-icon name="radio_button_checked" class="q-mr-sm" />
+                <div class="col">
+                  <div class="row items-center justify-between">
+                    <div class="text-subtitle2">气泡框按钮transition持续时间 (秒)</div>
+                    <span class="text-body2 text-purple q-ml-md">当前: {{ localParams.bubbleButtonTransitionDuration.toFixed(2) }}s</span>
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-xs">
+                    控制气泡框按钮的transition动画持续时间<br/>
+                    <strong>加快效果：</strong>数值越小，按钮交互动画越快<br/>
+                    <strong>减慢效果：</strong>数值越大，按钮交互动画越慢
+                  </div>
+                </div>
+              </div>
+              <q-slider
+                v-model="localParams.bubbleButtonTransitionDuration"
+                :min="0.05"
+                :max="0.5"
+                :step="0.05"
+                label
+                :label-value="`${localParams.bubbleButtonTransitionDuration.toFixed(2)}s`"
+                color="purple"
+                @update:model-value="updateParams"
+              />
+              <div class="row justify-between q-mt-xs">
+                <q-btn
+                  flat
+                  dense
+                  size="sm"
+                  label="重置"
+                  @click="resetBubbleButtonTransitionDuration"
+                />
+                <span class="text-caption text-grey-6">默认: {{ defaultParams.bubbleButtonTransitionDuration.toFixed(2) }}s</span>
+              </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- 节点active状态transition持续时间 -->
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+              <div class="row items-center q-mb-sm">
+                <q-icon name="touch_app" class="q-mr-sm" />
+                <div class="col">
+                  <div class="row items-center justify-between">
+                    <div class="text-subtitle2">节点active状态transition持续时间 (秒)</div>
+                    <span class="text-body2 text-purple q-ml-md">当前: {{ localParams.nodeActiveTransitionDuration.toFixed(2) }}s</span>
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-xs">
+                    控制节点点击时的缩放动画持续时间<br/>
+                    <strong>加快效果：</strong>数值越小，点击反馈动画越快<br/>
+                    <strong>减慢效果：</strong>数值越大，点击反馈动画越慢
+                  </div>
+                </div>
+              </div>
+              <q-slider
+                v-model="localParams.nodeActiveTransitionDuration"
+                :min="0.05"
+                :max="0.3"
+                :step="0.05"
+                label
+                :label-value="`${localParams.nodeActiveTransitionDuration.toFixed(2)}s`"
+                color="purple"
+                @update:model-value="updateParams"
+              />
+              <div class="row justify-between q-mt-xs">
+                <q-btn
+                  flat
+                  dense
+                  size="sm"
+                  label="重置"
+                  @click="resetNodeActiveTransitionDuration"
+                />
+                <span class="text-caption text-grey-6">默认: {{ defaultParams.nodeActiveTransitionDuration.toFixed(2) }}s</span>
+              </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- 圆周节点半径因子 -->
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+              <div class="row items-center q-mb-sm">
+                <q-icon name="radio_button_unchecked" class="q-mr-sm" />
+                <div class="col">
+                  <div class="row items-center justify-between">
+                    <div class="text-subtitle2">圆周节点半径因子</div>
+                    <span class="text-body2 text-indigo q-ml-md">当前: {{ localParams.circularNodeRadiusFactor.toFixed(2) }}</span>
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-xs">
+                    控制圆周节点相对背景圆的位置，1.0表示节点圆心在背景圆周上<br/>
+                    <strong>放大效果：</strong>数值大于1.0时，圆周节点更远离中心，超出背景圆<br/>
+                    <strong>缩小效果：</strong>数值小于1.0时，圆周节点更靠近中心，在背景圆内部
+                  </div>
+                </div>
+              </div>
+              <q-slider
+                v-model="localParams.circularNodeRadiusFactor"
+                :min="0.5"
+                :max="1.5"
+                :step="0.01"
+                label
+                :label-value="`${localParams.circularNodeRadiusFactor.toFixed(2)}`"
+                color="indigo"
+                @update:model-value="updateParams"
+              />
+              <div class="row justify-between q-mt-xs">
+                <q-btn
+                  flat
+                  dense
+                  size="sm"
+                  label="重置"
+                  @click="resetCircularNodeRadiusFactor"
+                />
+                <span class="text-caption text-grey-6">默认: {{ defaultParams.circularNodeRadiusFactor.toFixed(2) }}</span>
+              </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- 归一化参考高度比例 -->
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+              <div class="row items-center q-mb-sm">
+                <q-icon name="vertical_align_center" class="q-mr-sm" />
+                <div class="col">
+                  <div class="row items-center justify-between">
+                    <div class="text-subtitle2">归一化参考高度比例</div>
+                    <span class="text-body2 text-indigo q-ml-md">当前: {{ (localParams.normalizedReferenceHeightRatio * 100).toFixed(0) }}%</span>
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-xs">
+                    控制滑动距离的归一化参考高度，参考移动端短视频切换方式<br/>
+                    <strong>放大效果：</strong>需要滑动更少的屏幕高度就能切换到下一个知识图谱，交互更灵敏<br/>
+                    <strong>缩小效果：</strong>需要滑动更多的屏幕高度才能切换到下一个知识图谱，交互更稳定
+                  </div>
+                </div>
+              </div>
+              <q-slider
+                v-model="localParams.normalizedReferenceHeightRatio"
+                :min="0.1"
+                :max="1.5"
+                :step="0.01"
+                label
+                :label-value="`${(localParams.normalizedReferenceHeightRatio * 100).toFixed(0)}%`"
+                color="indigo"
+                @update:model-value="updateParams"
+              />
+              <div class="row justify-between q-mt-xs">
+                <q-btn
+                  flat
+                  dense
+                  size="sm"
+                  label="重置"
+                  @click="resetNormalizedReferenceHeightRatio"
+                />
+                <span class="text-caption text-grey-6">默认: {{ (defaultParams.normalizedReferenceHeightRatio * 100).toFixed(0) }}%</span>
               </div>
               </q-card-section>
             </q-card>
@@ -1582,136 +2030,6 @@
                 <div class="text-subtitle2 text-weight-bold q-mb-sm q-mt-md" style="color: #f57c00;">
           🎮 交互控制
         </div>
-
-        <!-- 滑动灵敏度参数 -->
-        <q-expansion-item
-          icon="touch_app"
-          label="滑动灵敏度参数"
-          default-opened
-          class="q-mb-sm"
-        >
-          <q-card-section>
-            <!-- 基础灵敏度倍数 -->
-            <q-card flat bordered class="q-mb-md parameter-card">
-              <q-card-section>
-              <div class="row items-center q-mb-sm">
-                <q-icon name="tune" class="q-mr-sm" />
-                <div class="col">
-                  <div class="row items-center justify-between">
-                    <div class="text-subtitle2">基础灵敏度倍数</div>
-                    <span class="text-body2 text-orange q-ml-md">当前: {{ localParams.baseSensitivity.toFixed(1) }}x</span>
-                  </div>
-                  <div class="text-caption text-grey-7 q-mt-xs">
-                    控制普通滑动操作时节点的移动灵敏度<br/>
-                    <strong>放大效果：</strong>滑动时节点旋转更快、移动距离更大，响应更灵敏，需要更少的滑动距离就能旋转到位<br/>
-                    <strong>缩小效果：</strong>滑动时节点旋转更慢、移动距离更小，响应更迟钝，需要更多的滑动距离才能旋转到位
-                  </div>
-                </div>
-              </div>
-              <q-slider
-                v-model="localParams.baseSensitivity"
-                :min="0.5"
-                :max="3.0"
-                :step="0.1"
-                label
-                :label-value="`${localParams.baseSensitivity.toFixed(1)}x`"
-                color="orange"
-                @update:model-value="updateParams"
-              />
-              <div class="row justify-between q-mt-xs">
-                <q-btn
-                  flat
-                  dense
-                  size="sm"
-                  label="重置"
-                  @click="resetBaseSensitivity"
-                />
-                <span class="text-caption text-grey-6">默认: {{ defaultParams.baseSensitivity.toFixed(1) }}x</span>
-              </div>
-              </q-card-section>
-            </q-card>
-
-            <!-- 快速滑动灵敏度倍数 -->
-            <q-card flat bordered class="q-mb-md parameter-card">
-              <q-card-section>
-              <div class="row items-center q-mb-sm">
-                <q-icon name="speed" class="q-mr-sm" />
-                <div class="col">
-                  <div class="row items-center justify-between">
-                    <div class="text-subtitle2">快速滑动灵敏度倍数</div>
-                    <span class="text-body2 text-orange q-ml-md">当前: {{ localParams.fastSensitivity.toFixed(1) }}x</span>
-                  </div>
-                  <div class="text-caption text-grey-7 q-mt-xs">
-                    控制快速滑动操作时节点的移动灵敏度<br/>
-                    <strong>放大效果：</strong>快速滑动时节点旋转更快，惯性效果更明显，旋转幅度更大<br/>
-                    <strong>缩小效果：</strong>快速滑动时节点旋转更慢，惯性效果减弱，旋转幅度更小
-                  </div>
-                </div>
-              </div>
-              <q-slider
-                v-model="localParams.fastSensitivity"
-                :min="1.0"
-                :max="5.0"
-                :step="0.1"
-                label
-                :label-value="`${localParams.fastSensitivity.toFixed(1)}x`"
-                color="orange"
-                @update:model-value="updateParams"
-              />
-              <div class="row justify-between q-mt-xs">
-                <q-btn
-                  flat
-                  dense
-                  size="sm"
-                  label="重置"
-                  @click="resetFastSensitivity"
-                />
-                <span class="text-caption text-grey-6">默认: {{ defaultParams.fastSensitivity.toFixed(1) }}x</span>
-              </div>
-              </q-card-section>
-            </q-card>
-
-            <!-- 滑动速度阈值 -->
-            <q-card flat bordered class="q-mb-md parameter-card">
-              <q-card-section>
-              <div class="row items-center q-mb-sm">
-                <q-icon name="threshold" class="q-mr-sm" />
-                <div class="col">
-                  <div class="row items-center justify-between">
-                    <div class="text-subtitle2">滑动速度阈值 (像素/毫秒)</div>
-                    <span class="text-body2 text-orange q-ml-md">当前: {{ localParams.swipeThreshold.toFixed(1) }} px/ms</span>
-                  </div>
-                  <div class="text-caption text-grey-7 q-mt-xs">
-                    判断滑动是否为快速滑动的速度标准，超过此值将使用快速灵敏度<br/>
-                    <strong>放大效果：</strong>更容易触发快速滑动模式，轻微快速滑动就会被识别为快速滑动，使用快速灵敏度<br/>
-                    <strong>缩小效果：</strong>需要更快的滑动才能触发快速滑动模式，普通滑动不会触发，使用基础灵敏度
-                  </div>
-                </div>
-              </div>
-              <q-slider
-                v-model="localParams.swipeThreshold"
-                :min="0.1"
-                :max="2.0"
-                :step="0.1"
-                label
-                :label-value="`${localParams.swipeThreshold.toFixed(1)} px/ms`"
-                color="orange"
-                @update:model-value="updateParams"
-              />
-              <div class="row justify-between q-mt-xs">
-                <q-btn
-                  flat
-                  dense
-                  size="sm"
-                  label="重置"
-                  @click="resetSwipeThreshold"
-                />
-                <span class="text-caption text-grey-6">默认: {{ defaultParams.swipeThreshold.toFixed(1) }} px/ms</span>
-              </div>
-              </q-card-section>
-            </q-card>
-          </q-card-section>
-        </q-expansion-item>
 
         <!-- 拖拽参数 -->
         <q-expansion-item
@@ -1763,36 +2081,6 @@
           </q-card-section>
         </q-expansion-item>
       </q-card-section>
-
-      <!-- 操作按钮 -->
-      <q-card-section class="q-pt-md">
-          <div class="row q-gutter-sm">
-            <q-btn
-              outline
-              color="primary"
-              icon="refresh"
-              label="重置所有参数"
-              @click="resetAllParams"
-              size="sm"
-            />
-            <q-btn
-              outline
-              color="secondary"
-              icon="save"
-              label="保存到本地"
-              @click="saveToLocalStorage"
-              size="sm"
-            />
-            <q-btn
-              outline
-              color="positive"
-              icon="restore"
-              label="从本地加载"
-              @click="loadFromLocalStorage"
-              size="sm"
-            />
-          </div>
-        </q-card-section>
 
         <!-- ========== 节点管理 ========== -->
         <q-separator class="q-my-md" />
@@ -1897,75 +2185,6 @@
             </q-card>
           </q-card-section>
         </q-expansion-item>
-
-        <!-- 知识图谱角度信息表格 -->
-        <q-separator class="q-my-md" />
-        <q-card-section>
-          <q-expansion-item
-            icon="table_chart"
-            label="知识图谱角度信息"
-            default-opened
-            class="q-mb-sm"
-          >
-            <q-card-section>
-              <q-table
-                :rows="angleTableRows"
-                :columns="angleTableColumns"
-                row-key="id"
-                flat
-                bordered
-                dense
-                :loading="angleTableLoading"
-                class="angle-info-table"
-              >
-                <template v-slot:body-cell-name="props">
-                  <q-td :props="props">
-                    <div class="text-weight-medium">{{ props.value }}</div>
-                  </q-td>
-                </template>
-                <template v-slot:body-cell-targetAngle="props">
-                  <q-td :props="props">
-                    <span class="text-primary">{{ props.value.toFixed(1) }}°</span>
-                  </q-td>
-                </template>
-                <template v-slot:body-cell-currentAngle="props">
-                  <q-td :props="props">
-                    <span class="text-secondary">{{ props.value.toFixed(1) }}°</span>
-                  </q-td>
-                </template>
-                <template v-slot:body-cell-angleDiff="props">
-                  <q-td :props="props">
-                    <span :class="getAngleDiffClass(props.value)">
-                      {{ formatAngleDiff(props.value) }}
-                    </span>
-                  </q-td>
-                </template>
-              </q-table>
-            </q-card-section>
-          </q-expansion-item>
-        </q-card-section>
-
-        <!-- 当前参数显示 -->
-        <q-separator class="q-my-md" />
-        <q-card-section>
-          <q-banner class="bg-info text-white" rounded>
-            <template v-slot:avatar>
-              <q-icon name="info" size="md" />
-            </template>
-            <div class="text-subtitle2">当前参数值</div>
-            <div class="text-caption">
-              radiusX: {{ localParams.radiusX }}px | 
-              radiusY: {{ localParams.radiusY }}px<br/>
-              基础灵敏度: {{ localParams.baseSensitivity.toFixed(1) }}x | 
-              快速灵敏度: {{ localParams.fastSensitivity.toFixed(1) }}x<br/>
-              拖拽阈值: {{ localParams.dragThreshold }}px | 
-              滑动阈值: {{ localParams.swipeThreshold.toFixed(1) }} px/ms<br/>
-              位置动画: {{ localParams.transformDuration.toFixed(1) }}s | 
-              透明度动画: {{ localParams.opacityDuration.toFixed(1) }}s<br/>
-              缓动函数: cubic-bezier({{ localParams.easingX1.toFixed(2) }}, {{ localParams.easingY1.toFixed(2) }}, {{ localParams.easingX2.toFixed(2) }}, {{ localParams.easingY2.toFixed(2) }})
-            </div>
-          </q-banner>
-        </q-card-section>
     </q-card>
   </div>
 
@@ -2114,9 +2333,6 @@ import { ref, computed, watch, onMounted, onUnmounted, inject } from 'vue'
 export interface KnowledgeGraphDebugParams {
   radiusX: number
   radiusY: number
-  baseSensitivity: number
-  fastSensitivity: number
-  swipeThreshold: number
   dragThreshold: number
   minBackgroundRadius: number
   radiusScaleSmall: number
@@ -2150,8 +2366,24 @@ export interface KnowledgeGraphDebugParams {
   // 尺寸参数
   graphSize: number // 图形尺寸（像素）
   graphMargin: number // 图形位置偏移（像素）
-  // 旋转计算参数
-  rotationCoefficient: number // 旋转计算系数，控制旋转角度与滑动距离的比例
+  // 中心节点尺寸参数
+  centerNodeSizeDefault: number // 中心节点初始大小（像素）
+  centerNodeSizeExpanded: number // 中心节点放大后大小（像素）
+  centerNodeSizeShrunk: number // 中心节点缩小大小（像素）
+  centerNodeScaleSpeed: number // 中心节点缩放速度（秒），控制缩放动画的持续时间
+  // 归一化参考高度比例
+  normalizedReferenceHeightRatio: number // 归一化参考高度比例，参考移动端短视频切换，使用视口高度的比例作为参考
+  // 节点动画参数
+  nodeEnterExitDuration: number // 节点进入/退出动画持续时间（秒）
+  nodeExpandDelayInterval: number // 圆周节点展开动画延迟间隔（秒/节点索引）
+  nodeCollapseDelayInterval: number // 圆周节点收起动画延迟间隔（秒/节点索引）
+  nodeContentTransitionDuration: number // 节点内容transition持续时间（秒）
+  nodeBaseTransitionDuration: number // 节点基础transition持续时间（秒）
+  learningTagTransitionDuration: number // 学习标签transition持续时间（秒）
+  bubbleButtonTransitionDuration: number // 气泡框按钮transition持续时间（秒）
+  nodeActiveTransitionDuration: number // 节点active状态transition持续时间（秒）
+  // 圆周节点位置参数
+  circularNodeRadiusFactor: number // 圆周节点半径因子，用于调整圆周节点相对背景圆的位置（1.0表示与背景圆一致）
 }
 
 // Props
@@ -2177,7 +2409,53 @@ interface ChapterNode {
 
 const props = withDefaults(defineProps<Props>(), {
   params: () => ({}),
-  defaultParams: () => ({})
+  defaultParams: () => ({
+    radiusX: 500,
+    radiusY: 320,
+    dragThreshold: 3,
+    minBackgroundRadius: 120,
+    radiusScaleSmall: 0.8,
+    radiusScaleMedium: 1.0,
+    radiusScaleLarge: 1.1,
+    transformDuration: 0.8,
+    opacityDuration: 0.8,
+    easingX1: 0.25,
+    easingY1: 0.46,
+    easingX2: 0.45,
+    easingY2: 0.94,
+    animationDelayFactor: 0.03,
+    backgroundTransitionDurationClockwise: 0.2,
+    backgroundTransitionDurationCounterclockwise: 0.6,
+    targetAngle: 150,
+    influenceRange: (2 * Math.PI) / 3,
+    maxPushAngle: (32 * Math.PI) / 180,
+    expandingRotationDuration: 500,
+    debounceDelay: 100,
+    opacityExpanded: 0.9,
+    opacityNearMin: 0.5,
+    opacityNearFactor: 0.1,
+    opacityFar: 0.4,
+    opacityDefault: 0.8,
+    scaleFactor: 0.1,
+    graphSize: 475,
+    graphMargin: 237,
+    centerNodeSizeDefault: 180,
+    centerNodeSizeExpanded: 240,
+    centerNodeSizeShrunk: 140,
+    centerNodeScaleSpeed: 0.6, // 中心节点缩放速度，默认 0.6 秒
+    normalizedReferenceHeightRatio: 0.8,
+    // 节点动画参数默认值
+    nodeEnterExitDuration: 0.6, // 节点进入/退出动画持续时间，默认 0.6 秒
+    nodeExpandDelayInterval: 0.1, // 圆周节点展开动画延迟间隔，默认 0.1 秒/节点索引
+    nodeCollapseDelayInterval: 0.05, // 圆周节点收起动画延迟间隔，默认 0.05 秒/节点索引
+    nodeContentTransitionDuration: 0.6, // 节点内容transition持续时间，默认 0.6 秒
+    nodeBaseTransitionDuration: 0.3, // 节点基础transition持续时间，默认 0.3 秒
+    learningTagTransitionDuration: 0.6, // 学习标签transition持续时间，默认 0.6 秒
+    bubbleButtonTransitionDuration: 0.2, // 气泡框按钮transition持续时间，默认 0.2 秒
+    nodeActiveTransitionDuration: 0.1, // 节点active状态transition持续时间，默认 0.1 秒
+    // 圆周节点位置参数默认值
+    circularNodeRadiusFactor: 1.0 // 圆周节点半径因子，默认 1.0 表示与背景圆一致
+  } as KnowledgeGraphDebugParams)
 })
 
 // Emits
@@ -2196,9 +2474,104 @@ const isVisible = computed({
   set: (val) => emit('update:modelValue', val)
 })
 
+// 初始化本地参数，使用展开运算符创建新对象避免引用共享
 const localParams = ref<KnowledgeGraphDebugParams>({
   ...defaultParams.value,
   ...props.params
+})
+
+// 控制参数显示区域的显示/隐藏
+const showParamsDisplay = ref(true)
+
+// 计算修改过的参数
+const modifiedParams = computed(() => {
+  const modified: Array<{ key: string; label: string; value: number | string | boolean; formatted: string }> = []
+  const def = defaultParams.value
+  const local = localParams.value
+  
+  // 参数标签映射
+  const paramLabels: Record<string, string> = {
+    radiusX: 'radiusX',
+    radiusY: 'radiusY',
+    dragThreshold: 'dragThreshold',
+    minBackgroundRadius: 'minBackgroundRadius',
+    radiusScaleSmall: 'radiusScaleSmall',
+    radiusScaleMedium: 'radiusScaleMedium',
+    radiusScaleLarge: 'radiusScaleLarge',
+    transformDuration: 'transformDuration',
+    opacityDuration: 'opacityDuration',
+    easingX1: 'easingX1',
+    easingY1: 'easingY1',
+    easingX2: 'easingX2',
+    easingY2: 'easingY2',
+    animationDelayFactor: 'animationDelayFactor',
+    backgroundTransitionDurationClockwise: 'backgroundTransitionDurationClockwise',
+    backgroundTransitionDurationCounterclockwise: 'backgroundTransitionDurationCounterclockwise',
+    expandingRotationDuration: 'expandingRotationDuration',
+    debounceDelay: 'debounceDelay',
+    opacityExpanded: 'opacityExpanded',
+    opacityNearMin: 'opacityNearMin',
+    opacityNearFactor: 'opacityNearFactor',
+    opacityFar: 'opacityFar',
+    opacityDefault: 'opacityDefault',
+    scaleFactor: 'scaleFactor',
+    graphSize: 'graphSize',
+    graphMargin: 'graphMargin',
+    centerNodeSizeDefault: 'centerNodeSizeDefault',
+    centerNodeSizeExpanded: 'centerNodeSizeExpanded',
+    centerNodeSizeShrunk: 'centerNodeSizeShrunk',
+    centerNodeScaleSpeed: 'centerNodeScaleSpeed',
+    normalizedReferenceHeightRatio: 'normalizedReferenceHeightRatio',
+    circularNodeRadiusFactor: 'circularNodeRadiusFactor'
+  }
+  
+  // 参数格式化函数
+  const formatParamValue = (key: string, value: number | string | boolean): string => {
+    if (typeof value === 'number') {
+      if (key.includes('Duration') || key === 'expandingRotationDuration' || key === 'debounceDelay') {
+        return `${value}${key.includes('Duration') ? 's' : 'ms'}`
+      } else if (key === 'transformDuration' || key === 'opacityDuration') {
+        return `${value.toFixed(1)}s`
+      } else if (key.startsWith('easing')) {
+        return value.toFixed(2)
+      } else if (key.includes('Size') || key.includes('graphSize') || key.includes('graphMargin') || 
+                 key === 'radiusX' || key === 'radiusY' || key === 'dragThreshold' || 
+                 key === 'minBackgroundRadius') {
+        return `${value}px`
+      }
+      return String(value)
+    }
+    return String(value)
+  }
+  
+  // 比较每个参数
+  Object.keys(local).forEach(key => {
+    const localVal = local[key as keyof typeof local]
+    const defVal = def[key as keyof typeof def]
+    
+    // 对于数字类型，使用精度比较
+    if (typeof localVal === 'number' && typeof defVal === 'number') {
+      // 浮点数比较使用小的误差范围
+      const epsilon = Math.abs(localVal) < 1 ? 0.001 : 0.01
+      if (Math.abs(localVal - defVal) > epsilon) {
+        modified.push({
+          key,
+          label: paramLabels[key] || key,
+          value: localVal,
+          formatted: formatParamValue(key, localVal)
+        })
+      }
+    } else if (localVal !== defVal) {
+      modified.push({
+        key,
+        label: paramLabels[key] || key,
+        value: localVal,
+        formatted: formatParamValue(key, localVal)
+      })
+    }
+  })
+  
+  return modified
 })
 
 // 节点管理相关数据
@@ -2229,12 +2602,12 @@ interface TreeNode extends ChapterNode {
 }
 
 // 递归转换节点为树形结构
-const convertNodeToTreeNode = (node: ChapterNode, nodeType: 'center' | 'circular' = 'circular'): TreeNode => {
+const convertNodeToTreeNode = (node: ChapterNode, nodeType: 'center' | 'circular' = 'circular', includeChildren: boolean = true): TreeNode => {
   const treeNode: TreeNode = {
     ...node,
     nodeType,
     label: node.label || node.name,
-    children: node.children && node.children.length > 0 
+    children: includeChildren && node.children && node.children.length > 0 
       ? node.children.map(child => convertNodeToTreeNode(child, 'circular'))
       : undefined
   }
@@ -2247,14 +2620,12 @@ const treeData = computed<TreeNode[]>(() => {
     return []
   }
   
-  const rootNode = convertNodeToTreeNode(centerNode.value, 'center')
+  // 转换根节点时不递归处理 children，避免与 circularNodes 重复
+  const rootNode = convertNodeToTreeNode(centerNode.value, 'center', false)
   
   // 如果有子节点，将它们添加到根节点的 children 中
   if (circularNodes.value.length > 0) {
-    rootNode.children = [
-      ...(rootNode.children || []),
-      ...circularNodes.value.map(node => convertNodeToTreeNode(node, 'circular'))
-    ]
+    rootNode.children = circularNodes.value.map(node => convertNodeToTreeNode(node, 'circular'))
   }
   
   return [rootNode]
@@ -2517,21 +2888,6 @@ const resetRadiusY = () => {
   updateParams()
 }
 
-const resetBaseSensitivity = () => {
-  localParams.value.baseSensitivity = defaultParams.value.baseSensitivity
-  updateParams()
-}
-
-const resetFastSensitivity = () => {
-  localParams.value.fastSensitivity = defaultParams.value.fastSensitivity
-  updateParams()
-}
-
-const resetSwipeThreshold = () => {
-  localParams.value.swipeThreshold = defaultParams.value.swipeThreshold
-  updateParams()
-}
-
 const resetDragThreshold = () => {
   localParams.value.dragThreshold = defaultParams.value.dragThreshold
   updateParams()
@@ -2656,8 +3012,73 @@ const resetGraphMargin = () => {
   updateParams()
 }
 
-const resetRotationCoefficient = () => {
-  localParams.value.rotationCoefficient = defaultParams.value.rotationCoefficient
+const resetCenterNodeSizeDefault = () => {
+  localParams.value.centerNodeSizeDefault = defaultParams.value.centerNodeSizeDefault
+  updateParams()
+}
+
+const resetCenterNodeSizeExpanded = () => {
+  localParams.value.centerNodeSizeExpanded = defaultParams.value.centerNodeSizeExpanded
+  updateParams()
+}
+
+const resetCenterNodeSizeShrunk = () => {
+  localParams.value.centerNodeSizeShrunk = defaultParams.value.centerNodeSizeShrunk
+  updateParams()
+}
+
+const resetCenterNodeScaleSpeed = () => {
+  localParams.value.centerNodeScaleSpeed = defaultParams.value.centerNodeScaleSpeed
+  updateParams()
+}
+
+const resetNodeEnterExitDuration = () => {
+  localParams.value.nodeEnterExitDuration = defaultParams.value.nodeEnterExitDuration
+  updateParams()
+}
+
+const resetNodeExpandDelayInterval = () => {
+  localParams.value.nodeExpandDelayInterval = defaultParams.value.nodeExpandDelayInterval
+  updateParams()
+}
+
+const resetNodeCollapseDelayInterval = () => {
+  localParams.value.nodeCollapseDelayInterval = defaultParams.value.nodeCollapseDelayInterval
+  updateParams()
+}
+
+const resetNodeContentTransitionDuration = () => {
+  localParams.value.nodeContentTransitionDuration = defaultParams.value.nodeContentTransitionDuration
+  updateParams()
+}
+
+const resetNodeBaseTransitionDuration = () => {
+  localParams.value.nodeBaseTransitionDuration = defaultParams.value.nodeBaseTransitionDuration
+  updateParams()
+}
+
+const resetLearningTagTransitionDuration = () => {
+  localParams.value.learningTagTransitionDuration = defaultParams.value.learningTagTransitionDuration
+  updateParams()
+}
+
+const resetBubbleButtonTransitionDuration = () => {
+  localParams.value.bubbleButtonTransitionDuration = defaultParams.value.bubbleButtonTransitionDuration
+  updateParams()
+}
+
+const resetNodeActiveTransitionDuration = () => {
+  localParams.value.nodeActiveTransitionDuration = defaultParams.value.nodeActiveTransitionDuration
+  updateParams()
+}
+
+const resetCircularNodeRadiusFactor = () => {
+  localParams.value.circularNodeRadiusFactor = defaultParams.value.circularNodeRadiusFactor
+  updateParams()
+}
+
+const resetNormalizedReferenceHeightRatio = () => {
+  localParams.value.normalizedReferenceHeightRatio = defaultParams.value.normalizedReferenceHeightRatio
   updateParams()
 }
 
@@ -2823,7 +3244,9 @@ watch(
 
 // 设置定时器实时更新角度
 onMounted(() => {
-  loadFromLocalStorage()
+  // 不再自动加载本地存储的参数，初始加载时使用默认值
+  // 如果需要加载保存的参数，用户可以点击"从本地加载"按钮
+  // loadFromLocalStorage()
   updateAngleTable()
   
   // 每100ms更新一次角度（实时更新）
@@ -2963,6 +3386,87 @@ onUnmounted(() => {
   
   .q-card-section {
     padding: 16px;
+  }
+}
+
+// Header样式 - 固定在顶部
+.debug-panel-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: white;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 8px 12px !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+// Header顶部标题区域
+.header-top {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  
+  .header-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+}
+
+// 参数显示区域 - 缩小尺寸
+.params-display {
+  margin-bottom: 6px;
+  
+  .params-content {
+    padding: 0;
+    
+    .params-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4px 8px;
+      font-size: 0.7rem;
+      
+      .param-item {
+        display: flex;
+        align-items: center;
+        line-height: 1.3;
+        
+        .param-label {
+          color: rgba(0, 0, 0, 0.7);
+          margin-right: 4px;
+          font-weight: 500;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          flex-shrink: 0;
+        }
+        
+        .param-value {
+          color: #1976d2;
+          font-weight: 600;
+          white-space: nowrap;
+          flex: 1;
+          text-align: right;
+        }
+      }
+    }
+  }
+}
+
+// Header功能按钮区域
+.header-actions {
+  margin-top: 6px;
+  
+  .q-btn {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    min-height: 24px;
+    
+    :deep(.q-btn__content) {
+      .q-icon {
+        font-size: 0.875rem;
+      }
+    }
   }
 }
 </style>
