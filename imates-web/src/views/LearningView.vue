@@ -170,6 +170,48 @@ const loadingPackages = ref(false)
 const schemeListWrapper = ref<HTMLElement | null>(null)
 const resourcesListWrapper = ref<HTMLElement | null>(null)
 
+// 学习方案数据 - 从API获取
+const learningPackages = ref<LearningPackage[]>([])
+// 本地文件信息 - 用于获取缩略图
+const localFiles = ref<LocalFileInfo[]>([])
+
+// 计算属性
+// 根据章节ID筛选学习方案（与安卓原生保持一致）
+const filteredLearningPackages = computed(() => {
+  if (!sectionId.value) {
+    return learningPackages.value
+  }
+  
+  return learningPackages.value.filter(pkg => {
+    const hasSectionId = pkg.sectionId && pkg.sectionId.trim() !== ''
+    return hasSectionId && 
+      pkg.sectionId.toLowerCase() === sectionId.value.toLowerCase()
+  })
+})
+
+const currentScheme = computed(() => {
+  if (selectedSchemeIndex.value >= 0 && selectedSchemeIndex.value < filteredLearningPackages.value.length) {
+    return filteredLearningPackages.value[selectedSchemeIndex.value]
+  }
+  return null
+})
+
+// 获取当前方案的所有资源文件（带缩略图信息）
+const currentResources = computed(() => {
+  if (!currentScheme.value) return []
+  
+  const resources = currentScheme.value.resourceList || []
+  
+  // 为每个资源添加缩略图信息
+  return resources.map(resource => {
+    const localFile = localFiles.value.find(file => file.id === resource.id)
+    return {
+      ...resource,
+      thumbnail: localFile?.thumbnail
+    }
+  })
+})
+
 // 使用 Better Scroll 组合式函数 - 学习方案列表
 const {
   init: initSchemeListBScroll,
@@ -221,48 +263,6 @@ const {
     () => currentResources.value.length
   ]
 )
-
-// 学习方案数据 - 从API获取
-const learningPackages = ref<LearningPackage[]>([])
-// 本地文件信息 - 用于获取缩略图
-const localFiles = ref<LocalFileInfo[]>([])
-
-// 计算属性
-// 根据章节ID筛选学习方案（与安卓原生保持一致）
-const filteredLearningPackages = computed(() => {
-  if (!sectionId.value) {
-    return learningPackages.value
-  }
-  
-  return learningPackages.value.filter(pkg => {
-    const hasSectionId = pkg.sectionId && pkg.sectionId.trim() !== ''
-    return hasSectionId && 
-      pkg.sectionId.toLowerCase() === sectionId.value.toLowerCase()
-  })
-})
-
-const currentScheme = computed(() => {
-  if (selectedSchemeIndex.value >= 0 && selectedSchemeIndex.value < filteredLearningPackages.value.length) {
-    return filteredLearningPackages.value[selectedSchemeIndex.value]
-  }
-  return null
-})
-
-// 获取当前方案的所有资源文件（带缩略图信息）
-const currentResources = computed(() => {
-  if (!currentScheme.value) return []
-  
-  const resources = currentScheme.value.resourceList || []
-  
-  // 为每个资源添加缩略图信息
-  return resources.map(resource => {
-    const localFile = localFiles.value.find(file => file.id === resource.id)
-    return {
-      ...resource,
-      thumbnail: localFile?.thumbnail
-    }
-  })
-})
 
 // 方法
 const selectScheme = (index: number) => {
@@ -347,12 +347,12 @@ const startLearning = async (resource: ResourceFile) => {
     // 根据文件类型确定要跳转的路由
     const routeName = getViewerRouteName(resource.fileName)
     
-    // 关闭对话框，让父组件处理后续的路由跳转
+    // 关闭对话框
     emit('close')
     
-    // 延迟执行路由跳转，确保对话框关闭动画完成
-    setTimeout(() => {
-      router.push({
+    // 执行路由跳转
+    try {
+      await router.push({
         name: routeName,
         query: {
           id: id.value,
@@ -363,11 +363,47 @@ const startLearning = async (resource: ResourceFile) => {
           packageName: selectedScheme.packageName
         }
       })
-    }, 300)
+      
+      // 路由跳转成功后，标记节点为已学习
+      // 只有当节点ID存在且不为空时才标记
+      if (sectionId.value && sectionId.value.trim() !== '') {
+        markNodeAsLearned(sectionId.value)
+      }
+    } catch (routeError) {
+      console.error('路由跳转失败:', routeError)
+    }
   } catch (error) {
     console.error('开始学习失败:', error)
   } finally {
     isLoading.value = false
+  }
+}
+
+// 标记节点为已学习
+const markNodeAsLearned = (nodeId: string) => {
+  try {
+    const LEARNED_NODES_KEY = 'LEARNED_NODES'
+    // 从localStorage加载已学习的节点ID列表
+    const saved = localStorage.getItem(LEARNED_NODES_KEY)
+    let learnedNodeIds: Set<string>
+    
+    if (saved) {
+      const ids = JSON.parse(saved) as string[]
+      learnedNodeIds = new Set(ids)
+    } else {
+      learnedNodeIds = new Set()
+    }
+    
+    // 添加当前节点到已学习列表
+    learnedNodeIds.add(nodeId)
+    
+    // 保存回localStorage
+    const ids = Array.from(learnedNodeIds)
+    localStorage.setItem(LEARNED_NODES_KEY, JSON.stringify(ids))
+    
+    console.log('节点已标记为已学习:', nodeId)
+  } catch (error) {
+    console.error('标记节点为已学习失败:', error)
   }
 }
 

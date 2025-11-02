@@ -1,5 +1,5 @@
 <template>
-  <div class="knowledge-graph-container" ref="containerRef" >
+  <div class="knowledge-graph-container" ref="containerRef" @click="handleContainerClick">
     <div class="knowledge-graph" ref="graphRef">
       <!-- 背景圆形区域表示包含关系 -->
       <div 
@@ -40,7 +40,7 @@
          :show="isExpanded || hasExpandedGraph"
          :animation-state="animationState"
          :is-menu-visible="activeNodeId === child.id"
-         :learning-status="getLearningStatus(child, index)"
+         :learning-status="getLearningStatus(child)"
          @toggle-menu="handleToggleMenu"
          @learn="handleLearn"
          @practice="handlePractice"
@@ -50,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed, inject } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed, inject, defineExpose } from 'vue'
 import { useRouter } from 'vue-router'
 import GraphNode from './GraphNode.vue'
 import { ResourceManager } from '../../services/resource-storage'
@@ -124,6 +124,10 @@ const activeNodeId = ref<string | null>(null)
 const LAST_LEARNED_NODE_KEY = 'LAST_LEARNED_NODE_ID'
 const lastLearnedNodeId = ref<string | null>(null)
 
+// 已学习的节点ID列表（用于标记已学习节点）
+const LEARNED_NODES_KEY = 'LEARNED_NODES'
+const learnedNodeIds = ref<Set<string>>(new Set())
+
 // 从localStorage加载最后学习的节点ID
 const loadLastLearnedNodeId = () => {
   try {
@@ -146,9 +150,59 @@ const saveLastLearnedNodeId = (nodeId: string) => {
   }
 }
 
+// 从localStorage加载已学习的节点ID列表
+const loadLearnedNodeIds = () => {
+  try {
+    const saved = localStorage.getItem(LEARNED_NODES_KEY)
+    if (saved) {
+      const ids = JSON.parse(saved) as string[]
+      learnedNodeIds.value = new Set(ids)
+    }
+  } catch (error) {
+    console.error('加载已学习的节点ID列表失败:', error)
+    learnedNodeIds.value = new Set()
+  }
+}
+
 // 初始化时加载
 onMounted(() => {
   loadLastLearnedNodeId()
+  loadLearnedNodeIds()
+  
+  // 监听localStorage变化，当学习状态改变时自动刷新
+  // 使用storage事件监听其他标签页的变化，但同一个标签页的localStorage.setItem不会触发storage事件
+  // 所以我们需要使用一个自定义的机制，或者定期检查
+  // 这里使用一个简单的方式：监听window的storage事件（虽然同标签页不会触发，但可以用于跨标签页同步）
+  window.addEventListener('storage', handleStorageChange)
+  
+  // 对于同标签页的localStorage变化，我们使用一个轮询检查机制
+  // 或者可以通过provide/inject传递一个刷新函数
+  // 这里先使用storage事件，同标签页的变化由父组件触发刷新
+})
+
+// 清理事件监听器
+onUnmounted(() => {
+  window.removeEventListener('storage', handleStorageChange)
+})
+
+// 处理localStorage变化
+const handleStorageChange = (event: StorageEvent) => {
+  if (event.key === LAST_LEARNED_NODE_KEY) {
+    loadLastLearnedNodeId()
+  } else if (event.key === LEARNED_NODES_KEY) {
+    loadLearnedNodeIds()
+  }
+}
+
+// 暴露刷新方法供外部调用（如果需要）
+const refreshLearningStatus = () => {
+  loadLastLearnedNodeId()
+  loadLearnedNodeIds()
+}
+
+// 暴露方法给父组件
+defineExpose({
+  refreshLearningStatus
 })
 
 // 监听展开状态变化，管理动画状态
@@ -159,6 +213,8 @@ watch([() => props.isExpanded, () => props.hasExpandedGraph], ([newIsExpanded, n
   // 如果当前图谱被展开
   if (newIsExpanded && !oldIsExpanded) {
     animationState.value = 'expanding'
+    // 切换知识图谱时，隐藏所有气泡框（包括中心节点和圆周节点）
+    activeNodeId.value = null
     setTimeout(() => {
       animationState.value = 'expanded'
     }, animationDuration) // 使用动态动画时间
@@ -166,10 +222,8 @@ watch([() => props.isExpanded, () => props.hasExpandedGraph], ([newIsExpanded, n
   // 如果当前图谱被收起
   else if (!newIsExpanded && oldIsExpanded) {
     animationState.value = 'collapsing'
-    // 隐藏中心节点的气泡框
-    if (activeNodeId.value === props.chapterDetails.id) {
-      activeNodeId.value = null
-    }
+    // 隐藏所有气泡框（包括中心节点和圆周节点）
+    activeNodeId.value = null
     setTimeout(() => {
       animationState.value = 'idle'
     }, animationDuration) // 使用动态动画时间
@@ -177,10 +231,17 @@ watch([() => props.isExpanded, () => props.hasExpandedGraph], ([newIsExpanded, n
   // 如果其他图谱被展开，当前图谱需要淡出
   else if (newHasExpandedGraph && !newIsExpanded && !oldHasExpandedGraph) {
     animationState.value = 'collapsing'
-    // 隐藏中心节点的气泡框
-    if (activeNodeId.value === props.chapterDetails.id) {
-      activeNodeId.value = null
-    }
+    // 隐藏所有气泡框（包括中心节点和圆周节点）
+    activeNodeId.value = null
+    setTimeout(() => {
+      animationState.value = 'idle'
+    }, animationDuration) // 使用动态动画时间
+  }
+  // 如果其他图谱被展开，且当前图谱原本也是展开的（从展开状态切换到另一个图谱）
+  else if (newHasExpandedGraph && oldIsExpanded && !newIsExpanded) {
+    animationState.value = 'collapsing'
+    // 隐藏所有气泡框（包括中心节点和圆周节点）
+    activeNodeId.value = null
     setTimeout(() => {
       animationState.value = 'idle'
     }, animationDuration) // 使用动态动画时间
@@ -188,6 +249,8 @@ watch([() => props.isExpanded, () => props.hasExpandedGraph], ([newIsExpanded, n
   // 如果其他图谱被收起，当前图谱需要淡入
   else if (!newHasExpandedGraph && oldHasExpandedGraph && !newIsExpanded) {
     animationState.value = 'expanding'
+    // 隐藏所有气泡框（包括中心节点和圆周节点）
+    activeNodeId.value = null
     setTimeout(() => {
       animationState.value = 'expanded'
     }, animationDuration) // 使用动态动画时间
@@ -195,6 +258,8 @@ watch([() => props.isExpanded, () => props.hasExpandedGraph], ([newIsExpanded, n
   // 初始状态：如果都没有展开，设置为idle
   else if (!newIsExpanded && !newHasExpandedGraph && animationState.value === 'idle') {
     // 保持idle状态，不需要动画
+    // 确保隐藏所有气泡框
+    activeNodeId.value = null
   }
 }, { immediate: true }) // 改为true，确保初始加载时也能正确处理状态
 
@@ -284,14 +349,19 @@ const getCircularNodes = (chapterDetails: ChapterDetails) => {
 }
 
 // 获取节点的学习状态
-const getLearningStatus = (child: { id: string; name: string; label: string; level?: number | null }, index: number): 'notLearned' | 'learned' | 'lastLearned' => {
+const getLearningStatus = (child: { id: string; name: string; label: string; level?: number | null }): 'notLearned' | 'learned' | 'lastLearned' => {
+  // 优先级：'lastLearned' > 'learned' > 'notLearned'
   // 如果当前节点是最后点击去学习的圆周节点，显示学习标签
   if (lastLearnedNodeId.value === child.id) {
     return 'lastLearned'
   }
   
+  // 如果节点在已学习列表中，返回已学习状态
+  if (learnedNodeIds.value.has(child.id)) {
+    return 'learned'
+  }
+  
   // 其他节点默认为未学习
-  // 注意：这里可以根据实际的学习进度数据来确定状态
   return 'notLearned'
 }
 
@@ -312,16 +382,21 @@ const animateCollapse = () => {
 
 // 处理中心节点点击
 const handleCenterNodeClick = (event: Event) => {
-  console.log('handleCenterNodeClick', props.chapterDetails.id)
   event.stopPropagation() // 阻止事件冒泡到背景
   
   // 不需要手动调用handleToggleMenu，因为GraphNode组件已经通过@toggle-menu事件处理了
   // 这里只需要处理展开逻辑
   
-  console.log('props.chapterDetails.children?.length', props.chapterDetails.children?.length)
   // 无论是否有圆周节点，都执行展开逻辑，让知识图谱旋转到160度位置
   // 发出展开事件，让父组件控制展开状态和旋转动画
   emit('expand', props.chapterDetails.id)
+}
+
+// 处理容器点击（点击非节点区域时隐藏气泡）
+const handleContainerClick = (event: Event) => {
+  // 节点点击时会调用 stopPropagation()，所以如果点击事件到达容器，
+  // 说明点击的是空白区域（非节点区域），此时隐藏所有气泡
+  activeNodeId.value = null
 }
 
 // 处理气泡框切换
@@ -347,11 +422,6 @@ const handleLearn = async (node: { id: string; name: string; level?: number | nu
   const circularNodes = getCircularNodes(props.chapterDetails)
   const isCircularNode = circularNodes.some(child => child.id === node.id)
   
-  // 如果是圆周节点，保存为最后学习的节点（用于显示学习标签）
-  if (isCircularNode) {
-    saveLastLearnedNodeId(node.id)
-  }
-  
   try {
     // 检查学习方案数据
     if (!props.textbookRecordId) {
@@ -374,6 +444,13 @@ const handleLearn = async (node: { id: string; name: string; level?: number | nu
       return
     }
     
+    // 只有当是圆周节点且有资源时，才保存为最后学习的节点（用于显示学习标签）
+    // 注意：这里只保存为"最后学习"，不标记为"已学习"
+    // "已学习"状态将在用户点击资源中的"去学习"成功后标记
+    if (isCircularNode) {
+      saveLastLearnedNodeId(node.id)
+    }
+    
     // 发出保存状态事件，让父组件保存当前页面状态
     emit('save-state')
     console.log('props.textbookRecordId', props.textbookRecordId)
@@ -383,6 +460,7 @@ const handleLearn = async (node: { id: string; name: string; level?: number | nu
   } catch (error) {
     console.error('检查学习方案失败:', error)
     // 如果检查失败，仍然允许打开对话框，让学习页面处理空数据情况
+    // 注意：检查失败时不保存学习标签，因为无法确认是否有资源
     emit('save-state')
     emit('learn', node)
   }
@@ -429,11 +507,30 @@ const checkLocalLearningPackages = async (textbookRecordId: string): Promise<{ha
       return { hasPackages: false, reason: 'not_downloaded' }
     }
     
-    // 检查是否有本地文件（判断是否已下载）
+    // 检查是否有本地文件元数据（判断是否已下载）
     const hasLocalFiles = Boolean(textbook.localFiles && textbook.localFiles.length > 0)
     
     if (!hasLocalFiles) {
-      // 没有本地文件，说明没有下载
+      // 没有本地文件元数据，说明没有下载
+      return { hasPackages: false, reason: 'not_downloaded' }
+    }
+    
+    // 检查textbook_files表中是否有实际的文件数据（分离存储架构）
+    // 采样检查：检查前3个文件是否在textbook_files表中存在实际数据
+    // 这样可以避免检查所有文件，提升性能
+    const sampleFiles = textbook.localFiles.slice(0, Math.min(3, textbook.localFiles.length))
+    let hasActualFileData = false
+    for (const file of sampleFiles) {
+      const fileExists = await resourceManager.hasFileData(textbook.id, file.id)
+      if (fileExists) {
+        hasActualFileData = true
+        break // 找到一个文件存在即可
+      }
+    }
+    
+    if (!hasActualFileData && textbook.localFiles.length > 0) {
+      // 有元数据但没有实际文件数据，可能是下载中断或数据损坏
+      // 这种情况也视为未下载
       return { hasPackages: false, reason: 'not_downloaded' }
     }
     

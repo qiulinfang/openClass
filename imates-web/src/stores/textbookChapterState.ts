@@ -120,7 +120,6 @@ export class TextbookChapterStateManager {
     }
     
     state.rotationAngle = angle
-    console.log(`设置章节 ${chapterIndex} 旋转角度: ${angle.toFixed(2)}度 (当前章节: ${this.currentChapterIndex.value})`)
     // 更新状态到Map中
     states.set(chapterIndex, state)
   }
@@ -144,6 +143,23 @@ export class TextbookChapterStateManager {
     if (!state) {
       state = { expandedGraphId: null, rotationAngle: 0 }
       states.set(this.currentChapterIndex.value, state)
+    }
+    
+    // 记录收缩日志（从非null变为null时）
+    const previousGraphId = state.expandedGraphId
+    if (previousGraphId !== null && graphId === null) {
+      // 获取调用栈，确定调用来源（只取前3层，避免太长）
+      const stack = new Error().stack
+      const caller = stack?.split('\n')[2]?.trim() || 'unknown'
+      
+      console.log('📦 [收缩触发] setCurrentChapterExpandedGraph - Store层收缩图谱', {
+        previousGraphId,
+        newGraphId: null,
+        chapterIndex: this.currentChapterIndex.value,
+        textbookId: this.currentTextbookId.value,
+        caller,
+        timestamp: new Date().toISOString()
+      })
     }
     
     state.expandedGraphId = graphId

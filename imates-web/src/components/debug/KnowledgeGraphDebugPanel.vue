@@ -1098,6 +1098,45 @@
                 </div>
               </q-card-section>
             </q-card>
+
+            <!-- 圆周节点字体大小 -->
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+                <div class="row items-center q-mb-sm">
+                  <q-icon name="text_fields" class="q-mr-sm" />
+                  <div class="col">
+                    <div class="row items-center justify-between">
+                      <div class="text-subtitle2">圆周节点字体大小</div>
+                      <span class="text-body2 text-indigo q-ml-md"
+                        >当前: {{ localParams.circularNodeFontSize.toFixed(2) }}rem</span
+                      >
+                    </div>
+                    <div class="text-caption text-grey-7 q-mt-xs">
+                      用于调整圆周节点标题的字体大小（rem单位）<br />
+                      <strong>放大效果：</strong
+                      >字体更大，文本更清晰易读<br />
+                      <strong>缩小效果：</strong>字体更小，节省空间，适合显示更多内容
+                    </div>
+                  </div>
+                </div>
+                <q-slider
+                  v-model="localParams.circularNodeFontSize"
+                  :min="0.5"
+                  :max="2.0"
+                  :step="0.05"
+                  label
+                  :label-value="`${localParams.circularNodeFontSize.toFixed(2)}rem`"
+                  color="indigo"
+                  @update:model-value="updateParams"
+                />
+                <div class="row justify-between q-mt-xs">
+                  <q-btn flat dense size="sm" label="重置" @click="resetCircularNodeFontSize" />
+                  <span class="text-caption text-grey-6"
+                    >默认: {{ defaultParams.circularNodeFontSize.toFixed(2) }}rem</span
+                  >
+                </div>
+              </q-card-section>
+            </q-card>
           </q-card-section>
         </q-expansion-item>
 
@@ -2271,7 +2310,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 
 // 定义参数接口
 /**
@@ -2329,6 +2368,7 @@ export interface KnowledgeGraphDebugParams {
   circularNodeRadiusFactor: number // 圆周节点半径因子，用于调整圆周节点相对背景圆的位置（1.0表示与背景圆一致）
   circularNodeOffsetX: number // 圆周节点X方向偏移量（像素），用于调整节点相对中心的X偏移
   circularNodeOffsetY: number // 圆周节点Y方向偏移量（像素），用于调整节点相对中心的Y偏移
+  circularNodeFontSize: number // 圆周节点字体大小（rem），用于调整圆周节点标题的字体大小
 
   // ========== 一级分类：动画 ==========
   // 二级分类：基础动画
@@ -2427,9 +2467,9 @@ const props = withDefaults(defineProps<Props>(), {
       nodeEnterExitDuration: 0.6, // 节点进入/退出动画持续时间，默认 0.6 秒
       nodeExpandDelayInterval: 0.01, // 圆周节点展开动画延迟间隔，默认 0.01 秒/节点索引
       nodeCollapseDelayInterval: 0.01, // 圆周节点收起动画延迟间隔，默认 0.01 秒/节点索引
-      nodeContentTransitionDuration: 0.6, // 节点内容transition持续时间，默认 0.6 秒
+      nodeContentTransitionDuration: 0.3, // 节点内容transition持续时间，默认 0.6 秒
       nodeBaseTransitionDuration: 0.3, // 节点基础transition持续时间，默认 0.3 秒
-      learningTagTransitionDuration: 0.6, // 学习标签transition持续时间，默认 0.6 秒
+      learningTagTransitionDuration: 0.3, // 学习标签transition持续时间，默认 0.6 秒
       learningTagTop: 0, // 学习标签top位置，默认 0px
       learningTagLeft: 50, // 学习标签left位置，默认 50px
       learningTagTranslateX: 0, // 学习标签translateX偏移，默认 0%
@@ -2439,6 +2479,7 @@ const props = withDefaults(defineProps<Props>(), {
       circularNodeRadiusFactor: 1.0, // 圆周节点半径因子，默认 1.0 表示与背景圆一致
       circularNodeOffsetX: 21, // 圆周节点X方向偏移量，默认 21 像素
       circularNodeOffsetY: 25, // 圆周节点Y方向偏移量，默认 25 像素
+      circularNodeFontSize: 1.2, // 圆周节点字体大小，默认 1.2rem
     }) as KnowledgeGraphDebugParams,
 })
 
@@ -2676,6 +2717,7 @@ const modifiedParams = computed(() => {
     circularNodeRadiusFactor: 'circularNodeRadiusFactor',
     circularNodeOffsetX: 'circularNodeOffsetX',
     circularNodeOffsetY: 'circularNodeOffsetY',
+    circularNodeFontSize: 'circularNodeFontSize',
   }
 
   // 参数格式化函数
@@ -2707,6 +2749,8 @@ const modifiedParams = computed(() => {
         return `${value}°`
       } else if (key === 'influenceRange' || key === 'maxPushAngle') {
         return `${((value * 180) / Math.PI).toFixed(1)}°`
+      } else if (key === 'circularNodeFontSize') {
+        return `${value.toFixed(2)}rem`
       }
       return String(value)
     }
@@ -3288,6 +3332,11 @@ const resetCircularNodeOffsetY = () => {
   updateParams()
 }
 
+const resetCircularNodeFontSize = () => {
+  localParams.value.circularNodeFontSize = defaultParams.value.circularNodeFontSize
+  updateParams()
+}
+
 const resetNormalizedReferenceHeightRatio = () => {
   localParams.value.normalizedReferenceHeightRatio =
     defaultParams.value.normalizedReferenceHeightRatio
@@ -3309,22 +3358,67 @@ const saveToLocalStorage = () => {
   }
 }
 
-// 从本地存储加载
-const loadFromLocalStorage = () => {
+// 从本地存储加载（内部函数，支持静默模式）
+const loadFromLocalStorageInternal = (silent = false) => {
   try {
     const saved = localStorage.getItem('knowledgeGraphDebugParams')
     if (saved) {
       const parsed = JSON.parse(saved)
-      localParams.value = { ...defaultParams.value, ...parsed }
+      // 合并顺序：默认值 -> localStorage保存的值 -> props传入的值（props优先级最高）
+      localParams.value = { ...defaultParams.value, ...parsed, ...props.params }
       updateParams()
-      console.log('✅ 参数已从本地存储加载')
+      if (!silent) {
+        console.log('✅ 参数已从本地存储加载')
+      }
     } else {
-      console.log('ℹ️ 本地存储中没有保存的参数')
+      if (!silent) {
+        console.log('ℹ️ 本地存储中没有保存的参数')
+      }
     }
   } catch (error) {
     console.error('❌ 加载参数失败:', error)
   }
 }
+
+// 从本地存储加载（用于按钮点击）
+const loadFromLocalStorage = () => {
+  loadFromLocalStorageInternal(false)
+}
+
+// 自动保存防抖定时器
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+
+// 自动保存到本地存储（带防抖，500ms）
+const autoSaveToLocalStorage = () => {
+  // 清除之前的定时器
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+  }
+  
+  // 设置新的定时器
+  autoSaveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem('knowledgeGraphDebugParams', JSON.stringify(localParams.value))
+      // 不输出日志，避免控制台过于频繁
+    } catch (error) {
+      console.error('❌ 自动保存参数失败:', error)
+    }
+  }, 500) // 500ms 防抖延迟
+}
+
+// 监听 localParams 变化，自动保存
+watch(
+  localParams,
+  () => {
+    autoSaveToLocalStorage()
+  },
+  { deep: true } // 深度监听，确保所有嵌套属性的变化都能被捕获
+)
+
+// 组件挂载时自动从本地存储加载参数（静默模式，避免不必要的日志）
+onMounted(() => {
+  loadFromLocalStorageInternal(true)
+})
 </script>
 
 <style lang="scss" scoped>

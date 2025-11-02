@@ -1,5 +1,5 @@
 <template>
-  <div class="node-wrapper" :style="nodeStyle">
+  <div class="node-wrapper" :class="wrapperClasses" :style="wrapperStyle">
     <!-- 学习标签 -->
     <div 
       v-if="learningStatus === 'lastLearned'" 
@@ -13,12 +13,7 @@
       :class="nodeClasses"
       :style="{
         ...(type === 'circular' ? nodeStyle : centerNodeStyle),
-        '--node-animation-duration': `${nodeAnimationDuration}s`,
-        '--node-base-transition-duration': `${debugParams?.value?.nodeBaseTransitionDuration ?? 0.3}s`,
-        '--node-content-transition-duration': `${debugParams?.value?.nodeContentTransitionDuration ?? 0.6}s`,
-        '--node-active-transition-duration': `${debugParams?.value?.nodeActiveTransitionDuration ?? 0.1}s`,
-        '--learning-tag-transition-duration': `${debugParams?.value?.learningTagTransitionDuration ?? 0.6}s`,
-        '--bubble-button-transition-duration': `${debugParams?.value?.bubbleButtonTransitionDuration ?? 0.2}s`
+        ...nodeStyleVariables
       }"
       @mouseenter="handleMouseEnter"
       @mouseleave="handleMouseLeave"
@@ -49,6 +44,7 @@
       :class="{ 'manual-bubble-menu--top': menuPosition === 'top' }"
       :style="bubbleMenuStyle"
       :ref="(el) => { menuRef = el as HTMLElement }"
+      @click.stop
     >
       <div class="bubble-menu-container">
         <button 
@@ -69,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, defineProps, defineEmits, inject, nextTick, watch, onUnmounted } from 'vue'
+import { computed, ref, defineProps, defineEmits, inject, nextTick, watch, onUnmounted, type Ref } from 'vue'
 import type { KnowledgeGraphDebugParams } from '../debug/KnowledgeGraphDebugPanel.vue'
 
 // 流程：导入图标资源
@@ -124,7 +120,7 @@ const nodeRef = ref<HTMLElement>()
 const menuRef = ref<HTMLElement>()
 
 // 第1步：获取调试参数
-const debugParams = inject<{ value: KnowledgeGraphDebugParams } | undefined>('knowledgeGraphDebugParams', undefined)
+const debugParams = inject<Ref<KnowledgeGraphDebugParams> | undefined>('knowledgeGraphDebugParams', undefined)
 
 // 第2步：气泡框菜单定位方向（'top' 在上方，'bottom' 在下方）
 const menuPosition = ref<'top' | 'bottom'>('bottom')
@@ -209,9 +205,17 @@ const formatNodeChapter = (node: Node) => {
   return ''
 }
 
-// 计算节点动画持续时间
-const nodeAnimationDuration = computed(() => {
-  return debugParams?.value?.nodeEnterExitDuration ?? 0.6
+// 计算所有 CSS 变量值
+const nodeStyleVariables = computed(() => {
+  const params = debugParams?.value
+  return {
+    '--node-animation-duration': `${params?.nodeEnterExitDuration ?? 0.6}s`,
+    '--node-base-transition-duration': `${params?.nodeBaseTransitionDuration ?? 0.3}s`,
+    '--node-content-transition-duration': `${params?.nodeContentTransitionDuration ?? 0.3}s`,
+    '--node-active-transition-duration': `${params?.nodeActiveTransitionDuration ?? 0.1}s`,
+    '--learning-tag-transition-duration': `${params?.learningTagTransitionDuration ?? 0.3}s`,
+    '--bubble-button-transition-duration': `${params?.bubbleButtonTransitionDuration ?? 0.2}s`
+  }
 })
 
 const nodeClasses = computed(() => {
@@ -355,6 +359,20 @@ const nodeStyle = computed(() => {
   return style
 })
 
+// wrapper 的类名
+const wrapperClasses = computed(() => {
+  return {
+    'node-wrapper--center': props.type === 'center',
+    'node-wrapper--circular': props.type === 'circular',
+    'node-wrapper--menu-open': props.isMenuVisible
+  }
+})
+
+// wrapper 的样式
+const wrapperStyle = computed(() => {
+  return nodeStyle.value
+})
+
 // 第3步：动态计算气泡框菜单位置
 const calculateMenuPosition = async () => {
   if (!props.isMenuVisible || !nodeRef.value) {
@@ -363,16 +381,27 @@ const calculateMenuPosition = async () => {
   
   await nextTick()
   
-  // 获取节点在视口中的位置
+  // 第1步：获取节点在视口中的位置
   const nodeRect = nodeRef.value.getBoundingClientRect()
-  const viewportHeight = window.innerHeight
+  
+  // 第2步：查找 viewport-clipper 容器元素
+  const viewportClipper = nodeRef.value.closest('.viewport-clipper') as HTMLElement | null
   
   // 预估气泡框菜单高度（包括按钮和间距）
   const estimatedMenuHeight = 120 // 两个按钮 + 间距 + padding
   
-  // 计算节点下方和上方的可用空间
-  let spaceBelow = viewportHeight - nodeRect.bottom
-  const spaceAbove = nodeRect.top
+  // 第4步：计算节点下方和上方的可用空间
+  // 使用 viewport-clipper 容器的底部位置来计算下方空间
+  const containerBottom = viewportClipper 
+    ? viewportClipper.getBoundingClientRect().bottom 
+    : window.innerHeight
+  let spaceBelow = containerBottom - nodeRect.bottom
+  
+  // 使用 viewport-clipper 容器的顶部位置来计算上方空间
+  const containerTop = viewportClipper 
+    ? viewportClipper.getBoundingClientRect().top 
+    : 0
+  const spaceAbove = nodeRect.top - containerTop
   
   // 对于圆周节点，需要考虑内容区域的高度（内容在节点下方）
   if (props.type === 'circular') {
@@ -422,15 +451,11 @@ const bubbleMenuStyle = computed(() => {
     return {}
   }
   
-  // 第1步：根据节点类型设置不同的 z-index
-  // 中心节点的气泡框层级要高于圆周节点的气泡框
-  const zIndexValue: number = props.type === 'center' ? 30 : 20
-  
   const baseStyle = {
     position: 'absolute' as const,
     left: '50%',
     transform: 'translateX(-50%)',
-    zIndex: zIndexValue
+    zIndex: 20 as const
   }
   
   if (props.type === 'center') {
@@ -557,10 +582,24 @@ const learningTagStyle = computed(() => {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  z-index: 2;
   /* 确保容器有最小尺寸，避免因为负边距和 transform scale(0) 导致尺寸为 0 */
   min-width: 100px;
   min-height: 100px;
+}
+
+/* 中心节点的 node-wrapper 使用更高的 z-index，确保气泡框不被圆周节点覆盖 */
+.node-wrapper--center {
+  z-index: 15;
+}
+
+/* 圆周节点的 node-wrapper 使用较低的 z-index */
+.node-wrapper--circular {
+  z-index: 2;
+}
+
+/* 当节点的气泡框打开时，无论中心节点还是圆周节点，都提升到最上层 */
+.node-wrapper--menu-open {
+  z-index: 30 !important;
 }
 
 .graph-node {
@@ -793,7 +832,7 @@ const learningTagStyle = computed(() => {
 
 /* 中心节点章节名样式 */
 .node-content--center .node-chapter {
-  font-size: 140%; /* 节点宽度的130% */
+  font-size: 150%; /* 节点宽度的130% */
   color: white;
   font-family: 'PingFang SC', 'PingFangSC-Regular', sans-serif;
   font-weight: normal;
@@ -802,32 +841,45 @@ const learningTagStyle = computed(() => {
   opacity: 0.9;
   transition: all var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
   width: 100%;
-  display: block;
-  white-space: nowrap; /* 第2步：禁止文字换行 */
-  overflow: hidden; /* 第3步：隐藏超出部分 */
-  text-overflow: ellipsis; /* 第4步：超出部分显示省略号 */
-  margin-bottom: 2px; /* 第5步：底部留一些间距 */
-}
-
-/* 中心节点章节名展开状态 - 字体放大 */
-.node-content--center.node-content--expanded .node-chapter {
-  font-size: 170%; /* 第1步：展开时字体放大到170% */
-  line-height: 1.5; /* 第2步：调整行高以适应放大后的字体 */
+  display: -webkit-box; /* 使用弹性盒子布局以支持多行截断 */
+  -webkit-box-orient: vertical; /* 垂直方向排列 */
+  -webkit-line-clamp: 2; /* 最多显示两行 */
+  line-clamp: 2; /* 标准属性，最多显示两行 */
+  overflow: hidden; /* 隐藏超出部分 */
+  text-overflow: ellipsis; /* 超出部分显示省略号 */
   word-wrap: break-word; /* 允许文字换行 */
   word-break: break-word; /* 确保长文本正确换行 */
-  overflow: visible; /* 第4步：允许显示换行后的完整内容 */
-  text-overflow: clip; /* 第5步：移除省略号 */
-  margin-bottom: 2px; /* 第6步：底部留一些间距 */
+  margin-bottom: 2px; /* 底部留一些间距 */
+}
+
+/* 中心节点章节名展开状态 - 字号保持一致 */
+.node-content--center.node-content--expanded .node-chapter {
+  font-size: 150%; /* 第1步：保持与默认状态相同的字体大小 */
+  line-height: 1.4; /* 第2步：增加行高，改善可读性 */
+  display: -webkit-box; /* 第3步：使用弹性盒子布局以支持多行截断 */
+  -webkit-box-orient: vertical; /* 第4步：垂直方向排列 */
+  -webkit-line-clamp: 2; /* 第5步：最多显示两行 */
+  line-clamp: 2; /* 第6步：标准属性，最多显示两行 */
+  overflow: hidden; /* 第7步：隐藏超出部分 */
+  text-overflow: ellipsis; /* 第8步：超出部分显示省略号 */
+  word-wrap: break-word; /* 第9步：允许文字换行 */
+  word-break: break-word; /* 第10步：确保长文本正确换行 */
+  margin-bottom: 2px; /* 第11步：底部留一些间距 */
 }
 
 /* 中心节点章节名在其他图谱展开时字体保持不变 */
 .node-content--center.node-content--shrunk .node-chapter {
   font-size: 140%; /* 第1步：保持与默认状态相同的字体大小 */
   line-height: 1.4; /* 第2步：增加行高，改善可读性 */
-  white-space: nowrap; /* 第3步：禁止文字换行 */
-  overflow: hidden; /* 第4步：隐藏超出部分 */
-  text-overflow: ellipsis; /* 第5步：超出部分显示省略号 */
-  margin-bottom: 2px; /* 第6步：底部留一些间距 */
+  display: -webkit-box; /* 第3步：使用弹性盒子布局以支持多行截断 */
+  -webkit-box-orient: vertical; /* 第4步：垂直方向排列 */
+  -webkit-line-clamp: 2; /* 第5步：最多显示两行 */
+  line-clamp: 2; /* 第6步：标准属性，最多显示两行 */
+  overflow: hidden; /* 第7步：隐藏超出部分 */
+  text-overflow: ellipsis; /* 第8步：超出部分显示省略号 */
+  word-wrap: break-word; /* 第9步：允许文字换行 */
+  word-break: break-word; /* 第10步：确保长文本正确换行 */
+  margin-bottom: 2px; /* 第11步：底部留一些间距 */
 }
 
 
@@ -951,7 +1003,7 @@ const learningTagStyle = computed(() => {
 /* 手动定位的气泡框菜单 */
 .manual-bubble-menu {
   position: absolute;
-  /* z-index 通过内联样式动态设置：中心节点为30，圆周节点为20 */
+  z-index: 20;
   pointer-events: auto;
   /* 确保气泡框在中心节点下方正确显示 */
   width: max-content;

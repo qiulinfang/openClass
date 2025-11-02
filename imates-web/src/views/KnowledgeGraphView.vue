@@ -229,6 +229,13 @@
       @update:params="handleDebugParamsUpdate"
       @update:nodes="handleNodeUpdate"
     />
+
+    <!-- 学习状态控制面板 -->
+    <LearningStatusControlPanel
+      v-model="learningStatusPanelVisible"
+      :chapter-structure="chapterStructure"
+      @refresh="handleLearningStatusRefresh"
+    />
   </div>
 </template>
 
@@ -241,6 +248,7 @@ import KnowledgeGraph from '../components/knowledge-graph/KnowledgeGraph.vue'
 import LearningView from './LearningView.vue'
 import KnowledgeGraphDebugPanel from '../components/debug/KnowledgeGraphDebugPanel.vue'
 import type { KnowledgeGraphDebugParams } from '../components/debug/KnowledgeGraphDebugPanel.vue'
+import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
 import { useTextbookChapterState } from '../stores/textbookChapterState'
 import { useBetterScroll } from '../composables/useBetterScroll'
 
@@ -398,6 +406,7 @@ const { init: initChapterListBScroll } = useBetterScroll(
 // 旋转控制相关
 const isDragging = ref(false) // 是否正在拖拽
 const isActualDragging = ref(false) // 是否实际拖拽（超过阈值）
+const isMouseDown = ref(false) // 鼠标是否按下（用于控制是否处理移动事件）
 const isAnimating = ref(false) // 是否正在执行自动旋转动画
 const startY = ref(0) // 开始触摸的Y坐标
 const lastY = ref(0) // 上次触摸的Y坐标
@@ -410,6 +419,9 @@ const lastRotationTime = ref(0) // 上次旋转时间戳，用于检测快速滑
 // 调试面板状态
 const debugPanelVisible = ref(false)
 
+// 学习状态控制面板状态
+const learningStatusPanelVisible = ref(false)
+
 // 默认参数值（固定不变，作为基准）
 const defaultDebugParams: KnowledgeGraphDebugParams = {
   radiusX: 500, // 椭圆轨道的X轴半径（水平方向）
@@ -420,21 +432,21 @@ const defaultDebugParams: KnowledgeGraphDebugParams = {
   radiusScaleMedium: 0.85, // 中等规模节点（3-4个）的半径缩放系数
   radiusScaleLarge: 0.95, // 大规模节点（5个以上）的半径缩放系数
   // 动画参数
-  transformDuration: 0.8, // 位置变换动画持续时间（秒）
-  opacityDuration: 0.8, // 透明度动画持续时间（秒）
+  transformDuration: 0.3, // 位置变换动画持续时间（秒）
+  opacityDuration: 0.3, // 透明度动画持续时间（秒）
   easingX1: 0.25, // 缓动函数 cubic-bezier 的第一个控制点 X 坐标
   easingY1: 0.46, // 缓动函数 cubic-bezier 的第一个控制点 Y 坐标
   easingX2: 0.45, // 缓动函数 cubic-bezier 的第二个控制点 X 坐标
   easingY2: 0.94, // 缓动函数 cubic-bezier 的第二个控制点 Y 坐标
   animationDelayFactor: 0.03, // 动画延迟系数（用于基于距离的延迟计算，距离越近延迟越短）
-  backgroundTransitionDurationClockwise: 0.6, // 背景圆形顺时针旋转时的过渡时间（秒）
-  backgroundTransitionDurationCounterclockwise: 0.6, // 背景圆形逆时针旋转时的过渡时间（秒）
+  backgroundTransitionDurationClockwise: 0.3, // 背景圆形顺时针旋转时的过渡时间（秒）
+  backgroundTransitionDurationCounterclockwise: 0.3, // 背景圆形逆时针旋转时的过渡时间（秒）
   // 角度参数
-  targetAngle: 150, // 目标角度（度），用于自动定位
+  targetAngle: 161, // 目标角度（度），用于自动定位
   influenceRange: (2 * Math.PI) / 3, // 影响范围（弧度），展开图谱周围的影响范围
   maxPushAngle: (46 * Math.PI) / 180, // 最大推开角度（弧度），其他节点被推开的最大角度
   // 动画时长参数
-  expandingRotationDuration: 0.8, // 展开旋转动画持续时间（秒）
+  expandingRotationDuration: 0.4, // 展开旋转动画持续时间（秒）
   debounceDelay: 0.1, // 防抖延迟（秒）
   // 透明度参数
   opacityExpanded: 1, // 展开的知识图谱透明度
@@ -451,25 +463,26 @@ const defaultDebugParams: KnowledgeGraphDebugParams = {
   centerNodeSizeDefault: 180, // 中心节点初始大小（像素）
   centerNodeSizeExpanded: 220, // 中心节点放大后大小（像素）
   centerNodeSizeShrunk: 160, // 中心节点缩小大小（像素）
-  centerNodeScaleSpeed: 0.5, // 中心节点缩放速度（秒），控制缩放动画的持续时间
+  centerNodeScaleSpeed: 0.3, // 中心节点缩放速度（秒），控制缩放动画的持续时间
   // 归一化参考高度比例
   normalizedReferenceHeightRatio: 0.85, // 归一化参考高度比例，参考移动端短视频切换，使用视口高度的比例作为参考
   // 节点动画参数
-  nodeEnterExitDuration: 0.6, // 节点进入/退出动画持续时间（秒）
+  nodeEnterExitDuration: 0.3, // 节点进入/退出动画持续时间（秒）
   nodeExpandDelayInterval: 0.01, // 圆周节点展开动画延迟间隔（秒/节点索引）
   nodeCollapseDelayInterval: 0.01, // 圆周节点收起动画延迟间隔（秒/节点索引）
-  nodeContentTransitionDuration: 0.6, // 节点内容transition持续时间（秒）
+  nodeContentTransitionDuration: 0.3, // 节点内容transition持续时间（秒）
   nodeBaseTransitionDuration: 0.3, // 节点基础transition持续时间（秒）
-  learningTagTransitionDuration: 0.6, // 学习标签transition持续时间（秒）
-  learningTagTop: 0, // 学习标签top位置（像素）
-  learningTagLeft: 50, // 学习标签left位置（像素）
+  learningTagTransitionDuration: 0.3, // 学习标签transition持续时间（秒）
+  learningTagTop: -5, // 学习标签top位置（像素）
+  learningTagLeft: 65, // 学习标签left位置（像素）
   learningTagTranslateX: 0, // 学习标签translateX偏移（百分比）
   bubbleButtonTransitionDuration: 0.2, // 气泡框按钮transition持续时间（秒）
   nodeActiveTransitionDuration: 0.1, // 节点active状态transition持续时间（秒）
   // 圆周节点位置参数
   circularNodeRadiusFactor: 1.0, // 圆周节点半径因子，用于调整圆周节点相对背景圆的位置（1.0表示与背景圆一致）
   circularNodeOffsetX: 50, // 圆周节点X方向偏移量（像素），用于调整节点相对中心的X偏移
-  circularNodeOffsetY: 50 // 圆周节点Y方向偏移量（像素），用于调整节点相对中心的Y偏移
+  circularNodeOffsetY: 50, // 圆周节点Y方向偏移量（像素），用于调整节点相对中心的Y偏移
+  circularNodeFontSize: 1.2 // 圆周节点字体大小（rem），用于调整圆周节点标题的字体大小
 }
 
 // 当前参数值（可修改）
@@ -485,6 +498,22 @@ const handleDebugParamsUpdate = (params: KnowledgeGraphDebugParams) => {
   Object.assign(debugParams.value, params)
 }
 
+// 处理学习状态刷新
+const handleLearningStatusRefresh = () => {
+  // 当学习状态发生变化时，强制刷新知识图谱组件
+  // 通过更新key来触发组件重新渲染
+  // 这里可以通过触发一个状态更新来让知识图谱组件重新加载学习状态
+  // 由于知识图谱组件会从localStorage自动读取状态，这里只需要触发一次更新即可
+  // 可以通过更新一个不相关的响应式变量来触发重新渲染，或者使用nextTick
+  nextTick(() => {
+    // 触发响应式更新，让知识图谱组件重新评估学习状态
+    if (selectedChapterDetails.value) {
+      // 创建一个新的引用，触发响应式更新
+      selectedChapterDetails.value = { ...selectedChapterDetails.value }
+    }
+  })
+}
+
 // 处理节点更新
 const handleNodeUpdate = (
   action: 'add' | 'update' | 'delete',
@@ -493,7 +522,6 @@ const handleNodeUpdate = (
   oldNode?: ChapterNode
 ) => {
   if (!selectedChapterDetails.value) {
-    console.warn('无法更新节点：没有选中的章节')
     return
   }
 
@@ -879,6 +907,9 @@ const autoPositionToNearestGraph = (direction?: 'next' | 'previous' | null) => {
 const handleMouseDown = (event: MouseEvent) => {
   if (!circularLayoutRef.value) return
   
+  // 设置鼠标按下状态
+  isMouseDown.value = true
+  
   // 不在 mousedown 时设置 isDragging，只在 move 中设置
   isActualDragging.value = false // 初始为false，需要超过阈值才设为true
   startY.value = event.clientY
@@ -888,7 +919,8 @@ const handleMouseDown = (event: MouseEvent) => {
 }
 
 const handleMouseMove = (event: MouseEvent) => {
-  if (!circularLayoutRef.value) return
+  // 只有在鼠标按下时才处理移动事件
+  if (!isMouseDown.value || !circularLayoutRef.value) return
   
   const currentY = event.clientY
   const deltaY = currentY - lastY.value
@@ -896,13 +928,17 @@ const handleMouseMove = (event: MouseEvent) => {
   
   // 计算移动距离，判断是否超过拖拽阈值
   const totalDeltaY = Math.abs(currentY - startY.value)
-  if (totalDeltaY > DRAG_THRESHOLD.value && !isActualDragging.value) {
+  const exceededThreshold = totalDeltaY > DRAG_THRESHOLD.value
+  
+  // 判断是否首次超过阈值，触发拖拽状态
+  if (exceededThreshold && !isActualDragging.value) {
     isActualDragging.value = true
     isDragging.value = true // ✅ 只有在实际移动超过阈值时才设置 isDragging
   }
   
   // 只有实际拖拽时才执行旋转逻辑
   if (!isActualDragging.value) {
+    // 未超过阈值，只更新位置，不执行旋转
     lastY.value = currentY
     return
   }
@@ -923,7 +959,8 @@ const handleMouseMove = (event: MouseEvent) => {
   
   // 更新当前章节的旋转角度（向上滑动为正，向下滑动为负）
   const currentRotation = getChapterRotation(getCurrentChapter())
-  setChapterRotation(getCurrentChapter(), currentRotation - rotationDelta)
+  const newRotation = currentRotation - rotationDelta
+  setChapterRotation(getCurrentChapter(), newRotation)
   
   // 更新上次位置和时间戳
   lastY.value = currentY
@@ -931,6 +968,12 @@ const handleMouseMove = (event: MouseEvent) => {
 }
 
 const handleMouseUp = () => {
+  // 只有在鼠标按下时才处理释放事件
+  if (!isMouseDown.value) return
+  
+  // 重置鼠标按下状态
+  isMouseDown.value = false
+  
   // 保存实际拖拽状态，因为后面会重置
   const wasActuallyDragging = isActualDragging.value
   
@@ -947,11 +990,12 @@ const handleMouseUp = () => {
       clearTimeout(debounceTimer.value)
     }
     
+    const direction = totalDeltaY < 0 ? 'next' : totalDeltaY > 0 ? 'previous' : null
+    
     debounceTimer.value = setTimeout(() => {
       // 根据滑动方向切换到下一个或上一个知识图谱
       // 向上滑动（totalDeltaY < 0）→ 下一个（index + 1）
       // 向下滑动（totalDeltaY > 0）→ 上一个（index - 1）
-      const direction = totalDeltaY < 0 ? 'next' : totalDeltaY > 0 ? 'previous' : null
       autoPositionToNearestGraph(direction)
     }, debugParams.value.debounceDelay * 1000) // 防抖延迟（转换为毫秒）
   }
@@ -1146,8 +1190,8 @@ const saveCurrentPageState = () => {
     }
     
     savePageState(state)
-  } catch (error) {
-    console.error('❌ [状态保存] 保存页面状态失败:', error)
+  } catch {
+    // 状态保存失败，静默处理
   }
 }
 
@@ -1194,8 +1238,7 @@ const restorePageStateFromStore = async (): Promise<boolean> => {
     }
     
     return true
-  } catch (error) {
-    console.error('❌ [状态恢复] 恢复页面状态失败:', error)
+  } catch {
     return false
   }
 }
@@ -1227,8 +1270,8 @@ const getCachedData = (key: string) => {
       }
       return data.value
     }
-  } catch (error) {
-    console.warn('读取缓存数据失败:', error)
+  } catch {
+    // 读取缓存失败，静默处理
   }
   return null
 }
@@ -1241,8 +1284,8 @@ const setCachedData = (key: string, value: unknown) => {
       timestamp: Date.now()
     }
     localStorage.setItem(key, JSON.stringify(data))
-  } catch (error) {
-    console.warn('保存缓存数据失败:', error)
+  } catch {
+    // 保存缓存失败，静默处理
   }
 }
 
@@ -1254,7 +1297,6 @@ const cleanupExpiredCache = () => {
       key.startsWith('knowledge_graph_')
     )
     
-    let cleanedCount = 0
     knowledgeGraphKeys.forEach(key => {
       const cached = localStorage.getItem(key)
       if (cached) {
@@ -1262,20 +1304,15 @@ const cleanupExpiredCache = () => {
           const data = JSON.parse(cached)
           if (data.timestamp && isCacheExpired(data.timestamp)) {
             localStorage.removeItem(key)
-            cleanedCount++
           }
         } catch {
           // 如果解析失败，删除这个键
           localStorage.removeItem(key)
-          cleanedCount++
         }
       }
     })
-    
-    if (cleanedCount > 0) {
-    }
-  } catch (error) {
-    console.warn('清理缓存失败:', error)
+  } catch {
+    // 清理缓存失败，静默处理
   }
 }
 
@@ -1292,8 +1329,7 @@ const getCacheStatus = () => {
     }
     
     return status
-  } catch (error) {
-    console.warn('获取缓存状态失败:', error)
+  } catch {
     return { totalKeys: 0, chapterStructures: 0 }
   }
 }
@@ -1321,8 +1357,7 @@ const loadTextbookDataFromIndexedDB = async (): Promise<TextbookOption[]> => {
     }
     
     return []
-  } catch (error) {
-    console.error('从IndexedDB加载教材数据失败:', error)
+  } catch {
     return []
   }
 }
@@ -1362,8 +1397,8 @@ const saveTextbookDataToIndexedDB = async (versions: import('../types').Textbook
       
       await resourceManager.updateTextbookInfo(textbookInfo)
     }
-  } catch (error) {
-    console.error('保存教材数据到IndexedDB失败:', error)
+  } catch {
+    // 保存教材数据失败，静默处理
   }
 }
 
@@ -1460,8 +1495,7 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
       selectedChapterDetails.value = null
     }
     
-  } catch (error) {
-    console.error('根据学科加载教材数据失败:', error)
+  } catch {
     textbookOptions.value = []
     // 清空章节数据
     chapterStructure.value = []
@@ -1718,9 +1752,8 @@ const initGraph = async () => {
     await nextTick()
     renderGraph()
     
-    
-  } catch (error) {
-    console.error('❌ 图谱初始化失败:', error)
+  } catch {
+    // 图谱初始化失败，静默处理
   } finally {
     loading.value = false
   }
@@ -1774,8 +1807,7 @@ const onSubjectChange = async (subjectValue: string) => {
     // 初始化图谱数据（但不重置已选择的章节）
     initGraphDataWithoutReset()
     
-  } catch (error) {
-    console.error('切换学科失败:', error)
+  } catch {
     // 出错时也要清空数据
     textbookOptions.value = []
     selectedTextbook.value = ''
@@ -1976,8 +2008,6 @@ const selectChapter = async (index: number) => {
 
 // 处理学习对话框
 const handleLearnDialog = (node: { id: string; name: string; level?: number | null }) => {
-  console.log('打开学习对话框:', node)
-  
   // 设置对话框数据
   learningDialogData.value = {
     nodeId: node.id,
@@ -2055,7 +2085,6 @@ const handleBackgroundClick = (event: MouseEvent) => {
   
   // 检查点击的目标元素
   const target = event.target as HTMLElement
-  
   // 如果点击的是视口裁剪区域或其子元素（背景），保持展开状态
   if (target.closest('.viewport-clipper')) {
     // 点击视口裁剪区域时，保持当前展开状态不变
@@ -2099,7 +2128,7 @@ const getSubChapters = (chapterDetails: ChapterNode | null) => {
   
   // 为每个章节添加章节练习节点
   const exerciseNode: ChapterNode = {
-    id: `${chapterDetails.id}_exercise`,
+    id: chapterDetails.id, // 直接使用父章节ID
     name: '章节练习',
     parentId: chapterDetails.id,
     label: '章节练习',
@@ -2147,7 +2176,7 @@ const getGraphPosition = (index: number, total: number) => {
         marginLeft: `-${debugParams.value.graphMargin}px`,
         marginTop: `-${debugParams.value.graphMargin}px`,
         opacity: debugParams.value.opacityExpanded, // 展开的知识图谱透明度
-        zIndex: 100, // 展开的知识图谱获得最高层级
+        zIndex: 2000, // 展开的知识图谱获得最高层级，确保其圆周节点不被其他知识图谱覆盖
         transition: isDragging.value ? 'none' : 
                     isExpandingRotation.value ? 'none' :
                     isCollapsing.value ? 'none' :
@@ -2195,6 +2224,9 @@ const getGraphPosition = (index: number, total: number) => {
         // 计算动画延迟 - 距离越近延迟越短，移动更同步
         const animationDelay = distanceFactor * debugParams.value.animationDelayFactor
         
+        // 计算与展开图谱的索引距离，距离越小，z-index越大
+        const indexDistance = Math.abs(index - expandedIndex)
+        
         return {
           transform: `translate(${x}px, ${y}px) scale(${scale})`,
           position: 'absolute' as const,
@@ -2203,7 +2235,7 @@ const getGraphPosition = (index: number, total: number) => {
           marginLeft: `-${debugParams.value.graphMargin}px`,
           marginTop: `-${debugParams.value.graphMargin}px`,
           opacity: opacity,
-          zIndex: 1000 - index, // 反向层级：前面的节点层级更高，确保可点击
+          zIndex: 1000 - indexDistance, // 根据与展开图谱的索引距离计算：越接近展开图谱，z-index越大
           // 与定位动画同步：减少延迟时间，让远离动画与定位动画同时进行
           transition: isDragging.value ? 'none' : 
             isExpandingRotation.value ? 'none' :
@@ -2214,6 +2246,10 @@ const getGraphPosition = (index: number, total: number) => {
       } else {
         // 距离展开图谱较远的节点，保持当前位置但变为半透明
         const { x, y } = calculateCircularTrackPosition(angle)
+        
+        // 计算与展开图谱的索引距离，距离越小，z-index越大
+        const indexDistance = Math.abs(index - expandedIndex)
+        
         return {
           transform: `translate(${x}px, ${y}px)`, // 移除缩小比例，保持原始大小
           position: 'absolute' as const,
@@ -2222,7 +2258,7 @@ const getGraphPosition = (index: number, total: number) => {
           marginLeft: `-${debugParams.value.graphMargin}px`,
           marginTop: `-${debugParams.value.graphMargin}px`,
           opacity: debugParams.value.opacityFar, // 距离较远的节点透明度
-          zIndex: 1000 - index, // 反向层级：前面的节点层级更高，确保可点击
+          zIndex: 1000 - indexDistance, // 根据与展开图谱的索引距离计算：越接近展开图谱，z-index越大
           transition: isDragging.value ? 'none' : 
             isExpandingRotation.value ? 'none' :
             isCollapsing.value ? 'none' :
@@ -2797,6 +2833,8 @@ onUnmounted(() => {
   justify-content: center;
   gap: 32px;
   padding: 16px 24px;
+  position: relative;
+  z-index: 50; // 降低层级，确保知识图谱气泡不被遮挡
   
   .status-item {
     display: flex;
