@@ -6,6 +6,7 @@
 import { HttpClient, ApiResponse } from './httpClient'
 import { API_ENDPOINTS, getApiUrl } from './apiEndpoints'
 import { StorageService, StorageKeys } from './storageService'
+import type { ExerciseItem } from '../types/exercise'
 // 注意：纯RN应用不需要桥接服务
 // import { AndroidBridgeService } from './androidBridgeService'
 
@@ -126,6 +127,51 @@ class ApiService {
       return userInfo
     } catch (error: unknown) {
       throw new Error(error instanceof Error ? error.message : '获取用户信息失败')
+    }
+  }
+
+  /**
+   * 获取题目列表
+   * @param subject 科目类型（math 或 biology）
+   * @returns Promise<ExerciseItem[]> 题目列表
+   */
+  async getExerciseList(subject: string): Promise<any[]> {
+    try {
+      const endpoint = subject.toLowerCase() === 'biology' 
+        ? API_ENDPOINTS.EXERCISES.LIST_BIOLOGY 
+        : API_ENDPOINTS.EXERCISES.LIST_MATH
+      const url = getApiUrl(endpoint, this.baseUrl)
+      
+      const response = await this.httpClient.get<ApiResponse<{
+        questionsList: any[]
+      }>>(url)
+
+      if (response.success && response.data?.questionsList) {
+        return response.data.questionsList
+      }
+      return []
+    } catch (error) {
+      console.error('[API] ❌ 获取题目列表失败:', error)
+      return []
+    }
+  }
+
+  /**
+   * 删除题目
+   * @param exerciseId 题目ID
+   * @param subject 科目类型（math 或 biology）
+   * @returns Promise<boolean> 是否成功
+   */
+  async deleteExercise(exerciseId: string, subject: string): Promise<boolean> {
+    try {
+      const endpoint = `${API_ENDPOINTS.EXERCISES.DELETE_BASE}/${exerciseId}/${subject.toLowerCase()}`
+      const url = getApiUrl(endpoint, this.baseUrl)
+      
+      const response = await this.httpClient.delete<ApiResponse<unknown>>(url)
+      return response.success
+    } catch (error) {
+      console.error('[API] ❌ 删除题目失败:', error)
+      return false
     }
   }
 }

@@ -10,6 +10,14 @@ export const API_ENDPOINTS = {
     ADMIN_INFO: '/admin/info',
   },
   
+  // 习题相关 - 与Android原生一致
+  EXERCISES: {
+    LIST_BIOLOGY: '/permission/selectExercises/biology',
+    LIST_MATH: '/permission/selectExercises/math',
+    DELETE_BASE: '/permission/deleteExercises',
+    ADD: '/permission/exercises',
+  },
+  
   // 其他端点后续添加...
 } as const
 
