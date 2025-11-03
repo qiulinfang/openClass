@@ -10,6 +10,7 @@
           :options="subjectOptions"
           option-value="value"
           option-label="label"
+          behavior="menu"
           emit-value
           map-options
           outlined
@@ -30,6 +31,7 @@
           :options="textbookOptions"
           option-value="value"
           option-label="label"
+          behavior="menu"
           emit-value
           map-options
           outlined
@@ -138,7 +140,11 @@
             <!-- 右边框中心位置指示器 -->
             <div 
               class="right-border-indicator"
+              ref="indicatorContainerRef"
               @click.stop
+              @touchstart="handleIndicatorTouchStart"
+              @touchmove="handleIndicatorTouchMove"
+              @touchend="handleIndicatorTouchEnd"
             >
               <div 
                 v-for="subChapter in getSubChapters(selectedChapterDetails)" 
@@ -392,6 +398,7 @@ const learningDialogData = ref<{
 // 椭圆布局相关
 const circularContainerRef = ref<HTMLElement>()
 const circularLayoutRef = ref<HTMLElement>()
+const indicatorContainerRef = ref<HTMLElement>()
 
 // Better Scroll 实例
 const chapterListWrapper = ref<HTMLElement | null>(null)
@@ -736,6 +743,10 @@ const isCollapsing = ref(false) // 是否正在执行收缩动画
 
 // 旋转方向状态管理
 const rotationDirection = ref<'clockwise' | 'counterclockwise' | null>(null) // 当前旋转方向
+
+// 指示器滑动相关状态
+const isIndicatorDragging = ref(false) // 是否正在指示器区域滑动
+const indicatorCurrentIndex = ref<number | null>(null) // 当前触摸的指示器索引
 
 // 触摸事件处理函数
 const handleTouchStart = (event: TouchEvent) => {
@@ -2201,6 +2212,114 @@ const handleIndicatorClick = (graphId: string) => {
     // 立即开始展开旋转动画，让其他节点立即开始旋转
     startExpandingRotation(graphId)
   }
+}
+
+// 第1步：根据触摸点位置计算当前在哪个指示器上
+const getIndicatorIndexFromTouch = (touchY: number): number | null => {
+  if (!indicatorContainerRef.value || !selectedChapterDetails.value) return null
+  
+  // 获取所有指示器圆点的 DOM 元素
+  const indicatorDots = indicatorContainerRef.value.querySelectorAll('.indicator-dot')
+  if (indicatorDots.length === 0) return null
+  
+  // 找到距离触摸点最近的指示器
+  let minDistance = Infinity
+  let nearestIndex = 0
+  
+  indicatorDots.forEach((dot, index) => {
+    const dotRect = dot.getBoundingClientRect()
+    const dotCenterY = dotRect.top + dotRect.height / 2
+    const distance = Math.abs(touchY - dotCenterY)
+    
+    if (distance < minDistance) {
+      minDistance = distance
+      nearestIndex = index
+    }
+  })
+  
+  return nearestIndex
+}
+
+// 第2步：处理指示器触摸开始事件
+const handleIndicatorTouchStart = (event: TouchEvent) => {
+  if (!indicatorContainerRef.value || !selectedChapterDetails.value) return
+  
+  // 阻止事件冒泡，避免触发其他滚动事件
+  event.stopPropagation()
+  
+  // 设置指示器滑动状态
+  isIndicatorDragging.value = true
+  
+  // 获取触摸点位置，计算当前在哪个指示器上
+  const touchY = event.touches[0].clientY
+  const index = getIndicatorIndexFromTouch(touchY)
+  
+  if (index === null) return
+  
+  indicatorCurrentIndex.value = index
+  
+  // 立即切换到对应的知识图谱
+  const subChapters = getSubChapters(selectedChapterDetails.value)
+  if (index >= 0 && index < subChapters.length) {
+    const targetGraphId = subChapters[index].id
+    if (getCurrentChapterExpandedGraph() !== targetGraphId) {
+      // 重置拖拽状态
+      resetDraggingState()
+      
+      // 设置展开状态
+      setCurrentChapterExpandedGraph(targetGraphId)
+      
+      // 开始展开旋转动画
+      startExpandingRotation(targetGraphId)
+    }
+  }
+}
+
+// 第3步：处理指示器触摸移动事件
+const handleIndicatorTouchMove = (event: TouchEvent) => {
+  if (!indicatorContainerRef.value || !selectedChapterDetails.value || !isIndicatorDragging.value) return
+  
+  // 阻止事件冒泡
+  event.stopPropagation()
+  event.preventDefault()
+  
+  // 获取触摸点位置，计算当前在哪个指示器上
+  const touchY = event.touches[0].clientY
+  const index = getIndicatorIndexFromTouch(touchY)
+  
+  if (index === null) return
+  
+  // 如果滑动到了新的指示器，切换到对应的知识图谱
+  if (indicatorCurrentIndex.value !== index) {
+    indicatorCurrentIndex.value = index
+    
+    const subChapters = getSubChapters(selectedChapterDetails.value)
+    if (index >= 0 && index < subChapters.length) {
+      const targetGraphId = subChapters[index].id
+      if (getCurrentChapterExpandedGraph() !== targetGraphId) {
+        // 重置拖拽状态
+        resetDraggingState()
+        
+        // 设置展开状态
+        setCurrentChapterExpandedGraph(targetGraphId)
+        
+        // 开始展开旋转动画
+        startExpandingRotation(targetGraphId)
+      }
+    }
+  }
+}
+
+// 第4步：处理指示器触摸结束事件
+const handleIndicatorTouchEnd = (event: TouchEvent) => {
+  if (!isIndicatorDragging.value) return
+  
+  // 阻止事件冒泡
+  event.stopPropagation()
+  
+  // 清理状态
+  isIndicatorDragging.value = false
+  indicatorCurrentIndex.value = null
 }
 
 // 处理背景点击事件

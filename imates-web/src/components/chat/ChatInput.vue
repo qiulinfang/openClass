@@ -25,79 +25,58 @@
           <div v-if="props.isEditing" class="edit-indicator">
             <q-icon name="edit" color="primary" size="16px" />
             <span class="edit-text">编辑消息</span>
-            <q-btn
-              flat
-              dense
-              round
-              icon="close"
-              size="sm"
-              color="grey-6"
+            <button
               @click="$emit('cancel-edit')"
               class="cancel-edit-btn"
+              type="button"
             >
+              <q-icon name="close" color="grey-6" size="16px" />
               <q-tooltip>取消编辑</q-tooltip>
-            </q-btn>
+            </button>
           </div>
 
-          <!-- 模式选择器 - 仅在AI通用、AI题目和AI教材模式下显示且非编辑状态 -->
-          <q-btn-dropdown
-            v-if="(props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') && !props.isEditing"
-            flat
-            dense
-            class="mode-selector"
-            :class="{ active: false }"
-            :label="getModelDisplayName(props.selectedModel)"
-            icon="smart_toy"
-            :icon-size="20"
-            no-icon-animation
-            auto-close
-            anchor="top middle"
-            self="bottom middle"
-          >
-            <q-list class="model-select-list">
-              <q-item
-                v-for="option in aiRoleOptions"
-                :key="option.value"
-                clickable
-                v-close-popup
-                @click="selectModel(option.value)"
-                :class="{ active: props.selectedModel === option.value }"
-                class="model-select-item"
-              >
-                <q-item-section>
-                  <q-item-label>{{ option.label }}</q-item-label>
-                </q-item-section>
-                <q-item-section side v-if="props.selectedModel === option.value">
-                  <q-icon name="check" color="primary" />
-                </q-item-section>
-              </q-item>
-            </q-list>
-          </q-btn-dropdown>
+          <!-- 四个功能按钮：仅在非编辑状态下显示 -->
+          <template v-if="!props.isEditing">
+            <!-- 模式选择器（同桌按钮）- 仅在AI通用、AI题目和AI教材模式下显示 -->
+            <button
+              v-if="props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook'"
+              class="action-mode-btn"
+              :class="{ active: true }"
+              @click="toggleModeSelector"
+              ref="modeSelectorBtnRef"
+            >
+              <q-icon name="person" size="18px" />
+              <span>{{ getModelDisplayName(props.selectedModel) }}</span>
+            </button>
 
-          <!-- 联网搜索 - 仅在AI通用、AI题目和AI教材对话时显示且非编辑状态 -->
-          <q-btn
-            v-if="(props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') && !props.isEditing"
-            flat
-            dense
-            class="web-search-btn"
-            :class="{ active: props.enableWebSearch }"
-            @click="$emit('toggle-web-search')"
-          >
-            <q-icon name="language" size="20px" />
-            <span>联网搜索</span>
-          </q-btn>
+            <!-- 联网搜索按钮 - 仅在AI通用、AI题目和AI教材对话时显示 -->
+            <button
+              v-if="props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook'"
+              class="action-mode-btn"
+              :class="{ active: props.enableWebSearch }"
+              @click="$emit('toggle-web-search')"
+            >
+              <q-icon name="language" size="18px" />
+              <span>互联网搜索</span>
+            </button>
+
+            <!-- 公式按钮 -->
+            <button
+              class="action-mode-btn"
+              @click="handleInsertMathFormula"
+            >
+              <q-icon name="functions" size="18px" />
+              <span>公式</span>
+            </button>
+          </template>
         </div>
 
         <!-- 右侧控制组 -->
         <div class="right-controls">
           <!-- 语音按钮 - 仅老师对话显示，AI模式下隐藏 -->
-          <q-btn
+          <button
             v-if="props.type === 'teacher'"
-            flat
-            round
-            dense
-            :icon="props.isRecording ? 'mic' : 'mic_none'"
-            :color="props.isRecording ? 'red-6' : undefined"
+            type="button"
             @mousedown="handleVoiceStart"
             @mouseup="handleVoiceEnd"
             @mouseleave="handleVoiceEnd"
@@ -105,53 +84,103 @@
             @touchend="handleVoiceEnd"
             @touchmove="handleVoiceMove"
             class="control-icon-btn voice-btn"
+            :class="{ 'voice-btn--recording': props.isRecording }"
           >
+            <q-icon 
+              :name="props.isRecording ? 'mic' : 'mic_none'" 
+              :color="props.isRecording ? 'red-6' : 'grey-6'" 
+              size="20px" 
+            />
             <q-tooltip>{{ props.isRecording ? '松开结束录音' : '按住说话' }}</q-tooltip>
-          </q-btn>
+          </button>
 
           <!-- 图片上传 - AI通用、AI题目和AI教材模式下隐藏 -->
-          <q-btn
+          <button
             v-if="props.type !== 'ai-general' && props.type !== 'ai-exercise' && props.type !== 'ai-textbook'"
-            flat
-            round
-            dense
-            icon="add_photo_alternate"
+            type="button"
             @click="$emit('show-image-picker')"
             class="control-icon-btn"
             :class="{ active: props.activeMode?.label === '图片模式' }"
           >
+            <q-icon name="add_photo_alternate" color="grey-6" size="20px" />
             <q-tooltip>添加图片</q-tooltip>
-          </q-btn>
+          </button>
 
-          <!-- 插入公式按钮 -->
-          <q-btn
-            flat
-            round
-            dense
-            icon="functions"
-            @click="handleInsertMathFormula"
-            class="math-formula-btn control-icon-btn"
+          <!-- 麦克风图标 - 显示在AI模式下 -->
+          <button
+            v-if="props.type !== 'teacher'"
+            type="button"
+            class="control-icon-btn mic-btn"
           >
-            <q-tooltip>插入数学公式</q-tooltip>
-          </q-btn>
-
+            <q-icon name="mic_none" color="grey-6" size="24px" />
+            <q-tooltip>语音输入</q-tooltip>
+          </button>
 
           <!-- 发送按钮 -->
-          <q-btn
-            round
-            :icon="props.isLoading ? 'hourglass_empty' : (props.isEditing ? 'check' : 'send')"
-            :color="props.canSend ? 'primary' : 'grey-4'"
-            :disable="!props.canSend || props.isLoading"
-            :loading="props.isLoading"
+          <button
+            type="button"
+            :disabled="!props.canSend || props.isLoading"
             @click="handleSendMessage"
             class="send-button"
-            size="md"
+            :class="{ 
+              'send-button--enabled': props.canSend && !props.isLoading && !props.isEditing,
+              'send-button--disabled': !props.canSend || props.isLoading
+            }"
           >
+            <!-- 加载状态图标 -->
+            <q-icon 
+              v-if="props.isLoading" 
+              name="hourglass_empty" 
+              color="purple-6" 
+              size="20px"
+              class="send-loading-icon"
+            />
+            <!-- 编辑状态图标 -->
+            <q-icon 
+              v-else-if="props.isEditing" 
+              name="check" 
+              color="grey-4" 
+              size="20px"
+            />
+            <!-- 自定义发送图标 -->
+            <img 
+              v-else 
+              src="/icons/send.svg" 
+              alt="发送" 
+              class="send-icon"
+            />
             <q-tooltip v-if="props.isEditing">更新消息</q-tooltip>
             <q-tooltip v-else>发送消息</q-tooltip>
-          </q-btn>
+          </button>
         </div>
       </div>
+
+      <!-- 模式选择弹出框 -->
+      <q-menu
+        v-model="showModeSelectorMenu"
+        anchor="bottom left"
+        self="top left"
+        class="mode-selector-menu"
+      >
+        <q-list class="model-select-list">
+          <q-item
+            v-for="option in aiRoleOptions"
+            :key="option.value"
+            clickable
+            v-close-popup
+            @click="selectModel(option.value)"
+            :class="{ active: props.selectedModel === option.value }"
+            class="model-select-item"
+          >
+            <q-item-section>
+              <q-item-label>{{ option.label }}</q-item-label>
+            </q-item-section>
+            <q-item-section side v-if="props.selectedModel === option.value">
+              <q-icon name="check" color="primary" />
+            </q-item-section>
+          </q-item>
+        </q-list>
+      </q-menu>
 
     </div>
   </div>
@@ -180,6 +209,10 @@ const inputAreaRef = ref<HTMLElement>()
 const editorContent = ref<string>('')
 const isEditorFocused = ref(false)
 const mathEditorRef = ref<InstanceType<typeof MathFormulaEditor>>()
+
+// 模式选择器菜单显示状态
+const showModeSelectorMenu = ref(false)
+const modeSelectorBtnRef = ref<HTMLElement>()
 
 // 保留原有的复杂状态用于向后兼容（如果需要）
 const contentCanvasRef = ref<HTMLElement>()
@@ -235,11 +268,15 @@ const getModelDisplayName = (model: string) => {
   return option ? option.label : '同桌'
 }
 
-// 切换模型选择弹出框（使用q-btn-dropdown后不再需要此函数）
+// 切换模式选择器菜单
+const toggleModeSelector = () => {
+  showModeSelectorMenu.value = !showModeSelectorMenu.value
+}
 
 // 选择模型
 const selectModel = (model: string) => {
   emit('update:selected-model', model)
+  showModeSelectorMenu.value = false
 }
 
 // 语音录制事件处理
@@ -599,15 +636,15 @@ defineExpose({
   z-index: 1000; /* 确保整个输入容器在消息区域上方 */
 }
 
-/* 主容器 - 现代感设计 */
+/* 主容器 - 白色背景，紫色边框的圆角矩形 */
 .chat-input-wrapper {
-  background: #f8f9fa;
+  background: #ffffff;
   border-radius: 16px;
+  border: 1px solid #7A7CFF;
   box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.06),
-    0 1px 2px rgba(0, 0, 0, 0.04);
-  border: none;
-  padding: 4px;
+    0 2px 8px rgba(122, 124, 255, 0.15),
+    0 1px 2px rgba(122, 124, 255, 0.1);
+  padding: 8px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -622,14 +659,16 @@ defineExpose({
 
 .chat-input-wrapper:hover {
   box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.1),
-    0 2px 4px rgba(0, 0, 0, 0.06);
+    0 4px 16px rgba(122, 124, 255, 0.2),
+    0 2px 4px rgba(122, 124, 255, 0.15);
+  border-color: #6A6CE8;
 }
 
 .chat-input-wrapper:focus-within {
   box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.06),
-    0 1px 2px rgba(0, 0, 0, 0.04);
+    0 4px 16px rgba(122, 124, 255, 0.25),
+    0 2px 4px rgba(122, 124, 255, 0.15);
+  border-color: #5A5CD8;
 }
 
 /* 附件栏 */
@@ -894,24 +933,25 @@ defineExpose({
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1px 0;
-  gap: 16px;
+  padding: 0;
+  gap: 12px;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   overflow: hidden;
   border-top: none;
-  margin-top: 4px;
-  padding-top: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
 }
 
 .left-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  flex-wrap: wrap;
 }
 
 .right-controls {
@@ -1003,10 +1043,19 @@ defineExpose({
 }
 
 .cancel-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 20px;
   height: 20px;
   min-height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
   color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
 }
 
 .cancel-edit-btn:hover {
@@ -1014,7 +1063,39 @@ defineExpose({
   color: #333;
 }
 
-/* 联网搜索按钮 */
+/* 功能按钮样式 - 统一的按钮样式 */
+.action-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #f5f5f5;
+  border-radius: 16px;
+  border: none;
+  color: #666666;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  font-weight: 400;
+}
+
+.action-mode-btn:hover {
+  background: #eeeeee;
+  color: #333333;
+}
+
+.action-mode-btn.active {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.action-mode-btn:active {
+  transform: scale(0.95);
+}
+
+/* 联网搜索按钮（保留向后兼容） */
 .web-search-btn {
   display: flex;
   align-items: center;
@@ -1043,10 +1124,18 @@ defineExpose({
 
 /* 控制图标按钮 */
 .control-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 36px;
   height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
   color: #5f6368;
+  cursor: pointer;
   transition: all 0.2s ease;
+  padding: 0;
 }
 
 .control-icon-btn:hover {
@@ -1074,14 +1163,13 @@ defineExpose({
 }
 
 /* 语音按钮特殊样式 */
-.voice-btn.recording {
-  color: #ea4335;
-  background-color: rgba(234, 67, 53, 0.1);
+.voice-btn--recording {
+  color: #ea4335 !important;
+  background-color: rgba(234, 67, 53, 0.1) !important;
 }
 
-.voice-btn.recording:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #3c4043;
+.voice-btn--recording:hover {
+  background: rgba(234, 67, 53, 0.15) !important;
 }
 
 .control-icon-btn.active {
@@ -1089,36 +1177,91 @@ defineExpose({
   color: #1a73e8;
 }
 
-/* 发送按钮 */
-.send-button {
+/* 麦克风按钮 */
+.mic-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 40px;
   height: 40px;
-  background: #1a73e8;
-  color: white;
-  transition: all 0.2s ease;
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.2),
-    0 1px 2px rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
   border: none;
+  background: transparent;
+  color: #5f6368;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
 }
 
-.send-button:hover {
-  background: #1557b0;
+.mic-btn :deep(.q-icon) {
+  font-size: 24px; /* 图标更大 */
+}
+
+.mic-btn:hover {
+  background-color: rgba(95, 99, 104, 0.12);
+  color: #3c4043;
+}
+
+/* 发送按钮 - 浅紫色圆圈 */
+.send-button {
+  width: 36px;
+  height: 36px;
+  transition: all 0.2s ease;
+  border-radius: 50%;
   box-shadow: 
-    0 4px 12px rgba(0, 0, 0, 0.3),
-    0 2px 4px rgba(0, 0, 0, 0.2);
+    0 2px 8px rgba(122, 124, 255, 0.3),
+    0 1px 2px rgba(122, 124, 255, 0.2);
+  border: none;
+  margin-right: 5px; /* 右侧 margin */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 可发送时的按钮样式 */
+.send-button--enabled {
+  background: #ffffff;
+  box-shadow: 
+    0 2px 8px rgba(122, 124, 255, 0.3),
+    0 1px 2px rgba(122, 124, 255, 0.2);
+}
+
+.send-button--enabled:hover {
+  background: #f5f5f5;
+  box-shadow: 
+    0 4px 12px rgba(122, 124, 255, 0.4),
+    0 2px 4px rgba(122, 124, 255, 0.3);
   transform: translateY(-1px) scale(1.05);
 }
 
-.send-button:active {
+.send-button--enabled:active {
   transform: translateY(0) scale(0.98);
 }
 
 .send-button:disabled {
   background: #e8eaed;
   color: #9aa0a6;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 2px rgba(122, 124, 255, 0.1);
   transform: none;
+}
+
+/* 发送图标样式 */
+.send-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  transition: all 0.2s ease;
+  object-fit: contain;
+}
+
+/* 当按钮可发送时，图标为紫色 */
+.send-button--enabled .send-icon {
+  filter: brightness(0) saturate(100%) invert(48%) sepia(96%) saturate(2742%) hue-rotate(236deg) brightness(105%) contrast(101%);
+}
+
+/* 当按钮禁用时，图标为灰色 */
+.send-button:disabled .send-icon {
+  filter: brightness(0) saturate(100%) invert(65%) sepia(8%) saturate(200%) hue-rotate(169deg) brightness(95%) contrast(90%);
 }
 
 /* 插入公式按钮 - 与其他控制按钮样式一致 */
@@ -1205,8 +1348,18 @@ defineExpose({
   }
   
   .send-button {
+    width: 44px;
+    height: 44px;
+    margin-right: 5px; /* 右侧 margin */
+  }
+  
+  .mic-btn {
     width: 48px;
     height: 48px;
+  }
+  
+  .mic-btn :deep(.q-icon) {
+    font-size: 28px; /* 图标更大 */
   }
   
   .main-textarea :deep(.q-field__native) {
@@ -1252,8 +1405,18 @@ defineExpose({
   }
   
   .send-button {
+    width: 36px;
+    height: 36px;
+    margin-right: 5px; /* 右侧 margin */
+  }
+  
+  .mic-btn {
     width: 40px;
     height: 40px;
+  }
+  
+  .mic-btn :deep(.q-icon) {
+    font-size: 24px; /* 图标更大 */
   }
   
   .control-bar {
@@ -1291,6 +1454,13 @@ defineExpose({
 
 /* 学习伙伴选择弹出框样式 */
 .model-select-popup {
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.mode-selector-menu {
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   overflow: hidden;
@@ -1413,8 +1583,18 @@ defineExpose({
   }
   
   .send-button {
+    width: 40px;
+    height: 40px;
+    margin-right: 5px; /* 右侧 margin */
+  }
+  
+  .mic-btn {
     width: 44px;
     height: 44px;
+  }
+  
+  .mic-btn :deep(.q-icon) {
+    font-size: 26px; /* 图标更大 */
   }
 }
 </style>

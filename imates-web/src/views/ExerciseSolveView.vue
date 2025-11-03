@@ -3,50 +3,43 @@
     <!-- 顶部工具栏 -->
     <div class="app-header">
       <div class="app-toolbar">
+        <!-- 左侧汉堡按钮 -->
+        <q-btn icon="menu" flat round class="filter-menu-btn" @click="toggleFilterPanel">
+          <q-tooltip>打开筛选面板</q-tooltip>
+        </q-btn>
         
-        <!-- 居中的功能按钮组 -->
+        <!-- 居中的功能导航 -->
         <div class="toolbar-center">
-          <div class="function-buttons q-gutter-xs">
-            <q-btn
-              flat
-              dense
-              label="AI指导"
-              icon="smart_toy"
-              :disable="!hasSelectedQuestion"
-              :color="currentFunction === 'chatAi' ? 'primary' : 'grey-6'"
-              @click="currentFunction = 'chatAi'"
-              class="function-btn"
-            />
-            <q-btn
-              flat
-              dense
-              label="老师答疑"
-              icon="school"
-              :disable="!canAskTeacher"
-              :color="currentFunction === 'askTeacher' ? 'primary' : 'grey-6'"
-              @click="currentFunction = 'askTeacher'"
-              class="function-btn"
-            />
-            <q-btn
-              flat
-              dense
-              label="查看答案"
-              icon="visibility"
-              :disable="!canViewAnswer"
-              :color="currentFunction === 'viewAnswer' ? 'primary' : 'grey-6'"
-              @click="currentFunction = 'viewAnswer'"
-              class="function-btn"
-            />
-            <q-btn
-              flat
-              dense
-              label="举一反三"
-              icon="find_in_page"
-              :disable="!canViewAnswer"
-              :color="currentFunction === 'similarQuestion' ? 'primary' : 'grey-6'"
-              @click="currentFunction = 'similarQuestion'"
-              class="function-btn"
-            />
+          <div class="function-nav">
+            <div
+              class="nav-item"
+              :class="{ active: currentFunction === 'chatAi', disabled: !hasSelectedQuestion }"
+              @click="hasSelectedQuestion && (currentFunction = 'chatAi')"
+            >
+              AI引导答题
+            </div>
+            <div
+              class="nav-item"
+              :class="{ active: currentFunction === 'askTeacher', disabled: !canAskTeacher }"
+              @click="canAskTeacher && (currentFunction = 'askTeacher')"
+            >
+              老师答疑
+            </div>
+            <div
+              class="nav-item active-item"
+              :class="{ active: currentFunction === 'viewAnswer', disabled: !canViewAnswer }"
+              @click="canViewAnswer && (currentFunction = 'viewAnswer')"
+            >
+              <span class="nav-icon">👤</span>
+              查看答案
+            </div>
+            <div
+              class="nav-item"
+              :class="{ active: currentFunction === 'similarQuestion', disabled: !canViewAnswer }"
+              @click="canViewAnswer && (currentFunction = 'similarQuestion')"
+            >
+              举一反三
+            </div>
           </div>
         </div>
         
@@ -56,13 +49,64 @@
     </div>
 
     <!-- 主要内容区域 -->
-    <div class="main-content row no-wrap">
+    <div class="main-content row no-wrap" @click="handleContentClick">
+      <!-- 筛选面板 -->
+      <transition name="filter-panel-transition">
+        <div class="filter-panel-wrapper" v-if="showFilterPanel" @click.stop>
+          <div class="filter-panel">
+            <div class="filter-panel-content">
+              <!-- 搜索输入框 -->
+              <q-input
+                v-model="searchQuery"
+                placeholder="搜索题目..."
+                outlined
+                dense
+                clearable
+                @input="onSearchInput"
+                class="search-input"
+              >
+                <template v-slot:append>
+                  <q-icon name="search" />
+                </template>
+              </q-input>
+
+              <!-- 学科过滤下拉框 -->
+              <q-select
+                v-model="selectedSubjectFilter"
+                :options="subjectOptions"
+                option-value="value"
+                option-label="label"
+                emit-value
+                map-options
+                outlined
+                dense
+                class="subject-filter-select"
+                @update:model-value="onSubjectFilterChange"
+              >
+              </q-select>
+
+              <!-- 对比统计按钮 -->
+              <q-btn
+                icon="analytics"
+                label="输出对比统计"
+                flat
+                class="stats-btn"
+                @click="handleOutputStatistics"
+              >
+                <q-tooltip>输出对比统计（估算vs真实高度）</q-tooltip>
+              </q-btn>
+            </div>
+          </div>
+        </div>
+      </transition>
       <!-- 左侧题目列表 -->
-      <div class="question-panel col-4">
+      <div class="question-panel">
         <q-card flat bordered class="full-height">
           <q-card-section class="q-pa-none full-height">
             <QuestionList 
               ref="questionListRef"
+              :search-query="searchQuery"
+              :selected-subject-filter="selectedSubjectFilter"
               @start-ai-guidance="handleStartAiGuidance"
               @question-selected="handleQuestionSelected"
               @send-question-to-teacher="handleSendQuestionToTeacher"
@@ -73,7 +117,7 @@
       </div>
 
       <!-- 右侧功能区域 -->
-      <div class="function-panel col-8">
+      <div class="function-panel" :class="{ 'content-shifted': showFilterPanel }">
         <q-card flat class="full-height">
           <!-- 功能内容区域 -->
           <q-card-section class="function-content q-pa-none">
@@ -115,7 +159,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useQuestionStore } from '../stores/questionStore'
 import { useUserStore } from '../stores/userStore'
@@ -160,6 +204,63 @@ const currentFunction = ref<'chatAi' | 'askTeacher' | 'viewAnswer' | 'similarQue
 
 // QuestionList 组件引用
 const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
+
+// 筛选面板显示状态
+const showFilterPanel = ref(false)
+
+// 切换筛选面板显示状态
+const toggleFilterPanel = () => {
+  showFilterPanel.value = !showFilterPanel.value
+}
+
+// 处理内容区域点击（关闭筛选面板）
+const handleContentClick = () => {
+  // 如果筛选面板显示，点击内容区域时关闭
+  if (showFilterPanel.value) {
+    showFilterPanel.value = false
+  }
+}
+
+// 搜索相关
+const searchQuery = ref('')
+const searchTimeout = ref<number | null>(null)
+
+// 学科过滤相关
+const selectedSubjectFilter = ref<string | null>(null) // null 表示显示所有学科
+const subjectOptions = [
+  { label: '全部学科', value: null },
+  { label: '数学', value: 'SUBJECT_MATH' },
+  { label: '生物', value: 'SUBJECT_BIOLOGY' },
+  { label: '化学', value: 'SUBJECT_CHEMISTRY' },
+  { label: '物理', value: 'SUBJECT_PHYSICS' },
+  { label: '语文', value: 'SUBJECT_CHINESE' },
+  { label: '英语', value: 'SUBJECT_ENGLISH' },
+]
+
+// 搜索输入处理
+const onSearchInput = () => {
+  if (searchTimeout.value) {
+    clearTimeout(searchTimeout.value)
+  }
+
+  searchTimeout.value = window.setTimeout(() => {
+    // 搜索逻辑在 QuestionList 组件内部处理
+  }, 300)
+}
+
+// 学科过滤变化处理
+const onSubjectFilterChange = () => {
+  // 过滤逻辑在 QuestionList 组件内部处理
+}
+
+// 拍照搜题功能已移至工具箱（MyProfileView）
+
+// 输出对比统计
+const handleOutputStatistics = () => {
+  if (questionListRef.value && typeof questionListRef.value.outputComparisonStatistics === 'function') {
+    questionListRef.value.outputComparisonStatistics()
+  }
+}
 
 const hasSelectedQuestion = computed(() => {
   return currentQuestion.value !== null
@@ -526,13 +627,181 @@ $desktop-breakpoint: 1025px;
   flex-direction: column;
 }
 
+// 汉堡按钮（在工具栏左侧）
+.filter-menu-btn {
+  margin-left: 8px;
+  color: rgba(255, 255, 255, 0.9);
+  
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  :deep(.q-icon) {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 24px;
+  }
+}
+
+// 筛选面板包装器
+.filter-panel-wrapper {
+  position: relative;
+  flex: 0 0 22%; // 固定22%宽度，不会缩小，内容区域会相应缩小
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+// 筛选面板过渡动画
+.filter-panel-transition-enter-active,
+.filter-panel-transition-leave-active {
+  transition: all 0.3s ease;
+}
+
+.filter-panel-transition-enter-from {
+  opacity: 0;
+  transform: translateX(-20px);
+  flex: 0 0 0%; // 使用flex而不是width
+}
+
+.filter-panel-transition-leave-to {
+  opacity: 0;
+  transform: translateX(-20px);
+  flex: 0 0 0%; // 使用flex而不是width
+}
+
+// 筛选面板（与工具箱保持一致）
+.filter-panel {
+  width: 100%;
+  height: 100%;
+  background: #3D3070;
+  border-bottom: 1px solid rgba(229, 231, 235, 0.3);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  
+  // 自定义滚动条样式
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.5);
+    }
+  }
+  
+  .filter-panel-content {
+    flex: 1;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+    
+    .search-input {
+      width: 100%;
+      
+      :deep(.q-field__control) {
+        border-radius: 12px;
+        border: none;
+        background-color: rgba(255, 255, 255, 0.95);
+        transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        
+        &:hover {
+          background-color: #ffffff;
+        }
+        
+        &.q-field--focused {
+          background-color: #ffffff;
+          box-shadow: 0 0 0 2px rgba(138, 128, 255, 0.3);
+        }
+      }
+      
+      :deep(.q-field__native) {
+        padding: 12px 16px;
+        font-size: 14px;
+        min-height: 48px;
+      }
+      
+      :deep(.q-field__append) {
+        padding-right: 12px;
+        
+        .q-icon {
+          color: #5f6368;
+          font-size: 20px;
+        }
+      }
+    }
+    
+    .subject-filter-select {
+      width: 100%;
+      
+      :deep(.q-field__control) {
+        border-radius: 12px;
+        border: none;
+        background-color: rgba(255, 255, 255, 0.95);
+        transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        
+        &:hover {
+          background-color: #ffffff;
+        }
+        
+        &.q-field--focused {
+          background-color: #ffffff;
+          box-shadow: 0 0 0 2px rgba(138, 128, 255, 0.3);
+        }
+      }
+      
+      :deep(.q-field__native) {
+        padding: 12px 16px;
+        font-size: 14px;
+        min-height: 48px;
+      }
+      
+      :deep(.q-field__prepend) {
+        padding-left: 12px;
+        
+        .q-icon {
+          color: #5f6368;
+          font-size: 20px;
+        }
+      }
+    }
+    
+    .stats-btn {
+      width: 100%;
+      height: 48px;
+      background-color: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.9);
+      
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+      
+      :deep(.q-icon) {
+        font-size: 20px;
+      }
+    }
+  }
+}
+
 .app-header {
   height: $header-height;
   min-height: $header-height;
   max-height: $header-height;
-  border-bottom: $border-width solid $border-color;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  background-color: #ffffff;
+  border-bottom: none;
+  box-shadow: none;
+  background-color: #3d3070; /* 深紫色背景 */
   flex-shrink: 0;
 }
 
@@ -552,7 +821,7 @@ $desktop-breakpoint: 1025px;
 }
 
 .toolbar-spacer {
-  width: 40px; // 与返回按钮宽度保持平衡
+  width: 40px; // 与汉堡按钮宽度保持平衡
 }
 
 .main-content {
@@ -561,12 +830,19 @@ $desktop-breakpoint: 1025px;
   display: flex;
   background-color: #f8f9fa; /* Gemini 风格的整体背景 */
   min-height: 0;
+  width: 100%;
+  transition: margin-left 0.3s ease, width 0.3s ease; // 平滑动画（与工具箱保持一致）
+  
+  // 当筛选面板显示时，内容区域保持正常布局
+  // 筛选面板作为普通流式布局的一部分，不需要偏移
 }
 
 .question-panel {
   background-color: #f8f9fa; /* Gemini 风格的浅灰背景 */
   @include full-height-flex;
   overflow: hidden;
+  flex: 0 0 30%;
+  min-width: 0;
 
   .q-card {
     @include full-height-flex;
@@ -592,6 +868,9 @@ $desktop-breakpoint: 1025px;
 .function-panel {
   @include full-height-flex;
   background-color: #ffffff; /* 聊天区域保持白色背景 */
+  flex: 1 1 auto;
+  min-width: 0;
+  transition: flex-basis 0.3s ease, margin-left 0.3s ease; // 平滑动画，flex-basis和margin-left变化时有渐变效果
 
   .q-card {
     @include full-height-flex;
@@ -599,80 +878,81 @@ $desktop-breakpoint: 1025px;
     border: none;
     box-shadow: none;
   }
+  
+  // 当筛选面板显示时，内容区域平滑调整
+  &.content-shifted {
+    flex: 0 0 calc(100% - 22%); // 使用 flex-basis，确保 transition 生效
+    margin-left: auto; // 将面板推到右侧，确保右侧始终紧贴右边框
+    }
 }
 
-.function-buttons {
+.function-nav {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 16px;
+}
+
+.nav-item {
+  font-size: 14px;
+  color: #B0BEC5; /* 浅灰色文字 */
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 8px 16px;
+  border-radius: 8px;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
-  border-radius: 8px;
-  padding: 4px 8px;
-}
-
-.function-btn {
-  font-size: 13px;
-  padding: 6px 12px;
-  min-width: auto;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  position: relative;
   
+  &:hover:not(.disabled) {
+    color: #E1BEE7; /* 悬停时稍亮一点 */
+  }
   
-  // 选中状态样式 - 深蓝色，无光晕效果
-  &.text-primary {
-    background: #1a73e8;
-    color: #ffffff !important;
-    font-weight: 600;
-    border: 1px solid #1a73e8;
-    position: relative;
-    z-index: 1;
+  // 激活状态 - 白色背景，深色文字，紫色下划线
+  &.active {
+    background-color: #ffffff;
+    color: #673AB7; /* 深紫色文字，与背景色匹配 */
+    font-weight: 500;
     
+    // 紫色下划线
     &::after {
       content: '';
       position: absolute;
-      bottom: -2px;
+      bottom: -4px;
       left: 50%;
       transform: translateX(-50%);
-      width: 20px;
-      height: 2px;
-      background: linear-gradient(90deg, #ffffff, #e3f2fd);
-      border-radius: 1px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      width: 60%;
+      height: 3px;
+      background: #9C27B0; /* 亮紫色下划线 */
+      border-radius: 2px;
+    }
+    
+    // 图标在激活状态下也应该是深紫色
+    .nav-icon {
+      filter: brightness(0.7) saturate(1.5);
     }
   }
   
-  // 可选状态样式 - 沉重、缺乏活力
-  &.text-grey-6 {
-    background: #e9ecef !important;
-    color: #6c757d !important;
-    border: 1px solid #dee2e6 !important;
-    font-weight: normal !important;
+  // 禁用状态
+  &.disabled {
+    color: #757575;
+    cursor: not-allowed;
+    opacity: 0.5;
   }
   
-  // 禁用状态样式 - 极简、几乎不可见
-  &.q-btn--disable,
-  &[disabled] {
-    background: #f8f9fa !important;
-    color: #adb5bd !important;
-    border: 1px solid #e9ecef !important;
-    cursor: not-allowed !important;
-    opacity: 0.4;
-    font-weight: normal !important;
-    position: relative;
+  // 导航图标
+  .nav-icon {
+    font-size: 16px;
+    filter: brightness(0.9);
     
-    // 禁用时移除选中状态的样式
-    &.text-primary {
-      background: #f8f9fa !important;
-      color: #adb5bd !important;
-      font-weight: normal !important;
-      border: 1px solid #e9ecef !important;
-      
-      &::after {
-        display: none !important;
-      }
+    .active & {
+      filter: brightness(1.2);
     }
   }
 }
+
+// 特殊的激活项（查看答案）样式已包含在 .nav-item.active 中
 
 .function-content {
   flex: 1;
@@ -745,53 +1025,7 @@ $desktop-breakpoint: 1025px;
   border-color: $border-color !important;
 }
 
-// 全局禁用状态样式 - 确保 Quasar 禁用按钮正确应用样式
-:deep(.q-btn--disable) {
-  background: #f5f5f5 !important;
-  color: #757575 !important;
-  border: 1px solid #d0d0d0 !important;
-  cursor: not-allowed !important;
-  opacity: 0.7;
-  font-weight: normal !important;
-  position: relative;
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.8);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  
-  &::before {
-    content: '🚫';
-    position: absolute;
-    top: 50%;
-    right: 8px;
-    transform: translateY(-50%);
-    font-size: 12px;
-    opacity: 0.6;
-  }
-  
-  
-  // 禁用时移除选中状态的样式
-  &.text-primary {
-    background: #f5f5f5 !important;
-    color: #757575 !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
-    font-weight: normal !important;
-    border: 1px solid #d0d0d0 !important;
-    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.8);
-    
-    &::before {
-      content: '🚫';
-      position: absolute;
-      top: 50%;
-      right: 8px;
-      transform: translateY(-50%);
-      font-size: 12px;
-      opacity: 0.6;
-    }
-    
-    &::after {
-      display: none !important;
-    }
-  }
-}
+// 移除旧的按钮样式，使用新的导航样式
 
 // 响应式设计
 @media (max-width: $mobile-breakpoint) {
@@ -820,15 +1054,14 @@ $desktop-breakpoint: 1025px;
     @include hide-mobile-scrollbar;
   }
 
-  .function-buttons {
-    gap: 4px;
-    padding: 2px 4px;
+  .function-nav {
+    gap: 12px;
+    padding: 0 8px;
   }
 
-  .function-btn {
-    font-size: 11px;
-    padding: 4px 8px;
-    min-width: auto;
+  .nav-item {
+    font-size: 12px;
+    padding: 6px 12px;
   }
   
   .toolbar-spacer {
@@ -839,20 +1072,40 @@ $desktop-breakpoint: 1025px;
 @media (min-width: #{$mobile-breakpoint + 1px}) and (max-width: $tablet-breakpoint) {
   .question-panel {
     flex: 0 0 35%;
+    
+    &.with-filter-panel {
+      flex: 0 0 calc(35% - 300px);
+    }
   }
 
   .function-panel {
     flex: 0 0 65%;
+    transition: flex-basis 0.3s ease, margin-left 0.3s ease; // 平滑动画，flex-basis和margin-left变化时有渐变效果
+    
+    &.content-shifted {
+      flex: 0 0 calc(100% - 22%); // 使用 flex-basis，确保 transition 生效
+      margin-left: auto; // 将面板推到右侧，确保右侧始终紧贴右边框
+    }
   }
 }
 
 @media (min-width: $desktop-breakpoint) {
   .question-panel {
     flex: 0 0 30%;
+    
+    &.with-filter-panel {
+      flex: 0 0 calc(30% - 300px);
+    }
   }
 
   .function-panel {
     flex: 0 0 70%;
+    transition: flex-basis 0.3s ease, margin-left 0.3s ease; // 平滑动画，flex-basis和margin-left变化时有渐变效果
+    
+    &.content-shifted {
+      flex: 0 0 48%; // 使用 flex-basis，确保 transition 生效
+      margin-left: auto; // 将面板推到右侧，确保右侧始终紧贴右边框
+    }
   }
 }
 </style>

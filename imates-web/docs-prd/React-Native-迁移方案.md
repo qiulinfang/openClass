@@ -231,9 +231,10 @@ src/
 - 实现相似题推荐
 
 #### 3.3 AI 聊天基础
-- 实现聊天界面
-- 实现消息渲染
-- 实现流式响应处理
+- ✅ AI通用聊天Store迁移完成（aiGeneralChatStore）
+- ⏳ 实现聊天界面（ChatScreen）
+- ⏳ 实现消息渲染（ChatMessage）
+- ⏳ 实现流式响应处理
 
 ### Step 4：重要功能迁移（Week 5-6）
 
@@ -336,10 +337,12 @@ public class ChatModule extends ReactContextBaseJavaModule {
 - [x] 网络请求封装完成（apiService, httpClient）
 - [x] 数据存储迁移完成（storageService, AsyncStorage）
 
-### 里程碑 3：核心功能 ✅
+### 里程碑 3：核心功能 🔄
 - [x] 用户认证迁移完成（LoginScreen, userStore）
 - [x] 习题解答迁移完成（QuestionList, questionStore）
-- [ ] AI 聊天基础功能完成
+- [x] AI通用聊天Store迁移完成（aiGeneralChatStore）
+- [ ] AI聊天UI组件完成（ChatScreen, ChatMessage, ChatInput）
+- [ ] 其他Chat Stores迁移（aiExerciseChatStore, aiTextbookChatStore, teacherChatStore）
 
 ### 里程碑 4：重要功能 ⏳
 - [ ] 知识图谱迁移完成

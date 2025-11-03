@@ -4,49 +4,97 @@
       <q-page class="my-resources-view">
         <!-- 筛选区域 (固定在顶部) -->
         <div class="filter-section">
+          <!-- 标题 -->
+          <div class="filter-title">资源下载</div>
+          
+          <!-- 筛选器区域 -->
           <div class="filter-content">
-            <!-- 第1步：学科筛选 -->
-            <div class="filter-chips">
-              <q-chip
-                v-for="category in categories"
-                :key="category.value"
-                :selected="selectedSubjects.has(category.value)"
-                :color="selectedSubjects.has(category.value) ? 'primary' : 'grey-3'"
-                :text-color="selectedSubjects.has(category.value) ? 'white' : 'grey-8'"
-                clickable
-                @click="toggleSubject(category.value)"
-                :label="category.label"
-                size="md"
-                class="filter-chip"
-              />
-            </div>
-            
-            <!-- 第2步：操作按钮组 -->
-            <div class="action-buttons">
-              <q-btn
-                color="primary"
-                icon="refresh"
-                label="检查更新"
-                @click="handleCheckUpdates"
-                :loading="checkingUpdates"
-                size="md"
-                unelevated
-                no-caps
-                class="check-updates-btn"
-              />
+            <!-- 四个下拉筛选器 -->
+            <div class="filter-dropdowns">
+              <!-- 年级 -->
+              <div class="filter-dropdown-item">
+                <label class="filter-label">年级:</label>
+                <q-select
+                  v-model="selectedGrade"
+                  :options="gradeOptions"
+                  behavior="menu"
+                  emit-value
+                  map-options
+                  outlined
+                  dense
+                  class="filter-select"
+                  @update:model-value="handleFilterChange"
+                />
+              </div>
               
-              <!-- 调试面板按钮 -->
-              <q-btn
-                v-if="isDev"
-                color="secondary"
-                icon="bug_report"
-                label="调试面板"
-                @click="showDebugPanel = true"
-                size="md"
-                unelevated
-                no-caps
-                class="debug-btn"
-              />
+              <!-- 教材版本 -->
+              <div class="filter-dropdown-item">
+                <label class="filter-label">教材版本:</label>
+                <q-select
+                  v-model="selectedVersion"
+                  :options="versionOptions"
+                  behavior="menu"
+                  emit-value
+                  map-options
+                  outlined
+                  dense
+                  class="filter-select"
+                  @update:model-value="handleFilterChange"
+                />
+              </div>
+              
+              <!-- 学科 -->
+              <div class="filter-dropdown-item">
+                <label class="filter-label">学科:</label>
+                <q-select
+                  v-model="selectedSubject"
+                  :options="subjectOptions"
+                  behavior="menu"
+                  emit-value
+                  map-options
+                  outlined
+                  dense
+                  class="filter-select"
+                  @update:model-value="handleFilterChange"
+                />
+              </div>
+              
+              <!-- 进度 -->
+              <div class="filter-dropdown-item">
+                <label class="filter-label">进度:</label>
+                <q-select
+                  v-model="selectedProgress"
+                  :options="progressOptions"
+                  behavior="menu"
+                  emit-value
+                  map-options
+                  outlined
+                  dense
+                  class="filter-select"
+                  @update:model-value="handleFilterChange"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <!-- 标签页区域 -->
+          <div class="filter-tabs">
+            <div
+              v-for="tab in filterTabs"
+              :key="tab.value"
+              class="filter-tab"
+              :class="{ active: activeTab === tab.value }"
+              @click="setActiveTab(tab.value)"
+            >
+              <span class="tab-label">{{ tab.label }}</span>
+              <q-badge
+                v-if="tab.count > 0"
+                color="negative"
+                rounded
+                class="tab-badge"
+              >
+                {{ tab.count }}
+              </q-badge>
             </div>
           </div>
         </div>
@@ -64,7 +112,7 @@
             <div class="textbooks-container q-pa-md">
               <div class="textbooks-scroll-container">
                 <div class="textbooks-grid">
-                  <!-- 第1步：简化卡片结构，减少DOM层级 -->
+                  <!-- 图片样式布局：左右结构 -->
                   <div
                     v-for="textbook in filteredTextbooks"
                     :key="textbook.id"
@@ -74,101 +122,127 @@
                       paused: textbook.downloadStatus === 3,
                     }"
                   >
-                  {{ textbook.downloadStatus }}
-                    <!-- 第2步：教材封面容器 - 用原生div替换q-img -->
+                    <!-- 左侧：封面图片 -->
                     <div class="textbook-cover">
-                      <!-- 第3步：原生img标签，比q-img性能更好 -->
                       <img
                         :src="getCoverImageUrl(textbook.textbookCover)"
                         :alt="textbook.textbookName"
                         loading="lazy"
                       />
-                      
-                      <!-- 第4步：下载/暂停状态覆盖层 - 合并为单一覆盖层 -->
-                      <div
-                        v-if="textbook.downloadStatus === 1 || textbook.downloadStatus === 3"
-                        class="status-overlay"
-                      >
-                        <!-- 第5步：纯CSS圆形进度条替换q-circular-progress -->
-                        <div v-if="textbook.downloadStatus === 1" class="progress-ring">
-                          <svg width="60" height="60">
-                            <circle class="progress-ring-circle-bg" cx="30" cy="30" r="26" />
-                            <circle
-                              class="progress-ring-circle"
-                              cx="30"
-                              cy="30"
-                              r="26"
-                              :style="{
-                                strokeDashoffset: 163.36 * (1 - textbook.downloadedFiles / textbook.totalFiles)
-                              }"
-                            />
-                          </svg>
-                          <div class="progress-text">
-                            {{ textbook.downloadedFiles }}/{{ textbook.totalFiles }}
-                          </div>
+                    </div>
+
+                    <!-- 右侧：信息区域 -->
+                    <div class="textbook-content">
+                      <!-- 左侧：标题、版本和状态指示器 -->
+                      <div class="textbook-info">
+                        <!-- 标题和版本 -->
+                        <div class="textbook-header">
+                          <div class="textbook-title">{{ textbook.textbookName }}</div>
+                          <div class="textbook-version">{{ textbook.textbookPublisher || '人教版' }}</div>
                         </div>
                         
-                        <!-- 第6步：暂停图标 - 用CSS图标替代 -->
-                        <div v-else class="pause-indicator">
-                          <div class="pause-icon"></div>
-                          <div class="pause-text">已暂停</div>
-                          <div class="pause-progress">
-                            {{ textbook.downloadedFiles }}/{{ textbook.totalFiles }}
-                          </div>
+                        <!-- 状态指示器 -->
+                        <div class="status-indicator">
+                          <!-- 未下载 -->
+                          <template v-if="textbook.downloadStatus === 0">
+                            <span class="status-dot status-dot-red"></span>
+                            <span class="status-text">未下载</span>
+                          </template>
+                          <!-- 下载中 -->
+                          <template v-else-if="textbook.downloadStatus === 1">
+                            <span class="status-dot status-dot-blue"></span>
+                            <span class="status-text">正在下载 {{ Math.round((textbook.downloadedFiles / textbook.totalFiles) * 100) }}%</span>
+                          </template>
+                          <!-- 下载完成 -->
+                          <template v-else-if="textbook.downloadStatus === 2 && textbook.isDownloaded">
+                            <span class="status-dot status-dot-green"></span>
+                            <span class="status-text">下载完成</span>
+                          </template>
+                          <!-- 暂停 -->
+                          <template v-else-if="textbook.downloadStatus === 3">
+                            <span class="status-dot status-dot-orange"></span>
+                            <span class="status-text">已暂停</span>
+                          </template>
+                          <!-- 有更新 -->
+                          <template v-else-if="textbook.hasUpdatesAvailable">
+                            <span class="status-dot status-dot-orange"></span>
+                            <span class="status-text">有更新</span>
+                          </template>
                         </div>
                       </div>
 
-                      <!-- 第7步：教材信息覆盖层 (底部) -->
-                      <div class="textbook-info-overlay">
-                        <div class="textbook-name-overlay">
-                          {{ textbook.textbookName }}
-                        </div>
-                        <div class="textbook-meta-overlay">
-                          {{ textbook.textbookSubjectLabel }} {{ textbook.textbookGradeLabel }} {{ textbook.textbookSemesterLabel }}
+                      <!-- 右侧：操作按钮 -->
+                      <div class="textbook-actions">
+                          <!-- 下载中状态：显示暂停 -->
+                          <template v-if="textbook.downloadStatus === 1">
+                            <q-btn 
+                              color="primary" 
+                              label="暂停" 
+                              @click="pauseDownload(textbook)" 
+                              size="sm" 
+                              unelevated 
+                              no-caps
+                              class="action-btn"
+                            />
+                          </template>
+                          
+                          <!-- 暂停状态：显示继续 -->
+                          <template v-else-if="textbook.downloadStatus === 3">
+                            <q-btn 
+                              color="primary" 
+                              label="继续" 
+                              @click="downloadTextbook(textbook)" 
+                              size="sm" 
+                              unelevated 
+                              no-caps
+                              class="action-btn"
+                            />
+                          </template>
+                          
+                          <!-- 已下载状态：显示去学习或更新 -->
+                          <template v-else-if="textbook.isDownloaded && textbook.downloadStatus === 2">
+                            <q-btn 
+                              v-if="textbook.hasUpdatesAvailable"
+                              color="secondary" 
+                              label="更新" 
+                              @click="updateTextbook(textbook)" 
+                              size="sm" 
+                              unelevated 
+                              no-caps
+                              class="action-btn"
+                            />
+                            <q-btn 
+                              v-else
+                              color="primary" 
+                              label="去学习" 
+                              @click="goToKnowledgeGraph(textbook)" 
+                              size="sm" 
+                              unelevated 
+                              no-caps
+                              class="action-btn"
+                            />
+                          </template>
+                          
+                          <!-- 未下载或部分下载状态：显示下载/继续 -->
+                          <template v-else>
+                            <q-btn 
+                              color="primary" 
+                              label="下载" 
+                              @click="downloadTextbook(textbook)" 
+                              size="sm" 
+                              unelevated 
+                              no-caps
+                              class="action-btn"
+                            />
+                          </template>
                         </div>
                       </div>
-                    </div>
-                    <!-- 第8步：操作按钮区 - 简化条件逻辑 -->
-                    <div class="textbook-actions">
-                      <!-- 下载中状态：显示暂停和取消 -->
-                      <template v-if="textbook.downloadStatus === 1">
-                        <q-btn color="orange" icon="pause" label="暂停" @click="pauseDownload(textbook)" size="sm" unelevated no-caps />
-                        <q-btn color="negative" icon="cancel" label="取消" @click="cancelDownload(textbook)" size="sm" unelevated no-caps />
-                        <q-btn color="negative" icon="delete" label="删除" @click="handleDeleteTextbook(textbook)" size="sm" unelevated no-caps />
-                      </template>
-                      
-                      <!-- 暂停状态：显示继续和取消 -->
-                      <template v-else-if="textbook.downloadStatus === 3">
-                        <q-btn color="primary" icon="play_arrow" label="继续" @click="downloadTextbook(textbook)" size="sm" unelevated no-caps />
-                        <q-btn color="negative" icon="cancel" label="取消" @click="cancelDownload(textbook)" size="sm" unelevated no-caps />
-                        <q-btn color="negative" icon="delete" label="删除" @click="handleDeleteTextbook(textbook)" size="sm" unelevated no-caps />
-                      </template>
-                      
-                      <!-- 已下载状态：显示去学习 -->
-                      <template v-else-if="textbook.isDownloaded && textbook.downloadStatus === 2">
-                        <q-btn color="primary" icon="school" label="去学习" @click="goToKnowledgeGraph(textbook)" size="sm" unelevated no-caps />
-                        <q-btn v-if="textbook.hasUpdatesAvailable" color="secondary" icon="system_update" label="更新" @click="updateTextbook(textbook)" size="sm" unelevated no-caps />
-                        <q-btn color="negative" icon="delete" label="删除" @click="handleDeleteTextbook(textbook)" size="sm" unelevated no-caps />
-                      </template>
-                      
-                      <!-- 部分下载状态：显示继续 -->
-                      <template v-else-if="textbook.downloadedFiles > 0 && textbook.downloadedFiles < textbook.totalFiles">
-                        <q-btn color="primary" icon="play_arrow" label="继续" @click="downloadTextbook(textbook)" size="sm" unelevated no-caps />
-                        <q-btn color="negative" icon="delete" label="删除" @click="handleDeleteTextbook(textbook)" size="sm" unelevated no-caps />
-                      </template>
-                      
-                      <!-- 未下载状态：显示下载 -->
-                      <template v-else>
-                        <q-btn color="primary" icon="download" label="下载" @click="downloadTextbook(textbook)" size="sm" unelevated no-caps />
-                        <q-btn color="negative" icon="delete" label="删除" @click="handleDeleteTextbook(textbook)" size="sm" unelevated no-caps />
-                      </template>
                     </div>
                   </div>
                  </div>
                </div>
              </div>
           </div>
-        </div>
 
         <!-- 空状态 (固定) -->
             <div
@@ -250,6 +324,54 @@ const selectedSubjects = ref(new Set<string>())
 const updateCount = ref(0)
 const showDebugPanel = ref(false)
 
+// 筛选器数据
+const selectedGrade = ref<string>('')
+const selectedVersion = ref<string>('')
+const selectedSubject = ref<string>('')
+const selectedProgress = ref<string>('')
+const activeTab = ref<string>('all')
+
+// 筛选器选项
+const gradeOptions = ref([
+  { label: '全部', value: '' },
+  { label: '高一', value: '高一' },
+  { label: '高二', value: '高二' },
+  { label: '高三', value: '高三' },
+  { label: '初一', value: '初一' },
+  { label: '初二', value: '初二' },
+  { label: '初三', value: '初三' },
+])
+
+const versionOptions = ref([
+  { label: '全部', value: '' },
+  { label: '人教版', value: '人教版' },
+  { label: '苏教版', value: '苏教版' },
+  { label: '北师大版', value: '北师大版' },
+  { label: '华师大版', value: '华师大版' },
+])
+
+const subjectOptions = ref([
+  { label: '全部', value: '' },
+  { label: '数学', value: '数学' },
+  { label: '语文', value: '语文' },
+  { label: '英语', value: '英语' },
+  { label: '物理', value: '物理' },
+  { label: '化学', value: '化学' },
+  { label: '生物', value: '生物' },
+  { label: '历史', value: '历史' },
+  { label: '地理', value: '地理' },
+  { label: '政治', value: '政治' },
+])
+
+const progressOptions = ref([
+  { label: '全部', value: '' },
+  { label: '必修一', value: '必修一' },
+  { label: '必修二', value: '必修二' },
+  { label: '必修三', value: '必修三' },
+  { label: '选修一', value: '选修一' },
+  { label: '选修二', value: '选修二' },
+])
+
 // 删除教材相关状态
 const showDeleteDialog = ref(false)
 const deleting = ref(false)
@@ -266,20 +388,59 @@ const scrollWrapper = ref<HTMLElement | null>(null)
 // 分类选项 - 基于学科动态生成
 const categories = ref([{ label: '全部', value: 'all' }])
 
-// 计算属性 - 简化的筛选逻辑，添加排序确保顺序一致
-const filteredTextbooks = computed(() => {
-  let result: UserTextbookInfo[]
+// 标签页数据（带计数）
+const filterTabs = computed(() => {
+  const notDownloaded = textbooks.value.filter(t => !t.isDownloaded || t.downloadStatus === 0).length
+  const pendingUpdate = textbooks.value.filter(t => t.hasUpdatesAvailable || (t.isDownloaded && t.downloadStatus !== 2)).length
 
-  if (selectedSubjects.value.has('all') || selectedSubjects.value.size === 0) {
-    result = textbooks.value
-  } else {
-    result = textbooks.value.filter((textbook) =>
-      selectedSubjects.value.has(textbook.textbookSubjectLabel),
-    )
+  return [
+    { label: '全部', value: 'all', count: 0 },
+    { label: '未下载', value: 'notDownloaded', count: notDownloaded },
+    { label: '已下载', value: 'downloaded', count: 0 },
+    { label: '待更新', value: 'pendingUpdate', count: pendingUpdate },
+  ]
+})
+
+// 计算属性 - 支持新的筛选逻辑（年级、版本、学科、进度、标签页）
+const filteredTextbooks = computed(() => {
+  let result: UserTextbookInfo[] = [...textbooks.value]
+
+  // 年级筛选
+  if (selectedGrade.value) {
+    result = result.filter((textbook) => textbook.textbookGradeLabel === selectedGrade.value)
   }
 
+  // 版本筛选
+  if (selectedVersion.value) {
+    result = result.filter((textbook) => textbook.textbookPublisher === selectedVersion.value)
+  }
+
+  // 学科筛选
+  if (selectedSubject.value) {
+    result = result.filter((textbook) => textbook.textbookSubjectLabel === selectedSubject.value)
+  }
+
+  // 进度筛选（根据学期标签）
+  if (selectedProgress.value) {
+    result = result.filter((textbook) => {
+      // 这里可以根据实际需求匹配学期标签或教材名称
+      return textbook.textbookSemesterLabel?.includes(selectedProgress.value) || 
+             textbook.textbookName?.includes(selectedProgress.value)
+    })
+  }
+
+  // 标签页筛选
+  if (activeTab.value === 'notDownloaded') {
+    result = result.filter((textbook) => !textbook.isDownloaded || textbook.downloadStatus === 0)
+  } else if (activeTab.value === 'downloaded') {
+    result = result.filter((textbook) => textbook.isDownloaded && textbook.downloadStatus === 2 && !textbook.hasUpdatesAvailable)
+  } else if (activeTab.value === 'pendingUpdate') {
+    result = result.filter((textbook) => textbook.hasUpdatesAvailable || (textbook.isDownloaded && textbook.downloadStatus !== 2))
+  }
+  // 'all' 标签页不需要额外筛选
+
   // 排序确保每次加载顺序一致
-  return [...result].sort((a, b) => {
+  return result.sort((a, b) => {
     // 先按学科排序
     if (a.textbookSubjectLabel !== b.textbookSubjectLabel) {
       return a.textbookSubjectLabel.localeCompare(b.textbookSubjectLabel)
@@ -328,23 +489,15 @@ const getCoverImageUrl = (coverUrl: string | undefined): string => {
   return httpClient.buildFullUrl(coverUrl)
 }
 
-const toggleSubject = (subject: string) => {
-  if (subject === 'all') {
-    selectedSubjects.value.clear()
-    selectedSubjects.value.add('all')
-  } else {
-    selectedSubjects.value.delete('all')
-    if (selectedSubjects.value.has(subject)) {
-      selectedSubjects.value.delete(subject)
-    } else {
-      selectedSubjects.value.add(subject)
-    }
+// 处理筛选变化
+const handleFilterChange = () => {
+  // 筛选逻辑已在 computed 中实现，这里可以添加其他处理
+  // 如果需要，可以在这里触发数据重新计算或其他操作
+}
 
-    // 如果没有选择任何学科，自动选择"全部"
-    if (selectedSubjects.value.size === 0) {
-      selectedSubjects.value.add('all')
-    }
-  }
+// 设置活动标签页
+const setActiveTab = (tab: string) => {
+  activeTab.value = tab
 }
 
 // 合并服务器数据和本地数据 - 优化版本：先解构本地数据，再解构服务器数据
@@ -1152,33 +1305,106 @@ const printLocalFilesData = async () => {
 
   // 筛选区域 - 现代简洁版
   .filter-section {
+    background: #ffffff;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    
+    .filter-title {
+      text-align: center;
+      font-size: 20px;
+      font-weight: 500;
+      color: rgba(0, 0, 0, 0.87);
+      padding: 16px 20px 12px;
+    }
+
     .filter-content {
-      display: flex;
-      align-items: center;
-      gap: 16px;
       padding: 12px 20px;
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-    }
-
-    .filter-chips {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      flex: 1;
-      align-items: center;
-    }
-
-    .filter-chip {
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       
-      &:hover {
-        transform: translateY(-1px);
+      .filter-dropdowns {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        align-items: center;
+        
+        .filter-dropdown-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          
+          .filter-label {
+            font-size: 14px;
+            color: rgba(0, 0, 0, 0.87);
+            white-space: nowrap;
+          }
+          
+          .filter-select {
+            min-width: 120px;
+            
+            :deep(.q-field__control) {
+              border: 1px solid rgba(0, 0, 0, 0.12);
+              border-radius: 4px;
+            }
+          }
+        }
       }
-
-      &:active {
-        transform: translateY(0);
+    }
+    
+    .filter-tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 20px;
+      border-top: 1px dashed rgba(0, 0, 0, 0.12);
+      
+      .filter-tab {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 16px;
+        cursor: pointer;
+        position: relative;
+        transition: all 0.2s;
+        border-right: 1px dashed rgba(0, 0, 0, 0.12);
+        
+        &:last-child {
+          border-right: none;
+        }
+        
+        .tab-label {
+          font-size: 14px;
+          color: rgba(0, 0, 0, 0.87);
+          position: relative;
+        }
+        
+        .tab-badge {
+          position: absolute;
+          top: 4px;
+          right: 8px;
+          font-size: 10px;
+          min-width: 16px;
+          height: 16px;
+          padding: 0 4px;
+        }
+        
+        &.active {
+          .tab-label {
+            color: #9c27b0; // 紫色
+            font-weight: 500;
+            
+            &::after {
+              content: '';
+              position: absolute;
+              bottom: -12px;
+              left: 0;
+              right: 0;
+              height: 2px;
+              background: #9c27b0; // 紫色下划线
+            }
+          }
+        }
+        
+        &:hover {
+          background: rgba(0, 0, 0, 0.02);
+        }
       }
     }
 
@@ -1246,194 +1472,142 @@ const printLocalFilesData = async () => {
       overflow: visible;
     }
 
-    // 教材网格布局
+    // 教材列表布局（改为单列或双列）
     .textbooks-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-      justify-items: center;
-      align-items: start;
-      padding: 10px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 16px 0;
 
       // 响应式调整
-      @media (max-width: 600px) {
+      @media (min-width: 768px) {
+        display: grid;
         grid-template-columns: repeat(2, 1fr);
-        gap: 16px;
-      }
-
-      @media (max-width: 400px) {
-        grid-template-columns: repeat(1, 1fr);
-        gap: 16px;
+        gap: 20px;
       }
     }
 
-    // 第1步：简化后的教材卡片样式
+    // 图片样式布局：左右结构卡片
     .textbook-card {
-      width: 100%;
-      max-width: 240px;
-      border-radius: 4px;
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+      border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      overflow: hidden;
       background: #ffffff;
-      /* 第2步：性能优化 */
       contain: layout style paint;
       transform: translateZ(0);
       backface-visibility: hidden;
-      will-change: transform;
 
-      // 第3步：教材封面容器
+      // 左侧：封面图片
       .textbook-cover {
+        width: 120px;
+        height: 160px;
+        flex-shrink: 0;
         background: #f5f5f5;
-        position: relative;
-        padding-bottom: 150%; // 2:3比例
+        border-radius: 6px;
         overflow: hidden;
-        transform: translateZ(0);
+        position: relative;
 
-        // 第4步：原生img样式
         img {
-          position: absolute;
-          top: 0;
-          left: 0;
           width: 100%;
           height: 100%;
-          object-fit: contain;
+          object-fit: cover;
         }
       }
 
-      // 第5步：状态覆盖层
-      .status-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+      // 右侧：内容区域
+      .textbook-content {
+        flex: 1;
         display: flex;
+        flex-direction: row;
         align-items: center;
-        justify-content: center;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 2;
-      }
+        justify-content: space-between;
+        gap: 16px;
+        min-width: 0;
 
-      // 第6步：纯CSS圆形进度环
-      .progress-ring {
-        position: relative;
-        
-        svg {
-          transform: rotate(-90deg);
-        }
-        
-        .progress-ring-circle-bg {
-          fill: none;
-          stroke: rgba(255, 255, 255, 0.3);
-          stroke-width: 4;
-        }
-        
-        .progress-ring-circle {
-          fill: none;
-          stroke: #fff;
-          stroke-width: 4;
-          stroke-linecap: round;
-          stroke-dasharray: 163.36;
-          transition: stroke-dashoffset 0.3s ease;
-        }
-        
-        .progress-text {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          color: white;
-          font-size: 12px;
-          font-weight: 600;
-        }
-      }
+        // 左侧：标题、版本和状态指示器
+        .textbook-info {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          min-width: 0;
 
-      // 第7步：暂停指示器
-      .pause-indicator {
-        text-align: center;
-        color: #ff9800;
-        
-        .pause-icon {
-          width: 60px;
-          height: 60px;
-          margin: 0 auto 8px;
-          background: #ff9800;
-          border-radius: 50%;
-          position: relative;
-          
-          &::before,
-          &::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 6px;
-            height: 24px;
-            background: white;
-            border-radius: 2px;
+          // 标题和版本
+          .textbook-header {
+            margin-bottom: 8px;
+
+            .textbook-title {
+              font-size: 18px;
+              font-weight: 600;
+              color: #1f2937;
+              margin-bottom: 6px;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              display: -webkit-box;
+              -webkit-line-clamp: 2;
+              -webkit-box-orient: vertical;
+              line-height: 1.4;
+            }
+
+            .textbook-version {
+              font-size: 14px;
+              color: #6b7280;
+              font-weight: 400;
+            }
           }
-          
-          &::before {
-            left: 20px;
-          }
-          
-          &::after {
-            right: 20px;
+
+          // 状态指示器
+          .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
+            .status-dot {
+              width: 8px;
+              height: 8px;
+              border-radius: 50%;
+              flex-shrink: 0;
+            }
+
+            .status-dot-red {
+              background: #ef4444;
+            }
+
+            .status-dot-blue {
+              background: #3b82f6;
+            }
+
+            .status-dot-green {
+              background: #10b981;
+            }
+
+            .status-dot-orange {
+              background: #f59e0b;
+            }
+
+            .status-text {
+              font-size: 14px;
+              color: #6b7280;
+              font-weight: 500;
+            }
           }
         }
-        
-        .pause-text {
-          font-size: 14px;
-          font-weight: 600;
-          color: white;
-          margin-bottom: 4px;
-        }
-        
-        .pause-progress {
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.9);
+
+        // 右侧：操作按钮
+        .textbook-actions {
+          flex-shrink: 0;
+
+            .action-btn {
+              min-width: 80px;
+              border-radius: 20px;
+              font-weight: 500;
+            }
+          }
         }
       }
-
-      // 教材信息覆盖层样式 - 半透明+毛玻璃组合
-      .textbook-info-overlay {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        padding: 10px 8px;
-        background: rgba(0, 0, 0, 0.4);  // 半透明黑色确保可读性
-        backdrop-filter: blur(8px) saturate(120%);  // 适度毛玻璃
-        -webkit-backdrop-filter: blur(8px) saturate(120%);
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        color: white;
-
-        .textbook-name-overlay {
-          font-size: 13px;
-          font-weight: 600;
-          line-height: 1.3;
-          margin-bottom: 3px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          display: -webkit-box;
-          line-clamp: 2;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);  // 简洁阴影
-        }
-
-        .textbook-meta-overlay {
-          font-size: 11px;
-          opacity: 0.9;
-          line-height: 1.2;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-        }
-      }
-
 
       &:hover {
         box-shadow:
@@ -1450,20 +1624,11 @@ const printLocalFilesData = async () => {
       }
 
       &.downloading {
-        border-left: 4px solid #2196f3; // Material Design 蓝色
+        border-left: 4px solid #3b82f6;
       }
 
       &.paused {
-        border-left: 4px solid #ff9800; // Material Design 橙色
-      }
-
-      // 第10步：简化后的操作按钮区
-      .textbook-actions {
-        display: flex;
-        gap: 8px;
-        padding: 8px;
-        justify-content: space-around;
-        align-items: center;
+        border-left: 4px solid #f59e0b;
       }
     }
 
@@ -1677,7 +1842,6 @@ const printLocalFilesData = async () => {
     }
   }
 
-}
 
 @keyframes spin {
   0% {
@@ -1706,17 +1870,54 @@ const printLocalFilesData = async () => {
     }
 
     .filter-section {
+      .filter-title {
+        font-size: 18px;
+        padding: 12px 16px 8px;
+      }
+
       .filter-content {
         padding: 10px 16px;
-        gap: 12px;
+        
+        .filter-dropdowns {
+          flex-direction: column;
+          gap: 12px;
+          align-items: stretch;
+          
+          .filter-dropdown-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+            
+            .filter-label {
+              font-size: 13px;
+            }
+            
+            .filter-select {
+              width: 100%;
+              min-width: auto;
+            }
+          }
+        }
       }
-
-      .filter-chips {
-        gap: 6px;
-      }
-
-      .filter-chip {
-        font-size: 13px;
+      
+      .filter-tabs {
+        flex-direction: column;
+        padding: 0 16px;
+        
+        .filter-tab {
+          border-right: none;
+          border-bottom: 1px dashed rgba(0, 0, 0, 0.12);
+          
+          &:last-child {
+            border-bottom: none;
+          }
+          
+          &.active {
+            .tab-label::after {
+              bottom: -10px;
+            }
+          }
+        }
       }
     }
 
@@ -1727,39 +1928,51 @@ const printLocalFilesData = async () => {
       }
 
       .textbooks-grid {
-        grid-template-columns: repeat(2, 1fr);
         gap: 12px;
-        padding: 8px 0;
-      }
-
-      .textbook-item-wrapper {
-        max-width: 200px;
+        padding: 12px 0;
       }
 
       .textbook-card {
-        max-width: 180px;
+        padding: 12px;
+        gap: 12px;
 
-        // 移动端信息覆盖层优化
-        .textbook-info-overlay {
-          padding: 8px 6px;
-          background: rgba(0, 0, 0, 0.45);  // 移动端稍深一点
-          backdrop-filter: blur(6px) saturate(120%);
-          -webkit-backdrop-filter: blur(6px) saturate(120%);
-
-          .textbook-name-overlay {
-            font-size: 12px;
-            font-weight: 600;
-            line-height: 1.25;
-            margin-bottom: 2px;
-          }
-
-          .textbook-meta-overlay {
-            font-size: 10px;
-          }
+        .textbook-cover {
+          width: 100px;
+          height: 133px;
         }
 
-        .textbook-actions {
-          gap: 4px;
+        .textbook-content {
+          .textbook-header {
+            .textbook-title {
+              font-size: 16px;
+            }
+
+            .textbook-version {
+              font-size: 13px;
+            }
+          }
+
+          flex-direction: column;
+          align-items: stretch;
+          gap: 12px;
+
+          .textbook-info {
+            .status-indicator {
+              .status-text {
+                font-size: 13px;
+              }
+            }
+          }
+
+          .textbook-actions {
+            align-self: flex-end;
+            width: 100%;
+
+            .action-btn {
+              width: 100%;
+              min-width: auto;
+            }
+          }
         }
       }
 

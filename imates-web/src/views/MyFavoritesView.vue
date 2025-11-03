@@ -55,11 +55,29 @@
             @click="handleQaCardClick(item.record)"
           >
             <div class="card-content">
+              <!-- 对话元信息 -->
+              <div class="card-meta">
+                <div class="meta-info">
+                  <span class="meta-tag" :class="getMetaTagClass(item.record)">
+                    {{ getMetaTagText(item.record) }}
+                  </span>
+                  <span v-if="getChatMetaInfo(item.record).sessionName" class="meta-session-name">
+                    {{ getChatMetaInfo(item.record).sessionName }}
+                  </span>
+                  <span v-if="getChatMetaInfo(item.record).msgCount !== undefined" class="meta-msg-count">
+                    {{ getChatMetaInfo(item.record).msgCount }}条消息
+                  </span>
+                </div>
+                <div class="meta-time">{{ formatTimestamp(item.timestamp) }}</div>
+              </div>
+              
+              <!-- 问题内容 -->
               <div class="card-text" v-html="renderContent(item.record.question)"></div>
+              
+              <!-- 回答内容 -->
               <div v-if="item.record.answer" class="card-answer">
                 {{ truncateText(item.record.answer, 100) }}
               </div>
-              <div class="card-timestamp">{{ formatTimestamp(item.timestamp) }}</div>
             </div>
           </div>
         </div>
@@ -113,11 +131,10 @@ import { ref, onMounted, watch, onActivated, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { getFavoriteQas, getFavoriteExercises } from '../utils/favorites'
-import type { QuestionRecord } from '../types/chat'
+import type { QuestionRecord, AiGeneralSession } from '../types/chat'
 import type { ExerciseItem } from '../types/exercise'
 import QaDetailDialog from '../components/QaDetailDialog.vue'
 import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
-import { Subject } from '../types'
 
 // 定义组件名称
 defineOptions({
@@ -161,7 +178,7 @@ const goBack = () => {
 
 // 判断收藏的对话类型（AI聊天还是教师答疑）
 const getChatType = (record: QuestionRecord): { type: 'ai' | 'teacher', subject?: 'biology' | 'math' } => {
-  // 检查是否是教师答疑会话（通过 localStorage key 判断）
+  // 第1步：检查是否是教师答疑会话（通过 localStorage key 判断）
   const teacherSessionKey = `teacher_chat_${record.id}_session`
   const teacherSessionData = localStorage.getItem(teacherSessionKey)
   
@@ -181,6 +198,120 @@ const getChatType = (record: QuestionRecord): { type: 'ai' | 'teacher', subject?
   
   // 默认是 AI 聊天
   return { type: 'ai' }
+}
+
+// 教师会话消息数量缓存（避免重复加载）
+const teacherMsgCountCache = ref<Record<string, number>>({})
+
+// 获取对话元信息
+const getChatMetaInfo = (record: QuestionRecord) => {
+  const chatType = getChatType(record)
+  
+  if (chatType.type === 'teacher') {
+    // 第1步：获取教师会话元信息
+    const teacherSessionKey = `teacher_chat_${record.id}_session`
+    const teacherSessionData = localStorage.getItem(teacherSessionKey)
+    
+    if (teacherSessionData) {
+      try {
+        const session = JSON.parse(teacherSessionData)
+        const msgCount = teacherMsgCountCache.value[record.id]
+        
+        return {
+          type: 'teacher',
+          subject: session.subject,
+          sessionName: session.sessionName || '',
+          createTime: session.createTime || record.timestamp,
+          msgCount: msgCount !== undefined ? msgCount : undefined
+        }
+      } catch (error) {
+        console.error('解析教师会话数据失败:', error)
+      }
+    }
+  } else {
+    // 第2步：获取AI会话元信息
+    try {
+      const sessionsData = localStorage.getItem('ai-general-sessions')
+      if (sessionsData) {
+        const sessions = JSON.parse(sessionsData) as Array<{
+          sessionId: string
+          sessionName: string
+          createTime: number
+          updateTime: number
+          msgCount: number
+        }>
+        
+        const session = sessions.find(s => s.sessionId === record.id)
+        if (session) {
+          return {
+            type: 'ai',
+            subject: undefined,
+            sessionName: session.sessionName || '',
+            createTime: session.createTime || record.timestamp,
+            msgCount: session.msgCount || 0
+          }
+        }
+      }
+    } catch (error) {
+      console.error('解析AI会话数据失败:', error)
+    }
+  }
+  
+  // 第3步：返回默认元信息
+  return {
+    type: chatType.type,
+    subject: chatType.subject,
+    sessionName: '',
+    createTime: record.timestamp,
+    msgCount: undefined
+  }
+}
+
+// 异步加载教师会话的消息数量
+const loadTeacherMsgCount = async (sessionId: string) => {
+  // 如果已有缓存，直接返回
+  if (teacherMsgCountCache.value[sessionId] !== undefined) {
+    return
+  }
+  
+  try {
+    // 第1步：导入异步存储服务
+    const { asyncStorage } = await import('../services/chat-storage')
+    
+    // 第2步：加载聊天历史
+    const storageKey = `teacher_chat_${sessionId}`
+    const history = await asyncStorage.loadChatHistory(storageKey)
+    
+    // 第3步：缓存消息数量
+    if (history && history.messages) {
+      teacherMsgCountCache.value[sessionId] = history.messages.length
+    }
+  } catch (error) {
+    // 加载失败不影响显示，只是不显示消息数量
+    console.warn('加载教师会话消息数量失败:', sessionId, error)
+  }
+}
+
+// 获取元信息标签的文本
+const getMetaTagText = (record: QuestionRecord): string => {
+  const metaInfo = getChatMetaInfo(record)
+  
+  if (metaInfo.type === 'teacher') {
+    return metaInfo.subject === 'biology' ? '生物老师' : '数学老师'
+  }
+  
+  return 'AI聊天'
+}
+
+// 获取元信息标签的样式类
+const getMetaTagClass = (record: QuestionRecord): string => {
+  const metaInfo = getChatMetaInfo(record)
+  
+  if (metaInfo.type === 'teacher') {
+    return metaInfo.subject === 'biology' ? 'tag-teacher-bio' : 'tag-teacher-math'
+  }
+  
+  return 'tag-ai'
 }
 
 // 处理问答卡片点击 - 打开 UnifiedChatDialog
@@ -215,7 +346,7 @@ const handleQaCardClick = async (record: QuestionRecord) => {
       await aiGeneralStore.loadSessions()
       
       // 切换到对应的会话
-      const session = aiGeneralStore.sessions.find((s: any) => s.sessionId === record.id)
+      const session = aiGeneralStore.sessions.find((s: AiGeneralSession) => s.sessionId === record.id)
       if (session) {
         await aiGeneralStore.switchSession(record.id)
       } else {
@@ -271,12 +402,23 @@ const truncateText = (text: string, maxLength: number): string => {
 const loadQaFavorites = async () => {
   isLoadingQa.value = true
   try {
-    // 从工具函数获取收藏的问答会话
+    // 第1步：从工具函数获取收藏的问答会话
     const favorites = getFavoriteQas()
     
-    // 按时间戳倒序排列
+    // 第2步：按时间戳倒序排列
     favorites.sort((a, b) => b.timestamp - a.timestamp)
     qaFavorites.value = favorites
+    
+    // 第3步：异步加载教师会话的消息数量（不阻塞渲染）
+    favorites.forEach(favorite => {
+      const chatType = getChatType(favorite.record)
+      if (chatType.type === 'teacher') {
+        // 异步加载，不等待结果
+        loadTeacherMsgCount(favorite.record.id).catch(() => {
+          // 加载失败不影响显示
+        })
+      }
+    })
   } catch (error) {
     console.error('加载问答收藏失败:', error)
   } finally {
@@ -494,6 +636,69 @@ $text-tertiary: #9aa0a6;
     gap: 8px;
   }
   
+  // 对话元信息区域
+  .card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid $card-border;
+    
+    .meta-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      
+      .meta-tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        white-space: nowrap;
+        
+        &.tag-ai {
+          background: rgba(138, 43, 226, 0.1);
+          color: #8a2be2;
+        }
+        
+        &.tag-teacher-bio {
+          background: rgba(34, 139, 34, 0.1);
+          color: #228b22;
+        }
+        
+        &.tag-teacher-math {
+          background: rgba(30, 144, 255, 0.1);
+          color: #1e90ff;
+        }
+      }
+      
+      .meta-session-name {
+        font-size: 12px;
+        color: $text-secondary;
+        max-width: 150px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      
+      .meta-msg-count {
+        font-size: 11px;
+        color: $text-tertiary;
+      }
+    }
+    
+    .meta-time {
+      font-size: 11px;
+      color: $text-tertiary;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+  }
+  
   .card-text {
     font-size: 14px;
     line-height: 1.5;
@@ -524,13 +729,6 @@ $text-tertiary: #9aa0a6;
     margin-top: 8px;
     padding-top: 8px;
     border-top: 1px solid $card-border;
-  }
-  
-  .card-timestamp {
-    align-self: flex-end;
-    font-size: 12px;
-    color: $text-tertiary;
-    margin-top: 4px;
   }
   
   .card-images {

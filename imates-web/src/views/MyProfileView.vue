@@ -8,8 +8,8 @@
         @click="toggleJoinClass"
       >
         <div class="card-icon-wrapper">
-          <q-icon name="computer" size="28px" />
-          <q-icon v-if="isInClass" name="check" size="16px" class="check-icon" />
+          <img :src="joinClassIcon" alt="加入课堂" class="card-icon" />
+          <img v-if="isInClass" src="/icons/learned_star.svg" alt="已加入" class="check-icon" />
         </div>
         <div class="card-text">加入课堂</div>
       </div>
@@ -17,8 +17,7 @@
       <!-- 教师答疑卡片 -->
       <div class="feature-card teacher-chat-card" @click="chatWithTeacher">
         <div class="card-icon-wrapper">
-          <q-icon name="chat_bubble_outline" size="24px" class="chat-back-icon" />
-          <q-icon name="help_outline" size="20px" class="chat-front-icon" />
+          <img :src="teacherQaIcon" alt="老师答疑" class="card-icon" />
         </div>
         <div class="card-text">老师答疑</div>
       </div>
@@ -26,7 +25,7 @@
       <!-- 拍作业卡片 -->
       <div class="feature-card photo-teacher-card" @click="takePictureToTeacher">
         <div class="card-icon-wrapper">
-          <q-icon name="photo_camera" size="28px" />
+          <img :src="scanHomeworkIcon" alt="拍作业" class="card-icon" />
         </div>
         <div class="card-text">拍作业</div>
       </div>
@@ -34,7 +33,7 @@
       <!-- 我的收藏卡片 -->
       <div class="feature-card favorites-card" @click="showFavorites">
         <div class="card-icon-wrapper">
-          <q-icon name="star" size="28px" />
+          <img :src="myFavoritesIcon" alt="我的收藏" class="card-icon" />
         </div>
         <div class="card-text">我的收藏</div>
       </div>
@@ -42,10 +41,17 @@
       <!-- 意见反馈卡片 -->
       <div class="feature-card feedback-card" @click="showFeedback">
         <div class="card-icon-wrapper">
-          <q-icon name="description" size="28px" />
-          <q-icon name="edit" size="18px" class="edit-overlay-icon" />
+          <img :src="feedbackIcon" alt="意见反馈" class="card-icon" />
         </div>
         <div class="card-text">意见反馈</div>
+      </div>
+
+      <!-- 拍照搜题卡片 -->
+      <div class="feature-card photo-search-card" @click="handlePhotoSearch">
+        <div class="card-icon-wrapper">
+          <q-icon name="camera_alt" class="card-icon" />
+        </div>
+        <div class="card-text">拍照搜题</div>
       </div>
     </div>
 
@@ -88,13 +94,22 @@ import { useImagePicker } from '@/composables/useImagePicker'
 import { apiService } from '@/services/api-service'
 import { androidBridge } from '@/services/android-bridge'
 import { showMessage } from '@/utils'
+import { useQuestionStore } from '@/stores/questionStore'
 import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
 import FeedbackDialog from '@/components/FeedbackDialog.vue'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 
+// 导入 SVG 图标
+import joinClassIcon from '/icons/join_class.svg'
+import teacherQaIcon from '/icons/teacher_qa.svg'
+import scanHomeworkIcon from '/icons/scan_homework.svg'
+import myFavoritesIcon from '/icons/my_favorites.svg'
+import feedbackIcon from '/icons/feedback.svg'
+
 const router = useRouter()
 const userStore = useUserStore()
 const teacherStore = useTeacherChatStore()
+const questionStore = useQuestionStore()
 
 // 不再需要 props，点击卡片不会关闭工具区域
 
@@ -408,6 +423,44 @@ const showFavorites = () => {
   // 第1步：导航到我的收藏页面
   router.push({ name: 'myFavorites' })
 }
+
+// 拍照搜题处理
+const handlePhotoSearch = () => {
+  try {
+    if (androidBridge && androidBridge.isAndroidBridgeAvailable()) {
+      // 获取当前题目信息，如果存在则使用其学科，否则默认使用数学
+      const currentQuestion = questionStore.currentQuestion
+      let subjectName = 'math' // 默认使用数学
+      
+      if (currentQuestion?.subject) {
+        // 从题目中获取学科信息
+        const subjectMap: Record<string, string> = {
+          'SUBJECT_MATH': 'math',
+          'SUBJECT_BIOLOGY': 'biology',
+          'SUBJECT_CHEMISTRY': 'chemistry',
+          'SUBJECT_PHYSICS': 'physics',
+          'SUBJECT_CHINESE': 'chinese',
+          'SUBJECT_ENGLISH': 'english'
+        }
+        subjectName = subjectMap[currentQuestion.subject] || currentQuestion.subject.toLowerCase() || 'math'
+      }
+      
+      // 调用原生拍照搜题功能
+      androidBridge.takePicture(subjectName)
+      
+      // 导航到习题解答页面（如果不在该页面）
+      const currentRoute = router.currentRoute.value
+      if (currentRoute.name !== 'exerciseSolve') {
+        router.push({ name: 'exerciseSolve' })
+      }
+    } else {
+      showMessage('拍照功能暂不可用', 'warning')
+    }
+  } catch (error) {
+    console.error('拍照搜题失败:', error)
+    showMessage('拍照搜题失败', 'error')
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -479,8 +532,10 @@ $bg-gray: #f9fafb;
     margin-bottom: 8px;
     flex-shrink: 0;
     
-    .q-icon {
-      color: white;
+    .card-icon {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
       position: relative;
       z-index: 1;
     }
@@ -491,34 +546,9 @@ $bg-gray: #f9fafb;
       left: 50%;
       transform: translate(-45%, -60%);
       z-index: 2;
-      font-size: 16px;
-    }
-    
-    .chat-back-icon {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -45%);
-      z-index: 1;
-      font-size: 24px;
-      opacity: 0.9;
-    }
-    
-    .chat-front-icon {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-45%, -60%);
-      z-index: 2;
-      font-size: 20px;
-    }
-    
-    .edit-overlay-icon {
-      position: absolute;
-      bottom: 6px;
-      right: 6px;
-      z-index: 2;
-      font-size: 18px;
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
     }
   }
 
@@ -564,6 +594,18 @@ $bg-gray: #f9fafb;
   &.feedback-card {
     .card-icon-wrapper {
       background: #60A5FA;
+    }
+  }
+
+  // 拍照搜题 - 紫色
+  &.photo-search-card {
+    .card-icon-wrapper {
+      background: #8A80FF;
+    }
+    
+    .card-icon {
+      font-size: 28px;
+      color: white;
     }
   }
 }

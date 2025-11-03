@@ -23,7 +23,7 @@
           <span class="nav-text">知识图谱</span>
         </div>
         <div class="nav-item" :class="{ active: activeNavItem === 'exercises' }" @click="handleMyExercisesClick">
-          <img :src="bookIcon" alt="我的习题" class="nav-icon" />
+          <img :src="exerciseIcon" alt="我的习题" class="nav-icon" />
           <span class="nav-text">我的习题</span>
         </div>
       </div>
@@ -47,20 +47,16 @@
     <!-- 右侧主区域 -->
     <div class="right-main-area">
       <!-- 工具箱区域 -->
-      <transition name="toolbox-slide">
+      <transition name="toolbox-transition">
         <div class="toolbox-area" v-if="showToolbox">
-          <MyProfileView />
+          <MyProfileView v-if="showToolbox" />
         </div>
       </transition>
       
       <!-- 内容区域 -->
       <div 
         class="content-area" 
-        :class="{ 
-          'content-shifted': showToolbox,
-          'content-transition-open': showToolbox,
-          'content-transition-close': !showToolbox
-        }"
+        :class="{ 'content-shifted': showToolbox }"
       >
         <router-view />
       </div>
@@ -118,8 +114,8 @@ import MyProfileView from '@/views/MyProfileView.vue'
 import avatarIcon from '/icons/avatar.svg'
 import toolBoxIcon from '/icons/toolBox.svg'
 import downloadResourcesIcon from '/icons/downloadResources.svg'
-import bookIcon from '/icons/book.svg'
 import knowledgeGraphIcon from '/icons/isKnowledgeGraphSelected.svg'
+import exerciseIcon from '/icons/my_exercises.svg'
 
 // 定义 props
 interface Props {
@@ -333,7 +329,7 @@ const handleLogoutClick = async () => {
 .main-view {
   width: 100%;
   height: 100vh;
-  background: #100035;
+  background: #3d3070;
   backdrop-filter: blur(5px);
   border-right: 1px solid rgba(229, 231, 235, 0.3);
   display: flex;
@@ -354,6 +350,7 @@ const handleLogoutClick = async () => {
   align-items: stretch;
   padding: 16px 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  z-index: 1001; // 确保功能菜单层级高于工具箱
   
   .user-avatar {
     display: flex;
@@ -502,12 +499,15 @@ const handleLogoutClick = async () => {
 
 // 工具箱区域
 .toolbox-area {
-  flex: 0 0 33.333%;
-  width: 33.333%;
+  position: fixed;
+  left: 7%; // 左侧导航菜单的宽度
+  top: 0;
+  width: 27%;
+  height: 100vh;
   background: #3D3070;
   border-bottom: 1px solid rgba(229, 231, 235, 0.3);
-  height: 100%;
   overflow-y: auto;
+  z-index: 999; // 层级低于功能菜单，不可覆盖功能菜单
   
   // 自定义滚动条样式
   &::-webkit-scrollbar {
@@ -534,52 +534,34 @@ const handleLogoutClick = async () => {
   }
 }
 
-// 工具箱滑入动画
-.toolbox-slide-enter-active {
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+// 工具箱过渡动画
+.toolbox-transition-enter-active,
+.toolbox-transition-leave-active {
+  transition: transform 0.3s ease;
 }
 
-.toolbox-slide-leave-active {
-  transition: all 0.3s cubic-bezier(0.55, 0.06, 0.68, 0.19);
-}
-
-.toolbox-slide-enter-from {
+.toolbox-transition-enter-from {
   transform: translateX(-100%);
-  opacity: 0;
 }
 
-.toolbox-slide-enter-to {
-  transform: translateX(0);
-  opacity: 1;
-}
-
-.toolbox-slide-leave-from {
-  transform: translateX(0);
-  opacity: 1;
-}
-
-.toolbox-slide-leave-to {
+.toolbox-transition-leave-to {
   transform: translateX(-100%);
-  opacity: 0;
 }
 
 .content-area {
-  flex: 1 1 100%;
+  position: relative;
+  margin-left: 0;
+  padding: 0;
+  background-color: #e3f2fd;
+  min-height: 100vh;
+  transition: margin-left 0.3s ease, width 0.3s ease; // 平滑动画
+  width: 100%; // 默认宽度占满父容器（right-main-area）
   min-height: 0;
   overflow: hidden;
-  transition: flex 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  
-  &.content-transition-open {
-    transition: flex 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  }
-  
-  &.content-transition-close {
-    transition: flex 0.3s cubic-bezier(0.55, 0.06, 0.68, 0.19), width 0.3s cubic-bezier(0.55, 0.06, 0.68, 0.19);
-  }
   
   &.content-shifted {
-    flex: 1 1 calc(100% - 33.333%);
-    width: calc(100% - 33.333%);
+    margin-left: 29.03%; // 向右移动工具箱宽度：27%窗口宽度 / 93%父容器宽度 ≈ 29.03%
+    width: calc(100% - 29.03%); // 宽度变窄
   }
 }
 

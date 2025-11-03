@@ -135,6 +135,7 @@
               :options="availableNodes"
               option-label="label"
               option-value="id"
+              behavior="menu"
               emit-value
               map-options
               outlined
@@ -170,6 +171,7 @@
               :options="availableNodes"
               option-label="label"
               option-value="id"
+              behavior="menu"
               emit-value
               map-options
               outlined

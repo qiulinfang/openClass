@@ -1011,7 +1011,7 @@ const learningTagStyle = computed(() => {
 
 /* 气泡框容器 */
 .bubble-menu-container {
-  background: #4A3A6B;
+  background: white;
   border-radius: 20px;
   padding: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);

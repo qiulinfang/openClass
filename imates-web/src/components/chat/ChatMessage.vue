@@ -38,9 +38,9 @@
         </q-avatar>
       </div>
       <div class="ai-content">
-        <!-- Flex容器包裹ai-bubble和重试按钮 -->
-        <div class="ai-bubble-container">
-          <div class="ai-bubble" :ref="(el) => setBubbleRef(el, 'ai')">
+        <!-- Flex容器包裹ai-content和重试按钮 -->
+        <div class="ai-content-container">
+          <div class="ai-message-content" :ref="(el) => setBubbleRef(el, 'ai')">
           <!-- 语音消息 -->
           <VoiceMessage
             v-if="message.messageType === 'voice' && message.voiceData"
@@ -105,7 +105,7 @@
                 </q-item>
                 <q-item clickable @click="handleForward" v-if="canForward">
                   <q-item-section avatar>
-                    <q-icon name="forward" color="primary" size="20px" />
+                    <img src="/icons/forward.svg" alt="转发" style="width: 20px; height: 20px;" />
                   </q-item-section>
                   <q-item-section>转发</q-item-section>
                 </q-item>
@@ -147,7 +147,8 @@
             @click.stop="button.handler"
             :title="button.title"
           >
-            <q-icon :name="button.icon" size="18px" />
+            <img v-if="button.iconPath" :src="button.iconPath" alt="" class="action-icon" />
+            <q-icon v-else :name="button.icon" size="18px" />
           </button>
         </div>
       </div>
@@ -210,7 +211,7 @@
                 </q-item>
                 <q-item clickable @click="handleForward" v-if="canForward">
                   <q-item-section avatar>
-                    <q-icon name="forward" color="primary" size="20px" />
+                    <img src="/icons/forward.svg" alt="转发" style="width: 20px; height: 20px;" />
                   </q-item-section>
                   <q-item-section>转发</q-item-section>
                 </q-item>
@@ -235,14 +236,10 @@
             @click.stop="button.handler"
             :title="button.title"
           >
-            <q-icon :name="button.icon" size="18px" />
+            <img v-if="button.iconPath" :src="button.iconPath" alt="" class="action-icon" />
+            <q-icon v-else :name="button.icon" size="18px" />
           </button>
         </div>
-      </div>
-      <div class="user-avatar">
-        <q-avatar color="primary" text-color="white" size="36px">
-          <q-icon name="person" />
-        </q-avatar>
       </div>
     </div>
 
@@ -320,10 +317,6 @@ const userStore = useUserStore()
 
 // 重发相关状态
 const isRetrying = ref(false)
-
-// 点赞和点踩状态
-const isLiked = ref(false)
-const isDisliked = ref(false)
 
 // 懒加载渲染
 const { elementRef: messageElementRef } = useLazyMessageRender({
@@ -433,6 +426,7 @@ const canEdit = computed(() => {
 const actionButtons = computed(() => {
   const buttons: Array<{
     icon: string
+    iconPath?: string
     title: string
     handler: () => void
     show: boolean
@@ -472,7 +466,8 @@ const actionButtons = computed(() => {
   // 转发按钮 - 根据 canForward 判断
   if (canForward.value) {
     buttons.push({
-      icon: 'forward',
+      icon: '',
+      iconPath: '/icons/share.svg',
       title: '转发',
       handler: handleForward,
       show: true
@@ -487,24 +482,6 @@ const actionButtons = computed(() => {
       title: '刷新',
       handler: handleRefresh,
       show: true
-    })
-    
-    // 点赞按钮
-    buttons.push({
-      icon: 'thumb_up',
-      title: '点赞',
-      handler: handleLike,
-      show: true,
-      active: isLiked.value
-    })
-    
-    // 点踩按钮
-    buttons.push({
-      icon: 'thumb_down',
-      title: '点踩',
-      handler: handleDislike,
-      show: true,
-      active: isDisliked.value
     })
   }
   
@@ -929,60 +906,6 @@ const handleRefresh = async () => {
   }
 }
 
-// 处理点赞
-const handleLike = () => {
-  // 如果已经点赞，则取消点赞
-  if (isLiked.value) {
-    isLiked.value = false
-    $q.notify({
-      type: 'info',
-      message: '已取消点赞',
-      position: 'top',
-      timeout: 1500
-    })
-  } else {
-    // 如果点了踩，先取消点踩
-    if (isDisliked.value) {
-      isDisliked.value = false
-    }
-    isLiked.value = true
-    $q.notify({
-      type: 'positive',
-      message: '已点赞',
-      position: 'top',
-      timeout: 1500,
-      icon: 'thumb_up'
-    })
-  }
-}
-
-// 处理点踩
-const handleDislike = () => {
-  // 如果已经点踩，则取消点踩
-  if (isDisliked.value) {
-    isDisliked.value = false
-    $q.notify({
-      type: 'info',
-      message: '已取消点踩',
-      position: 'top',
-      timeout: 1500
-    })
-  } else {
-    // 如果点了赞，先取消点赞
-    if (isLiked.value) {
-      isLiked.value = false
-    }
-    isDisliked.value = true
-    $q.notify({
-      type: 'warning',
-      message: '已点踩',
-      position: 'top',
-      timeout: 1500,
-      icon: 'thumb_down'
-    })
-  }
-}
-
 // 处理复制消息
 const handleCopy = async () => {
   try {
@@ -1213,8 +1136,8 @@ onUnmounted(() => {
   align-items: flex-start;
 }
 
-/* AI气泡容器 - flex布局包裹气泡和重试按钮 */
-.ai-bubble-container {
+/* AI内容容器 - flex布局包裹内容和重试按钮 */
+.ai-content-container {
   display: flex;
   align-items: flex-end;
   gap: 8px;
@@ -1222,27 +1145,12 @@ onUnmounted(() => {
   max-width: 80%;   /* 最大不超过容器宽度 */
 }
 
-.ai-bubble {
+.ai-message-content {
   word-wrap: break-word;
   width: fit-content; /* 根据内容自适应宽度 */
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 12px;
-  padding: 12px 16px;
+  padding: 0;
   position: relative;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.ai-bubble::before {
-  content: '';
-  position: absolute;
-  left: -8px;
-  top: 12px;
-  width: 0;
-  height: 0;
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
-  border-right: 8px solid #f8f9fa;
+  color: #000000; /* 字体颜色为黑色 */
 }
 
 /* 用户消息样式 */
@@ -1256,8 +1164,7 @@ onUnmounted(() => {
 }
 
 .user-avatar {
-  flex-shrink: 0;
-  margin-top: 4px;
+  display: none; /* 隐藏用户头像 */
 }
 
 .user-content {
@@ -1270,26 +1177,14 @@ onUnmounted(() => {
 }
 
 .user-bubble {
-  background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+  background: #7A7CFF;
   color: white;
   border-radius: 12px;
   padding: 12px 16px;
   position: relative;
-  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.25);
+  box-shadow: 0 2px 8px rgba(122, 124, 255, 0.25);
   max-width: 80%;
   word-wrap: break-word;
-}
-
-.user-bubble::after {
-  content: '';
-  position: absolute;
-  right: -8px;
-  top: 12px;
-  width: 0;
-  height: 0;
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
-  border-left: 8px solid #2196f3;
 }
 
 /* 消息文本样式 */
@@ -1309,7 +1204,7 @@ onUnmounted(() => {
   color: white;
 }
 
-.ai-bubble .message-text {
+.ai-message-content .message-text {
   color: #2c3e50;
 }
 
@@ -1334,7 +1229,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   display: flex;
   align-items: flex-end;
-  margin-left: 8px; /* 与ai-bubble产生间距 */
+  margin-left: 8px; /* 与ai-message-content产生间距 */
 }
 
 /* 重试按钮 - 大尺寸灰色风格 */
@@ -1428,7 +1323,6 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
   padding-left: 0;
 }
 
@@ -1473,6 +1367,13 @@ onUnmounted(() => {
   color: #1565c0;
 }
 
+/* 自定义图标样式 */
+.action-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
 /* 消息选择相关样式 */
 .message-selectable {
   cursor: pointer;
@@ -1502,18 +1403,8 @@ onUnmounted(() => {
 
 /* 深色模式支持 */
 @media (prefers-color-scheme: dark) {
-  .ai-bubble {
-    background: #3a3a3a;
-    border-color: #4a4a4a;
-    color: #e0e0e0;
-  }
-
-  .ai-bubble::before {
-    border-right-color: #3a3a3a;
-  }
-
-  .ai-bubble .message-text {
-    color: #e0e0e0;
+  .ai-message-content .message-text {
+    color: #000000;
   }
 
   .message-selected {

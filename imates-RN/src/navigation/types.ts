@@ -17,6 +17,11 @@ export type RootStackParamList = {
   FindExercise: undefined
   Learning: undefined
   DrawingBoard: undefined
+  Chat: {
+    type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
+    sessionId?: string
+    questionId?: string
+  }
 }
 
 export type MainTabParamList = {

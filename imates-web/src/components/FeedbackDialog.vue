@@ -214,7 +214,7 @@ const submitFeedback = async () => {
 }
 
 .feedback-dialog-content {
-  padding: 20px 14px;
+  padding: 28px 24px;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -457,7 +457,7 @@ const submitFeedback = async () => {
 // 响应式设计
 @media (max-width: 768px) {
   .feedback-dialog-content {
-    padding: 16px 20px;
+    padding: 24px 20px;
   }
 
   .feedback-dialog-footer {

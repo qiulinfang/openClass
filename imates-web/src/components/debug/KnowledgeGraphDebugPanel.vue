@@ -1369,6 +1369,7 @@
                     :options="easingFunctionOptionsWithCustom"
                     option-label="label"
                     option-value="id"
+                    behavior="menu"
                     emit-value
                     map-options
                     outlined
