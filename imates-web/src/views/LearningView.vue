@@ -1,81 +1,80 @@
 <template>
-  <div class="learning-content">
-    <!-- 标题栏 -->
-    <div class="dialog-header">
-      <div class="dialog-title">
-        <span>{{ sectionName }}</span>
-      </div>
-      <q-btn 
-        flat 
-        round 
-        icon="close" 
-        @click="emit('close')"
-        class="close-btn"
-      />
-    </div>
+  <DraggableDialog
+    v-model="localVisible"
+    :title="sectionName"
+    :initial-width="1200"
+    :initial-height="800"
+    :min-width="800"
+    :min-height="600"
+    title-align="left"
+    header-background-color="#ffffff"
+  >
+    <div class="learning-content">
+      <!-- 主要内容区域 -->
+      <div class="main-content">
+        <!-- 左侧：学习方案选择 -->
+        <div class="left-panel">
+          <div class="scheme-section">
+            <!-- 加载状态 -->
+            <div v-if="loadingPackages" class="loading-container">
+              <q-spinner color="primary" size="40px" />
+              <div class="loading-text">正在加载学习方案...</div>
+            </div>
 
-    <!-- 主要内容区域 -->
-    <div class="main-content">
-      <!-- 左侧：学习方案选择 -->
-      <div class="left-panel">
-        <div class="scheme-section">
-          
-          <!-- 加载状态 -->
-          <div v-if="loadingPackages" class="loading-container">
-            <q-spinner color="primary" size="40px" />
-            <div class="loading-text">正在加载学习方案...</div>
-          </div>
-          
-          <!-- 学习方案列表 -->
-          <div v-else-if="filteredLearningPackages.length > 0" ref="schemeListWrapper" class="scroll-wrapper scheme-list">
-            <div class="scroll-content">
-              <div 
-                v-for="(scheme, index) in filteredLearningPackages" 
-                :key="scheme.id"
-                :class="['scheme-item', { 'scheme-selected': selectedSchemeIndex === index }]"
-                @click="selectScheme(index)"
-              >
-              <div class="scheme-header">
-                <span class="scheme-name">方案{{ index + 1 }}</span>
-                <div class="difficulty-rating">
-                  <span class="difficulty-label">难度</span>
-                  <div class="stars">
-                    <q-icon 
-                      v-for="star in 5" 
-                      :key="star"
-                      name="star" 
-                      size="18px" 
-                      :color="star <= 3 ? '#ffc107' : '#e0e0e0'"
-                    />
+            <!-- 学习方案列表 -->
+            <div
+              v-else-if="filteredLearningPackages.length > 0"
+              ref="schemeListWrapper"
+              class="scroll-wrapper scheme-list"
+            >
+              <div class="scroll-content-schemeList">
+                <div
+                  v-for="(scheme, index) in filteredLearningPackages"
+                  :key="scheme.id"
+                  :class="['scheme-item', { 'scheme-selected': selectedSchemeIndex === index }]"
+                  @click="selectScheme(index)"
+                >
+                  <div class="scheme-header">
+                    <span class="scheme-name">{{ scheme.packageName }}</span>
+                    <div class="difficulty-rating">
+                      <span class="difficulty-label">难度</span>
+                      <q-rating
+                        :model-value="getDifficultyValue(scheme)"
+                        :max="5"
+                        size="18px"
+                        @update:model-value="(value) => updateDifficulty(scheme.id, value)"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+
+            <!-- 无数据状态 -->
+            <div v-else class="empty-state">
+              <q-icon name="school" size="48px" color="grey-5" />
+              <div class="empty-text">该章节暂无学习方案</div>
             </div>
           </div>
-          
-          <!-- 无数据状态 -->
-          <div v-else class="empty-state">
-            <q-icon name="school" size="48px" color="grey-5" />
-            <div class="empty-text">该章节暂无学习方案</div>
-          </div>
         </div>
-      </div>
 
-      <!-- 右侧：学习资源列表 -->
-      <div class="right-panel">
-        <div class="resources-section">
+        <!-- 右侧：学习资源列表 -->
+        <div class="right-panel">
           <!-- 无方案选择状态 -->
           <div v-if="selectedSchemeIndex < 0" class="empty-resources">
             <q-icon name="folder_open" size="48px" color="grey-5" />
             <div class="empty-text">请先选择学习方案</div>
           </div>
-          
+
           <!-- 资源文件列表 -->
-          <div v-else-if="currentResources.length > 0" ref="resourcesListWrapper" class="scroll-wrapper resources-list">
+          <div
+            v-else-if="currentResources.length > 0"
+            ref="resourcesListWrapper"
+            class="scroll-wrapper resources-list"
+          >
             <div class="scroll-content">
-              <div 
-                v-for="(resource, index) in currentResources" 
+              <div
+                v-for="(resource, index) in currentResources"
                 :key="resource.id"
                 class="resource-item"
                 tabindex="0"
@@ -83,39 +82,39 @@
                 @focus="handleResourceFocus(index)"
                 @keydown.enter="selectResource(index)"
               >
-              <div class="resource-thumbnail">
-                <!-- 如果有缩略图则显示缩略图，否则显示图标 -->
-                <img 
-                  v-if="resource.thumbnail" 
-                  :src="resource.thumbnail" 
-                  :alt="resource.fileName"
-                  class="thumbnail-image"
-                />
-                <q-icon 
-                  v-else
-                  :name="getResourceIcon(resource.fileName)" 
-                  size="50px" 
-                  color="grey-6"
-                />
-              </div>
-              <div class="resource-info">
-                <div class="resource-title">{{ resource.fileName }}</div>
-                <div class="resource-size">{{ formatFileSize(resource.size) }}</div>
-              </div>
-              <div class="resource-action">
-                <q-btn 
+                <!-- 缩略图容器 -->
+                <div class="resource-thumbnail">
+                  <img
+                    v-if="resource.thumbnail"
+                    :src="resource.thumbnail"
+                    :alt="resource.fileName"
+                    class="thumbnail-image"
+                  />
+                  <q-icon
+                    v-else
+                    :name="getResourceIcon(resource.fileName)"
+                    size="50px"
+                    color="grey-6"
+                  />
+                </div>
+                <!-- 资源信息 -->
+                <div class="resource-info">
+                  <div class="resource-title">{{ resource.fileName }}</div>
+                  <div class="resource-size">{{ formatFileSize(resource.size) }}</div>
+                </div>
+                <!-- 操作按钮 -->
+                <q-btn
                   size="xl"
                   label="去学习"
                   @click.stop="startLearning(resource)"
                   no-caps
                   rounded
-                  class="learning-btn"
+                  class="learning-btn resource-action"
                 />
               </div>
             </div>
-            </div>
           </div>
-          
+
           <!-- 无资源状态 -->
           <div v-else class="empty-resources">
             <q-icon name="folder_open" size="48px" color="grey-5" />
@@ -124,18 +123,20 @@
         </div>
       </div>
     </div>
-  </div>
+  </DraggableDialog>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { resourceManager } from '../services/resource-storage'
 import type { LearningPackage, ResourceFile, LocalFileInfo } from '../types'
 import { useBetterScroll } from '../composables/useBetterScroll'
+import DraggableDialog from '../components/DraggableDialog.vue'
 
 // Props 定义
 interface Props {
+  modelValue: boolean
   nodeId?: string
   sectionName?: string
   level?: number
@@ -143,16 +144,23 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  modelValue: false,
   nodeId: '',
   sectionName: '学习内容',
   level: 1,
-  textbookId: ''
+  textbookId: '',
 })
 
 // Emits 定义
 const emit = defineEmits<{
-  close: []
+  'update:modelValue': [value: boolean]
 }>()
+
+// 使用 v-model 的本地状态
+const localVisible = computed({
+  get: () => props.modelValue,
+  set: (value) => emit('update:modelValue', value),
+})
 
 // 路由
 const router = useRouter()
@@ -181,16 +189,18 @@ const filteredLearningPackages = computed(() => {
   if (!sectionId.value) {
     return learningPackages.value
   }
-  
-  return learningPackages.value.filter(pkg => {
+
+  return learningPackages.value.filter((pkg) => {
     const hasSectionId = pkg.sectionId && pkg.sectionId.trim() !== ''
-    return hasSectionId && 
-      pkg.sectionId.toLowerCase() === sectionId.value.toLowerCase()
+    return hasSectionId && pkg.sectionId.toLowerCase() === sectionId.value.toLowerCase()
   })
 })
 
 const currentScheme = computed(() => {
-  if (selectedSchemeIndex.value >= 0 && selectedSchemeIndex.value < filteredLearningPackages.value.length) {
+  if (
+    selectedSchemeIndex.value >= 0 &&
+    selectedSchemeIndex.value < filteredLearningPackages.value.length
+  ) {
     return filteredLearningPackages.value[selectedSchemeIndex.value]
   }
   return null
@@ -199,24 +209,21 @@ const currentScheme = computed(() => {
 // 获取当前方案的所有资源文件（带缩略图信息）
 const currentResources = computed(() => {
   if (!currentScheme.value) return []
-  
+
   const resources = currentScheme.value.resourceList || []
-  
+
   // 为每个资源添加缩略图信息
-  return resources.map(resource => {
-    const localFile = localFiles.value.find(file => file.id === resource.id)
+  return resources.map((resource) => {
+    const localFile = localFiles.value.find((file) => file.id === resource.id)
     return {
       ...resource,
-      thumbnail: localFile?.thumbnail
+      thumbnail: localFile?.thumbnail,
     }
   })
 })
 
 // 使用 Better Scroll 组合式函数 - 学习方案列表
-const {
-  init: initSchemeListBScroll,
-  refresh: refreshSchemeListBScroll
-} = useBetterScroll(
+const { init: initSchemeListBScroll } = useBetterScroll(
   schemeListWrapper,
   {
     scrollY: true,
@@ -226,23 +233,18 @@ const {
       top: true,
       bottom: true,
       left: false,
-      right: false
+      right: false,
     },
     deceleration: 0.003,
     useTransition: true,
     HWCompositing: true,
   },
   true, // 自动监听数据变化
-  [
-    () => filteredLearningPackages.value.length
-  ]
+  [() => filteredLearningPackages.value.length],
 )
 
 // 使用 Better Scroll 组合式函数 - 资源列表
-const {
-  init: initResourcesListBScroll,
-  refresh: refreshResourcesListBScroll
-} = useBetterScroll(
+const { init: initResourcesListBScroll } = useBetterScroll(
   resourcesListWrapper,
   {
     scrollY: true,
@@ -252,16 +254,14 @@ const {
       top: true,
       bottom: true,
       left: false,
-      right: false
+      right: false,
     },
     deceleration: 0.003,
     useTransition: true,
     HWCompositing: true,
   },
   true, // 自动监听数据变化
-  [
-    () => currentResources.value.length
-  ]
+  [() => currentResources.value.length],
 )
 
 // 方法
@@ -278,6 +278,80 @@ const selectResource = (index: number) => {
 // 处理资源项获得焦点
 const handleResourceFocus = (index: number) => {
   selectedResourceIndex.value = index
+}
+
+const getDifficultyValue = (scheme: LearningPackage): number => {
+  // 优先从 localStorage 读取用户自定义的难度
+  const savedDifficulty = getSavedDifficulty(scheme.id)
+  if (savedDifficulty !== null) {
+    return savedDifficulty
+  }
+
+  // 如果 scheme 有 difficulty 属性，使用它；否则默认返回 1
+  const schemeWithDifficulty = scheme as LearningPackage & { difficulty?: number }
+  return schemeWithDifficulty.difficulty || 1
+}
+
+// 从 localStorage 读取保存的难度
+const getSavedDifficulty = (packageId: string): number | null => {
+  try {
+    const DIFFICULTY_KEY = `learning_package_difficulty_${packageId}`
+    const saved = localStorage.getItem(DIFFICULTY_KEY)
+    if (saved) {
+      const value = parseInt(saved, 10)
+      if (!isNaN(value) && value >= 1 && value <= 5) {
+        return value
+      }
+    }
+  } catch (error) {
+    console.error('读取难度失败:', error)
+  }
+  return null
+}
+
+// 保存难度到 localStorage 和 IndexedDB
+const updateDifficulty = async (packageId: string, difficulty: number) => {
+  try {
+    // 验证难度值
+    if (isNaN(difficulty) || difficulty < 1 || difficulty > 5) {
+      console.warn('无效的难度值:', difficulty)
+      return
+    }
+
+    // 保存到 localStorage
+    const DIFFICULTY_KEY = `learning_package_difficulty_${packageId}`
+    localStorage.setItem(DIFFICULTY_KEY, difficulty.toString())
+
+    // 更新到 IndexedDB 的学习包数据中
+    if (id.value) {
+      const textbook = await resourceManager.getTextbookInfoById(id.value)
+      if (textbook && textbook.learningPackages) {
+        const packageIndex = textbook.learningPackages.findIndex((pkg) => pkg.id === packageId)
+        if (packageIndex !== -1) {
+          // 更新学习包的难度属性
+          const updatedPackage = {
+            ...textbook.learningPackages[packageIndex],
+            difficulty: difficulty,
+          } as LearningPackage & { difficulty: number }
+
+          textbook.learningPackages[packageIndex] = updatedPackage
+
+          // 保存到 IndexedDB
+          await resourceManager.updateTextbookInfo(textbook, undefined)
+
+          // 更新本地响应式数据
+          const localPackageIndex = learningPackages.value.findIndex((pkg) => pkg.id === packageId)
+          if (localPackageIndex !== -1) {
+            learningPackages.value[localPackageIndex] = updatedPackage
+          }
+
+          console.log('难度已保存:', packageId, difficulty)
+        }
+      }
+    }
+  } catch (error) {
+    console.error('保存难度失败:', error)
+  }
 }
 
 const getResourceIcon = (fileName: string) => {
@@ -297,7 +371,7 @@ const getResourceIcon = (fileName: string) => {
     mp3: 'audiotrack',
     wav: 'audiotrack',
     zip: 'folder_zip',
-    rar: 'folder_zip'
+    rar: 'folder_zip',
   }
   return iconMap[extension || ''] || 'folder'
 }
@@ -313,7 +387,7 @@ const formatFileSize = (bytes: number) => {
 // 根据文件扩展名获取对应的视图路由名称
 const getViewerRouteName = (fileName: string): string => {
   const extension = fileName.split('.').pop()?.toLowerCase() || ''
-  
+
   switch (extension) {
     case 'pdf':
       return 'pdfViewer'
@@ -338,18 +412,18 @@ const startLearning = async (resource: ResourceFile) => {
     console.error('没有选中的学习方案')
     return
   }
-  
+
   isLoading.value = true
-  
+
   try {
     const selectedScheme = currentScheme.value
-    
+
     // 根据文件类型确定要跳转的路由
     const routeName = getViewerRouteName(resource.fileName)
-    
+
     // 关闭对话框
-    emit('close')
-    
+    localVisible.value = false
+
     // 执行路由跳转
     try {
       await router.push({
@@ -360,10 +434,10 @@ const startLearning = async (resource: ResourceFile) => {
           resourceId: resource.id,
           fileName: resource.fileName,
           packageId: selectedScheme.id,
-          packageName: selectedScheme.packageName
-        }
+          packageName: selectedScheme.packageName,
+        },
       })
-      
+
       // 路由跳转成功后，标记节点为已学习
       // 只有当节点ID存在且不为空时才标记
       if (sectionId.value && sectionId.value.trim() !== '') {
@@ -386,21 +460,21 @@ const markNodeAsLearned = (nodeId: string) => {
     // 从localStorage加载已学习的节点ID列表
     const saved = localStorage.getItem(LEARNED_NODES_KEY)
     let learnedNodeIds: Set<string>
-    
+
     if (saved) {
       const ids = JSON.parse(saved) as string[]
       learnedNodeIds = new Set(ids)
     } else {
       learnedNodeIds = new Set()
     }
-    
+
     // 添加当前节点到已学习列表
     learnedNodeIds.add(nodeId)
-    
+
     // 保存回localStorage
     const ids = Array.from(learnedNodeIds)
     localStorage.setItem(LEARNED_NODES_KEY, JSON.stringify(ids))
-    
+
     console.log('节点已标记为已学习:', nodeId)
   } catch (error) {
     console.error('标记节点为已学习失败:', error)
@@ -412,22 +486,42 @@ const loadLearningPackages = async () => {
   if (!id.value) {
     return
   }
-  
+
   loadingPackages.value = true
-  
+
   try {
     // 直接从IndexedDB获取教材信息，包含学习包数据
     const textbook = await resourceManager.getTextbookInfoById(id.value)
-    
+
     if (textbook && textbook.learningPackages) {
-      // 使用本地存储的学习包数据
-      learningPackages.value = textbook.learningPackages
-      
+      // 使用本地存储的学习包数据，优先从 IndexedDB 读取难度，如果没有则从 localStorage 读取
+      learningPackages.value = textbook.learningPackages.map((pkg) => {
+        // 优先使用 IndexedDB 中的难度
+        const pkgWithDifficulty = pkg as LearningPackage & { difficulty?: number }
+        if (pkgWithDifficulty.difficulty !== undefined && pkgWithDifficulty.difficulty !== null) {
+          // IndexedDB 中已有难度，使用它并同步到 localStorage
+          const DIFFICULTY_KEY = `learning_package_difficulty_${pkg.id}`
+          localStorage.setItem(DIFFICULTY_KEY, pkgWithDifficulty.difficulty.toString())
+          return pkgWithDifficulty
+        }
+
+        // IndexedDB 中没有难度，从 localStorage 读取
+        const savedDifficulty = getSavedDifficulty(pkg.id)
+        if (savedDifficulty !== null) {
+          // 如果有保存的难度，添加到学习包对象中
+          return {
+            ...pkg,
+            difficulty: savedDifficulty,
+          } as LearningPackage & { difficulty: number }
+        }
+        return pkg
+      })
+
       // 同时加载本地文件信息（用于获取缩略图）
       if (textbook.localFiles) {
         localFiles.value = textbook.localFiles
       }
-      
+
       // 自动选择第一个方案
       if (textbook.learningPackages.length > 0) {
         selectedSchemeIndex.value = 0
@@ -453,26 +547,40 @@ const resetSelection = () => {
 }
 
 // 监听 props 变化
-watch(() => props.nodeId, (newNodeId) => {
-  sectionId.value = newNodeId
-  resetSelection()
-  loadLearningPackages()
-})
+watch(
+  () => props.nodeId,
+  (newNodeId) => {
+    sectionId.value = newNodeId
+    resetSelection()
+    loadLearningPackages()
+  },
+)
 
-watch(() => props.sectionName, (newSectionName) => {
-  sectionName.value = newSectionName
-})
+watch(
+  () => props.sectionName,
+  (newSectionName) => {
+    sectionName.value = newSectionName
+  },
+)
 
-watch(() => props.textbookId, (newTextbookId) => {
-  id.value = newTextbookId
-  resetSelection()
-  loadLearningPackages()
-})
+watch(
+  () => props.textbookId,
+  (newTextbookId) => {
+    id.value = newTextbookId
+    resetSelection()
+    loadLearningPackages()
+  },
+)
 
 // BScroll 初始化和刷新由组合式函数自动处理（已启用 autoWatch）
 
 // 生命周期
 onMounted(async () => {
+  // 如果通过路由访问（没有传入 modelValue 或 modelValue 为 false），自动显示对话框
+  if (!props.modelValue && router.currentRoute.value.name === 'learning') {
+    localVisible.value = true
+  }
+
   // 加载学习包数据
   await loadLearningPackages()
   // 初始化 BScroll（由组合式函数处理）
@@ -498,10 +606,18 @@ $success-color: #388e3c;
 $warning-color: #f57c00;
 
 // Material Design 阴影系统
-$elevation-1: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
-$elevation-2: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
-$elevation-3: 0 10px 20px rgba(0, 0, 0, 0.19), 0 6px 6px rgba(0, 0, 0, 0.23);
-$elevation-4: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
+$elevation-1:
+  0 1px 3px rgba(0, 0, 0, 0.12),
+  0 1px 2px rgba(0, 0, 0, 0.24);
+$elevation-2:
+  0 3px 6px rgba(0, 0, 0, 0.16),
+  0 3px 6px rgba(0, 0, 0, 0.23);
+$elevation-3:
+  0 10px 20px rgba(0, 0, 0, 0.19),
+  0 6px 6px rgba(0, 0, 0, 0.23);
+$elevation-4:
+  0 14px 28px rgba(0, 0, 0, 0.25),
+  0 10px 10px rgba(0, 0, 0, 0.22);
 
 // Material Design 圆角系统
 $border-radius-small: 4px;
@@ -518,40 +634,18 @@ $spacing-xl: 32px;
 .learning-content {
   height: 100%;
   max-height: 100%;
-  background-color: #1a094c;
+  background-color: #ffffff;
   font-family: 'Roboto', 'Noto Sans', sans-serif;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-// 对话框标题栏
-.dialog-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 32px 0;
-  border-radius: 12px 12px 0 0;
-  flex-shrink: 0;
-  
-  .dialog-title {
-    display: flex;
-    align-items: center;
-    font-size: 28px;
-    font-weight: 500;
-    color: #ffffff;
-  }
-  
-  .close-btn {
-    color: #ffffff;
-    width: 48px;
-    height: 48px;
-    font-size: 24px;
-    
-    &:hover {
-      color: #ffffff;
-      background: rgba(255, 255, 255, 0.1);
-    }
+// 覆盖 DraggableDialog 的 title 样式，增大字体
+:deep(.dialog-header-section) {
+  .text-h6 {
+    font-size: 40px !important;
+    font-weight: 600 !important;
   }
 }
 
@@ -559,26 +653,25 @@ $spacing-xl: 32px;
 .main-content {
   display: flex;
   gap: 32px;
-  padding: 0 32px;
+  padding: 24px 32px;
   flex: 1;
   overflow: hidden;
   min-height: 0;
-  max-height: calc(100% - 80px); // 减去标题栏的高度
 }
 
 // 左侧面板
 .left-panel {
-  width: 300px;
-  flex-shrink: 0;
+  flex: 0 0 25%;
+  min-width: 250px;
+  max-width: 350px;
   height: 100%;
   max-height: 100%;
-  
+
   .scheme-section {
     height: 100%;
     max-height: 100%;
-    background-color: #1a094c;
-    border-radius: 50px;
-    padding: 24px 0;
+    background-color: transparent;
+    border-radius: 0;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -588,21 +681,15 @@ $spacing-xl: 32px;
 // 右侧面板
 .right-panel {
   flex: 1;
-  overflow: hidden;
   min-width: 0;
   height: 100%;
   max-height: 100%;
-  
-  .resources-section {
-    height: 100%;
-    max-height: 100%;
-    background-color: #1a094c;
-    border-radius: 30px;
-    padding: 24px 0;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-  }
+  background-color: #e0dbff;
+  border-radius: 10px;
+  padding: 24px 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 // Material Design 卡片样式
@@ -612,7 +699,7 @@ $spacing-xl: 32px;
   border-radius: $border-radius-medium;
   box-shadow: $elevation-2;
   transition: box-shadow 0.3s ease;
-  
+
   &:hover {
     box-shadow: $elevation-3;
   }
@@ -625,7 +712,7 @@ $spacing-xl: 32px;
   align-items: center;
   padding: $spacing-lg $spacing-lg $spacing-md;
   border-bottom: 1px solid rgba(0, 0, 0, 0.12);
-  
+
   .card-title {
     display: flex;
     align-items: center;
@@ -633,15 +720,15 @@ $spacing-xl: 32px;
     font-size: 18px;
     font-weight: 400;
     color: $secondary-color;
-    
+
     .title-icon {
       color: $primary-color;
     }
-    
+
     .refresh-btn {
       margin-left: auto;
       color: $secondary-color;
-      
+
       &:hover {
         color: $primary-color;
       }
@@ -659,57 +746,56 @@ $spacing-xl: 32px;
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  
-  .scroll-content {
+  background-color: #e0dbff;
+
+  .scroll-content-schemeList {
     min-height: calc(100% + 1px);
+    background-color: #ffffff;
+
   }
-  
+
   .scheme-item {
     margin-bottom: 16px;
-    border-radius: 20px;
-    padding: 32px 36px;
+    border-radius: 8px;
+    padding: 16px 20px;
     cursor: pointer;
     transition: all 0.2s ease;
-    background-color: rgba(255, 255, 255, 0.05);
-    
+
     &:last-child {
       margin-bottom: 0;
     }
-    
+
     &.scheme-selected {
-      background-color: #312363;
-      box-shadow: 0 4px 12px rgba(49, 35, 99, 0.3);
+      background-color: #e0dbff;
+      box-shadow: none;
+      padding: 12px 20px;
     }
-    
+
     .scheme-header {
       display: flex;
       flex-direction: column;
-      gap: 20px;
-      
+      gap: 12px;
+
       .scheme-name {
-        font-size: 26px;
+        font-size: 24px;
         font-weight: 500;
-        color: #ffffff;
+        color: #212121;
         margin-bottom: 8px;
       }
-      
+
       .difficulty-rating {
         display: flex;
         align-items: center;
-        
+
         .difficulty-label {
           font-size: 20px;
-          color: #ffffff;
-          opacity: 0.8;
+          color: #212121;
+          opacity: 1;
           padding-right: 12px;
         }
-        
-        .stars {
+
+        :deep(.q-rating) {
           flex: 0.8;
-          display: flex;
-          align-items: center;
-          justify-content: space-around;
-          gap: 10px;
         }
       }
     }
@@ -731,12 +817,12 @@ $spacing-xl: 32px;
     flex-direction: column;
     gap: $spacing-lg;
   }
-  
+
   .rating-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    
+
     .rating-label {
       display: flex;
       align-items: center;
@@ -766,75 +852,78 @@ $spacing-xl: 32px;
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  border-radius: 20px;
-  background-color: #312263;
-  
+  border-radius: 0;
+  background-color: #E0DBFF;
+
   .scroll-content {
     min-height: calc(100% + 1px);
+    background-color: #E0DBFF;
   }
-  
+
   .resource-item {
     display: flex;
     align-items: center;
-    margin: 7px 24px 0;
-    padding: 20px 28px 20px;
-    border-radius: 12px;
+    margin: 0px 20px 10px;
+    border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s ease;
     outline: none;
-    
+    background-color: #ffffff;
+
     &:focus {
-      background-color: rgba(25, 118, 210, 0.1);
+      background-color: rgba(106, 85, 255, 0.1);
     }
-    
+
     &:hover {
-      background-color: rgba(255, 255, 255, 0.05);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
-    
+
     .resource-thumbnail {
-      width: 120px;
-      height: 120px;
+      width: 100px;
+      height: 100px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      margin-right: 24px;
+      background: #e4e2e2;
+      border-radius: 8px;
+      margin: 16px;
       flex-shrink: 0;
       overflow: hidden;
-      
+
       .thumbnail-image {
         width: 100%;
         height: 100%;
         object-fit: cover;
-        border-radius: 12px;
+        border-radius: 8px;
       }
     }
-    
+
     .resource-info {
       flex: 1;
       min-width: 0;
-      
+
       .resource-title {
-        font-size: 22px;
+        font-size: 24px;
         font-weight: 500;
-        color: #ffffff;
-        margin-bottom: 8px;
+        color: #212121;
+        margin-bottom: 6px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      
+
       .resource-size {
-        font-size: 18px;
-        color: #ffffff;
-        opacity: 0.7;
+        font-size: 16px;
+        color: #757575;
+        opacity: 1;
       }
     }
-    
+
     .resource-action {
       flex-shrink: 0;
-      margin-left: 24px;
+      margin-left: 16px;
+      margin-right: 20px;
+      align-self: center;
     }
   }
 }
@@ -847,24 +936,25 @@ $spacing-xl: 32px;
   justify-content: center;
   padding: 40px 20px;
   gap: 16px;
-  
+
   .loading-text {
-    color: #ffffff;
+    color: #757575;
     font-size: 19px;
   }
 }
 
 // 空状态样式
-.empty-state, .empty-resources {
+.empty-state,
+.empty-resources {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 40px 20px;
   gap: 16px;
-  
+
   .empty-text {
-    color: #ffffff;
+    color: #757575;
     font-size: 19px;
     font-weight: 500;
   }
@@ -872,108 +962,98 @@ $spacing-xl: 32px;
 
 // 学习按钮样式
 .learning-btn {
-  font-size: 18px ;
-  padding: 16px 32px ;
-  min-height: 52px ;
-  font-weight: 500 ;
-  border-radius: 8px ;
-  background-color: #6e55ff ;
-  color: #ffffff ;
+  font-size: 18px;
+  padding: 12px 32px;
+  min-height: 44px;
+  font-weight: 500;
+  border-radius: 8px;
+  background-color: #6e55ff;
+  color: #ffffff;
+
+  &:hover {
+    background-color: #5a4abd;
+  }
 }
 
 // 响应式设计
 @media (max-width: 1200px) {
-  .learning-dialog-card {
-    width: 95vw;
-    height: 90vh;
-    min-width: 700px;
-    min-height: 500px;
-  }
-  
   .main-content {
     gap: 24px;
-    padding: 24px;
   }
-  
+
   .left-panel {
-    width: 350px;
+    flex: 0 0 28%;
+    min-width: 220px;
+    max-width: 350px;
   }
 }
 
 @media (max-width: 1024px) {
-  .learning-dialog-card {
-    width: 95vw;
-    height: 90vh;
-    min-width: 600px;
-    min-height: 500px;
-  }
-  
   .main-content {
     flex-direction: column;
     gap: 20px;
-    max-height: calc(100% - 80px);
   }
-  
+
   .left-panel {
+    flex: 0 0 auto;
     width: 100%;
-    flex-shrink: 1;
     height: 300px;
-    
+    max-width: none;
+
     .scheme-section {
       height: 100%;
     }
   }
-  
+
   .right-panel {
+    flex: 0 0 auto;
     height: 400px;
-    
-    .resources-section {
-      height: 100%;
-    }
+    background-color: #e0dbff;
   }
 }
 
 @media (max-width: 768px) {
-  .learning-dialog-card {
-    width: 95vw;
-    height: 95vh;
-    min-width: 400px;
-    min-height: 400px;
-  }
-  
   .main-content {
     padding: 16px;
     gap: 16px;
   }
-  
-  .left-panel .scheme-section,
-  .right-panel .resources-section {
+
+  .left-panel .scheme-section {
+    background-color: #e0dbff;
     padding: 16px;
   }
-  
+
+  .right-panel {
+    padding: 16px;
+  }
+
   .scheme-item {
     padding: 20px 24px;
-    
+
+    &.scheme-selected {
+      padding: 16px 24px;
+    }
+
     .scheme-name {
       font-size: 22px;
     }
-    
+
     .difficulty-label {
       font-size: 18px;
     }
   }
-  
+
   .resource-item {
     padding: 16px 20px;
-    
+
     .resource-title {
       font-size: 19px;
     }
-    
+
     .resource-size {
       font-size: 15px;
     }
-    
+
     .resource-thumbnail {
       width: 80px;
       height: 80px;
@@ -983,40 +1063,42 @@ $spacing-xl: 32px;
 }
 
 @media (max-width: 480px) {
-  .learning-dialog-card {
-    width: 95vw;
-    height: 95vh;
-    min-width: 300px;
-    min-height: 400px;
-  }
-  
   .main-content {
     padding: 12px;
     gap: 12px;
   }
-  
-  .left-panel .scheme-section,
-  .right-panel .resources-section {
+
+  .left-panel .scheme-section {
+    background-color: #e0dbff;
     padding: 12px;
   }
-  
+
+  .right-panel {
+    padding: 12px;
+  }
+
   .scheme-item,
   .resource-item {
     padding: 12px 16px;
+
+    &.scheme-selected {
+      padding: 10px 16px;
+    }
   }
-  
+
   .resource-item {
     flex-direction: column;
     text-align: center;
     gap: 12px;
-    
+
     .resource-thumbnail {
       margin-right: 0;
       margin-bottom: 8px;
     }
-    
+
     .resource-action {
       margin-left: 0;
+      width: 100%;
     }
   }
 }
@@ -1048,7 +1130,7 @@ $spacing-xl: 32px;
   .resources-card {
     border: 2px solid $secondary-color;
   }
-  
+
   .resource-card.resource-selected {
     border-width: 3px;
   }

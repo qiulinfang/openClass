@@ -115,7 +115,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useQuestionStore } from '../stores/questionStore'
 import { useUserStore } from '../stores/userStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
@@ -144,12 +145,13 @@ const getTimeString = () => {
 }
 console.log(`${getTimeString()} [ExerciseSolveView] 组件开始初始化`)
 
+const route = useRoute()
 const questionStore = useQuestionStore()
 const userStore = useUserStore()
 const aiExerciseStore = useAiExerciseChatStore()
 const teacherStore = useTeacherChatStore()
 const uiStore = useUIStore()
-const { currentQuestion } = storeToRefs(questionStore)
+const { currentQuestion, questions } = storeToRefs(questionStore)
 
 const initTime = performance.now()
 console.log(`${getTimeString()} [ExerciseSolveView] Store初始化完成，耗时: ${(initTime - loadStartTime).toFixed(2)}ms`)
@@ -405,6 +407,30 @@ onMounted(async () => {
       const fetchQuestionsEndTime = performance.now()
       const fetchQuestionsDuration = fetchQuestionsEndTime - fetchQuestionsStartTime
       console.log(`${getTimeString()} [ExerciseSolveView] questionStore.fetchQuestions() 完成，耗时: ${fetchQuestionsDuration.toFixed(2)}ms`)
+      
+      // 检查路由参数中是否有 questionId，如果有则定位到该题目
+      const questionId = route.query.questionId as string | undefined
+      if (questionId && questionListRef.value) {
+        await nextTick()
+        // 等待题目列表渲染完成
+        await new Promise(resolve => setTimeout(resolve, 300))
+        
+        // 在题目列表中查找对应的题目索引
+        const targetIndex = questions.value.findIndex(q => q.id === questionId || q.bmNo === questionId)
+        if (targetIndex >= 0) {
+          console.log(`${getTimeString()} [ExerciseSolveView] 找到目标题目，索引: ${targetIndex}`)
+          // 等待组件完全渲染后再定位
+          await nextTick()
+          setTimeout(() => {
+            if (questionListRef.value && typeof questionListRef.value.scrollToQuestionAndSelect === 'function') {
+              questionListRef.value.scrollToQuestionAndSelect(targetIndex)
+              console.log(`${getTimeString()} [ExerciseSolveView] 已定位到题目，索引: ${targetIndex}`)
+            }
+          }, 500)
+        } else {
+          console.log(`${getTimeString()} [ExerciseSolveView] 未找到目标题目，questionId: ${questionId}`)
+        }
+      }
       
       // 总耗时统计
       const mountedEndTime = performance.now()

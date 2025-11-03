@@ -3,9 +3,11 @@
     v-model="localVisible" 
     title="Hello, 给出你的建议吧~"
     :initial-width="600"
-    :initial-height="600"
+    :initial-height="560"
     :min-width="400"
-    :min-height="400"
+    :min-height="500"
+    title-align="left"
+    header-background-color="#ffffff"
     class="feedback-dialog"
   >
     <div class="feedback-dialog-content">
@@ -21,8 +23,8 @@
               type="textarea"
               class="feedback-textarea"
               rows="4"
-              outlined
-              placeholder="请输入您遇到的问题..."
+              borderless
+              filled
             />
             <!-- 图片上传区域 - 定位在左下角 -->
             <div class="feedback-image-upload" @click="uploadFeedbackImage">
@@ -58,8 +60,8 @@
               type="textarea"
               class="feedback-textarea"
               rows="4"
-              outlined
-              placeholder="请输入您的建议..."
+              borderless
+              filled
             />
           </div>
         </div>
@@ -204,10 +206,15 @@ const submitFeedback = async () => {
     font-weight: 700 !important;
     color: #1f2937 !important;
   }
+
+  // 移除 header 底部边框
+  :deep(.dialog-header-section) {
+    border-bottom: none !important;
+  }
 }
 
 .feedback-dialog-content {
-  padding: 20px 24px;
+  padding: 20px 14px;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -288,6 +295,50 @@ const submitFeedback = async () => {
   :deep(.q-field--focused .q-field__outline) {
     display: none;
   }
+
+  :deep(.q-field__bottom) {
+    display: none;
+  }
+
+  :deep(.q-field__messages) {
+    display: none;
+  }
+
+  :deep(.q-field__control::after) {
+    display: none;
+  }
+
+  :deep(.q-field__control::before) {
+    display: none;
+  }
+
+  :deep(.q-field__control-container) {
+    border: none !important;
+  }
+
+  :deep(.q-field__control-container::after) {
+    display: none !important;
+  }
+
+  :deep(.q-field) {
+    border: none !important;
+    border-bottom: none !important;
+  }
+
+  :deep(.q-field__wrapper) {
+    border: none !important;
+    border-bottom: none !important;
+  }
+
+  :deep(.q-field--filled .q-field__control) {
+    border: none !important;
+    border-bottom: none !important;
+  }
+
+  :deep(.q-field--borderless .q-field__control) {
+    border: none !important;
+    border-bottom: none !important;
+  }
 }
 
 // 第4步：图片上传区域 - 定位在左下角，约60px x 60px
@@ -305,14 +356,18 @@ const submitFeedback = async () => {
   cursor: pointer;
   transition: all 0.2s ease;
   background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 
   &:hover {
     border-color: #8A63FF;
     background: #faf5ff;
+    box-shadow: 0 2px 6px rgba(138, 99, 255, 0.15);
+    transform: translateY(-1px);
   }
 
   &:active {
-    transform: scale(0.98);
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 1px 3px rgba(138, 99, 255, 0.1);
   }
 }
 
@@ -325,8 +380,14 @@ const submitFeedback = async () => {
   height: 100%;
 
   .q-icon {
-    font-size: 24px;
+    font-size: 28px;
+    transition: all 0.2s ease;
   }
+}
+
+// hover 时图标颜色变化
+.feedback-image-upload:hover .feedback-image-placeholder .q-icon {
+  color: #8A63FF;
 }
 
 .feedback-image-preview {
@@ -361,7 +422,6 @@ const submitFeedback = async () => {
 
 .feedback-dialog-footer {
   padding: 20px 0 0 0;
-  margin-top: auto;
   display: flex;
   justify-content: center;
 }

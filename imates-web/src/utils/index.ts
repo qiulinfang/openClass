@@ -52,5 +52,14 @@ export { MathJaxUtils } from './math/mathjax'
 // 节流和防抖工具
 export { throttle, debounce, ThrottleUtils, DebounceUtils } from './common/throttle'
 
+// 章节相关工具函数
+export {
+  convertChineseNumberToArabic,
+  convertToChineseNumber,
+  extractChapterNumberFromName,
+  parseChapterOrderFromFileName,
+  sortChaptersByNumber
+} from './chapter-utils'
+
 // 类型定义
 export type { ExerciseItem, SimilarExercise } from '../types'

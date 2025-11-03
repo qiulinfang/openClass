@@ -134,29 +134,33 @@
                       <template v-if="textbook.downloadStatus === 1">
                         <q-btn color="orange" icon="pause" label="暂停" @click="pauseDownload(textbook)" size="sm" unelevated no-caps />
                         <q-btn color="negative" icon="cancel" label="取消" @click="cancelDownload(textbook)" size="sm" unelevated no-caps />
+                        <q-btn color="negative" icon="delete" label="删除" @click="handleDeleteTextbook(textbook)" size="sm" unelevated no-caps />
                       </template>
                       
                       <!-- 暂停状态：显示继续和取消 -->
                       <template v-else-if="textbook.downloadStatus === 3">
                         <q-btn color="primary" icon="play_arrow" label="继续" @click="downloadTextbook(textbook)" size="sm" unelevated no-caps />
                         <q-btn color="negative" icon="cancel" label="取消" @click="cancelDownload(textbook)" size="sm" unelevated no-caps />
+                        <q-btn color="negative" icon="delete" label="删除" @click="handleDeleteTextbook(textbook)" size="sm" unelevated no-caps />
                       </template>
                       
-                      <!-- 已下载状态：显示查看和去学习 -->
+                      <!-- 已下载状态：显示去学习 -->
                       <template v-else-if="textbook.isDownloaded && textbook.downloadStatus === 2">
-                        <q-btn color="positive" icon="visibility" label="查看" @click="viewTextbook(textbook)" size="sm" unelevated no-caps />
                         <q-btn color="primary" icon="school" label="去学习" @click="goToKnowledgeGraph(textbook)" size="sm" unelevated no-caps />
                         <q-btn v-if="textbook.hasUpdatesAvailable" color="secondary" icon="system_update" label="更新" @click="updateTextbook(textbook)" size="sm" unelevated no-caps />
+                        <q-btn color="negative" icon="delete" label="删除" @click="handleDeleteTextbook(textbook)" size="sm" unelevated no-caps />
                       </template>
                       
                       <!-- 部分下载状态：显示继续 -->
                       <template v-else-if="textbook.downloadedFiles > 0 && textbook.downloadedFiles < textbook.totalFiles">
                         <q-btn color="primary" icon="play_arrow" label="继续" @click="downloadTextbook(textbook)" size="sm" unelevated no-caps />
+                        <q-btn color="negative" icon="delete" label="删除" @click="handleDeleteTextbook(textbook)" size="sm" unelevated no-caps />
                       </template>
                       
                       <!-- 未下载状态：显示下载 -->
                       <template v-else>
                         <q-btn color="primary" icon="download" label="下载" @click="downloadTextbook(textbook)" size="sm" unelevated no-caps />
+                        <q-btn color="negative" icon="delete" label="删除" @click="handleDeleteTextbook(textbook)" size="sm" unelevated no-caps />
                       </template>
                     </div>
                   </div>
@@ -187,6 +191,29 @@
 
         <!-- 调试面板 -->
         <ResourceDebugPanel v-if="isDev" :visible="showDebugPanel" @close="showDebugPanel = false" />
+
+        <!-- 删除教材确认对话框 -->
+        <q-dialog v-model="showDeleteDialog" persistent>
+          <q-card style="min-width: 350px">
+            <q-card-section>
+              <div class="text-h6">删除教材</div>
+            </q-card-section>
+
+            <q-card-section class="q-pt-none">
+              <div class="text-body1">
+                确定要删除《{{ deleteTextbookName }}》吗？
+              </div>
+              <div class="text-body2 text-grey-7 q-mt-sm">
+                删除后，该教材及其所有相关文件将从本地完全移除，且无法恢复。
+              </div>
+            </q-card-section>
+
+            <q-card-actions align="right">
+              <q-btn flat label="取消" color="grey" @click="showDeleteDialog = false" />
+              <q-btn flat label="确定" color="negative" @click="confirmDeleteTextbook" :loading="deleting" />
+            </q-card-actions>
+          </q-card>
+        </q-dialog>
       </q-page>
     </q-page-container>
   </q-layout>
@@ -222,6 +249,12 @@ const textbooks = ref<UserTextbookInfo[]>([])
 const selectedSubjects = ref(new Set<string>())
 const updateCount = ref(0)
 const showDebugPanel = ref(false)
+
+// 删除教材相关状态
+const showDeleteDialog = ref(false)
+const deleting = ref(false)
+const deleteTextbookId = ref<string | null>(null)
+const deleteTextbookName = ref('')
 
 // 新增：本地数据优先显示相关状态
 const hasLocalData = ref(false)
@@ -612,19 +645,40 @@ const checkForUpdates = async () => {
     // 开始执行三级更新检查
     const updatedTextbooks = await apiService.checkForUpdates()
 
+    // 第一步：重置所有本地教材的更新状态（清除之前的更新标记）
+    const resetPromises = textbooks.value.map(async (textbook) => {
+      textbook.hasUpdatesAvailable = false
+      
+      // 🔥 保存更新状态到 IndexedDB（重置为无更新）
+      await resourceManager.updateTextbookInfo(textbook, {
+        hasUpdatesAvailable: false,
+      })
+    })
+
+    // 等待所有重置完成
+    await Promise.all(resetPromises)
+
+    // 第二步：遍历服务器返回的需要更新的教材，在本地教材中查找并标记
     if (updatedTextbooks.length > 0) {
-      // 更新教材的更新状态
-      const updatePromises = textbooks.value.map(async (textbook) => {
-        const hasUpdate = updatedTextbooks.some(
-          (update) => update.textbookId === textbook.textbookId,
+      const updatePromises = updatedTextbooks.map(async (updatedTextbook) => {
+        // 在本地教材列表中查找对应的教材（通过 textbookId 匹配）
+        const localTextbook = textbooks.value.find(
+          (textbook) => textbook.textbookId === updatedTextbook.textbookId,
         )
 
-        textbook.hasUpdatesAvailable = hasUpdate
+        if (localTextbook) {
+          // 找到了本地教材，标记为有更新
+          localTextbook.hasUpdatesAvailable = true
 
-        // 🔥 保存更新状态到 IndexedDB（使用批量更新）
-        await resourceManager.updateTextbookInfo(textbook, {
-          hasUpdatesAvailable: hasUpdate,
-        })
+          // 🔥 保存更新状态到 IndexedDB（标记为有更新）
+          await resourceManager.updateTextbookInfo(localTextbook, {
+            hasUpdatesAvailable: true,
+          })
+        } else {
+          // 本地没有找到对应的教材（可能是新教材或已被删除）
+          // 可以选择忽略，或者如果需要，可以添加到本地列表
+          console.log(`[检查更新] 发现新教材或本地未找到: ${updatedTextbook.textbookName} (${updatedTextbook.textbookId})`)
+        }
       })
 
       // 等待所有更新完成
@@ -633,19 +687,7 @@ const checkForUpdates = async () => {
       updateCount.value = updatedTextbooks.length
       showMessage(`发现 ${updatedTextbooks.length} 个教材有更新`, 'success')
     } else {
-      // 清除所有教材的更新状态
-      const clearPromises = textbooks.value.map(async (textbook) => {
-        textbook.hasUpdatesAvailable = false
-
-        // 🔥 保存更新状态到 IndexedDB（使用批量更新）
-        await resourceManager.updateTextbookInfo(textbook, {
-          hasUpdatesAvailable: false,
-        })
-      })
-
-      // 等待所有清除完成
-      await Promise.all(clearPromises)
-
+      // 服务器没有返回需要更新的教材，所有教材都是最新版本
       updateCount.value = 0
       showMessage('所有教材都是最新版本', 'info')
     }
@@ -863,6 +905,74 @@ const updateTextbook = (textbook: UserTextbookInfo) => {
 
   // 开始下载更新
   downloadTextbook(textbook)
+}
+
+// 处理删除教材 - 显示确认对话框
+const handleDeleteTextbook = (textbook: UserTextbookInfo) => {
+  // 如果正在下载或暂停，先取消下载
+  if (textbook.downloadStatus === 1 || textbook.downloadStatus === 3) {
+    // 先取消下载任务
+    apiService.cancelDownload(textbook.textbookId).catch(() => {
+      // 忽略取消下载的错误，继续删除流程
+    })
+  }
+
+  // 显示删除确认对话框
+  deleteTextbookId.value = textbook.id
+  deleteTextbookName.value = textbook.textbookName
+  showDeleteDialog.value = true
+}
+
+// 确认删除教材
+const confirmDeleteTextbook = async () => {
+  if (!deleteTextbookId.value) {
+    return
+  }
+
+  deleting.value = true
+
+  try {
+    // 第1步：再次检查是否有正在进行的下载，如果有则取消
+    const textbookToDelete = textbooks.value.find(t => t.id === deleteTextbookId.value)
+    if (textbookToDelete && (textbookToDelete.downloadStatus === 1 || textbookToDelete.downloadStatus === 3)) {
+      try {
+        await apiService.cancelDownload(textbookToDelete.textbookId)
+      } catch {
+        // 忽略取消下载的错误，继续删除流程
+      }
+    }
+
+    // 第2步：删除教材及其所有相关数据
+    const success = await resourceManager.deleteTextbook(deleteTextbookId.value)
+
+    if (success) {
+      // 第3步：从列表中移除教材
+      const index = textbooks.value.findIndex(t => t.id === deleteTextbookId.value)
+      if (index !== -1) {
+        textbooks.value.splice(index, 1)
+      }
+
+      // 第4步：如果删除后列表为空，重新加载数据
+      if (textbooks.value.length === 0) {
+        await loadResources()
+      }
+
+      showMessage(`《${deleteTextbookName.value}》已删除`, 'success')
+      showDeleteDialog.value = false
+    } else {
+      showMessage(`删除《${deleteTextbookName.value}》失败`, 'error')
+    }
+  } catch (error) {
+    console.error('删除教材失败:', error)
+    showMessage(
+      `删除《${deleteTextbookName.value}》失败: ${error instanceof Error ? error.message : '未知错误'}`,
+      'error',
+    )
+  } finally {
+    deleting.value = false
+    deleteTextbookId.value = null
+    deleteTextbookName.value = ''
+  }
 }
 
 // 生命周期

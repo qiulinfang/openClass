@@ -3,15 +3,14 @@ import MainView from '@/views/MainView.vue'
 import ExerciseSolveView from '@/views/ExerciseSolveView.vue'
 import LoginView from '@/views/LoginView.vue'
 import KnowledgeGraphView from '@/views/KnowledgeGraphView.vue'
-import MyProfileView from '@/views/MyProfileView.vue'
 import MyResourcesView from '@/views/MyResourcesView.vue'
-import FeedbackView from '@/views/FeedbackView.vue'
 import PdfViewerView from '@/views/PdfViewerView.vue'
 import HtmlViewerView from '@/views/HtmlViewerView.vue'
 import VideoViewerView from '@/views/VideoViewerView.vue'
 import FindExerciseView from '@/views/FindExerciseView.vue'
 import LearningView from '@/views/LearningView.vue'
 import DrawingBoard from '@/components/DrawingBoard.vue'
+import MyFavoritesView from '@/views/MyFavoritesView.vue'
 
 const router = createRouter({
   history: createWebHashHistory(), // 必须使用Hash模式
@@ -28,7 +27,7 @@ const router = createRouter({
     {
       path: '/app',
       component: MainView,
-      redirect: '/app/my-profile', // 默认重定向到知识图谱
+      redirect: '/app/knowledge-graph', // 默认重定向到知识图谱
       children: [
         {
           path: 'exercise-solve',
@@ -41,19 +40,9 @@ const router = createRouter({
           component: KnowledgeGraphView
         },
         {
-          path: 'my-profile',
-          name: 'myProfile',
-          component: MyProfileView
-        },
-        {
           path: 'my-resources',
           name: 'myResources',
           component: MyResourcesView
-        },
-        {
-          path: 'feedback',
-          name: 'feedback',
-          component: FeedbackView
         },
         {
           path: 'pdf-viewer',
@@ -84,6 +73,11 @@ const router = createRouter({
           path: 'drawing-board',
           name: 'drawingBoard',
           component: DrawingBoard
+        },
+        {
+          path: 'my-favorites',
+          name: 'myFavorites',
+          component: MyFavoritesView
         }
       ]
     },
@@ -97,16 +91,8 @@ const router = createRouter({
       redirect: '/app/knowledge-graph'
     },
     {
-      path: '/my-profile',
-      redirect: '/app/my-profile'
-    },
-    {
       path: '/my-resources',
       redirect: '/app/my-resources'
-    },
-    {
-      path: '/feedback',
-      redirect: '/app/feedback'
     },
     {
       path: '/find-exercise',

@@ -194,6 +194,20 @@
                       <q-tooltip>置顶</q-tooltip>
                     </q-btn>
 
+                    <!-- 收藏按钮 -->
+                    <q-btn
+                      icon="star"
+                      :color="isExerciseFavorite(item.question!.id) ? 'warning' : 'grey-7'"
+                      flat
+                      round
+                      size="sm"
+                      @click.stop="throttledToggleFavorite(item.question!)"
+                      class="action-btn"
+                      :class="{ 'is-favorite': isExerciseFavorite(item.question!.id) }"
+                    >
+                      <q-tooltip>{{ isExerciseFavorite(item.question!.id) ? '取消收藏' : '收藏题目' }}</q-tooltip>
+                    </q-btn>
+
                     <q-btn
                       icon="delete"
                       color="negative"
@@ -248,6 +262,7 @@ import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { useQuestionStatistics, type TitleHeightStat, type HeightComparison } from '../composables/useQuestionStatistics'
 import QuestionListSkeleton from './QuestionListSkeleton.vue'
 import MiniClass from './MiniClass.vue'
+import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/favorites'
 
 const emit = defineEmits<{
   startAiGuidance: [question: ExerciseItem]
@@ -576,6 +591,41 @@ const throttledDeleteQuestion = ThrottleUtils.slow((questionId: string) => {
 
 const throttledMoveToTop = ThrottleUtils.standard((questionId: string) => {
   moveQuestionToTop(questionId)
+})
+
+// 收藏相关状态
+const favoriteStatus = ref<Map<string, boolean>>(new Map())
+
+// 检查题目是否已收藏
+const isExerciseFavorite = (itemId: string): boolean => {
+  return favoriteStatus.value.get(itemId) ?? false
+}
+
+// 初始化收藏状态
+const initFavoriteStatus = () => {
+  const favorites = getFavoriteExercises()
+  favoriteStatus.value.clear()
+  favorites.forEach(f => {
+    favoriteStatus.value.set(f.item.id, true)
+  })
+}
+
+// 切换收藏状态
+const toggleFavorite = (item: ExerciseItem) => {
+  const wasFavorite = isExerciseFavorite(item.id)
+  const success = toggleExerciseFavorite(item)
+  
+  if (success) {
+    // 更新收藏状态
+    favoriteStatus.value.set(item.id, !wasFavorite)
+    showMessage(!wasFavorite ? '已收藏' : '已取消收藏', 'success')
+  } else {
+    showMessage('操作失败，请重试', 'error')
+  }
+}
+
+const throttledToggleFavorite = ThrottleUtils.fast((item: ExerciseItem) => {
+  toggleFavorite(item)
 })
 
 const throttledStartPhotoSearch = ThrottleUtils.verySlow(() => {
@@ -1195,8 +1245,14 @@ onUnmounted(() => {
 let windowResizeCleanup: (() => void) | null = null
 
 // 生命周期
+// 监听 questions 变化，更新收藏状态
+watch(() => questions.value, () => {
+  initFavoriteStatus()
+}, { deep: true })
+
 onMounted(() => {
   loadQuestions()
+  initFavoriteStatus()
   
   // 设置窗口大小变化监听
   let resizeTimeout: NodeJS.Timeout

@@ -135,6 +135,17 @@
                       <q-item-section>{{ record.pinned ? '取消置顶' : '置顶' }}</q-item-section>
                     </q-item>
 
+                    <q-item clickable v-close-popup @click="handleFavorite(record)">
+                      <q-item-section avatar>
+                        <q-icon 
+                          :name="isFavorite(record.id) ? 'star' : 'star_border'" 
+                          size="xs"
+                          :color="isFavorite(record.id) ? 'warning' : undefined"
+                        />
+                      </q-item-section>
+                      <q-item-section>{{ isFavorite(record.id) ? '取消收藏' : '收藏' }}</q-item-section>
+                    </q-item>
+
                     <q-item clickable v-close-popup @click="enterSelectionMode">
                       <q-item-section avatar>
                         <q-icon name="checklist" size="xs" />
@@ -191,9 +202,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import type { QuestionRecord } from '@/types'
 import { useBetterScroll } from '../composables/useBetterScroll'
+import { toggleQaFavorite, getFavoriteQas } from '../utils/favorites'
+import { showMessage } from '../utils'
 
 // 定义 props
 interface Props {
@@ -336,6 +349,46 @@ const handlePin = (record: QuestionRecord) => {
 const handleDelete = (record: QuestionRecord) => {
   emit('record-delete', record)
 }
+
+// 第6步：检查是否已收藏
+const favoriteStatus = ref<Map<string, boolean>>(new Map())
+
+const isFavorite = (recordId: string): boolean => {
+  return favoriteStatus.value.get(recordId) ?? false
+}
+
+// 初始化收藏状态
+const initFavoriteStatus = () => {
+  const favorites = getFavoriteQas()
+  favoriteStatus.value.clear()
+  favorites.forEach(f => {
+    favoriteStatus.value.set(f.record.id, true)
+  })
+}
+
+// 第7步：处理收藏/取消收藏
+const handleFavorite = (record: QuestionRecord) => {
+  const wasFavorite = isFavorite(record.id)
+  const success = toggleQaFavorite(record)
+  
+  if (success) {
+    // 更新收藏状态
+    favoriteStatus.value.set(record.id, !wasFavorite)
+    showMessage(!wasFavorite ? '已收藏' : '已取消收藏', 'success')
+  } else {
+    showMessage('操作失败，请重试', 'error')
+  }
+}
+
+// 监听 records 变化，更新收藏状态
+watch(() => props.records, () => {
+  initFavoriteStatus()
+}, { deep: true })
+
+// 初始化收藏状态
+onMounted(() => {
+  initFavoriteStatus()
+})
 
 // 截断文本
 const truncateText = (text: string, maxLength: number): string => {

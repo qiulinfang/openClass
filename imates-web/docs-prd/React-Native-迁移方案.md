@@ -331,14 +331,14 @@ public class ChatModule extends ReactContextBaseJavaModule {
 - [x] 安装核心依赖
 
 ### 里程碑 2：基础设施 ✅
-- [ ] 路由配置完成
-- [ ] 状态管理迁移完成
-- [ ] 网络请求封装完成
-- [ ] 数据存储迁移完成
+- [x] 路由配置完成（React Navigation）
+- [x] 状态管理迁移完成（Zustand：questionStore, userStore）
+- [x] 网络请求封装完成（apiService, httpClient）
+- [x] 数据存储迁移完成（storageService, AsyncStorage）
 
 ### 里程碑 3：核心功能 ✅
-- [ ] 用户认证迁移完成
-- [ ] 习题解答迁移完成
+- [x] 用户认证迁移完成（LoginScreen, userStore）
+- [x] 习题解答迁移完成（QuestionList, questionStore）
 - [ ] AI 聊天基础功能完成
 
 ### 里程碑 4：重要功能 ⏳
@@ -360,8 +360,214 @@ public class ChatModule extends ReactContextBaseJavaModule {
 
 ---
 
-**文档版本**：v1.0  
+**文档版本**：v1.1  
 **创建日期**：2025-01-XX  
-**最后更新**：2025-01-XX  
+**最后更新**：2025-01-27  
 **维护者**：开发团队
+
+---
+
+## 📝 已完成工作记录
+
+### ✅ 已完成功能（2025-01-27）
+
+#### 1. 基础设施层
+- **项目初始化** ✅
+  - React Native TypeScript 项目创建
+  - 核心依赖安装（React Navigation, Zustand, Axios, AsyncStorage）
+  - 项目结构搭建
+
+- **路由导航** ✅
+  - React Navigation 配置
+  - 导航栈和路由类型定义
+  - 路由守卫实现
+
+- **状态管理** ✅
+  - `questionStore`：题目列表管理、选择、删除、置顶
+  - `userStore`：用户认证状态管理
+  - Zustand Store 持久化
+
+- **网络请求** ✅
+  - `apiService`：API 请求封装
+  - `httpClient`：HTTP 客户端配置
+  - 请求/响应拦截器
+  - 错误处理机制
+
+- **数据存储** ✅
+  - `storageService`：AsyncStorage 封装
+  - 数据持久化策略
+  - 存储清理逻辑
+
+#### 2. 核心功能层
+- **用户认证** ✅
+  - `LoginScreen`：登录页面实现
+  - Token 管理和存储
+  - 登录状态检查
+
+- **习题解答** ✅
+  - `QuestionList`：题目列表组件
+    - 题目搜索功能
+    - 题目选择与高亮
+    - 操作按钮（AI、拍作业、微课、置顶、删除）
+    - 空状态和加载状态
+  - `questionStore`：题目状态管理
+    - 题目列表获取（本地优先）
+    - 题目选择与索引管理
+    - 题目删除与置顶
+    - 题目去重算法
+
+#### 3. UI 组件
+- **QuestionList 组件** ✅
+  - 搜索栏实现（带搜索图标和清除按钮）
+  - 题目卡片列表
+  - 选中状态高亮
+  - 操作按钮组（带图标：AI 🤖、拍照 📷、微课 🎥、置顶 ⬆️、删除 🗑️）
+  - 响应式布局
+  - 优化样式（阴影、圆角、颜色主题）
+  - 优化交互（按钮反馈、空状态图标）
+
+### 🔄 进行中功能
+
+- 无
+
+### 📋 待完成功能
+
+#### 1. AI 聊天功能（P0）
+- Chat Stores 迁移
+  - `aiGeneralChatStore`
+  - `aiExerciseChatStore`
+  - `aiTextbookChatStore`
+  - `teacherChatStore`
+- ChatScreen 组件
+  - 消息列表渲染
+  - 输入框组件
+  - 流式响应处理
+  - 语音和图片功能
+
+#### 2. 知识图谱（P1）
+- 图谱渲染组件
+- 节点交互
+- 拖拽功能
+
+#### 3. 资源查看（P1）
+- PDF 查看器
+- 视频播放器
+- HTML 查看器
+
+---
+
+### 📊 迁移进度统计
+
+- **基础设施**：100% ✅ (4/4)
+- **核心功能**：67% 🔄 (2/3)
+  - 用户认证 ✅
+  - 习题解答 ✅
+  - AI 聊天 ⏳
+- **重要功能**：0% ⏳ (0/3)
+- **增强功能**：0% ⏳ (0/3)
+
+**总体进度**：约 40%
+
+
+
+## 📝 已完成工作记录
+
+### ✅ 已完成功能（2025-01-27）
+
+#### 1. 基础设施层
+- **项目初始化** ✅
+  - React Native TypeScript 项目创建
+  - 核心依赖安装（React Navigation, Zustand, Axios, AsyncStorage）
+  - 项目结构搭建
+
+- **路由导航** ✅
+  - React Navigation 配置
+  - 导航栈和路由类型定义
+  - 路由守卫实现
+
+- **状态管理** ✅
+  - `questionStore`：题目列表管理、选择、删除、置顶
+  - `userStore`：用户认证状态管理
+  - Zustand Store 持久化
+
+- **网络请求** ✅
+  - `apiService`：API 请求封装
+  - `httpClient`：HTTP 客户端配置
+  - 请求/响应拦截器
+  - 错误处理机制
+
+- **数据存储** ✅
+  - `storageService`：AsyncStorage 封装
+  - 数据持久化策略
+  - 存储清理逻辑
+
+#### 2. 核心功能层
+- **用户认证** ✅
+  - `LoginScreen`：登录页面实现
+  - Token 管理和存储
+  - 登录状态检查
+
+- **习题解答** ✅
+  - `QuestionList`：题目列表组件
+    - 题目搜索功能
+    - 题目选择与高亮
+    - 操作按钮（AI、拍作业、微课、置顶、删除）
+    - 空状态和加载状态
+  - `questionStore`：题目状态管理
+    - 题目列表获取（本地优先）
+    - 题目选择与索引管理
+    - 题目删除与置顶
+    - 题目去重算法
+
+#### 3. UI 组件
+- **QuestionList 组件** ✅
+  - 搜索栏实现（带搜索图标和清除按钮）
+  - 题目卡片列表
+  - 选中状态高亮
+  - 操作按钮组（带图标：AI 🤖、拍照 📷、微课 🎥、置顶 ⬆️、删除 🗑️）
+  - 响应式布局
+  - 优化样式（阴影、圆角、颜色主题）
+  - 优化交互（按钮反馈、空状态图标）
+
+### 🔄 进行中功能
+
+- 无
+
+### 📋 待完成功能
+
+#### 1. AI 聊天功能（P0）
+- Chat Stores 迁移
+  - `aiGeneralChatStore`
+  - `aiExerciseChatStore`
+  - `aiTextbookChatStore`
+  - `teacherChatStore`
+- ChatScreen 组件
+  - 消息列表渲染
+  - 输入框组件
+  - 流式响应处理
+  - 语音和图片功能
+
+#### 2. 知识图谱（P1）
+- 图谱渲染组件
+- 节点交互
+- 拖拽功能
+
+#### 3. 资源查看（P1）
+- PDF 查看器
+- 视频播放器
+- HTML 查看器
+
+---
+
+### 📊 迁移进度统计
+
+- **基础设施**：100% ✅ (4/4)
+- **核心功能**：67% 🔄 (2/3)
+  - 用户认证 ✅
+  - 习题解答 ✅
+  - AI 聊天 ⏳
+- **重要功能**：0% ⏳ (0/3)
+- **增强功能**：0% ⏳ (0/3)
+
+**总体进度**：约 40%
 

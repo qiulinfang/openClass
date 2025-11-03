@@ -8,13 +8,13 @@
         dense 
         icon="arrow_back" 
         @click="goBack" 
-        class="q-mr-sm"
+        class="q-mr-sm toolbar-back-btn"
         :loading="isExiting"
         :disable="isExiting"
       />
       
       <div class="toolbar-title">
-        <span>练习题</span>
+        <span>我的习题</span>
       </div>
       
       <q-space />
@@ -22,38 +22,34 @@
       <!-- 选中状态显示 -->
       <div class="selection-info" v-if="hasSelectableQuestions">
         <span class="selection-count">
-          已选择 {{ selectedCount }} / {{ selectableCount }} 题
+          已选{{ selectedCount }}/{{ selectableCount }}
         </span>
       </div>
       
-      <q-space />
-      
-      <!-- 操作按钮 -->
-      <div class="toolbar-actions">
-        <!-- 全选/取消全选按钮 -->
-        <q-btn
-          v-if="hasSelectableQuestions"
-          flat
-          dense
-          :icon="isAllSelected ? 'check_box' : 'check_box_outline_blank'"
-          :label="isAllSelected ? '取消全选' : '全选'"
-          :color="isAllSelected ? 'primary' : 'grey-6'"
-          @click="handleToggleSelectAll"
-          class="select-all-btn"
-        />
-        
-        <!-- 开始练习按钮 -->
-        <q-btn
-          flat
-          dense
-          icon="play_arrow"
-          :label="hasSelectedQuestions ? '开始练习' : '请先选择题目'"
-          :color="hasSelectedQuestions ? 'positive' : 'grey-5'"
-          :disable="!hasSelectedQuestions"
-          :loading="isStarting"
-          @click="handleStartExercise"
+      <!-- 全选复选框 -->
+      <div class="select-all-container" v-if="hasSelectableQuestions">
+        <q-checkbox
+          :model-value="isAllSelected"
+          @update:model-value="handleToggleSelectAll"
+          label="全选"
+          color="primary"
+          size="md"
+          class="select-all-checkbox"
         />
       </div>
+      
+      <!-- 开始练习按钮 -->
+      <q-btn
+        unelevated
+        rounded
+        :label="'开始练习'"
+        :color="hasSelectedQuestions ? 'orange' : 'grey-5'"
+        :disable="!hasSelectedQuestions"
+        :loading="isStarting"
+        @click="handleStartExercise"
+        class="start-practice-btn"
+        no-caps
+      />
     </div>
 
     <!-- 主要内容区域 -->
@@ -160,8 +156,22 @@ const handleRefresh = async () => {
 /**
  * 处理全选/取消全选
  */
-const handleToggleSelectAll = () => {
-  findExerciseStore.toggleSelectAll()
+const handleToggleSelectAll = (value?: boolean) => {
+  // 如果传入了值，说明是复选框的update事件
+  if (value !== undefined) {
+    const shouldSelect = value
+    const isCurrentlyAllSelected = isAllSelected.value
+    
+    // 只有当状态需要改变时才执行
+    if (shouldSelect && !isCurrentlyAllSelected) {
+      findExerciseStore.toggleSelectAll()
+    } else if (!shouldSelect && isCurrentlyAllSelected) {
+      findExerciseStore.toggleSelectAll()
+    }
+  } else {
+    // 直接调用切换方法
+    findExerciseStore.toggleSelectAll()
+  }
 }
 
 /**
@@ -317,14 +327,23 @@ $primary-color: #1976d2;
   height: $header-height;
   min-height: $header-height;
   max-height: $header-height;
-  background: white;
-  border-bottom: 1px solid $border-color;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: #0f002e; // 深紫色背景
+  border-bottom: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   display: flex;
   align-items: center;
   padding: 0 16px;
   flex-shrink: 0;
   z-index: 1;
+  
+  // 确保所有按钮图标为白色
+  .toolbar-back-btn {
+    color: white;
+    
+    :deep(.q-icon) {
+      color: white !important;
+    }
+  }
 }
 
 .toolbar-title {
@@ -332,34 +351,76 @@ $primary-color: #1976d2;
   align-items: center;
   font-size: 18px;
   font-weight: 600;
-  color: #1f2937;
+  color: white; // 白色文字，匹配图片样式
+  margin-left: 8px;
 }
 
 .selection-info {
   display: flex;
   align-items: center;
   font-size: 14px;
-  color: #6b7280;
-  margin-right: 16px;
+  color: white; // 白色文字，匹配图片样式
+  margin-right: 12px;
 }
 
 .selection-count {
   font-weight: 500;
-  color: #374151;
+  color: white; // 白色文字，匹配图片样式
 }
 
-.toolbar-actions {
+.select-all-container {
   display: flex;
   align-items: center;
-  gap: 8px;
+  margin-right: 12px;
 }
 
-.select-all-btn {
+.select-all-checkbox {
   font-size: 14px;
   font-weight: 500;
   
-  .q-btn__content {
-    gap: 4px;
+  :deep(.q-checkbox__label) {
+    font-size: 14px;
+    font-weight: 500;
+    color: white; // 白色文字，匹配图片样式
+  }
+  
+  // 复选框在深色背景下的样式
+  :deep(.q-checkbox__bg) {
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+  
+  :deep(.q-checkbox__bg--active) {
+    background-color: white;
+    border-color: white;
+  }
+  
+  :deep(.q-checkbox__check) {
+    color: #667eea; // 选中时，对勾使用深紫色
+  }
+}
+
+.start-practice-btn {
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 16px;
+  min-width: auto;
+  
+  &.bg-orange {
+    background-color: #ff9800 !important;
+    color: white !important;
+  }
+  
+  // 确保橙色按钮在深色背景上正确显示
+  &.bg-orange-5,
+  &[color="orange"] {
+    background-color: #ff9800 !important;
+    color: white !important;
+  }
+  
+  // 禁用状态的灰色按钮
+  &.bg-grey-5 {
+    background-color: rgba(255, 255, 255, 0.3) !important;
+    color: rgba(255, 255, 255, 0.6) !important;
   }
 }
 
@@ -394,8 +455,14 @@ $primary-color: #1976d2;
     padding: 8px;
   }
   
-  .toolbar-title {
+    .toolbar-title {
     font-size: 16px;
+  }
+  
+    .toolbar-back-btn {
+    :deep(.q-icon) {
+      color: white !important; // 确保返回按钮图标为白色
+    }
   }
   
   .selection-info {
@@ -403,19 +470,25 @@ $primary-color: #1976d2;
     margin-right: 8px;
   }
   
-  .toolbar-actions {
-    .q-btn {
+  .selection-count {
+    font-size: 12px;
+  }
+  
+  .select-all-container {
+    margin-right: 8px;
+  }
+  
+  .select-all-checkbox {
+    font-size: 12px;
+    
+    :deep(.q-checkbox__label) {
       font-size: 12px;
-      padding: 4px 8px;
     }
   }
   
-  .select-all-btn {
+  .start-practice-btn {
     font-size: 12px;
-    
-    .q-btn__content {
-      gap: 2px;
-    }
+    padding: 6px 12px;
   }
 }
 </style>

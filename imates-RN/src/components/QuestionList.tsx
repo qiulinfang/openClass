@@ -144,42 +144,49 @@ const QuestionList: React.FC<QuestionListProps> = ({
         <View style={styles.questionBlock}>
           {/* 题目头部 */}
           <View style={styles.questionHeader}>
-            <Text style={styles.questionNumber}>{index + 1}</Text>
+            <View style={styles.questionNumberContainer}>
+              <Text style={styles.questionNumber}>{index + 1}</Text>
+            </View>
             
             {/* 操作按钮组 */}
             {isSelected && (
               <View style={styles.questionActions}>
                 <TouchableOpacity
-                  style={styles.actionBtn}
+                  style={[styles.actionBtn, styles.aiBtn]}
                   onPress={() => handleSendToAi(item)}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.actionBtnText}>AI</Text>
+                  <Text style={styles.actionIcon}>🤖</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.actionBtn}
+                  style={[styles.actionBtn, styles.cameraBtn, styles.actionBtnMargin]}
                   onPress={() => handleSendToTeacher(item)}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.actionBtnText}>拍</Text>
+                  <Text style={styles.actionIcon}>📷</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.actionBtn}
+                  style={[styles.actionBtn, styles.videoBtn, styles.actionBtnMargin]}
                   onPress={() => handleOpenMiniClass(item)}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.actionBtnText}>课</Text>
+                  <Text style={styles.actionIcon}>🎥</Text>
                 </TouchableOpacity>
                 {index > 0 && (
                   <TouchableOpacity
-                    style={styles.actionBtn}
+                    style={[styles.actionBtn, styles.topBtn, styles.actionBtnMargin]}
                     onPress={() => handleMoveToTop(item.id)}
+                    activeOpacity={0.7}
                   >
-                    <Text style={styles.actionBtnText}>顶</Text>
+                    <Text style={styles.actionIcon}>⬆️</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
-                  style={[styles.actionBtn, styles.deleteBtn]}
+                  style={[styles.actionBtn, styles.deleteBtn, styles.actionBtnMargin]}
                   onPress={() => handleDeleteQuestion(item.id)}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.actionBtnText}>删</Text>
+                  <Text style={styles.actionIcon}>🗑️</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -219,6 +226,9 @@ const QuestionList: React.FC<QuestionListProps> = ({
 
     return (
       <View style={styles.emptyContainer}>
+        <Text style={styles.emptyIcon}>
+          {searchQuery ? '🔍' : '📝'}
+        </Text>
         <Text style={styles.emptyText}>
           {searchQuery ? '未找到匹配的题目' : '暂无题目'}
         </Text>
@@ -226,8 +236,9 @@ const QuestionList: React.FC<QuestionListProps> = ({
           <TouchableOpacity
             style={styles.reloadBtn}
             onPress={loadQuestions}
+            activeOpacity={0.7}
           >
-            <Text style={styles.reloadBtnText}>重新加载</Text>
+            <Text style={styles.reloadBtnText}>🔄 重新加载</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -238,13 +249,25 @@ const QuestionList: React.FC<QuestionListProps> = ({
     <View style={styles.container}>
       {/* 搜索栏 */}
       <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="搜索题目..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholderTextColor="#9aa0a6"
-        />
+        <View style={styles.searchInputWrapper}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="搜索题目..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholderTextColor="#9aa0a6"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              style={styles.clearButton}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.clearIcon}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* 题目列表 */}
@@ -269,14 +292,45 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#f8f9fa',
   },
-  searchInput: {
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#ffffff',
     borderRadius: 24,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 14,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.06)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  searchIcon: {
+    fontSize: 18,
+    marginRight: 8,
+    color: '#5f6368',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#202124',
+    paddingVertical: 4,
+  },
+  clearButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#e0e0e0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  clearIcon: {
+    fontSize: 14,
+    color: '#5f6368',
+    fontWeight: '600',
   },
   listContent: {
     padding: 16,
@@ -289,18 +343,18 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   questionCardSelected: {
-    // 选中状态的样式
+    backgroundColor: '#e8f0fe',
   },
   questionBlock: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.06)',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   questionHeader: {
     flexDirection: 'row',
@@ -308,36 +362,61 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 16,
   },
-  questionNumber: {
-    width: 28,
-    height: 28,
+  questionNumberContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#1a73e8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#1a73e8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  questionNumber: {
     color: '#ffffff',
-    borderRadius: 14,
-    textAlign: 'center',
-    lineHeight: 28,
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
   },
   questionActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
   actionBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'transparent',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f1f3f4',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  aiBtn: {
+    backgroundColor: '#e8f5e9',
+  },
+  cameraBtn: {
+    backgroundColor: '#e3f2fd',
+  },
+  videoBtn: {
+    backgroundColor: '#f3e5f5',
+  },
+  topBtn: {
+    backgroundColor: '#fff3e0',
   },
   deleteBtn: {
-    // 删除按钮的特殊样式
+    backgroundColor: '#ffebee',
   },
-  actionBtnText: {
-    fontSize: 12,
-    color: '#5f6368',
+  actionIcon: {
+    fontSize: 18,
+  },
+  actionBtnMargin: {
+    marginLeft: 8,
   },
   questionContentArea: {
     paddingHorizontal: 16,
@@ -346,13 +425,100 @@ const styles = StyleSheet.create({
   questionContent: {
     fontSize: 14,
     color: '#202124',
-    lineHeight: 20,
+    lineHeight: 22,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 80,
+  },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#5f6368',
+    marginBottom: 20,
+  },
+  reloadBtn: {
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#1a73e8',
+  },
+  reloadBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+})
+
+export default QuestionList
+
+
+  questionNumber: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  questionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f1f3f4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  aiBtn: {
+    backgroundColor: '#e8f5e9',
+  },
+  cameraBtn: {
+    backgroundColor: '#e3f2fd',
+  },
+  videoBtn: {
+    backgroundColor: '#f3e5f5',
+  },
+  topBtn: {
+    backgroundColor: '#fff3e0',
+  },
+  deleteBtn: {
+    backgroundColor: '#ffebee',
+  },
+  actionIcon: {
+    fontSize: 18,
+  },
+  actionBtnMargin: {
+    marginLeft: 8,
+  },
+  questionContentArea: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  questionContent: {
+    fontSize: 14,
+    color: '#202124',
+    lineHeight: 22,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 80,
+  },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 8,
   },
   emptyText: {
     fontSize: 16,

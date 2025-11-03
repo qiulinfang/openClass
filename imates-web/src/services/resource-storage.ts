@@ -610,6 +610,39 @@ export class ResourceManager {
     }
   }
 
+  /**
+   * 删除教材 - 完全删除教材及其所有相关数据
+   * 第1步：删除textbook_files表中该教材的所有文件
+   * 第2步：删除textbooks表中的教材记录
+   * @param id 教材主键ID
+   * @returns 是否删除成功
+   */
+  public async deleteTextbook(id: string): Promise<boolean> {
+    try {
+      // 第1步：获取教材信息
+      const textbook = await this.indexedDBInstance.get('textbooks', id) as UserTextbookInfo
+      if (!textbook) {
+        return false
+      }
+      
+      // 第2步：删除textbook_files表中该教材的所有文件
+      if (textbook.localFiles && textbook.localFiles.length > 0) {
+        const deletePromises = textbook.localFiles.map(file => 
+          this.indexedDBInstance.delete('textbook_files', file.id)
+        )
+        await Promise.all(deletePromises)
+      }
+      
+      // 第3步：删除textbooks表中的教材记录
+      await this.indexedDBInstance.delete('textbooks', id)
+      
+      return true
+    } catch (error) {
+      console.error('删除教材失败:', error)
+      return false
+    }
+  }
+
 
 }
 

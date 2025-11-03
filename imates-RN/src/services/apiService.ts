@@ -26,6 +26,34 @@ export interface LoginResponse {
   }
 }
 
+/**
+ * AI 聊天消息请求接口
+ */
+export interface AiChatMessageRequest {
+  sessionId: string
+  newValue: string
+  coversation: string
+  question: string
+  answer: string
+  name: string
+  reason: string
+  dstUrl?: string
+  bmNo: string
+  isWebSearch: string
+  chatRole: string
+}
+
+/**
+ * AI 聊天响应接口
+ */
+export interface AiChatResponse {
+  success: boolean
+  messageId: string
+  reply: string
+  sessionId?: string
+  timestamp?: number
+}
+
 class ApiService {
   private httpClient: HttpClient
   private baseUrl: string
@@ -172,6 +200,175 @@ class ApiService {
     } catch (error) {
       console.error('[API] ❌ 删除题目失败:', error)
       return false
+    }
+  }
+
+  /**
+   * 发送聊天消息至 AI（基于轮询机制实现打字机效果）
+   * 
+   * 注意：React Native 版本的实现需要简化，不需要流式响应回调
+   */
+  async sendChatMessage(
+    message: AiChatMessageRequest,
+  ): Promise<AiChatResponse> {
+    try {
+      // 第1步：验证 dstUrl 是否存在
+      if (!message.dstUrl) {
+        throw new Error('dstUrl is required. Please set message.dstUrl explicitly in the message builder.')
+      }
+
+      // 第2步：构造完整的请求URL
+      const url = getApiUrl(message.dstUrl, this.baseUrl)
+
+      // 第3步：构建请求体
+      const requestBody = {
+        sessionId: message.sessionId,
+        newValue: message.newValue,
+        coversation: message.coversation,
+        question: message.question,
+        answer: message.answer,
+        name: message.name,
+        reason: message.reason,
+        bmNo: message.bmNo,
+        isWebSearch: message.isWebSearch,
+        role: message.chatRole,
+      }
+
+      // 第4步：开始轮询聊天
+      return await this.pollChatMessage(message, url, requestBody)
+    } catch (error) {
+      console.error('[API] ❌ 发送聊天消息失败:', error)
+      return {
+        success: false,
+        messageId: '',
+        reply: '发送消息失败: ' + (error as Error).message,
+        timestamp: Date.now(),
+      }
+    }
+  }
+
+  /**
+   * 轮询聊天消息 - 主流程控制函数
+   * 负责协调整个轮询过程，包括请求发送、响应处理和错误处理
+   * 模拟Android端的轮询机制
+   */
+  private async pollChatMessage(
+    message: AiChatMessageRequest,
+    url: string,
+    requestBody: any,
+    accumulatedContent: string = '',
+    messageId: string = 'ai_' + Date.now(),
+  ): Promise<AiChatResponse> {
+    try {
+      // 第1步：发送HTTP请求
+      const response = await this.httpClient.post<{
+        success: boolean
+        message?: string
+        sessionId?: string
+      }>(url, requestBody, {
+        retries: 0, // 禁用HTTP层自动重试，避免与业务层重试冲突
+        timeout: 10000, // 设置10秒超时
+      })
+
+      // 第2步：处理响应
+      return await this.handleChatResponse(
+        response,
+        message,
+        url,
+        requestBody,
+        accumulatedContent,
+        messageId
+      )
+    } catch (error) {
+      // 第3步：处理异常
+      return this.handleChatError(error, messageId, accumulatedContent)
+    }
+  }
+
+  /**
+   * 处理聊天响应
+   * 根据响应内容决定是结束轮询、继续轮询还是处理错误
+   */
+  private async handleChatResponse(
+    response: ApiResponse<{
+      success: boolean
+      message?: string
+      sessionId?: string
+    }>,
+    message: AiChatMessageRequest,
+    url: string,
+    requestBody: any,
+    accumulatedContent: string,
+    messageId: string,
+  ): Promise<AiChatResponse> {
+    // 检查响应是否成功
+    if (!response.success || !response.data) {
+      return this.createErrorResult(messageId, accumulatedContent || '请求失败，请重试。')
+    }
+
+    const chunk = response.data.message || ''
+    const trimmedChunk = chunk.trim()
+
+    // 根据响应内容类型进行处理
+    if (trimmedChunk === 'end') {
+      // 轮询结束 - 返回最终结果
+      return {
+        success: true,
+        messageId,
+        reply: accumulatedContent,
+        sessionId: response.data.sessionId || message.sessionId,
+        timestamp: Date.now(),
+      }
+    } else if (trimmedChunk !== '') {
+      // 有新内容 - 累积内容并继续轮询
+      const newAccumulatedContent = accumulatedContent + chunk
+      const continueRequestBody = { ...requestBody, reason: 'continue' }
+      return await this.pollChatMessage(
+        { ...message, reason: 'continue' },
+        url,
+        continueRequestBody,
+        newAccumulatedContent,
+        messageId,
+      )
+    } else {
+      // 空内容但未结束 - 继续轮询
+      const continueRequestBody = { ...requestBody, reason: 'continue' }
+      return await this.pollChatMessage(
+        { ...message, reason: 'continue' },
+        url,
+        continueRequestBody,
+        accumulatedContent,
+        messageId,
+      )
+    }
+  }
+
+  /**
+   * 处理聊天错误
+   * 统一处理网络错误和其他异常情况
+   */
+  private handleChatError(
+    error: any,
+    messageId: string,
+    accumulatedContent: string,
+  ): AiChatResponse {
+    const errorMessage = accumulatedContent || '网络错误: ' + (error as Error).message
+    return this.createErrorResult(messageId, errorMessage)
+  }
+
+  /**
+   * 创建错误结果
+   * 统一创建错误响应格式
+   */
+  private createErrorResult(
+    messageId: string,
+    errorMessage: string,
+  ): AiChatResponse {
+    return {
+      success: false,
+      messageId,
+      reply: errorMessage,
+      timestamp: Date.now(),
     }
   }
 }

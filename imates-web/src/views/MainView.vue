@@ -15,27 +15,55 @@
       
       <div class="nav-items-container">
         <div class="nav-item" :class="{ active: activeNavItem === 'toolbox' }" @click="handleToolBoxClick">
-          <img :src="toolBoxIcon" alt="功能箱" class="nav-icon" />
-          <span class="nav-text">功能箱</span>
-        </div>
-        <div class="nav-item" :class="{ active: activeNavItem === 'resources' }" @click="handleMyResourcesClick">
-          <img :src="downloadResourcesIcon" alt="我的资源" class="nav-icon" />
-          <span class="nav-text">我的资源</span>
-        </div>
-        <div class="nav-item" :class="{ active: activeNavItem === 'exercises' }" @click="handleMyExercisesClick">
-          <img :src="bookIcon" alt="我的习题" class="nav-icon" />
-          <span class="nav-text">我的习题</span>
+          <img :src="toolBoxIcon" alt="工具箱" class="nav-icon" />
+          <span class="nav-text">工具箱</span>
         </div>
         <div class="nav-item" :class="{ active: activeNavItem === 'knowledge' }" @click="handleKnowledgeGraphClick">
           <img :src="knowledgeGraphIcon" alt="知识图谱" class="nav-icon" />
           <span class="nav-text">知识图谱</span>
         </div>
+        <div class="nav-item" :class="{ active: activeNavItem === 'exercises' }" @click="handleMyExercisesClick">
+          <img :src="bookIcon" alt="我的习题" class="nav-icon" />
+          <span class="nav-text">我的习题</span>
+        </div>
+      </div>
+      
+      <!-- 底部菜单项 -->
+      <div class="nav-items-bottom">
+        <div class="nav-item" :class="{ active: activeNavItem === 'resources' }" @click="handleMyResourcesClick">
+          <div class="nav-icon-wrapper">
+            <img :src="downloadResourcesIcon" alt="资源下载" class="nav-icon" />
+            <span class="notification-dot" v-if="hasResourceNotification"></span>
+          </div>
+          <span class="nav-text">资源下载</span>
+        </div>
+        <div class="nav-item" @click="handleLogoutClick">
+          <q-icon name="logout" class="nav-icon" />
+          <span class="nav-text">退出登录</span>
+        </div>
       </div>
     </div>
     
-    <!-- 内容区域 -->
-    <div class="content-area">
-      <router-view />
+    <!-- 右侧主区域 -->
+    <div class="right-main-area">
+      <!-- 工具箱区域 -->
+      <transition name="toolbox-slide">
+        <div class="toolbox-area" v-if="showToolbox">
+          <MyProfileView />
+        </div>
+      </transition>
+      
+      <!-- 内容区域 -->
+      <div 
+        class="content-area" 
+        :class="{ 
+          'content-shifted': showToolbox,
+          'content-transition-open': showToolbox,
+          'content-transition-close': !showToolbox
+        }"
+      >
+        <router-view />
+      </div>
     </div>
 
     <!-- 悬浮功能按钮 -->
@@ -70,8 +98,11 @@
     <!-- 草稿本对话框 -->
     <DraftDialog v-model="showDraftDialog" />
 
-    <!-- AI聊天对话框 -->
-    <AIChatDialog v-model="uiStore.showAIChatDialog" />
+    <!-- 统一聊天对话框 -->
+    <UnifiedChatDialog 
+      v-model="uiStore.showAIChatDialog" 
+      initial-category="ai"
+    />
   </div>
 </template>
 
@@ -80,7 +111,8 @@ import { ref, watch, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUIStore } from '@/stores/uiStore'
 import DraftDialog from '@/components/DraftDialog.vue'
-import AIChatDialog from '@/components/AIChatDialog.vue'
+import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
+import MyProfileView from '@/views/MyProfileView.vue'
 
 // 流程：导入图标资源
 import avatarIcon from '/icons/avatar.svg'
@@ -115,6 +147,12 @@ const activeNavItem = ref(props.activeNavItem)
 
 // 对话框显示状态
 const showDraftDialog = ref(false)
+
+// 工具箱显示状态
+const showToolbox = ref(false)
+
+// 资源通知状态
+const hasResourceNotification = ref(false)
 
 // 悬浮按钮拖动相关状态
 const fabPosition = ref({ x: 0, y: 0 })
@@ -216,9 +254,6 @@ const handleAIChatClick = async () => {
 // 监听路由变化，更新激活状态
 watch(() => route.name, (newRouteName) => {
   switch (newRouteName) {
-    case 'myProfile':
-      activeNavItem.value = 'toolbox'
-      break
     case 'myResources':
       activeNavItem.value = 'resources'
       break
@@ -235,29 +270,61 @@ watch(() => route.name, (newRouteName) => {
   emit('nav-item-change', activeNavItem.value)
 }, { immediate: true })
 
+// 切换工具箱显示状态
+const toggleToolbox = () => {
+  showToolbox.value = !showToolbox.value
+}
+
 // 导航处理函数
 const handleToolBoxClick = () => {
   activeNavItem.value = 'toolbox'
   emit('nav-item-change', 'toolbox')
-  router.push({ name: 'myProfile' })
+  // 点击功能箱菜单时切换工具箱显示状态
+  toggleToolbox()
 }
 
 const handleMyResourcesClick = () => {
   activeNavItem.value = 'resources'
   emit('nav-item-change', 'resources')
+  // 如果工具箱区域是打开的，则关闭它
+  if (showToolbox.value) {
+    showToolbox.value = false
+  }
   router.push({ name: 'myResources' })
 }
 
 const handleMyExercisesClick = () => {
   activeNavItem.value = 'exercises'
   emit('nav-item-change', 'exercises')
+  // 如果工具箱区域是打开的，则关闭它
+  if (showToolbox.value) {
+    showToolbox.value = false
+  }
   router.push({ name: 'exerciseSolve' })
 }
 
 const handleKnowledgeGraphClick = () => {
   activeNavItem.value = 'knowledge'
   emit('nav-item-change', 'knowledge')
+  // 如果工具箱区域是打开的，则关闭它
+  if (showToolbox.value) {
+    showToolbox.value = false
+  }
   router.push({ name: 'knowledgeGraph' })
+}
+
+// 处理退出登录点击
+const handleLogoutClick = async () => {
+  try {
+    // 如果工具箱区域是打开的，则关闭它
+    if (showToolbox.value) {
+      showToolbox.value = false
+    }
+    // 跳转到登录页面，清除本地存储等逻辑在路由守卫或登录页面处理
+    router.push('/login')
+  } catch (error) {
+    console.error('退出登录失败:', error)
+  }
 }
 </script>
 
@@ -279,22 +346,28 @@ const handleKnowledgeGraphClick = () => {
 .function-menu {
   width: 7%;
   flex-shrink: 0;
-  background: #100035;
-  backdrop-filter: blur(5px);
-  border-right: 1px solid rgba(229, 231, 235, 0.3);
+  background: #ffffff;
+  border-radius: 0 24px 24px 0;
   display: flex;
   flex-direction: column;
   position: relative;
   align-items: stretch;
-  padding: 12px 0;
+  padding: 16px 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   
   .user-avatar {
     display: flex;
     justify-content: center;
     align-items: center;
     padding: 12px 0;
-    height: 80px;
+    margin-bottom: 16px;
     flex-shrink: 0;
+    
+    img {
+      border-radius: 50%;
+      background: #e3f2fd;
+      padding: 4px;
+    }
   }
   
   .nav-items-container {
@@ -302,68 +375,212 @@ const handleKnowledgeGraphClick = () => {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
+    gap: 8px;
+  }
+  
+  .nav-items-bottom {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 24px;
   }
   
   .nav-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 8px 4px;
-    margin: 2px 4px;
-    border-radius: 8px;
+    padding: 12px 8px;
+    margin: 0;
+    border-radius: 12px;
     cursor: pointer;
     transition: all 0.2s ease;
     flex-shrink: 0;
+    position: relative;
     
     &.active {
-      background: #2a1c4e;
-      color: #9059FF;
+      background: #f3e8ff;
       
       .nav-icon {
-        filter: none;
-        width: 32px;
-        height: 32px;
+        opacity: 1;
+        color: #9059FF;
+        
+        img {
+          filter: none;
+          opacity: 1;
+        }
       }
       
       .nav-text {
-        color: white;
-        font-family: 'PingFang SC', sans-serif;
-        font-weight: 500;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 100%;
+        color: #9059FF;
+        font-weight: 600;
       }
     }
     
     &:hover:not(.active) {
-      background: rgba(255, 255, 255, 0.1);
+      background: #f9fafb;
+    }
+    
+    .nav-icon-wrapper {
+      position: relative;
+      display: inline-block;
     }
     
     .nav-icon {
-      width: 32px;
-      height: 32px;
-      filter: brightness(0) invert(1);
+      width: 28px;
+      height: 28px;
+      transition: all 0.2s ease;
+      font-size: 28px;
+      color: #9ca3af;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      
+      img {
+        width: 100%;
+        height: 100%;
+        filter: grayscale(100%) brightness(0.6);
+        opacity: 0.6;
+        transition: all 0.2s ease;
+      }
+      
+      // q-icon 样式
+      &:not(img) {
+        opacity: 0.6;
+      }
+    }
+    
+    .notification-dot {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      width: 8px;
+      height: 8px;
+      background: #ef4444;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
     }
     
     .nav-text {
-      margin-top: 6px;
-      font-size: 16px;
+      margin-top: 8px;
+      font-size: 14px;
       font-weight: 500;
-      color: white;
+      color: #6b7280;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 100%;
+      transition: all 0.2s ease;
+      font-family: 'PingFang SC', sans-serif;
+    }
+    
+    &:hover:not(.active) {
+      .nav-icon {
+        opacity: 0.8;
+        color: #6b7280;
+        
+        img {
+          opacity: 0.8;
+        }
+      }
+      
+      .nav-text {
+        color: #4b5563;
+      }
     }
   }
 }
 
-// 右侧内容区域
-.content-area {
+// 右侧主区域
+.right-main-area {
   flex: 1;
+  display: flex;
   height: 100vh;
   overflow: hidden;
+}
+
+// 工具箱区域
+.toolbox-area {
+  flex: 0 0 33.333%;
+  width: 33.333%;
+  background: #3D3070;
+  border-bottom: 1px solid rgba(229, 231, 235, 0.3);
+  height: 100%;
+  overflow-y: auto;
+  
+  // 自定义滚动条样式
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.5);
+    }
+  }
+  
+  // 调整MyProfileView在工具箱中的样式
+  :deep(.profile-container) {
+    min-height: auto;
+    background: transparent;
+  }
+}
+
+// 工具箱滑入动画
+.toolbox-slide-enter-active {
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.toolbox-slide-leave-active {
+  transition: all 0.3s cubic-bezier(0.55, 0.06, 0.68, 0.19);
+}
+
+.toolbox-slide-enter-from {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+.toolbox-slide-enter-to {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toolbox-slide-leave-from {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toolbox-slide-leave-to {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+.content-area {
+  flex: 1 1 100%;
+  min-height: 0;
+  overflow: hidden;
+  transition: flex 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  
+  &.content-transition-open {
+    transition: flex 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  
+  &.content-transition-close {
+    transition: flex 0.3s cubic-bezier(0.55, 0.06, 0.68, 0.19), width 0.3s cubic-bezier(0.55, 0.06, 0.68, 0.19);
+  }
+  
+  &.content-shifted {
+    flex: 1 1 calc(100% - 33.333%);
+    width: calc(100% - 33.333%);
+  }
 }
 
 // 悬浮功能按钮
@@ -389,11 +606,44 @@ const handleKnowledgeGraphClick = () => {
     width: 100%;
     height: auto;
     min-height: 80px;
+    border-radius: 0;
+    margin: 0;
+    flex-direction: row;
+    padding: 8px;
+    
+    .user-avatar {
+      margin-bottom: 0;
+      margin-right: 8px;
+    }
+    
+    .nav-items-container {
+      flex-direction: row;
+      flex: 1;
+      gap: 4px;
+    }
+    
+    .nav-items-bottom {
+      flex-direction: row;
+      margin-top: 0;
+      padding-top: 0;
+      margin-left: auto;
+      gap: 4px;
+    }
+  }
+  
+  .right-main-area {
+    width: 100%;
+    height: calc(100vh - 80px);
+  }
+  
+  .toolbox-area {
+    width: 100%;
   }
   
   .content-area {
     width: 100%;
-    height: calc(100vh - 80px);
+    flex: 1;
+    min-height: 0;
   }
 }
 </style>

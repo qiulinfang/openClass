@@ -52,6 +52,9 @@ export const API_ENDPOINTS = {
     DELETE_BASE: '/permission/deleteExercises',
     SIMILAR: '/permission/topicAndAck',
     SIMILAR_BY_KNOWLEDGE: '/biologyTopicKnowledge/knowledgeTopicAndAck',
+    // 根据章节节点ID查询知识点ID - 与Android ApiUrl.URL_QUERY_KNOWLEDGE_ID_BY_CHAPTER_ID一致
+    // 使用代理路径，Vite会在开发环境中代理到 http://www.imates.com.cn:8090
+    QUERY_KNOWLEDGE_BY_CHAPTER: '/knowledge',
   },
 
   // MQ相关配置

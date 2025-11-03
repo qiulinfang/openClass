@@ -32,9 +32,6 @@ async function loadPageComponent() {
   } else if (path.includes('knowledge-graph') || path.includes('knowledgeGraph')) {
     const { default: KnowledgeGraphView } = await import('./views/KnowledgeGraphView.vue')
     return KnowledgeGraphView
-  } else if (path.includes('my-profile') || path.includes('myProfile')) {
-    const { default: MyProfileView } = await import('./views/MyProfileView.vue')
-    return MyProfileView
   } else {
     // 默认加载主视图
     const { default: MainView } = await import('./views/MainView.vue')

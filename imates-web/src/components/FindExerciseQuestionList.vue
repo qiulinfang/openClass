@@ -3,8 +3,6 @@
     <!-- 题目列表内容 -->
     <div ref="scrollWrapper" class="scroll-wrapper">
       <div class="scroll-content">
-        <div class="q-pa-md">
-        {{ similarQuestions.length}}
         <!-- 加载状态 - 使用骨架屏 -->
         <div v-if="isLoading && similarQuestions.length === 0" class="native-loading-container">
           <QuestionListSkeleton animation-speed="fast" :skeleton-count="4" />
@@ -32,9 +30,9 @@
             v-for="(question, index) in similarQuestions"
             :key="question.bmNo"
             class="question-item"
-            :class="{ 
+            :class="{
               'question-selected': isSelected(question.bmNo),
-              'question-in-user-list': question.atUserList 
+              'question-in-user-list': question.atUserList,
             }"
             @click="handleQuestionClick(question)"
           >
@@ -42,7 +40,7 @@
             <div class="question-block">
               <!-- 题目序号和复选框 -->
               <div class="question-header">
-                <div class="question-number">{{ index + 1 }}</div>
+                <div class="question-number">题目{{ index + 1 }}</div>
                 <div class="question-checkbox">
                   <q-checkbox
                     :model-value="isSelected(question.bmNo)"
@@ -59,10 +57,7 @@
 
               <!-- 题目内容 - Markdown渲染 -->
               <div class="question-content">
-                <div
-                  v-html="renderQuestionContent(question)"
-                  class="markdown-content"
-                ></div>
+                <div v-html="renderQuestionContent(question)" class="markdown-content"></div>
               </div>
             </div>
           </div>
@@ -92,13 +87,12 @@
           </div>
         </div>
       </div>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useFindExerciseStore } from '../stores/findExerciseStore'
 import { storeToRefs } from 'pinia'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
@@ -114,30 +108,27 @@ const emit = defineEmits<{
 
 // 使用store
 const findExerciseStore = useFindExerciseStore()
-const { similarQuestions, selectedQuestionIds, isLoading, canLoadMore } = storeToRefs(findExerciseStore)
+const { similarQuestions, selectedQuestionIds, isLoading, canLoadMore } =
+  storeToRefs(findExerciseStore)
 
 // 使用消息渲染器
 const { renderMessageContent } = useMessageRenderer()
 
 // 防抖相关状态
 const isLoadMorePending = ref(false)
-const loadMoreTimeout = ref<number | null>(null)
+const loadMoreTimeout = ref<NodeJS.Timeout | null>(null)
 
 // DOM 引用
 const scrollWrapper = ref<HTMLElement | null>(null)
 
 // 使用 Better Scroll 组合式函数
-const {
-  init: initBScroll,
-  refresh: refreshBScroll,
-  getInstance
-} = useBetterScroll(
+const { init: initBScroll, getInstance } = useBetterScroll(
   scrollWrapper,
   {
     scrollY: true,
     scrollX: false,
     click: true,
-    probeType: 2,
+    probeType: 3, // 3 表示在滚动过程中和滚动结束后都会派发事件
     bounce: {
       top: true,
       bottom: true,
@@ -148,31 +139,44 @@ const {
     HWCompositing: true,
   },
   true, // 自动监听数据变化
-  [
-    () => similarQuestions.value.length
-  ]
+  [() => similarQuestions.value.length],
 )
+
+// 检查是否需要加载更多（提取为共用函数）
+const checkShouldLoadMore = () => {
+  const bscrollInstance = getInstance()
+  if (!bscrollInstance) return
+
+  const maxScrollY = bscrollInstance.maxScrollY
+  const currentY = bscrollInstance.y
+
+  // 当滚动到距离底部200px时触发加载更多（增加触发距离，提前触发）
+  const threshold = 200
+  if (currentY <= maxScrollY + threshold) {
+    // 防抖处理，避免重复触发（减少防抖时间，提高响应速度）
+    if (loadMoreTimeout.value) {
+      clearTimeout(loadMoreTimeout.value)
+    }
+
+    loadMoreTimeout.value = setTimeout(() => {
+      handleLoadMore()
+    }, 100) // 减少到100ms防抖，提高响应速度
+  }
+}
 
 // 监听滚动事件，实现滚动到底部自动加载更多
 // 需要在初始化后设置监听器
 const setupScrollListener = () => {
   const bscrollInstance = getInstance()
   if (bscrollInstance) {
-    bscrollInstance.on('scroll', (position: { x: number; y: number }) => {
-      const maxScrollY = bscrollInstance.maxScrollY
-      const currentY = position.y
-      
-      // 当滚动到距离底部100px时触发加载更多
-      if (currentY <= maxScrollY + 100) {
-        // 防抖处理，避免重复触发
-        if (loadMoreTimeout.value) {
-          clearTimeout(loadMoreTimeout.value)
-        }
-        
-        loadMoreTimeout.value = setTimeout(() => {
-          handleLoadMore()
-        }, 300) // 300ms防抖
-      }
+    // 监听滚动过程事件
+    bscrollInstance.on('scroll', () => {
+      checkShouldLoadMore()
+    })
+
+    // 监听滚动结束事件（确保滚动结束时也能触发）
+    bscrollInstance.on('scrollEnd', () => {
+      checkShouldLoadMore()
     })
   }
 }
@@ -180,7 +184,7 @@ const setupScrollListener = () => {
 // 计算属性
 const isSelected = (questionId: string) => {
   // 如果题目已在用户列表中，则始终显示为选中状态
-  const question = similarQuestions.value.find(q => q.bmNo === questionId)
+  const question = similarQuestions.value.find((q) => q.bmNo === questionId)
   if (question?.atUserList) {
     return true
   }
@@ -196,15 +200,15 @@ const handleQuestionClick = (question: { bmNo: string; atUserList?: boolean }) =
 
 const handleToggleSelection = (questionId: string) => {
   // 检查题目是否已在用户列表中
-  const question = similarQuestions.value.find(q => q.bmNo === questionId)
+  const question = similarQuestions.value.find((q) => q.bmNo === questionId)
   if (question?.atUserList) {
     // 已收藏的题目不允许取消选择
     return
   }
-  
+
   const wasSelected = selectedQuestionIds.value.includes(questionId)
   findExerciseStore.toggleQuestionSelection(questionId)
-  
+
   if (wasSelected) {
     emit('questionDeselected', questionId)
   } else {
@@ -221,7 +225,7 @@ const handleRefresh = () => {
 // 处理加载更多按钮点击
 const handleLoadMore = async () => {
   if (isLoading.value || !canLoadMore.value || isLoadMorePending.value) return
-  
+
   try {
     isLoadMorePending.value = true
     const success = await findExerciseStore.loadMoreQuestions()
@@ -238,7 +242,11 @@ const handleLoadMore = async () => {
 }
 
 // 渲染题目内容（支持Markdown和公式）
-const renderQuestionContent = (question: { question?: string; title?: string; content?: string }) => {
+const renderQuestionContent = (question: {
+  question?: string
+  title?: string
+  content?: string
+}) => {
   const content = question.question || question.title || question.content || ''
   return renderMessageContent(content)
 }
@@ -263,7 +271,7 @@ onUnmounted(() => {
 // 暴露方法给父组件
 defineExpose({
   refresh: handleRefresh,
-  loadMore: handleLoadMore
+  loadMore: handleLoadMore,
 })
 </script>
 
@@ -284,7 +292,7 @@ $text-secondary: #5f6368;
 $text-tertiary: #9aa0a6;
 $shadow-subtle: 0 1px 2px 0 rgba(60, 64, 67, 0.1);
 $shadow-hover: 0 1px 3px 1px rgba(60, 64, 67, 0.15);
-$transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+$transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
 // ===== 混合器定义 =====
 @mixin flex-center {
@@ -306,13 +314,15 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   } @else if $level == hover {
     box-shadow: $shadow-hover;
   } @else if $level == selected {
-    box-shadow: 0 0 0 1px rgba(26, 115, 232, 0.2), $shadow-subtle;
+    box-shadow:
+      0 0 0 1px rgba(26, 115, 232, 0.2),
+      $shadow-subtle;
   }
 }
 
 @mixin responsive-padding($mobile: 12px 16px, $tablet: 16px 20px) {
   padding: $tablet;
-  
+
   @media (max-width: 768px) {
     padding: $mobile;
   }
@@ -337,10 +347,17 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 .questions-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
   @include responsive-padding(8px 12px, 12px 16px);
+
+  // 加载更多按钮跨两列居中
+  .load-more-indicator,
+  .no-more-data,
+  .load-more-button {
+    grid-column: 1 / -1; // 跨所有列
+  }
 }
 
 .question-item {
@@ -361,12 +378,13 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
     display: flex;
     flex-direction: column;
     width: 100%;
-    padding: 16px;
+    height: 150px; // 固定高度
+    padding: 8px 16px;
     background-color: $background-white;
     border-radius: 12px;
     border: 1px solid $border-color;
     @include card-shadow(subtle);
-    overflow: visible; // 允许长公式显示
+    overflow: hidden; // 隐藏溢出
     min-width: 0; // 允许组块收缩
   }
 
@@ -378,17 +396,19 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
     }
   }
 
+  // 选中状态 - 蓝色风格
   &.question-selected {
     .question-block {
-      border-color: $primary-color;
-      background-color: rgba(26, 115, 232, 0.05);
+      background-color: #eff3ff; // 浅蓝色背景
+      border-color: #5E80FE; // 蓝色边框
     }
   }
 
+  // 已在题库状态 - 橙色风格
   &.question-in-user-list {
     .question-block {
-      background-color: rgba(34, 197, 94, 0.08);
-      border-color: rgba(34, 197, 94, 0.5);
+      background-color: #fff9f6; // 浅橙色背景
+      border-color: #ff9767; // 橙色边框
     }
   }
 }
@@ -397,7 +417,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
 }
 
 .question-checkbox {
@@ -407,52 +426,52 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 .question-number {
-  @include flex-center;
-  width: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
   height: 28px;
-  background-color: $background-grey !important;
   color: $text-secondary !important;
-  border-radius: 14px;
   font-weight: 500;
   font-size: 13px;
   flex-shrink: 0;
-  @include card-shadow(subtle);
+  white-space: nowrap;
 }
 
 // 选中状态下的题目序号样式
 .question-item.question-selected .question-number {
-  background-color: $primary-color !important;
-  color: white !important;
+  color: #2196f3 !important; // 蓝色
 }
 
 // 已收藏状态下的题目序号样式
 .question-item.question-in-user-list .question-number {
-  background-color: #22c55e !important;
-  color: white !important;
+  color: #ff9800 !important; // 橙色
 }
 
 .question-content {
   flex: 1;
   min-width: 0;
+  min-height: 0; // 允许收缩
   overflow-x: auto;
-  overflow-y: hidden;
-  
+  overflow-y: auto; // 垂直方向溢出时显示滚动条
+
   // 内容滚动条样式
   &::-webkit-scrollbar {
-    height: 2px;
+    width: 6px;
+    height: 6px;
   }
-  
+
   &::-webkit-scrollbar-track {
     background: rgba(0, 0, 0, 0.05);
-    border-radius: 1px;
+    border-radius: 3px;
   }
-  
+
   &::-webkit-scrollbar-thumb {
     background: rgba(0, 0, 0, 0.2);
-    border-radius: 1px;
+    border-radius: 3px;
     transition: background 0.2s ease;
   }
-  
+
   &::-webkit-scrollbar-thumb:hover {
     background: rgba(0, 0, 0, 0.4);
   }
@@ -464,7 +483,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   min-width: 32px;
   min-height: 32px;
   padding: 6px;
-  
+
   :deep(.q-checkbox__bg) {
     border-radius: 6px;
     border-width: 2px;
@@ -472,41 +491,63 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
     width: 20px;
     height: 20px;
   }
-  
+
   :deep(.q-checkbox__check) {
     color: white;
     font-weight: bold;
     font-size: 14px;
   }
-  
-  // 选中状态样式 - 更有活力的蓝色
+
+  // 选中状态样式 - 蓝色（默认选中状态）
   &.q-checkbox--truthy {
     :deep(.q-checkbox__bg) {
-      background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
-      border-color: #1976d2;
-      box-shadow: 0 2px 8px rgba(25, 118, 210, 0.3);
+      background-color: #2196f3; // 默认蓝色
+      border-color: #2196f3;
+      box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
     }
   }
-  
+
   // 未选中状态样式
   &.q-checkbox--falsy {
     :deep(.q-checkbox__bg) {
       background-color: transparent;
       border-color: #e0e0e0;
-      
+
       &:hover {
         border-color: $primary-color;
         background-color: rgba(25, 118, 210, 0.05);
       }
     }
   }
-  
+
   // 禁用状态样式
   &.q-checkbox--disabled {
     :deep(.q-checkbox__bg) {
       background-color: #f5f5f5;
       border-color: #e0e0e0;
       opacity: 0.6;
+    }
+  }
+}
+
+// 选中状态的复选框样式 - 蓝色
+.question-item.question-selected .checkbox-btn {
+  &.q-checkbox--truthy {
+    :deep(.q-checkbox__bg) {
+      background-color: #5e80fe !important; // 蓝色
+      border-color: #5e80fe !important;
+      box-shadow: 0 2px 8px rgba(94, 128, 254, 0.3);
+    }
+  }
+}
+
+// 已在题库状态的复选框样式 - 橙色
+.question-item.question-in-user-list .checkbox-btn {
+  &.q-checkbox--truthy {
+    :deep(.q-checkbox__bg) {
+      background-color: #ff9767 !important; // 橙色
+      border-color: #ff9767 !important;
+      box-shadow: 0 2px 8px rgba(255, 151, 103, 0.3);
     }
   }
 }
@@ -520,7 +561,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   overflow-y: hidden;
   word-wrap: break-word;
   word-break: break-word;
-  
+
   // MathJax 公式样式处理
   :deep(.mjx-chtml),
   :deep(.mjx-math) {
@@ -530,37 +571,37 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
     display: inline-block;
     vertical-align: middle;
   }
-  
+
   // 行内公式处理
-  :deep(.mjx-chtml[display="inline"]) {
+  :deep(.mjx-chtml[display='inline']) {
     max-width: 100%;
     overflow-x: auto;
     white-space: nowrap;
   }
-  
+
   // 块级公式处理
-  :deep(.mjx-chtml[display="block"]) {
+  :deep(.mjx-chtml[display='block']) {
     max-width: 100%;
     overflow-x: auto;
     margin: 8px 0;
     text-align: center;
   }
-  
+
   // 公式容器滚动条样式
   :deep(.mjx-chtml)::-webkit-scrollbar {
     height: 2px;
   }
-  
+
   :deep(.mjx-chtml)::-webkit-scrollbar-track {
     background: rgba(0, 0, 0, 0.1);
     border-radius: 1px;
   }
-  
+
   :deep(.mjx-chtml)::-webkit-scrollbar-thumb {
     background: rgba(0, 0, 0, 0.3);
     border-radius: 1px;
   }
-  
+
   :deep(.mjx-chtml)::-webkit-scrollbar-thumb:hover {
     background: rgba(0, 0, 0, 0.5);
   }
@@ -687,13 +728,13 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   min-height: 240px;
   text-align: center;
   padding: 32px 20px;
-  
+
   .text-h6 {
     color: $text-secondary;
     font-weight: 400;
     margin-top: 16px;
   }
-  
+
   .q-btn {
     margin-top: 20px;
     border-radius: 20px;
@@ -701,7 +742,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
     font-weight: 500;
     text-transform: none;
     @include card-shadow(subtle);
-    
+
     &:hover {
       @include card-shadow(hover);
     }
@@ -714,7 +755,8 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   flex-direction: column;
   padding: 20px;
   color: $text-secondary;
-  
+  width: 100%;
+
   .loading-text {
     margin-top: 8px;
     font-size: 14px;
@@ -726,7 +768,8 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   @include flex-center;
   padding: 16px;
   color: $text-tertiary;
-  
+  width: 100%;
+
   .no-more-text {
     margin-left: 8px;
     font-size: 14px;
@@ -736,14 +779,15 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
 .load-more-button {
   @include flex-center;
   padding: 16px;
-  
+  width: 100%;
+
   .load-more-btn {
     border-radius: 20px;
     padding: 8px 24px;
     font-weight: 500;
     text-transform: none;
     @include card-shadow(subtle);
-    
+
     &:hover {
       @include card-shadow(hover);
     }
@@ -752,15 +796,22 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
 
 // ===== 响应式设计 - 与 SimilarQuestionList 保持一致 =====
 @media (max-width: 768px) {
+  .questions-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
   .question-item {
     .question-block {
+      height: 280px; // 移动端稍微减小高度
       padding: 12px;
       gap: 8px;
     }
 
     .question-number {
-      width: 24px;
+      min-width: 40px;
       height: 24px;
+      padding: 3px 6px;
       font-size: 12px;
       border-radius: 12px;
       background-color: $background-grey !important;
@@ -772,18 +823,18 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
     font-size: 13px !important;
     overflow: visible;
   }
-  
+
   .load-more-indicator {
     padding: 16px;
-    
+
     .loading-text {
       font-size: 13px;
     }
   }
-  
+
   .no-more-data {
     padding: 12px;
-    
+
     .no-more-text {
       font-size: 13px;
     }
@@ -791,25 +842,32 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 @media (max-width: 480px) {
+  .questions-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
   .question-item {
     .question-block {
+      height: 260px; // 小屏幕进一步减小高度
       padding: 10px;
       gap: 6px;
     }
 
     .question-number {
-      width: 22px;
+      min-width: 36px;
       height: 22px;
+      padding: 2px 5px;
       font-size: 11px;
       border-radius: 11px;
       background-color: $background-grey !important;
       color: $text-secondary !important;
     }
   }
-  
+
   .load-more-button {
     padding: 12px;
-    
+
     .load-more-btn {
       padding: 6px 20px;
       font-size: 13px;

@@ -24,7 +24,9 @@ export class HttpClient {
     // Zammad 示例
     '/api/v1': 'http://app.imates.com.cn:8080',
     // 资源服务器
-    '/resource': 'https://www.imates.com.cn:9099'
+    '/resource': 'https://www.imates.com.cn:9099',
+    // 知识点查询服务
+    '/knowledge': 'http://www.imates.com.cn:8090'
   }
 
   constructor(baseURL: string = '', timeout: number = 5000) {

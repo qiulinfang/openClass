@@ -28,6 +28,7 @@
           <q-card class="draggable-dialog-card">
             <q-card-section 
               class="dialog-header-section draggable-header"
+              :style="{ background: headerBackgroundColor }"
               @mousedown.prevent="startDrag"
               @touchstart.prevent="startDrag"
             >
@@ -41,7 +42,11 @@
                 <slot name="header-left"></slot>
               </div>
               
-              <div class="text-h6">{{ title }}</div>
+              <div 
+                class="text-h6" 
+                :class="titleAlignClass"
+                :style="{ fontSize: typeof props.titleFontSize === 'number' ? `${props.titleFontSize}px` : props.titleFontSize }"
+              >{{ title }}</div>
               
               <button 
                 class="close-btn"
@@ -76,6 +81,7 @@
       >
         <q-card-section 
           class="dialog-header-section draggable-header"
+          :style="{ background: headerBackgroundColor }"
           @mousedown.prevent="startDrag"
           @touchstart.prevent="startDrag"
         >
@@ -89,7 +95,7 @@
             <slot name="header-left"></slot>
           </div>
           
-          <div class="text-h6">{{ title }}</div>
+          <div class="text-h6" :class="titleAlignClass">{{ title }}</div>
           
           <button 
             class="close-btn"
@@ -128,13 +134,19 @@ interface Props {
   initialHeight?: number
   minWidth?: number
   minHeight?: number
+  titleAlign?: 'left' | 'center'
+  headerBackgroundColor?: string
+  titleFontSize?: string | number
 }
 
 const props = withDefaults(defineProps<Props>(), {
   initialWidth: 800,
   initialHeight: 600,
   minWidth: 400,
-  minHeight: 300
+  minHeight: 300,
+  titleAlign: 'center',
+  headerBackgroundColor: '#fafafb',
+  titleFontSize: 16
 })
 
 const emit = defineEmits<{
@@ -154,6 +166,11 @@ const dragOffset = ref({ x: 0, y: 0 })
 const dialogSize = ref({ width: props.initialWidth, height: props.initialHeight })
 const isResizing = ref(false)
 const resizeStart = ref({ x: 0, y: 0, width: 0, height: 0 })
+
+// 标题对齐样式类
+const titleAlignClass = computed(() => {
+  return props.titleAlign === 'left' ? 'title-align-left' : 'title-align-center'
+})
 
 // 流程：分屏比例（左侧面板占比）
 const splitterModel = ref(18)
@@ -311,7 +328,6 @@ watch(isOpen, (newValue) => {
     justify-content: center;
     align-items: center;
     padding: 16px 20px;
-    background: #fafafb;
     border-bottom: 1px solid #e8e8e8;
     position: relative;
     
@@ -335,9 +351,17 @@ watch(isOpen, (newValue) => {
       font-weight: 600;
       color: #1e1e1e;
       letter-spacing: -0.01em;
-      text-align: center;
       flex: 1;
       padding: 0 32px;
+      
+      &.title-align-center {
+        text-align: center;
+      }
+      
+      &.title-align-left {
+        text-align: left;
+        padding-left: 0;
+      }
     }
     
     .close-btn {

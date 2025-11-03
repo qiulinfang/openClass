@@ -13,11 +13,9 @@
             <!-- 左侧：题目序号骨架 -->
             <div class="skeleton-question-number"></div>
             
-            <!-- 右侧：功能区骨架 -->
-            <div class="skeleton-question-actions">
-              <div class="skeleton-action-btn"></div>
-              <div class="skeleton-action-btn"></div>
-              <div class="skeleton-action-btn"></div>
+            <!-- 右侧：复选框骨架 -->
+            <div class="skeleton-checkbox">
+              <div class="skeleton-checkbox-inner"></div>
             </div>
           </div>
 
@@ -148,13 +146,20 @@ $shadow-subtle: 0 1px 2px 0 rgba(60, 64, 67, 0.1);
   }
   
   .skeleton-cards-container {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding: 12px 16px;
     
-    // 与QuestionList.vue保持一致的内边距
+    // 响应式设计
     @media (max-width: 768px) {
-      padding: 12px 16px;
+      gap: 8px;
+      padding: 8px 12px;
+    }
+    
+    @media (max-width: 480px) {
+      gap: 8px;
+      padding: 8px 12px;
     }
   }
 }
@@ -169,11 +174,17 @@ $shadow-subtle: 0 1px 2px 0 rgba(60, 64, 67, 0.1);
   background-color: transparent;
   padding: $skeleton-card-padding;
   min-width: 0;
+  display: flex;
+  align-items: flex-start;
   
   .skeleton-question-block {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 150px; // 与真实题目卡片保持一致的高度（桌面端）
     background-color: $background-white;
     border-radius: $skeleton-border-radius;
-    overflow: visible; // 与真实题目卡片保持一致
+    overflow: hidden; // 与真实题目卡片保持一致
     border: 1px solid $border-color;
     box-shadow: $shadow-subtle;
     min-width: 0;
@@ -190,7 +201,11 @@ $shadow-subtle: 0 1px 2px 0 rgba(60, 64, 67, 0.1);
   @include responsive-padding(12px 16px, 16px 20px);
   
   .skeleton-question-number {
-    width: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    min-width: 48px;
     height: 28px;
     background: linear-gradient(90deg, $skeleton-bg 25%, $skeleton-shimmer 50%, $skeleton-bg 75%);
     background-size: 200px 100%;
@@ -213,30 +228,32 @@ $shadow-subtle: 0 1px 2px 0 rgba(60, 64, 67, 0.1);
     }
   }
   
-  .skeleton-question-actions {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+  .skeleton-checkbox {
     flex-shrink: 0;
-    height: 32px;
+    padding: 4px;
+    margin: -4px;
     
-    .skeleton-action-btn {
-      width: 24px;
-      height: 24px;
+    .skeleton-checkbox-inner {
+      width: 20px;
+      height: 20px;
       background: linear-gradient(90deg, $skeleton-bg 25%, $skeleton-shimmer 50%, $skeleton-bg 75%);
       background-size: 200px 100%;
-      border-radius: 12px;
+      border-radius: 6px;
+      border: 2px solid $skeleton-shimmer;
       animation: skeleton-shimmer var(--animation-duration, 1.5s) infinite;
+      position: relative;
+      overflow: hidden;
       
-      // 为不同按钮添加不同的动画延迟
-      &:nth-child(1) {
-        animation-delay: 0s;
-      }
-      &:nth-child(2) {
-        animation-delay: 0.2s;
-      }
-      &:nth-child(3) {
-        animation-delay: 0.4s;
+      // 添加光泽效果
+      &::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+        animation: skeleton-wave var(--animation-duration, 1.5s) infinite;
       }
     }
   }
@@ -244,11 +261,13 @@ $shadow-subtle: 0 1px 2px 0 rgba(60, 64, 67, 0.1);
 
 // ===== 骨架屏题目内容区域 =====
 .skeleton-question-content-area {
+  flex: 1;
   background-color: transparent;
   @include responsive-padding(12px 16px 16px 16px, 16px 20px 20px 20px);
   overflow-x: auto;
   overflow-y: hidden;
   min-width: 0;
+  min-height: 0;
   
   .skeleton-content {
     min-width: 0;
@@ -302,20 +321,21 @@ $shadow-subtle: 0 1px 2px 0 rgba(60, 64, 67, 0.1);
 @media (max-width: 768px) {
   .skeleton-question-card {
     .skeleton-question-block {
+      height: 280px; // 与真实题目卡片保持一致
+      
       .skeleton-question-header {
         .skeleton-question-number {
-          width: 24px;
+          min-width: 40px;
           height: 24px;
+          padding: 3px 6px;
           border-radius: 12px;
         }
         
-        .skeleton-question-actions {
-          height: 28px;
-          
-          .skeleton-action-btn {
-            width: 20px;
-            height: 20px;
-            border-radius: 10px;
+        .skeleton-checkbox {
+          .skeleton-checkbox-inner {
+            width: 18px;
+            height: 18px;
+            border-width: 2px;
           }
         }
       }
@@ -336,21 +356,21 @@ $shadow-subtle: 0 1px 2px 0 rgba(60, 64, 67, 0.1);
 @media (max-width: 480px) {
   .skeleton-question-card {
     .skeleton-question-block {
+      height: 260px; // 与真实题目卡片保持一致
+      
       .skeleton-question-header {
         .skeleton-question-number {
-          width: 22px;
+          min-width: 36px;
           height: 22px;
+          padding: 2px 5px;
           border-radius: 11px;
         }
         
-        .skeleton-question-actions {
-          height: 24px;
-          gap: 4px;
-          
-          .skeleton-action-btn {
-            width: 18px;
-            height: 18px;
-            border-radius: 9px;
+        .skeleton-checkbox {
+          .skeleton-checkbox-inner {
+            width: 16px;
+            height: 16px;
+            border-width: 1.5px;
           }
         }
       }

@@ -174,6 +174,8 @@
                 :has-expanded-graph="getCurrentChapterExpandedGraph() !== null"
                 :rotation-direction="rotationDirection"
                 :textbook-record-id="getCurrentTextbookId()"
+                :textbook-id="getTextbookIdForKnowledgeGraph()"
+                :subject="currentSubjectLabel"
                 @expand="handleGraphExpand(subChapter.id)"
                 @learn="handleLearnDialog"
                 @save-state="saveCurrentPageState"
@@ -202,23 +204,16 @@
     </div>
 
     <!-- 学习对话框 -->
-    <q-dialog 
-      v-model="learningDialogVisible" 
-      transition-show="scale"
-      transition-hide="scale"
-    >
-      <q-card class="learning-dialog-card">
-        <LearningView 
-          v-if="learningDialogData"
-          :key="`${learningDialogData.nodeId}-${learningDialogData.textbookId}`"
-          :node-id="learningDialogData.nodeId"
-          :section-name="learningDialogData.sectionName"
-          :level="learningDialogData.level"
-          :textbook-id="learningDialogData.textbookId"
-          @close="closeLearningDialog"
-        />
-      </q-card>
-    </q-dialog>
+    <LearningView 
+      v-if="learningDialogData"
+      v-model="learningDialogVisible"
+      :key="`${learningDialogData.nodeId}-${learningDialogData.textbookId}`"
+      :node-id="learningDialogData.nodeId"
+      :section-name="learningDialogData.sectionName"
+      :level="learningDialogData.level"
+      :textbook-id="learningDialogData.textbookId"
+      @update:model-value="handleLearningDialogClose"
+    />
 
     <!-- 调试面板 -->
     <KnowledgeGraphDebugPanel
@@ -241,6 +236,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed, onUnmounted, provide } from 'vue'
+import { useRoute } from 'vue-router'
 import { apiService } from '../services/api-service'
 import { resourceManager } from '../services/resource-storage'
 import type { TextbookOption, ChapterNode, UserTextbookInfo } from '../types'
@@ -251,6 +247,10 @@ import type { KnowledgeGraphDebugParams } from '../components/debug/KnowledgeGra
 import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
 import { useTextbookChapterState } from '../stores/textbookChapterState'
 import { useBetterScroll } from '../composables/useBetterScroll'
+import {
+  convertToChineseNumber,
+  sortChaptersByNumber
+} from '../utils/chapter-utils'
 
 // 流程：导入图标资源
 import bookIcon from '/icons/book.svg'
@@ -273,6 +273,9 @@ const {
   savePageState,
   restorePageState
 } = useTextbookChapterState()
+
+// 获取路由实例
+const route = useRoute()
 
 // 第4步：添加搜索相关的响应式数据
 const searchQuery = ref('')
@@ -348,10 +351,26 @@ const searchResults = computed(() => {
   })
 })
 
+// 章节相关的转换和排序函数已抽离到 utils/chapter-utils.ts
+// 使用导入的公共函数：convertToChineseNumber, extractChapterNumberFromName, sortChaptersByNumber
+
 // 过滤后的章节列表（当没有搜索时显示）
 const filteredChapters = computed(() => {
   if (!searchQuery.value.trim()) {
-    return chapters.value.map((chapter, index) => ({ chapter, index }))
+    // 第1步：将章节列表和索引组合，同时获取原始章节名称用于排序
+    const chapterList = chapters.value.map((chapter, index) => {
+      // 获取原始章节名称（从 chapterStructure 中）
+      const originalName = chapterStructure.value[index]?.name || chapter
+      return { 
+        chapter, 
+        index,
+        originalName 
+      }
+    })
+    // 第2步：按照章节名称中的数字进行排序（使用公共函数）
+    return chapterList.sort((a, b) => {
+      return sortChaptersByNumber({ name: a.originalName }, { name: b.originalName })
+    })
   }
   
   return []
@@ -1152,6 +1171,15 @@ const getCurrentTextbookId = () => {
   return ''
 }
 
+// 获取教材ID用于知识点查询（textbookId字段，不是版本ID）
+const getTextbookIdForKnowledgeGraph = () => {
+  const option = textbookOptions.value.find(opt => opt.value === selectedTextbook.value)
+  if (option && option.textbookId) {
+    return option.textbookId
+  }
+  return ''
+}
+
 // 初始化图谱数据（完全重置）- 保留以备将来使用
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const initGraphData = () => {
@@ -1404,11 +1432,18 @@ const saveTextbookDataToIndexedDB = async (versions: import('../types').Textbook
 
 // 根据学科筛选教材数据 - 使用IndexedDB
 const loadTextbookDataBySubject = async (subjectValue: string) => {
+  console.log('[流程1] 用户选择学科:', subjectValue)
+  console.log('[流程2] 开始加载教材列表 - loadTextbookDataBySubject()')
+  
   try {
     // 先尝试从IndexedDB加载
+    console.log('[流程2-1] 尝试从IndexedDB加载教材数据...')
     const localOptions = await loadTextbookDataFromIndexedDB()
+    console.log('[流程2-2] IndexedDB加载结果:', { count: localOptions.length, data: localOptions })
     
     if (localOptions.length > 0) {
+      console.log('[流程2-3] 从IndexedDB成功加载教材数据，开始筛选学科...')
+      
       // 根据学科筛选教材选项
       const subjectMap: { [key: string]: string } = {
         'math': '数学',
@@ -1423,18 +1458,26 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
       }
       
       const subjectLabel = subjectMap[subjectValue] || '数学'
+      console.log('[流程2-4] 学科筛选:', { subjectValue, subjectLabel })
+      
       textbookOptions.value = localOptions.filter(option => option.subject === subjectLabel)
+      console.log('[流程2-5] 筛选后的教材列表:', { count: textbookOptions.value.length, options: textbookOptions.value })
       
       // 设置默认选中的教材
       if (textbookOptions.value.length > 0) {
         selectedTextbook.value = textbookOptions.value[0].value
+        console.log('[流程2-6] 设置默认选中的教材:', { value: selectedTextbook.value, textbookId: textbookOptions.value[0].textbookId })
         
         // 加载默认教材的章节结构
         const defaultOption = textbookOptions.value[0]
         if (defaultOption.textbookId) {
+          console.log('[流程2-7] 开始加载默认教材的章节结构...')
           await loadChapterStructure(defaultOption.textbookId)
+        } else {
+          console.warn('[流程2-7] 默认教材缺少textbookId，跳过章节加载')
         }
       } else {
+        console.warn('[流程2-6] 筛选后无教材数据，清空章节数据')
         textbookOptions.value = []
         selectedTextbook.value = ''
         // 清空章节数据
@@ -1446,13 +1489,18 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
     }
 
     // IndexedDB中没有数据，从API获取
+    console.log('[流程2-3] IndexedDB中没有数据，开始从API获取教材数据...')
     const versions = await apiService.getTextbookVersions()
+    console.log('[流程2-4] API返回的教材版本数据:', { count: versions?.length || 0, data: versions })
     
     if (versions && versions.length > 0) {
       const allOptions = apiService.convertToTextbookOptions(versions)
+      console.log('[流程2-5] 转换后的教材选项:', { count: allOptions.length, options: allOptions })
       
       // 将API数据保存到IndexedDB
+      console.log('[流程2-6] 保存API数据到IndexedDB...')
       await saveTextbookDataToIndexedDB(versions)
+      console.log('[流程2-7] IndexedDB保存完成')
       
       // 根据学科筛选教材选项
       const subjectMap: { [key: string]: string } = {
@@ -1468,18 +1516,26 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
       }
       
       const subjectLabel = subjectMap[subjectValue] || '数学'
+      console.log('[流程2-8] 学科筛选:', { subjectValue, subjectLabel })
+      
       textbookOptions.value = allOptions.filter(option => option.subject === subjectLabel)
+      console.log('[流程2-9] 筛选后的教材列表:', { count: textbookOptions.value.length, options: textbookOptions.value })
       
       // 设置默认选中的教材
       if (textbookOptions.value.length > 0) {
         selectedTextbook.value = textbookOptions.value[0].value
+        console.log('[流程2-10] 设置默认选中的教材:', { value: selectedTextbook.value, textbookId: textbookOptions.value[0].textbookId })
         
         // 加载默认教材的章节结构
         const defaultOption = textbookOptions.value[0]
         if (defaultOption.textbookId) {
+          console.log('[流程2-11] 开始加载默认教材的章节结构...')
           await loadChapterStructure(defaultOption.textbookId)
+        } else {
+          console.warn('[流程2-11] 默认教材缺少textbookId，跳过章节加载')
         }
       } else {
+        console.warn('[流程2-10] 筛选后无教材数据，清空章节数据')
         textbookOptions.value = []
         selectedTextbook.value = ''
         // 清空章节数据
@@ -1488,6 +1544,7 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
         selectedChapterDetails.value = null
       }
     } else {
+      console.warn('[流程2-4] API返回空数据，清空教材和章节数据')
       textbookOptions.value = []
       // 清空章节数据
       chapterStructure.value = []
@@ -1495,7 +1552,9 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
       selectedChapterDetails.value = null
     }
     
-  } catch {
+    console.log('[流程2] 教材列表加载完成')
+  } catch (error) {
+    console.error('[流程2] 加载教材列表出错:', error)
     textbookOptions.value = []
     // 清空章节数据
     chapterStructure.value = []
@@ -1505,75 +1564,130 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
 }
 
 // 将阿拉伯数字转换为中文数字
-const convertToChineseNumber = (str: string): string => {
-  const chineseNumbers = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
-  
-  return str.replace(/第(\d+)章/g, (match, num) => {
-    const number = parseInt(num)
-    if (number >= 1 && number <= 9) {
-      return `第${chineseNumbers[number]}章`
-    } else if (number >= 10) {
-      // 处理两位数的情况
-      const tens = Math.floor(number / 10)
-      const ones = number % 10
-      if (tens === 1) {
-        return ones === 0 ? '第十章' : `第十${chineseNumbers[ones]}章`
-      } else {
-        return ones === 0 ? `第${chineseNumbers[tens]}十章` : `第${chineseNumbers[tens]}十${chineseNumbers[ones]}章`
-      }
-    }
-    return match
-  })
-}
+// convertToChineseNumber 函数已抽离到 utils/chapter-utils.ts，使用导入的公共函数
 
 // 加载章节结构
 const loadChapterStructure = async (textbookId: string) => {
+  console.log('[流程3] 用户选择教材，开始加载章节结构 - loadChapterStructure()', { textbookId })
+  
   try {
     // 先尝试从缓存加载章节结构
     const cacheKey = `${CACHE_KEYS.CHAPTER_STRUCTURE}${textbookId}`
+    console.log('[流程4] 检查缓存（IndexedDB）...', { cacheKey })
+    
     const cachedChapterData = getCachedData(cacheKey)
+    console.log('[流程5] 缓存检查结果:', { hasCache: !!cachedChapterData, count: cachedChapterData?.length || 0 })
     
     if (cachedChapterData) {
-      chapterStructure.value = cachedChapterData
+      console.log('[流程5-1] ✅ 有缓存数据，使用缓存数据')
+      console.log('[流程5-2] 缓存数据详情:', { count: cachedChapterData.length, chapters: cachedChapterData.map((ch: ChapterNode) => ({ id: ch.id, name: ch.name })) })
+      
+      // 对缓存中的章节数据进行排序（支持阿拉伯数字和中文数字）
+      console.log('[流程6-1] 开始对缓存中的章节数据进行排序...')
+      const sortedCachedData = [...cachedChapterData].sort(sortChaptersByNumber)
+      
+      console.log('[流程6-2] 排序后的缓存数据:', { 
+        count: sortedCachedData.length, 
+        chapters: sortedCachedData.map(ch => ({ id: ch.id, name: ch.name })) 
+      })
+      
+      chapterStructure.value = sortedCachedData
+      console.log('[流程6-3] 设置 chapterStructure.value:', { count: chapterStructure.value.length })
       
       // 第31步：提取章节名称列表（所有level=0的章节），并转换为中文数字
-      chapters.value = cachedChapterData.map((chapter: { name: string }) => convertToChineseNumber(chapter.name))
+      const originalChapterNames = sortedCachedData.map((ch: ChapterNode) => ch.name)
+      chapters.value = sortedCachedData.map((chapter: { name: string }) => convertToChineseNumber(chapter.name))
+      console.log('[流程6-2] 提取并转换章节名称（转换为中文数字）:')
+      console.log('  - 原始章节名称:', originalChapterNames)
+      console.log('  - 转换后章节名称:', chapters.value)
+      const conversionDetails = originalChapterNames.map((name: string, idx: number) => {
+        const converted = chapters.value[idx]
+        const isChanged = name !== converted
+        return {
+          original: name,
+          converted: converted,
+          changed: isChanged,
+          reason: isChanged ? '已转换（阿拉伯数字→中文数字）' : '未转换（已经是中文数字格式）'
+        }
+      })
+      console.log('  - 转换详情:', conversionDetails)
+      
+      // 统计转换情况
+      const changedCount = conversionDetails.filter((d: { changed: boolean }) => d.changed).length
+      const unchangedCount = conversionDetails.length - changedCount
+      console.log(`  - 转换统计: ${changedCount} 个已转换, ${unchangedCount} 个未转换（已经是中文数字）`)
+      
       // 初始化所有章节的状态
-      initializeChapterStates(textbookId, cachedChapterData, getSubChapters)
+      console.log('[流程6-4] 初始化章节状态...')
+      initializeChapterStates(textbookId, sortedCachedData, getSubChapters)
+      console.log('[流程6] ✅ 章节数据处理完成（使用缓存）')
       return
     }
 
     // 缓存中没有数据，从API获取
+    console.log('[流程5-1] ❌ 无缓存数据，开始从API获取...')
     const chapterData = await apiService.getTextbookStructure(textbookId)
+    console.log('[流程5-2] API返回的章节数据:', { count: chapterData?.length || 0, data: chapterData })
+    
     if (chapterData && chapterData.length > 0) {
-      // 对章节进行排序：按照children[0].name的第一个数字排序
-      const sortedChapterData = chapterData.sort((a, b) => {
-        // 获取每个章节的第一个子章节名称
-        const aFirstChild = a.children && a.children.length > 0 ? a.children[0].name : ''
-        const bFirstChild = b.children && b.children.length > 0 ? b.children[0].name : ''
-        
-        // 提取第一个数字进行比较
-        const aChapterNum = parseInt(aFirstChild.match(/^(\d+)/)?.[1] || '0')
-        const bChapterNum = parseInt(bFirstChild.match(/^(\d+)/)?.[1] || '0')
-        
-        return aChapterNum - bChapterNum
+      console.log('[流程6-1] 开始对章节数据进行排序...')
+      
+      // 对章节进行排序：按照章节名称中的数字排序（支持阿拉伯数字和中文数字，使用公共函数）
+      const sortedChapterData = [...chapterData].sort(sortChaptersByNumber)
+      
+      console.log('[流程6-2] 排序后的章节数据:', { 
+        count: sortedChapterData.length, 
+        chapters: sortedChapterData.map(ch => ({ id: ch.id, name: ch.name })) 
       })
       
       chapterStructure.value = sortedChapterData
+      console.log('[流程6-3] 设置 chapterStructure.value（原始章节结构数据 - ChapterNode[]）:', { 
+        count: chapterStructure.value.length,
+        type: 'ChapterNode[]'
+      })
       
       // 缓存章节结构数据
+      console.log('[流程6-4] 保存章节数据到缓存（IndexedDB）...', { cacheKey })
       setCachedData(cacheKey, sortedChapterData)
+      console.log('[流程6-5] 缓存保存完成')
       
       // 提取章节名称列表（所有level=0的章节），并转换为中文数字
+      const originalChapterNames = sortedChapterData.map(ch => ch.name)
       chapters.value = sortedChapterData.map(chapter => convertToChineseNumber(chapter.name))
+      console.log('[流程6-6] 提取并转换章节名称（转换为中文数字）:')
+      console.log('  - 原始章节名称:', originalChapterNames)
+      console.log('  - 转换后章节名称:', chapters.value)
+      const conversionDetails = originalChapterNames.map((name: string, idx: number) => {
+        const converted = chapters.value[idx]
+        const isChanged = name !== converted
+        return {
+          original: name,
+          converted: converted,
+          changed: isChanged,
+          reason: isChanged ? '已转换（阿拉伯数字→中文数字）' : '未转换（已经是中文数字格式）'
+        }
+      })
+      console.log('  - 转换详情:', conversionDetails)
+      
+      // 统计转换情况
+      const changedCount = conversionDetails.filter((d: { changed: boolean }) => d.changed).length
+      const unchangedCount = conversionDetails.length - changedCount
+      console.log(`  - 转换统计: ${changedCount} 个已转换, ${unchangedCount} 个未转换（已经是中文数字）`)
+      console.log('  - 类型: string[]')
       
       // 初始化所有章节的状态
+      console.log('[流程6-7] 初始化章节状态...')
       initializeChapterStates(textbookId, sortedChapterData, getSubChapters)
+      console.log('[流程6] ✅ 章节数据处理完成（从API获取）')
     } else {
+      console.warn('[流程6] API返回空数据，清空章节数据')
       chapterStructure.value = []
       chapters.value = []
     }
-  } catch {
+    
+    console.log('[流程] ✅ 章节加载流程完成')
+  } catch (error) {
+    console.error('[流程] ❌ 加载章节结构出错:', error)
     chapterStructure.value = []
     chapters.value = []
   }
@@ -1717,20 +1831,36 @@ const initGraph = async () => {
       return
     }
     
+    // 检查路由查询参数中是否有 textbookId
+    const queryTextbookId = route.query.textbookId as string | undefined
+    
     // 设置默认学科
     selectedSubject.value = 'math'
     
     // 根据科目加载教材数据
     await loadTextbookDataBySubject(selectedSubject.value)
     
-    // 如果有教材数据，自动选择第一个教材并加载章节
+    // 如果有教材数据，优先根据查询参数选择教材，否则选择第一个教材
     if (textbookOptions.value.length > 0) {
-      const firstTextbook = textbookOptions.value[0]
-      selectedTextbook.value = firstTextbook.value
+      let targetTextbook: TextbookOption | undefined
       
-      // 第34步：加载第一个教材的章节结构
-      if (firstTextbook.textbookId && firstTextbook.textbookId !== 'default') {
-        await loadChapterStructure(firstTextbook.textbookId)
+      // 如果路由查询参数中有 textbookId，尝试查找对应的教材
+      if (queryTextbookId) {
+        targetTextbook = textbookOptions.value.find(
+          opt => opt.textbookId === queryTextbookId || opt.value.includes(queryTextbookId)
+        )
+      }
+      
+      // 如果没有找到，使用第一个教材
+      if (!targetTextbook) {
+        targetTextbook = textbookOptions.value[0]
+      }
+      
+      selectedTextbook.value = targetTextbook.value
+      
+      // 第34步：加载选中教材的章节结构
+      if (targetTextbook.textbookId && targetTextbook.textbookId !== 'default') {
+        await loadChapterStructure(targetTextbook.textbookId)
         
         // 自动选择第一个章节
         if (chapterStructure.value.length > 0) {
@@ -2020,10 +2150,12 @@ const handleLearnDialog = (node: { id: string; name: string; level?: number | nu
   learningDialogVisible.value = true
 }
 
-// 关闭学习对话框
-const closeLearningDialog = () => {
-  learningDialogVisible.value = false
-  learningDialogData.value = null
+// 处理学习对话框关闭
+const handleLearningDialogClose = (value: boolean) => {
+  if (!value) {
+    // 对话框关闭时清空数据
+    learningDialogData.value = null
+  }
 }
 
 // 处理知识图谱展开状态

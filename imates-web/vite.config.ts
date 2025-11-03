@@ -153,6 +153,28 @@ export default defineConfig({
             console.log('代理资源请求到服务器:', req.url)
           })
         }
+      },
+      // 🔥 新增：匹配以 "/knowledge" 开头的请求，转发到知识点查询服务（解决CORS问题）
+      '/knowledge': {
+        target: 'http://www.imates.com.cn:8090', // 知识点查询服务地址
+        changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
+        secure: false, // 使用HTTP协议
+        // 可选：添加请求头
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
+            // 可以在这里添加额外的请求头
+            console.log('代理请求到知识点查询服务(knowledge):', req.url)
+          })
+          proxy.on('proxyRes', (proxyRes, req) => {
+            console.log('知识点查询服务响应:', req.url, proxyRes.statusCode)
+          })
+          proxy.on('error', (err, req, res) => {
+            console.error('❌ [知识点查询服务代理失败]:', {
+              url: req.url,
+              error: err.message
+            })
+          })
+        }
       }
     }
   },

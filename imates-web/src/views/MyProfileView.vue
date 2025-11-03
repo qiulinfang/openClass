@@ -1,122 +1,53 @@
 <template>
-  <q-layout view="lHh Lpr lFf">
-    <q-page-container>
-      <q-page class="profile-page">
-        <div class="main-content">
-          <!-- 用户信息区域 -->
-          <div class="user-info-section">
-            <div class="avatar-container">
-              <q-avatar size="80px" class="user-avatar">
-                <img :src="avatarIcon" alt="avatar" />
-              </q-avatar>
-              <q-btn
-                round
-                dense
-                flat
-                icon="camera_alt"
-                size="sm"
-                class="avatar-edit-btn"
-                @click="changeAvatar"
-              />
-            </div>
-            <div class="user-details">
-              <h2 class="user-name">{{ userInfo.name || '用户' }}</h2>
-              <p class="user-grade">{{ (userInfo.roles && userInfo.roles.length > 0) ? userInfo.roles.join('、') : '学生' }}</p>
-            </div>
-          </div>
-
-          <!-- 功能卡片区域 -->
-          <div class="features-section">
-            <!-- 加入课堂卡片 -->
-            <q-card 
-              class="feature-card join-class-card"
-              :class="{ 'in-class': isInClass }"
-              @click="toggleJoinClass"
-            >
-              <q-card-section class="card-content">
-                <div class="card-icon" :class="isInClass ? 'card-icon-red' : 'card-icon-yellow'">
-                  <q-icon :name="isInClass ? 'logout' : 'groups'" size="28px" />
-                </div>
-                <div class="card-text">
-                  <div class="card-title">{{ isInClass ? '退出课堂' : '加入课堂' }}</div>
-                  <div class="card-description">{{ isInClass ? '结束实时互动课堂' : '进入实时互动课堂' }}</div>
-                </div>
-              </q-card-section>
-            </q-card>
-
-            <!-- 教师答疑卡片 -->
-            <q-card class="feature-card teacher-chat-card" @click="chatWithTeacher">
-              <q-card-section class="card-content">
-                <div class="card-icon card-icon-green">
-                  <q-icon name="chat_bubble" size="28px" />
-                </div>
-                <div class="card-text">
-                  <div class="card-title">教师答疑</div>
-                  <div class="card-description">查看教师解答记录</div>
-                </div>
-              </q-card-section>
-            </q-card>
-
-            <!-- 拍作业卡片 -->
-            <q-card class="feature-card photo-teacher-card" @click="takePictureToTeacher">
-              <q-card-section class="card-content">
-                <div class="card-icon card-icon-blue">
-                  <q-icon name="photo_camera" size="28px" />
-                </div>
-                <div class="card-text">
-                  <div class="card-title">拍作业</div>
-                  <div class="card-description">拍摄并上传作业</div>
-                </div>
-              </q-card-section>
-            </q-card>
-
-            <!-- 反馈与建议卡片 -->
-            <q-card class="feature-card feedback-card" @click="showFeedback">
-              <q-card-section class="card-content">
-                <div class="card-icon card-icon-purple">
-                  <q-icon name="feedback" size="28px" />
-                </div>
-                <div class="card-text">
-                  <div class="card-title">反馈与建议</div>
-                  <div class="card-description">欢迎您提出宝贵的意见！</div>
-                </div>
-              </q-card-section>
-            </q-card>
-          </div>
-
-          <!-- 退出账号按钮 -->
-          <div class="logout-section">
-            <q-card class="logout-button" @click="confirmLogout">
-              <q-card-section class="logout-content">
-                <q-icon name="logout" size="24px" color="negative" />
-                <span class="logout-text">退出账号</span>
-              </q-card-section>
-            </q-card>
-          </div>
-
-          <!-- 版本信息 -->
-          <div class="version-info">
-            <p class="version-text">版本 {{ appVersion }}</p>
-          </div>
+  <div class="profile-container">
+    <!-- 功能卡片区域 -->
+    <div class="features-section">
+      <!-- 加入课堂卡片 -->
+      <div 
+        class="feature-card join-class-card"
+        @click="toggleJoinClass"
+      >
+        <div class="card-icon-wrapper">
+          <q-icon name="computer" size="28px" />
+          <q-icon v-if="isInClass" name="check" size="16px" class="check-icon" />
         </div>
-      </q-page>
-    </q-page-container>
+        <div class="card-text">加入课堂</div>
+      </div>
 
-    <!-- 退出登录确认对话框 -->
-    <q-dialog v-model="showLogoutDialog">
-      <q-card class="dialog-card">
-        <q-card-section class="dialog-header">
-          <div class="text-h6">确认退出</div>
-        </q-card-section>
-        <q-card-section class="dialog-content">
-          <p>确定要退出登录吗？</p>
-        </q-card-section>
-        <q-card-actions align="right" class="dialog-actions">
-          <q-btn flat label="取消" @click="showLogoutDialog = false" />
-          <q-btn color="primary" label="确认" @click="logout" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
+      <!-- 教师答疑卡片 -->
+      <div class="feature-card teacher-chat-card" @click="chatWithTeacher">
+        <div class="card-icon-wrapper">
+          <q-icon name="chat_bubble_outline" size="24px" class="chat-back-icon" />
+          <q-icon name="help_outline" size="20px" class="chat-front-icon" />
+        </div>
+        <div class="card-text">老师答疑</div>
+      </div>
+
+      <!-- 拍作业卡片 -->
+      <div class="feature-card photo-teacher-card" @click="takePictureToTeacher">
+        <div class="card-icon-wrapper">
+          <q-icon name="photo_camera" size="28px" />
+        </div>
+        <div class="card-text">拍作业</div>
+      </div>
+
+      <!-- 我的收藏卡片 -->
+      <div class="feature-card favorites-card" @click="showFavorites">
+        <div class="card-icon-wrapper">
+          <q-icon name="star" size="28px" />
+        </div>
+        <div class="card-text">我的收藏</div>
+      </div>
+
+      <!-- 意见反馈卡片 -->
+      <div class="feature-card feedback-card" @click="showFeedback">
+        <div class="card-icon-wrapper">
+          <q-icon name="description" size="28px" />
+          <q-icon name="edit" size="18px" class="edit-overlay-icon" />
+        </div>
+        <div class="card-text">意见反馈</div>
+      </div>
+    </div>
 
     <!-- 加入课堂确认对话框 -->
     <q-dialog v-model="showJoinClassDialog">
@@ -134,47 +65,48 @@
       </q-card>
     </q-dialog>
 
-    <!-- 教师对话框 -->
-    <TeacherChatDialog 
-      ref="teacherChatDialogRef"
-      v-model="showTeacherChatDialog"
-      @session-created="handleTeacherSessionCreated"
+    <!-- 统一聊天对话框 -->
+    <UnifiedChatDialog 
+      ref="unifiedChatDialogRef"
+      v-model="showUnifiedChatDialog"
+      initial-category="teacher"
+      :initial-teacher-subject="selectedSubject"
+      @session-created="handleSessionCreated"
     />
 
     <!-- 反馈与建议对话框 -->
     <FeedbackDialog v-model="showFeedbackDialog" />
-  </q-layout>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { useImagePicker } from '@/composables/useImagePicker'
 import { apiService } from '@/services/api-service'
 import { androidBridge } from '@/services/android-bridge'
 import { showMessage } from '@/utils'
-import TeacherChatDialog from '@/components/TeacherChatDialog.vue'
+import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
 import FeedbackDialog from '@/components/FeedbackDialog.vue'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
-import avatarIcon from '/icons/avatar.svg'
 
 const router = useRouter()
-const route = useRoute()
 const userStore = useUserStore()
 const teacherStore = useTeacherChatStore()
 
+// 不再需要 props，点击卡片不会关闭工具区域
+
 // DOM 引用
-const teacherChatDialogRef = ref<InstanceType<typeof TeacherChatDialog> | null>(null)
+const unifiedChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
 
 // 响应式数据
 const isInClass = ref(false)
-const appVersion = ref('1.0.0')
-const showLogoutDialog = ref(false)
 const showJoinClassDialog = ref(false)
-const showTeacherChatDialog = ref(false)
+const showUnifiedChatDialog = ref(false)
 const showFeedbackDialog = ref(false)
+const selectedSubject = ref<'biology' | 'math'>('math')
 // 全局图片选择器
 const { pickImage } = useImagePicker()
 
@@ -206,9 +138,8 @@ const checkClassroomStatus = () => {
 
 // 初始化
 onMounted(() => {
-  // 流程：页面初始化 -> 加载用户信息 -> 加载版本号 -> 读取原生课堂状态 -> 绑定课堂事件
+  // 流程：页面初始化 -> 加载用户信息 -> 读取原生课堂状态 -> 绑定课堂事件
   loadUserInfo()
-  loadAppVersion()
 
   // 流程：读取原生课堂状态 -> 更新前端状态
   checkClassroomStatus()
@@ -230,17 +161,9 @@ onMounted(() => {
   })
 })
 
-// 监听路由变化，当进入此页面时重新检查课堂状态
-watch(() => route.name, (routeName) => {
-  if (routeName === 'myProfile') {
-    // 流程：路由进入此页面 -> 重新检查课堂状态 -> 更新前端状态
-    checkClassroomStatus()
-  }
-})
-
 // 组件卸载时清理
 onUnmounted(async () => {
-  // 清理工作由 TeacherChatDialog 组件内部处理
+  // 清理工作由 UnifiedChatDialog 组件内部处理
 })
 
 // 加载用户信息
@@ -274,17 +197,6 @@ const loadUserInfo = async () => {
   } catch (error) {
     console.error('加载用户信息失败:', error)
   }
-}
-
-// 加载应用版本
-const loadAppVersion = () => {
-  // 这里可以从环境变量或配置中获取版本号
-  appVersion.value = '1.0.0'
-}
-
-// 更换头像
-const changeAvatar = () => {
-  showMessage('更换头像功能开发中...', 'info')
 }
 
 // 切换加入课堂状态
@@ -344,14 +256,15 @@ const confirmJoinClass = () => {
 
 // 与老师对话（从卡片进入）
 const chatWithTeacher = async () => {
-  // 第1步：打开对话框（组件内部会自动加载会话列表）
-  showTeacherChatDialog.value = true
+  // 第1步：设置默认科目并打开对话框（组件内部会自动加载会话列表）
+  selectedSubject.value = 'math'
+  showUnifiedChatDialog.value = true
   
   // 第2步：等待组件加载完成
   await nextTick()
   
   // 第3步：检查是否有会话，如果没有则创建新会话
-  if (teacherChatDialogRef.value) {
+  if (unifiedChatDialogRef.value) {
     // 快速检查是否有会话（通过检查 localStorage）
     let hasSessions = false
     for (let i = 0; i < localStorage.length; i++) {
@@ -364,7 +277,7 @@ const chatWithTeacher = async () => {
     
     if (!hasSessions) {
       // 没有历史会话，创建新会话（默认数学）
-      await teacherChatDialogRef.value.createNewSession('math')
+      await unifiedChatDialogRef.value.createTeacherSession('math')
     }
   }
 }
@@ -384,15 +297,16 @@ const selectSubject = async (subject: 'biology' | 'math') => {
       return
     }
 
-    // 第3步：打开对话框
-    showTeacherChatDialog.value = true
+    // 第3步：设置科目并打开对话框
+    selectedSubject.value = subject
+    showUnifiedChatDialog.value = true
     
     // 第4步：等待组件加载完成
     await nextTick()
     
     // 第5步：通过组件创建新会话
-    if (teacherChatDialogRef.value) {
-      await teacherChatDialogRef.value.createNewSession(subject)
+    if (unifiedChatDialogRef.value) {
+      await unifiedChatDialogRef.value.createTeacherSession(subject)
     }
     
     console.log('[MyProfileView] ✅ 教师对话准备完成')
@@ -402,15 +316,17 @@ const selectSubject = async (subject: 'biology' | 'math') => {
   }
 }
 
-// 处理教师会话创建事件
-const handleTeacherSessionCreated = (sessionId: string) => {
-  console.log('[MyProfileView] ✅ 教师会话已创建:', sessionId)
+// 处理会话创建事件
+const handleSessionCreated = (sessionId: string, type: 'ai' | 'teacher') => {
+  console.log('[MyProfileView] ✅ 会话已创建:', { sessionId, type })
   
-  // 如果需要，可以在这里设置会话到 Store
-  const sessionData = localStorage.getItem(`teacher_chat_${sessionId}_session`)
-  if (sessionData) {
-    const session = JSON.parse(sessionData)
-    teacherStore.setSession(session)
+  // 如果是教师会话，设置会话到 Store
+  if (type === 'teacher') {
+    const sessionData = localStorage.getItem(`teacher_chat_${sessionId}_session`)
+    if (sessionData) {
+      const session = JSON.parse(sessionData)
+      teacherStore.setSession(session)
+    }
   }
 }
 
@@ -429,7 +345,7 @@ const takePictureToTeacher = async () => {
 
     // 第3步：获取新创建的会话ID（从组件或localStorage）
     let currentSessionId = ''
-    if (teacherChatDialogRef.value) {
+    if (unifiedChatDialogRef.value) {
       // 从组件获取当前会话ID，或者从最新的会话获取
       // 查找最新的会话
       const sessions: Array<{ sessionId: string; createTime: number }> = []
@@ -457,7 +373,7 @@ const takePictureToTeacher = async () => {
         if (sessionData) {
           teacherStore.setSession(JSON.parse(sessionData))
           // 设置到组件
-          teacherChatDialogRef.value.setSession(currentSessionId)
+          unifiedChatDialogRef.value.setTeacherSession(currentSessionId)
         }
       }
     }
@@ -487,42 +403,10 @@ const showFeedback = () => {
   showFeedbackDialog.value = true
 }
 
-// 确认退出登录
-const confirmLogout = () => {
-  showLogoutDialog.value = true
-}
-
-// 退出登录
-const logout = async () => {
-  showLogoutDialog.value = false
-  
-  try {
-    // 第0步：如果正在课堂中，先退出课堂
-    if (isInClass.value) {
-      console.log('[MyProfileView] 🔍 退出账号 - 检测到正在课堂中，先退出课堂')
-      const exitSuccess = androidBridge.exitClassroom()
-      if (exitSuccess) {
-        console.log('[MyProfileView] ✅ 退出账号 - 课堂退出成功')
-        isInClass.value = false
-      } else {
-        console.warn('[MyProfileView] ⚠️ 退出账号 - 课堂退出失败，继续执行退出账号流程')
-      }
-    }
-    
-    // 第1步：清除本地存储的用户信息
-    apiService.logoutStudent()
-    
-    // 第2步：清除 Store 中的用户信息和持久化数据
-    userStore.clearUserInfo()
-    
-    showMessage('已安全退出', 'success')
-    
-    // 第3步：跳转到登录页面
-    router.push('/login')
-  } catch (error) {
-    console.error('退出登录失败:', error)
-    showMessage('退出登录失败', 'error')
-  }
+// 显示我的收藏
+const showFavorites = () => {
+  // 第1步：导航到我的收藏页面
+  router.push({ name: 'myFavorites' })
 }
 </script>
 
@@ -535,208 +419,152 @@ $text-tertiary: #9ca3af;
 $bg-gray: #f9fafb;
 
 // 主要样式
-.profile-page {
-  min-height: 100vh;
-  background: $bg-gray;
-}
-
-.main-content {
+.profile-container {
   padding: 20px 16px;
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-// 用户信息区域
-.user-info-section {
-  background: white;
-  border-radius: 20px;
-  padding: 40px 24px 32px;
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-.avatar-container {
-  position: relative;
-  display: inline-block;
-  margin-bottom: 16px;
-}
-
-.user-avatar {
-  border: none;
-  
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
-  }
-}
-
-.avatar-edit-btn {
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  background: white;
-  color: $primary-color;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.user-details {
-  .user-name {
-    font-size: 22px;
-    font-weight: 600;
-    color: $text-primary;
-    margin: 0 0 6px 0;
-  }
-
-  .user-grade {
-    font-size: 15px;
-    color: $text-secondary;
-    margin: 0;
-    font-weight: 400;
-  }
+  min-height: 100%;
+  background: transparent;
 }
 
 // 功能卡片区域
 .features-section {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
   margin-bottom: 24px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .feature-card {
-  background: white;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  aspect-ratio: 3;
-  position: relative;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-
-  &:active {
-    transform: scale(0.98);
-    opacity: 0.9;
-  }
-
-  &:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  }
-
-  &.in-class {
-    border: 2px solid #EF5350;
-    box-shadow: 0 2px 8px rgba(239, 83, 80, 0.2);
-  }
-
-  .card-content {
-    padding: 10px 10px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    height: 100%;
-    gap: 6px;
-  }
-
-  .card-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    color: white;
-  }
-
-  .card-icon-yellow {
-    background: #FFA726;
-  }
-
-  .card-icon-red {
-    background: #EF5350;
-  }
-
-  .card-icon-green {
-    background: #26A69A;
-  }
-
-  .card-icon-blue {
-    background: #42A5F5;
-  }
-
-  .card-icon-purple {
-    background: #AB47BC;
-  }
-
-  .card-text {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-
-  .card-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: $text-primary;
-    margin: 0 0 4px 0;
-  }
-
-  .card-description {
-    font-size: 11px;
-    color: $text-secondary;
-    margin: 0;
-    font-weight: 400;
-    line-height: 1.3;
-  }
-}
-
-// 退出账号区域
-.logout-section {
-  margin: 16px 0 24px;
-  display: flex;
-  justify-content: center;
-}
-
-.logout-button {
-  background: white;
+  background: transparent;
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-width: 280px;
-  max-width: 400px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 12px 8px;
+  flex: 0 0 calc(33.333% - 14px); // 每行3个，考虑gap
+  min-width: 70px;
+  max-width: 100px;
+  
+  // 响应式：小屏幕时每行2个
+  @media (max-width: 480px) {
+    flex: 0 0 calc(50% - 10px);
+    max-width: none;
+  }
+  
+  // 响应式：超小屏幕时每行1个
+  @media (max-width: 360px) {
+    flex: 0 0 100%;
+    max-width: none;
+  }
 
   &:active {
-    transform: scale(0.98);
+    transform: scale(0.95);
     opacity: 0.9;
   }
 
-  .logout-content {
-    padding: 14px 20px;
+  .card-icon-wrapper {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    position: relative;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+    
+    .q-icon {
+      color: white;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .check-icon {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-45%, -60%);
+      z-index: 2;
+      font-size: 16px;
+    }
+    
+    .chat-back-icon {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -45%);
+      z-index: 1;
+      font-size: 24px;
+      opacity: 0.9;
+    }
+    
+    .chat-front-icon {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-45%, -60%);
+      z-index: 2;
+      font-size: 20px;
+    }
+    
+    .edit-overlay-icon {
+      position: absolute;
+      bottom: 6px;
+      right: 6px;
+      z-index: 2;
+      font-size: 18px;
+    }
   }
 
-  .logout-text {
-    font-size: 15px;
+  .card-text {
+    font-size: 12px;
     font-weight: 500;
-    color: #f44336;
+    color: white;
+    text-align: center;
+    white-space: nowrap;
+    margin-top: 4px;
+    line-height: 1.2;
   }
-}
 
-// 版本信息
-.version-info {
-  text-align: center;
-  padding: 20px 0;
+  // 加入课堂 - 绿色
+  &.join-class-card {
+    .card-icon-wrapper {
+      background: #34D399;
+    }
+  }
 
-  .version-text {
-    font-size: 13px;
-    color: $text-tertiary;
-    margin: 0;
+  // 老师答疑 - 橙色
+  &.teacher-chat-card {
+    .card-icon-wrapper {
+      background: #F59E0B;
+    }
+  }
+
+  // 拍作业 - 粉色
+  &.photo-teacher-card {
+    .card-icon-wrapper {
+      background: #F87171;
+    }
+  }
+
+  // 我的收藏 - 黄色
+  &.favorites-card {
+    .card-icon-wrapper {
+      background: #FBBF24;
+    }
+  }
+
+  // 意见反馈 - 蓝色
+  &.feedback-card {
+    .card-icon-wrapper {
+      background: #60A5FA;
+    }
   }
 }
 
@@ -764,12 +592,8 @@ $bg-gray: #f9fafb;
 
   // 响应式设计
 @media (max-width: 768px) {
-  .main-content {
+  .profile-container {
     padding: 16px 12px;
-  }
-
-  .user-info-section {
-    padding: 32px 20px 24px;
   }
 
   .feature-card {
@@ -782,52 +606,23 @@ $bg-gray: #f9fafb;
       height: 28px;
     }
   }
-
 }
 
 @media (max-width: 480px) {
-  .user-info-section {
-    padding: 28px 16px 20px;
-    border-radius: 16px;
-  }
-
-  .user-details {
-    .user-name {
-      font-size: 20px;
-    }
-
-    .user-grade {
-      font-size: 14px;
-    }
-  }
-
   .features-section {
-    gap: 8px;
+    gap: 12px;
   }
 
   .feature-card {
-    .card-content {
-      padding: 8px 8px;
-      gap: 4px;
+    padding: 10px 6px;
+    
+    .card-icon-wrapper {
+      width: 50px;
+      height: 50px;
     }
-
-    .card-icon {
-      width: 26px;
-      height: 26px;
-    }
-
-    .card-title {
-      font-size: 12px;
-    }
-
-    .card-description {
-      font-size: 9px;
-    }
-
-    .card-arrow {
-      top: 6px;
-      right: 6px;
-      font-size: 12px;
+    
+    .card-text {
+      font-size: 11px;
     }
   }
 }

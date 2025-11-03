@@ -15,6 +15,9 @@ import {
 import { AndroidBridge } from './android-bridge'
 // 不再需要导入fileToBase64DataUrl，直接使用传入的Base64数据 
 
+// 章节相关工具函数
+import { parseChapterOrderFromFileName as parseChapterOrderFromFileNameUtil } from '../utils/chapter-utils'
+
 // 使用统一类型定义
 import type {
   UserInfo,
@@ -321,6 +324,40 @@ export class ApiService {
       return []
     } catch (error) {
       return []
+    }
+  }
+
+  /**
+   * 根据章节节点ID查询知识点ID
+   * 对应Android ApiGateWayService.queryKnowledgeIdsByNodeId方法
+   * @param request 请求对象，包含subject和param数组
+   * @returns Promise<string> 返回知识点ID字符串（逗号分隔）
+   */
+  public async queryKnowledgeIdsByNodeId(request: {
+    subject: string
+    param: Array<{
+      textbook_id: string
+      section_id: string
+    }>
+  }): Promise<string> {
+    try {
+      const url = API_ENDPOINTS.EXERCISES.QUERY_KNOWLEDGE_BY_CHAPTER
+      
+      // 使用httpClient，会自动使用Vite代理（开发环境）或路由映射（生产环境）
+      const response = await httpClient.post<{
+        success: boolean
+        knowledge?: string
+        message?: string
+      }>(url, request)
+      
+      // 检查响应格式
+      if (response.success && response.data.knowledge) {
+        return response.data.knowledge as string
+      } else {
+        throw new Error(response.data.message || response.message || '查询知识点失败')
+      }
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : '查询知识点失败')
     }
   }
 
@@ -1776,69 +1813,13 @@ export class ApiService {
 
   /**
    * 解析文件名中的章节顺序
+   * 使用公共工具函数 parseChapterOrderFromFileNameUtil
    * @param fileName 文件名
    * @returns 章节顺序数字
    */
   private parseChapterOrderFromFileName(fileName: string): number {
-    // 常见的章节命名模式
-    const patterns = [
-      // 模式1: 第X章、第X节、第X课
-      /第(\d+)[章节课]/,
-      // 模式2: Chapter X、ChapterX
-      /Chapter\s*(\d+)/i,
-      // 模式3: 纯数字开头
-      /^(\d+)/,
-      // 模式4: 数字-数字格式 (如: 1-1, 2-3)
-      /^(\d+)-\d+/,
-      // 模式5: 数字.数字格式 (如: 1.1, 2.3)
-      /^(\d+)\.\d+/,
-      // 模式6: 数字_数字格式 (如: 1_1, 2_3)
-      /^(\d+)_\d+/,
-      // 模式7: 数字-数字-数字格式 (如: 1-1-1)
-      /^(\d+)-\d+-\d+/,
-      // 模式8: 数字.数字.数字格式 (如: 1.1.1)
-      /^(\d+)\.\d+\.\d+/,
-      // 模式9: 数字_数字_数字格式 (如: 1_1_1)
-      /^(\d+)_\d+_\d+/,
-      // 模式10: 中文数字 (一、二、三等)
-      /[一二三四五六七八九十百千万]+/,
-    ]
-    
-    for (let i = 0; i < patterns.length; i++) {
-      const match = fileName.match(patterns[i])
-      if (match) {
-        if (i === 9) {
-          // 中文数字转换
-          return this.convertChineseNumberToArabic(match[0])
-        } else {
-          return parseInt(match[1], 10)
-        }
-      }
-    }
-    
-    // 如果没有匹配到任何模式，返回一个很大的数字，排在最后
-    return 9999
-  }
-
-  /**
-   * 中文数字转阿拉伯数字
-   * @param chineseNum 中文数字
-   * @returns 阿拉伯数字
-   */
-  private convertChineseNumberToArabic(chineseNum: string): number {
-    // 简单的转换逻辑，可以根据需要扩展
-    if (chineseNum === '一') return 1
-    if (chineseNum === '二') return 2
-    if (chineseNum === '三') return 3
-    if (chineseNum === '四') return 4
-    if (chineseNum === '五') return 5
-    if (chineseNum === '六') return 6
-    if (chineseNum === '七') return 7
-    if (chineseNum === '八') return 8
-    if (chineseNum === '九') return 9
-    if (chineseNum === '十') return 10
-    
-    return 9999
+    // 使用公共工具函数（支持更多命名模式，包括中文数字）
+    return parseChapterOrderFromFileNameUtil(fileName)
   }
 
   /**
