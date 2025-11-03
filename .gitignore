@@ -16,3 +16,11 @@
 .externalNativeBuild
 .cxx
 local.properties
+.idea/AndroidProjectSystem.xml
+.idea/material_theme_project_new.xml
+.specstory/.project.json
+.specstory/.what-is-this.md
+node_modules
+.vscode
+dist/
+项目文档
