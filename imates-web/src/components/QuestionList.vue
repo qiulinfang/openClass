@@ -167,6 +167,19 @@
                       <q-tooltip>拍作业</q-tooltip>
                     </q-btn>
 
+                    <!-- 微课按钮 -->
+                    <q-btn
+                      icon="ondemand_video"
+                      color="purple"
+                      flat
+                      round
+                      size="sm"
+                      @click.stop="throttledOpenMiniClass(item.question!)"
+                      class="action-btn mini-class-action"
+                    >
+                      <q-tooltip>微课</q-tooltip>
+                    </q-btn>
+
                     <!-- 置顶按钮 -->
                     <q-btn
                       v-if="item.actualIndex > 0"
@@ -211,6 +224,13 @@
         </div>
       </div>
     </div>
+
+    <!-- 微课对话框 -->
+    <MiniClass
+      v-model="showMiniClassDialog"
+      :class-url="miniClassUrl"
+      :question-title="miniClassQuestionTitle"
+    />
   </div>
 </template>
 
@@ -219,6 +239,7 @@ import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { showMessage, ThrottleUtils, throttle } from '../utils'
 import { useQuestionStore } from '../stores/questionStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
+import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem } from '../types'
 import { apiService } from '../services/api-service'
 import { androidBridge } from '../services/android-bridge'
@@ -226,11 +247,13 @@ import { MathJaxUtils } from '../utils/math/mathjax'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { useQuestionStatistics, type TitleHeightStat, type HeightComparison } from '../composables/useQuestionStatistics'
 import QuestionListSkeleton from './QuestionListSkeleton.vue'
+import MiniClass from './MiniClass.vue'
 
 const emit = defineEmits<{
   startAiGuidance: [question: ExerciseItem]
   questionSelected: [question: ExerciseItem, index: number]
   sendQuestionToTeacher: [question: ExerciseItem]
+  openMiniClass: [question: ExerciseItem]
 }>()
 
 // 响应式数据
@@ -274,6 +297,19 @@ const heightMeasurementTimers = new Map<string, NodeJS.Timeout>()  // 延迟测�
 
 // 使用与 ChatBubble 相同的渲染器
 const { renderMessageContent } = useMessageRenderer()
+
+// UI Store（用于微课对话框）
+const uiStore = useUIStore()
+const showMiniClassDialog = computed({
+  get: () => uiStore.showMiniClassDialog,
+  set: (value) => {
+    if (!value) {
+      uiStore.closeMiniClassDialog()
+    }
+  }
+})
+const miniClassUrl = computed(() => uiStore.miniClassUrl)
+const miniClassQuestionTitle = computed(() => uiStore.miniClassQuestionTitle)
 
 
 
@@ -528,6 +564,10 @@ const throttledSendToAi = throttle((question: ExerciseItem) => {
 
 const throttledSendToTeacher = ThrottleUtils.fast((question: ExerciseItem) => {
   sendToTeacher(question)
+})
+
+const throttledOpenMiniClass = ThrottleUtils.fast((question: ExerciseItem) => {
+  openMiniClass(question)
 })
 
 const throttledDeleteQuestion = ThrottleUtils.slow((questionId: string) => {
@@ -1003,6 +1043,36 @@ const sendToTeacher = async (question: ExerciseItem) => {
   } catch (error) {
     console.error(`${getTimeString()} [QuestionList] 拍作业失败:`, error)
     showMessage('拍作业失败', 'error')
+  }
+}
+
+// 打开微课（使用Web技术实现）
+const openMiniClass = async (question: ExerciseItem) => {
+  try {
+    console.log(`${getTimeString()} [QuestionList] 开始打开微课，题目ID: ${question.id}`)
+    console.log(`${getTimeString()} [QuestionList] 题目信息:`, {
+      id: question.id,
+      title: question.title,
+      questionPreview: question.question?.substring(0, 100)
+    })
+    
+    // 使用硬编码的微课URL
+    const classUrl = 'https://www.imates.com.cn:9099/demo/demo1.html'
+    console.log(`${getTimeString()} [QuestionList] 使用的微课URL: ${classUrl}`)
+    
+    if (!classUrl || classUrl.trim() === '') {
+      console.warn(`${getTimeString()} [QuestionList] 微课URL为空，取消打开`)
+      showMessage('该题目暂无微课', 'warning')
+      return
+    }
+
+    // 优先通过事件通知父组件（ExerciseSolveView）打开微课
+    console.log(`${getTimeString()} [QuestionList] 触发 openMiniClass 事件，通知父组件`)
+    emit('openMiniClass', question)
+    console.log(`${getTimeString()} [QuestionList] openMiniClass 事件已发出`)
+  } catch (error) {
+    console.error(`${getTimeString()} [QuestionList] 打开微课失败:`, error)
+    showMessage('打开微课失败', 'error')
   }
 }
 

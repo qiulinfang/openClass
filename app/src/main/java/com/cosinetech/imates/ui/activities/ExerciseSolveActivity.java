@@ -41,6 +41,7 @@ import com.cosinetech.imates.coreapiservice.AiChatMessageRequest;
 import com.cosinetech.imates.coreapiservice.ApiGateWayService;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.cosinetech.imates.coreapiservice.Question;
+import com.cosinetech.imates.ui.webview.MainWebViewActivity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -602,5 +603,24 @@ public class ExerciseSolveActivity extends BaseActivity implements MessagingMana
         super.onDestroy();
         AudioPlayManager.getInstance().stopPlay();
         MessagingManager.getInstance().removeMessageListener(this);
+    }
+
+    /**
+     * 获取微课URL（硬编码实现）
+     * @return 微课URL
+     */
+    private String getMiniClassUrl() {
+        return "https://www.imates.com.cn:9099/demo/demo1.html";
+    }
+
+    /**
+     * 打开微课
+     * @param question 题目对象（可选，用于未来扩展）
+     */
+    private void openMiniClass(Question question) {
+        String classUrl = getMiniClassUrl();
+        if (classUrl != null && !classUrl.isEmpty()) {
+            MainWebViewActivity.startActivity(this, classUrl);
+        }
     }
 }

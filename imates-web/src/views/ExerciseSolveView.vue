@@ -66,6 +66,7 @@
               @start-ai-guidance="handleStartAiGuidance"
               @question-selected="handleQuestionSelected"
               @send-question-to-teacher="handleSendQuestionToTeacher"
+              @open-mini-class="handleOpenMiniClass"
             />
           </q-card-section>
         </q-card>
@@ -125,6 +126,7 @@ import QuestionList from '../components/QuestionList.vue'
 import ChatView from '../components/ChatView.vue'
 import AnswerView from '../components/AnswerView.vue'
 import SimilarQuestionList from '../components/SimilarQuestionList.vue'
+import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem } from '../types'
 
 // 加载时间日志
@@ -146,6 +148,7 @@ const questionStore = useQuestionStore()
 const userStore = useUserStore()
 const aiExerciseStore = useAiExerciseChatStore()
 const teacherStore = useTeacherChatStore()
+const uiStore = useUIStore()
 const { currentQuestion } = storeToRefs(questionStore)
 
 const initTime = performance.now()
@@ -200,6 +203,38 @@ const handleQuestionAdded = () => {
   // 只刷新题目列表数据，不重新加载整个列表
   if (questionListRef.value) {
     questionListRef.value.refreshQuestions()
+  }
+}
+
+// 处理打开微课
+const handleOpenMiniClass = (question: ExerciseItem) => {
+  try {
+    console.log(`${getTimeString()} [ExerciseSolveView] 开始处理打开微课，题目ID: ${question.id}`)
+    console.log(`${getTimeString()} [ExerciseSolveView] 题目信息:`, {
+      id: question.id,
+      title: question.title,
+      questionPreview: question.question?.substring(0, 100)
+    })
+    
+    // 使用硬编码的微课URL
+    const classUrl = 'https://www.imates.com.cn:9099/demo/demo1.html'
+    console.log(`${getTimeString()} [ExerciseSolveView] 使用的微课URL: ${classUrl}`)
+    
+    if (!classUrl || classUrl.trim() === '') {
+      console.warn(`${getTimeString()} [ExerciseSolveView] 微课URL为空，取消打开`)
+      showMessage('该题目暂无微课', 'warning')
+      return
+    }
+
+    // 更新UI Store中的微课信息并打开弹框
+    const questionTitle = question.title || question.question?.substring(0, 50) || ''
+    console.log(`${getTimeString()} [ExerciseSolveView] 更新UI Store微课信息，标题: ${questionTitle}`)
+    uiStore.openMiniClassDialog(classUrl, questionTitle)
+    
+    console.log(`${getTimeString()} [ExerciseSolveView] 打开微课弹框成功完成`)
+  } catch (error) {
+    console.error(`${getTimeString()} [ExerciseSolveView] 打开微课失败:`, error)
+    showMessage('打开微课失败', 'error')
   }
 }
 
