@@ -6,6 +6,7 @@
     :initial-height="600"
     :min-width="400"
     :min-height="400"
+    class="feedback-dialog"
   >
     <div class="feedback-dialog-content">
       <!-- 问题反馈区域 -->
@@ -13,31 +14,33 @@
         <label class="feedback-label">
           请反馈你在使用中遇到的问题(点击图片可与编辑):
         </label>
-        <div class="feedback-textarea-wrapper">
-          <q-input
-            v-model="feedbackForm.problem"
-            type="textarea"
-            class="feedback-textarea"
-            rows="4"
-            outlined
-            placeholder="请输入您遇到的问题..."
-          />
-          <!-- 图片上传区域 -->
-          <div class="feedback-image-upload" @click="uploadFeedbackImage">
-            <div v-if="feedbackForm.imagePreview" class="feedback-image-preview">
-              <img :src="feedbackForm.imagePreview" alt="预览图片" />
-              <q-btn
-                round
-                dense
-                flat
-                icon="close"
-                size="sm"
-                class="feedback-image-remove"
-                @click.stop="removeFeedbackImage"
-              />
-            </div>
-            <div v-else class="feedback-image-placeholder">
-              <q-icon name="add" size="32px" />
+        <div class="feedback-textarea-wrapper feedback-textarea-wrapper-with-image">
+          <div class="feedback-textarea-container">
+            <q-input
+              v-model="feedbackForm.problem"
+              type="textarea"
+              class="feedback-textarea"
+              rows="4"
+              outlined
+              placeholder="请输入您遇到的问题..."
+            />
+            <!-- 图片上传区域 - 定位在左下角 -->
+            <div class="feedback-image-upload" @click="uploadFeedbackImage">
+              <div v-if="feedbackForm.imagePreview" class="feedback-image-preview">
+                <img :src="feedbackForm.imagePreview" alt="预览图片" />
+                <q-btn
+                  round
+                  dense
+                  flat
+                  icon="close"
+                  size="sm"
+                  class="feedback-image-remove"
+                  @click.stop="removeFeedbackImage"
+                />
+              </div>
+              <div v-else class="feedback-image-placeholder">
+                <q-icon name="add" />
+              </div>
             </div>
           </div>
         </div>
@@ -48,14 +51,18 @@
         <label class="feedback-label">
           你还希望有哪些新功能?(选填)
         </label>
-        <q-input
-          v-model="feedbackForm.suggestion"
-          type="textarea"
-          class="feedback-textarea"
-          rows="4"
-          outlined
-          placeholder="请输入您的建议..."
-        />
+        <div class="feedback-textarea-wrapper">
+          <div class="feedback-textarea-container">
+            <q-input
+              v-model="feedbackForm.suggestion"
+              type="textarea"
+              class="feedback-textarea"
+              rows="4"
+              outlined
+              placeholder="请输入您的建议..."
+            />
+          </div>
+        </div>
       </div>
 
       <!-- 提交按钮 -->
@@ -190,6 +197,15 @@ const submitFeedback = async () => {
 
 <style lang="scss" scoped>
 // 反馈对话框样式
+.feedback-dialog {
+  // 第1步：覆盖标题样式，使其更大更粗
+  :deep(.text-h6) {
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    color: #1f2937 !important;
+  }
+}
+
 .feedback-dialog-content {
   padding: 20px 24px;
   display: flex;
@@ -208,6 +224,7 @@ const submitFeedback = async () => {
 }
 
 .feedback-label {
+  // 第2步：标签样式
   display: block;
   font-size: 14px;
   font-weight: 500;
@@ -215,21 +232,30 @@ const submitFeedback = async () => {
   margin-bottom: 8px;
 }
 
+// 第3步：文本输入区域容器
 .feedback-textarea-wrapper {
   position: relative;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: #f7f7f7;
   border-radius: 8px;
+  min-height: 120px;
+}
+
+.feedback-textarea-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
   padding: 12px;
-  min-height: 200px;
-  
-  &:focus-within {
-    border-color: #ab47bc;
-  }
+}
+
+// 第6步：带图片上传的输入区域需要额外的底部空间
+.feedback-textarea-wrapper-with-image .feedback-textarea-container {
+  padding-bottom: 72px;
 }
 
 .feedback-textarea {
   margin-bottom: 0;
+  width: 100%;
 
   :deep(.q-field__control) {
     background: transparent;
@@ -264,10 +290,13 @@ const submitFeedback = async () => {
   }
 }
 
+// 第4步：图片上传区域 - 定位在左下角，约60px x 60px
 .feedback-image-upload {
-  width: 100%;
-  min-height: 80px;
-  margin-top: 12px;
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  width: 60px;
+  height: 60px;
   border: 2px dashed #d1d5db;
   border-radius: 8px;
   display: flex;
@@ -276,10 +305,9 @@ const submitFeedback = async () => {
   cursor: pointer;
   transition: all 0.2s ease;
   background: #ffffff;
-  position: relative;
 
   &:hover {
-    border-color: #ab47bc;
+    border-color: #8A63FF;
     background: #faf5ff;
   }
 
@@ -295,31 +323,33 @@ const submitFeedback = async () => {
   color: #9ca3af;
   width: 100%;
   height: 100%;
-  min-height: 80px;
+
+  .q-icon {
+    font-size: 24px;
+  }
 }
 
 .feedback-image-preview {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
+  padding: 4px;
 
   img {
     max-width: 100%;
-    max-height: 150px;
-    border-radius: 8px;
-    object-fit: contain;
+    max-height: 100%;
+    border-radius: 6px;
+    object-fit: cover;
   }
 }
 
 .feedback-image-remove {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 2px;
+  right: 2px;
   background: rgba(0, 0, 0, 0.5);
   color: white;
   backdrop-filter: blur(4px);
@@ -336,22 +366,22 @@ const submitFeedback = async () => {
   justify-content: center;
 }
 
+// 第5步：提交按钮样式 - 紫色背景，约100px宽，40px高，圆角20-25px
 .feedback-submit-btn {
-  width: 100%;
-  max-width: 400px;
-  height: 48px;
-  background: #ab47bc !important;
+  width: 100px;
+  height: 40px;
+  background: #8A63FF !important;
   color: white !important;
-  border-radius: 24px;
-  font-size: 16px;
+  border-radius: 20px;
+  font-size: 14px;
   font-weight: 600;
   text-transform: none;
-  box-shadow: 0 2px 8px rgba(171, 71, 188, 0.3);
+  box-shadow: 0 2px 8px rgba(138, 99, 255, 0.3);
   transition: all 0.2s ease;
 
   &:hover {
-    background: #9c27b0 !important;
-    box-shadow: 0 4px 12px rgba(171, 71, 188, 0.4);
+    background: #7A53EF !important;
+    box-shadow: 0 4px 12px rgba(138, 99, 255, 0.4);
     transform: translateY(-1px);
   }
 

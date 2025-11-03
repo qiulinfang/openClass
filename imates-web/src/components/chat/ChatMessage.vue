@@ -136,6 +136,20 @@
             </button>
           </div>
         </div>
+        
+        <!-- 功能按钮区域 - 统一区域，使用 v-for 渲染 -->
+        <div v-if="actionButtons.length > 0" class="message-actions">
+          <button 
+            v-for="(button, index) in actionButtons"
+            :key="index"
+            class="action-button"
+            :class="{ 'action-button--active': button.active }"
+            @click.stop="button.handler"
+            :title="button.title"
+          >
+            <q-icon :name="button.icon" size="18px" />
+          </button>
+        </div>
       </div>
     </div>
 
@@ -210,6 +224,20 @@
             </q-card>
           </q-popup-proxy>
         </div>
+        
+        <!-- 功能按钮区域 - 统一区域，使用 v-for 渲染 -->
+        <div v-if="actionButtons.length > 0" class="message-actions">
+          <button 
+            v-for="(button, index) in actionButtons"
+            :key="index"
+            class="action-button"
+            :class="{ 'action-button--active': button.active }"
+            @click.stop="button.handler"
+            :title="button.title"
+          >
+            <q-icon :name="button.icon" size="18px" />
+          </button>
+        </div>
       </div>
       <div class="user-avatar">
         <q-avatar color="primary" text-color="white" size="36px">
@@ -223,6 +251,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, onUnmounted, type ComponentPublicInstance, type Ref } from 'vue'
+import { useQuasar } from 'quasar'
 import { MathJaxUtils } from '../../utils/math/mathjax'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import { useLazyMessageRender } from '../../utils/render/lazy-message-renderer'
@@ -278,6 +307,9 @@ let clickOutsideHandler: ((event: Event) => void) | null = null
 
 const { renderMessageContent } = useMessageRenderer()
 
+// Quasar 通知
+const $q = useQuasar()
+
 // 场景Store
 const aiExerciseStore = useAiExerciseChatStore()
 const aiGeneralStore = useAiGeneralChatStore()
@@ -288,6 +320,10 @@ const userStore = useUserStore()
 
 // 重发相关状态
 const isRetrying = ref(false)
+
+// 点赞和点踩状态
+const isLiked = ref(false)
+const isDisliked = ref(false)
 
 // 懒加载渲染
 const { elementRef: messageElementRef } = useLazyMessageRender({
@@ -300,6 +336,7 @@ const { elementRef: messageElementRef } = useLazyMessageRender({
 // 重发方法
 const handleRetry = async () => {
   if (!props.message.canRetry || isRetrying.value) {
+    console.log('重发失败')
     return
   }
 
@@ -311,7 +348,8 @@ const handleRetry = async () => {
     
     switch (props.type) {
       case 'ai-exercise':
-        await aiExerciseStore.retryMessage(
+          console.log('ai-exercise')
+          await aiExerciseStore.retryMessage(
           props.message.id,
           questionStore.currentQuestion,
           userStore.userInfo,
@@ -321,6 +359,7 @@ const handleRetry = async () => {
         )
         break
       case 'ai-general':
+        console.log('ai-general')
         await aiGeneralStore.retryMessage(
           props.message.id,
           userStore.userInfo,
@@ -329,6 +368,7 @@ const handleRetry = async () => {
         )
         break
       case 'ai-textbook':
+        console.log('ai-textbook')
         await aiTextbookStore.retryAiMessage(
           props.message.id,
           'mate',
@@ -336,17 +376,31 @@ const handleRetry = async () => {
         )
         break
       case 'teacher':
+        console.log('teacher')
         await teacherStore.retryTeacherMessage(
           props.message.id,
           props.message.imageData
         )
         break
       default:
+        console.log('default')
         throw new Error('未知的聊天类型')
     }
+    
+    $q.notify({
+      type: 'positive',
+      message: '正在重新生成消息',
+      position: 'top',
+      timeout: 2000
+    })
   } catch (error) {
     console.error('重发失败:', error)
-    // 错误处理已经在store中完成，这里不需要额外处理
+    $q.notify({
+      type: 'negative',
+      message: '重发失败，请稍后重试',
+      position: 'top',
+      timeout: 3000
+    })
   } finally {
     isRetrying.value = false
   }
@@ -373,6 +427,88 @@ const isFirstMessage = computed(() => {
 // 判断是否可以编辑（第一个消息不能编辑）
 const canEdit = computed(() => {
   return props.message.sender === 'user' && !isFirstMessage.value
+})
+
+// 功能按钮配置 - 根据消息类型生成按钮列表
+const actionButtons = computed(() => {
+  const buttons: Array<{
+    icon: string
+    title: string
+    handler: () => void
+    show: boolean
+    active?: boolean
+  }> = []
+  
+  // 欢迎消息不显示功能区域
+  if (props.message.id && props.message.id.startsWith('welcome_')) {
+    return buttons
+  }
+  
+  const isUser = props.message.sender === 'user'
+  const canShow = isUser || !props.message.isStreaming
+  
+  if (!canShow) {
+    return buttons
+  }
+  
+  // 复制按钮 - 所有消息都显示
+  buttons.push({
+    icon: 'content_copy',
+    title: '复制',
+    handler: handleCopy,
+    show: true
+  })
+  
+  // 编辑按钮 - 仅用户消息且可编辑时显示
+  if (isUser && canEdit.value) {
+    buttons.push({
+      icon: 'edit',
+      title: '编辑',
+      handler: handleEdit,
+      show: true
+    })
+  }
+  
+  // 转发按钮 - 根据 canForward 判断
+  if (canForward.value) {
+    buttons.push({
+      icon: 'forward',
+      title: '转发',
+      handler: handleForward,
+      show: true
+    })
+  }
+  
+  // AI消息专属按钮
+  if (!isUser) {
+    // 刷新按钮
+    buttons.push({
+      icon: 'refresh',
+      title: '刷新',
+      handler: handleRefresh,
+      show: true
+    })
+    
+    // 点赞按钮
+    buttons.push({
+      icon: 'thumb_up',
+      title: '点赞',
+      handler: handleLike,
+      show: true,
+      active: isLiked.value
+    })
+    
+    // 点踩按钮
+    buttons.push({
+      icon: 'thumb_down',
+      title: '点踩',
+      handler: handleDislike,
+      show: true,
+      active: isDisliked.value
+    })
+  }
+  
+  return buttons
 })
 
 const renderedContent = computed(() => {
@@ -611,6 +747,12 @@ const handleMouseLeave = () => {
 const handleForward = () => {
   showActionMenu.value = false
   emit('forward-message', props.message)
+  $q.notify({
+    type: 'info',
+    message: '正在转发到老师...',
+    position: 'top',
+    timeout: 2000
+  })
 }
 
 // 处理多选
@@ -623,6 +765,222 @@ const handleMultiSelect = () => {
 const handleEdit = () => {
   showActionMenu.value = false
   emit('edit-message', props.message)
+  $q.notify({
+    type: 'info',
+    message: '进入编辑模式',
+    position: 'top',
+    timeout: 1500
+  })
+}
+
+// 处理刷新
+const handleRefresh = async () => {
+  if (props.message.isStreaming) {
+    console.log('正在流式生成消息，不能刷新')
+    return
+  }
+
+  if (isRetrying.value) {
+    return
+  }
+
+  console.log('刷新消息')
+  
+  // 如果是错误消息且有 canRetry 和 originalMessage，使用重试逻辑
+  if (props.message.canRetry && props.message.originalMessage) {
+    await handleRetry()
+    return
+  }
+
+  // 否则，对于正常消息，需要找到前一条用户消息并重新发送
+  // 获取当前场景的 store
+  let storeMessages: ChatBubble[] = []
+  switch (props.type) {
+    case 'ai-exercise':
+      storeMessages = aiExerciseStore.messages
+      break
+    case 'ai-general':
+      storeMessages = aiGeneralStore.messages
+      break
+    case 'ai-textbook':
+      storeMessages = aiTextbookStore.messages
+      break
+    case 'teacher':
+      storeMessages = teacherStore.messages
+      break
+    default:
+      console.error('未知的聊天类型')
+      return
+  }
+
+  // 找到当前消息在列表中的索引
+  const currentIndex = storeMessages.findIndex(msg => msg.id === props.message.id)
+  if (currentIndex < 0) {
+    console.error('未找到当前消息')
+    $q.notify({
+      type: 'negative',
+      message: '刷新失败：未找到消息',
+      position: 'top',
+      timeout: 2000
+    })
+    return
+  }
+
+  // 向前查找前一条用户消息
+  let userMessage: ChatBubble | null = null
+  for (let i = currentIndex - 1; i >= 0; i--) {
+    if (storeMessages[i].sender === 'user') {
+      userMessage = storeMessages[i]
+      break
+    }
+  }
+
+  if (!userMessage) {
+    console.error('未找到前一条用户消息')
+    $q.notify({
+      type: 'negative',
+      message: '刷新失败：未找到对应的用户消息',
+      position: 'top',
+      timeout: 2000
+    })
+    return
+  }
+
+  // 使用用户消息的内容重新发送
+  try {
+    isRetrying.value = true
+    const subject = userStore.subject as 'MATH' | 'BIOLOGY'
+    
+    $q.notify({
+      type: 'positive',
+      message: '正在重新生成消息',
+      position: 'top',
+      timeout: 2000
+    })
+
+    switch (props.type) {
+      case 'ai-exercise':
+        // 先删除当前的 AI 消息
+        const aiExIndex = storeMessages.findIndex(msg => msg.id === props.message.id)
+        if (aiExIndex >= 0) {
+          storeMessages.splice(aiExIndex, 1)
+        }
+        await aiExerciseStore.sendMessage(
+          userMessage.content,
+          questionStore.currentQuestion,
+          userStore.userInfo,
+          subject,
+          'mate',
+          userMessage.imageData,
+          false,
+          true // skipUserMessage: true，跳过创建用户消息
+        )
+        break
+      case 'ai-general':
+        // 先删除当前的 AI 消息
+        const aiGenIndex = storeMessages.findIndex(msg => msg.id === props.message.id)
+        if (aiGenIndex >= 0) {
+          storeMessages.splice(aiGenIndex, 1)
+        }
+        await aiGeneralStore.sendMessage(
+          userMessage.content,
+          userStore.userInfo,
+          subject,
+          'mate',
+          true // skipUserMessage: true，跳过创建用户消息
+        )
+        break
+      case 'ai-textbook':
+        // 先删除当前的 AI 消息
+        const aiTbIndex = storeMessages.findIndex(msg => msg.id === props.message.id)
+        if (aiTbIndex >= 0) {
+          storeMessages.splice(aiTbIndex, 1)
+        }
+        await aiTextbookStore.sendMessage(
+          userMessage.content,
+          'mate',
+          userMessage.imageData,
+          false,
+          true // skipUserMessage: true，跳过创建用户消息
+        )
+        break
+      case 'teacher':
+        // 教师场景需要通过 emit 事件触发，因为需要特殊处理
+        $q.notify({
+          type: 'info',
+          message: '教师场景的刷新功能正在开发中',
+          position: 'top',
+          timeout: 2000
+        })
+        break
+      default:
+        throw new Error('未知的聊天类型')
+    }
+  } catch (error) {
+    console.error('刷新失败:', error)
+    $q.notify({
+      type: 'negative',
+      message: '刷新失败，请稍后重试',
+      position: 'top',
+      timeout: 3000
+    })
+  } finally {
+    isRetrying.value = false
+  }
+}
+
+// 处理点赞
+const handleLike = () => {
+  // 如果已经点赞，则取消点赞
+  if (isLiked.value) {
+    isLiked.value = false
+    $q.notify({
+      type: 'info',
+      message: '已取消点赞',
+      position: 'top',
+      timeout: 1500
+    })
+  } else {
+    // 如果点了踩，先取消点踩
+    if (isDisliked.value) {
+      isDisliked.value = false
+    }
+    isLiked.value = true
+    $q.notify({
+      type: 'positive',
+      message: '已点赞',
+      position: 'top',
+      timeout: 1500,
+      icon: 'thumb_up'
+    })
+  }
+}
+
+// 处理点踩
+const handleDislike = () => {
+  // 如果已经点踩，则取消点踩
+  if (isDisliked.value) {
+    isDisliked.value = false
+    $q.notify({
+      type: 'info',
+      message: '已取消点踩',
+      position: 'top',
+      timeout: 1500
+    })
+  } else {
+    // 如果点了赞，先取消点赞
+    if (isLiked.value) {
+      isLiked.value = false
+    }
+    isDisliked.value = true
+    $q.notify({
+      type: 'warning',
+      message: '已点踩',
+      position: 'top',
+      timeout: 1500,
+      icon: 'thumb_down'
+    })
+  }
 }
 
 // 处理复制消息
@@ -650,23 +1008,58 @@ const handleCopy = async () => {
     // 复制到剪贴板
     await navigator.clipboard.writeText(textContent)
     
-    // 显示复制成功提示（可选）
-    // 这里可以添加一个toast提示
+    // 显示复制成功提示
+    $q.notify({
+      type: 'positive',
+      message: '已复制到剪贴板',
+      position: 'top',
+      timeout: 2000,
+      icon: 'content_copy'
+    })
     
     showActionMenu.value = false
   } catch (error) {
     console.error('复制失败:', error)
     // 降级方案：使用传统的复制方法
     try {
+      let fallbackTextContent = ''
+      if (props.message.messageType === 'voice') {
+        fallbackTextContent = '[语音消息]'
+      } else if (props.message.messageType === 'image') {
+        fallbackTextContent = '[图片消息]'
+      } else if (props.message.messageType === 'chat_record') {
+        fallbackTextContent = '[聊天记录]'
+      } else {
+        fallbackTextContent = props.message.content
+        const tempDiv = document.createElement('div')
+        tempDiv.innerHTML = fallbackTextContent
+        fallbackTextContent = tempDiv.textContent || tempDiv.innerText || fallbackTextContent
+      }
+      
       const textArea = document.createElement('textarea')
-      textArea.value = props.message.content
+      textArea.value = fallbackTextContent
       document.body.appendChild(textArea)
       textArea.select()
       document.execCommand('copy')
       document.body.removeChild(textArea)
+      
+      $q.notify({
+        type: 'positive',
+        message: '已复制到剪贴板',
+        position: 'top',
+        timeout: 2000,
+        icon: 'content_copy'
+      })
+      
       showActionMenu.value = false
     } catch (fallbackError) {
       console.error('降级复制也失败:', fallbackError)
+      $q.notify({
+        type: 'negative',
+        message: '复制失败，请重试',
+        position: 'top',
+        timeout: 3000
+      })
     }
   }
 }
@@ -1030,6 +1423,56 @@ onUnmounted(() => {
   height: 100%;
 }
 
+/* 功能按钮区域 */
+.message-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-left: 0;
+}
+
+/* 功能按钮样式 */
+.action-button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #9e9e9e;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  padding: 0;
+  position: relative;
+}
+
+.action-button:hover {
+  background: #f5f5f5;
+  color: #757575;
+}
+
+.action-button:active {
+  transform: scale(0.95);
+  background: #eeeeee;
+}
+
+.action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-button--active {
+  color: #1976d2;
+}
+
+.action-button--active:hover {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
 /* 消息选择相关样式 */
 .message-selectable {
   cursor: pointer;
@@ -1099,6 +1542,29 @@ onUnmounted(() => {
   }
 
   /* 移除深色模式下的hover效果 - 已禁用背景色变化 */
+  
+  /* 深色模式下的功能按钮样式 */
+  .action-button {
+    color: #666;
+  }
+  
+  .action-button:hover {
+    background: #333;
+    color: #999;
+  }
+  
+  .action-button:active {
+    background: #444;
+  }
+  
+  .action-button--active {
+    color: #64b5f6;
+  }
+  
+  .action-button--active:hover {
+    background: #333;
+    color: #90caf9;
+  }
 }
 
 /* 长按气泡确认框样式 */

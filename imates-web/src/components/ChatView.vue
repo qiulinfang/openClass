@@ -914,7 +914,7 @@ const sendMessage = async (attachedFile?: File) => {
     }
 
     const botReply: ChatBubble = {
-      id: (Date.now() + 1).toString(),
+      id: 'welcome_' + (Date.now() + 1).toString(),
       content: chatStrategy.value.getWelcomeMessage(),
       type: chatStrategy.value.getMessageType(),
       timestamp: '',
@@ -1618,13 +1618,16 @@ const updateEditedMessage = async (newContent: string) => {
       return
     }
 
+    // 更新消息内容
+    targetMessages[messageIndex].content = newContent
+
     // 删除该消息之后的所有消息（因为编辑会改变对话上下文）
-    const messagesToKeep = targetMessages.slice(0, messageIndex)
+    const messagesToKeep = targetMessages.slice(0, messageIndex + 1)
 
     // 更新场景Store的消息列表
     const store = getScenarioStore()
     store.messages.length = 0 // 清空现有消息
-    store.messages.push(...messagesToKeep) // 添加保留的消息
+    store.messages.push(...messagesToKeep) // 添加保留的消息（包括更新后的消息）
 
     // 保存聊天记录（根据场景调用不同的方法）
     if (props.type === 'ai-exercise' && questionStore.currentQuestion?.id) {
@@ -1639,6 +1642,23 @@ const updateEditedMessage = async (newContent: string) => {
 
     // 清除编辑状态
     cancelEditMessage()
+
+    // 第1步：检查是否需要选择题目（策略模式重构版）
+    // 策略模式：使用策略的 requiresQuestion() 方法判断是否需要选择题目
+    if (!hasSelectedQuestion.value && chatStrategy.value?.requiresQuestion()) {
+      // 如果未选择题目，添加欢迎消息回复
+      const botReply: ChatBubble = {
+        id: 'welcome_' + (Date.now() + 1).toString(),
+        content: chatStrategy.value.getWelcomeMessage(),
+        type: chatStrategy.value.getMessageType(),
+        timestamp: '',
+        sender: chatStrategy.value.getSenderType(),
+      }
+
+      await addMessagesToStore([botReply])
+      await scrollToBottom()
+      return
+    }
 
     // 发送编辑后的消息给AI（这会自动添加用户消息和AI回复）
     if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {

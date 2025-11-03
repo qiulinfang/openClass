@@ -433,26 +433,90 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
   
   /**
    * 创建教师会话
-   * 第1步：生成会话ID（与Android逻辑一致）
-   * 第2步：创建会话对象
-   * 第3步：保存到localStorage
-   * 第4步：设置为当前会话
+   * 第1步：尝试从aiSessionId提取题目ID（如果格式为 ai_session_{questionId}_...）
+   * 第2步：检查是否已存在相同的会话（基于题目ID、sessionName和subject）
+   * 第3步：如果已存在，复用已有会话；否则创建新会话
+   * 第4步：保存到localStorage
+   * 第5步：设置为当前会话
    */
   const createTeacherSession = (
     aiSessionId: string,
     aiSessionName: string,
     subject: 'biology' | 'math'
   ): TeacherSession => {
-    const sessionId = generateSessionId(aiSessionId)
-    
-    const session: TeacherSession = {
-      sessionId,
-      sessionName: aiSessionName,
-      subject,
-      createTime: Date.now()
+    // 第1步：尝试从aiSessionId提取题目ID
+    // aiSessionId格式可能是: ai_session_{questionId}_{timestamp}_{random}
+    let questionId: string | null = null
+    const match = aiSessionId.match(/^ai_session_([^_]+)_/)
+    if (match && match[1]) {
+      questionId = match[1]
+      console.log('[TeacherStore] 📋 从aiSessionId提取题目ID:', questionId)
     }
     
-    localStorage.setItem(`teacher_chat_${sessionId}_session`, JSON.stringify(session))
+    // 第2步：检查是否已存在相同的会话
+    // 优先匹配：sessionName和subject完全相同
+    // 如果是基于题目的会话，也可以基于题目ID匹配
+    let existingSession: TeacherSession | null = null
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith('teacher_chat_') && key.endsWith('_session')) {
+        try {
+          const sessionData = localStorage.getItem(key)
+          if (sessionData) {
+            const session = JSON.parse(sessionData) as TeacherSession
+            
+            // 匹配条件1：sessionName和subject完全相同
+            const nameAndSubjectMatch = session.sessionName === aiSessionName && 
+                                      session.subject === subject
+            
+            // 匹配条件2：如果是基于题目的会话，且sessionName相似（前20个字符相同）
+            // 这样可以匹配同一个题目的不同会话（即使标题略有变化）
+            const nameSimilar = aiSessionName.length >= 20 && 
+                              session.sessionName.length >= 20 &&
+                              session.sessionName.substring(0, 20) === aiSessionName.substring(0, 20) &&
+                              session.subject === subject
+            
+            if (nameAndSubjectMatch || nameSimilar) {
+              // 如果已有当前会话且匹配，直接复用
+              if (currentSession.value?.sessionId === session.sessionId) {
+                existingSession = session
+                console.log('[TeacherStore] 🔍 找到当前会话，复用:', session.sessionId)
+                break
+              }
+              
+              // 否则，选择最近创建的会话（如果有多个匹配）
+              if (!existingSession || session.createTime > existingSession.createTime) {
+                existingSession = session
+              }
+            }
+          }
+        } catch {
+          // 忽略解析错误
+        }
+      }
+    }
+    
+    // 第3步：如果已存在，复用已有会话；否则创建新会话
+    let session: TeacherSession
+    if (existingSession) {
+      session = existingSession
+      console.log('[TeacherStore] ♻️ 复用已有会话:', session.sessionId)
+    } else {
+      const sessionId = generateSessionId(aiSessionId)
+      session = {
+        sessionId,
+        sessionName: aiSessionName,
+        subject,
+        createTime: Date.now()
+      }
+      console.log('[TeacherStore] ✨ 创建新会话:', session.sessionId)
+    }
+    
+    // 第4步：保存到localStorage（如果已存在，确保使用正确的键名）
+    const storageKey = `teacher_chat_${session.sessionId}_session`
+    localStorage.setItem(storageKey, JSON.stringify(session))
+    
+    // 第5步：设置为当前会话
     currentSession.value = session
     
     return session

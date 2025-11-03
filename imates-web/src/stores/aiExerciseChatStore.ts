@@ -62,16 +62,19 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     subject: 'MATH' | 'BIOLOGY',
     selectedModel: string = 'mate',
     imageData?: { filePath: string; base64DataUrl?: string },
-    hidePrefix: boolean = false
+    hidePrefix: boolean = false,
+    skipUserMessage?: boolean
   ): Promise<void> => {
     // 第1步：验证题目
     if (!currentQuestion) {
       throw new Error('请先选择一道题目')
     }
     
-    // 第2步：创建用户消息
-    const userMessage = createUserMessage(content, imageData, hidePrefix)
-    messages.value.push(userMessage)
+    // 第2步：创建用户消息（可选）
+    if (!skipUserMessage) {
+      const userMessage = createUserMessage(content, imageData, hidePrefix)
+      messages.value.push(userMessage)
+    }
     
     // 第3步：创建临时AI回复（使用工具函数）
     const tempReplyId = (Date.now() + 1).toString()

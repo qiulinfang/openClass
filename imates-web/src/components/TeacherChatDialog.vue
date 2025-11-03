@@ -119,9 +119,12 @@ const teacherRecords = computed<QuestionRecord[]>(() => {
 // ==================== 方法 ====================
 // 加载教师会话列表
 const loadSessions = () => {
+  console.log('[TeacherChatDialog] 🔄 loadSessions() - 开始加载会话列表')
+  
   // 第1步：从localStorage获取所有会话
   const sessions: typeof teacherSessions.value = []
   const sessionIds = new Set<string>()
+  const seenKeys = new Set<string>() // 记录已处理的键，用于检测重复
   
   // 第2步：遍历localStorage查找所有教师会话
   for (let i = 0; i < localStorage.length; i++) {
@@ -132,14 +135,58 @@ const loadSessions = () => {
         if (sessionData) {
           const session = JSON.parse(sessionData)
           
-          // 检查是否重复
-          if (!sessionIds.has(session.sessionId)) {
-            sessions.push(session)
-            sessionIds.add(session.sessionId)
+          // 验证会话数据完整性
+          if (!session || !session.sessionId || !session.sessionName) {
+            console.warn('[TeacherChatDialog] ⚠️ 跳过无效会话数据:', key)
+            continue
           }
+          
+          // 检查sessionId是否已存在（去重）
+          if (sessionIds.has(session.sessionId)) {
+            console.warn('[TeacherChatDialog] ⚠️ 发现重复的会话ID，跳过:', {
+              sessionId: session.sessionId,
+              key: key,
+              sessionName: session.sessionName
+            })
+            // 如果键名与sessionId不匹配，可能是旧数据，删除它
+            const expectedKey = `teacher_chat_${session.sessionId}_session`
+            if (key !== expectedKey) {
+              console.log('[TeacherChatDialog] 🗑️ 删除键名不匹配的旧会话:', key)
+              localStorage.removeItem(key)
+            }
+            continue
+          }
+          
+          // 验证键名是否与sessionId匹配
+          const expectedKey = `teacher_chat_${session.sessionId}_session`
+          if (key !== expectedKey) {
+            console.warn('[TeacherChatDialog] ⚠️ 键名与sessionId不匹配:', {
+              key: key,
+              expectedKey: expectedKey,
+              sessionId: session.sessionId
+            })
+            // 如果已有正确键名的会话，删除不匹配的键
+            const correctKeyData = localStorage.getItem(expectedKey)
+            if (correctKeyData) {
+              console.log('[TeacherChatDialog] 🗑️ 删除键名不匹配的旧会话（已有正确键）:', key)
+              localStorage.removeItem(key)
+              continue
+            } else {
+              // 如果正确键名不存在，使用当前数据但用正确键名保存
+              console.log('[TeacherChatDialog] 🔧 修正键名:', key, '->', expectedKey)
+              localStorage.removeItem(key)
+              localStorage.setItem(expectedKey, sessionData)
+            }
+          }
+          
+          // 添加到列表
+          sessions.push(session)
+          sessionIds.add(session.sessionId)
+          seenKeys.add(key)
         }
       } catch (error) {
-        console.error('解析会话数据失败:', error)
+        console.error('[TeacherChatDialog] ❌ 解析会话数据失败:', key, error)
+        // 解析失败的数据可能是损坏的，可以考虑删除
       }
     }
   }
@@ -149,6 +196,11 @@ const loadSessions = () => {
   
   // 第4步：更新列表
   teacherSessions.value = sessions
+  
+  console.log('[TeacherChatDialog] ✅ loadSessions() - 加载完成:', {
+    total: sessions.length,
+    sessionIds: Array.from(sessionIds)
+  })
 }
 
 // 处理记录点击

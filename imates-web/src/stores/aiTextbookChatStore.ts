@@ -86,11 +86,14 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     content: string,
     selectedModel?: string,
     imageData?: ChatImageData,
-    hidePrefix: boolean = false
+    hidePrefix: boolean = false,
+    skipUserMessage?: boolean
   ): Promise<void> => {
-    // 第1步：创建并添加用户消息
-    const userMessage = createUserMessage(content, imageData, hidePrefix)
-    addMessage(userMessage)
+    // 第1步：创建并添加用户消息（可选）
+    if (!skipUserMessage) {
+      const userMessage = createUserMessage(content, imageData, hidePrefix)
+      addMessage(userMessage)
+    }
     
     // 第2步：创建临时AI回复消息
     const { message: tempReply, id: tempReplyId } = createTempAiReplyMessage()
