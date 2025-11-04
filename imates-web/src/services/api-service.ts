@@ -1286,7 +1286,18 @@ export class ApiService {
       })
       
       if (response.success && response.data && response.data.data) {
-        return response.data.data
+        // 🔥 处理封面URL拼接，与后端逻辑保持一致
+        // 后端在 LearnResourceManager.fetchUserAllOnlineTextbooks() 第342行拼接URL
+        // BASE_URL = "https://www.imates.com.cn:9099"
+        const BASE_URL = 'https://www.imates.com.cn:9099'
+        
+        return response.data.data.map((textbook) => {
+          // 如果 textbookCover 不是完整URL（不以 http 开头），则拼接 BASE_URL
+          if (textbook.textbookCover && !textbook.textbookCover.startsWith('http')) {
+            textbook.textbookCover = BASE_URL + textbook.textbookCover
+          }
+          return textbook
+        })
       }
       return []
     } catch (error) {
@@ -1542,20 +1553,69 @@ export class ApiService {
     filesToUpdate: Array<{resource: any, pkg: any}>,
     totalServerFiles: number
   }> {
+    console.log('[ApiService.collectFilesToUpdate] 开始文件筛选', {
+      serverPackagesCount: serverPackages.length,
+      textbookId: textbook.textbookId,
+    })
+    
     const filesToUpdate: Array<{resource: any, pkg: any}> = []
     let totalServerFiles = 0
     
     // 第1步：获取本地学习资源包（用于增量对比）
     const localLearningPackages = textbook.learningPackages || []
+    console.log('[ApiService.collectFilesToUpdate] 本地学习资源包数量', localLearningPackages.length)
     
     // 第2步：一次性从IndexedDB获取最新的教材数据（包含所有localFiles）
     // 避免在循环中多次查询数据库，提升性能
     const resourceManager = ResourceManager.getInstance()
-    const latestTextbook = await resourceManager.indexedDB.get<UserTextbookInfo>('textbooks', textbook.id)
-    if (!latestTextbook) {
-      return { filesToUpdate: [], totalServerFiles: 0 }
+    
+    // 尝试通过 id 查询（如果教材已保存到 IndexedDB）
+    let latestTextbook = textbook.id 
+      ? await resourceManager.indexedDB.get<UserTextbookInfo>('textbooks', textbook.id)
+      : null
+    
+    // 如果通过 id 查不到，尝试通过 textbookId 查询
+    if (!latestTextbook && textbook.textbookId) {
+      try {
+        latestTextbook = await resourceManager.indexedDB.getByIndex<UserTextbookInfo>('textbooks', 'textbookId', textbook.textbookId)
+      } catch (error: any) {
+        // 如果索引不存在（旧数据库可能没有textbookId索引），改用getAll在内存中查找
+        if (error?.name === 'NotFoundError' || error?.message?.includes('index')) {
+          console.log('[ApiService.collectFilesToUpdate] ⚠️ textbookId索引不存在，改用getAll查询', {
+            textbookId: textbook.textbookId,
+            error: error.message
+          })
+          const allTextbooks = await resourceManager.indexedDB.getAll<UserTextbookInfo>('textbooks')
+          // 打印数据库中的所有教材数据（用于调试）
+          console.log('[ApiService.collectFilesToUpdate] 📊 数据库中的所有教材数据：', {
+            total: allTextbooks.length,
+            textbooks: allTextbooks.map(t => ({
+              id: t.id,
+              textbookId: t.textbookId,
+              textbookName: t.textbookName,
+              hasLocalFiles: !!t.localFiles?.length,
+              localFilesCount: t.localFiles?.length || 0
+            }))
+          })
+          latestTextbook = allTextbooks.find(t => t.textbookId === textbook.textbookId) || null
+        } else {
+          // 其他错误，重新抛出
+          throw error
+        }
+      }
     }
+    
+    // 如果还是查不到，使用传入的 textbook 对象（可能还没有保存到 IndexedDB）
+    if (!latestTextbook) {
+      console.log('[ApiService.collectFilesToUpdate] ⚠️ 无法从IndexedDB获取教材数据，使用传入的 textbook 对象', {
+        hasId: !!textbook.id,
+        textbookId: textbook.textbookId,
+      })
+      latestTextbook = textbook
+    }
+    
     const localFiles = latestTextbook.localFiles || []
+    console.log('[ApiService.collectFilesToUpdate] 本地文件数量', localFiles.length)
     
     // 第3步：构建文件ID到localFile的映射表，避免重复查找
     const localFileMap = new Map<string, LocalFileInfo>()
@@ -1564,7 +1624,30 @@ export class ApiService {
     }
     
     // 第4步：遍历服务器学习资源包，收集需要更新的文件
+    let packagesWithResourceList = 0
+    let packagesWithoutResourceList = 0
+    let packagesWithEmptyResourceList = 0
+    
     for (const serverPackage of serverPackages) {
+      // 检查包的结构
+      const hasResourceList = 'resourceList' in serverPackage
+      const resourceListLength = serverPackage.resourceList?.length || 0
+      
+      if (!hasResourceList) {
+        packagesWithoutResourceList++
+        console.log('[ApiService.collectFilesToUpdate] 包没有 resourceList 属性', {
+          packageId: serverPackage.packageId,
+          packageKeys: Object.keys(serverPackage),
+        })
+      } else if (resourceListLength === 0) {
+        packagesWithEmptyResourceList++
+        console.log('[ApiService.collectFilesToUpdate] 包的 resourceList 为空', {
+          packageId: serverPackage.packageId,
+        })
+      } else {
+        packagesWithResourceList++
+      }
+      
       if (serverPackage.resourceList && serverPackage.resourceList.length > 0) {
         totalServerFiles += serverPackage.resourceList.length
         
@@ -1591,8 +1674,15 @@ export class ApiService {
               needsDownload = true
             } else {
               // 检查textbook_files表中是否存在文件数据
-              const hasFileData = await resourceManager.hasFileData(latestTextbook.id, serverFile.id)
-              if (!hasFileData) {
+              // 注意：hasFileData 方法实际上只需要 fileId，但为了保持接口一致性，传入 textbook id
+              const textbookId = latestTextbook.id || latestTextbook.textbookId || ''
+              if (textbookId) {
+                const hasFileData = await resourceManager.hasFileData(textbookId, serverFile.id)
+                if (!hasFileData) {
+                  needsDownload = true
+                }
+              } else {
+                // 如果连 textbookId 都没有，视为新文件，需要下载
                 needsDownload = true
               }
             }
@@ -1604,6 +1694,15 @@ export class ApiService {
         }
       }
     }
+    
+    console.log('[ApiService.collectFilesToUpdate] 文件筛选统计', {
+      totalPackages: serverPackages.length,
+      packagesWithResourceList,
+      packagesWithoutResourceList,
+      packagesWithEmptyResourceList,
+      totalServerFiles,
+      filesToUpdate: filesToUpdate.length,
+    })
     
     return { filesToUpdate, totalServerFiles }
   }
@@ -1660,33 +1759,57 @@ export class ApiService {
    * 使用与安卓原生一致的接口路径和认证方式
    */
   public async downloadTextbook(textbook: UserTextbookInfo, onProgress?: (progress: number, downloadedCount: number, totalToDownload: number) => void): Promise<boolean> {
+    const startTime = Date.now()
+    console.log('[ApiService.下载] 开始下载', {
+      textbookId: textbook.textbookId,
+      textbookName: textbook.textbookName,
+      hasLearningPackages: !!textbook.learningPackages?.length,
+      learningPackagesCount: textbook.learningPackages?.length || 0,
+    })
+    
     try {
       // 第1步：初始化下载控制器
+      console.log('[ApiService.下载] 第1步：初始化下载控制器')
       const controller = new AbortController()
       this.downloadControllers.set(textbook.textbookId, controller)
       
       // 第2步：获取学习资源包（优先使用本地数据）
+      console.log('[ApiService.下载] 第2步：获取学习资源包')
       let serverPackages: any[] = []
       
       if (textbook.learningPackages && textbook.learningPackages.length > 0) {
+        console.log('[ApiService.下载] 使用本地已有的学习资源包', { count: textbook.learningPackages.length })
         serverPackages = textbook.learningPackages
       } else {
+        console.log('[ApiService.下载] 从服务器获取学习资源包')
         serverPackages = await this.getServerLearningPackages(textbook)
+        console.log('[ApiService.下载] 从服务器获取到学习资源包', { count: serverPackages?.length || 0 })
       }
       
       if (!serverPackages || serverPackages.length === 0) {
+        console.log('[ApiService.下载] ⚠️ 没有学习资源包，立即返回 true', {
+          elapsedTime: Date.now() - startTime + 'ms',
+        })
         return true
       }
       
       // 第3步：增量文件筛选（收集需要更新的文件）
+      console.log('[ApiService.下载] 第3步：增量文件筛选，收集需要更新的文件')
       const { filesToUpdate, totalServerFiles } = await this.collectFilesToUpdate(textbook, serverPackages)
       const filesToDownload = filesToUpdate.length
+      console.log('[ApiService.下载] 文件筛选结果', {
+        filesToDownload,
+        totalServerFiles,
+        filesToUpdateCount: filesToUpdate.length,
+      })
       
       // 第4步：保存学习资源包到IndexedDB
+      console.log('[ApiService.下载] 第4步：保存学习资源包到IndexedDB')
       const resourceManager = ResourceManager.getInstance()
       await resourceManager.updateTextbookInfo(textbook, undefined)
       
       // 第5步：设置教材总文件数
+      console.log('[ApiService.下载] 第5步：设置教材总文件数', { totalServerFiles })
       const textbooks = await resourceManager.getUserLocalTextbooks()
       const textbookRecord = textbooks.find(t => t.textbookId === textbook.textbookId)
       if (textbookRecord) {
@@ -1696,13 +1819,23 @@ export class ApiService {
       textbook.totalFiles = totalServerFiles
       
       if (filesToDownload === 0) {
+        console.log('[ApiService.下载] ⚠️ 没有需要下载的文件 (filesToDownload=0)，立即返回 true', {
+          totalServerFiles,
+          elapsedTime: Date.now() - startTime + 'ms',
+        })
         return true
       }
       
       // 第6步：并发下载需要更新的文件
+      console.log('[ApiService.下载] 第6步：开始并发下载文件', {
+        filesToDownload,
+        totalServerFiles,
+        alreadyDownloadedFiles: totalServerFiles - filesToDownload,
+      })
       // 流程：计算已下载的文件数（总文件数 - 需要下载的文件数）
       const alreadyDownloadedFiles = totalServerFiles - filesToDownload
       
+      const downloadStartTime = Date.now()
       const result = await this.downloadFilesConcurrently(
         filesToUpdate, 
         filesToDownload, 
@@ -1711,27 +1844,59 @@ export class ApiService {
         (progress, newlyDownloadedCount) => {
           // 流程：总下载文件数 = 已完成的旧文件 + 新下载的文件
           const totalDownloadedFiles = alreadyDownloadedFiles + newlyDownloadedCount
+          console.log('[ApiService.下载] 下载进度回调', {
+            progress: progress.toFixed(1) + '%',
+            newlyDownloadedCount,
+            totalDownloadedFiles,
+            filesToDownload,
+            elapsedTime: Date.now() - downloadStartTime + 'ms',
+          })
           onProgress?.(progress, totalDownloadedFiles, filesToDownload)
         }, 
         textbook
       )
       
+      console.log('[ApiService.下载] 文件下载完成', {
+        successCount: result.successCount,
+        errorCount: result.errorCount,
+        filesToDownload,
+        downloadElapsedTime: Date.now() - downloadStartTime + 'ms',
+      })
+      
       // 第7步：强制刷新IndexedDB
+      console.log('[ApiService.下载] 第7步：强制刷新IndexedDB')
       await resourceManager.forceFlushPendingUpdates()
             
       // 第8步：清理下载控制器
+      console.log('[ApiService.下载] 第8步：清理下载控制器')
       this.downloadControllers.delete(textbook.textbookId)
       
       const isSuccess = result.successCount === filesToDownload
+      console.log('[ApiService.下载] 下载结果', {
+        isSuccess,
+        successCount: result.successCount,
+        filesToDownload,
+        totalElapsedTime: Date.now() - startTime + 'ms',
+      })
       
       return isSuccess
       
     } catch (error) {
+      console.error('[ApiService.下载] 下载过程发生异常', {
+        textbookId: textbook.textbookId,
+        error: error instanceof Error ? error.message : String(error),
+        errorName: error instanceof Error ? error.name : 'Unknown',
+        stack: error instanceof Error ? error.stack : undefined,
+        elapsedTime: Date.now() - startTime + 'ms',
+      })
+      
       if (error instanceof Error && error.name === 'AbortError') {
+        console.log('[ApiService.下载] 用户主动取消下载 (AbortError)')
         this.downloadControllers.delete(textbook.textbookId)
         throw error
       }
       
+      console.log('[ApiService.下载] 下载失败，返回 false')
       this.downloadControllers.delete(textbook.textbookId)
       
       return false
@@ -1764,7 +1929,20 @@ export class ApiService {
       const resourceManager = ResourceManager.getInstance()
       
       // 获取教材信息
-      const textbook = await resourceManager.indexedDB.getByIndex('textbooks', 'textbookId', textbookId) as UserTextbookInfo
+      let textbook: UserTextbookInfo | null = null
+      try {
+        textbook = await resourceManager.indexedDB.getByIndex('textbooks', 'textbookId', textbookId) as UserTextbookInfo
+      } catch (error: any) {
+        // 如果索引不存在（旧数据库可能没有textbookId索引），改用getAll在内存中查找
+        if (error?.name === 'NotFoundError' || error?.message?.includes('index')) {
+          const allTextbooks = await resourceManager.indexedDB.getAll<UserTextbookInfo>('textbooks')
+          textbook = allTextbooks.find(t => t.textbookId === textbookId) || null
+        } else {
+          // 其他错误，静默处理
+          return
+        }
+      }
+      
       if (!textbook) {
         return
       }

@@ -182,9 +182,9 @@
                               <div class="progress-bar-container">
                                 <div 
                                   class="progress-bar-fill" 
-                                  :style="{ width: Math.round((textbook.downloadedFiles / textbook.totalFiles) * 100) + '%' }"
+                                  :style="{ width: getDownloadProgress(textbook.downloadedFiles, textbook.totalFiles) + '%' }"
                                 ></div>
-                                <span class="progress-text">{{ Math.round((textbook.downloadedFiles / textbook.totalFiles) * 100) }}%</span>
+                                <span class="progress-text">{{ getDownloadProgress(textbook.downloadedFiles, textbook.totalFiles) }}%</span>
                               </div>
                             </div>
                           </template>
@@ -200,6 +200,11 @@
                               no-caps
                               class="action-btn action-btn-download"
                             />
+                          </template>
+                          
+                          <!-- 已下载但没有更新：不显示任何按钮 -->
+                          <template v-else-if="textbook.isDownloaded && textbook.downloadStatus === 2 && !textbook.hasUpdatesAvailable">
+                            <!-- 已下载完成且无更新，不显示按钮 -->
                           </template>
                           
                           <!-- 已下载状态：显示更新 -->
@@ -494,13 +499,18 @@ const { init: initBScroll } = useBetterScroll(
 // 第2步：移除pullDownRefreshStatus状态，不再需要下拉刷新状态管理
 
 // 切换学科选择
-// 流程：获取完整的封面图片URL（处理file://环境）
 const getCoverImageUrl = (coverUrl: string | undefined): string => {
   if (!coverUrl) return bookIcon
-
-  // 流程：使用httpClient.buildFullUrl处理URL
-  // 这会在file://环境下将相对路径转换为完整URL
   return httpClient.buildFullUrl(coverUrl)
+}
+
+// 安全计算下载进度百分比，避免NaN
+// 如果 totalFiles 为 0 或 undefined，返回 0
+const getDownloadProgress = (downloadedFiles: number, totalFiles: number): number => {
+  if (!totalFiles || totalFiles === 0) {
+    return 0
+  }
+  return Math.round((downloadedFiles / totalFiles) * 100)
 }
 
 // 处理筛选变化
@@ -876,42 +886,115 @@ const checkForUpdates = async () => {
 
 // 下载教材 - 直接使用ApiService，移除不必要的中介方法
 const downloadTextbook = async (textbook: UserTextbookInfo) => {
+  console.log('[下载] 开始下载教材', {
+    textbookId: textbook.textbookId,
+    textbookName: textbook.textbookName,
+    downloadStatus: textbook.downloadStatus,
+    isDownloaded: textbook.isDownloaded,
+    downloadedFiles: textbook.downloadedFiles,
+    totalFiles: textbook.totalFiles,
+    hasLearningPackages: !!textbook.learningPackages?.length,
+  })
+
   // 🔒 防重复下载：检查是否已在下载中
   if (textbook.downloadStatus === 1) {
+    console.log('[下载] 教材正在下载中，跳过重复操作')
     showMessage(`《${textbook.textbookName}》正在下载中，请勿重复操作`, 'warning')
     return
   }
 
   // 🔒 防重复下载：检查是否已下载完成
   if (textbook.downloadStatus === 2 && textbook.isDownloaded) {
+    console.log('[下载] 教材已下载完成，跳过操作')
     return
   }
 
   // 设置下载状态
+  console.log('[下载] 设置下载状态为下载中 (status=1)')
   textbook.downloadStatus = 1 // 下载中
   textbook.isDownloaded = false
 
   // ApiService.downloadTextbook内部会优先使用本地已有的学习资源包数据，无需重复处理
 
   try {
+    console.log('[下载] 调用 apiService.downloadTextbook 开始')
+    const startTime = Date.now()
+    
+    let progressCallbackCalled = false
+    let lastProgressPercent = 0
+    let lastProgressTime = startTime
+    
     // 1. 直接使用ApiService下载（优先使用本地已有的学习资源包数据）
     const success = await apiService.downloadTextbook(
       textbook,
       async (progress, downloadedCount) => {
+        const now = Date.now()
+        if (!progressCallbackCalled) {
+          console.log('[下载] 进度回调首次被调用', {
+            progress: progress.toFixed(1) + '%',
+            downloadedCount,
+            totalFiles: textbook.totalFiles,
+            timeSinceStart: now - startTime + 'ms',
+          })
+          progressCallbackCalled = true
+          lastProgressPercent = progress
+          lastProgressTime = now
+        } else {
+          // 每10%或每1秒记录一次详细进度
+          if (progress - lastProgressPercent >= 10 || now - lastProgressTime >= 1000) {
+            console.log('[下载] 进度更新', {
+              progress: progress.toFixed(1) + '%',
+              downloadedCount,
+              totalFiles: textbook.totalFiles,
+              timeSinceStart: now - startTime + 'ms',
+            })
+            lastProgressPercent = progress
+            lastProgressTime = now
+          }
+        }
         // 更新下载进度 - 使用实际下载的文件数
         textbook.downloadedFiles = downloadedCount
       },
     )
 
+    const elapsedTime = Date.now() - startTime
+    console.log('[下载] apiService.downloadTextbook 返回', {
+      success,
+      elapsedTime: elapsedTime + 'ms',
+      progressCallbackCalled,
+      finalDownloadedFiles: textbook.downloadedFiles,
+      totalFiles: textbook.totalFiles,
+    })
+
     // 现在数据会立即保存到IndexedDB，直接打印数据
     printLocalFilesData()
 
     if (success) {
+      console.log('[下载] 下载成功，开始更新状态')
       // 下载成功 - 需要从 IndexedDB 获取完整数据（包含 fileData）后再更新状态
       // 因为当前的 textbook 对象中的 localFiles 可能不包含 fileData（被瘦身处理了）
-      const fullTextbook = await resourceManager.indexedDB.get('textbooks', textbook.id) as UserTextbookInfo
+      console.log('[下载] 从 IndexedDB 获取完整教材数据', { 
+        id: textbook.id,
+        textbookId: textbook.textbookId,
+        textbookIdType: typeof textbook.textbookId,
+        textbookIdString: String(textbook.textbookId),
+        textbookIdNumber: typeof textbook.textbookId === 'string' ? Number(textbook.textbookId) : textbook.textbookId,
+        textbookInfo: {
+          id: textbook.id,
+          textbookId: textbook.textbookId,
+          textbookName: textbook.textbookName
+        },
+        note: 'IndexedDB 主键是 textbookId，不是 id'
+      })
+      // 注意：IndexedDB 的 textbooks 存储的主键是 textbookId，不是 id
+      const fullTextbook = await resourceManager.indexedDB.get('textbooks', textbook.textbookId) as UserTextbookInfo
       
       if (fullTextbook) {
+        console.log('[下载] 获取到完整教材数据，更新状态', {
+          totalFiles: fullTextbook.totalFiles,
+          downloadedFiles: fullTextbook.downloadedFiles,
+          hasLocalFiles: !!fullTextbook.localFiles?.length,
+        })
         // 更新完整教材的状态
         fullTextbook.isDownloaded = true
         fullTextbook.downloadStatus = 2 // 下载完成
@@ -919,6 +1002,7 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
         fullTextbook.lastDownloadTime = new Date().toISOString()
         fullTextbook.hasUpdatesAvailable = false
 
+        console.log('[下载] 保存完整教材数据到 IndexedDB')
         // 保存完整教材数据到IndexedDB（包含 localFiles 中的 fileData）
         await resourceManager.updateTextbookInfo(fullTextbook, {
           isDownloaded: true,
@@ -928,6 +1012,7 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
           hasUpdatesAvailable: false,
         })
 
+        console.log('[下载] 更新 Vue 组件中的 textbook 对象')
         // 更新Vue组件中的textbook对象（用于显示）
         Object.assign(textbook, {
           ...fullTextbook,
@@ -936,35 +1021,154 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
           updatePackages: textbook.updatePackages,
           getLocalResourceFileName: textbook.getLocalResourceFileName
         })
-      } else {
-        // 如果无法获取完整数据，使用当前textbook更新
-        textbook.isDownloaded = true
-        textbook.downloadStatus = 2
-        textbook.downloadedFiles = textbook.totalFiles
-        textbook.lastDownloadTime = new Date().toISOString()
-        textbook.hasUpdatesAvailable = false
-
-        await resourceManager.updateTextbookInfo(textbook, {
-          isDownloaded: true,
-          downloadStatus: 2,
-          downloadedFiles: textbook.totalFiles,
-          lastDownloadTime: new Date().toISOString(),
-          hasUpdatesAvailable: false,
+        console.log('[下载] 组件状态更新完成', {
+          downloadStatus: textbook.downloadStatus,
+          isDownloaded: textbook.isDownloaded,
+          downloadedFiles: textbook.downloadedFiles,
+          totalFiles: textbook.totalFiles,
         })
+      } else {
+        console.log('[下载] ⚠️ 无法通过 id 获取完整教材数据，尝试降级方案', {
+          queryId: textbook.id,
+          textbookId: textbook.textbookId,
+          textbookName: textbook.textbookName
+        })
+        
+        // 降级方案1：使用 getAll + 手动查找
+        let foundTextbook: UserTextbookInfo | null = null
+        
+        // 获取所有教材数据
+        const allTextbooks = await resourceManager.indexedDB.getAll<UserTextbookInfo>('textbooks')
+        console.log('[下载] 📊 数据库中的所有教材数据：', {
+          total: allTextbooks.length,
+          textbooks: allTextbooks.map((t: UserTextbookInfo) => ({
+            id: t.id,
+            textbookId: t.textbookId,
+            textbookName: t.textbookName,
+            hasLocalFiles: !!t.localFiles?.length,
+            localFilesCount: t.localFiles?.length || 0
+          })),
+          currentTextbook: {
+            id: textbook.id,
+            textbookId: textbook.textbookId,
+            textbookName: textbook.textbookName
+          }
+        })
+        
+        // 优先通过 id 查找
+        foundTextbook = allTextbooks.find((t: UserTextbookInfo) => t.id === textbook.id) || null
+        if (foundTextbook) {
+          console.log('[下载] ✅ 通过 id 手动查找到教材数据', {
+            id: foundTextbook.id,
+            textbookId: foundTextbook.textbookId,
+            textbookName: foundTextbook.textbookName,
+            hasLocalFiles: !!foundTextbook.localFiles?.length,
+            localFilesCount: foundTextbook.localFiles?.length || 0
+          })
+        } else {
+          // 如果通过 id 找不到，尝试通过 textbookId 查找（可能有多个相同 textbookId）
+          console.log('[下载] ⚠️ 通过 id 未找到，尝试通过 textbookId 查找', {
+            textbookId: textbook.textbookId
+          })
+          const byTextbookId = allTextbooks.filter((t: UserTextbookInfo) => t.textbookId === textbook.textbookId)
+          if (byTextbookId.length > 0) {
+            // 如果有多个相同 textbookId，选择最新的（id 最大的）
+            foundTextbook = byTextbookId.reduce((latest, current) => {
+              return current.id > latest.id ? current : latest
+            })
+            console.log('[下载] ✅ 通过 textbookId 手动查找到教材数据', {
+              foundCount: byTextbookId.length,
+              selectedId: foundTextbook.id,
+              textbookId: foundTextbook.textbookId,
+              textbookName: foundTextbook.textbookName,
+              hasLocalFiles: !!foundTextbook.localFiles?.length,
+              localFilesCount: foundTextbook.localFiles?.length || 0
+            })
+          } else {
+            console.log('[下载] ⚠️ 通过 textbookId 也未找到匹配的教材')
+          }
+        }
+        
+        if (foundTextbook) {
+          // 找到了完整教材数据，使用它更新状态
+          console.log('[下载] 使用查找到的完整教材数据更新状态', {
+            totalFiles: foundTextbook.totalFiles,
+            downloadedFiles: foundTextbook.downloadedFiles,
+            hasLocalFiles: !!foundTextbook.localFiles?.length,
+          })
+          // 更新完整教材的状态
+          foundTextbook.isDownloaded = true
+          foundTextbook.downloadStatus = 2 // 下载完成
+          foundTextbook.downloadedFiles = foundTextbook.totalFiles
+          foundTextbook.lastDownloadTime = new Date().toISOString()
+          foundTextbook.hasUpdatesAvailable = false
+
+          console.log('[下载] 保存完整教材数据到 IndexedDB')
+          // 保存完整教材数据到IndexedDB（包含 localFiles 中的 fileData）
+          await resourceManager.updateTextbookInfo(foundTextbook, {
+            isDownloaded: true,
+            downloadStatus: 2,
+            downloadedFiles: foundTextbook.totalFiles,
+            lastDownloadTime: new Date().toISOString(),
+            hasUpdatesAvailable: false,
+          })
+
+          console.log('[下载] 更新 Vue 组件中的 textbook 对象')
+          // 更新Vue组件中的textbook对象（用于显示）
+          Object.assign(textbook, {
+            ...foundTextbook,
+            // 保留显示用的方法
+            updateStructure: textbook.updateStructure,
+            updatePackages: textbook.updatePackages,
+            getLocalResourceFileName: textbook.getLocalResourceFileName
+          })
+          console.log('[下载] 组件状态更新完成', {
+            downloadStatus: textbook.downloadStatus,
+            isDownloaded: textbook.isDownloaded,
+            downloadedFiles: textbook.downloadedFiles,
+            totalFiles: textbook.totalFiles,
+          })
+        } else {
+          // 降级方案2：如果还是找不到，使用当前textbook更新
+          console.log('[下载] ⚠️ 降级方案：使用当前 textbook 更新（可能缺少完整数据）')
+          textbook.isDownloaded = true
+          textbook.downloadStatus = 2
+          textbook.downloadedFiles = textbook.totalFiles
+          textbook.lastDownloadTime = new Date().toISOString()
+          textbook.hasUpdatesAvailable = false
+
+          await resourceManager.updateTextbookInfo(textbook, {
+            isDownloaded: true,
+            downloadStatus: 2,
+            downloadedFiles: textbook.totalFiles,
+            lastDownloadTime: new Date().toISOString(),
+            hasUpdatesAvailable: false,
+          })
+          console.log('[下载] 使用当前 textbook 更新完成')
+        }
       }
 
+      console.log('[下载] 状态更新完成，显示成功消息')
       showMessage(`《${textbook.textbookName}》下载完成`, 'success')
     } else {
       // 下载失败
+      console.log('[下载] 下载失败 (success=false)')
       textbook.downloadStatus = 0 // 下载失败
       textbook.isDownloaded = false
 
       showMessage(`《${textbook.textbookName}》下载失败`, 'error')
     }
   } catch (error) {
+    console.error('[下载] 下载过程发生异常', {
+      error: error instanceof Error ? error.message : String(error),
+      errorName: error instanceof Error ? error.name : 'Unknown',
+      stack: error instanceof Error ? error.stack : undefined,
+    })
+    
     // 修复：区分用户主动暂停和真正的下载失败
     if (error instanceof Error && error.name === 'AbortError') {
       // 用户主动暂停下载，保持暂停状态
+      console.log('[下载] 用户主动暂停下载')
       textbook.downloadStatus = 3 // 已暂停
       textbook.isDownloaded = false
 
@@ -976,6 +1180,7 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
       })
     } else {
       // 真正的下载失败
+      console.log('[下载] 真正的下载失败，更新状态为失败 (status=0)')
       textbook.downloadStatus = 0 // 下载失败
       textbook.isDownloaded = false
 

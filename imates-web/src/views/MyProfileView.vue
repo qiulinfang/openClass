@@ -513,8 +513,8 @@ $bg-gray: #f9fafb;
     flex-shrink: 0;
     
     .card-icon {
-      width: 28px;
-      height: 28px;
+      width: 100%;
+      height: 100%;
       object-fit: contain;
       position: relative;
       z-index: 1;
@@ -584,8 +584,10 @@ $bg-gray: #f9fafb;
     }
     
     .card-icon {
-      font-size: 28px;
+      font-size: 56px;
       color: white;
+      width: 100%;
+      height: 100%;
     }
   }
 }
@@ -645,6 +647,13 @@ $bg-gray: #f9fafb;
     
     .card-text {
       font-size: 11px;
+    }
+    
+    // 拍照搜题图标在小屏幕时也需要调整字体大小
+    &.photo-search-card {
+      .card-icon {
+        font-size: 50px;
+      }
     }
   }
 }

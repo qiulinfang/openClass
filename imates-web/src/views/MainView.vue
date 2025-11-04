@@ -15,15 +15,15 @@
       
       <div class="nav-items-container">
         <div class="nav-item" :class="{ active: activeNavItem === 'toolbox' }" @click="handleToolBoxClick">
-          <img :src="toolBoxIcon" alt="工具箱" class="nav-icon" />
+          <img :src="currentToolBoxIcon" alt="工具箱" class="nav-icon" />
           <span class="nav-text">工具箱</span>
         </div>
         <div class="nav-item" :class="{ active: activeNavItem === 'knowledge' }" @click="handleKnowledgeGraphClick">
-          <img :src="knowledgeGraphIcon" alt="知识图谱" class="nav-icon" />
+          <img :src="currentKnowledgeGraphIcon" alt="知识图谱" class="nav-icon" />
           <span class="nav-text">知识图谱</span>
         </div>
         <div class="nav-item" :class="{ active: activeNavItem === 'exercises' }" @click="handleMyExercisesClick">
-          <img :src="exerciseIcon" alt="我的习题" class="nav-icon" />
+          <img :src="currentExerciseIcon" alt="我的习题" class="nav-icon" />
           <span class="nav-text">我的习题</span>
         </div>
       </div>
@@ -32,13 +32,13 @@
       <div class="nav-items-bottom">
         <div class="nav-item" :class="{ active: activeNavItem === 'resources' }" @click="handleMyResourcesClick">
           <div class="nav-icon-wrapper">
-            <img :src="downloadResourcesIcon" alt="资源下载" class="nav-icon" />
+            <img :src="currentDownloadResourcesIcon" alt="资源下载" class="nav-icon" />
             <span class="notification-dot" v-if="hasResourceNotification"></span>
           </div>
           <span class="nav-text">资源下载</span>
         </div>
         <div class="nav-item" @click="handleLogoutClick">
-          <q-icon name="logout" class="nav-icon" />
+          <img :src="currentLogoutIcon" alt="退出登录" class="nav-icon" />
           <span class="nav-text">退出登录</span>
         </div>
       </div>
@@ -54,10 +54,7 @@
       </transition>
       
       <!-- 内容区域 -->
-      <div 
-        class="content-area" 
-        :class="{ 'content-shifted': showToolbox }"
-      >
+      <div class="content-area">
         <router-view />
       </div>
     </div>
@@ -111,11 +108,19 @@ import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
 import MyProfileView from '@/views/MyProfileView.vue'
 
 // 流程：导入图标资源
+// 第1步：导入普通状态图标
 import avatarIcon from '/icons/avatar.svg'
 import toolBoxIcon from '/icons/toolBox.svg'
 import downloadResourcesIcon from '/icons/downloadResources.svg'
-import knowledgeGraphIcon from '/icons/isKnowledgeGraphSelected.svg'
+import knowledgeGraphIcon from '/icons/knowledge_graph.svg'
 import exerciseIcon from '/icons/my_exercises.svg'
+import logoutIcon from '/icons/logout.svg'
+
+// 第2步：导入选中状态图标
+import toolBoxSelectIcon from '/icons/toolBox_select.svg'
+import downloadResourcesSelectIcon from '/icons/downloadResources_select.svg'
+import knowledgeGraphSelectIcon from '/icons/knowledge_graph_select.svg'
+import exerciseSelectIcon from '/icons/my_exercises_select.svg'
 
 // 定义 props
 interface Props {
@@ -162,6 +167,28 @@ const fabStyle = computed(() => ({
   right: `${fabPosition.value.x}px`,
   bottom: `${fabPosition.value.y}px`
 }))
+
+// 第3步：根据选中状态计算当前应该显示的图标
+const currentToolBoxIcon = computed(() => {
+  return activeNavItem.value === 'toolbox' ? toolBoxSelectIcon : toolBoxIcon
+})
+
+const currentKnowledgeGraphIcon = computed(() => {
+  return activeNavItem.value === 'knowledge' ? knowledgeGraphSelectIcon : knowledgeGraphIcon
+})
+
+const currentExerciseIcon = computed(() => {
+  return activeNavItem.value === 'exercises' ? exerciseSelectIcon : exerciseIcon
+})
+
+const currentDownloadResourcesIcon = computed(() => {
+  return activeNavItem.value === 'resources' ? downloadResourcesSelectIcon : downloadResourcesIcon
+})
+
+const currentLogoutIcon = computed(() => {
+  // 退出登录没有选中状态，始终使用普通图标
+  return logoutIcon
+})
 
 // 开始拖动
 const startDrag = (event: MouseEvent | TouchEvent) => {
@@ -340,7 +367,7 @@ const handleLogoutClick = async () => {
 
 // 左侧导航菜单
 .function-menu {
-  width: 7%;
+  width: 8%;
   flex-shrink: 0;
   background: #ffffff;
   border-radius: 0 24px 24px 0;
@@ -348,7 +375,7 @@ const handleLogoutClick = async () => {
   flex-direction: column;
   position: relative;
   align-items: stretch;
-  padding: 16px 8px;
+  padding: 16px 4px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   z-index: 1001; // 确保功能菜单层级高于工具箱
   
@@ -500,9 +527,9 @@ const handleLogoutClick = async () => {
 // 工具箱区域
 .toolbox-area {
   position: fixed;
-  left: 7%; // 左侧导航菜单的宽度
+  left: 7.5%; // 左侧导航菜单的宽度
   top: 0;
-  width: 27%;
+  width: 28%;
   height: 100vh;
   background: #3D3070;
   border-bottom: 1px solid rgba(229, 231, 235, 0.3);
@@ -534,14 +561,22 @@ const handleLogoutClick = async () => {
   }
 }
 
-// 工具箱过渡动画
+// 工具箱过渡动画 - 使用 translate 弹出效果
 .toolbox-transition-enter-active,
 .toolbox-transition-leave-active {
-  transition: transform 0.3s ease;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .toolbox-transition-enter-from {
   transform: translateX(-100%);
+}
+
+.toolbox-transition-enter-to {
+  transform: translateX(0);
+}
+
+.toolbox-transition-leave-from {
+  transform: translateX(0);
 }
 
 .toolbox-transition-leave-to {
@@ -554,15 +589,9 @@ const handleLogoutClick = async () => {
   padding: 0;
   background-color: #e3f2fd;
   min-height: 100vh;
-  transition: margin-left 0.3s ease, width 0.3s ease; // 平滑动画
   width: 100%; // 默认宽度占满父容器（right-main-area）
   min-height: 0;
   overflow: hidden;
-  
-  &.content-shifted {
-    margin-left: 29.03%; // 向右移动工具箱宽度：27%窗口宽度 / 93%父容器宽度 ≈ 29.03%
-    width: calc(100% - 29.03%); // 宽度变窄
-  }
 }
 
 // 悬浮功能按钮

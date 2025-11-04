@@ -243,9 +243,18 @@ export class IndexedDBService {
   public async get<T>(storeName: string, key: IDBValidKey): Promise<T | undefined> {
     await this.ensureInitialized()
     
+    // 详细日志：记录查询参数
+    console.log(`[IndexedDB.get] 查询参数:`, {
+      storeName,
+      key,
+      keyType: typeof key,
+      keyString: String(key),
+      keyNumber: typeof key === 'string' ? Number(key) : key
+    })
+    
     // 检查存储是否存在
     if (!this.db!.objectStoreNames.contains(storeName)) {
-      console.warn(`存储 ${storeName} 不存在，返回 undefined`)
+      console.warn(`[IndexedDB.get] 存储 ${storeName} 不存在，返回 undefined`)
       return undefined
     }
     
@@ -253,13 +262,68 @@ export class IndexedDBService {
       try {
         const transaction = this.db!.transaction([storeName], 'readonly')
         const store = transaction.objectStore(storeName)
+        
+        // 详细日志：记录 keyPath 信息
+        const keyPath = store.keyPath
+        console.log(`[IndexedDB.get] 存储配置:`, {
+          storeName,
+          keyPath,
+          keyPathType: typeof keyPath,
+          autoIncrement: store.autoIncrement
+        })
+        
+        // 详细日志：查询前，先获取所有记录的主键用于对比
+        const getAllKeysRequest = store.getAllKeys()
+        getAllKeysRequest.onsuccess = () => {
+          const allKeys = getAllKeysRequest.result
+          console.log(`[IndexedDB.get] 数据库中所有主键:`, {
+            total: allKeys.length,
+            keys: allKeys.map((k: any) => ({
+              value: k,
+              type: typeof k,
+              string: String(k),
+              number: typeof k === 'string' ? Number(k) : k,
+              equalsQueryKey: k === key,
+              equalsQueryKeyString: String(k) === String(key),
+              equalsQueryKeyNumber: typeof k === 'string' && typeof key === 'string' 
+                ? Number(k) === Number(key) 
+                : k === key
+            }))
+          })
+        }
+        
         const request = store.get(key)
-
-        request.onsuccess = () => resolve(request.result)
+        
+        request.onsuccess = () => {
+          const result = request.result
+          console.log(`[IndexedDB.get] 查询结果:`, {
+            storeName,
+            queryKey: key,
+            queryKeyType: typeof key,
+            found: !!result,
+            resultId: result ? (result as any).id : null,
+            resultIdType: result ? typeof (result as any).id : null
+          })
+          resolve(result)
+        }
         request.onerror = () => {
+          console.error(`[IndexedDB.get] 查询失败:`, {
+            storeName,
+            queryKey: key,
+            queryKeyType: typeof key,
+            error: request.error?.message,
+            errorCode: request.error?.code,
+            errorName: request.error?.name
+          })
           reject(new Error(`获取数据失败: ${request.error?.message}`))
         }
       } catch (error) {
+        console.error(`[IndexedDB.get] 创建事务失败:`, {
+          storeName,
+          queryKey: key,
+          queryKeyType: typeof key,
+          error
+        })
         reject(new Error(`创建事务失败: ${error}`))
       }
     })
