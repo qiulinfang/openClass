@@ -84,6 +84,7 @@
             :records="teacherRecords"
             :selected-record-id="teacherSessionId"
             title="教师答疑记录"
+            :show-favorite="false"
             @record-click="handleTeacherRecordClick"
             @record-delete="handleTeacherRecordDelete"
             @batch-delete="handleTeacherBatchDelete"

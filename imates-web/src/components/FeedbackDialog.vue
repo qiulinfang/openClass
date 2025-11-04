@@ -174,11 +174,6 @@ const submitFeedback = async () => {
   try {
     // TODO: 调用后端API提交反馈
     // 这里先模拟提交
-    console.log('[FeedbackDialog] 📤 提交反馈:', {
-      problem: feedbackForm.value.problem,
-      suggestion: feedbackForm.value.suggestion,
-      hasImage: !!feedbackForm.value.imageData
-    })
 
     // 模拟API调用
     await new Promise(resolve => setTimeout(resolve, 1000))

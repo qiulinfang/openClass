@@ -49,33 +49,27 @@ const PROCESSING_TIMEOUT = 2000 // 2秒防重复时间
 
 // 流程：用户点击X按钮 -> 关闭对话框 -> 取消Promise
 const closeDialog = () => {
-  console.log('[ImagePicker.vue] 🚪 closeDialog() - 用户点击X取消')
   isPickerVisible.value = false
   handleCancel()
 }
 
 // 流程：用户选择了拍照或相册 -> 关闭选择对话框 -> 等待原生返回结果
 const closeDialogWithoutCancel = () => {
-  console.log('[ImagePicker.vue] 🚪 closeDialogWithoutCancel() - 关闭对话框但不取消Promise')
   isPickerVisible.value = false
 }
 
 const captureFromCamera = async () => {
-  console.log('[ImagePicker.vue] 📸 captureFromCamera() - 用户点击拍照')
   try {
     // 第1步：关闭选择对话框（不取消Promise，等待原生返回）
     closeDialogWithoutCancel()
     
     // 第2步：调用原生拍照（原生会在拍照完成后触发事件）
     const result = androidBridge.captureImageFromCamera()
-    console.log('[ImagePicker.vue] 📱 原生拍照调用结果:', result)
     
     if (!result.success) {
       console.error('[ImagePicker.vue] ❌ 启动相机失败')
       showMessage(result.message || '启动相机失败', 'error')
       handleCancel()
-    } else {
-      console.log('[ImagePicker.vue] ⏳ 等待原生拍照完成...')
     }
     // 注意：不需要显示加载状态，因为原生会打开相机界面
     // 拍照完成后，原生会触发 nativeImageCaptureResult 事件
@@ -88,21 +82,17 @@ const captureFromCamera = async () => {
 }
 
 const selectFromGallery = async () => {
-  console.log('[ImagePicker.vue] 🖼️ selectFromGallery() - 用户点击相册')
   try {
     // 第1步：关闭选择对话框（不取消Promise，等待原生返回）
     closeDialogWithoutCancel()
     
     // 第2步：调用原生相册（原生会在选择完成后触发事件）
     const result = androidBridge.selectImageFromGallery()
-    console.log('[ImagePicker.vue] 📱 原生相册调用结果:', result)
     
     if (!result.success) {
       console.error('[ImagePicker.vue] ❌ 打开相册失败')
       showMessage(result.message || '打开相册失败', 'error')
       handleCancel()
-    } else {
-      console.log('[ImagePicker.vue] ⏳ 等待原生相册选择...')
     }
     // 注意：不需要显示加载状态，因为原生会打开相册界面
     // 选择完成后，原生会触发 nativeImagePickResult 事件
@@ -125,16 +115,7 @@ const processImageResult = async (imageData: {
   fileSize?: number
   base64DataUrl?: string
 }, source: 'camera' | 'gallery') => {
-  console.log('[ImagePicker.vue] 📦 processImageResult() 开始处理', {
-    source,
-    success: imageData.success,
-    hasFilePath: !!imageData.filePath,
-    hasBase64DataUrl: !!imageData.base64DataUrl,
-    isProcessing: isProcessingImage
-  })
-  
   if (isProcessingImage) {
-    console.warn('[ImagePicker.vue] ⚠️ 正在处理中，跳过重复处理')
     return
   }
   
@@ -144,7 +125,6 @@ const processImageResult = async (imageData: {
   const { success, filePath, width, height, fileSize, base64DataUrl } = imageData
   
   if (success && base64DataUrl) {
-    console.log('[ImagePicker.vue] ✅ 图片数据完整，开始构造图片信息')
     // 流程：构造图片信息 -> 通过全局composable返回结果 -> 显示成功提示
     // Android端已直接返回base64DataUrl，无需手动拼接
     
@@ -156,13 +136,6 @@ const processImageResult = async (imageData: {
       base64DataUrl: base64DataUrl
     }
       
-      console.log('[ImagePicker.vue] 🎯 调用 handleImageSelected()', {
-        filePath: imageInfo.filePath,
-        width: imageInfo.width,
-        height: imageInfo.height,
-        fileSize: imageInfo.fileSize,
-        base64DataUrlLength: base64DataUrl.length
-      })
       handleImageSelected(imageInfo)
     } else if (success && !base64DataUrl) {
       // 原生端返回成功但没有base64DataUrl数据
@@ -171,7 +144,6 @@ const processImageResult = async (imageData: {
       handleCancel()
     } else {
       // 用户在原生界面取消了选择
-      console.log('[ImagePicker.vue] 🚫 用户在原生界面取消了选择')
       handleCancel()
     }
   } catch (error) {
@@ -182,7 +154,6 @@ const processImageResult = async (imageData: {
   
   // 重置处理标记
   setTimeout(() => {
-    console.log('[ImagePicker.vue] 🔄 重置处理标记')
     isProcessingImage = false
   }, PROCESSING_TIMEOUT)
 }
@@ -207,14 +178,12 @@ onMounted(() => {
   }
 
   // 第1步：添加原生事件监听器
-  console.log('[ImagePicker.vue] 📡 添加原生事件监听器')
   window.addEventListener('nativeImagePickResult', handleNativeImagePickResult)
   window.addEventListener('nativeImageCaptureResult', handleNativeImageCaptureResult)
 })
 
 // 第2步：组件卸载时清理事件监听器
 onUnmounted(() => {
-  console.log('[ImagePicker.vue] 🧹 清理原生事件监听器')
   if (typeof window !== 'undefined') {
     window.removeEventListener('nativeImagePickResult', handleNativeImagePickResult)
     window.removeEventListener('nativeImageCaptureResult', handleNativeImageCaptureResult)

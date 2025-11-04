@@ -1018,7 +1018,6 @@ const handleFormulaKeyboardToggle = (event: Event) => {
     }
 
     // 修复：公式键盘隐藏时，确保状态正确更新，为后续原生键盘处理做准备
-    console.log('🎯 [CHAT_VIEW] 公式键盘隐藏，状态已更新')
   }
 }
 
@@ -1238,34 +1237,22 @@ const onVoiceRecognitionResult = (text: string) => {
 
 // 作用：显示图片选择器对话框并处理选择结果
 const showImagePickerDialog = async () => {
-  console.log('[ChatView] 🎬 showImagePickerDialog() 开始')
-  
   // 第1步：检查是否需要选择题目（策略模式重构版）
   if (!hasSelectedQuestion.value && chatStrategy.value?.requiresQuestion()) {
-    console.log('[ChatView] ❌ 未选择题目，终止')
     androidBridge.showToast('请先选择题目')
     return
   }
 
   // 第2步：打开全局图片选择器并等待结果
-  console.log('[ChatView] ⏳ 调用 pickImage()，等待用户选择...')
   const imageInfo = await pickImage()
-  console.log('[ChatView] 📥 pickImage() 返回:', imageInfo ? '有图片数据' : 'null（用户取消）')
   
   // 第3步：如果用户取消，直接返回
   if (!imageInfo) {
-    console.log('[ChatView] 🚫 用户取消，退出')
     return
   }
   
   // 第4步：处理选择的图片
-  console.log('[ChatView] ✅ 开始处理图片:', {
-    filePath: imageInfo.filePath,
-    width: imageInfo.width,
-    height: imageInfo.height
-  })
   await onImageSelected(imageInfo)
-  console.log('[ChatView] 🎉 图片处理完成')
 }
 
 // 作用：处理图片选择结果，创建图片消息并发送到后端
@@ -1981,10 +1968,8 @@ onMounted(async () => {
     
     const handleNativeKeyboardShow = (event: Event) => {
       if (!nativeKeyboardListenersEnabled) {
-        console.log('🎯 [CHAT_VIEW] 原生键盘显示事件被忽略（公式编辑中）')
         return
       }
-      console.log('🎯 [CHAT_VIEW] 原生键盘显示事件')
       const customEvent = event as CustomEvent
       // 原生键盘显示时只压缩页面，不滚动（压缩后输入框自动可见）
       handleKeyboardShown(customEvent.detail)
@@ -1992,10 +1977,8 @@ onMounted(async () => {
     
     const handleNativeKeyboardHide = () => {
       if (!nativeKeyboardListenersEnabled) {
-        console.log('🎯 [CHAT_VIEW] 原生键盘隐藏事件被忽略（公式编辑中）')
         return
       }
-      console.log('🎯 [CHAT_VIEW] 原生键盘隐藏事件')
       // 原生键盘隐藏时恢复页面
       handleKeyboardHidden()
     }
@@ -2005,12 +1988,10 @@ onMounted(async () => {
     
     // 暴露控制函数给全局使用
     ;(window as unknown as Record<string, unknown>).disableNativeKeyboardListeners = () => {
-      console.log('🎯 [CHAT_VIEW] 禁用原生键盘事件监听器')
       nativeKeyboardListenersEnabled = false
     }
     
     ;(window as unknown as Record<string, unknown>).enableNativeKeyboardListeners = () => {
-      console.log('🎯 [CHAT_VIEW] 启用原生键盘事件监听器')
       nativeKeyboardListenersEnabled = true
     }
 
@@ -2211,16 +2192,12 @@ watch(
       return
     }
     
-    console.log('[ChatView] 📸 检测到待发送图片（AI通用），开始自动发送')
-    
     try {
       // 第3步：调用onImageSelected发送图片
       await onImageSelected(pendingImageData)
       
       // 第4步：清除待发送图片状态
       aiGeneralStore.clearPendingImage()
-      
-      console.log('[ChatView] ✅ 图片发送完成')
     } catch (error) {
       console.error('[ChatView] ❌ 自动发送图片失败:', error)
       // 清除待发送图片状态（即使失败也要清除，避免重复发送）
@@ -2248,16 +2225,12 @@ watch(
       return
     }
     
-    console.log('[ChatView] 📸 检测到待发送图片（教师），开始自动发送')
-    
     try {
       // 第3步：调用onImageSelected发送图片
       await onImageSelected(pendingImageData)
       
       // 第4步：清除待发送图片状态
       teacherStore.clearPendingImage()
-      
-      console.log('[ChatView] ✅ 图片发送完成')
     } catch (error) {
       console.error('[ChatView] ❌ 自动发送图片失败:', error)
       // 清除待发送图片状态（即使失败也要清除，避免重复发送）

@@ -817,7 +817,6 @@ const refreshQuestions = () => {
 
 // 题目选择方法
 const selectQuestion = async (question: ExerciseItem, index: number) => {
-  console.log('selectQuestion', question, index)
   if (index >= 0 && index < questions.value.length) {
     selectedQuestionIndex.value = index
 

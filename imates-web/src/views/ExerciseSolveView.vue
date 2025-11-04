@@ -85,8 +85,9 @@
               >
               </q-select>
 
-              <!-- 对比统计按钮 -->
+              <!-- 对比统计按钮 - 只在开发场景下显示 -->
               <q-btn
+                v-if="isDev"
                 icon="analytics"
                 label="输出对比统计"
                 flat
@@ -174,6 +175,10 @@ import SimilarQuestionList from '../components/SimilarQuestionList.vue'
 import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem } from '../types'
 
+// 第1步：判断是否显示调试功能（仅通过环境变量控制）
+// 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
+const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
+
 // 加载时间日志
 const loadStartTime = performance.now()
 // 获取时间字符串的工具函数
@@ -187,7 +192,6 @@ const getTimeString = () => {
   const seconds = String(now.getSeconds()).padStart(2, '0')
   return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`
 }
-console.log(`${getTimeString()} [ExerciseSolveView] 组件开始初始化`)
 
 const route = useRoute()
 const questionStore = useQuestionStore()
@@ -198,7 +202,6 @@ const uiStore = useUIStore()
 const { currentQuestion, questions } = storeToRefs(questionStore)
 
 const initTime = performance.now()
-console.log(`${getTimeString()} [ExerciseSolveView] Store初始化完成，耗时: ${(initTime - loadStartTime).toFixed(2)}ms`)
 
 const currentFunction = ref<'chatAi' | 'askTeacher' | 'viewAnswer' | 'similarQuestion'>('chatAi')
 
@@ -312,31 +315,19 @@ const handleQuestionAdded = () => {
 // 处理打开微课
 const handleOpenMiniClass = (question: ExerciseItem) => {
   try {
-    console.log(`${getTimeString()} [ExerciseSolveView] 开始处理打开微课，题目ID: ${question.id}`)
-    console.log(`${getTimeString()} [ExerciseSolveView] 题目信息:`, {
-      id: question.id,
-      title: question.title,
-      questionPreview: question.question?.substring(0, 100)
-    })
-    
     // 使用硬编码的微课URL
     const classUrl = 'https://www.imates.com.cn:9099/demo/demo1.html'
-    console.log(`${getTimeString()} [ExerciseSolveView] 使用的微课URL: ${classUrl}`)
     
     if (!classUrl || classUrl.trim() === '') {
-      console.warn(`${getTimeString()} [ExerciseSolveView] 微课URL为空，取消打开`)
       showMessage('该题目暂无微课', 'warning')
       return
     }
 
     // 更新UI Store中的微课信息并打开弹框
     const questionTitle = question.title || question.question?.substring(0, 50) || ''
-    console.log(`${getTimeString()} [ExerciseSolveView] 更新UI Store微课信息，标题: ${questionTitle}`)
     uiStore.openMiniClassDialog(classUrl, questionTitle)
-    
-    console.log(`${getTimeString()} [ExerciseSolveView] 打开微课弹框成功完成`)
   } catch (error) {
-    console.error(`${getTimeString()} [ExerciseSolveView] 打开微课失败:`, error)
+    console.error(`[ExerciseSolveView] 打开微课失败:`, error)
     showMessage('打开微课失败', 'error')
   }
 }
@@ -344,8 +335,6 @@ const handleOpenMiniClass = (question: ExerciseItem) => {
 // 处理拍作业：发送题目给老师
 const handleSendQuestionToTeacher = async (question: ExerciseItem) => {
   try {
-    console.log(`${getTimeString()} [ExerciseSolveView] 开始处理拍作业，题目ID: ${question.id}`)
-    
     // 第1步：切换到老师答疑模式（这会触发 ChatView 的初始化）
     currentFunction.value = 'askTeacher'
     
@@ -358,8 +347,6 @@ const handleSendQuestionToTeacher = async (question: ExerciseItem) => {
     
     // 第4步：确保会话已创建，如果没有则创建一个新的会话
     if (!teacherStore.currentSession && questionStore.currentQuestion) {
-      console.log(`${getTimeString()} [ExerciseSolveView] 会话不存在，创建新会话`)
-      
       // 生成会话ID和名称
       const aiSessionId = `ai_session_${question.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       
@@ -384,7 +371,6 @@ const handleSendQuestionToTeacher = async (question: ExerciseItem) => {
       if (createdSession) {
         // 初始化消息监听器
         await teacherStore.initMessageReceiver()
-        console.log(`${getTimeString()} [ExerciseSolveView] 新会话已创建: ${createdSession.sessionId}`)
       }
     }
     
@@ -396,8 +382,6 @@ const handleSendQuestionToTeacher = async (question: ExerciseItem) => {
     
     // 第7步：发送题目内容给老师
     if (teacherStore.currentSession) {
-      console.log(`${getTimeString()} [ExerciseSolveView] 发送题目内容给老师`)
-      
       // 先添加用户消息（题目内容）
       const userMessage: import('../types').ChatBubble = {
         id: Date.now().toString(),
@@ -414,14 +398,13 @@ const handleSendQuestionToTeacher = async (question: ExerciseItem) => {
       // 发送消息给老师
       await teacherStore.sendMessage(questionContent)
       
-      console.log(`${getTimeString()} [ExerciseSolveView] 题目已发送给老师`)
       showMessage('题目已发送给老师', 'success')
     } else {
-      console.error(`${getTimeString()} [ExerciseSolveView] 会话创建失败，无法发送题目`)
+      console.error(`[ExerciseSolveView] 会话创建失败，无法发送题目`)
       showMessage('会话创建失败，请重试', 'error')
     }
   } catch (error) {
-    console.error(`${getTimeString()} [ExerciseSolveView] 拍作业失败:`, error)
+    console.error(`[ExerciseSolveView] 拍作业失败:`, error)
     showMessage('拍作业失败: ' + (error as Error).message, 'error')
   }
 }
@@ -429,14 +412,12 @@ const handleSendQuestionToTeacher = async (question: ExerciseItem) => {
 const handleScrollToQuestionAndSelect = (targetIndex: number) => {
   // 调用题目列表的滚动到指定题目并设置为选中状态方法
   if (questionListRef.value && typeof questionListRef.value.scrollToQuestionAndSelect === 'function') {
-    console.log(`${getTimeString()} [ExerciseSolveView] 调用题目列表滚动到指定题目并设置为选中状态，索引: ${targetIndex}`)
     questionListRef.value.scrollToQuestionAndSelect(targetIndex)
   }
 }
 
 // 滚动到页面底部的方法
 const scrollToBottom = () => {
-  console.log(`${getTimeString()} [ExerciseSolveView] 滚动到页面底部`)
   // 使用 nextTick 确保 DOM 更新完成
   nextTick(() => {
     // 获取页面的实际滚动高度
@@ -485,29 +466,14 @@ const scrollToBottom = () => {
 }
 
 onMounted(async () => {
-    // 加载时间日志
-    const mountedStartTime = performance.now()
-    const totalInitTime = mountedStartTime - loadStartTime
-    console.log(`${getTimeString()} [ExerciseSolveView] onMounted 开始，距离组件初始化: ${totalInitTime.toFixed(2)}ms`)
-    
     // 静默初始化，不显示加载状态
     try {
       // 初始化用户store
-      const userStoreStartTime = performance.now()
-      console.log(`${getTimeString()} [ExerciseSolveView] 开始初始化 userStore.initializeStore()`)
       await userStore.initializeStore()
-      const userStoreEndTime = performance.now()
-      const userStoreDuration = userStoreEndTime - userStoreStartTime
-      console.log(`${getTimeString()} [ExerciseSolveView] userStore.initializeStore() 完成，耗时: ${userStoreDuration.toFixed(2)}ms`)
       
       // 优先使用本地数据，不立即请求API
       // fetchQuestions 方法会先尝试从本地存储加载，如果没有数据再请求API
-      const fetchQuestionsStartTime = performance.now()
-      console.log(`${getTimeString()} [ExerciseSolveView] 开始获取题目列表 questionStore.fetchQuestions('math', true)`)
       await questionStore.fetchQuestions('math', true)
-      const fetchQuestionsEndTime = performance.now()
-      const fetchQuestionsDuration = fetchQuestionsEndTime - fetchQuestionsStartTime
-      console.log(`${getTimeString()} [ExerciseSolveView] questionStore.fetchQuestions() 完成，耗时: ${fetchQuestionsDuration.toFixed(2)}ms`)
       
       // 检查路由参数中是否有 questionId，如果有则定位到该题目
       const questionId = route.query.questionId as string | undefined
@@ -519,35 +485,17 @@ onMounted(async () => {
         // 在题目列表中查找对应的题目索引
         const targetIndex = questions.value.findIndex(q => q.id === questionId || q.bmNo === questionId)
         if (targetIndex >= 0) {
-          console.log(`${getTimeString()} [ExerciseSolveView] 找到目标题目，索引: ${targetIndex}`)
           // 等待组件完全渲染后再定位
           await nextTick()
           setTimeout(() => {
             if (questionListRef.value && typeof questionListRef.value.scrollToQuestionAndSelect === 'function') {
               questionListRef.value.scrollToQuestionAndSelect(targetIndex)
-              console.log(`${getTimeString()} [ExerciseSolveView] 已定位到题目，索引: ${targetIndex}`)
             }
           }, 500)
-        } else {
-          console.log(`${getTimeString()} [ExerciseSolveView] 未找到目标题目，questionId: ${questionId}`)
         }
       }
-      
-      // 总耗时统计
-      const mountedEndTime = performance.now()
-      const mountedDuration = mountedEndTime - mountedStartTime
-      const totalDuration = mountedEndTime - loadStartTime
-      console.log(`${getTimeString()} [ExerciseSolveView] onMounted 完成，总耗时: ${mountedDuration.toFixed(2)}ms`)
-      console.log(`${getTimeString()} [ExerciseSolveView] 完整加载统计:`)
-      console.log(`   - 组件初始化到Store初始化: ${totalInitTime.toFixed(2)}ms`)
-      console.log(`   - userStore初始化: ${userStoreDuration.toFixed(2)}ms`)
-      console.log(`   - fetchQuestions: ${fetchQuestionsDuration.toFixed(2)}ms`)
-      console.log(`   - onMounted总耗时: ${mountedDuration.toFixed(2)}ms`)
-      console.log(`   - 组件加载总耗时: ${totalDuration.toFixed(2)}ms`)
     } catch (error) {
-      const errorTime = performance.now()
-      const errorDuration = errorTime - mountedStartTime
-      console.error(`${getTimeString()} [ExerciseSolveView] 初始化失败，耗时: ${errorDuration.toFixed(2)}ms`, error)
+      console.error(`[ExerciseSolveView] 初始化失败:`, error)
     }
 })
 </script>

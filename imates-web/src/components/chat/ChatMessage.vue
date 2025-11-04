@@ -329,7 +329,6 @@ const { elementRef: messageElementRef } = useLazyMessageRender({
 // 重发方法
 const handleRetry = async () => {
   if (!props.message.canRetry || isRetrying.value) {
-    console.log('重发失败')
     return
   }
 
@@ -341,43 +340,38 @@ const handleRetry = async () => {
     
     switch (props.type) {
       case 'ai-exercise':
-          console.log('ai-exercise')
           await aiExerciseStore.retryMessage(
-          props.message.id,
-          questionStore.currentQuestion,
-          userStore.userInfo,
-          subject,
-          'mate',
-          props.message.imageData
-        )
-        break
-      case 'ai-general':
-        console.log('ai-general')
-        await aiGeneralStore.retryMessage(
-          props.message.id,
-          userStore.userInfo,
-          subject,
-          'mate'
-        )
-        break
-      case 'ai-textbook':
-        console.log('ai-textbook')
-        await aiTextbookStore.retryAiMessage(
-          props.message.id,
-          'mate',
-          props.message.imageData
-        )
-        break
-      case 'teacher':
-        console.log('teacher')
-        await teacherStore.retryTeacherMessage(
-          props.message.id,
-          props.message.imageData
-        )
-        break
-      default:
-        console.log('default')
-        throw new Error('未知的聊天类型')
+        props.message.id,
+        questionStore.currentQuestion,
+        userStore.userInfo,
+        subject,
+        'mate',
+        props.message.imageData
+      )
+      break
+    case 'ai-general':
+      await aiGeneralStore.retryMessage(
+        props.message.id,
+        userStore.userInfo,
+        subject,
+        'mate'
+      )
+      break
+    case 'ai-textbook':
+      await aiTextbookStore.retryAiMessage(
+        props.message.id,
+        'mate',
+        props.message.imageData
+      )
+      break
+    case 'teacher':
+      await teacherStore.retryTeacherMessage(
+        props.message.id,
+        props.message.imageData
+      )
+      break
+    default:
+      throw new Error('未知的聊天类型')
     }
     
     $q.notify({
@@ -753,15 +747,12 @@ const handleEdit = () => {
 // 处理刷新
 const handleRefresh = async () => {
   if (props.message.isStreaming) {
-    console.log('正在流式生成消息，不能刷新')
     return
   }
 
   if (isRetrying.value) {
     return
   }
-
-  console.log('刷新消息')
   
   // 如果是错误消息且有 canRetry 和 originalMessage，使用重试逻辑
   if (props.message.canRetry && props.message.originalMessage) {

@@ -854,7 +854,6 @@ const checkForUpdates = async () => {
         } else {
           // 本地没有找到对应的教材（可能是新教材或已被删除）
           // 可以选择忽略，或者如果需要，可以添加到本地列表
-          console.log(`[检查更新] 发现新教材或本地未找到: ${updatedTextbook.textbookName} (${updatedTextbook.textbookId})`)
         }
       })
 
@@ -879,14 +878,12 @@ const checkForUpdates = async () => {
 const downloadTextbook = async (textbook: UserTextbookInfo) => {
   // 🔒 防重复下载：检查是否已在下载中
   if (textbook.downloadStatus === 1) {
-    console.warn(`[防重复下载] 教材《${textbook.textbookName}》已在下载中，忽略重复请求`)
     showMessage(`《${textbook.textbookName}》正在下载中，请勿重复操作`, 'warning')
     return
   }
 
   // 🔒 防重复下载：检查是否已下载完成
   if (textbook.downloadStatus === 2 && textbook.isDownloaded) {
-    console.warn(`[防重复下载] 教材《${textbook.textbookName}》已下载完成，忽略重复请求`)
     return
   }
 
@@ -901,8 +898,6 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
     const success = await apiService.downloadTextbook(
       textbook,
       async (progress, downloadedCount) => {
-        console.log('progress', progress, 'downloadedCount', downloadedCount)
-        console.log(new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit'}))
         // 更新下载进度 - 使用实际下载的文件数
         textbook.downloadedFiles = downloadedCount
       },
@@ -996,7 +991,6 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
 const pauseDownload = async (textbook: UserTextbookInfo) => {
   try {
     const success = await apiService.pauseDownload(textbook.textbookId)
-    console.log('暂停')
     if (success) {
       textbook.downloadStatus = 3 // 已暂停
       textbook.isDownloaded = false
@@ -1154,30 +1148,14 @@ const confirmDeleteTextbook = async () => {
 
 // 生命周期
 onMounted(async () => {
-  // 第1步：记录 onMounted 开始时间
-  const mountStartTime = performance.now()
-  console.warn(`[onMounted] 开始时间: ${new Date().toLocaleTimeString('zh-CN')}`)
-
-  // 第2步：加载资源数据
-  const loadResourcesStartTime = performance.now()
+  // 第1步：加载资源数据
   await loadResources()
-  const loadResourcesEndTime = performance.now()
-  console.warn(`[onMounted] loadResources 耗时: ${(loadResourcesEndTime - loadResourcesStartTime).toFixed(2)}ms`)
 
-  // 第3步：初始化 better-scroll
-  const initBScrollStartTime = performance.now()
+  // 第2步：初始化 better-scroll
   await initBScroll()
-  const initBScrollEndTime = performance.now()
-  console.warn(`[onMounted] initBScroll 耗时: ${(initBScrollEndTime - initBScrollStartTime).toFixed(2)}ms`)
 
-  // 第4步：清理过期数据 - 延迟到后台执行
+  // 第3步：清理过期数据 - 延迟到后台执行
     resourceManager.cleanupExpiredData()
-
-  // 第5步：记录 onMounted 总耗时
-  const mountEndTime = performance.now()
-  const totalTime = mountEndTime - mountStartTime
-  console.warn(`[onMounted] 总耗时: ${totalTime.toFixed(2)}ms (${(totalTime / 1000).toFixed(2)}s)`)
-  console.warn(`[onMounted] 完成时间: ${new Date().toLocaleTimeString('zh-CN')}`)
 
   // 定期检查更新（每60分钟）- 延迟启动
     setInterval(
@@ -1202,8 +1180,6 @@ const pauseAllDownloadingTasks = async () => {
       return
     }
     
-    console.log(`[页面离开] 发现 ${downloadingTextbooks.length} 个正在下载的任务，开始暂停...`)
-    
     // 流程：批量暂停所有正在下载的任务
     const pausePromises = downloadingTextbooks.map(async (textbook) => {
       try {
@@ -1221,20 +1197,14 @@ const pauseAllDownloadingTasks = async () => {
             isDownloaded: false,
             downloadedFiles: textbook.downloadedFiles,
           })
-          
-          console.log(`[页面离开] ✅ 已暂停教材: ${textbook.textbookName}`)
-        } else {
-          console.warn(`[页面离开] ⚠️ 暂停教材失败: ${textbook.textbookName}`)
         }
       } catch (error) {
-        console.error(`[页面离开] ❌ 暂停教材出错: ${textbook.textbookName}`, error)
+        console.error(`[页面离开] 暂停教材出错: ${textbook.textbookName}`, error)
       }
     })
     
     // 等待所有暂停操作完成
     await Promise.all(pausePromises)
-    
-    console.log(`[页面离开] 🎉 所有下载任务已暂停`)
   } catch (error) {
     console.error('[页面离开] 暂停下载任务时发生错误:', error)
   }
@@ -1585,7 +1555,7 @@ const printLocalFilesData = async () => {
             align-items: center;
             gap: 8px;
             padding: 2px 4px;
-            margin-top: 40px;
+            margin-top: 44px;
             border-radius: 4px;
             width: fit-content;
 
@@ -1613,7 +1583,7 @@ const printLocalFilesData = async () => {
             }
 
             .status-text {
-              font-size: 14px;
+              font-size: 12px;
               font-weight: 500;
               color: #ffffff;
             }

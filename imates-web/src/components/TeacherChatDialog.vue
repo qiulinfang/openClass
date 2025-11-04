@@ -15,6 +15,7 @@
           :records="teacherRecords"
           :selected-record-id="teacherSessionId"
           title="聊天记录"
+          :show-favorite="false"
           @record-click="handleRecordClick"
           @record-delete="handleRecordDelete"
           @batch-delete="handleBatchDelete"

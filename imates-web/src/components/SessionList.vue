@@ -135,7 +135,7 @@
                       <q-item-section>{{ record.pinned ? '取消置顶' : '置顶' }}</q-item-section>
                     </q-item>
 
-                    <q-item clickable v-close-popup @click="handleFavorite(record)">
+                    <q-item v-if="showFavorite" clickable v-close-popup @click="handleFavorite(record)">
                       <q-item-section avatar>
                         <q-icon 
                           :name="isFavorite(record.id) ? 'star' : 'star_border'" 
@@ -214,6 +214,7 @@ interface Props {
   selectedRecordId?: string // 当前选中的会话ID
   showHeader?: boolean // 是否显示头部
   title?: string // 标题文字
+  showFavorite?: boolean // 是否显示收藏功能
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -221,6 +222,7 @@ const props = withDefaults(defineProps<Props>(), {
   selectedRecordId: undefined,
   showHeader: true,
   title: '聊天记录',
+  showFavorite: true,
 })
 
 // 定义 emits
@@ -359,6 +361,9 @@ const isFavorite = (recordId: string): boolean => {
 
 // 初始化收藏状态
 const initFavoriteStatus = () => {
+  // 如果禁用收藏功能，不需要初始化
+  if (!props.showFavorite) return
+  
   const favorites = getFavoriteQas()
   favoriteStatus.value.clear()
   favorites.forEach(f => {
@@ -368,6 +373,9 @@ const initFavoriteStatus = () => {
 
 // 第7步：处理收藏/取消收藏
 const handleFavorite = (record: QuestionRecord) => {
+  // 如果禁用收藏功能，直接返回
+  if (!props.showFavorite) return
+  
   const wasFavorite = isFavorite(record.id)
   const success = toggleQaFavorite(record)
   

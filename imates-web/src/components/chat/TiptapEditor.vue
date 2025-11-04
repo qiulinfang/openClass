@@ -153,21 +153,17 @@ const focusEditor = () => {
 
 // 调试函数 - 已删除相关功能
 const debugShowKeyboard = () => {
-  console.log('调试功能已删除')
 }
 
 const debugHideKeyboard = () => {
-  console.log('调试功能已删除')
 }
 
 const debugCreateFormula = async () => {
-  console.log('调试功能已删除')
 }
 
 const debugClearAll = () => {
   // 清空编辑器内容
   editor.value?.commands.clearContent()
-  console.log('调试功能已删除')
 }
 
 const toggleDebugMode = () => {
@@ -190,7 +186,6 @@ const getMarkdown = (): string => {
 
 // 插入数学公式方法 - 已删除相关功能
 const insertMathFormula = async () => {
-  console.log('数学公式功能已删除')
 }
 
 // 暴露方法给父组件
@@ -205,10 +200,8 @@ defineExpose({
   insertMathFormula,
   // 调试相关方法 - 已删除
   hideAllVirtualKeyboards: () => {
-    console.log('调试功能已删除')
   },
   deactivateAllFormulas: () => {
-    console.log('调试功能已删除')
   },
   // 获取编辑器实例（用于调试）
   editor: computed(() => editor.value)

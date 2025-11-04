@@ -136,19 +136,14 @@ const userInfo = computed(() => userStore.userInfo || {
 
 // 检查课堂状态的函数
 const checkClassroomStatus = () => {
-  console.log('[MyProfileView] 🔍 checkClassroomStatus() - 开始检查课堂状态')
   // 流程：读取原生课堂状态 -> 更新前端状态
   const status = androidBridge.getClassroomStatus() as BridgeClassroomStatus | null
-  console.log('[MyProfileView] 📊 从原生端获取的课堂状态:', status)
   
   if (status && status.isInClass === true) {
     isInClass.value = true
-    console.log('[MyProfileView] ✅ 课堂状态已更新: isInClass = true')
   } else {
     isInClass.value = false
-    console.log('[MyProfileView] ✅ 课堂状态已更新: isInClass = false')
   }
-  console.log('[MyProfileView] 🎯 checkClassroomStatus() - 检查完成, 当前状态:', isInClass.value)
 }
 
 // 初始化
@@ -248,19 +243,9 @@ const confirmJoinClass = () => {
   
   // 只有当完全没有用户ID时才认为是游客模式
   const isGuest = !studentId
-  
-  console.log('🔍 加入课堂参数:', {
-    storeUserId,
-    nativeUserId,
-    studentId,
-    studentName,
-    isGuest,
-    userInfo: userInfo.value
-  })
 
   // 流程：调用原生加入课堂 -> 成功则更新状态
   const ok = androidBridge.joinClassroom(studentId, studentName, isGuest)
-  console.log('joinClassroom', ok)
   if (ok) {
     isInClass.value = true
     showMessage('已加入课堂', 'success')
@@ -299,7 +284,6 @@ const chatWithTeacher = async () => {
 
 // 初始化教师对话（供外部调用）
 const selectSubject = async (subject: 'biology' | 'math') => {
-  console.log('[MyProfileView] 🎯 selectSubject() - 初始化教师对话')
   try {
     // 第1步：确保用户信息已加载
     if (!userInfo.value?.id) {
@@ -323,8 +307,6 @@ const selectSubject = async (subject: 'biology' | 'math') => {
     if (unifiedChatDialogRef.value) {
       await unifiedChatDialogRef.value.createTeacherSession(subject)
     }
-    
-    console.log('[MyProfileView] ✅ 教师对话准备完成')
   } catch (error) {
     console.error('[MyProfileView] ❌ 准备教师对话失败:', error)
     showMessage('准备教师对话失败，请重试', 'error')
@@ -333,8 +315,6 @@ const selectSubject = async (subject: 'biology' | 'math') => {
 
 // 处理会话创建事件
 const handleSessionCreated = (sessionId: string, type: 'ai' | 'teacher') => {
-  console.log('[MyProfileView] ✅ 会话已创建:', { sessionId, type })
-  
   // 如果是教师会话，设置会话到 Store
   if (type === 'teacher') {
     const sessionData = localStorage.getItem(`teacher_chat_${sessionId}_session`)

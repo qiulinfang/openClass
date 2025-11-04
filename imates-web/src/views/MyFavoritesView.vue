@@ -52,32 +52,40 @@
             v-for="(item, index) in qaFavorites"
             :key="item.id || index"
             class="favorite-card qa-card"
-            @click="handleQaCardClick(item.record)"
           >
             <div class="card-content">
-              <!-- 对话元信息 -->
-              <div class="card-meta">
-                <div class="meta-info">
-                  <span class="meta-tag" :class="getMetaTagClass(item.record)">
-                    {{ getMetaTagText(item.record) }}
-                  </span>
-                  <span v-if="getChatMetaInfo(item.record).sessionName" class="meta-session-name">
-                    {{ getChatMetaInfo(item.record).sessionName }}
-                  </span>
-                  <span v-if="getChatMetaInfo(item.record).msgCount !== undefined" class="meta-msg-count">
-                    {{ getChatMetaInfo(item.record).msgCount }}条消息
-                  </span>
-                </div>
-                <div class="meta-time">{{ formatTimestamp(item.timestamp) }}</div>
-              </div>
-              
-              <!-- 问题内容 -->
+              <!-- 问题内容和时间戳 -->
               <div class="card-text" v-html="renderContent(item.record.question)"></div>
+              <div class="card-timestamp">{{ formatTimestamp(item.timestamp) }}</div>
+            </div>
+            
+            <!-- 操作按钮区域 -->
+            <div class="card-actions">
+              <!-- 删除按钮 -->
+              <q-btn
+                flat
+                round
+                dense
+                icon="delete"
+                color="negative"
+                class="delete-btn"
+                @click.stop="handleDeleteSession(item.record)"
+              >
+                <q-tooltip>删除会话</q-tooltip>
+              </q-btn>
               
-              <!-- 回答内容 -->
-              <div v-if="item.record.answer" class="card-answer">
-                {{ truncateText(item.record.answer, 100) }}
-              </div>
+              <!-- 查看按钮 -->
+              <q-btn
+                flat
+                round
+                dense
+                icon="visibility"
+                color="primary"
+                class="view-btn"
+                @click.stop="handleQaCardClick(item.record)"
+              >
+                <q-tooltip>查看会话</q-tooltip>
+              </q-btn>
             </div>
           </div>
         </div>
@@ -130,7 +138,8 @@
 import { ref, onMounted, watch, onActivated, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
-import { getFavoriteQas, getFavoriteExercises } from '../utils/favorites'
+import { getFavoriteQas, getFavoriteExercises, removeQaFavorite } from '../utils/favorites'
+import { showMessage } from '../utils'
 import type { QuestionRecord, AiGeneralSession } from '../types/chat'
 import type { ExerciseItem } from '../types/exercise'
 import QaDetailDialog from '../components/QaDetailDialog.vue'
@@ -292,27 +301,6 @@ const loadTeacherMsgCount = async (sessionId: string) => {
   }
 }
 
-// 获取元信息标签的文本
-const getMetaTagText = (record: QuestionRecord): string => {
-  const metaInfo = getChatMetaInfo(record)
-  
-  if (metaInfo.type === 'teacher') {
-    return metaInfo.subject === 'biology' ? '生物老师' : '数学老师'
-  }
-  
-  return 'AI聊天'
-}
-
-// 获取元信息标签的样式类
-const getMetaTagClass = (record: QuestionRecord): string => {
-  const metaInfo = getChatMetaInfo(record)
-  
-  if (metaInfo.type === 'teacher') {
-    return metaInfo.subject === 'biology' ? 'tag-teacher-bio' : 'tag-teacher-math'
-  }
-  
-  return 'tag-ai'
-}
 
 // 处理问答卡片点击 - 打开 UnifiedChatDialog
 const handleQaCardClick = async (record: QuestionRecord) => {
@@ -356,6 +344,42 @@ const handleQaCardClick = async (record: QuestionRecord) => {
   }
 }
 
+// 处理删除会话
+const handleDeleteSession = async (record: QuestionRecord) => {
+  try {
+    // 判断对话类型
+    const chatType = getChatType(record)
+    
+    if (chatType.type === 'teacher') {
+      // 删除教师会话
+      const { useTeacherChatStore } = await import('@/stores/teacherChatStore')
+      const teacherStore = useTeacherChatStore()
+      
+      // 删除localStorage中的会话数据
+      localStorage.removeItem(`teacher_chat_${record.id}_session`)
+      
+      // 删除IndexedDB中的聊天历史
+      await teacherStore.clearChatHistory(record.id)
+    } else {
+      // 删除AI会话
+      const { useAiGeneralChatStore } = await import('@/stores/aiGeneralChatStore')
+      const aiGeneralStore = useAiGeneralChatStore()
+      await aiGeneralStore.deleteSession(record.id)
+    }
+    
+    // 从收藏列表中移除
+    removeQaFavorite(record.id)
+    
+    // 刷新列表
+    await loadQaFavorites()
+    
+    showMessage('删除成功', 'success')
+  } catch (error) {
+    console.error('删除会话失败:', error)
+    showMessage('删除失败，请重试', 'error')
+  }
+}
+
 // 处理练习卡片点击 - 跳转到我的习题
 const handleExerciseCardClick = async (item: ExerciseItem) => {
   try {
@@ -392,11 +416,6 @@ const formatTimestamp = (timestamp: number) => {
   return `${year}-${month}-${day} ${hours}:${minutes}`
 }
 
-// 截断文本
-const truncateText = (text: string, maxLength: number): string => {
-  if (!text || text.length <= maxLength) return text || ''
-  return text.substring(0, maxLength) + '...'
-}
 
 // 加载问答收藏
 const loadQaFavorites = async () => {
@@ -618,8 +637,10 @@ $text-tertiary: #9aa0a6;
   padding: 16px;
   border: 1px solid $card-border;
   box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.1);
-  cursor: pointer;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
   
   &:hover {
     box-shadow: 0 2px 8px 0 rgba(60, 64, 67, 0.15);
@@ -630,72 +651,32 @@ $text-tertiary: #9aa0a6;
     transform: translateY(0);
   }
   
+  &.qa-card {
+    cursor: default; // 问答卡片不再整体可点击
+  }
+  
+  &.exercise-card {
+    cursor: pointer; // 练习卡片保持整体可点击
+  }
+  
   .card-content {
+    flex: 1;
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
   
-  // 对话元信息区域
-  .card-meta {
+  .card-actions {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-bottom: 4px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid $card-border;
+    gap: 8px;
+    flex-shrink: 0;
     
-    .meta-info {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      
-      .meta-tag {
-        display: inline-flex;
-        align-items: center;
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: 11px;
-        font-weight: 500;
-        white-space: nowrap;
-        
-        &.tag-ai {
-          background: rgba(138, 43, 226, 0.1);
-          color: #8a2be2;
-        }
-        
-        &.tag-teacher-bio {
-          background: rgba(34, 139, 34, 0.1);
-          color: #228b22;
-        }
-        
-        &.tag-teacher-math {
-          background: rgba(30, 144, 255, 0.1);
-          color: #1e90ff;
-        }
-      }
-      
-      .meta-session-name {
-        font-size: 12px;
-        color: $text-secondary;
-        max-width: 150px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      
-      .meta-msg-count {
-        font-size: 11px;
-        color: $text-tertiary;
-      }
-    }
-    
-    .meta-time {
-      font-size: 11px;
-      color: $text-tertiary;
-      white-space: nowrap;
-      flex-shrink: 0;
+    .delete-btn,
+    .view-btn {
+      width: 32px;
+      height: 32px;
+      min-height: 32px;
     }
   }
   
@@ -722,10 +703,9 @@ $text-tertiary: #9aa0a6;
     }
   }
   
-  .card-answer {
-    font-size: 13px;
-    line-height: 1.5;
-    color: $text-secondary;
+  .card-timestamp {
+    font-size: 12px;
+    color: $text-tertiary;
     margin-top: 8px;
     padding-top: 8px;
     border-top: 1px solid $card-border;
