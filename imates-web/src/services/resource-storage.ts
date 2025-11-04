@@ -40,7 +40,7 @@ export class ResourceManager {
     // 初始化IndexedDB配置 - 分离存储架构：元数据和二进制数据分离
     this.indexedDBInstance = IndexedDBService.getInstance({
       dbName: 'TextbookStorage',
-      version: 7, // 升级版本号，分离文件数据到独立表
+      version: 8, // 升级版本号，确保索引被创建（修复索引不存在问题）
       stores: [
         {
           name: 'textbooks',
@@ -276,10 +276,16 @@ export class ResourceManager {
       if (textbook) {
         textbookInfo = textbook
       } else {
-        textbookInfo = await this.indexedDBInstance.getByIndex('textbooks', 'textbookId', fileInfo.textbookId) as UserTextbookInfo
-        if (!textbookInfo) {
+        // 使用降级策略查询：textbookId索引 -> getAll（兼容旧数据库无索引的情况）
+        const foundTextbook = await this.getTextbookByTextbookIdWithFallback(
+          fileInfo.textbookId,
+          'ResourceManager.storeFileData'
+        )
+        
+        if (!foundTextbook) {
           throw new Error(`教材 ${fileInfo.textbookId} 不存在`)
         }
+        textbookInfo = foundTextbook
       }
       
       // 第3步：查找对应的学习包
@@ -319,14 +325,20 @@ export class ResourceManager {
         }
       }
       
-      // 第6步：更新教材元数据到IndexedDB
-      const success = await this.updateTextbookInfo(textbookInfo, undefined)
+      // 第6步：更新已下载文件数（基于 localFiles 中已下载的文件）
+      const downloadedFilesCount = localFiles.filter(f => f.isDownloaded).length
+      textbookInfo.downloadedFiles = downloadedFilesCount
+      
+      // 第7步：更新教材元数据到IndexedDB
+      const success = await this.updateTextbookInfo(textbookInfo, {
+        downloadedFiles: downloadedFilesCount
+      })
       
       if (!success) {
         throw new Error('更新教材信息失败')
       }
       
-      // 第7步：如果是PDF文件，添加到异步缩略图生成队列
+      // 第8步：如果是PDF文件，添加到异步缩略图生成队列
       // 注释掉缩略图生成逻辑以提升性能
       /*
       if (isPdfFile(fileInfo.fileName)) {
@@ -392,8 +404,12 @@ export class ResourceManager {
    */
   public async updateThumbnail(textbookId: string, fileId: string, thumbnail: string): Promise<void> {
     try {
-      // 第1步：获取教材信息
-      const textbook = await this.indexedDBInstance.getByIndex('textbooks', 'textbookId', textbookId) as UserTextbookInfo
+      // 第1步：获取教材信息（使用降级策略：textbookId索引 -> getAll）
+      const textbook = await this.getTextbookByTextbookIdWithFallback(
+        textbookId,
+        'ResourceManager.updateThumbnail'
+      )
+      
       if (!textbook) {
         return
       }
@@ -447,8 +463,12 @@ export class ResourceManager {
    */
   private async cleanupTextbookRelatedData(textbookId: string): Promise<void> {
     try {
-      // 第1步：获取教材信息
-      const textbook = await this.indexedDBInstance.getByIndex('textbooks', 'textbookId', textbookId) as UserTextbookInfo
+      // 第1步：获取教材信息（使用降级策略：textbookId索引 -> getAll）
+      const textbook = await this.getTextbookByTextbookIdWithFallback(
+        textbookId,
+        'ResourceManager.cleanupTextbookRelatedData'
+      )
+      
       if (!textbook) {
         return
       }
@@ -573,6 +593,72 @@ export class ResourceManager {
     } catch {
       return null
     }
+  }
+
+  /**
+   * 根据 textbookId 获取教材信息（带降级策略）
+   * 降级策略：textbookId 索引 -> getAll（兼容旧数据库无索引的情况）
+   * @param textbookId 教材ID
+   * @param context 调用上下文，用于日志记录（可选）
+   * @returns 教材信息或null
+   */
+  public async getTextbookByTextbookIdWithFallback(
+    textbookId: string,
+    context?: string
+  ): Promise<UserTextbookInfo | null> {
+    try {
+      // 优先使用 textbookId 索引查询
+      return await this.indexedDBInstance.getByIndex('textbooks', 'textbookId', textbookId) as UserTextbookInfo
+    } catch (error: unknown) {
+      // 如果索引不存在（旧数据库可能没有textbookId索引），改用getAll在内存中查找
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorName = (error as { name?: string })?.name
+      if (errorName === 'NotFoundError' || errorMessage.includes('index')) {
+        const logContext = context ? `[${context}]` : '[ResourceManager]'
+        console.log(`${logContext} ⚠️ textbookId索引不存在，改用getAll查询`, {
+          textbookId: textbookId,
+          error: errorMessage
+        })
+        const allTextbooks = await this.indexedDBInstance.getAll<UserTextbookInfo>('textbooks')
+        return allTextbooks.find(t => t.textbookId === textbookId) || null
+      } else {
+        // 其他错误，返回null
+        return null
+      }
+    }
+  }
+
+  /**
+   * 根据 id 或 textbookId 获取教材信息（带三层降级策略）
+   * 降级策略：id主键 -> textbookId索引 -> getAll（兼容旧数据库无索引的情况）
+   * @param id 主键ID（可选）
+   * @param textbookId 教材ID（可选）
+   * @param context 调用上下文，用于日志记录（可选）
+   * @returns 教材信息或null
+   */
+  public async getTextbookByIdOrTextbookIdWithFallback(
+    id?: string,
+    textbookId?: string,
+    context?: string
+  ): Promise<UserTextbookInfo | null> {
+    // 优先使用主键 id 查询（性能最优）
+    if (id) {
+      try {
+        const textbook = await this.indexedDBInstance.get('textbooks', id) as UserTextbookInfo
+        if (textbook) {
+          return textbook
+        }
+      } catch {
+        // 主键查询失败，继续降级策略
+      }
+    }
+
+    // 如果通过主键查不到，尝试通过 textbookId 索引查询
+    if (textbookId) {
+      return await this.getTextbookByTextbookIdWithFallback(textbookId, context)
+    }
+
+    return null
   }
 
   /**

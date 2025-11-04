@@ -1092,7 +1092,16 @@ const handleKeyboardShown = async (data: { height: number; duration: number }) =
 
 // 作用：开始语音输入，记录触摸位置并调用录音接口
 const startVoiceInput = (event?: TouchEvent | MouseEvent) => {
-  if (isLoading.value) return
+  console.log('[ChatView] startVoiceInput 被调用', {
+    isLoading: isLoading.value,
+    currentIsRecording: isRecording.value,
+    eventType: event?.type
+  })
+
+  if (isLoading.value) {
+    console.log('[ChatView] 正在加载中，取消录音')
+    return
+  }
 
   // 记录开始位置（用于上滑取消）
   if (event && 'touches' in event && event.touches.length > 0) {
@@ -1101,26 +1110,55 @@ const startVoiceInput = (event?: TouchEvent | MouseEvent) => {
     voiceStartY.value = event.clientY
   }
 
+  // 先设置录音状态为 true，确保 UI 更新
   isRecording.value = true
   showCancelHint.value = false
+
+  console.log('[ChatView] 设置 isRecording = true', {
+    isRecording: isRecording.value,
+    showCancelHint: showCancelHint.value
+  })
 
   // 调用录音接口 - 使用AndroidBridge
   try {
     const result = androidBridge.startVoiceRecording()
+    console.log('[ChatView] startVoiceRecording 返回结果', {
+      success: result.success,
+      message: result.message,
+      data: result.data
+    })
+
     if (!result.success) {
+      console.error('[ChatView] 开始录音失败', result.message)
       showMessage(result.message || '开始录音失败', 'error')
       isRecording.value = false
+      showCancelHint.value = false
       return
     }
-  } catch {
+
+    console.log('[ChatView] 录音开始成功', {
+      isRecording: isRecording.value,
+      filePath: result.data
+    })
+  } catch (error) {
+    console.error('[ChatView] 录音异常', error)
     showMessage('录音功能不可用', 'error')
     isRecording.value = false
+    showCancelHint.value = false
   }
 }
 
 // 作用：停止语音输入，处理上滑取消逻辑并发送语音消息
 const stopVoiceInput = async (event?: TouchEvent | MouseEvent) => {
-  if (!isRecording.value) return
+  console.log('[ChatView] stopVoiceInput 被调用', {
+    isRecording: isRecording.value,
+    eventType: event?.type
+  })
+
+  if (!isRecording.value) {
+    console.warn('[ChatView] 当前未在录音，忽略停止请求')
+    return
+  }
 
   // 检查是否需要取消发送（上滑取消）
   let shouldCancel = false
@@ -1132,23 +1170,46 @@ const stopVoiceInput = async (event?: TouchEvent | MouseEvent) => {
     shouldCancel = voiceStartY.value - voiceCurrentY.value > CANCEL_THRESHOLD
   }
 
+  console.log('[ChatView] 停止录音，检查是否需要取消', {
+    shouldCancel,
+    voiceStartY: voiceStartY.value,
+    voiceCurrentY: voiceCurrentY.value,
+    delta: voiceStartY.value - voiceCurrentY.value
+  })
+
+  // 先设置录音状态为 false，确保 UI 更新
   isRecording.value = false
   showCancelHint.value = false
 
   try {
     if (shouldCancel) {
+      console.log('[ChatView] 取消录音')
       // 取消录音 - 使用AndroidBridge
       androidBridge.cancelVoiceRecording()
     } else {
+      console.log('[ChatView] 停止录音并发送')
       // 停止录音并发送 - 使用AndroidBridge
       const result = androidBridge.stopVoiceRecording()
+      console.log('[ChatView] stopVoiceRecording 返回结果', {
+        success: result.success,
+        message: result.message,
+        voiceInfo: result.voiceInfo
+      })
+
       if (result.success && result.voiceInfo) {
+        console.log('[ChatView] 录音成功，准备发送语音消息', {
+          filePath: result.voiceInfo.filePath,
+          duration: result.voiceInfo.duration,
+          fileSize: result.voiceInfo.fileSize
+        })
         await sendVoiceMessage(result.voiceInfo)
       } else {
+        console.error('[ChatView] 录音失败', result.message)
         showMessage(result.message || '录音失败', 'error')
       }
     }
-  } catch {
+  } catch (error) {
+    console.error('[ChatView] 录音操作异常', error)
     showMessage('录音操作失败', 'error')
   }
 }
@@ -1174,9 +1235,17 @@ const sendVoiceMessage = async (voiceInfo: {
   duration: number
   fileSize: number
 }) => {
+  console.log('[ChatView] sendVoiceMessage 被调用', {
+    filePath: voiceInfo.filePath,
+    duration: voiceInfo.duration,
+    fileSize: voiceInfo.fileSize,
+    chatType: props.type
+  })
+
   // 第1步：检查是否需要选择题目（策略模式重构版）
   // 策略模式：使用策略的 requiresQuestion() 方法判断是否需要选择题目
   if (!hasSelectedQuestion.value && chatStrategy.value?.requiresQuestion()) {
+    console.warn('[ChatView] 未选择题目，取消发送语音消息')
     showMessage('请先选择题目', 'warning')
     return
   }
@@ -1192,6 +1261,11 @@ const sendVoiceMessage = async (voiceInfo: {
     voiceData: voiceInfo,
   }
 
+  console.log('[ChatView] 创建语音消息', {
+    messageId: voiceMessage.id,
+    messageType: voiceMessage.messageType
+  })
+
   await addMessageToStore(voiceMessage)
   await scrollToBottom()
 
@@ -1201,6 +1275,10 @@ const sendVoiceMessage = async (voiceInfo: {
     let sendResult: { success: boolean; message?: string }
 
     if (props.type === 'teacher' && teacherSession.value) {
+      console.log('[ChatView] 发送语音消息给老师', {
+        sessionId: teacherSession.value.sessionId,
+        subject: currentSubject.value
+      })
       // 发送语音消息给老师 - 使用API服务
       const success = await apiService.sendVoiceMessageToTeacher(
         voiceInfo.filePath,
@@ -1209,19 +1287,24 @@ const sendVoiceMessage = async (voiceInfo: {
         currentSubject.value,
       )
       sendResult = { success }
+      console.log('[ChatView] 老师语音消息发送结果', { success })
     } else {
+      console.log('[ChatView] 发送语音消息给AI')
       // 发送语音消息给AI（暂时模拟）
       sendResult = { success: true }
     }
 
     if (sendResult.success) {
+      console.log('[ChatView] 语音消息发送成功')
       // 语音消息发送成功，等待真实回复
       await scrollToBottom()
       emit('response')
     } else {
+      console.error('[ChatView] 语音消息发送失败', sendResult.message)
       showMessage(sendResult.message || '发送失败', 'error')
     }
-  } catch {
+  } catch (error) {
+    console.error('[ChatView] 发送语音消息异常', error)
     showMessage('发送失败', 'error')
   } finally {
     isLoading.value = false

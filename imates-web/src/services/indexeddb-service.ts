@@ -133,37 +133,67 @@ export class IndexedDBService {
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result
-        this.createStores(db)
+        const transaction = (event.target as IDBOpenDBRequest).transaction
+        this.createStores(db, transaction)
       }
     })
   }
 
   /**
    * 创建存储和索引
+   * @param db 数据库对象
+   * @param transaction 版本升级事务（在 onupgradeneeded 事件中传入）
    */
-  private createStores(db: IDBDatabase): void {
+  private createStores(db: IDBDatabase, transaction: IDBTransaction | null = null): void {
     this.config.stores.forEach(storeConfig => {
-      // 只有存储不存在时才创建
+      let store: IDBObjectStore
+      
+      // 如果存储不存在，创建存储
       if (!db.objectStoreNames.contains(storeConfig.name)) {
-        // 创建存储
-        const store = db.createObjectStore(storeConfig.name, {
+        // 创建存储（在 upgradeneeded 事件中可以直接创建）
+        // 新创建的 objectStore 会自动加入到版本升级事务中
+        store = db.createObjectStore(storeConfig.name, {
           keyPath: storeConfig.keyPath,
           autoIncrement: storeConfig.autoIncrement
         })
-
-        // 创建索引
-        if (storeConfig.indexes) {
-          storeConfig.indexes.forEach(indexConfig => {
-            store.createIndex(
-              indexConfig.name,
-              indexConfig.keyPath,
-              {
-                unique: indexConfig.unique,
-                multiEntry: indexConfig.multiEntry
-              }
-            )
-          })
+      } else {
+        // 存储已存在，需要通过版本升级事务获取现有存储（用于在升级时添加索引）
+        // 在 upgradeneeded 事件中，不能创建新事务，必须使用版本升级事务
+        // 版本升级事务包含数据库中的所有 objectStore
+        if (!transaction) {
+          throw new Error(`无法访问已存在的存储 ${storeConfig.name}：必须在版本升级事务中`)
         }
+        try {
+          store = transaction.objectStore(storeConfig.name)
+        } catch (error) {
+          // 如果 objectStore 不在事务中（理论上不应该发生），抛出更详细的错误
+          throw new Error(`无法从版本升级事务中获取存储 ${storeConfig.name}：${error instanceof Error ? error.message : String(error)}`)
+        }
+      }
+
+      // 创建索引（检查索引是否已存在，避免重复创建）
+      if (storeConfig.indexes) {
+        storeConfig.indexes.forEach(indexConfig => {
+          // 检查索引是否已存在
+          if (!store.indexNames.contains(indexConfig.name)) {
+            try {
+              store.createIndex(
+                indexConfig.name,
+                indexConfig.keyPath,
+                {
+                  unique: indexConfig.unique,
+                  multiEntry: indexConfig.multiEntry
+                }
+              )
+              console.log(`[IndexedDB] ✅ 创建索引: ${storeConfig.name}.${indexConfig.name}`)
+            } catch (error: any) {
+              // 如果索引创建失败（可能已存在或参数不匹配），记录警告
+              console.warn(`[IndexedDB] ⚠️ 创建索引失败: ${storeConfig.name}.${indexConfig.name}`, error.message)
+            }
+          } else {
+            console.log(`[IndexedDB] ℹ️ 索引已存在: ${storeConfig.name}.${indexConfig.name}`)
+          }
+        })
       }
     })
   }

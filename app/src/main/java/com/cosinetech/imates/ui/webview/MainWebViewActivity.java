@@ -35,6 +35,7 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
     // Activity Result Launchers
     private ActivityResultLauncher<Intent> imagePickLauncher;
     private ActivityResultLauncher<Intent> imageCaptureLauncher;
+    private ActivityResultLauncher<String> cameraPermissionLauncher;
     
     // 页面URL配置
     private String webAppUrl = "file:///android_asset/webapp/index.html"; // 默认加载Vue.js整体应用
@@ -111,6 +112,7 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
         webAppInterface = new WebAppInterface(this);
         webAppInterface.setExerciseBridge(this);
         webAppInterface.setImageLaunchers(imagePickLauncher, imageCaptureLauncher);
+        webAppInterface.setCameraPermissionLauncher(cameraPermissionLauncher);
         webAppInterface.setWebView(webView);
         webView.addJavascriptInterface(webAppInterface, "AndroidBridge");
         
@@ -149,6 +151,18 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
                 
                 // 触发WebView事件，通知前端拍照完成
                 dispatchImageCaptureResultToWebView(resultJson);
+            }
+        );
+        
+        // 相机权限请求
+        cameraPermissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(),
+            granted -> {
+                Log.d(TAG, "相机权限请求结果: " + granted);
+                // 通知WebAppInterface权限请求结果
+                if (webAppInterface != null) {
+                    webAppInterface.onCameraPermissionResult(granted);
+                }
             }
         );
         

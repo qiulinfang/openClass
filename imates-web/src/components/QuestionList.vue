@@ -1,6 +1,5 @@
 <template>
   <div class="question-list" @click.stop>
-    {{ currentQuestion?.id }}
     <!-- 题目列表 - 卡片布局 -->
     <div
       ref="scrollContainer"

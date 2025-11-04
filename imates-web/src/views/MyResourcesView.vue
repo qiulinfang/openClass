@@ -94,6 +94,20 @@
               </q-badge>
             </div>
           </div>
+          
+          <!-- 调试按钮区域（仅开发环境） -->
+          <div v-if="isDev" class="filter-actions">
+            <q-btn
+              flat
+              dense
+              icon="bug_report"
+              label="调试面板"
+              color="primary"
+              size="sm"
+              @click="showDebugPanel = true"
+              class="debug-btn"
+            />
+          </div>
         </div>
 
         <!-- 加载状态 (固定) -->
@@ -105,6 +119,11 @@
         <!-- better-scroll 滚动容器 (仅包含教材列表) -->
         <div v-if="!loading && textbooks.length > 0" ref="scrollWrapper" class="scroll-wrapper">
           <div class="scroll-content">
+            <!-- 下拉刷新提示 -->
+            <div v-if="isPullingDown" class="pull-down-refresh">
+              <q-spinner-dots size="20px" color="primary" />
+              <span class="pull-down-text">正在刷新...</span>
+            </div>
             <!-- 教材列表 -->
             <div class="textbooks-container q-pa-md">
               <div class="textbooks-scroll-container">
@@ -291,7 +310,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { resourceManager } from '../services/resource-storage'
 import { apiService } from '../services/api-service'
@@ -299,19 +318,25 @@ import { httpClient } from '../services/http-client'
 import { showMessage } from '../utils'
 import type { UserTextbookInfo } from '../types'
 import ResourceDebugPanel from '../components/debug/ResourceDebugPanel.vue'
-import { useBetterScroll } from '../composables/useBetterScroll'
+import { useResourceStore } from '../stores/resourceStore'
+import BScroll from '@better-scroll/core'
+import PullDown from '@better-scroll/pull-down'
 
-// 第1步：判断是否显示调试功能（仅通过环境变量控制）
+// 第1步：注册下拉刷新插件
+BScroll.use(PullDown)
+
+// 第2步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
-
-// 流程：移除PullDown插件导入，不再使用下拉刷新功能
 
 // 流程：导入图标资源
 import bookIcon from '/icons/book.svg'
 
 // 路由
 const router = useRouter()
+
+// Store
+const resourceStore = useResourceStore()
 
 // 响应式数据
 const loading = ref(false)
@@ -403,6 +428,8 @@ const initialLoadCompleted = ref(false)
 
 // better-scroll 相关
 const scrollWrapper = ref<HTMLElement | null>(null)
+const bscrollInstance = ref<BScroll | null>(null)
+const isPullingDown = ref(false)
 
 // 分类选项 - 基于学科动态生成
 const categories = ref([{ label: '全部', value: 'all' }])
@@ -473,30 +500,68 @@ const filteredTextbooks = computed(() => {
   })
 })
 
-// 使用 Better Scroll 组合式函数
-const { init: initBScroll } = useBetterScroll(
-  scrollWrapper,
-  {
-    scrollY: true,
-    scrollX: false,
-    click: true,
-    probeType: 2,
-    bounce: {
-      top: true,
-      bottom: true,
-    },
-    bounceTime: 800,
-    deceleration: 0.003,
-    useTransition: true,
-    HWCompositing: true,
+// 第1步：初始化 Better Scroll 并配置下拉刷新
+const initBScroll = async () => {
+  await nextTick()
+  
+  if (scrollWrapper.value && !bscrollInstance.value) {
+    // 第2步：创建带下拉刷新的 BScroll 实例
+    bscrollInstance.value = new BScroll(scrollWrapper.value, {
+      scrollY: true,
+      scrollX: false,
+      click: true,
+      probeType: 2,
+      bounce: {
+        top: true,
+        bottom: true,
+      },
+      bounceTime: 800,
+      deceleration: 0.003,
+      useTransition: true,
+      HWCompositing: true,
+      pullDownRefresh: {
+        threshold: 60, // 触发刷新的阈值
+        stop: 40, // 刷新完成后停止的位置
+      },
+    })
+    
+    // 第3步：监听下拉刷新事件
+    bscrollInstance.value.on('pullingDown', async () => {
+      isPullingDown.value = true
+      await handlePullDownRefresh()
+    })
+  }
+}
+
+// 第4步：处理下拉刷新
+const handlePullDownRefresh = async () => {
+  try {
+    // 重新加载资源数据
+    await loadResources()
+    showMessage('刷新成功', 'success')
+  } catch (error) {
+    showMessage('刷新失败，请稍后重试', 'error')
+  } finally {
+    // 第5步：完成下拉刷新
+    isPullingDown.value = false
+    await nextTick()
+    bscrollInstance.value?.finishPullDown()
+    bscrollInstance.value?.refresh()
+  }
+}
+
+// 第6步：监听数据变化，自动刷新 BScroll
+watch(
+  [() => filteredTextbooks.value.length, () => textbooks.value.length],
+  () => {
+    nextTick(() => {
+      if (bscrollInstance.value) {
+        bscrollInstance.value.refresh()
+      }
+    })
   },
-  true, // 自动监听数据变化
-  [
-    () => filteredTextbooks.value.length,
-    () => textbooks.value.length
-  ]
+  { deep: true }
 )
-// 第2步：移除pullDownRefreshStatus状态，不再需要下拉刷新状态管理
 
 // 切换学科选择
 const getCoverImageUrl = (coverUrl: string | undefined): string => {
@@ -877,6 +942,9 @@ const checkForUpdates = async () => {
       updateCount.value = 0
       showMessage('所有教材都是最新版本', 'info')
     }
+    
+    // 使用 store 通知其他组件更新状态已变化
+    resourceStore.markUpdateCheckCompleted()
   } catch {
     showMessage('检查更新失败，请稍后重试', 'error')
   } finally {
@@ -984,10 +1052,14 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
           textbookId: textbook.textbookId,
           textbookName: textbook.textbookName
         },
-        note: 'IndexedDB 主键是 textbookId，不是 id'
+        note: 'IndexedDB 主键是 id，可以通过 id 或 textbookId 索引查询'
       })
-      // 注意：IndexedDB 的 textbooks 存储的主键是 textbookId，不是 id
-      const fullTextbook = await resourceManager.indexedDB.get('textbooks', textbook.textbookId) as UserTextbookInfo
+      // 使用三层降级策略查询：id主键 -> textbookId索引 -> getAll（兼容旧数据库无索引的情况）
+      const fullTextbook = await resourceManager.getTextbookByIdOrTextbookIdWithFallback(
+        textbook.id,
+        textbook.textbookId,
+        '下载'
+      )
       
       if (fullTextbook) {
         console.log('[下载] 获取到完整教材数据，更新状态', {
@@ -1027,14 +1099,20 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
           downloadedFiles: textbook.downloadedFiles,
           totalFiles: textbook.totalFiles,
         })
+        
+        // 使用 store 通知其他组件教材已更新完成
+        resourceStore.markTextbookUpdated()
       } else {
-        console.log('[下载] ⚠️ 无法通过 id 获取完整教材数据，尝试降级方案', {
+        // 降级方案：如果主键查询和索引查询都失败，使用 getAll + 手动查找
+        // 这种情况应该很少发生，可能是数据不一致或数据库损坏
+        console.log('[下载] ⚠️ 无法通过主键或索引获取完整教材数据，尝试降级方案', {
           queryId: textbook.id,
           textbookId: textbook.textbookId,
-          textbookName: textbook.textbookName
+          textbookName: textbook.textbookName,
+          note: '主键查询和索引查询都失败，使用 getAll 降级方案'
         })
         
-        // 降级方案1：使用 getAll + 手动查找
+        // 降级方案：使用 getAll + 手动查找
         let foundTextbook: UserTextbookInfo | null = null
         
         // 获取所有教材数据
@@ -1145,6 +1223,9 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
             hasUpdatesAvailable: false,
           })
           console.log('[下载] 使用当前 textbook 更新完成')
+          
+          // 发送自定义事件，通知其他组件教材已下载完成
+          window.dispatchEvent(new CustomEvent('textbook-updated'))
         }
       }
 
@@ -1356,21 +1437,21 @@ onMounted(async () => {
   // 第1步：加载资源数据
   await loadResources()
 
-  // 第2步：初始化 better-scroll
+  // 第2步：初始化 better-scroll（带下拉刷新）
   await initBScroll()
 
   // 第3步：清理过期数据 - 延迟到后台执行
-    resourceManager.cleanupExpiredData()
+  resourceManager.cleanupExpiredData()
 
   // 定期检查更新（每60分钟）- 延迟启动
-    setInterval(
-      () => {
-        if (!loading.value && !checkingUpdates.value) {
-          checkForUpdates()
-        }
-      },
-      60 * 60 * 1000,
-    )
+  setInterval(
+    () => {
+      if (!loading.value && !checkingUpdates.value) {
+        checkForUpdates()
+      }
+    },
+    60 * 60 * 1000,
+  )
 })
 
 // 暂停所有正在下载的任务
@@ -1420,7 +1501,11 @@ onUnmounted(async () => {
   // 流程：页面离开时立即暂停所有正在下载的任务
   await pauseAllDownloadingTasks()
   
-  // BScroll 销毁由组合式函数自动处理
+  // 第1步：销毁 BScroll 实例
+  if (bscrollInstance.value) {
+    bscrollInstance.value.destroy()
+    bscrollInstance.value = null
+  }
 })
 
 // 调试方法：打印IndexedDB中的localFiles数据
@@ -1484,7 +1569,21 @@ const printLocalFilesData = async () => {
     min-height: calc(100% + 1px);
   }
 
-  // 第13步：移除下拉刷新提示样式
+  // 下拉刷新提示样式
+  .pull-down-refresh {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px;
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 14px;
+
+    .pull-down-text {
+      font-size: 14px;
+      color: rgba(0, 0, 0, 0.6);
+    }
+  }
 
   // 空状态固定
   .empty-state {
@@ -1615,6 +1714,19 @@ const printLocalFilesData = async () => {
       
       .check-updates-btn {
         min-width: 100px;
+      }
+    }
+    
+    // 调试按钮区域样式
+    .filter-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      padding: 8px 20px;
+      border-top: 1px solid rgba(0, 0, 0, 0.05);
+      
+      .debug-btn {
+        min-width: auto;
       }
     }
 
@@ -2158,6 +2270,15 @@ const printLocalFilesData = async () => {
               bottom: -10px;
             }
           }
+        }
+      }
+      
+      .filter-actions {
+        padding: 8px 16px;
+        justify-content: center;
+        
+        .debug-btn {
+          width: 100%;
         }
       }
     }

@@ -99,13 +99,13 @@
               <q-list dense>
                 <q-item clickable @click="handleCopy">
                   <q-item-section avatar>
-                    <q-icon name="content_copy" color="primary" size="20px" />
+                    <img :src="copyIcon" alt="复制" style="width: 20px; height: 20px;" />
                   </q-item-section>
                   <q-item-section>复制</q-item-section>
                 </q-item>
                 <q-item clickable @click="handleForward" v-if="canForward">
                   <q-item-section avatar>
-                    <q-icon name="forward" color="primary" size="20px" />
+                    <img :src="forwardIcon" alt="转发" style="width: 20px; height: 20px;" />
                   </q-item-section>
                   <q-item-section>转发</q-item-section>
                 </q-item>
@@ -148,7 +148,8 @@
             :title="button.title"
           >
             <img v-if="button.iconPath" :src="button.iconPath" alt="" class="action-icon" />
-            <q-icon v-else :name="button.icon" size="18px" />
+            <img v-else-if="button.icon" :src="`/icons/${button.icon}.svg`" alt="" class="action-icon" />
+            <q-icon v-else name="help" size="18px" />
           </button>
         </div>
       </div>
@@ -199,13 +200,13 @@
               <q-list dense>
                 <q-item clickable @click="handleCopy">
                   <q-item-section avatar>
-                    <q-icon name="content_copy" color="primary" size="20px" />
+                    <img :src="copyIcon" alt="复制" style="width: 20px; height: 20px;" />
                   </q-item-section>
                   <q-item-section>复制</q-item-section>
                 </q-item>
                 <q-item clickable @click="handleEdit" v-if="canEdit">
                   <q-item-section avatar>
-                    <q-icon name="edit" color="primary" size="20px" />
+                    <img :src="editIcon" alt="编辑" style="width: 20px; height: 20px;" />
                   </q-item-section>
                   <q-item-section>编辑</q-item-section>
                 </q-item>
@@ -237,7 +238,8 @@
             :title="button.title"
           >
             <img v-if="button.iconPath" :src="button.iconPath" alt="" class="action-icon" />
-            <q-icon v-else :name="button.icon" size="18px" />
+            <img v-else-if="button.icon" :src="`/icons/${button.icon}.svg`" alt="" class="action-icon" />
+            <q-icon v-else name="help" size="18px" />
           </button>
         </div>
       </div>
@@ -264,6 +266,10 @@ import StreamingMessage from './StreamingMessage.vue'
 import ChatRecordCard from './ChatRecordCard.vue'
 import type  { ChatBubble } from '../../types'
 import forwardIcon from '/icons/forward.svg'
+import copyIcon from '/icons/copy.svg'
+import editIcon from '/icons/edit.svg'
+import shareIcon from '/icons/share.svg'
+import refreshIcon from '/icons/refresh.svg'
 // 导入类型定义
 import type { ChatMessageProps } from '../../types'
 
@@ -441,7 +447,8 @@ const actionButtons = computed(() => {
   
   // 复制按钮 - 所有消息都显示
   buttons.push({
-    icon: 'content_copy',
+    icon: '',
+    iconPath: copyIcon,
     title: '复制',
     handler: handleCopy,
     show: true
@@ -450,7 +457,8 @@ const actionButtons = computed(() => {
   // 编辑按钮 - 仅用户消息且可编辑时显示
   if (isUser && canEdit.value) {
     buttons.push({
-      icon: 'edit',
+      icon: '',
+      iconPath: editIcon,
       title: '编辑',
       handler: handleEdit,
       show: true
@@ -461,7 +469,7 @@ const actionButtons = computed(() => {
   if (canForward.value) {
     buttons.push({
       icon: '',
-      iconPath: '/icons/share.svg',
+      iconPath: shareIcon,
       title: '转发',
       handler: handleForward,
       show: true
@@ -472,7 +480,8 @@ const actionButtons = computed(() => {
   if (!isUser) {
     // 刷新按钮
     buttons.push({
-      icon: 'refresh',
+      icon: '',
+      iconPath: refreshIcon,
       title: '刷新',
       handler: handleRefresh,
       show: true
@@ -1170,7 +1179,7 @@ onUnmounted(() => {
 .user-bubble {
   background: #7A7CFF;
   color: white;
-  border-radius: 12px;
+  border-radius: 12px 0 12px 12px;
   padding: 12px 16px;
   position: relative;
   box-shadow: 0 2px 8px rgba(122, 124, 255, 0.25);

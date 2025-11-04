@@ -26,7 +26,7 @@
             <q-icon name="edit" color="primary" size="16px" />
             <span class="edit-text">编辑消息</span>
             <button
-              @click="$emit('cancel-edit')"
+              @click.stop="handleCancelEdit"
               class="cancel-edit-btn"
               type="button"
             >
@@ -42,7 +42,7 @@
               v-if="props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook'"
               class="action-mode-btn"
               :class="{ active: true }"
-              @click="toggleModeSelector"
+              @click.stop="toggleModeSelector"
               ref="modeSelectorBtnRef"
             >
               <q-icon name="person" size="18px" />
@@ -54,7 +54,7 @@
               v-if="props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook'"
               class="action-mode-btn"
               :class="{ active: props.enableWebSearch }"
-              @click="$emit('toggle-web-search')"
+              @click="handleToggleWebSearch"
             >
               <q-icon name="language" size="18px" />
               <span>互联网搜索</span>
@@ -63,7 +63,7 @@
             <!-- 公式按钮 -->
             <button
               class="action-mode-btn"
-              @click="handleInsertMathFormula"
+              @click.stop="handleInsertMathFormula"
             >
               <q-icon name="functions" size="18px" />
               <span>公式</span>
@@ -98,7 +98,7 @@
           <button
             v-if="props.type !== 'ai-general' && props.type !== 'ai-exercise' && props.type !== 'ai-textbook'"
             type="button"
-            @click="$emit('show-image-picker')"
+            @click="handleShowImagePicker"
             class="control-icon-btn"
             :class="{ active: props.activeMode?.label === '图片模式' }"
           >
@@ -110,6 +110,7 @@
           <button
             v-if="props.type !== 'teacher'"
             type="button"
+            @click="handleMicButtonClick"
             class="control-icon-btn mic-btn"
           >
             <q-icon name="mic_none" color="grey-6" size="24px" />
@@ -128,11 +129,10 @@
             }"
           >
             <!-- 加载状态图标 -->
-            <q-icon 
+            <img 
               v-if="props.isLoading" 
-              name="hourglass_empty" 
-              color="purple-6" 
-              size="20px"
+              :src="waitingIcon" 
+              alt="等待中" 
               class="send-loading-icon"
             />
             <!-- 编辑状态图标 -->
@@ -145,7 +145,7 @@
             <!-- 自定义发送图标 -->
             <img 
               v-else 
-              src="/icons/send.svg" 
+              :src="sendIcon" 
               alt="发送" 
               class="send-icon"
             />
@@ -155,12 +155,16 @@
         </div>
       </div>
 
-      <!-- 模式选择弹出框 -->
+      <!-- 模式选择弹出框 - 仅在AI模式下显示，且target已绑定 -->
       <q-menu
+        v-if="(props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') && modeSelectorBtnRef"
         v-model="showModeSelectorMenu"
+        :target="modeSelectorBtnRef"
         anchor="bottom left"
         self="top left"
         class="mode-selector-menu"
+        no-parent-event
+        :breakpoint="0"
       >
         <q-list class="model-select-list">
           <q-item
@@ -172,6 +176,11 @@
             :class="{ active: props.selectedModel === option.value }"
             class="model-select-item"
           >
+            <q-item-section avatar>
+              <q-avatar size="32px">
+                <img :src="getModelIcon(option.value)" :alt="option.label" />
+              </q-avatar>
+            </q-item-section>
             <q-item-section>
               <q-item-label>{{ option.label }}</q-item-label>
             </q-item-section>
@@ -190,6 +199,8 @@
 import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
 import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import MathFormulaEditor from '../MathFormulaEditor.vue'
+import waitingIcon from '/icons/waiting.svg'
+import sendIcon from '/icons/send.svg'
 import type { 
   ContentBlock, 
   ChatInputProps, 
@@ -213,6 +224,24 @@ const mathEditorRef = ref<InstanceType<typeof MathFormulaEditor>>()
 // 模式选择器菜单显示状态
 const showModeSelectorMenu = ref(false)
 const modeSelectorBtnRef = ref<HTMLElement>()
+
+// 监听模式选择弹出框状态变化
+watch(showModeSelectorMenu, (newValue, oldValue) => {
+  console.log('[ChatInput] 模式选择弹出框状态变化', {
+    previousState: oldValue,
+    newState: newValue,
+    action: newValue ? '打开' : '关闭',
+    chatType: props.type,
+    selectedModel: props.selectedModel,
+    hasTarget: !!modeSelectorBtnRef.value,
+    targetElement: modeSelectorBtnRef.value
+  })
+  
+  // 如果弹出框打开但 target 未绑定，记录警告但不关闭（让 Quasar 自己处理）
+  if (newValue && !oldValue && !modeSelectorBtnRef.value) {
+    console.warn('[ChatInput] 弹出框打开但 target 未绑定')
+  }
+})
 
 // 保留原有的复杂状态用于向后兼容（如果需要）
 const contentCanvasRef = ref<HTMLElement>()
@@ -258,7 +287,7 @@ const handleEditorUpdate = (content: string) => {
 // 学习伙伴角色选项
 const aiRoleOptions = [
   { label: '同桌', value: 'mate' },
-  { label: '学长', value: 'mentor' },
+  { label: '课代表', value: 'mentor' },
   { label: '大神', value: 'researcher' },
 ]
 
@@ -268,29 +297,135 @@ const getModelDisplayName = (model: string) => {
   return option ? option.label : '同桌'
 }
 
+// 根据模式值获取对应的图标路径
+const getModelIcon = (model: string) => {
+  const iconMap: Record<string, string> = {
+    'mate': '/icons/Deskmate.svg',
+    'mentor': '/icons/Representative.svg',
+    'researcher': '/icons/Guru.svg'
+  }
+  return iconMap[model] || '/icons/Deskmate.svg'
+}
+
 // 切换模式选择器菜单
-const toggleModeSelector = () => {
-  showModeSelectorMenu.value = !showModeSelectorMenu.value
+const toggleModeSelector = async (event?: Event) => {
+  // 阻止事件冒泡
+  if (event) {
+    event.stopPropagation()
+  }
+  
+  console.log('[ChatInput] 点击模式选择器按钮', { 
+    currentMenuState: showModeSelectorMenu.value,
+    chatType: props.type,
+    selectedModel: props.selectedModel,
+    hasRef: !!modeSelectorBtnRef.value
+  })
+  
+  // 如果当前已经打开，则关闭
+  if (showModeSelectorMenu.value) {
+    showModeSelectorMenu.value = false
+    return
+  }
+  
+  // 确保 ref 已经绑定，等待多个 tick 以确保 DOM 完全渲染
+  await nextTick()
+  await nextTick()
+  
+  // 如果 ref 仍未绑定，尝试再次等待
+  if (!modeSelectorBtnRef.value) {
+    console.warn('[ChatInput] modeSelectorBtnRef 未绑定，延迟打开菜单')
+    setTimeout(async () => {
+      await nextTick()
+      if (modeSelectorBtnRef.value) {
+        showModeSelectorMenu.value = true
+      } else {
+        console.error('[ChatInput] modeSelectorBtnRef 仍然未绑定，无法打开菜单')
+      }
+    }, 100)
+  } else {
+    // 确保再次等待一个 tick，让 q-menu 组件完全渲染
+    await nextTick()
+    // 直接设置为 true，而不是切换
+    showModeSelectorMenu.value = true
+  }
 }
 
 // 选择模型
 const selectModel = (model: string) => {
+  console.log('[ChatInput] 选择模型', { 
+    previousModel: props.selectedModel,
+    newModel: model,
+    chatType: props.type
+  })
   emit('update:selected-model', model)
   showModeSelectorMenu.value = false
 }
 
+// 取消编辑处理
+const handleCancelEdit = () => {
+  console.log('[ChatInput] 点击取消编辑按钮', { 
+    chatType: props.type,
+    editingMessageId: props.editingMessageId
+  })
+  emit('cancel-edit')
+}
+
+// 切换联网搜索处理
+const handleToggleWebSearch = () => {
+  console.log('[ChatInput] 点击联网搜索按钮', { 
+    chatType: props.type,
+    currentState: props.enableWebSearch,
+    newState: !props.enableWebSearch
+  })
+  emit('toggle-web-search')
+}
+
+// 显示图片选择器处理
+const handleShowImagePicker = () => {
+  console.log('[ChatInput] 点击图片上传按钮', { 
+    chatType: props.type,
+    activeMode: props.activeMode?.label
+  })
+  emit('show-image-picker')
+}
+
+// 麦克风按钮点击处理
+const handleMicButtonClick = () => {
+  console.log('[ChatInput] 点击麦克风按钮', { 
+    chatType: props.type,
+    isRecording: props.isRecording
+  })
+  // 注意：此功能可能尚未实现，仅记录日志
+}
+
 // 语音录制事件处理
 const handleVoiceStart = (event: TouchEvent | MouseEvent) => {
+  console.log('[ChatInput] 开始语音录制', { 
+    chatType: props.type,
+    isRecording: props.isRecording, // 注意：这是 props 值，可能还没更新
+    eventType: event.type,
+    timestamp: Date.now()
+  })
+  
   // 1. 阻止默认行为
   event.preventDefault()
+  event.stopPropagation()
   
   // 2. 触发开始录音事件
   emit('start-voice-input', event)
 }
 
 const handleVoiceEnd = (event: TouchEvent | MouseEvent) => {
+  console.log('[ChatInput] 结束语音录制', { 
+    chatType: props.type,
+    isRecording: props.isRecording, // 注意：这是 props 值，可能还没更新
+    eventType: event.type,
+    timestamp: Date.now()
+  })
+  
   // 1. 阻止默认行为
   event.preventDefault()
+  event.stopPropagation()
   
   // 2. 触发停止录音事件
   emit('stop-voice-input', event)
@@ -319,7 +454,7 @@ const finishFormulaEditing = async (blockId: string) => {
   }
   
   // 2. 获取公式内容
-  const content = (mathfield as any).value || ''
+  const content = (mathfield as { value?: string }).value || ''
   
   // 3. 开始退出动画
   isKeyboardTransitioning.value = true
@@ -400,10 +535,10 @@ const cleanupMathLiveInstance = (mathfield: HTMLElement, blockId: string) => {
 // 清理所有MathLive实例
 const cleanupAllMathLiveInstances = () => {
   // 1. 遍历所有MathLive实例
-  mathfields.value.forEach((mathfield: any) => {
+  mathfields.value.forEach((mathfield: unknown) => {
     try {
-      if (mathfield && typeof mathfield.remove === 'function') {
-        mathfield.remove()
+      if (mathfield && typeof mathfield === 'object' && 'remove' in mathfield && typeof (mathfield as { remove?: () => void }).remove === 'function') {
+        (mathfield as { remove: () => void }).remove()
       }
     } catch {
     }
@@ -416,10 +551,20 @@ const cleanupAllMathLiveInstances = () => {
 
 
 // 防抖定时器
-let insertFormulaDebounceTimer: number | null = null
+let insertFormulaDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 // 插入数学公式处理
 const handleInsertMathFormula = async () => {
+  console.log('[ChatInput] 点击公式按钮', { 
+    chatType: props.type,
+    isEditing: props.isEditing
+  })
+  
+  // 确保关闭模式选择弹出框（如果已打开）
+  if (showModeSelectorMenu.value) {
+    showModeSelectorMenu.value = false
+  }
+  
   // 防抖保护：清除之前的定时器
   if (insertFormulaDebounceTimer) {
     clearTimeout(insertFormulaDebounceTimer)
@@ -429,21 +574,24 @@ const handleInsertMathFormula = async () => {
   insertFormulaDebounceTimer = setTimeout(async () => {
     // 检查 MathFormulaEditor 组件是否已经正确初始化
     if (!mathEditorRef.value) {
+      console.warn('[ChatInput] MathFormulaEditor 组件未初始化')
       return
     }
     
     // 检查 insertMathField 方法是否存在
     if (typeof mathEditorRef.value.insertMathField !== 'function') {
+      console.warn('[ChatInput] insertMathField 方法不存在')
       return
     }
     
     try {
       mathEditorRef.value.insertMathField()
+      console.log('[ChatInput] 公式插入成功')
       
       // 插入公式后触发滚动到底部事件
       emit('scroll-to-bottom')
     } catch (error) {
-      console.error('插入数学公式失败:', error)
+      console.error('[ChatInput] 插入数学公式失败:', error)
     }
     
     // 清除定时器引用
@@ -453,13 +601,26 @@ const handleInsertMathFormula = async () => {
 
 // 发送消息处理
 const handleSendMessage = () => {
+  console.log('[ChatInput] 点击发送按钮', { 
+    chatType: props.type,
+    isEditing: props.isEditing,
+    isLoading: props.isLoading,
+    canSend: props.canSend
+  })
+  
   // 1. 调用 MathFormulaEditor 的 getMarkdownContent 方法获取完整内容
   const markdownContent = mathEditorRef.value?.getMarkdownContent();
 
   // 2. 检查内容是否为空
   if (!markdownContent || !markdownContent.trim()) {
+    console.log('[ChatInput] 消息内容为空，取消发送')
     return
   }
+
+  console.log('[ChatInput] 准备发送消息', { 
+    contentLength: markdownContent.length,
+    isEditing: props.isEditing
+  })
 
   // 3. 更新 v-model 的值，将完整的 markdown 内容传递给父组件
   emit('update:modelValue', markdownContent);
@@ -1262,6 +1423,25 @@ defineExpose({
 /* 当按钮禁用时，图标为灰色 */
 .send-button:disabled .send-icon {
   filter: brightness(0) saturate(100%) invert(65%) sepia(8%) saturate(200%) hue-rotate(169deg) brightness(95%) contrast(90%);
+}
+
+/* 加载状态图标样式 */
+.send-loading-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  object-fit: contain;
+  filter: brightness(0) saturate(100%) invert(48%) sepia(96%) saturate(2742%) hue-rotate(236deg) brightness(105%) contrast(101%);
+}
+
+/* 加载图标旋转动画 */
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 插入公式按钮 - 与其他控制按钮样式一致 */

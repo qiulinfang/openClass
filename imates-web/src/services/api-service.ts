@@ -293,6 +293,119 @@ export class ApiService {
   }
 
   /**
+   * 图片识别搜题（生物或数学）
+   * @param imageFile 图片文件（File对象或Blob）
+   * @param subject 科目类型（'biology' 或 'math'）
+   * @returns Promise<ExerciseItem | null> 识别到的题目，失败返回null
+   */
+  public async recognizeImage(imageFile: File | Blob, subject: string): Promise<any | null> {
+    try {
+      // 根据科目选择对应的API端点
+      const endpoint = subject.toLowerCase() === 'biology' 
+        ? API_ENDPOINTS.IMAGE_RECOGNITION.BIOLOGY 
+        : API_ENDPOINTS.IMAGE_RECOGNITION.MATH
+      
+      const url = getApiUrl(endpoint)
+
+      // 构建FormData，与Android端保持一致
+      const formData = new FormData()
+      formData.append('imgFile', imageFile, 'default.jpg')
+
+      // 使用httpClient发送multipart/form-data请求
+      // 注意：不设置 Content-Type，让浏览器自动设置（包括 boundary）
+      const response = await httpClient.post<{
+        success: boolean
+        code: number
+        message: string
+        data: {
+          item: {
+            questionsConfirm: Array<{
+              bmNo: string
+              title: string
+              answer: string
+              explanation: string
+              analysisData: string
+              id: string
+            }>
+          }
+        }
+      }>(url, formData)
+
+      if (response.success && response.data?.data?.item?.questionsConfirm && response.data.data.item.questionsConfirm.length > 0) {
+        const questionData = response.data.data.item.questionsConfirm[0]
+        return {
+          id: questionData.id,
+          bmNo: questionData.bmNo,
+          title: questionData.title,
+          question: questionData.title, // 兼容旧版本
+          answer: questionData.answer,
+          explanation: questionData.explanation,
+          analysisData: questionData.analysisData,
+          subject: subject.toLowerCase(),
+        }
+      }
+      return null
+    } catch (error) {
+      console.error('[API] 图片识别失败:', error)
+      return null
+    }
+  }
+
+  /**
+   * 文本搜题（生物或数学）
+   * @param keyText 搜索关键词
+   * @param subject 科目类型（'biology' 或 'math'）
+   * @returns Promise<ExerciseItem | null> 搜索到的题目，失败返回null
+   */
+  public async searchQuestionByText(keyText: string, subject: string): Promise<any | null> {
+    try {
+      // 根据科目选择对应的API端点
+      const endpoint = subject.toLowerCase() === 'biology'
+        ? API_ENDPOINTS.TEXT_SEARCH.BIOLOGY
+        : API_ENDPOINTS.TEXT_SEARCH.MATH
+      
+      const url = `${getApiUrl(endpoint)}/${encodeURIComponent(keyText)}`
+
+      // HTTP客户端会自动根据接口路径选择合适的token
+      const response = await httpClient.get<{
+        success: boolean
+        code: number
+        message: string
+        data: {
+          item: {
+            questionsConfirm: Array<{
+              bmNo: string
+              title: string
+              answer: string
+              explanation: string
+              analysisData: string
+              id: string
+            }>
+          }
+        }
+      }>(url)
+
+      if (response.success && response.data?.data?.item?.questionsConfirm && response.data.data.item.questionsConfirm.length > 0) {
+        const questionData = response.data.data.item.questionsConfirm[0]
+        return {
+          id: questionData.id,
+          bmNo: questionData.bmNo,
+          title: questionData.title,
+          question: questionData.title, // 兼容旧版本
+          answer: questionData.answer,
+          explanation: questionData.explanation,
+          analysisData: questionData.analysisData,
+          subject: subject.toLowerCase(),
+        }
+      }
+      return null
+    } catch (error) {
+      console.error('[API] 文本搜题失败:', error)
+      return null
+    }
+  }
+
+  /**
    * 查找相似题目
    */
   public async findSimilarQuestions(questionData: any, subject: string): Promise<any[]> {
@@ -351,10 +464,11 @@ export class ApiService {
       }>(url, request)
       
       // 检查响应格式
-      if (response.success && response.data.knowledge) {
+      if (response.success && response.data && response.data.knowledge) {
         return response.data.knowledge as string
       } else {
-        throw new Error(response.data.message || response.message || '查询知识点失败')
+        const message = response.data?.message || response.message || '查询知识点失败'
+        throw new Error(message)
       }
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : '查询知识点失败')
@@ -1569,40 +1683,27 @@ export class ApiService {
     // 避免在循环中多次查询数据库，提升性能
     const resourceManager = ResourceManager.getInstance()
     
-    // 尝试通过 id 查询（如果教材已保存到 IndexedDB）
-    let latestTextbook = textbook.id 
-      ? await resourceManager.indexedDB.get<UserTextbookInfo>('textbooks', textbook.id)
-      : null
+    // 使用三层降级策略查询：id主键 -> textbookId索引 -> getAll
+    let latestTextbook = await resourceManager.getTextbookByIdOrTextbookIdWithFallback(
+      textbook.id,
+      textbook.textbookId,
+      'ApiService.collectFilesToUpdate'
+    )
     
-    // 如果通过 id 查不到，尝试通过 textbookId 查询
+    // 如果通过降级策略查不到，但在降级过程中使用了getAll，打印调试信息
     if (!latestTextbook && textbook.textbookId) {
-      try {
-        latestTextbook = await resourceManager.indexedDB.getByIndex<UserTextbookInfo>('textbooks', 'textbookId', textbook.textbookId)
-      } catch (error: any) {
-        // 如果索引不存在（旧数据库可能没有textbookId索引），改用getAll在内存中查找
-        if (error?.name === 'NotFoundError' || error?.message?.includes('index')) {
-          console.log('[ApiService.collectFilesToUpdate] ⚠️ textbookId索引不存在，改用getAll查询', {
-            textbookId: textbook.textbookId,
-            error: error.message
-          })
-          const allTextbooks = await resourceManager.indexedDB.getAll<UserTextbookInfo>('textbooks')
-          // 打印数据库中的所有教材数据（用于调试）
-          console.log('[ApiService.collectFilesToUpdate] 📊 数据库中的所有教材数据：', {
-            total: allTextbooks.length,
-            textbooks: allTextbooks.map(t => ({
-              id: t.id,
-              textbookId: t.textbookId,
-              textbookName: t.textbookName,
-              hasLocalFiles: !!t.localFiles?.length,
-              localFilesCount: t.localFiles?.length || 0
-            }))
-          })
-          latestTextbook = allTextbooks.find(t => t.textbookId === textbook.textbookId) || null
-        } else {
-          // 其他错误，重新抛出
-          throw error
-        }
-      }
+      const allTextbooks = await resourceManager.indexedDB.getAll<UserTextbookInfo>('textbooks')
+      // 打印数据库中的所有教材数据（用于调试）
+      console.log('[ApiService.collectFilesToUpdate] 📊 数据库中的所有教材数据：', {
+        total: allTextbooks.length,
+        textbooks: allTextbooks.map(t => ({
+          id: t.id,
+          textbookId: t.textbookId,
+          textbookName: t.textbookName,
+          hasLocalFiles: !!t.localFiles?.length,
+          localFilesCount: t.localFiles?.length || 0
+        }))
+      })
     }
     
     // 如果还是查不到，使用传入的 textbook 对象（可能还没有保存到 IndexedDB）
@@ -1928,20 +2029,11 @@ export class ApiService {
     try {
       const resourceManager = ResourceManager.getInstance()
       
-      // 获取教材信息
-      let textbook: UserTextbookInfo | null = null
-      try {
-        textbook = await resourceManager.indexedDB.getByIndex('textbooks', 'textbookId', textbookId) as UserTextbookInfo
-      } catch (error: any) {
-        // 如果索引不存在（旧数据库可能没有textbookId索引），改用getAll在内存中查找
-        if (error?.name === 'NotFoundError' || error?.message?.includes('index')) {
-          const allTextbooks = await resourceManager.indexedDB.getAll<UserTextbookInfo>('textbooks')
-          textbook = allTextbooks.find(t => t.textbookId === textbookId) || null
-        } else {
-          // 其他错误，静默处理
-          return
-        }
-      }
+      // 获取教材信息（使用降级策略：textbookId索引 -> getAll）
+      const textbook = await resourceManager.getTextbookByTextbookIdWithFallback(
+        textbookId,
+        'ApiService.updateLocalFileInfo'
+      )
       
       if (!textbook) {
         return

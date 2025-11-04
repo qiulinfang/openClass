@@ -47,14 +47,14 @@
     <!-- 右侧主区域 -->
     <div class="right-main-area">
       <!-- 工具箱区域 -->
-      <transition name="toolbox-transition">
-        <div class="toolbox-area" v-if="showToolbox">
+      <transition name="toolbox-transition" @after-enter="handleToolboxEnter" @after-leave="handleToolboxLeave">
+        <div class="toolbox-area" v-show="showToolbox" @click.stop>
           <MyProfileView v-if="showToolbox" />
         </div>
       </transition>
       
       <!-- 内容区域 -->
-      <div class="content-area">
+      <div class="content-area" @click="handleContentAreaClick">
         <router-view />
       </div>
     </div>
@@ -100,12 +100,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onMounted } from 'vue'
+import { ref, watch, computed, onMounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUIStore } from '@/stores/uiStore'
+import { useResourceStore } from '@/stores/resourceStore'
 import DraftDialog from '@/components/DraftDialog.vue'
 import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
 import MyProfileView from '@/views/MyProfileView.vue'
+import { resourceManager } from '@/services/resource-storage'
+import { apiService } from '@/services/api-service'
+import type { UserTextbookInfo } from '@/types'
 
 // 流程：导入图标资源
 // 第1步：导入普通状态图标
@@ -142,6 +146,7 @@ const route = useRoute()
 
 // Store
 const uiStore = useUIStore()
+const resourceStore = useResourceStore()
 
 // 响应式数据
 const activeNavItem = ref(props.activeNavItem)
@@ -258,9 +263,89 @@ const stopDrag = () => {
   hasMoved.value = false
 }
 
+// 检查教材更新状态和未下载状态
+const checkResourceUpdates = async () => {
+  try {
+    // 第1步：获取所有本地教材
+    let textbooks = await resourceManager.getUserLocalTextbooks()
+    
+    // 第2步：如果本地没有数据，从服务器获取
+    if (textbooks.length === 0) {
+      try {
+        // 检查登录状态
+        if (!resourceManager.isLoggedIn()) {
+          // 尝试自动登录
+          const autoLoginSuccess = await apiService.autoLogin(true)
+          if (!autoLoginSuccess) {
+            hasResourceNotification.value = false
+            return
+          }
+        }
+        
+        // 从服务器获取教材数据
+        const serverTextbooks = await apiService.fetchUserAllOnlineTextbooks()
+        
+        if (serverTextbooks && serverTextbooks.length > 0) {
+          // 将服务器数据保存到本地
+          for (const textbook of serverTextbooks) {
+            await resourceManager.updateTextbookInfo(textbook)
+          }
+          
+          // 使用服务器数据进行检查
+          textbooks = serverTextbooks
+        }
+      } catch (error) {
+        // 获取服务器数据失败，使用本地数据（可能为空）
+        console.warn('获取服务器教材数据失败:', error)
+      }
+    }
+    
+    // 第3步：检查是否有教材需要更新
+    const hasUpdates = textbooks.some((textbook: UserTextbookInfo) => {
+      return textbook.hasUpdatesAvailable === true
+    })
+    
+    // 第4步：检查是否有教材未下载或未完全下载
+    const hasUndownloaded = textbooks.some((textbook: UserTextbookInfo) => {
+      // 判断条件：未下载或未完全下载
+      // - isDownloaded === false 表示未下载
+      // - downloadedFiles < totalFiles 表示未完全下载（部分下载也算未完成）
+      // - downloadStatus === 0 表示未下载/下载失败
+      if (textbook.totalFiles === 0) {
+        // 如果总文件数为0，检查 isDownloaded 状态
+        return !textbook.isDownloaded || textbook.downloadStatus === 0
+      } else {
+        // 如果总文件数大于0，检查下载进度
+        return !textbook.isDownloaded || 
+               textbook.downloadedFiles < textbook.totalFiles ||
+               textbook.downloadStatus === 0
+      }
+    })
+    
+    // 第5步：更新通知状态（有更新或未下载都显示小红点）
+    hasResourceNotification.value = hasUpdates || hasUndownloaded
+  } catch {
+    // 检查失败时，不显示通知
+    hasResourceNotification.value = false
+  }
+}
+
+// 监听 store 的 notificationTrigger 变化，触发通知检查
+watch(() => resourceStore.notificationTrigger, () => {
+  checkResourceUpdates()
+})
+
 // 初始化按钮位置
-onMounted(() => {
+onMounted(async () => {
+  // 第1步：初始化按钮位置
   fabPosition.value = { x: 18, y: 18 }
+  
+  // 第2步：等待 Vue 渲染完成
+  await nextTick()
+  
+  // 第3步：确保 IndexedDB 已初始化，然后检查教材更新状态
+  // getUserLocalTextbooks 内部会检查并初始化 IndexedDB，所以直接调用即可
+  await checkResourceUpdates()
 })
 
 // 处理草稿本点击
@@ -279,6 +364,8 @@ watch(() => route.name, (newRouteName) => {
   switch (newRouteName) {
     case 'myResources':
       activeNavItem.value = 'resources'
+      // 进入资源页面时检查更新状态
+      checkResourceUpdates()
       break
     case 'exerciseSolve':
       activeNavItem.value = 'exercises'
@@ -293,9 +380,30 @@ watch(() => route.name, (newRouteName) => {
   emit('nav-item-change', activeNavItem.value)
 }, { immediate: true })
 
+
 // 切换工具箱显示状态
 const toggleToolbox = () => {
   showToolbox.value = !showToolbox.value
+}
+
+// 工具箱动画进入完成后的处理
+const handleToolboxEnter = () => {
+  // 动画完成后，移除 will-change 以节省内存
+  // 由于 CSS 中已经设置了 will-change，这里主要是标记动画完成
+  // 如果需要，可以通过 DOM 操作动态移除 will-change
+}
+
+// 工具箱动画离开完成后的处理
+const handleToolboxLeave = () => {
+  // 动画完成后清理，如果需要的话
+}
+
+// 处理内容区域点击事件
+const handleContentAreaClick = () => {
+  // 第1步：如果工具箱是打开的，则关闭它
+  if (showToolbox.value) {
+    showToolbox.value = false
+  }
 }
 
 // 导航处理函数
@@ -535,6 +643,12 @@ const handleLogoutClick = async () => {
   border-bottom: 1px solid rgba(229, 231, 235, 0.3);
   overflow-y: auto;
   z-index: 999; // 层级低于功能菜单，不可覆盖功能菜单
+  // 启用 GPU 硬件加速，优化 webview 性能
+  transform: translateZ(0);
+  // 优化渲染性能
+  backface-visibility: hidden;
+  -webkit-overflow-scrolling: touch; // iOS 滚动优化
+  // 注意：will-change 只在动画期间使用，避免内存泄漏
   
   // 自定义滚动条样式
   &::-webkit-scrollbar {
@@ -561,26 +675,33 @@ const handleLogoutClick = async () => {
   }
 }
 
-// 工具箱过渡动画 - 使用 translate 弹出效果
+// 工具箱过渡动画 - 使用 translate 弹出效果，优化 GPU 加速
 .toolbox-transition-enter-active,
 .toolbox-transition-leave-active {
   transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  // 启用 GPU 硬件加速，优化 webview 性能
+  will-change: transform;
+  // 使用 transform3d 强制启用硬件加速
+  transform: translateZ(0);
+  // 启用合成层优化
+  backface-visibility: hidden;
+  perspective: 1000px;
 }
 
 .toolbox-transition-enter-from {
-  transform: translateX(-100%);
+  transform: translate3d(-100%, 0, 0);
 }
 
 .toolbox-transition-enter-to {
-  transform: translateX(0);
+  transform: translate3d(0, 0, 0);
 }
 
 .toolbox-transition-leave-from {
-  transform: translateX(0);
+  transform: translate3d(0, 0, 0);
 }
 
 .toolbox-transition-leave-to {
-  transform: translateX(-100%);
+  transform: translate3d(-100%, 0, 0);
 }
 
 .content-area {

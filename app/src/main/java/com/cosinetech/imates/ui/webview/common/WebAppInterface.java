@@ -13,6 +13,7 @@ import android.util.Log;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import android.provider.MediaStore;
@@ -80,6 +81,7 @@ public class WebAppInterface {
     // Activity Result Launchers
     private ActivityResultLauncher<Intent> imagePickLauncher;
     private ActivityResultLauncher<Intent> imageCaptureLauncher;
+    private ActivityResultLauncher<String> cameraPermissionLauncher;
 
     public WebAppInterface(Context c) {
         mContext = c;
@@ -102,6 +104,13 @@ public class WebAppInterface {
             ActivityResultLauncher<Intent> imageCaptureLauncher) {
         this.imagePickLauncher = imagePickLauncher;
         this.imageCaptureLauncher = imageCaptureLauncher;
+    }
+
+    /**
+     * 设置相机权限请求的 ActivityResultLauncher
+     */
+    public void setCameraPermissionLauncher(ActivityResultLauncher<String> cameraPermissionLauncher) {
+        this.cameraPermissionLauncher = cameraPermissionLauncher;
     }
 
     /**
@@ -778,30 +787,73 @@ public class WebAppInterface {
                 return createResponse(false, "拍照功能未初始化", null);
             }
 
-            // 检查相机权限
+            // 第1步：检查相机权限
             if (!checkCameraPermission()) {
-                return createResponse(false, "需要相机权限", null);
+                // 第2步：如果权限未授予，尝试请求权限
+                if (cameraPermissionLauncher != null && mContext instanceof Activity) {
+                    // 第3步：请求权限（异步操作，权限授予后会在回调中启动相机）
+                    ((Activity) mContext).runOnUiThread(() -> {
+                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA);
+                    });
+                    Log.d(TAG, "正在请求相机权限");
+                    return createResponse(true, "正在请求相机权限", null);
+                } else {
+                    // 无法请求权限，返回错误
+                    return createResponse(false, "需要相机权限，请前往设置中授予", null);
+                }
             }
 
-            // 创建图片文件
-            currentImageFilePath = createImageFilePath();
-            File imageFile = new File(currentImageFilePath);
-
-            // 使用FileProvider获取URI
-            currentImageUri = FileProvider.getUriForFile(mContext,
-                    mContext.getPackageName() + ".fileprovider", imageFile);
-
-            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-            intent.putExtra(MediaStore.EXTRA_OUTPUT, currentImageUri);
-
-            imageCaptureLauncher.launch(intent);
-
+            // 第4步：权限已授予，直接启动相机
+            startCameraCapture();
             Log.d(TAG, "启动相机拍照: " + currentImageFilePath);
             return createResponse(true, "启动相机拍照", currentImageFilePath);
 
         } catch (Exception e) {
             Log.e(TAG, "拍照失败", e);
             return createResponse(false, "拍照失败: " + e.getMessage(), null);
+        }
+    }
+
+    /**
+     * 启动相机拍照（权限已授予后调用）
+     */
+    private void startCameraCapture() {
+        try {
+            // 第1步：创建图片文件
+            currentImageFilePath = createImageFilePath();
+            File imageFile = new File(currentImageFilePath);
+
+            // 第2步：使用FileProvider获取URI
+            currentImageUri = FileProvider.getUriForFile(mContext,
+                    mContext.getPackageName() + ".fileprovider", imageFile);
+
+            // 第3步：创建拍照Intent
+            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            intent.putExtra(MediaStore.EXTRA_OUTPUT, currentImageUri);
+
+            // 第4步：启动相机
+            imageCaptureLauncher.launch(intent);
+        } catch (Exception e) {
+            Log.e(TAG, "启动相机失败", e);
+        }
+    }
+
+    /**
+     * 处理权限请求结果（由Activity调用）
+     */
+    public void onCameraPermissionResult(boolean granted) {
+        if (granted) {
+            // 权限已授予，启动相机
+            Log.d(TAG, "相机权限已授予，启动相机");
+            startCameraCapture();
+        } else {
+            // 权限被拒绝，通知前端
+            Log.w(TAG, "相机权限被拒绝");
+            if (mContext instanceof Activity) {
+                ((Activity) mContext).runOnUiThread(() -> {
+                    Toast.makeText(mContext, "需要相机权限才能拍照", Toast.LENGTH_SHORT).show();
+                });
+            }
         }
     }
 

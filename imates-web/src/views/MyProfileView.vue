@@ -9,7 +9,7 @@
       >
         <div class="card-icon-wrapper">
           <img :src="joinClassIcon" alt="加入课堂" class="card-icon" />
-          <img v-if="isInClass" src="/icons/learned_star.svg" alt="已加入" class="check-icon" />
+          <img v-if="isInClass" :src="learnedStarIcon" alt="已加入" class="check-icon" />
         </div>
         <div class="card-text">加入课堂</div>
       </div>
@@ -44,14 +44,6 @@
           <img :src="feedbackIcon" alt="意见反馈" class="card-icon" />
         </div>
         <div class="card-text">意见反馈</div>
-      </div>
-
-      <!-- 拍照搜题卡片 -->
-      <div class="feature-card photo-search-card" @click="handlePhotoSearch">
-        <div class="card-icon-wrapper">
-          <q-icon name="camera_alt" class="card-icon" />
-        </div>
-        <div class="card-text">拍照搜题</div>
       </div>
     </div>
 
@@ -94,7 +86,6 @@ import { useImagePicker } from '@/composables/useImagePicker'
 import { apiService } from '@/services/api-service'
 import { androidBridge } from '@/services/android-bridge'
 import { showMessage } from '@/utils'
-import { useQuestionStore } from '@/stores/questionStore'
 import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
 import FeedbackDialog from '@/components/FeedbackDialog.vue'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
@@ -105,11 +96,11 @@ import teacherQaIcon from '/icons/teacher_qa.svg'
 import scanHomeworkIcon from '/icons/scan_homework.svg'
 import myFavoritesIcon from '/icons/my_favorites.svg'
 import feedbackIcon from '/icons/feedback.svg'
+import learnedStarIcon from '/icons/learned_star.svg'
 
 const router = useRouter()
 const userStore = useUserStore()
 const teacherStore = useTeacherChatStore()
-const questionStore = useQuestionStore()
 
 // 不再需要 props，点击卡片不会关闭工具区域
 
@@ -403,44 +394,6 @@ const showFavorites = () => {
   // 第1步：导航到我的收藏页面
   router.push({ name: 'myFavorites' })
 }
-
-// 拍照搜题处理
-const handlePhotoSearch = () => {
-  try {
-    if (androidBridge && androidBridge.isAndroidBridgeAvailable()) {
-      // 获取当前题目信息，如果存在则使用其学科，否则默认使用数学
-      const currentQuestion = questionStore.currentQuestion
-      let subjectName = 'math' // 默认使用数学
-      
-      if (currentQuestion?.subject) {
-        // 从题目中获取学科信息
-        const subjectMap: Record<string, string> = {
-          'SUBJECT_MATH': 'math',
-          'SUBJECT_BIOLOGY': 'biology',
-          'SUBJECT_CHEMISTRY': 'chemistry',
-          'SUBJECT_PHYSICS': 'physics',
-          'SUBJECT_CHINESE': 'chinese',
-          'SUBJECT_ENGLISH': 'english'
-        }
-        subjectName = subjectMap[currentQuestion.subject] || currentQuestion.subject.toLowerCase() || 'math'
-      }
-      
-      // 调用原生拍照搜题功能
-      androidBridge.takePicture(subjectName)
-      
-      // 导航到习题解答页面（如果不在该页面）
-      const currentRoute = router.currentRoute.value
-      if (currentRoute.name !== 'exerciseSolve') {
-        router.push({ name: 'exerciseSolve' })
-      }
-    } else {
-      showMessage('拍照功能暂不可用', 'warning')
-    }
-  } catch (error) {
-    console.error('拍照搜题失败:', error)
-    showMessage('拍照搜题失败', 'error')
-  }
-}
 </script>
 
 <style lang="scss" scoped>
@@ -519,17 +472,6 @@ $bg-gray: #f9fafb;
       position: relative;
       z-index: 1;
     }
-    
-    .check-icon {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-45%, -60%);
-      z-index: 2;
-      width: 16px;
-      height: 16px;
-      object-fit: contain;
-    }
   }
 
   .card-text {
@@ -546,6 +488,12 @@ $bg-gray: #f9fafb;
   &.join-class-card {
     .card-icon-wrapper {
       background: #34D399;
+      transition: background-color 0.3s ease;
+      
+      // 已加入课堂状态 - 更深的绿色
+      &.in-class {
+        background: #10B981;
+      }
     }
   }
 
@@ -574,20 +522,6 @@ $bg-gray: #f9fafb;
   &.feedback-card {
     .card-icon-wrapper {
       background: #60A5FA;
-    }
-  }
-
-  // 拍照搜题 - 紫色
-  &.photo-search-card {
-    .card-icon-wrapper {
-      background: #8A80FF;
-    }
-    
-    .card-icon {
-      font-size: 56px;
-      color: white;
-      width: 100%;
-      height: 100%;
     }
   }
 }

@@ -96,6 +96,18 @@
               >
                 <q-tooltip>输出对比统计（估算vs真实高度）</q-tooltip>
               </q-btn>
+
+              <!-- 拍照搜题按钮 -->
+              <q-btn
+                icon="camera_alt"
+                label="拍照搜题"
+                color="primary"
+                outline
+                class="photo-search-btn"
+                @click="handlePhotoSearch"
+              >
+                <q-tooltip>拍照或选择图片进行题目识别</q-tooltip>
+              </q-btn>
             </div>
           </div>
         </div>
@@ -161,7 +173,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useQuestionStore } from '../stores/questionStore'
 import { useUserStore } from '../stores/userStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
@@ -194,6 +206,7 @@ const getTimeString = () => {
 }
 
 const route = useRoute()
+const router = useRouter()
 const questionStore = useQuestionStore()
 const userStore = useUserStore()
 const aiExerciseStore = useAiExerciseChatStore()
@@ -256,7 +269,36 @@ const onSubjectFilterChange = () => {
   // 过滤逻辑在 QuestionList 组件内部处理
 }
 
-// 拍照搜题功能已移至工具箱（MyProfileView）
+// 拍照搜题处理
+const handlePhotoSearch = () => {
+  try {
+    // 获取当前题目信息，如果存在则使用其学科，否则默认使用数学
+    const currentQuestion = questionStore.currentQuestion
+    let subjectName = 'math' // 默认使用数学
+    
+    if (currentQuestion?.subject) {
+      // 从题目中获取学科信息
+      const subjectMap: Record<string, string> = {
+        'SUBJECT_MATH': 'math',
+        'SUBJECT_BIOLOGY': 'biology',
+        'SUBJECT_CHEMISTRY': 'chemistry',
+        'SUBJECT_PHYSICS': 'physics',
+        'SUBJECT_CHINESE': 'chinese',
+        'SUBJECT_ENGLISH': 'english'
+      }
+      subjectName = subjectMap[currentQuestion.subject] || currentQuestion.subject.toLowerCase() || 'math'
+    }
+    
+    // 导航到拍照搜题页面
+    router.push({ 
+      name: 'photoSearch',
+      query: { subject: subjectName }
+    })
+  } catch (error) {
+    console.error('打开拍照搜题页面失败:', error)
+    showMessage('打开拍照搜题页面失败', 'error')
+  }
+}
 
 // 输出对比统计
 const handleOutputStatistics = () => {
@@ -740,6 +782,23 @@ $desktop-breakpoint: 1025px;
         font-size: 20px;
       }
     }
+    
+    .photo-search-btn {
+      width: 100%;
+      height: 48px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      
+      &:hover {
+        opacity: 0.9;
+      }
+      
+      :deep(.q-icon) {
+        font-size: 20px;
+        margin-right: 8px;
+      }
+    }
   }
 }
 
@@ -924,7 +983,6 @@ $desktop-breakpoint: 1025px;
 
   :deep(.chat-messages-container) {
     background-color: $background-color;
-    border-bottom: $border-width solid $border-color;
   }
 
   :deep(.chat-messages) {

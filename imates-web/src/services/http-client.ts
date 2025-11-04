@@ -226,8 +226,18 @@ export class HttpClient {
       }
 
       // 处理请求体：只有非GET请求才添加body，且自动序列化JSON
+      // 注意：FormData 和 Blob 需要直接传递，不能序列化
       if (body && method !== 'GET') {
-        requestOptions.body = typeof body === 'string' ? body : JSON.stringify(body)
+        if (body instanceof FormData || body instanceof Blob) {
+          // FormData 和 Blob 直接传递，不设置 Content-Type（让浏览器自动设置）
+          requestOptions.body = body
+          // 删除 Content-Type，让浏览器自动设置（包括 multipart/form-data 的 boundary）
+          delete (requestOptions.headers as Record<string, string>)['Content-Type']
+        } else if (typeof body === 'string') {
+          requestOptions.body = body
+        } else {
+          requestOptions.body = JSON.stringify(body)
+        }
       }
 
       try {
