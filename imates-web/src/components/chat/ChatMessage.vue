@@ -105,7 +105,7 @@
                 </q-item>
                 <q-item clickable @click="handleForward" v-if="canForward">
                   <q-item-section avatar>
-                    <img src="/icons/forward.svg" alt="转发" style="width: 20px; height: 20px;" />
+                    <q-icon name="forward" color="primary" size="20px" />
                   </q-item-section>
                   <q-item-section>转发</q-item-section>
                 </q-item>
@@ -211,7 +211,7 @@
                 </q-item>
                 <q-item clickable @click="handleForward" v-if="canForward">
                   <q-item-section avatar>
-                    <img src="/icons/forward.svg" alt="转发" style="width: 20px; height: 20px;" />
+                    <img :src="forwardIcon" alt="转发" style="width: 20px; height: 20px;" />
                   </q-item-section>
                   <q-item-section>转发</q-item-section>
                 </q-item>
@@ -263,7 +263,7 @@ import ImageMessage from './ImageMessage.vue'
 import StreamingMessage from './StreamingMessage.vue'
 import ChatRecordCard from './ChatRecordCard.vue'
 import type  { ChatBubble } from '../../types'
-
+import forwardIcon from '/icons/forward.svg'
 // 导入类型定义
 import type { ChatMessageProps } from '../../types'
 

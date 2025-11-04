@@ -118,6 +118,12 @@ export interface ChatMessageProps {
   isSelected?: boolean
   isSelectionMode?: boolean
   messageIndex?: number
+  onToggleSelection?: (messageId: string) => void
+  onMessageClick?: (message: ChatBubble) => void
+  onForwardMessage?: (message: ChatBubble) => void
+  onEnterMultiSelect?: () => void
+  onEditMessage?: (message: ChatBubble) => void
+  onRetry?: (messageId: string) => Promise<void>
 }
 
 /** StreamingMessage Props接口 */

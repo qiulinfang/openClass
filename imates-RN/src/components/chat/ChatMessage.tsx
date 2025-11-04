@@ -11,7 +11,13 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native'
+import Markdown from 'react-native-markdown-display'
 import * as Clipboard from '@react-native-community/clipboard'
+import { renderMessageContent as preprocessMessageContent } from '../../utils/render/markdownRenderer'
+import VoiceMessage from './VoiceMessage'
+import ImageMessage from './ImageMessage'
+import StreamingMessage from './StreamingMessage'
+import ChatRecordCard from './ChatRecordCard'
 import type { ChatMessageProps } from '../../types/chat'
 
 const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -25,8 +31,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   onForwardMessage,
   onEnterMultiSelect,
   onEditMessage,
+  onRetry,
 }) => {
   const [showActionMenu, setShowActionMenu] = useState(false)
+  const [isRetrying, setIsRetrying] = useState(false)
 
   // 判断是否可以转发（仅在AI通用、AI题目和AI教材对话场景下可用）
   const canForward = useMemo(() => {
@@ -129,27 +137,93 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     }
   }, [message])
 
+  // 处理重试
+  const handleRetry = useCallback(async () => {
+    if (!message.canRetry || isRetrying || !onRetry) {
+      return
+    }
+
+    try {
+      setIsRetrying(true)
+      await onRetry(message.id)
+      Alert.alert('成功', '正在重新生成消息')
+    } catch (error) {
+      console.error('重试失败:', error)
+      Alert.alert('错误', '重试失败，请稍后重试')
+    } finally {
+      setIsRetrying(false)
+    }
+  }, [message, isRetrying, onRetry])
+
   // 渲染消息内容
   const renderMessageContent = useCallback(() => {
-    // TODO: 实现语音消息、图片消息、聊天记录卡片等组件
-    if (message.messageType === 'voice') {
-      return <Text style={styles.voiceMessage}>[语音消息]</Text>
+    // 语音消息
+    if (message.messageType === 'voice' && message.voiceData) {
+      return (
+        <VoiceMessage
+          filePath={message.voiceData.filePath}
+          duration={message.voiceData.duration / 1000}
+          isUser={message.sender === 'user'}
+        />
+      )
     }
-    
-    if (message.messageType === 'image') {
-      return <Text style={styles.imageMessage}>[图片消息]</Text>
+
+    // 图片消息
+    if (message.messageType === 'image' && message.imageData && message.imageData.base64DataUrl) {
+      return (
+        <ImageMessage
+          base64DataUrl={message.imageData.base64DataUrl}
+          width={message.imageData.width}
+          height={message.imageData.height}
+          fileSize={message.imageData.fileSize}
+          isUser={message.sender === 'user'}
+          showInfo={true}
+        />
+      )
     }
-    
-    if (message.messageType === 'chat_record') {
-      return <Text style={styles.chatRecordMessage}>[聊天记录]</Text>
+
+    // 聊天记录卡片
+    if (message.messageType === 'chat_record' && message.chatRecordData) {
+      return (
+        <ChatRecordCard
+          messages={message.chatRecordData.messages}
+          additionalMessage={message.chatRecordData.additionalMessage}
+        />
+      )
     }
-    
-    // 文本消息（简化处理，后续需要集成 Markdown 渲染）
+
+    // 文本消息
+    if (message.isStreaming) {
+      return (
+        <StreamingMessage
+          content={message.content}
+          isStreaming={true}
+          typewriterSpeed={30}
+        />
+      )
+    }
+
+    // 错误消息
+    if (message.isError) {
+      const renderedContent = preprocessMessageContent(message.content)
+      return (
+        <View style={styles.errorMessageWrapper}>
+          <Markdown style={markdownStyles}>{renderedContent}</Markdown>
+          {message.retryCount !== undefined && message.retryCount > 0 && (
+            <Text style={styles.retryCount}>
+              {message.retryCount}/3
+            </Text>
+          )}
+        </View>
+      )
+    }
+
+    // 普通文本消息
+    const renderedContent = preprocessMessageContent(message.content)
     return (
-      <Text style={styles.messageText}>
-        {message.content}
-        {message.isStreaming && <Text style={styles.streamingIndicator}>...</Text>}
-      </Text>
+      <View style={styles.messageText}>
+        <Markdown style={markdownStyles}>{renderedContent}</Markdown>
+      </View>
     )
   }, [message])
 
@@ -216,13 +290,15 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         {/* 错误消息重试按钮 */}
         {message.isError && message.canRetry && (
           <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => {
-              // TODO: 实现重试逻辑
-              Alert.alert('重试', '重试功能待实现')
-            }}
+            style={[styles.retryButton, isRetrying && styles.retryButtonLoading]}
+            onPress={handleRetry}
+            disabled={isRetrying}
           >
-            <Text style={styles.retryButtonText}>重试</Text>
+            {isRetrying ? (
+              <Text style={styles.retryButtonText}>重试中...</Text>
+            ) : (
+              <Text style={styles.retryButtonText}>重试</Text>
+            )}
           </TouchableOpacity>
         )}
       </View>
@@ -320,9 +396,34 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignSelf: 'flex-start',
   },
+  retryButtonLoading: {
+    opacity: 0.6,
+  },
   retryButtonText: {
     fontSize: 14,
     color: '#6c757d',
+  },
+  errorMessageWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  retryCount: {
+    fontSize: 12,
+    color: '#999',
+  },
+})
+
+// Markdown 样式配置
+const markdownStyles = StyleSheet.create({
+  body: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#000',
+  },
+  paragraph: {
+    marginTop: 0,
+    marginBottom: 0,
   },
 })
 

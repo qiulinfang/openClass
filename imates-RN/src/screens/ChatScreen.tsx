@@ -198,6 +198,25 @@ const ChatScreen: React.FC = () => {
     }
   }, [store])
 
+  // 处理消息重试
+  const handleRetry = useCallback(async (messageId: string) => {
+    try {
+      await store.retryMessage(
+        messageId,
+        userStore.userInfo,
+        userStore.subject,
+        selectedModel
+      )
+      // 自动滚动到底部
+      setTimeout(() => {
+        scrollToBottom()
+      }, 100)
+    } catch (error) {
+      console.error('[ChatScreen] 重试消息失败:', error)
+      Alert.alert('重试失败', error instanceof Error ? error.message : '请稍后重试')
+    }
+  }, [store, userStore.userInfo, userStore.subject, selectedModel, scrollToBottom])
+
   // 渲染消息项
   const renderMessage = useCallback(({ item, index }: { item: ChatBubble; index: number }) => {
     return (
@@ -230,9 +249,10 @@ const ChatScreen: React.FC = () => {
         onEditMessage={(message) => {
           // TODO: 实现编辑逻辑
         }}
+        onRetry={handleRetry}
       />
     )
-  }, [type, selectedMessages, isSelectionMode])
+  }, [type, selectedMessages, isSelectionMode, handleRetry])
 
   // 设置导航栏
   useEffect(() => {

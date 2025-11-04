@@ -9,71 +9,68 @@
           
           <!-- 筛选器区域 -->
           <div class="filter-content">
-            <!-- 四个下拉筛选器 -->
-            <div class="filter-dropdowns">
-              <!-- 年级 -->
-              <div class="filter-dropdown-item">
-                <label class="filter-label">年级:</label>
-                <q-select
-                  v-model="selectedGrade"
-                  :options="gradeOptions"
-                  behavior="menu"
-                  emit-value
-                  map-options
-                  outlined
-                  dense
-                  class="filter-select"
-                  @update:model-value="handleFilterChange"
-                />
-              </div>
-              
-              <!-- 教材版本 -->
-              <div class="filter-dropdown-item">
-                <label class="filter-label">教材版本:</label>
-                <q-select
-                  v-model="selectedVersion"
-                  :options="versionOptions"
-                  behavior="menu"
-                  emit-value
-                  map-options
-                  outlined
-                  dense
-                  class="filter-select"
-                  @update:model-value="handleFilterChange"
-                />
-              </div>
-              
-              <!-- 学科 -->
-              <div class="filter-dropdown-item">
-                <label class="filter-label">学科:</label>
-                <q-select
-                  v-model="selectedSubject"
-                  :options="subjectOptions"
-                  behavior="menu"
-                  emit-value
-                  map-options
-                  outlined
-                  dense
-                  class="filter-select"
-                  @update:model-value="handleFilterChange"
-                />
-              </div>
-              
-              <!-- 进度 -->
-              <div class="filter-dropdown-item">
-                <label class="filter-label">进度:</label>
-                <q-select
-                  v-model="selectedProgress"
-                  :options="progressOptions"
-                  behavior="menu"
-                  emit-value
-                  map-options
-                  outlined
-                  dense
-                  class="filter-select"
-                  @update:model-value="handleFilterChange"
-                />
-              </div>
+            <!-- 年级 -->
+            <div class="filter-dropdown-item">
+              <label class="filter-label">年级:</label>
+              <q-select
+                v-model="selectedGrade"
+                :options="gradeOptions"
+                behavior="menu"
+                emit-value
+                map-options
+                outlined
+                dense
+                class="filter-select"
+                @update:model-value="handleFilterChange"
+              />
+            </div>
+            
+            <!-- 教材版本 -->
+            <div class="filter-dropdown-item">
+              <label class="filter-label">教材版本:</label>
+              <q-select
+                v-model="selectedVersion"
+                :options="versionOptions"
+                behavior="menu"
+                emit-value
+                map-options
+                outlined
+                dense
+                class="filter-select"
+                @update:model-value="handleFilterChange"
+              />
+            </div>
+            
+            <!-- 学科 -->
+            <div class="filter-dropdown-item">
+              <label class="filter-label">学科:</label>
+              <q-select
+                v-model="selectedSubject"
+                :options="subjectOptions"
+                behavior="menu"
+                emit-value
+                map-options
+                outlined
+                dense
+                class="filter-select"
+                @update:model-value="handleFilterChange"
+              />
+            </div>
+            
+            <!-- 进度 -->
+            <div class="filter-dropdown-item">
+              <label class="filter-label">进度:</label>
+              <q-select
+                v-model="selectedProgress"
+                :options="progressOptions"
+                behavior="menu"
+                emit-value
+                map-options
+                outlined
+                dense
+                class="filter-select"
+                @update:model-value="handleFilterChange"
+              />
             </div>
           </div>
           
@@ -142,7 +139,13 @@
                         </div>
                         
                         <!-- 状态指示器 -->
-                        <div class="status-indicator">
+                        <div class="status-indicator"
+                          :class="{
+                            'status-indicator-red': textbook.downloadStatus === 0,
+                            'status-indicator-blue': textbook.downloadStatus === 1,
+                            'status-indicator-green': textbook.downloadStatus === 2 && textbook.isDownloaded,
+                            'status-indicator-orange': textbook.downloadStatus === 3 || textbook.hasUpdatesAvailable
+                          }">
                           <!-- 未下载 -->
                           <template v-if="textbook.downloadStatus === 0">
                             <span class="status-dot status-dot-red"></span>
@@ -151,7 +154,7 @@
                           <!-- 下载中 -->
                           <template v-else-if="textbook.downloadStatus === 1">
                             <span class="status-dot status-dot-blue"></span>
-                            <span class="status-text">正在下载 {{ Math.round((textbook.downloadedFiles / textbook.totalFiles) * 100) }}%</span>
+                            <span class="status-text">正在下载</span>
                           </template>
                           <!-- 下载完成 -->
                           <template v-else-if="textbook.downloadStatus === 2 && textbook.isDownloaded">
@@ -171,19 +174,19 @@
                         </div>
                       </div>
 
-                      <!-- 右侧：操作按钮 -->
+                      <!-- 右侧：操作按钮或进度条 -->
                       <div class="textbook-actions">
-                          <!-- 下载中状态：显示暂停 -->
+                          <!-- 下载中状态：显示进度条 -->
                           <template v-if="textbook.downloadStatus === 1">
-                            <q-btn 
-                              color="primary" 
-                              label="暂停" 
-                              @click="pauseDownload(textbook)" 
-                              size="sm" 
-                              unelevated 
-                              no-caps
-                              class="action-btn"
-                            />
+                            <div class="download-progress-bar">
+                              <div class="progress-bar-container">
+                                <div 
+                                  class="progress-bar-fill" 
+                                  :style="{ width: Math.round((textbook.downloadedFiles / textbook.totalFiles) * 100) + '%' }"
+                                ></div>
+                                <span class="progress-text">{{ Math.round((textbook.downloadedFiles / textbook.totalFiles) * 100) }}%</span>
+                              </div>
+                            </div>
                           </template>
                           
                           <!-- 暂停状态：显示继续 -->
@@ -195,31 +198,20 @@
                               size="sm" 
                               unelevated 
                               no-caps
-                              class="action-btn"
+                              class="action-btn action-btn-download"
                             />
                           </template>
                           
-                          <!-- 已下载状态：显示去学习或更新 -->
-                          <template v-else-if="textbook.isDownloaded && textbook.downloadStatus === 2">
+                          <!-- 已下载状态：显示更新 -->
+                          <template v-else-if="textbook.isDownloaded && textbook.downloadStatus === 2 && textbook.hasUpdatesAvailable">
                             <q-btn 
-                              v-if="textbook.hasUpdatesAvailable"
                               color="secondary" 
                               label="更新" 
                               @click="updateTextbook(textbook)" 
                               size="sm" 
                               unelevated 
                               no-caps
-                              class="action-btn"
-                            />
-                            <q-btn 
-                              v-else
-                              color="primary" 
-                              label="去学习" 
-                              @click="goToKnowledgeGraph(textbook)" 
-                              size="sm" 
-                              unelevated 
-                              no-caps
-                              class="action-btn"
+                              class="action-btn action-btn-update"
                             />
                           </template>
                           
@@ -232,7 +224,7 @@
                               size="sm" 
                               unelevated 
                               no-caps
-                              class="action-btn"
+                              class="action-btn action-btn-download"
                             />
                           </template>
                         </div>
@@ -363,14 +355,36 @@ const subjectOptions = ref([
   { label: '政治', value: '政治' },
 ])
 
-const progressOptions = ref([
-  { label: '全部', value: '' },
-  { label: '必修一', value: '必修一' },
-  { label: '必修二', value: '必修二' },
-  { label: '必修三', value: '必修三' },
-  { label: '选修一', value: '选修一' },
-  { label: '选修二', value: '选修二' },
-])
+// 进度选项 - 根据年级动态生成
+const progressOptions = computed(() => {
+  const baseOptions = [{ label: '全部', value: '' }]
+  
+  // 判断是否为初中
+  const isMiddleSchool = selectedGrade.value === '初一' || 
+                         selectedGrade.value === '初二' || 
+                         selectedGrade.value === '初三'
+  
+  // 判断是否为高中
+  const isHighSchool = selectedGrade.value === '高一' || 
+                       selectedGrade.value === '高二' || 
+                       selectedGrade.value === '高三'
+  
+  if (isMiddleSchool) {
+    // 初中：上册和下册
+    baseOptions.push(
+      { label: '上册', value: '上册' },
+      { label: '下册', value: '下册' }
+    )
+  } else if (isHighSchool) {
+    // 高中：必修和选修
+    baseOptions.push(
+      { label: '必修', value: '必修' },
+      { label: '选修', value: '选修' }
+    )
+  }
+  
+  return baseOptions
+})
 
 // 删除教材相关状态
 const showDeleteDialog = ref(false)
@@ -491,6 +505,16 @@ const getCoverImageUrl = (coverUrl: string | undefined): string => {
 
 // 处理筛选变化
 const handleFilterChange = () => {
+  // 当年级改变时，检查当前进度是否在新的选项中
+  // 如果不在，清空进度选择
+  if (selectedProgress.value) {
+    const currentProgressValid = progressOptions.value.some(
+      option => option.value === selectedProgress.value
+    )
+    if (!currentProgressValid) {
+      selectedProgress.value = ''
+    }
+  }
   // 筛选逻辑已在 computed 中实现，这里可以添加其他处理
   // 如果需要，可以在这里触发数据重新计算或其他操作
 }
@@ -1278,6 +1302,7 @@ const printLocalFilesData = async () => {
     flex: 1;
     overflow: hidden;
     position: relative;
+    background-color: #eef0ff;
   }
 
   .scroll-content {
@@ -1317,45 +1342,43 @@ const printLocalFilesData = async () => {
     }
 
     .filter-content {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: center;
       padding: 12px 20px;
       
-      .filter-dropdowns {
+      .filter-dropdown-item {
         display: flex;
-        gap: 16px;
-        flex-wrap: wrap;
         align-items: center;
+        gap: 8px;
         
-        .filter-dropdown-item {
-          display: flex;
-          align-items: center;
-          gap: 8px;
+        .filter-label {
+          font-size: 14px;
+          color: rgba(0, 0, 0, 0.87);
+          white-space: nowrap;
+        }
+        
+        .filter-select {
+          min-width: 150px;
           
-          .filter-label {
-            font-size: 14px;
-            color: rgba(0, 0, 0, 0.87);
-            white-space: nowrap;
-          }
-          
-          .filter-select {
-            min-width: 120px;
-            
-            :deep(.q-field__control) {
-              border: 1px solid rgba(0, 0, 0, 0.12);
-              border-radius: 4px;
-            }
+          :deep(.q-field__control) {
+            border: 1px solid rgba(0, 0, 0, 0.12);
+            border-radius: 4px;
           }
         }
       }
     }
     
     .filter-tabs {
-      display: flex;
-      gap: 0;
       padding: 0 20px;
-      border-top: 1px dashed rgba(0, 0, 0, 0.12);
+      overflow: hidden; // 清除浮动
       
       .filter-tab {
-        flex: 1;
+        float: left;
+        width: 120px;
+        margin-right: 2px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1363,10 +1386,10 @@ const printLocalFilesData = async () => {
         cursor: pointer;
         position: relative;
         transition: all 0.2s;
-        border-right: 1px dashed rgba(0, 0, 0, 0.12);
         
         &:last-child {
           border-right: none;
+          margin-right: 0;
         }
         
         .tab-label {
@@ -1383,11 +1406,13 @@ const printLocalFilesData = async () => {
           min-width: 16px;
           height: 16px;
           padding: 0 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         
         &.active {
           .tab-label {
-            color: #9c27b0; // 紫色
             font-weight: 500;
             
             &::after {
@@ -1400,10 +1425,6 @@ const printLocalFilesData = async () => {
               background: #9c27b0; // 紫色下划线
             }
           }
-        }
-        
-        &:hover {
-          background: rgba(0, 0, 0, 0.02);
         }
       }
     }
@@ -1477,7 +1498,7 @@ const printLocalFilesData = async () => {
       display: flex;
       flex-direction: column;
       gap: 16px;
-      padding: 16px 0;
+      padding: 16px 22px;
 
       // 响应式调整
       @media (min-width: 768px) {
@@ -1532,12 +1553,11 @@ const printLocalFilesData = async () => {
           flex: 1;
           display: flex;
           flex-direction: column;
-          justify-content: center;
+          justify-content: space-between;
           min-width: 0;
 
           // 标题和版本
           .textbook-header {
-            margin-bottom: 8px;
 
             .textbook-title {
               font-size: 18px;
@@ -1564,6 +1584,10 @@ const printLocalFilesData = async () => {
             display: flex;
             align-items: center;
             gap: 8px;
+            padding: 2px 4px;
+            margin-top: 40px;
+            border-radius: 4px;
+            width: fit-content;
 
             .status-dot {
               width: 8px;
@@ -1573,25 +1597,41 @@ const printLocalFilesData = async () => {
             }
 
             .status-dot-red {
-              background: #ef4444;
+              background: #ffffff;
             }
 
             .status-dot-blue {
-              background: #3b82f6;
+              background: #ffffff;
             }
 
             .status-dot-green {
-              background: #10b981;
+              background: #ffffff;
             }
 
             .status-dot-orange {
-              background: #f59e0b;
+              background: #ffffff;
             }
 
             .status-text {
               font-size: 14px;
-              color: #6b7280;
               font-weight: 500;
+              color: #ffffff;
+            }
+
+            &.status-indicator-red {
+              background: #ef4444;
+            }
+
+            &.status-indicator-blue {
+              background: #6e55ff;
+            }
+
+            &.status-indicator-green {
+              background: #10b981;
+            }
+
+            &.status-indicator-orange {
+              background: #f59e0b;
             }
           }
         }
@@ -1604,6 +1644,55 @@ const printLocalFilesData = async () => {
               min-width: 80px;
               border-radius: 20px;
               font-weight: 500;
+            }
+
+            .action-btn-download {
+              background-color: #6e55ff !important;
+              color: #ffffff !important;
+            }
+
+            .action-btn-update {
+              background-color: #ffffff !important;
+              color: #6e55ff !important;
+              border: 1px solid #6e55ff !important;
+            }
+
+            // 下载进度条
+            .download-progress-bar {
+              width: 120px;
+              
+              .progress-bar-container {
+                position: relative;
+                width: 100%;
+                height: 32px;
+                background: #ffffff;
+                border-radius: 16px;
+                overflow: hidden;
+                border: 1px solid rgba(0, 0, 0, 0.1);
+                
+                .progress-bar-fill {
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  height: 100%;
+                  background: #6e55ff;
+                  transition: width 0.3s ease;
+                  border-radius: 16px;
+                }
+                
+                .progress-text {
+                  position: absolute;
+                  top: 50%;
+                  left: 50%;
+                  transform: translate(-50%, -50%);
+                  font-size: 14px;
+                  font-weight: 500;
+                  color: #6e55ff;
+                  z-index: 2;
+                  pointer-events: none;
+                  white-space: nowrap;
+                }
+              }
             }
           }
         }
@@ -1712,32 +1801,6 @@ const printLocalFilesData = async () => {
           line-height: 1.3;
         }
 
-        .download-progress {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-
-          .progress-bar {
-            flex: 1;
-            height: 4px; // Material Design 进度条高度
-            background: rgba(0, 0, 0, 0.12); // Material Design 进度条背景
-            border-radius: 2px;
-            overflow: hidden;
-
-            .progress-fill {
-              height: 100%;
-              background: #2196f3; // Material Design 蓝色
-              transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            }
-          }
-
-          .progress-text {
-            font-size: 12px;
-            color: rgba(0, 0, 0, 0.6); // Material Design 次要文本色
-            white-space: nowrap;
-            line-height: 1.3;
-          }
-        }
       }
 
       .textbook-actions {
@@ -1876,40 +1939,43 @@ const printLocalFilesData = async () => {
       }
 
       .filter-content {
+        display: flex;
+        justify-content: space-between;
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch;
         padding: 10px 16px;
         
-        .filter-dropdowns {
+        .filter-dropdown-item {
           flex-direction: column;
-          gap: 12px;
-          align-items: stretch;
+          align-items: flex-start;
+          gap: 6px;
           
-          .filter-dropdown-item {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 6px;
-            
-            .filter-label {
-              font-size: 13px;
-            }
-            
-            .filter-select {
-              width: 100%;
-              min-width: auto;
-            }
+          .filter-label {
+            font-size: 13px;
+          }
+          
+          .filter-select {
+            width: 100%;
+            min-width: auto;
           }
         }
       }
       
       .filter-tabs {
-        flex-direction: column;
         padding: 0 16px;
         
         .filter-tab {
+          float: none;
+          width: 100%;
+          margin-right: 0;
+          margin-bottom: 2px;
           border-right: none;
           border-bottom: 1px dashed rgba(0, 0, 0, 0.12);
           
           &:last-child {
             border-bottom: none;
+            margin-bottom: 0;
           }
           
           &.active {
