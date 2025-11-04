@@ -121,26 +121,77 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         userStore.subject  // ⭐ 传入科目参数
       )
       
-      // 第6步：调用API发送消息
-      const response = await apiService.sendChatMessage(aiMessage)
+      // 第6步：累积内容（用于流式更新）
+      let accumulatedContent = ''
       
-      // 第7步：处理响应
-      if (isResponseSuccess(response)) {
-        // 成功：更新消息内容
-        const updatedMessage = updateMessageSuccess(
-          tempReply,
-          response.reply || '',
-          response.messageId
-        )
-        updateMessage(tempReplyId, updatedMessage)
-        
-        // 增加响应次数
-        chatResponseTimes.value++
-        
-        // 保存聊天历史
-        await saveChatHistory()
-      } else {
-        // 失败：标记为错误
+      console.log('[AI Textbook Chat] 开始发送消息:', {
+        content,
+        sessionId: aiMessage.sessionId,
+        reason: aiMessage.reason,
+        url: aiMessage.dstUrl,
+        hasImage: !!imageData
+      })
+      
+      // 第7步：调用API发送消息（带流式更新回调）
+      const response = await apiService.sendChatMessage(
+        aiMessage,
+        // onComplete: 完成回调
+        (finalResponse) => {
+          // 最终完成：更新消息为最终状态
+          if (isResponseSuccess(finalResponse)) {
+            const updatedMessage = updateMessageSuccess(
+              tempReply,
+              finalResponse.reply || accumulatedContent || '',
+              finalResponse.messageId
+            )
+            updateMessage(tempReplyId, updatedMessage)
+            
+            // 增加响应次数
+            chatResponseTimes.value++
+            
+            // 保存聊天历史
+            saveChatHistory()
+          } else {
+            // 失败：标记为错误
+            const errorMessage = updateMessageError(
+              tempReply,
+              '抱歉，我暂时无法回答这个问题。请稍后重试。',
+              content,
+              imageData
+            )
+            updateMessage(tempReplyId, errorMessage)
+          }
+        },
+        // onStream: 流式更新回调
+        (chunk: string, isComplete: boolean) => {
+          if (isComplete) {
+            // 流式完成，标记消息不再流式更新
+            updateMessage(tempReplyId, { isStreaming: false })
+          } else {
+            // 累积内容并实时更新消息
+            accumulatedContent += chunk
+            updateMessage(tempReplyId, {
+              content: accumulatedContent,
+              isStreaming: true
+            })
+          }
+        }
+      )
+      
+      console.log('[AI Textbook Chat] 发送消息完成:', {
+        success: isResponseSuccess(response),
+        hasContent: !!accumulatedContent,
+        responseSummary: response ? {
+          success: response.success,
+          messageId: response.messageId,
+          replyLength: response.reply?.length || 0
+        } : null
+      })
+      
+      // 第8步：处理响应（如果轮询已完成，这里response已经是最终结果）
+      // 注意：由于使用了回调，这里主要是确保没有错误
+      if (!isResponseSuccess(response) && !accumulatedContent) {
+        // 如果既没有成功响应，也没有累积内容，标记为错误
         const errorMessage = updateMessageError(
           tempReply,
           '抱歉，我暂时无法回答这个问题。请稍后重试。',
@@ -222,20 +273,62 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         userStore.subject  // ⭐ 传入科目参数
       )
       
-      const response = await apiService.sendChatMessage(aiMessage)
+      // 累积内容（用于流式更新）
+      let accumulatedContent = ''
       
-      if (isResponseSuccess(response)) {
-        // 重试成功
-        const successMessage = updateMessageSuccess(
-          message,
-          response.reply || '',
-          response.messageId
-        )
-        updateMessage(messageId, successMessage)
-        
-        chatResponseTimes.value++
-        await saveChatHistory()
-      } else {
+      console.log('[AI Textbook Chat] 开始重试消息:', {
+        messageId,
+        originalMessage: message.originalMessage,
+        sessionId: aiMessage.sessionId,
+        reason: aiMessage.reason,
+        retryCount
+      })
+      
+      const response = await apiService.sendChatMessage(
+        aiMessage,
+        // onComplete: 完成回调
+        (finalResponse) => {
+          if (isResponseSuccess(finalResponse)) {
+            // 重试成功
+            const successMessage = updateMessageSuccess(
+              message,
+              finalResponse.reply || accumulatedContent || '',
+              finalResponse.messageId
+            )
+            updateMessage(messageId, successMessage)
+            
+            chatResponseTimes.value++
+            saveChatHistory()
+          } else {
+            // 重试失败
+            const errorContent = buildRetryFailureMessage(retryCount, 3)
+            const errorMessage = updateMessageError(
+              message,
+              errorContent,
+              message.originalMessage,
+              imageData
+            )
+            updateMessage(messageId, errorMessage)
+          }
+        },
+        // onStream: 流式更新回调
+        (chunk: string, isComplete: boolean) => {
+          if (isComplete) {
+            // 流式完成，标记消息不再流式更新
+            updateMessage(messageId, { isStreaming: false })
+          } else {
+            // 累积内容并实时更新消息
+            accumulatedContent += chunk
+            updateMessage(messageId, {
+              content: accumulatedContent,
+              isStreaming: true
+            })
+          }
+        }
+      )
+      
+      // 处理响应（如果轮询已完成）
+      if (!isResponseSuccess(response) && !accumulatedContent) {
         // 重试失败
         const errorContent = buildRetryFailureMessage(retryCount, 3)
         const errorMessage = updateMessageError(

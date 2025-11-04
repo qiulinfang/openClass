@@ -352,6 +352,15 @@ export const useQuestionStore = defineStore('question', () => {
     return Array.from(uniqueMap.values())
   }
   
+  /**
+   * 清空当前选中的题目
+   * 用于离开练习页面时重置状态
+   */
+  const clearCurrentQuestion = (): void => {
+    currentQuestionIndex.value = -1
+    console.log('[QUESTION] ✅ 清空当前选中的题目')
+  }
+  
   // ==================== 返回接口 ====================
   
   return {
@@ -374,7 +383,8 @@ export const useQuestionStore = defineStore('question', () => {
     findSimilarQuestions,
     addSimilarQuestionToList,
     setQuestions,
-    deduplicateQuestions
+    deduplicateQuestions,
+    clearCurrentQuestion
   }
 })
 

@@ -49,6 +49,9 @@ export const showMessage = (
 // MathJax 工具
 export { MathJaxUtils } from './math/mathjax'
 
+// 拍照搜题日志工具
+export { photoSearchLogger } from './photoSearchLogger'
+
 // 节流和防抖工具
 export { throttle, debounce, ThrottleUtils, DebounceUtils } from './common/throttle'
 

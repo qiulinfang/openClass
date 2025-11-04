@@ -5,9 +5,13 @@
 
 import type { QuestionRecord } from '@/types/chat'
 import type { ExerciseItem } from '@/types/exercise'
+import { getCurrentUserIdOrDefault } from './userId'
 
-// localStorage key 常量
-const FAVORITES_STORAGE_KEY = 'favorites'
+// localStorage key 常量（带用户ID前缀）
+const getFavoritesStorageKey = (): string => {
+  const userId = getCurrentUserIdOrDefault()
+  return `${userId}_favorites`
+}
 const QA_FAVORITES_PREFIX = 'favorite_qa_'
 const EXERCISE_FAVORITES_PREFIX = 'favorite_exercise_'
 
@@ -59,7 +63,8 @@ export function getFavoriteExercises(): FavoriteExercise[] {
  */
 export function getAllFavorites(): Favorite[] {
   try {
-    const data = localStorage.getItem(FAVORITES_STORAGE_KEY)
+    const key = getFavoritesStorageKey()
+    const data = localStorage.getItem(key)
     if (!data) return []
     return JSON.parse(data) as Favorite[]
   } catch (error) {
@@ -102,7 +107,8 @@ export function addQaFavorite(record: QuestionRecord): boolean {
 
     const favorites = getAllFavorites()
     favorites.push(favorite)
-    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites))
+    const key = getFavoritesStorageKey()
+    localStorage.setItem(key, JSON.stringify(favorites))
     return true
   } catch (error) {
     console.error('收藏会话失败:', error)
@@ -128,7 +134,8 @@ export function addExerciseFavorite(item: ExerciseItem): boolean {
 
     const favorites = getAllFavorites()
     favorites.push(favorite)
-    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites))
+    const key = getFavoritesStorageKey()
+    localStorage.setItem(key, JSON.stringify(favorites))
     return true
   } catch (error) {
     console.error('收藏题目失败:', error)
@@ -148,7 +155,8 @@ export function removeQaFavorite(recordId: string): boolean {
       }
       return true
     })
-    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(filtered))
+    const key = getFavoritesStorageKey()
+    localStorage.setItem(key, JSON.stringify(filtered))
     return favorites.length !== filtered.length
   } catch (error) {
     console.error('取消收藏会话失败:', error)
@@ -168,7 +176,8 @@ export function removeExerciseFavorite(itemId: string): boolean {
       }
       return true
     })
-    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(filtered))
+    const key = getFavoritesStorageKey()
+    localStorage.setItem(key, JSON.stringify(filtered))
     return favorites.length !== filtered.length
   } catch (error) {
     console.error('取消收藏题目失败:', error)

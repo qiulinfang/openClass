@@ -1,5 +1,6 @@
 package com.cosinetech.imates.teachermessagemq;
 
+import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.data.models.ChatMessage;
 import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.ImageUtils;
@@ -9,7 +10,9 @@ import com.cosinetech.imates.ui.views.ChatAiView;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
 import java.util.UUID;
+import android.util.Log;
 
 /**
  * Represents a message sent by a teacher to a student.
@@ -107,7 +110,31 @@ public class TeacherMessage {
                         this.getSessionId(),
                         this.getTimestamp(),
                         ChatAiView.ChatRole.CHAT_ROLE_TEACHER);
-                String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + chatMessage.messageId + ".png";
+                
+                // 获取文件路径，如果用户路径为null，使用应用外部存储目录作为备用
+                File userFilePath = AppUtils.getUserFilePath();
+                File baseDir;
+                if (userFilePath != null) {
+                    baseDir = userFilePath;
+                } else {
+                    // 使用应用外部存储目录作为备用路径
+                    ApplicationModelShared app = ApplicationModelShared.getInstance();
+                    if (app != null) {
+                        File externalFilesDir = app.getExternalFilesDir(null);
+                        if (externalFilesDir != null) {
+                            baseDir = externalFilesDir;
+                            Log.w("TeacherMessage", "getUserFilePath() returned null, using externalFilesDir: " + baseDir.getAbsolutePath());
+                        } else {
+                            Log.e("TeacherMessage", "Both getUserFilePath() and getExternalFilesDir() returned null, cannot save image");
+                            return null; // 无法保存文件，返回null
+                        }
+                    } else {
+                        Log.e("TeacherMessage", "ApplicationModelShared.getInstance() returned null, cannot save image");
+                        return null; // 无法获取应用实例，返回null
+                    }
+                }
+                
+                String filePath = baseDir.getAbsolutePath() + "/" + chatMessage.messageId + ".png";
                 ImageUtils.saveImageFile(this.getContent(), filePath);
                 chatMessage.content = filePath;
             }
@@ -120,7 +147,31 @@ public class TeacherMessage {
                         this.getSessionId(),
                         this.getTimestamp(),
                         ChatAiView.ChatRole.CHAT_ROLE_TEACHER);
-                String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + chatMessage.messageId + ".voice";
+                
+                // 获取文件路径，如果用户路径为null，使用应用外部存储目录作为备用
+                File userFilePath = AppUtils.getUserFilePath();
+                File baseDir;
+                if (userFilePath != null) {
+                    baseDir = userFilePath;
+                } else {
+                    // 使用应用外部存储目录作为备用路径
+                    ApplicationModelShared app = ApplicationModelShared.getInstance();
+                    if (app != null) {
+                        File externalFilesDir = app.getExternalFilesDir(null);
+                        if (externalFilesDir != null) {
+                            baseDir = externalFilesDir;
+                            Log.w("TeacherMessage", "getUserFilePath() returned null, using externalFilesDir: " + baseDir.getAbsolutePath());
+                        } else {
+                            Log.e("TeacherMessage", "Both getUserFilePath() and getExternalFilesDir() returned null, cannot save voice");
+                            return null; // 无法保存文件，返回null
+                        }
+                    } else {
+                        Log.e("TeacherMessage", "ApplicationModelShared.getInstance() returned null, cannot save voice");
+                        return null; // 无法获取应用实例，返回null
+                    }
+                }
+                
+                String filePath = baseDir.getAbsolutePath() + "/" + chatMessage.messageId + ".voice";
                 VoiceDbUtil.saveVoiceFile(this.getContent(), filePath);
                 long duration = VoiceDbUtil.getDuration(filePath);
                 chatMessage.content = duration + "," +  filePath;

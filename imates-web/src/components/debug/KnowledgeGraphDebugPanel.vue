@@ -2312,6 +2312,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { getCurrentUserIdOrDefault } from '../../utils/userId'
 
 // 定义参数接口
 /**
@@ -3349,10 +3350,17 @@ const resetAllParams = () => {
   updateParams()
 }
 
+// 获取带用户ID前缀的存储key
+const getDebugParamsKey = () => {
+  const userId = getCurrentUserIdOrDefault()
+  return `${userId}_knowledgeGraphDebugParams`
+}
+
 // 保存到本地存储
 const saveToLocalStorage = () => {
   try {
-    localStorage.setItem('knowledgeGraphDebugParams', JSON.stringify(localParams.value))
+    const key = getDebugParamsKey()
+    localStorage.setItem(key, JSON.stringify(localParams.value))
     console.log('✅ 参数已保存到本地存储')
   } catch (error) {
     console.error('❌ 保存参数失败:', error)
@@ -3362,7 +3370,8 @@ const saveToLocalStorage = () => {
 // 从本地存储加载（内部函数，支持静默模式）
 const loadFromLocalStorageInternal = (silent = false) => {
   try {
-    const saved = localStorage.getItem('knowledgeGraphDebugParams')
+    const key = getDebugParamsKey()
+    const saved = localStorage.getItem(key)
     if (saved) {
       const parsed = JSON.parse(saved)
       // 合并顺序：默认值 -> localStorage保存的值 -> props传入的值（props优先级最高）
@@ -3399,7 +3408,8 @@ const autoSaveToLocalStorage = () => {
   // 设置新的定时器
   autoSaveTimer = setTimeout(() => {
     try {
-      localStorage.setItem('knowledgeGraphDebugParams', JSON.stringify(localParams.value))
+      const key = getDebugParamsKey()
+      localStorage.setItem(key, JSON.stringify(localParams.value))
       // 不输出日志，避免控制台过于频繁
     } catch (error) {
       console.error('❌ 自动保存参数失败:', error)

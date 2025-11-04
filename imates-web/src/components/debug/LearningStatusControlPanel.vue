@@ -209,6 +209,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
+import { getCurrentUserIdOrDefault } from '../../utils/userId'
 
 interface ChapterNode {
   id: string
@@ -246,9 +247,16 @@ const isVisible = computed({
   set: (value) => emit('update:modelValue', value)
 })
 
-// localStorage键名
-const LAST_LEARNED_NODE_KEY = 'LAST_LEARNED_NODE_ID'
-const LEARNED_NODES_KEY = 'LEARNED_NODES'
+// 获取带用户ID前缀的存储key
+const getLastLearnedNodeKey = () => {
+  const userId = getCurrentUserIdOrDefault()
+  return `${userId}_LAST_LEARNED_NODE_ID`
+}
+
+const getLearnedNodesKey = () => {
+  const userId = getCurrentUserIdOrDefault()
+  return `${userId}_LEARNED_NODES`
+}
 
 // 上次学习的节点ID
 const lastLearnedNodeId = ref<string | null>(null)
@@ -265,7 +273,8 @@ const selectedLastLearnedId = ref<string | null>(null)
 // 从localStorage加载最后学习的节点ID
 const loadLastLearnedNodeId = () => {
   try {
-    const saved = localStorage.getItem(LAST_LEARNED_NODE_KEY)
+    const key = getLastLearnedNodeKey()
+    const saved = localStorage.getItem(key)
     if (saved) {
       lastLearnedNodeId.value = saved
     } else {
@@ -280,7 +289,8 @@ const loadLastLearnedNodeId = () => {
 // 从localStorage加载已学习的节点ID列表
 const loadLearnedNodeIds = () => {
   try {
-    const saved = localStorage.getItem(LEARNED_NODES_KEY)
+    const key = getLearnedNodesKey()
+    const saved = localStorage.getItem(key)
     if (saved) {
       const ids = JSON.parse(saved) as string[]
       learnedNodeIds.value = new Set(ids)
@@ -296,16 +306,17 @@ const loadLearnedNodeIds = () => {
 // 保存最后学习的节点ID到localStorage
 const saveLastLearnedNodeId = (nodeId: string | null) => {
   try {
+    const key = getLastLearnedNodeKey()
     const oldValue = lastLearnedNodeId.value
     lastLearnedNodeId.value = nodeId
     if (nodeId) {
-      localStorage.setItem(LAST_LEARNED_NODE_KEY, nodeId)
+      localStorage.setItem(key, nodeId)
     } else {
-      localStorage.removeItem(LAST_LEARNED_NODE_KEY)
+      localStorage.removeItem(key)
     }
     // 触发自定义事件，让同标签页的其他组件能够监听到变化
     window.dispatchEvent(new StorageEvent('storage', {
-      key: LAST_LEARNED_NODE_KEY,
+      key: key,
       newValue: nodeId,
       oldValue: oldValue,
       storageArea: localStorage
@@ -324,16 +335,17 @@ const saveLastLearnedNodeId = (nodeId: string | null) => {
 // 保存已学习的节点ID列表到localStorage
 const saveLearnedNodeIds = () => {
   try {
+    const key = getLearnedNodesKey()
     const ids = Array.from(learnedNodeIds.value)
-    const oldValue = localStorage.getItem(LEARNED_NODES_KEY)
+    const oldValue = localStorage.getItem(key)
     if (ids.length > 0) {
-      localStorage.setItem(LEARNED_NODES_KEY, JSON.stringify(ids))
+      localStorage.setItem(key, JSON.stringify(ids))
     } else {
-      localStorage.removeItem(LEARNED_NODES_KEY)
+      localStorage.removeItem(key)
     }
     // 触发自定义事件，让同标签页的其他组件能够监听到变化
     window.dispatchEvent(new StorageEvent('storage', {
-      key: LEARNED_NODES_KEY,
+      key: key,
       newValue: ids.length > 0 ? JSON.stringify(ids) : null,
       oldValue: oldValue,
       storageArea: localStorage

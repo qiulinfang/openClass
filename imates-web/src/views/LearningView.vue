@@ -132,6 +132,7 @@ import { useRouter } from 'vue-router'
 import { resourceManager } from '../services/resource-storage'
 import type { LearningPackage, ResourceFile, LocalFileInfo } from '../types'
 import { useBetterScroll } from '../composables/useBetterScroll'
+import { getCurrentUserIdOrDefault } from '../utils/userId'
 import DraggableDialog from '../components/DraggableDialog.vue'
 
 // Props 定义
@@ -456,7 +457,8 @@ const startLearning = async (resource: ResourceFile) => {
 // 标记节点为已学习
 const markNodeAsLearned = (nodeId: string) => {
   try {
-    const LEARNED_NODES_KEY = 'LEARNED_NODES'
+    const userId = getCurrentUserIdOrDefault()
+    const LEARNED_NODES_KEY = `${userId}_LEARNED_NODES`
     // 从localStorage加载已学习的节点ID列表
     const saved = localStorage.getItem(LEARNED_NODES_KEY)
     let learnedNodeIds: Set<string>

@@ -15,6 +15,7 @@
     @touchstart="handleTouchStart"
     @touchmove="handleTouchMove"
     @touchend="handleTouchEnd"
+    @touchcancel="handleTouchCancel"
     @mousedown="handleMouseDown"
     @mousemove="handleMouseMove"
     @mouseup="handleMouseUp"
@@ -38,108 +39,112 @@
         </q-avatar>
       </div>
       <div class="ai-content">
-        <!-- Flex容器包裹ai-content和重试按钮 -->
+        <!-- AI内容容器 -->
         <div class="ai-content-container">
           <div class="ai-message-content" :ref="(el) => setBubbleRef(el, 'ai')">
-          <!-- 语音消息 -->
-          <VoiceMessage
-            v-if="message.messageType === 'voice' && message.voiceData"
-            :file-path="message.voiceData.filePath"
-            :duration="message.voiceData.duration / 1000"
-            :is-user="false"
-          />
-          <!-- 图片消息 -->
-          <ImageMessage
-            v-else-if="message.messageType === 'image' && message.imageData && message.imageData.base64DataUrl"
-            :base64-data-url="message.imageData.base64DataUrl"
-            :width="message.imageData.width"
-            :height="message.imageData.height"
-            :file-size="message.imageData.fileSize"
-            :is-user="false"
-            :show-info="true"
-          />
-          <!-- 聊天记录卡片 -->
-          <ChatRecordCard
-            v-else-if="message.messageType === 'chat_record' && message.chatRecordData"
-            :messages="message.chatRecordData.messages"
-            :additional-message="message.chatRecordData.additionalMessage"
-          />
-          <!-- 文本消息 -->
-          <div v-else class="message-text" :ref="(el) => setMessageRef(el)">
-            <StreamingMessage
-              v-if="message.isStreaming"
-              :content="message.content"
-              :is-streaming="true"
-              :typewriter-speed="30"
-              :ref="(el) => setStreamingRef(el)"
+            <!-- 语音消息 -->
+            <VoiceMessage
+              v-if="message.messageType === 'voice' && message.voiceData"
+              :file-path="message.voiceData.filePath"
+              :duration="message.voiceData.duration / 1000"
+              :is-user="false"
             />
-            <div v-else-if="message.isError" class="error-message-wrapper" :ref="(el) => setStaticRef(el)">
-              <div class="error-message">
-                <div  v-html="renderedContent"></div>
-                <div v-if="message.retryCount && message.retryCount > 0" class="retry-count">
-                  {{ message.retryCount }}/3
+            <!-- 图片消息 -->
+            <ImageMessage
+              v-else-if="
+                message.messageType === 'image' &&
+                message.imageData &&
+                message.imageData.base64DataUrl
+              "
+              :base64-data-url="message.imageData.base64DataUrl"
+              :width="message.imageData.width"
+              :height="message.imageData.height"
+              :file-size="message.imageData.fileSize"
+              :is-user="false"
+              :show-info="true"
+            />
+            <!-- 聊天记录卡片 -->
+            <ChatRecordCard
+              v-else-if="message.messageType === 'chat_record' && message.chatRecordData"
+              :messages="message.chatRecordData.messages"
+              :additional-message="message.chatRecordData.additionalMessage"
+            />
+            <!-- 文本消息 -->
+            <div v-else class="message-text" :ref="(el) => setMessageRef(el)">
+              <StreamingMessage
+                v-if="message.isStreaming"
+                :content="message.content"
+                :is-streaming="true"
+                :typewriter-speed="30"
+                :ref="(el) => setStreamingRef(el)"
+              />
+              <div
+                v-else-if="message.isError"
+                class="error-message-wrapper"
+                :ref="(el) => setStaticRef(el)"
+              >
+                <div class="error-message">
+                  <div v-html="renderedContent"></div>
+                  <div v-if="message.retryCount && message.retryCount > 0" class="retry-count">
+                    {{ message.retryCount }}/3
+                  </div>
                 </div>
               </div>
+              <div v-else v-html="renderedContent" :ref="(el) => setStaticRef(el)"></div>
             </div>
-            <div v-else v-html="renderedContent" :ref="(el) => setStaticRef(el)"></div>
-          </div>
-          
-          <!-- 长按气泡确认框 -->
-          <q-popup-proxy
-            v-model="showActionMenu"
-            :anchor="anchor"
-            :self="self"
-            class="message-action-menu"
-            :breakpoint="0"
-            no-parent-event
-            @before-show="onMenuShow"
-            @before-hide="onMenuHide"
-          >
-            <q-card class="action-card">
-              <q-list dense>
-                <q-item clickable @click="handleCopy">
-                  <q-item-section avatar>
-                    <img :src="copyIcon" alt="复制" style="width: 20px; height: 20px;" />
-                  </q-item-section>
-                  <q-item-section>复制</q-item-section>
-                </q-item>
-                <q-item clickable @click="handleForward" v-if="canForward">
-                  <q-item-section avatar>
-                    <img :src="forwardIcon" alt="转发" style="width: 20px; height: 20px;" />
-                  </q-item-section>
-                  <q-item-section>转发</q-item-section>
-                </q-item>
-                <q-item clickable @click="handleMultiSelect">
-                  <q-item-section avatar>
-                    <q-icon name="checklist" color="primary" size="20px" />
-                  </q-item-section>
-                  <q-item-section>多选</q-item-section>
-                </q-item>
-              </q-list>
-            </q-card>
-          </q-popup-proxy>
-          </div>
-          
-          <!-- 重试按钮 - 在flex容器中，有左边距并触底对齐 -->
-          <div v-if="message.isError && message.canRetry" class="retry-button-wrapper">
-            <button 
-              @click="handleRetry"
-              :disabled="isRetrying"
-              class="retry-button"
-              :class="{ 'retry-button--loading': isRetrying }"
+
+            <!-- 长按气泡确认框 -->
+            <q-popup-proxy
+              v-model="showActionMenu"
+              :target="bubbleTarget || undefined"
+              :anchor="anchor"
+              :self="self"
+              class="message-action-menu"
+              :breakpoint="0"
+              no-parent-event
+              @before-show="onMenuShow"
+              @before-hide="onMenuHide"
             >
-              <div class="retry-icon" :class="{ 'retry-icon--spinning': isRetrying }">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M4 12a8 8 0 0 1 8-8V2.5L16 5l-4 2.5V6a6 6 0 1 0 6 6h1.5a7.5 7.5 0 1 1-15 0z" fill="currentColor"/>
-                </svg>
-              </div>
-            </button>
+              <q-card class="action-card">
+                <q-list dense>
+                  <q-item clickable @click="handleCopy">
+                    <q-item-section avatar>
+                      <img :src="copyIcon" alt="复制" style="width: 20px; height: 20px" />
+                    </q-item-section>
+                    <q-item-section>复制</q-item-section>
+                  </q-item>
+                  <q-item clickable @click="handleForward" v-if="canForward">
+                    <q-item-section avatar>
+                      <img :src="shareIcon" alt="转发" style="width: 20px; height: 20px" />
+                    </q-item-section>
+                    <q-item-section>转发</q-item-section>
+                  </q-item>
+                  <q-item clickable @click="handleMultiSelect">
+                    <q-item-section avatar>
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                          fill="#9792ac"
+                        />
+                      </svg>
+                    </q-item-section>
+                    <q-item-section>多选</q-item-section>
+                  </q-item>
+                </q-list>
+              </q-card>
+            </q-popup-proxy>
           </div>
         </div>
-        
+
         <!-- 功能按钮区域 - 统一区域，使用 v-for 渲染 -->
         <div v-if="actionButtons.length > 0" class="message-actions">
-          <button 
+          <button
             v-for="(button, index) in actionButtons"
             :key="index"
             class="action-button"
@@ -148,7 +153,12 @@
             :title="button.title"
           >
             <img v-if="button.iconPath" :src="button.iconPath" alt="" class="action-icon" />
-            <img v-else-if="button.icon" :src="`/icons/${button.icon}.svg`" alt="" class="action-icon" />
+            <img
+              v-else-if="button.icon"
+              :src="`/icons/${button.icon}.svg`"
+              alt=""
+              class="action-icon"
+            />
             <q-icon v-else name="help" size="18px" />
           </button>
         </div>
@@ -168,7 +178,11 @@
           />
           <!-- 图片消息 -->
           <ImageMessage
-            v-else-if="message.messageType === 'image' && message.imageData && message.imageData.base64DataUrl"
+            v-else-if="
+              message.messageType === 'image' &&
+              message.imageData &&
+              message.imageData.base64DataUrl
+            "
             :base64-data-url="message.imageData.base64DataUrl"
             :width="message.imageData.width"
             :height="message.imageData.height"
@@ -183,11 +197,19 @@
             :additional-message="message.chatRecordData.additionalMessage"
           />
           <!-- 文本消息 -->
-          <div v-else class="message-text" v-html="renderedContent" :ref="(el) => setMessageRef(el, messageElementRef as unknown as Ref<HTMLElement | null>)"></div>
-          
+          <div
+            v-else
+            class="message-text"
+            v-html="renderedContent"
+            :ref="
+              (el) => setMessageRef(el, messageElementRef as unknown as Ref<HTMLElement | null>)
+            "
+          ></div>
+
           <!-- 长按气泡确认框 -->
           <q-popup-proxy
             v-model="showActionMenu"
+            :target="bubbleTarget || undefined"
             :anchor="anchor"
             :self="self"
             class="message-action-menu"
@@ -200,25 +222,36 @@
               <q-list dense>
                 <q-item clickable @click="handleCopy">
                   <q-item-section avatar>
-                    <img :src="copyIcon" alt="复制" style="width: 20px; height: 20px;" />
+                    <img :src="copyIcon" alt="复制" style="width: 20px; height: 20px" />
                   </q-item-section>
                   <q-item-section>复制</q-item-section>
                 </q-item>
                 <q-item clickable @click="handleEdit" v-if="canEdit">
                   <q-item-section avatar>
-                    <img :src="editIcon" alt="编辑" style="width: 20px; height: 20px;" />
+                    <img :src="editIcon" alt="编辑" style="width: 20px; height: 20px" />
                   </q-item-section>
                   <q-item-section>编辑</q-item-section>
                 </q-item>
                 <q-item clickable @click="handleForward" v-if="canForward">
                   <q-item-section avatar>
-                    <img :src="forwardIcon" alt="转发" style="width: 20px; height: 20px;" />
+                    <img :src="shareIcon" alt="转发" style="width: 20px; height: 20px" />
                   </q-item-section>
                   <q-item-section>转发</q-item-section>
                 </q-item>
                 <q-item clickable @click="handleMultiSelect">
                   <q-item-section avatar>
-                    <q-icon name="checklist" color="primary" size="20px" />
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                        fill="#9792ac"
+                      />
+                    </svg>
                   </q-item-section>
                   <q-item-section>多选</q-item-section>
                 </q-item>
@@ -226,10 +259,10 @@
             </q-card>
           </q-popup-proxy>
         </div>
-        
+
         <!-- 功能按钮区域 - 统一区域，使用 v-for 渲染 -->
         <div v-if="actionButtons.length > 0" class="message-actions">
-          <button 
+          <button
             v-for="(button, index) in actionButtons"
             :key="index"
             class="action-button"
@@ -238,13 +271,17 @@
             :title="button.title"
           >
             <img v-if="button.iconPath" :src="button.iconPath" alt="" class="action-icon" />
-            <img v-else-if="button.icon" :src="`/icons/${button.icon}.svg`" alt="" class="action-icon" />
+            <img
+              v-else-if="button.icon"
+              :src="`/icons/${button.icon}.svg`"
+              alt=""
+              class="action-icon"
+            />
             <q-icon v-else name="help" size="18px" />
           </button>
         </div>
       </div>
     </div>
-
   </div>
 </template>
 
@@ -264,8 +301,7 @@ import VoiceMessage from './VoiceMessage.vue'
 import ImageMessage from './ImageMessage.vue'
 import StreamingMessage from './StreamingMessage.vue'
 import ChatRecordCard from './ChatRecordCard.vue'
-import type  { ChatBubble } from '../../types'
-import forwardIcon from '/icons/forward.svg'
+import type { ChatBubble } from '../../types'
 import copyIcon from '/icons/copy.svg'
 import editIcon from '/icons/edit.svg'
 import shareIcon from '/icons/share.svg'
@@ -307,6 +343,8 @@ const currentBubbleType = ref<'ai' | 'user' | null>(null)
 
 // 点击外部区域关闭气泡框
 let clickOutsideHandler: ((event: Event) => void) | null = null
+// 气泡框显示时间，用于延迟处理外部点击
+let menuShowTime = 0
 
 const { renderMessageContent } = useMessageRenderer()
 
@@ -327,7 +365,7 @@ const isRetrying = ref(false)
 // 懒加载渲染
 const { elementRef: messageElementRef } = useLazyMessageRender({
   rootMargin: '100px',
-  threshold: 0.1
+  threshold: 0.1,
 })
 
 // 移除调试日志以提高性能
@@ -340,51 +378,39 @@ const handleRetry = async () => {
 
   try {
     isRetrying.value = true
-    
+
     // 根据不同场景调用不同的retryMessage方法
     const subject = userStore.subject as 'MATH' | 'BIOLOGY'
-    
+
     switch (props.type) {
       case 'ai-exercise':
-          await aiExerciseStore.retryMessage(
-        props.message.id,
-        questionStore.currentQuestion,
-        userStore.userInfo,
-        subject,
-        'mate',
-        props.message.imageData
-      )
-      break
-    case 'ai-general':
-      await aiGeneralStore.retryMessage(
-        props.message.id,
-        userStore.userInfo,
-        subject,
-        'mate'
-      )
-      break
-    case 'ai-textbook':
-      await aiTextbookStore.retryAiMessage(
-        props.message.id,
-        'mate',
-        props.message.imageData
-      )
-      break
-    case 'teacher':
-      await teacherStore.retryTeacherMessage(
-        props.message.id,
-        props.message.imageData
-      )
-      break
-    default:
-      throw new Error('未知的聊天类型')
+        await aiExerciseStore.retryMessage(
+          props.message.id,
+          questionStore.currentQuestion,
+          userStore.userInfo,
+          subject,
+          'mate',
+          props.message.imageData,
+        )
+        break
+      case 'ai-general':
+        await aiGeneralStore.retryMessage(props.message.id, userStore.userInfo, subject, 'mate')
+        break
+      case 'ai-textbook':
+        await aiTextbookStore.retryAiMessage(props.message.id, 'mate', props.message.imageData)
+        break
+      case 'teacher':
+        await teacherStore.retryTeacherMessage(props.message.id, props.message.imageData)
+        break
+      default:
+        throw new Error('未知的聊天类型')
     }
-    
+
     $q.notify({
       type: 'positive',
       message: '正在重新生成消息',
       position: 'top',
-      timeout: 2000
+      timeout: 2000,
     })
   } catch (error) {
     console.error('重发失败:', error)
@@ -392,7 +418,7 @@ const handleRetry = async () => {
       type: 'negative',
       message: '重发失败，请稍后重试',
       position: 'top',
-      timeout: 3000
+      timeout: 3000,
     })
   } finally {
     isRetrying.value = false
@@ -432,28 +458,33 @@ const actionButtons = computed(() => {
     show: boolean
     active?: boolean
   }> = []
-  
+
+  // 教师答疑场景下，学生和教师的消息都不显示功能按钮区域
+  if (props.type === 'teacher') {
+    return buttons
+  }
+
   // 欢迎消息不显示功能区域
   if (props.message.id && props.message.id.startsWith('welcome_')) {
     return buttons
   }
-  
+
   const isUser = props.message.sender === 'user'
   const canShow = isUser || !props.message.isStreaming
-  
+
   if (!canShow) {
     return buttons
   }
-  
+
   // 复制按钮 - 所有消息都显示
   buttons.push({
     icon: '',
     iconPath: copyIcon,
     title: '复制',
     handler: handleCopy,
-    show: true
+    show: true,
   })
-  
+
   // 编辑按钮 - 仅用户消息且可编辑时显示
   if (isUser && canEdit.value) {
     buttons.push({
@@ -461,10 +492,10 @@ const actionButtons = computed(() => {
       iconPath: editIcon,
       title: '编辑',
       handler: handleEdit,
-      show: true
+      show: true,
     })
   }
-  
+
   // 转发按钮 - 根据 canForward 判断
   if (canForward.value) {
     buttons.push({
@@ -472,10 +503,10 @@ const actionButtons = computed(() => {
       iconPath: shareIcon,
       title: '转发',
       handler: handleForward,
-      show: true
+      show: true,
     })
   }
-  
+
   // AI消息专属按钮
   if (!isUser) {
     // 刷新按钮
@@ -484,10 +515,10 @@ const actionButtons = computed(() => {
       iconPath: refreshIcon,
       title: '刷新',
       handler: handleRefresh,
-      show: true
+      show: true,
     })
   }
-  
+
   return buttons
 })
 
@@ -514,38 +545,49 @@ const handleContextMenu = (event: Event) => {
 // 触摸开始
 const handleTouchStart = (event: TouchEvent) => {
   if (props.isSelectionMode) return
-  
+
   // 检查是否点击在公式元素上
   const target = event.target as HTMLElement
-  if (target && (
-    target.classList.contains('mjx-chtml') ||
-    target.classList.contains('mjx-math') ||
-    target.hasAttribute('data-mjx-texclass') ||
-    target.closest('.mjx-chtml') ||
-    target.closest('.mjx-math') ||
-    target.closest('[data-mjx-texclass]')
-  )) {
+  if (
+    target &&
+    (target.classList.contains('mjx-chtml') ||
+      target.classList.contains('mjx-math') ||
+      target.hasAttribute('data-mjx-texclass') ||
+      target.closest('.mjx-chtml') ||
+      target.closest('.mjx-math') ||
+      target.closest('[data-mjx-texclass]'))
+  ) {
     // 如果是公式元素，阻止事件传播
     event.stopPropagation()
     return
   }
-  
+
+  // 第1步：确保能找到气泡元素
+  ensureBubbleTarget(target)
+
+  // 第2步：如果找不到气泡元素，直接返回
+  if (!bubbleTarget.value) {
+    return
+  }
+
+  // 第3步：记录触摸开始时间和坐标
   touchStartTime.value = Date.now()
   isLongPressing.value = false
-  
+
   // 记录触摸开始坐标
   const touch = event.touches[0]
   if (touch) {
     touchStartX.value = touch.clientX
     touchStartY.value = touch.clientY
   }
-  
-  // 设置长按定时器
+
+  // 第4步：设置长按定时器
   longPressTimer.value = window.setTimeout(() => {
-    if (!props.isSelectionMode) {
+    if (!props.isSelectionMode && bubbleTarget.value) {
       isLongPressing.value = true
-      // 计算气泡框位置
-      calculateBubblePosition()
+      // 第5步：计算气泡框位置并显示
+      calculateBubblePosition(target)
+      // 第6步：显示气泡菜单
       showActionMenu.value = true
     }
   }, 400) // 400ms长按触发
@@ -553,28 +595,24 @@ const handleTouchStart = (event: TouchEvent) => {
 
 // 触摸移动
 const handleTouchMove = (event: TouchEvent) => {
-  // 如果正在长按，取消长按定时器，防止在滚动时出现气泡框
-  if (longPressTimer.value) {
+  // 第1步：检查移动距离
+  const touch = event.touches[0]
+  if (!touch) return
+
+  const moveDistance = Math.sqrt(
+    Math.pow(touch.clientX - touchStartX.value, 2) + Math.pow(touch.clientY - touchStartY.value, 2),
+  )
+
+  // 第2步：如果移动距离超过阈值，取消长按定时器
+  if (moveDistance > 10 && longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
   }
-  
-  // 只有在已经显示气泡框的情况下才隐藏，避免在长按过程中轻微移动就隐藏气泡框
-  if (showActionMenu.value) {
-    // 检查移动距离，只有移动距离较大时才隐藏气泡框
-    const touch = event.touches[0]
-    if (touch) {
-      const moveDistance = Math.sqrt(
-        Math.pow(touch.clientX - (touchStartX.value || touch.clientX), 2) +
-        Math.pow(touch.clientY - (touchStartY.value || touch.clientY), 2)
-      )
-      
-      // 只有移动距离超过 10px 时才隐藏气泡框
-      if (moveDistance > 10) {
-        showActionMenu.value = false
-        isLongPressing.value = false
-      }
-    }
+
+  // 第3步：如果已经显示气泡框，且移动距离较大，则隐藏气泡框
+  if (showActionMenu.value && moveDistance > 15) {
+    showActionMenu.value = false
+    isLongPressing.value = false
   }
 }
 
@@ -582,64 +620,92 @@ const handleTouchMove = (event: TouchEvent) => {
 const handleTouchEnd = (event: TouchEvent) => {
   // 检查是否点击在公式元素上
   const target = event.target as HTMLElement
-  if (target && (
-    target.classList.contains('mjx-chtml') ||
-    target.classList.contains('mjx-math') ||
-    target.hasAttribute('data-mjx-texclass') ||
-    target.closest('.mjx-chtml') ||
-    target.closest('.mjx-math') ||
-    target.closest('[data-mjx-texclass]')
-  )) {
+  if (
+    target &&
+    (target.classList.contains('mjx-chtml') ||
+      target.classList.contains('mjx-math') ||
+      target.hasAttribute('data-mjx-texclass') ||
+      target.closest('.mjx-chtml') ||
+      target.closest('.mjx-math') ||
+      target.closest('[data-mjx-texclass]'))
+  ) {
     // 如果是公式元素，阻止事件传播
     event.stopPropagation()
     return
   }
-  
+
+  // 第1步：取消长按定时器
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
   }
-  
-  // 如果不是长按，则正常处理点击
+
+  // 第2步：如果气泡框已经显示，说明是长按成功触发的，保持显示状态
+  // 只重置长按状态，不关闭气泡框
+  if (showActionMenu.value) {
+    isLongPressing.value = false
+    return
+  }
+
+  // 第3步：如果不是长按，则正常处理点击
   if (!isLongPressing.value && Date.now() - touchStartTime.value < 500) {
     handleClick()
   }
-  
+
+  // 第4步：重置长按状态
+  isLongPressing.value = false
+}
+
+// 触摸取消
+const handleTouchCancel = () => {
+  // 第1步：取消长按定时器
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+
+  // 第2步：如果已经显示气泡框，则隐藏
+  if (showActionMenu.value) {
+    showActionMenu.value = false
+  }
+
+  // 第3步：重置长按状态
   isLongPressing.value = false
 }
 
 // 鼠标按下
 const handleMouseDown = (event: MouseEvent) => {
   if (props.isSelectionMode) return
-  
+
   // 检查是否点击在公式元素上
   const target = event.target as HTMLElement
-  if (target && (
-    target.classList.contains('mjx-chtml') ||
-    target.classList.contains('mjx-math') ||
-    target.hasAttribute('data-mjx-texclass') ||
-    target.closest('.mjx-chtml') ||
-    target.closest('.mjx-math') ||
-    target.closest('[data-mjx-texclass]')
-  )) {
+  if (
+    target &&
+    (target.classList.contains('mjx-chtml') ||
+      target.classList.contains('mjx-math') ||
+      target.hasAttribute('data-mjx-texclass') ||
+      target.closest('.mjx-chtml') ||
+      target.closest('.mjx-math') ||
+      target.closest('[data-mjx-texclass]'))
+  ) {
     // 如果是公式元素，阻止事件传播
     event.stopPropagation()
     return
   }
-  
+
   mouseDownTime.value = Date.now()
   isLongPressing.value = false
-  
+
   // 记录鼠标按下坐标
   mouseStartX.value = event.clientX
   mouseStartY.value = event.clientY
-  
+
   // 设置长按定时器
   longPressTimer.value = window.setTimeout(() => {
     if (!props.isSelectionMode) {
       isLongPressing.value = true
-      // 计算气泡框位置
-      calculateBubblePosition()
+      // 计算气泡框位置，传入事件目标以确保能获取到气泡元素
+      calculateBubblePosition(target)
       showActionMenu.value = true
     }
   }, 500) // 500ms长按触发
@@ -649,33 +715,34 @@ const handleMouseDown = (event: MouseEvent) => {
 const handleMouseMove = (event: MouseEvent) => {
   // 检查是否点击在公式元素上
   const target = event.target as HTMLElement
-  if (target && (
-    target.classList.contains('mjx-chtml') ||
-    target.classList.contains('mjx-math') ||
-    target.hasAttribute('data-mjx-texclass') ||
-    target.closest('.mjx-chtml') ||
-    target.closest('.mjx-math') ||
-    target.closest('[data-mjx-texclass]')
-  )) {
+  if (
+    target &&
+    (target.classList.contains('mjx-chtml') ||
+      target.classList.contains('mjx-math') ||
+      target.hasAttribute('data-mjx-texclass') ||
+      target.closest('.mjx-chtml') ||
+      target.closest('.mjx-math') ||
+      target.closest('[data-mjx-texclass]'))
+  ) {
     // 如果是公式元素，阻止事件传播
     event.stopPropagation()
     return
   }
-  
+
   // 如果正在长按，取消长按定时器，防止在滚动时出现气泡框
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
   }
-  
+
   // 只有在已经显示气泡框的情况下才隐藏，避免在长按过程中轻微移动就隐藏气泡框
   if (showActionMenu.value) {
     // 检查移动距离，只有移动距离较大时才隐藏气泡框
     const moveDistance = Math.sqrt(
       Math.pow(event.clientX - (mouseStartX.value || event.clientX), 2) +
-      Math.pow(event.clientY - (mouseStartY.value || event.clientY), 2)
+        Math.pow(event.clientY - (mouseStartY.value || event.clientY), 2),
     )
-    
+
     // 只有移动距离超过 10px 时才隐藏气泡框
     if (moveDistance > 10) {
       showActionMenu.value = false
@@ -688,29 +755,30 @@ const handleMouseMove = (event: MouseEvent) => {
 const handleMouseUp = (event: MouseEvent) => {
   // 检查是否点击在公式元素上
   const target = event.target as HTMLElement
-  if (target && (
-    target.classList.contains('mjx-chtml') ||
-    target.classList.contains('mjx-math') ||
-    target.hasAttribute('data-mjx-texclass') ||
-    target.closest('.mjx-chtml') ||
-    target.closest('.mjx-math') ||
-    target.closest('[data-mjx-texclass]')
-  )) {
+  if (
+    target &&
+    (target.classList.contains('mjx-chtml') ||
+      target.classList.contains('mjx-math') ||
+      target.hasAttribute('data-mjx-texclass') ||
+      target.closest('.mjx-chtml') ||
+      target.closest('.mjx-math') ||
+      target.closest('[data-mjx-texclass]'))
+  ) {
     // 如果是公式元素，阻止事件传播
     event.stopPropagation()
     return
   }
-  
+
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
   }
-  
+
   // 如果不是长按，则正常处理点击
   if (!isLongPressing.value && Date.now() - mouseDownTime.value < 500) {
     handleClick()
   }
-  
+
   isLongPressing.value = false
 }
 
@@ -731,7 +799,7 @@ const handleForward = () => {
     type: 'info',
     message: '正在转发到老师...',
     position: 'top',
-    timeout: 2000
+    timeout: 2000,
   })
 }
 
@@ -749,7 +817,7 @@ const handleEdit = () => {
     type: 'info',
     message: '进入编辑模式',
     position: 'top',
-    timeout: 1500
+    timeout: 1500,
   })
 }
 
@@ -762,7 +830,7 @@ const handleRefresh = async () => {
   if (isRetrying.value) {
     return
   }
-  
+
   // 如果是错误消息且有 canRetry 和 originalMessage，使用重试逻辑
   if (props.message.canRetry && props.message.originalMessage) {
     await handleRetry()
@@ -791,14 +859,14 @@ const handleRefresh = async () => {
   }
 
   // 找到当前消息在列表中的索引
-  const currentIndex = storeMessages.findIndex(msg => msg.id === props.message.id)
+  const currentIndex = storeMessages.findIndex((msg) => msg.id === props.message.id)
   if (currentIndex < 0) {
     console.error('未找到当前消息')
     $q.notify({
       type: 'negative',
       message: '刷新失败：未找到消息',
       position: 'top',
-      timeout: 2000
+      timeout: 2000,
     })
     return
   }
@@ -818,7 +886,7 @@ const handleRefresh = async () => {
       type: 'negative',
       message: '刷新失败：未找到对应的用户消息',
       position: 'top',
-      timeout: 2000
+      timeout: 2000,
     })
     return
   }
@@ -827,18 +895,18 @@ const handleRefresh = async () => {
   try {
     isRetrying.value = true
     const subject = userStore.subject as 'MATH' | 'BIOLOGY'
-    
+
     $q.notify({
       type: 'positive',
       message: '正在重新生成消息',
       position: 'top',
-      timeout: 2000
+      timeout: 2000,
     })
 
     switch (props.type) {
       case 'ai-exercise':
         // 先删除当前的 AI 消息
-        const aiExIndex = storeMessages.findIndex(msg => msg.id === props.message.id)
+        const aiExIndex = storeMessages.findIndex((msg) => msg.id === props.message.id)
         if (aiExIndex >= 0) {
           storeMessages.splice(aiExIndex, 1)
         }
@@ -850,12 +918,12 @@ const handleRefresh = async () => {
           'mate',
           userMessage.imageData,
           false,
-          true // skipUserMessage: true，跳过创建用户消息
+          true, // skipUserMessage: true，跳过创建用户消息
         )
         break
       case 'ai-general':
         // 先删除当前的 AI 消息
-        const aiGenIndex = storeMessages.findIndex(msg => msg.id === props.message.id)
+        const aiGenIndex = storeMessages.findIndex((msg) => msg.id === props.message.id)
         if (aiGenIndex >= 0) {
           storeMessages.splice(aiGenIndex, 1)
         }
@@ -864,12 +932,12 @@ const handleRefresh = async () => {
           userStore.userInfo,
           subject,
           'mate',
-          true // skipUserMessage: true，跳过创建用户消息
+          true, // skipUserMessage: true，跳过创建用户消息
         )
         break
       case 'ai-textbook':
         // 先删除当前的 AI 消息
-        const aiTbIndex = storeMessages.findIndex(msg => msg.id === props.message.id)
+        const aiTbIndex = storeMessages.findIndex((msg) => msg.id === props.message.id)
         if (aiTbIndex >= 0) {
           storeMessages.splice(aiTbIndex, 1)
         }
@@ -878,7 +946,7 @@ const handleRefresh = async () => {
           'mate',
           userMessage.imageData,
           false,
-          true // skipUserMessage: true，跳过创建用户消息
+          true, // skipUserMessage: true，跳过创建用户消息
         )
         break
       case 'teacher':
@@ -887,7 +955,7 @@ const handleRefresh = async () => {
           type: 'info',
           message: '教师场景的刷新功能正在开发中',
           position: 'top',
-          timeout: 2000
+          timeout: 2000,
         })
         break
       default:
@@ -899,7 +967,7 @@ const handleRefresh = async () => {
       type: 'negative',
       message: '刷新失败，请稍后重试',
       position: 'top',
-      timeout: 3000
+      timeout: 3000,
     })
   } finally {
     isRetrying.value = false
@@ -911,7 +979,7 @@ const handleCopy = async () => {
   try {
     // 获取消息的纯文本内容
     let textContent = ''
-    
+
     if (props.message.messageType === 'voice') {
       textContent = '[语音消息]'
     } else if (props.message.messageType === 'image') {
@@ -921,25 +989,25 @@ const handleCopy = async () => {
     } else {
       // 对于文本消息，获取纯文本内容
       textContent = props.message.content
-      
+
       // 移除HTML标签，获取纯文本
       const tempDiv = document.createElement('div')
       tempDiv.innerHTML = textContent
       textContent = tempDiv.textContent || tempDiv.innerText || textContent
     }
-    
+
     // 复制到剪贴板
     await navigator.clipboard.writeText(textContent)
-    
+
     // 显示复制成功提示
     $q.notify({
       type: 'positive',
       message: '已复制到剪贴板',
       position: 'top',
       timeout: 2000,
-      icon: 'content_copy'
+      icon: 'content_copy',
     })
-    
+
     showActionMenu.value = false
   } catch (error) {
     console.error('复制失败:', error)
@@ -958,22 +1026,22 @@ const handleCopy = async () => {
         tempDiv.innerHTML = fallbackTextContent
         fallbackTextContent = tempDiv.textContent || tempDiv.innerText || fallbackTextContent
       }
-      
+
       const textArea = document.createElement('textarea')
       textArea.value = fallbackTextContent
       document.body.appendChild(textArea)
       textArea.select()
       document.execCommand('copy')
       document.body.removeChild(textArea)
-      
+
       $q.notify({
         type: 'positive',
         message: '已复制到剪贴板',
         position: 'top',
         timeout: 2000,
-        icon: 'content_copy'
+        icon: 'content_copy',
       })
-      
+
       showActionMenu.value = false
     } catch (fallbackError) {
       console.error('降级复制也失败:', fallbackError)
@@ -981,7 +1049,7 @@ const handleCopy = async () => {
         type: 'negative',
         message: '复制失败，请重试',
         position: 'top',
-        timeout: 3000
+        timeout: 3000,
       })
     }
   }
@@ -989,22 +1057,38 @@ const handleCopy = async () => {
 
 // 气泡框显示时的处理
 const onMenuShow = () => {
+  // 记录气泡框显示时间
+  menuShowTime = Date.now()
+
   // 添加点击外部区域关闭气泡框的监听器
   nextTick(() => {
     clickOutsideHandler = (event: Event) => {
+      // 如果气泡框刚显示（300ms内），忽略触摸事件，避免捕获到导致长按结束的触摸事件
+      const timeSinceShow = Date.now() - menuShowTime
+      if (event.type === 'touchstart' && timeSinceShow < 300) {
+        return
+      }
+
       const target = event.target as HTMLElement
-      
+
       // 检查点击的元素是否在气泡框内
-      const isInsideMenu = target.closest('.message-action-menu') || 
-                          target.closest('.action-card') ||
-                          target.closest('.q-popup-proxy')
-      
-      // 如果点击的不是气泡框内部，则关闭气泡框
-      if (!isInsideMenu) {
+      const isInsideMenu =
+        target.closest('.message-action-menu') ||
+        target.closest('.action-card') ||
+        target.closest('.q-popup-proxy')
+
+      // 检查点击的元素是否在消息气泡内（用户可能在气泡框外部但仍在消息区域内）
+      const isInsideMessage =
+        target.closest('.ai-bubble') ||
+        target.closest('.user-bubble') ||
+        target.closest('.message-content')
+
+      // 如果点击的不是气泡框内部，也不是消息气泡内部，则关闭气泡框
+      if (!isInsideMenu && !isInsideMessage) {
         showActionMenu.value = false
       }
     }
-    
+
     // 添加事件监听器，使用capture模式确保优先处理
     document.addEventListener('click', clickOutsideHandler, true)
     document.addEventListener('touchstart', clickOutsideHandler, true)
@@ -1029,22 +1113,72 @@ const setBubbleRef = (el: Element | ComponentPublicInstance | null, type: 'ai' |
   }
 }
 
+// 确保气泡引用存在，如果不存在则从事件目标中查找
+const ensureBubbleTarget = (eventTarget: HTMLElement) => {
+  // 如果气泡引用已经存在，直接返回
+  if (bubbleTarget.value) {
+    return bubbleTarget.value
+  }
+
+  // 从事件目标向上查找气泡元素
+  const aiBubble = eventTarget.closest('.ai-message-content') as HTMLElement
+  if (aiBubble) {
+    bubbleTarget.value = aiBubble
+    currentBubbleType.value = 'ai'
+    return aiBubble
+  }
+
+  const userBubble = eventTarget.closest('.user-bubble') as HTMLElement
+  if (userBubble) {
+    bubbleTarget.value = userBubble
+    currentBubbleType.value = 'user'
+    return userBubble
+  }
+
+  return null
+}
+
 // 动态计算气泡框位置
-const calculateBubblePosition = () => {
-  if (!bubbleTarget.value) return
-  
+const calculateBubblePosition = (eventTarget?: HTMLElement) => {
+  // 第1步：如果没有气泡引用，尝试从事件目标中获取
+  if (!bubbleTarget.value && eventTarget) {
+    ensureBubbleTarget(eventTarget)
+  }
+
+  // 第2步：如果仍然找不到气泡元素，尝试从整个消息项中查找
+  if (!bubbleTarget.value && eventTarget) {
+    const messageItem = eventTarget.closest('.message-item') as HTMLElement
+    if (messageItem) {
+      const aiBubble = messageItem.querySelector('.ai-message-content') as HTMLElement
+      const userBubble = messageItem.querySelector('.user-bubble') as HTMLElement
+      if (aiBubble) {
+        bubbleTarget.value = aiBubble
+        currentBubbleType.value = 'ai'
+      } else if (userBubble) {
+        bubbleTarget.value = userBubble
+        currentBubbleType.value = 'user'
+      }
+    }
+  }
+
+  // 第3步：如果仍然找不到，直接返回
+  if (!bubbleTarget.value) {
+    return
+  }
+
+  // 第4步：计算气泡框位置
   const bubbleRect = bubbleTarget.value.getBoundingClientRect()
   const viewportHeight = window.innerHeight
   const bubbleTop = bubbleRect.top
   const bubbleBottom = bubbleRect.bottom
-  
+
   // 计算气泡框高度（预估）
   const estimatedMenuHeight = 80 // 预估菜单高度
-  
+
   // 判断是否有足够空间在下方显示
   const spaceBelow = viewportHeight - bubbleBottom
   const spaceAbove = bubbleTop
-  
+
   if (spaceBelow >= estimatedMenuHeight || spaceBelow > spaceAbove) {
     // 在下方显示
     anchor.value = 'top middle'
@@ -1056,13 +1190,16 @@ const calculateBubblePosition = () => {
   }
 }
 
-const setMessageRef = (el: Element | ComponentPublicInstance | null, lazyRef?: Ref<HTMLElement | null>) => {
+const setMessageRef = (
+  el: Element | ComponentPublicInstance | null,
+  lazyRef?: Ref<HTMLElement | null>,
+) => {
   if (el && el instanceof HTMLElement) {
     // 设置懒加载引用
     if (lazyRef) {
       lazyRef.value = el
     }
-    
+
     // 延迟渲染 MathJax，使用懒加载模式
     nextTick(() => {
       MathJaxUtils.renderMath(el, true)
@@ -1087,7 +1224,6 @@ const setStaticRef = (el: Element | ComponentPublicInstance | null) => {
     })
   }
 }
-
 
 // 组件卸载时清理事件监听器
 onUnmounted(() => {
@@ -1136,13 +1272,13 @@ onUnmounted(() => {
   align-items: flex-start;
 }
 
-/* AI内容容器 - flex布局包裹内容和重试按钮 */
+/* AI内容容器 */
 .ai-content-container {
   display: flex;
   align-items: flex-end;
   gap: 8px;
   width: fit-content; /* 根据内容自适应宽度 */
-  max-width: 80%;   /* 最大不超过容器宽度 */
+  max-width: 80%; /* 最大不超过容器宽度 */
 }
 
 .ai-message-content {
@@ -1177,7 +1313,7 @@ onUnmounted(() => {
 }
 
 .user-bubble {
-  background: #7A7CFF;
+  background: #7a7cff;
   color: white;
   border-radius: 12px 0 12px 12px;
   padding: 12px 16px;
@@ -1208,114 +1344,17 @@ onUnmounted(() => {
   color: #2c3e50;
 }
 
-
-
-/* 错误消息包装器 - 现在重试按钮在气泡外部 */
+/* 错误消息包装器 */
 .error-message-wrapper {
   position: relative;
 }
 
 /* 错误消息样式 - 与普通AI回复相同 */
 
-
 .retry-count {
   font-size: 12px;
   color: #999;
   margin-top: 4px;
-}
-
-/* 重试按钮包装器 - 在flex容器中，触底对齐 */
-.retry-button-wrapper {
-  flex-shrink: 0;
-  display: flex;
-  align-items: flex-end;
-  margin-left: 8px; /* 与ai-message-content产生间距 */
-}
-
-/* 重试按钮 - 大尺寸灰色风格 */
-.retry-button {
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 50%;
-  background: #f8f9fa;
-  color: #6c757d;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.retry-button:hover {
-  background: #e9ecef;
-  color: #495057;
-  transform: scale(1.05);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.retry-button:active {
-  transform: scale(0.95);
-  background: #dee2e6;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.retry-button:disabled {
-  background: #f8f9fa;
-  color: #adb5bd;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.retry-button--loading {
-  background: #f8f9fa;
-  color: #adb5bd;
-  cursor: not-allowed;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-/* 重试图标 */
-.retry-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.3s ease;
-}
-
-.retry-icon--spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* 重试按钮的波纹效果 */
-.retry-button::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
-  transform: translate(-50%, -50%);
-  transition: width 0.3s ease, height 0.3s ease;
-}
-
-.retry-button:active::before {
-  width: 100%;
-  height: 100%;
 }
 
 /* 功能按钮区域 */
@@ -1411,47 +1450,24 @@ onUnmounted(() => {
     background-color: rgba(25, 118, 210, 0.15);
   }
 
-  /* 深色模式下的重试按钮样式 */
-  .retry-button {
-    background: transparent;
-    color: #666;
-  }
-
-  .retry-button:hover {
-    background: #333;
-    color: #999;
-  }
-
-  .retry-button:active {
-    background: #444;
-  }
-
-  .retry-button:disabled,
-  .retry-button--loading {
-    background: transparent;
-    color: #444;
-  }
-
-  /* 移除深色模式下的hover效果 - 已禁用背景色变化 */
-  
   /* 深色模式下的功能按钮样式 */
   .action-button {
     color: #666;
   }
-  
+
   .action-button:hover {
     background: #333;
     color: #999;
   }
-  
+
   .action-button:active {
     background: #444;
   }
-  
+
   .action-button--active {
     color: #64b5f6;
   }
-  
+
   .action-button--active:hover {
     background: #333;
     color: #90caf9;

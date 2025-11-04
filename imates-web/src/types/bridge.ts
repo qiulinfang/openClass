@@ -116,6 +116,7 @@ declare global {
       sendImageMessage(filePath: string, chatId: string): string
       compressImage(filePath: string, quality: number): string
       deleteImageFile(filePath: string): string
+      loadImageFileToBase64(filePath: string): string
       checkImageResult(): string
 
       // ========== 老师对话功能 ==========
@@ -129,6 +130,8 @@ declare global {
       getCurrentSessionMessageCount(sessionId: string): string
       initTeacherMessageListener(): string
       cleanupTeacherMessageListener(): string
+      isMessagingManagerInitialized(): boolean
+      isMessagingManagerConnecting(): boolean
 
       // ========== 加入课堂功能 ==========
       joinClassroom(studentId: string, studentName: string, isGuest: boolean): string

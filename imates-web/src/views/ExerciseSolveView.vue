@@ -140,6 +140,7 @@
               type="ai-exercise"
               @response="handleChatResponse"
               @switch-to-teacher="handleSwitchToTeacher"
+              @open-teacher-dialog="handleOpenTeacherDialog"
               @scroll-to-question-and-select="handleScrollToQuestionAndSelect"
               @scroll-to-bottom="scrollToBottom"
             />
@@ -168,11 +169,19 @@
         </q-card>
       </div>
     </div>
+
+    <!-- UnifiedChatDialog - 用于转发消息时打开 -->
+    <UnifiedChatDialog 
+      ref="unifiedChatDialogRef"
+      v-model="showUnifiedChatDialog"
+      :initial-category="'teacher'"
+      :initial-teacher-subject="currentSubject"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuestionStore } from '../stores/questionStore'
 import { useUserStore } from '../stores/userStore'
@@ -184,8 +193,9 @@ import QuestionList from '../components/QuestionList.vue'
 import ChatView from '../components/ChatView.vue'
 import AnswerView from '../components/AnswerView.vue'
 import SimilarQuestionList from '../components/SimilarQuestionList.vue'
+import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
 import { useUIStore } from '../stores/uiStore'
-import type { ExerciseItem } from '../types'
+import type { ExerciseItem, ChatBubble } from '../types'
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -220,6 +230,15 @@ const currentFunction = ref<'chatAi' | 'askTeacher' | 'viewAnswer' | 'similarQue
 
 // QuestionList 组件引用
 const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
+
+// UnifiedChatDialog 组件引用
+const unifiedChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
+const showUnifiedChatDialog = ref(false)
+
+// 当前科目（用于 UnifiedChatDialog）
+const currentSubject = computed(() => {
+  return userStore.subject === 'BIOLOGY' ? 'biology' : 'math'
+})
 
 // 筛选面板显示状态
 const showFilterPanel = ref(false)
@@ -270,8 +289,11 @@ const onSubjectFilterChange = () => {
 }
 
 // 拍照搜题处理
-const handlePhotoSearch = () => {
+const handlePhotoSearch = async () => {
   try {
+    // 动态导入日志工具（避免循环依赖）
+    const { photoSearchLogger } = await import('@/utils/photoSearchLogger')
+    
     // 获取当前题目信息，如果存在则使用其学科，否则默认使用数学
     const currentQuestion = questionStore.currentQuestion
     let subjectName = 'math' // 默认使用数学
@@ -288,6 +310,9 @@ const handlePhotoSearch = () => {
       }
       subjectName = subjectMap[currentQuestion.subject] || currentQuestion.subject.toLowerCase() || 'math'
     }
+    
+    // 记录导航到拍照搜题页面
+    photoSearchLogger.navigateToPhotoSearch(subjectName, currentQuestion)
     
     // 导航到拍照搜题页面
     router.push({ 
@@ -327,6 +352,32 @@ const handleSwitchToTeacher = () => {
   currentFunction.value = 'askTeacher'
 }
 
+// 处理打开老师对话框（转发消息时调用）
+const handleOpenTeacherDialog = async ({ sessionId }: { sessionId: string; message: ChatBubble }) => {
+  try {
+    // 打开 UnifiedChatDialog
+    showUnifiedChatDialog.value = true
+    
+    // 等待下一个 tick，确保 UnifiedChatDialog 已经挂载
+    await nextTick()
+    
+    // 如果 UnifiedChatDialog 已经挂载，设置会话
+    if (unifiedChatDialogRef.value) {
+      // 加载老师会话列表
+      await unifiedChatDialogRef.value.loadTeacherSessions()
+      
+      // 设置当前会话为转发的会话
+      await unifiedChatDialogRef.value.setTeacherSession(sessionId)
+      
+      // 切换到教师分类
+      unifiedChatDialogRef.value.switchCategory('teacher')
+    }
+  } catch (error) {
+    console.error('[ExerciseSolveView] 打开老师对话框失败:', error)
+    showMessage('打开老师对话框失败', 'error')
+  }
+}
+
 const handleStartAiGuidance = async () => {
   try {
     // 切换到AI聊天界面
@@ -341,9 +392,25 @@ const handleStartAiGuidance = async () => {
 }
 
 const handleQuestionSelected = async () => {
-  // 如果当前不在AI指导模式，自动切换到AI指导模式
+  // 第1步：如果当前不在AI指导模式，自动切换到AI指导模式
   if (currentFunction.value !== 'chatAi') {
     currentFunction.value = 'chatAi'
+  }
+  
+  // 第2步：如果已选择题目，加载对应题目的聊天记录
+  if (currentQuestion.value) {
+    const questionId = currentQuestion.value.id
+    
+    // 第3步：根据当前功能类型加载对应题目的聊天记录
+    if (currentFunction.value === 'chatAi') {
+      // AI引导答题：加载AI题目的聊天记录
+      // 注意：ChatView的executeQuestionSwitch不会自动加载AI题目的聊天记录
+      // 需要在这里手动加载
+      await aiExerciseStore.loadChatHistory(questionId)
+    }
+    // 注意：对于老师答疑场景，ChatView的executeQuestionSwitch会调用initializeMessages
+    // initializeMessages会调用initializeTeacherSession，它会根据当前题目创建或加载老师会话
+    // 所以老师答疑场景不需要在这里手动加载
   }
 }
 
@@ -539,6 +606,13 @@ onMounted(async () => {
     } catch (error) {
       console.error(`[ExerciseSolveView] 初始化失败:`, error)
     }
+})
+
+// 组件卸载时清空当前选中的题目
+onBeforeUnmount(() => {
+  // 清空当前选中的题目，避免离开页面后仍然保留选中状态
+  questionStore.clearCurrentQuestion()
+  console.log('[ExerciseSolveView] ✅ 已清空当前选中的题目')
 })
 </script>
 

@@ -255,9 +255,9 @@ import type { KnowledgeGraphDebugParams } from '../components/debug/KnowledgeGra
 import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
 import { useTextbookChapterState } from '../stores/textbookChapterState'
 import { useBetterScroll } from '../composables/useBetterScroll'
+import { getCurrentUserIdOrDefault } from '../utils/userId'
 import {
-  convertToChineseNumber,
-  sortChaptersByNumber
+  convertToChineseNumber
 } from '../utils/chapter-utils'
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
@@ -363,25 +363,15 @@ const searchResults = computed(() => {
   })
 })
 
-// 章节相关的转换和排序函数已抽离到 utils/chapter-utils.ts
-// 使用导入的公共函数：convertToChineseNumber, extractChapterNumberFromName, sortChaptersByNumber
-
 // 过滤后的章节列表（当没有搜索时显示）
 const filteredChapters = computed(() => {
   if (!searchQuery.value.trim()) {
-    // 第1步：将章节列表和索引组合，同时获取原始章节名称用于排序
-    const chapterList = chapters.value.map((chapter, index) => {
-      // 获取原始章节名称（从 chapterStructure 中）
-      const originalName = chapterStructure.value[index]?.name || chapter
+    // 直接使用后台返回的顺序，不进行排序
+    return chapters.value.map((chapter, index) => {
       return { 
         chapter, 
-        index,
-        originalName 
+        index
       }
-    })
-    // 第2步：按照章节名称中的数字进行排序（使用公共函数）
-    return chapterList.sort((a, b) => {
-      return sortChaptersByNumber({ name: a.originalName }, { name: b.originalName })
     })
   }
   
@@ -626,52 +616,12 @@ const handleNodeUpdate = (
         // 添加到中心节点的 children（作为一级节点）
         updatedChapter.children = updatedChapter.children || []
         updatedChapter.children.push(newNode)
-        
-        // 按名称排序（如果名称包含数字）
-        updatedChapter.children.sort((a: ChapterNode, b: ChapterNode) => {
-          const aMatch = a.name.match(/(\d+)\.(\d+)/)
-          const bMatch = b.name.match(/(\d+)\.(\d+)/)
-          
-          if (aMatch && bMatch) {
-            const aChapter = parseInt(aMatch[1])
-            const aSection = parseInt(aMatch[2])
-            const bChapter = parseInt(bMatch[1])
-            const bSection = parseInt(bMatch[2])
-            
-            if (aChapter !== bChapter) {
-              return aChapter - bChapter
-            }
-            return aSection - bSection
-          }
-          
-          return a.name.localeCompare(b.name)
-        })
       } else {
         // 添加到一级节点的 children（作为二级节点）
         if (!targetParentNode.children) {
           targetParentNode.children = []
         }
         targetParentNode.children.push(newNode)
-        
-        // 按名称排序（如果名称包含数字）
-        targetParentNode.children.sort((a: ChapterNode, b: ChapterNode) => {
-          const aMatch = a.name.match(/(\d+)\.(\d+)/)
-          const bMatch = b.name.match(/(\d+)\.(\d+)/)
-          
-          if (aMatch && bMatch) {
-            const aChapter = parseInt(aMatch[1])
-            const aSection = parseInt(aMatch[2])
-            const bChapter = parseInt(bMatch[1])
-            const bSection = parseInt(bMatch[2])
-            
-            if (aChapter !== bChapter) {
-              return aChapter - bChapter
-            }
-            return aSection - bSection
-          }
-          
-          return a.name.localeCompare(b.name)
-        })
       }
     } else if (action === 'update' && oldNode) {
       // 更新现有节点
@@ -1551,9 +1501,6 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
   }
 }
 
-// 将阿拉伯数字转换为中文数字
-// convertToChineseNumber 函数已抽离到 utils/chapter-utils.ts，使用导入的公共函数
-
 // 加载章节结构
 const loadChapterStructure = async (textbookId: string) => {
   try {
@@ -1563,16 +1510,14 @@ const loadChapterStructure = async (textbookId: string) => {
     const cachedChapterData = getCachedData(cacheKey)
     
     if (cachedChapterData) {
-      // 对缓存中的章节数据进行排序（支持阿拉伯数字和中文数字）
-      const sortedCachedData = [...cachedChapterData].sort(sortChaptersByNumber)
+      // 直接使用后台返回的顺序，不进行排序
+      chapterStructure.value = cachedChapterData
       
-      chapterStructure.value = sortedCachedData
-      
-      // 第31步：提取章节名称列表（所有level=0的章节），并转换为中文数字
-      chapters.value = sortedCachedData.map((chapter: { name: string }) => convertToChineseNumber(chapter.name))
+      // 提取章节名称列表（所有level=0的章节），并转换为中文数字
+      chapters.value = cachedChapterData.map((chapter: { name: string }) => convertToChineseNumber(chapter.name))
       
       // 初始化所有章节的状态
-      initializeChapterStates(textbookId, sortedCachedData, getSubChapters)
+      initializeChapterStates(textbookId, cachedChapterData, getSubChapters)
       return
     }
 
@@ -1580,19 +1525,17 @@ const loadChapterStructure = async (textbookId: string) => {
     const chapterData = await apiService.getTextbookStructure(textbookId)
     
     if (chapterData && chapterData.length > 0) {
-      // 对章节进行排序：按照章节名称中的数字排序（支持阿拉伯数字和中文数字，使用公共函数）
-      const sortedChapterData = [...chapterData].sort(sortChaptersByNumber)
-      
-      chapterStructure.value = sortedChapterData
+      // 直接使用后台返回的顺序，不进行排序
+      chapterStructure.value = chapterData
       
       // 缓存章节结构数据
-      setCachedData(cacheKey, sortedChapterData)
+      setCachedData(cacheKey, chapterData)
       
       // 提取章节名称列表（所有level=0的章节），并转换为中文数字
-      chapters.value = sortedChapterData.map(chapter => convertToChineseNumber(chapter.name))
+      chapters.value = chapterData.map(chapter => convertToChineseNumber(chapter.name))
       
       // 初始化所有章节的状态
-      initializeChapterStates(textbookId, sortedChapterData, getSubChapters)
+      initializeChapterStates(textbookId, chapterData, getSubChapters)
     } else {
       chapterStructure.value = []
       chapters.value = []
@@ -1604,9 +1547,13 @@ const loadChapterStructure = async (textbookId: string) => {
   }
 }
 
-// 章节状态初始化已移至统一模块
-
 // 性能监控工具
+// 获取带用户ID前缀的性能数据存储key
+const getPerfDataKey = () => {
+  const userId = getCurrentUserIdOrDefault()
+  return `${userId}_perfData`
+}
+
 const performanceMonitor = {
   // 记录性能数据
   recordPerformance(operation: string, duration: number): void {
@@ -1618,7 +1565,8 @@ const performanceMonitor = {
     }
     
     // 存储到localStorage用于分析
-    const existingData = JSON.parse(localStorage.getItem('perfData') || '[]')
+    const key = getPerfDataKey()
+    const existingData = JSON.parse(localStorage.getItem(key) || '[]')
     existingData.push(perfData)
     
     // 只保留最近50条记录
@@ -1626,7 +1574,7 @@ const performanceMonitor = {
       existingData.splice(0, existingData.length - 50)
     }
     
-    localStorage.setItem('perfData', JSON.stringify(existingData))
+    localStorage.setItem(key, JSON.stringify(existingData))
   },
   
   // 获取性能统计
@@ -1637,7 +1585,8 @@ const performanceMonitor = {
     max: number
     lastOperation: { operation: string; duration: number; timestamp: number }
   } | null {
-    const perfData = JSON.parse(localStorage.getItem('perfData') || '[]')
+    const key = getPerfDataKey()
+    const perfData = JSON.parse(localStorage.getItem(key) || '[]')
     const authOperations = perfData.filter((d: { operation: string }) => d.operation.includes('认证'))
     
     if (authOperations.length === 0) return null
@@ -1737,8 +1686,6 @@ const initGraph = async () => {
       await nextTick()
       renderGraph()
       
-      // 如果状态恢复时没有展开的图谱，自动展开位于targetAngle的图谱
-      // （这个逻辑已经在restorePageStateFromStore中处理了）
       return
     }
     
@@ -2239,7 +2186,6 @@ const handleBackgroundClick = (event: MouseEvent) => {
   // 如果点击的是视口裁剪区域或其子元素（背景），保持展开状态
   if (target.closest('.viewport-clipper')) {
     // 点击视口裁剪区域时，保持当前展开状态不变
-    // 移除不必要的状态重置逻辑，避免opacity闪烁
     return
   }
 }
@@ -2247,42 +2193,22 @@ const handleBackgroundClick = (event: MouseEvent) => {
 
 // 获取子章节（x.x格式的小节）
 const getSubChapters = (chapterDetails: ChapterNode | null) => {
-  if (!chapterDetails || !chapterDetails.children) {
+  // 如果没有章节详情，返回空数组
+  if (!chapterDetails) {
     return []
   }
   
   // 过滤出level=1的子章节（x.x格式）
-  const subChapters = chapterDetails.children.filter(child => child.level === 1)
+  // 如果children为null或undefined，subChapters为空数组
+  // 直接使用后台返回的顺序，不进行排序
+  const subChapters = chapterDetails.children?.filter(child => child.level === 1) || []
   
-  // 按节的顺序排序：提取名称中的数字进行排序
-  const sortedSubChapters = subChapters.sort((a, b) => {
-    // 提取名称中的数字进行比较（如"1.1"、"1.2"、"2.1"等）
-    const aMatch = a.name.match(/(\d+)\.(\d+)/)
-    const bMatch = b.name.match(/(\d+)\.(\d+)/)
-    
-    if (aMatch && bMatch) {
-      const aChapter = parseInt(aMatch[1])
-      const aSection = parseInt(aMatch[2])
-      const bChapter = parseInt(bMatch[1])
-      const bSection = parseInt(bMatch[2])
-      
-      // 先按章排序，再按节排序
-      if (aChapter !== bChapter) {
-        return aChapter - bChapter
-      }
-      return aSection - bSection
-    }
-    
-    // 如果无法提取数字，按名称排序
-    return a.name.localeCompare(b.name)
-  })
-  
-  // 为每个章节添加章节练习节点
+  // 为每个章节添加章节练习节点，使用章的名字
   const exerciseNode: ChapterNode = {
     id: chapterDetails.id, // 直接使用父章节ID
-    name: '章节练习',
+    name: chapterDetails.name, // 使用章的名字
     parentId: chapterDetails.id,
-    label: '章节练习',
+    label: chapterDetails.name, // 使用章的名字
     level: 1, // 确保是x.x层级
     isRoot: false,
     updateTime: new Date().toISOString(),
@@ -2290,7 +2216,7 @@ const getSubChapters = (chapterDetails: ChapterNode | null) => {
   }
   
   // 将章节练习节点添加到子章节列表的末尾
-  return [...sortedSubChapters, exerciseNode]
+  return [...subChapters, exerciseNode]
 }
 
 /**
@@ -2402,7 +2328,7 @@ const getGraphPosition = (index: number, total: number) => {
         const indexDistance = Math.abs(index - expandedIndex)
         
         return {
-          transform: `translate(${x}px, ${y}px)`, // 移除缩小比例，保持原始大小
+          transform: `translate(${x}px, ${y}px)`,
           position: 'absolute' as const,
           left: '50%',
           top: '50%',
@@ -2832,9 +2758,6 @@ onUnmounted(() => {
   height: 100%;
   position: relative;
   overflow: hidden;
-  // 移除 clip-path，显示完整视口区域
-  
-  // 当有图谱展开时，移除视觉反馈
 }
 
 // 椭圆轨迹指示器
@@ -2849,7 +2772,6 @@ onUnmounted(() => {
   border-radius: 50%;
 }
 
-// 椭圆布局容器 - 不再需要旋转，只作为定位容器
 .circular-layout {
   position: relative;
   width: 1239px;

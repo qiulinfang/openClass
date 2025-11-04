@@ -511,7 +511,12 @@ public class ChatAiView extends RelativeLayout {
                     sendPictureToTeacher(msg.content);
                 } else if(msg.type == ChatMessage.MessageType.VOICE) {
                     VoiceDbUtil.VoiceDbItem vi = VoiceDbUtil.extractDbVoiceContent(msg.content);
-                    sendVoiceMessageToTeacher(vi.voicePath, vi.duration);
+                    // 检查语音路径是否有效
+                    if (vi.voicePath != null && !vi.voicePath.isEmpty()) {
+                        sendVoiceMessageToTeacher(vi.voicePath, vi.duration);
+                    } else {
+                        Log.e("ChatAiView", "语音消息路径无效，无法发送: " + msg.content);
+                    }
                 }
             }
 

@@ -29,6 +29,7 @@
               @click.stop="handleCancelEdit"
               class="cancel-edit-btn"
               type="button"
+              v-ripple
             >
               <q-icon name="close" color="grey-6" size="16px" />
               <q-tooltip>取消编辑</q-tooltip>
@@ -44,6 +45,7 @@
               :class="{ active: true }"
               @click.stop="toggleModeSelector"
               ref="modeSelectorBtnRef"
+              v-ripple
             >
               <q-icon name="person" size="18px" />
               <span>{{ getModelDisplayName(props.selectedModel) }}</span>
@@ -55,6 +57,7 @@
               class="action-mode-btn"
               :class="{ active: props.enableWebSearch }"
               @click="handleToggleWebSearch"
+              v-ripple
             >
               <q-icon name="language" size="18px" />
               <span>互联网搜索</span>
@@ -64,6 +67,7 @@
             <button
               class="action-mode-btn"
               @click.stop="handleInsertMathFormula"
+              v-ripple
             >
               <q-icon name="functions" size="18px" />
               <span>公式</span>
@@ -85,6 +89,7 @@
             @touchmove="handleVoiceMove"
             class="control-icon-btn voice-btn"
             :class="{ 'voice-btn--recording': props.isRecording }"
+            v-ripple
           >
             <q-icon 
               :name="props.isRecording ? 'mic' : 'mic_none'" 
@@ -101,6 +106,7 @@
             @click="handleShowImagePicker"
             class="control-icon-btn"
             :class="{ active: props.activeMode?.label === '图片模式' }"
+            v-ripple
           >
             <q-icon name="add_photo_alternate" color="grey-6" size="20px" />
             <q-tooltip>添加图片</q-tooltip>
@@ -111,10 +117,22 @@
             v-if="props.type !== 'teacher'"
             type="button"
             @click="handleMicButtonClick"
+            @mousedown="handleVoiceStart"
+            @mouseup="handleVoiceEnd"
+            @mouseleave="handleVoiceEnd"
+            @touchstart="handleVoiceStart"
+            @touchend="handleVoiceEnd"
+            @touchmove="handleVoiceMove"
             class="control-icon-btn mic-btn"
+            :class="{ 'voice-btn--recording': props.isRecording }"
+            v-ripple
           >
-            <q-icon name="mic_none" color="grey-6" size="24px" />
-            <q-tooltip>语音输入</q-tooltip>
+            <q-icon 
+              :name="props.isRecording ? 'mic' : 'mic_none'" 
+              :color="props.isRecording ? 'red-6' : 'grey-6'" 
+              size="24px" 
+            />
+            <q-tooltip>{{ props.isRecording ? '松开结束录音' : '按住说话' }}</q-tooltip>
           </button>
 
           <!-- 发送按钮 -->
@@ -127,6 +145,7 @@
               'send-button--enabled': props.canSend && !props.isLoading && !props.isEditing,
               'send-button--disabled': !props.canSend || props.isLoading
             }"
+            v-ripple
           >
             <!-- 加载状态图标 -->
             <img 
@@ -201,6 +220,9 @@ import { useMessageRenderer } from '../../composables/useMessageRenderer'
 import MathFormulaEditor from '../MathFormulaEditor.vue'
 import waitingIcon from '/icons/waiting.svg'
 import sendIcon from '/icons/send.svg'
+import DeskmateIcon from '/icons/Deskmate.svg'
+import RepresentativeIcon from '/icons/Representative.svg'
+import GuruIcon from '/icons/Guru.svg'
 import type { 
   ContentBlock, 
   ChatInputProps, 
@@ -253,6 +275,7 @@ const selectedBlockIndex = ref<number>(-1)
 const isKeyboardTransitioning = ref(false)
 const isPlaceholderClicked = ref(false)
 const isReadyForTextInput = ref(false)
+const isLongPressRecording = ref(false) // 跟踪是否正在进行长按录音
 
 // 消息渲染器
 const { renderMessageContent } = useMessageRenderer()
@@ -297,14 +320,14 @@ const getModelDisplayName = (model: string) => {
   return option ? option.label : '同桌'
 }
 
-// 根据模式值获取对应的图标路径
+// 根据模式值获取对应的图标
 const getModelIcon = (model: string) => {
   const iconMap: Record<string, string> = {
-    'mate': '/icons/Deskmate.svg',
-    'mentor': '/icons/Representative.svg',
-    'researcher': '/icons/Guru.svg'
+    'mate': DeskmateIcon,
+    'mentor': RepresentativeIcon,
+    'researcher': GuruIcon
   }
-  return iconMap[model] || '/icons/Deskmate.svg'
+  return iconMap[model] || DeskmateIcon
 }
 
 // 切换模式选择器菜单
@@ -391,6 +414,12 @@ const handleShowImagePicker = () => {
 
 // 麦克风按钮点击处理
 const handleMicButtonClick = () => {
+  // 如果正在进行长按录音，忽略点击事件
+  if (isLongPressRecording.value) {
+    console.log('[ChatInput] 忽略点击事件（正在进行长按录音）')
+    return
+  }
+  
   console.log('[ChatInput] 点击麦克风按钮', { 
     chatType: props.type,
     isRecording: props.isRecording
@@ -400,6 +429,9 @@ const handleMicButtonClick = () => {
 
 // 语音录制事件处理
 const handleVoiceStart = (event: TouchEvent | MouseEvent) => {
+  // 标记为长按录音模式
+  isLongPressRecording.value = true
+  
   console.log('[ChatInput] 开始语音录制', { 
     chatType: props.type,
     isRecording: props.isRecording, // 注意：这是 props 值，可能还没更新
@@ -429,6 +461,11 @@ const handleVoiceEnd = (event: TouchEvent | MouseEvent) => {
   
   // 2. 触发停止录音事件
   emit('stop-voice-input', event)
+  
+  // 3. 清除长按录音标志（延迟清除，避免与 click 事件冲突）
+  setTimeout(() => {
+    isLongPressRecording.value = false
+  }, 100)
 }
 
 const handleVoiceMove = (event: TouchEvent | MouseEvent) => {
@@ -599,6 +636,9 @@ const handleInsertMathFormula = async () => {
   }, 300) // 300ms防抖延迟
 }
 
+// 发送消息标志，防止键盘关闭事件干扰发送
+const isSendingMessage = ref(false)
+
 // 发送消息处理
 const handleSendMessage = () => {
   console.log('[ChatInput] 点击发送按钮', { 
@@ -608,12 +648,16 @@ const handleSendMessage = () => {
     canSend: props.canSend
   })
   
-  // 1. 调用 MathFormulaEditor 的 getMarkdownContent 方法获取完整内容
+  // 1. 设置发送标志，防止键盘关闭事件干扰
+  isSendingMessage.value = true
+  
+  // 2. 调用 MathFormulaEditor 的 getMarkdownContent 方法获取完整内容
   const markdownContent = mathEditorRef.value?.getMarkdownContent();
 
-  // 2. 检查内容是否为空
+  // 3. 检查内容是否为空
   if (!markdownContent || !markdownContent.trim()) {
     console.log('[ChatInput] 消息内容为空，取消发送')
+    isSendingMessage.value = false
     return
   }
 
@@ -622,13 +666,35 @@ const handleSendMessage = () => {
     isEditing: props.isEditing
   })
 
-  // 3. 更新 v-model 的值，将完整的 markdown 内容传递给父组件
+  // 4. 更新 v-model 的值，将完整的 markdown 内容传递给父组件
   emit('update:modelValue', markdownContent);
 
-  // 4. 使用 nextTick 确保父组件的 v-model 更新后再发送消息
+  // 5. 先发送消息，然后再关闭键盘
   nextTick(() => {
+    // 发送消息
     emit('send-message');
     clearInputContent();
+    
+    // 延迟一小段时间后关闭键盘，确保消息已发送
+    setTimeout(() => {
+      // 让编辑器失焦，触发键盘关闭
+      if (mathEditorRef.value) {
+        const editorElement = mathEditorRef.value.$el?.querySelector?.('.ql-editor') || 
+                             mathEditorRef.value.$el?.querySelector?.('[contenteditable]')
+        if (editorElement) {
+          editorElement.blur()
+        }
+      }
+      
+      // 确保当前焦点元素失焦
+      const activeElement = document.activeElement as HTMLElement
+      if (activeElement && activeElement !== document.body && activeElement.blur) {
+        activeElement.blur()
+      }
+      
+      // 清除发送标志
+      isSendingMessage.value = false
+    }, 50)
   });
 }
 
@@ -675,6 +741,12 @@ watch(() => props.modelValue, (newValue) => {
 
 
 const handleNativeKeyboardClose = () => {
+  // 如果正在发送消息，跳过处理，避免干扰发送流程
+  if (isSendingMessage.value) {
+    console.log('[ChatInput] 键盘关闭事件被忽略（正在发送消息）')
+    return
+  }
+  
   // 检查是否有正在编辑的公式
   if (currentEditingFormula.value) {
     // 如果有，则完成编辑

@@ -140,6 +140,7 @@ import { useRouter } from 'vue-router'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { getFavoriteQas, getFavoriteExercises, removeQaFavorite } from '../utils/favorites'
 import { showMessage } from '../utils'
+import { getCurrentUserIdOrDefault } from '../utils/userId'
 import type { QuestionRecord, AiGeneralSession } from '../types/chat'
 import type { ExerciseItem } from '../types/exercise'
 import QaDetailDialog from '../components/QaDetailDialog.vue'
@@ -240,7 +241,8 @@ const getChatMetaInfo = (record: QuestionRecord) => {
   } else {
     // 第2步：获取AI会话元信息
     try {
-      const sessionsData = localStorage.getItem('ai-general-sessions')
+      const userId = getCurrentUserIdOrDefault()
+      const sessionsData = localStorage.getItem(`${userId}_ai-general-sessions`)
       if (sessionsData) {
         const sessions = JSON.parse(sessionsData) as Array<{
           sessionId: string

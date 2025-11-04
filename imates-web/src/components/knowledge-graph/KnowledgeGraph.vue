@@ -56,6 +56,7 @@ import GraphNode from './GraphNode.vue'
 import { ResourceManager } from '../../services/resource-storage'
 import { showMessage } from '../../utils'
 import { apiService } from '../../services/api-service'
+import { getCurrentUserIdOrDefault } from '../../utils/userId'
 import type { KnowledgeGraphDebugParams } from '../debug/KnowledgeGraphDebugPanel.vue'
 
 interface ChapterNode {
@@ -123,18 +124,28 @@ const animationState = ref<'idle' | 'expanding' | 'expanded' | 'collapsing'>('id
 // 气泡框状态管理
 const activeNodeId = ref<string | null>(null)
 
+// 获取带用户ID前缀的存储key
+const getLastLearnedNodeKey = () => {
+  const userId = getCurrentUserIdOrDefault()
+  return `${userId}_LAST_LEARNED_NODE_ID`
+}
+
+const getLearnedNodesKey = () => {
+  const userId = getCurrentUserIdOrDefault()
+  return `${userId}_LEARNED_NODES`
+}
+
 // 最后点击去学习的圆周节点ID（用于显示学习标签）
-const LAST_LEARNED_NODE_KEY = 'LAST_LEARNED_NODE_ID'
 const lastLearnedNodeId = ref<string | null>(null)
 
 // 已学习的节点ID列表（用于标记已学习节点）
-const LEARNED_NODES_KEY = 'LEARNED_NODES'
 const learnedNodeIds = ref<Set<string>>(new Set())
 
 // 从localStorage加载最后学习的节点ID
 const loadLastLearnedNodeId = () => {
   try {
-    const saved = localStorage.getItem(LAST_LEARNED_NODE_KEY)
+    const key = getLastLearnedNodeKey()
+    const saved = localStorage.getItem(key)
     if (saved) {
       lastLearnedNodeId.value = saved
     }
@@ -147,7 +158,8 @@ const loadLastLearnedNodeId = () => {
 const saveLastLearnedNodeId = (nodeId: string) => {
   try {
     lastLearnedNodeId.value = nodeId
-    localStorage.setItem(LAST_LEARNED_NODE_KEY, nodeId)
+    const key = getLastLearnedNodeKey()
+    localStorage.setItem(key, nodeId)
   } catch (error) {
     console.error('保存最后学习的节点ID失败:', error)
   }
@@ -156,7 +168,8 @@ const saveLastLearnedNodeId = (nodeId: string) => {
 // 从localStorage加载已学习的节点ID列表
 const loadLearnedNodeIds = () => {
   try {
-    const saved = localStorage.getItem(LEARNED_NODES_KEY)
+    const key = getLearnedNodesKey()
+    const saved = localStorage.getItem(key)
     if (saved) {
       const ids = JSON.parse(saved) as string[]
       learnedNodeIds.value = new Set(ids)
@@ -190,9 +203,11 @@ onUnmounted(() => {
 
 // 处理localStorage变化
 const handleStorageChange = (event: StorageEvent) => {
-  if (event.key === LAST_LEARNED_NODE_KEY) {
+  const lastLearnedKey = getLastLearnedNodeKey()
+  const learnedNodesKey = getLearnedNodesKey()
+  if (event.key === lastLearnedKey) {
     loadLastLearnedNodeId()
-  } else if (event.key === LEARNED_NODES_KEY) {
+  } else if (event.key === learnedNodesKey) {
     loadLearnedNodeIds()
   }
 }
@@ -493,11 +508,6 @@ const handlePractice = async (node: { id: string; name: string; level?: number |
     // 调用API查询知识点ID
     const knowledgeList = await apiService.queryKnowledgeIdsByNodeId(request)
     
-    if (!knowledgeList || knowledgeList.trim() === '') {
-      showMessage('该知识点暂无相关练习题，请选择其他知识点进行练习', 'warning')
-      return
-    }
-    
     // 跳转到习题查找页面
     router.push({
       path: '/find-exercise',
@@ -508,6 +518,13 @@ const handlePractice = async (node: { id: string; name: string; level?: number |
       }
     })
   } catch (error) {
+    // 第1步：检查是否是"没有题目"的错误
+    if (error instanceof Error && (error as any).code === 'NO_QUESTIONS') {
+      showMessage(error.message, 'warning')
+      return
+    }
+    
+    // 第2步：其他错误显示通用错误提示
     console.error('查询知识点ID失败:', error)
     showMessage('查询知识点失败，请重试', 'error')
   }

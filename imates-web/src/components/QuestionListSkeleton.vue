@@ -1,5 +1,5 @@
 <template>
-  <div class="question-list-skeleton" :class="animationSpeedClass">
+  <div class="question-list-skeleton" :class="[animationSpeedClass, columnsClass]">
     <!-- 骨架屏题目卡片列表 -->
     <div class="skeleton-cards-container">
       <div 
@@ -43,11 +43,14 @@ interface Props {
   animationSpeed?: 'fast' | 'normal' | 'slow'
   // 骨架屏数量
   skeletonCount?: number
+  // 列数（1 或 2）
+  columns?: 1 | 2
 }
 
 const props = withDefaults(defineProps<Props>(), {
   animationSpeed: 'normal',
-  skeletonCount: 6
+  skeletonCount: 6,
+  columns: 2
 })
 
 // 骨架屏数量
@@ -56,6 +59,11 @@ const skeletonCount = ref(props.skeletonCount)
 // 计算动画速度类名
 const animationSpeedClass = computed(() => {
   return `skeleton-${props.animationSpeed}`
+})
+
+// 计算列数类名
+const columnsClass = computed(() => {
+  return `skeleton-columns-${props.columns}`
 })
 
 // 组件挂载后随机化骨架屏数量，增加真实感
@@ -147,7 +155,6 @@ $shadow-subtle: 0 1px 2px 0 rgba(60, 64, 67, 0.1);
   
   .skeleton-cards-container {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
     gap: 12px;
     padding: 12px 16px;
     
@@ -160,6 +167,20 @@ $shadow-subtle: 0 1px 2px 0 rgba(60, 64, 67, 0.1);
     @media (max-width: 480px) {
       gap: 8px;
       padding: 8px 12px;
+    }
+  }
+  
+  // 单列布局
+  &.skeleton-columns-1 {
+    .skeleton-cards-container {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  // 双列布局
+  &.skeleton-columns-2 {
+    .skeleton-cards-container {
+      grid-template-columns: repeat(2, 1fr);
     }
   }
 }

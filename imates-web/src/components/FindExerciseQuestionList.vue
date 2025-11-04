@@ -5,7 +5,7 @@
       <div class="scroll-content">
         <!-- 加载状态 - 使用骨架屏 -->
         <div v-if="isLoading && similarQuestions.length === 0" class="native-loading-container">
-          <QuestionListSkeleton animation-speed="fast" :skeleton-count="4" />
+          <QuestionListSkeleton animation-speed="fast" :skeleton-count="4" :columns="2" />
         </div>
         <!-- 空状态 -->
         <div v-else-if="similarQuestions.length === 0 && !isLoading" class="native-empty-state">

@@ -94,10 +94,13 @@ export class HttpClient {
     
     // 如果找到了token，将其赋值给所有认证字段
     if (selectedToken) {
-      // 使用sa-token格式（与Android原生保持一致）
+      // ⭐ 修复：使用Token header（首字母大写），与Android原生保持一致
+      authConfig['Token'] = selectedToken
+      // 保留其他header作为备用（如果后端支持）
       authConfig['sa-token'] = selectedToken
       authConfig['authorization'] = selectedToken
-      authConfig['token'] = selectedToken
+      // ⚠️ 注意：不设置小写的 'token'，避免与 'Token' 重复（HTTP header 名称大小写不敏感）
+      // 如果后端需要小写的 'token' header，可以通过其他方式单独设置
     }
     
     return authConfig

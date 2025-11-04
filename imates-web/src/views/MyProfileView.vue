@@ -7,9 +7,8 @@
         class="feature-card join-class-card"
         @click="toggleJoinClass"
       >
-        <div class="card-icon-wrapper">
+        <div class="card-icon-wrapper" :class="{ 'in-class': isInClass }">
           <img :src="joinClassIcon" alt="加入课堂" class="card-icon" />
-          <img v-if="isInClass" :src="learnedStarIcon" alt="已加入" class="check-icon" />
         </div>
         <div class="card-text">加入课堂</div>
       </div>
@@ -96,7 +95,6 @@ import teacherQaIcon from '/icons/teacher_qa.svg'
 import scanHomeworkIcon from '/icons/scan_homework.svg'
 import myFavoritesIcon from '/icons/my_favorites.svg'
 import feedbackIcon from '/icons/feedback.svg'
-import learnedStarIcon from '/icons/learned_star.svg'
 
 const router = useRouter()
 const userStore = useUserStore()

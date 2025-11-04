@@ -6,6 +6,7 @@
 import { IndexedDBService } from './indexeddb-service'
 import CryptoJS from 'crypto-js'
 import { DebounceUtils } from '../utils'
+import { getCurrentUserIdOrDefault } from '../utils/userId'
 // 注释掉缩略图相关导入以提升性能
 // import { isPdfFile } from '../utils/pdf-thumbnail'
 // import { thumbnailQueue } from '../utils/thumbnail-queue'
@@ -20,7 +21,8 @@ import type {
 // 移除不再使用的回调接口 - 直接使用ApiService后不再需要
 
 export class ResourceManager {
-  private static instance: ResourceManager
+  private static instance: ResourceManager | null = null
+  private static currentUserId: string | null = null
   private currentToken: string | null = null
   private currentUsername: string | null = null
   private indexedDBInstance: IndexedDBService
@@ -38,8 +40,11 @@ export class ResourceManager {
 
   private constructor() {
     // 初始化IndexedDB配置 - 分离存储架构：元数据和二进制数据分离
+    // 使用用户ID作为数据库名称前缀，实现账号隔离
+    const userId = getCurrentUserIdOrDefault()
+    const dbName = `TextbookStorage_${userId}`
     this.indexedDBInstance = IndexedDBService.getInstance({
-      dbName: 'TextbookStorage',
+      dbName: dbName,
       version: 8, // 升级版本号，确保索引被创建（修复索引不存在问题）
       stores: [
         {
@@ -101,8 +106,16 @@ export class ResourceManager {
   }
 
   public static getInstance(): ResourceManager {
-    if (!ResourceManager.instance) {
+    // 检查用户是否切换，如果切换则重新创建实例
+    const userId = getCurrentUserIdOrDefault()
+    if (!ResourceManager.instance || ResourceManager.currentUserId !== userId) {
+      // 如果已有实例，先关闭旧的数据库连接
+      if (ResourceManager.instance) {
+        ResourceManager.instance.indexedDB.close()
+      }
+      // 创建新实例
       ResourceManager.instance = new ResourceManager()
+      ResourceManager.currentUserId = userId
     }
     return ResourceManager.instance
   }
@@ -732,5 +745,108 @@ export class ResourceManager {
 
 }
 
-// 创建默认的资源管理器实例
-export const resourceManager = ResourceManager.getInstance()
+// 创建资源管理器代理对象，确保用户切换时能获取正确的实例
+// 使用Proxy确保每次访问时都获取最新的实例
+class ResourceManagerProxy {
+  private get instance(): ResourceManager {
+    return ResourceManager.getInstance()
+  }
+  
+  get indexedDB(): IndexedDBService {
+    return this.instance.indexedDB
+  }
+  
+  isLoggedIn(): boolean {
+    return this.instance.isLoggedIn()
+  }
+  
+  getCurrentUser(): { token: string; username: string } | null {
+    return this.instance.getCurrentUser()
+  }
+  
+  async verifyLocalFileIntegrity(fileData: Uint8Array, expectedChecksum: string): Promise<boolean> {
+    return this.instance.verifyLocalFileIntegrity(fileData, expectedChecksum)
+  }
+  
+  async updateTextbookInfo(
+    textbook: UserTextbookInfo, 
+    updates?: {
+      fileData?: Record<string, Uint8Array>
+      downloadedFiles?: number
+      totalFiles?: number
+      lastDownloadTime?: string
+      hasUpdatesAvailable?: boolean
+      [key: string]: unknown
+    }
+  ): Promise<boolean> {
+    return this.instance.updateTextbookInfo(textbook, updates)
+  }
+  
+  async forceFlushPendingUpdates(): Promise<void> {
+    return this.instance.forceFlushPendingUpdates()
+  }
+  
+  async storeFileData(fileInfo: {
+    id: string
+    textbookId: string
+    packageId: string
+    fileName: string
+    fileType: string
+    fileSize: number
+    checksum?: string
+    chapterOrder?: number
+    sortOrder?: number
+  }, fileData: Uint8Array, textbook?: UserTextbookInfo): Promise<void> {
+    return this.instance.storeFileData(fileInfo, fileData, textbook)
+  }
+  
+  async getFileData(id: string, fileId: string): Promise<Uint8Array | null> {
+    return this.instance.getFileData(id, fileId)
+  }
+  
+  async hasFileData(id: string, fileId: string): Promise<boolean> {
+    return this.instance.hasFileData(id, fileId)
+  }
+  
+  async updateThumbnail(textbookId: string, fileId: string, thumbnail: string): Promise<void> {
+    return this.instance.updateThumbnail(textbookId, fileId, thumbnail)
+  }
+  
+  async cleanupExpiredData(): Promise<void> {
+    return this.instance.cleanupExpiredData()
+  }
+  
+  async getUserLocalTextbooks(): Promise<UserTextbookInfo[]> {
+    return this.instance.getUserLocalTextbooks()
+  }
+  
+  async getTextbookInfoById(id: string): Promise<UserTextbookInfo | null> {
+    return this.instance.getTextbookInfoById(id)
+  }
+  
+  async getTextbookByTextbookIdWithFallback(
+    textbookId: string,
+    context?: string
+  ): Promise<UserTextbookInfo | null> {
+    return this.instance.getTextbookByTextbookIdWithFallback(textbookId, context)
+  }
+  
+  async getTextbookByIdOrTextbookIdWithFallback(
+    id?: string,
+    textbookId?: string,
+    context?: string
+  ): Promise<UserTextbookInfo | null> {
+    return this.instance.getTextbookByIdOrTextbookIdWithFallback(id, textbookId, context)
+  }
+  
+  async clearTextbookFiles(id: string): Promise<void> {
+    return this.instance.clearTextbookFiles(id)
+  }
+  
+  async deleteTextbook(id: string): Promise<boolean> {
+    return this.instance.deleteTextbook(id)
+  }
+}
+
+// 导出代理对象，确保用户切换时能获取正确的实例
+export const resourceManager = new ResourceManagerProxy()

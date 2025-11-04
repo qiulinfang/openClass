@@ -6,7 +6,7 @@
         <div class="filter-section">
           <!-- 标题 -->
           <div class="filter-title">资源下载</div>
-          
+
           <!-- 筛选器区域 -->
           <div class="filter-content">
             <!-- 年级 -->
@@ -24,7 +24,7 @@
                 @update:model-value="handleFilterChange"
               />
             </div>
-            
+
             <!-- 教材版本 -->
             <div class="filter-dropdown-item">
               <label class="filter-label">教材版本:</label>
@@ -40,7 +40,7 @@
                 @update:model-value="handleFilterChange"
               />
             </div>
-            
+
             <!-- 学科 -->
             <div class="filter-dropdown-item">
               <label class="filter-label">学科:</label>
@@ -56,7 +56,7 @@
                 @update:model-value="handleFilterChange"
               />
             </div>
-            
+
             <!-- 进度 -->
             <div class="filter-dropdown-item">
               <label class="filter-label">进度:</label>
@@ -73,7 +73,7 @@
               />
             </div>
           </div>
-          
+
           <!-- 标签页区域 -->
           <div class="filter-tabs">
             <div
@@ -84,45 +84,54 @@
               @click="setActiveTab(tab.value)"
             >
               <span class="tab-label">{{ tab.label }}</span>
-              <q-badge
-                v-if="tab.count > 0"
-                color="negative"
-                rounded
-                class="tab-badge"
-              >
+              <q-badge v-if="tab.count > 0" color="negative" rounded class="tab-badge">
                 {{ tab.count }}
               </q-badge>
             </div>
           </div>
-          
+
           <!-- 调试按钮区域（仅开发环境） -->
           <div v-if="isDev" class="filter-actions">
-            <q-btn
-              flat
-              dense
-              icon="bug_report"
-              label="调试面板"
-              color="primary"
-              size="sm"
+            <button
               @click="showDebugPanel = true"
               class="debug-btn"
-            />
+            >
+              <i class="material-icons">bug_report</i>
+              <span>调试面板</span>
+            </button>
+            <button
+              @click="printScrollDimensions"
+              class="debug-btn"
+            >
+              <i class="material-icons">print</i>
+              <span>打印尺寸</span>
+            </button>
           </div>
         </div>
 
-        <!-- 加载状态 (固定) -->
-        <div v-if="loading" class="loading-state q-pa-xl text-center">
-          <q-spinner-dots size="50px" color="primary" />
-          <div class="text-h6 text-grey-6 q-mt-md">正在加载资源...</div>
-        </div>
-
         <!-- better-scroll 滚动容器 (仅包含教材列表) -->
-        <div v-if="!loading && textbooks.length > 0" ref="scrollWrapper" class="scroll-wrapper">
-          <div class="scroll-content">
+        <div v-if="textbooks.length > 0" ref="scrollWrapper" class="scroll-wrapper">
+          <div ref="scrollContent" class="scroll-content">
             <!-- 下拉刷新提示 -->
-            <div v-if="isPullingDown" class="pull-down-refresh">
-              <q-spinner-dots size="20px" color="primary" />
-              <span class="pull-down-text">正在刷新...</span>
+            <div
+              v-if="showPullDownRefresh"
+              class="pull-down-refresh"
+              :class="{
+                refreshing: refreshStatus === 'refreshing',
+                success: refreshStatus === 'success',
+                error: refreshStatus === 'error',
+              }"
+            >
+              <span class="pull-down-text">
+                <template v-if="refreshStatus === 'pulling'">
+                  {{ pullDistance >= PULL_THRESHOLD ? '释放刷新' : '下拉刷新' }}
+                </template>
+                <template v-else-if="refreshStatus === 'refreshing'">
+                  <span class="refresh-spinner"></span>
+                </template>
+                <template v-else-if="refreshStatus === 'success'"> 刷新成功 </template>
+                <template v-else-if="refreshStatus === 'error'"> 刷新失败 </template>
+              </span>
             </div>
             <!-- 教材列表 -->
             <div class="textbooks-container q-pa-md">
@@ -138,6 +147,15 @@
                       paused: textbook.downloadStatus === 3,
                     }"
                   >
+                    <!-- 删除按钮（右上角） -->
+                    <button
+                      @click.stop="handleDeleteTextbook(textbook)"
+                      class="textbook-delete-btn"
+                      title="删除教材"
+                    >
+                      <i class="material-icons">close</i>
+                    </button>
+
                     <!-- 左侧：封面图片 -->
                     <div class="textbook-cover">
                       <img
@@ -154,17 +172,23 @@
                         <!-- 标题和版本 -->
                         <div class="textbook-header">
                           <div class="textbook-title">{{ textbook.textbookName }}</div>
-                          <div class="textbook-version">{{ textbook.textbookPublisher || '人教版' }}</div>
+                          <div class="textbook-version">
+                            {{ textbook.textbookPublisher || '人教版' }}
+                          </div>
                         </div>
-                        
+
                         <!-- 状态指示器 -->
-                        <div class="status-indicator"
+                        <div
+                          class="status-indicator"
                           :class="{
                             'status-indicator-red': textbook.downloadStatus === 0,
                             'status-indicator-blue': textbook.downloadStatus === 1,
-                            'status-indicator-green': textbook.downloadStatus === 2 && textbook.isDownloaded,
-                            'status-indicator-orange': textbook.downloadStatus === 3 || textbook.hasUpdatesAvailable
-                          }">
+                            'status-indicator-green':
+                              textbook.downloadStatus === 2 && textbook.isDownloaded,
+                            'status-indicator-gray': textbook.downloadStatus === 3,
+                            'status-indicator-orange': textbook.hasUpdatesAvailable,
+                          }"
+                        >
                           <!-- 未下载 -->
                           <template v-if="textbook.downloadStatus === 0">
                             <span class="status-dot status-dot-red"></span>
@@ -176,13 +200,15 @@
                             <span class="status-text">正在下载</span>
                           </template>
                           <!-- 下载完成 -->
-                          <template v-else-if="textbook.downloadStatus === 2 && textbook.isDownloaded">
+                          <template
+                            v-else-if="textbook.downloadStatus === 2 && textbook.isDownloaded"
+                          >
                             <span class="status-dot status-dot-green"></span>
                             <span class="status-text">下载完成</span>
                           </template>
                           <!-- 暂停 -->
                           <template v-else-if="textbook.downloadStatus === 3">
-                            <span class="status-dot status-dot-orange"></span>
+                            <span class="status-dot status-dot-gray"></span>
                             <span class="status-text">已暂停</span>
                           </template>
                           <!-- 有更新 -->
@@ -192,95 +218,118 @@
                           </template>
                         </div>
                       </div>
-
                       <!-- 右侧：操作按钮或进度条 -->
                       <div class="textbook-actions">
-                          <!-- 下载中状态：显示进度条 -->
+                        <div class="action-buttons-group">
+                          <!-- 下载中状态：显示进度条，点击进度条可暂停（包括更新时的下载） -->
                           <template v-if="textbook.downloadStatus === 1">
-                            <div class="download-progress-bar">
+                            <div
+                              class="download-progress-bar clickable"
+                              @click="handlePauseDownload(textbook)"
+                              :title="'点击暂停下载'"
+                            >
                               <div class="progress-bar-container">
-                                <div 
-                                  class="progress-bar-fill" 
-                                  :style="{ width: getDownloadProgress(textbook.downloadedFiles, textbook.totalFiles) + '%' }"
+                                <div
+                                  class="progress-bar-fill"
+                                  :style="{
+                                    width:
+                                      getDownloadProgress(
+                                        textbook.downloadedFiles,
+                                        textbook.totalFiles,
+                                      ) + '%',
+                                  }"
                                 ></div>
-                                <span class="progress-text">{{ getDownloadProgress(textbook.downloadedFiles, textbook.totalFiles) }}%</span>
+                                <span class="progress-text"
+                                  >{{
+                                    getDownloadProgress(
+                                      textbook.downloadedFiles,
+                                      textbook.totalFiles,
+                                    )
+                                  }}%</span
+                                >
                               </div>
                             </div>
                           </template>
-                          
+
                           <!-- 暂停状态：显示继续 -->
                           <template v-else-if="textbook.downloadStatus === 3">
-                            <q-btn 
-                              color="primary" 
-                              label="继续" 
-                              @click="downloadTextbook(textbook)" 
-                              size="sm" 
-                              unelevated 
-                              no-caps
-                              class="action-btn action-btn-download"
-                            />
+                            <button
+                              @click="downloadTextbook(textbook)"
+                              class="action-btn action-btn-continue"
+                            >
+                              继续
+                            </button>
                           </template>
-                          
+
                           <!-- 已下载但没有更新：不显示任何按钮 -->
-                          <template v-else-if="textbook.isDownloaded && textbook.downloadStatus === 2 && !textbook.hasUpdatesAvailable">
+                          <template
+                            v-else-if="
+                              textbook.isDownloaded &&
+                              textbook.downloadStatus === 2 &&
+                              !textbook.hasUpdatesAvailable
+                            "
+                          >
                             <!-- 已下载完成且无更新，不显示按钮 -->
                           </template>
-                          
+
                           <!-- 已下载状态：显示更新 -->
-                          <template v-else-if="textbook.isDownloaded && textbook.downloadStatus === 2 && textbook.hasUpdatesAvailable">
-                            <q-btn 
-                              color="secondary" 
-                              label="更新" 
-                              @click="updateTextbook(textbook)" 
-                              size="sm" 
-                              unelevated 
-                              no-caps
+                          <template
+                            v-else-if="
+                              textbook.isDownloaded &&
+                              textbook.downloadStatus === 2 &&
+                              textbook.hasUpdatesAvailable
+                            "
+                          >
+                            <button
+                              @click="updateTextbook(textbook)"
                               class="action-btn action-btn-update"
-                            />
+                            >
+                              更新
+                            </button>
                           </template>
-                          
+
                           <!-- 未下载或部分下载状态：显示下载/继续 -->
                           <template v-else>
-                            <q-btn 
-                              color="primary" 
-                              label="下载" 
-                              @click="downloadTextbook(textbook)" 
-                              size="sm" 
-                              unelevated 
-                              no-caps
+                            <button
+                              @click="downloadTextbook(textbook)"
                               class="action-btn action-btn-download"
-                            />
+                            >
+                              下载
+                            </button>
                           </template>
                         </div>
                       </div>
                     </div>
                   </div>
-                 </div>
-               </div>
-             </div>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
 
         <!-- 空状态 (固定) -->
-            <div
-              v-if="initialLoadCompleted && textbooks.length === 0"
-              class="empty-state q-pa-xl text-center"
-            >
-              <q-icon name="book" size="80px" color="grey-4" />
-              <div class="text-h6 text-grey-6 q-mt-md">暂无教材数据</div>
-              <div class="text-body2 text-grey-5 q-mt-sm">请检查网络连接或重新登录</div>
-              <q-btn
-                color="primary"
-                label="重新加载"
-                icon="refresh"
-                @click="loadResources"
-                class="q-mt-md"
-                unelevated
-                rounded
-              />
-            </div>
+        <div
+          v-if="initialLoadCompleted && textbooks.length === 0"
+          class="empty-state q-pa-xl text-center"
+        >
+          <q-icon name="book" size="80px" color="grey-4" />
+          <div class="text-h6 text-grey-6 q-mt-md">暂无教材数据</div>
+          <div class="text-body2 text-grey-5 q-mt-sm">请检查网络连接或重新登录</div>
+          <button
+            @click="loadResources"
+            class="reload-btn"
+          >
+            <i class="material-icons">refresh</i>
+            <span>重新加载</span>
+          </button>
+        </div>
 
         <!-- 调试面板 -->
-        <ResourceDebugPanel v-if="isDev" :visible="showDebugPanel" @close="showDebugPanel = false" />
+        <ResourceDebugPanel
+          v-if="isDev"
+          :visible="showDebugPanel"
+          @close="showDebugPanel = false"
+        />
 
         <!-- 删除教材确认对话框 -->
         <q-dialog v-model="showDeleteDialog" persistent>
@@ -290,17 +339,27 @@
             </q-card-section>
 
             <q-card-section class="q-pt-none">
-              <div class="text-body1">
-                确定要删除《{{ deleteTextbookName }}》吗？
-              </div>
+              <div class="text-body1">确定要删除《{{ deleteTextbookName }}》吗？</div>
               <div class="text-body2 text-grey-7 q-mt-sm">
                 删除后，该教材及其所有相关文件将从本地完全移除，且无法恢复。
               </div>
             </q-card-section>
 
             <q-card-actions align="right">
-              <q-btn flat label="取消" color="grey" @click="showDeleteDialog = false" />
-              <q-btn flat label="确定" color="negative" @click="confirmDeleteTextbook" :loading="deleting" />
+              <button
+                class="dialog-btn dialog-btn-cancel"
+                @click="showDeleteDialog = false"
+              >
+                取消
+              </button>
+              <button
+                class="dialog-btn dialog-btn-confirm"
+                @click="confirmDeleteTextbook"
+                :disabled="deleting"
+              >
+                <span v-if="deleting">删除中...</span>
+                <span v-else>确定</span>
+              </button>
             </q-card-actions>
           </q-card>
         </q-dialog>
@@ -311,7 +370,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { resourceManager } from '../services/resource-storage'
 import { apiService } from '../services/api-service'
 import { httpClient } from '../services/http-client'
@@ -333,7 +391,6 @@ const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 import bookIcon from '/icons/book.svg'
 
 // 路由
-const router = useRouter()
 
 // Store
 const resourceStore = useResourceStore()
@@ -367,9 +424,9 @@ const gradeOptions = ref([
 const versionOptions = ref([
   { label: '全部', value: '' },
   { label: '人教版', value: '人教版' },
+  { label: '沪科技版', value: '沪科技版' },
   { label: '苏教版', value: '苏教版' },
-  { label: '北师大版', value: '北师大版' },
-  { label: '华师大版', value: '华师大版' },
+  { label: '鲁教版', value: '鲁教版' },
 ])
 
 const subjectOptions = ref([
@@ -388,31 +445,27 @@ const subjectOptions = ref([
 // 进度选项 - 根据年级动态生成
 const progressOptions = computed(() => {
   const baseOptions = [{ label: '全部', value: '' }]
-  
+
   // 判断是否为初中
-  const isMiddleSchool = selectedGrade.value === '初一' || 
-                         selectedGrade.value === '初二' || 
-                         selectedGrade.value === '初三'
-  
+  const isMiddleSchool =
+    selectedGrade.value === '初一' ||
+    selectedGrade.value === '初二' ||
+    selectedGrade.value === '初三'
+
   // 判断是否为高中
-  const isHighSchool = selectedGrade.value === '高一' || 
-                       selectedGrade.value === '高二' || 
-                       selectedGrade.value === '高三'
-  
+  const isHighSchool =
+    selectedGrade.value === '高一' ||
+    selectedGrade.value === '高二' ||
+    selectedGrade.value === '高三'
+
   if (isMiddleSchool) {
     // 初中：上册和下册
-    baseOptions.push(
-      { label: '上册', value: '上册' },
-      { label: '下册', value: '下册' }
-    )
+    baseOptions.push({ label: '上册', value: '上册' }, { label: '下册', value: '下册' })
   } else if (isHighSchool) {
     // 高中：必修和选修
-    baseOptions.push(
-      { label: '必修', value: '必修' },
-      { label: '选修', value: '选修' }
-    )
+    baseOptions.push({ label: '必修', value: '必修' }, { label: '选修', value: '选修' })
   }
-  
+
   return baseOptions
 })
 
@@ -428,16 +481,25 @@ const initialLoadCompleted = ref(false)
 
 // better-scroll 相关
 const scrollWrapper = ref<HTMLElement | null>(null)
+const scrollContent = ref<HTMLElement | null>(null)
 const bscrollInstance = ref<BScroll | null>(null)
 const isPullingDown = ref(false)
+const pullDistance = ref(0) // 下拉距离（像素）
+const PULL_THRESHOLD = 60 // 触发刷新的阈值（与 Better Scroll 配置保持一致）
+const isPulling = ref(false) // 是否正在下拉（未达到阈值）
+const refreshStatus = ref<'idle' | 'pulling' | 'refreshing' | 'success' | 'error'>('idle') // 刷新状态
 
 // 分类选项 - 基于学科动态生成
 const categories = ref([{ label: '全部', value: 'all' }])
 
 // 标签页数据（带计数）
 const filterTabs = computed(() => {
-  const notDownloaded = textbooks.value.filter(t => !t.isDownloaded || t.downloadStatus === 0).length
-  const pendingUpdate = textbooks.value.filter(t => t.hasUpdatesAvailable || (t.isDownloaded && t.downloadStatus !== 2)).length
+  const notDownloaded = textbooks.value.filter(
+    (t) => !t.isDownloaded || t.downloadStatus === 0,
+  ).length
+  const pendingUpdate = textbooks.value.filter(
+    (t) => t.hasUpdatesAvailable || (t.isDownloaded && t.downloadStatus !== 2),
+  ).length
 
   return [
     { label: '全部', value: 'all', count: 0 },
@@ -470,8 +532,10 @@ const filteredTextbooks = computed(() => {
   if (selectedProgress.value) {
     result = result.filter((textbook) => {
       // 这里可以根据实际需求匹配学期标签或教材名称
-      return textbook.textbookSemesterLabel?.includes(selectedProgress.value) || 
-             textbook.textbookName?.includes(selectedProgress.value)
+      return (
+        textbook.textbookSemesterLabel?.includes(selectedProgress.value) ||
+        textbook.textbookName?.includes(selectedProgress.value)
+      )
     })
   }
 
@@ -479,9 +543,15 @@ const filteredTextbooks = computed(() => {
   if (activeTab.value === 'notDownloaded') {
     result = result.filter((textbook) => !textbook.isDownloaded || textbook.downloadStatus === 0)
   } else if (activeTab.value === 'downloaded') {
-    result = result.filter((textbook) => textbook.isDownloaded && textbook.downloadStatus === 2 && !textbook.hasUpdatesAvailable)
+    result = result.filter(
+      (textbook) =>
+        textbook.isDownloaded && textbook.downloadStatus === 2 && !textbook.hasUpdatesAvailable,
+    )
   } else if (activeTab.value === 'pendingUpdate') {
-    result = result.filter((textbook) => textbook.hasUpdatesAvailable || (textbook.isDownloaded && textbook.downloadStatus !== 2))
+    result = result.filter(
+      (textbook) =>
+        textbook.hasUpdatesAvailable || (textbook.isDownloaded && textbook.downloadStatus !== 2),
+    )
   }
   // 'all' 标签页不需要额外筛选
 
@@ -500,10 +570,21 @@ const filteredTextbooks = computed(() => {
   })
 })
 
+// 计算属性 - 是否显示下拉刷新提示
+const showPullDownRefresh = computed(() => {
+  // 正在刷新中或完成状态，或下拉距离大于0时显示
+  return (
+    refreshStatus.value === 'refreshing' ||
+    refreshStatus.value === 'success' ||
+    refreshStatus.value === 'error' ||
+    pullDistance.value > 0
+  )
+})
+
 // 第1步：初始化 Better Scroll 并配置下拉刷新
 const initBScroll = async () => {
   await nextTick()
-  
+
   if (scrollWrapper.value && !bscrollInstance.value) {
     // 第2步：创建带下拉刷新的 BScroll 实例
     bscrollInstance.value = new BScroll(scrollWrapper.value, {
@@ -520,14 +601,37 @@ const initBScroll = async () => {
       useTransition: true,
       HWCompositing: true,
       pullDownRefresh: {
-        threshold: 60, // 触发刷新的阈值
+        threshold: PULL_THRESHOLD, // 触发刷新的阈值
         stop: 40, // 刷新完成后停止的位置
       },
     })
-    
-    // 第3步：监听下拉刷新事件
+
+    // 第3步：监听滚动事件，追踪下拉距离
+    bscrollInstance.value.on('scroll', (pos: { x: number; y: number }) => {
+      // 当向下滚动超过顶部时（y > 0），表示正在下拉
+      if (
+        pos.y > 0 &&
+        refreshStatus.value !== 'refreshing' &&
+        refreshStatus.value !== 'success' &&
+        refreshStatus.value !== 'error'
+      ) {
+        pullDistance.value = pos.y
+        isPulling.value = true
+        refreshStatus.value = 'pulling'
+      } else if (pos.y <= 0 && refreshStatus.value === 'pulling') {
+        // 回到顶部或向上滚动，重置下拉状态
+        pullDistance.value = 0
+        isPulling.value = false
+        refreshStatus.value = 'idle'
+      }
+    })
+
+    // 第4步：监听下拉刷新事件
     bscrollInstance.value.on('pullingDown', async () => {
       isPullingDown.value = true
+      isPulling.value = false
+      refreshStatus.value = 'refreshing'
+
       await handlePullDownRefresh()
     })
   }
@@ -536,17 +640,73 @@ const initBScroll = async () => {
 // 第4步：处理下拉刷新
 const handlePullDownRefresh = async () => {
   try {
-    // 重新加载资源数据
+    // 确保 isPullingDown 状态已设置（由 pullingDown 事件处理函数设置）
+    if (!isPullingDown.value) {
+      isPullingDown.value = true
+      refreshStatus.value = 'refreshing'
+    }
+
+    // 流程：下拉刷新时暂停所有正在下载的任务
+    await pauseAllDownloadingTasks()
+
+    // [maxScrollY调试] 刷新开始时的 maxScrollY
+    if (bscrollInstance.value) {
+      console.log('[maxScrollY调试] 刷新开始 - maxScrollY:', bscrollInstance.value.maxScrollY)
+    }
+
+    // 直接调用数据加载，不重新加载页面
     await loadResources()
-    showMessage('刷新成功', 'success')
-  } catch (error) {
-    showMessage('刷新失败，请稍后重试', 'error')
-  } finally {
-    // 第5步：完成下拉刷新
-    isPullingDown.value = false
+
+    // [maxScrollY调试] 数据加载完成后的 maxScrollY
+    if (bscrollInstance.value) {
+      console.log('[maxScrollY调试] 数据加载完成后 - maxScrollY:', bscrollInstance.value.maxScrollY)
+    }
+
+    // 数据加载成功，更新刷新状态
+    refreshStatus.value = 'success'
     await nextTick()
-    bscrollInstance.value?.finishPullDown()
-    bscrollInstance.value?.refresh()
+
+    // 等待一段时间后重置状态（显示成功提示）
+    refreshStatus.value = 'idle'
+    isPulling.value = false
+    pullDistance.value = 0
+  } catch {
+    showMessage('刷新失败，请稍后重试', 'error')
+
+    // 更新刷新状态为错误
+    refreshStatus.value = 'error'
+    await nextTick()
+
+    // 等待一段时间后重置状态
+    refreshStatus.value = 'idle'
+    isPulling.value = false
+    pullDistance.value = 0
+  } finally {
+    // 重置下拉刷新标志
+    isPullingDown.value = false
+    // 完成下拉刷新动画（必须在 finally 中调用，确保总是执行）
+    if (bscrollInstance.value) {
+      try {
+        // 步骤1：等待 DOM 更新
+        await nextTick()
+        // 步骤2：先刷新尺寸（在 finishPullDown 之前，确保尺寸正确）
+        bscrollInstance.value.refresh()
+        // 步骤3：完成下拉刷新动画（标准实现必需，确保动画正确结束）
+        bscrollInstance.value.finishPullDown()
+        // 步骤4：等待动画完成，再次刷新尺寸（确保 finishPullDown 后状态正确）
+        await nextTick()
+        await new Promise(resolve => requestAnimationFrame(resolve))
+        bscrollInstance.value.refresh()
+      } catch (error) {
+        console.error('[refresh日志] 下拉刷新完成前 - 调用失败:', error)
+        // 即使出错，也要尝试完成动画，确保状态正确
+        try {
+          bscrollInstance.value?.finishPullDown()
+        } catch (finishError) {
+          console.error('[refresh日志] finishPullDown 调用失败:', finishError)
+        }
+      }
+    }
   }
 }
 
@@ -560,7 +720,7 @@ watch(
       }
     })
   },
-  { deep: true }
+  { deep: true },
 )
 
 // 切换学科选择
@@ -584,7 +744,7 @@ const handleFilterChange = () => {
   // 如果不在，清空进度选择
   if (selectedProgress.value) {
     const currentProgressValid = progressOptions.value.some(
-      option => option.value === selectedProgress.value
+      (option) => option.value === selectedProgress.value,
     )
     if (!currentProgressValid) {
       selectedProgress.value = ''
@@ -592,6 +752,225 @@ const handleFilterChange = () => {
   }
   // 筛选逻辑已在 computed 中实现，这里可以添加其他处理
   // 如果需要，可以在这里触发数据重新计算或其他操作
+}
+
+// 打印滚动尺寸信息
+const printScrollDimensions = async () => {
+  if (!bscrollInstance.value) {
+    console.warn('BetterScroll 实例不存在')
+    showMessage('BetterScroll 实例不存在', 'warning')
+    return
+  }
+
+  // 等待 DOM 更新
+  await nextTick()
+
+  // 从 BetterScroll 实例获取
+  const maxScrollYBefore = bscrollInstance.value.maxScrollY
+  const bsInstanceBefore = bscrollInstance.value as BScroll & { y?: number }
+  const yBefore = bsInstanceBefore.y || 0
+  
+  // BetterScroll 实例可能包含这些属性，但类型定义中可能没有
+  // 尝试多种方式获取内部属性
+  const bsInstance = bscrollInstance.value as BScroll & {
+    wrapperHeight?: number
+    scrollerHeight?: number
+    hasVerticalScroll?: boolean
+    scroller?: {
+      height?: number
+      width?: number
+    }
+    wrapper?: {
+      height?: number
+      width?: number
+    }
+    y?: number
+    // BetterScroll 内部可能使用的其他属性名
+    scrollBehaviorY?: {
+      maxScrollY?: number
+      wrapperHeight?: number
+      contentHeight?: number
+    }
+    scrollBehavior?: {
+      maxScrollY?: number
+      wrapperHeight?: number
+      contentHeight?: number
+    }
+  }
+  
+  // 尝试多种方式获取 wrapperHeight
+  const wrapperHeight = 
+    bsInstance.wrapperHeight || 
+    bsInstance.wrapper?.height ||
+    bsInstance.scrollBehaviorY?.wrapperHeight ||
+    bsInstance.scrollBehavior?.wrapperHeight ||
+    undefined
+  
+  // 尝试多种方式获取 scrollerHeight
+  const scrollerHeight = 
+    bsInstance.scrollerHeight || 
+    bsInstance.scroller?.height ||
+    bsInstance.scrollBehaviorY?.contentHeight ||
+    bsInstance.scrollBehavior?.contentHeight ||
+    undefined
+  
+  const hasVerticalScroll = bsInstance.hasVerticalScroll
+  const scroller = bsInstance.scroller
+  const wrapper = bsInstance.wrapper
+  const currentY = bsInstance.y || yBefore
+  
+  // 尝试通过反射访问所有可能的属性
+  const instanceKeys = Object.keys(bscrollInstance.value)
+  const possibleWrapperHeight = instanceKeys.find(key => 
+    key.toLowerCase().includes('wrapper') && key.toLowerCase().includes('height')
+  )
+  const possibleScrollerHeight = instanceKeys.find(key => 
+    (key.toLowerCase().includes('scroller') || key.toLowerCase().includes('content')) && 
+    key.toLowerCase().includes('height')
+  )
+
+  // 从 DOM 元素获取（备用方案）
+  const wrapperDomHeight = scrollWrapper.value?.clientHeight || 0
+  const wrapperDomScrollHeight = scrollWrapper.value?.scrollHeight || 0
+  const contentDomHeight = scrollContent.value?.scrollHeight || 0
+  const contentDomClientHeight = scrollContent.value?.clientHeight || 0
+
+  // 计算期望的 maxScrollY
+  const calculatedMaxScrollY = wrapperHeight && scrollerHeight 
+    ? wrapperHeight - scrollerHeight 
+    : wrapperDomHeight && contentDomHeight 
+    ? wrapperDomHeight - contentDomHeight 
+    : null
+
+  // 打印刷新前的信息
+  console.group('📊 BetterScroll 尺寸信息（刷新前）')
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log('📐 BetterScroll 实例属性:')
+  console.log('  wrapperHeight:', wrapperHeight || wrapper?.height || '未知')
+  console.log('  scrollerHeight (contentHeight):', scrollerHeight || scroller?.height || '未知')
+  console.log('  maxScrollY:', maxScrollYBefore)
+  console.log('  y (当前滚动位置):', currentY)
+  console.log('  hasVerticalScroll:', hasVerticalScroll ?? '未知')
+  if (possibleWrapperHeight || possibleScrollerHeight) {
+    console.log('  🔍 发现可能的属性名:')
+    if (possibleWrapperHeight) console.log(`    - ${possibleWrapperHeight}`)
+    if (possibleScrollerHeight) console.log(`    - ${possibleScrollerHeight}`)
+  }
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log('📐 DOM 元素尺寸:')
+  console.log('  wrapper.clientHeight:', wrapperDomHeight)
+  console.log('  wrapper.scrollHeight:', wrapperDomScrollHeight)
+  console.log('  content.scrollHeight:', contentDomHeight)
+  console.log('  content.clientHeight:', contentDomClientHeight)
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log('📊 计算结果:')
+  console.log('  计算公式: maxScrollY = wrapperHeight - contentHeight')
+  console.log('  计算值:', calculatedMaxScrollY)
+  console.log('  实际 maxScrollY:', maxScrollYBefore)
+  console.log('  差值:', calculatedMaxScrollY !== null ? calculatedMaxScrollY - maxScrollYBefore : '无法计算')
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log('✅ 滚动状态:')
+  console.log('  可以滚动:', maxScrollYBefore < 0 ? '✅ 是' : '❌ 否')
+  console.log('  滚动距离:', maxScrollYBefore < 0 ? `${Math.abs(maxScrollYBefore)}px` : '0px')
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.groupEnd()
+
+  // 尝试刷新并再次检查
+  console.log('🔄 尝试调用 refresh() 重新计算尺寸...')
+  bscrollInstance.value.refresh()
+  await nextTick()
+
+  // 刷新后再次获取
+  const maxScrollYAfter = bscrollInstance.value.maxScrollY
+  const bsInstanceAfter = bscrollInstance.value as BScroll & {
+    wrapperHeight?: number
+    scrollerHeight?: number
+    hasVerticalScroll?: boolean
+    scroller?: { height?: number }
+    wrapper?: { height?: number }
+    y?: number
+    scrollBehaviorY?: {
+      maxScrollY?: number
+      wrapperHeight?: number
+      contentHeight?: number
+    }
+    scrollBehavior?: {
+      maxScrollY?: number
+      wrapperHeight?: number
+      contentHeight?: number
+    }
+  }
+  const wrapperHeightAfter = 
+    bsInstanceAfter.wrapperHeight || 
+    bsInstanceAfter.wrapper?.height ||
+    bsInstanceAfter.scrollBehaviorY?.wrapperHeight ||
+    bsInstanceAfter.scrollBehavior?.wrapperHeight ||
+    undefined
+  const scrollerHeightAfter = 
+    bsInstanceAfter.scrollerHeight || 
+    bsInstanceAfter.scroller?.height ||
+    bsInstanceAfter.scrollBehaviorY?.contentHeight ||
+    bsInstanceAfter.scrollBehavior?.contentHeight ||
+    undefined
+  const hasVerticalScrollAfter = bsInstanceAfter.hasVerticalScroll
+  const currentYAfter = bsInstanceAfter.y || 0
+
+  // 刷新后的 DOM 尺寸（可能变化）
+  const wrapperDomHeightAfter = scrollWrapper.value?.clientHeight || 0
+  const contentDomHeightAfter = scrollContent.value?.scrollHeight || 0
+
+  // 打印刷新后的信息
+  console.group('📊 BetterScroll 尺寸信息（刷新后）')
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log('📐 BetterScroll 实例属性:')
+  console.log('  wrapperHeight:', wrapperHeightAfter || '未知')
+  console.log('  scrollerHeight (contentHeight):', scrollerHeightAfter || '未知')
+  console.log('  maxScrollY:', maxScrollYAfter)
+  console.log('  y (当前滚动位置):', currentYAfter)
+  console.log('  hasVerticalScroll:', hasVerticalScrollAfter ?? '未知')
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log('📐 DOM 元素尺寸:')
+  console.log('  wrapper.clientHeight:', wrapperDomHeightAfter)
+  console.log('  content.scrollHeight:', contentDomHeightAfter)
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log('📊 对比分析:')
+  console.log('  maxScrollY 变化:', maxScrollYBefore !== maxScrollYAfter ? `✅ 从 ${maxScrollYBefore} 变为 ${maxScrollYAfter}` : `❌ 未变化 (${maxScrollYBefore})`)
+  console.log('  y 位置变化:', currentY !== currentYAfter ? `✅ 从 ${currentY} 变为 ${currentYAfter}` : `未变化 (${currentY})`)
+  const calculatedMaxScrollYAfter = wrapperHeightAfter && scrollerHeightAfter 
+    ? wrapperHeightAfter - scrollerHeightAfter 
+    : wrapperDomHeightAfter && contentDomHeightAfter 
+    ? wrapperDomHeightAfter - contentDomHeightAfter 
+    : calculatedMaxScrollY
+  console.log('  计算值:', calculatedMaxScrollYAfter)
+  console.log('  实际 maxScrollY:', maxScrollYAfter)
+  console.log('  差值:', calculatedMaxScrollYAfter !== null ? calculatedMaxScrollYAfter - maxScrollYAfter : '无法计算')
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log('✅ 滚动状态:')
+  console.log('  可以滚动:', maxScrollYAfter < 0 ? '✅ 是' : '❌ 否')
+  console.log('  滚动距离:', maxScrollYAfter < 0 ? `${Math.abs(maxScrollYAfter)}px` : '0px')
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.groupEnd()
+
+  // 诊断问题
+  if (maxScrollYAfter === 0 && calculatedMaxScrollYAfter !== null && calculatedMaxScrollYAfter < 0) {
+    console.warn('⚠️ 检测到问题：maxScrollY 为 0，但应该可以滚动！')
+    console.warn('  期望 maxScrollY:', calculatedMaxScrollYAfter)
+    console.warn('  实际 maxScrollY:', maxScrollYAfter)
+    console.warn('  可能原因：')
+    console.warn('    1. BetterScroll 未正确计算尺寸')
+    console.warn('    2. DOM 元素尺寸获取时机不对')
+    console.warn('    3. 需要重新初始化 BetterScroll 实例')
+  }
+
+  // 同时显示消息提示
+  const scrollable = maxScrollYAfter < 0
+  const statusMessage = scrollable 
+    ? `✅ 可以滚动\n滚动距离: ${Math.abs(maxScrollYAfter)}px`
+    : `❌ 无法滚动\nmaxScrollY: ${maxScrollYAfter}`
+  showMessage(
+    `尺寸信息已打印到控制台\n刷新前: maxScrollY=${maxScrollYBefore}\n刷新后: maxScrollY=${maxScrollYAfter}\n${statusMessage}`,
+    scrollable ? 'info' : 'warning',
+  )
 }
 
 // 设置活动标签页
@@ -734,23 +1113,26 @@ const checkLearningPackagesForAllTextbooks = async (textbooks: UserTextbookInfo[
 
 // 检测和修复不一致的下载状态 - 优化版本，批量处理
 const fixInconsistentDownloadStatus = async (textbooks: UserTextbookInfo[]) => {
-  const updatesToSave: Array<{textbook: UserTextbookInfo, updates: {
-    downloadStatus: number
-    isDownloaded: boolean
-    downloadedFiles: number
-  }}> = []
+  const updatesToSave: Array<{
+    textbook: UserTextbookInfo
+    updates: {
+      downloadStatus: number
+      isDownloaded: boolean
+      downloadedFiles: number
+    }
+  }> = []
 
   // 第1步：快速检查需要修复的教材
   for (const textbook of textbooks) {
     if (textbook.downloadStatus === 1) {
       const hasActiveDownload = apiService.hasActiveDownload(textbook.textbookId)
-      
+
       if (!hasActiveDownload) {
         // 根据下载进度判断状态
         let newStatus: number
         let isDownloaded: boolean
         let downloadedFiles: number
-        
+
         if (textbook.downloadedFiles > 0 && textbook.downloadedFiles < textbook.totalFiles) {
           newStatus = 3
           isDownloaded = false
@@ -764,20 +1146,20 @@ const fixInconsistentDownloadStatus = async (textbooks: UserTextbookInfo[]) => {
           isDownloaded = false
           downloadedFiles = 0
         }
-        
+
         // 更新内存中的状态
         textbook.downloadStatus = newStatus
         textbook.isDownloaded = isDownloaded
         textbook.downloadedFiles = downloadedFiles
-        
+
         // 收集需要保存的更新
         updatesToSave.push({
           textbook,
           updates: {
             downloadStatus: newStatus,
             isDownloaded,
-            downloadedFiles
-          }
+            downloadedFiles,
+          },
         })
       }
     }
@@ -785,8 +1167,8 @@ const fixInconsistentDownloadStatus = async (textbooks: UserTextbookInfo[]) => {
 
   // 第2步：批量保存更新（如果有需要修复的）
   if (updatesToSave.length > 0) {
-    const savePromises = updatesToSave.map(({textbook, updates}) => 
-      resourceManager.updateTextbookInfo(textbook, updates)
+    const savePromises = updatesToSave.map(({ textbook, updates }) =>
+      resourceManager.updateTextbookInfo(textbook, updates),
     )
     await Promise.all(savePromises)
   }
@@ -794,30 +1176,57 @@ const fixInconsistentDownloadStatus = async (textbooks: UserTextbookInfo[]) => {
 
 // 加载资源数据（优化版本：本地数据优先显示）
 const loadResources = async () => {
+  const isPullDownRefresh = isPullingDown.value
+
   // 重置初始加载状态
   initialLoadCompleted.value = false
 
   // 流程：立即加载本地数据
   const localTextbooks = await loadLocalData()
-  if (localTextbooks.length > 0) {
-    // 流程：有本地数据，立即显示
+
+  // 🔥 下拉刷新时强制从服务器获取最新数据，不使用本地缓存
+  if (localTextbooks.length > 0 && !isPullDownRefresh) {
+    // 流程：有本地数据且不是下拉刷新，立即显示
     textbooks.value = localTextbooks
     updateSubjectChips()
+    // [maxScrollY调试] 本地数据更新后
+    if (bscrollInstance.value) {
+      console.log(
+        '[maxScrollY调试] loadResources本地数据更新后 - maxScrollY:',
+        bscrollInstance.value.maxScrollY,
+      )
+    }
     initialLoadCompleted.value = true
 
     // 流程：在DOM更新后修复下载状态（不后台同步，用户可通过"检查更新"按钮手动同步）
-    nextTick(() => {
-      fixInconsistentDownloadStatus(localTextbooks)
-    })
+    await nextTick()
+    fixInconsistentDownloadStatus(localTextbooks)
+    // [maxScrollY调试] DOM更新后
+    if (bscrollInstance.value) {
+      console.log(
+        '[maxScrollY调试] loadResources DOM更新后 - maxScrollY:',
+        bscrollInstance.value.maxScrollY,
+      )
+      // 🔥 刷新 BetterScroll 以更新尺寸计算
+      bscrollInstance.value.refresh()
+      await nextTick()
+      console.log(
+        '[maxScrollY调试] loadResources refresh后 - maxScrollY:',
+        bscrollInstance.value.maxScrollY,
+      )
+    }
   } else {
-    // 无本地数据，显示加载状态并获取服务器数据
+    // 无本地数据或下拉刷新，显示加载状态并获取服务器数据
     loading.value = true
 
     try {
       // 检查登录状态
-      if (!resourceManager.isLoggedIn()) {
+      const isLoggedIn = resourceManager.isLoggedIn()
+
+      if (!isLoggedIn) {
         // 尝试自动登录
         const autoLoginSuccess = await apiService.autoLogin(true)
+
         if (!autoLoginSuccess) {
           textbooks.value = []
           initialLoadCompleted.value = true
@@ -829,7 +1238,7 @@ const loadResources = async () => {
       const serverTextbooks = await apiService.fetchUserAllOnlineTextbooks()
 
       // 合并服务器数据和本地数据
-      const mergedTextbooks = mergeServerAndLocalData(serverTextbooks, [])
+      const mergedTextbooks = mergeServerAndLocalData(serverTextbooks, localTextbooks)
 
       // 为每个教材检查学习资源包（并行处理）
       await checkLearningPackagesForAllTextbooks(mergedTextbooks)
@@ -841,26 +1250,61 @@ const loadResources = async () => {
 
       // 更新教材列表
       textbooks.value = mergedTextbooks
+      await nextTick()
+      // [maxScrollY调试] 服务器数据更新后
+      if (bscrollInstance.value) {
+        console.log(
+          '[maxScrollY调试] loadResources服务器数据更新后 - maxScrollY:',
+          bscrollInstance.value.maxScrollY,
+        )
+        // 🔥 刷新 BetterScroll 以更新尺寸计算
+        bscrollInstance.value.refresh()
+        await nextTick()
+      }
       updateSubjectChips()
+      await nextTick()
+      // [maxScrollY调试] updateSubjectChips后
+      if (bscrollInstance.value) {
+        console.log(
+          '[maxScrollY调试] loadResources updateSubjectChips后 - maxScrollY:',
+          bscrollInstance.value.maxScrollY,
+        )
+        // 🔥 再次刷新，因为 updateSubjectChips 可能更新了 DOM
+        bscrollInstance.value.refresh()
+        await nextTick()
+      }
     } catch {
       showMessage('加载资源失败，请稍后重试', 'error')
       textbooks.value = []
     } finally {
       loading.value = false
       initialLoadCompleted.value = true
+      // 确保最终状态正确刷新
+      await nextTick()
+      // [maxScrollY调试] loadResources完成
+      if (bscrollInstance.value) {
+        // 🔥 最终刷新，确保尺寸计算正确
+        bscrollInstance.value.refresh()
+        await nextTick()
+        console.log(
+          '[maxScrollY调试] loadResources完成（最终刷新后） - maxScrollY:',
+          bscrollInstance.value.maxScrollY,
+        )
+      }
     }
   }
 }
-
-// BScroll 初始化由组合式函数处理
 
 // 更新学科筛选选项 - 优化版本，避免重复计算
 const updateSubjectChips = () => {
   // 第1步：检查是否需要更新（避免重复计算）
   const currentSubjects = new Set(textbooks.value.map((t) => t.textbookSubjectLabel))
   const currentSubjectKeys = Array.from(currentSubjects).sort().join(',')
-  const lastSubjectKeys = categories.value.map(c => c.value).sort().join(',')
-  
+  const lastSubjectKeys = categories.value
+    .map((c) => c.value)
+    .sort()
+    .join(',')
+
   if (currentSubjectKeys === lastSubjectKeys) {
     // 学科没有变化，跳过更新
     if (selectedSubjects.value.size === 0) {
@@ -883,12 +1327,6 @@ const updateSubjectChips = () => {
   }
 }
 
-// 第11步：处理检查更新按钮点击
-const handleCheckUpdates = async () => {
-  // 第12步：调用检查更新逻辑
-  await checkForUpdates()
-}
-
 // 检查更新 - 三级对比版本
 const checkForUpdates = async () => {
   checkingUpdates.value = true
@@ -900,7 +1338,7 @@ const checkForUpdates = async () => {
     // 第一步：重置所有本地教材的更新状态（清除之前的更新标记）
     const resetPromises = textbooks.value.map(async (textbook) => {
       textbook.hasUpdatesAvailable = false
-      
+
       // 🔥 保存更新状态到 IndexedDB（重置为无更新）
       await resourceManager.updateTextbookInfo(textbook, {
         hasUpdatesAvailable: false,
@@ -942,7 +1380,7 @@ const checkForUpdates = async () => {
       updateCount.value = 0
       showMessage('所有教材都是最新版本', 'info')
     }
-    
+
     // 使用 store 通知其他组件更新状态已变化
     resourceStore.markUpdateCheckCompleted()
   } catch {
@@ -954,119 +1392,44 @@ const checkForUpdates = async () => {
 
 // 下载教材 - 直接使用ApiService，移除不必要的中介方法
 const downloadTextbook = async (textbook: UserTextbookInfo) => {
-  console.log('[下载] 开始下载教材', {
-    textbookId: textbook.textbookId,
-    textbookName: textbook.textbookName,
-    downloadStatus: textbook.downloadStatus,
-    isDownloaded: textbook.isDownloaded,
-    downloadedFiles: textbook.downloadedFiles,
-    totalFiles: textbook.totalFiles,
-    hasLearningPackages: !!textbook.learningPackages?.length,
-  })
-
   // 🔒 防重复下载：检查是否已在下载中
   if (textbook.downloadStatus === 1) {
-    console.log('[下载] 教材正在下载中，跳过重复操作')
     showMessage(`《${textbook.textbookName}》正在下载中，请勿重复操作`, 'warning')
     return
   }
 
   // 🔒 防重复下载：检查是否已下载完成
   if (textbook.downloadStatus === 2 && textbook.isDownloaded) {
-    console.log('[下载] 教材已下载完成，跳过操作')
     return
   }
 
   // 设置下载状态
-  console.log('[下载] 设置下载状态为下载中 (status=1)')
   textbook.downloadStatus = 1 // 下载中
   textbook.isDownloaded = false
 
   // ApiService.downloadTextbook内部会优先使用本地已有的学习资源包数据，无需重复处理
 
   try {
-    console.log('[下载] 调用 apiService.downloadTextbook 开始')
-    const startTime = Date.now()
-    
-    let progressCallbackCalled = false
-    let lastProgressPercent = 0
-    let lastProgressTime = startTime
-    
     // 1. 直接使用ApiService下载（优先使用本地已有的学习资源包数据）
     const success = await apiService.downloadTextbook(
       textbook,
       async (progress, downloadedCount) => {
-        const now = Date.now()
-        if (!progressCallbackCalled) {
-          console.log('[下载] 进度回调首次被调用', {
-            progress: progress.toFixed(1) + '%',
-            downloadedCount,
-            totalFiles: textbook.totalFiles,
-            timeSinceStart: now - startTime + 'ms',
-          })
-          progressCallbackCalled = true
-          lastProgressPercent = progress
-          lastProgressTime = now
-        } else {
-          // 每10%或每1秒记录一次详细进度
-          if (progress - lastProgressPercent >= 10 || now - lastProgressTime >= 1000) {
-            console.log('[下载] 进度更新', {
-              progress: progress.toFixed(1) + '%',
-              downloadedCount,
-              totalFiles: textbook.totalFiles,
-              timeSinceStart: now - startTime + 'ms',
-            })
-            lastProgressPercent = progress
-            lastProgressTime = now
-          }
-        }
         // 更新下载进度 - 使用实际下载的文件数
         textbook.downloadedFiles = downloadedCount
       },
     )
 
-    const elapsedTime = Date.now() - startTime
-    console.log('[下载] apiService.downloadTextbook 返回', {
-      success,
-      elapsedTime: elapsedTime + 'ms',
-      progressCallbackCalled,
-      finalDownloadedFiles: textbook.downloadedFiles,
-      totalFiles: textbook.totalFiles,
-    })
-
-    // 现在数据会立即保存到IndexedDB，直接打印数据
-    printLocalFilesData()
-
     if (success) {
-      console.log('[下载] 下载成功，开始更新状态')
       // 下载成功 - 需要从 IndexedDB 获取完整数据（包含 fileData）后再更新状态
       // 因为当前的 textbook 对象中的 localFiles 可能不包含 fileData（被瘦身处理了）
-      console.log('[下载] 从 IndexedDB 获取完整教材数据', { 
-        id: textbook.id,
-        textbookId: textbook.textbookId,
-        textbookIdType: typeof textbook.textbookId,
-        textbookIdString: String(textbook.textbookId),
-        textbookIdNumber: typeof textbook.textbookId === 'string' ? Number(textbook.textbookId) : textbook.textbookId,
-        textbookInfo: {
-          id: textbook.id,
-          textbookId: textbook.textbookId,
-          textbookName: textbook.textbookName
-        },
-        note: 'IndexedDB 主键是 id，可以通过 id 或 textbookId 索引查询'
-      })
       // 使用三层降级策略查询：id主键 -> textbookId索引 -> getAll（兼容旧数据库无索引的情况）
       const fullTextbook = await resourceManager.getTextbookByIdOrTextbookIdWithFallback(
         textbook.id,
         textbook.textbookId,
-        '下载'
+        '下载',
       )
-      
+
       if (fullTextbook) {
-        console.log('[下载] 获取到完整教材数据，更新状态', {
-          totalFiles: fullTextbook.totalFiles,
-          downloadedFiles: fullTextbook.downloadedFiles,
-          hasLocalFiles: !!fullTextbook.localFiles?.length,
-        })
         // 更新完整教材的状态
         fullTextbook.isDownloaded = true
         fullTextbook.downloadStatus = 2 // 下载完成
@@ -1074,7 +1437,6 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
         fullTextbook.lastDownloadTime = new Date().toISOString()
         fullTextbook.hasUpdatesAvailable = false
 
-        console.log('[下载] 保存完整教材数据到 IndexedDB')
         // 保存完整教材数据到IndexedDB（包含 localFiles 中的 fileData）
         await resourceManager.updateTextbookInfo(fullTextbook, {
           isDownloaded: true,
@@ -1084,104 +1446,47 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
           hasUpdatesAvailable: false,
         })
 
-        console.log('[下载] 更新 Vue 组件中的 textbook 对象')
         // 更新Vue组件中的textbook对象（用于显示）
         Object.assign(textbook, {
           ...fullTextbook,
           // 保留显示用的方法
           updateStructure: textbook.updateStructure,
           updatePackages: textbook.updatePackages,
-          getLocalResourceFileName: textbook.getLocalResourceFileName
+          getLocalResourceFileName: textbook.getLocalResourceFileName,
         })
-        console.log('[下载] 组件状态更新完成', {
-          downloadStatus: textbook.downloadStatus,
-          isDownloaded: textbook.isDownloaded,
-          downloadedFiles: textbook.downloadedFiles,
-          totalFiles: textbook.totalFiles,
-        })
-        
+
         // 使用 store 通知其他组件教材已更新完成
         resourceStore.markTextbookUpdated()
       } else {
         // 降级方案：如果主键查询和索引查询都失败，使用 getAll + 手动查找
-        // 这种情况应该很少发生，可能是数据不一致或数据库损坏
-        console.log('[下载] ⚠️ 无法通过主键或索引获取完整教材数据，尝试降级方案', {
-          queryId: textbook.id,
-          textbookId: textbook.textbookId,
-          textbookName: textbook.textbookName,
-          note: '主键查询和索引查询都失败，使用 getAll 降级方案'
-        })
-        
-        // 降级方案：使用 getAll + 手动查找
         let foundTextbook: UserTextbookInfo | null = null
-        
+
         // 获取所有教材数据
         const allTextbooks = await resourceManager.indexedDB.getAll<UserTextbookInfo>('textbooks')
-        console.log('[下载] 📊 数据库中的所有教材数据：', {
-          total: allTextbooks.length,
-          textbooks: allTextbooks.map((t: UserTextbookInfo) => ({
-            id: t.id,
-            textbookId: t.textbookId,
-            textbookName: t.textbookName,
-            hasLocalFiles: !!t.localFiles?.length,
-            localFilesCount: t.localFiles?.length || 0
-          })),
-          currentTextbook: {
-            id: textbook.id,
-            textbookId: textbook.textbookId,
-            textbookName: textbook.textbookName
-          }
-        })
-        
+
         // 优先通过 id 查找
         foundTextbook = allTextbooks.find((t: UserTextbookInfo) => t.id === textbook.id) || null
-        if (foundTextbook) {
-          console.log('[下载] ✅ 通过 id 手动查找到教材数据', {
-            id: foundTextbook.id,
-            textbookId: foundTextbook.textbookId,
-            textbookName: foundTextbook.textbookName,
-            hasLocalFiles: !!foundTextbook.localFiles?.length,
-            localFilesCount: foundTextbook.localFiles?.length || 0
-          })
-        } else {
+        if (!foundTextbook) {
           // 如果通过 id 找不到，尝试通过 textbookId 查找（可能有多个相同 textbookId）
-          console.log('[下载] ⚠️ 通过 id 未找到，尝试通过 textbookId 查找', {
-            textbookId: textbook.textbookId
-          })
-          const byTextbookId = allTextbooks.filter((t: UserTextbookInfo) => t.textbookId === textbook.textbookId)
+          const byTextbookId = allTextbooks.filter(
+            (t: UserTextbookInfo) => t.textbookId === textbook.textbookId,
+          )
           if (byTextbookId.length > 0) {
             // 如果有多个相同 textbookId，选择最新的（id 最大的）
             foundTextbook = byTextbookId.reduce((latest, current) => {
               return current.id > latest.id ? current : latest
             })
-            console.log('[下载] ✅ 通过 textbookId 手动查找到教材数据', {
-              foundCount: byTextbookId.length,
-              selectedId: foundTextbook.id,
-              textbookId: foundTextbook.textbookId,
-              textbookName: foundTextbook.textbookName,
-              hasLocalFiles: !!foundTextbook.localFiles?.length,
-              localFilesCount: foundTextbook.localFiles?.length || 0
-            })
-          } else {
-            console.log('[下载] ⚠️ 通过 textbookId 也未找到匹配的教材')
           }
         }
-        
+
         if (foundTextbook) {
           // 找到了完整教材数据，使用它更新状态
-          console.log('[下载] 使用查找到的完整教材数据更新状态', {
-            totalFiles: foundTextbook.totalFiles,
-            downloadedFiles: foundTextbook.downloadedFiles,
-            hasLocalFiles: !!foundTextbook.localFiles?.length,
-          })
-          // 更新完整教材的状态
           foundTextbook.isDownloaded = true
           foundTextbook.downloadStatus = 2 // 下载完成
           foundTextbook.downloadedFiles = foundTextbook.totalFiles
           foundTextbook.lastDownloadTime = new Date().toISOString()
           foundTextbook.hasUpdatesAvailable = false
 
-          console.log('[下载] 保存完整教材数据到 IndexedDB')
           // 保存完整教材数据到IndexedDB（包含 localFiles 中的 fileData）
           await resourceManager.updateTextbookInfo(foundTextbook, {
             isDownloaded: true,
@@ -1191,24 +1496,16 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
             hasUpdatesAvailable: false,
           })
 
-          console.log('[下载] 更新 Vue 组件中的 textbook 对象')
           // 更新Vue组件中的textbook对象（用于显示）
           Object.assign(textbook, {
             ...foundTextbook,
             // 保留显示用的方法
             updateStructure: textbook.updateStructure,
             updatePackages: textbook.updatePackages,
-            getLocalResourceFileName: textbook.getLocalResourceFileName
-          })
-          console.log('[下载] 组件状态更新完成', {
-            downloadStatus: textbook.downloadStatus,
-            isDownloaded: textbook.isDownloaded,
-            downloadedFiles: textbook.downloadedFiles,
-            totalFiles: textbook.totalFiles,
+            getLocalResourceFileName: textbook.getLocalResourceFileName,
           })
         } else {
           // 降级方案2：如果还是找不到，使用当前textbook更新
-          console.log('[下载] ⚠️ 降级方案：使用当前 textbook 更新（可能缺少完整数据）')
           textbook.isDownloaded = true
           textbook.downloadStatus = 2
           textbook.downloadedFiles = textbook.totalFiles
@@ -1222,34 +1519,24 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
             lastDownloadTime: new Date().toISOString(),
             hasUpdatesAvailable: false,
           })
-          console.log('[下载] 使用当前 textbook 更新完成')
-          
+
           // 发送自定义事件，通知其他组件教材已下载完成
           window.dispatchEvent(new CustomEvent('textbook-updated'))
         }
       }
 
-      console.log('[下载] 状态更新完成，显示成功消息')
       showMessage(`《${textbook.textbookName}》下载完成`, 'success')
     } else {
       // 下载失败
-      console.log('[下载] 下载失败 (success=false)')
       textbook.downloadStatus = 0 // 下载失败
       textbook.isDownloaded = false
 
       showMessage(`《${textbook.textbookName}》下载失败`, 'error')
     }
   } catch (error) {
-    console.error('[下载] 下载过程发生异常', {
-      error: error instanceof Error ? error.message : String(error),
-      errorName: error instanceof Error ? error.name : 'Unknown',
-      stack: error instanceof Error ? error.stack : undefined,
-    })
-    
     // 修复：区分用户主动暂停和真正的下载失败
     if (error instanceof Error && error.name === 'AbortError') {
       // 用户主动暂停下载，保持暂停状态
-      console.log('[下载] 用户主动暂停下载')
       textbook.downloadStatus = 3 // 已暂停
       textbook.isDownloaded = false
 
@@ -1261,7 +1548,6 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
       })
     } else {
       // 真正的下载失败
-      console.log('[下载] 真正的下载失败，更新状态为失败 (status=0)')
       textbook.downloadStatus = 0 // 下载失败
       textbook.isDownloaded = false
 
@@ -1273,86 +1559,6 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
   }
 }
 
-// 暂停下载 - 直接使用ApiService
-const pauseDownload = async (textbook: UserTextbookInfo) => {
-  try {
-    const success = await apiService.pauseDownload(textbook.textbookId)
-    if (success) {
-      textbook.downloadStatus = 3 // 已暂停
-      textbook.isDownloaded = false
-
-      // 保存暂停状态到IndexedDB（使用立即更新）
-      await resourceManager.updateTextbookInfo(textbook, {
-        downloadStatus: 3,
-        isDownloaded: false,
-        downloadedFiles: textbook.downloadedFiles, // 🔥 保存已下载的文件数量
-      })
-    } else {
-      showMessage(`暂停《${textbook.textbookName}》失败`, 'error')
-    }
-  } catch (error) {
-    showMessage(
-      `暂停《${textbook.textbookName}》失败: ${error instanceof Error ? error.message : '未知错误'}`,
-      'error',
-    )
-  }
-}
-
-// 取消下载 - 直接使用ApiService
-const cancelDownload = async (textbook: UserTextbookInfo) => {
-  try {
-    const success = await apiService.cancelDownload(textbook.textbookId)
-
-    if (success) {
-      // 重置下载状态
-      textbook.downloadStatus = 0 // 未下载
-      textbook.isDownloaded = false
-      textbook.downloadedFiles = 0
-        textbook.totalFiles = 0
-        textbook.lastDownloadTime = ''
-
-        // 保存取消状态到IndexedDB（使用立即更新）
-        await resourceManager.updateTextbookInfo(textbook, {
-          downloadStatus: 0,
-          isDownloaded: false,
-          downloadedFiles: 0,
-          totalFiles: 0,
-          lastDownloadTime: '',
-        })
-    } else {
-      showMessage(`取消《${textbook.textbookName}》下载失败`, 'error')
-    }
-  } catch (error) {
-    showMessage(
-      `取消《${textbook.textbookName}》下载失败: ${error instanceof Error ? error.message : '未知错误'}`,
-      'error',
-    )
-  }
-}
-
-// 查看教材
-const viewTextbook = (textbook: UserTextbookInfo) => {
-  // 跳转到PDF查看页面，并传递教材信息
-  router.push({
-    name: 'pdfViewer',
-    query: {
-      textbookId: textbook.textbookId,
-      textbookName: textbook.textbookName,
-    },
-  })
-}
-
-// 跳转到知识图谱
-const goToKnowledgeGraph = (textbook: UserTextbookInfo) => {
-  router.push({
-    name: 'knowledgeGraph',
-    query: {
-      textbookId: textbook.textbookId,
-      textbookName: textbook.textbookName,
-    },
-  })
-}
-
 // 更新教材 - 基于安卓原生逻辑完善
 const updateTextbook = (textbook: UserTextbookInfo) => {
   // 重置更新状态
@@ -1362,6 +1568,37 @@ const updateTextbook = (textbook: UserTextbookInfo) => {
 
   // 开始下载更新
   downloadTextbook(textbook)
+}
+
+// 处理暂停下载 - 用户主动暂停单个教材
+const handlePauseDownload = async (textbook: UserTextbookInfo) => {
+  try {
+    // 调用API服务暂停下载
+    const success = await apiService.pauseDownload(textbook.textbookId)
+
+    if (success) {
+      // 更新教材状态为已暂停
+      textbook.downloadStatus = 3
+      textbook.isDownloaded = false
+
+      // 保存暂停状态到IndexedDB
+      await resourceManager.updateTextbookInfo(textbook, {
+        downloadStatus: 3,
+        isDownloaded: false,
+        downloadedFiles: textbook.downloadedFiles, // 保存已下载的文件数量
+      })
+
+      showMessage(`《${textbook.textbookName}》已暂停`, 'info')
+    } else {
+      showMessage(`《${textbook.textbookName}》暂停失败`, 'error')
+    }
+  } catch (error) {
+    console.error('暂停下载失败:', error)
+    showMessage(
+      `《${textbook.textbookName}》暂停失败: ${error instanceof Error ? error.message : '未知错误'}`,
+      'error',
+    )
+  }
 }
 
 // 处理删除教材 - 显示确认对话框
@@ -1390,8 +1627,11 @@ const confirmDeleteTextbook = async () => {
 
   try {
     // 第1步：再次检查是否有正在进行的下载，如果有则取消
-    const textbookToDelete = textbooks.value.find(t => t.id === deleteTextbookId.value)
-    if (textbookToDelete && (textbookToDelete.downloadStatus === 1 || textbookToDelete.downloadStatus === 3)) {
+    const textbookToDelete = textbooks.value.find((t) => t.id === deleteTextbookId.value)
+    if (
+      textbookToDelete &&
+      (textbookToDelete.downloadStatus === 1 || textbookToDelete.downloadStatus === 3)
+    ) {
       try {
         await apiService.cancelDownload(textbookToDelete.textbookId)
       } catch {
@@ -1404,12 +1644,30 @@ const confirmDeleteTextbook = async () => {
 
     if (success) {
       // 第3步：从列表中移除教材
-      const index = textbooks.value.findIndex(t => t.id === deleteTextbookId.value)
+      const index = textbooks.value.findIndex((t) => t.id === deleteTextbookId.value)
       if (index !== -1) {
         textbooks.value.splice(index, 1)
       }
 
-      // 第4步：如果删除后列表为空，重新加载数据
+      // 第4步：刷新 BScroll 实例（如果存在）
+      await nextTick()
+      if (bscrollInstance.value) {
+        console.log(
+          '[refresh日志] 删除资源后 - 调用位置: 删除教材后, refresh前 - maxScrollY:',
+          bscrollInstance.value.maxScrollY,
+          '剩余列表长度:',
+          textbooks.value.length,
+        )
+        bscrollInstance.value.refresh()
+        console.log(
+          '[refresh日志] 删除资源后 - 调用位置: 删除教材后, refresh后 - maxScrollY:',
+          bscrollInstance.value.maxScrollY,
+          '剩余列表长度:',
+          textbooks.value.length,
+        )
+      }
+
+      // 第5步：如果删除后列表为空，重新加载数据
       if (textbooks.value.length === 0) {
         await loadResources()
       }
@@ -1420,7 +1678,6 @@ const confirmDeleteTextbook = async () => {
       showMessage(`删除《${deleteTextbookName.value}》失败`, 'error')
     }
   } catch (error) {
-    console.error('删除教材失败:', error)
     showMessage(
       `删除《${deleteTextbookName.value}》失败: ${error instanceof Error ? error.message : '未知错误'}`,
       'error',
@@ -1458,25 +1715,23 @@ onMounted(async () => {
 const pauseAllDownloadingTasks = async () => {
   try {
     // 流程：查找所有正在下载的教材（downloadStatus === 1）
-    const downloadingTextbooks = textbooks.value.filter(
-      textbook => textbook.downloadStatus === 1
-    )
-    
+    const downloadingTextbooks = textbooks.value.filter((textbook) => textbook.downloadStatus === 1)
+
     if (downloadingTextbooks.length === 0) {
       return
     }
-    
+
     // 流程：批量暂停所有正在下载的任务
     const pausePromises = downloadingTextbooks.map(async (textbook) => {
       try {
         // 调用API服务暂停下载
         const success = await apiService.pauseDownload(textbook.textbookId)
-        
+
         if (success) {
           // 更新教材状态为已暂停
           textbook.downloadStatus = 3
           textbook.isDownloaded = false
-          
+
           // 保存暂停状态到IndexedDB
           await resourceManager.updateTextbookInfo(textbook, {
             downloadStatus: 3,
@@ -1484,15 +1739,15 @@ const pauseAllDownloadingTasks = async () => {
             downloadedFiles: textbook.downloadedFiles,
           })
         }
-      } catch (error) {
-        console.error(`[页面离开] 暂停教材出错: ${textbook.textbookName}`, error)
+      } catch {
+        // 静默处理错误
       }
     })
-    
+
     // 等待所有暂停操作完成
     await Promise.all(pausePromises)
-  } catch (error) {
-    console.error('[页面离开] 暂停下载任务时发生错误:', error)
+  } catch {
+    // 静默处理错误
   }
 }
 
@@ -1500,39 +1755,13 @@ const pauseAllDownloadingTasks = async () => {
 onUnmounted(async () => {
   // 流程：页面离开时立即暂停所有正在下载的任务
   await pauseAllDownloadingTasks()
-  
+
   // 第1步：销毁 BScroll 实例
   if (bscrollInstance.value) {
     bscrollInstance.value.destroy()
     bscrollInstance.value = null
   }
 })
-
-// 调试方法：打印IndexedDB中的localFiles数据
-const printLocalFilesData = async () => {
-  // 获取所有用户教材
-  const userTextbooks = await resourceManager.getUserLocalTextbooks()
-
-  userTextbooks.forEach((textbook) => {
-    // 打印localFiles数据
-    if (textbook.localFiles && textbook.localFiles.length > 0) {
-      // 注意：fileData已分离存储到textbook_files表，不在localFiles中
-      // 如需检查文件数据是否存在，使用 resourceManager.hasFileData(textbook.id, file.id)
-      // 文件元数据已存在
-    }
-
-    // 打印学习包信息
-    if (textbook.learningPackages && textbook.learningPackages.length > 0) {
-      textbook.learningPackages.forEach(() => {
-        // 学习包信息已处理
-      })
-    }
-
-    // 打印下载状态
-    // 下载状态信息已处理
-  })
-}
-
 </script>
 
 <style lang="scss" scoped>
@@ -1574,14 +1803,39 @@ const printLocalFilesData = async () => {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 16px;
-    color: rgba(0, 0, 0, 0.6);
-    font-size: 14px;
+    padding: 12px 16px;
+    min-height: 48px;
+
+    &.success {
+      .pull-down-text {
+        color: #10b981;
+      }
+    }
+
+    &.error {
+      .pull-down-text {
+        color: #ef4444;
+      }
+    }
 
     .pull-down-text {
       font-size: 14px;
       color: rgba(0, 0, 0, 0.6);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .refresh-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(0, 0, 0, 0.1);
+      border-top: 2px solid rgba(0, 0, 0, 0.6);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
     }
   }
 
@@ -1606,7 +1860,7 @@ const printLocalFilesData = async () => {
   .filter-section {
     background: #ffffff;
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-    
+
     .filter-title {
       text-align: center;
       font-size: 20px;
@@ -1622,21 +1876,21 @@ const printLocalFilesData = async () => {
       flex-wrap: wrap;
       align-items: center;
       padding: 12px 20px;
-      
+
       .filter-dropdown-item {
         display: flex;
         align-items: center;
         gap: 8px;
-        
+
         .filter-label {
           font-size: 14px;
           color: rgba(0, 0, 0, 0.87);
           white-space: nowrap;
         }
-        
+
         .filter-select {
           min-width: 150px;
-          
+
           :deep(.q-field__control) {
             border: 1px solid rgba(0, 0, 0, 0.12);
             border-radius: 4px;
@@ -1644,11 +1898,11 @@ const printLocalFilesData = async () => {
         }
       }
     }
-    
+
     .filter-tabs {
       padding: 0 20px;
       overflow: hidden; // 清除浮动
-      
+
       .filter-tab {
         float: left;
         width: 120px;
@@ -1660,18 +1914,18 @@ const printLocalFilesData = async () => {
         cursor: pointer;
         position: relative;
         transition: all 0.2s;
-        
+
         &:last-child {
           border-right: none;
           margin-right: 0;
         }
-        
+
         .tab-label {
           font-size: 14px;
           color: rgba(0, 0, 0, 0.87);
           position: relative;
         }
-        
+
         .tab-badge {
           position: absolute;
           top: 4px;
@@ -1684,11 +1938,11 @@ const printLocalFilesData = async () => {
           align-items: center;
           justify-content: center;
         }
-        
+
         &.active {
           .tab-label {
             font-weight: 500;
-            
+
             &::after {
               content: '';
               position: absolute;
@@ -1707,16 +1961,16 @@ const printLocalFilesData = async () => {
       display: flex;
       gap: 12px;
       align-items: center;
-      
+
       .debug-btn {
         min-width: 100px;
       }
-      
+
       .check-updates-btn {
         min-width: 100px;
       }
     }
-    
+
     // 调试按钮区域样式
     .filter-actions {
       display: flex;
@@ -1724,9 +1978,35 @@ const printLocalFilesData = async () => {
       align-items: center;
       padding: 8px 20px;
       border-top: 1px solid rgba(0, 0, 0, 0.05);
-      
+      gap: 8px;
+
       .debug-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border: none;
+        outline: none;
+        border-radius: 4px;
+        background: transparent;
+        color: #6e55ff;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         min-width: auto;
+
+        i.material-icons {
+          font-size: 18px;
+        }
+
+        &:hover {
+          background: rgba(110, 85, 255, 0.1);
+        }
+
+        &:active {
+          background: rgba(110, 85, 255, 0.2);
+        }
       }
     }
 
@@ -1736,8 +2016,10 @@ const printLocalFilesData = async () => {
       border-radius: 8px;
       padding: 8px 20px;
       font-weight: 500;
+      border: none;
+      outline: none;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      
+
       &:hover {
         transform: translateY(-1px);
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
@@ -1801,12 +2083,54 @@ const printLocalFilesData = async () => {
       gap: 16px;
       padding: 16px;
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
+      box-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.1),
+        0 0 0 1px rgba(0, 0, 0, 0.05);
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       background: #ffffff;
       contain: layout style paint;
       transform: translateZ(0);
       backface-visibility: hidden;
+      position: relative;
+
+      // 删除按钮（右上角）- Material Design 风格
+      .textbook-delete-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        padding: 0;
+        border: none;
+        outline: none;
+        border-radius: 50%;
+        background-color: rgba(255, 255, 255, 0.9);
+        color: rgba(0, 0, 0, 0.54);
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+        i.material-icons {
+          font-size: 18px;
+        }
+
+        &:hover {
+          background-color: rgba(255, 255, 255, 1);
+          color: rgba(193, 0, 21, 0.87);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        &:active {
+          box-shadow:
+            0 1px 2px rgba(0, 0, 0, 0.2),
+            0 0 1px rgba(0, 0, 0, 0.1);
+          transform: scale(0.95);
+        }
+      }
 
       // 左侧：封面图片
       .textbook-cover {
@@ -1845,7 +2169,6 @@ const printLocalFilesData = async () => {
 
           // 标题和版本
           .textbook-header {
-
             .textbook-title {
               font-size: 18px;
               font-weight: 600;
@@ -1899,6 +2222,10 @@ const printLocalFilesData = async () => {
               background: #ffffff;
             }
 
+            .status-dot-gray {
+              background: #ffffff;
+            }
+
             .status-text {
               font-size: 12px;
               font-weight: 500;
@@ -1906,19 +2233,23 @@ const printLocalFilesData = async () => {
             }
 
             &.status-indicator-red {
-              background: #ef4444;
+              background: rgba(239, 68, 68, 0.64);
             }
 
             &.status-indicator-blue {
-              background: #6e55ff;
+              background: rgba(110, 85, 255, 0.64);
             }
 
             &.status-indicator-green {
-              background: #10b981;
+              background: rgba(16, 185, 129, 0.64);
+            }
+
+            &.status-indicator-gray {
+              background: rgba(107, 114, 128, 0.64);
             }
 
             &.status-indicator-orange {
-              background: #f59e0b;
+              background: rgba(245, 158, 11, 0.64);
             }
           }
         }
@@ -1926,272 +2257,381 @@ const printLocalFilesData = async () => {
         // 右侧：操作按钮
         .textbook-actions {
           flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          width: 90px;
 
-            .action-btn {
-              min-width: 80px;
-              border-radius: 20px;
-              font-weight: 500;
-            }
+          .action-buttons-group {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            width: 100%;
+          }
 
-            .action-btn-download {
-              background-color: #6e55ff !important;
-              color: #ffffff !important;
-            }
+          .action-btn {
+            min-width: 90px;
+            width: 90px;
+            height: 43px;
+            border-radius: 12px;
+            font-weight: 500;
+            border: none;
+            outline: none;
+          }
 
-            .action-btn-update {
-              background-color: #ffffff !important;
-              color: #6e55ff !important;
-              border: 1px solid #6e55ff !important;
-            }
+          .action-btn-download {
+            background-color: #6e55ff !important;
+            color: #ffffff !important;
+          }
 
-            // 下载进度条
-            .download-progress-bar {
-              width: 120px;
-              
-              .progress-bar-container {
-                position: relative;
-                width: 100%;
-                height: 32px;
-                background: #ffffff;
-                border-radius: 16px;
-                overflow: hidden;
-                border: 1px solid rgba(0, 0, 0, 0.1);
-                
-                .progress-bar-fill {
-                  position: absolute;
-                  top: 0;
-                  left: 0;
-                  height: 100%;
-                  background: #6e55ff;
-                  transition: width 0.3s ease;
-                  border-radius: 16px;
+          .action-btn-update {
+            background-color: #ffffff !important;
+            color: #6e55ff !important;
+            border: 1px solid #6e55ff !important;
+          }
+
+          // 下载进度条（可点击暂停）
+          .download-progress-bar {
+            min-width: 90px;
+            width: 90px;
+
+            &.clickable {
+              cursor: pointer;
+              user-select: none;
+
+              &:hover {
+                .progress-bar-container {
+                  border-color: #f59e0b;
+                  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.1);
                 }
-                
-                .progress-text {
-                  position: absolute;
-                  top: 50%;
-                  left: 50%;
-                  transform: translate(-50%, -50%);
-                  font-size: 14px;
-                  font-weight: 500;
-                  color: #6e55ff;
-                  z-index: 2;
-                  pointer-events: none;
-                  white-space: nowrap;
+              }
+
+              &:active {
+                .progress-bar-container {
+                  transform: scale(0.98);
                 }
+              }
+            }
+
+            .progress-bar-container {
+              position: relative;
+              width: 100%;
+              height: 43px;
+              background: #ffffff;
+              border-radius: 12px;
+              overflow: hidden;
+              border: 1px solid rgba(0, 0, 0, 0.1);
+
+              .progress-bar-fill {
+                position: absolute;
+                top: 0;
+                left: 0;
+                height: 100%;
+                background: rgba(110, 85, 255, 0.3);
+                transition: width 0.3s ease;
+                border-radius: 12px;
+                z-index: 1;
+              }
+
+              .progress-text {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 14px;
+                font-weight: 500;
+                color: #6e55ff;
+                z-index: 2;
+                pointer-events: none;
+                white-space: nowrap;
               }
             }
           }
         }
       }
-
-      &:hover {
-        box-shadow:
-          0 4px 8px rgba(0, 0, 0, 0.12),
-          0 0 0 1px rgba(0, 0, 0, 0.08);
-        transform: translateY(-1px);
-      }
-
-      &:active {
-        box-shadow:
-          0 1px 2px rgba(0, 0, 0, 0.1),
-          0 0 0 1px rgba(0, 0, 0, 0.05);
-        transform: translateY(0);
-      }
-
-      &.downloading {
-        border-left: 4px solid #3b82f6;
-      }
-
-      &.paused {
-        border-left: 4px solid #f59e0b;
-      }
     }
 
-    // 以下为已删除的旧样式，不再使用
-    .textbook-item-old {
-      background: #ffffff;
-      border-radius: 4px; // Material Design 圆角
-      padding: 16px; // Material Design 间距
+    &:hover {
       box-shadow:
-        0 2px 4px rgba(0, 0, 0, 0.1),
+        0 4px 8px rgba(0, 0, 0, 0.12),
+        0 0 0 1px rgba(0, 0, 0, 0.08);
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.1),
         0 0 0 1px rgba(0, 0, 0, 0.05);
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      display: flex;
-      gap: 16px;
+      transform: translateY(0);
+    }
 
-      &:hover {
-        box-shadow:
-          0 4px 8px rgba(0, 0, 0, 0.12),
-          0 0 0 1px rgba(0, 0, 0, 0.08);
-        transform: translateY(-1px);
-      }
+    &.downloading {
+      border-left: 4px solid #3b82f6;
+    }
 
-      &:active {
-        box-shadow:
-          0 1px 2px rgba(0, 0, 0, 0.1),
-          0 0 0 1px rgba(0, 0, 0, 0.05);
-        transform: translateY(0);
-      }
-
-      &.downloading {
-        border-left: 4px solid #2196f3; // Material Design 蓝色
-      }
-
-      &.paused {
-        border-left: 4px solid #ff9800; // Material Design 橙色
-      }
-
-      .textbook-icon {
-        width: 56px; // Material Design 标准尺寸
-        height: 56px;
-        background: #f5f5f5; // Material Design 背景色
-        border-radius: 4px; // Material Design 圆角
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-
-        img {
-          width: 28px;
-          height: 28px;
-          object-fit: cover;
-        }
-      }
-
-      .textbook-info {
-        flex: 1;
-        min-width: 0;
-
-        .textbook-name {
-          font-size: 16px;
-          font-weight: 500; // Material Design 字重
-          color: rgba(0, 0, 0, 0.87); // Material Design 主文本色
-          margin: 0 0 4px 0;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          line-height: 1.5;
-        }
-
-        .textbook-subject {
-          font-size: 14px;
-          color: rgba(0, 0, 0, 0.6); // Material Design 次要文本色
-          margin: 0 0 2px 0;
-          line-height: 1.4;
-        }
-
-        .textbook-publisher {
-          font-size: 12px;
-          color: rgba(0, 0, 0, 0.38); // Material Design 禁用文本色
-          margin: 0 0 8px 0;
-          line-height: 1.3;
-        }
-
-      }
-
-      .textbook-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        align-items: flex-end;
-
-        .action-btn {
-          padding: 8px 16px; // Material Design 按钮内边距
-          border: none;
-          border-radius: 4px; // Material Design 圆角
-          font-size: 14px;
-          font-weight: 500; // Material Design 字重
-          cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          white-space: nowrap;
-          text-transform: uppercase; // Material Design 大写文本
-          letter-spacing: 0.5px; // Material Design 字母间距
-          min-height: 36px; // Material Design 最小高度
-          display: flex;
-          align-items: center;
-          justify-content: center;
-
-          &:hover {
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-          }
-
-          &:active {
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-          }
-
-          &.download {
-            background: #2196f3; // Material Design 蓝色
-            color: white;
-
-            &:hover {
-              background: #1976d2;
-            }
-          }
-
-          &.pause {
-            background: #ff9800; // Material Design 橙色
-            color: white;
-
-            &:hover {
-              background: #f57c00;
-            }
-          }
-
-          &.view {
-            background: #4caf50; // Material Design 绿色
-            color: white;
-
-            &:hover {
-              background: #388e3c;
-            }
-          }
-
-          &.update {
-            background: #ff5722; // Material Design 深橙色
-            color: white;
-
-            &:hover {
-              background: #e64a19;
-            }
-          }
-        }
-      }
+    &.paused {
+      border-left: 4px solid #f59e0b;
     }
   }
 
-  .empty-state {
-    text-align: center;
-    padding: 48px 24px; // Material Design 间距
+  // 以下为已删除的旧样式，不再使用
+  .textbook-item-old {
     background: #ffffff;
     border-radius: 4px; // Material Design 圆角
+    padding: 16px; // Material Design 间距
     box-shadow:
       0 2px 4px rgba(0, 0, 0, 0.1),
       0 0 0 1px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    gap: 16px;
 
-    .empty-icon {
-      width: 80px;
-      height: 80px;
-      opacity: 0.38; // Material Design 禁用状态透明度
-      margin-bottom: 16px;
+    &:hover {
+      box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.12),
+        0 0 0 1px rgba(0, 0, 0, 0.08);
+      transform: translateY(-1px);
     }
 
-    .empty-title {
-      font-size: 20px;
-      font-weight: 500; // Material Design 字重
-      color: rgba(0, 0, 0, 0.87); // Material Design 主文本色
-      margin: 0 0 8px 0;
-      line-height: 1.4;
+    &:active {
+      box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.1),
+        0 0 0 1px rgba(0, 0, 0, 0.05);
+      transform: translateY(0);
     }
 
-    .empty-description {
-      font-size: 16px;
-      color: rgba(0, 0, 0, 0.6); // Material Design 次要文本色
-      margin: 0;
-      line-height: 1.5;
+    &.downloading {
+      border-left: 4px solid #2196f3; // Material Design 蓝色
+    }
+
+    &.paused {
+      border-left: 4px solid #ff9800; // Material Design 橙色
+    }
+
+    .textbook-icon {
+      width: 56px; // Material Design 标准尺寸
+      height: 56px;
+      background: #f5f5f5; // Material Design 背景色
+      border-radius: 4px; // Material Design 圆角
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+
+      img {
+        width: 28px;
+        height: 28px;
+        object-fit: cover;
+      }
+    }
+
+    .textbook-info {
+      flex: 1;
+      min-width: 0;
+
+      .textbook-name {
+        font-size: 16px;
+        font-weight: 500; // Material Design 字重
+        color: rgba(0, 0, 0, 0.87); // Material Design 主文本色
+        margin: 0 0 4px 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.5;
+      }
+
+      .textbook-subject {
+        font-size: 14px;
+        color: rgba(0, 0, 0, 0.6); // Material Design 次要文本色
+        margin: 0 0 2px 0;
+        line-height: 1.4;
+      }
+
+      .textbook-publisher {
+        font-size: 12px;
+        color: rgba(0, 0, 0, 0.38); // Material Design 禁用文本色
+        margin: 0 0 8px 0;
+        line-height: 1.3;
+      }
+    }
+
+    .textbook-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: flex-end;
+
+      .action-btn {
+        padding: 8px 16px; // Material Design 按钮内边距
+        border: none;
+        outline: none;
+        border-radius: 4px; // Material Design 圆角
+        font-size: 14px;
+        font-weight: 500; // Material Design 字重
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        white-space: nowrap;
+        text-transform: none; // 不使用大写，保持原始文本
+        letter-spacing: normal; // 正常字母间距
+        min-height: 36px; // Material Design 最小高度
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        &:hover {
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        &:active {
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        &.download {
+          background: rgba(33, 150, 243, 0.64); // Material Design 蓝色
+          color: white;
+
+          &:hover {
+            background: rgba(25, 118, 210, 0.64);
+          }
+        }
+
+        &.pause {
+          background: rgba(255, 152, 0, 0.64); // Material Design 橙色
+          color: white;
+
+          &:hover {
+            background: rgba(245, 124, 0, 0.64);
+          }
+        }
+
+        &.view {
+          background: rgba(76, 175, 80, 0.64); // Material Design 绿色
+          color: white;
+
+          &:hover {
+            background: rgba(56, 142, 60, 0.64);
+          }
+        }
+
+        &.update {
+          background: rgba(255, 87, 34, 0.64); // Material Design 深橙色
+          color: white;
+
+          &:hover {
+            background: rgba(230, 74, 25, 0.64);
+          }
+        }
+      }
+    }
+  }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px; // Material Design 间距
+  background: #ffffff;
+  border-radius: 4px; // Material Design 圆角
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+
+  .empty-icon {
+    width: 80px;
+    height: 80px;
+    opacity: 0.38; // Material Design 禁用状态透明度
+    margin-bottom: 16px;
+  }
+
+  .empty-title {
+    font-size: 20px;
+    font-weight: 500; // Material Design 字重
+    color: rgba(0, 0, 0, 0.87); // Material Design 主文本色
+    margin: 0 0 8px 0;
+    line-height: 1.4;
+  }
+
+  .empty-description {
+    font-size: 16px;
+    color: rgba(0, 0, 0, 0.6); // Material Design 次要文本色
+  }
+
+  .reload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    padding: 10px 24px;
+    border: none;
+    outline: none;
+    border-radius: 4px;
+    background-color: rgba(110, 85, 255, 0.64);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+    i.material-icons {
+      font-size: 18px;
+    }
+
+    &:hover {
+      background-color: rgba(90, 66, 230, 0.64);
+      box-shadow: 0 2px 4px rgba(110, 85, 255, 0.3);
+    }
+
+    &:active {
+      background-color: rgba(77, 53, 204, 0.64);
+      box-shadow: 0 1px 2px rgba(110, 85, 255, 0.3);
+    }
+  }
+}
+
+// 对话框按钮样式
+.dialog-btn {
+  padding: 8px 16px;
+  border: none;
+  outline: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 64px;
+
+  &.dialog-btn-cancel {
+    background: transparent;
+    color: rgba(0, 0, 0, 0.6);
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.05);
+    }
+
+    &:active {
+      background: rgba(0, 0, 0, 0.1);
     }
   }
 
+  &.dialog-btn-confirm {
+    background-color: rgba(193, 0, 21, 0.64);
+    color: #ffffff;
+    margin-left: 8px;
+
+    &:hover:not(:disabled) {
+      background-color: rgba(160, 0, 18, 0.64);
+      box-shadow: 0 2px 4px rgba(193, 0, 21, 0.3);
+    }
+
+    &:active:not(:disabled) {
+      background-color: rgba(144, 0, 16, 0.64);
+      box-shadow: 0 1px 2px rgba(193, 0, 21, 0.3);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}
 
 @keyframes spin {
   0% {
@@ -2232,26 +2672,26 @@ const printLocalFilesData = async () => {
         gap: 12px;
         align-items: stretch;
         padding: 10px 16px;
-        
+
         .filter-dropdown-item {
           flex-direction: column;
           align-items: flex-start;
           gap: 6px;
-          
+
           .filter-label {
             font-size: 13px;
           }
-          
+
           .filter-select {
             width: 100%;
             min-width: auto;
           }
         }
       }
-      
+
       .filter-tabs {
         padding: 0 16px;
-        
+
         .filter-tab {
           float: none;
           width: 100%;
@@ -2259,12 +2699,12 @@ const printLocalFilesData = async () => {
           margin-bottom: 2px;
           border-right: none;
           border-bottom: 1px dashed rgba(0, 0, 0, 0.12);
-          
+
           &:last-child {
             border-bottom: none;
             margin-bottom: 0;
           }
-          
+
           &.active {
             .tab-label::after {
               bottom: -10px;
@@ -2272,11 +2712,11 @@ const printLocalFilesData = async () => {
           }
         }
       }
-      
+
       .filter-actions {
         padding: 8px 16px;
         justify-content: center;
-        
+
         .debug-btn {
           width: 100%;
         }
@@ -2297,6 +2737,11 @@ const printLocalFilesData = async () => {
       .textbook-card {
         padding: 12px;
         gap: 12px;
+
+        .textbook-delete-btn {
+          top: 4px;
+          right: 4px;
+        }
 
         .textbook-cover {
           width: 100px;
@@ -2333,6 +2778,10 @@ const printLocalFilesData = async () => {
             .action-btn {
               width: 100%;
               min-width: auto;
+            }
+
+            .download-progress-bar {
+              width: 100%;
             }
           }
         }

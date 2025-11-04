@@ -6,6 +6,7 @@
 import { httpClient } from './http-client'
 import { resourceManager, ResourceManager } from './resource-storage'
 import CryptoJS from 'crypto-js'
+import { getCurrentUserIdOrDefault } from '../utils/userId'
 import {
   getApiUrl,
   getExerciseListUrl,
@@ -274,6 +275,9 @@ export class ApiService {
    */
   public async addQuestionToList(questionData: any, subject: string): Promise<boolean> {
     try {
+      // 动态导入日志工具（避免循环依赖）
+      const { photoSearchLogger } = await import('@/utils/photoSearchLogger')
+      
       const url = getApiUrl(API_ENDPOINTS.EXERCISES.ADD)
 
       // 构造与Android AddQuestionRequest一致的请求体
@@ -284,10 +288,19 @@ export class ApiService {
         ...questionData,
       }
 
+      // 记录API调用
+      photoSearchLogger.apiAddToList(url, requestBody)
+
       // HTTP客户端会自动根据接口路径选择合适的token
       const response = await httpClient.post(url, requestBody)
+      
+      // 记录API响应（已在PhotoSearchView中记录，这里可选）
+      // photoSearchLogger.apiAddToListResponse(response.success)
+      
       return response.success
     } catch (error) {
+      // 记录API错误（已在PhotoSearchView中记录，这里可选）
+      // photoSearchLogger.error('添加到列表API', error)
       return false
     }
   }
@@ -300,12 +313,18 @@ export class ApiService {
    */
   public async recognizeImage(imageFile: File | Blob, subject: string): Promise<any | null> {
     try {
+      // 动态导入日志工具（避免循环依赖）
+      const { photoSearchLogger } = await import('@/utils/photoSearchLogger')
+      
       // 根据科目选择对应的API端点
       const endpoint = subject.toLowerCase() === 'biology' 
         ? API_ENDPOINTS.IMAGE_RECOGNITION.BIOLOGY 
         : API_ENDPOINTS.IMAGE_RECOGNITION.MATH
       
       const url = getApiUrl(endpoint)
+
+      // 记录API调用
+      photoSearchLogger.apiRecognizeImage(subject, endpoint, imageFile.size)
 
       // 构建FormData，与Android端保持一致
       const formData = new FormData()
@@ -333,7 +352,7 @@ export class ApiService {
 
       if (response.success && response.data?.data?.item?.questionsConfirm && response.data.data.item.questionsConfirm.length > 0) {
         const questionData = response.data.data.item.questionsConfirm[0]
-        return {
+        const result = {
           id: questionData.id,
           bmNo: questionData.bmNo,
           title: questionData.title,
@@ -343,9 +362,19 @@ export class ApiService {
           analysisData: questionData.analysisData,
           subject: subject.toLowerCase(),
         }
+        
+        // 记录API响应成功（已在PhotoSearchView中记录，这里可选）
+        // photoSearchLogger.apiRecognizeImageResponse(true, result)
+        
+        return result
       }
+      
+      // 记录API响应失败
+      photoSearchLogger.apiRecognizeImageResponse(false)
       return null
     } catch (error) {
+      // 记录API错误（已在PhotoSearchView中记录，这里可选）
+      // photoSearchLogger.error('图片识别API', error)
       console.error('[API] 图片识别失败:', error)
       return null
     }
@@ -445,6 +474,7 @@ export class ApiService {
    * 对应Android ApiGateWayService.queryKnowledgeIdsByNodeId方法
    * @param request 请求对象，包含subject和param数组
    * @returns Promise<string> 返回知识点ID字符串（逗号分隔）
+   * @throws {Error} 当查询失败时抛出错误，如果 count 为 0 则抛出特殊错误（code: 'NO_QUESTIONS'）
    */
   public async queryKnowledgeIdsByNodeId(request: {
     subject: string
@@ -459,18 +489,43 @@ export class ApiService {
       // 使用httpClient，会自动使用Vite代理（开发环境）或路由映射（生产环境）
       const response = await httpClient.post<{
         success: boolean
+        subject?: string
         knowledge?: string
+        count?: number
         message?: string
       }>(url, request)
       
-      // 检查响应格式
-      if (response.success && response.data && response.data.knowledge) {
-        return response.data.knowledge as string
-      } else {
-        const message = response.data?.message || response.message || '查询知识点失败'
+      // 第1步：检查响应格式（response.data 是原始响应JSON，包含 success、knowledge、count 等字段）
+      if (!response.success || !response.data) {
+        const message = (response.data as any)?.message || response.message || '查询知识点失败'
         throw new Error(message)
       }
+      
+      // 第2步：检查 count 字段，如果为 0 则说明没有题目
+      // response.data 是原始响应JSON，可以直接访问 count 字段
+      const responseData = response.data as { success?: boolean; subject?: string; knowledge?: string; count?: number; message?: string }
+      const count = responseData.count ?? (responseData.knowledge ? responseData.knowledge.split(',').filter(id => id.trim()).length : 0)
+      if (count === 0) {
+        const error = new Error('该知识点暂无相关练习题，请选择其他知识点进行练习')
+        ;(error as any).code = 'NO_QUESTIONS'
+        throw error
+      }
+      
+      // 第3步：检查 knowledge 字段是否存在且不为空
+      if (!responseData.knowledge || responseData.knowledge.trim() === '') {
+        const error = new Error('该知识点暂无相关练习题，请选择其他知识点进行练习')
+        ;(error as any).code = 'NO_QUESTIONS'
+        throw error
+      }
+      
+      // 第4步：返回知识点ID字符串
+      return responseData.knowledge as string
     } catch (error) {
+      // 如果已经是带有 code 的错误，直接抛出
+      if (error instanceof Error && (error as any).code === 'NO_QUESTIONS') {
+        throw error
+      }
+      // 否则抛出通用错误
       throw new Error(error instanceof Error ? error.message : '查询知识点失败')
     }
   }
@@ -574,8 +629,30 @@ export class ApiService {
       // 1. 构建请求体
       const requestBody = this.buildChatRequestBody(message)
       
+      console.log('[API Service] 轮询请求:', {
+        messageId,
+        url,
+        reason: message.reason,
+        sessionId: message.sessionId,
+        requestBody: {
+          ...requestBody,
+          coversation: requestBody.coversation?.length || 0,
+          question: requestBody.question?.substring(0, 50) + '...'
+        },
+        accumulatedContentLength: accumulatedContent.length
+      })
+      
       // 2. 发送HTTP请求
       const response = await this.sendChatRequest(url, requestBody)
+      
+      console.log('[API Service] 轮询响应:', {
+        messageId,
+        success: response.success,
+        hasData: !!response.data,
+        message: response.data?.message?.substring(0, 50) || '空',
+        sessionId: response.data?.sessionId || '无',
+        httpCode: response.code
+      })
       
       // 3. 处理响应
       return await this.handleChatResponse(
@@ -588,6 +665,13 @@ export class ApiService {
         messageId
       )
     } catch (error) {
+      console.error('[API Service] 轮询异常:', {
+        messageId,
+        url,
+        reason: message.reason,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      })
       // 4. 处理异常
       return this.handleChatError(error, messageId, accumulatedContent, onComplete, onStream)
     }
@@ -618,14 +702,51 @@ export class ApiService {
    * 禁用HTTP层自动重试，由上层业务逻辑控制重试
    */
   private async sendChatRequest(url: string, requestBody: any) {
-    return await httpClient.post<{
-      success: boolean
-      message: string
-      sessionId: string
-    }>(url, requestBody, {
-      retries: 0, // 禁用HTTP层自动重试，避免与业务层重试冲突
-      timeout: 10000 // 设置10秒超时
+    // continue 请求需要更长的超时时间，因为服务器可能需要更多时间生成响应
+    const timeout = requestBody.reason === 'continue' ? 30000 : 10000
+    
+    console.log('[API Service] HTTP请求发送:', {
+      url,
+      method: 'POST',
+      reason: requestBody.reason,
+      timeout: `${timeout / 1000}秒`,
+      requestBody: {
+        ...requestBody,
+        coversation: requestBody.coversation?.length || 0,
+        question: requestBody.question?.substring(0, 50) + '...'
+      },
+      timestamp: new Date().toISOString()
     })
+    
+    try {
+      const response = await httpClient.post<{
+        success: boolean
+        message: string
+        sessionId: string
+      }>(url, requestBody, {
+        retries: 0, // 禁用HTTP层自动重试，避免与业务层重试冲突
+        timeout: timeout // continue 请求使用30秒超时，start 请求使用10秒超时
+      })
+      
+      console.log('[API Service] HTTP请求成功:', {
+        url,
+        success: response.success,
+        httpCode: response.code,
+        hasData: !!response.data,
+        messagePreview: response.data?.message?.substring(0, 100) || '空',
+        timestamp: new Date().toISOString()
+      })
+      
+      return response
+    } catch (error) {
+      console.error('[API Service] HTTP请求失败:', {
+        url,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString()
+      })
+      throw error
+    }
   }
 
   /**
@@ -641,8 +762,24 @@ export class ApiService {
     accumulatedContent: string = '',
     messageId: string = 'ai_' + Date.now(),
   ): Promise<any> {
+    console.log('[API Service] 处理响应:', {
+      messageId,
+      success: response.success,
+      hasData: !!response.data,
+      chunk: response.data?.message?.substring(0, 100) || '空',
+      chunkLength: response.data?.message?.length || 0,
+      trimmedChunk: response.data?.message?.trim() || '空',
+      sessionId: response.data?.sessionId || '无'
+    })
+    
     // 检查响应是否成功
     if (!response.success || !response.data) {
+      console.warn('[API Service] 响应失败:', {
+        messageId,
+        success: response.success,
+        hasData: !!response.data,
+        accumulatedContentLength: accumulatedContent.length
+      })
       return this.createErrorResult(messageId, accumulatedContent || '请求失败，请重试。', onComplete, onStream)
     }
 
@@ -651,12 +788,26 @@ export class ApiService {
 
     // 根据响应内容类型进行处理
     if (trimmedChunk === 'end') {
+      console.log('[API Service] 收到结束信号:', {
+        messageId,
+        accumulatedContentLength: accumulatedContent.length
+      })
       // 轮询结束 - 返回最终结果
       return this.handlePollingEnd(messageId, accumulatedContent, response.data.sessionId, message.sessionId, onComplete, onStream)
     } else if (trimmedChunk !== '') {
+      console.log('[API Service] 收到新内容，继续轮询:', {
+        messageId,
+        chunkLength: chunk.length,
+        accumulatedContentLength: accumulatedContent.length,
+        newAccumulatedLength: (accumulatedContent + chunk).length
+      })
       // 有新内容 - 累积内容并继续轮询
       return this.handleNewContent(chunk, message, url, onComplete, onStream, accumulatedContent, messageId)
     } else {
+      console.log('[API Service] 收到空内容，继续轮询:', {
+        messageId,
+        accumulatedContentLength: accumulatedContent.length
+      })
       // 空内容但未结束 - 继续轮询
       return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId)
     }
@@ -674,6 +825,14 @@ export class ApiService {
     onComplete?: (response: any) => void,
     onStream?: (chunk: string, isComplete: boolean) => void,
   ) {
+    console.log('[API Service] 轮询结束:', {
+      messageId,
+      accumulatedContentLength: accumulatedContent.length,
+      responseSessionId,
+      messageSessionId,
+      finalSessionId: responseSessionId || messageSessionId
+    })
+    
     // 发送完成信号
     if (onStream) {
       onStream('', true)
@@ -688,6 +847,10 @@ export class ApiService {
     }
 
     if (onComplete) {
+      console.log('[API Service] 调用完成回调:', {
+        messageId,
+        replyLength: finalResult.reply.length
+      })
       onComplete(finalResult)
     }
 
@@ -709,6 +872,15 @@ export class ApiService {
   ) {
     const newAccumulatedContent = accumulatedContent + chunk
 
+    console.log('[API Service] 处理新内容:', {
+      messageId,
+      chunkLength: chunk.length,
+      oldAccumulatedLength: accumulatedContent.length,
+      newAccumulatedLength: newAccumulatedContent.length,
+      sessionId: message.sessionId,
+      willContinue: true
+    })
+
     // 发送流式数据
     if (onStream) {
       onStream(chunk, false)
@@ -716,6 +888,13 @@ export class ApiService {
 
     // 设置为继续轮询并递归调用
     const continueMessage = { ...message, reason: 'continue' }
+    console.log('[API Service] 准备继续轮询:', {
+      messageId,
+      newReason: continueMessage.reason,
+      sessionId: continueMessage.sessionId,
+      url
+    })
+    
     return await this.pollChatMessage(
       continueMessage,
       url,
@@ -738,7 +917,21 @@ export class ApiService {
     accumulatedContent: string = '',
     messageId: string = 'ai_' + Date.now(),
   ) {
+    console.log('[API Service] 处理空内容:', {
+      messageId,
+      sessionId: message.sessionId,
+      accumulatedContentLength: accumulatedContent.length,
+      willContinue: true
+    })
+    
     const continueMessage = { ...message, reason: 'continue' }
+    console.log('[API Service] 准备继续轮询（空内容）:', {
+      messageId,
+      newReason: continueMessage.reason,
+      sessionId: continueMessage.sessionId,
+      url
+    })
+    
     return await this.pollChatMessage(
       continueMessage,
       url,
@@ -760,6 +953,14 @@ export class ApiService {
     onComplete?: (response: any) => void,
     onStream?: (chunk: string, isComplete: boolean) => void,
   ) {
+    console.error('[API Service] 处理聊天错误:', {
+      messageId,
+      error: error instanceof Error ? error.message : String(error),
+      errorType: error instanceof Error ? error.constructor.name : typeof error,
+      stack: error instanceof Error ? error.stack : undefined,
+      accumulatedContentLength: accumulatedContent.length
+    })
+    
     const errorMessage = accumulatedContent || '网络错误: ' + (error as Error).message
     return this.createErrorResult(messageId, errorMessage, onComplete, onStream)
   }
@@ -857,15 +1058,49 @@ export class ApiService {
     sessionId: string,
     subject: string,
   ): Promise<boolean> {
+    console.log('[ApiService] 📤 sendTextMessageToTeacher: 开始发送文本消息')
+    console.log('[ApiService] 📤 sendTextMessageToTeacher: 参数 -', {
+      contentLength: content?.length || 0,
+      contentPreview: content?.substring(0, 100) || 'null',
+      sessionId,
+      subject
+    })
+    
+    const startTime = performance.now()
+    
     try {
       // 使用AndroidBridge封装方法
-      if (typeof window !== 'undefined' && window.AndroidBridge?.sendTextMessageToTeacher) {
-        const result = this.androidBridge.sendTextMessageToTeacher(content, sessionId, subject)
-        return result
+      if (typeof window === 'undefined') {
+        console.error('[ApiService] ❌ sendTextMessageToTeacher: window未定义')
+        return false
       }
-
-      return false
+      
+      if (!window.AndroidBridge) {
+        console.error('[ApiService] ❌ sendTextMessageToTeacher: AndroidBridge未定义')
+        return false
+      }
+      
+      if (!window.AndroidBridge.sendTextMessageToTeacher) {
+        console.error('[ApiService] ❌ sendTextMessageToTeacher: 方法不存在')
+        return false
+      }
+      
+      console.log('[ApiService] 📤 sendTextMessageToTeacher: 调用AndroidBridge方法')
+      const result = this.androidBridge.sendTextMessageToTeacher(content, sessionId, subject)
+      
+      const duration = performance.now() - startTime
+      console.log('[ApiService] 📥 sendTextMessageToTeacher: 完成, 结果=' + result + ', 耗时=' + duration.toFixed(2) + 'ms')
+      
+      if (result) {
+        console.log('[ApiService] ✅ sendTextMessageToTeacher: 发送成功')
+      } else {
+        console.error('[ApiService] ❌ sendTextMessageToTeacher: 发送失败')
+      }
+      
+      return result
     } catch (error) {
+      const duration = performance.now() - startTime
+      console.error('[ApiService] ❌ sendTextMessageToTeacher: 异常 -', error, ', 耗时=' + duration.toFixed(2) + 'ms')
       return false
     }
   }
@@ -879,15 +1114,49 @@ export class ApiService {
     sessionId: string,
     subject: string,
   ): Promise<boolean> {
+    console.log('[ApiService] 📤 sendVoiceMessageToTeacher: 开始发送语音消息')
+    console.log('[ApiService] 📤 sendVoiceMessageToTeacher: 参数 -', {
+      voicePath,
+      duration,
+      sessionId,
+      subject
+    })
+    
+    const startTime = performance.now()
+    
     try {
       // 使用AndroidBridge封装方法
-      if (typeof window !== 'undefined' && window.AndroidBridge?.sendVoiceMessageToTeacher) {
-        const result = this.androidBridge.sendVoiceMessageToTeacher(voicePath, duration, sessionId, subject)
-        return result
+      if (typeof window === 'undefined') {
+        console.error('[ApiService] ❌ sendVoiceMessageToTeacher: window未定义')
+        return false
       }
-
-      return false
+      
+      if (!window.AndroidBridge) {
+        console.error('[ApiService] ❌ sendVoiceMessageToTeacher: AndroidBridge未定义')
+        return false
+      }
+      
+      if (!window.AndroidBridge.sendVoiceMessageToTeacher) {
+        console.error('[ApiService] ❌ sendVoiceMessageToTeacher: 方法不存在')
+        return false
+      }
+      
+      console.log('[ApiService] 📤 sendVoiceMessageToTeacher: 调用AndroidBridge方法')
+      const result = this.androidBridge.sendVoiceMessageToTeacher(voicePath, duration, sessionId, subject)
+      
+      const elapsedTime = performance.now() - startTime
+      console.log('[ApiService] 📥 sendVoiceMessageToTeacher: 完成, 结果=' + result + ', 耗时=' + elapsedTime.toFixed(2) + 'ms')
+      
+      if (result) {
+        console.log('[ApiService] ✅ sendVoiceMessageToTeacher: 发送成功')
+      } else {
+        console.error('[ApiService] ❌ sendVoiceMessageToTeacher: 发送失败')
+      }
+      
+      return result
     } catch (error) {
+      const elapsedTime = performance.now() - startTime
+      console.error('[ApiService] ❌ sendVoiceMessageToTeacher: 异常 -', error, ', 耗时=' + elapsedTime.toFixed(2) + 'ms')
       return false
     }
   }
@@ -1249,10 +1518,11 @@ export class ApiService {
           resourceList: pkg.resourceList || []
         }))
         
-        // 缓存到本地存储
+        // 缓存到本地存储（加上用户ID前缀，实现账号隔离）
         if (useCache) {
           try {
-            localStorage.setItem(`learning_packages_${id}`, JSON.stringify({
+            const userId = getCurrentUserIdOrDefault()
+            localStorage.setItem(`learning_packages_${userId}_${id}`, JSON.stringify({
               data: packages,
               timestamp: Date.now()
             }))
@@ -1266,10 +1536,11 @@ export class ApiService {
       
       return []
     } catch (error) {
-      // 尝试从本地缓存获取数据
+      // 尝试从本地缓存获取数据（加上用户ID前缀，实现账号隔离）
       if (useCache) {
         try {
-          const cached = localStorage.getItem(`learning_packages_${id}`)
+          const userId = getCurrentUserIdOrDefault()
+          const cached = localStorage.getItem(`learning_packages_${userId}_${id}`)
           if (cached) {
             const cachedData = JSON.parse(cached)
             // 检查缓存是否过期（24小时）

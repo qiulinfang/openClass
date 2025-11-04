@@ -24,7 +24,15 @@ public class VoiceDbUtil {
         if(!base64VoiceData.startsWith("data:audio")) {
             base64Voice = base64VoiceData;
         } else {
-            base64Voice = base64VoiceData.split(",")[1];;
+            // 安全地分割字符串，检查数组长度
+            String[] parts = base64VoiceData.split(",");
+            if (parts.length >= 2) {
+                base64Voice = parts[1];
+            } else {
+                Log.e("VoiceUtils", "Base64数据格式错误（缺少逗号分隔符），无法保存：" + filePath);
+                Log.e("VoiceUtils", "原始数据：" + base64VoiceData.substring(0, Math.min(100, base64VoiceData.length())));
+                return;
+            }
         }
         if (base64Voice == null || base64Voice.isEmpty()) {
             Log.e("VoiceUtils", "Base64数据为空，无法保存：" + filePath);
@@ -83,8 +91,17 @@ public class VoiceDbUtil {
     // 从数据库记录的数据里解码出实际路径, 格式: 时长,路径
     public static VoiceDbItem extractDbVoiceContent(String dbContent) {
         VoiceDbItem vi = new VoiceDbItem();
-        vi.duration = Integer.valueOf(dbContent.split(",")[0]);
-        vi.voicePath = dbContent.split(",")[1];
+        // 安全地分割字符串，检查数组长度
+        String[] parts = dbContent.split(",");
+        if (parts.length >= 2) {
+            vi.duration = Integer.valueOf(parts[0]);
+            vi.voicePath = parts[1];
+        } else {
+            Log.e("VoiceUtils", "数据库内容格式错误（缺少逗号分隔符）：" + dbContent);
+            // 设置默认值，避免返回null导致后续错误
+            vi.duration = 0;
+            vi.voicePath = "";
+        }
 
         return  vi;
     }

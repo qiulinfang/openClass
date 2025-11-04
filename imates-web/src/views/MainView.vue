@@ -598,7 +598,7 @@ const handleLogoutClick = async () => {
       margin-top: 8px;
       font-size: 14px;
       font-weight: 500;
-      color: #6b7280;
+      color: #000000;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -618,7 +618,7 @@ const handleLogoutClick = async () => {
       }
       
       .nav-text {
-        color: #4b5563;
+        color: #000000;
       }
     }
   }

@@ -149,6 +149,7 @@ import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { useUserStore } from '@/stores/userStore'
 import { showMessage } from '@/utils'
+import { getCurrentUserIdOrDefault } from '@/utils/userId'
 import DraggableDialog from './DraggableDialog.vue'
 import SessionList from './SessionList.vue'
 import ChatView from './ChatView.vue'
@@ -301,12 +302,17 @@ const handleAiBatchDelete = async (recordIds: string[]) => {
 const loadTeacherSessions = () => {
   console.log('[UnifiedChatDialog] 🔄 loadTeacherSessions() - 开始加载会话列表')
   
+  // 第1步：获取当前用户ID并构建会话前缀
+  const userId = getCurrentUserIdOrDefault()
+  const sessionPrefix = `${userId}_teacher_chat_`
+  
   const sessions: typeof teacherSessions.value = []
   const sessionIds = new Set<string>()
   
+  // 第2步：遍历localStorage查找所有教师会话（仅当前用户）
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i)
-    if (key?.startsWith('teacher_chat_') && key.endsWith('_session')) {
+    if (key?.startsWith(sessionPrefix) && key.endsWith('_session')) {
       try {
         const sessionData = localStorage.getItem(key)
         if (sessionData) {
@@ -319,14 +325,14 @@ const loadTeacherSessions = () => {
           
           if (sessionIds.has(session.sessionId)) {
             console.warn('[UnifiedChatDialog] ⚠️ 发现重复的会话ID，跳过:', session.sessionId)
-            const expectedKey = `teacher_chat_${session.sessionId}_session`
+            const expectedKey = `${sessionPrefix}${session.sessionId}_session`
             if (key !== expectedKey) {
               localStorage.removeItem(key)
             }
             continue
           }
           
-          const expectedKey = `teacher_chat_${session.sessionId}_session`
+          const expectedKey = `${sessionPrefix}${session.sessionId}_session`
           if (key !== expectedKey) {
             console.warn('[UnifiedChatDialog] ⚠️ 键名与sessionId不匹配:', key)
             const correctKeyData = localStorage.getItem(expectedKey)
@@ -361,8 +367,9 @@ const handleTeacherRecordClick = async (record: QuestionRecord) => {
   
   teacherSessionId.value = session.sessionId
   
+  const userId = getCurrentUserIdOrDefault()
   const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
-  localStorage.setItem('currentTeacherSubject', storeSubject)
+  localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
   
   teacherStore.setSession(session)
   await teacherStore.loadChatHistory(session.sessionId)
@@ -448,8 +455,9 @@ const createTeacherSession = async (subject: 'biology' | 'math') => {
       return
     }
 
+    const userId = getCurrentUserIdOrDefault()
     const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
-    localStorage.setItem('currentTeacherSubject', storeSubject)
+    localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
     
     const newSessionId = `teacher-${Date.now()}`
     
@@ -490,8 +498,9 @@ const setTeacherSession = (sessionId: string) => {
   const session = teacherSessions.value.find(s => s.sessionId === sessionId)
   if (session) {
     teacherStore.setSession(session)
+    const userId = getCurrentUserIdOrDefault()
     const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
-    localStorage.setItem('currentTeacherSubject', storeSubject)
+    localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
   }
   activeCategory.value = 'teacher'
 }

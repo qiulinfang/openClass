@@ -6,9 +6,14 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { androidBridge } from '../services/android-bridge'
+import { getCurrentUserIdOrDefault } from '../utils/userId'
 import type { UserInfo } from '../types'
 
-const STORAGE_KEY = 'USER_INFO_CACHE'
+// 获取带用户ID前缀的存储key
+const getStorageKey = () => {
+  const userId = getCurrentUserIdOrDefault()
+  return `${userId}_USER_INFO_CACHE`
+}
 
 export const useUserStore = defineStore('user', () => {
   // ==================== 状态定义 ====================
@@ -29,22 +34,28 @@ export const useUserStore = defineStore('user', () => {
    */
   const initializeStore = async (): Promise<void> => {
     try {
-      // 第1步：尝试从 localStorage 读取
-      const cachedData = localStorage.getItem(STORAGE_KEY)
-      if (cachedData) {
-        const parsed = JSON.parse(cachedData)
-        userInfo.value = parsed
-        console.log('[USER] ✅ 从缓存加载用户信息:', parsed.id)
-        return
-      }
-      
-      // 第2步：从 Android Bridge 获取用户信息
+      // 第1步：从 Android Bridge 获取用户信息（获取用户ID）
       const user = await androidBridge.getUserInfo()
       
-      // 第3步：设置用户信息并持久化
-      if (user) {
+      if (user && user.id) {
+        // 第2步：设置用户信息到状态
         userInfo.value = user
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
+        
+        // 第3步：尝试从 localStorage 读取该用户的缓存（使用用户ID前缀）
+        const key = `${user.id}_USER_INFO_CACHE`
+        const cachedData = localStorage.getItem(key)
+        if (cachedData) {
+          const parsed = JSON.parse(cachedData)
+          // 验证缓存中的用户ID是否匹配
+          if (parsed.id === user.id) {
+            userInfo.value = parsed
+            console.log('[USER] ✅ 从缓存加载用户信息:', parsed.id)
+            return
+          }
+        }
+        
+        // 第4步：如果没有缓存或缓存不匹配，保存新用户信息
+        localStorage.setItem(key, JSON.stringify(user))
         console.log('[USER] ✅ 初始化用户信息:', user.id)
       }
     } catch (error) {
@@ -61,9 +72,10 @@ export const useUserStore = defineStore('user', () => {
     // 第1步：设置状态
     userInfo.value = user
     
-    // 第2步：持久化到 localStorage
+    // 第2步：持久化到 localStorage（使用用户ID前缀）
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
+      const key = user.id ? `${user.id}_USER_INFO_CACHE` : getStorageKey()
+      localStorage.setItem(key, JSON.stringify(user))
       console.log('[USER] ✅ 设置并持久化用户信息:', user.id)
     } catch (error) {
       console.error('[USER] ❌ 持久化用户信息失败:', error)
@@ -78,8 +90,9 @@ export const useUserStore = defineStore('user', () => {
    */
   const loadFromStorage = (): boolean => {
     try {
-      // 第1步：从 localStorage 读取
-      const cachedData = localStorage.getItem(STORAGE_KEY)
+      // 第1步：从 localStorage 读取（使用用户ID前缀）
+      const key = getStorageKey()
+      const cachedData = localStorage.getItem(key)
       if (!cachedData) {
         return false
       }
@@ -102,11 +115,18 @@ export const useUserStore = defineStore('user', () => {
    */
   const clearUserInfo = (): void => {
     // 第1步：清空状态
+    const currentUserId = userInfo.value?.id
     userInfo.value = null
     
-    // 第2步：移除持久化数据
+    // 第2步：移除持久化数据（使用用户ID前缀）
     try {
-      localStorage.removeItem(STORAGE_KEY)
+      if (currentUserId) {
+        const key = `${currentUserId}_USER_INFO_CACHE`
+        localStorage.removeItem(key)
+      } else {
+        const key = getStorageKey()
+        localStorage.removeItem(key)
+      }
       console.log('[USER] ✅ 清除用户信息')
     } catch (error) {
       console.error('[USER] ❌ 清除持久化数据失败:', error)

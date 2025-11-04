@@ -56,7 +56,7 @@
     <div class="main-content">
       <!-- 初始化加载状态 - 使用骨架屏 -->
       <div v-if="isInitializing" class="initialization-loading">
-        <QuestionListSkeleton animation-speed="slow" :skeleton-count="5" />
+        <QuestionListSkeleton animation-speed="slow" :skeleton-count="5" :columns="2" />
       </div>
       
       <!-- 题目列表 -->
@@ -80,6 +80,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useFindExerciseStore } from '../stores/findExerciseStore'
+import { useQuestionStore } from '../stores/questionStore'
 import { storeToRefs } from 'pinia'
 import QuestionList from '../components/FindExerciseQuestionList.vue'
 import QuestionListSkeleton from '../components/QuestionListSkeleton.vue'
@@ -99,6 +100,7 @@ const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
 
 // 使用store
 const findExerciseStore = useFindExerciseStore()
+const questionStore = useQuestionStore()
 const { 
   hasSelectedQuestions,
   similarQuestions,
@@ -200,6 +202,13 @@ const handleStartExercise = async () => {
         console.error('添加题目失败，无法开始练习')
         return
       }
+      
+      // 添加成功后，刷新questionStore的题目列表，确保新添加的题目显示
+      // 第1步：获取科目名称
+      const subjectName = findExerciseStore.config?.subject === Subject.SUBJECT_MATH ? 'math' : 'biology'
+      // 第2步：强制从服务器刷新题目列表，不使用本地缓存
+      console.log('刷新题目列表，确保新添加的题目显示')
+      await questionStore.fetchQuestions(subjectName, false)
     } else if (hasFavoritedOnly) {
       console.log('只有已收藏的题目，直接跳转到练习页面')
     }

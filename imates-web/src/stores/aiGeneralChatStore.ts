@@ -15,6 +15,7 @@ import { apiService } from '../services/api-service'
 import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
 import type { ChatBubble, UserInfo, AiGeneralSession } from '../types'
 import { buildAiGeneralMessage } from './utils/aiMessageBuilder'
+import { getCurrentUserIdOrDefault } from '../utils/userId'
 import localforage from 'localforage'
 
 export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
@@ -401,7 +402,9 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    */
   const saveSessions = async (): Promise<void> => {
     try {
-      localStorage.setItem('ai-general-sessions', JSON.stringify(sessions.value))
+      const userId = getCurrentUserIdOrDefault()
+      const key = `${userId}_ai-general-sessions`
+      localStorage.setItem(key, JSON.stringify(sessions.value))
       console.log(`[AI_GENERAL] ✅ 保存会话列表成功: ${sessions.value.length}个会话`)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 保存会话列表失败:', error)
@@ -413,7 +416,9 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    */
   const loadSessions = async (): Promise<void> => {
     try {
-      const data = localStorage.getItem('ai-general-sessions')
+      const userId = getCurrentUserIdOrDefault()
+      const key = `${userId}_ai-general-sessions`
+      const data = localStorage.getItem(key)
       if (data) {
         sessions.value = JSON.parse(data)
         console.log(`[AI_GENERAL] ✅ 加载会话列表成功: ${sessions.value.length}个会话`)

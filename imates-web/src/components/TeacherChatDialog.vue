@@ -68,6 +68,7 @@ import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { useUserStore } from '@/stores/userStore'
 import { showMessage } from '@/utils'
+import { getCurrentUserIdOrDefault } from '@/utils/userId'
 import DraggableDialog from './DraggableDialog.vue'
 import SessionList from './SessionList.vue'
 import ChatView from './ChatView.vue'
@@ -122,15 +123,17 @@ const teacherRecords = computed<QuestionRecord[]>(() => {
 const loadSessions = () => {
   console.log('[TeacherChatDialog] 🔄 loadSessions() - 开始加载会话列表')
   
-  // 第1步：从localStorage获取所有会话
+  // 第1步：从localStorage获取所有会话（仅当前用户）
+  const userId = getCurrentUserIdOrDefault()
+  const sessionPrefix = `${userId}_teacher_chat_`
   const sessions: typeof teacherSessions.value = []
   const sessionIds = new Set<string>()
   const seenKeys = new Set<string>() // 记录已处理的键，用于检测重复
   
-  // 第2步：遍历localStorage查找所有教师会话
+  // 第2步：遍历localStorage查找所有教师会话（仅当前用户）
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i)
-    if (key?.startsWith('teacher_chat_') && key.endsWith('_session')) {
+    if (key?.startsWith(sessionPrefix) && key.endsWith('_session')) {
       try {
         const sessionData = localStorage.getItem(key)
         if (sessionData) {
@@ -150,7 +153,7 @@ const loadSessions = () => {
               sessionName: session.sessionName
             })
             // 如果键名与sessionId不匹配，可能是旧数据，删除它
-            const expectedKey = `teacher_chat_${session.sessionId}_session`
+            const expectedKey = `${sessionPrefix}${session.sessionId}_session`
             if (key !== expectedKey) {
               console.log('[TeacherChatDialog] 🗑️ 删除键名不匹配的旧会话:', key)
               localStorage.removeItem(key)
@@ -159,7 +162,7 @@ const loadSessions = () => {
           }
           
           // 验证键名是否与sessionId匹配
-          const expectedKey = `teacher_chat_${session.sessionId}_session`
+          const expectedKey = `${sessionPrefix}${session.sessionId}_session`
           if (key !== expectedKey) {
             console.warn('[TeacherChatDialog] ⚠️ 键名与sessionId不匹配:', {
               key: key,
@@ -214,8 +217,9 @@ const handleRecordClick = async (record: QuestionRecord) => {
   teacherSessionId.value = session.sessionId
   
   // 第3步：设置科目
+  const userId = getCurrentUserIdOrDefault()
   const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
-  localStorage.setItem('currentTeacherSubject', storeSubject)
+  localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
   
   // 第4步：设置 teacherStore 的会话
   teacherStore.setSession(session)
@@ -229,8 +233,9 @@ const handleRecordClick = async (record: QuestionRecord) => {
 // 处理记录删除
 const handleRecordDelete = async (record: QuestionRecord) => {
   try {
-    // 第1步：删除localStorage中的会话数据
-    localStorage.removeItem(`teacher_chat_${record.id}_session`)
+    // 第1步：删除localStorage中的会话数据（加上用户ID前缀）
+    const userId = getCurrentUserIdOrDefault()
+    localStorage.removeItem(`${userId}_teacher_chat_${record.id}_session`)
     
     // 第2步：删除IndexedDB中的聊天历史
     await teacherStore.clearChatHistory(record.id)
@@ -316,8 +321,9 @@ const createNewSession = async (subject: 'biology' | 'math') => {
     }
 
     // 第3步：设置科目信息（biology -> BIOLOGY, math -> MATH）
+    const userId = getCurrentUserIdOrDefault()
     const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
-    localStorage.setItem('currentTeacherSubject', storeSubject)
+    localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
     
     // 第4步：生成临时会话ID供后续使用（新的会话ID）
     const newSessionId = `teacher-${Date.now()}`
@@ -375,8 +381,9 @@ const setSession = (sessionId: string) => {
   const session = teacherSessions.value.find(s => s.sessionId === sessionId)
   if (session) {
     teacherStore.setSession(session)
+    const userId = getCurrentUserIdOrDefault()
     const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
-    localStorage.setItem('currentTeacherSubject', storeSubject)
+    localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
   }
 }
 

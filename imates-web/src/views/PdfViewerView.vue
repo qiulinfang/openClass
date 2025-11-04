@@ -180,6 +180,14 @@
       </div>
     </div>
   </div>
+  
+  <!-- 截图输入对话框 -->
+  <ScreenshotInputDialog
+    v-model="screenshotDialogVisible"
+    :screenshot-data-url="screenshotDataUrl"
+    @confirm="handleScreenshotConfirm"
+    @cancel="handleScreenshotCancel"
+  />
 </template>
 
 <script setup lang="ts">
@@ -188,11 +196,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import { resourceManager } from '@/services/resource-storage'
+import { PdfCoreService } from '@/services/pdf/core/PdfCoreService'
+import { PdfStateAdapterVue } from '@/services/pdf/adapters/vue/PdfStateAdapterVue'
 import type { UserTextbookInfo, LocalFileInfo, QuestionRecord } from '@/types'
 import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
 import ChatView from '@/components/ChatView.vue'
 import SessionList from '@/components/SessionList.vue'
+import ScreenshotInputDialog from '@/components/ScreenshotInputDialog.vue'
 
 // 使用 Store 和路由
 const store = usePdfViewerStore()
@@ -201,6 +212,10 @@ const router = useRouter()
 
 // 使用 exerciseStore 来发送AI消息
 const aiTextbookStore = useAiTextbookChatStore()
+
+// 初始化服务类和适配器
+const pdfCoreService = new PdfCoreService()
+const stateAdapter = new PdfStateAdapterVue()
 
 // 组件状态
 const renderProgress = ref({
@@ -223,6 +238,10 @@ const tabOptions = [
 
 // 问题记录数据
 const questionRecords = ref<QuestionRecord[]>([])
+
+// 截图输入对话框状态
+const screenshotDialogVisible = ref(false)
+const screenshotDataUrl = ref('')
 
 // 处理问题记录点击
 const handleQuestionRecordClick = () => {
@@ -377,9 +396,60 @@ const loadFileFromRoute = async () => {
 const retry = async () => {
   try {
     const file = await loadFileFromRoute()
-    await store.loadPdf(file)
+    await loadPdfWithService(file)
   } catch (err) {
     console.error('重试加载失败:', err)
+  }
+}
+
+// 使用服务类加载PDF
+const loadPdfWithService = async (file: File) => {
+  try {
+    stateAdapter.setLoading(true)
+    stateAdapter.setError(null)
+    
+    // 1. 设置当前文件信息到Store
+    const resourceId = route.query.resourceId as string
+    const id = route.query.id as string
+    if (resourceId && id) {
+      store.setCurrentFileInfo(id, resourceId)
+    }
+    
+    // 2. 从localFiles加载笔记数据
+    await store.loadAnnotationsFromLocalFile()
+    
+    // 3. 使用PdfCoreService加载PDF
+    const result = await pdfCoreService.loadPdf(file)
+    
+    // 4. 计算页面布局
+    const scale = stateAdapter.getState().scale
+    const layouts = await pdfCoreService.calculatePageLayouts(scale)
+    
+    // 5. 更新状态适配器
+    stateAdapter.setPdfLoaded({
+      ...result,
+      pageLayouts: layouts,
+    })
+    
+    // 6. 同时更新store（保持兼容性）
+    store.pdfDoc = result.pdfDoc
+    store.originalPdfBytes = result.originalPdfBytes
+    store.pageLayouts = layouts
+    store.totalPages = result.totalPages
+    store.isDocLoaded = true
+    
+    console.log('PDF 加载完成:', {
+      totalPages: result.totalPages,
+      layouts: layouts.length
+    })
+    
+  } catch (error) {
+    console.error('PDF 加载失败:', error)
+    stateAdapter.setError(error instanceof Error ? error.message : 'PDF 加载失败')
+    store.error = error instanceof Error ? error.message : 'PDF 加载失败'
+  } finally {
+    stateAdapter.setLoading(false)
+    store.isLoading = false
   }
 }
 
@@ -411,14 +481,14 @@ const handleScrollToBottom = () => {
 }
 
 // 处理截图捕获事件
-// 流程：接收截图blob → 转换为base64 → 打开对话面板 → 发送给AI
+// 流程：接收截图blob → 转换为base64 → 弹出输入对话框 → 用户输入问题后发送给AI
 const handleScreenshotCaptured = async (blob: Blob) => {
   const startTime = Date.now()
   console.log('[截图→AI] 🚀 ========== 开始处理截图 ==========')
   
   try {
     // 步骤1：接收截图数据
-    console.log('[截图→AI] 步骤1/5 📥 接收到截图数据', {
+    console.log('[截图→AI] 步骤1/3 📥 接收到截图数据', {
       时间戳: new Date().toLocaleTimeString(),
       文件大小: `${(blob.size / 1024).toFixed(2)} KB`,
       文件类型: blob.type,
@@ -426,7 +496,7 @@ const handleScreenshotCaptured = async (blob: Blob) => {
     })
     
     // 步骤2：将blob转换为base64DataUrl
-    console.log('[截图→AI] 步骤2/5 🔄 开始转换为Base64格式...')
+    console.log('[截图→AI] 步骤2/3 🔄 开始转换为Base64格式...')
     const base64DataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result as string)
@@ -435,80 +505,22 @@ const handleScreenshotCaptured = async (blob: Blob) => {
     })
     
     const base64Size = base64DataUrl.length
-    console.log('[截图→AI] 步骤2/5 ✓ Base64转换完成', {
+    console.log('[截图→AI] 步骤2/3 ✓ Base64转换完成', {
       Base64长度: `${(base64Size / 1024).toFixed(2)} KB`,
       压缩比: `${((base64Size / blob.size) * 100).toFixed(1)}%`
     })
     
-    // 步骤3：打开对话面板并切换到AI问答Tab
-    console.log('[截图→AI] 步骤3/5 📂 打开对话面板...')
-    chatPanelVisible.value = true
-    activeTab.value = 'ai-chat'
-    console.log('[截图→AI] 步骤3/5 ✓ 对话面板已打开', {
-      当前Tab: 'AI问答',
-      面板可见: chatPanelVisible.value
-    })
-    
-    // 步骤4：创建临时图片以获取宽高
-    console.log('[截图→AI] 步骤4/5 🖼️ 加载图片获取尺寸...')
-    const img = new Image()
-    img.src = base64DataUrl
-    
-    await new Promise<void>((resolve) => {
-      img.onload = () => resolve()
-    })
-    
-    console.log('[截图→AI] 步骤4/5 ✓ 图片加载完成', {
-      宽度: `${img.width}px`,
-      高度: `${img.height}px`,
-      分辨率: `${img.width}x${img.height}`,
-      像素总数: `${(img.width * img.height / 1000000).toFixed(2)}M`
-    })
-    
-    // 步骤5：使用exerciseStore直接发送图片消息给AI
-    // 流程：文件名使用.jpg后缀（与安卓原生保持一致）
-    const fileName = `screenshot-${Date.now()}.jpg`
-    console.log('[截图→AI] 步骤5/5 📤 发送图片到AI...', {
-      文件名: fileName,
-      AI类型: 'ai-textbook',
-      AI模型: 'mate',
-      消息类型: '纯图片消息（无文本）',
-      说明: '教材模式下无需选择题目',
-      Base64长度: base64DataUrl.length,
-      Base64前缀: base64DataUrl.substring(0, 50),
-      图片尺寸: `${img.width}x${img.height}`,
-      图片格式: 'JPEG (质量40%)'
-    })
-    
-    // 🔍 调试：打印即将发送的数据预览
-    console.log('[截图→AI] 🔍 请求数据预览:', {
-      content: '',
-      type: 'ai',
-      chatRole: 'mate',
-      imageData: {
-        filePath: fileName,
-        base64Length: base64DataUrl.length,
-        format: base64DataUrl.substring(0, 30)
-      },
-      aiType: 'ai-textbook'
-    })
-    
-    await aiTextbookStore.sendMessage(
-      '', // 空文本，只发送图片
-      'mate', // 使用默认AI模型
-      {
-        filePath: fileName,
-        base64DataUrl: base64DataUrl
-      },
-      false // 不隐藏前缀
-    )
+    // 步骤3：弹出输入对话框，等待用户输入问题
+    console.log('[截图→AI] 步骤3/3 📝 弹出输入对话框...')
+    screenshotDataUrl.value = base64DataUrl
+    screenshotDialogVisible.value = true
+    console.log('[截图→AI] 步骤3/3 ✓ 输入对话框已打开')
     
     const endTime = Date.now()
     const duration = endTime - startTime
-    console.log('[截图→AI] 步骤5/5 ✓ AI发送完成')
-    console.log('[截图→AI] 🎉 ========== 截图处理完成 ==========', {
+    console.log('[截图→AI] 🎉 ========== 截图处理完成，等待用户输入 ==========', {
       总耗时: `${duration}ms`,
-      成功状态: '✅ 成功'
+      状态: '✅ 等待用户输入问题'
     })
   } catch (error) {
     const endTime = Date.now()
@@ -521,11 +533,84 @@ const handleScreenshotCaptured = async (blob: Blob) => {
   }
 }
 
+// 处理截图输入对话框确认
+const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
+  const startTime = Date.now()
+  console.log('[截图→AI] 📤 ========== 开始发送截图问答 ==========')
+  
+  try {
+    // 步骤1：打开对话面板并切换到AI问答Tab
+    console.log('[截图→AI] 步骤1/4 📂 打开对话面板...')
+    chatPanelVisible.value = true
+    activeTab.value = 'ai-chat'
+    console.log('[截图→AI] 步骤1/4 ✓ 对话面板已打开')
+    
+    // 步骤2：创建临时图片以获取宽高
+    console.log('[截图→AI] 步骤2/4 🖼️ 加载图片获取尺寸...')
+    const img = new Image()
+    img.src = dataUrl
+    
+    await new Promise<void>((resolve) => {
+      img.onload = () => resolve()
+    })
+    
+    console.log('[截图→AI] 步骤2/4 ✓ 图片加载完成', {
+      宽度: `${img.width}px`,
+      高度: `${img.height}px`,
+      分辨率: `${img.width}x${img.height}`
+    })
+    
+    // 步骤3：发送消息给AI（使用用户输入的问题作为coversation）
+    // 流程：文件名使用.jpg后缀（与安卓原生保持一致）
+    const fileName = `screenshot-${Date.now()}.jpg`
+    console.log('[截图→AI] 步骤3/4 📤 发送图片和问题到AI...', {
+      文件名: fileName,
+      问题内容: question,
+      AI类型: 'ai-textbook',
+      AI模型: 'mate',
+      Base64长度: dataUrl.length,
+      图片尺寸: `${img.width}x${img.height}`
+    })
+    
+    await aiTextbookStore.sendMessage(
+      question, // ⭐ 使用用户输入的问题作为coversation
+      'mate', // 使用默认AI模型
+      {
+        filePath: fileName,
+        base64DataUrl: dataUrl
+      },
+      false // 不隐藏前缀
+    )
+    
+    const endTime = Date.now()
+    const duration = endTime - startTime
+    console.log('[截图→AI] 步骤4/4 ✓ AI发送完成')
+    console.log('[截图→AI] 🎉 ========== 截图问答发送完成 ==========', {
+      总耗时: `${duration}ms`,
+      成功状态: '✅ 成功'
+    })
+  } catch (error) {
+    const endTime = Date.now()
+    const duration = endTime - startTime
+    console.error('[截图→AI] ❌ ========== 发送失败 ==========', {
+      错误信息: error,
+      失败位置: '发送截图问答',
+      已耗时: `${duration}ms`
+    })
+  }
+}
+
+// 处理截图输入对话框取消
+const handleScreenshotCancel = () => {
+  console.log('[截图→AI] ❌ 用户取消了截图问答')
+  screenshotDataUrl.value = ''
+}
+
 // 生命周期
 onMounted(async () => {
   try {
     const file = await loadFileFromRoute()
-    await store.loadPdf(file)
+    await loadPdfWithService(file)
   } catch (err) {
     console.error('PDF 加载失败:', err)
   }

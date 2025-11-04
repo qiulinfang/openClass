@@ -62,6 +62,97 @@
         </div>
       </q-card-section>
 
+      <!-- 滚动测试工具 -->
+      <q-separator />
+      <q-card-section>
+        <q-banner class="bg-info text-white" rounded>
+          <template v-slot:avatar>
+            <q-icon name="scroll" size="md" />
+          </template>
+          <div class="text-subtitle2">滚动测试工具</div>
+          <div class="text-caption">测试下拉刷新功能和滚动状态</div>
+        </q-banner>
+      </q-card-section>
+
+      <q-card-section class="q-pt-none">
+        <div class="row q-gutter-sm q-mb-sm">
+          <q-btn
+            outline
+            color="primary"
+            icon="analytics"
+            label="诊断滚动"
+            @click="handleDiagnose"
+            size="sm"
+            :disable="!scrollToolsAvailable"
+          >
+            <q-tooltip>诊断滚动功能状态</q-tooltip>
+          </q-btn>
+          <q-btn
+            outline
+            :color="isMonitoring ? 'negative' : 'positive'"
+            :icon="isMonitoring ? 'stop' : 'play_arrow'"
+            :label="isMonitoring ? '停止监控' : '开始监控'"
+            @click="toggleMonitoring"
+            size="sm"
+            :disable="!scrollToolsAvailable"
+          >
+            <q-tooltip>{{ isMonitoring ? '停止实时监控' : '开始实时监控滚动状态' }}</q-tooltip>
+          </q-btn>
+        </div>
+        <div class="row q-gutter-sm">
+          <q-btn
+            outline
+            color="secondary"
+            icon="refresh"
+            label="测试下拉刷新"
+            @click="handleTestPullDown"
+            size="sm"
+            :disable="!scrollToolsAvailable || isTesting"
+            :loading="isTesting"
+          >
+            <q-tooltip>自动测试下拉刷新功能</q-tooltip>
+          </q-btn>
+          <q-btn
+            outline
+            color="warning"
+            icon="restart_alt"
+            label="重置状态"
+            @click="handleResetState"
+            size="sm"
+            :disable="!scrollToolsAvailable"
+          >
+            <q-tooltip>重置滚动状态到初始状态</q-tooltip>
+          </q-btn>
+          <q-btn
+            outline
+            color="info"
+            icon="update"
+            label="刷新尺寸"
+            @click="handleRefreshSize"
+            size="sm"
+            :disable="!scrollToolsAvailable"
+          >
+            <q-tooltip>刷新 BScroll 尺寸（修复 maxScrollY 为 0 的问题）</q-tooltip>
+          </q-btn>
+        </div>
+      </q-card-section>
+
+      <!-- 诊断结果显示 -->
+      <q-card-section v-if="diagnosticResult" class="q-pt-none">
+        <q-expansion-item
+          icon="info"
+          label="诊断结果"
+          :caption="diagnosticResult ? '点击查看详情' : ''"
+          default-opened
+        >
+          <q-card flat bordered>
+            <q-card-section>
+              <pre class="diagnostic-result">{{ formatDiagnosticResult(diagnosticResult) }}</pre>
+            </q-card-section>
+          </q-card>
+        </q-expansion-item>
+      </q-card-section>
+
       <!-- 教材列表 -->
       <q-separator />
       
@@ -236,9 +327,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { resourceManager } from '@/services/resource-storage'
 import type { UserTextbookInfo } from '@/types'
+import { useQuasar } from 'quasar'
 
 // Props
 interface Props {
@@ -264,6 +356,17 @@ const textbooks = ref<UserTextbookInfo[]>([])
 const storageSize = ref('0 KB')
 const selectedTextbook = ref<UserTextbookInfo | null>(null)
 const showDetailDialog = ref(false)
+
+// 滚动测试工具相关
+const $q = useQuasar()
+const diagnosticResult = ref<any>(null)
+const isMonitoring = ref(false)
+const isTesting = ref(false)
+const scrollToolsAvailable = computed(() => {
+  return typeof window !== 'undefined' && 
+         !!(window as any).myResourcesScrollTools &&
+         !!(window as any).diagnoseMyResourcesScroll
+})
 
 // 计算属性
 const downloadedCount = computed(() => {
@@ -440,15 +543,217 @@ const formatDate = (dateStr: string): string => {
   }
 }
 
+// 滚动测试工具方法
+const handleDiagnose = () => {
+  if (!scrollToolsAvailable.value) {
+    $q.notify({
+      type: 'negative',
+      message: '滚动工具不可用，请确保 MyResourcesView 页面已加载',
+      position: 'top'
+    })
+    return
+  }
+
+  try {
+    const diagnoseFn = (window as any).diagnoseMyResourcesScroll
+    const result = diagnoseFn()
+    diagnosticResult.value = result
+    
+    $q.notify({
+      type: result.hasBScrollInstance ? 'positive' : 'negative',
+      message: result.hasBScrollInstance ? '诊断完成：滚动功能正常' : '诊断完成：滚动功能异常',
+      position: 'top'
+    })
+  } catch (error) {
+    console.error('诊断失败:', error)
+    $q.notify({
+      type: 'negative',
+      message: '诊断失败：' + (error as Error).message,
+      position: 'top'
+    })
+  }
+}
+
+const toggleMonitoring = () => {
+  if (!scrollToolsAvailable.value) {
+    $q.notify({
+      type: 'negative',
+      message: '滚动工具不可用',
+      position: 'top'
+    })
+    return
+  }
+
+  const tools = (window as any).myResourcesScrollTools
+  
+  if (isMonitoring.value) {
+    tools.stopMonitoring()
+    isMonitoring.value = false
+    $q.notify({
+      type: 'info',
+      message: '已停止监控',
+      position: 'top'
+    })
+  } else {
+    tools.startMonitoring(1000) // 每秒监控一次
+    isMonitoring.value = true
+    $q.notify({
+      type: 'positive',
+      message: '已开始监控滚动状态',
+      position: 'top'
+    })
+  }
+}
+
+const handleTestPullDown = async () => {
+  if (!scrollToolsAvailable.value) {
+    $q.notify({
+      type: 'negative',
+      message: '滚动工具不可用',
+      position: 'top'
+    })
+    return
+  }
+
+  isTesting.value = true
+  try {
+    const tools = (window as any).myResourcesScrollTools
+    await tools.testPullDown()
+    
+    $q.notify({
+      type: 'positive',
+      message: '下拉刷新测试完成',
+      position: 'top'
+    })
+  } catch (error) {
+    console.error('测试失败:', error)
+    $q.notify({
+      type: 'negative',
+      message: '测试失败：' + (error as Error).message,
+      position: 'top'
+    })
+  } finally {
+    isTesting.value = false
+  }
+}
+
+const handleResetState = () => {
+  if (!scrollToolsAvailable.value) {
+    $q.notify({
+      type: 'negative',
+      message: '滚动工具不可用',
+      position: 'top'
+    })
+    return
+  }
+
+  try {
+    const tools = (window as any).myResourcesScrollTools
+    tools.resetState()
+    
+    $q.notify({
+      type: 'positive',
+      message: '滚动状态已重置',
+      position: 'top'
+    })
+  } catch (error) {
+    console.error('重置失败:', error)
+    $q.notify({
+      type: 'negative',
+      message: '重置失败：' + (error as Error).message,
+      position: 'top'
+    })
+  }
+}
+
+const handleRefreshSize = async () => {
+  if (!scrollToolsAvailable.value) {
+    $q.notify({
+      type: 'negative',
+      message: '滚动工具不可用',
+      position: 'top'
+    })
+    return
+  }
+
+  try {
+    $q.notify({
+      type: 'info',
+      message: '正在刷新 BScroll 尺寸，请查看控制台日志...',
+      position: 'top',
+      timeout: 1000
+    })
+    
+    const tools = (window as any).myResourcesScrollTools
+    const success = await tools.refresh()
+    
+    if (success) {
+      $q.notify({
+        type: 'positive',
+        message: 'BScroll 尺寸刷新完成！',
+        position: 'top',
+        timeout: 2000
+      })
+      
+      // 刷新后重新诊断
+      setTimeout(() => {
+        handleDiagnose()
+      }, 300)
+    } else {
+      $q.notify({
+        type: 'negative',
+        message: 'BScroll 实例不存在，无法刷新',
+        position: 'top'
+      })
+    }
+  } catch (error) {
+    console.error('刷新失败:', error)
+    $q.notify({
+      type: 'negative',
+      message: '刷新失败：' + (error as Error).message,
+      position: 'top'
+    })
+  }
+}
+
+const formatDiagnosticResult = (result: any): string => {
+  if (!result) return ''
+  
+  return JSON.stringify(result, null, 2)
+}
+
 // 组件挂载时加载数据
 onMounted(() => {
   refreshData()
+})
+
+// 组件卸载时停止监控
+onUnmounted(() => {
+  if (isMonitoring.value && scrollToolsAvailable.value) {
+    const tools = (window as any).myResourcesScrollTools
+    tools.stopMonitoring()
+  }
 })
 </script>
 
 <style lang="scss" scoped>
 :deep(.q-dialog__inner) {
   max-width: 700px;
+}
+
+.diagnostic-result {
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 12px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 400px;
+  overflow-y: auto;
 }
 </style>
 

@@ -188,9 +188,14 @@ const formatNodeName = (node: Node) => {
 // 格式化中心节点标题（编号部分）
 const formatNodeTitle = (node: Node) => {
   if (props.type === 'center' && node.name) {
+    // 如果是章节练习节点（level === 1），不使用 node-title，返回空字符串
+    if (node.level === 1) {
+      return ''
+    }
     // 解析格式如 "5.2 数学探究活动：由编号样本估计总数及其模拟"
     const match = node.name.match(/^(\d+\.\d+)/)
-    return match ? match[1] : node.name
+    // 如果有编号匹配，返回编号部分；如果没有编号，返回空字符串
+    return match ? match[1] : ''
   }
   return node.name
 }
@@ -198,9 +203,14 @@ const formatNodeTitle = (node: Node) => {
 // 格式化中心节点章节名
 const formatNodeChapter = (node: Node) => {
   if (props.type === 'center' && node.name) {
+    // 如果是章节练习节点（level === 1），使用 node-chapter 显示完整名字
+    if (node.level === 1) {
+      return node.name
+    }
     // 解析格式如 "5.2 数学探究活动：由编号样本估计总数及其模拟"
     const match = node.name.match(/^\d+\.\d+\s+(.+)/)
-    return match ? match[1] : ''
+    // 如果有编号匹配，返回章节名部分；如果没有编号，返回完整名字
+    return match ? match[1] : node.name
   }
   return ''
 }
@@ -773,7 +783,13 @@ const learningTagStyle = computed(() => {
   line-height: 1.2; /* 调整行高以适应换行 */
   transition: all var(--node-content-transition-duration, 0.6s) cubic-bezier(0.4, 0.0, 0.2, 1);
   width: 100%;
-  display: block;
+  /* 多行文本截断：最多显示两行，超出部分用省略号 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
   word-wrap: break-word; /* 允许文字换行 */
   word-break: break-word; /* 确保长文本正确换行 */
 }
@@ -784,6 +800,13 @@ const learningTagStyle = computed(() => {
   margin-top: -8px; /* 第2步：向上占据一些空间 */
   margin-bottom: 4px; /* 第3步：增加与章节名的间距 */
   line-height: 1.3; /* 调整行高以适应放大后的字体和换行文本 */
+  /* 多行文本截断：最多显示两行，超出部分用省略号 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
   word-wrap: break-word; /* 允许文字换行 */
   word-break: break-word; /* 确保长文本正确换行 */
 }
@@ -794,6 +817,13 @@ const learningTagStyle = computed(() => {
   margin-top: -8px; /* 第2步：向上占据一些空间 */
   margin-bottom: 4px; /* 第3步：增加与章节名的间距 */
   line-height: 1.2; /* 调整行高以适应换行 */
+  /* 多行文本截断：最多显示两行，超出部分用省略号 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
   word-wrap: break-word; /* 允许文字换行 */
   word-break: break-word; /* 确保长文本正确换行 */
 }

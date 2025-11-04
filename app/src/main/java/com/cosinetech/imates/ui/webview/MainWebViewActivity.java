@@ -2,8 +2,13 @@ package com.cosinetech.imates.ui.webview;
 
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Rect;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
+import android.view.View;
+import android.view.ViewTreeObserver;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -18,6 +23,8 @@ import com.cosinetech.imates.ui.webview.common.WebAppInterface;
 import com.cosinetech.imates.ui.webview.common.WebViewConfig;
 import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.WindowUtils;
+import com.cosinetech.imates.coreapiservice.ApiUrl;
+import com.xuexiang.xupdate.easy.EasyUpdate;
 
 /**
  * 主WebView Activity
@@ -36,9 +43,31 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
     private ActivityResultLauncher<Intent> imagePickLauncher;
     private ActivityResultLauncher<Intent> imageCaptureLauncher;
     private ActivityResultLauncher<String> cameraPermissionLauncher;
+    private ActivityResultLauncher<String> audioPermissionLauncher;
     
     // 页面URL配置
     private String webAppUrl = "file:///android_asset/webapp/index.html"; // 默认加载Vue.js整体应用
+    
+    // 键盘检测相关
+    private int previousKeyboardHeight = 0;
+    private boolean isKeyboardVisible = false;
+    
+    // 更新检查相关
+    private long mCheckUpdateTick = 0;
+    private final Handler mCheckUpdateHandler = new Handler(Looper.getMainLooper());
+    private final Runnable mCheckUpdateRunnable = new Runnable() {
+        @Override
+        public void run() {
+            long tick = System.currentTimeMillis();
+            if(tick - mCheckUpdateTick >= 3600000) {
+                mCheckUpdateTick = tick;
+                EasyUpdate.create(MainWebViewActivity.this, ApiUrl.URL_APP_UPDATE)
+                        .isAutoMode(false)
+                        .update();
+            }
+            mCheckUpdateHandler.postDelayed(this, 60000); // 每60秒执行一次检查
+        }
+    };
     
     /**
      * 启动MainWebViewActivity的静态方法
@@ -81,7 +110,19 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
         // 第3步：加载页面
         loadWebApp();
         
+        // 第4步：初始化更新检查
+        initUpdateCheck();
+        
         Log.d(TAG, "MainWebViewActivity onCreate 完成");
+    }
+    
+    /**
+     * 初始化更新检查
+     */
+    private void initUpdateCheck() {
+        mCheckUpdateTick = System.currentTimeMillis();
+        mCheckUpdateHandler.postDelayed(mCheckUpdateRunnable, 60000); // 60秒后首次检查
+        Log.d(TAG, "更新检查已初始化");
     }
 
     /**
@@ -113,13 +154,136 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
         webAppInterface.setExerciseBridge(this);
         webAppInterface.setImageLaunchers(imagePickLauncher, imageCaptureLauncher);
         webAppInterface.setCameraPermissionLauncher(cameraPermissionLauncher);
+        webAppInterface.setAudioPermissionLauncher(audioPermissionLauncher);
         webAppInterface.setWebView(webView);
         webView.addJavascriptInterface(webAppInterface, "AndroidBridge");
         
         // 设置WebViewClient
         webView.setWebViewClient(new MainWebViewClient());
         
+        // 监听键盘弹出/隐藏
+        setupKeyboardListener();
+        
         Log.d(TAG, "WebView初始化完成");
+    }
+    
+    /**
+     * 设置键盘监听器
+     * 通过ViewTreeObserver监听窗口大小变化来检测键盘弹出/隐藏
+     */
+    private void setupKeyboardListener() {
+        View rootView = findViewById(android.R.id.content);
+        if (rootView == null) {
+            Log.w(TAG, "无法找到rootView，跳过键盘监听设置");
+            return;
+        }
+        
+        rootView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                // 获取当前屏幕可见区域
+                Rect rect = new Rect();
+                rootView.getWindowVisibleDisplayFrame(rect);
+                
+                // 获取屏幕高度
+                int screenHeight = rootView.getRootView().getHeight();
+                
+                // 计算键盘高度（屏幕高度 - 可见区域底部）
+                int keyboardHeight = screenHeight - rect.bottom;
+                
+                // 键盘显示阈值：如果键盘高度超过屏幕高度的15%，认为键盘已显示
+                int threshold = (int) (screenHeight * 0.15);
+                
+                if (keyboardHeight > threshold) {
+                    // 键盘已显示
+                    if (!isKeyboardVisible || previousKeyboardHeight != keyboardHeight) {
+                        isKeyboardVisible = true;
+                        previousKeyboardHeight = keyboardHeight;
+                        dispatchKeyboardShowEvent(keyboardHeight);
+                    }
+                } else {
+                    // 键盘已隐藏
+                    if (isKeyboardVisible) {
+                        isKeyboardVisible = false;
+                        previousKeyboardHeight = 0;
+                        dispatchKeyboardHideEvent();
+                    }
+                }
+            }
+        });
+        
+        Log.d(TAG, "键盘监听器设置完成");
+    }
+    
+    /**
+     * 触发键盘显示事件
+     */
+    private void dispatchKeyboardShowEvent(int keyboardHeight) {
+        runOnUiThread(() -> {
+            try {
+                // 构造事件详情
+                org.json.JSONObject detailObj = new org.json.JSONObject();
+                detailObj.put("height", keyboardHeight);
+                detailObj.put("duration", 300); // 动画持续时间（毫秒）
+                
+                String detailJson = detailObj.toString();
+                
+                // 构造JavaScript代码触发keyboard-show事件
+                String jsCode = 
+                    "javascript:(function() {" +
+                    "  try {" +
+                    "    var detailStr = '" + detailJson.replace("'", "\\'") + "';" +
+                    "    var detail = JSON.parse(detailStr);" +
+                    "    var event = new CustomEvent('keyboard-show', { detail: detail });" +
+                    "    window.dispatchEvent(event);" +
+                    "    console.log('⌨️ [Android键盘] 已触发键盘显示事件', detail);" +
+                    "  } catch(e) {" +
+                    "    console.error('⌨️ [Android键盘] 触发事件失败:', e);" +
+                    "  }" +
+                    "})()";
+                
+                webView.evaluateJavascript(jsCode, null);
+                Log.d(TAG, "已触发keyboard-show事件，键盘高度: " + keyboardHeight);
+            } catch (Exception e) {
+                Log.e(TAG, "触发keyboard-show事件失败", e);
+                e.printStackTrace();
+            }
+        });
+    }
+    
+    /**
+     * 触发键盘隐藏事件
+     */
+    private void dispatchKeyboardHideEvent() {
+        runOnUiThread(() -> {
+            try {
+                // 构造事件详情
+                org.json.JSONObject detailObj = new org.json.JSONObject();
+                detailObj.put("duration", 300); // 动画持续时间（毫秒）
+                
+                String detailJson = detailObj.toString();
+                
+                // 构造JavaScript代码触发keyboard-hide事件
+                String jsCode = 
+                    "javascript:(function() {" +
+                    "  try {" +
+                    "    var detailStr = '" + detailJson.replace("'", "\\'") + "';" +
+                    "    var detail = JSON.parse(detailStr);" +
+                    "    var event = new CustomEvent('keyboard-hide', { detail: detail });" +
+                    "    window.dispatchEvent(event);" +
+                    "    console.log('⌨️ [Android键盘] 已触发键盘隐藏事件', detail);" +
+                    "  } catch(e) {" +
+                    "    console.error('⌨️ [Android键盘] 触发事件失败:', e);" +
+                    "  }" +
+                    "})()";
+                
+                webView.evaluateJavascript(jsCode, null);
+                Log.d(TAG, "已触发keyboard-hide事件");
+            } catch (Exception e) {
+                Log.e(TAG, "触发keyboard-hide事件失败", e);
+                e.printStackTrace();
+            }
+        });
     }
 
     /**
@@ -162,6 +326,18 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
                 // 通知WebAppInterface权限请求结果
                 if (webAppInterface != null) {
                     webAppInterface.onCameraPermissionResult(granted);
+                }
+            }
+        );
+        
+        // 录音权限请求
+        audioPermissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(),
+            granted -> {
+                Log.d(TAG, "录音权限请求结果: " + granted);
+                // 通知WebAppInterface权限请求结果
+                if (webAppInterface != null) {
+                    webAppInterface.onAudioPermissionResult(granted);
                 }
             }
         );
@@ -402,7 +578,36 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
      */
     private void onWebAppReady() {
         Log.d(TAG, "Web应用就绪，执行后续初始化");
-        // Web应用就绪后可以执行其他初始化操作
+        
+        // 自动初始化MessagingManager（类似FloatingRobotService的做法）
+        // 这样Vue在应用启动时就可以使用，不需要等到用户进入聊天页面
+        initMessagingManagerOnStartup();
+    }
+    
+    /**
+     * 在应用启动时初始化MessagingManager
+     * 这样Vue端可以立即使用，不需要等待用户进入聊天页面
+     */
+    private void initMessagingManagerOnStartup() {
+        try {
+            String userId = AppUtils.getUserId();
+            if (userId == null || userId.isEmpty()) {
+                Log.w(TAG, "initMessagingManagerOnStartup: 用户未登录，跳过初始化");
+                return;
+            }
+            
+            Log.d(TAG, "initMessagingManagerOnStartup: 开始预初始化MessagingManager, userId=" + userId);
+            
+            // 通过WebAppInterface初始化（这样可以自动设置消息监听器）
+            if (webAppInterface != null) {
+                String result = webAppInterface.initTeacherMessageListener();
+                Log.d(TAG, "initMessagingManagerOnStartup: 初始化结果=" + result);
+            } else {
+                Log.w(TAG, "initMessagingManagerOnStartup: webAppInterface未初始化，跳过");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "initMessagingManagerOnStartup: 初始化失败", e);
+        }
     }
 
     /**
@@ -475,9 +680,12 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        // 清理更新检查定时器
+        mCheckUpdateHandler.removeCallbacksAndMessages(null);
         if (webView != null) {
             webView.destroy();
         }
+        Log.d(TAG, "MainWebViewActivity onDestroy 完成");
     }
 
     @Override

@@ -157,6 +157,7 @@ import { androidBridge } from '@/services/android-bridge'
 import { apiService } from '@/services/api-service'
 import { useQuestionStore } from '@/stores/questionStore'
 import { showMessage } from '@/utils'
+import { photoSearchLogger } from '@/utils/photoSearchLogger'
 import type { ExerciseItem } from '@/types'
 
 const route = useRoute()
@@ -211,6 +212,7 @@ const cropOverlayStyle = computed(() => {
 
 // 处理退出
 const handleExit = () => {
+  photoSearchLogger.exit()
   router.back()
 }
 
@@ -218,13 +220,19 @@ const handleExit = () => {
 const handleTakePhoto = async () => {
   try {
     isProcessing.value = true
+    photoSearchLogger.start(subject.value, 'camera')
+    
     const result = await androidBridge.captureImageFromCamera()
     
     if (result.success && result.data) {
       const imageData = JSON.parse(result.data)
       if (imageData.base64DataUrl) {
+        photoSearchLogger.captureImage('camera', true, undefined, imageData.base64DataUrl.length)
+        
         // 将 base64 转换为 File 对象
         const file = await base64ToFile(imageData.base64DataUrl, 'photo.jpg')
+        photoSearchLogger.convertBase64ToFile('photo.jpg', file.size, file.type)
+        
         currentImage.value = {
           file,
           preview: imageData.base64DataUrl,
@@ -235,11 +243,16 @@ const handleTakePhoto = async () => {
         setTimeout(() => {
           initCropCanvas()
         }, 100)
+      } else {
+        photoSearchLogger.captureImage('camera', false)
+        showMessage('拍照失败', 'error')
       }
     } else {
+      photoSearchLogger.captureImage('camera', false)
       showMessage('拍照失败', 'error')
     }
   } catch (error) {
+    photoSearchLogger.error('拍照', error)
     console.error('拍照失败:', error)
     showMessage('拍照失败', 'error')
   } finally {
@@ -251,13 +264,19 @@ const handleTakePhoto = async () => {
 const handleSelectFromGallery = async () => {
   try {
     isProcessing.value = true
+    photoSearchLogger.start(subject.value, 'gallery')
+    
     const result = await androidBridge.selectImageFromGallery()
     
     if (result.success && result.data) {
       const imageData = JSON.parse(result.data)
       if (imageData.base64DataUrl) {
+        photoSearchLogger.captureImage('gallery', true, undefined, imageData.base64DataUrl.length)
+        
         // 将 base64 转换为 File 对象
         const file = await base64ToFile(imageData.base64DataUrl, 'photo.jpg')
+        photoSearchLogger.convertBase64ToFile('photo.jpg', file.size, file.type)
+        
         currentImage.value = {
           file,
           preview: imageData.base64DataUrl,
@@ -268,11 +287,16 @@ const handleSelectFromGallery = async () => {
         setTimeout(() => {
           initCropCanvas()
         }, 100)
+      } else {
+        photoSearchLogger.captureImage('gallery', false)
+        showMessage('选择图片失败', 'error')
       }
     } else {
+      photoSearchLogger.captureImage('gallery', false)
       showMessage('选择图片失败', 'error')
     }
   } catch (error) {
+    photoSearchLogger.error('选择图片', error)
     console.error('选择图片失败:', error)
     showMessage('选择图片失败', 'error')
   } finally {
@@ -323,6 +347,9 @@ const initCropCanvas = () => {
       width: canvas.width,
       height: canvas.height,
     }
+    
+    // 记录初始化裁剪画布
+    photoSearchLogger.initCropCanvas(canvas.width, canvas.height, img.width, img.height, scale)
   }
   img.src = currentImage.value.preview
 }
@@ -355,13 +382,28 @@ const updateCrop = (e: MouseEvent | TouchEvent) => {
   const currentX = clientX - rect.left
   const currentY = clientY - rect.top
   
-  cropRect.value = {
+  const newRect = {
     x: Math.min(cropStartPos.value.x, currentX),
     y: Math.min(cropStartPos.value.y, currentY),
     width: Math.abs(currentX - cropStartPos.value.x),
     height: Math.abs(currentY - cropStartPos.value.y),
   }
+  
+  cropRect.value = newRect
+  
+  // 记录裁剪区域变化（节流，避免日志过多）
+  if (!cropRectUpdateTimer.value) {
+    cropRectUpdateTimer.value = setTimeout(() => {
+      if (cropRect.value) {
+        photoSearchLogger.cropRectChanged(cropRect.value)
+      }
+      cropRectUpdateTimer.value = null
+    }, 300) // 300ms内只记录一次
+  }
 }
+
+// 裁剪区域更新定时器（用于节流）
+const cropRectUpdateTimer = ref<NodeJS.Timeout | null>(null)
 
 // 结束裁剪
 const endCrop = () => {
@@ -370,6 +412,7 @@ const endCrop = () => {
 
 // 处理重拍
 const handleRetake = () => {
+  photoSearchLogger.retake()
   currentImage.value = null
   showCropView.value = false
   showResultView.value = false
@@ -388,9 +431,13 @@ const handleSearch = async () => {
   try {
     isSearching.value = true
     
+    // 记录开始搜索
+    photoSearchLogger.startSearch(cropRect.value, subject.value)
+    
     // 获取裁剪后的图片
     const croppedFile = await getCroppedImage()
     if (!croppedFile) {
+      photoSearchLogger.error('获取裁剪后的图片', new Error('裁剪失败'))
       showMessage('图片裁剪失败', 'error')
       return
     }
@@ -399,15 +446,18 @@ const handleSearch = async () => {
     const question = await apiService.recognizeImage(croppedFile, subject.value)
     
     if (question) {
+      photoSearchLogger.apiRecognizeImageResponse(true, question)
       recognizedQuestionData.value = question
       recognizedQuestion.value = question.title || question.question || ''
       showCropView.value = false
       showResultView.value = true
     } else {
+      photoSearchLogger.apiRecognizeImageResponse(false)
       showMessage('未识别到题目，请尝试文本搜索', 'warning')
       showTextSearch.value = true
     }
   } catch (error) {
+    photoSearchLogger.error('图片识别', error)
     console.error('图片识别失败:', error)
     showMessage('图片识别失败', 'error')
     showTextSearch.value = true
@@ -461,8 +511,11 @@ const getCroppedImage = (): Promise<File | null> => {
     // 转换为 Blob 再转为 File
     canvas.toBlob((blob) => {
       if (blob) {
-        resolve(new File([blob], 'cropped.jpg', { type: 'image/jpeg' }))
+        const file = new File([blob], 'cropped.jpg', { type: 'image/jpeg' })
+        photoSearchLogger.getCroppedImage(canvas.width, canvas.height, blob.size)
+        resolve(file)
       } else {
+        photoSearchLogger.error('获取裁剪后的图片', new Error('Blob转换失败'))
         resolve(null)
       }
     }, 'image/jpeg', 0.9)
@@ -479,18 +532,23 @@ const handleTextSearch = async () => {
   try {
     isSearching.value = true
     
+    photoSearchLogger.textSearch(searchText.value.trim(), subject.value)
+    
     const question = await apiService.searchQuestionByText(searchText.value.trim(), subject.value)
     
     if (question) {
+      photoSearchLogger.textSearchResponse(true, question)
       recognizedQuestionData.value = question
       recognizedQuestion.value = question.title || question.question || ''
       showCropView.value = false
       showResultView.value = true
       showTextSearch.value = false
     } else {
+      photoSearchLogger.textSearchResponse(false)
       showMessage('未搜索到题目', 'warning')
     }
   } catch (error) {
+    photoSearchLogger.error('文本搜索', error)
     console.error('文本搜索失败:', error)
     showMessage('文本搜索失败', 'error')
   } finally {
@@ -512,6 +570,9 @@ const handleAddToList = async () => {
     const questions = questionStore.questions
     const exercisesId = questions.map(q => q.bmNo || q.id).join(',')
 
+    // 记录开始添加到列表
+    photoSearchLogger.startAddToList(recognizedQuestionData.value, subject.value, exercisesId)
+
     // 构建添加请求
     const questionData = {
       ...recognizedQuestionData.value,
@@ -521,15 +582,22 @@ const handleAddToList = async () => {
     const success = await apiService.addQuestionToList(questionData, subject.value)
     
     if (success) {
+      photoSearchLogger.apiAddToListResponse(true)
       showMessage('题目已添加到列表', 'success')
+      
       // 刷新题目列表
+      photoSearchLogger.refreshQuestionList(subject.value)
       await questionStore.fetchQuestions(subject.value, false)
+      
       // 跳转到习题解答页面
+      photoSearchLogger.navigateBack(subject.value)
       router.push({ name: 'exerciseSolve', query: { subject: subject.value } })
     } else {
+      photoSearchLogger.apiAddToListResponse(false)
       showMessage('添加题目失败', 'error')
     }
   } catch (error) {
+    photoSearchLogger.error('添加题目', error)
     console.error('添加题目失败:', error)
     showMessage('添加题目失败', 'error')
   } finally {
@@ -539,6 +607,9 @@ const handleAddToList = async () => {
 
 // 组件挂载时初始化
 onMounted(() => {
+  // 记录页面加载
+  photoSearchLogger.pageMounted(subject.value)
+  
   // 如果路由中有科目参数，使用它
   if (route.query.subject) {
     // 可以在这里做其他初始化
@@ -548,6 +619,10 @@ onMounted(() => {
 // 组件卸载时清理
 onUnmounted(() => {
   // 清理资源
+  if (cropRectUpdateTimer.value) {
+    clearTimeout(cropRectUpdateTimer.value)
+    cropRectUpdateTimer.value = null
+  }
   currentImage.value = null
   cropRect.value = null
 })

@@ -4,6 +4,7 @@
  */
 
 import { IndexedDBService } from './indexeddb-service'
+import { getCurrentUserIdOrDefault } from '../utils/userId'
 import type { ExerciseItem } from '../types'
 
 interface QuestionListData {
@@ -12,52 +13,65 @@ interface QuestionListData {
   timestamp: number
 }
 
-// 创建题目列表专用的 IndexedDB 服务实例
-const questionStorage = IndexedDBService.getInstance({
-  dbName: 'ExerciseQuestionsDB',
-  version: 1,
-  stores: [
-    {
-      name: 'question_lists',
-      keyPath: 'subject', // 使用 subject 作为主键，每个科目一条记录
-      indexes: [
-        { name: 'timestamp', keyPath: 'timestamp' },
-        { name: 'subject', keyPath: 'subject', unique: true }
-      ]
-    }
-  ]
-})
+/**
+ * 获取题目列表专用的 IndexedDB 服务实例
+ * 使用用户ID作为数据库名前缀，实现账号隔离
+ */
+function getQuestionStorage(): IndexedDBService {
+  const userId = getCurrentUserIdOrDefault()
+  const dbName = `ExerciseQuestionsDB_${userId}`
+  return IndexedDBService.getInstance({
+    dbName: dbName,
+    version: 1,
+    stores: [
+      {
+        name: 'question_lists',
+        keyPath: 'subject', // 使用 subject 作为主键，每个科目一条记录
+        indexes: [
+          { name: 'timestamp', keyPath: 'timestamp' },
+          { name: 'subject', keyPath: 'subject', unique: true }
+        ]
+      }
+    ]
+  })
+}
 
 /**
  * 初始化数据库（带缓存，避免重复初始化）
+ * 注意：每次调用都会获取当前用户的存储实例，确保账号隔离
  */
-let initPromise: Promise<void> | null = null
+const initPromises: Map<string, Promise<void>> = new Map()
 export async function initQuestionStorage(): Promise<void> {
+  const userId = getCurrentUserIdOrDefault()
+  const questionStorage = getQuestionStorage()
+  
   // 如果已经初始化，直接返回
   if (questionStorage.isInitialized) {
     return
   }
   
   // 如果正在初始化，返回同一个 Promise
-  if (initPromise) {
-    return initPromise
+  const existingPromise = initPromises.get(userId)
+  if (existingPromise) {
+    return existingPromise
   }
   
   // 开始初始化
-  initPromise = (async () => {
+  const initPromise = (async () => {
     const initStartTime = performance.now()
     try {
       await questionStorage.init()
       const initDuration = performance.now() - initStartTime
-      console.log(`[QUESTION_STORAGE] ✅ IndexedDB 初始化成功 (耗时: ${initDuration.toFixed(2)}ms)`)
+      console.log(`[QUESTION_STORAGE] ✅ IndexedDB 初始化成功 (用户: ${userId}, 耗时: ${initDuration.toFixed(2)}ms)`)
     } catch (error) {
-      console.error('[QUESTION_STORAGE] ❌ IndexedDB 初始化失败:', error)
+      console.error(`[QUESTION_STORAGE] ❌ IndexedDB 初始化失败 (用户: ${userId}):`, error)
       throw error
     } finally {
-      initPromise = null
+      initPromises.delete(userId)
     }
   })()
   
+  initPromises.set(userId, initPromise)
   return initPromise
 }
 
@@ -72,6 +86,7 @@ export async function saveQuestionsToIndexedDB(
 ): Promise<void> {
   try {
     await initQuestionStorage()
+    const questionStorage = getQuestionStorage()
     
     const data: QuestionListData = {
       subject,
@@ -101,6 +116,7 @@ export async function loadQuestionsFromIndexedDB(
   const loadStartTime = performance.now()
   try {
     await initQuestionStorage()
+    const questionStorage = getQuestionStorage()
     
     const getStartTime = performance.now()
     const data = await questionStorage.get<QuestionListData>('question_lists', subject)
@@ -145,6 +161,7 @@ export async function loadQuestionsFromIndexedDB(
 export async function hasQuestionsInIndexedDB(subject: string): Promise<boolean> {
   try {
     await initQuestionStorage()
+    const questionStorage = getQuestionStorage()
     const data = await questionStorage.get<QuestionListData>('question_lists', subject)
     return data !== undefined && data !== null
   } catch (error) {
@@ -160,6 +177,7 @@ export async function hasQuestionsInIndexedDB(subject: string): Promise<boolean>
 export async function deleteQuestionsFromIndexedDB(subject: string): Promise<void> {
   try {
     await initQuestionStorage()
+    const questionStorage = getQuestionStorage()
     await questionStorage.delete('question_lists', subject)
     console.log('[QUESTION_STORAGE] ✅ 已删除题目列表:', subject)
   } catch (error) {
@@ -174,6 +192,7 @@ export async function deleteQuestionsFromIndexedDB(subject: string): Promise<voi
 export async function clearAllQuestionsFromIndexedDB(): Promise<void> {
   try {
     await initQuestionStorage()
+    const questionStorage = getQuestionStorage()
     await questionStorage.clear('question_lists')
     console.log('[QUESTION_STORAGE] ✅ 已清空所有题目列表')
   } catch (error) {

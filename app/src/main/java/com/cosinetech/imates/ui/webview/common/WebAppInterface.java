@@ -50,6 +50,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -82,6 +84,7 @@ public class WebAppInterface {
     private ActivityResultLauncher<Intent> imagePickLauncher;
     private ActivityResultLauncher<Intent> imageCaptureLauncher;
     private ActivityResultLauncher<String> cameraPermissionLauncher;
+    private ActivityResultLauncher<String> audioPermissionLauncher;
 
     public WebAppInterface(Context c) {
         mContext = c;
@@ -111,6 +114,13 @@ public class WebAppInterface {
      */
     public void setCameraPermissionLauncher(ActivityResultLauncher<String> cameraPermissionLauncher) {
         this.cameraPermissionLauncher = cameraPermissionLauncher;
+    }
+
+    /**
+     * 设置录音权限请求的 ActivityResultLauncher
+     */
+    public void setAudioPermissionLauncher(ActivityResultLauncher<String> audioPermissionLauncher) {
+        this.audioPermissionLauncher = audioPermissionLauncher;
     }
 
     /**
@@ -232,48 +242,174 @@ public class WebAppInterface {
     /**
      * 发送文本消息给老师（简化版：不保存到本地数据库）
      * 第1步：验证用户登录
-     * 第2步：构建StudentMessage
-     * 第3步：通过RabbitMQ发送
-     * 第4步：返回结果
+     * 第2步：检查RabbitMQ连接状态
+     * 第3步：构建StudentMessage
+     * 第4步：通过RabbitMQ发送（带回调）
+     * 第5步：返回结果
      */
     @JavascriptInterface
     public String sendTextMessageToTeacher(String content, String sessionId, String subject) {
+        String userId = null;
+        String messageId = null;
+        long timestamp = System.currentTimeMillis();
+        
         try {
+            Log.d(TAG, "sendTextMessageToTeacher: 开始发送消息");
+            Log.d(TAG, "sendTextMessageToTeacher: content长度=" + (content != null ? content.length() : 0) + 
+                    ", sessionId=" + sessionId + ", subject=" + subject);
+
             // 第1步：验证用户登录
-            String userId = AppUtils.getUserId();
+            userId = AppUtils.getUserId();
             if (userId == null || userId.isEmpty()) {
+                Log.e(TAG, "sendTextMessageToTeacher: 用户未登录");
                 return createResponse(false, "用户未登录", null);
             }
+            Log.d(TAG, "sendTextMessageToTeacher: userId=" + userId);
 
-            // 第2步：确定学科类型
+            // 第2步：检查RabbitMQ连接状态
+            MessagingManager messagingManager = MessagingManager.getInstance();
+            
+            // 详细检查初始化状态
+            boolean initialized = messagingManager.isInitialized();
+            Log.d(TAG, "sendTextMessageToTeacher: MessagingManager初始化状态检查");
+            Log.d(TAG, "sendTextMessageToTeacher: isInitialized()=" + initialized);
+            
+            if (!initialized) {
+                Log.w(TAG, "sendTextMessageToTeacher: MessagingManager未初始化，检查是否正在初始化中");
+                
+                // 检查是否正在初始化中
+                boolean connecting = messagingManager.isConnecting();
+                if (connecting) {
+                    Log.d(TAG, "sendTextMessageToTeacher: MessagingManager正在初始化中，等待完成");
+                    // 如果正在初始化中，等待最多10秒
+                    int waitCount = 0;
+                    int maxWait = 100; // 100次 * 100ms = 10秒
+                    while ((messagingManager.isConnecting() || !messagingManager.isInitialized()) && waitCount < maxWait) {
+                        Thread.sleep(100);
+                        waitCount++;
+                        // 每2秒输出一次进度日志
+                        if (waitCount % 20 == 0) {
+                            Log.d(TAG, "sendTextMessageToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100) + "ms)");
+                        }
+                    }
+                    
+                    if (messagingManager.isInitialized()) {
+                        Log.d(TAG, "sendTextMessageToTeacher: 等待初始化成功，等待耗时=" + (waitCount * 100) + "ms");
+                    } else {
+                        Log.w(TAG, "sendTextMessageToTeacher: 等待初始化超时（10秒）");
+                        return createResponse(false, "RabbitMQ连接正在初始化中，请稍后重试", null);
+                    }
+                } else {
+                    // 没有正在初始化，尝试自动初始化（如果mContext可用）
+                    if (mContext != null && userId != null && !userId.isEmpty()) {
+                        try {
+                            Log.d(TAG, "sendTextMessageToTeacher: 开始自动初始化MessagingManager, userId=" + userId);
+                            messagingManager.initialize(mContext, userId);
+                            
+                            // 等待初始化完成，最多等待10秒（RabbitMQ连接可能需要更长时间）
+                            int waitCount = 0;
+                            int maxWait = 100; // 100次 * 100ms = 10秒
+                            while (!messagingManager.isInitialized() && waitCount < maxWait) {
+                                Thread.sleep(100);
+                                waitCount++;
+                                // 每2秒输出一次进度日志
+                                if (waitCount % 20 == 0) {
+                                    Log.d(TAG, "sendTextMessageToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100) + "ms)");
+                                }
+                            }
+                            
+                            if (messagingManager.isInitialized()) {
+                                Log.d(TAG, "sendTextMessageToTeacher: 自动初始化成功，等待耗时=" + (waitCount * 100) + "ms");
+                            } else {
+                                Log.w(TAG, "sendTextMessageToTeacher: 自动初始化超时（10秒），可能仍在后台初始化中");
+                                return createResponse(false, "RabbitMQ连接正在初始化中，请稍后重试", null);
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "sendTextMessageToTeacher: 自动初始化失败", e);
+                            return createResponse(false, "RabbitMQ连接初始化失败: " + e.getMessage(), null);
+                        }
+                    } else {
+                        Log.e(TAG, "sendTextMessageToTeacher: 无法自动初始化 - mContext=" + (mContext != null ? "可用" : "null") + 
+                                ", userId=" + (userId != null ? userId : "null"));
+                        return createResponse(false, "RabbitMQ连接未初始化，请稍后重试", null);
+                    }
+                }
+            }
+            
+            Log.d(TAG, "sendTextMessageToTeacher: MessagingManager已初始化，可以发送消息");
+
+            // 第3步：确定学科类型
             String teacherSubject;
             if ("biology".equals(subject)) {
                 teacherSubject = "6"; // SCHOOL_SUBJECT_BIOLOGY
             } else if ("math".equals(subject)) {
                 teacherSubject = "2"; // SCHOOL_SUBJECT_MATH
             } else {
-                return createResponse(false, "不支持的学科类型", null);
+                Log.e(TAG, "sendTextMessageToTeacher: 不支持的学科类型=" + subject);
+                return createResponse(false, "不支持的学科类型: " + subject, null);
             }
+            Log.d(TAG, "sendTextMessageToTeacher: teacherSubject=" + teacherSubject + " (from " + subject + ")");
 
-            // 第3步：创建StudentMessage
-            String messageId = UUID.randomUUID().toString();
-            long timestamp = System.currentTimeMillis();
+            // 第4步：创建StudentMessage
+            messageId = UUID.randomUUID().toString();
             
             StudentMessage studentMsg = new StudentMessage(
                     userId, sessionId, teacherSubject, 0, content); // 0 = QA_MSG_TYPE_TEXT
             studentMsg.setMessageId(messageId);
+            Log.d(TAG, "sendTextMessageToTeacher: 创建StudentMessage完成, messageId=" + messageId);
 
-            // 第4步：通过RabbitMQ发送（不保存到本地数据库）
-            MessagingManager.getInstance().sendMessageToTeacher(studentMsg, null);
+            // 第5步：通过RabbitMQ发送（带回调，使用CountDownLatch等待异步结果）
+            final CountDownLatch latch = new CountDownLatch(1);
+            final boolean[] sendSuccess = {false};
+            final String[] actualMessageId = {null};
+            final String[] errorMessage = {null};
 
-            // 第5步：构建返回数据
+            MessagingManager.SendCallback callback = new MessagingManager.SendCallback() {
+                @Override
+                public void onSendResult(boolean success, String msgId, String error) {
+                    sendSuccess[0] = success;
+                    actualMessageId[0] = msgId;
+                    errorMessage[0] = error;
+                    Log.d(TAG, "sendTextMessageToTeacher: 回调结果 - success=" + success + 
+                            ", messageId=" + msgId + ", error=" + error);
+                    latch.countDown();
+                }
+            };
+
+            Log.d(TAG, "sendTextMessageToTeacher: 开始发送到RabbitMQ");
+            messagingManager.sendMessageToTeacher(studentMsg, callback);
+
+            // 等待回调完成，最多等待5秒
+            boolean completed = latch.await(5, TimeUnit.SECONDS);
+            if (!completed) {
+                Log.e(TAG, "sendTextMessageToTeacher: 等待回调超时（5秒）");
+                return createResponse(false, "消息发送超时，请检查网络连接", null);
+            }
+
+            // 第6步：根据回调结果返回
+            if (!sendSuccess[0]) {
+                String error = errorMessage[0] != null ? errorMessage[0] : "未知错误";
+                Log.e(TAG, "sendTextMessageToTeacher: RabbitMQ发送失败 - " + error);
+                return createResponse(false, "消息发送失败: " + error, null);
+            }
+
+            // 使用回调返回的实际messageId（如果有）
+            String finalMessageId = actualMessageId[0] != null ? actualMessageId[0] : messageId;
+            Log.d(TAG, "sendTextMessageToTeacher: 消息发送成功, messageId=" + finalMessageId);
+
+            // 构建返回数据
             String messageData = String.format(Locale.getDefault(),
                     "{\"messageId\":\"%s\",\"userId\":\"%s\",\"sessionId\":\"%s\",\"subject\":\"%s\",\"messageType\":\"TEXT\",\"content\":\"%s\",\"timestamp\":%d}",
-                    messageId, userId, sessionId, teacherSubject, content, timestamp);
+                    finalMessageId, userId, sessionId, teacherSubject, content, timestamp);
 
             return createResponseWithJsonData(true, "消息发送成功", messageData);
 
+        } catch (InterruptedException e) {
+            Log.e(TAG, "sendTextMessageToTeacher: 等待回调被中断", e);
+            Thread.currentThread().interrupt();
+            return createResponse(false, "消息发送被中断: " + e.getMessage(), null);
         } catch (Exception e) {
+            Log.e(TAG, "sendTextMessageToTeacher: 发送消息异常", e);
             return createResponse(false, "发送消息失败: " + e.getMessage(), null);
         }
     }
@@ -281,25 +417,287 @@ public class WebAppInterface {
     /**
      * 发送语音消息给老师（简化版：不保存到本地数据库）
      * 第1步：验证用户登录
-     * 第2步：检查语音文件
+     * 第2步：检查RabbitMQ连接状态
+     * 第3步：检查语音文件
+     * 第4步：读取并转Base64
+     * 第5步：通过RabbitMQ发送（带回调）
+     * 第6步：返回结果
+     */
+    @JavascriptInterface
+    public String sendVoiceMessageToTeacher(String voicePath, String duration, String sessionId, String subject) {
+        String userId = null;
+        String messageId = null;
+        long timestamp = System.currentTimeMillis();
+        
+        try {
+            Log.d(TAG, "sendVoiceMessageToTeacher: 开始发送语音消息");
+            Log.d(TAG, "sendVoiceMessageToTeacher: voicePath=" + voicePath + 
+                    ", duration=" + duration + ", sessionId=" + sessionId + ", subject=" + subject);
+
+            // 第1步：验证用户登录
+            userId = AppUtils.getUserId();
+            if (userId == null || userId.isEmpty()) {
+                Log.e(TAG, "sendVoiceMessageToTeacher: 用户未登录");
+                return createResponse(false, "用户未登录", null);
+            }
+            Log.d(TAG, "sendVoiceMessageToTeacher: userId=" + userId);
+
+            // 第2步：检查RabbitMQ连接状态
+            MessagingManager messagingManager = MessagingManager.getInstance();
+            
+            // 详细检查初始化状态
+            boolean initialized = messagingManager.isInitialized();
+            Log.d(TAG, "sendVoiceMessageToTeacher: MessagingManager初始化状态检查");
+            Log.d(TAG, "sendVoiceMessageToTeacher: isInitialized()=" + initialized);
+            
+            if (!initialized) {
+                Log.w(TAG, "sendVoiceMessageToTeacher: MessagingManager未初始化，检查是否正在初始化中");
+                
+                // 检查是否正在初始化中
+                boolean connecting = messagingManager.isConnecting();
+                if (connecting) {
+                    Log.d(TAG, "sendVoiceMessageToTeacher: MessagingManager正在初始化中，等待完成");
+                    // 如果正在初始化中，等待最多10秒
+                    int waitCount = 0;
+                    int maxWait = 100; // 100次 * 100ms = 10秒
+                    while ((messagingManager.isConnecting() || !messagingManager.isInitialized()) && waitCount < maxWait) {
+                        Thread.sleep(100);
+                        waitCount++;
+                        // 每2秒输出一次进度日志
+                        if (waitCount % 20 == 0) {
+                            Log.d(TAG, "sendVoiceMessageToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100) + "ms)");
+                        }
+                    }
+                    
+                    if (messagingManager.isInitialized()) {
+                        Log.d(TAG, "sendVoiceMessageToTeacher: 等待初始化成功，等待耗时=" + (waitCount * 100) + "ms");
+                    } else {
+                        Log.w(TAG, "sendVoiceMessageToTeacher: 等待初始化超时（10秒）");
+                        return createResponse(false, "RabbitMQ连接正在初始化中，请稍后重试", null);
+                    }
+                } else {
+                    // 没有正在初始化，尝试自动初始化（如果mContext可用）
+                    if (mContext != null && userId != null && !userId.isEmpty()) {
+                        try {
+                            Log.d(TAG, "sendVoiceMessageToTeacher: 开始自动初始化MessagingManager, userId=" + userId);
+                            messagingManager.initialize(mContext, userId);
+                            
+                            // 等待初始化完成，最多等待10秒（RabbitMQ连接可能需要更长时间）
+                            int waitCount = 0;
+                            int maxWait = 100; // 100次 * 100ms = 10秒
+                            while (!messagingManager.isInitialized() && waitCount < maxWait) {
+                                Thread.sleep(100);
+                                waitCount++;
+                                // 每2秒输出一次进度日志
+                                if (waitCount % 20 == 0) {
+                                    Log.d(TAG, "sendVoiceMessageToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100) + "ms)");
+                                }
+                            }
+                            
+                            if (messagingManager.isInitialized()) {
+                                Log.d(TAG, "sendVoiceMessageToTeacher: 自动初始化成功，等待耗时=" + (waitCount * 100) + "ms");
+                            } else {
+                                Log.w(TAG, "sendVoiceMessageToTeacher: 自动初始化超时（10秒），可能仍在后台初始化中");
+                                return createResponse(false, "RabbitMQ连接正在初始化中，请稍后重试", null);
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "sendVoiceMessageToTeacher: 自动初始化失败", e);
+                            return createResponse(false, "RabbitMQ连接初始化失败: " + e.getMessage(), null);
+                        }
+                    } else {
+                        Log.e(TAG, "sendVoiceMessageToTeacher: 无法自动初始化 - mContext=" + (mContext != null ? "可用" : "null") + 
+                                ", userId=" + (userId != null ? userId : "null"));
+                        return createResponse(false, "RabbitMQ连接未初始化，请稍后重试", null);
+                    }
+                }
+            }
+            
+            Log.d(TAG, "sendVoiceMessageToTeacher: MessagingManager已初始化，可以发送消息");
+
+            // 第3步：检查语音文件是否存在
+            File voiceFile = new File(voicePath);
+            if (!voiceFile.exists()) {
+                Log.e(TAG, "sendVoiceMessageToTeacher: 语音文件不存在 - " + voicePath);
+                return createResponse(false, "语音文件不存在: " + voicePath, null);
+            }
+            Log.d(TAG, "sendVoiceMessageToTeacher: 语音文件存在, 大小=" + voiceFile.length() + " bytes");
+
+            // 第4步：确定学科类型
+            String teacherSubject;
+            if ("biology".equals(subject)) {
+                teacherSubject = "6"; // SCHOOL_SUBJECT_BIOLOGY
+            } else if ("math".equals(subject)) {
+                teacherSubject = "2"; // SCHOOL_SUBJECT_MATH
+            } else {
+                Log.e(TAG, "sendVoiceMessageToTeacher: 不支持的学科类型=" + subject);
+                return createResponse(false, "不支持的学科类型: " + subject, null);
+            }
+            Log.d(TAG, "sendVoiceMessageToTeacher: teacherSubject=" + teacherSubject + " (from " + subject + ")");
+
+            // 第5步：创建StudentMessage
+            messageId = UUID.randomUUID().toString();
+
+            // 第6步：读取语音文件并转换为Base64
+            Log.d(TAG, "sendVoiceMessageToTeacher: 开始读取语音文件并转换为Base64");
+            String voiceBase64Content = VoiceDbUtil.getRawVoiceBase64(voicePath);
+            if (voiceBase64Content == null || voiceBase64Content.equals("null")) {
+                Log.e(TAG, "sendVoiceMessageToTeacher: 语音文件读取失败");
+                return createResponse(false, "语音文件读取失败", null);
+            }
+            Log.d(TAG, "sendVoiceMessageToTeacher: Base64编码完成, 长度=" + 
+                    (voiceBase64Content != null ? voiceBase64Content.length() : 0));
+
+            StudentMessage studentMsg = new StudentMessage(
+                    userId, sessionId, teacherSubject, 2, voiceBase64Content); // 2 = QA_MSG_TYPE_VOICE
+            studentMsg.setMessageId(messageId);
+            Log.d(TAG, "sendVoiceMessageToTeacher: 创建StudentMessage完成, messageId=" + messageId);
+
+            // 第7步：通过RabbitMQ发送（带回调，使用CountDownLatch等待异步结果）
+            final CountDownLatch latch = new CountDownLatch(1);
+            final boolean[] sendSuccess = {false};
+            final String[] actualMessageId = {null};
+            final String[] errorMessage = {null};
+
+            MessagingManager.SendCallback callback = new MessagingManager.SendCallback() {
+                @Override
+                public void onSendResult(boolean success, String msgId, String error) {
+                    sendSuccess[0] = success;
+                    actualMessageId[0] = msgId;
+                    errorMessage[0] = error;
+                    Log.d(TAG, "sendVoiceMessageToTeacher: 回调结果 - success=" + success + 
+                            ", messageId=" + msgId + ", error=" + error);
+                    latch.countDown();
+                }
+            };
+
+            Log.d(TAG, "sendVoiceMessageToTeacher: 开始发送到RabbitMQ");
+            messagingManager.sendMessageToTeacher(studentMsg, callback);
+
+            // 等待回调完成，最多等待10秒（语音文件可能较大，需要更长时间）
+            boolean completed = latch.await(10, TimeUnit.SECONDS);
+            if (!completed) {
+                Log.e(TAG, "sendVoiceMessageToTeacher: 等待回调超时（10秒）");
+                return createResponse(false, "语音消息发送超时，请检查网络连接", null);
+            }
+
+            // 第8步：根据回调结果返回
+            if (!sendSuccess[0]) {
+                String error = errorMessage[0] != null ? errorMessage[0] : "未知错误";
+                Log.e(TAG, "sendVoiceMessageToTeacher: RabbitMQ发送失败 - " + error);
+                return createResponse(false, "语音消息发送失败: " + error, null);
+            }
+
+            // 使用回调返回的实际messageId（如果有）
+            String finalMessageId = actualMessageId[0] != null ? actualMessageId[0] : messageId;
+            Log.d(TAG, "sendVoiceMessageToTeacher: 语音消息发送成功, messageId=" + finalMessageId);
+
+            // 构建返回数据
+            String messageData = String.format(Locale.getDefault(),
+                    "{\"messageId\":\"%s\",\"userId\":\"%s\",\"sessionId\":\"%s\",\"subject\":\"%s\",\"messageType\":\"VOICE\",\"voicePath\":\"%s\",\"duration\":%s,\"timestamp\":%d}",
+                    finalMessageId, userId, sessionId, teacherSubject, voicePath, duration, timestamp);
+
+            return createResponseWithJsonData(true, "语音消息发送成功", messageData);
+
+        } catch (InterruptedException e) {
+            Log.e(TAG, "sendVoiceMessageToTeacher: 等待回调被中断", e);
+            Thread.currentThread().interrupt();
+            return createResponse(false, "语音消息发送被中断: " + e.getMessage(), null);
+        } catch (Exception e) {
+            Log.e(TAG, "sendVoiceMessageToTeacher: 发送语音消息异常", e);
+            return createResponse(false, "发送语音消息失败: " + e.getMessage(), null);
+        }
+    }
+
+    /**
+     * 发送图片消息给老师（简化版：不保存到本地数据库）
+     * 第1步：验证用户登录
+     * 第2步：检查图片文件
      * 第3步：读取并转Base64
      * 第4步：通过RabbitMQ发送
      * 第5步：返回结果
      */
     @JavascriptInterface
-    public String sendVoiceMessageToTeacher(String voicePath, String duration, String sessionId, String subject) {
+    public String sendPictureToTeacher(String imagePath, String sessionId, String subject) {
+        String userId = null;
+        
         try {
             // 第1步：验证用户登录
-            String userId = AppUtils.getUserId();
+            userId = AppUtils.getUserId();
             if (userId == null || userId.isEmpty()) {
                 return createResponse(false, "用户未登录", null);
             }
 
-            // 第2步：检查语音文件是否存在
-            File voiceFile = new File(voicePath);
-            if (!voiceFile.exists()) {
-                return createResponse(false, "语音文件不存在: " + voicePath, null);
+            // 第2步：检查RabbitMQ连接状态
+            MessagingManager messagingManager = MessagingManager.getInstance();
+            
+            // 详细检查初始化状态
+            boolean initialized = messagingManager.isInitialized();
+            Log.d(TAG, "sendPictureToTeacher: MessagingManager初始化状态检查");
+            Log.d(TAG, "sendPictureToTeacher: isInitialized()=" + initialized);
+            
+            if (!initialized) {
+                Log.w(TAG, "sendPictureToTeacher: MessagingManager未初始化，检查是否正在初始化中");
+                
+                // 检查是否正在初始化中
+                boolean connecting = messagingManager.isConnecting();
+                if (connecting) {
+                    Log.d(TAG, "sendPictureToTeacher: MessagingManager正在初始化中，等待完成");
+                    // 如果正在初始化中，等待最多10秒
+                    int waitCount = 0;
+                    int maxWait = 100; // 100次 * 100ms = 10秒
+                    while ((messagingManager.isConnecting() || !messagingManager.isInitialized()) && waitCount < maxWait) {
+                        Thread.sleep(100);
+                        waitCount++;
+                        // 每2秒输出一次进度日志
+                        if (waitCount % 20 == 0) {
+                            Log.d(TAG, "sendPictureToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100) + "ms)");
+                        }
+                    }
+                    
+                    if (messagingManager.isInitialized()) {
+                        Log.d(TAG, "sendPictureToTeacher: 等待初始化成功，等待耗时=" + (waitCount * 100) + "ms");
+                    } else {
+                        Log.w(TAG, "sendPictureToTeacher: 等待初始化超时（10秒）");
+                        return createResponse(false, "RabbitMQ连接正在初始化中，请稍后重试", null);
+                    }
+                } else {
+                    // 没有正在初始化，尝试自动初始化（如果mContext可用）
+                    if (mContext != null && userId != null && !userId.isEmpty()) {
+                        try {
+                            Log.d(TAG, "sendPictureToTeacher: 开始自动初始化MessagingManager, userId=" + userId);
+                            messagingManager.initialize(mContext, userId);
+                            
+                            // 等待初始化完成，最多等待10秒（RabbitMQ连接可能需要更长时间）
+                            int waitCount = 0;
+                            int maxWait = 100; // 100次 * 100ms = 10秒
+                            while (!messagingManager.isInitialized() && waitCount < maxWait) {
+                                Thread.sleep(100);
+                                waitCount++;
+                                // 每2秒输出一次进度日志
+                                if (waitCount % 20 == 0) {
+                                    Log.d(TAG, "sendPictureToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100) + "ms)");
+                                }
+                            }
+                            
+                            if (messagingManager.isInitialized()) {
+                                Log.d(TAG, "sendPictureToTeacher: 自动初始化成功，等待耗时=" + (waitCount * 100) + "ms");
+                            } else {
+                                Log.w(TAG, "sendPictureToTeacher: 自动初始化超时（10秒），可能仍在后台初始化中");
+                                return createResponse(false, "RabbitMQ连接正在初始化中，请稍后重试", null);
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "sendPictureToTeacher: 自动初始化失败", e);
+                            return createResponse(false, "RabbitMQ连接初始化失败: " + e.getMessage(), null);
+                        }
+                    } else {
+                        Log.e(TAG, "sendPictureToTeacher: 无法自动初始化 - mContext=" + (mContext != null ? "可用" : "null") + 
+                                ", userId=" + (userId != null ? userId : "null"));
+                        return createResponse(false, "RabbitMQ连接未初始化，请稍后重试", null);
+                    }
+                }
             }
+            
+            Log.d(TAG, "sendPictureToTeacher: MessagingManager已初始化，可以发送消息");
 
             // 第3步：确定学科类型
             String teacherSubject;
@@ -315,63 +713,7 @@ public class WebAppInterface {
             String messageId = UUID.randomUUID().toString();
             long timestamp = System.currentTimeMillis();
 
-            // 第5步：读取语音文件并转换为Base64
-            String voiceBase64Content = VoiceDbUtil.getRawVoiceBase64(voicePath);
-            if (voiceBase64Content == null || voiceBase64Content.equals("null")) {
-                return createResponse(false, "语音文件读取失败", null);
-            }
-
-            StudentMessage studentMsg = new StudentMessage(
-                    userId, sessionId, teacherSubject, 2, voiceBase64Content); // 2 = QA_MSG_TYPE_VOICE
-            studentMsg.setMessageId(messageId);
-
-            // 第6步：通过RabbitMQ发送（不保存到本地数据库）
-            MessagingManager.getInstance().sendMessageToTeacher(studentMsg, null);
-
-            // 第7步：构建返回数据
-            String messageData = String.format(Locale.getDefault(),
-                    "{\"messageId\":\"%s\",\"userId\":\"%s\",\"sessionId\":\"%s\",\"subject\":\"%s\",\"messageType\":\"VOICE\",\"voicePath\":\"%s\",\"duration\":%s,\"timestamp\":%d}",
-                    messageId, userId, sessionId, teacherSubject, voicePath, duration, timestamp);
-
-            return createResponseWithJsonData(true, "语音消息发送成功", messageData);
-
-        } catch (Exception e) {
-            return createResponse(false, "发送语音消息失败: " + e.getMessage(), null);
-        }
-    }
-
-    /**
-     * 发送图片消息给老师（简化版：不保存到本地数据库）
-     * 第1步：验证用户登录
-     * 第2步：检查图片文件
-     * 第3步：读取并转Base64
-     * 第4步：通过RabbitMQ发送
-     * 第5步：返回结果
-     */
-    @JavascriptInterface
-    public String sendPictureToTeacher(String imagePath, String sessionId, String subject) {
-        try {
-            // 第1步：验证用户登录
-            String userId = AppUtils.getUserId();
-            if (userId == null || userId.isEmpty()) {
-                return createResponse(false, "用户未登录", null);
-            }
-
-            // 第2步：确定学科类型
-            String teacherSubject;
-            if ("biology".equals(subject)) {
-                teacherSubject = "6"; // SCHOOL_SUBJECT_BIOLOGY
-            } else if ("math".equals(subject)) {
-                teacherSubject = "2"; // SCHOOL_SUBJECT_MATH
-            } else {
-                return createResponse(false, "不支持的学科类型", null);
-            }
-
-            // 第3步：创建StudentMessage
-            String messageId = UUID.randomUUID().toString();
-            long timestamp = System.currentTimeMillis();
-
-            // 第4步：判断输入参数是文件路径还是base64数据URL
+            // 第5步：判断输入参数是文件路径还是base64数据URL
             String imageBase64Content;
             if (imagePath != null && imagePath.startsWith("data:image")) {
                 // 如果是base64数据URL，直接使用
@@ -394,17 +736,58 @@ public class WebAppInterface {
                     userId, sessionId, teacherSubject, 1, imageBase64Content); // 1 = QA_MSG_TYPE_PICTURE
             studentMsg.setMessageId(messageId);
 
-            // 第6步：通过RabbitMQ发送（不保存到本地数据库）
-            MessagingManager.getInstance().sendMessageToTeacher(studentMsg, null);
+            // 第6步：通过RabbitMQ发送（带回调，使用CountDownLatch等待异步结果）
+            final CountDownLatch latch = new CountDownLatch(1);
+            final boolean[] sendSuccess = {false};
+            final String[] actualMessageId = {null};
+            final String[] errorMessage = {null};
 
-            // 第7步：构建返回数据
+            MessagingManager.SendCallback callback = new MessagingManager.SendCallback() {
+                @Override
+                public void onSendResult(boolean success, String msgId, String error) {
+                    sendSuccess[0] = success;
+                    actualMessageId[0] = msgId;
+                    errorMessage[0] = error;
+                    Log.d(TAG, "sendPictureToTeacher: 回调结果 - success=" + success + 
+                            ", messageId=" + msgId + ", error=" + error);
+                    latch.countDown();
+                }
+            };
+
+            Log.d(TAG, "sendPictureToTeacher: 开始发送到RabbitMQ");
+            messagingManager.sendMessageToTeacher(studentMsg, callback);
+
+            // 等待回调完成，最多等待5秒
+            boolean completed = latch.await(5, TimeUnit.SECONDS);
+            if (!completed) {
+                Log.e(TAG, "sendPictureToTeacher: 等待回调超时（5秒）");
+                return createResponse(false, "图片消息发送超时，请检查网络连接", null);
+            }
+
+            // 第7步：根据回调结果返回
+            if (!sendSuccess[0]) {
+                String error = errorMessage[0] != null ? errorMessage[0] : "未知错误";
+                Log.e(TAG, "sendPictureToTeacher: RabbitMQ发送失败 - " + error);
+                return createResponse(false, "图片消息发送失败: " + error, null);
+            }
+
+            // 使用回调返回的实际messageId（如果有）
+            String finalMessageId = actualMessageId[0] != null ? actualMessageId[0] : messageId;
+            Log.d(TAG, "sendPictureToTeacher: 图片消息发送成功, messageId=" + finalMessageId);
+
+            // 第8步：构建返回数据
             String messageData = String.format(Locale.getDefault(),
                     "{\"messageId\":\"%s\",\"userId\":\"%s\",\"sessionId\":\"%s\",\"subject\":\"%s\",\"messageType\":\"IMAGE\",\"imagePath\":\"%s\",\"timestamp\":%d}",
-                    messageId, userId, sessionId, teacherSubject, imagePath, timestamp);
+                    finalMessageId, userId, sessionId, teacherSubject, imagePath, timestamp);
 
             return createResponseWithJsonData(true, "图片消息发送成功", messageData);
 
+        } catch (InterruptedException e) {
+            Log.e(TAG, "sendPictureToTeacher: 等待回调被中断", e);
+            Thread.currentThread().interrupt();
+            return createResponse(false, "图片消息发送被中断: " + e.getMessage(), null);
         } catch (Exception e) {
+            Log.e(TAG, "sendPictureToTeacher: 发送图片消息异常", e);
             return createResponse(false, "发送图片消息失败: " + e.getMessage(), null);
         }
     }
@@ -517,6 +900,38 @@ public class WebAppInterface {
         }
     }
 
+    /**
+     * 检查MessagingManager是否已初始化
+     * 供前端检查初始化状态
+     */
+    @JavascriptInterface
+    public boolean isMessagingManagerInitialized() {
+        try {
+            boolean initialized = MessagingManager.getInstance().isInitialized();
+            Log.d(TAG, "isMessagingManagerInitialized: " + initialized);
+            return initialized;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to check MessagingManager initialization status", e);
+            return false;
+        }
+    }
+
+    /**
+     * 检查MessagingManager是否正在初始化中
+     * 供前端判断是否正在连接中
+     */
+    @JavascriptInterface
+    public boolean isMessagingManagerConnecting() {
+        try {
+            boolean connecting = MessagingManager.getInstance().isConnecting();
+            Log.d(TAG, "isMessagingManagerConnecting: " + connecting);
+            return connecting;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to check MessagingManager connecting status", e);
+            return false;
+        }
+    }
+
     @JavascriptInterface
     public void exitActivity() {
         if (mContext instanceof Activity) {
@@ -569,30 +984,26 @@ public class WebAppInterface {
         try {
             // 检查录音权限
             if (!checkAudioPermission()) {
-                return createResponse(false, "需要录音权限", null);
+                // 如果权限未授予，尝试请求权限
+                if (audioPermissionLauncher != null && mContext instanceof Activity) {
+                    // 请求权限（异步操作，权限授予后会在回调中启动录音）
+                    ((Activity) mContext).runOnUiThread(() -> {
+                        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO);
+                    });
+                    Log.d(TAG, "正在请求录音权限");
+                    return createResponse(true, "正在请求录音权限", null);
+                } else {
+                    // 无法请求权限，返回错误
+                    return createResponse(false, "需要录音权限，请前往设置中授予", null);
+                }
             }
 
             if (isRecording) {
                 return createResponse(false, "正在录音中", null);
             }
 
-            // 创建录音文件
-            currentAudioFilePath = createAudioFilePath();
-
-            // 初始化MediaRecorder
-            mediaRecorder = new MediaRecorder();
-            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.AAC_ADTS);
-            mediaRecorder.setOutputFile(currentAudioFilePath);
-            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-            mediaRecorder.setAudioSamplingRate(44100);
-            mediaRecorder.setAudioEncodingBitRate(96000);
-
-            mediaRecorder.prepare();
-            mediaRecorder.start();
-
-            isRecording = true;
-            recordStartTime = System.currentTimeMillis();
+            // 权限已授予，开始录音
+            startVoiceRecordingInternal();
 
             Log.d(TAG, "开始录音: " + currentAudioFilePath);
             return createResponse(true, "开始录音", currentAudioFilePath);
@@ -602,6 +1013,29 @@ public class WebAppInterface {
             releaseMediaRecorder();
             return createResponse(false, "录音失败: " + e.getMessage(), null);
         }
+    }
+
+    /**
+     * 开始录音（权限已授予后调用）
+     */
+    private void startVoiceRecordingInternal() throws Exception {
+        // 创建录音文件
+        currentAudioFilePath = createAudioFilePath();
+
+        // 初始化MediaRecorder
+        mediaRecorder = new MediaRecorder();
+        mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+        mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.AAC_ADTS);
+        mediaRecorder.setOutputFile(currentAudioFilePath);
+        mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+        mediaRecorder.setAudioSamplingRate(44100);
+        mediaRecorder.setAudioEncodingBitRate(96000);
+
+        mediaRecorder.prepare();
+        mediaRecorder.start();
+
+        isRecording = true;
+        recordStartTime = System.currentTimeMillis();
     }
 
     /**
@@ -839,7 +1273,7 @@ public class WebAppInterface {
     }
 
     /**
-     * 处理权限请求结果（由Activity调用）
+     * 处理相机权限请求结果（由Activity调用）
      */
     public void onCameraPermissionResult(boolean granted) {
         if (granted) {
@@ -854,6 +1288,90 @@ public class WebAppInterface {
                     Toast.makeText(mContext, "需要相机权限才能拍照", Toast.LENGTH_SHORT).show();
                 });
             }
+        }
+    }
+
+    /**
+     * 处理录音权限请求结果（由Activity调用）
+     */
+    public void onAudioPermissionResult(boolean granted) {
+        if (granted) {
+            // 权限已授予，开始录音
+            Log.d(TAG, "录音权限已授予，开始录音");
+            try {
+                if (!isRecording) {
+                    startVoiceRecordingInternal();
+                    Log.d(TAG, "开始录音: " + currentAudioFilePath);
+                    
+                    // 通知前端录音已开始（需要通过Activity的WebView来触发）
+                    if (mContext instanceof Activity) {
+                        ((Activity) mContext).runOnUiThread(() -> {
+                            // 通过WebView的JavaScript接口通知前端
+                            notifyVoiceRecordingStarted();
+                        });
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "录音权限已授予但启动录音失败", e);
+                releaseMediaRecorder();
+                if (mContext instanceof Activity) {
+                    ((Activity) mContext).runOnUiThread(() -> {
+                        Toast.makeText(mContext, "录音启动失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    });
+                }
+            }
+        } else {
+            // 权限被拒绝，通知前端
+            Log.w(TAG, "录音权限被拒绝");
+            if (mContext instanceof Activity) {
+                ((Activity) mContext).runOnUiThread(() -> {
+                    Toast.makeText(mContext, "需要录音权限才能使用语音功能", Toast.LENGTH_SHORT).show();
+                });
+            }
+        }
+    }
+
+    /**
+     * 通知前端录音已开始（通过WebView JavaScript接口）
+     */
+    private void notifyVoiceRecordingStarted() {
+        if (webView == null) {
+            Log.w(TAG, "WebView未设置，无法通知前端录音已开始");
+            return;
+        }
+        
+        try {
+            // 构造录音状态信息
+            org.json.JSONObject detailObj = new org.json.JSONObject();
+            detailObj.put("success", true);
+            detailObj.put("message", "录音已开始");
+            detailObj.put("isRecording", true);
+            if (currentAudioFilePath != null) {
+                detailObj.put("filePath", currentAudioFilePath);
+            }
+            
+            // 转换为JSON字符串
+            String detailJson = detailObj.toString();
+            
+            // 构造JavaScript代码
+            String jsCode = 
+                "javascript:(function() {" +
+                "  try {" +
+                "    var detailStr = '" + detailJson.replace("'", "\\'") + "';" +
+                "    var detail = JSON.parse(detailStr);" +
+                "    var event = new CustomEvent('nativeVoiceRecordingStarted', { detail: detail });" +
+                "    window.dispatchEvent(event);" +
+                "    console.log('📡 [Android] 触发 nativeVoiceRecordingStarted 事件', detail);" +
+                "  } catch(e) {" +
+                "    console.error('📡 [Android] 触发事件失败:', e);" +
+                "  }" +
+                "})()";
+            
+            webView.evaluateJavascript(jsCode, null);
+            Log.d(TAG, "已通知前端录音已开始");
+        } catch (Exception e) {
+            Log.e(TAG, "通知前端录音已开始失败", e);
+            e.printStackTrace();
         }
     }
 
@@ -1032,6 +1550,39 @@ public class WebAppInterface {
         } catch (Exception e) {
             Log.e(TAG, "删除图片文件失败", e);
             return createResponse(false, "删除失败: " + e.getMessage(), null);
+        }
+    }
+
+    /**
+     * 将图片文件路径转换为Base64 Data URL
+     * 用于前端显示Android本地保存的图片文件
+     */
+    @JavascriptInterface
+    public String loadImageFileToBase64(String filePath) {
+        try {
+            if (filePath == null || filePath.isEmpty()) {
+                return createResponse(false, "文件路径为空", null);
+            }
+
+            File imageFile = new File(filePath);
+            if (!imageFile.exists()) {
+                Log.e(TAG, "图片文件不存在: " + filePath);
+                return createResponse(false, "图片文件不存在: " + filePath, null);
+            }
+
+            // 使用ImageUtils.loadImageFileToBase64方法，它返回完整的Data URL格式
+            String base64DataUrl = ImageUtils.loadImageFileToBase64(filePath);
+            if (base64DataUrl == null || base64DataUrl.trim().isEmpty()) {
+                Log.e(TAG, "图片文件读取失败: " + filePath);
+                return createResponse(false, "图片文件读取失败", null);
+            }
+
+            Log.d(TAG, "图片文件转换为Base64成功: " + filePath + ", base64长度=" + base64DataUrl.length());
+            return createResponseWithJsonData(true, "转换成功", "\"" + base64DataUrl + "\"");
+
+        } catch (Exception e) {
+            Log.e(TAG, "转换图片文件为Base64失败: " + filePath, e);
+            return createResponse(false, "转换失败: " + e.getMessage(), null);
         }
     }
 

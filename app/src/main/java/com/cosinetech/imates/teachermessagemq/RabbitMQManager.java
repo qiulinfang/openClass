@@ -74,6 +74,21 @@ public class RabbitMQManager {
     public void initialize() throws IOException, TimeoutException {
         try {
             Log.d(TAG, "Initializing RabbitMQ connection for student: " + userId);
+            
+            // 验证配置
+            if (HOST == null || HOST.isEmpty()) {
+                String errorMsg = "RabbitMQ HOST配置未初始化 (HOST is null or empty). 请确保ApiUrl.switchEnv()已被调用";
+                Log.e(TAG, errorMsg);
+                throw new IllegalStateException(errorMsg);
+            }
+            
+            if (PORT <= 0 || PORT > 65535) {
+                String errorMsg = String.format("RabbitMQ PORT配置无效 (PORT=%d). 请确保ApiUrl.switchEnv()已被调用", PORT);
+                Log.e(TAG, errorMsg);
+                throw new IllegalStateException(errorMsg);
+            }
+            
+            Log.d(TAG, "RabbitMQ配置: HOST=" + HOST + ", PORT=" + PORT + ", USERNAME=" + USERNAME + ", VIRTUAL_HOST=" + VIRTUAL_HOST);
 
             // 创建连接
             ConnectionFactory factory = new ConnectionFactory();
@@ -84,6 +99,8 @@ public class RabbitMQManager {
             factory.setVirtualHost(VIRTUAL_HOST);
             factory.setAutomaticRecoveryEnabled(true); // 启用自动重连
             factory.setNetworkRecoveryInterval(5000);  // 重连间隔5秒
+            
+            Log.d(TAG, "尝试连接到RabbitMQ服务器: " + HOST + ":" + PORT);
 
             connection = factory.newConnection();
             channel = connection.createChannel();
@@ -135,8 +152,36 @@ public class RabbitMQManager {
      */
     public String sendMessageToTeacher(StudentMessage message)
             throws IOException, JSONException, IllegalStateException {
+        String messageId = message != null ? message.getMessageId() : "null";
+        String userId = message != null ? message.getUserId() : "null";
+        String sessionId = message != null ? message.getSessionId() : "null";
+        int messageType = message != null ? message.getMessageType() : -1;
+        
+        Log.d(TAG, "RabbitMQManager.sendMessageToTeacher: 开始发送消息到RabbitMQ");
+        Log.d(TAG, "RabbitMQManager.sendMessageToTeacher: messageId=" + messageId + 
+                ", userId=" + userId + ", sessionId=" + sessionId + ", messageType=" + messageType);
+        
         if (!isConnected) {
+            Log.e(TAG, "RabbitMQManager.sendMessageToTeacher: RabbitMQ连接未初始化");
             throw new IllegalStateException("RabbitMQ connection not initialized");
+        }
+        
+        Log.d(TAG, "RabbitMQManager.sendMessageToTeacher: 连接状态正常, isConnected=" + isConnected);
+        Log.d(TAG, "RabbitMQManager.sendMessageToTeacher: connection.isOpen()=" + 
+                (connection != null ? connection.isOpen() : "null"));
+        Log.d(TAG, "RabbitMQManager.sendMessageToTeacher: channel.isOpen()=" + 
+                (channel != null ? channel.isOpen() : "null"));
+
+        // 检查通道和连接是否真的打开
+        boolean connectionOpen = connection != null && connection.isOpen();
+        boolean channelOpen = channel != null && channel.isOpen();
+        
+        if (!connectionOpen || !channelOpen) {
+            String errorMsg = String.format("RabbitMQ通道已关闭: connection.isOpen()=%s, channel.isOpen()=%s", 
+                    connectionOpen, channelOpen);
+            Log.e(TAG, "RabbitMQManager.sendMessageToTeacher: " + errorMsg);
+            isConnected = false;
+            throw new IllegalStateException(errorMsg);
         }
 
         try {
@@ -148,23 +193,54 @@ public class RabbitMQManager {
                             .expiration("259200000") // 72小时过期时间
                             .build();
 
+            Log.d(TAG, "RabbitMQManager.sendMessageToTeacher: 消息属性设置完成");
+            Log.d(TAG, "RabbitMQManager.sendMessageToTeacher: Exchange=" + EXCHANGE_NAME + 
+                    ", RoutingKey=" + ROUTE_KEY_STUDENT_TO_TEACHER);
+
+            // 将消息转换为JSON字符串
+            String jsonMessage = message.toJsonString();
+            int messageSize = jsonMessage.getBytes(StandardCharsets.UTF_8).length;
+            Log.d(TAG, "RabbitMQManager.sendMessageToTeacher: JSON消息大小=" + messageSize + " bytes");
+            Log.d(TAG, "RabbitMQManager.sendMessageToTeacher: JSON消息预览=" + 
+                    (jsonMessage.length() > 200 ? jsonMessage.substring(0, 200) + "..." : jsonMessage));
+
             // 发布消息到Exchange，使用ROUTE_TO_TEACHER路由键
+            long publishStartTime = System.currentTimeMillis();
             channel.basicPublish(
                     EXCHANGE_NAME,
                     ROUTE_KEY_STUDENT_TO_TEACHER,
                     properties,
-                    message.toJsonString().getBytes(StandardCharsets.UTF_8)
+                    jsonMessage.getBytes(StandardCharsets.UTF_8)
             );
-
-            Log.d(TAG, "Message sent to teacher with ID: " + message.getMessageId());
+            long publishDuration = System.currentTimeMillis() - publishStartTime;
+            
+            Log.d(TAG, "RabbitMQManager.sendMessageToTeacher: 消息已发布到RabbitMQ, messageId=" + messageId + 
+                    ", 发布耗时=" + publishDuration + "ms");
+            Log.d(TAG, "RabbitMQManager.sendMessageToTeacher: 发送成功");
             return message.getMessageId();
         } catch (IOException e) {
-            Log.e(TAG, "Failed to send message to teacher", e);
-            // 检查连接状态
-            if (!connection.isOpen()) {
+            Log.e(TAG, "RabbitMQManager.sendMessageToTeacher: 发送消息到RabbitMQ失败", e);
+            Log.e(TAG, "RabbitMQManager.sendMessageToTeacher: IOException - " + e.getMessage());
+            
+            // 检查连接状态（使用已有的变量检查结果）
+            boolean connectionOpenAfterError = connection != null && connection.isOpen();
+            boolean channelOpenAfterError = channel != null && channel.isOpen();
+            Log.e(TAG, "RabbitMQManager.sendMessageToTeacher: 连接状态检查 - connection.isOpen()=" + 
+                    connectionOpenAfterError + ", channel.isOpen()=" + channelOpenAfterError);
+            
+            if (!connectionOpenAfterError || !channelOpenAfterError) {
+                Log.w(TAG, "RabbitMQManager.sendMessageToTeacher: 检测到连接/通道已关闭，更新isConnected状态");
                 isConnected = false;
             }
             throw e; // 重新抛出异常以便上层处理
+        } catch (JSONException e) {
+            Log.e(TAG, "RabbitMQManager.sendMessageToTeacher: JSON序列化失败", e);
+            Log.e(TAG, "RabbitMQManager.sendMessageToTeacher: JSONException - " + e.getMessage());
+            throw e;
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "RabbitMQManager.sendMessageToTeacher: 非法状态异常", e);
+            Log.e(TAG, "RabbitMQManager.sendMessageToTeacher: IllegalStateException - " + e.getMessage());
+            throw e;
         }
     }
 
@@ -185,6 +261,7 @@ public class RabbitMQManager {
 
             DeliverCallback deliverCallback = (consumerTag, delivery) -> {
                 String messageJson = new String(delivery.getBody(), StandardCharsets.UTF_8);
+                long deliveryTag = delivery.getEnvelope().getDeliveryTag();
 
                 try {
                     JSONObject jsonObject = new JSONObject(messageJson);
@@ -192,19 +269,56 @@ public class RabbitMQManager {
 
                     Log.d(TAG, "Received teacher reply with ID: " + message.getMessageId());
 
-                    // 调用回调
-                    callback.onMessageReceived(message);
+                    // 调用回调 - 使用try-catch包装，防止回调中的异常导致通道关闭
+                    try {
+                        callback.onMessageReceived(message);
+                    } catch (Exception callbackException) {
+                        Log.e(TAG, "Error in message callback handler", callbackException);
+                        // 回调异常不应该导致消息被拒绝，记录日志即可
+                    }
 
-                    // 确认消息
-                    channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
-                } catch (JSONException | IOException e) {
-                    Log.e(TAG, "Error processing teacher reply", e);
+                    // 确认消息 - 无论回调是否成功，都确认消息
+                    try {
+                        if (channel != null && channel.isOpen()) {
+                            channel.basicAck(deliveryTag, false);
+                            Log.d(TAG, "Message acknowledged successfully, deliveryTag=" + deliveryTag);
+                        } else {
+                            Log.w(TAG, "Cannot acknowledge message: channel is closed, deliveryTag=" + deliveryTag);
+                        }
+                    } catch (IOException ackError) {
+                        Log.e(TAG, "Failed to acknowledge message, deliveryTag=" + deliveryTag, ackError);
+                    }
+                } catch (JSONException e) {
+                    Log.e(TAG, "Error parsing teacher reply JSON, deliveryTag=" + deliveryTag, e);
+                    Log.e(TAG, "Message content preview: " + 
+                            (messageJson.length() > 200 ? messageJson.substring(0, 200) + "..." : messageJson));
 
                     // 处理解析错误，拒绝消息并不重新入队
                     try {
-                        channel.basicReject(delivery.getEnvelope().getDeliveryTag(), false);
+                        if (channel != null && channel.isOpen()) {
+                            channel.basicReject(deliveryTag, false);
+                            Log.d(TAG, "Message rejected due to parse error, deliveryTag=" + deliveryTag);
+                        } else {
+                            Log.w(TAG, "Cannot reject message: channel is closed, deliveryTag=" + deliveryTag);
+                        }
                     } catch (IOException rejectError) {
-                        Log.e(TAG, "Failed to reject message", rejectError);
+                        Log.e(TAG, "Failed to reject message, deliveryTag=" + deliveryTag, rejectError);
+                    }
+                } catch (Exception e) {
+                    // 捕获所有其他异常，防止通道关闭
+                    Log.e(TAG, "Unexpected error processing teacher reply, deliveryTag=" + deliveryTag, e);
+                    Log.e(TAG, "Exception type: " + e.getClass().getSimpleName() + ", message: " + e.getMessage());
+
+                    // 尝试拒绝消息
+                    try {
+                        if (channel != null && channel.isOpen()) {
+                            channel.basicReject(deliveryTag, false);
+                            Log.d(TAG, "Message rejected due to unexpected error, deliveryTag=" + deliveryTag);
+                        } else {
+                            Log.w(TAG, "Cannot reject message: channel is closed, deliveryTag=" + deliveryTag);
+                        }
+                    } catch (Exception rejectError) {
+                        Log.e(TAG, "Failed to reject message, deliveryTag=" + deliveryTag, rejectError);
                     }
                 }
             };

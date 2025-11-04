@@ -25,6 +25,7 @@ import type {
   ImageData,
   VoiceData,
 } from '../types'
+import { getCurrentUserIdOrDefault } from '../utils/userId'
 
 // Android Bridge 类型辅助
 type AndroidBridgeWindow = {
@@ -41,6 +42,7 @@ type AndroidBridgeWindow = {
     showImagePickerDialog?: () => string
     compressImage?: (filePath: string, quality: number) => string
     deleteImageFile?: (filePath: string) => string
+    loadImageFileToBase64?: (filePath: string) => string
     startVoiceRecording?: () => string
     stopVoiceRecording?: () => string
     cancelVoiceRecording?: () => string
@@ -250,21 +252,42 @@ export class CapacitorBridge {
    */
   public async getUserInfo(): Promise<Partial<UserInfo> | null> {
     try {
-      const { value } = await Preferences.get({ key: 'USER_INFO_CACHE' })
+      // 第1步：先尝试从 Android Bridge 获取用户信息（获取用户ID）
+      const bridge = getAndroidBridge()
+      let user: UserInfo | null = null
+      
+      if (bridge?.getUserInfo) {
+        const json = bridge.getUserInfo()
+        if (json) {
+          user = JSON.parse(json) as UserInfo
+        }
+      }
+      
+      // 第2步：如果有用户ID，尝试从 Preferences 读取带用户ID前缀的缓存
+      if (user && user.id) {
+        const key = `${user.id}_USER_INFO_CACHE`
+        const { value } = await Preferences.get({ key })
+        if (value) {
+          const cached = JSON.parse(value) as UserInfo
+          // 验证缓存中的用户ID是否匹配
+          if (cached.id === user.id) {
+            return cached
+          }
+        }
+        // 如果没有缓存或缓存不匹配，返回从 Bridge 获取的用户信息
+        return user
+      }
+      
+      // 第3步：如果没有从 Bridge 获取到用户信息，尝试读取默认key（向后兼容）
+      const userId = getCurrentUserIdOrDefault()
+      const key = userId ? `${userId}_USER_INFO_CACHE` : 'USER_INFO_CACHE'
+      const { value } = await Preferences.get({ key })
       if (value) {
         return JSON.parse(value) as UserInfo
       }
 
-      // 降级到 Android Bridge
-      const bridge = getAndroidBridge()
-      if (bridge?.getUserInfo) {
-        const json = bridge.getUserInfo()
-        if (json) {
-          return JSON.parse(json) as UserInfo
-        }
-      }
-
-      return null
+      // 第4步：如果都没有，返回从 Bridge 获取的用户信息（可能为 null）
+      return user
     } catch (error) {
       console.error('getUserInfo failed:', error)
       return null
@@ -774,26 +797,126 @@ export class CapacitorBridge {
    * 发送文本消息给老师
    */
   public sendTextMessageToTeacher(content: string, sessionId: string, subject: string): boolean {
-    const bridge = getAndroidBridge()
-    if (bridge?.sendTextMessageToTeacher) {
+    console.log('[CapacitorBridge] 📤 sendTextMessageToTeacher: 开始发送文本消息')
+    console.log('[CapacitorBridge] 📤 sendTextMessageToTeacher: 参数 -', {
+      contentLength: content?.length || 0,
+      contentPreview: content?.substring(0, 100) || 'null',
+      sessionId,
+      subject
+    })
+    
+    const startTime = performance.now()
+    
+    try {
+      const bridge = getAndroidBridge()
+      if (!bridge) {
+        console.error('[CapacitorBridge] ❌ sendTextMessageToTeacher: AndroidBridge不可用')
+        return false
+      }
+      
+      if (!bridge.sendTextMessageToTeacher) {
+        console.error('[CapacitorBridge] ❌ sendTextMessageToTeacher: 方法不存在')
+        return false
+      }
+      
+      console.log('[CapacitorBridge] 📤 sendTextMessageToTeacher: 调用AndroidBridge方法')
       const resp = bridge.sendTextMessageToTeacher(content, sessionId, subject)
-      const result = this.parseJSON<{ success: boolean }>(resp, { success: false })
+      
+      const duration = performance.now() - startTime
+      console.log('[CapacitorBridge] 📥 sendTextMessageToTeacher: AndroidBridge返回, 耗时=' + duration.toFixed(2) + 'ms')
+      console.log('[CapacitorBridge] 📥 sendTextMessageToTeacher: 原始响应类型=' + typeof resp)
+      
+      // 如果返回的是字符串，需要解析JSON
+      let result: { success: boolean; message?: string; data?: any }
+      if (typeof resp === 'string') {
+        result = this.parseJSON<{ success: boolean; message?: string; data?: any }>(resp, { success: false })
+      } else if (typeof resp === 'boolean') {
+        result = { success: resp }
+      } else {
+        result = { success: false, message: '未知响应类型' }
+      }
+      
+      console.log('[CapacitorBridge] 📥 sendTextMessageToTeacher: 解析结果 -', {
+        success: result.success,
+        message: result.message,
+        hasData: !!result.data
+      })
+      
+      if (!result.success) {
+        console.error('[CapacitorBridge] ❌ sendTextMessageToTeacher: 发送失败 -', result.message || '未知错误')
+      } else {
+        console.log('[CapacitorBridge] ✅ sendTextMessageToTeacher: 发送成功')
+      }
+      
       return result.success
+    } catch (error) {
+      const duration = performance.now() - startTime
+      console.error('[CapacitorBridge] ❌ sendTextMessageToTeacher: 异常 -', error, ', 耗时=' + duration.toFixed(2) + 'ms')
+      return false
     }
-    return false
   }
 
   /**
    * 发送语音消息给老师
    */
   public sendVoiceMessageToTeacher(voicePath: string, duration: string, sessionId: string, subject: string): boolean {
-    const bridge = getAndroidBridge()
-    if (bridge?.sendVoiceMessageToTeacher) {
+    console.log('[CapacitorBridge] 📤 sendVoiceMessageToTeacher: 开始发送语音消息')
+    console.log('[CapacitorBridge] 📤 sendVoiceMessageToTeacher: 参数 -', {
+      voicePath,
+      duration,
+      sessionId,
+      subject
+    })
+    
+    const startTime = performance.now()
+    
+    try {
+      const bridge = getAndroidBridge()
+      if (!bridge) {
+        console.error('[CapacitorBridge] ❌ sendVoiceMessageToTeacher: AndroidBridge不可用')
+        return false
+      }
+      
+      if (!bridge.sendVoiceMessageToTeacher) {
+        console.error('[CapacitorBridge] ❌ sendVoiceMessageToTeacher: 方法不存在')
+        return false
+      }
+      
+      console.log('[CapacitorBridge] 📤 sendVoiceMessageToTeacher: 调用AndroidBridge方法')
       const resp = bridge.sendVoiceMessageToTeacher(voicePath, duration, sessionId, subject)
-      const result = this.parseJSON<{ success: boolean }>(resp, { success: false })
+      
+      const duration = performance.now() - startTime
+      console.log('[CapacitorBridge] 📥 sendVoiceMessageToTeacher: AndroidBridge返回, 耗时=' + duration.toFixed(2) + 'ms')
+      console.log('[CapacitorBridge] 📥 sendVoiceMessageToTeacher: 原始响应类型=' + typeof resp)
+      
+      // 如果返回的是字符串，需要解析JSON
+      let result: { success: boolean; message?: string; data?: any }
+      if (typeof resp === 'string') {
+        result = this.parseJSON<{ success: boolean; message?: string; data?: any }>(resp, { success: false })
+      } else if (typeof resp === 'boolean') {
+        result = { success: resp }
+      } else {
+        result = { success: false, message: '未知响应类型' }
+      }
+      
+      console.log('[CapacitorBridge] 📥 sendVoiceMessageToTeacher: 解析结果 -', {
+        success: result.success,
+        message: result.message,
+        hasData: !!result.data
+      })
+      
+      if (!result.success) {
+        console.error('[CapacitorBridge] ❌ sendVoiceMessageToTeacher: 发送失败 -', result.message || '未知错误')
+      } else {
+        console.log('[CapacitorBridge] ✅ sendVoiceMessageToTeacher: 发送成功')
+      }
+      
       return result.success
+    } catch (error) {
+      const duration = performance.now() - startTime
+      console.error('[CapacitorBridge] ❌ sendVoiceMessageToTeacher: 异常 -', error, ', 耗时=' + duration.toFixed(2) + 'ms')
+      return false
     }
-    return false
   }
 
   /**
