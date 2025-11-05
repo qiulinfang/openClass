@@ -208,7 +208,14 @@
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync|mediaProjection" /> <!-- Device Admin Receiver -->
+            android:foregroundServiceType="dataSync|mediaProjection" />
+        
+        <service
+            android:name=".ui.fab.FloatingFabService"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" /> <!-- Device Admin Receiver -->
         <receiver
             android:name=".deviceadmin.KioskDeviceAdminReceiver"
             android:exported="true"

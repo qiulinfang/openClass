@@ -18,8 +18,6 @@ import type {
   LocalFileInfo
 } from '../types'
 
-// 移除不再使用的回调接口 - 直接使用ApiService后不再需要
-
 export class ResourceManager {
   private static instance: ResourceManager | null = null
   private static currentUserId: string | null = null

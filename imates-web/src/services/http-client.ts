@@ -11,7 +11,6 @@ export class HttpClient {
   private baseURL: string
   private defaultHeaders: Record<string, string>
   private timeout: number
-  // 全局认证配置已删除，所有认证配置都通过getDynamicAuthConfig动态获取
 
   // 流程：file://环境下的路由映射表（统一管理，避免重复）
   private readonly routeBaseMap: Record<string, string> = {

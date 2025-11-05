@@ -48,7 +48,6 @@ import type {
   LocalFileInfo
 } from '../types'
 
-// 移除不再使用的回调接口 - 直接使用ApiService后不再
 ```
 
 ## 🔄 迁移到 React Native

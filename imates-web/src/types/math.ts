@@ -20,7 +20,6 @@ export interface FormulaNode {
 
 /** MathField接口 */
 export interface MathField {
-  // 直接属性设置（替代废弃的setOptions方法）
   readOnly: boolean
   selectionMode: string
   mathVirtualKeyboardPolicy: string

@@ -982,13 +982,34 @@ export class AndroidBridge {
    * 转发AI对话记录给老师
    */
   public forwardAiChatToTeacher(selectedMessagesData: string, teacherSessionId: string): boolean {
-    const resp = this.callString(() => {
-      return window.AndroidBridge?.forwardAiChatToTeacher?.(selectedMessagesData, teacherSessionId)
+    console.log('[AndroidBridge] 📤 forwardAiChatToTeacher() - 开始调用')
+    console.log('[AndroidBridge] 📤 参数:', {
+      selectedMessagesDataLength: selectedMessagesData.length,
+      selectedMessagesDataPreview: selectedMessagesData.substring(0, 200) + '...',
+      teacherSessionId: teacherSessionId,
     })
     
-    const result = this.parseJSON<{ success: boolean }>(resp, { success: false })
-    
-    return result.success
+    try {
+      const resp = this.callString(() => {
+        console.log('[AndroidBridge] 🔄 调用 window.AndroidBridge.forwardAiChatToTeacher')
+        const nativeResult = window.AndroidBridge?.forwardAiChatToTeacher?.(selectedMessagesData, teacherSessionId)
+        console.log('[AndroidBridge] 📊 原生方法返回:', nativeResult, '类型:', typeof nativeResult)
+        return nativeResult
+      })
+      
+      console.log('[AndroidBridge] 📊 callString 返回的响应:', resp, '类型:', typeof resp)
+      
+      const result = this.parseJSON<{ success: boolean }>(resp, { success: false })
+      
+      console.log('[AndroidBridge] 📊 解析后的结果:', result)
+      console.log('[AndroidBridge] ✅ 最终返回:', result.success)
+      
+      return result.success
+    } catch (error) {
+      console.error('[AndroidBridge] ❌ forwardAiChatToTeacher 异常:', error)
+      console.error('[AndroidBridge] ❌ 错误堆栈:', error instanceof Error ? error.stack : '无堆栈信息')
+      return false
+    }
   }
 
   /**

@@ -346,6 +346,20 @@ onMounted(async () => {
   // 第3步：确保 IndexedDB 已初始化，然后检查教材更新状态
   // getUserLocalTextbooks 内部会检查并初始化 IndexedDB，所以直接调用即可
   await checkResourceUpdates()
+  
+  // 第4步：监听悬浮FAB按钮的action事件（来自系统级悬浮按钮服务）
+  window.addEventListener('floating-fab-action', (event: Event) => {
+    const customEvent = event as CustomEvent<{ action: string }>
+    const action = customEvent.detail?.action
+    
+    console.log('📡 [MainView] 收到 floating-fab-action 事件:', action)
+    
+    if (action === 'openDraft') {
+      handleDraftClick()
+    } else if (action === 'openAIChat') {
+      handleAIChatClick()
+    }
+  })
 })
 
 // 处理草稿本点击

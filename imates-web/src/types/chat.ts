@@ -117,6 +117,7 @@ export interface ChatMessageProps {
   isSelected?: boolean
   isSelectionMode?: boolean
   messageIndex?: number
+  isLastMessage?: boolean // 是否是最后一条消息
 }
 
 /** StreamingMessage Props接口 */

@@ -415,7 +415,7 @@ const eraserSizePresets = computed(() => [
   { value: 25, label: '大', icon: eraserLargeIcon },
 ])
 
-// 橡皮擦模式固定为整笔擦除模式（已移除像素擦除）
+// 橡皮擦模式固定为整笔擦除模式
 
 // 获取教材名称（从路由参数）
 // const textbookName = computed(() => {

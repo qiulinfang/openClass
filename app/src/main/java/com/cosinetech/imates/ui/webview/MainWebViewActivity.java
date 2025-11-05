@@ -18,6 +18,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.ui.webview.common.WebAppInterface;
 import com.cosinetech.imates.ui.webview.common.WebViewConfig;
@@ -47,6 +48,9 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
     
     // 页面URL配置
     private String webAppUrl = "file:///android_asset/webapp/index.html"; // 默认加载Vue.js整体应用
+    
+    // 悬浮FAB按钮action参数
+    private String floatingFabAction = null;
     
     // 键盘检测相关
     private int previousKeyboardHeight = 0;
@@ -97,6 +101,12 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
         String customUrl = getIntent().getStringExtra("web_app_url");
         if (customUrl != null && !customUrl.isEmpty()) {
             webAppUrl = customUrl;
+        }
+        
+        // 获取悬浮FAB按钮的action参数
+        floatingFabAction = getIntent().getStringExtra("floating_fab_action");
+        if (floatingFabAction != null) {
+            Log.d(TAG, "收到悬浮FAB按钮action: " + floatingFabAction);
         }
         
         Log.d(TAG, "加载URL: " + webAppUrl);
@@ -582,6 +592,65 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
         // 自动初始化MessagingManager（类似FloatingRobotService的做法）
         // 这样Vue在应用启动时就可以使用，不需要等到用户进入聊天页面
         initMessagingManagerOnStartup();
+        
+        // 启动系统级悬浮FAB按钮服务（在Web应用就绪后启动，确保功能完全准备好）
+        startFloatingFabServiceWhenReady();
+        
+        // 如果有悬浮FAB按钮的action参数，触发CustomEvent
+        if (floatingFabAction != null && !floatingFabAction.isEmpty()) {
+            // 延迟触发，确保Vue完全初始化
+            webView.postDelayed(() -> {
+                dispatchFloatingFabActionEvent(floatingFabAction);
+                // 清除action，避免重复触发
+                floatingFabAction = null;
+            }, 500);
+        }
+    }
+    
+    /**
+     * 在Web应用就绪后启动悬浮FAB按钮服务
+     * 确保Web应用和Vue完全初始化后再启动，避免点击功能时功能未准备好
+     */
+    private void startFloatingFabServiceWhenReady() {
+        ApplicationModelShared app = (ApplicationModelShared) getApplication();
+        app.startFloatingFabService();
+        Log.d(TAG, "已尝试启动悬浮FAB按钮服务（Web应用就绪后）");
+    }
+    
+    /**
+     * 触发悬浮FAB按钮action事件到WebView
+     */
+    private void dispatchFloatingFabActionEvent(String action) {
+        runOnUiThread(() -> {
+            try {
+                // 构造事件详情
+                org.json.JSONObject detailObj = new org.json.JSONObject();
+                detailObj.put("action", action);
+                
+                String detailJson = detailObj.toString();
+                Log.d(TAG, "准备触发 floating-fab-action 事件，detail: " + detailJson);
+                
+                // 使用单引号包裹JSON字符串，避免双引号冲突
+                String jsCode = 
+                    "javascript:(function() {" +
+                    "  try {" +
+                    "    var detailStr = '" + detailJson.replace("'", "\\'") + "';" +
+                    "    var detail = JSON.parse(detailStr);" +
+                    "    var event = new CustomEvent('floating-fab-action', { detail: detail });" +
+                    "    window.dispatchEvent(event);" +
+                    "    console.log('📡 [Android] 触发 floating-fab-action 事件', detail);" +
+                    "  } catch(e) {" +
+                    "    console.error('📡 [Android] 触发事件失败:', e);" +
+                    "  }" +
+                    "})()";
+                
+                webView.evaluateJavascript(jsCode, null);
+                Log.d(TAG, "已触发 floating-fab-action 事件");
+            } catch (Exception e) {
+                Log.e(TAG, "触发WebView事件失败", e);
+                e.printStackTrace();
+            }
+        });
     }
     
     /**

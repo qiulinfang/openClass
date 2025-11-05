@@ -1189,15 +1189,30 @@ export class ApiService {
     selectedMessagesData: string,
     teacherSessionId: string,
   ): Promise<boolean> {
+    console.log('[ApiService] 📤 forwardAiChatToTeacher() - 开始调用')
+    console.log('[ApiService] 📤 参数:', {
+      selectedMessagesDataLength: selectedMessagesData.length,
+      selectedMessagesDataPreview: selectedMessagesData.substring(0, 200) + '...',
+      teacherSessionId: teacherSessionId,
+    })
+    
     try {
       // 使用AndroidBridge封装方法
       if (typeof window !== 'undefined' && window.AndroidBridge?.forwardAiChatToTeacher) {
+        console.log('[ApiService] ✅ AndroidBridge 可用，开始调用 androidBridge.forwardAiChatToTeacher')
         const result = this.androidBridge.forwardAiChatToTeacher(selectedMessagesData, teacherSessionId)
+        console.log('[ApiService] 📊 androidBridge.forwardAiChatToTeacher 返回结果:', result)
         return result
+      } else {
+        console.error('[ApiService] ❌ AndroidBridge 不可用或 forwardAiChatToTeacher 方法不存在')
+        console.error('[ApiService] ❌ window 类型:', typeof window)
+        console.error('[ApiService] ❌ window.AndroidBridge 存在:', typeof window !== 'undefined' && !!window.AndroidBridge)
+        console.error('[ApiService] ❌ forwardAiChatToTeacher 方法存在:', typeof window !== 'undefined' && !!window.AndroidBridge?.forwardAiChatToTeacher)
+        return false
       }
-
-      return false
     } catch (error) {
+      console.error('[ApiService] ❌ forwardAiChatToTeacher 异常:', error)
+      console.error('[ApiService] ❌ 错误堆栈:', error instanceof Error ? error.stack : '无堆栈信息')
       return false
     }
   }
@@ -2498,7 +2513,7 @@ export class ApiService {
       // 流程：确保资源URL格式正确（以/开头的相对路径）
       const resourceUrl = resource.fileUrl.startsWith('/') ? resource.fileUrl : `/${resource.fileUrl}`
       
-      // 流程：使用httpClient下载文件（此方法已废弃，建议使用downloadSingleFileStreaming）
+      // 流程：使用httpClient下载文件
       const response = await httpClient.downloadStream(resourceUrl, {})
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)

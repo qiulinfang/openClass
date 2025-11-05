@@ -793,6 +793,244 @@ public class WebAppInterface {
     }
 
     /**
+     * 转发AI对话记录给老师
+     * 第1步：验证用户登录
+     * 第2步：检查RabbitMQ连接状态
+     * 第3步：解析消息列表JSON
+     * 第4步：遍历消息列表，根据类型发送
+     * 第5步：返回结果
+     */
+    @JavascriptInterface
+    public String forwardAiChatToTeacher(String selectedMessagesData, String teacherSessionId) {
+        String userId = null;
+        
+        try {
+            Log.d(TAG, "forwardAiChatToTeacher: 开始转发AI对话记录");
+            Log.d(TAG, "forwardAiChatToTeacher: selectedMessagesData长度=" + 
+                    (selectedMessagesData != null ? selectedMessagesData.length() : 0) + 
+                    ", teacherSessionId=" + teacherSessionId);
+
+            // 第1步：验证用户登录
+            userId = AppUtils.getUserId();
+            if (userId == null || userId.isEmpty()) {
+                Log.e(TAG, "forwardAiChatToTeacher: 用户未登录");
+                return createResponse(false, "用户未登录", null);
+            }
+            Log.d(TAG, "forwardAiChatToTeacher: userId=" + userId);
+
+            // 第2步：检查RabbitMQ连接状态
+            MessagingManager messagingManager = MessagingManager.getInstance();
+            
+            boolean initialized = messagingManager.isInitialized();
+            Log.d(TAG, "forwardAiChatToTeacher: MessagingManager初始化状态检查");
+            Log.d(TAG, "forwardAiChatToTeacher: isInitialized()=" + initialized);
+            
+            if (!initialized) {
+                Log.w(TAG, "forwardAiChatToTeacher: MessagingManager未初始化，检查是否正在初始化中");
+                
+                boolean connecting = messagingManager.isConnecting();
+                if (connecting) {
+                    Log.d(TAG, "forwardAiChatToTeacher: MessagingManager正在初始化中，等待完成");
+                    int waitCount = 0;
+                    int maxWait = 100; // 100次 * 100ms = 10秒
+                    while ((messagingManager.isConnecting() || !messagingManager.isInitialized()) && waitCount < maxWait) {
+                        Thread.sleep(100);
+                        waitCount++;
+                        if (waitCount % 20 == 0) {
+                            Log.d(TAG, "forwardAiChatToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100) + "ms)");
+                        }
+                    }
+                    
+                    if (messagingManager.isInitialized()) {
+                        Log.d(TAG, "forwardAiChatToTeacher: 等待初始化成功，等待耗时=" + (waitCount * 100) + "ms");
+                    } else {
+                        Log.w(TAG, "forwardAiChatToTeacher: 等待初始化超时（10秒）");
+                        return createResponse(false, "RabbitMQ连接正在初始化中，请稍后重试", null);
+                    }
+                } else {
+                    if (mContext != null && userId != null && !userId.isEmpty()) {
+                        try {
+                            Log.d(TAG, "forwardAiChatToTeacher: 开始自动初始化MessagingManager, userId=" + userId);
+                            messagingManager.initialize(mContext, userId);
+                            
+                            int waitCount = 0;
+                            int maxWait = 100;
+                            while (!messagingManager.isInitialized() && waitCount < maxWait) {
+                                Thread.sleep(100);
+                                waitCount++;
+                                if (waitCount % 20 == 0) {
+                                    Log.d(TAG, "forwardAiChatToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100) + "ms)");
+                                }
+                            }
+                            
+                            if (messagingManager.isInitialized()) {
+                                Log.d(TAG, "forwardAiChatToTeacher: 自动初始化成功，等待耗时=" + (waitCount * 100) + "ms");
+                            } else {
+                                Log.w(TAG, "forwardAiChatToTeacher: 自动初始化超时（10秒）");
+                                return createResponse(false, "RabbitMQ连接正在初始化中，请稍后重试", null);
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "forwardAiChatToTeacher: 自动初始化失败", e);
+                            return createResponse(false, "RabbitMQ连接初始化失败: " + e.getMessage(), null);
+                        }
+                    } else {
+                        Log.e(TAG, "forwardAiChatToTeacher: 无法自动初始化");
+                        return createResponse(false, "RabbitMQ连接未初始化，请稍后重试", null);
+                    }
+                }
+            }
+            
+            Log.d(TAG, "forwardAiChatToTeacher: MessagingManager已初始化，可以发送消息");
+
+            // 第3步：解析消息列表JSON
+            JSONArray messagesArray;
+            try {
+                messagesArray = new JSONArray(selectedMessagesData);
+                Log.d(TAG, "forwardAiChatToTeacher: 解析消息列表成功，消息数量=" + messagesArray.length());
+            } catch (JSONException e) {
+                Log.e(TAG, "forwardAiChatToTeacher: 解析消息列表JSON失败", e);
+                return createResponse(false, "消息格式错误: " + e.getMessage(), null);
+            }
+
+            if (messagesArray.length() == 0) {
+                Log.w(TAG, "forwardAiChatToTeacher: 消息列表为空");
+                return createResponse(false, "消息列表为空", null);
+            }
+
+            // 第4步：从会话ID获取学科信息（从localStorage获取，这里简化处理，默认使用数学）
+            // 注意：如果需要从会话中获取subject，需要访问会话存储
+            // 这里先使用默认值，后续可以优化
+            String subject = "math"; // 默认数学
+            
+            // 尝试从Android的SharedPreferences获取当前教师科目
+            try {
+                android.content.SharedPreferences prefs = mContext.getSharedPreferences("imates_prefs", android.content.Context.MODE_PRIVATE);
+                String teacherSubjectPref = prefs.getString(userId + "_currentTeacherSubject", "MATH");
+                if ("BIOLOGY".equals(teacherSubjectPref)) {
+                    subject = "biology";
+                } else {
+                    subject = "math";
+                }
+                Log.d(TAG, "forwardAiChatToTeacher: 从SharedPreferences获取学科=" + subject);
+            } catch (Exception e) {
+                Log.w(TAG, "forwardAiChatToTeacher: 获取学科失败，使用默认值math", e);
+            }
+
+            // 第5步：遍历消息列表，根据类型发送
+            int successCount = 0;
+            int failCount = 0;
+            StringBuilder errorMessages = new StringBuilder();
+
+            for (int i = 0; i < messagesArray.length(); i++) {
+                try {
+                    JSONObject message = messagesArray.getJSONObject(i);
+                    String messageType = message.optString("type", "TEXT");
+                    String content = message.optString("content", "");
+                    
+                    Log.d(TAG, "forwardAiChatToTeacher: 处理消息 " + (i + 1) + "/" + messagesArray.length() + 
+                            ", type=" + messageType + ", contentLength=" + content.length());
+
+                    String result;
+                    
+                    if ("TEXT".equals(messageType)) {
+                        // 文本消息
+                        result = sendTextMessageToTeacher(content, teacherSessionId, subject);
+                        JSONObject resultObj = new JSONObject(result);
+                        if (resultObj.optBoolean("success", false)) {
+                            successCount++;
+                            Log.d(TAG, "forwardAiChatToTeacher: 文本消息转发成功");
+                        } else {
+                            failCount++;
+                            String error = resultObj.optString("message", "未知错误");
+                            errorMessages.append("消息").append(i + 1).append(": ").append(error).append("; ");
+                            Log.e(TAG, "forwardAiChatToTeacher: 文本消息转发失败 - " + error);
+                        }
+                    } else if ("IMAGE".equals(messageType)) {
+                        // 图片消息 - 需要从content中提取图片路径或base64
+                        // 如果content是base64数据URL，直接使用；如果是文件路径，需要读取文件
+                        String imagePath = content;
+                        result = sendPictureToTeacher(imagePath, teacherSessionId, subject);
+                        JSONObject resultObj = new JSONObject(result);
+                        if (resultObj.optBoolean("success", false)) {
+                            successCount++;
+                            Log.d(TAG, "forwardAiChatToTeacher: 图片消息转发成功");
+                        } else {
+                            failCount++;
+                            String error = resultObj.optString("message", "未知错误");
+                            errorMessages.append("消息").append(i + 1).append(": ").append(error).append("; ");
+                            Log.e(TAG, "forwardAiChatToTeacher: 图片消息转发失败 - " + error);
+                        }
+                    } else if ("VOICE".equals(messageType)) {
+                        // 语音消息 - 需要从content中提取语音路径和时长
+                        // 注意：前端传递的content格式可能需要解析
+                        // 这里假设content是文件路径，duration从消息中获取
+                        String voicePath = content;
+                        String duration = message.optString("duration", "0");
+                        result = sendVoiceMessageToTeacher(voicePath, duration, teacherSessionId, subject);
+                        JSONObject resultObj = new JSONObject(result);
+                        if (resultObj.optBoolean("success", false)) {
+                            successCount++;
+                            Log.d(TAG, "forwardAiChatToTeacher: 语音消息转发成功");
+                        } else {
+                            failCount++;
+                            String error = resultObj.optString("message", "未知错误");
+                            errorMessages.append("消息").append(i + 1).append(": ").append(error).append("; ");
+                            Log.e(TAG, "forwardAiChatToTeacher: 语音消息转发失败 - " + error);
+                        }
+                    } else {
+                        failCount++;
+                        String error = "不支持的消息类型: " + messageType;
+                        errorMessages.append("消息").append(i + 1).append(": ").append(error).append("; ");
+                        Log.e(TAG, "forwardAiChatToTeacher: " + error);
+                    }
+                    
+                    // 每条消息之间稍作延迟，避免发送过快
+                    if (i < messagesArray.length() - 1) {
+                        Thread.sleep(50);
+                    }
+                    
+                } catch (JSONException e) {
+                    failCount++;
+                    String error = "解析消息失败: " + e.getMessage();
+                    errorMessages.append("消息").append(i + 1).append(": ").append(error).append("; ");
+                    Log.e(TAG, "forwardAiChatToTeacher: 解析消息失败", e);
+                } catch (InterruptedException e) {
+                    Log.e(TAG, "forwardAiChatToTeacher: 等待被中断", e);
+                    Thread.currentThread().interrupt();
+                    failCount++;
+                    errorMessages.append("消息").append(i + 1).append(": 等待被中断; ");
+                } catch (Exception e) {
+                    failCount++;
+                    String error = "处理消息失败: " + e.getMessage();
+                    errorMessages.append("消息").append(i + 1).append(": ").append(error).append("; ");
+                    Log.e(TAG, "forwardAiChatToTeacher: 处理消息失败", e);
+                }
+            }
+
+            // 第6步：返回结果
+            if (failCount == 0) {
+                Log.d(TAG, "forwardAiChatToTeacher: 所有消息转发成功，共" + successCount + "条");
+                return createResponse(true, "所有消息转发成功，共" + successCount + "条", null);
+            } else if (successCount > 0) {
+                Log.w(TAG, "forwardAiChatToTeacher: 部分消息转发成功，成功" + successCount + "条，失败" + failCount + "条");
+                return createResponse(false, "部分消息转发失败（成功" + successCount + "条，失败" + failCount + "条）: " + 
+                        errorMessages.toString(), null);
+            } else {
+                Log.e(TAG, "forwardAiChatToTeacher: 所有消息转发失败");
+                return createResponse(false, "所有消息转发失败: " + errorMessages.toString(), null);
+            }
+
+        } catch (InterruptedException e) {
+            Log.e(TAG, "forwardAiChatToTeacher: 等待被中断", e);
+            Thread.currentThread().interrupt();
+            return createResponse(false, "转发被中断: " + e.getMessage(), null);
+        } catch (Exception e) {
+            Log.e(TAG, "forwardAiChatToTeacher: 转发异常", e);
+            return createResponse(false, "转发失败: " + e.getMessage(), null);
+        }
+    }
+
+    /**
      * 设置老师消息接收回调
      * 当收到老师回复时，会调用JavaScript中的回调函数
      */

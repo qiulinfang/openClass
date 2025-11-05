@@ -8,112 +8,71 @@
     :min-height="400"
   >
     <div class="unified-chat-content">
-      <!-- 左侧聊天记录（分类展示） -->
+      <!-- 左侧聊天记录（树形结构） -->
       <div class="left-panel">
-        <!-- 分类切换标签 -->
-        <div class="category-tabs">
-          <q-tabs 
-            v-model="activeCategory" 
-            dense 
-            class="text-grey"
-            active-color="primary"
-            indicator-color="primary"
-            align="justify"
-          >
-            <q-tab name="ai" label="AI聊天" icon="smart_toy" />
-            <q-tab name="teacher" label="教师答疑" icon="school" />
-          </q-tabs>
-        </div>
-
-        <!-- AI聊天会话列表 -->
-        <div v-show="activeCategory === 'ai'" class="session-list-container">
-          <SessionList 
-            ref="aiSessionListRef"
-            :records="aiRecords"
-            :selected-record-id="aiGeneralStore.currentSession?.sessionId"
-            title="AI聊天记录"
-            @record-click="handleAiRecordClick"
-            @record-rename="handleAiRecordRename"
-            @record-pin="handleAiRecordPin"
-            @record-delete="handleAiRecordDelete"
-            @batch-delete="handleAiBatchDelete"
-          >
-            <template #header-actions>
-              <q-btn
-                v-if="isDev"
-                flat
-                round
-                dense
-                icon="bug_report"
-                color="orange"
-                size="sm"
-                class="debug-btn"
-                @click="showDebugPanel = true"
-              >
-                <q-tooltip>调试面板</q-tooltip>
-              </q-btn>
-              <q-btn
-                flat
-                round
-                dense
-                icon="add"
-                color="primary"
-                size="sm"
-                class="new-chat-btn"
-                :disable="!aiGeneralStore.canCreateSession"
-                @click="handleAiNewChatClick"
-              >
-                <q-tooltip>
-                  {{
-                    aiGeneralStore.canCreateSession
-                      ? '新增对话'
-                      : aiGeneralStore.isCreatingSession
-                        ? '创建中...'
-                        : '请先在当前会话中发送消息'
-                  }}
-                </q-tooltip>
-              </q-btn>
-            </template>
-          </SessionList>
-        </div>
-
-        <!-- 教师答疑会话列表 -->
-        <div v-show="activeCategory === 'teacher'" class="session-list-container">
-          <SessionList 
-            ref="teacherSessionListRef"
-            :records="teacherRecords"
-            :selected-record-id="teacherSessionId"
-            title="教师答疑记录"
-            :show-favorite="false"
-            @record-click="handleTeacherRecordClick"
-            @record-delete="handleTeacherRecordDelete"
-            @batch-delete="handleTeacherBatchDelete"
-          >
-            <template #header-actions>
-              <q-btn 
-                flat 
-                dense 
-                round 
-                icon="refresh" 
-                size="sm" 
-                @click="loadTeacherSessions"
-              >
-                <q-tooltip>刷新列表</q-tooltip>
-              </q-btn>
-              <q-btn 
-                flat 
-                dense 
-                round 
-                icon="add" 
-                color="primary"
-                size="sm" 
-                @click="handleTeacherNewChat"
-              >
-                <q-tooltip>新增对话</q-tooltip>
-              </q-btn>
-            </template>
-          </SessionList>
-        </div>
+        <SessionTree
+          ref="sessionTreeRef"
+          :ai-sessions="aiGeneralStore.sessions"
+          :teacher-sessions="teacherSessions"
+          :selected-ai-session-id="aiGeneralStore.currentSession?.sessionId"
+          :selected-teacher-session-id="teacherSessionId"
+          title="聊天记录"
+          @ai-session-click="handleAiSessionClick"
+          @teacher-session-click="handleTeacherSessionClick"
+          @ai-session-rename="handleAiSessionRename"
+          @ai-session-pin="handleAiSessionPin"
+          @ai-session-delete="handleAiSessionDelete"
+          @teacher-session-delete="handleTeacherSessionDelete"
+          @ai-new-chat="handleAiNewChatClick"
+          @teacher-new-chat="handleTeacherNewChat"
+        >
+          <template #header-actions>
+            <q-btn
+              v-if="isDev"
+              flat
+              round
+              dense
+              icon="bug_report"
+              color="orange"
+              size="sm"
+              class="debug-btn"
+              @click="showDebugPanel = true"
+            >
+              <q-tooltip>调试面板</q-tooltip>
+            </q-btn>
+            <q-btn
+              flat
+              round
+              dense
+              icon="add"
+              color="primary"
+              size="sm"
+              class="new-chat-btn"
+              :disable="!aiGeneralStore.canCreateSession"
+              @click="handleAiNewChatClick"
+            >
+              <q-tooltip>
+                {{
+                  aiGeneralStore.canCreateSession
+                    ? '新增AI对话'
+                    : aiGeneralStore.isCreatingSession
+                      ? '创建中...'
+                      : '请先在当前会话中发送消息'
+                }}
+              </q-tooltip>
+            </q-btn>
+            <q-btn 
+              flat 
+              dense 
+              round 
+              icon="refresh" 
+              size="sm" 
+              @click="loadTeacherSessions"
+            >
+              <q-tooltip>刷新列表</q-tooltip>
+            </q-btn>
+          </template>
+        </SessionTree>
       </div>
 
       <!-- 右侧聊天界面 -->
@@ -131,7 +90,7 @@
           :key="teacherSessionId"
         />
         <!-- 空状态 -->
-        <div v-else-if="activeCategory === 'teacher' && !teacherSessionId" class="empty-chat">
+        <div v-else class="empty-chat">
           <q-icon name="chat" size="64px" color="grey-4" />
           <div class="text-grey-6 q-mt-md">请选择或创建一个会话</div>
         </div>
@@ -144,17 +103,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { useUserStore } from '@/stores/userStore'
 import { showMessage } from '@/utils'
 import { getCurrentUserIdOrDefault } from '@/utils/userId'
 import DraggableDialog from './DraggableDialog.vue'
-import SessionList from './SessionList.vue'
+import SessionTree from './SessionTree.vue'
 import ChatView from './ChatView.vue'
 import ChatSessionDebugPanel from './debug/ChatSessionDebugPanel.vue'
-import type { QuestionRecord, AiGeneralSession } from '@/types'
+import type { AiGeneralSession } from '@/types'
+import type { TeacherSession } from '@/stores/teacherChatStore'
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
@@ -182,61 +142,43 @@ const aiGeneralStore = useAiGeneralChatStore()
 const teacherStore = useTeacherChatStore()
 const userStore = useUserStore()
 
+// SessionTree 组件引用
+const sessionTreeRef = ref<InstanceType<typeof SessionTree> | null>(null)
+
 // ==================== 响应式数据 ====================
 const localVisible = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', value)
 })
 
+// 当前激活的分类（根据选中的会话自动判断）
 const activeCategory = ref<'ai' | 'teacher'>(props.initialCategory)
 const showDebugPanel = ref(false)
 
-// AI会话相关
-const aiSessionListRef = ref<InstanceType<typeof SessionList> | null>(null)
-
 // 教师会话相关
 const teacherSessionId = ref<string>('')
-const teacherSessionListRef = ref<InstanceType<typeof SessionList> | null>(null)
-const teacherSessions = ref<Array<{
-  sessionId: string
-  sessionName: string
-  subject: string
-  createTime: number
-}>>([])
-
-// ==================== 计算属性 ====================
-
-// AI聊天记录
-const aiRecords = computed<QuestionRecord[]>(() => {
-  return aiGeneralStore.sessions.map((session: AiGeneralSession) => ({
-    id: session.sessionId,
-    question: session.sessionName,
-    answer: '',
-    timestamp: session.updateTime,
-    pinned: session.pinned || false,
-  }))
-})
-
-// 教师答疑记录
-const teacherRecords = computed<QuestionRecord[]>(() => {
-  return teacherSessions.value.map(session => ({
-    id: session.sessionId,
-    question: session.sessionName,
-    answer: session.subject === 'biology' ? '生物老师' : '数学老师',
-    timestamp: session.createTime,
-    pinned: false
-  }))
-})
+const teacherSessions = ref<TeacherSession[]>([])
 
 // ==================== AI聊天相关方法 ====================
 
-// 处理AI记录点击
-const handleAiRecordClick = async (record: QuestionRecord) => {
-  await aiGeneralStore.switchSession(record.id)
+// 处理AI会话点击
+const handleAiSessionClick = async (sessionId: string) => {
+  await aiGeneralStore.switchSession(sessionId)
+  activeCategory.value = 'ai'
 }
 
 // 处理AI新增对话
 const handleAiNewChatClick = async () => {
+    // 根据当前选中的节点类型来决定创建哪种类型的对话
+  const selectedCategory = sessionTreeRef.value?.getSelectedCategory()
+  
+  if (selectedCategory === 'biology' || selectedCategory === 'math') {
+    // 如果选中的是教师分类，创建对应科目的教师对话
+    await handleTeacherNewChat(selectedCategory)
+    return
+  }
+  
+  // 默认创建AI对话
   if (!aiGeneralStore.canCreateSession) {
     if (!aiGeneralStore.isCreatingSession) {
       showMessage('请先在当前会话中发送消息', 'warning')
@@ -244,14 +186,15 @@ const handleAiNewChatClick = async () => {
     return
   }
   aiGeneralStore.resetState()
+  activeCategory.value = 'ai'
 }
 
-// 处理AI记录重命名
-const handleAiRecordRename = async (record: QuestionRecord, newName: string) => {
+// 处理AI会话重命名
+const handleAiSessionRename = async (sessionId: string, newName: string) => {
   try {
-    await aiGeneralStore.renameSession(record.id, newName)
+    await aiGeneralStore.renameSession(sessionId, newName)
     const index = aiGeneralStore.sessions.findIndex(
-      (s: AiGeneralSession) => s.sessionId === record.id,
+      (s: AiGeneralSession) => s.sessionId === sessionId,
     )
     if (index >= 0) {
       aiGeneralStore.sessions[index].sessionName = newName
@@ -262,37 +205,28 @@ const handleAiRecordRename = async (record: QuestionRecord, newName: string) => 
   }
 }
 
-// 处理AI记录置顶
-const handleAiRecordPin = async (record: QuestionRecord) => {
+// 处理AI会话置顶
+const handleAiSessionPin = async (sessionId: string) => {
   try {
-    await aiGeneralStore.togglePin(record.id)
+    await aiGeneralStore.togglePin(sessionId)
   } catch (error) {
     console.error('置顶操作失败:', error)
     showMessage('操作失败', 'error')
   }
 }
 
-// 处理AI记录删除
-const handleAiRecordDelete = async (record: QuestionRecord) => {
+// 处理AI会话删除
+const handleAiSessionDelete = async (sessionId: string) => {
   try {
-    await aiGeneralStore.deleteSession(record.id)
+    await aiGeneralStore.deleteSession(sessionId)
     showMessage('删除成功', 'success')
+    // 如果删除的是当前会话，切换到AI分类
+    if (aiGeneralStore.currentSession?.sessionId === sessionId) {
+      activeCategory.value = 'ai'
+    }
   } catch (error) {
     console.error('删除失败:', error)
     showMessage('删除失败', 'error')
-  }
-}
-
-// 处理AI批量删除
-const handleAiBatchDelete = async (recordIds: string[]) => {
-  try {
-    for (const id of recordIds) {
-      await aiGeneralStore.deleteSession(id)
-    }
-    showMessage(`已删除 ${recordIds.length} 个会话`, 'success')
-  } catch (error) {
-    console.error('批量删除失败:', error)
-    showMessage('批量删除失败', 'error')
   }
 }
 
@@ -306,7 +240,7 @@ const loadTeacherSessions = () => {
   const userId = getCurrentUserIdOrDefault()
   const sessionPrefix = `${userId}_teacher_chat_`
   
-  const sessions: typeof teacherSessions.value = []
+  const sessions: TeacherSession[] = []
   const sessionIds = new Set<string>()
   
   // 第2步：遍历localStorage查找所有教师会话（仅当前用户）
@@ -360,33 +294,38 @@ const loadTeacherSessions = () => {
   console.log('[UnifiedChatDialog] ✅ loadTeacherSessions() - 加载完成:', sessions.length)
 }
 
-// 处理教师记录点击
-const handleTeacherRecordClick = async (record: QuestionRecord) => {
-  const session = teacherSessions.value.find(s => s.sessionId === record.id)
+// 处理教师会话点击
+const handleTeacherSessionClick = async (sessionId: string, subject: string) => {
+  const session = teacherSessions.value.find(s => s.sessionId === sessionId)
   if (!session) return
   
   teacherSessionId.value = session.sessionId
   
   const userId = getCurrentUserIdOrDefault()
-  const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
+  const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
   localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
   
   teacherStore.setSession(session)
   await teacherStore.loadChatHistory(session.sessionId)
   
+  activeCategory.value = 'teacher'
+  
   console.log('[UnifiedChatDialog] ✅ 选择教师会话:', session.sessionId)
 }
 
-// 处理教师记录删除
-const handleTeacherRecordDelete = async (record: QuestionRecord) => {
+// 处理教师会话删除
+const handleTeacherSessionDelete = async (sessionId: string) => {
   try {
-    localStorage.removeItem(`teacher_chat_${record.id}_session`)
-    await teacherStore.clearChatHistory(record.id)
+    const userId = getCurrentUserIdOrDefault()
+    const sessionPrefix = `${userId}_teacher_chat_`
+    localStorage.removeItem(`${sessionPrefix}${sessionId}_session`)
+    await teacherStore.clearChatHistory(sessionId)
     loadTeacherSessions()
     
-    if (teacherSessionId.value === record.id) {
+    if (teacherSessionId.value === sessionId) {
       teacherSessionId.value = ''
       teacherStore.clearSession()
+      activeCategory.value = 'ai' // 删除后切换到AI分类
     }
     
     showMessage('会话已删除', 'success')
@@ -396,45 +335,9 @@ const handleTeacherRecordDelete = async (record: QuestionRecord) => {
   }
 }
 
-// 处理教师批量删除
-const handleTeacherBatchDelete = async (recordIds: string[]) => {
-  try {
-    let successCount = 0
-    let failedCount = 0
-    
-    for (const id of recordIds) {
-      try {
-        localStorage.removeItem(`teacher_chat_${id}_session`)
-        await teacherStore.clearChatHistory(id)
-        
-        if (teacherSessionId.value === id) {
-          teacherSessionId.value = ''
-          teacherStore.clearSession()
-        }
-        
-        successCount++
-      } catch (error) {
-        console.error(`删除会话 ${id} 失败:`, error)
-        failedCount++
-      }
-    }
-    
-    loadTeacherSessions()
-    
-    if (failedCount === 0) {
-      showMessage(`已删除 ${successCount} 个会话`, 'success')
-    } else {
-      showMessage(`成功删除 ${successCount} 个，失败 ${failedCount} 个`, 'warning')
-    }
-  } catch (error) {
-    console.error('批量删除失败:', error)
-    showMessage('批量删除失败，请重试', 'error')
-  }
-}
-
 // 处理教师新建对话
-const handleTeacherNewChat = async () => {
-  await createTeacherSession(props.initialTeacherSubject)
+const handleTeacherNewChat = async (subject: 'biology' | 'math') => {
+  await createTeacherSession(subject || props.initialTeacherSubject)
 }
 
 // 创建教师会话（供外部调用）
@@ -473,12 +376,6 @@ const createTeacherSession = async (subject: 'biology' | 'math') => {
     
     await teacherStore.initMessageReceiver()
     loadTeacherSessions()
-    
-    await nextTick()
-    
-    if (teacherSessionListRef.value) {
-      teacherSessionListRef.value.scrollToTop()
-    }
     
     emit('session-created', newSessionId, 'teacher')
     
@@ -578,28 +475,6 @@ onUnmounted(async () => {
     flex-direction: column;
     background: #f5f5f5;
     overflow: hidden;
-
-    .category-tabs {
-      background: #fff;
-      border-bottom: 1px solid #e0e0e0;
-      padding: 0 8px;
-
-      :deep(.q-tabs) {
-        min-height: 40px;
-      }
-
-      :deep(.q-tab) {
-        min-height: 40px;
-        font-size: 13px;
-      }
-    }
-
-    .session-list-container {
-      flex: 1;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
   }
   
   .right-panel {

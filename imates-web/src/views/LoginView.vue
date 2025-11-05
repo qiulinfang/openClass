@@ -1,95 +1,66 @@
 <template>
-  <q-layout view="lHh Lpr lFf">
-    <q-page-container>
-      <q-page class="login-page">
-        <div class="login-container">
-          <q-card class="login-card" flat>
-            <q-card-section class="login-header">
-                <div class="text-center">
-                <div class="app-logo">
-                  <q-icon name="school" size="4rem" color="white" class="q-mb-md" />
-                </div>
-                <div class="text-h4 text-weight-bold text-white q-mb-sm">研伴学习助手</div>
-                <div class="text-subtitle1 text-white text-opacity-80">请输入您的账号和密码开始学习之旅</div>
-              </div>
-            </q-card-section>
-            
-            <q-card-section>
-              <q-form @submit.prevent="handleLogin" class="login-form">
-                <div class="q-mb-lg">
-                  <q-input
-                    v-model="loginForm.account"
-                    label="账号"
-                    outlined
-                    :error="!!errors.account"
-                    :error-message="errors.account"
-                    placeholder="请输入账号"
-                    @blur="validateAccount"
-                    :rules="[val => !!val || '请输入账号']"
-                    class="q-mb-sm"
-                  >
-                    <template v-slot:prepend>
-                      <q-icon name="person" />
-                    </template>
-                  </q-input>
-                </div>
-                
-                <div class="q-mb-lg">
-                  <q-input
-                    v-model="loginForm.password"
-                    label="密码"
-                    type="password"
-                    outlined
-                    :error="!!errors.password"
-                    :error-message="errors.password"
-                    placeholder="请输入密码"
-                    @blur="validatePassword"
-                    :rules="[val => !!val || '请输入密码']"
-                    class="q-mb-sm"
-                  >
-                    <template v-slot:prepend>
-                      <q-icon name="lock" />
-                    </template>
-                  </q-input>
-                </div>
-                
-                <q-btn
-                  type="submit"
-                  label="登录"
-                  color="primary"
-                  size="lg"
-                  class="full-width q-py-sm"
-                  :loading="isLoading"
-                  :disable="!isFormValid"
-                  unelevated
-                  rounded
-                />
-                
-                <q-banner
-                  v-if="errorMessage"
-                  class="q-mt-md"
-                  dense
-                  type="negative"
-                  rounded
-                >
-                  <template v-slot:avatar>
-                    <q-icon name="error" />
-                  </template>
-                  {{ errorMessage }}
-                </q-banner>
-              </q-form>
-            </q-card-section>
-          </q-card>
+  <div class="login-page">
+    <!-- 登录表单容器 -->
+    <div class="login-form-container">
+      <form @submit.prevent="handleLogin" class="login-form">
+        <!-- 用户名输入框 -->
+        <div class="input-wrapper">
+          <div class="input-container">
+            <img :src="loginUserIdIconUrl" alt="用户名" class="input-icon" />
+            <input
+              v-model="loginForm.account"
+              type="text"
+              class="login-input"
+              placeholder="请输入账号"
+              @blur="validateAccount"
+            />
+          </div>
+          <div v-if="errors.account" class="error-message">{{ errors.account }}</div>
         </div>
-      </q-page>
-    </q-page-container>
-  </q-layout>
+
+        <!-- 密码输入框 -->
+        <div class="input-wrapper">
+          <div class="input-container">
+            <img :src="loginPasswordIconUrl" alt="密码" class="input-icon" />
+            <input
+              v-model="loginForm.password"
+              type="password"
+              class="login-input"
+              placeholder="请输入密码"
+              @blur="validatePassword"
+            />
+          </div>
+          <div v-if="errors.password" class="error-message">{{ errors.password }}</div>
+        </div>
+
+        <!-- 登录按钮 -->
+        <button type="submit" class="login-button" :disabled="!isFormValid || isLoading">
+          {{ isLoading ? '登录中...' : '登 录' }}
+        </button>
+
+        <!-- 错误提示 -->
+        <div v-if="errorMessage" class="error-banner">
+          {{ errorMessage }}
+        </div>
+      </form>
+    </div>
+
+    <!-- 版本号显示 -->
+    <div class="version-text" @click="handleVersionClick">
+      {{ appVersion }}
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiService } from '../services/api-service'
+
+// 第1步：导入登录图标图片作为模块资源，确保在webview场景下能正常加载
+// 使用import方式导入，Vite会在构建时处理这些资源并生成正确的路径
+import loginUserIdIconUrl from '@/assets/images/login_user_id_ico.png'
+import loginPasswordIconUrl from '@/assets/images/login_password_ico.png'
 
 const router = useRouter()
 
@@ -105,6 +76,8 @@ const errors = reactive({
 
 const isLoading = ref(false)
 const errorMessage = ref('')
+const versionClickCount = ref(0)
+const appVersion = ref('')
 
 // 第1步：页面加载时从localStorage读取已保存的账号密码
 onMounted(() => {
@@ -120,6 +93,14 @@ onMounted(() => {
     loginForm.account = savedUserId
     loginForm.password = savedPassword
   }
+
+  // 设置版本号（可以从package.json或环境变量获取）
+  appVersion.value = '1.0.0'
+
+  // 重置点击计数（每2秒重置一次）
+  setInterval(() => {
+    versionClickCount.value = 0
+  }, 2000)
 })
 
 const isFormValid = computed(() => {
@@ -142,6 +123,15 @@ const validatePassword = () => {
   }
   errors.password = ''
   return true
+}
+
+const handleVersionClick = () => {
+  versionClickCount.value++
+  if (versionClickCount.value >= 5) {
+    versionClickCount.value = 0
+    // TODO: 实现环境切换功能（如果需要）
+    console.log('环境切换功能待实现')
+  }
 }
 
 const handleLogin = async () => {
@@ -183,75 +173,181 @@ const handleLogin = async () => {
 
 <style scoped>
 .login-page {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  width: 100vw;
+  height: 100vh;
+  background-image: url('/images/login_bg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-form-container {
+  position: absolute;
+  width: 33vw;
+  height: 70vh;
+  /* horizontal_bias="0.9" 意味着偏向右侧90% */
+  /* 使用right定位，容器右边缘距离屏幕右边缘约5% */
+  right: calc((100vw - 33vw) * 0.1);
+  top: 50%;
+  transform: translateY(-50%);
+  background-image: url('/images/login_user_info_bg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  position: relative;
-  overflow: hidden;
-}
-
-.login-page::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
-  animation: float 6s ease-in-out infinite;
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-20px) rotate(180deg); }
-}
-
-.login-container {
-  width: 100%;
-  max-width: 420px;
-  position: relative;
-  z-index: 1;
-}
-
-.login-card {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.login-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 2.5rem 2rem;
-  position: relative;
-}
-
-.login-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 20px;
-  background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.1));
-}
-
-.app-logo {
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
 }
 
 .login-form {
-  padding: 2rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 80px;
+  box-sizing: border-box;
+}
+
+.input-wrapper {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.input-wrapper:first-child {
+  margin-top: 80px;
+}
+
+.input-container {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 12px;
+  width: 20px;
+  height: 20px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.login-input {
+  width: 100%;
+  height: 50px;
+  padding: 12px 12px 12px 40px;
+  box-sizing: border-box;
+  background-color: rgba(255, 255, 255, 0.5);
+  border: 1px solid #555555;
+  border-radius: 8px;
+  color: #000000;
+  font-size: 16px;
+  outline: none;
+}
+
+.login-input::placeholder {
+  color: #AAAAAA;
+}
+
+.login-input:focus {
+  border-color: #667eea;
+}
+
+.error-message {
+  color: #FF0000;
+  font-size: 16px;
+  margin-top: 4px;
+  padding-left: 4px;
+}
+
+.login-button {
+  width: 100%;
+  height: auto;
+  min-height: 50px;
+  margin-top: 20px;
+  background-image: url('/images/login_button_bg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: none;
+  color: #FFFFFF;
+  border-radius: 23px;
+  font-size: 27px;
+  cursor: pointer;
+  padding: 12px 0;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.login-button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.login-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error-banner {
+  margin-top: 20px;
+  padding: 12px;
+  background-color: rgba(255, 0, 0, 0.1);
+  border: 1px solid #FF0000;
+  border-radius: 8px;
+  color: #FF0000;
+  font-size: 14px;
+  text-align: center;
+}
+
+.version-text {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  color: #000000;
+  font-size: 14px;
+  text-align: center;
+  cursor: pointer;
+  white-space: pre-line;
+  user-select: none;
+}
+
+.version-text:hover {
+  opacity: 0.8;
+}
+
+/* 响应式适配 */
+@media (max-width: 1200px) {
+  .login-form-container {
+    width: 40vw;
+    right: 5%;
+  }
+}
+
+@media (max-width: 768px) {
+  .login-form-container {
+    width: 90vw;
+    height: auto;
+    min-height: 60vh;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .login-form {
+    padding: 40px 20px;
+  }
+
+  .input-wrapper:first-child {
+    margin-top: 40px;
+  }
 }
 </style>

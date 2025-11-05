@@ -39,8 +39,6 @@ import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 
-// 注意：底层管理器已删除，相关功能已移除
-
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
@@ -67,8 +65,6 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
-
-// 注意：FormulaNode已删除，相关功能已移除
 
 // 编辑器实例
 const editor = ref<Editor | null>(null)
@@ -104,7 +100,6 @@ const initializeEditor = () => {
           class: 'editor-image',
         },
       }),
-      // 注意：FormulaNode已删除
     ],
     content: props.modelValue,
     editable: props.editable,
@@ -151,16 +146,6 @@ const focusEditor = () => {
   editor.value?.commands.focus()
 }
 
-// 调试函数 - 已删除相关功能
-const debugShowKeyboard = () => {
-}
-
-const debugHideKeyboard = () => {
-}
-
-const debugCreateFormula = async () => {
-}
-
 const debugClearAll = () => {
   // 清空编辑器内容
   editor.value?.commands.clearContent()
@@ -184,7 +169,7 @@ const getMarkdown = (): string => {
   })
 }
 
-// 插入数学公式方法 - 已删除相关功能
+// 插入数学公式方法
 const insertMathFormula = async () => {
 }
 
@@ -198,11 +183,6 @@ defineExpose({
   getHTML: () => editor.value?.getHTML() || '',
   getText: () => editor.value?.getText() || '',
   insertMathFormula,
-  // 调试相关方法 - 已删除
-  hideAllVirtualKeyboards: () => {
-  },
-  deactivateAllFormulas: () => {
-  },
   // 获取编辑器实例（用于调试）
   editor: computed(() => editor.value)
 })
@@ -214,21 +194,15 @@ watch(() => props.modelValue, (newValue) => {
   }
 })
 
-// 移除公式事件监听器（FormulaEventManager已删除）
-
 // 生命周期钩子
 onMounted(() => {
   initializeEditor()
 })
 
 onUnmounted(() => {
-  
   if (editor.value) {
     editor.value.destroy()
   }
-  
-  // 注意：resetAll已删除
-  
 })
 
 // 显式定义组件类型以避免TypeScript编译错误
@@ -325,8 +299,6 @@ defineOptions({
   cursor: pointer;
   vertical-align: baseline;
 }
-
-/* 注意：容器的激活/非激活状态样式已移除，现在完全依靠内部元素（.formula-text-display 和 math-field）来体现状态和间距 */
 
 
 /* 纯文本显示样式 */

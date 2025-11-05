@@ -94,7 +94,7 @@
             </div>
 
             <!-- 长按气泡确认框 -->
-            <q-popup-proxy
+            <q-menu
               v-model="showActionMenu"
               :target="bubbleTarget || undefined"
               :anchor="anchor"
@@ -105,40 +105,38 @@
               @before-show="onMenuShow"
               @before-hide="onMenuHide"
             >
-              <q-card class="action-card">
-                <q-list dense>
-                  <q-item clickable @click="handleCopy">
-                    <q-item-section avatar>
-                      <img :src="copyIcon" alt="复制" style="width: 20px; height: 20px" />
-                    </q-item-section>
-                    <q-item-section>复制</q-item-section>
-                  </q-item>
-                  <q-item clickable @click="handleForward" v-if="canForward">
-                    <q-item-section avatar>
-                      <img :src="shareIcon" alt="转发" style="width: 20px; height: 20px" />
-                    </q-item-section>
-                    <q-item-section>转发</q-item-section>
-                  </q-item>
-                  <q-item clickable @click="handleMultiSelect">
-                    <q-item-section avatar>
-                      <svg
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-                          fill="#9792ac"
-                        />
-                      </svg>
-                    </q-item-section>
-                    <q-item-section>多选</q-item-section>
-                  </q-item>
-                </q-list>
-              </q-card>
-            </q-popup-proxy>
+              <q-list dense class="action-list">
+                <q-item clickable @click="handleCopy">
+                  <q-item-section avatar>
+                    <img :src="copyIcon" alt="复制" style="width: 20px; height: 20px" />
+                  </q-item-section>
+                  <q-item-section>复制</q-item-section>
+                </q-item>
+                <q-item clickable @click="handleForward" v-if="canForward">
+                  <q-item-section avatar>
+                    <img :src="shareIcon" alt="转发" style="width: 20px; height: 20px" />
+                  </q-item-section>
+                  <q-item-section>转发</q-item-section>
+                </q-item>
+                <q-item clickable @click="handleMultiSelect">
+                  <q-item-section avatar>
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                        fill="#9792ac"
+                      />
+                    </svg>
+                  </q-item-section>
+                  <q-item-section>多选</q-item-section>
+                </q-item>
+              </q-list>
+            </q-menu>
           </div>
         </div>
 
@@ -207,7 +205,7 @@
           ></div>
 
           <!-- 长按气泡确认框 -->
-          <q-popup-proxy
+          <q-menu
             v-model="showActionMenu"
             :target="bubbleTarget || undefined"
             :anchor="anchor"
@@ -218,46 +216,44 @@
             @before-show="onMenuShow"
             @before-hide="onMenuHide"
           >
-            <q-card class="action-card">
-              <q-list dense>
-                <q-item clickable @click="handleCopy">
-                  <q-item-section avatar>
-                    <img :src="copyIcon" alt="复制" style="width: 20px; height: 20px" />
-                  </q-item-section>
-                  <q-item-section>复制</q-item-section>
-                </q-item>
-                <q-item clickable @click="handleEdit" v-if="canEdit">
-                  <q-item-section avatar>
-                    <img :src="editIcon" alt="编辑" style="width: 20px; height: 20px" />
-                  </q-item-section>
-                  <q-item-section>编辑</q-item-section>
-                </q-item>
-                <q-item clickable @click="handleForward" v-if="canForward">
-                  <q-item-section avatar>
-                    <img :src="shareIcon" alt="转发" style="width: 20px; height: 20px" />
-                  </q-item-section>
-                  <q-item-section>转发</q-item-section>
-                </q-item>
-                <q-item clickable @click="handleMultiSelect">
-                  <q-item-section avatar>
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-                        fill="#9792ac"
-                      />
-                    </svg>
-                  </q-item-section>
-                  <q-item-section>多选</q-item-section>
-                </q-item>
-              </q-list>
-            </q-card>
-          </q-popup-proxy>
+            <q-list dense class="action-list">
+              <q-item clickable @click="handleCopy">
+                <q-item-section avatar>
+                  <img :src="copyIcon" alt="复制" style="width: 20px; height: 20px" />
+                </q-item-section>
+                <q-item-section>复制</q-item-section>
+              </q-item>
+              <q-item clickable @click="handleEdit" v-if="canEdit">
+                <q-item-section avatar>
+                  <img :src="editIcon" alt="编辑" style="width: 20px; height: 20px" />
+                </q-item-section>
+                <q-item-section>编辑</q-item-section>
+              </q-item>
+              <q-item clickable @click="handleForward" v-if="canForward">
+                <q-item-section avatar>
+                  <img :src="shareIcon" alt="转发" style="width: 20px; height: 20px" />
+                </q-item-section>
+                <q-item-section>转发</q-item-section>
+              </q-item>
+              <q-item clickable @click="handleMultiSelect">
+                <q-item-section avatar>
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                      fill="#9792ac"
+                    />
+                  </svg>
+                </q-item-section>
+                <q-item-section>多选</q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
         </div>
 
         <!-- 功能按钮区域 - 统一区域，使用 v-for 渲染 -->
@@ -306,14 +302,22 @@ import copyIcon from '/icons/copy.svg'
 import editIcon from '/icons/edit.svg'
 import shareIcon from '/icons/share.svg'
 import refreshIcon from '/icons/refresh.svg'
-// 导入类型定义
-import type { ChatMessageProps } from '../../types'
 
-// 定义Props
-const props = withDefaults(defineProps<ChatMessageProps>(), {
+// 定义Props - 直接在组件中定义，确保 Vue 正确识别所有 props
+interface Props {
+  message: ChatBubble
+  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
+  isSelected?: boolean
+  isSelectionMode?: boolean
+  messageIndex?: number
+  isLastMessage?: boolean
+}
+
+const props = withDefaults(defineProps<Props>(), {
   isSelected: false,
   isSelectionMode: false,
   messageIndex: 0,
+  isLastMessage: false,
 })
 
 const emit = defineEmits<{
@@ -335,9 +339,10 @@ const touchStartY = ref(0)
 const mouseStartX = ref(0)
 const mouseStartY = ref(0)
 
+
 // 气泡定位 - 动态计算
-const anchor = ref('top middle')
-const self = ref('bottom middle')
+const anchor = ref<'top middle' | 'bottom middle'>('top middle')
+const self = ref<'top middle' | 'bottom middle'>('bottom middle')
 const bubbleTarget = ref<HTMLElement | null>(null)
 const currentBubbleType = ref<'ai' | 'user' | null>(null)
 
@@ -458,6 +463,15 @@ const actionButtons = computed(() => {
     show: boolean
     active?: boolean
   }> = []
+
+  // 记录判断过程
+
+
+  // 只有最后一条消息才显示功能按钮区域
+  // 使用 ?? false 确保值是布尔类型，避免 undefined
+  if (!(props.isLastMessage ?? false)) {
+    return buttons
+  }
 
   // 教师答疑场景下，学生和教师的消息都不显示功能按钮区域
   if (props.type === 'teacher') {
@@ -794,13 +808,24 @@ const handleMouseLeave = () => {
 // 处理转发
 const handleForward = () => {
   showActionMenu.value = false
-  emit('forward-message', props.message)
-  $q.notify({
-    type: 'info',
-    message: '正在转发到老师...',
-    position: 'top',
-    timeout: 2000,
-  })
+  
+  try {
+    emit('forward-message', props.message)
+    
+    $q.notify({
+      type: 'info',
+      message: '正在转发到老师...',
+      position: 'top',
+      timeout: 2000,
+    })
+  } catch (error) {
+    $q.notify({
+      type: 'negative',
+      message: '转发失败: ' + (error instanceof Error ? error.message : String(error)),
+      position: 'top',
+      timeout: 3000,
+    })
+  }
 }
 
 // 处理多选
@@ -1074,13 +1099,14 @@ const onMenuShow = () => {
       // 检查点击的元素是否在气泡框内
       const isInsideMenu =
         target.closest('.message-action-menu') ||
-        target.closest('.action-card') ||
-        target.closest('.q-popup-proxy')
+        target.closest('.action-list') ||
+        target.closest('.q-menu')
 
       // 检查点击的元素是否在消息气泡内（用户可能在气泡框外部但仍在消息区域内）
       const isInsideMessage =
-        target.closest('.ai-bubble') ||
+        target.closest('.ai-message-content') ||
         target.closest('.user-bubble') ||
+        target.closest('.ai-content-container') ||
         target.closest('.message-content')
 
       // 如果点击的不是气泡框内部，也不是消息气泡内部，则关闭气泡框
@@ -1168,6 +1194,13 @@ const calculateBubblePosition = (eventTarget?: HTMLElement) => {
 
   // 第4步：计算气泡框位置
   const bubbleRect = bubbleTarget.value.getBoundingClientRect()
+  
+  // 确保元素有有效的尺寸（即使没有视觉气泡框，只要有内容就会有尺寸）
+  if (bubbleRect.width === 0 && bubbleRect.height === 0) {
+    console.warn('气泡元素尺寸为0，可能无法正确定位菜单')
+    return
+  }
+  
   const viewportHeight = window.innerHeight
   const bubbleTop = bubbleRect.top
   const bubbleBottom = bubbleRect.bottom
@@ -1477,20 +1510,21 @@ onUnmounted(() => {
 /* 长按气泡确认框样式 */
 .message-action-menu {
   z-index: 1000;
-}
-
-.action-card {
   min-width: 120px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border-radius: 8px;
 }
 
-.action-card .q-item {
+.action-list {
+  padding: 4px 0;
+}
+
+.action-list .q-item {
   padding: 8px 16px;
   min-height: 40px;
 }
 
-.action-card .q-item:hover {
+.action-list .q-item:hover {
   background-color: rgba(0, 0, 0, 0.04);
 }
 

@@ -1,7 +1,5 @@
 /* MathLive 中学数学场景自定义样式 */
 
-/* 注意：ML__keyboard-container 相关样式已移除，因为该容器在DOM中为空且未被实际使用 */
-
 /* 虚拟键盘样式优化 */
 .ML__keyboard {
   border-radius: 12px 12px 0 0 !important; /* 修改圆角 */

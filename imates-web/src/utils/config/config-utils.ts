@@ -69,7 +69,7 @@ export async function initializeAppConfig(initData: unknown = {}) {
     authConfig.cookie = document.cookie
   }
 
-  // 3. 直接设置localStorage认证信息（不再使用全局认证配置）
+  // 3. 直接设置localStorage认证信息
   Object.entries(authConfig).forEach(([key, value]) => {
     if (value && key === 'token') {
       localStorage.setItem(key, value as string)
@@ -86,7 +86,7 @@ export function updateGlobalAuthConfig(authConfig: {
   authorization?: string
   token?: string
 }) {
-  // 直接更新localStorage（不再使用全局认证配置）
+  // 直接更新localStorage
   Object.entries(authConfig).forEach(([key, value]) => {
     if (value && key === 'token') {
       localStorage.setItem(key, value as string)
@@ -98,7 +98,7 @@ export function updateGlobalAuthConfig(authConfig: {
  * 清除所有认证信息
  */
 export function clearGlobalAuthConfig() {
-  // 直接清除localStorage（不再使用全局认证配置）
+  // 直接清除localStorage
   const tokenKeys = ['token']
   tokenKeys.forEach(key => {
     localStorage.removeItem(key)

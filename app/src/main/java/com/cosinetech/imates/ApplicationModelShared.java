@@ -25,6 +25,7 @@ import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.screencasting.UdpForwarderManager;
 import com.cosinetech.imates.ui.robot.FloatingRobotService;
+import com.cosinetech.imates.ui.fab.FloatingFabService;
 import com.cosinetech.imates.utils.AssetsCopyUtils;
 import com.cosinetech.imates.coreapiservice.AiChatMessageRequest;
 import com.cosinetech.imates.appenv.AppEnvConfig;
@@ -33,6 +34,7 @@ import android.webkit.WebView;
 public class ApplicationModelShared extends Application implements ViewModelStoreOwner {
     private final ViewModelStore viewModelStore = new ViewModelStore();
     private FloatingRobotService floatingRobotService;
+    private FloatingFabService floatingFabService;
 
     public AiChatMessageRequest chatRequest;
 
@@ -93,6 +95,9 @@ public class ApplicationModelShared extends Application implements ViewModelStor
 
         // 启动监控服务
         startAppMonitorService();
+        
+        // 注意：悬浮FAB按钮服务在MainWebViewActivity的onWebAppReady()中启动
+        // 确保Web应用和Vue完全初始化后再启动，避免点击功能时功能未准备好
     }
 
     private void startAppMonitorService() {
@@ -100,6 +105,26 @@ public class ApplicationModelShared extends Application implements ViewModelStor
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent);
         }
+    }
+
+    /**
+     * 启动系统级悬浮FAB按钮服务
+     * 在Web应用就绪后启动，确保功能完全准备好
+     */
+    public void startFloatingFabService() {
+        // 检查服务是否已启动
+        if (floatingFabService != null) {
+            Log.d("ApplicationModelShared", "FloatingFabService 已启动，跳过重复启动");
+            return;
+        }
+        
+        Intent serviceIntent = new Intent(this, FloatingFabService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent);
+        } else {
+            startService(serviceIntent);
+        }
+        Log.d("ApplicationModelShared", "FloatingFabService 已启动");
     }
 
     private void onAppExit() {
@@ -118,6 +143,18 @@ public class ApplicationModelShared extends Application implements ViewModelStor
         H264MpegTSStreamerManager.getInstance().stop();
         multicastLock.release();
         fakeClassMode = false;
+        
+        // 停止系统级悬浮FAB按钮服务
+        stopFloatingFabService();
+    }
+
+    /**
+     * 停止系统级悬浮FAB按钮服务
+     */
+    private void stopFloatingFabService() {
+        Intent serviceIntent = new Intent(this, FloatingFabService.class);
+        stopService(serviceIntent);
+        Log.d("ApplicationModelShared", "FloatingFabService 已停止");
     }
 
     public static ApplicationModelShared getInstance() {
@@ -130,6 +167,14 @@ public class ApplicationModelShared extends Application implements ViewModelStor
 
     public FloatingRobotService getFloatingWindowService() {
         return floatingRobotService;
+    }
+
+    public void setFloatingFabService(FloatingFabService service) {
+        floatingFabService = service;
+    }
+
+    public FloatingFabService getFloatingFabService() {
+        return floatingFabService;
     }
 
     @NonNull

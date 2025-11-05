@@ -1289,8 +1289,6 @@ const zoomOut = () => {
   console.warn('[DrawingBoard] zoomOut: 触发点击，缩放从', before, '到', zoomLevel.value)
 }
 
-// 已移除适应全部内容按钮，删除对应重置函数以避免未使用
-
 // 监控缩放变化并记录应用到样式的transform
 watch(zoomLevel, (val, oldVal) => {
   console.warn('[DrawingBoard] zoomLevel变更:', oldVal, '=>', val)
