@@ -411,7 +411,7 @@ const handleCenterNodeClick = (event: Event) => {
 }
 
 // 处理容器点击（点击非节点区域时隐藏气泡）
-const handleContainerClick = (event: Event) => {
+const handleContainerClick = () => {
   // 节点点击时会调用 stopPropagation()，所以如果点击事件到达容器，
   // 说明点击的是空白区域（非节点区域），此时隐藏所有气泡
   activeNodeId.value = null
@@ -509,17 +509,24 @@ const handlePractice = async (node: { id: string; name: string; level?: number |
     const knowledgeList = await apiService.queryKnowledgeIdsByNodeId(request)
     
     // 跳转到习题查找页面
+    // 第1步：判断科目类型（支持中文标签和英文值）
+    const isBiology = props.subject === '生物' || props.subject === 'biology'
+    const isMath = props.subject === '数学' || props.subject === 'math'
+    
+    // 第2步：根据科目类型设置路由参数
+    const subjectParam = isBiology ? 'SUBJECT_BIOLOGY' : isMath ? 'SUBJECT_MATH' : 'SUBJECT_MATH'
+    
     router.push({
       path: '/find-exercise',
       query: {
         knowledgeList: knowledgeList,
-        subject: props.subject === 'math' ? 'SUBJECT_MATH' : props.subject === 'biology' ? 'SUBJECT_BIOLOGY' : 'SUBJECT_MATH',
+        subject: subjectParam,
         token: localStorage.getItem('token') || ''
       }
     })
   } catch (error) {
     // 第1步：检查是否是"没有题目"的错误
-    if (error instanceof Error && (error as any).code === 'NO_QUESTIONS') {
+    if (error instanceof Error && 'code' in error && (error as Error & { code?: string }).code === 'NO_QUESTIONS') {
       showMessage(error.message, 'warning')
       return
     }

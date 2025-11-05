@@ -83,6 +83,123 @@ export const useQuestionStore = defineStore('question', () => {
   // ==================== 方法 ====================
   
   /**
+   * 从 IndexedDB 加载单个学科的题目（不修改全局状态）
+   * @param subject 科目类型
+   * @returns 题目列表，如果没有数据则返回 null
+   */
+  const loadSingleSubjectFromLocal = async (subject: string): Promise<ExerciseItem[] | null> => {
+    try {
+      const loadedQuestions = await loadQuestionsFromIndexedDB(subject)
+      
+      if (loadedQuestions && Array.isArray(loadedQuestions) && loadedQuestions.length > 0) {
+        const deduplicated = deduplicateQuestions(loadedQuestions)
+        console.log(`[QUESTION] ✅ 从 IndexedDB 加载 ${subject} 科目题目:`, deduplicated.length)
+        return deduplicated
+      }
+      
+      return null
+    } catch (error) {
+      console.error(`[QUESTION] ❌ 从 IndexedDB 加载 ${subject} 科目题目失败:`, error)
+      return null
+    }
+  }
+
+  /**
+   * 获取所有学科的题目列表
+   * 合并所有学科的题目到一个列表中
+   */
+  const fetchAllSubjectsQuestions = async (useLocalFirst: boolean = true): Promise<void> => {
+    const fetchStartTime = performance.now()
+    console.log(`[QUESTION] 🔄 开始获取所有学科的题目列表 (useLocalFirst: ${useLocalFirst})`)
+    
+    const allSubjects = ['math', 'biology', 'chemistry', 'physics', 'chinese', 'english']
+    const allQuestions: ExerciseItem[] = []
+    
+    try {
+      isLoading.value = true
+      
+      // 并行加载所有学科的题目
+      const loadPromises = allSubjects.map(async (subject) => {
+        try {
+          let subjectQuestions: ExerciseItem[] = []
+          
+          // 第1步：优先从 IndexedDB 加载
+          if (useLocalFirst) {
+            const loaded = await loadSingleSubjectFromLocal(subject)
+            if (loaded && loaded.length > 0) {
+              return loaded
+            }
+          }
+          
+          // 第2步：从API获取题目
+          const apiService = ApiService.getInstance()
+          const questionList = await apiService.getExerciseList(subject)
+          
+          // 转换 API 响应的 ExerciseItem 类型
+          const convertedQuestions: ExerciseItem[] = questionList.map((q: unknown) => {
+            const question = q as Record<string, unknown>
+            return {
+              id: (question.id as string) || (question.bmNo as string) || '',
+              bmNo: (question.bmNo as string) || (question.id as string) || '',
+              title: (question.title as string) || '',
+              question: (question.content as string) || (question.question as string) || (question.title as string) || '',
+              answer: (question.answer as string) || '',
+              explanation: (question.explanation as string) || '',
+              analysisData: (question.analysisData as string) || '',
+              subject: (question.subject as string) || subject.toLowerCase(),
+            }
+          })
+          
+          // 保存到 IndexedDB（直接调用底层方法，避免修改全局状态）
+          // 只有当有题目时才保存，避免保存空数组
+          if (convertedQuestions.length > 0) {
+            try {
+              await saveQuestionsToIndexedDB(subject, convertedQuestions)
+              console.log(`[QUESTION] ✅ 保存 ${subject} 科目题目到 IndexedDB:`, convertedQuestions.length)
+            } catch (error) {
+              console.error(`[QUESTION] ❌ 保存 ${subject} 科目题目到 IndexedDB 失败:`, error)
+            }
+          } else {
+            console.log(`[QUESTION] ⚠️ ${subject} 科目无题目，跳过保存到 IndexedDB`)
+          }
+          
+          console.log(`[QUESTION] ✅ 从API获取 ${subject} 科目题目:`, convertedQuestions.length)
+          return convertedQuestions
+        } catch (error) {
+          console.error(`[QUESTION] ❌ 获取 ${subject} 科目题目失败:`, error)
+          // 如果API失败，尝试使用 IndexedDB 的数据
+          const loaded = await loadSingleSubjectFromLocal(subject)
+          if (loaded && loaded.length > 0) {
+            console.log(`[QUESTION] ✅ 从 IndexedDB 恢复 ${subject} 科目数据`)
+            return loaded
+          }
+          return []
+        }
+      })
+      
+      const subjectQuestionsArrays = await Promise.all(loadPromises)
+      
+      // 合并所有学科的题目
+      for (const subjectQuestions of subjectQuestionsArrays) {
+        allQuestions.push(...subjectQuestions)
+      }
+      
+      // 去重并更新状态
+      questions.value = deduplicateQuestions(allQuestions)
+      
+      const fetchDuration = performance.now() - fetchStartTime
+      console.log(`[QUESTION] ✅ 获取所有学科题目完成: ${questions.value.length} 道题目`)
+      console.log(`[QUESTION] ⏱️ fetchAllSubjectsQuestions总耗时: ${fetchDuration.toFixed(2)}ms`)
+    } catch (error) {
+      const fetchDuration = performance.now() - fetchStartTime
+      console.error(`[QUESTION] ❌ 获取所有学科题目失败 (耗时: ${fetchDuration.toFixed(2)}ms):`, error)
+      throw error
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  /**
    * 获取题目列表
    * 第1步：尝试从本地存储加载
    * 第2步：如果本地没有数据，调用API获取题目
@@ -376,6 +493,7 @@ export const useQuestionStore = defineStore('question', () => {
     
     // 方法
     fetchQuestions,
+    fetchAllSubjectsQuestions,
     selectQuestion,
     deleteQuestion,
     moveQuestionToTop,

@@ -763,6 +763,33 @@ export class AndroidBridge {
         this.emit('classroomError', error)
       }
     }
+
+    // Android日志回调
+    if (!window.onAndroidLog) {
+      window.onAndroidLog = (level: string, tag: string, message: string) => {
+        // 根据日志级别在控制台打印
+        const logMessage = `[${tag}] ${message}`
+        switch (level.toUpperCase()) {
+          case 'DEBUG':
+            console.debug(`🔍 [Android ${level}]`, logMessage)
+            break
+          case 'INFO':
+            console.info(`ℹ️ [Android ${level}]`, logMessage)
+            break
+          case 'WARN':
+            console.warn(`⚠️ [Android ${level}]`, logMessage)
+            break
+          case 'ERROR':
+            console.error(`❌ [Android ${level}]`, logMessage)
+            break
+          default:
+            console.log(`📝 [Android ${level}]`, logMessage)
+            break
+        }
+        // 同时通过事件发送，方便其他组件监听
+        this.emit('androidLog', { level, tag, message })
+      }
+    }
   }
 
 

@@ -6,6 +6,33 @@ import { resourceManager } from './services/resource-storage'
 // 注释掉缩略图相关导入以提升性能
 // import { thumbnailQueue } from './utils/thumbnail/thumbnail-queue'
 
+// 设置Android日志接收器
+if (typeof window !== 'undefined') {
+  // 确保onAndroidLog回调已设置（如果android-bridge还未初始化）
+  if (!window.onAndroidLog) {
+    window.onAndroidLog = (level: string, tag: string, message: string) => {
+      const logMessage = `[${tag}] ${message}`
+      switch (level.toUpperCase()) {
+        case 'DEBUG':
+          console.debug(`🔍 [Android ${level}]`, logMessage)
+          break
+        case 'INFO':
+          console.info(`ℹ️ [Android ${level}]`, logMessage)
+          break
+        case 'WARN':
+          console.warn(`⚠️ [Android ${level}]`, logMessage)
+          break
+        case 'ERROR':
+          console.error(`❌ [Android ${level}]`, logMessage)
+          break
+        default:
+          console.log(`📝 [Android ${level}]`, logMessage)
+          break
+      }
+    }
+  }
+}
+
 // 全局资源自动更新检查定时器
 let resourceUpdateTimer: ReturnType<typeof setInterval> | null = null
 

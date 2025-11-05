@@ -130,6 +130,7 @@ export class CapacitorBridge {
       onClassroomExited?: () => void
       onClassroomStatusChanged?: (status: BridgeClassroomStatus) => void
       onTeacherMessageReceived?: (messageData: unknown) => void
+      onAndroidLog?: (level: string, tag: string, message: string) => void
     }
 
     // 图片选择完成回调
@@ -169,6 +170,31 @@ export class CapacitorBridge {
     if (!win.onTeacherMessageReceived && win.AndroidBridge) {
       win.onTeacherMessageReceived = (messageData: unknown) => {
         this.emit('teacherMessage', messageData)
+      }
+    }
+
+    // Android日志回调
+    if (!win.onAndroidLog) {
+      win.onAndroidLog = (level: string, tag: string, message: string) => {
+        const logMessage = `[${tag}] ${message}`
+        switch (level.toUpperCase()) {
+          case 'DEBUG':
+            console.debug(`🔍 [Android ${level}]`, logMessage)
+            break
+          case 'INFO':
+            console.info(`ℹ️ [Android ${level}]`, logMessage)
+            break
+          case 'WARN':
+            console.warn(`⚠️ [Android ${level}]`, logMessage)
+            break
+          case 'ERROR':
+            console.error(`❌ [Android ${level}]`, logMessage)
+            break
+          default:
+            console.log(`📝 [Android ${level}]`, logMessage)
+            break
+        }
+        this.emit('androidLog', { level, tag, message })
       }
     }
   }

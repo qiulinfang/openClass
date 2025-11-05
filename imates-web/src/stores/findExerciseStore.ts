@@ -287,29 +287,35 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
    */
   const addSelectedQuestionsToList = async (): Promise<boolean> => {
     if (!config.value) {
+      console.error('[findExerciseStore] 配置为空，无法添加题目')
       return false
     }
     
-    // 获取所有需要添加的题目ID（包括手动选中的和已收藏的）
+    // 获取所有需要添加的题目ID（只包括手动选中的，不包括已收藏的）
+    // 已收藏的题目已经在列表中，不需要再次添加
     const manuallySelectedIds = selectedQuestionIds.value.filter(id => id)
-    const favoritedIds = similarQuestions.value
-      .filter(q => q.atUserList)
-      .map(q => q.bmNo)  // 修复：使用bmNo而不是id
-      .filter(id => id)
     
-    const allSelectedIds = [...manuallySelectedIds, ...favoritedIds]
-    
-    if (allSelectedIds.length === 0) {
+    if (manuallySelectedIds.length === 0) {
+      console.warn('[findExerciseStore] 没有手动选中的题目需要添加')
       return false
     }
     
     try {
+      console.log('[findExerciseStore] 开始添加题目到练习列表')
+      console.log('[findExerciseStore] 要添加的题目ID:', manuallySelectedIds)
+      
       // 不设置全局加载状态，避免显示"正在查找相似题目..."
       const apiService = ApiService.getInstance()
       
       // 构建请求参数 - 去重 ID 列表
-      const uniqueSelectedIds = [...new Set(allSelectedIds)].join(',')
+      const uniqueSelectedIds = [...new Set(manuallySelectedIds)].join(',')
       const uniqueExerciseIds = [...new Set(questionsInFavor.value.map(q => q.bmNo).filter(id => id))].join(',')
+      
+      console.log('[findExerciseStore] API请求参数:', {
+        bmNo: uniqueSelectedIds,
+        exercisesId: uniqueExerciseIds,
+        type: config.value.subject === Subject.SUBJECT_MATH ? 'math' : 'biology'
+      })
       
       const request: AddQuestionRequest = {
         bmNo: uniqueSelectedIds,
@@ -319,17 +325,19 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
       
       // 调用API添加题目
       const subjectName = config.value.subject === Subject.SUBJECT_MATH ? 'math' : 'biology'
+      console.log('[findExerciseStore] 调用API添加题目，科目:', subjectName)
       const success = await apiService.addQuestionToList(request, subjectName)
       
       if (success) {
-        // 将成功添加的题目标记为已添加到练习列表
-        // 不清空选中状态，保持用户的选择
-        console.log('题目已成功添加到练习列表，保持选中状态')
+        console.log('[findExerciseStore] ✅ 题目已成功添加到练习列表')
+        console.log('[findExerciseStore] 成功添加的题目数量:', manuallySelectedIds.length)
+      } else {
+        console.error('[findExerciseStore] ❌ 添加题目失败，API返回失败')
       }
       
       return success
     } catch (error) {
-      console.error('添加题目失败:', error)
+      console.error('[findExerciseStore] ❌ 添加题目失败，发生异常:', error)
       return false
     }
   }

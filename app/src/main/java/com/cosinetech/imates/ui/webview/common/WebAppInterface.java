@@ -42,6 +42,7 @@ import org.loka.screensharekit.ScreenShareKit;
 import org.loka.screensharekit.EncodeBuilder;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.H264IFrameCache;
+import com.cosinetech.imates.screencasting.FFmpegPipeStreamer;
 
 import java.io.File;
 import java.io.IOException;
@@ -2063,34 +2064,72 @@ public class WebAppInterface {
      */
     @JavascriptInterface
     public String joinClassroom(String studentId, String studentName, boolean isGuest) {
-        Log.d(TAG, "🔍 WebAppInterface加入课堂 - 开始: studentId=" + studentId + ", studentName=" + studentName + ", isGuest=" + isGuest);
+        sendLogToWeb("INFO", TAG, "========== 加入课堂流程开始 ==========");
+        sendLogToWeb("INFO", TAG, "参数: studentId=" + studentId + ", studentName=" + studentName + ", isGuest=" + isGuest);
         
         try {
             // 检查是否已在课堂中
+            sendLogToWeb("DEBUG", TAG, "步骤1: 检查是否已在课堂中");
             if (ScreenCastingManager.isHavingClass()) {
-                Log.d(TAG, "🔍 WebAppInterface加入课堂 - 已在课堂中");
+                sendLogToWeb("WARN", TAG, "步骤1结果: 已在课堂中，返回失败");
                 return createResponse(false, "已在课堂中", null);
             }
+            sendLogToWeb("DEBUG", TAG, "步骤1结果: 未在课堂中，继续");
             
             // 获取用户ID
+            sendLogToWeb("DEBUG", TAG, "步骤2: 获取用户ID");
             String userId = AppUtils.getUserId();
             if (userId == null || userId.isEmpty()) {
+                sendLogToWeb("ERROR", TAG, "步骤2结果: 用户未登录");
                 return createResponse(false, "用户未登录", null);
             }
+            sendLogToWeb("INFO", TAG, "步骤2结果: 用户ID=" + userId);
             
             // 游客模式处理
             if (isGuest || userId.equals("guest000")) {
-                Log.d(TAG, "🔍 WebAppInterface加入课堂 - 游客模式");
+                sendLogToWeb("INFO", TAG, "步骤3: 检测到游客模式");
+                sendLogToWeb("DEBUG", TAG, "步骤3.1: 设置fakeClassMode=true");
                 ApplicationModelShared.getInstance().fakeClassMode = true;
+                
+                // ✅ 触发Vue层回调，通知游客模式加入课堂成功
+                sendLogToWeb("DEBUG", TAG, "步骤3.2: 准备触发onClassroomJoined事件（游客模式）");
+                try {
+                    String statusJson = String.format(Locale.getDefault(),
+                        "{\"isInClass\":true,\"isProjecting\":false,\"studentId\":\"%s\",\"studentName\":\"%s\",\"localIp\":\"\",\"tsStreamPort\":0,\"status\":\"ready\"}",
+                        userId != null ? userId.replace("\"", "\\\"") : "",
+                        studentName != null ? studentName.replace("\"", "\\\"").replace("'", "\\'") : "");
+                    String js = "if(window.onClassroomJoined){window.onClassroomJoined(" + statusJson + ");}";
+                    executeJavaScript(js);
+                    sendLogToWeb("INFO", TAG, "步骤3.2结果: 已触发onClassroomJoined事件（游客模式）");
+                } catch (Exception e) {
+                    sendLogToWeb("ERROR", TAG, "步骤3.2结果: 触发onClassroomJoined失败（游客模式）: " + e.getMessage());
+                }
+                
+                sendLogToWeb("INFO", TAG, "========== 游客模式加入课堂成功 ==========");
                 // 流程：使用createResponseWithJsonData方法返回JSON对象（而非字符串）
                 return createResponseWithJsonData(true, "游客模式加入课堂成功", "{\"mode\":\"guest\",\"isInClass\":true}");
             }
             
             // 正式用户模式 - 这里需要Activity上下文来初始化ScreenShareKit
+            sendLogToWeb("INFO", TAG, "步骤3: 检测到正式用户模式");
             if (mContext instanceof androidx.fragment.app.FragmentActivity) {
                 androidx.fragment.app.FragmentActivity activity = (androidx.fragment.app.FragmentActivity) mContext;
+                sendLogToWeb("DEBUG", TAG, "步骤3.1: Context是FragmentActivity，可以初始化ScreenShareKit");
+                
+                // ✅ 获取H264转TS流实例
+                sendLogToWeb("DEBUG", TAG, "步骤3.2: 获取H264转TS流实例");
+                final FFmpegPipeStreamer h264ToTsStreamer = H264MpegTSStreamerManager.getInstance();
+                sendLogToWeb("INFO", TAG, "步骤3.2结果: H264转TS流实例获取成功");
+                
+                // ✅ 保存userId和studentName到final变量，供lambda表达式使用
+                final String finalUserId = userId;
+                final String finalStudentName = studentName;
+                
+                sendLogToWeb("DEBUG", TAG, "步骤3.3: 切换到UI线程，准备初始化ScreenShareKit");
                 activity.runOnUiThread(() -> {
                     try {
+                        sendLogToWeb("INFO", TAG, "步骤3.4: 开始初始化ScreenShareKit");
+                        sendLogToWeb("DEBUG", TAG, "步骤3.4.1: 配置参数: 1920x1080, 帧率=" + H264MpegTSStreamerManager.ENCODE_FRAME_RATE + ", 码率=8000000");
                         // 初始化ScreenShareKit
                         ScreenShareKit.INSTANCE.init(activity)
                             .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000, 
@@ -2101,34 +2140,97 @@ public class WebAppInterface {
                                     byte[] bytes = new byte[buffer.remaining()];
                                     buffer.get(bytes);
                                     
-                                    // 这里需要H264MpegTSStreamerManager实例，暂时跳过
-                                    Log.d(TAG, "🔍 WebAppInterface加入课堂 - H264数据接收");
+                                    // ✅ 转发H264数据到TS流
+                                    h264ToTsStreamer.onH264DataReceived(bytes, ts);
+                                    
+                                    // 缓存I帧
                                     if (isKeyFrame) {
                                         H264IFrameCache.getInstance().onH264Frame(bytes);
                                     }
                                 } catch (Exception e) {
-                                    Log.e(TAG, "🔍 WebAppInterface加入课堂 - H264回调错误", e);
+                                    sendLogToWeb("ERROR", TAG, "H264回调错误: " + e.getMessage());
                                 }
                             })
-                            .onError(errorInfo -> Log.e(TAG, "🔍 WebAppInterface加入课堂 - ScreenShareKit错误: " + errorInfo.getMessage()))
+                            .onError(errorInfo -> {
+                                String errorMsg = errorInfo.getMessage() != null ? errorInfo.getMessage() : "未知错误";
+                                sendLogToWeb("ERROR", TAG, "ScreenShareKit错误回调: " + errorMsg);
+                                // ✅ 发生错误时通知Vue层
+                                try {
+                                    String safeErrorMsg = errorMsg.replace("'", "\\'").replace("\"", "\\\"");
+                                    String js = "if(window.onClassroomError){window.onClassroomError('" + safeErrorMsg + "');}";
+                                    executeJavaScript(js);
+                                    sendLogToWeb("INFO", TAG, "已触发onClassroomError事件");
+                                } catch (Exception e) {
+                                    sendLogToWeb("ERROR", TAG, "触发onClassroomError失败: " + e.getMessage());
+                                }
+                            })
                             .onStart(() -> {
-                                ScreenCastingManager.setClassMode(true);
-                                Log.d(TAG, "🔍 WebAppInterface加入课堂 - ScreenShareKit启动成功");
+                                try {
+                                    sendLogToWeb("INFO", TAG, "步骤3.5: ScreenShareKit启动成功，进入onStart回调");
+                                    
+                                    // ✅ 设置课堂模式
+                                    sendLogToWeb("DEBUG", TAG, "步骤3.5.1: 设置ScreenCastingManager课堂模式为true");
+                                    ScreenCastingManager.setClassMode(true);
+                                    sendLogToWeb("INFO", TAG, "步骤3.5.1结果: 课堂模式已设置");
+                                    
+                                    // ✅ 启动TS流转换
+                                    sendLogToWeb("DEBUG", TAG, "步骤3.5.2: 启动TS流转换");
+                                    h264ToTsStreamer.start();
+                                    sendLogToWeb("INFO", TAG, "步骤3.5.2结果: TS流已启动");
+                                    
+                                    // ✅ 触发Vue层回调，通知加入课堂成功
+                                    sendLogToWeb("DEBUG", TAG, "步骤3.5.3: 准备触发onClassroomJoined事件");
+                                    try {
+                                        // 构建JSON对象，使用安全的字符串转义
+                                        String safeUserId = finalUserId != null ? finalUserId.replace("\"", "\\\"") : "";
+                                        String safeStudentName = finalStudentName != null ? 
+                                            finalStudentName.replace("\"", "\\\"").replace("'", "\\'") : "";
+                                        
+                                        // 构建完整的JSON对象字符串
+                                        String statusJson = String.format(Locale.getDefault(),
+                                            "{\"isInClass\":true,\"isProjecting\":false,\"studentId\":\"%s\",\"studentName\":\"%s\",\"localIp\":\"\",\"tsStreamPort\":0,\"status\":\"ready\"}",
+                                            safeUserId, safeStudentName);
+                                        
+                                        // 调用JavaScript函数，传递JSON对象
+                                        String js = "if(window.onClassroomJoined){window.onClassroomJoined(" + statusJson + ");}";
+                                        executeJavaScript(js);
+                                        sendLogToWeb("INFO", TAG, "步骤3.5.3结果: 已触发onClassroomJoined事件");
+                                        sendLogToWeb("INFO", TAG, "========== 正式用户模式加入课堂成功 ==========");
+                                    } catch (Exception e) {
+                                        sendLogToWeb("ERROR", TAG, "步骤3.5.3结果: 触发onClassroomJoined失败: " + e.getMessage());
+                                    }
+                                } catch (Exception e) {
+                                    sendLogToWeb("ERROR", TAG, "onStart回调错误: " + e.getMessage());
+                                }
                             })
                             .start();
+                        sendLogToWeb("INFO", TAG, "步骤3.4结果: ScreenShareKit.start()调用成功");
                     } catch (Exception e) {
-                        Log.e(TAG, "🔍 WebAppInterface加入课堂 - ScreenShareKit初始化失败", e);
+                        sendLogToWeb("ERROR", TAG, "步骤3.4结果: ScreenShareKit初始化失败: " + e.getMessage());
+                        // ✅ 初始化失败时通知Vue层
+                        try {
+                            String errorMsg = e.getMessage() != null ? 
+                                e.getMessage().replace("'", "\\'").replace("\"", "\\\"") : "未知错误";
+                            String js = "if(window.onClassroomError){window.onClassroomError('ScreenShareKit初始化失败: " + errorMsg + "');}";
+                            executeJavaScript(js);
+                            sendLogToWeb("INFO", TAG, "已触发onClassroomError事件");
+                        } catch (Exception ex) {
+                            sendLogToWeb("ERROR", TAG, "触发onClassroomError失败: " + ex.getMessage());
+                        }
                     }
                 });
                 
+                sendLogToWeb("INFO", TAG, "步骤3结果: 已切换到UI线程执行初始化，返回'正在加入课堂'");
                 // 流程：使用createResponseWithJsonData方法返回JSON对象（而非字符串）
                 return createResponseWithJsonData(true, "正在加入课堂", "{\"mode\":\"formal\",\"isJoining\":true}");
             } else {
+                sendLogToWeb("ERROR", TAG, "步骤3结果: Context不是FragmentActivity，无法初始化ScreenShareKit");
                 return createResponse(false, "需要FragmentActivity上下文", null);
             }
             
         } catch (Exception e) {
-            Log.e(TAG, "🔍 WebAppInterface加入课堂 - 发生错误", e);
+            sendLogToWeb("ERROR", TAG, "========== 加入课堂流程异常 ==========");
+            sendLogToWeb("ERROR", TAG, "异常信息: " + e.getMessage());
             return createResponse(false, "加入课堂失败: " + e.getMessage(), null);
         }
     }
@@ -2139,41 +2241,97 @@ public class WebAppInterface {
      */
     @JavascriptInterface
     public String exitClassroom() {
-        Log.d(TAG, "🔍 WebAppInterface退出课堂 - 开始");
+        sendLogToWeb("INFO", TAG, "========== 退出课堂流程开始 ==========");
         
         try {
             // 流程：检查游客模式状态 -> 检查正式用户课堂状态 -> 如果都不在课堂则返回失败
+            sendLogToWeb("DEBUG", TAG, "步骤1: 检查课堂状态");
             boolean isFakeClassMode = ApplicationModelShared.getInstance().fakeClassMode;
             boolean isInFormalClass = ScreenCastingManager.isHavingClass();
+            sendLogToWeb("DEBUG", TAG, "步骤1结果: isFakeClassMode=" + isFakeClassMode + ", isInFormalClass=" + isInFormalClass);
             
             // 流程：如果既不在游客模式课堂，也不在正式课堂，则返回失败
             if (!isFakeClassMode && !isInFormalClass) {
-                Log.d(TAG, "🔍 WebAppInterface退出课堂 - 未在课堂中");
+                sendLogToWeb("WARN", TAG, "步骤1结果: 未在课堂中，返回失败");
                 return createResponse(false, "未在课堂中", null);
             }
             
             // 流程：获取用户ID（用于日志记录）
+            sendLogToWeb("DEBUG", TAG, "步骤2: 获取用户ID");
             String userId = AppUtils.getUserId();
             if (userId == null || userId.isEmpty()) {
                 userId = "unknown";
             }
+            sendLogToWeb("INFO", TAG, "步骤2结果: 用户ID=" + userId);
             
             // 流程：处理游客模式退出 -> 设置fakeClassMode为false并返回成功
             if (isFakeClassMode) {
-                Log.d(TAG, "🔍 WebAppInterface退出课堂 - 游客模式, userId=" + userId);
+                sendLogToWeb("INFO", TAG, "步骤3: 检测到游客模式，开始退出");
+                sendLogToWeb("DEBUG", TAG, "步骤3.1: 设置fakeClassMode=false");
                 ApplicationModelShared.getInstance().fakeClassMode = false;
+                sendLogToWeb("INFO", TAG, "步骤3.1结果: fakeClassMode已设置为false");
+                
+                // ✅ 触发Vue层回调，通知游客模式退出课堂成功
+                sendLogToWeb("DEBUG", TAG, "步骤3.2: 准备触发onClassroomExited事件（游客模式）");
+                try {
+                    String js = "if(window.onClassroomExited){window.onClassroomExited();}";
+                    executeJavaScript(js);
+                    sendLogToWeb("INFO", TAG, "步骤3.2结果: 已触发onClassroomExited事件（游客模式）");
+                } catch (Exception e) {
+                    sendLogToWeb("ERROR", TAG, "步骤3.2结果: 触发onClassroomExited失败（游客模式）: " + e.getMessage());
+                }
+                
+                sendLogToWeb("INFO", TAG, "========== 游客模式退出课堂成功 ==========");
                 return createResponseWithJsonData(true, "游客模式退出课堂成功", "{\"mode\":\"guest\",\"isInClass\":false}");
             }
             
             // 流程：处理正式用户模式退出 -> 设置ScreenCastingManager状态并停止ScreenShareKit
-            Log.d(TAG, "🔍 WebAppInterface退出课堂 - 正式用户模式, userId=" + userId);
-            ScreenCastingManager.setClassMode(false);
-            ScreenShareKit.INSTANCE.stop();
+            sendLogToWeb("INFO", TAG, "步骤3: 检测到正式用户模式，开始退出");
             
+            // ✅ 停止TS流转换
+            sendLogToWeb("DEBUG", TAG, "步骤3.1: 停止TS流转换");
+            try {
+                FFmpegPipeStreamer streamer = H264MpegTSStreamerManager.getInstance();
+                if (streamer != null) {
+                    streamer.stop();
+                    sendLogToWeb("INFO", TAG, "步骤3.1结果: TS流已停止");
+                } else {
+                    sendLogToWeb("WARN", TAG, "步骤3.1结果: TS流实例为空，跳过停止");
+                }
+            } catch (Exception e) {
+                sendLogToWeb("ERROR", TAG, "步骤3.1结果: 停止TS流失败: " + e.getMessage());
+            }
+            
+            // ✅ 设置课堂模式为false
+            sendLogToWeb("DEBUG", TAG, "步骤3.2: 设置ScreenCastingManager课堂模式为false");
+            ScreenCastingManager.setClassMode(false);
+            sendLogToWeb("INFO", TAG, "步骤3.2结果: 课堂模式已设置为false");
+            
+            // ✅ 停止ScreenShareKit
+            sendLogToWeb("DEBUG", TAG, "步骤3.3: 停止ScreenShareKit");
+            try {
+                ScreenShareKit.INSTANCE.stop();
+                sendLogToWeb("INFO", TAG, "步骤3.3结果: ScreenShareKit已停止");
+            } catch (Exception e) {
+                sendLogToWeb("ERROR", TAG, "步骤3.3结果: 停止ScreenShareKit失败: " + e.getMessage());
+            }
+            
+            // ✅ 触发Vue层回调，通知退出课堂成功
+            sendLogToWeb("DEBUG", TAG, "步骤3.4: 准备触发onClassroomExited事件");
+            try {
+                String js = "if(window.onClassroomExited){window.onClassroomExited();}";
+                executeJavaScript(js);
+                sendLogToWeb("INFO", TAG, "步骤3.4结果: 已触发onClassroomExited事件");
+            } catch (Exception e) {
+                sendLogToWeb("ERROR", TAG, "步骤3.4结果: 触发onClassroomExited失败: " + e.getMessage());
+            }
+            
+            sendLogToWeb("INFO", TAG, "========== 正式用户模式退出课堂成功 ==========");
             return createResponseWithJsonData(true, "退出课堂成功", "{\"mode\":\"formal\",\"isInClass\":false}");
             
         } catch (Exception e) {
-            Log.e(TAG, "🔍 WebAppInterface退出课堂 - 发生错误", e);
+            sendLogToWeb("ERROR", TAG, "========== 退出课堂流程异常 ==========");
+            sendLogToWeb("ERROR", TAG, "异常信息: " + e.getMessage());
             return createResponse(false, "退出课堂失败: " + e.getMessage(), null);
         }
     }
@@ -2302,6 +2460,50 @@ public class WebAppInterface {
     }
     
     /**
+     * 发送日志到Web前端
+     * @param level 日志级别: DEBUG, INFO, WARN, ERROR
+     * @param tag 日志标签
+     * @param message 日志消息
+     */
+    private void sendLogToWeb(String level, String tag, String message) {
+        // 在Android Logcat中打印
+        switch (level.toUpperCase()) {
+            case "DEBUG":
+                Log.d(tag, message);
+                break;
+            case "INFO":
+                Log.i(tag, message);
+                break;
+            case "WARN":
+                Log.w(tag, message);
+                break;
+            case "ERROR":
+                Log.e(tag, message);
+                break;
+            default:
+                Log.i(tag, message);
+                break;
+        }
+        
+        // 发送到Web前端
+        try {
+            String safeMessage = message != null ? 
+                message.replace("\\", "\\\\")
+                       .replace("'", "\\'")
+                       .replace("\"", "\\\"")
+                       .replace("\n", "\\n")
+                       .replace("\r", "\\r") : "";
+            String safeTag = tag != null ? tag.replace("'", "\\'").replace("\"", "\\\"") : "Android";
+            String js = String.format(Locale.getDefault(),
+                "if(window.onAndroidLog){window.onAndroidLog('%s','%s','%s');}",
+                level != null ? level : "INFO", safeTag, safeMessage);
+            executeJavaScript(js);
+        } catch (Exception e) {
+            Log.e(TAG, "发送日志到Web失败", e);
+        }
+    }
+    
+    /**
      * 执行JavaScript代码
      * 确保在主线程上执行WebView操作
      */
@@ -2310,7 +2512,6 @@ public class WebAppInterface {
             if (mContext instanceof Activity) {
                 ((Activity) mContext).runOnUiThread(() -> {
                     webView.evaluateJavascript(script, null);
-                    Log.d(TAG, "🎯 [ANDROID] 执行JavaScript: " + script);
                 });
             } else {
                 Log.w(TAG, "🎯 [ANDROID] Context不是Activity，无法执行JavaScript");

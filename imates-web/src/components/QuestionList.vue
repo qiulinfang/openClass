@@ -906,13 +906,47 @@ const loadQuestions = async () => {
   placeholderObservers.clear()
 
   try {
-    // 使用 store 的 fetchQuestions 方法，它会优先从本地存储加载
     const questionStore = useQuestionStore()
-    // fetchQuestions 方法会先尝试从本地存储加载，如果没有数据再请求API
-    await questionStore.fetchQuestions(selectedSubject.value, true)
+    
+    // 第1步：如果 store 中已有题目，直接使用（避免覆盖父组件已加载的正确科目）
+    if (questionStore.questions.length > 0) {
+      console.log('[QuestionList] 使用 store 中已有的题目，不重新加载:', questionStore.questions.length)
+      questions.value = [...questionStore.questions]
+    } else {
+      // 第2步：如果 store 中没有题目，需要确定科目并加载
+      // 优先使用 selectedSubjectFilter 来确定科目
+      if (selectedSubjectFilter.value === null) {
+        // 全部学科：加载所有学科的题目
+        console.log('[QuestionList] selectedSubjectFilter 为全部学科，加载所有学科的题目')
+        await questionStore.fetchAllSubjectsQuestions(true)
+      } else {
+        // 具体学科：加载指定学科的题目
+        let subjectToLoad = selectedSubject.value // 默认使用 math
+        
+        // 将 Subject 枚举值转换为科目名称
+        const subjectMap: Record<string, string> = {
+          'SUBJECT_MATH': 'math',
+          'SUBJECT_BIOLOGY': 'biology',
+          'SUBJECT_CHEMISTRY': 'chemistry',
+          'SUBJECT_PHYSICS': 'physics',
+          'SUBJECT_CHINESE': 'chinese',
+          'SUBJECT_ENGLISH': 'english'
+        }
+        const filterValue = String(selectedSubjectFilter.value).toUpperCase()
+        subjectToLoad = subjectMap[filterValue] || filterValue.toLowerCase() || 'math'
+        console.log('[QuestionList] 根据 selectedSubjectFilter 确定科目:', subjectToLoad)
+        
+        // 更新 selectedSubject 以便后续使用
+        selectedSubject.value = subjectToLoad
+        
+        // 使用 store 的 fetchQuestions 方法，它会优先从本地存储加载
+        // fetchQuestions 方法会先尝试从本地存储加载，如果没有数据再请求API
+        await questionStore.fetchQuestions(subjectToLoad, true)
+      }
 
-    // 从store获取去重后的题目列表
-    questions.value = [...questionStore.questions]
+      // 从store获取去重后的题目列表
+      questions.value = [...questionStore.questions]
+    }
 
     if (questions.value.length > 0) {
       // 等待 DOM 更新
@@ -1240,10 +1274,10 @@ watch(
   { immediate: false },
 )
 
-// 监听学科过滤变化，重置渲染状态
+// 监听学科过滤变化，重置渲染状态并可能需要重新加载题目
 watch(
   selectedSubjectFilter,
-  () => {
+  async (newFilter) => {
     // 学科过滤时重置所有渲染状态
     renderedIndexes.value.clear()
     placeholderHeights.value.clear()
@@ -1259,6 +1293,46 @@ watch(
 
     // 重新映射索引高度
     remapIndexHeights()
+    
+    const questionStore = useQuestionStore()
+    
+    if (newFilter === null) {
+      // 全部学科：加载所有学科的题目
+      console.log('[QuestionList] 筛选面板选择全部学科，加载所有学科的题目')
+      await questionStore.fetchAllSubjectsQuestions(true)
+      questions.value = [...questionStore.questions]
+    } else {
+      // 具体学科：加载指定学科的题目
+      // 将 Subject 枚举值转换为科目名称
+      const subjectMap: Record<string, string> = {
+        'SUBJECT_MATH': 'math',
+        'SUBJECT_BIOLOGY': 'biology',
+        'SUBJECT_CHEMISTRY': 'chemistry',
+        'SUBJECT_PHYSICS': 'physics',
+        'SUBJECT_CHINESE': 'chinese',
+        'SUBJECT_ENGLISH': 'english'
+      }
+      const filterValue = String(newFilter).toUpperCase()
+      const targetSubject = subjectMap[filterValue] || filterValue.toLowerCase() || 'math'
+      
+      // 检查当前 store 中的题目是否属于目标科目
+      const currentQuestions = questionStore.questions
+      const hasTargetSubjectQuestions = currentQuestions.length > 0 && 
+        currentQuestions.some(q => {
+          const qSubject = (q.subject || '').toLowerCase()
+          return qSubject === targetSubject || 
+                 qSubject.includes(targetSubject) || 
+                 targetSubject.includes(qSubject)
+        })
+      
+      // 如果当前没有目标科目的题目，需要重新加载
+      if (!hasTargetSubjectQuestions) {
+        console.log('[QuestionList] 筛选面板选择新科目，重新加载题目:', targetSubject)
+        selectedSubject.value = targetSubject
+        await questionStore.fetchQuestions(targetSubject, true)
+        questions.value = [...questionStore.questions]
+      }
+    }
   },
   { immediate: false },
 )

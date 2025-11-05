@@ -169,6 +169,9 @@ declare global {
     onScreenProjectionStopped?(): void
     onSnapshotTaken?(imageData: unknown): void
     onClassroomError?(error: string): void
+    
+    // ========== Android日志回调 ==========
+    onAndroidLog?(level: string, tag: string, message: string): void
   }
 }
 

@@ -185,21 +185,38 @@ const handleStartExercise = async () => {
   
   try {
     isStarting.value = true
-    console.log('开始练习 - 先添加题目，后跳转页面')
+    console.log('[FindExerciseView] 开始练习 - 先添加题目，后跳转页面')
+    
+    // 获取所有选中的题目ID（包括手动选中的和已收藏的）
+    const manuallySelectedIds = selectedQuestionIds.value.filter(id => id)
+    const favoritedIds = similarQuestions.value
+      .filter(q => q.atUserList)
+      .map(q => q.bmNo)
+      .filter(id => id)
+    const allSelectedIds = [...new Set([...manuallySelectedIds, ...favoritedIds])]
+    
+    console.log('[FindExerciseView] 选中题目详情:', {
+      manuallySelected: manuallySelectedIds,
+      favorited: favoritedIds,
+      allSelected: allSelectedIds,
+      totalCount: allSelectedIds.length
+    })
     
     // 检查是否有手动选中的题目需要添加
-    const hasManuallySelected = selectedQuestionIds.value.length > 0
-    const hasFavoritedOnly = similarQuestions.value.some(q => q.atUserList) && !hasManuallySelected
+    const hasManuallySelected = manuallySelectedIds.length > 0
+    const hasFavoritedOnly = favoritedIds.length > 0 && !hasManuallySelected
     
     let success = true
     
     // 只有当有手动选中的题目时才需要调用API添加
     if (hasManuallySelected) {
-      console.log('有手动选中的题目，需要添加到练习列表')
+      console.log('[FindExerciseView] 有手动选中的题目，需要添加到练习列表')
+      console.log('[FindExerciseView] 准备添加的题目ID:', manuallySelectedIds)
+      
       success = await findExerciseStore.addSelectedQuestionsToList()
       
       if (!success) {
-        console.error('添加题目失败，无法开始练习')
+        console.error('[FindExerciseView] 添加题目失败，无法开始练习')
         return
       }
       
@@ -207,27 +224,42 @@ const handleStartExercise = async () => {
       // 第1步：获取科目名称
       const subjectName = findExerciseStore.config?.subject === Subject.SUBJECT_MATH ? 'math' : 'biology'
       // 第2步：强制从服务器刷新题目列表，不使用本地缓存
-      console.log('刷新题目列表，确保新添加的题目显示')
+      console.log('[FindExerciseView] 刷新题目列表，确保新添加的题目显示')
       await questionStore.fetchQuestions(subjectName, false)
+      
+      // 验证刷新后的题目列表
+      const refreshedQuestions = questionStore.questions
+      console.log('[FindExerciseView] 刷新后的题目列表数量:', refreshedQuestions.length)
+      
+      // 检查新添加的题目是否在列表中
+      const addedQuestionsFound = manuallySelectedIds.filter(id => 
+        refreshedQuestions.some(q => q.bmNo === id || q.id === id)
+      )
+      console.log('[FindExerciseView] 新添加的题目在列表中:', addedQuestionsFound.length, '/', manuallySelectedIds.length)
+      
+      if (addedQuestionsFound.length < manuallySelectedIds.length) {
+        console.warn('[FindExerciseView] 警告：部分题目可能未成功添加到列表')
+      }
     } else if (hasFavoritedOnly) {
-      console.log('只有已收藏的题目，直接跳转到练习页面')
+      console.log('[FindExerciseView] 只有已收藏的题目，直接跳转到练习页面')
     }
     
     if (success) {
-      console.log('准备跳转到练习页面')
+      console.log('[FindExerciseView] 准备跳转到练习页面')
+      console.log('[FindExerciseView] 跳转参数 - questionIds:', allSelectedIds.join(','))
       
-      // 跳转到练习页面
+      // 跳转到练习页面，传递所有选中的题目ID（包括手动选中的和已收藏的）
       router.push({
         path: '/exercise-solve',
         query: {
-          questionIds: selectedQuestionIds.value.join(','),
+          questionIds: allSelectedIds.join(','),
           subject: findExerciseStore.config?.subject || Subject.SUBJECT_MATH,
           token: findExerciseStore.config?.token || ''
         }
       })
     }
   } catch (error) {
-    console.error('开始练习时发生错误:', error)
+    console.error('[FindExerciseView] 开始练习时发生错误:', error)
   } finally {
     isStarting.value = false
   }

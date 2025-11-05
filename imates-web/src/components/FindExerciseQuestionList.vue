@@ -8,20 +8,26 @@
           <QuestionListSkeleton animation-speed="fast" :skeleton-count="4" :columns="2" />
         </div>
         <!-- 空状态 -->
-        <div v-else-if="similarQuestions.length === 0 && !isLoading" class="native-empty-state">
-          <q-icon name="search_off" size="80px" color="grey-5" />
-          <div class="text-h6 q-mt-md text-grey-7 native-text-3xl">未找到相似题目</div>
-          <div class="text-body2 text-grey-6 q-mt-sm native-text-md">
-            请尝试调整搜索条件或刷新页面
+        <div v-else-if="similarQuestions.length === 0 && !isLoading" class="empty-state-container">
+          <div class="empty-state-content">
+            <div class="empty-icon-wrapper">
+              <q-icon name="quiz" size="96px" color="grey-4" />
+              <div class="empty-icon-bg"></div>
+            </div>
+            <div class="empty-title">未找到相似题目</div>
+            <div class="empty-description">
+              根据当前知识点暂未找到相关题目，<br />
+              请尝试调整知识点范围或刷新页面
+            </div>
+            <q-btn
+              unelevated
+              color="primary"
+              label="刷新页面"
+              icon="refresh"
+              @click="handleRefresh"
+              class="empty-action-btn"
+            />
           </div>
-          <q-btn
-            flat
-            color="primary"
-            label="刷新页面"
-            icon="refresh"
-            @click="handleRefresh"
-            class="q-mt-md"
-          />
         </div>
 
         <!-- 题目列表 - 优化后的卡片布局 -->
@@ -378,13 +384,13 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
     width: 100%;
-    height: 150px; // 固定高度
+    height: 320px; // 增加卡片高度，从200px增加到320px
     padding: 8px 16px;
     background-color: $background-white;
     border-radius: 12px;
     border: 1px solid $border-color;
     @include card-shadow(subtle);
-    overflow: hidden; // 隐藏溢出
+    overflow: hidden; // 防止内容溢出卡片边界
     min-width: 0; // 允许组块收缩
   }
 
@@ -417,6 +423,8 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0; // 固定头部高度，不压缩
+  margin-bottom: 8px; // 添加底部间距
 }
 
 .question-checkbox {
@@ -454,6 +462,8 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 0; // 允许收缩
   overflow-x: auto;
   overflow-y: auto; // 垂直方向溢出时显示滚动条
+  max-height: 100%; // 限制最大高度，确保可以滚动
+  position: relative; // 确保滚动条正确显示
 
   // 内容滚动条样式
   &::-webkit-scrollbar {
@@ -722,6 +732,89 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   flex-direction: column;
 }
 
+// ===== 空状态样式 - 知识点查找题目专用设计 =====
+.empty-state-container {
+  @include flex-center;
+  flex: 1;
+  min-height: 400px;
+  padding: 48px 24px;
+  background: linear-gradient(180deg, $background-light 0%, rgba(255, 255, 255, 0.8) 100%);
+}
+
+.empty-state-content {
+  @include flex-center;
+  flex-direction: column;
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+}
+
+.empty-icon-wrapper {
+  position: relative;
+  margin-bottom: 32px;
+  
+  .q-icon {
+    position: relative;
+    z-index: 2;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.08));
+  }
+  
+  .empty-icon-bg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 120px;
+    height: 120px;
+    background: radial-gradient(circle, rgba(26, 115, 232, 0.06) 0%, transparent 70%);
+    border-radius: 50%;
+    z-index: 1;
+  }
+}
+
+.empty-title {
+  font-size: 24px;
+  font-weight: 500;
+  color: $text-primary;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.empty-description {
+  font-size: 15px;
+  color: $text-secondary;
+  line-height: 1.6;
+  margin-bottom: 32px;
+  max-width: 360px;
+}
+
+.empty-action-btn {
+  border-radius: 24px;
+  padding: 12px 32px;
+  font-weight: 500;
+  font-size: 15px;
+  text-transform: none;
+  min-height: 44px;
+  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.2);
+  transition: $transition-smooth;
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(26, 115, 232, 0.25);
+  }
+
+  .q-icon {
+    font-size: 20px;
+    margin-right: 8px;
+  }
+}
+
+// 兼容旧样式（保持向后兼容）
 .native-empty-state {
   @include flex-center;
   flex-direction: column;
@@ -803,7 +896,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
   .question-item {
     .question-block {
-      height: 280px; // 移动端稍微减小高度
+      height: 400px; // 移动端高度，从320px增加到400px
       padding: 12px;
       gap: 8px;
     }
@@ -849,7 +942,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
   .question-item {
     .question-block {
-      height: 260px; // 小屏幕进一步减小高度
+      height: 380px; // 小屏幕高度，从300px增加到380px
       padding: 10px;
       gap: 6px;
     }
@@ -872,6 +965,42 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       padding: 6px 20px;
       font-size: 13px;
     }
+  }
+
+  // 移动端空状态优化
+  .empty-state-container {
+    min-height: 300px;
+    padding: 32px 16px;
+  }
+
+  .empty-icon-wrapper {
+    margin-bottom: 24px;
+    
+    .q-icon {
+      font-size: 72px !important;
+    }
+    
+    .empty-icon-bg {
+      width: 96px;
+      height: 96px;
+    }
+  }
+
+  .empty-title {
+    font-size: 20px;
+    margin-bottom: 10px;
+  }
+
+  .empty-description {
+    font-size: 14px;
+    margin-bottom: 24px;
+    max-width: 100%;
+  }
+
+  .empty-action-btn {
+    padding: 10px 24px;
+    font-size: 14px;
+    min-height: 40px;
   }
 }
 </style>

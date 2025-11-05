@@ -49,7 +49,7 @@
     </div>
 
     <!-- 主要内容区域 -->
-    <div class="main-content row no-wrap" @click="handleContentClick">
+    <div class="main-content" @click="handleContentClick">
       <!-- 筛选面板 -->
       <transition name="filter-panel-transition">
         <div class="filter-panel-wrapper" v-if="showFilterPanel" @click.stop>
@@ -112,62 +112,85 @@
           </div>
         </div>
       </transition>
-      <!-- 左侧题目列表 -->
-      <div class="question-panel">
-        <q-card flat bordered class="full-height">
-          <q-card-section class="q-pa-none full-height">
-            <QuestionList 
-              ref="questionListRef"
-              :search-query="searchQuery"
-              :selected-subject-filter="selectedSubjectFilter"
-              @start-ai-guidance="handleStartAiGuidance"
-              @question-selected="handleQuestionSelected"
-              @send-question-to-teacher="handleSendQuestionToTeacher"
-              @open-mini-class="handleOpenMiniClass"
-            />
-          </q-card-section>
-        </q-card>
-      </div>
+      
+      <!-- 分屏组件包裹左侧题目列表和右侧功能区域 -->
+      <q-splitter
+        v-model="splitterModel"
+        :limits="[20, 50]"
+        class="splitter-container"
+      >
+        <!-- 左侧题目列表 -->
+        <template v-slot:before>
+          <div class="question-panel">
+            <q-card flat bordered class="full-height">
+              <q-card-section class="q-pa-none full-height">
+                <QuestionList 
+                  ref="questionListRef"
+                  :search-query="searchQuery"
+                  :selected-subject-filter="selectedSubjectFilter"
+                  @start-ai-guidance="handleStartAiGuidance"
+                  @question-selected="handleQuestionSelected"
+                  @send-question-to-teacher="handleSendQuestionToTeacher"
+                  @open-mini-class="handleOpenMiniClass"
+                />
+              </q-card-section>
+            </q-card>
+          </div>
+        </template>
 
-      <!-- 右侧功能区域 -->
-      <div class="function-panel" :class="{ 'content-shifted': showFilterPanel }">
-        <q-card flat class="full-height">
-          <!-- 功能内容区域 -->
-          <q-card-section class="function-content q-pa-none">
-            <!-- AI聊天界面 -->
-            <ChatView
-              v-if="currentFunction === 'chatAi'"
-              type="ai-exercise"
-              @response="handleChatResponse"
-              @switch-to-teacher="handleSwitchToTeacher"
-              @open-teacher-dialog="handleOpenTeacherDialog"
-              @scroll-to-question-and-select="handleScrollToQuestionAndSelect"
-              @scroll-to-bottom="scrollToBottom"
-            />
+        <!-- 分隔条标记 -->
+        <template v-slot:separator>
+          <div class="splitter-handle">
+            <div class="splitter-dots">
+              <span class="dot"></span>
+              <span class="dot"></span>
+              <span class="dot"></span>
+            </div>
+          </div>
+        </template>
 
-            <!-- 问老师界面 -->
-            <ChatView 
-              v-if="currentFunction === 'askTeacher'" 
-              type="teacher"
-              @scroll-to-question-and-select="handleScrollToQuestionAndSelect"
-              @scroll-to-bottom="scrollToBottom"
-            />
+        <!-- 右侧功能区域 -->
+        <template v-slot:after>
+          <div class="function-panel">
+            <q-card flat class="full-height">
+              <!-- 功能内容区域 -->
+              <q-card-section class="function-content q-pa-none">
+                <!-- AI聊天界面 -->
+                <ChatView
+                  v-if="currentFunction === 'chatAi'"
+                  type="ai-exercise"
+                  @response="handleChatResponse"
+                  @switch-to-teacher="handleSwitchToTeacher"
+                  @open-teacher-dialog="handleOpenTeacherDialog"
+                  @scroll-to-question-and-select="handleScrollToQuestionAndSelect"
+                  @scroll-to-bottom="scrollToBottom"
+                />
 
-            <!-- 答案显示 -->
-            <AnswerView
-              v-if="currentFunction === 'viewAnswer'"
-              :answer="currentQuestion?.answer || ''"
-              :analysis="currentQuestion?.analysisData || ''"
-            />
+                <!-- 问老师界面 -->
+                <ChatView 
+                  v-if="currentFunction === 'askTeacher'" 
+                  type="teacher"
+                  @scroll-to-question-and-select="handleScrollToQuestionAndSelect"
+                  @scroll-to-bottom="scrollToBottom"
+                />
 
-            <!-- 相似题目 -->
-            <SimilarQuestionList 
-              v-if="currentFunction === 'similarQuestion'" 
-              @question-added="handleQuestionAdded"
-            />
-          </q-card-section>
-        </q-card>
-      </div>
+                <!-- 答案显示 -->
+                <AnswerView
+                  v-if="currentFunction === 'viewAnswer'"
+                  :answer="currentQuestion?.answer || ''"
+                  :analysis="currentQuestion?.analysisData || ''"
+                />
+
+                <!-- 相似题目 -->
+                <SimilarQuestionList 
+                  v-if="currentFunction === 'similarQuestion'" 
+                  @question-added="handleQuestionAdded"
+                />
+              </q-card-section>
+            </q-card>
+          </div>
+        </template>
+      </q-splitter>
     </div>
 
     <!-- UnifiedChatDialog - 用于转发消息时打开 -->
@@ -196,24 +219,11 @@ import SimilarQuestionList from '../components/SimilarQuestionList.vue'
 import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
 import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem, ChatBubble } from '../types'
+import { Subject } from '../types'
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
-
-// 加载时间日志
-const loadStartTime = performance.now()
-// 获取时间字符串的工具函数
-const getTimeString = () => {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  const hours = String(now.getHours()).padStart(2, '0')
-  const minutes = String(now.getMinutes()).padStart(2, '0')
-  const seconds = String(now.getSeconds()).padStart(2, '0')
-  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`
-}
 
 const route = useRoute()
 const router = useRouter()
@@ -224,9 +234,10 @@ const teacherStore = useTeacherChatStore()
 const uiStore = useUIStore()
 const { currentQuestion, questions } = storeToRefs(questionStore)
 
-const initTime = performance.now()
-
 const currentFunction = ref<'chatAi' | 'askTeacher' | 'viewAnswer' | 'similarQuestion'>('chatAi')
+
+// 分屏组件模型值（控制左侧题目列表的宽度比例，30%表示左侧占30%）
+const splitterModel = ref(30)
 
 // QuestionList 组件引用
 const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
@@ -577,34 +588,197 @@ const scrollToBottom = () => {
 onMounted(async () => {
     // 静默初始化，不显示加载状态
     try {
+      console.log('[ExerciseSolveView] 开始初始化')
+      
       // 初始化用户store
       await userStore.initializeStore()
       
-      // 优先使用本地数据，不立即请求API
-      // fetchQuestions 方法会先尝试从本地存储加载，如果没有数据再请求API
-      await questionStore.fetchQuestions('math', true)
+      // 从路由参数中获取科目和题目ID
+      const routeSubject = route.query.subject as string | undefined
+      const questionIdsParam = route.query.questionIds as string | undefined
+      const questionIdParam = route.query.questionId as string | undefined
       
-      // 检查路由参数中是否有 questionId，如果有则定位到该题目
-      const questionId = route.query.questionId as string | undefined
-      if (questionId && questionListRef.value) {
+      console.log('[ExerciseSolveView] 路由参数:', {
+        subject: routeSubject,
+        questionIds: questionIdsParam,
+        questionId: questionIdParam
+      })
+      
+      // 将 Subject 枚举值转换为科目名称
+      // 注意：Subject 枚举的值就是字符串，所以可以直接使用字符串作为键
+      const subjectMap: Record<string, string> = {
+        [Subject.SUBJECT_MATH]: 'math',
+        [Subject.SUBJECT_BIOLOGY]: 'biology',
+        [Subject.SUBJECT_CHEMISTRY]: 'chemistry',
+        [Subject.SUBJECT_PHYSICS]: 'physics',
+        [Subject.SUBJECT_CHINESE]: 'chinese',
+        [Subject.SUBJECT_ENGLISH]: 'english'
+      }
+      
+      // 科目名称到筛选面板值的反向映射
+      const reverseSubjectMap: Record<string, string> = {
+        'math': 'SUBJECT_MATH',
+        'biology': 'SUBJECT_BIOLOGY',
+        'chemistry': 'SUBJECT_CHEMISTRY',
+        'physics': 'SUBJECT_PHYSICS',
+        'chinese': 'SUBJECT_CHINESE',
+        'english': 'SUBJECT_ENGLISH'
+      }
+      
+      // 确定要加载的科目
+      let subjectName = 'math' // 默认使用数学
+      let subjectFilterValue: string | null = null // 筛选面板的值
+      
+      if (routeSubject) {
+        // 如果路由参数中提供了科目，使用路由参数中的科目
+        const routeSubjectUpper = String(routeSubject).toUpperCase()
+        subjectName = subjectMap[routeSubjectUpper] || subjectMap[routeSubject] || routeSubject.toLowerCase() || 'math'
+        
+        // 将路由参数中的科目值（如 SUBJECT_BIOLOGY）设置为筛选面板的值
+        // 确保是标准的 Subject 枚举格式
+        if (routeSubjectUpper.startsWith('SUBJECT_')) {
+          subjectFilterValue = routeSubjectUpper
+        } else {
+          // 如果不是标准格式，尝试从科目名称反向映射
+          subjectFilterValue = reverseSubjectMap[subjectName] || null
+        }
+        
+        console.log('[ExerciseSolveView] 使用路由参数中的科目:', {
+          routeSubject,
+          subjectName,
+          subjectFilterValue
+        })
+      } else {
+        // 否则从用户store中获取科目
+        const userSubject = userStore.subject
+        if (userSubject) {
+          const userSubjectUpper = String(userSubject).toUpperCase()
+          subjectName = subjectMap[userSubjectUpper] || subjectMap[userSubject] || userSubject.toLowerCase() || 'math'
+          
+          // 将用户store中的科目转换为筛选面板的值
+          if (userSubjectUpper.startsWith('SUBJECT_')) {
+            subjectFilterValue = userSubjectUpper
+          } else {
+            // 否则尝试从科目名称反向映射
+            subjectFilterValue = reverseSubjectMap[subjectName] || null
+          }
+          
+          console.log('[ExerciseSolveView] 使用用户store中的科目:', {
+            userSubject,
+            subjectName,
+            subjectFilterValue
+          })
+        }
+      }
+      
+      // 设置筛选面板的学科过滤下拉框
+      if (subjectFilterValue) {
+        selectedSubjectFilter.value = subjectFilterValue
+        console.log('[ExerciseSolveView] 已设置筛选面板学科过滤为:', subjectFilterValue)
+      } else {
+        // 如果没有设置具体科目，设置为全部学科（null）
+        selectedSubjectFilter.value = null
+        console.log('[ExerciseSolveView] 筛选面板学科过滤设置为全部学科')
+      }
+      
+      // 如果提供了 questionIds 参数，说明是刚添加的题目，需要从服务器刷新
+      // 否则优先使用本地数据
+      const useLocalFirst = !questionIdsParam
+      
+      // 根据筛选面板的学科过滤值决定加载方式
+      if (selectedSubjectFilter.value === null) {
+        // 全部学科：加载所有学科的题目
+        console.log('[ExerciseSolveView] 加载所有学科的题目列表:', {
+          useLocalFirst,
+          hasQuestionIds: !!questionIdsParam
+        })
+        await questionStore.fetchAllSubjectsQuestions(useLocalFirst)
+      } else {
+        // 具体学科：加载指定学科的题目
+        console.log('[ExerciseSolveView] 加载题目列表:', {
+          subject: subjectName,
+          useLocalFirst,
+          hasQuestionIds: !!questionIdsParam
+        })
+        await questionStore.fetchQuestions(subjectName, useLocalFirst)
+      }
+      
+      console.log('[ExerciseSolveView] 题目列表加载完成，题目数量:', questions.value.length)
+      
+      // 处理题目定位
+      let targetQuestionId: string | undefined
+      
+      // 优先使用 questionIds（多个题目，定位到第一个）
+      if (questionIdsParam) {
+        const questionIds = questionIdsParam.split(',').filter(id => id.trim())
+        if (questionIds.length > 0) {
+          targetQuestionId = questionIds[0]
+          console.log('[ExerciseSolveView] 从 questionIds 参数中获取目标题目ID:', targetQuestionId)
+          
+          // 验证这些题目是否在列表中
+          const foundIds = questionIds.filter(id => 
+            questions.value.some(q => q.bmNo === id || q.id === id)
+          )
+          console.log('[ExerciseSolveView] 题目验证结果:', {
+            total: questionIds.length,
+            found: foundIds.length,
+            foundIds
+          })
+          
+          if (foundIds.length < questionIds.length) {
+            console.warn('[ExerciseSolveView] ⚠️ 部分题目未在列表中，可能需要等待服务器同步')
+            // 如果部分题目未找到，尝试再次从服务器刷新
+            console.log('[ExerciseSolveView] 重新从服务器刷新题目列表')
+            await questionStore.fetchQuestions(subjectName, false)
+            
+            // 再次验证
+            const foundIdsAfterRefresh = questionIds.filter(id => 
+              questions.value.some(q => q.bmNo === id || q.id === id)
+            )
+            console.log('[ExerciseSolveView] 刷新后题目验证结果:', {
+              total: questionIds.length,
+              found: foundIdsAfterRefresh.length,
+              foundIds: foundIdsAfterRefresh
+            })
+          }
+        }
+      } else if (questionIdParam) {
+        // 使用单个 questionId
+        targetQuestionId = questionIdParam
+        console.log('[ExerciseSolveView] 从 questionId 参数中获取目标题目ID:', targetQuestionId)
+      }
+      
+      // 定位到目标题目
+      if (targetQuestionId && questionListRef.value) {
         await nextTick()
         // 等待题目列表渲染完成
         await new Promise(resolve => setTimeout(resolve, 300))
         
         // 在题目列表中查找对应的题目索引
-        const targetIndex = questions.value.findIndex(q => q.id === questionId || q.bmNo === questionId)
+        const targetIndex = questions.value.findIndex(q => q.id === targetQuestionId || q.bmNo === targetQuestionId)
+        console.log('[ExerciseSolveView] 查找题目索引:', {
+          targetQuestionId,
+          targetIndex,
+          found: targetIndex >= 0
+        })
+        
         if (targetIndex >= 0) {
           // 等待组件完全渲染后再定位
           await nextTick()
           setTimeout(() => {
             if (questionListRef.value && typeof questionListRef.value.scrollToQuestionAndSelect === 'function') {
+              console.log('[ExerciseSolveView] 定位到题目索引:', targetIndex)
               questionListRef.value.scrollToQuestionAndSelect(targetIndex)
             }
           }, 500)
+        } else {
+          console.warn('[ExerciseSolveView] ⚠️ 未找到目标题目，ID:', targetQuestionId)
         }
       }
+      
+      console.log('[ExerciseSolveView] ✅ 初始化完成')
     } catch (error) {
-      console.error(`[ExerciseSolveView] 初始化失败:`, error)
+      console.error(`[ExerciseSolveView] ❌ 初始化失败:`, error)
     }
 })
 
@@ -918,15 +1092,86 @@ $desktop-breakpoint: 1025px;
   // 筛选面板作为普通流式布局的一部分，不需要偏移
 }
 
+// 分屏容器样式
+.splitter-container {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  
+  :deep(.q-splitter__panel) {
+    overflow: hidden;
+  }
+  
+  :deep(.q-splitter__before) {
+    overflow: hidden;
+  }
+  
+  :deep(.q-splitter__after) {
+    overflow: hidden;
+  }
+  
+  // 分隔条样式
+  :deep(.q-splitter__separator) {
+    background-color: #f0f0f0;
+    cursor: col-resize;
+    position: relative;
+    
+    &:hover {
+      background-color: #e0e0e0;
+    }
+    
+    &:active {
+      background-color: #d0d0d0;
+    }
+  }
+}
+
+// 分隔条标记样式
+.splitter-handle {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.splitter-dots {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+}
+
+.splitter-dots .dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: #999;
+  display: block;
+  transition: background-color 0.2s;
+}
+
+.splitter-container :deep(.q-splitter__separator):hover .splitter-dots .dot {
+  background-color: #666;
+}
+
+.splitter-container :deep(.q-splitter__separator):active .splitter-dots .dot {
+  background-color: #333;
+}
+
 .question-panel {
   background-color: #f8f9fa; /* Gemini 风格的浅灰背景 */
-  @include full-height-flex;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  flex: 0 0 30%;
-  min-width: 0;
 
   .q-card {
-    @include full-height-flex;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
     background-color: transparent;
     border: none;
     box-shadow: none;
@@ -947,24 +1192,20 @@ $desktop-breakpoint: 1025px;
 }
 
 .function-panel {
-  @include full-height-flex;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   background-color: #ffffff; /* 聊天区域保持白色背景 */
-  flex: 1 1 auto;
-  min-width: 0;
-  transition: flex-basis 0.3s ease, margin-left 0.3s ease; // 平滑动画，flex-basis和margin-left变化时有渐变效果
+  overflow: hidden;
 
   .q-card {
-    @include full-height-flex;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
     background-color: transparent;
     border: none;
     box-shadow: none;
   }
-  
-  // 当筛选面板显示时，内容区域平滑调整
-  &.content-shifted {
-    flex: 0 0 calc(100% - 22%); // 使用 flex-basis，确保 transition 生效
-    margin-left: auto; // 将面板推到右侧，确保右侧始终紧贴右边框
-    }
 }
 
 .function-nav {
@@ -1115,19 +1356,18 @@ $desktop-breakpoint: 1025px;
     min-height: 0;
   }
 
+  .splitter-container {
+    :deep(.q-splitter) {
+      flex-direction: column;
+    }
+  }
+
   .question-panel {
-    height: 40vh !important;
-    max-height: 40vh;
     /* 移动端也使用背景色区分，不用边框 */
 
     .q-card-section {
       @include hide-mobile-scrollbar;
     }
-  }
-
-  .function-panel {
-    height: 60vh !important;
-    max-height: 60vh;
   }
 
   .function-content {
@@ -1146,46 +1386,6 @@ $desktop-breakpoint: 1025px;
   
   .toolbar-spacer {
     width: 32px;
-  }
-}
-
-@media (min-width: #{$mobile-breakpoint + 1px}) and (max-width: $tablet-breakpoint) {
-  .question-panel {
-    flex: 0 0 35%;
-    
-    &.with-filter-panel {
-      flex: 0 0 calc(35% - 300px);
-    }
-  }
-
-  .function-panel {
-    flex: 0 0 65%;
-    transition: flex-basis 0.3s ease, margin-left 0.3s ease; // 平滑动画，flex-basis和margin-left变化时有渐变效果
-    
-    &.content-shifted {
-      flex: 0 0 calc(100% - 22%); // 使用 flex-basis，确保 transition 生效
-      margin-left: auto; // 将面板推到右侧，确保右侧始终紧贴右边框
-    }
-  }
-}
-
-@media (min-width: $desktop-breakpoint) {
-  .question-panel {
-    flex: 0 0 30%;
-    
-    &.with-filter-panel {
-      flex: 0 0 calc(30% - 300px);
-    }
-  }
-
-  .function-panel {
-    flex: 0 0 70%;
-    transition: flex-basis 0.3s ease, margin-left 0.3s ease; // 平滑动画，flex-basis和margin-left变化时有渐变效果
-    
-    &.content-shifted {
-      flex: 0 0 48%; // 使用 flex-basis，确保 transition 生效
-      margin-left: auto; // 将面板推到右侧，确保右侧始终紧贴右边框
-    }
   }
 }
 </style>
