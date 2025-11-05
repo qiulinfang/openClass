@@ -97,17 +97,18 @@
                 <q-tooltip>输出对比统计（估算vs真实高度）</q-tooltip>
               </q-btn>
 
-              <!-- 拍照搜题按钮 -->
+              <!-- 题目调试面板按钮 - 只在开发场景下显示 -->
               <q-btn
-                icon="camera_alt"
-                label="拍照搜题"
-                color="primary"
-                outline
-                class="photo-search-btn"
-                @click="handlePhotoSearch"
+                v-if="isDev"
+                icon="bug_report"
+                label="题目调试"
+                flat
+                class="debug-btn"
+                @click="showQuestionDebugPanel = true"
               >
-                <q-tooltip>拍照或选择图片进行题目识别</q-tooltip>
+                <q-tooltip>打开题目调试面板</q-tooltip>
               </q-btn>
+
             </div>
           </div>
         </div>
@@ -200,12 +201,19 @@
       :initial-category="'teacher'"
       :initial-teacher-subject="currentSubject"
     />
+
+    <!-- 题目调试面板 - 只在开发场景下显示 -->
+    <QuestionDebugPanel
+      v-if="isDev"
+      v-model="showQuestionDebugPanel"
+    />
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useQuestionStore } from '../stores/questionStore'
 import { useUserStore } from '../stores/userStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
@@ -217,6 +225,7 @@ import ChatView from '../components/ChatView.vue'
 import AnswerView from '../components/AnswerView.vue'
 import SimilarQuestionList from '../components/SimilarQuestionList.vue'
 import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
+import QuestionDebugPanel from '../components/debug/QuestionDebugPanel.vue'
 import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem, ChatBubble } from '../types'
 import { Subject } from '../types'
@@ -226,7 +235,6 @@ import { Subject } from '../types'
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
 const route = useRoute()
-const router = useRouter()
 const questionStore = useQuestionStore()
 const userStore = useUserStore()
 const aiExerciseStore = useAiExerciseChatStore()
@@ -253,6 +261,9 @@ const currentSubject = computed(() => {
 
 // 筛选面板显示状态
 const showFilterPanel = ref(false)
+
+// 题目调试面板显示状态
+const showQuestionDebugPanel = ref(false)
 
 // 切换筛选面板显示状态
 const toggleFilterPanel = () => {
@@ -297,43 +308,6 @@ const onSearchInput = () => {
 // 学科过滤变化处理
 const onSubjectFilterChange = () => {
   // 过滤逻辑在 QuestionList 组件内部处理
-}
-
-// 拍照搜题处理
-const handlePhotoSearch = async () => {
-  try {
-    // 动态导入日志工具（避免循环依赖）
-    const { photoSearchLogger } = await import('@/utils/logging/photoSearchLogger')
-    
-    // 获取当前题目信息，如果存在则使用其学科，否则默认使用数学
-    const currentQuestion = questionStore.currentQuestion
-    let subjectName = 'math' // 默认使用数学
-    
-    if (currentQuestion?.subject) {
-      // 从题目中获取学科信息
-      const subjectMap: Record<string, string> = {
-        'SUBJECT_MATH': 'math',
-        'SUBJECT_BIOLOGY': 'biology',
-        'SUBJECT_CHEMISTRY': 'chemistry',
-        'SUBJECT_PHYSICS': 'physics',
-        'SUBJECT_CHINESE': 'chinese',
-        'SUBJECT_ENGLISH': 'english'
-      }
-      subjectName = subjectMap[currentQuestion.subject] || currentQuestion.subject.toLowerCase() || 'math'
-    }
-    
-    // 记录导航到拍照搜题页面
-    photoSearchLogger.navigateToPhotoSearch(subjectName, currentQuestion)
-    
-    // 导航到拍照搜题页面
-    router.push({ 
-      name: 'photoSearch',
-      query: { subject: subjectName }
-    })
-  } catch (error) {
-    console.error('打开拍照搜题页面失败:', error)
-    showMessage('打开拍照搜题页面失败', 'error')
-  }
 }
 
 // 输出对比统计
@@ -1030,23 +1004,6 @@ $desktop-breakpoint: 1025px;
         font-size: 20px;
       }
     }
-    
-    .photo-search-btn {
-      width: 100%;
-      height: 48px;
-      border-radius: 12px;
-      font-size: 14px;
-      font-weight: 500;
-      
-      &:hover {
-        opacity: 0.9;
-      }
-      
-      :deep(.q-icon) {
-        font-size: 20px;
-        margin-right: 8px;
-      }
-    }
   }
 }
 
@@ -1115,14 +1072,7 @@ $desktop-breakpoint: 1025px;
     background-color: #f0f0f0;
     cursor: col-resize;
     position: relative;
-    
-    &:hover {
-      background-color: #e0e0e0;
-    }
-    
-    &:active {
-      background-color: #d0d0d0;
-    }
+    width: 6px; // 增加分隔条宽度，使拖动更容易
   }
 }
 

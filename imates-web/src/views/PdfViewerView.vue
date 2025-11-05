@@ -572,13 +572,19 @@ const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
       图片尺寸: `${img.width}x${img.height}`
     })
     
+    // 构建完整的图片数据，包含宽高信息，确保消息列表能正确显示图片
+    const imageData = {
+      filePath: fileName,
+      base64DataUrl: dataUrl,
+      width: img.width,
+      height: img.height,
+      fileSize: Math.round(dataUrl.length * 0.75) // base64编码后大小约为原始大小的1.33倍，这里估算原始大小
+    }
+    
     await aiTextbookStore.sendMessage(
       question, // ⭐ 使用用户输入的问题作为coversation
       'mate', // 使用默认AI模型
-      {
-        filePath: fileName,
-        base64DataUrl: dataUrl
-      },
+      imageData, // ⭐ 传递完整的图片数据（包含宽高），确保消息列表正确显示
       false // 不隐藏前缀
     )
     

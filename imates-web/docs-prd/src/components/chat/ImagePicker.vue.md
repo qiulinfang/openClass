@@ -9,7 +9,7 @@
 ## 🎯 功能需求
 
 ### 1. 核心功能
-- **图片选择对话框**：显示模态对话框，提供"拍照"和"从相册选择"两个选项
+- **图片选择对话框**：显示模态对话框，提供"相机"和"相册"两个选项
 - **相机拍照**：调用原生 Android Bridge 打开相机，拍照后获取图片数据
 - **相册选择**：调用原生 Android Bridge 打开相册，选择图片后获取图片数据
 - **图片数据处理**：接收原生返回的图片数据（base64DataUrl），构造 ImageData 对象
@@ -40,27 +40,51 @@
   - `[文件路径]`：`[使用方式]`
 
 ### 2. 关键代码逻辑
-```typescript
+```vue
 // ImagePicker.vue 的核心代码
 <template>
   <div class="image-picker">
     <!-- 图片选择对话框 -->
-    <q-dialog v-model="isPickerVisible" class="gemini-card-dialog image-picker-dialog">
-      <q-card class="picker-card">
-        <q-card-section class="picker-header">
-          <div class="text-h6">选择图片</div>
-          <q-btn
-            flat
-            round
-            dense
-            icon="close"
-            @click="closeDialog"
-          />
-        </q-card-section>
+    <q-dialog v-model="isPickerVisible" class="image-picker-dialog">
+      <div class="picker-modal">
+        <!-- 标题栏 -->
+        <div class="picker-header">
+          <div class="picker-title">选择图片</div>
+          <div class="picker-close" @click="closeDialog">×</div>
+        </div>
         
-        <q-card-section class="picker-options">
-   
+        <!-- 选项区域 -->
+        <div class="picker-options">
+          <!-- 相机选项 -->
+          <div class="picker-option" @click="captureFromCamera">
+            <q-icon name="camera_alt" size="48px" class="option-icon" />
+            <span class="option-label">相机</span>
+          </div>
+          
+          <!-- 相册选项 -->
+          <div class="picker-option" @click="selectFromGallery">
+            <q-icon name="photo_library" size="48px" class="option-icon" />
+            <span class="option-label">相册</span>
+          </div>
+        </div>
+      </div>
+    </q-dialog>
+  </div>
+</template>
 ```
+
+### 3. UI 设计特点
+- **简洁的模态对话框**：白色背景，圆角设计，居中显示
+- **标题栏**：左上角显示"选择图片"标题，右上角显示关闭按钮（×）
+- **选项按钮**：两个选项水平排列，每个选项包含：
+  - 紫色图标（48px 大小）
+  - 选项文字（"相机"或"相册"）
+  - 浅灰色背景（#f5f5f5），圆角矩形
+  - 悬停和点击交互效果
+- **颜色方案**：
+  - 图标颜色：紫色（#9c27b0）
+  - 选项背景：浅灰色（#f5f5f5）
+  - 文字颜色：深灰色（#333333）
 
 ## 🔄 迁移到 React Native
 

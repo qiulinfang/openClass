@@ -4,6 +4,7 @@
  */
 
 import type { MessageType, ChatRole, SessionType } from './enums'
+import type { ExerciseItem } from './exercise'
 
 // ========== 基础聊天类型 ==========
 
@@ -132,6 +133,7 @@ export interface ChatViewProps {
   type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
   currentQuestionId?: string
   sessionId?: string  // 教师对话会话ID
+  overrideQuestion?: ExerciseItem | null  // 可选的题目覆盖（用于避免污染全局状态，如拍照搜题场景）
 }
 
 /** ForwardModeDialog Props接口 */

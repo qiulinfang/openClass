@@ -62,7 +62,12 @@
               </div>
 
               <!-- 题目内容 - Markdown渲染 -->
-              <div class="question-content">
+              <div 
+                class="question-content"
+                @touchstart.stop="handleQuestionContentTouchStart"
+                @touchmove.stop="handleQuestionContentTouchMove"
+                @touchend.stop="handleQuestionContentTouchEnd"
+              >
                 <div v-html="renderQuestionContent(question)" class="markdown-content"></div>
               </div>
             </div>
@@ -126,6 +131,12 @@ const loadMoreTimeout = ref<NodeJS.Timeout | null>(null)
 
 // DOM 引用
 const scrollWrapper = ref<HTMLElement | null>(null)
+
+// 题目内容区域的触摸事件处理器（用于清理）
+let contentTouchHandlers: Array<{
+  type: string
+  handler: (e: Event) => void
+}> = []
 
 // 使用 Better Scroll 组合式函数
 const { init: initBScroll, getInstance } = useBetterScroll(
@@ -257,6 +268,25 @@ const renderQuestionContent = (question: {
   return renderMessageContent(content)
 }
 
+// 处理题目内容区域的触摸事件，允许独立滚动
+// 需要在事件捕获阶段处理，以便在 better-scroll 之前拦截
+const handleQuestionContentTouchStart = (e: TouchEvent) => {
+  // 阻止事件冒泡到 better-scroll
+  e.stopPropagation()
+  // 不阻止默认行为，允许原生滚动
+}
+
+const handleQuestionContentTouchMove = (e: TouchEvent) => {
+  // 阻止事件冒泡到 better-scroll
+  e.stopPropagation()
+  // 不阻止默认行为，允许原生滚动
+}
+
+const handleQuestionContentTouchEnd = (e: TouchEvent) => {
+  // 阻止事件冒泡到 better-scroll
+  e.stopPropagation()
+}
+
 // 监听数据变化由组合式函数自动处理（已启用 autoWatch）
 
 // 生命周期
@@ -265,12 +295,39 @@ onMounted(async () => {
   // 设置滚动监听器
   await nextTick()
   setupScrollListener()
+  
+  // 为题目内容区域添加捕获阶段的触摸事件监听器
+  // 这样可以在 better-scroll 之前拦截事件，允许原生滚动
+  if (scrollWrapper.value) {
+    const handleContentTouch = (e: Event) => {
+      const target = e.target as HTMLElement
+      if (target.closest('.question-content')) {
+        // 在捕获阶段拦截，阻止 better-scroll 处理这些区域的触摸事件
+        e.stopPropagation()
+      }
+    }
+    
+    // 使用捕获阶段，确保在 better-scroll 之前处理
+    const events = ['touchstart', 'touchmove', 'touchend'] as const
+    events.forEach((type) => {
+      scrollWrapper.value!.addEventListener(type, handleContentTouch, true)
+      contentTouchHandlers.push({ type, handler: handleContentTouch })
+    })
+  }
 })
 
 onUnmounted(() => {
   // BScroll 销毁由组合式函数自动处理
   if (loadMoreTimeout.value) {
     clearTimeout(loadMoreTimeout.value)
+  }
+  
+  // 清理题目内容区域的触摸事件监听器
+  if (scrollWrapper.value && contentTouchHandlers.length > 0) {
+    contentTouchHandlers.forEach(({ type, handler }) => {
+      scrollWrapper.value!.removeEventListener(type, handler, true)
+    })
+    contentTouchHandlers = []
   }
 })
 
@@ -384,7 +441,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
     width: 100%;
-    height: 320px; // 增加卡片高度，从200px增加到320px
+    height: 200px; // 增加卡片高度，从200px增加到320px
     padding: 8px 16px;
     background-color: $background-white;
     border-radius: 12px;

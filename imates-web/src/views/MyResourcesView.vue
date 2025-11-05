@@ -390,7 +390,7 @@ BScroll.use(PullDown)
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
 // 流程：导入图标资源
-import bookIcon from '/icons/book.svg'
+import bookIcon from '/images/book.png'
 
 // 路由
 

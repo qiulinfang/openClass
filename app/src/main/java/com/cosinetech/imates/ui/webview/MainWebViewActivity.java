@@ -20,12 +20,14 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
+import com.cosinetech.imates.ui.robot.FloatingRobotService;
 import com.cosinetech.imates.ui.webview.common.WebAppInterface;
 import com.cosinetech.imates.ui.webview.common.WebViewConfig;
 import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.WindowUtils;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
 import com.xuexiang.xupdate.easy.EasyUpdate;
+import android.os.Build;
 
 /**
  * 主WebView Activity
@@ -596,6 +598,9 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
         // 启动系统级悬浮FAB按钮服务（在Web应用就绪后启动，确保功能完全准备好）
         startFloatingFabServiceWhenReady();
         
+        // 启动浮动机器人服务（在Web应用就绪后启动，确保功能完全准备好）
+        startFloatingRobotServiceWhenReady();
+        
         // 如果有悬浮FAB按钮的action参数，触发CustomEvent
         if (floatingFabAction != null && !floatingFabAction.isEmpty()) {
             // 延迟触发，确保Vue完全初始化
@@ -615,6 +620,24 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
         ApplicationModelShared app = (ApplicationModelShared) getApplication();
         app.startFloatingFabService();
         Log.d(TAG, "已尝试启动悬浮FAB按钮服务（Web应用就绪后）");
+    }
+    
+    /**
+     * 在Web应用就绪后启动浮动机器人服务
+     * 确保Web应用和Vue完全初始化后再启动，避免点击功能时功能未准备好
+     */
+    private void startFloatingRobotServiceWhenReady() {
+        try {
+            Intent intent = new Intent(this, FloatingRobotService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent);
+            } else {
+                startService(intent);
+            }
+            Log.d(TAG, "已尝试启动浮动机器人服务（Web应用就绪后）");
+        } catch (Exception e) {
+            Log.e(TAG, "启动浮动机器人服务失败", e);
+        }
     }
     
     /**

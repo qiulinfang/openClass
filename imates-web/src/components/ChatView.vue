@@ -81,33 +81,35 @@
       </div>
     </div>
 
-    <!-- 聊天输入组件 - 支持文本、语音、图片等多种输入方式 -->
-    <ChatInput
-      ref="chatInputRef"
-      v-model="inputMessage"
-      :placeholder-text="enhancedPlaceholderText"
-      :is-loading="isLoading"
-      :is-recording="isRecording"
-      :enable-web-search="enableWebSearch"
-      :selected-model="selectedModel"
-      :type="type"
-      :uploaded-files="uploadedFiles"
-      :active-mode="activeMode"
-      :can-send="canSend"
-      :is-editing="isEditingMessage"
-      :editing-message-id="editingMessageId"
-      @send-message="sendMessage"
-      @blur="onInputBlur"
-      @start-voice-input="startVoiceInput"
-      @stop-voice-input="stopVoiceInput"
-      @voice-move="handleVoiceMove"
-      @show-image-picker="showImagePickerDialog"
-      @toggle-web-search="toggleWebSearch"
-      @update:selected-model="selectedModel = $event"
-      @remove-file="removeFile"
-      @cancel-edit="cancelEditMessage"
-      @scroll-to-bottom="scrollToBottom"
-    />
+    <!-- 聊天输入组件插槽 - 支持自定义输入组件，默认使用 ChatInput -->
+    <slot name="input">
+      <ChatInput
+        ref="chatInputRef"
+        v-model="inputMessage"
+        :placeholder-text="enhancedPlaceholderText"
+        :is-loading="isLoading"
+        :is-recording="isRecording"
+        :enable-web-search="enableWebSearch"
+        :selected-model="selectedModel"
+        :type="type"
+        :uploaded-files="uploadedFiles"
+        :active-mode="activeMode"
+        :can-send="canSend"
+        :is-editing="isEditingMessage"
+        :editing-message-id="editingMessageId"
+        @send-message="sendMessage"
+        @blur="onInputBlur"
+        @start-voice-input="startVoiceInput"
+        @stop-voice-input="stopVoiceInput"
+        @voice-move="handleVoiceMove"
+        @show-image-picker="showImagePickerDialog"
+        @toggle-web-search="toggleWebSearch"
+        @update:selected-model="selectedModel = $event"
+        @remove-file="removeFile"
+        @cancel-edit="cancelEditMessage"
+        @scroll-to-bottom="scrollToBottom"
+      />
+    </slot>
 
     <!-- 语音录制组件 - 显示录音状态和取消提示 -->
     <VoiceRecorder :is-recording="isRecording" :show-cancel-hint="showCancelHint" />
@@ -145,7 +147,7 @@ import VoiceRecorder from './chat/VoiceRecorder.vue'
 // 类型定义导入
 import type { ChatBubble } from '../types'
 import type { ChatMessageSession } from '../types'
-import type { ChatViewProps } from '../types'
+import type { ExerciseItem } from '../types'
 import { SessionType } from '../types'
 
 // 策略模式导入
@@ -153,7 +155,26 @@ import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
 
 // ==================== 组件配置 ====================
 // 定义组件属性 - 支持AI和老师两种对话模式
-const props = defineProps<ChatViewProps>()
+// 使用内联类型定义的泛型形式，确保 Vue 编译器能正确提取所有 props（包括可选属性）
+// 这种方式比导入外部类型接口更可靠，因为 Vue 可以在编译时直接访问类型信息
+const props = withDefaults(defineProps<{
+  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
+  currentQuestionId?: string
+  sessionId?: string
+  overrideQuestion?: ExerciseItem | null
+}>(), {
+  overrideQuestion: null,
+})
+
+// 监听 props.overrideQuestion 的变化，用于调试
+watch(() => props.overrideQuestion, (newVal, oldVal) => {
+  console.log('[ChatView] [watch] overrideQuestion 变化:', {
+    old: oldVal,
+    new: newVal,
+    hasProp: 'overrideQuestion' in props,
+    allProps: Object.keys(props),
+  })
+}, { immediate: true, deep: true })
 
 // 定义组件事件 - 支持响应、切换、焦点、滚动等事件
 const emit = defineEmits<{
@@ -475,11 +496,37 @@ const CANCEL_THRESHOLD = 100 // 上滑取消的阈值（像素）
 // 滚动条样式配置
 
 /**
+ * 获取当前题目（优先使用 overrideQuestion，避免污染全局状态）
+ * 作用：统一获取当前题目的入口，支持通过 props 传入题目（如拍照搜题场景）
+ */
+const currentQuestion = computed(() => {
+  // 调试日志：检查 props 和 overrideQuestion
+  console.log('[ChatView] [currentQuestion] props:', {
+    type: props.type,
+    currentQuestionId: props.currentQuestionId,
+    sessionId: props.sessionId,
+    overrideQuestion: props.overrideQuestion,
+    hasOverrideQuestion: 'overrideQuestion' in props,
+  })
+  
+  // 优先使用 props 传入的题目（用于避免污染全局状态）
+  // 使用 'in' 操作符检查属性是否存在，更可靠
+  if ('overrideQuestion' in props && props.overrideQuestion !== undefined && props.overrideQuestion !== null) {
+    console.log('[ChatView] [currentQuestion] 使用 overrideQuestion:', props.overrideQuestion)
+    return props.overrideQuestion
+  }
+  // 否则使用全局 store 中的题目
+  const storeQuestion = questionStore.currentQuestion
+  console.log('[ChatView] [currentQuestion] 使用 store 中的题目:', storeQuestion)
+  return storeQuestion
+})
+
+/**
  * 检查是否有选中的题目
  * 作用：判断当前是否有选中的题目，用于控制输入框的占位符文本
  */
 const hasSelectedQuestion = computed(() => {
-  return questionStore.currentQuestion !== null
+  return currentQuestion.value !== null
 })
 
 /**
@@ -811,10 +858,6 @@ const initializeMessages = async () => {
     await initializeTeacherSession()
   }
 
-  // 步骤3：加载历史消息（如果有选中的题目）
-  // 注意：这里不直接调用 loadChatHistory，因为 selectQuestion 已经会调用
-  // 避免重复加载导致的问题
-
   // 第3步：只有在没有选择题目且没有聊天记录时才添加引导消息（策略模式重构版）
   if (!hasSelectedQuestion.value && chatStrategy.value) {
     // 策略模式：使用策略获取欢迎消息
@@ -848,14 +891,14 @@ const initializeTeacherSession = async () => {
     console.log('[ChatView] ✅ 消息监听器初始化完成')
 
     // 步骤2：如果有当前题目，基于AI会话创建老师会话
-    if (questionStore.currentQuestion) {
+    if (currentQuestion.value) {
       console.log('[ChatView] 🔄 第2步：有当前题目，基于AI会话创建老师会话')
       // 2.1 生成AI会话ID（基于题目ID和时间戳，确保唯一性）
-      aiSessionId.value = `ai_session_${questionStore.currentQuestion.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      aiSessionId.value = `ai_session_${currentQuestion.value.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       
       // 2.2 生成会话名称，清理LaTeX内容避免JSON解析问题
       const rawTitle =
-        questionStore.currentQuestion.question || questionStore.currentQuestion.title || '题目'
+        currentQuestion.value.question || currentQuestion.value.title || '题目'
 
       // 移除LaTeX数学公式，只保留纯文本
       const cleanTitle = rawTitle
@@ -1958,7 +2001,7 @@ const handleEditMessage = (message: ChatBubble) => {
   isEditingMessage.value = true
   editingMessageId.value = message.id
   originalMessageContent.value = message.content || ''
-  editingQuestionId.value = questionStore.currentQuestion?.id || null
+  editingQuestionId.value = currentQuestion.value?.id || null
 
   // 将消息内容复制到输入框
   // 如果消息包含公式，需要将渲染后的HTML转换为TiptapEditor可识别的格式
@@ -2088,8 +2131,8 @@ const updateEditedMessage = async (newContent: string) => {
     store.messages.push(...messagesToKeep) // 添加保留的消息（包括更新后的消息）
 
     // 保存聊天记录（根据场景调用不同的方法）
-    if (props.type === 'ai-exercise' && questionStore.currentQuestion?.id) {
-      await aiExerciseStore.saveChatHistory(questionStore.currentQuestion.id)
+    if (props.type === 'ai-exercise' && currentQuestion.value?.id) {
+      await aiExerciseStore.saveChatHistory(currentQuestion.value.id)
     } else if (props.type === 'ai-general') {
       await aiGeneralStore.saveChatHistory()
     } else if (props.type === 'ai-textbook') {
@@ -2268,7 +2311,7 @@ const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessa
           console.log('[ChatView] ✅ 用户选择前往老师对话')
           const forwardData = {
             messages: messages,
-            currentQuestion: questionStore.currentQuestion,
+            currentQuestion: currentQuestion.value,
             additionalMessage: additionalMessage,
             forwardMode: 'separate',
             successCount: successCount,
@@ -2498,7 +2541,7 @@ watch(
 )
 
 watch(
-  () => questionStore.currentQuestion,
+  () => currentQuestion.value,
   (newQuestion, oldQuestion) => {
     if (newQuestion?.id !== oldQuestion?.id) {
       // 检查是否正在编辑消息
@@ -2657,6 +2700,13 @@ const executeSubjectSwitch = () => {
     initializeMessages()
   }
 }
+// 暴露给父组件的方法和状态
+defineExpose({
+  inputMessage,
+  sendMessage,
+  isLoading,
+  scrollToBottom
+})
 </script>
 
 <style scoped>

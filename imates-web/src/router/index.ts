@@ -11,7 +11,6 @@ import FindExerciseView from '@/views/FindExerciseView.vue'
 import LearningView from '@/views/LearningView.vue'
 import DrawingBoard from '@/components/DrawingBoard.vue'
 import MyFavoritesView from '@/views/MyFavoritesView.vue'
-import PhotoSearchView from '@/views/PhotoSearchView.vue'
 
 const router = createRouter({
   history: createWebHashHistory(), // 必须使用Hash模式
@@ -79,11 +78,6 @@ const router = createRouter({
           path: 'my-favorites',
           name: 'myFavorites',
           component: MyFavoritesView
-        },
-        {
-          path: 'photo-search',
-          name: 'photoSearch',
-          component: PhotoSearchView
         }
       ]
     },

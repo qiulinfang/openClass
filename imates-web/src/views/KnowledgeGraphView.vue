@@ -49,7 +49,7 @@
       </div>
 
       <!-- 第1步：添加节点搜索框 -->
-      <div class="chapter-search">
+      <div v-show="showNodeSearch" class="chapter-search">
         <q-input
           v-model="searchQuery"
           outlined
@@ -117,6 +117,30 @@
 
     <!-- 第三列：核心内容/知识图谱（最右侧） -->
     <div class="main-content">
+      <!-- 右上角工具栏 -->
+      <div class="top-right-toolbar">
+        <q-btn
+          flat
+          round
+          dense
+          class="toolbar-icon-btn"
+          @click="toggleNodeSearch"
+        >
+          <img :src="chapterSearchIcon" alt="搜索节点" class="toolbar-icon" />
+          <q-tooltip>搜索节点</q-tooltip>
+        </q-btn>
+        <q-btn
+          flat
+          round
+          dense
+          class="toolbar-icon-btn"
+          @click="handlePhotoSearch"
+        >
+          <img :src="photoSearchIcon" alt="拍照搜题" class="toolbar-icon" />
+          <q-tooltip>拍照搜题</q-tooltip>
+        </q-btn>
+      </div>
+
       <!-- 圆形知识图谱容器 -->
       <div class="circular-graphs-container" v-if="selectedChapterDetails" ref="circularContainerRef">
         <!-- 视口裁剪区域 -->
@@ -240,6 +264,14 @@
       :chapter-structure="chapterStructure"
       @refresh="handleLearningStatusRefresh"
     />
+
+    <!-- PhotoSearchDialog 组件 -->
+    <PhotoSearchDialog
+      v-model="showPhotoSearchDialog"
+      :subject="currentSubjectForPhotoSearch"
+      @retake="handlePhotoSearchRetake"
+      @question-selected="handlePhotoSearchQuestionSelected"
+    />
   </div>
 </template>
 
@@ -254,9 +286,12 @@ import LearningView from './LearningView.vue'
 import KnowledgeGraphDebugPanel from '../components/debug/KnowledgeGraphDebugPanel.vue'
 import type { KnowledgeGraphDebugParams } from '../components/debug/KnowledgeGraphDebugPanel.vue'
 import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
+import PhotoSearchDialog from '../components/PhotoSearchDialog.vue'
 import { useTextbookChapterState } from '../stores/textbookChapterState'
 import { useBetterScroll } from '../composables/useBetterScroll'
 import { getCurrentUserIdOrDefault } from '../utils/user/userId'
+import { useQuestionStore } from '../stores/questionStore'
+import { showMessage } from '../utils'
 import {
   convertToChineseNumber
 } from '../utils/business/chapter-utils'
@@ -266,12 +301,14 @@ import {
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
 // 流程：导入图标资源
-import bookIcon from '/icons/book.svg'
+import bookIcon from '/images/book.png'
 import indicatorIcon from '/icons/Indicator.svg'
 import notLearnedStarIcon from '/icons/notLearnedStar.svg'
 import learnedStarIcon from '/icons/learnedStar.svg'
 import lastLearnedStarIcon from '/icons/lastLearnedStar.svg'
 import backgroundImage from '/icons/background.svg'
+import chapterSearchIcon from '/icons/chapter_search.svg'
+import photoSearchIcon from '/icons/photo_search.svg'
 // 使用统一的章节状态管理
 const {
   setCurrentChapter,
@@ -290,8 +327,41 @@ const {
 // 获取路由实例
 const route = useRoute()
 
+// Store
+const questionStore = useQuestionStore()
+
 // 第4步：添加搜索相关的响应式数据
 const searchQuery = ref('')
+const showNodeSearch = ref(false) // 控制搜索框显示/隐藏
+
+// 拍照搜题相关状态
+const showPhotoSearchDialog = ref(false)
+
+// 当前科目（用于拍照搜题）
+const currentSubjectForPhotoSearch = computed(() => {
+  const currentQuestion = questionStore.currentQuestion
+  if (currentQuestion?.subject) {
+    const subjectMap: Record<string, string> = {
+      'SUBJECT_MATH': 'math',
+      'SUBJECT_BIOLOGY': 'biology',
+      'SUBJECT_CHEMISTRY': 'chemistry',
+      'SUBJECT_PHYSICS': 'physics',
+      'SUBJECT_CHINESE': 'chinese',
+      'SUBJECT_ENGLISH': 'english'
+    }
+    return subjectMap[currentQuestion.subject] || currentQuestion.subject.toLowerCase() || 'math'
+  }
+  // 如果没有当前题目，根据用户选择的科目判断
+  const subjectMap: Record<string, string> = {
+    '数学': 'math',
+    '生物': 'biology',
+    '化学': 'chemistry',
+    '物理': 'physics',
+    '语文': 'chinese',
+    '英语': 'english'
+  }
+  return subjectMap[currentSubjectLabel.value] || 'math'
+})
 
 // 章节数据
 const chapters = ref<string[]>([])
@@ -705,9 +775,43 @@ const rotationDirection = ref<'clockwise' | 'counterclockwise' | null>(null) // 
 const isIndicatorDragging = ref(false) // 是否正在指示器区域滑动
 const indicatorCurrentIndex = ref<number | null>(null) // 当前触摸的指示器索引
 
+// 圆周节点触摸状态
+const touchStartedOnCircularNode = ref(false) // 触摸是否从圆周节点开始
+const circularNodeTouchTarget = ref<HTMLElement | null>(null) // 触摸开始的圆周节点元素
+
+// 第1步：检查触摸目标是否是圆周节点（或其子元素）
+const isCircularNodeTarget = (target: EventTarget | null): boolean => {
+  if (!target || !(target instanceof HTMLElement)) {
+    return false
+  }
+  
+  // 检查目标元素或其父元素是否包含圆周节点的类名
+  // 使用 closest 方法向上查找，如果找到包含圆周节点类名的元素，返回 true
+  return (
+    target.classList.contains('graph-node--circular') ||
+    target.classList.contains('node-wrapper--circular') ||
+    target.closest('.graph-node--circular') !== null ||
+    target.closest('.node-wrapper--circular') !== null
+  )
+}
+
 // 触摸事件处理函数
 const handleTouchStart = (event: TouchEvent) => {
   if (!circularLayoutRef.value) return
+  
+  // 检查触摸点是否在圆周节点上
+  const isOnCircularNode = isCircularNodeTarget(event.target)
+  touchStartedOnCircularNode.value = isOnCircularNode
+  
+  // 如果触摸点在圆周节点上，记录目标元素（用于后续阻止点击事件）
+  if (isOnCircularNode && event.target instanceof HTMLElement) {
+    circularNodeTouchTarget.value = event.target.closest('.graph-node--circular') as HTMLElement || 
+                                    event.target.closest('.node-wrapper--circular') as HTMLElement ||
+                                    event.target
+  } else {
+    circularNodeTouchTarget.value = null
+  }
+  
   // 不在 touchstart 时设置 isDragging，只在 move 中设置
   isActualDragging.value = false // 初始为false，需要超过阈值才设为true
   startY.value = event.touches[0].clientY
@@ -728,9 +832,31 @@ const handleTouchMove = (event: TouchEvent) => {
   
   // 计算移动距离，判断是否超过拖拽阈值
   const totalDeltaY = Math.abs(currentY - startY.value)
-  if (totalDeltaY > DRAG_THRESHOLD.value && !isActualDragging.value) {
+  const isJustStartingDrag = totalDeltaY > DRAG_THRESHOLD.value && !isActualDragging.value
+  
+  if (isJustStartingDrag) {
     isActualDragging.value = true
     isDragging.value = true // ✅ 只有在实际移动超过阈值时才设置 isDragging
+    
+    // 如果是从圆周节点开始的滑动，且超过阈值，阻止节点点击事件
+    if (touchStartedOnCircularNode.value && circularNodeTouchTarget.value) {
+      // 通过阻止事件传播来阻止节点点击事件
+      event.stopPropagation()
+      // 标记节点元素，防止后续点击事件触发
+      if (circularNodeTouchTarget.value) {
+        circularNodeTouchTarget.value.style.pointerEvents = 'none'
+        // 在触摸结束后恢复
+        setTimeout(() => {
+          if (circularNodeTouchTarget.value) {
+            circularNodeTouchTarget.value.style.pointerEvents = ''
+          }
+        }, 100)
+      }
+    }
+    
+    // 首次超过阈值时，将 lastY 重置为 startY，这样 deltaY 会包含从开始到现在的所有移动
+    // 这样可以确保首次触发旋转时也有明显的旋转效果
+    lastY.value = startY.value
   }
   
   // 只有实际拖拽时才执行旋转逻辑
@@ -739,6 +865,14 @@ const handleTouchMove = (event: TouchEvent) => {
     return
   }
   
+  // 如果是从圆周节点开始的滑动，阻止事件传播
+  if (touchStartedOnCircularNode.value) {
+    event.stopPropagation()
+  }
+  
+  // 重新计算 deltaY（在首次超过阈值时，这会是从 startY 到 currentY 的总距离）
+  const effectiveDeltaY = currentY - lastY.value
+  
   // 计算旋转角度：滑动距离与屏幕高度的比例 * 相邻知识图谱之间的角度差
   // 获取子章节总数，计算相邻知识图谱之间的角度差
   const subChapters = getSubChapters(selectedChapterDetails.value)
@@ -746,36 +880,66 @@ const handleTouchMove = (event: TouchEvent) => {
   const angleBetweenGraphs = total > 0 ? 360 / total : 360 // 相邻知识图谱之间的角度差
   
   // 使用归一化参考高度计算旋转角度
-  const rotationDelta = (deltaY / normalizedReferenceHeight.value) * angleBetweenGraphs
+  const rotationDelta = (effectiveDeltaY / normalizedReferenceHeight.value) * angleBetweenGraphs
   
   // 如果有知识图谱处于展开状态，先收缩它
   if (getCurrentChapterExpandedGraph() !== null) {
+    const expandedGraphId = getCurrentChapterExpandedGraph()
+    console.log('📉 [KnowledgeGraphView] 触摸移动导致知识图谱收缩:', {
+      trigger: 'handleTouchMove',
+      expandedGraphId,
+      currentChapterIndex: getCurrentChapter(),
+      currentChapterId: selectedChapterDetails.value?.id,
+      currentChapterName: selectedChapterDetails.value?.name,
+      timestamp: new Date().toISOString(),
+      rotationDelta
+    })
     setCurrentChapterExpandedGraph(null)
   }
   
   // 更新当前章节的旋转角度（向上滑动为正，向下滑动为负）
   const currentRotation = getChapterRotation(getCurrentChapter())
-  setChapterRotation(getCurrentChapter(), currentRotation - rotationDelta)
+  const newRotation = currentRotation - rotationDelta
+  
+  console.log('🔄 [KnowledgeGraphView] 触摸移动导致知识图谱旋转:', {
+    trigger: 'handleTouchMove',
+    effectiveDeltaY,
+    rotationDelta,
+    currentRotation,
+    newRotation,
+    currentChapterIndex: getCurrentChapter(),
+    touchStartedOnCircularNode: touchStartedOnCircularNode.value,
+    timestamp: new Date().toISOString()
+  })
+  
+  setChapterRotation(getCurrentChapter(), newRotation)
   
   // 更新上次位置和时间戳
   lastY.value = currentY
   lastRotationTime.value = currentTime
   
-  // 只在拖拽容器上阻止默认滚动行为
-  if (event.target === circularLayoutRef.value) {
-    event.preventDefault()
-  }
+  // 阻止默认滚动行为
+  event.preventDefault()
 }
 
 const handleTouchEnd = () => {
   // 保存实际拖拽状态，因为后面会重置
   const wasActuallyDragging = isActualDragging.value
+  const wasOnCircularNode = touchStartedOnCircularNode.value
   
   // 计算总滑动方向
   const totalDeltaY = lastY.value - startY.value
   
+  // 重置状态
   isDragging.value = false
-  isActualDragging.value = false // 重置实际拖拽状态
+  isActualDragging.value = false
+  touchStartedOnCircularNode.value = false
+  
+  // 恢复圆周节点的 pointer-events（如果之前被禁用）
+  if (circularNodeTouchTarget.value) {
+    circularNodeTouchTarget.value.style.pointerEvents = ''
+    circularNodeTouchTarget.value = null
+  }
   
   // 只有在实际拖拽时才执行自动定位逻辑
   if (wasActuallyDragging) {
@@ -894,6 +1058,19 @@ const autoPositionToNearestGraph = (direction?: 'next' | 'previous' | null) => {
 const handleMouseDown = (event: MouseEvent) => {
   if (!circularLayoutRef.value) return
   
+  // 检查鼠标点击是否在圆周节点上
+  const isOnCircularNode = isCircularNodeTarget(event.target)
+  touchStartedOnCircularNode.value = isOnCircularNode
+  
+  // 如果鼠标点击在圆周节点上，记录目标元素（用于后续阻止点击事件）
+  if (isOnCircularNode && event.target instanceof HTMLElement) {
+    circularNodeTouchTarget.value = event.target.closest('.graph-node--circular') as HTMLElement || 
+                                    event.target.closest('.node-wrapper--circular') as HTMLElement ||
+                                    event.target
+  } else {
+    circularNodeTouchTarget.value = null
+  }
+  
   // 设置鼠标按下状态
   isMouseDown.value = true
   
@@ -915,12 +1092,32 @@ const handleMouseMove = (event: MouseEvent) => {
   
   // 计算移动距离，判断是否超过拖拽阈值
   const totalDeltaY = Math.abs(currentY - startY.value)
-  const exceededThreshold = totalDeltaY > DRAG_THRESHOLD.value
+  const isJustStartingDrag = totalDeltaY > DRAG_THRESHOLD.value && !isActualDragging.value
   
   // 判断是否首次超过阈值，触发拖拽状态
-  if (exceededThreshold && !isActualDragging.value) {
+  if (isJustStartingDrag) {
     isActualDragging.value = true
     isDragging.value = true // ✅ 只有在实际移动超过阈值时才设置 isDragging
+    
+    // 如果是从圆周节点开始的拖动，且超过阈值，阻止节点点击事件
+    if (touchStartedOnCircularNode.value && circularNodeTouchTarget.value) {
+      // 通过阻止事件传播来阻止节点点击事件
+      event.stopPropagation()
+      // 标记节点元素，防止后续点击事件触发
+      if (circularNodeTouchTarget.value) {
+        circularNodeTouchTarget.value.style.pointerEvents = 'none'
+        // 在鼠标释放后恢复
+        setTimeout(() => {
+          if (circularNodeTouchTarget.value) {
+            circularNodeTouchTarget.value.style.pointerEvents = ''
+          }
+        }, 100)
+      }
+    }
+    
+    // 首次超过阈值时，将 lastY 重置为 startY，这样 deltaY 会包含从开始到现在的所有移动
+    // 这样可以确保首次触发旋转时也有明显的旋转效果
+    lastY.value = startY.value
   }
   
   // 只有实际拖拽时才执行旋转逻辑
@@ -930,6 +1127,14 @@ const handleMouseMove = (event: MouseEvent) => {
     return
   }
   
+  // 如果是从圆周节点开始的拖动，阻止事件传播
+  if (touchStartedOnCircularNode.value) {
+    event.stopPropagation()
+  }
+  
+  // 重新计算 deltaY（在首次超过阈值时，这会是从 startY 到 currentY 的总距离）
+  const effectiveDeltaY = currentY - lastY.value
+  
   // 计算旋转角度：滑动距离与屏幕高度的比例 * 相邻知识图谱之间的角度差
   // 获取子章节总数，计算相邻知识图谱之间的角度差
   const subChapters = getSubChapters(selectedChapterDetails.value)
@@ -937,16 +1142,38 @@ const handleMouseMove = (event: MouseEvent) => {
   const angleBetweenGraphs = total > 0 ? 360 / total : 360 // 相邻知识图谱之间的角度差
   
   // 使用归一化参考高度计算旋转角度
-  const rotationDelta = (deltaY / normalizedReferenceHeight.value) * angleBetweenGraphs
+  const rotationDelta = (effectiveDeltaY / normalizedReferenceHeight.value) * angleBetweenGraphs
   
   // 如果有知识图谱处于展开状态，先收缩它
   if (getCurrentChapterExpandedGraph() !== null) {
+    const expandedGraphId = getCurrentChapterExpandedGraph()
+    console.log('📉 [KnowledgeGraphView] 鼠标移动导致知识图谱收缩:', {
+      trigger: 'handleMouseMove',
+      expandedGraphId,
+      currentChapterIndex: getCurrentChapter(),
+      currentChapterId: selectedChapterDetails.value?.id,
+      currentChapterName: selectedChapterDetails.value?.name,
+      timestamp: new Date().toISOString(),
+      rotationDelta
+    })
     setCurrentChapterExpandedGraph(null)
   }
   
   // 更新当前章节的旋转角度（向上滑动为正，向下滑动为负）
   const currentRotation = getChapterRotation(getCurrentChapter())
   const newRotation = currentRotation - rotationDelta
+  
+  console.log('🔄 [KnowledgeGraphView] 鼠标移动导致知识图谱旋转:', {
+    trigger: 'handleMouseMove',
+    effectiveDeltaY,
+    rotationDelta,
+    currentRotation,
+    newRotation,
+    currentChapterIndex: getCurrentChapter(),
+    touchStartedOnCircularNode: touchStartedOnCircularNode.value,
+    timestamp: new Date().toISOString()
+  })
+  
   setChapterRotation(getCurrentChapter(), newRotation)
   
   // 更新上次位置和时间戳
@@ -967,8 +1194,16 @@ const handleMouseUp = () => {
   // 计算总滑动方向
   const totalDeltaY = lastY.value - startY.value
   
+  // 重置状态
   isDragging.value = false
-  isActualDragging.value = false // 重置实际拖拽状态
+  isActualDragging.value = false
+  touchStartedOnCircularNode.value = false
+  
+  // 恢复圆周节点的 pointer-events（如果之前被禁用）
+  if (circularNodeTouchTarget.value) {
+    circularNodeTouchTarget.value.style.pointerEvents = ''
+    circularNodeTouchTarget.value = null
+  }
   
   // 只有在实际拖拽时才执行自动定位逻辑
   if (wasActuallyDragging) {
@@ -1986,6 +2221,35 @@ const clearSearch = () => {
   searchQuery.value = ''
 }
 
+// 切换节点搜索框显示/隐藏
+const toggleNodeSearch = () => {
+  showNodeSearch.value = !showNodeSearch.value
+  // 如果关闭搜索，清空搜索内容
+  if (!showNodeSearch.value) {
+    searchQuery.value = ''
+  }
+}
+
+// 拍照搜题处理
+const handlePhotoSearch = () => {
+  // 直接弹出 PhotoSearchDialog
+  showPhotoSearchDialog.value = true
+}
+
+// 处理拍照搜题重新选择图片
+const handlePhotoSearchRetake = () => {
+  // 直接重新打开 PhotoSearchDialog（内部会自动重置状态）
+  showPhotoSearchDialog.value = true
+}
+
+// 处理拍照搜题选中题目
+const handlePhotoSearchQuestionSelected = () => {
+  // 题目已通过 QuestionList 的 question-selected 事件自动选中并持久化
+  // 这里可以添加额外的处理逻辑，比如关闭对话框
+  showPhotoSearchDialog.value = false
+  showMessage('题目已添加到列表', 'success')
+}
+
 // 第7步：处理搜索结果点击
 const handleSearchResultClick = async (result: {
   node: ChapterNode
@@ -2630,8 +2894,8 @@ onUnmounted(() => {
   min-height: 85px;
   
   .subject-icon {
-    width: 85px;
-    height: 85px;
+    width: 98px;
+    height: 79px;
   }
 
     .subject-select {
@@ -2871,6 +3135,43 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  position: relative;
+}
+
+// 右上角工具栏
+.top-right-toolbar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  
+  .toolbar-icon-btn {
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: scale(1.05);
+    }
+    
+    &:active {
+      transform: scale(0.95);
+    }
+    
+    .toolbar-icon {
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+    }
+  }
 }
 
 // 圆形知识图谱容器
