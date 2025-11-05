@@ -5,7 +5,7 @@
 
 import type { QuestionRecord } from '@/types/chat'
 import type { ExerciseItem } from '@/types/exercise'
-import { getCurrentUserIdOrDefault } from './userId'
+import { getCurrentUserIdOrDefault } from '../user/userId'
 
 // localStorage key 常量（带用户ID前缀）
 const getFavoritesStorageKey = (): string => {

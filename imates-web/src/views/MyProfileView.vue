@@ -5,12 +5,13 @@
       <!-- 加入课堂卡片 -->
       <div 
         class="feature-card join-class-card"
+        :class="{ 'in-class': isInClass }"
         @click="toggleJoinClass"
       >
         <div class="card-icon-wrapper" :class="{ 'in-class': isInClass }">
           <img :src="joinClassIcon" alt="加入课堂" class="card-icon" />
         </div>
-        <div class="card-text">加入课堂</div>
+        <div class="card-text">{{ isInClass ? '离开课堂' : '加入课堂' }}</div>
       </div>
 
       <!-- 教师答疑卡片 -->
@@ -47,17 +48,26 @@
     </div>
 
     <!-- 加入课堂确认对话框 -->
-    <q-dialog v-model="showJoinClassDialog">
+    <q-dialog v-model="showJoinClassDialog" class="join-class-dialog">
       <q-card class="dialog-card">
         <q-card-section class="dialog-header">
-          <div class="text-h6">课堂提示</div>
+          <div class="dialog-title">课堂提示</div>
         </q-card-section>
         <q-card-section class="dialog-content">
-          <p>{{ isInClass ? '退出课堂后将不能和老师互动，确认退出吗？' : '确定要加入课堂吗？' }}</p>
+          <p class="dialog-message">{{ isInClass ? '退出课堂后将不能和老师互动，确认退出吗？' : '确定要加入课堂吗？' }}</p>
         </q-card-section>
         <q-card-actions align="right" class="dialog-actions">
-          <q-btn flat label="取消" @click="showJoinClassDialog = false" />
-          <q-btn color="primary" label="确认" @click="confirmJoinClass" />
+          <q-btn 
+            flat 
+            label="取消" 
+            class="dialog-btn-cancel"
+            @click="showJoinClassDialog = false" 
+          />
+          <q-btn 
+            label="确认" 
+            class="dialog-btn-confirm"
+            @click="confirmJoinClass" 
+          />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -486,12 +496,36 @@ $bg-gray: #f9fafb;
   &.join-class-card {
     .card-icon-wrapper {
       background: #34D399;
-      transition: background-color 0.3s ease;
+      transition: all 0.3s ease;
       
       // 已加入课堂状态 - 更深的绿色
       &.in-class {
         background: #10B981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
       }
+    }
+    
+    // 已加入课堂状态 - 卡片整体更醒目
+    &.in-class {
+      .card-icon-wrapper {
+        animation: pulse-highlight 2s ease-in-out infinite;
+      }
+      
+      .card-text {
+        font-weight: 600;
+        color: #10B981;
+        text-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+      }
+    }
+  }
+  
+  // 加入课堂成功的高亮动画
+  @keyframes pulse-highlight {
+    0%, 100% {
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+    }
+    50% {
+      box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.5), 0 0 12px rgba(16, 185, 129, 0.3);
     }
   }
 
@@ -524,27 +558,161 @@ $bg-gray: #f9fafb;
   }
 }
 
-// 对话框样式
-.dialog-card {
-  min-width: 300px;
-  max-width: 400px;
+// 对话框样式 - 统一的设计风格
+:deep(.join-class-dialog) {
+  .q-dialog__inner {
+    padding: 16px;
+  }
+  
+  .q-card {
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+    background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    min-width: 300px;
+    max-width: 400px;
+    width: 90vw;
+    animation: dialog-enter 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+    overflow: hidden;
+  }
 }
 
 .dialog-header {
-  padding-bottom: 16px;
-  border-bottom: 1px solid #e5e7eb;
+  padding: 24px 24px 16px 24px;
+  border-bottom: none;
+  
+  .dialog-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1f2937;
+    line-height: 1.4;
+    margin: 0;
+  }
 }
 
 .dialog-content {
-  padding: 20px 0;
+  padding: 8px 24px 20px 24px;
+  
+  .dialog-message {
+    font-size: 15px;
+    font-weight: 400;
+    color: #4b5563;
+    line-height: 1.6;
+    margin: 0;
+  }
 }
 
 .dialog-actions {
-  padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
+  padding: 0 24px 24px 24px;
+  border-top: none;
+  gap: 12px;
+  display: flex;
+  justify-content: flex-end;
 }
 
+// 按钮样式
+.dialog-btn-cancel {
+  min-width: 80px;
+  height: 40px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: none;
+  color: #6b7280;
+  background: transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+  
+  &:hover {
+    background: rgba(107, 114, 128, 0.08);
+    color: #374151;
+  }
+  
+  &:active {
+    background: rgba(107, 114, 128, 0.12);
+  }
+  
+  :deep(.q-btn__content) {
+    color: inherit;
+  }
+}
 
+.dialog-btn-confirm {
+  min-width: 80px;
+  height: 40px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: none;
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+  
+  &:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+  }
+  
+  :deep(.q-btn__content) {
+    color: white;
+  }
+}
+
+// 对话框进入动画
+@keyframes dialog-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+// 响应式设计 - 对话框
+@media (max-width: 480px) {
+  :deep(.join-class-dialog) {
+    .q-card {
+      max-width: 95vw;
+      margin: 8px;
+    }
+  }
+  
+  .dialog-header {
+    padding: 20px 20px 12px 20px;
+    
+    .dialog-title {
+      font-size: 18px;
+    }
+  }
+  
+  .dialog-content {
+    padding: 8px 20px 16px 20px;
+    
+    .dialog-message {
+      font-size: 14px;
+    }
+  }
+  
+  .dialog-actions {
+    padding: 0 20px 20px 20px;
+    flex-direction: row;
+    gap: 8px;
+  }
+  
+  .dialog-btn-cancel,
+  .dialog-btn-confirm {
+    flex: 1;
+    min-width: auto;
+  }
+}
 
   // 响应式设计
 @media (max-width: 768px) {

@@ -303,6 +303,19 @@
                   ID: {{ pkg.id }} | 名称: {{ pkg.packageName }} | 资源: {{ pkg.resourceList?.length || 0 }}个
                 </q-item-label>
               </q-item-section>
+              <q-item-section side>
+                <q-btn
+                  flat
+                  round
+                  dense
+                  size="sm"
+                  icon="delete"
+                  color="negative"
+                  @click.stop="deleteLearningPackage(index)"
+                >
+                  <q-tooltip>删除此学习资源包</q-tooltip>
+                </q-btn>
+              </q-item-section>
             </q-item>
           </q-list>
         </q-scroll-area>
@@ -317,6 +330,19 @@
               <q-item-section>
                 <q-item-label caption>#{{ index + 1 }}</q-item-label>
                 <q-item-label class="q-mt-xs text-caption">{{ file.localPath || file.fileName }}</q-item-label>
+              </q-item-section>
+              <q-item-section side>
+                <q-btn
+                  flat
+                  round
+                  dense
+                  size="sm"
+                  icon="delete"
+                  color="negative"
+                  @click.stop="deleteLocalFile(index)"
+                >
+                  <q-tooltip>删除此本地文件</q-tooltip>
+                </q-btn>
               </q-item-section>
             </q-item>
           </q-list>
@@ -499,6 +525,119 @@ const deleteTextbook = async (textbook: UserTextbookInfo) => {
     await refreshData()
   } catch (error) {
     console.error('删除失败:', error)
+  }
+}
+
+// 第8步：删除单个本地文件
+const deleteLocalFile = async (index: number) => {
+  if (!selectedTextbook.value) {
+    return
+  }
+  
+  const file = selectedTextbook.value.localFiles?.[index]
+  if (!file) {
+    return
+  }
+  
+  try {
+    // 第1步：确认删除
+    $q.dialog({
+      title: '确认删除',
+      message: `确定要删除文件 "${file.fileName || file.localPath}" 吗？`,
+      cancel: true,
+      persistent: true
+    }).onOk(async () => {
+      try {
+        // 第2步：删除textbook_files表中的文件数据
+        await resourceManager.indexedDB.delete('textbook_files', file.id)
+        
+        // 第3步：从localFiles数组中移除该文件
+        if (selectedTextbook.value && selectedTextbook.value.localFiles) {
+          selectedTextbook.value.localFiles.splice(index, 1)
+          
+          // 第4步：更新下载文件数
+          const downloadedFiles = selectedTextbook.value.localFiles.filter(f => f.isDownloaded).length
+          selectedTextbook.value.downloadedFiles = downloadedFiles
+          
+          // 第5步：如果所有文件都被删除，更新下载状态
+          if (selectedTextbook.value.localFiles.length === 0) {
+            selectedTextbook.value.isDownloaded = false
+            selectedTextbook.value.downloadStatus = 0
+          }
+          
+          // 第6步：更新教材数据到IndexedDB
+          await resourceManager.indexedDB.update('textbooks', selectedTextbook.value)
+          
+          // 第7步：刷新主列表数据
+          await refreshData()
+          
+          $q.notify({
+            type: 'positive',
+            message: '文件删除成功',
+            position: 'top'
+          })
+        }
+      } catch (error) {
+        console.error('删除文件失败:', error)
+        $q.notify({
+          type: 'negative',
+          message: '删除文件失败: ' + (error as Error).message,
+          position: 'top'
+        })
+      }
+    })
+  } catch (error) {
+    console.error('删除操作失败:', error)
+  }
+}
+
+// 第9步：删除单个学习资源包
+const deleteLearningPackage = async (index: number) => {
+  if (!selectedTextbook.value) {
+    return
+  }
+  
+  const pkg = selectedTextbook.value.learningPackages?.[index]
+  if (!pkg) {
+    return
+  }
+  
+  try {
+    // 第1步：确认删除
+    $q.dialog({
+      title: '确认删除',
+      message: `确定要删除学习资源包 "${pkg.packageName}" 吗？`,
+      cancel: true,
+      persistent: true
+    }).onOk(async () => {
+      try {
+        // 第2步：从learningPackages数组中移除该资源包
+        if (selectedTextbook.value && selectedTextbook.value.learningPackages) {
+          selectedTextbook.value.learningPackages.splice(index, 1)
+          
+          // 第3步：更新教材数据到IndexedDB
+          await resourceManager.indexedDB.update('textbooks', selectedTextbook.value)
+          
+          // 第4步：刷新主列表数据
+          await refreshData()
+          
+          $q.notify({
+            type: 'positive',
+            message: '学习资源包删除成功',
+            position: 'top'
+          })
+        }
+      } catch (error) {
+        console.error('删除学习资源包失败:', error)
+        $q.notify({
+          type: 'negative',
+          message: '删除学习资源包失败: ' + (error as Error).message,
+          position: 'top'
+        })
+      }
+    })
+  } catch (error) {
+    console.error('删除操作失败:', error)
   }
 }
 

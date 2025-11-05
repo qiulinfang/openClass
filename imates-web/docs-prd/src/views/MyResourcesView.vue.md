@@ -27,22 +27,54 @@
   - `[文件路径]`：`[使用方式]`
 
 ### 2. 关键代码逻辑
+
+#### 资源更新检查
 ```typescript
-// MyResourcesView.vue 的核心代码
-<template>
-  <q-layout view="lHh Lpr lFf">
-    <q-page-container>
-      <q-page class="my-resources-view">
-        <!-- 筛选区域 (固定在顶部) -->
-        <div class="filter-section">
-          <div class="filter-content">
-            <!-- 第1步：学科筛选 -->
-            <div class="filter-chips">
-              <q-chip
-                v-for="category in categories"
-                :key="category.value"
-                :selected="selectedSubjects.has(category.value)"
-                :color="selectedSubjects.has(c
+// 资源更新检查定时器（页面级别）
+// 注意：App.vue中已有全局资源自动更新检查，这里的定时器作为页面级别的额外检查
+let resourceUpdateCheckTimer: ReturnType<typeof setInterval> | null = null
+
+// 检查更新函数
+const checkForUpdates = async () => {
+  checkingUpdates.value = true
+  try {
+    // 第1步：调用API服务检查需要更新的教材
+    const updatedTextbooks = await apiService.checkForUpdates()
+    
+    // 第2步：重置所有教材的更新状态
+    // ... 更新逻辑
+    
+    // 第3步：标记需要更新的教材
+    // ... 标记逻辑
+  } finally {
+    checkingUpdates.value = false
+  }
+}
+
+onMounted(async () => {
+  // ... 其他初始化逻辑
+  
+  // 定期检查更新（每60分钟）
+  // 注意：App.vue中已有全局资源自动更新检查，这里的定时器作为页面级别的额外检查
+  resourceUpdateCheckTimer = setInterval(
+    () => {
+      if (!loading.value && !checkingUpdates.value) {
+        checkForUpdates()
+      }
+    },
+    60 * 60 * 1000,
+  )
+})
+
+onUnmounted(async () => {
+  // ... 其他清理逻辑
+  
+  // 清理资源更新检查定时器
+  if (resourceUpdateCheckTimer) {
+    clearInterval(resourceUpdateCheckTimer)
+    resourceUpdateCheckTimer = null
+  }
+})
 ```
 
 ## 🔄 迁移到 React Native

@@ -157,7 +157,7 @@ import { androidBridge } from '@/services/android-bridge'
 import { apiService } from '@/services/api-service'
 import { useQuestionStore } from '@/stores/questionStore'
 import { showMessage } from '@/utils'
-import { photoSearchLogger } from '@/utils/photoSearchLogger'
+import { photoSearchLogger } from '@/utils/logging/photoSearchLogger'
 import type { ExerciseItem } from '@/types'
 
 const route = useRoute()

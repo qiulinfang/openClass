@@ -6,7 +6,7 @@
 import { httpClient } from './http-client'
 import { resourceManager, ResourceManager } from './resource-storage'
 import CryptoJS from 'crypto-js'
-import { getCurrentUserIdOrDefault } from '../utils/userId'
+import { getCurrentUserIdOrDefault } from '../utils/user/userId'
 import {
   getApiUrl,
   getExerciseListUrl,
@@ -17,7 +17,7 @@ import { AndroidBridge } from './android-bridge'
 // 不再需要导入fileToBase64DataUrl，直接使用传入的Base64数据 
 
 // 章节相关工具函数
-import { parseChapterOrderFromFileName as parseChapterOrderFromFileNameUtil } from '../utils/chapter-utils'
+import { parseChapterOrderFromFileName as parseChapterOrderFromFileNameUtil } from '../utils/business/chapter-utils'
 
 // 使用统一类型定义
 import type {
@@ -276,7 +276,7 @@ export class ApiService {
   public async addQuestionToList(questionData: any, subject: string): Promise<boolean> {
     try {
       // 动态导入日志工具（避免循环依赖）
-      const { photoSearchLogger } = await import('@/utils/photoSearchLogger')
+      const { photoSearchLogger } = await import('@/utils/logging/photoSearchLogger')
       
       const url = getApiUrl(API_ENDPOINTS.EXERCISES.ADD)
 
@@ -314,7 +314,7 @@ export class ApiService {
   public async recognizeImage(imageFile: File | Blob, subject: string): Promise<any | null> {
     try {
       // 动态导入日志工具（避免循环依赖）
-      const { photoSearchLogger } = await import('@/utils/photoSearchLogger')
+      const { photoSearchLogger } = await import('@/utils/logging/photoSearchLogger')
       
       // 根据科目选择对应的API端点
       const endpoint = subject.toLowerCase() === 'biology' 

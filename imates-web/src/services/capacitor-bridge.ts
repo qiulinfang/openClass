@@ -25,7 +25,7 @@ import type {
   ImageData,
   VoiceData,
 } from '../types'
-import { getCurrentUserIdOrDefault } from '../utils/userId'
+import { getCurrentUserIdOrDefault } from '../utils/user/userId'
 
 // Android Bridge 类型辅助
 type AndroidBridgeWindow = {

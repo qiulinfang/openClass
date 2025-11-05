@@ -134,7 +134,7 @@ import { useImagePicker } from '../composables/useImagePicker'
 import { apiService } from '../services/api-service'
 import { androidBridge } from '../services/android-bridge'
 import { showMessage } from '../utils'
-import { getCurrentUserIdOrDefault } from '../utils/userId'
+import { getCurrentUserIdOrDefault } from '../utils/user/userId'
 import { Dialog } from 'quasar'
 
 // 子组件导入

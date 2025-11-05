@@ -6,7 +6,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { androidBridge } from '../services/android-bridge'
-import { getCurrentUserIdOrDefault } from '../utils/userId'
+import { getCurrentUserIdOrDefault } from '../utils/user/userId'
 import type { UserInfo } from '../types'
 
 // 获取带用户ID前缀的存储key

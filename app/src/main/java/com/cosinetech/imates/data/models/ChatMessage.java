@@ -2,6 +2,7 @@ package com.cosinetech.imates.data.models;
 
 import com.cosinetech.imates.ui.views.ChatAiView;
 
+import java.util.List;
 import java.util.UUID;
 
 public class ChatMessage {
@@ -40,6 +41,7 @@ public class ChatMessage {
     public int status; // 预留的消息状态
     public boolean isSelf; // 是自己发送的还是收到的
     public long timestamp; //消息时间戳
+    public List<String> debugLogs; // 调试日志（用于语音消息等）
 
     private ChatMessage() {
         this.messageId = "";

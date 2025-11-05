@@ -132,8 +132,13 @@ import { useRouter } from 'vue-router'
 import { resourceManager } from '../services/resource-storage'
 import type { LearningPackage, ResourceFile, LocalFileInfo } from '../types'
 import { useBetterScroll } from '../composables/useBetterScroll'
-import { getCurrentUserIdOrDefault } from '../utils/userId'
+import { getCurrentUserIdOrDefault } from '../utils/user/userId'
 import DraggableDialog from '../components/DraggableDialog.vue'
+import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'
+import { isPdfFile } from '../utils/thumbnail/pdf-thumbnail'
+import { isImageFile } from '../utils/thumbnail/image-thumbnail'
+import { isHtmlFile } from '../utils/thumbnail/html-thumbnail'
+import { isVideoFile } from '../utils/thumbnail/video-thumbnail'
 
 // Props 定义
 interface Props {
@@ -183,6 +188,8 @@ const resourcesListWrapper = ref<HTMLElement | null>(null)
 const learningPackages = ref<LearningPackage[]>([])
 // 本地文件信息 - 用于获取缩略图
 const localFiles = ref<LocalFileInfo[]>([])
+// 当前教材的textbookId（用于更新缩略图）
+const currentTextbookId = ref<string>('')
 
 // 计算属性
 // 根据章节ID筛选学习方案（与安卓原生保持一致）
@@ -496,6 +503,9 @@ const loadLearningPackages = async () => {
     const textbook = await resourceManager.getTextbookInfoById(id.value)
 
     if (textbook && textbook.learningPackages) {
+      // 保存教材的textbookId（用于更新缩略图）
+      currentTextbookId.value = textbook.textbookId
+      
       // 使用本地存储的学习包数据，优先从 IndexedDB 读取难度，如果没有则从 localStorage 读取
       learningPackages.value = textbook.learningPackages.map((pkg) => {
         // 优先使用 IndexedDB 中的难度
@@ -528,15 +538,22 @@ const loadLearningPackages = async () => {
       if (textbook.learningPackages.length > 0) {
         selectedSchemeIndex.value = 0
       }
+      
+      // 数据加载完成后，延迟检查缩略图（等待UI渲染完成）
+      setTimeout(async () => {
+        await checkAndGenerateThumbnails()
+      }, 200)
     } else {
       // 如果没有本地数据，显示空状态
       learningPackages.value = []
       localFiles.value = []
+      currentTextbookId.value = ''
     }
   } catch (error) {
     console.error('加载学习包失败:', error)
     learningPackages.value = []
     localFiles.value = []
+    currentTextbookId.value = ''
   } finally {
     loadingPackages.value = false
   }
@@ -546,6 +563,68 @@ const loadLearningPackages = async () => {
 const resetSelection = () => {
   selectedSchemeIndex.value = -1
   selectedResourceIndex.value = -1
+}
+
+/**
+ * 检查并生成资源文件的缩略图
+ * 当资源列表显示时，检查每个资源文件是否需要生成缩略图
+ */
+const checkAndGenerateThumbnails = async () => {
+  // 如果没有选中方案或没有教材ID，直接返回
+  if (!currentScheme.value || !currentTextbookId.value || !id.value) {
+    return
+  }
+
+  try {
+    // 获取当前方案的所有资源文件
+    const resources = currentScheme.value.resourceList || []
+    
+    // 遍历每个资源文件
+    for (const resource of resources) {
+      // 第1步：检查是否是支持生成缩略图的文件类型（PDF、图片、HTML或视频）
+      const isPdf = isPdfFile(resource.fileName)
+      const isImage = isImageFile(resource.fileName)
+      const isHtml = isHtmlFile(resource.fileName)
+      const isVideo = isVideoFile(resource.fileName)
+      
+      if (!isPdf && !isImage && !isHtml && !isVideo) {
+        // 不支持的文件类型，跳过
+        continue
+      }
+      
+      // 第2步：查找对应的本地文件信息
+      const localFile = localFiles.value.find(file => file.id === resource.id)
+      
+      // 第3步：检查是否需要生成缩略图
+      // 条件：文件已下载 && 没有缩略图
+      if (localFile && localFile.isDownloaded && !localFile.thumbnail) {
+        // 第4步：从IndexedDB读取文件数据
+        const fileData = await resourceManager.getFileData(id.value, resource.id)
+        
+        if (fileData && fileData.length > 0) {
+          // 第5步：添加到缩略图生成队列
+          thumbnailQueue.addTask({
+            fileId: resource.id,
+            textbookId: currentTextbookId.value,
+            fileName: resource.fileName,
+            fileData: fileData,
+            // 缩略图生成完成后，更新本地localFiles，以便UI立即显示
+            onComplete: (fileId: string, thumbnail: string) => {
+              const file = localFiles.value.find(f => f.id === fileId)
+              if (file) {
+                file.thumbnail = thumbnail
+                console.log(`[缩略图生成] 已完成: ${resource.fileName}`)
+              }
+            }
+          })
+          
+          console.log(`[缩略图生成] 已添加任务: ${resource.fileName}`)
+        }
+      }
+    }
+  } catch (error) {
+    console.error('检查并生成缩略图失败:', error)
+  }
 }
 
 // 监听 props 变化
@@ -572,6 +651,31 @@ watch(
     resetSelection()
     loadLearningPackages()
   },
+)
+
+// 监听当前方案变化，触发缩略图检查
+watch(
+  () => currentScheme.value,
+  async (newScheme) => {
+    if (newScheme) {
+      // 方案切换后，延迟检查缩略图（等待localFiles加载完成）
+      await new Promise(resolve => setTimeout(resolve, 100))
+      await checkAndGenerateThumbnails()
+    }
+  },
+  { immediate: false }
+)
+
+// 监听资源列表变化，触发缩略图检查
+watch(
+  () => currentResources.value.length,
+  async () => {
+    if (currentResources.value.length > 0) {
+      // 资源列表变化后，检查缩略图
+      await checkAndGenerateThumbnails()
+    }
+  },
+  { immediate: false }
 )
 
 // BScroll 初始化和刷新由组合式函数自动处理（已启用 autoWatch）

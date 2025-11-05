@@ -1060,6 +1060,16 @@ public class WebAppInterface {
                     messageJson.put("isSelf", teacherMessage.isSelf);
                     messageJson.put("timestamp", teacherMessage.timestamp);
                     messageJson.put("chatRole", "TEACHER");
+                    
+                    // 添加调试日志（如果有）
+                    if (teacherMessage.debugLogs != null && !teacherMessage.debugLogs.isEmpty()) {
+                        org.json.JSONArray logsArray = new org.json.JSONArray();
+                        for (String log : teacherMessage.debugLogs) {
+                            logsArray.put(log);
+                        }
+                        messageJson.put("debugLogs", logsArray);
+                        Log.d(TAG, "添加调试日志到消息，日志数量: " + teacherMessage.debugLogs.size());
+                    }
 
                     // 第2步：调用JavaScript回调（前端负责保存）
                     String script = String.format(Locale.getDefault(),

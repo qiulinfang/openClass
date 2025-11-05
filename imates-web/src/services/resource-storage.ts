@@ -6,10 +6,10 @@
 import { IndexedDBService } from './indexeddb-service'
 import CryptoJS from 'crypto-js'
 import { DebounceUtils } from '../utils'
-import { getCurrentUserIdOrDefault } from '../utils/userId'
+import { getCurrentUserIdOrDefault } from '../utils/user/userId'
 // 注释掉缩略图相关导入以提升性能
-// import { isPdfFile } from '../utils/pdf-thumbnail'
-// import { thumbnailQueue } from '../utils/thumbnail-queue'
+// import { isPdfFile } from '../utils/thumbnail/pdf-thumbnail'
+// import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'
 import type {
   UserTextbookInfo,
   ResourceFile,

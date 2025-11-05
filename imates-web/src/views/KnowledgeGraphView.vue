@@ -25,6 +25,7 @@
           </template>
         </q-select>
       </div>
+      <!-- 教材选择器 -->
       <div class="textbook-info">
         <q-select
           v-model="selectedTextbook"
@@ -255,10 +256,10 @@ import type { KnowledgeGraphDebugParams } from '../components/debug/KnowledgeGra
 import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
 import { useTextbookChapterState } from '../stores/textbookChapterState'
 import { useBetterScroll } from '../composables/useBetterScroll'
-import { getCurrentUserIdOrDefault } from '../utils/userId'
+import { getCurrentUserIdOrDefault } from '../utils/user/userId'
 import {
   convertToChineseNumber
-} from '../utils/chapter-utils'
+} from '../utils/business/chapter-utils'
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -1181,59 +1182,177 @@ const saveCurrentPageState = () => {
       selectedChapterIndex: getCurrentChapter(),
       selectedChapterDetails: selectedChapterDetails.value,
       chapters: chapters.value,
-      chapterStructure: chapterStructure.value
+      chapterStructure: chapterStructure.value,
+      textbookOptions: textbookOptions.value // 保存当前教材选项
     }
     
+    console.log('💾 [KnowledgeGraphView] 保存页面状态:', {
+      selectedSubject: state.selectedSubject,
+      selectedTextbook: state.selectedTextbook,
+      selectedChapterIndex: state.selectedChapterIndex,
+      chapterName: state.selectedChapterDetails?.name || '未知',
+      chaptersCount: state.chapters?.length || 0,
+      chapterStructureCount: state.chapterStructure?.length || 0,
+      textbookOptionsCount: state.textbookOptions?.length || 0
+    })
+    
     savePageState(state)
-  } catch {
+    console.log('✅ [KnowledgeGraphView] 页面状态保存成功')
+  } catch (error) {
     // 状态保存失败，静默处理
+    console.error('❌ [KnowledgeGraphView] 页面状态保存失败:', error)
   }
 }
 
 // 第30步：恢复页面状态
 const restorePageStateFromStore = async (): Promise<boolean> => {
+  console.log('🔄 [KnowledgeGraphView] 开始恢复页面状态...')
+  
   try {
     const savedState = restorePageState()
     if (!savedState) {
+      console.log('❌ [KnowledgeGraphView] 没有保存的状态，跳过恢复')
       return false
     }
     
+    console.log('✅ [KnowledgeGraphView] 找到保存的状态:', {
+      selectedSubject: savedState.selectedSubject,
+      selectedTextbook: savedState.selectedTextbook,
+      selectedChapterIndex: savedState.selectedChapterIndex,
+      chaptersCount: savedState.chapters?.length || 0,
+      chapterStructureCount: savedState.chapterStructure?.length || 0,
+      timestamp: new Date(savedState.timestamp).toLocaleString()
+    })
+    
     // 恢复基本状态
+    console.log('📝 [KnowledgeGraphView] 恢复基本状态...')
     selectedSubject.value = savedState.selectedSubject
-    selectedTextbook.value = savedState.selectedTextbook
     chapters.value = savedState.chapters
     chapterStructure.value = savedState.chapterStructure
     
-    // 从IndexedDB重新加载textbookOptions
-    const localOptions = await loadTextbookDataFromIndexedDB()
-    if (localOptions.length > 0) {
-      textbookOptions.value = localOptions
+    // 恢复教材选项：如果保存的状态中有教材选项，直接使用；否则从IndexedDB加载
+    if (savedState.textbookOptions && savedState.textbookOptions.length > 0) {
+      // 直接使用保存的教材选项
+      textbookOptions.value = savedState.textbookOptions
+      console.log('✅ [KnowledgeGraphView] 从保存状态恢复教材选项:', {
+        数量: savedState.textbookOptions.length,
+        选中的教材: savedState.selectedTextbook
+      })
+      
+      // 验证并设置选中的教材
+      const foundOption = savedState.textbookOptions.find(opt => opt.value === savedState.selectedTextbook)
+      if (foundOption) {
+        selectedTextbook.value = savedState.selectedTextbook
+        console.log('✅ [KnowledgeGraphView] 教材选择器已恢复:', foundOption.label)
+      } else {
+        console.warn('⚠️ [KnowledgeGraphView] 保存的教材不在保存的选项中，使用第一个教材')
+        if (savedState.textbookOptions.length > 0) {
+          selectedTextbook.value = savedState.textbookOptions[0].value
+        } else {
+          selectedTextbook.value = ''
+        }
+      }
+    } else {
+      // 向后兼容：如果保存的状态中没有教材选项，从IndexedDB重新加载并筛选
+      console.log('📚 [KnowledgeGraphView] 保存的状态中没有教材选项，从IndexedDB重新加载...')
+      const localOptions = await loadTextbookDataFromIndexedDB()
+      if (localOptions.length > 0) {
+        // 根据恢复的学科筛选教材选项
+        const subjectMap: { [key: string]: string } = {
+          'math': '数学',
+          'chinese': '语文', 
+          'english': '英语',
+          'physics': '物理',
+          'chemistry': '化学',
+          'biology': '生物',
+          'geography': '地理',
+          'history': '历史',
+          'politics': '政治'
+        }
+        
+        const subjectLabel = subjectMap[savedState.selectedSubject] || '数学'
+        const filteredOptions = localOptions.filter(option => option.subject === subjectLabel)
+        
+        textbookOptions.value = filteredOptions
+        console.log('✅ [KnowledgeGraphView] 教材选项加载完成:', {
+          总数量: localOptions.length,
+          筛选后数量: filteredOptions.length,
+          学科: subjectLabel,
+          选中的教材: savedState.selectedTextbook
+        })
+        
+        // 验证恢复的教材是否在筛选后的选项中，然后设置选中的教材
+        const foundOption = filteredOptions.find(opt => opt.value === savedState.selectedTextbook)
+        if (!foundOption) {
+          console.warn('⚠️ [KnowledgeGraphView] 保存的教材不在当前学科选项中，使用第一个教材')
+          if (filteredOptions.length > 0) {
+            selectedTextbook.value = filteredOptions[0].value
+          } else {
+            selectedTextbook.value = ''
+          }
+        } else {
+          selectedTextbook.value = savedState.selectedTextbook
+          console.log('✅ [KnowledgeGraphView] 教材选择器已恢复:', foundOption.label)
+        }
+      } else {
+        console.log('⚠️ [KnowledgeGraphView] IndexedDB中没有教材选项')
+        textbookOptions.value = []
+        selectedTextbook.value = ''
+      }
     }
+    
+    console.log('✅ [KnowledgeGraphView] 基本状态恢复完成:', {
+      selectedSubject: selectedSubject.value,
+      selectedTextbook: selectedTextbook.value,
+      chaptersCount: chapters.value.length,
+      chapterStructureCount: chapterStructure.value.length,
+      textbookOptionsCount: textbookOptions.value.length
+    })
     
     // 恢复章节状态
     if (savedState.selectedChapterIndex >= 0 && savedState.selectedChapterIndex < chapterStructure.value.length) {
+      console.log('📖 [KnowledgeGraphView] 恢复章节状态...', {
+        selectedChapterIndex: savedState.selectedChapterIndex,
+        chapterName: savedState.selectedChapterDetails?.name || '未知'
+      })
+      
       setCurrentChapter(savedState.selectedChapterIndex)
       selectedChapterDetails.value = savedState.selectedChapterDetails
       
       // 恢复展开的知识图谱状态
       if (savedState.selectedChapterDetails) {
         const subChapters = getSubChapters(savedState.selectedChapterDetails)
+        console.log('🔍 [KnowledgeGraphView] 子章节数量:', subChapters.length)
+        
         if (subChapters.length > 0) {
           // 尝试恢复之前展开的图谱，如果不存在则自动展开位于targetAngle的图谱
           const previousExpandedGraph = getCurrentChapterExpandedGraph()
+          console.log('🎯 [KnowledgeGraphView] 之前展开的图谱ID:', previousExpandedGraph)
+          
           if (previousExpandedGraph && subChapters.some(sub => sub.id === previousExpandedGraph)) {
+            console.log('✅ [KnowledgeGraphView] 恢复之前展开的图谱:', previousExpandedGraph)
             setCurrentChapterExpandedGraph(previousExpandedGraph)
           } else {
             // 如果没有之前保存的展开状态，自动展开位于targetAngle的图谱
+            console.log('🔄 [KnowledgeGraphView] 没有之前保存的展开状态，自动展开位于targetAngle的图谱')
             await nextTick()
             autoPositionToNearestGraph()
           }
         }
       }
+      
+      console.log('✅ [KnowledgeGraphView] 章节状态恢复完成')
+    } else {
+      console.log('⚠️ [KnowledgeGraphView] 章节索引无效，跳过章节状态恢复:', {
+        selectedChapterIndex: savedState.selectedChapterIndex,
+        chapterStructureLength: chapterStructure.value.length
+      })
     }
     
+    console.log('🎉 [KnowledgeGraphView] 页面状态恢复完成')
     return true
-  } catch {
+  } catch (error) {
+    console.error('❌ [KnowledgeGraphView] 状态恢复失败:', error)
     return false
   }
 }
@@ -1668,26 +1787,35 @@ const sessionManager = {
 
 // 第32步：初始化图谱
 const initGraph = async () => {
+  console.log('🚀 [KnowledgeGraphView] 开始初始化图谱...')
   loading.value = true
   
   try {
     // 使用智能认证，只在必要时重新登录
+    console.log('🔐 [KnowledgeGraphView] 检查认证状态...')
     const authSuccess = await sessionManager.ensureAuthentication()
     
     if (!authSuccess) {
+      console.error('❌ [KnowledgeGraphView] 认证失败，终止初始化')
       return
     }
+    console.log('✅ [KnowledgeGraphView] 认证成功')
     
     // 第33步：优先尝试恢复保存的页面状态
+    console.log('🔍 [KnowledgeGraphView] 尝试恢复保存的页面状态...')
     const stateRestored = await restorePageStateFromStore()
     
     if (stateRestored) {
       // 状态恢复成功，直接渲染图谱
+      console.log('✅ [KnowledgeGraphView] 状态恢复成功，直接渲染图谱')
       await nextTick()
       renderGraph()
+      console.log('✅ [KnowledgeGraphView] 图谱渲染完成（从状态恢复）')
       
       return
     }
+    
+    console.log('ℹ️ [KnowledgeGraphView] 状态恢复失败或没有保存的状态，开始新加载流程...')
     
     // 检查路由查询参数中是否有 textbookId
     const queryTextbookId = route.query.textbookId as string | undefined
@@ -1733,17 +1861,21 @@ const initGraph = async () => {
     }
     
     // 初始化图谱数据（但不重置已选择的章节）
+    console.log('🔧 [KnowledgeGraphView] 初始化图谱数据...')
     initGraphDataWithoutReset()
     
     // 这里可以集成真实的图谱库，如 vis.js, d3.js, cytoscape.js 等
     // 目前使用简单的DOM渲染
     await nextTick()
     renderGraph()
+    console.log('✅ [KnowledgeGraphView] 图谱渲染完成（新加载）')
     
-  } catch {
+  } catch (error) {
     // 图谱初始化失败，静默处理
+    console.error('❌ [KnowledgeGraphView] 图谱初始化失败:', error)
   } finally {
     loading.value = false
+    console.log('🏁 [KnowledgeGraphView] 初始化流程结束')
   }
 }
 

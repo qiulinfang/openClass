@@ -15,7 +15,7 @@ import { apiService } from '../services/api-service'
 import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
 import type { ChatBubble, UserInfo, AiGeneralSession } from '../types'
 import { buildAiGeneralMessage } from './utils/aiMessageBuilder'
-import { getCurrentUserIdOrDefault } from '../utils/userId'
+import { getCurrentUserIdOrDefault } from '../utils/user/userId'
 import localforage from 'localforage'
 
 export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {

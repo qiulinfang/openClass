@@ -1,16 +1,20 @@
 /**
- * PDF缩略图异步生成队列
- * 在后台异步生成PDF缩略图，不阻塞主流程
+ * 缩略图异步生成队列
+ * 在后台异步生成PDF、图片、HTML和视频缩略图，不阻塞主流程
  */
 
-import { generatePdfThumbnail } from './pdf-thumbnail'
-import { ResourceManager } from '../services/resource-storage'
+import { generatePdfThumbnail, isPdfFile } from './pdf-thumbnail'
+import { generateImageThumbnail, isImageFile } from './image-thumbnail'
+import { generateHtmlThumbnail, isHtmlFile } from './html-thumbnail'
+import { generateVideoThumbnail, isVideoFile } from './video-thumbnail'
+import { ResourceManager } from '../../services/resource-storage'
 
 interface ThumbnailTask {
   fileId: string
   textbookId: string
   fileName: string
   fileData: Uint8Array
+  onComplete?: (fileId: string, thumbnail: string) => void // 缩略图生成完成回调
 }
 
 class ThumbnailQueue {
@@ -18,6 +22,7 @@ class ThumbnailQueue {
   private queue: ThumbnailTask[] = []
   private processing = false
   private maxConcurrent = 2 // 最多2个并发生成缩略图，避免资源竞争
+  private processingFileIds = new Set<string>() // 正在处理的文件ID集合，避免重复添加
 
   private constructor() {}
 
@@ -33,10 +38,19 @@ class ThumbnailQueue {
    * @param task 缩略图任务
    */
   public addTask(task: ThumbnailTask): void {
-    // 第1步：添加任务到队列
+    // 第1步：检查是否已经在处理或队列中
+    if (this.processingFileIds.has(task.fileId)) {
+      console.log(`[缩略图队列] 文件 ${task.fileName} 已在处理中，跳过`)
+      return
+    }
+    
+    // 第2步：添加到处理集合
+    this.processingFileIds.add(task.fileId)
+    
+    // 第3步：添加任务到队列
     this.queue.push(task)
     
-    // 第2步：如果没有在处理，启动处理
+    // 第4步：如果没有在处理，启动处理
     if (!this.processing) {
       this.processQueue()
     }
@@ -71,16 +85,44 @@ class ThumbnailQueue {
     const { fileId, textbookId, fileName, fileData } = task
     
     try {
-      // 第1步：生成缩略图
-      const thumbnail = await generatePdfThumbnail(fileData)
+      // 第1步：根据文件类型选择生成方式
+      let thumbnail: string
+      
+      if (isPdfFile(fileName)) {
+        // PDF文件：使用PDF.js生成缩略图
+        thumbnail = await generatePdfThumbnail(fileData)
+      } else if (isImageFile(fileName)) {
+        // 图片文件：使用canvas生成缩略图
+        thumbnail = await generateImageThumbnail(fileData)
+      } else if (isHtmlFile(fileName)) {
+        // HTML文件：使用iframe生成缩略图
+        thumbnail = await generateHtmlThumbnail(fileData)
+      } else if (isVideoFile(fileName)) {
+        // 视频文件：捕获第一帧生成缩略图
+        thumbnail = await generateVideoThumbnail(fileData)
+      } else {
+        // 不支持的文件类型，跳过
+        console.warn(`不支持生成缩略图的文件类型: ${fileName}`)
+        // 从处理集合中移除
+        this.processingFileIds.delete(fileId)
+        return
+      }
       
       // 第2步：更新IndexedDB中的缩略图
       const resourceManager = ResourceManager.getInstance()
       await resourceManager.updateThumbnail(textbookId, fileId, thumbnail)
       
+      // 第3步：如果提供了回调，执行回调通知外部
+      if (task.onComplete) {
+        task.onComplete(fileId, thumbnail)
+      }
+      
     } catch (error) {
       // 缩略图生成失败不影响其他任务
       console.warn(`后台生成缩略图失败: ${fileName}`, error)
+    } finally {
+      // 无论成功还是失败，都要从处理集合中移除
+      this.processingFileIds.delete(fileId)
     }
   }
 
@@ -125,9 +167,15 @@ class ThumbnailQueue {
         }
         
         for (const file of textbook.localFiles) {
-          // 第3步：检查是否是已下载的PDF文件且没有缩略图
+          // 第3步：检查是否是已下载的文件且没有缩略图
+          // 支持PDF、图片、HTML和视频文件
+          const isPdf = isPdfFile(file.fileName)
+          const isImage = isImageFile(file.fileName)
+          const isHtml = isHtmlFile(file.fileName)
+          const isVideo = isVideoFile(file.fileName)
+          
           if (file.isDownloaded && 
-              file.fileName.toLowerCase().endsWith('.pdf') &&
+              (isPdf || isImage || isHtml || isVideo) &&
               !file.thumbnail) {
             
             // 第4步：从textbook_files表读取文件数据
@@ -148,7 +196,7 @@ class ThumbnailQueue {
       }
       
       if (recoveredCount > 0) {
-        console.log(`[缩略图恢复] 发现${recoveredCount}个PDF文件缺少缩略图，已加入队列`)
+        console.log(`[缩略图恢复] 发现${recoveredCount}个文件缺少缩略图，已加入队列`)
       }
       
     } catch (error) {

@@ -2312,7 +2312,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { getCurrentUserIdOrDefault } from '../../utils/userId'
+import { getCurrentUserIdOrDefault } from '../../utils/user/userId'
 
 // 定义参数接口
 /**

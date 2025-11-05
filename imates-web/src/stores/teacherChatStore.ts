@@ -16,7 +16,7 @@ import { asyncStorage } from '../services/chat-storage'
 import { showMessage } from '../utils'
 import { useUserStore } from './userStore'
 import { useQuestionStore } from './questionStore'
-import { getCurrentUserIdOrDefault } from '../utils/userId'
+import { getCurrentUserIdOrDefault } from '../utils/user/userId'
 import {
   updateMessageSuccess,
   updateMessageError,
@@ -1046,6 +1046,24 @@ ${conversationSummary}
         isSelf: boolean
         timestamp: number
         chatRole: string
+        debugLogs?: string[] // Android端调试日志
+      }
+      
+      // 打印Android端调试日志（如果有）
+      if (data.debugLogs && data.debugLogs.length > 0) {
+        console.group('[TeacherStore] 📋 Android端调试日志')
+        console.log('[TeacherStore] 📋 日志数量:', data.debugLogs.length)
+        data.debugLogs.forEach((log, index) => {
+          // 根据日志级别使用不同的console方法
+          if (log.includes('❌') || log.includes('失败')) {
+            console.error(`[${index + 1}]`, log)
+          } else if (log.includes('⚠️') || log.includes('警告')) {
+            console.warn(`[${index + 1}]`, log)
+          } else {
+            console.log(`[${index + 1}]`, log)
+          }
+        })
+        console.groupEnd()
       }
       
       console.log('[TeacherStore] 📨 消息详情:', {
@@ -1231,6 +1249,10 @@ ${conversationSummary}
             // 检查 duration 是否为 0，可能是文件问题
             if (voiceDuration === 0) {
               console.warn('[TeacherStore] ⚠️ 语音消息时长为 0，可能是文件损坏或无法获取时长')
+              // 如果有调试日志，已经在上面打印了，这里提示用户查看日志
+              if (data.debugLogs && data.debugLogs.length > 0) {
+                console.warn('[TeacherStore] ⚠️ 请查看上方的Android端调试日志，了解详细原因')
+              }
             }
           } else {
             console.warn('[TeacherStore] ⚠️ 语音消息格式异常，parts.length < 2:', parts.length)

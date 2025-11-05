@@ -19,6 +19,7 @@ export interface PageState {
   selectedChapterDetails: ChapterNode | null
   chapters: string[]
   chapterStructure: ChapterNode[]
+  textbookOptions?: TextbookOption[] // 教材选项列表（可选，用于向后兼容）
   timestamp: number
 }
 

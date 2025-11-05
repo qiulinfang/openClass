@@ -50,7 +50,7 @@ export const showMessage = (
 export { MathJaxUtils } from './math/mathjax'
 
 // 拍照搜题日志工具
-export { photoSearchLogger } from './photoSearchLogger'
+export { photoSearchLogger } from './logging/photoSearchLogger'
 
 // 节流和防抖工具
 export { throttle, debounce, ThrottleUtils, DebounceUtils } from './common/throttle'
@@ -62,7 +62,29 @@ export {
   extractChapterNumberFromName,
   parseChapterOrderFromFileName,
   sortChaptersByNumber
-} from './chapter-utils'
+} from './business/chapter-utils'
+
+// 用户相关工具
+export { getCurrentUserId, getCurrentUserIdOrDefault } from './user/userId'
+
+// 收藏功能工具
+export {
+  toggleQaFavorite,
+  removeQaFavorite,
+  getFavoriteQas,
+  toggleExerciseFavorite,
+  removeExerciseFavorite,
+  getFavoriteExercises,
+  type FavoriteQa,
+  type FavoriteExercise
+} from './storage/favorites'
+
+// 缩略图生成工具
+export { thumbnailQueue } from './thumbnail/thumbnail-queue'
+export { isPdfFile, generatePdfThumbnail } from './thumbnail/pdf-thumbnail'
+export { isImageFile, generateImageThumbnail } from './thumbnail/image-thumbnail'
+export { isHtmlFile, generateHtmlThumbnail } from './thumbnail/html-thumbnail'
+export { isVideoFile, generateVideoThumbnail } from './thumbnail/video-thumbnail'
 
 // 类型定义
 export type { ExerciseItem, SimilarExercise } from '../types'

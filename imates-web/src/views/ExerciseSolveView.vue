@@ -292,7 +292,7 @@ const onSubjectFilterChange = () => {
 const handlePhotoSearch = async () => {
   try {
     // 动态导入日志工具（避免循环依赖）
-    const { photoSearchLogger } = await import('@/utils/photoSearchLogger')
+    const { photoSearchLogger } = await import('@/utils/logging/photoSearchLogger')
     
     // 获取当前题目信息，如果存在则使用其学科，否则默认使用数学
     const currentQuestion = questionStore.currentQuestion

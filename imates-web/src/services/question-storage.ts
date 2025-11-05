@@ -4,7 +4,7 @@
  */
 
 import { IndexedDBService } from './indexeddb-service'
-import { getCurrentUserIdOrDefault } from '../utils/userId'
+import { getCurrentUserIdOrDefault } from '../utils/user/userId'
 import type { ExerciseItem } from '../types'
 
 interface QuestionListData {

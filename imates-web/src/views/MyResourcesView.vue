@@ -199,6 +199,13 @@
                             <span class="status-dot status-dot-blue"></span>
                             <span class="status-text">正在下载</span>
                           </template>
+                          <!-- 有更新（优先显示，即使已下载完成） -->
+                          <template
+                            v-else-if="textbook.hasUpdatesAvailable && textbook.downloadStatus === 2 && textbook.isDownloaded"
+                          >
+                            <span class="status-dot status-dot-orange"></span>
+                            <span class="status-text">有更新</span>
+                          </template>
                           <!-- 下载完成 -->
                           <template
                             v-else-if="textbook.downloadStatus === 2 && textbook.isDownloaded"
@@ -210,11 +217,6 @@
                           <template v-else-if="textbook.downloadStatus === 3">
                             <span class="status-dot status-dot-gray"></span>
                             <span class="status-text">已暂停</span>
-                          </template>
-                          <!-- 有更新 -->
-                          <template v-else-if="textbook.hasUpdatesAvailable">
-                            <span class="status-dot status-dot-orange"></span>
-                            <span class="status-text">有更新</span>
                           </template>
                         </div>
                       </div>
@@ -374,7 +376,7 @@ import { resourceManager } from '../services/resource-storage'
 import { apiService } from '../services/api-service'
 import { httpClient } from '../services/http-client'
 import { showMessage } from '../utils'
-import type { UserTextbookInfo } from '../types'
+import type { UserTextbookInfo, TextbookVersion } from '../types'
 import ResourceDebugPanel from '../components/debug/ResourceDebugPanel.vue'
 import { useResourceStore } from '../stores/resourceStore'
 import BScroll from '@better-scroll/core'
@@ -399,6 +401,8 @@ const resourceStore = useResourceStore()
 const loading = ref(false)
 const checkingUpdates = ref(false)
 const textbooks = ref<UserTextbookInfo[]>([])
+// 资源更新检查定时器
+let resourceUpdateCheckTimer: ReturnType<typeof setInterval> | null = null
 const selectedSubjects = ref(new Set<string>())
 const updateCount = ref(0)
 const showDebugPanel = ref(false)
@@ -498,7 +502,7 @@ const filterTabs = computed(() => {
     (t) => !t.isDownloaded || t.downloadStatus === 0,
   ).length
   const pendingUpdate = textbooks.value.filter(
-    (t) => t.hasUpdatesAvailable || (t.isDownloaded && t.downloadStatus !== 2),
+    (t) => t.isDownloaded && t.hasUpdatesAvailable,
   ).length
 
   return [
@@ -550,7 +554,7 @@ const filteredTextbooks = computed(() => {
   } else if (activeTab.value === 'pendingUpdate') {
     result = result.filter(
       (textbook) =>
-        textbook.hasUpdatesAvailable || (textbook.isDownloaded && textbook.downloadStatus !== 2),
+        textbook.isDownloaded && textbook.hasUpdatesAvailable,
     )
   }
   // 'all' 标签页不需要额外筛选
@@ -1198,7 +1202,7 @@ const loadResources = async () => {
     }
     initialLoadCompleted.value = true
 
-    // 流程：在DOM更新后修复下载状态（不后台同步，用户可通过"检查更新"按钮手动同步）
+    // 流程：在DOM更新后修复下载状态（下拉刷新时会自动执行三级对比检测更新）
     await nextTick()
     fixInconsistentDownloadStatus(localTextbooks)
     // [maxScrollY调试] DOM更新后
@@ -1251,6 +1255,21 @@ const loadResources = async () => {
       // 更新教材列表
       textbooks.value = mergedTextbooks
       await nextTick()
+
+      // 🔥 下拉刷新时执行三级对比标记更新（异步执行，不阻塞UI）
+      // 在下拉刷新完成后，异步执行三级对比，标记有更新的教材
+      apiService
+        .checkForUpdates()
+        .then((updatedTextbooks) => {
+          // 使用公共函数标记更新状态（不显示通知，避免干扰用户）
+          markUpdatesFromCheckResult(updatedTextbooks, false).catch((error) => {
+            console.warn('下拉刷新时标记更新状态失败:', error)
+          })
+        })
+        .catch((error) => {
+          // 三级对比失败不影响下拉刷新的成功，只记录错误
+          console.warn('下拉刷新时执行三级对比失败:', error)
+        })
       // [maxScrollY调试] 服务器数据更新后
       if (bscrollInstance.value) {
         console.log(
@@ -1327,6 +1346,69 @@ const updateSubjectChips = () => {
   }
 }
 
+/**
+ * 标记更新状态 - 从三级对比结果中标记教材更新状态
+ * @param updatedTextbooks 三级对比返回的需要更新的教材列表
+ * @param showNotification 是否显示通知消息（默认true）
+ */
+const markUpdatesFromCheckResult = async (
+  updatedTextbooks: TextbookVersion[],
+  showNotification = true,
+): Promise<void> => {
+  // 第一步：重置所有本地教材的更新状态（清除之前的更新标记）
+  const resetPromises = textbooks.value.map(async (textbook) => {
+    textbook.hasUpdatesAvailable = false
+
+    // 🔥 保存更新状态到 IndexedDB（重置为无更新）
+    await resourceManager.updateTextbookInfo(textbook, {
+      hasUpdatesAvailable: false,
+    })
+  })
+
+  // 等待所有重置完成
+  await Promise.all(resetPromises)
+
+  // 第二步：遍历服务器返回的需要更新的教材，在本地教材中查找并标记
+  if (updatedTextbooks.length > 0) {
+    const updatePromises = updatedTextbooks.map(async (updatedTextbook) => {
+      // 在本地教材列表中查找对应的教材（通过 textbookId 匹配）
+      const localTextbook = textbooks.value.find(
+        (textbook) => textbook.textbookId === updatedTextbook.textbookId,
+      )
+
+      if (localTextbook) {
+        // 找到了本地教材，标记为有更新
+        localTextbook.hasUpdatesAvailable = true
+
+        // 🔥 保存更新状态到 IndexedDB（标记为有更新）
+        await resourceManager.updateTextbookInfo(localTextbook, {
+          hasUpdatesAvailable: true,
+        })
+      } else {
+        // 本地没有找到对应的教材（可能是新教材或已被删除）
+        // 可以选择忽略，或者如果需要，可以添加到本地列表
+      }
+    })
+
+    // 等待所有更新完成
+    await Promise.all(updatePromises)
+
+    updateCount.value = updatedTextbooks.length
+    if (showNotification) {
+      showMessage(`发现 ${updatedTextbooks.length} 个教材有更新`, 'success')
+    }
+  } else {
+    // 服务器没有返回需要更新的教材，所有教材都是最新版本
+    updateCount.value = 0
+    if (showNotification) {
+      showMessage('所有教材都是最新版本', 'info')
+    }
+  }
+
+  // 使用 store 通知其他组件更新状态已变化
+  resourceStore.markUpdateCheckCompleted()
+}
+
 // 检查更新 - 三级对比版本
 const checkForUpdates = async () => {
   checkingUpdates.value = true
@@ -1335,54 +1417,8 @@ const checkForUpdates = async () => {
     // 开始执行三级更新检查
     const updatedTextbooks = await apiService.checkForUpdates()
 
-    // 第一步：重置所有本地教材的更新状态（清除之前的更新标记）
-    const resetPromises = textbooks.value.map(async (textbook) => {
-      textbook.hasUpdatesAvailable = false
-
-      // 🔥 保存更新状态到 IndexedDB（重置为无更新）
-      await resourceManager.updateTextbookInfo(textbook, {
-        hasUpdatesAvailable: false,
-      })
-    })
-
-    // 等待所有重置完成
-    await Promise.all(resetPromises)
-
-    // 第二步：遍历服务器返回的需要更新的教材，在本地教材中查找并标记
-    if (updatedTextbooks.length > 0) {
-      const updatePromises = updatedTextbooks.map(async (updatedTextbook) => {
-        // 在本地教材列表中查找对应的教材（通过 textbookId 匹配）
-        const localTextbook = textbooks.value.find(
-          (textbook) => textbook.textbookId === updatedTextbook.textbookId,
-        )
-
-        if (localTextbook) {
-          // 找到了本地教材，标记为有更新
-          localTextbook.hasUpdatesAvailable = true
-
-          // 🔥 保存更新状态到 IndexedDB（标记为有更新）
-          await resourceManager.updateTextbookInfo(localTextbook, {
-            hasUpdatesAvailable: true,
-          })
-        } else {
-          // 本地没有找到对应的教材（可能是新教材或已被删除）
-          // 可以选择忽略，或者如果需要，可以添加到本地列表
-        }
-      })
-
-      // 等待所有更新完成
-      await Promise.all(updatePromises)
-
-      updateCount.value = updatedTextbooks.length
-      showMessage(`发现 ${updatedTextbooks.length} 个教材有更新`, 'success')
-    } else {
-      // 服务器没有返回需要更新的教材，所有教材都是最新版本
-      updateCount.value = 0
-      showMessage('所有教材都是最新版本', 'info')
-    }
-
-    // 使用 store 通知其他组件更新状态已变化
-    resourceStore.markUpdateCheckCompleted()
+    // 使用公共函数标记更新状态
+    await markUpdatesFromCheckResult(updatedTextbooks, true)
   } catch {
     showMessage('检查更新失败，请稍后重试', 'error')
   } finally {
@@ -1398,8 +1434,8 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
     return
   }
 
-  // 🔒 防重复下载：检查是否已下载完成
-  if (textbook.downloadStatus === 2 && textbook.isDownloaded) {
+  // 🔒 防重复下载：检查是否已下载完成且无更新（有更新时允许重新下载）
+  if (textbook.downloadStatus === 2 && textbook.isDownloaded && !textbook.hasUpdatesAvailable) {
     return
   }
 
@@ -1561,12 +1597,16 @@ const downloadTextbook = async (textbook: UserTextbookInfo) => {
 
 // 更新教材 - 基于安卓原生逻辑完善
 const updateTextbook = (textbook: UserTextbookInfo) => {
-  // 重置更新状态
-  textbook.hasUpdatesAvailable = false
-  textbook.downloadStatus = 1 // 开始更新下载
-  textbook.isDownloaded = false
+  // 🔒 防重复下载：检查是否已在下载中
+  if (textbook.downloadStatus === 1) {
+    showMessage(`《${textbook.textbookName}》正在下载中，请勿重复操作`, 'warning')
+    return
+  }
 
-  // 开始下载更新
+  // 重置更新状态（但保留hasUpdatesAvailable，让downloadTextbook处理）
+  // 注意：不要提前设置downloadStatus=1，让downloadTextbook函数来设置，避免状态检查冲突
+
+  // 开始下载更新（downloadTextbook会自动设置downloadStatus=1）
   downloadTextbook(textbook)
 }
 
@@ -1701,7 +1741,8 @@ onMounted(async () => {
   resourceManager.cleanupExpiredData()
 
   // 定期检查更新（每60分钟）- 延迟启动
-  setInterval(
+  // 注意：App.vue中已有全局资源自动更新检查，这里的定时器作为页面级别的额外检查
+  resourceUpdateCheckTimer = setInterval(
     () => {
       if (!loading.value && !checkingUpdates.value) {
         checkForUpdates()
@@ -1760,6 +1801,12 @@ onUnmounted(async () => {
   if (bscrollInstance.value) {
     bscrollInstance.value.destroy()
     bscrollInstance.value = null
+  }
+
+  // 第2步：清理资源更新检查定时器
+  if (resourceUpdateCheckTimer) {
+    clearInterval(resourceUpdateCheckTimer)
+    resourceUpdateCheckTimer = null
   }
 })
 </script>
@@ -1965,10 +2012,6 @@ onUnmounted(async () => {
       .debug-btn {
         min-width: 100px;
       }
-
-      .check-updates-btn {
-        min-width: 100px;
-      }
     }
 
     // 调试按钮区域样式
@@ -2007,26 +2050,6 @@ onUnmounted(async () => {
         &:active {
           background: rgba(110, 85, 255, 0.2);
         }
-      }
-    }
-
-    // 第14步：检查更新按钮样式
-    .check-updates-btn {
-      flex-shrink: 0;
-      border-radius: 8px;
-      padding: 8px 20px;
-      font-weight: 500;
-      border: none;
-      outline: none;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-
-      &:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-      }
-
-      &:active {
-        transform: translateY(0);
       }
     }
   }
@@ -2232,10 +2255,6 @@ onUnmounted(async () => {
               color: #ffffff;
             }
 
-            &.status-indicator-red {
-              background: rgba(239, 68, 68, 0.64);
-            }
-
             &.status-indicator-blue {
               background: rgba(110, 85, 255, 0.64);
             }
@@ -2250,6 +2269,10 @@ onUnmounted(async () => {
 
             &.status-indicator-orange {
               background: rgba(245, 158, 11, 0.64);
+            }
+
+            &.status-indicator-red {
+              background: rgba(239, 68, 68, 0.64);
             }
           }
         }

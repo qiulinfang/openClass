@@ -56,7 +56,7 @@ import GraphNode from './GraphNode.vue'
 import { ResourceManager } from '../../services/resource-storage'
 import { showMessage } from '../../utils'
 import { apiService } from '../../services/api-service'
-import { getCurrentUserIdOrDefault } from '../../utils/userId'
+import { getCurrentUserIdOrDefault } from '../../utils/user/userId'
 import type { KnowledgeGraphDebugParams } from '../debug/KnowledgeGraphDebugPanel.vue'
 
 interface ChapterNode {

@@ -283,7 +283,7 @@ import {
 import QuestionListSkeleton from './QuestionListSkeleton.vue'
 import MiniClass from './MiniClass.vue'
 import UnifiedChatDialog from './UnifiedChatDialog.vue'
-import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/favorites'
+import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
 import { useImagePicker } from '../composables/useImagePicker'
 import { useTeacherChatStore } from '../stores/teacherChatStore'
 import { useUserStore } from '../stores/userStore'

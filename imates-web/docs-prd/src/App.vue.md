@@ -9,47 +9,100 @@
 ## 🎯 功能需求
 
 ### 1. 核心功能
-- `[功能点1]`：`待补充`
-- `[功能点2]`：`待补充`
+- **全局资源自动更新检查**：应用启动后自动检查资源更新，每1小时检查一次
+- **全局图片选择器**：提供全局单例图片选择器组件
 
 ### 2. 功能边界
-- `[负责的功能]`
-- `[不负责的功能]`
+- **负责的功能**：
+  - 全局资源自动更新检查（每1小时）
+  - 全局图片选择器组件挂载
+  - 应用级别的生命周期管理
+- **不负责的功能**：
+  - 具体的资源更新逻辑（由apiService和resourceManager负责）
+  - 图片选择器的具体实现（由ImagePicker组件负责）
 
 ## 🔧 技术实现
 
 ### 1. 依赖关系
 - **导入依赖**：
   ```typescript
-  // 主要依赖
+  import { onMounted, onBeforeUnmount } from 'vue'
+  import ImagePicker from './components/chat/ImagePicker.vue'
+  import { apiService } from './services/api-service'
+  import { resourceManager } from './services/resource-storage'
   ```
 - **被依赖**：
-  - `[文件路径]`：`[使用方式]`
+  - `src/main.ts`：作为应用的根组件被挂载
 
 ### 2. 关键代码逻辑
+
+#### 全局资源自动更新检查
 ```typescript
-// App.vue 的核心代码
-<script setup lang="ts">
-import { onMounted, onBeforeUnmount } from 'vue'
-import ImagePicker from './components/chat/ImagePicker.vue'
-// 注释掉缩略图相关导入以提升性能
-// import { thumbnailQueue } from './utils/thumbnail-queue'
+// 全局资源自动更新检查定时器
+let resourceUpdateTimer: ReturnType<typeof setInterval> | null = null
+
+// 全局资源自动更新检查函数
+// 第1步：调用API服务检查需要更新的教材
+// 第2步：获取本地所有教材信息
+// 第3步：重置所有教材的更新状态
+// 第4步：标记需要更新的教材
+const checkResourceUpdates = async () => {
+  try {
+    // 第1步：调用API服务检查需要更新的教材
+    const updatedTextbooks = await apiService.checkForUpdates()
+
+    // 第2步：获取本地所有教材信息
+    const localTextbooks = await resourceManager.getUserLocalTextbooks()
+
+    // 第3步：重置所有教材的更新状态
+    const resetPromises = localTextbooks.map(async (textbook) => {
+      textbook.hasUpdatesAvailable = false
+      await resourceManager.updateTextbookInfo(textbook, {
+        hasUpdatesAvailable: false,
+      })
+    })
+    await Promise.all(resetPromises)
+
+    // 第4步：标记需要更新的教材
+    if (updatedTextbooks.length > 0) {
+      const updatePromises = updatedTextbooks.map(async (updatedTextbook) => {
+        const localTextbook = localTextbooks.find(
+          (textbook) => textbook.textbookId === updatedTextbook.textbookId,
+        )
+
+        if (localTextbook) {
+          localTextbook.hasUpdatesAvailable = true
+          await resourceManager.updateTextbookInfo(localTextbook, {
+            hasUpdatesAvailable: true,
+          })
+        }
+      })
+
+      await Promise.all(updatePromises)
+    }
+  } catch {
+    // 静默处理错误，避免影响应用正常运行
+  }
+}
 
 onMounted(() => {
-  // 注释掉缩略图恢复逻辑以提升性能
-  /*
-  // 第1步：延迟恢复缩略图任务，避免阻塞应用启动
-  setTimeout(() => {
-    // 第2步：恢复被打断的缩略图生成任务
-    thumbnailQueue.recoverPendingTasks()
-  }, 2000) // 等待2秒，让应用完全启动
-  */
+  // 启动全局资源自动更新检查（每1小时检查一次）
+  // 第1步：设置定时器，每1小时检查一次
+  resourceUpdateTimer = setInterval(() => {
+    checkResourceUpdates()
+  }, 60 * 60 * 1000) // 1小时 = 60 * 60 * 1000 毫秒
+
+  // 第2步：立即执行一次检查
+  checkResourceUpdates()
 })
 
 onBeforeUnmount(() => {
-  // 页面卸载时不需要特殊处理
-  // 未完成的任务会在IndexedDB中保持fileData但没有thumbnail
-  /
+  // 清理资源自动更新定时器
+  if (resourceUpdateTimer) {
+    clearInterval(resourceUpdateTimer)
+    resourceUpdateTimer = null
+  }
+})
 ```
 
 ## 🔄 迁移到 React Native

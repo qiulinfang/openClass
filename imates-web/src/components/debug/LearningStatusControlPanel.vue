@@ -209,7 +209,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
-import { getCurrentUserIdOrDefault } from '../../utils/userId'
+import { getCurrentUserIdOrDefault } from '../../utils/user/userId'
 
 interface ChapterNode {
   id: string

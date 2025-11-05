@@ -205,7 +205,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import type { QuestionRecord } from '@/types'
 import { useBetterScroll } from '../composables/useBetterScroll'
-import { toggleQaFavorite, getFavoriteQas } from '../utils/favorites'
+import { toggleQaFavorite, getFavoriteQas } from '../utils/storage/favorites'
 import { showMessage } from '../utils'
 
 // 定义 props
