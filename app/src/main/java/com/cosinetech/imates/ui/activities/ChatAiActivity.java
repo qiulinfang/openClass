@@ -151,7 +151,7 @@ public class ChatAiActivity extends AppCompatActivity implements MessagingManage
     public void onStop() {
         Log.e("++++++++++++++++", "ChatOnStop");
         super.onStop();
-        finish();
+        ApplicationModelShared.getInstance().getFloatingWindowService().showRobot();
     }
 
     @Override
