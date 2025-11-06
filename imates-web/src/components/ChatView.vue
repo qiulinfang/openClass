@@ -149,6 +149,7 @@ import type { ChatBubble } from '../types'
 import type { ChatMessageSession } from '../types'
 import type { ExerciseItem } from '../types'
 import { SessionType } from '../types'
+import type { TeacherSession } from '../stores/teacherChatStore'
 
 // 策略模式导入
 import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
@@ -1085,6 +1086,47 @@ const initializeTeacherSession = async () => {
   }
 }
 
+// 加载老师会话列表
+const loadTeacherSessions = (): TeacherSession[] => {
+  console.log('[ChatView] 🔄 loadTeacherSessions() - 开始加载会话列表')
+  
+  const userId = getCurrentUserIdOrDefault()
+  const sessionPrefix = `${userId}_teacher_chat_`
+  
+  const sessions: TeacherSession[] = []
+  const sessionIds = new Set<string>()
+  
+  // 遍历localStorage查找所有教师会话
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key?.startsWith(sessionPrefix) && key.endsWith('_session')) {
+      try {
+        const sessionData = localStorage.getItem(key)
+        if (sessionData) {
+          const session = JSON.parse(sessionData) as TeacherSession
+          
+          if (!session || !session.sessionId || !session.sessionName) {
+            continue
+          }
+          
+          if (sessionIds.has(session.sessionId)) {
+            continue
+          }
+          
+          sessions.push(session)
+          sessionIds.add(session.sessionId)
+        }
+      } catch (error) {
+        console.error('[ChatView] ❌ 解析会话数据失败:', key, error)
+      }
+    }
+  }
+  
+  sessions.sort((a, b) => b.createTime - a.createTime)
+  console.log('[ChatView] ✅ loadTeacherSessions() - 加载完成:', sessions.length)
+  return sessions
+}
+
 // 加载老师聊天历史
 // 作用：从API加载老师对话的历史消息记录（现在主要用于同步远程消息到本地存储）
 const loadTeacherChatHistory = async () => {
@@ -1814,8 +1856,130 @@ const convertMessageForForwarding = (msg: ChatBubble) => {
 }
 
 /**
+ * 选择老师会话
+ * 流程：1. 加载会话列表 2. 显示选择对话框 3. 用户选择会话
+ * @param forwardMessages 如果提供，会在选择会话后转发这些消息
+ * @returns 返回是否成功选择会话（如果提供forwardMessages，则返回是否转发成功）
+ */
+const selectTeacherSessionAndForward = async (
+  forwardMessages?: ChatBubble[]
+): Promise<boolean> => {
+  return new Promise((resolve) => {
+    // 加载老师会话列表
+    const sessions = loadTeacherSessions()
+    
+    // 如果没有会话，先创建默认会话
+    if (sessions.length === 0) {
+      // 如果没有会话，初始化一个默认会话
+      initializeTeacherSession().then(async () => {
+        if (teacherSession.value) {
+          if (forwardMessages && forwardMessages.length > 0) {
+            const success = await forwardMessageToTeacher(forwardMessages)
+            resolve(success)
+          } else {
+            resolve(true)
+          }
+        } else {
+          resolve(false)
+        }
+      })
+      return
+    }
+    
+    // 构建选项列表
+    const options = sessions.map(session => ({
+      label: session.sessionName,
+      value: session.sessionId,
+      subject: session.subject
+    }))
+    
+    // 添加"新建会话"选项
+    options.push({
+      label: '新建会话',
+      value: 'new',
+      subject: 'math'
+    })
+    
+    // 显示选择对话框
+    Dialog.create({
+      title: '选择转发给哪位老师',
+      message: '请选择要转发到的老师会话',
+      options: {
+        type: 'radio',
+        model: sessions.length > 0 ? sessions[0].sessionId : 'new',
+        items: options.map(opt => ({
+          label: opt.label,
+          value: opt.value
+        }))
+      },
+      cancel: {
+        label: '取消',
+        color: 'grey-7',
+        flat: true
+      },
+      ok: {
+        label: '确定',
+        color: 'primary',
+        unelevated: true
+      },
+      persistent: false
+    }).onOk(async (selectedSessionId: string) => {
+      if (selectedSessionId === 'new') {
+        // 创建新会话
+        await initializeTeacherSession()
+        if (teacherSession.value) {
+          if (forwardMessages && forwardMessages.length > 0) {
+            const success = await forwardMessageToTeacher(forwardMessages)
+            resolve(success)
+          } else {
+            resolve(true)
+          }
+        } else {
+          resolve(false)
+        }
+      } else {
+        // 使用选中的会话
+        const selectedSession = sessions.find(s => s.sessionId === selectedSessionId)
+        if (selectedSession) {
+          // 设置选中的会话
+          teacherSession.value = {
+            sessionId: selectedSession.sessionId,
+            sessionName: selectedSession.sessionName,
+            catalogId: 'CATEGORY_TEACHER_QA',
+            sessionType: selectedSession.subject === 'biology' 
+              ? SessionType.USER_TALK_TEACHER_BIOLOGY 
+              : SessionType.USER_TALK_TEACHER_MATH,
+            createTime: selectedSession.createTime,
+            updateTime: selectedSession.createTime,
+            msgCount: 0,
+          }
+          
+          // 设置到store
+          teacherStore.setSession(selectedSession)
+          
+          // 加载该会话的历史消息
+          await teacherStore.loadChatHistory(selectedSession.sessionId)
+          
+          // 如果提供了消息，转发消息
+          if (forwardMessages && forwardMessages.length > 0) {
+            const success = await forwardMessageToTeacher(forwardMessages)
+            resolve(success)
+          } else {
+            resolve(true)
+          }
+        } else {
+          resolve(false)
+        }
+      }
+    }).onCancel(() => {
+      resolve(false)
+    })
+  })
+}
+
+/**
  * 处理单条消息转发（仅在AI通用、AI题目和AI教材页面触发）
- * 流程：1. 验证当前页面类型 2. 创建老师会话 3. 转发消息 4. 切换页面
+ * 流程：1. 验证当前页面类型 2. 选择老师会话 3. 转发消息 4. 显示结果
  * 作用：处理AI对话中的单条消息转发到老师对话
  */
 const handleForwardMessage = async (message: ChatBubble) => {
@@ -1838,24 +2002,15 @@ const handleForwardMessage = async (message: ChatBubble) => {
   }
 
   try {
-    // 确保老师会话已创建
-    if (!teacherSession.value) {
-      console.log('[ChatView] 🔄 老师会话不存在，开始初始化...')
-      await initializeTeacherSession()
-    } else {
-      console.log('[ChatView] ✅ 老师会话已存在:', {
-        sessionId: teacherSession.value.sessionId,
-        sessionName: teacherSession.value.sessionName,
-      })
-    }
+    // 选择老师会话并转发
+    const success = await selectTeacherSessionAndForward([message])
 
-    if (teacherSession.value) {
-      console.log('[ChatView] 📤 开始转发消息到老师会话:', teacherSession.value.sessionId)
-      // 转发消息到老师
-      const success = await forwardMessageToTeacher([message])
-
-      if (success) {
-        console.log('[ChatView] ✅ 转发成功，询问用户是否前往老师对话')
+    if (success) {
+      console.log('[ChatView] ✅ 转发成功')
+      // AI题目对话页面不显示对话框，只显示简单提示
+      if (props.type === 'ai-exercise') {
+        showMessage('转发成功', 'success')
+      } else {
         // 转发成功后，询问用户是否前往老师对话
         Dialog.create({
           title: '转发成功',
@@ -1885,13 +2040,10 @@ const handleForwardMessage = async (message: ChatBubble) => {
           console.log('[ChatView] ✅ 用户选择留在当前会话')
           showMessage('转发成功，已留在当前会话', 'success')
         })
-      } else {
-        console.error('[ChatView] ❌ 转发失败，forwardMessageToTeacher 返回 false')
-        showMessage('转发失败，请重试', 'error')
       }
     } else {
-      console.error('[ChatView] ❌ 无法创建老师会话，teacherSession.value 为 null')
-      showMessage('无法创建老师会话', 'error')
+      console.error('[ChatView] ❌ 转发失败或用户取消')
+      // 用户取消时不显示错误消息
     }
   } catch (error) {
     console.error('[ChatView] ❌ 转发消息失败 - 异常:', error)
@@ -1954,14 +2106,37 @@ const forwardMessageToTeacher = async (messages: ChatBubble[]) => {
     
     if (success) {
       console.log('[ChatView] 🔄 第4步：转发成功，开始添加到本地存储')
-      const convertedMessages = messages.map((msg) => ({
-        ...msg,
-        id: msg.id.startsWith('forwarded_') ? msg.id : 'forwarded_' + msg.id,
-        sender: 'user' as const,
-        type: 'user' as const,
-      }))
+      const convertedMessages = messages.map((msg) => {
+        // 确定消息类型
+        let messageType: 'text' | 'voice' | 'image' = msg.messageType || 'text'
+        if (!messageType) {
+          // 如果没有 messageType，根据数据判断
+          if (msg.imageData?.filePath || msg.imageData?.base64DataUrl) {
+            messageType = 'image'
+          } else if (msg.voiceData?.filePath) {
+            messageType = 'voice'
+          } else {
+            messageType = 'text'
+          }
+        }
+        
+        return {
+          ...msg,
+          id: msg.id.startsWith('forwarded_') ? msg.id : 'forwarded_' + msg.id,
+          sender: 'user' as const,
+          type: 'user' as const,
+          messageType: messageType
+        }
+      })
       
       console.log('[ChatView] 📤 转换后的消息数量:', convertedMessages.length)
+      console.log('[ChatView] 📤 转换后的消息详情:', convertedMessages.map(msg => ({
+        id: msg.id,
+        messageType: msg.messageType,
+        hasImageData: !!msg.imageData,
+        hasVoiceData: !!msg.voiceData,
+        contentLength: msg.content?.length || 0
+      })))
       
       // 直接添加到老师消息存储并持久化
       teacherStore.messages.push(...convertedMessages)
@@ -2257,15 +2432,16 @@ const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessa
   }
 
   try {
-    // 确保老师会话已创建
-    if (!teacherSession.value) {
-      await initializeTeacherSession()
+    // 选择老师会话（不转发，仅选择）
+    const selected = await selectTeacherSessionAndForward()
+    if (!selected || !teacherSession.value) {
+      // 用户取消选择或会话不存在
+      return
     }
 
-    if (teacherSession.value) {
-      // 逐条转发消息
-      let successCount = 0
-      for (const message of messages) {
+    // 逐条转发消息
+    let successCount = 0
+    for (const message of messages) {
         const selectedMessagesData = JSON.stringify([convertMessageForForwarding(message)])
 
         const success = await apiService.forwardAiChatToTeacher(
@@ -2291,43 +2467,46 @@ const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessa
         teacherStore.messages.push(...convertedMessages)
         await teacherStore.saveChatHistory()
 
-        // 转发成功后询问用户是否前往老师对话
-        Dialog.create({
-          title: '转发成功',
-          message: `已成功转发 ${successCount} 条消息给老师，是否前往老师对话查看？`,
-          cancel: {
-            label: '留在当前会话',
-            color: 'grey-7',
-            flat: true,
-          },
-          ok: {
-            label: '前往老师对话',
-            color: 'primary',
-            unelevated: true,
-          },
-          persistent: false,
-        }).onOk(() => {
-          // 用户选择前往老师对话
-          console.log('[ChatView] ✅ 用户选择前往老师对话')
-          const forwardData = {
-            messages: messages,
-            currentQuestion: currentQuestion.value,
-            additionalMessage: additionalMessage,
-            forwardMode: 'separate',
-            successCount: successCount,
-          }
-          emit('switchToTeacher', forwardData)
-        }).onCancel(() => {
-          // 用户选择留在当前会话
-          console.log('[ChatView] ✅ 用户选择留在当前会话')
+        // AI题目对话页面不显示对话框，只显示简单提示
+        if (props.type === 'ai-exercise') {
           showMessage(`转发成功，已转发 ${successCount} 条消息`, 'success')
-        })
+        } else {
+          // 转发成功后询问用户是否前往老师对话
+          Dialog.create({
+            title: '转发成功',
+            message: `已成功转发 ${successCount} 条消息给老师，是否前往老师对话查看？`,
+            cancel: {
+              label: '留在当前会话',
+              color: 'grey-7',
+              flat: true,
+            },
+            ok: {
+              label: '前往老师对话',
+              color: 'primary',
+              unelevated: true,
+            },
+            persistent: false,
+          }).onOk(() => {
+            // 用户选择前往老师对话
+            console.log('[ChatView] ✅ 用户选择前往老师对话')
+            const forwardData = {
+              messages: messages,
+              currentQuestion: currentQuestion.value,
+              additionalMessage: additionalMessage,
+              forwardMode: 'separate',
+              successCount: successCount,
+              sessionId: teacherSession.value?.sessionId, // 添加会话ID
+            }
+            emit('switchToTeacher', forwardData)
+          }).onCancel(() => {
+            // 用户选择留在当前会话
+            console.log('[ChatView] ✅ 用户选择留在当前会话')
+            showMessage(`转发成功，已转发 ${successCount} 条消息`, 'success')
+          })
+        }
       } else {
         showMessage('转发失败，请重试', 'error')
       }
-    } else {
-      showMessage('无法创建老师会话', 'error')
-    }
   } catch (error) {
     console.error('[CHAT_DEBUG] ❌ 逐条转发失败:', error)
     showMessage('转发失败', 'error')

@@ -23,17 +23,18 @@
     </div>
 
     <!-- 树形结构 -->
-    <div v-if="treeNodes.length > 0" ref="treeWrapper" class="tree-wrapper">
-      <q-tree
-        :nodes="treeNodes"
-        node-key="id"
-        :expanded="expandedNodes"
-        @update:expanded="(val) => expandedNodes = Array.isArray(val) ? [...val] : []"
-        :selected="selectedNodeId"
-        @update:selected="handleNodeSelect"
-        default-expand-all
-        no-connectors
-      >
+    <div v-if="treeNodes.length > 0" ref="scrollWrapper" class="scroll-wrapper">
+      <div class="scroll-content">
+        <q-tree
+          :nodes="treeNodes"
+          node-key="id"
+          :expanded="expandedNodes"
+          @update:expanded="(val) => expandedNodes = Array.isArray(val) ? [...val] : []"
+          :selected="selectedNodeId"
+          @update:selected="handleNodeSelect"
+          default-expand-all
+          no-connectors
+        >
         <template v-slot:default-header="prop">
           <div class="tree-node-header" :class="{ 'is-selected': isSelectedNode(prop.node) }">
             <!-- 一级节点（分类） -->
@@ -47,7 +48,10 @@
             <div v-else-if="prop.node.level === 2" class="session-node">
               <div class="session-content" @click.stop="handleSessionClick(prop.node)">
                 <div class="session-title-row">
-                  <div class="session-title">{{ prop.node.label }}</div>
+                  <div class="session-title-wrapper">
+                    <div class="session-title">{{ prop.node.label }}</div>
+                    <div v-if="hasUnreadMessage(prop.node)" class="unread-badge"></div>
+                  </div>
                   <div class="session-time">{{ formatTime(prop.node.timestamp) }}</div>
                 </div>
                 <div v-if="prop.node.subtitle" class="session-subtitle">
@@ -105,6 +109,7 @@
           </div>
         </template>
       </q-tree>
+      </div>
     </div>
 
     <!-- 空状态 -->
@@ -145,9 +150,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import type { AiGeneralSession } from '@/types'
 import type { TeacherSession } from '@/stores/teacherChatStore'
+import { useUnreadMessageStore } from '@/stores/unreadMessageStore'
+import { useBetterScroll } from '@/composables/useBetterScroll'
 
 // 定义 props
 interface Props {
@@ -200,8 +207,16 @@ const showRenameDialog = ref(false)
 const currentSessionNode = ref<{ sessionId: string; label: string } | null>(null)
 const newSessionName = ref('')
 
-// 树形节点引用
-const treeWrapper = ref<HTMLElement | null>(null)
+// 滚动容器引用
+const scrollWrapper = ref<HTMLElement | null>(null)
+
+// 未读消息 store
+const unreadStore = useUnreadMessageStore()
+
+// 监听未读消息变化，确保组件响应式更新
+watch(() => unreadStore.unreadSessionsMap, () => {
+  // 触发响应式更新
+}, { deep: true })
 
 // ==================== 计算属性 ====================
 
@@ -348,6 +363,27 @@ const treeNodes = computed<TreeNode[]>(() => {
   return nodes
 })
 
+// 使用 Better Scroll 组合式函数（必须在 treeNodes 定义之后）
+const { init: initBScroll } = useBetterScroll(
+  scrollWrapper,
+  {
+    scrollY: true,
+    scrollX: false,
+    click: true,
+    probeType: 2,
+    bounce: {
+      top: true,
+      bottom: true,
+    },
+    bounceTime: 800,
+    deceleration: 0.003,
+    useTransition: true,
+    HWCompositing: true,
+  },
+  true, // 自动监听数据变化
+  [() => treeNodes.value.length],
+)
+
 // 判断节点是否被选中
 const isSelectedNode = (node: TreeNode): boolean => {
   if (node.level === 1) return false // 分类节点不可选中
@@ -361,20 +397,72 @@ const isSelectedNode = (node: TreeNode): boolean => {
   return false
 }
 
+// ==================== 工具函数 ====================
+
+// 根据ID查找节点
+const findNodeById = (nodes: TreeNode[], targetId: string): TreeNode | null => {
+  for (const node of nodes) {
+    if (node.id === targetId) {
+      return node
+    }
+    if (node.children) {
+      const found = findNodeById(node.children, targetId)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 // ==================== 方法 ====================
 
 // 处理节点选择
 const handleNodeSelect = (nodeId: string | null) => {
+  // 如果选中的是 null，直接清除选中状态
+  if (!nodeId) {
+    selectedNodeId.value = null
+    return
+  }
+
+  // 查找选中的节点
+  const selectedNode = findNodeById(treeNodes.value, nodeId)
+  
+  // 如果选中的是一级节点（分类节点），不允许选中，保持之前的选中状态
+  if (selectedNode && selectedNode.level === 1) {
+    // 保持当前选中状态不变，不更新 selectedNodeId
+    return
+  }
+
+  // 如果选中的是二级节点，确保只选中这一个节点
+  // 由于 selectedNodeId 是单个值，已经保证了只有一个节点被选中
+  // 但为了确保一致性，我们更新选中状态
   selectedNodeId.value = nodeId
+}
+
+// 检查会话是否有未读消息
+const hasUnreadMessage = (node: TreeNode): boolean => {
+  if (!node.sessionId) return false
+  
+  if (node.category === 'ai') {
+    // AI 会话未读 key 格式: ai_{sessionId}
+    return unreadStore.hasUnread(`ai_${node.sessionId}`)
+  } else if (node.category === 'biology' || node.category === 'math') {
+    // 教师会话未读 key 格式: teacher_{sessionId}
+    return unreadStore.hasUnread(`teacher_${node.sessionId}`)
+  }
+  
+  return false
 }
 
 // 处理会话点击
 const handleSessionClick = (node: TreeNode) => {
   if (node.level !== 2 || !node.sessionId) return
 
+  // 清除未读标记
   if (node.category === 'ai') {
+    unreadStore.clearUnread(`ai_${node.sessionId}`)
     emit('ai-session-click', node.sessionId)
   } else if (node.category === 'biology' || node.category === 'math') {
+    unreadStore.clearUnread(`teacher_${node.sessionId}`)
     emit('teacher-session-click', node.sessionId, node.category)
   }
 }
@@ -476,19 +564,6 @@ const getSelectedCategory = (): 'ai' | 'biology' | 'math' | null => {
   }
 
   // 查找选中的节点
-  const findNodeById = (nodes: TreeNode[], targetId: string): TreeNode | null => {
-    for (const node of nodes) {
-      if (node.id === targetId) {
-        return node
-      }
-      if (node.children) {
-        const found = findNodeById(node.children, targetId)
-        if (found) return found
-      }
-    }
-    return null
-  }
-
   const selectedNode = findNodeById(treeNodes.value, selectedNodeId.value)
   if (!selectedNode) {
     return null
@@ -512,26 +587,64 @@ defineExpose({
   getSelectedCategory,
 })
 
-// 监听选中状态变化，更新树形组件的选中状态
+// 监听 treeNodes 变化，确保当数据从无到有时能正确初始化 BetterScroll
 watch(
-  () => [props.selectedAiSessionId, props.selectedTeacherSessionId],
-  () => {
-    if (props.selectedAiSessionId) {
-      selectedNodeId.value = `ai_${props.selectedAiSessionId}`
-    } else if (props.selectedTeacherSessionId) {
+  () => treeNodes.value.length,
+  async (newLength, oldLength) => {
+    // 当从无数据变为有数据时，重新初始化 BetterScroll
+    if (oldLength === 0 && newLength > 0) {
+      await nextTick()
+      await initBScroll()
+    }
+  }
+)
+
+// 生命周期
+onMounted(async () => {
+  // 只有当有数据时才初始化
+  if (treeNodes.value.length > 0) {
+    await initBScroll()
+  }
+})
+
+onUnmounted(() => {
+  // BScroll 销毁由组合式函数自动处理
+})
+
+// 监听选中状态变化，更新树形组件的选中状态并清除未读标记
+watch(
+  () => [props.selectedAiSessionId, props.selectedTeacherSessionId] as const,
+  (newValues, oldValues) => {
+    const [newAiSessionId, newTeacherSessionId] = newValues || [undefined, undefined]
+    const [oldAiSessionId, oldTeacherSessionId] = oldValues || [undefined, undefined]
+    
+    // 清除旧会话的未读标记（如果切换了会话）
+    if (oldAiSessionId && oldAiSessionId !== newAiSessionId) {
+      unreadStore.clearUnread(`ai_${oldAiSessionId}`)
+    }
+    if (oldTeacherSessionId && oldTeacherSessionId !== newTeacherSessionId) {
+      unreadStore.clearUnread(`teacher_${oldTeacherSessionId}`)
+    }
+    
+    // 清除新会话的未读标记
+    if (newAiSessionId) {
+      selectedNodeId.value = `ai_${newAiSessionId}`
+      unreadStore.clearUnread(`ai_${newAiSessionId}`)
+    } else if (newTeacherSessionId) {
       // 需要找到对应的节点ID
       const biologyNode = treeNodes.value
         .find((n) => n.id === 'category_biology')
-        ?.children?.find((c) => c.sessionId === props.selectedTeacherSessionId)
+        ?.children?.find((c) => c.sessionId === newTeacherSessionId)
       const mathNode = treeNodes.value
         .find((n) => n.id === 'category_math')
-        ?.children?.find((c) => c.sessionId === props.selectedTeacherSessionId)
+        ?.children?.find((c) => c.sessionId === newTeacherSessionId)
 
       if (biologyNode) {
         selectedNodeId.value = biologyNode.id
       } else if (mathNode) {
         selectedNodeId.value = mathNode.id
       }
+      unreadStore.clearUnread(`teacher_${newTeacherSessionId}`)
     } else {
       selectedNodeId.value = null
     }
@@ -576,10 +689,15 @@ watch(
   }
 }
 
-// 树形结构容器
-.tree-wrapper {
+// 滚动容器（BetterScroll 需要）
+.scroll-wrapper {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
+  position: relative;
+}
+
+.scroll-content {
+  min-height: calc(100% + 1px);
   padding: 8px 0;
 }
 
@@ -590,10 +708,33 @@ watch(
   justify-content: space-between;
   width: 100%;
   min-height: 40px;
+  transition: all 0.2s ease;
 
   &.is-selected {
     background-color: #f0f7ff;
     border-radius: 6px;
+  }
+
+  // 二级节点选中时更显眼
+  &.is-selected .session-node {
+    background: linear-gradient(90deg, rgba(25, 118, 210, 0.12) 0%, rgba(25, 118, 210, 0.08) 100%);
+    border-left: 3px solid #1976d2;
+    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.15);
+    transform: translateX(2px);
+    
+    .session-title {
+      color: #1976d2;
+      font-weight: 600;
+    }
+
+    .session-time {
+      color: #42a5f5;
+      font-weight: 500;
+    }
+
+    .session-subtitle {
+      color: #1976d2;
+    }
   }
 }
 
@@ -632,6 +773,8 @@ watch(
   min-height: 56px;
   padding: 8px 12px;
   margin: 0 -8px;
+  border-left: 3px solid transparent;
+  transition: all 0.2s ease;
 
   .session-content {
     flex: 1;
@@ -648,6 +791,15 @@ watch(
     margin-bottom: 4px;
   }
 
+  .session-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    position: relative;
+  }
+
   .session-title {
     font-size: 13px;
     font-weight: 500;
@@ -661,6 +813,27 @@ watch(
     -webkit-box-orient: vertical;
     flex: 1;
     min-width: 0;
+  }
+
+  .unread-badge {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #f44336;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px rgba(244, 67, 54, 0.2);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.8;
+      transform: scale(1.1);
+    }
   }
 
   .session-time {

@@ -20,6 +20,7 @@ export interface DrawingConfig {
   highlighterOpacity: number
   penColor: string
   penWidth: number
+  penHandwritingStyle?: 'brush' | 'writing' | 'spray' | 'oil-paint' | 'crayon' | 'marker' | 'pencil' | 'watercolor' | 'standard' | 'smooth' | 'natural' | 'fast' // 画笔样式（可选，包含旧类型以向后兼容）
   eraserMode: string
   eraserSize: number
   screenshotShape: string

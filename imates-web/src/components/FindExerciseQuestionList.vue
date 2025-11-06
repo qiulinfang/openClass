@@ -64,9 +64,9 @@
               <!-- 题目内容 - Markdown渲染 -->
               <div 
                 class="question-content"
-                @touchstart.stop="handleQuestionContentTouchStart"
-                @touchmove.stop="handleQuestionContentTouchMove"
-                @touchend.stop="handleQuestionContentTouchEnd"
+                @touchstart="handleContentTouchStart"
+                @touchmove="handleContentTouchMove"
+                @wheel="handleContentWheel"
               >
                 <div v-html="renderQuestionContent(question)" class="markdown-content"></div>
               </div>
@@ -103,12 +103,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useFindExerciseStore } from '../stores/findExerciseStore'
 import { storeToRefs } from 'pinia'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
-import QuestionListSkeleton from './QuestionListSkeleton.vue'
 import { useBetterScroll } from '../composables/useBetterScroll'
+import QuestionListSkeleton from './QuestionListSkeleton.vue'
 
 // 定义事件
 const emit = defineEmits<{
@@ -132,70 +132,60 @@ const loadMoreTimeout = ref<NodeJS.Timeout | null>(null)
 // DOM 引用
 const scrollWrapper = ref<HTMLElement | null>(null)
 
-// 题目内容区域的触摸事件处理器（用于清理）
-let contentTouchHandlers: Array<{
-  type: string
-  handler: (e: Event) => void
-}> = []
-
-// 使用 Better Scroll 组合式函数
-const { init: initBScroll, getInstance } = useBetterScroll(
+// 使用 Better Scroll
+const {
+  init: initBScroll,
+  refresh: refreshBScroll,
+  destroy: destroyBScroll,
+  getInstance
+} = useBetterScroll(
   scrollWrapper,
   {
     scrollY: true,
     scrollX: false,
     click: true,
-    probeType: 3, // 3 表示在滚动过程中和滚动结束后都会派发事件
+    probeType: 2, // 实时监听滚动位置
     bounce: {
       top: true,
       bottom: true,
+      left: false,
+      right: false
     },
     bounceTime: 800,
     deceleration: 0.003,
     useTransition: true,
     HWCompositing: true,
-  },
-  true, // 自动监听数据变化
-  [() => similarQuestions.value.length],
+    // 允许内部滚动容器正常滚动
+    preventDefaultException: {
+      tagName: /^(INPUT|TEXTAREA|BUTTON|SELECT|A)$/,
+      className: /(^|\s)(question-content|markdown-content)(\s|$)/, // 允许 .question-content 和 .markdown-content 使用原生滚动
+    },
+  }
 )
 
-// 检查是否需要加载更多（提取为共用函数）
+// 检查是否需要加载更多（使用 BetterScroll）
 const checkShouldLoadMore = () => {
   const bscrollInstance = getInstance()
   if (!bscrollInstance) return
 
-  const maxScrollY = bscrollInstance.maxScrollY
-  const currentY = bscrollInstance.y
-
-  // 当滚动到距离底部200px时触发加载更多（增加触发距离，提前触发）
+  const { y, maxScrollY } = bscrollInstance
+  // 当滚动到距离底部200px时触发加载更多
   const threshold = 200
-  if (currentY <= maxScrollY + threshold) {
-    // 防抖处理，避免重复触发（减少防抖时间，提高响应速度）
+  if (y <= maxScrollY + threshold) {
+    // 防抖处理，避免重复触发
     if (loadMoreTimeout.value) {
       clearTimeout(loadMoreTimeout.value)
     }
 
     loadMoreTimeout.value = setTimeout(() => {
       handleLoadMore()
-    }, 100) // 减少到100ms防抖，提高响应速度
+    }, 100)
   }
 }
 
-// 监听滚动事件，实现滚动到底部自动加载更多
-// 需要在初始化后设置监听器
-const setupScrollListener = () => {
-  const bscrollInstance = getInstance()
-  if (bscrollInstance) {
-    // 监听滚动过程事件
-    bscrollInstance.on('scroll', () => {
-      checkShouldLoadMore()
-    })
-
-    // 监听滚动结束事件（确保滚动结束时也能触发）
-    bscrollInstance.on('scrollEnd', () => {
-      checkShouldLoadMore()
-    })
-  }
+// 滚动事件处理函数
+const handleScroll = () => {
+  checkShouldLoadMore()
 }
 
 // 计算属性
@@ -237,8 +227,6 @@ const handleRefresh = () => {
   emit('refresh')
 }
 
-// 刷新 BScroll 由组合式函数自动处理（已启用 autoWatch）
-
 // 处理加载更多按钮点击
 const handleLoadMore = async () => {
   if (isLoading.value || !canLoadMore.value || isLoadMorePending.value) return
@@ -268,66 +256,98 @@ const renderQuestionContent = (question: {
   return renderMessageContent(content)
 }
 
-// 处理题目内容区域的触摸事件，允许独立滚动
-// 需要在事件捕获阶段处理，以便在 better-scroll 之前拦截
-const handleQuestionContentTouchStart = (e: TouchEvent) => {
-  // 阻止事件冒泡到 better-scroll
-  e.stopPropagation()
-  // 不阻止默认行为，允许原生滚动
+// 检查元素是否有滚动条
+const hasScrollbar = (element: HTMLElement): boolean => {
+  if (!element) return false
+  // 检查垂直滚动条
+  const hasVerticalScrollbar = element.scrollHeight > element.clientHeight
+  // 检查水平滚动条
+  const hasHorizontalScrollbar = element.scrollWidth > element.clientWidth
+  return hasVerticalScrollbar || hasHorizontalScrollbar
 }
 
-const handleQuestionContentTouchMove = (e: TouchEvent) => {
-  // 阻止事件冒泡到 better-scroll
-  e.stopPropagation()
-  // 不阻止默认行为，允许原生滚动
+// 查找最近的 question-content 容器
+const findQuestionContentContainer = (target: EventTarget | null): HTMLElement | null => {
+  if (!target || !(target instanceof HTMLElement)) return null
+  
+  let element: HTMLElement | null = target
+  // 向上查找，直到找到 .question-content
+  while (element && element !== document.body) {
+    if (element.classList.contains('question-content')) {
+      return element
+    }
+    element = element.parentElement
+  }
+  return null
 }
 
-const handleQuestionContentTouchEnd = (e: TouchEvent) => {
-  // 阻止事件冒泡到 better-scroll
-  e.stopPropagation()
+// 处理内部滚动容器的事件，只有有滚动条时才阻止冒泡
+const handleContentTouchStart = (event: TouchEvent) => {
+  const container = findQuestionContentContainer(event.target)
+  if (container && hasScrollbar(container)) {
+    // 只有有滚动条时才阻止事件冒泡
+    event.stopPropagation()
+  }
 }
 
-// 监听数据变化由组合式函数自动处理（已启用 autoWatch）
+const handleContentTouchMove = (event: TouchEvent) => {
+  const container = findQuestionContentContainer(event.target)
+  if (container && hasScrollbar(container)) {
+    // 只有有滚动条时才阻止事件冒泡
+    event.stopPropagation()
+  }
+}
+
+const handleContentWheel = (event: WheelEvent) => {
+  const container = findQuestionContentContainer(event.target)
+  if (container && hasScrollbar(container)) {
+    // 只有有滚动条时才阻止事件冒泡
+    event.stopPropagation()
+  }
+}
 
 // 生命周期
 onMounted(async () => {
+  // 初始化 BetterScroll
   await initBScroll()
-  // 设置滚动监听器
-  await nextTick()
-  setupScrollListener()
   
-  // 为题目内容区域添加捕获阶段的触摸事件监听器
-  // 这样可以在 better-scroll 之前拦截事件，允许原生滚动
-  if (scrollWrapper.value) {
-    const handleContentTouch = (e: Event) => {
-      const target = e.target as HTMLElement
-      if (target.closest('.question-content')) {
-        // 在捕获阶段拦截，阻止 better-scroll 处理这些区域的触摸事件
-        e.stopPropagation()
-      }
-    }
-    
-    // 使用捕获阶段，确保在 better-scroll 之前处理
-    const events = ['touchstart', 'touchmove', 'touchend'] as const
-    events.forEach((type) => {
-      scrollWrapper.value!.addEventListener(type, handleContentTouch, true)
-      contentTouchHandlers.push({ type, handler: handleContentTouch })
-    })
+  // 监听 BetterScroll 的滚动事件
+  const bscrollInstance = getInstance()
+  if (bscrollInstance) {
+    bscrollInstance.on('scroll', handleScroll)
+    bscrollInstance.on('scrollEnd', handleScroll)
   }
+  
+  // 监听数据变化，自动刷新 BetterScroll
+  watch(
+    () => [similarQuestions.value.length, isLoading.value],
+    () => {
+      nextTick(() => {
+        refreshBScroll()
+      })
+    },
+    { deep: true }
+  )
+  
+  // 初始刷新一次，确保内容正确显示
+  await nextTick()
+  refreshBScroll()
 })
 
 onUnmounted(() => {
-  // BScroll 销毁由组合式函数自动处理
-  if (loadMoreTimeout.value) {
-    clearTimeout(loadMoreTimeout.value)
+  // 清理 BetterScroll 事件监听器
+  const bscrollInstance = getInstance()
+  if (bscrollInstance) {
+    bscrollInstance.off('scroll', handleScroll)
+    bscrollInstance.off('scrollEnd', handleScroll)
   }
   
-  // 清理题目内容区域的触摸事件监听器
-  if (scrollWrapper.value && contentTouchHandlers.length > 0) {
-    contentTouchHandlers.forEach(({ type, handler }) => {
-      scrollWrapper.value!.removeEventListener(type, handler, true)
-    })
-    contentTouchHandlers = []
+  // 销毁 BetterScroll 实例
+  destroyBScroll()
+  
+  // 清理防抖定时器
+  if (loadMoreTimeout.value) {
+    clearTimeout(loadMoreTimeout.value)
   }
 })
 
@@ -401,7 +421,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
 .scroll-wrapper {
   flex: 1;
-  overflow: hidden;
+  overflow: hidden; // BetterScroll 需要 overflow: hidden
   position: relative;
 }
 
@@ -411,7 +431,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
 .questions-container {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns:470px 470px;
   gap: 12px;
   @include responsive-padding(8px 12px, 12px 16px);
 
@@ -447,7 +467,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: 12px;
     border: 1px solid $border-color;
     @include card-shadow(subtle);
-    overflow: hidden; // 防止内容溢出卡片边界
+    overflow: hidden; // 防止内容溢出卡片边界，但不影响内部滚动
     min-width: 0; // 允许组块收缩
   }
 
@@ -519,8 +539,11 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 0; // 允许收缩
   overflow-x: auto;
   overflow-y: auto; // 垂直方向溢出时显示滚动条
-  max-height: 100%; // 限制最大高度，确保可以滚动
+  height: 0; // 配合 flex: 1 使用，确保高度计算正确
   position: relative; // 确保滚动条正确显示
+  touch-action: pan-y pan-x; // 允许垂直和水平滚动，确保嵌套滚动正常工作
+  -webkit-overflow-scrolling: touch; // iOS 平滑滚动
+  overscroll-behavior: contain; // 防止滚动链，确保内部滚动不会触发外部滚动
 
   // 内容滚动条样式
   &::-webkit-scrollbar {

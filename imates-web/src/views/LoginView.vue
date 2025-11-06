@@ -101,6 +101,37 @@ onMounted(() => {
   setInterval(() => {
     versionClickCount.value = 0
   }, 2000)
+  
+  // 第5步：监听Android原生日志
+  // 保存原有的回调（如果存在，可能是App.vue中设置的）
+  const previousCallback = window.onAndroidLog
+  window.onAndroidLog = (level: string, tag: string, message: string) => {
+    // 第1步：如果有原有回调，先调用它（保持App.vue中的全局日志功能）
+    if (previousCallback) {
+      previousCallback(level, tag, message)
+    }
+    
+    // 第2步：在LoginView中打印日志
+    const logMessage = `[Android-${tag}] ${message}`
+    
+    switch (level.toUpperCase()) {
+      case 'DEBUG':
+        console.log(`[LoginView] 🔍 ${logMessage}`)
+        break
+      case 'INFO':
+        console.log(`[LoginView] ℹ️ ${logMessage}`)
+        break
+      case 'WARN':
+        console.warn(`[LoginView] ⚠️ ${logMessage}`)
+        break
+      case 'ERROR':
+        console.error(`[LoginView] ❌ ${logMessage}`)
+        break
+      default:
+        console.log(`[LoginView] 📝 ${logMessage}`)
+        break
+    }
+  }
 })
 
 const isFormValid = computed(() => {

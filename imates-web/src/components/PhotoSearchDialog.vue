@@ -292,6 +292,9 @@ const isOpen = computed({
 const adapter: IImagePickerAdapter = ImagePickerAdapterFactory.getAdapter()
 const { renderMessageContent } = useMessageRenderer()
 
+// 检测当前环境（使用适配器工厂统一判断）
+const isAndroid = computed(() => ImagePickerAdapterFactory.getEnvironment() === 'android')
+
 // 状态管理
 const selectedSubject = ref<string>(props.subject || '')
 const showCameraPreview = ref(true)
@@ -375,7 +378,15 @@ const cropOverlayStyle = computed(() => {
 })
 
 // 启动相机预览
+// Android环境不使用Web相机预览（使用原生相机），Web环境启动预览
 const startCamera = async () => {
+  // Android环境：适配器会使用原生相机，不需要Web预览
+  if (isAndroid.value) {
+    showCameraPreview.value = false
+    return
+  }
+
+  // Web环境：启动相机预览（集成在对话框内）
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {
@@ -390,7 +401,6 @@ const startCamera = async () => {
   } catch (error) {
     console.error('启动相机失败:', error)
     showMessage('无法访问相机，请检查权限设置', 'warning')
-    // 如果无法访问相机，隐藏预览但不影响其他功能
     showCameraPreview.value = false
   }
 }
@@ -435,29 +445,50 @@ const captureFromCamera = async (): Promise<string | null> => {
 }
 
 // 处理拍照
+// Android环境：使用适配器的原生相机
+// Web环境：使用对话框内的相机预览（适配器会创建独立模态框，这里使用自己的预览逻辑）
 const handleCapturePhoto = async () => {
   if (!selectedSubject.value) {
     showMessage('请先选择学科', 'warning')
     return
   }
+
   try {
-    // 确保相机已启动
-    if (!cameraStream.value || !showCameraPreview.value) {
-      showCameraPreview.value = true
-      await startCamera()
-      // 等待相机启动完成
-      await new Promise((resolve) => setTimeout(resolve, 300))
+    let base64DataUrl: string | null = null
+
+    // Android环境：直接使用适配器（适配器会调用原生相机）
+    if (isAndroid.value) {
+      const imageInfo = await adapter.captureFromCamera()
+      if (!imageInfo || !imageInfo.base64DataUrl) {
+        // 用户取消或拍照失败
+        return
+      }
+      base64DataUrl = imageInfo.base64DataUrl
+    } else {
+      // Web环境：使用对话框内的相机预览（保持自己的UI集成）
+      // 确保相机已启动
+      if (!cameraStream.value || !showCameraPreview.value) {
+        showCameraPreview.value = true
+        await startCamera()
+        await new Promise((resolve) => setTimeout(resolve, 300))
+      }
+
+      base64DataUrl = await captureFromCamera()
+      if (!base64DataUrl) {
+        showMessage('拍照失败', 'error')
+        return
+      }
+
+      // 停止相机预览
+      stopCamera()
+      showCameraPreview.value = false
     }
 
-    const base64DataUrl = await captureFromCamera()
+    // 处理拍照结果
     if (!base64DataUrl) {
       showMessage('拍照失败', 'error')
       return
     }
-
-    // 停止相机预览
-    stopCamera()
-    showCameraPreview.value = false
 
     // 转换为 File 对象
     const file = await base64ToFile(base64DataUrl, 'photo.jpg')
@@ -916,9 +947,13 @@ const handleRetake = () => {
 
   // 注意：不再需要恢复原始题目列表，因为我们没有修改全局 questionStore
 
-  // 重新启动相机预览
-  showCameraPreview.value = true
-  startCamera()
+  // 根据环境重新启动相机预览或准备拍照
+  if (isAndroid.value) {
+    showCameraPreview.value = false
+  } else {
+    showCameraPreview.value = true
+    startCamera()
+  }
 
   emit('retake')
 }
@@ -1117,9 +1152,13 @@ const handleCloseDrawer = () => {
   // 恢复原始题目列表
   restoreOriginalQuestions()
 
-  // 重新启动相机预览，以便下次可以拍照
-  showCameraPreview.value = true
-  startCamera()
+  // 根据环境重新启动相机预览或准备拍照
+  if (isAndroid.value) {
+    showCameraPreview.value = false
+  } else {
+    showCameraPreview.value = true
+    startCamera()
+  }
 }
 
 // 处理关闭
@@ -1186,9 +1225,16 @@ const onChatInputBlur = () => {
 // 监听对话框打开/关闭
 watch(isOpen, (newValue) => {
   if (newValue) {
-    // 打开时启动相机预览
+    // 打开时启动相机预览（Web环境）或准备拍照（Android环境）
     selectedSubject.value = props.subject || ''
-    startCamera()
+    
+    // 只在Web环境中启动相机预览
+    if (!isAndroid.value) {
+      startCamera()
+    } else {
+      // Android环境不显示相机预览
+      showCameraPreview.value = false
+    }
 
     // 如果有传入的图片数据，直接进入框选模式
     if (props.imageData?.base64DataUrl) {
@@ -1208,7 +1254,8 @@ watch(isOpen, (newValue) => {
   } else {
     // 关闭时停止相机并重置状态
     stopCamera()
-    showCameraPreview.value = true
+    // 根据环境设置相机预览状态
+    showCameraPreview.value = !isAndroid.value
     showCropView.value = false
     showResultView.value = false
     showDrawer.value = false

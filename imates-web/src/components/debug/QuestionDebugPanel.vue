@@ -84,6 +84,7 @@
             :options="subjectFilterOptions"
             option-value="value"
             option-label="label"
+            behavior="menu"
             emit-value
             map-options
             outlined

@@ -40,6 +40,16 @@
       @touchend="handleTouchEnd"
     >
       <canvas ref="canvasRef" class="canvas-container" :style="canvasStyle"></canvas>
+      <!-- Signature Pad 画布（覆盖在主画布上，仅在signature模式下显示） -->
+      <canvas 
+        ref="signaturePadRef" 
+        class="signature-pad-canvas" 
+        :style="{ 
+          ...canvasStyle, 
+          display: toolConfig.handwritingStyle === 'signature' && currentTool === 'draw' ? 'block' : 'none',
+          pointerEvents: toolConfig.handwritingStyle === 'signature' && currentTool === 'draw' ? 'auto' : 'none'
+        }"
+      ></canvas>
 
       <!-- 浮动缩放控制面板 -->
       <div
@@ -86,6 +96,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import UnifiedToolbar from './UnifiedToolbar.vue'
+import SignaturePad from 'signature_pad'
 
 // 新增：定义对外事件
 const emit = defineEmits<{
@@ -111,6 +122,8 @@ interface DrawObject {
   text?: string
   fontSize?: number
   opacity?: number
+  handwritingStyle?: 'signature' | 'normal' // 画笔样式：Signature Pad风格或普通风格
+  rawPoints?: { x: number; y: number }[] // 原始点（可选，用于平滑处理）
 }
 
 // 对象位置信息类型
@@ -139,10 +152,61 @@ const canvasHeight = ref(2400)
 const currentTool = ref('select')
 
 // 工具配置
-const toolConfig = ref<{ color?: string; size?: number }>({
+const toolConfig = ref<{ color?: string; size?: number; handwritingStyle?: 'signature' | 'normal' }>({
   color: '#000000',
   size: 3,
+  handwritingStyle: 'normal',
 })
+
+// Signature Pad 实例
+const signaturePadRef = ref<HTMLCanvasElement>()
+let signaturePad: SignaturePad | null = null
+
+// 绘制Signature Pad风格的路径（使用平滑贝塞尔曲线）
+const drawSignaturePath = (
+  ctx: CanvasRenderingContext2D,
+  points: { x: number; y: number }[],
+  lineWidth: number,
+  color: string
+) => {
+  if (points.length < 2) return
+  
+  ctx.save()
+  ctx.strokeStyle = color
+  ctx.lineWidth = lineWidth
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  
+  if (points.length === 2) {
+    // 只有两个点，直接连线
+    ctx.beginPath()
+    ctx.moveTo(points[0].x, points[0].y)
+    ctx.lineTo(points[1].x, points[1].y)
+    ctx.stroke()
+  } else {
+    // 使用二次贝塞尔曲线平滑
+    ctx.beginPath()
+    ctx.moveTo(points[0].x, points[0].y)
+    
+    for (let i = 1; i < points.length - 1; i++) {
+      const prev = points[i - 1]
+      const curr = points[i]
+      const next = points[i + 1]
+      
+      // 计算控制点（使用中点）
+      const cpX = curr.x + (next.x - prev.x) * 0.3
+      const cpY = curr.y + (next.y - prev.y) * 0.3
+      
+      ctx.quadraticCurveTo(cpX, cpY, curr.x, curr.y)
+    }
+    
+    // 连接到最后一个点
+    ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y)
+    ctx.stroke()
+  }
+  
+  ctx.restore()
+}
 
 // ==================== 绘制对象管理 ====================
 // 绘制对象列表
@@ -222,6 +286,21 @@ const initCanvas = async () => {
   canvasRef.value.width = canvasWidth.value
   canvasRef.value.height = canvasHeight.value
 
+  // 初始化 Signature Pad（用于交互式绘制）
+  if (signaturePadRef.value) {
+    signaturePadRef.value.width = canvasWidth.value
+    signaturePadRef.value.height = canvasHeight.value
+    signaturePad = new SignaturePad(signaturePadRef.value, {
+      backgroundColor: 'rgba(255, 255, 255, 0)',
+      penColor: toolConfig.value.color || '#000000',
+      throttle: 0, // 不限制绘制频率
+      minWidth: (toolConfig.value.size || 3) * 0.5,
+      maxWidth: (toolConfig.value.size || 3) * 1.5,
+    })
+    
+    // 注意：Signature Pad会自动处理绘制，我们只需要在鼠标抬起时保存数据
+  }
+
   // 保存初始状态
   saveState()
 
@@ -289,12 +368,18 @@ const drawObject = (obj: DrawObject) => {
     case 'path':
       // 绘制路径
       if (obj.points && obj.points.length > 1) {
-        ctx.beginPath()
-        ctx.moveTo(obj.points[0].x, obj.points[0].y)
-        for (let i = 1; i < obj.points.length; i++) {
-          ctx.lineTo(obj.points[i].x, obj.points[i].y)
+        if (obj.handwritingStyle === 'signature') {
+          // Signature Pad 风格：使用平滑的贝塞尔曲线绘制（模拟Signature Pad效果）
+          drawSignaturePath(ctx, obj.points, obj.lineWidth, obj.color)
+        } else {
+          // 普通风格：使用直线连接
+          ctx.beginPath()
+          ctx.moveTo(obj.points[0].x, obj.points[0].y)
+          for (let i = 1; i < obj.points.length; i++) {
+            ctx.lineTo(obj.points[i].x, obj.points[i].y)
+          }
+          ctx.stroke()
         }
-        ctx.stroke()
       }
       break
 
@@ -609,7 +694,14 @@ const handleMouseDown = (e: MouseEvent) => {
 
     case 'draw':
       // 开始绘制路径
-      currentPath.value = [coords]
+      if (toolConfig.value.handwritingStyle === 'signature' && signaturePad) {
+        // Signature Pad 模式：让 Signature Pad 处理绘制
+        // Signature Pad 会自动处理鼠标事件
+        currentPath.value = []
+      } else {
+        // 普通模式：开始记录路径点
+        currentPath.value = [coords]
+      }
       break
 
     case 'eraser-draw':
@@ -683,15 +775,19 @@ const handleMouseMove = (e: MouseEvent) => {
       break
 
     case 'draw':
-      // 继续绘制路径
-      currentPath.value.push(coords)
-      tempObject.value = {
-        type: 'path',
-        color: toolConfig.value.color || '#000000',
-        lineWidth: toolConfig.value.size || 3,
-        points: [...currentPath.value],
+      // 如果是 Signature Pad 风格，Signature Pad会自动处理绘制
+      // 普通风格继续使用原有逻辑
+      if (toolConfig.value.handwritingStyle !== 'signature') {
+        currentPath.value.push(coords)
+        tempObject.value = {
+          type: 'path',
+          color: toolConfig.value.color || '#000000',
+          lineWidth: toolConfig.value.size || 3,
+          points: [...currentPath.value],
+          handwritingStyle: 'normal',
+        }
+        render()
       }
-      render()
       break
 
     case 'eraser-draw':
@@ -806,13 +902,54 @@ const handleMouseUp = () => {
     if (canvasRef.value) {
       canvasRef.value.style.cursor = 'crosshair'
     }
-  } else if (tempObject.value && isDrawing.value) {
-    // 添加临时对象到列表
+  } else if (tempObject.value && isDrawing.value && currentTool.value !== 'draw') {
+    // 添加临时对象到列表（非draw工具）
     objects.value.push(tempObject.value)
     tempObject.value = null
     saveState()
     // 第X步：通知父组件内容已变化
     emit('content-change')
+  } else if (currentTool.value === 'draw' && isDrawing.value) {
+    if (toolConfig.value.handwritingStyle === 'signature' && signaturePad) {
+      // Signature Pad模式：获取绘制数据并保存
+      const data = signaturePad.toData()
+      if (data && data.length > 0) {
+        // 获取最后一个stroke的点
+        const lastStroke = data[data.length - 1]
+        if (lastStroke && lastStroke.points && lastStroke.points.length > 0) {
+          // 将Signature Pad的点转换为普通路径点
+          const points: { x: number; y: number }[] = []
+          lastStroke.points.forEach((pt: any) => {
+            points.push({ x: pt.x, y: pt.y })
+          })
+          
+          // 保存到对象列表
+          if (points.length > 0) {
+            objects.value.push({
+              type: 'path',
+              color: toolConfig.value.color || '#000000',
+              lineWidth: toolConfig.value.size || 3,
+              points: points,
+              handwritingStyle: 'signature',
+            })
+            saveState()
+            
+            // 清空Signature Pad并重新渲染主画布
+            signaturePad.clear()
+            render()
+            emit('content-change')
+          }
+        }
+      }
+    } else {
+      // draw工具普通模式：添加路径对象
+      if (tempObject.value && tempObject.value.points && tempObject.value.points.length > 0) {
+        objects.value.push(tempObject.value)
+        saveState()
+        emit('content-change')
+      }
+      tempObject.value = null
+    }
   }
 
   // 统一重置绘制状态
@@ -1249,6 +1386,11 @@ const handleToolChange = (tool: string) => {
   currentTool.value = tool
   hoveredObject.value = null
 
+  // 切换工具时，如果Signature Pad有内容，清空它
+  if (signaturePad && currentTool.value !== 'draw') {
+    signaturePad.clear()
+  }
+
   // 更新光标样式
   if (canvasRef.value) {
     canvasRef.value.style.cursor = tool === 'hand' ? 'grab' : 'crosshair'
@@ -1258,8 +1400,23 @@ const handleToolChange = (tool: string) => {
 }
 
 // 配置变化
-const handleConfigChange = (config: { color?: string; size?: number }) => {
-  toolConfig.value = { ...toolConfig.value, ...config }
+const handleConfigChange = (config: { [key: string]: string | number | boolean | undefined }) => {
+  toolConfig.value = { 
+    ...toolConfig.value, 
+    ...config,
+    handwritingStyle: config.handwritingStyle as 'signature' | 'normal' | undefined
+  }
+  
+  // 更新 Signature Pad 配置
+  if (signaturePad) {
+    if (config.color) {
+      signaturePad.penColor = config.color as string
+    }
+    if (config.size) {
+      signaturePad.minWidth = (config.size as number) * 0.5
+      signaturePad.maxWidth = (config.size as number) * 1.5
+    }
+  }
 }
 
 // 缩放控制
@@ -1482,6 +1639,15 @@ defineExpose({
     0 0 0 1px rgba(0, 0, 0, 0.03),
     0 4px 12px rgba(0, 0, 0, 0.06),
     0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* Signature Pad 画布样式 */
+.signature-pad-canvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  pointer-events: auto;
+  z-index: 10;
 }
 
 /* Excalidraw 风格浮动缩放控制面板 */

@@ -17,6 +17,7 @@ import { showMessage } from '../utils'
 import { useUserStore } from './userStore'
 import { useQuestionStore } from './questionStore'
 import { getCurrentUserIdOrDefault } from '../utils/user/userId'
+import { useUnreadMessageStore } from './unreadMessageStore'
 import {
   updateMessageSuccess,
   updateMessageError,
@@ -79,6 +80,10 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
    */
   const setSession = (session: TeacherSession): void => {
     currentSession.value = session
+    // 清除该会话的未读标记
+    const unreadStore = useUnreadMessageStore()
+    const unreadKey = `teacher_${session.sessionId}`
+    unreadStore.clearUnread(unreadKey)
   }
   
   /**
@@ -740,6 +745,80 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
   }
   
   /**
+   * 为收到的消息创建或恢复会话
+   * 当学生删除了对话但老师回复时，需要恢复或创建会话来接收消息
+   * 
+   * 第1步：尝试从 API 获取会话信息（如果可能）
+   * 第2步：如果无法获取，使用默认 subject 创建新会话
+   * 第3步：保存会话并设置为当前会话
+   */
+  const createOrRestoreSessionForMessage = async (sessionId: string): Promise<void> => {
+    try {
+      console.log('[TeacherStore] 🔄 开始为消息创建或恢复会话:', sessionId)
+      
+      // 第1步：尝试从 API 获取会话信息（如果 API 支持）
+      // 注意：这里假设 API 可能返回会话信息，如果 API 不支持，则使用默认值
+      let subject: 'biology' | 'math' = 'math' // 默认使用数学
+      let sessionName = '老师答疑'
+      
+      try {
+        // 尝试从 localStorage 获取最后使用的科目
+        const userId = getCurrentUserIdOrDefault()
+        const storedSubject = localStorage.getItem(`${userId}_currentTeacherSubject`)
+        if (storedSubject === 'BIOLOGY') {
+          subject = 'biology'
+          sessionName = '生物答疑'
+        } else if (storedSubject === 'MATH') {
+          subject = 'math'
+          sessionName = '数学答疑'
+        }
+        
+        console.log('[TeacherStore] 📋 使用默认科目创建会话:', subject)
+      } catch (error) {
+        console.warn('[TeacherStore] ⚠️ 获取科目信息失败，使用默认值:', error)
+      }
+      
+      // 第2步：创建新会话
+      const newSession: TeacherSession = {
+        sessionId: sessionId,
+        sessionName: sessionName,
+        subject: subject,
+        createTime: Date.now()
+      }
+      
+      // 第3步：保存到 localStorage
+      const userId = getCurrentUserIdOrDefault()
+      const storageKey = `${userId}_teacher_chat_${sessionId}_session`
+      localStorage.setItem(storageKey, JSON.stringify(newSession))
+      
+      // 第4步：设置为当前会话
+      currentSession.value = newSession
+      
+      // 第5步：加载聊天历史（如果存在）
+      try {
+        await loadChatHistory(sessionId)
+      } catch (error) {
+        console.warn('[TeacherStore] ⚠️ 加载聊天历史失败（可能是新会话）:', error)
+      }
+      
+      // 第6步：触发自定义事件，通知组件刷新会话列表
+      try {
+        window.dispatchEvent(new CustomEvent('teacher-session-restored', {
+          detail: { sessionId, session: newSession }
+        }))
+        console.log('[TeacherStore] 📢 已触发会话恢复事件')
+      } catch (error) {
+        console.warn('[TeacherStore] ⚠️ 触发事件失败:', error)
+      }
+      
+      console.log('[TeacherStore] ✅ 成功创建会话用于接收消息:', sessionId)
+    } catch (error) {
+      console.error('[TeacherStore] ❌ 创建或恢复会话失败:', error)
+      throw error
+    }
+  }
+  
+  /**
    * 获取会话消息数量
    */
   const getSessionMessageCount = async (sessionId: string): Promise<number> => {
@@ -941,12 +1020,24 @@ ${conversationSummary}
             successCount++
             // 第4步：保存到前端数据库
             const sentMessage = JSON.parse(data.data)
+            
+            // 第4.1步：确定消息类型
+            let messageType: 'text' | 'voice' | 'image' = 'text'
+            if (msg.imageData?.filePath || msg.imageData?.base64DataUrl) {
+              messageType = 'image'
+            } else if (msg.voiceData?.filePath) {
+              messageType = 'voice'
+            } else if (msg.messageType) {
+              messageType = msg.messageType
+            }
+            
             const newMessage: ChatBubble = {
               id: sentMessage.messageId,
               content: msg.content,
               type: 'user',
               timestamp: new Date(sentMessage.timestamp).toISOString(),
-              sender: 'user'
+              sender: 'user',
+              messageType: messageType
             }
             
             // 添加图片或语音数据
@@ -1030,14 +1121,7 @@ ${conversationSummary}
   const doInitMessageReceiver = async (): Promise<void> => {
     // 第1步：设置全局回调（每次调用都重新设置，确保使用最新的回调）
     const previousCallback = window.onTeacherMessageReceived
-    window.onTeacherMessageReceived = (messageData: unknown) => {
-      console.log('[TeacherStore] 📨 收到教师消息:', messageData)
-      
-      // 添加调用栈跟踪，帮助排查重复消息的来源
-      if (console.trace) {
-        console.trace('[TeacherStore] 🔍 消息接收调用栈:')
-      }
-      
+    window.onTeacherMessageReceived = async (messageData: unknown) => {
       const data = messageData as {
         messageId: string
         sessionId: string
@@ -1047,6 +1131,15 @@ ${conversationSummary}
         timestamp: number
         chatRole: string
         debugLogs?: string[] // Android端调试日志
+      }
+      
+      // ==================== 详细日志打印（无论是否在当前会话） ====================
+      console.group('[TeacherStore] 📨 收到教师消息')
+      console.log('[TeacherStore] 📨 原始消息数据:', messageData)
+      
+      // 添加调用栈跟踪，帮助排查重复消息的来源
+      if (console.trace) {
+        console.trace('[TeacherStore] 🔍 消息接收调用栈:')
       }
       
       // 打印Android端调试日志（如果有）
@@ -1066,24 +1159,123 @@ ${conversationSummary}
         console.groupEnd()
       }
       
+      // 格式化时间戳
+      const messageTime = new Date(data.timestamp).toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
+      
+      // 打印详细消息信息
       console.log('[TeacherStore] 📨 消息详情:', {
         messageId: data.messageId,
         sessionId: data.sessionId,
         messageType: data.messageType,
+        messageTime: messageTime,
+        timestamp: data.timestamp,
         contentLength: data.content?.length || 0,
-        contentPreview: data.content?.substring(0, 100),
-        currentSessionId: currentSession.value?.sessionId,
-        hasCurrentSession: !!currentSession.value
+        contentPreview: data.content?.substring(0, 200),
+        isSelf: data.isSelf,
+        chatRole: data.chatRole,
+        currentSessionId: currentSession.value?.sessionId || 'null',
+        hasCurrentSession: !!currentSession.value,
+        isCurrentSession: currentSession.value?.sessionId === data.sessionId
       })
       
-      // 只添加属于当前会话的消息
-      if (currentSession.value?.sessionId !== data.sessionId) {
-        console.warn('[TeacherStore] ⚠️ 会话ID不匹配，忽略消息:', {
+      // 检查消息是否属于当前会话
+      const isCurrentSession = currentSession.value?.sessionId === data.sessionId
+      
+      // ==================== 全局通知（无论是否在当前会话） ====================
+      // 构建通知消息内容
+      let notificationText = ''
+      if (data.messageType === 'IMAGE') {
+        notificationText = '收到老师发送的图片'
+      } else if (data.messageType === 'VOICE') {
+        notificationText = '收到老师发送的语音'
+      } else {
+        // 文本消息，显示内容预览（最多50个字符）
+        const contentPreview = data.content?.substring(0, 50) || ''
+        notificationText = contentPreview.length >= 50 ? `${contentPreview}...` : contentPreview
+        if (!notificationText.trim()) {
+          notificationText = '收到老师的消息'
+        }
+      }
+      
+      // 如果不在当前会话，添加提示
+      if (!isCurrentSession) {
+        notificationText = `[其他会话] ${notificationText}`
+      }
+      
+      // 显示全局通知
+      try {
+        showMessage(notificationText, 'info', 3000)
+        console.log('[TeacherStore] 🔔 已显示全局通知:', notificationText)
+      } catch (error) {
+        console.warn('[TeacherStore] ⚠️ 显示通知失败:', error)
+      }
+      
+      console.groupEnd()
+      
+      // 如果消息不属于当前会话，尝试恢复或创建会话
+      if (!isCurrentSession) {
+        console.log('[TeacherStore] 🔍 消息不属于当前会话，尝试恢复或创建会话:', {
           receivedSessionId: data.sessionId,
           currentSessionId: currentSession.value?.sessionId || 'null',
           reason: !currentSession.value ? '当前会话为空' : '会话ID不一致'
         })
-        return
+        
+        // 尝试从 localStorage 恢复会话
+        const userId = getCurrentUserIdOrDefault()
+        const sessionKey = `${userId}_teacher_chat_${data.sessionId}_session`
+        const sessionData = localStorage.getItem(sessionKey)
+        
+        if (sessionData) {
+          // 会话数据存在，恢复会话
+          try {
+            const restoredSession = JSON.parse(sessionData) as TeacherSession
+            console.log('[TeacherStore] ✅ 从 localStorage 恢复会话:', restoredSession.sessionId)
+            currentSession.value = restoredSession
+            
+            // 触发自定义事件，通知组件刷新会话列表
+            try {
+              window.dispatchEvent(new CustomEvent('teacher-session-restored', {
+                detail: { sessionId: restoredSession.sessionId, session: restoredSession }
+              }))
+              console.log('[TeacherStore] 📢 已触发会话恢复事件')
+            } catch (error) {
+              console.warn('[TeacherStore] ⚠️ 触发事件失败:', error)
+            }
+            
+            // 恢复会话后，继续处理消息（不返回）
+          } catch (error) {
+            console.error('[TeacherStore] ❌ 解析会话数据失败:', error)
+            // 解析失败，尝试创建新会话
+            await createOrRestoreSessionForMessage(data.sessionId)
+          }
+        } else {
+          // 会话不存在，尝试创建新会话
+          console.log('[TeacherStore] 📝 会话不存在，尝试创建新会话')
+          await createOrRestoreSessionForMessage(data.sessionId)
+        }
+        
+        // 如果恢复/创建后仍然不是当前会话，标记为未读
+        if (currentSession.value?.sessionId !== data.sessionId) {
+          const unreadStore = useUnreadMessageStore()
+          const unreadKey = `teacher_${data.sessionId}`
+          unreadStore.markUnread(unreadKey)
+          
+          console.warn('[TeacherStore] ⚠️ 无法恢复或创建会话，标记为未读:', {
+            receivedSessionId: data.sessionId,
+            currentSessionId: currentSession.value?.sessionId || 'null'
+          })
+          return
+        }
+        
+        // 会话恢复/创建成功，继续处理消息（不返回）
+        console.log('[TeacherStore] ✅ 会话已恢复/创建，继续处理消息')
       }
       
       // 处理不同类型的消息

@@ -121,7 +121,9 @@
             android:name=".ui.webview.MainWebViewActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="true"
-            android:screenOrientation="portrait"
+            android:resizeableActivity="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.IMatesApp.FullScreen"
             android:windowSoftInputMode="adjustResize">
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.MAIN" />

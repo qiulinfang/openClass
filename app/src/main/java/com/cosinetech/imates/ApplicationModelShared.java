@@ -26,6 +26,7 @@ import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.screencasting.UdpForwarderManager;
 import com.cosinetech.imates.ui.robot.FloatingRobotService;
 import com.cosinetech.imates.ui.fab.FloatingFabService;
+import com.cosinetech.imates.ui.webview.common.WebAppInterface;
 import com.cosinetech.imates.utils.AssetsCopyUtils;
 import com.cosinetech.imates.coreapiservice.AiChatMessageRequest;
 import com.cosinetech.imates.appenv.AppEnvConfig;
@@ -35,6 +36,7 @@ public class ApplicationModelShared extends Application implements ViewModelStor
     private final ViewModelStore viewModelStore = new ViewModelStore();
     private FloatingRobotService floatingRobotService;
     private FloatingFabService floatingFabService;
+    private WebAppInterface webAppInterface;
 
     public AiChatMessageRequest chatRequest;
 
@@ -175,6 +177,14 @@ public class ApplicationModelShared extends Application implements ViewModelStor
 
     public FloatingFabService getFloatingFabService() {
         return floatingFabService;
+    }
+
+    public void setWebAppInterface(WebAppInterface webAppInterface) {
+        this.webAppInterface = webAppInterface;
+    }
+
+    public WebAppInterface getWebAppInterface() {
+        return webAppInterface;
     }
 
     @NonNull

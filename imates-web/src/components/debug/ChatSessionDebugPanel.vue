@@ -8,6 +8,14 @@
         <q-btn icon="close" flat round dense v-close-popup />
       </q-card-section>
 
+      <!-- 标签页切换 -->
+      <q-card-section class="q-pb-none">
+        <q-tabs v-model="activeTab" dense class="text-grey" active-color="primary" indicator-color="primary">
+          <q-tab name="ai" label="学伴对话" />
+          <q-tab name="teacher" label="老师对话" />
+        </q-tabs>
+      </q-card-section>
+
       <!-- 统计信息 -->
       <q-card-section>
         <q-banner class="bg-info text-white" rounded>
@@ -16,7 +24,7 @@
           </template>
           <div class="text-subtitle2">存储统计</div>
           <div class="text-caption">
-            总会话数: {{ sessions.length }} | 
+            总会话数: {{ totalSessionsCount }} | 
             总消息数: {{ totalMessages }} | 
             存储大小: {{ storageSize }}
           </div>
@@ -65,12 +73,13 @@
       <q-separator />
       
       <q-card-section class="q-pa-none" style="max-height: 60vh; overflow-y: auto">
-        <q-list separator>
+        <!-- 学伴对话列表 -->
+        <q-list v-if="activeTab === 'ai'" separator>
           <q-item
-            v-for="session in sortedSessions"
+            v-for="session in sortedAiSessions"
             :key="session.sessionId"
             clickable
-            @click="selectSession(session)"
+            @click="selectAiSession(session)"
           >
             <q-item-section avatar>
               <q-avatar :color="session.pinned ? 'orange' : 'primary'" text-color="white">
@@ -99,7 +108,7 @@
                   size="sm"
                   icon="info"
                   color="blue"
-                  @click.stop="viewSessionDetail(session)"
+                  @click.stop="viewAiSessionDetail(session)"
                 >
                   <q-tooltip>查看详情</q-tooltip>
                 </q-btn>
@@ -110,7 +119,7 @@
                   size="sm"
                   icon="delete"
                   color="negative"
-                  @click.stop="deleteSession(session)"
+                  @click.stop="deleteAiSession(session)"
                 >
                   <q-tooltip>删除会话</q-tooltip>
                 </q-btn>
@@ -118,11 +127,75 @@
             </q-item-section>
           </q-item>
 
-          <q-item v-if="sessions.length === 0">
+          <q-item v-if="aiSessions.length === 0">
             <q-item-section class="text-center text-grey-6">
               <div class="q-py-md">
                 <q-icon name="inbox" size="48px" />
-                <div class="q-mt-sm">暂无会话数据</div>
+                <div class="q-mt-sm">暂无学伴对话数据</div>
+              </div>
+            </q-item-section>
+          </q-item>
+        </q-list>
+
+        <!-- 老师对话列表 -->
+        <q-list v-else-if="activeTab === 'teacher'" separator>
+          <q-item
+            v-for="session in sortedTeacherSessions"
+            :key="session.sessionId"
+            clickable
+            @click="selectTeacherSession(session)"
+          >
+            <q-item-section avatar>
+              <q-avatar :color="session.subject === 'biology' ? 'green' : 'purple'" text-color="white">
+                <q-icon name="school" />
+              </q-avatar>
+            </q-item-section>
+
+            <q-item-section>
+              <q-item-label>{{ session.sessionName }}</q-item-label>
+              <q-item-label caption>
+                ID: {{ session.sessionId.substring(0, 20) }}...
+              </q-item-label>
+              <q-item-label caption>
+                科目: {{ session.subject === 'biology' ? '生物' : '数学' }} | 
+                创建: {{ formatDate(session.createTime) }} | 
+                消息: {{ session.msgCount || 0 }}
+              </q-item-label>
+            </q-item-section>
+
+            <q-item-section side>
+              <div class="row q-gutter-xs">
+                <q-btn
+                  flat
+                  round
+                  dense
+                  size="sm"
+                  icon="info"
+                  color="blue"
+                  @click.stop="viewTeacherSessionDetail(session)"
+                >
+                  <q-tooltip>查看详情</q-tooltip>
+                </q-btn>
+                <q-btn
+                  flat
+                  round
+                  dense
+                  size="sm"
+                  icon="delete"
+                  color="negative"
+                  @click.stop="deleteTeacherSession(session)"
+                >
+                  <q-tooltip>删除会话</q-tooltip>
+                </q-btn>
+              </div>
+            </q-item-section>
+          </q-item>
+
+          <q-item v-if="teacherSessions.length === 0">
+            <q-item-section class="text-center text-grey-6">
+              <div class="q-py-md">
+                <q-icon name="inbox" size="48px" />
+                <div class="q-mt-sm">暂无老师对话数据</div>
               </div>
             </q-item-section>
           </q-item>
@@ -131,11 +204,11 @@
     </q-card>
   </q-dialog>
 
-  <!-- 会话详情对话框 -->
-  <q-dialog v-model="showDetailDialog" maximized>
-    <q-card v-if="selectedSession" style="width: 800px; max-width: 95vw">
+  <!-- 学伴会话详情对话框 -->
+  <q-dialog v-model="showAiDetailDialog" maximized>
+    <q-card v-if="selectedAiSession" style="width: 800px; max-width: 95vw">
       <q-card-section class="row items-center q-pb-none">
-        <div class="text-h6">会话详情</div>
+        <div class="text-h6">学伴会话详情</div>
         <q-space />
         <q-btn icon="close" flat round dense v-close-popup />
       </q-card-section>
@@ -145,37 +218,37 @@
           <q-item>
             <q-item-section>
               <q-item-label caption>会话ID</q-item-label>
-              <q-item-label>{{ selectedSession.sessionId }}</q-item-label>
+              <q-item-label>{{ selectedAiSession.sessionId }}</q-item-label>
             </q-item-section>
           </q-item>
           <q-item>
             <q-item-section>
               <q-item-label caption>会话名称</q-item-label>
-              <q-item-label>{{ selectedSession.sessionName }}</q-item-label>
+              <q-item-label>{{ selectedAiSession.sessionName }}</q-item-label>
             </q-item-section>
           </q-item>
           <q-item>
             <q-item-section>
               <q-item-label caption>创建时间</q-item-label>
-              <q-item-label>{{ formatFullDate(selectedSession.createTime) }}</q-item-label>
+              <q-item-label>{{ formatFullDate(selectedAiSession.createTime) }}</q-item-label>
             </q-item-section>
           </q-item>
           <q-item>
             <q-item-section>
               <q-item-label caption>最后更新</q-item-label>
-              <q-item-label>{{ formatFullDate(selectedSession.updateTime) }}</q-item-label>
+              <q-item-label>{{ formatFullDate(selectedAiSession.updateTime) }}</q-item-label>
             </q-item-section>
           </q-item>
           <q-item>
             <q-item-section>
               <q-item-label caption>消息数量</q-item-label>
-              <q-item-label>{{ selectedSession.msgCount }} 条</q-item-label>
+              <q-item-label>{{ selectedAiSession.msgCount }} 条</q-item-label>
             </q-item-section>
           </q-item>
           <q-item>
             <q-item-section>
               <q-item-label caption>是否置顶</q-item-label>
-              <q-item-label>{{ selectedSession.pinned ? '是' : '否' }}</q-item-label>
+              <q-item-label>{{ selectedAiSession.pinned ? '是' : '否' }}</q-item-label>
             </q-item-section>
           </q-item>
         </q-list>
@@ -203,6 +276,72 @@
     </q-card>
   </q-dialog>
 
+  <!-- 老师会话详情对话框 -->
+  <q-dialog v-model="showTeacherDetailDialog" maximized>
+    <q-card v-if="selectedTeacherSession" style="width: 800px; max-width: 95vw">
+      <q-card-section class="row items-center q-pb-none">
+        <div class="text-h6">老师会话详情</div>
+        <q-space />
+        <q-btn icon="close" flat round dense v-close-popup />
+      </q-card-section>
+
+      <q-card-section>
+        <q-list bordered separator>
+          <q-item>
+            <q-item-section>
+              <q-item-label caption>会话ID</q-item-label>
+              <q-item-label>{{ selectedTeacherSession.sessionId }}</q-item-label>
+            </q-item-section>
+          </q-item>
+          <q-item>
+            <q-item-section>
+              <q-item-label caption>会话名称</q-item-label>
+              <q-item-label>{{ selectedTeacherSession.sessionName }}</q-item-label>
+            </q-item-section>
+          </q-item>
+          <q-item>
+            <q-item-section>
+              <q-item-label caption>科目</q-item-label>
+              <q-item-label>{{ selectedTeacherSession.subject === 'biology' ? '生物' : '数学' }}</q-item-label>
+            </q-item-section>
+          </q-item>
+          <q-item>
+            <q-item-section>
+              <q-item-label caption>创建时间</q-item-label>
+              <q-item-label>{{ formatFullDate(selectedTeacherSession.createTime) }}</q-item-label>
+            </q-item-section>
+          </q-item>
+          <q-item>
+            <q-item-section>
+              <q-item-label caption>消息数量</q-item-label>
+              <q-item-label>{{ sessionMessages.length }} 条</q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-list>
+      </q-card-section>
+
+      <!-- 消息列表 -->
+      <q-card-section v-if="sessionMessages.length > 0">
+        <div class="text-subtitle2 q-mb-md">消息列表 ({{ sessionMessages.length }}条)</div>
+        <q-scroll-area style="height: 400px">
+          <q-list bordered separator>
+            <q-item v-for="(msg, index) in sessionMessages" :key="msg.id">
+              <q-item-section avatar>
+                <q-avatar :color="msg.type === 'user' ? 'primary' : 'orange'" text-color="white">
+                  {{ msg.type === 'user' ? '我' : '老师' }}
+                </q-avatar>
+              </q-item-section>
+              <q-item-section>
+                <q-item-label caption>#{{ index + 1 }} - {{ formatDate(new Date(msg.timestamp).getTime()) }}</q-item-label>
+                <q-item-label class="q-mt-xs">{{ msg.content }}</q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-scroll-area>
+      </q-card-section>
+    </q-card>
+  </q-dialog>
+
   <!-- 导入文件输入 -->
   <input
     ref="fileInputRef"
@@ -214,10 +353,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
+import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import type { AiGeneralSession, ChatBubble } from '@/types'
+import type { TeacherSession } from '@/stores/teacherChatStore'
 import localforage from 'localforage'
+import { getCurrentUserIdOrDefault } from '@/utils/user/userId'
+import { asyncStorage } from '@/services/chat-storage'
 
 // Props
 interface Props {
@@ -233,6 +376,7 @@ const emit = defineEmits<{
 
 // Store
 const aiGeneralStore = useAiGeneralChatStore()
+const teacherStore = useTeacherChatStore()
 
 // 响应式数据
 const isVisible = computed({
@@ -240,32 +384,62 @@ const isVisible = computed({
   set: (val) => emit('update:modelValue', val)
 })
 
-const sessions = ref<AiGeneralSession[]>([])
+const activeTab = ref<'ai' | 'teacher'>('ai')
+
+// 学伴对话相关
+const aiSessions = ref<AiGeneralSession[]>([])
+const selectedAiSession = ref<AiGeneralSession | null>(null)
+const showAiDetailDialog = ref(false)
+
+// 老师对话相关
+const teacherSessions = ref<(TeacherSession & { msgCount: number })[]>([])
+const selectedTeacherSession = ref<(TeacherSession & { msgCount: number }) | null>(null)
+const showTeacherDetailDialog = ref(false)
+
+// 通用数据
 const storageSize = ref('0 KB')
-const selectedSession = ref<AiGeneralSession | null>(null)
 const sessionMessages = ref<ChatBubble[]>([])
-const showDetailDialog = ref(false)
 const fileInputRef = ref<HTMLInputElement>()
 
 // 计算属性
-const totalMessages = computed(() => {
-  return sessions.value.reduce((sum, s) => sum + s.msgCount, 0)
+const totalSessionsCount = computed(() => {
+  return aiSessions.value.length + teacherSessions.value.length
 })
 
-const sortedSessions = computed(() => {
-  return [...sessions.value].sort((a, b) => {
+const totalMessages = computed(() => {
+  const aiMessages = aiSessions.value.reduce((sum, s) => sum + s.msgCount, 0)
+  const teacherMessages = teacherSessions.value.reduce((sum, s) => sum + (s.msgCount || 0), 0)
+  return aiMessages + teacherMessages
+})
+
+const sortedAiSessions = computed(() => {
+  return [...aiSessions.value].sort((a, b) => {
     if (a.pinned && !b.pinned) return -1
     if (!a.pinned && b.pinned) return 1
     return b.updateTime - a.updateTime
   })
 })
 
+const sortedTeacherSessions = computed(() => {
+  return [...teacherSessions.value].sort((a, b) => {
+    return b.createTime - a.createTime
+  })
+})
+
+// 监听标签页切换，自动刷新数据
+watch(activeTab, () => {
+  refreshData()
+})
+
 // 第1步：刷新数据
 const refreshData = async () => {
   try {
-    // 从Store加载
+    // 刷新学伴对话
     await aiGeneralStore.loadSessions()
-    sessions.value = [...aiGeneralStore.sessions]
+    aiSessions.value = [...aiGeneralStore.sessions]
+    
+    // 刷新老师对话
+    await loadTeacherSessions()
     
     // 计算存储大小
     await calculateStorageSize()
@@ -274,21 +448,91 @@ const refreshData = async () => {
   }
 }
 
+// 第1.1步：加载教师会话列表
+const loadTeacherSessions = async () => {
+  const userId = getCurrentUserIdOrDefault()
+  const sessionPrefix = `${userId}_teacher_chat_`
+  
+  const sessions: (TeacherSession & { msgCount: number })[] = []
+  const sessionIds = new Set<string>()
+  
+  // 遍历localStorage查找所有教师会话
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key?.startsWith(sessionPrefix) && key.endsWith('_session')) {
+      try {
+        const sessionData = localStorage.getItem(key)
+        if (sessionData) {
+          const session = JSON.parse(sessionData) as TeacherSession
+          
+          if (!session || !session.sessionId || !session.sessionName) {
+            continue
+          }
+          
+          if (sessionIds.has(session.sessionId)) {
+            continue
+          }
+          
+          // 加载消息数量
+          const storageKey = `teacher_chat_${session.sessionId}`
+          let msgCount = 0
+          try {
+            const history = await asyncStorage.loadChatHistory(storageKey)
+            if (history && history.messages) {
+              msgCount = history.messages.length
+            }
+          } catch (error) {
+            console.warn('加载教师会话消息数量失败:', error)
+          }
+          
+          sessions.push({
+            ...session,
+            msgCount
+          })
+          sessionIds.add(session.sessionId)
+        }
+      } catch (error) {
+        console.error('解析教师会话数据失败:', key, error)
+      }
+    }
+  }
+  
+  sessions.sort((a, b) => b.createTime - a.createTime)
+  teacherSessions.value = sessions
+}
+
 // 第2步：计算存储大小
 const calculateStorageSize = async () => {
   try {
     let totalSize = 0
     
-    // 计算会话列表大小
-    const sessionsData = JSON.stringify(sessions.value)
-    totalSize += new Blob([sessionsData]).size
+    // 计算学伴会话列表大小
+    const aiSessionsData = JSON.stringify(aiSessions.value)
+    totalSize += new Blob([aiSessionsData]).size
     
-    // 计算所有会话的消息大小
-    for (const session of sessions.value) {
+    // 计算学伴会话消息大小
+    for (const session of aiSessions.value) {
       const key = `chat_history_session_${session.sessionId}`
       const data = await localforage.getItem(key)
       if (data) {
         totalSize += new Blob([JSON.stringify(data)]).size
+      }
+    }
+    
+    // 计算教师会话列表大小
+    const teacherSessionsData = JSON.stringify(teacherSessions.value)
+    totalSize += new Blob([teacherSessionsData]).size
+    
+    // 计算教师会话消息大小
+    for (const session of teacherSessions.value) {
+      const storageKey = `teacher_chat_${session.sessionId}`
+      try {
+        const history = await asyncStorage.loadChatHistory(storageKey)
+        if (history) {
+          totalSize += new Blob([JSON.stringify(history)]).size
+        }
+      } catch (error) {
+        console.warn('加载教师会话历史失败（计算大小）:', error)
       }
     }
     
@@ -297,7 +541,7 @@ const calculateStorageSize = async () => {
       storageSize.value = `${totalSize} B`
     } else if (totalSize < 1024 * 1024) {
       storageSize.value = `${(totalSize / 1024).toFixed(2)} KB`
-  } else {
+    } else {
       storageSize.value = `${(totalSize / 1024 / 1024).toFixed(2)} MB`
     }
   } catch (error) {
@@ -309,19 +553,27 @@ const calculateStorageSize = async () => {
 // 第3步：清空所有会话
 const clearAllSessions = async () => {
   try {
-    // 删除所有会话的聊天历史
-    for (const session of sessions.value) {
+    // 删除所有学伴会话的聊天历史
+    for (const session of aiSessions.value) {
       const key = `chat_history_session_${session.sessionId}`
       await localforage.removeItem(key)
     }
     
-    // 清空会话列表
+    // 清空学伴会话列表
     await localforage.removeItem('ai_general_sessions')
     
-    // 重置Store
+    // 重置学伴Store
     aiGeneralStore.sessions = []
     aiGeneralStore.currentSession = null
     aiGeneralStore.messages = []
+    
+    // 删除所有教师会话
+    const userId = getCurrentUserIdOrDefault()
+    for (const session of teacherSessions.value) {
+      const storageKey = `teacher_chat_${session.sessionId}`
+      await asyncStorage.removeChatHistory(storageKey)
+      localStorage.removeItem(`${userId}_teacher_chat_${session.sessionId}_session`)
+    }
     
     // 刷新数据
     await refreshData()
@@ -330,20 +582,39 @@ const clearAllSessions = async () => {
   }
 }
 
-// 第4步：删除单个会话
-const deleteSession = async (session: AiGeneralSession) => {
+// 第4步：删除学伴会话
+const deleteAiSession = async (session: AiGeneralSession) => {
   try {
     await aiGeneralStore.deleteSession(session.sessionId)
     await refreshData()
   } catch (error) {
-    console.error('删除失败:', error)
+    console.error('删除学伴会话失败:', error)
   }
 }
 
-// 第5步：查看会话详情
-const viewSessionDetail = async (session: AiGeneralSession) => {
+// 第4.1步：删除教师会话
+const deleteTeacherSession = async (session: TeacherSession & { msgCount: number }) => {
   try {
-    selectedSession.value = session
+    const userId = getCurrentUserIdOrDefault()
+    const storageKey = `teacher_chat_${session.sessionId}`
+    
+    // 删除聊天历史
+    await asyncStorage.removeChatHistory(storageKey)
+    
+    // 删除会话信息
+    localStorage.removeItem(`${userId}_teacher_chat_${session.sessionId}_session`)
+    
+    // 刷新数据
+    await refreshData()
+  } catch (error) {
+    console.error('删除教师会话失败:', error)
+  }
+}
+
+// 第5步：查看学伴会话详情
+const viewAiSessionDetail = async (session: AiGeneralSession) => {
+  try {
+    selectedAiSession.value = session
     
     // 加载会话消息
     const key = `chat_history_session_${session.sessionId}`
@@ -355,15 +626,42 @@ const viewSessionDetail = async (session: AiGeneralSession) => {
       sessionMessages.value = []
     }
     
-    showDetailDialog.value = true
+    showAiDetailDialog.value = true
   } catch (error) {
-    console.error('加载会话详情失败:', error)
+    console.error('加载学伴会话详情失败:', error)
   }
 }
 
-// 第6步：选择会话
-const selectSession = (session: AiGeneralSession) => {
+// 第5.1步：查看教师会话详情
+const viewTeacherSessionDetail = async (session: TeacherSession & { msgCount: number }) => {
+  try {
+    selectedTeacherSession.value = session
+    
+    // 加载会话消息
+    const storageKey = `teacher_chat_${session.sessionId}`
+    const history = await asyncStorage.loadChatHistory(storageKey)
+    
+    if (history && history.messages) {
+      sessionMessages.value = history.messages
+    } else {
+      sessionMessages.value = []
+    }
+    
+    showTeacherDetailDialog.value = true
+  } catch (error) {
+    console.error('加载教师会话详情失败:', error)
+  }
+}
+
+// 第6步：选择学伴会话
+const selectAiSession = (session: AiGeneralSession) => {
   aiGeneralStore.switchSession(session.sessionId)
+}
+
+// 第6.1步：选择教师会话
+const selectTeacherSession = (session: TeacherSession & { msgCount: number }) => {
+  teacherStore.setSession(session)
+  teacherStore.loadChatHistory(session.sessionId)
 }
 
 // 第7步：导出数据
@@ -372,16 +670,31 @@ const exportData = async () => {
     const exportData: any = {
       version: '1.0',
       exportTime: Date.now(),
-      sessions: sessions.value,
-      messages: {}
+      aiSessions: aiSessions.value,
+      teacherSessions: teacherSessions.value,
+      aiMessages: {},
+      teacherMessages: {}
     }
     
-    // 导出所有会话的消息
-    for (const session of sessions.value) {
+    // 导出学伴会话的消息
+    for (const session of aiSessions.value) {
       const key = `chat_history_session_${session.sessionId}`
       const data = await localforage.getItem(key)
       if (data) {
-        exportData.messages[session.sessionId] = data
+        exportData.aiMessages[session.sessionId] = data
+      }
+    }
+    
+    // 导出教师会话的消息
+    for (const session of teacherSessions.value) {
+      const storageKey = `teacher_chat_${session.sessionId}`
+      try {
+        const history = await asyncStorage.loadChatHistory(storageKey)
+        if (history) {
+          exportData.teacherMessages[session.sessionId] = history
+        }
+      } catch (error) {
+        console.warn('导出教师会话消息失败:', error)
       }
     }
     
@@ -390,7 +703,7 @@ const exportData = async () => {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `ai-chat-sessions-${Date.now()}.json`
+    a.download = `chat-sessions-${Date.now()}.json`
     a.click()
     URL.revokeObjectURL(url)
   } catch (error) {
@@ -412,19 +725,37 @@ const handleFileImport = async (event: Event) => {
     const text = await file.text()
     const importData = JSON.parse(text)
     
-    // 验证数据格式
-    if (!importData.sessions || !importData.messages) {
-      throw new Error('无效的数据格式')
-    }
-    
     try {
-      // 导入会话列表
-      await localforage.setItem('ai_general_sessions', importData.sessions)
+      // 导入学伴会话（兼容旧格式）
+      if (importData.sessions && importData.messages) {
+        await localforage.setItem('ai_general_sessions', importData.sessions)
+        for (const sessionId in importData.messages) {
+          const key = `chat_history_session_${sessionId}`
+          await localforage.setItem(key, importData.messages[sessionId])
+        }
+      }
       
-      // 导入消息
-      for (const sessionId in importData.messages) {
-        const key = `chat_history_session_${sessionId}`
-        await localforage.setItem(key, importData.messages[sessionId])
+      // 导入新格式的学伴会话
+      if (importData.aiSessions && importData.aiMessages) {
+        await localforage.setItem('ai_general_sessions', importData.aiSessions)
+        for (const sessionId in importData.aiMessages) {
+          const key = `chat_history_session_${sessionId}`
+          await localforage.setItem(key, importData.aiMessages[sessionId])
+        }
+      }
+      
+      // 导入教师会话
+      if (importData.teacherSessions && importData.teacherMessages) {
+        const userId = getCurrentUserIdOrDefault()
+        for (const session of importData.teacherSessions) {
+          const sessionKey = `${userId}_teacher_chat_${session.sessionId}_session`
+          localStorage.setItem(sessionKey, JSON.stringify(session))
+        }
+        
+        for (const sessionId in importData.teacherMessages) {
+          const storageKey = `teacher_chat_${sessionId}`
+          await asyncStorage.saveChatHistory(storageKey, importData.teacherMessages[sessionId])
+        }
       }
       
       // 刷新数据

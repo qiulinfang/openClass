@@ -76,6 +76,7 @@
                 :options="subjectOptions"
                 option-value="value"
                 option-label="label"
+                behavior="menu"
                 emit-value
                 map-options
                 outlined
@@ -332,9 +333,42 @@ const handleChatResponse = () => {
   // AI回复后的处理逻辑
 }
 
-const handleSwitchToTeacher = () => {
+const handleSwitchToTeacher = async (forwardData?: { 
+  messages?: any[]; 
+  currentQuestion?: unknown; 
+  additionalMessage?: string;
+  forwardMode?: string;
+  successCount?: number;
+  sessionId?: string;
+}) => {
   // 切换到老师界面（消息已经持久化到store中）
   currentFunction.value = 'askTeacher'
+  
+  // 如果有会话ID，打开UnifiedChatDialog并设置会话
+  if (forwardData?.sessionId) {
+    try {
+      // 打开 UnifiedChatDialog
+      showUnifiedChatDialog.value = true
+      
+      // 等待下一个 tick，确保 UnifiedChatDialog 已经挂载
+      await nextTick()
+      
+      // 如果 UnifiedChatDialog 已经挂载，设置会话
+      if (unifiedChatDialogRef.value) {
+        // 加载老师会话列表
+        unifiedChatDialogRef.value.loadTeacherSessions()
+        
+        // 设置当前会话为转发的会话
+        unifiedChatDialogRef.value.setTeacherSession(forwardData.sessionId)
+        
+        // 切换到教师分类
+        unifiedChatDialogRef.value.switchCategory('teacher')
+      }
+    } catch (error) {
+      console.error('[ExerciseSolveView] 打开老师对话框失败:', error)
+      showMessage('打开老师对话框失败', 'error')
+    }
+  }
 }
 
 // 处理打开老师对话框（转发消息时调用）

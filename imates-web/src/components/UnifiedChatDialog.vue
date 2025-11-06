@@ -103,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { useUserStore } from '@/stores/userStore'
@@ -447,6 +447,21 @@ watch(localVisible, async (isOpen) => {
       refreshTimer = null
     }
   }
+})
+
+// 监听会话恢复事件，立即刷新会话列表
+onMounted(() => {
+  const handleSessionRestored = () => {
+    console.log('[UnifiedChatDialog] 📢 收到会话恢复事件，立即刷新列表')
+    loadTeacherSessions()
+  }
+  
+  window.addEventListener('teacher-session-restored', handleSessionRestored)
+  
+  // 在组件卸载时移除监听器
+  onUnmounted(() => {
+    window.removeEventListener('teacher-session-restored', handleSessionRestored)
+  })
 })
 
 // ==================== 清理 ====================

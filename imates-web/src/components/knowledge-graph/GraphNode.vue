@@ -15,8 +15,6 @@
         ...(type === 'circular' ? nodeStyle : centerNodeStyle),
         ...nodeStyleVariables
       }"
-      @mouseenter="handleMouseEnter"
-      @mouseleave="handleMouseLeave"
       @click="handleClick"
       @contextmenu="handleContextMenu"
       :ref="(el) => { nodeRef = el as HTMLElement }"
@@ -96,8 +94,6 @@ interface Props {
 }
 
 interface Emits {
-  (e: 'mouseenter', event: Event, isEnter: boolean): void
-  (e: 'mouseleave', event: Event, isEnter: boolean): void
   (e: 'click', event: Event): void
   (e: 'learn', node: Node): void
   (e: 'practice', node: Node): void
@@ -505,14 +501,6 @@ const bubbleMenuStyle = computed(() => {
     }
   }
 })
-
-const handleMouseEnter = (event: Event) => {
-  emit('mouseenter', event, true)
-}
-
-const handleMouseLeave = (event: Event) => {
-  emit('mouseleave', event, false)
-}
 
 const handleClick = (event: Event) => {
   event.stopPropagation() // 阻止事件冒泡
@@ -982,7 +970,8 @@ const learningTagStyle = computed(() => {
   }
   100% {
     opacity: 0;
-    transform: scale(0);
+    /* 使用 scale(0.3) 而不是 scale(0)，保持 DOM 结构，避免触摸序列中断 */
+    transform: scale(0.3);
   }
 }
 

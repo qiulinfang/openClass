@@ -2460,12 +2460,12 @@ public class WebAppInterface {
     }
     
     /**
-     * 发送日志到Web前端
+     * 发送日志到Web前端（公共方法，供其他Service调用）
      * @param level 日志级别: DEBUG, INFO, WARN, ERROR
      * @param tag 日志标签
      * @param message 日志消息
      */
-    private void sendLogToWeb(String level, String tag, String message) {
+    public void sendLogToWeb(String level, String tag, String message) {
         // 在Android Logcat中打印
         switch (level.toUpperCase()) {
             case "DEBUG":

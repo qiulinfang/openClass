@@ -55,7 +55,9 @@
       
       <!-- 内容区域 -->
       <div class="content-area" @click="handleContentAreaClick">
-        <router-view />
+        <keep-alive :include="['knowledgeGraph', 'pdfViewer']">
+          <router-view />
+        </keep-alive>
       </div>
     </div>
 
@@ -347,7 +349,38 @@ onMounted(async () => {
   // getUserLocalTextbooks 内部会检查并初始化 IndexedDB，所以直接调用即可
   await checkResourceUpdates()
   
-  // 第4步：监听悬浮FAB按钮的action事件（来自系统级悬浮按钮服务）
+  // 第4步：监听Android原生日志
+  // 保存原有的回调（如果存在，可能是App.vue或LoginView中设置的）
+  const previousCallback = window.onAndroidLog
+  window.onAndroidLog = (level: string, tag: string, message: string) => {
+    // 第1步：如果有原有回调，先调用它（保持App.vue或LoginView中的全局日志功能）
+    if (previousCallback) {
+      previousCallback(level, tag, message)
+    }
+    
+    // 第2步：在MainView中打印日志
+    const logMessage = `[Android-${tag}] ${message}`
+    
+    switch (level.toUpperCase()) {
+      case 'DEBUG':
+        console.log(`[MainView] 🔍 ${logMessage}`)
+        break
+      case 'INFO':
+        console.log(`[MainView] ℹ️ ${logMessage}`)
+        break
+      case 'WARN':
+        console.warn(`[MainView] ⚠️ ${logMessage}`)
+        break
+      case 'ERROR':
+        console.error(`[MainView] ❌ ${logMessage}`)
+        break
+      default:
+        console.log(`[MainView] 📝 ${logMessage}`)
+        break
+    }
+  }
+  
+  // 第5步：监听悬浮FAB按钮的action事件（来自系统级悬浮按钮服务）
   window.addEventListener('floating-fab-action', (event: Event) => {
     const customEvent = event as CustomEvent<{ action: string }>
     const action = customEvent.detail?.action
@@ -722,7 +755,6 @@ const handleLogoutClick = async () => {
   position: relative;
   margin-left: 0;
   padding: 0;
-  background-color: #e3f2fd;
   min-height: 100vh;
   width: 100%; // 默认宽度占满父容器（right-main-area）
   min-height: 0;

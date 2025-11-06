@@ -2,6 +2,7 @@ package com.cosinetech.imates.ui.webview;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.Handler;
@@ -9,6 +10,7 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewTreeObserver;
+import android.view.WindowManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -92,10 +94,24 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        WindowUtils.hideSystemUI(this);
+        // 第1步：强制横屏
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        
+        // 第2步：设置全屏模式（必须在setContentView之前调用）
         WindowUtils.setFullScreenMode(this);
         
+        // 第3步：确保窗口占据整个屏幕（防止悬浮窗模式）
+        // 在Android 7.0+系统上，确保窗口以全屏模式启动
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT, 
+                                 WindowManager.LayoutParams.MATCH_PARENT);
+        }
+        
+        // 第4步：设置布局
         setContentView(R.layout.activity_main_webview);
+        
+        // 第5步：隐藏系统UI（必须在setContentView之后调用才能生效）
+        WindowUtils.hideSystemUI(this);
         
         Log.d(TAG, "MainWebViewActivity onCreate 开始");
         
@@ -169,6 +185,10 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
         webAppInterface.setAudioPermissionLauncher(audioPermissionLauncher);
         webAppInterface.setWebView(webView);
         webView.addJavascriptInterface(webAppInterface, "AndroidBridge");
+        
+        // 注册WebAppInterface到Application，供其他Service使用
+        ApplicationModelShared app = (ApplicationModelShared) getApplication();
+        app.setWebAppInterface(webAppInterface);
         
         // 设置WebViewClient
         webView.setWebViewClient(new MainWebViewClient());

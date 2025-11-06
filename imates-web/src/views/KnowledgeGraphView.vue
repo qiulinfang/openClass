@@ -149,6 +149,7 @@
           @touchstart="handleTouchStart"
           @touchmove="handleTouchMove"
           @touchend="handleTouchEnd"
+          @touchcancel="handleTouchCancel"
           @mousedown="handleMouseDown"
           @mousemove="handleMouseMove"
           @mouseup="handleMouseUp"
@@ -275,9 +276,15 @@
   </div>
 </template>
 
+<script lang="ts">
+export default {
+  name: 'knowledgeGraph'
+}
+</script>
+
 <script setup lang="ts">
-import { ref, onMounted, nextTick, computed, onUnmounted, provide } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, onMounted, nextTick, computed, onUnmounted, provide, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { apiService } from '../services/api-service'
 import { resourceManager } from '../services/resource-storage'
 import type { TextbookOption, ChapterNode, UserTextbookInfo } from '../types'
@@ -295,11 +302,6 @@ import { showMessage } from '../utils'
 import {
   convertToChineseNumber
 } from '../utils/business/chapter-utils'
-
-// 第1步：判断是否显示调试功能（仅通过环境变量控制）
-// 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
-const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
-
 // 流程：导入图标资源
 import bookIcon from '/images/book.png'
 import indicatorIcon from '/icons/Indicator.svg'
@@ -309,6 +311,10 @@ import lastLearnedStarIcon from '/icons/lastLearnedStar.svg'
 import backgroundImage from '/icons/background.svg'
 import chapterSearchIcon from '/icons/chapter_search.svg'
 import photoSearchIcon from '/icons/photo_search.svg'
+
+// 第1步：判断是否显示调试功能（仅通过环境变量控制）
+// 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
+const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 // 使用统一的章节状态管理
 const {
   setCurrentChapter,
@@ -326,6 +332,7 @@ const {
 
 // 获取路由实例
 const route = useRoute()
+const router = useRouter()
 
 // Store
 const questionStore = useQuestionStore()
@@ -779,32 +786,331 @@ const indicatorCurrentIndex = ref<number | null>(null) // 当前触摸的指示�
 const touchStartedOnCircularNode = ref(false) // 触摸是否从圆周节点开始
 const circularNodeTouchTarget = ref<HTMLElement | null>(null) // 触摸开始的圆周节点元素
 
-// 第1步：检查触摸目标是否是圆周节点（或其子元素）
-const isCircularNodeTarget = (target: EventTarget | null): boolean => {
-  if (!target || !(target instanceof HTMLElement)) {
-    return false
+// ========== 触摸序列验证逻辑 ==========
+interface TouchEventRecord {
+  type: 'touchstart' | 'touchmove' | 'touchend' | 'touchcancel'
+  timestamp: number
+  target: string | null
+  targetElement: HTMLElement | null
+  touches: number
+  clientX: number | null
+  clientY: number | null
+  isOnCircularNode: boolean
+  isOnCenterNode: boolean
+  animationState: string | null
+  hasExpandedGraph: boolean
+  isCollapsing: boolean
+  nodeScale?: number | null // 节点当前的 scale 值
+  nodeOpacity?: number | null // 节点当前的 opacity 值
+}
+
+interface TouchSequence {
+  id: string
+  startTime: number
+  endTime: number | null
+  events: TouchEventRecord[]
+  initialTarget: HTMLElement | null
+  initialTargetClass: string | null
+  wasCancelled: boolean
+  wasInterrupted: boolean
+  collapseTriggered: boolean
+  collapseTriggerTime: number | null
+}
+
+const touchSequenceTracker = ref<TouchSequence | null>(null)
+const touchSequencesHistory = ref<TouchSequence[]>([])
+const enableTouchValidation = ref(true) // 是否启用验证（可通过调试面板控制）
+
+// 获取节点的当前 scale 和 opacity 值
+const getNodeComputedStyle = (element: HTMLElement | null): { scale: number | null, opacity: number | null } => {
+  if (!element) return { scale: null, opacity: null }
+  
+  const circularNode = element.closest('.graph-node--circular')
+  if (!circularNode) return { scale: null, opacity: null }
+  
+  const computed = window.getComputedStyle(circularNode as HTMLElement)
+  const transform = computed.transform
+  const opacity = computed.opacity
+  
+  // 解析 transform: matrix(a, b, c, d, tx, ty) 中的 scale
+  let scale: number | null = null
+  if (transform && transform !== 'none') {
+    const matrix = transform.match(/matrix\(([^)]+)\)/)
+    if (matrix) {
+      const values = matrix[1].split(',').map(v => parseFloat(v.trim()))
+      if (values.length >= 4) {
+        // scaleX = sqrt(a^2 + b^2), scaleY = sqrt(c^2 + d^2)
+        // 对于纯 scale，通常 a = scaleX, d = scaleY
+        scale = Math.abs(values[0]) // 简化为 scaleX
+      }
+    }
+  } else {
+    scale = 1 // 默认 scale
   }
   
-  // 检查目标元素或其父元素是否包含圆周节点的类名
-  // 使用 closest 方法向上查找，如果找到包含圆周节点类名的元素，返回 true
-  return (
-    target.classList.contains('graph-node--circular') ||
-    target.classList.contains('node-wrapper--circular') ||
-    target.closest('.graph-node--circular') !== null ||
-    target.closest('.node-wrapper--circular') !== null
-  )
+  return {
+    scale: scale !== null ? scale : 1,
+    opacity: opacity !== null ? parseFloat(opacity) : null
+  }
+}
+
+// 记录触摸事件
+const recordTouchEvent = (type: TouchEventRecord['type'], event: TouchEvent) => {
+  if (!enableTouchValidation.value) return
+  
+  const target = event.target as HTMLElement
+  const isOnCircularNode = target?.closest('.graph-node--circular') !== null
+  const isOnCenterNode = target?.closest('.graph-node--center') !== null
+  const hasExpandedGraph = getCurrentChapterExpandedGraph() !== null
+  const nodeStyle = getNodeComputedStyle(target)
+  
+  const record: TouchEventRecord = {
+    type,
+    timestamp: Date.now(),
+    target: target?.className || target?.tagName || null,
+    targetElement: target,
+    touches: event.touches.length,
+    clientX: event.touches[0]?.clientX ?? null,
+    clientY: event.touches[0]?.clientY ?? null,
+    isOnCircularNode,
+    isOnCenterNode,
+    animationState: null, // 可以从 KnowledgeGraph 组件获取
+    hasExpandedGraph,
+    isCollapsing: isCollapsing.value,
+    nodeScale: nodeStyle.scale,
+    nodeOpacity: nodeStyle.opacity
+  }
+  
+  // 如果是新的触摸序列开始
+  if (type === 'touchstart') {
+    const sequenceId = `touch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    touchSequenceTracker.value = {
+      id: sequenceId,
+      startTime: record.timestamp,
+      endTime: null,
+      events: [record],
+      initialTarget: target,
+      initialTargetClass: target?.className || null,
+      wasCancelled: false,
+      wasInterrupted: false,
+      collapseTriggered: false,
+      collapseTriggerTime: null
+    }
+  } else if (touchSequenceTracker.value) {
+    // 继续当前序列
+    touchSequenceTracker.value.events.push(record)
+    
+    // 检测触摸中断
+    if (type === 'touchcancel') {
+      touchSequenceTracker.value.wasCancelled = true
+      touchSequenceTracker.value.wasInterrupted = true
+      touchSequenceTracker.value.endTime = record.timestamp
+    } else if (type === 'touchend') {
+      touchSequenceTracker.value.endTime = record.timestamp
+    }
+    
+    // 检测目标变化
+    if (touchSequenceTracker.value.initialTarget && 
+        touchSequenceTracker.value.initialTarget !== target &&
+        !target?.contains(touchSequenceTracker.value.initialTarget) &&
+        !touchSequenceTracker.value.initialTarget.contains(target)) {
+      touchSequenceTracker.value.wasInterrupted = true
+    }
+    
+    // 检测节点尺寸变化（如果初始目标在节点上）
+    if (touchSequenceTracker.value.initialTarget && 
+        touchSequenceTracker.value.initialTarget.closest('.graph-node--circular')) {
+      const initialStyle = getNodeComputedStyle(touchSequenceTracker.value.initialTarget)
+      const currentStyle = nodeStyle
+      
+      // 如果 scale 从 1 变为接近 0，可能触发中断
+      if (initialStyle.scale !== null && currentStyle.scale !== null) {
+        if (initialStyle.scale > 0.5 && currentStyle.scale < 0.5) {
+          touchSequenceTracker.value.wasInterrupted = true
+        }
+      }
+    }
+  }
+}
+
+// 标记收缩触发
+const recordCollapseTrigger = () => {
+  if (touchSequenceTracker.value && !touchSequenceTracker.value.collapseTriggered) {
+    touchSequenceTracker.value.collapseTriggered = true
+    touchSequenceTracker.value.collapseTriggerTime = Date.now()
+  }
+}
+
+// 完成触摸序列并生成报告
+const finalizeTouchSequence = () => {
+  if (!touchSequenceTracker.value) return
+  
+  const sequence = touchSequenceTracker.value
+  
+  // 保存到历史记录
+  touchSequencesHistory.value.push({ ...sequence })
+  
+  // 生成验证报告
+  if (enableTouchValidation.value) {
+    generateValidationReport(sequence)
+  }
+  
+  // 重置追踪器
+  touchSequenceTracker.value = null
+}
+
+// 生成验证报告
+const generateValidationReport = (sequence: TouchSequence) => {
+  const duration = sequence.endTime ? sequence.endTime - sequence.startTime : Date.now() - sequence.startTime
+  const eventCount = sequence.events.length
+  const touchMoveCount = sequence.events.filter(e => e.type === 'touchmove').length
+  const hasCancelled = sequence.wasCancelled
+  const hasInterrupted = sequence.wasInterrupted
+  const collapseTriggered = sequence.collapseTriggered
+  const collapseDelay = collapseTriggered && sequence.collapseTriggerTime 
+    ? sequence.collapseTriggerTime - sequence.startTime 
+    : null
+  
+  // 检测目标变化
+  const targetChanges = sequence.events.filter((e, i) => {
+    if (i === 0) return false
+    return e.target !== sequence.events[i - 1].target
+  }).length
+  
+  // 检测节点尺寸变化
+  const nodeScaleChanges = sequence.events
+    .map(e => e.nodeScale)
+    .filter((scale, i, arr) => {
+      if (i === 0 || scale === null || arr[i - 1] === null) return false
+      return Math.abs((scale || 1) - (arr[i - 1] || 1)) > 0.1
+    }).length
+  
+  // 检测在节点上的触摸
+  const touchedOnCircularNode = sequence.events.some(e => e.isOnCircularNode)
+  const startedOnCircularNode = sequence.events[0]?.isOnCircularNode || false
+  
+  const report = {
+    sequenceId: sequence.id,
+    summary: {
+      duration: `${duration}ms`,
+      eventCount,
+      touchMoveCount,
+      wasCancelled: hasCancelled ? '❌ 是' : '✅ 否',
+      wasInterrupted: hasInterrupted ? '⚠️ 是' : '✅ 否',
+      collapseTriggered: collapseTriggered ? '✅ 是' : '❌ 否',
+      collapseDelay: collapseDelay ? `${collapseDelay}ms` : 'N/A',
+      targetChanges,
+      nodeScaleChanges,
+      touchedOnCircularNode,
+      startedOnCircularNode
+    },
+    initialTarget: {
+      class: sequence.initialTargetClass,
+      element: sequence.initialTarget
+    },
+    events: sequence.events.map(e => ({
+      type: e.type,
+      time: `${e.timestamp - sequence.startTime}ms`,
+      target: e.target,
+      isOnCircularNode: e.isOnCircularNode,
+      nodeScale: e.nodeScale?.toFixed(2) || 'N/A',
+      nodeOpacity: e.nodeOpacity?.toFixed(2) || 'N/A',
+      isCollapsing: e.isCollapsing
+    }))
+  }
+  
+  console.group(`🔍 触摸序列验证报告 #${touchSequencesHistory.value.length}`)
+  console.log('📊 摘要:', report.summary)
+  console.log('🎯 初始目标:', report.initialTarget)
+  
+  if (hasCancelled || hasInterrupted) {
+    console.warn('⚠️ 触摸序列中断！')
+    if (collapseTriggered && collapseDelay !== null) {
+      console.warn(`⚠️ 收缩在触摸开始后 ${collapseDelay}ms 触发`)
+    }
+    if (nodeScaleChanges > 0) {
+      console.warn(`⚠️ 检测到 ${nodeScaleChanges} 次节点尺寸变化`)
+    }
+    if (targetChanges > 0) {
+      console.warn(`⚠️ 检测到 ${targetChanges} 次目标元素变化`)
+    }
+  } else {
+    console.log('✅ 触摸序列完整')
+  }
+  
+  console.log('📋 事件序列:')
+  console.table(report.events)
+  console.groupEnd()
+  
+  return report
+}
+
+// 获取最近的验证报告
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const getLatestValidationReport = () => {
+  if (touchSequencesHistory.value.length === 0) return null
+  return touchSequencesHistory.value[touchSequencesHistory.value.length - 1]
+}
+
+// 获取所有验证报告统计
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const getValidationStatistics = () => {
+  const total = touchSequencesHistory.value.length
+  if (total === 0) return null
+  
+  const cancelled = touchSequencesHistory.value.filter(s => s.wasCancelled).length
+  const interrupted = touchSequencesHistory.value.filter(s => s.wasInterrupted).length
+  const collapseTriggered = touchSequencesHistory.value.filter(s => s.collapseTriggered).length
+  const startedOnNode = touchSequencesHistory.value.filter(s => 
+    s.events[0]?.isOnCircularNode || false
+  ).length
+  
+  return {
+    total,
+    cancelled,
+    interrupted,
+    collapseTriggered,
+    startedOnNode,
+    cancellationRate: `${((cancelled / total) * 100).toFixed(1)}%`,
+    interruptionRate: `${((interrupted / total) * 100).toFixed(1)}%`
+  }
+}
+// ========== 触摸序列验证逻辑结束 ==========
+
+// 第1步：检查触摸目标是否是圆周节点（或其子元素）
+// 注意：现在圆周节点和中心节点都不再被特殊处理，触摸会被当作背景区域处理，会触发旋转操作
+// 圆周节点和中心节点现在都像背景一样，触摸会被当作背景区域处理，因此不再检测节点类型，始终返回 false
+const isCircularNodeTarget = (): boolean => {
+  return false
 }
 
 // 触摸事件处理函数
 const handleTouchStart = (event: TouchEvent) => {
+  // 记录触摸事件用于验证
+  recordTouchEvent('touchstart', event)
+  
+  // 检查触摸目标是否是中心节点或圆周节点（用于调试）
+  const target = event.target as HTMLElement
+  const isOnCenterNode = target?.closest('.graph-node--center') !== null
+  const isOnCircularNode = target?.closest('.graph-node--circular') !== null
+  
+  console.log('handleTouchStart', {
+    target: target?.className,
+    isOnCenterNode,
+    isOnCircularNode,
+    // 中心节点和圆周节点现在都像背景一样，触摸会被当作背景区域处理，会触发旋转操作
+    note: '中心节点和圆周节点现在都像背景一样，触摸会被当作背景区域处理'
+  })
+  
   if (!circularLayoutRef.value) return
   
-  // 检查触摸点是否在圆周节点上
-  const isOnCircularNode = isCircularNodeTarget(event.target)
-  touchStartedOnCircularNode.value = isOnCircularNode
+  // 检查触摸点是否在圆周节点上（现在圆周节点和中心节点都不再被特殊处理，始终返回 false）
+  const isOnCircularNodeTarget = isCircularNodeTarget()
+  touchStartedOnCircularNode.value = isOnCircularNodeTarget
   
   // 如果触摸点在圆周节点上，记录目标元素（用于后续阻止点击事件）
-  if (isOnCircularNode && event.target instanceof HTMLElement) {
+  // 注意：现在无论是中心节点还是圆周节点，都不会阻止触摸事件冒泡，都会触发旋转
+  if (isOnCircularNodeTarget && event.target instanceof HTMLElement) {
     circularNodeTouchTarget.value = event.target.closest('.graph-node--circular') as HTMLElement || 
                                     event.target.closest('.node-wrapper--circular') as HTMLElement ||
                                     event.target
@@ -817,17 +1123,45 @@ const handleTouchStart = (event: TouchEvent) => {
   startY.value = event.touches[0].clientY
   lastY.value = event.touches[0].clientY
   
-  // 只在拖拽容器上阻止默认滚动行为，不阻止点击事件
-  if (event.target === circularLayoutRef.value) {
-    event.preventDefault()
-  }
+  // 检查触摸点是否在容器内（包括节点），允许拖动时阻止默认滚动行为
+  // 但不在 touchstart 时阻止，避免影响点击事件，只在 touchmove 时根据拖动状态阻止
+  // 注意：中心节点和圆周节点的触摸事件都会冒泡到这里，从而触发旋转操作
 }
 
 const handleTouchMove = (event: TouchEvent) => {
-  if (!circularLayoutRef.value) return
+  // 记录触摸事件用于验证
+  recordTouchEvent('touchmove', event)
+  
+  // 检查触摸目标是否是中心节点或圆周节点（用于调试）
+  const target = event.target as HTMLElement
+  const isOnCenterNode = target?.closest('.graph-node--center') !== null
+  const isOnCircularNode = target?.closest('.graph-node--circular') !== null
+  const isOnCircularLayout = target?.closest('.circular-layout') !== null
+  const isOnViewportClipper = target?.closest('.viewport-clipper') !== null
+  
+  console.log('handleTouchMove', {
+    target: target?.className || target?.tagName,
+    targetElement: target,
+    isOnCenterNode,
+    isOnCircularNode,
+    isOnCircularLayout,
+    isOnViewportClipper,
+    currentTarget: event.currentTarget,
+    touches: event.touches.length,
+    isActualDragging: isActualDragging.value,
+    totalDeltaY: Math.abs(event.touches[0].clientY - startY.value),
+    threshold: DRAG_THRESHOLD.value,
+    hasExpandedGraph: getCurrentChapterExpandedGraph() !== null,
+    // 注意：圆周节点在收缩后会消失，但触摸事件应该继续冒泡到 viewport-clipper，继续触发旋转
+    note: '圆周节点在收缩后会消失，但触摸事件应该继续冒泡到 viewport-clipper'
+  })
+  
+  if (!circularLayoutRef.value) {
+    console.warn('⚠️ handleTouchMove: circularLayoutRef.value is null, returning early')
+    return
+  }
   
   const currentY = event.touches[0].clientY
-  const deltaY = currentY - lastY.value
   const currentTime = Date.now()
   
   // 计算移动距离，判断是否超过拖拽阈值
@@ -835,28 +1169,24 @@ const handleTouchMove = (event: TouchEvent) => {
   const isJustStartingDrag = totalDeltaY > DRAG_THRESHOLD.value && !isActualDragging.value
   
   if (isJustStartingDrag) {
+    console.log('✅ 超过阈值，开始拖动', {
+      totalDeltaY,
+      threshold: DRAG_THRESHOLD.value,
+      target: target?.className || target?.tagName,
+      isOnCircularNode,
+      isOnCenterNode
+    })
     isActualDragging.value = true
     isDragging.value = true // ✅ 只有在实际移动超过阈值时才设置 isDragging
     
-    // 如果是从圆周节点开始的滑动，且超过阈值，阻止节点点击事件
-    if (touchStartedOnCircularNode.value && circularNodeTouchTarget.value) {
-      // 通过阻止事件传播来阻止节点点击事件
-      event.stopPropagation()
-      // 标记节点元素，防止后续点击事件触发
-      if (circularNodeTouchTarget.value) {
-        circularNodeTouchTarget.value.style.pointerEvents = 'none'
-        // 在触摸结束后恢复
-        setTimeout(() => {
-          if (circularNodeTouchTarget.value) {
-            circularNodeTouchTarget.value.style.pointerEvents = ''
-          }
-        }, 100)
-      }
-    }
+    // 圆周节点和中心节点现在都像背景一样，触摸会被当作背景区域处理，不再需要特殊处理
     
     // 首次超过阈值时，将 lastY 重置为 startY，这样 deltaY 会包含从开始到现在的所有移动
     // 这样可以确保首次触发旋转时也有明显的旋转效果
     lastY.value = startY.value
+    
+    // 首次超过阈值时，立即阻止默认行为，防止页面滚动
+    event.preventDefault()
   }
   
   // 只有实际拖拽时才执行旋转逻辑
@@ -865,10 +1195,11 @@ const handleTouchMove = (event: TouchEvent) => {
     return
   }
   
-  // 如果是从圆周节点开始的滑动，阻止事件传播
-  if (touchStartedOnCircularNode.value) {
-    event.stopPropagation()
-  }
+  // ✅ 关键修复：在每次 touchmove 时都阻止默认行为，确保后续事件能正常触发
+  // 这是必需的，因为如果不在每次事件中都调用 preventDefault()，浏览器可能会恢复默认滚动行为
+  event.preventDefault()
+  
+  // 圆周节点和中心节点现在都像背景一样，触摸会被当作背景区域处理，不再需要阻止事件传播
   
   // 重新计算 deltaY（在首次超过阈值时，这会是从 startY 到 currentY 的总距离）
   const effectiveDeltaY = currentY - lastY.value
@@ -882,19 +1213,38 @@ const handleTouchMove = (event: TouchEvent) => {
   // 使用归一化参考高度计算旋转角度
   const rotationDelta = (effectiveDeltaY / normalizedReferenceHeight.value) * angleBetweenGraphs
   
-  // 如果有知识图谱处于展开状态，先收缩它
-  if (getCurrentChapterExpandedGraph() !== null) {
+  // 如果有知识图谱处于展开状态，立即收缩它
+  // ⚠️ 关键优化：使用 requestAnimationFrame 异步执行收缩，确保当前触摸事件处理完成后再收缩
+  // 这样可以避免在当前事件处理期间 DOM 结构变化导致的问题
+  // 由于触摸事件是在 viewport-clipper 容器上监听的，即使节点被移除，后续的触摸事件仍会被容器捕获
+  // 使用标志位确保只触发一次收缩操作，避免重复收缩
     const expandedGraphId = getCurrentChapterExpandedGraph()
-    console.log('📉 [KnowledgeGraphView] 触摸移动导致知识图谱收缩:', {
+  if (expandedGraphId !== null && !isCollapsing.value) {
+    console.log('📉 [KnowledgeGraphView] 触摸移动导致知识图谱立即收缩:', {
       trigger: 'handleTouchMove',
       expandedGraphId,
       currentChapterIndex: getCurrentChapter(),
       currentChapterId: selectedChapterDetails.value?.id,
       currentChapterName: selectedChapterDetails.value?.name,
       timestamp: new Date().toISOString(),
-      rotationDelta
+      rotationDelta,
+      target: target?.className || target?.tagName,
+      isOnCircularNode,
+      // ⚠️ 关键优化：使用 requestAnimationFrame 异步执行收缩，确保触摸序列不中断
+      note: '使用 requestAnimationFrame 异步执行收缩，确保触摸序列不中断'
     })
+    // 记录收缩触发
+    recordCollapseTrigger()
+    
+    // ⚠️ 关键优化：使用 requestAnimationFrame 在下一帧执行收缩
+    // 这样可以确保当前的触摸事件处理完成，同时触摸事件仍然会被容器捕获
+    // 由于事件是在容器上监听的，即使节点被移除，后续的触摸事件仍会被容器捕获
+    requestAnimationFrame(() => {
+      // 再次检查，确保在执行收缩时仍然有展开的图谱（避免重复收缩）
+      if (getCurrentChapterExpandedGraph() === expandedGraphId) {
     setCurrentChapterExpandedGraph(null)
+      }
+    })
   }
   
   // 更新当前章节的旋转角度（向上滑动为正，向下滑动为负）
@@ -909,7 +1259,13 @@ const handleTouchMove = (event: TouchEvent) => {
     newRotation,
     currentChapterIndex: getCurrentChapter(),
     touchStartedOnCircularNode: touchStartedOnCircularNode.value,
-    timestamp: new Date().toISOString()
+    target: target?.className || target?.tagName,
+    isOnCircularNode,
+    isOnCenterNode,
+    hasExpandedGraph: getCurrentChapterExpandedGraph() !== null,
+    timestamp: new Date().toISOString(),
+    // 注意：圆周节点在收缩后会消失，但触摸事件应该继续冒泡，继续触发旋转
+    note: '圆周节点在收缩后会消失，但触摸事件应该继续冒泡到 viewport-clipper，继续触发旋转'
   })
   
   setChapterRotation(getCurrentChapter(), newRotation)
@@ -917,15 +1273,21 @@ const handleTouchMove = (event: TouchEvent) => {
   // 更新上次位置和时间戳
   lastY.value = currentY
   lastRotationTime.value = currentTime
-  
-  // 阻止默认滚动行为
-  event.preventDefault()
 }
 
-const handleTouchEnd = () => {
+const handleTouchEnd = (event: TouchEvent) => {
+  // 记录触摸事件用于验证
+  recordTouchEvent('touchend', event)
+  
+  // 完成触摸序列并生成报告
+  finalizeTouchSequence()
+  
+  console.log('handleTouchEnd', {
+    hasExpandedGraph: getCurrentChapterExpandedGraph() !== null
+  })
+  
   // 保存实际拖拽状态，因为后面会重置
   const wasActuallyDragging = isActualDragging.value
-  const wasOnCircularNode = touchStartedOnCircularNode.value
   
   // 计算总滑动方向
   const totalDeltaY = lastY.value - startY.value
@@ -935,11 +1297,8 @@ const handleTouchEnd = () => {
   isActualDragging.value = false
   touchStartedOnCircularNode.value = false
   
-  // 恢复圆周节点的 pointer-events（如果之前被禁用）
-  if (circularNodeTouchTarget.value) {
-    circularNodeTouchTarget.value.style.pointerEvents = ''
+  // 圆周节点和中心节点现在都像背景一样，触摸会被当作背景区域处理，不再需要恢复 pointer-events
     circularNodeTouchTarget.value = null
-  }
   
   // 只有在实际拖拽时才执行自动定位逻辑
   if (wasActuallyDragging) {
@@ -956,6 +1315,28 @@ const handleTouchEnd = () => {
       autoPositionToNearestGraph(direction)
     }, debugParams.value.debounceDelay * 1000) // 防抖延迟（转换为毫秒）
   }
+}
+
+// 处理触摸取消事件
+const handleTouchCancel = (event: TouchEvent) => {
+  // 记录触摸事件用于验证
+  recordTouchEvent('touchcancel', event)
+  
+  // 完成触摸序列并生成报告
+  finalizeTouchSequence()
+  
+  console.warn('⚠️ handleTouchCancel: 触摸序列被中断', {
+    target: (event.target as HTMLElement)?.className,
+    timestamp: new Date().toISOString(),
+    hasExpandedGraph: getCurrentChapterExpandedGraph() !== null,
+    isCollapsing: isCollapsing.value
+  })
+  
+  // 重置拖拽状态
+  isActualDragging.value = false
+  isDragging.value = false
+  touchStartedOnCircularNode.value = false
+  circularNodeTouchTarget.value = null
 }
 
 // 重置拖拽状态（当有图谱展开时调用）
@@ -1058,8 +1439,8 @@ const autoPositionToNearestGraph = (direction?: 'next' | 'previous' | null) => {
 const handleMouseDown = (event: MouseEvent) => {
   if (!circularLayoutRef.value) return
   
-  // 检查鼠标点击是否在圆周节点上
-  const isOnCircularNode = isCircularNodeTarget(event.target)
+  // 检查鼠标点击是否在圆周节点上（现在圆周节点不再被特殊处理，始终返回 false）
+  const isOnCircularNode = isCircularNodeTarget()
   touchStartedOnCircularNode.value = isOnCircularNode
   
   // 如果鼠标点击在圆周节点上，记录目标元素（用于后续阻止点击事件）
@@ -1087,7 +1468,6 @@ const handleMouseMove = (event: MouseEvent) => {
   if (!isMouseDown.value || !circularLayoutRef.value) return
   
   const currentY = event.clientY
-  const deltaY = currentY - lastY.value
   const currentTime = Date.now()
   
   // 计算移动距离，判断是否超过拖拽阈值
@@ -1099,21 +1479,7 @@ const handleMouseMove = (event: MouseEvent) => {
     isActualDragging.value = true
     isDragging.value = true // ✅ 只有在实际移动超过阈值时才设置 isDragging
     
-    // 如果是从圆周节点开始的拖动，且超过阈值，阻止节点点击事件
-    if (touchStartedOnCircularNode.value && circularNodeTouchTarget.value) {
-      // 通过阻止事件传播来阻止节点点击事件
-      event.stopPropagation()
-      // 标记节点元素，防止后续点击事件触发
-      if (circularNodeTouchTarget.value) {
-        circularNodeTouchTarget.value.style.pointerEvents = 'none'
-        // 在鼠标释放后恢复
-        setTimeout(() => {
-          if (circularNodeTouchTarget.value) {
-            circularNodeTouchTarget.value.style.pointerEvents = ''
-          }
-        }, 100)
-      }
-    }
+    // 圆周节点和中心节点现在都像背景一样，触摸会被当作背景区域处理，不再需要特殊处理
     
     // 首次超过阈值时，将 lastY 重置为 startY，这样 deltaY 会包含从开始到现在的所有移动
     // 这样可以确保首次触发旋转时也有明显的旋转效果
@@ -1127,10 +1493,7 @@ const handleMouseMove = (event: MouseEvent) => {
     return
   }
   
-  // 如果是从圆周节点开始的拖动，阻止事件传播
-  if (touchStartedOnCircularNode.value) {
-    event.stopPropagation()
-  }
+  // 圆周节点和中心节点现在都像背景一样，触摸会被当作背景区域处理，不再需要阻止事件传播
   
   // 重新计算 deltaY（在首次超过阈值时，这会是从 startY 到 currentY 的总距离）
   const effectiveDeltaY = currentY - lastY.value
@@ -1145,6 +1508,7 @@ const handleMouseMove = (event: MouseEvent) => {
   const rotationDelta = (effectiveDeltaY / normalizedReferenceHeight.value) * angleBetweenGraphs
   
   // 如果有知识图谱处于展开状态，先收缩它
+  // 注意：鼠标事件不需要延迟收缩，因为鼠标移动不会因为 DOM 结构变化而中断
   if (getCurrentChapterExpandedGraph() !== null) {
     const expandedGraphId = getCurrentChapterExpandedGraph()
     console.log('📉 [KnowledgeGraphView] 鼠标移动导致知识图谱收缩:', {
@@ -1154,7 +1518,8 @@ const handleMouseMove = (event: MouseEvent) => {
       currentChapterId: selectedChapterDetails.value?.id,
       currentChapterName: selectedChapterDetails.value?.name,
       timestamp: new Date().toISOString(),
-      rotationDelta
+      rotationDelta,
+      note: '鼠标事件不需要延迟收缩，因为鼠标移动不会因为 DOM 结构变化而中断'
     })
     setCurrentChapterExpandedGraph(null)
   }
@@ -1199,11 +1564,8 @@ const handleMouseUp = () => {
   isActualDragging.value = false
   touchStartedOnCircularNode.value = false
   
-  // 恢复圆周节点的 pointer-events（如果之前被禁用）
-  if (circularNodeTouchTarget.value) {
-    circularNodeTouchTarget.value.style.pointerEvents = ''
+  // 圆周节点和中心节点现在都像背景一样，触摸会被当作背景区域处理，不再需要恢复 pointer-events
     circularNodeTouchTarget.value = null
-  }
   
   // 只有在实际拖拽时才执行自动定位逻辑
   if (wasActuallyDragging) {
@@ -2404,6 +2766,38 @@ const handleLearnDialog = (node: { id: string; name: string; level?: number | nu
   learningDialogVisible.value = true
 }
 
+// 检查并打开学习对话框（从路由参数）
+const checkAndOpenLearningDialog = () => {
+  const openLearning = route.query.openLearning === 'true'
+  
+  if (openLearning) {
+    const learningNodeId = route.query.learningNodeId as string
+    const learningSectionName = route.query.learningSectionName as string
+    const learningLevel = route.query.learningLevel as string
+    const textbookId = route.query.textbookId as string
+    
+    // 验证必要参数是否存在
+    if (learningNodeId && learningSectionName && textbookId) {
+      // 设置对话框数据
+      learningDialogData.value = {
+        nodeId: learningNodeId,
+        sectionName: learningSectionName,
+        level: parseInt(learningLevel) || 1,
+        textbookId: textbookId
+      }
+      
+      // 显示对话框
+      learningDialogVisible.value = true
+      
+      // 清理路由参数，避免重复打开
+      router.replace({
+        name: 'knowledgeGraph',
+        query: {}
+      })
+    }
+  }
+}
+
 // 处理学习对话框关闭
 const handleLearningDialogClose = (value: boolean) => {
   if (!value) {
@@ -2812,6 +3206,9 @@ onMounted(async () => {
   
   // 初始化章节列表 BScroll
   await initChapterListBScroll()
+  
+  // 检查路由参数，如果需要自动打开学习对话框
+  checkAndOpenLearningDialog()
   
   // 更新屏幕高度
   const updateScreenHeight = () => {

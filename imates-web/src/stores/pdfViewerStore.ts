@@ -34,12 +34,14 @@ interface DrawingConfig {
   highlighterOpacity: number
   penColor: string
   penWidth: number
+  penHandwritingStyle: 'brush' | 'writing' | 'spray' | 'oil-paint' | 'crayon' | 'marker' | 'pencil' | 'watercolor' // 画笔样式
   eraserMode: string
   eraserSize: number
   screenshotShape: string // 截图形状类型：'rectangle' | 'polygon'
   screenshotStrokeColor: string // 截图选区边框颜色
   screenshotFillColor: string // 截图选区填充颜色
   screenshotStrokeWidth: number // 截图选区边框宽度
+  selectMode: string // 选择模式：'rectangle' | 'freeform'
 }
 
 // 笔记数据类型
@@ -70,6 +72,9 @@ interface ColorOption {
 // 防抖定时器（在 store 外部定义，避免被代理）
 let saveDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
+// 页面可见性监听器（在 store 外部定义，避免被代理）
+let visibilityChangeHandler: (() => void) | null = null
+
 // PDF查看器状态管理
 export const usePdfViewerStore = defineStore('pdfViewer', {
   state: () => ({
@@ -77,7 +82,10 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
     pdfFiles: [] as FileData[],
     currentPage: 1,
     totalPages: 0,
+    // 注意：scale保持1.0用于布局计算，高DPI支持已在渲染层面实现（PdfCoreService.renderPage）
+    // 渲染时会自动适配devicePixelRatio，无需在此处调整scale
     scale: 1.0,
+    pageGap: 20, // 页面间距（px）
     isLoading: false,
     
     // PDF 文档状态
@@ -97,20 +105,30 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
       highlighterOpacity: 50, // 默认浓度 50%
       penColor: '#ff0000', // 红色（第一个选项）
       penWidth: 1.0, // 签字笔中等（新范围 0.3-3）
+      penHandwritingStyle: 'writing', // 画笔样式：书写笔（默认）
       eraserMode: 'stroke', // 橡皮擦默认为整笔擦除模式
       eraserSize: 15, // 橡皮擦中等（新范围 5-30）
       screenshotShape: 'rectangle', // 截图形状：矩形
       screenshotStrokeColor: '#ff0000', // 红色边框
       screenshotFillColor: 'rgba(255, 0, 0, 0.1)', // 半透明红色填充
-      screenshotStrokeWidth: 2 // 边框宽度2px
+      screenshotStrokeWidth: 2, // 边框宽度2px
+      selectMode: 'rectangle' // 选择模式：矩形选择（默认）
     } as DrawingConfig,
     
     // 笔记状态
     notes: new Map<string, NoteData[]>(),
     error: null as string | null,
     
+    // 笔记显示状态
+    hideNotes: false, // 是否隐藏笔记（用于截图时获得干净的PDF页面）
+    
+    // 撤销/重做状态
+    lastModifiedPage: null as number | null, // 最近修改的页面号
+    
     // 自动保存状态
     isSaving: false,
+    saveError: null as string | null,
+    lastSaveTime: null as number | null,
     
     // 工具选项
     toolOptions: [
@@ -237,7 +255,6 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
         // 5. 计算所有页面的布局信息
         const layouts: PageLayout[] = []
         let accumulatedTop = 0
-        const PAGE_GAP = 20 // 页面间距
         
         for (let i = 1; i <= this.pdfDoc.numPages; i++) {
           const rawPdfDoc = toRaw(this.pdfDoc) // 使用 toRaw 获取原始 PDF 文档对象
@@ -251,7 +268,7 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
             width: viewport.width
           })
           
-          accumulatedTop += viewport.height + PAGE_GAP
+          accumulatedTop += viewport.height + this.pageGap
         }
         
         // 6. 设置布局数据
@@ -309,10 +326,10 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
         saveDebounceTimer = null
       }
       
-      // 设置新的定时器（2秒后保存）
+      // 设置新的定时器（1秒后保存）
       saveDebounceTimer = setTimeout(async () => {
         await this.autoSaveAnnotations()
-      }, 2000)
+      }, 1000)
     },
     
     // 自动保存笔记到 IndexedDB
@@ -329,8 +346,13 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
       
       try {
         this.isSaving = true
+        this.saveError = null
         await this.saveAnnotationsToLocalFile()
+        this.lastSaveTime = Date.now()
+        console.log('笔记自动保存成功')
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : '保存失败'
+        this.saveError = errorMessage
         console.error('自动保存笔记失败:', error)
       } finally {
         this.isSaving = false
@@ -347,6 +369,36 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
       
       // 立即保存
       await this.autoSaveAnnotations()
+    },
+    
+    // 初始化页面可见性监听
+    initVisibilityListener() {
+      // 如果已经初始化，先清理
+      if (visibilityChangeHandler) {
+        this.removeVisibilityListener()
+      }
+      
+      // 创建监听器
+      visibilityChangeHandler = () => {
+        if (document.hidden) {
+          // 页面隐藏时立即保存
+          console.log('页面隐藏，立即保存笔记')
+          this.flushSave()
+        }
+      }
+      
+      // 添加监听
+      document.addEventListener('visibilitychange', visibilityChangeHandler)
+      console.log('页面可见性监听已初始化')
+    },
+    
+    // 移除页面可见性监听
+    removeVisibilityListener() {
+      if (visibilityChangeHandler) {
+        document.removeEventListener('visibilitychange', visibilityChangeHandler)
+        visibilityChangeHandler = null
+        console.log('页面可见性监听已移除')
+      }
     },
     
     // 保存项目（将笔记保存到localFiles）
@@ -436,6 +488,11 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
       this.currentResourceId = resourceId
     },
     
+    // 设置最近修改的页面
+    setLastModifiedPage(pageNum: number) {
+      this.lastModifiedPage = pageNum
+    },
+    
     // 设置 PDF 文件列表
     setPdfFiles(files: FileData[]) {
       this.pdfFiles = files
@@ -458,9 +515,36 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
       this.scale = Math.max(0.5, Math.min(3.0, newScale))
     },
     
+    // 放大
+    zoomIn(step: number = 0.03) {
+      this.setScale(this.scale + step)
+    },
+    
+    // 缩小
+    zoomOut(step: number = 0.03) {
+      this.setScale(this.scale - step)
+    },
+    
+    // 重置缩放
+    resetZoom() {
+      this.setScale(1.0)
+    },
+    
     // 设置选中的工具
     setSelectedTool(tool: string) {
+      const previousTool = this.selectedTool
+      console.log('[工具切换] Store设置工具', {
+        tool,
+        previousTool,
+        timestamp: new Date().toISOString()
+      })
+      
       this.selectedTool = tool
+      
+      console.log('[工具切换] Store工具设置完成', {
+        tool: this.selectedTool,
+        previousTool
+      })
     },
     
     // 更新绘制配置

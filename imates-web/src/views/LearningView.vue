@@ -429,8 +429,8 @@ const startLearning = async (resource: ResourceFile) => {
     // 根据文件类型确定要跳转的路由
     const routeName = getViewerRouteName(resource.fileName)
 
-    // 关闭对话框
-    localVisible.value = false
+    // 保持对话框打开，不关闭（用户可以在查看PDF的同时继续浏览其他学习资源）
+    // localVisible.value = false  // 已移除：保持对话框打开状态
 
     // 执行路由跳转
     try {
@@ -443,6 +443,10 @@ const startLearning = async (resource: ResourceFile) => {
           fileName: resource.fileName,
           packageId: selectedScheme.id,
           packageName: selectedScheme.packageName,
+          // 传递学习对话框所需的信息，用于返回时重新打开对话框
+          fromLearning: 'true',
+          learningNodeId: sectionId.value,
+          learningLevel: props.level?.toString() || '1',
         },
       })
 

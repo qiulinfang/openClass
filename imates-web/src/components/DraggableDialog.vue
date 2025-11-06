@@ -1,5 +1,5 @@
 <template>
-  <q-dialog v-model="isOpen" position="standard" seamless @hide="handleClose">
+  <q-dialog v-model="isOpen" position="standard" seamless @hide="handleClose" >
     <div 
       class="dialog-container" 
       :style="dialogStyle"

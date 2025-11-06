@@ -3,6 +3,7 @@
   <div class="html-viewer-container">
     <!-- 工具栏 -->
     <UnifiedToolbar
+      variant="browser"
       :tools="['back', 'chat']"
       :selected-tool="selectedTool"
       @tool-change="handleToolChange"

@@ -64,7 +64,7 @@
         <q-btn
           label="确定"
           color="primary"
-          @click="handleConfirm"
+          @click.stop.prevent="handleConfirm"
           :disable="!questionText.trim()"
           class="confirm-btn"
         />
@@ -505,14 +505,16 @@ const handleMouseLeave = () => {
 // 获取裁剪后的图片
 const getCroppedImage = (): Promise<string | null> => {
   return new Promise((resolve) => {
-    if (!cropCanvas.value || !props.screenshotDataUrl) {
-      // 如果没有框选，使用原始图片
-      resolve(props.screenshotDataUrl)
+    // 如果截图数据为空，直接返回 null
+    if (!props.screenshotDataUrl) {
+      console.log('[截图对话框] 截图数据为空，返回 null')
+      resolve(null)
       return
     }
 
-    if (!cropRect.value || !imageDrawInfo.value) {
-      // 如果没有框选，使用原始图片
+    // 如果没有框选，直接使用原始图片
+    if (!cropCanvas.value || !cropRect.value || !imageDrawInfo.value) {
+      console.log('[截图对话框] 没有框选，使用原始图片')
       resolve(props.screenshotDataUrl)
       return
     }
@@ -520,53 +522,69 @@ const getCroppedImage = (): Promise<string | null> => {
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
     if (!ctx) {
+      console.log('[截图对话框] 无法创建 canvas context，使用原始图片')
       resolve(props.screenshotDataUrl)
       return
     }
 
+    // 添加超时机制，防止图片加载卡住
+    const timeout = setTimeout(() => {
+      console.warn('[截图对话框] 图片加载超时，使用原始图片')
+      resolve(props.screenshotDataUrl)
+    }, 5000)
+
     const img = new Image()
     img.onload = () => {
-      // 将 canvas 上的裁剪区域坐标映射回原始图片坐标
-      const { drawX, drawY, drawWidth, drawHeight, originalWidth, originalHeight } =
-        imageDrawInfo.value!
+      clearTimeout(timeout)
+      try {
+        // 将 canvas 上的裁剪区域坐标映射回原始图片坐标
+        const { drawX, drawY, drawWidth, drawHeight, originalWidth, originalHeight } =
+          imageDrawInfo.value!
 
-      // 计算 canvas 上的裁剪区域相对于图片绘制区域的位置
-      const cropXInImage = cropRect.value!.x - drawX
-      const cropYInImage = cropRect.value!.y - drawY
-      const cropWidthInImage = cropRect.value!.width
-      const cropHeightInImage = cropRect.value!.height
+        // 计算 canvas 上的裁剪区域相对于图片绘制区域的位置
+        const cropXInImage = cropRect.value!.x - drawX
+        const cropYInImage = cropRect.value!.y - drawY
+        const cropWidthInImage = cropRect.value!.width
+        const cropHeightInImage = cropRect.value!.height
 
-      // 将绘制区域的坐标映射回原始图片坐标
-      const scaleX = originalWidth / drawWidth
-      const scaleY = originalHeight / drawHeight
+        // 将绘制区域的坐标映射回原始图片坐标
+        const scaleX = originalWidth / drawWidth
+        const scaleY = originalHeight / drawHeight
 
-      const sourceX = Math.max(0, cropXInImage * scaleX)
-      const sourceY = Math.max(0, cropYInImage * scaleY)
-      const sourceWidth = Math.min(originalWidth - sourceX, cropWidthInImage * scaleX)
-      const sourceHeight = Math.min(originalHeight - sourceY, cropHeightInImage * scaleY)
+        const sourceX = Math.max(0, cropXInImage * scaleX)
+        const sourceY = Math.max(0, cropYInImage * scaleY)
+        const sourceWidth = Math.min(originalWidth - sourceX, cropWidthInImage * scaleX)
+        const sourceHeight = Math.min(originalHeight - sourceY, cropHeightInImage * scaleY)
 
-      // 设置输出 canvas 尺寸（保持裁剪区域的宽高比）
-      canvas.width = cropRect.value!.width
-      canvas.height = cropRect.value!.height
+        // 设置输出 canvas 尺寸（保持裁剪区域的宽高比）
+        canvas.width = cropRect.value!.width
+        canvas.height = cropRect.value!.height
 
-      // 从原始图片裁剪
-      ctx.drawImage(
-        img,
-        sourceX,
-        sourceY,
-        sourceWidth,
-        sourceHeight,
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-      )
+        // 从原始图片裁剪
+        ctx.drawImage(
+          img,
+          sourceX,
+          sourceY,
+          sourceWidth,
+          sourceHeight,
+          0,
+          0,
+          canvas.width,
+          canvas.height,
+        )
 
-      // 转换为 base64
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
-      resolve(dataUrl)
+        // 转换为 base64
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
+        console.log('[截图对话框] 裁剪完成，图片大小:', dataUrl.length)
+        resolve(dataUrl)
+      } catch (error) {
+        console.error('[截图对话框] 裁剪过程出错:', error)
+        resolve(props.screenshotDataUrl)
+      }
     }
     img.onerror = () => {
+      clearTimeout(timeout)
+      console.error('[截图对话框] 图片加载失败，使用原始图片')
       resolve(props.screenshotDataUrl)
     }
     img.src = props.screenshotDataUrl
@@ -601,23 +619,33 @@ watch(() => props.screenshotDataUrl, async (newValue) => {
 
 // 确定按钮
 const handleConfirm = async () => {
+  console.log('[截图对话框] 确定按钮被点击')
+  
   if (!questionText.value.trim()) {
+    console.log('[截图对话框] 问题文本为空')
     showMessage('请输入要问的问题', 'warning')
     return
   }
   
   if (!props.screenshotDataUrl) {
+    console.log('[截图对话框] 截图数据丢失')
     showMessage('截图数据丢失，请重新截图', 'error')
     return
   }
   
+  console.log('[截图对话框] 开始获取裁剪后的图片...')
   // 获取裁剪后的图片（如果有框选的话）
   const finalImageDataUrl = await getCroppedImage()
   if (!finalImageDataUrl) {
+    console.log('[截图对话框] 图片处理失败')
     showMessage('图片处理失败，请重新截图', 'error')
     return
   }
   
+  console.log('[截图对话框] 发送确认事件', {
+    question: questionText.value.trim(),
+    hasImage: !!finalImageDataUrl
+  })
   emit('confirm', questionText.value.trim(), finalImageDataUrl)
   localVisible.value = false
 }

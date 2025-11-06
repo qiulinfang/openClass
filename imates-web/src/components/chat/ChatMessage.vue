@@ -70,7 +70,7 @@
               :additional-message="message.chatRecordData.additionalMessage"
             />
             <!-- 文本消息 -->
-            <div v-else class="message-text" :ref="(el) => setMessageRef(el)">
+            <div v-else class="message-text" :ref="(el) => setMessageRef(el)" @click="handleImageClick">
               <StreamingMessage
                 v-if="message.isStreaming"
                 :content="message.content"
@@ -84,13 +84,13 @@
                 :ref="(el) => setStaticRef(el)"
               >
                 <div class="error-message">
-                  <div v-html="renderedContent"></div>
+                  <div v-html="renderedContent" @click="handleImageClick"></div>
                   <div v-if="message.retryCount && message.retryCount > 0" class="retry-count">
                     {{ message.retryCount }}/3
                   </div>
                 </div>
               </div>
-              <div v-else v-html="renderedContent" :ref="(el) => setStaticRef(el)"></div>
+              <div v-else v-html="renderedContent" :ref="(el) => setStaticRef(el)" @click="handleImageClick"></div>
             </div>
 
             <!-- 长按气泡确认框 -->
@@ -278,6 +278,38 @@
         </div>
       </div>
     </div>
+
+    <!-- Markdown 图片预览对话框 -->
+    <q-dialog 
+      v-model="showImagePreview" 
+      class="markdown-image-preview-dialog"
+      :maximized="true"
+      transition-show="fade"
+      transition-hide="fade"
+    >
+      <div class="preview-overlay" @click="showImagePreview = false">
+        <!-- 关闭按钮 -->
+        <q-btn
+          flat
+          round
+          dense
+          icon="close"
+          color="white"
+          class="close-btn"
+          @click.stop="showImagePreview = false"
+        />
+        
+        <!-- 图片预览区域 -->
+        <div class="preview-content" @click.stop>
+          <img
+            v-if="previewImageUrl"
+            :src="previewImageUrl"
+            alt="图片预览"
+            class="preview-image"
+          />
+        </div>
+      </div>
+    </q-dialog>
   </div>
 </template>
 
@@ -1236,6 +1268,8 @@ const setMessageRef = (
     // 延迟渲染 MathJax，使用懒加载模式
     nextTick(() => {
       MathJaxUtils.renderMath(el, true)
+      // 处理 Markdown 渲染出的图片
+      processMarkdownImages(el)
     })
   }
 }
@@ -1244,7 +1278,12 @@ const setStreamingRef = (el: Element | ComponentPublicInstance | null) => {
   if (el && el instanceof HTMLElement) {
     // 对于流式消息，使用懒加载模式
     nextTick(() => {
-      MathJaxUtils.renderMath(el, true)
+      // 查找实际的内容容器（StreamingMessage 组件内部的内容元素）
+      const contentElement = el.querySelector('.streaming-content, .typewriter-content')
+      const contentContainer = (contentElement instanceof HTMLElement ? contentElement : el) as HTMLElement
+      MathJaxUtils.renderMath(contentContainer, true)
+      // 处理 Markdown 渲染出的图片
+      processMarkdownImages(contentContainer)
     })
   }
 }
@@ -1254,8 +1293,64 @@ const setStaticRef = (el: Element | ComponentPublicInstance | null) => {
     // 对于静态消息，使用懒加载模式
     nextTick(() => {
       MathJaxUtils.renderMath(el, true)
+      // 处理 Markdown 渲染出的图片
+      processMarkdownImages(el)
     })
   }
+}
+
+// 图片预览相关状态
+const previewImageUrl = ref<string | null>(null)
+const showImagePreview = ref(false)
+
+// 处理图片点击事件（使用事件委托）
+const handleImageClick = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  if (target && target.tagName === 'IMG' && target.classList.contains('markdown-image')) {
+    event.stopPropagation()
+    const imgElement = target as HTMLImageElement
+    if (imgElement.src) {
+      previewImageUrl.value = imgElement.src
+      showImagePreview.value = true
+    }
+  }
+}
+
+// 处理 Markdown 渲染出的图片
+const processMarkdownImages = (container: HTMLElement) => {
+  // 第1步：查找容器内所有的图片元素
+  const allImages = container.querySelectorAll('img')
+  
+  allImages.forEach((img) => {
+    // 第2步：检查图片是否在 MathJax 公式容器内，如果是则跳过
+    const mathContainer = img.closest('.mjx-chtml, .mjx-math, [data-mjx-texclass]')
+    if (mathContainer) {
+      return
+    }
+    
+    // 第3步：检查图片是否已经被处理过
+    if (img.classList.contains('markdown-image')) {
+      return
+    }
+    
+    // 第4步：添加标记类名和样式类名
+    img.classList.add('markdown-image')
+    
+    // 第5步：设置图片样式属性
+    const imgElement = img as HTMLImageElement
+    
+    // 第6步：添加错误处理
+    imgElement.addEventListener('error', () => {
+      imgElement.classList.add('image-error')
+      imgElement.alt = '图片加载失败'
+    })
+    
+    // 第7步：添加加载成功处理
+    imgElement.addEventListener('load', () => {
+      imgElement.classList.remove('image-error')
+    })
+  })
+  
 }
 
 // 组件卸载时清理事件监听器
@@ -1560,5 +1655,84 @@ onUnmounted(() => {
   -khtml-user-drag: none !important;
   -moz-user-drag: none !important;
   -o-user-drag: none !important;
+}
+
+/* Markdown 渲染出的图片样式 */
+:deep(.message-text img.markdown-image) {
+  max-width: 100%;
+  max-height: 400px;
+  height: auto;
+  border-radius: 8px;
+  cursor: pointer;
+  display: block;
+  margin: 8px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+:deep(.message-text img.markdown-image:hover) {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+:deep(.message-text img.markdown-image.image-error) {
+  opacity: 0.5;
+  filter: grayscale(100%);
+}
+
+/* Markdown 图片预览对话框样式 */
+.markdown-image-preview-dialog {
+  z-index: 9999;
+}
+
+.markdown-image-preview-dialog .preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+}
+
+.markdown-image-preview-dialog .close-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.2s ease;
+}
+
+.markdown-image-preview-dialog .close-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
+  transform: scale(1.1);
+}
+
+.markdown-image-preview-dialog .preview-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px 20px;
+}
+
+.markdown-image-preview-dialog .preview-image {
+  max-width: 90vw;
+  max-height: 90vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  user-select: none;
+  pointer-events: none;
 }
 </style>

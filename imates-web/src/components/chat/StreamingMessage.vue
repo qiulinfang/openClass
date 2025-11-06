@@ -122,10 +122,32 @@ watch(() => props.isStreaming, (streaming) => {
   }
 })
 
-// 监听内容变化，重新渲染MathJax（防抖处理）
+// 处理 Markdown 渲染出的图片
+const processMarkdownImages = (container: HTMLElement) => {
+  // 第1步：查找容器内所有的图片元素
+  const allImages = container.querySelectorAll('img')
+  
+  allImages.forEach((img) => {
+    // 第2步：检查图片是否在 MathJax 公式容器内，如果是则跳过
+    const mathContainer = img.closest('.mjx-chtml, .mjx-math, [data-mjx-texclass]')
+    if (mathContainer) {
+      return
+    }
+    
+    // 第3步：检查图片是否已经被处理过
+    if (img.classList.contains('markdown-image')) {
+      return
+    }
+    
+    // 第4步：添加标记类名和样式类名
+    img.classList.add('markdown-image')
+  })
+}
+
+// 监听内容变化，重新渲染MathJax和处理图片（防抖处理）
 let mathJaxRenderTimeout: ReturnType<typeof setTimeout> | null = null
 watch(() => props.content, () => {
-  // 防抖处理，避免频繁渲染MathJax
+  // 防抖处理，避免频繁渲染MathJax和处理图片
   if (mathJaxRenderTimeout) {
     clearTimeout(mathJaxRenderTimeout)
   }
@@ -134,9 +156,13 @@ watch(() => props.content, () => {
         // 重新渲染MathJax，使用懒加载模式
         if (streamingContentRef.value) {
           MathJaxUtils.renderMath(streamingContentRef.value, true)
+          // 处理图片
+          processMarkdownImages(streamingContentRef.value)
         }
         if (typewriterContentRef.value) {
           MathJaxUtils.renderMath(typewriterContentRef.value, true)
+          // 处理图片
+          processMarkdownImages(typewriterContentRef.value)
         }
       })
     }, 300) // 300ms防抖
@@ -164,6 +190,8 @@ const setStreamingContentRef = (el: any) => {
     // 对于流式内容，使用懒加载模式
     nextTick(() => {
       MathJaxUtils.renderMath(el, true)
+      // 处理图片
+      processMarkdownImages(el)
     })
   }
 }
@@ -174,6 +202,8 @@ const setTypewriterContentRef = (el: any) => {
     // 对于打字机内容，使用懒加载模式
     nextTick(() => {
       MathJaxUtils.renderMath(el, true)
+      // 处理图片
+      processMarkdownImages(el)
     })
   }
 }
@@ -207,5 +237,28 @@ const setTypewriterContentRef = (el: any) => {
   51%, 100% {
     opacity: 0;
   }
+}
+
+/* Markdown 渲染出的图片样式 */
+:deep(img.markdown-image) {
+  max-width: 100%;
+  max-height: 400px;
+  height: auto;
+  border-radius: 8px;
+  cursor: pointer;
+  display: block;
+  margin: 8px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+:deep(img.markdown-image:hover) {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+:deep(img.markdown-image.image-error) {
+  opacity: 0.5;
+  filter: grayscale(100%);
 }
 </style>

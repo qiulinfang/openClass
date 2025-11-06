@@ -68,6 +68,7 @@
     "pinia": "^3.0.3",
     "quasar": "^2.18.2",
     "quill": "^2.0.2",
+    "signature_pad": "^5.1.1",
     "vue": "^3.5.18",
     "vue-router": "^4.5.1",
     "vuedraggable": "^4.1.0"
