@@ -10,6 +10,7 @@ import router from './router'
 import { initPolyfills } from './utils/common/polyfills'
 import { initializeAppConfig } from './utils/config/config-utils'
 import { initQuestionStorage } from './services/question-storage'
+import { AndroidBridge } from './services/android-bridge'
 
 // 导入 Quasar 样式
 import 'quasar/src/css/index.sass'
@@ -80,6 +81,17 @@ async function createWebViewApp() {
       version: vueVersion
     }
     console.log('[APP] Vue已挂载到window对象，版本:', vueVersion)
+  }
+  
+  // 通知Android端Web应用已就绪（事件驱动，替代轮询机制）
+  // 使用Promise确保在下一个事件循环中执行，确保所有初始化完成
+  await Promise.resolve()
+  try {
+    const androidBridge = AndroidBridge.getInstance()
+    androidBridge.notifyWebAppReady()
+    console.log('[APP] 已通知Android端Web应用就绪')
+  } catch (error) {
+    console.error('[APP] 通知Android端Web应用就绪失败:', error)
   }
 }
 

@@ -225,6 +225,23 @@ export class AndroidBridge {
   }
 
   /**
+   * 通知Android端Web应用已就绪
+   * 替代Android端的轮询检测机制，由Web端主动通知
+   */
+  public notifyWebAppReady(): void {
+    try {
+      if (this.isAvailable && window.AndroidBridge?.notifyWebAppReady) {
+        window.AndroidBridge.notifyWebAppReady()
+        console.log('[AndroidBridge] 已通知Android端Web应用就绪')
+      } else {
+        console.warn('[AndroidBridge] AndroidBridge不可用，无法通知就绪状态')
+      }
+    } catch (error) {
+      console.error('[AndroidBridge] 通知Web应用就绪失败:', error)
+    }
+  }
+
+  /**
    * 同步Web端用户信息到Android原生ViewModel
    * 用于Web登录后同步状态，确保Android原生接口能正常工作
    * 

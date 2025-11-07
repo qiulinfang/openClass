@@ -64,6 +64,7 @@ public class WebAppInterface {
     Context mContext;
     private ExerciseSolveActivityBridge exerciseBridge;
     private FindExerciseActivityBridge findExerciseBridge;
+    private WebAppReadyCallback webAppReadyCallback;
 
     // 语音录制相关
     private MediaRecorder mediaRecorder;
@@ -103,6 +104,11 @@ public class WebAppInterface {
         this.findExerciseBridge = bridge;
     }
 
+    // 设置Web应用就绪回调
+    public void setWebAppReadyCallback(WebAppReadyCallback callback) {
+        this.webAppReadyCallback = callback;
+    }
+
     /**
      * 设置图片相关的 ActivityResultLauncher
      */
@@ -133,6 +139,21 @@ public class WebAppInterface {
     @JavascriptInterface
     public void showToast(String toast) {
         Toast.makeText(mContext, toast, Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Web应用就绪通知
+     * 由Web端主动调用，通知Android端应用已就绪
+     * 替代Android端的轮询检测机制
+     */
+    @JavascriptInterface
+    public void notifyWebAppReady() {
+        Log.d(TAG, "收到Web应用就绪通知");
+        if (webAppReadyCallback != null) {
+            webAppReadyCallback.onWebAppReady();
+        } else {
+            Log.w(TAG, "WebAppReadyCallback未设置，无法处理就绪通知");
+        }
     }
 
     @JavascriptInterface
@@ -2375,6 +2396,11 @@ public class WebAppInterface {
         void startExerciseSolveWebView();
         void finishActivity();
         void showToast(String message);
+    }
+
+    // Web应用就绪回调接口
+    public interface WebAppReadyCallback {
+        void onWebAppReady();
     }
 
     // ========== FindExercise 相关接口 ==========

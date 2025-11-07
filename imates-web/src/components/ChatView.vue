@@ -129,6 +129,11 @@
     <!-- 语音录制组件 - 显示录音状态和取消提示 -->
     <VoiceRecorder :is-recording="isRecording" :show-cancel-hint="showCancelHint" />
 
+    <!-- 底部提示文案 -->
+    <div class="chat-footer-text">
+      与学伴共学,敢质疑、会判断，思维不设限!
+    </div>
+
   </div>
 </template>
 
@@ -2883,6 +2888,15 @@ defineExpose({
   font-size: 13px;
   color: #888;
   font-weight: 400;
+}
+
+/* ==================== 底部提示文案样式 ==================== */
+.chat-footer-text {
+  text-align: center;
+  padding: 0px  20px 2px;
+  color: #b0b0b0;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 /* ==================== 其他样式 ==================== */

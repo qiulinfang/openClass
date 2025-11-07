@@ -36,7 +36,7 @@ import android.os.Build;
  * 用于渲染整个imates-web项目构建后的页面
  * 提供完整的Vue应用容器
  */
-public class MainWebViewActivity extends AppCompatActivity implements WebAppInterface.ExerciseSolveActivityBridge {
+public class MainWebViewActivity extends AppCompatActivity implements WebAppInterface.ExerciseSolveActivityBridge, WebAppInterface.WebAppReadyCallback {
 
     private static final String TAG = "MainWebViewActivity";
     
@@ -180,6 +180,7 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
         // 创建并设置WebAppInterface
         webAppInterface = new WebAppInterface(this);
         webAppInterface.setExerciseBridge(this);
+        webAppInterface.setWebAppReadyCallback(this);
         webAppInterface.setImageLaunchers(imagePickLauncher, imageCaptureLauncher);
         webAppInterface.setCameraPermissionLauncher(cameraPermissionLauncher);
         webAppInterface.setAudioPermissionLauncher(audioPermissionLauncher);
@@ -579,36 +580,16 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
             Log.e(TAG, "设置Web应用配置失败", e);
         }
         
-        // 检查Web应用是否就绪
-        checkWebAppReady();
+        // 不再主动检查Web应用是否就绪，等待Web端主动通知
+        Log.d(TAG, "等待Web应用主动通知就绪状态");
     }
 
     /**
-     * 检查Web应用是否就绪
+     * Web应用就绪回调实现
+     * 由Web端通过notifyWebAppReady()主动调用
      */
-    private void checkWebAppReady() {
-        String jsCode = 
-            "if (typeof window !== 'undefined' && window.Vue && window.Vue.version) {" +
-            "  'ready';" +
-            "} else {" +
-            "  'not_ready';" +
-            "}";
-        
-        webView.evaluateJavascript(jsCode, result -> {
-            if ("ready".equals(result)) {
-                Log.d(TAG, "Web应用已就绪");
-                onWebAppReady();
-            } else {
-                Log.w(TAG, "Web应用未就绪，稍后重试");
-                retryInitWebApp();
-            }
-        });
-    }
-
-    /**
-     * Web应用就绪后的处理
-     */
-    private void onWebAppReady() {
+    @Override
+    public void onWebAppReady() {
         Log.d(TAG, "Web应用就绪，执行后续初始化");
         
         // 自动初始化MessagingManager（类似FloatingRobotService的做法）
@@ -722,15 +703,6 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
         }
     }
 
-    /**
-     * 重试初始化Web应用
-     */
-    private void retryInitWebApp() {
-        webView.postDelayed(() -> {
-            Log.d(TAG, "重试初始化Web应用");
-            checkWebAppReady();
-        }, 1000); // 1秒后重试
-    }
 
     /**
      * 显示错误页面

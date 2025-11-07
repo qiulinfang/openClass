@@ -79,6 +79,7 @@ declare global {
       getUserInfo(): JSONString
       syncUserInfo(userId: string, token: string, password: string): JSONString
       exitActivity(): void
+      notifyWebAppReady(): void
 
       // ========== 题目相关功能 ==========
       getExerciseList(subject: string): JSONString
