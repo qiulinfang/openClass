@@ -119,9 +119,9 @@ public class ApplicationModelShared extends Application implements ViewModelStor
             return appInstance;
     }
 
-    public Activity getForegroundActivity() {
-        return currentActivity[0];
-    }
+//    public Activity getForegroundActivity() {
+//        return currentActivity[0];
+//    }
 
     public void setFloatingWindowService(FloatingRobotService service) {
         floatingRobotService = service;

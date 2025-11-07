@@ -284,7 +284,12 @@ public class MainActivity extends AppCompatActivity {
                                     startActivity(intent);
                                 });
                                 Button submitButton = view.findViewById(R.id.submit_homework);
-                                submitButton.setOnClickListener(v3 -> takePictureToTeacher());
+                                submitButton.setOnClickListener(v3 -> {
+                                    Intent picIntent = new Intent(MainActivity.this, FloatActionActivity.class);
+                                    picIntent.putExtra(FloatActionActivity.EXTRA_TASK_TYPE, FloatActionActivity.TASK_TAKE_PICTURE);
+                                    picIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                    startActivity(picIntent);
+                                });
 
                                 Button switchButton = view.findViewById(R.id.switch_button);
                                 if(AppUtils.getUserId().equals("guest000")) {
@@ -311,9 +316,8 @@ public class MainActivity extends AppCompatActivity {
 
                                     switchButton.setOnClickListener(v2 -> {
                                         switchButton.setEnabled(false);
-                                        Activity activity = ApplicationModelShared.getInstance().getForegroundActivity();
                                         if (ScreenCastingManager.isHavingClass()) {
-                                            new AlertDialog.Builder(activity)
+                                            new AlertDialog.Builder(MainActivity.this)
                                                     .setTitle("提示")
                                                     .setMessage("退出课堂后将不能和老师互动, 确认退出吗?")
                                                     .setPositiveButton("确认", (dialog, which) -> {
@@ -327,31 +331,29 @@ public class MainActivity extends AppCompatActivity {
                                                     .create()
                                                     .show();
                                         } else {
-                                            if(activity instanceof FragmentActivity) {
-                                                ScreenShareKit.INSTANCE.init(MainActivity.this)
-                                                        .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
-                                                        .onH264((buffer, isKeyFrame, width, height, ts) -> {
-                                                            try {
-                                                                // 编码后的数据
-                                                                byte[] bytes = new byte[buffer.remaining()];
-                                                                buffer.get(bytes);
+                                            ScreenShareKit.INSTANCE.init(MainActivity.this)
+                                                    .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
+                                                    .onH264((buffer, isKeyFrame, width, height, ts) -> {
+                                                        try {
+                                                            // 编码后的数据
+                                                            byte[] bytes = new byte[buffer.remaining()];
+                                                            buffer.get(bytes);
 
-                                                                h264ToTsStreamer.onH264DataReceived(bytes, ts);
-                                                                if (isKeyFrame) {
-                                                                    H264IFrameCache.getInstance().onH264Frame(bytes);
-                                                                }
-                                                            } catch (Exception e) {
-                                                                Log.e("ScreenShareKit", "H264 callback error:" + e.getMessage());
+                                                            h264ToTsStreamer.onH264DataReceived(bytes, ts);
+                                                            if (isKeyFrame) {
+                                                                H264IFrameCache.getInstance().onH264Frame(bytes);
                                                             }
-                                                        })
-                                                        .onError(errorInfo -> Log.e("ScreenShareKitERROR", errorInfo.getMessage()))
-                                                        .onStart(() -> {
-                                                            ScreenCastingManager.setClassMode(true);
-                                                            h264ToTsStreamer.start();
-                                                            switchButton.post(() -> switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_on), null, null));
-                                                            submitButton.post(() -> submitButton.setVisibility(View.VISIBLE));
-                                                        }).start();
-                                            }
+                                                        } catch (Exception e) {
+                                                            Log.e("ScreenShareKit", "H264 callback error:" + e.getMessage());
+                                                        }
+                                                    })
+                                                    .onError(errorInfo -> Log.e("ScreenShareKitERROR", errorInfo.getMessage()))
+                                                    .onStart(() -> {
+                                                        ScreenCastingManager.setClassMode(true);
+                                                        h264ToTsStreamer.start();
+                                                        switchButton.post(() -> switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_on), null, null));
+                                                        submitButton.post(() -> submitButton.setVisibility(View.VISIBLE));
+                                                    }).start();
                                         }
 
                                         switchButton.postDelayed(() -> switchButton.setEnabled(true), 2000);
@@ -421,79 +423,6 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(this, FloatingRobotService.class);
         stopService(intent);
     }
-
-    private final ActivityResultLauncher<Intent> launcher =
-            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),(ActivityResult result)->{
-                if(result.getResultCode()==RESULT_OK){
-                    if(result.getData() != null) {
-                        ArrayList<Uri> uriList = result.getData().getParcelableArrayListExtra(ImagePicker.MULTIPLE_FILES_PATH);
-                        if(uriList == null) {
-                            uriList = new ArrayList<>();
-                            Uri uri = result.getData().getData();
-                            uriList.add(uri);
-                        }
-                        processPostSelectImage(uriList);
-                    }
-                }else if(result.getResultCode()== ImagePicker.RESULT_ERROR){
-                    Log.e("IMGPICKER", ImagePicker.Companion.getError(result.getData()));// to show an error
-                }});
-
-    @SuppressLint("CheckResult")
-    private void takePictureToTeacher() {
-        ImagePicker.Companion.with(ApplicationModelShared.getInstance().getForegroundActivity())
-                .provider(ImageProvider.BOTH) //Or bothCameraGallery()
-                .setOutputFormat(Bitmap.CompressFormat.JPEG)
-                .setMultipleAllowed(true)
-                .createIntentFromDialog(it -> {
-                    launcher.launch(it);
-                    return null;
-                });
-    }
-
-    private void processPostSelectImage(List<Uri> uriList) {
-        if(uriList == null) {
-            return;
-        }
-        String paths = "";
-        for(Uri uri : uriList) {
-            if(uri != null) {
-                // 复制图片到外部存储
-                String filePath = AppUtils.getUserFilePath().getAbsolutePath() + "/" + UUID.randomUUID().toString() + ".png";
-                boolean success = AppUtils.copyImageToExternalFilesDir(getApplicationContext(), uri, filePath);
-                if (success) {
-                    SimpleImageCompressor.compressInPlace(filePath, 40);
-                    paths += filePath + ",";
-                } else {
-                    Log.e("PhotoPicker", "Failed to copy image.");
-                    Toast.makeText(getApplicationContext(), "照片读取失败", Toast.LENGTH_SHORT).show();
-                }
-            } else {
-                Toast.makeText(getApplicationContext(), "没有选择相片", Toast.LENGTH_SHORT).show();
-            }
-        }
-
-        String finalPaths = paths;
-        if(!finalPaths.isEmpty()) {
-            runOnUiThread(() -> {
-                ChatAiParam param = new ChatAiParam();
-                param.chatBotUrl = ApiUrl.URL_CHAT_GENERAL;
-                param.showHeader = true;
-                param.streamDisplay = true;
-                param.showHistory = true;
-                param.initialSendEnable = true;
-                //param.showTeacherSessionOnly = true;
-
-                Intent intent = new Intent(this, ChatAiActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 启动新任务栈
-                intent.putExtra(ChatAiActivity.KEY_CHAT_AI_PARAM, param);
-                intent.putExtra(ChatAiActivity.KEY_SUBMIT_PICTURE_PATH, finalPaths);
-                startActivity(intent);
-
-                ApplicationModelShared.getInstance().getFloatingWindowService().hideRobot();
-            });
-        }
-    }
-
 
     @Override
     protected void onDestroy() {
