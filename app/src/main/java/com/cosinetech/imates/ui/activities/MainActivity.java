@@ -328,7 +328,7 @@ public class MainActivity extends AppCompatActivity {
                                                     .show();
                                         } else {
                                             if(activity instanceof FragmentActivity) {
-                                                ScreenShareKit.INSTANCE.init((FragmentActivity) activity)
+                                                ScreenShareKit.INSTANCE.init(MainActivity.this)
                                                         .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
                                                         .onH264((buffer, isKeyFrame, width, height, ts) -> {
                                                             try {
