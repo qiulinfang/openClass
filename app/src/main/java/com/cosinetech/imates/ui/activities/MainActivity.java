@@ -1,6 +1,7 @@
 package com.cosinetech.imates.ui.activities;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -65,6 +66,7 @@ import com.xuexiang.xupdate.easy.EasyUpdate;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.viewpager2.widget.ViewPager2;
@@ -309,8 +311,9 @@ public class MainActivity extends AppCompatActivity {
 
                                     switchButton.setOnClickListener(v2 -> {
                                         switchButton.setEnabled(false);
+                                        Activity activity = ApplicationModelShared.getInstance().getForegroundActivity();
                                         if (ScreenCastingManager.isHavingClass()) {
-                                            new AlertDialog.Builder(MainActivity.this)
+                                            new AlertDialog.Builder(activity)
                                                     .setTitle("提示")
                                                     .setMessage("退出课堂后将不能和老师互动, 确认退出吗?")
                                                     .setPositiveButton("确认", (dialog, which) -> {
@@ -324,29 +327,31 @@ public class MainActivity extends AppCompatActivity {
                                                     .create()
                                                     .show();
                                         } else {
-                                            ScreenShareKit.INSTANCE.init(MainActivity.this)
-                                                    .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
-                                                    .onH264((buffer, isKeyFrame, width, height, ts) -> {
-                                                        try {
-                                                            // 编码后的数据
-                                                            byte[] bytes = new byte[buffer.remaining()];
-                                                            buffer.get(bytes);
+                                            if(activity instanceof FragmentActivity) {
+                                                ScreenShareKit.INSTANCE.init(MainActivity.this)
+                                                        .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000, EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
+                                                        .onH264((buffer, isKeyFrame, width, height, ts) -> {
+                                                            try {
+                                                                // 编码后的数据
+                                                                byte[] bytes = new byte[buffer.remaining()];
+                                                                buffer.get(bytes);
 
-                                                            h264ToTsStreamer.onH264DataReceived(bytes, ts);
-                                                            if (isKeyFrame) {
-                                                                H264IFrameCache.getInstance().onH264Frame(bytes);
+                                                                h264ToTsStreamer.onH264DataReceived(bytes, ts);
+                                                                if (isKeyFrame) {
+                                                                    H264IFrameCache.getInstance().onH264Frame(bytes);
+                                                                }
+                                                            } catch (Exception e) {
+                                                                Log.e("ScreenShareKit", "H264 callback error:" + e.getMessage());
                                                             }
-                                                        } catch (Exception e) {
-                                                            Log.e("ScreenShareKit", "H264 callback error:" + e.getMessage());
-                                                        }
-                                                    })
-                                                    .onError(errorInfo -> Log.e("ScreenShareKitERROR", errorInfo.getMessage()))
-                                                    .onStart(() -> {
-                                                        ScreenCastingManager.setClassMode(true);
-                                                        h264ToTsStreamer.start();
-                                                        switchButton.post(() -> switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_on), null, null));
-                                                        submitButton.post(() -> submitButton.setVisibility(View.VISIBLE));
-                                                    }).start();
+                                                        })
+                                                        .onError(errorInfo -> Log.e("ScreenShareKitERROR", errorInfo.getMessage()))
+                                                        .onStart(() -> {
+                                                            ScreenCastingManager.setClassMode(true);
+                                                            h264ToTsStreamer.start();
+                                                            switchButton.post(() -> switchButton.setCompoundDrawablesWithIntrinsicBounds(null, AppCompatResources.getDrawable(getApplicationContext(), R.drawable.app_switch_on), null, null));
+                                                            submitButton.post(() -> submitButton.setVisibility(View.VISIBLE));
+                                                        }).start();
+                                            }
                                         }
 
                                         switchButton.postDelayed(() -> switchButton.setEnabled(true), 2000);
@@ -435,7 +440,7 @@ public class MainActivity extends AppCompatActivity {
 
     @SuppressLint("CheckResult")
     private void takePictureToTeacher() {
-        ImagePicker.Companion.with(this)
+        ImagePicker.Companion.with(ApplicationModelShared.getInstance().getForegroundActivity())
                 .provider(ImageProvider.BOTH) //Or bothCameraGallery()
                 .setOutputFormat(Bitmap.CompressFormat.JPEG)
                 .setMultipleAllowed(true)
