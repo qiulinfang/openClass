@@ -15,8 +15,13 @@ android {
         applicationId "com.cosinetech.imates"
         minSdk 24
         targetSdk 34
+<<<<<<< HEAD
         versionCode 61
         versionName "1.0.61"
+=======
+        versionCode 64
+        versionName "1.0.64"
+>>>>>>> 8fc383a (bugfix: 添加单独的Activity去执行拍照交作业任务)
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {

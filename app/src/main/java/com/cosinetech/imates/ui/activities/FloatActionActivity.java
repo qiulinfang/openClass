@@ -22,6 +22,7 @@ import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.SimpleImageCompressor;
 import com.github.drjacky.imagepicker.ImagePicker;
 import com.github.drjacky.imagepicker.constant.ImageProvider;
+import com.github.drjacky.imagepicker.listener.DismissListener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +39,7 @@ public class FloatActionActivity extends AppCompatActivity {
     public static final String TASK_SCREEN_SHARE = "screen_share";
     public static final String TASK_TAKE_PICTURE = "take_picture";
 
-    private boolean initialized = false;
+//    private boolean initialized = false;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -57,12 +58,7 @@ public class FloatActionActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         Log.d(TAG, "onResume()");
-        if (!initialized) {
-            initialized = true;
-            handleIntent(getIntent());
-        } else {
-            moveTaskToBack(true);
-        }
+        handleIntent(getIntent());
     }
 
     private void handleIntent(Intent intent) {
@@ -76,12 +72,12 @@ public class FloatActionActivity extends AppCompatActivity {
         } else if (Objects.equals(type, TASK_TAKE_PICTURE)) {
             runImagePicker();
         }  else {
-            Log.w(TAG, "未知任务类型");
-            moveTaskToBack(true);
+            Log.w(TAG, "无新任务");
+//            moveTaskToBack(true);
         }
+        intent.putExtra(EXTRA_TASK_TYPE, "");
     }
 
-    // 示例任务 1：屏幕共享
     private void runScreenShare() {
     }
 
@@ -110,6 +106,9 @@ public class FloatActionActivity extends AppCompatActivity {
                 .provider(ImageProvider.BOTH) //Or bothCameraGallery()
                 .setOutputFormat(Bitmap.CompressFormat.JPEG)
                 .setMultipleAllowed(true)
+                .setDismissListener(() -> {
+                    moveTaskToBack(true);
+                })
                 .createIntentFromDialog(it -> {
                     launcher.launch(it);
                     return null;
