@@ -342,8 +342,6 @@ export const useAiGeneralChatStore = create<AiGeneralChatState>((set, get) => ({
       
       // 第5步：保存会话列表
       await get().saveSessions()
-      
-      console.log(`[AI_GENERAL] ✅ 创建新会话: ${newSession.sessionId}`)
     } finally {
       // 第6步：重置创建中状态（延迟500ms防止频繁点击）
       setTimeout(() => {
@@ -370,8 +368,6 @@ export const useAiGeneralChatStore = create<AiGeneralChatState>((set, get) => ({
     
     // 第3步：加载该会话的聊天记录
     await get().loadChatHistory(sessionId)
-    
-    console.log(`[AI_GENERAL] ✅ 切换会话: ${sessionId}`)
   },
 
   /**
@@ -408,8 +404,6 @@ export const useAiGeneralChatStore = create<AiGeneralChatState>((set, get) => ({
       
       // 第3步：保存会话列表
       await get().saveSessions()
-      
-      console.log(`[AI_GENERAL] ✅ 保存聊天历史成功: ${state.currentSession.sessionId}`)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 保存聊天历史失败:', error)
     }
@@ -426,7 +420,6 @@ export const useAiGeneralChatStore = create<AiGeneralChatState>((set, get) => ({
       
       if (historyData) {
         set({ messages: historyData.messages || [] })
-        console.log(`[AI_GENERAL] ✅ 加载聊天历史成功: ${sessionId}, ${historyData.messages.length}条消息`)
       } else {
         // 无历史记录，清空状态
         set({ messages: [] })
@@ -446,7 +439,6 @@ export const useAiGeneralChatStore = create<AiGeneralChatState>((set, get) => ({
     try {
       const state = get()
       await AsyncStorage.setItem('ai-general-sessions', JSON.stringify(state.sessions))
-      console.log(`[AI_GENERAL] ✅ 保存会话列表成功: ${state.sessions.length}个会话`)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 保存会话列表失败:', error)
     }
@@ -461,7 +453,6 @@ export const useAiGeneralChatStore = create<AiGeneralChatState>((set, get) => ({
       if (data) {
         const sessions = JSON.parse(data) as AiGeneralSession[]
         set({ sessions })
-        console.log(`[AI_GENERAL] ✅ 加载会话列表成功: ${sessions.length}个会话`)
       }
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 加载会话列表失败:', error)
@@ -500,8 +491,6 @@ export const useAiGeneralChatStore = create<AiGeneralChatState>((set, get) => ({
       
       // 第4步：保存会话列表
       await get().saveSessions()
-      
-      console.log(`[AI_GENERAL] ✅ 重命名会话成功: ${sessionId} -> ${newName}`)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 重命名会话失败:', error)
       throw error
@@ -535,9 +524,6 @@ export const useAiGeneralChatStore = create<AiGeneralChatState>((set, get) => ({
       
       // 第4步：保存会话列表
       await get().saveSessions()
-      
-      const session = updatedSessions.find(s => s.sessionId === sessionId)
-      console.log(`[AI_GENERAL] ✅ ${session?.pinned ? '置顶' : '取消置顶'}会话: ${sessionId}`)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 置顶操作失败:', error)
       throw error
@@ -565,8 +551,6 @@ export const useAiGeneralChatStore = create<AiGeneralChatState>((set, get) => ({
       
       // 第4步：保存会话列表
       await get().saveSessions()
-      
-      console.log(`[AI_GENERAL] ✅ 删除会话成功: ${sessionId}`)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 删除会话失败:', error)
       throw error
@@ -592,8 +576,6 @@ export const useAiGeneralChatStore = create<AiGeneralChatState>((set, get) => ({
     userInfo: UserInfo | null,
     _subject: 'MATH' | 'BIOLOGY'
   ): Promise<void> => {
-    console.log(`[AI_GENERAL] 🤖 开始为会话 ${sessionId} 生成标题...`)
-    
     try {
       const state = get()
       
@@ -639,8 +621,6 @@ ${conversationSummary}
         'mate'
       )
       
-      console.log('[AI_GENERAL] 📝 发送标题生成请求...')
-      
       // 第6步：调用AI接口
       const response = await apiService.sendChatMessage(titleRequest)
       
@@ -661,8 +641,6 @@ ${conversationSummary}
         
         // 第8步：更新会话标题
         await get().renameSession(sessionId, generatedTitle)
-        
-        console.log(`[AI_GENERAL] ✅ 标题生成成功: "${generatedTitle}"`)
       } else {
         console.warn('[AI_GENERAL] ⚠️ AI未返回有效标题')
       }
@@ -691,7 +669,6 @@ ${conversationSummary}
     fileSize: number
     base64DataUrl?: string
   }): void => {
-    console.log('[AI_GENERAL] 📸 设置待发送图片:', imageData.filePath)
     set({ pendingImage: imageData })
   },
 
@@ -699,7 +676,6 @@ ${conversationSummary}
    * 清除待发送图片
    */
   clearPendingImage: (): void => {
-    console.log('[AI_GENERAL] 🗑️ 清除待发送图片')
     set({ pendingImage: null })
   },
 }))

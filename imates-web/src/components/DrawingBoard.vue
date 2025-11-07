@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="canvas-demo-container">
     <!-- 统一工具栏（浮动在顶部） -->
     <div class="toolbar-wrapper">
@@ -1489,15 +1489,11 @@ const handleKeyDown = (e: KeyboardEvent) => {
 
 // 生命周期
 onMounted(() => {
-  console.log('[DrawingBoard] 🚀 组件挂载 - onMounted')
-  
   // 流程：初始化画布
   initCanvas()
 
   // 流程：添加键盘事件监听
   window.addEventListener('keydown', handleKeyDown)
-  
-  console.log('[DrawingBoard] ✅ 组件初始化完成')
 })
 
 onUnmounted(() => {
@@ -1527,12 +1523,6 @@ defineExpose({
   
   // 流程：加载绘图数据
   loadData: (data: { objects: DrawObject[]; history: DrawObject[][]; historyIndex: number }) => {
-    console.log('[DrawingBoard] 📥 加载绘图数据:', {
-      objectsCount: data.objects.length,
-      historyLength: data.history.length,
-      historyIndex: data.historyIndex
-    })
-    
     objects.value = data.objects
     history.value = data.history
     historyIndex.value = data.historyIndex
@@ -1540,7 +1530,6 @@ defineExpose({
     // 重新渲染
     nextTick(() => {
       render()
-      console.log('[DrawingBoard] ✅ 绘图数据已加载并重新渲染')
     })
   },
   

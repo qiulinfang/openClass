@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <q-dialog v-model="isVisible" position="right" maximized>
     <q-card style="width: 700px; max-width: 90vw">
       <!-- 头部 -->
@@ -400,8 +400,6 @@ const clearLocalData = async () => {
     
     // 刷新数据
     await refreshData()
-    
-    console.log('✅ 已清空所有本地题目数据')
   } catch (error) {
     console.error('清空失败:', error)
   }
@@ -508,8 +506,6 @@ const handleFileImport = async (event: Event) => {
     
     // 刷新数据
     await refreshData()
-    
-    console.log('✅ 导入成功:', importData.questions.length)
   } catch (error) {
     console.error('导入失败:', error)
     alert(`导入失败: ${error instanceof Error ? error.message : '未知错误'}`)

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 未读消息跟踪 Store
  * 职责：跟踪哪些会话有新消息（当消息到达但用户不在查看该会话时）
  */
@@ -21,7 +21,6 @@ export const useUnreadMessageStore = defineStore('unreadMessage', () => {
       const newMap = new Map(unreadSessionsMap.value)
       newMap.set(sessionId, true)
       unreadSessionsMap.value = newMap
-      console.log(`[UnreadStore] 📍 标记会话未读: ${sessionId}`)
     }
   }
 
@@ -35,7 +34,6 @@ export const useUnreadMessageStore = defineStore('unreadMessage', () => {
       const newMap = new Map(unreadSessionsMap.value)
       newMap.delete(sessionId)
       unreadSessionsMap.value = newMap
-      console.log(`[UnreadStore] ✅ 清除会话未读标记: ${sessionId}`)
     }
   }
 
@@ -53,7 +51,6 @@ export const useUnreadMessageStore = defineStore('unreadMessage', () => {
    */
   const clearAll = () => {
     unreadSessionsMap.value = new Map()
-    console.log('[UnreadStore] 🧹 清除所有未读标记')
   }
 
   // 计算属性：用于响应式追踪

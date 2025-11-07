@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <DraggableDialog 
     v-model="localVisible" 
     title="聊天对话"
@@ -14,8 +14,7 @@
           ref="sessionTreeRef"
           :ai-sessions="aiGeneralStore.sessions"
           :teacher-sessions="teacherSessions"
-          :selected-ai-session-id="aiGeneralStore.currentSession?.sessionId"
-          :selected-teacher-session-id="teacherSessionId"
+          :selected-session-id="selectedSessionId"
           title="聊天记录"
           @ai-session-click="handleAiSessionClick"
           @teacher-session-click="handleTeacherSessionClick"
@@ -159,12 +158,23 @@ const showDebugPanel = ref(false)
 const teacherSessionId = ref<string>('')
 const teacherSessions = ref<TeacherSession[]>([])
 
+// 通用的选中会话ID（可以是AI会话或教师会话）
+const selectedSessionId = computed(() => {
+  if (activeCategory.value === 'ai' && aiGeneralStore.currentSession?.sessionId) {
+    return aiGeneralStore.currentSession.sessionId
+  } else if (activeCategory.value === 'teacher' && teacherSessionId.value) {
+    return teacherSessionId.value
+  }
+  return undefined
+})
+
 // ==================== AI聊天相关方法 ====================
 
 // 处理AI会话点击
 const handleAiSessionClick = async (sessionId: string) => {
   await aiGeneralStore.switchSession(sessionId)
   activeCategory.value = 'ai'
+  // selectedSessionId 会自动更新（通过 computed）
 }
 
 // 处理AI新增对话
@@ -234,8 +244,6 @@ const handleAiSessionDelete = async (sessionId: string) => {
 
 // 加载教师会话列表
 const loadTeacherSessions = () => {
-  console.log('[UnifiedChatDialog] 🔄 loadTeacherSessions() - 开始加载会话列表')
-  
   // 第1步：获取当前用户ID并构建会话前缀
   const userId = getCurrentUserIdOrDefault()
   const sessionPrefix = `${userId}_teacher_chat_`
@@ -290,8 +298,6 @@ const loadTeacherSessions = () => {
   
   sessions.sort((a, b) => b.createTime - a.createTime)
   teacherSessions.value = sessions
-  
-  console.log('[UnifiedChatDialog] ✅ loadTeacherSessions() - 加载完成:', sessions.length)
 }
 
 // 处理教师会话点击
@@ -309,8 +315,7 @@ const handleTeacherSessionClick = async (sessionId: string, subject: string) => 
   await teacherStore.loadChatHistory(session.sessionId)
   
   activeCategory.value = 'teacher'
-  
-  console.log('[UnifiedChatDialog] ✅ 选择教师会话:', session.sessionId)
+  // selectedSessionId 会自动更新（通过 computed）
 }
 
 // 处理教师会话删除
@@ -342,7 +347,6 @@ const handleTeacherNewChat = async (subject: 'biology' | 'math') => {
 
 // 创建教师会话（供外部调用）
 const createTeacherSession = async (subject: 'biology' | 'math') => {
-  console.log('[UnifiedChatDialog] 🎯 createTeacherSession() - 初始化教师对话')
   try {
     teacherStore.clearSession()
     
@@ -381,8 +385,6 @@ const createTeacherSession = async (subject: 'biology' | 'math') => {
     
     // 切换到教师分类
     activeCategory.value = 'teacher'
-    
-    console.log('[UnifiedChatDialog] ✅ 教师对话准备完成')
   } catch (error) {
     console.error('[UnifiedChatDialog] ❌ 准备教师对话失败:', error)
     showMessage('准备教师对话失败，请重试', 'error')
@@ -452,7 +454,6 @@ watch(localVisible, async (isOpen) => {
 // 监听会话恢复事件，立即刷新会话列表
 onMounted(() => {
   const handleSessionRestored = () => {
-    console.log('[UnifiedChatDialog] 📢 收到会话恢复事件，立即刷新列表')
     loadTeacherSessions()
   }
   

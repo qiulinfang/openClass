@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 题目管理 Store
  * 职责：管理题目列表、题目选择、相似题目
  */
@@ -52,7 +52,6 @@ export const useQuestionStore = defineStore('question', () => {
   const saveQuestionsToLocal = async (subject: string): Promise<void> => {
     try {
       await saveQuestionsToIndexedDB(subject, questions.value)
-      console.log('[QUESTION] ✅ 题目列表已保存到 IndexedDB:', questions.value.length)
     } catch (error) {
       console.error('[QUESTION] ❌ 保存题目列表到 IndexedDB 失败:', error)
     }
@@ -69,7 +68,6 @@ export const useQuestionStore = defineStore('question', () => {
       
       if (loadedQuestions && Array.isArray(loadedQuestions) && loadedQuestions.length > 0) {
         questions.value = deduplicateQuestions(loadedQuestions)
-        console.log('[QUESTION] ✅ 从 IndexedDB 加载题目列表:', questions.value.length)
         return true
       }
       
@@ -93,7 +91,6 @@ export const useQuestionStore = defineStore('question', () => {
       
       if (loadedQuestions && Array.isArray(loadedQuestions) && loadedQuestions.length > 0) {
         const deduplicated = deduplicateQuestions(loadedQuestions)
-        console.log(`[QUESTION] ✅ 从 IndexedDB 加载 ${subject} 科目题目:`, deduplicated.length)
         return deduplicated
       }
       
@@ -110,7 +107,6 @@ export const useQuestionStore = defineStore('question', () => {
    */
   const fetchAllSubjectsQuestions = async (useLocalFirst: boolean = true): Promise<void> => {
     const fetchStartTime = performance.now()
-    console.log(`[QUESTION] 🔄 开始获取所有学科的题目列表 (useLocalFirst: ${useLocalFirst})`)
     
     const allSubjects = ['math', 'biology', 'chemistry', 'physics', 'chinese', 'english']
     const allQuestions: ExerciseItem[] = []
@@ -121,7 +117,6 @@ export const useQuestionStore = defineStore('question', () => {
       // 并行加载所有学科的题目
       const loadPromises = allSubjects.map(async (subject) => {
         try {
-          let subjectQuestions: ExerciseItem[] = []
           
           // 第1步：优先从 IndexedDB 加载
           if (useLocalFirst) {
@@ -155,22 +150,17 @@ export const useQuestionStore = defineStore('question', () => {
           if (convertedQuestions.length > 0) {
             try {
               await saveQuestionsToIndexedDB(subject, convertedQuestions)
-              console.log(`[QUESTION] ✅ 保存 ${subject} 科目题目到 IndexedDB:`, convertedQuestions.length)
             } catch (error) {
-              console.error(`[QUESTION] ❌ 保存 ${subject} 科目题目到 IndexedDB 失败:`, error)
+              console.error(`[QUESTION] 保存 ${subject} 科目题目到 IndexedDB 失败:`, error)
             }
           } else {
-            console.log(`[QUESTION] ⚠️ ${subject} 科目无题目，跳过保存到 IndexedDB`)
           }
-          
-          console.log(`[QUESTION] ✅ 从API获取 ${subject} 科目题目:`, convertedQuestions.length)
           return convertedQuestions
         } catch (error) {
           console.error(`[QUESTION] ❌ 获取 ${subject} 科目题目失败:`, error)
           // 如果API失败，尝试使用 IndexedDB 的数据
           const loaded = await loadSingleSubjectFromLocal(subject)
           if (loaded && loaded.length > 0) {
-            console.log(`[QUESTION] ✅ 从 IndexedDB 恢复 ${subject} 科目数据`)
             return loaded
           }
           return []
@@ -187,9 +177,6 @@ export const useQuestionStore = defineStore('question', () => {
       // 去重并更新状态
       questions.value = deduplicateQuestions(allQuestions)
       
-      const fetchDuration = performance.now() - fetchStartTime
-      console.log(`[QUESTION] ✅ 获取所有学科题目完成: ${questions.value.length} 道题目`)
-      console.log(`[QUESTION] ⏱️ fetchAllSubjectsQuestions总耗时: ${fetchDuration.toFixed(2)}ms`)
     } catch (error) {
       const fetchDuration = performance.now() - fetchStartTime
       console.error(`[QUESTION] ❌ 获取所有学科题目失败 (耗时: ${fetchDuration.toFixed(2)}ms):`, error)
@@ -209,12 +196,9 @@ export const useQuestionStore = defineStore('question', () => {
   const fetchQuestions = async (subject: string = 'math', useLocalFirst: boolean = true): Promise<void> => {
     // 防重复调用：如果该科目正在加载，直接返回
     if (loadingSubjects.has(subject)) {
-      console.log(`[QUESTION] ⏸️ ${subject} 科目正在加载中，跳过重复调用`)
       return
     }
     
-    const fetchStartTime = performance.now()
-    console.log(`[QUESTION] 🔄 开始获取题目列表: ${subject} (useLocalFirst: ${useLocalFirst})`)
     
     loadingSubjects.add(subject)
     
@@ -223,31 +207,18 @@ export const useQuestionStore = defineStore('question', () => {
       
       // 第1步：优先从 IndexedDB 加载
       if (useLocalFirst) {
-        const localLoadStartTime = performance.now()
-        console.log(`[QUESTION] 🔄 开始从 IndexedDB 加载题目列表`)
         const loaded = await loadQuestionsFromLocal(subject)
-        const localLoadDuration = performance.now() - localLoadStartTime
         
         if (loaded) {
-          const fetchDuration = performance.now() - fetchStartTime
-          console.log(`[QUESTION] ✅ 使用 IndexedDB 的题目列表，跳过API请求`)
-          console.log(`[QUESTION] ⏱️ IndexedDB加载耗时: ${localLoadDuration.toFixed(2)}ms, 总耗时: ${fetchDuration.toFixed(2)}ms`)
           return
         }
-        console.log(`[QUESTION] ⏱️ IndexedDB加载耗时: ${localLoadDuration.toFixed(2)}ms (未找到数据)`)
       }
       
       // 第2步：从API获取题目
-      const apiStartTime = performance.now()
-      console.log(`[QUESTION] 🔄 开始从API获取题目列表`)
       const apiService = ApiService.getInstance()
       const questionList = await apiService.getExerciseList(subject)
-      console.log(`[QUESTION] ✅ API获取题目列表`,questionList)
-      const apiDuration = performance.now() - apiStartTime
-      console.log(`[QUESTION] ⏱️ API请求耗时: ${apiDuration.toFixed(2)}ms`)
       
       // 转换 API 响应的 ExerciseItem 类型
-      const convertStartTime = performance.now()
       const convertedQuestions: ExerciseItem[] = questionList.map((q: unknown) => {
         const question = q as Record<string, unknown>
         return {
@@ -261,32 +232,16 @@ export const useQuestionStore = defineStore('question', () => {
           subject: (question.subject as string) || subject.toLowerCase(),
         }
       })
-      const convertDuration = performance.now() - convertStartTime
-      console.log(`[QUESTION] ⏱️ 数据转换耗时: ${convertDuration.toFixed(2)}ms`)
       
       // 第3步：去重并更新状态
-      const dedupeStartTime = performance.now()
       questions.value = deduplicateQuestions(convertedQuestions)
-      const dedupeDuration = performance.now() - dedupeStartTime
-      console.log(`[QUESTION] ⏱️ 去重耗时: ${dedupeDuration.toFixed(2)}ms`)
-      console.log(`[QUESTION] ✅ 去重后题目`,questions.value)
       // 第4步：保存到 IndexedDB
-      const saveStartTime = performance.now()
       await saveQuestionsToLocal(subject)
-      const saveDuration = performance.now() - saveStartTime
-      console.log(`[QUESTION] ⏱️ 保存到IndexedDB耗时: ${saveDuration.toFixed(2)}ms`)
       
-      const fetchDuration = performance.now() - fetchStartTime
-      console.log(`[QUESTION] ✅ 从API获取题目完成: ${questions.value.length} 道题目`)
-      console.log(`[QUESTION] ⏱️ fetchQuestions总耗时: ${fetchDuration.toFixed(2)}ms`)
     } catch (error) {
-      const fetchDuration = performance.now() - fetchStartTime
-      console.error(`[QUESTION] ❌ 获取题目失败 (耗时: ${fetchDuration.toFixed(2)}ms):`, error)
+      console.error(`[QUESTION] ❌ 获取题目失败:`, error)
       // 如果API失败，尝试使用 IndexedDB 的数据
-      const fallbackStartTime = performance.now()
       if (await loadQuestionsFromLocal(subject)) {
-        const fallbackDuration = performance.now() - fallbackStartTime
-        console.log(`[QUESTION] ✅ 从 IndexedDB 恢复数据成功 (耗时: ${fallbackDuration.toFixed(2)}ms)`)
       } else {
         throw error
       }
@@ -314,8 +269,6 @@ export const useQuestionStore = defineStore('question', () => {
       // 动态添加 isViewed 属性（如果类型允许）
       ;(questions.value[index] as ExerciseItem & { isViewed?: boolean }).isViewed = true
     }
-    
-    console.log('[QUESTION] ✅ 选择题目:', index)
   }
   
   /**
@@ -342,8 +295,6 @@ export const useQuestionStore = defineStore('question', () => {
     if (subject) {
       await saveQuestionsToLocal(subject)
     }
-    
-    console.log('[QUESTION] ✅ 删除题目:', index)
   }
   
   /**
@@ -363,8 +314,6 @@ export const useQuestionStore = defineStore('question', () => {
     } else if (currentQuestionIndex.value < index) {
       currentQuestionIndex.value++
     }
-    
-    console.log('[QUESTION] ✅ 移动题目到顶部:', index)
   }
   
   /**
@@ -410,7 +359,6 @@ export const useQuestionStore = defineStore('question', () => {
       // 调用 API 查找相似题目
       const similar = await apiService.findSimilarQuestions(targetQuestion, targetSubject)
       similarQuestions.value = similar
-      console.log('[QUESTION] ✅ 查找相似题目:', similar.length)
     } catch (error) {
       console.error('[QUESTION] ❌ 查找相似题目失败:', error)
       similarQuestions.value = []
@@ -429,8 +377,6 @@ export const useQuestionStore = defineStore('question', () => {
     const exists = questions.value.some(q => q.id === question.id)
     if (!exists) {
       questions.value.push(question)
-      console.log('[QUESTION] ✅ 添加相似题目到列表')
-      
       // 如果提供了科目，保存到 IndexedDB
       if (subject) {
         await saveQuestionsToLocal(subject)
@@ -445,8 +391,6 @@ export const useQuestionStore = defineStore('question', () => {
    */
   const setQuestions = async (newQuestions: ExerciseItem[], subject?: string): Promise<void> => {
     questions.value = deduplicateQuestions(newQuestions)
-    console.log('[QUESTION] ✅ 设置题目列表:', questions.value.length)
-    
     // 如果提供了科目，保存到 IndexedDB
     if (subject) {
       await saveQuestionsToLocal(subject)
@@ -475,7 +419,6 @@ export const useQuestionStore = defineStore('question', () => {
    */
   const clearCurrentQuestion = (): void => {
     currentQuestionIndex.value = -1
-    console.log('[QUESTION] ✅ 清空当前选中的题目')
   }
   
   // ==================== 返回接口 ====================

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="debug-panel-wrapper" :class="{ expanded: isVisible }">
     <!-- 收缩/展开按钮（右侧边框垂直居中） -->
     <q-btn
@@ -3361,7 +3361,6 @@ const saveToLocalStorage = () => {
   try {
     const key = getDebugParamsKey()
     localStorage.setItem(key, JSON.stringify(localParams.value))
-    console.log('✅ 参数已保存到本地存储')
   } catch (error) {
     console.error('❌ 保存参数失败:', error)
   }
@@ -3378,11 +3377,9 @@ const loadFromLocalStorageInternal = (silent = false) => {
       localParams.value = { ...defaultParams.value, ...parsed, ...props.params }
       updateParams()
       if (!silent) {
-        console.log('✅ 参数已从本地存储加载')
       }
     } else {
       if (!silent) {
-        console.log('ℹ️ 本地存储中没有保存的参数')
       }
     }
   } catch (error) {

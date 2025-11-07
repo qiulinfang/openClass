@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 拍照搜题流程日志工具
  * 用于记录拍照搜题的完整流程，便于调试和问题排查
  */
@@ -36,8 +36,6 @@ class PhotoSearchLogger {
 
     // 输出到控制台
     const message = this.formatLogMessage(entry)
-    console.log(`${this.logTag} ${message}`)
-
     // 如果Android Bridge可用，也发送到原生日志
     if (androidBridge.isAndroidBridgeAvailable()) {
       try {

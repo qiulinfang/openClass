@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="question-list" @click.stop>
     <!-- 题目列表 - 卡片布局 -->
     <div
@@ -275,11 +275,7 @@ import type { ExerciseItem } from '../types'
 import { apiService } from '../services/api-service'
 import { MathJaxUtils } from '../utils/math/mathjax'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
-import {
-  useQuestionStatistics,
-  type TitleHeightStat,
-  type HeightComparison,
-} from '../composables/useQuestionStatistics'
+
 import QuestionListSkeleton from './QuestionListSkeleton.vue'
 import MiniClass from './MiniClass.vue'
 import UnifiedChatDialog from './UnifiedChatDialog.vue'
@@ -910,14 +906,12 @@ const loadQuestions = async () => {
     
     // 第1步：如果 store 中已有题目，直接使用（避免覆盖父组件已加载的正确科目）
     if (questionStore.questions.length > 0) {
-      console.log('[QuestionList] 使用 store 中已有的题目，不重新加载:', questionStore.questions.length)
       questions.value = [...questionStore.questions]
     } else {
       // 第2步：如果 store 中没有题目，需要确定科目并加载
       // 优先使用 selectedSubjectFilter 来确定科目
       if (selectedSubjectFilter.value === null) {
         // 全部学科：加载所有学科的题目
-        console.log('[QuestionList] selectedSubjectFilter 为全部学科，加载所有学科的题目')
         await questionStore.fetchAllSubjectsQuestions(true)
       } else {
         // 具体学科：加载指定学科的题目
@@ -934,8 +928,6 @@ const loadQuestions = async () => {
         }
         const filterValue = String(selectedSubjectFilter.value).toUpperCase()
         subjectToLoad = subjectMap[filterValue] || filterValue.toLowerCase() || 'math'
-        console.log('[QuestionList] 根据 selectedSubjectFilter 确定科目:', subjectToLoad)
-        
         // 更新 selectedSubject 以便后续使用
         selectedSubject.value = subjectToLoad
         
@@ -1298,7 +1290,6 @@ watch(
     
     if (newFilter === null) {
       // 全部学科：加载所有学科的题目
-      console.log('[QuestionList] 筛选面板选择全部学科，加载所有学科的题目')
       await questionStore.fetchAllSubjectsQuestions(true)
       questions.value = [...questionStore.questions]
     } else {
@@ -1327,7 +1318,6 @@ watch(
       
       // 如果当前没有目标科目的题目，需要重新加载
       if (!hasTargetSubjectQuestions) {
-        console.log('[QuestionList] 筛选面板选择新科目，重新加载题目:', targetSubject)
         selectedSubject.value = targetSubject
         await questionStore.fetchQuestions(targetSubject, true)
         questions.value = [...questionStore.questions]
@@ -1460,16 +1450,12 @@ if (typeof window !== 'undefined') {
   interface WindowWithStats extends Window {
     analyzeTitleHeightRelation: () => void
     manuallyMeasureAllQuestions: () => number
-    getTitleHeightStats: () => TitleHeightStat[]
     outputComparisonStatistics: () => void
-    getHeightComparisons: () => HeightComparison[]
   }
   const win = window as unknown as WindowWithStats
   win.analyzeTitleHeightRelation = wrappedAnalyzeTitleHeightRelation
   win.manuallyMeasureAllQuestions = wrappedManuallyMeasureAllQuestions
-  win.getTitleHeightStats = () => titleHeightStats.value
   win.outputComparisonStatistics = outputComparisonStatistics
-  win.getHeightComparisons = () => heightComparisons.value
 }
 
 // 监听统计数据的累积，在合适的时候自动输出统计（可选）

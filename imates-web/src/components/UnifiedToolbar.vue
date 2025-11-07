@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div :class="['unified-toolbar-container', `variant-${variant}`]" @click="showPopup = false">
     <!-- 统一工具栏 -->
     <div
@@ -758,12 +758,6 @@ const isImageIcon = (icon: string) => {
 
 // 处理工具点击
 const handleToolClick = (tool: string) => {
-  console.log('[工具切换] 工具栏工具点击', {
-    tool,
-    previousTool: props.selectedTool,
-    timestamp: new Date().toISOString(),
-  })
-
   // 1. 通知父组件工具变化
   emit('tool-change', tool)
 }

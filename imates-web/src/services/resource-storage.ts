@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 资源管理服务
  * 对应Android LearnResourceManager，提供统一的资源管理功能
  */
@@ -615,7 +615,6 @@ export class ResourceManager {
    */
   public async getTextbookByTextbookIdWithFallback(
     textbookId: string,
-    context?: string
   ): Promise<UserTextbookInfo | null> {
     try {
       // 优先使用 textbookId 索引查询
@@ -625,11 +624,6 @@ export class ResourceManager {
       const errorMessage = error instanceof Error ? error.message : String(error)
       const errorName = (error as { name?: string })?.name
       if (errorName === 'NotFoundError' || errorMessage.includes('index')) {
-        const logContext = context ? `[${context}]` : '[ResourceManager]'
-        console.log(`${logContext} ⚠️ textbookId索引不存在，改用getAll查询`, {
-          textbookId: textbookId,
-          error: errorMessage
-        })
         const allTextbooks = await this.indexedDBInstance.getAll<UserTextbookInfo>('textbooks')
         return allTextbooks.find(t => t.textbookId === textbookId) || null
       } else {

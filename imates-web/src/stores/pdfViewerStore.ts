@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+﻿import { defineStore } from 'pinia'
 import { toRaw } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
 import { resourceManager } from '@/services/resource-storage'
@@ -274,12 +274,6 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
         // 6. 设置布局数据
         this.pageLayouts = layouts
         this.isDocLoaded = true
-        
-        console.log('PDF 加载完成:', {
-          totalPages: this.totalPages,
-          layouts: layouts.length
-        })
-        
       } catch (error) {
         console.error('PDF 加载失败:', error)
         this.error = error instanceof Error ? error.message : 'PDF 加载失败'
@@ -349,7 +343,6 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
         this.saveError = null
         await this.saveAnnotationsToLocalFile()
         this.lastSaveTime = Date.now()
-        console.log('笔记自动保存成功')
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : '保存失败'
         this.saveError = errorMessage
@@ -382,14 +375,12 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
       visibilityChangeHandler = () => {
         if (document.hidden) {
           // 页面隐藏时立即保存
-          console.log('页面隐藏，立即保存笔记')
           this.flushSave()
         }
       }
       
       // 添加监听
       document.addEventListener('visibilitychange', visibilityChangeHandler)
-      console.log('页面可见性监听已初始化')
     },
     
     // 移除页面可见性监听
@@ -397,7 +388,6 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
       if (visibilityChangeHandler) {
         document.removeEventListener('visibilitychange', visibilityChangeHandler)
         visibilityChangeHandler = null
-        console.log('页面可见性监听已移除')
       }
     },
     
@@ -409,7 +399,6 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
       
       try {
         await this.saveAnnotationsToLocalFile()
-        console.log('项目保存成功')
       } catch (error) {
         console.error('保存项目失败:', error)
         throw error
@@ -438,7 +427,6 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
         const localFile = textbook.localFiles.find((file: LocalFileInfo) => file.id === this.currentResourceId)
         if (localFile && localFile.annotations) {
           this.allAnnotations = localFile.annotations
-          console.log('从localFiles加载笔记数据:', localFile.annotations)
         }
       } catch (error) {
         console.warn('从localFiles加载笔记失败:', error)
@@ -466,16 +454,10 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
         
         // 3. 移除Vue响应式代理
         const rawAnnotations = toRaw(this.allAnnotations)
-        console.log('rawAnnotations', rawAnnotations)
-        console.log('localFileIndex', localFileIndex)
         // 4. 更新注释数据
         textbook.localFiles[localFileIndex].annotations = rawAnnotations
-        console.log('textbook.localFiles[localFileIndex].annotations', textbook.localFiles[localFileIndex].annotations)
-        console.log('textbook', textbook)
         // 5. 保存到IndexedDB（IndexedDB会自动进行深度序列化）
         await resourceManager.indexedDB.put('textbooks', textbook)
-        
-        console.log('笔记数据已保存到localFiles')
       } catch (error) {
         console.error('保存笔记数据到localFiles失败:', error)
         throw error
@@ -532,19 +514,7 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
     
     // 设置选中的工具
     setSelectedTool(tool: string) {
-      const previousTool = this.selectedTool
-      console.log('[工具切换] Store设置工具', {
-        tool,
-        previousTool,
-        timestamp: new Date().toISOString()
-      })
-      
       this.selectedTool = tool
-      
-      console.log('[工具切换] Store工具设置完成', {
-        tool: this.selectedTool,
-        previousTool
-      })
     },
     
     // 更新绘制配置

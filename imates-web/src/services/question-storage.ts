@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 题目列表 IndexedDB 存储服务
  * 使用 IndexedDB 替代 localStorage，支持更大的存储容量
  */
@@ -58,11 +58,8 @@ export async function initQuestionStorage(): Promise<void> {
   
   // 开始初始化
   const initPromise = (async () => {
-    const initStartTime = performance.now()
     try {
       await questionStorage.init()
-      const initDuration = performance.now() - initStartTime
-      console.log(`[QUESTION_STORAGE] ✅ IndexedDB 初始化成功 (用户: ${userId}, 耗时: ${initDuration.toFixed(2)}ms)`)
     } catch (error) {
       console.error(`[QUESTION_STORAGE] ❌ IndexedDB 初始化失败 (用户: ${userId}):`, error)
       throw error
@@ -95,10 +92,6 @@ export async function saveQuestionsToIndexedDB(
     }
     
     await questionStorage.put('question_lists', data)
-    console.log('[QUESTION_STORAGE] ✅ 题目列表已保存到 IndexedDB:', {
-      subject,
-      count: questions.length
-    })
   } catch (error) {
     console.error('[QUESTION_STORAGE] ❌ 保存题目列表到 IndexedDB 失败:', error)
     throw error
@@ -118,32 +111,21 @@ export async function loadQuestionsFromIndexedDB(
     await initQuestionStorage()
     const questionStorage = getQuestionStorage()
     
-    const getStartTime = performance.now()
     const data = await questionStorage.get<QuestionListData>('question_lists', subject)
-    const getDuration = performance.now() - getStartTime
     
     if (!data || !data.questions || !Array.isArray(data.questions)) {
-      const loadDuration = performance.now() - loadStartTime
-      console.log(`[QUESTION_STORAGE] 📭 IndexedDB 中没有题目列表: ${subject} (耗时: ${loadDuration.toFixed(2)}ms)`)
       return null
     }
     
     // 检查科目是否匹配
     if (data.subject !== subject) {
       const loadDuration = performance.now() - loadStartTime
-      console.log(`[QUESTION_STORAGE] 📭 IndexedDB 中的科目不匹配 (耗时: ${loadDuration.toFixed(2)}ms):`, {
+      console.warn(`[QUESTION_STORAGE] ⚠️ 科目不匹配 (耗时: ${loadDuration.toFixed(2)}ms):`, {
         stored: data.subject,
         requested: subject
       })
       return null
     }
-    
-    const loadDuration = performance.now() - loadStartTime
-    console.log(`[QUESTION_STORAGE] ✅ 从 IndexedDB 加载题目列表 (耗时: ${loadDuration.toFixed(2)}ms, get: ${getDuration.toFixed(2)}ms):`, {
-      subject,
-      count: data.questions.length,
-      timestamp: new Date(data.timestamp).toLocaleString()
-    })
     
     return data.questions
   } catch (error) {
@@ -179,7 +161,6 @@ export async function deleteQuestionsFromIndexedDB(subject: string): Promise<voi
     await initQuestionStorage()
     const questionStorage = getQuestionStorage()
     await questionStorage.delete('question_lists', subject)
-    console.log('[QUESTION_STORAGE] ✅ 已删除题目列表:', subject)
   } catch (error) {
     console.error('[QUESTION_STORAGE] ❌ 删除题目列表失败:', error)
     throw error
@@ -194,7 +175,6 @@ export async function clearAllQuestionsFromIndexedDB(): Promise<void> {
     await initQuestionStorage()
     const questionStorage = getQuestionStorage()
     await questionStorage.clear('question_lists')
-    console.log('[QUESTION_STORAGE] ✅ 已清空所有题目列表')
   } catch (error) {
     console.error('[QUESTION_STORAGE] ❌ 清空题目列表失败:', error)
     throw error

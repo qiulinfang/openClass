@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div 
     v-if="isVisible" 
     class="pdf-debug-panel"
@@ -340,7 +340,6 @@ const handlePageGapChange = async () => {
     isRecalculating.value = true
     const layouts = await pdfCoreService.calculatePageLayouts(store.scale, store.pageGap)
     store.pageLayouts = layouts
-    console.log('页面间距调整完成，布局重新计算:', { pageGap: store.pageGap, layouts })
   } catch (error) {
     console.error('页面间距调整失败:', error)
   } finally {
@@ -359,7 +358,6 @@ const handleRecalculateLayout = async () => {
     isRecalculating.value = true
     const layouts = await pdfCoreService.calculatePageLayouts(store.scale, store.pageGap)
     store.pageLayouts = layouts
-    console.log('布局重新计算完成:', layouts)
   } catch (error) {
     console.error('重新计算布局失败:', error)
   } finally {

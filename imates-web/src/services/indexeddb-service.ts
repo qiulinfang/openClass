@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 通用IndexedDB服务类
  * 提供数据库初始化、CRUD操作、事务处理和错误处理
  */
@@ -185,13 +185,11 @@ export class IndexedDBService {
                   multiEntry: indexConfig.multiEntry
                 }
               )
-              console.log(`[IndexedDB] ✅ 创建索引: ${storeConfig.name}.${indexConfig.name}`)
             } catch (error: any) {
               // 如果索引创建失败（可能已存在或参数不匹配），记录警告
               console.warn(`[IndexedDB] ⚠️ 创建索引失败: ${storeConfig.name}.${indexConfig.name}`, error.message)
             }
           } else {
-            console.log(`[IndexedDB] ℹ️ 索引已存在: ${storeConfig.name}.${indexConfig.name}`)
           }
         })
       }
@@ -273,15 +271,6 @@ export class IndexedDBService {
   public async get<T>(storeName: string, key: IDBValidKey): Promise<T | undefined> {
     await this.ensureInitialized()
     
-    // 详细日志：记录查询参数
-    console.log(`[IndexedDB.get] 查询参数:`, {
-      storeName,
-      key,
-      keyType: typeof key,
-      keyString: String(key),
-      keyNumber: typeof key === 'string' ? Number(key) : key
-    })
-    
     // 检查存储是否存在
     if (!this.db!.objectStoreNames.contains(storeName)) {
       console.warn(`[IndexedDB.get] 存储 ${storeName} 不存在，返回 undefined`)
@@ -293,47 +282,10 @@ export class IndexedDBService {
         const transaction = this.db!.transaction([storeName], 'readonly')
         const store = transaction.objectStore(storeName)
         
-        // 详细日志：记录 keyPath 信息
-        const keyPath = store.keyPath
-        console.log(`[IndexedDB.get] 存储配置:`, {
-          storeName,
-          keyPath,
-          keyPathType: typeof keyPath,
-          autoIncrement: store.autoIncrement
-        })
-        
-        // 详细日志：查询前，先获取所有记录的主键用于对比
-        const getAllKeysRequest = store.getAllKeys()
-        getAllKeysRequest.onsuccess = () => {
-          const allKeys = getAllKeysRequest.result
-          console.log(`[IndexedDB.get] 数据库中所有主键:`, {
-            total: allKeys.length,
-            keys: allKeys.map((k: any) => ({
-              value: k,
-              type: typeof k,
-              string: String(k),
-              number: typeof k === 'string' ? Number(k) : k,
-              equalsQueryKey: k === key,
-              equalsQueryKeyString: String(k) === String(key),
-              equalsQueryKeyNumber: typeof k === 'string' && typeof key === 'string' 
-                ? Number(k) === Number(key) 
-                : k === key
-            }))
-          })
-        }
-        
         const request = store.get(key)
         
         request.onsuccess = () => {
           const result = request.result
-          console.log(`[IndexedDB.get] 查询结果:`, {
-            storeName,
-            queryKey: key,
-            queryKeyType: typeof key,
-            found: !!result,
-            resultId: result ? (result as any).id : null,
-            resultIdType: result ? typeof (result as any).id : null
-          })
           resolve(result)
         }
         request.onerror = () => {

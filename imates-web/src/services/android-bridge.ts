@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Android Bridge 工具类
  * 统一管理与原生Android端的通信
  * 
@@ -771,10 +771,8 @@ export class AndroidBridge {
         const logMessage = `[${tag}] ${message}`
         switch (level.toUpperCase()) {
           case 'DEBUG':
-            console.debug(`🔍 [Android ${level}]`, logMessage)
             break
           case 'INFO':
-            console.info(`ℹ️ [Android ${level}]`, logMessage)
             break
           case 'WARN':
             console.warn(`⚠️ [Android ${level}]`, logMessage)
@@ -783,7 +781,6 @@ export class AndroidBridge {
             console.error(`❌ [Android ${level}]`, logMessage)
             break
           default:
-            console.log(`📝 [Android ${level}]`, logMessage)
             break
         }
         // 同时通过事件发送，方便其他组件监听
@@ -827,14 +824,6 @@ export class AndroidBridge {
    * 发送文本消息给老师
    */
   public sendTextMessageToTeacher(content: string, sessionId: string, subject: string): boolean {
-    console.log('[AndroidBridge] 📤 sendTextMessageToTeacher: 开始发送文本消息')
-    console.log('[AndroidBridge] 📤 sendTextMessageToTeacher: 参数 -', {
-      contentLength: content?.length || 0,
-      contentPreview: content?.substring(0, 100) || 'null',
-      sessionId,
-      subject
-    })
-    
     const startTime = performance.now()
     
     try {
@@ -847,32 +836,15 @@ export class AndroidBridge {
         console.error('[AndroidBridge] ❌ sendTextMessageToTeacher: 方法不存在')
         return false
       }
-      
-      console.log('[AndroidBridge] 📤 sendTextMessageToTeacher: 调用原生方法')
       const resp = this.callString(() => {
         return window.AndroidBridge?.sendTextMessageToTeacher?.(content, sessionId, subject)
       })
       
-      const duration = performance.now() - startTime
-      console.log('[AndroidBridge] 📥 sendTextMessageToTeacher: 原生方法返回, 耗时=' + duration.toFixed(2) + 'ms')
-      console.log('[AndroidBridge] 📥 sendTextMessageToTeacher: 原始响应长度=' + (resp?.length || 0))
-      console.log('[AndroidBridge] 📥 sendTextMessageToTeacher: 原始响应预览=' + 
-                  (resp?.substring(0, 200) || 'null'))
-      
       const result = this.parseJSON<{ success: boolean; message?: string; data?: any }>(resp, { success: false })
-      
-      console.log('[AndroidBridge] 📥 sendTextMessageToTeacher: 解析结果 -', {
-        success: result.success,
-        message: result.message,
-        hasData: !!result.data
-      })
-      
       if (!result.success) {
         console.error('[AndroidBridge] ❌ sendTextMessageToTeacher: 发送失败 -', result.message || '未知错误')
       } else {
-        console.log('[AndroidBridge] ✅ sendTextMessageToTeacher: 发送成功')
         if (result.data) {
-          console.log('[AndroidBridge] ✅ sendTextMessageToTeacher: 返回数据 -', result.data)
         }
       }
       
@@ -888,14 +860,6 @@ export class AndroidBridge {
    * 发送语音消息给老师
    */
   public sendVoiceMessageToTeacher(voicePath: string, duration: string, sessionId: string, subject: string): boolean {
-    console.log('[AndroidBridge] 📤 sendVoiceMessageToTeacher: 开始发送语音消息')
-    console.log('[AndroidBridge] 📤 sendVoiceMessageToTeacher: 参数 -', {
-      voicePath,
-      duration,
-      sessionId,
-      subject
-    })
-    
     const startTime = performance.now()
     
     try {
@@ -908,32 +872,15 @@ export class AndroidBridge {
         console.error('[AndroidBridge] ❌ sendVoiceMessageToTeacher: 方法不存在')
         return false
       }
-      
-      console.log('[AndroidBridge] 📤 sendVoiceMessageToTeacher: 调用原生方法')
       const resp = this.callString(() => {
         return window.AndroidBridge?.sendVoiceMessageToTeacher?.(voicePath, duration, sessionId, subject)
       })
       
-      const callDuration = performance.now() - startTime
-      console.log('[AndroidBridge] 📥 sendVoiceMessageToTeacher: 原生方法返回, 耗时=' + callDuration.toFixed(2) + 'ms')
-      console.log('[AndroidBridge] 📥 sendVoiceMessageToTeacher: 原始响应长度=' + (resp?.length || 0))
-      console.log('[AndroidBridge] 📥 sendVoiceMessageToTeacher: 原始响应预览=' + 
-                  (resp?.substring(0, 200) || 'null'))
-      
       const result = this.parseJSON<{ success: boolean; message?: string; data?: any }>(resp, { success: false })
-      
-      console.log('[AndroidBridge] 📥 sendVoiceMessageToTeacher: 解析结果 -', {
-        success: result.success,
-        message: result.message,
-        hasData: !!result.data
-      })
-      
       if (!result.success) {
         console.error('[AndroidBridge] ❌ sendVoiceMessageToTeacher: 发送失败 -', result.message || '未知错误')
       } else {
-        console.log('[AndroidBridge] ✅ sendVoiceMessageToTeacher: 发送成功')
         if (result.data) {
-          console.log('[AndroidBridge] ✅ sendVoiceMessageToTeacher: 返回数据 -', result.data)
         }
       }
       
@@ -949,13 +896,6 @@ export class AndroidBridge {
    * 发送图片消息给老师
    */
   public sendPictureToTeacher(imagePath: string, sessionId: string, subject: string): boolean {
-    console.log('[AndroidBridge] 📤 sendPictureToTeacher: 开始发送图片消息')
-    console.log('[AndroidBridge] 📤 sendPictureToTeacher: 参数 -', {
-      imagePath,
-      sessionId,
-      subject
-    })
-    
     const startTime = performance.now()
     
     try {
@@ -968,32 +908,15 @@ export class AndroidBridge {
         console.error('[AndroidBridge] ❌ sendPictureToTeacher: 方法不存在')
         return false
       }
-      
-      console.log('[AndroidBridge] 📤 sendPictureToTeacher: 调用原生方法')
       const resp = this.callString(() => {
         return window.AndroidBridge?.sendPictureToTeacher?.(imagePath, sessionId, subject)
       })
       
-      const duration = performance.now() - startTime
-      console.log('[AndroidBridge] 📥 sendPictureToTeacher: 原生方法返回, 耗时=' + duration.toFixed(2) + 'ms')
-      console.log('[AndroidBridge] 📥 sendPictureToTeacher: 原始响应长度=' + (resp?.length || 0))
-      console.log('[AndroidBridge] 📥 sendPictureToTeacher: 原始响应预览=' + 
-                  (resp?.substring(0, 200) || 'null'))
-      
       const result = this.parseJSON<{ success: boolean; message?: string; data?: any }>(resp, { success: false })
-      
-      console.log('[AndroidBridge] 📥 sendPictureToTeacher: 解析结果 -', {
-        success: result.success,
-        message: result.message,
-        hasData: !!result.data
-      })
-      
       if (!result.success) {
         console.error('[AndroidBridge] ❌ sendPictureToTeacher: 发送失败 -', result.message || '未知错误')
       } else {
-        console.log('[AndroidBridge] ✅ sendPictureToTeacher: 发送成功')
         if (result.data) {
-          console.log('[AndroidBridge] ✅ sendPictureToTeacher: 返回数据 -', result.data)
         }
       }
       
@@ -1009,28 +932,12 @@ export class AndroidBridge {
    * 转发AI对话记录给老师
    */
   public forwardAiChatToTeacher(selectedMessagesData: string, teacherSessionId: string): boolean {
-    console.log('[AndroidBridge] 📤 forwardAiChatToTeacher() - 开始调用')
-    console.log('[AndroidBridge] 📤 参数:', {
-      selectedMessagesDataLength: selectedMessagesData.length,
-      selectedMessagesDataPreview: selectedMessagesData.substring(0, 200) + '...',
-      teacherSessionId: teacherSessionId,
-    })
-    
     try {
       const resp = this.callString(() => {
-        console.log('[AndroidBridge] 🔄 调用 window.AndroidBridge.forwardAiChatToTeacher')
         const nativeResult = window.AndroidBridge?.forwardAiChatToTeacher?.(selectedMessagesData, teacherSessionId)
-        console.log('[AndroidBridge] 📊 原生方法返回:', nativeResult, '类型:', typeof nativeResult)
         return nativeResult
       })
-      
-      console.log('[AndroidBridge] 📊 callString 返回的响应:', resp, '类型:', typeof resp)
-      
       const result = this.parseJSON<{ success: boolean }>(resp, { success: false })
-      
-      console.log('[AndroidBridge] 📊 解析后的结果:', result)
-      console.log('[AndroidBridge] ✅ 最终返回:', result.success)
-      
       return result.success
     } catch (error) {
       console.error('[AndroidBridge] ❌ forwardAiChatToTeacher 异常:', error)

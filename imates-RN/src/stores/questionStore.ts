@@ -48,7 +48,6 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
    */
   fetchQuestions: async (subject: string = 'math', useLocalFirst: boolean = true) => {
     const fetchStartTime = Date.now()
-    console.log(`[QUESTION] 🔄 开始获取题目列表: ${subject}`)
     
     set({ isLoading: true })
     
@@ -64,7 +63,6 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
               questions: deduplicateQuestions(storedQuestions),
               isLoading: false 
             })
-            console.log(`[QUESTION] ✅ 从本地存储加载题目列表: ${storedQuestions.length}`)
             return
           }
         } catch (error) {
@@ -95,13 +93,9 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
       try {
         const storedKey = `questions_${subject}`
         await StorageService.setItem(storedKey, uniqueQuestions)
-        console.log('[QUESTION] ✅ 题目列表已保存到本地存储')
       } catch (error) {
         console.error('[QUESTION] ❌ 保存题目列表到本地存储失败:', error)
       }
-      
-      const fetchDuration = Date.now() - fetchStartTime
-      console.log(`[QUESTION] ✅ 从API获取题目完成: ${uniqueQuestions.length} 道题目 (耗时: ${fetchDuration}ms)`)
     } catch (error) {
       console.error('[QUESTION] ❌ 获取题目失败:', error)
       set({ isLoading: false })
@@ -123,7 +117,6 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
     }
     
     set({ currentQuestionIndex: index })
-    console.log('[QUESTION] ✅ 选择题目:', index)
   },
 
   /**
@@ -169,8 +162,6 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
         const storedKey = `questions_${targetSubject}`
         await StorageService.setItem(storedKey, newQuestions)
       }
-      
-      console.log('[QUESTION] ✅ 删除题目:', questionId)
     }
   },
 
@@ -197,7 +188,6 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
     }
     
     set({ questions: newQuestions, currentQuestionIndex: newIndex })
-    console.log('[QUESTION] ✅ 移动题目到顶部:', questionId)
   },
 
   /**
@@ -214,8 +204,6 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
       const storedKey = `questions_${subject}`
       await StorageService.setItem(storedKey, uniqueQuestions)
     }
-    
-    console.log('[QUESTION] ✅ 设置题目列表:', uniqueQuestions.length)
   },
 
   /**

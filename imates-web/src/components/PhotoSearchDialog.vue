@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div v-if="isOpen" class="photo-search-fullscreen">
     <!-- 左上角返回按钮 -->
     <q-btn flat round dense icon="arrow_back" class="back-btn" @click="handleClose" />
@@ -7,7 +7,7 @@
     <div class="camera-preview-area">
       <!-- 实时相机预览 -->
       <video
-        v-if="showCameraPreview && cameraStream"
+        v-if="showCameraPreview"
         ref="videoElement"
         autoplay
         playsinline
@@ -27,10 +27,22 @@
           @mousemove="handleMouseMove"
           @mouseup="endCrop"
           @mouseleave="handleMouseLeave"
-          @touchstart="startCrop"
-          @touchmove="updateCrop"
-          @touchend="endCrop"
+          @wheel="handleWheel"
+          @touchstart="handleTouchStart"
+          @touchmove="handleTouchMove"
+          @touchend="handleTouchEnd"
         ></canvas>
+        <!-- 灰色蒙版层（四个遮罩层覆盖框选区域外的部分） -->
+        <template v-if="cropRect">
+          <!-- 顶部遮罩 -->
+          <div class="crop-mask crop-mask-top" :style="cropMaskTopStyle"></div>
+          <!-- 底部遮罩 -->
+          <div class="crop-mask crop-mask-bottom" :style="cropMaskBottomStyle"></div>
+          <!-- 左侧遮罩 -->
+          <div class="crop-mask crop-mask-left" :style="cropMaskLeftStyle"></div>
+          <!-- 右侧遮罩 -->
+          <div class="crop-mask crop-mask-right" :style="cropMaskRightStyle"></div>
+        </template>
         <!-- 框选遮罩 -->
         <div v-if="cropRect" class="crop-overlay" :style="cropOverlayStyle">
           <!-- 四个角的 L 形标记 -->
@@ -261,6 +273,7 @@ import type { IImagePickerAdapter } from '@/adapters/IImagePickerAdapter'
 import { showMessage } from '@/utils'
 import type { ExerciseItem } from '@/types'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
+import { cameraStreamService } from '@/services/camera-stream-service'
 
 interface Props {
   modelValue: boolean
@@ -319,12 +332,6 @@ const isChatLoading = ref(false)
 // 根据当前tab返回对应的题目数据
 const currentQuestionData = computed(() => {
   const data = activeTab.value === 'photo' ? photoQuestionData.value : keywordQuestionData.value
-  console.log('[PhotoSearchDialog] [currentQuestionData] computed:', {
-    activeTab: activeTab.value,
-    photoQuestionData: photoQuestionData.value,
-    keywordQuestionData: keywordQuestionData.value,
-    result: data,
-  })
   return data
 })
 
@@ -334,6 +341,7 @@ const cameraStream = ref<MediaStream | null>(null)
 
 // 框选相关
 const cropCanvas = ref<HTMLCanvasElement | null>(null)
+const isFromGallery = ref(false) // 标记图片来源：true=相册，false=相机
 const cropRect = ref<{
   x: number
   y: number
@@ -348,6 +356,24 @@ const cropStartPos = ref({ x: 0, y: 0 })
 const dragOffset = ref({ x: 0, y: 0 })
 const resizeStartPos = ref({ x: 0, y: 0, rect: { x: 0, y: 0, width: 0, height: 0 } })
 const RESIZE_HANDLE_SIZE = 10 // 调整手柄的检测区域大小
+
+// 缩放和平移相关
+const imageScale = ref(1) // 图片缩放比例
+const imageOffsetX = ref(0) // 图片X偏移
+const imageOffsetY = ref(0) // 图片Y偏移
+const isPanning = ref(false) // 是否正在平移图片
+const panStartPos = ref({ x: 0, y: 0 }) // 平移起始位置
+const panStartOffset = ref({ x: 0, y: 0 }) // 平移起始偏移
+const MIN_SCALE = 0.5 // 最小缩放比例
+const MAX_SCALE = 5 // 最大缩放比例
+const SCALE_STEP = 0.1 // 缩放步长
+
+// 触摸缩放相关
+const touchDistance = ref(0) // 双指距离
+const touchCenter = ref({ x: 0, y: 0 }) // 双指中心点
+const isPinching = ref(false) // 是否正在捏合
+const pinchStartScale = ref(1) // 捏合开始时的缩放比例
+const pinchStartOffset = ref({ x: 0, y: 0 }) // 捏合开始时的偏移
 // 图片在 canvas 上的绘制信息（用于坐标映射）
 const imageDrawInfo = ref<{
   drawX: number
@@ -356,6 +382,13 @@ const imageDrawInfo = ref<{
   drawHeight: number
   originalWidth: number
   originalHeight: number
+} | null>(null)
+// 原始绘制信息（不受缩放和平移影响，用于计算缩放中心）
+const originalDrawInfo = ref<{
+  drawX: number
+  drawY: number
+  drawWidth: number
+  drawHeight: number
 } | null>(null)
 const currentImage = ref<{
   file: File
@@ -377,42 +410,136 @@ const cropOverlayStyle = computed(() => {
   }
 })
 
-// 启动相机预览
-// Android环境不使用Web相机预览（使用原生相机），Web环境启动预览
-const startCamera = async () => {
-  // Android环境：适配器会使用原生相机，不需要Web预览
-  if (isAndroid.value) {
-    showCameraPreview.value = false
-    return
-  }
+// 灰色蒙版样式（四个遮罩层）
+const getContainerSize = () => {
+  if (!cropCanvas.value) return { width: 0, height: 0 }
+  const container = cropCanvas.value.parentElement
+  if (!container) return { width: 0, height: 0 }
+  const rect = container.getBoundingClientRect()
+  return { width: rect.width, height: rect.height }
+}
 
-  // Web环境：启动相机预览（集成在对话框内）
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: 'environment', // 后置摄像头
-      },
-    })
-    cameraStream.value = stream
-    await nextTick()
-    if (videoElement.value) {
-      videoElement.value.srcObject = stream
+// 顶部遮罩样式
+const cropMaskTopStyle = computed(() => {
+  if (!cropRect.value) return {}
+  const { width } = getContainerSize()
+  return {
+    top: '0',
+    left: '0',
+    width: `${width}px`,
+    height: `${cropRect.value.y}px`,
+  }
+})
+
+// 底部遮罩样式
+const cropMaskBottomStyle = computed(() => {
+  if (!cropRect.value) return {}
+  const { width, height } = getContainerSize()
+  const bottomY = cropRect.value.y + cropRect.value.height
+  return {
+    top: `${bottomY}px`,
+    left: '0',
+    width: `${width}px`,
+    height: `${height - bottomY}px`,
+  }
+})
+
+// 左侧遮罩样式
+const cropMaskLeftStyle = computed(() => {
+  if (!cropRect.value) return {}
+  return {
+    top: `${cropRect.value.y}px`,
+    left: '0',
+    width: `${cropRect.value.x}px`,
+    height: `${cropRect.value.height}px`,
+  }
+})
+
+// 右侧遮罩样式
+const cropMaskRightStyle = computed(() => {
+  if (!cropRect.value) return {}
+  const { width } = getContainerSize()
+  const rightX = cropRect.value.x + cropRect.value.width
+  return {
+    top: `${cropRect.value.y}px`,
+    left: `${rightX}px`,
+    width: `${width - rightX}px`,
+    height: `${cropRect.value.height}px`,
+  }
+})
+
+// 启动相机预览
+// Android环境：使用实时相机流预览
+// Web环境：使用Web相机预览
+const startCamera = async () => {
+  if (isAndroid.value) {
+    // Android环境：启动实时相机流
+    try {
+      if (!videoElement.value) {
+        await nextTick()
+      }
+      
+      if (!videoElement.value) {
+        console.error('Video element not found')
+        return
+      }
+
+      showCameraPreview.value = true
+      const status = await cameraStreamService.startStream(videoElement.value, {
+        width: 1920,
+        height: 1080,
+        frameRate: 30,
+        bitrate: 4000000,
+      })
+
+      if (!status.isRunning) {
+        showMessage(status.error || '启动相机流失败', 'error')
+        showCameraPreview.value = false
+      }
+    } catch (error) {
+      console.error('启动Android相机流失败:', error)
+      showMessage('无法启动相机流，请检查权限设置', 'warning')
+      showCameraPreview.value = false
     }
-  } catch (error) {
-    console.error('启动相机失败:', error)
-    showMessage('无法访问相机，请检查权限设置', 'warning')
-    showCameraPreview.value = false
+  } else {
+    // Web环境：启动相机预览（集成在对话框内）
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment', // 后置摄像头
+        },
+      })
+      cameraStream.value = stream
+      await nextTick()
+      if (videoElement.value) {
+        videoElement.value.srcObject = stream
+      }
+    } catch (error) {
+      console.error('启动相机失败:', error)
+      showMessage('无法访问相机，请检查权限设置', 'warning')
+      showCameraPreview.value = false
+    }
   }
 }
 
 // 停止相机预览
-const stopCamera = () => {
-  if (cameraStream.value) {
-    cameraStream.value.getTracks().forEach((track) => track.stop())
-    cameraStream.value = null
-  }
-  if (videoElement.value) {
-    videoElement.value.srcObject = null
+const stopCamera = async () => {
+  if (isAndroid.value) {
+    // Android环境：停止实时相机流
+    try {
+      await cameraStreamService.stopStream()
+    } catch (error) {
+      console.error('停止Android相机流失败:', error)
+    }
+  } else {
+    // Web环境：停止Web相机预览
+    if (cameraStream.value) {
+      cameraStream.value.getTracks().forEach((track) => track.stop())
+      cameraStream.value = null
+    }
+    if (videoElement.value) {
+      videoElement.value.srcObject = null
+    }
   }
 }
 
@@ -445,8 +572,7 @@ const captureFromCamera = async (): Promise<string | null> => {
 }
 
 // 处理拍照
-// Android环境：使用适配器的原生相机
-// Web环境：使用对话框内的相机预览（适配器会创建独立模态框，这里使用自己的预览逻辑）
+// 所有环境都从实时相机流中截图（相机已在对话框打开时启动）
 const handleCapturePhoto = async () => {
   if (!selectedSubject.value) {
     showMessage('请先选择学科', 'warning')
@@ -454,37 +580,8 @@ const handleCapturePhoto = async () => {
   }
 
   try {
-    let base64DataUrl: string | null = null
-
-    // Android环境：直接使用适配器（适配器会调用原生相机）
-    if (isAndroid.value) {
-      const imageInfo = await adapter.captureFromCamera()
-      if (!imageInfo || !imageInfo.base64DataUrl) {
-        // 用户取消或拍照失败
-        return
-      }
-      base64DataUrl = imageInfo.base64DataUrl
-    } else {
-      // Web环境：使用对话框内的相机预览（保持自己的UI集成）
-      // 确保相机已启动
-      if (!cameraStream.value || !showCameraPreview.value) {
-        showCameraPreview.value = true
-        await startCamera()
-        await new Promise((resolve) => setTimeout(resolve, 300))
-      }
-
-      base64DataUrl = await captureFromCamera()
-      if (!base64DataUrl) {
-        showMessage('拍照失败', 'error')
-        return
-      }
-
-      // 停止相机预览
-      stopCamera()
-      showCameraPreview.value = false
-    }
-
-    // 处理拍照结果
+    // 直接从实时相机流中截图（相机已在对话框打开时启动）
+    const base64DataUrl = await captureFromCamera()
     if (!base64DataUrl) {
       showMessage('拍照失败', 'error')
       return
@@ -500,7 +597,11 @@ const handleCapturePhoto = async () => {
     }
     imagePreview.value = base64DataUrl
 
-    // 进入框选模式
+    // 标记图片来源为相机
+    isFromGallery.value = false
+
+    // 进入框选模式（隐藏相机预览，画面直接呈现，但相机流继续运行）
+    showCameraPreview.value = false
     showCropView.value = true
     await nextTick()
     initCropCanvas()
@@ -535,6 +636,9 @@ const handleSelectFromGallery = async () => {
       }
       imagePreview.value = imageInfo.base64DataUrl
 
+      // 标记图片来源为相册
+      isFromGallery.value = true
+
       // 进入框选模式
       showCropView.value = true
       await nextTick()
@@ -561,6 +665,47 @@ const base64ToFile = (base64: string, filename: string): Promise<File> => {
   })
 }
 
+// 绘制图片到画布（支持缩放和平移）
+const drawImage = () => {
+  if (!cropCanvas.value || !currentImage.value || !originalDrawInfo.value) return
+
+  const canvas = cropCanvas.value
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  const img = new Image()
+  img.onload = () => {
+    const { drawX, drawY, drawWidth, drawHeight } = originalDrawInfo.value!
+
+    // 计算应用缩放后的尺寸和位置（以中心为缩放点）
+    const scaledWidth = drawWidth * imageScale.value
+    const scaledHeight = drawHeight * imageScale.value
+    const centerX = drawX + drawWidth / 2
+    const centerY = drawY + drawHeight / 2
+    const scaledX = centerX - scaledWidth / 2 + imageOffsetX.value
+    const scaledY = centerY - scaledHeight / 2 + imageOffsetY.value
+
+    // 清空画布
+    ctx.fillStyle = '#000'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    // 绘制图片（应用缩放和平移）
+    ctx.drawImage(img, scaledX, scaledY, scaledWidth, scaledHeight)
+
+    // 更新绘制信息（用于坐标映射）
+    if (imageDrawInfo.value) {
+      imageDrawInfo.value = {
+        ...imageDrawInfo.value,
+        drawX: scaledX,
+        drawY: scaledY,
+        drawWidth: scaledWidth,
+        drawHeight: scaledHeight,
+      }
+    }
+  }
+  img.src = currentImage.value.preview
+}
+
 // 初始化裁剪画布
 const initCropCanvas = () => {
   if (!cropCanvas.value || !currentImage.value) return
@@ -568,6 +713,11 @@ const initCropCanvas = () => {
   const canvas = cropCanvas.value
   const ctx = canvas.getContext('2d')
   if (!ctx) return
+
+  // 重置缩放和平移
+  imageScale.value = 1
+  imageOffsetX.value = 0
+  imageOffsetY.value = 0
 
   // 设置画布大小为全屏（与容器相同）
   const container = canvas.parentElement
@@ -583,7 +733,6 @@ const initCropCanvas = () => {
 
   const img = new Image()
   img.onload = () => {
-    // 计算图片的缩放和位置，使其以 cover 模式填充整个 canvas
     const canvasAspect = canvas.width / canvas.height
     const imgAspect = img.width / img.height
 
@@ -592,16 +741,41 @@ const initCropCanvas = () => {
     let drawX = 0
     let drawY = 0
 
-    if (imgAspect > canvasAspect) {
-      // 图片更宽，以高度为准，左右裁剪
-      drawHeight = canvas.height
-      drawWidth = drawHeight * imgAspect
-      drawX = (canvas.width - drawWidth) / 2
+    // 根据图片来源决定使用 cover 还是 contain 模式
+    if (isFromGallery.value) {
+      // 从相册加载：使用 contain 模式，完整显示图片，保持宽高比
+      if (imgAspect > canvasAspect) {
+        // 图片更宽，以宽度为准，上下留白
+        drawWidth = canvas.width
+        drawHeight = drawWidth / imgAspect
+        drawY = (canvas.height - drawHeight) / 2
+      } else {
+        // 图片更高，以高度为准，左右留白
+        drawHeight = canvas.height
+        drawWidth = drawHeight * imgAspect
+        drawX = (canvas.width - drawWidth) / 2
+      }
     } else {
-      // 图片更高，以宽度为准，上下裁剪
-      drawWidth = canvas.width
-      drawHeight = drawWidth / imgAspect
-      drawY = (canvas.height - drawHeight) / 2
+      // 从相机拍摄：使用 cover 模式，填充整个 canvas
+      if (imgAspect > canvasAspect) {
+        // 图片更宽，以高度为准，左右裁剪
+        drawHeight = canvas.height
+        drawWidth = drawHeight * imgAspect
+        drawX = (canvas.width - drawWidth) / 2
+      } else {
+        // 图片更高，以宽度为准，上下裁剪
+        drawWidth = canvas.width
+        drawHeight = drawWidth / imgAspect
+        drawY = (canvas.height - drawHeight) / 2
+      }
+    }
+
+    // 保存原始绘制信息（不受缩放和平移影响）
+    originalDrawInfo.value = {
+      drawX,
+      drawY,
+      drawWidth,
+      drawHeight,
     }
 
     // 保存图片绘制信息（用于坐标映射）
@@ -614,12 +788,8 @@ const initCropCanvas = () => {
       originalHeight: img.height,
     }
 
-    // 清空画布
-    ctx.fillStyle = '#000'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    // 绘制图片（cover 模式）
-    ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
+    // 绘制图片
+    drawImage()
 
     // 初始化时不创建裁剪框，等待用户绘制
     cropRect.value = null
@@ -703,6 +873,11 @@ const startCrop = (e: MouseEvent | TouchEvent) => {
   // 阻止默认行为，避免页面滚动等
   e.preventDefault()
 
+  // 如果是触摸事件且有两个手指，不处理（交给触摸手势处理）
+  if ('touches' in e && e.touches.length === 2) {
+    return
+  }
+
   const canvas = cropCanvas.value
   const rect = canvas.getBoundingClientRect()
   const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
@@ -710,6 +885,18 @@ const startCrop = (e: MouseEvent | TouchEvent) => {
 
   const clickX = clientX - rect.left
   const clickY = clientY - rect.top
+
+  // 如果图片已放大，且点击不在裁剪框内，则进入平移模式
+  if (imageScale.value > 1) {
+    const inCropRect = cropRect.value && isPointInCropRect(clickX, clickY)
+    const inResizeHandle = cropRect.value ? getResizeHandle(clickX, clickY) !== null : false
+    if (!inCropRect && !inResizeHandle) {
+      isPanning.value = true
+      panStartPos.value = { x: clickX, y: clickY }
+      panStartOffset.value = { x: imageOffsetX.value, y: imageOffsetY.value }
+      return
+    }
+  }
 
   // 首先检测是否在调整区域
   const handle = cropRect.value ? getResizeHandle(clickX, clickY) : null
@@ -754,6 +941,40 @@ const startCrop = (e: MouseEvent | TouchEvent) => {
 // 更新裁剪（绘制、拖动或调整大小）
 const updateCrop = (e: MouseEvent | TouchEvent) => {
   if (!cropCanvas.value) return
+
+  // 如果是触摸事件且有两个手指，不处理（交给触摸手势处理）
+  if ('touches' in e && e.touches.length === 2) {
+    return
+  }
+
+  // 如果正在平移图片
+  if (isPanning.value) {
+    e.preventDefault()
+    const canvas = cropCanvas.value
+    const rect = canvas.getBoundingClientRect()
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+    const currentX = clientX - rect.left
+    const currentY = clientY - rect.top
+
+    const deltaX = currentX - panStartPos.value.x
+    const deltaY = currentY - panStartPos.value.y
+
+    imageOffsetX.value = panStartOffset.value.x + deltaX
+    imageOffsetY.value = panStartOffset.value.y + deltaY
+
+    // 限制平移范围，防止图片移出画布太远
+    if (imageDrawInfo.value) {
+      const { drawWidth, drawHeight } = imageDrawInfo.value
+      const maxOffsetX = Math.max(0, (drawWidth * imageScale.value - canvas.width) / 2)
+      const maxOffsetY = Math.max(0, (drawHeight * imageScale.value - canvas.height) / 2)
+      imageOffsetX.value = Math.max(-maxOffsetX, Math.min(maxOffsetX, imageOffsetX.value))
+      imageOffsetY.value = Math.max(-maxOffsetY, Math.min(maxOffsetY, imageOffsetY.value))
+    }
+
+    drawImage()
+    return
+  }
 
   // 只在拖动、绘制或调整大小状态下更新
   if (!isDragging.value && !isCropping.value && !isResizing.value) return
@@ -887,6 +1108,7 @@ const endCrop = () => {
   isCropping.value = false
   isDragging.value = false
   isResizing.value = false
+  isPanning.value = false
   resizeHandle.value = null
 
   // 如果绘制出的框太小，清除它（允许重新绘制）
@@ -926,10 +1148,162 @@ const handleMouseMove = (e: MouseEvent) => {
 
 // 处理鼠标离开
 const handleMouseLeave = () => {
-  if (!isDragging.value && !isCropping.value && !isResizing.value) {
+  if (!isDragging.value && !isCropping.value && !isResizing.value && !isPanning.value) {
     endCrop()
   }
   currentCursor.value = 'crosshair'
+}
+
+// 处理滚轮缩放
+const handleWheel = (e: WheelEvent) => {
+  if (!cropCanvas.value || !originalDrawInfo.value) return
+
+  e.preventDefault()
+
+  const canvas = cropCanvas.value
+  const rect = canvas.getBoundingClientRect()
+  const mouseX = e.clientX - rect.left
+  const mouseY = e.clientY - rect.top
+
+  // 计算缩放增量
+  const delta = e.deltaY > 0 ? -SCALE_STEP : SCALE_STEP
+  const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, imageScale.value + delta))
+
+  // 如果缩放比例没有变化，直接返回
+  if (newScale === imageScale.value) return
+
+  // 计算鼠标位置相对于图片中心的比例
+  const { drawX, drawY, drawWidth, drawHeight } = originalDrawInfo.value
+  const centerX = drawX + drawWidth / 2
+  const centerY = drawY + drawHeight / 2
+  const relativeX = (mouseX - centerX) / drawWidth
+  const relativeY = (mouseY - centerY) / drawHeight
+
+  // 计算缩放后的偏移，使鼠标指向的点保持在同一位置
+  const oldScaledWidth = drawWidth * imageScale.value
+  const oldScaledHeight = drawHeight * imageScale.value
+  const newScaledWidth = drawWidth * newScale
+  const newScaledHeight = drawHeight * newScale
+
+  imageOffsetX.value += (oldScaledWidth - newScaledWidth) * relativeX
+  imageOffsetY.value += (oldScaledHeight - newScaledHeight) * relativeY
+
+  imageScale.value = newScale
+
+  // 限制平移范围
+  const maxOffsetX = Math.max(0, (drawWidth * newScale - canvas.width) / 2)
+  const maxOffsetY = Math.max(0, (drawHeight * newScale - canvas.height) / 2)
+  imageOffsetX.value = Math.max(-maxOffsetX, Math.min(maxOffsetX, imageOffsetX.value))
+  imageOffsetY.value = Math.max(-maxOffsetY, Math.min(maxOffsetY, imageOffsetY.value))
+
+  drawImage()
+}
+
+// 计算两点之间的距离
+const getDistance = (x1: number, y1: number, x2: number, y2: number): number => {
+  return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2))
+}
+
+// 处理触摸开始
+const handleTouchStart = (e: TouchEvent) => {
+  if (!cropCanvas.value) return
+
+  e.preventDefault()
+
+  if (e.touches.length === 2) {
+    // 双指捏合开始
+    isPinching.value = true
+    const touch1 = e.touches[0]
+    const touch2 = e.touches[1]
+    const canvas = cropCanvas.value
+    const rect = canvas.getBoundingClientRect()
+
+    touchDistance.value = getDistance(
+      touch1.clientX,
+      touch1.clientY,
+      touch2.clientX,
+      touch2.clientY
+    )
+    touchCenter.value = {
+      x: (touch1.clientX + touch2.clientX) / 2 - rect.left,
+      y: (touch1.clientY + touch2.clientY) / 2 - rect.top,
+    }
+    pinchStartScale.value = imageScale.value
+    pinchStartOffset.value = { x: imageOffsetX.value, y: imageOffsetY.value }
+  } else if (e.touches.length === 1) {
+    // 单指触摸，交给 startCrop 处理
+    startCrop(e)
+  }
+}
+
+// 处理触摸移动
+const handleTouchMove = (e: TouchEvent) => {
+  if (!cropCanvas.value || !originalDrawInfo.value) return
+
+  e.preventDefault()
+
+  if (e.touches.length === 2 && isPinching.value) {
+    // 双指捏合缩放
+    const touch1 = e.touches[0]
+    const touch2 = e.touches[1]
+    const canvas = cropCanvas.value
+
+    const newDistance = getDistance(
+      touch1.clientX,
+      touch1.clientY,
+      touch2.clientX,
+      touch2.clientY
+    )
+    const scaleRatio = newDistance / touchDistance.value
+    const newScale = Math.max(
+      MIN_SCALE,
+      Math.min(MAX_SCALE, pinchStartScale.value * scaleRatio)
+    )
+
+    // 计算双指中心点相对于图片中心的比例
+    const { drawX, drawY, drawWidth, drawHeight } = originalDrawInfo.value
+    const centerX = drawX + drawWidth / 2
+    const centerY = drawY + drawHeight / 2
+    const relativeX = (touchCenter.value.x - centerX) / drawWidth
+    const relativeY = (touchCenter.value.y - centerY) / drawHeight
+
+    // 计算缩放后的偏移
+    const oldScaledWidth = drawWidth * pinchStartScale.value
+    const oldScaledHeight = drawHeight * pinchStartScale.value
+    const newScaledWidth = drawWidth * newScale
+    const newScaledHeight = drawHeight * newScale
+
+    imageOffsetX.value =
+      pinchStartOffset.value.x + (oldScaledWidth - newScaledWidth) * relativeX
+    imageOffsetY.value =
+      pinchStartOffset.value.y + (oldScaledHeight - newScaledHeight) * relativeY
+
+    imageScale.value = newScale
+
+    // 限制平移范围
+    const maxOffsetX = Math.max(0, (drawWidth * newScale - canvas.width) / 2)
+    const maxOffsetY = Math.max(0, (drawHeight * newScale - canvas.height) / 2)
+    imageOffsetX.value = Math.max(-maxOffsetX, Math.min(maxOffsetX, imageOffsetX.value))
+    imageOffsetY.value = Math.max(-maxOffsetY, Math.min(maxOffsetY, imageOffsetY.value))
+
+    drawImage()
+  } else if (e.touches.length === 1) {
+    // 单指触摸，交给 updateCrop 处理
+    updateCrop(e)
+  }
+}
+
+// 处理触摸结束
+const handleTouchEnd = (e: TouchEvent) => {
+  if (e.touches.length === 0) {
+    // 所有手指都离开
+    isPinching.value = false
+    endCrop()
+  } else if (e.touches.length === 1 && isPinching.value) {
+    // 从双指变为单指，结束捏合，开始单指操作
+    isPinching.value = false
+    touchDistance.value = 0
+  }
 }
 
 // 处理重拍
@@ -941,19 +1315,20 @@ const handleRetake = () => {
   showDrawer.value = false // 关闭抽屉
   cropRect.value = null
   imageDrawInfo.value = null
+  originalDrawInfo.value = null
   photoQuestionData.value = null
   isCropping.value = false
   isDragging.value = false
+  isPanning.value = false
+  isPinching.value = false
+  imageScale.value = 1
+  imageOffsetX.value = 0
+  imageOffsetY.value = 0
 
   // 注意：不再需要恢复原始题目列表，因为我们没有修改全局 questionStore
 
-  // 根据环境重新启动相机预览或准备拍照
-  if (isAndroid.value) {
-    showCameraPreview.value = false
-  } else {
-    showCameraPreview.value = true
-    startCamera()
-  }
+  // 重新显示相机预览（相机已在对话框打开时启动，无需重新启动）
+  showCameraPreview.value = true
 
   emit('retake')
 }
@@ -1152,13 +1527,8 @@ const handleCloseDrawer = () => {
   // 恢复原始题目列表
   restoreOriginalQuestions()
 
-  // 根据环境重新启动相机预览或准备拍照
-  if (isAndroid.value) {
-    showCameraPreview.value = false
-  } else {
-    showCameraPreview.value = true
-    startCamera()
-  }
+  // 重新显示相机预览（相机已在对话框打开时启动，无需重新启动）
+  showCameraPreview.value = true
 }
 
 // 处理关闭
@@ -1225,16 +1595,11 @@ const onChatInputBlur = () => {
 // 监听对话框打开/关闭
 watch(isOpen, (newValue) => {
   if (newValue) {
-    // 打开时启动相机预览（Web环境）或准备拍照（Android环境）
+    // 打开时启动相机预览（Android环境使用实时相机流，Web环境使用Web相机预览）
     selectedSubject.value = props.subject || ''
     
-    // 只在Web环境中启动相机预览
-    if (!isAndroid.value) {
-      startCamera()
-    } else {
-      // Android环境不显示相机预览
-      showCameraPreview.value = false
-    }
+    // 所有环境都启动相机预览
+    startCamera()
 
     // 如果有传入的图片数据，直接进入框选模式
     if (props.imageData?.base64DataUrl) {
@@ -1254,8 +1619,7 @@ watch(isOpen, (newValue) => {
   } else {
     // 关闭时停止相机并重置状态
     stopCamera()
-    // 根据环境设置相机预览状态
-    showCameraPreview.value = !isAndroid.value
+    showCameraPreview.value = false
     showCropView.value = false
     showResultView.value = false
     showDrawer.value = false
@@ -1263,8 +1627,14 @@ watch(isOpen, (newValue) => {
     imagePreview.value = ''
     cropRect.value = null
     imageDrawInfo.value = null
+    originalDrawInfo.value = null
     isCropping.value = false
     isDragging.value = false
+    isPanning.value = false
+    isPinching.value = false
+    imageScale.value = 1
+    imageOffsetX.value = 0
+    imageOffsetY.value = 0
     croppedImageBase64.value = ''
     restoreOriginalQuestions()
   }
@@ -1391,10 +1761,19 @@ onUnmounted(() => {
   }
 }
 
+// 灰色蒙版样式
+.crop-mask {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.5); /* 灰色半透明蒙版 */
+  pointer-events: none;
+  z-index: 1;
+}
+
 .crop-overlay {
   position: absolute;
-  background: rgba(255, 255, 255, 0.5); /* 白色半透明背景，允许底层文字隐约可见 */
+  background: transparent; /* 框选区域透明，显示清晰的图片 */
   pointer-events: none;
+  z-index: 2; /* 确保框选区域在蒙版之上 */
 }
 
 /* 裁剪框四个角的 L 形标记 */

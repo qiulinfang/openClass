@@ -66,15 +66,7 @@ export class ChatStorageService {
       const key = `chat_history_${questionId}`
       const serializedData = this.serializeChatData(data)
 
-      console.log(`[CHAT_STORAGE] 💾 保存聊天记录:`, {
-        questionId,
-        key,
-        messageCount: serializedData.messages.length,
-        chatResponseTimes: serializedData.chatResponseTimes,
-      })
-
       await AsyncStorage.setItem(key, JSON.stringify(serializedData))
-      console.log(`[CHAT_STORAGE] ✅ 聊天记录保存成功: ${questionId}`)
     } catch (error) {
       console.error(`[CHAT_STORAGE] ❌ 保存聊天记录失败:`, error)
       throw error
@@ -87,20 +79,13 @@ export class ChatStorageService {
   async loadChatHistory(questionId: string): Promise<ChatHistoryData | null> {
     try {
       const key = `chat_history_${questionId}`
-      console.log(`[CHAT_STORAGE] 📥 加载聊天记录: ${questionId}`)
 
       const data = await AsyncStorage.getItem(key)
       if (!data) {
-        console.log(`[CHAT_STORAGE] 📭 无聊天记录: ${questionId}`)
         return null
       }
 
       const parsedData = JSON.parse(data) as ChatHistoryData
-      console.log(`[CHAT_STORAGE] ✅ 聊天记录加载成功:`, {
-        questionId,
-        messageCount: parsedData.messages.length,
-        chatResponseTimes: parsedData.chatResponseTimes,
-      })
 
       return parsedData
     } catch (error) {
@@ -116,7 +101,6 @@ export class ChatStorageService {
     try {
       const key = `chat_history_${questionId}`
       await AsyncStorage.removeItem(key)
-      console.log(`[CHAT_STORAGE] 🗑️ 聊天记录已删除: ${questionId}`)
     } catch (error) {
       console.error(`[CHAT_STORAGE] ❌ 删除聊天记录失败:`, error)
       throw error
@@ -143,7 +127,6 @@ export class ChatStorageService {
     try {
       const keys = await this.getAllChatHistoryKeys()
       await AsyncStorage.multiRemove(keys)
-      console.log(`[CHAT_STORAGE] 🧹 已清空所有聊天记录: ${keys.length}个`)
     } catch (error) {
       console.error(`[CHAT_STORAGE] ❌ 清空聊天记录失败:`, error)
       throw error

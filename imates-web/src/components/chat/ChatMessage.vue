@@ -358,6 +358,7 @@ const emit = defineEmits<{
   'forward-message': [message: ChatBubble]
   'enter-multi-select': []
   'edit-message': [message: ChatBubble]
+  'image-loaded': [] // 图片加载完成事件，用于刷新滚动容器
 }>()
 
 // 长按相关状态
@@ -1348,6 +1349,11 @@ const processMarkdownImages = (container: HTMLElement) => {
     // 第7步：添加加载成功处理
     imgElement.addEventListener('load', () => {
       imgElement.classList.remove('image-error')
+      // 图片加载完成后，通知父组件刷新滚动容器
+      // 使用 nextTick 确保 DOM 更新完成后再刷新
+      nextTick(() => {
+        emit('image-loaded')
+      })
     })
   })
   
@@ -1660,7 +1666,7 @@ onUnmounted(() => {
 /* Markdown 渲染出的图片样式 */
 :deep(.message-text img.markdown-image) {
   max-width: 100%;
-  max-height: 400px;
+  height: 200px;
   height: auto;
   border-radius: 8px;
   cursor: pointer;

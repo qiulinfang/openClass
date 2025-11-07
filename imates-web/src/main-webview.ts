@@ -1,9 +1,9 @@
-/**
+﻿/**
  * WebView 专用入口文件
  * 支持单独页面构建
  */
 
-import { createApp } from 'vue'
+import { createApp, version as vueVersion } from 'vue'
 import { createPinia } from 'pinia'
 import { Quasar } from 'quasar'
 import router from './router'
@@ -48,14 +48,9 @@ async function createWebViewApp() {
   await initializeAppConfig()
   
   // 提前初始化 IndexedDB（并行加载，不阻塞应用启动）
-  const initStartTime = performance.now()
-  console.log('[APP] 🔄 提前初始化 IndexedDB')
   initQuestionStorage().then(() => {
-    const initDuration = performance.now() - initStartTime
-    console.log(`[APP] ✅ IndexedDB 提前初始化完成 (耗时: ${initDuration.toFixed(2)}ms)`)
   }).catch((error) => {
-    const initDuration = performance.now() - initStartTime
-    console.error(`[APP] ❌ IndexedDB 提前初始化失败 (耗时: ${initDuration.toFixed(2)}ms):`, error)
+    console.error(`[APP] ❌ IndexedDB 提前初始化失败:`, error)
   })
   
   const PageComponent = await loadPageComponent()
@@ -76,6 +71,15 @@ async function createWebViewApp() {
   
   // 挂载应用
   app.mount('#app')
+  
+  // 将Vue挂载到window对象，供Android端检测应用是否就绪
+  // Android端通过 window.Vue && window.Vue.version 来检测Vue应用是否就绪
+  if (typeof window !== 'undefined') {
+    (window as any).Vue = {
+      version: vueVersion
+    }
+    console.log('[APP] Vue已挂载到window对象，版本:', vueVersion)
+  }
 }
 
 // 启动应用

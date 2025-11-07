@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 缩略图异步生成队列
  * 在后台异步生成PDF、图片、HTML和视频缩略图，不阻塞主流程
  */
@@ -40,7 +40,6 @@ class ThumbnailQueue {
   public addTask(task: ThumbnailTask): void {
     // 第1步：检查是否已经在处理或队列中
     if (this.processingFileIds.has(task.fileId)) {
-      console.log(`[缩略图队列] 文件 ${task.fileName} 已在处理中，跳过`)
       return
     }
     
@@ -196,7 +195,6 @@ class ThumbnailQueue {
       }
       
       if (recoveredCount > 0) {
-        console.log(`[缩略图恢复] 发现${recoveredCount}个文件缺少缩略图，已加入队列`)
       }
       
     } catch (error) {

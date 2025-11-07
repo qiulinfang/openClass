@@ -38,12 +38,14 @@ export interface ChatBubble {
   sender: 'user' | 'ai' | 'teacher'
   type: 'user' | 'ai' | 'teacher'
   timestamp: string
-  messageType?: 'text' | 'voice' | 'image' | 'chat_record'
+  messageType?: 'text' | 'voice' | 'image' | 'chat_record' | 'system' // 场景39：支持系统消息类型
   isStreaming?: boolean
   isError?: boolean // 标记是否为错误消息
   canRetry?: boolean // 标记是否可以重发
   retryCount?: number // 重试次数
   originalMessage?: string // 原始消息内容（用于重发）
+  isRecalled?: boolean // 场景38：标记消息是否已撤回
+  isSystemMessage?: boolean // 场景39：标记是否为系统消息（不保存到历史）
   voiceData?: {
     filePath: string
     duration: number
@@ -55,6 +57,7 @@ export interface ChatBubble {
     height: number
     fileSize: number
     base64DataUrl?: string  // base64数据URL，用于UI显示
+    isLargeImage?: boolean  // 标记是否为大图片
   }
   chatRecordData?: {
     messages: ChatBubble[]

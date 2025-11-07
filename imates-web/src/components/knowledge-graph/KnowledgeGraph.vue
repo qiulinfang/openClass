@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="knowledge-graph-container" ref="containerRef" @click="handleContainerClick">
     <div class="knowledge-graph" ref="graphRef">
       <!-- 背景圆形区域表示包含关系 -->
@@ -58,6 +58,7 @@ import { showMessage } from '../../utils'
 import { apiService } from '../../services/api-service'
 import { getCurrentUserIdOrDefault } from '../../utils/user/userId'
 import type { KnowledgeGraphDebugParams } from '../debug/KnowledgeGraphDebugPanel.vue'
+import { queryShijingshanKnowledgeId } from '../../utils/business/shijingshan-knowledge-utils'
 
 interface ChapterNode {
   id: string
@@ -93,7 +94,6 @@ const props = withDefaults(defineProps<Props>(), {
 
 // 调试：监听props变化
 watch(() => props.textbookRecordId, (newValue) => {
-  console.log('KnowledgeGraph 接收到的 textbookRecordId:', newValue)
 }, { immediate: true })
 
 // 定义事件
@@ -431,9 +431,6 @@ const handleToggleMenu = (nodeId: string) => {
 
 // 处理去学习
 const handleLearn = async (node: { id: string; name: string; level?: number | null }) => {
-  console.log('去学习:', node)
-  console.log('当前教材ID:', props.textbookRecordId)
-  console.log('教材ID类型:', typeof props.textbookRecordId)
   activeNodeId.value = null // 关闭气泡框
   
   // 检查是否是圆周节点（通过检查节点是否在圆周节点列表中）
@@ -471,8 +468,6 @@ const handleLearn = async (node: { id: string; name: string; level?: number | nu
     
     // 发出保存状态事件，让父组件保存当前页面状态
     emit('save-state')
-    console.log('props.textbookRecordId', props.textbookRecordId)
-    
     // 触发学习事件，让父组件打开对话框
     emit('learn', node)
   } catch (error) {
@@ -487,8 +482,6 @@ const handleLearn = async (node: { id: string; name: string; level?: number | nu
 // 处理去练习 - 使用API查询知识点ID
 const handlePractice = async (node: { id: string; name: string; level?: number | null }) => {
   activeNodeId.value = null // 关闭气泡框
-  console.log('去练习:', node)
-  
   // 检查必要的参数
   if (!props.textbookId || !props.subject) {
     showMessage('缺少教材信息，无法查询习题', 'warning')
@@ -496,24 +489,39 @@ const handlePractice = async (node: { id: string; name: string; level?: number |
   }
   
   try {
-    // 构建API请求（参考Android实现）
-    const request = {
-      subject: props.subject === '数学' ? 'math' : props.subject === '生物' ? 'biology' : props.subject.toLowerCase(),
-      param: [{
-        textbook_id: props.textbookId,
-        section_id: node.id
-      }]
+    // 第1步：检查是否是石景山学校的特殊业务逻辑
+    const shijingshanKnowledgeId = await queryShijingshanKnowledgeId(
+      props.textbookId,
+      node.id,
+      node.name,
+      props.subject === '数学' ? 'math' : props.subject === '生物' ? 'biology' : props.subject.toLowerCase()
+    )
+    
+    let knowledgeList: string
+    
+    if (shijingshanKnowledgeId) {
+      // 使用石景山学校特殊逻辑获取的知识点ID
+      knowledgeList = shijingshanKnowledgeId
+    } else {
+      // 使用默认逻辑：构建API请求（参考Android实现）
+      const request = {
+        subject: props.subject === '数学' ? 'math' : props.subject === '生物' ? 'biology' : props.subject.toLowerCase(),
+        param: [{
+          textbook_id: props.textbookId,
+          section_id: node.id
+        }]
+      }
+      
+      // 调用API查询知识点ID
+      knowledgeList = await apiService.queryKnowledgeIdsByNodeId(request)
     }
     
-    // 调用API查询知识点ID
-    const knowledgeList = await apiService.queryKnowledgeIdsByNodeId(request)
-    
     // 跳转到习题查找页面
-    // 第1步：判断科目类型（支持中文标签和英文值）
+    // 第2步：判断科目类型（支持中文标签和英文值）
     const isBiology = props.subject === '生物' || props.subject === 'biology'
     const isMath = props.subject === '数学' || props.subject === 'math'
     
-    // 第2步：根据科目类型设置路由参数
+    // 第3步：根据科目类型设置路由参数
     const subjectParam = isBiology ? 'SUBJECT_BIOLOGY' : isMath ? 'SUBJECT_MATH' : 'SUBJECT_MATH'
     
     router.push({

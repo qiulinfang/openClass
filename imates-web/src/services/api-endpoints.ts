@@ -1,4 +1,4 @@
-/**
+﻿/**
  * API 端点配置
  * 基于Android原生ApiUrl.java的配置，保持与原生接口一致
  */
@@ -128,7 +128,6 @@ export function getApiUrl(endpoint: string): string {
   
   // 如果基础URL为空，直接返回endpoint（使用相对路径，通过Vite代理转发）
   if (!currentBaseUrl) {
-    console.log('使用相对路径，通过Vite代理转发:', endpoint)
     return endpoint
   }
   

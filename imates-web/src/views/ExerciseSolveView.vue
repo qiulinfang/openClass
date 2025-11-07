@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="exercise-solve-container">
     <!-- 顶部工具栏 -->
     <div class="app-header">
@@ -596,8 +596,6 @@ const scrollToBottom = () => {
 onMounted(async () => {
     // 静默初始化，不显示加载状态
     try {
-      console.log('[ExerciseSolveView] 开始初始化')
-      
       // 初始化用户store
       await userStore.initializeStore()
       
@@ -605,13 +603,6 @@ onMounted(async () => {
       const routeSubject = route.query.subject as string | undefined
       const questionIdsParam = route.query.questionIds as string | undefined
       const questionIdParam = route.query.questionId as string | undefined
-      
-      console.log('[ExerciseSolveView] 路由参数:', {
-        subject: routeSubject,
-        questionIds: questionIdsParam,
-        questionId: questionIdParam
-      })
-      
       // 将 Subject 枚举值转换为科目名称
       // 注意：Subject 枚举的值就是字符串，所以可以直接使用字符串作为键
       const subjectMap: Record<string, string> = {
@@ -650,12 +641,6 @@ onMounted(async () => {
           // 如果不是标准格式，尝试从科目名称反向映射
           subjectFilterValue = reverseSubjectMap[subjectName] || null
         }
-        
-        console.log('[ExerciseSolveView] 使用路由参数中的科目:', {
-          routeSubject,
-          subjectName,
-          subjectFilterValue
-        })
       } else {
         // 否则从用户store中获取科目
         const userSubject = userStore.subject
@@ -670,23 +655,15 @@ onMounted(async () => {
             // 否则尝试从科目名称反向映射
             subjectFilterValue = reverseSubjectMap[subjectName] || null
           }
-          
-          console.log('[ExerciseSolveView] 使用用户store中的科目:', {
-            userSubject,
-            subjectName,
-            subjectFilterValue
-          })
         }
       }
       
       // 设置筛选面板的学科过滤下拉框
       if (subjectFilterValue) {
         selectedSubjectFilter.value = subjectFilterValue
-        console.log('[ExerciseSolveView] 已设置筛选面板学科过滤为:', subjectFilterValue)
       } else {
         // 如果没有设置具体科目，设置为全部学科（null）
         selectedSubjectFilter.value = null
-        console.log('[ExerciseSolveView] 筛选面板学科过滤设置为全部学科')
       }
       
       // 如果提供了 questionIds 参数，说明是刚添加的题目，需要从服务器刷新
@@ -696,23 +673,11 @@ onMounted(async () => {
       // 根据筛选面板的学科过滤值决定加载方式
       if (selectedSubjectFilter.value === null) {
         // 全部学科：加载所有学科的题目
-        console.log('[ExerciseSolveView] 加载所有学科的题目列表:', {
-          useLocalFirst,
-          hasQuestionIds: !!questionIdsParam
-        })
         await questionStore.fetchAllSubjectsQuestions(useLocalFirst)
       } else {
         // 具体学科：加载指定学科的题目
-        console.log('[ExerciseSolveView] 加载题目列表:', {
-          subject: subjectName,
-          useLocalFirst,
-          hasQuestionIds: !!questionIdsParam
-        })
         await questionStore.fetchQuestions(subjectName, useLocalFirst)
       }
-      
-      console.log('[ExerciseSolveView] 题目列表加载完成，题目数量:', questions.value.length)
-      
       // 处理题目定位
       let targetQuestionId: string | undefined
       
@@ -721,39 +686,24 @@ onMounted(async () => {
         const questionIds = questionIdsParam.split(',').filter(id => id.trim())
         if (questionIds.length > 0) {
           targetQuestionId = questionIds[0]
-          console.log('[ExerciseSolveView] 从 questionIds 参数中获取目标题目ID:', targetQuestionId)
-          
           // 验证这些题目是否在列表中
           const foundIds = questionIds.filter(id => 
             questions.value.some(q => q.bmNo === id || q.id === id)
           )
-          console.log('[ExerciseSolveView] 题目验证结果:', {
-            total: questionIds.length,
-            found: foundIds.length,
-            foundIds
-          })
-          
           if (foundIds.length < questionIds.length) {
             console.warn('[ExerciseSolveView] ⚠️ 部分题目未在列表中，可能需要等待服务器同步')
             // 如果部分题目未找到，尝试再次从服务器刷新
-            console.log('[ExerciseSolveView] 重新从服务器刷新题目列表')
             await questionStore.fetchQuestions(subjectName, false)
             
             // 再次验证
             const foundIdsAfterRefresh = questionIds.filter(id => 
               questions.value.some(q => q.bmNo === id || q.id === id)
             )
-            console.log('[ExerciseSolveView] 刷新后题目验证结果:', {
-              total: questionIds.length,
-              found: foundIdsAfterRefresh.length,
-              foundIds: foundIdsAfterRefresh
-            })
           }
         }
       } else if (questionIdParam) {
         // 使用单个 questionId
         targetQuestionId = questionIdParam
-        console.log('[ExerciseSolveView] 从 questionId 参数中获取目标题目ID:', targetQuestionId)
       }
       
       // 定位到目标题目
@@ -764,18 +714,11 @@ onMounted(async () => {
         
         // 在题目列表中查找对应的题目索引
         const targetIndex = questions.value.findIndex(q => q.id === targetQuestionId || q.bmNo === targetQuestionId)
-        console.log('[ExerciseSolveView] 查找题目索引:', {
-          targetQuestionId,
-          targetIndex,
-          found: targetIndex >= 0
-        })
-        
         if (targetIndex >= 0) {
           // 等待组件完全渲染后再定位
           await nextTick()
           setTimeout(() => {
             if (questionListRef.value && typeof questionListRef.value.scrollToQuestionAndSelect === 'function') {
-              console.log('[ExerciseSolveView] 定位到题目索引:', targetIndex)
               questionListRef.value.scrollToQuestionAndSelect(targetIndex)
             }
           }, 500)
@@ -783,8 +726,6 @@ onMounted(async () => {
           console.warn('[ExerciseSolveView] ⚠️ 未找到目标题目，ID:', targetQuestionId)
         }
       }
-      
-      console.log('[ExerciseSolveView] ✅ 初始化完成')
     } catch (error) {
       console.error(`[ExerciseSolveView] ❌ 初始化失败:`, error)
     }
@@ -794,7 +735,6 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   // 清空当前选中的题目，避免离开页面后仍然保留选中状态
   questionStore.clearCurrentQuestion()
-  console.log('[ExerciseSolveView] ✅ 已清空当前选中的题目')
 })
 </script>
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AI教材聊天场景专用Store
  * 
  * 职责：管理AI教材场景的所有聊天相关状态和逻辑
@@ -123,15 +123,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       
       // 第6步：累积内容（用于流式更新）
       let accumulatedContent = ''
-      
-      console.log('[AI Textbook Chat] 开始发送消息:', {
-        content,
-        sessionId: aiMessage.sessionId,
-        reason: aiMessage.reason,
-        url: aiMessage.dstUrl,
-        hasImage: !!imageData
-      })
-      
       // 第7步：调用API发送消息（带流式更新回调）
       const response = await apiService.sendChatMessage(
         aiMessage,
@@ -177,16 +168,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
           }
         }
       )
-      
-      console.log('[AI Textbook Chat] 发送消息完成:', {
-        success: isResponseSuccess(response),
-        hasContent: !!accumulatedContent,
-        responseSummary: response ? {
-          success: response.success,
-          messageId: response.messageId,
-          replyLength: response.reply?.length || 0
-        } : null
-      })
       
       // 第8步：处理响应（如果轮询已完成，这里response已经是最终结果）
       // 注意：由于使用了回调，这里主要是确保没有错误
@@ -275,15 +256,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       
       // 累积内容（用于流式更新）
       let accumulatedContent = ''
-      
-      console.log('[AI Textbook Chat] 开始重试消息:', {
-        messageId,
-        originalMessage: message.originalMessage,
-        sessionId: aiMessage.sessionId,
-        reason: aiMessage.reason,
-        retryCount
-      })
-      
       const response = await apiService.sendChatMessage(
         aiMessage,
         // onComplete: 完成回调

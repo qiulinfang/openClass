@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <!-- 内容区域和对话面板 -->
   <div class="content-layout">
     <q-splitter
@@ -10,13 +10,21 @@
       <!-- PDF内容区域 -->
       <template v-slot:before>
         <div class="pdf-viewer-container">
-  <!-- 工具栏 -->
+          <!-- 工具栏 -->
           <UnifiedToolbar
             variant="browser"
             :tools="{
               left: ['back', 'undo', 'redo'],
-              middle: ['search', 'hideNotes', 'pen', 'highlighter', 'eraser', 'screenshot', 'select'],
-              right: ['help']
+              middle: [
+                'search',
+                'hideNotes',
+                'pen',
+                'highlighter',
+                'eraser',
+                'screenshot',
+                'select',
+              ],
+              right: ['help'],
             }"
             :selected-tool="store.selectedTool"
             :tool-config="currentToolConfig"
@@ -31,7 +39,7 @@
             @hide-notes="handleHideNotes"
             @help="handleHelp"
           />
-          
+
           <!-- 缩放控制按钮 -->
           <div class="zoom-controls">
             <q-btn-group flat>
@@ -64,27 +72,22 @@
               />
             </q-btn-group>
           </div>
-          
+
           <!-- 保存状态提示 -->
-          <q-banner
-            v-if="store.isSaving"
-            class="save-status-banner"
-            dense
-            :class="'bg-info'"
-          >
+          <q-banner v-if="store.isSaving" class="save-status-banner" dense :class="'bg-info'">
             <template v-slot:avatar>
               <q-spinner-dots size="20px" color="white" />
             </template>
             正在保存笔记...
           </q-banner>
-          
+
           <q-banner
             v-else-if="store.saveError"
             class="save-status-banner"
             dense
             :class="'bg-negative'"
             @click="store.saveError = null"
-            style="cursor: pointer;"
+            style="cursor: pointer"
           >
             <template v-slot:avatar>
               <q-icon name="error" size="20px" color="white" />
@@ -94,7 +97,7 @@
               <q-btn flat dense icon="close" @click.stop="store.saveError = null" />
             </template>
           </q-banner>
-          
+
           <q-banner
             v-else-if="showSaveSuccess"
             class="save-status-banner"
@@ -107,7 +110,7 @@
             笔记已保存
           </q-banner>
           <!-- PDF页面列表 -->
-          <q-virtual-scroll 
+          <q-virtual-scroll
             v-if="!isLoading && !error"
             :items="pageLayouts"
             virtual-scroll-item-size="800"
@@ -117,7 +120,12 @@
             class="virtual-scroll"
             v-slot="{ item }"
           >
-            <PdfPage :layout="item" :key="item.pageNum" class="pdf-page-item" @screenshot-captured="handleScreenshotCaptured" />
+            <PdfPage
+              :layout="item"
+              :key="item.pageNum"
+              class="pdf-page-item"
+              @screenshot-captured="handleScreenshotCaptured"
+            />
           </q-virtual-scroll>
 
           <!-- 加载状态 -->
@@ -166,35 +174,32 @@
               </div>
             </div>
             <!-- 关闭按钮 -->
-            <q-btn 
-              flat 
-              round 
-              dense 
-              icon="close" 
+            <q-btn
+              flat
+              round
+              dense
+              icon="close"
               size="sm"
               @click="handleCloseChatPanel"
               class="close-button"
             />
           </div>
-          
+
           <!-- Tab 内容区域 -->
           <div class="chat-content-container">
             <!-- AI 问答 Tab -->
             <div v-if="activeTab === 'ai-chat'" class="tab-content">
-              <ChatView 
+              <ChatView
                 type="ai-textbook"
                 @response="handleChatResponse"
                 @focus="handleChatFocus"
                 @scroll-to-bottom="handleScrollToBottom"
               />
             </div>
-            
+
             <!-- 问题记录 Tab -->
             <div v-if="activeTab === 'question-record'" class="tab-content">
-              <SessionList 
-                :records="questionRecords"
-                @record-click="handleQuestionRecordClick"
-              />
+              <SessionList :records="questionRecords" @record-click="handleQuestionRecordClick" />
             </div>
           </div>
         </div>
@@ -209,7 +214,7 @@
         :tools="{
           left: ['back', 'undo', 'redo'],
           middle: ['search', 'hideNotes', 'pen', 'highlighter', 'eraser', 'screenshot', 'select'],
-          right: ['help']
+          right: ['help'],
         }"
         :selected-tool="store.selectedTool"
         :tool-config="currentToolConfig"
@@ -224,7 +229,7 @@
         @hide-notes="handleHideNotes"
         @help="handleHelp"
       />
-      
+
       <!-- 缩放控制按钮 -->
       <div class="zoom-controls">
         <q-btn-group flat>
@@ -257,9 +262,9 @@
           />
         </q-btn-group>
       </div>
-      
+
       <!-- PDF页面列表 -->
-      <q-virtual-scroll 
+      <q-virtual-scroll
         v-if="!isLoading && !error"
         :items="pageLayouts"
         virtual-scroll-item-size="800"
@@ -269,7 +274,12 @@
         class="virtual-scroll"
         v-slot="{ item }"
       >
-        <PdfPage :layout="item" :key="item.pageNum" class="pdf-page-item" @screenshot-captured="handleScreenshotCaptured" />
+        <PdfPage
+          :layout="item"
+          :key="item.pageNum"
+          class="pdf-page-item"
+          @screenshot-captured="handleScreenshotCaptured"
+        />
       </q-virtual-scroll>
 
       <!-- 加载状态 -->
@@ -297,19 +307,17 @@
       </div>
     </div>
   </div>
-  
+
   <!-- 截图输入对话框 -->
   <ScreenshotInputDialog
     v-model="screenshotDialogVisible"
     :screenshot-data-url="screenshotDataUrl"
+    :enable-crop="false"
     @confirm="handleScreenshotConfirm"
     @cancel="handleScreenshotCancel"
   />
   <!-- PDF调试面板（仅开发环境） -->
-  <PdfDebugPanel
-    v-if="isDev"
-    v-model="debugPanelVisible"
-  />
+  <PdfDebugPanel v-if="isDev" v-model="debugPanelVisible" />
   <!-- 调试面板显示按钮（当面板关闭时显示） -->
   <q-btn
     v-if="isDev && !debugPanelVisible"
@@ -325,7 +333,7 @@
 
 <script lang="ts">
 export default {
-  name: 'pdfViewer'
+  name: 'pdfViewer',
 }
 </script>
 
@@ -351,10 +359,15 @@ const route = useRoute()
 const router = useRouter()
 
 // PDF页面组件引用管理（用于undo/redo）
-const pageComponents = ref<Map<number, { undo: () => boolean; redo: () => boolean; canUndo: boolean; canRedo: boolean }>>(new Map())
+const pageComponents = ref<
+  Map<number, { undo: () => boolean; redo: () => boolean; canUndo: boolean; canRedo: boolean }>
+>(new Map())
 
 // 注册页面组件
-const registerPageComponent = (pageNum: number, component: { undo: () => boolean; redo: () => boolean; canUndo: boolean; canRedo: boolean }) => {
+const registerPageComponent = (
+  pageNum: number,
+  component: { undo: () => boolean; redo: () => boolean; canUndo: boolean; canRedo: boolean },
+) => {
   pageComponents.value.set(pageNum, component)
 }
 
@@ -396,7 +409,7 @@ const activeTab = ref('ai-chat') // 当前激活的 tab
 // Tab 选项
 const tabOptions = [
   { label: '问题记录', value: 'question-record', icon: 'quiz' },
-  { label: 'AI问答', value: 'ai-chat', icon: 'chat' }
+  { label: 'AI问答', value: 'ai-chat', icon: 'chat' },
 ]
 
 // 问题记录数据
@@ -426,7 +439,7 @@ const showSaveSuccess = computed(() => {
 // 当前工具配置
 const currentToolConfig = computed(() => {
   const config = store.drawingConfig
-  
+
   // 1. 根据当前工具返回对应的配置
   switch (store.selectedTool) {
     case 'pen':
@@ -463,32 +476,26 @@ const toolStates = computed(() => {
   if (lastModifiedPage === null) {
     return {
       undo: false,
-      redo: false
+      redo: false,
     }
   }
-  
+
   const pageComponent = pageComponents.value.get(lastModifiedPage)
   if (pageComponent) {
     return {
       undo: pageComponent.canUndo,
-      redo: pageComponent.canRedo
+      redo: pageComponent.canRedo,
     }
   }
-  
+
   return {
     undo: false,
-    redo: false
+    redo: false,
   }
 })
 
 // 处理工具切换
 const handleToolChange = (tool: string) => {
-  console.log('[工具切换] 视图层处理工具变化', {
-    tool,
-    previousTool: store.selectedTool,
-    timestamp: new Date().toISOString()
-  })
-  
   // 1. 更新 store 中的选中工具
   store.setSelectedTool(tool)
 }
@@ -505,7 +512,17 @@ const handleConfigChange = (config: { [key: string]: string | number | boolean |
         store.updateDrawingConfig({ penWidth: config.size as number })
       }
       if (config.handwritingStyle) {
-        store.updateDrawingConfig({ penHandwritingStyle: config.handwritingStyle as 'brush' | 'writing' | 'spray' | 'oil-paint' | 'crayon' | 'marker' | 'pencil' | 'watercolor' })
+        store.updateDrawingConfig({
+          penHandwritingStyle: config.handwritingStyle as
+            | 'brush'
+            | 'writing'
+            | 'spray'
+            | 'oil-paint'
+            | 'crayon'
+            | 'marker'
+            | 'pencil'
+            | 'watercolor',
+        })
       }
       break
     case 'highlighter':
@@ -538,7 +555,7 @@ const handleConfigChange = (config: { [key: string]: string | number | boolean |
 const handleGoBack = () => {
   // 检查是否从学习页面跳转（通过检查路由参数中是否有 fromLearning）
   const fromLearning = route.query.fromLearning === 'true'
-  
+
   if (fromLearning) {
     // 从学习页面跳转来的，返回到知识图谱页面，并传递学习对话框所需的信息
     router.push({
@@ -550,7 +567,7 @@ const handleGoBack = () => {
         learningSectionName: route.query.textbookName as string,
         learningLevel: route.query.learningLevel as string,
         textbookId: route.query.id as string,
-      }
+      },
     })
   } else {
     // 其他情况，使用默认的返回行为
@@ -562,18 +579,15 @@ const handleGoBack = () => {
 const handleUndo = () => {
   const lastModifiedPage = store.lastModifiedPage
   if (lastModifiedPage === null) {
-    console.log('没有可撤销的操作')
     return
   }
-  
+
   const pageComponent = pageComponents.value.get(lastModifiedPage)
   if (pageComponent && pageComponent.canUndo) {
     const success = pageComponent.undo()
     if (success) {
-      console.log(`撤销第 ${lastModifiedPage} 页的操作`)
     }
   } else {
-    console.log(`第 ${lastModifiedPage} 页无法撤销`)
   }
 }
 
@@ -581,25 +595,21 @@ const handleUndo = () => {
 const handleRedo = () => {
   const lastModifiedPage = store.lastModifiedPage
   if (lastModifiedPage === null) {
-    console.log('没有可重做的操作')
     return
   }
-  
+
   const pageComponent = pageComponents.value.get(lastModifiedPage)
   if (pageComponent && pageComponent.canRedo) {
     const success = pageComponent.redo()
     if (success) {
-      console.log(`重做第 ${lastModifiedPage} 页的操作`)
     }
   } else {
-    console.log(`第 ${lastModifiedPage} 页无法重做`)
   }
 }
 
 // 处理搜索
 const handleSearch = () => {
   // TODO: 实现搜索功能
-  console.log('搜索操作')
 }
 
 // 处理隐藏笔记
@@ -611,7 +621,6 @@ const handleHideNotes = () => {
 // 处理帮助
 const handleHelp = () => {
   // TODO: 实现帮助功能
-  console.log('帮助操作')
   // 可以显示帮助对话框或跳转到帮助页面
 }
 
@@ -621,22 +630,14 @@ const loadFileFromRoute = async () => {
     // 从路由 query 参数获取文件信息（LearningView 传递的是 query 参数）
     const resourceId = route.query.resourceId as string
     const id = route.query.id as string
-    console.log('从路由加载文件:', { resourceId, id })
-
     if (!resourceId || !id) {
       throw new Error('缺少必要的路由参数: resourceId 和 id')
     }
-
-    console.log('从路由加载文件:', { resourceId, id })
-
     // 1. 根据 id 从 IndexedDB 获取教材信息（使用主键查询）
     const textbook = (await resourceManager.indexedDB.get('textbooks', id)) as UserTextbookInfo
     if (!textbook) {
       throw new Error(`教材 ${id} 不存在`)
     }
-
-    console.log('找到教材:', textbook)
-
     // 2. 在教材的 localFiles 中查找对应的文件元数据
     let fileData: Uint8Array | null = null
     let fileName = 'unknown.pdf'
@@ -648,14 +649,12 @@ const loadFileFromRoute = async () => {
         // 从textbook_files表按需读取文件数据
         fileData = await resourceManager.getFileData(id, resourceId)
         if (fileData) {
-          console.log('找到本地文件:', { fileName, fileSize: fileData.length })
         }
       }
     }
 
     // 3. 如果没有找到本地文件，提示用户先下载
     if (!fileData) {
-      console.log('本地文件不存在，需要先下载')
       // 流程：格式化资源路径（确保以/开头）
       const downloadUrl = resourceId.startsWith('/') ? resourceId : `/${resourceId}`
       if (downloadUrl) {
@@ -671,8 +670,6 @@ const loadFileFromRoute = async () => {
 
     // 5. 设置当前文件信息到Store
     store.setCurrentFileInfo(id, resourceId)
-
-    console.log('文件加载成功:', { fileName, size: file.size })
     return file
   } catch (err) {
     console.error('从路由加载文件失败:', err)
@@ -695,42 +692,36 @@ const loadPdfWithService = async (file: File) => {
   try {
     stateAdapter.setLoading(true)
     stateAdapter.setError(null)
-    
+
     // 1. 设置当前文件信息到Store
     const resourceId = route.query.resourceId as string
     const id = route.query.id as string
     if (resourceId && id) {
       store.setCurrentFileInfo(id, resourceId)
     }
-    
+
     // 2. 从localFiles加载笔记数据
     await store.loadAnnotationsFromLocalFile()
-    
+
     // 3. 使用PdfCoreService加载PDF
     const result = await pdfCoreService.loadPdf(file)
-    
+
     // 4. 计算页面布局
     const scale = stateAdapter.getState().scale
     const layouts = await pdfCoreService.calculatePageLayouts(scale, store.pageGap)
-    
+
     // 5. 更新状态适配器
     stateAdapter.setPdfLoaded({
       ...result,
       pageLayouts: layouts,
     })
-    
+
     // 6. 同时更新store（保持兼容性）
     store.pdfDoc = result.pdfDoc
     store.originalPdfBytes = result.originalPdfBytes
     store.pageLayouts = layouts
     store.totalPages = result.totalPages
     store.isDocLoaded = true
-    
-    console.log('PDF 加载完成:', {
-      totalPages: result.totalPages,
-      layouts: layouts.length
-    })
-    
   } catch (error) {
     console.error('PDF 加载失败:', error)
     stateAdapter.setError(error instanceof Error ? error.message : 'PDF 加载失败')
@@ -765,51 +756,32 @@ const handleScrollToBottom = () => {
 // 流程：接收截图blob → 转换为base64 → 弹出输入对话框 → 用户输入问题后发送给AI
 const handleScreenshotCaptured = async (blob: Blob) => {
   const startTime = Date.now()
-  console.log('[截图→AI] 🚀 ========== 开始处理截图 ==========')
-  
   try {
-    // 步骤1：接收截图数据
-    console.log('[截图→AI] 步骤1/3 📥 接收到截图数据', {
-      时间戳: new Date().toLocaleTimeString(),
-      文件大小: `${(blob.size / 1024).toFixed(2)} KB`,
-      文件类型: blob.type,
-      原始大小: `${blob.size} bytes`
-    })
-    
+
+
     // 步骤2：将blob转换为base64DataUrl
-    console.log('[截图→AI] 步骤2/3 🔄 开始转换为Base64格式...')
     const base64DataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result as string)
       reader.onerror = reject
       reader.readAsDataURL(blob)
     })
-    
+
     const base64Size = base64DataUrl.length
-    console.log('[截图→AI] 步骤2/3 ✓ Base64转换完成', {
-      Base64长度: `${(base64Size / 1024).toFixed(2)} KB`,
-      压缩比: `${((base64Size / blob.size) * 100).toFixed(1)}%`
-    })
-    
+  
+
     // 步骤3：弹出输入对话框，等待用户输入问题
-    console.log('[截图→AI] 步骤3/3 📝 弹出输入对话框...')
     screenshotDataUrl.value = base64DataUrl
     screenshotDialogVisible.value = true
-    console.log('[截图→AI] 步骤3/3 ✓ 输入对话框已打开')
-    
     const endTime = Date.now()
     const duration = endTime - startTime
-    console.log('[截图→AI] 🎉 ========== 截图处理完成，等待用户输入 ==========', {
-      总耗时: `${duration}ms`,
-      状态: '✅ 等待用户输入问题'
-    })
   } catch (error) {
     const endTime = Date.now()
     const duration = endTime - startTime
     console.error('[截图→AI] ❌ ========== 处理失败 ==========', {
       错误信息: error,
       失败位置: '截图处理流程',
-      已耗时: `${duration}ms`
+      已耗时: `${duration}ms`,
     })
   }
 }
@@ -817,79 +789,51 @@ const handleScreenshotCaptured = async (blob: Blob) => {
 // 处理截图输入对话框确认
 const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
   const startTime = Date.now()
-  console.log('[截图→AI] 📤 ========== 开始发送截图问答 ==========')
-  
   try {
     // 步骤1：打开对话面板并切换到AI问答Tab
-    console.log('[截图→AI] 步骤1/4 📂 打开对话面板...')
     chatPanelVisible.value = true
     activeTab.value = 'ai-chat'
-    console.log('[截图→AI] 步骤1/4 ✓ 对话面板已打开')
-    
     // 步骤2：创建临时图片以获取宽高
-    console.log('[截图→AI] 步骤2/4 🖼️ 加载图片获取尺寸...')
     const img = new Image()
     img.src = dataUrl
-    
+
     await new Promise<void>((resolve) => {
       img.onload = () => resolve()
     })
-    
-    console.log('[截图→AI] 步骤2/4 ✓ 图片加载完成', {
-      宽度: `${img.width}px`,
-      高度: `${img.height}px`,
-      分辨率: `${img.width}x${img.height}`
-    })
-    
     // 步骤3：发送消息给AI（使用用户输入的问题作为coversation）
     // 流程：文件名使用.jpg后缀（与安卓原生保持一致）
     const fileName = `screenshot-${Date.now()}.jpg`
-    console.log('[截图→AI] 步骤3/4 📤 发送图片和问题到AI...', {
-      文件名: fileName,
-      问题内容: question,
-      AI类型: 'ai-textbook',
-      AI模型: 'mate',
-      Base64长度: dataUrl.length,
-      图片尺寸: `${img.width}x${img.height}`
-    })
-    
     // 构建完整的图片数据，包含宽高信息，确保消息列表能正确显示图片
     const imageData = {
       filePath: fileName,
       base64DataUrl: dataUrl,
       width: img.width,
       height: img.height,
-      fileSize: Math.round(dataUrl.length * 0.75) // base64编码后大小约为原始大小的1.33倍，这里估算原始大小
+      fileSize: Math.round(dataUrl.length * 0.75), // base64编码后大小约为原始大小的1.33倍，这里估算原始大小
     }
-    
+
     await aiTextbookStore.sendMessage(
       question, // ⭐ 使用用户输入的问题作为coversation
       'mate', // 使用默认AI模型
       imageData, // ⭐ 传递完整的图片数据（包含宽高），确保消息列表正确显示
-      false // 不隐藏前缀
+      false, // 不隐藏前缀
     )
-    
+
     const endTime = Date.now()
     const duration = endTime - startTime
-    console.log('[截图→AI] 步骤4/4 ✓ AI发送完成')
-    console.log('[截图→AI] 🎉 ========== 截图问答发送完成 ==========', {
-      总耗时: `${duration}ms`,
-      成功状态: '✅ 成功'
-    })
   } catch (error) {
     const endTime = Date.now()
     const duration = endTime - startTime
     console.error('[截图→AI] ❌ ========== 发送失败 ==========', {
       错误信息: error,
       失败位置: '发送截图问答',
-      已耗时: `${duration}ms`
+      已耗时: `${duration}ms`,
     })
   }
 }
 
 // 处理截图输入对话框取消
 const handleScreenshotCancel = () => {
-  console.log('[截图→AI] ❌ 用户取消了截图问答')
   screenshotDataUrl.value = ''
 }
 
@@ -907,24 +851,26 @@ const handleResetZoom = () => {
 }
 
 // 监听scale变化，重新计算布局
-watch(() => store.scale, async (newScale, oldScale) => {
-  // 如果PDF未加载或scale未变化，跳过
-  if (!store.isDocLoaded || newScale === oldScale) {
-    return
-  }
-  
-  try {
-    console.log('缩放变化，重新计算布局:', { oldScale, newScale })
-    // 重新计算页面布局
-    const layouts = await pdfCoreService.calculatePageLayouts(newScale, store.pageGap)
-    // 更新store中的布局
-    store.pageLayouts = layouts
-    // 更新状态适配器
-    stateAdapter.setPageLayouts(layouts)
-  } catch (error) {
-    console.error('重新计算布局失败:', error)
-  }
-})
+watch(
+  () => store.scale,
+  async (newScale, oldScale) => {
+    // 如果PDF未加载或scale未变化，跳过
+    if (!store.isDocLoaded || newScale === oldScale) {
+      return
+    }
+
+    try {
+      // 重新计算页面布局
+      const layouts = await pdfCoreService.calculatePageLayouts(newScale, store.pageGap)
+      // 更新store中的布局
+      store.pageLayouts = layouts
+      // 更新状态适配器
+      stateAdapter.setPageLayouts(layouts)
+    } catch (error) {
+      console.error('重新计算布局失败:', error)
+    }
+  },
+)
 
 // 快捷键处理（仅开发环境）
 const handleKeyDown = (event: KeyboardEvent) => {
@@ -940,12 +886,12 @@ onMounted(async () => {
   try {
     // 初始化页面可见性监听
     store.initVisibilityListener()
-    
+
     // 添加快捷键监听（仅开发环境）
     if (isDev) {
       window.addEventListener('keydown', handleKeyDown)
     }
-    
+
     const file = await loadFileFromRoute()
     await loadPdfWithService(file)
   } catch (err) {
@@ -957,12 +903,12 @@ onMounted(async () => {
 onBeforeUnmount(async () => {
   // 移除页面可见性监听
   store.removeVisibilityListener()
-  
+
   // 移除快捷键监听（仅开发环境）
   if (isDev) {
     window.removeEventListener('keydown', handleKeyDown)
   }
-  
+
   // 立即保存笔记
   await store.flushSave()
 })
@@ -1020,7 +966,7 @@ onBeforeUnmount(async () => {
   padding: 12px 16px;
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   color: rgba(0, 0, 0, 0.6);
   font-size: 14px;
   font-weight: 500;
@@ -1038,14 +984,16 @@ onBeforeUnmount(async () => {
 
 .tab-active {
   background: white;
-  color: #1976D2;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+  color: #1976d2;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.24);
   font-weight: 500;
 }
 
 .tab-active:hover {
   background: white;
-  color: #1976D2;
+  color: #1976d2;
 }
 
 .tab-active::after {
@@ -1055,7 +1003,7 @@ onBeforeUnmount(async () => {
   left: 0;
   right: 0;
   height: 2px;
-  background: #1976D2;
+  background: #1976d2;
   border-radius: 1px;
 }
 
@@ -1215,8 +1163,8 @@ onBeforeUnmount(async () => {
   right: 20px;
   z-index: 10000;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-  
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
   &:hover {
     transform: scale(1.1);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
@@ -1234,17 +1182,18 @@ onBeforeUnmount(async () => {
     margin: 16px;
     max-width: calc(100% - 32px);
   }
-  
+
   .tab-item {
     padding: 10px 12px;
     font-size: 13px;
     min-width: 60px;
   }
-  
+
   .tab-item span {
-    display: none; /* 移动端只显示图标 */
+    display: none;
+    /* 移动端只显示图标 */
   }
-  
+
   .tab-list {
     padding: 2px;
   }

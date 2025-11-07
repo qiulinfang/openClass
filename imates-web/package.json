@@ -71,7 +71,8 @@
     "signature_pad": "^5.1.1",
     "vue": "^3.5.18",
     "vue-router": "^4.5.1",
-    "vuedraggable": "^4.1.0"
+    "vuedraggable": "^4.1.0",
+    "mpegts.js": "^1.7.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.1",

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AI 题目聊天 Store
  * 职责：管理AI题目场景下的聊天消息和业务逻辑
  * 
@@ -267,7 +267,6 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     
     try {
       await asyncStorage.saveChatHistory(questionId, historyData)
-      console.log(`[AI_EXERCISE] ✅ 保存聊天历史成功: ${questionId}`)
     } catch (error) {
       console.error('[AI_EXERCISE] ❌ 保存聊天历史失败:', error)
     }
@@ -290,8 +289,6 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         if (chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES) {
           canViewAnswer.value = true
         }
-        
-        console.log(`[AI_EXERCISE] ✅ 加载聊天历史成功: ${questionId}, ${messages.value.length}条消息`)
       } else {
         // 无历史记录，清空状态
         messages.value = []
@@ -318,7 +315,6 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       messages.value = []
       chatResponseTimes.value = 0
       canViewAnswer.value = false
-      console.log(`[AI_EXERCISE] ✅ 清空聊天历史成功: ${questionId}`)
     } catch (error) {
       console.error('[AI_EXERCISE] ❌ 清空聊天历史失败:', error)
       throw error

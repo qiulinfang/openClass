@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="modern-chat-container">
     <!-- 主容器 -->
     <div class="chat-input-wrapper" ref="inputAreaRef">
@@ -249,16 +249,6 @@ const modeSelectorBtnRef = ref<HTMLElement>()
 
 // 监听模式选择弹出框状态变化
 watch(showModeSelectorMenu, (newValue, oldValue) => {
-  console.log('[ChatInput] 模式选择弹出框状态变化', {
-    previousState: oldValue,
-    newState: newValue,
-    action: newValue ? '打开' : '关闭',
-    chatType: props.type,
-    selectedModel: props.selectedModel,
-    hasTarget: !!modeSelectorBtnRef.value,
-    targetElement: modeSelectorBtnRef.value
-  })
-  
   // 如果弹出框打开但 target 未绑定，记录警告但不关闭（让 Quasar 自己处理）
   if (newValue && !oldValue && !modeSelectorBtnRef.value) {
     console.warn('[ChatInput] 弹出框打开但 target 未绑定')
@@ -336,14 +326,6 @@ const toggleModeSelector = async (event?: Event) => {
   if (event) {
     event.stopPropagation()
   }
-  
-  console.log('[ChatInput] 点击模式选择器按钮', { 
-    currentMenuState: showModeSelectorMenu.value,
-    chatType: props.type,
-    selectedModel: props.selectedModel,
-    hasRef: !!modeSelectorBtnRef.value
-  })
-  
   // 如果当前已经打开，则关闭
   if (showModeSelectorMenu.value) {
     showModeSelectorMenu.value = false
@@ -375,40 +357,22 @@ const toggleModeSelector = async (event?: Event) => {
 
 // 选择模型
 const selectModel = (model: string) => {
-  console.log('[ChatInput] 选择模型', { 
-    previousModel: props.selectedModel,
-    newModel: model,
-    chatType: props.type
-  })
   emit('update:selected-model', model)
   showModeSelectorMenu.value = false
 }
 
 // 取消编辑处理
 const handleCancelEdit = () => {
-  console.log('[ChatInput] 点击取消编辑按钮', { 
-    chatType: props.type,
-    editingMessageId: props.editingMessageId
-  })
   emit('cancel-edit')
 }
 
 // 切换联网搜索处理
 const handleToggleWebSearch = () => {
-  console.log('[ChatInput] 点击联网搜索按钮', { 
-    chatType: props.type,
-    currentState: props.enableWebSearch,
-    newState: !props.enableWebSearch
-  })
   emit('toggle-web-search')
 }
 
 // 显示图片选择器处理
 const handleShowImagePicker = () => {
-  console.log('[ChatInput] 点击图片上传按钮', { 
-    chatType: props.type,
-    activeMode: props.activeMode?.label
-  })
   emit('show-image-picker')
 }
 
@@ -416,14 +380,8 @@ const handleShowImagePicker = () => {
 const handleMicButtonClick = () => {
   // 如果正在进行长按录音，忽略点击事件
   if (isLongPressRecording.value) {
-    console.log('[ChatInput] 忽略点击事件（正在进行长按录音）')
     return
   }
-  
-  console.log('[ChatInput] 点击麦克风按钮', { 
-    chatType: props.type,
-    isRecording: props.isRecording
-  })
   // 注意：此功能可能尚未实现，仅记录日志
 }
 
@@ -431,13 +389,6 @@ const handleMicButtonClick = () => {
 const handleVoiceStart = (event: TouchEvent | MouseEvent) => {
   // 标记为长按录音模式
   isLongPressRecording.value = true
-  
-  console.log('[ChatInput] 开始语音录制', { 
-    chatType: props.type,
-    isRecording: props.isRecording, // 注意：这是 props 值，可能还没更新
-    eventType: event.type,
-    timestamp: Date.now()
-  })
   
   // 1. 阻止默认行为
   event.preventDefault()
@@ -448,12 +399,6 @@ const handleVoiceStart = (event: TouchEvent | MouseEvent) => {
 }
 
 const handleVoiceEnd = (event: TouchEvent | MouseEvent) => {
-  console.log('[ChatInput] 结束语音录制', { 
-    chatType: props.type,
-    isRecording: props.isRecording, // 注意：这是 props 值，可能还没更新
-    eventType: event.type,
-    timestamp: Date.now()
-  })
   
   // 1. 阻止默认行为
   event.preventDefault()
@@ -592,11 +537,6 @@ let insertFormulaDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 // 插入数学公式处理
 const handleInsertMathFormula = async () => {
-  console.log('[ChatInput] 点击公式按钮', { 
-    chatType: props.type,
-    isEditing: props.isEditing
-  })
-  
   // 确保关闭模式选择弹出框（如果已打开）
   if (showModeSelectorMenu.value) {
     showModeSelectorMenu.value = false
@@ -623,8 +563,6 @@ const handleInsertMathFormula = async () => {
     
     try {
       mathEditorRef.value.insertMathField()
-      console.log('[ChatInput] 公式插入成功')
-      
       // 插入公式后触发滚动到底部事件
       emit('scroll-to-bottom')
     } catch (error) {
@@ -641,13 +579,6 @@ const isSendingMessage = ref(false)
 
 // 发送消息处理
 const handleSendMessage = () => {
-  console.log('[ChatInput] 点击发送按钮', { 
-    chatType: props.type,
-    isEditing: props.isEditing,
-    isLoading: props.isLoading,
-    canSend: props.canSend
-  })
-  
   // 1. 设置发送标志，防止键盘关闭事件干扰
   isSendingMessage.value = true
   
@@ -656,16 +587,9 @@ const handleSendMessage = () => {
 
   // 3. 检查内容是否为空
   if (!markdownContent || !markdownContent.trim()) {
-    console.log('[ChatInput] 消息内容为空，取消发送')
     isSendingMessage.value = false
     return
   }
-
-  console.log('[ChatInput] 准备发送消息', { 
-    contentLength: markdownContent.length,
-    isEditing: props.isEditing
-  })
-
   // 4. 更新 v-model 的值，将完整的 markdown 内容传递给父组件
   emit('update:modelValue', markdownContent);
 
@@ -743,7 +667,6 @@ watch(() => props.modelValue, (newValue) => {
 const handleNativeKeyboardClose = () => {
   // 如果正在发送消息，跳过处理，避免干扰发送流程
   if (isSendingMessage.value) {
-    console.log('[ChatInput] 键盘关闭事件被忽略（正在发送消息）')
     return
   }
   
@@ -1395,14 +1318,88 @@ defineExpose({
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* 语音按钮特殊样式 */
+/* 语音按钮特殊样式 - 录音状态 */
 .voice-btn--recording {
   color: #ea4335 !important;
-  background-color: rgba(234, 67, 53, 0.1) !important;
+  background: linear-gradient(135deg, rgba(234, 67, 53, 0.15) 0%, rgba(234, 67, 53, 0.25) 100%) !important;
+  position: relative;
+  animation: voice-recording-pulse 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  box-shadow: 
+    0 0 0 0 rgba(234, 67, 53, 0.4),
+    0 2px 8px rgba(234, 67, 53, 0.3),
+    0 4px 16px rgba(234, 67, 53, 0.2) !important;
+  transform: scale(1);
+}
+
+.voice-btn--recording::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid rgba(234, 67, 53, 0.5);
+  transform: translate(-50%, -50%);
+  animation: voice-recording-ring 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
 }
 
 .voice-btn--recording:hover {
-  background: rgba(234, 67, 53, 0.15) !important;
+  background: linear-gradient(135deg, rgba(234, 67, 53, 0.2) 0%, rgba(234, 67, 53, 0.3) 100%) !important;
+  box-shadow: 
+    0 0 0 0 rgba(234, 67, 53, 0.5),
+    0 4px 12px rgba(234, 67, 53, 0.4),
+    0 6px 20px rgba(234, 67, 53, 0.3) !important;
+}
+
+.voice-btn--recording :deep(.q-icon) {
+  position: relative;
+  z-index: 1;
+  animation: voice-recording-icon 1.5s ease-in-out infinite;
+}
+
+/* 语音按钮脉冲动画 */
+@keyframes voice-recording-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 
+      0 0 0 0 rgba(234, 67, 53, 0.4),
+      0 2px 8px rgba(234, 67, 53, 0.3),
+      0 4px 16px rgba(234, 67, 53, 0.2);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 
+      0 0 0 4px rgba(234, 67, 53, 0.2),
+      0 4px 12px rgba(234, 67, 53, 0.4),
+      0 6px 20px rgba(234, 67, 53, 0.3);
+  }
+}
+
+/* 语音按钮环形动画 */
+@keyframes voice-recording-ring {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.8);
+    opacity: 0;
+  }
+}
+
+/* 语音按钮图标动画 */
+@keyframes voice-recording-icon {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
 }
 
 .control-icon-btn.active {

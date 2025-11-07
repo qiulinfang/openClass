@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <!-- HTML内容区域 -->
   <div class="html-viewer-container">
     <!-- 工具栏 -->
@@ -259,8 +259,6 @@ const loadFileFromRoute = async () => {
     // 从路由 query 参数获取文件信息
     const resourceId = route.query.resourceId as string
     const id = route.query.id as string
-    console.log('[HtmlViewer] 从路由加载文件:', { resourceId, id })
-
     if (!resourceId || !id) {
       throw new Error('缺少必要的路由参数: resourceId 和 id')
     }
@@ -270,9 +268,6 @@ const loadFileFromRoute = async () => {
     if (!textbook) {
       throw new Error(`教材 ${id} 不存在`)
     }
-
-    console.log('[HtmlViewer] 找到教材:', textbook)
-
     // 2. 在教材的 localFiles 中查找对应的文件元数据
     let fileData: Uint8Array | null = null
 
@@ -283,22 +278,18 @@ const loadFileFromRoute = async () => {
         // 从textbook_files表按需读取文件数据
         fileData = await resourceManager.getFileData(id, resourceId)
         if (fileData) {
-          console.log('[HtmlViewer] 找到本地文件:', { fileName: fileName.value, fileSize: fileData.length })
         }
       }
     }
 
     // 3. 如果没有找到本地文件，提示用户先下载
     if (!fileData) {
-      console.log('[HtmlViewer] 本地文件不存在，需要先下载')
       throw new Error('文件未下载到本地，请先在资源管理页面下载该文件')
     }
 
     // 4. 将 Uint8Array 转换为字符串（HTML内容）
     const decoder = new TextDecoder('utf-8')
     const htmlText = decoder.decode(fileData)
-
-    console.log('[HtmlViewer] 文件加载成功:', { fileName: fileName.value, size: htmlText.length })
     return htmlText
   } catch (err) {
     console.error('[HtmlViewer] 从路由加载文件失败:', err)

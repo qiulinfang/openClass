@@ -29,86 +29,90 @@
           :nodes="treeNodes"
           node-key="id"
           :expanded="expandedNodes"
-          @update:expanded="(val) => expandedNodes = Array.isArray(val) ? [...val] : []"
+          @update:expanded="(val) => (expandedNodes = Array.isArray(val) ? [...val] : [])"
           :selected="selectedNodeId"
           @update:selected="handleNodeSelect"
           default-expand-all
           no-connectors
         >
-        <template v-slot:default-header="prop">
-          <div class="tree-node-header" :class="{ 'is-selected': isSelectedNode(prop.node) }">
-            <!-- 一级节点（分类） -->
-            <div v-if="prop.node.level === 1" class="category-node">
-              <q-icon :name="getCategoryIcon(prop.node.category)" size="sm" class="category-icon" />
-              <span class="category-label">{{ prop.node.label }}</span>
-              <span class="category-count">({{ prop.node.children?.length || 0 }})</span>
-            </div>
+          <template v-slot:default-header="prop">
+            <div class="tree-node-header" :class="{ 'is-selected': isSelectedNode(prop.node) }">
+              <!-- 一级节点（分类） -->
+              <div v-if="prop.node.level === 1" class="category-node">
+                <q-icon
+                  :name="getCategoryIcon(prop.node.category)"
+                  size="sm"
+                  class="category-icon"
+                />
+                <span class="category-label">{{ prop.node.label }}</span>
+                <span class="category-count">({{ prop.node.children?.length || 0 }})</span>
+              </div>
 
-            <!-- 二级节点（会话） -->
-            <div v-else-if="prop.node.level === 2" class="session-node">
-              <div class="session-content" @click.stop="handleSessionClick(prop.node)">
-                <div class="session-title-row">
-                  <div class="session-title-wrapper">
-                    <div class="session-title">{{ prop.node.label }}</div>
-                    <div v-if="hasUnreadMessage(prop.node)" class="unread-badge"></div>
+              <!-- 二级节点（会话） -->
+              <div v-else-if="prop.node.level === 2" class="session-node">
+                <div class="session-content" @click.stop="handleSessionClick(prop.node)">
+                  <div class="session-title-row">
+                    <div class="session-title-wrapper">
+                      <div class="session-title">{{ prop.node.label }}</div>
+                      <div v-if="hasUnreadMessage(prop.node)" class="unread-badge"></div>
+                    </div>
+                    <div class="session-time">{{ formatTime(prop.node.timestamp) }}</div>
                   </div>
-                  <div class="session-time">{{ formatTime(prop.node.timestamp) }}</div>
+                  <div v-if="prop.node.subtitle" class="session-subtitle">
+                    {{ prop.node.subtitle }}
+                  </div>
                 </div>
-                <div v-if="prop.node.subtitle" class="session-subtitle">
-                  {{ prop.node.subtitle }}
+                <div class="session-actions">
+                  <q-btn flat round dense icon="more_vert" size="sm" class="more-btn" @click.stop>
+                    <q-menu anchor="bottom right" self="top right" :offset="[0, 8]">
+                      <q-list style="min-width: 150px">
+                        <q-item
+                          v-if="prop.node.category === 'ai'"
+                          clickable
+                          v-close-popup
+                          @click="handleRename(prop.node)"
+                        >
+                          <q-item-section avatar>
+                            <q-icon name="edit" size="xs" />
+                          </q-item-section>
+                          <q-item-section>重命名</q-item-section>
+                        </q-item>
+
+                        <q-item
+                          v-if="prop.node.category === 'ai'"
+                          clickable
+                          v-close-popup
+                          @click="handlePin(prop.node)"
+                        >
+                          <q-item-section avatar>
+                            <q-icon name="push_pin" size="xs" />
+                          </q-item-section>
+                          <q-item-section>
+                            {{ prop.node.pinned ? '取消置顶' : '置顶' }}
+                          </q-item-section>
+                        </q-item>
+
+                        <q-separator />
+
+                        <q-item
+                          clickable
+                          v-close-popup
+                          @click="handleDelete(prop.node)"
+                          class="text-negative"
+                        >
+                          <q-item-section avatar>
+                            <q-icon name="delete" size="xs" color="negative" />
+                          </q-item-section>
+                          <q-item-section>删除</q-item-section>
+                        </q-item>
+                      </q-list>
+                    </q-menu>
+                  </q-btn>
                 </div>
-              </div>
-              <div class="session-actions">
-                <q-btn flat round dense icon="more_vert" size="sm" class="more-btn" @click.stop>
-                  <q-menu anchor="bottom right" self="top right" :offset="[0, 8]">
-                    <q-list style="min-width: 150px">
-                      <q-item
-                        v-if="prop.node.category === 'ai'"
-                        clickable
-                        v-close-popup
-                        @click="handleRename(prop.node)"
-                      >
-                        <q-item-section avatar>
-                          <q-icon name="edit" size="xs" />
-                        </q-item-section>
-                        <q-item-section>重命名</q-item-section>
-                      </q-item>
-
-                      <q-item
-                        v-if="prop.node.category === 'ai'"
-                        clickable
-                        v-close-popup
-                        @click="handlePin(prop.node)"
-                      >
-                        <q-item-section avatar>
-                          <q-icon name="push_pin" size="xs" />
-                        </q-item-section>
-                        <q-item-section>
-                          {{ prop.node.pinned ? '取消置顶' : '置顶' }}
-                        </q-item-section>
-                      </q-item>
-
-                      <q-separator />
-
-                      <q-item
-                        clickable
-                        v-close-popup
-                        @click="handleDelete(prop.node)"
-                        class="text-negative"
-                      >
-                        <q-item-section avatar>
-                          <q-icon name="delete" size="xs" color="negative" />
-                        </q-item-section>
-                        <q-item-section>删除</q-item-section>
-                      </q-item>
-                    </q-list>
-                  </q-menu>
-                </q-btn>
               </div>
             </div>
-          </div>
-        </template>
-      </q-tree>
+          </template>
+        </q-tree>
       </div>
     </div>
 
@@ -162,10 +166,8 @@ interface Props {
   aiSessions?: AiGeneralSession[]
   // 教师会话列表（按科目分组）
   teacherSessions?: TeacherSession[]
-  // 当前选中的AI会话ID
-  selectedAiSessionId?: string
-  // 当前选中的教师会话ID
-  selectedTeacherSessionId?: string
+  // 当前选中的会话ID（通用，可以是AI会话或教师会话）
+  selectedSessionId?: string
   // 是否显示头部
   showHeader?: boolean
   // 标题文字
@@ -175,8 +177,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   aiSessions: () => [],
   teacherSessions: () => [],
-  selectedAiSessionId: undefined,
-  selectedTeacherSessionId: undefined,
+  selectedSessionId: undefined,
   showHeader: true,
   title: '聊天记录',
 })
@@ -214,9 +215,13 @@ const scrollWrapper = ref<HTMLElement | null>(null)
 const unreadStore = useUnreadMessageStore()
 
 // 监听未读消息变化，确保组件响应式更新
-watch(() => unreadStore.unreadSessionsMap, () => {
-  // 触发响应式更新
-}, { deep: true })
+watch(
+  () => unreadStore.unreadSessionsMap,
+  () => {
+    // 触发响应式更新
+  },
+  { deep: true },
+)
 
 // ==================== 计算属性 ====================
 
@@ -224,13 +229,14 @@ watch(() => unreadStore.unreadSessionsMap, () => {
 const getCategoryIcon = (category: string): string => {
   const icons: Record<string, string> = {
     ai: 'smart_toy',
+    teacher: 'school',
     biology: 'biotech',
     math: 'calculate',
   }
   return icons[category] || 'folder'
 }
 
-// 按科目分组教师会话
+// 按科目分组教师会话，每个老师只保留一个会话（最新的）
 const teacherSessionsBySubject = computed(() => {
   const biology: TeacherSession[] = []
   const math: TeacherSession[] = []
@@ -243,11 +249,21 @@ const teacherSessionsBySubject = computed(() => {
     }
   })
 
-  return { biology, math }
+  // 每个老师只保留一个会话（按创建时间倒序，取最新的）
+  const latestBiology = biology.sort((a, b) => b.createTime - a.createTime)[0] || null
+  const latestMath = math.sort((a, b) => b.createTime - a.createTime)[0] || null
+
+  return {
+    biology: latestBiology ? [latestBiology] : [],
+    math: latestMath ? [latestMath] : [],
+  }
 })
 
 // 过滤会话列表（根据搜索关键词）
-const filterSessions = <T extends { sessionName?: string }>(sessions: T[], keyword: string): T[] => {
+const filterSessions = <T extends { sessionName?: string }>(
+  sessions: T[],
+  keyword: string,
+): T[] => {
   if (!keyword || !keyword.trim()) {
     return sessions
   }
@@ -263,7 +279,7 @@ const filterSessions = <T extends { sessionName?: string }>(sessions: T[], keywo
 interface TreeNode {
   id: string
   label: string
-  category: 'ai' | 'biology' | 'math'
+  category: 'ai' | 'teacher' | 'biology' | 'math'
   level: number
   children?: TreeNode[]
   sessionId?: string
@@ -276,7 +292,7 @@ interface TreeNode {
 const treeNodes = computed<TreeNode[]>(() => {
   const nodes: TreeNode[] = []
 
-  // 1. AI聊天（学伴）分类
+  // 1. AI聊天（学伴对话）分类
   const filteredAiSessions = filterSessions(props.aiSessions, searchKeyword.value)
   const aiSessions = filteredAiSessions
     .sort((a, b) => {
@@ -286,77 +302,75 @@ const treeNodes = computed<TreeNode[]>(() => {
       // 按更新时间倒序
       return b.updateTime - a.updateTime
     })
-    .map((session): TreeNode => ({
-      id: `ai_${session.sessionId}`,
-      label: session.sessionName,
-      timestamp: session.updateTime,
-      sessionId: session.sessionId,
-      category: 'ai' as const,
-      level: 2,
-      pinned: session.pinned || false,
-    }))
+    .map(
+      (session): TreeNode => ({
+        id: `ai_${session.sessionId}`,
+        label: session.sessionName,
+        timestamp: session.updateTime,
+        sessionId: session.sessionId,
+        category: 'ai' as const,
+        level: 2,
+        pinned: session.pinned || false,
+      }),
+    )
 
   if (filteredAiSessions.length > 0 || !searchKeyword.value) {
     nodes.push({
       id: 'category_ai',
-      label: '学伴',
+      label: '学伴对话',
       category: 'ai' as const,
       level: 1,
       children: aiSessions,
     })
   }
 
-  // 2. 生物老师分类
+  // 2. 老师对话分类（包含所有老师的会话）
+  const teacherChildren: TreeNode[] = []
+
+  // 2.1 生物老师会话（每个老师只显示一个会话）
   const filteredBiologySessions = filterSessions(
     teacherSessionsBySubject.value.biology,
     searchKeyword.value,
   )
-  const biologySessions = filteredBiologySessions
-    .sort((a, b) => b.createTime - a.createTime)
-    .map((session): TreeNode => ({
-      id: `teacher_biology_${session.sessionId}`,
-      label: session.sessionName,
-      timestamp: session.createTime,
+  if (filteredBiologySessions.length > 0) {
+    const biologySession = filteredBiologySessions[0] // 只取第一个（最新的）
+    teacherChildren.push({
+      id: `teacher_biology_${biologySession.sessionId}`,
+      label: biologySession.sessionName,
+      timestamp: biologySession.createTime,
       subtitle: '生物老师',
-      sessionId: session.sessionId,
+      sessionId: biologySession.sessionId,
       category: 'biology' as const,
       level: 2,
-    }))
-
-  if (filteredBiologySessions.length > 0 || !searchKeyword.value) {
-    nodes.push({
-      id: 'category_biology',
-      label: '生物老师',
-      category: 'biology' as const,
-      level: 1,
-      children: biologySessions,
     })
   }
 
-  // 3. 数学老师分类
+  // 2.2 数学老师会话（每个老师只显示一个会话）
   const filteredMathSessions = filterSessions(
     teacherSessionsBySubject.value.math,
     searchKeyword.value,
   )
-  const mathSessions = filteredMathSessions
-    .sort((a, b) => b.createTime - a.createTime)
-    .map((session): TreeNode => ({
-      id: `teacher_math_${session.sessionId}`,
-      label: session.sessionName,
-      timestamp: session.createTime,
+  if (filteredMathSessions.length > 0) {
+    const mathSession = filteredMathSessions[0] // 只取第一个（最新的）
+    teacherChildren.push({
+      id: `teacher_math_${mathSession.sessionId}`,
+      label: mathSession.sessionName,
+      timestamp: mathSession.createTime,
       subtitle: '数学老师',
-      sessionId: session.sessionId,
+      sessionId: mathSession.sessionId,
       category: 'math' as const,
       level: 2,
-    }))
+    })
+  }
 
-  if (filteredMathSessions.length > 0 || !searchKeyword.value) {
+  // 如果有老师会话或没有搜索关键词，显示"老师对话"分类
+  if (teacherChildren.length > 0 || !searchKeyword.value) {
     nodes.push({
-      id: 'category_math',
-      label: '数学老师',
-      category: 'math' as const,
+      id: 'category_teacher',
+      label: '老师对话',
+      category: 'teacher' as const,
       level: 1,
-      children: mathSessions,
+      children: teacherChildren,
     })
   }
 
@@ -385,16 +399,12 @@ const { init: initBScroll } = useBetterScroll(
 )
 
 // 判断节点是否被选中
+// 使用通用的 selectedSessionId，直接比较 sessionId
 const isSelectedNode = (node: TreeNode): boolean => {
   if (node.level === 1) return false // 分类节点不可选中
 
-  if (node.category === 'ai') {
-    return props.selectedAiSessionId === node.sessionId
-  } else if (node.category === 'biology' || node.category === 'math') {
-    return props.selectedTeacherSessionId === node.sessionId
-  }
-
-  return false
+  // 直接比较 sessionId，如果匹配则选中
+  return props.selectedSessionId === node.sessionId
 }
 
 // ==================== 工具函数 ====================
@@ -413,6 +423,20 @@ const findNodeById = (nodes: TreeNode[], targetId: string): TreeNode | null => {
   return null
 }
 
+// 根据 sessionId 查找节点
+const findNodeBySessionId = (nodes: TreeNode[], targetSessionId: string): TreeNode | null => {
+  for (const node of nodes) {
+    if (node.sessionId === targetSessionId) {
+      return node
+    }
+    if (node.children) {
+      const found = findNodeBySessionId(node.children, targetSessionId)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 // ==================== 方法 ====================
 
 // 处理节点选择
@@ -425,7 +449,7 @@ const handleNodeSelect = (nodeId: string | null) => {
 
   // 查找选中的节点
   const selectedNode = findNodeById(treeNodes.value, nodeId)
-  
+
   // 如果选中的是一级节点（分类节点），不允许选中，保持之前的选中状态
   if (selectedNode && selectedNode.level === 1) {
     // 保持当前选中状态不变，不更新 selectedNodeId
@@ -441,7 +465,7 @@ const handleNodeSelect = (nodeId: string | null) => {
 // 检查会话是否有未读消息
 const hasUnreadMessage = (node: TreeNode): boolean => {
   if (!node.sessionId) return false
-  
+
   if (node.category === 'ai') {
     // AI 会话未读 key 格式: ai_{sessionId}
     return unreadStore.hasUnread(`ai_${node.sessionId}`)
@@ -449,7 +473,7 @@ const hasUnreadMessage = (node: TreeNode): boolean => {
     // 教师会话未读 key 格式: teacher_{sessionId}
     return unreadStore.hasUnread(`teacher_${node.sessionId}`)
   }
-  
+
   return false
 }
 
@@ -569,8 +593,12 @@ const getSelectedCategory = (): 'ai' | 'biology' | 'math' | null => {
     return null
   }
 
-  // 如果是一级分类节点，直接返回分类
+  // 如果是一级分类节点
   if (selectedNode.level === 1) {
+    // 如果是"老师对话"分类，返回null（需要进一步判断）
+    if (selectedNode.category === 'teacher') {
+      return null
+    }
     return selectedNode.category as 'ai' | 'biology' | 'math'
   }
 
@@ -596,7 +624,7 @@ watch(
       await nextTick()
       await initBScroll()
     }
-  }
+  },
 )
 
 // 生命周期
@@ -611,45 +639,60 @@ onUnmounted(() => {
   // BScroll 销毁由组合式函数自动处理
 })
 
-// 监听选中状态变化，更新树形组件的选中状态并清除未读标记
-watch(
-  () => [props.selectedAiSessionId, props.selectedTeacherSessionId] as const,
-  (newValues, oldValues) => {
-    const [newAiSessionId, newTeacherSessionId] = newValues || [undefined, undefined]
-    const [oldAiSessionId, oldTeacherSessionId] = oldValues || [undefined, undefined]
-    
-    // 清除旧会话的未读标记（如果切换了会话）
-    if (oldAiSessionId && oldAiSessionId !== newAiSessionId) {
-      unreadStore.clearUnread(`ai_${oldAiSessionId}`)
-    }
-    if (oldTeacherSessionId && oldTeacherSessionId !== newTeacherSessionId) {
-      unreadStore.clearUnread(`teacher_${oldTeacherSessionId}`)
-    }
-    
-    // 清除新会话的未读标记
-    if (newAiSessionId) {
-      selectedNodeId.value = `ai_${newAiSessionId}`
-      unreadStore.clearUnread(`ai_${newAiSessionId}`)
-    } else if (newTeacherSessionId) {
-      // 需要找到对应的节点ID
-      const biologyNode = treeNodes.value
-        .find((n) => n.id === 'category_biology')
-        ?.children?.find((c) => c.sessionId === newTeacherSessionId)
-      const mathNode = treeNodes.value
-        .find((n) => n.id === 'category_math')
-        ?.children?.find((c) => c.sessionId === newTeacherSessionId)
-
-      if (biologyNode) {
-        selectedNodeId.value = biologyNode.id
-      } else if (mathNode) {
-        selectedNodeId.value = mathNode.id
+// 更新选中状态的辅助函数
+const updateSelectedNode = (sessionId: string | undefined) => {
+  if (sessionId) {
+    const node = findNodeBySessionId(treeNodes.value, sessionId)
+    if (node) {
+      selectedNodeId.value = node.id
+      
+      // 清除新会话的未读标记
+      if (node.category === 'ai') {
+        unreadStore.clearUnread(`ai_${sessionId}`)
+      } else if (node.category === 'biology' || node.category === 'math') {
+        unreadStore.clearUnread(`teacher_${sessionId}`)
       }
-      unreadStore.clearUnread(`teacher_${newTeacherSessionId}`)
     } else {
+      // 如果找不到节点，可能是数据还未加载，先设置 selectedNodeId 为 null
       selectedNodeId.value = null
     }
+  } else {
+    selectedNodeId.value = null
+  }
+}
+
+// 监听选中状态变化，更新树形组件的选中状态并清除未读标记
+watch(
+  () => props.selectedSessionId,
+  (newSessionId, oldSessionId) => {
+    // 清除旧会话的未读标记（如果切换了会话）
+    if (oldSessionId && oldSessionId !== newSessionId) {
+      // 需要判断旧会话的类型
+      const oldNode = findNodeBySessionId(treeNodes.value, oldSessionId)
+      if (oldNode) {
+        if (oldNode.category === 'ai') {
+          unreadStore.clearUnread(`ai_${oldSessionId}`)
+        } else if (oldNode.category === 'biology' || oldNode.category === 'math') {
+          unreadStore.clearUnread(`teacher_${oldSessionId}`)
+        }
+      }
+    }
+
+    // 更新新会话的选中状态
+    updateSelectedNode(newSessionId)
   },
   { immediate: true },
+)
+
+// 监听 treeNodes 变化，当数据加载完成后重新更新选中状态
+watch(
+  () => treeNodes.value.length,
+  () => {
+    // 当树节点数据变化时，如果已有选中的 sessionId，重新查找并更新
+    if (props.selectedSessionId) {
+      updateSelectedNode(props.selectedSessionId)
+    }
+  },
 )
 </script>
 
@@ -721,7 +764,7 @@ watch(
     border-left: 3px solid #1976d2;
     box-shadow: 0 2px 8px rgba(25, 118, 210, 0.15);
     transform: translateX(2px);
-    
+
     .session-title {
       color: #1976d2;
       font-weight: 600;
@@ -826,7 +869,8 @@ watch(
   }
 
   @keyframes pulse {
-    0%, 100% {
+    0%,
+    100% {
       opacity: 1;
       transform: scale(1);
     }

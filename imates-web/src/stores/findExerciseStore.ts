@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 习题查找页面状态管理
  * 对应Android FindExerciseActivity的功能
  */
@@ -149,7 +149,6 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
       // 检测是否遇到空页面
       if (result.questions.length === 0 && pagination.value.currentPage > 0) {
         hasEmptyPage.value = true
-        console.log(`第${pagination.value.currentPage + 1}页返回空数据，停止加载更多`)
       }
       
       // 如果是第一页，清空现有列表；否则追加
@@ -176,13 +175,11 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
     
     // 检查是否遇到空页面
     if (hasEmptyPage.value) {
-      console.log('已遇到空页面，停止加载更多')
       return false
     }
     
     // 检查是否还有更多数据
     if (similarQuestions.value.length >= pagination.value.totalCount) {
-      console.log('没有更多题目了')
       return false
     }
     
@@ -195,8 +192,6 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
       
       // 调用API获取下一页数据
       await findSimilarQuestions()
-      
-      console.log(`已加载第${pagination.value.currentPage + 1}页，当前题目总数: ${similarQuestions.value.length}`)
       return true
     } catch (error) {
       console.error('加载更多题目失败:', error)
@@ -301,22 +296,12 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
     }
     
     try {
-      console.log('[findExerciseStore] 开始添加题目到练习列表')
-      console.log('[findExerciseStore] 要添加的题目ID:', manuallySelectedIds)
-      
       // 不设置全局加载状态，避免显示"正在查找相似题目..."
       const apiService = ApiService.getInstance()
       
       // 构建请求参数 - 去重 ID 列表
       const uniqueSelectedIds = [...new Set(manuallySelectedIds)].join(',')
       const uniqueExerciseIds = [...new Set(questionsInFavor.value.map(q => q.bmNo).filter(id => id))].join(',')
-      
-      console.log('[findExerciseStore] API请求参数:', {
-        bmNo: uniqueSelectedIds,
-        exercisesId: uniqueExerciseIds,
-        type: config.value.subject === Subject.SUBJECT_MATH ? 'math' : 'biology'
-      })
-      
       const request: AddQuestionRequest = {
         bmNo: uniqueSelectedIds,
         type: config.value.subject === Subject.SUBJECT_MATH ? 'math' : 'biology',
@@ -325,12 +310,9 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
       
       // 调用API添加题目
       const subjectName = config.value.subject === Subject.SUBJECT_MATH ? 'math' : 'biology'
-      console.log('[findExerciseStore] 调用API添加题目，科目:', subjectName)
       const success = await apiService.addQuestionToList(request, subjectName)
       
       if (success) {
-        console.log('[findExerciseStore] ✅ 题目已成功添加到练习列表')
-        console.log('[findExerciseStore] 成功添加的题目数量:', manuallySelectedIds.length)
       } else {
         console.error('[findExerciseStore] ❌ 添加题目失败，API返回失败')
       }

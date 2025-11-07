@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <DraggableDialog 
     v-model="localVisible" 
     title="草稿本"
@@ -157,13 +157,10 @@ const toggleDraftPanel = () => {
 // 流程：处理分屏比例变化
 const handleSplitterChange = (ratio: number) => {
   splitterRatio.value = ratio
-  console.log('[DraftDialog] 📊 分屏比例变化:', ratio)
 }
 
 // 流程：新建草稿
 const handleNewDraft = () => {
-  console.log('[DraftDialog] 🆕 新建草稿')
-  
   // 第1步：保存当前草稿的绘图数据和缩略图
   if (drawingBoardRef.value) {
     const currentData = drawingBoardRef.value.saveData()
@@ -172,7 +169,6 @@ const handleNewDraft = () => {
     draftList.value[currentDraftIndex.value].history = currentData.history
     draftList.value[currentDraftIndex.value].historyIndex = currentData.historyIndex
     draftList.value[currentDraftIndex.value].thumbnail = thumbnail
-    console.log('[DraftDialog] 💾 已保存当前草稿数据')
   }
   
   // 第2步：创建新草稿
@@ -196,19 +192,14 @@ const handleNewDraft = () => {
       history: [[]],
       historyIndex: 0
     })
-    console.log('[DraftDialog] 🎨 绘图板已清空')
-    
     // 第4步：为新建的空白草稿立即生成缩略图
     setTimeout(() => {
       if (drawingBoardRef.value) {
         const thumbnail = drawingBoardRef.value.getThumbnail(240, 160)
         draftList.value[currentDraftIndex.value].thumbnail = thumbnail
-        console.log('[DraftDialog] 📸 已为新草稿生成缩略图')
       }
     }, 100)
   }
-  
-  console.log('[DraftDialog] ✅ 新草稿已创建:', newDraft.name)
 }
 
 // 流程：切换草稿
@@ -220,15 +211,8 @@ const switchDraft = (index: number) => {
   
   // 如果点击的是当前草稿，不需要切换
   if (index === currentDraftIndex.value) {
-    console.log('[DraftDialog] ℹ️ 已经是当前草稿，无需切换')
     return
   }
-  
-  console.log('[DraftDialog] 📄 切换草稿:', {
-    from: draftList.value[currentDraftIndex.value].name,
-    to: draftList.value[index].name
-  })
-  
   // 第1步：保存当前草稿的绘图数据和缩略图
   if (drawingBoardRef.value) {
     const currentData = drawingBoardRef.value.saveData()
@@ -238,10 +222,6 @@ const switchDraft = (index: number) => {
     draftList.value[currentDraftIndex.value].historyIndex = currentData.historyIndex
     draftList.value[currentDraftIndex.value].thumbnail = thumbnail
     draftList.value[currentDraftIndex.value].updatedAt = Date.now()
-    console.log('[DraftDialog] 💾 已保存当前草稿数据:', {
-      draft: draftList.value[currentDraftIndex.value].name,
-      objects: currentData.objects.length
-    })
   }
   
   // 第2步：切换到新草稿
@@ -255,25 +235,17 @@ const switchDraft = (index: number) => {
       history: newDraft.history,
       historyIndex: newDraft.historyIndex
     })
-    console.log('[DraftDialog] 📥 已加载新草稿数据:', {
-      draft: newDraft.name,
-      objects: newDraft.objects.length
-    })
-    
     // 如果新草稿没有缩略图，生成一个
     setTimeout(() => {
       if (drawingBoardRef.value && !draftList.value[index].thumbnail) {
         const thumbnail = drawingBoardRef.value.getThumbnail(240, 160)
         draftList.value[index].thumbnail = thumbnail
-        console.log('[DraftDialog] 📸 已为切换后的草稿生成缩略图')
       }
     }, 100)
   }
   
   // 第4步：更新草稿修改时间
   draftList.value[index].updatedAt = Date.now()
-  
-  console.log('[DraftDialog] ✅ 草稿切换完成')
 }
 
 // 流程：删除草稿
@@ -285,8 +257,6 @@ const confirmDeleteDraft = (index: number) => {
   }
   
   const draftName = draftList.value[index].name
-  console.log('[DraftDialog] 🗑️ 删除草稿:', draftName)
-  
   // 第1步：如果删除的是当前草稿，保存数据
   const oldCurrentIndex = currentDraftIndex.value
   const isDeletingCurrent = index === currentDraftIndex.value
@@ -296,7 +266,6 @@ const confirmDeleteDraft = (index: number) => {
     draftList.value[currentDraftIndex.value].objects = currentData.objects
     draftList.value[currentDraftIndex.value].history = currentData.history
     draftList.value[currentDraftIndex.value].historyIndex = currentData.historyIndex
-    console.log('[DraftDialog] 💾 已保存即将删除的草稿数据')
   }
   
   // 第2步：删除草稿
@@ -324,11 +293,8 @@ const confirmDeleteDraft = (index: number) => {
         history: newDraft.history,
         historyIndex: newDraft.historyIndex
       })
-      console.log('[DraftDialog] 📥 已加载草稿数据:', newDraft.name)
     }
   }
-  
-  console.log('[DraftDialog] ✅ 草稿已删除:', draftName)
 }
 
 // 流程：监听草稿本对话框打开/关闭
@@ -339,7 +305,6 @@ watch(localVisible, (isOpen) => {
       if (drawingBoardRef.value && !draftList.value[currentDraftIndex.value].thumbnail) {
         const thumbnail = drawingBoardRef.value.getThumbnail(240, 160)
         draftList.value[currentDraftIndex.value].thumbnail = thumbnail
-        console.log('[DraftDialog] 📸 已为草稿生成初始缩略图')
       }
     }, 100)
   } else if (!isOpen && drawingBoardRef.value) {
@@ -351,10 +316,6 @@ watch(localVisible, (isOpen) => {
     draftList.value[currentDraftIndex.value].historyIndex = currentData.historyIndex
     draftList.value[currentDraftIndex.value].thumbnail = thumbnail
     draftList.value[currentDraftIndex.value].updatedAt = Date.now()
-    console.log('[DraftDialog] 💾 草稿本关闭，已保存草稿数据:', {
-      draft: draftList.value[currentDraftIndex.value].name,
-      objects: currentData.objects.length
-    })
   }
 })
 

@@ -30,13 +30,6 @@ export interface TiptapEditorProps {
 
 // ========== 题目列表相关组件 ==========
 
-/** VirtualQuestionList Props接口 */
-export interface VirtualQuestionListProps {
-  questions: ExerciseItem[]
-  selectedQuestionIndex: number
-  searchQuery?: string
-}
-
 /** AnswerView Props接口 */
 export interface AnswerViewProps {
   answer: string

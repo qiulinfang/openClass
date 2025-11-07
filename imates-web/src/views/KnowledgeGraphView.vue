@@ -1019,10 +1019,6 @@ const generateValidationReport = (sequence: TouchSequence) => {
     }))
   }
   
-  console.group(`🔍 触摸序列验证报告 #${touchSequencesHistory.value.length}`)
-  console.log('📊 摘要:', report.summary)
-  console.log('🎯 初始目标:', report.initialTarget)
-  
   if (hasCancelled || hasInterrupted) {
     console.warn('⚠️ 触摸序列中断！')
     if (collapseTriggered && collapseDelay !== null) {
@@ -1034,13 +1030,7 @@ const generateValidationReport = (sequence: TouchSequence) => {
     if (targetChanges > 0) {
       console.warn(`⚠️ 检测到 ${targetChanges} 次目标元素变化`)
     }
-  } else {
-    console.log('✅ 触摸序列完整')
   }
-  
-  console.log('📋 事件序列:')
-  console.table(report.events)
-  console.groupEnd()
   
   return report
 }
@@ -1094,14 +1084,6 @@ const handleTouchStart = (event: TouchEvent) => {
   const isOnCenterNode = target?.closest('.graph-node--center') !== null
   const isOnCircularNode = target?.closest('.graph-node--circular') !== null
   
-  console.log('handleTouchStart', {
-    target: target?.className,
-    isOnCenterNode,
-    isOnCircularNode,
-    // 中心节点和圆周节点现在都像背景一样，触摸会被当作背景区域处理，会触发旋转操作
-    note: '中心节点和圆周节点现在都像背景一样，触摸会被当作背景区域处理'
-  })
-  
   if (!circularLayoutRef.value) return
   
   // 检查触摸点是否在圆周节点上（现在圆周节点和中心节点都不再被特殊处理，始终返回 false）
@@ -1139,23 +1121,6 @@ const handleTouchMove = (event: TouchEvent) => {
   const isOnCircularLayout = target?.closest('.circular-layout') !== null
   const isOnViewportClipper = target?.closest('.viewport-clipper') !== null
   
-  console.log('handleTouchMove', {
-    target: target?.className || target?.tagName,
-    targetElement: target,
-    isOnCenterNode,
-    isOnCircularNode,
-    isOnCircularLayout,
-    isOnViewportClipper,
-    currentTarget: event.currentTarget,
-    touches: event.touches.length,
-    isActualDragging: isActualDragging.value,
-    totalDeltaY: Math.abs(event.touches[0].clientY - startY.value),
-    threshold: DRAG_THRESHOLD.value,
-    hasExpandedGraph: getCurrentChapterExpandedGraph() !== null,
-    // 注意：圆周节点在收缩后会消失，但触摸事件应该继续冒泡到 viewport-clipper，继续触发旋转
-    note: '圆周节点在收缩后会消失，但触摸事件应该继续冒泡到 viewport-clipper'
-  })
-  
   if (!circularLayoutRef.value) {
     console.warn('⚠️ handleTouchMove: circularLayoutRef.value is null, returning early')
     return
@@ -1169,13 +1134,6 @@ const handleTouchMove = (event: TouchEvent) => {
   const isJustStartingDrag = totalDeltaY > DRAG_THRESHOLD.value && !isActualDragging.value
   
   if (isJustStartingDrag) {
-    console.log('✅ 超过阈值，开始拖动', {
-      totalDeltaY,
-      threshold: DRAG_THRESHOLD.value,
-      target: target?.className || target?.tagName,
-      isOnCircularNode,
-      isOnCenterNode
-    })
     isActualDragging.value = true
     isDragging.value = true // ✅ 只有在实际移动超过阈值时才设置 isDragging
     
@@ -1220,19 +1178,6 @@ const handleTouchMove = (event: TouchEvent) => {
   // 使用标志位确保只触发一次收缩操作，避免重复收缩
     const expandedGraphId = getCurrentChapterExpandedGraph()
   if (expandedGraphId !== null && !isCollapsing.value) {
-    console.log('📉 [KnowledgeGraphView] 触摸移动导致知识图谱立即收缩:', {
-      trigger: 'handleTouchMove',
-      expandedGraphId,
-      currentChapterIndex: getCurrentChapter(),
-      currentChapterId: selectedChapterDetails.value?.id,
-      currentChapterName: selectedChapterDetails.value?.name,
-      timestamp: new Date().toISOString(),
-      rotationDelta,
-      target: target?.className || target?.tagName,
-      isOnCircularNode,
-      // ⚠️ 关键优化：使用 requestAnimationFrame 异步执行收缩，确保触摸序列不中断
-      note: '使用 requestAnimationFrame 异步执行收缩，确保触摸序列不中断'
-    })
     // 记录收缩触发
     recordCollapseTrigger()
     
@@ -1251,23 +1196,6 @@ const handleTouchMove = (event: TouchEvent) => {
   const currentRotation = getChapterRotation(getCurrentChapter())
   const newRotation = currentRotation - rotationDelta
   
-  console.log('🔄 [KnowledgeGraphView] 触摸移动导致知识图谱旋转:', {
-    trigger: 'handleTouchMove',
-    effectiveDeltaY,
-    rotationDelta,
-    currentRotation,
-    newRotation,
-    currentChapterIndex: getCurrentChapter(),
-    touchStartedOnCircularNode: touchStartedOnCircularNode.value,
-    target: target?.className || target?.tagName,
-    isOnCircularNode,
-    isOnCenterNode,
-    hasExpandedGraph: getCurrentChapterExpandedGraph() !== null,
-    timestamp: new Date().toISOString(),
-    // 注意：圆周节点在收缩后会消失，但触摸事件应该继续冒泡，继续触发旋转
-    note: '圆周节点在收缩后会消失，但触摸事件应该继续冒泡到 viewport-clipper，继续触发旋转'
-  })
-  
   setChapterRotation(getCurrentChapter(), newRotation)
   
   // 更新上次位置和时间戳
@@ -1281,10 +1209,6 @@ const handleTouchEnd = (event: TouchEvent) => {
   
   // 完成触摸序列并生成报告
   finalizeTouchSequence()
-  
-  console.log('handleTouchEnd', {
-    hasExpandedGraph: getCurrentChapterExpandedGraph() !== null
-  })
   
   // 保存实际拖拽状态，因为后面会重置
   const wasActuallyDragging = isActualDragging.value
@@ -1511,33 +1435,12 @@ const handleMouseMove = (event: MouseEvent) => {
   // 注意：鼠标事件不需要延迟收缩，因为鼠标移动不会因为 DOM 结构变化而中断
   if (getCurrentChapterExpandedGraph() !== null) {
     const expandedGraphId = getCurrentChapterExpandedGraph()
-    console.log('📉 [KnowledgeGraphView] 鼠标移动导致知识图谱收缩:', {
-      trigger: 'handleMouseMove',
-      expandedGraphId,
-      currentChapterIndex: getCurrentChapter(),
-      currentChapterId: selectedChapterDetails.value?.id,
-      currentChapterName: selectedChapterDetails.value?.name,
-      timestamp: new Date().toISOString(),
-      rotationDelta,
-      note: '鼠标事件不需要延迟收缩，因为鼠标移动不会因为 DOM 结构变化而中断'
-    })
     setCurrentChapterExpandedGraph(null)
   }
   
   // 更新当前章节的旋转角度（向上滑动为正，向下滑动为负）
   const currentRotation = getChapterRotation(getCurrentChapter())
   const newRotation = currentRotation - rotationDelta
-  
-  console.log('🔄 [KnowledgeGraphView] 鼠标移动导致知识图谱旋转:', {
-    trigger: 'handleMouseMove',
-    effectiveDeltaY,
-    rotationDelta,
-    currentRotation,
-    newRotation,
-    currentChapterIndex: getCurrentChapter(),
-    touchStartedOnCircularNode: touchStartedOnCircularNode.value,
-    timestamp: new Date().toISOString()
-  })
   
   setChapterRotation(getCurrentChapter(), newRotation)
   
@@ -1783,18 +1686,7 @@ const saveCurrentPageState = () => {
       textbookOptions: textbookOptions.value // 保存当前教材选项
     }
     
-    console.log('💾 [KnowledgeGraphView] 保存页面状态:', {
-      selectedSubject: state.selectedSubject,
-      selectedTextbook: state.selectedTextbook,
-      selectedChapterIndex: state.selectedChapterIndex,
-      chapterName: state.selectedChapterDetails?.name || '未知',
-      chaptersCount: state.chapters?.length || 0,
-      chapterStructureCount: state.chapterStructure?.length || 0,
-      textbookOptionsCount: state.textbookOptions?.length || 0
-    })
-    
     savePageState(state)
-    console.log('✅ [KnowledgeGraphView] 页面状态保存成功')
   } catch (error) {
     // 状态保存失败，静默处理
     console.error('❌ [KnowledgeGraphView] 页面状态保存失败:', error)
@@ -1803,26 +1695,14 @@ const saveCurrentPageState = () => {
 
 // 第30步：恢复页面状态
 const restorePageStateFromStore = async (): Promise<boolean> => {
-  console.log('🔄 [KnowledgeGraphView] 开始恢复页面状态...')
   
   try {
     const savedState = restorePageState()
     if (!savedState) {
-      console.log('❌ [KnowledgeGraphView] 没有保存的状态，跳过恢复')
       return false
     }
     
-    console.log('✅ [KnowledgeGraphView] 找到保存的状态:', {
-      selectedSubject: savedState.selectedSubject,
-      selectedTextbook: savedState.selectedTextbook,
-      selectedChapterIndex: savedState.selectedChapterIndex,
-      chaptersCount: savedState.chapters?.length || 0,
-      chapterStructureCount: savedState.chapterStructure?.length || 0,
-      timestamp: new Date(savedState.timestamp).toLocaleString()
-    })
-    
     // 恢复基本状态
-    console.log('📝 [KnowledgeGraphView] 恢复基本状态...')
     selectedSubject.value = savedState.selectedSubject
     chapters.value = savedState.chapters
     chapterStructure.value = savedState.chapterStructure
@@ -1831,16 +1711,11 @@ const restorePageStateFromStore = async (): Promise<boolean> => {
     if (savedState.textbookOptions && savedState.textbookOptions.length > 0) {
       // 直接使用保存的教材选项
       textbookOptions.value = savedState.textbookOptions
-      console.log('✅ [KnowledgeGraphView] 从保存状态恢复教材选项:', {
-        数量: savedState.textbookOptions.length,
-        选中的教材: savedState.selectedTextbook
-      })
       
       // 验证并设置选中的教材
       const foundOption = savedState.textbookOptions.find(opt => opt.value === savedState.selectedTextbook)
       if (foundOption) {
         selectedTextbook.value = savedState.selectedTextbook
-        console.log('✅ [KnowledgeGraphView] 教材选择器已恢复:', foundOption.label)
       } else {
         console.warn('⚠️ [KnowledgeGraphView] 保存的教材不在保存的选项中，使用第一个教材')
         if (savedState.textbookOptions.length > 0) {
@@ -1851,7 +1726,6 @@ const restorePageStateFromStore = async (): Promise<boolean> => {
       }
     } else {
       // 向后兼容：如果保存的状态中没有教材选项，从IndexedDB重新加载并筛选
-      console.log('📚 [KnowledgeGraphView] 保存的状态中没有教材选项，从IndexedDB重新加载...')
       const localOptions = await loadTextbookDataFromIndexedDB()
       if (localOptions.length > 0) {
         // 根据恢复的学科筛选教材选项
@@ -1871,12 +1745,6 @@ const restorePageStateFromStore = async (): Promise<boolean> => {
         const filteredOptions = localOptions.filter(option => option.subject === subjectLabel)
         
         textbookOptions.value = filteredOptions
-        console.log('✅ [KnowledgeGraphView] 教材选项加载完成:', {
-          总数量: localOptions.length,
-          筛选后数量: filteredOptions.length,
-          学科: subjectLabel,
-          选中的教材: savedState.selectedTextbook
-        })
         
         // 验证恢复的教材是否在筛选后的选项中，然后设置选中的教材
         const foundOption = filteredOptions.find(opt => opt.value === savedState.selectedTextbook)
@@ -1889,64 +1757,37 @@ const restorePageStateFromStore = async (): Promise<boolean> => {
           }
         } else {
           selectedTextbook.value = savedState.selectedTextbook
-          console.log('✅ [KnowledgeGraphView] 教材选择器已恢复:', foundOption.label)
         }
       } else {
-        console.log('⚠️ [KnowledgeGraphView] IndexedDB中没有教材选项')
         textbookOptions.value = []
         selectedTextbook.value = ''
       }
     }
     
-    console.log('✅ [KnowledgeGraphView] 基本状态恢复完成:', {
-      selectedSubject: selectedSubject.value,
-      selectedTextbook: selectedTextbook.value,
-      chaptersCount: chapters.value.length,
-      chapterStructureCount: chapterStructure.value.length,
-      textbookOptionsCount: textbookOptions.value.length
-    })
-    
     // 恢复章节状态
     if (savedState.selectedChapterIndex >= 0 && savedState.selectedChapterIndex < chapterStructure.value.length) {
-      console.log('📖 [KnowledgeGraphView] 恢复章节状态...', {
-        selectedChapterIndex: savedState.selectedChapterIndex,
-        chapterName: savedState.selectedChapterDetails?.name || '未知'
-      })
-      
       setCurrentChapter(savedState.selectedChapterIndex)
       selectedChapterDetails.value = savedState.selectedChapterDetails
       
       // 恢复展开的知识图谱状态
       if (savedState.selectedChapterDetails) {
         const subChapters = getSubChapters(savedState.selectedChapterDetails)
-        console.log('🔍 [KnowledgeGraphView] 子章节数量:', subChapters.length)
         
         if (subChapters.length > 0) {
           // 尝试恢复之前展开的图谱，如果不存在则自动展开位于targetAngle的图谱
           const previousExpandedGraph = getCurrentChapterExpandedGraph()
-          console.log('🎯 [KnowledgeGraphView] 之前展开的图谱ID:', previousExpandedGraph)
           
           if (previousExpandedGraph && subChapters.some(sub => sub.id === previousExpandedGraph)) {
-            console.log('✅ [KnowledgeGraphView] 恢复之前展开的图谱:', previousExpandedGraph)
             setCurrentChapterExpandedGraph(previousExpandedGraph)
           } else {
             // 如果没有之前保存的展开状态，自动展开位于targetAngle的图谱
-            console.log('🔄 [KnowledgeGraphView] 没有之前保存的展开状态，自动展开位于targetAngle的图谱')
             await nextTick()
             autoPositionToNearestGraph()
           }
         }
       }
-      
-      console.log('✅ [KnowledgeGraphView] 章节状态恢复完成')
-    } else {
-      console.log('⚠️ [KnowledgeGraphView] 章节索引无效，跳过章节状态恢复:', {
-        selectedChapterIndex: savedState.selectedChapterIndex,
-        chapterStructureLength: chapterStructure.value.length
-      })
     }
     
-    console.log('🎉 [KnowledgeGraphView] 页面状态恢复完成')
     return true
   } catch (error) {
     console.error('❌ [KnowledgeGraphView] 状态恢复失败:', error)
@@ -2384,35 +2225,27 @@ const sessionManager = {
 
 // 第32步：初始化图谱
 const initGraph = async () => {
-  console.log('🚀 [KnowledgeGraphView] 开始初始化图谱...')
   loading.value = true
   
   try {
     // 使用智能认证，只在必要时重新登录
-    console.log('🔐 [KnowledgeGraphView] 检查认证状态...')
     const authSuccess = await sessionManager.ensureAuthentication()
     
     if (!authSuccess) {
       console.error('❌ [KnowledgeGraphView] 认证失败，终止初始化')
       return
     }
-    console.log('✅ [KnowledgeGraphView] 认证成功')
     
     // 第33步：优先尝试恢复保存的页面状态
-    console.log('🔍 [KnowledgeGraphView] 尝试恢复保存的页面状态...')
     const stateRestored = await restorePageStateFromStore()
     
     if (stateRestored) {
       // 状态恢复成功，直接渲染图谱
-      console.log('✅ [KnowledgeGraphView] 状态恢复成功，直接渲染图谱')
       await nextTick()
       renderGraph()
-      console.log('✅ [KnowledgeGraphView] 图谱渲染完成（从状态恢复）')
       
       return
     }
-    
-    console.log('ℹ️ [KnowledgeGraphView] 状态恢复失败或没有保存的状态，开始新加载流程...')
     
     // 检查路由查询参数中是否有 textbookId
     const queryTextbookId = route.query.textbookId as string | undefined
@@ -2458,21 +2291,18 @@ const initGraph = async () => {
     }
     
     // 初始化图谱数据（但不重置已选择的章节）
-    console.log('🔧 [KnowledgeGraphView] 初始化图谱数据...')
     initGraphDataWithoutReset()
     
     // 这里可以集成真实的图谱库，如 vis.js, d3.js, cytoscape.js 等
     // 目前使用简单的DOM渲染
     await nextTick()
     renderGraph()
-    console.log('✅ [KnowledgeGraphView] 图谱渲染完成（新加载）')
     
   } catch (error) {
     // 图谱初始化失败，静默处理
     console.error('❌ [KnowledgeGraphView] 图谱初始化失败:', error)
   } finally {
     loading.value = false
-    console.log('🏁 [KnowledgeGraphView] 初始化流程结束')
   }
 }
 

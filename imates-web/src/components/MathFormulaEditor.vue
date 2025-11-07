@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="math-formula-editor">
     <!-- 完整模式 -->
     <div class="container">
@@ -371,8 +371,6 @@ const getMarkdownContent = () => {
   
   // 从Quill的Delta获取完整内容，包括文本和公式
   const delta = quill.getContents()
-  console.log('📄 Delta内容:', delta)
-  
   // 获取完整的编辑器内容，包括所有历史内容
   const fullContent = quill.getContents()
   let markdown = ''

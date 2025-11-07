@@ -144,7 +144,6 @@ export const useUserStore = create<UserState>((set, get) => ({
   saveProgress: async () => {
     try {
       // 待实现
-      console.log('[USER] ✅ 保存进度成功')
     } catch (error) {
       console.error('[USER] ❌ 保存进度失败:', error)
     }
@@ -157,7 +156,6 @@ export const useUserStore = create<UserState>((set, get) => ({
   quickSaveProgress: async () => {
     try {
       // 待实现
-      console.log('[USER] ✅ 快速保存进度成功')
     } catch (error) {
       console.error('[USER] ❌ 快速保存进度失败:', error)
     }

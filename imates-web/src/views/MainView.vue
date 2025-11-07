@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div 
     class="main-view"
     @mousemove="handleDrag"
@@ -363,10 +363,8 @@ onMounted(async () => {
     
     switch (level.toUpperCase()) {
       case 'DEBUG':
-        console.log(`[MainView] 🔍 ${logMessage}`)
         break
       case 'INFO':
-        console.log(`[MainView] ℹ️ ${logMessage}`)
         break
       case 'WARN':
         console.warn(`[MainView] ⚠️ ${logMessage}`)
@@ -375,7 +373,6 @@ onMounted(async () => {
         console.error(`[MainView] ❌ ${logMessage}`)
         break
       default:
-        console.log(`[MainView] 📝 ${logMessage}`)
         break
     }
   }
@@ -384,9 +381,6 @@ onMounted(async () => {
   window.addEventListener('floating-fab-action', (event: Event) => {
     const customEvent = event as CustomEvent<{ action: string }>
     const action = customEvent.detail?.action
-    
-    console.log('📡 [MainView] 收到 floating-fab-action 事件:', action)
-    
     if (action === 'openDraft') {
       handleDraftClick()
     } else if (action === 'openAIChat') {

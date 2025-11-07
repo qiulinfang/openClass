@@ -17,17 +17,28 @@
           <canvas
             ref="cropCanvas"
             :class="['crop-canvas', { 'is-dragging': isDragging, 'is-drawing': isCropping, 'is-resizing': isResizing }]"
-            :style="{ cursor: currentCursor }"
-            @mousedown="startCrop"
-            @mousemove="handleMouseMove"
-            @mouseup="endCrop"
-            @mouseleave="handleMouseLeave"
-            @touchstart="startCrop"
-            @touchmove="updateCrop"
-            @touchend="endCrop"
+            :style="{ cursor: props.enableCrop ? currentCursor : 'default' }"
+            @mousedown="handleStartCrop"
+            @mousemove="handleMouseMoveWrapper"
+            @mouseup="handleEndCrop"
+            @mouseleave="handleMouseLeaveWrapper"
+            @touchstart="handleStartCrop"
+            @touchmove="handleUpdateCrop"
+            @touchend="handleEndCrop"
           ></canvas>
+          <!-- 灰色蒙版层（四个遮罩层覆盖框选区域外的部分） -->
+          <template v-if="props.enableCrop && cropRect">
+            <!-- 顶部遮罩 -->
+            <div class="crop-mask crop-mask-top" :style="cropMaskTopStyle"></div>
+            <!-- 底部遮罩 -->
+            <div class="crop-mask crop-mask-bottom" :style="cropMaskBottomStyle"></div>
+            <!-- 左侧遮罩 -->
+            <div class="crop-mask crop-mask-left" :style="cropMaskLeftStyle"></div>
+            <!-- 右侧遮罩 -->
+            <div class="crop-mask crop-mask-right" :style="cropMaskRightStyle"></div>
+          </template>
           <!-- 框选遮罩 -->
-          <div v-if="cropRect" class="crop-overlay" :style="cropOverlayStyle">
+          <div v-if="props.enableCrop && cropRect" class="crop-overlay" :style="cropOverlayStyle">
             <!-- 四个角的 L 形标记 -->
             <div class="crop-corner crop-corner-nw"></div>
             <div class="crop-corner crop-corner-ne"></div>
@@ -81,6 +92,7 @@ import { showMessage } from '@/utils'
 interface Props {
   modelValue: boolean
   screenshotDataUrl?: string
+  enableCrop?: boolean  // 是否启用框选模式，默认为 true
 }
 
 interface Emits {
@@ -90,7 +102,8 @@ interface Emits {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  screenshotDataUrl: ''
+  screenshotDataUrl: '',
+  enableCrop: true
 })
 
 const emit = defineEmits<Emits>()
@@ -142,6 +155,64 @@ const cropOverlayStyle = computed(() => {
   }
 })
 
+// 灰色蒙版样式（四个遮罩层）
+const getContainerSize = () => {
+  if (!cropCanvas.value) return { width: 0, height: 0 }
+  const container = cropCanvas.value.parentElement
+  if (!container) return { width: 0, height: 0 }
+  const rect = container.getBoundingClientRect()
+  return { width: rect.width, height: rect.height }
+}
+
+// 顶部遮罩样式
+const cropMaskTopStyle = computed(() => {
+  if (!cropRect.value) return {}
+  const { width } = getContainerSize()
+  return {
+    top: '0',
+    left: '0',
+    width: `${width}px`,
+    height: `${cropRect.value.y}px`,
+  }
+})
+
+// 底部遮罩样式
+const cropMaskBottomStyle = computed(() => {
+  if (!cropRect.value) return {}
+  const { width, height } = getContainerSize()
+  const bottomY = cropRect.value.y + cropRect.value.height
+  return {
+    top: `${bottomY}px`,
+    left: '0',
+    width: `${width}px`,
+    height: `${height - bottomY}px`,
+  }
+})
+
+// 左侧遮罩样式
+const cropMaskLeftStyle = computed(() => {
+  if (!cropRect.value) return {}
+  return {
+    top: `${cropRect.value.y}px`,
+    left: '0',
+    width: `${cropRect.value.x}px`,
+    height: `${cropRect.value.height}px`,
+  }
+})
+
+// 右侧遮罩样式
+const cropMaskRightStyle = computed(() => {
+  if (!cropRect.value) return {}
+  const { width } = getContainerSize()
+  const rightX = cropRect.value.x + cropRect.value.width
+  return {
+    top: `${cropRect.value.y}px`,
+    left: `${rightX}px`,
+    width: `${width - rightX}px`,
+    height: `${cropRect.value.height}px`,
+  }
+})
+
 // 初始化裁剪画布
 const initCropCanvas = () => {
   if (!cropCanvas.value || !props.screenshotDataUrl) return
@@ -154,51 +225,67 @@ const initCropCanvas = () => {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // 设置画布大小为预览区域大小
+    // 获取设备像素比（DPR），用于高DPI设备支持
+    const dpr = window.devicePixelRatio || 1
+
+    // 计算 CSS 像素尺寸（逻辑像素）
     const container = canvas.parentElement
+    let cssWidth = 520
+    let cssHeight = 300
+    
     if (container) {
       const rect = container.getBoundingClientRect()
       // 确保容器有有效尺寸
       if (rect.width > 0 && rect.height > 0) {
-        canvas.width = rect.width
-        canvas.height = rect.height
-      } else {
-        // 如果容器尺寸无效，使用默认尺寸
-        canvas.width = 520
-        canvas.height = 300
+        cssWidth = rect.width
+        cssHeight = rect.height
       }
-    } else {
-      // 如果没有容器，使用默认尺寸
-      canvas.width = 520
-      canvas.height = 300
     }
+
+    // 设置 Canvas 实际像素尺寸（高DPI支持）
+    // 实际像素尺寸 = CSS像素尺寸 × DPR
+    canvas.width = cssWidth * dpr
+    canvas.height = cssHeight * dpr
+
+    // 设置 Canvas CSS 显示尺寸（逻辑像素）
+    // 这样 Canvas 的显示大小和逻辑坐标系统保持一致
+    canvas.style.width = `${cssWidth}px`
+    canvas.style.height = `${cssHeight}px`
+
+    // 缩放上下文以适应高DPI
+    // 之后所有的绘制操作都使用逻辑像素坐标（CSS像素）
+    ctx.scale(dpr, dpr)
 
     const img = new Image()
     img.onload = () => {
-      if (!cropCanvas.value) return
+      if (!cropCanvas.value) {
+        return
+      }
 
       // 计算图片的缩放和位置，使其以 contain 模式填充 canvas
-      const canvasAspect = canvas.width / canvas.height
+      // 使用逻辑像素尺寸（CSS像素）进行计算
+      const canvasAspect = cssWidth / cssHeight
       const imgAspect = img.width / img.height
 
-      let drawWidth = canvas.width
-      let drawHeight = canvas.height
+      let drawWidth = cssWidth
+      let drawHeight = cssHeight
       let drawX = 0
       let drawY = 0
 
       if (imgAspect > canvasAspect) {
         // 图片更宽，以宽度为准，上下留白
-        drawWidth = canvas.width
+        drawWidth = cssWidth
         drawHeight = drawWidth / imgAspect
-        drawY = (canvas.height - drawHeight) / 2
+        drawY = (cssHeight - drawHeight) / 2
       } else {
         // 图片更高，以高度为准，左右留白
-        drawHeight = canvas.height
+        drawHeight = cssHeight
         drawWidth = drawHeight * imgAspect
-        drawX = (canvas.width - drawWidth) / 2
+        drawX = (cssWidth - drawWidth) / 2
       }
 
       // 保存图片绘制信息（用于坐标映射）
+      // 所有坐标都使用逻辑像素（CSS像素）
       imageDrawInfo.value = {
         drawX,
         drawY,
@@ -208,18 +295,17 @@ const initCropCanvas = () => {
         originalHeight: img.height,
       }
 
-      // 清空画布
+      // 清空画布（使用逻辑像素尺寸）
       ctx.fillStyle = '#f5f5f5'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.fillRect(0, 0, cssWidth, cssHeight)
 
-      // 绘制图片（contain 模式）
+      // 绘制图片（contain 模式，使用逻辑像素坐标）
       ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
 
       // 初始化时不创建裁剪框，等待用户绘制
       cropRect.value = null
     }
     img.onerror = () => {
-      console.error('图片加载失败')
     }
     img.src = props.screenshotDataUrl
   })
@@ -284,6 +370,32 @@ const getCursorForHandle = (handle: 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' |
   }
   
   return cursorMap[handle] || 'default'
+}
+
+// 包装函数：只在启用框选时执行
+const handleStartCrop = (e: MouseEvent | TouchEvent) => {
+  if (!props.enableCrop) return
+  startCrop(e)
+}
+
+const handleMouseMoveWrapper = (e: MouseEvent) => {
+  if (!props.enableCrop) return
+  handleMouseMove(e)
+}
+
+const handleEndCrop = () => {
+  if (!props.enableCrop) return
+  endCrop()
+}
+
+const handleMouseLeaveWrapper = () => {
+  if (!props.enableCrop) return
+  handleMouseLeave()
+}
+
+const handleUpdateCrop = (e: MouseEvent | TouchEvent) => {
+  if (!props.enableCrop) return
+  updateCrop(e)
 }
 
 // 开始裁剪（绘制、拖动或调整大小）
@@ -507,14 +619,18 @@ const getCroppedImage = (): Promise<string | null> => {
   return new Promise((resolve) => {
     // 如果截图数据为空，直接返回 null
     if (!props.screenshotDataUrl) {
-      console.log('[截图对话框] 截图数据为空，返回 null')
       resolve(null)
+      return
+    }
+
+    // 如果未启用框选模式，直接使用原始图片
+    if (!props.enableCrop) {
+      resolve(props.screenshotDataUrl)
       return
     }
 
     // 如果没有框选，直接使用原始图片
     if (!cropCanvas.value || !cropRect.value || !imageDrawInfo.value) {
-      console.log('[截图对话框] 没有框选，使用原始图片')
       resolve(props.screenshotDataUrl)
       return
     }
@@ -522,14 +638,12 @@ const getCroppedImage = (): Promise<string | null> => {
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
     if (!ctx) {
-      console.log('[截图对话框] 无法创建 canvas context，使用原始图片')
       resolve(props.screenshotDataUrl)
       return
     }
 
     // 添加超时机制，防止图片加载卡住
     const timeout = setTimeout(() => {
-      console.warn('[截图对话框] 图片加载超时，使用原始图片')
       resolve(props.screenshotDataUrl)
     }, 5000)
 
@@ -541,32 +655,53 @@ const getCroppedImage = (): Promise<string | null> => {
         const { drawX, drawY, drawWidth, drawHeight, originalWidth, originalHeight } =
           imageDrawInfo.value!
 
-        // 计算 canvas 上的裁剪区域相对于图片绘制区域的位置
-        const cropXInImage = cropRect.value!.x - drawX
-        const cropYInImage = cropRect.value!.y - drawY
-        const cropWidthInImage = cropRect.value!.width
-        const cropHeightInImage = cropRect.value!.height
-
-        // 将绘制区域的坐标映射回原始图片坐标
+        // 计算缩放比例
         const scaleX = originalWidth / drawWidth
         const scaleY = originalHeight / drawHeight
 
+        // 计算裁剪区域在 canvas 上的实际位置（相对于图片绘制区域）
+        // 首先，将裁剪区域限制在图片绘制区域内
+        const cropRectInCanvas = cropRect.value!
+        const cropStartX = Math.max(drawX, cropRectInCanvas.x)
+        const cropStartY = Math.max(drawY, cropRectInCanvas.y)
+        const cropEndX = Math.min(drawX + drawWidth, cropRectInCanvas.x + cropRectInCanvas.width)
+        const cropEndY = Math.min(drawY + drawHeight, cropRectInCanvas.y + cropRectInCanvas.height)
+
+        // 计算裁剪区域相对于图片绘制区域的坐标和尺寸
+        const cropXInImage = cropStartX - drawX
+        const cropYInImage = cropStartY - drawY
+        const cropWidthInImage = cropEndX - cropStartX
+        const cropHeightInImage = cropEndY - cropStartY
+
+        // 确保裁剪区域有效
+        if (cropWidthInImage <= 0 || cropHeightInImage <= 0) {
+          resolve(props.screenshotDataUrl)
+          return
+        }
+
+        // 将绘制区域的坐标映射回原始图片坐标
         const sourceX = Math.max(0, cropXInImage * scaleX)
         const sourceY = Math.max(0, cropYInImage * scaleY)
         const sourceWidth = Math.min(originalWidth - sourceX, cropWidthInImage * scaleX)
         const sourceHeight = Math.min(originalHeight - sourceY, cropHeightInImage * scaleY)
 
-        // 设置输出 canvas 尺寸（保持裁剪区域的宽高比）
-        canvas.width = cropRect.value!.width
-        canvas.height = cropRect.value!.height
+        // 确保源区域有效
+        if (sourceWidth <= 0 || sourceHeight <= 0) {
+          resolve(props.screenshotDataUrl)
+          return
+        }
+
+        // 设置输出 canvas 尺寸（使用映射后的原始图片尺寸，保持宽高比）
+        canvas.width = Math.round(sourceWidth)
+        canvas.height = Math.round(sourceHeight)
 
         // 从原始图片裁剪
         ctx.drawImage(
           img,
-          sourceX,
-          sourceY,
-          sourceWidth,
-          sourceHeight,
+          Math.round(sourceX),
+          Math.round(sourceY),
+          Math.round(sourceWidth),
+          Math.round(sourceHeight),
           0,
           0,
           canvas.width,
@@ -575,16 +710,13 @@ const getCroppedImage = (): Promise<string | null> => {
 
         // 转换为 base64
         const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
-        console.log('[截图对话框] 裁剪完成，图片大小:', dataUrl.length)
         resolve(dataUrl)
-      } catch (error) {
-        console.error('[截图对话框] 裁剪过程出错:', error)
+      } catch {
         resolve(props.screenshotDataUrl)
       }
     }
     img.onerror = () => {
       clearTimeout(timeout)
-      console.error('[截图对话框] 图片加载失败，使用原始图片')
       resolve(props.screenshotDataUrl)
     }
     img.src = props.screenshotDataUrl
@@ -599,7 +731,7 @@ watch(() => props.modelValue, async (newValue) => {
     isCropping.value = false
     isDragging.value = false
     isResizing.value = false
-    currentCursor.value = 'crosshair'
+    currentCursor.value = props.enableCrop ? 'crosshair' : 'default'
     
     // 等待 DOM 更新后初始化画布
     await nextTick()
@@ -619,33 +751,23 @@ watch(() => props.screenshotDataUrl, async (newValue) => {
 
 // 确定按钮
 const handleConfirm = async () => {
-  console.log('[截图对话框] 确定按钮被点击')
-  
   if (!questionText.value.trim()) {
-    console.log('[截图对话框] 问题文本为空')
     showMessage('请输入要问的问题', 'warning')
     return
   }
   
   if (!props.screenshotDataUrl) {
-    console.log('[截图对话框] 截图数据丢失')
     showMessage('截图数据丢失，请重新截图', 'error')
     return
   }
   
-  console.log('[截图对话框] 开始获取裁剪后的图片...')
   // 获取裁剪后的图片（如果有框选的话）
   const finalImageDataUrl = await getCroppedImage()
   if (!finalImageDataUrl) {
-    console.log('[截图对话框] 图片处理失败')
     showMessage('图片处理失败，请重新截图', 'error')
     return
   }
   
-  console.log('[截图对话框] 发送确认事件', {
-    question: questionText.value.trim(),
-    hasImage: !!finalImageDataUrl
-  })
   emit('confirm', questionText.value.trim(), finalImageDataUrl)
   localVisible.value = false
 }
@@ -693,7 +815,6 @@ const handleCancel = () => {
       width: 100%;
       height: 100%;
       object-fit: contain;
-      cursor: crosshair;
       touch-action: none;
       user-select: none;
       
@@ -710,10 +831,19 @@ const handleCancel = () => {
       }
     }
     
+    // 灰色蒙版样式
+    .crop-mask {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.5); /* 灰色半透明蒙版 */
+      pointer-events: none;
+      z-index: 1;
+    }
+    
     .crop-overlay {
       position: absolute;
-      background: rgba(255, 255, 255, 0.5);
+      background: transparent; /* 框选区域透明，显示清晰的图片 */
       pointer-events: none;
+      z-index: 2; /* 确保框选区域在蒙版之上 */
     }
     
     .crop-corner {

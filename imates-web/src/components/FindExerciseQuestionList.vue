@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="find-exercise-question-list">
     <!-- 题目列表内容 -->
     <div ref="scrollWrapper" class="scroll-wrapper">
@@ -235,9 +235,7 @@ const handleLoadMore = async () => {
     isLoadMorePending.value = true
     const success = await findExerciseStore.loadMoreQuestions()
     if (success) {
-      console.log('成功加载更多题目')
     } else {
-      console.log('没有更多题目了')
     }
   } catch (error) {
     console.error('加载更多题目失败:', error)

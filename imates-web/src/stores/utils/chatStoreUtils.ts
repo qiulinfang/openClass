@@ -20,6 +20,7 @@ export interface ChatImageData {
   width?: number
   height?: number
   fileSize?: number
+  isLargeImage?: boolean  // 标记是否为大图片
 }
 
 /**

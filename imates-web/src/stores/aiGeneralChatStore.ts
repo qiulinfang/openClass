@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AI 通用聊天 Store
  * 职责：管理AI通用场景下的聊天消息和会话
  * 
@@ -141,8 +141,6 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       
       // 第7步：保存聊天历史
       await saveChatHistory()
-      console.log('currentSession.value', currentSession.value)
-      console.log('messages.value.length', messages.value.length === 7)
       // 第8步：检查是否需要自动生成标题（第3轮对话后，加上临时消息后，7条消息）
       if (currentSession.value && messages.value.length === 7) {
         // 异步生成标题，不阻塞主流程
@@ -313,8 +311,6 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       
       // 第6步：保存会话列表
       await saveSessions()
-      
-      console.log(`[AI_GENERAL] ✅ 创建新会话: ${newSession.sessionId}`)
     } finally {
       // 第7步：重置创建中状态（延迟500ms防止频繁点击）
       setTimeout(() => {
@@ -339,8 +335,6 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     
     // 第3步：加载该会话的聊天记录
     await loadChatHistory(sessionId)
-    
-    console.log(`[AI_GENERAL] ✅ 切换会话: ${sessionId}`)
   }
   
   /**
@@ -366,8 +360,6 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       
       // 第3步：保存会话列表
       await saveSessions()
-      
-      console.log(`[AI_GENERAL] ✅ 保存聊天历史成功: ${currentSession.value.sessionId}`)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 保存聊天历史失败:', error)
     }
@@ -384,7 +376,6 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       
       if (historyData) {
         messages.value = historyData.messages || []
-        console.log(`[AI_GENERAL] ✅ 加载聊天历史成功: ${sessionId}, ${messages.value.length}条消息`)
       } else {
         // 无历史记录，清空状态
         messages.value = []
@@ -405,7 +396,6 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       const userId = getCurrentUserIdOrDefault()
       const key = `${userId}_ai-general-sessions`
       localStorage.setItem(key, JSON.stringify(sessions.value))
-      console.log(`[AI_GENERAL] ✅ 保存会话列表成功: ${sessions.value.length}个会话`)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 保存会话列表失败:', error)
     }
@@ -421,7 +411,6 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       const data = localStorage.getItem(key)
       if (data) {
         sessions.value = JSON.parse(data)
-        console.log(`[AI_GENERAL] ✅ 加载会话列表成功: ${sessions.value.length}个会话`)
       }
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 加载会话列表失败:', error)
@@ -446,8 +435,6 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       
       // 第3步：保存会话列表
       await saveSessions()
-      
-      console.log(`[AI_GENERAL] ✅ 重命名会话成功: ${sessionId} -> ${newName}`)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 重命名会话失败:', error)
       throw error
@@ -478,8 +465,6 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       
       // 第4步：保存会话列表
       await saveSessions()
-      
-      console.log(`[AI_GENERAL] ✅ ${session.pinned ? '置顶' : '取消置顶'}会话: ${sessionId}`)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 置顶操作失败:', error)
       throw error
@@ -509,8 +494,6 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       
       // 第4步：保存会话列表
       await saveSessions()
-      
-      console.log(`[AI_GENERAL] ✅ 删除会话成功: ${sessionId}`)
     } catch (error) {
       console.error('[AI_GENERAL] ❌ 删除会话失败:', error)
       throw error
@@ -542,8 +525,6 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _subject: 'MATH' | 'BIOLOGY'
   ): Promise<void> => {
-    console.log(`[AI_GENERAL] 🤖 开始为会话 ${sessionId} 生成标题...`)
-    
     try {
       // 第1步：查找会话
       const session = sessions.value.find(s => s.sessionId === sessionId)
@@ -586,9 +567,6 @@ ${conversationSummary}
         false, // 不使用web搜索
         'mate'
       )
-      
-      console.log('[AI_GENERAL] 📝 发送标题生成请求...')
-      
       // 第6步：调用AI接口
       const response = await apiService.sendChatMessage(titleRequest)
       
@@ -613,8 +591,6 @@ ${conversationSummary}
         
         // 第9步：保存会话列表
         await saveSessions()
-        
-        console.log(`[AI_GENERAL] ✅ 标题生成成功: "${generatedTitle}"`)
       } else {
         console.warn('[AI_GENERAL] ⚠️ AI未返回有效标题')
       }
@@ -643,7 +619,6 @@ ${conversationSummary}
     fileSize: number
     base64DataUrl?: string
   }): void => {
-    console.log('[AI_GENERAL] 📸 设置待发送图片:', imageData.filePath)
     pendingImage.value = imageData
   }
   
@@ -652,7 +627,6 @@ ${conversationSummary}
    * 第1步：清空待发送图片状态
    */
   const clearPendingImage = (): void => {
-    console.log('[AI_GENERAL] 🗑️ 清除待发送图片')
     pendingImage.value = null
   }
   

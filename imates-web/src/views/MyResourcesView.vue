@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <q-layout view="lHh Lpr lFf">
     <q-page-container>
       <q-page class="my-resources-view">
@@ -655,7 +655,6 @@ const handlePullDownRefresh = async () => {
 
     // [maxScrollY调试] 刷新开始时的 maxScrollY
     if (bscrollInstance.value) {
-      console.log('[maxScrollY调试] 刷新开始 - maxScrollY:', bscrollInstance.value.maxScrollY)
     }
 
     // 直接调用数据加载，不重新加载页面
@@ -663,7 +662,6 @@ const handlePullDownRefresh = async () => {
 
     // [maxScrollY调试] 数据加载完成后的 maxScrollY
     if (bscrollInstance.value) {
-      console.log('[maxScrollY调试] 数据加载完成后 - maxScrollY:', bscrollInstance.value.maxScrollY)
     }
 
     // 数据加载成功，更新刷新状态
@@ -771,8 +769,6 @@ const printScrollDimensions = async () => {
 
   // 从 BetterScroll 实例获取
   const maxScrollYBefore = bscrollInstance.value.maxScrollY
-  const bsInstanceBefore = bscrollInstance.value as BScroll & { y?: number }
-  const yBefore = bsInstanceBefore.y || 0
   
   // BetterScroll 实例可能包含这些属性，但类型定义中可能没有
   // 尝试多种方式获取内部属性
@@ -818,26 +814,10 @@ const printScrollDimensions = async () => {
     bsInstance.scrollBehavior?.contentHeight ||
     undefined
   
-  const hasVerticalScroll = bsInstance.hasVerticalScroll
-  const scroller = bsInstance.scroller
-  const wrapper = bsInstance.wrapper
-  const currentY = bsInstance.y || yBefore
   
-  // 尝试通过反射访问所有可能的属性
-  const instanceKeys = Object.keys(bscrollInstance.value)
-  const possibleWrapperHeight = instanceKeys.find(key => 
-    key.toLowerCase().includes('wrapper') && key.toLowerCase().includes('height')
-  )
-  const possibleScrollerHeight = instanceKeys.find(key => 
-    (key.toLowerCase().includes('scroller') || key.toLowerCase().includes('content')) && 
-    key.toLowerCase().includes('height')
-  )
-
   // 从 DOM 元素获取（备用方案）
   const wrapperDomHeight = scrollWrapper.value?.clientHeight || 0
-  const wrapperDomScrollHeight = scrollWrapper.value?.scrollHeight || 0
   const contentDomHeight = scrollContent.value?.scrollHeight || 0
-  const contentDomClientHeight = scrollContent.value?.clientHeight || 0
 
   // 计算期望的 maxScrollY
   const calculatedMaxScrollY = wrapperHeight && scrollerHeight 
@@ -845,42 +825,8 @@ const printScrollDimensions = async () => {
     : wrapperDomHeight && contentDomHeight 
     ? wrapperDomHeight - contentDomHeight 
     : null
-
-  // 打印刷新前的信息
-  console.group('📊 BetterScroll 尺寸信息（刷新前）')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  console.log('📐 BetterScroll 实例属性:')
-  console.log('  wrapperHeight:', wrapperHeight || wrapper?.height || '未知')
-  console.log('  scrollerHeight (contentHeight):', scrollerHeight || scroller?.height || '未知')
-  console.log('  maxScrollY:', maxScrollYBefore)
-  console.log('  y (当前滚动位置):', currentY)
-  console.log('  hasVerticalScroll:', hasVerticalScroll ?? '未知')
-  if (possibleWrapperHeight || possibleScrollerHeight) {
-    console.log('  🔍 发现可能的属性名:')
-    if (possibleWrapperHeight) console.log(`    - ${possibleWrapperHeight}`)
-    if (possibleScrollerHeight) console.log(`    - ${possibleScrollerHeight}`)
-  }
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  console.log('📐 DOM 元素尺寸:')
-  console.log('  wrapper.clientHeight:', wrapperDomHeight)
-  console.log('  wrapper.scrollHeight:', wrapperDomScrollHeight)
-  console.log('  content.scrollHeight:', contentDomHeight)
-  console.log('  content.clientHeight:', contentDomClientHeight)
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  console.log('📊 计算结果:')
-  console.log('  计算公式: maxScrollY = wrapperHeight - contentHeight')
-  console.log('  计算值:', calculatedMaxScrollY)
-  console.log('  实际 maxScrollY:', maxScrollYBefore)
-  console.log('  差值:', calculatedMaxScrollY !== null ? calculatedMaxScrollY - maxScrollYBefore : '无法计算')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  console.log('✅ 滚动状态:')
-  console.log('  可以滚动:', maxScrollYBefore < 0 ? '✅ 是' : '❌ 否')
-  console.log('  滚动距离:', maxScrollYBefore < 0 ? `${Math.abs(maxScrollYBefore)}px` : '0px')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  console.groupEnd()
-
+  
   // 尝试刷新并再次检查
-  console.log('🔄 尝试调用 refresh() 重新计算尺寸...')
   bscrollInstance.value.refresh()
   await nextTick()
 
@@ -916,45 +862,19 @@ const printScrollDimensions = async () => {
     bsInstanceAfter.scrollBehaviorY?.contentHeight ||
     bsInstanceAfter.scrollBehavior?.contentHeight ||
     undefined
-  const hasVerticalScrollAfter = bsInstanceAfter.hasVerticalScroll
-  const currentYAfter = bsInstanceAfter.y || 0
 
   // 刷新后的 DOM 尺寸（可能变化）
   const wrapperDomHeightAfter = scrollWrapper.value?.clientHeight || 0
   const contentDomHeightAfter = scrollContent.value?.scrollHeight || 0
 
-  // 打印刷新后的信息
-  console.group('📊 BetterScroll 尺寸信息（刷新后）')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  console.log('📐 BetterScroll 实例属性:')
-  console.log('  wrapperHeight:', wrapperHeightAfter || '未知')
-  console.log('  scrollerHeight (contentHeight):', scrollerHeightAfter || '未知')
-  console.log('  maxScrollY:', maxScrollYAfter)
-  console.log('  y (当前滚动位置):', currentYAfter)
-  console.log('  hasVerticalScroll:', hasVerticalScrollAfter ?? '未知')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  console.log('📐 DOM 元素尺寸:')
-  console.log('  wrapper.clientHeight:', wrapperDomHeightAfter)
-  console.log('  content.scrollHeight:', contentDomHeightAfter)
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  console.log('📊 对比分析:')
-  console.log('  maxScrollY 变化:', maxScrollYBefore !== maxScrollYAfter ? `✅ 从 ${maxScrollYBefore} 变为 ${maxScrollYAfter}` : `❌ 未变化 (${maxScrollYBefore})`)
-  console.log('  y 位置变化:', currentY !== currentYAfter ? `✅ 从 ${currentY} 变为 ${currentYAfter}` : `未变化 (${currentY})`)
+  // 计算刷新后的期望 maxScrollY
   const calculatedMaxScrollYAfter = wrapperHeightAfter && scrollerHeightAfter 
     ? wrapperHeightAfter - scrollerHeightAfter 
     : wrapperDomHeightAfter && contentDomHeightAfter 
     ? wrapperDomHeightAfter - contentDomHeightAfter 
     : calculatedMaxScrollY
-  console.log('  计算值:', calculatedMaxScrollYAfter)
-  console.log('  实际 maxScrollY:', maxScrollYAfter)
-  console.log('  差值:', calculatedMaxScrollYAfter !== null ? calculatedMaxScrollYAfter - maxScrollYAfter : '无法计算')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  console.log('✅ 滚动状态:')
-  console.log('  可以滚动:', maxScrollYAfter < 0 ? '✅ 是' : '❌ 否')
-  console.log('  滚动距离:', maxScrollYAfter < 0 ? `${Math.abs(maxScrollYAfter)}px` : '0px')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  console.groupEnd()
 
+  // 根据刷新后的信息进行后续处理
   // 诊断问题
   if (maxScrollYAfter === 0 && calculatedMaxScrollYAfter !== null && calculatedMaxScrollYAfter < 0) {
     console.warn('⚠️ 检测到问题：maxScrollY 为 0，但应该可以滚动！')
@@ -1195,10 +1115,6 @@ const loadResources = async () => {
     updateSubjectChips()
     // [maxScrollY调试] 本地数据更新后
     if (bscrollInstance.value) {
-      console.log(
-        '[maxScrollY调试] loadResources本地数据更新后 - maxScrollY:',
-        bscrollInstance.value.maxScrollY,
-      )
     }
     initialLoadCompleted.value = true
 
@@ -1207,17 +1123,9 @@ const loadResources = async () => {
     fixInconsistentDownloadStatus(localTextbooks)
     // [maxScrollY调试] DOM更新后
     if (bscrollInstance.value) {
-      console.log(
-        '[maxScrollY调试] loadResources DOM更新后 - maxScrollY:',
-        bscrollInstance.value.maxScrollY,
-      )
       // 🔥 刷新 BetterScroll 以更新尺寸计算
       bscrollInstance.value.refresh()
       await nextTick()
-      console.log(
-        '[maxScrollY调试] loadResources refresh后 - maxScrollY:',
-        bscrollInstance.value.maxScrollY,
-      )
     }
   } else {
     // 无本地数据或下拉刷新，显示加载状态并获取服务器数据
@@ -1272,10 +1180,6 @@ const loadResources = async () => {
         })
       // [maxScrollY调试] 服务器数据更新后
       if (bscrollInstance.value) {
-        console.log(
-          '[maxScrollY调试] loadResources服务器数据更新后 - maxScrollY:',
-          bscrollInstance.value.maxScrollY,
-        )
         // 🔥 刷新 BetterScroll 以更新尺寸计算
         bscrollInstance.value.refresh()
         await nextTick()
@@ -1284,10 +1188,6 @@ const loadResources = async () => {
       await nextTick()
       // [maxScrollY调试] updateSubjectChips后
       if (bscrollInstance.value) {
-        console.log(
-          '[maxScrollY调试] loadResources updateSubjectChips后 - maxScrollY:',
-          bscrollInstance.value.maxScrollY,
-        )
         // 🔥 再次刷新，因为 updateSubjectChips 可能更新了 DOM
         bscrollInstance.value.refresh()
         await nextTick()
@@ -1305,10 +1205,6 @@ const loadResources = async () => {
         // 🔥 最终刷新，确保尺寸计算正确
         bscrollInstance.value.refresh()
         await nextTick()
-        console.log(
-          '[maxScrollY调试] loadResources完成（最终刷新后） - maxScrollY:',
-          bscrollInstance.value.maxScrollY,
-        )
       }
     }
   }
@@ -1692,19 +1588,7 @@ const confirmDeleteTextbook = async () => {
       // 第4步：刷新 BScroll 实例（如果存在）
       await nextTick()
       if (bscrollInstance.value) {
-        console.log(
-          '[refresh日志] 删除资源后 - 调用位置: 删除教材后, refresh前 - maxScrollY:',
-          bscrollInstance.value.maxScrollY,
-          '剩余列表长度:',
-          textbooks.value.length,
-        )
         bscrollInstance.value.refresh()
-        console.log(
-          '[refresh日志] 删除资源后 - 调用位置: 删除教材后, refresh后 - maxScrollY:',
-          bscrollInstance.value.maxScrollY,
-          '剩余列表长度:',
-          textbooks.value.length,
-        )
       }
 
       // 第5步：如果删除后列表为空，重新加载数据

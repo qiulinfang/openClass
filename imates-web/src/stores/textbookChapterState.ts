@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+﻿import { ref, computed } from 'vue'
 import type { ChapterNode, TextbookOption } from '@/types'
 
 /**
@@ -149,18 +149,7 @@ export class TextbookChapterStateManager {
     // 记录收缩日志（从非null变为null时）
     const previousGraphId = state.expandedGraphId
     if (previousGraphId !== null && graphId === null) {
-      // 获取调用栈，确定调用来源（只取前3层，避免太长）
-      const stack = new Error().stack
-      const caller = stack?.split('\n')[2]?.trim() || 'unknown'
       
-      console.log('📦 [收缩触发] setCurrentChapterExpandedGraph - Store层收缩图谱', {
-        previousGraphId,
-        newGraphId: null,
-        chapterIndex: this.currentChapterIndex.value,
-        textbookId: this.currentTextbookId.value,
-        caller,
-        timestamp: new Date().toISOString()
-      })
     }
     
     state.expandedGraphId = graphId
@@ -187,8 +176,6 @@ export class TextbookChapterStateManager {
     chapterData: ChapterNode[], 
     getSubChapters: (chapter: ChapterNode) => ChapterNode[]
   ): void {
-    console.log('初始化章节状态:', textbookId, chapterData.length)
-    
     // 设置当前教材
     this.setCurrentTextbook(textbookId)
     
@@ -208,18 +195,8 @@ export class TextbookChapterStateManager {
         }
         
         states.set(index, chapterState)
-        console.log(`📝 [状态初始化] 为章节 ${index} 创建初始状态，旋转角度: 0°，展开状态: 收起`)
       } else {
-        console.log(`📋 [状态检查] 章节 ${index} 状态已存在，旋转角度: ${states.get(index)!.rotationAngle.toFixed(2)}°`)
       }
-    })
-    
-    console.log('章节状态初始化完成:', {
-      states: Array.from(this.getCurrentTextbookChapterStates().entries()).map(([index, state]) => ({
-        chapterIndex: index,
-        expandedGraphId: state.expandedGraphId,
-        rotationAngle: state.rotationAngle
-      }))
     })
   }
 
@@ -231,7 +208,6 @@ export class TextbookChapterStateManager {
     if (!states.has(chapterIndex)) {
       const state: ChapterState = { expandedGraphId: null, rotationAngle: 0 }
       states.set(chapterIndex, state)
-      console.log(`📝 [状态初始化] 为章节 ${chapterIndex} 创建初始状态`)
     }
     return states.get(chapterIndex)!
   }
@@ -262,7 +238,6 @@ export class TextbookChapterStateManager {
       ...state,
       timestamp: Date.now()
     }
-    console.log('📝 [状态保存] 页面状态已保存:', this.pageState.value)
   }
 
   /**
@@ -280,12 +255,9 @@ export class TextbookChapterStateManager {
     const STATE_EXPIRE_TIME = 24 * 60 * 60 * 1000 // 24小时
     
     if (stateAge > STATE_EXPIRE_TIME) {
-      console.log('⏰ [状态恢复] 页面状态已过期，清除状态')
       this.pageState.value = null
       return null
     }
-    
-    console.log('🔄 [状态恢复] 恢复页面状态:', this.pageState.value)
     return this.pageState.value
   }
 
@@ -294,7 +266,6 @@ export class TextbookChapterStateManager {
    */
   clearPageState(): void {
     this.pageState.value = null
-    console.log('🗑️ [状态清除] 页面状态已清除')
   }
 
   /**

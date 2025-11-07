@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="login-page">
     <!-- 登录表单容器 -->
     <div class="login-form-container">
@@ -116,10 +116,8 @@ onMounted(() => {
     
     switch (level.toUpperCase()) {
       case 'DEBUG':
-        console.log(`[LoginView] 🔍 ${logMessage}`)
         break
       case 'INFO':
-        console.log(`[LoginView] ℹ️ ${logMessage}`)
         break
       case 'WARN':
         console.warn(`[LoginView] ⚠️ ${logMessage}`)
@@ -128,7 +126,6 @@ onMounted(() => {
         console.error(`[LoginView] ❌ ${logMessage}`)
         break
       default:
-        console.log(`[LoginView] 📝 ${logMessage}`)
         break
     }
   }
@@ -161,7 +158,6 @@ const handleVersionClick = () => {
   if (versionClickCount.value >= 5) {
     versionClickCount.value = 0
     // TODO: 实现环境切换功能（如果需要）
-    console.log('环境切换功能待实现')
   }
 }
 

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <!-- 聊天视图主容器 - 支持键盘动画状态 -->
   <div ref="chatViewRef" class="chat-view" :class="{ 'keyboard-animating': isKeyboardAnimating }">
     <!-- 选择模式工具栏 - Gemini风格设计 -->
@@ -75,10 +75,25 @@
             @forward-message="handleForwardMessage"
             @enter-multi-select="handleEnterMultiSelect"
             @edit-message="handleEditMessage"
+            @image-loaded="handleImageLoaded"
           />
         </div>
         </div>
       </div>
+      
+      <!-- 新消息提示按钮 - 当用户不在底部时显示 -->
+      <Transition name="fade">
+        <q-btn
+          v-if="showNewMessageIndicator"
+          round
+          color="primary"
+          icon="arrow_downward"
+          class="new-message-indicator"
+          @click="scrollToBottom"
+        >
+          <q-tooltip>有新消息，点击查看</q-tooltip>
+        </q-btn>
+      </Transition>
     </div>
 
     <!-- 聊天输入组件插槽 - 支持自定义输入组件，默认使用 ChatInput -->
@@ -169,12 +184,7 @@ const props = withDefaults(defineProps<{
 
 // 监听 props.overrideQuestion 的变化，用于调试
 watch(() => props.overrideQuestion, (newVal, oldVal) => {
-  console.log('[ChatView] [watch] overrideQuestion 变化:', {
-    old: oldVal,
-    new: newVal,
-    hasProp: 'overrideQuestion' in props,
-    allProps: Object.keys(props),
-  })
+  // 可以在这里添加调试逻辑
 }, { immediate: true, deep: true })
 
 // 定义组件事件 - 支持响应、切换、焦点、滚动等事件
@@ -491,6 +501,11 @@ const { pickImage } = useImagePicker()
 const showCancelHint = ref(false) // 是否显示取消提示
 const voiceStartY = ref(0) // 语音录制开始时的Y坐标
 const voiceCurrentY = ref(0) // 语音录制当前Y坐标
+
+// 新消息提示按钮状态
+const showNewMessageIndicator = ref(false) // 是否显示新消息提示按钮
+const lastMessageCount = ref(0) // 上次消息数量
+const isUserAtBottom = ref(true) // 用户是否在底部
 const CANCEL_THRESHOLD = 100 // 上滑取消的阈值（像素）
 
 // ==================== 计算属性 ====================
@@ -502,23 +517,13 @@ const CANCEL_THRESHOLD = 100 // 上滑取消的阈值（像素）
  */
 const currentQuestion = computed(() => {
   // 调试日志：检查 props 和 overrideQuestion
-  console.log('[ChatView] [currentQuestion] props:', {
-    type: props.type,
-    currentQuestionId: props.currentQuestionId,
-    sessionId: props.sessionId,
-    overrideQuestion: props.overrideQuestion,
-    hasOverrideQuestion: 'overrideQuestion' in props,
-  })
-  
   // 优先使用 props 传入的题目（用于避免污染全局状态）
   // 使用 'in' 操作符检查属性是否存在，更可靠
   if ('overrideQuestion' in props && props.overrideQuestion !== undefined && props.overrideQuestion !== null) {
-    console.log('[ChatView] [currentQuestion] 使用 overrideQuestion:', props.overrideQuestion)
     return props.overrideQuestion
   }
   // 否则使用全局 store 中的题目
   const storeQuestion = questionStore.currentQuestion
-  console.log('[ChatView] [currentQuestion] 使用 store 中的题目:', storeQuestion)
   return storeQuestion
 })
 
@@ -617,20 +622,8 @@ const handleKeyboardHidden = () => {
  * 注意：原生键盘不需要滚动，因为压缩后输入框会自动保持在可见区域
  */
 const compressChatViewHeight = () => {
-  console.log('[ChatView] [compressChatViewHeight] 开始压缩高度')
-
   // 步骤1：状态验证
-  console.log('[ChatView] [compressChatViewHeight] 步骤1: 状态验证', {
-    isAnimating: isAnimating.value,
-    isKeyboardVisible: isKeyboardVisible.value,
-    keyboardHeight: keyboardHeight.value
-  })
-
   if (!isAnimating.value || !isKeyboardVisible.value) {
-    console.log('[ChatView] [compressChatViewHeight] 状态验证失败，提前返回', {
-      isAnimating: isAnimating.value,
-      isKeyboardVisible: isKeyboardVisible.value
-    })
     return
   }
 
@@ -652,16 +645,9 @@ const compressChatViewHeight = () => {
 
   // 步骤2：记录原始高度
   const currentOffsetHeight = chatViewRef.value.offsetHeight
-  console.log('[ChatView] [compressChatViewHeight] 步骤2: 记录原始高度', {
-    originalChatViewHeight: originalChatViewHeight.value,
-    currentOffsetHeight: currentOffsetHeight,
-    chatViewRefExists: !!chatViewRef.value
-  })
-
   // 只有在原始高度未设置或当前高度明显不同时才更新（避免设置为0）
   if (originalChatViewHeight.value === 0 && currentOffsetHeight > 0) {
     originalChatViewHeight.value = currentOffsetHeight
-    console.log('[ChatView] [compressChatViewHeight] 首次记录原始高度:', originalChatViewHeight.value)
   } else if (originalChatViewHeight.value === 0 && currentOffsetHeight === 0) {
     console.warn('[ChatView] [compressChatViewHeight] 当前高度为0，无法记录，等待DOM渲染')
     // 如果当前高度还是0，说明DOM还没完全渲染，等待下一个DOM更新周期
@@ -677,8 +663,6 @@ const compressChatViewHeight = () => {
 
   // 步骤3：获取CSS动画参数
   const cssParams = getCSSAnimationParams()
-  console.log('[ChatView] [compressChatViewHeight] 步骤3: 获取CSS动画参数', cssParams)
-
   // 步骤4：执行高度变化动画
   // 确保原始高度有效（大于0）
   if (originalChatViewHeight.value <= 0) {
@@ -700,52 +684,23 @@ const compressChatViewHeight = () => {
       // 对话框：固定高度225px
       newHeight = 225
     }
-    
-    console.log('[ChatView] [compressChatViewHeight] 步骤4: 计算新高度', {
-      type: props.type,
-      isExercisePage: props.type === 'ai-exercise',
-      originalHeight: originalChatViewHeight.value,
-      keyboardHeight: keyboardHeight.value,
-      finalHeight: newHeight
-    })
-
     chatViewRef.value.style.height = `${newHeight}px`
     chatViewRef.value.style.transition = `height ${cssParams.duration} ${cssParams.curve}`
-    
-    console.log('[ChatView] [compressChatViewHeight] 已设置样式', {
-      height: `${newHeight}px`,
-      transition: `height ${cssParams.duration} ${cssParams.curve}`
-    })
   } else {
     console.warn('[ChatView] [compressChatViewHeight] chatViewRef.value 不存在，无法设置高度')
   }
 
   // 步骤5：动画完成后清理
   const animationDuration = parseInt(cssParams.duration)
-  console.log('[ChatView] [compressChatViewHeight] 步骤5: 设置动画完成回调', {
-    animationDuration: animationDuration,
-    willCompleteAt: new Date(Date.now() + animationDuration).toISOString()
-  })
-
+  
   setTimeout(() => {
-    console.log('[ChatView] [compressChatViewHeight] 动画完成，开始清理')
-    
     isAnimating.value = false
     if (chatViewRef.value) {
-      const finalHeight = chatViewRef.value.offsetHeight
       chatViewRef.value.style.transition = ''
-      console.log('[ChatView] [compressChatViewHeight] 清理完成', {
-        finalHeight: finalHeight,
-        isAnimating: isAnimating.value,
-        transitionRemoved: true
-      })
     }
     
     // 动画完成后再次确保滚动到底部
-    console.log('[ChatView] [compressChatViewHeight] 滚动到底部')
     scrollToBottom()
-    
-    console.log('[ChatView] [compressChatViewHeight] 压缩高度流程完成')
   }, animationDuration)
 }
 
@@ -755,49 +710,25 @@ const compressChatViewHeight = () => {
  * 注意：仅用于原生键盘隐藏后的页面恢复
  */
 const restoreChatViewHeight = () => {
-  console.log('[ChatView] [restoreChatViewHeight] 开始恢复高度')
-  
   // 步骤1：状态验证
   // 确保只有在正确的动画状态下才执行，防止重复执行或状态冲突
-  console.log('[ChatView] [restoreChatViewHeight] 步骤1: 状态验证', {
-    isAnimating: isAnimating.value,
-    isKeyboardVisible: isKeyboardVisible.value,
-    originalChatViewHeight: originalChatViewHeight.value
-  })
-  
   if (!isAnimating.value || isKeyboardVisible.value) {
-    console.log('[ChatView] [restoreChatViewHeight] 状态验证失败，提前返回', {
-      isAnimating: isAnimating.value,
-      isKeyboardVisible: isKeyboardVisible.value
-    })
     return
   }
 
   // 步骤2：获取动画参数
   // 获取CSS动画参数，包括持续时间、缓动曲线等，确保ChatView高度变化动画流畅
   const cssParams = getCSSAnimationParams()
-  console.log('[ChatView] [restoreChatViewHeight] 步骤2: 获取CSS动画参数', cssParams)
-
   // 步骤3：执行ChatView高度恢复动画
   // 通过设置height为空字符串让ChatView恢复到原始高度，并应用过渡效果实现平滑的高度变化
   if (chatViewRef.value) {
     const currentHeight = chatViewRef.value.offsetHeight
-    console.log('[ChatView] [restoreChatViewHeight] 步骤3: 执行恢复动画', {
-      currentHeight: currentHeight,
-      originalChatViewHeight: originalChatViewHeight.value,
-      willRestoreTo: 'natural height (empty string)'
-    })
     
     // 3.1 恢复ChatView原始高度（设置为空字符串让ChatView回到自然高度）
     chatViewRef.value.style.height = ''
     
     // 3.2 应用CSS过渡效果（使用Android系统标准缓动曲线实现平滑高度变化）
     chatViewRef.value.style.transition = `height ${cssParams.duration} ${cssParams.curve}`
-    
-    console.log('[ChatView] [restoreChatViewHeight] 已设置样式', {
-      height: '(empty string - natural height)',
-      transition: `height ${cssParams.duration} ${cssParams.curve}`
-    })
   } else {
     console.warn('[ChatView] [restoreChatViewHeight] chatViewRef.value 不存在，无法恢复高度')
     return
@@ -806,14 +737,8 @@ const restoreChatViewHeight = () => {
   // 步骤4：ChatView高度变化动画完成后清理
   // 等待高度变化动画完成，然后清理所有相关状态，确保下次动画能正常执行
   const animationDuration = parseInt(cssParams.duration)
-  console.log('[ChatView] [restoreChatViewHeight] 步骤4: 设置动画完成回调', {
-    animationDuration: animationDuration,
-    willCompleteAt: new Date(Date.now() + animationDuration).toISOString()
-  })
   
   setTimeout(() => {
-    console.log('[ChatView] [restoreChatViewHeight] 动画完成，开始清理')
-    
     // 4.1 重置动画状态
     isAnimating.value = false
     isKeyboardAnimating.value = false // 清理全局键盘动画状态
@@ -824,16 +749,8 @@ const restoreChatViewHeight = () => {
     
     // 4.3 清理CSS过渡效果
     if (chatViewRef.value) {
-      const finalHeight = chatViewRef.value.offsetHeight
       chatViewRef.value.style.transition = ''
-      console.log('[ChatView] [restoreChatViewHeight] 清理完成', {
-        finalHeight: finalHeight,
-        isAnimating: isAnimating.value,
-        transitionRemoved: true
-      })
     }
-    
-    console.log('[ChatView] [restoreChatViewHeight] 恢复高度流程完成')
   }, animationDuration)
 }
 
@@ -884,16 +801,11 @@ const initializeMessages = async () => {
  * 作用：创建或初始化老师对话会话，设置消息监听器和会话信息
  */
 const initializeTeacherSession = async () => {
-  console.log('[ChatView] 🔄 initializeTeacherSession() - 开始初始化老师会话')
   try {
     // 步骤1：初始化老师消息监听器（使用 Store 统一方法）
-    console.log('[ChatView] 🔄 第1步：初始化老师消息监听器')
     await teacherStore.initMessageReceiver()
-    console.log('[ChatView] ✅ 消息监听器初始化完成')
-
     // 步骤2：如果有当前题目，基于AI会话创建老师会话
     if (currentQuestion.value) {
-      console.log('[ChatView] 🔄 第2步：有当前题目，基于AI会话创建老师会话')
       // 2.1 生成AI会话ID（基于题目ID和时间戳，确保唯一性）
       aiSessionId.value = `ai_session_${currentQuestion.value.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       
@@ -912,20 +824,12 @@ const initializeTeacherSession = async () => {
       const aiSessionName = (cleanTitle || '数学题目').substring(0, 30) + '...'
 
       // 2.3 创建老师会话（使用 Store 统一方法）
-      console.log('[ChatView] 🔄 创建老师会话，参数:', {
-        aiSessionId: aiSessionId.value,
-        aiSessionName: aiSessionName,
-        subject: currentSubject.value,
-      })
       const createdSession = teacherStore.createTeacherSession(
         aiSessionId.value,
         aiSessionName,
         currentSubject.value as 'biology' | 'math'
       )
-      console.log('[ChatView] 📊 创建会话结果:', createdSession ? '成功' : '失败', createdSession)
-
       if (createdSession) {
-        console.log('[ChatView] ✅ 会话创建成功，设置 teacherSession.value')
         // 构建 ChatMessageSession 格式的会话对象
         teacherSession.value = {
           sessionId: createdSession.sessionId,
@@ -944,7 +848,6 @@ const initializeTeacherSession = async () => {
         
         // 2.5 然后从API加载聊天记录（同步远程消息）
         await loadTeacherChatHistory()
-        console.log('[ChatView] ✅ 初始化完成，会话ID:', teacherSession.value?.sessionId)
       } else {
         console.warn('[ChatView] ⚠️ 创建会话失败，使用临时会话')
         // 创建临时老师会话，用于转发消息显示
@@ -959,17 +862,13 @@ const initializeTeacherSession = async () => {
         }
 
         teacherSession.value = tempSession
-        console.log('[ChatView] ✅ 临时会话已设置，会话ID:', tempSession.sessionId)
       }
     } else {
-      console.log('[ChatView] 🔄 第3步：没有题目，需要区分"加载已有会话"和"创建新会话"')
       // 步骤3：如果没有题目，需要区分"加载已有会话"和"创建新会话"
       // 3.1 从localStorage读取当前教师科目
       const userId = getCurrentUserIdOrDefault()
       const teacherSubject = localStorage.getItem(`${userId}_currentTeacherSubject`) || 'MATH'
       currentSubject.value = teacherSubject === 'BIOLOGY' ? 'biology' : 'math'
-      console.log('[ChatView] 📊 当前教师科目:', teacherSubject, 'currentSubject:', currentSubject.value)
-      
       // 3.2 判断是否是已存在的会话
       // sessionId格式：
       // - 临时ID（新建）: teacher-chat-{timestamp}
@@ -977,13 +876,7 @@ const initializeTeacherSession = async () => {
       const isExistingSession = props.sessionId && 
                                 props.sessionId.startsWith('teacher-') && 
                                 !props.sessionId.startsWith('teacher-chat-')
-      console.log('[ChatView] 📊 会话ID检查:', {
-        propsSessionId: props.sessionId,
-        isExistingSession: isExistingSession,
-      })
-      
       if (isExistingSession) {
-        console.log('[ChatView] 🔄 场景A：加载已有会话')
         // 场景A：加载已有会话
         const sessionKey = `teacher_chat_${props.sessionId}_session`
         const sessionData = localStorage.getItem(sessionKey)
@@ -1088,8 +981,6 @@ const initializeTeacherSession = async () => {
 
 // 加载老师会话列表
 const loadTeacherSessions = (): TeacherSession[] => {
-  console.log('[ChatView] 🔄 loadTeacherSessions() - 开始加载会话列表')
-  
   const userId = getCurrentUserIdOrDefault()
   const sessionPrefix = `${userId}_teacher_chat_`
   
@@ -1123,7 +1014,6 @@ const loadTeacherSessions = (): TeacherSession[] => {
   }
   
   sessions.sort((a, b) => b.createTime - a.createTime)
-  console.log('[ChatView] ✅ loadTeacherSessions() - 加载完成:', sessions.length)
   return sessions
 }
 
@@ -1290,8 +1180,32 @@ const scrollToBottom = async () => {
     scrollTo(0, maxScrollY, 300)
   }
 
+  // 隐藏新消息提示按钮
+  showNewMessageIndicator.value = false
+  isUserAtBottom.value = true
+
   // 同时触发父组件的滚动到底部事件
   emit('scroll-to-bottom')
+}
+
+/**
+ * 检查用户是否在底部
+ * 作用：检测用户滚动位置，判断是否在消息列表底部
+ */
+const checkIfUserAtBottom = () => {
+  const bscrollInstance = getInstance()
+  if (!bscrollInstance) {
+    isUserAtBottom.value = true
+    return
+  }
+  
+  // 获取当前滚动位置和最大滚动位置
+  const currentY = Math.abs(bscrollInstance.y)
+  const maxScrollY = Math.abs(bscrollInstance.maxScrollY)
+  
+  // 允许50px的误差，认为在底部
+  const threshold = 50
+  isUserAtBottom.value = currentY >= maxScrollY - threshold
 }
 
 // 作用：处理输入框失去焦点事件，响应键盘已隐藏状态
@@ -1380,12 +1294,10 @@ const handleKeyboardShown = async (data: { height: number; duration: number }) =
     if (originalChatViewHeight.value === 0 && currentHeight > 0) {
       // 首次记录原始高度（确保高度大于0）
       originalChatViewHeight.value = currentHeight
-      console.log('[ChatView] [handleKeyboardShown] 首次记录原始高度:', originalChatViewHeight.value)
     } else if (originalChatViewHeight.value > 0) {
       // 验证已记录的高度是否仍然有效
       if (Math.abs(originalChatViewHeight.value - currentHeight) > 50) {
         originalChatViewHeight.value = currentHeight
-        console.log('[ChatView] [handleKeyboardShown] 更新原始高度:', originalChatViewHeight.value)
       }
     }
   } else {
@@ -1412,31 +1324,16 @@ const handleKeyboardShown = async (data: { height: number; duration: number }) =
 const handleNativeVoiceRecordingStarted = (event: Event) => {
   const customEvent = event as CustomEvent
   const detail = customEvent.detail as { success: boolean; isRecording: boolean; filePath?: string }
-  
-  console.log('[ChatView] 收到录音已开始事件', detail)
-  
   if (detail.success && detail.isRecording) {
     // 更新录音状态
     isRecording.value = true
     showCancelHint.value = false
-    
-    console.log('[ChatView] 录音状态已更新', {
-      isRecording: isRecording.value,
-      filePath: detail.filePath
-    })
   }
 }
 
 // 作用：开始语音输入，记录触摸位置并调用录音接口
 const startVoiceInput = (event?: TouchEvent | MouseEvent) => {
-  console.log('[ChatView] startVoiceInput 被调用', {
-    isLoading: isLoading.value,
-    currentIsRecording: isRecording.value,
-    eventType: event?.type
-  })
-
   if (isLoading.value) {
-    console.log('[ChatView] 正在加载中，取消录音')
     return
   }
 
@@ -1450,12 +1347,6 @@ const startVoiceInput = (event?: TouchEvent | MouseEvent) => {
   // 先调用录音接口检查权限，只有在成功后才设置状态
   try {
     const result = androidBridge.startVoiceRecording()
-    console.log('[ChatView] startVoiceRecording 返回结果', {
-      success: result.success,
-      message: result.message,
-      data: result.data
-    })
-
     if (!result.success) {
       console.error('[ChatView] 开始录音失败', result.message)
       showMessage(result.message || '开始录音失败', 'error')
@@ -1467,7 +1358,6 @@ const startVoiceInput = (event?: TouchEvent | MouseEvent) => {
 
     // 如果正在请求权限，不设置录音状态，等待权限请求完成
     if (result.message === '正在请求录音权限') {
-      console.log('[ChatView] 正在请求录音权限，等待权限授予')
       // 权限请求是异步的，权限授予后会自动启动录音
       // 不设置 isRecording 状态，等待权限授予后的回调
       return
@@ -1476,11 +1366,6 @@ const startVoiceInput = (event?: TouchEvent | MouseEvent) => {
     // 只有在录音成功后才设置状态
     isRecording.value = true
     showCancelHint.value = false
-
-    console.log('[ChatView] 录音开始成功', {
-      isRecording: isRecording.value,
-      filePath: result.data
-    })
   } catch (error) {
     console.error('[ChatView] 录音异常', error)
     showMessage('录音功能不可用', 'error')
@@ -1492,11 +1377,6 @@ const startVoiceInput = (event?: TouchEvent | MouseEvent) => {
 
 // 作用：停止语音输入，处理上滑取消逻辑并发送语音消息
 const stopVoiceInput = async (event?: TouchEvent | MouseEvent) => {
-  console.log('[ChatView] stopVoiceInput 被调用', {
-    isRecording: isRecording.value,
-    eventType: event?.type
-  })
-
   // 如果当前未在录音，可能是权限失败后快速释放按钮，需要清理状态
   if (!isRecording.value) {
     console.warn('[ChatView] 当前未在录音，忽略停止请求')
@@ -1520,39 +1400,18 @@ const stopVoiceInput = async (event?: TouchEvent | MouseEvent) => {
     voiceCurrentY.value = event.clientY
     shouldCancel = voiceStartY.value - voiceCurrentY.value > CANCEL_THRESHOLD
   }
-
-  console.log('[ChatView] 停止录音，检查是否需要取消', {
-    shouldCancel,
-    voiceStartY: voiceStartY.value,
-    voiceCurrentY: voiceCurrentY.value,
-    delta: voiceStartY.value - voiceCurrentY.value
-  })
-
   // 先设置录音状态为 false，确保 UI 更新
   isRecording.value = false
   showCancelHint.value = false
 
   try {
     if (shouldCancel) {
-      console.log('[ChatView] 取消录音')
       // 取消录音 - 使用AndroidBridge
       androidBridge.cancelVoiceRecording()
     } else {
-      console.log('[ChatView] 停止录音并发送')
       // 停止录音并发送 - 使用AndroidBridge
       const result = androidBridge.stopVoiceRecording()
-      console.log('[ChatView] stopVoiceRecording 返回结果', {
-        success: result.success,
-        message: result.message,
-        voiceInfo: result.voiceInfo
-      })
-
       if (result.success && result.voiceInfo) {
-        console.log('[ChatView] 录音成功，准备发送语音消息', {
-          filePath: result.voiceInfo.filePath,
-          duration: result.voiceInfo.duration,
-          fileSize: result.voiceInfo.fileSize
-        })
         await sendVoiceMessage(result.voiceInfo)
       } else {
         console.error('[ChatView] 录音失败', result.message)
@@ -1586,13 +1445,6 @@ const sendVoiceMessage = async (voiceInfo: {
   duration: number
   fileSize: number
 }) => {
-  console.log('[ChatView] sendVoiceMessage 被调用', {
-    filePath: voiceInfo.filePath,
-    duration: voiceInfo.duration,
-    fileSize: voiceInfo.fileSize,
-    chatType: props.type
-  })
-
   // 第1步：检查是否需要选择题目（策略模式重构版）
   // 策略模式：使用策略的 requiresQuestion() 方法判断是否需要选择题目
   if (!hasSelectedQuestion.value && chatStrategy.value?.requiresQuestion()) {
@@ -1611,12 +1463,6 @@ const sendVoiceMessage = async (voiceInfo: {
     messageType: 'voice',
     voiceData: voiceInfo,
   }
-
-  console.log('[ChatView] 创建语音消息', {
-    messageId: voiceMessage.id,
-    messageType: voiceMessage.messageType
-  })
-
   await addMessageToStore(voiceMessage)
   await scrollToBottom()
 
@@ -1626,10 +1472,6 @@ const sendVoiceMessage = async (voiceInfo: {
     let sendResult: { success: boolean; message?: string }
 
     if (props.type === 'teacher' && teacherSession.value) {
-      console.log('[ChatView] 发送语音消息给老师', {
-        sessionId: teacherSession.value.sessionId,
-        subject: currentSubject.value
-      })
       // 发送语音消息给老师 - 使用API服务
       const success = await apiService.sendVoiceMessageToTeacher(
         voiceInfo.filePath,
@@ -1638,15 +1480,12 @@ const sendVoiceMessage = async (voiceInfo: {
         currentSubject.value,
       )
       sendResult = { success }
-      console.log('[ChatView] 老师语音消息发送结果', { success })
     } else {
-      console.log('[ChatView] 发送语音消息给AI')
       // 发送语音消息给AI（暂时模拟）
       sendResult = { success: true }
     }
 
     if (sendResult.success) {
-      console.log('[ChatView] 语音消息发送成功')
       // 语音消息发送成功，等待真实回复
       await scrollToBottom()
       emit('response')
@@ -1809,13 +1648,6 @@ const handleMessageClick = (message: ChatBubble) => {
  * 作用：将聊天消息转换为转发格式，清理LaTeX内容并添加角色前缀
  */
 const convertMessageForForwarding = (msg: ChatBubble) => {
-  console.log('[ChatView] 🔄 convertMessageForForwarding() - 转换消息:', {
-    id: msg.id,
-    sender: msg.sender,
-    type: msg.type,
-    messageType: msg.messageType,
-    contentLength: msg.content?.length || 0,
-  })
   
   // 获取数据类型，默认为text
   const dataType = msg.messageType || 'text'
@@ -1845,136 +1677,74 @@ const convertMessageForForwarding = (msg: ChatBubble) => {
     timestamp: '',
   }
   
-  console.log('[ChatView] ✅ 转换完成:', {
-    id: result.id,
-    type: result.type,
-    contentLength: result.content.length,
-    contentPreview: result.content.substring(0, 50) + '...',
-  })
-  
   return result
 }
 
 /**
  * 选择老师会话
- * 流程：1. 加载会话列表 2. 显示选择对话框 3. 用户选择会话
+ * 流程：1. 根据科目查找localStorage中对应老师的会话 2. 如果找到则使用，否则创建新会话
  * @param forwardMessages 如果提供，会在选择会话后转发这些消息
  * @returns 返回是否成功选择会话（如果提供forwardMessages，则返回是否转发成功）
  */
 const selectTeacherSessionAndForward = async (
   forwardMessages?: ChatBubble[]
 ): Promise<boolean> => {
-  return new Promise((resolve) => {
+  try {
+    // 获取当前科目
+    const subject = currentSubject.value as 'biology' | 'math'
     // 加载老师会话列表
     const sessions = loadTeacherSessions()
     
-    // 如果没有会话，先创建默认会话
-    if (sessions.length === 0) {
-      // 如果没有会话，初始化一个默认会话
-      initializeTeacherSession().then(async () => {
-        if (teacherSession.value) {
-          if (forwardMessages && forwardMessages.length > 0) {
-            const success = await forwardMessageToTeacher(forwardMessages)
-            resolve(success)
-          } else {
-            resolve(true)
-          }
+    // 查找对应科目的会话（每个老师只维护一个会话）
+    const existingSession = sessions.find(s => s.subject === subject)
+    
+    if (existingSession) {
+      // 找到对应科目的会话，直接使用
+      // 设置选中的会话
+      teacherSession.value = {
+        sessionId: existingSession.sessionId,
+        sessionName: existingSession.sessionName,
+        catalogId: 'CATEGORY_TEACHER_QA',
+        sessionType: existingSession.subject === 'biology' 
+          ? SessionType.USER_TALK_TEACHER_BIOLOGY 
+          : SessionType.USER_TALK_TEACHER_MATH,
+        createTime: existingSession.createTime,
+        updateTime: existingSession.createTime,
+        msgCount: 0,
+      }
+      
+      // 设置到store
+      teacherStore.setSession(existingSession)
+      
+      // 加载该会话的历史消息
+      await teacherStore.loadChatHistory(existingSession.sessionId)
+      
+      // 如果提供了消息，转发消息
+      if (forwardMessages && forwardMessages.length > 0) {
+        const success = await forwardMessageToTeacher(forwardMessages)
+        return success
+      } else {
+        return true
+      }
+    } else {
+      // 没找到对应科目的会话，创建新会话
+      await initializeTeacherSession()
+      
+      if (teacherSession.value) {
+        if (forwardMessages && forwardMessages.length > 0) {
+          const success = await forwardMessageToTeacher(forwardMessages)
+          return success
         } else {
-          resolve(false)
-        }
-      })
-      return
-    }
-    
-    // 构建选项列表
-    const options = sessions.map(session => ({
-      label: session.sessionName,
-      value: session.sessionId,
-      subject: session.subject
-    }))
-    
-    // 添加"新建会话"选项
-    options.push({
-      label: '新建会话',
-      value: 'new',
-      subject: 'math'
-    })
-    
-    // 显示选择对话框
-    Dialog.create({
-      title: '选择转发给哪位老师',
-      message: '请选择要转发到的老师会话',
-      options: {
-        type: 'radio',
-        model: sessions.length > 0 ? sessions[0].sessionId : 'new',
-        items: options.map(opt => ({
-          label: opt.label,
-          value: opt.value
-        }))
-      },
-      cancel: {
-        label: '取消',
-        color: 'grey-7',
-        flat: true
-      },
-      ok: {
-        label: '确定',
-        color: 'primary',
-        unelevated: true
-      },
-      persistent: false
-    }).onOk(async (selectedSessionId: string) => {
-      if (selectedSessionId === 'new') {
-        // 创建新会话
-        await initializeTeacherSession()
-        if (teacherSession.value) {
-          if (forwardMessages && forwardMessages.length > 0) {
-            const success = await forwardMessageToTeacher(forwardMessages)
-            resolve(success)
-          } else {
-            resolve(true)
-          }
-        } else {
-          resolve(false)
+          return true
         }
       } else {
-        // 使用选中的会话
-        const selectedSession = sessions.find(s => s.sessionId === selectedSessionId)
-        if (selectedSession) {
-          // 设置选中的会话
-          teacherSession.value = {
-            sessionId: selectedSession.sessionId,
-            sessionName: selectedSession.sessionName,
-            catalogId: 'CATEGORY_TEACHER_QA',
-            sessionType: selectedSession.subject === 'biology' 
-              ? SessionType.USER_TALK_TEACHER_BIOLOGY 
-              : SessionType.USER_TALK_TEACHER_MATH,
-            createTime: selectedSession.createTime,
-            updateTime: selectedSession.createTime,
-            msgCount: 0,
-          }
-          
-          // 设置到store
-          teacherStore.setSession(selectedSession)
-          
-          // 加载该会话的历史消息
-          await teacherStore.loadChatHistory(selectedSession.sessionId)
-          
-          // 如果提供了消息，转发消息
-          if (forwardMessages && forwardMessages.length > 0) {
-            const success = await forwardMessageToTeacher(forwardMessages)
-            resolve(success)
-          } else {
-            resolve(true)
-          }
-        } else {
-          resolve(false)
-        }
+        return false
       }
-    }).onCancel(() => {
-      resolve(false)
-    })
-  })
+    }
+  } catch (error) {
+    console.error('[ChatView] ❌ selectTeacherSessionAndForward() - 错误:', error)
+    return false
+  }
 }
 
 /**
@@ -1983,17 +1753,6 @@ const selectTeacherSessionAndForward = async (
  * 作用：处理AI对话中的单条消息转发到老师对话
  */
 const handleForwardMessage = async (message: ChatBubble) => {
-  console.log('[ChatView] 📤 handleForwardMessage() - 开始处理转发')
-  console.log('[ChatView] 📤 接收到的消息:', {
-    id: message.id,
-    sender: message.sender,
-    type: message.type,
-    messageType: message.messageType,
-    content: message.content?.substring(0, 100) + '...',
-    hasImageData: !!message.imageData,
-    hasVoiceData: !!message.voiceData,
-    currentChatType: props.type,
-  })
   
   // 确保只在AI通用、AI题目和AI教材页面触发
   if (props.type !== 'ai-general' && props.type !== 'ai-exercise' && props.type !== 'ai-textbook') {
@@ -2006,7 +1765,6 @@ const handleForwardMessage = async (message: ChatBubble) => {
     const success = await selectTeacherSessionAndForward([message])
 
     if (success) {
-      console.log('[ChatView] ✅ 转发成功')
       // AI题目对话页面不显示对话框，只显示简单提示
       if (props.type === 'ai-exercise') {
         showMessage('转发成功', 'success')
@@ -2028,7 +1786,6 @@ const handleForwardMessage = async (message: ChatBubble) => {
           persistent: false,
         }).onOk(() => {
           // 用户选择前往老师对话
-          console.log('[ChatView] ✅ 用户选择前往老师对话')
           if (teacherSession.value) {
             emit('open-teacher-dialog', {
               sessionId: teacherSession.value.sessionId,
@@ -2037,7 +1794,6 @@ const handleForwardMessage = async (message: ChatBubble) => {
           }
         }).onCancel(() => {
           // 用户选择留在当前会话
-          console.log('[ChatView] ✅ 用户选择留在当前会话')
           showMessage('转发成功，已留在当前会话', 'success')
         })
       }
@@ -2054,33 +1810,15 @@ const handleForwardMessage = async (message: ChatBubble) => {
 
 // 统一的转发函数
 const forwardMessageToTeacher = async (messages: ChatBubble[]) => {
-  console.log('[ChatView] 📤 forwardMessageToTeacher() - 开始转发')
-  console.log('[ChatView] 📤 原始消息数量:', messages.length)
-  console.log('[ChatView] 📤 原始消息列表:', messages.map(msg => ({
-    id: msg.id,
-    sender: msg.sender,
-    type: msg.type,
-    messageType: msg.messageType,
-    contentLength: msg.content?.length || 0,
-  })))
+
   
   // 第1步：转换消息格式
-  console.log('[ChatView] 🔄 第1步：转换消息格式')
   const cleanedMessages = messages.map(convertMessageForForwarding)
-  console.log('[ChatView] ✅ 转换后的消息:', cleanedMessages.map(msg => ({
-    id: msg.id,
-    type: msg.type,
-    contentLength: msg.content?.length || 0,
-    contentPreview: msg.content?.substring(0, 50) + '...',
-  })))
-  
+
   // 第2步：序列化消息数据
-  console.log('[ChatView] 🔄 第2步：序列化消息数据')
   let selectedMessagesData: string
   try {
     selectedMessagesData = JSON.stringify(cleanedMessages)
-    console.log('[ChatView] ✅ 序列化成功，数据长度:', selectedMessagesData.length)
-    console.log('[ChatView] 📋 序列化数据预览:', selectedMessagesData.substring(0, 200) + '...')
   } catch (error) {
     console.error('[ChatView] ❌ 序列化失败:', error)
     return false
@@ -2093,19 +1831,13 @@ const forwardMessageToTeacher = async (messages: ChatBubble[]) => {
   }
   
   const sessionId = teacherSession.value.sessionId
-  console.log('[ChatView] 🔄 第3步：调用API转发，会话ID:', sessionId)
-  
   // 第4步：调用API转发
   try {
     const success = await apiService.forwardAiChatToTeacher(
       selectedMessagesData,
       sessionId,
     )
-    
-    console.log('[ChatView] 📊 API调用结果:', success)
-    
     if (success) {
-      console.log('[ChatView] 🔄 第4步：转发成功，开始添加到本地存储')
       const convertedMessages = messages.map((msg) => {
         // 确定消息类型
         let messageType: 'text' | 'voice' | 'image' = msg.messageType || 'text'
@@ -2129,21 +1861,9 @@ const forwardMessageToTeacher = async (messages: ChatBubble[]) => {
         }
       })
       
-      console.log('[ChatView] 📤 转换后的消息数量:', convertedMessages.length)
-      console.log('[ChatView] 📤 转换后的消息详情:', convertedMessages.map(msg => ({
-        id: msg.id,
-        messageType: msg.messageType,
-        hasImageData: !!msg.imageData,
-        hasVoiceData: !!msg.voiceData,
-        contentLength: msg.content?.length || 0
-      })))
-      
       // 直接添加到老师消息存储并持久化
       teacherStore.messages.push(...convertedMessages)
-      console.log('[ChatView] ✅ 消息已添加到 teacherStore，消息总数:', teacherStore.messages.length)
-      
       await teacherStore.saveChatHistory()
-      console.log('[ChatView] ✅ 聊天历史已保存')
     } else {
       console.error('[ChatView] ❌ API返回 false，转发失败')
     }
@@ -2164,6 +1884,20 @@ const handleEnterMultiSelect = () => {
 
 // 处理编辑消息
 // 作用：开始编辑指定消息，将消息内容复制到输入框并设置编辑状态
+// 处理图片加载完成事件
+// 作用：当消息中的图片加载完成后，刷新 BetterScroll 以确保滚动容器高度正确，并滚动到底部
+const handleImageLoaded = () => {
+  // 使用防抖机制，避免多张图片同时加载时频繁刷新
+  if (imageLoadRefreshTimer.value) {
+    clearTimeout(imageLoadRefreshTimer.value)
+  }
+  imageLoadRefreshTimer.value = setTimeout(async () => {
+    refreshBScroll()
+    // 刷新后滚动到底部，确保图片完整显示
+    await scrollToBottom()
+  }, 100) // 100ms 防抖延迟
+}
+
 const handleEditMessage = (message: ChatBubble) => {
 
   // 检查是否已经在编辑其他消息
@@ -2488,7 +2222,6 @@ const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessa
             persistent: false,
           }).onOk(() => {
             // 用户选择前往老师对话
-            console.log('[ChatView] ✅ 用户选择前往老师对话')
             const forwardData = {
               messages: messages,
               currentQuestion: currentQuestion.value,
@@ -2500,7 +2233,6 @@ const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessa
             emit('switchToTeacher', forwardData)
           }).onCancel(() => {
             // 用户选择留在当前会话
-            console.log('[ChatView] ✅ 用户选择留在当前会话')
             showMessage(`转发成功，已转发 ${successCount} 条消息`, 'success')
           })
         }
@@ -2544,6 +2276,21 @@ onMounted(async () => {
   // 步骤1.5：初始化 BScroll
   await initBScroll()
   scrollToBottom()
+  
+  // 初始化消息计数
+  lastMessageCount.value = getScenarioStore().messages.length
+  
+  // 添加滚动监听，检测用户是否在底部
+  const bscrollInstance = getInstance()
+  if (bscrollInstance) {
+    bscrollInstance.on('scroll', () => {
+      checkIfUserAtBottom()
+      // 如果用户滚动到底部，隐藏新消息提示按钮
+      if (isUserAtBottom.value) {
+        showNewMessageIndicator.value = false
+      }
+    })
+  }
 
   // 步骤2：初始化动态键盘高度
   setTimeout(() => {
@@ -2611,6 +2358,12 @@ onMounted(async () => {
  */
 onUnmounted(() => {
   // 步骤0：BScroll 销毁由组合式函数自动处理
+  
+  // 步骤0.5：清理图片加载刷新定时器
+  if (imageLoadRefreshTimer.value) {
+    clearTimeout(imageLoadRefreshTimer.value)
+    imageLoadRefreshTimer.value = null
+  }
   
   // 步骤1：清理键盘事件监听器
   if (typeof window !== 'undefined') {
@@ -2690,6 +2443,12 @@ watch(
  */
 let scrollTimeout: ReturnType<typeof setTimeout> | null = null
 
+/**
+ * 图片加载刷新定时器
+ * 作用：防抖处理图片加载完成后的滚动容器刷新
+ */
+const imageLoadRefreshTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+
 watch(
   () => getScenarioStore().messages,
   (newMessages) => {
@@ -2697,19 +2456,32 @@ watch(
       // 刷新 BScroll 以确保内容高度正确
       refreshBScroll()
       
-      // 如果是键盘显示状态，立即滚动；否则防抖滚动
+      // 检测是否有新消息（消息数量增加）
+      const hasNewMessage = newMessages.length > lastMessageCount.value
+      lastMessageCount.value = newMessages.length
+      
+      // 检查用户是否在底部（允许50px的误差）
+      checkIfUserAtBottom()
+      
+      // 如果是键盘显示状态，立即滚动；否则根据用户位置决定
       if (isKeyboardVisible.value || isKeyboardAnimating.value) {
         // 键盘显示时立即滚动，确保用户体验
         scrollToBottom()
+        showNewMessageIndicator.value = false
       } else {
-        // 防抖滚动，避免频繁触发
-        if (scrollTimeout) {
-          clearTimeout(scrollTimeout)
+        // 如果用户不在底部且有新消息，显示提示按钮
+        if (hasNewMessage && !isUserAtBottom.value) {
+          showNewMessageIndicator.value = true
+        } else if (isUserAtBottom.value) {
+          // 用户在底部，自动滚动并隐藏提示按钮
+          if (scrollTimeout) {
+            clearTimeout(scrollTimeout)
+          }
+          scrollTimeout = setTimeout(() => {
+            scrollToBottom()
+            showNewMessageIndicator.value = false
+          }, 50)
         }
-        // 将延迟时间缩短，让滚动更及时
-        scrollTimeout = setTimeout(() => {
-          scrollToBottom()
-        }, 50)
       }
 
       // 【重要】移除MathJax全局渲染调用
@@ -2940,6 +2712,36 @@ defineExpose({
   padding: 16px 0;
   max-width: 100%;
   width: 100%;
+}
+
+/* 新消息提示按钮 */
+.new-message-indicator {
+  position: absolute;
+  bottom: 80px;
+  right: 20px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* 淡入淡出动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 /* 选择模式工具栏特定样式 */

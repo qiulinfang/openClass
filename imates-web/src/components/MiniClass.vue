@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <!-- 对话框模式 -->
   <DraggableDialog 
     v-if="useDialog"
@@ -379,7 +379,6 @@ const handleVideoError = () => {
 
 // 处理iframe加载
 const handleIframeLoad = () => {
-  console.log('[MiniClass] iframe 加载完成')
   if (loadTimeout) {
     clearTimeout(loadTimeout)
     loadTimeout = null
@@ -506,7 +505,6 @@ const loadContent = (url: string) => {
         nextTick(() => {
           if (iframePlayer.value) {
             iframePlayer.value.src = normalizedUrl
-            console.log('[MiniClass] 加载 iframe URL:', normalizedUrl)
           }
         })
       } else {

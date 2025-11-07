@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onMounted, onBeforeUnmount } from 'vue'
 import ImagePicker from './components/chat/ImagePicker.vue'
 import { apiService } from './services/api-service'
@@ -14,10 +14,8 @@ if (typeof window !== 'undefined') {
       const logMessage = `[${tag}] ${message}`
       switch (level.toUpperCase()) {
         case 'DEBUG':
-          console.debug(`🔍 [Android ${level}]`, logMessage)
           break
         case 'INFO':
-          console.info(`ℹ️ [Android ${level}]`, logMessage)
           break
         case 'WARN':
           console.warn(`⚠️ [Android ${level}]`, logMessage)
@@ -26,7 +24,6 @@ if (typeof window !== 'undefined') {
           console.error(`❌ [Android ${level}]`, logMessage)
           break
         default:
-          console.log(`📝 [Android ${level}]`, logMessage)
           break
       }
     }

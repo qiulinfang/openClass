@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="find-exercise-view">
     <!-- 内部工具栏 -->
     <div class="internal-toolbar">
@@ -65,8 +65,6 @@
           <q-card-section class="q-pa-none full-height">
             <QuestionList 
               ref="questionListRef"
-              @question-selected="handleQuestionSelected"
-              @question-deselected="handleQuestionDeselected"
               @refresh="handleRefresh"
             />
           </q-card-section>
@@ -136,14 +134,6 @@ const isAllSelected = computed(() => {
   return selectableQuestions.value.every(q => selectedQuestionIds.value.includes(q.bmNo))
 })
 
-// 方法
-const handleQuestionSelected = (questionId: string) => {
-  console.log('题目已选中:', questionId)
-}
-
-const handleQuestionDeselected = (questionId: string) => {
-  console.log('题目已取消选中:', questionId)
-}
 
 const handleRefresh = async () => {
   try {
@@ -185,8 +175,6 @@ const handleStartExercise = async () => {
   
   try {
     isStarting.value = true
-    console.log('[FindExerciseView] 开始练习 - 先添加题目，后跳转页面')
-    
     // 获取所有选中的题目ID（包括手动选中的和已收藏的）
     const manuallySelectedIds = selectedQuestionIds.value.filter(id => id)
     const favoritedIds = similarQuestions.value
@@ -194,14 +182,6 @@ const handleStartExercise = async () => {
       .map(q => q.bmNo)
       .filter(id => id)
     const allSelectedIds = [...new Set([...manuallySelectedIds, ...favoritedIds])]
-    
-    console.log('[FindExerciseView] 选中题目详情:', {
-      manuallySelected: manuallySelectedIds,
-      favorited: favoritedIds,
-      allSelected: allSelectedIds,
-      totalCount: allSelectedIds.length
-    })
-    
     // 检查是否有手动选中的题目需要添加
     const hasManuallySelected = manuallySelectedIds.length > 0
     const hasFavoritedOnly = favoritedIds.length > 0 && !hasManuallySelected
@@ -210,9 +190,6 @@ const handleStartExercise = async () => {
     
     // 只有当有手动选中的题目时才需要调用API添加
     if (hasManuallySelected) {
-      console.log('[FindExerciseView] 有手动选中的题目，需要添加到练习列表')
-      console.log('[FindExerciseView] 准备添加的题目ID:', manuallySelectedIds)
-      
       success = await findExerciseStore.addSelectedQuestionsToList()
       
       if (!success) {
@@ -224,30 +201,21 @@ const handleStartExercise = async () => {
       // 第1步：获取科目名称
       const subjectName = findExerciseStore.config?.subject === Subject.SUBJECT_MATH ? 'math' : 'biology'
       // 第2步：强制从服务器刷新题目列表，不使用本地缓存
-      console.log('[FindExerciseView] 刷新题目列表，确保新添加的题目显示')
       await questionStore.fetchQuestions(subjectName, false)
       
       // 验证刷新后的题目列表
       const refreshedQuestions = questionStore.questions
-      console.log('[FindExerciseView] 刷新后的题目列表数量:', refreshedQuestions.length)
-      
       // 检查新添加的题目是否在列表中
       const addedQuestionsFound = manuallySelectedIds.filter(id => 
         refreshedQuestions.some(q => q.bmNo === id || q.id === id)
       )
-      console.log('[FindExerciseView] 新添加的题目在列表中:', addedQuestionsFound.length, '/', manuallySelectedIds.length)
-      
       if (addedQuestionsFound.length < manuallySelectedIds.length) {
         console.warn('[FindExerciseView] 警告：部分题目可能未成功添加到列表')
       }
     } else if (hasFavoritedOnly) {
-      console.log('[FindExerciseView] 只有已收藏的题目，直接跳转到练习页面')
     }
     
     if (success) {
-      console.log('[FindExerciseView] 准备跳转到练习页面')
-      console.log('[FindExerciseView] 跳转参数 - questionIds:', allSelectedIds.join(','))
-      
       // 跳转到练习页面，传递所有选中的题目ID（包括手动选中的和已收藏的）
       router.push({
         path: '/exercise-solve',
@@ -285,24 +253,16 @@ const goBack = async () => {
 // 初始化
 onMounted(async () => {
   try {
-    console.log('FindExerciseView 开始初始化...')
-    
     // 从Vue Router的query参数获取配置
-    console.log('使用Vue Router query参数配置')
     const config: FindExerciseConfig = {
       apiBaseURL: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
       subject: (route.query.subject as string) === 'SUBJECT_BIOLOGY' ? Subject.SUBJECT_BIOLOGY : Subject.SUBJECT_MATH,
       token: (route.query.token as string) || localStorage.getItem('token') || '',
       knowledgeList: (route.query.knowledgeList as string) || ''
     }
-    
-    console.log('最终配置:', config)
-    
     // 初始化store和获取数据
     await findExerciseStore.initializeStore(config)
     await findExerciseStore.fetchQuestionList()
-    
-    console.log('FindExerciseView 初始化完成')
   } catch (error) {
     console.error('初始化失败:', error)
   } finally {

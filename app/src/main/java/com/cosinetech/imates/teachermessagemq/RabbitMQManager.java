@@ -370,6 +370,55 @@ public class RabbitMQManager {
     }
 
     /**
+     * 日志回调接口（用于将日志传递到Web端）
+     */
+    public interface LogCallback {
+        void onLog(String level, String tag, String message);
+    }
+    
+    private LogCallback logCallback;
+    
+    /**
+     * 设置日志回调
+     */
+    public void setLogCallback(LogCallback callback) {
+        this.logCallback = callback;
+    }
+    
+    /**
+     * 发送日志（同时输出到Logcat和回调）
+     */
+    private void sendLog(String level, String tag, String message) {
+        // 输出到Android Logcat
+        switch (level.toUpperCase()) {
+            case "DEBUG":
+                Log.d(tag, message);
+                break;
+            case "INFO":
+                Log.i(tag, message);
+                break;
+            case "WARN":
+                Log.w(tag, message);
+                break;
+            case "ERROR":
+                Log.e(tag, message);
+                break;
+            default:
+                Log.i(tag, message);
+                break;
+        }
+        
+        // 发送到回调（如果设置了）
+        if (logCallback != null) {
+            try {
+                logCallback.onLog(level, tag, message);
+            } catch (Exception e) {
+                Log.e(TAG, "日志回调执行失败", e);
+            }
+        }
+    }
+    
+    /**
      * 消息回调接口
      */
     public interface MessageCallback {

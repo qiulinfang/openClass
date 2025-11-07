@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <DraggableDialog 
     v-model="localVisible" 
     title="教师答疑"
@@ -121,7 +121,6 @@ const teacherRecords = computed<QuestionRecord[]>(() => {
 // ==================== 方法 ====================
 // 加载教师会话列表
 const loadSessions = () => {
-  console.log('[TeacherChatDialog] 🔄 loadSessions() - 开始加载会话列表')
   
   // 第1步：从localStorage获取所有会话（仅当前用户）
   const userId = getCurrentUserIdOrDefault()
@@ -155,7 +154,6 @@ const loadSessions = () => {
             // 如果键名与sessionId不匹配，可能是旧数据，删除它
             const expectedKey = `${sessionPrefix}${session.sessionId}_session`
             if (key !== expectedKey) {
-              console.log('[TeacherChatDialog] 🗑️ 删除键名不匹配的旧会话:', key)
               localStorage.removeItem(key)
             }
             continue
@@ -172,12 +170,10 @@ const loadSessions = () => {
             // 如果已有正确键名的会话，删除不匹配的键
             const correctKeyData = localStorage.getItem(expectedKey)
             if (correctKeyData) {
-              console.log('[TeacherChatDialog] 🗑️ 删除键名不匹配的旧会话（已有正确键）:', key)
               localStorage.removeItem(key)
               continue
             } else {
               // 如果正确键名不存在，使用当前数据但用正确键名保存
-              console.log('[TeacherChatDialog] 🔧 修正键名:', key, '->', expectedKey)
               localStorage.removeItem(key)
               localStorage.setItem(expectedKey, sessionData)
             }
@@ -201,10 +197,7 @@ const loadSessions = () => {
   // 第4步：更新列表
   teacherSessions.value = sessions
   
-  console.log('[TeacherChatDialog] ✅ loadSessions() - 加载完成:', {
-    total: sessions.length,
-    sessionIds: Array.from(sessionIds)
-  })
+
 }
 
 // 处理记录点击
@@ -226,8 +219,6 @@ const handleRecordClick = async (record: QuestionRecord) => {
   
   // 第5步：加载聊天历史
   await teacherStore.loadChatHistory(session.sessionId)
-  
-  console.log('[TeacherChatDialog] ✅ 选择会话:', session.sessionId)
 }
 
 // 处理记录删除
@@ -301,10 +292,8 @@ const handleBatchDelete = async (recordIds: string[]) => {
 
 // 创建新会话（供外部调用）
 const createNewSession = async (subject: 'biology' | 'math') => {
-  console.log('[TeacherChatDialog] 🎯 createNewSession() - 初始化教师对话')
   try {
     // 第1步：清空上一个会话的聊天记录
-    console.log('[TeacherChatDialog] 🧹 清空上一个会话的状态')
     teacherStore.clearSession()
     
     // 第2步：确保用户信息已加载
@@ -327,8 +316,6 @@ const createNewSession = async (subject: 'biology' | 'math') => {
     
     // 第4步：生成临时会话ID供后续使用（新的会话ID）
     const newSessionId = `teacher-${Date.now()}`
-    console.log('[TeacherChatDialog] 🆔 新会话ID:', newSessionId)
-    
     // 第5步：创建并保存会话信息（这样 loadSessions 才能加载到新会话）
     const newSession = {
       sessionId: newSessionId,
@@ -337,8 +324,6 @@ const createNewSession = async (subject: 'biology' | 'math') => {
       createTime: Date.now()
     }
     localStorage.setItem(`teacher_chat_${newSessionId}_session`, JSON.stringify(newSession))
-    console.log('[TeacherChatDialog] 💾 保存新会话信息到 localStorage')
-    
     // 第6步：设置为当前会话ID
     teacherSessionId.value = newSessionId
     
@@ -347,8 +332,6 @@ const createNewSession = async (subject: 'biology' | 'math') => {
 
     // 第8步：刷新会话列表（现在可以加载到新会话了）
     loadSessions()
-    console.log('[TeacherChatDialog] 📋 刷新会话列表，新会话应该已加载')
-    
     // 第9步：等待一帧确保DOM更新
     await nextTick()
     
@@ -359,8 +342,6 @@ const createNewSession = async (subject: 'biology' | 'math') => {
     
     // 第11步：通知外部新会话已创建
     emit('session-created', newSessionId)
-    
-    console.log('[TeacherChatDialog] ✅ 教师对话准备完成')
   } catch (error) {
     console.error('[TeacherChatDialog] ❌ 准备教师对话失败:', error)
     showMessage('准备教师对话失败，请重试', 'error')
@@ -369,7 +350,6 @@ const createNewSession = async (subject: 'biology' | 'math') => {
 
 // 处理新建对话按钮点击
 const handleNewChat = async () => {
-  console.log('[TeacherChatDialog] 🆕 handleNewChat() - 新建教师对话')
   
   // 默认使用数学学科创建新会话
   await createNewSession('math')

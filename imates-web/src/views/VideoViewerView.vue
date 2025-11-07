@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <!-- 视频内容区域 -->
   <div class="video-viewer-container">
     <!-- 工具栏 -->
@@ -169,9 +169,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import { resourceManager } from '@/services/resource-storage'
 import type { UserTextbookInfo, LocalFileInfo, QuestionRecord } from '@/types'
 import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
@@ -183,7 +182,6 @@ const route = useRoute()
 const router = useRouter()
 
 // 使用 AI Store
-const aiTextbookStore = useAiTextbookChatStore()
 
 // 组件状态
 const isLoading = ref(false)
@@ -257,7 +255,6 @@ const handleVideoLoadStart = () => {
 
 const handleVideoLoaded = () => {
   isLoading.value = false
-  console.log('[VideoViewer] 视频加载完成')
 }
 
 const handleVideoError = (e: Event) => {
@@ -272,8 +269,6 @@ const loadFileFromRoute = async () => {
     // 从路由 query 参数获取文件信息
     const resourceId = route.query.resourceId as string
     const id = route.query.id as string
-    console.log('[VideoViewer] 从路由加载文件:', { resourceId, id })
-
     if (!resourceId || !id) {
       throw new Error('缺少必要的路由参数: resourceId 和 id')
     }
@@ -283,9 +278,6 @@ const loadFileFromRoute = async () => {
     if (!textbook) {
       throw new Error(`教材 ${id} 不存在`)
     }
-
-    console.log('[VideoViewer] 找到教材:', textbook)
-
     // 2. 在教材的 localFiles 中查找对应的文件元数据
     let fileData: Uint8Array | null = null
 
@@ -296,22 +288,18 @@ const loadFileFromRoute = async () => {
         // 从textbook_files表按需读取文件数据
         fileData = await resourceManager.getFileData(id, resourceId)
         if (fileData) {
-          console.log('[VideoViewer] 找到本地文件:', { fileName: fileName.value, fileSize: fileData.length })
         }
       }
     }
 
     // 3. 如果没有找到本地文件，提示用户先下载
     if (!fileData) {
-      console.log('[VideoViewer] 本地文件不存在，需要先下载')
       throw new Error('文件未下载到本地，请先在资源管理页面下载该文件')
     }
 
     // 4. 将 Uint8Array 转换为 Blob URL
     const blob = new Blob([fileData.buffer as ArrayBuffer], { type: 'video/mp4' })
     const url = URL.createObjectURL(blob)
-
-    console.log('[VideoViewer] 文件加载成功:', { fileName: fileName.value, size: fileData.length })
     return url
   } catch (err) {
     console.error('[VideoViewer] 从路由加载文件失败:', err)

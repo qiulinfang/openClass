@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <DraggableDialog
     v-model="localVisible"
     :title="sectionName"
@@ -352,8 +352,6 @@ const updateDifficulty = async (packageId: string, difficulty: number) => {
           if (localPackageIndex !== -1) {
             learningPackages.value[localPackageIndex] = updatedPackage
           }
-
-          console.log('难度已保存:', packageId, difficulty)
         }
       }
     }
@@ -487,8 +485,6 @@ const markNodeAsLearned = (nodeId: string) => {
     // 保存回localStorage
     const ids = Array.from(learnedNodeIds)
     localStorage.setItem(LEARNED_NODES_KEY, JSON.stringify(ids))
-
-    console.log('节点已标记为已学习:', nodeId)
   } catch (error) {
     console.error('标记节点为已学习失败:', error)
   }
@@ -617,12 +613,9 @@ const checkAndGenerateThumbnails = async () => {
               const file = localFiles.value.find(f => f.id === fileId)
               if (file) {
                 file.thumbnail = thumbnail
-                console.log(`[缩略图生成] 已完成: ${resource.fileName}`)
               }
             }
           })
-          
-          console.log(`[缩略图生成] 已添加任务: ${resource.fileName}`)
         }
       }
     }

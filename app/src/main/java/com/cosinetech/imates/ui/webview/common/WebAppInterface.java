@@ -43,6 +43,7 @@ import org.loka.screensharekit.EncodeBuilder;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.H264IFrameCache;
 import com.cosinetech.imates.screencasting.FFmpegPipeStreamer;
+import com.cosinetech.imates.screencasting.CameraStreamManager;
 
 import java.io.File;
 import java.io.IOException;
@@ -1466,33 +1467,45 @@ public class WebAppInterface {
     @JavascriptInterface
     public String captureImageFromCamera() {
         try {
+            sendLogToWeb("INFO", "PhotoCapture", "📸 [拍照搜题] 开始拍照流程");
+            
             if (imageCaptureLauncher == null) {
+                sendLogToWeb("ERROR", "PhotoCapture", "❌ [拍照搜题] 拍照功能未初始化");
                 return createResponse(false, "拍照功能未初始化", null);
             }
 
             // 第1步：检查相机权限
+            sendLogToWeb("DEBUG", "PhotoCapture", "🔍 [拍照搜题] 步骤1: 检查相机权限");
             if (!checkCameraPermission()) {
+                sendLogToWeb("WARN", "PhotoCapture", "⚠️ [拍照搜题] 相机权限未授予");
                 // 第2步：如果权限未授予，尝试请求权限
                 if (cameraPermissionLauncher != null && mContext instanceof Activity) {
                     // 第3步：请求权限（异步操作，权限授予后会在回调中启动相机）
+                    sendLogToWeb("INFO", "PhotoCapture", "📝 [拍照搜题] 步骤2: 请求相机权限");
                     ((Activity) mContext).runOnUiThread(() -> {
                         cameraPermissionLauncher.launch(Manifest.permission.CAMERA);
                     });
                     Log.d(TAG, "正在请求相机权限");
+                    sendLogToWeb("INFO", "PhotoCapture", "✅ [拍照搜题] 已发送权限请求");
                     return createResponse(true, "正在请求相机权限", null);
                 } else {
                     // 无法请求权限，返回错误
+                    sendLogToWeb("ERROR", "PhotoCapture", "❌ [拍照搜题] 无法请求权限，请前往设置中授予");
                     return createResponse(false, "需要相机权限，请前往设置中授予", null);
                 }
             }
 
+            sendLogToWeb("INFO", "PhotoCapture", "✅ [拍照搜题] 相机权限已授予");
             // 第4步：权限已授予，直接启动相机
+            sendLogToWeb("INFO", "PhotoCapture", "🚀 [拍照搜题] 步骤3: 启动相机拍照");
             startCameraCapture();
             Log.d(TAG, "启动相机拍照: " + currentImageFilePath);
+            sendLogToWeb("INFO", "PhotoCapture", "✅ [拍照搜题] 相机已启动，等待用户拍照");
             return createResponse(true, "启动相机拍照", currentImageFilePath);
 
         } catch (Exception e) {
             Log.e(TAG, "拍照失败", e);
+            sendLogToWeb("ERROR", "PhotoCapture", "❌ [拍照搜题] 拍照失败: " + e.getMessage());
             return createResponse(false, "拍照失败: " + e.getMessage(), null);
         }
     }
@@ -1503,21 +1516,30 @@ public class WebAppInterface {
     private void startCameraCapture() {
         try {
             // 第1步：创建图片文件
+            sendLogToWeb("DEBUG", "PhotoCapture", "📁 [拍照搜题] 步骤3.1: 创建图片文件");
             currentImageFilePath = createImageFilePath();
             File imageFile = new File(currentImageFilePath);
+            sendLogToWeb("INFO", "PhotoCapture", "✅ [拍照搜题] 图片文件路径: " + currentImageFilePath);
 
             // 第2步：使用FileProvider获取URI
+            sendLogToWeb("DEBUG", "PhotoCapture", "🔗 [拍照搜题] 步骤3.2: 获取FileProvider URI");
             currentImageUri = FileProvider.getUriForFile(mContext,
                     mContext.getPackageName() + ".fileprovider", imageFile);
+            sendLogToWeb("INFO", "PhotoCapture", "✅ [拍照搜题] URI获取成功: " + currentImageUri.toString());
 
             // 第3步：创建拍照Intent
+            sendLogToWeb("DEBUG", "PhotoCapture", "📋 [拍照搜题] 步骤3.3: 创建拍照Intent");
             Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
             intent.putExtra(MediaStore.EXTRA_OUTPUT, currentImageUri);
+            sendLogToWeb("INFO", "PhotoCapture", "✅ [拍照搜题] Intent创建成功");
 
             // 第4步：启动相机
+            sendLogToWeb("DEBUG", "PhotoCapture", "📷 [拍照搜题] 步骤3.4: 启动相机Activity");
             imageCaptureLauncher.launch(intent);
+            sendLogToWeb("INFO", "PhotoCapture", "✅ [拍照搜题] 相机Activity已启动");
         } catch (Exception e) {
             Log.e(TAG, "启动相机失败", e);
+            sendLogToWeb("ERROR", "PhotoCapture", "❌ [拍照搜题] 启动相机失败: " + e.getMessage());
         }
     }
 
@@ -1528,15 +1550,111 @@ public class WebAppInterface {
         if (granted) {
             // 权限已授予，启动相机
             Log.d(TAG, "相机权限已授予，启动相机");
+            sendLogToWeb("INFO", "PhotoCapture", "✅ [拍照搜题] 相机权限已授予");
+            sendLogToWeb("INFO", "PhotoCapture", "🚀 [拍照搜题] 开始启动相机拍照");
             startCameraCapture();
         } else {
             // 权限被拒绝，通知前端
             Log.w(TAG, "相机权限被拒绝");
+            sendLogToWeb("WARN", "PhotoCapture", "⚠️ [拍照搜题] 相机权限被拒绝");
             if (mContext instanceof Activity) {
                 ((Activity) mContext).runOnUiThread(() -> {
                     Toast.makeText(mContext, "需要相机权限才能拍照", Toast.LENGTH_SHORT).show();
                 });
             }
+        }
+    }
+
+    /**
+     * 启动相机实时流传输
+     * @param width 视频宽度，默认1920
+     * @param height 视频高度，默认1080
+     * @param frameRate 帧率，默认30
+     * @param bitrate 码率（bps），默认4000000
+     * @return JSON响应，包含是否成功和端口信息
+     */
+    @JavascriptInterface
+    public String startCameraStream(int width, int height, int frameRate, int bitrate) {
+        try {
+            // 检查相机权限
+            if (!checkCameraPermission()) {
+                if (cameraPermissionLauncher != null && mContext instanceof Activity) {
+                    ((Activity) mContext).runOnUiThread(() -> {
+                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA);
+                    });
+                    return createResponse(false, "需要相机权限，正在请求", null);
+                } else {
+                    return createResponse(false, "需要相机权限，请前往设置中授予", null);
+                }
+            }
+            
+            // 使用默认值如果参数无效，创建final变量供lambda使用
+            final int finalWidth = width <= 0 ? 1920 : width;
+            final int finalHeight = height <= 0 ? 1080 : height;
+            final int finalFrameRate = frameRate <= 0 ? 30 : frameRate;
+            final int finalBitrate = bitrate <= 0 ? 4000000 : bitrate;
+            
+            // 启动相机流
+            CameraStreamManager cameraManager = CameraStreamManager.getInstance(mContext);
+            if (mContext instanceof Activity) {
+                ((Activity) mContext).runOnUiThread(() -> {
+                    cameraManager.startStream(finalWidth, finalHeight, finalFrameRate, finalBitrate);
+                });
+            } else {
+                cameraManager.startStream(finalWidth, finalHeight, finalFrameRate, finalBitrate);
+            }
+            
+            // 返回HTTP端口信息
+            int httpPort = 20252; // CameraStreamHttpServer.HTTP_PORT
+            String result = String.format("{\"success\":true,\"port\":%d,\"httpPort\":%d}", 
+                com.cosinetech.imates.screencasting.UdpForwarderManager.STREAMING_LOCAL_PORT + 1,
+                httpPort);
+            Log.d(TAG, "Camera stream started, HTTP port: " + httpPort);
+            return result;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start camera stream", e);
+            return createResponse(false, "启动相机流失败: " + e.getMessage(), null);
+        }
+    }
+    
+    /**
+     * 停止相机实时流传输
+     * @return JSON响应
+     */
+    @JavascriptInterface
+    public String stopCameraStream() {
+        try {
+            CameraStreamManager cameraManager = CameraStreamManager.getInstance(mContext);
+            if (mContext instanceof Activity) {
+                ((Activity) mContext).runOnUiThread(() -> {
+                    cameraManager.stopStream();
+                });
+            } else {
+                cameraManager.stopStream();
+            }
+            
+            Log.d(TAG, "Camera stream stopped");
+            return createResponse(true, "相机流已停止", null);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to stop camera stream", e);
+            return createResponse(false, "停止相机流失败: " + e.getMessage(), null);
+        }
+    }
+    
+    /**
+     * 检查相机流是否正在运行
+     * @return JSON响应，包含运行状态
+     */
+    @JavascriptInterface
+    public String isCameraStreamRunning() {
+        try {
+            CameraStreamManager cameraManager = CameraStreamManager.getInstance(mContext);
+            boolean isRunning = cameraManager.isStreaming();
+            String result = String.format("{\"success\":true,\"isRunning\":%s}", isRunning);
+            return result;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to check camera stream status", e);
+            return createResponse(false, "检查相机流状态失败: " + e.getMessage(), null);
         }
     }
 
@@ -1695,33 +1813,45 @@ public class WebAppInterface {
      */
     public String handleImageCaptureResult(boolean success) {
         try {
+            sendLogToWeb("INFO", "PhotoCapture", "📥 [拍照搜题] 收到拍照结果，success=" + success);
+            
             if (!success || currentImageFilePath == null) {
+                sendLogToWeb("WARN", "PhotoCapture", "⚠️ [拍照搜题] 拍照失败或取消");
                 return createResponse(false, "拍照失败或取消", null);
             }
 
+            sendLogToWeb("DEBUG", "PhotoCapture", "🔍 [拍照搜题] 步骤4.1: 检查图片文件是否存在");
             File imageFile = new File(currentImageFilePath);
             if (!imageFile.exists()) {
+                sendLogToWeb("ERROR", "PhotoCapture", "❌ [拍照搜题] 拍照文件不存在: " + currentImageFilePath);
                 return createResponse(false, "拍照文件不存在", null);
             }
+            sendLogToWeb("INFO", "PhotoCapture", "✅ [拍照搜题] 图片文件存在: " + currentImageFilePath);
 
             // 获取图片信息
+            sendLogToWeb("DEBUG", "PhotoCapture", "📐 [拍照搜题] 步骤4.2: 获取图片尺寸信息");
             BitmapFactory.Options options = new BitmapFactory.Options();
             options.inJustDecodeBounds = true;
             BitmapFactory.decodeFile(currentImageFilePath, options);
 
             long fileSize = imageFile.length();
+            sendLogToWeb("INFO", "PhotoCapture", "📊 [拍照搜题] 图片信息 - 尺寸: " + options.outWidth + "x" + options.outHeight + ", 文件大小: " + fileSize + " bytes");
 
             // 读取图片并转换为Base64 Data URL（完整格式，包含data:image前缀）
+            sendLogToWeb("DEBUG", "PhotoCapture", "🔄 [拍照搜题] 步骤4.3: 读取图片并转换为Base64");
             String base64DataUrl = ImageUtils.loadImageFileToBase64(currentImageFilePath);
             if (base64DataUrl == null || base64DataUrl.trim().isEmpty()) {
+                sendLogToWeb("ERROR", "PhotoCapture", "❌ [拍照搜题] 图片读取失败");
                 return createResponse(false, "图片读取失败", null);
             }
+            sendLogToWeb("INFO", "PhotoCapture", "✅ [拍照搜题] Base64转换完成，长度: " + base64DataUrl.length() + " 字符");
 
             String result = String.format(Locale.getDefault(),
                     "{\"filePath\":\"%s\",\"width\":%d,\"height\":%d,\"fileSize\":%d,\"base64DataUrl\":\"%s\"}",
                     currentImageFilePath, options.outWidth, options.outHeight, fileSize, base64DataUrl);
 
             Log.d(TAG, "拍照完成: filePath=" + currentImageFilePath + ", base64DataUrlLength=" + base64DataUrl.length());
+            sendLogToWeb("INFO", "PhotoCapture", "✅ [拍照搜题] 拍照流程完成，准备返回结果给Web端");
 
             // 拍照完成，结果已返回
 
@@ -1729,6 +1859,7 @@ public class WebAppInterface {
 
         } catch (Exception e) {
             Log.e(TAG, "处理拍照结果失败", e);
+            sendLogToWeb("ERROR", "PhotoCapture", "❌ [拍照搜题] 处理拍照结果失败: " + e.getMessage());
             return createResponse(false, "处理拍照失败: " + e.getMessage(), null);
         }
     }

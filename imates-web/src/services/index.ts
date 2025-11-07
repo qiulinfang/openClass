@@ -9,7 +9,6 @@ export * from '../types'
 // 核心服务
 export { apiService, ApiService } from './api-service'
 export { androidBridge, AndroidBridge } from './android-bridge'
-export { capacitorBridge, CapacitorBridge } from './capacitor-bridge'
 export { httpClient, HttpClient } from './http-client'
 
 // API 配置

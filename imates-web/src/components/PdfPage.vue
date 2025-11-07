@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div 
     class="pdf-page pdf-page-item" 
     :style="pageStyle"
@@ -1035,13 +1035,6 @@ const handleDrawingMouseDown = (e: MouseEvent) => {
     const shapeType = store.drawingConfig.screenshotShape || 'rectangle'
     screenshotState.value.isDrawing = true
     screenshotState.value.startPoint = coords
-    
-    console.log('[截图工具] 开始截图', {
-      shapeType,
-      startPoint: coords,
-      pageNum: props.layout.pageNum
-    })
-    
     if (shapeType === 'rectangle') {
       // 矩形截图
       screenshotState.value.currentShape = {
@@ -1053,12 +1046,6 @@ const handleDrawingMouseDown = (e: MouseEvent) => {
         width: 0,
         height: 0
       }
-      console.log('[截图工具] 初始化矩形选区', {
-        x: coords.x,
-        y: coords.y,
-        width: 0,
-        height: 0
-      })
     } else if (shapeType === 'polygon') {
       // 自由形状截图
       screenshotState.value.polygonPoints = [coords]
@@ -1068,10 +1055,6 @@ const handleDrawingMouseDown = (e: MouseEvent) => {
         lineWidth: 2,
         points: [coords]
       }
-      console.log('[截图工具] 初始化自由形状选区', {
-        pointsCount: 1,
-        firstPoint: coords
-      })
     }
     render()
   }
@@ -1176,15 +1159,6 @@ const handleDrawingMouseMove = (e: MouseEvent) => {
       }
       
       screenshotState.value.currentShape = rectShape
-      
-      console.log('[截图工具] 更新矩形选区', {
-        x: rectShape.x,
-        y: rectShape.y,
-        width: rectShape.width,
-        height: rectShape.height,
-        currentPoint: coords
-      })
-      
       render()
     } else if (shapeType === 'polygon' && screenshotState.value.currentShape) {
       // 添加点到自由形状
@@ -1195,12 +1169,6 @@ const handleDrawingMouseMove = (e: MouseEvent) => {
         lineWidth: 2,
         points: [...screenshotState.value.polygonPoints]
       }
-      
-      console.log('[截图工具] 更新自由形状选区', {
-        pointsCount: screenshotState.value.polygonPoints.length,
-        currentPoint: coords
-      })
-      
       render()
     }
   }
@@ -1275,10 +1243,6 @@ const handleDrawingMouseUp = () => {
     startPoint.value = null
   } else if (tool === 'screenshot' && screenshotState.value.isDrawing && screenshotState.value.currentShape) {
     // 捕获截图
-    console.log('[截图工具] 结束截图，开始捕获', {
-      shapeType: screenshotState.value.currentShape.type,
-      shape: screenshotState.value.currentShape
-    })
     captureScreenshot()
   }
 }
@@ -1297,12 +1261,6 @@ const captureScreenshot = async () => {
   try {
     const shape = screenshotState.value.currentShape
     const bounds = getObjectBounds(shape)
-    
-    console.log('[截图工具] 计算选区边界', {
-      shapeType: shape.type,
-      bounds: bounds
-    })
-    
     if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
       console.warn('[截图工具] 捕获失败：选区无效', {
         bounds: bounds
@@ -1311,59 +1269,72 @@ const captureScreenshot = async () => {
       return
     }
     
-    // 创建临时canvas合并PDF和绘制内容
+    // 获取设备像素比（用于坐标转换）
+    const dpr = window.devicePixelRatio || 1
+    
+    // 将bounds从逻辑坐标（CSS像素）转换为实际像素坐标
+    // bounds是相对于drawingCanvas的逻辑坐标，需要转换为pdfCanvas的实际像素坐标
+    const sourceX = Math.round(bounds.x * dpr)
+    const sourceY = Math.round(bounds.y * dpr)
+    const sourceWidth = bounds.width * dpr
+    const sourceHeight = bounds.height * dpr
+    
+    // 创建临时canvas合并PDF和绘制内容（使用实际像素尺寸）
     const tempCanvas = document.createElement('canvas')
-    tempCanvas.width = Math.max(1, Math.round(bounds.width))
-    tempCanvas.height = Math.max(1, Math.round(bounds.height))
+    tempCanvas.width = Math.max(1, Math.round(sourceWidth))
+    tempCanvas.height = Math.max(1, Math.round(sourceHeight))
     const tempCtx = tempCanvas.getContext('2d')
     
     if (!tempCtx) {
       throw new Error('无法获取临时Canvas上下文')
     }
     
-    console.log('[截图工具] 创建临时Canvas', {
-      width: tempCanvas.width,
-      height: tempCanvas.height,
-      bounds: bounds
-    })
+    // 设置临时Canvas的显示尺寸（CSS像素）
+    tempCanvas.style.width = `${bounds.width}px`
+    tempCanvas.style.height = `${bounds.height}px`
     
-    // 绘制PDF内容
+    // 缩放临时Canvas的上下文以适应高DPI（与drawingCanvas保持一致）
+    tempCtx.scale(dpr, dpr)
+    // 获取源 canvas 的尺寸（实际像素）
+    const pdfCanvasWidth = pdfCanvas.value.width
+    const pdfCanvasHeight = pdfCanvas.value.height
+    // 边界检查（使用实际像素坐标）
+    if (sourceX < 0 || sourceY < 0 || 
+        sourceX + sourceWidth > pdfCanvasWidth || 
+        sourceY + sourceHeight > pdfCanvasHeight) {
+      console.warn('[截图工具] 选区超出PDF Canvas范围', {
+        sourceRect: { x: sourceX, y: sourceY, width: sourceWidth, height: sourceHeight },
+        pdfCanvasSize: { width: pdfCanvasWidth, height: pdfCanvasHeight }
+      })
+    }
+    // 绘制PDF内容（使用实际像素坐标）
+    // 注意：这里需要先重置tempCtx的变换，因为drawImage使用的是实际像素坐标
+    tempCtx.setTransform(1, 0, 0, 1, 0, 0)
     tempCtx.drawImage(
       pdfCanvas.value,
-      Math.round(bounds.x),
-      Math.round(bounds.y),
-      bounds.width,
-      bounds.height,
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
       0,
       0,
-      bounds.width,
-      bounds.height
+      tempCanvas.width,
+      tempCanvas.height
     )
     
-    console.log('[截图工具] 已绘制PDF内容到临时Canvas')
-    
+    // 恢复缩放变换（用于后续绘制绘制层内容）
+    tempCtx.scale(dpr, dpr)
     // 绘制绘制层内容（临时隐藏截图选区）
-    const objectsCount = objects.value.length
-    objects.value.forEach(obj => {
+    // offset使用逻辑坐标，因为tempCtx已经应用了dpr缩放
+    objects.value.forEach((obj) => {
       drawObjectToContext(tempCtx, obj, {
         x: -bounds.x,
         y: -bounds.y
       })
     })
-    
-    console.log('[截图工具] 已绘制绘制层内容到临时Canvas', {
-      objectsCount: objectsCount
-    })
-    
     // 转换为Blob并触发回调
     tempCanvas.toBlob((blob) => {
       if (blob) {
-        console.log('[截图工具] 截图捕获成功', {
-          blobSize: blob.size,
-          blobType: blob.type,
-          width: tempCanvas.width,
-          height: tempCanvas.height
-        })
         emit('screenshot-captured', blob)
       } else {
         console.error('[截图工具] 截图转换为Blob失败')
@@ -1445,7 +1416,6 @@ const drawObjectToContext = (targetCtx: CanvasRenderingContext2D, obj: DrawObjec
 
 // 重置截图状态
 const resetScreenshotState = () => {
-  console.log('[截图工具] 重置截图状态')
   screenshotState.value = {
     isDrawing: false,
     startPoint: null,

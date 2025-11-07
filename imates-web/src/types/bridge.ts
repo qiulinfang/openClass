@@ -119,6 +119,11 @@ declare global {
       loadImageFileToBase64(filePath: string): string
       checkImageResult(): string
 
+      // ========== 相机流相关功能 ==========
+      startCameraStream(width: number, height: number, frameRate: number, bitrate: number): string
+      stopCameraStream(): string
+      isCameraStreamRunning(): string
+
       // ========== 老师对话功能 ==========
       createTeacherChatSession(aiSessionId: string, aiSessionName: string, subject: string): string
       sendTextMessageToTeacher(content: string, sessionId: string, subject: string): string

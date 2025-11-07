@@ -1,4 +1,4 @@
-/**
+﻿/**
  * API 服务层
  * 处理所有网络请求相关的接口调用
  */
@@ -629,30 +629,8 @@ export class ApiService {
       // 1. 构建请求体
       const requestBody = this.buildChatRequestBody(message)
       
-      console.log('[API Service] 轮询请求:', {
-        messageId,
-        url,
-        reason: message.reason,
-        sessionId: message.sessionId,
-        requestBody: {
-          ...requestBody,
-          coversation: requestBody.coversation?.length || 0,
-          question: requestBody.question?.substring(0, 50) + '...'
-        },
-        accumulatedContentLength: accumulatedContent.length
-      })
-      
       // 2. 发送HTTP请求
       const response = await this.sendChatRequest(url, requestBody)
-      
-      console.log('[API Service] 轮询响应:', {
-        messageId,
-        success: response.success,
-        hasData: !!response.data,
-        message: response.data?.message?.substring(0, 50) || '空',
-        sessionId: response.data?.sessionId || '无',
-        httpCode: response.code
-      })
       
       // 3. 处理响应
       return await this.handleChatResponse(
@@ -705,19 +683,6 @@ export class ApiService {
     // continue 请求需要更长的超时时间，因为服务器可能需要更多时间生成响应
     const timeout = requestBody.reason === 'continue' ? 30000 : 10000
     
-    console.log('[API Service] HTTP请求发送:', {
-      url,
-      method: 'POST',
-      reason: requestBody.reason,
-      timeout: `${timeout / 1000}秒`,
-      requestBody: {
-        ...requestBody,
-        coversation: requestBody.coversation?.length || 0,
-        question: requestBody.question?.substring(0, 50) + '...'
-      },
-      timestamp: new Date().toISOString()
-    })
-    
     try {
       const response = await httpClient.post<{
         success: boolean
@@ -726,15 +691,6 @@ export class ApiService {
       }>(url, requestBody, {
         retries: 0, // 禁用HTTP层自动重试，避免与业务层重试冲突
         timeout: timeout // continue 请求使用30秒超时，start 请求使用10秒超时
-      })
-      
-      console.log('[API Service] HTTP请求成功:', {
-        url,
-        success: response.success,
-        httpCode: response.code,
-        hasData: !!response.data,
-        messagePreview: response.data?.message?.substring(0, 100) || '空',
-        timestamp: new Date().toISOString()
       })
       
       return response
@@ -762,16 +718,6 @@ export class ApiService {
     accumulatedContent: string = '',
     messageId: string = 'ai_' + Date.now(),
   ): Promise<any> {
-    console.log('[API Service] 处理响应:', {
-      messageId,
-      success: response.success,
-      hasData: !!response.data,
-      chunk: response.data?.message?.substring(0, 100) || '空',
-      chunkLength: response.data?.message?.length || 0,
-      trimmedChunk: response.data?.message?.trim() || '空',
-      sessionId: response.data?.sessionId || '无'
-    })
-    
     // 检查响应是否成功
     if (!response.success || !response.data) {
       console.warn('[API Service] 响应失败:', {
@@ -788,26 +734,12 @@ export class ApiService {
 
     // 根据响应内容类型进行处理
     if (trimmedChunk === 'end') {
-      console.log('[API Service] 收到结束信号:', {
-        messageId,
-        accumulatedContentLength: accumulatedContent.length
-      })
       // 轮询结束 - 返回最终结果
       return this.handlePollingEnd(messageId, accumulatedContent, response.data.sessionId, message.sessionId, onComplete, onStream)
     } else if (trimmedChunk !== '') {
-      console.log('[API Service] 收到新内容，继续轮询:', {
-        messageId,
-        chunkLength: chunk.length,
-        accumulatedContentLength: accumulatedContent.length,
-        newAccumulatedLength: (accumulatedContent + chunk).length
-      })
       // 有新内容 - 累积内容并继续轮询
       return this.handleNewContent(chunk, message, url, onComplete, onStream, accumulatedContent, messageId)
     } else {
-      console.log('[API Service] 收到空内容，继续轮询:', {
-        messageId,
-        accumulatedContentLength: accumulatedContent.length
-      })
       // 空内容但未结束 - 继续轮询
       return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId)
     }
@@ -825,14 +757,6 @@ export class ApiService {
     onComplete?: (response: any) => void,
     onStream?: (chunk: string, isComplete: boolean) => void,
   ) {
-    console.log('[API Service] 轮询结束:', {
-      messageId,
-      accumulatedContentLength: accumulatedContent.length,
-      responseSessionId,
-      messageSessionId,
-      finalSessionId: responseSessionId || messageSessionId
-    })
-    
     // 发送完成信号
     if (onStream) {
       onStream('', true)
@@ -847,10 +771,6 @@ export class ApiService {
     }
 
     if (onComplete) {
-      console.log('[API Service] 调用完成回调:', {
-        messageId,
-        replyLength: finalResult.reply.length
-      })
       onComplete(finalResult)
     }
 
@@ -871,16 +791,6 @@ export class ApiService {
     messageId: string = 'ai_' + Date.now(),
   ) {
     const newAccumulatedContent = accumulatedContent + chunk
-
-    console.log('[API Service] 处理新内容:', {
-      messageId,
-      chunkLength: chunk.length,
-      oldAccumulatedLength: accumulatedContent.length,
-      newAccumulatedLength: newAccumulatedContent.length,
-      sessionId: message.sessionId,
-      willContinue: true
-    })
-
     // 发送流式数据
     if (onStream) {
       onStream(chunk, false)
@@ -888,13 +798,6 @@ export class ApiService {
 
     // 设置为继续轮询并递归调用
     const continueMessage = { ...message, reason: 'continue' }
-    console.log('[API Service] 准备继续轮询:', {
-      messageId,
-      newReason: continueMessage.reason,
-      sessionId: continueMessage.sessionId,
-      url
-    })
-    
     return await this.pollChatMessage(
       continueMessage,
       url,
@@ -917,21 +820,7 @@ export class ApiService {
     accumulatedContent: string = '',
     messageId: string = 'ai_' + Date.now(),
   ) {
-    console.log('[API Service] 处理空内容:', {
-      messageId,
-      sessionId: message.sessionId,
-      accumulatedContentLength: accumulatedContent.length,
-      willContinue: true
-    })
-    
     const continueMessage = { ...message, reason: 'continue' }
-    console.log('[API Service] 准备继续轮询（空内容）:', {
-      messageId,
-      newReason: continueMessage.reason,
-      sessionId: continueMessage.sessionId,
-      url
-    })
-    
     return await this.pollChatMessage(
       continueMessage,
       url,
@@ -1058,14 +947,6 @@ export class ApiService {
     sessionId: string,
     subject: string,
   ): Promise<boolean> {
-    console.log('[ApiService] 📤 sendTextMessageToTeacher: 开始发送文本消息')
-    console.log('[ApiService] 📤 sendTextMessageToTeacher: 参数 -', {
-      contentLength: content?.length || 0,
-      contentPreview: content?.substring(0, 100) || 'null',
-      sessionId,
-      subject
-    })
-    
     const startTime = performance.now()
     
     try {
@@ -1084,15 +965,11 @@ export class ApiService {
         console.error('[ApiService] ❌ sendTextMessageToTeacher: 方法不存在')
         return false
       }
-      
-      console.log('[ApiService] 📤 sendTextMessageToTeacher: 调用AndroidBridge方法')
       const result = this.androidBridge.sendTextMessageToTeacher(content, sessionId, subject)
       
       const duration = performance.now() - startTime
-      console.log('[ApiService] 📥 sendTextMessageToTeacher: 完成, 结果=' + result + ', 耗时=' + duration.toFixed(2) + 'ms')
       
       if (result) {
-        console.log('[ApiService] ✅ sendTextMessageToTeacher: 发送成功')
       } else {
         console.error('[ApiService] ❌ sendTextMessageToTeacher: 发送失败')
       }
@@ -1114,14 +991,6 @@ export class ApiService {
     sessionId: string,
     subject: string,
   ): Promise<boolean> {
-    console.log('[ApiService] 📤 sendVoiceMessageToTeacher: 开始发送语音消息')
-    console.log('[ApiService] 📤 sendVoiceMessageToTeacher: 参数 -', {
-      voicePath,
-      duration,
-      sessionId,
-      subject
-    })
-    
     const startTime = performance.now()
     
     try {
@@ -1140,15 +1009,11 @@ export class ApiService {
         console.error('[ApiService] ❌ sendVoiceMessageToTeacher: 方法不存在')
         return false
       }
-      
-      console.log('[ApiService] 📤 sendVoiceMessageToTeacher: 调用AndroidBridge方法')
       const result = this.androidBridge.sendVoiceMessageToTeacher(voicePath, duration, sessionId, subject)
       
       const elapsedTime = performance.now() - startTime
-      console.log('[ApiService] 📥 sendVoiceMessageToTeacher: 完成, 结果=' + result + ', 耗时=' + elapsedTime.toFixed(2) + 'ms')
       
       if (result) {
-        console.log('[ApiService] ✅ sendVoiceMessageToTeacher: 发送成功')
       } else {
         console.error('[ApiService] ❌ sendVoiceMessageToTeacher: 发送失败')
       }
@@ -1189,19 +1054,10 @@ export class ApiService {
     selectedMessagesData: string,
     teacherSessionId: string,
   ): Promise<boolean> {
-    console.log('[ApiService] 📤 forwardAiChatToTeacher() - 开始调用')
-    console.log('[ApiService] 📤 参数:', {
-      selectedMessagesDataLength: selectedMessagesData.length,
-      selectedMessagesDataPreview: selectedMessagesData.substring(0, 200) + '...',
-      teacherSessionId: teacherSessionId,
-    })
-    
     try {
       // 使用AndroidBridge封装方法
       if (typeof window !== 'undefined' && window.AndroidBridge?.forwardAiChatToTeacher) {
-        console.log('[ApiService] ✅ AndroidBridge 可用，开始调用 androidBridge.forwardAiChatToTeacher')
         const result = this.androidBridge.forwardAiChatToTeacher(selectedMessagesData, teacherSessionId)
-        console.log('[ApiService] 📊 androidBridge.forwardAiChatToTeacher 返回结果:', result)
         return result
       } else {
         console.error('[ApiService] ❌ AndroidBridge 不可用或 forwardAiChatToTeacher 方法不存在')
@@ -1953,18 +1809,11 @@ export class ApiService {
     filesToUpdate: Array<{resource: any, pkg: any}>,
     totalServerFiles: number
   }> {
-    console.log('[ApiService.collectFilesToUpdate] 开始文件筛选', {
-      serverPackagesCount: serverPackages.length,
-      textbookId: textbook.textbookId,
-    })
-    
     const filesToUpdate: Array<{resource: any, pkg: any}> = []
     let totalServerFiles = 0
     
     // 第1步：获取本地学习资源包（用于增量对比）
     const localLearningPackages = textbook.learningPackages || []
-    console.log('[ApiService.collectFilesToUpdate] 本地学习资源包数量', localLearningPackages.length)
-    
     // 第2步：一次性从IndexedDB获取最新的教材数据（包含所有localFiles）
     // 避免在循环中多次查询数据库，提升性能
     const resourceManager = ResourceManager.getInstance()
@@ -1980,30 +1829,14 @@ export class ApiService {
     if (!latestTextbook && textbook.textbookId) {
       const allTextbooks = await resourceManager.indexedDB.getAll<UserTextbookInfo>('textbooks')
       // 打印数据库中的所有教材数据（用于调试）
-      console.log('[ApiService.collectFilesToUpdate] 📊 数据库中的所有教材数据：', {
-        total: allTextbooks.length,
-        textbooks: allTextbooks.map(t => ({
-          id: t.id,
-          textbookId: t.textbookId,
-          textbookName: t.textbookName,
-          hasLocalFiles: !!t.localFiles?.length,
-          localFilesCount: t.localFiles?.length || 0
-        }))
-      })
     }
     
     // 如果还是查不到，使用传入的 textbook 对象（可能还没有保存到 IndexedDB）
     if (!latestTextbook) {
-      console.log('[ApiService.collectFilesToUpdate] ⚠️ 无法从IndexedDB获取教材数据，使用传入的 textbook 对象', {
-        hasId: !!textbook.id,
-        textbookId: textbook.textbookId,
-      })
       latestTextbook = textbook
     }
     
     const localFiles = latestTextbook.localFiles || []
-    console.log('[ApiService.collectFilesToUpdate] 本地文件数量', localFiles.length)
-    
     // 第3步：构建文件ID到localFile的映射表，避免重复查找
     const localFileMap = new Map<string, LocalFileInfo>()
     for (const file of localFiles) {
@@ -2022,15 +1855,8 @@ export class ApiService {
       
       if (!hasResourceList) {
         packagesWithoutResourceList++
-        console.log('[ApiService.collectFilesToUpdate] 包没有 resourceList 属性', {
-          packageId: serverPackage.packageId,
-          packageKeys: Object.keys(serverPackage),
-        })
       } else if (resourceListLength === 0) {
         packagesWithEmptyResourceList++
-        console.log('[ApiService.collectFilesToUpdate] 包的 resourceList 为空', {
-          packageId: serverPackage.packageId,
-        })
       } else {
         packagesWithResourceList++
       }
@@ -2081,16 +1907,6 @@ export class ApiService {
         }
       }
     }
-    
-    console.log('[ApiService.collectFilesToUpdate] 文件筛选统计', {
-      totalPackages: serverPackages.length,
-      packagesWithResourceList,
-      packagesWithoutResourceList,
-      packagesWithEmptyResourceList,
-      totalServerFiles,
-      filesToUpdate: filesToUpdate.length,
-    })
-    
     return { filesToUpdate, totalServerFiles }
   }
 
@@ -2147,56 +1963,32 @@ export class ApiService {
    */
   public async downloadTextbook(textbook: UserTextbookInfo, onProgress?: (progress: number, downloadedCount: number, totalToDownload: number) => void): Promise<boolean> {
     const startTime = Date.now()
-    console.log('[ApiService.下载] 开始下载', {
-      textbookId: textbook.textbookId,
-      textbookName: textbook.textbookName,
-      hasLearningPackages: !!textbook.learningPackages?.length,
-      learningPackagesCount: textbook.learningPackages?.length || 0,
-    })
-    
     try {
       // 第1步：初始化下载控制器
-      console.log('[ApiService.下载] 第1步：初始化下载控制器')
       const controller = new AbortController()
       this.downloadControllers.set(textbook.textbookId, controller)
       
       // 第2步：获取学习资源包（优先使用本地数据）
-      console.log('[ApiService.下载] 第2步：获取学习资源包')
       let serverPackages: any[] = []
       
       if (textbook.learningPackages && textbook.learningPackages.length > 0) {
-        console.log('[ApiService.下载] 使用本地已有的学习资源包', { count: textbook.learningPackages.length })
         serverPackages = textbook.learningPackages
       } else {
-        console.log('[ApiService.下载] 从服务器获取学习资源包')
         serverPackages = await this.getServerLearningPackages(textbook)
-        console.log('[ApiService.下载] 从服务器获取到学习资源包', { count: serverPackages?.length || 0 })
       }
       
       if (!serverPackages || serverPackages.length === 0) {
-        console.log('[ApiService.下载] ⚠️ 没有学习资源包，立即返回 true', {
-          elapsedTime: Date.now() - startTime + 'ms',
-        })
         return true
       }
       
       // 第3步：增量文件筛选（收集需要更新的文件）
-      console.log('[ApiService.下载] 第3步：增量文件筛选，收集需要更新的文件')
       const { filesToUpdate, totalServerFiles } = await this.collectFilesToUpdate(textbook, serverPackages)
       const filesToDownload = filesToUpdate.length
-      console.log('[ApiService.下载] 文件筛选结果', {
-        filesToDownload,
-        totalServerFiles,
-        filesToUpdateCount: filesToUpdate.length,
-      })
-      
       // 第4步：保存学习资源包到IndexedDB
-      console.log('[ApiService.下载] 第4步：保存学习资源包到IndexedDB')
       const resourceManager = ResourceManager.getInstance()
       await resourceManager.updateTextbookInfo(textbook, undefined)
       
       // 第5步：设置教材总文件数
-      console.log('[ApiService.下载] 第5步：设置教材总文件数', { totalServerFiles })
       const textbooks = await resourceManager.getUserLocalTextbooks()
       const textbookRecord = textbooks.find(t => t.textbookId === textbook.textbookId)
       if (textbookRecord) {
@@ -2206,19 +1998,10 @@ export class ApiService {
       textbook.totalFiles = totalServerFiles
       
       if (filesToDownload === 0) {
-        console.log('[ApiService.下载] ⚠️ 没有需要下载的文件 (filesToDownload=0)，立即返回 true', {
-          totalServerFiles,
-          elapsedTime: Date.now() - startTime + 'ms',
-        })
         return true
       }
       
       // 第6步：并发下载需要更新的文件
-      console.log('[ApiService.下载] 第6步：开始并发下载文件', {
-        filesToDownload,
-        totalServerFiles,
-        alreadyDownloadedFiles: totalServerFiles - filesToDownload,
-      })
       // 流程：计算已下载的文件数（总文件数 - 需要下载的文件数）
       const alreadyDownloadedFiles = totalServerFiles - filesToDownload
       
@@ -2231,40 +2014,18 @@ export class ApiService {
         (progress, newlyDownloadedCount) => {
           // 流程：总下载文件数 = 已完成的旧文件 + 新下载的文件
           const totalDownloadedFiles = alreadyDownloadedFiles + newlyDownloadedCount
-          console.log('[ApiService.下载] 下载进度回调', {
-            progress: progress.toFixed(1) + '%',
-            newlyDownloadedCount,
-            totalDownloadedFiles,
-            filesToDownload,
-            elapsedTime: Date.now() - downloadStartTime + 'ms',
-          })
           onProgress?.(progress, totalDownloadedFiles, filesToDownload)
         }, 
         textbook
       )
       
-      console.log('[ApiService.下载] 文件下载完成', {
-        successCount: result.successCount,
-        errorCount: result.errorCount,
-        filesToDownload,
-        downloadElapsedTime: Date.now() - downloadStartTime + 'ms',
-      })
-      
       // 第7步：强制刷新IndexedDB
-      console.log('[ApiService.下载] 第7步：强制刷新IndexedDB')
       await resourceManager.forceFlushPendingUpdates()
             
       // 第8步：清理下载控制器
-      console.log('[ApiService.下载] 第8步：清理下载控制器')
       this.downloadControllers.delete(textbook.textbookId)
       
       const isSuccess = result.successCount === filesToDownload
-      console.log('[ApiService.下载] 下载结果', {
-        isSuccess,
-        successCount: result.successCount,
-        filesToDownload,
-        totalElapsedTime: Date.now() - startTime + 'ms',
-      })
       
       return isSuccess
       
@@ -2278,12 +2039,9 @@ export class ApiService {
       })
       
       if (error instanceof Error && error.name === 'AbortError') {
-        console.log('[ApiService.下载] 用户主动取消下载 (AbortError)')
         this.downloadControllers.delete(textbook.textbookId)
         throw error
       }
-      
-      console.log('[ApiService.下载] 下载失败，返回 false')
       this.downloadControllers.delete(textbook.textbookId)
       
       return false
