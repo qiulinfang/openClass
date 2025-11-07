@@ -155,7 +155,7 @@
     <string name="question_solve_ask_teacher">老师答疑</string>
     <string name="pdf_tools_eraser">橡皮擦</string>
     <string name="pdf_tools_eraser_annotation">擦除对象</string>
-    <string name="title_activity_float_action">FloatActionActivity</string>
+    <string name="title_activity_float_action">任务执行中</string>
 
     <!--    <string name="format_currently_not_supported">Format currently not supported</string>-->
     <!--    <string name="toggle_reflow_mode">Toggle reflow mode</string>-->
