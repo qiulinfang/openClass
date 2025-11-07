@@ -367,7 +367,7 @@ const treeNodes = computed<TreeNode[]>(() => {
   if (teacherChildren.length > 0 || !searchKeyword.value) {
     nodes.push({
       id: 'category_teacher',
-      label: '老师对话',
+      label: '老师答疑',
       category: 'teacher' as const,
       level: 1,
       children: teacherChildren,
@@ -694,6 +694,32 @@ watch(
     }
   },
 )
+
+// 监听 treeNodes 变化，自动展开所有一级节点
+watch(
+  () => treeNodes.value,
+  (newNodes) => {
+    if (newNodes.length > 0) {
+      // 获取所有一级节点（分类节点）的 ID
+      const firstLevelNodeIds = newNodes
+        .filter((node) => node.level === 1)
+        .map((node) => node.id)
+      
+      // 如果当前展开的节点不包含所有一级节点，则更新
+      const currentExpanded = new Set(expandedNodes.value)
+      const allFirstLevelExpanded = firstLevelNodeIds.every((id) => currentExpanded.has(id))
+      
+      if (!allFirstLevelExpanded) {
+        // 合并现有展开节点和新的一级节点，去重
+        const newExpandedNodes = Array.from(
+          new Set([...expandedNodes.value, ...firstLevelNodeIds])
+        )
+        expandedNodes.value = newExpandedNodes
+      }
+    }
+  },
+  { immediate: true, deep: true },
+)
 </script>
 
 <style lang="scss" scoped>
@@ -777,6 +803,11 @@ watch(
 
     .session-subtitle {
       color: #1976d2;
+    }
+
+    // 选中状态下显示更多功能按钮
+    .session-actions {
+      opacity: 1;
     }
   }
 }
@@ -909,6 +940,7 @@ watch(
     }
   }
 
+  // 鼠标悬停时显示按钮
   &:hover .session-actions {
     opacity: 1;
   }

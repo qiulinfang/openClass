@@ -1,4 +1,4 @@
-﻿import { createApp, version as vueVersion } from 'vue'
+﻿import { createApp, version as vueVersion, nextTick } from 'vue'
 import { createPinia } from 'pinia'
 import quasarUserOptions from './quasar'
 import { initPolyfills } from './utils/common/polyfills'
@@ -44,8 +44,10 @@ declare global {
       height?: number,
       fileSize?: number,
     ) => void
-    onKeyboardClose: () => void
-    onAndroidLog: (level: string, tag: string, message: string) => void
+    onKeyboardClose?: () => void
+    onAndroidLog?: (level: string, tag: string, message: string) => void
+    onGetLocalStorage?: (key: string) => string | null
+    onGetAllLocalStorage?: () => string
   }
 }
 
@@ -135,13 +137,48 @@ window.onAndroidLog = (level: string, tag: string, message: string) => {
   window.dispatchEvent(event)
 }
 
+// 处理Android获取localStorage的回调函数
+// 返回指定key的值，如果不存在则返回null
+window.onGetLocalStorage = (key: string): string | null => {
+  try {
+    const value = localStorage.getItem(key)
+    console.log(`[Android] 获取localStorage[${key}]:`, value ? '存在' : '不存在')
+    return value
+  } catch (error) {
+    console.error(`[Android] 获取localStorage[${key}]失败:`, error)
+    return null
+  }
+}
+
+// 处理Android获取所有localStorage的回调函数
+// 返回所有localStorage数据的JSON字符串
+window.onGetAllLocalStorage = (): string => {
+  try {
+    const storage: Record<string, string> = {}
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key) {
+        storage[key] = localStorage.getItem(key) || ''
+      }
+    }
+    const result = JSON.stringify(storage)
+    console.log('[Android] 获取所有localStorage，共', Object.keys(storage).length, '项')
+    return result
+  } catch (error) {
+    console.error('[Android] 获取所有localStorage失败:', error)
+    return '{}'
+  }
+}
+
 app.mount('#app')
 
-// 将Vue挂载到window对象，供Android端检测应用是否就绪
+// 等待Vue应用完全挂载后再设置window.Vue，供Android端检测应用是否就绪
 // Android端通过 window.Vue && window.Vue.version 来检测Vue应用是否就绪
-if (typeof window !== 'undefined') {
-  (window as any).Vue = {
-    version: vueVersion
+nextTick().then(() => {
+  if (typeof window !== 'undefined') {
+    (window as unknown as Record<string, unknown>).Vue = {
+      version: vueVersion
+    }
+    console.log('[APP] Vue已挂载到window对象，版本:', vueVersion)
   }
-  console.log('[APP] Vue已挂载到window对象，版本:', vueVersion)
-}
+})

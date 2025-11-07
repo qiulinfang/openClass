@@ -64,6 +64,19 @@ public class RabbitMQManager {
         this.userId = userId;
         this.studentQueueName = userId + "_a";
         this.routeKeyTeacherToStudent = "teacher_route_student_" + userId;
+        
+        // 诊断：记录构造函数中的userId和队列名
+        if (userId == null || userId.isEmpty() || "null".equals(userId)) {
+            Log.e(TAG, "========================================");
+            Log.e(TAG, "【严重警告】RabbitMQManager构造函数: userId 为 null 或空！");
+            Log.e(TAG, "userId=" + userId);
+            Log.e(TAG, "队列名=" + this.studentQueueName);
+            Log.e(TAG, "路由键=" + this.routeKeyTeacherToStudent);
+            Log.e(TAG, "这将导致监听错误的队列，无法接收老师消息！");
+            Log.e(TAG, "========================================");
+        } else {
+            Log.d(TAG, "RabbitMQManager构造函数: userId=" + userId + ", 队列名=" + this.studentQueueName + ", 路由键=" + this.routeKeyTeacherToStudent);
+        }
     }
 
     /**
@@ -153,13 +166,34 @@ public class RabbitMQManager {
     public String sendMessageToTeacher(StudentMessage message)
             throws IOException, JSONException, IllegalStateException {
         String messageId = message != null ? message.getMessageId() : "null";
-        String userId = message != null ? message.getUserId() : "null";
+        String messageUserId = message != null ? message.getUserId() : "null";
         String sessionId = message != null ? message.getSessionId() : "null";
         int messageType = message != null ? message.getMessageType() : -1;
         
         Log.d(TAG, "RabbitMQManager.sendMessageToTeacher: 开始发送消息到RabbitMQ");
         Log.d(TAG, "RabbitMQManager.sendMessageToTeacher: messageId=" + messageId + 
-                ", userId=" + userId + ", sessionId=" + sessionId + ", messageType=" + messageType);
+                ", userId=" + messageUserId + ", sessionId=" + sessionId + ", messageType=" + messageType);
+        
+        // 诊断：检查发送消息的 userId 与初始化时的 userId 是否一致
+        if (messageUserId == null || messageUserId.isEmpty() || "null".equals(messageUserId)) {
+            Log.e(TAG, "========================================");
+            Log.e(TAG, "【严重警告】发送消息时 userId 为 null 或空！");
+            Log.e(TAG, "消息中的 userId=" + messageUserId);
+            Log.e(TAG, "初始化时的 userId=" + this.userId);
+            Log.e(TAG, "消息将发送到错误的队列，老师回复无法到达！");
+            Log.e(TAG, "========================================");
+        } else if (!messageUserId.equals(this.userId)) {
+            Log.e(TAG, "========================================");
+            Log.e(TAG, "【严重警告】发送消息的 userId 与初始化时的 userId 不一致！");
+            Log.e(TAG, "消息中的 userId=" + messageUserId);
+            Log.e(TAG, "初始化时的 userId=" + this.userId);
+            Log.e(TAG, "监听队列=" + this.studentQueueName);
+            Log.e(TAG, "消息目标队列=" + messageUserId + "_a");
+            Log.e(TAG, "监听队列和消息目标队列不匹配，无法接收老师回复！");
+            Log.e(TAG, "========================================");
+        } else {
+            Log.d(TAG, "发送消息检查通过: userId=" + messageUserId + " 与初始化 userId=" + this.userId + " 一致");
+        }
         
         if (!isConnected) {
             Log.e(TAG, "RabbitMQManager.sendMessageToTeacher: RabbitMQ连接未初始化");
@@ -256,18 +290,53 @@ public class RabbitMQManager {
             throw new IllegalStateException("RabbitMQ connection not initialized");
         }
 
+        // 诊断：检查 userId 和队列名
+        if (userId == null || userId.isEmpty() || "null".equals(userId)) {
+            Log.e(TAG, "========================================");
+            Log.e(TAG, "【严重警告】监听启动时 userId 为 null 或空！");
+            Log.e(TAG, "userId=" + userId);
+            Log.e(TAG, "队列名=" + studentQueueName);
+            Log.e(TAG, "这将导致监听错误的队列，无法接收老师消息！");
+            Log.e(TAG, "请检查初始化时传入的 userId 是否正确。");
+            Log.e(TAG, "========================================");
+        } else if (studentQueueName != null && studentQueueName.contains("null")) {
+            Log.e(TAG, "========================================");
+            Log.e(TAG, "【严重警告】监听队列名包含 'null'！");
+            Log.e(TAG, "userId=" + userId);
+            Log.e(TAG, "队列名=" + studentQueueName);
+            Log.e(TAG, "这将导致监听错误的队列，无法接收老师消息！");
+            Log.e(TAG, "请检查初始化时传入的 userId 是否正确。");
+            Log.e(TAG, "========================================");
+        } else {
+            Log.d(TAG, "监听启动检查通过: userId=" + userId + ", 队列名=" + studentQueueName);
+        }
+
         try {
             Log.d(TAG, "Starting to listen for teacher replies on queue: " + studentQueueName);
 
             DeliverCallback deliverCallback = (consumerTag, delivery) -> {
                 String messageJson = new String(delivery.getBody(), StandardCharsets.UTF_8);
                 long deliveryTag = delivery.getEnvelope().getDeliveryTag();
+                
+                // 诊断：记录接收消息的队列信息
+                String routingKey = delivery.getEnvelope().getRoutingKey();
+                String exchange = delivery.getEnvelope().getExchange();
+                Log.d(TAG, "========================================");
+                Log.d(TAG, "【接收消息】收到老师回复消息");
+                Log.d(TAG, "当前userId=" + userId);
+                Log.d(TAG, "监听队列=" + studentQueueName);
+                Log.d(TAG, "消息路由键=" + routingKey);
+                Log.d(TAG, "消息交换机=" + exchange);
+                Log.d(TAG, "deliveryTag=" + deliveryTag);
 
                 try {
                     JSONObject jsonObject = new JSONObject(messageJson);
                     TeacherMessage message = new TeacherMessage(jsonObject);
 
-                    Log.d(TAG, "Received teacher reply with ID: " + message.getMessageId());
+                    Log.d(TAG, "消息ID=" + message.getMessageId());
+                    Log.d(TAG, "消息类型=" + message.getMessageType());
+                    Log.d(TAG, "会话ID=" + message.getSessionId());
+                    Log.d(TAG, "========================================");
 
                     // 调用回调 - 使用try-catch包装，防止回调中的异常导致通道关闭
                     try {

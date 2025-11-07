@@ -255,30 +255,9 @@ const confirmJoinClass = () => {
 
 // 与老师对话（从卡片进入）
 const chatWithTeacher = async () => {
-  // 第1步：设置默认科目并打开对话框（组件内部会自动加载会话列表）
+  // 第1步：设置默认科目并打开对话框（组件内部会自动加载会话列表并选中第一个对话）
   selectedSubject.value = 'math'
   showUnifiedChatDialog.value = true
-  
-  // 第2步：等待组件加载完成
-  await nextTick()
-  
-  // 第3步：检查是否有会话，如果没有则创建新会话
-  if (unifiedChatDialogRef.value) {
-    // 快速检查是否有会话（通过检查 localStorage）
-    let hasSessions = false
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key?.startsWith('teacher_chat_') && key.endsWith('_session')) {
-        hasSessions = true
-        break
-      }
-    }
-    
-    if (!hasSessions) {
-      // 没有历史会话，创建新会话（默认数学）
-      await unifiedChatDialogRef.value.createTeacherSession('math')
-    }
-  }
 }
 
 // 初始化教师对话（供外部调用）

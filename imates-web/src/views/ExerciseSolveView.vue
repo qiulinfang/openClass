@@ -341,58 +341,90 @@ const handleSwitchToTeacher = async (forwardData?: {
   successCount?: number;
   sessionId?: string;
 }) => {
+  console.log('[ExerciseSolveView] 🔵 handleSwitchToTeacher 开始执行')
+  console.log('[ExerciseSolveView] 🔵 forwardData:', forwardData)
+  
   // 切换到老师界面（消息已经持久化到store中）
   currentFunction.value = 'askTeacher'
+  console.log('[ExerciseSolveView] 🔵 currentFunction 已设置为 askTeacher')
   
   // 如果有会话ID，打开UnifiedChatDialog并设置会话
   if (forwardData?.sessionId) {
+    console.log('[ExerciseSolveView] 🔵 forwardData.sessionId 存在:', forwardData.sessionId)
     try {
       // 打开 UnifiedChatDialog
       showUnifiedChatDialog.value = true
+      console.log('[ExerciseSolveView] 🔵 showUnifiedChatDialog 已设置为 true')
       
       // 等待下一个 tick，确保 UnifiedChatDialog 已经挂载
       await nextTick()
+      console.log('[ExerciseSolveView] 🔵 nextTick 完成')
       
       // 如果 UnifiedChatDialog 已经挂载，设置会话
       if (unifiedChatDialogRef.value) {
+        console.log('[ExerciseSolveView] 🔵 unifiedChatDialogRef 存在，开始加载会话')
         // 加载老师会话列表
         unifiedChatDialogRef.value.loadTeacherSessions()
+        console.log('[ExerciseSolveView] 🔵 loadTeacherSessions 完成')
         
         // 设置当前会话为转发的会话
         unifiedChatDialogRef.value.setTeacherSession(forwardData.sessionId)
+        console.log('[ExerciseSolveView] 🔵 setTeacherSession 完成，sessionId:', forwardData.sessionId)
         
         // 切换到教师分类
         unifiedChatDialogRef.value.switchCategory('teacher')
+        console.log('[ExerciseSolveView] 🔵 switchCategory 完成，已切换到 teacher')
+      } else {
+        console.error('[ExerciseSolveView] ❌ unifiedChatDialogRef 不存在，无法设置会话')
+        showMessage('打开老师对话框失败：对话框未初始化', 'error')
       }
     } catch (error) {
-      console.error('[ExerciseSolveView] 打开老师对话框失败:', error)
+      console.error('[ExerciseSolveView] ❌ 打开老师对话框失败:', error)
+      console.error('[ExerciseSolveView] ❌ 错误堆栈:', error instanceof Error ? error.stack : '无堆栈信息')
       showMessage('打开老师对话框失败', 'error')
     }
+  } else {
+    console.warn('[ExerciseSolveView] ⚠️ forwardData.sessionId 不存在，无法打开指定会话')
   }
 }
 
 // 处理打开老师对话框（转发消息时调用）
-const handleOpenTeacherDialog = async ({ sessionId }: { sessionId: string; message: ChatBubble }) => {
+const handleOpenTeacherDialog = async ({ sessionId, message }: { sessionId: string; message: ChatBubble }) => {
+  console.log('[ExerciseSolveView] 🔵 handleOpenTeacherDialog 开始执行')
+  console.log('[ExerciseSolveView] 🔵 接收到的 sessionId:', sessionId)
+  console.log('[ExerciseSolveView] 🔵 接收到的 message:', message)
+  
   try {
+    console.log('[ExerciseSolveView] 🔵 准备打开 UnifiedChatDialog')
     // 打开 UnifiedChatDialog
     showUnifiedChatDialog.value = true
+    console.log('[ExerciseSolveView] 🔵 showUnifiedChatDialog 已设置为 true')
     
     // 等待下一个 tick，确保 UnifiedChatDialog 已经挂载
     await nextTick()
+    console.log('[ExerciseSolveView] 🔵 nextTick 完成')
     
     // 如果 UnifiedChatDialog 已经挂载，设置会话
     if (unifiedChatDialogRef.value) {
+      console.log('[ExerciseSolveView] 🔵 unifiedChatDialogRef 存在，开始加载会话')
       // 加载老师会话列表
       await unifiedChatDialogRef.value.loadTeacherSessions()
+      console.log('[ExerciseSolveView] 🔵 loadTeacherSessions 完成')
       
       // 设置当前会话为转发的会话
       await unifiedChatDialogRef.value.setTeacherSession(sessionId)
+      console.log('[ExerciseSolveView] 🔵 setTeacherSession 完成，sessionId:', sessionId)
       
       // 切换到教师分类
       unifiedChatDialogRef.value.switchCategory('teacher')
+      console.log('[ExerciseSolveView] 🔵 switchCategory 完成，已切换到 teacher')
+    } else {
+      console.error('[ExerciseSolveView] ❌ unifiedChatDialogRef 不存在，无法设置会话')
+      showMessage('打开老师对话框失败：对话框未初始化', 'error')
     }
   } catch (error) {
-    console.error('[ExerciseSolveView] 打开老师对话框失败:', error)
+    console.error('[ExerciseSolveView] ❌ 打开老师对话框失败:', error)
+    console.error('[ExerciseSolveView] ❌ 错误堆栈:', error instanceof Error ? error.stack : '无堆栈信息')
     showMessage('打开老师对话框失败', 'error')
   }
 }

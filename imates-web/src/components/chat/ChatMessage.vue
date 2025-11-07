@@ -844,13 +844,7 @@ const handleForward = () => {
   
   try {
     emit('forward-message', props.message)
-    
-    $q.notify({
-      type: 'info',
-      message: '正在转发到老师...',
-      position: 'top',
-      timeout: 2000,
-    })
+
   } catch (error) {
     $q.notify({
       type: 'negative',

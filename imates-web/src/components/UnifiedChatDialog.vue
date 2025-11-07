@@ -102,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherChatStore } from '@/stores/teacherChatStore'
 import { useUserStore } from '@/stores/userStore'
@@ -430,14 +430,36 @@ watch(localVisible, async (isOpen) => {
     // 加载AI会话列表
     await aiGeneralStore.loadSessions()
     
-    // 如果没有当前AI会话且有会话列表，加载第一个会话
-    if (!aiGeneralStore.currentSession && aiGeneralStore.sessions.length > 0) {
-      const firstSession = aiGeneralStore.sessions[0]
-      await aiGeneralStore.switchSession(firstSession.sessionId)
-    }
-    
     // 加载教师会话列表
     loadTeacherSessions()
+    
+    // 等待下一个 tick，确保数据已更新
+    await nextTick()
+    
+    // 根据 initialCategory 自动选中第一个对应类型的对话
+    if (props.initialCategory === 'ai') {
+      // 如果是AI分类，选中第一个AI对话
+      if (aiGeneralStore.sessions.length > 0) {
+        const firstSession = aiGeneralStore.sessions[0]
+        await aiGeneralStore.switchSession(firstSession.sessionId)
+      } else if (!aiGeneralStore.currentSession) {
+        // 如果没有AI会话，保持当前状态（可能是新会话）
+        activeCategory.value = 'ai'
+      }
+    } else if (props.initialCategory === 'teacher') {
+      // 如果是老师分类，选中第一个老师对话
+      if (teacherSessions.value.length > 0) {
+        const firstTeacherSession = teacherSessions.value[0]
+        await handleTeacherSessionClick(firstTeacherSession.sessionId, firstTeacherSession.subject)
+      } else {
+        // 如果没有老师会话，切换到AI分类（作为fallback）
+        activeCategory.value = 'ai'
+        if (aiGeneralStore.sessions.length > 0) {
+          const firstSession = aiGeneralStore.sessions[0]
+          await aiGeneralStore.switchSession(firstSession.sessionId)
+        }
+      }
+    }
     
     // 每5秒自动刷新一次（用于显示自动生成的标题）
     refreshTimer = setInterval(() => {

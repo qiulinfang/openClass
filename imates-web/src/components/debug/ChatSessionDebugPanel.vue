@@ -13,6 +13,7 @@
         <q-tabs v-model="activeTab" dense class="text-grey" active-color="primary" indicator-color="primary">
           <q-tab name="ai" label="学伴对话" />
           <q-tab name="teacher" label="老师对话" />
+          <q-tab name="storage" label="存储调试" />
         </q-tabs>
       </q-card-section>
 
@@ -201,6 +202,222 @@
           </q-item>
         </q-list>
       </q-card-section>
+
+      <!-- 存储调试标签页 -->
+      <q-card-section v-if="activeTab === 'storage'" class="q-pa-none" style="max-height: 60vh; overflow-y: auto">
+        <div class="q-pa-md">
+          <!-- 当前会话信息 -->
+          <q-card flat bordered class="q-mb-md">
+            <q-card-section>
+              <div class="text-subtitle2 q-mb-sm">📋 当前会话信息</div>
+              <q-list dense>
+                <q-item v-if="currentTeacherSession">
+                  <q-item-section>
+                    <q-item-label caption>会话ID</q-item-label>
+                    <q-item-label>{{ currentTeacherSession.sessionId }}</q-item-label>
+                  </q-item-section>
+                </q-item>
+                <q-item v-if="currentTeacherSession">
+                  <q-item-section>
+                    <q-item-label caption>会话名称</q-item-label>
+                    <q-item-label>{{ currentTeacherSession.sessionName }}</q-item-label>
+                  </q-item-section>
+                </q-item>
+                <q-item>
+                  <q-item-section>
+                    <q-item-label caption>内存消息数</q-item-label>
+                    <q-item-label>{{ memoryMessagesCount }} 条</q-item-label>
+                  </q-item-section>
+                </q-item>
+                <q-item>
+                  <q-item-section>
+                    <q-item-label caption>IndexedDB消息数</q-item-label>
+                    <q-item-label>{{ indexedDBMessagesCount }} 条</q-item-label>
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </q-card-section>
+          </q-card>
+
+          <!-- 存储位置信息 -->
+          <q-card flat bordered class="q-mb-md">
+            <q-card-section>
+              <div class="text-subtitle2 q-mb-sm">🗂️ 存储位置</div>
+              <q-list dense>
+                <q-item>
+                  <q-item-section>
+                    <q-item-label caption>IndexedDB 键名</q-item-label>
+                    <q-item-label class="text-caption text-grey-7">{{ indexedDBKey }}</q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <q-btn flat dense size="sm" icon="content_copy" @click="copyToClipboard(indexedDBKey)" />
+                  </q-item-section>
+                </q-item>
+                <q-item>
+                  <q-item-section>
+                    <q-item-label caption>localStorage 会话键名</q-item-label>
+                    <q-item-label class="text-caption text-grey-7">{{ localStorageSessionKey }}</q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <q-btn flat dense size="sm" icon="content_copy" @click="copyToClipboard(localStorageSessionKey)" />
+                  </q-item-section>
+                </q-item>
+                <q-item>
+                  <q-item-section>
+                    <q-item-label caption>IndexedDB 数据库名</q-item-label>
+                    <q-item-label class="text-caption text-grey-7">{{ indexedDBDatabaseName }}</q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <q-btn flat dense size="sm" icon="content_copy" @click="copyToClipboard(indexedDBDatabaseName)" />
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </q-card-section>
+          </q-card>
+
+          <!-- 操作按钮 -->
+          <q-card flat bordered class="q-mb-md">
+            <q-card-section>
+              <div class="text-subtitle2 q-mb-sm">⚙️ 操作</div>
+              <div class="row q-gutter-sm">
+                <q-btn
+                  outline
+                  color="primary"
+                  icon="refresh"
+                  label="刷新数据"
+                  size="sm"
+                  @click="refreshStorageData"
+                />
+                <q-btn
+                  outline
+                  color="positive"
+                  icon="save"
+                  label="手动保存"
+                  size="sm"
+                  @click="manualSave"
+                />
+                <q-btn
+                  outline
+                  color="info"
+                  icon="download"
+                  label="从IndexedDB加载"
+                  size="sm"
+                  @click="manualLoad"
+                />
+                <q-btn
+                  outline
+                  color="warning"
+                  icon="storage"
+                  label="查看存储详情"
+                  size="sm"
+                  @click="showStorageDetail = !showStorageDetail"
+                />
+              </div>
+            </q-card-section>
+          </q-card>
+
+          <!-- 存储详情 -->
+          <q-card v-if="showStorageDetail" flat bordered class="q-mb-md">
+            <q-card-section>
+              <div class="text-subtitle2 q-mb-sm">📊 存储详情</div>
+              <q-tabs v-model="storageDetailTab" dense>
+                <q-tab name="memory" label="内存消息" />
+                <q-tab name="indexeddb" label="IndexedDB" />
+                <q-tab name="localstorage" label="localStorage" />
+              </q-tabs>
+              
+              <q-tab-panels v-model="storageDetailTab" class="q-mt-sm">
+                <!-- 内存消息 -->
+                <q-tab-panel name="memory">
+                  <div class="text-caption text-grey-7 q-mb-sm">内存中的消息列表 ({{ memoryMessages.length }}条)</div>
+                  <q-scroll-area style="height: 300px">
+                    <q-list dense bordered separator>
+                      <q-item v-for="(msg, index) in memoryMessages" :key="msg.id || index">
+                        <q-item-section>
+                          <q-item-label caption>#{{ index + 1 }} - {{ msg.messageType || 'text' }} - {{ formatDate(new Date(msg.timestamp).getTime()) }}</q-item-label>
+                          <q-item-label class="text-caption">{{ msg.content?.substring(0, 100) || '[无内容]' }}</q-item-label>
+                          <q-item-label caption class="text-grey-6">
+                            ID: {{ msg.id }} | 
+                            messageId: {{ msg.messageId || '无' }} |
+                            sender: {{ msg.sender || '无' }}
+                          </q-item-label>
+                        </q-item-section>
+                        <q-item-section side>
+                          <q-btn flat dense size="sm" icon="code" @click="viewMessageJson(msg)" />
+                        </q-item-section>
+                      </q-item>
+                      <q-item v-if="memoryMessages.length === 0">
+                        <q-item-section class="text-center text-grey-6">
+                          暂无消息
+                        </q-item-section>
+                      </q-item>
+                    </q-list>
+                  </q-scroll-area>
+                </q-tab-panel>
+
+                <!-- IndexedDB消息 -->
+                <q-tab-panel name="indexeddb">
+                  <div class="text-caption text-grey-7 q-mb-sm">IndexedDB 中存储的消息 ({{ indexedDBMessages.length }}条)</div>
+                  <q-scroll-area style="height: 300px">
+                    <q-list dense bordered separator>
+                      <q-item v-for="(msg, index) in indexedDBMessages" :key="msg.id || index">
+                        <q-item-section>
+                          <q-item-label caption>#{{ index + 1 }} - {{ msg.messageType || 'text' }} - {{ formatDate(new Date(msg.timestamp).getTime()) }}</q-item-label>
+                          <q-item-label class="text-caption">{{ msg.content?.substring(0, 100) || '[无内容]' }}</q-item-label>
+                          <q-item-label caption class="text-grey-6">
+                            ID: {{ msg.id }} | 
+                            messageId: {{ msg.messageId || '无' }} |
+                            sender: {{ msg.sender || '无' }}
+                          </q-item-label>
+                        </q-item-section>
+                        <q-item-section side>
+                          <q-btn flat dense size="sm" icon="code" @click="viewMessageJson(msg)" />
+                        </q-item-section>
+                      </q-item>
+                      <q-item v-if="indexedDBMessages.length === 0">
+                        <q-item-section class="text-center text-grey-6">
+                          暂无消息
+                        </q-item-section>
+                      </q-item>
+                    </q-list>
+                  </q-scroll-area>
+                </q-tab-panel>
+
+                <!-- localStorage会话信息 -->
+                <q-tab-panel name="localstorage">
+                  <div class="text-caption text-grey-7 q-mb-sm">localStorage 中的会话信息</div>
+                  <q-scroll-area style="height: 300px">
+                    <q-card flat bordered>
+                      <q-card-section>
+                        <pre class="text-caption" style="white-space: pre-wrap; word-break: break-all;">{{ localStorageSessionData }}</pre>
+                      </q-card-section>
+                    </q-card>
+                  </q-scroll-area>
+                </q-tab-panel>
+              </q-tab-panels>
+            </q-card-section>
+          </q-card>
+        </div>
+      </q-card-section>
+    </q-card>
+  </q-dialog>
+
+  <!-- 消息JSON查看对话框 -->
+  <q-dialog v-model="showMessageJsonDialog">
+    <q-card style="width: 700px; max-width: 90vw">
+      <q-card-section class="row items-center q-pb-none">
+        <div class="text-h6">消息详情 (JSON)</div>
+        <q-space />
+        <q-btn icon="close" flat round dense v-close-popup />
+      </q-card-section>
+      <q-card-section>
+        <q-scroll-area style="height: 400px">
+          <pre class="text-caption" style="white-space: pre-wrap; word-break: break-all;">{{ messageJsonText }}</pre>
+        </q-scroll-area>
+      </q-card-section>
+      <q-card-section class="q-pt-none">
+        <q-btn flat color="primary" icon="content_copy" label="复制" @click="copyToClipboard(messageJsonText)" />
+      </q-card-section>
     </q-card>
   </q-dialog>
 
@@ -361,6 +578,7 @@ import type { TeacherSession } from '@/stores/teacherChatStore'
 import localforage from 'localforage'
 import { getCurrentUserIdOrDefault } from '@/utils/user/userId'
 import { asyncStorage } from '@/services/chat-storage'
+import { showMessage } from '@/utils'
 
 // Props
 interface Props {
@@ -384,7 +602,7 @@ const isVisible = computed({
   set: (val) => emit('update:modelValue', val)
 })
 
-const activeTab = ref<'ai' | 'teacher'>('ai')
+const activeTab = ref<'ai' | 'teacher' | 'storage'>('ai')
 
 // 学伴对话相关
 const aiSessions = ref<AiGeneralSession[]>([])
@@ -400,6 +618,15 @@ const showTeacherDetailDialog = ref(false)
 const storageSize = ref('0 KB')
 const sessionMessages = ref<ChatBubble[]>([])
 const fileInputRef = ref<HTMLInputElement>()
+
+// 存储调试相关
+const showStorageDetail = ref(false)
+const storageDetailTab = ref<'memory' | 'indexeddb' | 'localstorage'>('memory')
+const memoryMessages = ref<ChatBubble[]>([])
+const indexedDBMessages = ref<ChatBubble[]>([])
+const localStorageSessionData = ref('')
+const showMessageJsonDialog = ref(false)
+const messageJsonText = ref('')
 
 // 计算属性
 const totalSessionsCount = computed(() => {
@@ -427,8 +654,12 @@ const sortedTeacherSessions = computed(() => {
 })
 
 // 监听标签页切换，自动刷新数据
-watch(activeTab, () => {
-  refreshData()
+watch(activeTab, (newTab) => {
+  if (newTab === 'storage') {
+    refreshStorageData()
+  } else {
+    refreshData()
+  }
 })
 
 // 第1步：刷新数据
@@ -783,6 +1014,118 @@ const formatDate = (timestamp: number): string => {
 const formatFullDate = (timestamp: number): string => {
   const date = new Date(timestamp)
   return date.toLocaleString('zh-CN')
+}
+
+// 存储调试相关计算属性
+const currentTeacherSession = computed(() => teacherStore.currentSession)
+const memoryMessagesCount = computed(() => memoryMessages.value.length)
+const indexedDBMessagesCount = computed(() => indexedDBMessages.value.length)
+const indexedDBKey = computed(() => {
+  if (!currentTeacherSession.value) return '无当前会话'
+  const userId = getCurrentUserIdOrDefault()
+  return `${userId}_chat_history_teacher_chat_${currentTeacherSession.value.sessionId}`
+})
+const localStorageSessionKey = computed(() => {
+  if (!currentTeacherSession.value) return '无当前会话'
+  const userId = getCurrentUserIdOrDefault()
+  return `${userId}_teacher_chat_${currentTeacherSession.value.sessionId}_session`
+})
+const indexedDBDatabaseName = computed(() => {
+  const userId = getCurrentUserIdOrDefault()
+  return `ExerciseSolveApp_${userId}`
+})
+
+// 刷新存储调试数据
+const refreshStorageData = async () => {
+  try {
+    // 刷新内存消息
+    memoryMessages.value = [...teacherStore.messages]
+    
+    // 刷新IndexedDB消息
+    if (currentTeacherSession.value) {
+      const storageKey = `teacher_chat_${currentTeacherSession.value.sessionId}`
+      const history = await asyncStorage.loadChatHistory(storageKey)
+      if (history && history.messages) {
+        indexedDBMessages.value = history.messages
+      } else {
+        indexedDBMessages.value = []
+      }
+    } else {
+      indexedDBMessages.value = []
+    }
+    
+    // 刷新localStorage会话信息
+    if (currentTeacherSession.value) {
+      const userId = getCurrentUserIdOrDefault()
+      const sessionKey = `${userId}_teacher_chat_${currentTeacherSession.value.sessionId}_session`
+      const sessionData = localStorage.getItem(sessionKey)
+      localStorageSessionData.value = sessionData ? JSON.stringify(JSON.parse(sessionData), null, 2) : '无数据'
+    } else {
+      localStorageSessionData.value = '无当前会话'
+    }
+  } catch (error) {
+    console.error('刷新存储数据失败:', error)
+  }
+}
+
+// 手动保存
+const manualSave = async () => {
+  try {
+    if (!currentTeacherSession.value) {
+      showMessage('无当前会话，无法保存', 'warning')
+      return
+    }
+    await teacherStore.saveChatHistory(true)
+    await refreshStorageData()
+    showMessage('手动保存成功', 'success')
+  } catch (error) {
+    console.error('手动保存失败:', error)
+    showMessage('手动保存失败', 'error')
+  }
+}
+
+// 手动加载
+const manualLoad = async () => {
+  try {
+    if (!currentTeacherSession.value) {
+      showMessage('无当前会话，无法加载', 'warning')
+      return
+    }
+    await teacherStore.loadChatHistory(currentTeacherSession.value.sessionId)
+    await refreshStorageData()
+    showMessage('手动加载成功', 'success')
+  } catch (error) {
+    console.error('手动加载失败:', error)
+    showMessage('手动加载失败', 'error')
+  }
+}
+
+// 查看消息JSON
+const viewMessageJson = (msg: ChatBubble) => {
+  messageJsonText.value = JSON.stringify(msg, null, 2)
+  showMessageJsonDialog.value = true
+}
+
+// 复制到剪贴板
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    showMessage('已复制到剪贴板', 'success')
+  } catch (error) {
+    console.error('复制失败:', error)
+    // 降级方案
+    try {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+      showMessage('已复制到剪贴板', 'success')
+    } catch (fallbackError) {
+      showMessage('复制失败', 'error')
+    }
+  }
 }
 
 // 组件挂载时加载数据

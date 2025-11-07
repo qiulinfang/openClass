@@ -128,17 +128,47 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
   
   /**
    * 验证会话ID格式
+   * 支持以下格式：
+   * 1. 标准UUID格式：xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   * 2. teacher-{hex}-{timestamp} 格式（Android/Web生成）：teacher-638e6e1c-1762486710774
+   * 3. teacher-{timestamp} 格式（临时ID）：teacher-1762486710774
+   * 4. teacher-chat-{timestamp} 格式（临时ID）：teacher-chat-1762486710774
    */
   const validateSessionId = (sessionId: string | null | undefined): boolean => {
     if (!sessionId || typeof sessionId !== 'string' || sessionId.trim() === '') {
       console.error('[TeacherStore] ❌ 会话ID为空或格式错误:', sessionId)
       return false
     }
-    if (!isValidUUID(sessionId)) {
-      console.error('[TeacherStore] ❌ 会话ID格式不正确（应为UUID格式）:', sessionId)
-      return false
+    
+    const trimmedId = sessionId.trim()
+    
+    // 1. 检查标准UUID格式
+    if (isValidUUID(trimmedId)) {
+      return true
     }
-    return true
+    
+    // 2. 检查 teacher-{hex}-{timestamp} 格式（例如：teacher-638e6e1c-1762486710774）
+    // hex: 8位十六进制数字，timestamp: 数字
+    const teacherHexTimestampRegex = /^teacher-[0-9a-f]{8}-[0-9]+$/i
+    if (teacherHexTimestampRegex.test(trimmedId)) {
+      return true
+    }
+    
+    // 3. 检查 teacher-{timestamp} 格式（临时ID）
+    const teacherTimestampRegex = /^teacher-[0-9]+$/
+    if (teacherTimestampRegex.test(trimmedId)) {
+      return true
+    }
+    
+    // 4. 检查 teacher-chat-{timestamp} 格式（临时ID）
+    const teacherChatTimestampRegex = /^teacher-chat-[0-9]+$/
+    if (teacherChatTimestampRegex.test(trimmedId)) {
+      return true
+    }
+    
+    // 如果都不匹配，记录错误
+    console.error('[TeacherStore] ❌ 会话ID格式不正确，支持的格式：UUID、teacher-{hex}-{timestamp}、teacher-{timestamp}、teacher-chat-{timestamp}。实际值:', trimmedId)
+    return false
   }
   
   /**
@@ -202,10 +232,19 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
    * 添加去重逻辑，防止重复添加相同 messageId 的消息
    */
   const addMessage = (message: ChatBubble): void => {
+    console.log('[TeacherStore] 📝 [存储流程] 开始添加消息到列表', {
+      messageId: message.id,
+      messageType: message.messageType,
+      sender: message.sender,
+      contentPreview: message.content?.substring(0, 50),
+      timestamp: message.timestamp,
+      currentMessageCount: messages.value.length
+    })
+    
     // 检查是否已存在相同的消息ID
     const existingIndex = findMessageIndex(messages.value, message.id)
     if (existingIndex >= 0) {
-      console.warn('[TeacherStore] ⚠️ 消息已存在，跳过重复添加:', {
+      console.warn('[TeacherStore] ⚠️ [存储流程] 消息已存在，跳过重复添加:', {
         messageId: message.id,
         existingIndex,
         currentTotal: messages.value.length,
@@ -215,6 +254,11 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     }
     
     messages.value.push(message)
+    console.log('[TeacherStore] ✅ [存储流程] 消息已添加到列表', {
+      messageId: message.id,
+      newMessageCount: messages.value.length,
+      willTriggerSave: true
+    })
   }
   
   /**
@@ -585,45 +629,121 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
    */
   const saveChatHistory = async (immediate: boolean = false): Promise<void> => {
     if (!currentSession.value) {
+      console.log('[TeacherStore] ⚠️ [存储流程] 保存失败：无当前会话')
       return
     }
     
+    console.log('[TeacherStore] 💾 [存储流程] 开始保存聊天历史', {
+      immediate,
+      sessionId: currentSession.value.sessionId,
+      currentMessageCount: messages.value.length,
+      hasDebounceTimer: !!saveDebounceTimer
+    })
+    
     // 第1步：清除旧定时器
     if (saveDebounceTimer) {
+      console.log('[TeacherStore] 🔄 [存储流程] 清除旧的防抖定时器')
       clearTimeout(saveDebounceTimer)
       saveDebounceTimer = null
     }
     
     const saveAction = async () => {
-      if (!currentSession.value) return
+      if (!currentSession.value) {
+        console.log('[TeacherStore] ⚠️ [存储流程] 保存动作取消：无当前会话')
+        return
+      }
+      
+      const startTime = Date.now()
+      console.log('[TeacherStore] 💾 [存储流程] 执行保存动作', {
+        sessionId: currentSession.value.sessionId,
+        totalMessages: messages.value.length
+      })
       
       try {
         // 第2步：构建存储键
         const storageKey = `teacher_chat_${currentSession.value.sessionId}`
+        console.log('[TeacherStore] 🔑 [存储流程] 构建存储键', { storageKey })
         
         // 第3步：过滤掉错误消息、流式消息、系统消息和撤回消息，只保存成功发送的消息
+        // 注意：同时检查 id 和 messageId，因为有些消息可能只设置了其中一个
         const messagesToSave = messages.value.filter(msg => 
           !msg.isError && 
           !msg.isStreaming &&
           !msg.isSystemMessage && // 场景39：系统消息不保存到历史
           !msg.isRecalled && // 场景38：撤回消息不保存到历史
-          msg.messageId // 确保有messageId
+          (msg.messageId || msg.id) // 确保有messageId或id（兼容两种字段名）
         )
         
+        console.log('[TeacherStore] 🔍 [存储流程] 消息过滤完成', {
+          totalMessages: messages.value.length,
+          messagesToSave: messagesToSave.length,
+          filteredCount: messages.value.length - messagesToSave.length,
+          filteredReasons: {
+            error: messages.value.filter(m => m.isError).length,
+            streaming: messages.value.filter(m => m.isStreaming).length,
+            system: messages.value.filter(m => m.isSystemMessage).length,
+            recalled: messages.value.filter(m => m.isRecalled).length,
+            noMessageId: messages.value.filter(m => !m.messageId && !m.id).length
+          }
+        })
+        
         // 第4步：保存到IndexedDB
+        console.log('[TeacherStore] 💾 [存储流程] 开始保存到IndexedDB', {
+          storageKey,
+          messageCount: messagesToSave.length,
+          chatResponseTimes: chatResponseTimes.value
+        })
+        
+        const saveStartTime = Date.now()
         await asyncStorage.saveChatHistory(storageKey, {
           questionId: storageKey,
           messages: messagesToSave,
           lastUpdated: Date.now(),
           chatResponseTimes: chatResponseTimes.value
         })
+        const saveDuration = Date.now() - saveStartTime
+        
+        console.log('[TeacherStore] ✅ [存储流程] IndexedDB保存成功', {
+          storageKey,
+          messageCount: messagesToSave.length,
+          duration: `${saveDuration}ms`
+        })
         
         // 第4步：单独保存会话信息到localStorage（加上用户ID前缀）
         const userId = getCurrentUserIdOrDefault()
-        localStorage.setItem(`${userId}_${storageKey}_session`, JSON.stringify(currentSession.value))
+        const sessionKey = `${userId}_${storageKey}_session`
+        console.log('[TeacherStore] 💾 [存储流程] 开始保存会话信息到localStorage', {
+          sessionKey,
+          sessionId: currentSession.value.sessionId
+        })
+        
+        const sessionSaveStartTime = Date.now()
+        localStorage.setItem(sessionKey, JSON.stringify(currentSession.value))
+        const sessionSaveDuration = Date.now() - sessionSaveStartTime
+        
+        console.log('[TeacherStore] ✅ [存储流程] localStorage保存成功', {
+          sessionKey,
+          duration: `${sessionSaveDuration}ms`
+        })
+        
+        const totalDuration = Date.now() - startTime
+        console.log('[TeacherStore] ✅ [存储流程] 保存流程完成', {
+          sessionId: currentSession.value.sessionId,
+          messageCount: messagesToSave.length,
+          totalDuration: `${totalDuration}ms`,
+          indexedDBDuration: `${saveDuration}ms`,
+          localStorageDuration: `${sessionSaveDuration}ms`
+        })
       } catch (error) {
         // 处理存储错误
-        console.error('保存教师聊天历史失败:', error)
+        const errorDuration = Date.now() - startTime
+        console.error('[TeacherStore] ❌ [存储流程] 保存教师聊天历史失败', {
+          error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorName: error instanceof Error ? error.name : typeof error,
+          duration: `${errorDuration}ms`,
+          sessionId: currentSession.value?.sessionId
+        })
         
         // 检查是否是存储空间不足错误
         const isQuotaExceeded = error instanceof DOMException && 
@@ -659,8 +779,10 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     
     // 第4步：立即保存或防抖保存
     if (immediate) {
+      console.log('[TeacherStore] ⚡ [存储流程] 立即执行保存')
       await saveAction()
     } else {
+      console.log('[TeacherStore] ⏱️ [存储流程] 设置防抖定时器（1秒后保存）')
       saveDebounceTimer = setTimeout(saveAction, 1000)
     }
   }
@@ -1071,6 +1193,7 @@ ${conversationSummary}
             
             const newMessage: ChatBubble = {
               id: sentMessage.messageId,
+              messageId: sentMessage.messageId, // 同时设置messageId字段，确保过滤逻辑能正确识别
               content: msg.content,
               type: 'user',
               timestamp: new Date(sentMessage.timestamp).toISOString(),
@@ -1150,29 +1273,73 @@ ${conversationSummary}
    */
   const doInitMessageReceiver = async (): Promise<void> => {
     // 第1步：设置全局回调（每次调用都重新设置，确保使用最新的回调）
+    console.log('[TeacherStore] 🔧 开始设置老师消息接收回调函数')
+    
+    // 先检查是否有旧的回调函数
+    const oldCallbackType = typeof window.onTeacherMessageReceived
+    console.log('[TeacherStore] 🔍 检查旧回调函数类型:', oldCallbackType)
+    
     window.onTeacherMessageReceived = async (messageData: unknown) => {
-      const data = messageData as {
-        messageId: string
-        sessionId: string
-        content: string
-        messageType: string
-        isSelf: boolean
-        timestamp: number
-        chatRole: string
-        debugLogs?: string[] // Android端调试日志
-      }
+      const receiveStartTime = Date.now()
+      console.log('[TeacherStore] 📨 [存储流程] ========== 开始接收消息 ==========', {
+        timestamp: new Date().toISOString(),
+        messageData,
+        type: typeof messageData,
+        isObject: typeof messageData === 'object',
+        isNull: messageData === null,
+        isUndefined: messageData === undefined
+      })
       
-      // 打印Android端调试日志（如果有）
-      if (data.debugLogs && data.debugLogs.length > 0) {
-        data.debugLogs.forEach((log) => {
-          // 根据日志级别使用不同的console方法
-          if (log.includes('❌') || log.includes('失败')) {
-            console.error(log)
-          } else if (log.includes('⚠️') || log.includes('警告')) {
-            console.warn(log)
-          }
+      try {
+        console.log('[TeacherStore] 📨 [存储流程] 收到老师消息回调，开始处理', {
+          messageData,
+          type: typeof messageData,
+          isObject: typeof messageData === 'object',
+          isNull: messageData === null,
+          isUndefined: messageData === undefined
         })
-      }
+        
+        // 参数验证
+        if (!messageData) {
+          console.error('[TeacherStore] ❌ 消息数据为空，拒绝处理')
+          return
+        }
+        
+        if (typeof messageData !== 'object') {
+          console.error('[TeacherStore] ❌ 消息数据格式错误，期望对象，实际:', typeof messageData)
+          return
+        }
+        
+        const data = messageData as {
+          messageId: string
+          sessionId: string
+          content: string
+          messageType: string
+          isSelf: boolean
+          timestamp: number
+          chatRole: string
+          debugLogs?: string[] // Android端调试日志
+        }
+        
+        console.log('[TeacherStore] 📨 解析后的消息数据:', {
+          messageId: data.messageId,
+          sessionId: data.sessionId,
+          content: data.content?.substring(0, 50),
+          messageType: data.messageType,
+          timestamp: data.timestamp
+        })
+        
+        // 打印Android端调试日志（如果有）
+        if (data.debugLogs && data.debugLogs.length > 0) {
+          data.debugLogs.forEach((log) => {
+            // 根据日志级别使用不同的console方法
+            if (log.includes('❌') || log.includes('失败')) {
+              console.error(log)
+            } else if (log.includes('⚠️') || log.includes('警告')) {
+              console.warn(log)
+            }
+          })
+        }
       
       // ==================== 第一阶段：核心功能验证 ====================
       // 1. ID验证：验证messageId和sessionId格式
@@ -1228,6 +1395,7 @@ ${conversationSummary}
         // 系统消息只显示，不保存到历史
         const systemMessage: ChatBubble = {
           id: data.messageId,
+          messageId: data.messageId, // 同时设置messageId字段，确保过滤逻辑能正确识别
           content: data.content?.replace(/^\[SYSTEM\]\s*/, '') || data.content || '系统消息',
           type: 'teacher',
           sender: 'teacher',
@@ -1349,6 +1517,7 @@ ${conversationSummary}
           // 我们需要先创建一个临时消息，然后异步更新
           const tempMessage: ChatBubble = {
             id: data.messageId,
+            messageId: data.messageId, // 同时设置messageId字段，确保过滤逻辑能正确识别
             content: '[图片加载中...]',
             type: 'ai',
             timestamp: new Date(data.timestamp).toISOString(),
@@ -1364,6 +1533,10 @@ ${conversationSummary}
           }
           
           // 先添加临时消息
+          console.log('[TeacherStore] 📨 [存储流程] 图片消息需要转换文件路径，先添加临时消息', {
+            messageId: data.messageId,
+            filePath: data.content
+          })
           addMessage(tempMessage)
           
           // 异步转换文件路径为base64
@@ -1396,6 +1569,7 @@ ${conversationSummary}
                     // 更新消息，标记为大图片
                     const imageMessage: ChatBubble = {
                       id: data.messageId,
+                      messageId: data.messageId, // 同时设置messageId字段，确保过滤逻辑能正确识别
                       content: '',
                       type: 'ai',
                       timestamp: new Date(data.timestamp).toISOString(),
@@ -1422,6 +1596,7 @@ ${conversationSummary}
                   // 更新消息，添加base64数据
                   const imageMessage: ChatBubble = {
                     id: data.messageId,
+                    messageId: data.messageId, // 同时设置messageId字段，确保过滤逻辑能正确识别
                     content: '', // 图片消息不显示文字内容
                     type: 'ai',
                     timestamp: new Date(data.timestamp).toISOString(),
@@ -1439,8 +1614,22 @@ ${conversationSummary}
                   // 更新消息
                   const index = messages.value.findIndex(m => m.id === data.messageId)
                   if (index !== -1) {
+                    console.log('[TeacherStore] 📨 [存储流程] 图片消息base64转换完成，更新消息并保存', {
+                      messageId: data.messageId,
+                      index,
+                      imageSize: imageSize
+                    })
                     messages.value[index] = imageMessage
+                    console.log('[TeacherStore] 💾 [存储流程] 图片消息已更新，触发保存')
                     saveChatHistory(true)
+                    
+                    const receiveDuration = Date.now() - receiveStartTime
+                    console.log('[TeacherStore] ✅ [存储流程] ========== 图片消息接收和存储流程完成 ==========', {
+                      messageId: data.messageId,
+                      messageType: 'IMAGE',
+                      totalDuration: `${receiveDuration}ms`,
+                      timestamp: new Date().toISOString()
+                    })
                   }
                 } else {
                   console.error('[TeacherStore] ❌ 文件路径转换失败:', base64Data.message)
@@ -1486,6 +1675,7 @@ ${conversationSummary}
           // content已经是base64数据，直接使用
           const imageMessage: ChatBubble = {
             id: data.messageId,
+            messageId: data.messageId, // 同时设置messageId字段，确保过滤逻辑能正确识别
             content: '', // 图片消息不显示文字内容
             type: 'ai',
             timestamp: new Date(data.timestamp).toISOString(),
@@ -1499,8 +1689,21 @@ ${conversationSummary}
               fileSize: 0
             }
           }
+          console.log('[TeacherStore] 📨 [存储流程] 图片消息处理完成（base64），准备添加到列表并保存', {
+            messageId: data.messageId,
+            hasBase64: !!data.content
+          })
           addMessage(imageMessage)
+          console.log('[TeacherStore] 💾 [存储流程] 图片消息已添加，触发保存')
           saveChatHistory(true)
+          
+          const receiveDuration = Date.now() - receiveStartTime
+          console.log('[TeacherStore] ✅ [存储流程] ========== 图片消息接收和存储流程完成 ==========', {
+            messageId: data.messageId,
+            messageType: 'IMAGE',
+            totalDuration: `${receiveDuration}ms`,
+            timestamp: new Date().toISOString()
+          })
         }
       } else if (isVoiceMessage) {
         // 语音消息处理（类似图片消息）
@@ -1535,6 +1738,7 @@ ${conversationSummary}
         
         const teacherMessage: ChatBubble = {
           id: data.messageId,
+          messageId: data.messageId, // 同时设置messageId字段，确保过滤逻辑能正确识别
           content: data.content,
           type: 'ai',
           timestamp: new Date(data.timestamp).toISOString(),
@@ -1546,20 +1750,83 @@ ${conversationSummary}
             fileSize: 0 // 语音消息暂时不需要fileSize，设为0
           }
         }
+        console.log('[TeacherStore] 📨 [存储流程] 语音消息处理完成，准备添加到列表并保存', {
+          messageId: data.messageId,
+          duration: voiceDuration,
+          filePath: voiceFilePath?.substring(0, 50)
+        })
         addMessage(teacherMessage)
+        console.log('[TeacherStore] 💾 [存储流程] 语音消息已添加，触发保存')
         saveChatHistory(true)
+        
+        const receiveDuration = Date.now() - receiveStartTime
+        console.log('[TeacherStore] ✅ [存储流程] ========== 语音消息接收和存储流程完成 ==========', {
+          messageId: data.messageId,
+          messageType: 'VOICE',
+          totalDuration: `${receiveDuration}ms`,
+          timestamp: new Date().toISOString()
+        })
       } else {
         // 文本消息
         const teacherMessage: ChatBubble = {
           id: data.messageId,
+          messageId: data.messageId, // 同时设置messageId字段，确保过滤逻辑能正确识别
           content: data.content,
           type: 'ai',
           timestamp: new Date(data.timestamp).toISOString(),
           sender: 'teacher'
         }
+        console.log('[TeacherStore] 📨 [存储流程] 文本消息处理完成，准备添加到列表并保存', {
+          messageId: data.messageId,
+          contentLength: data.content?.length || 0
+        })
         addMessage(teacherMessage)
+        console.log('[TeacherStore] 💾 [存储流程] 文本消息已添加，触发保存')
         saveChatHistory(true)
+        
+        const receiveDuration = Date.now() - receiveStartTime
+        console.log('[TeacherStore] ✅ [存储流程] ========== 消息接收和存储流程完成 ==========', {
+          messageId: data.messageId,
+          messageType: data.messageType,
+          totalDuration: `${receiveDuration}ms`,
+          timestamp: new Date().toISOString()
+        })
       }
+      } catch (error) {
+        const errorDuration = Date.now() - receiveStartTime
+        console.error('[TeacherStore] ❌ [存储流程] ========== 消息接收和存储流程失败 ==========', {
+          error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          duration: `${errorDuration}ms`,
+          timestamp: new Date().toISOString()
+        })
+        console.error('[TeacherStore] ❌ 处理老师消息时发生错误:', error)
+        console.error('[TeacherStore] ❌ 错误详情:', {
+          error,
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          messageData
+        })
+        // 不抛出错误，避免影响其他消息的处理
+      }
+    }
+    
+    // 确认回调函数已设置（立即验证）
+    const callbackType = typeof window.onTeacherMessageReceived
+    const isFunction = callbackType === 'function'
+    console.log('[TeacherStore] ✅ 老师消息接收回调函数已设置', {
+      callbackExists: isFunction,
+      callbackType: callbackType,
+      callbackValue: window.onTeacherMessageReceived,
+      isNull: window.onTeacherMessageReceived === null,
+      isUndefined: window.onTeacherMessageReceived === undefined
+    })
+    
+    // 如果回调函数设置失败，抛出错误
+    if (!isFunction) {
+      const errorMsg = `回调函数设置失败！期望类型: function，实际类型: ${callbackType}`
+      console.error('[TeacherStore] ❌', errorMsg)
+      throw new Error(errorMsg)
     }
     
     // 第2步：初始化原生监听器

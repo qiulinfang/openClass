@@ -362,7 +362,9 @@ public class ExerciseSolveActivity extends BaseActivity implements MessagingMana
     }
 
     public static ChatMessageSession createChatTeacherSession(String chatAiSessionId, String chatAiSessionName, ChatMessageSession.SessionType type) {
-        String askTeacherSessionId =  UUID.nameUUIDFromBytes(chatAiSessionId.getBytes()).toString();
+        // 使用统一的生成逻辑（与Web端保持一致）
+        // 格式：teacher-{hex}-{timestamp}
+        String askTeacherSessionId = com.cosinetech.imates.utils.AppUtils.generateTeacherSessionId(chatAiSessionId);
         return new ChatMessageSession(askTeacherSessionId,
                 ChatMessageCatalogue.CATEGORY_TEACHER_QA.catalogId,
                 chatAiSessionName,

@@ -64,14 +64,26 @@ public class MessagingManager {
 
         this.userId = userId;
         isConnecting.set(true);
+        
+        // 诊断：记录初始化时的 userId
         Log.d(TAG, "initialize: 设置isConnecting=true，提交到线程池执行");
+        if (userId == null || userId.isEmpty() || "null".equals(userId)) {
+            Log.e(TAG, "========================================");
+            Log.e(TAG, "【严重警告】初始化时 userId 为 null 或空！");
+            Log.e(TAG, "userId=" + userId);
+            Log.e(TAG, "这将导致监听错误的队列（null_a），无法接收老师消息！");
+            Log.e(TAG, "请检查 AppUtils.getUserId() 是否返回了正确的值。");
+            Log.e(TAG, "========================================");
+        } else {
+            Log.d(TAG, "initialize: 初始化 userId=" + userId + ", 将监听队列=" + userId + "_a");
+        }
 
         executorService.execute(() -> {
             long startTime = System.currentTimeMillis();
             try {
                 Log.d(TAG, "initialize: [线程池] 开始初始化MessagingManager, userId=" + userId);
                 
-                Log.d(TAG, "initialize: [线程池] 创建RabbitMQManager实例");
+                Log.d(TAG, "initialize: [线程池] 创建RabbitMQManager实例, userId=" + userId);
                 rabbitMQManager = new RabbitMQManager(userId);
                 
                 Log.d(TAG, "initialize: [线程池] 调用RabbitMQManager.initialize()");
@@ -164,12 +176,35 @@ public class MessagingManager {
 
     public void sendMessageToTeacher(StudentMessage message, SendCallback callback) {
         String messageId = message != null ? message.getMessageId() : "null";
-        String userId = message != null ? message.getUserId() : "null";
+        String messageUserId = message != null ? message.getUserId() : "null";
         int messageType = message != null ? message.getMessageType() : -1;
         
         Log.d(TAG, "sendMessageToTeacher: 开始发送消息");
         Log.d(TAG, "sendMessageToTeacher: messageId=" + messageId + 
-                ", userId=" + userId + ", messageType=" + messageType);
+                ", userId=" + messageUserId + ", messageType=" + messageType);
+        
+        // 诊断：检查发送消息的 userId 与初始化时的 userId 是否一致
+        if (messageUserId == null || messageUserId.isEmpty() || "null".equals(messageUserId)) {
+            Log.e(TAG, "========================================");
+            Log.e(TAG, "【严重警告】发送消息时 userId 为 null 或空！");
+            Log.e(TAG, "消息中的 userId=" + messageUserId);
+            Log.e(TAG, "初始化时的 userId=" + this.userId);
+            Log.e(TAG, "消息将发送到错误的队列，老师回复无法到达！");
+            Log.e(TAG, "========================================");
+        } else if (!messageUserId.equals(this.userId)) {
+            Log.e(TAG, "========================================");
+            Log.e(TAG, "【严重警告】发送消息的 userId 与初始化时的 userId 不一致！");
+            Log.e(TAG, "消息中的 userId=" + messageUserId);
+            Log.e(TAG, "初始化时的 userId=" + this.userId);
+            if (rabbitMQManager != null) {
+                Log.e(TAG, "监听队列=" + (this.userId != null ? this.userId + "_a" : "null_a"));
+            }
+            Log.e(TAG, "消息目标队列=" + messageUserId + "_a");
+            Log.e(TAG, "监听队列和消息目标队列不匹配，无法接收老师回复！");
+            Log.e(TAG, "========================================");
+        } else {
+            Log.d(TAG, "sendMessageToTeacher: userId检查通过: " + messageUserId + " 与初始化 userId=" + this.userId + " 一致");
+        }
         
         if (!isInitialized.get()) {
             Log.e(TAG, "sendMessageToTeacher: Manager未初始化，无法发送消息");
@@ -280,6 +315,14 @@ public class MessagingManager {
 
     public boolean isInitialized() {
         return isInitialized.get();
+    }
+
+    /**
+     * 获取初始化时使用的userId
+     * @return userId，如果未初始化则返回null
+     */
+    public String getUserId() {
+        return userId;
     }
 
     public boolean isConnecting() {

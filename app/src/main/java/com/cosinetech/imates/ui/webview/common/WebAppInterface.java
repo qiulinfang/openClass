@@ -25,6 +25,7 @@ import java.io.FileOutputStream;
 import java.io.FileInputStream;
 import java.io.InputStream;
 
+import com.cosinetech.imates.ui.webview.common.LocalStorageHelper;
 import com.cosinetech.imates.ui.activities.ExerciseSolveActivity;
 import com.cosinetech.imates.ui.activities.PhotoSearchActivity;
 import com.cosinetech.imates.data.models.Subject;
@@ -355,6 +356,24 @@ public class WebAppInterface {
             // 第4步：创建StudentMessage
             messageId = UUID.randomUUID().toString();
             
+            // 诊断：检查发送消息的userId是否与初始化时的userId一致
+            String initializedUserId = messagingManager.getUserId();
+            if (initializedUserId != null && !initializedUserId.equals(userId)) {
+                Log.e(TAG, "========================================");
+                Log.e(TAG, "【严重警告】sendTextMessageToTeacher: 发送消息的userId与初始化时的userId不一致！");
+                Log.e(TAG, "发送消息的userId=" + userId);
+                Log.e(TAG, "初始化时的userId=" + initializedUserId);
+                Log.e(TAG, "监听队列=" + initializedUserId + "_a");
+                Log.e(TAG, "消息目标队列=" + userId + "_a");
+                Log.e(TAG, "监听队列和消息目标队列不匹配，无法接收老师回复！");
+                Log.e(TAG, "请确保发送消息时使用的userId与初始化时一致！");
+                Log.e(TAG, "========================================");
+            } else if (initializedUserId == null) {
+                Log.w(TAG, "sendTextMessageToTeacher: MessagingManager已初始化但userId为null，可能初始化时传入了null");
+            } else {
+                Log.d(TAG, "sendTextMessageToTeacher: userId检查通过，发送消息的userId=" + userId + " 与初始化userId=" + initializedUserId + " 一致");
+            }
+            
             StudentMessage studentMsg = new StudentMessage(
                     userId, sessionId, teacherSubject, 0, content); // 0 = QA_MSG_TYPE_TEXT
             studentMsg.setMessageId(messageId);
@@ -399,10 +418,16 @@ public class WebAppInterface {
             String finalMessageId = actualMessageId[0] != null ? actualMessageId[0] : messageId;
             Log.d(TAG, "sendTextMessageToTeacher: 消息发送成功, messageId=" + finalMessageId);
 
-            // 构建返回数据
-            String messageData = String.format(Locale.getDefault(),
-                    "{\"messageId\":\"%s\",\"userId\":\"%s\",\"sessionId\":\"%s\",\"subject\":\"%s\",\"messageType\":\"TEXT\",\"content\":\"%s\",\"timestamp\":%d}",
-                    finalMessageId, userId, sessionId, teacherSubject, content, timestamp);
+            // 构建返回数据（使用JSONObject避免特殊字符转义问题）
+            JSONObject messageDataObj = new JSONObject();
+            messageDataObj.put("messageId", finalMessageId);
+            messageDataObj.put("userId", userId);
+            messageDataObj.put("sessionId", sessionId);
+            messageDataObj.put("subject", teacherSubject);
+            messageDataObj.put("messageType", "TEXT");
+            messageDataObj.put("content", content);
+            messageDataObj.put("timestamp", timestamp);
+            String messageData = messageDataObj.toString();
 
             return createResponseWithJsonData(true, "消息发送成功", messageData);
 
@@ -593,10 +618,17 @@ public class WebAppInterface {
             String finalMessageId = actualMessageId[0] != null ? actualMessageId[0] : messageId;
             Log.d(TAG, "sendVoiceMessageToTeacher: 语音消息发送成功, messageId=" + finalMessageId);
 
-            // 构建返回数据
-            String messageData = String.format(Locale.getDefault(),
-                    "{\"messageId\":\"%s\",\"userId\":\"%s\",\"sessionId\":\"%s\",\"subject\":\"%s\",\"messageType\":\"VOICE\",\"voicePath\":\"%s\",\"duration\":%s,\"timestamp\":%d}",
-                    finalMessageId, userId, sessionId, teacherSubject, voicePath, duration, timestamp);
+            // 构建返回数据（使用JSONObject避免特殊字符转义问题）
+            JSONObject messageDataObj = new JSONObject();
+            messageDataObj.put("messageId", finalMessageId);
+            messageDataObj.put("userId", userId);
+            messageDataObj.put("sessionId", sessionId);
+            messageDataObj.put("subject", teacherSubject);
+            messageDataObj.put("messageType", "VOICE");
+            messageDataObj.put("voicePath", voicePath);
+            messageDataObj.put("duration", duration);
+            messageDataObj.put("timestamp", timestamp);
+            String messageData = messageDataObj.toString();
 
             return createResponseWithJsonData(true, "语音消息发送成功", messageData);
 
@@ -737,6 +769,24 @@ public class WebAppInterface {
             StudentMessage studentMsg = new StudentMessage(
                     userId, sessionId, teacherSubject, 1, imageBase64Content); // 1 = QA_MSG_TYPE_PICTURE
             studentMsg.setMessageId(messageId);
+            
+            // 诊断：检查发送消息的userId是否与初始化时的userId一致
+            String initializedUserId = messagingManager.getUserId();
+            if (initializedUserId != null && !initializedUserId.equals(userId)) {
+                Log.e(TAG, "========================================");
+                Log.e(TAG, "【严重警告】sendPictureToTeacher: 发送消息的userId与初始化时的userId不一致！");
+                Log.e(TAG, "发送消息的userId=" + userId);
+                Log.e(TAG, "初始化时的userId=" + initializedUserId);
+                Log.e(TAG, "监听队列=" + initializedUserId + "_a");
+                Log.e(TAG, "消息目标队列=" + userId + "_a");
+                Log.e(TAG, "监听队列和消息目标队列不匹配，无法接收老师回复！");
+                Log.e(TAG, "请确保发送消息时使用的userId与初始化时一致！");
+                Log.e(TAG, "========================================");
+            } else if (initializedUserId == null) {
+                Log.w(TAG, "sendPictureToTeacher: MessagingManager已初始化但userId为null，可能初始化时传入了null");
+            } else {
+                Log.d(TAG, "sendPictureToTeacher: userId检查通过，发送消息的userId=" + userId + " 与初始化userId=" + initializedUserId + " 一致");
+            }
 
             // 第6步：通过RabbitMQ发送（带回调，使用CountDownLatch等待异步结果）
             final CountDownLatch latch = new CountDownLatch(1);
@@ -777,10 +827,16 @@ public class WebAppInterface {
             String finalMessageId = actualMessageId[0] != null ? actualMessageId[0] : messageId;
             Log.d(TAG, "sendPictureToTeacher: 图片消息发送成功, messageId=" + finalMessageId);
 
-            // 第8步：构建返回数据
-            String messageData = String.format(Locale.getDefault(),
-                    "{\"messageId\":\"%s\",\"userId\":\"%s\",\"sessionId\":\"%s\",\"subject\":\"%s\",\"messageType\":\"IMAGE\",\"imagePath\":\"%s\",\"timestamp\":%d}",
-                    finalMessageId, userId, sessionId, teacherSubject, imagePath, timestamp);
+            // 第8步：构建返回数据（使用JSONObject避免特殊字符转义问题）
+            JSONObject messageDataObj = new JSONObject();
+            messageDataObj.put("messageId", finalMessageId);
+            messageDataObj.put("userId", userId);
+            messageDataObj.put("sessionId", sessionId);
+            messageDataObj.put("subject", teacherSubject);
+            messageDataObj.put("messageType", "IMAGE");
+            messageDataObj.put("imagePath", imagePath);
+            messageDataObj.put("timestamp", timestamp);
+            String messageData = messageDataObj.toString();
 
             return createResponseWithJsonData(true, "图片消息发送成功", messageData);
 
@@ -1074,9 +1130,50 @@ public class WebAppInterface {
                     }
 
                     // 第2步：调用JavaScript回调（前端负责保存）
+                    // 先检查回调函数是否存在（异步检查，仅用于日志）
+                    String checkScript = "typeof window.onTeacherMessageReceived";
+                    webView.evaluateJavascript(checkScript, (result) -> {
+                        Log.d(TAG, "检查回调函数类型: " + result);
+                    });
+                    
+                    // 构建调用脚本，包含详细的错误处理和调试信息
+                    String messageId = messageJson.optString("messageId", "unknown");
                     String script = String.format(Locale.getDefault(),
-                            "if (window.onTeacherMessageReceived) { window.onTeacherMessageReceived(%s); }",
-                            messageJson.toString());
+                            "(function() { " +
+                            "  try { " +
+                            "    const callback = window.onTeacherMessageReceived; " +
+                            "    const callbackType = typeof callback; " +
+                            "    console.log('[Android] 🔍 准备调用回调函数', { " +
+                            "      messageId: %s, " +
+                            "      callbackType: callbackType, " +
+                            "      isFunction: callbackType === 'function', " +
+                            "      isNull: callback === null, " +
+                            "      isUndefined: callback === undefined " +
+                            "    }); " +
+                            "    if (callbackType === 'function') { " +
+                            "      console.log('[Android] ✅ 调用回调函数，消息ID:', %s); " +
+                            "      callback(%s); " +
+                            "    } else { " +
+                            "      console.error('[Android] ❌ onTeacherMessageReceived 不是函数！', { " +
+                            "        type: callbackType, " +
+                            "        value: callback, " +
+                            "        isNull: callback === null, " +
+                            "        isUndefined: callback === undefined, " +
+                            "        messageId: %s " +
+                            "      }); " +
+                            "    } " +
+                            "  } catch (e) { " +
+                            "    console.error('[Android] ❌ 调用回调函数时出错:', e, { " +
+                            "      messageId: %s, " +
+                            "      stack: e.stack " +
+                            "    }); " +
+                            "  } " +
+                            "})();",
+                            "\"" + messageId + "\"",
+                            "\"" + messageId + "\"",
+                            messageJson.toString(),
+                            "\"" + messageId + "\"",
+                            "\"" + messageId + "\"");
 
                     executeJavaScript(script);
                     Log.d(TAG, "Teacher message received: " + messageJson.toString());
@@ -1108,14 +1205,40 @@ public class WebAppInterface {
 
     /**
      * 初始化老师消息监听器
+     * 如果AppUtils.getUserId()返回null，会尝试从localStorage获取userInfo
      */
     @JavascriptInterface
     public String initTeacherMessageListener() {
         try {
+            Log.d(TAG, "========================================");
+            Log.d(TAG, "initTeacherMessageListener: 开始初始化老师消息监听器");
+            
             String userId = AppUtils.getUserId();
+            Log.d(TAG, "initTeacherMessageListener: AppUtils.getUserId()=" + userId);
+            
+            // 如果userId为null或空，尝试从localStorage获取
             if (userId == null || userId.isEmpty()) {
-                return createResponse(false, "用户未登录", null);
+                Log.w(TAG, "initTeacherMessageListener: AppUtils.getUserId()返回null，尝试从localStorage获取userInfo");
+                userId = getUserIdFromLocalStorage();
+                
+                if (userId == null || userId.isEmpty()) {
+                    Log.e(TAG, "========================================");
+                    Log.e(TAG, "【严重警告】initTeacherMessageListener: 无法从localStorage获取userId，用户未登录");
+                    Log.e(TAG, "AppUtils.getUserId()=" + AppUtils.getUserId());
+                    Log.e(TAG, "localStorage中未找到userInfo或userInfo中没有userId/id字段");
+                    Log.e(TAG, "无法初始化消息监听器，后续发送消息时userId可能不匹配！");
+                    Log.e(TAG, "========================================");
+                    return createResponse(false, "用户未登录，无法初始化消息监听器", null);
+                }
+                
+                Log.d(TAG, "initTeacherMessageListener: 从localStorage获取到userId=" + userId);
             }
+
+            // 诊断：记录最终使用的userId和队列名
+            String queueName = userId + "_a";
+            Log.d(TAG, "initTeacherMessageListener: 最终使用的userId=" + userId);
+            Log.d(TAG, "initTeacherMessageListener: 将监听的队列名=" + queueName);
+            Log.d(TAG, "initTeacherMessageListener: 后续发送消息时userId必须与此一致，否则无法接收老师回复！");
 
             // 初始化MessagingManager
             MessagingManager.getInstance().initialize(mContext, userId);
@@ -1123,12 +1246,98 @@ public class WebAppInterface {
             // 添加消息监听器
             MessagingManager.getInstance().addMessageListener(this::notifyTeacherMessageReceived);
 
-            Log.d(TAG, "Teacher message listener initialized");
+            Log.d(TAG, "initTeacherMessageListener: 老师消息监听器初始化成功");
+            Log.d(TAG, "initTeacherMessageListener: userId=" + userId + ", 监听队列=" + queueName);
+            Log.d(TAG, "========================================");
             return createResponse(true, "老师消息监听器初始化成功", null);
 
         } catch (Exception e) {
-            Log.e(TAG, "Failed to initialize teacher message listener", e);
+            Log.e(TAG, "========================================");
+            Log.e(TAG, "initTeacherMessageListener: 初始化失败", e);
+            Log.e(TAG, "========================================");
             return createResponse(false, "初始化老师消息监听器失败: " + e.getMessage(), null);
+        }
+    }
+    
+    /**
+     * 从localStorage获取userId
+     * 只获取userInfo项，从中提取userId或id字段
+     * 优先级：userInfo.userId > userInfo.id
+     * @return userId，如果获取失败则返回null
+     */
+    private String getUserIdFromLocalStorage() {
+        if (webView == null) {
+            Log.e(TAG, "getUserIdFromLocalStorage: WebView为null，无法获取localStorage");
+            return null;
+        }
+        
+        try {
+            // 使用LocalStorageHelper只获取userInfo项
+            LocalStorageHelper helper = new LocalStorageHelper(webView);
+            
+            // 使用锁等待异步回调
+            final String[] result = {null};
+            final Object lock = new Object();
+            final boolean[] completed = {false};
+            
+            // 只获取userInfo项
+            helper.getItem("userInfo", new LocalStorageHelper.ItemCallback() {
+                @Override
+                public void onResult(String userInfoStr) {
+                    synchronized (lock) {
+                        try {
+                            if (userInfoStr != null && !userInfoStr.isEmpty() && 
+                                !userInfoStr.equals("null") && !userInfoStr.equals("undefined")) {
+                                try {
+                                    JSONObject userInfo = new JSONObject(userInfoStr);
+                                    if (userInfo.has("userId")) {
+                                        result[0] = userInfo.getString("userId");
+                                        Log.d(TAG, "getUserIdFromLocalStorage: 从userInfo.userId获取到userId=" + result[0]);
+                                    } else if (userInfo.has("id")) {
+                                        result[0] = userInfo.getString("id");
+                                        Log.d(TAG, "getUserIdFromLocalStorage: 从userInfo.id获取到userId=" + result[0]);
+                                    } else {
+                                        Log.w(TAG, "getUserIdFromLocalStorage: userInfo中未找到userId或id字段");
+                                    }
+                                } catch (JSONException e) {
+                                    Log.e(TAG, "getUserIdFromLocalStorage: 解析userInfo失败", e);
+                                }
+                            } else {
+                                Log.w(TAG, "getUserIdFromLocalStorage: localStorage中userInfo为空或不存在");
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "getUserIdFromLocalStorage: 处理userInfo失败", e);
+                        } finally {
+                            completed[0] = true;
+                            lock.notify();
+                        }
+                    }
+                }
+            });
+            
+            // 等待回调完成（最多等待3秒）
+            synchronized (lock) {
+                if (!completed[0]) {
+                    try {
+                        lock.wait(3000);
+                    } catch (InterruptedException e) {
+                        Log.e(TAG, "getUserIdFromLocalStorage: 等待localStorage回调被中断", e);
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }
+            
+            if (result[0] != null && !result[0].isEmpty()) {
+                Log.d(TAG, "getUserIdFromLocalStorage: 成功获取到userId=" + result[0]);
+                return result[0];
+            } else {
+                Log.w(TAG, "getUserIdFromLocalStorage: 未能从localStorage获取到userId");
+                return null;
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "getUserIdFromLocalStorage: 获取localStorage失败", e);
+            return null;
         }
     }
 
@@ -2037,15 +2246,66 @@ public class WebAppInterface {
     }
 
     private String createResponse(boolean success, String message, String data) {
+        try {
+            // 使用JSONObject构建响应，自动处理特殊字符转义
+            JSONObject response = new JSONObject();
+            response.put("success", success);
+            response.put("message", message != null ? message : "");
+            response.put("data", data != null ? data : JSONObject.NULL);
+            return response.toString();
+        } catch (JSONException e) {
+            Log.e(TAG, "createResponse: 构建JSON响应失败", e);
+            // 降级处理：使用String.format（但转义message和data中的特殊字符）
+            String escapedMessage = message != null ? 
+                message.replace("\\", "\\\\")
+                       .replace("\"", "\\\"")
+                       .replace("\n", "\\n")
+                       .replace("\r", "\\r") : "";
+            String escapedData = data != null ? 
+                data.replace("\\", "\\\\")
+                    .replace("\"", "\\\"")
+                    .replace("\n", "\\n")
+                    .replace("\r", "\\r") : "";
         return String.format(Locale.getDefault(),
                 "{\"success\":%b,\"message\":\"%s\",\"data\":%s}",
-                success, message, data != null ? "\"" + data + "\"" : "null");
+                    success, escapedMessage, escapedData != null ? "\"" + escapedData + "\"" : "null");
+        }
     }
 
     private String createResponseWithJsonData(boolean success, String message, String jsonData) {
+        try {
+            // 使用JSONObject构建响应，自动处理特殊字符转义
+            JSONObject response = new JSONObject();
+            response.put("success", success);
+            response.put("message", message != null ? message : "");
+            
+            // 如果jsonData是有效的JSON字符串，解析后放入data字段；否则直接作为字符串放入
+            if (jsonData != null && !jsonData.isEmpty()) {
+                try {
+                    // 尝试解析jsonData，如果是有效的JSON对象，则解析后放入
+                    JSONObject dataObj = new JSONObject(jsonData);
+                    response.put("data", dataObj);
+                } catch (JSONException e) {
+                    // 如果不是有效的JSON对象，作为字符串放入
+                    response.put("data", jsonData);
+                }
+            } else {
+                response.put("data", JSONObject.NULL);
+            }
+            
+            return response.toString();
+        } catch (JSONException e) {
+            Log.e(TAG, "createResponseWithJsonData: 构建JSON响应失败", e);
+            // 降级处理：使用String.format（但转义message中的特殊字符）
+            String escapedMessage = message != null ? 
+                message.replace("\\", "\\\\")
+                       .replace("\"", "\\\"")
+                       .replace("\n", "\\n")
+                       .replace("\r", "\\r") : "";
         return String.format(Locale.getDefault(),
                 "{\"success\":%b,\"message\":\"%s\",\"data\":%s}",
-                success, message, jsonData != null ? jsonData : "null");
+                    success, escapedMessage, jsonData != null ? jsonData : "null");
+        }
     }
 
     private boolean checkCameraPermission() {

@@ -177,6 +177,10 @@ declare global {
     
     // ========== Android日志回调 ==========
     onAndroidLog?(level: string, tag: string, message: string): void
+    
+    // ========== localStorage相关回调 ==========
+    onGetLocalStorage?(key: string): string | null
+    onGetAllLocalStorage?(): string
   }
 }
 

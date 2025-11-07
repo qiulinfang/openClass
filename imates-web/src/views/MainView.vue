@@ -96,7 +96,7 @@
     <!-- 统一聊天对话框 -->
     <UnifiedChatDialog 
       v-model="uiStore.showAIChatDialog" 
-      initial-category="ai"
+      :initial-category="chatDialogCategory"
     />
   </div>
 </template>
@@ -155,6 +155,9 @@ const activeNavItem = ref(props.activeNavItem)
 
 // 对话框显示状态
 const showDraftDialog = ref(false)
+
+// 聊天对话框的初始分类
+const chatDialogCategory = ref<'ai' | 'teacher'>('ai')
 
 // 工具箱显示状态
 const showToolbox = ref(false)
@@ -396,9 +399,11 @@ const handleDraftClick = () => {
 
 // 处理AI聊天点击
 const handleAIChatClick = async () => {
-  // 打开对话框（组件内部会处理会话加载）
+  // 设置分类为AI并打开对话框
+  chatDialogCategory.value = 'ai'
   uiStore.openAIChatDialog()
 }
+
 
 // 监听路由变化，更新激活状态
 watch(() => route.name, (newRouteName) => {

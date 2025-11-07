@@ -107,26 +107,96 @@ export class AsyncStorageService {
    * @param data 聊天数据
    */
   async saveChatHistory(questionId: string, data: ChatHistoryData): Promise<void> {
+    const startTime = Date.now()
+    console.log('[CHAT_STORAGE] 💾 [存储流程] 开始保存聊天历史到IndexedDB', {
+      questionId,
+      messageCount: data.messages?.length || 0,
+      dataSize: JSON.stringify(data).length,
+      lastUpdated: data.lastUpdated
+    })
+    
     try {
+      const initStartTime = Date.now()
       await this.initialize()
+      const initDuration = Date.now() - initStartTime
+      console.log('[CHAT_STORAGE] 🔧 [存储流程] IndexedDB初始化完成', {
+        duration: `${initDuration}ms`
+      })
+      
       const userId = getCurrentUserIdOrDefault()
       const userLocalForage = getUserLocalForage()
       const key = `${userId}_chat_history_${questionId}`
       
-      // 序列化数据，确保可以被存储
-      const serializedData = this.serializeChatData(data)
+      console.log('[CHAT_STORAGE] 🔑 [存储流程] 准备存储数据', {
+        key,
+        userId,
+        messageCount: data.messages?.length || 0
+      })
       
+      // 序列化数据，确保可以被存储
+      const serializeStartTime = Date.now()
+      const serializedData = this.serializeChatData(data)
+      const serializeDuration = Date.now() - serializeStartTime
+      const serializedSize = JSON.stringify(serializedData).length
+      
+      console.log('[CHAT_STORAGE] 🔄 [存储流程] 数据序列化完成', {
+        originalSize: JSON.stringify(data).length,
+        serializedSize,
+        duration: `${serializeDuration}ms`
+      })
+      
+      const saveStartTime = Date.now()
       await userLocalForage.setItem(key, serializedData)
+      const saveDuration = Date.now() - saveStartTime
+      const totalDuration = Date.now() - startTime
+      
+      console.log('[CHAT_STORAGE] ✅ [存储流程] IndexedDB保存成功', {
+        key,
+        messageCount: data.messages?.length || 0,
+        dataSize: serializedSize,
+        saveDuration: `${saveDuration}ms`,
+        totalDuration: `${totalDuration}ms`
+      })
     } catch (error) {
-      console.warn('[CHAT_DEBUG] ❌ IndexedDB保存聊天记录失败，降级到 localStorage:', error)
+      const errorDuration = Date.now() - startTime
+      console.warn('[CHAT_STORAGE] ❌ [存储流程] IndexedDB保存聊天记录失败，降级到 localStorage', {
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorName: error instanceof Error ? error.name : typeof error,
+        duration: `${errorDuration}ms`,
+        questionId
+      })
+      
       // 降级到 localStorage
+      const fallbackStartTime = Date.now()
       try {
         const userId = getCurrentUserIdOrDefault()
         const key = `${userId}_chat_history_${questionId}`
+        console.log('[CHAT_STORAGE] 🔄 [存储流程] 开始降级到localStorage', { key })
+        
         const serializedData = this.serializeChatData(data)
+        const serializedSize = JSON.stringify(serializedData).length
+        
         localStorage.setItem(key, JSON.stringify(serializedData))
+        const fallbackDuration = Date.now() - fallbackStartTime
+        const totalDuration = Date.now() - startTime
+        
+        console.log('[CHAT_STORAGE] ✅ [存储流程] localStorage保存成功（降级方案）', {
+          key,
+          messageCount: data.messages?.length || 0,
+          dataSize: serializedSize,
+          fallbackDuration: `${fallbackDuration}ms`,
+          totalDuration: `${totalDuration}ms`
+        })
       } catch (localError) {
-        console.error('[CHAT_DEBUG] ❌ localStorage 保存也失败:', localError)
+        const fallbackErrorDuration = Date.now() - fallbackStartTime
+        console.error('[CHAT_STORAGE] ❌ [存储流程] localStorage 保存也失败', {
+          localError,
+          errorMessage: localError instanceof Error ? localError.message : String(localError),
+          errorName: localError instanceof Error ? localError.name : typeof localError,
+          duration: `${fallbackErrorDuration}ms`,
+          questionId
+        })
         throw localError
       }
     }

@@ -1753,6 +1753,9 @@ const selectTeacherSessionAndForward = async (
  * 作用：处理AI对话中的单条消息转发到老师对话
  */
 const handleForwardMessage = async (message: ChatBubble) => {
+  console.log('[ChatView] 🔵 handleForwardMessage 开始执行')
+  console.log('[ChatView] 🔵 当前页面类型:', props.type)
+  console.log('[ChatView] 🔵 要转发的消息:', message)
   
   // 确保只在AI通用、AI题目和AI教材页面触发
   if (props.type !== 'ai-general' && props.type !== 'ai-exercise' && props.type !== 'ai-textbook') {
@@ -1761,14 +1764,19 @@ const handleForwardMessage = async (message: ChatBubble) => {
   }
 
   try {
+    console.log('[ChatView] 🔵 开始选择老师会话并转发消息')
     // 选择老师会话并转发
     const success = await selectTeacherSessionAndForward([message])
+    console.log('[ChatView] 🔵 selectTeacherSessionAndForward 返回结果:', success)
 
     if (success) {
+      console.log('[ChatView] 🔵 转发成功，准备显示提示')
       // AI题目对话页面不显示对话框，只显示简单提示
       if (props.type === 'ai-exercise') {
+        console.log('[ChatView] 🔵 当前是 ai-exercise 类型，只显示简单提示，不显示对话框')
         showMessage('转发成功', 'success')
       } else {
+        console.log('[ChatView] 🔵 当前页面类型:', props.type, '，显示前往老师对话对话框')
         // 转发成功后，询问用户是否前往老师对话
         Dialog.create({
           title: '转发成功',
@@ -1785,14 +1793,23 @@ const handleForwardMessage = async (message: ChatBubble) => {
           },
           persistent: false,
         }).onOk(() => {
+          console.log('[ChatView] 🔵 用户点击了"前往老师对话"按钮')
+          console.log('[ChatView] 🔵 teacherSession.value:', teacherSession.value)
           // 用户选择前往老师对话
           if (teacherSession.value) {
+            console.log('[ChatView] 🔵 teacherSession 存在，sessionId:', teacherSession.value.sessionId)
+            console.log('[ChatView] 🔵 准备触发 open-teacher-dialog 事件')
             emit('open-teacher-dialog', {
               sessionId: teacherSession.value.sessionId,
               message: message,
             })
+            console.log('[ChatView] 🔵 open-teacher-dialog 事件已触发')
+          } else {
+            console.error('[ChatView] ❌ teacherSession.value 不存在，无法跳转到老师对话')
+            showMessage('无法获取老师会话信息，请重试', 'error')
           }
         }).onCancel(() => {
+          console.log('[ChatView] 🔵 用户点击了"留在当前会话"按钮')
           // 用户选择留在当前会话
           showMessage('转发成功，已留在当前会话', 'success')
         })
@@ -2221,6 +2238,8 @@ const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessa
             },
             persistent: false,
           }).onOk(() => {
+            console.log('[ChatView] 🔵 用户点击了批量转发的"前往老师对话"按钮')
+            console.log('[ChatView] 🔵 teacherSession.value:', teacherSession.value)
             // 用户选择前往老师对话
             const forwardData = {
               messages: messages,
@@ -2230,8 +2249,12 @@ const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessa
               successCount: successCount,
               sessionId: teacherSession.value?.sessionId, // 添加会话ID
             }
+            console.log('[ChatView] 🔵 forwardData:', forwardData)
+            console.log('[ChatView] 🔵 准备触发 switchToTeacher 事件')
             emit('switchToTeacher', forwardData)
+            console.log('[ChatView] 🔵 switchToTeacher 事件已触发')
           }).onCancel(() => {
+            console.log('[ChatView] 🔵 用户点击了批量转发的"留在当前会话"按钮')
             // 用户选择留在当前会话
             showMessage(`转发成功，已转发 ${successCount} 条消息`, 'success')
           })
@@ -2387,19 +2410,21 @@ onUnmounted(() => {
   }
 
   // 步骤3：清理老师消息监听器（仅在老师模式下）
+  // 注意：回调函数 window.onTeacherMessageReceived 由 teacherChatStore 统一管理
+  // 不应该在这里清理，因为：
+  // 1. 回调函数是全局的，应该在应用生命周期中保持存在
+  // 2. 用户可能在 AI 会话和老师会话之间切换，不应该在切换时清理回调
+  // 3. 清理应该只在 UnifiedChatDialog 完全关闭时进行（由 teacherChatStore.cleanupMessageReceiver 统一处理）
   if (props.type === 'teacher') {
     try {
+      // 清理 Android 原生监听器（这是 Android 端的资源清理，需要执行）
       if (typeof window !== 'undefined' && window.AndroidBridge?.cleanupTeacherMessageListener) {
         window.AndroidBridge.cleanupTeacherMessageListener()
       }
     } catch {
       // 清理老师消息监听器失败
     }
-
-    // 清理回调函数
-    if (typeof window !== 'undefined') {
-      ;(window as unknown as { onTeacherMessageReceived: null }).onTeacherMessageReceived = null
-    }
+    // 不再清理 window.onTeacherMessageReceived，由 teacherChatStore 统一管理
   }
 
   // 步骤4：清理原始高度记录

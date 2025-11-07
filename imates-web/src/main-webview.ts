@@ -3,7 +3,7 @@
  * 支持单独页面构建
  */
 
-import { createApp, version as vueVersion } from 'vue'
+import { createApp, version as vueVersion, nextTick } from 'vue'
 import { createPinia } from 'pinia'
 import { Quasar } from 'quasar'
 import router from './router'
@@ -72,8 +72,9 @@ async function createWebViewApp() {
   // 挂载应用
   app.mount('#app')
   
-  // 将Vue挂载到window对象，供Android端检测应用是否就绪
+  // 等待Vue应用完全挂载后再设置window.Vue，供Android端检测应用是否就绪
   // Android端通过 window.Vue && window.Vue.version 来检测Vue应用是否就绪
+  await nextTick()
   if (typeof window !== 'undefined') {
     (window as any).Vue = {
       version: vueVersion

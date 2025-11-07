@@ -149,4 +149,33 @@ public class AppUtils {
             return false;
         }
     }
+
+    /**
+     * 生成教师会话ID（与Web端逻辑保持一致）
+     * 格式：teacher-{hex}-{timestamp}
+     * 示例：teacher-638e6e1c-1762486710774
+     * 
+     * @param aiSessionId AI会话ID（作为输入）
+     * @return 教师会话ID
+     */
+    public static String generateTeacherSessionId(String aiSessionId) {
+        if (aiSessionId == null || aiSessionId.isEmpty()) {
+            // 如果输入为空，使用时间戳生成唯一ID
+            return "teacher-" + System.currentTimeMillis();
+        }
+        
+        // 计算哈希值（与Web端算法一致）
+        int hash = 0;
+        for (int i = 0; i < aiSessionId.length(); i++) {
+            char ch = aiSessionId.charAt(i);
+            hash = ((hash << 5) - hash) + ch;
+            hash = hash & hash; // 转为32位整数
+        }
+        
+        // 转换为8位十六进制字符串（补零）
+        String hex = String.format("%08x", Math.abs(hash));
+        
+        // 生成最终ID：teacher-{hex}-{timestamp}
+        return "teacher-" + hex + "-" + System.currentTimeMillis();
+    }
 }

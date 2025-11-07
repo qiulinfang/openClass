@@ -348,8 +348,6 @@ const questionCardRefs = ref<Map<string, HTMLElement>>(new Map()) // 实际题�
 const resizeObservers = new Map<string, ResizeObserver>() // ResizeObserver映射
 const heightMeasurementTimers = new Map<string, NodeJS.Timeout>() // 延迟测量定时器
 
-// 所有类型定义和工具函数已迁移到 useQuestionStatistics composable
-
 // 使用与 ChatBubble 相同的渲染器
 const { renderMessageContent } = useMessageRenderer()
 
@@ -443,35 +441,6 @@ let setQuestionCardRefImpl: (
   questionId: string,
   index: number,
 ) => void = () => {}
-
-// 初始化统计 composable
-const statistics = useQuestionStatistics({
-  displayList,
-  questionHeights,
-  indexToHeight,
-  questionCardRefs,
-  renderedIndexes,
-  scrollContainer,
-  setQuestionCardRef: (el, questionId, index) => {
-    if (setQuestionCardRefImpl) {
-      setQuestionCardRefImpl(el, questionId, index)
-    }
-  },
-})
-
-// 从 composable 解构出需要的函数和状态
-const {
-  heightStats,
-  titleHeightStats,
-  heightComparisons,
-  estimateHeightByStats,
-  recordQuestionHeight: recordQuestionHeightFromStats,
-  outputComparisonStatistics,
-  analyzeTitleHeightRelation,
-  activelyBindQuestionRefs,
-  manuallyMeasureAllQuestions,
-  performMeasurement: performMeasurementFromStats,
-} = statistics
 
 // 所有项目的渲染列表：支持渐进式渲染（占位符 + 实际题目）
 const allRenderItems = computed(() => {
@@ -610,7 +579,8 @@ setQuestionCardRefImpl = (el: HTMLElement | null, questionId: string, index: num
       clearTimeout(heightMeasurementTimers.get(questionId))
       const timer = setTimeout(() => {
         if (height > 0) {
-          recordQuestionHeightFromStats(questionId, index, height)
+          questionHeights.value.set(questionId, height)
+          indexToHeight.value.set(index, height)
         }
       }, 200) // 延迟200ms，等待MathJax渲染完成
 
@@ -628,7 +598,8 @@ setQuestionCardRefImpl = (el: HTMLElement | null, questionId: string, index: num
       // 延迟测量，等待可能的MathJax渲染
       setTimeout(() => {
         const finalHeight = el.getBoundingClientRect().height
-        recordQuestionHeightFromStats(questionId, index, finalHeight)
+        questionHeights.value.set(questionId, finalHeight)
+        indexToHeight.value.set(index, finalHeight)
       }, 300) // 给MathJax更多时间
     }
   })
@@ -817,19 +788,7 @@ const throttledLoadQuestions = ThrottleUtils.verySlow(() => {
   loadQuestions()
 }) // 1秒节流，防止重复加载
 
-// 包装函数：用于调用 composable 的方法
-const wrappedAnalyzeTitleHeightRelation = () => {
-  analyzeTitleHeightRelation(
-    recordQuestionHeightFromStats,
-    computed(() => questions.value),
-  )
-}
-
-const wrappedManuallyMeasureAllQuestions = () => {
-  return manuallyMeasureAllQuestions(recordQuestionHeightFromStats)
-}
-
-// 获取占位符高度（优化版 - 支持ID和索引，基于统计数据智能估算）
+// 获取占位符高度（支持ID和索引）
 const getPlaceholderHeight = (questionId: string, index: number): number => {
   // 1. 优先使用已测量的该题目高度（如果之前测量过）
   if (questionHeights.value.has(questionId)) {
@@ -841,52 +800,12 @@ const getPlaceholderHeight = (questionId: string, index: number): number => {
     return indexToHeight.value.get(index)!
   }
 
-  // 3. 尝试从题目数据智能估算（基于统计数据分析）
-  try {
-    const list = displayList.value
-    if (index >= 0 && index < list.length) {
-      const question = list[index]
-      if (question && question.id === questionId) {
-        const title = question.title || question.question || ''
-        if (title) {
-          const estimatedHeight = estimateHeightByStats(title)
-          if (estimatedHeight > 0) {
-            return estimatedHeight
-          }
-        }
-      }
-    }
-
-    // 如果通过ID找不到，尝试通过索引查找
-    if (index >= 0 && index < list.length) {
-      const question = list[index]
-      if (question) {
-        const title = question.title || question.question || ''
-        if (title) {
-          const estimatedHeight = estimateHeightByStats(title)
-          if (estimatedHeight > 0) {
-            return estimatedHeight
-          }
-        }
-      }
-    }
-  } catch {
-    // 如果出错，继续使用下面的兜底策略
-  }
-
-  // 4. 如果有统计信息，使用智能估算（使用中位数）
-  const stats = heightStats.value
-  if (stats.samples.length > 0) {
-    // 优先使用中位数（更稳定）
-    return stats.median > 0 ? stats.median : stats.avg
-  }
-
-  // 5. 兼容旧的高度缓存（如果有）
+  // 3. 兼容旧的高度缓存（如果有）
   if (placeholderHeights.value.has(index)) {
     return placeholderHeights.value.get(index)!
   }
 
-  // 6. 使用基于统计数据的默认值（无图片题目的平均高度）
+  // 4. 使用默认值（无图片题目的平均高度）
   return ESTIMATED_PLACEHOLDER_HEIGHT
 }
 
@@ -949,16 +868,6 @@ const loadQuestions = async () => {
       for (let i = 0; i < preRenderCount; i++) {
         renderedIndexes.value.add(i)
       }
-
-      // 延迟一段时间后，尝试主动绑定和测量（给DOM渲染和MathJax渲染时间）
-      setTimeout(() => {
-        if (renderedIndexes.value.size > 0) {
-          activelyBindQuestionRefs()
-          setTimeout(() => {
-            performMeasurementFromStats(recordQuestionHeightFromStats)
-          }, 500)
-        }
-      }, 1000) // 延迟1秒，等待DOM和MathJax渲染
     }
   } catch (error) {
     showMessage('加载题目失败: ' + ((error as Error)?.message || '未知错误'), 'error')
@@ -1420,7 +1329,8 @@ onMounted(() => {
         if (index >= 0 && el) {
           const height = el.getBoundingClientRect().height
           if (height > 0) {
-            recordQuestionHeightFromStats(questionId, index, height)
+            questionHeights.value.set(questionId, height)
+            indexToHeight.value.set(index, height)
           }
         }
       })
@@ -1438,34 +1348,8 @@ defineExpose({
   refreshQuestions,
   scrollToCurrentQuestion,
   scrollToQuestionAndSelect,
-  analyzeTitleHeightRelation: wrappedAnalyzeTitleHeightRelation, // 暴露统计分析方法
-  manuallyMeasureAllQuestions: wrappedManuallyMeasureAllQuestions, // 暴露手动测量方法
-  getTitleHeightStats: () => titleHeightStats.value, // 暴露统计数据
-  outputComparisonStatistics, // 暴露对比统计方法
-  getHeightComparisons: () => heightComparisons.value, // 暴露对比数据
 })
 
-// 将统计方法挂载到 window 对象上，方便在浏览器控制台中调用
-if (typeof window !== 'undefined') {
-  interface WindowWithStats extends Window {
-    analyzeTitleHeightRelation: () => void
-    manuallyMeasureAllQuestions: () => number
-    outputComparisonStatistics: () => void
-  }
-  const win = window as unknown as WindowWithStats
-  win.analyzeTitleHeightRelation = wrappedAnalyzeTitleHeightRelation
-  win.manuallyMeasureAllQuestions = wrappedManuallyMeasureAllQuestions
-  win.outputComparisonStatistics = outputComparisonStatistics
-}
-
-// 监听统计数据的累积，在合适的时候自动输出统计（可选）
-watch(
-  () => titleHeightStats.value.length,
-  () => {
-    // 统计数据变化时的处理
-  },
-  { immediate: false },
-)
 </script>
 
 <style lang="scss" scoped>
