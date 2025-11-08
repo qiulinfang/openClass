@@ -2,59 +2,111 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Device Admin 权限 -->
+    <!-- ============================================ -->
+    <!-- 权限声明 (Permissions) -->
+    <!-- ============================================ -->
+
+    <!-- 设备管理权限 (Device Admin Permissions) -->
+    <!-- 用于Kiosk模式，管理设备管理员功能 -->
     <uses-permission
         android:name="android.permission.BIND_DEVICE_ADMIN"
         tools:ignore="ProtectedPermissions" />
     <uses-permission
         android:name="android.permission.MANAGE_DEVICE_ADMINS"
         tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" /> <!-- 系统级权限 -->
     <uses-permission
         android:name="android.permission.WRITE_SECURE_SETTINGS"
-        tools:ignore="ProtectedPermissions" /> <!-- <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" /> -->
-    <uses-permission android:name="android.permission.GET_TASKS" />
-    <uses-permission android:name="android.permission.REORDER_TASKS" />
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- 系统级权限 (System-Level Permissions) -->
+    <!-- 查询所有已安装应用，用于应用监控 -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!-- 应用使用统计，用于监控应用使用情况 -->
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
+    <!-- 系统悬浮窗权限，用于显示悬浮按钮和机器人 -->
+    <uses-permission
+        android:name="android.permission.SYSTEM_ALERT_WINDOW"
+        android:required="true" />
+
+    <!-- 任务管理权限 (Task Management Permissions) -->
+    <!-- 获取任务列表和重新排序任务，用于Kiosk模式 -->
+    <uses-permission android:name="android.permission.GET_TASKS" />
+    <uses-permission android:name="android.permission.REORDER_TASKS" />
+
+    <!-- 前台服务权限 (Foreground Service Permissions) -->
+    <!-- 基础前台服务权限 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- 数据同步类型的前台服务 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- 媒体投影类型的前台服务 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <!-- 特殊用途类型的前台服务 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <!-- 系统控制权限 (System Control Permissions) -->
+    <!-- 唤醒锁，保持设备唤醒 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- 禁用锁屏 -->
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" /> <!-- 网络权限用于远程配置 -->
+    <!-- 展开状态栏 -->
+    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
+
+    <!-- 网络权限 (Network Permissions) -->
+    <!-- 访问网络状态 -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 访问互联网 -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 访问WiFi状态 -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- 修改WiFi多播状态 -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+
+    <!-- 媒体权限 (Media Permissions) -->
+    <!-- 相机权限 -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- 录音权限 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <!-- 读取媒体图片 -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- 读取媒体视频 -->
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <!-- 读取媒体音频 -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
+    <!-- 存储权限 (Storage Permissions) -->
+    <!-- 管理外部存储（Android 11+） -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <!-- 写入外部存储（Android 10及以下，可选） -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:required="false" />
+    <!-- 读取外部存储（Android 10及以下，可选） -->
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:required="false" />
-    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- ============================================ -->
+    <!-- 硬件特性声明 (Hardware Features) -->
+    <!-- ============================================ -->
+
+    <!-- 触摸屏（可选，支持非触摸设备） -->
     <uses-feature
         android:name="android.hardware.touchscreen"
         android:required="false" />
+    <!-- Leanback模式（必需，用于Android TV） -->
     <uses-feature
         android:name="android.software.leanback"
         android:required="true" />
+    <!-- 相机硬件（可选） -->
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
 
-    <uses-permission
-        android:name="android.permission.SYSTEM_ALERT_WINDOW"
-        android:required="true" />
+    <!-- ============================================ -->
+    <!-- 应用配置 (Application Configuration) -->
+    <!-- ============================================ -->
 
     <application
         android:name=".ApplicationModelShared"
@@ -71,52 +123,18 @@
         android:theme="@style/Theme.IMatesApp.FullScreen"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
+
+        <!-- Google Actions元数据 -->
         <meta-data
             android:name="com.google.android.actions"
             android:resource="@xml/shared_file_paths" />
 
-        <activity
-            android:name=".ui.activities.DocsViewerActivity"
-            android:exported="true" />
-        <activity
-            android:name=".ui.activities.KnowledgeGraphActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ui.activities.MyProfileActivity"
-            android:exported="false"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <activity
-            android:name=".ui.activities.RichInputBoardActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:exported="false"
-            android:screenOrientation="landscape"
-            android:windowSoftInputMode="adjustPan" />
-        <activity
-            android:name=".ui.activities.FindExerciseActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ui.activities.ImageViewerActivity"
-            android:configChanges="orientation|keyboardHidden|screenSize"
-            android:exported="false"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <activity
-            android:name=".ui.feedback.FeedbackActivity"
-            android:configChanges="orientation|keyboardHidden|screenSize"
-            android:exported="false"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <activity
-            android:name=".ui.activities.PhotoSearchActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:exported="false"
-            android:screenOrientation="landscape"
-            android:windowSoftInputMode="adjustPan" />
-        <activity
-            android:name=".ui.activities.ExerciseSolveActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:exported="false"
-            android:screenOrientation="landscape"
-            android:windowSoftInputMode="adjustPan" />
-        <!-- 主WebView Activity - 用于渲染整个imates-web项目 -->
+        <!-- ============================================ -->
+        <!-- Activity声明 (Activities) -->
+        <!-- ============================================ -->
+
+        <!-- 主WebView Activity -->
+        <!-- 用于渲染整个imates-web项目，作为应用的主入口和启动器 -->
         <activity
             android:name=".ui.webview.MainWebViewActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
@@ -127,97 +145,40 @@
             android:windowSoftInputMode="adjustResize">
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.MONKEY" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".ui.activities.FloatChatAiActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:exported="false"
-            android:screenOrientation="landscape" />
-        <activity
-            android:name=".ui.activities.LessonPreviewActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:exported="false"
-            android:screenOrientation="landscape" />
-        <activity
-            android:name=".ui.activities.VideoPlayActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:exported="false"
-            android:launchMode="singleTask"
-            android:screenOrientation="landscape"
-            android:supportsPictureInPicture="true"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <activity
-            android:name=".ui.activities.LoginActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:exported="false"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <activity
-            android:name=".ui.activities.ScreenShotActivity"
-            android:exported="false"
-            android:launchMode="singleTask"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-        <activity
-            android:name=".ui.activities.ChatAiActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.ActivityDialogStyle"
-            android:windowSoftInputMode="adjustPan" />
-        <activity
-            android:name=".ui.mupdfviewer.activity.MuPDFActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <activity
-            android:name=".ui.mupdfviewer.activity.OutlineActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <activity
-            android:name=".ui.mupdfviewer.activity.AllPDFActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <activity
-            android:name=".ui.mupdfviewer.activity.BasePDFActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <activity
-            android:name=".ui.mupdfviewer.activity.MoreSetActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <activity
-            android:name=".ui.mupdfviewer.activity.SignActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.IMatesApp.FullScreen" />
-        <activity
-            android:name=".ui.activities.TextbookManagementActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:screenOrientation="landscape"
-            android:theme="@style/AppTheme" />
 
-        <service
-            android:name=".ui.robot.FloatingRobotService"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="dataSync|mediaProjection" />
-        
+        <!-- ============================================ -->
+        <!-- Service声明 (Services) -->
+        <!-- ============================================ -->
+
+        <!-- 悬浮按钮服务 -->
+        <!-- 提供悬浮按钮功能的前台服务 -->
         <service
             android:name=".ui.fab.FloatingFabService"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="specialUse" /> <!-- Device Admin Receiver -->
+            android:foregroundServiceType="specialUse" />
+
+        <!-- 应用监控服务 -->
+        <!-- 监控其他应用的使用情况，用于Kiosk模式 -->
+        <service
+            android:name=".deviceadmin.AppMonitorService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" />
+
+        <!-- ============================================ -->
+        <!-- Broadcast Receiver声明 (Receivers) -->
+        <!-- ============================================ -->
+
+        <!-- Kiosk设备管理员接收器 -->
+        <!-- 处理设备管理员启用/禁用事件 -->
         <receiver
             android:name=".deviceadmin.KioskDeviceAdminReceiver"
             android:exported="true"
@@ -230,20 +191,10 @@
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
                 <action android:name="android.app.action.DEVICE_ADMIN_DISABLED" />
             </intent-filter>
-        </receiver> <!-- 警告对话框Activity -->
-        <activity
-            android:name=".deviceadmin.WarningDialogActivity"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:launchMode="singleTop"
-            android:noHistory="true"
-            android:screenOrientation="landscape"
-            android:theme="@style/DialogTheme" /> <!-- 应用监控服务 -->
-        <service
-            android:name=".deviceadmin.AppMonitorService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="specialUse" /> <!-- 开机自启动 -->
+        </receiver>
+
+        <!-- 开机自启动接收器 -->
+        <!-- 监听系统启动和应用更新事件，实现开机自启动 -->
         <receiver
             android:name=".deviceadmin.BootReceiver"
             android:enabled="true"
@@ -257,6 +208,12 @@
             </intent-filter>
         </receiver>
 
+        <!-- ============================================ -->
+        <!-- Content Provider声明 (Providers) -->
+        <!-- ============================================ -->
+
+        <!-- 文件提供者 -->
+        <!-- 用于应用间文件共享 -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -266,6 +223,7 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/shared_file_paths" />
         </provider>
+
     </application>
 
 </manifest>

@@ -11,10 +11,8 @@ import android.util.Log;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.WindowManager;
-import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -557,29 +555,6 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
      */
     private void initWebApp() {
         Log.d(TAG, "开始初始化Web应用");
-        
-        // 设置Web应用配置
-        try {
-            org.json.JSONObject config = new org.json.JSONObject();
-            config.put("theme", "light");
-            config.put("language", "zh-CN");
-            config.put("debug", false); // 可以根据需要调整
-            
-            // 通过JavaScript设置配置
-            String jsCode = String.format(
-                "if (window.AndroidBridge && window.AndroidBridge.setConfig) {" +
-                "  window.AndroidBridge.setConfig(%s);" +
-                "}", config.toString()
-            );
-            
-            webView.evaluateJavascript(jsCode, null);
-            
-            Log.d(TAG, "Web应用配置设置完成");
-            
-        } catch (Exception e) {
-            Log.e(TAG, "设置Web应用配置失败", e);
-        }
-        
         // 不再主动检查Web应用是否就绪，等待Web端主动通知
         Log.d(TAG, "等待Web应用主动通知就绪状态");
     }
@@ -726,8 +701,6 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
     @Override
     public void startPhotoSearch(String subject) {
         Log.d(TAG, "启动拍照搜题: " + subject);
-        // 这里可以实现拍照搜题功能
-        Toast.makeText(this, "拍照搜题功能: " + subject, Toast.LENGTH_SHORT).show();
     }
 
     @Override

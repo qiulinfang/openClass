@@ -34,9 +34,7 @@
     <!-- AI/老师消息 -->
     <div v-if="message.sender !== 'user'" class="ai-message">
       <div class="ai-avatar">
-        <q-avatar color="grey-4" text-color="grey-8" size="36px">
-          <q-icon :name="avatarIcon" />
-        </q-avatar>
+        <img :src="avantarIcon" alt="头像" class="avatar-img" />
       </div>
       <div class="ai-content">
         <!-- AI内容容器 -->
@@ -334,6 +332,7 @@ import copyIcon from '/icons/copy.svg'
 import editIcon from '/icons/edit.svg'
 import shareIcon from '/icons/share.svg'
 import refreshIcon from '/icons/refresh.svg'
+import avantarIcon from '/icons/avantar.svg'
 
 // 定义Props - 直接在组件中定义，确保 Vue 正确识别所有 props
 interface Props {
@@ -462,14 +461,6 @@ const handleRetry = async () => {
     isRetrying.value = false
   }
 }
-
-const avatarIcon = computed(() => {
-  if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
-    return 'smart_toy'
-  } else {
-    return 'school'
-  }
-})
 
 // 判断是否可以转发（仅在AI通用、AI题目和AI教材对话场景下可用）
 const canForward = computed(() => {
@@ -1388,6 +1379,13 @@ onUnmounted(() => {
 .ai-avatar {
   flex-shrink: 0;
   margin-top: 4px;
+}
+
+.avatar-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .ai-content {
