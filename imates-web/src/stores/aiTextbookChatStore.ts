@@ -10,7 +10,6 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import localforage from 'localforage'
 import { apiService } from '../services/api-service'
 import { asyncStorage } from '../services/chat-storage'
 import { showMessage } from '../utils'
@@ -39,6 +38,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   const isChatRendering = ref(false)
   const chatResponseTimes = ref(0)
   const enableWebSearch = ref(false)
+  const resourceId = ref<string | null>(null)
   
   const VIEW_ANSWER_CHAT_TIMES = 3
   const canViewAnswer = computed(() => chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES)
@@ -327,12 +327,24 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   // ==================== 聊天历史 ====================
   
   /**
+   * 设置资源ID
+   */
+  const setResourceId = (id: string): void => {
+    resourceId.value = id
+  }
+  
+  /**
    * 保存聊天历史（带防抖）
    * 第1步：清除旧的定时器
    * 第2步：如果是立即保存，直接执行
    * 第3步：否则设置防抖定时器
    */
   const saveChatHistory = async (immediate: boolean = false): Promise<void> => {
+    // 如果没有 resourceId，不保存
+    if (!resourceId.value) {
+      return
+    }
+    
     // 第1步：清除旧定时器
     if (saveDebounceTimer) {
       clearTimeout(saveDebounceTimer)
@@ -342,7 +354,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     const saveAction = async () => {
       try {
         // 第2步：构建存储键
-        const storageKey = 'ai_textbook_chat_history'
+        const storageKey = `ai-textbook-${resourceId.value}`
         
         // 第3步：保存到IndexedDB
         await asyncStorage.saveChatHistory(storageKey, {
@@ -367,17 +379,31 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   /**
    * 加载聊天历史
    */
-  const loadChatHistory = async (): Promise<void> => {
+  const loadChatHistory = async (id?: string): Promise<void> => {
     try {
-      const storageKey = 'ai_textbook_chat_history'
+      const targetResourceId = id || resourceId.value
+      if (!targetResourceId) {
+        // 如果没有 resourceId，清空状态
+        messages.value = []
+        chatResponseTimes.value = 0
+        return
+      }
+      
+      const storageKey = `ai-textbook-${targetResourceId}`
       const history = await asyncStorage.loadChatHistory(storageKey)
       
       if (history && history.messages) {
         messages.value = history.messages
         chatResponseTimes.value = history.chatResponseTimes || 0
+      } else {
+        // 无历史记录，清空状态
+        messages.value = []
+        chatResponseTimes.value = 0
       }
     } catch (error) {
       console.error('加载聊天历史失败:', error)
+      messages.value = []
+      chatResponseTimes.value = 0
     }
   }
   
@@ -386,10 +412,13 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
    */
   const clearChatHistory = async (): Promise<void> => {
     try {
-      const storageKey = 'ai_textbook_chat_history'
-      const key = `chat_history_${storageKey}`
-      // 直接使用localforage删除
-      await localforage.removeItem(key)
+      if (!resourceId.value) {
+        clearMessages()
+        return
+      }
+      
+      const storageKey = `ai-textbook-${resourceId.value}`
+      await asyncStorage.removeChatHistory(storageKey)
       clearMessages()
     } catch (error) {
       console.error('清除聊天历史失败:', error)
@@ -416,6 +445,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     enableWebSearch,
     VIEW_ANSWER_CHAT_TIMES,
     canViewAnswer,
+    resourceId,
     
     // 方法
     addMessage,
@@ -426,7 +456,8 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     saveChatHistory,
     loadChatHistory,
     clearChatHistory,
-    toggleWebSearch
+    toggleWebSearch,
+    setResourceId
   }
 })
 

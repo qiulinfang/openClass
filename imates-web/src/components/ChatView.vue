@@ -147,11 +147,13 @@ import { useBetterScroll } from '../composables/useBetterScroll'
 
 // 状态管理和工具函数
 import { useQuestionStore } from '../stores/questionStore'
+import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
 import { useUserStore } from '../stores/userStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
 import { useAiGeneralChatStore } from '../stores/aiGeneralChatStore'
 import { useAiTextbookChatStore } from '../stores/aiTextbookChatStore'
-import { useTeacherChatStore } from '../stores/teacherChatStore'
+import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
+import { useTeacherExerciseChatStore } from '../stores/teacherExerciseChatStore'
 import { useImagePicker } from '../composables/useImagePicker'
 import { apiService } from '../services/api-service'
 import { androidBridge } from '../services/android-bridge'
@@ -169,7 +171,7 @@ import type { ChatBubble } from '../types'
 import type { ChatMessageSession } from '../types'
 import type { ExerciseItem } from '../types'
 import { SessionType } from '../types'
-import type { TeacherSession } from '../stores/teacherChatStore'
+import type { TeacherSession } from '../stores/teacherGeneralChatStore'
 
 // 策略模式导入
 import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
@@ -179,10 +181,11 @@ import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
 // 使用内联类型定义的泛型形式，确保 Vue 编译器能正确提取所有 props（包括可选属性）
 // 这种方式比导入外部类型接口更可靠，因为 Vue 可以在编译时直接访问类型信息
 const props = withDefaults(defineProps<{
-  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
+  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher' | 'teacher-exercise'
   currentQuestionId?: string
   sessionId?: string
   overrideQuestion?: ExerciseItem | null
+  resourceId?: string
 }>(), {
   overrideQuestion: null,
 })
@@ -206,12 +209,14 @@ const emit = defineEmits<{
 // 全局状态管理
 const questionStore = useQuestionStore()
 const userStore = useUserStore()
+const knowledgeGraphStore = useKnowledgeGraphStore()
 
 // 场景Store
 const aiExerciseStore = useAiExerciseChatStore()
 const aiGeneralStore = useAiGeneralChatStore()
 const aiTextbookStore = useAiTextbookChatStore()
-const teacherStore = useTeacherChatStore()
+const teacherStore = useTeacherGeneralChatStore()
+const teacherExerciseStore = useTeacherExerciseChatStore()
 
 // 辅助函数：获取当前场景的Store
 const getScenarioStore = () => {
@@ -220,6 +225,7 @@ const getScenarioStore = () => {
     case 'ai-general': return aiGeneralStore
     case 'ai-textbook': return aiTextbookStore
     case 'teacher': return teacherStore
+    case 'teacher-exercise': return teacherExerciseStore
     default: return aiGeneralStore
   }
 }
@@ -412,7 +418,7 @@ watch(() => [props.type, props.sessionId] as const, ([newType, sessionId]) => {
     
     session = {
       sessionId: sessionId,
-      sessionName: `${subject === 'biology' ? '生物' : '数学'}老师答疑`,
+      sessionName: subject === 'biology' ? '生物' : '数学',
       subject: subject
     }
     currentSubject.value = subject
@@ -426,10 +432,47 @@ watch(() => [props.type, props.sessionId] as const, ([newType, sessionId]) => {
   }
   
   // 第2步：创建策略实例
+  // 如果是teacher类型但没有session，延迟创建策略（等待initializeTeacherSession完成）
+  if (newType === 'teacher' && !session) {
+    // 延迟创建策略，等待teacherSession初始化完成
+    // 策略将在teacherSession的watch中创建
+    return
+  }
+  
   chatStrategy.value = ChatStrategyFactory.create(newType, {
     subject: currentSubject.value,
     session: session
   })
+}, { immediate: true })
+
+/**
+ * 监听teacherSession变化，当teacher类型且session初始化完成后创建策略
+ */
+watch(() => [props.type, teacherSession.value] as const, ([newType, session]) => {
+  // 只有在teacher类型且session存在时才创建或更新策略
+  if (newType === 'teacher' && session) {
+    const sessionInfo = {
+      sessionId: session.sessionId,
+      sessionName: session.sessionName,
+      subject: currentSubject.value
+    }
+    
+    // 创建或更新策略
+    // 只有在session变化时才执行，不会造成性能问题
+    chatStrategy.value = ChatStrategyFactory.create(newType, {
+      subject: currentSubject.value,
+      session: sessionInfo
+    })
+  }
+}, { immediate: true })
+
+/**
+ * 监听 resourceId 变化，设置到 store
+ */
+watch(() => [props.type, props.resourceId] as const, ([newType, resourceId]) => {
+  if (newType === 'ai-textbook' && resourceId) {
+    aiTextbookStore.setResourceId(resourceId)
+  }
 }, { immediate: true })
 
 /**
@@ -781,6 +824,16 @@ const initializeMessages = async () => {
     await initializeTeacherSession()
   }
 
+  // 第2.3步：如果是老师题目对话模式，需要为当前题目创建或加载会话
+  if (props.type === 'teacher-exercise' && currentQuestion.value) {
+    await initializeTeacherExerciseSession()
+  }
+
+  // 第2.5步：如果是AI教材对话模式且提供了resourceId，加载聊天历史
+  if (props.type === 'ai-textbook' && props.resourceId) {
+    await aiTextbookStore.loadChatHistory(props.resourceId)
+  }
+
   // 第3步：只有在没有选择题目且没有聊天记录时才添加引导消息（策略模式重构版）
   if (!hasSelectedQuestion.value && chatStrategy.value) {
     // 策略模式：使用策略获取欢迎消息
@@ -883,7 +936,7 @@ const initializeTeacherSession = async () => {
                                 !props.sessionId.startsWith('teacher-chat-')
       if (isExistingSession) {
         // 场景A：加载已有会话
-        const sessionKey = `teacher_chat_${props.sessionId}_session`
+        const sessionKey = `teacher-general-${props.sessionId}_session`
         const sessionData = localStorage.getItem(sessionKey)
         
         if (sessionData) {
@@ -921,7 +974,7 @@ const initializeTeacherSession = async () => {
       
       // 3.4 生成会话名称
       const subjectName = teacherSubject === 'BIOLOGY' ? '生物' : '数学'
-      const aiSessionName = `${subjectName}老师答疑 - ${new Date().toLocaleString()}`
+      const aiSessionName = subjectName
       
       // 3.5 创建老师会话（使用 Store 统一方法）
       const createdSession = teacherStore.createTeacherSession(
@@ -952,7 +1005,7 @@ const initializeTeacherSession = async () => {
         // 创建临时老师会话
         const tempSession = {
           sessionId: `temp_teacher_${Date.now()}`,
-          sessionName: `${subjectName}老师答疑`,
+          sessionName: subjectName,
           catalogId: 'CATEGORY_TEACHER_QA',
           sessionType: SessionType.USER_TALK_TEACHER_MATH,
           createTime: Date.now(),
@@ -972,7 +1025,7 @@ const initializeTeacherSession = async () => {
     
     const tempSession = {
       sessionId: `temp_teacher_${Date.now()}`,
-      sessionName: `${subjectName}老师答疑`,
+      sessionName: subjectName,
       catalogId: 'CATEGORY_TEACHER_QA',
       sessionType: SessionType.USER_TALK_TEACHER_MATH,
       createTime: Date.now(),
@@ -984,10 +1037,48 @@ const initializeTeacherSession = async () => {
   }
 }
 
+/**
+ * 初始化老师题目会话
+ * 作用：为当前题目创建或加载对应的会话，并加载聊天历史
+ */
+const initializeTeacherExerciseSession = async () => {
+  try {
+    // 步骤1：验证当前题目
+    if (!currentQuestion.value) {
+      console.warn('[ChatView] ⚠️ 初始化老师题目会话失败：没有当前题目')
+      return
+    }
+
+    // 步骤2：确定科目
+    const subject = currentSubject.value as 'biology' | 'math'
+
+    // 步骤3：创建或获取题目会话
+    const questionTitle = currentQuestion.value.question || currentQuestion.value.title || '题目'
+    const session = teacherExerciseStore.createOrGetSession(
+      currentQuestion.value.id,
+      questionTitle,
+      subject
+    )
+
+    // 步骤4：加载该会话的聊天历史
+    await teacherExerciseStore.loadChatHistory(session.sessionId)
+
+    console.log('[ChatView] ✅ 老师题目会话初始化成功', {
+      sessionId: session.sessionId,
+      questionId: session.questionId,
+      subject: session.subject
+    })
+  } catch (error) {
+    console.error('[ChatView] ❌ 初始化老师题目会话失败:', error)
+    // 初始化失败时，清空状态
+    teacherExerciseStore.resetState()
+  }
+}
+
 // 加载老师会话列表
 const loadTeacherSessions = (): TeacherSession[] => {
   const userId = getCurrentUserIdOrDefault()
-  const sessionPrefix = `${userId}_teacher_chat_`
+  const sessionPrefix = `${userId}_teacher-general-`
   
   const sessions: TeacherSession[] = []
   const sessionIds = new Set<string>()
@@ -1151,7 +1242,7 @@ const sendMessage = async (attachedFile?: File) => {
       await scrollToBottom()
     }
 
-    // AI通用、AI题目、AI教材和教师答疑模式：统一使用策略模式发送消息
+    // AI通用、AI题目、AI教材和教师通用对话模式：统一使用策略模式发送消息
     await chatStrategy.value?.sendMessage(messageContent, { 
       selectedModel: selectedModel.value
     })
@@ -1686,6 +1777,47 @@ const convertMessageForForwarding = (msg: ChatBubble) => {
 }
 
 /**
+ * 获取当前科目（根据不同场景使用不同的判断方式）
+ * @returns 科目字符串 'biology' | 'math' | null
+ */
+const getCurrentSubjectForForward = (): 'biology' | 'math' | null => {
+  switch (props.type) {
+    case 'ai-general':
+      // AI通用场景：返回 null，需要用户手动选择老师
+      return null
+    case 'ai-textbook':
+      // AI教材场景：使用知识图谱的 store 的科目状态字段
+      try {
+        const subject = knowledgeGraphStore.getCurrentSubjectLowercase()
+        return subject || null
+      } catch (error) {
+        console.error('[ChatView] ❌ 获取知识图谱科目失败:', error)
+        return null
+      }
+    case 'ai-exercise':
+      // AI题目场景：通过题目的科目字段进行判断
+      try {
+        const question = currentQuestion.value
+        if (question?.subject) {
+          // 将科目转换为小写格式
+          const subjectLower = question.subject.toLowerCase()
+          if (subjectLower === 'biology' || subjectLower === '生物') {
+            return 'biology'
+          } else if (subjectLower === 'math' || subjectLower === '数学') {
+            return 'math'
+          }
+        }
+        return null
+      } catch (error) {
+        console.error('[ChatView] ❌ 获取题目科目失败:', error)
+        return null
+      }
+    default:
+      return null
+  }
+}
+
+/**
  * 选择老师会话
  * 流程：1. 根据科目查找localStorage中对应老师的会话 2. 如果找到则使用，否则创建新会话
  * @param forwardMessages 如果提供，会在选择会话后转发这些消息
@@ -1695,8 +1827,131 @@ const selectTeacherSessionAndForward = async (
   forwardMessages?: ChatBubble[]
 ): Promise<boolean> => {
   try {
-    // 获取当前科目
-    const subject = currentSubject.value as 'biology' | 'math'
+    // 获取当前科目（根据不同场景使用不同的判断方式）
+    const subject = getCurrentSubjectForForward()
+    
+    // 如果是 AI 通用场景，需要显示对话框让用户手动选择老师类型
+    if (props.type === 'ai-general' && subject === null) {
+      console.log('[ChatView] 🔵 AI通用场景，需要用户手动选择老师类型')
+      
+      // 显示对话框让用户选择老师类型（科目）
+      return new Promise<boolean>((resolve) => {
+        Dialog.create({
+          title: '选择老师',
+          message: '请选择要转发的老师类型：',
+          options: {
+            type: 'radio',
+            model: '',
+            items: [
+              {
+                label: '生物老师',
+                value: 'biology',
+                color: 'green',
+              },
+              {
+                label: '数学老师',
+                value: 'math',
+                color: 'blue',
+              },
+            ],
+          },
+          cancel: {
+            label: '取消',
+            color: 'grey',
+            flat: true,
+          },
+          ok: {
+            label: '确定',
+            color: 'primary',
+            unelevated: true,
+          },
+          persistent: false,
+        }).onOk(async (selectedSubject: 'biology' | 'math') => {
+          // 用户选择了老师类型
+          // 1. 加载老师会话列表
+          const sessions = loadTeacherSessions()
+          
+          // 2. 查找该类型是否有会话
+          const existingSession = sessions.find(s => s.subject === selectedSubject)
+          
+          if (existingSession) {
+            // 3. 如果有会话，复用已有的
+            teacherSession.value = {
+              sessionId: existingSession.sessionId,
+              sessionName: existingSession.sessionName,
+              catalogId: 'CATEGORY_TEACHER_QA',
+              sessionType: existingSession.subject === 'biology' 
+                ? SessionType.USER_TALK_TEACHER_BIOLOGY 
+                : SessionType.USER_TALK_TEACHER_MATH,
+              createTime: existingSession.createTime,
+              updateTime: existingSession.createTime,
+              msgCount: 0,
+            }
+            teacherStore.setSession(existingSession)
+            await teacherStore.loadChatHistory(existingSession.sessionId)
+            
+            if (forwardMessages && forwardMessages.length > 0) {
+              const success = await forwardMessageToTeacher(forwardMessages)
+              resolve(success)
+            } else {
+              resolve(true)
+            }
+          } else {
+            // 4. 如果没有会话，创建新会话
+            // 4.1 初始化老师消息监听器
+            await teacherStore.initMessageReceiver()
+            
+            // 4.2 生成会话ID和名称
+            const subjectName = selectedSubject === 'biology' ? '生物' : '数学'
+            const aiSessionId = `teacher_general_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+            const aiSessionName = `${subjectName}`
+            
+            // 4.3 创建老师会话
+            const createdSession = teacherStore.createTeacherSession(
+              aiSessionId,
+              aiSessionName,
+              selectedSubject
+            )
+            
+            if (createdSession) {
+              teacherSession.value = {
+                sessionId: createdSession.sessionId,
+                sessionName: createdSession.sessionName,
+                catalogId: 'CATEGORY_TEACHER_QA',
+                sessionType: selectedSubject === 'biology' 
+                  ? SessionType.USER_TALK_TEACHER_BIOLOGY 
+                  : SessionType.USER_TALK_TEACHER_MATH,
+                createTime: createdSession.createTime,
+                updateTime: createdSession.createTime,
+                msgCount: 0,
+              }
+              teacherStore.setSession(createdSession)
+              await teacherStore.loadChatHistory(createdSession.sessionId)
+              await loadTeacherChatHistory()
+              
+              if (forwardMessages && forwardMessages.length > 0) {
+                const success = await forwardMessageToTeacher(forwardMessages)
+                resolve(success)
+              } else {
+                resolve(true)
+              }
+            } else {
+              resolve(false)
+            }
+          }
+        }).onCancel(() => {
+          // 用户取消了选择
+          resolve(false)
+        })
+      })
+    }
+    
+    // 如果科目为 null，无法确定科目，返回 false
+    if (subject === null) {
+      console.error('[ChatView] ❌ 无法确定科目，无法选择老师会话')
+      return false
+    }
+    
     // 加载老师会话列表
     const sessions = loadTeacherSessions()
     
@@ -2289,7 +2544,7 @@ const removeFile = (fileId: string) => {
 // 注意：原生图片选择和拍照的结果处理已经移到 ImagePicker 组件中
 // 这里不再重复处理，避免图片重复发送
 
-// 老师消息接收处理已统一由 teacherChatStore.initMessageReceiver() 管理
+// 老师消息接收处理已统一由 teacherGeneralChatStore.initMessageReceiver() 管理
 // 所有消息接收逻辑都在 store 中处理，这里不再需要单独的回调函数
 
 // ==================== 生命周期钩子 ====================
@@ -2332,7 +2587,7 @@ onMounted(async () => {
       window as unknown as { onVoiceRecognitionResult: (text: string) => void }
     ).onVoiceRecognitionResult = onVoiceRecognitionResult
 
-    // 3.2 老师消息接收回调已由 teacherChatStore.initMessageReceiver() 统一管理
+    // 3.2 老师消息接收回调已由 teacherGeneralChatStore.initMessageReceiver() 统一管理
     // 不需要在这里重复设置，避免覆盖 store 中的回调
 
     // 3.3 监听原生键盘事件（处理系统键盘，只压缩页面不滚动）
@@ -2415,11 +2670,11 @@ onUnmounted(() => {
   }
 
   // 步骤3：清理老师消息监听器（仅在老师模式下）
-  // 注意：回调函数 window.onTeacherMessageReceived 由 teacherChatStore 统一管理
+  // 注意：回调函数 window.onTeacherMessageReceived 由 teacherGeneralChatStore 统一管理
   // 不应该在这里清理，因为：
   // 1. 回调函数是全局的，应该在应用生命周期中保持存在
   // 2. 用户可能在 AI 会话和老师会话之间切换，不应该在切换时清理回调
-  // 3. 清理应该只在 UnifiedChatDialog 完全关闭时进行（由 teacherChatStore.cleanupMessageReceiver 统一处理）
+  // 3. 清理应该只在 UnifiedChatDialog 完全关闭时进行（由 teacherGeneralChatStore.cleanupMessageReceiver 统一处理）
   if (props.type === 'teacher') {
     try {
       // 清理 Android 原生监听器（这是 Android 端的资源清理，需要执行）
@@ -2429,7 +2684,7 @@ onUnmounted(() => {
     } catch {
       // 清理老师消息监听器失败
     }
-    // 不再清理 window.onTeacherMessageReceived，由 teacherChatStore 统一管理
+    // 不再清理 window.onTeacherMessageReceived，由 teacherGeneralChatStore 统一管理
   }
 
   // 步骤4：清理原始高度记录
@@ -2659,6 +2914,11 @@ const executeQuestionSwitch = () => {
   if (props.type === 'teacher') {
     teacherSession.value = null
     aiSessionId.value = ''
+  }
+
+  // 重置老师题目会话状态
+  if (props.type === 'teacher-exercise') {
+    teacherExerciseStore.clearSession()
   }
 
   // 注意：不要在这里清空聊天记录！

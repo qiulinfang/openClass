@@ -16,7 +16,6 @@ import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
 import type { ChatBubble, ExerciseItem, UserInfo } from '../types'
 import { buildAiExerciseMessage } from './utils/aiMessageBuilder'
 import { createUserMessage } from './utils/chatStoreUtils'
-import localforage from 'localforage'
 
 export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   // ==================== 状态定义 ====================
@@ -258,15 +257,16 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   const saveChatHistory = async (questionId: string): Promise<void> => {
     if (messages.value.length === 0) return
     
+    const storageKey = `ai-exercise-${questionId}`
     const historyData: ChatHistoryData = {
-      questionId,
+      questionId: storageKey,
       messages: messages.value,
       chatResponseTimes: chatResponseTimes.value,
       lastUpdated: Date.now()
     }
     
     try {
-      await asyncStorage.saveChatHistory(questionId, historyData)
+      await asyncStorage.saveChatHistory(storageKey, historyData)
     } catch (error) {
       console.error('[AI_EXERCISE] ❌ 保存聊天历史失败:', error)
     }
@@ -278,17 +278,17 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   const loadChatHistory = async (questionId: string): Promise<void> => {
     try {
       isChatLoading.value = true
-      
-      const historyData = await asyncStorage.loadChatHistory(questionId)
-      
+      console.log('[AI_EXERCISE] 🔵 loadChatHistory:', questionId)
+      const storageKey = `ai-exercise-${questionId}`
+      const historyData = await asyncStorage.loadChatHistory(storageKey)
+      console.log('[AI_EXERCISE] 🔵 historyData:', historyData)
       if (historyData) {
         messages.value = historyData.messages || []
         chatResponseTimes.value = historyData.chatResponseTimes || 0
         
-        // 更新是否可以查看答案
-        if (chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES) {
-          canViewAnswer.value = true
-        }
+        // 更新是否可以查看答案（必须根据当前题目的chatResponseTimes判断）
+        canViewAnswer.value = chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES
+        console.log('[AI_EXERCISE] 🔵 canViewAnswer:', canViewAnswer.value)
       } else {
         // 无历史记录，清空状态
         messages.value = []
@@ -310,8 +310,8 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
    */
   const clearChatHistory = async (questionId: string): Promise<void> => {
     try {
-      const key = `chat_history_${questionId}`
-      await localforage.removeItem(key)
+      const storageKey = `ai-exercise-${questionId}`
+      await asyncStorage.removeChatHistory(storageKey)
       messages.value = []
       chatResponseTimes.value = 0
       canViewAnswer.value = false

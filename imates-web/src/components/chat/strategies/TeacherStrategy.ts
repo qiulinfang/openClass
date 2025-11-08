@@ -6,11 +6,11 @@
 import type { ChatBubble } from '../../../types'
 import type { ChatStrategy } from './ChatStrategy'
 import type { SendMessageOptions, TeacherSessionInfo } from './types'
-import { useTeacherChatStore } from '../../../stores/teacherChatStore'
+import { useTeacherGeneralChatStore } from '../../../stores/teacherGeneralChatStore'
 import { useQuestionStore } from '../../../stores/questionStore'
 
 export class TeacherStrategy implements ChatStrategy {
-  private teacherStore = useTeacherChatStore()
+  private teacherStore = useTeacherGeneralChatStore()
   private questionStore = useQuestionStore()
   
   // 教师会话信息

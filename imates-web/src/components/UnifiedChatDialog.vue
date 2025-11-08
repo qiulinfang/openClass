@@ -40,6 +40,7 @@
               <q-tooltip>调试面板</q-tooltip>
             </q-btn>
             <q-btn
+              v-if="shouldShowNewChatButton"
               flat
               round
               dense
@@ -47,13 +48,13 @@
               color="primary"
               size="sm"
               class="new-chat-btn"
-              :disable="!aiGeneralStore.canCreateSession"
+              :disable="!canCreateNewChat"
               @click="handleAiNewChatClick"
             >
               <q-tooltip>
                 {{
-                  aiGeneralStore.canCreateSession
-                    ? '新增AI对话'
+                  canCreateNewChat
+                    ? (isTeacherCategory ? '新增老师对话' : '新增AI对话')
                     : aiGeneralStore.isCreatingSession
                       ? '创建中...'
                       : '请先在当前会话中发送消息'
@@ -76,12 +77,13 @@
 
       <!-- 右侧聊天界面 -->
       <div class="right-panel">
-        <!-- AI聊天界面 -->
+        <!-- 聊天界面 - 根据当前选中的对话类型动态确定 type -->
         <ChatView 
-          v-if="activeCategory === 'ai'"
+          v-if="activeCategory === 'ai-general'"
           type="ai-general"
+          @open-teacher-dialog="handleOpenTeacherDialog"
+          @switch-to-teacher="handleSwitchToTeacher"
         />
-        <!-- 教师答疑界面 -->
         <ChatView 
           v-else-if="activeCategory === 'teacher' && teacherSessionId"
           type="teacher"
@@ -95,16 +97,48 @@
         </div>
       </div>
     </div>
-  </DraggableDialog>
 
-  <!-- 调试面板 -->
-  <ChatSessionDebugPanel v-if="isDev" v-model="showDebugPanel" />
+    <!-- 调试面板 -->
+    <ChatSessionDebugPanel v-if="isDev" v-model="showDebugPanel" />
+
+    <!-- 老师选择对话框 -->
+    <q-dialog v-model="showTeacherSelectDialog">
+      <q-card style="min-width: 300px">
+        <q-card-section>
+          <div class="text-h6">选择老师</div>
+        </q-card-section>
+
+        <q-card-section>
+          <q-list>
+            <q-item
+              v-for="teacher in availableTeachers"
+              :key="teacher.subject"
+              clickable
+              v-close-popup
+              @click="handleTeacherSelect(teacher.subject)"
+            >
+              <q-item-section avatar>
+                <q-icon name="person" color="primary" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>{{ teacher.name }}</q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn flat label="取消" color="primary" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+  </DraggableDialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
-import { useTeacherChatStore } from '@/stores/teacherChatStore'
+import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
 import { useUserStore } from '@/stores/userStore'
 import { showMessage } from '@/utils'
 import { getCurrentUserIdOrDefault } from '@/utils/user/userId'
@@ -113,7 +147,8 @@ import SessionTree from './SessionTree.vue'
 import ChatView from './ChatView.vue'
 import ChatSessionDebugPanel from './debug/ChatSessionDebugPanel.vue'
 import type { AiGeneralSession } from '@/types'
-import type { TeacherSession } from '@/stores/teacherChatStore'
+import type { TeacherSession } from '@/stores/teacherGeneralChatStore'
+import type { ChatBubble } from '@/types'
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
@@ -121,24 +156,22 @@ const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 // ==================== Props & Emits ====================
 interface Props {
   modelValue: boolean
-  initialCategory?: 'ai' | 'teacher' // 初始显示的分类
   initialTeacherSubject?: 'biology' | 'math' // 初始教师科目（用于创建新会话）
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: false,
-  initialCategory: 'ai',
   initialTeacherSubject: 'math'
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'session-created': [sessionId: string, type: 'ai' | 'teacher'] // 新会话创建事件
+  'session-created': [sessionId: string, type: 'ai-general' | 'teacher'] // 新会话创建事件
 }>()
 
 // ==================== Store ====================
 const aiGeneralStore = useAiGeneralChatStore()
-const teacherStore = useTeacherChatStore()
+const teacherChatStore = useTeacherGeneralChatStore()
 const userStore = useUserStore()
 
 // SessionTree 组件引用
@@ -151,16 +184,20 @@ const localVisible = computed({
 })
 
 // 当前激活的分类（根据选中的会话自动判断）
-const activeCategory = ref<'ai' | 'teacher'>(props.initialCategory)
+const activeCategory = ref<'ai-general' | 'teacher'>('ai-general')
 const showDebugPanel = ref(false)
 
 // 教师会话相关
 const teacherSessionId = ref<string>('')
 const teacherSessions = ref<TeacherSession[]>([])
 
+// 老师选择对话框
+const showTeacherSelectDialog = ref(false)
+const availableTeachers = ref<Array<{ subject: 'biology' | 'math', name: string }>>([])
+
 // 通用的选中会话ID（可以是AI会话或教师会话）
 const selectedSessionId = computed(() => {
-  if (activeCategory.value === 'ai' && aiGeneralStore.currentSession?.sessionId) {
+  if (activeCategory.value === 'ai-general' && aiGeneralStore.currentSession?.sessionId) {
     return aiGeneralStore.currentSession.sessionId
   } else if (activeCategory.value === 'teacher' && teacherSessionId.value) {
     return teacherSessionId.value
@@ -168,23 +205,59 @@ const selectedSessionId = computed(() => {
   return undefined
 })
 
+// 判断当前选中的分类是否为老师类型
+const isTeacherCategory = computed(() => {
+  const selectedCategory = sessionTreeRef.value?.getSelectedCategory()
+  return selectedCategory === 'biology' || selectedCategory === 'math'
+})
+
+// 判断是否可以创建新对话
+const canCreateNewChat = computed(() => {
+  if (isTeacherCategory.value) {
+    // 老师类型：只要有可选的老师就可以创建
+    return teacherChatStore.getAvailableTeachers().length > 0
+  } else {
+    // AI类型：需要满足原有条件
+    return aiGeneralStore.canCreateSession
+  }
+})
+
+// 判断是否应该显示新增按钮
+const shouldShowNewChatButton = computed(() => {
+  if (isTeacherCategory.value) {
+    // 老师类型：只有当有可选的老师时才显示
+    return teacherChatStore.getAvailableTeachers().length > 0
+  } else {
+    // AI类型：始终显示（但可能被禁用）
+    return true
+  }
+})
+
 // ==================== AI聊天相关方法 ====================
 
 // 处理AI会话点击
 const handleAiSessionClick = async (sessionId: string) => {
+  console.log('handleAiSessionClick', sessionId)
   await aiGeneralStore.switchSession(sessionId)
-  activeCategory.value = 'ai'
+  activeCategory.value = 'ai-general'
   // selectedSessionId 会自动更新（通过 computed）
 }
 
 // 处理AI新增对话
 const handleAiNewChatClick = async () => {
-    // 根据当前选中的节点类型来决定创建哪种类型的对话
+  // 根据当前选中的节点类型来决定创建哪种类型的对话
   const selectedCategory = sessionTreeRef.value?.getSelectedCategory()
   
   if (selectedCategory === 'biology' || selectedCategory === 'math') {
-    // 如果选中的是教师分类，创建对应科目的教师对话
-    await handleTeacherNewChat(selectedCategory)
+    // 如果选中的是教师分类，显示老师选择对话框
+    availableTeachers.value = teacherChatStore.getAvailableTeachers()
+    
+    if (availableTeachers.value.length === 0) {
+      showMessage('所有老师都有对话记录', 'info')
+      return
+    }
+    
+    showTeacherSelectDialog.value = true
     return
   }
   
@@ -196,7 +269,13 @@ const handleAiNewChatClick = async () => {
     return
   }
   aiGeneralStore.resetState()
-  activeCategory.value = 'ai'
+  activeCategory.value = 'ai-general'
+}
+
+// 处理老师选择
+const handleTeacherSelect = async (subject: 'biology' | 'math') => {
+  showTeacherSelectDialog.value = false
+  await handleTeacherNewChat(subject)
 }
 
 // 处理AI会话重命名
@@ -232,7 +311,7 @@ const handleAiSessionDelete = async (sessionId: string) => {
     showMessage('删除成功', 'success')
     // 如果删除的是当前会话，切换到AI分类
     if (aiGeneralStore.currentSession?.sessionId === sessionId) {
-      activeCategory.value = 'ai'
+      activeCategory.value = 'ai-general'
     }
   } catch (error) {
     console.error('删除失败:', error)
@@ -240,13 +319,13 @@ const handleAiSessionDelete = async (sessionId: string) => {
   }
 }
 
-// ==================== 教师答疑相关方法 ====================
+// ==================== 教师通用对话相关方法 ====================
 
 // 加载教师会话列表
 const loadTeacherSessions = () => {
   // 第1步：获取当前用户ID并构建会话前缀
   const userId = getCurrentUserIdOrDefault()
-  const sessionPrefix = `${userId}_teacher_chat_`
+  const sessionPrefix = `${userId}_teacher-general-`
   
   const sessions: TeacherSession[] = []
   const sessionIds = new Set<string>()
@@ -302,6 +381,7 @@ const loadTeacherSessions = () => {
 
 // 处理教师会话点击
 const handleTeacherSessionClick = async (sessionId: string, subject: string) => {
+  console.log('handleTeacherSessionClick', sessionId, subject)
   const session = teacherSessions.value.find(s => s.sessionId === sessionId)
   if (!session) return
   
@@ -311,8 +391,8 @@ const handleTeacherSessionClick = async (sessionId: string, subject: string) => 
   const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
   localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
   
-  teacherStore.setSession(session)
-  await teacherStore.loadChatHistory(session.sessionId)
+  teacherChatStore.setSession(session)
+  await teacherChatStore.loadChatHistory(session.sessionId)
   
   activeCategory.value = 'teacher'
   // selectedSessionId 会自动更新（通过 computed）
@@ -322,15 +402,15 @@ const handleTeacherSessionClick = async (sessionId: string, subject: string) => 
 const handleTeacherSessionDelete = async (sessionId: string) => {
   try {
     const userId = getCurrentUserIdOrDefault()
-    const sessionPrefix = `${userId}_teacher_chat_`
+    const sessionPrefix = `${userId}_teacher-general-`
     localStorage.removeItem(`${sessionPrefix}${sessionId}_session`)
-    await teacherStore.clearChatHistory(sessionId)
+    await teacherChatStore.clearChatHistory(sessionId)
     loadTeacherSessions()
     
     if (teacherSessionId.value === sessionId) {
       teacherSessionId.value = ''
-      teacherStore.clearSession()
-      activeCategory.value = 'ai' // 删除后切换到AI分类
+      teacherChatStore.clearSession()
+      activeCategory.value = 'ai-general' // 删除后切换到AI分类
     }
     
     showMessage('会话已删除', 'success')
@@ -348,7 +428,7 @@ const handleTeacherNewChat = async (subject: 'biology' | 'math') => {
 // 创建教师会话（供外部调用）
 const createTeacherSession = async (subject: 'biology' | 'math') => {
   try {
-    teacherStore.clearSession()
+    teacherChatStore.clearSession()
     
     const userInfo = userStore.userInfo || {
       id: '',
@@ -366,25 +446,31 @@ const createTeacherSession = async (subject: 'biology' | 'math') => {
     const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
     localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
     
-    const newSessionId = `teacher-${Date.now()}`
+    // 使用 teacherChatStore.createTeacherSession 统一创建会话
+    // 生成 aiSessionId（格式与 ChatView 保持一致）
+    const aiSessionId = `teacher_general_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const aiSessionName = subject === 'biology' ? '生物' : '数学'
     
-    const newSession = {
-      sessionId: newSessionId,
-      sessionName: subject === 'biology' ? '生物答疑' : '数学答疑',
-      subject: subject,
-      createTime: Date.now()
+    // 调用 teacherChatStore.createTeacherSession，它会检查是否已存在相同会话并复用
+    const createdSession = teacherChatStore.createTeacherSession(
+      aiSessionId,
+      aiSessionName,
+      subject
+    )
+    
+    if (createdSession) {
+      teacherSessionId.value = createdSession.sessionId
+      
+      await teacherChatStore.initMessageReceiver()
+      loadTeacherSessions()
+      
+      emit('session-created', createdSession.sessionId, 'teacher')
+      
+      // 切换到教师分类
+      activeCategory.value = 'teacher'
+    } else {
+      showMessage('创建教师会话失败，请重试', 'error')
     }
-    localStorage.setItem(`teacher_chat_${newSessionId}_session`, JSON.stringify(newSession))
-    
-    teacherSessionId.value = newSessionId
-    
-    await teacherStore.initMessageReceiver()
-    loadTeacherSessions()
-    
-    emit('session-created', newSessionId, 'teacher')
-    
-    // 切换到教师分类
-    activeCategory.value = 'teacher'
   } catch (error) {
     console.error('[UnifiedChatDialog] ❌ 准备教师对话失败:', error)
     showMessage('准备教师对话失败，请重试', 'error')
@@ -396,7 +482,7 @@ const setTeacherSession = (sessionId: string) => {
   teacherSessionId.value = sessionId
   const session = teacherSessions.value.find(s => s.sessionId === sessionId)
   if (session) {
-    teacherStore.setSession(session)
+    teacherChatStore.setSession(session)
     const userId = getCurrentUserIdOrDefault()
     const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
     localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
@@ -404,8 +490,55 @@ const setTeacherSession = (sessionId: string) => {
   activeCategory.value = 'teacher'
 }
 
+// 处理从ChatView转发后跳转到老师对话的事件（对话框已打开，只需设置会话）
+const handleOpenTeacherDialog = async ({ sessionId }: { sessionId: string; message?: ChatBubble }) => {
+  try {
+    // 确保会话列表已加载（如果还未加载）
+    if (teacherSessions.value.length === 0) {
+      loadTeacherSessions()
+    }
+    
+    // 设置指定的会话（会自动切换到教师分类）
+    setTeacherSession(sessionId)
+    
+    // SessionTree 会自动通过 selectedSessionId computed 更新选中状态
+  } catch (error) {
+    console.error('设置老师会话失败:', error)
+    showMessage('设置老师会话失败', 'error')
+  }
+}
+
+// 处理批量转发后跳转到老师对话的事件（对话框已打开，只需设置会话）
+const handleSwitchToTeacher = async (forwardData?: { 
+  messages?: ChatBubble[]; 
+  currentQuestion?: unknown; 
+  additionalMessage?: string;
+  forwardMode?: string;
+  successCount?: number;
+  sessionId?: string;
+}) => {
+  if (!forwardData?.sessionId) {
+    return
+  }
+  
+  try {
+    // 确保会话列表已加载（如果还未加载）
+    if (teacherSessions.value.length === 0) {
+      loadTeacherSessions()
+    }
+    
+    // 设置指定的会话（会自动切换到教师分类）
+    setTeacherSession(forwardData.sessionId)
+    
+    // SessionTree 会自动通过 selectedSessionId computed 更新选中状态
+  } catch (error) {
+    console.error('设置老师会话失败:', error)
+    showMessage('设置老师会话失败', 'error')
+  }
+}
+
 // 切换到指定分类
-const switchCategory = (category: 'ai' | 'teacher') => {
+const switchCategory = (category: 'ai-general' | 'teacher') => {
   activeCategory.value = category
 }
 
@@ -424,9 +557,6 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 watch(localVisible, async (isOpen) => {
   if (isOpen) {
-    // 根据 initialCategory 切换分类
-    activeCategory.value = props.initialCategory
-    
     // 加载AI会话列表
     await aiGeneralStore.loadSessions()
     
@@ -436,29 +566,29 @@ watch(localVisible, async (isOpen) => {
     // 等待下一个 tick，确保数据已更新
     await nextTick()
     
-    // 根据 initialCategory 自动选中第一个对应类型的对话
-    if (props.initialCategory === 'ai') {
-      // 如果是AI分类，选中第一个AI对话
-      if (aiGeneralStore.sessions.length > 0) {
-        const firstSession = aiGeneralStore.sessions[0]
-        await aiGeneralStore.switchSession(firstSession.sessionId)
-      } else if (!aiGeneralStore.currentSession) {
-        // 如果没有AI会话，保持当前状态（可能是新会话）
-        activeCategory.value = 'ai'
+    // 根据当前选中的会话自动判断分类
+    // 优先检查是否有当前AI会话
+    if (aiGeneralStore.currentSession?.sessionId) {
+      activeCategory.value = 'ai-general'
+      await aiGeneralStore.switchSession(aiGeneralStore.currentSession.sessionId)
+    } else if (aiGeneralStore.sessions.length > 0) {
+      // 如果有AI会话，选中第一个
+      const firstSession = aiGeneralStore.sessions[0]
+      await aiGeneralStore.switchSession(firstSession.sessionId)
+      activeCategory.value = 'ai-general'
+    } else if (teacherSessionId.value && teacherSessions.value.length > 0) {
+      // 如果有教师会话ID，选中对应的教师会话
+      const session = teacherSessions.value.find(s => s.sessionId === teacherSessionId.value)
+      if (session) {
+        await handleTeacherSessionClick(session.sessionId, session.subject)
       }
-    } else if (props.initialCategory === 'teacher') {
-      // 如果是老师分类，选中第一个老师对话
-      if (teacherSessions.value.length > 0) {
-        const firstTeacherSession = teacherSessions.value[0]
-        await handleTeacherSessionClick(firstTeacherSession.sessionId, firstTeacherSession.subject)
-      } else {
-        // 如果没有老师会话，切换到AI分类（作为fallback）
-        activeCategory.value = 'ai'
-        if (aiGeneralStore.sessions.length > 0) {
-          const firstSession = aiGeneralStore.sessions[0]
-          await aiGeneralStore.switchSession(firstSession.sessionId)
-        }
-      }
+    } else if (teacherSessions.value.length > 0) {
+      // 如果有教师会话，选中第一个
+      const firstTeacherSession = teacherSessions.value[0]
+      await handleTeacherSessionClick(firstTeacherSession.sessionId, firstTeacherSession.subject)
+    } else {
+      // 默认使用AI分类
+      activeCategory.value = 'ai-general'
     }
     
     // 每5秒自动刷新一次（用于显示自动生成的标题）
@@ -490,7 +620,7 @@ onMounted(() => {
 // ==================== 清理 ====================
 onUnmounted(async () => {
   if (teacherSessionId.value) {
-    await teacherStore.cleanupMessageReceiver()
+    await teacherChatStore.cleanupMessageReceiver()
   }
   
   if (refreshTimer) {

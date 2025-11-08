@@ -102,6 +102,7 @@
             <div v-if="activeTab === 'ai-chat'" class="tab-content">
               <ChatView 
                 type="ai-textbook"
+                :resource-id="resourceId"
                 @response="handleChatResponse"
                 @focus="handleChatFocus"
                 @scroll-to-bottom="handleScrollToBottom"
@@ -169,7 +170,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { resourceManager } from '@/services/resource-storage'
 import type { UserTextbookInfo, LocalFileInfo, QuestionRecord } from '@/types'
@@ -211,6 +212,9 @@ const questionRecords = ref<QuestionRecord[]>([])
 const handleQuestionRecordClick = () => {
   activeTab.value = 'ai-chat'
 }
+
+// 从路由参数获取 resourceId
+const resourceId = computed(() => route.query.resourceId as string | undefined)
 
 // 处理工具切换
 const handleToolChange = (tool: string) => {

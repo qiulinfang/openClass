@@ -1,7 +1,7 @@
 /**
- * 教师答疑场景专用Store
+ * 教师通用对话场景专用Store
  * 
- * 职责：管理教师答疑场景的所有聊天相关状态和逻辑
+ * 职责：管理教师通用对话场景的所有聊天相关状态和逻辑
  * - 消息管理
  * - 发送消息到教师
  * - 教师会话管理
@@ -15,23 +15,20 @@ import { apiService } from '../services/api-service'
 import { asyncStorage } from '../services/chat-storage'
 import { showMessage } from '../utils'
 import { useUserStore } from './userStore'
-import { useQuestionStore } from './questionStore'
 import { getCurrentUserIdOrDefault } from '../utils/user/userId'
 import { useUnreadMessageStore } from './unreadMessageStore'
 import { checkAccountStatus, checkNotificationPermission, sendSystemNotification } from '../utils/account-status'
 import {
-  updateMessageSuccess,
   updateMessageError,
   updateMessageRetrying,
   checkRetryCondition,
-  isResponseSuccess,
   buildRetryFailureMessage,
   findMessageIndex,
   validateMessageExists,
   type ChatImageData
 } from './utils/chatStoreUtils'
 import { buildAiGeneralMessage } from './utils/aiMessageBuilder'
-import type { ChatBubble, AiChatMessageRequest, UserInfo } from '../types'
+import type { ChatBubble, UserInfo } from '../types'
 
 /**
  * 教师会话信息
@@ -43,13 +40,7 @@ export interface TeacherSession {
   createTime: number
 }
 
-/**
- * 教师消息使用AI Chat Message Request格式
- * 通过chatRole='teacher'和dstUrl来区分教师场景
- */
-type TeacherMessageRequest = AiChatMessageRequest
-
-export const useTeacherChatStore = defineStore('teacherChat', () => {
+export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () => {
   // ==================== 状态管理 ====================
   
   const messages = ref<ChatBubble[]>([])
@@ -518,10 +509,11 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
   
   /**
    * 重试失败的教师消息
-   * 第1步：查找并验证消息
-   * 第2步：检查重试条件
-   * 第3步：更新消息为重试中状态
-   * 第4步：重新发送
+   * 第1步：验证会话和AndroidBridge
+   * 第2步：查找并验证消息
+   * 第3步：检查重试条件
+   * 第4步：更新消息为重试中状态
+   * 第5步：重新发送（使用RabbitMQ，与sendMessage保持一致）
    */
   const retryTeacherMessage = async (
     messageId: string,
@@ -530,6 +522,13 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     // 第1步：验证会话
     if (!currentSession.value) {
       showMessage('会话已失效', 'error')
+      return
+    }
+    
+    // 检查AndroidBridge
+    if (!window.AndroidBridge) {
+      console.error('[TeacherStore] ❌ 重试失败：AndroidBridge未初始化')
+      showMessage('系统未初始化，请重试', 'error')
       return
     }
     
@@ -556,40 +555,71 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     const retryingMessage = updateMessageRetrying(message, retryCount)
     updateMessage(messageId, retryingMessage)
     
-    // 第5步：重新发送
+    // 第5步：重新发送（使用RabbitMQ，与sendMessage保持一致）
     try {
-      const userStore = useUserStore()
-      const questionStore = useQuestionStore()
-      // 访问computed属性需要使用.value
-      const currentQuestion = questionStore.currentQuestion
+      const sessionId = currentSession.value.sessionId
+      const subject = currentSession.value.subject || 'math'
       
-      if (!currentQuestion) {
-        throw new Error('未选择题目')
+      // 优先使用传入的imageData，如果没有则使用消息中保存的imageData
+      const messageImageData = imageData || message.imageData
+      const content = message.originalMessage || message.content
+      
+      if (!content) {
+        throw new Error('消息内容为空')
       }
       
-      const teacherMessage: TeacherMessageRequest = {
-        sessionId: currentSession.value.sessionId,
-        newValue: '1',
-        coversation: message.originalMessage!,
-        question: currentQuestion.question || currentQuestion.title,
-        answer: currentQuestion.answer || '',
-        name: userStore.userInfo?.userName || 'User',
-        reason: 'start',
-        bmNo: currentQuestion.bmNo || currentQuestion.id,
-        isWebSearch: '0',
-        chatRole: 'teacher',
-        dstUrl: '/permission/teacherChat'
-      }
+      let result: string
       
-      const response = await apiService.sendChatMessage(teacherMessage)
-      
-      if (isResponseSuccess(response)) {
-        // 重试成功
-        const successMessage = updateMessageSuccess(
-          message,
-          response.reply || '',
-          response.messageId
+      // 根据消息类型选择发送方式（与sendMessage逻辑一致）
+      if (messageImageData?.base64DataUrl || messageImageData?.filePath) {
+        // 图片消息：优先使用filePath（更高效），否则回退到base64DataUrl
+        if (messageImageData.filePath) {
+          result = await window.AndroidBridge.sendPictureToTeacher(
+            messageImageData.filePath,
+            sessionId,
+            subject
+          )
+        } else if (messageImageData.base64DataUrl) {
+          console.warn('[TeacherStore] ⚠️ 重试时缺少filePath，使用base64DataUrl（不推荐）')
+          result = await window.AndroidBridge.sendPictureToTeacher(
+            messageImageData.base64DataUrl,
+            sessionId,
+            subject
+          )
+        } else {
+          throw new Error('图片数据不完整')
+        }
+      } else {
+        // 文本消息
+        result = await window.AndroidBridge.sendTextMessageToTeacher(
+          content,
+          sessionId,
+          subject
         )
+      }
+      
+      // 解析响应
+      let data: { success: boolean; message?: string; data?: unknown }
+      try {
+        data = JSON.parse(result)
+      } catch (parseError) {
+        console.error('[TeacherStore] ❌ 重试时JSON解析失败:', parseError)
+        console.error('[TeacherStore] ❌ 原始结果:', result)
+        throw new Error('响应格式错误')
+      }
+      
+      // 处理发送结果
+      if (data.success) {
+        // 重试成功：消息已发送到RabbitMQ，等待异步回复
+        // 注意：教师聊天的回复是通过RabbitMQ异步接收的，不需要立即更新消息内容
+        // 只需要将消息状态从"重试中"恢复为正常状态，等待异步回复
+        const successMessage = {
+          ...message,
+          isStreaming: true, // 标记为流式更新，等待回复
+          isError: false,
+          retryCount,
+          canRetry: false // 重试成功后，暂时禁用重试，等待回复
+        }
         updateMessage(messageId, successMessage)
         
         chatResponseTimes.value++
@@ -601,18 +631,20 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
           message,
           errorContent,
           message.originalMessage,
-          imageData
+          messageImageData
         )
         updateMessage(messageId, errorMessage)
       }
     } catch (error) {
-      console.error('重试失败:', error)
+      console.error('[TeacherStore] ❌ 重试失败:', error)
       const errorContent = buildRetryFailureMessage(retryCount, 3)
+      // 优先使用传入的imageData，如果没有则使用消息中保存的imageData
+      const messageImageData = imageData || message.imageData
       const errorMessage = updateMessageError(
         message,
         errorContent,
         message.originalMessage,
-        imageData
+        messageImageData
       )
       updateMessage(messageId, errorMessage)
     }
@@ -661,7 +693,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
       
       try {
         // 第2步：构建存储键
-        const storageKey = `teacher_chat_${currentSession.value.sessionId}`
+        const storageKey = `teacher-general-${currentSession.value.sessionId}`
         console.log('[TeacherStore] 🔑 [存储流程] 构建存储键', { storageKey })
         
         // 第3步：过滤掉错误消息、流式消息、系统消息和撤回消息，只保存成功发送的消息
@@ -755,7 +787,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
           
           // 尝试清理旧数据（保留最近10条消息）
           try {
-            const storageKey = `teacher_chat_${currentSession.value.sessionId}`
+            const storageKey = `teacher-general-${currentSession.value.sessionId}`
             const recentMessages = messages.value.slice(-10)
             await asyncStorage.saveChatHistory(storageKey, {
               questionId: storageKey,
@@ -792,7 +824,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
    */
   const loadChatHistory = async (sessionId: string): Promise<void> => {
     try {
-      const storageKey = `teacher_chat_${sessionId}`
+      const storageKey = `teacher-general-${sessionId}`
       const history = await asyncStorage.loadChatHistory(storageKey)
       
       if (history && history.messages) {
@@ -817,7 +849,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
   const clearChatHistory = async (sessionId: string): Promise<void> => {
     try {
       const userId = getCurrentUserIdOrDefault()
-      const storageKey = `teacher_chat_${sessionId}`
+      const storageKey = `teacher-general-${sessionId}`
       // 使用asyncStorage删除聊天记录（会带上用户ID前缀）
       await asyncStorage.removeChatHistory(storageKey)
       // 删除会话信息（加上用户ID前缀）
@@ -848,7 +880,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     // 优先匹配：sessionName和subject完全相同
     // 如果是基于题目的会话，也可以基于题目ID匹配
     const userId = getCurrentUserIdOrDefault()
-    const sessionPrefix = `${userId}_teacher_chat_`
+    const sessionPrefix = `${userId}_teacher-general-`
     let existingSession: TeacherSession | null = null
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
@@ -904,7 +936,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
     
     // 第4步：保存到localStorage（如果已存在，确保使用正确的键名，加上用户ID前缀）
     // 复用第469行已声明的userId
-    const storageKey = `${userId}_teacher_chat_${session.sessionId}_session`
+    const storageKey = `${userId}_teacher-general-${session.sessionId}_session`
     localStorage.setItem(storageKey, JSON.stringify(session))
     
     // 第5步：设置为当前会话
@@ -935,7 +967,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
    */
   const checkSessionExists = (sessionId: string): boolean => {
     const userId = getCurrentUserIdOrDefault()
-    const storageKey = `${userId}_teacher_chat_${sessionId}_session`
+    const storageKey = `${userId}_teacher-general-${sessionId}_session`
     return localStorage.getItem(storageKey) !== null
   }
   
@@ -952,19 +984,19 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
       // 第1步：尝试从 API 获取会话信息（如果 API 支持）
       // 注意：这里假设 API 可能返回会话信息，如果 API 不支持，则使用默认值
       let subject: 'biology' | 'math' = 'math' // 默认使用数学
-      let sessionName = '老师答疑'
+      let sessionName = '数学'
       
       try {
-        // 尝试从 localStorage 获取最后使用的科目
-        const userId = getCurrentUserIdOrDefault()
-        const storedSubject = localStorage.getItem(`${userId}_currentTeacherSubject`)
-        if (storedSubject === 'BIOLOGY') {
-          subject = 'biology'
-          sessionName = '生物答疑'
-        } else if (storedSubject === 'MATH') {
-          subject = 'math'
-          sessionName = '数学答疑'
-        }
+      // 尝试从 localStorage 获取最后使用的科目
+      const userId = getCurrentUserIdOrDefault()
+      const storedSubject = localStorage.getItem(`${userId}_currentTeacherSubject`)
+      if (storedSubject === 'BIOLOGY') {
+        subject = 'biology'
+        sessionName = '生物'
+      } else if (storedSubject === 'MATH') {
+        subject = 'math'
+        sessionName = '数学'
+      }
       } catch (error) {
         console.warn('[TeacherStore] ⚠️ 获取科目信息失败，使用默认值:', error)
       }
@@ -979,7 +1011,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
       
       // 第3步：保存到 localStorage
       const userId = getCurrentUserIdOrDefault()
-      const storageKey = `${userId}_teacher_chat_${sessionId}_session`
+      const storageKey = `${userId}_teacher-general-${sessionId}_session`
       localStorage.setItem(storageKey, JSON.stringify(newSession))
       
       // 第4步：设置为当前会话
@@ -1011,7 +1043,7 @@ export const useTeacherChatStore = defineStore('teacherChat', () => {
    */
   const getSessionMessageCount = async (sessionId: string): Promise<number> => {
     try {
-      const storageKey = `teacher_chat_${sessionId}`
+      const storageKey = `teacher-general-${sessionId}`
       const history = await asyncStorage.loadChatHistory(storageKey)
       return history?.messages?.length || 0
     } catch {
@@ -1091,7 +1123,7 @@ ${conversationSummary}
         
         // 第7步：更新localStorage中的会话标题（加上用户ID前缀）
         const userId = getCurrentUserIdOrDefault()
-        const storageKey = `${userId}_teacher_chat_${sessionId}_session`
+        const storageKey = `${userId}_teacher-general-${sessionId}_session`
         const sessionData = localStorage.getItem(storageKey)
         if (sessionData) {
           const session = JSON.parse(sessionData)
@@ -1464,7 +1496,7 @@ ${conversationSummary}
       if (!isCurrentSession) {
         // 尝试从 localStorage 恢复会话
         const userId = getCurrentUserIdOrDefault()
-        const sessionKey = `${userId}_teacher_chat_${data.sessionId}_session`
+        const sessionKey = `${userId}_teacher-general-${data.sessionId}_session`
         const sessionData = localStorage.getItem(sessionKey)
         
         if (sessionData) {
@@ -1998,6 +2030,60 @@ ${conversationSummary}
     pendingImage.value = null
   }
   
+  // ==================== 老师选项管理 ====================
+  
+  /**
+   * 所有可用的老师列表
+   */
+  const ALL_TEACHERS: Array<{ subject: 'biology' | 'math', name: string }> = [
+    { subject: 'biology', name: '生物老师' },
+    { subject: 'math', name: '数学老师' }
+  ]
+  
+  /**
+   * 获取所有老师列表
+   */
+  const getAllTeachers = (): Array<{ subject: 'biology' | 'math', name: string }> => {
+    return ALL_TEACHERS
+  }
+  
+  /**
+   * 获取没有对话记录的老师列表
+   * 第1步：获取所有老师列表
+   * 第2步：从localStorage中查找已有对话记录的老师
+   * 第3步：过滤掉已有对话记录的老师
+   */
+  const getAvailableTeachers = (): Array<{ subject: 'biology' | 'math', name: string }> => {
+    // 第1步：获取所有老师列表
+    const allTeachers = getAllTeachers()
+    
+    // 第2步：从localStorage中查找已有对话记录的老师
+    const userId = getCurrentUserIdOrDefault()
+    const sessionPrefix = `${userId}_teacher-general-`
+    const existingSubjects = new Set<string>()
+    
+    // 遍历localStorage查找已有会话
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith(sessionPrefix) && key.endsWith('_session')) {
+        try {
+          const sessionData = localStorage.getItem(key)
+          if (sessionData) {
+            const session = JSON.parse(sessionData) as TeacherSession
+            if (session.subject === 'biology' || session.subject === 'math') {
+              existingSubjects.add(session.subject)
+            }
+          }
+        } catch {
+          // 忽略解析错误
+        }
+      }
+    }
+    
+    // 第3步：返回没有对话记录的老师
+    return allTeachers.filter(teacher => !existingSubjects.has(teacher.subject))
+  }
+  
   return {
     // 状态
     messages,
@@ -2038,7 +2124,11 @@ ${conversationSummary}
     // 其他
     toggleWebSearch,
     setPendingImage,
-    clearPendingImage
+    clearPendingImage,
+    
+    // 老师选项管理
+    getAllTeachers,
+    getAvailableTeachers
   }
 })
 

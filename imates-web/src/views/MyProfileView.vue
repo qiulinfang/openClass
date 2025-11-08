@@ -14,7 +14,7 @@
         <div class="card-text">{{ isInClass ? '离开课堂' : '加入课堂' }}</div>
       </div>
 
-      <!-- 教师答疑卡片 -->
+      <!-- 教师通用对话卡片 -->
       <div class="feature-card teacher-chat-card" @click="chatWithTeacher">
         <div class="card-icon-wrapper">
           <img :src="teacherQaIcon" alt="老师答疑" class="card-icon" />
@@ -72,32 +72,20 @@
       </q-card>
     </q-dialog>
 
-    <!-- 统一聊天对话框 -->
-    <UnifiedChatDialog 
-      ref="unifiedChatDialogRef"
-      v-model="showUnifiedChatDialog"
-      initial-category="teacher"
-      :initial-teacher-subject="selectedSubject"
-      @session-created="handleSessionCreated"
-    />
-
-    <!-- 反馈与建议对话框 -->
-    <FeedbackDialog v-model="showFeedbackDialog" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
-import { useTeacherChatStore } from '@/stores/teacherChatStore'
+import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
 import { useImagePicker } from '@/composables/useImagePicker'
 import { apiService } from '@/services/api-service'
 import { androidBridge } from '@/services/android-bridge'
 import { showMessage } from '@/utils'
-import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
-import FeedbackDialog from '@/components/FeedbackDialog.vue'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
+import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
 
 // 导入 SVG 图标
 import joinClassIcon from '/icons/join_class.svg'
@@ -108,19 +96,17 @@ import feedbackIcon from '/icons/feedback.svg'
 
 const router = useRouter()
 const userStore = useUserStore()
-const teacherStore = useTeacherChatStore()
+const teacherStore = useTeacherGeneralChatStore()
 
-// 不再需要 props，点击卡片不会关闭工具区域
-
-// DOM 引用
-const unifiedChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
+// 注入父组件提供的方法（从 MainView 提供）
+const closeToolbox = inject<() => void>('closeToolbox')
+const openTeacherChatDialog = inject<(subject?: 'biology' | 'math') => void>('openTeacherChatDialog')
+const openFeedbackDialog = inject<() => void>('openFeedbackDialog')
+const getTeacherChatDialogRef = inject<() => InstanceType<typeof UnifiedChatDialog> | null>('getTeacherChatDialogRef')
 
 // 响应式数据
 const isInClass = ref(false)
 const showJoinClassDialog = ref(false)
-const showUnifiedChatDialog = ref(false)
-const showFeedbackDialog = ref(false)
-const selectedSubject = ref<'biology' | 'math'>('math')
 // 全局图片选择器
 const { pickImage } = useImagePicker()
 
@@ -255,9 +241,14 @@ const confirmJoinClass = () => {
 
 // 与老师对话（从卡片进入）
 const chatWithTeacher = async () => {
-  // 第1步：设置默认科目并打开对话框（组件内部会自动加载会话列表并选中第一个对话）
-  selectedSubject.value = 'math'
-  showUnifiedChatDialog.value = true
+  // 第1步：关闭工具箱
+  if (closeToolbox) {
+    closeToolbox()
+  }
+  // 第2步：打开教师聊天对话框（默认数学）
+  if (openTeacherChatDialog) {
+    openTeacherChatDialog('math')
+  }
 }
 
 // 初始化教师对话（供外部调用）
@@ -274,16 +265,18 @@ const selectSubject = async (subject: 'biology' | 'math') => {
       return
     }
 
-    // 第3步：设置科目并打开对话框
-    selectedSubject.value = subject
-    showUnifiedChatDialog.value = true
+    // 第3步：打开教师聊天对话框
+    if (openTeacherChatDialog) {
+      openTeacherChatDialog(subject)
+    }
     
     // 第4步：等待组件加载完成
     await nextTick()
     
     // 第5步：通过组件创建新会话
-    if (unifiedChatDialogRef.value) {
-      await unifiedChatDialogRef.value.createTeacherSession(subject)
+    const dialogRef = getTeacherChatDialogRef?.()
+    if (dialogRef) {
+      await dialogRef.createTeacherSession(subject)
     }
   } catch (error) {
     console.error('[MyProfileView] ❌ 准备教师对话失败:', error)
@@ -291,40 +284,33 @@ const selectSubject = async (subject: 'biology' | 'math') => {
   }
 }
 
-// 处理会话创建事件
-const handleSessionCreated = (sessionId: string, type: 'ai' | 'teacher') => {
-  // 如果是教师会话，设置会话到 Store
-  if (type === 'teacher') {
-    const sessionData = localStorage.getItem(`teacher_chat_${sessionId}_session`)
-    if (sessionData) {
-      const session = JSON.parse(sessionData)
-      teacherStore.setSession(session)
-    }
-  }
-}
-
 // 拍照给老师（总是新建一个教师会话后再发送）
 const takePictureToTeacher = async () => {
   try {
-    // 第1步：选择图片
+    // 第1步：关闭工具箱
+    if (closeToolbox) {
+      closeToolbox()
+    }
+    // 第2步：选择图片
     const imageInfo = await pickImage()
     if (!imageInfo) {
       return
     }
 
-    // 第2步：无条件新建一个教师会话（默认数学）
+    // 第3步：无条件新建一个教师会话（默认数学）
     await selectSubject('math')
     await nextTick()
 
-    // 第3步：获取新创建的会话ID（从组件或localStorage）
+    // 第4步：获取新创建的会话ID（从组件或localStorage）
     let currentSessionId = ''
-    if (unifiedChatDialogRef.value) {
+    const dialogRef = getTeacherChatDialogRef?.()
+    if (dialogRef) {
       // 从组件获取当前会话ID，或者从最新的会话获取
       // 查找最新的会话
       const sessions: Array<{ sessionId: string; createTime: number }> = []
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
-        if (key?.startsWith('teacher_chat_') && key.endsWith('_session')) {
+        if (key?.startsWith('teacher-general-') && key.endsWith('_session')) {
           try {
             const sessionData = localStorage.getItem(key)
             if (sessionData) {
@@ -342,16 +328,16 @@ const takePictureToTeacher = async () => {
         currentSessionId = sessions[0].sessionId
         
         // 设置会话到 Store
-        const sessionData = localStorage.getItem(`teacher_chat_${currentSessionId}_session`)
+        const sessionData = localStorage.getItem(`teacher-general-${currentSessionId}_session`)
         if (sessionData) {
           teacherStore.setSession(JSON.parse(sessionData))
           // 设置到组件
-          unifiedChatDialogRef.value.setTeacherSession(currentSessionId)
+          dialogRef.setTeacherSession(currentSessionId)
         }
       }
     }
 
-    // 第4步：验证图片数据完整性
+    // 第5步：验证图片数据完整性
     if (!imageInfo.filePath) {
       showMessage('图片路径不存在，请重试', 'error')
       return
@@ -361,7 +347,7 @@ const takePictureToTeacher = async () => {
       return
     }
     
-    // 第5步：设置待发送图片，由ChatView的watch自动处理发送
+    // 第6步：设置待发送图片，由ChatView的watch自动处理发送
     // 流程：设置pendingImage -> ChatView的watch监听到变化 -> 自动调用onImageSelected发送
     await nextTick() // 确保ChatView已经挂载完成
     teacherStore.setPendingImage(imageInfo)
@@ -373,12 +359,23 @@ const takePictureToTeacher = async () => {
 
 // 显示反馈对话框
 const showFeedback = () => {
-  showFeedbackDialog.value = true
+  // 第1步：关闭工具箱
+  if (closeToolbox) {
+    closeToolbox()
+  }
+  // 第2步：显示反馈对话框
+  if (openFeedbackDialog) {
+    openFeedbackDialog()
+  }
 }
 
 // 显示我的收藏
 const showFavorites = () => {
-  // 第1步：导航到我的收藏页面
+  // 第1步：关闭工具箱
+  if (closeToolbox) {
+    closeToolbox()
+  }
+  // 第2步：导航到我的收藏页面
   router.push({ name: 'myFavorites' })
 }
 </script>
@@ -508,7 +505,7 @@ $bg-gray: #f9fafb;
     }
   }
 
-  // 老师答疑 - 橙色
+  // 老师通用对话 - 橙色
   &.teacher-chat-card {
     .card-icon-wrapper {
       background: #F59E0B;

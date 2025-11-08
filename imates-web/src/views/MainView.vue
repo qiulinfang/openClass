@@ -93,24 +93,36 @@
     <!-- 草稿本对话框 -->
     <DraftDialog v-model="showDraftDialog" />
 
-    <!-- 统一聊天对话框 -->
+    <!-- AI统一聊天对话框 -->
     <UnifiedChatDialog 
       v-model="uiStore.showAIChatDialog" 
-      :initial-category="chatDialogCategory"
     />
+
+    <!-- 教师统一聊天对话框 -->
+    <UnifiedChatDialog 
+      ref="teacherChatDialogRef"
+      v-model="showTeacherChatDialog"
+      :initial-teacher-subject="teacherChatSubject"
+      @session-created="handleTeacherSessionCreated"
+    />
+
+    <!-- 反馈与建议对话框 -->
+    <FeedbackDialog v-model="showFeedbackDialog" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, nextTick } from 'vue'
+import { ref, watch, computed, onMounted, nextTick, provide } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUIStore } from '@/stores/uiStore'
 import { useResourceStore } from '@/stores/resourceStore'
 import DraftDialog from '@/components/DraftDialog.vue'
 import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
+import FeedbackDialog from '@/components/FeedbackDialog.vue'
 import MyProfileView from '@/views/MyProfileView.vue'
 import { resourceManager } from '@/services/resource-storage'
 import { apiService } from '@/services/api-service'
+import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
 import type { UserTextbookInfo } from '@/types'
 
 // 流程：导入图标资源
@@ -149,15 +161,17 @@ const route = useRoute()
 // Store
 const uiStore = useUIStore()
 const resourceStore = useResourceStore()
+const teacherStore = useTeacherGeneralChatStore()
 
 // 响应式数据
 const activeNavItem = ref(props.activeNavItem)
 
 // 对话框显示状态
 const showDraftDialog = ref(false)
-
-// 聊天对话框的初始分类
-const chatDialogCategory = ref<'ai' | 'teacher'>('ai')
+const showTeacherChatDialog = ref(false)
+const showFeedbackDialog = ref(false)
+const teacherChatSubject = ref<'biology' | 'math'>('math')
+const teacherChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
 
 // 工具箱显示状态
 const showToolbox = ref(false)
@@ -399,8 +413,6 @@ const handleDraftClick = () => {
 
 // 处理AI聊天点击
 const handleAIChatClick = async () => {
-  // 设置分类为AI并打开对话框
-  chatDialogCategory.value = 'ai'
   uiStore.openAIChatDialog()
 }
 
@@ -431,6 +443,45 @@ watch(() => route.name, (newRouteName) => {
 const toggleToolbox = () => {
   showToolbox.value = !showToolbox.value
 }
+
+// 关闭工具箱的方法（提供给子组件使用）
+const closeToolbox = () => {
+  showToolbox.value = false
+}
+
+// 处理教师会话创建事件
+const handleTeacherSessionCreated = (sessionId: string, type: 'ai-general' | 'teacher') => {
+  // 如果是教师会话，设置会话到 Store
+  if (type === 'teacher') {
+    const sessionData = localStorage.getItem(`teacher-general-${sessionId}_session`)
+    if (sessionData) {
+      const session = JSON.parse(sessionData)
+      teacherStore.setSession(session)
+    }
+  }
+}
+
+// 打开教师聊天对话框
+const openTeacherChatDialog = (subject: 'biology' | 'math' = 'math') => {
+  teacherChatSubject.value = subject
+  showTeacherChatDialog.value = true
+}
+
+// 打开反馈对话框
+const openFeedbackDialog = () => {
+  showFeedbackDialog.value = true
+}
+
+// 获取教师聊天对话框引用（供子组件调用方法）
+const getTeacherChatDialogRef = () => {
+  return teacherChatDialogRef.value
+}
+
+// 通过 provide 向子组件提供关闭工具箱的方法和控制对话框的方法
+provide('closeToolbox', closeToolbox)
+provide('openTeacherChatDialog', openTeacherChatDialog)
+provide('openFeedbackDialog', openFeedbackDialog)
+provide('getTeacherChatDialogRef', getTeacherChatDialogRef)
 
 // 工具箱动画进入完成后的处理
 const handleToolboxEnter = () => {

@@ -294,7 +294,7 @@ import KnowledgeGraphDebugPanel from '../components/debug/KnowledgeGraphDebugPan
 import type { KnowledgeGraphDebugParams } from '../components/debug/KnowledgeGraphDebugPanel.vue'
 import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
 import PhotoSearchDialog from '../components/PhotoSearchDialog.vue'
-import { useTextbookChapterState } from '../stores/textbookChapterState'
+import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
 import { useBetterScroll } from '../composables/useBetterScroll'
 import { getCurrentUserIdOrDefault } from '../utils/user/userId'
 import { useQuestionStore } from '../stores/questionStore'
@@ -328,7 +328,7 @@ const {
   getCurrentChapter,
   savePageState,
   restorePageState
-} = useTextbookChapterState()
+} = useKnowledgeGraphStore()
 
 // 获取路由实例
 const route = useRoute()

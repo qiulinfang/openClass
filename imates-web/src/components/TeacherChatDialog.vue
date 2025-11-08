@@ -65,7 +65,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
-import { useTeacherChatStore } from '@/stores/teacherChatStore'
+import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
 import { useUserStore } from '@/stores/userStore'
 import { showMessage } from '@/utils'
 import { getCurrentUserIdOrDefault } from '@/utils/user/userId'
@@ -87,7 +87,7 @@ const emit = defineEmits<{
 }>()
 
 // ==================== Store ====================
-const teacherStore = useTeacherChatStore()
+const teacherStore = useTeacherGeneralChatStore()
 const userStore = useUserStore()
 
 // ==================== 响应式数据 ====================
@@ -319,7 +319,7 @@ const createNewSession = async (subject: 'biology' | 'math') => {
     // 第5步：创建并保存会话信息（这样 loadSessions 才能加载到新会话）
     const newSession = {
       sessionId: newSessionId,
-      sessionName: subject === 'biology' ? '生物答疑' : '数学答疑',
+      sessionName: subject === 'biology' ? '生物' : '数学',
       subject: subject,
       createTime: Date.now()
     }

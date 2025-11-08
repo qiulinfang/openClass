@@ -9,8 +9,9 @@ import { AiGeneralStrategy } from './AiGeneralStrategy'
 import { AiExerciseStrategy } from './AiExerciseStrategy'
 import { AiTextbookStrategy } from './AiTextbookStrategy'
 import { TeacherStrategy } from './TeacherStrategy'
+import { TeacherExerciseStrategy } from './TeacherExerciseStrategy'
 
-export type ChatType = 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
+export type ChatType = 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher' | 'teacher-exercise'
 
 export interface ChatStrategyFactoryOptions {
   subject?: string
@@ -38,6 +39,9 @@ export class ChatStrategyFactory {
           throw new Error('Teacher strategy requires session info')
         }
         return new TeacherStrategy(options.session)
+      
+      case 'teacher-exercise':
+        return new TeacherExerciseStrategy()
       
       default:
         // 默认返回AI通用策略

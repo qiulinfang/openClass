@@ -190,8 +190,8 @@ export const useUserStore = defineStore('user', () => {
     try {
       // 第1步：清理消息监听器
       try {
-        const { useTeacherChatStore } = await import('./teacherChatStore')
-        const teacherStore = useTeacherChatStore()
+        const { useTeacherGeneralChatStore } = await import('./teacherGeneralChatStore')
+        const teacherStore = useTeacherGeneralChatStore()
         await teacherStore.cleanupMessageReceiver()
       } catch (error) {
         console.warn('[USER] ⚠️ 清理消息监听器失败:', error)
@@ -199,8 +199,8 @@ export const useUserStore = defineStore('user', () => {
       
       // 第2步：清理会话数据（使用动态导入避免循环依赖）
       try {
-        const { useTeacherChatStore } = await import('./teacherChatStore')
-        const teacherStore = useTeacherChatStore()
+        const { useTeacherGeneralChatStore } = await import('./teacherGeneralChatStore')
+        const teacherStore = useTeacherGeneralChatStore()
         teacherStore.clearSession()
         teacherStore.clearMessages()
       } catch (error) {

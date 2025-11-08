@@ -55,7 +55,7 @@
           >
             <div class="card-content">
               <!-- 问题内容和时间戳 -->
-              <div class="card-text" v-html="renderContent(item.record.question)"></div>
+              <div class="card-text" v-html="renderContent(item.session.sessionName || '未命名会话')"></div>
               <div class="card-timestamp">{{ formatTimestamp(item.timestamp) }}</div>
             </div>
             
@@ -69,7 +69,7 @@
                 icon="delete"
                 color="negative"
                 class="delete-btn"
-                @click.stop="handleDeleteSession(item.record)"
+                @click.stop="handleDeleteSession(item.session)"
               >
                 <q-tooltip>删除会话</q-tooltip>
               </q-btn>
@@ -82,7 +82,7 @@
                 icon="visibility"
                 color="primary"
                 class="view-btn"
-                @click.stop="handleQaCardClick(item.record)"
+                @click.stop="handleQaCardClick(item.session)"
               >
                 <q-tooltip>查看会话</q-tooltip>
               </q-btn>
@@ -117,18 +117,10 @@
       </div>
     </div>
     
-    <!-- 问答详情对话框 -->
-    <QaDetailDialog
-      v-model="showQaDialog"
-      :question="currentQaRecord?.question || ''"
-      :answer="currentQaRecord?.answer || ''"
-    />
-    
     <!-- 统一聊天对话框 -->
     <UnifiedChatDialog 
       ref="unifiedChatDialogRef"
       v-model="showUnifiedChatDialog"
-      :initial-category="initialCategory"
       :initial-teacher-subject="initialTeacherSubject"
     />
   </div>
@@ -138,12 +130,10 @@
 import { ref, onMounted, watch, onActivated, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
-import { getFavoriteQas, getFavoriteExercises, removeQaFavorite } from '../utils/storage/favorites'
+import { getFavoriteSessions, getFavoriteExercises, removeSessionFavorite, type FavoriteSession, type FavoriteExercise } from '../utils/storage/favorites'
 import { showMessage } from '../utils'
-import { getCurrentUserIdOrDefault } from '../utils/user/userId'
-import type { QuestionRecord, AiGeneralSession } from '../types/chat'
+import type { AiGeneralSession } from '../types/chat'
 import type { ExerciseItem } from '../types/exercise'
-import QaDetailDialog from '../components/QaDetailDialog.vue'
 import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
 
 // 定义组件名称
@@ -158,27 +148,14 @@ const { renderMessageContent } = useMessageRenderer()
 
 // 响应式数据
 const activeTab = ref<'qa' | 'exercise'>('qa')
-const qaFavorites = ref<Array<{
-  id: string
-  record: QuestionRecord
-  timestamp: number
-}>>([])
-const exerciseFavorites = ref<Array<{
-  id: string
-  item: ExerciseItem
-  timestamp: number
-}>>([])
+const qaFavorites = ref<FavoriteSession[]>([])
+const exerciseFavorites = ref<FavoriteExercise[]>([])
 const isLoadingQa = ref(false)
 const isLoadingExercise = ref(false)
-
-// 问答对话框状态
-const showQaDialog = ref(false)
-const currentQaRecord = ref<QuestionRecord | null>(null)
 
 // 统一聊天对话框状态
 const showUnifiedChatDialog = ref(false)
 const unifiedChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
-const initialCategory = ref<'ai' | 'teacher'>('ai')
 const initialTeacherSubject = ref<'biology' | 'math'>('math')
 
 // 方法
@@ -186,19 +163,19 @@ const goBack = () => {
   router.back()
 }
 
-// 判断收藏的对话类型（AI聊天还是教师答疑）
-const getChatType = (record: QuestionRecord): { type: 'ai' | 'teacher', subject?: 'biology' | 'math' } => {
-  // 第1步：检查是否是教师答疑会话（通过 localStorage key 判断）
-  const teacherSessionKey = `teacher_chat_${record.id}_session`
+// 判断收藏的对话类型（AI聊天还是教师通用对话）
+const getChatType = (session: AiGeneralSession): { type: 'ai' | 'teacher', subject?: 'biology' | 'math' } => {
+  // 第1步：检查是否是教师通用对话会话（通过 localStorage key 判断）
+  const teacherSessionKey = `teacher-general-${session.sessionId}_session`
   const teacherSessionData = localStorage.getItem(teacherSessionKey)
   
   if (teacherSessionData) {
     try {
-      const session = JSON.parse(teacherSessionData)
-      if (session && session.subject) {
+      const sessionData = JSON.parse(teacherSessionData)
+      if (sessionData && sessionData.subject) {
         return {
           type: 'teacher',
-          subject: session.subject === 'biology' ? 'biology' : 'math'
+          subject: sessionData.subject === 'biology' ? 'biology' : 'math'
         }
       }
     } catch (error) {
@@ -212,71 +189,6 @@ const getChatType = (record: QuestionRecord): { type: 'ai' | 'teacher', subject?
 
 // 教师会话消息数量缓存（避免重复加载）
 const teacherMsgCountCache = ref<Record<string, number>>({})
-
-// 获取对话元信息
-const getChatMetaInfo = (record: QuestionRecord) => {
-  const chatType = getChatType(record)
-  
-  if (chatType.type === 'teacher') {
-    // 第1步：获取教师会话元信息
-    const teacherSessionKey = `teacher_chat_${record.id}_session`
-    const teacherSessionData = localStorage.getItem(teacherSessionKey)
-    
-    if (teacherSessionData) {
-      try {
-        const session = JSON.parse(teacherSessionData)
-        const msgCount = teacherMsgCountCache.value[record.id]
-        
-        return {
-          type: 'teacher',
-          subject: session.subject,
-          sessionName: session.sessionName || '',
-          createTime: session.createTime || record.timestamp,
-          msgCount: msgCount !== undefined ? msgCount : undefined
-        }
-      } catch (error) {
-        console.error('解析教师会话数据失败:', error)
-      }
-    }
-  } else {
-    // 第2步：获取AI会话元信息
-    try {
-      const userId = getCurrentUserIdOrDefault()
-      const sessionsData = localStorage.getItem(`${userId}_ai-general-sessions`)
-      if (sessionsData) {
-        const sessions = JSON.parse(sessionsData) as Array<{
-          sessionId: string
-          sessionName: string
-          createTime: number
-          updateTime: number
-          msgCount: number
-        }>
-        
-        const session = sessions.find(s => s.sessionId === record.id)
-        if (session) {
-          return {
-            type: 'ai',
-            subject: undefined,
-            sessionName: session.sessionName || '',
-            createTime: session.createTime || record.timestamp,
-            msgCount: session.msgCount || 0
-          }
-        }
-      }
-    } catch (error) {
-      console.error('解析AI会话数据失败:', error)
-    }
-  }
-  
-  // 第3步：返回默认元信息
-  return {
-    type: chatType.type,
-    subject: chatType.subject,
-    sessionName: '',
-    createTime: record.timestamp,
-    msgCount: undefined
-  }
-}
 
 // 异步加载教师会话的消息数量
 const loadTeacherMsgCount = async (sessionId: string) => {
@@ -305,10 +217,9 @@ const loadTeacherMsgCount = async (sessionId: string) => {
 
 
 // 处理问答卡片点击 - 打开 UnifiedChatDialog
-const handleQaCardClick = async (record: QuestionRecord) => {
+const handleQaCardClick = async (session: AiGeneralSession) => {
   // 判断对话类型
-  const chatType = getChatType(record)
-  initialCategory.value = chatType.type
+  const chatType = getChatType(session)
   
   if (chatType.type === 'teacher' && chatType.subject) {
     initialTeacherSubject.value = chatType.subject
@@ -328,7 +239,7 @@ const handleQaCardClick = async (record: QuestionRecord) => {
       unifiedChatDialogRef.value.loadTeacherSessions()
       await nextTick()
       // 设置对应的教师会话
-      unifiedChatDialogRef.value.setTeacherSession(record.id)
+      unifiedChatDialogRef.value.setTeacherSession(session.sessionId)
     } else {
       // AI 聊天：切换到对应的会话
       const { useAiGeneralChatStore } = await import('@/stores/aiGeneralChatStore')
@@ -336,41 +247,41 @@ const handleQaCardClick = async (record: QuestionRecord) => {
       await aiGeneralStore.loadSessions()
       
       // 切换到对应的会话
-      const session = aiGeneralStore.sessions.find((s: AiGeneralSession) => s.sessionId === record.id)
-      if (session) {
-        await aiGeneralStore.switchSession(record.id)
+      const foundSession = aiGeneralStore.sessions.find((s: AiGeneralSession) => s.sessionId === session.sessionId)
+      if (foundSession) {
+        await aiGeneralStore.switchSession(session.sessionId)
       } else {
-        console.warn('未找到对应的 AI 会话:', record.id)
+        console.warn('未找到对应的 AI 会话:', session.sessionId)
       }
     }
   }
 }
 
 // 处理删除会话
-const handleDeleteSession = async (record: QuestionRecord) => {
+const handleDeleteSession = async (session: AiGeneralSession) => {
   try {
     // 判断对话类型
-    const chatType = getChatType(record)
+    const chatType = getChatType(session)
     
     if (chatType.type === 'teacher') {
       // 删除教师会话
-      const { useTeacherChatStore } = await import('@/stores/teacherChatStore')
-      const teacherStore = useTeacherChatStore()
+      const { useTeacherGeneralChatStore } = await import('@/stores/teacherGeneralChatStore')
+      const teacherStore = useTeacherGeneralChatStore()
       
       // 删除localStorage中的会话数据
-      localStorage.removeItem(`teacher_chat_${record.id}_session`)
+      localStorage.removeItem(`teacher_chat_${session.sessionId}_session`)
       
       // 删除IndexedDB中的聊天历史
-      await teacherStore.clearChatHistory(record.id)
+      await teacherStore.clearChatHistory(session.sessionId)
     } else {
       // 删除AI会话
       const { useAiGeneralChatStore } = await import('@/stores/aiGeneralChatStore')
       const aiGeneralStore = useAiGeneralChatStore()
-      await aiGeneralStore.deleteSession(record.id)
+      await aiGeneralStore.deleteSession(session.sessionId)
     }
     
     // 从收藏列表中移除
-    removeQaFavorite(record.id)
+    removeSessionFavorite(session.sessionId)
     
     // 刷新列表
     await loadQaFavorites()
@@ -423,8 +334,8 @@ const formatTimestamp = (timestamp: number) => {
 const loadQaFavorites = async () => {
   isLoadingQa.value = true
   try {
-    // 第1步：从工具函数获取收藏的问答会话
-    const favorites = getFavoriteQas()
+    // 第1步：从工具函数获取收藏的会话
+    const favorites = getFavoriteSessions()
     
     // 第2步：按时间戳倒序排列
     favorites.sort((a, b) => b.timestamp - a.timestamp)
@@ -432,10 +343,10 @@ const loadQaFavorites = async () => {
     
     // 第3步：异步加载教师会话的消息数量（不阻塞渲染）
     favorites.forEach(favorite => {
-      const chatType = getChatType(favorite.record)
+      const chatType = getChatType(favorite.session)
       if (chatType.type === 'teacher') {
         // 异步加载，不等待结果
-        loadTeacherMsgCount(favorite.record.id).catch(() => {
+        loadTeacherMsgCount(favorite.session.sessionId).catch(() => {
           // 加载失败不影响显示
         })
       }

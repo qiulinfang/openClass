@@ -257,7 +257,6 @@
     <UnifiedChatDialog 
       ref="unifiedChatDialogRef"
       v-model="showUnifiedChatDialog"
-      initial-category="teacher"
       :initial-teacher-subject="selectedSubjectForTeacher"
       @session-created="handleSessionCreated"
     />
@@ -281,7 +280,7 @@ import MiniClass from './MiniClass.vue'
 import UnifiedChatDialog from './UnifiedChatDialog.vue'
 import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
 import { useImagePicker } from '../composables/useImagePicker'
-import { useTeacherChatStore } from '../stores/teacherChatStore'
+import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
 import { useUserStore } from '../stores/userStore'
 
 const props = defineProps<{
@@ -366,7 +365,7 @@ const miniClassQuestionTitle = computed(() => uiStore.miniClassQuestionTitle)
 
 // 拍作业相关依赖
 const { pickImage } = useImagePicker()
-const teacherStore = useTeacherChatStore()
+const teacherStore = useTeacherGeneralChatStore()
 const userStore = useUserStore()
 const unifiedChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
 const showUnifiedChatDialog = ref(false)
@@ -750,10 +749,10 @@ const selectSubjectForTeacher = async (subject: 'biology' | 'math') => {
 }
 
 // 处理会话创建事件
-const handleSessionCreated = async (sessionId: string, type: 'ai' | 'teacher') => {
+const handleSessionCreated = async (sessionId: string, type: 'ai-general' | 'teacher') => {
   // 如果是教师会话，设置会话到 Store
   if (type === 'teacher') {
-    const sessionData = localStorage.getItem(`teacher_chat_${sessionId}_session`)
+    const sessionData = localStorage.getItem(`teacher-general-${sessionId}_session`)
     if (sessionData) {
       const session = JSON.parse(sessionData)
       teacherStore.setSession(session)

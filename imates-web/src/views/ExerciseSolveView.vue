@@ -13,30 +13,30 @@
           <div class="function-nav">
             <div
               class="nav-item"
-              :class="{ active: currentFunction === 'chatAi', disabled: !hasSelectedQuestion }"
-              @click="hasSelectedQuestion && (currentFunction = 'chatAi')"
+              :class="{ active: currentFunction === 'chatAi', disabled: !canUseChatAi }"
+              @click="canUseChatAi && (currentFunction = 'chatAi')"
             >
               AI引导答题
             </div>
             <div
               class="nav-item"
-              :class="{ active: currentFunction === 'askTeacher', disabled: !canAskTeacher }"
-              @click="canAskTeacher && (currentFunction = 'askTeacher')"
+              :class="{ active: currentFunction === 'askTeacher', disabled: !canUseAskTeacher }"
+              @click="canUseAskTeacher && (currentFunction = 'askTeacher')"
             >
               老师答疑
             </div>
             <div
               class="nav-item active-item"
-              :class="{ active: currentFunction === 'viewAnswer', disabled: !canViewAnswer }"
-              @click="canViewAnswer && (currentFunction = 'viewAnswer')"
+              :class="{ active: currentFunction === 'viewAnswer', disabled: !canUseViewAnswer }"
+              @click="canUseViewAnswer && (currentFunction = 'viewAnswer')"
             >
               <span class="nav-icon">👤</span>
               查看答案
             </div>
             <div
               class="nav-item"
-              :class="{ active: currentFunction === 'similarQuestion', disabled: !canViewAnswer }"
-              @click="canViewAnswer && (currentFunction = 'similarQuestion')"
+              :class="{ active: currentFunction === 'similarQuestion', disabled: !canUseSimilarQuestion }"
+              @click="canUseSimilarQuestion && (currentFunction = 'similarQuestion')"
             >
               举一反三
             </div>
@@ -171,7 +171,7 @@
                 <!-- 问老师界面 -->
                 <ChatView 
                   v-if="currentFunction === 'askTeacher'" 
-                  type="teacher"
+                  type="teacher-exercise"
                   @scroll-to-question-and-select="handleScrollToQuestionAndSelect"
                   @scroll-to-bottom="scrollToBottom"
                 />
@@ -199,7 +199,6 @@
     <UnifiedChatDialog 
       ref="unifiedChatDialogRef"
       v-model="showUnifiedChatDialog"
-      :initial-category="'teacher'"
       :initial-teacher-subject="currentSubject"
     />
 
@@ -218,7 +217,7 @@ import { useRoute } from 'vue-router'
 import { useQuestionStore } from '../stores/questionStore'
 import { useUserStore } from '../stores/userStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
-import { useTeacherChatStore } from '../stores/teacherChatStore'
+import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
 import { storeToRefs } from 'pinia'
 import { showMessage } from '../utils'
 import QuestionList from '../components/QuestionList.vue'
@@ -239,7 +238,7 @@ const route = useRoute()
 const questionStore = useQuestionStore()
 const userStore = useUserStore()
 const aiExerciseStore = useAiExerciseChatStore()
-const teacherStore = useTeacherChatStore()
+const teacherStore = useTeacherGeneralChatStore()
 const uiStore = useUIStore()
 const { currentQuestion, questions } = storeToRefs(questionStore)
 
@@ -322,12 +321,13 @@ const hasSelectedQuestion = computed(() => {
   return currentQuestion.value !== null
 })
 
-// 从aiExerciseStore获取canViewAnswer状态
-const canViewAnswer = computed(() => aiExerciseStore.canViewAnswer)
-
-const canAskTeacher = computed(() => {
-  return hasSelectedQuestion.value && teacherStore.messages.length > 0
+// 按钮可用性computed属性
+const canUseChatAi = computed(() => hasSelectedQuestion.value)
+const canUseAskTeacher = computed(() => {
+  return hasSelectedQuestion.value && aiExerciseStore.canViewAnswer
 })
+const canUseViewAnswer = computed(() => aiExerciseStore.canViewAnswer)
+const canUseSimilarQuestion = computed(() => aiExerciseStore.canViewAnswer)
 
 const handleChatResponse = () => {
   // AI回复后的处理逻辑
@@ -459,9 +459,9 @@ const handleQuestionSelected = async () => {
       // 需要在这里手动加载
       await aiExerciseStore.loadChatHistory(questionId)
     }
-    // 注意：对于老师答疑场景，ChatView的executeQuestionSwitch会调用initializeMessages
+    // 注意：对于老师通用对话场景，ChatView的executeQuestionSwitch会调用initializeMessages
     // initializeMessages会调用initializeTeacherSession，它会根据当前题目创建或加载老师会话
-    // 所以老师答疑场景不需要在这里手动加载
+    // 所以老师通用对话场景不需要在这里手动加载
   }
 }
 
@@ -495,7 +495,7 @@ const handleOpenMiniClass = (question: ExerciseItem) => {
 // 处理拍作业：发送题目给老师
 const handleSendQuestionToTeacher = async (question: ExerciseItem) => {
   try {
-    // 第1步：切换到老师答疑模式（这会触发 ChatView 的初始化）
+    // 第1步：切换到老师通用对话模式（这会触发 ChatView 的初始化）
     currentFunction.value = 'askTeacher'
     
     // 第2步：等待 ChatView 组件挂载并初始化会话

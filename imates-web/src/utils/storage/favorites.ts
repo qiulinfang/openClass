@@ -3,7 +3,7 @@
  * 使用 localStorage 存储收藏的会话和题目
  */
 
-import type { QuestionRecord } from '@/types/chat'
+import type { QuestionRecord, AiGeneralSession } from '@/types/chat'
 import type { ExerciseItem } from '@/types/exercise'
 import { getCurrentUserIdOrDefault } from '../user/userId'
 
@@ -30,7 +30,14 @@ export interface FavoriteExercise {
   timestamp: number
 }
 
-export type Favorite = FavoriteQa | FavoriteExercise
+export interface FavoriteSession {
+  id: string
+  type: 'session'
+  session: AiGeneralSession
+  timestamp: number
+}
+
+export type Favorite = FavoriteQa | FavoriteExercise | FavoriteSession
 
 /**
  * 获取所有收藏的会话
@@ -54,6 +61,19 @@ export function getFavoriteExercises(): FavoriteExercise[] {
     return favorites.filter((f): f is FavoriteExercise => f.type === 'exercise')
   } catch (error) {
     console.error('获取收藏题目失败:', error)
+    return []
+  }
+}
+
+/**
+ * 获取所有收藏的会话
+ */
+export function getFavoriteSessions(): FavoriteSession[] {
+  try {
+    const favorites: Favorite[] = getAllFavorites()
+    return favorites.filter((f): f is FavoriteSession => f.type === 'session')
+  } catch (error) {
+    console.error('获取收藏会话失败:', error)
     return []
   }
 }
@@ -87,6 +107,14 @@ export function isQaFavorite(recordId: string): boolean {
 export function isExerciseFavorite(itemId: string): boolean {
   const favorites = getFavoriteExercises()
   return favorites.some(f => f.item.id === itemId)
+}
+
+/**
+ * 检查会话是否已收藏
+ */
+export function isSessionFavorite(sessionId: string): boolean {
+  const favorites = getFavoriteSessions()
+  return favorites.some(f => f.session.sessionId === sessionId)
 }
 
 /**
@@ -193,6 +221,65 @@ export function toggleQaFavorite(record: QuestionRecord): boolean {
     return removeQaFavorite(record.id)
   } else {
     return addQaFavorite(record)
+  }
+}
+
+/**
+ * 收藏会话
+ */
+export function addSessionFavorite(session: AiGeneralSession): boolean {
+  try {
+    if (isSessionFavorite(session.sessionId)) {
+      return false // 已收藏
+    }
+
+    const favorite: FavoriteSession = {
+      id: `session_${session.sessionId}_${Date.now()}`,
+      type: 'session',
+      session,
+      timestamp: Date.now()
+    }
+
+    const favorites = getAllFavorites()
+    favorites.push(favorite)
+    const key = getFavoritesStorageKey()
+    localStorage.setItem(key, JSON.stringify(favorites))
+    return true
+  } catch (error) {
+    console.error('收藏会话失败:', error)
+    return false
+  }
+}
+
+/**
+ * 取消收藏会话
+ */
+export function removeSessionFavorite(sessionId: string): boolean {
+  try {
+    const favorites = getAllFavorites()
+    const filtered = favorites.filter(f => {
+      if (f.type === 'session') {
+        return f.session.sessionId !== sessionId
+      }
+      return true
+    })
+    const key = getFavoritesStorageKey()
+    localStorage.setItem(key, JSON.stringify(filtered))
+    return favorites.length !== filtered.length
+  } catch (error) {
+    console.error('取消收藏会话失败:', error)
+    return false
+  }
+}
+
+/**
+ * 切换会话收藏状态
+ */
+export function toggleSessionFavorite(session: AiGeneralSession): boolean {
+  if (isSessionFavorite(session.sessionId)) {
+    return removeSessionFavorite(session.sessionId)
+  } else {
+    return addSessionFavorite(session)
   }
 }
 

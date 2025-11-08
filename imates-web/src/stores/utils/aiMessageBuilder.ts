@@ -152,3 +152,62 @@ export function buildAiTextbookMessage(
   }
 }
 
+/**
+ * 构建教师消息请求（教师题目场景）
+ * 基于 buildAiExerciseMessage 逻辑，但使用 chatRole='teacher'
+ */
+export function buildTeacherExerciseMessage(
+  content: string,
+  currentQuestion: ExerciseItem,
+  userInfo: UserInfo | null,
+  subject: 'MATH' | 'BIOLOGY',
+  enableWebSearch: boolean,
+  chatRole: string = 'teacher',
+  imageData?: ChatImageData
+): AiChatMessageRequest {
+  // 第1步：判断是否为图片消息
+  const isImageMessage = imageData && imageData.base64DataUrl
+  
+  // 第2步：根据科目确定 dstUrl
+  const dstUrl = subject === 'BIOLOGY' ? '/permission/chat' : '/permission/chatMath'
+  
+  if (isImageMessage) {
+    // 图片消息请求
+    const contextPrompt = currentQuestion.title || '题目截图'
+    const sessionId = `teacher-exercise-session-${Date.now()}`
+    
+    return {
+      sessionId,
+      newValue: '1',
+      coversation: content,  // 用户输入的问题文本
+      question: imageData!.base64DataUrl || '',  // 图片Base64
+      answer: contextPrompt,  // 上下文提示
+      name: userInfo?.userName || 'User',
+      reason: 'start',
+      bmNo: currentQuestion.bmNo || currentQuestion.id,
+      isWebSearch: enableWebSearch ? '1' : '0',
+      chatRole: chatRole,
+      dstUrl: dstUrl  // ⭐ 明确指定接口路径
+    }
+  }
+  
+  // 第3步：文本消息请求（包含完整题目信息）
+  const sessionId = currentQuestion.id || `teacher-exercise-session-${Date.now()}`
+  const question = currentQuestion.question || currentQuestion.title || '题目内容'
+  const bmNo = currentQuestion.bmNo || currentQuestion.id || sessionId
+  
+  return {
+    sessionId,
+    newValue: '1',
+    coversation: content,
+    question: question,
+    answer: currentQuestion.answer || '',
+    name: userInfo?.userName || 'User',
+    reason: 'start',
+    bmNo: bmNo,
+    isWebSearch: enableWebSearch ? '1' : '0',
+    chatRole: chatRole,
+    dstUrl: dstUrl  // ⭐ 明确指定接口路径
+  }
+}
+

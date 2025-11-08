@@ -191,6 +191,7 @@
             <div v-if="activeTab === 'ai-chat'" class="tab-content">
               <ChatView
                 type="ai-textbook"
+                :resource-id="resourceId"
                 @response="handleChatResponse"
                 @focus="handleChatFocus"
                 @scroll-to-bottom="handleScrollToBottom"
@@ -428,6 +429,7 @@ const handleQuestionRecordClick = () => {
 const pageLayouts = computed(() => store.pageLayouts)
 const isLoading = computed(() => store.isLoading)
 const error = computed(() => store.error)
+const resourceId = computed(() => route.query.resourceId as string | undefined)
 
 // 保存成功提示显示状态（自动隐藏）
 const showSaveSuccess = computed(() => {

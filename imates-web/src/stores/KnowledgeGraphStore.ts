@@ -1,4 +1,4 @@
-﻿import { ref, computed } from 'vue'
+import { ref, computed } from 'vue'
 import type { ChapterNode, TextbookOption } from '@/types'
 
 /**
@@ -24,10 +24,10 @@ export interface PageState {
 }
 
 /**
- * 教材章节状态管理类
+ * 知识图谱状态管理类
  * 统一管理各教材的各章节状态，包括展开状态和旋转角度
  */
-export class TextbookChapterStateManager {
+export class KnowledgeGraphStore {
   // 各教材的各章节的状态存储
   private states = ref<Map<string, Map<number, ChapterState>>>(new Map())
   
@@ -66,6 +66,30 @@ export class TextbookChapterStateManager {
    */
   getCurrentChapter(): number {
     return this.currentChapterIndex.value
+  }
+
+  /**
+   * 获取当前科目（从页面状态中获取）
+   * @returns 科目字符串，如 'math' 或 'biology'
+   */
+  getCurrentSubject(): string {
+    if (this.pageState.value?.selectedSubject) {
+      return this.pageState.value.selectedSubject
+    }
+    return 'math' // 默认返回数学
+  }
+
+  /**
+   * 获取当前科目（转换为小写格式）
+   * @returns 科目字符串，如 'math' 或 'biology'
+   */
+  getCurrentSubjectLowercase(): 'math' | 'biology' {
+    const subject = this.getCurrentSubject()
+    // 将科目转换为小写格式
+    if (subject.toLowerCase() === 'biology' || subject.toLowerCase() === '生物') {
+      return 'biology'
+    }
+    return 'math'
   }
 
   /**
@@ -277,42 +301,48 @@ export class TextbookChapterStateManager {
 }
 
 // 创建全局单例实例
-export const textbookChapterStateManager = new TextbookChapterStateManager()
+export const knowledgeGraphStore = new KnowledgeGraphStore()
 
 // 导出响应式状态（用于模板中使用）
-export const useTextbookChapterState = () => {
+export const useKnowledgeGraphStore = () => {
   return {
     // 状态管理方法
-    setCurrentTextbook: textbookChapterStateManager.setCurrentTextbook.bind(textbookChapterStateManager),
-    setCurrentChapter: textbookChapterStateManager.setCurrentChapter.bind(textbookChapterStateManager),
-    getCurrentTextbook: textbookChapterStateManager.getCurrentTextbook.bind(textbookChapterStateManager),
-    getCurrentChapter: textbookChapterStateManager.getCurrentChapter.bind(textbookChapterStateManager),
+    setCurrentTextbook: knowledgeGraphStore.setCurrentTextbook.bind(knowledgeGraphStore),
+    setCurrentChapter: knowledgeGraphStore.setCurrentChapter.bind(knowledgeGraphStore),
+    getCurrentTextbook: knowledgeGraphStore.getCurrentTextbook.bind(knowledgeGraphStore),
+    getCurrentChapter: knowledgeGraphStore.getCurrentChapter.bind(knowledgeGraphStore),
+    
+    // 科目状态方法
+    getCurrentSubject: knowledgeGraphStore.getCurrentSubject.bind(knowledgeGraphStore),
+    getCurrentSubjectLowercase: knowledgeGraphStore.getCurrentSubjectLowercase.bind(knowledgeGraphStore),
     
     // 章节状态方法
-    getChapterState: textbookChapterStateManager.getChapterState.bind(textbookChapterStateManager),
-    getChapterStateSafe: textbookChapterStateManager.getChapterStateSafe.bind(textbookChapterStateManager),
-    ensureChapterState: textbookChapterStateManager.ensureChapterState.bind(textbookChapterStateManager),
-    getChapterRotation: textbookChapterStateManager.getChapterRotation.bind(textbookChapterStateManager),
-    setChapterRotation: textbookChapterStateManager.setChapterRotation.bind(textbookChapterStateManager),
+    getChapterState: knowledgeGraphStore.getChapterState.bind(knowledgeGraphStore),
+    getChapterStateSafe: knowledgeGraphStore.getChapterStateSafe.bind(knowledgeGraphStore),
+    ensureChapterState: knowledgeGraphStore.ensureChapterState.bind(knowledgeGraphStore),
+    getChapterRotation: knowledgeGraphStore.getChapterRotation.bind(knowledgeGraphStore),
+    setChapterRotation: knowledgeGraphStore.setChapterRotation.bind(knowledgeGraphStore),
     
     // 展开状态方法
-    getCurrentChapterExpandedGraph: textbookChapterStateManager.getCurrentChapterExpandedGraph.bind(textbookChapterStateManager),
-    setCurrentChapterExpandedGraph: textbookChapterStateManager.setCurrentChapterExpandedGraph.bind(textbookChapterStateManager),
+    getCurrentChapterExpandedGraph: knowledgeGraphStore.getCurrentChapterExpandedGraph.bind(knowledgeGraphStore),
+    setCurrentChapterExpandedGraph: knowledgeGraphStore.setCurrentChapterExpandedGraph.bind(knowledgeGraphStore),
     
     // 页面状态方法
-    savePageState: textbookChapterStateManager.savePageState.bind(textbookChapterStateManager),
-    restorePageState: textbookChapterStateManager.restorePageState.bind(textbookChapterStateManager),
-    clearPageState: textbookChapterStateManager.clearPageState.bind(textbookChapterStateManager),
-    hasPageState: textbookChapterStateManager.hasPageState.bind(textbookChapterStateManager),
+    savePageState: knowledgeGraphStore.savePageState.bind(knowledgeGraphStore),
+    restorePageState: knowledgeGraphStore.restorePageState.bind(knowledgeGraphStore),
+    clearPageState: knowledgeGraphStore.clearPageState.bind(knowledgeGraphStore),
+    hasPageState: knowledgeGraphStore.hasPageState.bind(knowledgeGraphStore),
     
     // 工具方法
-    clearTextbookStates: textbookChapterStateManager.clearTextbookStates.bind(textbookChapterStateManager),
-    initializeChapterStates: textbookChapterStateManager.initializeChapterStates.bind(textbookChapterStateManager),
-    resetAllStates: textbookChapterStateManager.resetAllStates.bind(textbookChapterStateManager),
+    clearTextbookStates: knowledgeGraphStore.clearTextbookStates.bind(knowledgeGraphStore),
+    initializeChapterStates: knowledgeGraphStore.initializeChapterStates.bind(knowledgeGraphStore),
+    resetAllStates: knowledgeGraphStore.resetAllStates.bind(knowledgeGraphStore),
     
     // 响应式状态
-    currentTextbookId: computed(() => textbookChapterStateManager.getCurrentTextbook()),
-    currentChapterIndex: computed(() => textbookChapterStateManager.getCurrentChapter()),
-    allStates: computed(() => textbookChapterStateManager.getAllStates())
+    currentTextbookId: computed(() => knowledgeGraphStore.getCurrentTextbook()),
+    currentChapterIndex: computed(() => knowledgeGraphStore.getCurrentChapter()),
+    allStates: computed(() => knowledgeGraphStore.getAllStates())
   }
 }
+
+

@@ -92,6 +92,24 @@
                           </q-item-section>
                         </q-item>
 
+                        <q-item
+                          v-if="prop.node.category === 'ai'"
+                          clickable
+                          v-close-popup
+                          @click="handleFavorite(prop.node)"
+                        >
+                          <q-item-section avatar>
+                            <q-icon 
+                              :name="prop.node.favorited ? 'star' : 'star_border'" 
+                              size="xs"
+                              :color="prop.node.favorited ? 'warning' : undefined"
+                            />
+                          </q-item-section>
+                          <q-item-section>
+                            {{ prop.node.favorited ? '取消收藏' : '收藏' }}
+                          </q-item-section>
+                        </q-item>
+
                         <q-separator />
 
                         <q-item
@@ -156,9 +174,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import type { AiGeneralSession } from '@/types'
-import type { TeacherSession } from '@/stores/teacherChatStore'
+import type { TeacherSession } from '@/stores/teacherGeneralChatStore'
 import { useUnreadMessageStore } from '@/stores/unreadMessageStore'
 import { useBetterScroll } from '@/composables/useBetterScroll'
+import { isSessionFavorite, toggleSessionFavorite } from '@/utils/storage/favorites'
+import { useQuasar } from 'quasar'
 
 // 定义 props
 interface Props {
@@ -214,11 +234,27 @@ const scrollWrapper = ref<HTMLElement | null>(null)
 // 未读消息 store
 const unreadStore = useUnreadMessageStore()
 
+// Quasar 实例（用于显示消息提示）
+const $q = useQuasar()
+
 // 监听未读消息变化，确保组件响应式更新
 watch(
   () => unreadStore.unreadSessionsMap,
   () => {
     // 触发响应式更新
+  },
+  { deep: true },
+)
+
+// 收藏状态响应式更新（用于触发 treeNodes 重新计算）
+const favoriteUpdateTrigger = ref(0)
+
+// 监听收藏状态变化，更新树节点的收藏状态
+watch(
+  () => props.aiSessions,
+  () => {
+    // 当会话列表更新时，触发收藏状态重新计算
+    favoriteUpdateTrigger.value++
   },
   { deep: true },
 )
@@ -286,10 +322,14 @@ interface TreeNode {
   timestamp?: number
   subtitle?: string
   pinned?: boolean
+  favorited?: boolean
 }
 
 // 构建树形节点
 const treeNodes = computed<TreeNode[]>(() => {
+  // 使用 favoriteUpdateTrigger 来触发重新计算
+  void favoriteUpdateTrigger.value
+  
   const nodes: TreeNode[] = []
 
   // 1. AI聊天（学伴对话）分类
@@ -311,6 +351,7 @@ const treeNodes = computed<TreeNode[]>(() => {
         category: 'ai' as const,
         level: 2,
         pinned: session.pinned || false,
+        favorited: isSessionFavorite(session.sessionId),
       }),
     )
 
@@ -513,6 +554,42 @@ const confirmRename = () => {
 const handlePin = (node: TreeNode) => {
   if (node.level !== 2 || node.category !== 'ai' || !node.sessionId) return
   emit('ai-session-pin', node.sessionId)
+}
+
+// 处理收藏
+const handleFavorite = (node: TreeNode) => {
+  if (node.level !== 2 || node.category !== 'ai' || !node.sessionId) return
+  
+  // 查找对应的会话数据
+  const session = props.aiSessions.find(s => s.sessionId === node.sessionId)
+  if (!session) {
+    $q.notify({
+      type: 'negative',
+      message: '未找到会话数据',
+      position: 'top',
+    })
+    return
+  }
+  
+  // 切换收藏状态
+  const success = toggleSessionFavorite(session)
+  if (success) {
+    // 触发收藏状态重新计算
+    favoriteUpdateTrigger.value++
+    
+    $q.notify({
+      type: 'positive',
+      message: isSessionFavorite(session.sessionId) ? '已收藏' : '已取消收藏',
+      position: 'top',
+      timeout: 1500,
+    })
+  } else {
+    $q.notify({
+      type: 'negative',
+      message: '操作失败，请重试',
+      position: 'top',
+    })
+  }
 }
 
 // 处理删除

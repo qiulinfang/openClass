@@ -320,7 +320,7 @@ import { useLazyMessageRender } from '../../utils/render/lazy-message-renderer'
 import { useAiExerciseChatStore } from '../../stores/aiExerciseChatStore'
 import { useAiGeneralChatStore } from '../../stores/aiGeneralChatStore'
 import { useAiTextbookChatStore } from '../../stores/aiTextbookChatStore'
-import { useTeacherChatStore } from '../../stores/teacherChatStore'
+import { useTeacherGeneralChatStore } from '../../stores/teacherGeneralChatStore'
 import { useQuestionStore } from '../../stores/questionStore'
 import { useUserStore } from '../../stores/userStore'
 import VoiceMessage from './VoiceMessage.vue'
@@ -392,7 +392,7 @@ const $q = useQuasar()
 const aiExerciseStore = useAiExerciseChatStore()
 const aiGeneralStore = useAiGeneralChatStore()
 const aiTextbookStore = useAiTextbookChatStore()
-const teacherStore = useTeacherChatStore()
+const teacherStore = useTeacherGeneralChatStore()
 const questionStore = useQuestionStore()
 const userStore = useUserStore()
 

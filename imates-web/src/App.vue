@@ -1,6 +1,8 @@
 ﻿<script setup lang="ts">
 import { onMounted, onBeforeUnmount } from 'vue'
 import ImagePicker from './components/chat/ImagePicker.vue'
+import StorageDebugPanel from './components/debug/StorageDebugPanel.vue'
+import StorageDebugButton from './components/debug/StorageDebugButton.vue'
 import { apiService } from './services/api-service'
 import { resourceManager } from './services/resource-storage'
 // 注释掉缩略图相关导入以提升性能
@@ -115,5 +117,9 @@ onBeforeUnmount(() => {
     <router-view />
     <!-- 全局单例图片选择器 -->
     <ImagePicker />
+    <!-- 全局存储调试面板 -->
+    <StorageDebugPanel />
+    <!-- 全局存储调试按钮 -->
+    <StorageDebugButton />
   </q-app>
 </template>
