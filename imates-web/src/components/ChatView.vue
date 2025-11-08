@@ -935,12 +935,10 @@ const initializeTeacherSession = async () => {
                                 props.sessionId.startsWith('teacher-') && 
                                 !props.sessionId.startsWith('teacher-chat-')
       if (isExistingSession) {
-        // 场景A：加载已有会话
-        const sessionKey = `teacher-general-${props.sessionId}_session`
-        const sessionData = localStorage.getItem(sessionKey)
+        // 场景A：加载已有会话（使用统一存储格式）
+        const existingSession = teacherStore.getSession(props.sessionId)
         
-        if (sessionData) {
-          const existingSession = JSON.parse(sessionData)
+        if (existingSession) {
           
           // 直接使用已有会话，不创建新的
           teacherSession.value = {
@@ -1077,40 +1075,8 @@ const initializeTeacherExerciseSession = async () => {
 
 // 加载老师会话列表
 const loadTeacherSessions = (): TeacherSession[] => {
-  const userId = getCurrentUserIdOrDefault()
-  const sessionPrefix = `${userId}_teacher-general-`
-  
-  const sessions: TeacherSession[] = []
-  const sessionIds = new Set<string>()
-  
-  // 遍历localStorage查找所有教师会话
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (key?.startsWith(sessionPrefix) && key.endsWith('_session')) {
-      try {
-        const sessionData = localStorage.getItem(key)
-        if (sessionData) {
-          const session = JSON.parse(sessionData) as TeacherSession
-          
-          if (!session || !session.sessionId || !session.sessionName) {
-            continue
-          }
-          
-          if (sessionIds.has(session.sessionId)) {
-            continue
-          }
-          
-          sessions.push(session)
-          sessionIds.add(session.sessionId)
-        }
-      } catch (error) {
-        console.error('[ChatView] ❌ 解析会话数据失败:', key, error)
-      }
-    }
-  }
-  
-  sessions.sort((a, b) => b.createTime - a.createTime)
-  return sessions
+  // 使用 store 的统一方法获取所有会话
+  return teacherStore.getAllSessions()
 }
 
 // 加载老师聊天历史
@@ -2140,7 +2106,8 @@ const forwardMessageToTeacher = async (messages: ChatBubble[]) => {
       
       // 直接添加到老师消息存储并持久化
       teacherStore.messages.push(...convertedMessages)
-      await teacherStore.saveChatHistory()
+      // 立即保存，避免防抖问题导致消息丢失
+      await teacherStore.saveChatHistory(true)
     } else {
       console.error('[ChatView] ❌ API返回 false，转发失败')
     }
@@ -2476,7 +2443,8 @@ const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessa
 
         // 直接添加到老师消息存储
         teacherStore.messages.push(...convertedMessages)
-        await teacherStore.saveChatHistory()
+        // 立即保存，避免防抖问题导致消息丢失
+        await teacherStore.saveChatHistory(true)
 
         // AI题目对话页面不显示对话框，只显示简单提示
         if (props.type === 'ai-exercise') {

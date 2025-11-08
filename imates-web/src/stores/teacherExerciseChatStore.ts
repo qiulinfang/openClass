@@ -218,31 +218,22 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
     questionTitle: string,
     subject: 'biology' | 'math'
   ): TeacherExerciseSession => {
-    const userId = getCurrentUserIdOrDefault()
-    const sessionPrefix = `${userId}_teacher-exercise-`
+    // 第1步：迁移旧格式数据（如果存在）
+    migrateOldSessions()
     
-    // 第1步：检查是否已存在该题目的会话
+    // 第2步：检查是否已存在该题目的会话（使用统一存储格式）
+    const allSessions = loadAllSessions()
     let existingSession: TeacherExerciseSession | null = null
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key?.startsWith(sessionPrefix) && key.endsWith('_session')) {
-        try {
-          const sessionData = localStorage.getItem(key)
-          if (sessionData) {
-            const session = JSON.parse(sessionData) as TeacherExerciseSession
-            // 匹配条件：题目ID和科目完全相同
-            if (session.questionId === questionId && session.subject === subject) {
-              existingSession = session
-              break
-            }
-          }
-        } catch {
-          // 忽略解析错误
-        }
+    
+    for (const session of Object.values(allSessions)) {
+      // 匹配条件：题目ID和科目完全相同
+      if (session.questionId === questionId && session.subject === subject) {
+        existingSession = session
+        break
       }
     }
     
-    // 第2步：如果已存在，复用已有会话；否则创建新会话
+    // 第3步：如果已存在，复用已有会话；否则创建新会话
     let session: TeacherExerciseSession
     if (existingSession) {
       session = existingSession
@@ -269,11 +260,10 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
       }
     }
     
-    // 第3步：保存到localStorage
-    const storageKey = `${userId}_teacher-exercise-${session.sessionId}_session`
-    localStorage.setItem(storageKey, JSON.stringify(session))
+    // 第4步：保存到localStorage（使用统一存储格式）
+    saveSession(session)
     
-    // 第4步：设置为当前会话
+    // 第5步：设置为当前会话
     currentSession.value = session
     
     return session
@@ -296,23 +286,15 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
     questionId: string,
     subject: 'biology' | 'math'
   ): TeacherExerciseSession | null => {
-    const userId = getCurrentUserIdOrDefault()
-    const sessionPrefix = `${userId}_teacher-exercise-`
+    // 迁移旧格式数据（如果存在）
+    migrateOldSessions()
     
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key?.startsWith(sessionPrefix) && key.endsWith('_session')) {
-        try {
-          const sessionData = localStorage.getItem(key)
-          if (sessionData) {
-            const session = JSON.parse(sessionData) as TeacherExerciseSession
-            if (session.questionId === questionId && session.subject === subject) {
-              return session
-            }
-          }
-        } catch {
-          // 忽略解析错误
-        }
+    // 使用统一存储格式查找会话
+    const allSessions = loadAllSessions()
+    
+    for (const session of Object.values(allSessions)) {
+      if (session.questionId === questionId && session.subject === subject) {
+        return session
       }
     }
     
@@ -722,7 +704,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
       }
       
       try {
-        const storageKey = `teacher-exercise-${currentSession.value.sessionId}`
+        const storageKey = `teacher-exercise-${currentSession.value.questionId}`
         
         // 过滤掉错误消息、流式消息、系统消息和撤回消息，只保存成功发送的消息
         const messagesToSave = messages.value.filter(msg => 
@@ -742,10 +724,10 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
         
         await asyncStorage.saveTeacherChatHistory(storageKey, historyData)
         
-        // 单独保存会话信息到localStorage（加上用户ID前缀）
-        const userId = getCurrentUserIdOrDefault()
-        const sessionKey = `${userId}_${storageKey}_session`
-        localStorage.setItem(sessionKey, JSON.stringify(currentSession.value))
+        // 保存会话信息到localStorage（使用统一存储格式）
+        if (currentSession.value) {
+          saveSession(currentSession.value)
+        }
       } catch (error) {
         console.error('[TEACHER_EXERCISE] ❌ 保存聊天历史失败:', error)
       }
@@ -761,22 +743,22 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
   
   /**
    * 加载聊天历史（教师题目场景）
-   * 使用会话ID作为存储键
+   * 使用题目ID作为存储键
    */
   const loadChatHistory = async (sessionIdOrQuestionId?: string): Promise<void> => {
     try {
       isChatLoading.value = true
       
-      // 优先使用传入的sessionId，如果没有则使用当前会话的sessionId
+      // 优先使用传入的questionId，如果没有则使用当前会话的questionId
       let storageKey: string
       if (sessionIdOrQuestionId) {
         storageKey = sessionIdOrQuestionId.startsWith('teacher-exercise-')
           ? sessionIdOrQuestionId
           : `teacher-exercise-${sessionIdOrQuestionId}`
       } else if (currentSession.value) {
-        storageKey = `teacher-exercise-${currentSession.value.sessionId}`
+        storageKey = `teacher-exercise-${currentSession.value.questionId}`
       } else {
-        console.warn('[TEACHER_EXERCISE] ⚠️ 无法加载历史：无会话ID')
+        console.warn('[TEACHER_EXERCISE] ⚠️ 无法加载历史：无题目ID')
         return
       }
       
@@ -791,12 +773,25 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
           canViewAnswer.value = true
         }
         
-        // 从localStorage加载会话信息（加上用户ID前缀）
-        const userId = getCurrentUserIdOrDefault()
-        const sessionKey = `${userId}_${storageKey}_session`
-        const sessionData = localStorage.getItem(sessionKey)
-        if (sessionData) {
-          currentSession.value = JSON.parse(sessionData) as TeacherExerciseSession
+        // 从localStorage加载会话信息（使用统一存储格式）
+        let sessionId: string | null = null
+        if (sessionIdOrQuestionId) {
+          if (sessionIdOrQuestionId.startsWith('teacher-exercise-')) {
+            // 提取 sessionId（去掉 teacher-exercise- 前缀）
+            sessionId = sessionIdOrQuestionId.replace('teacher-exercise-', '')
+          } else {
+            // 直接使用作为 sessionId
+            sessionId = sessionIdOrQuestionId
+          }
+        } else if (currentSession.value) {
+          sessionId = currentSession.value.sessionId
+        }
+        
+        if (sessionId) {
+          const session = getSession(sessionId)
+          if (session) {
+            currentSession.value = session
+          }
         }
       } else {
         // 无历史记录，清空状态
@@ -816,29 +811,46 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
   
   /**
    * 清空聊天历史（教师题目场景）
-   * 使用会话ID作为存储键
+   * 使用题目ID作为存储键
    */
   const clearChatHistory = async (sessionIdOrQuestionId?: string): Promise<void> => {
     try {
-      // 优先使用传入的sessionId，如果没有则使用当前会话的sessionId
+      // 优先使用传入的questionId，如果没有则使用当前会话的questionId
       let storageKey: string
+      let questionId: string
       if (sessionIdOrQuestionId) {
-        storageKey = sessionIdOrQuestionId.startsWith('teacher-exercise-')
-          ? sessionIdOrQuestionId
-          : `teacher-exercise-${sessionIdOrQuestionId}`
+        if (sessionIdOrQuestionId.startsWith('teacher-exercise-')) {
+          storageKey = sessionIdOrQuestionId
+          questionId = sessionIdOrQuestionId.replace('teacher-exercise-', '')
+        } else {
+          storageKey = `teacher-exercise-${sessionIdOrQuestionId}`
+          questionId = sessionIdOrQuestionId
+        }
       } else if (currentSession.value) {
-        storageKey = `teacher-exercise-${currentSession.value.sessionId}`
+        storageKey = `teacher-exercise-${currentSession.value.questionId}`
+        questionId = currentSession.value.questionId
       } else {
-        console.warn('[TEACHER_EXERCISE] ⚠️ 无法清空历史：无会话ID')
+        console.warn('[TEACHER_EXERCISE] ⚠️ 无法清空历史：无题目ID')
         return
       }
       
-      await asyncStorage.removeTeacherChatHistory(storageKey)
+      // 注意：删除消息历史时，需要找到所有相关的会话并删除
+      // 因为一个题目可能有多个会话，但存储键是按题目ID的
+      // 所以这里需要特殊处理：删除该题目的所有会话
+      const allSessions = loadAllSessions()
+      const sessionsToDelete: string[] = []
+      for (const [sessionId, session] of Object.entries(allSessions)) {
+        if (session.questionId === questionId) {
+          sessionsToDelete.push(sessionId)
+        }
+      }
       
-      // 删除会话信息（加上用户ID前缀）
-      const userId = getCurrentUserIdOrDefault()
-      const sessionKey = `${userId}_${storageKey}_session`
-      localStorage.removeItem(sessionKey)
+      // 删除所有相关会话
+      for (const sessionId of sessionsToDelete) {
+        deleteSession(sessionId)
+      }
+      
+      await asyncStorage.removeTeacherChatHistory(storageKey)
       
       messages.value = []
       chatResponseTimes.value = 0
@@ -846,6 +858,130 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
     } catch (error) {
       console.error('[TEACHER_EXERCISE] ❌ 清空聊天历史失败:', error)
       throw error
+    }
+  }
+  
+  // ==================== 会话存储管理 ====================
+  
+  /**
+   * 获取统一的会话存储键名
+   */
+  const getSessionsStorageKey = (): string => {
+    const userId = getCurrentUserIdOrDefault()
+    return `${userId}_teacher-exercise-sessions`
+  }
+  
+  /**
+   * 加载所有会话（从统一的localStorage记录）
+   */
+  const loadAllSessions = (): Record<string, TeacherExerciseSession> => {
+    try {
+      const storageKey = getSessionsStorageKey()
+      const sessionsData = localStorage.getItem(storageKey)
+      if (sessionsData) {
+        return JSON.parse(sessionsData) as Record<string, TeacherExerciseSession>
+      }
+    } catch (error) {
+      console.error('[TEACHER_EXERCISE] ❌ 加载会话列表失败:', error)
+    }
+    return {}
+  }
+  
+  /**
+   * 保存所有会话（到统一的localStorage记录）
+   */
+  const saveAllSessions = (sessions: Record<string, TeacherExerciseSession>): void => {
+    try {
+      const storageKey = getSessionsStorageKey()
+      localStorage.setItem(storageKey, JSON.stringify(sessions))
+    } catch (error) {
+      console.error('[TEACHER_EXERCISE] ❌ 保存会话列表失败:', error)
+    }
+  }
+  
+  /**
+   * 获取单个会话
+   */
+  const getSession = (sessionId: string): TeacherExerciseSession | null => {
+    const sessions = loadAllSessions()
+    return sessions[sessionId] || null
+  }
+  
+  /**
+   * 保存单个会话（更新到统一的localStorage记录）
+   */
+  const saveSession = (session: TeacherExerciseSession): void => {
+    const sessions = loadAllSessions()
+    sessions[session.sessionId] = session
+    saveAllSessions(sessions)
+  }
+  
+  /**
+   * 删除单个会话（从统一的localStorage记录）
+   */
+  const deleteSession = (sessionId: string): void => {
+    const sessions = loadAllSessions()
+    delete sessions[sessionId]
+    saveAllSessions(sessions)
+  }
+  
+  /**
+   * 获取所有会话（供外部使用）
+   */
+  const getAllSessions = (): TeacherExerciseSession[] => {
+    const sessions = loadAllSessions()
+    return Object.values(sessions).sort((a, b) => b.createTime - a.createTime)
+  }
+  
+  /**
+   * 迁移旧格式的会话数据到新格式（一次性迁移）
+   */
+  const migrateOldSessions = (): void => {
+    try {
+      const userId = getCurrentUserIdOrDefault()
+      const sessionPrefix = `${userId}_teacher-exercise-`
+      const sessions: Record<string, TeacherExerciseSession> = {}
+      let hasOldData = false
+      
+      // 遍历localStorage查找所有旧格式的会话
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key?.startsWith(sessionPrefix) && key.endsWith('_session')) {
+          try {
+            const sessionData = localStorage.getItem(key)
+            if (sessionData) {
+              const session = JSON.parse(sessionData) as TeacherExerciseSession
+              if (session && session.sessionId) {
+                sessions[session.sessionId] = session
+                hasOldData = true
+              }
+            }
+          } catch {
+            // 忽略解析错误
+          }
+        }
+      }
+      
+      // 如果有旧数据，迁移到新格式
+      if (hasOldData) {
+        const existingSessions = loadAllSessions()
+        const mergedSessions = { ...existingSessions, ...sessions }
+        saveAllSessions(mergedSessions)
+        
+        // 删除旧格式的数据
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key?.startsWith(sessionPrefix) && key.endsWith('_session')) {
+            localStorage.removeItem(key)
+          }
+        }
+        
+        console.log('[TEACHER_EXERCISE] ✅ 已迁移旧格式会话数据到新格式', {
+          migratedCount: Object.keys(sessions).length
+        })
+      }
+    } catch (error) {
+      console.error('[TEACHER_EXERCISE] ❌ 迁移旧格式会话数据失败:', error)
     }
   }
   
@@ -967,22 +1103,14 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
         
         // 如果消息不属于当前会话，尝试恢复会话
         if (!isCurrentSession) {
-          // 尝试从 localStorage 恢复会话
-          const userId = getCurrentUserIdOrDefault()
-          const sessionKey = `${userId}_teacher-exercise-${data.sessionId}_session`
-          const sessionData = localStorage.getItem(sessionKey)
+          // 使用统一存储格式恢复会话
+          const session = getSession(data.sessionId)
           
-          if (sessionData) {
-            try {
-              const restoredSession = JSON.parse(sessionData) as TeacherExerciseSession
-              currentSession.value = restoredSession
-              
-              // 加载聊天历史
-              await loadChatHistory(data.sessionId)
-            } catch (error) {
-              console.error('[TEACHER_EXERCISE] ❌ 解析会话数据失败:', error)
-              return
-            }
+          if (session) {
+            currentSession.value = session
+            
+            // 加载聊天历史
+            await loadChatHistory(data.sessionId)
           } else {
             // 会话不存在，标记为未读
             const unreadStore = useUnreadMessageStore()
@@ -1223,7 +1351,13 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
     
     // 消息接收
     initMessageReceiver,
-    cleanupMessageReceiver
+    cleanupMessageReceiver,
+    
+    // 会话存储管理（供外部使用）
+    getAllSessions,
+    getSession,
+    saveSession,
+    deleteSession
   }
 })
 

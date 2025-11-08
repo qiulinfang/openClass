@@ -59,11 +59,33 @@ export class AsyncStorageService {
   }
 
   /**
+   * 获取消息数量
+   * @param messages 消息数组
+   * @returns 消息数量
+   */
+  private getMessageCount(messages: ChatBubble[] | undefined): number {
+    if (!messages || !Array.isArray(messages)) return 0
+    return messages.length
+  }
+
+  /**
    * 深度序列化聊天数据，确保所有属性都可以被存储
    * @param data 聊天数据
    * @returns 序列化后的数据
    */
   private serializeChatData(data: ChatHistoryData): ChatHistoryData {
+    // messages 必须是数组格式
+    if (!Array.isArray(data.messages)) {
+      console.warn('⚠️ messages 必须是数组格式，但收到了非数组类型，已转换为空数组')
+      return {
+        questionId: data.questionId,
+        messages: [],
+        chatResponseTimes: data.chatResponseTimes,
+        lastUpdated: data.lastUpdated
+      }
+    }
+    
+    // 标准格式：messages 是数组，进行序列化
     return {
       questionId: data.questionId,
       messages: data.messages.map(msg => ({
@@ -110,7 +132,7 @@ export class AsyncStorageService {
     const startTime = Date.now()
     console.log('[CHAT_STORAGE] 💾 [存储流程] 开始保存聊天历史到IndexedDB', {
       questionId,
-      messageCount: data.messages?.length || 0,
+      messageCount: this.getMessageCount(data.messages),
       dataSize: JSON.stringify(data).length,
       lastUpdated: data.lastUpdated
     })
@@ -130,7 +152,7 @@ export class AsyncStorageService {
       console.log('[CHAT_STORAGE] 🔑 [存储流程] 准备存储数据', {
         key,
         userId,
-        messageCount: data.messages?.length || 0
+        messageCount: this.getMessageCount(data.messages)
       })
       
       // 序列化数据，确保可以被存储
@@ -152,7 +174,7 @@ export class AsyncStorageService {
       
       console.log('[CHAT_STORAGE] ✅ [存储流程] IndexedDB保存成功', {
         key,
-        messageCount: data.messages?.length || 0,
+        messageCount: this.getMessageCount(data.messages),
         dataSize: serializedSize,
         saveDuration: `${saveDuration}ms`,
         totalDuration: `${totalDuration}ms`
@@ -183,7 +205,7 @@ export class AsyncStorageService {
         
         console.log('[CHAT_STORAGE] ✅ [存储流程] localStorage保存成功（降级方案）', {
           key,
-          messageCount: data.messages?.length || 0,
+          messageCount: this.getMessageCount(data.messages),
           dataSize: serializedSize,
           fallbackDuration: `${fallbackDuration}ms`,
           totalDuration: `${totalDuration}ms`

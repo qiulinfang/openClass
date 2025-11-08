@@ -132,6 +132,7 @@ import { useRouter } from 'vue-router'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { getFavoriteSessions, getFavoriteExercises, removeSessionFavorite, type FavoriteSession, type FavoriteExercise } from '../utils/storage/favorites'
 import { showMessage } from '../utils'
+import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
 import type { AiGeneralSession } from '../types/chat'
 import type { ExerciseItem } from '../types/exercise'
 import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
@@ -165,22 +166,19 @@ const goBack = () => {
 
 // 判断收藏的对话类型（AI聊天还是教师通用对话）
 const getChatType = (session: AiGeneralSession): { type: 'ai' | 'teacher', subject?: 'biology' | 'math' } => {
-  // 第1步：检查是否是教师通用对话会话（通过 localStorage key 判断）
-  const teacherSessionKey = `teacher-general-${session.sessionId}_session`
-  const teacherSessionData = localStorage.getItem(teacherSessionKey)
-  
-  if (teacherSessionData) {
-    try {
-      const sessionData = JSON.parse(teacherSessionData)
-      if (sessionData && sessionData.subject) {
-        return {
-          type: 'teacher',
-          subject: sessionData.subject === 'biology' ? 'biology' : 'math'
-        }
+  // 第1步：检查是否是教师通用对话会话（使用统一存储格式）
+  try {
+    const teacherStore = useTeacherGeneralChatStore()
+    const teacherSession = teacherStore.getSession(session.sessionId)
+    
+    if (teacherSession && teacherSession.subject) {
+      return {
+        type: 'teacher',
+        subject: teacherSession.subject === 'biology' ? 'biology' : 'math'
       }
-    } catch (error) {
-      console.error('解析教师会话数据失败:', error)
     }
+  } catch (error) {
+    console.error('检查教师会话失败:', error)
   }
   
   // 默认是 AI 聊天
@@ -268,8 +266,8 @@ const handleDeleteSession = async (session: AiGeneralSession) => {
       const { useTeacherGeneralChatStore } = await import('@/stores/teacherGeneralChatStore')
       const teacherStore = useTeacherGeneralChatStore()
       
-      // 删除localStorage中的会话数据
-      localStorage.removeItem(`teacher_chat_${session.sessionId}_session`)
+      // 删除会话（使用统一存储格式）
+      teacherStore.deleteSession(session.sessionId)
       
       // 删除IndexedDB中的聊天历史
       await teacherStore.clearChatHistory(session.sessionId)

@@ -202,12 +202,22 @@
                 v-if="selectedDatabase"
                 v-model="selectedObjectStore"
                 :options="selectedDatabase.objectStores"
+                option-label="name"
+                option-value="name"
                 label="选择对象存储"
                 outlined
                 dense
                 class="q-mb-md"
                 @update:model-value="loadObjectStoreData"
-              />
+              >
+                <template v-slot:option="scope">
+                  <q-item v-bind="scope.itemProps">
+                    <q-item-section>
+                      <q-item-label>{{ scope.opt.name }}</q-item-label>
+                    </q-item-section>
+                  </q-item>
+                </template>
+              </q-select>
 
               <!-- 搜索框 -->
               <q-input
@@ -528,23 +538,88 @@ const getIndexedDBDatabases = async (): Promise<Array<{
   version: number
   objectStores: Array<{ name: string }>
 }>> => {
-  return new Promise((resolve) => {
+  try {
     // 使用 indexedDB.databases() API（如果支持）
     if ('databases' in indexedDB) {
-      indexedDB.databases().then(databases => {
-        const result = databases.map(db => ({
-          name: db.name,
-          version: db.version,
-          objectStores: [] as Array<{ name: string }>
-        }))
-        resolve(result)
-      }).catch(() => {
-        // 降级方案：尝试打开已知的数据库
-        resolve(getKnownDatabases())
-      })
+      const databases = await indexedDB.databases()
+      // 为每个数据库打开并获取对象存储列表
+      const result = await Promise.all(
+        databases.map(async (db) => {
+          try {
+            const objectStores = await getObjectStores(db.name, db.version)
+            return {
+              name: db.name,
+              version: db.version,
+              objectStores: objectStores.map(name => ({ name }))
+            }
+          } catch (error) {
+            console.warn(`无法打开数据库 ${db.name}:`, error)
+            return {
+              name: db.name,
+              version: db.version,
+              objectStores: [] as Array<{ name: string }>
+            }
+          }
+        })
+      )
+      return result
     } else {
       // 降级方案：尝试打开已知的数据库
-      resolve(getKnownDatabases())
+      return getKnownDatabases()
+    }
+  } catch (error) {
+    console.error('获取数据库列表失败:', error)
+    // 降级方案：尝试打开已知的数据库
+    return getKnownDatabases()
+  }
+}
+
+// 获取数据库的对象存储列表
+const getObjectStores = async (dbName: string, version: number): Promise<string[]> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(dbName, version)
+    let db: IDBDatabase | null = null
+    let upgradeCompleted = false
+    
+    request.onsuccess = () => {
+      db = request.result
+      const objectStoreNames = Array.from(db.objectStoreNames)
+      db.close()
+      if (!upgradeCompleted) {
+        resolve(objectStoreNames)
+      }
+    }
+    
+    request.onerror = () => {
+      reject(new Error(`打开数据库失败: ${request.error?.message}`))
+    }
+    
+    request.onupgradeneeded = () => {
+      // 如果数据库需要升级，等待升级完成后再获取对象存储列表
+      db = request.result
+      const transaction = request.transaction
+      
+      if (transaction) {
+        transaction.addEventListener('complete', () => {
+          upgradeCompleted = true
+          if (db) {
+            const objectStoreNames = Array.from(db.objectStoreNames)
+            db.close()
+            resolve(objectStoreNames)
+          }
+        })
+        
+        transaction.addEventListener('error', () => {
+          reject(new Error(`数据库升级失败: ${transaction.error?.message}`))
+        })
+      } else {
+        // 如果没有事务，直接获取对象存储列表
+        if (db) {
+          const objectStoreNames = Array.from(db.objectStoreNames)
+          db.close()
+          resolve(objectStoreNames)
+        }
+      }
     }
   })
 }
@@ -572,16 +647,25 @@ const getKnownDatabases = (): Array<{
 // 第6步：加载数据库数据
 const loadDatabaseData = async (db: { name: string; version: number; objectStores: Array<{ name: string }> }) => {
   try {
+    // 如果对象存储列表为空，重新获取
+    if (db.objectStores.length === 0) {
+      const objectStoreNames = await getObjectStores(db.name, db.version)
+      db.objectStores = objectStoreNames.map(name => ({ name }))
+    }
+    
     selectedDatabase.value = db
+    selectedObjectStore.value = null // 重置对象存储选择
+    indexedDBItems.value = [] // 清空数据列表
     
     // 如果数据库只有一个对象存储，自动选择
     if (db.objectStores.length === 1) {
       selectedObjectStore.value = db.objectStores[0]
       await loadObjectStoreData(db.objectStores[0])
-    } else if (db.objectStores.length > 0 && !selectedObjectStore.value) {
-      // 默认选择第一个
-      selectedObjectStore.value = db.objectStores[0]
-      await loadObjectStoreData(db.objectStores[0])
+    } else if (db.objectStores.length > 0) {
+      // 如果有多个对象存储，不自动选择，让用户选择
+      // 但可以默认选择第一个（可选）
+      // selectedObjectStore.value = db.objectStores[0]
+      // await loadObjectStoreData(db.objectStores[0])
     }
   } catch (error) {
     console.error('加载数据库数据失败:', error)

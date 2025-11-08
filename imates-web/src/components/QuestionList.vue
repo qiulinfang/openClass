@@ -750,11 +750,10 @@ const selectSubjectForTeacher = async (subject: 'biology' | 'math') => {
 
 // 处理会话创建事件
 const handleSessionCreated = async (sessionId: string, type: 'ai-general' | 'teacher') => {
-  // 如果是教师会话，设置会话到 Store
+  // 如果是教师会话，设置会话到 Store（使用统一存储格式）
   if (type === 'teacher') {
-    const sessionData = localStorage.getItem(`teacher-general-${sessionId}_session`)
-    if (sessionData) {
-      const session = JSON.parse(sessionData)
+    const session = teacherStore.getSession(sessionId)
+    if (session) {
       teacherStore.setSession(session)
       
       // 如果有待发送的图片，设置到Store并发送

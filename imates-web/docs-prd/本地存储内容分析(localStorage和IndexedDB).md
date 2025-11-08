@@ -69,28 +69,96 @@
 
 ### 2. 教师聊天会话管理
 
-#### 2.1 会话信息（带用户ID前缀）
-- **存储键**: `{userId}_teacher_chat_{sessionId}_session`
-  - **类型**: JSON对象 (TeacherSession)
-  - **用途**: 教师聊天会话信息，包含sessionId、sessionName、subject、createTime
-  - **存储位置**: `teacherChatStore.ts:623`, `teacherChatStore.ts:682`, `teacherChatStore.ts:702`, `teacherChatStore.ts:786`, `teacherChatStore.ts:861`, `teacherChatStore.ts:973`, `teacherChatStore.ts:977`
-  - **生命周期**: 创建会话时保存，删除会话时清除
-  - **清理**: 账号切换时清理旧账号数据
+#### 2.1 教师通用会话存储
 
-- **存储键**: `teacher_chat_{sessionId}_session` (旧格式，兼容处理)
-  - **类型**: JSON对象
-  - **用途**: 旧格式的会话信息（不带用户ID前缀）
-  - **存储位置**: `UnifiedChatDialog.vue:382`, `TeacherChatDialog.vue:331`, `QuestionList.vue:789`
-  - **生命周期**: 兼容旧数据，会迁移到新格式
+**存储方式**：所有会话统一存储在一条 localStorage 记录中
 
-#### 2.2 当前科目设置（带用户ID前缀）
+**会话信息存储键名**（localStorage）：
+- **存储键**: `{userId}_teacher-general-sessions`
+- **类型**: JSON对象 (Record<string, TeacherSession>)
+- **数据结构**:
+  ```typescript
+  {
+    [sessionId: string]: TeacherSession
+  }
+  
+  interface TeacherSession {
+    sessionId: string      // 会话ID，格式：teacher-{hash}-{timestamp}
+    sessionName: string    // 会话名称，如"数学答疑"、"生物答疑"
+    subject: string        // 科目：'biology' | 'math'
+    createTime: number     // 创建时间戳（毫秒）
+  }
+  ```
+- **存储位置**: `teacherGeneralChatStore.ts`
+- **生命周期**: 创建/更新会话时保存，删除会话时更新
+- **清理**: 账号切换时清理旧账号数据
+- **数据迁移**: 支持从旧格式（每个会话单独存储）自动迁移到新格式
+
+**存储操作**：
+- **保存会话信息**: `localStorage.setItem(storageKey, JSON.stringify(sessions))`
+  - 存储键：`${userId}_teacher-general-sessions`
+  - 存储格式：`Record<string, TeacherSession>`
+- **加载会话列表**: `localStorage.getItem(storageKey)` 然后 `JSON.parse()`
+  - 从统一存储中读取所有会话
+- **保存单个会话**: 从统一存储中读取，更新该会话，然后保存整个对象
+- **删除会话**: 从统一存储中读取，删除该会话，然后保存整个对象
+
+**消息存储键名**（IndexedDB，统一存储）：
+- **存储键**: `{userId}_chat_history_teacher-general`
+- **存储格式**: `Record<string, { messages: ChatBubble[], chatResponseTimes: number, lastUpdated: number }>`
+- **key**: `sessionId`，value：该会话的消息数据
+- **存储位置**: `teacherGeneralChatStore.ts`
+- **生命周期**: 保存聊天记录时存储，删除会话时清除
+
+**旧格式兼容**：
+- **旧格式存储键**: `{userId}_teacher-general-${sessionId}_session` (旧格式，已迁移)
+- **旧格式存储键**: `teacher_chat_{sessionId}_session` (旧格式，兼容处理)
+- **类型**: JSON对象
+- **用途**: 旧格式的会话信息（每个会话单独存储）
+- **存储位置**: `teacherGeneralChatStore.ts:migrateOldSessions()`
+- **生命周期**: 兼容旧数据，会自动迁移到新格式（统一存储）
+- **迁移逻辑**: 启动时自动检测并迁移旧格式数据到新格式，迁移后删除旧数据
+
+#### 2.2 教师题目会话存储
+
+**存储方式**：所有会话统一存储在一条 localStorage 记录中
+
+**会话信息存储键名**（localStorage）：
+- **存储键**: `{userId}_teacher-exercise-sessions`
+- **类型**: JSON对象 (Record<string, TeacherExerciseSession>)
+- **数据结构**:
+  ```typescript
+  {
+    [sessionId: string]: TeacherExerciseSession
+  }
+  
+  interface TeacherExerciseSession {
+    sessionId: string
+    questionId: string
+    sessionName: string
+    subject: 'biology' | 'math'
+    createTime: number
+    updateTime?: number
+  }
+  ```
+- **存储位置**: `teacherExerciseChatStore.ts`
+- **生命周期**: 创建/更新会话时保存，删除会话时更新
+- **数据迁移**: 支持从旧格式（每个会话单独存储）自动迁移到新格式
+
+**消息存储键名**（IndexedDB）：
+- **存储方式**: 分别存储，每个题目一个独立的键
+- **存储键**: `{userId}_teacher_chat_history_teacher-exercise-${questionId}`
+- **存储位置**: `teacherExerciseChatStore.ts` → `chat-storage.ts`
+- **生命周期**: 保存聊天记录时存储，删除会话时清除
+
+#### 2.3 当前科目设置（带用户ID前缀）
 - **存储键**: `{userId}_currentTeacherSubject`
   - **类型**: String ('MATH' | 'BIOLOGY')
   - **用途**: 当前教师聊天使用的科目
   - **存储位置**: `ChatView.vue:406`, `ChatView.vue:780`, `ChatView.vue:884`, `ChatView.vue:979`, `UnifiedChatDialog.vue:316`, `UnifiedChatDialog.vue:372`, `UnifiedChatDialog.vue:407`, `TeacherChatDialog.vue:219`, `TeacherChatDialog.vue:320`, `TeacherChatDialog.vue:372`, `teacherChatStore.ts:838`
   - **生命周期**: 切换科目时更新
 
-#### 2.3 聊天历史记录（IndexedDB降级到localStorage）
+#### 2.4 聊天历史记录（IndexedDB降级到localStorage）
 - **存储键**: `{userId}_chat_history_{questionId}`
   - **类型**: JSON对象 (ChatHistoryData)
   - **用途**: 普通聊天历史记录（IndexedDB不可用时的降级方案）
@@ -107,13 +175,52 @@
 
 ### 3. AI通用聊天会话
 
-#### 3.1 AI通用会话列表（带用户ID前缀）
+#### 3.1 AI通用会话存储
+
+**存储方式**：所有会话统一存储在一条 localStorage 记录中
+
+**会话信息存储键名**（localStorage）：
 - **存储键**: `{userId}_ai-general-sessions`
-  - **类型**: JSON数组
-  - **用途**: AI通用聊天会话列表
-  - **存储位置**: `aiGeneralChatStore.ts:398`, `aiGeneralChatStore.ts:411`
-  - **生命周期**: 创建/更新会话时保存，删除会话时更新
-  - **清理**: 账号切换时清理旧账号数据
+- **类型**: JSON数组 (AiGeneralSession[])
+- **数据结构**:
+  ```typescript
+  [
+    {
+      sessionId: string
+      sessionName: string
+      createTime: number
+      updateTime: number
+      msgCount: number
+    },
+    ...
+  ]
+  ```
+- **存储位置**: `aiGeneralChatStore.ts`
+- **生命周期**: 创建/更新会话时保存，删除会话时更新
+- **清理**: 账号切换时清理旧账号数据
+
+**消息存储键名**（IndexedDB）：
+- **存储键**: `{userId}_chat_history_ai-general-${sessionId}`
+- **存储位置**: `aiGeneralChatStore.ts`
+- **生命周期**: 保存聊天记录时存储，删除会话时清除
+
+#### 3.2 AI题目会话存储
+
+**特点**：不需要会话列表，直接按题目ID存储消息
+
+**消息存储键名**（IndexedDB）：
+- **存储键**: `{userId}_chat_history_ai-exercise-${questionId}`
+- **存储位置**: `aiExerciseChatStore.ts`
+- **生命周期**: 保存聊天记录时存储，删除题目时清除
+
+#### 3.3 AI教材会话存储
+
+**特点**：不需要会话列表，直接按资源ID存储消息
+
+**消息存储键名**（IndexedDB）：
+- **存储键**: `{userId}_chat_history_ai-textbook-${resourceId}`
+- **存储位置**: `aiTextbookChatStore.ts`
+- **生命周期**: 保存聊天记录时存储，删除资源时清除
 
 ---
 
@@ -221,64 +328,178 @@
 
 ### 1. 聊天历史记录存储
 
-#### 1.1 普通聊天历史
-- **数据库名**: `ExerciseSolveApp_{userId}`
-- **存储表**: `chat_history`
+#### 1.1 存储服务
+
+**位置**：`imates-web/src/services/chat-storage.ts`
+
+**核心类**：`AsyncStorageService`（单例模式）
+
+**存储策略**：
+- **优先**：IndexedDB（使用 `localforage` 库）
+- **降级**：localStorage（当 IndexedDB 不可用时）
+
+**IndexedDB 配置**：
+- **数据库名**: `ExerciseSolveApp_{userId}`（使用用户ID作为前缀，实现账号隔离）
+- **存储表名**: `chat_history`
+- **配置代码**:
+  ```typescript
+  function getUserLocalForage() {
+    const userId = getCurrentUserIdOrDefault()
+    return localforage.createInstance({
+      driver: localforage.INDEXEDDB,
+      name: `ExerciseSolveApp_${userId}`,
+      version: 1.0,
+      storeName: 'chat_history',
+      description: `练习解题应用聊天记录存储 (用户: ${userId})`
+    })
+  }
+  ```
+
+#### 1.2 消息存储键名格式
+
+**实际存储键名格式**：
+```
+${userId}_chat_history_${questionId}
+```
+
+**questionId 格式**（不同场景）：
+- AI通用对话：`ai-general-${sessionId}`
+- AI题目对话：`ai-exercise-${questionId}`
+- AI教材对话：`ai-textbook-${resourceId}`
+- 教师通用对话：`teacher-general`（统一存储，所有会话共享）
+- 教师题目对话：`teacher-exercise-${questionId}`
+
+**示例**：
+```
+user123_chat_history_ai-general-session-abc123
+user123_chat_history_ai-exercise-question-456
+user123_chat_history_ai-textbook-resource-789
+user123_chat_history_teacher-general
+user123_teacher_chat_history_teacher-exercise-question-456
+```
+
+#### 1.3 消息数据结构
+
+**存储结构**：`ChatHistoryData`
+```typescript
+interface ChatHistoryData {
+  questionId: string           // 存储键（用于标识）
+  messages: ChatBubble[]        // 消息列表
+  chatResponseTimes: number     // AI回复次数
+  lastUpdated: number            // 最后更新时间戳
+}
+```
+
+**消息结构**：`ChatBubble`
+```typescript
+interface ChatBubble {
+  id: string                     // 消息ID
+  content: string                // 消息内容
+  sender: string                 // 发送者（'user' | 'assistant'）
+  type: string                   // 消息类型（'text' | 'image' | 'voice'）
+  timestamp: number              // 时间戳
+  messageId?: string             // 消息ID（可选）
+  messageType?: string           // 消息类型（可选）
+  isStreaming?: boolean          // 是否正在流式传输
+  imageData?: {                  // 图片数据
+    filePath: string,
+    width: number,
+    height: number,
+    fileSize: number,
+    base64DataUrl: string         // base64图片数据（用于UI显示）
+  }
+  voiceData?: {                  // 语音数据
+    filePath: string,
+    duration: number,
+    fileSize: number
+  }
+  isError?: boolean              // 是否为错误消息
+  canRetry?: boolean             // 是否可以重试
+  retryCount?: number            // 重试次数
+  originalMessage?: string       // 原始消息
+  chatRecordData?: object        // 聊天记录数据
+}
+```
+
+#### 1.4 消息存储流程
+
+**保存流程**：
+```
+1. 调用 asyncStorage.saveChatHistory(questionId, data)
+   │
+   ├─> 初始化 IndexedDB（如果未初始化）
+   │
+   ├─> 序列化数据（确保所有属性可存储）
+   │
+   ├─> 尝试保存到 IndexedDB
+   │   └─> 成功：完成
+   │   └─> 失败：降级到 localStorage
+   │
+   └─> 构建存储键：${userId}_chat_history_${questionId}
+```
+
+**加载流程**：
+```
+1. 调用 asyncStorage.loadChatHistory(questionId)
+   │
+   ├─> 初始化 IndexedDB（如果未初始化）
+   │
+   ├─> 尝试从 IndexedDB 加载
+   │   └─> 成功：返回数据
+   │   └─> 失败：降级到 localStorage
+   │
+   └─> 构建存储键：${userId}_chat_history_${questionId}
+```
+
+#### 1.5 消息过滤规则
+
+**保存时过滤**（不保存以下消息）：
+- ❌ 错误消息（`isError: true`）
+- ❌ 流式消息（`isStreaming: true`）
+- ❌ 系统消息（`isSystemMessage: true`）
+- ❌ 撤回消息（`isRecalled: true`）
+- ❌ 无消息ID的消息（既无 `messageId` 也无 `id`）
+
+这些消息不会保存到持久化存储中。
+
+#### 1.6 不同场景的聊天历史
+
+**普通聊天历史**：
 - **存储键**: `{userId}_chat_history_{questionId}`
-- **数据结构**: `ChatHistoryData`
-  ```typescript
-  {
-    questionId: string,           // 题目ID
-    messages: ChatBubble[],        // 聊天消息列表
-    chatResponseTimes: number,      // 聊天响应次数
-    lastUpdated: number            // 最后更新时间戳
-  }
-  ```
-- **消息数据结构**: `ChatBubble`
-  ```typescript
-  {
-    id: string,                     // 消息ID
-    content: string,                 // 消息内容
-    sender: string,                 // 发送者（'user' | 'assistant'）
-    type: string,                   // 消息类型（'text' | 'image' | 'voice'）
-    timestamp: number,              // 时间戳
-    messageId?: string,             // 消息ID（可选）
-    messageType?: string,           // 消息类型（可选）
-    isStreaming?: boolean,          // 是否正在流式传输
-    imageData?: {                   // 图片数据（如果类型为image）
-      filePath: string,
-      width: number,
-      height: number,
-      fileSize: number,
-      base64DataUrl: string         // base64图片数据
-    },
-    voiceData?: {                   // 语音数据（如果类型为voice）
-      filePath: string,
-      duration: number,
-      fileSize: number
-    },
-    isError?: boolean,               // 是否为错误消息
-    canRetry?: boolean,             // 是否可以重试
-    retryCount?: number,            // 重试次数
-    originalMessage?: string,       // 原始消息
-    chatRecordData?: object         // 聊天记录数据
-  }
-  ```
 - **存储位置**: `chat-storage.ts:111-139`
 - **生命周期**: 保存聊天记录时存储，删除题目时清除
 - **降级方案**: IndexedDB不可用时降级到localStorage
 - **清理策略**: 30天未更新的记录自动清理
 
-#### 1.2 教师聊天历史
-- **数据库名**: `ExerciseSolveApp_{userId}`
-- **存储表**: `chat_history`
-- **存储键**: `{userId}_teacher_chat_history_{questionId}`
-- **数据结构**: 与普通聊天历史相同（`ChatHistoryData`）
-- **存储位置**: `chat-storage.ts:146-174`
-- **生命周期**: 保存教师聊天记录时存储，删除会话时清除
-- **降级方案**: IndexedDB不可用时降级到localStorage
+**教师通用会话消息**（统一存储）：
+- **存储键**: `{userId}_chat_history_teacher-general`
+- **存储格式**: `Record<string, { messages: ChatBubble[], chatResponseTimes: number, lastUpdated: number }>`
+- **key**: `sessionId`，value：该会话的消息数据
+- **存储位置**: `teacherGeneralChatStore.ts`
+- **生命周期**: 保存聊天记录时存储，删除会话时清除
 
-#### 1.3 聊天历史管理功能
+**教师题目会话消息**：
+- **存储方式**: 分别存储，每个题目一个独立的键
+- **存储键**: `{userId}_teacher_chat_history_teacher-exercise-${questionId}`
+- **存储位置**: `teacherExerciseChatStore.ts` → `chat-storage.ts`
+- **生命周期**: 保存聊天记录时存储，删除会话时清除
+
+**AI通用会话消息**：
+- **存储键**: `{userId}_chat_history_ai-general-${sessionId}`
+- **存储位置**: `aiGeneralChatStore.ts`
+- **生命周期**: 保存聊天记录时存储，删除会话时清除
+
+**AI题目会话消息**：
+- **存储键**: `{userId}_chat_history_ai-exercise-${questionId}`
+- **存储位置**: `aiExerciseChatStore.ts`
+- **生命周期**: 保存聊天记录时存储，删除题目时清除
+
+**AI教材会话消息**：
+- **存储键**: `{userId}_chat_history_ai-textbook-${resourceId}`
+- **存储位置**: `aiTextbookChatStore.ts`
+- **生命周期**: 保存聊天记录时存储，删除资源时清除
+
+#### 1.7 聊天历史管理功能
 - **获取所有聊天记录键**: `getAllChatHistoryKeys()` - 返回当前用户的所有聊天记录键
 - **清理过期记录**: `cleanupExpiredChatHistory(maxAge)` - 清理超过指定时间的记录（默认30天）
 - **获取存储信息**: `getStorageInfo()` - 返回存储使用情况（总键数、聊天记录数、估算大小）
@@ -450,13 +671,34 @@
 ### 带用户ID前缀的键
 为了支持多账号切换，以下类型的键都使用用户ID作为前缀：
 - 用户信息缓存: `{userId}_USER_INFO_CACHE`
-- 会话信息: `{userId}_teacher_chat_{sessionId}_session`
-- 聊天历史: `{userId}_chat_history_{questionId}`
+- 会话信息: `{userId}_teacher-general-${sessionId}_session`（教师通用会话）
+- 会话信息: `{userId}_teacher-exercise-sessions`（教师题目会话，统一存储）
+- 会话信息: `{userId}_ai-general-sessions`（AI通用会话，统一存储）
+- 聊天历史: `{userId}_chat_history_{questionId}`（格式见下方详细说明）
 - 已学习节点: `{userId}_LEARNED_NODES`
 - 最后学习节点: `{userId}_last_learned_node_id`
-- AI会话列表: `{userId}_ai-general-sessions`
 - 性能数据: `{userId}_perfData`
 - 学习包缓存: `learning_packages_{userId}_{id}`
+
+### 聊天历史存储键名汇总
+
+| 场景 | 存储键名格式 | 示例 |
+|-----|------------|------|
+| AI通用对话 | `${userId}_chat_history_ai-general-${sessionId}` | `user123_chat_history_ai-general-session-abc` |
+| AI题目对话 | `${userId}_chat_history_ai-exercise-${questionId}` | `user123_chat_history_ai-exercise-question-456` |
+| AI教材对话 | `${userId}_chat_history_ai-textbook-${resourceId}` | `user123_chat_history_ai-textbook-resource-789` |
+| 教师通用对话 | `${userId}_chat_history_teacher-general` | `user123_chat_history_teacher-general`（统一存储） |
+| 教师题目对话 | `${userId}_teacher_chat_history_teacher-exercise-${questionId}` | `user123_teacher_chat_history_teacher-exercise-question-456`（分别存储） |
+
+### 会话信息存储键名汇总
+
+| 场景 | 存储键名格式 | 示例 | 存储格式 |
+|-----|------------|------|---------|
+| 教师通用会话 | `${userId}_teacher-general-sessions` | `user123_teacher-general-sessions` | `Record<string, TeacherSession>`（统一存储） |
+| 教师题目会话 | `${userId}_teacher-exercise-sessions` | `user123_teacher-exercise-sessions` | `Record<string, TeacherExerciseSession>`（统一存储） |
+| AI通用会话 | `${userId}_ai-general-sessions` | `user123_ai-general-sessions` | `AiGeneralSession[]`（统一存储） |
+| AI题目会话 | 无会话列表 | - | - |
+| AI教材会话 | 无会话列表 | - | - |
 
 ### 不带用户ID前缀的键（全局共享）
 - 登录token: `XUEBAN_TOKEN`, `YANBAN_TOKEN`
@@ -468,6 +710,20 @@
 
 ## 数据清理策略
 
+### 账号隔离机制
+
+**所有存储键名都包含用户ID前缀**，确保不同账号的数据隔离：
+- ✅ 消息存储：`${userId}_chat_history_${questionId}`
+- ✅ 会话存储：`${userId}_${sessionType}-${sessionId}_session`
+- ✅ IndexedDB 数据库名：`ExerciseSolveApp_${userId}`
+
+**获取用户ID**：
+- **函数**：`getCurrentUserIdOrDefault()`
+- **位置**：`imates-web/src/utils/user/userId.ts`
+- **逻辑**：
+  1. 优先从 localStorage 读取 `userId`
+  2. 如果不存在，返回默认值 `'default'`
+
 ### 账号切换清理
 当检测到用户ID变化时，会自动清理以下数据：
 - `teacher_chat_*` 开头的所有键
@@ -476,6 +732,27 @@
 - `favorites` 开头的所有键（如果存在）
 
 **清理位置**: `userStore.ts:cleanupOnAccountSwitch`
+
+### 聊天历史自动清理
+
+**过期时间**：30天（默认）
+
+**清理逻辑**：
+```typescript
+async cleanupExpiredChatHistory(maxAge: number = 30 * 24 * 60 * 60 * 1000): Promise<void> {
+  const keys = await this.getAllChatHistoryKeys()
+  const now = Date.now()
+  
+  for (const key of keys) {
+    const data = await userLocalForage.getItem<ChatHistoryData>(key)
+    if (data && (now - data.lastUpdated) > maxAge) {
+      await userLocalForage.removeItem(key)
+    }
+  }
+}
+```
+
+**清理位置**: `chat-storage.ts:cleanupExpiredChatHistory`
 
 ### 缓存过期清理
 - **知识图谱缓存**: 24小时过期，自动清理
@@ -494,6 +771,104 @@
 **处理位置**: `teacherChatStore.ts:saveChatHistory`
 
 ---
+
+## 存储优化策略
+
+### 防抖保存
+
+**适用场景**：教师通用会话、教师题目会话
+
+**防抖时间**：1秒
+
+**目的**：避免频繁保存，提高性能
+
+**代码示例**：
+```typescript
+let saveDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+const saveChatHistory = async (immediate: boolean = false): Promise<void> => {
+  if (saveDebounceTimer) {
+    clearTimeout(saveDebounceTimer)
+    saveDebounceTimer = null
+  }
+  
+  if (immediate) {
+    await saveAction()
+  } else {
+    saveDebounceTimer = setTimeout(saveAction, 1000)
+  }
+}
+```
+
+**注意**：AI通用会话使用立即保存（无防抖）
+
+### 数据序列化
+
+**目的**：确保所有属性都可以被存储（包括 base64 图片数据、语音数据等）
+
+**序列化内容**：
+- 消息基本属性（id, content, sender, type, timestamp）
+- 图片数据（包括 base64DataUrl）
+- 语音数据
+- 错误和重试信息
+
+### 降级策略
+
+**IndexedDB 不可用时的降级流程**：
+1. 尝试保存到 IndexedDB
+2. 如果失败，捕获错误
+3. 降级到 localStorage
+4. 记录警告日志
+
+**降级位置**: `chat-storage.ts:saveChatHistory`, `chat-storage.ts:loadChatHistory`
+
+## 存储流程详解
+
+### 教师通用会话保存流程
+
+```
+1. 用户发送消息
+   │
+   ├─> 创建/更新会话信息
+   │   └─> 保存到 localStorage：${userId}_teacher-general-${sessionId}_session
+   │
+   ├─> 保存消息到 IndexedDB（统一存储）
+   │   ├─> 从统一存储中读取所有会话的消息
+   │   ├─> 更新当前会话的消息
+   │   └─> 存储键：${userId}_chat_history_teacher-general（所有会话共享）
+   │
+   └─> 防抖保存（1秒延迟）
+```
+
+### 教师题目会话保存流程
+
+```
+1. 用户发送消息
+   │
+   ├─> 创建/更新会话信息
+   │   └─> 更新到统一存储：${userId}_teacher-exercise-sessions
+   │       └─> 结构：Record<string, TeacherExerciseSession>
+   │
+   ├─> 保存消息到 IndexedDB
+   │   └─> 存储键：${userId}_teacher_chat_history_teacher-exercise-${questionId}（分别存储）
+   │
+   └─> 防抖保存（1秒延迟）
+```
+
+### AI通用会话保存流程
+
+```
+1. 用户发送消息
+   │
+   ├─> 更新会话信息（msgCount, updateTime）
+   │   └─> 更新到统一存储：${userId}_ai-general-sessions
+   │       └─> 结构：AiGeneralSession[]
+   │
+   ├─> 保存消息到 IndexedDB
+   │   └─> 存储键：${userId}_chat_history_ai-general-${sessionId}
+   │
+   └─> 立即保存（无防抖）
+```
 
 ## 存储大小估算
 
@@ -536,6 +911,36 @@
 5. **性能**: 
    - localStorage同步操作可能阻塞主线程
    - 大量数据建议使用IndexedDB
+
+### 聊天历史存储注意事项
+
+1. **存储键名一致性**:
+   - ⚠️ **重要**：确保所有地方使用相同的键名格式
+   - ✅ 正确：`${userId}_teacher-general-${sessionId}_session`
+   - ❌ 错误：`teacher-general-${sessionId}_session`（缺少 userId 前缀）
+
+2. **存储大小限制**:
+   - **localStorage**：通常限制为 5-10MB
+   - **IndexedDB**：通常限制为 50MB 或更大
+   - 建议监控存储使用情况，必要时清理过期数据
+
+3. **数据迁移**:
+   - **教师题目会话**支持从旧格式（每个会话单独存储）自动迁移到新格式（统一存储）
+   - 迁移逻辑在 `teacherExerciseChatStore.ts` 的 `migrateOldSessions()` 方法中实现
+
+4. **消息过滤**:
+   - 保存消息时会自动过滤以下类型的消息：
+     - 错误消息
+     - 流式消息
+     - 系统消息
+     - 撤回消息
+     - 无消息ID的消息
+   - 这些消息不会保存到持久化存储中
+
+5. **统一存储结构**:
+   - **教师通用会话**使用统一存储，所有会话的消息存储在一个键下
+   - 存储格式：`Record<string, { messages: ChatBubble[], chatResponseTimes: number, lastUpdated: number }>`
+   - key：`sessionId`，value：该会话的消息数据
 
 ### IndexedDB注意事项
 
@@ -587,12 +992,24 @@
 
 ### Stores
 - `imates-web/src/stores/userStore.ts` - 用户信息管理
-- `imates-web/src/stores/teacherChatStore.ts` - 教师聊天会话管理
+- `imates-web/src/stores/teacherGeneralChatStore.ts` - 教师通用聊天会话管理
+- `imates-web/src/stores/teacherExerciseChatStore.ts` - 教师题目聊天会话管理
 - `imates-web/src/stores/aiGeneralChatStore.ts` - AI通用聊天管理
+- `imates-web/src/stores/aiExerciseChatStore.ts` - AI题目聊天管理
+- `imates-web/src/stores/aiTextbookChatStore.ts` - AI教材聊天管理
 
 ### Services
 - `imates-web/src/services/api-service.ts` - API服务，包含登录和缓存逻辑
 - `imates-web/src/services/chat-storage.ts` - 聊天存储服务（IndexedDB，降级到localStorage）
+  - `AsyncStorageService` - 异步存储服务（单例模式）
+  - `saveChatHistory()` - 保存聊天历史
+  - `loadChatHistory()` - 加载聊天历史
+  - `removeChatHistory()` - 删除聊天历史
+  - `cleanupExpiredChatHistory()` - 清理过期聊天历史
+  - `getAllChatHistoryKeys()` - 获取所有聊天记录键
+  - `getStorageInfo()` - 获取存储信息
+  - `clearAllChatHistory()` - 清空所有聊天记录
+  - `exportChatHistory()` - 导出聊天记录
 - `imates-web/src/services/resource-storage.ts` - 资源管理服务（IndexedDB）
 - `imates-web/src/services/question-storage.ts` - 题目列表存储服务（IndexedDB）
 - `imates-web/src/services/indexeddb-service.ts` - IndexedDB通用服务类
@@ -611,4 +1028,6 @@
 
 ### Utils
 - `imates-web/src/utils/business/shijingshan-knowledge-utils.ts` - 石景山知识图谱工具
+- `imates-web/src/utils/user/userId.ts` - 用户ID工具
+  - `getCurrentUserIdOrDefault()` - 获取当前用户ID或默认值
 

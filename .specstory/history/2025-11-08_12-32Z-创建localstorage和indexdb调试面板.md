@@ -1835,3 +1835,502 @@ Lint results
 
 ---
 
+_**User (2025-11-08 08:17Z)**_
+
+现在面板的localstorage能够加载出数据，indexdb能够加载出数据库，但是选择对象存储的select选项为空，idnexdb的呈现有问题
+
+---
+
+_**Agent (model default, mode Agent)**_
+
+
+
+---
+
+
+检查 StorageDebugPanel 组件中 IndexedDB 相关代码，定位对象存储 select 为空和呈现问题的原因：
+
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file">
+<details><summary>Tool use: **read_file** • Read file: imates-web/src/components/debug/StorageDebugPanel.vue</summary>
+
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+
+检查 IndexedDB 相关代码，定位对象存储 select 为空和呈现问题的原因：
+
+
+---
+
+<tool-use data-tool-type="search" data-tool-name="codebase_search">
+<details>
+                <summary>Tool use: **codebase_search** • Searched codebase "How to get object store names from IndexedDB database?" • **9** results</summary>
+            
+| File | Lines |
+|------|-------|
+| `imates-web/src/components/debug/StorageDebugPanel.vue` | L508-573 |
+| `imates-web/scripts/indexeddb-cleanup.js` | L3-135 |
+| `imates-web/src/services/indexeddb-service.ts` | L30-556 |
+| `imates-web/src/components/debug/StorageDebugPanel.vue` | L568-616 |
+| `imates-web/src/components/debug/StorageDebugPanel.vue` | L613-683 |
+| `imates-web/src/services/question-storage.ts` | L9-41 |
+| `imates-web/src/services/resource-storage.ts` | L18-737 |
+| `imates-web/scripts/indexeddb-cleanup.js` | L135 |
+| `imates-web/src/components/debug/StorageDebugPanel.vue` | L438-511 |
+
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+
+问题在于 `getIndexedDBDatabases` 使用 `indexedDB.databases()` 时未获取对象存储列表，导致 `objectStores` 为空。修复：打开每个数据库以获取对象存储列表，并修复对象存储的呈现问题。
+
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="todo_write">
+<details><summary>Tool use: **todo_write** • Todo List</summary>
+
+- [-] 修复 getIndexedDBDatabases 函数，实际打开数据库获取对象存储列表
+- [ ] 修复 loadDatabaseData 函数，确保正确加载对象存储列表
+- [ ] 修复对象存储 select 的显示问题
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: imates-web/src/components/debug/StorageDebugPanel.vue</summary>
+
+**Chunk 1**
+Lines added: 59, lines removed: 14
+
+```diff
+@@ -529,22 +529,67 @@
+    objectStores: Array&lt;{ name: string }&gt;
+  }&gt;&gt; =&gt; {
+-   return new Promise((resolve) =&gt; {
++   try {
+      // 使用 indexedDB.databases() API（如果支持）
+      if (&#39;databases&#39; in indexedDB) {
+-       indexedDB.databases().then(databases =&gt; {
+-         const result = databases.map(db =&gt; ({
+-           name: db.name,
+-           version: db.version,
+-           objectStores: [] as Array&lt;{ name: string }&gt;
+-         }))
+-         resolve(result)
+-       }).catch(() =&gt; {
+-         // 降级方案：尝试打开已知的数据库
+-         resolve(getKnownDatabases())
+-       })
++       const databases = await indexedDB.databases()
++       // 为每个数据库打开并获取对象存储列表
++       const result = await Promise.all(
++         databases.map(async (db) =&gt; {
++           try {
++             const objectStores = await getObjectStores(db.name, db.version)
++             return {
++               name: db.name,
++               version: db.version,
++               objectStores: objectStores.map(name =&gt; ({ name }))
++             }
++           } catch (error) {
++             console.warn(&#96;无法打开数据库 ${db.name}:&#96;, error)
++             return {
++               name: db.name,
++               version: db.version,
++               objectStores: [] as Array&lt;{ name: string }&gt;
++             }
++           }
++         })
++       )
++       return result
+      } else {
+        // 降级方案：尝试打开已知的数据库
+-       resolve(getKnownDatabases())
+-     }
++       return getKnownDatabases()
++     }
++   } catch (error) {
++     console.error(&#39;获取数据库列表失败:&#39;, error)
++     // 降级方案：尝试打开已知的数据库
++     return getKnownDatabases()
++   }
++ }
++ 
++ // 获取数据库的对象存储列表
++ const getObjectStores = async (dbName: string, version: number): Promise&lt;string[]&gt; =&gt; {
++   return new Promise((resolve, reject) =&gt; {
++     const request = indexedDB.open(dbName, version)
++     
++     request.onsuccess = () =&gt; {
++       const db = request.result
++       const objectStoreNames = Array.from(db.objectStoreNames)
++       db.close()
++       resolve(objectStoreNames)
++     }
++     
++     request.onerror = () =&gt; {
++       reject(new Error(&#96;打开数据库失败: ${request.error?.message}&#96;))
++     }
++     
++     request.onupgradeneeded = () =&gt; {
++       // 如果数据库需要升级，我们仍然可以获取对象存储列表
++       const db = request.result
++       const objectStoreNames = Array.from(db.objectStoreNames)
++       // 不关闭数据库，让升级完成
++       // 但我们需要等待升级完成
++       request.transaction?.addEventListener(&#39;complete&#39;, () =&gt; {
++         db.close()
++         resolve(objectStoreNames)
++       })
++     }
+    })
+  }
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: imates-web/src/components/debug/StorageDebugPanel.vue</summary>
+
+**Chunk 1**
+Lines added: 13, lines removed: 4
+
+```diff
+@@ -618,14 +618,23 @@
+  const loadDatabaseData = async (db: { name: string; version: number; objectStores: Array&lt;{ name: string }&gt; }) =&gt; {
+    try {
++     // 如果对象存储列表为空，重新获取
++     if (db.objectStores.length === 0) {
++       const objectStoreNames = await getObjectStores(db.name, db.version)
++       db.objectStores = objectStoreNames.map(name =&gt; ({ name }))
++     }
++     
+      selectedDatabase.value = db
++     selectedObjectStore.value = null // 重置对象存储选择
++     indexedDBItems.value = [] // 清空数据列表
+      
+      // 如果数据库只有一个对象存储，自动选择
+      if (db.objectStores.length === 1) {
+        selectedObjectStore.value = db.objectStores[0]
+        await loadObjectStoreData(db.objectStores[0])
+-     } else if (db.objectStores.length &gt; 0 &amp;&amp; !selectedObjectStore.value) {
+-       // 默认选择第一个
+-       selectedObjectStore.value = db.objectStores[0]
+-       await loadObjectStoreData(db.objectStores[0])
++     } else if (db.objectStores.length &gt; 0) {
++       // 如果有多个对象存储，不自动选择，让用户选择
++       // 但可以默认选择第一个（可选）
++       // selectedObjectStore.value = db.objectStores[0]
++       // await loadObjectStoreData(db.objectStores[0])
+      }
+    } catch (error) {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: imates-web/src/components/debug/StorageDebugPanel.vue</summary>
+
+**Chunk 1**
+Lines added: 11, lines removed: 1
+
+```diff
+@@ -203,10 +203,20 @@
+                  v-model=&quot;selectedObjectStore&quot;
+                  :options=&quot;selectedDatabase.objectStores&quot;
++                 option-label=&quot;name&quot;
++                 option-value=&quot;name&quot;
+                  label=&quot;选择对象存储&quot;
+                  outlined
+                  dense
+                  class=&quot;q-mb-md&quot;
+                  @update:model-value=&quot;loadObjectStoreData&quot;
+-               /&gt;
++               &gt;
++                 &lt;template v-slot:option=&quot;scope&quot;&gt;
++                   &lt;q-item v-bind=&quot;scope.itemProps&quot;&gt;
++                     &lt;q-item-section&gt;
++                       &lt;q-item-label&gt;{{ scope.opt.name }}&lt;/q-item-label&gt;
++                     &lt;/q-item-section&gt;
++                   &lt;/q-item&gt;
++                 &lt;/template&gt;
++               &lt;/q-select&gt;
+  
+                &lt;!-- 搜索框 --&gt;
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="todo_write">
+<details><summary>Tool use: **todo_write** • Todo List</summary>
+
+- [x] 修复 getIndexedDBDatabases 函数，实际打开数据库获取对象存储列表
+- [x] 修复 loadDatabaseData 函数，确保正确加载对象存储列表
+- [x] 修复对象存储 select 的显示问题
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="read_lints">
+<details>
+          <summary>Tool use: **read_lints** • Read lints for 1 file</summary>
+      
+Lint paths:
+
+- `imates-web/src/components/debug/StorageDebugPanel.vue`
+
+Lint results
+
+
+**No lint errors found**
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+
+检查并修复 `getObjectStores` 函数中数据库升级时的处理逻辑：
+
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file">
+<details><summary>Tool use: **read_file** • Read file: imates-web/src/components/debug/StorageDebugPanel.vue</summary>
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: imates-web/src/components/debug/StorageDebugPanel.vue</summary>
+
+**Chunk 1**
+Lines added: 7, lines removed: 3
+
+```diff
+@@ -579,11 +579,15 @@
+    return new Promise((resolve, reject) =&gt; {
+      const request = indexedDB.open(dbName, version)
++     let db: IDBDatabase | null = null
++     let upgradeCompleted = false
+      
+      request.onsuccess = () =&gt; {
+-       const db = request.result
++       db = request.result
+        const objectStoreNames = Array.from(db.objectStoreNames)
+        db.close()
+-       resolve(objectStoreNames)
+-     }
++       if (!upgradeCompleted) {
++         resolve(objectStoreNames)
++       }
++     }
+      
+      request.onerror = () =&gt; {
+```
+
+**Chunk 2**
+Lines added: 25, lines removed: 9
+
+```diff
+@@ -592,13 +596,29 @@
+      
+      request.onupgradeneeded = () =&gt; {
+-       // 如果数据库需要升级，我们仍然可以获取对象存储列表
+-       const db = request.result
+-       const objectStoreNames = Array.from(db.objectStoreNames)
+-       // 不关闭数据库，让升级完成
+-       // 但我们需要等待升级完成
+-       request.transaction?.addEventListener(&#39;complete&#39;, () =&gt; {
+-         db.close()
+-         resolve(objectStoreNames)
+-       })
++       // 如果数据库需要升级，等待升级完成后再获取对象存储列表
++       db = request.result
++       const transaction = request.transaction
++       
++       if (transaction) {
++         transaction.addEventListener(&#39;complete&#39;, () =&gt; {
++           upgradeCompleted = true
++           if (db) {
++             const objectStoreNames = Array.from(db.objectStoreNames)
++             db.close()
++             resolve(objectStoreNames)
++           }
++         })
++         
++         transaction.addEventListener(&#39;error&#39;, () =&gt; {
++           reject(new Error(&#96;数据库升级失败: ${transaction.error?.message}&#96;))
++         })
++       } else {
++         // 如果没有事务，直接获取对象存储列表
++         if (db) {
++           const objectStoreNames = Array.from(db.objectStoreNames)
++           db.close()
++           resolve(objectStoreNames)
++         }
++       }
+      }
+    })
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="read_lints">
+<details>
+          <summary>Tool use: **read_lints** • Read lints for 1 file</summary>
+      
+Lint paths:
+
+- `imates-web/src/components/debug/StorageDebugPanel.vue`
+
+Lint results
+
+
+**No lint errors found**
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+
+检查 `loadObjectStoreData` 函数，确保数据加载逻辑正确：
+
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file">
+<details><summary>Tool use: **read_file** • Read file: imates-web/src/components/debug/StorageDebugPanel.vue</summary>
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: imates-web/src/components/debug/StorageDebugPanel.vue</summary>
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -693,5 +693,5 @@
+      }&gt; = []
+  
+-     return new Promise&lt;void&gt;((resolve, reject) =&gt; {
++     await new Promise&lt;void&gt;((resolve, reject) =&gt; {
+        const transaction = db.transaction([objectStore.name], &#39;readonly&#39;)
+        const store = transaction.objectStore(objectStore.name)
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="read_lints">
+<details>
+          <summary>Tool use: **read_lints** • Read lints for 1 file</summary>
+      
+Lint paths:
+
+- `imates-web/src/components/debug/StorageDebugPanel.vue`
+
+Lint results
+
+
+**No lint errors found**
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+
+已修复 IndexedDB 相关问题。主要修改如下：
+
+## 修复内容
+
+1. **修复 `getIndexedDBDatabases` 函数**
+   - 之前使用 `indexedDB.databases()` 时，`objectStores` 被初始化为空数组
+   - 现在会打开每个数据库，通过 `getObjectStores` 获取实际的对象存储列表
+
+2. **新增 `getObjectStores` 函数**
+   - 打开数据库并获取对象存储名称列表
+   - 处理数据库升级场景
+
+3. **修复 `loadDatabaseData` 函数**
+   - 如果对象存储列表为空，会重新获取
+   - 选择数据库时重置对象存储选择和数据列表
+
+4. **修复对象存储 select 的显示问题**
+   - 添加 `option-label="name"` 和 `option-value="name"` 属性
+   - 添加自定义选项模板，确保正确显示对象存储名称
+
+5. **修复 `loadObjectStoreData` 函数**
+   - 将 `return new Promise` 改为 `await new Promise`，确保异步操作正确执行
+
+现在 IndexedDB 调试面板应能：
+- 正确加载数据库列表
+- 正确显示每个数据库的对象存储列表
+- 正确显示对象存储选择下拉框
+- 正确加载和显示对象存储中的数据
+
+请测试一下，如果还有问题，告诉我。
+
+---
+

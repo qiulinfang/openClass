@@ -761,106 +761,72 @@ const refreshData = async () => {
 
 // 第1.1步：加载教师通用会话列表
 const loadTeacherSessions = async () => {
-  const userId = getCurrentUserIdOrDefault()
-  const sessionPrefix = `${userId}_teacher-general-`
+  // 使用 store 的统一方法获取所有会话
+  const allSessions = teacherStore.getAllSessions()
   
   const sessions: (TeacherSession & { msgCount: number; sessionType: 'general' })[] = []
-  const sessionIds = new Set<string>()
   
-  // 遍历localStorage查找所有教师通用会话
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (key?.startsWith(sessionPrefix) && key.endsWith('_session')) {
-      try {
-        const sessionData = localStorage.getItem(key)
-        if (sessionData) {
-          const session = JSON.parse(sessionData) as TeacherSession
-          
-          if (!session || !session.sessionId || !session.sessionName) {
-            continue
-          }
-          
-          if (sessionIds.has(session.sessionId)) {
-            continue
-          }
-          
-          // 加载消息数量
-          const storageKey = `teacher_chat_${session.sessionId}`
-          let msgCount = 0
-          try {
-            const history = await asyncStorage.loadChatHistory(storageKey)
-            if (history && history.messages) {
-              msgCount = history.messages.length
-            }
-          } catch (error) {
-            console.warn('加载教师通用会话消息数量失败:', error)
-          }
-          
-          sessions.push({
-            ...session,
-            msgCount,
-            sessionType: 'general'
-          })
-          sessionIds.add(session.sessionId)
-        }
-      } catch (error) {
-        console.error('解析教师通用会话数据失败:', key, error)
+  // 为每个会话加载消息数量（从独立存储中加载）
+  for (const session of allSessions) {
+    // 从独立存储中获取该会话的消息数量
+    let msgCount = 0
+    const storageKey = `teacher-general-${session.sessionId}`
+    try {
+      const history = await asyncStorage.loadChatHistory(storageKey)
+      if (history && history.messages) {
+        msgCount = history.messages.length
       }
+    } catch (error) {
+      console.warn('加载教师通用会话消息数量失败:', error)
     }
+    
+    sessions.push({
+      ...session,
+      msgCount,
+      sessionType: 'general'
+    })
   }
   
-  sessions.sort((a, b) => b.createTime - a.createTime)
+  // 已经按创建时间排序
   teacherSessions.value = sessions
 }
 
 // 第1.2步：加载教师题目会话列表
 const loadTeacherExerciseSessions = async () => {
-  const userId = getCurrentUserIdOrDefault()
-  const sessionPrefix = `${userId}_teacher-exercise-`
+  // 使用统一存储格式加载所有会话
+  const allSessions = teacherExerciseStore.getAllSessions()
   
   const sessions: (TeacherExerciseSession & { msgCount: number; sessionType: 'exercise' })[] = []
   const sessionIds = new Set<string>()
   
-  // 遍历localStorage查找所有教师题目会话
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (key?.startsWith(sessionPrefix) && key.endsWith('_session')) {
-      try {
-        const sessionData = localStorage.getItem(key)
-        if (sessionData) {
-          const session = JSON.parse(sessionData) as TeacherExerciseSession
-          
-          if (!session || !session.sessionId || !session.sessionName) {
-            continue
-          }
-          
-          if (sessionIds.has(session.sessionId)) {
-            continue
-          }
-          
-          // 加载消息数量
-          const storageKey = `teacher-exercise-${session.sessionId}`
-          let msgCount = 0
-          try {
-            const history = await asyncStorage.loadTeacherChatHistory(storageKey)
-            if (history && history.messages) {
-              msgCount = history.messages.length
-            }
-          } catch (error) {
-            console.warn('加载教师题目会话消息数量失败:', error)
-          }
-          
-          sessions.push({
-            ...session,
-            msgCount,
-            sessionType: 'exercise'
-          })
-          sessionIds.add(session.sessionId)
-        }
-      } catch (error) {
-        console.error('解析教师题目会话数据失败:', key, error)
-      }
+  // 遍历所有会话，加载消息数量
+  for (const session of allSessions) {
+    if (!session || !session.sessionId || !session.sessionName) {
+      continue
     }
+    
+    if (sessionIds.has(session.sessionId)) {
+      continue
+    }
+    
+    // 加载消息数量
+    const storageKey = `teacher-exercise-${session.questionId}`
+    let msgCount = 0
+    try {
+      const history = await asyncStorage.loadTeacherChatHistory(storageKey)
+      if (history && history.messages) {
+        msgCount = history.messages.length
+      }
+    } catch (error) {
+      console.warn('加载教师题目会话消息数量失败:', error)
+    }
+    
+    sessions.push({
+      ...session,
+      msgCount,
+      sessionType: 'exercise'
+    })
+    sessionIds.add(session.sessionId)
   }
   
   sessions.sort((a, b) => b.createTime - a.createTime)
@@ -889,16 +855,16 @@ const calculateStorageSize = async () => {
     const teacherSessionsData = JSON.stringify(teacherSessions.value)
     totalSize += new Blob([teacherSessionsData]).size
     
-    // 计算教师通用会话消息大小
+    // 计算教师通用会话消息大小（从独立存储中计算）
     for (const session of teacherSessions.value) {
-      const storageKey = `teacher_chat_${session.sessionId}`
+      const storageKey = `teacher-general-${session.sessionId}`
       try {
         const history = await asyncStorage.loadChatHistory(storageKey)
         if (history) {
           totalSize += new Blob([JSON.stringify(history)]).size
         }
       } catch (error) {
-        console.warn('加载教师通用会话历史失败（计算大小）:', error)
+        console.warn('加载教师通用会话消息失败（计算大小）:', error)
       }
     }
     
@@ -908,7 +874,7 @@ const calculateStorageSize = async () => {
     
     // 计算教师题目会话消息大小
     for (const session of teacherExerciseSessions.value) {
-      const storageKey = `teacher-exercise-${session.sessionId}`
+      const storageKey = `teacher-exercise-${session.questionId}`
       try {
         const history = await asyncStorage.loadTeacherChatHistory(storageKey)
         if (history) {
@@ -950,19 +916,18 @@ const clearAllSessions = async () => {
     aiGeneralStore.currentSession = null
     aiGeneralStore.messages = []
     
-    // 删除所有教师通用会话
-    const userId = getCurrentUserIdOrDefault()
+    // 删除所有教师通用会话（使用独立存储格式）
     for (const session of teacherSessions.value) {
-      const storageKey = `teacher_chat_${session.sessionId}`
+      const storageKey = `teacher-general-${session.sessionId}`
       await asyncStorage.removeChatHistory(storageKey)
-      localStorage.removeItem(`${userId}_teacher-general-${session.sessionId}_session`)
+      teacherStore.deleteSession(session.sessionId)
     }
     
-    // 删除所有教师题目会话
+    // 删除所有教师题目会话（使用统一存储格式）
     for (const session of teacherExerciseSessions.value) {
-      const storageKey = `teacher-exercise-${session.sessionId}`
+      const storageKey = `teacher-exercise-${session.questionId}`
       await asyncStorage.removeTeacherChatHistory(storageKey)
-      localStorage.removeItem(`${userId}_teacher-exercise-${session.sessionId}_session`)
+      teacherExerciseStore.deleteSession(session.sessionId)
     }
     
     // 刷新数据
@@ -985,18 +950,14 @@ const deleteAiSession = async (session: AiGeneralSession) => {
 // 第4.1步：删除教师会话
 const deleteTeacherSession = async (session: (TeacherSession & { msgCount: number; sessionType: 'general' }) | (TeacherExerciseSession & { msgCount: number; sessionType: 'exercise' })) => {
   try {
-    const userId = getCurrentUserIdOrDefault()
-    
     if (session.sessionType === 'exercise') {
-      // 删除教师题目会话
-      const storageKey = `teacher-exercise-${session.sessionId}`
+      // 删除教师题目会话（使用统一存储格式）
+      const storageKey = `teacher-exercise-${session.questionId}`
       await asyncStorage.removeTeacherChatHistory(storageKey)
-      localStorage.removeItem(`${userId}_teacher-exercise-${session.sessionId}_session`)
+      teacherExerciseStore.deleteSession(session.sessionId)
     } else {
-      // 删除教师通用会话
-      const storageKey = `teacher_chat_${session.sessionId}`
-      await asyncStorage.removeChatHistory(storageKey)
-      localStorage.removeItem(`${userId}_teacher-general-${session.sessionId}_session`)
+      // 删除教师通用会话（从统一存储中删除）
+      await teacherStore.clearChatHistory(session.sessionId)
     }
     
     // 刷新数据
@@ -1035,7 +996,7 @@ const viewTeacherSessionDetail = async (session: (TeacherSession & { msgCount: n
     // 根据会话类型加载消息
     if (session.sessionType === 'exercise') {
       // 加载教师题目会话消息
-      const storageKey = `teacher-exercise-${session.sessionId}`
+      const storageKey = `teacher-exercise-${session.questionId}`
       const history = await asyncStorage.loadTeacherChatHistory(storageKey)
       
       if (history && history.messages) {
@@ -1044,8 +1005,8 @@ const viewTeacherSessionDetail = async (session: (TeacherSession & { msgCount: n
         sessionMessages.value = []
       }
     } else {
-      // 加载教师通用会话消息
-      const storageKey = `teacher_chat_${session.sessionId}`
+      // 加载教师通用会话消息（从独立存储中加载）
+      const storageKey = `teacher-general-${session.sessionId}`
       const history = await asyncStorage.loadChatHistory(storageKey)
       
       if (history && history.messages) {
@@ -1071,7 +1032,7 @@ const selectTeacherSession = (session: (TeacherSession & { msgCount: number; ses
   if (session.sessionType === 'exercise') {
     // 选择教师题目会话
     teacherExerciseStore.setSession(session)
-    teacherExerciseStore.loadChatHistory(session.sessionId)
+    teacherExerciseStore.loadChatHistory(session.questionId)
   } else {
     // 选择教师通用会话
     teacherStore.setSession(session)
@@ -1109,13 +1070,20 @@ const exportData = async () => {
       }
     }
     
-    // 导出教师通用会话的消息
+    // 导出教师通用会话的消息（从独立存储中导出）
+    exportData.teacherSessions = teacherSessions.value
+    exportData.teacherMessages = {}
     for (const session of teacherSessions.value) {
-      const storageKey = `teacher_chat_${session.sessionId}`
+      const storageKey = `teacher-general-${session.sessionId}`
       try {
         const history = await asyncStorage.loadChatHistory(storageKey)
         if (history) {
-          exportData.teacherMessages[session.sessionId] = history
+          exportData.teacherMessages[session.sessionId] = {
+            questionId: `teacher-general-${session.sessionId}`,
+            messages: history.messages || [],
+            chatResponseTimes: history.chatResponseTimes || 0,
+            lastUpdated: history.lastUpdated || Date.now()
+          }
         }
       } catch (error) {
         console.warn('导出教师通用会话消息失败:', error)
@@ -1126,11 +1094,11 @@ const exportData = async () => {
     exportData.teacherExerciseSessions = teacherExerciseSessions.value
     exportData.teacherExerciseMessages = {}
     for (const session of teacherExerciseSessions.value) {
-      const storageKey = `teacher-exercise-${session.sessionId}`
+      const storageKey = `teacher-exercise-${session.questionId}`
       try {
         const history = await asyncStorage.loadTeacherChatHistory(storageKey)
         if (history) {
-          exportData.teacherExerciseMessages[session.sessionId] = history
+          exportData.teacherExerciseMessages[session.questionId] = history
         }
       } catch (error) {
         console.warn('导出教师题目会话消息失败:', error)
@@ -1183,31 +1151,35 @@ const handleFileImport = async (event: Event) => {
         }
       }
       
-      // 导入教师通用会话
+      // 导入教师通用会话（使用独立存储格式）
       if (importData.teacherSessions && importData.teacherMessages) {
-        const userId = getCurrentUserIdOrDefault()
+        // 使用 store 的统一方法保存会话
         for (const session of importData.teacherSessions) {
-          const sessionKey = `${userId}_teacher-general-${session.sessionId}_session`
-          localStorage.setItem(sessionKey, JSON.stringify(session))
+          teacherStore.saveSession(session)
         }
         
+        // 导入每个会话的消息（保存到独立存储）
         for (const sessionId in importData.teacherMessages) {
-          const storageKey = `teacher_chat_${sessionId}`
-          await asyncStorage.saveChatHistory(storageKey, importData.teacherMessages[sessionId])
+          const history = importData.teacherMessages[sessionId]
+          const storageKey = `teacher-general-${sessionId}`
+          await asyncStorage.saveChatHistory(storageKey, {
+            questionId: `teacher-general-${sessionId}`,
+            messages: history.messages || [],
+            chatResponseTimes: history.chatResponseTimes || 0,
+            lastUpdated: history.lastUpdated || Date.now()
+          })
         }
       }
       
-      // 导入教师题目会话
+      // 导入教师题目会话（使用统一存储格式）
       if (importData.teacherExerciseSessions && importData.teacherExerciseMessages) {
-        const userId = getCurrentUserIdOrDefault()
         for (const session of importData.teacherExerciseSessions) {
-          const sessionKey = `${userId}_teacher-exercise-${session.sessionId}_session`
-          localStorage.setItem(sessionKey, JSON.stringify(session))
+          teacherExerciseStore.saveSession(session)
         }
         
-        for (const sessionId in importData.teacherExerciseMessages) {
-          const storageKey = `teacher-exercise-${sessionId}`
-          await asyncStorage.saveTeacherChatHistory(storageKey, importData.teacherExerciseMessages[sessionId])
+        for (const questionId in importData.teacherExerciseMessages) {
+          const storageKey = `teacher-exercise-${questionId}`
+          await asyncStorage.saveTeacherChatHistory(storageKey, importData.teacherExerciseMessages[questionId])
         }
       }
       
@@ -1245,7 +1217,8 @@ const indexedDBMessagesCount = computed(() => indexedDBMessages.value.length)
 const indexedDBKey = computed(() => {
   if (!currentTeacherSession.value) return '无当前会话'
   const userId = getCurrentUserIdOrDefault()
-  return `${userId}_chat_history_teacher_chat_${currentTeacherSession.value.sessionId}`
+  // 教师通用会话使用统一存储，所有会话的消息存储在同一个键下
+  return `${userId}_chat_history_teacher-general`
 })
 const localStorageSessionKey = computed(() => {
   if (!currentTeacherSession.value) return '无当前会话'
@@ -1263,9 +1236,9 @@ const refreshStorageData = async () => {
     // 刷新内存消息
     memoryMessages.value = [...teacherStore.messages]
     
-    // 刷新IndexedDB消息
+    // 刷新IndexedDB消息（从独立存储中加载）
     if (currentTeacherSession.value) {
-      const storageKey = `teacher_chat_${currentTeacherSession.value.sessionId}`
+      const storageKey = `teacher-general-${currentTeacherSession.value.sessionId}`
       const history = await asyncStorage.loadChatHistory(storageKey)
       if (history && history.messages) {
         indexedDBMessages.value = history.messages

@@ -307,30 +307,17 @@ const takePictureToTeacher = async () => {
     if (dialogRef) {
       // 从组件获取当前会话ID，或者从最新的会话获取
       // 查找最新的会话
-      const sessions: Array<{ sessionId: string; createTime: number }> = []
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (key?.startsWith('teacher-general-') && key.endsWith('_session')) {
-          try {
-            const sessionData = localStorage.getItem(key)
-            if (sessionData) {
-              const session = JSON.parse(sessionData)
-              sessions.push(session)
-            }
-          } catch (error) {
-            console.error('解析会话数据失败:', error)
-          }
-        }
-      }
+      // 使用 store 的统一方法获取所有会话
+      const allSessions = teacherStore.getAllSessions()
       
-      if (sessions.length > 0) {
-        sessions.sort((a, b) => b.createTime - a.createTime)
-        currentSessionId = sessions[0].sessionId
+      if (allSessions.length > 0) {
+        // 已经按创建时间排序
+        currentSessionId = allSessions[0].sessionId
         
         // 设置会话到 Store
-        const sessionData = localStorage.getItem(`teacher-general-${currentSessionId}_session`)
-        if (sessionData) {
-          teacherStore.setSession(JSON.parse(sessionData))
+        const session = teacherStore.getSession(currentSessionId)
+        if (session) {
+          teacherStore.setSession(session)
           // 设置到组件
           dialogRef.setTeacherSession(currentSessionId)
         }

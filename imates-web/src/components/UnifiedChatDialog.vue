@@ -323,60 +323,8 @@ const handleAiSessionDelete = async (sessionId: string) => {
 
 // 加载教师会话列表
 const loadTeacherSessions = () => {
-  // 第1步：获取当前用户ID并构建会话前缀
-  const userId = getCurrentUserIdOrDefault()
-  const sessionPrefix = `${userId}_teacher-general-`
-  
-  const sessions: TeacherSession[] = []
-  const sessionIds = new Set<string>()
-  
-  // 第2步：遍历localStorage查找所有教师会话（仅当前用户）
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (key?.startsWith(sessionPrefix) && key.endsWith('_session')) {
-      try {
-        const sessionData = localStorage.getItem(key)
-        if (sessionData) {
-          const session = JSON.parse(sessionData)
-          
-          if (!session || !session.sessionId || !session.sessionName) {
-            console.warn('[UnifiedChatDialog] ⚠️ 跳过无效会话数据:', key)
-            continue
-          }
-          
-          if (sessionIds.has(session.sessionId)) {
-            console.warn('[UnifiedChatDialog] ⚠️ 发现重复的会话ID，跳过:', session.sessionId)
-            const expectedKey = `${sessionPrefix}${session.sessionId}_session`
-            if (key !== expectedKey) {
-              localStorage.removeItem(key)
-            }
-            continue
-          }
-          
-          const expectedKey = `${sessionPrefix}${session.sessionId}_session`
-          if (key !== expectedKey) {
-            console.warn('[UnifiedChatDialog] ⚠️ 键名与sessionId不匹配:', key)
-            const correctKeyData = localStorage.getItem(expectedKey)
-            if (correctKeyData) {
-              localStorage.removeItem(key)
-              continue
-            } else {
-              localStorage.removeItem(key)
-              localStorage.setItem(expectedKey, sessionData)
-            }
-          }
-          
-          sessions.push(session)
-          sessionIds.add(session.sessionId)
-        }
-      } catch (error) {
-        console.error('[UnifiedChatDialog] ❌ 解析会话数据失败:', key, error)
-      }
-    }
-  }
-  
-  sessions.sort((a, b) => b.createTime - a.createTime)
-  teacherSessions.value = sessions
+  // 使用 store 的统一方法获取所有会话
+  teacherSessions.value = teacherChatStore.getAllSessions()
 }
 
 // 处理教师会话点击
@@ -460,14 +408,14 @@ const createTeacherSession = async (subject: 'biology' | 'math') => {
     
     if (createdSession) {
       teacherSessionId.value = createdSession.sessionId
-      
-      await teacherChatStore.initMessageReceiver()
-      loadTeacherSessions()
-      
+    
+    await teacherChatStore.initMessageReceiver()
+    loadTeacherSessions()
+    
       emit('session-created', createdSession.sessionId, 'teacher')
-      
-      // 切换到教师分类
-      activeCategory.value = 'teacher'
+    
+    // 切换到教师分类
+    activeCategory.value = 'teacher'
     } else {
       showMessage('创建教师会话失败，请重试', 'error')
     }
