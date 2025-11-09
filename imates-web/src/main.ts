@@ -5,6 +5,7 @@ import { initPolyfills } from './utils/common/polyfills'
 import { initializeAppConfig } from './utils/config/config-utils'
 import { initQuestionStorage } from './services/question-storage'
 import { initNetworkStatusListener } from './utils/network-status'
+import { initMockTeacherBridge } from './services/mock-teacher-bridge'
 import './styles/native-app.css'
 import './styles/mathlive-custom.css'
 import './styles/gemini-notify.css'
@@ -14,6 +15,11 @@ import router from './router'
 
 // 初始化 WebView 兼容性 polyfills
 initPolyfills()
+
+// 立即初始化模拟老师对话功能（必须在 store 初始化之前）
+// 这样确保在 store 检查 AndroidBridge 时，模拟功能已经就绪
+initMockTeacherBridge()
+
 initializeAppConfig()
 
 // 初始化网络状态监听

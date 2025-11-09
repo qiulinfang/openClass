@@ -950,11 +950,51 @@ export class AndroidBridge {
    */
   public forwardAiChatToTeacher(selectedMessagesData: string, teacherSessionId: string): boolean {
     try {
-      const resp = this.callString(() => {
-        const nativeResult = window.AndroidBridge?.forwardAiChatToTeacher?.(selectedMessagesData, teacherSessionId)
-        return nativeResult
+      console.log('[AndroidBridge] 🔍 forwardAiChatToTeacher 调用前检查:', {
+        isAvailable: this.isAvailable,
+        hasWindowAndroidBridge: typeof window !== 'undefined' && typeof window.AndroidBridge !== 'undefined',
+        hasForwardMethod: typeof window !== 'undefined' && typeof window.AndroidBridge?.forwardAiChatToTeacher === 'function',
+        selectedMessagesDataLength: selectedMessagesData?.length || 0,
+        teacherSessionId
       })
+
+      // 直接检查 window.AndroidBridge，不依赖 isAvailable（可能未及时更新）
+      if (typeof window === 'undefined' || !window.AndroidBridge || typeof window.AndroidBridge.forwardAiChatToTeacher !== 'function') {
+        console.warn('[AndroidBridge] ⚠️ forwardAiChatToTeacher 不可用，window.AndroidBridge.forwardAiChatToTeacher 不存在')
+        return false
+      }
+
+      const nativeResult = window.AndroidBridge.forwardAiChatToTeacher(selectedMessagesData, teacherSessionId)
+      console.log('[AndroidBridge] 🔍 forwardAiChatToTeacher 原生返回:', { 
+        nativeResult, 
+        type: typeof nativeResult,
+        length: typeof nativeResult === 'string' ? nativeResult.length : 0,
+        isUndefined: nativeResult === undefined,
+        isNull: nativeResult === null
+      })
+
+      // 如果返回 undefined 或 null，返回 false
+      if (nativeResult === undefined || nativeResult === null) {
+        console.warn('[AndroidBridge] ⚠️ forwardAiChatToTeacher 返回 undefined 或 null')
+        return false
+      }
+
+      // 如果返回的不是字符串，尝试转换为字符串
+      const resp = typeof nativeResult === 'string' ? nativeResult : String(nativeResult)
+      console.log('[AndroidBridge] 🔍 forwardAiChatToTeacher 处理后的响应:', { 
+        resp, 
+        type: typeof resp,
+        length: resp.length,
+        isEmpty: !resp || resp.trim() === ''
+      })
+
+      if (!resp || resp.trim() === '') {
+        console.warn('[AndroidBridge] ⚠️ forwardAiChatToTeacher 返回空字符串')
+        return false
+      }
+
       const result = this.parseJSON<{ success: boolean }>(resp, { success: false })
+      console.log('[AndroidBridge] 🔍 forwardAiChatToTeacher 解析结果:', result)
       return result.success
     } catch (error) {
       console.error('[AndroidBridge] ❌ forwardAiChatToTeacher 异常:', error)

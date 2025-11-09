@@ -15,7 +15,7 @@ import { apiService } from '../services/api-service'
 import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
 import type { ChatBubble, ExerciseItem, UserInfo } from '../types'
 import { buildAiExerciseMessage } from './utils/aiMessageBuilder'
-import { createUserMessage } from './utils/chatStoreUtils'
+import { createUserMessage, generateUniqueId } from './utils/chatStoreUtils'
 
 export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   // ==================== 状态定义 ====================
@@ -76,7 +76,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     }
     
     // 第3步：创建临时AI回复（使用工具函数）
-    const tempReplyId = (Date.now() + 1).toString()
+    const tempReplyId = generateUniqueId('temp_ai')
     const tempReply: ChatBubble = {
       id: tempReplyId,
       content: '',

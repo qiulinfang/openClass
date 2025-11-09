@@ -68,7 +68,7 @@ export function createUserMessage(
  * 创建临时AI回复消息
  */
 export function createTempAiReplyMessage(): { message: ChatBubble; id: string } {
-  const tempReplyId = (Date.now() + 1).toString()
+  const tempReplyId = generateUniqueId('temp_ai')
   const tempReplyMessage: ChatBubble = {
     id: tempReplyId,
     content: '',
@@ -85,7 +85,7 @@ export function createTempAiReplyMessage(): { message: ChatBubble; id: string } 
  * 创建临时教师回复消息
  */
 export function createTempTeacherReplyMessage(): { message: ChatBubble; id: string } {
-  const tempReplyId = (Date.now() + 1).toString()
+  const tempReplyId = generateUniqueId('temp_teacher')
   const tempReplyMessage: ChatBubble = {
     id: tempReplyId,
     content: '',

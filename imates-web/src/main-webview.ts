@@ -11,6 +11,7 @@ import { initPolyfills } from './utils/common/polyfills'
 import { initializeAppConfig } from './utils/config/config-utils'
 import { initQuestionStorage } from './services/question-storage'
 import { AndroidBridge } from './services/android-bridge'
+import { initMockTeacherBridge } from './services/mock-teacher-bridge'
 
 // 导入 Quasar 样式
 import 'quasar/src/css/index.sass'
@@ -45,6 +46,10 @@ async function createWebViewApp() {
   // 初始化 WebView 兼容性 polyfills
   initPolyfills()
   
+  // 立即初始化模拟老师对话功能（必须在 store 初始化之前）
+  // 这样确保在 store 检查 AndroidBridge 时，模拟功能已经就绪
+  initMockTeacherBridge()
+  
   // 初始化应用配置（包括认证 token）
   await initializeAppConfig()
   
@@ -77,7 +82,7 @@ async function createWebViewApp() {
   // Android端通过 window.Vue && window.Vue.version 来检测Vue应用是否就绪
   await nextTick()
   if (typeof window !== 'undefined') {
-    (window as any).Vue = {
+    ;(window as unknown as { Vue: { version: string } }).Vue = {
       version: vueVersion
     }
     console.log('[APP] Vue已挂载到window对象，版本:', vueVersion)

@@ -22,3 +22,15 @@ export interface TeacherSessionInfo {
   subject: string
 }
 
+/**
+ * 初始化选项
+ */
+export interface InitializeOptions {
+  currentSubject?: 'biology' | 'math'
+  currentQuestionId?: string
+  currentQuestionTitle?: string
+  sessionId?: string
+  resourceId?: string
+  hasSelectedQuestion?: boolean
+}
+

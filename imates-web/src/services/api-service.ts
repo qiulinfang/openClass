@@ -14,6 +14,7 @@ import {
   API_ENDPOINTS,
 } from './api-endpoints'
 import { AndroidBridge } from './android-bridge'
+import { generateUniqueId } from '../stores/utils/chatStoreUtils'
 // 不再需要导入fileToBase64DataUrl，直接使用传入的Base64数据 
 
 // 章节相关工具函数
@@ -623,7 +624,7 @@ export class ApiService {
     onComplete?: (response: any) => void,
     onStream?: (chunk: string, isComplete: boolean) => void,
     accumulatedContent: string = '',
-    messageId: string = 'ai_' + Date.now(),
+    messageId: string = generateUniqueId('ai'),
   ): Promise<any> {
     try {
       // 1. 构建请求体
@@ -716,7 +717,7 @@ export class ApiService {
     onComplete?: (response: any) => void,
     onStream?: (chunk: string, isComplete: boolean) => void,
     accumulatedContent: string = '',
-    messageId: string = 'ai_' + Date.now(),
+    messageId: string = generateUniqueId('ai'),
   ): Promise<any> {
     // 检查响应是否成功
     if (!response.success || !response.data) {
@@ -788,7 +789,7 @@ export class ApiService {
     onComplete?: (response: any) => void,
     onStream?: (chunk: string, isComplete: boolean) => void,
     accumulatedContent: string = '',
-    messageId: string = 'ai_' + Date.now(),
+    messageId: string = generateUniqueId('ai'),
   ) {
     const newAccumulatedContent = accumulatedContent + chunk
     // 发送流式数据
@@ -818,7 +819,7 @@ export class ApiService {
     onComplete?: (response: any) => void,
     onStream?: (chunk: string, isComplete: boolean) => void,
     accumulatedContent: string = '',
-    messageId: string = 'ai_' + Date.now(),
+    messageId: string = generateUniqueId('ai'),
   ) {
     const continueMessage = { ...message, reason: 'continue' }
     return await this.pollChatMessage(
@@ -1058,6 +1059,7 @@ export class ApiService {
       // 使用AndroidBridge封装方法
       if (typeof window !== 'undefined' && window.AndroidBridge?.forwardAiChatToTeacher) {
         const result = this.androidBridge.forwardAiChatToTeacher(selectedMessagesData, teacherSessionId)
+        console.log('[ApiService] 🔍 forwardAiChatToTeacher 原生返回:', result)
         return result
       } else {
         console.error('[ApiService] ❌ AndroidBridge 不可用或 forwardAiChatToTeacher 方法不存在')

@@ -43,9 +43,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   const VIEW_ANSWER_CHAT_TIMES = 3
   const canViewAnswer = computed(() => chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES)
   
-  // 防抖定时器
-  let saveDebounceTimer: ReturnType<typeof setTimeout> | null = null
-  
   // ==================== 消息管理 ====================
   
   /**
@@ -334,45 +331,27 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   }
   
   /**
-   * 保存聊天历史（带防抖）
-   * 第1步：清除旧的定时器
-   * 第2步：如果是立即保存，直接执行
-   * 第3步：否则设置防抖定时器
+   * 保存聊天历史（立即保存）
    */
-  const saveChatHistory = async (immediate: boolean = false): Promise<void> => {
+  const saveChatHistory = async (): Promise<void> => {
     // 如果没有 resourceId，不保存
     if (!resourceId.value) {
       return
     }
     
-    // 第1步：清除旧定时器
-    if (saveDebounceTimer) {
-      clearTimeout(saveDebounceTimer)
-      saveDebounceTimer = null
-    }
-    
-    const saveAction = async () => {
-      try {
-        // 第2步：构建存储键
-        const storageKey = `ai-textbook-${resourceId.value}`
-        
-        // 第3步：保存到IndexedDB
-        await asyncStorage.saveChatHistory(storageKey, {
-          questionId: storageKey,
-          messages: messages.value,
-          lastUpdated: Date.now(),
-          chatResponseTimes: chatResponseTimes.value
-        })
-      } catch (error) {
-        console.error('保存聊天历史失败:', error)
-      }
-    }
-    
-    // 第4步：立即保存或防抖保存
-    if (immediate) {
-      await saveAction()
-    } else {
-      saveDebounceTimer = setTimeout(saveAction, 1000)
+    try {
+      // 构建存储键
+      const storageKey = `ai-textbook-${resourceId.value}`
+      
+      // 保存到IndexedDB
+      await asyncStorage.saveChatHistory(storageKey, {
+        questionId: storageKey,
+        messages: messages.value,
+        lastUpdated: Date.now(),
+        chatResponseTimes: chatResponseTimes.value
+      })
+    } catch (error) {
+      console.error('保存聊天历史失败:', error)
     }
   }
   

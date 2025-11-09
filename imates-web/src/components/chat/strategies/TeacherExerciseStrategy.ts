@@ -5,7 +5,7 @@
 
 import type { ChatBubble } from '../../../types'
 import type { ChatStrategy } from './ChatStrategy'
-import type { SendMessageOptions } from './types'
+import type { SendMessageOptions, InitializeOptions } from './types'
 import { useTeacherExerciseChatStore } from '../../../stores/teacherExerciseChatStore'
 import { useQuestionStore } from '../../../stores/questionStore'
 import { useUserStore } from '../../../stores/userStore'
@@ -68,7 +68,7 @@ export class TeacherExerciseStrategy implements ChatStrategy {
   
   // 第8步：保存聊天历史
   async saveChatHistory(): Promise<void> {
-    await this.teacherExerciseStore.saveChatHistory(false)
+    await this.teacherExerciseStore.saveChatHistory()
   }
   
   // 第9步：检查是否支持转发消息
@@ -98,8 +98,161 @@ export class TeacherExerciseStrategy implements ChatStrategy {
       error: '老师对话不支持转发消息',
     }
   }
+  
+  // 第13步：初始化消息
+  async initialize(options: InitializeOptions): Promise<void> {
+    // 步骤1：验证当前题目
+    if (!options.currentQuestionId) {
+      console.warn('[TeacherExerciseStrategy] ⚠️ 初始化老师题目会话失败：没有当前题目')
+      return
+    }
+
+    // 步骤2：初始化老师消息监听器（使用 Store 统一方法）
+    await this.teacherExerciseStore.initMessageReceiver()
+
+    // 步骤3：确定科目
+    const subject = (options.currentSubject || 'math') as 'biology' | 'math'
+
+    // 步骤4：创建或获取题目会话
+    const questionTitle = options.currentQuestionTitle || '题目'
+    const session = this.teacherExerciseStore.getOrCreateSession(
+      options.currentQuestionId,
+      questionTitle,
+      subject
+    )
+
+    // 步骤5：加载该会话的聊天历史（使用 questionId 而不是 sessionId，确保与保存时的 storageKey 一致）
+    await this.teacherExerciseStore.loadChatHistory(session.questionId)
+
+    console.log('[TeacherExerciseStrategy] ✅ 老师题目会话初始化成功', {
+      sessionId: session.sessionId,
+      questionId: session.questionId,
+      subject: session.subject
+    })
+  }
+  
+  // 第14步：发送语音消息
+  async sendVoiceMessage(voiceInfo: {
+    filePath: string
+    duration: number
+    fileSize: number
+  }): Promise<{ success: boolean; message?: string }> {
+    // 教师题目场景：暂时模拟成功
+    return { success: true }
+  }
+  
+  // 第15步：发送图片消息
+  async sendImageMessage(
+    imageInfo: {
+      filePath: string
+      width: number
+      height: number
+      fileSize: number
+      base64DataUrl?: string
+    },
+    textContent?: string,
+    options?: SendMessageOptions
+  ): Promise<void> {
+    // 创建图片消息
+    const imageMessage: ChatBubble = {
+      id: Date.now().toString(),
+      content: '',
+      type: 'user',
+      timestamp: '',
+      sender: 'user',
+      messageType: 'image',
+      imageData: {
+        filePath: imageInfo.filePath,
+        width: imageInfo.width,
+        height: imageInfo.height,
+        fileSize: imageInfo.fileSize,
+        base64DataUrl: imageInfo.base64DataUrl,
+      },
+    }
+    
+    await this.addMessage(imageMessage)
+    
+    // 发送图片消息给老师
+    if (!imageInfo.base64DataUrl) {
+      throw new Error('图片数据不完整，请重试')
+    }
+    
+    await this.sendMessage(textContent || '', {
+      imageData: {
+        filePath: imageInfo.filePath,
+        width: imageInfo.width,
+        height: imageInfo.height,
+        fileSize: imageInfo.fileSize,
+        base64DataUrl: imageInfo.base64DataUrl,
+      },
+    })
+  }
+  
+  // 第16步：更新编辑的消息
+  async updateEditedMessage(
+    messageId: string,
+    newContent: string,
+    options?: { selectedModel?: string }
+  ): Promise<void> {
+    const messages = this.teacherExerciseStore.messages
+    const messageIndex = messages.findIndex((msg) => msg.id === messageId)
+    
+    if (messageIndex === -1) {
+      throw new Error('消息不存在')
+    }
+    
+    // 更新消息内容
+    messages[messageIndex].content = newContent
+    
+    // 删除该消息之后的所有消息
+    const messagesToKeep = messages.slice(0, messageIndex + 1)
+    this.teacherExerciseStore.messages.length = 0
+    this.teacherExerciseStore.messages.push(...messagesToKeep)
+    
+    // 保存聊天记录
+    await this.saveChatHistory()
+    
+    // 教师场景不支持编辑后重新发送，只更新消息内容
+  }
+  
+  // 第17步：获取占位符文本
+  getPlaceholderText(hasSelectedQuestion: boolean): string {
+    if (!hasSelectedQuestion) {
+      return '可以先聊聊，或选择题目后开始讨论'
+    }
+    return '向老师提问...'
+  }
+  
+  // 第18步：获取会话信息（教师题目策略不需要）
+  // getSessionInfo 不实现，因为教师题目策略不需要
+  
+  // 第19步：是否显示转发按钮
+  shouldShowForwardButton(): boolean {
+    return false // 教师题目对话不支持转发
+  }
+  
+  // 第20步：发送图片消息后是否清空输入框
+  shouldClearInputAfterImage(): boolean {
+    return false // 教师场景不清空输入框
+  }
+  
+  // 第21步：是否使用乐观发送
+  shouldOptimisticSend(): boolean {
+    return false // 教师题目场景不使用乐观发送
+  }
+  
+  // 第22步：清理资源
+  // cleanup 不实现，因为教师题目策略不需要特殊清理
+  
+  // 第23步：获取当前科目
+  getCurrentSubject(): 'biology' | 'math' {
+    return this.userStore.subject === 'BIOLOGY' ? 'biology' : 'math'
+  }
+  
+  // 第24步：重置会话
+  resetSession(): void {
+    this.teacherExerciseStore.clearSession()
+  }
 }
-
-
 
 

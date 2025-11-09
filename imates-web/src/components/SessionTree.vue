@@ -28,8 +28,6 @@
         <q-tree
           :nodes="treeNodes"
           node-key="id"
-          :expanded="expandedNodes"
-          @update:expanded="(val) => (expandedNodes = Array.isArray(val) ? [...val] : [])"
           :selected="selectedNodeId"
           @update:selected="handleNodeSelect"
           default-expand-all
@@ -172,7 +170,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import type { TeacherSession } from '@/stores/teacherGeneralChatStore'
 import { useUnreadMessageStore } from '@/stores/unreadMessageStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
@@ -183,31 +181,80 @@ import { isSessionFavorite, toggleSessionFavorite } from '@/utils/storage/favori
 import { useQuasar } from 'quasar'
 import { getCurrentUserIdOrDefault } from '@/utils/user/userId'
 
-// 定义 props
-interface Props {
-  // 当前选中的会话ID（通用，可以是AI会话或教师会话）
-  selectedSessionId?: string
-  // 是否显示头部
-  showHeader?: boolean
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  selectedSessionId: undefined,
-  showHeader: true,
-})
 
 // 定义 emits
 const emit = defineEmits<{
   'session-switched': [type: 'ai' | 'teacher', sessionId: string] // 会话切换完成事件（最终结果）
   'ai-session-deleted': [sessionId: string, success: boolean, wasCurrentSession: boolean]
   'teacher-session-deleted': [sessionId: string, success: boolean, wasCurrentSession: boolean]
+  'category-should-change': [category: 'ai-general' | 'teacher'] // 分类应该改变的事件（用于同步父组件的 activeCategory）
+  'should-switch-session': [type: 'ai' | 'teacher', sessionId: string] // 应该切换会话的事件（用于初始化时通知父组件）
 }>()
 
 // 搜索关键词
 const searchKeyword = ref('')
 
-// 展开的节点
-const expandedNodes = ref<string[]>([])
+// 辅助函数：根据 sessionId 查找节点（需要在 getSessionCategory 之前定义）
+const findNodeBySessionId = (nodes: TreeNode[], targetSessionId: string): TreeNode | null => {
+  for (const node of nodes) {
+    if (node.sessionId === targetSessionId) {
+      return node
+    }
+    if (node.children) {
+      const found = findNodeBySessionId(node.children, targetSessionId)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+// 根据 sessionId 获取会话类型（需要在 computed setter 之前定义）
+const getSessionCategory = (sessionId: string | undefined, nodes: TreeNode[]): 'ai-general' | 'teacher' | null => {
+  if (!sessionId) return null
+  
+  const node = findNodeBySessionId(nodes, sessionId)
+  if (!node) return null
+  
+  if (node.category === 'ai') {
+    return 'ai-general'
+  } else if (node.category === 'biology' || node.category === 'math') {
+    return 'teacher'
+  }
+  
+  return null
+}
+
+// 当前选中的会话ID（内部维护）
+// 使用 computed 的 getter/setter 替代 watch，在 setter 中直接处理副作用
+const _selectedSessionId = ref<string | undefined>(undefined)
+const selectedSessionId = computed({
+  get: () => _selectedSessionId.value,
+  set: (newSessionId: string | undefined) => {
+    const oldSessionId = _selectedSessionId.value
+    // 如果值没有变化，跳过（避免重复更新）
+    if (newSessionId === oldSessionId) {
+      return
+    }
+    
+    _selectedSessionId.value = newSessionId
+    
+    // 在 setter 中直接处理分类切换通知，而不是通过 watch
+    if (newSessionId) {
+      const category = getSessionCategory(newSessionId, treeNodes.value)
+      if (category === 'teacher') {
+        emit('category-should-change', 'teacher')
+      } else if (category === 'ai-general') {
+        emit('category-should-change', 'ai-general')
+      }
+    } else {
+      // 如果选中状态被清空，切换到 AI 分类
+      // 只有当之前有选中状态时才 emit，避免重复
+      if (oldSessionId !== undefined) {
+        emit('category-should-change', 'ai-general')
+      }
+    }
+  },
+})
 
 // 选中的节点ID
 const selectedNodeId = ref<string | null>(null)
@@ -229,15 +276,6 @@ const teacherChatStore = useTeacherGeneralChatStore()
 
 // Quasar 实例（用于显示消息提示）
 const $q = useQuasar()
-
-// 监听未读消息变化，确保组件响应式更新
-watch(
-  () => unreadStore.unreadSessionsMap,
-  () => {
-    // 触发响应式更新
-  },
-  { deep: true },
-)
 
 // 收藏状态更新触发器（用于触发 treeNodes 重新计算收藏状态）
 // 注意：收藏状态存储在 localStorage 中，不是响应式的，所以需要手动触发
@@ -435,12 +473,12 @@ const { init: initBScroll } = useBetterScroll(
 )
 
 // 判断节点是否被选中
-// 使用通用的 selectedSessionId，直接比较 sessionId
+// 使用内部的 selectedSessionId，直接比较 sessionId
 const isSelectedNode = (node: TreeNode): boolean => {
   if (node.level === 1) return false // 分类节点不可选中
 
   // 直接比较 sessionId，如果匹配则选中
-  return props.selectedSessionId === node.sessionId
+  return selectedSessionId.value === node.sessionId
 }
 
 // ==================== 工具函数 ====================
@@ -459,19 +497,6 @@ const findNodeById = (nodes: TreeNode[], targetId: string): TreeNode | null => {
   return null
 }
 
-// 根据 sessionId 查找节点
-const findNodeBySessionId = (nodes: TreeNode[], targetSessionId: string): TreeNode | null => {
-  for (const node of nodes) {
-    if (node.sessionId === targetSessionId) {
-      return node
-    }
-    if (node.children) {
-      const found = findNodeBySessionId(node.children, targetSessionId)
-      if (found) return found
-    }
-  }
-  return null
-}
 
 // ==================== 方法 ====================
 
@@ -518,14 +543,28 @@ const handleSessionClick = async (node: TreeNode) => {
   if (node.level !== 2 || !node.sessionId) return
 
   try {
-  if (node.category === 'ai') {
+    if (node.category === 'ai') {
       // AI 会话切换逻辑
-    unreadStore.clearUnread(`ai_${node.sessionId}`)
+      unreadStore.clearUnread(`ai_${node.sessionId}`)
       await aiGeneralStore.switchSession(node.sessionId)
+      // 更新内部维护的选中会话ID和节点ID
+      // 使用 computed setter，会自动处理分类切换通知
+      selectedSessionId.value = node.sessionId
+      selectedNodeId.value = node.id
+      
+      // 数据更新后，手动处理 treeNodes 变化（替代 watch）
+      await nextTick()
+      const oldLength = previousTreeNodesLength
+      const newLength = treeNodes.value.length
+      if (oldLength !== newLength) {
+        previousTreeNodesLength = newLength
+        await handleTreeNodesChange(oldLength, newLength)
+      }
+      
       emit('session-switched', 'ai', node.sessionId)
-  } else if (node.category === 'biology' || node.category === 'math') {
+    } else if (node.category === 'biology' || node.category === 'math') {
       // 教师会话切换逻辑
-    unreadStore.clearUnread(`teacher_${node.sessionId}`)
+      unreadStore.clearUnread(`teacher_${node.sessionId}`)
       
       // 查找会话数据（使用响应式的 allSessions ref，Pinia 会自动解包）
       const allTeacherSessions = teacherChatStore.allSessions
@@ -543,6 +582,20 @@ const handleSessionClick = async (node: TreeNode) => {
       // 设置会话并加载聊天历史
       teacherChatStore.setSession(session)
       await teacherChatStore.loadChatHistory(session.sessionId)
+      
+      // 更新内部维护的选中会话ID和节点ID
+      // 使用 computed setter，会自动处理分类切换通知
+      selectedSessionId.value = node.sessionId
+      selectedNodeId.value = node.id
+      
+      // 数据更新后，手动处理 treeNodes 变化（替代 watch）
+      await nextTick()
+      const oldLength = previousTreeNodesLength
+      const newLength = treeNodes.value.length
+      if (oldLength !== newLength) {
+        previousTreeNodesLength = newLength
+        await handleTreeNodesChange(oldLength, newLength)
+      }
       
       emit('session-switched', 'teacher', node.sessionId)
     }
@@ -678,6 +731,15 @@ const handleDelete = async (node: TreeNode) => {
       // 直接调用 store 删除
       await aiGeneralStore.deleteSession(node.sessionId)
       
+      // 数据更新后，手动处理 treeNodes 变化（替代 watch）
+      await nextTick()
+      const oldLength = previousTreeNodesLength
+      const newLength = treeNodes.value.length
+      if (oldLength !== newLength) {
+        previousTreeNodesLength = newLength
+        await handleTreeNodesChange(oldLength, newLength)
+      }
+      
       // 发送删除结果事件
       emit('ai-session-deleted', node.sessionId, true, wasCurrentSession)
       
@@ -691,20 +753,30 @@ const handleDelete = async (node: TreeNode) => {
   } else if (node.category === 'biology' || node.category === 'math') {
       // 检查是否是当前会话
       const wasCurrentSession = teacherChatStore.currentSession?.sessionId === node.sessionId
-      
+      console.log('wasCurrentSession', wasCurrentSession)
       // 第1步：删除聊天历史（直接使用存储服务，避免清空当前消息）
       const storageKey = `teacher-general-${node.sessionId}`
       await asyncStorage.removeChatHistory(storageKey)
-      
+      console.log('storageKey', storageKey)
       // 第2步：删除 localStorage 中的会话信息（使用 store 的方法，从统一存储中删除）
       // 新格式：所有会话统一存储在 {userId}_teacher-general-sessions 中
       // 格式：Record<string, TeacherSession>，key 是 sessionId
+      console.log('node31235124365124', node)
       teacherChatStore.deleteSession(node.sessionId)
       
       // 第3步：如果删除的是当前会话，清空当前会话和消息
       if (wasCurrentSession) {
         teacherChatStore.clearSession()
         teacherChatStore.clearMessages()
+      }
+      
+      // 数据更新后，手动处理 treeNodes 变化（替代 watch）
+      await nextTick()
+      const oldLength = previousTreeNodesLength
+      const newLength = treeNodes.value.length
+      if (oldLength !== newLength) {
+        previousTreeNodesLength = newLength
+        await handleTreeNodesChange(oldLength, newLength)
       }
       
       // 发送删除结果事件
@@ -827,111 +899,179 @@ defineExpose({
   getSelectedCategory,
 })
 
-// 监听 treeNodes 变化，确保当数据从无到有时能正确初始化 BetterScroll
-watch(
-  () => treeNodes.value.length,
-  async (newLength, oldLength) => {
-    // 当从无数据变为有数据时，重新初始化 BetterScroll
-    if (oldLength === 0 && newLength > 0) {
-      await nextTick()
-      await initBScroll()
+
+// 更新选中状态的辅助函数（仅用于同步外部状态，不处理未读标记）
+// 添加条件判断避免重复更新导致的死循环
+const updateSelectedNode = (sessionId: string | undefined) => {
+  // 如果 sessionId 相同，且对应的 nodeId 也相同，则跳过更新，避免死循环
+  if (sessionId === _selectedSessionId.value) {
+    if (sessionId) {
+      const node = findNodeBySessionId(treeNodes.value, sessionId)
+      if (node && node.id === selectedNodeId.value) {
+        // 值没有变化，跳过更新
+        return
+      }
+    } else {
+      // 都是 undefined，跳过更新
+      return
     }
-  },
-)
+  }
+  
+  if (sessionId) {
+    const node = findNodeBySessionId(treeNodes.value, sessionId)
+    if (node) {
+      // 使用 computed setter，会自动处理分类切换通知
+      selectedSessionId.value = sessionId
+      selectedNodeId.value = node.id
+    } else {
+      // 如果找不到节点，可能是数据还未加载，先设置 selectedNodeId 为 null
+      selectedNodeId.value = null
+    }
+  } else {
+    // 使用 computed setter，会自动处理分类切换通知
+    selectedSessionId.value = undefined
+    selectedNodeId.value = null
+  }
+}
+
+// 处理 treeNodes 变化时的副作用（初始化 BetterScroll 和更新选中状态）
+// 替代 watch，在数据更新时手动调用
+const handleTreeNodesChange = async (oldLength: number, newLength: number) => {
+  // 当从无数据变为有数据时，重新初始化 BetterScroll
+  if (oldLength === 0 && newLength > 0) {
+    await nextTick()
+    await initBScroll()
+  }
+  
+  // 当树节点数据变化时，如果已有选中的 sessionId，重新查找并更新
+  // 使用 nextTick 确保 treeNodes 已经更新完成
+  await nextTick()
+  if (_selectedSessionId.value) {
+    const node = findNodeBySessionId(treeNodes.value, _selectedSessionId.value)
+    // 只有当节点存在且 nodeId 可能变化时才更新（避免重复更新）
+    if (node) {
+      // 如果 nodeId 已经匹配，说明不需要更新，避免触发循环
+      if (node.id !== selectedNodeId.value) {
+        updateSelectedNode(_selectedSessionId.value)
+      }
+    }
+  }
+}
+
+
+let previousTreeNodesLength = 0
+
+
+// 从 stores 同步选中状态的函数（替代 watch）
+const syncSelectedNodeFromStores = () => {
+  // 优先检查教师会话
+  const teacherSession = teacherChatStore.currentSession
+  if (teacherSession?.sessionId) {
+    // 如果 sessionId 没有变化，跳过更新（避免死循环）
+    if (teacherSession.sessionId !== _selectedSessionId.value) {
+      updateSelectedNode(teacherSession.sessionId)
+    }
+    return
+  }
+  
+  // 检查 AI 会话
+  const aiSession = aiGeneralStore.currentSession
+  if (aiSession?.sessionId) {
+    // 如果 sessionId 没有变化，跳过更新（避免死循环）
+    if (aiSession.sessionId !== _selectedSessionId.value) {
+      updateSelectedNode(aiSession.sessionId)
+    }
+    return
+  }
+  
+  // 如果两个 store 都没有当前会话，且之前有选中状态，清空选中状态
+  if (_selectedSessionId.value !== undefined) {
+    updateSelectedNode(undefined)
+  }
+}
+
 
 // 生命周期
 onMounted(async () => {
+  // 初始化 treeNodes 长度追踪
+  previousTreeNodesLength = treeNodes.value.length
+  
+  // 初始化会话列表和选择
+  await initializeSessions()
+  
+  // 初始化后，同步 store 的选中状态
+  syncSelectedNodeFromStores()
+  
+  // 初始化后，处理 treeNodes 变化（确保 BetterScroll 正确初始化）
+  await nextTick()
+  const currentLength = treeNodes.value.length
+  if (previousTreeNodesLength !== currentLength) {
+    await handleTreeNodesChange(previousTreeNodesLength, currentLength)
+    previousTreeNodesLength = currentLength
+  }
+  
   // 只有当有数据时才初始化
   if (treeNodes.value.length > 0) {
     await initBScroll()
   }
 })
 
-onUnmounted(() => {
-  // BScroll 销毁由组合式函数自动处理
-})
-
-// 更新选中状态的辅助函数
-const updateSelectedNode = (sessionId: string | undefined) => {
-  if (sessionId) {
-    const node = findNodeBySessionId(treeNodes.value, sessionId)
-    if (node) {
-      selectedNodeId.value = node.id
-      
-      // 清除新会话的未读标记
-      if (node.category === 'ai') {
-        unreadStore.clearUnread(`ai_${sessionId}`)
-      } else if (node.category === 'biology' || node.category === 'math') {
-        unreadStore.clearUnread(`teacher_${sessionId}`)
-      }
-    } else {
-      // 如果找不到节点，可能是数据还未加载，先设置 selectedNodeId 为 null
-      selectedNodeId.value = null
-    }
-  } else {
-    selectedNodeId.value = null
-  }
+// 切换教师会话（内部辅助方法，用于对话框打开时的会话恢复）
+const switchTeacherSession = async (sessionId: string, subject: 'biology' | 'math') => {
+  const allSessions = teacherChatStore.getAllSessions()
+  const session = allSessions.find(s => s.sessionId === sessionId)
+  if (!session) return
+  
+  const userId = getCurrentUserIdOrDefault()
+  const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
+  localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
+  
+  teacherChatStore.setSession(session)
+  await teacherChatStore.loadChatHistory(session.sessionId)
+  emit('category-should-change', 'teacher')
+  emit('should-switch-session', 'teacher', sessionId)
 }
 
-// 监听选中状态变化，更新树形组件的选中状态并清除未读标记
-watch(
-  () => props.selectedSessionId,
-  (newSessionId, oldSessionId) => {
-    // 清除旧会话的未读标记（如果切换了会话）
-    if (oldSessionId && oldSessionId !== newSessionId) {
-      // 需要判断旧会话的类型
-      const oldNode = findNodeBySessionId(treeNodes.value, oldSessionId)
-      if (oldNode) {
-        if (oldNode.category === 'ai') {
-          unreadStore.clearUnread(`ai_${oldSessionId}`)
-        } else if (oldNode.category === 'biology' || oldNode.category === 'math') {
-          unreadStore.clearUnread(`teacher_${oldSessionId}`)
-        }
+// 初始化会话（组件挂载时执行）
+const initializeSessions = async () => {
+  // 加载AI会话列表
+  await aiGeneralStore.loadSessions()
+  // 根据当前选中的会话自动判断分类
+  // 优先检查是否有当前AI会话
+  if (aiGeneralStore.currentSession?.sessionId) {
+    // updateSelectedNode 内部会更新 selectedSessionId 和 selectedNodeId
+    updateSelectedNode(aiGeneralStore.currentSession.sessionId)
+    emit('category-should-change', 'ai-general')
+    emit('should-switch-session', 'ai', aiGeneralStore.currentSession.sessionId)
+  } else if (aiGeneralStore.sessions.length > 0) {
+    // 如果有AI会话，选中第一个
+    const firstSession = aiGeneralStore.sessions[0]
+    // updateSelectedNode 内部会更新 selectedSessionId 和 selectedNodeId
+    updateSelectedNode(firstSession.sessionId)
+    emit('category-should-change', 'ai-general')
+    emit('should-switch-session', 'ai', firstSession.sessionId)
+  } else {
+    // 检查是否有教师会话
+    const allTeacherSessions = teacherChatStore.getAllSessions()
+    if (teacherChatStore.currentSession?.sessionId && allTeacherSessions.length > 0) {
+      // 如果有当前教师会话，选中对应的教师会话
+      // switchTeacherSession 会触发 watch，watch 会自动调用 updateSelectedNode
+      const session = allTeacherSessions.find(s => s.sessionId === teacherChatStore.currentSession?.sessionId)
+      if (session && (session.subject === 'biology' || session.subject === 'math')) {
+        await switchTeacherSession(session.sessionId, session.subject)
       }
-    }
-
-    // 更新新会话的选中状态
-    updateSelectedNode(newSessionId)
-  },
-  { immediate: true },
-)
-
-// 监听 treeNodes 变化，当数据加载完成后重新更新选中状态
-watch(
-  () => treeNodes.value.length,
-  () => {
-    // 当树节点数据变化时，如果已有选中的 sessionId，重新查找并更新
-    if (props.selectedSessionId) {
-      updateSelectedNode(props.selectedSessionId)
-    }
-  },
-)
-
-// 监听 treeNodes 变化，自动展开所有一级节点
-watch(
-  () => treeNodes.value,
-  (newNodes) => {
-    if (newNodes.length > 0) {
-      // 获取所有一级节点（分类节点）的 ID
-      const firstLevelNodeIds = newNodes
-        .filter((node) => node.level === 1)
-        .map((node) => node.id)
-      
-      // 如果当前展开的节点不包含所有一级节点，则更新
-      const currentExpanded = new Set(expandedNodes.value)
-      const allFirstLevelExpanded = firstLevelNodeIds.every((id) => currentExpanded.has(id))
-      
-      if (!allFirstLevelExpanded) {
-        // 合并现有展开节点和新的一级节点，去重
-        const newExpandedNodes = Array.from(
-          new Set([...expandedNodes.value, ...firstLevelNodeIds])
-        )
-        expandedNodes.value = newExpandedNodes
+    } else if (allTeacherSessions.length > 0) {
+      // 如果有教师会话，选中第一个
+      const firstTeacherSession = allTeacherSessions[0]
+      if (firstTeacherSession.subject === 'biology' || firstTeacherSession.subject === 'math') {
+        await switchTeacherSession(firstTeacherSession.sessionId, firstTeacherSession.subject)
       }
+    } else {
+      // 默认使用AI分类
+      emit('category-should-change', 'ai-general')
     }
-  },
-  { immediate: true, deep: true },
-)
+  }
+}
 </script>
 
 <style lang="scss" scoped>

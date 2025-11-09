@@ -12,10 +12,10 @@
       <div class="left-panel">
         <SessionTree
           ref="sessionTreeRef"
-          :selected-session-id="selectedSessionId"
           @session-switched="handleSessionSwitched"
           @ai-session-deleted="handleAiSessionDeleted"
           @teacher-session-deleted="handleTeacherSessionDeleted"
+          @category-should-change="handleCategoryShouldChange"
         >
           <template #header-actions>
             <!-- 调试按钮 -->
@@ -62,7 +62,7 @@
               round 
               icon="refresh" 
               size="sm" 
-              @click="loadTeacherSessions"
+              @click="aiGeneralStore.loadSessions()"
             >
               <q-tooltip>刷新列表</q-tooltip>
             </q-btn>
@@ -132,7 +132,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
 import { useUserStore } from '@/stores/userStore'
@@ -186,16 +186,6 @@ const showDebugPanel = ref(false)
 const showTeacherSelectDialog = ref(false)
 const availableTeachers = ref<Array<{ subject: 'biology' | 'math', name: string }>>([])
 
-// 通用的选中会话ID（可以是AI会话或教师会话）
-const selectedSessionId = computed(() => {
-  if (activeCategory.value === 'ai-general' && aiGeneralStore.currentSession?.sessionId) {
-    return aiGeneralStore.currentSession.sessionId
-  } else if (activeCategory.value === 'teacher' && teacherChatStore.currentSession?.sessionId) {
-    return teacherChatStore.currentSession.sessionId
-  }
-  return undefined
-})
-
 // 判断当前选中的分类是否为老师类型
 const isTeacherCategory = computed(() => {
   const selectedCategory = sessionTreeRef.value?.getSelectedCategory()
@@ -231,7 +221,6 @@ const handleSessionSwitched = (type: 'ai' | 'teacher', sessionId: string) => {
   console.log('handleSessionSwitched', type, sessionId)
   // 只更新分类，所有切换逻辑已在 SessionTree 内部完成
   activeCategory.value = type === 'ai' ? 'ai-general' : 'teacher'
-  // selectedSessionId 会自动更新（通过 computed）
 }
 
 // 处理新增对话（可以是AI对话或教师对话）
@@ -285,27 +274,6 @@ const handleAiSessionDeleted = (sessionId: string, success: boolean, wasCurrentS
 
 // ==================== 教师通用对话相关方法 ====================
 
-// 加载教师会话列表（已移除，SessionTree 直接从 store 获取）
-const loadTeacherSessions = () => {
-  // 此方法保留用于触发刷新，但不再需要本地状态
-  // SessionTree 会直接从 store 获取最新数据
-}
-
-// 切换教师会话（内部辅助方法，用于对话框打开时的会话恢复）
-const switchTeacherSession = async (sessionId: string, subject: 'biology' | 'math') => {
-  const allSessions = teacherChatStore.getAllSessions()
-  const session = allSessions.find(s => s.sessionId === sessionId)
-  if (!session) return
-  
-  const userId = getCurrentUserIdOrDefault()
-  const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
-  localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
-  
-  teacherChatStore.setSession(session)
-  await teacherChatStore.loadChatHistory(session.sessionId)
-  activeCategory.value = 'teacher'
-}
-
 // 处理教师会话删除结果（由 SessionTree 直接调用 store 删除后通知）
 const handleTeacherSessionDeleted = (sessionId: string, success: boolean, wasCurrentSession: boolean) => {
   if (!success) {
@@ -313,9 +281,6 @@ const handleTeacherSessionDeleted = (sessionId: string, success: boolean, wasCur
     return
   }
   
-  // 刷新会话列表
-    loadTeacherSessions()
-    
   // 如果删除的是当前会话，切换到AI分类（store 的 currentSession 已由删除逻辑清空）
   if (wasCurrentSession) {
     activeCategory.value = 'ai-general'
@@ -362,10 +327,7 @@ const createTeacherSession = async (subject: 'biology' | 'math') => {
     // 第5步：初始化消息接收器
     await teacherChatStore.initMessageReceiver()
     
-    // 第6步：更新 UI 状态（store 的 currentSession 已由 createTeacherSession 设置）
-    loadTeacherSessions()
-    
-    // 第7步：切换到教师分类
+    // 第6步：切换到教师分类（store 的 currentSession 已由 createTeacherSession 设置）
     activeCategory.value = 'teacher'
 
     // 第8步：触发会话创建事件
@@ -395,8 +357,6 @@ const handleOpenTeacherDialog = async ({ sessionId }: { sessionId: string; messa
     // 设置指定的会话（会自动切换到教师分类）
     // SessionTree 会直接从 store 获取最新数据，无需手动加载
     setTeacherSession(sessionId)
-    
-    // SessionTree 会自动通过 selectedSessionId computed 更新选中状态
   } catch (error) {
     console.error('设置老师会话失败:', error)
     showMessage('设置老师会话失败', 'error')
@@ -420,8 +380,6 @@ const handleSwitchToTeacher = async (forwardData?: {
     // 设置指定的会话（会自动切换到教师分类）
     // SessionTree 会直接从 store 获取最新数据，无需手动加载
     setTeacherSession(forwardData.sessionId)
-    
-    // SessionTree 会自动通过 selectedSessionId computed 更新选中状态
   } catch (error) {
     console.error('设置老师会话失败:', error)
     showMessage('设置老师会话失败', 'error')
@@ -436,102 +394,26 @@ const switchCategory = (category: 'ai-general' | 'teacher') => {
 // 暴露方法供外部调用
 defineExpose({
   createTeacherSession,
-  switchCategory,
-  loadTeacherSessions
+  switchCategory
 })
 
 // ==================== 监听器 ====================
 
-// 监听 store 的 currentSession 变化，自动同步 UI 状态
-watch(() => teacherChatStore.currentSession, (newSession) => {
-  if (newSession) {
+// 处理分类应该改变的事件（由 SessionTree 发出）
+const handleCategoryShouldChange = (category: 'ai-general' | 'teacher') => {
+  if (category === 'teacher') {
     activeCategory.value = 'teacher'
   } else if (activeCategory.value === 'teacher') {
     // 如果当前是教师分类但会话被清空，切换到 AI 分类
     activeCategory.value = 'ai-general'
   }
-}, { immediate: true })
+}
 
-// 监听对话框打开/关闭
-let refreshTimer: ReturnType<typeof setInterval> | null = null
-
-watch(localVisible, async (isOpen) => {
-  if (isOpen) {
-    // 加载AI会话列表
-    await aiGeneralStore.loadSessions()
-    
-    // 加载教师会话列表
-    loadTeacherSessions()
-    
-    // 等待下一个 tick，确保数据已更新
-    await nextTick()
-    
-    // 根据当前选中的会话自动判断分类
-    // 优先检查是否有当前AI会话
-    if (aiGeneralStore.currentSession?.sessionId) {
-      activeCategory.value = 'ai-general'
-      await aiGeneralStore.switchSession(aiGeneralStore.currentSession.sessionId)
-    } else if (aiGeneralStore.sessions.length > 0) {
-      // 如果有AI会话，选中第一个
-      const firstSession = aiGeneralStore.sessions[0]
-      await aiGeneralStore.switchSession(firstSession.sessionId)
-      activeCategory.value = 'ai-general'
-    } else {
-      // 检查是否有教师会话
-      const allTeacherSessions = teacherChatStore.getAllSessions()
-      if (teacherChatStore.currentSession?.sessionId && allTeacherSessions.length > 0) {
-        // 如果有当前教师会话，选中对应的教师会话
-        const session = allTeacherSessions.find(s => s.sessionId === teacherChatStore.currentSession?.sessionId)
-        if (session && (session.subject === 'biology' || session.subject === 'math')) {
-          await switchTeacherSession(session.sessionId, session.subject)
-      }
-      } else if (allTeacherSessions.length > 0) {
-      // 如果有教师会话，选中第一个
-        const firstTeacherSession = allTeacherSessions[0]
-        if (firstTeacherSession.subject === 'biology' || firstTeacherSession.subject === 'math') {
-          await switchTeacherSession(firstTeacherSession.sessionId, firstTeacherSession.subject)
-        }
-    } else {
-      // 默认使用AI分类
-      activeCategory.value = 'ai-general'
-      }
-    }
-    
-    // 每5秒自动刷新一次（用于显示自动生成的标题）
-    refreshTimer = setInterval(() => {
-      loadTeacherSessions()
-    }, 5000)
-  } else {
-    if (refreshTimer) {
-      clearInterval(refreshTimer)
-      refreshTimer = null
-    }
-  }
-})
-
-// 监听会话恢复事件，立即刷新会话列表
-onMounted(() => {
-  const handleSessionRestored = () => {
-    loadTeacherSessions()
-  }
-  
-  window.addEventListener('teacher-session-restored', handleSessionRestored)
-  
-  // 在组件卸载时移除监听器
-  onUnmounted(() => {
-    window.removeEventListener('teacher-session-restored', handleSessionRestored)
-  })
-})
 
 // ==================== 清理 ====================
 onUnmounted(async () => {
   if (teacherChatStore.currentSession?.sessionId) {
     await teacherChatStore.cleanupMessageReceiver()
-  }
-  
-  if (refreshTimer) {
-    clearInterval(refreshTimer)
-    refreshTimer = null
   }
 })
 </script>

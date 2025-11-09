@@ -25,9 +25,9 @@
           size="md"
           :color="selectedMessages.size === displayedMessages.length ? 'primary' : 'grey-6'"
         />
-        <!-- 转发按钮 - 仅在AI通用、AI题目和AI教材模式下显示 -->
+        <!-- 转发按钮 - 使用策略模式判断是否显示 -->
         <q-btn
-          v-if="type === 'ai-general' || type === 'ai-exercise' || type === 'ai-textbook'"
+          v-if="chatStrategy?.shouldShowForwardButton()"
           flat
           round
           icon="forward"
@@ -46,41 +46,41 @@
       <div ref="scrollWrapper" class="scroll-wrapper chat-messages">
         <div class="scroll-content">
           <div class="messages-wrapper">
-          <!-- 聊天记录加载状态指示器 - 带淡入淡出动画 -->
-          <Transition name="loading-fade" appear>
-            <div v-if="showLoadingIndicator" class="chat-loading-indicator">
-              <q-spinner-dots size="24px" color="primary" />
-              <span class="loading-text">正在加载聊天记录...</span>
+            <!-- 聊天记录加载状态指示器 - 带淡入淡出动画 -->
+            <Transition name="loading-fade" appear>
+              <div v-if="showLoadingIndicator" class="chat-loading-indicator">
+                <q-spinner-dots size="24px" color="primary" />
+                <span class="loading-text">正在加载聊天记录...</span>
+              </div>
+            </Transition>
+
+            <!-- 分批次渲染状态指示器 - 显示历史消息渲染进度 -->
+            <div v-if="isChatRendering && !isChatLoading" class="chat-rendering-indicator">
+              <q-spinner-hourglass size="20px" color="secondary" />
+              <span class="rendering-text">正在渲染历史消息...</span>
             </div>
-          </Transition>
 
-          <!-- 分批次渲染状态指示器 - 显示历史消息渲染进度 -->
-          <div v-if="isChatRendering && !isChatLoading" class="chat-rendering-indicator">
-            <q-spinner-hourglass size="20px" color="secondary" />
-            <span class="rendering-text">正在渲染历史消息...</span>
+            <!-- 聊天消息组件列表 - 支持选择、转发、编辑等功能 -->
+            <ChatMessageComponent
+              v-for="(message, index) in displayedMessages"
+              :key="message.id"
+              :message="message"
+              :type="type"
+              :is-selected="selectedMessages.has(message.id)"
+              :is-selection-mode="isSelectionMode"
+              :message-index="index"
+              :is-last-message="isLastMessage(index)"
+              @toggle-selection="toggleMessageSelection"
+              @message-click="handleMessageClick"
+              @forward-message="handleForwardMessage"
+              @enter-multi-select="handleEnterMultiSelect"
+              @edit-message="handleEditMessage"
+              @image-loaded="handleImageLoaded"
+            />
           </div>
-
-          <!-- 聊天消息组件列表 - 支持选择、转发、编辑等功能 -->
-          <ChatMessageComponent
-            v-for="(message, index) in displayedMessages"
-            :key="message.id"
-            :message="message"
-            :type="type"
-            :is-selected="selectedMessages.has(message.id)"
-            :is-selection-mode="isSelectionMode"
-            :message-index="index"
-            :is-last-message="isLastMessage(index)"
-            @toggle-selection="toggleMessageSelection"
-            @message-click="handleMessageClick"
-            @forward-message="handleForwardMessage"
-            @enter-multi-select="handleEnterMultiSelect"
-            @edit-message="handleEditMessage"
-            @image-loaded="handleImageLoaded"
-          />
-        </div>
         </div>
       </div>
-      
+
       <!-- 新消息提示按钮 - 当用户不在底部时显示 -->
       <Transition name="fade">
         <q-btn
@@ -130,17 +130,14 @@
     <VoiceRecorder :is-recording="isRecording" :show-cancel-hint="showCancelHint" />
 
     <!-- 底部提示文案 -->
-    <div class="chat-footer-text">
-      与学伴共学，敢质疑、会判断，思维不设限!
-    </div>
-
+    <div class="chat-footer-text">与学伴共学，敢质疑、会判断，思维不设限!</div>
   </div>
 </template>
 
 <script setup lang="ts">
 // ==================== 导入依赖 ====================
 // Vue 核心功能
-import { ref, nextTick, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted, computed, watch, watchEffect } from 'vue'
 
 // Better Scroll
 import { useBetterScroll } from '../composables/useBetterScroll'
@@ -154,10 +151,8 @@ import { useAiTextbookChatStore } from '../stores/aiTextbookChatStore'
 import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
 import { useTeacherExerciseChatStore } from '../stores/teacherExerciseChatStore'
 import { useImagePicker } from '../composables/useImagePicker'
-import { apiService } from '../services/api-service'
 import { androidBridge } from '../services/android-bridge'
 import { showMessage } from '../utils'
-import { getCurrentUserIdOrDefault } from '../utils/user/userId'
 
 // 子组件导入
 import ChatMessageComponent from './chat/ChatMessage.vue'
@@ -166,9 +161,7 @@ import VoiceRecorder from './chat/VoiceRecorder.vue'
 
 // 类型定义导入
 import type { ChatBubble } from '../types'
-import type { ChatMessageSession } from '../types'
 import type { ExerciseItem } from '../types'
-import { SessionType } from '../types'
 
 // 策略模式导入
 import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
@@ -177,21 +170,31 @@ import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
 // 定义组件属性 - 支持AI和老师两种对话模式
 // 使用内联类型定义的泛型形式，确保 Vue 编译器能正确提取所有 props（包括可选属性）
 // 这种方式比导入外部类型接口更可靠，因为 Vue 可以在编译时直接访问类型信息
-const props = withDefaults(defineProps<{
-  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
-  currentQuestionId?: string
-  sessionId?: string
-  overrideQuestion?: ExerciseItem | null
-  resourceId?: string
-}>(), {
-  overrideQuestion: null,
-})
-
+const props = withDefaults(
+  defineProps<{
+    type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
+    currentQuestionId?: string
+    overrideQuestion?: ExerciseItem | null
+    resourceId?: string
+  }>(),
+  {
+    overrideQuestion: null,
+  },
+)
 
 // 定义组件事件 - 支持响应、切换、焦点、滚动等事件
 const emit = defineEmits<{
   response: [] // 消息发送完成事件
-  switchToTeacher: [{ messages: ChatBubble[]; currentQuestion: unknown; additionalMessage?: string; forwardMode?: string; successCount?: number; sessionId?: string }] // 切换到老师对话事件
+  switchToTeacher: [
+    {
+      messages: ChatBubble[]
+      currentQuestion: unknown
+      additionalMessage?: string
+      forwardMode?: string
+      successCount?: number
+      sessionId?: string
+    },
+  ] // 切换到老师对话事件
   focus: [] // 输入框获得焦点事件
   'scroll-to-bottom': [] // 滚动到底部事件
   'open-teacher-dialog': [{ sessionId: string; message: ChatBubble }] // 打开老师对话框事件
@@ -200,7 +203,6 @@ const emit = defineEmits<{
 // ==================== 状态管理 ====================
 // 全局状态管理
 const questionStore = useQuestionStore()
-const userStore = useUserStore()
 
 // 场景Store
 const aiExerciseStore = useAiExerciseChatStore()
@@ -212,17 +214,43 @@ const teacherExerciseStore = useTeacherExerciseChatStore()
 // 辅助函数：获取当前场景的Store
 const getScenarioStore = () => {
   switch (props.type) {
-    case 'ai-exercise': return aiExerciseStore
-    case 'ai-general': return aiGeneralStore
-    case 'ai-textbook': return aiTextbookStore
-    case 'teacher-general': return teacherStore
-    case 'teacher-exercise': return teacherExerciseStore
-    default: return aiGeneralStore
+    case 'ai-exercise':
+      return aiExerciseStore
+    case 'ai-general':
+      return aiGeneralStore
+    case 'ai-textbook':
+      return aiTextbookStore
+    case 'teacher-general':
+      return teacherStore
+    case 'teacher-exercise':
+      return teacherExerciseStore
+    default:
+      return aiGeneralStore
   }
 }
 
 // 策略模式：创建聊天策略实例
 const chatStrategy = ref<ChatStrategy>()
+
+/**
+ * 创建策略实例的辅助函数
+ * 根据当前 props 和状态创建对应的策略
+ */
+const createStrategy = () => {
+  if (props.type === 'ai-textbook') {
+    aiTextbookStore.setResourceId(props.resourceId!)
+  }
+
+  // 创建策略实例
+  // 如果是teacher-general类型但store中没有session，延迟创建策略（等待session初始化完成）
+  if (props.type === 'teacher-general' && !teacherStore.currentSession) {
+    // 延迟创建策略，等待session初始化完成
+    // 策略将在store.currentSession的watch中创建
+    return
+  }
+
+  chatStrategy.value = ChatStrategyFactory.create(props.type)
+}
 
 // 组件引用
 const scrollWrapper = ref<HTMLElement | null>(null) // 滚动区域引用
@@ -234,24 +262,21 @@ const {
   init: initBScroll,
   refresh: refreshBScroll,
   scrollTo,
-  getInstance
-} = useBetterScroll(
-  scrollWrapper,
-  {
-    scrollY: true,
-    scrollX: false,
-    click: true,
-    probeType: 2,
-    bounce: {
-      top: true,
-      bottom: true,
-    },
-    bounceTime: 800,
-    deceleration: 0.003,
-    useTransition: true,
-    HWCompositing: true,
-  }
-)
+  getInstance,
+} = useBetterScroll(scrollWrapper, {
+  scrollY: true,
+  scrollX: false,
+  click: true,
+  probeType: 2,
+  bounce: {
+    top: true,
+    bottom: true,
+  },
+  bounceTime: 800,
+  deceleration: 0.003,
+  useTransition: true,
+  HWCompositing: true,
+})
 
 // 基础状态变量
 const inputMessage = ref('') // 输入框内容
@@ -259,7 +284,6 @@ const isLoading = ref(false) // 消息发送加载状态
 const isRecording = ref(false) // 语音录制状态
 
 // 对话相关状态（需要在策略初始化之前声明）
-const teacherSession = ref<ChatMessageSession | null>(null) // 老师对话会话对象
 const aiSessionId = ref<string>('') // AI会话ID
 const currentSubject = ref<string>('math') // 当前科目，默认为数学
 
@@ -271,7 +295,6 @@ const isAnimating = ref(false) // 是否正在执行动画（防重复触发）
 
 // 公式键盘状态标记 - 用于解决平板设备双重键盘事件冲突
 const isFormulaKeyboardVisible = ref(false) // 公式虚拟键盘是否可见
-
 
 // 高度相关状态
 const originalChatViewHeight = ref(0) // 记录ChatView的原始高度
@@ -334,153 +357,21 @@ const loadingTimeout = ref<ReturnType<typeof setTimeout> | null>(null) // 加载
 const MIN_LOADING_DISPLAY_TIME = 300 // 最小显示时间300ms，确保用户能看到加载状态
 const MIN_LOADING_DELAY = 100 // 最小延迟时间100ms，避免极短时间的闪烁
 
-// ==================== 监听器 ====================
-/**
- * 监听聊天记录加载状态变化
- * 作用：智能控制加载指示器的显示和隐藏，避免快速闪烁
- * 逻辑：
- * 1. 开始加载时延迟显示，避免极短时间闪烁
- * 2. 加载完成时确保最小显示时间，提升用户体验
- */
-watch(
-  () => isChatLoading.value,
-  (isLoading) => {
-    if (isLoading) {
-      // 开始加载，先延迟一小段时间再显示，避免极短时间的闪烁
-      loadingStartTime.value = Date.now()
 
-      // 清除之前的定时器
-      if (loadingTimeout.value) {
-        clearTimeout(loadingTimeout.value)
-        loadingTimeout.value = null
-      }
-
-      // 延迟显示加载指示器
-      loadingTimeout.value = setTimeout(() => {
-        // 如果此时仍在加载中，才显示指示器
-        if (isChatLoading.value) {
-          showLoadingIndicator.value = true
-        }
-        loadingTimeout.value = null
-      }, MIN_LOADING_DELAY)
-    } else {
-      // 加载完成，检查是否满足最小显示时间
-      const elapsedTime = Date.now() - loadingStartTime.value
-      const remainingTime = Math.max(0, MIN_LOADING_DISPLAY_TIME - elapsedTime)
-
-      if (remainingTime > 0 && showLoadingIndicator.value) {
-        // 延迟隐藏，确保最小显示时间
-        loadingTimeout.value = setTimeout(() => {
-          showLoadingIndicator.value = false
-          loadingTimeout.value = null
-        }, remainingTime)
-      } else {
-        // 已经显示足够长时间或未显示，立即隐藏
-        showLoadingIndicator.value = false
-        if (loadingTimeout.value) {
-          clearTimeout(loadingTimeout.value)
-          loadingTimeout.value = null
-        }
-      }
-    }
-  },
-  { immediate: true },
-)
 // ==================== 消息管理相关状态 ====================
 // 选择模式相关状态
 const isSelectionMode = ref(false) // 是否处于消息选择模式
 const selectedMessages = ref<Set<string>>(new Set()) // 已选择的消息ID集合
 
 // 消息显示相关状态
-const displayedMessages = ref<ChatBubble[]>([]) // 用于UI显示的本地消息列表
-
-/**
- * 监听对话类型变化，动态切换策略
- * 策略模式：根据 props.type 创建对应的策略实例
- */
-watch(() => [props.type, props.sessionId] as const, ([newType, sessionId]) => {
-  // 第1步：如果是教师对话且提供了sessionId，创建session信息
-  let session = undefined
-  if (newType === 'teacher-general' && sessionId) {
-    // 从localStorage获取科目信息，默认为数学
-    const userId = getCurrentUserIdOrDefault()
-    const storeSubject = localStorage.getItem(`${userId}_currentTeacherSubject`) || 'MATH'
-    const subject = storeSubject === 'BIOLOGY' ? 'biology' : 'math'
-    
-    session = {
-      sessionId: sessionId,
-      sessionName: subject === 'biology' ? '生物' : '数学',
-      subject: subject
-    }
-    currentSubject.value = subject
-  } else if (teacherSession.value) {
-    // 使用已有的session
-    session = {
-      sessionId: teacherSession.value.sessionId,
-      sessionName: teacherSession.value.sessionName,
-      subject: currentSubject.value
-    }
+// 使用 computed 自动同步策略中的消息列表，无需手动 watch
+const displayedMessages = computed<ChatBubble[]>(() => {
+  if (chatStrategy.value) {
+    console.log('[ChatView] 🔍 [displayedMessages] 获取消息列表', chatStrategy.value.getMessages())
+    return chatStrategy.value.getMessages()
   }
-  
-  // 第2步：创建策略实例
-  // 如果是teacher-general类型但没有session，延迟创建策略（等待initializeTeacherSession完成）
-  if (newType === 'teacher-general' && !session) {
-    // 延迟创建策略，等待teacherSession初始化完成
-    // 策略将在teacherSession的watch中创建
-    return
-  }
-  
-  chatStrategy.value = ChatStrategyFactory.create(newType, {
-    subject: currentSubject.value,
-    session: session
-  })
-}, { immediate: true })
-
-/**
- * 监听teacherSession变化，当teacher-general类型且session初始化完成后创建策略
- */
-watch(() => [props.type, teacherSession.value] as const, ([newType, session]) => {
-  // 只有在teacher-general类型且session存在时才创建或更新策略
-  if (newType === 'teacher-general' && session) {
-    const sessionInfo = {
-      sessionId: session.sessionId,
-      sessionName: session.sessionName,
-      subject: currentSubject.value
-    }
-    
-    // 创建或更新策略
-    // 只有在session变化时才执行，不会造成性能问题
-    chatStrategy.value = ChatStrategyFactory.create(newType, {
-      subject: currentSubject.value,
-      session: sessionInfo
-    })
-  }
-}, { immediate: true })
-
-/**
- * 监听 resourceId 变化，设置到 store
- */
-watch(() => [props.type, props.resourceId] as const, ([newType, resourceId]) => {
-  if (newType === 'ai-textbook' && resourceId) {
-    aiTextbookStore.setResourceId(resourceId)
-  }
-}, { immediate: true })
-
-/**
- * 监听消息数据变化，同步UI显示的消息列表
- * 策略模式：使用策略的 getMessages() 方法获取消息
- */
-watch(
-  () => [props.type, aiGeneralStore.messages, aiExerciseStore.messages, aiTextbookStore.messages, teacherStore.messages],
-  () => {
-    // 第2步：使用策略获取消息列表
-    if (chatStrategy.value) {
-      const newMessages = chatStrategy.value.getMessages()
-      displayedMessages.value = newMessages
-    }
-  },
-  { immediate: true, deep: true },
-)
+  return []
+})
 
 /**
  * 判断消息是否是最后一条
@@ -492,10 +383,6 @@ const isLastMessage = (index: number): boolean => {
   const length = displayedMessages.value?.length ?? 0
   return index === length - 1
 }
-
-// ==================== 转发功能相关状态 ====================
-
-// ==================== 工具函数 ====================
 
 // ==================== 编辑功能相关状态 ====================
 const isEditingMessage = ref(false) // 是否正在编辑消息
@@ -558,7 +445,11 @@ const currentQuestion = computed(() => {
   // 调试日志：检查 props 和 overrideQuestion
   // 优先使用 props 传入的题目（用于避免污染全局状态）
   // 使用 'in' 操作符检查属性是否存在，更可靠
-  if ('overrideQuestion' in props && props.overrideQuestion !== undefined && props.overrideQuestion !== null) {
+  if (
+    'overrideQuestion' in props &&
+    props.overrideQuestion !== undefined &&
+    props.overrideQuestion !== null
+  ) {
     return props.overrideQuestion
   }
   // 否则使用全局 store 中的题目
@@ -575,24 +466,17 @@ const hasSelectedQuestion = computed(() => {
 })
 
 /**
- * 基础占位符文本
+ * 基础占位符文本（策略模式重构版）
  * 作用：根据是否有选中题目和对话类型生成基础占位符文本
- * 逻辑：
- * 1. 无选中题目：显示引导用户选择题目的文本
- * 2. 有选中题目：根据对话类型显示对应的提示文本
+ * 逻辑：使用策略的 getPlaceholderText() 方法获取占位符文本
  */
 const placeholderText = computed(() => {
+  if (chatStrategy.value) {
+    return chatStrategy.value.getPlaceholderText(hasSelectedQuestion.value)
+  }
+  // 兜底逻辑
   if (!hasSelectedQuestion.value) {
     return '可以先聊聊，或选择题目后开始讨论'
-  }
-  if (props.type === 'ai-general') {
-    return '向AI助手提问...'
-  } else if (props.type === 'ai-exercise') {
-    return '向AI题目助手提问...'
-  } else if (props.type === 'ai-textbook') {
-    return '向AI教材助手提问...'
-  } else if (props.type === 'teacher-general') {
-    return '向老师提问...'
   }
   return '向AI助手提问...'
 })
@@ -652,7 +536,6 @@ const handleKeyboardHidden = () => {
     animationStartTime.value = Date.now()
     restoreChatViewHeight()
   })
-
 }
 
 /**
@@ -669,7 +552,7 @@ const compressChatViewHeight = () => {
   // 步骤1.5：检查DOM元素是否存在（关键修复）
   if (!chatViewRef.value) {
     console.warn('[ChatView] [compressChatViewHeight] DOM元素尚未准备好，等待DOM更新', {
-      chatViewRefExists: false
+      chatViewRefExists: false,
     })
     // 如果DOM还没准备好，等待下一个DOM更新周期
     nextTick(() => {
@@ -706,7 +589,7 @@ const compressChatViewHeight = () => {
   // 确保原始高度有效（大于0）
   if (originalChatViewHeight.value <= 0) {
     console.error('[ChatView] [compressChatViewHeight] 原始高度无效，无法计算新高度', {
-      originalChatViewHeight: originalChatViewHeight.value
+      originalChatViewHeight: originalChatViewHeight.value,
     })
     return
   }
@@ -731,13 +614,13 @@ const compressChatViewHeight = () => {
 
   // 步骤5：动画完成后清理
   const animationDuration = parseInt(cssParams.duration)
-  
+
   setTimeout(() => {
     isAnimating.value = false
     if (chatViewRef.value) {
       chatViewRef.value.style.transition = ''
     }
-    
+
     // 动画完成后再次确保滚动到底部
     scrollToBottom()
   }, animationDuration)
@@ -763,7 +646,7 @@ const restoreChatViewHeight = () => {
   if (chatViewRef.value) {
     // 3.1 恢复ChatView原始高度（设置为空字符串让ChatView回到自然高度）
     chatViewRef.value.style.height = ''
-    
+
     // 3.2 应用CSS过渡效果（使用Android系统标准缓动曲线实现平滑高度变化）
     chatViewRef.value.style.transition = `height ${cssParams.duration} ${cssParams.curve}`
   } else {
@@ -774,16 +657,16 @@ const restoreChatViewHeight = () => {
   // 步骤4：ChatView高度变化动画完成后清理
   // 等待高度变化动画完成，然后清理所有相关状态，确保下次动画能正常执行
   const animationDuration = parseInt(cssParams.duration)
-  
+
   setTimeout(() => {
     // 4.1 重置动画状态
     isAnimating.value = false
     isKeyboardAnimating.value = false // 清理全局键盘动画状态
-    
+
     // 4.2 清理键盘相关状态
     keyboardAnimationHeight.value = 0 // 清理键盘动画高度
     keyboardHeight.value = 0
-    
+
     // 4.3 清理CSS过渡效果
     if (chatViewRef.value) {
       chatViewRef.value.style.transition = ''
@@ -793,348 +676,38 @@ const restoreChatViewHeight = () => {
 
 // ==================== 初始化函数 ====================
 /**
- * 初始化聊天消息
- * 作用：设置科目、创建老师会话、加载持久化数据或添加引导消息
+ * 初始化聊天消息（策略模式重构版）
+ * 作用：使用策略模式统一处理不同对话类型的初始化逻辑
  */
 const initializeMessages = async () => {
-  // 第1步：设置当前科目
-  // 如果是老师对话模式，从localStorage读取科目（由MyProfileView设置）
-  if (props.type === 'teacher-general') {
-    const userId = getCurrentUserIdOrDefault()
-    const teacherSubject = localStorage.getItem(`${userId}_currentTeacherSubject`) || 'MATH'
-    currentSubject.value = teacherSubject === 'BIOLOGY' ? 'biology' : 'math'
-  } else {
-    // 其他模式使用userStore中的科目
-    currentSubject.value = userStore.subject === 'BIOLOGY' ? 'biology' : 'math'
+  // 第1步：设置当前科目（使用策略模式）
+  if (chatStrategy.value) {
+    currentSubject.value = chatStrategy.value.getCurrentSubject()
   }
 
-  // 第2步：如果是老师对话模式，需要初始化老师会话
-  if (props.type === 'teacher-general') {
-    await initializeTeacherSession()
+  // 第2步：使用策略模式初始化消息
+  if (!chatStrategy.value) {
+    console.warn('[ChatView] ⚠️ 策略未初始化，无法执行初始化消息')
+    return
   }
-
-  // 第2.3步：如果是老师题目对话模式，需要为当前题目创建或加载会话
-  if (props.type === 'teacher-exercise' && currentQuestion.value) {
-    await initializeTeacherExerciseSession()
-  }
-
-  // 第2.5步：如果是AI教材对话模式且提供了resourceId，加载聊天历史
-  if (props.type === 'ai-textbook' && props.resourceId) {
-    await aiTextbookStore.loadChatHistory(props.resourceId)
-  }
-
-  // 第3步：只有在没有选择题目且没有聊天记录时才添加引导消息（策略模式重构版）
-  if (!hasSelectedQuestion.value && chatStrategy.value) {
-    // 策略模式：使用策略获取欢迎消息
-    const welcomeContent = chatStrategy.value.getWelcomeMessage()
-    
-    const welcomeMessage: ChatBubble = {
-      id: 'welcome_' + Date.now(),
-      content: welcomeContent,
-      type: chatStrategy.value.getMessageType(),
-      timestamp: '',
-      sender: chatStrategy.value.getSenderType(),
-    }
-
-    const store = getScenarioStore()
-    if (store.messages.length === 0) {
-      store.messages.push(welcomeMessage)
-    }
-  }
-}
-
-/**
- * 初始化老师会话
- * 作用：创建或初始化老师对话会话，设置消息监听器和会话信息
- */
-const initializeTeacherSession = async () => {
-  try {
-    // 步骤1：初始化老师消息监听器（使用 Store 统一方法）
-    await teacherStore.initMessageReceiver()
-    // 步骤2：如果有当前题目，基于AI会话创建老师会话
-    if (currentQuestion.value) {
-      // 2.1 生成AI会话ID（基于题目ID和时间戳，确保唯一性）
-      aiSessionId.value = `ai_session_${currentQuestion.value.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      
-      // 2.2 生成会话名称，清理LaTeX内容避免JSON解析问题
-      const rawTitle =
-        currentQuestion.value.question || currentQuestion.value.title || '题目'
-
-      // 移除LaTeX数学公式，只保留纯文本
-      const cleanTitle = rawTitle
-        .replace(/\$[^$]*\$/g, '') // 移除 $...$ 格式的LaTeX
-        .replace(/\\[a-zA-Z]+/g, '') // 移除 \command 格式的LaTeX命令
-        .replace(/[{}()[\]]/g, '') // 移除LaTeX括号
-        .replace(/\s+/g, ' ') // 合并多个空格
-        .trim()
-
-      const aiSessionName = (cleanTitle || '数学题目').substring(0, 30) + '...'
-
-      // 2.3 创建老师会话（使用 Store 统一方法）
-      const createdSession = teacherStore.createTeacherSession(
-        aiSessionId.value,
-        aiSessionName,
-        currentSubject.value as 'biology' | 'math'
-      )
-      if (createdSession) {
-        // 构建 ChatMessageSession 格式的会话对象
-        teacherSession.value = {
-          sessionId: createdSession.sessionId,
-          sessionName: createdSession.sessionName,
-          catalogId: 'CATEGORY_TEACHER_QA',
-          sessionType: currentSubject.value === 'biology' 
-            ? SessionType.USER_TALK_TEACHER_BIOLOGY 
-            : SessionType.USER_TALK_TEACHER_MATH,
-          createTime: createdSession.createTime,
-          updateTime: createdSession.createTime,
-          msgCount: 0,
-        }
-        
-        // 2.4 先从本地存储加载聊天记录（如果有）
-        await teacherStore.loadChatHistory(createdSession.sessionId)
-        
-        // 2.5 然后从API加载聊天记录（同步远程消息）
-        await loadTeacherChatHistory()
-      } else {
-        console.warn('[ChatView] ⚠️ 创建会话失败，使用临时会话')
-        // 创建临时老师会话，用于转发消息显示
-        const tempSession = {
-          sessionId: `temp_teacher_${Date.now()}`,
-          sessionName: '临时老师会话',
-          catalogId: 'CATEGORY_TEACHER_QA',
-          sessionType: SessionType.USER_TALK_TEACHER_MATH,
-          createTime: Date.now(),
-          updateTime: Date.now(),
-          msgCount: 0,
-        }
-
-        teacherSession.value = tempSession
-      }
-    } else {
-      // 步骤3：如果没有题目，需要区分"加载已有会话"和"创建新会话"
-      // 3.1 从localStorage读取当前教师科目
-      const userId = getCurrentUserIdOrDefault()
-      const teacherSubject = localStorage.getItem(`${userId}_currentTeacherSubject`) || 'MATH'
-      currentSubject.value = teacherSubject === 'BIOLOGY' ? 'biology' : 'math'
-      // 3.2 判断是否是已存在的会话
-      // sessionId格式：
-      // - 临时ID（新建）: teacher-chat-{timestamp}
-      // - 真实ID（已存在）: teacher-{hex}-{timestamp}
-      const isExistingSession = props.sessionId && 
-                                props.sessionId.startsWith('teacher-') && 
-                                !props.sessionId.startsWith('teacher-chat-')
-      if (isExistingSession) {
-        // 场景A：加载已有会话（使用统一存储格式）
-        const existingSession = teacherStore.getSession(props.sessionId)
-        
-        if (existingSession) {
-          
-          // 直接使用已有会话，不创建新的
-          teacherSession.value = {
-            sessionId: existingSession.sessionId,
-            sessionName: existingSession.sessionName,
-            catalogId: 'CATEGORY_TEACHER_QA',
-            sessionType: existingSession.subject === 'biology' 
-              ? SessionType.USER_TALK_TEACHER_BIOLOGY 
-              : SessionType.USER_TALK_TEACHER_MATH,
-            createTime: existingSession.createTime,
-            updateTime: existingSession.createTime,
-            msgCount: 0,
-          }
-          
-          // 设置到store
-          teacherStore.setSession(existingSession)
-          
-          // 先从本地存储加载聊天记录（如果有）
-          await teacherStore.loadChatHistory(existingSession.sessionId)
-          
-          // 然后从API加载聊天记录（同步远程消息）
-          await loadTeacherChatHistory()
-          
-          return
-        }
-      }
-      
-      // 场景B：创建新会话（仅当是临时ID或未找到已有会话时）
-      // 3.3 生成会话ID
-      aiSessionId.value = `teacher_general_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      
-      // 3.4 生成会话名称
-      const subjectName = teacherSubject === 'BIOLOGY' ? '生物' : '数学'
-      const aiSessionName = subjectName
-      
-      // 3.5 创建老师会话（使用 Store 统一方法）
-      const createdSession = teacherStore.createTeacherSession(
-        aiSessionId.value,
-        aiSessionName,
-        currentSubject.value as 'biology' | 'math'
-      )
-      
-      if (createdSession) {
-        // 构建 ChatMessageSession 格式的会话对象
-        teacherSession.value = {
-          sessionId: createdSession.sessionId,
-          sessionName: createdSession.sessionName,
-          catalogId: 'CATEGORY_TEACHER_QA',
-          sessionType: currentSubject.value === 'biology' 
-            ? SessionType.USER_TALK_TEACHER_BIOLOGY 
-            : SessionType.USER_TALK_TEACHER_MATH,
-          createTime: createdSession.createTime,
-          updateTime: createdSession.createTime,
-          msgCount: 0,
-        }
-        // 3.5 先从本地存储加载聊天记录（如果有）
-        await teacherStore.loadChatHistory(createdSession.sessionId)
-        
-        // 3.6 然后从API加载聊天记录（同步远程消息）
-        await loadTeacherChatHistory()
-      } else {
-        // 创建临时老师会话
-        const tempSession = {
-          sessionId: `temp_teacher_${Date.now()}`,
-          sessionName: subjectName,
-          catalogId: 'CATEGORY_TEACHER_QA',
-          sessionType: SessionType.USER_TALK_TEACHER_MATH,
-          createTime: Date.now(),
-          updateTime: Date.now(),
-          msgCount: 0,
-        }
-        
-        teacherSession.value = tempSession
-      }
-    }
-  } catch (error) {
-    console.error('初始化教师会话失败:', error)
-    // 步骤4：创建失败时，创建临时老师会话，用于转发消息显示
-    const userId = getCurrentUserIdOrDefault()
-    const teacherSubject = localStorage.getItem(`${userId}_currentTeacherSubject`) || 'MATH'
-    const subjectName = teacherSubject === 'BIOLOGY' ? '生物' : '数学'
-    
-    const tempSession = {
-      sessionId: `temp_teacher_${Date.now()}`,
-      sessionName: subjectName,
-      catalogId: 'CATEGORY_TEACHER_QA',
-      sessionType: SessionType.USER_TALK_TEACHER_MATH,
-      createTime: Date.now(),
-      updateTime: Date.now(),
-      msgCount: 0,
-    }
-
-    teacherSession.value = tempSession
-  }
-}
-
-/**
- * 初始化老师题目会话
- * 作用：为当前题目创建或加载对应的会话，并加载聊天历史
- */
-const initializeTeacherExerciseSession = async () => {
-  try {
-    // 步骤1：验证当前题目
-    if (!currentQuestion.value) {
-      console.warn('[ChatView] ⚠️ 初始化老师题目会话失败：没有当前题目')
-      return
-    }
-
-    // 步骤2：确定科目
-    const subject = currentSubject.value as 'biology' | 'math'
-
-    // 步骤3：创建或获取题目会话
-    const questionTitle = currentQuestion.value.question || currentQuestion.value.title || '题目'
-    const session = teacherExerciseStore.createOrGetSession(
-      currentQuestion.value.id,
-      questionTitle,
-      subject
-    )
-
-    // 步骤4：加载该会话的聊天历史
-    await teacherExerciseStore.loadChatHistory(session.sessionId)
-
-    console.log('[ChatView] ✅ 老师题目会话初始化成功', {
-      sessionId: session.sessionId,
-      questionId: session.questionId,
-      subject: session.subject
-    })
-  } catch (error) {
-    console.error('[ChatView] ❌ 初始化老师题目会话失败:', error)
-    // 初始化失败时，清空状态
-    teacherExerciseStore.resetState()
-  }
-}
-
-
-// 加载老师聊天历史
-// 作用：从API加载老师对话的历史消息记录（现在主要用于同步远程消息到本地存储）
-const loadTeacherChatHistory = async () => {
-  if (!teacherSession.value) return
 
   try {
-    const history = await apiService.getTeacherChatHistory(teacherSession.value.sessionId)
-    if (history && history.length > 0) {
-      // 获取当前已存在的消息ID集合，避免覆盖已正确设置的消息
-      const existingMessageIds = new Set(teacherStore.messages.map((msg: ChatBubble) => msg.id))
-
-      const historyMessages: ChatBubble[] = history.map((msg) => {
-        // 第1步：解析消息类型
-        // API返回的type字段：0=TEXT, 1=IMAGE, 2=VOICE, 3=DATE
-        let messageType: 'text' | 'voice' | 'image' | 'chat_record' = 'text'
-        if (msg.type !== undefined) {
-          if (msg.type === 1) {
-            messageType = 'image'
-          } else if (msg.type === 2) {
-            messageType = 'voice'
-          }
-        }
-
-        // 第2步：构建基础消息对象
-        const baseMessage: ChatBubble = {
-          id: msg.messageId,
-          content: msg.content || '',
-          type: msg.isSelf ? 'user' : 'teacher',
-          timestamp: msg.timestamp ? new Date(msg.timestamp).toISOString() : '',
-          sender: msg.isSelf ? 'user' : 'teacher',
-          messageType: messageType,
-        }
-
-        // 第3步：根据消息类型解析附加数据
-        if (messageType === 'voice' && msg.content) {
-          // 语音消息格式：duration + "," + filePath
-          const parts = msg.content.split(',')
-          if (parts.length >= 2) {
-            const duration = parseInt(parts[0], 10) || 0
-            const filePath = parts.slice(1).join(',') // 处理filePath中可能包含逗号的情况
-            baseMessage.voiceData = {
-              filePath: filePath,
-              duration: duration, // duration是毫秒
-              fileSize: 0, // 历史消息可能没有文件大小信息
-            }
-            baseMessage.content = '' // 语音消息不显示文字内容
-          }
-        } else if (messageType === 'image' && msg.content) {
-          // 图片消息：content字段是filePath
-          baseMessage.imageData = {
-            filePath: msg.content,
-            width: 0, // 历史消息可能没有尺寸信息
-            height: 0,
-            fileSize: 0,
-          }
-          baseMessage.content = '' // 图片消息不显示文字内容
-        }
-
-        return baseMessage
-      })
-
-      // 只添加不存在的消息，避免覆盖已正确设置的消息
-      const newMessages = historyMessages.filter((msg) => !existingMessageIds.has(msg.id))
-      if (newMessages.length > 0) {
-        await addMessagesToStore(newMessages)
-      }
+    // 准备初始化参数
+    const initializeOptions = {
+      currentSubject: currentSubject.value as 'biology' | 'math',
+      currentQuestionId: currentQuestion.value?.id,
+      currentQuestionTitle: currentQuestion.value?.question || currentQuestion.value?.title,
+      resourceId: props.resourceId,
+      hasSelectedQuestion: hasSelectedQuestion.value,
     }
+
+    // 调用策略的初始化方法
+    await chatStrategy.value.initialize(initializeOptions)
   } catch (error) {
-    console.error('[ChatView] 加载老师聊天历史失败:', error)
-    // 加载老师聊天历史失败
+    console.error('[ChatView] ❌ 初始化消息失败:', error)
   }
 }
+
 
 // 作用：发送用户消息（策略模式）
 const sendMessage = async (attachedFile?: File) => {
@@ -1178,23 +751,23 @@ const sendMessage = async (attachedFile?: File) => {
   isLoading.value = true
 
   try {
-    // 教师场景：采用乐观发送，预先添加文本消息（与图片消息保持一致）
-    if (props.type === 'teacher-general' && teacherSession.value) {
+    // 使用策略模式判断是否需要乐观发送
+    if (chatStrategy.value?.shouldOptimisticSend() && teacherStore.currentSession) {
       const userMessage: ChatBubble = {
         id: Date.now().toString(),
         content: messageContent,
         type: 'user',
         timestamp: new Date().toISOString(),
         sender: 'user',
-        messageType: 'text'
+        messageType: 'text',
       }
       await addMessageToStore(userMessage)
       await scrollToBottom()
     }
 
     // AI通用、AI题目、AI教材和教师通用对话模式：统一使用策略模式发送消息
-    await chatStrategy.value?.sendMessage(messageContent, { 
-      selectedModel: selectedModel.value
+    await chatStrategy.value?.sendMessage(messageContent, {
+      selectedModel: selectedModel.value,
     })
     await scrollToBottom()
     emit('response')
@@ -1244,11 +817,11 @@ const checkIfUserAtBottom = () => {
     isUserAtBottom.value = true
     return
   }
-  
+
   // 获取当前滚动位置和最大滚动位置
   const currentY = Math.abs(bscrollInstance.y)
   const maxScrollY = Math.abs(bscrollInstance.maxScrollY)
-  
+
   // 允许50px的误差，认为在底部
   const threshold = 50
   isUserAtBottom.value = currentY >= maxScrollY - threshold
@@ -1260,15 +833,12 @@ const onInputBlur = () => {
   handleKeyboardHidden()
 }
 
-
-
 // 处理公式键盘切换的函数
 // 流程：接收公式键盘事件 → 滚动到底部（不压缩页面）
 const handleFormulaKeyboardToggle = (event: Event) => {
   // 步骤1：解析事件数据
   const customEvent = event as CustomEvent
   const { visible } = customEvent.detail
-
 
   // 步骤2：更新公式键盘状态标记
   isFormulaKeyboardVisible.value = visible
@@ -1298,10 +868,10 @@ const handleForceResetAnimationState = () => {
   isKeyboardAnimating.value = false
   keyboardAnimationHeight.value = 0
   keyboardHeight.value = 0
-  
+
   // 重置公式键盘状态
   isFormulaKeyboardVisible.value = false
-  
+
   // 清理CSS过渡效果
   if (chatViewRef.value) {
     chatViewRef.value.style.transition = ''
@@ -1309,12 +879,9 @@ const handleForceResetAnimationState = () => {
   }
 }
 
-
-
 // 处理原生键盘显示的函数
 // 流程：压缩页面高度 → 焦点处理（不滚动，因为压缩后输入框自动可见）
 const handleKeyboardShown = async (data: { height: number; duration: number }) => {
-
   // 步骤1：检查公式键盘状态 - 如果公式键盘正在显示，跳过原生键盘处理
   if (isFormulaKeyboardVisible.value) {
     return
@@ -1485,7 +1052,7 @@ const handleVoiceMove = (event: TouchEvent | MouseEvent) => {
   showCancelHint.value = deltaY > CANCEL_THRESHOLD
 }
 
-// 作用：发送语音消息，创建语音消息对象并发送到后端
+// 作用：发送语音消息，创建语音消息对象并发送到后端（策略模式重构版）
 const sendVoiceMessage = async (voiceInfo: {
   filePath: string
   duration: number
@@ -1512,32 +1079,18 @@ const sendVoiceMessage = async (voiceInfo: {
   await addMessageToStore(voiceMessage)
   await scrollToBottom()
 
-  // 发送语音消息到后端
+  // 发送语音消息到后端（策略模式重构版）
   isLoading.value = true
   try {
-    let sendResult: { success: boolean; message?: string }
+    const sendResult = await chatStrategy.value?.sendVoiceMessage(voiceInfo)
 
-    if (props.type === 'teacher-general' && teacherSession.value) {
-      // 发送语音消息给老师 - 使用API服务
-      const success = await apiService.sendVoiceMessageToTeacher(
-        voiceInfo.filePath,
-        voiceInfo.duration.toString(),
-        teacherSession.value.sessionId,
-        currentSubject.value,
-      )
-      sendResult = { success }
-    } else {
-      // 发送语音消息给AI（暂时模拟）
-      sendResult = { success: true }
-    }
-
-    if (sendResult.success) {
+    if (sendResult?.success) {
       // 语音消息发送成功，等待真实回复
       await scrollToBottom()
       emit('response')
     } else {
-      console.error('[ChatView] 语音消息发送失败', sendResult.message)
-      showMessage(sendResult.message || '发送失败', 'error')
+      console.error('[ChatView] 语音消息发送失败', sendResult?.message)
+      showMessage(sendResult?.message || '发送失败', 'error')
     }
   } catch (error) {
     console.error('[ChatView] 发送语音消息异常', error)
@@ -1564,17 +1117,17 @@ const showImagePickerDialog = async () => {
 
   // 第2步：打开全局图片选择器并等待结果
   const imageInfo = await pickImage()
-  
+
   // 第3步：如果用户取消，直接返回
   if (!imageInfo) {
     return
   }
-  
+
   // 第4步：处理选择的图片
   await onImageSelected(imageInfo)
 }
 
-// 作用：处理图片选择结果，创建图片消息并发送到后端
+// 作用：处理图片选择结果，创建图片消息并发送到后端（策略模式重构版）
 const onImageSelected = async (imageInfo: {
   filePath: string
   width: number
@@ -1583,95 +1136,30 @@ const onImageSelected = async (imageInfo: {
   base64DataUrl?: string
 }): Promise<void> => {
   if (typeof imageInfo === 'object' && 'filePath' in imageInfo) {
-    // 发送图片消息到后端
+    // 发送图片消息到后端（策略模式重构版）
     isLoading.value = true
     try {
-      if (props.type === 'teacher-general' && teacherSession.value) {
-        // 教师场景：采用乐观发送，预先添加消息（与AI场景保持一致）
-        // 创建图片消息
-        const imageMessage: ChatBubble = {
-          id: Date.now().toString(),
-          content: '', // 图片消息不显示文字内容
-          type: 'user',
-          timestamp: '',
-          sender: 'user',
-          messageType: 'image',
-          imageData: {
-            filePath: imageInfo.filePath,  // 保留原始 filePath，用于发送给后端等用途
-            width: imageInfo.width,
-            height: imageInfo.height,
-            fileSize: imageInfo.fileSize,
-            base64DataUrl: imageInfo.base64DataUrl,  // 使用 base64DataUrl 字段用于UI显示
-          },
-        }
+      // 使用策略模式判断是否需要文本内容
+      const messageText = chatStrategy.value?.shouldClearInputAfterImage() 
+        ? inputMessage.value || '' 
+        : ''
 
-        await addMessageToStore(imageMessage)
-        await scrollToBottom()
+      // 使用策略模式发送图片消息
+      await chatStrategy.value?.sendImageMessage(imageInfo, messageText, {
+        selectedModel: selectedModel.value,
+      })
 
-        // 需要确保imageInfo有filePath和base64DataUrl
-        if (!imageInfo.filePath || !imageInfo.base64DataUrl) {
-          showMessage('图片数据不完整，请重试', 'error')
-          return
-        }
-        await chatStrategy.value?.sendMessage('', {
-          imageData: {
-            filePath: imageInfo.filePath,  // 用于发送给Android端
-            width: imageInfo.width,
-            height: imageInfo.height,
-            fileSize: imageInfo.fileSize,
-            base64DataUrl: imageInfo.base64DataUrl  // 用于前端渲染
-          }
-        })
-        emit('response')
-      } else {
-        // AI场景：需要预先添加消息，因为AI的sendMessage不会自动添加用户消息
-        // 创建图片消息
-        const imageMessage: ChatBubble = {
-          id: Date.now().toString(),
-          content: '', // 图片消息不显示文字内容
-          type: 'user',
-          timestamp: '',
-          sender: 'user',
-          messageType: 'image',
-          imageData: {
-            filePath: imageInfo.filePath,  // 保留原始 filePath，用于发送给后端等用途
-            width: imageInfo.width,
-            height: imageInfo.height,
-            fileSize: imageInfo.fileSize,
-            base64DataUrl: imageInfo.base64DataUrl,  // 使用 base64DataUrl 字段用于UI显示
-          },
-        }
-
-        await addMessageToStore(imageMessage)
-        await scrollToBottom()
-
-        // 发送图片消息给AI（AI通用、AI题目和AI教材模式）
-        const messageText = inputMessage.value || ''
-        // 需要确保imageInfo有base64DataUrl
-        if (!imageInfo.base64DataUrl) {
-          showMessage('图片数据不完整，请重试', 'error')
-          return
-        }
-        await chatStrategy.value?.sendMessage(messageText, { 
-          selectedModel: selectedModel.value,
-          imageData: {
-            filePath: imageInfo.filePath,
-            width: imageInfo.width,
-            height: imageInfo.height,
-            fileSize: imageInfo.fileSize,
-            base64DataUrl: imageInfo.base64DataUrl
-          }
-        })
-
-        // 清空输入框
+      // 使用策略模式判断是否清空输入框
+      if (chatStrategy.value?.shouldClearInputAfterImage()) {
         inputMessage.value = ''
-
-        // 计算属性会自动响应 store 变化，无需手动同步
-        await scrollToBottom()
-        emit('response')
       }
-    } catch {
-      showMessage('发送失败', 'error')
+
+      // 计算属性会自动响应 store 变化，无需手动同步
+      await scrollToBottom()
+      emit('response')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '发送失败'
+      showMessage(errorMessage, 'error')
     } finally {
       isLoading.value = false
     }
@@ -1688,7 +1176,7 @@ const handleMessageClick = (message: ChatBubble) => {
 }
 
 // ==================== 转发流程核心函数 ====================
-// 注意：转发功能已重构为策略模式，所有转发逻辑都在策略类和 ForwardMessageHelper 中实现
+// 注意：转发功能已重构为策略模式，所有转发逻辑都在各个策略类中实现
 
 /**
  * 处理单条消息转发（策略模式）
@@ -1697,14 +1185,14 @@ const handleMessageClick = (message: ChatBubble) => {
 const handleForwardMessage = async (message: ChatBubble) => {
   // 检查策略是否支持转发
   if (!chatStrategy.value?.canForwardMessage()) {
-    console.warn('[ChatView] ⚠️ 当前页面类型不支持转发:', props.type)
+    console.warn('[ChatView] ⚠️ 当前策略不支持转发')
     return
   }
 
   try {
-    // 使用策略的转发方法
+    // 使用策略的转发方法（策略内部会处理是否显示对话框）
     const result = await chatStrategy.value.forwardMessage(message, {
-      showDialog: props.type !== 'ai-exercise', // AI题目对话页面不显示对话框
+      showDialog: true, // 默认显示对话框，策略内部可以根据需要覆盖
       onSuccess: async (result) => {
         // 转发成功后的回调
         if (result.sessionId) {
@@ -1720,7 +1208,7 @@ const handleForwardMessage = async (message: ChatBubble) => {
         showMessage('转发失败: ' + error, 'error')
       },
     })
-    
+
     if (!result.success) {
       console.error('[ChatView] ❌ 转发失败:', result.error)
       // 错误已经在 onError 回调中处理
@@ -1754,7 +1242,6 @@ const handleImageLoaded = () => {
 }
 
 const handleEditMessage = (message: ChatBubble) => {
-
   // 检查是否已经在编辑其他消息
   if (isEditingMessage.value && editingMessageId.value !== message.id) {
     // 取消当前编辑，开始编辑新消息
@@ -1791,7 +1278,8 @@ const convertMessageContentForEditor = (content: string): string => {
 
   // 处理可能存在的HTML格式的公式，转换为Markdown格式
   // 1. 处理MathJax渲染的公式（行内公式）
-  const inlineFormulaRegex = /<span[^>]*class="[^"]*mjx[^"]*"[^>]*data-mjx-texclass="mord"[^>]*>(.*?)<\/span>/gs
+  const inlineFormulaRegex =
+    /<span[^>]*class="[^"]*mjx[^"]*"[^>]*data-mjx-texclass="mord"[^>]*>(.*?)<\/span>/gs
   processedContent = processedContent.replace(inlineFormulaRegex, (match, content) => {
     const latexContent = extractLatexFromMathJax(content)
     if (latexContent) {
@@ -1801,7 +1289,8 @@ const convertMessageContentForEditor = (content: string): string => {
   })
 
   // 2. 处理MathJax渲染的公式（块级公式）
-  const displayFormulaRegex = /<span[^>]*class="[^"]*mjx[^"]*"[^>]*data-mjx-texclass="mord"[^>]*>(.*?)<\/span>/gs
+  const displayFormulaRegex =
+    /<span[^>]*class="[^"]*mjx[^"]*"[^>]*data-mjx-texclass="mord"[^>]*>(.*?)<\/span>/gs
   processedContent = processedContent.replace(displayFormulaRegex, (match, content) => {
     const latexContent = extractLatexFromMathJax(content)
     if (latexContent) {
@@ -1811,7 +1300,8 @@ const convertMessageContentForEditor = (content: string): string => {
   })
 
   // 3. 处理可能存在的其他HTML格式的公式
-  const htmlFormulaRegex = /<span[^>]*data-formula="([^"]*)"[^>]*class="[^"]*formula[^"]*"[^>]*>.*?<\/span>/gs
+  const htmlFormulaRegex =
+    /<span[^>]*data-formula="([^"]*)"[^>]*class="[^"]*formula[^"]*"[^>]*>.*?<\/span>/gs
   processedContent = processedContent.replace(htmlFormulaRegex, (match, formula) => {
     return `$${formula}$`
   })
@@ -1830,7 +1320,6 @@ const convertMessageContentForEditor = (content: string): string => {
 
   return processedContent
 }
-
 
 // 从MathJax渲染的内容中提取LaTeX
 // 作用：从MathJax渲染的HTML中提取原始LaTeX代码
@@ -1856,93 +1345,55 @@ const extractLatexFromMathJax = (mathJaxContent: string): string | null => {
 // 取消编辑消息
 // 作用：取消当前的消息编辑状态，清空编辑相关变量
 const cancelEditMessage = () => {
-
   isEditingMessage.value = false
   editingMessageId.value = null
   originalMessageContent.value = ''
   editingQuestionId.value = null
   inputMessage.value = ''
-
 }
 
-// 更新编辑的消息
+// 更新编辑的消息（策略模式重构版）
 // 作用：更新已编辑的消息内容，删除后续消息并重新发送给AI
 const updateEditedMessage = async (newContent: string) => {
-  if (!editingMessageId.value) return
+  if (!editingMessageId.value || !chatStrategy.value) return
 
   try {
-    // 根据场景获取对应的消息记录
-    const targetMessages: ChatBubble[] = getScenarioStore().messages
+    // 使用策略模式更新编辑的消息
+    isLoading.value = true
 
-    // 查找要更新的消息
-    const messageIndex = targetMessages.findIndex(
-      (msg) => msg.id === editingMessageId.value,
-    )
-    if (messageIndex === -1) {
+    try {
+      await chatStrategy.value.updateEditedMessage(editingMessageId.value, newContent, {
+        selectedModel: selectedModel.value,
+      })
+
+      // 清除编辑状态
       cancelEditMessage()
-      return
-    }
 
-    // 更新消息内容
-    targetMessages[messageIndex].content = newContent
+      // 检查是否需要选择题目（策略模式重构版）
+      if (!hasSelectedQuestion.value && chatStrategy.value.requiresQuestion()) {
+        // 如果未选择题目，添加欢迎消息回复
+        const botReply: ChatBubble = {
+          id: 'welcome_' + (Date.now() + 1).toString(),
+          content: chatStrategy.value.getWelcomeMessage(),
+          type: chatStrategy.value.getMessageType(),
+          timestamp: '',
+          sender: chatStrategy.value.getSenderType(),
+        }
 
-    // 删除该消息之后的所有消息（因为编辑会改变对话上下文）
-    const messagesToKeep = targetMessages.slice(0, messageIndex + 1)
-
-    // 更新场景Store的消息列表
-    const store = getScenarioStore()
-    store.messages.length = 0 // 清空现有消息
-    store.messages.push(...messagesToKeep) // 添加保留的消息（包括更新后的消息）
-
-    // 保存聊天记录（根据场景调用不同的方法）
-    if (props.type === 'ai-exercise' && currentQuestion.value?.id) {
-      await aiExerciseStore.saveChatHistory(currentQuestion.value.id)
-    } else if (props.type === 'ai-general') {
-      await aiGeneralStore.saveChatHistory()
-    } else if (props.type === 'ai-textbook') {
-      await aiTextbookStore.saveChatHistory()
-    } else if (props.type === 'teacher-general') {
-      await teacherStore.saveChatHistory()
-    }
-
-    // 清除编辑状态
-    cancelEditMessage()
-
-    // 第1步：检查是否需要选择题目（策略模式重构版）
-    // 策略模式：使用策略的 requiresQuestion() 方法判断是否需要选择题目
-    if (!hasSelectedQuestion.value && chatStrategy.value?.requiresQuestion()) {
-      // 如果未选择题目，添加欢迎消息回复
-      const botReply: ChatBubble = {
-        id: 'welcome_' + (Date.now() + 1).toString(),
-        content: chatStrategy.value.getWelcomeMessage(),
-        type: chatStrategy.value.getMessageType(),
-        timestamp: '',
-        sender: chatStrategy.value.getSenderType(),
+        await addMessagesToStore([botReply])
+        await scrollToBottom()
+        return
       }
 
-      await addMessagesToStore([botReply])
+      // 滚动到底部
       await scrollToBottom()
-      return
+    } catch (error) {
+      console.error('❌ [更新消息] 更新消息失败:', error)
+      showMessage(error instanceof Error ? error.message : '更新消息失败', 'error')
+      cancelEditMessage()
+    } finally {
+      isLoading.value = false
     }
-
-    // 发送编辑后的消息给AI（这会自动添加用户消息和AI回复）
-    if (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') {
-      isLoading.value = true
-
-      try {
-        // 使用策略模式发送编辑后的消息
-        await chatStrategy.value?.sendMessage(newContent, { selectedModel: selectedModel.value })
-
-      } catch (aiError) {
-        console.error('❌ [更新消息] AI回复发送失败:', aiError)
-        showMessage('发送消息失败', 'error')
-      } finally {
-        isLoading.value = false
-      }
-    }
-
-    // 滚动到底部
-    await scrollToBottom()
   } catch (error) {
     console.error('❌ [更新消息] 更新消息失败:', error)
     showMessage('更新消息失败', 'error')
@@ -2009,9 +1460,9 @@ const forwardToTeacher = async (messageList?: ChatBubble[]) => {
       // 单条消息转发
       await handleForwardMessage(selectedMessageList[0])
     } else {
-      // 多条消息转发
+      // 多条消息转发（策略内部会处理是否显示对话框）
       const result = await chatStrategy.value.forwardMessages(selectedMessageList, {
-        showDialog: props.type !== 'ai-exercise', // AI题目对话页面不显示对话框
+        showDialog: true, // 默认显示对话框，策略内部可以根据需要覆盖
         onSuccess: async (result) => {
           // 转发成功后的回调
           if (result.sessionId) {
@@ -2031,7 +1482,7 @@ const forwardToTeacher = async (messageList?: ChatBubble[]) => {
           showMessage('转发失败: ' + error, 'error')
         },
       })
-      
+
       if (!result.success) {
         console.error('[ChatView] ❌ 批量转发失败:', result.error)
         // 错误已经在 onError 回调中处理
@@ -2056,11 +1507,83 @@ const removeFile = (fileId: string) => {
   }
 }
 
-// 注意：原生图片选择和拍照的结果处理已经移到 ImagePicker 组件中
-// 这里不再重复处理，避免图片重复发送
+// ==================== 全局事件监听器管理 ====================
+/**
+ * 动态控制原生键盘事件监听，避免与公式键盘冲突
+ */
+let nativeKeyboardListenersEnabled = true
 
-// 老师消息接收处理已统一由 teacherGeneralChatStore.initMessageReceiver() 管理
-// 所有消息接收逻辑都在 store 中处理，这里不再需要单独的回调函数
+/**
+ * 设置全局事件监听器
+ * 作用：设置语音识别回调、键盘事件监听、录音事件监听等
+ */
+const setupGlobalEventListeners = () => {
+  if (typeof window !== 'undefined') {
+    // 3.1 设置语音识别结果回调
+    ;(
+      window as unknown as { onVoiceRecognitionResult: (text: string) => void }
+    ).onVoiceRecognitionResult = onVoiceRecognitionResult
+
+    // 3.2 老师消息接收回调已由 teacherGeneralChatStore.initMessageReceiver() 统一管理
+    // 不需要在这里重复设置，避免覆盖 store 中的回调
+
+    // 3.3 监听原生键盘事件（处理系统键盘，只压缩页面不滚动）
+    // 动态控制原生键盘事件监听，避免与公式键盘冲突
+    const handleNativeKeyboardShow = (event: Event) => {
+      if (!nativeKeyboardListenersEnabled) {
+        return
+      }
+      const customEvent = event as CustomEvent
+      // 原生键盘显示时只压缩页面，不滚动（压缩后输入框自动可见）
+      handleKeyboardShown(customEvent.detail)
+    }
+
+    const handleNativeKeyboardHide = () => {
+      if (!nativeKeyboardListenersEnabled) {
+        return
+      }
+      // 原生键盘隐藏时恢复页面
+      handleKeyboardHidden()
+    }
+
+    // 3.4 监听录音权限授予后自动开始的录音
+    window.addEventListener('nativeVoiceRecordingStarted', handleNativeVoiceRecordingStarted)
+
+    window.addEventListener('keyboard-show', handleNativeKeyboardShow)
+    window.addEventListener('keyboard-hide', handleNativeKeyboardHide)
+
+    // 暴露控制函数给全局使用
+    ;(window as unknown as Record<string, unknown>).disableNativeKeyboardListeners = () => {
+      nativeKeyboardListenersEnabled = false
+    }
+    ;(window as unknown as Record<string, unknown>).enableNativeKeyboardListeners = () => {
+      nativeKeyboardListenersEnabled = true
+    }
+
+    // 3.5 监听公式键盘事件（MathLive虚拟键盘，只滚动不压缩）
+    window.addEventListener('formula-keyboard-toggle', handleFormulaKeyboardToggle)
+
+    // 3.6 监听强制重置动画状态事件
+    window.addEventListener('force-reset-animation-state', handleForceResetAnimationState)
+  }
+}
+
+/**
+ * 清理全局事件监听器
+ * 作用：移除所有全局事件监听器，防止内存泄漏
+ */
+const cleanupGlobalEventListeners = () => {
+  if (typeof window !== 'undefined') {
+    // 清理录音事件监听器
+    window.removeEventListener('nativeVoiceRecordingStarted', handleNativeVoiceRecordingStarted)
+    // 清理公式键盘事件监听器
+    window.removeEventListener('formula-keyboard-toggle', handleFormulaKeyboardToggle)
+    // 清理强制重置动画状态事件监听器
+    window.removeEventListener('force-reset-animation-state', handleForceResetAnimationState)
+    // 注意：原生键盘事件监听器（keyboard-show/keyboard-hide）是内联函数，无法直接移除
+    // 但组件卸载时会自动清理
+  }
+}
 
 // ==================== 生命周期钩子 ====================
 /**
@@ -2068,16 +1591,19 @@ const removeFile = (fileId: string) => {
  * 作用：初始化聊天消息、设置事件监听器、配置语音识别等
  */
 onMounted(async () => {
+  // 步骤0.5：创建策略实例
+  createStrategy()
+
   // 步骤1：初始化聊天消息
-  initializeMessages()
-  
+  await initializeMessages()
+
   // 步骤1.5：初始化 BScroll
   await initBScroll()
   scrollToBottom()
-  
+
   // 初始化消息计数
   lastMessageCount.value = getScenarioStore().messages.length
-  
+
   // 添加滚动监听，检测用户是否在底部
   const bscrollInstance = getInstance()
   if (bscrollInstance) {
@@ -2096,58 +1622,9 @@ onMounted(async () => {
   }, 100)
 
   // 步骤3：设置全局事件监听器
-  if (typeof window !== 'undefined') {
-    // 3.1 设置语音识别结果回调
-    ;(
-      window as unknown as { onVoiceRecognitionResult: (text: string) => void }
-    ).onVoiceRecognitionResult = onVoiceRecognitionResult
+  setupGlobalEventListeners()
 
-    // 3.2 老师消息接收回调已由 teacherGeneralChatStore.initMessageReceiver() 统一管理
-    // 不需要在这里重复设置，避免覆盖 store 中的回调
-
-    // 3.3 监听原生键盘事件（处理系统键盘，只压缩页面不滚动）
-    // 动态控制原生键盘事件监听，避免与公式键盘冲突
-    let nativeKeyboardListenersEnabled = true
-    
-    const handleNativeKeyboardShow = (event: Event) => {
-      if (!nativeKeyboardListenersEnabled) {
-        return
-      }
-      const customEvent = event as CustomEvent
-      // 原生键盘显示时只压缩页面，不滚动（压缩后输入框自动可见）
-      handleKeyboardShown(customEvent.detail)
-    }
-    
-    const handleNativeKeyboardHide = () => {
-      if (!nativeKeyboardListenersEnabled) {
-        return
-      }
-      // 原生键盘隐藏时恢复页面
-      handleKeyboardHidden()
-    }
-
-    // 3.4 监听录音权限授予后自动开始的录音
-    window.addEventListener('nativeVoiceRecordingStarted', handleNativeVoiceRecordingStarted)
-    
-    window.addEventListener('keyboard-show', handleNativeKeyboardShow)
-    window.addEventListener('keyboard-hide', handleNativeKeyboardHide)
-    
-    // 暴露控制函数给全局使用
-    ;(window as unknown as Record<string, unknown>).disableNativeKeyboardListeners = () => {
-      nativeKeyboardListenersEnabled = false
-    }
-    
-    ;(window as unknown as Record<string, unknown>).enableNativeKeyboardListeners = () => {
-      nativeKeyboardListenersEnabled = true
-    }
-
-    // 3.4 监听公式键盘事件（MathLive虚拟键盘，只滚动不压缩）
-    window.addEventListener('formula-keyboard-toggle', handleFormulaKeyboardToggle)
-    
-    
-    // 3.6 监听强制重置动画状态事件
-    window.addEventListener('force-reset-animation-state', handleForceResetAnimationState)
-  }
+  // 步骤4：图片消息已直接保存到持久化存储，ChatView加载时会自动从store中读取并显示
 })
 
 /**
@@ -2156,30 +1633,17 @@ onMounted(async () => {
  */
 onUnmounted(() => {
   // 步骤0：BScroll 销毁由组合式函数自动处理
-  
+
   // 步骤0.5：清理图片加载刷新定时器
   if (imageLoadRefreshTimer.value) {
     clearTimeout(imageLoadRefreshTimer.value)
     imageLoadRefreshTimer.value = null
   }
-  
-  // 步骤1：清理键盘事件监听器
-  if (typeof window !== 'undefined') {
-    // 注意：内联函数无法直接移除，但组件卸载时会自动清理
-    // 清理录音事件监听器
-    window.removeEventListener('nativeVoiceRecordingStarted', handleNativeVoiceRecordingStarted)
-    // 清理公式键盘事件监听器
-    window.removeEventListener('formula-keyboard-toggle', handleFormulaKeyboardToggle)
-    
-    
-    // 清理强制重置动画状态事件监听器
-    window.removeEventListener('force-reset-animation-state', handleForceResetAnimationState)
-  }
+
+  // 步骤1：清理全局事件监听器
+  cleanupGlobalEventListeners()
 
   // 步骤2：清理定时器
-  if (scrollTimeout) {
-    clearTimeout(scrollTimeout)
-  }
   if (loadingTimeout.value) {
     clearTimeout(loadingTimeout.value)
   }
@@ -2190,16 +1654,9 @@ onUnmounted(() => {
   // 1. 回调函数是全局的，应该在应用生命周期中保持存在
   // 2. 用户可能在 AI 会话和老师会话之间切换，不应该在切换时清理回调
   // 3. 清理应该只在 UnifiedChatDialog 完全关闭时进行（由 teacherGeneralChatStore.cleanupMessageReceiver 统一处理）
-  if (props.type === 'teacher-general') {
-    try {
-      // 清理 Android 原生监听器（这是 Android 端的资源清理，需要执行）
-      if (typeof window !== 'undefined' && window.AndroidBridge?.cleanupTeacherMessageListener) {
-        window.AndroidBridge.cleanupTeacherMessageListener()
-      }
-    } catch {
-      // 清理老师消息监听器失败
-    }
-    // 不再清理 window.onTeacherMessageReceived，由 teacherGeneralChatStore 统一管理
+  // 使用策略模式清理资源
+  if (chatStrategy.value?.cleanup) {
+    chatStrategy.value.cleanup()
   }
 
   // 步骤4：清理原始高度记录
@@ -2207,62 +1664,64 @@ onUnmounted(() => {
 })
 
 // ==================== 监听器 ====================
-/**
- * 监听题目选择状态变化
- * 作用：当题目选择状态改变时，重新初始化消息并滚动到底部
- */
-watch(hasSelectedQuestion, (newValue, oldValue) => {
-  if (newValue !== oldValue) {
-    initializeMessages()
-    scrollToBottom()
+// 加载指示器控制监听器
+// 注意：由于涉及定时器副作用，不能使用 computed，使用 watchEffect 简化代码
+watchEffect(() => {
+  // 清除之前的定时器
+  if (loadingTimeout.value) {
+    clearTimeout(loadingTimeout.value)
+    loadingTimeout.value = null
+  }
+
+  if (isChatLoading.value) {
+    // 开始加载，先延迟一小段时间再显示，避免极短时间的闪烁
+    loadingStartTime.value = Date.now()
+
+    // 延迟显示加载指示器
+    loadingTimeout.value = setTimeout(() => {
+      // 如果此时仍在加载中，才显示指示器
+      if (isChatLoading.value) {
+        showLoadingIndicator.value = true
+      }
+      loadingTimeout.value = null
+    }, MIN_LOADING_DELAY)
+  } else {
+    // 加载完成，检查是否满足最小显示时间
+    const elapsedTime = Date.now() - loadingStartTime.value
+    const remainingTime = Math.max(0, MIN_LOADING_DISPLAY_TIME - elapsedTime)
+
+    if (remainingTime > 0 && showLoadingIndicator.value) {
+      // 延迟隐藏，确保最小显示时间
+      loadingTimeout.value = setTimeout(() => {
+        showLoadingIndicator.value = false
+        loadingTimeout.value = null
+      }, remainingTime)
+    } else {
+      // 已经显示足够长时间或未显示，立即隐藏
+      showLoadingIndicator.value = false
+    }
   }
 })
 
-/**
- * 监听AI聊天消息数量变化
- * 作用：当AI聊天消息数量变化时，处理UI更新
- * 逻辑：如果消息数量从有变为0，说明可能是清除了记录，需要重新初始化
- */
-watch(
-  () => getScenarioStore().messages.length,
-  (newLength, oldLength) => {
-    // 如果消息数量从有变为0，说明可能是清除了记录，需要重新初始化
-    if (oldLength > 0 && newLength === 0 && (props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook')) {
-      initializeMessages()
-      nextTick(() => {
-        refreshBScroll()
-        scrollToBottom()
-      })
-    }
-  },
-)
 
-/**
- * 监听聊天消息变化，处理滚动
- * 作用：当聊天消息变化时，智能处理滚动行为
- */
-let scrollTimeout: ReturnType<typeof setTimeout> | null = null
-
-/**
- * 图片加载刷新定时器
- * 作用：防抖处理图片加载完成后的滚动容器刷新
- */
+// 图片加载刷新定时器
 const imageLoadRefreshTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
+// 消息变化监听器
 watch(
   () => getScenarioStore().messages,
   (newMessages) => {
     if (newMessages && newMessages.length > 0) {
       // 刷新 BScroll 以确保内容高度正确
       refreshBScroll()
-      
+
       // 检测是否有新消息（消息数量增加）
       const hasNewMessage = newMessages.length > lastMessageCount.value
       lastMessageCount.value = newMessages.length
-      
+
       // 检查用户是否在底部（允许50px的误差）
       checkIfUserAtBottom()
-      
+
       // 如果是键盘显示状态，立即滚动；否则根据用户位置决定
       if (isKeyboardVisible.value || isKeyboardAnimating.value) {
         // 键盘显示时立即滚动，确保用户体验
@@ -2274,23 +1733,30 @@ watch(
           showNewMessageIndicator.value = true
         } else if (isUserAtBottom.value) {
           // 用户在底部，自动滚动并隐藏提示按钮
-          if (scrollTimeout) {
-            clearTimeout(scrollTimeout)
-          }
-          scrollTimeout = setTimeout(() => {
-            scrollToBottom()
-            showNewMessageIndicator.value = false
-          }, 50)
+          scrollToBottom()
+          showNewMessageIndicator.value = false
         }
       }
-
-      // 【重要】移除MathJax全局渲染调用
-      // 数学公式渲染由各个ChatMessage组件独立处理，避免阻塞主线程
     }
   },
   { deep: true, immediate: false },
 )
 
+// 教师会话创建监听器
+watch(
+  () => teacherStore.currentSession,
+  (session) => {
+    // 只有在teacher-general类型且session存在时才创建或更新策略
+    if (props.type === 'teacher-general' && session) {
+      // 创建或更新策略
+      // 策略会直接从 store 读取 session 信息，不需要传递参数
+      chatStrategy.value = ChatStrategyFactory.create(props.type)
+    }
+  },
+)
+
+
+// 题目切换处理函数
 watch(
   () => currentQuestion.value,
   (newQuestion, oldQuestion) => {
@@ -2324,121 +1790,23 @@ watch(
   },
 )
 
-watch(
-  () => userStore.subject,
-  (newSubject) => {
-    currentSubject.value = newSubject === 'BIOLOGY' ? 'biology' : 'math'
-
-    // 检查是否正在编辑消息
-    if (isEditingMessage.value) {
-      // 设置待执行的切换操作
-      pendingSwitchAction.value = () => {
-        // 退出编辑模式
-        cancelEditMessage()
-        // 清空输入内容
-        if (chatInputRef.value && typeof chatInputRef.value.clearInputContent === 'function') {
-          chatInputRef.value.clearInputContent()
-        }
-        // 执行正常的切换逻辑
-        executeSubjectSwitch()
-      }
-      return
-    }
-
-    // 如果没有编辑状态，直接执行切换
-    executeSubjectSwitch()
-  },
-)
-
-/**
- * 监听待发送图片状态（用于拍作业场景）
- * 流程：检测到待发送图片 → 自动调用onImageSelected发送图片 → 清除待发送图片状态
- */
-watch(
-  () => aiGeneralStore.pendingImage,
-  async (pendingImageData) => {
-    // 第1步：检查是否为AI通用聊天场景
-    if (props.type !== 'ai-general') {
-      return
-    }
-    
-    // 第2步：检查是否有待发送图片
-    if (!pendingImageData) {
-      return
-    }
-    
-    try {
-      // 第3步：调用onImageSelected发送图片
-      await onImageSelected(pendingImageData)
-      
-      // 第4步：清除待发送图片状态
-      aiGeneralStore.clearPendingImage()
-    } catch (error) {
-      console.error('[ChatView] ❌ 自动发送图片失败:', error)
-      // 清除待发送图片状态（即使失败也要清除，避免重复发送）
-      aiGeneralStore.clearPendingImage()
-      showMessage('图片发送失败，请重试', 'error')
-    }
-  },
-  { immediate: true } // 立即执行一次，检查是否有待发送图片
-)
-
-/**
- * 监听待发送图片状态（用于拍作业场景 - 教师场景）
- * 流程：检测到待发送图片 → 自动调用onImageSelected发送图片 → 清除待发送图片状态
- */
-watch(
-  () => teacherStore.pendingImage,
-  async (pendingImageData) => {
-    // 第1步：检查是否为教师聊天场景
-    if (props.type !== 'teacher-general') {
-      return
-    }
-    
-    // 第2步：检查是否有待发送图片
-    if (!pendingImageData) {
-      return
-    }
-    
-    try {
-      // 第3步：调用onImageSelected发送图片
-      await onImageSelected(pendingImageData)
-      
-      // 第4步：清除待发送图片状态
-      teacherStore.clearPendingImage()
-    } catch (error) {
-      console.error('[ChatView] ❌ 自动发送图片失败:', error)
-      // 清除待发送图片状态（即使失败也要清除，避免重复发送）
-      teacherStore.clearPendingImage()
-      showMessage('图片发送失败，请重试', 'error')
-    }
-  },
-  { immediate: true } // 立即执行一次，检查是否有待发送图片
-)
-
-// 执行题目切换逻辑
-// 作用：执行题目切换，退出选择模式，重置老师会话状态并重新初始化消息
+// 题目切换处理函数
 const executeQuestionSwitch = () => {
-
   // 退出选择模式（如果正在选择模式）
   if (isSelectionMode.value) {
     exitSelectionMode()
   }
 
-  // 重置老师会话状态
-  if (props.type === 'teacher-general') {
-    teacherSession.value = null
+  // 重置会话状态（使用策略模式）
+  if (chatStrategy.value?.getSessionInfo) {
+    // 教师通用策略 - session 由 store 管理，不需要在这里重置
     aiSessionId.value = ''
   }
-
-  // 重置老师题目会话状态
-  if (props.type === 'teacher-exercise') {
-    teacherExerciseStore.clearSession()
+  
+  // 使用策略模式重置会话（如果策略支持）
+  if (chatStrategy.value?.resetSession) {
+    chatStrategy.value.resetSession()
   }
-
-  // 注意：不要在这里清空聊天记录！
-  // 聊天记录的清空和加载应该由 questionStore.selectQuestion 统一管理
-  // 避免与 loadChatHistory 产生竞态条件
 
   initializeMessages()
   nextTick(() => {
@@ -2446,22 +1814,12 @@ const executeQuestionSwitch = () => {
   })
 }
 
-// 执行科目切换逻辑
-// 作用：执行科目切换，重新初始化老师会话
-const executeSubjectSwitch = () => {
-
-  // 如果是老师对话模式，需要重新初始化会话
-  if (props.type === 'teacher-general') {
-    teacherSession.value = null
-    initializeMessages()
-  }
-}
 // 暴露给父组件的方法和状态
 defineExpose({
   inputMessage,
   sendMessage,
   isLoading,
-  scrollToBottom
+  scrollToBottom,
 })
 </script>
 
@@ -2530,7 +1888,8 @@ defineExpose({
 }
 
 @keyframes bounce {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -2668,7 +2027,7 @@ defineExpose({
 /* ==================== 底部提示文案样式 ==================== */
 .chat-footer-text {
   text-align: center;
-  padding: 0px  20px 2px;
+  padding: 0px 20px 2px;
   color: #b0b0b0;
   font-size: 12px;
   line-height: 1.5;

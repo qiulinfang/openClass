@@ -17,6 +17,7 @@ import type { ChatBubble, UserInfo, AiGeneralSession } from '../types'
 import { buildAiGeneralMessage } from './utils/aiMessageBuilder'
 import { getCurrentUserIdOrDefault } from '../utils/user/userId'
 import localforage from 'localforage'
+import { generateUniqueId } from './utils/chatStoreUtils'
 
 export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   // ==================== 状态定义 ====================
@@ -68,7 +69,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    * 创建临时AI回复消息
    */
   const createTempReplyMessage = (): { message: ChatBubble; id: string } => {
-    const tempReplyId = (Date.now() + 1).toString()
+    const tempReplyId = generateUniqueId('temp_ai')
     const tempReplyMessage: ChatBubble = {
       id: tempReplyId,
       content: '',

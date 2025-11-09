@@ -464,8 +464,19 @@ const handleRetry = async () => {
 }
 
 // 判断是否可以转发（仅在AI通用、AI题目和AI教材对话场景下可用）
+// 对于AI练习场景，还需要检查教师答疑是否可用（有选中题目且可以查看答案）
 const canForward = computed(() => {
-  return props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook'
+  if (props.type === 'ai-general' || props.type === 'ai-textbook') {
+    return true
+  }
+  
+  if (props.type === 'ai-exercise') {
+    // AI练习场景：只有在教师答疑可用时才显示转发按钮
+    // 条件：有选中题目 && 可以查看答案（与 ExerciseSolveView 的 canUseAskTeacher 逻辑一致）
+    return questionStore.currentQuestion !== null && aiExerciseStore.canViewAnswer
+  }
+  
+  return false
 })
 
 // 判断是否为第一个消息（题目消息）

@@ -270,7 +270,7 @@ import { useQuestionStore } from '../stores/questionStore'
 import { storeToRefs } from 'pinia'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
 import { useUIStore } from '../stores/uiStore'
-import type { ExerciseItem } from '../types'
+import type { ExerciseItem, ChatBubble } from '../types'
 import { apiService } from '../services/api-service'
 import { MathJaxUtils } from '../utils/math/mathjax'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
@@ -370,6 +370,7 @@ const userStore = useUserStore()
 const unifiedChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
 const showUnifiedChatDialog = ref(false)
 const selectedSubjectForTeacher = ref<'biology' | 'math'>('math')
+// 保存待发送的图片信息（在会话创建后直接创建消息并保存）
 const pendingImageInfo = ref<{ filePath: string; width: number; height: number; fileSize: number; base64DataUrl?: string } | null>(null)
 
 // 计算属性
@@ -756,11 +757,50 @@ const handleSessionCreated = async (sessionId: string, type: 'ai-general' | 'tea
     if (session) {
       teacherStore.setSession(session)
       
-      // 如果有待发送的图片，设置到Store并发送
+      // 如果有待发送的图片，直接创建消息并保存到持久化存储
       if (pendingImageInfo.value) {
-        await nextTick()
-        teacherStore.setPendingImage(pendingImageInfo.value)
+        const imageInfo = pendingImageInfo.value
         pendingImageInfo.value = null
+        
+        // 等待会话加载完成
+        await nextTick()
+        
+        // 创建图片消息
+        const imageMessage: ChatBubble = {
+          id: Date.now().toString(),
+          content: '',
+          type: 'user',
+          timestamp: new Date().toISOString(),
+          sender: 'user',
+          messageType: 'image',
+          imageData: {
+            filePath: imageInfo.filePath,
+            width: imageInfo.width,
+            height: imageInfo.height,
+            fileSize: imageInfo.fileSize,
+            base64DataUrl: imageInfo.base64DataUrl,
+          },
+        }
+        
+        // 添加到 store
+        teacherStore.addMessage(imageMessage)
+        
+        // 保存到持久化存储
+        await teacherStore.saveChatHistory()
+        
+        // 发送图片消息到后端
+        try {
+          await teacherStore.sendMessage('', {
+            filePath: imageInfo.filePath,
+            width: imageInfo.width,
+            height: imageInfo.height,
+            fileSize: imageInfo.fileSize,
+            base64DataUrl: imageInfo.base64DataUrl,
+          })
+        } catch (error) {
+          console.error('[QuestionList] ❌ 发送图片消息失败:', error)
+          showMessage('发送图片消息失败，请重试', 'error')
+        }
       }
     }
   }

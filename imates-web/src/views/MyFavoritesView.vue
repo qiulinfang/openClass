@@ -233,8 +233,7 @@ const handleQaCardClick = async (session: AiGeneralSession) => {
   
   if (unifiedChatDialogRef.value) {
     if (chatType.type === 'teacher-general') {
-      // 确保加载了教师会话列表
-      unifiedChatDialogRef.value.loadTeacherSessions()
+      // SessionTree 会直接从 store 获取最新数据，无需手动加载
       await nextTick()
       // 直接调用 store 的 setSession，UnifiedChatDialog 会通过 watch 自动同步 UI 状态
       const teacherStore = useTeacherGeneralChatStore()

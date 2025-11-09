@@ -87,6 +87,7 @@ import { androidBridge } from '@/services/android-bridge'
 import { showMessage } from '@/utils'
 import { getCurrentUserIdOrDefault } from '@/utils/user/userId'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
+import type { ChatBubble } from '@/types'
 import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
 
 // 导入 SVG 图标
@@ -389,10 +390,45 @@ const takePictureToTeacher = async () => {
           }
         }
         
-        // 第7步：设置待发送图片，由ChatView的watch自动处理发送
-    // 流程：设置pendingImage -> ChatView的watch监听到变化 -> 自动调用onImageSelected发送
-    await nextTick() // 确保ChatView已经挂载完成
-    teacherStore.setPendingImage(imageInfo)
+        // 第7步：直接创建消息并保存到持久化存储
+        await nextTick() // 确保会话已设置完成
+        
+        // 创建图片消息
+        const imageMessage: ChatBubble = {
+          id: Date.now().toString(),
+          content: '',
+          type: 'user',
+          timestamp: new Date().toISOString(),
+          sender: 'user',
+          messageType: 'image',
+          imageData: {
+            filePath: imageInfo.filePath,
+            width: imageInfo.width,
+            height: imageInfo.height,
+            fileSize: imageInfo.fileSize,
+            base64DataUrl: imageInfo.base64DataUrl,
+          },
+        }
+        
+        // 添加到 store
+        teacherStore.addMessage(imageMessage)
+        
+        // 保存到持久化存储
+        await teacherStore.saveChatHistory()
+        
+        // 发送图片消息到后端
+        try {
+          await teacherStore.sendMessage('', {
+            filePath: imageInfo.filePath,
+            width: imageInfo.width,
+            height: imageInfo.height,
+            fileSize: imageInfo.fileSize,
+            base64DataUrl: imageInfo.base64DataUrl,
+          })
+        } catch (error) {
+          console.error('[MyProfileView] ❌ 发送图片消息失败:', error)
+          showMessage('发送图片消息失败，请重试', 'error')
+        }
       } catch (error) {
         console.error('[MyProfileView] ❌ 发送图片失败:', error)
         showMessage('发送图片失败，请重试', 'error')

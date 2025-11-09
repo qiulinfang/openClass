@@ -8,7 +8,7 @@ import type { TeacherSessionInfo } from './types'
 import { AiGeneralStrategy } from './AiGeneralStrategy'
 import { AiExerciseStrategy } from './AiExerciseStrategy'
 import { AiTextbookStrategy } from './AiTextbookStrategy'
-import { TeacherStrategy } from './TeacherStrategy'
+import { TeacherGeneralStrategy } from './TeacherGeneralStrategy'
 import { TeacherExerciseStrategy } from './TeacherExerciseStrategy'
 
 export type ChatType = 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
@@ -35,10 +35,8 @@ export class ChatStrategyFactory {
         return new AiTextbookStrategy()
       
       case 'teacher-general':
-        if (!options?.session) {
-          throw new Error('Teacher strategy requires session info')
-        }
-        return new TeacherStrategy(options.session)
+        // TeacherGeneralStrategy 现在直接从 store 读取 session 信息，不需要构造函数参数
+        return new TeacherGeneralStrategy()
       
       case 'teacher-exercise':
         return new TeacherExerciseStrategy()

@@ -71,5 +71,55 @@ export interface ChatStrategy {
   
   // 第12步：转发多条消息
   forwardMessages(messages: ChatBubble[], options?: ForwardOptions): Promise<ForwardResult>
+  
+  // 第13步：获取输入框占位符文本
+  getPlaceholderText(hasSelectedQuestion: boolean): string
+  
+  // 第14步：获取当前科目
+  getCurrentSubject(): 'biology' | 'math'
+  
+  // 第15步：初始化策略
+  initialize(options: import('./types').InitializeOptions): Promise<void>
+  
+  // 第16步：获取会话信息（可选，仅教师策略需要）
+  getSessionInfo?(): import('../../../types').ChatMessageSession | null
+  
+  // 第17步：检查是否应该乐观发送
+  shouldOptimisticSend(): boolean
+  
+  // 第18步：发送语音消息
+  sendVoiceMessage(voiceInfo: {
+    filePath: string
+    duration: number
+    fileSize: number
+  }): Promise<{ success: boolean; message?: string }>
+  
+  // 第19步：检查发送图片后是否清空输入框
+  shouldClearInputAfterImage(): boolean
+  
+  // 第20步：发送图片消息
+  sendImageMessage(
+    imageInfo: {
+      filePath: string
+      width: number
+      height: number
+      fileSize: number
+      base64DataUrl?: string
+    },
+    textContent?: string,
+    options?: SendMessageOptions
+  ): Promise<void>
+  
+  // 第21步：更新已编辑的消息
+  updateEditedMessage(messageId: string, newContent: string, options?: SendMessageOptions): Promise<void>
+  
+  // 第22步：清理资源（可选，仅教师策略需要）
+  cleanup?(): void
+  
+  // 第23步：检查是否显示转发按钮
+  shouldShowForwardButton(): boolean
+  
+  // 第24步：重置会话（可选，仅部分策略需要）
+  resetSession?(): void
 }
 

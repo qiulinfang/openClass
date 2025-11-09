@@ -6,7 +6,7 @@ export type { ChatStrategy } from './ChatStrategy'
 export { AiGeneralStrategy } from './AiGeneralStrategy'
 export { AiExerciseStrategy } from './AiExerciseStrategy'
 export { AiTextbookStrategy } from './AiTextbookStrategy'
-export { TeacherStrategy } from './TeacherStrategy'
+export { TeacherGeneralStrategy } from './TeacherGeneralStrategy'
 export { TeacherExerciseStrategy } from './TeacherExerciseStrategy'
 export { ChatStrategyFactory, type ChatType } from './ChatStrategyFactory'
 

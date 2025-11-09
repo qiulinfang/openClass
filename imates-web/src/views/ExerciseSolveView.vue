@@ -422,7 +422,7 @@ const handleSendQuestionToTeacher = async (question: ExerciseItem) => {
       const subject = question.subject === 'BIOLOGY' ? 'biology' : 'math'
       
       // 创建或获取会话（使用题目ID和题目标题）
-      const createdSession = teacherStore.createOrGetSession(
+      const createdSession = teacherStore.getOrCreateSession(
         question.id,
         cleanTitle || '题目',
         subject
