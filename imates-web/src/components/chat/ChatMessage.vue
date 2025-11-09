@@ -337,7 +337,7 @@ import avantarIcon from '/icons/avantar.svg'
 // 定义Props - 直接在组件中定义，确保 Vue 正确识别所有 props
 interface Props {
   message: ChatBubble
-  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
+  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
   isSelected?: boolean
   isSelectionMode?: boolean
   messageIndex?: number
@@ -436,7 +436,8 @@ const handleRetry = async () => {
       case 'ai-textbook':
         await aiTextbookStore.retryAiMessage(props.message.id, 'mate', props.message.imageData)
         break
-      case 'teacher':
+      case 'teacher-general':
+      case 'teacher-exercise':
         await teacherStore.retryTeacherMessage(props.message.id, props.message.imageData)
         break
       default:
@@ -498,7 +499,7 @@ const actionButtons = computed(() => {
   }
 
   // 教师答疑场景下，学生和教师的消息都不显示功能按钮区域
-  if (props.type === 'teacher') {
+  if (props.type === 'teacher-general') {
     return buttons
   }
 
@@ -893,7 +894,8 @@ const handleRefresh = async () => {
     case 'ai-textbook':
       storeMessages = aiTextbookStore.messages
       break
-    case 'teacher':
+    case 'teacher-general':
+    case 'teacher-exercise':
       storeMessages = teacherStore.messages
       break
     default:
@@ -992,7 +994,8 @@ const handleRefresh = async () => {
           true, // skipUserMessage: true，跳过创建用户消息
         )
         break
-      case 'teacher':
+      case 'teacher-general':
+      case 'teacher-exercise':
         // 教师场景需要通过 emit 事件触发，因为需要特殊处理
         $q.notify({
           type: 'info',

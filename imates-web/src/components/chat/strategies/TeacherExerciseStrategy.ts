@@ -40,7 +40,7 @@ export class TeacherExerciseStrategy implements ChatStrategy {
       this.questionStore.currentQuestion,
       this.userStore.userInfo,
       this.userStore.subject as 'MATH' | 'BIOLOGY',
-      options.selectedModel || 'teacher',
+      (options.selectedModel || 'teacher') as string,
       options.imageData,
       hidePrefix
     )
@@ -68,11 +68,38 @@ export class TeacherExerciseStrategy implements ChatStrategy {
   
   // 第8步：保存聊天历史
   async saveChatHistory(): Promise<void> {
-    const questionId = this.questionStore.currentQuestion?.id
-    if (questionId) {
-      await this.teacherExerciseStore.saveChatHistory(questionId)
+    await this.teacherExerciseStore.saveChatHistory(false)
+  }
+  
+  // 第9步：检查是否支持转发消息
+  canForwardMessage(): boolean {
+    return false // 老师对话不支持转发
+  }
+  
+  // 第10步：获取当前科目（用于转发）
+  getCurrentSubjectForForward(): 'biology' | 'math' | null {
+    return null // 老师对话不支持转发
+  }
+  
+  // 第11步：转发单条消息
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async forwardMessage(_message: ChatBubble, _options?: import('./ChatStrategy').ForwardOptions): Promise<import('./ChatStrategy').ForwardResult> {
+    return {
+      success: false,
+      error: '老师对话不支持转发消息',
+    }
+  }
+  
+  // 第12步：转发多条消息
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async forwardMessages(_messages: ChatBubble[], _options?: import('./ChatStrategy').ForwardOptions): Promise<import('./ChatStrategy').ForwardResult> {
+    return {
+      success: false,
+      error: '老师对话不支持转发消息',
     }
   }
 }
+
+
 
 

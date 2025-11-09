@@ -173,45 +173,34 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import type { AiGeneralSession } from '@/types'
 import type { TeacherSession } from '@/stores/teacherGeneralChatStore'
 import { useUnreadMessageStore } from '@/stores/unreadMessageStore'
+import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
+import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
+import { asyncStorage } from '@/services/chat-storage'
 import { useBetterScroll } from '@/composables/useBetterScroll'
 import { isSessionFavorite, toggleSessionFavorite } from '@/utils/storage/favorites'
 import { useQuasar } from 'quasar'
+import { getCurrentUserIdOrDefault } from '@/utils/user/userId'
 
 // 定义 props
 interface Props {
-  // AI会话列表
-  aiSessions?: AiGeneralSession[]
-  // 教师会话列表（按科目分组）
-  teacherSessions?: TeacherSession[]
   // 当前选中的会话ID（通用，可以是AI会话或教师会话）
   selectedSessionId?: string
   // 是否显示头部
   showHeader?: boolean
-  // 标题文字
-  title?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  aiSessions: () => [],
-  teacherSessions: () => [],
   selectedSessionId: undefined,
   showHeader: true,
-  title: '聊天记录',
 })
 
 // 定义 emits
 const emit = defineEmits<{
-  'ai-session-click': [sessionId: string]
-  'teacher-session-click': [sessionId: string, subject: string]
-  'ai-session-rename': [sessionId: string, newName: string]
-  'ai-session-pin': [sessionId: string]
-  'ai-session-delete': [sessionId: string]
-  'teacher-session-delete': [sessionId: string]
-  'ai-new-chat': []
-  'teacher-new-chat': [subject: 'biology' | 'math']
+  'session-switched': [type: 'ai' | 'teacher', sessionId: string] // 会话切换完成事件（最终结果）
+  'ai-session-deleted': [sessionId: string, success: boolean, wasCurrentSession: boolean]
+  'teacher-session-deleted': [sessionId: string, success: boolean, wasCurrentSession: boolean]
 }>()
 
 // 搜索关键词
@@ -234,6 +223,10 @@ const scrollWrapper = ref<HTMLElement | null>(null)
 // 未读消息 store
 const unreadStore = useUnreadMessageStore()
 
+// AI 和教师聊天 store
+const aiGeneralStore = useAiGeneralChatStore()
+const teacherChatStore = useTeacherGeneralChatStore()
+
 // Quasar 实例（用于显示消息提示）
 const $q = useQuasar()
 
@@ -246,18 +239,9 @@ watch(
   { deep: true },
 )
 
-// 收藏状态响应式更新（用于触发 treeNodes 重新计算）
+// 收藏状态更新触发器（用于触发 treeNodes 重新计算收藏状态）
+// 注意：收藏状态存储在 localStorage 中，不是响应式的，所以需要手动触发
 const favoriteUpdateTrigger = ref(0)
-
-// 监听收藏状态变化，更新树节点的收藏状态
-watch(
-  () => props.aiSessions,
-  () => {
-    // 当会话列表更新时，触发收藏状态重新计算
-    favoriteUpdateTrigger.value++
-  },
-  { deep: true },
-)
 
 // ==================== 计算属性 ====================
 
@@ -273,11 +257,14 @@ const getCategoryIcon = (category: string): string => {
 }
 
 // 按科目分组教师会话，每个老师只保留一个会话（最新的）
+// 使用 computed 从 store 的响应式数据中获取
 const teacherSessionsBySubject = computed(() => {
+  // 使用 store 的响应式 allSessions ref（在 computed 中会自动解包）
+  const allTeacherSessions = teacherChatStore.allSessions
   const biology: TeacherSession[] = []
   const math: TeacherSession[] = []
 
-  props.teacherSessions.forEach((session) => {
+  allTeacherSessions.forEach((session) => {
     if (session.subject === 'biology') {
       biology.push(session)
     } else if (session.subject === 'math') {
@@ -326,15 +313,23 @@ interface TreeNode {
 }
 
 // 构建树形节点
+// 使用 computed 从 store 的响应式数据中获取，自动同步更新
 const treeNodes = computed<TreeNode[]>(() => {
-  // 使用 favoriteUpdateTrigger 来触发重新计算
+  // 依赖 favoriteUpdateTrigger 来触发收藏状态重新计算
   void favoriteUpdateTrigger.value
   
   const nodes: TreeNode[] = []
 
   // 1. AI聊天（学伴对话）分类
-  const filteredAiSessions = filterSessions(props.aiSessions, searchKeyword.value)
-  const aiSessions = filteredAiSessions
+  // aiGeneralStore.sessions 已经是响应式的 ref，computed 会自动追踪
+  const aiSessionsList = searchKeyword.value
+    ? aiGeneralStore.sessions.filter((session) => {
+        const name = session.sessionName?.toLowerCase() || ''
+        return name.includes(searchKeyword.value.toLowerCase().trim())
+      })
+    : aiGeneralStore.sessions
+  
+  const aiSessions = aiSessionsList
     .sort((a, b) => {
       // 置顶的排在前面
       if (a.pinned && !b.pinned) return -1
@@ -355,7 +350,7 @@ const treeNodes = computed<TreeNode[]>(() => {
       }),
     )
 
-  if (filteredAiSessions.length > 0 || !searchKeyword.value) {
+  if (aiSessions.length > 0 || !searchKeyword.value) {
     nodes.push({
       id: 'category_ai',
       label: '学伴对话',
@@ -518,17 +513,41 @@ const hasUnreadMessage = (node: TreeNode): boolean => {
   return false
 }
 
-// 处理会话点击
-const handleSessionClick = (node: TreeNode) => {
+// 处理会话点击（内部完成所有切换逻辑，只发送最终结果）
+const handleSessionClick = async (node: TreeNode) => {
   if (node.level !== 2 || !node.sessionId) return
 
-  // 清除未读标记
+  try {
   if (node.category === 'ai') {
+      // AI 会话切换逻辑
     unreadStore.clearUnread(`ai_${node.sessionId}`)
-    emit('ai-session-click', node.sessionId)
+      await aiGeneralStore.switchSession(node.sessionId)
+      emit('session-switched', 'ai', node.sessionId)
   } else if (node.category === 'biology' || node.category === 'math') {
+      // 教师会话切换逻辑
     unreadStore.clearUnread(`teacher_${node.sessionId}`)
-    emit('teacher-session-click', node.sessionId, node.category)
+      
+      // 查找会话数据（使用响应式的 allSessions ref，Pinia 会自动解包）
+      const allTeacherSessions = teacherChatStore.allSessions
+      const session = allTeacherSessions.find(s => s.sessionId === node.sessionId)
+      if (!session) {
+        console.error('未找到教师会话:', node.sessionId)
+        return
+      }
+      
+      // 设置 localStorage 中的 currentTeacherSubject
+      const userId = getCurrentUserIdOrDefault()
+      const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
+      localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
+      
+      // 设置会话并加载聊天历史
+      teacherChatStore.setSession(session)
+      await teacherChatStore.loadChatHistory(session.sessionId)
+      
+      emit('session-switched', 'teacher', node.sessionId)
+    }
+  } catch (error) {
+    console.error('切换会话失败:', error)
   }
 }
 
@@ -542,18 +561,73 @@ const handleRename = (node: TreeNode) => {
 }
 
 // 确认重命名
-const confirmRename = () => {
-  if (currentSessionNode.value && newSessionName.value.trim()) {
-    emit('ai-session-rename', currentSessionNode.value.sessionId, newSessionName.value.trim())
+const confirmRename = async () => {
+  if (!currentSessionNode.value || !newSessionName.value.trim()) {
+    return
+  }
+
+  try {
+    const sessionId = currentSessionNode.value.sessionId
+    const newName = newSessionName.value.trim()
+    
+    // 直接调用 store 方法完成重命名
+    await aiGeneralStore.renameSession(sessionId, newName)
+    
+    // 更新本地会话列表中的名称
+    const index = aiGeneralStore.sessions.findIndex(
+      (s) => s.sessionId === sessionId,
+    )
+    if (index >= 0) {
+      aiGeneralStore.sessions[index].sessionName = newName
+      await aiGeneralStore.saveSessions()
+    }
+    
+    // 关闭对话框
     showRenameDialog.value = false
     currentSessionNode.value = null
+    
+    // 显示成功消息
+    $q.notify({
+      type: 'positive',
+      message: '重命名成功',
+      position: 'top',
+      timeout: 1500,
+    })
+  } catch (error) {
+    console.error('重命名失败:', error)
+    $q.notify({
+      type: 'negative',
+      message: '重命名失败，请重试',
+      position: 'top',
+      timeout: 2000,
+    })
   }
 }
 
 // 处理置顶
-const handlePin = (node: TreeNode) => {
+const handlePin = async (node: TreeNode) => {
   if (node.level !== 2 || node.category !== 'ai' || !node.sessionId) return
-  emit('ai-session-pin', node.sessionId)
+
+  try {
+    // 直接调用 store 方法完成置顶操作
+    await aiGeneralStore.togglePin(node.sessionId)
+    
+    // 显示成功消息
+    $q.notify({
+      type: 'positive',
+      message: '操作成功',
+      position: 'top',
+      timeout: 1500,
+    })
+  } catch (error) {
+    console.error('置顶操作失败:', error)
+    $q.notify({
+      type: 'negative',
+      message: '操作失败，请重试',
+      position: 'top',
+      timeout: 2000,
+    })
+  }
 }
 
 // 处理收藏
@@ -561,7 +635,7 @@ const handleFavorite = (node: TreeNode) => {
   if (node.level !== 2 || node.category !== 'ai' || !node.sessionId) return
   
   // 查找对应的会话数据
-  const session = props.aiSessions.find(s => s.sessionId === node.sessionId)
+  const session = aiGeneralStore.sessions.find(s => s.sessionId === node.sessionId)
   if (!session) {
     $q.notify({
       type: 'negative',
@@ -593,13 +667,74 @@ const handleFavorite = (node: TreeNode) => {
 }
 
 // 处理删除
-const handleDelete = (node: TreeNode) => {
+const handleDelete = async (node: TreeNode) => {
   if (node.level !== 2 || !node.sessionId) return
 
+  try {
   if (node.category === 'ai') {
-    emit('ai-session-delete', node.sessionId)
+      // 检查是否是当前会话
+      const wasCurrentSession = aiGeneralStore.currentSession?.sessionId === node.sessionId
+      
+      // 直接调用 store 删除
+      await aiGeneralStore.deleteSession(node.sessionId)
+      
+      // 发送删除结果事件
+      emit('ai-session-deleted', node.sessionId, true, wasCurrentSession)
+      
+      // 显示成功消息
+      $q.notify({
+        type: 'positive',
+        message: '会话已删除',
+        position: 'top',
+        timeout: 1500,
+      })
   } else if (node.category === 'biology' || node.category === 'math') {
-    emit('teacher-session-delete', node.sessionId)
+      // 检查是否是当前会话
+      const wasCurrentSession = teacherChatStore.currentSession?.sessionId === node.sessionId
+      
+      // 第1步：删除聊天历史（直接使用存储服务，避免清空当前消息）
+      const storageKey = `teacher-general-${node.sessionId}`
+      await asyncStorage.removeChatHistory(storageKey)
+      
+      // 第2步：删除 localStorage 中的会话信息（使用 store 的方法，从统一存储中删除）
+      // 新格式：所有会话统一存储在 {userId}_teacher-general-sessions 中
+      // 格式：Record<string, TeacherSession>，key 是 sessionId
+      teacherChatStore.deleteSession(node.sessionId)
+      
+      // 第3步：如果删除的是当前会话，清空当前会话和消息
+      if (wasCurrentSession) {
+        teacherChatStore.clearSession()
+        teacherChatStore.clearMessages()
+      }
+      
+      // 发送删除结果事件
+      emit('teacher-session-deleted', node.sessionId, true, wasCurrentSession)
+      
+      // 显示成功消息
+      $q.notify({
+        type: 'positive',
+        message: '会话已删除',
+        position: 'top',
+        timeout: 1500,
+      })
+    }
+  } catch (error) {
+    console.error('删除会话失败:', error)
+    
+    // 发送删除失败事件
+    if (node.category === 'ai') {
+      emit('ai-session-deleted', node.sessionId, false, false)
+    } else if (node.category === 'biology' || node.category === 'math') {
+      emit('teacher-session-deleted', node.sessionId, false, false)
+    }
+    
+    // 显示失败消息
+    $q.notify({
+      type: 'negative',
+      message: '删除失败，请重试',
+      position: 'top',
+      timeout: 2000,
+    })
   }
 }
 

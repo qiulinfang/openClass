@@ -6,6 +6,35 @@
 import type { ChatBubble } from '../../../types'
 import type { SendMessageOptions } from './types'
 
+/**
+ * 转发结果
+ */
+export interface ForwardResult {
+  success: boolean
+  successCount?: number
+  sessionId?: string
+  error?: string
+}
+
+/**
+ * 转发选项
+ */
+export interface ForwardOptions {
+  /**
+   * 是否显示跳转对话框（默认true）
+   * AI题目对话页面通常不显示对话框，只显示简单提示
+   */
+  showDialog?: boolean
+  /**
+   * 转发成功后的回调
+   */
+  onSuccess?: (result: ForwardResult) => void | Promise<void>
+  /**
+   * 转发失败后的回调
+   */
+  onError?: (error: string) => void
+}
+
 export interface ChatStrategy {
   // 第1步：获取消息存储引用
   getMessages(): ChatBubble[]
@@ -30,5 +59,17 @@ export interface ChatStrategy {
   
   // 第8步：保存聊天历史
   saveChatHistory(): Promise<void>
+  
+  // 第9步：检查是否支持转发消息
+  canForwardMessage(): boolean
+  
+  // 第10步：获取当前科目（用于转发）
+  getCurrentSubjectForForward(): 'biology' | 'math' | null
+  
+  // 第11步：转发单条消息
+  forwardMessage(message: ChatBubble, options?: ForwardOptions): Promise<ForwardResult>
+  
+  // 第12步：转发多条消息
+  forwardMessages(messages: ChatBubble[], options?: ForwardOptions): Promise<ForwardResult>
 }
 

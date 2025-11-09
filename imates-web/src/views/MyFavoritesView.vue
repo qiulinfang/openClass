@@ -165,22 +165,22 @@ const goBack = () => {
 }
 
 // 判断收藏的对话类型（AI聊天还是教师通用对话）
-const getChatType = (session: AiGeneralSession): { type: 'ai' | 'teacher', subject?: 'biology' | 'math' } => {
+const getChatType = (session: AiGeneralSession): { type: 'ai' | 'teacher-general', subject?: 'biology' | 'math' } => {
   // 第1步：检查是否是教师通用对话会话（使用统一存储格式）
   try {
     const teacherStore = useTeacherGeneralChatStore()
     const teacherSession = teacherStore.getSession(session.sessionId)
-    
+
     if (teacherSession && teacherSession.subject) {
-      return {
-        type: 'teacher',
+        return {
+          type: 'teacher-general',
         subject: teacherSession.subject === 'biology' ? 'biology' : 'math'
       }
     }
   } catch (error) {
     console.error('检查教师会话失败:', error)
   }
-  
+
   // 默认是 AI 聊天
   return { type: 'ai' }
 }
@@ -219,7 +219,7 @@ const handleQaCardClick = async (session: AiGeneralSession) => {
   // 判断对话类型
   const chatType = getChatType(session)
   
-  if (chatType.type === 'teacher' && chatType.subject) {
+  if (chatType.type === 'teacher-general' && chatType.subject) {
     initialTeacherSubject.value = chatType.subject
   }
   
@@ -232,12 +232,22 @@ const handleQaCardClick = async (session: AiGeneralSession) => {
   await nextTick()
   
   if (unifiedChatDialogRef.value) {
-    if (chatType.type === 'teacher') {
+    if (chatType.type === 'teacher-general') {
       // 确保加载了教师会话列表
       unifiedChatDialogRef.value.loadTeacherSessions()
       await nextTick()
-      // 设置对应的教师会话
-      unifiedChatDialogRef.value.setTeacherSession(session.sessionId)
+      // 直接调用 store 的 setSession，UnifiedChatDialog 会通过 watch 自动同步 UI 状态
+      const teacherStore = useTeacherGeneralChatStore()
+      const teacherSession = teacherStore.getSession(session.sessionId)
+      if (teacherSession) {
+        // 设置 localStorage
+        const { getCurrentUserIdOrDefault } = await import('../utils/user/userId')
+        const userId = getCurrentUserIdOrDefault()
+        const storeSubject = teacherSession.subject === 'biology' ? 'BIOLOGY' : 'MATH'
+        localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
+        // 调用 store 的 setSession
+        teacherStore.setSession(teacherSession)
+      }
     } else {
       // AI 聊天：切换到对应的会话
       const { useAiGeneralChatStore } = await import('@/stores/aiGeneralChatStore')
@@ -260,8 +270,8 @@ const handleDeleteSession = async (session: AiGeneralSession) => {
   try {
     // 判断对话类型
     const chatType = getChatType(session)
-    
-    if (chatType.type === 'teacher') {
+
+    if (chatType.type === 'teacher-general') {
       // 删除教师会话
       const { useTeacherGeneralChatStore } = await import('@/stores/teacherGeneralChatStore')
       const teacherStore = useTeacherGeneralChatStore()
@@ -342,7 +352,7 @@ const loadQaFavorites = async () => {
     // 第3步：异步加载教师会话的消息数量（不阻塞渲染）
     favorites.forEach(favorite => {
       const chatType = getChatType(favorite.session)
-      if (chatType.type === 'teacher') {
+      if (chatType.type === 'teacher-general') {
         // 异步加载，不等待结果
         loadTeacherMsgCount(favorite.session.sessionId).catch(() => {
           // 加载失败不影响显示

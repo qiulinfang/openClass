@@ -164,7 +164,6 @@
                   @response="handleChatResponse"
                   @switch-to-teacher="handleSwitchToTeacher"
                   @open-teacher-dialog="handleOpenTeacherDialog"
-                  @scroll-to-question-and-select="handleScrollToQuestionAndSelect"
                   @scroll-to-bottom="scrollToBottom"
                 />
 
@@ -172,7 +171,6 @@
                 <ChatView 
                   v-if="currentFunction === 'askTeacher'" 
                   type="teacher-exercise"
-                  @scroll-to-question-and-select="handleScrollToQuestionAndSelect"
                   @scroll-to-bottom="scrollToBottom"
                 />
 
@@ -217,7 +215,7 @@ import { useRoute } from 'vue-router'
 import { useQuestionStore } from '../stores/questionStore'
 import { useUserStore } from '../stores/userStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
-import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
+import { useTeacherExerciseChatStore } from '../stores/teacherExerciseChatStore'
 import { storeToRefs } from 'pinia'
 import { showMessage } from '../utils'
 import QuestionList from '../components/QuestionList.vue'
@@ -238,7 +236,7 @@ const route = useRoute()
 const questionStore = useQuestionStore()
 const userStore = useUserStore()
 const aiExerciseStore = useAiExerciseChatStore()
-const teacherStore = useTeacherGeneralChatStore()
+const teacherStore = useTeacherExerciseChatStore()
 const uiStore = useUIStore()
 const { currentQuestion, questions } = storeToRefs(questionStore)
 
@@ -333,113 +331,20 @@ const handleChatResponse = () => {
   // AI回复后的处理逻辑
 }
 
-const handleSwitchToTeacher = async (forwardData?: { 
-  messages?: any[]; 
-  currentQuestion?: unknown; 
-  additionalMessage?: string;
-  forwardMode?: string;
-  successCount?: number;
-  sessionId?: string;
-}) => {
-  console.log('[ExerciseSolveView] 🔵 handleSwitchToTeacher 开始执行')
-  console.log('[ExerciseSolveView] 🔵 forwardData:', forwardData)
-  
+const handleSwitchToTeacher = async () => {
   // 切换到老师界面（消息已经持久化到store中）
   currentFunction.value = 'askTeacher'
-  console.log('[ExerciseSolveView] 🔵 currentFunction 已设置为 askTeacher')
-  
-  // 如果有会话ID，打开UnifiedChatDialog并设置会话
-  if (forwardData?.sessionId) {
-    console.log('[ExerciseSolveView] 🔵 forwardData.sessionId 存在:', forwardData.sessionId)
-    try {
-      // 打开 UnifiedChatDialog
-      showUnifiedChatDialog.value = true
-      console.log('[ExerciseSolveView] 🔵 showUnifiedChatDialog 已设置为 true')
-      
-      // 等待下一个 tick，确保 UnifiedChatDialog 已经挂载
-      await nextTick()
-      console.log('[ExerciseSolveView] 🔵 nextTick 完成')
-      
-      // 如果 UnifiedChatDialog 已经挂载，设置会话
-      if (unifiedChatDialogRef.value) {
-        console.log('[ExerciseSolveView] 🔵 unifiedChatDialogRef 存在，开始加载会话')
-        // 加载老师会话列表
-        unifiedChatDialogRef.value.loadTeacherSessions()
-        console.log('[ExerciseSolveView] 🔵 loadTeacherSessions 完成')
-        
-        // 设置当前会话为转发的会话
-        unifiedChatDialogRef.value.setTeacherSession(forwardData.sessionId)
-        console.log('[ExerciseSolveView] 🔵 setTeacherSession 完成，sessionId:', forwardData.sessionId)
-        
-        // 切换到教师分类
-        unifiedChatDialogRef.value.switchCategory('teacher')
-        console.log('[ExerciseSolveView] 🔵 switchCategory 完成，已切换到 teacher')
-      } else {
-        console.error('[ExerciseSolveView] ❌ unifiedChatDialogRef 不存在，无法设置会话')
-        showMessage('打开老师对话框失败：对话框未初始化', 'error')
-      }
-    } catch (error) {
-      console.error('[ExerciseSolveView] ❌ 打开老师对话框失败:', error)
-      console.error('[ExerciseSolveView] ❌ 错误堆栈:', error instanceof Error ? error.stack : '无堆栈信息')
-      showMessage('打开老师对话框失败', 'error')
-    }
-  } else {
-    console.warn('[ExerciseSolveView] ⚠️ forwardData.sessionId 不存在，无法打开指定会话')
-  }
 }
 
 // 处理打开老师对话框（转发消息时调用）
-const handleOpenTeacherDialog = async ({ sessionId, message }: { sessionId: string; message: ChatBubble }) => {
-  console.log('[ExerciseSolveView] 🔵 handleOpenTeacherDialog 开始执行')
-  console.log('[ExerciseSolveView] 🔵 接收到的 sessionId:', sessionId)
-  console.log('[ExerciseSolveView] 🔵 接收到的 message:', message)
-  
-  try {
-    console.log('[ExerciseSolveView] 🔵 准备打开 UnifiedChatDialog')
-    // 打开 UnifiedChatDialog
-    showUnifiedChatDialog.value = true
-    console.log('[ExerciseSolveView] 🔵 showUnifiedChatDialog 已设置为 true')
-    
-    // 等待下一个 tick，确保 UnifiedChatDialog 已经挂载
-    await nextTick()
-    console.log('[ExerciseSolveView] 🔵 nextTick 完成')
-    
-    // 如果 UnifiedChatDialog 已经挂载，设置会话
-    if (unifiedChatDialogRef.value) {
-      console.log('[ExerciseSolveView] 🔵 unifiedChatDialogRef 存在，开始加载会话')
-      // 加载老师会话列表
-      await unifiedChatDialogRef.value.loadTeacherSessions()
-      console.log('[ExerciseSolveView] 🔵 loadTeacherSessions 完成')
-      
-      // 设置当前会话为转发的会话
-      await unifiedChatDialogRef.value.setTeacherSession(sessionId)
-      console.log('[ExerciseSolveView] 🔵 setTeacherSession 完成，sessionId:', sessionId)
-      
-      // 切换到教师分类
-      unifiedChatDialogRef.value.switchCategory('teacher')
-      console.log('[ExerciseSolveView] 🔵 switchCategory 完成，已切换到 teacher')
-    } else {
-      console.error('[ExerciseSolveView] ❌ unifiedChatDialogRef 不存在，无法设置会话')
-      showMessage('打开老师对话框失败：对话框未初始化', 'error')
-    }
-  } catch (error) {
-    console.error('[ExerciseSolveView] ❌ 打开老师对话框失败:', error)
-    console.error('[ExerciseSolveView] ❌ 错误堆栈:', error instanceof Error ? error.stack : '无堆栈信息')
-    showMessage('打开老师对话框失败', 'error')
-  }
+const handleOpenTeacherDialog = async () => {
+  // 对于题目对话场景，只切换到老师答疑面板，不打开 UnifiedChatDialog
+  currentFunction.value = 'askTeacher'
 }
 
 const handleStartAiGuidance = async () => {
-  try {
     // 切换到AI聊天界面
     currentFunction.value = 'chatAi'
-
-    // 注意：题目选择已经在QuestionList的sendToAi方法中完成，
-    // 这里不需要重复选择，避免覆盖正确的选择结果
-    // startAiGuidance 方法已经会自动发送题目内容给AI，这里不需要重复发送
-  } catch {
-    // Handle error silently
-  }
 }
 
 const handleQuestionSelected = async () => {
@@ -459,9 +364,6 @@ const handleQuestionSelected = async () => {
       // 需要在这里手动加载
       await aiExerciseStore.loadChatHistory(questionId)
     }
-    // 注意：对于老师通用对话场景，ChatView的executeQuestionSwitch会调用initializeMessages
-    // initializeMessages会调用initializeTeacherSession，它会根据当前题目创建或加载老师会话
-    // 所以老师通用对话场景不需要在这里手动加载
   }
 }
 
@@ -507,9 +409,6 @@ const handleSendQuestionToTeacher = async (question: ExerciseItem) => {
     
     // 第4步：确保会话已创建，如果没有则创建一个新的会话
     if (!teacherStore.currentSession && questionStore.currentQuestion) {
-      // 生成会话ID和名称
-      const aiSessionId = `ai_session_${question.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      
       // 清理题目标题（移除LaTeX）
       const rawTitle = question.question || question.title || '题目'
       const cleanTitle = rawTitle
@@ -519,13 +418,14 @@ const handleSendQuestionToTeacher = async (question: ExerciseItem) => {
         .replace(/\s+/g, ' ') // 合并多个空格
         .trim()
       
-      const aiSessionName = (cleanTitle || '数学题目').substring(0, 30) + '...'
+      // 确定科目（默认使用数学科目，可以根据实际情况调整）
+      const subject = question.subject === 'BIOLOGY' ? 'biology' : 'math'
       
-      // 创建会话（默认使用数学科目，可以根据实际情况调整）
-      const createdSession = teacherStore.createTeacherSession(
-        aiSessionId,
-        aiSessionName,
-        'math' // 可以根据题目的 subject 字段动态设置
+      // 创建或获取会话（使用题目ID和题目标题）
+      const createdSession = teacherStore.createOrGetSession(
+        question.id,
+        cleanTitle || '题目',
+        subject
       )
       
       if (createdSession) {
@@ -556,7 +456,18 @@ const handleSendQuestionToTeacher = async (question: ExerciseItem) => {
       teacherStore.addMessage(userMessage)
       
       // 发送消息给老师
-      await teacherStore.sendMessage(questionContent)
+      // 注意：teacherExerciseChatStore 的 sendMessage 需要多个参数
+      const subject = question.subject === 'BIOLOGY' ? 'BIOLOGY' : 'MATH'
+      await teacherStore.sendMessage(
+        questionContent,
+        question,
+        userStore.userInfo,
+        subject,
+        'teacher',
+        undefined,
+        false,
+        true // skipUserMessage: true，因为消息已经添加过了
+      )
       
       showMessage('题目已发送给老师', 'success')
     } else {
@@ -566,13 +477,6 @@ const handleSendQuestionToTeacher = async (question: ExerciseItem) => {
   } catch (error) {
     console.error(`[ExerciseSolveView] 拍作业失败:`, error)
     showMessage('拍作业失败: ' + (error as Error).message, 'error')
-  }
-}
-
-const handleScrollToQuestionAndSelect = (targetIndex: number) => {
-  // 调用题目列表的滚动到指定题目并设置为选中状态方法
-  if (questionListRef.value && typeof questionListRef.value.scrollToQuestionAndSelect === 'function') {
-    questionListRef.value.scrollToQuestionAndSelect(targetIndex)
   }
 }
 

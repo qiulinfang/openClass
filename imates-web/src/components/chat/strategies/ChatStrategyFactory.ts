@@ -11,7 +11,7 @@ import { AiTextbookStrategy } from './AiTextbookStrategy'
 import { TeacherStrategy } from './TeacherStrategy'
 import { TeacherExerciseStrategy } from './TeacherExerciseStrategy'
 
-export type ChatType = 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher' | 'teacher-exercise'
+export type ChatType = 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
 
 export interface ChatStrategyFactoryOptions {
   subject?: string
@@ -34,7 +34,7 @@ export class ChatStrategyFactory {
       case 'ai-textbook':
         return new AiTextbookStrategy()
       
-      case 'teacher':
+      case 'teacher-general':
         if (!options?.session) {
           throw new Error('Teacher strategy requires session info')
         }

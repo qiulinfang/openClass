@@ -4,10 +4,17 @@
  */
 
 import type { ChatBubble } from '../../../types'
-import type { ChatStrategy } from './ChatStrategy'
+import type { ChatStrategy, ForwardResult, ForwardOptions } from './ChatStrategy'
 import type { SendMessageOptions } from './types'
 import { useAiGeneralChatStore } from '../../../stores/aiGeneralChatStore'
 import { useUserStore } from '../../../stores/userStore'
+import {
+  selectOrCreateTeacherSession,
+  forwardMessageToTeacher,
+  forwardMessagesSeparately,
+  showForwardSuccessDialog,
+} from './ForwardMessageHelper'
+import { showMessage } from '../../../utils'
 
 export class AiGeneralStrategy implements ChatStrategy {
   private aiGeneralStore = useAiGeneralChatStore()
@@ -61,5 +68,144 @@ export class AiGeneralStrategy implements ChatStrategy {
   // 第8步：保存聊天历史
   async saveChatHistory(): Promise<void> {
     await this.aiGeneralStore.saveChatHistory()
+  }
+  
+  // 第9步：检查是否支持转发消息
+  canForwardMessage(): boolean {
+    return true // AI通用对话支持转发
+  }
+  
+  // 第10步：获取当前科目（用于转发）
+  getCurrentSubjectForForward(): 'biology' | 'math' | null {
+    // AI通用场景：返回 null，需要用户手动选择老师
+    return null
+  }
+  
+  // 第11步：转发单条消息
+  async forwardMessage(message: ChatBubble, options: ForwardOptions = {}): Promise<ForwardResult> {
+    try {
+      // 选择或创建老师会话
+      const session = await selectOrCreateTeacherSession(
+        this.getCurrentSubjectForForward()
+      )
+      
+      if (!session) {
+        return {
+          success: false,
+          error: '用户取消选择或会话创建失败',
+        }
+      }
+      
+      // 转发消息到通用会话
+      const success = await forwardMessageToTeacher([message], session.sessionId, 'general')
+      
+      if (success) {
+        const result: ForwardResult = {
+          success: true,
+          successCount: 1,
+          sessionId: session.sessionId,
+        }
+        
+        // 显示成功提示或对话框
+        if (options.showDialog !== false) {
+          showForwardSuccessDialog(result, options, async () => {
+            if (options.onSuccess) {
+              await options.onSuccess(result)
+            }
+          })
+        } else {
+          showMessage('转发成功', 'success')
+          if (options.onSuccess) {
+            await options.onSuccess(result)
+          }
+        }
+        
+        return result
+      } else {
+        const error = '转发失败'
+        if (options.onError) {
+          options.onError(error)
+        }
+        return {
+          success: false,
+          error,
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      if (options.onError) {
+        options.onError(errorMessage)
+      }
+      return {
+        success: false,
+        error: errorMessage,
+      }
+    }
+  }
+  
+  // 第12步：转发多条消息
+  async forwardMessages(messages: ChatBubble[], options: ForwardOptions = {}): Promise<ForwardResult> {
+    try {
+      // 选择或创建老师会话
+      const session = await selectOrCreateTeacherSession(
+        this.getCurrentSubjectForForward()
+      )
+      
+      if (!session) {
+        return {
+          success: false,
+          error: '用户取消选择或会话创建失败',
+        }
+      }
+      
+      // 逐条转发消息到通用会话
+      const { successCount } = await forwardMessagesSeparately(
+        messages,
+        session.sessionId,
+        'general'
+      )
+      
+      if (successCount > 0) {
+        const result: ForwardResult = {
+          success: true,
+          successCount,
+          sessionId: session.sessionId,
+        }
+        
+        // 显示成功提示或对话框
+        if (options.showDialog !== false) {
+          showForwardSuccessDialog(result, options, async () => {
+            if (options.onSuccess) {
+              await options.onSuccess(result)
+            }
+          })
+        } else {
+          showMessage(`转发成功，已转发 ${successCount} 条消息`, 'success')
+          if (options.onSuccess) {
+            await options.onSuccess(result)
+          }
+        }
+        
+        return result
+      } else {
+        const error = '转发失败，请重试'
+        if (options.onError) {
+          options.onError(error)
+        }
+        return {
+          success: false,
+          error,
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      if (options.onError) {
+        options.onError(errorMessage)
+      }
+      return {
+        success: false,
+        error: errorMessage,
+      }
+    }
   }
 }

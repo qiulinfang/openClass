@@ -48,9 +48,9 @@
 
       <!-- 右侧聊天界面 -->
       <div class="right-panel">
-        <ChatView 
+        <ChatView
           v-if="localVisible && teacherSessionId"
-          type="teacher"
+          type="teacher-general"
           :session-id="teacherSessionId"
           :key="teacherSessionId"
         />

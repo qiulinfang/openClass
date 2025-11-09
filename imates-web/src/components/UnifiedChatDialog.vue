@@ -12,20 +12,13 @@
       <div class="left-panel">
         <SessionTree
           ref="sessionTreeRef"
-          :ai-sessions="aiGeneralStore.sessions"
-          :teacher-sessions="teacherSessions"
           :selected-session-id="selectedSessionId"
-          title="聊天记录"
-          @ai-session-click="handleAiSessionClick"
-          @teacher-session-click="handleTeacherSessionClick"
-          @ai-session-rename="handleAiSessionRename"
-          @ai-session-pin="handleAiSessionPin"
-          @ai-session-delete="handleAiSessionDelete"
-          @teacher-session-delete="handleTeacherSessionDelete"
-          @ai-new-chat="handleAiNewChatClick"
-          @teacher-new-chat="handleTeacherNewChat"
+          @session-switched="handleSessionSwitched"
+          @ai-session-deleted="handleAiSessionDeleted"
+          @teacher-session-deleted="handleTeacherSessionDeleted"
         >
           <template #header-actions>
+            <!-- 调试按钮 -->
             <q-btn
               v-if="isDev"
               flat
@@ -39,6 +32,7 @@
             >
               <q-tooltip>调试面板</q-tooltip>
             </q-btn>
+            <!-- 新增对话按钮 -->
             <q-btn
               v-if="shouldShowNewChatButton"
               flat
@@ -49,7 +43,7 @@
               size="sm"
               class="new-chat-btn"
               :disable="!canCreateNewChat"
-              @click="handleAiNewChatClick"
+              @click="handleNewChatClick"
             >
               <q-tooltip>
                 {{
@@ -61,6 +55,7 @@
                 }}
               </q-tooltip>
             </q-btn>
+            <!-- 刷新列表按钮 -->
             <q-btn 
               flat 
               dense 
@@ -77,18 +72,19 @@
 
       <!-- 右侧聊天界面 -->
       <div class="right-panel">
-        <!-- 聊天界面 - 根据当前选中的对话类型动态确定 type -->
+        <!-- AI聊天界面 -->
         <ChatView 
           v-if="activeCategory === 'ai-general'"
           type="ai-general"
           @open-teacher-dialog="handleOpenTeacherDialog"
           @switch-to-teacher="handleSwitchToTeacher"
         />
-        <ChatView 
-          v-else-if="activeCategory === 'teacher' && teacherSessionId"
-          type="teacher"
-          :session-id="teacherSessionId"
-          :key="teacherSessionId"
+        <!-- 教师聊天界面 -->
+        <ChatView
+          v-else-if="activeCategory === 'teacher' && teacherChatStore.currentSession?.sessionId"
+          type="teacher-general"
+          :session-id="teacherChatStore.currentSession.sessionId"
+          :key="teacherChatStore.currentSession.sessionId"
         />
         <!-- 空状态 -->
         <div v-else class="empty-chat">
@@ -140,14 +136,12 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
 import { useUserStore } from '@/stores/userStore'
-import { showMessage } from '@/utils'
+import { showMessage } from '../utils'
 import { getCurrentUserIdOrDefault } from '@/utils/user/userId'
 import DraggableDialog from './DraggableDialog.vue'
 import SessionTree from './SessionTree.vue'
 import ChatView from './ChatView.vue'
 import ChatSessionDebugPanel from './debug/ChatSessionDebugPanel.vue'
-import type { AiGeneralSession } from '@/types'
-import type { TeacherSession } from '@/stores/teacherGeneralChatStore'
 import type { ChatBubble } from '@/types'
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
@@ -166,13 +160,12 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'session-created': [sessionId: string, type: 'ai-general' | 'teacher'] // 新会话创建事件
+  'session-created': [sessionId: string, type: 'ai-general' | 'teacher-general'] // 新会话创建事件
 }>()
 
 // ==================== Store ====================
 const aiGeneralStore = useAiGeneralChatStore()
 const teacherChatStore = useTeacherGeneralChatStore()
-const userStore = useUserStore()
 
 // SessionTree 组件引用
 const sessionTreeRef = ref<InstanceType<typeof SessionTree> | null>(null)
@@ -187,9 +180,7 @@ const localVisible = computed({
 const activeCategory = ref<'ai-general' | 'teacher'>('ai-general')
 const showDebugPanel = ref(false)
 
-// 教师会话相关
-const teacherSessionId = ref<string>('')
-const teacherSessions = ref<TeacherSession[]>([])
+// 教师会话相关（已移除，现在直接从 store 获取）
 
 // 老师选择对话框
 const showTeacherSelectDialog = ref(false)
@@ -199,8 +190,8 @@ const availableTeachers = ref<Array<{ subject: 'biology' | 'math', name: string 
 const selectedSessionId = computed(() => {
   if (activeCategory.value === 'ai-general' && aiGeneralStore.currentSession?.sessionId) {
     return aiGeneralStore.currentSession.sessionId
-  } else if (activeCategory.value === 'teacher' && teacherSessionId.value) {
-    return teacherSessionId.value
+  } else if (activeCategory.value === 'teacher' && teacherChatStore.currentSession?.sessionId) {
+    return teacherChatStore.currentSession.sessionId
   }
   return undefined
 })
@@ -235,16 +226,16 @@ const shouldShowNewChatButton = computed(() => {
 
 // ==================== AI聊天相关方法 ====================
 
-// 处理AI会话点击
-const handleAiSessionClick = async (sessionId: string) => {
-  console.log('handleAiSessionClick', sessionId)
-  await aiGeneralStore.switchSession(sessionId)
-  activeCategory.value = 'ai-general'
+// 处理会话切换（接收 SessionTree 的最终结果）
+const handleSessionSwitched = (type: 'ai' | 'teacher', sessionId: string) => {
+  console.log('handleSessionSwitched', type, sessionId)
+  // 只更新分类，所有切换逻辑已在 SessionTree 内部完成
+  activeCategory.value = type === 'ai' ? 'ai-general' : 'teacher'
   // selectedSessionId 会自动更新（通过 computed）
 }
 
-// 处理AI新增对话
-const handleAiNewChatClick = async () => {
+// 处理新增对话（可以是AI对话或教师对话）
+const handleNewChatClick = async () => {
   // 根据当前选中的节点类型来决定创建哪种类型的对话
   const selectedCategory = sessionTreeRef.value?.getSelectedCategory()
   
@@ -275,65 +266,36 @@ const handleAiNewChatClick = async () => {
 // 处理老师选择
 const handleTeacherSelect = async (subject: 'biology' | 'math') => {
   showTeacherSelectDialog.value = false
-  await handleTeacherNewChat(subject)
+  await createTeacherSession(subject)
 }
 
-// 处理AI会话重命名
-const handleAiSessionRename = async (sessionId: string, newName: string) => {
-  try {
-    await aiGeneralStore.renameSession(sessionId, newName)
-    const index = aiGeneralStore.sessions.findIndex(
-      (s: AiGeneralSession) => s.sessionId === sessionId,
-    )
-    if (index >= 0) {
-      aiGeneralStore.sessions[index].sessionName = newName
-      await aiGeneralStore.saveSessions()
-    }
-  } catch (error) {
-    console.error('重命名失败:', error)
+// 处理AI会话删除结果（由 SessionTree 直接调用 store 删除后通知）
+const handleAiSessionDeleted = (sessionId: string, success: boolean, wasCurrentSession: boolean) => {
+  if (!success) {
+    // 失败情况已在 SessionTree 中显示错误消息
+    return
   }
-}
-
-// 处理AI会话置顶
-const handleAiSessionPin = async (sessionId: string) => {
-  try {
-    await aiGeneralStore.togglePin(sessionId)
-  } catch (error) {
-    console.error('置顶操作失败:', error)
-    showMessage('操作失败', 'error')
-  }
-}
-
-// 处理AI会话删除
-const handleAiSessionDelete = async (sessionId: string) => {
-  try {
-    await aiGeneralStore.deleteSession(sessionId)
-    showMessage('删除成功', 'success')
+  
     // 如果删除的是当前会话，切换到AI分类
-    if (aiGeneralStore.currentSession?.sessionId === sessionId) {
+  if (wasCurrentSession) {
       activeCategory.value = 'ai-general'
-    }
-  } catch (error) {
-    console.error('删除失败:', error)
-    showMessage('删除失败', 'error')
   }
+  
 }
 
 // ==================== 教师通用对话相关方法 ====================
 
-// 加载教师会话列表
+// 加载教师会话列表（已移除，SessionTree 直接从 store 获取）
 const loadTeacherSessions = () => {
-  // 使用 store 的统一方法获取所有会话
-  teacherSessions.value = teacherChatStore.getAllSessions()
+  // 此方法保留用于触发刷新，但不再需要本地状态
+  // SessionTree 会直接从 store 获取最新数据
 }
 
-// 处理教师会话点击
-const handleTeacherSessionClick = async (sessionId: string, subject: string) => {
-  console.log('handleTeacherSessionClick', sessionId, subject)
-  const session = teacherSessions.value.find(s => s.sessionId === sessionId)
+// 切换教师会话（内部辅助方法，用于对话框打开时的会话恢复）
+const switchTeacherSession = async (sessionId: string, subject: 'biology' | 'math') => {
+  const allSessions = teacherChatStore.getAllSessions()
+  const session = allSessions.find(s => s.sessionId === sessionId)
   if (!session) return
-  
-  teacherSessionId.value = session.sessionId
   
   const userId = getCurrentUserIdOrDefault()
   const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
@@ -341,43 +303,31 @@ const handleTeacherSessionClick = async (sessionId: string, subject: string) => 
   
   teacherChatStore.setSession(session)
   await teacherChatStore.loadChatHistory(session.sessionId)
-  
   activeCategory.value = 'teacher'
-  // selectedSessionId 会自动更新（通过 computed）
 }
 
-// 处理教师会话删除
-const handleTeacherSessionDelete = async (sessionId: string) => {
-  try {
-    const userId = getCurrentUserIdOrDefault()
-    const sessionPrefix = `${userId}_teacher-general-`
-    localStorage.removeItem(`${sessionPrefix}${sessionId}_session`)
-    await teacherChatStore.clearChatHistory(sessionId)
+// 处理教师会话删除结果（由 SessionTree 直接调用 store 删除后通知）
+const handleTeacherSessionDeleted = (sessionId: string, success: boolean, wasCurrentSession: boolean) => {
+  if (!success) {
+    // 失败情况已在 SessionTree 中显示错误消息
+    return
+  }
+  
+  // 刷新会话列表
     loadTeacherSessions()
     
-    if (teacherSessionId.value === sessionId) {
-      teacherSessionId.value = ''
-      teacherChatStore.clearSession()
-      activeCategory.value = 'ai-general' // 删除后切换到AI分类
+  // 如果删除的是当前会话，切换到AI分类（store 的 currentSession 已由删除逻辑清空）
+  if (wasCurrentSession) {
+    activeCategory.value = 'ai-general'
     }
-    
-    showMessage('会话已删除', 'success')
-  } catch (error) {
-    console.error('删除会话失败:', error)
-    showMessage('删除失败，请重试', 'error')
-  }
-}
-
-// 处理教师新建对话
-const handleTeacherNewChat = async (subject: 'biology' | 'math') => {
-  await createTeacherSession(subject || props.initialTeacherSubject)
 }
 
 // 创建教师会话（供外部调用）
+// 职责：封装完整的会话创建流程，包括验证用户信息、设置localStorage、创建会话、初始化消息接收器等
 const createTeacherSession = async (subject: 'biology' | 'math') => {
   try {
-    teacherChatStore.clearSession()
-    
+    // 第1步：验证用户信息
+    const userStore = useUserStore()
     const userInfo = userStore.userInfo || {
       id: '',
       name: '',
@@ -386,67 +336,64 @@ const createTeacherSession = async (subject: 'biology' | 'math') => {
     }
     
     if (!userInfo.id) {
+      console.error('[UnifiedChatDialog] ❌ 无法获取用户信息，请重新登录')
       showMessage('无法获取用户信息，请重新登录', 'error')
       return
     }
 
+    // 第2步：设置 localStorage 中的 currentTeacherSubject
     const userId = getCurrentUserIdOrDefault()
     const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
     localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
     
-    // 使用 teacherChatStore.createTeacherSession 统一创建会话
-    // 生成 aiSessionId（格式与 ChatView 保持一致）
+    // 第3步：生成 sessionId 和 sessionName
     const aiSessionId = `teacher_general_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const aiSessionName = subject === 'biology' ? '生物' : '数学'
     
-    // 调用 teacherChatStore.createTeacherSession，它会检查是否已存在相同会话并复用
-    const createdSession = teacherChatStore.createTeacherSession(
-      aiSessionId,
-      aiSessionName,
-      subject
-    )
+    // 第4步：调用 createTeacherSession 创建或复用会话
+    const createdSession = teacherChatStore.createTeacherSession(aiSessionId, aiSessionName, subject)
     
-    if (createdSession) {
-      teacherSessionId.value = createdSession.sessionId
+    if (!createdSession) {
+      console.error('[UnifiedChatDialog] ❌ 创建教师会话失败')
+      showMessage('创建教师会话失败，请重试', 'error')
+      return
+    }
     
+    // 第5步：初始化消息接收器
     await teacherChatStore.initMessageReceiver()
+    
+    // 第6步：更新 UI 状态（store 的 currentSession 已由 createTeacherSession 设置）
     loadTeacherSessions()
     
-      emit('session-created', createdSession.sessionId, 'teacher')
-    
-    // 切换到教师分类
+    // 第7步：切换到教师分类
     activeCategory.value = 'teacher'
-    } else {
-      showMessage('创建教师会话失败，请重试', 'error')
-    }
+
+    // 第8步：触发会话创建事件
+    emit('session-created', createdSession.sessionId, 'teacher-general')
   } catch (error) {
-    console.error('[UnifiedChatDialog] ❌ 准备教师对话失败:', error)
-    showMessage('准备教师对话失败，请重试', 'error')
+    console.error('[UnifiedChatDialog] ❌ 创建教师会话失败:', error)
+    showMessage('创建教师会话失败，请重试', 'error')
   }
 }
 
-// 设置当前教师会话（供外部调用）
+// 设置当前教师会话（内部方法，通过 watch store 自动同步 UI）
 const setTeacherSession = (sessionId: string) => {
-  teacherSessionId.value = sessionId
-  const session = teacherSessions.value.find(s => s.sessionId === sessionId)
+  const allSessions = teacherChatStore.getAllSessions()
+  const session = allSessions.find(s => s.sessionId === sessionId)
   if (session) {
     teacherChatStore.setSession(session)
     const userId = getCurrentUserIdOrDefault()
     const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
     localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
+    // UI 状态会通过 watch teacherChatStore.currentSession 自动同步
   }
-  activeCategory.value = 'teacher'
 }
 
 // 处理从ChatView转发后跳转到老师对话的事件（对话框已打开，只需设置会话）
 const handleOpenTeacherDialog = async ({ sessionId }: { sessionId: string; message?: ChatBubble }) => {
   try {
-    // 确保会话列表已加载（如果还未加载）
-    if (teacherSessions.value.length === 0) {
-      loadTeacherSessions()
-    }
-    
     // 设置指定的会话（会自动切换到教师分类）
+    // SessionTree 会直接从 store 获取最新数据，无需手动加载
     setTeacherSession(sessionId)
     
     // SessionTree 会自动通过 selectedSessionId computed 更新选中状态
@@ -470,12 +417,8 @@ const handleSwitchToTeacher = async (forwardData?: {
   }
   
   try {
-    // 确保会话列表已加载（如果还未加载）
-    if (teacherSessions.value.length === 0) {
-      loadTeacherSessions()
-    }
-    
     // 设置指定的会话（会自动切换到教师分类）
+    // SessionTree 会直接从 store 获取最新数据，无需手动加载
     setTeacherSession(forwardData.sessionId)
     
     // SessionTree 会自动通过 selectedSessionId computed 更新选中状态
@@ -493,12 +436,21 @@ const switchCategory = (category: 'ai-general' | 'teacher') => {
 // 暴露方法供外部调用
 defineExpose({
   createTeacherSession,
-  setTeacherSession,
   switchCategory,
   loadTeacherSessions
 })
 
 // ==================== 监听器 ====================
+
+// 监听 store 的 currentSession 变化，自动同步 UI 状态
+watch(() => teacherChatStore.currentSession, (newSession) => {
+  if (newSession) {
+    activeCategory.value = 'teacher'
+  } else if (activeCategory.value === 'teacher') {
+    // 如果当前是教师分类但会话被清空，切换到 AI 分类
+    activeCategory.value = 'ai-general'
+  }
+}, { immediate: true })
 
 // 监听对话框打开/关闭
 let refreshTimer: ReturnType<typeof setInterval> | null = null
@@ -524,19 +476,25 @@ watch(localVisible, async (isOpen) => {
       const firstSession = aiGeneralStore.sessions[0]
       await aiGeneralStore.switchSession(firstSession.sessionId)
       activeCategory.value = 'ai-general'
-    } else if (teacherSessionId.value && teacherSessions.value.length > 0) {
-      // 如果有教师会话ID，选中对应的教师会话
-      const session = teacherSessions.value.find(s => s.sessionId === teacherSessionId.value)
-      if (session) {
-        await handleTeacherSessionClick(session.sessionId, session.subject)
+    } else {
+      // 检查是否有教师会话
+      const allTeacherSessions = teacherChatStore.getAllSessions()
+      if (teacherChatStore.currentSession?.sessionId && allTeacherSessions.length > 0) {
+        // 如果有当前教师会话，选中对应的教师会话
+        const session = allTeacherSessions.find(s => s.sessionId === teacherChatStore.currentSession?.sessionId)
+        if (session && (session.subject === 'biology' || session.subject === 'math')) {
+          await switchTeacherSession(session.sessionId, session.subject)
       }
-    } else if (teacherSessions.value.length > 0) {
+      } else if (allTeacherSessions.length > 0) {
       // 如果有教师会话，选中第一个
-      const firstTeacherSession = teacherSessions.value[0]
-      await handleTeacherSessionClick(firstTeacherSession.sessionId, firstTeacherSession.subject)
+        const firstTeacherSession = allTeacherSessions[0]
+        if (firstTeacherSession.subject === 'biology' || firstTeacherSession.subject === 'math') {
+          await switchTeacherSession(firstTeacherSession.sessionId, firstTeacherSession.subject)
+        }
     } else {
       // 默认使用AI分类
       activeCategory.value = 'ai-general'
+      }
     }
     
     // 每5秒自动刷新一次（用于显示自动生成的标题）
@@ -567,7 +525,7 @@ onMounted(() => {
 
 // ==================== 清理 ====================
 onUnmounted(async () => {
-  if (teacherSessionId.value) {
+  if (teacherChatStore.currentSession?.sessionId) {
     await teacherChatStore.cleanupMessageReceiver()
   }
   

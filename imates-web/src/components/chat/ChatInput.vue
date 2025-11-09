@@ -79,7 +79,7 @@
         <div class="right-controls">
           <!-- 语音按钮 - 仅老师对话显示，AI模式下隐藏 -->
           <button
-            v-if="props.type === 'teacher'"
+            v-if="props.type === 'teacher-general'"
             type="button"
             @mousedown="handleVoiceStart"
             @mouseup="handleVoiceEnd"
@@ -114,7 +114,7 @@
 
           <!-- 麦克风图标 - 显示在AI模式下 -->
           <button
-            v-if="props.type !== 'teacher'"
+            v-if="props.type !== 'teacher-general'"
             type="button"
             @click="handleMicButtonClick"
             @mousedown="handleVoiceStart"

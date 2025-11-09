@@ -78,12 +78,14 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick, inject } from 'vue'
 import { useRouter } from 'vue-router'
+import { Dialog } from 'quasar'
 import { useUserStore } from '@/stores/userStore'
 import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
 import { useImagePicker } from '@/composables/useImagePicker'
 import { apiService } from '@/services/api-service'
 import { androidBridge } from '@/services/android-bridge'
 import { showMessage } from '@/utils'
+import { getCurrentUserIdOrDefault } from '@/utils/user/userId'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
 
@@ -252,6 +254,7 @@ const chatWithTeacher = async () => {
 }
 
 // 初始化教师对话（供外部调用）
+// 职责：封装完整的会话创建流程，包括验证用户信息、设置localStorage、创建会话、初始化消息接收器等
 const selectSubject = async (subject: 'biology' | 'math') => {
   try {
     // 第1步：确保用户信息已加载
@@ -265,18 +268,32 @@ const selectSubject = async (subject: 'biology' | 'math') => {
       return
     }
 
-    // 第3步：打开教师聊天对话框
-    if (openTeacherChatDialog) {
-      openTeacherChatDialog(subject)
+    // 第3步：设置 localStorage 中的 currentTeacherSubject
+    const userId = getCurrentUserIdOrDefault()
+    const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
+    localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
+    
+    // 第4步：生成 sessionId 和 sessionName
+    const aiSessionId = `teacher_general_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const aiSessionName = subject === 'biology' ? '生物' : '数学'
+    
+    // 第5步：调用 createTeacherSession 创建或复用会话
+    const session = teacherStore.createTeacherSession(aiSessionId, aiSessionName, subject)
+    
+    if (!session) {
+      console.error('[MyProfileView] ❌ 创建教师会话失败')
+      showMessage('创建教师会话失败，请重试', 'error')
+      return
     }
     
-    // 第4步：等待组件加载完成
-    await nextTick()
-    
-    // 第5步：通过组件创建新会话
-    const dialogRef = getTeacherChatDialogRef?.()
-    if (dialogRef) {
-      await dialogRef.createTeacherSession(subject)
+    // 第6步：初始化消息接收器
+    await teacherStore.initMessageReceiver()
+
+    // 第7步：打开教师聊天对话框
+    // 注意：store 的 currentSession 已经通过 createTeacherSession 设置
+    // UnifiedChatDialog 会通过 watch 自动同步 UI 状态，无需手动调用 setTeacherSession
+    if (openTeacherChatDialog) {
+      openTeacherChatDialog(subject)
     }
   } catch (error) {
     console.error('[MyProfileView] ❌ 准备教师对话失败:', error)
@@ -284,7 +301,7 @@ const selectSubject = async (subject: 'biology' | 'math') => {
   }
 }
 
-// 拍照给老师（总是新建一个教师会话后再发送）
+// 拍照给老师（选择照片后需要选择老师）
 const takePictureToTeacher = async () => {
   try {
     // 第1步：关闭工具箱
@@ -297,34 +314,7 @@ const takePictureToTeacher = async () => {
       return
     }
 
-    // 第3步：无条件新建一个教师会话（默认数学）
-    await selectSubject('math')
-    await nextTick()
-
-    // 第4步：获取新创建的会话ID（从组件或localStorage）
-    let currentSessionId = ''
-    const dialogRef = getTeacherChatDialogRef?.()
-    if (dialogRef) {
-      // 从组件获取当前会话ID，或者从最新的会话获取
-      // 查找最新的会话
-      // 使用 store 的统一方法获取所有会话
-      const allSessions = teacherStore.getAllSessions()
-      
-      if (allSessions.length > 0) {
-        // 已经按创建时间排序
-        currentSessionId = allSessions[0].sessionId
-        
-        // 设置会话到 Store
-        const session = teacherStore.getSession(currentSessionId)
-        if (session) {
-          teacherStore.setSession(session)
-          // 设置到组件
-          dialogRef.setTeacherSession(currentSessionId)
-        }
-      }
-    }
-
-    // 第5步：验证图片数据完整性
+    // 第3步：验证图片数据完整性
     if (!imageInfo.filePath) {
       showMessage('图片路径不存在，请重试', 'error')
       return
@@ -334,10 +324,83 @@ const takePictureToTeacher = async () => {
       return
     }
     
-    // 第6步：设置待发送图片，由ChatView的watch自动处理发送
+    // 第4步：显示老师选择对话框
+    Dialog.create({
+      title: '选择老师',
+      message: '请选择要发送图片的老师：',
+      options: {
+        type: 'radio',
+        model: '',
+        items: [
+          {
+            label: '生物老师',
+            value: 'biology',
+            color: 'green',
+          },
+          {
+            label: '数学老师',
+            value: 'math',
+            color: 'blue',
+          },
+        ],
+      },
+      cancel: {
+        label: '取消',
+        color: 'grey',
+        flat: true,
+      },
+      ok: {
+        label: '确定',
+        color: 'primary',
+        unelevated: true,
+      },
+      persistent: false,
+    }).onOk(async (selectedSubject: 'biology' | 'math') => {
+      try {
+        // 第5步：创建或切换到对应的教师会话（selectSubject 会处理所有逻辑）
+        await selectSubject(selectedSubject)
+        await nextTick()
+
+        // 第6步：确保对话框已打开并设置会话
+        const dialogRef = getTeacherChatDialogRef?.()
+        if (!dialogRef) {
+          showMessage('无法打开聊天对话框，请重试', 'error')
+          return
+        }
+        
+        // 从 store 获取当前会话（createTeacherSession 已经设置了）
+        const currentSession = teacherStore.currentSession
+        if (currentSession && currentSession.subject === selectedSubject) {
+          // store 的 currentSession 已经设置，UnifiedChatDialog 会通过 watch 自动同步 UI 状态
+        } else {
+          // 如果 store 中没有，从所有会话中查找
+          const allSessions = teacherStore.getAllSessions()
+          const targetSession = allSessions.find(s => s.subject === selectedSubject)
+          if (targetSession) {
+            // 设置 localStorage
+            const userId = getCurrentUserIdOrDefault()
+            const storeSubject = targetSession.subject === 'biology' ? 'BIOLOGY' : 'MATH'
+            localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
+            // 调用 store 的 setSession，UnifiedChatDialog 会通过 watch 自动同步 UI 状态
+            teacherStore.setSession(targetSession)
+          } else {
+            showMessage('创建会话失败，请重试', 'error')
+            return
+          }
+        }
+        
+        // 第7步：设置待发送图片，由ChatView的watch自动处理发送
     // 流程：设置pendingImage -> ChatView的watch监听到变化 -> 自动调用onImageSelected发送
     await nextTick() // 确保ChatView已经挂载完成
     teacherStore.setPendingImage(imageInfo)
+      } catch (error) {
+        console.error('[MyProfileView] ❌ 发送图片失败:', error)
+        showMessage('发送图片失败，请重试', 'error')
+      }
+    }).onCancel(() => {
+      // 用户取消了选择，不做任何操作
+      console.log('[MyProfileView] 用户取消了老师选择')
+    })
   } catch (error) {
     console.error('[MyProfileView] ❌ 处理图片失败:', error)
     showMessage('处理图片失败，请重试', 'error')

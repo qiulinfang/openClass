@@ -218,18 +218,15 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
     questionTitle: string,
     subject: 'biology' | 'math'
   ): TeacherExerciseSession => {
-    // 第1步：迁移旧格式数据（如果存在）
-    migrateOldSessions()
-    
-    // 第2步：检查是否已存在该题目的会话（使用统一存储格式）
+    // 第1步：检查是否已存在该题目的会话（使用统一存储格式）
     const allSessions = loadAllSessions()
     let existingSession: TeacherExerciseSession | null = null
     
     for (const session of Object.values(allSessions)) {
-      // 匹配条件：题目ID和科目完全相同
-      if (session.questionId === questionId && session.subject === subject) {
-        existingSession = session
-        break
+            // 匹配条件：题目ID和科目完全相同
+            if (session.questionId === questionId && session.subject === subject) {
+              existingSession = session
+              break
       }
     }
     
@@ -286,15 +283,12 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
     questionId: string,
     subject: 'biology' | 'math'
   ): TeacherExerciseSession | null => {
-    // 迁移旧格式数据（如果存在）
-    migrateOldSessions()
-    
     // 使用统一存储格式查找会话
     const allSessions = loadAllSessions()
     
     for (const session of Object.values(allSessions)) {
-      if (session.questionId === questionId && session.subject === subject) {
-        return session
+            if (session.questionId === questionId && session.subject === subject) {
+              return session
       }
     }
     
@@ -934,58 +928,6 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
   }
   
   /**
-   * 迁移旧格式的会话数据到新格式（一次性迁移）
-   */
-  const migrateOldSessions = (): void => {
-    try {
-      const userId = getCurrentUserIdOrDefault()
-      const sessionPrefix = `${userId}_teacher-exercise-`
-      const sessions: Record<string, TeacherExerciseSession> = {}
-      let hasOldData = false
-      
-      // 遍历localStorage查找所有旧格式的会话
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (key?.startsWith(sessionPrefix) && key.endsWith('_session')) {
-          try {
-            const sessionData = localStorage.getItem(key)
-            if (sessionData) {
-              const session = JSON.parse(sessionData) as TeacherExerciseSession
-              if (session && session.sessionId) {
-                sessions[session.sessionId] = session
-                hasOldData = true
-              }
-            }
-          } catch {
-            // 忽略解析错误
-          }
-        }
-      }
-      
-      // 如果有旧数据，迁移到新格式
-      if (hasOldData) {
-        const existingSessions = loadAllSessions()
-        const mergedSessions = { ...existingSessions, ...sessions }
-        saveAllSessions(mergedSessions)
-        
-        // 删除旧格式的数据
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i)
-          if (key?.startsWith(sessionPrefix) && key.endsWith('_session')) {
-            localStorage.removeItem(key)
-          }
-        }
-        
-        console.log('[TEACHER_EXERCISE] ✅ 已迁移旧格式会话数据到新格式', {
-          migratedCount: Object.keys(sessions).length
-        })
-      }
-    } catch (error) {
-      console.error('[TEACHER_EXERCISE] ❌ 迁移旧格式会话数据失败:', error)
-    }
-  }
-  
-  /**
    * 重置状态
    */
   const resetState = (): void => {
@@ -1108,9 +1050,9 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
           
           if (session) {
             currentSession.value = session
-            
-            // 加载聊天历史
-            await loadChatHistory(data.sessionId)
+              
+              // 加载聊天历史
+              await loadChatHistory(data.sessionId)
           } else {
             // 会话不存在，标记为未读
             const unreadStore = useUnreadMessageStore()

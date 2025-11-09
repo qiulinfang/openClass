@@ -87,7 +87,7 @@ export interface ChatInputProps {
   isRecording: boolean
   enableWebSearch: boolean
   selectedModel: string
-  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
+  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
   uploadedFiles: UploadedFile[]
   activeMode: ActiveMode | null
   canSend: boolean
@@ -117,7 +117,7 @@ export interface ChatInputEmits {
 /** ChatMessage Props接口 */
 export interface ChatMessageProps {
   message: ChatBubble
-  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
+  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
   isSelected?: boolean
   isSelectionMode?: boolean
   messageIndex?: number
@@ -133,7 +133,7 @@ export interface StreamingMessageProps {
 
 /** ChatView Props接口 */
 export interface ChatViewProps {
-  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher'
+  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
   currentQuestionId?: string
   sessionId?: string  // 教师对话会话ID
   overrideQuestion?: ExerciseItem | null  // 可选的题目覆盖（用于避免污染全局状态，如拍照搜题场景）

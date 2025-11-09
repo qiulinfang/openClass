@@ -45,34 +45,34 @@ export interface TeacherSession {
 export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () => {
   // ==================== 状态管理 ====================
   
-  const messages = ref<ChatBubble[]>([])
+  const messages = ref<ChatBubble[]>([]) // 当前会话的消息列表，包含所有聊天消息（用户消息、教师回复等）
   
   // 用于对比的消息快照（保存时记录）
-  const lastSavedMessagesSnapshot = ref<{
-    sessionId: string
-    messages: ChatBubble[]
-    timestamp: number
+  const lastSavedMessagesSnapshot = ref<{ // 保存时记录的消息快照，用于后续对比验证保存和加载的一致性
+    sessionId: string // 会话ID
+    messages: ChatBubble[] // 保存时的消息列表
+    timestamp: number // 保存时间戳
   } | null>(null)
-  const currentSession = ref<TeacherSession | null>(null)
-  const isChatLoading = ref(false)
-  const isChatRendering = ref(false)
-  const chatResponseTimes = ref(0)
-  const enableWebSearch = ref(false)
+  const currentSession = ref<TeacherSession | null>(null) // 当前选中的教师会话信息（包含sessionId、sessionName、subject等）
+  const isChatLoading = ref(false) // 聊天加载状态，表示是否正在发送消息或等待教师回复
+  const isChatRendering = ref(false) // 聊天渲染状态，表示是否正在渲染教师回复内容
+  const chatResponseTimes = ref(0) // 聊天响应次数计数器，记录已完成的对话轮数（用于判断是否可以查看答案）
+  const enableWebSearch = ref(false) // 是否启用网络搜索功能（当前未使用，保留用于未来扩展）
   
-  const VIEW_ANSWER_CHAT_TIMES = 3
-  const canViewAnswer = computed(() => chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES)
+  const VIEW_ANSWER_CHAT_TIMES = 3 // 查看答案所需的聊天次数阈值（达到此次数后可以查看答案）
+  const canViewAnswer = computed(() => chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES) // 计算属性：是否可以查看答案（基于聊天响应次数）
   
   /** 待发送图片（用于拍作业场景） */
-  const pendingImage = ref<{
-    filePath: string
-    width: number
-    height: number
-    fileSize: number
-    base64DataUrl?: string
+  const pendingImage = ref<{ // 待发送的图片信息（用于拍作业场景，在发送前临时保存图片数据）
+    filePath: string // 图片文件路径
+    width: number // 图片宽度（像素）
+    height: number // 图片高度（像素）
+    fileSize: number // 图片文件大小（字节）
+    base64DataUrl?: string // 图片的base64编码数据URL（可选，用于前端预览）
   } | null>(null)
   
-  // 防抖定时器
-  let saveDebounceTimer: ReturnType<typeof setTimeout> | null = null
+  /** 响应式的所有会话列表 */
+  const allSessions = ref<TeacherSession[]>([])
   
   // ==================== 会话管理 ====================
   
@@ -662,51 +662,27 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
   // ==================== 聊天历史 ====================
   
   /**
-   * 保存聊天历史（带防抖）
-   * 第1步：验证会话
-   * 第2步：清除旧的定时器
-   * 第3步：如果是立即保存，直接执行
-   * 第4步：否则设置防抖定时器
+   * 保存聊天历史（立即执行，不使用防抖）
    */
-  const saveChatHistory = async (immediate: boolean = false): Promise<void> => {
+  const saveChatHistory = async (): Promise<void> => {
     if (!currentSession.value) {
       console.log('[TeacherStore] ⚠️ [存储流程] 保存失败：无当前会话')
       return
     }
     
+    const startTime = Date.now()
+    const sessionId = currentSession.value.sessionId
     console.log('[TeacherStore] 💾 [存储流程] 开始保存聊天历史', {
-      immediate,
-      sessionId: currentSession.value.sessionId,
-      currentMessageCount: messages.value.length,
-      hasDebounceTimer: !!saveDebounceTimer
-    })
-    
-    // 第1步：清除旧定时器
-    if (saveDebounceTimer) {
-      console.log('[TeacherStore] 🔄 [存储流程] 清除旧的防抖定时器')
-      clearTimeout(saveDebounceTimer)
-      saveDebounceTimer = null
-    }
-    
-    const saveAction = async () => {
-      if (!currentSession.value) {
-        console.log('[TeacherStore] ⚠️ [存储流程] 保存动作取消：无当前会话')
-        return
-      }
-      
-      const startTime = Date.now()
-      const sessionId = currentSession.value.sessionId
-      console.log('[TeacherStore] 💾 [存储流程] 执行保存动作', {
-        sessionId,
-        totalMessages: messages.value.length
+      sessionId,
+      currentMessageCount: messages.value.length
       })
       
       try {
-        // 第1步：更新会话信息
-        currentSession.value.msgCount = messages.value.length
-        currentSession.value.updateTime = Date.now()
+      // 第1步：更新会话信息
+      currentSession.value.msgCount = messages.value.length
+      currentSession.value.updateTime = Date.now()
         
-        // 第2步：过滤掉错误消息、流式消息、系统消息和撤回消息，只保存成功发送的消息
+      // 第2步：过滤掉错误消息、流式消息、系统消息和撤回消息，只保存成功发送的消息
         // 注意：同时检查 id 和 messageId，因为有些消息可能只设置了其中一个
         const messagesToSave = messages.value.filter(msg => 
           !msg.isError && 
@@ -729,75 +705,75 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
           }
         })
         
-        // 第3步：构建存储键（每个会话独立存储）
-        const storageKey = `teacher-general-${sessionId}`
-        console.log('[TeacherStore] 🔑 [存储流程] 构建存储键', { storageKey, sessionId })
-        
-        // 第4步：保存消息到IndexedDB（每个会话独立存储）
-        const historyData: ChatHistoryData = {
-          questionId: sessionId,  // 使用sessionId作为questionId
-          messages: messagesToSave,
-          chatResponseTimes: chatResponseTimes.value,
-          lastUpdated: Date.now()
-        }
-        
+      // 第3步：构建存储键（每个会话独立存储）
+      const storageKey = `teacher-general-${sessionId}`
+      console.log('[TeacherStore] 🔑 [存储流程] 构建存储键', { storageKey, sessionId })
+      
+      // 第4步：保存消息到IndexedDB（每个会话独立存储）
+      const historyData: ChatHistoryData = {
+        questionId: sessionId,  // 使用sessionId作为questionId
+        messages: messagesToSave,
+        chatResponseTimes: chatResponseTimes.value,
+        lastUpdated: Date.now()
+      }
+      
         console.log('[TeacherStore] 💾 [存储流程] 开始保存到IndexedDB', {
           storageKey,
-          sessionId,
+        sessionId,
           messageCount: messagesToSave.length,
           chatResponseTimes: chatResponseTimes.value
         })
         
         const saveStartTime = Date.now()
-        await asyncStorage.saveChatHistory(storageKey, historyData)
+      await asyncStorage.saveChatHistory(storageKey, historyData)
         const saveDuration = Date.now() - saveStartTime
-        
-        // 打印保存到 IndexedDB 的详细消息记录（特别是转发成功后）
-        console.log('[TeacherStore] 📝 [存储流程] ========== 保存到 IndexedDB 的消息记录 ==========', {
-          storageKey,
-          sessionId,
-          messageCount: messagesToSave.length,
-          duration: `${saveDuration}ms`,
-          timestamp: new Date().toISOString()
+      
+      // 打印保存到 IndexedDB 的详细消息记录（特别是转发成功后）
+      console.log('[TeacherStore] 📝 [存储流程] ========== 保存到 IndexedDB 的消息记录 ==========', {
+        storageKey,
+        sessionId,
+        messageCount: messagesToSave.length,
+        duration: `${saveDuration}ms`,
+        timestamp: new Date().toISOString()
+      })
+      
+      // 打印每条消息的详细信息
+      messagesToSave.forEach((msg, index) => {
+        console.log(`[TeacherStore] 📝 [存储流程] 消息 ${index + 1}/${messagesToSave.length}:`, {
+          id: msg.id,
+          messageId: msg.messageId,
+          content: msg.content?.substring(0, 50) + (msg.content && msg.content.length > 50 ? '...' : ''),
+          sender: msg.sender,
+          type: msg.type,
+          messageType: msg.messageType,
+          timestamp: msg.timestamp,
+          hasImageData: !!msg.imageData,
+          hasVoiceData: !!msg.voiceData,
+          isForwarded: msg.id?.startsWith('forwarded_') || false,
+          fullMessage: JSON.parse(JSON.stringify(msg)) // 深拷贝完整消息对象
         })
-        
-        // 打印每条消息的详细信息
-        messagesToSave.forEach((msg, index) => {
-          console.log(`[TeacherStore] 📝 [存储流程] 消息 ${index + 1}/${messagesToSave.length}:`, {
-            id: msg.id,
-            messageId: msg.messageId,
-            content: msg.content?.substring(0, 50) + (msg.content && msg.content.length > 50 ? '...' : ''),
-            sender: msg.sender,
-            type: msg.type,
-            messageType: msg.messageType,
-            timestamp: msg.timestamp,
-            hasImageData: !!msg.imageData,
-            hasVoiceData: !!msg.voiceData,
-            isForwarded: msg.id?.startsWith('forwarded_') || false,
-            fullMessage: JSON.parse(JSON.stringify(msg)) // 深拷贝完整消息对象
-          })
-        })
+      })
         
         console.log('[TeacherStore] ✅ [存储流程] IndexedDB保存成功', {
           storageKey,
-          sessionId,
+        sessionId,
           messageCount: messagesToSave.length,
           duration: `${saveDuration}ms`
         })
         
-        // 保存消息快照，用于后续对比
-        lastSavedMessagesSnapshot.value = {
-          sessionId,
-          messages: JSON.parse(JSON.stringify(messagesToSave)), // 深拷贝
-          timestamp: Date.now()
-        }
-        
-        // 第5步：保存会话信息到localStorage（加上用户ID前缀）
+      // 保存消息快照，用于后续对比
+      lastSavedMessagesSnapshot.value = {
+        sessionId,
+        messages: JSON.parse(JSON.stringify(messagesToSave)), // 深拷贝
+        timestamp: Date.now()
+      }
+      
+      // 第5步：保存会话信息到localStorage（加上用户ID前缀）
         const userId = getCurrentUserIdOrDefault()
         const sessionKey = `${userId}_${storageKey}_session`
         console.log('[TeacherStore] 💾 [存储流程] 开始保存会话信息到localStorage', {
           sessionKey,
-          sessionId
+        sessionId
         })
         
         const sessionSaveStartTime = Date.now()
@@ -808,15 +784,15 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
           sessionKey,
           duration: `${sessionSaveDuration}ms`
         })
-        
-        // 第6步：保存会话列表
-        const allSessions = loadAllSessions()
-        allSessions[sessionId] = currentSession.value
-        saveAllSessions(allSessions)
+      
+      // 第6步：保存会话列表
+      const allSessions = loadAllSessions()
+      allSessions[sessionId] = currentSession.value
+      saveAllSessions(allSessions)
         
         const totalDuration = Date.now() - startTime
         console.log('[TeacherStore] ✅ [存储流程] 保存流程完成', {
-          sessionId,
+        sessionId,
           messageCount: messagesToSave.length,
           totalDuration: `${totalDuration}ms`,
           indexedDBDuration: `${saveDuration}ms`,
@@ -843,23 +819,23 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
           
           // 尝试清理旧数据（保留最近10条消息）
           try {
-            const storageKey = `teacher-general-${sessionId}`
-            const recentMessages = messages.value.filter(msg => 
-              !msg.isError && 
-              !msg.isStreaming &&
-              !msg.isSystemMessage &&
-              !msg.isRecalled &&
-              (msg.messageId || msg.id)
-            ).slice(-10)
-            
-            const historyData: ChatHistoryData = {
-              questionId: sessionId,
+          const storageKey = `teacher-general-${sessionId}`
+          const recentMessages = messages.value.filter(msg => 
+            !msg.isError && 
+            !msg.isStreaming &&
+            !msg.isSystemMessage &&
+            !msg.isRecalled &&
+            (msg.messageId || msg.id)
+          ).slice(-10)
+          
+          const historyData: ChatHistoryData = {
+            questionId: sessionId,
               messages: recentMessages,
-              chatResponseTimes: chatResponseTimes.value,
-              lastUpdated: Date.now()
-            }
-            
-            await asyncStorage.saveChatHistory(storageKey, historyData)
+            chatResponseTimes: chatResponseTimes.value,
+            lastUpdated: Date.now()
+          }
+          
+          await asyncStorage.saveChatHistory(storageKey, historyData)
             showMessage('已清理旧数据，保留最近10条消息', 'info', 3000)
           } catch (cleanupError) {
             console.error('清理旧数据也失败:', cleanupError)
@@ -871,16 +847,6 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
           // 其他存储错误
           console.error('存储错误:', error)
         }
-      }
-    }
-    
-    // 第4步：立即保存或防抖保存
-    if (immediate) {
-      console.log('[TeacherStore] ⚡ [存储流程] 立即执行保存')
-      await saveAction()
-    } else {
-      console.log('[TeacherStore] ⏱️ [存储流程] 设置防抖定时器（1秒后保存）')
-      saveDebounceTimer = setTimeout(saveAction, 1000)
     }
   }
   
@@ -1056,9 +1022,9 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
         messages.value = []
         chatResponseTimes.value = 0
       }
-      
-      // 从localStorage加载会话信息（加上用户ID前缀）
-      const userId = getCurrentUserIdOrDefault()
+        
+        // 从localStorage加载会话信息（加上用户ID前缀）
+        const userId = getCurrentUserIdOrDefault()
       const sessionKey = `${userId}_${storageKey}_session`
       const sessionInfoData = localStorage.getItem(sessionKey)
       if (sessionInfoData) {
@@ -1127,6 +1093,14 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
   }
   
   /**
+   * 更新响应式的所有会话列表
+   */
+  const updateAllSessions = (): void => {
+    const sessions = loadAllSessions()
+    allSessions.value = Object.values(sessions).sort((a, b) => b.createTime - a.createTime)
+  }
+  
+  /**
    * 获取单个会话
    */
   const getSession = (sessionId: string): TeacherSession | null => {
@@ -1141,6 +1115,8 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
     const sessions = loadAllSessions()
     sessions[session.sessionId] = session
     saveAllSessions(sessions)
+    // 更新响应式的会话列表
+    updateAllSessions()
   }
   
   /**
@@ -1150,79 +1126,25 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
     const sessions = loadAllSessions()
     delete sessions[sessionId]
     saveAllSessions(sessions)
-  }
-  
-  /**
-   * 迁移旧格式的会话数据到新格式（一次性迁移）
-   */
-  const migrateOldSessions = (): void => {
-    try {
-      const userId = getCurrentUserIdOrDefault()
-      const sessionPrefix = `${userId}_teacher-general-`
-      const sessions: Record<string, TeacherSession> = {}
-      let hasOldData = false
-      
-      // 遍历localStorage查找所有旧格式的会话
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (key?.startsWith(sessionPrefix) && key.endsWith('_session')) {
-          try {
-            const sessionData = localStorage.getItem(key)
-            if (sessionData) {
-              const session = JSON.parse(sessionData) as TeacherSession
-              if (session && session.sessionId) {
-                sessions[session.sessionId] = session
-                hasOldData = true
-              }
-            }
-          } catch {
-            // 忽略解析错误
-          }
-        }
-      }
-      
-      // 如果有旧数据，保存到新格式并删除旧数据
-      if (hasOldData) {
-        const storageKey = getSessionsStorageKey()
-        const existingSessions = loadAllSessions()
-        // 合并旧数据到新数据（新数据优先）
-        const mergedSessions = { ...sessions, ...existingSessions }
-        saveAllSessions(mergedSessions)
-        
-        // 删除旧格式的数据
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i)
-          if (key?.startsWith(sessionPrefix) && key.endsWith('_session') && key !== storageKey) {
-            localStorage.removeItem(key)
-          }
-        }
-        
-        console.log('[TeacherStore] ✅ 已迁移旧格式会话数据到新格式')
-      }
-    } catch (error) {
-      console.error('[TeacherStore] ❌ 迁移旧格式会话数据失败:', error)
-    }
+    // 更新响应式的会话列表
+    updateAllSessions()
   }
   
   // ==================== 会话创建 ====================
   
   /**
    * 创建教师会话
-   * 第1步：迁移旧格式数据（如果存在）
-   * 第2步：检查是否已存在相同的会话（基于sessionName和subject）
-   * 第3步：如果已存在，复用已有会话；否则创建新会话
-   * 第4步：保存到localStorage（统一格式）
-   * 第5步：设置为当前会话
+   * 第1步：检查是否已存在相同的会话（基于sessionName和subject）
+   * 第2步：如果已存在，复用已有会话；否则创建新会话
+   * 第3步：保存到localStorage（统一格式）
+   * 第4步：设置为当前会话
    */
   const createTeacherSession = (
     aiSessionId: string,
     aiSessionName: string,
     subject: 'biology' | 'math'
   ): TeacherSession => {
-    // 第1步：迁移旧格式数据（如果存在）
-    migrateOldSessions()
-    
-    // 第2步：检查是否已存在相同的会话（仅检查当前用户的数据）
+    // 第1步：检查是否已存在相同的会话（仅检查当前用户的数据）
     // 优先匹配：sessionName和subject完全相同
     // 如果是基于题目的会话，且sessionName相似（前20个字符相同）
     const sessions = loadAllSessions()
@@ -1230,28 +1152,28 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
     
     for (const sessionId in sessions) {
       const session = sessions[sessionId]
-      
-      // 匹配条件1：sessionName和subject完全相同
-      const nameAndSubjectMatch = session.sessionName === aiSessionName && 
-                                session.subject === subject
-      
-      // 匹配条件2：如果是基于题目的会话，且sessionName相似（前20个字符相同）
-      // 这样可以匹配同一个题目的不同会话（即使标题略有变化）
-      const nameSimilar = aiSessionName.length >= 20 && 
-                        session.sessionName.length >= 20 &&
-                        session.sessionName.substring(0, 20) === aiSessionName.substring(0, 20) &&
-                        session.subject === subject
-      
-      if (nameAndSubjectMatch || nameSimilar) {
-        // 如果已有当前会话且匹配，直接复用
-        if (currentSession.value?.sessionId === session.sessionId) {
-          existingSession = session
-          break
-        }
-        
-        // 否则，选择最近创建的会话（如果有多个匹配）
-        if (!existingSession || session.createTime > existingSession.createTime) {
-          existingSession = session
+            
+            // 匹配条件1：sessionName和subject完全相同
+            const nameAndSubjectMatch = session.sessionName === aiSessionName && 
+                                      session.subject === subject
+            
+            // 匹配条件2：如果是基于题目的会话，且sessionName相似（前20个字符相同）
+            // 这样可以匹配同一个题目的不同会话（即使标题略有变化）
+            const nameSimilar = aiSessionName.length >= 20 && 
+                              session.sessionName.length >= 20 &&
+                              session.sessionName.substring(0, 20) === aiSessionName.substring(0, 20) &&
+                              session.subject === subject
+            
+            if (nameAndSubjectMatch || nameSimilar) {
+              // 如果已有当前会话且匹配，直接复用
+              if (currentSession.value?.sessionId === session.sessionId) {
+                existingSession = session
+                break
+              }
+              
+              // 否则，选择最近创建的会话（如果有多个匹配）
+              if (!existingSession || session.createTime > existingSession.createTime) {
+                existingSession = session
         }
       }
     }
@@ -1591,7 +1513,7 @@ ${conversationSummary}
     
     // 保存历史记录
     if (successCount > 0) {
-      await saveChatHistory(true)
+      await saveChatHistory()
     }
     
     return { success: successCount, failed: failedCount }
@@ -1830,18 +1752,18 @@ ${conversationSummary}
         
         if (restoredSession) {
           // 会话数据存在，恢复会话
-          currentSession.value = restoredSession
-          
-          // 触发自定义事件，通知组件刷新会话列表
-          try {
-            window.dispatchEvent(new CustomEvent('teacher-session-restored', {
-              detail: { sessionId: restoredSession.sessionId, session: restoredSession }
-            }))
-          } catch (error) {
-            console.warn('[TeacherStore] ⚠️ 触发事件失败:', error)
-          }
-          
-          // 恢复会话后，继续处理消息（不返回）
+            currentSession.value = restoredSession
+            
+            // 触发自定义事件，通知组件刷新会话列表
+            try {
+              window.dispatchEvent(new CustomEvent('teacher-session-restored', {
+                detail: { sessionId: restoredSession.sessionId, session: restoredSession }
+              }))
+            } catch (error) {
+              console.warn('[TeacherStore] ⚠️ 触发事件失败:', error)
+            }
+            
+            // 恢复会话后，继续处理消息（不返回）
         } else {
           // 会话不存在，尝试创建新会话
           await createOrRestoreSessionForMessage(data.sessionId)
@@ -1942,7 +1864,7 @@ ${conversationSummary}
                     const index = messages.value.findIndex(m => m.id === data.messageId)
                     if (index !== -1) {
                       messages.value[index] = imageMessage
-                      saveChatHistory(true)
+                      saveChatHistory()
                     }
                     return
                   }
@@ -1975,7 +1897,7 @@ ${conversationSummary}
                     })
                     messages.value[index] = imageMessage
                     console.log('[TeacherStore] 💾 [存储流程] 图片消息已更新，触发保存')
-                    saveChatHistory(true)
+                    saveChatHistory()
                     
                     const receiveDuration = Date.now() - receiveStartTime
                     console.log('[TeacherStore] ✅ [存储流程] ========== 图片消息接收和存储流程完成 ==========', {
@@ -1995,7 +1917,7 @@ ${conversationSummary}
                       content: '[图片加载失败: ' + (base64Data.message || '未知错误') + ']',
                       isError: true
                     }
-                    saveChatHistory(true)
+                    saveChatHistory()
                   }
                 }
               } else {
@@ -2009,7 +1931,7 @@ ${conversationSummary}
                     content: '[图片加载失败: 不支持的文件路径格式]',
                     isError: true
                   }
-                  saveChatHistory(true)
+                  saveChatHistory()
                 }
               }
             } catch (error) {
@@ -2021,7 +1943,7 @@ ${conversationSummary}
                   content: '[图片加载失败: ' + (error instanceof Error ? error.message : '未知错误') + ']',
                   isError: true
                 }
-                saveChatHistory(true)
+                saveChatHistory()
               }
             }
           })()
@@ -2049,7 +1971,7 @@ ${conversationSummary}
           })
           addMessage(imageMessage)
           console.log('[TeacherStore] 💾 [存储流程] 图片消息已添加，触发保存')
-          saveChatHistory(true)
+          saveChatHistory()
           
           const receiveDuration = Date.now() - receiveStartTime
           console.log('[TeacherStore] ✅ [存储流程] ========== 图片消息接收和存储流程完成 ==========', {
@@ -2111,7 +2033,7 @@ ${conversationSummary}
         })
         addMessage(teacherMessage)
         console.log('[TeacherStore] 💾 [存储流程] 语音消息已添加，触发保存')
-        saveChatHistory(true)
+        saveChatHistory()
         
         const receiveDuration = Date.now() - receiveStartTime
         console.log('[TeacherStore] ✅ [存储流程] ========== 语音消息接收和存储流程完成 ==========', {
@@ -2136,7 +2058,7 @@ ${conversationSummary}
         })
         addMessage(teacherMessage)
         console.log('[TeacherStore] 💾 [存储流程] 文本消息已添加，触发保存')
-        saveChatHistory(true)
+        saveChatHistory()
         
         const receiveDuration = Date.now() - receiveStartTime
         console.log('[TeacherStore] ✅ [存储流程] ========== 消息接收和存储流程完成 ==========', {
@@ -2385,8 +2307,8 @@ ${conversationSummary}
     
     for (const sessionId in sessions) {
       const session = sessions[sessionId]
-      if (session.subject === 'biology' || session.subject === 'math') {
-        existingSubjects.add(session.subject)
+            if (session.subject === 'biology' || session.subject === 'math') {
+              existingSubjects.add(session.subject)
       }
     }
     
@@ -2401,6 +2323,9 @@ ${conversationSummary}
     const sessions = loadAllSessions()
     return Object.values(sessions).sort((a, b) => b.createTime - a.createTime)
   }
+  
+  // 初始化时更新一次会话列表
+  updateAllSessions()
   
   return {
     // 状态
@@ -2450,6 +2375,7 @@ ${conversationSummary}
     
     // 会话存储管理（供外部组件使用）
     getAllSessions,
+    allSessions, // 响应式的会话列表（ref）
     getSession,
     saveSession,
     deleteSession

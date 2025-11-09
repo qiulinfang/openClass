@@ -91,7 +91,7 @@
   ```
 - **存储位置**: `teacherGeneralChatStore.ts`
 - **生命周期**: 创建/更新会话时保存，删除会话时更新
-- **清理**: 账号切换时清理旧账号数据
+  - **清理**: 账号切换时清理旧账号数据
 - **数据迁移**: 支持从旧格式（每个会话单独存储）自动迁移到新格式
 
 **存储操作**：
@@ -110,14 +110,9 @@
 - **存储位置**: `teacherGeneralChatStore.ts`
 - **生命周期**: 保存聊天记录时存储，删除会话时清除
 
-**旧格式兼容**：
-- **旧格式存储键**: `{userId}_teacher-general-${sessionId}_session` (旧格式，已迁移)
-- **旧格式存储键**: `teacher_chat_{sessionId}_session` (旧格式，兼容处理)
-- **类型**: JSON对象
-- **用途**: 旧格式的会话信息（每个会话单独存储）
-- **存储位置**: `teacherGeneralChatStore.ts:migrateOldSessions()`
-- **生命周期**: 兼容旧数据，会自动迁移到新格式（统一存储）
-- **迁移逻辑**: 启动时自动检测并迁移旧格式数据到新格式，迁移后删除旧数据
+**注意**：
+- 旧格式数据（`{userId}_teacher-general-${sessionId}_session`）已不再支持
+- 所有会话数据统一使用新格式存储
 
 #### 2.2 教师题目会话存储
 
@@ -196,8 +191,8 @@
   ]
   ```
 - **存储位置**: `aiGeneralChatStore.ts`
-- **生命周期**: 创建/更新会话时保存，删除会话时更新
-- **清理**: 账号切换时清理旧账号数据
+  - **生命周期**: 创建/更新会话时保存，删除会话时更新
+  - **清理**: 账号切换时清理旧账号数据
 
 **消息存储键名**（IndexedDB）：
 - **存储键**: `{userId}_chat_history_ai-general-${sessionId}`
@@ -381,17 +376,17 @@ user123_teacher_chat_history_teacher-exercise-question-456
 #### 1.3 消息数据结构
 
 **存储结构**：`ChatHistoryData`
-```typescript
+  ```typescript
 interface ChatHistoryData {
   questionId: string           // 存储键（用于标识）
   messages: ChatBubble[]        // 消息列表
   chatResponseTimes: number     // AI回复次数
-  lastUpdated: number            // 最后更新时间戳
-}
-```
+    lastUpdated: number            // 最后更新时间戳
+  }
+  ```
 
 **消息结构**：`ChatBubble`
-```typescript
+  ```typescript
 interface ChatBubble {
   id: string                     // 消息ID
   content: string                // 消息内容
@@ -402,24 +397,24 @@ interface ChatBubble {
   messageType?: string           // 消息类型（可选）
   isStreaming?: boolean          // 是否正在流式传输
   imageData?: {                  // 图片数据
-    filePath: string,
-    width: number,
-    height: number,
-    fileSize: number,
+      filePath: string,
+      width: number,
+      height: number,
+      fileSize: number,
     base64DataUrl: string         // base64图片数据（用于UI显示）
   }
   voiceData?: {                  // 语音数据
-    filePath: string,
-    duration: number,
-    fileSize: number
+      filePath: string,
+      duration: number,
+      fileSize: number
   }
   isError?: boolean              // 是否为错误消息
   canRetry?: boolean             // 是否可以重试
   retryCount?: number            // 重试次数
   originalMessage?: string       // 原始消息
   chatRecordData?: object        // 聊天记录数据
-}
-```
+  }
+  ```
 
 #### 1.4 消息存储流程
 
@@ -924,9 +919,9 @@ const saveChatHistory = async (immediate: boolean = false): Promise<void> => {
    - **IndexedDB**：通常限制为 50MB 或更大
    - 建议监控存储使用情况，必要时清理过期数据
 
-3. **数据迁移**:
-   - **教师题目会话**支持从旧格式（每个会话单独存储）自动迁移到新格式（统一存储）
-   - 迁移逻辑在 `teacherExerciseChatStore.ts` 的 `migrateOldSessions()` 方法中实现
+3. **数据格式**:
+   - 所有会话数据统一使用新格式存储（统一存储）
+   - 旧格式数据已不再支持
 
 4. **消息过滤**:
    - 保存消息时会自动过滤以下类型的消息：

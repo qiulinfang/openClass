@@ -769,22 +769,22 @@ const loadTeacherSessions = async () => {
   // 为每个会话加载消息数量（从独立存储中加载）
   for (const session of allSessions) {
     // 从独立存储中获取该会话的消息数量
-    let msgCount = 0
+          let msgCount = 0
     const storageKey = `teacher-general-${session.sessionId}`
-    try {
-      const history = await asyncStorage.loadChatHistory(storageKey)
-      if (history && history.messages) {
-        msgCount = history.messages.length
-      }
-    } catch (error) {
-      console.warn('加载教师通用会话消息数量失败:', error)
-    }
-    
-    sessions.push({
-      ...session,
-      msgCount,
-      sessionType: 'general'
-    })
+          try {
+            const history = await asyncStorage.loadChatHistory(storageKey)
+            if (history && history.messages) {
+              msgCount = history.messages.length
+            }
+          } catch (error) {
+            console.warn('加载教师通用会话消息数量失败:', error)
+          }
+          
+          sessions.push({
+            ...session,
+            msgCount,
+            sessionType: 'general'
+          })
   }
   
   // 已经按创建时间排序
@@ -801,32 +801,32 @@ const loadTeacherExerciseSessions = async () => {
   
   // 遍历所有会话，加载消息数量
   for (const session of allSessions) {
-    if (!session || !session.sessionId || !session.sessionName) {
-      continue
-    }
-    
-    if (sessionIds.has(session.sessionId)) {
-      continue
-    }
-    
-    // 加载消息数量
+          if (!session || !session.sessionId || !session.sessionName) {
+            continue
+          }
+          
+          if (sessionIds.has(session.sessionId)) {
+            continue
+          }
+          
+          // 加载消息数量
     const storageKey = `teacher-exercise-${session.questionId}`
-    let msgCount = 0
-    try {
-      const history = await asyncStorage.loadTeacherChatHistory(storageKey)
-      if (history && history.messages) {
-        msgCount = history.messages.length
-      }
-    } catch (error) {
-      console.warn('加载教师题目会话消息数量失败:', error)
-    }
-    
-    sessions.push({
-      ...session,
-      msgCount,
-      sessionType: 'exercise'
-    })
-    sessionIds.add(session.sessionId)
+          let msgCount = 0
+          try {
+            const history = await asyncStorage.loadTeacherChatHistory(storageKey)
+            if (history && history.messages) {
+              msgCount = history.messages.length
+            }
+          } catch (error) {
+            console.warn('加载教师题目会话消息数量失败:', error)
+          }
+          
+          sessions.push({
+            ...session,
+            msgCount,
+            sessionType: 'exercise'
+          })
+          sessionIds.add(session.sessionId)
   }
   
   sessions.sort((a, b) => b.createTime - a.createTime)
@@ -1270,7 +1270,7 @@ const manualSave = async () => {
       showMessage('无当前会话，无法保存', 'warning')
       return
     }
-    await teacherStore.saveChatHistory(true)
+    await teacherStore.saveChatHistory()
     await refreshStorageData()
     showMessage('手动保存成功', 'success')
   } catch (error) {

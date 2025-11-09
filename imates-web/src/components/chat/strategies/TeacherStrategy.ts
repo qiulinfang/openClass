@@ -43,15 +43,11 @@ export class TeacherStrategy implements ChatStrategy {
     // 注意：教师答疑不强制要求选择题目
     // 如果需要题目相关功能，可以在具体场景中检查
     
-    // 第1步：判断是否隐藏前缀
-    const hidePrefix = content.includes('我们开始吧')
-    
-    // 第2步：调用Store发送消息
+    // 调用Store发送消息
     // 如果有 imageData，sendMessage 会自动跳过创建用户消息（因为上游已手动插入）
     await this.teacherStore.sendMessage(
       content,
-      options.imageData,
-      hidePrefix
+      options.imageData
     )
   }
   
@@ -77,6 +73,34 @@ export class TeacherStrategy implements ChatStrategy {
   
   // 第8步：保存聊天历史
   async saveChatHistory(): Promise<void> {
-    await this.teacherStore.saveChatHistory(false)
+    await this.teacherStore.saveChatHistory()
+  }
+  
+  // 第9步：检查是否支持转发消息
+  canForwardMessage(): boolean {
+    return false // 老师对话不支持转发
+  }
+  
+  // 第10步：获取当前科目（用于转发）
+  getCurrentSubjectForForward(): 'biology' | 'math' | null {
+    return null // 老师对话不支持转发
+  }
+  
+  // 第11步：转发单条消息
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async forwardMessage(_message: ChatBubble, _options?: import('./ChatStrategy').ForwardOptions): Promise<import('./ChatStrategy').ForwardResult> {
+    return {
+      success: false,
+      error: '老师对话不支持转发消息',
+    }
+  }
+  
+  // 第12步：转发多条消息
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async forwardMessages(_messages: ChatBubble[], _options?: import('./ChatStrategy').ForwardOptions): Promise<import('./ChatStrategy').ForwardResult> {
+    return {
+      success: false,
+      error: '老师对话不支持转发消息',
+    }
   }
 }

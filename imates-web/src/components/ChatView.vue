@@ -131,7 +131,7 @@
 
     <!-- 底部提示文案 -->
     <div class="chat-footer-text">
-      与学伴共学,敢质疑、会判断，思维不设限!
+      与学伴共学，敢质疑、会判断，思维不设限!
     </div>
 
   </div>
@@ -147,7 +147,6 @@ import { useBetterScroll } from '../composables/useBetterScroll'
 
 // 状态管理和工具函数
 import { useQuestionStore } from '../stores/questionStore'
-import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
 import { useUserStore } from '../stores/userStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
 import { useAiGeneralChatStore } from '../stores/aiGeneralChatStore'
@@ -159,7 +158,6 @@ import { apiService } from '../services/api-service'
 import { androidBridge } from '../services/android-bridge'
 import { showMessage } from '../utils'
 import { getCurrentUserIdOrDefault } from '../utils/user/userId'
-import { Dialog } from 'quasar'
 
 // 子组件导入
 import ChatMessageComponent from './chat/ChatMessage.vue'
@@ -171,7 +169,6 @@ import type { ChatBubble } from '../types'
 import type { ChatMessageSession } from '../types'
 import type { ExerciseItem } from '../types'
 import { SessionType } from '../types'
-import type { TeacherSession } from '../stores/teacherGeneralChatStore'
 
 // 策略模式导入
 import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
@@ -181,7 +178,7 @@ import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
 // 使用内联类型定义的泛型形式，确保 Vue 编译器能正确提取所有 props（包括可选属性）
 // 这种方式比导入外部类型接口更可靠，因为 Vue 可以在编译时直接访问类型信息
 const props = withDefaults(defineProps<{
-  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher' | 'teacher-exercise'
+  type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
   currentQuestionId?: string
   sessionId?: string
   overrideQuestion?: ExerciseItem | null
@@ -190,17 +187,12 @@ const props = withDefaults(defineProps<{
   overrideQuestion: null,
 })
 
-// 监听 props.overrideQuestion 的变化，用于调试
-watch(() => props.overrideQuestion, (newVal, oldVal) => {
-  // 可以在这里添加调试逻辑
-}, { immediate: true, deep: true })
 
 // 定义组件事件 - 支持响应、切换、焦点、滚动等事件
 const emit = defineEmits<{
   response: [] // 消息发送完成事件
-  switchToTeacher: [{ messages: ChatBubble[]; currentQuestion: unknown }] // 切换到老师对话事件
+  switchToTeacher: [{ messages: ChatBubble[]; currentQuestion: unknown; additionalMessage?: string; forwardMode?: string; successCount?: number; sessionId?: string }] // 切换到老师对话事件
   focus: [] // 输入框获得焦点事件
-  scrollToQuestionAndSelect: [targetIndex: number] // 滚动到指定题目并选中事件
   'scroll-to-bottom': [] // 滚动到底部事件
   'open-teacher-dialog': [{ sessionId: string; message: ChatBubble }] // 打开老师对话框事件
 }>()
@@ -209,7 +201,6 @@ const emit = defineEmits<{
 // 全局状态管理
 const questionStore = useQuestionStore()
 const userStore = useUserStore()
-const knowledgeGraphStore = useKnowledgeGraphStore()
 
 // 场景Store
 const aiExerciseStore = useAiExerciseChatStore()
@@ -224,7 +215,7 @@ const getScenarioStore = () => {
     case 'ai-exercise': return aiExerciseStore
     case 'ai-general': return aiGeneralStore
     case 'ai-textbook': return aiTextbookStore
-    case 'teacher': return teacherStore
+    case 'teacher-general': return teacherStore
     case 'teacher-exercise': return teacherExerciseStore
     default: return aiGeneralStore
   }
@@ -410,7 +401,7 @@ const displayedMessages = ref<ChatBubble[]>([]) // 用于UI显示的本地消息
 watch(() => [props.type, props.sessionId] as const, ([newType, sessionId]) => {
   // 第1步：如果是教师对话且提供了sessionId，创建session信息
   let session = undefined
-  if (newType === 'teacher' && sessionId) {
+  if (newType === 'teacher-general' && sessionId) {
     // 从localStorage获取科目信息，默认为数学
     const userId = getCurrentUserIdOrDefault()
     const storeSubject = localStorage.getItem(`${userId}_currentTeacherSubject`) || 'MATH'
@@ -432,8 +423,8 @@ watch(() => [props.type, props.sessionId] as const, ([newType, sessionId]) => {
   }
   
   // 第2步：创建策略实例
-  // 如果是teacher类型但没有session，延迟创建策略（等待initializeTeacherSession完成）
-  if (newType === 'teacher' && !session) {
+  // 如果是teacher-general类型但没有session，延迟创建策略（等待initializeTeacherSession完成）
+  if (newType === 'teacher-general' && !session) {
     // 延迟创建策略，等待teacherSession初始化完成
     // 策略将在teacherSession的watch中创建
     return
@@ -446,11 +437,11 @@ watch(() => [props.type, props.sessionId] as const, ([newType, sessionId]) => {
 }, { immediate: true })
 
 /**
- * 监听teacherSession变化，当teacher类型且session初始化完成后创建策略
+ * 监听teacherSession变化，当teacher-general类型且session初始化完成后创建策略
  */
 watch(() => [props.type, teacherSession.value] as const, ([newType, session]) => {
-  // 只有在teacher类型且session存在时才创建或更新策略
-  if (newType === 'teacher' && session) {
+  // 只有在teacher-general类型且session存在时才创建或更新策略
+  if (newType === 'teacher-general' && session) {
     const sessionInfo = {
       sessionId: session.sessionId,
       sessionName: session.sessionName,
@@ -600,7 +591,7 @@ const placeholderText = computed(() => {
     return '向AI题目助手提问...'
   } else if (props.type === 'ai-textbook') {
     return '向AI教材助手提问...'
-  } else if (props.type === 'teacher') {
+  } else if (props.type === 'teacher-general') {
     return '向老师提问...'
   }
   return '向AI助手提问...'
@@ -770,8 +761,6 @@ const restoreChatViewHeight = () => {
   // 步骤3：执行ChatView高度恢复动画
   // 通过设置height为空字符串让ChatView恢复到原始高度，并应用过渡效果实现平滑的高度变化
   if (chatViewRef.value) {
-    const currentHeight = chatViewRef.value.offsetHeight
-    
     // 3.1 恢复ChatView原始高度（设置为空字符串让ChatView回到自然高度）
     chatViewRef.value.style.height = ''
     
@@ -810,7 +799,7 @@ const restoreChatViewHeight = () => {
 const initializeMessages = async () => {
   // 第1步：设置当前科目
   // 如果是老师对话模式，从localStorage读取科目（由MyProfileView设置）
-  if (props.type === 'teacher') {
+  if (props.type === 'teacher-general') {
     const userId = getCurrentUserIdOrDefault()
     const teacherSubject = localStorage.getItem(`${userId}_currentTeacherSubject`) || 'MATH'
     currentSubject.value = teacherSubject === 'BIOLOGY' ? 'biology' : 'math'
@@ -820,7 +809,7 @@ const initializeMessages = async () => {
   }
 
   // 第2步：如果是老师对话模式，需要初始化老师会话
-  if (props.type === 'teacher') {
+  if (props.type === 'teacher-general') {
     await initializeTeacherSession()
   }
 
@@ -1073,11 +1062,6 @@ const initializeTeacherExerciseSession = async () => {
   }
 }
 
-// 加载老师会话列表
-const loadTeacherSessions = (): TeacherSession[] => {
-  // 使用 store 的统一方法获取所有会话
-  return teacherStore.getAllSessions()
-}
 
 // 加载老师聊天历史
 // 作用：从API加载老师对话的历史消息记录（现在主要用于同步远程消息到本地存储）
@@ -1152,7 +1136,7 @@ const loadTeacherChatHistory = async () => {
   }
 }
 
-// 作用：发送用户消息，支持文本和文件附件，根据对话类型选择AI或老师
+// 作用：发送用户消息（策略模式）
 const sendMessage = async (attachedFile?: File) => {
   if ((!inputMessage.value.trim() && !attachedFile) || isLoading.value) {
     return
@@ -1195,7 +1179,7 @@ const sendMessage = async (attachedFile?: File) => {
 
   try {
     // 教师场景：采用乐观发送，预先添加文本消息（与图片消息保持一致）
-    if (props.type === 'teacher' && teacherSession.value) {
+    if (props.type === 'teacher-general' && teacherSession.value) {
       const userMessage: ChatBubble = {
         id: Date.now().toString(),
         content: messageContent,
@@ -1533,7 +1517,7 @@ const sendVoiceMessage = async (voiceInfo: {
   try {
     let sendResult: { success: boolean; message?: string }
 
-    if (props.type === 'teacher' && teacherSession.value) {
+    if (props.type === 'teacher-general' && teacherSession.value) {
       // 发送语音消息给老师 - 使用API服务
       const success = await apiService.sendVoiceMessageToTeacher(
         voiceInfo.filePath,
@@ -1602,7 +1586,7 @@ const onImageSelected = async (imageInfo: {
     // 发送图片消息到后端
     isLoading.value = true
     try {
-      if (props.type === 'teacher' && teacherSession.value) {
+      if (props.type === 'teacher-general' && teacherSession.value) {
         // 教师场景：采用乐观发送，预先添加消息（与AI场景保持一致）
         // 创建图片消息
         const imageMessage: ChatBubble = {
@@ -1704,419 +1688,46 @@ const handleMessageClick = (message: ChatBubble) => {
 }
 
 // ==================== 转发流程核心函数 ====================
+// 注意：转发功能已重构为策略模式，所有转发逻辑都在策略类和 ForwardMessageHelper 中实现
 
 /**
- * 转换消息类型，将角色类型转换为数据类型并添加前缀
- * 作用：将聊天消息转换为转发格式，清理LaTeX内容并添加角色前缀
- */
-const convertMessageForForwarding = (msg: ChatBubble) => {
-  
-  // 获取数据类型，默认为text
-  const dataType = msg.messageType || 'text'
-  const messageType = dataType.toUpperCase() // text -> TEXT, voice -> VOICE, image -> IMAGE
-  let messageContent = msg.content || ''
-
-  // 根据角色类型添加前缀
-  if (msg.type === 'user') {
-    messageContent = '[学生] ' + messageContent
-  } else if (msg.type === 'ai') {
-    messageContent = '[AI助手] ' + messageContent
-  }
-
-  const cleanedContent = messageContent
-    ? messageContent
-        .replace(/\$[^$]*\$/g, '') // 移除 $...$ 格式的LaTeX
-        .replace(/\\[a-zA-Z]+/g, '') // 移除 \command 格式的LaTeX命令
-        .replace(/[{}()[\]]/g, '') // 移除LaTeX括号
-        .replace(/\s+/g, ' ') // 合并多个空格
-        .trim()
-      : ''
-  
-  const result = {
-    id: msg.id,
-    type: messageType,
-    content: cleanedContent,
-    timestamp: '',
-  }
-  
-  return result
-}
-
-/**
- * 获取当前科目（根据不同场景使用不同的判断方式）
- * @returns 科目字符串 'biology' | 'math' | null
- */
-const getCurrentSubjectForForward = (): 'biology' | 'math' | null => {
-  switch (props.type) {
-    case 'ai-general':
-      // AI通用场景：返回 null，需要用户手动选择老师
-      return null
-    case 'ai-textbook':
-      // AI教材场景：使用知识图谱的 store 的科目状态字段
-      try {
-        const subject = knowledgeGraphStore.getCurrentSubjectLowercase()
-        return subject || null
-      } catch (error) {
-        console.error('[ChatView] ❌ 获取知识图谱科目失败:', error)
-        return null
-      }
-    case 'ai-exercise':
-      // AI题目场景：通过题目的科目字段进行判断
-      try {
-        const question = currentQuestion.value
-        if (question?.subject) {
-          // 将科目转换为小写格式
-          const subjectLower = question.subject.toLowerCase()
-          if (subjectLower === 'biology' || subjectLower === '生物') {
-            return 'biology'
-          } else if (subjectLower === 'math' || subjectLower === '数学') {
-            return 'math'
-          }
-        }
-        return null
-      } catch (error) {
-        console.error('[ChatView] ❌ 获取题目科目失败:', error)
-        return null
-      }
-    default:
-      return null
-  }
-}
-
-/**
- * 选择老师会话
- * 流程：1. 根据科目查找localStorage中对应老师的会话 2. 如果找到则使用，否则创建新会话
- * @param forwardMessages 如果提供，会在选择会话后转发这些消息
- * @returns 返回是否成功选择会话（如果提供forwardMessages，则返回是否转发成功）
- */
-const selectTeacherSessionAndForward = async (
-  forwardMessages?: ChatBubble[]
-): Promise<boolean> => {
-  try {
-    // 获取当前科目（根据不同场景使用不同的判断方式）
-    const subject = getCurrentSubjectForForward()
-    
-    // 如果是 AI 通用场景，需要显示对话框让用户手动选择老师类型
-    if (props.type === 'ai-general' && subject === null) {
-      console.log('[ChatView] 🔵 AI通用场景，需要用户手动选择老师类型')
-      
-      // 显示对话框让用户选择老师类型（科目）
-      return new Promise<boolean>((resolve) => {
-        Dialog.create({
-          title: '选择老师',
-          message: '请选择要转发的老师类型：',
-          options: {
-            type: 'radio',
-            model: '',
-            items: [
-              {
-                label: '生物老师',
-                value: 'biology',
-                color: 'green',
-              },
-              {
-                label: '数学老师',
-                value: 'math',
-                color: 'blue',
-              },
-            ],
-          },
-          cancel: {
-            label: '取消',
-            color: 'grey',
-            flat: true,
-          },
-          ok: {
-            label: '确定',
-            color: 'primary',
-            unelevated: true,
-          },
-          persistent: false,
-        }).onOk(async (selectedSubject: 'biology' | 'math') => {
-          // 用户选择了老师类型
-          // 1. 加载老师会话列表
-          const sessions = loadTeacherSessions()
-          
-          // 2. 查找该类型是否有会话
-          const existingSession = sessions.find(s => s.subject === selectedSubject)
-          
-          if (existingSession) {
-            // 3. 如果有会话，复用已有的
-            teacherSession.value = {
-              sessionId: existingSession.sessionId,
-              sessionName: existingSession.sessionName,
-              catalogId: 'CATEGORY_TEACHER_QA',
-              sessionType: existingSession.subject === 'biology' 
-                ? SessionType.USER_TALK_TEACHER_BIOLOGY 
-                : SessionType.USER_TALK_TEACHER_MATH,
-              createTime: existingSession.createTime,
-              updateTime: existingSession.createTime,
-              msgCount: 0,
-            }
-            teacherStore.setSession(existingSession)
-            await teacherStore.loadChatHistory(existingSession.sessionId)
-            
-            if (forwardMessages && forwardMessages.length > 0) {
-              const success = await forwardMessageToTeacher(forwardMessages)
-              resolve(success)
-            } else {
-              resolve(true)
-            }
-          } else {
-            // 4. 如果没有会话，创建新会话
-            // 4.1 初始化老师消息监听器
-            await teacherStore.initMessageReceiver()
-            
-            // 4.2 生成会话ID和名称
-            const subjectName = selectedSubject === 'biology' ? '生物' : '数学'
-            const aiSessionId = `teacher_general_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-            const aiSessionName = `${subjectName}`
-            
-            // 4.3 创建老师会话
-            const createdSession = teacherStore.createTeacherSession(
-              aiSessionId,
-              aiSessionName,
-              selectedSubject
-            )
-            
-            if (createdSession) {
-              teacherSession.value = {
-                sessionId: createdSession.sessionId,
-                sessionName: createdSession.sessionName,
-                catalogId: 'CATEGORY_TEACHER_QA',
-                sessionType: selectedSubject === 'biology' 
-                  ? SessionType.USER_TALK_TEACHER_BIOLOGY 
-                  : SessionType.USER_TALK_TEACHER_MATH,
-                createTime: createdSession.createTime,
-                updateTime: createdSession.createTime,
-                msgCount: 0,
-              }
-              teacherStore.setSession(createdSession)
-              await teacherStore.loadChatHistory(createdSession.sessionId)
-              await loadTeacherChatHistory()
-              
-              if (forwardMessages && forwardMessages.length > 0) {
-                const success = await forwardMessageToTeacher(forwardMessages)
-                resolve(success)
-              } else {
-                resolve(true)
-              }
-            } else {
-              resolve(false)
-            }
-          }
-        }).onCancel(() => {
-          // 用户取消了选择
-          resolve(false)
-        })
-      })
-    }
-    
-    // 如果科目为 null，无法确定科目，返回 false
-    if (subject === null) {
-      console.error('[ChatView] ❌ 无法确定科目，无法选择老师会话')
-      return false
-    }
-    
-    // 加载老师会话列表
-    const sessions = loadTeacherSessions()
-    
-    // 查找对应科目的会话（每个老师只维护一个会话）
-    const existingSession = sessions.find(s => s.subject === subject)
-    
-    if (existingSession) {
-      // 找到对应科目的会话，直接使用
-      // 设置选中的会话
-      teacherSession.value = {
-        sessionId: existingSession.sessionId,
-        sessionName: existingSession.sessionName,
-        catalogId: 'CATEGORY_TEACHER_QA',
-        sessionType: existingSession.subject === 'biology' 
-          ? SessionType.USER_TALK_TEACHER_BIOLOGY 
-          : SessionType.USER_TALK_TEACHER_MATH,
-        createTime: existingSession.createTime,
-        updateTime: existingSession.createTime,
-        msgCount: 0,
-      }
-      
-      // 设置到store
-      teacherStore.setSession(existingSession)
-      
-      // 加载该会话的历史消息
-      await teacherStore.loadChatHistory(existingSession.sessionId)
-      
-      // 如果提供了消息，转发消息
-      if (forwardMessages && forwardMessages.length > 0) {
-        const success = await forwardMessageToTeacher(forwardMessages)
-        return success
-      } else {
-        return true
-      }
-    } else {
-      // 没找到对应科目的会话，创建新会话
-      await initializeTeacherSession()
-      
-      if (teacherSession.value) {
-        if (forwardMessages && forwardMessages.length > 0) {
-          const success = await forwardMessageToTeacher(forwardMessages)
-          return success
-        } else {
-          return true
-        }
-      } else {
-        return false
-      }
-    }
-  } catch (error) {
-    console.error('[ChatView] ❌ selectTeacherSessionAndForward() - 错误:', error)
-    return false
-  }
-}
-
-/**
- * 处理单条消息转发（仅在AI通用、AI题目和AI教材页面触发）
- * 流程：1. 验证当前页面类型 2. 选择老师会话 3. 转发消息 4. 显示结果
- * 作用：处理AI对话中的单条消息转发到老师对话
+ * 处理单条消息转发（策略模式）
+ * 作用：使用策略模式处理AI对话中的单条消息转发到老师对话
  */
 const handleForwardMessage = async (message: ChatBubble) => {
-  console.log('[ChatView] 🔵 handleForwardMessage 开始执行')
-  console.log('[ChatView] 🔵 当前页面类型:', props.type)
-  console.log('[ChatView] 🔵 要转发的消息:', message)
-  
-  // 确保只在AI通用、AI题目和AI教材页面触发
-  if (props.type !== 'ai-general' && props.type !== 'ai-exercise' && props.type !== 'ai-textbook') {
+  // 检查策略是否支持转发
+  if (!chatStrategy.value?.canForwardMessage()) {
     console.warn('[ChatView] ⚠️ 当前页面类型不支持转发:', props.type)
     return
   }
 
   try {
-    console.log('[ChatView] 🔵 开始选择老师会话并转发消息')
-    // 选择老师会话并转发
-    const success = await selectTeacherSessionAndForward([message])
-    console.log('[ChatView] 🔵 selectTeacherSessionAndForward 返回结果:', success)
-
-    if (success) {
-      console.log('[ChatView] 🔵 转发成功，准备显示提示')
-      // AI题目对话页面不显示对话框，只显示简单提示
-      if (props.type === 'ai-exercise') {
-        console.log('[ChatView] 🔵 当前是 ai-exercise 类型，只显示简单提示，不显示对话框')
-        showMessage('转发成功', 'success')
-      } else {
-        console.log('[ChatView] 🔵 当前页面类型:', props.type, '，显示前往老师对话对话框')
-        // 转发成功后，询问用户是否前往老师对话
-        Dialog.create({
-          title: '转发成功',
-          message: '消息已成功转发给老师，是否前往老师对话查看？',
-          cancel: {
-            label: '留在当前会话',
-            color: 'grey-7',
-            flat: true,
-          },
-          ok: {
-            label: '前往老师对话',
-            color: 'primary',
-            unelevated: true,
-          },
-          persistent: false,
-        }).onOk(() => {
-          console.log('[ChatView] 🔵 用户点击了"前往老师对话"按钮')
-          console.log('[ChatView] 🔵 teacherSession.value:', teacherSession.value)
-          // 用户选择前往老师对话
-          if (teacherSession.value) {
-            console.log('[ChatView] 🔵 teacherSession 存在，sessionId:', teacherSession.value.sessionId)
-            console.log('[ChatView] 🔵 准备触发 open-teacher-dialog 事件')
-            emit('open-teacher-dialog', {
-              sessionId: teacherSession.value.sessionId,
-              message: message,
-            })
-            console.log('[ChatView] 🔵 open-teacher-dialog 事件已触发')
-          } else {
-            console.error('[ChatView] ❌ teacherSession.value 不存在，无法跳转到老师对话')
-            showMessage('无法获取老师会话信息，请重试', 'error')
-          }
-        }).onCancel(() => {
-          console.log('[ChatView] 🔵 用户点击了"留在当前会话"按钮')
-          // 用户选择留在当前会话
-          showMessage('转发成功，已留在当前会话', 'success')
-        })
-      }
-    } else {
-      console.error('[ChatView] ❌ 转发失败或用户取消')
-      // 用户取消时不显示错误消息
+    // 使用策略的转发方法
+    const result = await chatStrategy.value.forwardMessage(message, {
+      showDialog: props.type !== 'ai-exercise', // AI题目对话页面不显示对话框
+      onSuccess: async (result) => {
+        // 转发成功后的回调
+        if (result.sessionId) {
+          // 触发跳转到老师对话的事件
+          emit('open-teacher-dialog', {
+            sessionId: result.sessionId,
+            message: message,
+          })
+        }
+      },
+      onError: (error) => {
+        console.error('[ChatView] ❌ 转发失败:', error)
+        showMessage('转发失败: ' + error, 'error')
+      },
+    })
+    
+    if (!result.success) {
+      console.error('[ChatView] ❌ 转发失败:', result.error)
+      // 错误已经在 onError 回调中处理
     }
   } catch (error) {
     console.error('[ChatView] ❌ 转发消息失败 - 异常:', error)
-    console.error('[ChatView] ❌ 错误堆栈:', error instanceof Error ? error.stack : '无堆栈信息')
     showMessage('转发失败: ' + (error instanceof Error ? error.message : String(error)), 'error')
-  }
-}
-
-// 统一的转发函数
-const forwardMessageToTeacher = async (messages: ChatBubble[]) => {
-
-  
-  // 第1步：转换消息格式
-  const cleanedMessages = messages.map(convertMessageForForwarding)
-
-  // 第2步：序列化消息数据
-  let selectedMessagesData: string
-  try {
-    selectedMessagesData = JSON.stringify(cleanedMessages)
-  } catch (error) {
-    console.error('[ChatView] ❌ 序列化失败:', error)
-    return false
-  }
-  
-  // 第3步：验证会话ID
-  if (!teacherSession.value?.sessionId) {
-    console.error('[ChatView] ❌ teacherSession.value 或 sessionId 不存在')
-    return false
-  }
-  
-  const sessionId = teacherSession.value.sessionId
-  // 第4步：调用API转发
-  try {
-    const success = await apiService.forwardAiChatToTeacher(
-      selectedMessagesData,
-      sessionId,
-    )
-    if (success) {
-      const convertedMessages = messages.map((msg) => {
-        // 确定消息类型
-        let messageType: 'text' | 'voice' | 'image' = msg.messageType || 'text'
-        if (!messageType) {
-          // 如果没有 messageType，根据数据判断
-          if (msg.imageData?.filePath || msg.imageData?.base64DataUrl) {
-            messageType = 'image'
-          } else if (msg.voiceData?.filePath) {
-            messageType = 'voice'
-          } else {
-            messageType = 'text'
-          }
-        }
-        
-        return {
-          ...msg,
-          id: msg.id.startsWith('forwarded_') ? msg.id : 'forwarded_' + msg.id,
-          sender: 'user' as const,
-          type: 'user' as const,
-          messageType: messageType
-        }
-      })
-      
-      // 直接添加到老师消息存储并持久化
-      teacherStore.messages.push(...convertedMessages)
-      // 立即保存，避免防抖问题导致消息丢失
-      await teacherStore.saveChatHistory(true)
-    } else {
-      console.error('[ChatView] ❌ API返回 false，转发失败')
-    }
-    
-    return success
-  } catch (error) {
-    console.error('[ChatView] ❌ forwardMessageToTeacher 异常:', error)
-    console.error('[ChatView] ❌ 错误堆栈:', error instanceof Error ? error.stack : '无堆栈信息')
-    return false
   }
 }
 
@@ -2290,7 +1901,7 @@ const updateEditedMessage = async (newContent: string) => {
       await aiGeneralStore.saveChatHistory()
     } else if (props.type === 'ai-textbook') {
       await aiTextbookStore.saveChatHistory()
-    } else if (props.type === 'teacher') {
+    } else if (props.type === 'teacher-general') {
       await teacherStore.saveChatHistory()
     }
 
@@ -2372,127 +1983,63 @@ const selectAllMessages = () => {
 }
 
 /**
- * 处理多选消息转发（仅在AI通用、AI题目和AI教材页面触发）
- * 流程：1. 验证页面类型 2. 获取选中消息 3. 直接逐条转发
- * 作用：处理AI对话中的多条消息转发操作，直接逐条转发
+ * 处理多选消息转发（策略模式）
+ * 作用：使用策略模式处理AI对话中的多条消息转发操作
  */
 const forwardToTeacher = async (messageList?: ChatBubble[]) => {
-  // 确保只在AI通用、AI题目和AI教材页面触发
-  if (props.type !== 'ai-general' && props.type !== 'ai-exercise' && props.type !== 'ai-textbook') {
+  // 检查策略是否支持转发
+  if (!chatStrategy.value?.canForwardMessage()) {
     return
   }
 
-  // 流程1：获取要转发的消息列表
+  // 获取要转发的消息列表
   const selectedMessageList =
     messageList ||
     displayedMessages.value.filter((message) => selectedMessages.value.has(message.id))
   if (selectedMessageList.length === 0) return
 
-  // 流程2：直接逐条转发
+  // 退出选择模式
   if (isSelectionMode.value) {
     exitSelectionMode()
-    await forwardAsSeparateMessages(selectedMessageList, '')
-  } else {
-    // 兜底逻辑：单条消息直接转发
-    await handleForwardMessage(selectedMessageList[0])
-  }
-}
-
-/**
- * 逐条转发：一条一条发送（仅在AI通用、AI题目和AI教材页面触发）
- * 流程：1. 验证页面类型 2. 创建老师会话 3. 发送到后端 4. 切换页面
- * 作用：将多条消息逐条发送给老师
- */
-const forwardAsSeparateMessages = async (messages: ChatBubble[], additionalMessage: string) => {
-  // 确保只在AI通用、AI题目和AI教材页面触发
-  if (props.type !== 'ai-general' && props.type !== 'ai-exercise' && props.type !== 'ai-textbook') {
-    return
   }
 
+  // 使用策略转发消息
   try {
-    // 选择老师会话（不转发，仅选择）
-    const selected = await selectTeacherSessionAndForward()
-    if (!selected || !teacherSession.value) {
-      // 用户取消选择或会话不存在
-      return
-    }
-
-    // 逐条转发消息
-    let successCount = 0
-    for (const message of messages) {
-        const selectedMessagesData = JSON.stringify([convertMessageForForwarding(message)])
-
-        const success = await apiService.forwardAiChatToTeacher(
-          selectedMessagesData,
-          teacherSession.value!.sessionId,
-        )
-
-        if (success) {
-          successCount++
-        }
-      }
-
-      if (successCount > 0) {
-        // 转发成功后，将消息添加到老师消息存储并持久化
-        const convertedMessages = messages.map((msg) => ({
-          ...msg,
-          id: msg.id.startsWith('forwarded_') ? msg.id : 'forwarded_' + msg.id,
-          sender: 'user' as const,
-          type: 'user' as const,
-        }))
-
-        // 直接添加到老师消息存储
-        teacherStore.messages.push(...convertedMessages)
-        // 立即保存，避免防抖问题导致消息丢失
-        await teacherStore.saveChatHistory(true)
-
-        // AI题目对话页面不显示对话框，只显示简单提示
-        if (props.type === 'ai-exercise') {
-          showMessage(`转发成功，已转发 ${successCount} 条消息`, 'success')
-        } else {
-          // 转发成功后询问用户是否前往老师对话
-          Dialog.create({
-            title: '转发成功',
-            message: `已成功转发 ${successCount} 条消息给老师，是否前往老师对话查看？`,
-            cancel: {
-              label: '留在当前会话',
-              color: 'grey-7',
-              flat: true,
-            },
-            ok: {
-              label: '前往老师对话',
-              color: 'primary',
-              unelevated: true,
-            },
-            persistent: false,
-          }).onOk(() => {
-            console.log('[ChatView] 🔵 用户点击了批量转发的"前往老师对话"按钮')
-            console.log('[ChatView] 🔵 teacherSession.value:', teacherSession.value)
-            // 用户选择前往老师对话
-            const forwardData = {
-              messages: messages,
+    if (selectedMessageList.length === 1) {
+      // 单条消息转发
+      await handleForwardMessage(selectedMessageList[0])
+    } else {
+      // 多条消息转发
+      const result = await chatStrategy.value.forwardMessages(selectedMessageList, {
+        showDialog: props.type !== 'ai-exercise', // AI题目对话页面不显示对话框
+        onSuccess: async (result) => {
+          // 转发成功后的回调
+          if (result.sessionId) {
+            // 触发跳转到老师对话的事件
+            emit('switchToTeacher', {
+              messages: selectedMessageList,
               currentQuestion: currentQuestion.value,
-              additionalMessage: additionalMessage,
+              additionalMessage: '',
               forwardMode: 'separate',
-              successCount: successCount,
-              sessionId: teacherSession.value?.sessionId, // 添加会话ID
-            }
-            console.log('[ChatView] 🔵 forwardData:', forwardData)
-            console.log('[ChatView] 🔵 准备触发 switchToTeacher 事件')
-            emit('switchToTeacher', forwardData)
-            console.log('[ChatView] 🔵 switchToTeacher 事件已触发')
-          }).onCancel(() => {
-            console.log('[ChatView] 🔵 用户点击了批量转发的"留在当前会话"按钮')
-            // 用户选择留在当前会话
-            showMessage(`转发成功，已转发 ${successCount} 条消息`, 'success')
-          })
-        }
-      } else {
-        showMessage('转发失败，请重试', 'error')
+              successCount: result.successCount || selectedMessageList.length,
+              sessionId: result.sessionId,
+            })
+          }
+        },
+        onError: (error) => {
+          console.error('[ChatView] ❌ 批量转发失败:', error)
+          showMessage('转发失败: ' + error, 'error')
+        },
+      })
+      
+      if (!result.success) {
+        console.error('[ChatView] ❌ 批量转发失败:', result.error)
+        // 错误已经在 onError 回调中处理
       }
+    }
   } catch (error) {
-    console.error('[CHAT_DEBUG] ❌ 逐条转发失败:', error)
-    showMessage('转发失败', 'error')
+    console.error('[ChatView] ❌ 转发消息失败 - 异常:', error)
+    showMessage('转发失败: ' + (error instanceof Error ? error.message : String(error)), 'error')
   }
 }
 
@@ -2643,7 +2190,7 @@ onUnmounted(() => {
   // 1. 回调函数是全局的，应该在应用生命周期中保持存在
   // 2. 用户可能在 AI 会话和老师会话之间切换，不应该在切换时清理回调
   // 3. 清理应该只在 UnifiedChatDialog 完全关闭时进行（由 teacherGeneralChatStore.cleanupMessageReceiver 统一处理）
-  if (props.type === 'teacher') {
+  if (props.type === 'teacher-general') {
     try {
       // 清理 Android 原生监听器（这是 Android 端的资源清理，需要执行）
       if (typeof window !== 'undefined' && window.AndroidBridge?.cleanupTeacherMessageListener) {
@@ -2844,7 +2391,7 @@ watch(
   () => teacherStore.pendingImage,
   async (pendingImageData) => {
     // 第1步：检查是否为教师聊天场景
-    if (props.type !== 'teacher') {
+    if (props.type !== 'teacher-general') {
       return
     }
     
@@ -2879,7 +2426,7 @@ const executeQuestionSwitch = () => {
   }
 
   // 重置老师会话状态
-  if (props.type === 'teacher') {
+  if (props.type === 'teacher-general') {
     teacherSession.value = null
     aiSessionId.value = ''
   }
@@ -2904,7 +2451,7 @@ const executeQuestionSwitch = () => {
 const executeSubjectSwitch = () => {
 
   // 如果是老师对话模式，需要重新初始化会话
-  if (props.type === 'teacher') {
+  if (props.type === 'teacher-general') {
     teacherSession.value = null
     initializeMessages()
   }
