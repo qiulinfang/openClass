@@ -34,7 +34,6 @@
             </q-btn>
             <!-- 新增对话按钮 -->
             <q-btn
-              v-if="shouldShowNewChatButton"
               flat
               round
               dense
@@ -203,16 +202,6 @@ const canCreateNewChat = computed(() => {
   }
 })
 
-// 判断是否应该显示新增按钮
-const shouldShowNewChatButton = computed(() => {
-  if (isTeacherCategory.value) {
-    // 老师类型：只有当有可选的老师时才显示
-    return teacherChatStore.getAvailableTeachers().length > 0
-  } else {
-    // AI类型：始终显示（但可能被禁用）
-    return true
-  }
-})
 
 // ==================== AI聊天相关方法 ====================
 

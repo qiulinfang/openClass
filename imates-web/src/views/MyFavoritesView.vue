@@ -223,45 +223,38 @@ const handleQaCardClick = async (session: AiGeneralSession) => {
     initialTeacherSubject.value = chatType.subject
   }
   
-  // 打开对话框
-  showUnifiedChatDialog.value = true
-  
-  // 等待对话框打开并且会话列表加载完成
-  await nextTick()
-  // 再等待一个 tick，确保 UnifiedChatDialog 的 watch 已经执行
-  await nextTick()
-  
-  if (unifiedChatDialogRef.value) {
-    if (chatType.type === 'teacher-general') {
-      // SessionTree 会直接从 store 获取最新数据，无需手动加载
-      await nextTick()
-      // 直接调用 store 的 setSession，UnifiedChatDialog 会通过 watch 自动同步 UI 状态
-      const teacherStore = useTeacherGeneralChatStore()
-      const teacherSession = teacherStore.getSession(session.sessionId)
-      if (teacherSession) {
-        // 设置 localStorage
-        const { getCurrentUserIdOrDefault } = await import('../utils/user/userId')
-        const userId = getCurrentUserIdOrDefault()
-        const storeSubject = teacherSession.subject === 'biology' ? 'BIOLOGY' : 'MATH'
-        localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
-        // 调用 store 的 setSession
-        teacherStore.setSession(teacherSession)
-      }
+  // 在打开对话框之前，先设置会话和加载历史（确保 SessionTree 初始化时能正确识别）
+  if (chatType.type === 'teacher-general') {
+    const teacherStore = useTeacherGeneralChatStore()
+    const teacherSession = teacherStore.getSession(session.sessionId)
+    if (teacherSession) {
+      // 设置 localStorage
+      const { getCurrentUserIdOrDefault } = await import('../utils/user/userId')
+      const userId = getCurrentUserIdOrDefault()
+      const storeSubject = teacherSession.subject === 'biology' ? 'BIOLOGY' : 'MATH'
+      localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
+      // 调用 store 的 setSession（设置当前会话）
+      teacherStore.setSession(teacherSession)
+      // 加载聊天历史（确保会话数据完整）
+      await teacherStore.loadChatHistory(teacherSession.sessionId)
+    }
+  } else {
+    // AI 聊天：在打开对话框之前先切换到对应的会话
+    const { useAiGeneralChatStore } = await import('@/stores/aiGeneralChatStore')
+    const aiGeneralStore = useAiGeneralChatStore()
+    await aiGeneralStore.loadSessions()
+    
+    // 切换到对应的会话
+    const foundSession = aiGeneralStore.sessions.find((s: AiGeneralSession) => s.sessionId === session.sessionId)
+    if (foundSession) {
+      await aiGeneralStore.switchSession(session.sessionId)
     } else {
-      // AI 聊天：切换到对应的会话
-      const { useAiGeneralChatStore } = await import('@/stores/aiGeneralChatStore')
-      const aiGeneralStore = useAiGeneralChatStore()
-      await aiGeneralStore.loadSessions()
-      
-      // 切换到对应的会话
-      const foundSession = aiGeneralStore.sessions.find((s: AiGeneralSession) => s.sessionId === session.sessionId)
-      if (foundSession) {
-        await aiGeneralStore.switchSession(session.sessionId)
-      } else {
-        console.warn('未找到对应的 AI 会话:', session.sessionId)
-      }
+      console.warn('未找到对应的 AI 会话:', session.sessionId)
     }
   }
+  
+  // 打开对话框（此时会话已经设置好，SessionTree 初始化时会正确识别）
+  showUnifiedChatDialog.value = true
 }
 
 // 处理删除会话

@@ -1,17 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@android:color/white">
+    android:background="#000000">
 
-    <!-- 主WebView容器 -->
+    <!-- 相机预览层（底层） -->
+    <androidx.camera.view.PreviewView
+        android:id="@+id/camera_previewer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#000000"
+        android:visibility="gone" />
+
+    <!-- 主WebView容器（上层，透明背景） -->
     <WebView
         android:id="@+id/main_webview"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_weight="1"
-        android:background="@android:color/white" />
+        android:background="@android:color/transparent" />
 
     <!-- 可选的加载指示器 -->
     <ProgressBar
@@ -23,4 +29,4 @@
         android:visibility="gone"
         style="?android:attr/progressBarStyle" />
 
-</LinearLayout>
+</FrameLayout>

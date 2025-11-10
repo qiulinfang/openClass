@@ -152,6 +152,15 @@
             </intent-filter>
         </activity>
 
+        <!-- 空白页面 Activity -->
+        <!-- 用于从 WebView 跳转过来的空白页面 -->
+        <activity
+            android:name=".ui.activities.BlankActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.IMatesApp.FullScreen" />
+
         <!-- ============================================ -->
         <!-- Service声明 (Services) -->
         <!-- ============================================ -->

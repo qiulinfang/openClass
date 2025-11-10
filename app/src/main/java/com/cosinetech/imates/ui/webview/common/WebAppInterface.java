@@ -44,7 +44,6 @@ import org.loka.screensharekit.EncodeBuilder;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.H264IFrameCache;
 import com.cosinetech.imates.screencasting.FFmpegPipeStreamer;
-import com.cosinetech.imates.screencasting.CameraStreamManager;
 
 import java.io.File;
 import java.io.IOException;
@@ -1420,6 +1419,22 @@ public class WebAppInterface {
     }
 
     /**
+     * 启动空白页面
+     * 从 WebView 跳转到空白 Android 页面
+     */
+    @JavascriptInterface
+    public void openBlankPage() {
+        try {
+            Intent intent = new Intent(mContext, com.cosinetech.imates.ui.activities.BlankActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            mContext.startActivity(intent);
+            Log.d(TAG, "已启动空白页面");
+        } catch (Exception e) {
+            Log.e(TAG, "启动空白页面失败", e);
+        }
+    }
+
+    /**
      * 接收来自 JavaScript 的日志消息
      * 用于在 Android 日志中查看 Vue 的 console.log 输出
      */
@@ -1792,99 +1807,6 @@ public class WebAppInterface {
                     Toast.makeText(mContext, "需要相机权限才能拍照", Toast.LENGTH_SHORT).show();
                 });
             }
-        }
-    }
-
-    /**
-     * 启动相机实时流传输
-     * @param width 视频宽度，默认1920
-     * @param height 视频高度，默认1080
-     * @param frameRate 帧率，默认30
-     * @param bitrate 码率（bps），默认4000000
-     * @return JSON响应，包含是否成功和端口信息
-     */
-    @JavascriptInterface
-    public String startCameraStream(int width, int height, int frameRate, int bitrate) {
-        try {
-            // 检查相机权限
-            if (!checkCameraPermission()) {
-                if (cameraPermissionLauncher != null && mContext instanceof Activity) {
-                    ((Activity) mContext).runOnUiThread(() -> {
-                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA);
-                    });
-                    return createResponse(false, "需要相机权限，正在请求", null);
-                } else {
-                    return createResponse(false, "需要相机权限，请前往设置中授予", null);
-                }
-            }
-            
-            // 使用默认值如果参数无效，创建final变量供lambda使用
-            final int finalWidth = width <= 0 ? 1920 : width;
-            final int finalHeight = height <= 0 ? 1080 : height;
-            final int finalFrameRate = frameRate <= 0 ? 30 : frameRate;
-            final int finalBitrate = bitrate <= 0 ? 4000000 : bitrate;
-            
-            // 启动相机流
-            CameraStreamManager cameraManager = CameraStreamManager.getInstance(mContext);
-            if (mContext instanceof Activity) {
-                ((Activity) mContext).runOnUiThread(() -> {
-                    cameraManager.startStream(finalWidth, finalHeight, finalFrameRate, finalBitrate);
-                });
-            } else {
-                cameraManager.startStream(finalWidth, finalHeight, finalFrameRate, finalBitrate);
-            }
-            
-            // 返回HTTP端口信息
-            int httpPort = 20252; // CameraStreamHttpServer.HTTP_PORT
-            String result = String.format("{\"success\":true,\"port\":%d,\"httpPort\":%d}", 
-                com.cosinetech.imates.screencasting.UdpForwarderManager.STREAMING_LOCAL_PORT + 1,
-                httpPort);
-            Log.d(TAG, "Camera stream started, HTTP port: " + httpPort);
-            return result;
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to start camera stream", e);
-            return createResponse(false, "启动相机流失败: " + e.getMessage(), null);
-        }
-    }
-    
-    /**
-     * 停止相机实时流传输
-     * @return JSON响应
-     */
-    @JavascriptInterface
-    public String stopCameraStream() {
-        try {
-            CameraStreamManager cameraManager = CameraStreamManager.getInstance(mContext);
-            if (mContext instanceof Activity) {
-                ((Activity) mContext).runOnUiThread(() -> {
-                    cameraManager.stopStream();
-                });
-            } else {
-                cameraManager.stopStream();
-            }
-            
-            Log.d(TAG, "Camera stream stopped");
-            return createResponse(true, "相机流已停止", null);
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to stop camera stream", e);
-            return createResponse(false, "停止相机流失败: " + e.getMessage(), null);
-        }
-    }
-    
-    /**
-     * 检查相机流是否正在运行
-     * @return JSON响应，包含运行状态
-     */
-    @JavascriptInterface
-    public String isCameraStreamRunning() {
-        try {
-            CameraStreamManager cameraManager = CameraStreamManager.getInstance(mContext);
-            boolean isRunning = cameraManager.isStreaming();
-            String result = String.format("{\"success\":true,\"isRunning\":%s}", isRunning);
-            return result;
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to check camera stream status", e);
-            return createResponse(false, "检查相机流状态失败: " + e.getMessage(), null);
         }
     }
 
@@ -2935,6 +2857,71 @@ public class WebAppInterface {
             }
         } else {
             Log.w(TAG, "🎯 [ANDROID] WebView实例为空，无法执行JavaScript");
+        }
+    }
+    
+    // ========== 原生相机预览控制方法 ==========
+    
+    /**
+     * 启动原生相机预览
+     * 通过 JS 桥接调用，启动底层 PreviewView 显示相机画面
+     */
+    @JavascriptInterface
+    public void startNativeCameraPreview() {
+        Log.d(TAG, "收到启动原生相机预览请求");
+        if (mContext instanceof com.cosinetech.imates.ui.webview.MainWebViewActivity) {
+            ((Activity) mContext).runOnUiThread(() -> {
+                ((com.cosinetech.imates.ui.webview.MainWebViewActivity) mContext).startCameraPreview();
+            });
+        } else {
+            Log.w(TAG, "当前Activity不是MainWebViewActivity，无法启动相机预览");
+        }
+    }
+    
+    /**
+     * 停止原生相机预览
+     * 通过 JS 桥接调用，停止底层 PreviewView 的相机画面
+     */
+    @JavascriptInterface
+    public void stopNativeCameraPreview() {
+        Log.d(TAG, "收到停止原生相机预览请求");
+        if (mContext instanceof com.cosinetech.imates.ui.webview.MainWebViewActivity) {
+            ((Activity) mContext).runOnUiThread(() -> {
+                ((com.cosinetech.imates.ui.webview.MainWebViewActivity) mContext).stopCameraPreview();
+            });
+        } else {
+            Log.w(TAG, "当前Activity不是MainWebViewActivity，无法停止相机预览");
+        }
+    }
+    
+    /**
+     * 使用原生相机拍照
+     * 通过 JS 桥接调用，使用底层相机进行拍照
+     * @param callbackId 回调ID，用于匹配Web端的回调函数
+     */
+    @JavascriptInterface
+    public void capturePhotoFromNative(String callbackId) {
+        Log.d(TAG, "收到原生相机拍照请求，callbackId: " + callbackId);
+        if (mContext instanceof com.cosinetech.imates.ui.webview.MainWebViewActivity) {
+            ((Activity) mContext).runOnUiThread(() -> {
+                ((com.cosinetech.imates.ui.webview.MainWebViewActivity) mContext).capturePhoto(callbackId);
+            });
+        } else {
+            Log.w(TAG, "当前Activity不是MainWebViewActivity，无法使用原生相机拍照");
+            // 回调 Web 端：拍照失败
+            String js = String.format(
+                "javascript:(function() {" +
+                "  try {" +
+                "    if (window.onNativeCameraCaptureFailed) {" +
+                "      window.onNativeCameraCaptureFailed('%s', '当前环境不支持原生相机');" +
+                "    }" +
+                "  } catch(e) {" +
+                "    console.error('拍照回调失败:', e);" +
+                "  }" +
+                "})();",
+                callbackId != null ? callbackId.replace("'", "\\'") : "unknown"
+            );
+            executeJavaScript(js);
         }
     }
 }

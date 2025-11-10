@@ -510,16 +510,16 @@ export class AiExerciseStrategy implements ChatStrategy {
         })
         
         // AI题目策略固定使用 exercise 类型的 store
-        const teacherExerciseStore = useTeacherExerciseChatStore()
-        // 确保 currentSession 指向正确的会话，避免会话列表重复存储
-        const targetSession = teacherExerciseStore.getSession(sessionId)
-        if (targetSession) {
-          teacherExerciseStore.setSession(targetSession)
-        }
-        // 直接添加到老师题目消息存储并持久化
-        teacherExerciseStore.messages.push(...convertedMessages)
+          const teacherExerciseStore = useTeacherExerciseChatStore()
+          // 确保 currentSession 指向正确的会话，避免会话列表重复存储
+          const targetSession = teacherExerciseStore.getSession(sessionId)
+          if (targetSession) {
+            teacherExerciseStore.setSession(targetSession)
+          }
+          // 直接添加到老师题目消息存储并持久化
+          teacherExerciseStore.messages.push(...convertedMessages)
         console.log('[AiExerciseStrategy] 🔍 [存储流程] 保存聊天历史完成', teacherExerciseStore.messages)
-        // 立即保存，避免防抖问题导致消息丢失（saveChatHistory 内部会加载本地消息）
+          // 立即保存，避免防抖问题导致消息丢失（saveChatHistory 内部会加载本地消息）
         await teacherExerciseStore.saveChatHistory()
       }
       
@@ -568,23 +568,23 @@ export class AiExerciseStrategy implements ChatStrategy {
         const uniqueId = generateUniqueId(`forwarded_${originalId}`)
         
         return {
-          ...msg,
+        ...msg,
           id: uniqueId,
-          sender: 'user' as const,
-          type: 'user' as const,
+        sender: 'user' as const,
+        type: 'user' as const,
         }
       })
       
       // AI题目策略固定使用 exercise 类型的 store
-      const teacherExerciseStore = useTeacherExerciseChatStore()
-      // 确保 currentSession 指向正确的会话，避免会话列表重复存储
-      const targetSession = teacherExerciseStore.getSession(sessionId)
-      if (targetSession) {
-        teacherExerciseStore.setSession(targetSession)
-      }
-      // 直接添加到老师题目消息存储
-      teacherExerciseStore.messages.push(...convertedMessages)
-      // 立即保存，避免防抖问题导致消息丢失（saveChatHistory 内部会加载本地消息）
+        const teacherExerciseStore = useTeacherExerciseChatStore()
+        // 确保 currentSession 指向正确的会话，避免会话列表重复存储
+        const targetSession = teacherExerciseStore.getSession(sessionId)
+        if (targetSession) {
+          teacherExerciseStore.setSession(targetSession)
+        }
+        // 直接添加到老师题目消息存储
+        teacherExerciseStore.messages.push(...convertedMessages)
+        // 立即保存，避免防抖问题导致消息丢失（saveChatHistory 内部会加载本地消息）
       await teacherExerciseStore.saveChatHistory()
     }
     

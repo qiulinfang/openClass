@@ -80,6 +80,7 @@ declare global {
       syncUserInfo(userId: string, token: string, password: string): JSONString
       exitActivity(): void
       notifyWebAppReady(): void
+      openBlankPage(): void
 
       // ========== 题目相关功能 ==========
       getExerciseList(subject: string): JSONString
@@ -101,6 +102,11 @@ declare global {
       // ========== 拍照搜题功能 ==========
       startPhotoSearch(subject: string): void
 
+      // ========== 原生相机预览功能 ==========
+      startNativeCameraPreview(): void
+      stopNativeCameraPreview(): void
+      capturePhotoFromNative(callbackId: string): void
+
       // ========== 语音相关功能 ==========
       startVoiceRecording(): string
       stopVoiceRecording(): string
@@ -119,11 +125,6 @@ declare global {
       deleteImageFile(filePath: string): string
       loadImageFileToBase64(filePath: string): string
       checkImageResult(): string
-
-      // ========== 相机流相关功能 ==========
-      startCameraStream(width: number, height: number, frameRate: number, bitrate: number): string
-      stopCameraStream(): string
-      isCameraStreamRunning(): string
 
       // ========== 老师对话功能 ==========
       createTeacherChatSession(aiSessionId: string, aiSessionName: string, subject: string): string
@@ -162,6 +163,8 @@ declare global {
     onVoicePlaybackCompleted?(filePath: string): void
     onImageSelected?(imageInfo: unknown): void
     onImageCaptured?(imageInfo: unknown): void
+    onNativeCameraCaptureSuccess?(callbackId: string, base64Data: string): void
+    onNativeCameraCaptureFailed?(callbackId: string, error: string): void
     onTeacherMessage?(message: unknown): void
     onTeacherMessageReceived?(messageData: unknown): void
     onStreamResponse?(requestId: string, chunk: string, isComplete: boolean): void

@@ -191,51 +191,91 @@ public class ApiGateWayService {
     public static void recognizeImage(String url, Bitmap bitmap, String token, ExerciseRecognitionCallback callback) {
         Runnable task = () -> {
             try {
+                // 检查 bitmap 是否有效
+                if (bitmap == null || bitmap.isRecycled()) {
+                    if (callback != null) {
+                        callback.onFailure("图片无效", 0);
+                    }
+                    return;
+                }
+
+                // 压缩图片
                 ByteArrayOutputStream stream = new ByteArrayOutputStream();
-                if(!bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)) {
+                boolean compressSuccess = bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream);
+                if (!compressSuccess) {
                     if (callback != null) {
                         callback.onFailure("压缩图片失败", 0);
                     }
+                    return;
                 }
 
-                OkHttpClient client = createClient();
+                byte[] imageBytes = stream.toByteArray();
+                if (imageBytes == null || imageBytes.length == 0) {
+                    if (callback != null) {
+                        callback.onFailure("图片数据为空", 0);
+                    }
+                    return;
+                }
 
+                android.util.Log.d("ApiGateWayService", "图片压缩成功 - 尺寸: " + bitmap.getWidth() + "x" + bitmap.getHeight() + ", 压缩后大小: " + imageBytes.length + " bytes");
+
+                OkHttpClient client = createClient();
 
                 // 构建请求体
                 RequestBody requestBody = new MultipartBody.Builder()
                         .setType(MultipartBody.FORM)
                         .addFormDataPart("imgFile", "default.jpg",
-                                RequestBody.create(stream.toByteArray(), MediaType.parse("image/jpeg")))
+                                RequestBody.create(imageBytes, MediaType.parse("image/jpeg")))
                         .build();
 
                 // 构建请求
                 Request request = new Request.Builder()
                         .url(url)
-                        .addHeader("token", token)
+                        .addHeader("Token", token)
                         .post(requestBody)
                         .build();
 
+                android.util.Log.d("ApiGateWayService", "发送图片识别请求 - URL: " + url);
+
                 // 发送请求
-                try (Response response = client. newCall(request).execute()) {
+                try (Response response = client.newCall(request).execute()) {
+                    android.util.Log.d("ApiGateWayService", "收到响应 - 状态码: " + response.code());
+                    
                     if (response.isSuccessful()) {
                         if (callback != null && response.body() != null) {
-                            QuestionImageResponse q = QuestionImageResponse.fromJson(response.body().string());
-                            if(!q.data.item.questionsConfirm.isEmpty()) {
+                            String responseBody = response.body().string();
+                            android.util.Log.d("ApiGateWayService", "响应内容: " + responseBody);
+                            
+                            QuestionImageResponse q = QuestionImageResponse.fromJson(responseBody);
+                            
+                            // 检查响应是否成功
+                            if (q.success && q.data != null && q.data.item != null && !q.data.item.questionsConfirm.isEmpty()) {
+                                android.util.Log.d("ApiGateWayService", "识别成功 - 题目数量: " + q.data.item.questionsConfirm.size());
                                 callback.onSuccess(q.data.item.questionsConfirm.get(0));
                             } else {
-                                callback.onFailure(response.message(), response.code());
+                                String errorMsg = q.message != null && !q.message.isEmpty() ? q.message : "未识别到题目";
+                                android.util.Log.w("ApiGateWayService", "识别失败 - " + errorMsg + ", code: " + q.code);
+                                callback.onFailure(errorMsg, q.code != 0 ? q.code : response.code());
+                            }
+                        } else {
+                            android.util.Log.w("ApiGateWayService", "响应体为空");
+                            if (callback != null) {
+                                callback.onFailure("服务器响应为空", response.code());
                             }
                         }
                     } else {
+                        String errorMsg = response.message();
+                        android.util.Log.e("ApiGateWayService", "HTTP请求失败 - 状态码: " + response.code() + ", 错误: " + errorMsg);
                         if (callback != null) {
-                            callback.onFailure(response.message(), response.code());
+                            callback.onFailure(errorMsg != null ? errorMsg : "请求失败", response.code());
                         }
                         fileterFailedResponse(response);
                     }
                 }
             } catch (Exception e) {
-                if(callback != null) {
-                    callback.onFailure(e.getMessage(), 1);
+                android.util.Log.e("ApiGateWayService", "图片识别异常", e);
+                if (callback != null) {
+                    callback.onFailure(e.getMessage() != null ? e.getMessage() : "未知错误", 1);
                 }
             }
         };

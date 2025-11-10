@@ -3,6 +3,8 @@ package com.cosinetech.imates.ui.webview;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.Handler;
@@ -16,7 +18,17 @@ import android.webkit.WebViewClient;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureException;
+import androidx.camera.core.Preview;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.view.PreviewView;
+import androidx.core.content.ContextCompat;
+
+import com.google.common.util.concurrent.ListenableFuture;
 
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
@@ -47,6 +59,14 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
     private ActivityResultLauncher<Intent> imageCaptureLauncher;
     private ActivityResultLauncher<String> cameraPermissionLauncher;
     private ActivityResultLauncher<String> audioPermissionLauncher;
+    
+    // 相机相关
+    private PreviewView cameraPreviewView;
+    private ImageCapture imageCapture;
+    private ProcessCameraProvider cameraProvider;
+    private final java.util.concurrent.Executor cameraExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private boolean isCameraActive = false;
+    private boolean pendingCameraStart = false;
     
     // 页面URL配置
     private String webAppUrl = "file:///android_asset/webapp/index.html"; // 默认加载Vue.js整体应用
@@ -166,6 +186,10 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
         // 使用统一的WebView配置
         WebViewConfig.configureWebView(webView, this);
         
+        // 配置 WebView 为透明背景，让底层相机预览可见
+        webView.setBackgroundColor(Color.TRANSPARENT);
+        webView.setLayerType(WebView.LAYER_TYPE_HARDWARE, null); // 硬件加速
+        
         // 禁用长按弹出右键菜单
         webView.setLongClickable(false);
         webView.setOnLongClickListener(v -> true);
@@ -174,6 +198,17 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
         // 隐藏滚动条
         webView.setVerticalScrollBarEnabled(false);
         webView.setHorizontalScrollBarEnabled(false);
+        
+        // 初始化相机预览 View
+        cameraPreviewView = findViewById(R.id.camera_previewer);
+        if (cameraPreviewView == null) {
+            Log.e(TAG, "⚠️ 警告：无法找到相机预览视图 camera_previewer");
+        } else {
+            Log.d(TAG, "✅ 相机预览视图初始化成功");
+            // 设置 PreviewView 为 COMPATIBLE 模式（使用 TextureView），确保预览可以显示在 WebView 下方
+            cameraPreviewView.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
+            Log.d(TAG, "✅ PreviewView 已设置为 COMPATIBLE 模式");
+        }
         
         // 创建并设置WebAppInterface
         webAppInterface = new WebAppInterface(this);
@@ -357,6 +392,11 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
                 // 通知WebAppInterface权限请求结果
                 if (webAppInterface != null) {
                     webAppInterface.onCameraPermissionResult(granted);
+                }
+                // 如果权限授予，且相机预览已请求启动，则启动相机
+                if (granted && pendingCameraStart) {
+                    startCameraPreview();
+                    pendingCameraStart = false;
                 }
             }
         );
@@ -737,12 +777,230 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        // 停止相机预览
+        stopCameraPreview();
         // 清理更新检查定时器
         mCheckUpdateHandler.removeCallbacksAndMessages(null);
         if (webView != null) {
             webView.destroy();
         }
         Log.d(TAG, "MainWebViewActivity onDestroy 完成");
+    }
+    
+    // ========== 相机预览相关方法 ==========
+    
+    /**
+     * 启动相机预览（通过 JS 桥接调用）
+     */
+    public void startCameraPreview() {
+        if (isCameraActive) {
+            Log.d(TAG, "相机预览已启动，跳过");
+            return;
+        }
+        
+        // 检查权限
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) 
+            != PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, "相机权限未授予，请求权限");
+            pendingCameraStart = true;
+            cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA);
+            return;
+        }
+        
+        // 显示 PreviewView
+        runOnUiThread(() -> {
+            if (cameraPreviewView != null) {
+                cameraPreviewView.setVisibility(View.VISIBLE);
+                Log.d(TAG, "✅ PreviewView 已设置为可见");
+            } else {
+                Log.e(TAG, "❌ PreviewView 为 null，无法显示相机预览");
+            }
+        });
+        
+        // 启动相机
+        ListenableFuture<ProcessCameraProvider> cameraProviderFuture = 
+            ProcessCameraProvider.getInstance(this);
+        
+        cameraProviderFuture.addListener(() -> {
+            try {
+                cameraProvider = cameraProviderFuture.get();
+                if (cameraPreviewView == null) {
+                    Log.e(TAG, "❌ 无法绑定相机预览：PreviewView 为 null");
+                    return;
+                }
+                bindPreview(cameraProvider);
+                isCameraActive = true;
+                Log.d(TAG, "✅ 相机预览启动成功，PreviewView 可见性: " + 
+                    (cameraPreviewView.getVisibility() == View.VISIBLE ? "VISIBLE" : "GONE"));
+            } catch (java.util.concurrent.ExecutionException | InterruptedException e) {
+                Log.e(TAG, "❌ 启动相机失败", e);
+                runOnUiThread(() -> {
+                    if (cameraPreviewView != null) {
+                        cameraPreviewView.setVisibility(View.GONE);
+                    }
+                });
+            }
+        }, ContextCompat.getMainExecutor(this));
+    }
+    
+    /**
+     * 停止相机预览
+     */
+    public void stopCameraPreview() {
+        if (!isCameraActive) {
+            return;
+        }
+        
+        runOnUiThread(() -> {
+            if (cameraPreviewView != null) {
+                cameraPreviewView.setVisibility(View.GONE);
+            }
+        });
+        
+        if (cameraProvider != null) {
+            cameraProvider.unbindAll();
+            cameraProvider = null;
+        }
+        imageCapture = null;
+        isCameraActive = false;
+        Log.d(TAG, "相机预览已停止");
+    }
+    
+    /**
+     * 绑定相机预览
+     */
+    private void bindPreview(@NonNull ProcessCameraProvider cameraProvider) {
+        if (cameraPreviewView == null) {
+            Log.e(TAG, "❌ bindPreview: PreviewView 为 null");
+            return;
+        }
+        
+        Log.d(TAG, "开始绑定相机预览，PreviewView ID: " + cameraPreviewView.getId());
+        
+        Preview preview = new Preview.Builder().build();
+        CameraSelector cameraSelector = new CameraSelector.Builder()
+            .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+            .build();
+        
+        imageCapture = new ImageCapture.Builder().build();
+        preview.setSurfaceProvider(cameraPreviewView.getSurfaceProvider());
+        
+        cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture);
+        
+        Log.d(TAG, "✅ 相机预览已绑定到 PreviewView");
+    }
+    
+    /**
+     * 拍照（通过 JS 桥接调用）
+     * @param callbackId 回调ID，用于匹配Web端的回调
+     */
+    public void capturePhoto(String callbackId) {
+        if (imageCapture == null) {
+            // 回调 Web 端：拍照失败
+            String js = String.format(
+                "javascript:(function() {" +
+                "  try {" +
+                "    if (window.onNativeCameraCaptureFailed) {" +
+                "      window.onNativeCameraCaptureFailed('%s', '相机未初始化');" +
+                "    }" +
+                "  } catch(e) {" +
+                "    console.error('拍照回调失败:', e);" +
+                "  }" +
+                "})();",
+                callbackId.replace("'", "\\'")
+            );
+            webView.evaluateJavascript(js, null);
+            return;
+        }
+        
+        try {
+            java.io.File photoFile = java.io.File.createTempFile("photo_", ".jpg", getCacheDir());
+            ImageCapture.OutputFileOptions outputOptions = 
+                new ImageCapture.OutputFileOptions.Builder(photoFile).build();
+            
+            imageCapture.takePicture(outputOptions, cameraExecutor, 
+                new ImageCapture.OnImageSavedCallback() {
+                    @Override
+                    public void onImageSaved(@NonNull ImageCapture.OutputFileResults results) {
+                        // 将图片转换为 Base64
+                        String base64 = encodeImageToBase64(photoFile);
+                        runOnUiThread(() -> {
+                            // 回调 Web 端：拍照成功
+                            String js = String.format(
+                                "javascript:(function() {" +
+                                "  try {" +
+                                "    if (window.onNativeCameraCaptureSuccess) {" +
+                                "      window.onNativeCameraCaptureSuccess('%s', '%s');" +
+                                "    }" +
+                                "  } catch(e) {" +
+                                "    console.error('拍照回调失败:', e);" +
+                                "  }" +
+                                "})();",
+                                callbackId.replace("'", "\\'"),
+                                base64.replace("'", "\\'")
+                            );
+                            webView.evaluateJavascript(js, null);
+                            Log.d(TAG, "拍照成功，已回调Web端");
+                        });
+                    }
+                    
+                    @Override
+                    public void onError(@NonNull ImageCaptureException exception) {
+                        runOnUiThread(() -> {
+                            String errorMsg = exception.getMessage() != null ? 
+                                exception.getMessage() : "拍照失败";
+                            String js = String.format(
+                                "javascript:(function() {" +
+                                "  try {" +
+                                "    if (window.onNativeCameraCaptureFailed) {" +
+                                "      window.onNativeCameraCaptureFailed('%s', '%s');" +
+                                "    }" +
+                                "  } catch(e) {" +
+                                "    console.error('拍照回调失败:', e);" +
+                                "  }" +
+                                "})();",
+                                callbackId.replace("'", "\\'"),
+                                errorMsg.replace("'", "\\'")
+                            );
+                            webView.evaluateJavascript(js, null);
+                            Log.e(TAG, "拍照失败", exception);
+                        });
+                    }
+                });
+        } catch (Exception e) {
+            String errorMsg = e.getMessage() != null ? e.getMessage() : "拍照异常";
+            String js = String.format(
+                "javascript:(function() {" +
+                "  try {" +
+                "    if (window.onNativeCameraCaptureFailed) {" +
+                "      window.onNativeCameraCaptureFailed('%s', '%s');" +
+                "    }" +
+                "  } catch(e) {" +
+                "    console.error('拍照回调失败:', e);" +
+                "  }" +
+                "})();",
+                callbackId.replace("'", "\\'"),
+                errorMsg.replace("'", "\\'")
+            );
+            webView.evaluateJavascript(js, null);
+            Log.e(TAG, "拍照异常", e);
+        }
+    }
+    
+    /**
+     * 将图片文件编码为 Base64 字符串
+     */
+    private String encodeImageToBase64(java.io.File imageFile) {
+        try {
+            java.io.FileInputStream inputStream = new java.io.FileInputStream(imageFile);
+            byte[] bytes = new byte[(int) imageFile.length()];
+            inputStream.read(bytes);
+            inputStream.close();
+            return android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP);
+        } catch (Exception e) {
+            Log.e(TAG, "图片编码失败", e);
+            return "";
+        }
     }
 
     @Override

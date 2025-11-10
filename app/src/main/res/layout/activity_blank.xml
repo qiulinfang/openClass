@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <!-- 相机预览 -->
+    <androidx.camera.view.PreviewView
+        android:id="@+id/camera_previewer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#000000" />
+
+    <!-- 图片裁剪视图 -->
+    <com.canhub.cropper.CropImageView
+        xmlns:custom="http://schemas.android.com/apk/res-auto"
+        android:id="@+id/crop_img_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#000000"
+        android:visibility="gone"
+        custom:cropGuidelines="on"
+        custom:cropShape="rectangle"
+        custom:cropBorderLineColor="@android:color/white"
+        custom:cropGuidelinesColor="@android:color/white"
+        custom:cropBorderLineThickness="2dp" />
+
+    <!-- 左上角返回按钮 -->
+    <ImageButton
+        android:id="@+id/btn_back"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_margin="16dp"
+        android:background="@android:drawable/ic_menu_revert"
+        android:backgroundTint="#FFFFFF"
+        android:backgroundTintMode="src_atop"
+        android:contentDescription="返回"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- 左侧学科选择面板 -->
+    <LinearLayout
+        android:id="@+id/subject_selector_panel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#848483"
+        android:padding="8dp"
+        android:layout_marginStart="20dp"
+        android:visibility="visible"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <TextView
+            android:id="@+id/btn_subject_math"
+            android:layout_width="100dp"
+            android:layout_height="wrap_content"
+            android:padding="12dp"
+            android:text="搜数学"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:gravity="center"
+            android:background="@android:color/transparent"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/btn_subject_biology"
+            android:layout_width="100dp"
+            android:layout_height="wrap_content"
+            android:padding="12dp"
+            android:text="搜生物"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:gravity="center"
+            android:background="@android:color/transparent"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
+
+    <!-- 右侧操作按钮面板（相机预览时显示） -->
+    <LinearLayout
+        android:id="@+id/action_buttons_panel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginEnd="20dp"
+        android:visibility="visible"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <ImageButton
+            android:id="@+id/btn_gallery"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginBottom="16dp"
+            android:background="@android:drawable/ic_menu_gallery"
+            android:backgroundTint="#FFFFFF"
+            android:backgroundTintMode="src_atop"
+            android:contentDescription="相册"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <ImageButton
+            android:id="@+id/btn_capture"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:background="@android:drawable/ic_menu_camera"
+            android:backgroundTint="#FFFFFF"
+            android:backgroundTintMode="src_atop"
+            android:contentDescription="拍照"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
+
+    <!-- 框选模式下的操作按钮 -->
+    <LinearLayout
+        android:id="@+id/crop_actions_panel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="40dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <ImageButton
+            android:id="@+id/btn_retake"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginEnd="16dp"
+            android:background="@android:drawable/ic_menu_revert"
+            android:backgroundTint="#FFFFFF"
+            android:backgroundTintMode="src_atop"
+            android:contentDescription="重拍"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <ImageButton
+            android:id="@+id/btn_search"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:background="@android:drawable/ic_menu_search"
+            android:backgroundTint="#FFFFFF"
+            android:backgroundTintMode="src_atop"
+            android:contentDescription="搜索"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
+
+    <!-- 提示信息 -->
+    <TextView
+        android:id="@+id/hint_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="拍照搜题前，记得先选对应学科啦！"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:padding="12dp"
+        android:background="#7a55ff"
+        android:visibility="gone"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+    <!-- 抽屉：结果展示和聊天界面（使用 WebView） -->
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
+        android:id="@+id/drawer_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:background="#80000000">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/drawer_content"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:background="#FFFFFF"
+            android:layout_gravity="bottom"
+            app:layout_constraintHeight_percent="0.9">
+
+            <!-- 整个抽屉内容使用 WebView -->
+            <WebView
+                android:id="@+id/drawer_webview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+    <!-- 加载指示器 -->
+    <ProgressBar
+        android:id="@+id/loading_indicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

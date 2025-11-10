@@ -1,7 +1,7 @@
 <template>
   <div class="session-tree">
     <!-- 顶部标题栏 -->
-    <div v-if="showHeader" class="tree-header">
+    <div class="tree-header">
       <div class="header-center">
         <q-input
           v-model="searchKeyword"
@@ -1036,8 +1036,21 @@ const switchTeacherSession = async (sessionId: string, subject: 'biology' | 'mat
 const initializeSessions = async () => {
   // 加载AI会话列表
   await aiGeneralStore.loadSessions()
-  // 根据当前选中的会话自动判断分类
-  // 优先检查是否有当前AI会话
+  
+  // 优先检查是否有当前会话（无论是AI还是教师），如果有，选中它
+  // 这样可以确保从收藏页点击的会话能正确选中
+  const teacherSession = teacherChatStore.currentSession
+  if (teacherSession?.sessionId) {
+    // 如果有当前教师会话，优先选中它
+    const allTeacherSessions = teacherChatStore.getAllSessions()
+    const session = allTeacherSessions.find(s => s.sessionId === teacherSession.sessionId)
+    if (session && (session.subject === 'biology' || session.subject === 'math')) {
+      await switchTeacherSession(session.sessionId, session.subject)
+      return
+    }
+  }
+  
+  // 检查是否有当前AI会话
   if (aiGeneralStore.currentSession?.sessionId) {
     // updateSelectedNode 内部会更新 selectedSessionId 和 selectedNodeId
     updateSelectedNode(aiGeneralStore.currentSession.sessionId)
@@ -1053,14 +1066,7 @@ const initializeSessions = async () => {
   } else {
     // 检查是否有教师会话
     const allTeacherSessions = teacherChatStore.getAllSessions()
-    if (teacherChatStore.currentSession?.sessionId && allTeacherSessions.length > 0) {
-      // 如果有当前教师会话，选中对应的教师会话
-      // switchTeacherSession 会触发 watch，watch 会自动调用 updateSelectedNode
-      const session = allTeacherSessions.find(s => s.sessionId === teacherChatStore.currentSession?.sessionId)
-      if (session && (session.subject === 'biology' || session.subject === 'math')) {
-        await switchTeacherSession(session.sessionId, session.subject)
-      }
-    } else if (allTeacherSessions.length > 0) {
+    if (allTeacherSessions.length > 0) {
       // 如果有教师会话，选中第一个
       const firstTeacherSession = allTeacherSessions[0]
       if (firstTeacherSession.subject === 'biology' || firstTeacherSession.subject === 'math') {

@@ -315,11 +315,12 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import QuestionList from './QuestionList.vue'
-import ImagePicker from './chat/ImagePicker.vue'
-import ChatView from './ChatView.vue'
-import PhotoSearchInput from './PhotoSearchInput.vue'
-import PhotoSearchDebugPanel from './debug/PhotoSearchDebugPanel.vue'
+import { useRoute, useRouter } from 'vue-router'
+import QuestionList from '@/components/QuestionList.vue'
+import ImagePicker from '@/components/chat/ImagePicker.vue'
+import ChatView from '@/components/ChatView.vue'
+import PhotoSearchInput from '@/components/PhotoSearchInput.vue'
+import PhotoSearchDebugPanel from '@/components/debug/PhotoSearchDebugPanel.vue'
 import { apiService } from '@/services/api-service'
 import { ImagePickerAdapterFactory } from '@/adapters/ImagePickerAdapterFactory'
 import type { IImagePickerAdapter } from '@/adapters/IImagePickerAdapter'
@@ -327,19 +328,17 @@ import { showMessage } from '@/utils'
 import type { ExerciseItem } from '@/types'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
 
-interface Props {
-  subject?: string
+const route = useRoute()
+const router = useRouter()
+
+// 从路由 query 参数获取 subject
+const getSubjectFromRoute = (): string => {
+  const subject = route.query.subject
+  if (typeof subject === 'string' && (subject === 'math' || subject === 'biology')) {
+    return subject
+  }
+  return 'math'
 }
-
-const props = withDefaults(defineProps<Props>(), {
-  subject: 'math',
-})
-
-const emit = defineEmits<{
-  close: []
-  retake: []
-  'question-selected': [question: ExerciseItem]
-}>()
 
 const adapter: IImagePickerAdapter = ImagePickerAdapterFactory.getAdapter()
 const { renderMessageContent } = useMessageRenderer()
@@ -355,7 +354,7 @@ const logFlow = (action: string, data?: Record<string, unknown>) => {
     action,
     ...data,
   }
-  console.log(`[PhotoSearchDialog] ${action}`, logData)
+  console.log(`[PhotoSearchView] ${action}`, logData)
 }
 
 // 检测当前环境（使用适配器工厂统一判断）
@@ -367,7 +366,7 @@ const hasAndroidBridge = computed(() => {
 })
 
 // 状态管理
-const selectedSubject = ref<string>(props.subject || '')
+const selectedSubject = ref<string>(getSubjectFromRoute())
 const showCameraPreview = ref(true)
 const showCropView = ref(false)
 const showResultView = ref(false)
@@ -1612,8 +1611,6 @@ const handleRetake = () => {
     showCameraPreview: showCameraPreview.value,
     showCropView: showCropView.value,
   })
-
-  emit('retake')
 }
 
 // 处理搜索
@@ -1773,7 +1770,8 @@ const getCroppedImage = (): Promise<File | null> => {
 
 // 处理题目选中
 const handleQuestionSelected = (question: ExerciseItem) => {
-  emit('question-selected', question)
+  // 题目选中后可以在这里处理，比如跳转到题目详情页
+  logFlow('题目已选中', { questionId: question.id })
 }
 
 // 处理关键词搜索
@@ -1880,10 +1878,10 @@ const handleCloseDrawer = () => {
 
 // 处理关闭
 const handleClose = () => {
-  logFlow('关闭组件')
+  logFlow('关闭页面')
   cleanup()
-  emit('close')
-  logFlow('组件已关闭')
+  router.back()
+  logFlow('页面已关闭')
 }
 
 // 恢复状态（不再需要恢复原始题目列表，因为我们没有修改全局 questionStore）
@@ -1941,15 +1939,16 @@ const onChatInputBlur = () => {
 
 // 组件挂载时初始化
 const initialize = () => {
-  logFlow('组件初始化开始', {
-    subject: props.subject,
+  const subject = getSubjectFromRoute()
+  logFlow('页面初始化开始', {
+    subject,
     isAndroid: isAndroid.value,
     hasAndroidBridge: hasAndroidBridge.value,
   })
-  selectedSubject.value = props.subject || ''
+  selectedSubject.value = subject
   // 所有环境都启动相机预览
   startCamera()
-  logFlow('组件初始化完成', {
+  logFlow('页面初始化完成', {
     selectedSubject: selectedSubject.value,
     showCameraPreview: showCameraPreview.value,
   })
@@ -1987,11 +1986,11 @@ const cleanup = () => {
   logFlow('组件清理完成')
 }
 
-// 监听 subject 变化
+// 监听路由 query 中的 subject 变化
 watch(
-  () => props.subject,
+  () => route.query.subject,
   (newSubject) => {
-    if (newSubject) {
+    if (typeof newSubject === 'string' && (newSubject === 'math' || newSubject === 'biology')) {
       selectedSubject.value = newSubject
     }
   },
@@ -2000,13 +1999,13 @@ watch(
 
 // 组件挂载时初始化
 onMounted(() => {
-  logFlow('组件挂载')
+  logFlow('页面挂载')
   initialize()
 })
 
 // 组件卸载时清理
 onUnmounted(() => {
-  logFlow('组件卸载')
+  logFlow('页面卸载')
   cleanup()
 })
 </script>
@@ -2020,7 +2019,7 @@ onUnmounted(() => {
   bottom: 0;
   width: 100vw;
   height: 100vh;
-  background: #000;
+  background: transparent;
   z-index: 10000;
   overflow: hidden;
 }
@@ -2052,7 +2051,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   position: relative;
-  background: #000;
+  background: transparent;
 
   // 保持黑色背景，不再设置透明背景
 }

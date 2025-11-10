@@ -139,6 +139,16 @@
           <img :src="photoSearchIcon" alt="拍照搜题" class="toolbar-icon" />
           <q-tooltip>拍照搜题</q-tooltip>
         </q-btn>
+        <q-btn
+          flat
+          round
+          dense
+          class="toolbar-icon-btn"
+          @click="handleOpenBlankPage"
+        >
+          <q-icon name="open_in_new" size="24px" color="white" />
+          <q-tooltip>打开空白页面</q-tooltip>
+        </q-btn>
       </div>
 
       <!-- 圆形知识图谱容器 -->
@@ -266,13 +276,6 @@
       @refresh="handleLearningStatusRefresh"
     />
 
-    <!-- PhotoSearchDialog 组件 -->
-    <PhotoSearchDialog
-      v-model="showPhotoSearchDialog"
-      :subject="currentSubjectForPhotoSearch"
-      @retake="handlePhotoSearchRetake"
-      @question-selected="handlePhotoSearchQuestionSelected"
-    />
   </div>
 </template>
 
@@ -293,7 +296,6 @@ import LearningView from './LearningView.vue'
 import KnowledgeGraphDebugPanel from '../components/debug/KnowledgeGraphDebugPanel.vue'
 import type { KnowledgeGraphDebugParams } from '../components/debug/KnowledgeGraphDebugPanel.vue'
 import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
-import PhotoSearchDialog from '../components/PhotoSearchDialog.vue'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
 import { useBetterScroll } from '../composables/useBetterScroll'
 import { getCurrentUserIdOrDefault } from '../utils/user/userId'
@@ -340,9 +342,6 @@ const questionStore = useQuestionStore()
 // 第4步：添加搜索相关的响应式数据
 const searchQuery = ref('')
 const showNodeSearch = ref(false) // 控制搜索框显示/隐藏
-
-// 拍照搜题相关状态
-const showPhotoSearchDialog = ref(false)
 
 // 当前科目（用于拍照搜题）
 const currentSubjectForPhotoSearch = computed(() => {
@@ -2424,22 +2423,47 @@ const toggleNodeSearch = () => {
 
 // 拍照搜题处理
 const handlePhotoSearch = () => {
-  // 直接弹出 PhotoSearchDialog
-  showPhotoSearchDialog.value = true
+  // 统一使用路由跳转到 PhotoSearchView（包括 Android 环境）
+  const subject = currentSubjectForPhotoSearch.value || 'math'
+  router.push({
+    path: '/app/photo-search',
+    query: { subject }
+  })
 }
 
 // 处理拍照搜题重新选择图片
 const handlePhotoSearchRetake = () => {
-  // 直接重新打开 PhotoSearchDialog（内部会自动重置状态）
-  showPhotoSearchDialog.value = true
+  // 统一使用路由跳转到 PhotoSearchView（包括 Android 环境）
+  const subject = currentSubjectForPhotoSearch.value || 'math'
+  router.push({
+    path: '/app/photo-search',
+    query: { subject }
+  })
 }
 
-// 处理拍照搜题选中题目
-const handlePhotoSearchQuestionSelected = () => {
-  // 题目已通过 QuestionList 的 question-selected 事件自动选中并持久化
-  // 这里可以添加额外的处理逻辑，比如关闭对话框
-  showPhotoSearchDialog.value = false
-  showMessage('题目已添加到列表', 'success')
+// 处理打开空白页面
+const handleOpenBlankPage = () => {
+  // 第1步：检查 AndroidBridge 是否可用
+  if (typeof window !== 'undefined' && window.AndroidBridge) {
+    try {
+      // 第2步：调用 Android 原生方法打开空白页面
+      // 使用类型断言避免 TypeScript 类型检查错误
+      const bridge = window.AndroidBridge as typeof window.AndroidBridge & { openBlankPage?: () => void }
+      if (bridge.openBlankPage) {
+        bridge.openBlankPage()
+      } else {
+        console.warn('openBlankPage 方法不可用')
+        showMessage('当前环境不支持此功能', 'warning')
+      }
+    } catch (error) {
+      console.error('打开空白页面失败:', error)
+      showMessage('打开空白页面失败', 'error')
+    }
+  } else {
+    // 非 Android 环境或 AndroidBridge 不可用
+    console.warn('AndroidBridge 不可用，无法打开空白页面')
+    showMessage('当前环境不支持此功能', 'warning')
+  }
 }
 
 // 第7步：处理搜索结果点击

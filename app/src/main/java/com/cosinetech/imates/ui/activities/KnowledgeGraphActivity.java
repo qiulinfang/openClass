@@ -22,7 +22,6 @@ import android.widget.Toast;
 import com.cosinetech.imates.ApplicationModelShared;
 import com.cosinetech.imates.R;
 import com.cosinetech.imates.appenv.AppEnvConfig;
-import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.ScreenCastingManager;
 import com.cosinetech.imates.screencasting.UdpForwarderManager;
 import com.cosinetech.imates.ui.adapters.TextbookVersionSpinnerAdapter;

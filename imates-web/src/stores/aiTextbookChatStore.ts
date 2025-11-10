@@ -339,19 +339,19 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       return
     }
     
-    try {
+      try {
       // 构建存储键
-      const storageKey = `ai-textbook-${resourceId.value}`
-      
+        const storageKey = `ai-textbook-${resourceId.value}`
+        
       // 保存到IndexedDB
-      await asyncStorage.saveChatHistory(storageKey, {
-        questionId: storageKey,
-        messages: messages.value,
-        lastUpdated: Date.now(),
-        chatResponseTimes: chatResponseTimes.value
-      })
-    } catch (error) {
-      console.error('保存聊天历史失败:', error)
+        await asyncStorage.saveChatHistory(storageKey, {
+          questionId: storageKey,
+          messages: messages.value,
+          lastUpdated: Date.now(),
+          chatResponseTimes: chatResponseTimes.value
+        })
+      } catch (error) {
+        console.error('保存聊天历史失败:', error)
     }
   }
   
