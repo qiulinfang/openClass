@@ -2,7 +2,7 @@
   <div class="photo-search-fullscreen">
     <!-- 左上角返回按钮 -->
     <q-btn flat round dense icon="arrow_back" class="back-btn" @click="handleClose" />
-    
+
     <!-- 调试面板切换按钮（仅开发环境显示） -->
     <q-btn
       v-if="isDev"
@@ -14,7 +14,7 @@
       :color="showDebugPanel ? 'primary' : 'grey'"
       @click="showDebugPanel = !showDebugPanel"
     />
-    
+
     <!-- 调试面板（仅开发环境显示） -->
     <PhotoSearchDebugPanel
       v-if="isDev && showDebugPanel"
@@ -79,7 +79,6 @@
           @mousemove="handleMouseMove"
           @mouseup="endCrop"
           @mouseleave="handleMouseLeave"
-          @wheel="handleWheel"
           @touchstart="handleTouchStart"
           @touchmove="handleTouchMove"
           @touchend="handleTouchEnd"
@@ -209,6 +208,51 @@
       </div>
     </div>
 
+    <!-- 框选内容临时面板（仅开发环境显示） -->
+    <Transition name="crop-preview-panel">
+      <div
+        v-if="isDev && showCropView && cropRect && cropPreviewImage && showCropPreviewPanel"
+        class="crop-preview-panel"
+      >
+        <div class="crop-preview-header">
+          <span class="crop-preview-title">框选预览</span>
+          <q-btn
+            flat
+            round
+            dense
+            icon="close"
+            size="sm"
+            class="crop-preview-close-btn"
+            @click="closeCropPreviewPanel"
+          />
+        </div>
+        <div class="crop-preview-content">
+          <div class="crop-preview-image-wrapper">
+            <img :src="cropPreviewImage" alt="框选预览" class="crop-preview-image" />
+          </div>
+          <!-- 框选预览信息 -->
+          <div class="crop-preview-info">
+            <div class="info-item">
+              <span class="info-label">位置:</span>
+              <span class="info-value"
+                >({{ Math.round(cropRect.x) }}, {{ Math.round(cropRect.y) }})</span
+              >
+            </div>
+            <div class="info-item">
+              <span class="info-label">尺寸:</span>
+              <span class="info-value"
+                >{{ Math.round(cropRect.width) }} × {{ Math.round(cropRect.height) }}</span
+              >
+            </div>
+            <div class="info-item">
+              <span class="info-label">面积:</span>
+              <span class="info-value">{{ Math.round(cropRect.width * cropRect.height) }} px²</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <!-- 提示信息（拍照搜题前，记得先选对应学科啦！） -->
     <div class="hint-overlay" v-if="!showCropView && !showResultView && !selectedSubject">
       <div class="hint-text">拍照搜题前，记得先选对应学科啦！</div>
@@ -222,67 +266,90 @@
       <div v-if="showDrawer" class="photo-qa-drawer" @click.self="handleCloseDrawer">
         <div class="drawer-content" @click.stop>
           <!-- 识别图片区域 -->
-          <div class="drawer-image-section">
-            <div class="image-tabs">
-              <div
-                class="tab-item"
-                :class="{ active: activeTab === 'photo' }"
-                @click="activeTab = 'photo'"
-              >
-                拍照搜题
-              </div>
-              <div
-                class="tab-item"
-                :class="{ active: activeTab === 'keyword' }"
-                @click="activeTab = 'keyword'"
-              >
-                关键词搜题
-              </div>
+          <!-- 图片标签页 -->
+          <div class="image-tabs">
+            <div
+              class="tab-item"
+              :class="{ active: activeTab === 'photo' }"
+              @click="activeTab = 'photo'"
+            >
+              拍照搜题
             </div>
+            <div
+              class="tab-item"
+              :class="{ active: activeTab === 'keyword' }"
+              @click="activeTab = 'keyword'"
+            >
+              关键词搜题
+            </div>
+          </div>
 
-            <!-- 拍照搜题内容 -->
-            <div v-if="activeTab === 'photo'" class="recognized-problem">
+          <!-- 拍照搜题内容 -->
+          <div
+            v-if="activeTab === 'photo'"
+            class="photo-result-wrapper"
+            :style="{ height: photoResultHeight + 'px' }"
+          >
+            <div
+              ref="photoResultRef"
+              class="recognized-problem"
+            >
               <div
                 class="problem-text"
                 v-if="photoQuestionData"
                 v-html="renderQuestionContent(photoQuestionData)"
               ></div>
             </div>
-
-            <!-- 关键词搜题内容 -->
-            <div v-if="activeTab === 'keyword'" class="keyword-search-container">
-              <div class="keyword-input-wrapper">
-                <q-input
-                  v-model="keywordText"
-                  type="textarea"
-                  class="keyword-input"
-                  placeholder="可输入关键字进行精确搜题:&#10;输入题目的关键词,空格或逗号分隔多个关键词"
-                  :rows="4"
-                  outlined
-                  autogrow
-                  @keydown.ctrl.enter="handleKeywordSearch"
-                  @keydown.meta.enter="handleKeywordSearch"
-                />
-                <q-btn
-                  round
-                  class="keyword-search-btn"
-                  color="primary"
-                  icon="search"
-                  @click="handleKeywordSearch"
-                  :loading="isKeywordSearching"
-                  :disable="!keywordText.trim()"
-                />
-              </div>
-              <!-- 关键词搜索结果展示 -->
-              <div
-                v-if="keywordQuestionData && activeTab === 'keyword'"
-                class="keyword-search-result"
-              >
-                <div class="problem-text" v-html="renderQuestionContent(keywordQuestionData)"></div>
-              </div>
-            </div>
+            <div
+              class="resize-handle resize-handle-photo"
+              @mousedown="startResizePhoto"
+              @touchstart="startResizePhoto"
+            ></div>
           </div>
-          <!-- ChatView 区域 -->
+
+          <!-- 关键词搜题内容 -->
+          <div v-if="activeTab === 'keyword'" class="keyword-search-container" :style="{ height: keywordInputHeight + 'px' }">
+            <textarea
+              ref="keywordInputRef"
+              v-model="keywordText"
+              class="keyword-input"
+              placeholder="可输入关键字进行精确搜题:&#10;输入题目的关键词,空格或逗号分隔多个关键词"
+              rows="4"
+              @keydown.ctrl.enter="handleKeywordSearch"
+              @keydown.meta.enter="handleKeywordSearch"
+            ></textarea>
+            <div
+              class="resize-handle resize-handle-input"
+              @mousedown="startResizeInput"
+              @touchstart="startResizeInput"
+            ></div>
+            <q-btn
+              round
+              class="keyword-search-btn"
+              color="primary"
+              icon="search"
+              @click="handleKeywordSearch"
+              :loading="isKeywordSearching"
+              :disable="!keywordText.trim()"
+            />
+          </div>
+          <!-- 关键词搜索结果展示 -->
+          <div
+            v-if="keywordQuestionData && activeTab === 'keyword'"
+            ref="keywordResultRef"
+            class="keyword-result-wrapper"
+            :style="{ height: keywordResultHeight + 'px' }"
+          >
+            <div class="keyword-search-result">
+              <div class="problem-text" v-html="renderQuestionContent(keywordQuestionData)"></div>
+            </div>
+            <div
+              class="resize-handle resize-handle-result"
+              @mousedown="startResizeResult"
+              @touchstart="startResizeResult"
+            ></div>
+          </div>
+          <!-- ChatView 区域（与拍照/关键词内容处于同一层级） -->
           <div class="drawer-chat-section">
             <ChatView
               v-if="currentQuestionData"
@@ -382,6 +449,21 @@ const activeTab = ref<'photo' | 'keyword'>('photo') // 标签页状态
 const keywordText = ref<string>('') // 关键词输入
 const isKeywordSearching = ref(false) // 关键词搜索状态
 
+// 关键词输入框和结果区域的高度调整
+const keywordInputRef = ref<HTMLTextAreaElement | null>(null)
+const keywordResultRef = ref<HTMLDivElement | null>(null)
+const keywordInputHeight = ref(110) // 初始高度
+const keywordResultHeight = ref(120) // 初始高度
+const isResizingInput = ref(false)
+const isResizingResult = ref(false)
+const resizeStartY = ref(0)
+const resizeStartHeight = ref(0)
+
+// 拍照搜题内容的高度调整
+const photoResultRef = ref<HTMLDivElement | null>(null)
+const photoResultHeight = ref(200) // 初始高度（与样式中的固定高度一致）
+const isResizingPhoto = ref(false)
+
 // ChatView 相关状态
 const chatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
 const chatInputMessage = ref<string>('')
@@ -415,23 +497,12 @@ const dragOffset = ref({ x: 0, y: 0 })
 const resizeStartPos = ref({ x: 0, y: 0, rect: { x: 0, y: 0, width: 0, height: 0 } })
 const RESIZE_HANDLE_SIZE = 10 // 调整手柄的检测区域大小
 
-// 缩放和平移相关
-const imageScale = ref(1) // 图片缩放比例
-const imageOffsetX = ref(0) // 图片X偏移
-const imageOffsetY = ref(0) // 图片Y偏移
-const isPanning = ref(false) // 是否正在平移图片
-const panStartPos = ref({ x: 0, y: 0 }) // 平移起始位置
-const panStartOffset = ref({ x: 0, y: 0 }) // 平移起始偏移
-const MIN_SCALE = 0.5 // 最小缩放比例
-const MAX_SCALE = 5 // 最大缩放比例
-const SCALE_STEP = 0.1 // 缩放步长
-
-// 触摸缩放相关
-const touchDistance = ref(0) // 双指距离
-const touchCenter = ref({ x: 0, y: 0 }) // 双指中心点
-const isPinching = ref(false) // 是否正在捏合
-const pinchStartScale = ref(1) // 捏合开始时的缩放比例
-const pinchStartOffset = ref({ x: 0, y: 0 }) // 捏合开始时的偏移
+// 缩放和平移相关（已禁用缩放功能，保留变量用于兼容性）
+const imageScale = ref(1) // 图片缩放比例（固定为1，不支持缩放）
+const imageOffsetX = ref(0) // 图片X偏移（固定为0，不支持平移）
+const imageOffsetY = ref(0) // 图片Y偏移（固定为0，不支持平移）
+const isPanning = ref(false) // 是否正在平移图片（已禁用，始终为false）
+const isPinching = ref(false) // 是否正在捏合（已禁用，始终为false）
 // 图片在 canvas 上的绘制信息（用于坐标映射）
 const imageDrawInfo = ref<{
   drawX: number
@@ -456,6 +527,10 @@ const currentImage = ref<{
 
 // 分屏组件模型值
 const splitterModel = ref(50)
+
+// 框选预览相关
+const cropPreviewImage = ref<string>('') // 框选区域的预览图
+const showCropPreviewPanel = ref(true) // 是否显示预览面板
 
 // 裁剪遮罩样式
 const cropOverlayStyle = computed(() => {
@@ -841,6 +916,23 @@ const handleSelectFromGallery = async () => {
   }
 }
 
+// 确保 base64 字符串是完整的 data URL 格式
+// 第1步：检查输入是否已经是 data URL 格式
+// 第2步：如果不是，添加 data:image/jpeg;base64, 前缀
+const ensureDataUrl = (base64: string): string => {
+  if (!base64 || typeof base64 !== 'string') {
+    return base64
+  }
+
+  // 如果已经是 data URL 格式，直接返回
+  if (base64.startsWith('data:image/')) {
+    return base64
+  }
+
+  // 否则添加前缀
+  return `data:image/jpeg;base64,${base64}`
+}
+
 // Base64 转 File
 const base64ToFile = (base64: string, filename: string): Promise<File> => {
   return new Promise((resolve, reject) => {
@@ -859,7 +951,7 @@ const base64ToFile = (base64: string, filename: string): Promise<File> => {
         let base64Data = base64.trim()
         // 清理 base64 字符串：移除空格、换行符等无效字符
         base64Data = base64Data.replace(/\s/g, '')
-        
+
         // 验证 base64 字符串格式
         if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64Data)) {
           reject(new Error('Base64 字符串格式无效：包含非法字符'))
@@ -875,7 +967,11 @@ const base64ToFile = (base64: string, filename: string): Promise<File> => {
           }
           resolve(new File([u8arr], filename, { type: 'image/jpeg' }))
         } catch (decodeError) {
-          reject(new Error(`Base64 解码失败: ${decodeError instanceof Error ? decodeError.message : String(decodeError)}`))
+          reject(
+            new Error(
+              `Base64 解码失败: ${decodeError instanceof Error ? decodeError.message : String(decodeError)}`,
+            ),
+          )
         }
         return
       }
@@ -883,10 +979,10 @@ const base64ToFile = (base64: string, filename: string): Promise<File> => {
       // 有 data URL 前缀的情况
       const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg'
       let base64Data = arr[1].trim()
-      
+
       // 清理 base64 字符串：移除空格、换行符等无效字符
       base64Data = base64Data.replace(/\s/g, '')
-      
+
       // 验证 base64 字符串格式
       if (!base64Data || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64Data)) {
         reject(new Error('Base64 字符串格式无效：包含非法字符或为空'))
@@ -902,12 +998,14 @@ const base64ToFile = (base64: string, filename: string): Promise<File> => {
       }
       resolve(new File([u8arr], filename, { type: mime }))
     } catch (error) {
-      reject(new Error(`Base64 转 File 失败: ${error instanceof Error ? error.message : String(error)}`))
+      reject(
+        new Error(`Base64 转 File 失败: ${error instanceof Error ? error.message : String(error)}`),
+      )
     }
   })
 }
 
-// 绘制图片到画布（支持缩放和平移）
+// 绘制图片到画布（不支持缩放和平移）
 const drawImage = () => {
   if (!cropCanvas.value || !currentImage.value || !originalDrawInfo.value) return
 
@@ -915,37 +1013,41 @@ const drawImage = () => {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
+  if (!currentImage.value) {
+    return
+  }
+
   const img = new Image()
   img.onload = () => {
-    const { drawX, drawY, drawWidth, drawHeight } = originalDrawInfo.value!
+    if (!originalDrawInfo.value) {
+      return
+    }
 
-    // 计算应用缩放后的尺寸和位置（以中心为缩放点）
-    const scaledWidth = drawWidth * imageScale.value
-    const scaledHeight = drawHeight * imageScale.value
-    const centerX = drawX + drawWidth / 2
-    const centerY = drawY + drawHeight / 2
-    const scaledX = centerX - scaledWidth / 2 + imageOffsetX.value
-    const scaledY = centerY - scaledHeight / 2 + imageOffsetY.value
+    const { drawX, drawY, drawWidth, drawHeight } = originalDrawInfo.value
 
     // 清空画布
     ctx.fillStyle = '#000'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    // 绘制图片（应用缩放和平移）
-    ctx.drawImage(img, scaledX, scaledY, scaledWidth, scaledHeight)
+    // 绘制图片（不应用缩放和平移）
+    ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
 
     // 更新绘制信息（用于坐标映射）
     if (imageDrawInfo.value) {
       imageDrawInfo.value = {
         ...imageDrawInfo.value,
-        drawX: scaledX,
-        drawY: scaledY,
-        drawWidth: scaledWidth,
-        drawHeight: scaledHeight,
+        drawX,
+        drawY,
+        drawWidth,
+        drawHeight,
       }
     }
   }
-  img.src = currentImage.value.preview
+  img.onerror = (error) => {
+    logFlow('绘制图片失败：图片加载失败', { error })
+  }
+  // 确保 preview 是完整的 data URL 格式
+  img.src = ensureDataUrl(currentImage.value.preview)
 }
 
 // 初始化裁剪画布
@@ -1062,10 +1164,22 @@ const initCropCanvas = () => {
       isFromGallery: isFromGallery.value,
     })
   }
-  img.onerror = () => {
-    logFlow('初始化裁剪画布失败：图片加载失败')
+  img.onerror = (error) => {
+    if (currentImage.value) {
+      logFlow('初始化裁剪画布失败：图片加载失败', {
+        previewType: typeof currentImage.value.preview,
+        previewLength: currentImage.value.preview?.length,
+        previewStart: currentImage.value.preview?.substring(0, 50),
+        error: error instanceof Error ? error.message : String(error),
+      })
+    } else {
+      logFlow('初始化裁剪画布失败：图片加载失败', { error })
+    }
   }
-  img.src = currentImage.value.preview
+  // 确保 preview 是完整的 data URL 格式
+  if (currentImage.value) {
+    img.src = ensureDataUrl(currentImage.value.preview)
+  }
 }
 
 // 判断点是否在裁剪框内
@@ -1157,18 +1271,6 @@ const startCrop = (e: MouseEvent | TouchEvent) => {
   const clickX = clientX - rect.left
   const clickY = clientY - rect.top
 
-  // 如果图片已放大，且点击不在裁剪框内，则进入平移模式
-  if (imageScale.value > 1) {
-    const inCropRect = cropRect.value && isPointInCropRect(clickX, clickY)
-    const inResizeHandle = cropRect.value ? getResizeHandle(clickX, clickY) !== null : false
-    if (!inCropRect && !inResizeHandle) {
-      isPanning.value = true
-      panStartPos.value = { x: clickX, y: clickY }
-      panStartOffset.value = { x: imageOffsetX.value, y: imageOffsetY.value }
-      return
-    }
-  }
-
   // 首先检测是否在调整区域
   const handle = cropRect.value ? getResizeHandle(clickX, clickY) : null
   if (handle && cropRect.value) {
@@ -1213,37 +1315,8 @@ const startCrop = (e: MouseEvent | TouchEvent) => {
 const updateCrop = (e: MouseEvent | TouchEvent) => {
   if (!cropCanvas.value) return
 
-  // 如果是触摸事件且有两个手指，不处理（交给触摸手势处理）
+  // 如果是触摸事件且有两个手指，不处理（忽略双指操作）
   if ('touches' in e && e.touches.length === 2) {
-    return
-  }
-
-  // 如果正在平移图片
-  if (isPanning.value) {
-    e.preventDefault()
-    const canvas = cropCanvas.value
-    const rect = canvas.getBoundingClientRect()
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-    const currentX = clientX - rect.left
-    const currentY = clientY - rect.top
-
-    const deltaX = currentX - panStartPos.value.x
-    const deltaY = currentY - panStartPos.value.y
-
-    imageOffsetX.value = panStartOffset.value.x + deltaX
-    imageOffsetY.value = panStartOffset.value.y + deltaY
-
-    // 限制平移范围，防止图片移出画布太远
-    if (imageDrawInfo.value) {
-      const { drawWidth, drawHeight } = imageDrawInfo.value
-      const maxOffsetX = Math.max(0, (drawWidth * imageScale.value - canvas.width) / 2)
-      const maxOffsetY = Math.max(0, (drawHeight * imageScale.value - canvas.height) / 2)
-      imageOffsetX.value = Math.max(-maxOffsetX, Math.min(maxOffsetX, imageOffsetX.value))
-      imageOffsetY.value = Math.max(-maxOffsetY, Math.min(maxOffsetY, imageOffsetY.value))
-    }
-
-    drawImage()
     return
   }
 
@@ -1343,6 +1416,10 @@ const updateCrop = (e: MouseEvent | TouchEvent) => {
     newRect.height = Math.min(newRect.height, canvas.height - newRect.y)
 
     cropRect.value = newRect
+    // 更新预览图
+    if (showCropPreviewPanel.value) {
+      updateCropPreview()
+    }
   } else if (isDragging.value && cropRect.value) {
     // 拖动模式：移动裁剪框
     const newX = currentX - dragOffset.value.x
@@ -1356,6 +1433,10 @@ const updateCrop = (e: MouseEvent | TouchEvent) => {
       ...cropRect.value,
       x: Math.max(0, Math.min(newX, maxX)),
       y: Math.max(0, Math.min(newY, maxY)),
+    }
+    // 更新预览图
+    if (showCropPreviewPanel.value) {
+      updateCropPreview()
     }
   } else if (isCropping.value) {
     // 绘制模式：更新裁剪框大小
@@ -1371,6 +1452,10 @@ const updateCrop = (e: MouseEvent | TouchEvent) => {
     newRect.height = Math.min(newRect.height, canvas.height - newRect.y)
 
     cropRect.value = newRect
+    // 更新预览图
+    if (showCropPreviewPanel.value) {
+      updateCropPreview()
+    }
   }
 }
 
@@ -1379,12 +1464,15 @@ const endCrop = () => {
   isCropping.value = false
   isDragging.value = false
   isResizing.value = false
-  isPanning.value = false
   resizeHandle.value = null
 
   // 如果绘制出的框太小，清除它（允许重新绘制）
   if (cropRect.value && cropRect.value.width < 10 && cropRect.value.height < 10) {
     cropRect.value = null
+    cropPreviewImage.value = ''
+  } else {
+    // 更新预览图
+    updateCropPreview()
   }
 }
 
@@ -1398,6 +1486,8 @@ const handleMouseMove = (e: MouseEvent) => {
   // 如果正在拖动、绘制或调整大小，则更新裁剪
   if (isDragging.value || isCropping.value || isResizing.value) {
     updateCrop(e)
+    // 更新预览图
+    updateCropPreview()
     return
   }
 
@@ -1419,60 +1509,10 @@ const handleMouseMove = (e: MouseEvent) => {
 
 // 处理鼠标离开
 const handleMouseLeave = () => {
-  if (!isDragging.value && !isCropping.value && !isResizing.value && !isPanning.value) {
+  if (!isDragging.value && !isCropping.value && !isResizing.value) {
     endCrop()
   }
   currentCursor.value = 'crosshair'
-}
-
-// 处理滚轮缩放
-const handleWheel = (e: WheelEvent) => {
-  if (!cropCanvas.value || !originalDrawInfo.value) return
-
-  e.preventDefault()
-
-  const canvas = cropCanvas.value
-  const rect = canvas.getBoundingClientRect()
-  const mouseX = e.clientX - rect.left
-  const mouseY = e.clientY - rect.top
-
-  // 计算缩放增量
-  const delta = e.deltaY > 0 ? -SCALE_STEP : SCALE_STEP
-  const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, imageScale.value + delta))
-
-  // 如果缩放比例没有变化，直接返回
-  if (newScale === imageScale.value) return
-
-  // 计算鼠标位置相对于图片中心的比例
-  const { drawX, drawY, drawWidth, drawHeight } = originalDrawInfo.value
-  const centerX = drawX + drawWidth / 2
-  const centerY = drawY + drawHeight / 2
-  const relativeX = (mouseX - centerX) / drawWidth
-  const relativeY = (mouseY - centerY) / drawHeight
-
-  // 计算缩放后的偏移，使鼠标指向的点保持在同一位置
-  const oldScaledWidth = drawWidth * imageScale.value
-  const oldScaledHeight = drawHeight * imageScale.value
-  const newScaledWidth = drawWidth * newScale
-  const newScaledHeight = drawHeight * newScale
-
-  imageOffsetX.value += (oldScaledWidth - newScaledWidth) * relativeX
-  imageOffsetY.value += (oldScaledHeight - newScaledHeight) * relativeY
-
-  imageScale.value = newScale
-
-  // 限制平移范围
-  const maxOffsetX = Math.max(0, (drawWidth * newScale - canvas.width) / 2)
-  const maxOffsetY = Math.max(0, (drawHeight * newScale - canvas.height) / 2)
-  imageOffsetX.value = Math.max(-maxOffsetX, Math.min(maxOffsetX, imageOffsetX.value))
-  imageOffsetY.value = Math.max(-maxOffsetY, Math.min(maxOffsetY, imageOffsetY.value))
-
-  drawImage()
-}
-
-// 计算两点之间的距离
-const getDistance = (x1: number, y1: number, x2: number, y2: number): number => {
-  return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2))
 }
 
 // 处理触摸开始
@@ -1481,104 +1521,36 @@ const handleTouchStart = (e: TouchEvent) => {
 
   e.preventDefault()
 
-  if (e.touches.length === 2) {
-    // 双指捏合开始
-    isPinching.value = true
-    const touch1 = e.touches[0]
-    const touch2 = e.touches[1]
-    const canvas = cropCanvas.value
-    const rect = canvas.getBoundingClientRect()
-
-    touchDistance.value = getDistance(
-      touch1.clientX,
-      touch1.clientY,
-      touch2.clientX,
-      touch2.clientY
-    )
-    touchCenter.value = {
-      x: (touch1.clientX + touch2.clientX) / 2 - rect.left,
-      y: (touch1.clientY + touch2.clientY) / 2 - rect.top,
-    }
-    pinchStartScale.value = imageScale.value
-    pinchStartOffset.value = { x: imageOffsetX.value, y: imageOffsetY.value }
-  } else if (e.touches.length === 1) {
-    // 单指触摸，交给 startCrop 处理
+  // 只处理单指触摸，用于框选功能
+  if (e.touches.length === 1) {
     startCrop(e)
   }
+  // 双指触摸被忽略（不支持缩放）
 }
 
 // 处理触摸移动
 const handleTouchMove = (e: TouchEvent) => {
-  if (!cropCanvas.value || !originalDrawInfo.value) return
+  if (!cropCanvas.value) return
 
   e.preventDefault()
 
-  if (e.touches.length === 2 && isPinching.value) {
-    // 双指捏合缩放
-    const touch1 = e.touches[0]
-    const touch2 = e.touches[1]
-    const canvas = cropCanvas.value
-
-    const newDistance = getDistance(
-      touch1.clientX,
-      touch1.clientY,
-      touch2.clientX,
-      touch2.clientY
-    )
-    const scaleRatio = newDistance / touchDistance.value
-    const newScale = Math.max(
-      MIN_SCALE,
-      Math.min(MAX_SCALE, pinchStartScale.value * scaleRatio)
-    )
-
-    // 计算双指中心点相对于图片中心的比例
-    const { drawX, drawY, drawWidth, drawHeight } = originalDrawInfo.value
-    const centerX = drawX + drawWidth / 2
-    const centerY = drawY + drawHeight / 2
-    const relativeX = (touchCenter.value.x - centerX) / drawWidth
-    const relativeY = (touchCenter.value.y - centerY) / drawHeight
-
-    // 计算缩放后的偏移
-    const oldScaledWidth = drawWidth * pinchStartScale.value
-    const oldScaledHeight = drawHeight * pinchStartScale.value
-    const newScaledWidth = drawWidth * newScale
-    const newScaledHeight = drawHeight * newScale
-
-    imageOffsetX.value =
-      pinchStartOffset.value.x + (oldScaledWidth - newScaledWidth) * relativeX
-    imageOffsetY.value =
-      pinchStartOffset.value.y + (oldScaledHeight - newScaledHeight) * relativeY
-
-    imageScale.value = newScale
-
-    // 限制平移范围
-    const maxOffsetX = Math.max(0, (drawWidth * newScale - canvas.width) / 2)
-    const maxOffsetY = Math.max(0, (drawHeight * newScale - canvas.height) / 2)
-    imageOffsetX.value = Math.max(-maxOffsetX, Math.min(maxOffsetX, imageOffsetX.value))
-    imageOffsetY.value = Math.max(-maxOffsetY, Math.min(maxOffsetY, imageOffsetY.value))
-
-    drawImage()
-  } else if (e.touches.length === 1) {
-    // 单指触摸，交给 updateCrop 处理
+  // 只处理单指触摸，用于框选功能
+  if (e.touches.length === 1) {
     updateCrop(e)
   }
+  // 双指触摸被忽略（不支持缩放）
 }
 
 // 处理触摸结束
 const handleTouchEnd = (e: TouchEvent) => {
   if (e.touches.length === 0) {
     // 所有手指都离开
-    isPinching.value = false
     endCrop()
-  } else if (e.touches.length === 1 && isPinching.value) {
-    // 从双指变为单指，结束捏合，开始单指操作
-    isPinching.value = false
-    touchDistance.value = 0
   }
 }
 
 // 处理重拍
-const handleRetake = () => {
+const handleRetake = async () => {
   logFlow('重拍开始', {
     hasImage: !!currentImage.value,
     hasCropRect: !!cropRect.value,
@@ -1591,6 +1563,7 @@ const handleRetake = () => {
   showResultView.value = false
   showDrawer.value = false // 关闭抽屉
   cropRect.value = null
+  cropPreviewImage.value = ''
   imageDrawInfo.value = null
   originalDrawInfo.value = null
   photoQuestionData.value = null
@@ -1601,11 +1574,11 @@ const handleRetake = () => {
   imageScale.value = 1
   imageOffsetX.value = 0
   imageOffsetY.value = 0
+  showCropPreviewPanel.value = true // 重置预览面板显示状态
 
-  // 注意：不再需要恢复原始题目列表，因为我们没有修改全局 questionStore
-
-  // 重新显示相机预览（相机已在对话框打开时启动，无需重新启动）
+  // 重新初始化并显示相机预览
   showCameraPreview.value = true
+  await startCamera()
 
   logFlow('重拍完成，恢复相机预览', {
     showCameraPreview: showCameraPreview.value,
@@ -1764,7 +1737,8 @@ const getCroppedImage = (): Promise<File | null> => {
     img.onerror = () => {
       resolve(null)
     }
-    img.src = currentImage.value.preview
+    // 确保 preview 是完整的 data URL 格式
+    img.src = ensureDataUrl(currentImage.value.preview)
   })
 }
 
@@ -1773,6 +1747,115 @@ const handleQuestionSelected = (question: ExerciseItem) => {
   // 题目选中后可以在这里处理，比如跳转到题目详情页
   logFlow('题目已选中', { questionId: question.id })
 }
+
+// 更新框选预览图
+const updateCropPreview = () => {
+  if (!cropCanvas.value || !cropRect.value || !currentImage.value || !imageDrawInfo.value) {
+    cropPreviewImage.value = ''
+    return
+  }
+
+  // 使用 requestAnimationFrame 优化性能，避免频繁更新
+  requestAnimationFrame(() => {
+    try {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        cropPreviewImage.value = ''
+        return
+      }
+
+      // 设置预览图尺寸（最大 200px）
+      if (!cropRect.value) {
+        cropPreviewImage.value = ''
+        return
+      }
+
+      const cropRectValue = cropRect.value
+      const maxSize = 200
+      const aspectRatio = cropRectValue.width / cropRectValue.height
+      let previewWidth = cropRectValue.width
+      let previewHeight = cropRectValue.height
+
+      if (previewWidth > maxSize || previewHeight > maxSize) {
+        if (aspectRatio > 1) {
+          previewWidth = maxSize
+          previewHeight = maxSize / aspectRatio
+        } else {
+          previewHeight = maxSize
+          previewWidth = maxSize * aspectRatio
+        }
+      }
+
+      canvas.width = previewWidth
+      canvas.height = previewHeight
+
+      // 从主 canvas 中提取框选区域
+      const mainCanvas = cropCanvas.value
+      if (!mainCanvas) {
+        cropPreviewImage.value = ''
+        return
+      }
+
+      const mainCtx = mainCanvas.getContext('2d')
+      if (!mainCtx) {
+        cropPreviewImage.value = ''
+        return
+      }
+
+      // 获取框选区域的图像数据
+      const imageData = mainCtx.getImageData(
+        Math.max(0, Math.floor(cropRectValue.x)),
+        Math.max(0, Math.floor(cropRectValue.y)),
+        Math.min(mainCanvas.width - Math.floor(cropRectValue.x), Math.floor(cropRectValue.width)),
+        Math.min(mainCanvas.height - Math.floor(cropRectValue.y), Math.floor(cropRectValue.height)),
+      )
+
+      // 创建临时 canvas 用于缩放
+      const tempCanvas = document.createElement('canvas')
+      tempCanvas.width = imageData.width
+      tempCanvas.height = imageData.height
+      const tempCtx = tempCanvas.getContext('2d')
+      if (!tempCtx) {
+        cropPreviewImage.value = ''
+        return
+      }
+      tempCtx.putImageData(imageData, 0, 0)
+
+      // 使用 drawImage 进行缩放绘制
+      ctx.drawImage(tempCanvas, 0, 0, previewWidth, previewHeight)
+
+      // 转换为 base64
+      cropPreviewImage.value = canvas.toDataURL('image/jpeg', 0.9)
+    } catch (error) {
+      console.error('更新框选预览失败:', error)
+      cropPreviewImage.value = ''
+    }
+  })
+}
+
+// 关闭预览面板
+const closeCropPreviewPanel = () => {
+  showCropPreviewPanel.value = false
+}
+
+// 监听框选区域变化，更新预览
+watch(
+  () => cropRect.value,
+  (newRect) => {
+    if (newRect && showCropView.value) {
+      // 延迟更新，避免频繁计算
+      setTimeout(() => {
+        if (showCropPreviewPanel.value) {
+          updateCropPreview()
+        }
+      }, 100)
+    } else {
+      cropPreviewImage.value = ''
+    }
+  },
+  { deep: true },
+)
 
 // 处理关键词搜索
 const handleKeywordSearch = async () => {
@@ -1836,6 +1919,63 @@ const handleKeywordSearch = async () => {
   }
 }
 
+// 全局拖动事件处理函数
+const handleResizeMove = (e: MouseEvent | TouchEvent) => {
+  if (isResizingInput.value) {
+    const currentY = 'touches' in e ? e.touches[0].clientY : e.clientY
+    const deltaY = currentY - resizeStartY.value
+    const newHeight = Math.max(80, Math.min(400, resizeStartHeight.value + deltaY))
+    keywordInputHeight.value = newHeight
+  } else if (isResizingResult.value) {
+    const currentY = 'touches' in e ? e.touches[0].clientY : e.clientY
+    const deltaY = currentY - resizeStartY.value
+    const newHeight = Math.max(80, Math.min(500, resizeStartHeight.value + deltaY))
+    keywordResultHeight.value = newHeight
+  } else if (isResizingPhoto.value) {
+    const currentY = 'touches' in e ? e.touches[0].clientY : e.clientY
+    const deltaY = currentY - resizeStartY.value
+    const newHeight = Math.max(80, Math.min(500, resizeStartHeight.value + deltaY))
+    photoResultHeight.value = newHeight
+  }
+}
+
+// 全局拖动结束事件处理函数
+const handleResizeEnd = () => {
+  isResizingInput.value = false
+  isResizingResult.value = false
+  isResizingPhoto.value = false
+}
+
+// 开始调整关键词输入框高度
+const startResizeInput = (e: MouseEvent | TouchEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
+  isResizingInput.value = true
+  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+  resizeStartY.value = clientY
+  resizeStartHeight.value = keywordInputHeight.value
+}
+
+// 开始调整关键词搜索结果高度
+const startResizeResult = (e: MouseEvent | TouchEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
+  isResizingResult.value = true
+  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+  resizeStartY.value = clientY
+  resizeStartHeight.value = keywordResultHeight.value
+}
+
+// 开始调整拍照搜题内容高度
+const startResizePhoto = (e: MouseEvent | TouchEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
+  isResizingPhoto.value = true
+  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+  resizeStartY.value = clientY
+  resizeStartHeight.value = photoResultHeight.value
+}
+
 // 渲染题目内容（支持Markdown和公式）
 const renderQuestionContent = (question: ExerciseItem): string => {
   const content = question.question || question.title || ''
@@ -1843,12 +1983,8 @@ const renderQuestionContent = (question: ExerciseItem): string => {
 }
 
 // 处理关闭抽屉
-const handleCloseDrawer = () => {
-  logFlow('关闭抽屉', {
-    activeTab: activeTab.value,
-    hasPhotoQuestion: !!photoQuestionData.value,
-    hasKeywordQuestion: !!keywordQuestionData.value,
-  })
+const handleCloseDrawer = async () => {
+  const wasFromGallery = isFromGallery.value
   showDrawer.value = false
   activeTab.value = 'photo'
   keywordText.value = ''
@@ -1867,12 +2003,21 @@ const handleCloseDrawer = () => {
   // 恢复原始题目列表
   restoreOriginalQuestions()
 
-  // 重新显示相机预览（相机已在对话框打开时启动，无需重新启动）
+  // 重新显示相机预览
   showCameraPreview.value = true
+
+  // 如果是从相册打开的，需要重新启动相机
+  if (wasFromGallery) {
+    logFlow('从相册打开，关闭抽屉时重新启动相机')
+    await startCamera()
+    isFromGallery.value = false // 重置标记
+  }
 
   logFlow('关闭抽屉完成，恢复相机预览', {
     showDrawer: showDrawer.value,
     showCameraPreview: showCameraPreview.value,
+    wasFromGallery,
+    isFromGallery: isFromGallery.value,
   })
 }
 
@@ -2001,12 +2146,24 @@ watch(
 onMounted(() => {
   logFlow('页面挂载')
   initialize()
+  
+  // 添加全局拖动事件监听器
+  window.addEventListener('mousemove', handleResizeMove)
+  window.addEventListener('mouseup', handleResizeEnd)
+  window.addEventListener('touchmove', handleResizeMove)
+  window.addEventListener('touchend', handleResizeEnd)
 })
 
 // 组件卸载时清理
 onUnmounted(() => {
   logFlow('页面卸载')
   cleanup()
+  
+  // 移除全局拖动事件监听器
+  window.removeEventListener('mousemove', handleResizeMove)
+  window.removeEventListener('mouseup', handleResizeEnd)
+  window.removeEventListener('touchmove', handleResizeMove)
+  window.removeEventListener('touchend', handleResizeEnd)
 })
 </script>
 
@@ -2435,6 +2592,8 @@ onUnmounted(() => {
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  margin: 12px;
 }
 
 // 抽屉动画
@@ -2473,42 +2632,55 @@ onUnmounted(() => {
 
 .image-tabs {
   display: flex;
-  width: 100%;
-  padding: 12px 16px 0;
-  gap: 8px;
-  border-bottom: 1px solid #e0e0e0;
+  padding: 8px;
+  background: #e0e0e0;
+  border-radius: 24px;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin: 0;
 }
 
 .tab-item {
   flex: 1;
-  padding: 8px 16px;
+  padding: 10px 16px;
   font-size: 14px;
   color: #666;
-  background: #f5f5f5;
+  background: transparent;
   cursor: pointer;
-  transition: all 0.2s;
   position: relative;
-  border-radius: 8px;
   text-align: center;
+  z-index: 1;
 
   &.active {
-    color: #333;
+    color: #7a55ff;
     background: white;
-    font-weight: 600;
-    border-bottom: 2px solid white;
-    margin-bottom: -1px;
-    z-index: 1;
+    font-weight: 500;
+    border-radius: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   &:not(.active) {
-    border-bottom: 1px solid #e0e0e0;
+    color: #666;
   }
 }
 
+.photo-result-wrapper {
+  position: relative;
+  box-sizing: border-box;
+  margin-top: 10px;
+}
+
 .recognized-problem {
-  padding: 16px;
-  max-height: calc(40vh - 60px);
+  position: relative;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  padding: 8px;
+  margin-top: 0;
+  padding-top: 0;
+  height: 100%;
   overflow-y: auto;
+  box-sizing: border-box;
+  padding-bottom: 8px; // 为 resize-handle 留出空间
 }
 
 .problem-text {
@@ -2599,52 +2771,64 @@ onUnmounted(() => {
 
 // 关键词搜题容器
 .keyword-search-container {
-  padding: 16px;
+  position: relative;
+  padding: 0;
   background: white;
+  margin: 10px 0;
+}
+
+.keyword-result-wrapper {
+  position: relative;
+  box-sizing: border-box;
 }
 
 .keyword-search-result {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid #e0e0e0;
-}
-
-.keyword-input-wrapper {
   position: relative;
-  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  padding: 8px;
+  margin-top: 0;
+  padding-top: 0;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding-bottom: 8px; // 为 resize-handle 留出空间
 }
 
 .keyword-input {
   width: 100%;
+  border: 1px solid #7A7CFF;
+  border-radius: 16px;
+  background: white;
+  height: 100%;
+  padding: 12px 60px 12px 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333;
+  resize: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  outline: none;
 
-  :deep(.q-field__control) {
-    border: 1px solid rgba(156, 39, 176, 0.3);
-    border-radius: 8px;
-    background: white;
-    min-height: 120px;
-
-    &:hover {
-      border-color: rgba(156, 39, 176, 0.5);
-    }
-  }
-
-  :deep(.q-field__native) {
-    padding: 12px 60px 12px 12px;
-    font-size: 14px;
-    line-height: 1.6;
-    color: #333;
-    resize: none;
-  }
-
-  :deep(.q-field__placeholder) {
+  &::placeholder {
     color: #999;
     font-size: 14px;
     line-height: 1.6;
     white-space: pre-line;
   }
 
-  :deep(.q-field--focused .q-field__control) {
-    border-color: rgba(156, 39, 176, 0.6);
+  &:hover {
+    border-color: #6A6CE8;
+    box-shadow: 
+      0 4px 16px rgba(122, 124, 255, 0.2),
+      0 2px 4px rgba(122, 124, 255, 0.15);
+  }
+
+  &:focus {
+    border-color: #5A5CD8;
+    box-shadow: 
+      0 4px 16px rgba(122, 124, 255, 0.25),
+      0 2px 4px rgba(122, 124, 255, 0.15);
   }
 }
 
@@ -2673,12 +2857,187 @@ onUnmounted(() => {
   }
 }
 
+// 拖动调整手柄
+.resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 8px;
+  cursor: ns-resize;
+  z-index: 20;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 4px;
+    background: #ccc;
+    border-radius: 2px;
+    transition: background 0.2s ease;
+  }
+
+  &:hover::after,
+  &:active::after {
+    background: #7A7CFF;
+  }
+}
+
+.resize-handle-input {
+  border-radius: 0 0 16px 16px;
+}
+
+.resize-handle-result {
+  border-radius: 0 0 8px 8px;
+}
+
+.resize-handle-photo {
+  border-radius: 0 0 8px 8px;
+}
+
 // ChatView 区域
 .drawer-chat-section {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  height: 0; // 配合 flex: 1 使用，确保占据剩余空间
+}
+
+// 框选预览面板
+.crop-preview-panel {
+  position: fixed;
+  top: 80px;
+  left: 20px;
+  width: 280px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 10003;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.crop-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #f8f9fa;
+}
+
+.crop-preview-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.crop-preview-close-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+
+  :deep(.q-icon) {
+    font-size: 18px;
+    color: #666;
+  }
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
+}
+
+.crop-preview-content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.crop-preview-image-wrapper {
+  width: 100%;
+  height: 200px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e0e0e0;
+}
+
+.crop-preview-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.crop-preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.info-label {
+  color: #666;
+  font-weight: 500;
+}
+
+.info-value {
+  color: #333;
+  font-family: 'Courier New', monospace;
+}
+
+// 预览面板动画
+.crop-preview-panel-enter-active {
+  transition: all 0.3s ease-out;
+}
+
+.crop-preview-panel-leave-active {
+  transition: all 0.3s ease-in;
+}
+
+.crop-preview-panel-enter-from {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+.crop-preview-panel-leave-to {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+// 移动端适配
+@media (max-width: 768px) {
+  .crop-preview-panel {
+    top: 60px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: 300px;
+  }
+
+  .crop-preview-image-wrapper {
+    height: 150px;
+  }
 }
 </style>

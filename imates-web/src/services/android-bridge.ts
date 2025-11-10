@@ -134,6 +134,9 @@ export class AndroidBridge {
     
     // 设置课堂相关回调
     this.setupClassroomCallbacks()
+
+    // 设置语音识别回调
+    this.setupSpeechCallbacks()
   }
 
   /**
@@ -284,34 +287,7 @@ export class AndroidBridge {
     this.callVoid(() => window.AndroidBridge?.exitActivity?.())
   }
 
-  /**
-   * 拍照搜题（与原生 startPhotoSearch 对齐）
-   * 注意：若原生没有返回路径，这里返回空字符串
-   */
-  public takePicture(subject: string): Promise<string> {
-    try {
-      window.AndroidBridge?.startPhotoSearch?.(subject)
-    } catch (err) {
-      // 静默处理
-    }
-    return Promise.resolve('')
-  }
-
   // 题目置顶功能已改为纯前端实现，不需要Android接口调用
-
-  /**
-   * 设置拍照搜题结果回调
-   */
-  public onPhotoSearchResult(callback: (success: boolean, questionData?: any) => void): void {
-    this.addEventListener('photoSearchResult', callback)
-    
-    // 设置全局回调
-    if (typeof window !== 'undefined') {
-      ;(window as any).onPhotoSearchResult = (success: boolean, questionData?: any) => {
-        this.emit('photoSearchResult', success, questionData)
-      }
-    }
-  }
 
   // ========== 事件监听器管理 ==========
 
@@ -343,14 +319,34 @@ export class AndroidBridge {
    */
   private emit(event: string, ...args: any[]): void {
     const listeners = this.eventListeners.get(event)
+    if (event === 'speechResult') {
+      console.log('[AndroidBridge] 📡 [语音识别] emit 方法被调用，事件:', event)
+      console.log('[AndroidBridge] 📊 [语音识别] 监听器数量:', listeners ? listeners.length : 0)
+    }
     if (listeners) {
-      listeners.forEach(callback => {
+      listeners.forEach((callback, index) => {
         try {
+          if (event === 'speechResult') {
+            console.log(`[AndroidBridge] 🔄 [语音识别] 正在调用第 ${index + 1}/${listeners.length} 个监听器`)
+          }
           callback(...args)
+          if (event === 'speechResult') {
+            console.log(`[AndroidBridge] ✓ [语音识别] 第 ${index + 1}/${listeners.length} 个监听器执行完成`)
+          }
         } catch (err) {
+          if (event === 'speechResult') {
+            console.error(`[AndroidBridge] ❌ [语音识别] 第 ${index + 1}/${listeners.length} 个监听器执行出错:`, err)
+          }
           // 静默处理
         }
       })
+      if (event === 'speechResult') {
+        console.log('[AndroidBridge] ✅ [语音识别] 所有监听器执行完成')
+      }
+    } else {
+      if (event === 'speechResult') {
+        console.warn('[AndroidBridge] ⚠️ [语音识别] 没有找到 speechResult 事件的监听器')
+      }
     }
   }
 
@@ -586,6 +582,137 @@ export class AndroidBridge {
       isRecording: false,
       isPlaying: false,
       currentFile: ''
+    }
+  }
+
+  // ========== 语音识别相关接口 ==========
+
+  /**
+   * 开始语音识别（语音转文字）
+   */
+  public startSpeech(): VoiceRecordingResponse {
+    console.log('[AndroidBridge] 🎤 [语音识别] startSpeech() 被调用')
+    
+    if (!this.isAvailable) {
+      console.error('[AndroidBridge] ❌ [语音识别] AndroidBridge 不可用')
+      return { 
+        success: false, 
+        message: 'AndroidBridge 不可用', 
+        data: null 
+      }
+    }
+    
+    if (!window.AndroidBridge?.startSpeech) {
+      console.error('[AndroidBridge] ❌ [语音识别] startSpeech 方法不存在')
+      return { 
+        success: false, 
+        message: '语音识别功能不可用', 
+        data: null 
+      }
+    }
+    
+    try {
+      const resp = this.callString(() => window.AndroidBridge?.startSpeech?.())
+      const result = this.parseJSON<VoiceRecordingResponse>(resp, { 
+        success: false, 
+        message: '语音识别功能不可用', 
+        data: null 
+      })
+      
+      if (result.success) {
+        console.log('[AndroidBridge] ✓ [语音识别] 启动成功:', result.message)
+      } else {
+        console.warn('[AndroidBridge] ⚠️ [语音识别] 启动失败:', result.message)
+      }
+      
+      return result
+    } catch (error) {
+      console.error('[AndroidBridge] ❌ [语音识别] 启动异常:', error)
+      return { 
+        success: false, 
+        message: '语音识别启动异常: ' + (error instanceof Error ? error.message : String(error)), 
+        data: null 
+      }
+    }
+  }
+
+  /**
+   * 停止语音识别
+   */
+  public stopSpeech(): VoiceRecordingResponse {
+    console.log('[AndroidBridge] 🛑 [语音识别] stopSpeech() 被调用')
+    
+    if (!this.isAvailable) {
+      console.error('[AndroidBridge] ❌ [语音识别] AndroidBridge 不可用')
+      return { 
+        success: false, 
+        message: 'AndroidBridge 不可用', 
+        data: null 
+      }
+    }
+    
+    if (!window.AndroidBridge?.stopSpeech) {
+      console.error('[AndroidBridge] ❌ [语音识别] stopSpeech 方法不存在')
+      return { 
+        success: false, 
+        message: '停止语音识别功能不可用', 
+        data: null 
+      }
+    }
+    
+    try {
+      const resp = this.callString(() => window.AndroidBridge?.stopSpeech?.())
+      const result = this.parseJSON<VoiceRecordingResponse>(resp, { 
+        success: false, 
+        message: '停止语音识别功能不可用', 
+        data: null 
+      })
+      
+      if (result.success) {
+        console.log('[AndroidBridge] ✓ [语音识别] 停止成功:', result.message)
+      } else {
+        console.warn('[AndroidBridge] ⚠️ [语音识别] 停止失败:', result.message)
+      }
+      
+      return result
+    } catch (error) {
+      console.error('[AndroidBridge] ❌ [语音识别] 停止异常:', error)
+      return { 
+        success: false, 
+        message: '停止语音识别异常: ' + (error instanceof Error ? error.message : String(error)), 
+        data: null 
+      }
+    }
+  }
+
+  /**
+   * 设置语音识别回调
+   */
+  public setupSpeechCallbacks(): void {
+    if (typeof window === 'undefined') return
+
+    // 语音识别结果回调
+    if (!window.onSpeechResult) {
+      console.log('[AndroidBridge] 📝 [语音识别] 设置 onSpeechResult 回调')
+      window.onSpeechResult = (text: string | null, error: string | null) => {
+        console.log('[AndroidBridge] 🔔 [语音识别] window.onSpeechResult 回调被触发')
+        console.log('[AndroidBridge] 📥 [语音识别] 接收参数 - text:', text ? `"${text}" (长度: ${text.length})` : 'null', 'error:', error || 'null')
+        
+        if (error) {
+          console.error('[AndroidBridge] ❌ [语音识别] 收到识别错误:', error)
+        } else if (text) {
+          console.log('[AndroidBridge] ✓ [语音识别] 收到识别结果:', `"${text}" (长度: ${text.length})`)
+        } else {
+          console.warn('[AndroidBridge] ⚠️ [语音识别] 收到空结果')
+        }
+        
+        const eventData = { text, error }
+        console.log('[AndroidBridge] 📤 [语音识别] 准备触发 speechResult 事件，数据:', eventData)
+        this.emit('speechResult', eventData)
+        console.log('[AndroidBridge] ✅ [语音识别] speechResult 事件已触发')
+      }
+    } else {
+      console.log('[AndroidBridge] 📝 [语音识别] onSpeechResult 回调已存在，跳过设置')
     }
   }
 

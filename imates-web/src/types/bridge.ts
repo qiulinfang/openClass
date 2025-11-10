@@ -99,9 +99,6 @@ declare global {
       // ========== 进度保存功能 ==========
       saveExerciseProgress(progressData: JSONString): void
 
-      // ========== 拍照搜题功能 ==========
-      startPhotoSearch(subject: string): void
-
       // ========== 原生相机预览功能 ==========
       startNativeCameraPreview(): void
       stopNativeCameraPreview(): void
@@ -115,6 +112,7 @@ declare global {
       stopVoicePlayback(): string
       sendVoiceMessage(filePath: string, duration: string, chatId: string): string
       getVoiceRecordingStatus(): string
+      startSpeech(): string
 
       // ========== 图片相关功能 ==========
       selectImageFromGallery(): string
@@ -161,6 +159,7 @@ declare global {
     onSubjectChanged?(subjectName: string): void
     onVoiceRecognitionResult?(text: string): void
     onVoicePlaybackCompleted?(filePath: string): void
+    onSpeechResult?(text: string | null, error: string | null): void
     onImageSelected?(imageInfo: unknown): void
     onImageCaptured?(imageInfo: unknown): void
     onNativeCameraCaptureSuccess?(callbackId: string, base64Data: string): void

@@ -739,11 +739,6 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
     // ========== WebAppInterface.ExerciseSolveActivityBridge 实现 ==========
 
     @Override
-    public void startPhotoSearch(String subject) {
-        Log.d(TAG, "启动拍照搜题: " + subject);
-    }
-
-    @Override
     public void setTeacherMessageCallback(String callbackName) {
         Log.d(TAG, "设置老师消息回调: " + callbackName);
         // 设置老师消息回调
@@ -793,10 +788,25 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
      * 启动相机预览（通过 JS 桥接调用）
      */
     public void startCameraPreview() {
+        // 如果相机已激活，先完全停止并释放资源，然后再重新启动
+        // 这样可以避免尝试绑定新的 use case 时出现冲突
         if (isCameraActive) {
-            Log.d(TAG, "相机预览已启动，跳过");
+            Log.d(TAG, "相机预览已启动，先停止并释放资源，然后重新启动");
+            stopCameraPreview();
+            // 使用 Handler 延迟启动，确保资源完全释放
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                startCameraPreviewInternal();
+            }, 100);
             return;
         }
+        
+        startCameraPreviewInternal();
+    }
+    
+    /**
+     * 内部方法：实际启动相机预览的逻辑
+     */
+    private void startCameraPreviewInternal() {
         
         // 检查权限
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) 
@@ -827,6 +837,10 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
                 if (cameraPreviewView == null) {
                     Log.e(TAG, "❌ 无法绑定相机预览：PreviewView 为 null");
                     return;
+                }
+                // 在绑定之前，再次确保没有残留的绑定
+                if (cameraProvider != null) {
+                    cameraProvider.unbindAll();
                 }
                 bindPreview(cameraProvider);
                 isCameraActive = true;
@@ -1005,8 +1019,31 @@ public class MainWebViewActivity extends AppCompatActivity implements WebAppInte
 
     @Override
     public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
+        if (webView != null) {
+            // 第1步：获取当前 URL 的 hash 部分（Vue Router 使用 Hash 模式）
+            String currentUrl = webView.getUrl();
+            String currentHash = "";
+            if (currentUrl != null && currentUrl.contains("#")) {
+                currentHash = currentUrl.substring(currentUrl.indexOf("#"));
+            }
+            
+            // 第2步：如果当前路由是 /app 或 /app/xxx（主页面）
+            if (currentHash.startsWith("#/app")) {
+                // 第3步：如果 WebView 不能返回，说明没有历史记录，直接退出应用
+                if (!webView.canGoBack()) {
+                    finish();
+                    return;
+                }
+                // 第4步：如果 WebView 可以返回，说明有子路由可以返回，正常返回
+                webView.goBack();
+            } else {
+                // 第5步：如果当前路由不是主页面（比如登录页），正常处理返回
+                if (webView.canGoBack()) {
+                    webView.goBack();
+                } else {
+                    super.onBackPressed();
+                }
+            }
         } else {
             super.onBackPressed();
         }

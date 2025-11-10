@@ -155,12 +155,6 @@ public class ExerciseSolveActivity extends BaseActivity implements MessagingMana
             finish();
         });
 
-        findViewById(R.id.btn_capture).setOnClickListener(v-> {
-            Intent intent = new Intent(this, PhotoSearchActivity.class);
-            intent.putExtra(PhotoSearchActivity.KEY_PARAM_SUBJECT, subject.name());
-            startActivity(intent);
-        });
-
         mRdoChatAi = findViewById(R.id.optChatAi);
         mRdoAskTeacher = findViewById(R.id.optChatTeacher);
         mRdoViewAnswer = findViewById(R.id.optAnswer);

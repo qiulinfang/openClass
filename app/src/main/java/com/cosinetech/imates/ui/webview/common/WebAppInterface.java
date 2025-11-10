@@ -12,6 +12,10 @@ import android.os.Environment;
 import android.util.Log;
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.os.Bundle;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.app.ActivityCompat;
@@ -27,7 +31,6 @@ import java.io.InputStream;
 
 import com.cosinetech.imates.ui.webview.common.LocalStorageHelper;
 import com.cosinetech.imates.ui.activities.ExerciseSolveActivity;
-import com.cosinetech.imates.ui.activities.PhotoSearchActivity;
 import com.cosinetech.imates.data.models.Subject;
 import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.ImageUtils;
@@ -48,6 +51,7 @@ import com.cosinetech.imates.screencasting.FFmpegPipeStreamer;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -72,6 +76,13 @@ public class WebAppInterface {
     private boolean isRecording = false;
     private boolean isPlaying = false;
     private long recordStartTime;
+
+    // 语音识别相关
+    private SpeechRecognizer speechRecognizer;
+    private boolean isRecognizing = false;
+    // 当调用 stopListening() 后，进入等待 onResults 的窗口期，避免被误取消
+    private boolean isStoppingAwaitingResults = false;
+    private boolean pendingSpeechRecognition = false;
 
     private static final String TAG = "WebAppInterface";
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
@@ -254,13 +265,6 @@ public class WebAppInterface {
     }
 
     // ========== ExerciseSolve 相关接口 ==========
-
-    @JavascriptInterface
-    public void startPhotoSearch(String subject) {
-        if (exerciseBridge != null) {
-            exerciseBridge.startPhotoSearch(subject);
-        }
-    }
 
     /**
      * 发送文本消息给老师（简化版：不保存到本地数据库）
@@ -1680,6 +1684,526 @@ public class WebAppInterface {
         return createResponseWithJsonData(true, "获取状态成功", status);
     }
 
+    // ========== 语音识别相关接口 ==========
+
+    /**
+     * 开始语音识别（语音转文字）
+     */
+    @JavascriptInterface
+    public String startSpeech() {
+        Log.d(TAG, "[语音识别] startSpeech() 被调用");
+        try {
+            // 检查设备是否支持语音识别
+            if (!SpeechRecognizer.isRecognitionAvailable(mContext)) {
+                Log.e(TAG, "[语音识别] ❌ 设备不支持语音识别");
+                return createResponse(false, "设备不支持语音识别", null);
+            }
+            Log.d(TAG, "[语音识别] ✓ 设备支持语音识别");
+
+            // 检查录音权限
+            if (!checkAudioPermission()) {
+                Log.w(TAG, "[语音识别] ⚠️ 录音权限未授予");
+                // 如果权限未授予，尝试请求权限
+                if (audioPermissionLauncher != null && mContext instanceof Activity) {
+                    // 标记待处理的语音识别请求
+                    pendingSpeechRecognition = true;
+                    // 请求权限（异步操作，权限授予后会在回调中启动识别）
+                    ((Activity) mContext).runOnUiThread(() -> {
+                        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO);
+                    });
+                    Log.d(TAG, "[语音识别] 📝 正在请求录音权限（语音识别）");
+                    return createResponse(true, "正在请求录音权限", null);
+                } else {
+                    // 无法请求权限，返回错误
+                    Log.e(TAG, "[语音识别] ❌ 无法请求权限，audioPermissionLauncher 或 Activity 不可用");
+                    return createResponse(false, "需要录音权限，请前往设置中授予", null);
+                }
+            }
+            Log.d(TAG, "[语音识别] ✓ 录音权限已授予");
+
+            if (isRecognizing) {
+                Log.w(TAG, "[语音识别] ⚠️ 正在识别中，忽略重复请求");
+                return createResponse(false, "正在识别中", null);
+            }
+
+            // 权限已授予，开始语音识别
+            Log.d(TAG, "[语音识别] 🎤 开始启动语音识别...");
+            startSpeechRecognitionInternal();
+
+            Log.d(TAG, "[语音识别] ✓ 语音识别已启动");
+            return createResponse(true, "开始语音识别", null);
+
+        } catch (Exception e) {
+            Log.e(TAG, "[语音识别] ❌ 开始语音识别失败", e);
+            releaseSpeechRecognizer();
+            return createResponse(false, "语音识别失败: " + e.getMessage(), null);
+        }
+    }
+
+    /**
+     * 开始语音识别（权限已授予后调用）
+     */
+    private void startSpeechRecognitionInternal() {
+        Log.d(TAG, "[语音识别] startSpeechRecognitionInternal() 被调用");
+        if (mContext instanceof Activity) {
+            ((Activity) mContext).runOnUiThread(() -> {
+                try {
+                    // 如果已有旧的识别器，先释放它（避免识别器忙碌的问题）
+                    if (speechRecognizer != null) {
+                        Log.d(TAG, "[语音识别] ⚠️ 检测到旧的识别器，先释放它");
+                        releaseSpeechRecognizerInternal();
+                        // 使用 Handler 延迟创建新识别器，确保旧识别器完全释放
+                        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                            createAndStartSpeechRecognizer();
+                        }, 150);
+                        return;
+                    }
+                    
+                    // 创建并启动识别器
+                    createAndStartSpeechRecognizer();
+                } catch (Exception e) {
+                    Log.e(TAG, "[语音识别] ❌ 启动语音识别失败", e);
+                    isRecognizing = false;
+                    releaseSpeechRecognizerInternal();
+                    notifySpeechResult(null, "启动语音识别失败: " + e.getMessage(), true);
+                }
+            });
+        }
+    }
+
+    /**
+     * 创建并启动语音识别器（内部方法，必须在主线程中调用）
+     */
+    private void createAndStartSpeechRecognizer() {
+        try {
+            // 创建新的 SpeechRecognizer
+            Log.d(TAG, "[语音识别] 创建新的 SpeechRecognizer 实例");
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(mContext);
+            if (speechRecognizer == null) {
+                Log.e(TAG, "[语音识别] ❌ SpeechRecognizer 创建失败");
+                notifySpeechResult(null, "语音识别器创建失败", true);
+                return;
+            }
+            Log.d(TAG, "[语音识别] ✓ SpeechRecognizer 创建成功");
+            
+            speechRecognizer.setRecognitionListener(new RecognitionListener() {
+                @Override
+                public void onReadyForSpeech(Bundle params) {
+                    Log.d(TAG, "[语音识别] 🎤 语音识别准备就绪，等待用户说话");
+                    isRecognizing = true;
+                }
+
+                @Override
+                public void onBeginningOfSpeech() {
+                    Log.d(TAG, "[语音识别] 🗣️ 检测到用户开始说话");
+                }
+
+                @Override
+                public void onRmsChanged(float rmsdB) {
+                    // 音量变化，可以用于显示音量指示器
+                    // Log.v(TAG, "[语音识别] 音量变化: " + rmsdB + " dB");
+                }
+
+                @Override
+                public void onBufferReceived(byte[] buffer) {
+                    // 接收音频缓冲区
+                    // Log.v(TAG, "[语音识别] 接收到音频缓冲区，大小: " + buffer.length);
+                }
+
+                @Override
+                public void onEndOfSpeech() {
+                    Log.d(TAG, "[语音识别] 🛑 检测到用户说话结束，等待识别结果");
+                    Log.d(TAG, "[语音识别] 📊 当前识别状态: " + isRecognizing);
+                    Log.d(TAG, "[语音识别] 📊 speechRecognizer 是否为 null: " + (speechRecognizer == null));
+                }
+
+                @Override
+                public void onError(int error) {
+                    Log.d(TAG, "[语音识别] 📥 onError 回调被触发，错误码: " + error);
+                    Log.d(TAG, "[语音识别] 📊 当前识别状态: " + isRecognizing);
+                    Log.d(TAG, "[语音识别] 📊 speechRecognizer 是否为 null: " + (speechRecognizer == null));
+                    
+                    // 结束等待窗口
+                    isStoppingAwaitingResults = false;
+                    
+                    isRecognizing = false;
+                    String errorMessage = getErrorText(error);
+                    Log.e(TAG, "[语音识别] ❌ 识别错误 [错误码: " + error + "]: " + errorMessage);
+                    
+                    // 通知前端识别错误
+                    Log.d(TAG, "[语音识别] 📤 准备调用 notifySpeechResult 通知前端错误");
+                    notifySpeechResult(null, errorMessage, true);
+                    Log.d(TAG, "[语音识别] ✅ notifySpeechResult 调用完成");
+                    
+                    // 识别错误后释放识别器
+                    Log.d(TAG, "[语音识别] 🔄 识别错误，准备释放识别器");
+                    releaseSpeechRecognizer();
+                    Log.d(TAG, "[语音识别] ✅ onError 处理完成");
+                }
+
+                @Override
+                public void onResults(Bundle results) {
+                    Log.d(TAG, "[语音识别] 📥 onResults 回调被触发");
+                    Log.d(TAG, "[语音识别] 📊 当前识别状态: " + isRecognizing);
+                    Log.d(TAG, "[语音识别] 📊 speechRecognizer 是否为 null: " + (speechRecognizer == null));
+                    
+                    // 结束等待窗口
+                    isStoppingAwaitingResults = false;
+                    
+                    isRecognizing = false;
+                    Log.d(TAG, "[语音识别] 📥 收到最终识别结果");
+                    
+                    if (results == null) {
+                        Log.w(TAG, "[语音识别] ⚠️ results Bundle 为 null");
+                        notifySpeechResult(null, "识别结果为空", true);
+                        // 释放识别器
+                        releaseSpeechRecognizer();
+                        return;
+                    }
+                    
+                    ArrayList<String> matches = results.getStringArrayList(
+                            SpeechRecognizer.RESULTS_RECOGNITION);
+                    
+                    Log.d(TAG, "[语音识别] 📊 matches 是否为 null: " + (matches == null));
+                    if (matches != null) {
+                        Log.d(TAG, "[语音识别] 📊 matches 大小: " + matches.size());
+                    }
+                    
+                    if (matches != null && !matches.isEmpty()) {
+                        String recognizedText = matches.get(0);
+                        Log.d(TAG, "[语音识别] ✓ 识别成功，文本: \"" + recognizedText + "\" (长度: " + recognizedText.length() + ")");
+                        
+                        // 通知前端识别结果
+                        Log.d(TAG, "[语音识别] 📤 准备调用 notifySpeechResult 通知前端");
+                        notifySpeechResult(recognizedText, null, false);
+                        Log.d(TAG, "[语音识别] ✅ notifySpeechResult 调用完成");
+                    } else {
+                        Log.w(TAG, "[语音识别] ⚠️ 识别结果为空");
+                        notifySpeechResult(null, "未识别到内容", true);
+                    }
+                    
+                    // 识别完成后释放识别器
+                    Log.d(TAG, "[语音识别] 🔄 识别完成，准备释放识别器");
+                    releaseSpeechRecognizer();
+                    Log.d(TAG, "[语音识别] ✅ onResults 处理完成");
+                }
+
+                @Override
+                public void onPartialResults(Bundle partialResults) {
+                    // 部分结果（实时识别）
+                    ArrayList<String> matches = partialResults.getStringArrayList(
+                            SpeechRecognizer.RESULTS_RECOGNITION);
+                    
+                    if (matches != null && !matches.isEmpty()) {
+                        String partialText = matches.get(0);
+                        Log.d(TAG, "[语音识别] 📝 部分识别结果: \"" + partialText + "\"");
+                        // 可以实时更新前端显示
+                    }
+                }
+
+                @Override
+                public void onEvent(int eventType, Bundle params) {
+                    Log.v(TAG, "[语音识别] 📌 收到事件，类型: " + eventType);
+                }
+            });
+
+            // 创建识别Intent
+            Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, 
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+            String language = Locale.getDefault().getLanguage();
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, language);
+            intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+            intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+            Log.d(TAG, "[语音识别] 创建识别 Intent，语言: " + language);
+
+            // 开始识别
+            speechRecognizer.startListening(intent);
+            isRecognizing = true;
+            Log.d(TAG, "[语音识别] ✓ 已调用 startListening()，开始监听语音");
+
+        } catch (Exception e) {
+            Log.e(TAG, "[语音识别] ❌ 启动语音识别失败", e);
+            isRecognizing = false;
+            releaseSpeechRecognizer();
+            notifySpeechResult(null, "启动语音识别失败: " + e.getMessage(), true);
+        }
+    }
+
+    /**
+     * 停止语音识别
+     */
+    @JavascriptInterface
+    public String stopSpeech() {
+        Log.d(TAG, "[语音识别] stopSpeech() 被调用");
+        Log.d(TAG, "[语音识别] 📊 当前线程: " + Thread.currentThread().getName());
+        
+        try {
+            boolean wasRecognizing = isRecognizing;
+            
+            // 即使 isRecognizing 为 false，如果 speechRecognizer 存在，也应该释放它
+            // 因为可能存在识别器已创建但状态未同步的情况
+            if (!wasRecognizing && speechRecognizer == null) {
+                Log.w(TAG, "[语音识别] ⚠️ 当前未在识别中且识别器不存在");
+                return createResponse(false, "当前未在识别中", null);
+            }
+
+            // 确保在主线程中执行 SpeechRecognizer 操作
+            if (mContext instanceof Activity) {
+                ((Activity) mContext).runOnUiThread(() -> {
+                    try {
+                        Log.d(TAG, "[语音识别] 🔄 runOnUiThread 回调执行，wasRecognizing: " + wasRecognizing + ", isRecognizing: " + isRecognizing + ", speechRecognizer != null: " + (speechRecognizer != null));
+                        if (speechRecognizer != null && wasRecognizing) {
+                            try {
+                                // 使用 stopListening() 而不是 cancel()
+                                // stopListening() 会停止识别并触发 onResults 回调来获取当前识别结果
+                                Log.d(TAG, "[语音识别] 🔄 准备调用 stopListening()");
+                                speechRecognizer.stopListening();
+                                Log.d(TAG, "[语音识别] ✓ 已停止语音识别，等待获取识别结果");
+                                // 设置 isRecognizing 为 false，防止 releaseSpeechRecognizerInternal() 再次调用 stopListening()
+                                // 但保留识别器引用，等待 onResults 回调后再释放
+                                isRecognizing = false;
+                                Log.d(TAG, "[语音识别] ✓ 已设置 isRecognizing = false");
+                                // 进入等待 onResults 的窗口，避免被误取消
+                                isStoppingAwaitingResults = true;
+                                // 注意：不要在这里释放识别器，等待 onResults 回调后再释放
+                                // 也不要在这里通知前端，让 onResults 来处理结果通知
+                            } catch (Exception e) {
+                                Log.e(TAG, "[语音识别] ❌ 停止语音识别失败", e);
+                                // 如果停止失败，释放识别器并通知前端
+                                releaseSpeechRecognizerInternal(true);
+                                isStoppingAwaitingResults = false;
+                                notifySpeechResult(null, "停止识别失败: " + e.getMessage(), true);
+                            }
+                        } else if (speechRecognizer != null) {
+                            // 如果识别器存在但不在识别中，直接释放
+                            Log.d(TAG, "[语音识别] ⚠️ 识别器存在但不在识别中，直接释放");
+                            releaseSpeechRecognizerInternal();
+                        } else {
+                            Log.d(TAG, "[语音识别] ⚠️ speechRecognizer 为 null，无需释放");
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "[语音识别] ❌ 停止语音识别失败", e);
+                        releaseSpeechRecognizerInternal();
+                        isStoppingAwaitingResults = false;
+                        notifySpeechResult(null, "停止识别失败: " + e.getMessage(), true);
+                    }
+                });
+            } else {
+                // 如果不是 Activity，尝试直接停止（可能仍然会失败，但至少尝试）
+                Log.w(TAG, "[语音识别] ⚠️ Context 不是 Activity，无法切换到主线程");
+                if (speechRecognizer != null && wasRecognizing) {
+                    try {
+                        speechRecognizer.stopListening();
+                        Log.d(TAG, "[语音识别] ✓ 已停止语音识别（非主线程）");
+                        // 设置 isRecognizing 为 false，防止 releaseSpeechRecognizerInternal() 再次调用 stopListening()
+                        isRecognizing = false;
+                        isStoppingAwaitingResults = true;
+                    } catch (Exception e) {
+                        Log.e(TAG, "[语音识别] ❌ 停止语音识别失败", e);
+                        releaseSpeechRecognizerInternal(true);
+                        isStoppingAwaitingResults = false;
+                        notifySpeechResult(null, "停止识别失败: " + e.getMessage(), true);
+                    }
+                } else {
+                    releaseSpeechRecognizerInternal(true);
+                }
+            }
+            
+            return createResponse(true, "已停止语音识别", null);
+
+        } catch (Exception e) {
+            Log.e(TAG, "[语音识别] ❌ 停止语音识别失败", e);
+            if (mContext instanceof Activity) {
+                ((Activity) mContext).runOnUiThread(() -> {
+                    releaseSpeechRecognizerInternal();
+                });
+            } else {
+                releaseSpeechRecognizerInternal();
+            }
+            return createResponse(false, "停止语音识别失败: " + e.getMessage(), null);
+        }
+    }
+
+    /**
+     * 获取错误文本描述
+     */
+    private String getErrorText(int errorCode) {
+        switch (errorCode) {
+            case SpeechRecognizer.ERROR_AUDIO:
+                return "音频错误";
+            case SpeechRecognizer.ERROR_CLIENT:
+                return "客户端错误";
+            case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS:
+                return "权限不足";
+            case SpeechRecognizer.ERROR_NETWORK:
+                return "网络错误";
+            case SpeechRecognizer.ERROR_NETWORK_TIMEOUT:
+                return "网络超时";
+            case SpeechRecognizer.ERROR_NO_MATCH:
+                return "未识别到内容";
+            case SpeechRecognizer.ERROR_RECOGNIZER_BUSY:
+                return "识别器忙碌";
+            case SpeechRecognizer.ERROR_SERVER:
+                return "服务器错误";
+            case SpeechRecognizer.ERROR_SPEECH_TIMEOUT:
+                return "说话超时";
+            default:
+                return "未知错误: " + errorCode;
+        }
+    }
+
+    /**
+     * 通知前端语音识别结果
+     */
+    private void notifySpeechResult(String text, String error, boolean isError) {
+        Log.d(TAG, "[语音识别] 📞 notifySpeechResult 被调用");
+        Log.d(TAG, "[语音识别] 📊 参数 - text: " + (text != null ? "\"" + text + "\"" : "null") + 
+                   ", error: " + (error != null ? "\"" + error + "\"" : "null") + 
+                   ", isError: " + isError);
+        Log.d(TAG, "[语音识别] 📊 webView 是否为 null: " + (webView == null));
+        Log.d(TAG, "[语音识别] 📊 当前线程: " + Thread.currentThread().getName());
+        
+        if (webView == null) {
+            Log.w(TAG, "[语音识别] ⚠️ WebView未设置，无法通知前端语音识别结果");
+            return;
+        }
+
+        try {
+            if (isError) {
+                Log.d(TAG, "[语音识别] 📤 准备通知前端识别错误: " + error);
+            } else {
+                Log.d(TAG, "[语音识别] 📤 准备通知前端识别结果: \"" + text + "\" (长度: " + (text != null ? text.length() : 0) + ")");
+            }
+            
+            // 转义文本中的特殊字符
+            String safeText = text != null ? 
+                text.replace("\\", "\\\\")
+                   .replace("'", "\\'")
+                   .replace("\"", "\\\"")
+                   .replace("\n", "\\n")
+                   .replace("\r", "\\r") : "";
+            String safeError = error != null ? 
+                error.replace("\\", "\\\\")
+                    .replace("'", "\\'")
+                    .replace("\"", "\\\"")
+                    .replace("\n", "\\n")
+                    .replace("\r", "\\r") : "";
+
+            // 构建JavaScript回调
+            String jsCode;
+            if (isError) {
+                jsCode = String.format(Locale.getDefault(),
+                    "if(typeof window.onSpeechResult === 'function'){" +
+                    "  window.onSpeechResult(null, '%s');" +
+                    "}",
+                    safeError);
+            } else {
+                jsCode = String.format(Locale.getDefault(),
+                    "if(typeof window.onSpeechResult === 'function'){" +
+                    "  window.onSpeechResult('%s', null);" +
+                    "}",
+                    safeText);
+            }
+            
+            Log.d(TAG, "[语音识别] 📡 准备执行 JavaScript 回调");
+            Log.d(TAG, "[语音识别] 📝 JavaScript 代码: " + jsCode);
+
+            executeJavaScript(jsCode);
+            Log.d(TAG, "[语音识别] ✓ 已成功通知前端语音识别结果");
+
+        } catch (Exception e) {
+            Log.e(TAG, "[语音识别] ❌ 通知前端语音识别结果失败", e);
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 释放语音识别器资源（自动切换到主线程）
+     */
+    private void releaseSpeechRecognizer() {
+        Log.d(TAG, "[语音识别] 📞 releaseSpeechRecognizer 被调用");
+        Log.d(TAG, "[语音识别] 📊 当前线程: " + Thread.currentThread().getName());
+        
+        // 检查是否在主线程
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            // 已经在主线程，直接执行
+            releaseSpeechRecognizerInternal();
+        } else {
+            // 不在主线程，切换到主线程执行
+            if (mContext instanceof Activity) {
+                ((Activity) mContext).runOnUiThread(() -> {
+                    releaseSpeechRecognizerInternal();
+                });
+            } else {
+                // 如果不是 Activity，尝试使用 Handler 切换到主线程
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                    releaseSpeechRecognizerInternal();
+                });
+            }
+        }
+    }
+
+    /**
+     * 释放语音识别器资源（内部方法，必须在主线程中调用）
+     * @param forceCancel 是否强制取消识别（true：使用 cancel()，false：如果正在识别则使用 stopListening()）
+     */
+    private void releaseSpeechRecognizerInternal(boolean forceCancel) {
+        Log.d(TAG, "[语音识别] 📞 releaseSpeechRecognizerInternal 被调用，forceCancel: " + forceCancel);
+        Log.d(TAG, "[语音识别] 📊 当前线程: " + Thread.currentThread().getName());
+        Log.d(TAG, "[语音识别] 📊 speechRecognizer 是否为 null: " + (speechRecognizer == null));
+        Log.d(TAG, "[语音识别] 📊 当前识别状态: " + isRecognizing);
+        
+        // 如果处于 stopListening() 后等待结果的窗口，且不是强制取消，则不要取消/销毁
+        if (!forceCancel && isStoppingAwaitingResults) {
+            Log.d(TAG, "[语音识别] ⏳ 正在等待 onResults，不执行取消/销毁");
+            return;
+        }
+        
+        if (speechRecognizer != null) {
+            try {
+                // 如果正在识别且不强制取消，使用 stopListening() 来获取识别结果
+                if (isRecognizing && !forceCancel) {
+                    Log.d(TAG, "[语音识别] 🔄 正在识别中，使用 stopListening() 停止识别以获取结果");
+                    try {
+                        speechRecognizer.stopListening();
+                        Log.d(TAG, "[语音识别] ✓ 已调用 stopListening()，等待 onResults 回调");
+                        // 注意：不要在这里立即销毁识别器，等待 onResults 回调后再销毁
+                        // 设置 isRecognizing 为 false，防止重复调用
+                        isRecognizing = false;
+                        return;
+                    } catch (Exception e) {
+                        Log.e(TAG, "[语音识别] ❌ stopListening() 失败，使用 cancel()", e);
+                        // 如果 stopListening() 失败，回退到 cancel()
+                        speechRecognizer.cancel();
+                    }
+                } else {
+                    // 不在识别中或强制取消，使用 cancel()
+                    Log.d(TAG, "[语音识别] 🔄 准备取消并销毁识别器");
+                    speechRecognizer.cancel();
+                    Log.d(TAG, "[语音识别] ✓ 已取消识别器");
+                }
+                
+                speechRecognizer.destroy();
+                Log.d(TAG, "[语音识别] ✓ 已销毁识别器");
+            } catch (Exception e) {
+                Log.e(TAG, "[语音识别] ❌ 释放语音识别器失败", e);
+            }
+            speechRecognizer = null;
+            Log.d(TAG, "[语音识别] ✓ 识别器引用已清空");
+        }
+        isRecognizing = false;
+        Log.d(TAG, "[语音识别] ✓ 识别状态已重置为 false");
+    }
+    
+    /**
+     * 释放语音识别器资源（内部方法，必须在主线程中调用）
+     * 默认不强制取消，如果正在识别则使用 stopListening()
+     */
+    private void releaseSpeechRecognizerInternal() {
+        releaseSpeechRecognizerInternal(false);
+    }
+
     // ========== 图片发送相关接口 ==========
 
     /**
@@ -1815,10 +2339,16 @@ public class WebAppInterface {
      */
     public void onAudioPermissionResult(boolean granted) {
         if (granted) {
-            // 权限已授予，开始录音
-            Log.d(TAG, "录音权限已授予，开始录音");
-            try {
-                if (!isRecording) {
+            // 检查是否有待处理的语音识别请求
+            if (pendingSpeechRecognition) {
+                pendingSpeechRecognition = false;
+                // 权限已授予，开始语音识别
+                Log.d(TAG, "录音权限已授予，开始语音识别");
+                startSpeechRecognitionInternal();
+            } else if (!isRecording) {
+                // 权限已授予，开始录音
+                Log.d(TAG, "录音权限已授予，开始录音");
+                try {
                     startVoiceRecordingInternal();
                     Log.d(TAG, "开始录音: " + currentAudioFilePath);
                     
@@ -1829,23 +2359,29 @@ public class WebAppInterface {
                             notifyVoiceRecordingStarted();
                         });
                     }
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "录音权限已授予但启动录音失败", e);
-                releaseMediaRecorder();
-                if (mContext instanceof Activity) {
-                    ((Activity) mContext).runOnUiThread(() -> {
-                        Toast.makeText(mContext, "录音启动失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    });
+                } catch (Exception e) {
+                    Log.e(TAG, "录音权限已授予但启动录音失败", e);
+                    releaseMediaRecorder();
+                    if (mContext instanceof Activity) {
+                        ((Activity) mContext).runOnUiThread(() -> {
+                            Toast.makeText(mContext, "录音启动失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        });
+                    }
                 }
             }
         } else {
             // 权限被拒绝，通知前端
+            boolean wasPendingSpeech = pendingSpeechRecognition;
+            pendingSpeechRecognition = false;
             Log.w(TAG, "录音权限被拒绝");
             if (mContext instanceof Activity) {
                 ((Activity) mContext).runOnUiThread(() -> {
                     Toast.makeText(mContext, "需要录音权限才能使用语音功能", Toast.LENGTH_SHORT).show();
                 });
+            }
+            // 如果是语音识别请求，通知前端错误
+            if (wasPendingSpeech) {
+                notifySpeechResult(null, "需要录音权限才能使用语音识别", true);
             }
         }
     }
@@ -2295,8 +2831,6 @@ public class WebAppInterface {
 
     // 桥接器接口，用于连接原有的ExerciseSolveActivity功能
     public interface ExerciseSolveActivityBridge {
-        void startPhotoSearch(String subject);
-
         // 图片选择回调接口
         default void onImageSelected(String imageInfo) {
             // 默认实现，可以在具体的Activity中重写

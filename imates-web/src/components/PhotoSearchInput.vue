@@ -24,7 +24,18 @@
         <span class="action-text">加入练习</span>
       </div>
     </div>
-
+    <div 
+          class="speech-icon" 
+          :class="{ 'recognizing': isRecognizing }"
+          @click="handleSpeechInput"
+          :title="isRecognizing ? '正在识别中...' : '语音输入'"
+        >
+          <q-icon 
+            :name="isRecognizing ? 'mic' : 'mic_none'" 
+            size="20px"
+            :class="{ 'pulse': isRecognizing }"
+          />
+        </div>
     <!-- 中间输入框 -->
     <div 
       class="input-container" 
@@ -47,33 +58,39 @@
         @blur="handleBlur"
         @keydown.enter="handleEnter"
       />
-      <!-- 右侧键盘图标 -->
-      <div class="keyboard-icon" @click="handleKeyboardToggle">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- 九宫格点 -->
-          <circle cx="6" cy="6" r="1.5" fill="currentColor"/>
-          <circle cx="12" cy="6" r="1.5" fill="currentColor"/>
-          <circle cx="18" cy="6" r="1.5" fill="currentColor"/>
-          <circle cx="6" cy="12" r="1.5" fill="currentColor"/>
-          <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
-          <circle cx="18" cy="12" r="1.5" fill="currentColor"/>
-          <circle cx="6" cy="18" r="1.5" fill="currentColor"/>
-          <circle cx="12" cy="18" r="1.5" fill="currentColor"/>
-          <circle cx="18" cy="18" r="1.5" fill="currentColor"/>
-          <!-- 底部横线 -->
-          <line x1="4" y1="22" x2="20" y2="22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
+      <!-- 右侧图标组 -->
+      <div class="right-icons">
+        <!-- 语音输入按钮 -->
+
+        <!-- 键盘图标 -->
+        <div class="keyboard-icon" @click="handleKeyboardToggle">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- 九宫格点 -->
+            <circle cx="6" cy="6" r="1.5" fill="currentColor"/>
+            <circle cx="12" cy="6" r="1.5" fill="currentColor"/>
+            <circle cx="18" cy="6" r="1.5" fill="currentColor"/>
+            <circle cx="6" cy="12" r="1.5" fill="currentColor"/>
+            <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+            <circle cx="18" cy="12" r="1.5" fill="currentColor"/>
+            <circle cx="6" cy="18" r="1.5" fill="currentColor"/>
+            <circle cx="12" cy="18" r="1.5" fill="currentColor"/>
+            <circle cx="18" cy="18" r="1.5" fill="currentColor"/>
+            <!-- 底部横线 -->
+            <line x1="4" y1="22" x2="20" y2="22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onUnmounted, onMounted } from 'vue'
 import { useQuestionStore } from '@/stores/questionStore'
 import { toggleExerciseFavorite, isExerciseFavorite } from '@/utils/storage/favorites'
 import { apiService } from '@/services/api-service'
 import { showMessage } from '@/utils'
+import { androidBridge } from '@/services/android-bridge'
 import type { ExerciseItem } from '@/types'
 
 interface Props {
@@ -110,6 +127,7 @@ const inputText = ref('')
 const isHolding = ref(false)
 const holdTimer = ref<number | null>(null)
 const isFavorite = ref(false)
+const isRecognizing = ref(false)
 
 const questionStore = useQuestionStore()
 
@@ -272,6 +290,114 @@ const handleKeyboardToggle = () => {
   inputRef.value?.focus()
 }
 
+// 处理语音输入
+const handleSpeechInput = () => {
+  console.log('[PhotoSearchInput] 🎤 [语音识别] 用户点击语音输入按钮')
+  
+  // 如果正在识别，停止识别
+  if (isRecognizing.value) {
+    console.log('[PhotoSearchInput] 🛑 [语音识别] 正在识别中，停止识别')
+    try {
+      const result = androidBridge.stopSpeech()
+      if (result.success) {
+        console.log('[PhotoSearchInput] ✓ [语音识别] 停止成功')
+        isRecognizing.value = false
+        showMessage('已停止语音识别', 'info')
+      } else {
+        console.warn('[PhotoSearchInput] ⚠️ [语音识别] 停止失败:', result.message)
+        showMessage(result.message || '停止语音识别失败', 'warning')
+      }
+    } catch (error) {
+      console.error('[PhotoSearchInput] ❌ [语音识别] 停止异常:', error)
+      showMessage('停止语音识别失败', 'error')
+      isRecognizing.value = false
+    }
+    return
+  }
+
+  if (props.isLoading) {
+    console.warn('[PhotoSearchInput] ⚠️ [语音识别] 正在处理中，忽略请求')
+    showMessage('正在处理中，请稍候', 'warning')
+    return
+  }
+
+  try {
+    console.log('[PhotoSearchInput] 📞 [语音识别] 调用 androidBridge.startSpeech()')
+    const result = androidBridge.startSpeech()
+    
+    if (!result.success) {
+      console.error('[PhotoSearchInput] ❌ [语音识别] 启动失败:', result.message)
+      showMessage(result.message || '语音识别启动失败', 'error')
+      return
+    }
+
+    // 如果正在请求权限，不设置识别状态
+    if (result.message === '正在请求录音权限') {
+      console.log('[PhotoSearchInput] 📝 [语音识别] 正在请求录音权限')
+      return
+    }
+
+    // 设置识别状态
+    console.log('[PhotoSearchInput] ✓ [语音识别] 启动成功，设置识别状态为 true')
+    isRecognizing.value = true
+  } catch (error) {
+    console.error('[PhotoSearchInput] ❌ [语音识别] 异常:', error)
+    showMessage('语音识别功能不可用', 'error')
+    isRecognizing.value = false
+  }
+}
+
+// 处理语音识别结果
+const handleSpeechResult = (data: { text: string | null; error: string | null }) => {
+  console.log('[PhotoSearchInput] 🔔 [语音识别] handleSpeechResult 被调用')
+  console.log('[PhotoSearchInput] 📥 [语音识别] 收到识别结果数据:', data)
+  console.log('[PhotoSearchInput] 📊 [语音识别] 当前输入框值:', `"${inputText.value}"`)
+  console.log('[PhotoSearchInput] 📊 [语音识别] 当前识别状态:', isRecognizing.value)
+  
+  // 更新识别状态
+  isRecognizing.value = false
+  console.log('[PhotoSearchInput] 📝 [语音识别] 识别状态更新: true -> false')
+  
+  const { text, error } = data
+  console.log('[PhotoSearchInput] 🔍 [语音识别] 解析数据 - text:', text ? `"${text}" (长度: ${text.length})` : 'null', 'error:', error || 'null')
+  
+  if (error) {
+    console.error('[PhotoSearchInput] ❌ [语音识别] 识别错误:', error)
+    
+    // 用户取消的情况，不显示错误消息（因为 stopSpeech 已经显示过提示了）
+    if (error === '用户取消') {
+      console.log('[PhotoSearchInput] ℹ️ [语音识别] 用户取消，不显示错误消息')
+      console.log('[PhotoSearchInput] ✅ [语音识别] 取消处理完成，退出')
+      return
+    }
+    
+    console.log('[PhotoSearchInput] 📤 [语音识别] 准备显示错误消息')
+    showMessage(error, 'error')
+    console.log('[PhotoSearchInput] ✅ [语音识别] 错误处理完成，退出')
+    return
+  }
+
+  if (text) {
+    console.log('[PhotoSearchInput] ✓ [语音识别] 识别成功，文本:', `"${text}" (长度: ${text.length})`)
+    // 将识别结果填充到输入框
+    const oldText = inputText.value
+    console.log('[PhotoSearchInput] 📝 [语音识别] 准备更新输入框内容')
+    console.log('[PhotoSearchInput] 📝 [语音识别] 旧值:', `"${oldText}" (长度: ${oldText.length})`)
+    console.log('[PhotoSearchInput] 📝 [语音识别] 新值:', `"${text}" (长度: ${text.length})`)
+    
+    inputText.value = text
+    console.log('[PhotoSearchInput] ✅ [语音识别] 输入框值已更新')
+    console.log('[PhotoSearchInput] 📊 [语音识别] 更新后输入框值:', `"${inputText.value}"`)
+    
+    console.log('[PhotoSearchInput] 📤 [语音识别] 准备显示成功消息')
+    showMessage('语音识别成功', 'success')
+    console.log('[PhotoSearchInput] ✅ [语音识别] 成功处理完成')
+  } else {
+    console.warn('[PhotoSearchInput] ⚠️ [语音识别] 识别结果为空')
+    console.log('[PhotoSearchInput] ✅ [语音识别] 空结果处理完成')
+  }
+}
+
 // 监听外部 modelValue 变化
 watch(() => props.modelValue, (newVal) => {
   if (newVal !== inputText.value) {
@@ -280,15 +406,27 @@ watch(() => props.modelValue, (newVal) => {
 }, { immediate: true })
 
 // 监听输入文本变化
-watch(inputText, (newVal) => {
+watch(inputText, (newVal, oldVal) => {
+  console.log('[PhotoSearchInput] 👀 [输入框] watch 监听器触发')
+  console.log('[PhotoSearchInput] 📊 [输入框] 值变化 - 旧值:', `"${oldVal}"`, '新值:', `"${newVal}"`)
+  console.log('[PhotoSearchInput] 📤 [输入框] 准备触发 update:modelValue 事件')
   emit('update:modelValue', newVal)
+  console.log('[PhotoSearchInput] ✅ [输入框] update:modelValue 事件已触发')
 })
 
-// 清理定时器
+// 监听语音识别结果事件
+onMounted(() => {
+  console.log('[PhotoSearchInput] 📡 [语音识别] 注册 speechResult 事件监听器')
+  androidBridge.addEventListener('speechResult', handleSpeechResult)
+})
+
+// 清理定时器和事件监听器
 onUnmounted(() => {
+  console.log('[PhotoSearchInput] 🧹 [语音识别] 清理事件监听器')
   if (holdTimer.value) {
     clearTimeout(holdTimer.value)
   }
+  androidBridge.removeEventListener('speechResult', handleSpeechResult)
 })
 </script>
 
@@ -387,9 +525,38 @@ onUnmounted(() => {
     }
   }
 
-  .keyboard-icon {
+  .right-icons {
     position: absolute;
     right: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .speech-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    color: #666;
+    transition: all 0.2s;
+
+    &:hover {
+      color: #9C27B0;
+    }
+
+    &.recognizing {
+      color: #9C27B0;
+    }
+
+    .pulse {
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+  }
+
+  .keyboard-icon {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -407,6 +574,17 @@ onUnmounted(() => {
       width: 20px;
       height: 20px;
     }
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
   }
 }
 </style>

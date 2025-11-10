@@ -2426,7 +2426,7 @@ const handlePhotoSearch = () => {
   // 统一使用路由跳转到 PhotoSearchView（包括 Android 环境）
   const subject = currentSubjectForPhotoSearch.value || 'math'
   router.push({
-    path: '/app/photo-search',
+    path: '/photo-search',
     query: { subject }
   })
 }
@@ -2436,7 +2436,7 @@ const handlePhotoSearchRetake = () => {
   // 统一使用路由跳转到 PhotoSearchView（包括 Android 环境）
   const subject = currentSubjectForPhotoSearch.value || 'math'
   router.push({
-    path: '/app/photo-search',
+    path: '/photo-search',
     query: { subject }
   })
 }

@@ -169,17 +169,6 @@ export const useUserStore = defineStore('user', () => {
   }
   
   /**
-   * 拍照功能
-   */
-  const takePicture = (): void => {
-    try {
-      androidBridge.takePicture('')
-    } catch (error) {
-      console.error('[USER] ❌ 拍照失败:', error)
-    }
-  }
-  
-  /**
    * 场景36：学生切换账号 - 清理旧账号数据
    * 第1步：清理消息监听器
    * 第2步：清理会话数据
@@ -282,7 +271,6 @@ export const useUserStore = defineStore('user', () => {
     saveProgress,
     quickSaveProgress,
     exitActivity,
-    takePicture,
     cleanupOnAccountSwitch // 新增：手动清理方法
   }
 })

@@ -12,7 +12,7 @@ const getFavoritesStorageKey = (): string => {
   const userId = getCurrentUserIdOrDefault()
   return `${userId}_favorites`
 }
-const QA_FAVORITES_PREFIX = 'favorite_qa_'
+const QA_FAVORITES_PREFIX = 'favorite_qa_'  
 const EXERCISE_FAVORITES_PREFIX = 'favorite_exercise_'
 
 // 收藏数据类型

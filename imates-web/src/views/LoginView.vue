@@ -186,8 +186,8 @@ const handleLogin = async () => {
     // - 同步到Android原生ViewModel
     await apiService.getUserInfo(token)
     
-    // 第3步：跳转到首页
-    router.push('/app')
+    // 第3步：跳转到首页（使用 replace 避免登录页留在历史记录中）
+    router.replace('/app')
     
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '登录失败，请检查网络连接'

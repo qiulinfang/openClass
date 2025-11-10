@@ -11,7 +11,6 @@ import FindExerciseView from '@/views/FindExerciseView.vue'
 import LearningView from '@/views/LearningView.vue'
 import DrawingBoard from '@/components/DrawingBoard.vue'
 import MyFavoritesView from '@/views/MyFavoritesView.vue'
-import PhotoSearchDrawer from '@/components/PhotoSearchDrawer.vue'
 import PhotoSearchView from '@/views/PhotoSearchView.vue'
 
 const router = createRouter({
@@ -80,16 +79,11 @@ const router = createRouter({
           path: 'my-favorites',
           name: 'myFavorites',
           component: MyFavoritesView
-        },
-        {
-          path: 'photo-search-drawer',
-          name: 'photoSearchDrawer',
-          component: PhotoSearchDrawer
         }
       ]
     },
     {
-      path: '/app/photo-search',
+      path: '/photo-search',
       name: 'photoSearch',
       component: PhotoSearchView
     },
@@ -130,6 +124,14 @@ router.beforeEach((to, from, next) => {
   
   // 如果访问 /app 下的任何路由，需要登录
   if (to.path.startsWith('/app')) {
+    if (!isLoggedIn) {
+      next({ name: 'login' })
+      return
+    }
+  }
+  
+  // 如果访问 /photo-search，需要登录
+  if (to.path === '/photo-search' || to.path.startsWith('/photo-search')) {
     if (!isLoggedIn) {
       next({ name: 'login' })
       return
