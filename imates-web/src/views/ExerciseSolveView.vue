@@ -161,6 +161,7 @@
                 <ChatView
                   v-if="currentFunction === 'chatAi'"
                   type="ai-exercise"
+                  :compressed-height="327"
                   @response="handleChatResponse"
                   @switch-to-teacher="handleSwitchToTeacher"
                   @open-teacher-dialog="handleOpenTeacherDialog"
@@ -172,6 +173,7 @@
                   v-if="currentFunction === 'askTeacher'" 
                   type="teacher-exercise"
                   @scroll-to-bottom="scrollToBottom"
+                  :compressed-height="327"
                 />
 
                 <!-- 答案显示 -->

@@ -1,5 +1,6 @@
 ﻿<template>
-  <!-- 内容区域和对话面板 -->
+  <div>
+      <!-- 内容区域和对话面板 -->
   <div class="content-layout">
     <q-splitter
       v-if="chatPanelVisible"
@@ -330,6 +331,7 @@
     @click="debugPanelVisible = true"
     title="打开调试面板 (Ctrl+Shift+D)"
   />
+  </div>
 </template>
 
 <script lang="ts">
@@ -759,8 +761,6 @@ const handleScrollToBottom = () => {
 const handleScreenshotCaptured = async (blob: Blob) => {
   const startTime = Date.now()
   try {
-
-
     // 步骤2：将blob转换为base64DataUrl
     const base64DataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
@@ -770,7 +770,6 @@ const handleScreenshotCaptured = async (blob: Blob) => {
     })
 
     const base64Size = base64DataUrl.length
-  
 
     // 步骤3：弹出输入对话框，等待用户输入问题
     screenshotDataUrl.value = base64DataUrl

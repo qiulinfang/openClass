@@ -38,79 +38,99 @@
     <!-- 内容区域 -->
     <div class="content-area">
       <!-- 问答收藏列表 -->
-      <div v-if="activeTab === 'qa'" class="list-container">
-        <div v-if="qaFavorites.length === 0 && !isLoadingQa" class="empty-state">
-          <q-icon name="chat_bubble_outline" size="80px" color="grey-5" />
-          <div class="text-h6 q-mt-md text-grey-7">暂无问答收藏</div>
-          <div class="text-body2 text-grey-6 q-mt-sm">
-            收藏的问答会话将显示在这里
-          </div>
-        </div>
-        
-        <div v-else class="favorites-list">
-          <div
-            v-for="(item, index) in qaFavorites"
-            :key="item.id || index"
-            class="favorite-card qa-card"
-          >
-            <div class="card-content">
-              <!-- 问题内容和时间戳 -->
-              <div class="card-text" v-html="renderContent(item.session.sessionName || '未命名会话')"></div>
-              <div class="card-timestamp">{{ formatTimestamp(item.timestamp) }}</div>
+      <div v-if="activeTab === 'qa'" ref="qaScrollWrapper" class="list-container scroll-wrapper">
+        <div class="scroll-content">
+          <div v-if="qaFavorites.length === 0 && !isLoadingQa" class="empty-state">
+            <q-icon name="chat_bubble_outline" size="80px" color="grey-5" />
+            <div class="text-h6 q-mt-md text-grey-7">暂无问答收藏</div>
+            <div class="text-body2 text-grey-6 q-mt-sm">
+              收藏的问答会话将显示在这里
             </div>
-            
-            <!-- 操作按钮区域 -->
-            <div class="card-actions">
-              <!-- 删除按钮 -->
-              <q-btn
-                flat
-                round
-                dense
-                icon="delete"
-                color="negative"
-                class="delete-btn"
-                @click.stop="handleDeleteSession(item.session)"
-              >
-                <q-tooltip>删除会话</q-tooltip>
-              </q-btn>
+          </div>
+          
+          <div v-else class="favorites-list">
+            <div
+              v-for="(item, index) in qaFavorites"
+              :key="item.id || index"
+              class="favorite-card qa-card"
+            >
+              <div class="card-content">
+                <!-- 问题内容和时间戳 -->
+                <div class="card-text" v-html="renderContent(item.session.sessionName || '未命名会话')"></div>
+                <div class="card-timestamp">{{ formatTimestamp(item.timestamp) }}</div>
+              </div>
               
-              <!-- 查看按钮 -->
-              <q-btn
-                flat
-                round
-                dense
-                icon="visibility"
-                color="primary"
-                class="view-btn"
-                @click.stop="handleQaCardClick(item.session)"
-              >
-                <q-tooltip>查看会话</q-tooltip>
-              </q-btn>
+              <!-- 操作按钮区域 -->
+              <div class="card-actions">
+                <!-- 删除按钮 -->
+                <q-btn
+                  flat
+                  round
+                  dense
+                  icon="delete"
+                  color="negative"
+                  class="delete-btn"
+                  @click.stop="handleDeleteSession(item.session)"
+                >
+                  <q-tooltip>删除会话</q-tooltip>
+                </q-btn>
+                
+                <!-- 查看按钮 -->
+                <q-btn
+                  flat
+                  round
+                  dense
+                  icon="visibility"
+                  color="primary"
+                  class="view-btn"
+                  @click.stop="handleQaCardClick(item.session)"
+                >
+                  <q-tooltip>查看会话</q-tooltip>
+                </q-btn>
+              </div>
             </div>
           </div>
         </div>
       </div>
       
       <!-- 练习收藏列表 -->
-      <div v-if="activeTab === 'exercise'" class="list-container">
-        <div v-if="exerciseFavorites.length === 0 && !isLoadingExercise" class="empty-state">
-          <q-icon name="quiz" size="80px" color="grey-5" />
-          <div class="text-h6 q-mt-md text-grey-7">暂无练习收藏</div>
-          <div class="text-body2 text-grey-6 q-mt-sm">
-            收藏的练习题目将显示在这里
+      <div v-if="activeTab === 'exercise'" ref="exerciseScrollWrapper" class="list-container scroll-wrapper">
+        <div class="scroll-content">
+          <div v-if="exerciseFavorites.length === 0 && !isLoadingExercise" class="empty-state">
+            <q-icon name="quiz" size="80px" color="grey-5" />
+            <div class="text-h6 q-mt-md text-grey-7">暂无练习收藏</div>
+            <div class="text-body2 text-grey-6 q-mt-sm">
+              收藏的练习题目将显示在这里
+            </div>
           </div>
-        </div>
-        
-        <div v-else class="favorites-list">
-          <div
-            v-for="(item, index) in exerciseFavorites"
-            :key="item.id || index"
-            class="favorite-card exercise-card"
-            @click="handleExerciseCardClick(item.item)"
-          >
-            <div class="card-content">
-              <div class="card-text" v-html="renderContent(item.item.question || item.item.title)"></div>
-              <div class="card-timestamp">{{ formatTimestamp(item.timestamp) }}</div>
+          
+          <div v-else class="favorites-list">
+            <div
+              v-for="(item, index) in exerciseFavorites"
+              :key="item.id || index"
+              class="favorite-card exercise-card"
+              @click="handleExerciseCardClick(item.item)"
+            >
+              <div class="card-content">
+                <div class="card-text" v-html="renderContent(item.item.question || item.item.title)"></div>
+                <div class="card-timestamp">{{ formatTimestamp(item.timestamp) }}</div>
+              </div>
+              
+              <!-- 操作按钮区域 -->
+              <div class="card-actions">
+                <!-- 删除按钮 -->
+                <q-btn
+                  flat
+                  round
+                  dense
+                  icon="delete"
+                  color="negative"
+                  class="delete-btn"
+                  @click.stop="handleDeleteExercise(item.item)"
+                >
+                  <q-tooltip>取消收藏</q-tooltip>
+                </q-btn>
+              </div>
             </div>
           </div>
         </div>
@@ -130,12 +150,13 @@
 import { ref, onMounted, watch, onActivated, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
-import { getFavoriteSessions, getFavoriteExercises, removeSessionFavorite, type FavoriteSession, type FavoriteExercise } from '../utils/storage/favorites'
+import { getFavoriteSessions, getFavoriteExercises, removeSessionFavorite, removeExerciseFavorite, type FavoriteSession, type FavoriteExercise } from '../utils/storage/favorites'
 import { showMessage } from '../utils'
 import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
 import type { AiGeneralSession } from '../types/chat'
 import type { ExerciseItem } from '../types/exercise'
 import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
+import { useBetterScroll } from '../composables/useBetterScroll'
 
 // 定义组件名称
 defineOptions({
@@ -153,6 +174,58 @@ const qaFavorites = ref<FavoriteSession[]>([])
 const exerciseFavorites = ref<FavoriteExercise[]>([])
 const isLoadingQa = ref(false)
 const isLoadingExercise = ref(false)
+
+// BetterScroll 相关
+const qaScrollWrapper = ref<HTMLElement | null>(null)
+const exerciseScrollWrapper = ref<HTMLElement | null>(null)
+
+// 问答收藏列表 BetterScroll
+const {
+  init: initQaBScroll,
+  refresh: refreshQaBScroll,
+  destroy: destroyQaBScroll
+} = useBetterScroll(
+  qaScrollWrapper,
+  {
+    scrollY: true,
+    scrollX: false,
+    click: true,
+    bounce: {
+      top: true,
+      bottom: true,
+      left: false,
+      right: false
+    },
+    bounceTime: 800,
+    deceleration: 0.003,
+    useTransition: true,
+    HWCompositing: true
+  }
+)
+
+// 练习收藏列表 BetterScroll
+const {
+  init: initExerciseBScroll,
+  refresh: refreshExerciseBScroll,
+  destroy: destroyExerciseBScroll
+} = useBetterScroll(
+  exerciseScrollWrapper,
+  {
+    scrollY: true,
+    scrollX: false,
+    click: true,
+    bounce: {
+      top: true,
+      bottom: true,
+      left: false,
+      right: false
+    },
+    bounceTime: 800,
+    deceleration: 0.003,
+    useTransition: true,
+    HWCompositing: true
+  }
+)
 
 // 统一聊天对话框状态
 const showUnifiedChatDialog = ref(false)
@@ -311,6 +384,27 @@ const handleExerciseCardClick = async (item: ExerciseItem) => {
   }
 }
 
+// 处理删除练习收藏
+const handleDeleteExercise = async (item: ExerciseItem) => {
+  try {
+    // 取消收藏
+    const itemId = item.id || item.bmNo
+    if (itemId) {
+      removeExerciseFavorite(itemId)
+      
+      // 刷新列表
+      await loadExerciseFavorites()
+      
+      showMessage('已取消收藏', 'success')
+    } else {
+      showMessage('无法取消收藏，题目ID不存在', 'error')
+    }
+  } catch (error) {
+    console.error('取消收藏失败:', error)
+    showMessage('取消收藏失败，请重试', 'error')
+  }
+}
+
 // 渲染内容（支持Markdown和公式）
 const renderContent = (content: string) => {
   if (!content) return ''
@@ -351,6 +445,12 @@ const loadQaFavorites = async () => {
         })
       }
     })
+    
+    // 第4步：刷新 BetterScroll（如果当前是问答标签页）
+    await nextTick()
+    if (activeTab.value === 'qa' && qaScrollWrapper.value) {
+      refreshQaBScroll()
+    }
   } catch (error) {
     console.error('加载问答收藏失败:', error)
   } finally {
@@ -368,6 +468,12 @@ const loadExerciseFavorites = async () => {
     // 按时间戳倒序排列
     favorites.sort((a, b) => b.timestamp - a.timestamp)
     exerciseFavorites.value = favorites
+    
+    // 刷新 BetterScroll（如果当前是练习标签页）
+    await nextTick()
+    if (activeTab.value === 'exercise' && exerciseScrollWrapper.value) {
+      refreshExerciseBScroll()
+    }
   } catch (error) {
     console.error('加载练习收藏失败:', error)
   } finally {
@@ -379,8 +485,16 @@ const loadExerciseFavorites = async () => {
 watch(activeTab, async (newTab) => {
   if (newTab === 'qa') {
     await loadQaFavorites()
+    await nextTick()
+    // 延迟初始化，确保 DOM 完全渲染
+    initQaBScroll()
+    destroyExerciseBScroll()
   } else {
     await loadExerciseFavorites()
+    await nextTick()
+    // 延迟初始化，确保 DOM 完全渲染
+    initExerciseBScroll()
+    destroyQaBScroll()
   }
 })
 
@@ -389,8 +503,14 @@ onMounted(async () => {
   // 加载当前标签页的收藏数据
   if (activeTab.value === 'qa') {
     await loadQaFavorites()
+    await nextTick()
+    // 延迟初始化，确保 DOM 完全渲染
+    initQaBScroll()
   } else {
     await loadExerciseFavorites()
+    await nextTick()
+    // 延迟初始化，确保 DOM 完全渲染
+    initExerciseBScroll()
   }
 })
 
@@ -399,8 +519,18 @@ onActivated(async () => {
   // 刷新当前标签页的收藏数据
   if (activeTab.value === 'qa') {
     await loadQaFavorites()
+    await nextTick()
+    // 延迟初始化，确保 DOM 完全渲染
+    if (qaScrollWrapper.value) {
+        initQaBScroll()
+    }
   } else {
     await loadExerciseFavorites()
+    await nextTick()
+    // 延迟初始化，确保 DOM 完全渲染
+    if (exerciseScrollWrapper.value) {
+        initExerciseBScroll()
+    }
   }
 })
 
@@ -498,24 +628,17 @@ $text-tertiary: #9aa0a6;
 // 列表容器
 .list-container {
   flex: 1;
-  overflow-y: auto;
-  padding: 12px;
+  overflow: hidden;
+  position: relative;
   
-  &::-webkit-scrollbar {
-    width: 6px;
+  &.scroll-wrapper {
+    height: 100%;
   }
   
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 3px;
-    
-    &:hover {
-      background: rgba(0, 0, 0, 0.3);
-    }
+  .scroll-content {
+    padding: 12px;
+    min-height: calc(100% + 1px); // 确保即使内容少也能滚动
+    box-sizing: border-box;
   }
 }
 

@@ -502,6 +502,31 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   }
   
   /**
+   * 删除单条消息
+   * 
+   * 第1步：从消息列表中删除指定消息
+   * 第2步：保存更新后的聊天历史
+   */
+  const deleteMessage = async (messageId: string): Promise<void> => {
+    try {
+      // 第1步：查找消息索引
+      const index = messages.value.findIndex(m => m.id === messageId)
+      if (index < 0) {
+        throw new Error('消息不存在')
+      }
+      
+      // 第2步：从列表中删除消息
+      messages.value.splice(index, 1)
+      
+      // 第3步：保存更新后的聊天历史
+      await saveChatHistory()
+    } catch (error) {
+      console.error('[AI_GENERAL] ❌ 删除消息失败:', error)
+      throw error
+    }
+  }
+  
+  /**
    * 重置状态
    */
   const resetState = (): void => {
@@ -650,6 +675,7 @@ ${conversationSummary}
     renameSession,
     togglePin,
     deleteSession,
+    deleteMessage,
     generateSessionTitle,
     saveChatHistory,
     loadChatHistory,

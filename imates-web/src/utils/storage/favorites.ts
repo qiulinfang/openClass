@@ -106,7 +106,7 @@ export function isQaFavorite(recordId: string): boolean {
  */
 export function isExerciseFavorite(itemId: string): boolean {
   const favorites = getFavoriteExercises()
-  return favorites.some(f => f.item.id === itemId)
+  return favorites.some(f => (f.item.id === itemId) || (f.item.bmNo === itemId))
 }
 
 /**
@@ -149,12 +149,12 @@ export function addQaFavorite(record: QuestionRecord): boolean {
  */
 export function addExerciseFavorite(item: ExerciseItem): boolean {
   try {
-    if (isExerciseFavorite(item.id)) {
+    if (isExerciseFavorite(item.id || item.bmNo)) {
       return false // 已收藏
     }
 
     const favorite: FavoriteExercise = {
-      id: `exercise_${item.id}_${Date.now()}`,
+      id: `exercise_${item.id || item.bmNo}_${Date.now()}`,
       type: 'exercise',
       item,
       timestamp: Date.now()
@@ -200,7 +200,8 @@ export function removeExerciseFavorite(itemId: string): boolean {
     const favorites = getAllFavorites()
     const filtered = favorites.filter(f => {
       if (f.type === 'exercise') {
-        return f.item.id !== itemId
+        // 同时检查 id 和 bmNo
+        return (f.item.id !== itemId) && (f.item.bmNo !== itemId)
       }
       return true
     })
@@ -287,8 +288,8 @@ export function toggleSessionFavorite(session: AiGeneralSession): boolean {
  * 切换题目收藏状态
  */
 export function toggleExerciseFavorite(item: ExerciseItem): boolean {
-  if (isExerciseFavorite(item.id)) {
-    return removeExerciseFavorite(item.id)
+  if (isExerciseFavorite(item.id || item.bmNo)) {
+    return removeExerciseFavorite(item.id || item.bmNo)
   } else {
     return addExerciseFavorite(item)
   }

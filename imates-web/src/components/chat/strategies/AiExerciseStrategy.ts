@@ -72,7 +72,7 @@ export class AiExerciseStrategy implements ChatStrategy {
   
   // 第8步：保存聊天历史
   async saveChatHistory(): Promise<void> {
-    const questionId = this.questionStore.currentQuestion?.id
+    const questionId = this.questionStore.currentQuestion?.id || this.questionStore.currentQuestion?.bmNo
     if (questionId) {
       await this.aiExerciseStore.saveChatHistory(questionId)
     }
@@ -127,7 +127,7 @@ export class AiExerciseStrategy implements ChatStrategy {
       
       // 选择或创建老师题目会话
       const session = await this.selectOrCreateTeacherExerciseSession(
-        question.id,
+        question.id || question.bmNo,
         question.title || '题目',
         subject
       )
@@ -202,7 +202,7 @@ export class AiExerciseStrategy implements ChatStrategy {
       
       // 选择或创建老师题目会话
       const session = await this.selectOrCreateTeacherExerciseSession(
-        question.id,
+        question.id || question.bmNo,
         question.title || '题目',
         subject
       )
@@ -258,17 +258,30 @@ export class AiExerciseStrategy implements ChatStrategy {
   
   // 第13步：初始化消息
   async initialize(options: InitializeOptions): Promise<void> {
-    // AI题目对话不需要特殊初始化，只需要添加欢迎消息
-    if (!options.hasSelectedQuestion && this.aiExerciseStore.messages.length === 0) {
-      const welcomeMessage: ChatBubble = {
-        id: 'welcome_' + Date.now(),
-        content: this.getWelcomeMessage(),
-        type: this.getMessageType(),
-        timestamp: '',
-        sender: this.getSenderType(),
+    console.log('初始化消息', options)
+    
+    // 如果有题目，加载该题目的聊天历史
+    if (options.hasSelectedQuestion || options.currentQuestionId) {
+      const questionId = options.currentQuestionId || this.questionStore.currentQuestion?.id  || this.questionStore.currentQuestion?.bmNo
+      if (questionId) {
+        console.log('[AiExerciseStrategy] 加载题目聊天历史:', questionId)
+        await this.aiExerciseStore.loadChatHistory(questionId)
+        console.log('[AiExerciseStrategy] 聊天历史加载完成，消息数量:', this.aiExerciseStore.messages.length)
       }
-      await this.addMessage(welcomeMessage)
+    } else {
+      // 如果没有题目且消息为空，添加欢迎消息
+      if (this.aiExerciseStore.messages.length === 0) {
+        const welcomeMessage: ChatBubble = {
+          id: 'welcome_' + Date.now(),
+          content: this.getWelcomeMessage(),
+          type: this.getMessageType(),
+          timestamp: '',
+          sender: this.getSenderType(),
+        }
+        await this.addMessage(welcomeMessage)
+      }
     }
+    console.log('初始化消息完成', this.aiExerciseStore.messages)
   }
   
   // 第14步：发送语音消息

@@ -34,10 +34,10 @@ interface QuestionState {
  */
 export const useQuestionStore = create<QuestionState>((set, get) => ({
   // 初始状态
-  questions: [],
-  similarQuestions: [],
-  currentQuestionIndex: -1,
-  isLoading: false,
+  questions: [], // 题目列表
+  similarQuestions: [], // 相似题目列表
+  currentQuestionIndex: -1, // 当前题目索引
+  isLoading: false, // 加载状态
 
   /**
    * 获取题目列表

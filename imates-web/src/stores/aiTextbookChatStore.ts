@@ -70,6 +70,33 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     chatResponseTimes.value = 0
   }
   
+  /**
+   * 删除单条消息
+   * 
+   * 第1步：从消息列表中删除指定消息
+   * 第2步：保存更新后的聊天历史
+   */
+  const deleteMessage = async (messageId: string): Promise<void> => {
+    try {
+      // 第1步：查找消息索引
+      const index = messages.value.findIndex(m => m.id === messageId)
+      if (index < 0) {
+        throw new Error('消息不存在')
+      }
+      
+      // 第2步：从列表中删除消息
+      messages.value.splice(index, 1)
+      
+      // 第3步：保存更新后的聊天历史
+      if (resourceId.value) {
+        await saveChatHistory()
+      }
+    } catch (error) {
+      console.error('[AI_TEXTBOOK] ❌ 删除消息失败:', error)
+      throw error
+    }
+  }
+  
   // ==================== 发送消息 ====================
   
   /**
@@ -430,6 +457,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     addMessage,
     updateMessage,
     clearMessages,
+    deleteMessage,
     sendMessage,
     retryAiMessage,
     saveChatHistory,

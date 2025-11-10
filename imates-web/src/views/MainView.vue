@@ -1,6 +1,7 @@
 ﻿<template>
   <div 
     class="main-view"
+    :style="mainViewStyle"
     @mousemove="handleDrag"
     @mouseup="stopDrag"
     @touchmove="handleDrag"
@@ -191,6 +192,34 @@ const fabStyle = computed(() => ({
   right: `${fabPosition.value.x}px`,
   bottom: `${fabPosition.value.y}px`
 }))
+
+// 计算主视图背景样式
+const mainViewStyle = computed(() => {
+  const routeName = route.name
+  
+  switch (routeName) {
+    case 'knowledgeGraph':
+      // 知识图谱页面：单一背景色
+      return {
+        background: '#271a43'
+      }
+    case 'exerciseSolve':
+      // 我的习题页：上半部分 #3d3070，下半部分 #f7f6ff
+      return {
+        background: 'linear-gradient(to bottom, #3d3070 50%, #f7f6ff 50%)'
+      }
+    case 'myResources':
+      // 资源下载页：上半部分 #ffffff，下半部分 #edeffe
+      return {
+        background: 'linear-gradient(to bottom, #ffffff 50%, #edeffe 50%)'
+      }
+    default:
+      // 默认背景色
+      return {
+        background: '#3d3070'
+      }
+  }
+})
 
 // 第3步：根据选中状态计算当前应该显示的图标
 const currentToolBoxIcon = computed(() => {
@@ -560,7 +589,6 @@ const handleLogoutClick = async () => {
 .main-view {
   width: 100%;
   height: 100vh;
-  background: #3d3070;
   backdrop-filter: blur(5px);
   border-right: 1px solid rgba(229, 231, 235, 0.3);
   display: flex;

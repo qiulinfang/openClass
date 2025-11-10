@@ -139,16 +139,6 @@
           <img :src="photoSearchIcon" alt="拍照搜题" class="toolbar-icon" />
           <q-tooltip>拍照搜题</q-tooltip>
         </q-btn>
-        <q-btn
-          flat
-          round
-          dense
-          class="toolbar-icon-btn"
-          @click="handleOpenBlankPage"
-        >
-          <q-icon name="open_in_new" size="24px" color="white" />
-          <q-tooltip>打开空白页面</q-tooltip>
-        </q-btn>
       </div>
 
       <!-- 圆形知识图谱容器 -->
@@ -2423,16 +2413,6 @@ const toggleNodeSearch = () => {
 
 // 拍照搜题处理
 const handlePhotoSearch = () => {
-  // 统一使用路由跳转到 PhotoSearchView（包括 Android 环境）
-  const subject = currentSubjectForPhotoSearch.value || 'math'
-  router.push({
-    path: '/photo-search',
-    query: { subject }
-  })
-}
-
-// 处理拍照搜题重新选择图片
-const handlePhotoSearchRetake = () => {
   // 统一使用路由跳转到 PhotoSearchView（包括 Android 环境）
   const subject = currentSubjectForPhotoSearch.value || 'math'
   router.push({

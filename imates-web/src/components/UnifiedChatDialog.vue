@@ -75,6 +75,7 @@
         <ChatView 
           v-if="activeCategory === 'ai-general'"
           type="ai-general"
+          :compressed-height="225"
           @open-teacher-dialog="handleOpenTeacherDialog"
           @switch-to-teacher="handleSwitchToTeacher"
         />
@@ -82,6 +83,7 @@
         <ChatView
           v-else-if="activeCategory === 'teacher' && teacherChatStore.currentSession?.sessionId"
           type="teacher-general"
+          :compressed-height="225"
           :session-id="teacherChatStore.currentSession.sessionId"
           :key="teacherChatStore.currentSession.sessionId"
         />

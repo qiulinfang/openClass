@@ -35,8 +35,10 @@ export const useQuestionStore = defineStore('question', () => {
   /** 当前选中的题目 */
   const currentQuestion = computed(() => {
     if (currentQuestionIndex.value >= 0 && currentQuestionIndex.value < questions.value.length) {
+      console.log('当前选中的题目', questions.value[currentQuestionIndex.value])
       return questions.value[currentQuestionIndex.value]
     }
+    console.log('当前没有选中的题目')
     return null
   })
   
@@ -263,6 +265,7 @@ export const useQuestionStore = defineStore('question', () => {
     }
     
     currentQuestionIndex.value = index
+    console.log('选择题目到 questionStore 成功', questions.value, currentQuestionIndex.value)
     
     // 标记为已查看（如果类型支持）
     if (questions.value[index]) {

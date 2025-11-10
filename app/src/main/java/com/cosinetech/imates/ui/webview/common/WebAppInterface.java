@@ -158,11 +158,13 @@ public class WebAppInterface {
      */
     @JavascriptInterface
     public void notifyWebAppReady() {
-        Log.d(TAG, "收到Web应用就绪通知");
+        Log.d(TAG, "✅ 收到Web应用就绪通知");
         if (webAppReadyCallback != null) {
+            Log.d(TAG, "✅ WebAppReadyCallback已设置，开始执行回调");
             webAppReadyCallback.onWebAppReady();
+            Log.d(TAG, "✅ onWebAppReady回调执行完成");
         } else {
-            Log.w(TAG, "WebAppReadyCallback未设置，无法处理就绪通知");
+            Log.w(TAG, "⚠️ WebAppReadyCallback未设置，无法处理就绪通知");
         }
     }
 
@@ -285,7 +287,7 @@ public class WebAppInterface {
             Log.d(TAG, "sendTextMessageToTeacher: content长度=" + (content != null ? content.length() : 0) + 
                     ", sessionId=" + sessionId + ", subject=" + subject);
 
-            // 第1步：验证用户登录
+            // 第1步：验证用户登
             userId = AppUtils.getUserId();
             if (userId == null || userId.isEmpty()) {
                 Log.e(TAG, "sendTextMessageToTeacher: 用户未登录");

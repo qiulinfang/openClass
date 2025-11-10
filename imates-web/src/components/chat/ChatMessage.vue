@@ -133,6 +133,13 @@
                   </q-item-section>
                   <q-item-section>多选</q-item-section>
                 </q-item>
+                <q-separator />
+                <q-item clickable @click="handleDelete" class="text-negative">
+                  <q-item-section avatar>
+                    <q-icon name="delete_outline" size="20px" color="negative" />
+                  </q-item-section>
+                  <q-item-section>删除</q-item-section>
+                </q-item>
               </q-list>
             </q-menu>
           </div>
@@ -250,6 +257,13 @@
                 </q-item-section>
                 <q-item-section>多选</q-item-section>
               </q-item>
+              <q-separator />
+              <q-item clickable @click="handleDelete" class="text-negative">
+                <q-item-section avatar>
+                  <q-icon name="delete_outline" size="20px" color="negative" />
+                </q-item-section>
+                <q-item-section>删除</q-item-section>
+              </q-item>
             </q-list>
           </q-menu>
         </div>
@@ -322,6 +336,7 @@ import { useAiGeneralChatStore } from '../../stores/aiGeneralChatStore'
 import { useAiTextbookChatStore } from '../../stores/aiTextbookChatStore'
 import { useTeacherGeneralChatStore } from '../../stores/teacherGeneralChatStore'
 import { useQuestionStore } from '../../stores/questionStore'
+import { useTeacherExerciseChatStore } from '../../stores/teacherExerciseChatStore'
 import { useUserStore } from '../../stores/userStore'
 import VoiceMessage from './VoiceMessage.vue'
 import ImageMessage from './ImageMessage.vue'
@@ -392,11 +407,12 @@ const $q = useQuasar()
 const aiExerciseStore = useAiExerciseChatStore()
 const aiGeneralStore = useAiGeneralChatStore()
 const aiTextbookStore = useAiTextbookChatStore()
-const teacherStore = useTeacherGeneralChatStore()
+const teacherGeneralStore = useTeacherGeneralChatStore()
+const teacherExerciseStore = useTeacherExerciseChatStore()
 const questionStore = useQuestionStore()
 const userStore = useUserStore()
 
-// 重发相关状态
+// 重发相关状态 
 const isRetrying = ref(false)
 
 // 懒加载渲染
@@ -437,8 +453,10 @@ const handleRetry = async () => {
         await aiTextbookStore.retryAiMessage(props.message.id, 'mate', props.message.imageData)
         break
       case 'teacher-general':
+        await teacherGeneralStore.retryTeacherMessage(props.message.id, props.message.imageData)
+        break
       case 'teacher-exercise':
-        await teacherStore.retryTeacherMessage(props.message.id, props.message.imageData)
+        await teacherGeneralStore.retryTeacherMessage(props.message.id, props.message.imageData)
         break
       default:
         throw new Error('未知的聊天类型')
@@ -876,6 +894,67 @@ const handleEdit = () => {
   })
 }
 
+// 处理删除消息
+const handleDelete = async () => {
+  // 第1步：关闭菜单
+  showActionMenu.value = false
+  
+  // 第2步：显示确认对话框
+  $q.dialog({
+    title: '删除确认',
+    message: '确定要删除这条消息吗？删除后无法恢复。',
+    persistent: true,
+    ok: {
+      label: '删除',
+      color: 'negative',
+      flat: true,
+    },
+    cancel: {
+      label: '取消',
+      flat: true,
+    },
+  }).onOk(async () => {
+    try {
+      // 第3步：根据场景类型调用对应的删除方法
+      switch (props.type) {
+        case 'ai-exercise':
+          await aiExerciseStore.deleteMessage(props.message.id)
+          break
+        case 'ai-general':
+          await aiGeneralStore.deleteMessage(props.message.id)
+          break
+        case 'ai-textbook':
+          await aiTextbookStore.deleteMessage(props.message.id)
+          break
+        case 'teacher-general':
+          await teacherGeneralStore.deleteMessage(props.message.id)
+          break
+        case 'teacher-exercise':
+          await teacherExerciseStore.deleteMessage(props.message.id)
+          break
+        default:
+          throw new Error('未知的聊天类型')
+      }
+      
+      // 第4步：显示成功提示
+      $q.notify({
+        type: 'positive',
+        message: '消息已删除',
+        position: 'top',
+        timeout: 2000,
+      })
+    } catch (error) {
+      console.error('删除消息失败:', error)
+      $q.notify({
+        type: 'negative',
+        message: '删除失败，请稍后重试',
+        position: 'top',
+        timeout: 3000,
+      })
+    }
+  })
+}
+
 // 处理刷新
 const handleRefresh = async () => {
   if (props.message.isStreaming) {
@@ -906,8 +985,10 @@ const handleRefresh = async () => {
       storeMessages = aiTextbookStore.messages
       break
     case 'teacher-general':
+      storeMessages = teacherGeneralStore.messages
+      break
     case 'teacher-exercise':
-      storeMessages = teacherStore.messages
+      storeMessages = teacherExerciseStore.messages
       break
     default:
       console.error('未知的聊天类型')

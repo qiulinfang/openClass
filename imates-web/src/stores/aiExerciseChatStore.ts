@@ -16,8 +16,11 @@ import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
 import type { ChatBubble, ExerciseItem, UserInfo } from '../types'
 import { buildAiExerciseMessage } from './utils/aiMessageBuilder'
 import { createUserMessage, generateUniqueId } from './utils/chatStoreUtils'
+import { useQuestionStore } from './questionStore'
 
 export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
+  // 获取题目Store
+  const questionStore = useQuestionStore()
   // ==================== 状态定义 ====================
   
   /** 消息列表 */
@@ -122,7 +125,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       }
       
       // 第8步：保存聊天历史
-      await saveChatHistory(currentQuestion.id)
+      await saveChatHistory(currentQuestion.id || currentQuestion.bmNo)
       
     } catch (error) {
       console.error('[AI_EXERCISE] 发送失败:', error)
@@ -231,7 +234,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       }
       
       // 第9步：保存聊天历史
-      await saveChatHistory(currentQuestion.id)
+      await saveChatHistory(currentQuestion.id || currentQuestion.bmNo)
       
     } catch (error) {
       console.error('[AI_EXERCISE] 重试失败:', error)
@@ -246,7 +249,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         retryCount: retryCount + 1
       }
       
-      await saveChatHistory(currentQuestion.id)
+      await saveChatHistory(currentQuestion.id || currentQuestion.bmNo)
       throw error
     }
   }
@@ -267,6 +270,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     
     try {
       await asyncStorage.saveChatHistory(storageKey, historyData)
+      console.log('[AI_EXERCISE] 🔵 保存聊天历史成功:', historyData)
     } catch (error) {
       console.error('[AI_EXERCISE] ❌ 保存聊天历史失败:', error)
     }
@@ -322,6 +326,35 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   }
   
   /**
+   * 删除单条消息
+   * 
+   * 第1步：从消息列表中删除指定消息
+   * 第2步：保存更新后的聊天历史
+   */
+  const deleteMessage = async (messageId: string): Promise<void> => {
+    try {
+      // 第1步：查找消息索引
+      const index = messages.value.findIndex(m => m.id === messageId)
+      if (index < 0) {
+        throw new Error('消息不存在')
+      }
+      
+      // 第2步：从列表中删除消息
+      messages.value.splice(index, 1)
+      
+      // 第3步：保存更新后的聊天历史（需要题目ID，从当前题目获取）
+      const currentQuestion = questionStore.currentQuestion
+      if (currentQuestion) {
+        const questionId = currentQuestion.id || currentQuestion.bmNo
+        await saveChatHistory(questionId)
+      }
+    } catch (error) {
+      console.error('[AI_EXERCISE] ❌ 删除消息失败:', error)
+      throw error
+    }
+  }
+  
+  /**
    * 重置状态
    */
   const resetState = (): void => {
@@ -352,6 +385,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     // 方法
     sendMessage,
     retryMessage,
+    deleteMessage,
     saveChatHistory,
     loadChatHistory,
     clearChatHistory,

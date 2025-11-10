@@ -230,14 +230,28 @@ export class AndroidBridge {
   /**
    * 通知Android端Web应用已就绪
    * 替代Android端的轮询检测机制，由Web端主动通知
+   * 注意：在调用前重新检查可用性，因为 window.AndroidBridge 可能在初始化时还不存在
    */
   public notifyWebAppReady(): void {
     try {
-      if (this.isAvailable && window.AndroidBridge?.notifyWebAppReady) {
+      // 重新检查可用性，因为 window.AndroidBridge 可能在初始化时还不存在
+      const isAvailableNow = typeof window !== 'undefined' && 
+                            typeof window.AndroidBridge !== 'undefined' &&
+                            typeof window.AndroidBridge.notifyWebAppReady === 'function'
+      
+      if (isAvailableNow) {
         window.AndroidBridge.notifyWebAppReady()
         console.log('[AndroidBridge] 已通知Android端Web应用就绪')
+        // 更新 isAvailable 状态
+        this.isAvailable = true
       } else {
-        console.warn('[AndroidBridge] AndroidBridge不可用，无法通知就绪状态')
+        console.warn('[AndroidBridge] AndroidBridge不可用，无法通知就绪状态', {
+          hasWindow: typeof window !== 'undefined',
+          hasAndroidBridge: typeof window !== 'undefined' && typeof window.AndroidBridge !== 'undefined',
+          hasNotifyMethod: typeof window !== 'undefined' && 
+                          typeof window.AndroidBridge !== 'undefined' &&
+                          typeof window.AndroidBridge.notifyWebAppReady === 'function'
+        })
       }
     } catch (error) {
       console.error('[AndroidBridge] 通知Web应用就绪失败:', error)

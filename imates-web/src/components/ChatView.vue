@@ -161,7 +161,6 @@ import VoiceRecorder from './chat/VoiceRecorder.vue'
 
 // 类型定义导入
 import type { ChatBubble } from '../types'
-import type { ExerciseItem } from '../types'
 
 // 策略模式导入
 import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
@@ -174,12 +173,10 @@ const props = withDefaults(
   defineProps<{
     type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
     currentQuestionId?: string
-    overrideQuestion?: ExerciseItem | null
     resourceId?: string
+    compressedHeight?: number // 键盘显示时 ChatView 的压缩高度（像素）
   }>(),
-  {
-    overrideQuestion: null,
-  },
+  {},
 )
 
 // 定义组件事件 - 支持响应、切换、焦点、滚动等事件
@@ -438,23 +435,12 @@ const CANCEL_THRESHOLD = 100 // 上滑取消的阈值（像素）
 // 滚动条样式配置
 
 /**
- * 获取当前题目（优先使用 overrideQuestion，避免污染全局状态）
- * 作用：统一获取当前题目的入口，支持通过 props 传入题目（如拍照搜题场景）
+ * 获取当前题目
+ * 作用：统一获取当前题目的入口，从全局 store 中读取
  */
 const currentQuestion = computed(() => {
-  // 调试日志：检查 props 和 overrideQuestion
-  // 优先使用 props 传入的题目（用于避免污染全局状态）
-  // 使用 'in' 操作符检查属性是否存在，更可靠
-  if (
-    'overrideQuestion' in props &&
-    props.overrideQuestion !== undefined &&
-    props.overrideQuestion !== null
-  ) {
-    return props.overrideQuestion
-  }
-  // 否则使用全局 store 中的题目
-  const storeQuestion = questionStore.currentQuestion
-  return storeQuestion
+  console.log('当前选中的题目', questionStore.currentQuestion)
+  return questionStore.currentQuestion
 })
 
 /**
@@ -595,16 +581,18 @@ const compressChatViewHeight = () => {
   }
 
   if (chatViewRef.value) {
-    // 根据使用场景设置固定高度
-    // 如果是在习题页面，高度写死为330px
-    // 如果是在对话框中，高度写死为225px
+    // 从 props 获取压缩高度，如果没有提供则使用默认值
+    // 默认值：习题页面 330px，对话框 225px
     let newHeight: number
-    if (props.type === 'ai-exercise') {
-      // 习题页面：固定高度330px
-      newHeight = 330
+    if (props.compressedHeight !== undefined) {
+      newHeight = props.compressedHeight
     } else {
-      // 对话框：固定高度225px
-      newHeight = 225
+      // 兼容旧逻辑：根据 type 设置默认值
+      if (props.type === 'ai-exercise') {
+        newHeight = 330
+      } else {
+        newHeight = 225
+      }
     }
     chatViewRef.value.style.height = `${newHeight}px`
     chatViewRef.value.style.transition = `height ${cssParams.duration} ${cssParams.curve}`
@@ -695,7 +683,7 @@ const initializeMessages = async () => {
     // 准备初始化参数
     const initializeOptions = {
       currentSubject: currentSubject.value as 'biology' | 'math',
-      currentQuestionId: currentQuestion.value?.id,
+      currentQuestionId: currentQuestion.value?.id || currentQuestion.value?.bmNo,
       currentQuestionTitle: currentQuestion.value?.question || currentQuestion.value?.title,
       resourceId: props.resourceId,
       hasSelectedQuestion: hasSelectedQuestion.value,
@@ -712,11 +700,17 @@ const initializeMessages = async () => {
 // 作用：发送用户消息（策略模式）
 const sendMessage = async (attachedFile?: File) => {
   if ((!inputMessage.value.trim() && !attachedFile) || isLoading.value) {
+    console.error('[ChatView] ❌ 发送消息失败:', {
+      inputMessage: inputMessage.value,
+      attachedFile: attachedFile,
+      isLoading: isLoading.value,
+    })
     return
   }
 
   // 检查是否在编辑模式
   if (isEditingMessage.value && editingMessageId.value) {
+    
     await updateEditedMessage(inputMessage.value)
     return
   }
@@ -1760,7 +1754,8 @@ watch(
 watch(
   () => currentQuestion.value,
   (newQuestion, oldQuestion) => {
-    if (newQuestion?.id !== oldQuestion?.id) {
+    console.log('题目切换处理函数', newQuestion, oldQuestion)
+    if (newQuestion?.id !== oldQuestion?.id || newQuestion?.bmNo !== oldQuestion?.bmNo) {
       // 检查是否正在编辑消息
       if (isEditingMessage.value) {
         // 检查是否切换回正在编辑的题目

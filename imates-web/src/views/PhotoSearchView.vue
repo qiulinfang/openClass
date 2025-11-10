@@ -271,14 +271,14 @@
             <div
               class="tab-item"
               :class="{ active: activeTab === 'photo' }"
-              @click="activeTab = 'photo'"
+              @click="handleTabSwitch('photo')"
             >
               拍照搜题
             </div>
             <div
               class="tab-item"
               :class="{ active: activeTab === 'keyword' }"
-              @click="activeTab = 'keyword'"
+              @click="handleTabSwitch('keyword')"
             >
               关键词搜题
             </div>
@@ -290,6 +290,24 @@
             class="photo-result-wrapper"
             :style="{ height: photoResultHeight + 'px' }"
           >
+            <!-- 右上角操作按钮 -->
+            <div v-if="photoQuestionData" class="result-actions">
+              <!-- 收藏 -->
+              <div class="action-item" @click="handleFavoriteInChat">
+                <q-icon
+                  :name="isFavoriteInChat ? 'star' : 'star_border'"
+                  :class="{ favorited: isFavoriteInChat }"
+                  size="20px"
+                />
+                <span class="action-text">收藏</span>
+              </div>
+
+              <!-- 加入练习 -->
+              <div class="action-item" @click="handleAddToPracticeInChat">
+                <q-icon name="description" size="20px" />
+                <span class="action-text">加入练习</span>
+              </div>
+            </div>
             <div
               ref="photoResultRef"
               class="recognized-problem"
@@ -340,6 +358,24 @@
             class="keyword-result-wrapper"
             :style="{ height: keywordResultHeight + 'px' }"
           >
+            <!-- 右上角操作按钮 -->
+            <div class="result-actions">
+              <!-- 收藏 -->
+              <div class="action-item" @click="handleFavoriteInChat">
+                <q-icon
+                  :name="isFavoriteInChat ? 'star' : 'star_border'"
+                  :class="{ favorited: isFavoriteInChat }"
+                  size="20px"
+                />
+                <span class="action-text">收藏</span>
+              </div>
+
+              <!-- 加入练习 -->
+              <div class="action-item" @click="handleAddToPracticeInChat">
+                <q-icon name="description" size="20px" />
+                <span class="action-text">加入练习</span>
+              </div>
+            </div>
             <div class="keyword-search-result">
               <div class="problem-text" v-html="renderQuestionContent(keywordQuestionData)"></div>
             </div>
@@ -353,26 +389,10 @@
           <div class="drawer-chat-section">
             <ChatView
               v-if="currentQuestionData"
-              :key="currentQuestionData?.bmNo || 'default'"
               ref="chatViewRef"
               type="ai-exercise"
-              :override-question="currentQuestionData"
-            >
-              <template #input>
-                <PhotoSearchInput
-                  :model-value="chatInputMessage"
-                  :current-question="currentQuestionData"
-                  :placeholder-text="'按住提问'"
-                  :is-loading="isChatLoading"
-                  @update:model-value="chatInputMessage = $event"
-                  @send-message="handleChatSendMessage"
-                  @retake="handleRetake"
-                  @favorite="handleFavoriteInChat"
-                  @add-to-practice="handleAddToPracticeInChat"
-                  @blur="onChatInputBlur"
-                />
-              </template>
-            </ChatView>
+              :compressed-height="160"
+            />
           </div>
         </div>
       </div>
@@ -386,7 +406,6 @@ import { useRoute, useRouter } from 'vue-router'
 import QuestionList from '@/components/QuestionList.vue'
 import ImagePicker from '@/components/chat/ImagePicker.vue'
 import ChatView from '@/components/ChatView.vue'
-import PhotoSearchInput from '@/components/PhotoSearchInput.vue'
 import PhotoSearchDebugPanel from '@/components/debug/PhotoSearchDebugPanel.vue'
 import { apiService } from '@/services/api-service'
 import { ImagePickerAdapterFactory } from '@/adapters/ImagePickerAdapterFactory'
@@ -394,6 +413,9 @@ import type { IImagePickerAdapter } from '@/adapters/IImagePickerAdapter'
 import { showMessage } from '@/utils'
 import type { ExerciseItem } from '@/types'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
+import { toggleExerciseFavorite, getFavoriteExercises } from '@/utils/storage/favorites'
+import { useQuestionStore } from '@/stores/questionStore'
+import { useUserStore } from '@/stores/userStore'
 
 const route = useRoute()
 const router = useRouter()
@@ -452,8 +474,8 @@ const isKeywordSearching = ref(false) // 关键词搜索状态
 // 关键词输入框和结果区域的高度调整
 const keywordInputRef = ref<HTMLTextAreaElement | null>(null)
 const keywordResultRef = ref<HTMLDivElement | null>(null)
-const keywordInputHeight = ref(110) // 初始高度
-const keywordResultHeight = ref(120) // 初始高度
+const keywordInputHeight = ref(100) // 初始高度
+const keywordResultHeight = ref(100) // 初始高度
 const isResizingInput = ref(false)
 const isResizingResult = ref(false)
 const resizeStartY = ref(0)
@@ -461,19 +483,84 @@ const resizeStartHeight = ref(0)
 
 // 拍照搜题内容的高度调整
 const photoResultRef = ref<HTMLDivElement | null>(null)
-const photoResultHeight = ref(200) // 初始高度（与样式中的固定高度一致）
+const photoResultHeight = ref(100) // 初始高度（与样式中的固定高度一致）
 const isResizingPhoto = ref(false)
 
 // ChatView 相关状态
 const chatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
-const chatInputMessage = ref<string>('')
-const isChatLoading = ref(false)
+// ChatView 的加载状态（从 ChatView 内部获取）
+const isChatLoading = computed(() => chatViewRef.value?.isLoading ?? false)
+
+// 收藏状态管理（响应式）
+const favoriteStatusMap = ref<Map<string, boolean>>(new Map())
+
+// 初始化收藏状态
+const initFavoriteStatus = () => {
+  const favorites = getFavoriteExercises()
+  favoriteStatusMap.value.clear()
+  favorites.forEach((f) => {
+    favoriteStatusMap.value.set(f.item.id, true)
+  })
+}
+
+// 收藏状态计算属性
+const isFavoriteInChat = computed(() => {
+  if (currentQuestionData.value) {
+    return favoriteStatusMap.value.get(currentQuestionData.value.id) ?? false
+  }
+  return false
+})
+
+// QuestionStore
+const questionStore = useQuestionStore()
 
 // 根据当前tab返回对应的题目数据
 const currentQuestionData = computed(() => {
   const data = activeTab.value === 'photo' ? photoQuestionData.value : keywordQuestionData.value
   return data
 })
+
+// 同步题目数据到 questionStore
+const syncQuestionToStore = async (question: ExerciseItem) => {
+  if (!question) {
+    return
+  }
+
+  try {
+    const questions = questionStore.questions
+    // 检查题目是否已经在 questions 数组中
+    const questionIndex = questions.findIndex(
+      (q) => q.bmNo === question.bmNo
+    )
+
+    if (questionIndex >= 0) {
+      // 如果题目已存在，直接选择它
+      await questionStore.selectQuestion(questionIndex)
+  } else {
+      // 如果题目不存在，添加到数组开头，然后选择它
+      questionStore.questions.unshift(question)
+      await questionStore.selectQuestion(0)
+  }
+  } catch (error) {
+    console.error('同步题目到 questionStore 失败:', error)
+  }
+}
+
+// 处理 tab 切换，同步当前 tab 的题目到 questionStore
+const handleTabSwitch = async (tab: 'photo' | 'keyword') => {
+  // 切换 tab
+  activeTab.value = tab
+  
+  // 同步当前 tab 的题目到 questionStore
+  const currentQuestion = tab === 'photo' ? photoQuestionData.value : keywordQuestionData.value
+  if (currentQuestion) {
+    logFlow('Tab 切换，同步题目到 questionStore', {
+      tab,
+      questionId: currentQuestion.id,
+    })
+    await syncQuestionToStore(currentQuestion)
+  }
+}
 
 // 相机相关
 const videoElement = ref<HTMLVideoElement | null>(null)
@@ -1641,8 +1728,8 @@ const handleSearch = async () => {
       })
       photoQuestionData.value = question
 
-      // 注意：不再修改全局 questionStore，避免场景污染
-      // 题目通过 ChatView 的 overrideQuestion prop 传递，不会影响其他页面
+      // 同步题目到 questionStore
+      await syncQuestionToStore(question)
 
       // 隐藏框选视图，显示抽屉
       showCropView.value = false
@@ -1857,6 +1944,7 @@ watch(
   { deep: true },
 )
 
+
 // 处理关键词搜索
 const handleKeywordSearch = async () => {
   logFlow('关键词搜索开始', {
@@ -1884,15 +1972,11 @@ const handleKeywordSearch = async () => {
     )
 
     if (question) {
-      logFlow('关键词搜索成功', {
-        questionId: question.id,
-        hasQuestion: !!question.question,
-        hasTitle: !!question.title,
-      })
+      logFlow('关键词搜索成功', question)
       keywordQuestionData.value = question
 
-      // 注意：不再修改全局 questionStore，避免场景污染
-      // 题目通过 ChatView 的 overrideQuestion prop 传递，不会影响其他页面
+      // 同步题目到 questionStore
+      await syncQuestionToStore(question)
 
       // 如果抽屉未打开，则打开抽屉
       if (!showDrawer.value) {
@@ -2000,9 +2084,6 @@ const handleCloseDrawer = async () => {
   keywordQuestionData.value = null
   croppedImageBase64.value = ''
 
-  // 恢复原始题目列表
-  restoreOriginalQuestions()
-
   // 重新显示相机预览
   showCameraPreview.value = true
 
@@ -2029,57 +2110,55 @@ const handleClose = () => {
   logFlow('页面已关闭')
 }
 
-// 恢复状态（不再需要恢复原始题目列表，因为我们没有修改全局 questionStore）
-const restoreOriginalQuestions = () => {
-  // 注意：不再需要恢复原始题目列表，因为我们没有修改全局 questionStore
-  photoQuestionData.value = null
-  keywordQuestionData.value = null
-}
-
-// ChatView 相关处理函数
-// 由于 ChatView 的 sendMessage 使用内部的 inputMessage
-// 我们需要通过 ref 访问 ChatView 的内部状态并同步
-const handleChatSendMessage = async () => {
-  if (!chatInputMessage.value.trim() || isChatLoading.value) {
+const handleFavoriteInChat = () => {
+  if (!currentQuestionData.value) {
+    showMessage('没有可收藏的题目', 'warning')
     return
   }
 
-  if (!chatViewRef.value) {
+  const wasFavorite = isFavoriteInChat.value
+  const success = toggleExerciseFavorite(currentQuestionData.value)
+  if (success) {
+    // 更新响应式收藏状态
+    favoriteStatusMap.value.set(currentQuestionData.value.id, !wasFavorite)
+    showMessage(!wasFavorite ? '已收藏' : '已取消收藏', 'success')
+  } else {
+    showMessage('操作失败，请重试', 'error')
+  }
+}
+
+const handleAddToPracticeInChat = async () => {
+  if (!currentQuestionData.value) {
+    showMessage('没有可添加的题目', 'warning')
     return
   }
 
   try {
-    isChatLoading.value = true
+    // 获取当前题目列表ID
+    const questions = questionStore.questions
+    const exercisesId = questions.map((q) => q.bmNo || q.id).join(',')
 
-    // 通过 ref 访问 ChatView 暴露的接口
-    if (chatViewRef.value) {
-      // 同步输入消息到 ChatView
-      chatViewRef.value.inputMessage = chatInputMessage.value.trim()
-      // 调用 ChatView 的 sendMessage 方法
-      await chatViewRef.value.sendMessage()
-      // 清空输入
-      chatInputMessage.value = ''
+    // 构建添加请求
+    const questionData = {
+      ...currentQuestionData.value,
+      exercisesId,
+    }
+
+    const userStore = useUserStore()
+    const subject = (userStore.subject?.toLowerCase() || 'math') as 'math' | 'biology'
+    const success = await apiService.addQuestionToList(questionData, subject)
+
+    if (success) {
+      showMessage('题目已添加到列表', 'success')
+      // 刷新题目列表
+      await questionStore.fetchQuestions(subject, false)
+    } else {
+      showMessage('添加题目失败', 'error')
     }
   } catch (error) {
-    console.error('发送消息失败:', error)
-    showMessage('发送消息失败', 'error')
-  } finally {
-    isChatLoading.value = false
+    console.error('添加题目失败:', error)
+    showMessage('添加题目失败', 'error')
   }
-}
-
-const handleFavoriteInChat = () => {
-  // 收藏功能已在 PhotoSearchInput 中实现
-  // 这里可以添加额外的逻辑，如刷新UI等
-}
-
-const handleAddToPracticeInChat = async () => {
-  // 加入练习功能已在 PhotoSearchInput 中实现
-  // 这里可以添加额外的逻辑，如刷新UI等
-}
-
-const onChatInputBlur = () => {
-  // 输入框失焦处理
 }
 
 // 组件挂载时初始化
@@ -2091,6 +2170,8 @@ const initialize = () => {
     hasAndroidBridge: hasAndroidBridge.value,
   })
   selectedSubject.value = subject
+  // 初始化收藏状态
+  initFavoriteStatus()
   // 所有环境都启动相机预览
   startCamera()
   logFlow('页面初始化完成', {
@@ -2127,7 +2208,8 @@ const cleanup = () => {
   imageOffsetX.value = 0
   imageOffsetY.value = 0
   croppedImageBase64.value = ''
-  restoreOriginalQuestions()
+  photoQuestionData.value = null
+  keywordQuestionData.value = null
   logFlow('组件清理完成')
 }
 
@@ -2158,6 +2240,9 @@ onMounted(() => {
 onUnmounted(() => {
   logFlow('页面卸载')
   cleanup()
+  
+  // 清理 questionStore 中的当前题目
+  questionStore.clearCurrentQuestion()
   
   // 移除全局拖动事件监听器
   window.removeEventListener('mousemove', handleResizeMove)
@@ -2670,6 +2755,17 @@ onUnmounted(() => {
   margin-top: 10px;
 }
 
+.result-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 12px;
+  z-index: 10;
+  padding: 4px 8px;
+  border-radius: 8px;
+  }
+
 .recognized-problem {
   position: relative;
   border-radius: 8px;
@@ -2786,7 +2882,7 @@ onUnmounted(() => {
   position: relative;
   border-radius: 8px;
   border: 1px solid #e0e0e0;
-  padding: 8px;
+  padding: 8px 110px 8px 8px;
   margin-top: 0;
   padding-top: 0;
   height: 100%;
@@ -2910,6 +3006,55 @@ onUnmounted(() => {
   flex-direction: column;
   overflow: hidden;
   height: 0; // 配合 flex: 1 使用，确保占据剩余空间
+}
+
+// PhotoSearch ChatInput 布局
+.photo-search-chat-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: white;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.result-actions .action-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  user-select: none;
+
+  &:hover {
+    opacity: 0.7;
+  }
+
+  &:active {
+    opacity: 0.5;
+  }
+
+  .q-icon {
+    color: #666;
+    transition: color 0.2s;
+  }
+
+  .q-icon.favorited {
+    color: #ffc107;
+  }
+
+  .action-text {
+    font-size: 12px;
+    color: #666;
+    line-height: 1;
+  }
+}
+
+.photo-search-chat-input {
+  flex: 1;
+  min-width: 0;
 }
 
 // 框选预览面板

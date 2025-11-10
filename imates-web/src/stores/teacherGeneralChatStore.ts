@@ -278,6 +278,33 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
     console.log(`[messages] =0 清空消息 ${oldCount}→0`)
   }
 
+  /**
+   * 删除单条消息
+   * 
+   * 第1步：从消息列表中删除指定消息
+   * 第2步：保存更新后的聊天历史
+   */
+  const deleteMessage = async (messageId: string): Promise<void> => {
+    try {
+      // 第1步：查找消息索引
+      const index = messages.value.findIndex(m => m.id === messageId)
+      if (index < 0) {
+        throw new Error('消息不存在')
+      }
+      
+      // 第2步：从列表中删除消息
+      messages.value.splice(index, 1)
+      
+      // 第3步：直接保存更新后的聊天历史（不合并，避免已删除的消息重新加载）
+      if (currentSession.value) {
+        await saveChatHistoryDirect()
+      }
+    } catch (error) {
+      console.error('[TEACHER_GENERAL] ❌ 删除消息失败:', error)
+      throw error
+    }
+  }
+
   // ==================== 发送消息 ====================
 
   /**
@@ -725,6 +752,65 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
   }
 
   // ==================== 聊天历史 ====================
+
+  /**
+   * 直接保存当前消息列表（不合并，用于删除消息等场景）
+   */
+  const saveChatHistoryDirect = async (): Promise<void> => {
+    if (!currentSession.value) {
+      return
+    }
+
+    const sessionId = currentSession.value.sessionId
+
+    try {
+      const storageKey = `teacher-general-${sessionId}`
+
+      // 第1步：更新会话信息
+      currentSession.value.msgCount = messages.value.length
+      currentSession.value.updateTime = Date.now()
+
+      // 第2步：过滤掉错误消息、流式消息、系统消息和撤回消息，只保存成功发送的消息
+      const messagesToSave = messages.value.filter(
+        (msg) =>
+          !msg.isError &&
+          !msg.isStreaming &&
+          !msg.isSystemMessage &&
+          !msg.isRecalled &&
+          (msg.messageId || msg.id),
+      )
+
+      // 第3步：保存消息到IndexedDB
+      const historyData: ChatHistoryData = {
+        questionId: sessionId,
+        messages: messagesToSave,
+        chatResponseTimes: chatResponseTimes.value,
+        lastUpdated: Date.now(),
+      }
+
+      await asyncStorage.saveChatHistory(storageKey, historyData)
+      
+      // 保存消息快照，用于后续对比
+      lastSavedMessagesSnapshot.value = {
+        sessionId,
+        messages: JSON.parse(JSON.stringify(messagesToSave)), // 深拷贝
+        timestamp: Date.now(),
+      }
+
+      // 第4步：保存会话信息到localStorage
+      const userId = getCurrentUserIdOrDefault()
+      const sessionKey = `${userId}_${storageKey}_session`
+      localStorage.setItem(sessionKey, JSON.stringify(currentSession.value))
+
+      // 第5步：保存会话列表
+      const allSessions = loadAllSessions()
+      allSessions[sessionId] = currentSession.value
+      saveAllSessions(allSessions)
+    } catch (error) {
+      console.error('[TEACHER_GENERAL] ❌ 直接保存聊天历史失败:', error)
+      throw error
+    }
+  }
 
   /**
    * 保存聊天历史（立即执行，不使用防抖）
@@ -2405,6 +2491,7 @@ ${conversationSummary}
     addMessage,
     updateMessage,
     clearMessages,
+    deleteMessage,
     sendMessage,
     retryTeacherMessage,
     forwardMessagesToTeacher,

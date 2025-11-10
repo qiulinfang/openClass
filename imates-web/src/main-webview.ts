@@ -89,15 +89,42 @@ async function createWebViewApp() {
   }
   
   // 通知Android端Web应用已就绪（事件驱动，替代轮询机制）
-  // 使用Promise确保在下一个事件循环中执行，确保所有初始化完成
-  await Promise.resolve()
-  try {
-    const androidBridge = AndroidBridge.getInstance()
-    androidBridge.notifyWebAppReady()
-    console.log('[APP] 已通知Android端Web应用就绪')
-  } catch (error) {
-    console.error('[APP] 通知Android端Web应用就绪失败:', error)
+  // 延迟通知，确保 window.AndroidBridge 已经注入
+  // 使用多次尝试机制，因为 WebView 的 JavaScript 接口注入可能有延迟
+  const notifyAndroidReady = async () => {
+    const maxRetries = 10
+    const retryDelay = 100 // 100ms
+    
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        const androidBridge = AndroidBridge.getInstance()
+        // 直接检查 window.AndroidBridge 是否可用
+        if (typeof window !== 'undefined' && 
+            typeof window.AndroidBridge !== 'undefined' &&
+            typeof window.AndroidBridge.notifyWebAppReady === 'function') {
+          androidBridge.notifyWebAppReady()
+          console.log('[APP] 已通知Android端Web应用就绪 (尝试 ' + (i + 1) + ')')
+          return
+        } else {
+          // 如果不可用，等待一段时间后重试
+          if (i < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, retryDelay))
+          }
+        }
+      } catch (error) {
+        console.error('[APP] 通知Android端Web应用就绪失败 (尝试 ' + (i + 1) + '):', error)
+        if (i < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay))
+        }
+      }
+    }
+    
+    console.warn('[APP] 经过 ' + maxRetries + ' 次尝试后，仍无法通知Android端Web应用就绪')
   }
+  
+  // 在下一个事件循环中开始尝试通知
+  await Promise.resolve()
+  notifyAndroidReady()
 }
 
 // 启动应用
