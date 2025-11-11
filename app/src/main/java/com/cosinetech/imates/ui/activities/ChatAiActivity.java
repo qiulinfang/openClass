@@ -95,7 +95,7 @@ public class ChatAiActivity extends AppCompatActivity implements MessagingManage
 
                 // 判断是否点击了外部区域
                 if (event.getRawX() < chatLeft || event.getRawX() > chatRight) {
-                    finish();
+                    //finish();
                     return true;
                 }
             }
@@ -151,7 +151,7 @@ public class ChatAiActivity extends AppCompatActivity implements MessagingManage
     public void onStop() {
         Log.e("++++++++++++++++", "ChatOnStop");
         super.onStop();
-        ApplicationModelShared.getInstance().getFloatingWindowService().showRobot();
+//        ApplicationModelShared.getInstance().getFloatingWindowService().showRobot();
     }
 
     @Override
