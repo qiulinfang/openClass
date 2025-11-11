@@ -96,23 +96,27 @@ public class ApplicationModelShared extends Application implements ViewModelStor
 
     private void onAppExit() {
         // 这里处理应用退出逻辑
-        Log.e("MyApp", "Application is exiting");
-        UserInfoViewModel userInfoViewModel = new ViewModelProvider(
-                this,
-                new ViewModelProvider.AndroidViewModelFactory(this)
-        ).get(UserInfoViewModel.class);
-        userInfoViewModel.token.postValue("");
-        userInfoViewModel.userId.postValue("");
-        userInfoViewModel.userInfo.postValue(new UserInfo());
-        ScreenCastingManager.setClassMode(false);
-        ScreenCastingManager.stopLoop();
-        UdpForwarderManager.getInstance().stop();
-        H264MpegTSStreamerManager.getInstance().stop();
-        if(multicastLock != null) {
-            multicastLock.release();
-            multicastLock = null;
+        try {
+            Log.e("MyApp", "Application is exiting");
+            UserInfoViewModel userInfoViewModel = new ViewModelProvider(
+                    this,
+                    new ViewModelProvider.AndroidViewModelFactory(this)
+            ).get(UserInfoViewModel.class);
+            userInfoViewModel.token.postValue("");
+            userInfoViewModel.userId.postValue("");
+            userInfoViewModel.userInfo.postValue(new UserInfo());
+            ScreenCastingManager.setClassMode(false);
+            ScreenCastingManager.stopLoop();
+            UdpForwarderManager.getInstance().stop();
+            H264MpegTSStreamerManager.getInstance().stop();
+            if (multicastLock != null) {
+                multicastLock.release();
+                multicastLock = null;
+            }
+            fakeClassMode = false;
+        }catch (Exception e) {
+            Log.e("AppExit", e.getMessage());
         }
-        fakeClassMode = false;
     }
 
     public static ApplicationModelShared getInstance() {

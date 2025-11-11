@@ -142,7 +142,7 @@ public class ScreenCastingManager {
 
         if (executor != null && !executor.isShutdown()) {
             executor.shutdownNow();
-            executor = null;
+//            executor = null;
         }
 
         started = false;
