@@ -1947,7 +1947,6 @@ _**Agent (model default, mode Agent)**_
 
 ---
 
-
 检查目录结构，然后创建问题总结文档。
 
 
@@ -1985,7 +1984,6 @@ Directory: **c:\Users\20549\Desktop\xuebanqianduan** (0 file)
 
 
 ---
-
 
 创建问题总结文档。先检查并创建必要的目录结构。
 
@@ -2053,7 +2051,6 @@ if ����еġ�if������ȱ�١�(����
 
 ---
 
-
 使用 PowerShell 创建目录，然后创建问题总结文档。
 
 
@@ -2086,7 +2083,6 @@ Directory created
 
 
 ---
-
 
 创建问题总结文档。
 
@@ -2290,7 +2286,6 @@ Lines added: 175, lines removed: 1
 
 ---
 
-
 已创建问题总结文档。检查文档是否正确创建：
 
 
@@ -2307,7 +2302,6 @@ Lines added: 175, lines removed: 1
 
 
 ---
-
 
 已创建问题总结文档。
 
@@ -2328,6 +2322,1591 @@ Lines added: 175, lines removed: 1
 3. 服务器端版本号管理需要与客户端保持一致
 
 文档已包含问题分析、技术原因、解决方案、测试验证和预防措施。
+
+---
+
+_**User (2025-11-10 17:17Z)**_
+
+MainWebViewActivity.java注释重写
+
+---
+
+_**Agent (model default, mode Agent)**_
+
+
+
+---
+
+查看 `MainWebViewActivity.java` 的当前注释情况：
+
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file">
+<details><summary>Tool use: **read_file** • Read file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+重写 `MainWebViewActivity.java` 的注释，使其更清晰、规范、完整。
+
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="todo_write">
+<details><summary>Tool use: **todo_write** • Todo List</summary>
+
+- [-] 重写类级别注释和字段注释
+- [ ] 重写所有方法的 Javadoc 注释
+- [ ] 改进内联注释，使其更清晰
+- [ ] 检查注释格式和一致性
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 81, lines removed: 11
+
+```diff
+@@ -43,49 +43,119 @@
+  
+  /**
+-  * 主WebView Activity
+-  * 用于渲染整个imates-web项目构建后的页面
+-  * 提供完整的Vue应用容器
++  * 主 WebView Activity
++  * &lt;p&gt;
++  * 这是应用的核心 Activity，负责渲染整个 imates-web 项目构建后的 Vue.js 应用页面。
++  * 提供完整的 Web 应用容器，支持与原生 Android 功能的桥接交互。
++  * &lt;/p&gt;
++  * &lt;p&gt;
++  * 主要功能包括：
++  * &lt;ul&gt;
++  *   &lt;li&gt;加载并显示 Vue.js 单页应用（SPA）&lt;/li&gt;
++  *   &lt;li&gt;提供 JavaScript 与 Android 原生功能的桥接接口（WebAppInterface）&lt;/li&gt;
++  *   &lt;li&gt;支持相机预览和拍照功能&lt;/li&gt;
++  *   &lt;li&gt;支持图片选择和拍照功能&lt;/li&gt;
++  *   &lt;li&gt;监听键盘弹出/隐藏事件并通知 Web 端&lt;/li&gt;
++  *   &lt;li&gt;定期检查应用更新&lt;/li&gt;
++  *   &lt;li&gt;管理悬浮 FAB 按钮和浮动机器人服务&lt;/li&gt;
++  * &lt;/li&gt;
++  * &lt;/ul&gt;
++  * &lt;/p&gt;
++  * &lt;p&gt;
++  * 生命周期管理：
++  * &lt;ul&gt;
++  *   &lt;li&gt;强制横屏显示&lt;/li&gt;
++  *   &lt;li&gt;全屏模式（隐藏系统 UI）&lt;/li&gt;
++  *   &lt;li&gt;WebView 生命周期管理（onResume/onPause）&lt;/li&gt;
++  *   &lt;li&gt;相机资源管理（启动/停止）&lt;/li&gt;
++  * &lt;/ul&gt;
++  * &lt;/p&gt;
++  *
++  * @author Cosinetech
++  * @since 1.0.0
+   */
+  public class MainWebViewActivity extends AppCompatActivity
+          implements WebAppInterface.ExerciseSolveActivityBridge, WebAppInterface.WebAppReadyCallback {
+  
++     /** 日志标签 */
+      private static final String TAG = &quot;MainWebViewActivity&quot;;
+  
+-     // WebView相关
++     // ========== WebView 相关 ==========
++ 
++     /** WebView 实例，用于加载和显示 Web 应用 */
+      private WebView webView;
++ 
++     /** Web 应用接口，提供 JavaScript 与 Android 原生功能的桥接 */
+      private WebAppInterface webAppInterface;
+  
+-     // Activity Result Launchers
++     // ========== Activity Result Launchers ==========
++ 
++     /** 图片选择器启动器，用于从相册选择图片 */
+      private ActivityResultLauncher&lt;Intent&gt; imagePickLauncher;
++ 
++     /** 相机拍照启动器，用于启动系统相机进行拍照 */
+      private ActivityResultLauncher&lt;Intent&gt; imageCaptureLauncher;
++ 
++     /** 相机权限请求启动器，用于请求相机权限 */
+      private ActivityResultLauncher&lt;String&gt; cameraPermissionLauncher;
++ 
++     /** 录音权限请求启动器，用于请求录音权限 */
+      private ActivityResultLauncher&lt;String&gt; audioPermissionLauncher;
+  
+-     // 相机相关
++     // ========== 相机相关 ==========
++ 
++     /** 相机预览视图，用于显示相机实时预览画面 */
+      private PreviewView cameraPreviewView;
++ 
++     /** 图片捕获器，用于拍照功能 */
+      private ImageCapture imageCapture;
++ 
++     /** 相机提供者，用于管理相机生命周期 */
+      private ProcessCameraProvider cameraProvider;
++ 
++     /** 相机执行器，用于在后台线程执行相机操作 */
+      private final java.util.concurrent.Executor cameraExecutor = java.util.concurrent.Executors
+              .newSingleThreadExecutor();
++ 
++     /** 相机是否已激活的标志 */
+      private boolean isCameraActive = false;
++ 
++     /** 是否有待启动的相机请求（权限授予后启动） */
+      private boolean pendingCameraStart = false;
+  
+-     // 页面URL配置
+-     private String webAppUrl = &quot;file:///android_asset/webapp/index.html&quot;; // 默认加载Vue.js整体应用
++     // ========== 页面 URL 配置 ==========
++ 
++     /** Web 应用 URL，默认为本地 assets 中的 index.html */
++     private String webAppUrl = &quot;file:///android_asset/webapp/index.html&quot;;
+  
+-     // 悬浮FAB按钮action参数
++     // ========== 悬浮 FAB 按钮相关 ==========
++ 
++     /** 悬浮 FAB 按钮的 action 参数，用于触发特定的 Web 端操作 */
+      private String floatingFabAction = null;
+  
+-     // 键盘检测相关
++     // ========== 键盘检测相关 ==========
++ 
++     /** 上一次检测到的键盘高度（像素） */
+      private int previousKeyboardHeight = 0;
++ 
++     /** 键盘是否可见的标志 */
+      private boolean isKeyboardVisible = false;
+  
+-     // 更新检查相关
++     // ========== 更新检查相关 ==========
++ 
++     /** 上次检查更新的时间戳（毫秒） */
+      private long mCheckUpdateTick = 0;
++ 
++     /** 更新检查的 Handler，用于定时执行更新检查 */
+      private final Handler mCheckUpdateHandler = new Handler(Looper.getMainLooper());
++ 
++     /**
++      * 更新检查的 Runnable，每 60 秒执行一次检查
++      * 如果距离上次检查已超过 1 小时（3600000 毫秒），则执行更新检查
++      */
+      private final Runnable mCheckUpdateRunnable = new Runnable() {
+          @Override
+          public void run() {
+              long tick = System.currentTimeMillis();
++             // 如果距离上次检查已超过 1 小时，执行更新检查
+              if (tick - mCheckUpdateTick &gt;= 3600000) {
+                  mCheckUpdateTick = tick;
+```
+
+**Chunk 2**
+Lines added: 2, lines removed: 1
+
+```diff
+@@ -94,5 +164,6 @@
+                          .update();
+              }
+-             mCheckUpdateHandler.postDelayed(this, 60000); // 每60秒执行一次检查
++             // 每 60 秒执行一次检查（但不一定执行更新请求）
++             mCheckUpdateHandler.postDelayed(this, 60000);
+          }
+      };
+```
+
+</details>
+
+</tool-use>
+
+---
+
+
+
+---
+
+继续重写方法注释：
+
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 7, lines removed: 4
+
+```diff
+@@ -170,8 +170,11 @@
+  
+      /**
+-      * 启动MainWebViewActivity的静态方法
+-      * 
+-      * @param context 上下文
+-      * @param url     可选的自定义URL，如果为null则使用默认URL
++      * 启动 MainWebViewActivity 的静态方法
++      * &lt;p&gt;
++      * 提供便捷的方式启动主 WebView Activity，支持自定义 URL 参数。
++      * &lt;/p&gt;
++      *
++      * @param context 上下文对象，用于启动 Activity
++      * @param url     可选的自定义 URL，如果为 null 或空字符串，则使用默认的本地 assets URL
+       */
+      public static void startActivity(Context context, String url) {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 19, lines removed: undefined
+
+```diff
+@@ -186,4 +186,23 @@
+      }
+  
++     /**
++      * Activity 创建时的初始化方法
++      * &lt;p&gt;
++      * 执行顺序：
++      * &lt;ol&gt;
++      *   &lt;li&gt;强制横屏显示&lt;/li&gt;
++      *   &lt;li&gt;设置全屏模式（必须在 setContentView 之前调用）&lt;/li&gt;
++      *   &lt;li&gt;确保窗口占据整个屏幕（Android 7.0+，防止悬浮窗模式）&lt;/li&gt;
++      *   &lt;li&gt;设置布局文件&lt;/li&gt;
++      *   &lt;li&gt;隐藏系统 UI（必须在 setContentView 之后调用才能生效）&lt;/li&gt;
++      *   &lt;li&gt;初始化 Activity Result Launchers&lt;/li&gt;
++      *   &lt;li&gt;初始化 WebView&lt;/li&gt;
++      *   &lt;li&gt;加载 Web 应用&lt;/li&gt;
++      *   &lt;li&gt;初始化更新检查&lt;/li&gt;
++      * &lt;/ol&gt;
++      * &lt;/p&gt;
++      *
++      * @param savedInstanceState 保存的实例状态
++      */
+      @Override
+      protected void onCreate(Bundle savedInstanceState) {
+```
+
+**Chunk 2**
+Lines added: 2, lines removed: 2
+
+```diff
+@@ -193,9 +212,9 @@
+          setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+  
+-         // 第2步：设置全屏模式（必须在setContentView之前调用）
++         // 第2步：设置全屏模式（必须在 setContentView 之前调用）
+          WindowUtils.setFullScreenMode(this);
+  
+          // 第3步：确保窗口占据整个屏幕（防止悬浮窗模式）
+-         // 在Android 7.0+系统上，确保窗口以全屏模式启动
++         // 在 Android 7.0+ 系统上，确保窗口以全屏模式启动
+          if (Build.VERSION.SDK_INT &gt;= Build.VERSION_CODES.N) {
+              getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT,
+```
+
+**Chunk 3**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -206,5 +225,5 @@
+          setContentView(R.layout.activity_main_webview);
+  
+-         // 第5步：隐藏系统UI（必须在setContentView之后调用才能生效）
++         // 第5步：隐藏系统 UI（必须在 setContentView 之后调用才能生效）
+          WindowUtils.hideSystemUI(this);
+  
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 5, lines removed: 1
+
+```diff
+@@ -260,5 +260,9 @@
+  
+      /**
+-      * 初始化更新检查
++      * 初始化应用更新检查机制
++      * &lt;p&gt;
++      * 设置定时器，每 60 秒检查一次是否需要更新。
++      * 如果距离上次检查已超过 1 小时，则执行实际的更新检查请求。
++      * &lt;/p&gt;
+       */
+      private void initUpdateCheck() {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 16, lines removed: 1
+
+```diff
+@@ -273,5 +273,20 @@
+  
+      /**
+-      * 初始化WebView
++      * 初始化 WebView 及相关组件
++      * &lt;p&gt;
++      * 执行以下操作：
++      * &lt;ul&gt;
++      *   &lt;li&gt;启用 WebView 调试（Android 4.4+）&lt;/li&gt;
++      *   &lt;li&gt;使用统一的 WebView 配置（WebViewConfig）&lt;/li&gt;
++      *   &lt;li&gt;设置透明背景和硬件加速&lt;/li&gt;
++      *   &lt;li&gt;禁用长按菜单和触觉反馈&lt;/li&gt;
++      *   &lt;li&gt;隐藏滚动条&lt;/li&gt;
++      *   &lt;li&gt;初始化相机预览视图&lt;/li&gt;
++      *   &lt;li&gt;创建并配置 WebAppInterface&lt;/li&gt;
++      *   &lt;li&gt;注册 WebAppInterface 到 Application&lt;/li&gt;
++      *   &lt;li&gt;设置 WebViewClient&lt;/li&gt;
++      *   &lt;li&gt;设置键盘监听器&lt;/li&gt;
++      * &lt;/ul&gt;
++      * &lt;/p&gt;
+       */
+      private void initWebView() {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 5, lines removed: 1
+
+```diff
+@@ -351,5 +351,9 @@
+      /**
+       * 设置键盘监听器
+-      * 通过ViewTreeObserver监听窗口大小变化来检测键盘弹出/隐藏
++      * &lt;p&gt;
++      * 通过 ViewTreeObserver 监听窗口大小变化来检测键盘的弹出和隐藏。
++      * 当键盘高度超过屏幕高度的 15% 时，认为键盘已显示。
++      * 检测到键盘状态变化时，会通过 CustomEvent 通知 Web 端。
++      * &lt;/p&gt;
+       */
+      private void setupKeyboardListener() {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 7, lines removed: 1
+
+```diff
+@@ -402,5 +402,11 @@
+  
+      /**
+-      * 触发键盘显示事件
++      * 触发键盘显示事件到 Web 端
++      * &lt;p&gt;
++      * 通过 JavaScript 代码在 Web 端触发 &#39;keyboard-show&#39; CustomEvent，
++      * 事件详情包含键盘高度和动画持续时间。
++      * &lt;/p&gt;
++      *
++      * @param keyboardHeight 键盘高度（像素）
+       */
+      private void dispatchKeyboardShowEvent(int keyboardHeight) {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 5, lines removed: 1
+
+```diff
+@@ -443,5 +443,9 @@
+  
+      /**
+-      * 触发键盘隐藏事件
++      * 触发键盘隐藏事件到 Web 端
++      * &lt;p&gt;
++      * 通过 JavaScript 代码在 Web 端触发 &#39;keyboard-hide&#39; CustomEvent，
++      * 事件详情包含动画持续时间。
++      * &lt;/p&gt;
+       */
+      private void dispatchKeyboardHideEvent() {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 13, lines removed: 1
+
+```diff
+@@ -481,5 +481,17 @@
+  
+      /**
+-      * 初始化Activity Result Launchers
++      * 初始化 Activity Result Launchers
++      * &lt;p&gt;
++      * 注册以下启动器：
++      * &lt;ul&gt;
++      *   &lt;li&gt;图片选择器启动器：从相册选择图片&lt;/li&gt;
++      *   &lt;li&gt;相机拍照启动器：启动系统相机进行拍照&lt;/li&gt;
++      *   &lt;li&gt;相机权限请求启动器：请求相机权限，权限授予后自动启动相机预览&lt;/li&gt;
++      *   &lt;li&gt;录音权限请求启动器：请求录音权限&lt;/li&gt;
++      * &lt;/ul&gt;
++      * &lt;/p&gt;
++      * &lt;p&gt;
++      * 注意：此方法必须在 initWebView() 之前调用，因为 WebAppInterface 需要使用这些启动器。
++      * &lt;/p&gt;
+       */
+      private void initActivityResultLaunchers() {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 7, lines removed: 1
+
+```diff
+@@ -553,5 +553,11 @@
+  
+      /**
+-      * 触发WebView事件 - 图片选择完成
++      * 触发 WebView 事件 - 图片选择完成
++      * &lt;p&gt;
++      * 将图片选择的结果通过 CustomEvent &#39;nativeImagePickResult&#39; 通知 Web 端。
++      * 事件详情包含选择是否成功以及图片的相关信息（URI、路径等）。
++      * &lt;/p&gt;
++      *
++      * @param resultJson 图片选择结果的 JSON 字符串
+       */
+      private void dispatchImagePickResultToWebView(String resultJson) {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 7, lines removed: 1
+
+```diff
+@@ -611,5 +611,11 @@
+  
+      /**
+-      * 触发WebView事件 - 拍照完成
++      * 触发 WebView 事件 - 拍照完成
++      * &lt;p&gt;
++      * 将拍照的结果通过 CustomEvent &#39;nativeImageCaptureResult&#39; 通知 Web 端。
++      * 事件详情包含拍照是否成功以及图片的相关信息（URI、路径等）。
++      * &lt;/p&gt;
++      *
++      * @param resultJson 拍照结果的 JSON 字符串
+       */
+      private void dispatchImageCaptureResultToWebView(String resultJson) {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 8, lines removed: 1
+
+```diff
+@@ -669,5 +669,12 @@
+  
+      /**
+-      * 加载Web应用
++      * 加载 Web 应用
++      * &lt;p&gt;
++      * 根据 webAppUrl 加载 Web 应用：
++      * &lt;ul&gt;
++      *   &lt;li&gt;如果是远程 URL（http:// 或 https://），直接加载&lt;/li&gt;
++      *   &lt;li&gt;如果是本地文件，使用默认的本地 assets URL&lt;/li&gt;
++      * &lt;/ul&gt;
++      * &lt;/p&gt;
+       */
+      private void loadWebApp() {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 4, lines removed: 1
+
+```diff
+@@ -694,5 +694,8 @@
+  
+      /**
+-      * 自定义WebViewClient
++      * 自定义 WebViewClient
++      * &lt;p&gt;
++      * 处理 WebView 的页面加载、URL 跳转、错误处理等事件。
++      * &lt;/p&gt;
+       */
+      private class MainWebViewClient extends WebViewClient {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 16, lines removed: 7
+
+```diff
+@@ -701,27 +701,36 @@
+      private class MainWebViewClient extends WebViewClient {
+  
++         /**
++          * 处理 URL 加载请求
++          * &lt;p&gt;
++          * 决定是否在当前 WebView 中加载 URL，还是使用外部应用处理。
++          * &lt;/p&gt;
++          *
++          * @param view WebView 实例
++          * @param url  要加载的 URL
++          * @return true 表示已处理，false 表示在当前 WebView 中加载
++          */
+          @Override
+          public boolean shouldOverrideUrlLoading(WebView view, String url) {
+              Log.d(TAG, &quot;页面跳转: &quot; + url);
+  
+-             // 处理外部链接
++             // 处理外部链接（http/https）：在当前 WebView 中加载
+              if (url.startsWith(&quot;http://&quot;) || url.startsWith(&quot;https://&quot;)) {
+-                 // 可以在这里处理外部链接，比如在外部浏览器中打开
+-                 Log.d(TAG, &quot;外部链接，在当前WebView中加载: &quot; + url);
+-                 return false; // 在当前WebView中加载
++                 Log.d(TAG, &quot;外部链接，在当前 WebView 中加载: &quot; + url);
++                 return false; // 在当前 WebView 中加载
+              }
+  
+-             // 处理其他协议
++             // 处理其他协议（tel/mailto）：使用外部应用处理
+              if (url.startsWith(&quot;tel:&quot;) || url.startsWith(&quot;mailto:&quot;)) {
+                  try {
+                      Intent intent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url));
+                      startActivity(intent);
+-                     return true;
++                     return true; // 已由外部应用处理
+                  } catch (Exception e) {
+                      Log.e(TAG, &quot;处理协议链接失败: &quot; + url, e);
+                  }
+              }
+  
+-             return false; // 在当前WebView中加载
++             return false; // 在当前 WebView 中加载
+          }
+  
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 10, lines removed: 1
+
+```diff
+@@ -735,10 +735,19 @@
+          }
+  
++         /**
++          * 页面加载完成回调
++          * &lt;p&gt;
++          * 当 WebView 完成页面加载后调用，此时可以安全地执行 JavaScript 代码。
++          * &lt;/p&gt;
++          *
++          * @param view WebView 实例
++          * @param url  加载完成的页面 URL
++          */
+          @Override
+          public void onPageFinished(WebView view, String url) {
+              super.onPageFinished(view, url);
+              Log.d(TAG, &quot;页面加载完成: &quot; + url);
+  
+-             // 页面加载完成后，可以执行一些初始化JavaScript
++             // 页面加载完成后，执行 Web 应用初始化
+              initWebApp();
+          }
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 12, lines removed: 1
+
+```diff
+@@ -753,10 +753,21 @@
+          }
+  
++         /**
++          * 页面加载错误回调
++          * &lt;p&gt;
++          * 当 WebView 加载页面出错时调用，显示错误页面给用户。
++          * &lt;/p&gt;
++          *
++          * @param view        WebView 实例
++          * @param errorCode   错误代码
++          * @param description 错误描述
++          * @param failingUrl  失败的 URL
++          */
+          @Override
+          public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+              super.onReceivedError(view, errorCode, description, failingUrl);
+              Log.e(TAG, &quot;页面加载错误: &quot; + errorCode + &quot;, &quot; + description + &quot;, &quot; + failingUrl);
+  
+-             // 显示错误页面或提示
++             // 显示错误页面
+              showErrorPage(errorCode, description);
+          }
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 8, lines removed: 5
+
+```diff
+@@ -775,11 +775,14 @@
+  
+      /**
+-      * 初始化Web应用
+-      * 页面加载完成后执行
++      * 初始化 Web 应用
++      * &lt;p&gt;
++      * 页面加载完成后执行。不再主动检查 Web 应用是否就绪，
++      * 而是等待 Web 端通过 notifyWebAppReady() 主动通知就绪状态。
++      * &lt;/p&gt;
+       */
+      private void initWebApp() {
+-         Log.d(TAG, &quot;开始初始化Web应用&quot;);
+-         // 不再主动检查Web应用是否就绪，等待Web端主动通知
+-         Log.d(TAG, &quot;等待Web应用主动通知就绪状态&quot;);
++         Log.d(TAG, &quot;开始初始化 Web 应用&quot;);
++         // 不再主动检查 Web 应用是否就绪，等待 Web 端主动通知
++         Log.d(TAG, &quot;等待 Web 应用主动通知就绪状态&quot;);
+      }
+  
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 11, lines removed: 2
+
+```diff
+@@ -788,6 +788,15 @@
+  
+      /**
+-      * Web应用就绪回调实现
+-      * 由Web端通过notifyWebAppReady()主动调用
++      * Web 应用就绪回调实现
++      * &lt;p&gt;
++      * 由 Web 端通过 notifyWebAppReady() 主动调用，表示 Vue 应用已完全初始化。
++      * 此时可以安全地执行以下操作：
++      * &lt;ul&gt;
++      *   &lt;li&gt;初始化 MessagingManager（消息管理器）&lt;/li&gt;
++      *   &lt;li&gt;启动悬浮 FAB 按钮服务&lt;/li&gt;
++      *   &lt;li&gt;启动浮动机器人服务&lt;/li&gt;
++      *   &lt;li&gt;触发悬浮 FAB 按钮的 action 事件（如果有）&lt;/li&gt;
++      * &lt;/ul&gt;
++      * &lt;/p&gt;
+       */
+      @Override
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 5, lines removed: 2
+
+```diff
+@@ -826,6 +826,9 @@
+  
+      /**
+-      * 在Web应用就绪后启动悬浮FAB按钮服务
+-      * 确保Web应用和Vue完全初始化后再启动，避免点击功能时功能未准备好
++      * 在 Web 应用就绪后启动悬浮 FAB 按钮服务
++      * &lt;p&gt;
++      * 确保 Web 应用和 Vue 完全初始化后再启动服务，
++      * 避免用户点击悬浮按钮时功能未准备好。
++      * &lt;/p&gt;
+       */
+      private void startFloatingFabServiceWhenReady() {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 12, lines removed: 2
+
+```diff
+@@ -839,6 +839,16 @@
+  
+      /**
+-      * 在Web应用就绪后启动浮动机器人服务
+-      * 确保Web应用和Vue完全初始化后再启动，避免点击功能时功能未准备好
++      * 在 Web 应用就绪后启动浮动机器人服务
++      * &lt;p&gt;
++      * 确保 Web 应用和 Vue 完全初始化后再启动服务，
++      * 避免用户点击浮动机器人时功能未准备好。
++      * &lt;/p&gt;
++      * &lt;p&gt;
++      * 根据 Android 版本使用不同的启动方式：
++      * &lt;ul&gt;
++      *   &lt;li&gt;Android 8.0+：使用 startForegroundService()&lt;/li&gt;
++      *   &lt;li&gt;Android 8.0 以下：使用 startService()&lt;/li&gt;
++      * &lt;/ul&gt;
++      * &lt;/p&gt;
+       */
+      private void startFloatingRobotServiceWhenReady() {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 7, lines removed: 1
+
+```diff
+@@ -867,5 +867,11 @@
+  
+      /**
+-      * 触发悬浮FAB按钮action事件到WebView
++      * 触发悬浮 FAB 按钮 action 事件到 WebView
++      * &lt;p&gt;
++      * 通过 JavaScript 代码在 Web 端触发 &#39;floating-fab-action&#39; CustomEvent，
++      * 事件详情包含 action 参数，用于触发特定的 Web 端操作。
++      * &lt;/p&gt;
++      *
++      * @param action 要触发的 action 名称
+       */
+      private void dispatchFloatingFabActionEvent(String action) {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 5, lines removed: 2
+
+```diff
+@@ -908,6 +908,9 @@
+  
+      /**
+-      * 在应用启动时初始化MessagingManager
+-      * 这样Vue端可以立即使用，不需要等待用户进入聊天页面
++      * 在应用启动时初始化 MessagingManager
++      * &lt;p&gt;
++      * 在 Web 应用就绪后立即初始化消息管理器，这样 Vue 端可以立即使用消息功能，
++      * 不需要等待用户进入聊天页面。如果用户未登录，则跳过初始化。
++      * &lt;/p&gt;
+       */
+      private void initMessagingManagerOnStartup() {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 7, lines removed: undefined
+
+```diff
+@@ -938,4 +938,11 @@
+      /**
+       * 显示错误页面
++      * &lt;p&gt;
++      * 当 WebView 加载页面出错时，显示一个友好的错误页面，
++      * 包含错误代码、错误描述和一个重新加载按钮。
++      * &lt;/p&gt;
++      *
++      * @param errorCode   错误代码
++      * @param description 错误描述
+       */
+      private void showErrorPage(int errorCode, String description) {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="todo_write">
+<details><summary>Tool use: **todo_write** • Todo List</summary>
+
+- [x] 重写类级别注释和字段注释
+- [-] 重写所有方法的 Javadoc 注释
+- [ ] 改进内联注释，使其更清晰
+- [ ] 检查注释格式和一致性
+
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+继续重写剩余方法的注释：
+
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 8, lines removed: undefined
+
+```diff
+@@ -962,4 +962,12 @@
+      // ========== WebAppInterface.ExerciseSolveActivityBridge 实现 ==========
+  
++     /**
++      * 设置老师消息回调
++      * &lt;p&gt;
++      * 由 WebAppInterface 调用，用于设置接收老师消息的回调函数名称。
++      * &lt;/p&gt;
++      *
++      * @param callbackName JavaScript 回调函数名称
++      */
+      @Override
+      public void setTeacherMessageCallback(String callbackName) {
+```
+
+**Chunk 2**
+Lines added: 8, lines removed: undefined
+
+```diff
+@@ -968,4 +976,12 @@
+      }
+  
++     /**
++      * 收到老师消息回调
++      * &lt;p&gt;
++      * 当收到老师发送的消息时，由 WebAppInterface 调用此方法。
++      * &lt;/p&gt;
++      *
++      * @param messageData 消息数据的 JSON 字符串
++      */
+      @Override
+      public void onTeacherMessageReceived(String messageData) {
+```
+
+**Chunk 3**
+Lines added: 10, lines removed: undefined
+
+```diff
+@@ -976,4 +992,14 @@
+      // ========== 生命周期管理 ==========
+  
++     /**
++      * Activity 恢复时的回调
++      * &lt;p&gt;
++      * 当 Activity 从后台恢复时调用，执行以下操作：
++      * &lt;ul&gt;
++      *   &lt;li&gt;隐藏系统 UI（保持全屏状态）&lt;/li&gt;
++      *   &lt;li&gt;恢复 WebView 状态&lt;/li&gt;
++      * &lt;/ul&gt;
++      * &lt;/p&gt;
++      */
+      @Override
+      protected void onResume() {
+```
+
+**Chunk 4**
+Lines added: 6, lines removed: undefined
+
+```diff
+@@ -985,4 +1011,10 @@
+      }
+  
++     /**
++      * Activity 暂停时的回调
++      * &lt;p&gt;
++      * 当 Activity 进入后台时调用，暂停 WebView 以节省资源。
++      * &lt;/p&gt;
++      */
+      @Override
+      protected void onPause() {
+```
+
+**Chunk 5**
+Lines added: 11, lines removed: undefined
+
+```diff
+@@ -993,4 +1025,15 @@
+      }
+  
++     /**
++      * Activity 销毁时的回调
++      * &lt;p&gt;
++      * 当 Activity 被销毁时调用，执行以下清理操作：
++      * &lt;ul&gt;
++      *   &lt;li&gt;停止相机预览并释放相机资源&lt;/li&gt;
++      *   &lt;li&gt;清理更新检查定时器&lt;/li&gt;
++      *   &lt;li&gt;销毁 WebView 实例&lt;/li&gt;
++      * &lt;/ul&gt;
++      * &lt;/p&gt;
++      */
+      @Override
+      protected void onDestroy() {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 7, lines removed: undefined
+
+```diff
+@@ -1053,4 +1053,11 @@
+      /**
+       * 启动相机预览（通过 JS 桥接调用）
++      * &lt;p&gt;
++      * 如果相机已激活，先完全停止并释放资源，然后重新启动。
++      * 这样可以避免尝试绑定新的 use case 时出现冲突。
++      * &lt;/p&gt;
++      * &lt;p&gt;
++      * 如果相机权限未授予，会先请求权限，权限授予后自动启动相机预览。
++      * &lt;/p&gt;
+       */
+      public void startCameraPreview() {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 9, lines removed: undefined
+
+```diff
+@@ -1079,4 +1079,13 @@
+      /**
+       * 内部方法：实际启动相机预览的逻辑
++      * &lt;p&gt;
++      * 执行以下操作：
++      * &lt;ol&gt;
++      *   &lt;li&gt;检查相机权限，如果未授予则请求权限&lt;/li&gt;
++      *   &lt;li&gt;显示 PreviewView&lt;/li&gt;
++      *   &lt;li&gt;获取 ProcessCameraProvider&lt;/li&gt;
++      *   &lt;li&gt;绑定相机预览到 PreviewView&lt;/li&gt;
++      * &lt;/ol&gt;
++      * &lt;/p&gt;
+       */
+      private void startCameraPreviewInternal() {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 9, lines removed: undefined
+
+```diff
+@@ -1141,4 +1141,13 @@
+      /**
+       * 停止相机预览
++      * &lt;p&gt;
++      * 执行以下操作：
++      * &lt;ul&gt;
++      *   &lt;li&gt;隐藏 PreviewView&lt;/li&gt;
++      *   &lt;li&gt;解绑所有相机用例&lt;/li&gt;
++      *   &lt;li&gt;释放相机资源&lt;/li&gt;
++      *   &lt;li&gt;重置相机状态标志&lt;/li&gt;
++      * &lt;/ul&gt;
++      * &lt;/p&gt;
+       */
+      public void stopCameraPreview() {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 7, lines removed: 1
+
+```diff
+@@ -1172,5 +1172,11 @@
+  
+      /**
+-      * 绑定相机预览
++      * 绑定相机预览到 PreviewView
++      * &lt;p&gt;
++      * 创建 Preview 和 ImageCapture use case，并绑定到相机提供者。
++      * 使用后置摄像头（LENS_FACING_BACK）。
++      * &lt;/p&gt;
++      *
++      * @param cameraProvider 相机提供者实例
+       */
+      private void bindPreview(@NonNull ProcessCameraProvider cameraProvider) {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 9, lines removed: 2
+
+```diff
+@@ -1203,6 +1203,13 @@
+      /**
+       * 拍照（通过 JS 桥接调用）
+-      * 
+-      * @param callbackId 回调ID，用于匹配Web端的回调
++      * &lt;p&gt;
++      * 使用已初始化的 ImageCapture 进行拍照，并将结果以 Base64 编码的字符串形式
++      * 通过 JavaScript 回调返回给 Web 端。
++      * &lt;/p&gt;
++      * &lt;p&gt;
++      * 如果相机未初始化，会通过 JavaScript 回调通知 Web 端拍照失败。
++      * &lt;/p&gt;
++      *
++      * @param callbackId 回调 ID，用于匹配 Web 端的回调函数
+       */
+      public void capturePhoto(String callbackId) {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 6, lines removed: undefined
+
+```diff
+@@ -1303,4 +1303,10 @@
+      /**
+       * 将图片文件编码为 Base64 字符串
++      * &lt;p&gt;
++      * 读取图片文件的所有字节，然后使用 Base64 编码（NO_WRAP 模式）转换为字符串。
++      * &lt;/p&gt;
++      *
++      * @param imageFile 要编码的图片文件
++      * @return Base64 编码的字符串，如果编码失败则返回空字符串
+       */
+      private String encodeImageToBase64(java.io.File imageFile) {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 23, lines removed: undefined
+
+```diff
+@@ -1323,4 +1323,27 @@
+      }
+  
++     /**
++      * 处理返回键按下事件
++      * &lt;p&gt;
++      * 实现智能返回逻辑：
++      * &lt;ul&gt;
++      *   &lt;li&gt;如果当前路由是主页面（/app 或 /app/xxx）：
++      *     &lt;ul&gt;
++      *       &lt;li&gt;如果 WebView 没有历史记录可返回，则退出应用&lt;/li&gt;
++      *       &lt;li&gt;如果有历史记录，则返回上一页&lt;/li&gt;
++      *     &lt;/ul&gt;
++      *   &lt;/li&gt;
++      *   &lt;li&gt;如果当前路由不是主页面（如登录页）：
++      *     &lt;ul&gt;
++      *       &lt;li&gt;如果 WebView 有历史记录，则返回上一页&lt;/li&gt;
++      *       &lt;li&gt;如果没有历史记录，则执行默认的返回行为&lt;/li&gt;
++      *     &lt;/ul&gt;
++      *   &lt;/li&gt;
++      * &lt;/ul&gt;
++      * &lt;/p&gt;
++      * &lt;p&gt;
++      * 注意：Vue Router 使用 Hash 模式，路由信息在 URL 的 hash 部分。
++      * &lt;/p&gt;
++      */
+      @Override
+      public void onBackPressed() {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 9, lines removed: undefined
+
+```diff
+@@ -1378,4 +1378,13 @@
+      }
+  
++     /**
++      * 窗口焦点变化回调
++      * &lt;p&gt;
++      * 当窗口获得或失去焦点时调用，确保窗口获得焦点时隐藏系统 UI，
++      * 保持全屏状态。
++      * &lt;/p&gt;
++      *
++      * @param hasFocus true 表示窗口获得焦点，false 表示窗口失去焦点
++      */
+      @Override
+      public void onWindowFocusChanged(boolean hasFocus) {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="todo_write">
+<details><summary>Tool use: **todo_write** • Todo List</summary>
+
+- [x] 重写类级别注释和字段注释
+- [x] 重写所有方法的 Javadoc 注释
+- [-] 改进内联注释，使其更清晰
+- [ ] 检查注释格式和一致性
+
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+改进内联注释，使其更清晰：
+
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file">
+<details><summary>Tool use: **read_file** • Read file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file">
+<details><summary>Tool use: **read_file** • Read file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+改进部分内联注释，并检查格式一致性：
+
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 8, lines removed: 8
+
+```diff
+@@ -230,28 +230,28 @@
+          Log.d(TAG, &quot;MainWebViewActivity onCreate 开始&quot;);
+  
+-         // 获取传入的URL参数
++         // 获取传入的自定义 URL 参数（如果存在）
+          String customUrl = getIntent().getStringExtra(&quot;web_app_url&quot;);
+          if (customUrl != null &amp;&amp; !customUrl.isEmpty()) {
+              webAppUrl = customUrl;
+          }
+  
+-         // 获取悬浮FAB按钮的action参数
++         // 获取悬浮 FAB 按钮的 action 参数（如果存在）
+          floatingFabAction = getIntent().getStringExtra(&quot;floating_fab_action&quot;);
+          if (floatingFabAction != null) {
+-             Log.d(TAG, &quot;收到悬浮FAB按钮action: &quot; + floatingFabAction);
++             Log.d(TAG, &quot;收到悬浮 FAB 按钮 action: &quot; + floatingFabAction);
+          }
+  
+-         Log.d(TAG, &quot;加载URL: &quot; + webAppUrl);
++         Log.d(TAG, &quot;加载 URL: &quot; + webAppUrl);
+  
+-         // 第1步：先初始化Activity Result Launchers（必须在initWebView之前）
++         // 第1步：先初始化 Activity Result Launchers（必须在 initWebView 之前）
+          initActivityResultLaunchers();
+  
+-         // 第2步：初始化WebView（需要使用已初始化的launchers）
++         // 第2步：初始化 WebView（需要使用已初始化的 launchers）
+          initWebView();
+  
+-         // 第3步：加载页面
++         // 第3步：加载 Web 应用页面
+          loadWebApp();
+  
+-         // 第4步：初始化更新检查
++         // 第4步：初始化应用更新检查机制
+          initUpdateCheck();
+  
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 8, lines removed: 7
+
+```diff
+@@ -293,27 +293,28 @@
+          webView = findViewById(R.id.main_webview);
+  
+-         // 启用WebView调试
++         // 启用 WebView 调试（Android 4.4+ 支持）
+          if (android.os.Build.VERSION.SDK_INT &gt;= android.os.Build.VERSION_CODES.KITKAT) {
+              WebView.setWebContentsDebuggingEnabled(true);
+-             Log.d(TAG, &quot;WebView调试已启用&quot;);
++             Log.d(TAG, &quot;WebView 调试已启用&quot;);
+          }
+  
+-         // 使用统一的WebView配置
++         // 使用统一的 WebView 配置
+          WebViewConfig.configureWebView(webView, this);
+  
+          // 配置 WebView 为透明背景，让底层相机预览可见
+          webView.setBackgroundColor(Color.TRANSPARENT);
+-         webView.setLayerType(WebView.LAYER_TYPE_HARDWARE, null); // 硬件加速
++         // 启用硬件加速，提升渲染性能
++         webView.setLayerType(WebView.LAYER_TYPE_HARDWARE, null);
+  
+-         // 禁用长按弹出右键菜单
++         // 禁用长按弹出右键菜单和触觉反馈
+          webView.setLongClickable(false);
+          webView.setOnLongClickListener(v -&gt; true);
+          webView.setHapticFeedbackEnabled(false);
+  
+-         // 隐藏滚动条
++         // 隐藏滚动条（全屏应用不需要显示滚动条）
+          webView.setVerticalScrollBarEnabled(false);
+          webView.setHorizontalScrollBarEnabled(false);
+  
+-         // 初始化相机预览 View
++         // 初始化相机预览视图
+          cameraPreviewView = findViewById(R.id.camera_previewer);
+          if (cameraPreviewView == null) {
+```
+
+**Chunk 2**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -326,5 +327,5 @@
+          }
+  
+-         // 创建并设置WebAppInterface
++         // 创建并配置 WebAppInterface（JavaScript 与 Android 原生功能的桥接）
+          webAppInterface = new WebAppInterface(this);
+          webAppInterface.setExerciseBridge(this);
+```
+
+**Chunk 3**
+Lines added: 4, lines removed: 3
+
+```diff
+@@ -334,14 +335,15 @@
+          webAppInterface.setAudioPermissionLauncher(audioPermissionLauncher);
+          webAppInterface.setWebView(webView);
++         // 将 WebAppInterface 注册为 JavaScript 接口，Web 端可通过 window.AndroidBridge 调用
+          webView.addJavascriptInterface(webAppInterface, &quot;AndroidBridge&quot;);
+  
+-         // 注册WebAppInterface到Application，供其他Service使用
++         // 注册 WebAppInterface 到 Application，供其他 Service 使用
+          ApplicationModelShared app = (ApplicationModelShared) getApplication();
+          app.setWebAppInterface(webAppInterface);
+  
+-         // 设置WebViewClient
++         // 设置自定义 WebViewClient，处理页面加载和 URL 跳转
+          webView.setWebViewClient(new MainWebViewClient());
+  
+-         // 监听键盘弹出/隐藏
++         // 设置键盘监听器，监听键盘弹出/隐藏事件
+          setupKeyboardListener();
+  
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: app/src/main/java/com/cosinetech/imates/ui/webview/MainWebViewActivity.java</summary>
+
+**Chunk 1**
+Lines added: 2, lines removed: 1
+
+```diff
+@@ -268,5 +268,6 @@
+      private void initUpdateCheck() {
+          mCheckUpdateTick = System.currentTimeMillis();
+-         mCheckUpdateHandler.postDelayed(mCheckUpdateRunnable, 60000); // 60秒后首次检查
++         // 60 秒后首次检查更新
++         mCheckUpdateHandler.postDelayed(mCheckUpdateRunnable, 60000);
+          Log.d(TAG, &quot;更新检查已初始化&quot;);
+      }
+```
+
+</details>
+
+</tool-use>
+
+---
+
+Cancelled
+
+---
+
+
+
+---
+
+_**User (2025-11-10 18:25Z)**_
+
+WebAppInterface.java注释按照用户规则中的进行重写
+
+---
+
+_**Agent (model composer-1, mode Agent)**_
+
+
 
 ---
 

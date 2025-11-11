@@ -1,15 +1,9 @@
-﻿<template>
-  <div class="question-list" @click.stop>
+  <template>
+    <div class="question-list" @click.stop>
     <!-- 题目列表 - 卡片布局 -->
-    <div
-      ref="scrollContainer"
-      class="question-cards-container"
-    >
-      <!-- 骨架屏加载状态 -->
-      <QuestionListSkeleton v-if="loading" :columns="1" />
-
+    <div ref="scrollContainer" class="question-cards-container" @scroll="handleScroll">
       <!-- 空状态 -->
-      <div v-else-if="displayList.length === 0" class="native-empty-state">
+      <div v-if="displayedQuestions.length === 0 && !loading" class="native-empty-state">
         <q-icon name="quiz" size="80px" color="grey-5" />
         <div class="text-h6 q-mt-md text-grey-7 native-text-3xl">
           {{ searchQuery || selectedSubjectFilter ? '未找到匹配的题目' : '暂无题目' }}
@@ -25,60 +19,38 @@
         </q-btn>
       </div>
 
+      <!-- 加载状态 -->
+      <div v-if="renderingQuestions && displayedQuestions.length > 0" class="rendering-container">
+        <q-spinner color="primary" size="32px" />
+        <span class="rendering-text">正在渲染题目...</span>
+      </div>
+
       <!-- 题目列表 -->
-      <div v-else class="question-cards-list">
+      <div v-if="displayedQuestions.length > 0 && !renderingQuestions" class="question-cards-list">
         <div
-          v-for="item in allRenderItems"
-          :key="item.id"
+          v-for="(question, index) in displayedQuestions"
+          :key="question.id"
           class="question-item-wrapper"
-          :data-index="item.actualIndex"
+          :data-index="index"
         >
-          <!-- 占位符 -->
-          <div
-            v-if="item.isPlaceholder"
-            class="question-card-placeholder"
-            :ref="(el) => observePlaceholderRef(el as HTMLElement | null, item.actualIndex)"
-            :style="{ minHeight: getPlaceholderHeight(item.id, item.actualIndex) + 'px' }"
-          >
-            <div class="question-block">
-              <!-- 占位符头部 -->
-              <div class="question-header">
-                <div class="question-number-placeholder"></div>
-                <div class="question-actions-placeholder">
-                  <div class="placeholder-btn"></div>
-                  <div class="placeholder-btn"></div>
-                  <div class="placeholder-btn"></div>
-                </div>
-              </div>
-
-              <!-- 占位符内容 -->
-              <div class="question-content-area">
-                <div class="question-content-placeholder">
-                  <div class="placeholder-line placeholder-line-long"></div>
-                  <div class="placeholder-line placeholder-line-medium"></div>
-                  <div class="placeholder-line placeholder-line-short"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <!-- 实际题目 -->
           <div
-            v-else
-            ref="(el) => setQuestionCardRef(el as HTMLElement | null, item.id, item.actualIndex)"
-            :data-question-id="item.id"
+            ref="(el) => setQuestionCardRef(el as HTMLElement | null, question.id, index)"
+            :data-question-id="question.id"
             class="question-card"
             :class="{
-              'question-selected': isQuestionSelected(item.id),
-              'question-deleting': deletingIds.has(item.id),
+              'question-selected': isQuestionSelected(question.id),
+              'question-deleting': deletingIds.has(question.id),
             }"
-            @click.stop="throttledHandleCardClick(item.question!, item.actualIndex)"
+            @click.stop="throttledHandleCardClick(question, index)"
           >
             <div class="question-block">
               <!-- 题目头部 -->
               <div class="question-header">
                 <!-- 左侧：题目序号 -->
-                <div class="question-number">题目{{ item.originalIndex + 1 }}</div>
+                <div class="question-number">
+                  题目{{ index + 1 }}
+                </div>
 
                 <!-- 右侧：功能区 -->
                 <div class="question-actions">
@@ -90,14 +62,14 @@
                       flat
                       round
                       size="sm"
-                      @click.stop="toggleMoreMenu(item.id)"
+                      @click.stop="toggleMoreMenu(question.id)"
                       class="action-btn more-btn"
                     >
                       <q-tooltip>更多</q-tooltip>
 
                       <!-- 功能菜单气泡框 -->
                       <q-popup-proxy
-                        v-model="showMoreMenu[item.id]"
+                        v-model="showMoreMenu[question.id]"
                         anchor="top right"
                         self="bottom right"
                         :breakpoint="0"
@@ -109,9 +81,7 @@
                             <q-item
                               clickable
                               @click="
-                                closeMenuAndExecute(item.id, () =>
-                                  throttledSendToAi(item.question!),
-                                )
+                                closeMenuAndExecute(question.id, () => throttledSendToAi(question))
                               "
                               class="menu-item"
                             >
@@ -125,8 +95,8 @@
                             <q-item
                               clickable
                               @click="
-                                closeMenuAndExecute(item.id, () =>
-                                  throttledOpenMiniClass(item.question!),
+                                closeMenuAndExecute(question.id, () =>
+                                  throttledOpenMiniClass(question),
                                 )
                               "
                               class="menu-item"
@@ -139,10 +109,12 @@
 
                             <!-- 置顶 -->
                             <q-item
-                              v-if="item.actualIndex > 0"
+                              v-if="index > 0"
                               clickable
                               @click="
-                                closeMenuAndExecute(item.id, () => throttledMoveToTop(item.id))
+                                closeMenuAndExecute(question.id, () =>
+                                  throttledMoveToTop(question.id),
+                                )
                               "
                               class="menu-item"
                             >
@@ -156,27 +128,21 @@
                             <q-item
                               clickable
                               @click="
-                                closeMenuAndExecute(item.id, () =>
-                                  throttledToggleFavorite(item.question!),
+                                closeMenuAndExecute(question.id, () =>
+                                  throttledToggleFavorite(question),
                                 )
                               "
                               class="menu-item"
                             >
                               <q-item-section avatar>
                                 <q-icon
-                                  :name="
-                                    isExerciseFavorite(item.question!.id) ? 'star' : 'star_border'
-                                  "
-                                  :color="
-                                    isExerciseFavorite(item.question!.id) ? 'warning' : 'grey-7'
-                                  "
+                                  :name="isExerciseFavorite(question.id) ? 'star' : 'star_border'"
+                                  :color="isExerciseFavorite(question.id) ? 'warning' : 'grey-7'"
                                   size="20px"
                                 />
                               </q-item-section>
                               <q-item-section>
-                                {{
-                                  isExerciseFavorite(item.question!.id) ? '取消收藏' : '收藏题目'
-                                }}
+                                {{ isExerciseFavorite(question.id) ? '取消收藏' : '收藏题目' }}
                               </q-item-section>
                             </q-item>
 
@@ -184,8 +150,8 @@
                             <q-item
                               clickable
                               @click="
-                                closeMenuAndExecute(item.id, () =>
-                                  throttledTakePictureToTeacher(item.question!),
+                                closeMenuAndExecute(question.id, () =>
+                                  throttledTakePictureToTeacher(question),
                                 )
                               "
                               class="menu-item"
@@ -203,9 +169,11 @@
                             <q-item
                               clickable
                               @click="
-                                closeMenuAndExecute(item.id, () => throttledDeleteQuestion(item.id))
+                                closeMenuAndExecute(question.id, () =>
+                                  throttledDeleteQuestion(question.id),
+                                )
                               "
-                              :disable="deletingIds.has(item.id)"
+                              :disable="deletingIds.has(question.id)"
                               class="menu-item delete-item"
                             >
                               <q-item-section avatar>
@@ -213,11 +181,11 @@
                                   name="delete"
                                   color="negative"
                                   size="20px"
-                                  :class="{ 'icon-loading': deletingIds.has(item.id) }"
+                                  :class="{ 'icon-loading': deletingIds.has(question.id) }"
                                 />
                               </q-item-section>
                               <q-item-section>
-                                {{ deletingIds.has(item.id) ? '删除中...' : '删除题目' }}
+                                {{ deletingIds.has(question.id) ? '删除中...' : '删除题目' }}
                               </q-item-section>
                             </q-item>
                           </q-list>
@@ -232,16 +200,17 @@
               <div class="question-content-area">
                 <div
                   class="markdown-content question-content"
-                  v-html="
-                    renderMessageContent(
-                      item.question?.question || item.question?.title || '暂无内容',
-                    )
-                  "
-                  :ref="(el) => setContentRef(el as HTMLElement | null, item.id)"
+                  v-html="renderMessageContent(question?.question || question?.title || '暂无内容')"
+                  :ref="(el) => handleContentRef(el, question.id)"
                 ></div>
               </div>
             </div>
           </div>
+        </div>
+        <!-- 加载更多提示 -->
+        <div v-if="hasMoreQuestions && renderingQuestions" class="load-more-container">
+          <q-spinner color="primary" size="24px" />
+          <span class="load-more-text">加载中...</span>
         </div>
       </div>
     </div>
@@ -254,7 +223,7 @@
     />
 
     <!-- 统一聊天对话框 -->
-    <UnifiedChatDialog 
+    <UnifiedChatDialog
       ref="unifiedChatDialogRef"
       v-model="showUnifiedChatDialog"
       :initial-teacher-subject="selectedSubjectForTeacher"
@@ -275,7 +244,6 @@ import { apiService } from '../services/api-service'
 import { MathJaxUtils } from '../utils/math/mathjax'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 
-import QuestionListSkeleton from './QuestionListSkeleton.vue'
 import MiniClass from './MiniClass.vue'
 import UnifiedChatDialog from './UnifiedChatDialog.vue'
 import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
@@ -299,6 +267,11 @@ const questions = ref<ExerciseItem[]>([])
 const selectedSubject = ref('math')
 const selectedQuestionIndex = ref(-1)
 const loading = ref(true)
+
+// 分页相关
+const INITIAL_DISPLAY_COUNT = 20 // 初始显示的题目数量
+const LOAD_MORE_COUNT = 20 // 每次加载更多的题目数量
+const displayedCount = ref(INITIAL_DISPLAY_COUNT) // 已显示的题目数量
 
 // 从 props 获取搜索和过滤状态
 const searchQuery = computed(() => props.searchQuery || '')
@@ -325,27 +298,16 @@ const intersectionObservers = new Map<string, IntersectionObserver>()
 // 更多菜单显示状态
 const showMoreMenu = ref<Record<string, boolean>>({})
 
-// 渐进式渲染相关
-interface RenderItem {
-  id: string
-  actualIndex: number // 在筛选列表中的索引
-  originalIndex: number // 在原始列表中的索引
-  isPlaceholder: boolean
-  question?: ExerciseItem // 占位符时不存在
-}
-
-const renderedIndexes = ref(new Set<number>()) // 已渲染的索引
-const placeholderHeights = ref<Map<number, number>>(new Map()) // 占位符高度缓存（保留用于兼容）
-const placeholderObservers = new Map<number, IntersectionObserver>() // 占位符观察器
-const PRE_RENDER_COUNT = 3 // 前N个题目立即渲染
-const ESTIMATED_PLACEHOLDER_HEIGHT = 207 // 估算占位符高度（单位：px，基于统计数据：无图片题目平均高度）
+// 批量渲染相关
+const renderingQuestions = ref(false) // 是否正在渲染题目
+const renderedQuestionIds = ref(new Set<string>()) // 已渲染完成的题目ID集合
 
 // 动态高度测量相关（方案A）
 const questionHeights = ref<Map<string, number>>(new Map()) // 题目ID -> 高度映射
 const indexToHeight = ref<Map<number, number>>(new Map()) // 索引 -> 高度映射（便于快速查找）
 const questionCardRefs = ref<Map<string, HTMLElement>>(new Map()) // 实际题目卡片引用
 const resizeObservers = new Map<string, ResizeObserver>() // ResizeObserver映射
-const heightMeasurementTimers = new Map<string, NodeJS.Timeout>() // 延迟测量定时器
+const heightMeasurementTimers = new Map<string, ReturnType<typeof setTimeout>>() // 延迟测量定时器
 
 // 使用与 ChatBubble 相同的渲染器
 const { renderMessageContent } = useMessageRenderer()
@@ -371,7 +333,13 @@ const unifiedChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(
 const showUnifiedChatDialog = ref(false)
 const selectedSubjectForTeacher = ref<'biology' | 'math'>('math')
 // 保存待发送的图片信息（在会话创建后直接创建消息并保存）
-const pendingImageInfo = ref<{ filePath: string; width: number; height: number; fileSize: number; base64DataUrl?: string } | null>(null)
+const pendingImageInfo = ref<{
+  filePath: string
+  width: number
+  height: number
+  fileSize: number
+  base64DataUrl?: string
+} | null>(null)
 
 // 计算属性
 const filteredQuestions = computed(() => {
@@ -432,6 +400,16 @@ const displayList = computed(() => {
   return filteredQuestions.value
 })
 
+// 已显示的题目列表（分页显示）
+const displayedQuestions = computed(() => {
+  return displayList.value.slice(0, displayedCount.value)
+})
+
+// 是否还有更多题目
+const hasMoreQuestions = computed(() => {
+  return displayedCount.value < displayList.value.length
+})
+
 // 滚动容器引用（用于滚动定位）
 const scrollContainer = ref<HTMLElement | null>(null)
 
@@ -442,123 +420,49 @@ let setQuestionCardRefImpl: (
   index: number,
 ) => void = () => {}
 
-// 所有项目的渲染列表：支持渐进式渲染（占位符 + 实际题目）
-const allRenderItems = computed(() => {
-  const list = displayList.value
-  const items: RenderItem[] = []
 
-  list.forEach((question, index) => {
-    // 前N个题目立即渲染，不使用占位符
-    const shouldRender = index < PRE_RENDER_COUNT || renderedIndexes.value.has(index)
-    
-    // 计算题目在原始列表中的索引
-    const originalIndex = questions.value.findIndex((q) => q.id === question.id)
 
-    items.push({
-      id: question.id,
-      actualIndex: index, // 在筛选列表中的索引
-      originalIndex: originalIndex >= 0 ? originalIndex : index, // 在原始列表中的索引，如果找不到则使用当前索引作为fallback
-      isPlaceholder: !shouldRender,
-      question: shouldRender ? question : undefined,
-    })
-  })
+// 检查当前批次的所有题目是否都已渲染完成
+const checkBatchRenderComplete = async (maxRetries = 100) => {
+  const currentBatch = displayedQuestions.value.slice(0, displayedCount.value)
+  const allRendered = currentBatch.every((question) => renderedQuestionIds.value.has(question.id))
 
-  return items
-})
-
-// 工具方法
-
-// 主要方法
-
-// 监听占位符进入视口，替换为实际题目
-const observePlaceholderRef = (el: HTMLElement | null, index: number) => {
-  if (!el || !scrollContainer.value) return
-
-  // 如果已经渲染，不需要观察
-  if (renderedIndexes.value.has(index)) return
-
-  // 如果已经有观察器，先清理
-  const existingObserver = placeholderObservers.get(index)
-  if (existingObserver) {
-    existingObserver.disconnect()
-    placeholderObservers.delete(index)
+  if (allRendered || maxRetries <= 0) {
+    // 所有题目都已渲染完成，或者达到最大重试次数，显示列表
+    renderingQuestions.value = false
+    console.log('renderingQuestions.value = false', renderingQuestions.value)
+  } else {
+    // 等待一段时间后再次检查
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    await checkBatchRenderComplete(maxRetries - 1)
   }
-
-  // 创建新的观察器
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting && !renderedIndexes.value.has(index)) {
-          // 占位符进入视口，标记为已渲染
-          renderedIndexes.value.add(index)
-
-          // 记录占位符高度（如果有）
-          if (entry.boundingClientRect.height > 0) {
-            placeholderHeights.value.set(index, entry.boundingClientRect.height)
-          }
-
-          // 停止观察并清理
-          observer.disconnect()
-          placeholderObservers.delete(index)
-        }
-      })
-    },
-    {
-      root: scrollContainer.value,
-      rootMargin: '200px', // 提前200px开始渲染
-      threshold: 0.01, // 只要有一点可见就触发
-    },
-  )
-
-  observer.observe(el)
-  placeholderObservers.set(index, observer)
 }
 
-// 设置内容引用，使用 Intersection Observer 实现真正的视口懒加载
-const setContentRef = (el: HTMLElement | null, questionId: string) => {
-  if (el && el instanceof HTMLElement) {
+// 处理内容引用（用于模板中的 ref）
+const handleContentRef = (el: unknown, questionId: string) => {
+  const element = (el as { $el?: HTMLElement })?.$el || (el as HTMLElement)
+  if (element instanceof HTMLElement) {
+    setContentRef(element, questionId)
+  }
+}
+
+// 设置内容引用，渲染MathJax并标记为已渲染完成
+const setContentRef = async (el: HTMLElement | null, questionId: string) => {
+  if (el) {
     contentRefs.value.set(questionId, el)
 
-    // 只在首次渲染时处理MathJax，使用 Intersection Observer 实现懒加载
+    // 只在首次渲染时处理MathJax
     if (!renderedQuestions.has(questionId)) {
       renderedQuestions.add(questionId)
 
-      // 获取题目在列表中的索引
-      const list = displayList.value
-      const questionIndex = list.findIndex((q) => q.id === questionId)
+      // 渲染MathJax
+      await MathJaxUtils.renderMath(el, false)
 
-      // 前3个题目立即渲染，确保首屏快速显示
-      if (questionIndex < 3) {
-        MathJaxUtils.renderMath(el, false) // 立即渲染
-        return
-      }
-
-      // 其他题目使用 Intersection Observer 懒加载
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              // 元素进入视口，立即渲染 MathJax
-              MathJaxUtils.renderMath(el, false) // 立即渲染，不使用懒加载模式
-
-              // 停止观察，避免重复渲染
-              observer.unobserve(el)
-              intersectionObservers.delete(questionId) // 从存储中移除
-            }
-          })
-        },
-        {
-          root: scrollContainer.value, // 使用滚动容器作为根
-          rootMargin: '100px', // 提前100px开始渲染，确保流畅体验
-          threshold: 0.1, // 元素10%可见时触发
-        },
-      )
-
-      // 存储观察器，便于清理
-      intersectionObservers.set(questionId, observer)
-
-      // 开始观察元素
-      observer.observe(el)
+      // 标记为已渲染完成
+      renderedQuestionIds.value.add(questionId)
+      console.log('renderingQuestions222')
+      // 检查当前批次是否全部渲染完成
+      await checkBatchRenderComplete()
     }
   }
 }
@@ -693,8 +597,8 @@ const takePictureToTeacher = async (question: ExerciseItem) => {
     let subject: 'biology' | 'math' = 'math'
     if (question.subject) {
       const subjectMap: Record<string, 'biology' | 'math'> = {
-        'SUBJECT_BIOLOGY': 'biology',
-        'SUBJECT_MATH': 'math',
+        SUBJECT_BIOLOGY: 'biology',
+        SUBJECT_MATH: 'math',
       }
       const subjectUpper = question.subject.toUpperCase()
       if (subjectMap[subjectUpper]) {
@@ -720,9 +624,9 @@ const selectSubjectForTeacher = async (subject: 'biology' | 'math') => {
       id: '',
       name: '',
       avatar: '',
-      roles: [] as string[]
+      roles: [] as string[],
     }
-    
+
     if (!userInfo?.id) {
       // 尝试从localStorage加载
       const hasCache = userStore.loadFromStorage()
@@ -735,10 +639,10 @@ const selectSubjectForTeacher = async (subject: 'biology' | 'math') => {
     // 第2步：设置科目并打开对话框
     selectedSubjectForTeacher.value = subject
     showUnifiedChatDialog.value = true
-    
+
     // 第3步：等待组件加载完成
     await nextTick()
-    
+
     // 第4步：通过组件创建新会话
     if (unifiedChatDialogRef.value) {
       await unifiedChatDialogRef.value.createTeacherSession(subject)
@@ -756,15 +660,15 @@ const handleSessionCreated = async (sessionId: string, type: 'ai-general' | 'tea
     const session = teacherStore.getSession(sessionId)
     if (session) {
       teacherStore.setSession(session)
-      
+
       // 如果有待发送的图片，直接创建消息并保存到持久化存储
       if (pendingImageInfo.value) {
         const imageInfo = pendingImageInfo.value
         pendingImageInfo.value = null
-        
+
         // 等待会话加载完成
         await nextTick()
-        
+
         // 创建图片消息
         const imageMessage: ChatBubble = {
           id: Date.now().toString(),
@@ -781,13 +685,13 @@ const handleSessionCreated = async (sessionId: string, type: 'ai-general' | 'tea
             base64DataUrl: imageInfo.base64DataUrl,
           },
         }
-        
+
         // 添加到 store
         teacherStore.addMessage(imageMessage)
-        
+
         // 保存到持久化存储
         await teacherStore.saveChatHistory()
-        
+
         // 发送图片消息到后端
         try {
           await teacherStore.sendMessage('', {
@@ -826,41 +730,58 @@ const throttledLoadQuestions = ThrottleUtils.verySlow(() => {
   loadQuestions()
 }) // 1秒节流，防止重复加载
 
-// 获取占位符高度（支持ID和索引）
-const getPlaceholderHeight = (questionId: string, index: number): number => {
-  // 1. 优先使用已测量的该题目高度（如果之前测量过）
-  if (questionHeights.value.has(questionId)) {
-    return questionHeights.value.get(questionId)!
-  }
+// 滚动处理函数
+const handleScroll = throttle((event: Event) => {
+  const target = event.target as HTMLElement
+  if (!target) return
 
-  // 2. 使用当前索引的高度缓存（如果之前在同一位置测量过）
-  if (indexToHeight.value.has(index)) {
-    return indexToHeight.value.get(index)!
-  }
+  const { scrollTop, scrollHeight, clientHeight } = target
+  const scrollBottom = scrollHeight - scrollTop - clientHeight
 
-  // 3. 兼容旧的高度缓存（如果有）
-  if (placeholderHeights.value.has(index)) {
-    return placeholderHeights.value.get(index)!
+  // 当距离底部小于100px时，触发加载更多
+  if (scrollBottom < 100 && hasMoreQuestions.value && !renderingQuestions.value) {
+    loadMoreQuestions()
   }
+}, 200) // 200ms节流
 
-  // 4. 使用默认值（无图片题目的平均高度）
-  return ESTIMATED_PLACEHOLDER_HEIGHT
+// 加载更多题目
+const loadMoreQuestions = async () => {
+  if (renderingQuestions.value || !hasMoreQuestions.value) return
+
+  try {
+    // 增加显示的题目数量
+    displayedCount.value = Math.min(
+      displayedCount.value + LOAD_MORE_COUNT,
+      displayList.value.length,
+    )
+
+    // 等待DOM更新
+    await nextTick()
+
+    // 开始批量渲染新加载的题目
+    renderingQuestions.value = true
+    console.log('renderingQuestions.value = true', renderingQuestions.value)
+    console.log('renderingQuestions333')
+    // 等待新加载的题目全部渲染完成
+    await checkBatchRenderComplete()
+  } catch (error) {
+    console.error('[QuestionList] ❌ 加载更多题目失败:', error)
+    renderingQuestions.value = false
+    console.log('renderingQuestions.value = false', renderingQuestions.value)
+  }
 }
 
 const loadQuestions = async () => {
   loading.value = true
 
-  // 重置渐进式渲染状态
-  renderedIndexes.value.clear()
-  placeholderHeights.value.clear()
-  placeholderObservers.forEach((observer) => {
-    observer.disconnect()
-  })
-  placeholderObservers.clear()
-
+  // 重置渲染状态
+  renderedQuestionIds.value.clear()
+  renderedQuestions.clear()
+  renderingQuestions.value = false
+  console.log('renderingQuestions.value = false', renderingQuestions.value)
   try {
     const questionStore = useQuestionStore()
-    
+
     // 第1步：如果 store 中已有题目，直接使用（避免覆盖父组件已加载的正确科目）
     if (questionStore.questions.length > 0) {
       questions.value = [...questionStore.questions]
@@ -873,21 +794,21 @@ const loadQuestions = async () => {
       } else {
         // 具体学科：加载指定学科的题目
         let subjectToLoad = selectedSubject.value // 默认使用 math
-        
+
         // 将 Subject 枚举值转换为科目名称
         const subjectMap: Record<string, string> = {
-          'SUBJECT_MATH': 'math',
-          'SUBJECT_BIOLOGY': 'biology',
-          'SUBJECT_CHEMISTRY': 'chemistry',
-          'SUBJECT_PHYSICS': 'physics',
-          'SUBJECT_CHINESE': 'chinese',
-          'SUBJECT_ENGLISH': 'english'
+          SUBJECT_MATH: 'math',
+          SUBJECT_BIOLOGY: 'biology',
+          SUBJECT_CHEMISTRY: 'chemistry',
+          SUBJECT_PHYSICS: 'physics',
+          SUBJECT_CHINESE: 'chinese',
+          SUBJECT_ENGLISH: 'english',
         }
         const filterValue = String(selectedSubjectFilter.value).toUpperCase()
         subjectToLoad = subjectMap[filterValue] || filterValue.toLowerCase() || 'math'
         // 更新 selectedSubject 以便后续使用
         selectedSubject.value = subjectToLoad
-        
+
         // 使用 store 的 fetchQuestions 方法，它会优先从本地存储加载
         // fetchQuestions 方法会先尝试从本地存储加载，如果没有数据再请求API
         await questionStore.fetchQuestions(subjectToLoad, true)
@@ -898,17 +819,23 @@ const loadQuestions = async () => {
     }
 
     if (questions.value.length > 0) {
+      // 重置显示数量为初始值
+      displayedCount.value = INITIAL_DISPLAY_COUNT
+
       // 等待 DOM 更新
       await nextTick()
 
-      // 确保前N个题目标记为已渲染（用于立即渲染）
-      const preRenderCount = Math.min(PRE_RENDER_COUNT, questions.value.length)
-      for (let i = 0; i < preRenderCount; i++) {
-        renderedIndexes.value.add(i)
-      }
+      // 开始批量渲染
+      renderingQuestions.value = true
+      console.log('renderingQuestions.value = true', renderingQuestions.value)
+      console.log('renderingQuestions444')
+      // 等待所有题目渲染完成
+      await checkBatchRenderComplete()
     }
   } catch (error) {
     showMessage('加载题目失败: ' + ((error as Error)?.message || '未知错误'), 'error')
+    renderingQuestions.value = false
+    console.log('renderingQuestions.value = false', renderingQuestions.value)
   } finally {
     loading.value = false
     await nextTick()
@@ -937,7 +864,7 @@ const selectQuestion = async (question: ExerciseItem, index: number) => {
 
     const questionStore = useQuestionStore()
     const storeIndex = questionStore.questions.findIndex((q: ExerciseItem) => q.id === question.id)
-    
+
     if (storeIndex >= 0) {
       // 使用store中的索引来选择题目
       await questionStore.selectQuestion(storeIndex)
@@ -1002,7 +929,9 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
     const questionStore = useQuestionStore()
     // 关键修复：根据题目ID在store的questions数组中查找索引，而不是使用筛选后的索引
     const targetQuestion = list[targetIndex]
-    const storeIndex = questionStore.questions.findIndex((q: ExerciseItem) => q.id === targetQuestion.id)
+    const storeIndex = questionStore.questions.findIndex(
+      (q: ExerciseItem) => q.id === targetQuestion.id,
+    )
     if (storeIndex >= 0) {
       await questionStore.selectQuestion(storeIndex)
     }
@@ -1031,8 +960,6 @@ const deleteQuestion = async (questionId: string) => {
         showMessage('题目删除成功', 'positive')
         // 重新加载题目列表（会自动重置渲染状态）
         await loadQuestions()
-        // 重新映射索引高度
-        remapIndexHeights()
       } else {
         showMessage('题目删除失败', 'error')
       }
@@ -1067,9 +994,6 @@ const moveQuestionToTop = async (questionId: string) => {
     // 同步到store
     const questionStore = useQuestionStore()
     await questionStore.setQuestions(questions.value, selectedSubject.value)
-
-    // 重新映射索引高度
-    remapIndexHeights()
 
     // 题目置顶后滚动到最顶部
     await nextTick()
@@ -1157,16 +1081,6 @@ const openMiniClass = async (question: ExerciseItem) => {
   }
 }
 
-// 重新映射索引高度（用于列表变化后）
-const remapIndexHeights = () => {
-  indexToHeight.value.clear()
-  displayList.value.forEach((question, index) => {
-    if (questionHeights.value.has(question.id)) {
-      indexToHeight.value.set(index, questionHeights.value.get(question.id)!)
-    }
-  })
-}
-
 // 清理题目高度缓存和观察器
 const cleanupQuestionHeight = (questionId: string) => {
   // 清理高度缓存
@@ -1190,25 +1104,30 @@ const cleanupQuestionHeight = (questionId: string) => {
   questionCardRefs.value.delete(questionId)
 }
 
+watch(renderingQuestions, (newVal) => { console.log('renderingQuestions', newVal) }, { deep: true, immediate: true })
+
 // 监听搜索变化，重置渲染状态
 watch(
   searchQuery,
-  () => {
+  async () => {
     // 搜索时重置所有渲染状态
-    renderedIndexes.value.clear()
-    placeholderHeights.value.clear()
+    renderedQuestionIds.value.clear()
+    renderedQuestions.clear()
+    renderingQuestions.value = false
+    console.log('renderingQuestions.value = false', renderingQuestions.value)
+    // 重置显示数量
+    displayedCount.value = INITIAL_DISPLAY_COUNT
 
-    // 保留ID映射，清空索引映射（因为列表顺序可能变化）
-    indexToHeight.value.clear()
+    // 等待DOM更新
+    await nextTick()
 
-    // 清理所有占位符观察器
-    placeholderObservers.forEach((observer) => {
-      observer.disconnect()
-    })
-    placeholderObservers.clear()
-
-    // 重新映射索引高度
-    remapIndexHeights()
+    // 开始批量渲染
+    if (displayedQuestions.value.length > 0) {
+      renderingQuestions.value = true
+      console.log('renderingQuestions.value = true', renderingQuestions.value)
+      console.log('renderingQuestions555')
+      await checkBatchRenderComplete()
+    }
   },
   { immediate: false },
 )
@@ -1218,23 +1137,15 @@ watch(
   selectedSubjectFilter,
   async (newFilter) => {
     // 学科过滤时重置所有渲染状态
-    renderedIndexes.value.clear()
-    placeholderHeights.value.clear()
+    renderedQuestionIds.value.clear()
+    renderedQuestions.clear()
+    renderingQuestions.value = false
+    console.log('renderingQuestions.value = false', renderingQuestions.value)
+    // 重置显示数量
+    displayedCount.value = INITIAL_DISPLAY_COUNT
 
-    // 保留ID映射，清空索引映射（因为列表顺序可能变化）
-    indexToHeight.value.clear()
-
-    // 清理所有占位符观察器
-    placeholderObservers.forEach((observer) => {
-      observer.disconnect()
-    })
-    placeholderObservers.clear()
-
-    // 重新映射索引高度
-    remapIndexHeights()
-    
     const questionStore = useQuestionStore()
-    
+
     if (newFilter === null) {
       // 全部学科：加载所有学科的题目
       await questionStore.fetchAllSubjectsQuestions(true)
@@ -1243,26 +1154,29 @@ watch(
       // 具体学科：加载指定学科的题目
       // 将 Subject 枚举值转换为科目名称
       const subjectMap: Record<string, string> = {
-        'SUBJECT_MATH': 'math',
-        'SUBJECT_BIOLOGY': 'biology',
-        'SUBJECT_CHEMISTRY': 'chemistry',
-        'SUBJECT_PHYSICS': 'physics',
-        'SUBJECT_CHINESE': 'chinese',
-        'SUBJECT_ENGLISH': 'english'
+        SUBJECT_MATH: 'math',
+        SUBJECT_BIOLOGY: 'biology',
+        SUBJECT_CHEMISTRY: 'chemistry',
+        SUBJECT_PHYSICS: 'physics',
+        SUBJECT_CHINESE: 'chinese',
+        SUBJECT_ENGLISH: 'english',
       }
       const filterValue = String(newFilter).toUpperCase()
       const targetSubject = subjectMap[filterValue] || filterValue.toLowerCase() || 'math'
-      
+
       // 检查当前 store 中的题目是否属于目标科目
       const currentQuestions = questionStore.questions
-      const hasTargetSubjectQuestions = currentQuestions.length > 0 && 
-        currentQuestions.some(q => {
+      const hasTargetSubjectQuestions =
+        currentQuestions.length > 0 &&
+        currentQuestions.some((q) => {
           const qSubject = (q.subject || '').toLowerCase()
-          return qSubject === targetSubject || 
-                 qSubject.includes(targetSubject) || 
-                 targetSubject.includes(qSubject)
+          return (
+            qSubject === targetSubject ||
+            qSubject.includes(targetSubject) ||
+            targetSubject.includes(qSubject)
+          )
         })
-      
+
       // 如果当前没有目标科目的题目，需要重新加载
       if (!hasTargetSubjectQuestions) {
         selectedSubject.value = targetSubject
@@ -1270,37 +1184,19 @@ watch(
         questions.value = [...questionStore.questions]
       }
     }
-  },
-  { immediate: false },
-)
 
-// 监听列表变化，更新渲染状态
-watch(
-  () => displayList.value.length,
-  (newLength, oldLength) => {
-    // 如果列表长度减少，清理不再存在的索引
-    if (newLength < oldLength) {
-      const currentIndexes = new Set(Array.from({ length: newLength }, (_, i) => i))
-      const indexesToRemove: number[] = []
+    // 等待DOM更新
+    await nextTick()
 
-      renderedIndexes.value.forEach((index) => {
-        if (!currentIndexes.has(index)) {
-          indexesToRemove.push(index)
-        }
-      })
-
-      indexesToRemove.forEach((index) => {
-        renderedIndexes.value.delete(index)
-        placeholderHeights.value.delete(index)
-
-        const observer = placeholderObservers.get(index)
-        if (observer) {
-          observer.disconnect()
-          placeholderObservers.delete(index)
-        }
-      })
+    // 开始批量渲染
+    if (displayedQuestions.value.length > 0) {
+      renderingQuestions.value = true
+      console.log('renderingQuestions.value = true', renderingQuestions.value)
+      console.log('renderingQuestions111')
+      await checkBatchRenderComplete()
     }
   },
+  { immediate: false },
 )
 
 // 组件卸载时清理资源
@@ -1310,12 +1206,6 @@ onUnmounted(() => {
     observer.disconnect()
   })
   intersectionObservers.clear()
-
-  // 清理所有占位符观察器
-  placeholderObservers.forEach((observer) => {
-    observer.disconnect()
-  })
-  placeholderObservers.clear()
 
   // 清理所有 ResizeObserver
   resizeObservers.forEach((observer) => {
@@ -1357,7 +1247,7 @@ onMounted(() => {
   initFavoriteStatus()
 
   // 设置窗口大小变化监听
-  let resizeTimeout: NodeJS.Timeout
+  let resizeTimeout: ReturnType<typeof setTimeout>
   const handleResize = () => {
     clearTimeout(resizeTimeout)
     resizeTimeout = setTimeout(() => {
@@ -1387,7 +1277,6 @@ defineExpose({
   scrollToCurrentQuestion,
   scrollToQuestionAndSelect,
 })
-
 </script>
 
 <style lang="scss" scoped>
@@ -1481,127 +1370,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     box-sizing: border-box;
     width: 100%;
     overflow: visible;
-  }
-
-  // 占位符卡片样式
-  .question-card-placeholder {
-    cursor: default;
-    overflow: visible;
-    transform: translateZ(0);
-    backface-visibility: hidden;
-    border: none;
-    border-radius: 16px;
-    background-color: transparent;
-    padding: 4px;
-    min-width: 0;
-    pointer-events: none; // 禁用交互
-
-    .question-block {
-      background-color: transparent;
-      border-radius: 12px;
-      overflow: visible;
-      border: none;
-      box-shadow: none;
-      min-width: 0;
-    }
-
-    .question-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background-color: transparent;
-      border-bottom: none;
-      padding: 8px 20px 0 20px;
-
-      .question-number-placeholder {
-        width: 28px;
-        height: 28px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-        background-size: 200px 100%;
-        border-radius: 14px;
-        animation: placeholder-shimmer 1.5s infinite;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: transparent; // 隐藏数字
-        font-size: 0; // 隐藏数字
-      }
-
-      .question-actions-placeholder {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        flex-shrink: 0;
-        height: 32px;
-
-        .placeholder-btn {
-          width: 24px;
-          height: 24px;
-          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-          background-size: 200px 100%;
-          border-radius: 12px;
-          animation: placeholder-shimmer 1.5s infinite;
-
-          &:nth-child(1) {
-            animation-delay: 0s;
-          }
-          &:nth-child(2) {
-            animation-delay: 0.2s;
-          }
-          &:nth-child(3) {
-            animation-delay: 0.4s;
-          }
-        }
-      }
-    }
-
-    .question-content-area {
-      background-color: transparent;
-      padding: 16px 20px 20px 20px;
-      overflow-x: auto;
-      overflow-y: hidden;
-      min-width: 0;
-
-      .question-content-placeholder {
-        min-width: 0;
-
-        .placeholder-line {
-          height: 16px;
-          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-          background-size: 200px 100%;
-          border-radius: 8px;
-          animation: placeholder-shimmer 1.5s infinite;
-          margin-bottom: 12px;
-
-          &.placeholder-line-long {
-            width: 85%;
-          }
-
-          &.placeholder-line-medium {
-            width: 65%;
-          }
-
-          &.placeholder-line-short {
-            width: 45%;
-          }
-
-          &:last-child {
-            margin-bottom: 0;
-          }
-        }
-      }
-    }
-  }
-
-  // 占位符动画
-  @keyframes placeholder-shimmer {
-    0% {
-      background-position: -200px 0;
-    }
-    100% {
-      background-position: calc(200px + 100%) 0;
-    }
   }
 
   // 题目卡片
@@ -2054,6 +1822,36 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     &:hover {
       @include card-shadow(hover);
     }
+  }
+}
+
+// ===== 加载更多提示样式 =====
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  width: 100%;
+}
+
+.load-more-text {
+  text-align: center;
+  color: $text-secondary;
+  font-size: 14px;
+}
+
+// ===== 渲染中状态样式 =====
+.rendering-container {
+  @include flex-center;
+  flex-direction: column;
+  min-height: 300px;
+  padding: 40px 20px;
+  width: 100%;
+
+  .rendering-text {
+    margin-top: 16px;
+    color: $text-secondary;
+    font-size: 14px;
   }
 }
 

@@ -12,9 +12,6 @@ import android.os.Environment;
 import android.util.Log;
 import android.Manifest;
 import android.content.pm.PackageManager;
-import android.speech.RecognitionListener;
-import android.speech.RecognizerIntent;
-import android.speech.SpeechRecognizer;
 import android.os.Bundle;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -77,12 +74,6 @@ public class WebAppInterface {
     private boolean isPlaying = false;
     private long recordStartTime;
 
-    // 语音识别相关
-    private SpeechRecognizer speechRecognizer;
-    private boolean isRecognizing = false;
-    // 当调用 stopListening() 后，进入等待 onResults 的窗口期，避免被误取消
-    private boolean isStoppingAwaitingResults = false;
-    private boolean pendingSpeechRecognition = false;
 
     private static final String TAG = "WebAppInterface";
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
@@ -176,6 +167,7 @@ public class WebAppInterface {
     /**
      * 获取用户信息
      * 返回JSON格式的用户信息，包含userId、userName、nickName等字段
+     * 
      * @return 用户信息JSON字符串
      */
     @JavascriptInterface
@@ -183,13 +175,13 @@ public class WebAppInterface {
         try {
             String userId = AppUtils.getUserId();
             String nickName = AppUtils.getUserNickName();
-            
+
             // 获取UserInfoViewModel以获取更多用户信息
             UserInfoViewModel userInfoViewModel = new ViewModelProvider(
                     ApplicationModelShared.getInstance(),
-                    new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance())
-            ).get(UserInfoViewModel.class);
-            
+                    new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance()))
+                    .get(UserInfoViewModel.class);
+
             JSONObject userInfoJson = new JSONObject();
             if (userId != null && !userId.isEmpty()) {
                 userInfoJson.put("userId", userId);
@@ -199,7 +191,7 @@ public class WebAppInterface {
                 userInfoJson.put("nickName", nickName);
                 userInfoJson.put("userName", nickName); // 同时提供userName字段
             }
-            
+
             // 如果UserInfoViewModel中有用户信息，也添加到JSON中
             if (userInfoViewModel.userInfo.getValue() != null) {
                 com.cosinetech.imates.data.models.UserInfo userInfo = userInfoViewModel.userInfo.getValue();
@@ -210,7 +202,7 @@ public class WebAppInterface {
                     userInfoJson.put("avatar", userInfo.getAvatar());
                 }
             }
-            
+
             Log.d(TAG, "获取用户信息: " + userInfoJson.toString());
             return userInfoJson.toString();
         } catch (JSONException e) {
@@ -228,8 +220,8 @@ public class WebAppInterface {
      * 同步Web端用户信息到Android原生ViewModel
      * 用于Web登录后同步状态
      * 
-     * @param userId 用户ID
-     * @param token 用户Token
+     * @param userId   用户ID
+     * @param token    用户Token
      * @param password 用户密码（可选）
      * @return 同步结果
      */
@@ -239,27 +231,27 @@ public class WebAppInterface {
             if (userId == null || userId.isEmpty()) {
                 return createResponse(false, "用户ID不能为空", null);
             }
-            
+
             if (token == null || token.isEmpty()) {
                 return createResponse(false, "Token不能为空", null);
             }
-            
+
             // 第1步：获取UserInfoViewModel实例
             UserInfoViewModel userInfoViewModel = new ViewModelProvider(
                     ApplicationModelShared.getInstance(),
-                    new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance())
-            ).get(UserInfoViewModel.class);
-            
+                    new ViewModelProvider.AndroidViewModelFactory(ApplicationModelShared.getInstance()))
+                    .get(UserInfoViewModel.class);
+
             // 第2步：同步用户信息到ViewModel
             userInfoViewModel.userId.postValue(userId);
             userInfoViewModel.token.postValue(token);
             if (password != null && !password.isEmpty()) {
                 userInfoViewModel.password.postValue(password);
             }
-            
+
             Log.d(TAG, "用户信息同步成功: userId=" + userId);
             return createResponse(true, "用户信息同步成功", null);
-            
+
         } catch (Exception e) {
             Log.e(TAG, "同步用户信息失败", e);
             return createResponse(false, "同步用户信息失败: " + e.getMessage(), null);
@@ -281,10 +273,10 @@ public class WebAppInterface {
         String userId = null;
         String messageId = null;
         long timestamp = System.currentTimeMillis();
-        
+
         try {
             Log.d(TAG, "sendTextMessageToTeacher: 开始发送消息");
-            Log.d(TAG, "sendTextMessageToTeacher: content长度=" + (content != null ? content.length() : 0) + 
+            Log.d(TAG, "sendTextMessageToTeacher: content长度=" + (content != null ? content.length() : 0) +
                     ", sessionId=" + sessionId + ", subject=" + subject);
 
             // 第1步：验证用户登
@@ -297,15 +289,15 @@ public class WebAppInterface {
 
             // 第2步：检查RabbitMQ连接状态
             MessagingManager messagingManager = MessagingManager.getInstance();
-            
+
             // 详细检查初始化状态
             boolean initialized = messagingManager.isInitialized();
             Log.d(TAG, "sendTextMessageToTeacher: MessagingManager初始化状态检查");
             Log.d(TAG, "sendTextMessageToTeacher: isInitialized()=" + initialized);
-            
+
             if (!initialized) {
                 Log.w(TAG, "sendTextMessageToTeacher: MessagingManager未初始化，检查是否正在初始化中");
-                
+
                 // 检查是否正在初始化中
                 boolean connecting = messagingManager.isConnecting();
                 if (connecting) {
@@ -313,15 +305,17 @@ public class WebAppInterface {
                     // 如果正在初始化中，等待最多10秒
                     int waitCount = 0;
                     int maxWait = 100; // 100次 * 100ms = 10秒
-                    while ((messagingManager.isConnecting() || !messagingManager.isInitialized()) && waitCount < maxWait) {
+                    while ((messagingManager.isConnecting() || !messagingManager.isInitialized())
+                            && waitCount < maxWait) {
                         Thread.sleep(100);
                         waitCount++;
                         // 每2秒输出一次进度日志
                         if (waitCount % 20 == 0) {
-                            Log.d(TAG, "sendTextMessageToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100) + "ms)");
+                            Log.d(TAG, "sendTextMessageToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/"
+                                    + (maxWait * 100) + "ms)");
                         }
                     }
-                    
+
                     if (messagingManager.isInitialized()) {
                         Log.d(TAG, "sendTextMessageToTeacher: 等待初始化成功，等待耗时=" + (waitCount * 100) + "ms");
                     } else {
@@ -334,7 +328,7 @@ public class WebAppInterface {
                         try {
                             Log.d(TAG, "sendTextMessageToTeacher: 开始自动初始化MessagingManager, userId=" + userId);
                             messagingManager.initialize(mContext, userId);
-                            
+
                             // 等待初始化完成，最多等待10秒（RabbitMQ连接可能需要更长时间）
                             int waitCount = 0;
                             int maxWait = 100; // 100次 * 100ms = 10秒
@@ -343,10 +337,11 @@ public class WebAppInterface {
                                 waitCount++;
                                 // 每2秒输出一次进度日志
                                 if (waitCount % 20 == 0) {
-                                    Log.d(TAG, "sendTextMessageToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100) + "ms)");
+                                    Log.d(TAG, "sendTextMessageToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/"
+                                            + (maxWait * 100) + "ms)");
                                 }
                             }
-                            
+
                             if (messagingManager.isInitialized()) {
                                 Log.d(TAG, "sendTextMessageToTeacher: 自动初始化成功，等待耗时=" + (waitCount * 100) + "ms");
                             } else {
@@ -358,13 +353,14 @@ public class WebAppInterface {
                             return createResponse(false, "RabbitMQ连接初始化失败: " + e.getMessage(), null);
                         }
                     } else {
-                        Log.e(TAG, "sendTextMessageToTeacher: 无法自动初始化 - mContext=" + (mContext != null ? "可用" : "null") + 
-                                ", userId=" + (userId != null ? userId : "null"));
+                        Log.e(TAG,
+                                "sendTextMessageToTeacher: 无法自动初始化 - mContext=" + (mContext != null ? "可用" : "null") +
+                                        ", userId=" + (userId != null ? userId : "null"));
                         return createResponse(false, "RabbitMQ连接未初始化，请稍后重试", null);
                     }
                 }
             }
-            
+
             Log.d(TAG, "sendTextMessageToTeacher: MessagingManager已初始化，可以发送消息");
 
             // 第3步：确定学科类型
@@ -381,7 +377,7 @@ public class WebAppInterface {
 
             // 第4步：创建StudentMessage
             messageId = UUID.randomUUID().toString();
-            
+
             // 诊断：检查发送消息的userId是否与初始化时的userId一致
             String initializedUserId = messagingManager.getUserId();
             if (initializedUserId != null && !initializedUserId.equals(userId)) {
@@ -397,9 +393,10 @@ public class WebAppInterface {
             } else if (initializedUserId == null) {
                 Log.w(TAG, "sendTextMessageToTeacher: MessagingManager已初始化但userId为null，可能初始化时传入了null");
             } else {
-                Log.d(TAG, "sendTextMessageToTeacher: userId检查通过，发送消息的userId=" + userId + " 与初始化userId=" + initializedUserId + " 一致");
+                Log.d(TAG, "sendTextMessageToTeacher: userId检查通过，发送消息的userId=" + userId + " 与初始化userId="
+                        + initializedUserId + " 一致");
             }
-            
+
             StudentMessage studentMsg = new StudentMessage(
                     userId, sessionId, teacherSubject, 0, content); // 0 = QA_MSG_TYPE_TEXT
             studentMsg.setMessageId(messageId);
@@ -407,9 +404,9 @@ public class WebAppInterface {
 
             // 第5步：通过RabbitMQ发送（带回调，使用CountDownLatch等待异步结果）
             final CountDownLatch latch = new CountDownLatch(1);
-            final boolean[] sendSuccess = {false};
-            final String[] actualMessageId = {null};
-            final String[] errorMessage = {null};
+            final boolean[] sendSuccess = { false };
+            final String[] actualMessageId = { null };
+            final String[] errorMessage = { null };
 
             MessagingManager.SendCallback callback = new MessagingManager.SendCallback() {
                 @Override
@@ -417,7 +414,7 @@ public class WebAppInterface {
                     sendSuccess[0] = success;
                     actualMessageId[0] = msgId;
                     errorMessage[0] = error;
-                    Log.d(TAG, "sendTextMessageToTeacher: 回调结果 - success=" + success + 
+                    Log.d(TAG, "sendTextMessageToTeacher: 回调结果 - success=" + success +
                             ", messageId=" + msgId + ", error=" + error);
                     latch.countDown();
                 }
@@ -481,10 +478,10 @@ public class WebAppInterface {
         String userId = null;
         String messageId = null;
         long timestamp = System.currentTimeMillis();
-        
+
         try {
             Log.d(TAG, "sendVoiceMessageToTeacher: 开始发送语音消息");
-            Log.d(TAG, "sendVoiceMessageToTeacher: voicePath=" + voicePath + 
+            Log.d(TAG, "sendVoiceMessageToTeacher: voicePath=" + voicePath +
                     ", duration=" + duration + ", sessionId=" + sessionId + ", subject=" + subject);
 
             // 第1步：验证用户登录
@@ -497,15 +494,15 @@ public class WebAppInterface {
 
             // 第2步：检查RabbitMQ连接状态
             MessagingManager messagingManager = MessagingManager.getInstance();
-            
+
             // 详细检查初始化状态
             boolean initialized = messagingManager.isInitialized();
             Log.d(TAG, "sendVoiceMessageToTeacher: MessagingManager初始化状态检查");
             Log.d(TAG, "sendVoiceMessageToTeacher: isInitialized()=" + initialized);
-            
+
             if (!initialized) {
                 Log.w(TAG, "sendVoiceMessageToTeacher: MessagingManager未初始化，检查是否正在初始化中");
-                
+
                 // 检查是否正在初始化中
                 boolean connecting = messagingManager.isConnecting();
                 if (connecting) {
@@ -513,15 +510,17 @@ public class WebAppInterface {
                     // 如果正在初始化中，等待最多10秒
                     int waitCount = 0;
                     int maxWait = 100; // 100次 * 100ms = 10秒
-                    while ((messagingManager.isConnecting() || !messagingManager.isInitialized()) && waitCount < maxWait) {
+                    while ((messagingManager.isConnecting() || !messagingManager.isInitialized())
+                            && waitCount < maxWait) {
                         Thread.sleep(100);
                         waitCount++;
                         // 每2秒输出一次进度日志
                         if (waitCount % 20 == 0) {
-                            Log.d(TAG, "sendVoiceMessageToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100) + "ms)");
+                            Log.d(TAG, "sendVoiceMessageToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/"
+                                    + (maxWait * 100) + "ms)");
                         }
                     }
-                    
+
                     if (messagingManager.isInitialized()) {
                         Log.d(TAG, "sendVoiceMessageToTeacher: 等待初始化成功，等待耗时=" + (waitCount * 100) + "ms");
                     } else {
@@ -534,7 +533,7 @@ public class WebAppInterface {
                         try {
                             Log.d(TAG, "sendVoiceMessageToTeacher: 开始自动初始化MessagingManager, userId=" + userId);
                             messagingManager.initialize(mContext, userId);
-                            
+
                             // 等待初始化完成，最多等待10秒（RabbitMQ连接可能需要更长时间）
                             int waitCount = 0;
                             int maxWait = 100; // 100次 * 100ms = 10秒
@@ -543,10 +542,11 @@ public class WebAppInterface {
                                 waitCount++;
                                 // 每2秒输出一次进度日志
                                 if (waitCount % 20 == 0) {
-                                    Log.d(TAG, "sendVoiceMessageToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100) + "ms)");
+                                    Log.d(TAG, "sendVoiceMessageToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/"
+                                            + (maxWait * 100) + "ms)");
                                 }
                             }
-                            
+
                             if (messagingManager.isInitialized()) {
                                 Log.d(TAG, "sendVoiceMessageToTeacher: 自动初始化成功，等待耗时=" + (waitCount * 100) + "ms");
                             } else {
@@ -558,13 +558,14 @@ public class WebAppInterface {
                             return createResponse(false, "RabbitMQ连接初始化失败: " + e.getMessage(), null);
                         }
                     } else {
-                        Log.e(TAG, "sendVoiceMessageToTeacher: 无法自动初始化 - mContext=" + (mContext != null ? "可用" : "null") + 
-                                ", userId=" + (userId != null ? userId : "null"));
+                        Log.e(TAG,
+                                "sendVoiceMessageToTeacher: 无法自动初始化 - mContext=" + (mContext != null ? "可用" : "null") +
+                                        ", userId=" + (userId != null ? userId : "null"));
                         return createResponse(false, "RabbitMQ连接未初始化，请稍后重试", null);
                     }
                 }
             }
-            
+
             Log.d(TAG, "sendVoiceMessageToTeacher: MessagingManager已初始化，可以发送消息");
 
             // 第3步：检查语音文件是否存在
@@ -597,7 +598,7 @@ public class WebAppInterface {
                 Log.e(TAG, "sendVoiceMessageToTeacher: 语音文件读取失败");
                 return createResponse(false, "语音文件读取失败", null);
             }
-            Log.d(TAG, "sendVoiceMessageToTeacher: Base64编码完成, 长度=" + 
+            Log.d(TAG, "sendVoiceMessageToTeacher: Base64编码完成, 长度=" +
                     (voiceBase64Content != null ? voiceBase64Content.length() : 0));
 
             StudentMessage studentMsg = new StudentMessage(
@@ -607,9 +608,9 @@ public class WebAppInterface {
 
             // 第7步：通过RabbitMQ发送（带回调，使用CountDownLatch等待异步结果）
             final CountDownLatch latch = new CountDownLatch(1);
-            final boolean[] sendSuccess = {false};
-            final String[] actualMessageId = {null};
-            final String[] errorMessage = {null};
+            final boolean[] sendSuccess = { false };
+            final String[] actualMessageId = { null };
+            final String[] errorMessage = { null };
 
             MessagingManager.SendCallback callback = new MessagingManager.SendCallback() {
                 @Override
@@ -617,7 +618,7 @@ public class WebAppInterface {
                     sendSuccess[0] = success;
                     actualMessageId[0] = msgId;
                     errorMessage[0] = error;
-                    Log.d(TAG, "sendVoiceMessageToTeacher: 回调结果 - success=" + success + 
+                    Log.d(TAG, "sendVoiceMessageToTeacher: 回调结果 - success=" + success +
                             ", messageId=" + msgId + ", error=" + error);
                     latch.countDown();
                 }
@@ -679,7 +680,7 @@ public class WebAppInterface {
     @JavascriptInterface
     public String sendPictureToTeacher(String imagePath, String sessionId, String subject) {
         String userId = null;
-        
+
         try {
             // 第1步：验证用户登录
             userId = AppUtils.getUserId();
@@ -689,15 +690,15 @@ public class WebAppInterface {
 
             // 第2步：检查RabbitMQ连接状态
             MessagingManager messagingManager = MessagingManager.getInstance();
-            
+
             // 详细检查初始化状态
             boolean initialized = messagingManager.isInitialized();
             Log.d(TAG, "sendPictureToTeacher: MessagingManager初始化状态检查");
             Log.d(TAG, "sendPictureToTeacher: isInitialized()=" + initialized);
-            
+
             if (!initialized) {
                 Log.w(TAG, "sendPictureToTeacher: MessagingManager未初始化，检查是否正在初始化中");
-                
+
                 // 检查是否正在初始化中
                 boolean connecting = messagingManager.isConnecting();
                 if (connecting) {
@@ -705,15 +706,17 @@ public class WebAppInterface {
                     // 如果正在初始化中，等待最多10秒
                     int waitCount = 0;
                     int maxWait = 100; // 100次 * 100ms = 10秒
-                    while ((messagingManager.isConnecting() || !messagingManager.isInitialized()) && waitCount < maxWait) {
+                    while ((messagingManager.isConnecting() || !messagingManager.isInitialized())
+                            && waitCount < maxWait) {
                         Thread.sleep(100);
                         waitCount++;
                         // 每2秒输出一次进度日志
                         if (waitCount % 20 == 0) {
-                            Log.d(TAG, "sendPictureToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100) + "ms)");
+                            Log.d(TAG, "sendPictureToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100)
+                                    + "ms)");
                         }
                     }
-                    
+
                     if (messagingManager.isInitialized()) {
                         Log.d(TAG, "sendPictureToTeacher: 等待初始化成功，等待耗时=" + (waitCount * 100) + "ms");
                     } else {
@@ -726,7 +729,7 @@ public class WebAppInterface {
                         try {
                             Log.d(TAG, "sendPictureToTeacher: 开始自动初始化MessagingManager, userId=" + userId);
                             messagingManager.initialize(mContext, userId);
-                            
+
                             // 等待初始化完成，最多等待10秒（RabbitMQ连接可能需要更长时间）
                             int waitCount = 0;
                             int maxWait = 100; // 100次 * 100ms = 10秒
@@ -735,10 +738,11 @@ public class WebAppInterface {
                                 waitCount++;
                                 // 每2秒输出一次进度日志
                                 if (waitCount % 20 == 0) {
-                                    Log.d(TAG, "sendPictureToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100) + "ms)");
+                                    Log.d(TAG, "sendPictureToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/"
+                                            + (maxWait * 100) + "ms)");
                                 }
                             }
-                            
+
                             if (messagingManager.isInitialized()) {
                                 Log.d(TAG, "sendPictureToTeacher: 自动初始化成功，等待耗时=" + (waitCount * 100) + "ms");
                             } else {
@@ -750,13 +754,13 @@ public class WebAppInterface {
                             return createResponse(false, "RabbitMQ连接初始化失败: " + e.getMessage(), null);
                         }
                     } else {
-                        Log.e(TAG, "sendPictureToTeacher: 无法自动初始化 - mContext=" + (mContext != null ? "可用" : "null") + 
+                        Log.e(TAG, "sendPictureToTeacher: 无法自动初始化 - mContext=" + (mContext != null ? "可用" : "null") +
                                 ", userId=" + (userId != null ? userId : "null"));
                         return createResponse(false, "RabbitMQ连接未初始化，请稍后重试", null);
                     }
                 }
             }
-            
+
             Log.d(TAG, "sendPictureToTeacher: MessagingManager已初始化，可以发送消息");
 
             // 第3步：确定学科类型
@@ -795,7 +799,7 @@ public class WebAppInterface {
             StudentMessage studentMsg = new StudentMessage(
                     userId, sessionId, teacherSubject, 1, imageBase64Content); // 1 = QA_MSG_TYPE_PICTURE
             studentMsg.setMessageId(messageId);
-            
+
             // 诊断：检查发送消息的userId是否与初始化时的userId一致
             String initializedUserId = messagingManager.getUserId();
             if (initializedUserId != null && !initializedUserId.equals(userId)) {
@@ -811,14 +815,15 @@ public class WebAppInterface {
             } else if (initializedUserId == null) {
                 Log.w(TAG, "sendPictureToTeacher: MessagingManager已初始化但userId为null，可能初始化时传入了null");
             } else {
-                Log.d(TAG, "sendPictureToTeacher: userId检查通过，发送消息的userId=" + userId + " 与初始化userId=" + initializedUserId + " 一致");
+                Log.d(TAG, "sendPictureToTeacher: userId检查通过，发送消息的userId=" + userId + " 与初始化userId=" + initializedUserId
+                        + " 一致");
             }
 
             // 第6步：通过RabbitMQ发送（带回调，使用CountDownLatch等待异步结果）
             final CountDownLatch latch = new CountDownLatch(1);
-            final boolean[] sendSuccess = {false};
-            final String[] actualMessageId = {null};
-            final String[] errorMessage = {null};
+            final boolean[] sendSuccess = { false };
+            final String[] actualMessageId = { null };
+            final String[] errorMessage = { null };
 
             MessagingManager.SendCallback callback = new MessagingManager.SendCallback() {
                 @Override
@@ -826,7 +831,7 @@ public class WebAppInterface {
                     sendSuccess[0] = success;
                     actualMessageId[0] = msgId;
                     errorMessage[0] = error;
-                    Log.d(TAG, "sendPictureToTeacher: 回调结果 - success=" + success + 
+                    Log.d(TAG, "sendPictureToTeacher: 回调结果 - success=" + success +
                             ", messageId=" + msgId + ", error=" + error);
                     latch.countDown();
                 }
@@ -887,11 +892,11 @@ public class WebAppInterface {
     @JavascriptInterface
     public String forwardAiChatToTeacher(String selectedMessagesData, String teacherSessionId) {
         String userId = null;
-        
+
         try {
             Log.d(TAG, "forwardAiChatToTeacher: 开始转发AI对话记录");
-            Log.d(TAG, "forwardAiChatToTeacher: selectedMessagesData长度=" + 
-                    (selectedMessagesData != null ? selectedMessagesData.length() : 0) + 
+            Log.d(TAG, "forwardAiChatToTeacher: selectedMessagesData长度=" +
+                    (selectedMessagesData != null ? selectedMessagesData.length() : 0) +
                     ", teacherSessionId=" + teacherSessionId);
 
             // 第1步：验证用户登录
@@ -904,27 +909,29 @@ public class WebAppInterface {
 
             // 第2步：检查RabbitMQ连接状态
             MessagingManager messagingManager = MessagingManager.getInstance();
-            
+
             boolean initialized = messagingManager.isInitialized();
             Log.d(TAG, "forwardAiChatToTeacher: MessagingManager初始化状态检查");
             Log.d(TAG, "forwardAiChatToTeacher: isInitialized()=" + initialized);
-            
+
             if (!initialized) {
                 Log.w(TAG, "forwardAiChatToTeacher: MessagingManager未初始化，检查是否正在初始化中");
-                
+
                 boolean connecting = messagingManager.isConnecting();
                 if (connecting) {
                     Log.d(TAG, "forwardAiChatToTeacher: MessagingManager正在初始化中，等待完成");
                     int waitCount = 0;
                     int maxWait = 100; // 100次 * 100ms = 10秒
-                    while ((messagingManager.isConnecting() || !messagingManager.isInitialized()) && waitCount < maxWait) {
+                    while ((messagingManager.isConnecting() || !messagingManager.isInitialized())
+                            && waitCount < maxWait) {
                         Thread.sleep(100);
                         waitCount++;
                         if (waitCount % 20 == 0) {
-                            Log.d(TAG, "forwardAiChatToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100) + "ms)");
+                            Log.d(TAG, "forwardAiChatToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/"
+                                    + (maxWait * 100) + "ms)");
                         }
                     }
-                    
+
                     if (messagingManager.isInitialized()) {
                         Log.d(TAG, "forwardAiChatToTeacher: 等待初始化成功，等待耗时=" + (waitCount * 100) + "ms");
                     } else {
@@ -936,17 +943,18 @@ public class WebAppInterface {
                         try {
                             Log.d(TAG, "forwardAiChatToTeacher: 开始自动初始化MessagingManager, userId=" + userId);
                             messagingManager.initialize(mContext, userId);
-                            
+
                             int waitCount = 0;
                             int maxWait = 100;
                             while (!messagingManager.isInitialized() && waitCount < maxWait) {
                                 Thread.sleep(100);
                                 waitCount++;
                                 if (waitCount % 20 == 0) {
-                                    Log.d(TAG, "forwardAiChatToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/" + (maxWait * 100) + "ms)");
+                                    Log.d(TAG, "forwardAiChatToTeacher: 等待初始化中... (" + (waitCount * 100) + "ms/"
+                                            + (maxWait * 100) + "ms)");
                                 }
                             }
-                            
+
                             if (messagingManager.isInitialized()) {
                                 Log.d(TAG, "forwardAiChatToTeacher: 自动初始化成功，等待耗时=" + (waitCount * 100) + "ms");
                             } else {
@@ -963,7 +971,7 @@ public class WebAppInterface {
                     }
                 }
             }
-            
+
             Log.d(TAG, "forwardAiChatToTeacher: MessagingManager已初始化，可以发送消息");
 
             // 第3步：解析消息列表JSON
@@ -985,10 +993,11 @@ public class WebAppInterface {
             // 注意：如果需要从会话中获取subject，需要访问会话存储
             // 这里先使用默认值，后续可以优化
             String subject = "math"; // 默认数学
-            
+
             // 尝试从Android的SharedPreferences获取当前教师科目
             try {
-                android.content.SharedPreferences prefs = mContext.getSharedPreferences("imates_prefs", android.content.Context.MODE_PRIVATE);
+                android.content.SharedPreferences prefs = mContext.getSharedPreferences("imates_prefs",
+                        android.content.Context.MODE_PRIVATE);
                 String teacherSubjectPref = prefs.getString(userId + "_currentTeacherSubject", "MATH");
                 if ("BIOLOGY".equals(teacherSubjectPref)) {
                     subject = "biology";
@@ -1010,12 +1019,12 @@ public class WebAppInterface {
                     JSONObject message = messagesArray.getJSONObject(i);
                     String messageType = message.optString("type", "TEXT");
                     String content = message.optString("content", "");
-                    
-                    Log.d(TAG, "forwardAiChatToTeacher: 处理消息 " + (i + 1) + "/" + messagesArray.length() + 
+
+                    Log.d(TAG, "forwardAiChatToTeacher: 处理消息 " + (i + 1) + "/" + messagesArray.length() +
                             ", type=" + messageType + ", contentLength=" + content.length());
 
                     String result;
-                    
+
                     if ("TEXT".equals(messageType)) {
                         // 文本消息
                         result = sendTextMessageToTeacher(content, teacherSessionId, subject);
@@ -1067,12 +1076,12 @@ public class WebAppInterface {
                         errorMessages.append("消息").append(i + 1).append(": ").append(error).append("; ");
                         Log.e(TAG, "forwardAiChatToTeacher: " + error);
                     }
-                    
+
                     // 每条消息之间稍作延迟，避免发送过快
                     if (i < messagesArray.length() - 1) {
                         Thread.sleep(50);
                     }
-                    
+
                 } catch (JSONException e) {
                     failCount++;
                     String error = "解析消息失败: " + e.getMessage();
@@ -1097,7 +1106,7 @@ public class WebAppInterface {
                 return createResponse(true, "所有消息转发成功，共" + successCount + "条", null);
             } else if (successCount > 0) {
                 Log.w(TAG, "forwardAiChatToTeacher: 部分消息转发成功，成功" + successCount + "条，失败" + failCount + "条");
-                return createResponse(false, "部分消息转发失败（成功" + successCount + "条，失败" + failCount + "条）: " + 
+                return createResponse(false, "部分消息转发失败（成功" + successCount + "条，失败" + failCount + "条）: " +
                         errorMessages.toString(), null);
             } else {
                 Log.e(TAG, "forwardAiChatToTeacher: 所有消息转发失败");
@@ -1144,7 +1153,7 @@ public class WebAppInterface {
                     messageJson.put("isSelf", teacherMessage.isSelf);
                     messageJson.put("timestamp", teacherMessage.timestamp);
                     messageJson.put("chatRole", "TEACHER");
-                    
+
                     // 添加调试日志（如果有）
                     if (teacherMessage.debugLogs != null && !teacherMessage.debugLogs.isEmpty()) {
                         org.json.JSONArray logsArray = new org.json.JSONArray();
@@ -1161,40 +1170,40 @@ public class WebAppInterface {
                     webView.evaluateJavascript(checkScript, (result) -> {
                         Log.d(TAG, "检查回调函数类型: " + result);
                     });
-                    
+
                     // 构建调用脚本，包含详细的错误处理和调试信息
                     String messageId = messageJson.optString("messageId", "unknown");
                     String script = String.format(Locale.getDefault(),
                             "(function() { " +
-                            "  try { " +
-                            "    const callback = window.onTeacherMessageReceived; " +
-                            "    const callbackType = typeof callback; " +
-                            "    console.log('[Android] 🔍 准备调用回调函数', { " +
-                            "      messageId: %s, " +
-                            "      callbackType: callbackType, " +
-                            "      isFunction: callbackType === 'function', " +
-                            "      isNull: callback === null, " +
-                            "      isUndefined: callback === undefined " +
-                            "    }); " +
-                            "    if (callbackType === 'function') { " +
-                            "      console.log('[Android] ✅ 调用回调函数，消息ID:', %s); " +
-                            "      callback(%s); " +
-                            "    } else { " +
-                            "      console.error('[Android] ❌ onTeacherMessageReceived 不是函数！', { " +
-                            "        type: callbackType, " +
-                            "        value: callback, " +
-                            "        isNull: callback === null, " +
-                            "        isUndefined: callback === undefined, " +
-                            "        messageId: %s " +
-                            "      }); " +
-                            "    } " +
-                            "  } catch (e) { " +
-                            "    console.error('[Android] ❌ 调用回调函数时出错:', e, { " +
-                            "      messageId: %s, " +
-                            "      stack: e.stack " +
-                            "    }); " +
-                            "  } " +
-                            "})();",
+                                    "  try { " +
+                                    "    const callback = window.onTeacherMessageReceived; " +
+                                    "    const callbackType = typeof callback; " +
+                                    "    console.log('[Android] 🔍 准备调用回调函数', { " +
+                                    "      messageId: %s, " +
+                                    "      callbackType: callbackType, " +
+                                    "      isFunction: callbackType === 'function', " +
+                                    "      isNull: callback === null, " +
+                                    "      isUndefined: callback === undefined " +
+                                    "    }); " +
+                                    "    if (callbackType === 'function') { " +
+                                    "      console.log('[Android] ✅ 调用回调函数，消息ID:', %s); " +
+                                    "      callback(%s); " +
+                                    "    } else { " +
+                                    "      console.error('[Android] ❌ onTeacherMessageReceived 不是函数！', { " +
+                                    "        type: callbackType, " +
+                                    "        value: callback, " +
+                                    "        isNull: callback === null, " +
+                                    "        isUndefined: callback === undefined, " +
+                                    "        messageId: %s " +
+                                    "      }); " +
+                                    "    } " +
+                                    "  } catch (e) { " +
+                                    "    console.error('[Android] ❌ 调用回调函数时出错:', e, { " +
+                                    "      messageId: %s, " +
+                                    "      stack: e.stack " +
+                                    "    }); " +
+                                    "  } " +
+                                    "})();",
                             "\"" + messageId + "\"",
                             "\"" + messageId + "\"",
                             messageJson.toString(),
@@ -1238,15 +1247,15 @@ public class WebAppInterface {
         try {
             Log.d(TAG, "========================================");
             Log.d(TAG, "initTeacherMessageListener: 开始初始化老师消息监听器");
-            
+
             String userId = AppUtils.getUserId();
             Log.d(TAG, "initTeacherMessageListener: AppUtils.getUserId()=" + userId);
-            
+
             // 如果userId为null或空，尝试从localStorage获取
             if (userId == null || userId.isEmpty()) {
                 Log.w(TAG, "initTeacherMessageListener: AppUtils.getUserId()返回null，尝试从localStorage获取userInfo");
                 userId = getUserIdFromLocalStorage();
-                
+
                 if (userId == null || userId.isEmpty()) {
                     Log.e(TAG, "========================================");
                     Log.e(TAG, "【严重警告】initTeacherMessageListener: 无法从localStorage获取userId，用户未登录");
@@ -1256,7 +1265,7 @@ public class WebAppInterface {
                     Log.e(TAG, "========================================");
                     return createResponse(false, "用户未登录，无法初始化消息监听器", null);
                 }
-                
+
                 Log.d(TAG, "initTeacherMessageListener: 从localStorage获取到userId=" + userId);
             }
 
@@ -1284,11 +1293,12 @@ public class WebAppInterface {
             return createResponse(false, "初始化老师消息监听器失败: " + e.getMessage(), null);
         }
     }
-    
+
     /**
      * 从localStorage获取userId
      * 只获取userInfo项，从中提取userId或id字段
      * 优先级：userInfo.userId > userInfo.id
+     * 
      * @return userId，如果获取失败则返回null
      */
     private String getUserIdFromLocalStorage() {
@@ -1296,24 +1306,24 @@ public class WebAppInterface {
             Log.e(TAG, "getUserIdFromLocalStorage: WebView为null，无法获取localStorage");
             return null;
         }
-        
+
         try {
             // 使用LocalStorageHelper只获取userInfo项
             LocalStorageHelper helper = new LocalStorageHelper(webView);
-            
+
             // 使用锁等待异步回调
-            final String[] result = {null};
+            final String[] result = { null };
             final Object lock = new Object();
-            final boolean[] completed = {false};
-            
+            final boolean[] completed = { false };
+
             // 只获取userInfo项
             helper.getItem("userInfo", new LocalStorageHelper.ItemCallback() {
                 @Override
                 public void onResult(String userInfoStr) {
                     synchronized (lock) {
                         try {
-                            if (userInfoStr != null && !userInfoStr.isEmpty() && 
-                                !userInfoStr.equals("null") && !userInfoStr.equals("undefined")) {
+                            if (userInfoStr != null && !userInfoStr.isEmpty() &&
+                                    !userInfoStr.equals("null") && !userInfoStr.equals("undefined")) {
                                 try {
                                     JSONObject userInfo = new JSONObject(userInfoStr);
                                     if (userInfo.has("userId")) {
@@ -1340,7 +1350,7 @@ public class WebAppInterface {
                     }
                 }
             });
-            
+
             // 等待回调完成（最多等待3秒）
             synchronized (lock) {
                 if (!completed[0]) {
@@ -1352,7 +1362,7 @@ public class WebAppInterface {
                     }
                 }
             }
-            
+
             if (result[0] != null && !result[0].isEmpty()) {
                 Log.d(TAG, "getUserIdFromLocalStorage: 成功获取到userId=" + result[0]);
                 return result[0];
@@ -1360,7 +1370,7 @@ public class WebAppInterface {
                 Log.w(TAG, "getUserIdFromLocalStorage: 未能从localStorage获取到userId");
                 return null;
             }
-            
+
         } catch (Exception e) {
             Log.e(TAG, "getUserIdFromLocalStorage: 获取localStorage失败", e);
             return null;
@@ -1686,528 +1696,6 @@ public class WebAppInterface {
         return createResponseWithJsonData(true, "获取状态成功", status);
     }
 
-    // ========== 语音识别相关接口 ==========
-
-    /**
-     * 开始语音识别（语音转文字）
-     */
-    @JavascriptInterface
-    public String startSpeech() {
-        Log.d(TAG, "[语音识别] startSpeech() 被调用");
-        try {
-            // 检查设备是否支持语音识别
-            if (!SpeechRecognizer.isRecognitionAvailable(mContext)) {
-                Log.e(TAG, "[语音识别] ❌ 设备不支持语音识别");
-                return createResponse(false, "设备不支持语音识别", null);
-            }
-            Log.d(TAG, "[语音识别] ✓ 设备支持语音识别");
-
-            // 检查录音权限
-            if (!checkAudioPermission()) {
-                Log.w(TAG, "[语音识别] ⚠️ 录音权限未授予");
-                // 如果权限未授予，尝试请求权限
-                if (audioPermissionLauncher != null && mContext instanceof Activity) {
-                    // 标记待处理的语音识别请求
-                    pendingSpeechRecognition = true;
-                    // 请求权限（异步操作，权限授予后会在回调中启动识别）
-                    ((Activity) mContext).runOnUiThread(() -> {
-                        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO);
-                    });
-                    Log.d(TAG, "[语音识别] 📝 正在请求录音权限（语音识别）");
-                    return createResponse(true, "正在请求录音权限", null);
-                } else {
-                    // 无法请求权限，返回错误
-                    Log.e(TAG, "[语音识别] ❌ 无法请求权限，audioPermissionLauncher 或 Activity 不可用");
-                    return createResponse(false, "需要录音权限，请前往设置中授予", null);
-                }
-            }
-            Log.d(TAG, "[语音识别] ✓ 录音权限已授予");
-
-            if (isRecognizing) {
-                Log.w(TAG, "[语音识别] ⚠️ 正在识别中，忽略重复请求");
-                return createResponse(false, "正在识别中", null);
-            }
-
-            // 权限已授予，开始语音识别
-            Log.d(TAG, "[语音识别] 🎤 开始启动语音识别...");
-            startSpeechRecognitionInternal();
-
-            Log.d(TAG, "[语音识别] ✓ 语音识别已启动");
-            return createResponse(true, "开始语音识别", null);
-
-        } catch (Exception e) {
-            Log.e(TAG, "[语音识别] ❌ 开始语音识别失败", e);
-            releaseSpeechRecognizer();
-            return createResponse(false, "语音识别失败: " + e.getMessage(), null);
-        }
-    }
-
-    /**
-     * 开始语音识别（权限已授予后调用）
-     */
-    private void startSpeechRecognitionInternal() {
-        Log.d(TAG, "[语音识别] startSpeechRecognitionInternal() 被调用");
-        if (mContext instanceof Activity) {
-            ((Activity) mContext).runOnUiThread(() -> {
-                try {
-                    // 如果已有旧的识别器，先释放它（避免识别器忙碌的问题）
-                    if (speechRecognizer != null) {
-                        Log.d(TAG, "[语音识别] ⚠️ 检测到旧的识别器，先释放它");
-                        releaseSpeechRecognizerInternal();
-                        // 使用 Handler 延迟创建新识别器，确保旧识别器完全释放
-                        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                            createAndStartSpeechRecognizer();
-                        }, 150);
-                        return;
-                    }
-                    
-                    // 创建并启动识别器
-                    createAndStartSpeechRecognizer();
-                } catch (Exception e) {
-                    Log.e(TAG, "[语音识别] ❌ 启动语音识别失败", e);
-                    isRecognizing = false;
-                    releaseSpeechRecognizerInternal();
-                    notifySpeechResult(null, "启动语音识别失败: " + e.getMessage(), true);
-                }
-            });
-        }
-    }
-
-    /**
-     * 创建并启动语音识别器（内部方法，必须在主线程中调用）
-     */
-    private void createAndStartSpeechRecognizer() {
-        try {
-            // 创建新的 SpeechRecognizer
-            Log.d(TAG, "[语音识别] 创建新的 SpeechRecognizer 实例");
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(mContext);
-            if (speechRecognizer == null) {
-                Log.e(TAG, "[语音识别] ❌ SpeechRecognizer 创建失败");
-                notifySpeechResult(null, "语音识别器创建失败", true);
-                return;
-            }
-            Log.d(TAG, "[语音识别] ✓ SpeechRecognizer 创建成功");
-            
-            speechRecognizer.setRecognitionListener(new RecognitionListener() {
-                @Override
-                public void onReadyForSpeech(Bundle params) {
-                    Log.d(TAG, "[语音识别] 🎤 语音识别准备就绪，等待用户说话");
-                    isRecognizing = true;
-                }
-
-                @Override
-                public void onBeginningOfSpeech() {
-                    Log.d(TAG, "[语音识别] 🗣️ 检测到用户开始说话");
-                }
-
-                @Override
-                public void onRmsChanged(float rmsdB) {
-                    // 音量变化，可以用于显示音量指示器
-                    // Log.v(TAG, "[语音识别] 音量变化: " + rmsdB + " dB");
-                }
-
-                @Override
-                public void onBufferReceived(byte[] buffer) {
-                    // 接收音频缓冲区
-                    // Log.v(TAG, "[语音识别] 接收到音频缓冲区，大小: " + buffer.length);
-                }
-
-                @Override
-                public void onEndOfSpeech() {
-                    Log.d(TAG, "[语音识别] 🛑 检测到用户说话结束，等待识别结果");
-                    Log.d(TAG, "[语音识别] 📊 当前识别状态: " + isRecognizing);
-                    Log.d(TAG, "[语音识别] 📊 speechRecognizer 是否为 null: " + (speechRecognizer == null));
-                }
-
-                @Override
-                public void onError(int error) {
-                    Log.d(TAG, "[语音识别] 📥 onError 回调被触发，错误码: " + error);
-                    Log.d(TAG, "[语音识别] 📊 当前识别状态: " + isRecognizing);
-                    Log.d(TAG, "[语音识别] 📊 speechRecognizer 是否为 null: " + (speechRecognizer == null));
-                    
-                    // 结束等待窗口
-                    isStoppingAwaitingResults = false;
-                    
-                    isRecognizing = false;
-                    String errorMessage = getErrorText(error);
-                    Log.e(TAG, "[语音识别] ❌ 识别错误 [错误码: " + error + "]: " + errorMessage);
-                    
-                    // 通知前端识别错误
-                    Log.d(TAG, "[语音识别] 📤 准备调用 notifySpeechResult 通知前端错误");
-                    notifySpeechResult(null, errorMessage, true);
-                    Log.d(TAG, "[语音识别] ✅ notifySpeechResult 调用完成");
-                    
-                    // 识别错误后释放识别器
-                    Log.d(TAG, "[语音识别] 🔄 识别错误，准备释放识别器");
-                    releaseSpeechRecognizer();
-                    Log.d(TAG, "[语音识别] ✅ onError 处理完成");
-                }
-
-                @Override
-                public void onResults(Bundle results) {
-                    Log.d(TAG, "[语音识别] 📥 onResults 回调被触发");
-                    Log.d(TAG, "[语音识别] 📊 当前识别状态: " + isRecognizing);
-                    Log.d(TAG, "[语音识别] 📊 speechRecognizer 是否为 null: " + (speechRecognizer == null));
-                    
-                    // 结束等待窗口
-                    isStoppingAwaitingResults = false;
-                    
-                    isRecognizing = false;
-                    Log.d(TAG, "[语音识别] 📥 收到最终识别结果");
-                    
-                    if (results == null) {
-                        Log.w(TAG, "[语音识别] ⚠️ results Bundle 为 null");
-                        notifySpeechResult(null, "识别结果为空", true);
-                        // 释放识别器
-                        releaseSpeechRecognizer();
-                        return;
-                    }
-                    
-                    ArrayList<String> matches = results.getStringArrayList(
-                            SpeechRecognizer.RESULTS_RECOGNITION);
-                    
-                    Log.d(TAG, "[语音识别] 📊 matches 是否为 null: " + (matches == null));
-                    if (matches != null) {
-                        Log.d(TAG, "[语音识别] 📊 matches 大小: " + matches.size());
-                    }
-                    
-                    if (matches != null && !matches.isEmpty()) {
-                        String recognizedText = matches.get(0);
-                        Log.d(TAG, "[语音识别] ✓ 识别成功，文本: \"" + recognizedText + "\" (长度: " + recognizedText.length() + ")");
-                        
-                        // 通知前端识别结果
-                        Log.d(TAG, "[语音识别] 📤 准备调用 notifySpeechResult 通知前端");
-                        notifySpeechResult(recognizedText, null, false);
-                        Log.d(TAG, "[语音识别] ✅ notifySpeechResult 调用完成");
-                    } else {
-                        Log.w(TAG, "[语音识别] ⚠️ 识别结果为空");
-                        notifySpeechResult(null, "未识别到内容", true);
-                    }
-                    
-                    // 识别完成后释放识别器
-                    Log.d(TAG, "[语音识别] 🔄 识别完成，准备释放识别器");
-                    releaseSpeechRecognizer();
-                    Log.d(TAG, "[语音识别] ✅ onResults 处理完成");
-                }
-
-                @Override
-                public void onPartialResults(Bundle partialResults) {
-                    // 部分结果（实时识别）
-                    ArrayList<String> matches = partialResults.getStringArrayList(
-                            SpeechRecognizer.RESULTS_RECOGNITION);
-                    
-                    if (matches != null && !matches.isEmpty()) {
-                        String partialText = matches.get(0);
-                        Log.d(TAG, "[语音识别] 📝 部分识别结果: \"" + partialText + "\"");
-                        // 可以实时更新前端显示
-                    }
-                }
-
-                @Override
-                public void onEvent(int eventType, Bundle params) {
-                    Log.v(TAG, "[语音识别] 📌 收到事件，类型: " + eventType);
-                }
-            });
-
-            // 创建识别Intent
-            Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, 
-                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-            String language = Locale.getDefault().getLanguage();
-            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, language);
-            intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
-            intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
-            Log.d(TAG, "[语音识别] 创建识别 Intent，语言: " + language);
-
-            // 开始识别
-            speechRecognizer.startListening(intent);
-            isRecognizing = true;
-            Log.d(TAG, "[语音识别] ✓ 已调用 startListening()，开始监听语音");
-
-        } catch (Exception e) {
-            Log.e(TAG, "[语音识别] ❌ 启动语音识别失败", e);
-            isRecognizing = false;
-            releaseSpeechRecognizer();
-            notifySpeechResult(null, "启动语音识别失败: " + e.getMessage(), true);
-        }
-    }
-
-    /**
-     * 停止语音识别
-     */
-    @JavascriptInterface
-    public String stopSpeech() {
-        Log.d(TAG, "[语音识别] stopSpeech() 被调用");
-        Log.d(TAG, "[语音识别] 📊 当前线程: " + Thread.currentThread().getName());
-        
-        try {
-            boolean wasRecognizing = isRecognizing;
-            
-            // 即使 isRecognizing 为 false，如果 speechRecognizer 存在，也应该释放它
-            // 因为可能存在识别器已创建但状态未同步的情况
-            if (!wasRecognizing && speechRecognizer == null) {
-                Log.w(TAG, "[语音识别] ⚠️ 当前未在识别中且识别器不存在");
-                return createResponse(false, "当前未在识别中", null);
-            }
-
-            // 确保在主线程中执行 SpeechRecognizer 操作
-            if (mContext instanceof Activity) {
-                ((Activity) mContext).runOnUiThread(() -> {
-                    try {
-                        Log.d(TAG, "[语音识别] 🔄 runOnUiThread 回调执行，wasRecognizing: " + wasRecognizing + ", isRecognizing: " + isRecognizing + ", speechRecognizer != null: " + (speechRecognizer != null));
-                        if (speechRecognizer != null && wasRecognizing) {
-                            try {
-                                // 使用 stopListening() 而不是 cancel()
-                                // stopListening() 会停止识别并触发 onResults 回调来获取当前识别结果
-                                Log.d(TAG, "[语音识别] 🔄 准备调用 stopListening()");
-                                speechRecognizer.stopListening();
-                                Log.d(TAG, "[语音识别] ✓ 已停止语音识别，等待获取识别结果");
-                                // 设置 isRecognizing 为 false，防止 releaseSpeechRecognizerInternal() 再次调用 stopListening()
-                                // 但保留识别器引用，等待 onResults 回调后再释放
-                                isRecognizing = false;
-                                Log.d(TAG, "[语音识别] ✓ 已设置 isRecognizing = false");
-                                // 进入等待 onResults 的窗口，避免被误取消
-                                isStoppingAwaitingResults = true;
-                                // 注意：不要在这里释放识别器，等待 onResults 回调后再释放
-                                // 也不要在这里通知前端，让 onResults 来处理结果通知
-                            } catch (Exception e) {
-                                Log.e(TAG, "[语音识别] ❌ 停止语音识别失败", e);
-                                // 如果停止失败，释放识别器并通知前端
-                                releaseSpeechRecognizerInternal(true);
-                                isStoppingAwaitingResults = false;
-                                notifySpeechResult(null, "停止识别失败: " + e.getMessage(), true);
-                            }
-                        } else if (speechRecognizer != null) {
-                            // 如果识别器存在但不在识别中，直接释放
-                            Log.d(TAG, "[语音识别] ⚠️ 识别器存在但不在识别中，直接释放");
-                            releaseSpeechRecognizerInternal();
-                        } else {
-                            Log.d(TAG, "[语音识别] ⚠️ speechRecognizer 为 null，无需释放");
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "[语音识别] ❌ 停止语音识别失败", e);
-                        releaseSpeechRecognizerInternal();
-                        isStoppingAwaitingResults = false;
-                        notifySpeechResult(null, "停止识别失败: " + e.getMessage(), true);
-                    }
-                });
-            } else {
-                // 如果不是 Activity，尝试直接停止（可能仍然会失败，但至少尝试）
-                Log.w(TAG, "[语音识别] ⚠️ Context 不是 Activity，无法切换到主线程");
-                if (speechRecognizer != null && wasRecognizing) {
-                    try {
-                        speechRecognizer.stopListening();
-                        Log.d(TAG, "[语音识别] ✓ 已停止语音识别（非主线程）");
-                        // 设置 isRecognizing 为 false，防止 releaseSpeechRecognizerInternal() 再次调用 stopListening()
-                        isRecognizing = false;
-                        isStoppingAwaitingResults = true;
-                    } catch (Exception e) {
-                        Log.e(TAG, "[语音识别] ❌ 停止语音识别失败", e);
-                        releaseSpeechRecognizerInternal(true);
-                        isStoppingAwaitingResults = false;
-                        notifySpeechResult(null, "停止识别失败: " + e.getMessage(), true);
-                    }
-                } else {
-                    releaseSpeechRecognizerInternal(true);
-                }
-            }
-            
-            return createResponse(true, "已停止语音识别", null);
-
-        } catch (Exception e) {
-            Log.e(TAG, "[语音识别] ❌ 停止语音识别失败", e);
-            if (mContext instanceof Activity) {
-                ((Activity) mContext).runOnUiThread(() -> {
-                    releaseSpeechRecognizerInternal();
-                });
-            } else {
-                releaseSpeechRecognizerInternal();
-            }
-            return createResponse(false, "停止语音识别失败: " + e.getMessage(), null);
-        }
-    }
-
-    /**
-     * 获取错误文本描述
-     */
-    private String getErrorText(int errorCode) {
-        switch (errorCode) {
-            case SpeechRecognizer.ERROR_AUDIO:
-                return "音频错误";
-            case SpeechRecognizer.ERROR_CLIENT:
-                return "客户端错误";
-            case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS:
-                return "权限不足";
-            case SpeechRecognizer.ERROR_NETWORK:
-                return "网络错误";
-            case SpeechRecognizer.ERROR_NETWORK_TIMEOUT:
-                return "网络超时";
-            case SpeechRecognizer.ERROR_NO_MATCH:
-                return "未识别到内容";
-            case SpeechRecognizer.ERROR_RECOGNIZER_BUSY:
-                return "识别器忙碌";
-            case SpeechRecognizer.ERROR_SERVER:
-                return "服务器错误";
-            case SpeechRecognizer.ERROR_SPEECH_TIMEOUT:
-                return "说话超时";
-            default:
-                return "未知错误: " + errorCode;
-        }
-    }
-
-    /**
-     * 通知前端语音识别结果
-     */
-    private void notifySpeechResult(String text, String error, boolean isError) {
-        Log.d(TAG, "[语音识别] 📞 notifySpeechResult 被调用");
-        Log.d(TAG, "[语音识别] 📊 参数 - text: " + (text != null ? "\"" + text + "\"" : "null") + 
-                   ", error: " + (error != null ? "\"" + error + "\"" : "null") + 
-                   ", isError: " + isError);
-        Log.d(TAG, "[语音识别] 📊 webView 是否为 null: " + (webView == null));
-        Log.d(TAG, "[语音识别] 📊 当前线程: " + Thread.currentThread().getName());
-        
-        if (webView == null) {
-            Log.w(TAG, "[语音识别] ⚠️ WebView未设置，无法通知前端语音识别结果");
-            return;
-        }
-
-        try {
-            if (isError) {
-                Log.d(TAG, "[语音识别] 📤 准备通知前端识别错误: " + error);
-            } else {
-                Log.d(TAG, "[语音识别] 📤 准备通知前端识别结果: \"" + text + "\" (长度: " + (text != null ? text.length() : 0) + ")");
-            }
-            
-            // 转义文本中的特殊字符
-            String safeText = text != null ? 
-                text.replace("\\", "\\\\")
-                   .replace("'", "\\'")
-                   .replace("\"", "\\\"")
-                   .replace("\n", "\\n")
-                   .replace("\r", "\\r") : "";
-            String safeError = error != null ? 
-                error.replace("\\", "\\\\")
-                    .replace("'", "\\'")
-                    .replace("\"", "\\\"")
-                    .replace("\n", "\\n")
-                    .replace("\r", "\\r") : "";
-
-            // 构建JavaScript回调
-            String jsCode;
-            if (isError) {
-                jsCode = String.format(Locale.getDefault(),
-                    "if(typeof window.onSpeechResult === 'function'){" +
-                    "  window.onSpeechResult(null, '%s');" +
-                    "}",
-                    safeError);
-            } else {
-                jsCode = String.format(Locale.getDefault(),
-                    "if(typeof window.onSpeechResult === 'function'){" +
-                    "  window.onSpeechResult('%s', null);" +
-                    "}",
-                    safeText);
-            }
-            
-            Log.d(TAG, "[语音识别] 📡 准备执行 JavaScript 回调");
-            Log.d(TAG, "[语音识别] 📝 JavaScript 代码: " + jsCode);
-
-            executeJavaScript(jsCode);
-            Log.d(TAG, "[语音识别] ✓ 已成功通知前端语音识别结果");
-
-        } catch (Exception e) {
-            Log.e(TAG, "[语音识别] ❌ 通知前端语音识别结果失败", e);
-            e.printStackTrace();
-        }
-    }
-
-    /**
-     * 释放语音识别器资源（自动切换到主线程）
-     */
-    private void releaseSpeechRecognizer() {
-        Log.d(TAG, "[语音识别] 📞 releaseSpeechRecognizer 被调用");
-        Log.d(TAG, "[语音识别] 📊 当前线程: " + Thread.currentThread().getName());
-        
-        // 检查是否在主线程
-        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
-            // 已经在主线程，直接执行
-            releaseSpeechRecognizerInternal();
-        } else {
-            // 不在主线程，切换到主线程执行
-            if (mContext instanceof Activity) {
-                ((Activity) mContext).runOnUiThread(() -> {
-                    releaseSpeechRecognizerInternal();
-                });
-            } else {
-                // 如果不是 Activity，尝试使用 Handler 切换到主线程
-                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                    releaseSpeechRecognizerInternal();
-                });
-            }
-        }
-    }
-
-    /**
-     * 释放语音识别器资源（内部方法，必须在主线程中调用）
-     * @param forceCancel 是否强制取消识别（true：使用 cancel()，false：如果正在识别则使用 stopListening()）
-     */
-    private void releaseSpeechRecognizerInternal(boolean forceCancel) {
-        Log.d(TAG, "[语音识别] 📞 releaseSpeechRecognizerInternal 被调用，forceCancel: " + forceCancel);
-        Log.d(TAG, "[语音识别] 📊 当前线程: " + Thread.currentThread().getName());
-        Log.d(TAG, "[语音识别] 📊 speechRecognizer 是否为 null: " + (speechRecognizer == null));
-        Log.d(TAG, "[语音识别] 📊 当前识别状态: " + isRecognizing);
-        
-        // 如果处于 stopListening() 后等待结果的窗口，且不是强制取消，则不要取消/销毁
-        if (!forceCancel && isStoppingAwaitingResults) {
-            Log.d(TAG, "[语音识别] ⏳ 正在等待 onResults，不执行取消/销毁");
-            return;
-        }
-        
-        if (speechRecognizer != null) {
-            try {
-                // 如果正在识别且不强制取消，使用 stopListening() 来获取识别结果
-                if (isRecognizing && !forceCancel) {
-                    Log.d(TAG, "[语音识别] 🔄 正在识别中，使用 stopListening() 停止识别以获取结果");
-                    try {
-                        speechRecognizer.stopListening();
-                        Log.d(TAG, "[语音识别] ✓ 已调用 stopListening()，等待 onResults 回调");
-                        // 注意：不要在这里立即销毁识别器，等待 onResults 回调后再销毁
-                        // 设置 isRecognizing 为 false，防止重复调用
-                        isRecognizing = false;
-                        return;
-                    } catch (Exception e) {
-                        Log.e(TAG, "[语音识别] ❌ stopListening() 失败，使用 cancel()", e);
-                        // 如果 stopListening() 失败，回退到 cancel()
-                        speechRecognizer.cancel();
-                    }
-                } else {
-                    // 不在识别中或强制取消，使用 cancel()
-                    Log.d(TAG, "[语音识别] 🔄 准备取消并销毁识别器");
-                    speechRecognizer.cancel();
-                    Log.d(TAG, "[语音识别] ✓ 已取消识别器");
-                }
-                
-                speechRecognizer.destroy();
-                Log.d(TAG, "[语音识别] ✓ 已销毁识别器");
-            } catch (Exception e) {
-                Log.e(TAG, "[语音识别] ❌ 释放语音识别器失败", e);
-            }
-            speechRecognizer = null;
-            Log.d(TAG, "[语音识别] ✓ 识别器引用已清空");
-        }
-        isRecognizing = false;
-        Log.d(TAG, "[语音识别] ✓ 识别状态已重置为 false");
-    }
-    
-    /**
-     * 释放语音识别器资源（内部方法，必须在主线程中调用）
-     * 默认不强制取消，如果正在识别则使用 stopListening()
-     */
-    private void releaseSpeechRecognizerInternal() {
-        releaseSpeechRecognizerInternal(false);
-    }
-
-    // ========== 图片发送相关接口 ==========
-
     /**
      * 选择图片 - 从相册选择
      */
@@ -2239,7 +1727,7 @@ public class WebAppInterface {
     public String captureImageFromCamera() {
         try {
             sendLogToWeb("INFO", "PhotoCapture", "📸 [拍照搜题] 开始拍照流程");
-            
+
             if (imageCaptureLauncher == null) {
                 sendLogToWeb("ERROR", "PhotoCapture", "❌ [拍照搜题] 拍照功能未初始化");
                 return createResponse(false, "拍照功能未初始化", null);
@@ -2341,19 +1829,13 @@ public class WebAppInterface {
      */
     public void onAudioPermissionResult(boolean granted) {
         if (granted) {
-            // 检查是否有待处理的语音识别请求
-            if (pendingSpeechRecognition) {
-                pendingSpeechRecognition = false;
-                // 权限已授予，开始语音识别
-                Log.d(TAG, "录音权限已授予，开始语音识别");
-                startSpeechRecognitionInternal();
-            } else if (!isRecording) {
+            if (!isRecording) {
                 // 权限已授予，开始录音
                 Log.d(TAG, "录音权限已授予，开始录音");
                 try {
                     startVoiceRecordingInternal();
                     Log.d(TAG, "开始录音: " + currentAudioFilePath);
-                    
+
                     // 通知前端录音已开始（需要通过Activity的WebView来触发）
                     if (mContext instanceof Activity) {
                         ((Activity) mContext).runOnUiThread(() -> {
@@ -2373,17 +1855,11 @@ public class WebAppInterface {
             }
         } else {
             // 权限被拒绝，通知前端
-            boolean wasPendingSpeech = pendingSpeechRecognition;
-            pendingSpeechRecognition = false;
             Log.w(TAG, "录音权限被拒绝");
             if (mContext instanceof Activity) {
                 ((Activity) mContext).runOnUiThread(() -> {
                     Toast.makeText(mContext, "需要录音权限才能使用语音功能", Toast.LENGTH_SHORT).show();
                 });
-            }
-            // 如果是语音识别请求，通知前端错误
-            if (wasPendingSpeech) {
-                notifySpeechResult(null, "需要录音权限才能使用语音识别", true);
             }
         }
     }
@@ -2396,7 +1872,7 @@ public class WebAppInterface {
             Log.w(TAG, "WebView未设置，无法通知前端录音已开始");
             return;
         }
-        
+
         try {
             // 构造录音状态信息
             org.json.JSONObject detailObj = new org.json.JSONObject();
@@ -2406,24 +1882,23 @@ public class WebAppInterface {
             if (currentAudioFilePath != null) {
                 detailObj.put("filePath", currentAudioFilePath);
             }
-            
+
             // 转换为JSON字符串
             String detailJson = detailObj.toString();
-            
+
             // 构造JavaScript代码
-            String jsCode = 
-                "javascript:(function() {" +
-                "  try {" +
-                "    var detailStr = '" + detailJson.replace("'", "\\'") + "';" +
-                "    var detail = JSON.parse(detailStr);" +
-                "    var event = new CustomEvent('nativeVoiceRecordingStarted', { detail: detail });" +
-                "    window.dispatchEvent(event);" +
-                "    console.log('📡 [Android] 触发 nativeVoiceRecordingStarted 事件', detail);" +
-                "  } catch(e) {" +
-                "    console.error('📡 [Android] 触发事件失败:', e);" +
-                "  }" +
-                "})()";
-            
+            String jsCode = "javascript:(function() {" +
+                    "  try {" +
+                    "    var detailStr = '" + detailJson.replace("'", "\\'") + "';" +
+                    "    var detail = JSON.parse(detailStr);" +
+                    "    var event = new CustomEvent('nativeVoiceRecordingStarted', { detail: detail });" +
+                    "    window.dispatchEvent(event);" +
+                    "    console.log('📡 [Android] 触发 nativeVoiceRecordingStarted 事件', detail);" +
+                    "  } catch(e) {" +
+                    "    console.error('📡 [Android] 触发事件失败:', e);" +
+                    "  }" +
+                    "})()";
+
             webView.evaluateJavascript(jsCode, null);
             Log.d(TAG, "已通知前端录音已开始");
         } catch (Exception e) {
@@ -2504,7 +1979,7 @@ public class WebAppInterface {
     public String handleImageCaptureResult(boolean success) {
         try {
             sendLogToWeb("INFO", "PhotoCapture", "📥 [拍照搜题] 收到拍照结果，success=" + success);
-            
+
             if (!success || currentImageFilePath == null) {
                 sendLogToWeb("WARN", "PhotoCapture", "⚠️ [拍照搜题] 拍照失败或取消");
                 return createResponse(false, "拍照失败或取消", null);
@@ -2525,7 +2000,8 @@ public class WebAppInterface {
             BitmapFactory.decodeFile(currentImageFilePath, options);
 
             long fileSize = imageFile.length();
-            sendLogToWeb("INFO", "PhotoCapture", "📊 [拍照搜题] 图片信息 - 尺寸: " + options.outWidth + "x" + options.outHeight + ", 文件大小: " + fileSize + " bytes");
+            sendLogToWeb("INFO", "PhotoCapture", "📊 [拍照搜题] 图片信息 - 尺寸: " + options.outWidth + "x" + options.outHeight
+                    + ", 文件大小: " + fileSize + " bytes");
 
             // 读取图片并转换为Base64 Data URL（完整格式，包含data:image前缀）
             sendLogToWeb("DEBUG", "PhotoCapture", "🔄 [拍照搜题] 步骤4.3: 读取图片并转换为Base64");
@@ -2737,18 +2213,16 @@ public class WebAppInterface {
         } catch (JSONException e) {
             Log.e(TAG, "createResponse: 构建JSON响应失败", e);
             // 降级处理：使用String.format（但转义message和data中的特殊字符）
-            String escapedMessage = message != null ? 
-                message.replace("\\", "\\\\")
-                       .replace("\"", "\\\"")
-                       .replace("\n", "\\n")
-                       .replace("\r", "\\r") : "";
-            String escapedData = data != null ? 
-                data.replace("\\", "\\\\")
+            String escapedMessage = message != null ? message.replace("\\", "\\\\")
                     .replace("\"", "\\\"")
                     .replace("\n", "\\n")
                     .replace("\r", "\\r") : "";
-        return String.format(Locale.getDefault(),
-                "{\"success\":%b,\"message\":\"%s\",\"data\":%s}",
+            String escapedData = data != null ? data.replace("\\", "\\\\")
+                    .replace("\"", "\\\"")
+                    .replace("\n", "\\n")
+                    .replace("\r", "\\r") : "";
+            return String.format(Locale.getDefault(),
+                    "{\"success\":%b,\"message\":\"%s\",\"data\":%s}",
                     success, escapedMessage, escapedData != null ? "\"" + escapedData + "\"" : "null");
         }
     }
@@ -2759,7 +2233,7 @@ public class WebAppInterface {
             JSONObject response = new JSONObject();
             response.put("success", success);
             response.put("message", message != null ? message : "");
-            
+
             // 如果jsonData是有效的JSON字符串，解析后放入data字段；否则直接作为字符串放入
             if (jsonData != null && !jsonData.isEmpty()) {
                 try {
@@ -2773,18 +2247,17 @@ public class WebAppInterface {
             } else {
                 response.put("data", JSONObject.NULL);
             }
-            
+
             return response.toString();
         } catch (JSONException e) {
             Log.e(TAG, "createResponseWithJsonData: 构建JSON响应失败", e);
             // 降级处理：使用String.format（但转义message中的特殊字符）
-            String escapedMessage = message != null ? 
-                message.replace("\\", "\\\\")
-                       .replace("\"", "\\\"")
-                       .replace("\n", "\\n")
-                       .replace("\r", "\\r") : "";
-        return String.format(Locale.getDefault(),
-                "{\"success\":%b,\"message\":\"%s\",\"data\":%s}",
+            String escapedMessage = message != null ? message.replace("\\", "\\\\")
+                    .replace("\"", "\\\"")
+                    .replace("\n", "\\n")
+                    .replace("\r", "\\r") : "";
+            return String.format(Locale.getDefault(),
+                    "{\"success\":%b,\"message\":\"%s\",\"data\":%s}",
                     success, escapedMessage, jsonData != null ? jsonData : "null");
         }
     }
@@ -2845,14 +2318,14 @@ public class WebAppInterface {
 
         // 老师消息回调接口
         void setTeacherMessageCallback(String callbackName);
-
-        void onTeacherMessageReceived(String messageData);
     }
 
     // FindExercise桥接器接口
     public interface FindExerciseActivityBridge {
         void startExerciseSolveWebView();
+
         void finishActivity();
+
         void showToast(String message);
     }
 
@@ -2862,7 +2335,7 @@ public class WebAppInterface {
     }
 
     // ========== FindExercise 相关接口 ==========
-    
+
     /**
      * 启动练习页面
      */
@@ -2884,7 +2357,7 @@ public class WebAppInterface {
         Log.d(TAG, "startExerciseSolveWebView 被调用");
         Log.d(TAG, "findExerciseBridge: " + (findExerciseBridge != null ? "已设置" : "未设置"));
         Log.d(TAG, "exerciseBridge: " + (exerciseBridge != null ? "已设置" : "未设置"));
-        
+
         if (findExerciseBridge != null) {
             Log.d(TAG, "使用 findExerciseBridge 调用 startExerciseSolveWebView");
             findExerciseBridge.startExerciseSolveWebView();
@@ -2904,7 +2377,7 @@ public class WebAppInterface {
         Log.d(TAG, "🔙 finishActivity 被调用");
         Log.d(TAG, "🔙 findExerciseBridge: " + (findExerciseBridge != null ? "已设置" : "未设置"));
         Log.d(TAG, "🔙 exerciseBridge: " + (exerciseBridge != null ? "已设置" : "未设置"));
-        
+
         if (findExerciseBridge != null) {
             Log.d(TAG, "🔙 使用 findExerciseBridge 调用 finishActivity");
             findExerciseBridge.finishActivity();
@@ -2929,19 +2402,21 @@ public class WebAppInterface {
     }
 
     // ========== 加入课堂相关接口 ==========
-    
+
     /**
      * 加入课堂
-     * @param studentId 学生ID
+     * 
+     * @param studentId   学生ID
      * @param studentName 学生姓名
-     * @param isGuest 是否为游客模式
+     * @param isGuest     是否为游客模式
      * @returns 操作结果
      */
     @JavascriptInterface
     public String joinClassroom(String studentId, String studentName, boolean isGuest) {
         sendLogToWeb("INFO", TAG, "========== 加入课堂流程开始 ==========");
-        sendLogToWeb("INFO", TAG, "参数: studentId=" + studentId + ", studentName=" + studentName + ", isGuest=" + isGuest);
-        
+        sendLogToWeb("INFO", TAG,
+                "参数: studentId=" + studentId + ", studentName=" + studentName + ", isGuest=" + isGuest);
+
         try {
             // 检查是否已在课堂中
             sendLogToWeb("DEBUG", TAG, "步骤1: 检查是否已在课堂中");
@@ -2950,7 +2425,7 @@ public class WebAppInterface {
                 return createResponse(false, "已在课堂中", null);
             }
             sendLogToWeb("DEBUG", TAG, "步骤1结果: 未在课堂中，继续");
-            
+
             // 获取用户ID
             sendLogToWeb("DEBUG", TAG, "步骤2: 获取用户ID");
             String userId = AppUtils.getUserId();
@@ -2959,134 +2434,142 @@ public class WebAppInterface {
                 return createResponse(false, "用户未登录", null);
             }
             sendLogToWeb("INFO", TAG, "步骤2结果: 用户ID=" + userId);
-            
+
             // 游客模式处理
             if (isGuest || userId.equals("guest000")) {
                 sendLogToWeb("INFO", TAG, "步骤3: 检测到游客模式");
                 sendLogToWeb("DEBUG", TAG, "步骤3.1: 设置fakeClassMode=true");
                 ApplicationModelShared.getInstance().fakeClassMode = true;
-                
+
                 // ✅ 触发Vue层回调，通知游客模式加入课堂成功
                 sendLogToWeb("DEBUG", TAG, "步骤3.2: 准备触发onClassroomJoined事件（游客模式）");
                 try {
                     String statusJson = String.format(Locale.getDefault(),
-                        "{\"isInClass\":true,\"isProjecting\":false,\"studentId\":\"%s\",\"studentName\":\"%s\",\"localIp\":\"\",\"tsStreamPort\":0,\"status\":\"ready\"}",
-                        userId != null ? userId.replace("\"", "\\\"") : "",
-                        studentName != null ? studentName.replace("\"", "\\\"").replace("'", "\\'") : "");
+                            "{\"isInClass\":true,\"isProjecting\":false,\"studentId\":\"%s\",\"studentName\":\"%s\",\"localIp\":\"\",\"tsStreamPort\":0,\"status\":\"ready\"}",
+                            userId != null ? userId.replace("\"", "\\\"") : "",
+                            studentName != null ? studentName.replace("\"", "\\\"").replace("'", "\\'") : "");
                     String js = "if(window.onClassroomJoined){window.onClassroomJoined(" + statusJson + ");}";
                     executeJavaScript(js);
                     sendLogToWeb("INFO", TAG, "步骤3.2结果: 已触发onClassroomJoined事件（游客模式）");
                 } catch (Exception e) {
                     sendLogToWeb("ERROR", TAG, "步骤3.2结果: 触发onClassroomJoined失败（游客模式）: " + e.getMessage());
                 }
-                
+
                 sendLogToWeb("INFO", TAG, "========== 游客模式加入课堂成功 ==========");
                 // 流程：使用createResponseWithJsonData方法返回JSON对象（而非字符串）
                 return createResponseWithJsonData(true, "游客模式加入课堂成功", "{\"mode\":\"guest\",\"isInClass\":true}");
             }
-            
+
             // 正式用户模式 - 这里需要Activity上下文来初始化ScreenShareKit
             sendLogToWeb("INFO", TAG, "步骤3: 检测到正式用户模式");
             if (mContext instanceof androidx.fragment.app.FragmentActivity) {
                 androidx.fragment.app.FragmentActivity activity = (androidx.fragment.app.FragmentActivity) mContext;
                 sendLogToWeb("DEBUG", TAG, "步骤3.1: Context是FragmentActivity，可以初始化ScreenShareKit");
-                
+
                 // ✅ 获取H264转TS流实例
                 sendLogToWeb("DEBUG", TAG, "步骤3.2: 获取H264转TS流实例");
                 final FFmpegPipeStreamer h264ToTsStreamer = H264MpegTSStreamerManager.getInstance();
                 sendLogToWeb("INFO", TAG, "步骤3.2结果: H264转TS流实例获取成功");
-                
+
                 // ✅ 保存userId和studentName到final变量，供lambda表达式使用
                 final String finalUserId = userId;
                 final String finalStudentName = studentName;
-                
+
                 sendLogToWeb("DEBUG", TAG, "步骤3.3: 切换到UI线程，准备初始化ScreenShareKit");
                 activity.runOnUiThread(() -> {
                     try {
                         sendLogToWeb("INFO", TAG, "步骤3.4: 开始初始化ScreenShareKit");
-                        sendLogToWeb("DEBUG", TAG, "步骤3.4.1: 配置参数: 1920x1080, 帧率=" + H264MpegTSStreamerManager.ENCODE_FRAME_RATE + ", 码率=8000000");
+                        sendLogToWeb("DEBUG", TAG, "步骤3.4.1: 配置参数: 1920x1080, 帧率="
+                                + H264MpegTSStreamerManager.ENCODE_FRAME_RATE + ", 码率=8000000");
                         // 初始化ScreenShareKit
                         ScreenShareKit.INSTANCE.init(activity)
-                            .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000, 
-                                   EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
-                            .onH264((buffer, isKeyFrame, width, height, ts) -> {
-                                try {
-                                    // 编码后的数据
-                                    byte[] bytes = new byte[buffer.remaining()];
-                                    buffer.get(bytes);
-                                    
-                                    // ✅ 转发H264数据到TS流
-                                    h264ToTsStreamer.onH264DataReceived(bytes, ts);
-                                    
-                                    // 缓存I帧
-                                    if (isKeyFrame) {
-                                        H264IFrameCache.getInstance().onH264Frame(bytes);
-                                    }
-                                } catch (Exception e) {
-                                    sendLogToWeb("ERROR", TAG, "H264回调错误: " + e.getMessage());
-                                }
-                            })
-                            .onError(errorInfo -> {
-                                String errorMsg = errorInfo.getMessage() != null ? errorInfo.getMessage() : "未知错误";
-                                sendLogToWeb("ERROR", TAG, "ScreenShareKit错误回调: " + errorMsg);
-                                // ✅ 发生错误时通知Vue层
-                                try {
-                                    String safeErrorMsg = errorMsg.replace("'", "\\'").replace("\"", "\\\"");
-                                    String js = "if(window.onClassroomError){window.onClassroomError('" + safeErrorMsg + "');}";
-                                    executeJavaScript(js);
-                                    sendLogToWeb("INFO", TAG, "已触发onClassroomError事件");
-                                } catch (Exception e) {
-                                    sendLogToWeb("ERROR", TAG, "触发onClassroomError失败: " + e.getMessage());
-                                }
-                            })
-                            .onStart(() -> {
-                                try {
-                                    sendLogToWeb("INFO", TAG, "步骤3.5: ScreenShareKit启动成功，进入onStart回调");
-                                    
-                                    // ✅ 设置课堂模式
-                                    sendLogToWeb("DEBUG", TAG, "步骤3.5.1: 设置ScreenCastingManager课堂模式为true");
-                                    ScreenCastingManager.setClassMode(true);
-                                    sendLogToWeb("INFO", TAG, "步骤3.5.1结果: 课堂模式已设置");
-                                    
-                                    // ✅ 启动TS流转换
-                                    sendLogToWeb("DEBUG", TAG, "步骤3.5.2: 启动TS流转换");
-                                    h264ToTsStreamer.start();
-                                    sendLogToWeb("INFO", TAG, "步骤3.5.2结果: TS流已启动");
-                                    
-                                    // ✅ 触发Vue层回调，通知加入课堂成功
-                                    sendLogToWeb("DEBUG", TAG, "步骤3.5.3: 准备触发onClassroomJoined事件");
+                                .config(1920, 1080, H264MpegTSStreamerManager.ENCODE_FRAME_RATE, 8000000,
+                                        EncodeBuilder.SCREEN_DATA_TYPE.H264, false, 44100, 2)
+                                .onH264((buffer, isKeyFrame, width, height, ts) -> {
                                     try {
-                                        // 构建JSON对象，使用安全的字符串转义
-                                        String safeUserId = finalUserId != null ? finalUserId.replace("\"", "\\\"") : "";
-                                        String safeStudentName = finalStudentName != null ? 
-                                            finalStudentName.replace("\"", "\\\"").replace("'", "\\'") : "";
-                                        
-                                        // 构建完整的JSON对象字符串
-                                        String statusJson = String.format(Locale.getDefault(),
-                                            "{\"isInClass\":true,\"isProjecting\":false,\"studentId\":\"%s\",\"studentName\":\"%s\",\"localIp\":\"\",\"tsStreamPort\":0,\"status\":\"ready\"}",
-                                            safeUserId, safeStudentName);
-                                        
-                                        // 调用JavaScript函数，传递JSON对象
-                                        String js = "if(window.onClassroomJoined){window.onClassroomJoined(" + statusJson + ");}";
-                                        executeJavaScript(js);
-                                        sendLogToWeb("INFO", TAG, "步骤3.5.3结果: 已触发onClassroomJoined事件");
-                                        sendLogToWeb("INFO", TAG, "========== 正式用户模式加入课堂成功 ==========");
+                                        // 编码后的数据
+                                        byte[] bytes = new byte[buffer.remaining()];
+                                        buffer.get(bytes);
+
+                                        // ✅ 转发H264数据到TS流
+                                        h264ToTsStreamer.onH264DataReceived(bytes, ts);
+
+                                        // 缓存I帧
+                                        if (isKeyFrame) {
+                                            H264IFrameCache.getInstance().onH264Frame(bytes);
+                                        }
                                     } catch (Exception e) {
-                                        sendLogToWeb("ERROR", TAG, "步骤3.5.3结果: 触发onClassroomJoined失败: " + e.getMessage());
+                                        sendLogToWeb("ERROR", TAG, "H264回调错误: " + e.getMessage());
                                     }
-                                } catch (Exception e) {
-                                    sendLogToWeb("ERROR", TAG, "onStart回调错误: " + e.getMessage());
-                                }
-                            })
-                            .start();
+                                })
+                                .onError(errorInfo -> {
+                                    String errorMsg = errorInfo.getMessage() != null ? errorInfo.getMessage() : "未知错误";
+                                    sendLogToWeb("ERROR", TAG, "ScreenShareKit错误回调: " + errorMsg);
+                                    // ✅ 发生错误时通知Vue层
+                                    try {
+                                        String safeErrorMsg = errorMsg.replace("'", "\\'").replace("\"", "\\\"");
+                                        String js = "if(window.onClassroomError){window.onClassroomError('"
+                                                + safeErrorMsg + "');}";
+                                        executeJavaScript(js);
+                                        sendLogToWeb("INFO", TAG, "已触发onClassroomError事件");
+                                    } catch (Exception e) {
+                                        sendLogToWeb("ERROR", TAG, "触发onClassroomError失败: " + e.getMessage());
+                                    }
+                                })
+                                .onStart(() -> {
+                                    try {
+                                        sendLogToWeb("INFO", TAG, "步骤3.5: ScreenShareKit启动成功，进入onStart回调");
+
+                                        // ✅ 设置课堂模式
+                                        sendLogToWeb("DEBUG", TAG, "步骤3.5.1: 设置ScreenCastingManager课堂模式为true");
+                                        ScreenCastingManager.setClassMode(true);
+                                        sendLogToWeb("INFO", TAG, "步骤3.5.1结果: 课堂模式已设置");
+
+                                        // ✅ 启动TS流转换
+                                        sendLogToWeb("DEBUG", TAG, "步骤3.5.2: 启动TS流转换");
+                                        h264ToTsStreamer.start();
+                                        sendLogToWeb("INFO", TAG, "步骤3.5.2结果: TS流已启动");
+
+                                        // ✅ 触发Vue层回调，通知加入课堂成功
+                                        sendLogToWeb("DEBUG", TAG, "步骤3.5.3: 准备触发onClassroomJoined事件");
+                                        try {
+                                            // 构建JSON对象，使用安全的字符串转义
+                                            String safeUserId = finalUserId != null ? finalUserId.replace("\"", "\\\"")
+                                                    : "";
+                                            String safeStudentName = finalStudentName != null
+                                                    ? finalStudentName.replace("\"", "\\\"").replace("'", "\\'")
+                                                    : "";
+
+                                            // 构建完整的JSON对象字符串
+                                            String statusJson = String.format(Locale.getDefault(),
+                                                    "{\"isInClass\":true,\"isProjecting\":false,\"studentId\":\"%s\",\"studentName\":\"%s\",\"localIp\":\"\",\"tsStreamPort\":0,\"status\":\"ready\"}",
+                                                    safeUserId, safeStudentName);
+
+                                            // 调用JavaScript函数，传递JSON对象
+                                            String js = "if(window.onClassroomJoined){window.onClassroomJoined("
+                                                    + statusJson + ");}";
+                                            executeJavaScript(js);
+                                            sendLogToWeb("INFO", TAG, "步骤3.5.3结果: 已触发onClassroomJoined事件");
+                                            sendLogToWeb("INFO", TAG, "========== 正式用户模式加入课堂成功 ==========");
+                                        } catch (Exception e) {
+                                            sendLogToWeb("ERROR", TAG,
+                                                    "步骤3.5.3结果: 触发onClassroomJoined失败: " + e.getMessage());
+                                        }
+                                    } catch (Exception e) {
+                                        sendLogToWeb("ERROR", TAG, "onStart回调错误: " + e.getMessage());
+                                    }
+                                })
+                                .start();
                         sendLogToWeb("INFO", TAG, "步骤3.4结果: ScreenShareKit.start()调用成功");
                     } catch (Exception e) {
                         sendLogToWeb("ERROR", TAG, "步骤3.4结果: ScreenShareKit初始化失败: " + e.getMessage());
                         // ✅ 初始化失败时通知Vue层
                         try {
-                            String errorMsg = e.getMessage() != null ? 
-                                e.getMessage().replace("'", "\\'").replace("\"", "\\\"") : "未知错误";
-                            String js = "if(window.onClassroomError){window.onClassroomError('ScreenShareKit初始化失败: " + errorMsg + "');}";
+                            String errorMsg = e.getMessage() != null
+                                    ? e.getMessage().replace("'", "\\'").replace("\"", "\\\"")
+                                    : "未知错误";
+                            String js = "if(window.onClassroomError){window.onClassroomError('ScreenShareKit初始化失败: "
+                                    + errorMsg + "');}";
                             executeJavaScript(js);
                             sendLogToWeb("INFO", TAG, "已触发onClassroomError事件");
                         } catch (Exception ex) {
@@ -3094,7 +2577,7 @@ public class WebAppInterface {
                         }
                     }
                 });
-                
+
                 sendLogToWeb("INFO", TAG, "步骤3结果: 已切换到UI线程执行初始化，返回'正在加入课堂'");
                 // 流程：使用createResponseWithJsonData方法返回JSON对象（而非字符串）
                 return createResponseWithJsonData(true, "正在加入课堂", "{\"mode\":\"formal\",\"isJoining\":true}");
@@ -3102,35 +2585,37 @@ public class WebAppInterface {
                 sendLogToWeb("ERROR", TAG, "步骤3结果: Context不是FragmentActivity，无法初始化ScreenShareKit");
                 return createResponse(false, "需要FragmentActivity上下文", null);
             }
-            
+
         } catch (Exception e) {
             sendLogToWeb("ERROR", TAG, "========== 加入课堂流程异常 ==========");
             sendLogToWeb("ERROR", TAG, "异常信息: " + e.getMessage());
             return createResponse(false, "加入课堂失败: " + e.getMessage(), null);
         }
     }
-    
+
     /**
      * 退出课堂
+     * 
      * @returns 操作结果
      */
     @JavascriptInterface
     public String exitClassroom() {
         sendLogToWeb("INFO", TAG, "========== 退出课堂流程开始 ==========");
-        
+
         try {
             // 流程：检查游客模式状态 -> 检查正式用户课堂状态 -> 如果都不在课堂则返回失败
             sendLogToWeb("DEBUG", TAG, "步骤1: 检查课堂状态");
             boolean isFakeClassMode = ApplicationModelShared.getInstance().fakeClassMode;
             boolean isInFormalClass = ScreenCastingManager.isHavingClass();
-            sendLogToWeb("DEBUG", TAG, "步骤1结果: isFakeClassMode=" + isFakeClassMode + ", isInFormalClass=" + isInFormalClass);
-            
+            sendLogToWeb("DEBUG", TAG,
+                    "步骤1结果: isFakeClassMode=" + isFakeClassMode + ", isInFormalClass=" + isInFormalClass);
+
             // 流程：如果既不在游客模式课堂，也不在正式课堂，则返回失败
             if (!isFakeClassMode && !isInFormalClass) {
                 sendLogToWeb("WARN", TAG, "步骤1结果: 未在课堂中，返回失败");
                 return createResponse(false, "未在课堂中", null);
             }
-            
+
             // 流程：获取用户ID（用于日志记录）
             sendLogToWeb("DEBUG", TAG, "步骤2: 获取用户ID");
             String userId = AppUtils.getUserId();
@@ -3138,14 +2623,14 @@ public class WebAppInterface {
                 userId = "unknown";
             }
             sendLogToWeb("INFO", TAG, "步骤2结果: 用户ID=" + userId);
-            
+
             // 流程：处理游客模式退出 -> 设置fakeClassMode为false并返回成功
             if (isFakeClassMode) {
                 sendLogToWeb("INFO", TAG, "步骤3: 检测到游客模式，开始退出");
                 sendLogToWeb("DEBUG", TAG, "步骤3.1: 设置fakeClassMode=false");
                 ApplicationModelShared.getInstance().fakeClassMode = false;
                 sendLogToWeb("INFO", TAG, "步骤3.1结果: fakeClassMode已设置为false");
-                
+
                 // ✅ 触发Vue层回调，通知游客模式退出课堂成功
                 sendLogToWeb("DEBUG", TAG, "步骤3.2: 准备触发onClassroomExited事件（游客模式）");
                 try {
@@ -3155,14 +2640,14 @@ public class WebAppInterface {
                 } catch (Exception e) {
                     sendLogToWeb("ERROR", TAG, "步骤3.2结果: 触发onClassroomExited失败（游客模式）: " + e.getMessage());
                 }
-                
+
                 sendLogToWeb("INFO", TAG, "========== 游客模式退出课堂成功 ==========");
                 return createResponseWithJsonData(true, "游客模式退出课堂成功", "{\"mode\":\"guest\",\"isInClass\":false}");
             }
-            
+
             // 流程：处理正式用户模式退出 -> 设置ScreenCastingManager状态并停止ScreenShareKit
             sendLogToWeb("INFO", TAG, "步骤3: 检测到正式用户模式，开始退出");
-            
+
             // ✅ 停止TS流转换
             sendLogToWeb("DEBUG", TAG, "步骤3.1: 停止TS流转换");
             try {
@@ -3176,12 +2661,12 @@ public class WebAppInterface {
             } catch (Exception e) {
                 sendLogToWeb("ERROR", TAG, "步骤3.1结果: 停止TS流失败: " + e.getMessage());
             }
-            
+
             // ✅ 设置课堂模式为false
             sendLogToWeb("DEBUG", TAG, "步骤3.2: 设置ScreenCastingManager课堂模式为false");
             ScreenCastingManager.setClassMode(false);
             sendLogToWeb("INFO", TAG, "步骤3.2结果: 课堂模式已设置为false");
-            
+
             // ✅ 停止ScreenShareKit
             sendLogToWeb("DEBUG", TAG, "步骤3.3: 停止ScreenShareKit");
             try {
@@ -3190,7 +2675,7 @@ public class WebAppInterface {
             } catch (Exception e) {
                 sendLogToWeb("ERROR", TAG, "步骤3.3结果: 停止ScreenShareKit失败: " + e.getMessage());
             }
-            
+
             // ✅ 触发Vue层回调，通知退出课堂成功
             sendLogToWeb("DEBUG", TAG, "步骤3.4: 准备触发onClassroomExited事件");
             try {
@@ -3200,46 +2685,48 @@ public class WebAppInterface {
             } catch (Exception e) {
                 sendLogToWeb("ERROR", TAG, "步骤3.4结果: 触发onClassroomExited失败: " + e.getMessage());
             }
-            
+
             sendLogToWeb("INFO", TAG, "========== 正式用户模式退出课堂成功 ==========");
             return createResponseWithJsonData(true, "退出课堂成功", "{\"mode\":\"formal\",\"isInClass\":false}");
-            
+
         } catch (Exception e) {
             sendLogToWeb("ERROR", TAG, "========== 退出课堂流程异常 ==========");
             sendLogToWeb("ERROR", TAG, "异常信息: " + e.getMessage());
             return createResponse(false, "退出课堂失败: " + e.getMessage(), null);
         }
     }
-    
+
     /**
      * 获取课堂状态
+     * 
      * @returns 课堂状态信息
      */
     @JavascriptInterface
     public String getClassroomStatus() {
         Log.d(TAG, "🔍 WebAppInterface获取课堂状态 - 开始");
-        
+
         try {
             String userId = AppUtils.getUserId();
             boolean isInClass = ScreenCastingManager.isHavingClass();
             boolean isProjecting = ScreenCastingManager.isProjecting();
             boolean isGuest = userId != null && userId.equals("guest000");
-            
+
             String status = String.format(Locale.getDefault(),
-                "{\"isInClass\":%b,\"isProjecting\":%b,\"isGuest\":%b,\"userId\":\"%s\"}",
-                isInClass, isProjecting, isGuest, userId != null ? userId : "");
-            
+                    "{\"isInClass\":%b,\"isProjecting\":%b,\"isGuest\":%b,\"userId\":\"%s\"}",
+                    isInClass, isProjecting, isGuest, userId != null ? userId : "");
+
             Log.d(TAG, "🔍 WebAppInterface获取课堂状态 - 状态: " + status);
             return createResponseWithJsonData(true, "获取课堂状态成功", status);
-            
+
         } catch (Exception e) {
             Log.e(TAG, "🔍 WebAppInterface获取课堂状态 - 发生错误", e);
             return createResponse(false, "获取课堂状态失败: " + e.getMessage(), null);
         }
     }
-    
+
     /**
      * 检查是否在课堂中
+     * 
      * @returns 是否在课堂中
      */
     @JavascriptInterface
@@ -3248,9 +2735,10 @@ public class WebAppInterface {
         Log.d(TAG, "🔍 WebAppInterface检查课堂状态 - isInClass: " + isInClass);
         return isInClass;
     }
-    
+
     /**
      * 检查是否正在投影
+     * 
      * @returns 是否正在投影
      */
     @JavascriptInterface
@@ -3261,7 +2749,7 @@ public class WebAppInterface {
     }
 
     // ========== 键盘控制相关接口 ==========
-    
+
     /**
      * 禁用原生键盘弹出
      * 通过设置WebView中所有输入元素的属性来阻止键盘弹出
@@ -3270,29 +2758,29 @@ public class WebAppInterface {
     public String disableNativeKeyboard() {
         try {
             Log.d(TAG, "🎯 [ANDROID] 禁用原生键盘弹出");
-            
+
             // 通过JavaScript设置所有输入元素的属性
-            String script = 
-                "document.querySelectorAll('input, textarea, [contenteditable], math-field').forEach(el => {" +
-                "  el.setAttribute('inputmode', 'none');" +
-                "  el.setAttribute('readonly', 'true');" +
-                "  el.style.setProperty('-webkit-user-select', 'none');" +
-                "  el.style.setProperty('pointer-events', 'none');" +
-                "  console.log('🎯 [ANDROID] 禁用元素键盘:', el.tagName, el.className);" +
-                "});" +
-                "console.log('🎯 [ANDROID] 原生键盘已禁用');";
-            
+            String script = "document.querySelectorAll('input, textarea, [contenteditable], math-field').forEach(el => {"
+                    +
+                    "  el.setAttribute('inputmode', 'none');" +
+                    "  el.setAttribute('readonly', 'true');" +
+                    "  el.style.setProperty('-webkit-user-select', 'none');" +
+                    "  el.style.setProperty('pointer-events', 'none');" +
+                    "  console.log('🎯 [ANDROID] 禁用元素键盘:', el.tagName, el.className);" +
+                    "});" +
+                    "console.log('🎯 [ANDROID] 原生键盘已禁用');";
+
             // 执行JavaScript
             executeJavaScript(script);
-            
+
             return createResponse(true, "原生键盘已禁用", null);
-            
+
         } catch (Exception e) {
             Log.e(TAG, "禁用原生键盘失败", e);
             return createResponse(false, "禁用原生键盘失败: " + e.getMessage(), null);
         }
     }
-    
+
     /**
      * 启用原生键盘弹出
      * 恢复WebView中所有输入元素的正常属性
@@ -3301,43 +2789,44 @@ public class WebAppInterface {
     public String enableNativeKeyboard() {
         try {
             Log.d(TAG, "🎯 [ANDROID] 启用原生键盘弹出");
-            
+
             // 通过JavaScript恢复所有输入元素的属性
-            String script = 
-                "document.querySelectorAll('input, textarea, [contenteditable], math-field').forEach(el => {" +
-                "  el.removeAttribute('inputmode');" +
-                "  el.removeAttribute('readonly');" +
-                "  el.style.removeProperty('-webkit-user-select');" +
-                "  el.style.removeProperty('pointer-events');" +
-                "  console.log('🎯 [ANDROID] 启用元素键盘:', el.tagName, el.className);" +
-                "});" +
-                "console.log('🎯 [ANDROID] 原生键盘已启用');";
-            
+            String script = "document.querySelectorAll('input, textarea, [contenteditable], math-field').forEach(el => {"
+                    +
+                    "  el.removeAttribute('inputmode');" +
+                    "  el.removeAttribute('readonly');" +
+                    "  el.style.removeProperty('-webkit-user-select');" +
+                    "  el.style.removeProperty('pointer-events');" +
+                    "  console.log('🎯 [ANDROID] 启用元素键盘:', el.tagName, el.className);" +
+                    "});" +
+                    "console.log('🎯 [ANDROID] 原生键盘已启用');";
+
             // 执行JavaScript
             executeJavaScript(script);
-            
+
             return createResponse(true, "原生键盘已启用", null);
-            
+
         } catch (Exception e) {
             Log.e(TAG, "启用原生键盘失败", e);
             return createResponse(false, "启用原生键盘失败: " + e.getMessage(), null);
         }
     }
-    
+
     // WebView实例引用，用于执行JavaScript
     private WebView webView;
-    
+
     /**
      * 设置WebView实例
      */
     public void setWebView(WebView webView) {
         this.webView = webView;
     }
-    
+
     /**
      * 发送日志到Web前端（公共方法，供其他Service调用）
-     * @param level 日志级别: DEBUG, INFO, WARN, ERROR
-     * @param tag 日志标签
+     * 
+     * @param level   日志级别: DEBUG, INFO, WARN, ERROR
+     * @param tag     日志标签
      * @param message 日志消息
      */
     public void sendLogToWeb(String level, String tag, String message) {
@@ -3359,25 +2848,24 @@ public class WebAppInterface {
                 Log.i(tag, message);
                 break;
         }
-        
+
         // 发送到Web前端
         try {
-            String safeMessage = message != null ? 
-                message.replace("\\", "\\\\")
-                       .replace("'", "\\'")
-                       .replace("\"", "\\\"")
-                       .replace("\n", "\\n")
-                       .replace("\r", "\\r") : "";
+            String safeMessage = message != null ? message.replace("\\", "\\\\")
+                    .replace("'", "\\'")
+                    .replace("\"", "\\\"")
+                    .replace("\n", "\\n")
+                    .replace("\r", "\\r") : "";
             String safeTag = tag != null ? tag.replace("'", "\\'").replace("\"", "\\\"") : "Android";
             String js = String.format(Locale.getDefault(),
-                "if(window.onAndroidLog){window.onAndroidLog('%s','%s','%s');}",
-                level != null ? level : "INFO", safeTag, safeMessage);
+                    "if(window.onAndroidLog){window.onAndroidLog('%s','%s','%s');}",
+                    level != null ? level : "INFO", safeTag, safeMessage);
             executeJavaScript(js);
         } catch (Exception e) {
             Log.e(TAG, "发送日志到Web失败", e);
         }
     }
-    
+
     /**
      * 执行JavaScript代码
      * 确保在主线程上执行WebView操作
@@ -3395,9 +2883,9 @@ public class WebAppInterface {
             Log.w(TAG, "🎯 [ANDROID] WebView实例为空，无法执行JavaScript");
         }
     }
-    
+
     // ========== 原生相机预览控制方法 ==========
-    
+
     /**
      * 启动原生相机预览
      * 通过 JS 桥接调用，启动底层 PreviewView 显示相机画面
@@ -3413,7 +2901,7 @@ public class WebAppInterface {
             Log.w(TAG, "当前Activity不是MainWebViewActivity，无法启动相机预览");
         }
     }
-    
+
     /**
      * 停止原生相机预览
      * 通过 JS 桥接调用，停止底层 PreviewView 的相机画面
@@ -3429,10 +2917,11 @@ public class WebAppInterface {
             Log.w(TAG, "当前Activity不是MainWebViewActivity，无法停止相机预览");
         }
     }
-    
+
     /**
      * 使用原生相机拍照
      * 通过 JS 桥接调用，使用底层相机进行拍照
+     * 
      * @param callbackId 回调ID，用于匹配Web端的回调函数
      */
     @JavascriptInterface
@@ -3446,17 +2935,16 @@ public class WebAppInterface {
             Log.w(TAG, "当前Activity不是MainWebViewActivity，无法使用原生相机拍照");
             // 回调 Web 端：拍照失败
             String js = String.format(
-                "javascript:(function() {" +
-                "  try {" +
-                "    if (window.onNativeCameraCaptureFailed) {" +
-                "      window.onNativeCameraCaptureFailed('%s', '当前环境不支持原生相机');" +
-                "    }" +
-                "  } catch(e) {" +
-                "    console.error('拍照回调失败:', e);" +
-                "  }" +
-                "})();",
-                callbackId != null ? callbackId.replace("'", "\\'") : "unknown"
-            );
+                    "javascript:(function() {" +
+                            "  try {" +
+                            "    if (window.onNativeCameraCaptureFailed) {" +
+                            "      window.onNativeCameraCaptureFailed('%s', '当前环境不支持原生相机');" +
+                            "    }" +
+                            "  } catch(e) {" +
+                            "    console.error('拍照回调失败:', e);" +
+                            "  }" +
+                            "})();",
+                    callbackId != null ? callbackId.replace("'", "\\'") : "unknown");
             executeJavaScript(js);
         }
     }
