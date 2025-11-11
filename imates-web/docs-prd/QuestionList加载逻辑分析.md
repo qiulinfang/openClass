@@ -363,3 +363,8 @@ MathJax 懒加载
 - 💾 **多层缓存**：Store + IndexedDB + 内存
 - 🎯 **精准测量**：ResizeObserver + 延迟测量
 
+
+
+
+
+

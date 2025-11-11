@@ -616,6 +616,15 @@ export class KonvaCanvasService {
   }
 
   /**
+   * 设置交互状态（用于禁用/启用触摸事件）
+   */
+  setListening(listening: boolean): void {
+    if (this.stage) {
+      this.stage.setAttrs({ listening })
+    }
+  }
+
+  /**
    * 清空画布
    */
   clear(): void {

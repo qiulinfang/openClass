@@ -853,7 +853,7 @@ public class LearnResourceManager {
         }
     }
     
-    private UserLearnData loadUserLearnData() {
+    public UserLearnData loadUserLearnData() {
         try {
             File learnDir = getUserLearnDirectory();
             if (learnDir == null) return null;

@@ -154,3 +154,8 @@ const allRendered = currentBatch.every((question) =>
 - 经验3：异步渲染完成检测应该添加超时机制，避免无限等待
 - 经验4：渲染状态应该统一管理，避免多个状态变量造成混乱
 
+
+
+
+
+

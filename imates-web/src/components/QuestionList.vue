@@ -1043,6 +1043,8 @@ const sendToAi = async (question: ExerciseItem) => {
         { id: '', userId: '' },
         'MATH',
         'mate',
+        undefined,
+        true // hidePrefix: true，存储到本地时去除"我们开始吧"前缀
       )
     } else {
       // 如果store中没有找到题目，说明数据不同步，需要重新同步

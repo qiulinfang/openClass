@@ -14,13 +14,18 @@
       :style="pdfCanvasStyle"
     ></canvas>
     
-    <!-- Konva 标注层 -->
+    <!-- DrawingBoard 标注层 -->
     <div 
       v-if="!store.hideNotes"
-      ref="konvaContainer"
-      class="konva-container"
+      ref="drawingBoardWrapper"
+      class="drawing-board-wrapper"
       :style="drawingBoardStyle"
-    ></div>
+    >
+      <canvas 
+        ref="drawingCanvas"
+        class="drawing-canvas"
+      ></canvas>
+    </div>
     
     <!-- 加载状态 -->
     <div v-if="isLoading" class="page-loading">
@@ -46,7 +51,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick, toRaw, inject } from 'vue'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { IndexedDBService } from '@/services/indexeddb-service'
-import { KonvaCanvasService, type DrawObject, type DrawingConfig } from '@/services/pdf/konva/KonvaCanvasService'
+import { drawSmoothPath, type HandwritingStyle } from '@/utils/drawing/path-smoothing'
 
 // 窗口大小响应式状态
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1920)
@@ -73,7 +78,9 @@ const store = usePdfViewerStore()
 
 // 组件状态
 const pdfCanvas = ref<HTMLCanvasElement>()
-const konvaContainer = ref<HTMLDivElement>()
+const drawingCanvas = ref<HTMLCanvasElement>()
+const drawingBoardWrapper = ref<HTMLDivElement>()
+let ctx: CanvasRenderingContext2D | null = null
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 // 保存当前的渲染任务，用于取消
@@ -81,8 +88,57 @@ const currentRenderTask = ref<import('pdfjs-dist').RenderTask | null>(null)
 // 渲染防抖定时器
 let renderDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
-// Konva Canvas 服务实例
-let konvaService: KonvaCanvasService | null = null
+// DrawingBoard 绘制对象类型
+interface DrawObject {
+  type: 'path' | 'rectangle' | 'circle' | 'line' | 'triangle' | 'text'
+  color: string
+  lineWidth: number
+  points?: { x: number; y: number }[]
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  radius?: number
+  x1?: number
+  y1?: number
+  x2?: number
+  y2?: number
+  text?: string
+  fontSize?: number
+  opacity?: number
+  handwritingStyle?: 'brush' | 'writing' | 'spray' | 'oil-paint' | 'crayon' | 'marker' | 'pencil' | 'watercolor' | 'standard' | 'smooth' | 'natural' | 'fast' // 画笔样式（包含旧类型以向后兼容）
+  rawPoints?: { x: number; y: number }[] // 原始点（可选，用于平滑处理）
+}
+
+// 绘制对象列表
+const objects = ref<DrawObject[]>([])
+
+// 历史记录管理
+const history = ref<DrawObject[][]>([[]])
+const historyIndex = ref(0)
+const maxHistorySize = 20 // 最多保存20个历史状态
+
+// 当前绘制状态
+const isDrawing = ref(false)
+const currentPath = ref<{ x: number; y: number }[]>([])
+const startPoint = ref<{ x: number; y: number } | null>(null)
+const tempObject = ref<DrawObject | null>(null)
+
+// 截图状态
+const screenshotState = ref({
+  isDrawing: false,
+  startPoint: null as { x: number; y: number } | null,
+  currentShape: null as DrawObject | null,
+  polygonPoints: [] as { x: number; y: number }[]
+})
+
+// 选择工具状态
+const selectedObjects = ref<Set<number>>(new Set())
+const selectionBox = ref<{ x: number; y: number; width: number; height: number } | null>(null)
+const selectionPath = ref<{ x: number; y: number }[]>([]) // 自由框选路径
+const isDraggingObjects = ref(false)
+const dragStartPoint = ref<{ x: number; y: number } | null>(null)
+const objectsOriginalPositions = ref<Map<number, DrawObject>>(new Map())
 
 // 双指滑动状态
 const touchState = ref({
@@ -230,68 +286,64 @@ const initPdfPage = async () => {
 let baseViewportWidth = 0
 let baseViewportHeight = 0
 
-// 初始化 Konva Canvas
-const initKonvaCanvas = async () => {
-  if (!konvaContainer.value || !pdfCanvas.value || !store.pdfDoc) {
+// 初始化 DrawingBoard Canvas
+const initDrawingCanvas = async () => {
+  if (!drawingCanvas.value || !pdfCanvas.value || !store.pdfDoc) {
     return
   }
   
   try {
     await nextTick()
     
+    // 获取PDF页面原始尺寸（用于坐标标准化）
+    if (baseViewportWidth === 0 || baseViewportHeight === 0) {
+      const rawPdfDoc = toRaw(store.pdfDoc)
+      const page = await rawPdfDoc.getPage(props.layout.pageNum)
+      const rawPage = toRaw(page)
+      const baseViewport = rawPage.getViewport({ scale: 1.0 })
+      baseViewportWidth = baseViewport.width
+      baseViewportHeight = baseViewport.height
+    }
+    
+    // 获取设备像素比
+    const dpr = window.devicePixelRatio || 1
     // 获取当前scale下的viewport尺寸
     const rawPdfDoc = toRaw(store.pdfDoc)
     const page = await rawPdfDoc.getPage(props.layout.pageNum)
     const rawPage = toRaw(page)
     const currentViewport = rawPage.getViewport({ scale: store.scale })
     
-    const canvasWidth = currentViewport.width
-    const canvasHeight = currentViewport.height
+    // 设置Canvas实际分辨率（高DPI支持）
+    const canvasWidth = currentViewport.width * dpr
+    const canvasHeight = currentViewport.height * dpr
     
-    // 创建 Konva 配置
-    const drawingConfig: DrawingConfig = {
-      penColor: store.drawingConfig.penColor,
-      penWidth: store.drawingConfig.penWidth,
-      penHandwritingStyle: store.drawingConfig.penHandwritingStyle,
-      highlighterColor: store.drawingConfig.highlighterColor,
-      highlighterWidth: store.drawingConfig.highlighterWidth,
-      highlighterOpacity: store.drawingConfig.highlighterOpacity,
-      eraserSize: store.drawingConfig.eraserSize,
-      eraserMode: store.drawingConfig.eraserMode,
-      screenshotShape: store.drawingConfig.screenshotShape,
-      screenshotStrokeColor: store.drawingConfig.screenshotStrokeColor,
-      screenshotFillColor: store.drawingConfig.screenshotFillColor,
-      screenshotStrokeWidth: store.drawingConfig.screenshotStrokeWidth,
-      selectMode: store.drawingConfig.selectMode,
+    // 设置Canvas尺寸
+    drawingCanvas.value.width = canvasWidth
+    drawingCanvas.value.height = canvasHeight
+    drawingCanvas.value.style.width = `${currentViewport.width}px`
+    drawingCanvas.value.style.height = `${currentViewport.height}px`
+    
+    // 获取上下文并重置变换矩阵，然后设置缩放以适应高DPI
+    ctx = drawingCanvas.value.getContext('2d')
+    if (!ctx) {
+      throw new Error('无法获取Canvas上下文')
     }
+    // 重置变换矩阵（确保之前的状态被清除）
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.scale(dpr, dpr)
     
-    // 创建 Konva 服务实例
-    konvaService = new KonvaCanvasService(drawingConfig, {
-      onDataChange: () => {
-        // 保存状态到历史记录
-        saveState()
-        // 保存到 Store
-        saveAnnotations()
-      },
-      onScreenshotCaptured: (blob) => {
-        emit('screenshot-captured', blob)
-      },
-    })
+    // 清理临时对象（缩放时取消正在进行的绘制）
+    tempObject.value = null
+    isDrawing.value = false
     
-    // 初始化 Konva Stage
-    konvaService.init(konvaContainer.value, canvasWidth, canvasHeight, store.scale)
-    
-    // 设置当前工具
-    konvaService.setTool(store.selectedTool)
-    
-    // 加载现有笔记
+    // 加载现有笔记（会在加载时进行坐标转换）
     await loadAnnotations()
     
-    // 初始化历史记录（保存初始状态）
-    saveState()
+    // 初始渲染
+    render()
     
   } catch (err) {
-    console.error(`第 ${props.layout.pageNum} 页 Konva Canvas 初始化失败:`, err)
+    console.error(`第 ${props.layout.pageNum} 页 DrawingBoard Canvas 初始化失败:`, err)
     error.value = err instanceof Error ? err.message : '初始化失败'
   }
 }
@@ -372,27 +424,34 @@ const normalizeCoordinates = (obj: DrawObject, scale: number): DrawObject => {
 
 // 加载笔记
 const loadAnnotations = async () => {
-  if (!konvaService) return
-  
   try {
     // 从store获取注释
     const pageAnnotations = store.allAnnotations[props.layout.pageNum] || []
     
-    // 转换为 DrawObject 格式（标准化坐标，scale=1）
-    const drawObjects: DrawObject[] = pageAnnotations.map((obj: unknown) => {
-      const drawObj = obj as Partial<DrawObject>
-      if (drawObj.type && drawObj.color !== undefined) {
-        return obj as DrawObject
-      }
-      // 兼容旧格式
-      return convertToDrawObject(obj as Record<string, unknown>)
-    })
+    if (pageAnnotations.length > 0) {
+      // 将store中的对象转换为DrawObject格式，并应用当前scale
+      objects.value = pageAnnotations.map((obj: unknown) => {
+        // 如果已经是DrawObject格式，直接使用
+        const drawObj = obj as Partial<DrawObject>
+        if (drawObj.type && drawObj.color !== undefined) {
+          // 笔记坐标是标准化的（基于scale=1），需要转换为当前scale
+          return scaleCoordinates(obj as DrawObject, store.scale)
+        }
+        // 否则尝试转换（兼容Fabric格式）
+        const converted = convertToDrawObject(obj as Record<string, unknown>)
+        // 假设旧数据也是基于scale=1的，转换为当前scale
+        return scaleCoordinates(converted, store.scale)
+      })
+    } else {
+      objects.value = []
+    }
     
-    // 加载到 Konva（Konva 服务会处理坐标转换）
-    konvaService.load(drawObjects, store.scale)
-    
+    // 初始化历史记录（保存初始状态）
+    history.value = [JSON.parse(JSON.stringify(objects.value))]
+    historyIndex.value = 0
   } catch (err) {
     console.error(`第 ${props.layout.pageNum} 页加载笔记失败:`, err)
+    objects.value = []
   }
 }
 
@@ -976,6 +1035,13 @@ const handleDrawingMouseDown = (e: MouseEvent) => {
     const shapeType = store.drawingConfig.screenshotShape || 'rectangle'
     screenshotState.value.isDrawing = true
     screenshotState.value.startPoint = coords
+    
+    console.log('[截图工具] 开始截图', {
+      shapeType,
+      startPoint: coords,
+      pageNum: props.layout.pageNum
+    })
+    
     if (shapeType === 'rectangle') {
       // 矩形截图
       screenshotState.value.currentShape = {
@@ -987,6 +1053,12 @@ const handleDrawingMouseDown = (e: MouseEvent) => {
         width: 0,
         height: 0
       }
+      console.log('[截图工具] 初始化矩形选区', {
+        x: coords.x,
+        y: coords.y,
+        width: 0,
+        height: 0
+      })
     } else if (shapeType === 'polygon') {
       // 自由形状截图
       screenshotState.value.polygonPoints = [coords]
@@ -996,6 +1068,10 @@ const handleDrawingMouseDown = (e: MouseEvent) => {
         lineWidth: 2,
         points: [coords]
       }
+      console.log('[截图工具] 初始化自由形状选区', {
+        pointsCount: 1,
+        firstPoint: coords
+      })
     }
     render()
   }
@@ -1100,6 +1176,15 @@ const handleDrawingMouseMove = (e: MouseEvent) => {
       }
       
       screenshotState.value.currentShape = rectShape
+      
+      console.log('[截图工具] 更新矩形选区', {
+        x: rectShape.x,
+        y: rectShape.y,
+        width: rectShape.width,
+        height: rectShape.height,
+        currentPoint: coords
+      })
+      
       render()
     } else if (shapeType === 'polygon' && screenshotState.value.currentShape) {
       // 添加点到自由形状
@@ -1110,6 +1195,12 @@ const handleDrawingMouseMove = (e: MouseEvent) => {
         lineWidth: 2,
         points: [...screenshotState.value.polygonPoints]
       }
+      
+      console.log('[截图工具] 更新自由形状选区', {
+        pointsCount: screenshotState.value.polygonPoints.length,
+        currentPoint: coords
+      })
+      
       render()
     }
   }
@@ -1184,6 +1275,10 @@ const handleDrawingMouseUp = () => {
     startPoint.value = null
   } else if (tool === 'screenshot' && screenshotState.value.isDrawing && screenshotState.value.currentShape) {
     // 捕获截图
+    console.log('[截图工具] 结束截图，开始捕获', {
+      shapeType: screenshotState.value.currentShape.type,
+      shape: screenshotState.value.currentShape
+    })
     captureScreenshot()
   }
 }
@@ -1202,6 +1297,12 @@ const captureScreenshot = async () => {
   try {
     const shape = screenshotState.value.currentShape
     const bounds = getObjectBounds(shape)
+    
+    console.log('[截图工具] 计算选区边界', {
+      shapeType: shape.type,
+      bounds: bounds
+    })
+    
     if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
       console.warn('[截图工具] 捕获失败：选区无效', {
         bounds: bounds
@@ -1210,72 +1311,59 @@ const captureScreenshot = async () => {
       return
     }
     
-    // 获取设备像素比（用于坐标转换）
-    const dpr = window.devicePixelRatio || 1
-    
-    // 将bounds从逻辑坐标（CSS像素）转换为实际像素坐标
-    // bounds是相对于drawingCanvas的逻辑坐标，需要转换为pdfCanvas的实际像素坐标
-    const sourceX = Math.round(bounds.x * dpr)
-    const sourceY = Math.round(bounds.y * dpr)
-    const sourceWidth = bounds.width * dpr
-    const sourceHeight = bounds.height * dpr
-    
-    // 创建临时canvas合并PDF和绘制内容（使用实际像素尺寸）
+    // 创建临时canvas合并PDF和绘制内容
     const tempCanvas = document.createElement('canvas')
-    tempCanvas.width = Math.max(1, Math.round(sourceWidth))
-    tempCanvas.height = Math.max(1, Math.round(sourceHeight))
+    tempCanvas.width = Math.max(1, Math.round(bounds.width))
+    tempCanvas.height = Math.max(1, Math.round(bounds.height))
     const tempCtx = tempCanvas.getContext('2d')
     
     if (!tempCtx) {
       throw new Error('无法获取临时Canvas上下文')
     }
     
-    // 设置临时Canvas的显示尺寸（CSS像素）
-    tempCanvas.style.width = `${bounds.width}px`
-    tempCanvas.style.height = `${bounds.height}px`
+    console.log('[截图工具] 创建临时Canvas', {
+      width: tempCanvas.width,
+      height: tempCanvas.height,
+      bounds: bounds
+    })
     
-    // 缩放临时Canvas的上下文以适应高DPI（与drawingCanvas保持一致）
-    tempCtx.scale(dpr, dpr)
-    // 获取源 canvas 的尺寸（实际像素）
-    const pdfCanvasWidth = pdfCanvas.value.width
-    const pdfCanvasHeight = pdfCanvas.value.height
-    // 边界检查（使用实际像素坐标）
-    if (sourceX < 0 || sourceY < 0 || 
-        sourceX + sourceWidth > pdfCanvasWidth || 
-        sourceY + sourceHeight > pdfCanvasHeight) {
-      console.warn('[截图工具] 选区超出PDF Canvas范围', {
-        sourceRect: { x: sourceX, y: sourceY, width: sourceWidth, height: sourceHeight },
-        pdfCanvasSize: { width: pdfCanvasWidth, height: pdfCanvasHeight }
-      })
-    }
-    // 绘制PDF内容（使用实际像素坐标）
-    // 注意：这里需要先重置tempCtx的变换，因为drawImage使用的是实际像素坐标
-    tempCtx.setTransform(1, 0, 0, 1, 0, 0)
+    // 绘制PDF内容
     tempCtx.drawImage(
       pdfCanvas.value,
-      sourceX,
-      sourceY,
-      sourceWidth,
-      sourceHeight,
+      Math.round(bounds.x),
+      Math.round(bounds.y),
+      bounds.width,
+      bounds.height,
       0,
       0,
-      tempCanvas.width,
-      tempCanvas.height
+      bounds.width,
+      bounds.height
     )
     
-    // 恢复缩放变换（用于后续绘制绘制层内容）
-    tempCtx.scale(dpr, dpr)
+    console.log('[截图工具] 已绘制PDF内容到临时Canvas')
+    
     // 绘制绘制层内容（临时隐藏截图选区）
-    // offset使用逻辑坐标，因为tempCtx已经应用了dpr缩放
-    objects.value.forEach((obj) => {
+    const objectsCount = objects.value.length
+    objects.value.forEach(obj => {
       drawObjectToContext(tempCtx, obj, {
         x: -bounds.x,
         y: -bounds.y
       })
     })
+    
+    console.log('[截图工具] 已绘制绘制层内容到临时Canvas', {
+      objectsCount: objectsCount
+    })
+    
     // 转换为Blob并触发回调
     tempCanvas.toBlob((blob) => {
       if (blob) {
+        console.log('[截图工具] 截图捕获成功', {
+          blobSize: blob.size,
+          blobType: blob.type,
+          width: tempCanvas.width,
+          height: tempCanvas.height
+        })
         emit('screenshot-captured', blob)
       } else {
         console.error('[截图工具] 截图转换为Blob失败')
@@ -1357,6 +1445,7 @@ const drawObjectToContext = (targetCtx: CanvasRenderingContext2D, obj: DrawObjec
 
 // 重置截图状态
 const resetScreenshotState = () => {
+  console.log('[截图工具] 重置截图状态')
   screenshotState.value = {
     isDrawing: false,
     startPoint: null,
@@ -1365,25 +1454,16 @@ const resetScreenshotState = () => {
   }
 }
 
-// 历史记录管理（用于 undo/redo）
-const history = ref<DrawObject[][]>([[]])
-const historyIndex = ref(0)
-const maxHistorySize = 20
-
 // 保存状态到历史记录
 const saveState = () => {
-  if (!konvaService) return
-  
-  // 序列化当前状态（标准化坐标）
-  const currentState = konvaService.serialize(store.scale)
-  
   // 如果当前不在历史记录末尾，删除后面的记录
   if (historyIndex.value < history.value.length - 1) {
     history.value = history.value.slice(0, historyIndex.value + 1)
   }
 
   // 保存当前状态（深拷贝）
-  history.value.push(JSON.parse(JSON.stringify(currentState)))
+  const currentState = JSON.parse(JSON.stringify(objects.value))
+  history.value.push(currentState)
   historyIndex.value = history.value.length - 1
 
   // 限制历史记录数量
@@ -1395,18 +1475,17 @@ const saveState = () => {
 
 // 撤销
 const undo = () => {
-  if (!konvaService || historyIndex.value <= 0) {
+  if (historyIndex.value <= 0) {
     return false // 无法撤销
   }
 
   historyIndex.value--
-  const previousState = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
-  
-  // 加载到 Konva
-  konvaService.load(previousState, store.scale)
+  objects.value = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
+  render()
   
   // 保存到Store
-  const serializedObjects = IndexedDBService.deepSerialize(previousState) as object[]
+  const normalizedObjects = objects.value.map(obj => normalizeCoordinates(obj, store.scale))
+  const serializedObjects = IndexedDBService.deepSerialize(normalizedObjects) as object[]
   store.updateAnnotations(props.layout.pageNum, serializedObjects)
   
   return true
@@ -1414,18 +1493,17 @@ const undo = () => {
 
 // 重做
 const redo = () => {
-  if (!konvaService || historyIndex.value >= history.value.length - 1) {
+  if (historyIndex.value >= history.value.length - 1) {
     return false // 无法重做
   }
 
   historyIndex.value++
-  const nextState = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
-  
-  // 加载到 Konva
-  konvaService.load(nextState, store.scale)
+  objects.value = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
+  render()
   
   // 保存到Store
-  const serializedObjects = IndexedDBService.deepSerialize(nextState) as object[]
+  const normalizedObjects = objects.value.map(obj => normalizeCoordinates(obj, store.scale))
+  const serializedObjects = IndexedDBService.deepSerialize(normalizedObjects) as object[]
   store.updateAnnotations(props.layout.pageNum, serializedObjects)
   
   return true
@@ -1437,12 +1515,13 @@ const canUndo = computed(() => historyIndex.value > 0)
 // 检查是否可以重做
 const canRedo = computed(() => historyIndex.value < history.value.length - 1)
 
-// 保存注释到Store
+// 保存注释到Store（在保存前先保存状态到历史记录）
 const saveAnnotations = () => {
-  if (!konvaService) return
+  // 先保存状态到历史记录
+  saveState()
   
-  // 序列化 Konva 对象为 DrawObject（标准化坐标，scale=1）
-  const normalizedObjects = konvaService.serialize(store.scale)
+  // 将坐标标准化为scale=1后再保存
+  const normalizedObjects = objects.value.map(obj => normalizeCoordinates(obj, store.scale))
   const serializedObjects = IndexedDBService.deepSerialize(normalizedObjects) as object[]
   store.updateAnnotations(props.layout.pageNum, serializedObjects)
   
@@ -1454,7 +1533,7 @@ const saveAnnotations = () => {
 const retryLoad = async () => {
   await initPdfPage()
   if (!error.value) {
-    await initKonvaCanvas()
+    await initDrawingCanvas()
   }
 }
 
@@ -1590,7 +1669,7 @@ const zoomAtPoint = async (point: { x: number, y: number }, oldScale: number, ne
   }
 }
 
-// 触摸开始事件处理（只处理双指手势，单指由 Konva 处理）
+// 触摸开始事件处理
 const handleTouchStart = (event: TouchEvent) => {
   if (event.touches.length === 2) {
     const touch1 = event.touches[0]
@@ -1608,67 +1687,133 @@ const handleTouchStart = (event: TouchEvent) => {
     // 初始状态不确定是缩放还是滑动，需要在move中判断
     touchState.value.isTwoFinger = true
     touchState.value.isZooming = false
+    
+    // 停止绘制
+    isDrawing.value = false
+    currentPath.value = []
+    startPoint.value = null
+    tempObject.value = null
   } else {
     touchState.value.isTwoFinger = false
     touchState.value.isZooming = false
     touchState.value.initialDistance = 0
-    // 单指触摸由 Konva 服务处理，不需要额外处理
+    
+    // 单指触摸，开始操作（绘制、橡皮擦或截图）
+    if (event.touches.length === 1) {
+      const touch = event.touches[0]
+      const mouseEvent = new MouseEvent('mousedown', {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        bubbles: true,
+        cancelable: true
+      })
+      handleDrawingMouseDown(mouseEvent)
+    }
   }
 }
 
-// 触摸移动事件处理（只处理双指手势，单指由 Konva 处理）
+// 触摸移动事件处理
 const handleTouchMove = (event: TouchEvent) => {
   if (event.touches.length === 2 && touchState.value.isTwoFinger) {
     // 双指手势：缩放或滑动
-    event.preventDefault()
-    
-    const touch1 = event.touches[0]
-    const touch2 = event.touches[1]
-    const currentDistance = getDistance(touch1, touch2)
-    const initialDistance = touchState.value.initialDistance
-    const currentY = getTwoFingerCenterY(event.touches)
-    const deltaY = Math.abs(currentY - touchState.value.startY)
-    const distanceChange = Math.abs(currentDistance - initialDistance)
-    
-    // 判断是缩放还是滑动：如果距离变化比垂直移动大，则认为是缩放
-    const isDistanceChange = distanceChange > 15 // 距离变化阈值
-    
-    if (!touchState.value.isZooming && isDistanceChange && distanceChange > deltaY * 0.5) {
-      // 确定为缩放手势
-      touchState.value.isZooming = true
+  event.preventDefault()
+  
+  const touch1 = event.touches[0]
+  const touch2 = event.touches[1]
+  const currentDistance = getDistance(touch1, touch2)
+  const initialDistance = touchState.value.initialDistance
+  const currentY = getTwoFingerCenterY(event.touches)
+  const deltaY = Math.abs(currentY - touchState.value.startY)
+  const distanceChange = Math.abs(currentDistance - initialDistance)
+  
+  // 判断是缩放还是滑动：如果距离变化比垂直移动大，则认为是缩放
+  const isDistanceChange = distanceChange > 15 // 距离变化阈值
+  
+  if (!touchState.value.isZooming && isDistanceChange && distanceChange > deltaY * 0.5) {
+    // 确定为缩放手势
+    touchState.value.isZooming = true
+  }
+  
+  if (touchState.value.isZooming) {
+    // 执行缩放
+    if (initialDistance > 0) {
+      // 计算缩放比例
+      const scaleRatio = currentDistance / initialDistance
+      const oldScale = touchState.value.initialScale
+      const newScale = oldScale * scaleRatio
+      
+      // 限制缩放范围
+      const clampedScale = Math.max(0.5, Math.min(3.0, newScale))
+      
+      // 计算双指中心点
+      const centerX = (touch1.clientX + touch2.clientX) / 2
+      const centerY = (touch1.clientY + touch2.clientY) / 2
+      
+      // 以双指中心为原点进行缩放
+      zoomAtPoint({ x: centerX, y: centerY }, oldScale, clampedScale)
     }
+  } else if (!isDistanceChange || deltaY > distanceChange) {
+    // 执行滑动
+    const scrollContainer = getScrollContainer()
+    if (scrollContainer) {
+      scrollContainer.scrollTop -= (currentY - touchState.value.lastY)
+    }
+    touchState.value.lastY = currentY
+    }
+  } else if (event.touches.length === 1 && !touchState.value.isTwoFinger) {
+    // 单指操作：绘制、选择、橡皮擦或截图
+    const tool = store.selectedTool
     
-    if (touchState.value.isZooming) {
-      // 执行缩放
-      if (initialDistance > 0) {
-        // 计算缩放比例
-        const scaleRatio = currentDistance / initialDistance
-        const oldScale = touchState.value.initialScale
-        const newScale = oldScale * scaleRatio
-        
-        // 限制缩放范围
-        const clampedScale = Math.max(0.5, Math.min(3.0, newScale))
-        
-        // 计算双指中心点
-        const centerX = (touch1.clientX + touch2.clientX) / 2
-        const centerY = (touch1.clientY + touch2.clientY) / 2
-        
-        // 以双指中心为原点进行缩放
-        zoomAtPoint({ x: centerX, y: centerY }, oldScale, clampedScale)
+    if (tool === 'select') {
+      // 选择工具：拖拽或框选
+      if (isDrawing.value || isDraggingObjects.value || selectionBox.value) {
+        event.preventDefault() // 防止页面滚动
+        const touch = event.touches[0]
+        const mouseEvent = new MouseEvent('mousemove', {
+          clientX: touch.clientX,
+          clientY: touch.clientY,
+          bubbles: true,
+          cancelable: true
+        })
+        handleDrawingMouseMove(mouseEvent)
       }
-    } else if (!isDistanceChange || deltaY > distanceChange) {
-      // 执行滑动
-      const scrollContainer = getScrollContainer()
-      if (scrollContainer) {
-        scrollContainer.scrollTop -= (currentY - touchState.value.lastY)
+    } else if (tool === 'pen' || tool === 'highlighter') {
+      if (isDrawing.value) {
+        event.preventDefault() // 防止页面滚动
+        const touch = event.touches[0]
+        const mouseEvent = new MouseEvent('mousemove', {
+          clientX: touch.clientX,
+          clientY: touch.clientY,
+          bubbles: true,
+          cancelable: true
+        })
+        handleDrawingMouseMove(mouseEvent)
       }
-      touchState.value.lastY = currentY
+    } else if (tool === 'eraser') {
+      event.preventDefault() // 防止页面滚动
+      const touch = event.touches[0]
+      const mouseEvent = new MouseEvent('mousemove', {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        bubbles: true,
+        cancelable: true
+      })
+      handleDrawingMouseMove(mouseEvent)
+    } else if (tool === 'screenshot' && screenshotState.value.isDrawing) {
+      event.preventDefault() // 防止页面滚动
+      const touch = event.touches[0]
+      const mouseEvent = new MouseEvent('mousemove', {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        bubbles: true,
+        cancelable: true
+      })
+      handleDrawingMouseMove(mouseEvent)
     }
   }
-  // 单指操作由 Konva 服务处理，不需要额外处理
 }
 
-// 触摸结束事件处理（只处理双指手势，单指由 Konva 处理）
+// 触摸结束事件处理
 const handleTouchEnd = (event: TouchEvent) => {
   if (event.touches.length < 2) {
     // 重置缩放状态
@@ -1683,8 +1828,24 @@ const handleTouchEnd = (event: TouchEvent) => {
     if (touchState.value.isTwoFinger) {
       touchState.value.isTwoFinger = false
     }
+    
+    // 结束操作（选择、绘制或截图）
+    const tool = store.selectedTool
+    if (tool === 'select') {
+      // 选择工具结束：完成拖拽或框选
+      if (isDrawing.value || isDraggingObjects.value || selectionBox.value) {
+        handleDrawingMouseUp()
+      }
+    } else if (tool === 'pen' || tool === 'highlighter') {
+      if (isDrawing.value) {
+        handleDrawingMouseUp()
+      }
+    } else if (tool === 'screenshot') {
+      if (screenshotState.value.isDrawing) {
+        handleDrawingMouseUp()
+      }
+    }
   }
-  // 单指操作由 Konva 服务处理，不需要额外处理
 }
 
 // 鼠标滚轮事件处理
@@ -1719,6 +1880,25 @@ const handleResize = () => {
   windowWidth.value = window.innerWidth
 }
 
+// 添加/移除事件监听器的辅助函数
+const setupCanvasEventListeners = () => {
+  if (drawingCanvas.value) {
+    drawingCanvas.value.addEventListener('mousedown', handleDrawingMouseDown)
+    drawingCanvas.value.addEventListener('mousemove', handleDrawingMouseMove)
+    drawingCanvas.value.addEventListener('mouseup', handleDrawingMouseUp)
+    drawingCanvas.value.addEventListener('mouseleave', handleDrawingMouseUp)
+  }
+}
+
+const removeCanvasEventListeners = () => {
+  if (drawingCanvas.value) {
+    drawingCanvas.value.removeEventListener('mousedown', handleDrawingMouseDown)
+    drawingCanvas.value.removeEventListener('mousemove', handleDrawingMouseMove)
+    drawingCanvas.value.removeEventListener('mouseup', handleDrawingMouseUp)
+    drawingCanvas.value.removeEventListener('mouseleave', handleDrawingMouseUp)
+  }
+}
+
 // 监听 hideNotes 状态变化，当显示笔记时重新初始化 canvas
 watch(
   () => store.hideNotes,
@@ -1728,15 +1908,17 @@ watch(
       // 等待 DOM 更新（可能需要多次 nextTick 确保 ref 已更新）
       await nextTick()
       await nextTick()
-      // 重新初始化 Konva canvas 并加载笔记
-      if (konvaContainer.value && !error.value && store.pdfDoc) {
-        await initKonvaCanvas()
+      // 重新初始化 canvas 并加载笔记
+      if (drawingCanvas.value && !error.value && store.pdfDoc) {
+        await initDrawingCanvas()
+        // 重新绑定事件监听器
+        setupCanvasEventListeners()
       }
     }
-    // 当从显示变为隐藏时（hideNotes: false -> true），销毁 Konva 服务
+    // 当从显示变为隐藏时（hideNotes: false -> true），移除事件监听器
+    // 注意：DOM 会被 v-if 移除，但为了安全起见我们也要清理事件监听器
     if (!wasHidden && isHidden) {
-      konvaService?.destroy()
-      konvaService = null
+      removeCanvasEventListeners()
     }
   }
 )
@@ -1752,9 +1934,12 @@ onMounted(async () => {
   // 初始化 PDF 页面
   await initPdfPage()
   
-  // 初始化 Konva Canvas
+  // 初始化 DrawingBoard Canvas
   if (!error.value && !store.hideNotes) {
-    await initKonvaCanvas()
+    await initDrawingCanvas()
+    
+    // 添加鼠标事件监听
+    setupCanvasEventListeners()
   }
 })
 
@@ -1762,9 +1947,8 @@ onUnmounted(async () => {
   // 移除窗口大小监听
   window.removeEventListener('resize', handleResize)
   
-  // 销毁 Konva 服务
-  konvaService?.destroy()
-  konvaService = null
+  // 移除鼠标事件监听
+  removeCanvasEventListeners()
   
   // 清除防抖定时器
   if (renderDebounceTimer) {
@@ -1794,9 +1978,11 @@ watch(
   () => store.allAnnotations[props.layout.pageNum],
   (newAnnotations, oldAnnotations) => {
     // 只有当笔记确实发生变化时才重新加载
-    if (newAnnotations !== oldAnnotations && konvaService) {
+    if (newAnnotations !== oldAnnotations) {
       nextTick(() => {
-        loadAnnotations()
+        loadAnnotations().then(() => {
+          render()
+        })
       })
     }
   },
@@ -1815,27 +2001,8 @@ const debouncedRender = () => {
     // 重新渲染 PDF
     await initPdfPage()
     
-    // 更新 Konva Canvas 尺寸和缩放
-    if (konvaService && pdfCanvas.value && store.pdfDoc) {
-      try {
-        const rawPdfDoc = toRaw(store.pdfDoc)
-        const page = await rawPdfDoc.getPage(props.layout.pageNum)
-        const rawPage = toRaw(page)
-        const currentViewport = rawPage.getViewport({ scale: store.scale })
-        
-        konvaService.updateSize(currentViewport.width, currentViewport.height, store.scale)
-        
-        // 重新加载笔记（坐标会按新 scale 转换）
-        await loadAnnotations()
-      } catch (err) {
-        console.error(`第 ${props.layout.pageNum} 页更新 Konva 尺寸失败:`, err)
-        // 如果更新失败，重新初始化
-        await initKonvaCanvas()
-      }
-    } else if (!konvaService && !error.value && !store.hideNotes) {
-      // 如果 Konva 服务不存在，重新初始化
-      await initKonvaCanvas()
-    }
+    // 重新初始化 DrawingBoard Canvas
+    await initDrawingCanvas()
     
     renderDebounceTimer = null
   }, 150) // 150ms防抖延迟
@@ -1846,34 +2013,16 @@ watch(() => store.scale, () => {
   debouncedRender()
 })
 
-// 监听工具切换
+// 监听工具切换，更新光标样式
 watch(() => store.selectedTool, (newTool) => {
-  if (konvaService) {
-    konvaService.setTool(newTool)
+  if (drawingCanvas.value) {
+    if (newTool === 'select') {
+      drawingCanvas.value.style.cursor = 'crosshair'
+    } else {
+      drawingCanvas.value.style.cursor = 'default'
+    }
   }
 })
-
-// 监听配置变化
-watch(() => store.drawingConfig, (newConfig) => {
-  if (konvaService) {
-    const drawingConfig: Partial<DrawingConfig> = {
-      penColor: newConfig.penColor,
-      penWidth: newConfig.penWidth,
-      penHandwritingStyle: newConfig.penHandwritingStyle,
-      highlighterColor: newConfig.highlighterColor,
-      highlighterWidth: newConfig.highlighterWidth,
-      highlighterOpacity: newConfig.highlighterOpacity,
-      eraserSize: newConfig.eraserSize,
-      eraserMode: newConfig.eraserMode,
-      screenshotShape: newConfig.screenshotShape,
-      screenshotStrokeColor: newConfig.screenshotStrokeColor,
-      screenshotFillColor: newConfig.screenshotFillColor,
-      screenshotStrokeWidth: newConfig.screenshotStrokeWidth,
-      selectMode: newConfig.selectMode,
-    }
-    konvaService.updateConfig(drawingConfig)
-  }
-}, { deep: true })
 
 // 暴露方法给父组件
 defineExpose({
@@ -1917,7 +2066,14 @@ onUnmounted(() => {
   z-index: 1;
 }
 
-.konva-container {
+.drawing-board-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+}
+
+.drawing-canvas {
   position: absolute;
   top: 0;
   left: 0;

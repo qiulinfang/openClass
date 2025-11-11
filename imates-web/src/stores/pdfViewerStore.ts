@@ -237,12 +237,27 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
         
         // 2. 读取文件为 ArrayBuffer
         const arrayBuffer = await file.arrayBuffer()
-        this.originalPdfBytes = arrayBuffer
         
-        // 3. 从localFiles加载笔记数据
+        // 3. 在 PDF.js 加载之前，立即创建 ArrayBuffer 的独立副本
+        // 使用 slice() 方法创建真正的独立副本，避免被 PDF.js 转移后变成 detached
+        // slice() 会创建一个新的 ArrayBuffer，完全独立于原始 buffer
+        // 如果 slice() 失败（浏览器不支持），则使用 Uint8Array 创建副本
+        try {
+          this.originalPdfBytes = arrayBuffer.slice(0)
+        } catch (e) {
+          // 如果 slice() 失败，使用 Uint8Array 创建副本
+          const uint8Array = new Uint8Array(arrayBuffer)
+          const copiedUint8Array = new Uint8Array(uint8Array.length)
+          copiedUint8Array.set(uint8Array)
+          this.originalPdfBytes = copiedUint8Array.buffer
+        }
+        
+        // 4. 从localFiles加载笔记数据
         await this.loadAnnotationsFromLocalFile()
         
-        // 4. 加载 PDF.js 文档
+        // 5. 加载 PDF.js 文档（使用原始 arrayBuffer，因为 PDF.js 可能会转移它）
+        // 注意：PDF.js 会转移 ArrayBuffer 的所有权，导致原始 arrayBuffer 变成 detached
+        // 但我们已经保存了副本到 this.originalPdfBytes，所以不受影响
         const loadingTask = pdfjsLib.getDocument({
           data: arrayBuffer,
           cMapUrl: '/cmaps/',

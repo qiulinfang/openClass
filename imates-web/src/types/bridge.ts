@@ -146,6 +146,9 @@ declare global {
       stopScreenProjection(): string
       takeSnapshot(commandId: string): string
       setClassroomMode(classMode: boolean): string
+
+      // ========== PDF查看功能 ==========
+      openPdfWithMuPDF(textbookId: string, resourceId: string, sectionName: string): void
     }
 
     // ========== Android 事件回调 ==========

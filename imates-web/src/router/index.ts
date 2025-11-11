@@ -9,6 +9,8 @@ import HtmlViewerView from '@/views/HtmlViewerView.vue'
 import VideoViewerView from '@/views/VideoViewerView.vue'
 import FindExerciseView from '@/views/FindExerciseView.vue'
 import LearningView from '@/views/LearningView.vue'
+import LearningContentView from '@/views/LearningContentView.vue'
+import NewPdfView from '@/views/newpdfview.vue'
 import DrawingBoard from '@/components/DrawingBoard.vue'
 import MyFavoritesView from '@/views/MyFavoritesView.vue'
 import PhotoSearchView from '@/views/PhotoSearchView.vue'
@@ -69,6 +71,16 @@ const router = createRouter({
           path: 'learning',
           name: 'learning',
           component: LearningView
+        },
+        {
+          path: 'learning-content',
+          name: 'learningContent',
+          component: LearningContentView
+        },
+        {
+          path: 'new-pdf-view',
+          name: 'newPdfView',
+          component: NewPdfView
         },
         {
           path: 'drawing-board',

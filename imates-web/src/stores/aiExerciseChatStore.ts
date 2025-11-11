@@ -73,8 +73,10 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     }
     
     // 第2步：创建用户消息（可选）
+    // 自动检测并去除"我们开始吧"前缀（如果未显式设置hidePrefix）
+    const shouldHidePrefix = hidePrefix || content.includes('我们开始吧')
     if (!skipUserMessage) {
-      const userMessage = createUserMessage(content, imageData, hidePrefix)
+      const userMessage = createUserMessage(content, imageData, shouldHidePrefix)
       messages.value.push(userMessage)
     }
     

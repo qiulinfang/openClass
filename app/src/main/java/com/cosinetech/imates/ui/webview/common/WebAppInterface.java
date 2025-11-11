@@ -44,6 +44,12 @@ import org.loka.screensharekit.EncodeBuilder;
 import com.cosinetech.imates.screencasting.H264MpegTSStreamerManager;
 import com.cosinetech.imates.screencasting.H264IFrameCache;
 import com.cosinetech.imates.screencasting.FFmpegPipeStreamer;
+import com.cosinetech.imates.textbookservice.LearnResourceManager;
+import com.cosinetech.imates.textbookservice.UserLearnData;
+import com.cosinetech.imates.textbookservice.UserTextbookInfo;
+import com.cosinetech.imates.textbookservice.LocalFileInfo;
+import com.cosinetech.imates.textbookservice.LocalPackageInfo;
+import com.cosinetech.imates.ui.mupdfviewer.activity.MuPDFActivity;
 
 import java.io.File;
 import java.io.IOException;
@@ -2947,5 +2953,267 @@ public class WebAppInterface {
                     callbackId != null ? callbackId.replace("'", "\\'") : "unknown");
             executeJavaScript(js);
         }
+    }
+
+    /**
+     * 使用MuPDF打开PDF文件
+     * 通过JS桥接调用，从Web端跳转到Android原生MuPDF页面
+     * 从WebView的IndexedDB获取PDF数据，而不是从Android存储
+     * 
+     * @param textbookId 教材ID
+     * @param resourceId 资源文件ID
+     * @param sectionName 章节名称（可选）
+     */
+    @JavascriptInterface
+    public void openPdfWithMuPDF(String textbookId, String resourceId, String sectionName) {
+        Log.d(TAG, "收到打开PDF请求 - textbookId: " + textbookId + ", resourceId: " + resourceId);
+        
+        if (mContext instanceof Activity) {
+            ((Activity) mContext).runOnUiThread(() -> {
+                if (webView == null) {
+                    Log.e(TAG, "WebView为空，无法从IndexedDB获取PDF数据");
+                    showToast("无法打开PDF：WebView未初始化");
+                    return;
+                }
+                
+                try {
+                    // 使用JSONObject.quote()安全转义参数（自动处理所有特殊字符）
+                    // JSONObject.quote()返回带双引号的字符串，我们在JavaScript中使用双引号字符串
+                    String safeTextbookId = textbookId != null ? 
+                        JSONObject.quote(textbookId) : "\"\"";
+                    String safeResourceId = resourceId != null ? 
+                        JSONObject.quote(resourceId) : "\"\"";
+                    String safeSectionName = sectionName != null ? 
+                        JSONObject.quote(sectionName) : "\"\"";
+                    
+                    // 构建JavaScript代码：从IndexedDB获取PDF数据
+                    // 使用回调函数的方式，因为IndexedDB是异步的
+                    String jsCode = String.format(Locale.getDefault(),
+                        "(function() {" +
+                        "  try {" +
+                        "    // 首先尝试使用resourceManager（如果可用）" +
+                        "    if (typeof window !== 'undefined' && window.__resourceManager) {" +
+                        "      window.__resourceManager.getFileData(%s, %s).then(function(fileData) {" +
+                        "        if (!fileData || fileData.length === 0) {" +
+                        "          if (window.AndroidBridge && window.AndroidBridge.onPdfDataReceived) {" +
+                        "            window.AndroidBridge.onPdfDataReceived(JSON.stringify({success: false, error: '文件不存在或未下载'}), %s);" +
+                        "          }" +
+                        "          return;" +
+                        "        }" +
+                        "        // 将Uint8Array转换为Base64" +
+                        "        var binary = '';" +
+                        "        var bytes = new Uint8Array(fileData);" +
+                        "        var len = bytes.byteLength;" +
+                        "        for (var i = 0; i < len; i++) {" +
+                        "          binary += String.fromCharCode(bytes[i]);" +
+                        "        }" +
+                        "        var base64 = btoa(binary);" +
+                        "        if (window.AndroidBridge && window.AndroidBridge.onPdfDataReceived) {" +
+                        "          window.AndroidBridge.onPdfDataReceived(JSON.stringify({success: true, data: base64}), %s);" +
+                        "        }" +
+                        "      }).catch(function(error) {" +
+                        "        if (window.AndroidBridge && window.AndroidBridge.onPdfDataReceived) {" +
+                        "          window.AndroidBridge.onPdfDataReceived(JSON.stringify({success: false, error: error.toString()}), %s);" +
+                        "        }" +
+                        "      });" +
+                        "      return;" +
+                        "    }" +
+                        "    " +
+                        "    // 如果resourceManager不可用，直接访问IndexedDB" +
+                        "    try {" +
+                        "      // 获取当前用户ID（从localStorage或默认值）" +
+                        "      var userId = localStorage.getItem('currentUserId') || 'default';" +
+                        "      var dbName = 'TextbookStorage_' + userId;" +
+                        "      " +
+                        "      var request = indexedDB.open(dbName, 8);" +
+                        "      request.onsuccess = function(event) {" +
+                        "        var db = event.target.result;" +
+                        "        var transaction = db.transaction(['textbook_files'], 'readonly');" +
+                        "        var store = transaction.objectStore('textbook_files');" +
+                        "        var getRequest = store.get(%s);" +
+                        "        " +
+                        "        getRequest.onsuccess = function() {" +
+                        "          var fileRecord = getRequest.result;" +
+                        "          if (!fileRecord || !fileRecord.fileData || fileRecord.fileData.length === 0) {" +
+                        "            if (window.AndroidBridge && window.AndroidBridge.onPdfDataReceived) {" +
+                        "              window.AndroidBridge.onPdfDataReceived(JSON.stringify({success: false, error: '文件不存在或未下载'}), %s);" +
+                        "            }" +
+                        "            return;" +
+                        "          }" +
+                        "          " +
+                        "          // 将Uint8Array转换为Base64" +
+                        "          var fileData = fileRecord.fileData;" +
+                        "          var binary = '';" +
+                        "          var bytes = new Uint8Array(fileData);" +
+                        "          var len = bytes.byteLength;" +
+                        "          for (var i = 0; i < len; i++) {" +
+                        "            binary += String.fromCharCode(bytes[i]);" +
+                        "          }" +
+                        "          var base64 = btoa(binary);" +
+                        "          if (window.AndroidBridge && window.AndroidBridge.onPdfDataReceived) {" +
+                        "            window.AndroidBridge.onPdfDataReceived(JSON.stringify({success: true, data: base64}), %s);" +
+                        "          }" +
+                        "        };" +
+                        "        " +
+                        "        getRequest.onerror = function() {" +
+                        "          if (window.AndroidBridge && window.AndroidBridge.onPdfDataReceived) {" +
+                        "            window.AndroidBridge.onPdfDataReceived(JSON.stringify({success: false, error: '读取IndexedDB失败'}), %s);" +
+                        "          }" +
+                        "        };" +
+                        "      };" +
+                        "      " +
+                        "      request.onerror = function() {" +
+                        "        if (window.AndroidBridge && window.AndroidBridge.onPdfDataReceived) {" +
+                        "          window.AndroidBridge.onPdfDataReceived(JSON.stringify({success: false, error: '打开IndexedDB失败'}), %s);" +
+                        "        }" +
+                        "      };" +
+                        "    } catch(e) {" +
+                        "      if (window.AndroidBridge && window.AndroidBridge.onPdfDataReceived) {" +
+                        "        window.AndroidBridge.onPdfDataReceived(JSON.stringify({success: false, error: e.toString()}), %s);" +
+                        "      }" +
+                        "    }" +
+                        "  } catch(e) {" +
+                        "    if (window.AndroidBridge && window.AndroidBridge.onPdfDataReceived) {" +
+                        "      window.AndroidBridge.onPdfDataReceived(JSON.stringify({success: false, error: e.toString()}), %s);" +
+                        "    }" +
+                        "  }" +
+                        "})()",
+                        safeTextbookId, safeResourceId, safeSectionName, safeSectionName, safeSectionName,
+                        safeResourceId, safeSectionName, safeSectionName, safeSectionName, safeSectionName, safeSectionName, safeSectionName);
+                    
+                    // 调试：记录生成的JavaScript代码（仅前500字符，避免日志过长）
+                    if (jsCode != null && jsCode.length() > 0) {
+                        String preview = jsCode.length() > 500 ? jsCode.substring(0, 500) + "..." : jsCode;
+                        Log.d(TAG, "生成的JavaScript代码预览: " + preview);
+                        Log.d(TAG, "JavaScript代码长度: " + jsCode.length());
+                    } else {
+                        Log.e(TAG, "生成的JavaScript代码为空！");
+                    }
+                    
+                    // 执行JavaScript代码（异步，通过回调接收结果）
+                    webView.evaluateJavascript(jsCode, null);
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "打开PDF失败", e);
+                    showToast("打开PDF失败: " + e.getMessage());
+                }
+            });
+        } else {
+            Log.w(TAG, "当前Context不是Activity，无法打开PDF");
+            showToast("无法打开PDF");
+        }
+    }
+    
+    /**
+     * 接收从WebView IndexedDB获取的PDF数据
+     * 由JavaScript回调调用
+     * 
+     * @param resultJson JSON字符串，包含success和data/error字段
+     * @param sectionName 章节名称（可选）
+     */
+    @JavascriptInterface
+    public void onPdfDataReceived(String resultJson, String sectionName) {
+        Log.d(TAG, "收到PDF数据回调");
+        
+        if (mContext instanceof Activity) {
+            ((Activity) mContext).runOnUiThread(() -> {
+                try {
+                    if (resultJson == null || resultJson.isEmpty()) {
+                        Log.e(TAG, "PDF数据回调结果为空");
+                        showToast("无法获取PDF数据");
+                        return;
+                    }
+                    
+                    // 解析JSON响应
+                    JSONObject result = new JSONObject(resultJson);
+                    boolean success = result.optBoolean("success", false);
+                    
+                    if (!success) {
+                        String error = result.optString("error", "未知错误");
+                        Log.e(TAG, "获取PDF数据失败: " + error);
+                        showToast("获取PDF数据失败: " + error);
+                        return;
+                    }
+                    
+                    // 获取Base64数据
+                    String base64Data = result.optString("data", "");
+                    if (base64Data.isEmpty()) {
+                        Log.e(TAG, "Base64数据为空");
+                        showToast("PDF数据为空");
+                        return;
+                    }
+                    
+                    // 将Base64转换为字节数组并保存为临时文件
+                    byte[] pdfBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT);
+                    
+                    // 创建临时文件
+                    File tempDir = new File(mContext.getCacheDir(), "pdf_temp");
+                    if (!tempDir.exists()) {
+                        tempDir.mkdirs();
+                    }
+                    
+                    // 生成临时文件名（使用时间戳避免冲突）
+                    String tempFileName = "pdf_" + System.currentTimeMillis() + ".pdf";
+                    File tempFile = new File(tempDir, tempFileName);
+                    
+                    // 写入文件
+                    java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile);
+                    fos.write(pdfBytes);
+                    fos.close();
+                    
+                    Log.d(TAG, "PDF文件已保存到临时文件: " + tempFile.getAbsolutePath() + ", 大小: " + pdfBytes.length + " 字节");
+                    
+                    // 创建Intent启动MuPDFActivity
+                    Intent intent = new Intent(mContext, MuPDFActivity.class);
+                    intent.setAction(Intent.ACTION_VIEW);
+                    intent.setData(Uri.fromFile(tempFile));
+                    if (sectionName != null && !sectionName.isEmpty()) {
+                        intent.putExtra(MuPDFActivity.KEY_SECTION_NAME, sectionName);
+                    }
+                    mContext.startActivity(intent);
+                    
+                    // 注意：临时文件会在应用清理缓存时自动删除
+                    // 如果需要立即删除，可以在MuPDFActivity关闭后删除
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "处理PDF数据失败", e);
+                    showToast("处理PDF数据失败: " + e.getMessage());
+                }
+            });
+        }
+    }
+    
+    /**
+     * 递归查找文件
+     */
+    private String findFileRecursively(File dir, String fileName) {
+        if (dir == null || !dir.exists() || !dir.isDirectory()) {
+            return null;
+        }
+        
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isFile() && file.getName().equals(fileName)) {
+                    return file.getAbsolutePath();
+                } else if (file.isDirectory()) {
+                    String result = findFileRecursively(file, fileName);
+                    if (result != null) {
+                        return result;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * 清理文件名，移除非法字符
+     */
+    private String sanitizeFileName(String fileName) {
+        if (fileName == null) {
+            return "";
+        }
+        return fileName.replaceAll("[^a-zA-Z0-9\u4e00-\u9fa5._-]", "_");
     }
 }
