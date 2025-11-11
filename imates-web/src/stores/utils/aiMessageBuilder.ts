@@ -117,12 +117,17 @@ export function buildAiTextbookMessage(
   if (isImageMessage) {
     // 教材截图问答
     const sessionId = `textbook-session-${Date.now()}`
+    // 兼容后端仅接受 data:image/jpg;base64 的情况（仅此接口做前缀替换）
+    const questionDataUrl =
+      (imageData!.base64DataUrl || '').startsWith('data:image/jpeg;')
+        ? (imageData!.base64DataUrl || '').replace('data:image/jpeg;', 'data:image/jpg;')
+        : (imageData!.base64DataUrl || '')
     
     return {
       sessionId,
       newValue: '1',
       coversation: content,
-      question: imageData!.base64DataUrl || '',
+      question: questionDataUrl,
       answer: '教材内容截图',
       name: userInfo?.userName || 'User',
       reason: 'start',

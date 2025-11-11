@@ -306,6 +306,20 @@ const openMiniClassDialog = (url: string, questionTitle?: string) => {
 
 ### 3. 加载流程
 
+#### 3.1 打开前 404 预检（由调用方实现）
+
+- 在 `ExerciseSolveView` 打开微课前，会先对目标 `classUrl` 进行一次轻量可达性检测（基于 `Image.onload/onerror`，不受 CORS 限制）。
+- 若检测失败（如 404），会调用 `openMiniClassDialog('', title)` 打开弹窗但不传入 URL。
+- 本组件在未传入 `classUrl` 时，展示内置的空状态文案“暂无微课内容”，满足“在弹窗内提示没有微课”的需求。
+
+调用链更新：
+```
+ExerciseSolveView
+  └─> 检测 URL 是否可用（Image.onload/onerror）
+      ├─ 可用：uiStore.openMiniClassDialog(url, title)
+      └─ 不可用：uiStore.openMiniClassDialog('', title) → MiniClass 空状态
+```
+
 ```
 1. 用户点击"微课"按钮
    ↓

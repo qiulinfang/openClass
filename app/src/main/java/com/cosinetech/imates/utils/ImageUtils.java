@@ -99,7 +99,7 @@ public class ImageUtils {
         }
 
         StringBuilder builder = new StringBuilder();
-        builder.append("data:image/jpg;base64,").append(img);
+        builder.append("data:image/jpeg;base64,").append(img);
         return builder.toString();
     }
 
@@ -124,7 +124,7 @@ public class ImageUtils {
     }
 
     private static Bitmap base64ImageToBitmap(String base64Image) {
-        // 去掉前缀 "data:image/jpg;base64,"
+        // 去掉前缀 "data:image/*;base64,"
         String base64Data;
         if(base64Image.startsWith("data:image")) {
             base64Data = base64Image.split(",")[1];

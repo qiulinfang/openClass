@@ -16237,7 +16237,7 @@ Lines added: 474, lines removed: 1
 + 
 + #### 图片消息 (messageType = 1)
 + &#96;&#96;&#96;
-+ content = &quot;data:image/png;base64,&lt;base64编码的图片数据&gt;&quot;
++ content = &quot;data:image/jpg;base64,&lt;base64编码的图片数据&gt;&quot;
 + &#96;&#96;&#96;
 + 
 + #### 语音消息 (messageType = 2)
@@ -16462,7 +16462,7 @@ Lines added: 474, lines removed: 1
 +   &quot;messageId&quot;: &quot;550e8400-e29b-41d4-a716-446655440001&quot;,
 +   &quot;sessionId&quot;: &quot;session_12345_biology&quot;,
 +   &quot;messageType&quot;: 1,
-+   &quot;content&quot;: &quot;data:image/png;base64,iVBORw0KGgoAAAANS...&quot;,
++   &quot;content&quot;: &quot;data:image/jpg;base64,iVBORw0KGgoAAAANS...&quot;,
 +   &quot;timestamp&quot;: 1704067200000
 + }
 + &#96;&#96;&#96;

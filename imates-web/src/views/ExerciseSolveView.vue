@@ -379,17 +379,56 @@ const handleQuestionAdded = () => {
 // 处理打开微课
 const handleOpenMiniClass = (question: ExerciseItem) => {
   try {
-    // 使用硬编码的微课URL
-    const classUrl = 'https://www.imates.com.cn:9099/demo/demo1.html'
+    // 按学科 + bmNo 动态拼接微课 URL
+    const bmNo = (question.bmNo || question.id || '').trim()
+    if (!bmNo) {
+      showMessage('题目编号缺失，无法打开微课', 'warning')
+      return
+    }
+    // 规范化学科前缀
+    const subjectRaw = (question.subject || userStore.subject || 'SUBJECT_MATH').toString().toUpperCase()
+    let subjectPrefix = 'math'
+    if (subjectRaw.includes('BIOLOGY')) subjectPrefix = 'biology'
+    else if (subjectRaw.includes('MATH')) subjectPrefix = 'math'
+    else if (subjectRaw.includes('CHEMISTRY')) subjectPrefix = 'chemistry'
+    else if (subjectRaw.includes('PHYSICS')) subjectPrefix = 'physics'
+    else if (subjectRaw.includes('CHINESE')) subjectPrefix = 'chinese'
+    else if (subjectRaw.includes('ENGLISH')) subjectPrefix = 'english'
+
+    const classUrl = `https://www.imates.com.cn:9099/wk/${subjectPrefix}/${bmNo}/${bmNo}.html`
     
     if (!classUrl || classUrl.trim() === '') {
       showMessage('该题目暂无微课', 'warning')
       return
     }
 
-    // 更新UI Store中的微课信息并打开弹框
+    // 在打开前检测 URL 是否可用（通过 Image onload/onerror，规避跨域限制）
+    const checkUrlExists = (url: string): Promise<boolean> => {
+      return new Promise((resolve) => {
+        try {
+          const img = new Image()
+          img.onload = () => resolve(true) // 200 时会触发 onload
+          img.onerror = () => resolve(false) // 404/网络错触发 onerror
+          // 追加时间戳避免缓存
+          img.src = `${url}${url.includes('?') ? '&' : '?'}_ts=${Date.now()}`
+        } catch {
+          resolve(false)
+        }
+      })
+    }
+
     const questionTitle = question.title || question.question?.substring(0, 50) || ''
-    uiStore.openMiniClassDialog(classUrl, questionTitle)
+
+    checkUrlExists(classUrl).then((exists) => {
+      if (exists) {
+        // 可用：正常打开微课页面
+        uiStore.openMiniClassDialog(classUrl, questionTitle)
+      } else {
+        // 404：打开弹窗但不传URL，交由 MiniClass 内部显示“暂无微课内容”
+        uiStore.openMiniClassDialog('', questionTitle)
+        showMessage('该题目暂无微课', 'warning')
+      }
+    })
   } catch (error) {
     console.error(`[ExerciseSolveView] 打开微课失败:`, error)
     showMessage('打开微课失败', 'error')
