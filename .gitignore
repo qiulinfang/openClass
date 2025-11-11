@@ -24,3 +24,5 @@ node_modules
 .vscode
 dist/
 项目文档
+.specstory
+history
