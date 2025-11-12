@@ -84,6 +84,7 @@ import QuestionList from '../components/FindExerciseQuestionList.vue'
 import QuestionListSkeleton from '../components/QuestionListSkeleton.vue'
 import type { FindExerciseConfig } from '../types'
 import { Subject } from '../types'
+import { getScopedStorageValue } from '../utils/user/userId'
 
 // 定义组件名称，便于 Vue DevTools 识别
 defineOptions({
@@ -257,7 +258,7 @@ onMounted(async () => {
     const config: FindExerciseConfig = {
       apiBaseURL: 'http://www.imates.com.cn:8222/blw-edu-service-alc',
       subject: (route.query.subject as string) === 'SUBJECT_BIOLOGY' ? Subject.SUBJECT_BIOLOGY : Subject.SUBJECT_MATH,
-      token: (route.query.token as string) || localStorage.getItem('token') || '',
+      token: (route.query.token as string) || getScopedStorageValue('token') || '',
       knowledgeList: (route.query.knowledgeList as string) || ''
     }
     // 初始化store和获取数据

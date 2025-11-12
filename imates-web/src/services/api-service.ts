@@ -19,6 +19,7 @@ import { generateUniqueId } from '../stores/utils/chatStoreUtils'
 
 // 章节相关工具函数
 import { parseChapterOrderFromFileName as parseChapterOrderFromFileNameUtil } from '../utils/business/chapter-utils'
+import { useUserStore } from '../stores/userStore'
 
 // 使用统一类型定义
 import type {
@@ -1229,6 +1230,14 @@ export class ApiService {
         }
       } catch (syncError) {
         // 静默处理
+      }
+
+      try {
+        const userStore = useUserStore()
+        await userStore.setUserInfoWithCleanup(userInfo)
+        await userStore.initializeStore()
+      } catch (storeError) {
+        console.warn('[API] ⚠️ 同步 userStore 失败:', storeError)
       }
 
       return userInfo

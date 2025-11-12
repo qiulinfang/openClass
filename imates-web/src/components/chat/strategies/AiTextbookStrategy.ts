@@ -30,6 +30,7 @@ export class AiTextbookStrategy implements ChatStrategy {
   
   // 第3步：发送消息
   async sendMessage(content: string, options: SendMessageOptions = {}): Promise<void> {
+    console.log('12312')
     const hidePrefix = content.includes('我们开始吧')
     await this.aiTextbookStore.sendMessage(
       content,

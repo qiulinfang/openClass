@@ -176,6 +176,9 @@ export interface QuestionRecord {
   answer?: string
   timestamp: number
   pinned?: boolean  // 是否置顶
+  resourceId?: string  // 关联的资源ID，用于加载消息历史
+  storageKey?: string  // 存储键，用于加载消息历史（格式：ai-textbook-${resourceId}）
+  hasImage?: boolean  // 是否包含图片消息，用于判断接口类型
 }
 
 // ========== AI通用会话相关类型 ==========

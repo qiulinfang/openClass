@@ -1,7 +1,7 @@
-﻿<template>
+<template>
   <div class="modern-chat-container">
     <!-- 主容器 -->
-    <div class="chat-input-wrapper" ref="inputAreaRef">
+    <div class="chat-input-wrapper" ref="inputAreaRef" :class="{ 'is-narrow': isNarrow }">
       <!-- 新的MathFormulaEditor输入区域 -->
       <div class="unified-input-area">
         <MathFormulaEditor
@@ -242,6 +242,27 @@ const inputAreaRef = ref<HTMLElement>()
 const editorContent = ref<string>('')
 const isEditorFocused = ref(false)
 const mathEditorRef = ref<InstanceType<typeof MathFormulaEditor>>()
+
+// 响应式宽度
+const isNarrow = ref(false)
+
+onMounted(() => {
+  const observer = new ResizeObserver(entries => {
+    for (const entry of entries) {
+      isNarrow.value = entry.contentRect.width < 500
+    }
+  })
+
+  if (inputAreaRef.value) {
+    observer.observe(inputAreaRef.value)
+  }
+
+  onUnmounted(() => {
+    if (inputAreaRef.value) {
+      observer.unobserve(inputAreaRef.value)
+    }
+  })
+})
 
 // 模式选择器菜单显示状态
 const showModeSelectorMenu = ref(false)
@@ -1235,6 +1256,14 @@ defineExpose({
   flex-shrink: 0;
   cursor: pointer;
   font-weight: 400;
+}
+
+.is-narrow .action-mode-btn span {
+  display: none;
+}
+
+.is-narrow .action-mode-btn {
+  padding: 6px;
 }
 
 .action-mode-btn:hover {

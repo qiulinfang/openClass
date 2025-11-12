@@ -17,7 +17,8 @@ export interface AiChatMessageRequest {
   dstUrl?: string  // 与Java接口保持一致
   bmNo: string
   isWebSearch: string
-  chatRole: string
+  chatRole: string,
+  subject: string,
 }
 
 /** 聊天响应接口 */

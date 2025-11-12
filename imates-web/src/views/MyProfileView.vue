@@ -173,8 +173,9 @@ const loadUserInfo = async () => {
       return
     }
 
-    // 第2步：从localStorage获取XUEBAN_TOKEN
-    const token = localStorage.getItem('XUEBAN_TOKEN')
+    // 第2步：从统一存储获取XUEBAN_TOKEN
+    const { getXuebanToken } = await import('../utils/user/authStorage')
+    const token = getXuebanToken()
     if (!token) {
       console.warn('未找到 XUEBAN_TOKEN')
       return

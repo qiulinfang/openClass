@@ -3,20 +3,7 @@
     <!-- 统一工具栏（浮动在顶部） -->
     <div class="toolbar-wrapper">
       <UnifiedToolbar
-        :tools="[
-          'hand',
-          'select',
-          'draw',
-          'eraser-draw',
-          'text',
-          'rectangle',
-          'circle',
-          'line',
-          'triangle',
-          'undo',
-          'redo',
-          'clear',
-        ]"
+        :tools="drawingBoardTools"
         :selected-tool="currentTool"
         :tool-config="toolConfig"
         :tool-states="{ undo: canUndo, redo: canRedo }"
@@ -103,6 +90,22 @@ const emit = defineEmits<{
   // 内容变化事件（用于父组件更新缩略图）
   'content-change': []
 }>()
+
+// 统一工具栏工具集合（本地变量）
+const drawingBoardTools = [
+  'hand',
+  'select',
+  'draw',
+  'eraser-draw',
+  'text',
+  'rectangle',
+  'circle',
+  'line',
+  'triangle',
+  'undo',
+  'redo',
+  'clear',
+]
 
 // 绘图对象类型定义
 interface DrawObject {

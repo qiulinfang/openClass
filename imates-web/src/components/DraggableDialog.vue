@@ -1,5 +1,5 @@
 <template>
-  <q-dialog v-model="isOpen" position="standard" seamless persistent @hide="handleClose" >
+  <q-dialog v-model="isOpen" backdrop="true" position="standard"  persistent @hide="handleClose" >
     <div 
       class="dialog-container" 
       :style="dialogStyle"
@@ -361,6 +361,7 @@ watch(isOpen, (newValue) => {
       &.title-align-left {
         text-align: left;
         padding-left: 0;
+        font-size: 24px;
       }
     }
     
@@ -372,8 +373,8 @@ watch(isOpen, (newValue) => {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 32px;
-      height: 32px;
+      width: 42px;
+      height: 42px;
       border: none;
       border-radius: 50%;
       background: transparent;
@@ -383,8 +384,8 @@ watch(isOpen, (newValue) => {
       outline: none;
       
       svg {
-        width: 20px;
-        height: 20px;
+        width: 42px;
+        height: 42px;
       }
       
       &:hover {

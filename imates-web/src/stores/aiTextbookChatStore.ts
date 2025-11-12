@@ -14,6 +14,7 @@ import { apiService } from '../services/api-service'
 import { asyncStorage } from '../services/chat-storage'
 import { showMessage } from '../utils'
 import { useUserStore } from './userStore'
+import { getCurrentUserId } from '../utils/user/userId'
 import {
   createUserMessage,
   createTempAiReplyMessage,
@@ -25,20 +26,88 @@ import {
   buildRetryFailureMessage,
   findMessageIndex,
   validateMessageExists,
-  type ChatImageData
+  type ChatImageData,
 } from './utils/chatStoreUtils'
-import { buildAiTextbookMessage } from './utils/aiMessageBuilder'
-import type { ChatBubble } from '../types'
+import type { AiChatMessageRequest, ChatBubble, UserInfo } from '../types'
+
+interface TextbookChatImageData {
+  base64DataUrl: string
+}
+
+interface BuildTextbookMessageParams {
+  sessionId: string
+  content: string
+  userInfo: UserInfo | null
+  enableWebSearch: boolean
+  chatRole?: string
+  imageData?: TextbookChatImageData
+  useScreenshotApi?: boolean
+  isNewSession?: boolean
+}
+
+const buildAiTextbookMessage = ({
+  sessionId,
+  content,
+  userInfo,
+  enableWebSearch,
+  chatRole = 'mate',
+  imageData,
+  useScreenshotApi = false,
+  isNewSession = true,
+}: BuildTextbookMessageParams): AiChatMessageRequest => {
+  // 获取用户ID，优先级：userInfo.userId > userInfo.id > getCurrentUserId() > 'User'
+  const userId = userInfo?.userId || userInfo?.id || getCurrentUserId() || 'User'
+
+  if (imageData?.base64DataUrl) {
+    const questionDataUrl = imageData.base64DataUrl.startsWith('data:image/jpeg;')
+      ? imageData.base64DataUrl.replace('data:image/jpeg;', 'data:image/jpg;')
+      : imageData.base64DataUrl
+
+    return {
+      sessionId,
+      newValue: isNewSession ? '1' : '0',
+      coversation: content,
+      question: questionDataUrl,
+      answer: '教材内容截图',
+      name: userId,
+      reason: 'start',
+      bmNo: sessionId,
+      isWebSearch: enableWebSearch ? '1' : '0',
+      chatRole,
+      subject: 'all',
+      dstUrl: '/permission/previewPictureQA',
+    }
+  }
+
+  const dstUrl = useScreenshotApi ? '/permission/previewPictureQA' : '/permission/chatMath'
+
+  return {
+    sessionId,
+    newValue: isNewSession ? '1' : '0',
+    coversation: content,
+    question: '',
+    answer: '',
+    name: userId,
+    reason: 'start',
+    bmNo: sessionId,
+    isWebSearch: enableWebSearch ? '1' : '0',
+    chatRole,
+    subject: 'all',
+    dstUrl,
+  }
+}
 
 export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   // ==================== 状态管理 ====================
   
   const messages = ref<ChatBubble[]>([])
   const isChatLoading = ref(false)
-  const isChatRendering = ref(false)
   const chatResponseTimes = ref(0)
   const enableWebSearch = ref(false)
   const resourceId = ref<string | null>(null)
+  const useScreenshotApi = ref(false)  // 是否使用截图接口（用于截图会话的后续消息）
+  const currentSessionId = ref<string | null>(null)
+  const isNewSession = ref(true)
   
   const VIEW_ANSWER_CHAT_TIMES = 3
   const canViewAnswer = computed(() => chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES)
@@ -50,6 +119,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
    */
   const addMessage = (message: ChatBubble): void => {
     messages.value.push(message)
+    console.log('[消息] 创建', { id: message.id, type: message.type, hasImage: !!(message.imageData || message.messageType === 'image') })
   }
   
   /**
@@ -68,6 +138,9 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   const clearMessages = (): void => {
     messages.value = []
     chatResponseTimes.value = 0
+    useScreenshotApi.value = false  // 重置截图接口标记
+    currentSessionId.value = null
+    isNewSession.value = true
   }
   
   /**
@@ -117,33 +190,51 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     if (!skipUserMessage) {
       const userMessage = createUserMessage(content, imageData, hidePrefix)
       addMessage(userMessage)
+      // 用户消息创建后立即保存（确保即使AI回复未完成，用户消息也能被保存）
+      await saveChatHistory()
     }
     
     // 第2步：创建临时AI回复消息
     const { message: tempReply, id: tempReplyId } = createTempAiReplyMessage()
     addMessage(tempReply)
     
-    // 第3步：设置加载状态
-    isChatLoading.value = true
-    isChatRendering.value = true
+    // 第3步：设置渲染状态（发送消息时不需要设置 isChatLoading，因为 isChatLoading 只用于加载聊天历史）
     
     try {
       // 第4步：获取用户信息和科目
       const userStore = useUserStore()
       
       // 第5步：构建AI消息请求（传入科目以确定dstUrl）
-      // 将 chatStoreUtils.ChatImageData 转换为 aiMessageBuilder.ChatImageData
-      const builderImageData = imageData && imageData.base64DataUrl 
-        ? { base64DataUrl: imageData.base64DataUrl } 
+      // 将 chatStoreUtils.ChatImageData 转换为构建请求所需的精简图片数据
+      const builderImageData = imageData?.base64DataUrl
+        ? { base64DataUrl: imageData.base64DataUrl }
         : undefined
-      const aiMessage = buildAiTextbookMessage(
+
+      // 如果有图片数据且没有设置 sessionId，强制创建新会话（每次截图都创建新会话）
+      // 注意：如果 currentSessionId 已经存在（比如从外部设置），则不覆盖它
+      if (builderImageData && !currentSessionId.value) {
+        currentSessionId.value = `textbook-session-${Date.now()}`
+        isNewSession.value = true
+      } else if (!currentSessionId.value) {
+        currentSessionId.value = `textbook-session-${Date.now()}`
+        isNewSession.value = true
+      }
+
+      const shouldUseScreenshotApi = !!builderImageData
+
+      const aiMessage = buildAiTextbookMessage({
+        sessionId: currentSessionId.value,
         content,
-        userStore.userInfo,
-        enableWebSearch.value,
-        selectedModel || 'mate',
-        builderImageData,
-        userStore.subject  // ⭐ 传入科目参数
-      )
+        userInfo: userStore.userInfo,
+        enableWebSearch: enableWebSearch.value,
+        chatRole: selectedModel || 'mate',
+        imageData: builderImageData,
+        useScreenshotApi: shouldUseScreenshotApi,
+        isNewSession: isNewSession.value,
+      })
+
+      useScreenshotApi.value = shouldUseScreenshotApi
+      isNewSession.value = false
       
       // 第6步：累积内容（用于流式更新）
       let accumulatedContent = ''
@@ -219,9 +310,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       
       showMessage('发送消息失败', 'error')
     } finally {
-      // 第9步：重置加载状态
-      isChatLoading.value = false
-      isChatRendering.value = false
+      // 第9步：重置渲染状态（发送消息时不需要重置 isChatLoading，因为 isChatLoading 只用于加载聊天历史）
     }
   }
   
@@ -265,18 +354,26 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     // 第4步：重新发送
     try {
       const userStore = useUserStore()
-      // 将 chatStoreUtils.ChatImageData 转换为 aiMessageBuilder.ChatImageData
-      const builderImageData = imageData && imageData.base64DataUrl 
-        ? { base64DataUrl: imageData.base64DataUrl } 
+      // 将 chatStoreUtils.ChatImageData 转换为构建请求所需的精简图片数据
+      const builderImageData = imageData?.base64DataUrl
+        ? { base64DataUrl: imageData.base64DataUrl }
         : undefined
-      const aiMessage = buildAiTextbookMessage(
-        message.originalMessage!,
-        userStore.userInfo,
-        enableWebSearch.value,
+      if (!currentSessionId.value) {
+        currentSessionId.value = `textbook-session-${Date.now()}`
+      }
+      const shouldUseScreenshotApi = !!builderImageData
+      
+      const aiMessage = buildAiTextbookMessage({
+        sessionId: currentSessionId.value,
+        content: message.originalMessage!,
+        userInfo: userStore.userInfo,
+        enableWebSearch: enableWebSearch.value,
         chatRole,
-        builderImageData,
-        userStore.subject  // ⭐ 传入科目参数
-      )
+        imageData: builderImageData,
+        useScreenshotApi: shouldUseScreenshotApi,
+        isNewSession: false,
+      })
+      useScreenshotApi.value = shouldUseScreenshotApi
       
       // 累积内容（用于流式更新）
       let accumulatedContent = ''
@@ -355,6 +452,8 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
    */
   const setResourceId = (id: string): void => {
     resourceId.value = id
+    currentSessionId.value = null
+    isNewSession.value = true
   }
   
   /**
@@ -367,8 +466,10 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     }
     
       try {
-      // 构建存储键
-        const storageKey = `ai-textbook-${resourceId.value}`
+      // 构建存储键：如果有 sessionId，使用 ai-textbook-${resourceId}-${sessionId}，否则使用 ai-textbook-${resourceId}
+        const storageKey = currentSessionId.value 
+          ? `ai-textbook-${resourceId.value}-${currentSessionId.value}`
+          : `ai-textbook-${resourceId.value}`
         
       // 保存到IndexedDB
         await asyncStorage.saveChatHistory(storageKey, {
@@ -377,6 +478,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
           lastUpdated: Date.now(),
           chatResponseTimes: chatResponseTimes.value
         })
+        console.log('[消息] 存储', { resourceId: resourceId.value, sessionId: currentSessionId.value, storageKey, count: messages.value.length })
       } catch (error) {
         console.error('保存聊天历史失败:', error)
     }
@@ -384,32 +486,67 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   
   /**
    * 加载聊天历史
+   * @param resourceIdOrStorageKey - resourceId 或完整的 storageKey（格式：ai-textbook-${resourceId}-${sessionId}）
+   * @param sessionId - 可选的 sessionId，如果提供，会构建包含 sessionId 的存储键
    */
-  const loadChatHistory = async (id?: string): Promise<void> => {
+  const loadChatHistory = async (resourceIdOrStorageKey?: string, sessionId?: string): Promise<void> => {
     try {
-      const targetResourceId = id || resourceId.value
-      if (!targetResourceId) {
-        // 如果没有 resourceId，清空状态
-        messages.value = []
-        chatResponseTimes.value = 0
-        return
+      // 设置加载状态
+      isChatLoading.value = true
+      
+      let storageKey: string
+      
+      // 如果传入的是完整的 storageKey（包含 ai-textbook- 前缀），直接使用
+      if (resourceIdOrStorageKey?.startsWith('ai-textbook-')) {
+        storageKey = resourceIdOrStorageKey
+      } else {
+        // 否则作为 resourceId 处理
+        const targetResourceId = resourceIdOrStorageKey || resourceId.value
+        if (!targetResourceId) {
+          // 如果没有 resourceId，清空状态
+          messages.value = []
+          chatResponseTimes.value = 0
+          isChatLoading.value = false
+          return
+        }
+        
+        // 如果有 sessionId，构建包含 sessionId 的存储键，否则使用旧的格式
+        storageKey = sessionId 
+          ? `ai-textbook-${targetResourceId}-${sessionId}`
+          : `ai-textbook-${targetResourceId}`
       }
       
-      const storageKey = `ai-textbook-${targetResourceId}`
       const history = await asyncStorage.loadChatHistory(storageKey)
       
       if (history && history.messages) {
         messages.value = history.messages
         chatResponseTimes.value = history.chatResponseTimes || 0
+        // 检查加载的消息中是否有图片消息，如果有则标记使用截图接口
+        useScreenshotApi.value = messages.value.some(msg => msg.messageType === 'image' || msg.imageData)
+        console.log('[消息] 加载', { storageKey, count: messages.value.length })
       } else {
         // 无历史记录，清空状态
         messages.value = []
         chatResponseTimes.value = 0
+        useScreenshotApi.value = false
+        console.log('[消息] 加载', { storageKey, count: 0 })
+      }
+      
+      // 如果加载成功且有 sessionId，更新 currentSessionId
+      if (sessionId) {
+        currentSessionId.value = sessionId
+        isNewSession.value = false
+      } else {
+        currentSessionId.value = null
+        isNewSession.value = true
       }
     } catch (error) {
       console.error('加载聊天历史失败:', error)
       messages.value = []
       chatResponseTimes.value = 0
+    } finally {
+      // 重置加载状态
+      isChatLoading.value = false
     }
   }
   
@@ -446,12 +583,14 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     // 状态
     messages,
     isChatLoading,
-    isChatRendering,
     chatResponseTimes,
     enableWebSearch,
     VIEW_ANSWER_CHAT_TIMES,
     canViewAnswer,
     resourceId,
+    useScreenshotApi,
+    currentSessionId,
+    isNewSession,
     
     // 方法
     addMessage,

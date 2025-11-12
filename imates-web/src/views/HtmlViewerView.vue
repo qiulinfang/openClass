@@ -1,122 +1,20 @@
 ﻿<template>
   <!-- HTML内容区域 -->
   <div class="html-viewer-container">
-    <!-- 工具栏 -->
-    <UnifiedToolbar
-      variant="browser"
-      :tools="['back', 'chat']"
-      :selected-tool="selectedTool"
-      @tool-change="handleToolChange"
-      @back="handleGoBack"
-      @chat="handleToggleChatPanel"
-    />
+    <!-- 简单的返回按钮 -->
+    <div class="toolbar">
+      <q-btn
+        flat
+        round
+        dense
+        icon="arrow_back"
+        @click="handleGoBack"
+        class="back-button"
+      />
+    </div>
     
-    <!-- HTML内容区域（带对话面板时） -->
-    <q-splitter
-      v-if="chatPanelVisible"
-      v-model="splitterModel"
-      :limits="[30, 70]"
-      class="full-height"
-    >
-      <template v-slot:before>
-        <div class="html-content-wrapper">
-          <!-- iframe 显示 HTML -->
-          <iframe
-            v-if="!isLoading && !error && htmlContent"
-            :src="htmlContentUrl"
-            class="html-iframe"
-            frameborder="0"
-            allowfullscreen
-          />
-          
-          <!-- 加载状态 -->
-          <div v-if="isLoading" class="loading-overlay">
-            <div class="loading-state text-center q-pa-xl">
-              <q-spinner-dots size="50px" color="primary" />
-              <div class="q-mt-md">正在加载HTML...</div>
-              <div class="q-mt-sm text-caption">请稍候</div>
-            </div>
-          </div>
-          
-          <!-- 错误状态 -->
-          <div v-if="error" class="error-overlay">
-            <div class="error-state text-center q-pa-xl">
-              <q-icon name="error" size="50px" color="negative" />
-              <div class="q-mt-md">{{ error }}</div>
-              <div class="q-mt-sm text-caption">请检查文件是否损坏或网络连接是否正常</div>
-              <q-btn color="primary" @click="retry" class="q-mt-md">重试</q-btn>
-            </div>
-          </div>
-          
-          <!-- 空状态 -->
-          <div v-if="!isLoading && !error && !htmlContent" class="empty-state">
-            <div class="empty-content text-center q-pa-xl">
-              <q-icon name="description" size="80px" color="grey-5" />
-              <div class="q-mt-md text-h6 text-grey-6">暂无HTML文档</div>
-              <div class="q-mt-sm text-caption text-grey-5">请选择或加载HTML文件开始查看</div>
-            </div>
-          </div>
-        </div>
-      </template>
-      
-      <!-- 对话面板 -->
-      <template v-slot:after>
-        <div class="chat-panel-container">
-          <!-- 对话面板头部 -->
-          <div class="chat-panel-header">
-            <!-- Tab 切换 -->
-            <div class="chat-tabs">
-              <div class="tab-list">
-                <div
-                  v-for="tab in tabOptions"
-                  :key="tab.value"
-                  :class="['tab-item', { 'tab-active': activeTab === tab.value }]"
-                  @click="activeTab = tab.value"
-                >
-                  <q-icon :name="tab.icon" size="sm" />
-                  <span>{{ tab.label }}</span>
-                </div>
-              </div>
-            </div>
-            <!-- 关闭按钮 -->
-            <q-btn 
-              flat 
-              round 
-              dense 
-              icon="close" 
-              size="sm"
-              @click="handleCloseChatPanel"
-              class="close-button"
-            />
-          </div>
-          
-          <!-- Tab 内容区域 -->
-          <div class="chat-content-container">
-            <!-- AI 问答 Tab -->
-            <div v-if="activeTab === 'ai-chat'" class="tab-content">
-              <ChatView 
-                type="ai-textbook"
-                :resource-id="resourceId"
-                @response="handleChatResponse"
-                @focus="handleChatFocus"
-                @scroll-to-bottom="handleScrollToBottom"
-              />
-            </div>
-            
-            <!-- 问题记录 Tab -->
-            <div v-if="activeTab === 'question-record'" class="tab-content">
-              <SessionList 
-                :records="questionRecords"
-                @record-click="handleQuestionRecordClick"
-              />
-            </div>
-          </div>
-        </div>
-      </template>
-    </q-splitter>
-    
-    <!-- HTML内容区域（无对话面板时） -->
-    <div v-else class="html-content-wrapper full-height">
+    <!-- HTML内容区域 -->
+    <div class="html-content-wrapper">
       <!-- iframe 显示 HTML -->
       <iframe
         v-if="!isLoading && !error && htmlContent"
@@ -158,103 +56,43 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import { resourceManager } from '@/services/resource-storage'
-import type { UserTextbookInfo, LocalFileInfo, QuestionRecord } from '@/types'
-import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
-import ChatView from '@/components/ChatView.vue'
-import SessionList from '@/components/SessionList.vue'
+import type { UserTextbookInfo, LocalFileInfo } from '@/types'
 
 // 使用路由
 const route = useRoute()
 const router = useRouter()
 
-// 使用 AI Store
-const aiTextbookStore = useAiTextbookChatStore()
-
 // 组件状态
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 const htmlContent = ref<string | null>(null)
-const selectedTool = ref('')
-const fileName = ref('')
-
-// 对话面板状态
-const chatPanelVisible = ref(false)
-const splitterModel = ref(60) // 分隔比例（左侧占60%）
-
-// Tab 状态
-const activeTab = ref('ai-chat') // 当前激活的 tab
-
-// Tab 选项
-const tabOptions = [
-  { label: '问题记录', value: 'question-record', icon: 'quiz' },
-  { label: 'AI问答', value: 'ai-chat', icon: 'chat' }
-]
-
-// 问题记录数据
-const questionRecords = ref<QuestionRecord[]>([])
-
-// 处理问题记录点击
-const handleQuestionRecordClick = () => {
-  activeTab.value = 'ai-chat'
-}
 
 // HTML内容URL（使用Blob URL）
 const htmlBlobUrl = ref<string | null>(null)
 
-const htmlContentUrl = computed(() => {
-  if (!htmlContent.value) return ''
-  
-  // 清理旧的URL
-  if (htmlBlobUrl.value) {
+// 监听 htmlContent 变化，清理旧的 Blob URL
+watch(htmlContent, (newContent, oldContent) => {
+  if (oldContent && htmlBlobUrl.value) {
     URL.revokeObjectURL(htmlBlobUrl.value)
+    htmlBlobUrl.value = null
   }
   
-  // 创建新的Blob URL
-  const blob = new Blob([htmlContent.value], { type: 'text/html' })
-  htmlBlobUrl.value = URL.createObjectURL(blob)
-  return htmlBlobUrl.value
+  if (newContent) {
+    const blob = new Blob([newContent], { type: 'text/html' })
+    htmlBlobUrl.value = URL.createObjectURL(blob)
+  }
+}, { immediate: true })
+
+const htmlContentUrl = computed(() => {
+  return htmlBlobUrl.value || ''
 })
-
-// 从路由参数获取 resourceId
-const resourceId = computed(() => route.query.resourceId as string | undefined)
-
-// 处理工具切换
-const handleToolChange = (tool: string) => {
-  selectedTool.value = tool
-}
 
 // 处理返回
 const handleGoBack = () => {
   router.back()
-}
-
-// 处理对话面板切换
-const handleToggleChatPanel = (visible?: boolean) => {
-  chatPanelVisible.value = visible !== undefined ? visible : !chatPanelVisible.value
-}
-
-// 处理对话面板关闭
-const handleCloseChatPanel = () => {
-  chatPanelVisible.value = false
-}
-
-// 处理聊天响应事件
-const handleChatResponse = () => {
-  // 聊天响应完成
-}
-
-// 处理聊天焦点事件
-const handleChatFocus = () => {
-  // 聊天输入框获得焦点
-}
-
-// 处理滚动到底部事件
-const handleScrollToBottom = () => {
-  // 滚动到底部
 }
 
 // 从路由参数加载文件
@@ -278,11 +116,8 @@ const loadFileFromRoute = async () => {
     if (textbook.localFiles && Array.isArray(textbook.localFiles)) {
       const localFile = textbook.localFiles.find((file: LocalFileInfo) => file.id === resourceId)
       if (localFile) {
-        fileName.value = localFile.fileName || 'unknown.html'
         // 从textbook_files表按需读取文件数据
         fileData = await resourceManager.getFileData(id, resourceId)
-        if (fileData) {
-        }
       }
     }
 
@@ -349,12 +184,19 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-.full-height {
-  height: 100%;
-  width: 100%;
+.toolbar {
+  flex-shrink: 0;
+  padding: 8px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.back-button {
+  color: #666;
 }
 
 .html-content-wrapper {
+  flex: 1;
   width: 100%;
   height: 100%;
   position: relative;
@@ -366,97 +208,6 @@ onBeforeUnmount(() => {
   height: 100%;
   border: none;
   display: block;
-}
-
-.chat-panel-container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.chat-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid #e0e0e0;
-  background: #f5f5f5;
-  flex-shrink: 0;
-}
-
-.chat-tabs {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-}
-
-.tab-list {
-  display: flex;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
-  padding: 4px;
-  gap: 0;
-  position: relative;
-}
-
-.tab-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
-  color: rgba(0, 0, 0, 0.6);
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-  position: relative;
-  min-width: 80px;
-  justify-content: center;
-  letter-spacing: 0.25px;
-}
-
-.tab-item:hover {
-  background: rgba(0, 0, 0, 0.04);
-  color: rgba(0, 0, 0, 0.87);
-}
-
-.tab-active {
-  background: white;
-  color: #1976D2;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
-  font-weight: 500;
-}
-
-.tab-active:hover {
-  background: white;
-  color: #1976D2;
-}
-
-.tab-active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #1976D2;
-  border-radius: 1px;
-}
-
-.close-button {
-  color: #666;
-}
-
-.chat-content-container {
-  flex: 1;
-  overflow: hidden;
-}
-
-.tab-content {
-  height: 100%;
-  overflow: hidden;
 }
 
 .loading-overlay,
@@ -502,20 +253,6 @@ onBeforeUnmount(() => {
   .error-state {
     margin: 16px;
     max-width: calc(100% - 32px);
-  }
-  
-  .tab-item {
-    padding: 10px 12px;
-    font-size: 13px;
-    min-width: 60px;
-  }
-  
-  .tab-item span {
-    display: none; /* 移动端只显示图标 */
-  }
-  
-  .tab-list {
-    padding: 2px;
   }
 }
 </style>

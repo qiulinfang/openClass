@@ -13,10 +13,71 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { apiService } from '../services/api-service'
 import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
-import type { ChatBubble, ExerciseItem, UserInfo } from '../types'
-import { buildAiExerciseMessage } from './utils/aiMessageBuilder'
-import { createUserMessage, generateUniqueId } from './utils/chatStoreUtils'
+import type { AiChatMessageRequest, ChatBubble, ExerciseItem, UserInfo } from '../types'
+import { createUserMessage, generateUniqueId, type ChatImageData } from './utils/chatStoreUtils'
 import { useQuestionStore } from './questionStore'
+import { getCurrentUserIdOrDefault } from '../utils/user/userId'
+
+/**
+ * 构建AI题目聊天消息请求
+ */
+const buildAiExerciseMessage = (
+  content: string,
+  currentQuestion: ExerciseItem,
+  userInfo: UserInfo | null,
+  subject: 'MATH' | 'BIOLOGY',
+  enableWebSearch: boolean,
+  selectedModel: string = 'mate',
+  imageData?: ChatImageData
+): AiChatMessageRequest => {
+  // 获取用户ID，优先级：userInfo.userId > userInfo.id > getCurrentUserId() > 'User'
+  const userId = userInfo?.userId || userInfo?.id || getCurrentUserIdOrDefault() || 'User'
+  
+  // 获取题目ID
+  const questionId = currentQuestion.id || currentQuestion.bmNo || ''
+  
+  // 生成会话ID（使用题目ID和时间戳）
+  const sessionId = `exercise-${questionId}-${Date.now()}`
+  
+  // 如果有图片数据，使用图片接口
+  if (imageData?.base64DataUrl) {
+    // 处理图片格式：jpeg -> jpg
+    const questionDataUrl = imageData.base64DataUrl.startsWith('data:image/jpeg;')
+      ? imageData.base64DataUrl.replace('data:image/jpeg;', 'data:image/jpg;')
+      : imageData.base64DataUrl
+    
+    return {
+      sessionId,
+      newValue: '1',
+      coversation: content,
+      question: questionDataUrl,
+      answer: '题目截图',
+      name: userId,
+      reason: 'start',
+      bmNo: questionId,
+      isWebSearch: enableWebSearch ? '1' : '0',
+      chatRole: selectedModel,
+      subject: subject,
+      dstUrl: '/permission/previewPictureQA',
+    }
+  }
+  
+  // 普通文本消息
+  return {
+    sessionId,
+    newValue: '1',
+    coversation: content,
+    question: currentQuestion.question || '',
+    answer: currentQuestion.answer || '',
+    name: userId,
+    reason: 'start',
+    bmNo: questionId,
+    isWebSearch: enableWebSearch ? '1' : '0',
+    chatRole: selectedModel,
+    subject: subject,
+    dstUrl: '/permission/chatMath',
+  }
+}
 
 export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   // 获取题目Store
@@ -41,9 +102,6 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   /** 是否可以查看答案 */
   const canViewAnswer = ref(false)
   
-  // ==================== 私有方法 ====================
-  // （已迁移到工具函数：aiMessageBuilder.ts 和 chatStoreUtils.ts）
-  
   // ==================== 公开方法 ====================
   
   /**
@@ -63,7 +121,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     userInfo: UserInfo | null,
     subject: 'MATH' | 'BIOLOGY',
     selectedModel: string = 'mate',
-    imageData?: { filePath: string; base64DataUrl?: string },
+    imageData?: ChatImageData,
     hidePrefix: boolean = false,
     skipUserMessage?: boolean
   ): Promise<void> => {
@@ -168,7 +226,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     userInfo: UserInfo | null,
     subject: 'MATH' | 'BIOLOGY',
     selectedModel: string = 'mate',
-    imageData?: { filePath: string; base64DataUrl?: string }
+    imageData?: ChatImageData
   ): Promise<void> => {
     // 第1步：验证题目
     if (!currentQuestion) {

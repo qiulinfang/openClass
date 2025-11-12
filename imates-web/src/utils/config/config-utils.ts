@@ -6,6 +6,13 @@
 import { httpClient } from '../../services/http-client'
 import { androidBridge } from '../../services/android-bridge'
 import { setBaseUrl } from '../../services/api-endpoints'
+import {
+  getCurrentUserIdOrDefault,
+  getCurrentUserStorageKey,
+  getCurrentUserId,
+  setCurrentUserId,
+  UserType,
+} from '../user/userId'
 
 /**
  * 初始化应用配置
@@ -51,16 +58,30 @@ export async function initializeAppConfig(initData: unknown = {}) {
     }
   }
 
-  // 从localStorage获取认证信息
-  const tokenKeys = ['token'] as const
+  // 从localStorage获取认证信息（支持用户分区）
+  const defaultTokenKey = 'token'
+  const tokenKeys: string[] = []
+  const storedUserKey = getCurrentUserStorageKey()
+  if (storedUserKey) {
+    tokenKeys.push(`${storedUserKey}_${defaultTokenKey}`)
+  }
+  const fallbackKey = `${getCurrentUserIdOrDefault()}_${defaultTokenKey}`
+  if (!tokenKeys.includes(fallbackKey)) {
+    tokenKeys.push(fallbackKey)
+  }
+  tokenKeys.push(defaultTokenKey)
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && key.endsWith(`_${defaultTokenKey}`) && !tokenKeys.includes(key)) {
+      tokenKeys.push(key)
+    }
+  }
   tokenKeys.forEach(key => {
     const value = localStorage.getItem(key)
-    if (value && !authConfig[key]) {
-      authConfig[key] = value
-      if (key === 'token' && !authConfig.saToken && !authConfig.authorization) {
-        authConfig.saToken = value
-        authConfig.authorization = `Bearer ${value}`
-      }
+    if (value && !authConfig.token) {
+      authConfig.token = value
+      authConfig.saToken = value
+      authConfig.authorization = `Bearer ${value}`
     }
   })
 
@@ -72,7 +93,22 @@ export async function initializeAppConfig(initData: unknown = {}) {
   // 3. 直接设置localStorage认证信息
   Object.entries(authConfig).forEach(([key, value]) => {
     if (value && key === 'token') {
-      localStorage.setItem(key, value as string)
+      // 如果 authConfig 中有 userId，设置当前用户ID（用于认证配置场景）
+      const userIdFromConfig = (authConfig as Record<string, unknown>).userId as string | undefined
+      if (userIdFromConfig) {
+        console.log('[CONFIG] ⚙️ 从配置初始化userId:', {
+          userId: userIdFromConfig,
+          userType: UserType.XUEBAN,
+          source: '应用配置(authConfig.userId)',
+          note: '配置场景默认使用XUEBAN类型',
+          timestamp: new Date().toISOString()
+        })
+        // 尝试推断用户类型（这里默认使用 XUEBAN，因为这是配置场景）
+        setCurrentUserId(userIdFromConfig, UserType.XUEBAN)
+      }
+      const storedUserKey = userIdFromConfig || getCurrentUserStorageKey()
+      const storageKey = storedUserKey ? `${storedUserKey}_${key}` : key
+      localStorage.setItem(storageKey, value as string)
     }
   })
 }
@@ -89,7 +125,15 @@ export function updateGlobalAuthConfig(authConfig: {
   // 直接更新localStorage
   Object.entries(authConfig).forEach(([key, value]) => {
     if (value && key === 'token') {
-      localStorage.setItem(key, value as string)
+      // 如果 authConfig 中有 userId，设置当前用户ID（用于认证配置场景）
+      const userIdFromConfig = (authConfig as Record<string, unknown>).userId as string | undefined
+      if (userIdFromConfig) {
+        // 尝试推断用户类型（这里默认使用 XUEBAN，因为这是配置场景）
+        setCurrentUserId(userIdFromConfig, UserType.XUEBAN)
+      }
+      const storedUserKey = userIdFromConfig || getCurrentUserStorageKey()
+      const storageKey = storedUserKey ? `${storedUserKey}_${key}` : key
+      localStorage.setItem(storageKey, value as string)
     }
   })
 }
@@ -99,7 +143,18 @@ export function updateGlobalAuthConfig(authConfig: {
  */
 export function clearGlobalAuthConfig() {
   // 直接清除localStorage
-  const tokenKeys = ['token']
+  const tokenKeys: string[] = []
+  const storedUserKey = getCurrentUserStorageKey()
+  if (storedUserKey) {
+    tokenKeys.push(`${storedUserKey}_token`)
+  }
+  tokenKeys.push('token')
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && key.endsWith('_token') && !tokenKeys.includes(key)) {
+      tokenKeys.push(key)
+    }
+  }
   tokenKeys.forEach(key => {
     localStorage.removeItem(key)
   })
@@ -115,10 +170,20 @@ export function clearGlobalAuthConfig() {
  */
 export function getCurrentAuthConfig() {
   // 直接从localStorage获取认证配置
-  const tokenKeys = ['token'] as const
   const config: Record<string, string> = {}
-  
-  tokenKeys.forEach(key => {
+  const keysToCheck: string[] = []
+  const storedUserKey = getCurrentUserStorageKey()
+  if (storedUserKey) {
+    keysToCheck.push(`${storedUserKey}_token`)
+  }
+  keysToCheck.push('token')
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && key.endsWith('_token') && !keysToCheck.includes(key)) {
+      keysToCheck.push(key)
+    }
+  }
+  keysToCheck.forEach(key => {
     const value = localStorage.getItem(key)
     if (value) {
       config[key] = value
@@ -133,8 +198,19 @@ export function getCurrentAuthConfig() {
  */
 export function hasValidAuth(): boolean {
   // 直接从localStorage检查认证状态
-  const tokenKeys = ['token'] as const
-  return tokenKeys.some(key => !!localStorage.getItem(key))
+  const keysToCheck: string[] = []
+  const storedUserKey = getCurrentUserStorageKey()
+  if (storedUserKey) {
+    keysToCheck.push(`${storedUserKey}_token`)
+  }
+  keysToCheck.push('token')
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && key.endsWith('_token') && !keysToCheck.includes(key)) {
+      keysToCheck.push(key)
+    }
+  }
+  return keysToCheck.some(key => !!localStorage.getItem(key))
 }
 
 /**
@@ -155,8 +231,29 @@ export function getUserInfo(initData: unknown = {}) {
   }
 
   try {
-    const stored = localStorage.getItem('userInfo')
-    return stored ? JSON.parse(stored) : null
+    const keysToCheck: string[] = []
+    const storedUserKey = getCurrentUserStorageKey()
+    if (storedUserKey) {
+      keysToCheck.push(`${storedUserKey}_USER_INFO_CACHE`)
+    }
+    const defaultKey = `${getCurrentUserIdOrDefault()}_USER_INFO_CACHE`
+    if (!keysToCheck.includes(defaultKey)) {
+      keysToCheck.push(defaultKey)
+    }
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.endsWith('_USER_INFO_CACHE') && !keysToCheck.includes(key)) {
+        keysToCheck.push(key)
+      }
+    }
+    for (const key of keysToCheck) {
+      if (!key) continue
+      const stored = localStorage.getItem(key)
+      if (stored) {
+        return JSON.parse(stored)
+      }
+    }
+    return null
   } catch {
     return null
   }

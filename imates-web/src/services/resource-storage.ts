@@ -6,7 +6,7 @@
 import { IndexedDBService } from './indexeddb-service'
 import CryptoJS from 'crypto-js'
 import { DebounceUtils } from '../utils'
-import { getCurrentUserIdOrDefault } from '../utils/user/userId'
+import { getCurrentUserIdOrDefault, getCurrentUserId } from '../utils/user/userId'
 // 注释掉缩略图相关导入以提升性能
 // import { isPdfFile } from '../utils/thumbnail/pdf-thumbnail'
 // import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'
@@ -121,20 +121,22 @@ export class ResourceManager {
   /**
    * 检查是否已登录
    */
-  public isLoggedIn(): boolean {
-    const token = localStorage.getItem('YANBAN_TOKEN')
-    const userId = localStorage.getItem('studentUserId')
-    return !!(token && userId && token !== 'undefined' && userId !== 'undefined')
+  public async isLoggedIn(): Promise<boolean> {
+    const { getYanbanToken, getUserId } = await import('../utils/user/authStorage')
+    const token = getYanbanToken()
+    const userId = getUserId()
+    return !!(token && userId && token !== 'undefined')
   }
 
   /**
    * 获取当前用户信息
    */
-  public getCurrentUser(): { token: string; username: string } | null {
-    const token = localStorage.getItem('YANBAN_TOKEN')
-    const userId = localStorage.getItem('studentUserId')
+  public async getCurrentUser(): Promise<{ token: string; username: string } | null> {
+    const { getYanbanToken, getUserId } = await import('../utils/user/authStorage')
+    const token = getYanbanToken()
+    const userId = getUserId()
     
-    if (token && userId && token !== 'undefined' && userId !== 'undefined') {
+    if (token && userId && token !== 'undefined') {
       return { token, username: userId }
     }
     return null

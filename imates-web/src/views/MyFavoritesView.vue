@@ -157,6 +157,7 @@ import type { AiGeneralSession } from '../types/chat'
 import type { ExerciseItem } from '../types/exercise'
 import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
 import { useBetterScroll } from '../composables/useBetterScroll'
+import { getScopedStorageValue } from '../utils/user/userId'
 
 // 定义组件名称
 defineOptions({
@@ -376,7 +377,7 @@ const handleExerciseCardClick = async (item: ExerciseItem) => {
       query: {
         questionId: item.bmNo || item.id,
         subject: item.subject === 'biology' ? 'SUBJECT_BIOLOGY' : 'SUBJECT_MATH',
-        token: localStorage.getItem('token') || ''
+        token: getScopedStorageValue('token') || ''
       }
     })
   } catch (error) {

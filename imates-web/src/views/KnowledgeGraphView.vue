@@ -288,7 +288,7 @@ import type { KnowledgeGraphDebugParams } from '../components/debug/KnowledgeGra
 import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
 import { useBetterScroll } from '../composables/useBetterScroll'
-import { getCurrentUserIdOrDefault } from '../utils/user/userId'
+import { getCurrentUserIdOrDefault, getCurrentUserId } from '../utils/user/userId'
 import { useQuestionStore } from '../stores/questionStore'
 import { showMessage } from '../utils'
 import {
@@ -2155,16 +2155,17 @@ const sessionManager = {
     const startTime = performance.now()
     
     try {
-      // 检查本地存储的token和userId
-      const token = localStorage.getItem('YANBAN_TOKEN')
-      const userId = localStorage.getItem('studentUserId')
+      // 检查统一存储的token和userId
+      const { getYanbanToken, getUserId } = await import('../utils/user/authStorage')
+      const token = getYanbanToken()
+      const userId = getUserId()
       
-      if (!token || !userId || token === 'undefined' || userId === 'undefined') {
+      if (!token || !userId || token === 'undefined') {
         return false
       }
       
       // 检查token是否为空字符串
-      if (token.trim() === '' || userId.trim() === '') {
+      if (token.trim() === '') {
         return false
       }
       

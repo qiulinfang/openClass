@@ -56,6 +56,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiService } from '../services/api-service'
+import { getUserId, getPassword } from '../utils/user/authStorage'
 
 // 第1步：导入登录图标图片作为模块资源，确保在webview场景下能正常加载
 // 使用import方式导入，Vite会在构建时处理这些资源并生成正确的路径
@@ -79,12 +80,12 @@ const errorMessage = ref('')
 const versionClickCount = ref(0)
 const appVersion = ref('')
 
-// 第1步：页面加载时从localStorage读取已保存的账号密码
+// 第1步：页面加载时从统一存储读取已保存的账号密码
 onMounted(() => {
-  // 第2步：获取保存的账号
-  const savedUserId = localStorage.getItem('userId')
-  // 第3步：获取保存的密码
-  const savedPassword = localStorage.getItem('userPassword')
+  // 第2步：获取保存的账号（从统一存储）
+  const savedUserId = getUserId()
+  // 第3步：获取保存的密码（从统一存储）
+  const savedPassword = getPassword()
   
   // 第4步：如果账号密码都存在且有效，则自动填充表单
   if (savedUserId && savedPassword && 

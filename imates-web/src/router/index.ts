@@ -10,7 +10,6 @@ import VideoViewerView from '@/views/VideoViewerView.vue'
 import FindExerciseView from '@/views/FindExerciseView.vue'
 import LearningView from '@/views/LearningView.vue'
 import LearningContentView from '@/views/LearningContentView.vue'
-import NewPdfView from '@/views/newpdfview.vue'
 import DrawingBoard from '@/components/DrawingBoard.vue'
 import MyFavoritesView from '@/views/MyFavoritesView.vue'
 import PhotoSearchView from '@/views/PhotoSearchView.vue'
@@ -78,11 +77,6 @@ const router = createRouter({
           component: LearningContentView
         },
         {
-          path: 'new-pdf-view',
-          name: 'newPdfView',
-          component: NewPdfView
-        },
-        {
           path: 'drawing-board',
           name: 'drawingBoard',
           component: DrawingBoard
@@ -124,8 +118,9 @@ const router = createRouter({
 })
 
 // 路由守卫 - 检查登录状态
-router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('XUEBAN_TOKEN')
+router.beforeEach(async (to, from, next) => {
+  const { getXuebanToken } = await import('../utils/user/authStorage')
+  const token = getXuebanToken()
   const isLoggedIn = !!token
   
   // 如果访问登录页面，直接放行

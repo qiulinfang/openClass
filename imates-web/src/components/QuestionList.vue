@@ -1054,14 +1054,39 @@ const sendToAi = async (question: ExerciseItem) => {
 
     // 发出事件通知父组件切换到AI聊天界面
     emit('startAiGuidance', question)
-  } catch {
+  } catch (error) {
     // 发生错误时重置AI指导状态
     const questionStore = useQuestionStore()
     if (questionStore.currentQuestion) {
       questionStore.currentQuestion.isAiGuiding = false
       questionStore.currentQuestion.beginGuideToSolve = false
     }
-    showMessage('启动AI指导失败', 'error')
+    
+    // 记录详细错误信息
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('[QuestionList] 启动AI指导失败:', {
+      error,
+      errorMessage,
+      questionId: question.id,
+      questionTitle: question.question?.substring(0, 50) || '未知题目',
+      timestamp: new Date().toISOString()
+    })
+    
+    // 根据错误类型显示更具体的错误提示
+    let userMessage = '启动AI指导失败'
+    if (errorMessage.includes('网络') || errorMessage.includes('Network') || errorMessage.includes('fetch')) {
+      userMessage = '启动AI指导失败：网络连接异常，请检查网络后重试'
+    } else if (errorMessage.includes('超时') || errorMessage.includes('timeout')) {
+      userMessage = '启动AI指导失败：请求超时，请稍后重试'
+    } else if (errorMessage.includes('权限') || errorMessage.includes('auth') || errorMessage.includes('401') || errorMessage.includes('403')) {
+      userMessage = '启动AI指导失败：权限不足，请重新登录'
+    } else if (errorMessage.includes('服务器') || errorMessage.includes('server') || errorMessage.includes('500')) {
+      userMessage = '启动AI指导失败：服务器异常，请稍后重试'
+    } else if (errorMessage) {
+      userMessage = `启动AI指导失败：${errorMessage}`
+    }
+    
+    showMessage(userMessage, 'error')
   }
 }
 

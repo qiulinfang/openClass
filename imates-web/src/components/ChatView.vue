@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <!-- 聊天视图主容器 - 支持键盘动画状态 -->
   <div ref="chatViewRef" class="chat-view" :class="{ 'keyboard-animating': isKeyboardAnimating }">
     <!-- 选择模式工具栏 - Gemini风格设计 -->
@@ -53,12 +53,6 @@
                 <span class="loading-text">正在加载聊天记录...</span>
               </div>
             </Transition>
-
-            <!-- 分批次渲染状态指示器 - 显示历史消息渲染进度 -->
-            <div v-if="isChatRendering && !isChatLoading" class="chat-rendering-indicator">
-              <q-spinner-hourglass size="20px" color="secondary" />
-              <span class="rendering-text">正在渲染历史消息...</span>
-            </div>
 
             <!-- 聊天消息组件列表 - 支持选择、转发、编辑等功能 -->
             <ChatMessageComponent
@@ -339,10 +333,6 @@ const selectedModel = ref('mate') // 选中的AI模型
 
 // 聊天记录加载状态（从场景Store获取）
 const isChatLoading = computed(() => getScenarioStore().isChatLoading)
-const isChatRendering = computed(() => {
-  const store = getScenarioStore()
-  return 'isChatRendering' in store ? store.isChatRendering : false
-})
 
 // ==================== 加载状态管理 ====================
 // 优化加载指示器显示，避免快速闪烁
@@ -1997,26 +1987,6 @@ defineExpose({
   font-size: 14px;
   color: #666;
   font-weight: 500;
-}
-
-/* 聊天记录渲染状态指示器 - 显示历史消息渲染进度 */
-.chat-rendering-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  gap: 8px;
-  color: #888;
-  background-color: rgba(0, 0, 0, 0.02);
-  border-radius: 8px;
-  margin: 10px 20px;
-}
-
-/* 渲染文本样式 */
-.rendering-text {
-  font-size: 13px;
-  color: #888;
-  font-weight: 400;
 }
 
 /* ==================== 底部提示文案样式 ==================== */

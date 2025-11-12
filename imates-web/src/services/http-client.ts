@@ -69,7 +69,7 @@ export class HttpClient {
    * 动态获取认证配置，根据请求路径选择不同的token
    * 将选择的token同时赋值给cookie、saToken、authorization、token字段
    */
-  private getDynamicAuthConfig(url: string): Record<string, string> {
+  private async getDynamicAuthConfig(url: string): Promise<Record<string, string>> {
     const authConfig: Record<string, string> = {}
     
     // 登录接口不需要认证头
@@ -77,18 +77,18 @@ export class HttpClient {
       return authConfig
     }
     
-    // 根据请求路径选择不同的token
+    // 根据请求路径选择不同的token（从统一存储读取）
     let selectedToken: string | null = null
     
+    // 动态导入统一存储工具
+    const { getXuebanToken, getYanbanToken } = await import('../utils/user/authStorage')
+
     if (url.startsWith('/permission') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
       // /permission、/admin/info和/biologyTopicKnowledge开头的请求使用XUEBAN_TOKEN
-      selectedToken = localStorage.getItem('XUEBAN_TOKEN')
+      selectedToken = getXuebanToken()
     } else if (url.startsWith('/blw-edu-yb')) {
       // /blw-edu-yb开头的请求使用YANBAN_TOKEN
-      selectedToken = localStorage.getItem('YANBAN_TOKEN')
-    } else {
-      // 其他请求使用默认token
-      selectedToken = localStorage.getItem('token')
+      selectedToken = getYanbanToken()
     }
     
     // 如果找到了token，将其赋值给所有认证字段
@@ -108,18 +108,17 @@ export class HttpClient {
   /**
    * 根据接口路径清除对应的token
    * 第1步：判断接口类型
-   * 第2步：删除对应的token
+   * 第2步：从统一存储清除对应的token
    */
-  private clearTokenByPath(url: string): void {
+  private async clearTokenByPath(url: string): Promise<void> {
+    const { setXuebanToken, setYanbanToken } = await import('../utils/user/authStorage')
+    
     if (url.startsWith('/permission') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
-      // 学班管理员相关接口：删除XUEBAN_TOKEN
-      localStorage.removeItem('XUEBAN_TOKEN')
+      // 学班管理员相关接口：清除XUEBAN_TOKEN
+      setXuebanToken(null)
     } else if (url.startsWith('/blw-edu-yb')) {
-      // 研伴相关接口：删除YANBAN_TOKEN
-      localStorage.removeItem('YANBAN_TOKEN')
-    } else {
-      // 其他接口：删除默认token
-      localStorage.removeItem('token')
+      // 研伴相关接口：清除YANBAN_TOKEN
+      setYanbanToken(null)
     }
   }
 
@@ -132,10 +131,12 @@ export class HttpClient {
    */
   private async tryAutoRelogin(url: string): Promise<boolean> {
     try {
-      // 第1步：获取用户凭据
-      const userId = localStorage.getItem('userId')
-      const password = localStorage.getItem('userPassword')
-      
+      // 第1步：获取用户凭据（从统一存储）
+      const { getUserId, getPassword } = await import('../utils/user/authStorage')
+      const userId = getUserId()
+      const password = getPassword()
+      console.log('userId', userId)
+      console.log('password', password)
       // 如果没有保存的凭据，无法自动登录
       if (!userId || !password || userId === 'undefined' || password === 'undefined') {
         return false
@@ -217,11 +218,12 @@ export class HttpClient {
       const { controller, cleanup } = createTimeoutController(timeout)
       
       // 构建请求选项
+      const dynamicAuthConfig = await this.getDynamicAuthConfig(url)
       const requestOptions: RequestInit = {
         method,                    // HTTP方法
         headers: {
           ...this.defaultHeaders,  // 默认请求头（如Content-Type）
-          ...this.getDynamicAuthConfig(url), // 动态获取认证配置（包含全局认证配置和路径相关token）
+          ...dynamicAuthConfig,     // 动态获取认证配置（包含全局认证配置和路径相关token）
           ...headers,              // 用户自定义请求头（优先级最高）
         },
         ...(controller && { signal: controller.signal }), // 超时控制信号
@@ -252,7 +254,7 @@ export class HttpClient {
         // 第1步：检测401未授权错误 - 统一处理所有接口
         if (response.status === 401 && !skipAuth401Retry) {
           // 第2步：根据接口路径删除对应的token
-          this.clearTokenByPath(url)
+          await this.clearTokenByPath(url)
           
           // 第3步：尝试自动重新登录获取新token
           const loginSuccess = await this.tryAutoRelogin(url)
@@ -347,10 +349,11 @@ export class HttpClient {
     const fullUrl = this.buildFullUrl(url)
     
     // 流程：构建请求选项，包含认证头和下载优化配置
+    const dynamicAuthConfig = await this.getDynamicAuthConfig(url)
     const requestOptions: RequestInit = {
       method: config?.method || 'GET',
       headers: {
-        ...this.getDynamicAuthConfig(url), // 动态获取认证配置
+        ...dynamicAuthConfig,      // 动态获取认证配置
         'Accept-Encoding': 'gzip, deflate', // 启用压缩
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',

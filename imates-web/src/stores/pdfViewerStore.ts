@@ -1,8 +1,9 @@
-﻿import { defineStore } from 'pinia'
+import { defineStore } from 'pinia'
 import { toRaw } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
 import { resourceManager } from '@/services/resource-storage'
 import type { LocalFileInfo, UserTextbookInfo } from '@/types/textbook'
+import { showMessage } from '../utils'
 
 // 动态导入PDF.js worker
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
@@ -347,12 +348,12 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
       if (!this.currentFileId || !this.currentResourceId) {
         return
       }
-      
+
       // 如果正在保存，跳过
       if (this.isSaving) {
         return
       }
-      
+
       try {
         this.isSaving = true
         this.saveError = null
@@ -361,6 +362,7 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : '保存失败'
         this.saveError = errorMessage
+        showMessage('保存失败，请重试', 'error')
         console.error('自动保存笔记失败:', error)
       } finally {
         this.isSaving = false

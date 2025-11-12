@@ -227,6 +227,8 @@
             <img v-if="isImageIcon(tool.icon)" :src="tool.icon" class="action-icon" />
             <q-tooltip>{{ tool.label }}</q-tooltip>
           </q-btn>
+          <!-- 右侧插槽 -->
+          <slot name="right-actions" />
         </div>
       </div>
     </div>

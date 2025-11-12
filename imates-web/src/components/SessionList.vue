@@ -83,122 +83,89 @@
       <div class="scroll-content">
         <div ref="sessionItemsRef" class="session-items">
           <div
-            v-for="record in filteredRecords"
-            :key="record.id"
-            class="session-item"
-            :class="{
-              'is-selected': selectedRecordId === record.id,
-              'is-checked': selectedRecords.has(record.id),
-              'is-selectable': isSelectionMode,
-            }"
+            v-for="(group, date) in groupedRecords"
+            :key="date"
+            class="date-group-wrapper"
           >
-            <!-- 批量选择复选框 -->
-            <div v-if="isSelectionMode" class="session-checkbox">
-              <q-checkbox
-                :model-value="selectedRecords.has(record.id)"
-                @update:model-value="toggleRecordSelection(record.id)"
-                color="primary"
-                size="sm"
-              />
-            </div>
-
+            <div class="date-group-header">{{ date }}</div>
             <div
-              class="session-content"
-              @click="handleItemClick(record)"
-              @contextmenu.prevent="handleLongPress(record)"
+              v-for="record in group"
+              :key="record.id"
+              class="session-item"
+              :class="{
+                'is-selected': selectedRecordId === record.id,
+                'is-checked': selectedRecords.has(record.id),
+                'is-selectable': isSelectionMode,
+              }"
             >
-              <div class="session-title-row">
-                <div class="session-title">{{ record.question }}</div>
-                <div class="session-time">{{ formatTime(record.timestamp) }}</div>
+                <!-- 批量选择复选框 -->
+                <div v-if="isSelectionMode" class="session-checkbox">
+                  <q-checkbox
+                    :model-value="selectedRecords.has(record.id)"
+                    @update:model-value="toggleRecordSelection(record.id)"
+                    color="primary"
+                    size="sm"
+                  />
+                </div>
+
+                <div
+                  class="session-content"
+                  @click="handleItemClick(record)"
+                  @contextmenu.prevent="handleLongPress(record)"
+                >
+                  <div class="session-title-row">
+                    <div class="session-title">{{ record.question }}</div>
+                  </div>
+                  <div v-if="record.answer" class="session-subtitle">
+                    {{ truncateText(record.answer, 100) }}
+                  </div>
+                </div>
+                <!-- 更多按钮（非选择模式下显示） -->
+                <div v-if="!isSelectionMode" class="session-actions">
+                  <q-btn flat round dense icon="more_horiz" size="sm" class="more-btn" @click.stop>
+                    <q-menu anchor="bottom right" self="top right" :offset="[8, 8]" class="action-menu">
+                      <q-list class="action-menu-list">
+                        <q-item clickable v-close-popup @click="handlePin(record)">
+                          <q-item-section avatar>
+                            <q-icon name="push_pin" size="xs" />
+                          </q-item-section>
+                          <q-item-section>{{ record.pinned ? '取消置顶' : '置顶' }}</q-item-section>
+                        </q-item>
+                
+                        <q-item v-if="showFavorite" clickable v-close-popup @click="handleFavorite(record)">
+                          <q-item-section avatar>
+                            <q-icon
+                              :name="isFavorite(record.id) ? 'star' : 'star_border'"
+                              size="xs"
+                              :color="isFavorite(record.id) ? 'warning' : undefined"
+                            />
+                          </q-item-section>
+                          <q-item-section>{{ isFavorite(record.id) ? '取消收藏' : '收藏' }}</q-item-section>
+                        </q-item>
+                
+                        <q-separator spaced />
+                
+                        <q-item
+                          clickable
+                          v-close-popup
+                          @click="handleDelete(record)"
+                          class="text-negative"
+                        >
+                          <q-item-section avatar>
+                            <q-icon name="delete" size="xs" />
+                          </q-item-section>
+                          <q-item-section>删除</q-item-section>
+                        </q-item>
+                      </q-list>
+                    </q-menu>
+                  </q-btn>
+                </div>
               </div>
-              <div v-if="record.answer" class="session-subtitle">
-                {{ truncateText(record.answer, 100) }}
-              </div>
-            </div>
-
-            <!-- 更多按钮（非选择模式下显示） -->
-            <div v-if="!isSelectionMode" class="session-actions">
-              <q-btn flat round dense icon="more_vert" size="sm" class="more-btn" @click.stop>
-                <q-menu anchor="bottom right" self="top right" :offset="[0, 8]">
-                  <q-list style="min-width: 150px">
-                    <q-item clickable v-close-popup @click="handleRename(record)">
-                      <q-item-section avatar>
-                        <q-icon name="edit" size="xs" />
-                      </q-item-section>
-                      <q-item-section>重命名</q-item-section>
-                    </q-item>
-
-                    <q-item clickable v-close-popup @click="handlePin(record)">
-                      <q-item-section avatar>
-                        <q-icon name="push_pin" size="xs" />
-                      </q-item-section>
-                      <q-item-section>{{ record.pinned ? '取消置顶' : '置顶' }}</q-item-section>
-                    </q-item>
-
-                    <q-item v-if="showFavorite" clickable v-close-popup @click="handleFavorite(record)">
-                      <q-item-section avatar>
-                        <q-icon 
-                          :name="isFavorite(record.id) ? 'star' : 'star_border'" 
-                          size="xs"
-                          :color="isFavorite(record.id) ? 'warning' : undefined"
-                        />
-                      </q-item-section>
-                      <q-item-section>{{ isFavorite(record.id) ? '取消收藏' : '收藏' }}</q-item-section>
-                    </q-item>
-
-                    <q-item clickable v-close-popup @click="enterSelectionMode">
-                      <q-item-section avatar>
-                        <q-icon name="checklist" size="xs" />
-                      </q-item-section>
-                      <q-item-section>批量管理</q-item-section>
-                    </q-item>
-
-                    <q-separator />
-
-                    <q-item
-                      clickable
-                      v-close-popup
-                      @click="handleDelete(record)"
-                      class="text-negative"
-                    >
-                      <q-item-section avatar>
-                        <q-icon name="delete" size="xs" color="negative" />
-                      </q-item-section>
-                      <q-item-section>删除</q-item-section>
-                    </q-item>
-                  </q-list>
-                </q-menu>
-              </q-btn>
             </div>
           </div>
         </div>
       </div>
     </div>
-
-    <!-- 重命名对话框 -->
-    <q-dialog v-model="showRenameDialog" persistent>
-      <q-card style="min-width: 350px">
-        <q-card-section>
-          <div class="text-h6">重命名会话</div>
-        </q-card-section>
-
-        <q-card-section class="q-pt-none">
-          <q-input
-            v-model="newRecordName"
-            autofocus
-            dense
-            label="会话名称"
-            @keyup.enter="confirmRename"
-          />
-        </q-card-section>
-
-        <q-card-actions align="right">
-          <q-btn flat label="取消" color="grey" v-close-popup />
-          <q-btn flat label="确定" color="primary" @click="confirmRename" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -225,6 +192,7 @@ const props = withDefaults(defineProps<Props>(), {
   showFavorite: true,
 })
 
+
 // 定义 emits
 const emit = defineEmits<{
   'record-click': [record: QuestionRecord]
@@ -237,10 +205,7 @@ const emit = defineEmits<{
 // 搜索关键词
 const searchKeyword = ref('')
 
-// 重命名对话框
-const showRenameDialog = ref(false)
-const currentRecord = ref<QuestionRecord | null>(null)
-const newRecordName = ref('')
+
 
 // 批量选择相关状态
 const isSelectionMode = ref(false)
@@ -248,15 +213,32 @@ const selectedRecords = ref<Set<string>>(new Set())
 
 // ==================== 计算属性 ====================
 
+// 按日期对会话进行分组
+const groupedRecords = computed(() => {
+  const groups: Record<string, QuestionRecord[]> = {}
+
+  filteredRecords.value.forEach((record) => {
+    const dateStr = formatDateForGrouping(record.timestamp)
+    if (!groups[dateStr]) {
+      groups[dateStr] = []
+    }
+    groups[dateStr].push(record)
+  })
+
+  return groups
+})
+
 // 第1步：根据搜索关键词过滤会话列表
 const filteredRecords = computed(() => {
+  const sourceRecords = props.records || []
+
   if (!searchKeyword.value || !searchKeyword.value.trim()) {
-    return props.records
+    return sourceRecords
   }
 
   const keyword = searchKeyword.value.toLowerCase().trim()
 
-  return props.records.filter((record) => {
+  return sourceRecords.filter((record) => {
     const question = record.question?.toLowerCase() || ''
     const answer = record.answer?.toLowerCase() || ''
 
@@ -327,20 +309,7 @@ const handleLongPress = (record: QuestionRecord) => {
   }
 }
 
-// 第2步：处理重命名
-const handleRename = (record: QuestionRecord) => {
-  currentRecord.value = record
-  newRecordName.value = record.question
-  showRenameDialog.value = true
-}
 
-// 第3步：确认重命名
-const confirmRename = () => {
-  if (currentRecord.value && newRecordName.value.trim()) {
-    emit('record-rename', currentRecord.value, newRecordName.value.trim())
-    showRenameDialog.value = false
-  }
-}
 
 // 第4步：处理置顶/取消置顶
 const handlePin = (record: QuestionRecord) => {
@@ -398,63 +367,39 @@ onMounted(() => {
   initFavoriteStatus()
 })
 
+// 格式化日期以进行分组
+const formatDateForGrouping = (timestamp: number): string => {
+  if (!timestamp) return '未知日期'
+
+  const date = new Date(timestamp)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  if (date.toDateString() === today.toDateString()) {
+    return '今天'
+  }
+
+  if (date.toDateString() === yesterday.toDateString()) {
+    return '昨天'
+  }
+
+  // 如果是今年，则显示月/日
+  if (date.getFullYear() === today.getFullYear()) {
+    return `${date.getMonth() + 1}月${date.getDate()}日`
+  }
+
+  // 如果是往年，则显示年/月/日
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
+}
+
 // 截断文本
 const truncateText = (text: string, maxLength: number): string => {
   if (text.length <= maxLength) return text
   return text.substring(0, maxLength) + '...'
 }
 
-// 格式化时间（相对时间）
-const formatTime = (timestamp: number): string => {
-  if (!timestamp) return ''
-  
-  const now = Date.now()
-  const diff = now - timestamp
-  
-  // 小于1分钟：刚刚
-  if (diff < 60 * 1000) {
-    return '刚刚'
-  }
-  
-  // 小于1小时：X分钟前
-  if (diff < 60 * 60 * 1000) {
-    const minutes = Math.floor(diff / (60 * 1000))
-    return `${minutes}分钟前`
-  }
-  
-  // 小于24小时：X小时前
-  if (diff < 24 * 60 * 60 * 1000) {
-    const hours = Math.floor(diff / (60 * 60 * 1000))
-    return `${hours}小时前`
-  }
-  
-  // 小于48小时：昨天
-  if (diff < 48 * 60 * 60 * 1000) {
-    const date = new Date(timestamp)
-    return `昨天 ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
-  }
-  
-  // 小于7天：X天前
-  if (diff < 7 * 24 * 60 * 60 * 1000) {
-    const days = Math.floor(diff / (24 * 60 * 60 * 1000))
-    return `${days}天前`
-  }
-  
-  // 其他：显示月/日 时:分
-  const date = new Date(timestamp)
-  const month = date.getMonth() + 1
-  const day = date.getDate()
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  
-  // 如果年份不是今年，显示年份
-  const currentYear = new Date().getFullYear()
-  if (date.getFullYear() !== currentYear) {
-    return `${date.getFullYear()}/${month}/${day} ${hours}:${minutes}`
-  }
-  
-  return `${month}/${day} ${hours}:${minutes}`
-}
+
 
 // ==================== DOM 引用 ====================
 const sessionItemsRef = ref<HTMLElement | null>(null)
@@ -507,12 +452,12 @@ defineExpose({
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background-color: #f7f7f7;
 }
 
-// 顶部标题栏
 .session-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid #e0e0e0;
+  padding: 16px;
+  border-bottom: 1px solid #f0f0f0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -521,34 +466,34 @@ defineExpose({
   .header-left {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
   }
 
   .header-title {
-    color: #333;
-    font-size: 14px;
-    font-weight: 500;
+    color: #1a1a1a;
+    font-size: 16px;
+    font-weight: 600;
   }
 
   .header-actions {
     display: flex;
-    gap: 4px;
+    gap: 8px;
   }
 }
 
-// 搜索栏
 .search-bar {
-  padding: 8px 16px 12px;
+  padding: 12px 16px;
   background: #fff;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #f0f0f0;
 
   .search-input {
     width: 100%;
     font-size: 14px;
+    --q-field-control-height: 40px;
+    --q-field-border-radius: 8px;
   }
 }
 
-// 批量选择工具栏
 .selection-toolbar {
   background: #fff;
   border-bottom: 1px solid #e0e0e0;
@@ -595,65 +540,58 @@ defineExpose({
   flex: 1;
   overflow: hidden;
   position: relative;
+  background-color: #f7f6ff;
 }
 
 .scroll-content {
   min-height: calc(100% + 1px);
 }
 
+
+.date-group-header {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #8c8c8c;
+  background-color: transparent;
+  font-weight: 500;
+}
+
 .session-items {
-  padding: 16px;
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: #d0d0d0;
-    border-radius: 3px;
-
-    &:hover {
-      background: #b0b0b0;
-    }
-  }
+  padding: 0;
 }
 
 .session-item {
-  background: #fff;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  margin: 0 12px 10px;
+  border: none;
   display: flex;
   align-items: stretch;
   position: relative;
   transition: all 0.2s ease;
+  padding: 16px;
 
   &:hover {
-    background: #fafafa;
-    border-color: #d0d0d0;
+    background: #f5f5f5;
   }
 
-  // 当前选中的会话（激活状态）
   &.is-selected {
-    background: #f0f7ff;
-    border-color: #9059ff;
+    background: #ffffff;
 
     .session-actions {
       opacity: 1;
     }
+
+    .session-title {
+      color: #1976d2;
+      font-weight: 600;
+    }
   }
 
-  // 批量选择模式下被勾选的会话
   &.is-checked {
     background: #e3f2fd;
     border-color: #1976d2;
   }
 
-  // 批量选择模式样式
   &.is-selectable {
     cursor: pointer;
 
@@ -662,7 +600,6 @@ defineExpose({
     }
   }
 
-  // 批量选择复选框
   .session-checkbox {
     display: flex;
     align-items: center;
@@ -677,19 +614,25 @@ defineExpose({
   }
 
   .session-actions {
-    display: flex;
-    align-items: center;
-    padding: 4px;
+    position: absolute;
+    top: 8px;
+    right: 4px;
     opacity: 0;
     transition: opacity 0.2s ease;
 
     .more-btn {
-      color: #666;
+      color: #999;
 
       &:hover {
         color: #333;
       }
     }
+  }
+
+  .favorite-star {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
   }
 
   .session-title-row {
@@ -701,32 +644,50 @@ defineExpose({
   }
 
   .session-title {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 500;
-    color: #333;
-    line-height: 1.4;
+    color: #1a1a1a;
+    line-height: 1.5;
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
     -webkit-box-orient: vertical;
     flex: 1;
     min-width: 0;
-  }
-
-  .session-time {
-    font-size: 12px;
-    color: #999;
-    white-space: nowrap;
-    flex-shrink: 0;
-    margin-top: 2px;
+    padding-right: 30px;
   }
 
   .session-subtitle {
     font-size: 13px;
     color: #666;
     line-height: 1.4;
+  }
+}
+
+.action-menu {
+  border-radius: 12px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  border: 1px solid #f0f0f0 !important;
+}
+
+.action-menu-list {
+  padding: 6px;
+  min-width: 130px;
+
+  .q-item {
+    border-radius: 6px;
+    min-height: 40px;
+  }
+
+  .q-item__section--avatar {
+    min-width: 36px;
+    padding-right: 4px;
+  }
+
+  .q-separator {
+    background-color: #f0f0f0;
   }
 }
 </style>

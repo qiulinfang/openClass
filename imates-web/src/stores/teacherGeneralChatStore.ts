@@ -31,8 +31,31 @@ import {
   validateMessageExists,
   type ChatImageData,
 } from './utils/chatStoreUtils'
-import { buildAiGeneralMessage } from './utils/aiMessageBuilder'
-import type { ChatBubble, UserInfo } from '../types'
+import type { AiChatMessageRequest, ChatBubble, UserInfo } from '../types'
+
+const buildAiGeneralMessage = (
+  content: string,
+  userInfo: UserInfo | null,
+  enableWebSearch: boolean,
+  chatRole: string = 'mate',
+): AiChatMessageRequest => {
+  const sessionId = `general-session-${Date.now()}`
+
+  return {
+    sessionId,
+    newValue: '1',
+    coversation: content,
+    question: '',
+    answer: '',
+    name: userInfo?.userName || 'User',
+    reason: 'start',
+    bmNo: sessionId,
+    isWebSearch: enableWebSearch ? '1' : '0',
+    chatRole,
+    subject: '',
+    dstUrl: '/permission/chats',
+  }
+}
 
 /**
  * 教师会话信息

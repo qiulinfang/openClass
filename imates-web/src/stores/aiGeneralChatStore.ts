@@ -13,11 +13,34 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiService } from '../services/api-service'
 import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
-import type { ChatBubble, UserInfo, AiGeneralSession } from '../types'
-import { buildAiGeneralMessage } from './utils/aiMessageBuilder'
+import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo } from '../types'
 import { getCurrentUserIdOrDefault } from '../utils/user/userId'
 import localforage from 'localforage'
 import { generateUniqueId } from './utils/chatStoreUtils'
+
+const buildAiGeneralMessage = (
+  content: string,
+  userInfo: UserInfo | null,
+  enableWebSearch: boolean,
+  chatRole: string = 'mate',
+): AiChatMessageRequest => {
+  const sessionId = `general-session-${Date.now()}`
+
+  return {
+    sessionId,
+    newValue: '1',
+    coversation: content,
+    question: '',
+    answer: '',
+    name: userInfo?.userName || 'User',
+    reason: 'start',
+    bmNo: sessionId,
+    isWebSearch: enableWebSearch ? '1' : '0',
+    chatRole,
+    subject: '',
+    dstUrl: '/permission/chats',
+  }
+}
 
 export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   // ==================== 状态定义 ====================
@@ -50,7 +73,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   } | null>(null)
   
   // ==================== 私有方法 ====================
-  // （已迁移到 aiMessageBuilder.ts 中的 buildAiGeneralMessage）
+  // （使用本文件内的 buildAiGeneralMessage）
   
   /**
    * 创建用户消息

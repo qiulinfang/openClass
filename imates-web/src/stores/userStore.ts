@@ -5,15 +5,12 @@
 
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { androidBridge } from '../services/android-bridge'
-import { getCurrentUserIdOrDefault } from '../utils/user/userId'
 import type { UserInfo } from '../types'
-
-// 获取带用户ID前缀的存储key
-const getStorageKey = () => {
-  const userId = getCurrentUserIdOrDefault()
-  return `${userId}_USER_INFO_CACHE`
-}
+import { androidBridge } from '../services/android-bridge'
+import {
+  getUserInfo as getAuthUserInfo,
+  setUserInfo as setAuthUserInfo
+} from '../utils/user/authStorage'
 
 export const useUserStore = defineStore('user', () => {
   // ==================== 状态定义 ====================
@@ -28,34 +25,13 @@ export const useUserStore = defineStore('user', () => {
   
   /**
    * 初始化Store
-   * 第1步：尝试从 localStorage 读取持久化数据
-   * 第2步：如果没有持久化数据，从 Android Bridge 获取
-   * 第3步：设置用户信息到 Store
+   * 第1步：尝试从统一存储读取持久化数据
+   * 第2步：等待外部通过 setUserInfo 注入最新用户信息
    */
   const initializeStore = async (): Promise<void> => {
     try {
-      // 第1步：从 Android Bridge 获取用户信息（获取用户ID）
-      const user = await androidBridge.getUserInfo()
-      
-      if (user && user.id) {
-        // 第2步：设置用户信息到状态
-        userInfo.value = user
-        
-        // 第3步：尝试从 localStorage 读取该用户的缓存（使用用户ID前缀）
-        const key = `${user.id}_USER_INFO_CACHE`
-        const cachedData = localStorage.getItem(key)
-        if (cachedData) {
-          const parsed = JSON.parse(cachedData)
-          // 验证缓存中的用户ID是否匹配
-          if (parsed.id === user.id) {
-            userInfo.value = parsed
-            return
-          }
-        }
-        
-        // 第4步：如果没有缓存或缓存不匹配，保存新用户信息
-        localStorage.setItem(key, JSON.stringify(user))
-      }
+      // 从统一存储加载
+      loadFromStorage()
     } catch (error) {
       console.error('[USER] ❌ 初始化失败:', error)
     }
@@ -64,16 +40,15 @@ export const useUserStore = defineStore('user', () => {
   /**
    * 设置用户信息并持久化
    * 第1步：设置 userInfo 状态
-   * 第2步：保存到 localStorage
+   * 第2步：保存到统一存储
    */
   const setUserInfo = (user: UserInfo): void => {
     // 第1步：设置状态
     userInfo.value = user
     
-    // 第2步：持久化到 localStorage（使用用户ID前缀）
+    // 第2步：持久化到统一存储
     try {
-      const key = user.id ? `${user.id}_USER_INFO_CACHE` : getStorageKey()
-      localStorage.setItem(key, JSON.stringify(user))
+      setAuthUserInfo(user)
     } catch (error) {
       console.error('[USER] ❌ 持久化用户信息失败:', error)
     }
@@ -81,22 +56,20 @@ export const useUserStore = defineStore('user', () => {
   
   /**
    * 从持久化存储加载用户信息
-   * 第1步：从 localStorage 读取数据
-   * 第2步：解析并设置到 userInfo
+   * 第1步：从统一存储读取数据
+   * 第2步：设置到 userInfo
    * @returns 是否成功加载
    */
   const loadFromStorage = (): boolean => {
     try {
-      // 第1步：从 localStorage 读取（使用用户ID前缀）
-      const key = getStorageKey()
-      const cachedData = localStorage.getItem(key)
-      if (!cachedData) {
+      // 第1步：从统一存储读取
+      const cachedUserInfo = getAuthUserInfo()
+      if (!cachedUserInfo) {
         return false
       }
       
-      // 第2步：解析并设置
-      const parsed = JSON.parse(cachedData)
-      userInfo.value = parsed
+      // 第2步：设置到状态
+      userInfo.value = cachedUserInfo
       return true
     } catch (error) {
       console.error('[USER] ❌ 加载存储数据失败:', error)
@@ -107,22 +80,15 @@ export const useUserStore = defineStore('user', () => {
   /**
    * 清除用户信息和持久化数据
    * 第1步：清空 userInfo 状态
-   * 第2步：从 localStorage 移除数据
+   * 第2步：从统一存储移除用户信息（但保留其他身份数据如token）
    */
   const clearUserInfo = (): void => {
     // 第1步：清空状态
-    const currentUserId = userInfo.value?.id
     userInfo.value = null
     
-    // 第2步：移除持久化数据（使用用户ID前缀）
+    // 第2步：从统一存储移除用户信息（但保留其他身份数据）
     try {
-      if (currentUserId) {
-        const key = `${currentUserId}_USER_INFO_CACHE`
-        localStorage.removeItem(key)
-      } else {
-        const key = getStorageKey()
-        localStorage.removeItem(key)
-      }
+      setAuthUserInfo(null)
     } catch (error) {
       console.error('[USER] ❌ 清除持久化数据失败:', error)
     }
@@ -226,12 +192,7 @@ export const useUserStore = defineStore('user', () => {
       }
       
       // 第4步：清理IndexedDB数据（异步操作，不阻塞）
-      try {
-        const { asyncStorage } = await import('../services/chat-storage')
-        // 清理所有会话（IndexedDB清理会在下次使用时自动重建）
-      } catch (error) {
-        console.warn('[USER] ⚠️ 清理IndexedDB数据失败:', error)
-      }
+      // TODO: 如需清理 IndexedDB，可在此处补充实现
     } catch (error) {
       console.error('[USER] ❌ 账号切换数据清理失败:', error)
     }

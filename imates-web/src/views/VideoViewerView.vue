@@ -4,7 +4,7 @@
     <!-- 工具栏 -->
     <UnifiedToolbar
       variant="browser"
-      :tools="['back', 'chat']"
+      :tools="videoToolbarTools"
       :selected-tool="selectedTool"
       @tool-change="handleToolChange"
       @back="handleGoBack"
@@ -181,6 +181,9 @@ import SessionList from '@/components/SessionList.vue'
 // 使用路由
 const route = useRoute()
 const router = useRouter()
+
+// 统一工具栏工具集合（本地变量）
+const videoToolbarTools = ['back', 'chat']
 
 // 使用 AI Store
 

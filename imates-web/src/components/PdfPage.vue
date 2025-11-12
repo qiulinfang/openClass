@@ -76,6 +76,19 @@ const emit = defineEmits<{
 // 使用 Store
 const store = usePdfViewerStore()
 
+// 获取父组件提供的注册函数
+const registerPageComponent = inject<
+  (
+    pageNum: number,
+    component: { undo: () => boolean; redo: () => boolean; canUndo: () => boolean; canRedo: () => boolean },
+  ) => void
+>('registerPageComponent')
+
+const unregisterPageComponent = inject<(pageNum: number) => void>('unregisterPageComponent')
+
+// 获取父组件提供的更新触发器
+const triggerToolStatesUpdate = inject<() => void>('triggerToolStatesUpdate')
+
 // 组件状态
 const pdfCanvas = ref<HTMLCanvasElement>()
 const drawingCanvas = ref<HTMLCanvasElement>()
@@ -114,9 +127,78 @@ interface DrawObject {
 const objects = ref<DrawObject[]>([])
 
 // 历史记录管理
-const history = ref<DrawObject[][]>([[]])
-const historyIndex = ref(0)
-const maxHistorySize = 20 // 最多保存20个历史状态
+const history = ref<DrawObject[][]>([]) // 历史记录数组，存储每个状态的深拷贝
+const historyIndex = ref(-1) // 当前历史记录索引，-1表示没有历史记录
+const maxHistorySize = 50 // 最大历史记录数量限制
+
+// 保存当前状态到历史记录
+const saveState = () => {
+  // 如果当前不在历史记录末尾，删除后面的记录
+  if (historyIndex.value < history.value.length - 1) {
+    history.value = history.value.slice(0, historyIndex.value + 1)
+  }
+
+  // 保存当前状态（深拷贝）
+  const currentState = JSON.parse(JSON.stringify(objects.value))
+  history.value.push(currentState)
+  historyIndex.value = history.value.length - 1
+
+  // 限制历史记录数量
+  if (history.value.length > maxHistorySize) {
+    history.value.shift()
+    historyIndex.value--
+  }
+  
+  // 调试日志：检查历史记录状态
+  console.log(`[PdfPage ${props.layout.pageNum}] saveState: historyIndex=${historyIndex.value}, history.length=${history.value.length}, canUndo=${canUndo.value}`)
+  
+  // 通知父组件更新工具状态（触发 toolStates computed 重新计算）
+  if (triggerToolStatesUpdate) {
+    triggerToolStatesUpdate()
+  }
+}
+
+// 撤销函数
+const undo = (): boolean => {
+  if (historyIndex.value <= 0) {
+    return false // 无法撤销
+  }
+
+  historyIndex.value--
+  objects.value = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
+  render()
+  
+  // 保存到Store
+  const normalizedObjects = objects.value.map(obj => normalizeCoordinates(obj, store.scale))
+  const serializedObjects = IndexedDBService.deepSerialize(normalizedObjects) as object[]
+  store.updateAnnotations(props.layout.pageNum, serializedObjects)
+  
+  return true
+}
+
+// 重做函数
+const redo = (): boolean => {
+  if (historyIndex.value >= history.value.length - 1) {
+    return false // 无法重做
+  }
+
+  historyIndex.value++
+  objects.value = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
+  render()
+  
+  // 保存到Store
+  const normalizedObjects = objects.value.map(obj => normalizeCoordinates(obj, store.scale))
+  const serializedObjects = IndexedDBService.deepSerialize(normalizedObjects) as object[]
+  store.updateAnnotations(props.layout.pageNum, serializedObjects)
+  
+  return true
+}
+
+// 检查是否可以撤销
+const canUndo = computed(() => historyIndex.value > 0)
+
+// 检查是否可以重做
+const canRedo = computed(() => historyIndex.value < history.value.length - 1)
 
 // 当前绘制状态
 const isDrawing = ref(false)
@@ -446,12 +528,24 @@ const loadAnnotations = async () => {
       objects.value = []
     }
     
-    // 初始化历史记录（保存初始状态）
-    history.value = [JSON.parse(JSON.stringify(objects.value))]
-    historyIndex.value = 0
+    // 初始化历史记录
+    // 只保存当前状态作为初始状态，不创建空状态
+    // 这样用户撤销时不会直接清空所有笔记，而是需要逐步撤销每个操作
+    if (objects.value.length > 0) {
+      // 如果有初始数据，只保存当前状态
+      history.value = [JSON.parse(JSON.stringify(objects.value))]
+      historyIndex.value = 0  // 指向当前状态（唯一的历史记录）
+    } else {
+      // 如果没有数据，保存空状态
+      history.value = [[]]
+      historyIndex.value = 0
+    }
   } catch (err) {
     console.error(`第 ${props.layout.pageNum} 页加载笔记失败:`, err)
     objects.value = []
+    // 初始化历史记录（错误情况）
+    history.value = [[]]
+    historyIndex.value = 0
   }
 }
 
@@ -707,6 +801,10 @@ const getCanvasCoords = (e: MouseEvent | TouchEvent): { x: number; y: number } |
 
 // 获取对象的边界框
 const getObjectBounds = (obj: DrawObject): { x: number; y: number; width: number; height: number } | null => {
+  // 获取线宽（默认为0，表示不考虑线宽）
+  const lineWidth = obj.lineWidth || 0
+  const halfLineWidth = lineWidth / 2
+  
   if (obj.type === 'path' && obj.points && obj.points.length > 0) {
     const xs = obj.points.map(p => p.x)
     const ys = obj.points.map(p => p.y)
@@ -715,24 +813,24 @@ const getObjectBounds = (obj: DrawObject): { x: number; y: number; width: number
     const minY = Math.min(...ys)
     const maxY = Math.max(...ys)
     return {
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      height: maxY - minY
+      x: minX - halfLineWidth,
+      y: minY - halfLineWidth,
+      width: (maxX - minX) + lineWidth,
+      height: (maxY - minY) + lineWidth
     }
   } else if (obj.type === 'rectangle' && obj.x !== undefined && obj.y !== undefined && obj.width !== undefined && obj.height !== undefined) {
     return {
-      x: obj.x,
-      y: obj.y,
-      width: obj.width,
-      height: obj.height
+      x: obj.x - halfLineWidth,
+      y: obj.y - halfLineWidth,
+      width: obj.width + lineWidth,
+      height: obj.height + lineWidth
     }
   } else if (obj.type === 'circle' && obj.x !== undefined && obj.y !== undefined && obj.radius !== undefined) {
     return {
-      x: obj.x - obj.radius,
-      y: obj.y - obj.radius,
-      width: obj.radius * 2,
-      height: obj.radius * 2
+      x: obj.x - obj.radius - halfLineWidth,
+      y: obj.y - obj.radius - halfLineWidth,
+      width: (obj.radius * 2) + lineWidth,
+      height: (obj.radius * 2) + lineWidth
     }
   } else if (obj.type === 'line' && obj.x1 !== undefined && obj.y1 !== undefined && obj.x2 !== undefined && obj.y2 !== undefined) {
     const minX = Math.min(obj.x1, obj.x2)
@@ -740,17 +838,17 @@ const getObjectBounds = (obj: DrawObject): { x: number; y: number; width: number
     const minY = Math.min(obj.y1, obj.y2)
     const maxY = Math.max(obj.y1, obj.y2)
     return {
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      height: maxY - minY
+      x: minX - halfLineWidth,
+      y: minY - halfLineWidth,
+      width: (maxX - minX) + lineWidth,
+      height: (maxY - minY) + lineWidth
     }
   } else if (obj.type === 'triangle' && obj.x !== undefined && obj.y !== undefined && obj.width !== undefined && obj.height !== undefined) {
     return {
-      x: obj.x,
-      y: obj.y,
-      width: obj.width,
-      height: obj.height
+      x: obj.x - halfLineWidth,
+      y: obj.y - halfLineWidth,
+      width: obj.width + lineWidth,
+      height: obj.height + lineWidth
     }
   } else if (obj.type === 'text' && obj.x !== undefined && obj.y !== undefined) {
     // 文本对象使用估算的尺寸
@@ -950,6 +1048,9 @@ const handleEraser = (coords: { x: number; y: number }) => {
   // 删除对象
   if (toDelete.length > 0) {
     objects.value = objects.value.filter((_, index) => !toDelete.includes(index))
+    // 保存历史记录
+    saveState()
+    // 保存状态到Store
     saveAnnotations()
     render()
   }
@@ -1267,7 +1368,10 @@ const handleDrawingMouseUp = () => {
     objects.value.push(tempObject.value)
     tempObject.value = null
     
-    // 保存状态
+    // 保存历史记录
+    saveState()
+    
+    // 保存状态到Store
     saveAnnotations()
     
     isDrawing.value = false
@@ -1296,11 +1400,12 @@ const captureScreenshot = async () => {
   
   try {
     const shape = screenshotState.value.currentShape
-    const bounds = getObjectBounds(shape)
+    let bounds = getObjectBounds(shape)
     
     console.log('[截图工具] 计算选区边界', {
       shapeType: shape.type,
-      bounds: bounds
+      bounds: bounds,
+      lineWidth: shape.lineWidth
     })
     
     if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
@@ -1311,10 +1416,30 @@ const captureScreenshot = async () => {
       return
     }
     
+    // 确保边界不超出 canvas 范围
+    const canvasWidth = pdfCanvas.value.width
+    const canvasHeight = pdfCanvas.value.height
+    
+    // 调整边界，确保在 canvas 范围内
+    const sourceX = Math.max(0, Math.round(bounds.x))
+    const sourceY = Math.max(0, Math.round(bounds.y))
+    const sourceWidth = Math.min(bounds.width, canvasWidth - sourceX)
+    const sourceHeight = Math.min(bounds.height, canvasHeight - sourceY)
+    
+    // 如果调整后的尺寸无效，则使用原始边界（drawImage 会自动处理超出部分）
+    const finalWidth = sourceWidth > 0 ? sourceWidth : bounds.width
+    const finalHeight = sourceHeight > 0 ? sourceHeight : bounds.height
+    
+    console.log('[截图工具] 边界调整', {
+      originalBounds: bounds,
+      adjustedBounds: { x: sourceX, y: sourceY, width: finalWidth, height: finalHeight },
+      canvasSize: { width: canvasWidth, height: canvasHeight }
+    })
+    
     // 创建临时canvas合并PDF和绘制内容
     const tempCanvas = document.createElement('canvas')
-    tempCanvas.width = Math.max(1, Math.round(bounds.width))
-    tempCanvas.height = Math.max(1, Math.round(bounds.height))
+    tempCanvas.width = Math.max(1, Math.round(finalWidth))
+    tempCanvas.height = Math.max(1, Math.round(finalHeight))
     const tempCtx = tempCanvas.getContext('2d')
     
     if (!tempCtx) {
@@ -1324,30 +1449,31 @@ const captureScreenshot = async () => {
     console.log('[截图工具] 创建临时Canvas', {
       width: tempCanvas.width,
       height: tempCanvas.height,
-      bounds: bounds
+      sourceBounds: { x: sourceX, y: sourceY, width: finalWidth, height: finalHeight }
     })
     
-    // 绘制PDF内容
+    // 绘制PDF内容（使用调整后的边界）
     tempCtx.drawImage(
       pdfCanvas.value,
-      Math.round(bounds.x),
-      Math.round(bounds.y),
-      bounds.width,
-      bounds.height,
+      sourceX,
+      sourceY,
+      finalWidth,
+      finalHeight,
       0,
       0,
-      bounds.width,
-      bounds.height
+      tempCanvas.width,
+      tempCanvas.height
     )
     
     console.log('[截图工具] 已绘制PDF内容到临时Canvas')
     
     // 绘制绘制层内容（临时隐藏截图选区）
+    // 使用调整后的边界坐标进行偏移
     const objectsCount = objects.value.length
     objects.value.forEach(obj => {
       drawObjectToContext(tempCtx, obj, {
-        x: -bounds.x,
-        y: -bounds.y
+        x: -sourceX,
+        y: -sourceY
       })
     })
     
@@ -1455,71 +1581,10 @@ const resetScreenshotState = () => {
 }
 
 // 保存状态到历史记录
-const saveState = () => {
-  // 如果当前不在历史记录末尾，删除后面的记录
-  if (historyIndex.value < history.value.length - 1) {
-    history.value = history.value.slice(0, historyIndex.value + 1)
-  }
 
-  // 保存当前状态（深拷贝）
-  const currentState = JSON.parse(JSON.stringify(objects.value))
-  history.value.push(currentState)
-  historyIndex.value = history.value.length - 1
 
-  // 限制历史记录数量
-  if (history.value.length > maxHistorySize) {
-    history.value.shift()
-    historyIndex.value--
-  }
-}
-
-// 撤销
-const undo = () => {
-  if (historyIndex.value <= 0) {
-    return false // 无法撤销
-  }
-
-  historyIndex.value--
-  objects.value = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
-  render()
-  
-  // 保存到Store
-  const normalizedObjects = objects.value.map(obj => normalizeCoordinates(obj, store.scale))
-  const serializedObjects = IndexedDBService.deepSerialize(normalizedObjects) as object[]
-  store.updateAnnotations(props.layout.pageNum, serializedObjects)
-  
-  return true
-}
-
-// 重做
-const redo = () => {
-  if (historyIndex.value >= history.value.length - 1) {
-    return false // 无法重做
-  }
-
-  historyIndex.value++
-  objects.value = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
-  render()
-  
-  // 保存到Store
-  const normalizedObjects = objects.value.map(obj => normalizeCoordinates(obj, store.scale))
-  const serializedObjects = IndexedDBService.deepSerialize(normalizedObjects) as object[]
-  store.updateAnnotations(props.layout.pageNum, serializedObjects)
-  
-  return true
-}
-
-// 检查是否可以撤销
-const canUndo = computed(() => historyIndex.value > 0)
-
-// 检查是否可以重做
-const canRedo = computed(() => historyIndex.value < history.value.length - 1)
-
-// 保存注释到Store（在保存前先保存状态到历史记录）
+// 保存注释到Store
 const saveAnnotations = () => {
-  // 先保存状态到历史记录
-  saveState()
-  
   // 将坐标标准化为scale=1后再保存
   const normalizedObjects = objects.value.map(obj => normalizeCoordinates(obj, store.scale))
   const serializedObjects = IndexedDBService.deepSerialize(normalizedObjects) as object[]
@@ -1941,9 +2006,24 @@ onMounted(async () => {
     // 添加鼠标事件监听
     setupCanvasEventListeners()
   }
+  
+  // 注册到父组件（用于撤销/重做）
+  if (registerPageComponent) {
+    registerPageComponent(props.layout.pageNum, {
+      undo,
+      redo,
+      canUndo: () => canUndo.value,
+      canRedo: () => canRedo.value,
+    })
+  }
 })
 
 onUnmounted(async () => {
+  // 注销组件
+  if (unregisterPageComponent) {
+    unregisterPageComponent(props.layout.pageNum)
+  }
+  
   // 移除窗口大小监听
   window.removeEventListener('resize', handleResize)
   
@@ -2026,34 +2106,11 @@ watch(() => store.selectedTool, (newTool) => {
 
 // 暴露方法给父组件
 defineExpose({
+  pageNum: () => props.layout.pageNum,
   undo,
   redo,
   canUndo,
   canRedo,
-  pageNum: () => props.layout.pageNum
-})
-
-// 注册到父组件（用于undo/redo）
-const registerPageComponent = inject<((pageNum: number, component: any) => void) | undefined>('registerPageComponent')
-const unregisterPageComponent = inject<((pageNum: number) => void) | undefined>('unregisterPageComponent')
-
-// 注册组件
-onMounted(() => {
-  if (registerPageComponent) {
-    registerPageComponent(props.layout.pageNum, {
-      undo,
-      redo,
-      get canUndo() { return canUndo.value },
-      get canRedo() { return canRedo.value }
-    })
-  }
-})
-
-// 注销组件
-onUnmounted(() => {
-  if (unregisterPageComponent) {
-    unregisterPageComponent(props.layout.pageNum)
-  }
 })
 </script>
 

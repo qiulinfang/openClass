@@ -56,7 +56,7 @@ import GraphNode from './GraphNode.vue'
 import { ResourceManager } from '../../services/resource-storage'
 import { showMessage } from '../../utils'
 import { apiService } from '../../services/api-service'
-import { getCurrentUserIdOrDefault } from '../../utils/user/userId'
+import { getCurrentUserIdOrDefault, getScopedStorageValue } from '../../utils/user/userId'
 import type { KnowledgeGraphDebugParams } from '../debug/KnowledgeGraphDebugPanel.vue'
 import { queryShijingshanKnowledgeId } from '../../utils/business/shijingshan-knowledge-utils'
 
@@ -529,7 +529,7 @@ const handlePractice = async (node: { id: string; name: string; level?: number |
       query: {
         knowledgeList: knowledgeList,
         subject: subjectParam,
-        token: localStorage.getItem('token') || ''
+        token: getScopedStorageValue('token') || ''
       }
     })
   } catch (error) {
