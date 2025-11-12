@@ -16,6 +16,13 @@
         <div class="text-h6 q-mt-md text-grey-7">正在加载微课...</div>
       </div>
 
+      <!-- 404占位符 -->
+      <div v-else-if="is404" class="empty-container">
+        <q-icon name="ondemand_video" size="64px" color="grey-5" />
+        <div class="text-h6 q-mt-md text-grey-7">该题目暂无微课内容</div>
+        <div class="text-body2 q-mt-sm text-grey-6">微课资源可能尚未上传或已被移除</div>
+      </div>
+
       <!-- 错误状态 -->
       <div v-else-if="error" class="error-container">
         <q-icon name="error_outline" size="64px" color="negative" />
@@ -31,7 +38,7 @@
       </div>
 
       <!-- 视频播放器 -->
-      <div v-else-if="classUrl" class="video-container">
+      <div v-else-if="classUrl && !is404" class="video-container">
         <!-- 如果URL是视频文件，使用video标签 -->
         <video
           v-if="isVideoUrl(classUrl)"
@@ -102,6 +109,13 @@
       <div class="text-h6 q-mt-md text-grey-7">正在加载微课...</div>
     </div>
 
+    <!-- 404占位符 -->
+    <div v-else-if="is404" class="empty-container">
+      <q-icon name="ondemand_video" size="64px" color="grey-5" />
+      <div class="text-h6 q-mt-md text-grey-7">该题目暂无微课内容</div>
+      <div class="text-body2 q-mt-sm text-grey-6">微课资源可能尚未上传或已被移除</div>
+    </div>
+
     <!-- 错误状态 -->
     <div v-else-if="error" class="error-container">
       <q-icon name="error_outline" size="64px" color="negative" />
@@ -117,7 +131,7 @@
     </div>
 
     <!-- 视频播放器 -->
-    <div v-else-if="classUrl" class="video-container">
+    <div v-else-if="classUrl && !is404" class="video-container">
       <!-- 如果URL是视频文件，使用video标签 -->
       <video
         v-if="isVideoUrl(classUrl)"
@@ -219,6 +233,7 @@ const localVisible = computed({
 
 const loading = ref(false)
 const error = ref<string | null>(null)
+const is404 = ref(false)  // 404状态标识
 const videoPlayer = ref<HTMLVideoElement | null>(null)
 const iframePlayer = ref<HTMLIFrameElement | null>(null)
 const isPlaying = ref(false)
@@ -226,6 +241,7 @@ const currentTime = ref(0)
 const duration = ref(0)
 const showControls = ref(true)
 let loadTimeout: NodeJS.Timeout | null = null  // 加载超时定时器
+let check404Timeout: NodeJS.Timeout | null = null  // 404检测超时定时器
 
 // ==================== 方法 ====================
 
@@ -372,29 +388,141 @@ const handleVideoLoaded = () => {
 }
 
 // 处理视频错误
-const handleVideoError = () => {
+const handleVideoError = async () => {
   loading.value = false
+  
+  // 尝试检测是否为404
+  if (videoPlayer.value?.src) {
+    try {
+      const response = await fetch(videoPlayer.value.src, {
+        method: 'HEAD',
+        cache: 'no-cache'
+      })
+      if (response.status === 404) {
+        is404.value = true
+        error.value = null
+        return
+      }
+    } catch {
+      // 跨域限制，无法检测
+    }
+  }
+  
+  // 不是404，显示一般错误
+  is404.value = false
   error.value = '视频加载失败，请检查URL是否正确'
 }
 
 // 处理iframe加载
-const handleIframeLoad = () => {
+const handleIframeLoad = async () => {
   if (loadTimeout) {
     clearTimeout(loadTimeout)
     loadTimeout = null
   }
+  
+  // 清除404检测超时
+  if (check404Timeout) {
+    clearTimeout(check404Timeout)
+    check404Timeout = null
+  }
+  
   loading.value = false
-  error.value = null
+  
+  // 延迟检测404，给iframe一些时间加载
+  // 如果iframe加载的是错误页面，可能需要一些时间
+  check404Timeout = setTimeout(async () => {
+    if (!iframePlayer.value) return
+    
+    try {
+      // 尝试访问 iframe 的 contentWindow
+      // 如果跨域，会抛出异常，但这不是404的标识
+      const iframeWindow = iframePlayer.value.contentWindow
+      if (!iframeWindow) {
+        // 无法访问，可能是跨域或404
+        // 尝试通过 fetch 检测原始URL
+        const url = iframePlayer.value.src
+        if (url && url !== 'about:blank') {
+          try {
+            const response = await fetch(url, {
+              method: 'HEAD',
+              cache: 'no-cache'
+            })
+            if (response.status === 404) {
+              is404.value = true
+              error.value = null
+              return
+            }
+          } catch {
+            // 跨域限制，无法检测
+          }
+        }
+      } else {
+        // 可以访问，尝试检测是否为404页面
+        try {
+          const iframeDoc = iframePlayer.value.contentDocument
+          if (iframeDoc) {
+            // 检查页面标题或内容是否包含404相关文本
+            const title = iframeDoc.title?.toLowerCase() || ''
+            const bodyText = iframeDoc.body?.innerText?.toLowerCase() || ''
+            if (title.includes('404') || 
+                title.includes('not found') || 
+                bodyText.includes('404') || 
+                bodyText.includes('not found') ||
+                bodyText.includes('页面不存在')) {
+              is404.value = true
+              error.value = null
+              return
+            }
+          }
+        } catch {
+          // 跨域限制，无法访问文档内容
+        }
+      }
+      
+      // 如果检测完成且不是404，清除404状态
+      is404.value = false
+      error.value = null
+    } catch (err) {
+      console.warn('[MiniClass] 404检测失败:', err)
+      // 检测失败，不清除404状态，保持当前状态
+    }
+  }, 2000) // 延迟2秒检测，给iframe时间加载
 }
 
 // 处理iframe错误
-const handleIframeError = () => {
+const handleIframeError = async () => {
   console.error('[MiniClass] iframe 加载错误')
   if (loadTimeout) {
     clearTimeout(loadTimeout)
     loadTimeout = null
   }
+  
+  if (check404Timeout) {
+    clearTimeout(check404Timeout)
+    check404Timeout = null
+  }
+  
   loading.value = false
+  
+  // 尝试检测是否为404
+  if (iframePlayer.value?.src) {
+    try {
+      const response = await fetch(iframePlayer.value.src, {
+        method: 'HEAD',
+        cache: 'no-cache'
+      })
+      if (response.status === 404) {
+        is404.value = true
+        error.value = null
+        return
+      }
+    } catch {
+      // 跨域限制，无法检测
+    }
+  }
+  
+  // 不是404，显示一般错误
+  is404.value = false
   error.value = '页面加载失败，请检查URL是否正确'
 }
 
@@ -443,6 +571,8 @@ const formatTime = (seconds: number): string => {
 // 重试加载
 const retryLoad = () => {
   if (props.classUrl) {
+    is404.value = false
+    error.value = null
     loadContent(props.classUrl)
   }
 }
@@ -456,6 +586,7 @@ const loadContent = (url: string) => {
   if (!normalizedUrl) {
     error.value = 'URL 无效，请检查URL格式'
     loading.value = false
+    is404.value = false
     return
   }
   
@@ -473,8 +604,14 @@ const loadContent = (url: string) => {
     loadTimeout = null
   }
   
+  if (check404Timeout) {
+    clearTimeout(check404Timeout)
+    check404Timeout = null
+  }
+  
   loading.value = true
   error.value = null
+  is404.value = false
   
   // 设置加载超时（30秒）
   loadTimeout = setTimeout(() => {
@@ -541,15 +678,25 @@ watch(localVisible, (newValue) => {
       clearTimeout(loadTimeout)
       loadTimeout = null
     }
+    if (check404Timeout) {
+      clearTimeout(check404Timeout)
+      check404Timeout = null
+    }
     loading.value = false
+    is404.value = false
   } else if (newValue && props.classUrl) {
     // 打开时，如果 URL 存在，加载内容
     // 延迟一下确保 DOM 已经渲染
+    is404.value = false
+    error.value = null
     nextTick(() => {
       setTimeout(() => {
         loadContent(props.classUrl)
       }, 100)
     })
+  } else if (!newValue) {
+    // 关闭时重置404状态
+    is404.value = false
   }
 })
 
@@ -558,6 +705,10 @@ onUnmounted(() => {
   if (loadTimeout) {
     clearTimeout(loadTimeout)
     loadTimeout = null
+  }
+  if (check404Timeout) {
+    clearTimeout(check404Timeout)
+    check404Timeout = null
   }
   if (videoPlayer.value) {
     videoPlayer.value.pause()

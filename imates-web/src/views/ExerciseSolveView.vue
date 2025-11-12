@@ -397,38 +397,25 @@ const handleOpenMiniClass = (question: ExerciseItem) => {
 
     const classUrl = `https://www.imates.com.cn:9099/wk/${subjectPrefix}/${bmNo}/${bmNo}.html`
     
+    // 打印微课链接
+    console.log('[微课链接]', classUrl)
+    console.log('[微课链接详情]', {
+      subjectPrefix,
+      bmNo,
+      subjectRaw,
+      questionId: question.id,
+      fullUrl: classUrl
+    })
+    
     if (!classUrl || classUrl.trim() === '') {
       showMessage('该题目暂无微课', 'warning')
       return
     }
 
-    // 在打开前检测 URL 是否可用（通过 Image onload/onerror，规避跨域限制）
-    const checkUrlExists = (url: string): Promise<boolean> => {
-      return new Promise((resolve) => {
-        try {
-          const img = new Image()
-          img.onload = () => resolve(true) // 200 时会触发 onload
-          img.onerror = () => resolve(false) // 404/网络错触发 onerror
-          // 追加时间戳避免缓存
-          img.src = `${url}${url.includes('?') ? '&' : '?'}_ts=${Date.now()}`
-        } catch {
-          resolve(false)
-        }
-      })
-    }
-
+    // 直接打开微课链接，由 MiniClass 组件内部处理加载错误
+    // 移除 Image 检测逻辑，避免 ERR_BLOCKED_BY_ORB 错误
     const questionTitle = question.title || question.question?.substring(0, 50) || ''
-
-    checkUrlExists(classUrl).then((exists) => {
-      if (exists) {
-        // 可用：正常打开微课页面
-        uiStore.openMiniClassDialog(classUrl, questionTitle)
-      } else {
-        // 404：打开弹窗但不传URL，交由 MiniClass 内部显示“暂无微课内容”
-        uiStore.openMiniClassDialog('', questionTitle)
-        showMessage('该题目暂无微课', 'warning')
-      }
-    })
+    uiStore.openMiniClassDialog(classUrl, questionTitle)
   } catch (error) {
     console.error(`[ExerciseSolveView] 打开微课失败:`, error)
     showMessage('打开微课失败', 'error')
