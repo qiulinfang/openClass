@@ -168,7 +168,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
       )
     }
 
-    // 图片消息
+    // 图片消息（只显示图片，文字已拆分为独立消息）
     if (message.messageType === 'image' && message.imageData && message.imageData.base64DataUrl) {
       return (
         <ImageMessage

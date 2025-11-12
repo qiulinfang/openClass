@@ -59,6 +59,45 @@ const ChatScreen: React.FC = () => {
     })
   }, [store.sessions])
 
+  // 计算属性：显示的消息列表（将包含图片和文字的消息拆分成两个独立的气泡：图片在前，文字在后）
+  const displayedMessages = useMemo(() => {
+    const messages = store.messages
+    const result: ChatBubble[] = []
+    
+    for (const message of messages) {
+      // 如果消息是图片类型，且同时包含图片和文字内容
+      if (
+        message.messageType === 'image' &&
+        message.imageData &&
+        message.imageData.base64DataUrl &&
+        message.content &&
+        message.content.trim()
+      ) {
+        // 第一条：只显示图片（清空文字内容）
+        const imageMessage: ChatBubble = {
+          ...message,
+          content: '', // 清空文字内容，只显示图片
+          id: message.id + '_image', // 添加后缀以区分
+        }
+        result.push(imageMessage)
+        
+        // 第二条：只显示文字（清空图片数据）
+        const textMessage: ChatBubble = {
+          ...message,
+          messageType: 'text', // 改为文本类型
+          imageData: undefined, // 清空图片数据
+          id: message.id + '_text', // 添加后缀以区分
+        }
+        result.push(textMessage)
+      } else {
+        // 其他消息直接添加
+        result.push(message)
+      }
+    }
+    
+    return result
+  }, [store.messages])
+
   // 初始化：加载会话列表和当前会话
   useEffect(() => {
     const initialize = async () => {
@@ -83,20 +122,20 @@ const ChatScreen: React.FC = () => {
 
   // 监听消息更新，自动滚动到底部
   useEffect(() => {
-    if (store.messages.length > 0) {
+    if (displayedMessages.length > 0) {
       // 延迟一点时间，确保消息已渲染
       setTimeout(() => {
         scrollToBottom()
       }, 100)
     }
-  }, [store.messages])
+  }, [displayedMessages])
 
   // 滚动到底部
   const scrollToBottom = useCallback(() => {
-    if (flatListRef.current && store.messages.length > 0) {
+    if (flatListRef.current && displayedMessages.length > 0) {
       flatListRef.current.scrollToEnd({ animated: true })
     }
-  }, [store.messages.length])
+  }, [displayedMessages.length])
 
   // 发送消息
   const handleSendMessage = useCallback(async () => {
@@ -287,7 +326,7 @@ const ChatScreen: React.FC = () => {
         {/* 消息列表 */}
         <FlatList
           ref={flatListRef}
-          data={store.messages}
+          data={displayedMessages}
           renderItem={renderMessage}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}

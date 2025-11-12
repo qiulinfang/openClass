@@ -295,6 +295,12 @@ const initCropCanvas = () => {
         originalHeight: img.height,
       }
 
+      // 输出弹出框中图片的大小
+      console.log('[截图工具] 弹出框中图片大小:', {
+        width: img.width,
+        height: img.height
+      })
+
       // 清空画布（使用逻辑像素尺寸）
       ctx.fillStyle = '#f5f5f5'
       ctx.fillRect(0, 0, cssWidth, cssHeight)
