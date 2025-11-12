@@ -47,20 +47,24 @@
               :duration="message.voiceData.duration / 1000"
               :is-user="false"
             />
-            <!-- 图片消息 -->
-            <ImageMessage
+            <!-- 图片消息（只显示图片，文字已拆分为独立消息） -->
+            <template
               v-else-if="
                 message.messageType === 'image' &&
                 message.imageData &&
                 message.imageData.base64DataUrl
               "
-              :base64-data-url="message.imageData.base64DataUrl"
-              :width="message.imageData.width"
-              :height="message.imageData.height"
-              :file-size="message.imageData.fileSize"
-              :is-user="false"
-              :show-info="true"
-            />
+            >
+              <!-- 显示图片 -->
+              <ImageMessage
+                :base64-data-url="message.imageData.base64DataUrl"
+                :width="message.imageData.width"
+                :height="message.imageData.height"
+                :file-size="message.imageData.fileSize"
+                :is-user="false"
+                :show-info="true"
+              />
+            </template>
             <!-- 聊天记录卡片 -->
             <ChatRecordCard
               v-else-if="message.messageType === 'chat_record' && message.chatRecordData"
@@ -179,20 +183,24 @@
             :duration="message.voiceData.duration / 1000"
             :is-user="true"
           />
-          <!-- 图片消息 -->
-          <ImageMessage
+          <!-- 图片消息（只显示图片，文字已拆分为独立消息） -->
+          <template
             v-else-if="
               message.messageType === 'image' &&
               message.imageData &&
               message.imageData.base64DataUrl
             "
-            :base64-data-url="message.imageData.base64DataUrl"
-            :width="message.imageData.width"
-            :height="message.imageData.height"
-            :file-size="message.imageData.fileSize"
-            :is-user="true"
-            :show-info="true"
-          />
+          >
+            <!-- 显示图片 -->
+            <ImageMessage
+              :base64-data-url="message.imageData.base64DataUrl"
+              :width="message.imageData.width"
+              :height="message.imageData.height"
+              :file-size="message.imageData.fileSize"
+              :is-user="true"
+              :show-info="true"
+            />
+          </template>
           <!-- 聊天记录卡片 -->
           <ChatRecordCard
             v-else-if="message.messageType === 'chat_record' && message.chatRecordData"

@@ -6,6 +6,7 @@
     @touchmove="handleTouchMove"
     @touchend="handleTouchEnd"
     @wheel="handleWheel"
+    @mousemove="handlePageMouseMove"
   >
     <!-- PDF 渲染层 -->
     <canvas 
@@ -25,6 +26,57 @@
         ref="drawingCanvas"
         class="drawing-canvas"
       ></canvas>
+    </div>
+    
+    <!-- Canvas坐标可视化 -->
+    <div 
+      v-if="showCoordinates"
+      class="canvas-coordinates-overlay"
+      :style="coordinatesOverlayStyle"
+    >
+      <div class="coordinates-info">
+        <!-- PDF Canvas 坐标信息 -->
+        <div class="canvas-section">
+          <div class="canvas-title">PDF Canvas</div>
+          <div class="coordinate-item">
+            <span class="label">鼠标位置:</span>
+            <span class="value">{{ formatCoordinate(pdfMousePosition.x) }}, {{ formatCoordinate(pdfMousePosition.y) }}</span>
+          </div>
+          <div class="coordinate-item">
+            <span class="label">Canvas尺寸:</span>
+            <span class="value">{{ pdfCanvasSize.width }} × {{ pdfCanvasSize.height }}</span>
+          </div>
+          <div v-if="screenshotState.currentShape" class="coordinate-item">
+            <span class="label">框选区域:</span>
+            <span class="value">{{ formatSelectionBounds() }}</span>
+          </div>
+          <div v-if="selectionBox" class="coordinate-item">
+            <span class="label">选择框:</span>
+            <span class="value">{{ formatSelectionBox() }}</span>
+          </div>
+        </div>
+        
+        <!-- Drawing Canvas 坐标信息 -->
+        <div v-if="!store.hideNotes" class="canvas-section">
+          <div class="canvas-title">Drawing Canvas</div>
+          <div class="coordinate-item">
+            <span class="label">鼠标位置:</span>
+            <span class="value">{{ formatCoordinate(drawingMousePosition.x) }}, {{ formatCoordinate(drawingMousePosition.y) }}</span>
+          </div>
+          <div class="coordinate-item">
+            <span class="label">Canvas尺寸:</span>
+            <span class="value">{{ drawingCanvasSize.width }} × {{ drawingCanvasSize.height }}</span>
+          </div>
+          <div v-if="screenshotState.currentShape" class="coordinate-item">
+            <span class="label">框选区域:</span>
+            <span class="value">{{ formatSelectionBounds() }}</span>
+          </div>
+          <div v-if="selectionBox" class="coordinate-item">
+            <span class="label">选择框:</span>
+            <span class="value">{{ formatSelectionBox() }}</span>
+          </div>
+        </div>
+      </div>
     </div>
     
     <!-- 加载状态 -->
@@ -222,6 +274,15 @@ const isDraggingObjects = ref(false)
 const dragStartPoint = ref<{ x: number; y: number } | null>(null)
 const objectsOriginalPositions = ref<Map<number, DrawObject>>(new Map())
 
+// Canvas坐标可视化状态（仅在开发环境显示）
+const showCoordinates = ref(import.meta.env.DEV) // 只在开发环境显示坐标
+// PDF Canvas 坐标
+const pdfMousePosition = ref({ x: 0, y: 0 })
+const pdfCanvasSize = ref({ width: 0, height: 0 })
+// Drawing Canvas 坐标
+const drawingMousePosition = ref({ x: 0, y: 0 })
+const drawingCanvasSize = ref({ width: 0, height: 0 })
+
 // 双指滑动状态
 const touchState = ref({
   isTwoFinger: false,
@@ -278,6 +339,15 @@ const drawingBoardStyle = computed(() => ({
   zIndex: 2
 }))
 
+// 坐标显示层样式
+const coordinatesOverlayStyle = computed(() => ({
+  position: 'absolute' as const,
+  top: '10px',
+  right: '10px',
+  zIndex: 1000,
+  pointerEvents: 'none' as const
+}))
+
 // 初始化 PDF 页面
 const initPdfPage = async () => {
   if (!store.pdfDoc || !pdfCanvas.value) {
@@ -322,6 +392,12 @@ const initPdfPage = async () => {
     // 设置Canvas显示尺寸（CSS像素）
     canvas.style.width = `${viewport.width}px`
     canvas.style.height = `${viewport.height}px`
+    
+    // 更新PDF Canvas尺寸显示
+    pdfCanvasSize.value = {
+      width: Math.round(viewport.width),
+      height: Math.round(viewport.height)
+    }
     
     // 缩放上下文以适应高DPI
     context.scale(dpr, dpr)
@@ -404,6 +480,12 @@ const initDrawingCanvas = async () => {
     drawingCanvas.value.height = canvasHeight
     drawingCanvas.value.style.width = `${currentViewport.width}px`
     drawingCanvas.value.style.height = `${currentViewport.height}px`
+    
+    // 更新Drawing Canvas尺寸显示
+    drawingCanvasSize.value = {
+      width: Math.round(currentViewport.width),
+      height: Math.round(currentViewport.height)
+    }
     
     // 获取上下文并重置变换矩阵，然后设置缩放以适应高DPI
     ctx = drawingCanvas.value.getContext('2d')
@@ -799,6 +881,58 @@ const getCanvasCoords = (e: MouseEvent | TouchEvent): { x: number; y: number } |
   }
 }
 
+// 获取鼠标在PDF Canvas上的坐标（逻辑坐标）
+const getPdfCanvasCoords = (e: MouseEvent | TouchEvent): { x: number; y: number } | null => {
+  if (!pdfCanvas.value) return null
+  
+  const rect = pdfCanvas.value.getBoundingClientRect()
+  let clientX, clientY
+  
+  if (e instanceof MouseEvent) {
+    clientX = e.clientX
+    clientY = e.clientY
+  } else if (e instanceof TouchEvent && e.touches.length > 0) {
+    clientX = e.touches[0].clientX
+    clientY = e.touches[0].clientY
+  } else {
+    return null
+  }
+  
+  // PDF Canvas的CSS尺寸等于逻辑尺寸（viewport.width）
+  // 直接使用相对于rect的坐标
+  return {
+    x: clientX - rect.left,
+    y: clientY - rect.top,
+  }
+}
+
+// PDF Canvas鼠标移动处理
+const handlePdfMouseMove = (e: MouseEvent) => {
+  const coords = getPdfCanvasCoords(e)
+  if (!coords) return
+  
+  // 更新PDF Canvas鼠标坐标
+  pdfMousePosition.value = { x: coords.x, y: coords.y }
+}
+
+// 页面鼠标移动处理（用于PDF Canvas坐标跟踪）
+const handlePageMouseMove = (e: MouseEvent) => {
+  // 检查鼠标是否在PDF Canvas区域内
+  if (pdfCanvas.value) {
+    const rect = pdfCanvas.value.getBoundingClientRect()
+    const x = e.clientX
+    const y = e.clientY
+    
+    if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+      // 鼠标在PDF Canvas区域内，更新坐标
+      const coords = getPdfCanvasCoords(e)
+      if (coords) {
+        pdfMousePosition.value = { x: coords.x, y: coords.y }
+      }
+    }
+  }
+}
+
 // 获取对象的边界框
 const getObjectBounds = (obj: DrawObject): { x: number; y: number; width: number; height: number } | null => {
   // 获取线宽（默认为0，表示不考虑线宽）
@@ -861,6 +995,25 @@ const getObjectBounds = (obj: DrawObject): { x: number; y: number; width: number
     }
   }
   return null
+}
+
+// 格式化坐标显示
+const formatCoordinate = (value: number): string => {
+  return Math.round(value * 100) / 100 + ''
+}
+
+// 格式化框选区域边界
+const formatSelectionBounds = (): string => {
+  if (!screenshotState.value.currentShape) return ''
+  const bounds = getObjectBounds(screenshotState.value.currentShape)
+  if (!bounds) return ''
+  return `(${formatCoordinate(bounds.x)}, ${formatCoordinate(bounds.y)}) ${formatCoordinate(bounds.width)} × ${formatCoordinate(bounds.height)}`
+}
+
+// 格式化选择框
+const formatSelectionBox = (): string => {
+  if (!selectionBox.value) return ''
+  return `(${formatCoordinate(selectionBox.value.x)}, ${formatCoordinate(selectionBox.value.y)}) ${formatCoordinate(selectionBox.value.width)} × ${formatCoordinate(selectionBox.value.height)}`
 }
 
 // 检查点是否在对象内
@@ -1137,12 +1290,6 @@ const handleDrawingMouseDown = (e: MouseEvent) => {
     screenshotState.value.isDrawing = true
     screenshotState.value.startPoint = coords
     
-    console.log('[截图工具] 开始截图', {
-      shapeType,
-      startPoint: coords,
-      pageNum: props.layout.pageNum
-    })
-    
     if (shapeType === 'rectangle') {
       // 矩形截图
       screenshotState.value.currentShape = {
@@ -1154,12 +1301,6 @@ const handleDrawingMouseDown = (e: MouseEvent) => {
         width: 0,
         height: 0
       }
-      console.log('[截图工具] 初始化矩形选区', {
-        x: coords.x,
-        y: coords.y,
-        width: 0,
-        height: 0
-      })
     } else if (shapeType === 'polygon') {
       // 自由形状截图
       screenshotState.value.polygonPoints = [coords]
@@ -1169,10 +1310,6 @@ const handleDrawingMouseDown = (e: MouseEvent) => {
         lineWidth: 2,
         points: [coords]
       }
-      console.log('[截图工具] 初始化自由形状选区', {
-        pointsCount: 1,
-        firstPoint: coords
-      })
     }
     render()
   }
@@ -1181,6 +1318,12 @@ const handleDrawingMouseDown = (e: MouseEvent) => {
 const handleDrawingMouseMove = (e: MouseEvent) => {
   const coords = getCanvasCoords(e)
   if (!coords) return
+  
+  // 更新Drawing Canvas鼠标坐标
+  drawingMousePosition.value = { x: coords.x, y: coords.y }
+  
+  // 同时更新PDF Canvas鼠标坐标（PDF Canvas和Drawing Canvas重叠，坐标相同）
+  pdfMousePosition.value = { x: coords.x, y: coords.y }
   
   const tool = store.selectedTool
   
@@ -1277,15 +1420,6 @@ const handleDrawingMouseMove = (e: MouseEvent) => {
       }
       
       screenshotState.value.currentShape = rectShape
-      
-      console.log('[截图工具] 更新矩形选区', {
-        x: rectShape.x,
-        y: rectShape.y,
-        width: rectShape.width,
-        height: rectShape.height,
-        currentPoint: coords
-      })
-      
       render()
     } else if (shapeType === 'polygon' && screenshotState.value.currentShape) {
       // 添加点到自由形状
@@ -1296,12 +1430,6 @@ const handleDrawingMouseMove = (e: MouseEvent) => {
         lineWidth: 2,
         points: [...screenshotState.value.polygonPoints]
       }
-      
-      console.log('[截图工具] 更新自由形状选区', {
-        pointsCount: screenshotState.value.polygonPoints.length,
-        currentPoint: coords
-      })
-      
       render()
     }
   }
@@ -1326,10 +1454,38 @@ const handleDrawingMouseUp = () => {
       // 矩形框选结束，选中与选框相交的所有对象
       const selectedIndices = findObjectsInRect(selectionBox.value)
       selectedObjects.value = new Set(selectedIndices)
+      
+      // 打印Drawing Canvas框选结果日志
+      console.log('[Drawing Canvas] 矩形框选结果:', {
+        '框选区域': {
+          x: selectionBox.value.x,
+          y: selectionBox.value.y,
+          width: selectionBox.value.width,
+          height: selectionBox.value.height
+        },
+        '选中对象数量': selectedIndices.length,
+        '选中对象索引': Array.from(selectedIndices),
+        'Canvas尺寸': {
+          width: drawingCanvas.value?.width || 0,
+          height: drawingCanvas.value?.height || 0
+        }
+      })
     } else if (selectionPath.value.length > 3) {
       // 自由框选结束，选中与多边形相交的所有对象
       const selectedIndices = findObjectsInPolygon(selectionPath.value)
       selectedObjects.value = new Set(selectedIndices)
+      
+      // 打印Drawing Canvas框选结果日志
+      console.log('[Drawing Canvas] 自由框选结果:', {
+        '框选路径点数': selectionPath.value.length,
+        '框选路径': selectionPath.value,
+        '选中对象数量': selectedIndices.length,
+        '选中对象索引': Array.from(selectedIndices),
+        'Canvas尺寸': {
+          width: drawingCanvas.value?.width || 0,
+          height: drawingCanvas.value?.height || 0
+        }
+      })
     } else if (selectionBox.value && selectionBox.value.width <= 10 && selectionBox.value.height <= 10) {
       // 点击空白处，清空选择（仅在确实没有移动时）
       // 如果移动距离很小，可能是触摸抖动，不执行任何操作
@@ -1379,10 +1535,6 @@ const handleDrawingMouseUp = () => {
     startPoint.value = null
   } else if (tool === 'screenshot' && screenshotState.value.isDrawing && screenshotState.value.currentShape) {
     // 捕获截图
-    console.log('[截图工具] 结束截图，开始捕获', {
-      shapeType: screenshotState.value.currentShape.type,
-      shape: screenshotState.value.currentShape
-    })
     captureScreenshot()
   }
 }
@@ -1390,11 +1542,6 @@ const handleDrawingMouseUp = () => {
 // 捕获截图
 const captureScreenshot = async () => {
   if (!pdfCanvas.value || !drawingCanvas.value || !screenshotState.value.currentShape) {
-    console.warn('[截图工具] 捕获失败：缺少必要的canvas或形状', {
-      hasPdfCanvas: !!pdfCanvas.value,
-      hasDrawingCanvas: !!drawingCanvas.value,
-      hasShape: !!screenshotState.value.currentShape
-    })
     return
   }
   
@@ -1402,97 +1549,190 @@ const captureScreenshot = async () => {
     const shape = screenshotState.value.currentShape
     let bounds = getObjectBounds(shape)
     
-    console.log('[截图工具] 计算选区边界', {
-      shapeType: shape.type,
-      bounds: bounds,
-      lineWidth: shape.lineWidth
-    })
-    
     if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
-      console.warn('[截图工具] 捕获失败：选区无效', {
-        bounds: bounds
-      })
       resetScreenshotState()
       return
     }
     
-    // 确保边界不超出 canvas 范围
-    const canvasWidth = pdfCanvas.value.width
-    const canvasHeight = pdfCanvas.value.height
+    // 获取两个 Canvas 的尺寸
+    const pdfCanvasWidth = pdfCanvas.value.width
+    const pdfCanvasHeight = pdfCanvas.value.height
+    const drawingCanvasWidth = drawingCanvas.value.width
+    const drawingCanvasHeight = drawingCanvas.value.height
     
-    // 调整边界，确保在 canvas 范围内
-    const sourceX = Math.max(0, Math.round(bounds.x))
-    const sourceY = Math.max(0, Math.round(bounds.y))
-    const sourceWidth = Math.min(bounds.width, canvasWidth - sourceX)
-    const sourceHeight = Math.min(bounds.height, canvasHeight - sourceY)
+    // 获取设备像素比（用于坐标转换）
+    const dpr = window.devicePixelRatio || 1
     
-    // 如果调整后的尺寸无效，则使用原始边界（drawImage 会自动处理超出部分）
-    const finalWidth = sourceWidth > 0 ? sourceWidth : bounds.width
-    const finalHeight = sourceHeight > 0 ? sourceHeight : bounds.height
+    // 框选坐标是逻辑坐标（相对于 Drawing Canvas 的 CSS 尺寸）
+    // 需要转换为实际像素坐标
+    const logicalX = bounds.x
+    const logicalY = bounds.y
+    const logicalWidth = bounds.width
+    const logicalHeight = bounds.height
     
-    console.log('[截图工具] 边界调整', {
-      originalBounds: bounds,
-      adjustedBounds: { x: sourceX, y: sourceY, width: finalWidth, height: finalHeight },
-      canvasSize: { width: canvasWidth, height: canvasHeight }
-    })
+    // 转换为 PDF Canvas 的实际像素坐标（PDF Canvas 和 Drawing Canvas 的实际像素尺寸应该相同）
+    const pdfSourceX = Math.max(0, Math.round(logicalX * dpr))
+    const pdfSourceY = Math.max(0, Math.round(logicalY * dpr))
+    const pdfSourceWidth = Math.min(logicalWidth * dpr, pdfCanvasWidth - pdfSourceX)
+    const pdfSourceHeight = Math.min(logicalHeight * dpr, pdfCanvasHeight - pdfSourceY)
     
-    // 创建临时canvas合并PDF和绘制内容
+    // 转换为 Drawing Canvas 的实际像素坐标
+    const drawingSourceX = Math.max(0, Math.round(logicalX * dpr))
+    const drawingSourceY = Math.max(0, Math.round(logicalY * dpr))
+    const drawingSourceWidth = Math.min(logicalWidth * dpr, drawingCanvasWidth - drawingSourceX)
+    const drawingSourceHeight = Math.min(logicalHeight * dpr, drawingCanvasHeight - drawingSourceY)
+    
+    // 最终图片尺寸（使用逻辑尺寸，保持清晰度）
+    const finalWidth = Math.max(1, Math.round(logicalWidth))
+    const finalHeight = Math.max(1, Math.round(logicalHeight))
+    
+    // 打印截图工具框选结果日志
+    // 注意：框选操作在 Drawing Canvas 上进行，截图同时从 PDF Canvas 和 Drawing Canvas 提取
+    const shapeType = store.drawingConfig.screenshotShape || 'rectangle'
+    
+    if (shapeType === 'rectangle') {
+      console.log('[截图工具] 矩形框选结果（同时提取 PDF 和 Drawing）:', {
+        '框选区域（逻辑坐标）': {
+          x: logicalX,
+          y: logicalY,
+          width: logicalWidth,
+          height: logicalHeight
+        },
+        'PDF Canvas尺寸（实际像素）': {
+          width: pdfCanvasWidth,
+          height: pdfCanvasHeight
+        },
+        'Drawing Canvas尺寸（实际像素）': {
+          width: drawingCanvasWidth,
+          height: drawingCanvasHeight
+        },
+        '从PDF Canvas提取的区域（实际像素）': {
+          x: pdfSourceX,
+          y: pdfSourceY,
+          width: pdfSourceWidth,
+          height: pdfSourceHeight
+        },
+        '从Drawing Canvas提取的区域（实际像素）': {
+          x: drawingSourceX,
+          y: drawingSourceY,
+          width: drawingSourceWidth,
+          height: drawingSourceHeight
+        },
+        '最终图片尺寸（逻辑尺寸）': {
+          width: finalWidth,
+          height: finalHeight
+        }
+      })
+    } else if (shapeType === 'polygon') {
+      console.log('[截图工具] 自由框选结果（同时提取 PDF 和 Drawing）:', {
+        '框选路径点数': screenshotState.value.polygonPoints.length,
+        '框选路径（逻辑坐标）': screenshotState.value.polygonPoints,
+        '框选边界（逻辑坐标）': {
+          x: logicalX,
+          y: logicalY,
+          width: logicalWidth,
+          height: logicalHeight
+        },
+        'PDF Canvas尺寸（实际像素）': {
+          width: pdfCanvasWidth,
+          height: pdfCanvasHeight
+        },
+        'Drawing Canvas尺寸（实际像素）': {
+          width: drawingCanvasWidth,
+          height: drawingCanvasHeight
+        },
+        '从PDF Canvas提取的区域（实际像素）': {
+          x: pdfSourceX,
+          y: pdfSourceY,
+          width: pdfSourceWidth,
+          height: pdfSourceHeight
+        },
+        '从Drawing Canvas提取的区域（实际像素）': {
+          x: drawingSourceX,
+          y: drawingSourceY,
+          width: drawingSourceWidth,
+          height: drawingSourceHeight
+        },
+        '最终图片尺寸（逻辑尺寸）': {
+          width: finalWidth,
+          height: finalHeight
+        }
+      })
+    }
+    
+    // 临时清除选择框状态，重新渲染（不包含红色选择框）
+    const wasDrawing = screenshotState.value.isDrawing
+    screenshotState.value.isDrawing = false
+    render()
+    
+    // 创建临时canvas合并PDF和Drawing内容
+    // 使用高分辨率以确保清晰度
     const tempCanvas = document.createElement('canvas')
-    tempCanvas.width = Math.max(1, Math.round(finalWidth))
-    tempCanvas.height = Math.max(1, Math.round(finalHeight))
+    tempCanvas.width = Math.max(1, Math.round(finalWidth * dpr))
+    tempCanvas.height = Math.max(1, Math.round(finalHeight * dpr))
     const tempCtx = tempCanvas.getContext('2d')
     
     if (!tempCtx) {
       throw new Error('无法获取临时Canvas上下文')
     }
     
-    console.log('[截图工具] 创建临时Canvas', {
-      width: tempCanvas.width,
-      height: tempCanvas.height,
-      sourceBounds: { x: sourceX, y: sourceY, width: finalWidth, height: finalHeight }
-    })
+    // 设置临时 Canvas 的 CSS 尺寸为逻辑尺寸
+    tempCanvas.style.width = `${finalWidth}px`
+    tempCanvas.style.height = `${finalHeight}px`
     
-    // 绘制PDF内容（使用调整后的边界）
+    // 步骤1: 先绘制PDF内容（底层）
+    // 从 PDF Canvas 的实际像素位置提取，绘制到临时 Canvas
     tempCtx.drawImage(
       pdfCanvas.value,
-      sourceX,
-      sourceY,
-      finalWidth,
-      finalHeight,
+      pdfSourceX,
+      pdfSourceY,
+      pdfSourceWidth,
+      pdfSourceHeight,
       0,
       0,
       tempCanvas.width,
       tempCanvas.height
     )
     
-    console.log('[截图工具] 已绘制PDF内容到临时Canvas')
-    
-    // 绘制绘制层内容（临时隐藏截图选区）
-    // 使用调整后的边界坐标进行偏移
-    const objectsCount = objects.value.length
-    objects.value.forEach(obj => {
-      drawObjectToContext(tempCtx, obj, {
-        x: -sourceX,
-        y: -sourceY
-      })
+    console.log('[截图工具] 步骤1-从PDF Canvas提取完成:', {
+      '提取位置': `(${pdfSourceX}, ${pdfSourceY})`,
+      '提取尺寸': `${pdfSourceWidth} x ${pdfSourceHeight}`,
+      '临时Canvas尺寸': `${tempCanvas.width} x ${tempCanvas.height}`
     })
     
-    console.log('[截图工具] 已绘制绘制层内容到临时Canvas', {
-      objectsCount: objectsCount
+    // 步骤2: 再绘制Drawing内容（叠加在PDF上）
+    // 从 Drawing Canvas 的实际像素位置提取，叠加到临时 Canvas
+    // 注意：此时 Drawing Canvas 已经重新渲染，不包含红色选择框
+    tempCtx.drawImage(
+      drawingCanvas.value,
+      drawingSourceX,
+      drawingSourceY,
+      drawingSourceWidth,
+      drawingSourceHeight,
+      0,
+      0,
+      tempCanvas.width,
+      tempCanvas.height
+    )
+    
+    // 恢复选择框状态（虽然之后会调用 resetScreenshotState，但为了安全还是恢复）
+    screenshotState.value.isDrawing = wasDrawing
+    
+    console.log('[截图工具] 步骤2-从Drawing Canvas提取完成:', {
+      '提取位置': `(${drawingSourceX}, ${drawingSourceY})`,
+      '提取尺寸': `${drawingSourceWidth} x ${drawingSourceHeight}`,
+      '状态': '已叠加到临时Canvas'
     })
     
     // 转换为Blob并触发回调
     tempCanvas.toBlob((blob) => {
       if (blob) {
-        console.log('[截图工具] 截图捕获成功', {
-          blobSize: blob.size,
-          blobType: blob.type,
-          width: tempCanvas.width,
-          height: tempCanvas.height
+        console.log('[截图工具] 步骤3-图片转换完成（PDF + Drawing合并）:', {
+          'Blob大小': `${(blob.size / 1024).toFixed(2)} KB`,
+          '实际像素尺寸': `${tempCanvas.width} x ${tempCanvas.height}`,
+          '逻辑尺寸': `${finalWidth} x ${finalHeight}`
         })
         emit('screenshot-captured', blob)
-      } else {
-        console.error('[截图工具] 截图转换为Blob失败')
       }
       resetScreenshotState()
       render()
@@ -1571,7 +1811,6 @@ const drawObjectToContext = (targetCtx: CanvasRenderingContext2D, obj: DrawObjec
 
 // 重置截图状态
 const resetScreenshotState = () => {
-  console.log('[截图工具] 重置截图状态')
   screenshotState.value = {
     isDrawing: false,
     startPoint: null,
@@ -2172,5 +2411,64 @@ defineExpose({
   font-size: 14px;
   color: #d32f2f;
   text-align: center;
+}
+
+.canvas-coordinates-overlay {
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+  min-width: 200px;
+}
+
+.coordinates-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.canvas-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.canvas-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.canvas-title {
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.coordinate-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.coordinate-item .label {
+  color: #aaa;
+  font-weight: 500;
+}
+
+.coordinate-item .value {
+  color: #4caf50;
+  font-weight: 600;
+  text-align: right;
+  font-family: 'Courier New', monospace;
 }
 </style>

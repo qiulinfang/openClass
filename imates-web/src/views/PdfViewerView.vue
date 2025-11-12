@@ -137,6 +137,7 @@
                 @response="handleChatResponse"
                 @focus="handleChatFocus"
                 @scroll-to-bottom="handleScrollToBottom"
+                :compressed-height="360"
               />
             </div>
 
@@ -947,6 +948,13 @@ const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
       aiTextbookStore.currentSessionId = sessionId
       aiTextbookStore.isNewSession = true
     }
+
+    // 调试日志：验证文字和图片是否一起传递
+    console.log('[PDF_VIEWER] 📤 发送截图消息:', {
+      question: question,
+      hasImage: !!imageData?.base64DataUrl,
+      imageSize: imageData ? `${imageData.width}x${imageData.height}` : 'none',
+    })
 
     await aiTextbookStore.sendMessage(
       question, // ⭐ 使用用户输入的问题作为coversation

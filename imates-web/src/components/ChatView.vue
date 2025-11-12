@@ -352,12 +352,47 @@ const selectedMessages = ref<Set<string>>(new Set()) // 已选择的消息ID集�
 
 // 消息显示相关状态
 // 使用 computed 自动同步策略中的消息列表，无需手动 watch
+// 将包含图片和文字的消息拆分成两个独立的气泡：图片在前，文字在后
 const displayedMessages = computed<ChatBubble[]>(() => {
-  if (chatStrategy.value) {
-    console.log('[ChatView] 🔍 [displayedMessages] 获取消息列表', chatStrategy.value.getMessages())
-    return chatStrategy.value.getMessages()
+  if (!chatStrategy.value) {
+    return []
   }
-  return []
+  
+  const messages = chatStrategy.value.getMessages()
+  const result: ChatBubble[] = []
+  
+  for (const message of messages) {
+    // 如果消息是图片类型，且同时包含图片和文字内容
+    if (
+      message.messageType === 'image' &&
+      message.imageData &&
+      message.imageData.base64DataUrl &&
+      message.content &&
+      message.content.trim()
+    ) {
+      // 第一条：只显示图片（清空文字内容）
+      const imageMessage: ChatBubble = {
+        ...message,
+        content: '', // 清空文字内容，只显示图片
+        id: message.id + '_image', // 添加后缀以区分
+      }
+      result.push(imageMessage)
+      
+      // 第二条：只显示文字（清空图片数据）
+      const textMessage: ChatBubble = {
+        ...message,
+        messageType: 'text', // 改为文本类型
+        imageData: undefined, // 清空图片数据
+        id: message.id + '_text', // 添加后缀以区分
+      }
+      result.push(textMessage)
+    } else {
+      // 其他消息直接添加
+      result.push(message)
+    }
+  }
+  
+  return result
 })
 
 /**

@@ -14,7 +14,6 @@ import { apiService } from '../services/api-service'
 import { asyncStorage } from '../services/chat-storage'
 import { showMessage } from '../utils'
 import { useUserStore } from './userStore'
-import { getCurrentUserId } from '../utils/user/userId'
 import {
   createUserMessage,
   createTempAiReplyMessage,
@@ -55,8 +54,8 @@ const buildAiTextbookMessage = ({
   useScreenshotApi = false,
   isNewSession = true,
 }: BuildTextbookMessageParams): AiChatMessageRequest => {
-  // 获取用户ID，优先级：userInfo.userId > userInfo.id > getCurrentUserId() > 'User'
-  const userId = userInfo?.userId || userInfo?.id || getCurrentUserId() || 'User'
+  // 统一使用 userName，与通用场景保持一致
+  const userName = userInfo?.userName || 'User'
 
   if (imageData?.base64DataUrl) {
     const questionDataUrl = imageData.base64DataUrl.startsWith('data:image/jpeg;')
@@ -68,18 +67,18 @@ const buildAiTextbookMessage = ({
       newValue: isNewSession ? '1' : '0',
       coversation: content,
       question: questionDataUrl,
-      answer: '教材内容截图',
-      name: userId,
+      answer: '',
+      name: userName,
       reason: 'start',
       bmNo: sessionId,
       isWebSearch: enableWebSearch ? '1' : '0',
       chatRole,
-      subject: 'all',
+      subject: '',
       dstUrl: '/permission/previewPictureQA',
     }
   }
 
-  const dstUrl = useScreenshotApi ? '/permission/previewPictureQA' : '/permission/chatMath'
+  const dstUrl = useScreenshotApi ? '/permission/previewPictureQA' : '/permission/chats'
 
   return {
     sessionId,
@@ -87,12 +86,12 @@ const buildAiTextbookMessage = ({
     coversation: content,
     question: '',
     answer: '',
-    name: userId,
+    name: userName,
     reason: 'start',
     bmNo: sessionId,
     isWebSearch: enableWebSearch ? '1' : '0',
     chatRole,
-    subject: 'all',
+    subject: '',
     dstUrl,
   }
 }
@@ -232,6 +231,15 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         useScreenshotApi: shouldUseScreenshotApi,
         isNewSession: isNewSession.value,
       })
+
+      // 调试日志：验证文字和图片是否一起发送
+      if (builderImageData) {
+        console.log('[AI_TEXTBOOK] 📤 发送截图消息:', {
+          coversation: aiMessage.coversation,
+          question: aiMessage.question?.substring(0, 50) + '...', // 只显示前50个字符
+          hasImage: !!aiMessage.question?.startsWith('data:image'),
+        })
+      }
 
       useScreenshotApi.value = shouldUseScreenshotApi
       isNewSession.value = false
