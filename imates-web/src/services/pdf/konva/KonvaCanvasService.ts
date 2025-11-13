@@ -18,7 +18,6 @@ export interface DrawObject {
   text?: string
   fontSize?: number
   opacity?: number
-  handwritingStyle?: 'brush' | 'writing' | 'spray' | 'oil-paint' | 'crayon' | 'marker' | 'pencil' | 'watercolor' | 'standard' | 'smooth' | 'natural' | 'fast'
   rawPoints?: { x: number; y: number }[]
 }
 
@@ -26,7 +25,6 @@ export interface DrawObject {
 export interface DrawingConfig {
   penColor: string
   penWidth: number
-  penHandwritingStyle?: string
   highlighterColor: string
   highlighterWidth: number
   highlighterOpacity: number

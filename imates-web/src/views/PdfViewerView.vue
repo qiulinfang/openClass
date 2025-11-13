@@ -1,11 +1,11 @@
 ﻿<template>
   <!-- 内容区域和对话面板 -->
   <div class="content-layout">
-    <q-splitter
+    <q-splitter 
       v-model="splitterModel"
       :limits="[30, 70]"
       :disable="!chatPanelVisible"
-      :class="['full-height', { 'full-width-before': !chatPanelVisible }]"
+      :class="['full-height', { 'full-width-before': !chatPanelVisible, 'chat-panel-visible': chatPanelVisible }]"
     >
       <!-- PDF内容区域 -->
       <template v-slot:before>
@@ -501,7 +501,6 @@ const currentToolConfig = computed(() => {
       return {
         color: config.penColor,
         size: config.penWidth,
-        handwritingStyle: config.penHandwritingStyle || 'writing',
       }
     case 'highlighter':
       return {
@@ -593,19 +592,6 @@ const handleConfigChange = (config: { [key: string]: string | number | boolean |
       }
       if (config.size !== undefined) {
         store.updateDrawingConfig({ penWidth: config.size as number })
-      }
-      if (config.handwritingStyle) {
-        store.updateDrawingConfig({
-          penHandwritingStyle: config.handwritingStyle as
-            | 'brush'
-            | 'writing'
-            | 'spray'
-            | 'oil-paint'
-            | 'crayon'
-            | 'marker'
-            | 'pencil'
-            | 'watercolor',
-        })
       }
       break
     case 'highlighter':
@@ -1156,6 +1142,8 @@ onBeforeUnmount(async () => {
   position: relative;
   overflow: hidden;
   background-color: #0A0020;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 虚拟滚动容器 - 支持横向和纵向滚动 */
@@ -1271,15 +1259,15 @@ onBeforeUnmount(async () => {
   width: 100% !important;
 }
 
-/* q-splitter 分隔条样式 - 确保拖动功能正常工作 */
-:deep(.q-splitter__separator) {
+/* q-splitter 分隔条样式 - 只在对话面板显示时应用 */
+.chat-panel-visible :deep(.q-splitter__separator) {
   background-color: #e0e0e0;
   cursor: col-resize;
   position: relative;
   width: 4px;
 }
 
-:deep(.q-splitter__separator:hover) {
+.chat-panel-visible :deep(.q-splitter__separator:hover) {
   background-color: #1976d2;
 }
 

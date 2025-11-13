@@ -139,30 +139,6 @@
                       </div>
                     </div>
 
-                    <!-- 笔迹样式配置（画笔用） -->
-                    <div v-if="currentToolConfig.config?.showHandwritingStylePicker" class="config-section">
-                      <div class="section-title">
-                        <q-icon name="edit" size="16px" />
-                        <span>{{ currentToolConfig.config?.handwritingStyleLabel || '笔迹样式' }}</span>
-                      </div>
-                      <div class="section-content">
-                        <div class="handwriting-style-options">
-                          <div
-                            v-for="style in currentToolConfig.config?.handwritingStyles"
-                            :key="style.value"
-                            class="handwriting-style-option"
-                            :class="{ 'handwriting-style-selected': toolConfig.handwritingStyle === style.value }"
-                            @click="updateConfig({ handwritingStyle: style.value })"
-                          >
-                            <div class="handwriting-style-icon">{{ style.icon || '✍️' }}</div>
-                            <div class="handwriting-style-info">
-                              <div class="handwriting-style-label">{{ style.label }}</div>
-                              <div v-if="style.description" class="handwriting-style-desc">{{ style.description }}</div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
 
                     <!-- 选择模式配置（选择工具用） -->
                     <div v-if="currentToolConfig.config?.showSelectionModePicker" class="config-section">
@@ -262,9 +238,6 @@ interface ToolConfig {
   sizeLabel?: string // 自定义粗细/大小的标签
   showShapePicker?: boolean
   shapes?: Array<{ value: string; label: string; icon: string }>
-  showHandwritingStylePicker?: boolean // 笔迹样式选择器
-  handwritingStyles?: Array<{ value: string; label: string; icon?: string; description?: string }> // 笔迹样式选项
-  handwritingStyleLabel?: string // 笔迹样式标签
   showSelectionModePicker?: boolean // 选择模式选择器
   selectionModes?: Array<{ value: string; label: string; icon?: string; description?: string }> // 选择模式选项
   selectionModeLabel?: string // 选择模式标签
@@ -283,7 +256,6 @@ interface ToolConfigState {
   color?: string
   size?: number
   shape?: string
-  handwritingStyle?: string // 笔迹样式
   selectMode?: string // 选择模式
   [key: string]: string | number | boolean | undefined
 }
@@ -347,12 +319,6 @@ const ALL_TOOLS: Record<string, ToolOption> = {
         { value: 2.0, label: '粗', displayHeight: '3px' },
       ],
       sizeLabel: '粗细',
-      showHandwritingStylePicker: true,
-      handwritingStyles: [
-        { value: 'signature', label: 'Signature Pad风格', icon: '✍️', description: '流畅的签名效果' },
-        { value: 'normal', label: '普通风格', icon: '✏️', description: '标准绘制效果' },
-      ],
-      handwritingStyleLabel: '绘制风格',
     },
   },
   highlighter: {
@@ -451,12 +417,6 @@ const ALL_TOOLS: Record<string, ToolOption> = {
         { value: 10, label: '特粗', displayHeight: '8px' },
       ],
       sizeLabel: '粗细',
-      showHandwritingStylePicker: true,
-      handwritingStyles: [
-        { value: 'signature', label: 'Signature Pad风格', icon: '✍️', description: '流畅的签名效果' },
-        { value: 'normal', label: '普通风格', icon: '✏️', description: '标准绘制效果' },
-      ],
-      handwritingStyleLabel: '绘制风格',
     },
   },
   'eraser-draw': {

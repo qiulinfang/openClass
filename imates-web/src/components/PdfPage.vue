@@ -103,7 +103,6 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick, toRaw, inject } from 'vue'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { IndexedDBService } from '@/services/indexeddb-service'
-import { drawSmoothPath, type HandwritingStyle } from '@/utils/drawing/path-smoothing'
 
 // 窗口大小响应式状态
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1920)
@@ -171,7 +170,6 @@ interface DrawObject {
   text?: string
   fontSize?: number
   opacity?: number
-  handwritingStyle?: 'brush' | 'writing' | 'spray' | 'oil-paint' | 'crayon' | 'marker' | 'pencil' | 'watercolor' | 'standard' | 'smooth' | 'natural' | 'fast' // 画笔样式（包含旧类型以向后兼容）
   rawPoints?: { x: number; y: number }[] // 原始点（可选，用于平滑处理）
 }
 
@@ -779,37 +777,13 @@ const drawObject = (obj: DrawObject) => {
   switch (obj.type) {
     case 'path':
       if (obj.points && obj.points.length > 1) {
-        // 使用平滑路径绘制（如果指定了样式）
-        if (obj.handwritingStyle) {
-          // 映射旧样式到新样式
-          const mapOldStyleToNew = (style: string): HandwritingStyle => {
-            const styleMap: Record<string, HandwritingStyle> = {
-              'standard': 'writing',
-              'smooth': 'writing',
-              'natural': 'crayon',
-              'fast': 'pencil',
-              'brush': 'brush',
-              'writing': 'writing',
-              'spray': 'spray',
-              'oil-paint': 'oil-paint',
-              'crayon': 'crayon',
-              'marker': 'marker',
-              'pencil': 'pencil',
-              'watercolor': 'watercolor'
-            }
-            return styleMap[style] || 'writing'
-          }
-          const mappedStyle = mapOldStyleToNew(obj.handwritingStyle)
-          drawSmoothPath(ctx, obj.points, mappedStyle, obj.lineWidth, obj.color)
-        } else {
-          // 兼容旧数据：使用直线连接
-          ctx.beginPath()
-          ctx.moveTo(obj.points[0].x, obj.points[0].y)
-          for (let i = 1; i < obj.points.length; i++) {
-            ctx.lineTo(obj.points[i].x, obj.points[i].y)
-          }
-          ctx.stroke()
+        // 使用直线连接
+        ctx.beginPath()
+        ctx.moveTo(obj.points[0].x, obj.points[0].y)
+        for (let i = 1; i < obj.points.length; i++) {
+          ctx.lineTo(obj.points[i].x, obj.points[i].y)
         }
+        ctx.stroke()
       }
       break
     case 'rectangle':
@@ -1364,36 +1338,12 @@ const handleDrawingMouseMove = (e: MouseEvent) => {
     currentPath.value.push(coords)
     const config = store.drawingConfig
     
-    // 获取画笔样式（仅画笔工具支持，荧光笔使用默认样式）
-    // 将旧样式映射到新样式以保持向后兼容
-    const mapOldStyleToNew = (style: string): HandwritingStyle => {
-      const styleMap: Record<string, HandwritingStyle> = {
-        'standard': 'writing',
-        'smooth': 'writing',
-        'natural': 'crayon',
-        'fast': 'pencil',
-        'brush': 'brush',
-        'writing': 'writing',
-        'spray': 'spray',
-        'oil-paint': 'oil-paint',
-        'crayon': 'crayon',
-        'marker': 'marker',
-        'pencil': 'pencil',
-        'watercolor': 'watercolor'
-      }
-      return styleMap[style] || 'writing'
-    }
-    const handwritingStyle: HandwritingStyle = tool === 'pen' 
-      ? mapOldStyleToNew(config.penHandwritingStyle || 'writing')
-      : 'writing'
-    
     tempObject.value = {
       type: 'path',
       color: tool === 'pen' ? config.penColor : config.highlighterColor,
       lineWidth: tool === 'pen' ? config.penWidth : config.highlighterWidth,
       points: [...currentPath.value],
       rawPoints: [...currentPath.value], // 保存原始点
-      handwritingStyle: handwritingStyle,
       opacity: tool === 'highlighter' ? config.highlighterOpacity / 100 : undefined
     }
     render()

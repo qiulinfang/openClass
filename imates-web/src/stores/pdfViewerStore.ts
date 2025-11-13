@@ -35,7 +35,6 @@ interface DrawingConfig {
   highlighterOpacity: number
   penColor: string
   penWidth: number
-  penHandwritingStyle: 'brush' | 'writing' | 'spray' | 'oil-paint' | 'crayon' | 'marker' | 'pencil' | 'watercolor' // 画笔样式
   eraserMode: string
   eraserSize: number
   screenshotShape: string // 截图形状类型：'rectangle' | 'polygon'
@@ -106,7 +105,6 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
       highlighterOpacity: 50, // 默认浓度 50%
       penColor: '#ff0000', // 红色（第一个选项）
       penWidth: 1.0, // 签字笔中等（新范围 0.3-3）
-      penHandwritingStyle: 'writing', // 画笔样式：书写笔（默认）
       eraserMode: 'stroke', // 橡皮擦默认为整笔擦除模式
       eraserSize: 15, // 橡皮擦中等（新范围 5-30）
       screenshotShape: 'rectangle', // 截图形状：矩形
