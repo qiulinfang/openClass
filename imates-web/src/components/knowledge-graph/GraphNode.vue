@@ -1,5 +1,5 @@
 <template>
-  <div class="node-wrapper" :class="wrapperClasses" :style="wrapperStyle">
+  <div class="node-wrapper" :class="wrapperClasses" :style="{ ...wrapperStyle, ...nodeStyleVariables }">
     <!-- 学习标签 -->
     <div 
       v-if="learningStatus === 'lastLearned'" 
@@ -12,8 +12,7 @@
     <div 
       :class="nodeClasses"
       :style="{
-        ...(type === 'circular' ? nodeStyle : centerNodeStyle),
-        ...nodeStyleVariables
+        ...(type === 'circular' ? nodeStyle : centerNodeStyle)
       }"
       @click="handleClick"
       @contextmenu="handleContextMenu"
@@ -220,7 +219,10 @@ const nodeStyleVariables = computed(() => {
     '--node-content-transition-duration': `${params?.nodeContentTransitionDuration ?? 0.3}s`,
     '--node-active-transition-duration': `${params?.nodeActiveTransitionDuration ?? 0.1}s`,
     '--learning-tag-transition-duration': `${params?.learningTagTransitionDuration ?? 0.3}s`,
-    '--bubble-button-transition-duration': `${params?.bubbleButtonTransitionDuration ?? 0.2}s`
+    '--bubble-button-transition-duration': `${params?.bubbleButtonTransitionDuration ?? 0.2}s`,
+    '--circular-node-radius': `${params?.circularNodeRadius ?? 100}px`,
+    '--circular-node-font-size': `${params?.circularNodeFontSize ?? 1.2}rem`,
+    '--circular-node-content-font-size': `${params?.circularNodeContentFontSize ?? 0.875}rem`
   }
 })
 
@@ -353,9 +355,10 @@ const nodeStyle = computed(() => {
     style.position = 'absolute'
     style.left = '50%'
     style.top = '50%'
-    // 使用调试参数中的偏移量，默认值为节点宽度/高度的一半（50px）
-    const offsetX = debugParams?.value?.circularNodeOffsetX ?? 50
-    const offsetY = debugParams?.value?.circularNodeOffsetY ?? 50
+    // 使用调试参数中的偏移量，默认值为节点半径的一半
+    const nodeRadius = debugParams?.value?.circularNodeRadius ?? 100
+    const offsetX = debugParams?.value?.circularNodeOffsetX ?? nodeRadius / 2
+    const offsetY = debugParams?.value?.circularNodeOffsetY ?? nodeRadius / 2
     style.marginLeft = `-${offsetX}px`
     style.marginTop = `-${offsetY}px`
     // SVG方法：只进行位置变换，不旋转内容
@@ -644,8 +647,8 @@ const learningTagStyle = computed(() => {
 
 /* 圆周节点样式 - 小圆 */
 .graph-node--circular {
-  width: 100px;
-  height: 100px;
+  width: var(--circular-node-radius, 100px);
+  height: var(--circular-node-radius, 100px);
   background: transparent;
   border: none;
   border-radius: 50%;
@@ -697,12 +700,12 @@ const learningTagStyle = computed(() => {
 /* 非中心节点内容通过绝对定位脱离文档流 */
 .node-content--circular {
   position: absolute;
-  top: 100%;
+  top: 75%;
   left: 50%;
   transform: translateX(-50%);
   margin-top: 8px;
   padding: 4px 8px;
-  font-size: 0.875rem; /* 14px × 1.75 = 24.5px */
+  font-size: var(--circular-node-content-font-size, 0.875rem);
   font-weight: normal;
   color: white;
   width: 150%;
@@ -823,7 +826,7 @@ const learningTagStyle = computed(() => {
 
 /* 非中心节点标题样式 */
 .node-content--circular .node-title {
-  font-size: 1.2rem; /* 16px × 1.75 = 28px */
+  font-size: var(--circular-node-font-size, 1.2rem);
   font-weight: normal;
   color: white;
   margin-bottom: 2px;
@@ -843,7 +846,7 @@ const learningTagStyle = computed(() => {
 
 /* 圆周节点标题在其他图谱展开时变小 */
 .node-content--circular.node-content--shrunk .node-title {
-  font-size: 0.875rem; /* 14px × 1.75 = 24.5px */
+  font-size: calc(var(--circular-node-font-size, 1.2rem) * 0.729); /* 约为正常状态的73% */
   line-height: 1.1;
 }
 
@@ -872,7 +875,7 @@ const learningTagStyle = computed(() => {
 
 /* 中心节点章节名展开状态 - 字号保持一致 */
 .node-content--center.node-content--expanded .node-chapter {
-  font-size: 150%; /* 第1步：保持与默认状态相同的字体大小 */
+  font-size: 145%; /* 第1步：保持与默认状态相同的字体大小 */
   line-height: 1.4; /* 第2步：增加行高，改善可读性 */
   display: -webkit-box; /* 第3步：使用弹性盒子布局以支持多行截断 */
   -webkit-box-orient: vertical; /* 第4步：垂直方向排列 */

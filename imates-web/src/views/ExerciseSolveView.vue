@@ -3,11 +3,6 @@
     <!-- 顶部工具栏 -->
     <div class="app-header">
       <div class="app-toolbar">
-        <!-- 左侧汉堡按钮 -->
-        <q-btn icon="menu" flat round class="filter-menu-btn" @click="toggleFilterPanel">
-          <q-tooltip>打开筛选面板</q-tooltip>
-        </q-btn>
-        
         <!-- 居中的功能导航 -->
         <div class="toolbar-center">
           <div class="function-nav">
@@ -30,7 +25,6 @@
               :class="{ active: currentFunction === 'viewAnswer', disabled: !canUseViewAnswer }"
               @click="canUseViewAnswer && (currentFunction = 'viewAnswer')"
             >
-              <span class="nav-icon">👤</span>
               查看答案
             </div>
             <div
@@ -41,80 +35,31 @@
               举一反三
             </div>
           </div>
+          <!-- 题目过滤下拉框 -->
+          <q-select
+              v-model="selectedSubjectFilter"
+              :options="subjectOptions"
+              option-value="value"
+              option-label="label"
+              behavior="menu"
+              emit-value
+              map-options
+              outlined
+              dense
+              class="subject-filter-select"
+              hide-dropdown-icon
+              @update:model-value="onSubjectFilterChange"
+            >
+            <template v-slot:append>
+              <img :src="switchSubjectIcon" alt="切换学科" class="switch-subject-icon"/>
+            </template>
+          </q-select>
         </div>
-        
-        <!-- 占位元素保持布局平衡 -->
-        <div class="toolbar-spacer"></div>
       </div>
     </div>
 
     <!-- 主要内容区域 -->
-    <div class="main-content" @click="handleContentClick">
-      <!-- 筛选面板 -->
-      <transition name="filter-panel-transition">
-        <div class="filter-panel-wrapper" v-if="showFilterPanel" @click.stop>
-          <div class="filter-panel">
-            <div class="filter-panel-content">
-              <!-- 搜索输入框 -->
-              <q-input
-                v-model="searchQuery"
-                placeholder="搜索题目..."
-                outlined
-                dense
-                clearable
-                @input="onSearchInput"
-                class="search-input"
-              >
-                <template v-slot:append>
-                  <q-icon name="search" />
-                </template>
-              </q-input>
-
-              <!-- 学科过滤下拉框 -->
-              <q-select
-                v-model="selectedSubjectFilter"
-                :options="subjectOptions"
-                option-value="value"
-                option-label="label"
-                behavior="menu"
-                emit-value
-                map-options
-                outlined
-                dense
-                class="subject-filter-select"
-                @update:model-value="onSubjectFilterChange"
-              >
-              </q-select>
-
-              <!-- 对比统计按钮 - 只在开发场景下显示 -->
-              <q-btn
-                v-if="isDev"
-                icon="analytics"
-                label="输出对比统计"
-                flat
-                class="stats-btn"
-                @click="handleOutputStatistics"
-              >
-                <q-tooltip>输出对比统计（估算vs真实高度）</q-tooltip>
-              </q-btn>
-
-              <!-- 题目调试面板按钮 - 只在开发场景下显示 -->
-              <q-btn
-                v-if="isDev"
-                icon="bug_report"
-                label="题目调试"
-                flat
-                class="debug-btn"
-                @click="showQuestionDebugPanel = true"
-              >
-                <q-tooltip>打开题目调试面板</q-tooltip>
-              </q-btn>
-
-            </div>
-          </div>
-        </div>
-      </transition>
-      
+    <div class="main-content">
       <!-- 分屏组件包裹左侧题目列表和右侧功能区域 -->
       <q-splitter
         v-model="splitterModel"
@@ -134,6 +79,7 @@
                   @question-selected="handleQuestionSelected"
                   @send-question-to-teacher="handleSendQuestionToTeacher"
                   @open-mini-class="handleOpenMiniClass"
+                  @update:search-query="searchQuery = $event"
                 />
               </q-card-section>
             </q-card>
@@ -229,6 +175,7 @@ import QuestionDebugPanel from '../components/debug/QuestionDebugPanel.vue'
 import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem, ChatBubble } from '../types'
 import { Subject } from '../types'
+import switchSubjectIcon from '/icons/switch_subject.svg'   
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -242,7 +189,7 @@ const teacherStore = useTeacherExerciseChatStore()
 const uiStore = useUIStore()
 const { currentQuestion, questions } = storeToRefs(questionStore)
 
-const currentFunction = ref<'chatAi' | 'askTeacher' | 'viewAnswer' | 'similarQuestion'>('chatAi')
+const currentFunction = ref<'chatAi' | 'askTeacher' | 'viewAnswer' | 'similarQuestion' | ''>('')
 
 // 分屏组件模型值（控制左侧题目列表的宽度比例，30%表示左侧占30%）
 const splitterModel = ref(30)
@@ -259,28 +206,11 @@ const currentSubject = computed(() => {
   return userStore.subject === 'BIOLOGY' ? 'biology' : 'math'
 })
 
-// 筛选面板显示状态
-const showFilterPanel = ref(false)
-
 // 题目调试面板显示状态
 const showQuestionDebugPanel = ref(false)
 
-// 切换筛选面板显示状态
-const toggleFilterPanel = () => {
-  showFilterPanel.value = !showFilterPanel.value
-}
-
-// 处理内容区域点击（关闭筛选面板）
-const handleContentClick = () => {
-  // 如果筛选面板显示，点击内容区域时关闭
-  if (showFilterPanel.value) {
-    showFilterPanel.value = false
-  }
-}
-
 // 搜索相关
 const searchQuery = ref('')
-const searchTimeout = ref<number | null>(null)
 
 // 学科过滤相关
 const selectedSubjectFilter = ref<string | null>(null) // null 表示显示所有学科
@@ -294,27 +224,9 @@ const subjectOptions = [
   { label: '英语', value: 'SUBJECT_ENGLISH' },
 ]
 
-// 搜索输入处理
-const onSearchInput = () => {
-  if (searchTimeout.value) {
-    clearTimeout(searchTimeout.value)
-  }
-
-  searchTimeout.value = window.setTimeout(() => {
-    // 搜索逻辑在 QuestionList 组件内部处理
-  }, 300)
-}
-
 // 学科过滤变化处理
 const onSubjectFilterChange = () => {
   // 过滤逻辑在 QuestionList 组件内部处理
-}
-
-// 输出对比统计
-const handleOutputStatistics = () => {
-  if (questionListRef.value && typeof questionListRef.value.outputComparisonStatistics === 'function') {
-    questionListRef.value.outputComparisonStatistics()
-  }
 }
 
 const hasSelectedQuestion = computed(() => {
@@ -323,11 +235,9 @@ const hasSelectedQuestion = computed(() => {
 
 // 按钮可用性computed属性
 const canUseChatAi = computed(() => hasSelectedQuestion.value)
-const canUseAskTeacher = computed(() => {
-  return hasSelectedQuestion.value && aiExerciseStore.canViewAnswer
-})
-const canUseViewAnswer = computed(() => aiExerciseStore.canViewAnswer)
-const canUseSimilarQuestion = computed(() => aiExerciseStore.canViewAnswer)
+const canUseAskTeacher = computed(() => hasSelectedQuestion.value)
+const canUseViewAnswer = computed(() => hasSelectedQuestion.value && aiExerciseStore.canViewAnswer)
+const canUseSimilarQuestion = computed(() => hasSelectedQuestion.value && aiExerciseStore.canViewAnswer)
 
 const handleChatResponse = () => {
   // AI回复后的处理逻辑
@@ -777,171 +687,71 @@ $desktop-breakpoint: 1025px;
   flex-direction: column;
 }
 
-// 汉堡按钮（在工具栏左侧）
-.filter-menu-btn {
-  margin-left: 8px;
-  color: rgba(255, 255, 255, 0.9);
+// 题目过滤下拉框样式（在功能导航中）
+.subject-filter-select {
+  min-width: 120px;
+  max-width: 150px;
+  position: absolute;
+  right: 20px;
   
-  &:hover {
+  :deep(.q-field__control) {
+    border-radius: 8px;
+    border: none;
     background-color: rgba(255, 255, 255, 0.1);
-  }
-  
-  :deep(.q-icon) {
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 24px;
-  }
-}
-
-// 筛选面板包装器
-.filter-panel-wrapper {
-  position: relative;
-  flex: 0 0 22%; // 固定22%宽度，不会缩小，内容区域会相应缩小
-  height: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-// 筛选面板过渡动画
-.filter-panel-transition-enter-active,
-.filter-panel-transition-leave-active {
-  transition: all 0.3s ease;
-}
-
-.filter-panel-transition-enter-from {
-  opacity: 0;
-  transform: translateX(-20px);
-  flex: 0 0 0%; // 使用flex而不是width
-}
-
-.filter-panel-transition-leave-to {
-  opacity: 0;
-  transform: translateX(-20px);
-  flex: 0 0 0%; // 使用flex而不是width
-}
-
-// 筛选面板（与工具箱保持一致）
-.filter-panel {
-  width: 100%;
-  height: 100%;
-  background: #3D3070;
-  border-bottom: 1px solid rgba(229, 231, 235, 0.3);
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  
-  // 自定义滚动条样式
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 3px;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    height: 36px;
     
     &:hover {
-      background: rgba(255, 255, 255, 0.5);
+      background-color: rgba(255, 255, 255, 0.15);
+    }
+    
+    &.q-field--focused {
+      background-color: rgba(255, 255, 255, 0.2);
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
     }
   }
+
+  :deep(.subject-filter-select .q-field__native) {
+    font-size: 28px;
+  }
   
-  .filter-panel-content {
-    flex: 1;
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    overflow-y: auto;
+  :deep(.q-field__native) {
+    padding: 12px 12px;
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.9);
+    min-height: 36px;
+  }
+  
+  :deep(.q-field__label) {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+  }
+  
+  :deep(.q-field__append) {
+    padding-right: 8px;
     
-    .search-input {
-      width: 100%;
-      
-      :deep(.q-field__control) {
-        border-radius: 12px;
-        border: none;
-        background-color: rgba(255, 255, 255, 0.95);
-        transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-        
-        &:hover {
-          background-color: #ffffff;
-        }
-        
-        &.q-field--focused {
-          background-color: #ffffff;
-          box-shadow: 0 0 0 2px rgba(138, 128, 255, 0.3);
-        }
-      }
-      
-      :deep(.q-field__native) {
-        padding: 12px 16px;
-        font-size: 14px;
-        min-height: 48px;
-      }
-      
-      :deep(.q-field__append) {
-        padding-right: 12px;
-        
-        .q-icon {
-          color: #5f6368;
-          font-size: 20px;
-        }
-      }
+    .q-icon {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 18px;
     }
+  }
+
+  :deep(.q-field__marginal){
+    color: #FFFFFF;
+  }
     
-    .subject-filter-select {
-      width: 100%;
-      
-      :deep(.q-field__control) {
-        border-radius: 12px;
-        border: none;
-        background-color: rgba(255, 255, 255, 0.95);
-        transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-        
-        &:hover {
-          background-color: #ffffff;
-        }
-        
-        &.q-field--focused {
-          background-color: #ffffff;
-          box-shadow: 0 0 0 2px rgba(138, 128, 255, 0.3);
-        }
-      }
-      
-      :deep(.q-field__native) {
-        padding: 12px 16px;
-        font-size: 14px;
-        min-height: 48px;
-      }
-      
-      :deep(.q-field__prepend) {
-        padding-left: 12px;
-        
-        .q-icon {
-          color: #5f6368;
-          font-size: 20px;
-        }
-      }
-    }
-    
-    .stats-btn {
-      width: 100%;
-      height: 48px;
-      background-color: rgba(255, 255, 255, 0.1);
-      color: rgba(255, 255, 255, 0.9);
-      
-      &:hover {
-        background-color: rgba(255, 255, 255, 0.2);
-      }
-      
-      :deep(.q-icon) {
-        font-size: 20px;
-      }
-    }
+  :deep(.q-field--outlined .q-field__control:before){
+    border: none;
+  }
+
+  :deep(.q-field__control){
+    color:transparent;
+  }
+
+  .switch-subject-icon {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
   }
 }
 
@@ -966,13 +776,11 @@ $desktop-breakpoint: 1025px;
 .toolbar-center {
   flex: 1;
   display: flex;
+  position: relative;
   justify-content: center;
   align-items: center;
 }
 
-.toolbar-spacer {
-  width: 40px; // 与汉堡按钮宽度保持平衡
-}
 
 .main-content {
   flex: 1;
@@ -981,10 +789,6 @@ $desktop-breakpoint: 1025px;
   background-color: #f8f9fa; /* Gemini 风格的整体背景 */
   min-height: 0;
   width: 100%;
-  transition: margin-left 0.3s ease, width 0.3s ease; // 平滑动画（与工具箱保持一致）
-  
-  // 当筛选面板显示时，内容区域保持正常布局
-  // 筛选面板作为普通流式布局的一部分，不需要偏移
 }
 
 // 分屏容器样式
@@ -1115,10 +919,7 @@ $desktop-breakpoint: 1025px;
   align-items: center;
   gap: 8px;
   
-  &:hover:not(.disabled) {
-    color: #E1BEE7; /* 悬停时稍亮一点 */
-  }
-  
+
   // 激活状态 - 白色背景，深色文字，紫色下划线
   &.active {
     background-color: #ffffff;
@@ -1272,8 +1073,14 @@ $desktop-breakpoint: 1025px;
     padding: 6px 12px;
   }
   
-  .toolbar-spacer {
-    width: 32px;
+  .subject-filter-select {
+    min-width: 100px;
+    max-width: 120px;
+    
+    :deep(.q-field__native) {
+      font-size: 12px;
+      padding: 6px 10px;
+    }
   }
 }
 </style>

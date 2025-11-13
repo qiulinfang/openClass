@@ -2,47 +2,59 @@
   <div class="login-page">
     <!-- 登录表单容器 -->
     <div class="login-form-container">
-      <form @submit.prevent="handleLogin" class="login-form">
-        <!-- 用户名输入框 -->
-        <div class="input-wrapper">
-          <div class="input-container">
-            <img :src="loginUserIdIconUrl" alt="用户名" class="input-icon" />
-            <input
-              v-model="loginForm.account"
-              type="text"
-              class="login-input"
-              placeholder="请输入账号"
-              @blur="validateAccount"
-            />
-          </div>
-          <div v-if="errors.account" class="error-message">{{ errors.account }}</div>
-        </div>
+      <div class="login-form-card">
+        <div class="login-form-section">
+          <form @submit.prevent="handleLogin" class="login-form">
+            <!-- 用户名输入框 -->
+            <div class="user-id-input-wrapper">
+              <div class="login-input-container" :class="{ 'has-error': !!errors.account }">
+                <img :src="usernameIcon" alt="username" class="username-icon">
+                <input
+                  v-model="loginForm.account"
+                  type="text"
+                  placeholder="请输入账号"
+                  class="login-input"
+                  @blur="validateAccount"
+                />
+              </div>
+              <div v-if="errors.account" class="input-error">{{ errors.account }}</div>
+            </div>
 
-        <!-- 密码输入框 -->
-        <div class="input-wrapper">
-          <div class="input-container">
-            <img :src="loginPasswordIconUrl" alt="密码" class="input-icon" />
-            <input
-              v-model="loginForm.password"
-              type="password"
-              class="login-input"
-              placeholder="请输入密码"
-              @blur="validatePassword"
-            />
-          </div>
-          <div v-if="errors.password" class="error-message">{{ errors.password }}</div>
-        </div>
+            <!-- 密码输入框 -->
+            <div class="password-input-wrapper">
+              <div class="login-input-container" :class="{ 'has-error': !!errors.password }">
+                <img :src="passwordIcon" alt="password" class="password-icon">
+                <input
+                  v-model="loginForm.password"
+                  type="password"
+                  placeholder="请输入密码"
+                  class="login-input"
+                  @blur="validatePassword"
+                />
+              </div>
+              <div v-if="errors.password" class="input-error">{{ errors.password }}</div>
+            </div>
 
-        <!-- 登录按钮 -->
-        <button type="submit" class="login-button" :disabled="!isFormValid || isLoading">
-          {{ isLoading ? '登录中...' : '登 录' }}
-        </button>
+            <!-- 登录按钮 -->
+            <button
+              type="submit"
+              class="login-button"
+              :disabled="!isFormValid || isLoading"
+            >
+              <span v-if="isLoading" class="button-loading">
+                <span class="spinner"></span>
+                <span>登录中...</span>
+              </span>
+              <span v-else>登 录</span>
+            </button>
 
-        <!-- 错误提示 -->
-        <div v-if="errorMessage" class="error-banner">
-          {{ errorMessage }}
+            <!-- 错误提示 -->
+            <div v-if="errorMessage" class="error-banner">
+              {{ errorMessage }}
+            </div>
+          </form>
         </div>
-      </form>
+      </div>
     </div>
 
     <!-- 版本号显示 -->
@@ -58,10 +70,8 @@ import { useRouter } from 'vue-router'
 import { apiService } from '../services/api-service'
 import { getUserId, getPassword } from '../utils/user/authStorage'
 
-// 第1步：导入登录图标图片作为模块资源，确保在webview场景下能正常加载
-// 使用import方式导入，Vite会在构建时处理这些资源并生成正确的路径
-import loginUserIdIconUrl from '@/assets/images/login_user_id_ico.png'
-import loginPasswordIconUrl from '@/assets/images/login_password_ico.png'
+import usernameIcon from '/icons/username_icon.svg'
+import passwordIcon from '/icons/password_icon.svg'
 
 const router = useRouter()
 
@@ -220,13 +230,23 @@ const handleLogin = async () => {
   right: calc((100vw - 33vw) * 0.1);
   top: 50%;
   transform: translateY(-50%);
-  background-image: url('/images/login_user_info_bg.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.login-form-card {
+  width: 100%;
+  background: transparent;
+  box-shadow: none;
+}
+
+.login-form-section {
+  padding: 0;
+  margin-top: 46px;
 }
 
 .login-form {
@@ -236,78 +256,92 @@ const handleLogin = async () => {
   align-items: center;
   padding: 0 80px;
   box-sizing: border-box;
-}
-
-.input-wrapper {
-  width: 100%;
-  margin-bottom: 20px;
-}
-
-.input-wrapper:first-child {
-  margin-top: 80px;
-}
-
-.input-container {
   position: relative;
+}
+
+.user-id-input-wrapper {
   width: 100%;
+  margin-bottom: 10px;
+}
+
+.password-input-wrapper {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.login-input-container {
+  position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
+  height: 40px;
+  background-color: #FFFFFF;
+  border-radius: 12px;
+  padding: 0 12px;
+  box-sizing: border-box;
 }
 
-.input-icon {
-  position: absolute;
-  left: 12px;
+.username-icon {
   width: 20px;
   height: 20px;
-  z-index: 1;
-  pointer-events: none;
+}
+
+.password-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.login-input-container.has-error {
+  border: 1px solid #FF0000;
 }
 
 .login-input {
+  flex: 1;
   width: 100%;
-  height: 50px;
-  padding: 12px 12px 12px 40px;
-  box-sizing: border-box;
-  background-color: rgba(255, 255, 255, 0.5);
-  border: 1px solid #555555;
-  border-radius: 8px;
-  color: #000000;
-  font-size: 16px;
+  height: 100%;
+  border: none;
   outline: none;
+  background: transparent;
+  color: #000000;
+  font-size: 0.9rem;
+  padding: 0;
+  margin-left: 8px;
 }
 
 .login-input::placeholder {
   color: #AAAAAA;
 }
 
-.login-input:focus {
-  border-color: #667eea;
+/* 输入框图标样式 */
+.input-icon {
+  color: #666666;
+  font-size: 20px;
+  user-select: none;
+  flex-shrink: 0;
 }
 
-.error-message {
+/* 错误提示样式 */
+.input-error {
+  padding-top: 4px;
+  padding-left: 4px;
   color: #FF0000;
   font-size: 16px;
-  margin-top: 4px;
-  padding-left: 4px;
+  min-height: 20px;
 }
 
 .login-button {
   width: 100%;
-  height: auto;
-  min-height: 50px;
+  min-height: 40px;
   margin-top: 20px;
-  background-image: url('/images/login_button_bg.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background-color: #6e55ff;
   border: none;
   color: #FFFFFF;
-  border-radius: 23px;
-  font-size: 27px;
-  cursor: pointer;
-  padding: 12px 0;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 500;
   box-sizing: border-box;
-  outline: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
 }
 
 .login-button:hover:not(:disabled) {
@@ -319,6 +353,21 @@ const handleLogin = async () => {
   cursor: not-allowed;
 }
 
+.button-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #FFFFFF;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
 
 @keyframes spin {
   to {
@@ -327,21 +376,23 @@ const handleLogin = async () => {
 }
 
 .error-banner {
-  margin-top: 20px;
+  position: absolute;
+  bottom: -45px;
+  left: 80px;
+  right: 80px;
   padding: 12px;
-  background-color: rgba(255, 0, 0, 0.1);
-  border: 1px solid #FF0000;
   border-radius: 8px;
-  color: #FF0000;
+  color: #ff0000b5;
   font-size: 14px;
   text-align: center;
+  z-index: 10;
 }
 
 .version-text {
   position: absolute;
   bottom: 16px;
   right: 16px;
-  color: #000000;
+  color: #ffffff;
   font-size: 14px;
   text-align: center;
   cursor: pointer;

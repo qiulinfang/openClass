@@ -2,10 +2,10 @@
   <DraggableDialog
     v-model="localVisible"
     :title="sectionName"
-    :initial-width="1200"
-    :initial-height="800"
-    :min-width="800"
-    :min-height="600"
+    :initial-width="700"
+    :initial-height="500"
+    :min-width="700"
+    :min-height="500"
     title-align="left"
     header-background-color="#ffffff"
   >
@@ -17,7 +17,7 @@
           <div class="scheme-section">
             <!-- 加载状态 -->
             <div v-if="loadingPackages" class="loading-container">
-              <q-spinner color="primary" size="40px" />
+              <q-spinner color="primary" size="24px" />
               <div class="loading-text">正在加载学习方案...</div>
             </div>
 
@@ -41,7 +41,9 @@
                       <q-rating
                         :model-value="getDifficultyValue(scheme)"
                         :max="5"
-                        size="18px"
+                        size="13px"
+                        color="grey"
+                        color-selected="yellow"
                         @update:model-value="(value) => updateDifficulty(scheme.id, value)"
                       />
                     </div>
@@ -52,7 +54,7 @@
 
             <!-- 无数据状态 -->
             <div v-else class="empty-state">
-              <q-icon name="school" size="48px" color="grey-5" />
+              <q-icon name="school" size="32px" color="grey-5" />
               <div class="empty-text">该章节暂无学习方案</div>
             </div>
           </div>
@@ -62,7 +64,7 @@
         <div class="right-panel">
           <!-- 无方案选择状态 -->
           <div v-if="selectedSchemeIndex < 0" class="empty-resources">
-            <q-icon name="folder_open" size="48px" color="grey-5" />
+            <q-icon name="folder_open" size="32px" color="grey-5" />
             <div class="empty-text">请先选择学习方案</div>
           </div>
 
@@ -93,7 +95,7 @@
                   <q-icon
                     v-else
                     :name="getResourceIcon(resource.fileName)"
-                    size="50px"
+                    size="32px"
                     color="grey-6"
                   />
                 </div>
@@ -104,7 +106,7 @@
                 </div>
                 <!-- 操作按钮 -->
                 <q-btn
-                  size="xl"
+                  size="sm"
                   label="去学习"
                   @click.stop="startLearning(resource)"
                   no-caps
@@ -117,7 +119,7 @@
 
           <!-- 无资源状态 -->
           <div v-else class="empty-resources">
-            <q-icon name="folder_open" size="48px" color="grey-5" />
+            <q-icon name="folder_open" size="32px" color="grey-5" />
             <div class="empty-text">该方案暂无资源文件</div>
           </div>
         </div>
@@ -751,19 +753,23 @@ $spacing-xl: 32px;
   overflow: hidden;
 }
 
-// 覆盖 DraggableDialog 的 title 样式，增大字体
+// 覆盖 DraggableDialog 的 title 样式
 :deep(.dialog-header-section) {
   .text-h6 {
-    font-size: 40px !important;
+    font-size: 20px !important;
     font-weight: 600 !important;
+  }
+  
+  .text-h6.title-align-left {
+    font-size: 18px !important;
   }
 }
 
 // 主要内容区域
 .main-content {
   display: flex;
-  gap: 32px;
-  padding: 24px 32px;
+  gap: 16px;
+  padding: 12px 16px;
   flex: 1;
   overflow: hidden;
   min-height: 0;
@@ -771,9 +777,7 @@ $spacing-xl: 32px;
 
 // 左侧面板
 .left-panel {
-  flex: 0 0 25%;
-  min-width: 250px;
-  max-width: 350px;
+  width: 200px;
   height: 100%;
   max-height: 100%;
 
@@ -794,9 +798,9 @@ $spacing-xl: 32px;
   min-width: 0;
   height: 100%;
   max-height: 100%;
-  background-color: #e0dbff;
-  border-radius: 10px;
-  padding: 24px 0;
+  background-color: #f5f4ff;
+  border-radius: 8px;
+  padding: 12px 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -856,7 +860,7 @@ $spacing-xl: 32px;
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  background-color: #e0dbff;
+  background-color: #f5f4ff;
 
   .scroll-content-schemeList {
     min-height: calc(100% + 1px);
@@ -865,9 +869,9 @@ $spacing-xl: 32px;
   }
 
   .scheme-item {
-    margin-bottom: 16px;
-    border-radius: 8px;
-    padding: 16px 20px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    padding: 10px 12px;
     cursor: pointer;
     transition: all 0.2s ease;
 
@@ -876,21 +880,21 @@ $spacing-xl: 32px;
     }
 
     &.scheme-selected {
-      background-color: #e0dbff;
+      background-color: #f5f4ff;
       box-shadow: none;
-      padding: 12px 20px;
+      padding: 8px 12px;
     }
 
     .scheme-header {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 6px;
 
       .scheme-name {
-        font-size: 24px;
+        font-size: 17px;
         font-weight: 500;
         color: #212121;
-        margin-bottom: 8px;
+        margin-bottom: 4px;
       }
 
       .difficulty-rating {
@@ -898,14 +902,19 @@ $spacing-xl: 32px;
         align-items: center;
 
         .difficulty-label {
-          font-size: 20px;
+          font-size: 14px;
           color: #212121;
           opacity: 1;
-          padding-right: 12px;
+          padding-right: 8px;
         }
 
         :deep(.q-rating) {
           flex: 0.8;
+          font-size: 14px;
+        }
+
+        :deep(.q-rating__icon) {
+          text-shadow: none;
         }
       }
     }
@@ -963,18 +972,18 @@ $spacing-xl: 32px;
   min-height: 0;
   overflow: hidden;
   border-radius: 0;
-  background-color: #E0DBFF;
+  background-color: #f5f4ff;
 
   .scroll-content {
     min-height: calc(100% + 1px);
-    background-color: #E0DBFF;
+    background-color: #f5f4ff;
   }
 
   .resource-item {
     display: flex;
     align-items: center;
-    margin: 0px 20px 10px;
-    border-radius: 8px;
+    margin: 0px 12px 8px;
+    border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s ease;
     outline: none;
@@ -989,14 +998,14 @@ $spacing-xl: 32px;
     }
 
     .resource-thumbnail {
-      width: 100px;
-      height: 100px;
+      width: 60px;
+      height: 80px;
       display: flex;
       align-items: center;
       justify-content: center;
       background: #e4e2e2;
-      border-radius: 8px;
-      margin: 16px;
+      border-radius: 6px;
+      margin: 8px;
       flex-shrink: 0;
       overflow: hidden;
 
@@ -1004,26 +1013,30 @@ $spacing-xl: 32px;
         width: 100%;
         height: 100%;
         object-fit: cover;
-        border-radius: 8px;
+        border-radius: 6px;
       }
     }
 
     .resource-info {
       flex: 1;
       min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 53px;
 
       .resource-title {
-        font-size: 24px;
+        font-size: 16px;
         font-weight: 500;
         color: #212121;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
 
       .resource-size {
-        font-size: 16px;
+        font-size: 13px;
         color: #757575;
         opacity: 1;
       }
@@ -1031,8 +1044,8 @@ $spacing-xl: 32px;
 
     .resource-action {
       flex-shrink: 0;
-      margin-left: 16px;
-      margin-right: 20px;
+      margin-left: 8px;
+      margin-right: 12px;
       align-self: center;
     }
   }
@@ -1044,12 +1057,12 @@ $spacing-xl: 32px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
-  gap: 16px;
+  padding: 20px 12px;
+  gap: 12px;
 
   .loading-text {
     color: #757575;
-    font-size: 19px;
+    font-size: 14px;
   }
 }
 
@@ -1060,25 +1073,34 @@ $spacing-xl: 32px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
-  gap: 16px;
+  padding: 20px 12px;
+  gap: 12px;
 
   .empty-text {
     color: #757575;
-    font-size: 19px;
+    font-size: 14px;
     font-weight: 500;
   }
 }
 
 // 学习按钮样式
 .learning-btn {
-  font-size: 18px;
-  padding: 12px 32px;
-  min-height: 44px;
+  font-size: 16px;
+  padding: 6px 16px;
+  width: 100px;
+  min-height:45px;
   font-weight: 500;
-  border-radius: 8px;
+  border-radius: 12px;
   background-color: #6e55ff;
   color: #ffffff;
+
+  :deep(.q-btn__content) {
+    font-size: 14px;
+  }
+
+  :deep(.q-btn:before) {
+    box-shadow: none;
+  }
 
   &:hover {
     background-color: #5a4abd;
@@ -1092,9 +1114,7 @@ $spacing-xl: 32px;
   }
 
   .left-panel {
-    flex: 0 0 28%;
-    min-width: 220px;
-    max-width: 350px;
+    width: 200px;
   }
 }
 
@@ -1118,7 +1138,7 @@ $spacing-xl: 32px;
   .right-panel {
     flex: 0 0 auto;
     height: 400px;
-    background-color: #e0dbff;
+    background-color: #f5f4ff;
   }
 }
 
@@ -1129,7 +1149,7 @@ $spacing-xl: 32px;
   }
 
   .left-panel .scheme-section {
-    background-color: #e0dbff;
+    background-color: #f5f4ff;
     padding: 16px;
   }
 
@@ -1157,7 +1177,7 @@ $spacing-xl: 32px;
     padding: 16px 20px;
 
     .resource-title {
-      font-size: 19px;
+      font-size: 22px;
     }
 
     .resource-size {
@@ -1179,7 +1199,7 @@ $spacing-xl: 32px;
   }
 
   .left-panel .scheme-section {
-    background-color: #e0dbff;
+    background-color: #f5f4ff;
     padding: 12px;
   }
 

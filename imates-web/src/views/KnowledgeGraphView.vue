@@ -40,12 +40,12 @@
           class="textbook-select"
           @update:model-value="onTextbookChange"
         >
-            <template v-slot:selected>
-              <div class="textbook-selected">
-                <span class="textbook-text">{{ selectedTextbookLabel }}</span>
-              </div>
-            </template>
-          </q-select>
+          <template v-slot:selected>
+            <div class="textbook-selected">
+              <span class="textbook-text">{{ selectedTextbookLabel }}</span>
+            </div>
+          </template>
+        </q-select>
       </div>
 
       <!-- 第1步：添加节点搜索框 -->
@@ -108,7 +108,7 @@
             :class="{ active: item.index === getCurrentChapter() }"
             @click="selectChapter(item.index)"
           >
-            <span class="chapter-text" v-html="highlightText(item.chapter)"></span>
+            <span class="chapter-text" v-html="highlightText(convertBrackets(item.chapter))"></span>
           </div>
         </template>
         </div>
@@ -173,10 +173,15 @@
               @touchend="handleIndicatorTouchEnd"
             >
               <div 
-                v-for="subChapter in getSubChapters(selectedChapterDetails)" 
+                v-for="(subChapter, index) in getSubChapters(selectedChapterDetails)" 
                 :key="subChapter.id"
                 class="indicator-dot"
                 :class="{ 'active': getCurrentChapterExpandedGraph() === subChapter.id }"
+                :style="{
+                  opacity: getIndicatorOpacity(subChapter.id, index),
+                  width: `${getIndicatorSize(subChapter.id, index)}px`,
+                  height: `${getIndicatorSize(subChapter.id, index)}px`
+                }"
                 @click="handleIndicatorClick(subChapter.id)"
               >
                 <img 
@@ -516,10 +521,11 @@ const defaultDebugParams: KnowledgeGraphDebugParams = {
   radiusX: 500, // 椭圆轨道的X轴半径（水平方向）
   radiusY: 320, // 椭圆轨道的Y轴半径（垂直方向）
   dragThreshold: 3, // 拖拽阈值（像素，超过此值才开始真正的拖拽操作）
-  minBackgroundRadius: 120, // 背景圆形最小半径（像素）
-  radiusScaleSmall: 0.7, // 小规模节点（1-2个）的半径缩放系数
-  radiusScaleMedium: 0.85, // 中等规模节点（3-4个）的半径缩放系数
-  radiusScaleLarge: 0.95, // 大规模节点（5个以上）的半径缩放系数
+  minBackgroundRadius: 100, // 背景圆形最小半径（像素）
+  radiusScaleNone: 0.55, // 无圆周节点时的半径缩放系数
+  radiusScaleSmall: 0.63, // 小规模节点（1-2个）的半径缩放系数
+  radiusScaleMedium: 0.67, // 中等规模节点（3-4个）的半径缩放系数
+  radiusScaleLarge: 0.7, // 大规模节点（5个以上）的半径缩放系数
   // 动画参数
   transformDuration: 0.3, // 位置变换动画持续时间（秒）
   opacityDuration: 0.3, // 透明度动画持续时间（秒）
@@ -549,9 +555,9 @@ const defaultDebugParams: KnowledgeGraphDebugParams = {
   graphSize: 475, // 图形尺寸（像素）
   graphMargin: 237, // 图形位置偏移（像素）
   // 中心节点尺寸参数
-  centerNodeSizeDefault: 180, // 中心节点初始大小（像素）
-  centerNodeSizeExpanded: 220, // 中心节点放大后大小（像素）
-  centerNodeSizeShrunk: 160, // 中心节点缩小大小（像素）
+  centerNodeSizeDefault: 145, // 中心节点初始大小（像素）
+  centerNodeSizeExpanded: 165, // 中心节点放大后大小（像素）
+  centerNodeSizeShrunk: 125, // 中心节点缩小大小（像素）
   centerNodeScaleSpeed: 0.3, // 中心节点缩放速度（秒），控制缩放动画的持续时间
   // 归一化参考高度比例
   normalizedReferenceHeightRatio: 0.85, // 归一化参考高度比例，参考移动端短视频切换，使用视口高度的比例作为参考
@@ -569,9 +575,11 @@ const defaultDebugParams: KnowledgeGraphDebugParams = {
   nodeActiveTransitionDuration: 0.1, // 节点active状态transition持续时间（秒）
   // 圆周节点位置参数
   circularNodeRadiusFactor: 1.0, // 圆周节点半径因子，用于调整圆周节点相对背景圆的位置（1.0表示与背景圆一致）
-  circularNodeOffsetX: 50, // 圆周节点X方向偏移量（像素），用于调整节点相对中心的X偏移
-  circularNodeOffsetY: 50, // 圆周节点Y方向偏移量（像素），用于调整节点相对中心的Y偏移
-  circularNodeFontSize: 1.2 // 圆周节点字体大小（rem），用于调整圆周节点标题的字体大小
+  circularNodeOffsetX: 42, // 圆周节点X方向偏移量（像素），用于调整节点相对中心的X偏移
+  circularNodeOffsetY: 44, // 圆周节点Y方向偏移量（像素），用于调整节点相对中心的Y偏移
+  circularNodeFontSize: 1, // 圆周节点字体大小（rem），用于调整圆周节点标题的字体大小
+  circularNodeContentFontSize: 1, // 圆周节点内容字体大小（rem），用于调整圆周节点内容的字体大小
+  circularNodeRadius: 75, // 圆周节点半径大小（像素），用于调整圆周节点本身的半径大小
 }
 
 // 当前参数值（可修改）
@@ -1608,7 +1616,51 @@ const textbookOptions = ref<TextbookOption[]>([])
 // 计算属性：当前选中的教材标签
 const selectedTextbookLabel = computed(() => {
   const option = textbookOptions.value.find(opt => opt.value === selectedTextbook.value)
-  return option ? option.label : '请选择教材'
+  if (!option) {
+    return '请选择教材'
+  }
+  
+  // 格式：景山远洋/年级/学期/教材名称（去除学科字段，用/拼接）
+  // 原始格式：年级 学期 学科 教材名称（例如：高一 必修 生物 一/分子与细胞）
+  // 目标格式：景山远洋/高一/必修/一/分子与细胞
+  const parts: string[] = ['景山远洋']
+  
+  // 将原始 label 按空格分割
+  const labelParts = option.label.split(' ')
+  
+  // 找到学科的位置并移除
+  const subjectIndex = labelParts.findIndex(part => part === option.subject)
+  if (subjectIndex !== -1) {
+    // 移除学科，保留年级、学期和教材名称
+    const filteredParts = [
+      ...labelParts.slice(0, subjectIndex), // 年级、学期
+      ...labelParts.slice(subjectIndex + 1) // 教材名称部分
+    ]
+    
+    // 处理每个部分：如果包含"/"，则拆分；否则直接添加
+    filteredParts.forEach(part => {
+      if (part.includes('/')) {
+        // 如果部分包含"/"，拆分成多个子部分
+        parts.push(...part.split('/'))
+      } else {
+        parts.push(part)
+      }
+    })
+  } else {
+    // 如果找不到学科，尝试从 label 中提取（去除前两个部分：年级和学期）
+    if (labelParts.length > 2) {
+      const filteredParts = labelParts.slice(2) // 跳过年级和学期
+      filteredParts.forEach(part => {
+        if (part.includes('/')) {
+          parts.push(...part.split('/'))
+        } else {
+          parts.push(part)
+        }
+      })
+    }
+  }
+  
+  return parts.join('/')
 })
 
 // 计算属性：当前科目标签
@@ -2551,6 +2603,11 @@ const handleSearchResultClick = async (result: {
 }
 
 // 第8步：高亮匹配文本
+// 将中文括号【】转换为英文括号[]
+const convertBrackets = (text: string): string => {
+  return text.replace(/【/g, '[').replace(/】/g, ']')
+}
+
 const highlightText = (text: string): string => {
   if (!searchQuery.value.trim()) {
     return text
@@ -2684,6 +2741,74 @@ const handleIndicatorClick = (graphId: string) => {
     // 立即开始展开旋转动画，让其他节点立即开始旋转
     startExpandingRotation(graphId)
   }
+}
+
+// 计算指示器的透明度，基于距离激活指示器的距离
+const getIndicatorOpacity = (subChapterId: string, index: number) => {
+  const subChapters = getSubChapters(selectedChapterDetails.value)
+  const currentExpandedGraph = getCurrentChapterExpandedGraph()
+  
+  // 如果没有激活的图谱，所有指示器使用较低透明度
+  if (!currentExpandedGraph) {
+    return 0.3
+  }
+  
+  // 找到激活指示器的索引
+  const activeIndex = subChapters.findIndex(chapter => chapter.id === currentExpandedGraph)
+  if (activeIndex === -1) {
+    return 0.3
+  }
+  
+  // 计算距离激活指示器的距离
+  const distance = Math.abs(index - activeIndex)
+  const totalChapters = subChapters.length
+  
+  // 激活的指示器完全不透明
+  if (distance === 0) {
+    return 1
+  }
+  
+  // 根据距离计算透明度：距离越远，透明度越低
+  // 使用更明显的线性衰减，让距离效果更清晰
+  // 最远的指示器透明度最低（约0.2），最近的指示器透明度较高
+  const maxDistance = Math.max(activeIndex, totalChapters - 1 - activeIndex)
+  if (maxDistance === 0) {
+    return 1
+  }
+  
+  // 线性衰减：从1（激活）到0.2（最远）
+  const opacity = Math.max(0.2, 1 - (distance / maxDistance) * 0.8)
+  return opacity
+}
+
+// 计算指示器的大小，基于距离激活指示器的距离
+const getIndicatorSize = (subChapterId: string, index: number) => {
+  const subChapters = getSubChapters(selectedChapterDetails.value)
+  const currentExpandedGraph = getCurrentChapterExpandedGraph()
+  
+  // 如果没有激活的图谱，所有指示器使用默认大小
+  if (!currentExpandedGraph) {
+    return 14
+  }
+  
+  // 找到激活指示器的索引
+  const activeIndex = subChapters.findIndex(chapter => chapter.id === currentExpandedGraph)
+  if (activeIndex === -1) {
+    return 14
+  }
+  
+  // 激活的指示器最大
+  if (index === activeIndex) {
+    return 18
+  }
+  
+  // 计算距离激活指示器的距离
+  const distance = Math.abs(index - activeIndex)
+  const maxDistance = Math.max(activeIndex, subChapters.length - 1 - activeIndex)
+  
+  // 根据距离计算大小：距离越远，大小越小
+  const size = 7 + (10 * (1 - distance / maxDistance))
+  return Math.max(14, Math.min(24, size))
 }
 
 // 第1步：根据触摸点位置计算当前在哪个指示器上
@@ -3085,7 +3210,7 @@ onUnmounted(() => {
 
 // 第二列：章节目录/内容导航（中间）
 .chapter-sidebar {
-  width: 30%;
+  width: 35%;
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(5px);
   display: flex;
@@ -3095,10 +3220,26 @@ onUnmounted(() => {
   .subject-header {
     flex-shrink: 0;
     margin-top: 16px;
+
+    :deep(.q-field__marginal){
+      color: #FFFFFF;
+    }
+      
+    :deep(.q-field--outlined .q-field__control:before){
+      border: none;
+    }
+
+    :deep(.q-field__control){
+      color:transparent;
+    }
   }
   
   .textbook-info {
     flex-shrink: 0;
+
+    :deep(.q-field__marginal){
+      color: #FFFFFF;
+    }
   }
   
   .scroll-wrapper.chapter-list {
@@ -3227,30 +3368,14 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   
-  .textbook-select {
-    width: 100%;
-    
-    .q-field__control {
-      border-radius: 6px;
-      border: none;
-      background: transparent;
-      
-      &:hover {
-        background: rgba(255, 255, 255, 0.1);
-      }
-      
-      &:focus {
-        border: none;
-        box-shadow: none;
-      }
-    }
-    
-    .q-field__native {
-      padding: 8px 12px;
-      color: #FFFFFF;
-    }
+  :deep(.q-field--outlined .q-field__control:before){
+    border: none;
   }
-  
+
+  :deep(.q-field__control){
+    color:transparent;
+  }
+
   .textbook-selected {
     display: flex;
     align-items: center;
@@ -3259,9 +3384,14 @@ onUnmounted(() => {
   }
   
   .textbook-text {
+    width: 254px;
     font-size: 19px;
     color: #FFFFFF;
     font-weight: 350;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    height: 22px;
   }
   
   .textbook-arrow {
@@ -3298,22 +3428,39 @@ onUnmounted(() => {
     padding: 11px 15px;
     margin: 2px 20px;
     cursor: pointer;
-    transition: all 0.2s ease;
     position: relative;
     border-radius: 12px;
     font-family: 'PingFang SC', sans-serif;
-    min-height: 44px; // 第12步：增加触摸区域
+    height: 50px; // 第12步：增加触摸区域
+    width: 313px;
     display: flex;
     align-items: center;
     // 触摸反馈优化
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+    white-space: nowrap;      /* 禁止换行 - 非active状态单行显示 */
+    overflow: hidden;         /* 隐藏溢出内容 */
+    text-overflow: ellipsis;  /* 溢出部分显示省略号 */
     
     &.active {
       background-color: #e0dbff;
+      height: auto;           /* 覆盖固定高度，允许自适应 */
+      white-space: normal;    /* active状态允许换行 */
+      min-height: 44px;       /* 最小高度保持44px */
+      max-height: 80px;       /* 最大高度限制为2行（19px字体 * 1.4行高 * 2行 + padding） */
+      align-items: flex-start; /* 顶部对齐，支持多行 */
+      padding-top: 11px;      /* 保持顶部padding */
       
       .chapter-text {
         color: #393548;
+        white-space: normal;  /* 允许换行 */
+        display: -webkit-box;
+        -webkit-line-clamp: 2;           /* 限制为2行 */
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.4;     /* 行高 */
+        word-break: break-word; /* 允许单词内换行，避免长单词溢出 */
       }
     }
     
@@ -3332,6 +3479,9 @@ onUnmounted(() => {
       font-weight: 500;
       color: #9E9AAD;
       line-height: 1.4;
+      white-space: nowrap;      /* 禁止换行 */
+      overflow: hidden;         /* 隐藏溢出内容 */
+      text-overflow: ellipsis;  /* 溢出部分显示省略号 */
     }
     
     // 搜索结果样式
@@ -3373,10 +3523,11 @@ onUnmounted(() => {
 // 右上角工具栏
 .top-right-toolbar {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 13px;
+  right: 8px;
   z-index: 1000;
   display: flex;
+  flex-direction: column;
   gap: 12px;
   align-items: center;
   
@@ -3399,8 +3550,8 @@ onUnmounted(() => {
     }
     
     .toolbar-icon {
-      width: 24px;
-      height: 24px;
+      width: 46px;
+      height: 46px;
       object-fit: contain;
     }
   }
@@ -3479,21 +3630,21 @@ onUnmounted(() => {
 .right-border-indicator {
   position: absolute;
   right: 55%;
-  top: 40%;
+  top: 45%;
   z-index: 1000; // 提高层级，确保在最上层
   height: 30%;
-  width: 40px;
+  width: 20px;
   background: transparent;
   pointer-events: auto; // 启用点击事件
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   flex-direction: column;
   align-items: center;
   
   .indicator-dot {
-    width: 21px;
-    height: 21px;
-    background: rgba(139, 92, 246, 0.3);
+    width: 7px;
+    height: 7px;
+    background: rgba(139, 92, 246, 0.6);
     border-radius: 50%;
     transition: all 0.3s ease;
     cursor: pointer; // 添加指针样式
@@ -3503,12 +3654,10 @@ onUnmounted(() => {
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
-    // 增加触摸区域
-    padding: 12px;
-    margin: -12px;
+    margin: 5px;
     
     &:hover {
-      background: rgba(139, 92, 246, 0.5);
+      background: rgba(139, 92, 246, 0.8);
       transform: scale(1.1);
     }
     
@@ -3518,21 +3667,20 @@ onUnmounted(() => {
     }
     
     &.active {
-      width: 36px;
-      height: 36px;
       background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 50%, #6d28d9 100%);
-      box-shadow: 0 0 8px rgba(139, 92, 246, 0.6);
+      box-shadow: 0 0 12px rgba(139, 92, 246, 0.8), 0 0 24px rgba(139, 92, 246, 0.4);
       position: relative;
+      opacity: 1 !important;
     }
     
     // 移动端增大触摸区域
     @media (max-width: 768px) {
-      width: 28px;
-      height: 28px;
+      min-width: 28px;
+      min-height: 28px;
       
       &.active {
-        width: 44px;
-        height: 44px;
+        min-width: 24px;
+        min-height: 24px;
       }
     }
   }
@@ -3542,8 +3690,8 @@ onUnmounted(() => {
     left: -30px;
     top: 50%;
     transform: translateY(-50%);
-    width: 20px;
-    height: 20px;
+    width: 14px;
+    height: 14px;
     z-index: 10;
   }
 }

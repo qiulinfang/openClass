@@ -1,5 +1,26 @@
-  <template>
-    <div class="question-list" @click.stop>
+<template>
+  <div class="question-list" @click.stop>
+    <!-- 搜索输入框 -->
+    <div class="search-container">
+      <q-btn flat round dense class="photo-search-btn" @click="handlePhotoSearch">
+        <img :src="searchQuestionIcon" alt="拍照搜题" class="photo-search-icon" />
+        <q-tooltip>拍照搜题</q-tooltip>
+      </q-btn>
+      <q-input
+        :model-value="searchQuery"
+        @update:model-value="handleSearchInput"
+        placeholder="搜索题目..."
+        outlined
+        dense
+        clearable
+        class="search-input"
+      >
+        <template v-slot:append>
+          <q-icon name="search" />
+        </template>
+      </q-input>
+    </div>
+
     <!-- 题目列表 - 卡片布局 -->
     <div ref="scrollContainer" class="question-cards-container" @scroll="handleScroll">
       <!-- 空状态 -->
@@ -48,9 +69,7 @@
               <!-- 题目头部 -->
               <div class="question-header">
                 <!-- 左侧：题目序号 -->
-                <div class="question-number">
-                  题目{{ index + 1 }}
-                </div>
+                <div class="question-number">题目{{ index + 1 }}</div>
 
                 <!-- 右侧：功能区 -->
                 <div class="question-actions">
@@ -229,11 +248,39 @@
       :initial-teacher-subject="selectedSubjectForTeacher"
       @session-created="handleSessionCreated"
     />
+
+    <!-- 图片预览对话框 -->
+    <q-dialog
+      v-model="showImagePreview"
+      class="image-preview-dialog"
+      :maximized="true"
+      transition-show="fade"
+      transition-hide="fade"
+    >
+      <div class="preview-overlay" @click="showImagePreview = false">
+        <!-- 关闭按钮 -->
+        <q-btn
+          flat
+          round
+          dense
+          icon="close"
+          color="white"
+          class="close-btn"
+          @click.stop="showImagePreview = false"
+        />
+
+        <!-- 图片预览区域 -->
+        <div class="preview-content" @click.stop>
+          <img v-if="previewImageUrl" :src="previewImageUrl" alt="题目图片" class="preview-image" />
+        </div>
+      </div>
+    </q-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { showMessage, ThrottleUtils, throttle } from '../utils'
 import { useQuestionStore } from '../stores/questionStore'
 import { storeToRefs } from 'pinia'
@@ -251,6 +298,9 @@ import { useImagePicker } from '../composables/useImagePicker'
 import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
 import { useUserStore } from '../stores/userStore'
 
+// 导入拍照搜题图标
+import searchQuestionIcon from '/icons/search_question.svg'   
+
 const props = defineProps<{
   searchQuery?: string
   selectedSubjectFilter?: string | null
@@ -260,6 +310,7 @@ const emit = defineEmits<{
   startAiGuidance: [question: ExerciseItem]
   questionSelected: [question: ExerciseItem, index: number]
   openMiniClass: [question: ExerciseItem]
+  'update:searchQuery': [value: string]
 }>()
 
 // 响应式数据
@@ -274,12 +325,61 @@ const LOAD_MORE_COUNT = 20 // 每次加载更多的题目数量
 const displayedCount = ref(INITIAL_DISPLAY_COUNT) // 已显示的题目数量
 
 // 从 props 获取搜索和过滤状态
-const searchQuery = computed(() => props.searchQuery || '')
-const selectedSubjectFilter = computed(() => props.selectedSubjectFilter || null)
+const searchQuery = computed(() => props.searchQuery || '') //搜索关键词
+const selectedSubjectFilter = computed(() => props.selectedSubjectFilter || null) //全部学科
+
+// 处理搜索输入
+const handleSearchInput = (value: string | number | null) => {
+  emit('update:searchQuery', (value || '').toString())
+}
 
 // 题目 Store
 const questionStore = useQuestionStore()
 const { currentQuestion } = storeToRefs(questionStore)
+
+// 路由
+const router = useRouter()
+
+// 当前科目（用于拍照搜题）
+const currentSubjectForPhotoSearch = computed(() => {
+  const currentQuestion = questionStore.currentQuestion
+  if (currentQuestion?.subject) {
+    const subjectMap: Record<string, string> = {
+      SUBJECT_MATH: 'math',
+      SUBJECT_BIOLOGY: 'biology',
+      SUBJECT_CHEMISTRY: 'chemistry',
+      SUBJECT_PHYSICS: 'physics',
+      SUBJECT_CHINESE: 'chinese',
+      SUBJECT_ENGLISH: 'english',
+    }
+    return subjectMap[currentQuestion.subject] || currentQuestion.subject.toLowerCase() || 'math'
+  }
+  // 如果没有当前题目，根据用户选择的科目判断
+  const subjectMap: Record<string, string> = {
+    SUBJECT_MATH: 'math',
+    SUBJECT_BIOLOGY: 'biology',
+    SUBJECT_CHEMISTRY: 'chemistry',
+    SUBJECT_PHYSICS: 'physics',
+    SUBJECT_CHINESE: 'chinese',
+    SUBJECT_ENGLISH: 'english',
+  }
+  // 从 selectedSubjectFilter 获取学科
+  if (selectedSubjectFilter.value) {
+    const filterSubject = String(selectedSubjectFilter.value).toUpperCase()
+    return subjectMap[filterSubject] || 'math'
+  }
+  return 'math'
+})
+
+// 拍照搜题处理
+const handlePhotoSearch = () => {
+  // 统一使用路由跳转到 PhotoSearchView（包括 Android 环境）
+  const subject = currentSubjectForPhotoSearch.value || 'math'
+  router.push({
+    path: '/photo-search',
+    query: { subject },
+  })
+}
 
 // 判断题目是否被选中（基于题目ID，支持筛选状态）
 const isQuestionSelected = (questionId: string): boolean => {
@@ -297,6 +397,10 @@ const intersectionObservers = new Map<string, IntersectionObserver>()
 
 // 更多菜单显示状态
 const showMoreMenu = ref<Record<string, boolean>>({})
+
+// 图片预览相关状态
+const showImagePreview = ref(false)
+const previewImageUrl = ref<string>('')
 
 // 批量渲染相关
 const renderingQuestions = ref(false) // 是否正在渲染题目
@@ -420,8 +524,6 @@ let setQuestionCardRefImpl: (
   index: number,
 ) => void = () => {}
 
-
-
 // 检查当前批次的所有题目是否都已渲染完成
 const checkBatchRenderComplete = async (maxRetries = 100) => {
   const currentBatch = displayedQuestions.value.slice(0, displayedCount.value)
@@ -458,6 +560,10 @@ const setContentRef = async (el: HTMLElement | null, questionId: string) => {
       // 渲染MathJax
       await MathJaxUtils.renderMath(el, false)
 
+      // 给图片添加点击事件监听器
+      await nextTick()
+      attachImageClickListeners(el)
+
       // 标记为已渲染完成
       renderedQuestionIds.value.add(questionId)
       console.log('renderingQuestions222')
@@ -465,6 +571,29 @@ const setContentRef = async (el: HTMLElement | null, questionId: string) => {
       await checkBatchRenderComplete()
     }
   }
+}
+
+// 给元素内的所有图片添加点击事件监听器
+const attachImageClickListeners = (container: HTMLElement) => {
+  const images = container.querySelectorAll('img')
+  images.forEach((img) => {
+    // 避免重复添加监听器
+    if (img.dataset.hasClickListener === 'true') {
+      return
+    }
+
+    img.dataset.hasClickListener = 'true'
+    img.style.cursor = 'pointer'
+
+    img.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const imageUrl = img.src
+      if (imageUrl) {
+        previewImageUrl.value = imageUrl
+        showImagePreview.value = true
+      }
+    })
+  })
 }
 
 // 设置实际题目卡片的引用并开始监听高度变化
@@ -953,11 +1082,53 @@ const deleteQuestion = async (questionId: string) => {
     cleanupQuestionHeight(questionId)
 
     try {
+      // 确定要删除的题目的科目
+      const question = questions.value.find((q) => q.id === questionId || q.bmNo === questionId)
+      const questionSubject = question?.subject || selectedSubject.value
+
+      // 将 Subject 枚举值转换为科目名称
+      const subjectMap: Record<string, string> = {
+        SUBJECT_MATH: 'math',
+        SUBJECT_BIOLOGY: 'biology',
+        SUBJECT_CHEMISTRY: 'chemistry',
+        SUBJECT_PHYSICS: 'physics',
+        SUBJECT_CHINESE: 'chinese',
+        SUBJECT_ENGLISH: 'english',
+      }
+
+      // 确定科目名称
+      let subjectToDelete = selectedSubject.value
+      if (questionSubject) {
+        const subjectUpper = String(questionSubject).toUpperCase()
+        if (subjectMap[subjectUpper]) {
+          subjectToDelete = subjectMap[subjectUpper]
+        } else if (subjectUpper.includes('BIOLOGY')) {
+          subjectToDelete = 'biology'
+        } else if (subjectUpper.includes('MATH')) {
+          subjectToDelete = 'math'
+        } else {
+          subjectToDelete = subjectUpper.toLowerCase()
+        }
+      }
+
       // 使用API服务删除题目
-      const success = await apiService.deleteExercise(questionId, selectedSubject.value)
+      const success = await apiService.deleteExercise(questionId, subjectToDelete)
 
       if (success) {
         showMessage('题目删除成功', 'positive')
+
+        // 删除成功后，强制从服务器重新获取题目列表
+        const questionStore = useQuestionStore()
+
+        // 根据当前筛选条件决定刷新方式
+        if (selectedSubjectFilter.value === null) {
+          // 全部学科：刷新所有学科的题目
+          await questionStore.fetchAllSubjectsQuestions(false) // false 表示强制从服务器获取
+        } else {
+          // 具体学科：刷新指定学科的题目
+          await questionStore.fetchQuestions(subjectToDelete, false) // false 表示强制从服务器获取
+        }
+
         // 重新加载题目列表（会自动重置渲染状态）
         await loadQuestions()
       } else {
@@ -1044,7 +1215,7 @@ const sendToAi = async (question: ExerciseItem) => {
         'MATH',
         'mate',
         undefined,
-        true // hidePrefix: true，存储到本地时去除"我们开始吧"前缀
+        true, // hidePrefix: true，存储到本地时去除"我们开始吧"前缀
       )
     } else {
       // 如果store中没有找到题目，说明数据不同步，需要重新同步
@@ -1061,7 +1232,7 @@ const sendToAi = async (question: ExerciseItem) => {
       questionStore.currentQuestion.isAiGuiding = false
       questionStore.currentQuestion.beginGuideToSolve = false
     }
-    
+
     // 记录详细错误信息
     const errorMessage = error instanceof Error ? error.message : String(error)
     console.error('[QuestionList] 启动AI指导失败:', {
@@ -1069,23 +1240,36 @@ const sendToAi = async (question: ExerciseItem) => {
       errorMessage,
       questionId: question.id,
       questionTitle: question.question?.substring(0, 50) || '未知题目',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     })
-    
+
     // 根据错误类型显示更具体的错误提示
     let userMessage = '启动AI指导失败'
-    if (errorMessage.includes('网络') || errorMessage.includes('Network') || errorMessage.includes('fetch')) {
+    if (
+      errorMessage.includes('网络') ||
+      errorMessage.includes('Network') ||
+      errorMessage.includes('fetch')
+    ) {
       userMessage = '启动AI指导失败：网络连接异常，请检查网络后重试'
     } else if (errorMessage.includes('超时') || errorMessage.includes('timeout')) {
       userMessage = '启动AI指导失败：请求超时，请稍后重试'
-    } else if (errorMessage.includes('权限') || errorMessage.includes('auth') || errorMessage.includes('401') || errorMessage.includes('403')) {
+    } else if (
+      errorMessage.includes('权限') ||
+      errorMessage.includes('auth') ||
+      errorMessage.includes('401') ||
+      errorMessage.includes('403')
+    ) {
       userMessage = '启动AI指导失败：权限不足，请重新登录'
-    } else if (errorMessage.includes('服务器') || errorMessage.includes('server') || errorMessage.includes('500')) {
+    } else if (
+      errorMessage.includes('服务器') ||
+      errorMessage.includes('server') ||
+      errorMessage.includes('500')
+    ) {
       userMessage = '启动AI指导失败：服务器异常，请稍后重试'
     } else if (errorMessage) {
       userMessage = `启动AI指导失败：${errorMessage}`
     }
-    
+
     showMessage(userMessage, 'error')
   }
 }
@@ -1131,7 +1315,13 @@ const cleanupQuestionHeight = (questionId: string) => {
   questionCardRefs.value.delete(questionId)
 }
 
-watch(renderingQuestions, (newVal) => { console.log('renderingQuestions', newVal) }, { deep: true, immediate: true })
+watch(
+  renderingQuestions,
+  (newVal) => {
+    console.log('renderingQuestions', newVal)
+  },
+  { deep: true, immediate: true },
+)
 
 // 监听搜索变化，重置渲染状态
 watch(
@@ -1366,6 +1556,71 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   flex-direction: column;
   background-color: #f7f6ff;
   position: relative;
+
+  // 搜索容器
+  .search-container {
+    display: flex;
+    padding: 12px 16px;
+    background-color: #f7f6ff;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    flex-shrink: 0;
+
+    .photo-search-btn {
+      padding: 4px;
+      margin-right: 4px;
+      min-width: 32px;
+      min-height: 32px;
+
+      .photo-search-icon {
+        width: 35px;
+        height: 35px;
+        object-fit: contain;
+      }
+
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+      }
+
+      &:active {
+        transform: scale(0.95);
+      }
+    }
+
+    .search-input {
+      width: 100%;
+
+      :deep(.q-field__control) {
+        border-radius: 12px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        background-color: #ffffff;
+        transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+
+        &:hover {
+          border-color: rgba(0, 0, 0, 0.15);
+        }
+
+        &.q-field--focused {
+          border-color: #8b5cf6;
+          box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.1);
+        }
+      }
+
+      :deep(.q-field__native) {
+        padding: 10px 16px;
+        font-size: 14px;
+        min-height: 40px;
+      }
+
+      :deep(.q-field__append) {
+        padding-right: 12px;
+
+        .q-icon {
+          color: #5f6368;
+          font-size: 20px;
+        }
+      }
+    }
+  }
 
   // 题目卡片容器
   .question-cards-container {
@@ -1760,7 +2015,16 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: 8px;
     margin: 8px 0;
     display: block;
+    cursor: pointer;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
     @include card-shadow(subtle);
+
+    &:hover {
+      transform: scale(1.02);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
   }
 
   :deep(blockquote) {
@@ -2095,5 +2359,61 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   100% {
     transform: rotate(360deg);
   }
+}
+
+// ===== 图片预览对话框样式 =====
+.image-preview-dialog {
+  z-index: 9999;
+}
+
+.preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+}
+
+.close-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.7);
+    transform: scale(1.1);
+  }
+}
+
+.preview-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px 20px;
+}
+
+.preview-image {
+  max-width: 90vw;
+  max-height: 90vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  user-select: none;
+  pointer-events: none;
 }
 </style>

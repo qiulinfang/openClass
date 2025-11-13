@@ -184,3 +184,33 @@ export interface LoginData {
   userId: string // 用户ID
   defaultPassword: boolean // 是否为默认密码
 }
+
+/**
+ * 学伴登录响应 - Token 数据
+ */
+export interface XuebanLoginTokenData {
+  token: string // 认证令牌
+}
+
+/**
+ * 学伴登录响应 - 内层数据
+ */
+export interface XuebanLoginData {
+  code: number // 响应代码
+  data: XuebanLoginTokenData | null // Token 数据
+  message: string // 响应消息
+  pageNo: number | null // 页码
+  pageSize: number | null // 每页大小
+  sessionId: string | null // 会话ID
+  success: boolean // 是否成功
+  totalCount: number | null // 总数量
+}
+
+/**
+ * 学伴登录响应 - 外层响应
+ */
+export interface XuebanLoginResponse {
+  code: number // HTTP 状态码
+  data: XuebanLoginData // 响应数据
+  success: boolean // 是否成功
+}

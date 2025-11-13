@@ -302,7 +302,11 @@ const backgroundRadius = computed(() => {
   const nodeCount = circularNodes.length
   
   // 根据节点数量调整半径大小，使用可调参数
-  if (nodeCount <= 2) {
+  if (nodeCount === 0) {
+    // 没有圆周节点：背景圆形区域半径
+    const scale = debugParams?.value?.radiusScaleNone ?? 0.7
+    return radius * scale
+  } else if (nodeCount <= 2) {
     // 1-2个节点：背景圆形区域半径小
     const scale = debugParams?.value?.radiusScaleSmall ?? 0.8
     return radius * scale

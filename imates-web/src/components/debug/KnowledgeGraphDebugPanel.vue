@@ -656,6 +656,44 @@
                   <q-icon name="zoom_out_map" class="q-mr-sm" />
                   <div class="col">
                     <div class="row items-center justify-between">
+                      <div class="text-subtitle2">节点数 = 0 时的半径缩放</div>
+                      <span class="text-body2 text-teal q-ml-md"
+                        >当前: {{ (localParams.radiusScaleNone * 100).toFixed(0) }}%</span
+                      >
+                    </div>
+                    <div class="text-caption text-grey-7 q-mt-xs">
+                      当知识图谱中没有圆周节点时，背景半径的缩放比例<br />
+                      <strong>放大效果：</strong
+                      >无节点时背景圆形更大，视觉更突出，占用更多空间<br />
+                      <strong>缩小效果：</strong>无节点时背景圆形更小，视觉更紧凑，节省空间
+                    </div>
+                  </div>
+                </div>
+                <q-slider
+                  v-model="localParams.radiusScaleNone"
+                  :min="0.4"
+                  :max="1.1"
+                  :step="0.01"
+                  label
+                  :label-value="`${(localParams.radiusScaleNone * 100).toFixed(0)}%`"
+                  color="teal"
+                  @update:model-value="updateParams"
+                />
+                <div class="row justify-between q-mt-xs">
+                  <q-btn flat dense size="sm" label="重置" @click="resetRadiusScaleNone" />
+                  <span class="text-caption text-grey-6"
+                    >默认: {{ (defaultParams.radiusScaleNone * 100).toFixed(0) }}%</span
+                  >
+                </div>
+              </q-card-section>
+            </q-card>
+
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+                <div class="row items-center q-mb-sm">
+                  <q-icon name="zoom_out_map" class="q-mr-sm" />
+                  <div class="col">
+                    <div class="row items-center justify-between">
                       <div class="text-subtitle2">节点数 ≤ 2 时的半径缩放</div>
                       <span class="text-body2 text-teal q-ml-md"
                         >当前: {{ (localParams.radiusScaleSmall * 100).toFixed(0) }}%</span
@@ -673,7 +711,7 @@
                   v-model="localParams.radiusScaleSmall"
                   :min="0.5"
                   :max="1.2"
-                  :step="0.05"
+                  :step="0.01"
                   label
                   :label-value="`${(localParams.radiusScaleSmall * 100).toFixed(0)}%`"
                   color="teal"
@@ -708,9 +746,9 @@
                 </div>
                 <q-slider
                   v-model="localParams.radiusScaleMedium"
-                  :min="0.8"
+                  :min="0.6"
                   :max="1.5"
-                  :step="0.05"
+                  :step="0.01"
                   label
                   :label-value="`${(localParams.radiusScaleMedium * 100).toFixed(0)}%`"
                   color="teal"
@@ -745,9 +783,9 @@
                 </div>
                 <q-slider
                   v-model="localParams.radiusScaleLarge"
-                  :min="0.9"
+                  :min="0.7"
                   :max="1.6"
-                  :step="0.05"
+                  :step="0.01"
                   label
                   :label-value="`${(localParams.radiusScaleLarge * 100).toFixed(0)}%`"
                   color="teal"
@@ -1133,6 +1171,84 @@
                   <q-btn flat dense size="sm" label="重置" @click="resetCircularNodeFontSize" />
                   <span class="text-caption text-grey-6"
                     >默认: {{ defaultParams.circularNodeFontSize.toFixed(2) }}rem</span
+                  >
+                </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- 圆周节点内容字体大小 -->
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+                <div class="row items-center q-mb-sm">
+                  <q-icon name="description" class="q-mr-sm" />
+                  <div class="col">
+                    <div class="row items-center justify-between">
+                      <div class="text-subtitle2">圆周节点内容字体大小</div>
+                      <span class="text-body2 text-indigo q-ml-md"
+                        >当前: {{ localParams.circularNodeContentFontSize.toFixed(2) }}rem</span
+                      >
+                    </div>
+                    <div class="text-caption text-grey-7 q-mt-xs">
+                      用于调整圆周节点内容的字体大小（rem单位）<br />
+                      <strong>放大效果：</strong
+                      >内容字体更大，文本更清晰易读<br />
+                      <strong>缩小效果：</strong>内容字体更小，节省空间，适合显示更多内容
+                    </div>
+                  </div>
+                </div>
+                <q-slider
+                  v-model="localParams.circularNodeContentFontSize"
+                  :min="0.5"
+                  :max="1.5"
+                  :step="0.025"
+                  label
+                  :label-value="`${localParams.circularNodeContentFontSize.toFixed(2)}rem`"
+                  color="indigo"
+                  @update:model-value="updateParams"
+                />
+                <div class="row justify-between q-mt-xs">
+                  <q-btn flat dense size="sm" label="重置" @click="resetCircularNodeContentFontSize" />
+                  <span class="text-caption text-grey-6"
+                    >默认: {{ defaultParams.circularNodeContentFontSize.toFixed(2) }}rem</span
+                  >
+                </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- 圆周节点半径大小 -->
+            <q-card flat bordered class="q-mb-md parameter-card">
+              <q-card-section>
+                <div class="row items-center q-mb-sm">
+                  <q-icon name="crop_free" class="q-mr-sm" />
+                  <div class="col">
+                    <div class="row items-center justify-between">
+                      <div class="text-subtitle2">圆周节点半径大小 (像素)</div>
+                      <span class="text-body2 text-indigo q-ml-md"
+                        >当前: {{ localParams.circularNodeRadius }}px</span
+                      >
+                    </div>
+                    <div class="text-caption text-grey-7 q-mt-xs">
+                      控制圆周节点本身的半径大小<br />
+                      <strong>放大效果：</strong
+                      >圆周节点显示更大，内容更清晰，但占用更多空间<br />
+                      <strong>缩小效果：</strong>圆周节点显示更小，节省空间，但内容可能看不清
+                    </div>
+                  </div>
+                </div>
+                <q-slider
+                  v-model="localParams.circularNodeRadius"
+                  :min="50"
+                  :max="200"
+                  :step="5"
+                  label
+                  :label-value="`${localParams.circularNodeRadius}px`"
+                  color="indigo"
+                  @update:model-value="updateParams"
+                />
+                <div class="row justify-between q-mt-xs">
+                  <q-btn flat dense size="sm" label="重置" @click="resetCircularNodeRadius" />
+                  <span class="text-caption text-grey-6"
+                    >默认: {{ defaultParams.circularNodeRadius }}px</span
                   >
                 </div>
               </q-card-section>
@@ -2355,6 +2471,7 @@ export interface KnowledgeGraphDebugParams {
   // 二级分类：尺寸
   minBackgroundRadius: number // 最小背景半径（像素），节点背景圆形的最小显示半径
   // 二级分类：缩放
+  radiusScaleNone: number // 无节点半径缩放因子，节点数 = 0 时的半径缩放比例
   radiusScaleSmall: number // 小规模节点半径缩放因子，节点数 ≤ 2 时的半径缩放比例
   radiusScaleMedium: number // 中等规模节点半径缩放因子，节点数 3-4 时的半径缩放比例
   radiusScaleLarge: number // 大规模节点半径缩放因子，节点数 > 4 时的半径缩放比例
@@ -2371,6 +2488,8 @@ export interface KnowledgeGraphDebugParams {
   circularNodeOffsetX: number // 圆周节点X方向偏移量（像素），用于调整节点相对中心的X偏移
   circularNodeOffsetY: number // 圆周节点Y方向偏移量（像素），用于调整节点相对中心的Y偏移
   circularNodeFontSize: number // 圆周节点字体大小（rem），用于调整圆周节点标题的字体大小
+  circularNodeContentFontSize: number // 圆周节点内容字体大小（rem），用于调整圆周节点内容的字体大小
+  circularNodeRadius: number // 圆周节点半径大小（像素），控制圆周节点本身的半径大小
 
   // ========== 一级分类：动画 ==========
   // 二级分类：基础动画
@@ -2435,6 +2554,7 @@ const props = withDefaults(defineProps<Props>(), {
       radiusY: 320,
       dragThreshold: 3,
       minBackgroundRadius: 120,
+      radiusScaleNone: 0.7,
       radiusScaleSmall: 0.8,
       radiusScaleMedium: 1.0,
       radiusScaleLarge: 0.95,
@@ -2482,6 +2602,8 @@ const props = withDefaults(defineProps<Props>(), {
       circularNodeOffsetX: 21, // 圆周节点X方向偏移量，默认 21 像素
       circularNodeOffsetY: 25, // 圆周节点Y方向偏移量，默认 25 像素
       circularNodeFontSize: 1.2, // 圆周节点字体大小，默认 1.2rem
+      circularNodeContentFontSize: 0.875, // 圆周节点内容字体大小，默认 0.875rem
+      circularNodeRadius: 100, // 圆周节点半径大小，默认 100 像素
     }) as KnowledgeGraphDebugParams,
 })
 
@@ -2686,6 +2808,7 @@ const modifiedParams = computed(() => {
     radiusY: 'radiusY',
     dragThreshold: 'dragThreshold',
     minBackgroundRadius: 'minBackgroundRadius',
+    radiusScaleNone: 'radiusScaleNone',
     radiusScaleSmall: 'radiusScaleSmall',
     radiusScaleMedium: 'radiusScaleMedium',
     radiusScaleLarge: 'radiusScaleLarge',
@@ -2720,6 +2843,8 @@ const modifiedParams = computed(() => {
     circularNodeOffsetX: 'circularNodeOffsetX',
     circularNodeOffsetY: 'circularNodeOffsetY',
     circularNodeFontSize: 'circularNodeFontSize',
+    circularNodeContentFontSize: 'circularNodeContentFontSize',
+    circularNodeRadius: 'circularNodeRadius',
   }
 
   // 参数格式化函数
@@ -2744,14 +2869,15 @@ const modifiedParams = computed(() => {
         key === 'dragThreshold' ||
         key === 'minBackgroundRadius' ||
         key === 'circularNodeOffsetX' ||
-        key === 'circularNodeOffsetY'
+        key === 'circularNodeOffsetY' ||
+        key === 'circularNodeRadius'
       ) {
         return `${value}px`
       } else if (key === 'targetAngle') {
         return `${value}°`
       } else if (key === 'influenceRange' || key === 'maxPushAngle') {
         return `${((value * 180) / Math.PI).toFixed(1)}°`
-      } else if (key === 'circularNodeFontSize') {
+      } else if (key === 'circularNodeFontSize' || key === 'circularNodeContentFontSize') {
         return `${value.toFixed(2)}rem`
       }
       return String(value)
@@ -3133,6 +3259,11 @@ const resetMinBackgroundRadius = () => {
   updateParams()
 }
 
+const resetRadiusScaleNone = () => {
+  localParams.value.radiusScaleNone = defaultParams.value.radiusScaleNone
+  updateParams()
+}
+
 const resetRadiusScaleSmall = () => {
   localParams.value.radiusScaleSmall = defaultParams.value.radiusScaleSmall
   updateParams()
@@ -3339,6 +3470,16 @@ const resetCircularNodeFontSize = () => {
   updateParams()
 }
 
+const resetCircularNodeContentFontSize = () => {
+  localParams.value.circularNodeContentFontSize = defaultParams.value.circularNodeContentFontSize
+  updateParams()
+}
+
+const resetCircularNodeRadius = () => {
+  localParams.value.circularNodeRadius = defaultParams.value.circularNodeRadius
+  updateParams()
+}
+
 const resetNormalizedReferenceHeightRatio = () => {
   localParams.value.normalizedReferenceHeightRatio =
     defaultParams.value.normalizedReferenceHeightRatio
@@ -3445,7 +3586,7 @@ onMounted(() => {
   }
 
   .debug-panel-card {
-    width: 450px;
+    width: 400px;
     max-width: calc(100vw - 60px);
     height: 100%;
     border-radius: 0;

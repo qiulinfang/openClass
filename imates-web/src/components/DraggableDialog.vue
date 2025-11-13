@@ -45,7 +45,6 @@
               <div 
                 class="text-h6" 
                 :class="titleAlignClass"
-                :style="{ fontSize: typeof props.titleFontSize === 'number' ? `${props.titleFontSize}px` : props.titleFontSize }"
               >{{ title }}</div>
               
               <button 
@@ -361,7 +360,7 @@ watch(isOpen, (newValue) => {
       &.title-align-left {
         text-align: left;
         padding-left: 0;
-        font-size: 24px;
+        font-size: 18px;
       }
     }
     

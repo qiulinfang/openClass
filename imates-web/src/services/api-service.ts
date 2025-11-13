@@ -34,6 +34,7 @@ import type {
   LoginResponse,
   LoginRequest,
   LoginData,
+  XuebanLoginResponse,
   FeedbackTicketRequest,
   FeedbackTicketResponse,
   UserTextbookInfo,
@@ -1151,22 +1152,24 @@ export class ApiService {
   public async loginXueban(account: string, password: string): Promise<string> {
     try {
       // 第1步：发送登录请求
-      const response = await httpClient.post<{
-        success: boolean
-        message: string
-        data: {
-          token: string
+      const response = await httpClient.post<XuebanLoginResponse>(
+        getApiUrl(API_ENDPOINTS.USER.XUEBAN_LOGIN),
+        {
+          account,
+          password
         }
-      }>(getApiUrl(API_ENDPOINTS.USER.XUEBAN_LOGIN), {
-        account,
-        password
-      })
+      )
       
-      if (!response.success || !response.data) {
-        throw new Error(response.message || '登录失败')
+      // 检查响应结构：response.data 是 XuebanLoginResponse
+      if (!response.success) {
+        throw new Error(response?.data?.message || '登录失败')
       }
 
       const token = response.data.data.token
+      
+      if (!token) {
+        throw new Error('登录失败：未获取到token')
+      }
       
       // 第2步：保存token和用户凭据到localStorage
       localStorage.setItem('XUEBAN_TOKEN', token)

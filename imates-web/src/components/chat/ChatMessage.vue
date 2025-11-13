@@ -4,7 +4,6 @@
     :class="{
       'message-user': message.sender === 'user',
       'message-ai': message.sender === 'ai' || message.sender === 'teacher',
-      'message-selected': isSelected,
       'message-selectable': isSelectionMode,
     }"
     :data-message-id="message.id"
@@ -1457,7 +1456,7 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 /* 现代化聊天消息布局 - 参照主流大模型体验 */
 .message-item {
   margin-bottom: 20px;
@@ -1652,12 +1651,6 @@ onUnmounted(() => {
   padding-left: 60px;
 }
 
-.message-selected {
-  background-color: rgba(25, 118, 210, 0.08);
-  border-radius: 8px;
-  margin: 0 12px;
-  padding: 8px 0;
-}
 
 .message-checkbox {
   position: absolute;
@@ -1665,6 +1658,18 @@ onUnmounted(() => {
   top: 50%;
   transform: translateY(-50%);
   z-index: 1;
+
+  :deep(q-checkbox__bg absolute) {
+    border-radius: 5px;;
+  }
+
+  :deep(.q-checkbox__inner--truthy .q-checkbox__bg, .q-checkbox__inner--indet .q-checkbox__bg) {
+    background-color: #7a7cff;
+  }
+
+  :deep(.q-checkbox__bg) {
+    border-color: #7a7cff;
+  }
 }
 
 /* 移除hover效果 - 已禁用背景色变化 */
@@ -1675,9 +1680,6 @@ onUnmounted(() => {
     color: #000000;
   }
 
-  .message-selected {
-    background-color: rgba(25, 118, 210, 0.15);
-  }
 
   /* 深色模式下的功能按钮样式 */
   .action-button {

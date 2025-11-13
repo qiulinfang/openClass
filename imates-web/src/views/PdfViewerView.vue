@@ -229,8 +229,7 @@ provide('triggerToolStatesUpdate', triggerToolStatesUpdate)
 // 统一工具栏工具集合（本地变量）
 const pdfToolbarTools = {
   left: ['back'],
-  middle: ['search', 'hideNotes', 'pen', 'highlighter', 'eraser', 'screenshot', 'select'],
-  right: ['help'],
+  middle: [  'pen', 'highlighter', 'eraser', 'screenshot'],
 }
 
 // 开发环境检查（仅开发环境显示调试面板）
@@ -1156,6 +1155,7 @@ onBeforeUnmount(async () => {
   height: 100%;
   position: relative;
   overflow: hidden;
+  background-color: #0A0020;
 }
 
 /* 虚拟滚动容器 - 支持横向和纵向滚动 */

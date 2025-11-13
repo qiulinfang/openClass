@@ -1,45 +1,6 @@
 <template>
   <!-- 聊天视图主容器 - 支持键盘动画状态 -->
   <div ref="chatViewRef" class="chat-view" :class="{ 'keyboard-animating': isKeyboardAnimating }">
-    <!-- 选择模式工具栏 - Gemini风格设计 -->
-    <!-- 功能：当用户进入多选模式时显示，提供批量操作功能 -->
-    <q-toolbar v-if="isSelectionMode" class="selection-toolbar native-toolbar-layout">
-      <!-- 左侧：关闭选择模式按钮 -->
-      <q-btn flat round icon="close" @click="exitSelectionMode" class="close-btn" size="md" />
-
-      <!-- 中间：选择状态信息显示 -->
-      <div class="selection-info native-toolbar-center">
-        <q-icon name="check_circle" class="selection-icon" />
-        <span class="selection-text">{{ selectedMessages.size }} 条消息已选择</span>
-      </div>
-
-      <!-- 右侧：操作按钮组 -->
-      <div class="action-buttons native-toolbar-actions">
-        <!-- 全选/取消全选按钮 -->
-        <q-btn
-          flat
-          round
-          icon="check_box"
-          @click="selectAllMessages"
-          class="action-btn native-action-btn"
-          size="md"
-          :color="selectedMessages.size === displayedMessages.length ? 'primary' : 'grey-6'"
-        />
-        <!-- 转发按钮 - 使用策略模式判断是否显示 -->
-        <q-btn
-          v-if="chatStrategy?.shouldShowForwardButton()"
-          flat
-          round
-          icon="forward"
-          @click="() => forwardToTeacher()"
-          :disable="selectedMessages.size === 0"
-          class="action-btn native-action-btn"
-          size="md"
-          color="primary"
-        />
-      </div>
-    </q-toolbar>
-
     <!-- 聊天消息区域 - 占据全宽度，支持滚动 -->
     <div class="chat-messages-container">
       <!-- 滚动区域组件 - 使用 BetterScroll -->
@@ -90,8 +51,47 @@
       </Transition>
     </div>
 
+    <!-- 选择模式工具栏 - 新设计 -->
+    <!-- 功能：当用户进入多选模式时显示，提供批量操作功能，替换 ChatInput 的位置 -->
+    <div v-if="isSelectionMode" class="selection-toolbar">
+      <!-- 左侧：全选区域 -->
+      <div class="selection-left" @click="selectAllMessages">
+        <q-icon 
+          :name="isAllSelected ? 'check_box' : selectedMessages.size > 0 ? 'indeterminate_check_box' : 'check_box_outline_blank'" 
+          :class="['select-all-icon', { 'icon-selected': isAllSelected }]"
+        />
+        <span class="select-all-text">全选</span>
+        <span class="selection-count">已选{{ selectedMessages.size }}/{{ displayedMessages.length }}</span>
+      </div>
+
+      <!-- 右侧：操作按钮组 -->
+      <div class="selection-actions">
+        <!-- 取消按钮 -->
+        <q-btn
+          flat
+          @click="exitSelectionMode"
+          class="cancel-btn"
+          size="md"
+        >
+          取消
+        </q-btn>
+        <!-- 发送按钮 - 使用策略模式判断是否显示 -->
+        <q-btn
+          v-if="chatStrategy?.shouldShowForwardButton()"
+          @click="() => forwardToTeacher()"
+          :disable="selectedMessages.size === 0"
+          class="send-btn"
+          size="md"
+          unelevated
+        >
+          发送
+        </q-btn>
+      </div>
+    </div>
+
     <!-- 聊天输入组件插槽 - 支持自定义输入组件，默认使用 ChatInput -->
-    <slot name="input">
+    <!-- 在多选模式下隐藏 ChatInput -->
+    <slot v-if="!isSelectionMode" name="input">
       <ChatInput
         ref="chatInputRef"
         v-model="inputMessage"
@@ -393,6 +393,12 @@ const displayedMessages = computed<ChatBubble[]>(() => {
   }
   
   return result
+})
+
+// 判断是否全选
+const isAllSelected = computed(() => {
+  return displayedMessages.value.length > 0 && 
+         selectedMessages.value.size === displayedMessages.value.length
 })
 
 /**
@@ -1930,54 +1936,101 @@ defineExpose({
 
 /* 选择模式工具栏特定样式 */
 .selection-toolbar {
-  background: #f8f9fa;
-  border-bottom: 1px solid #e8eaed;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f5f5f5;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin: 8px 16px 12px;
+  flex-shrink: 0;
+  min-height: 56px;
 }
 
-.close-btn {
-  color: #5f6368;
-  margin-right: 16px;
-}
-
-.close-btn:hover {
-  background-color: rgba(60, 64, 67, 0.08);
-}
-
-.selection-icon {
-  font-size: 20px;
-  color: #1a73e8;
-}
-
-.selection-text {
-  font-size: 14px;
-  font-weight: 500;
-  color: #3c4043;
-  letter-spacing: 0.25px;
-}
-
-.action-btn[color='primary'] {
-  background-color: rgba(26, 115, 232, 0.12);
-}
-
-.action-btn[color='grey-6']:hover {
-  background-color: rgba(95, 99, 104, 0.08);
-}
-
-.message-selectable {
+/* 左侧全选区域 */
+.selection-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
+  user-select: none;
+  flex: 1;
 }
 
-.message-selectable .ai-message,
-.message-selectable .user-message {
-  padding-left: 60px;
+.select-all-icon {
+  font-size: 20px;
+  color: #5f6368;
+  flex-shrink: 0;
+  transition: color 0.2s;
 }
 
-.message-selected {
-  background-color: rgba(25, 118, 210, 0.08);
+.select-all-icon.icon-selected {
+  color: #7c3aed;
+}
+
+.selection-left:hover .select-all-icon {
+  color: #7c3aed;
+}
+
+.select-all-text {
+  font-size: 15px;
+  color: #3c4043;
+  font-weight: 400;
+  margin-right: 4px;
+}
+
+.selection-count {
+  font-size: 14px;
+  color: #5f6368;
+}
+
+/* 右侧操作按钮组 */
+.selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 取消按钮 */
+.cancel-btn {
+  background: #ffffff !important;
+  color: #5f6368 !important;
   border-radius: 8px;
-  margin: 0 12px;
-  padding: 8px 0;
+  padding: 8px 20px;
+  font-size: 15px;
+  font-weight: 500;
+  text-transform: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
+
+.cancel-btn:hover {
+  background: #f5f5f5 !important;
+}
+
+/* 发送按钮 */
+.send-btn {
+  background: #7c3aed !important;
+  color: #ffffff !important;
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-size: 15px;
+  font-weight: 500;
+  text-transform: none;
+  box-shadow: 0 1px 2px rgba(124, 58, 237, 0.3);
+}
+
+.send-btn:hover {
+  background: #6d28d9 !important;
+}
+
+.send-btn[disabled] {
+  background: #d1d5db !important;
+  color: #9ca3af !important;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
 
 .message-checkbox {
   position: absolute;
