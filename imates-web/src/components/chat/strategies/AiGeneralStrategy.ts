@@ -7,7 +7,7 @@ import type { ChatBubble } from '../../../types'
 import type { ChatStrategy, ForwardResult, ForwardOptions } from './ChatStrategy'
 import type { SendMessageOptions, InitializeOptions } from './types'
 import { useAiGeneralChatStore } from '../../../stores/aiGeneralChatStore'
-import { useUserStore } from '../../../stores/userStore'
+import { getUserInfo, getSubject } from '../../../services/auth-storage-service'
 import { useTeacherGeneralChatStore } from '../../../stores/teacherGeneralChatStore'
 import { apiService } from '../../../services/api-service'
 import { Dialog } from 'quasar'
@@ -16,7 +16,6 @@ import { generateUniqueId } from '../../../stores/utils/chatStoreUtils'
 
 export class AiGeneralStrategy implements ChatStrategy {
   private aiGeneralStore = useAiGeneralChatStore()
-  private userStore = useUserStore()
   
   // 第1步：获取消息列表
   getMessages(): ChatBubble[] {
@@ -36,8 +35,8 @@ export class AiGeneralStrategy implements ChatStrategy {
 
     await this.aiGeneralStore.sendMessage(
       content,
-      this.userStore.userInfo,
-      this.userStore.subject as 'MATH' | 'BIOLOGY',
+      getUserInfo(),
+      getSubject(),
       options.selectedModel || 'mate',
       skipUserMessage
     )
@@ -336,7 +335,7 @@ export class AiGeneralStrategy implements ChatStrategy {
   
   // 第23步：获取当前科目
   getCurrentSubject(): 'biology' | 'math' {
-    return this.userStore.subject === 'BIOLOGY' ? 'biology' : 'math'
+    return getSubject() === 'BIOLOGY' ? 'biology' : 'math'
   }
 
   // ========== 转发消息相关私有方法 ==========

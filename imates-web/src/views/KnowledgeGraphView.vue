@@ -293,7 +293,7 @@ import type { KnowledgeGraphDebugParams } from '../components/debug/KnowledgeGra
 import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
 import { useBetterScroll } from '../composables/useBetterScroll'
-import { getCurrentUserIdOrDefault, getCurrentUserId } from '../utils/user/userId'
+import { authStorageService } from '../services/auth-storage-service'
 import { useQuestionStore } from '../stores/questionStore'
 import { showMessage } from '../utils'
 import {
@@ -2148,7 +2148,7 @@ const loadChapterStructure = async (textbookId: string) => {
 // 性能监控工具
 // 获取带用户ID前缀的性能数据存储key
 const getPerfDataKey = () => {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = authStorageService.getCurrentUserIdOrDefault()
   return `${userId}_perfData`
 }
 
@@ -2208,7 +2208,7 @@ const sessionManager = {
     
     try {
       // 检查统一存储的token和userId
-      const { getYanbanToken, getUserId } = await import('../utils/user/authStorage')
+      const { getYanbanToken, getUserId } = await import('../services/auth-storage-service')
       const token = getYanbanToken()
       const userId = getUserId()
       

@@ -134,7 +134,7 @@ import { useRouter } from 'vue-router'
 import { resourceManager } from '../services/resource-storage'
 import type { LearningPackage, ResourceFile, LocalFileInfo } from '../types'
 import { useBetterScroll } from '../composables/useBetterScroll'
-import { getCurrentUserIdOrDefault } from '../utils/user/userId'
+import { authStorageService } from '../services/auth-storage-service'
 import DraggableDialog from '../components/DraggableDialog.vue'
 import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'
 import { isPdfFile } from '../utils/thumbnail/pdf-thumbnail'
@@ -470,7 +470,7 @@ const startLearning = async (resource: ResourceFile) => {
 // 标记节点为已学习
 const markNodeAsLearned = (nodeId: string) => {
   try {
-    const userId = getCurrentUserIdOrDefault()
+    const userId = authStorageService.getCurrentUserIdOrDefault()
     const LEARNED_NODES_KEY = `${userId}_LEARNED_NODES`
     // 从localStorage加载已学习的节点ID列表
     const saved = localStorage.getItem(LEARNED_NODES_KEY)

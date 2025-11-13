@@ -157,7 +157,7 @@ import type { AiGeneralSession } from '../types/chat'
 import type { ExerciseItem } from '../types/exercise'
 import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
 import { useBetterScroll } from '../composables/useBetterScroll'
-import { getScopedStorageValue } from '../utils/user/userId'
+import { authStorageService } from '../services/auth-storage-service'
 
 // 定义组件名称
 defineOptions({
@@ -303,8 +303,7 @@ const handleQaCardClick = async (session: AiGeneralSession) => {
     const teacherSession = teacherStore.getSession(session.sessionId)
     if (teacherSession) {
       // 设置 localStorage
-      const { getCurrentUserIdOrDefault } = await import('../utils/user/userId')
-      const userId = getCurrentUserIdOrDefault()
+      const userId = authStorageService.getCurrentUserIdOrDefault()
       const storeSubject = teacherSession.subject === 'biology' ? 'BIOLOGY' : 'MATH'
       localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
       // 调用 store 的 setSession（设置当前会话）
@@ -377,7 +376,7 @@ const handleExerciseCardClick = async (item: ExerciseItem) => {
       query: {
         questionId: item.bmNo || item.id,
         subject: item.subject === 'biology' ? 'SUBJECT_BIOLOGY' : 'SUBJECT_MATH',
-        token: getScopedStorageValue('token') || ''
+        token: authStorageService.getScopedStorageValue('token') || ''
       }
     })
   } catch (error) {

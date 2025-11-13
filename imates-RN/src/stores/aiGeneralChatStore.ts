@@ -15,7 +15,36 @@ import { apiService, type AiChatMessageRequest } from '../services/apiService'
 import { chatStorageService, type ChatHistoryData } from '../services/chatStorageService'
 import type { ChatBubble } from '../types/chat'
 import type { UserInfo } from './userStore'
-import { buildAiGeneralMessage } from './utils/aiMessageBuilder'
+
+/**
+ * 构建AI消息请求（AI通用场景）
+ * 通用场景不需要题目信息
+ */
+function buildAiGeneralMessage(
+  content: string,
+  userInfo: UserInfo | null,
+  enableWebSearch: boolean,
+  chatRole: string = 'mate'
+): AiChatMessageRequest {
+  const sessionId = `general-session-${Date.now()}`
+  
+  // 第1步：获取用户名称
+  const userName = userInfo?.name || (userInfo?.userName as string | undefined) || 'User'
+  
+  return {
+    sessionId,
+    newValue: '1',
+    coversation: content,
+    question: '',  // 通用场景无题目
+    answer: '',
+    name: userName,
+    reason: 'start',
+    bmNo: sessionId,
+    isWebSearch: enableWebSearch ? '1' : '0',
+    chatRole: chatRole,
+    dstUrl: '/permission/chats'  // 通用AI对话接口
+  }
+}
 
 /**
  * AI通用会话接口

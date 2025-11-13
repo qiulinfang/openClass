@@ -88,34 +88,49 @@
             class="date-group-wrapper"
           >
             <div class="date-group-header">{{ date }}</div>
+            <!-- 会话列表 -->
             <div
               v-for="record in group"
-              :key="record.id"
+              :key="getRecordId(record)"
               class="session-item"
               :class="{
-                'is-selected': selectedRecordId === record.id,
-                'is-checked': selectedRecords.has(record.id),
+                'is-selected': selectedRecordId === getRecordId(record),
+                'is-checked': selectedRecords.has(getRecordId(record)),
                 'is-selectable': isSelectionMode,
               }"
             >
                 <!-- 批量选择复选框 -->
                 <div v-if="isSelectionMode" class="session-checkbox">
                   <q-checkbox
-                    :model-value="selectedRecords.has(record.id)"
-                    @update:model-value="toggleRecordSelection(record.id)"
+                    :model-value="selectedRecords.has(getRecordId(record))"
+                    @update:model-value="toggleRecordSelection(getRecordId(record))"
                     color="primary"
                     size="sm"
                   />
                 </div>
-
+                <!-- 会话内容 -->
                 <div
                   class="session-content"
                   @click="handleItemClick(record)"
                   @contextmenu.prevent="handleLongPress(record)"
                 >
-                  <div class="session-title-row">
-                    <div class="session-title">{{ record.question }}</div>
+                  <!-- 缩略图和标题的 flex 容器 -->
+                  <div class="session-header">
+                    <!-- 会话缩略图 -->
+                    <div v-if="record.thumbnailImage" class="session-thumbnail">
+                      <q-img
+                        :src="record.thumbnailImage"
+                        :ratio="1"
+                        fit="cover"
+                        class="thumbnail-image"
+                      />
+                    </div>
+                    <!-- 会话标题 -->
+                    <div class="session-title-row">
+                      <div class="session-title">{{ getRecordName(record) }}</div>
+                    </div>
                   </div>
+                  <!-- 会话答案 -->
                   <div v-if="record.answer" class="session-subtitle">
                     {{ truncateText(record.answer, 100) }}
                   </div>
@@ -125,26 +140,27 @@
                   <q-btn flat round dense icon="more_horiz" size="sm" class="more-btn" @click.stop>
                     <q-menu anchor="bottom right" self="top right" :offset="[8, 8]" class="action-menu">
                       <q-list class="action-menu-list">
+                        <!-- 置顶 -->
                         <q-item clickable v-close-popup @click="handlePin(record)">
                           <q-item-section avatar>
                             <q-icon name="push_pin" size="xs" />
                           </q-item-section>
                           <q-item-section>{{ record.pinned ? '取消置顶' : '置顶' }}</q-item-section>
                         </q-item>
-                
+                        <!-- 收藏 -->
                         <q-item v-if="showFavorite" clickable v-close-popup @click="handleFavorite(record)">
                           <q-item-section avatar>
                             <q-icon
-                              :name="isFavorite(record.id) ? 'star' : 'star_border'"
+                              :name="isFavorite(getRecordId(record)) ? 'star' : 'star_border'"
                               size="xs"
-                              :color="isFavorite(record.id) ? 'warning' : undefined"
+                              :color="isFavorite(getRecordId(record)) ? 'warning' : undefined"
                             />
                           </q-item-section>
-                          <q-item-section>{{ isFavorite(record.id) ? '取消收藏' : '收藏' }}</q-item-section>
+                          <q-item-section>{{ isFavorite(getRecordId(record)) ? '取消收藏' : '收藏' }}</q-item-section>
                         </q-item>
-                
+                        <!-- 分割线 -->
                         <q-separator spaced />
-                
+                        <!-- 删除 -->
                         <q-item
                           clickable
                           v-close-popup
@@ -170,14 +186,29 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import type { QuestionRecord } from '@/types'
+import type { AiTextbookSession } from '@/types'
 import { useBetterScroll } from '../composables/useBetterScroll'
 import { toggleQaFavorite, getFavoriteQas } from '../utils/storage/favorites'
 import { showMessage } from '../utils'
 
+// 辅助函数：获取会话ID（兼容 id 和 sessionId）
+const getRecordId = (record: AiTextbookSession): string => {
+  return record.sessionId || record.id || ''
+}
+
+// 辅助函数：获取时间戳（兼容 timestamp 和 createTime）
+const getRecordTimestamp = (record: AiTextbookSession): number => {
+  return record.timestamp || record.createTime || Date.now()
+}
+
+// 辅助函数：获取会话名称（兼容 question 和 sessionName）
+const getRecordName = (record: AiTextbookSession): string => {
+  return record.question || record.sessionName || ''
+}
+
 // 定义 props
 interface Props {
-  records?: QuestionRecord[]
+  records?: AiTextbookSession[]
   selectedRecordId?: string // 当前选中的会话ID
   showHeader?: boolean // 是否显示头部
   title?: string // 标题文字
@@ -195,10 +226,10 @@ const props = withDefaults(defineProps<Props>(), {
 
 // 定义 emits
 const emit = defineEmits<{
-  'record-click': [record: QuestionRecord]
-  'record-rename': [record: QuestionRecord, newName: string]
-  'record-pin': [record: QuestionRecord]
-  'record-delete': [record: QuestionRecord]
+  'record-click': [record: AiTextbookSession]
+  'record-rename': [record: AiTextbookSession, newName: string]
+  'record-pin': [record: AiTextbookSession]
+  'record-delete': [record: AiTextbookSession]
   'batch-delete': [recordIds: string[]]
 }>()
 
@@ -215,10 +246,10 @@ const selectedRecords = ref<Set<string>>(new Set())
 
 // 按日期对会话进行分组
 const groupedRecords = computed(() => {
-  const groups: Record<string, QuestionRecord[]> = {}
+  const groups: Record<string, AiTextbookSession[]> = {}
 
   filteredRecords.value.forEach((record) => {
-    const dateStr = formatDateForGrouping(record.timestamp)
+    const dateStr = formatDateForGrouping(getRecordTimestamp(record))
     if (!groups[dateStr]) {
       groups[dateStr] = []
     }
@@ -239,7 +270,7 @@ const filteredRecords = computed(() => {
   const keyword = searchKeyword.value.toLowerCase().trim()
 
   return sourceRecords.filter((record) => {
-    const question = record.question?.toLowerCase() || ''
+    const question = getRecordName(record).toLowerCase()
     const answer = record.answer?.toLowerCase() || ''
 
     return question.includes(keyword) || answer.includes(keyword)
@@ -264,7 +295,7 @@ const toggleSelectAll = () => {
   } else {
     selectedRecords.value.clear()
     props.records.forEach((record) => {
-      selectedRecords.value.add(record.id)
+      selectedRecords.value.add(getRecordId(record))
     })
   }
 }
@@ -293,31 +324,31 @@ const handleBatchDelete = () => {
 }
 
 // 第6步：处理项目点击（区分选择模式和普通模式）
-const handleItemClick = (record: QuestionRecord) => {
+const handleItemClick = (record: AiTextbookSession) => {
   if (isSelectionMode.value) {
-    toggleRecordSelection(record.id)
+    toggleRecordSelection(getRecordId(record))
   } else {
     emit('record-click', record)
   }
 }
 
 // 第7步：处理长按（进入批量选择模式）
-const handleLongPress = (record: QuestionRecord) => {
+const handleLongPress = (record: AiTextbookSession) => {
   if (!isSelectionMode.value) {
     enterSelectionMode()
-    toggleRecordSelection(record.id)
+    toggleRecordSelection(getRecordId(record))
   }
 }
 
 
 
 // 第4步：处理置顶/取消置顶
-const handlePin = (record: QuestionRecord) => {
+const handlePin = (record: AiTextbookSession) => {
   emit('record-pin', record)
 }
 
 // 第5步：处理删除
-const handleDelete = (record: QuestionRecord) => {
+const handleDelete = (record: AiTextbookSession) => {
   emit('record-delete', record)
 }
 
@@ -336,21 +367,30 @@ const initFavoriteStatus = () => {
   const favorites = getFavoriteQas()
   favoriteStatus.value.clear()
   favorites.forEach(f => {
-    favoriteStatus.value.set(f.record.id, true)
+    const record = f.record
+    const recordId = ('sessionId' in record && record.sessionId) 
+      ? record.sessionId 
+      : ('id' in record && record.id) 
+        ? record.id 
+        : ''
+    if (recordId) {
+      favoriteStatus.value.set(recordId, true)
+    }
   })
 }
 
 // 第7步：处理收藏/取消收藏
-const handleFavorite = (record: QuestionRecord) => {
+const handleFavorite = (record: AiTextbookSession) => {
   // 如果禁用收藏功能，直接返回
   if (!props.showFavorite) return
   
-  const wasFavorite = isFavorite(record.id)
+  const recordId = getRecordId(record)
+  const wasFavorite = isFavorite(recordId)
   const success = toggleQaFavorite(record)
   
   if (success) {
     // 更新收藏状态
-    favoriteStatus.value.set(record.id, !wasFavorite)
+    favoriteStatus.value.set(recordId, !wasFavorite)
     showMessage(!wasFavorite ? '已收藏' : '已取消收藏', 'success')
   } else {
     showMessage('操作失败，请重试', 'error')
@@ -613,6 +653,28 @@ defineExpose({
     min-width: 0;
   }
 
+  .session-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .session-thumbnail {
+    flex-shrink: 0;
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f5f5f5;
+
+    .thumbnail-image {
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+    }
+  }
+
   .session-actions {
     position: absolute;
     top: 8px;
@@ -636,11 +698,12 @@ defineExpose({
   }
 
   .session-title-row {
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 8px;
-    margin-bottom: 6px;
   }
 
   .session-title {
@@ -651,8 +714,8 @@ defineExpose({
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
-    -webkit-line-clamp: 1;
-    line-clamp: 1;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     flex: 1;
     min-width: 0;

@@ -161,7 +161,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useQuestionStore } from '../stores/questionStore'
-import { useUserStore } from '../stores/userStore'
+import { getUserInfo, getSubject, initializeStore } from '../services/auth-storage-service'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
 import { useTeacherExerciseChatStore } from '../stores/teacherExerciseChatStore'
 import { storeToRefs } from 'pinia'
@@ -183,7 +183,6 @@ const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 
 const route = useRoute()
 const questionStore = useQuestionStore()
-const userStore = useUserStore()
 const aiExerciseStore = useAiExerciseChatStore()
 const teacherStore = useTeacherExerciseChatStore()
 const uiStore = useUIStore()
@@ -201,9 +200,9 @@ const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
 const unifiedChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
 const showUnifiedChatDialog = ref(false)
 
-// 当前科目（用于 UnifiedChatDialog）
+// 当前科目（用于 UnifiedChatDialog）- 使用 computed 监听 localStorage 变化
 const currentSubject = computed(() => {
-  return userStore.subject === 'BIOLOGY' ? 'biology' : 'math'
+  return getSubject() === 'BIOLOGY' ? 'biology' : 'math'
 })
 
 // 题目调试面板显示状态
@@ -296,7 +295,7 @@ const handleOpenMiniClass = (question: ExerciseItem) => {
       return
     }
     // 规范化学科前缀
-    const subjectRaw = (question.subject || userStore.subject || 'SUBJECT_MATH').toString().toUpperCase()
+    const subjectRaw = (question.subject || getSubject() || 'SUBJECT_MATH').toString().toUpperCase()
     let subjectPrefix = 'math'
     if (subjectRaw.includes('BIOLOGY')) subjectPrefix = 'biology'
     else if (subjectRaw.includes('MATH')) subjectPrefix = 'math'
@@ -399,7 +398,7 @@ const handleSendQuestionToTeacher = async (question: ExerciseItem) => {
       await teacherStore.sendMessage(
         questionContent,
         question,
-        userStore.userInfo,
+        getUserInfo(),
         subject,
         'teacher',
         undefined,
@@ -471,7 +470,7 @@ onMounted(async () => {
     // 静默初始化，不显示加载状态
     try {
       // 初始化用户store
-      await userStore.initializeStore()
+      await initializeStore()
       
       // 从路由参数中获取科目和题目ID
       const routeSubject = route.query.subject as string | undefined
@@ -517,7 +516,7 @@ onMounted(async () => {
         }
       } else {
         // 否则从用户store中获取科目
-        const userSubject = userStore.subject
+        const userSubject = getSubject()
         if (userSubject) {
           const userSubjectUpper = String(userSubject).toUpperCase()
           subjectName = subjectMap[userSubjectUpper] || subjectMap[userSubject] || userSubject.toLowerCase() || 'math'

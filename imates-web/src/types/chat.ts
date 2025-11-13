@@ -193,3 +193,23 @@ export interface AiGeneralSession {
   pinned?: boolean             // 是否置顶
   messages?: ChatBubble[]      // 会话的消息列表（可选，用于加载详情）
 }
+
+// 加载会话详情
+// 定义 AI 教材会话接口
+export interface AiTextbookSession {
+  sessionId: string        // 会话ID
+  sessionName: string      // 会话名称
+  createTime: number       // 创建时间戳
+  updateTime: number       // 最后更新时间戳
+  msgCount: number         // 消息数量
+  pinned?: boolean         // 是否置顶
+  resourceId?: string      // 关联的资源ID（可选）
+  thumbnailImage?: string  // 会话缩略图（截图发送创建会话的图片，base64格式）
+  // 向后兼容字段（用于从 QuestionRecord 迁移）
+  id?: string              // 兼容字段：等同于 sessionId
+  question?: string        // 问题内容（用于显示和降级方案）
+  answer?: string          // 答案内容（用于降级方案）
+  timestamp?: number       // 兼容字段：等同于 createTime
+  storageKey?: string      // 存储键，用于加载消息历史（格式：ai-textbook-${resourceId} 或 ai-textbook-${resourceId}-${sessionId}）
+  hasImage?: boolean       // 是否包含图片消息，用于判断接口类型
+}

@@ -13,7 +13,7 @@ import { ref, computed } from 'vue'
 import { apiService } from '../services/api-service'
 import { asyncStorage } from '../services/chat-storage'
 import { showMessage } from '../utils'
-import { useUserStore } from './userStore'
+import { getUserInfo, getSubject, getUserId } from '../services/auth-storage-service'
 import {
   createUserMessage,
   createTempAiReplyMessage,
@@ -54,8 +54,8 @@ const buildAiTextbookMessage = ({
   useScreenshotApi = false,
   isNewSession = true,
 }: BuildTextbookMessageParams): AiChatMessageRequest => {
-  // 统一使用 userName，与通用场景保持一致
-  const userName = userInfo?.userName || 'User'
+  // 从 localStorage 获取 userId
+  const userId = getUserId() || 'User'
 
   if (imageData?.base64DataUrl) {
     const questionDataUrl = imageData.base64DataUrl.startsWith('data:image/jpeg;')
@@ -68,7 +68,7 @@ const buildAiTextbookMessage = ({
       coversation: content,
       question: questionDataUrl,
       answer: '',
-      name: userName,
+      name: userId,
       reason: 'start',
       bmNo: sessionId,
       isWebSearch: enableWebSearch ? '1' : '0',
@@ -86,7 +86,7 @@ const buildAiTextbookMessage = ({
     coversation: content,
     question: '',
     answer: '',
-    name: userName,
+    name: userId,
     reason: 'start',
     bmNo: sessionId,
     isWebSearch: enableWebSearch ? '1' : '0',
@@ -100,13 +100,13 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   // ==================== 状态管理 ====================
   
   const messages = ref<ChatBubble[]>([])
-  const isChatLoading = ref(false)
-  const chatResponseTimes = ref(0)
-  const enableWebSearch = ref(false)
-  const resourceId = ref<string | null>(null)
+  const isChatLoading = ref(false) // 聊天加载状态
+  const chatResponseTimes = ref(0) // 聊天响应次数计数器，记录已完成的对话轮数（用于判断是否可以查看答案）
+  const enableWebSearch = ref(false) // 是否启用网络搜索功能（当前未使用，保留用于未来扩展）
+  const resourceId = ref<string | null>(null) // 资源ID，用于加载消息历史
   const useScreenshotApi = ref(false)  // 是否使用截图接口（用于截图会话的后续消息）
-  const currentSessionId = ref<string | null>(null)
-  const isNewSession = ref(true)
+  const currentSessionId = ref<string | null>(null) // 当前会话ID，用于加载消息历史
+  const isNewSession = ref(true) // 是否是新会话
   
   const VIEW_ANSWER_CHAT_TIMES = 3
   const canViewAnswer = computed(() => chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES)
@@ -201,7 +201,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     
     try {
       // 第4步：获取用户信息和科目
-      const userStore = useUserStore()
+      const userInfo = getUserInfo()
       
       // 第5步：构建AI消息请求（传入科目以确定dstUrl）
       // 将 chatStoreUtils.ChatImageData 转换为构建请求所需的精简图片数据
@@ -212,19 +212,21 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       // 如果有图片数据且没有设置 sessionId，强制创建新会话（每次截图都创建新会话）
       // 注意：如果 currentSessionId 已经存在（比如从外部设置），则不覆盖它
       if (builderImageData && !currentSessionId.value) {
+        console.log('有图片数据且没有设置 sessionId')
         currentSessionId.value = `textbook-session-${Date.now()}`
         isNewSession.value = true
       } else if (!currentSessionId.value) {
+        console.log('没有设置 sessionId')
         currentSessionId.value = `textbook-session-${Date.now()}`
         isNewSession.value = true
       }
-
+      console.log('已经有 sessionId', currentSessionId.value)
       const shouldUseScreenshotApi = !!builderImageData
 
       const aiMessage = buildAiTextbookMessage({
         sessionId: currentSessionId.value,
         content,
-        userInfo: userStore.userInfo,
+        userInfo: userInfo,
         enableWebSearch: enableWebSearch.value,
         chatRole: selectedModel || 'mate',
         imageData: builderImageData,
@@ -361,7 +363,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     
     // 第4步：重新发送
     try {
-      const userStore = useUserStore()
+      const userInfo = getUserInfo()
       // 将 chatStoreUtils.ChatImageData 转换为构建请求所需的精简图片数据
       const builderImageData = imageData?.base64DataUrl
         ? { base64DataUrl: imageData.base64DataUrl }
@@ -374,7 +376,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       const aiMessage = buildAiTextbookMessage({
         sessionId: currentSessionId.value,
         content: message.originalMessage!,
-        userInfo: userStore.userInfo,
+        userInfo: userInfo,
         enableWebSearch: enableWebSearch.value,
         chatRole,
         imageData: builderImageData,

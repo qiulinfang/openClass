@@ -2428,7 +2428,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { getCurrentUserIdOrDefault } from '../../utils/user/userId'
+import { authStorageService } from '../../services/auth-storage-service'
 
 // 定义参数接口
 /**
@@ -3493,7 +3493,7 @@ const resetAllParams = () => {
 
 // 获取带用户ID前缀的存储key
 const getDebugParamsKey = () => {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = authStorageService.getCurrentUserIdOrDefault()
   return `${userId}_knowledgeGraphDebugParams`
 }
 

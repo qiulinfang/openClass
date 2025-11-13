@@ -14,7 +14,8 @@ import { ref, computed } from 'vue'
 import { apiService } from '../services/api-service'
 import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
 import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo } from '../types'
-import { getCurrentUserIdOrDefault } from '../utils/user/userId'
+import { authStorageService } from '../services/auth-storage-service'
+import { getUserId } from '../services/auth-storage-service'
 import localforage from 'localforage'
 import { generateUniqueId } from './utils/chatStoreUtils'
 
@@ -23,18 +24,20 @@ const buildAiGeneralMessage = (
   userInfo: UserInfo | null,
   enableWebSearch: boolean,
   chatRole: string = 'mate',
+  sessionId?: string | null,
 ): AiChatMessageRequest => {
-  const sessionId = `general-session-${Date.now()}`
-
+  // 优先使用传入的 sessionId，如果没有则新建
+  const finalSessionId = sessionId || `general-session-${Date.now()}`
+  console.log('finalSessionId', finalSessionId)
   return {
-    sessionId,
+    sessionId: finalSessionId,
     newValue: '1',
     coversation: content,
     question: '',
     answer: '',
-    name: userInfo?.userName || 'User',
+    name: getUserId() || 'User',
     reason: 'start',
-    bmNo: sessionId,
+    bmNo: finalSessionId,
     isWebSearch: enableWebSearch ? '1' : '0',
     chatRole,
     subject: '',
@@ -140,12 +143,13 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     const { message: tempReply, id: tempReplyId } = createTempReplyMessage()
     messages.value.push(tempReply)
     
-    // 第4步：构建AI请求（使用标准构建函数）
+    // 第4步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
     const aiRequest = buildAiGeneralMessage(
       content,
       userInfo,
       enableWebSearch.value,
-      selectedModel
+      selectedModel,
+      currentSession.value?.sessionId
     )
     
     try {
@@ -231,12 +235,13 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       retryCount: retryCount + 1
     }
     
-    // 第4步：构建AI请求（使用标准构建函数）
+    // 第4步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
     const aiRequest = buildAiGeneralMessage(
       message.originalMessage,
       userInfo,
       enableWebSearch.value,
-      selectedModel
+      selectedModel,
+      currentSession.value?.sessionId
     )
     
     try {
@@ -417,7 +422,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    */
   const saveSessions = async (): Promise<void> => {
     try {
-      const userId = getCurrentUserIdOrDefault()
+      const userId = authStorageService.getCurrentUserIdOrDefault()
       const key = `${userId}_ai-general-sessions`
       localStorage.setItem(key, JSON.stringify(sessions.value))
     } catch (error) {
@@ -430,7 +435,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
    */
   const loadSessions = async (): Promise<void> => {
     try {
-      const userId = getCurrentUserIdOrDefault()
+      const userId = authStorageService.getCurrentUserIdOrDefault()
       const key = `${userId}_ai-general-sessions`
       const data = localStorage.getItem(key)
       if (data) {
@@ -609,12 +614,13 @@ ${conversationSummary}
 
 标题：`
       
-      // 第5步：构建AI请求
+      // 第5步：构建AI请求（使用传入的 sessionId）
       const titleRequest = buildAiGeneralMessage(
         titlePrompt,
         userInfo,
         false, // 不使用web搜索
-        'mate'
+        'mate',
+        sessionId
       )
       // 第6步：调用AI接口
       const response = await apiService.sendChatMessage(titleRequest)

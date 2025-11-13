@@ -7,12 +7,9 @@ import { httpClient } from '../../services/http-client'
 import { androidBridge } from '../../services/android-bridge'
 import { setBaseUrl } from '../../services/api-endpoints'
 import {
-  getCurrentUserIdOrDefault,
-  getCurrentUserStorageKey,
-  getCurrentUserId,
-  setCurrentUserId,
+  authStorageService,
   UserType,
-} from '../user/userId'
+} from '../../services/auth-storage-service'
 
 /**
  * 初始化应用配置
@@ -61,11 +58,11 @@ export async function initializeAppConfig(initData: unknown = {}) {
   // 从localStorage获取认证信息（支持用户分区）
   const defaultTokenKey = 'token'
   const tokenKeys: string[] = []
-  const storedUserKey = getCurrentUserStorageKey()
+  const storedUserKey = authStorageService.getUserId()
   if (storedUserKey) {
     tokenKeys.push(`${storedUserKey}_${defaultTokenKey}`)
   }
-  const fallbackKey = `${getCurrentUserIdOrDefault()}_${defaultTokenKey}`
+  const fallbackKey = `${authStorageService.getCurrentUserIdOrDefault()}_${defaultTokenKey}`
   if (!tokenKeys.includes(fallbackKey)) {
     tokenKeys.push(fallbackKey)
   }
@@ -104,9 +101,9 @@ export async function initializeAppConfig(initData: unknown = {}) {
           timestamp: new Date().toISOString()
         })
         // 尝试推断用户类型（这里默认使用 XUEBAN，因为这是配置场景）
-        setCurrentUserId(userIdFromConfig, UserType.XUEBAN)
+        authStorageService.setCurrentUserId(userIdFromConfig, UserType.XUEBAN)
       }
-      const storedUserKey = userIdFromConfig || getCurrentUserStorageKey()
+      const storedUserKey = userIdFromConfig || authStorageService.getUserId()
       const storageKey = storedUserKey ? `${storedUserKey}_${key}` : key
       localStorage.setItem(storageKey, value as string)
     }
@@ -129,9 +126,9 @@ export function updateGlobalAuthConfig(authConfig: {
       const userIdFromConfig = (authConfig as Record<string, unknown>).userId as string | undefined
       if (userIdFromConfig) {
         // 尝试推断用户类型（这里默认使用 XUEBAN，因为这是配置场景）
-        setCurrentUserId(userIdFromConfig, UserType.XUEBAN)
+        authStorageService.setCurrentUserId(userIdFromConfig, UserType.XUEBAN)
       }
-      const storedUserKey = userIdFromConfig || getCurrentUserStorageKey()
+      const storedUserKey = userIdFromConfig || authStorageService.getUserId()
       const storageKey = storedUserKey ? `${storedUserKey}_${key}` : key
       localStorage.setItem(storageKey, value as string)
     }
@@ -144,7 +141,7 @@ export function updateGlobalAuthConfig(authConfig: {
 export function clearGlobalAuthConfig() {
   // 直接清除localStorage
   const tokenKeys: string[] = []
-  const storedUserKey = getCurrentUserStorageKey()
+  const storedUserKey = authStorageService.getUserId()
   if (storedUserKey) {
     tokenKeys.push(`${storedUserKey}_token`)
   }
@@ -172,7 +169,7 @@ export function getCurrentAuthConfig() {
   // 直接从localStorage获取认证配置
   const config: Record<string, string> = {}
   const keysToCheck: string[] = []
-  const storedUserKey = getCurrentUserStorageKey()
+  const storedUserKey = authStorageService.getUserId()
   if (storedUserKey) {
     keysToCheck.push(`${storedUserKey}_token`)
   }
@@ -199,7 +196,7 @@ export function getCurrentAuthConfig() {
 export function hasValidAuth(): boolean {
   // 直接从localStorage检查认证状态
   const keysToCheck: string[] = []
-  const storedUserKey = getCurrentUserStorageKey()
+  const storedUserKey = authStorageService.getUserId()
   if (storedUserKey) {
     keysToCheck.push(`${storedUserKey}_token`)
   }
@@ -232,11 +229,11 @@ export function getUserInfo(initData: unknown = {}) {
 
   try {
     const keysToCheck: string[] = []
-    const storedUserKey = getCurrentUserStorageKey()
+    const storedUserKey = authStorageService.getUserId()
     if (storedUserKey) {
       keysToCheck.push(`${storedUserKey}_USER_INFO_CACHE`)
     }
-    const defaultKey = `${getCurrentUserIdOrDefault()}_USER_INFO_CACHE`
+    const defaultKey = `${authStorageService.getCurrentUserIdOrDefault()}_USER_INFO_CACHE`
     if (!keysToCheck.includes(defaultKey)) {
       keysToCheck.push(defaultKey)
     }

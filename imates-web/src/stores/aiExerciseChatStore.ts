@@ -16,7 +16,8 @@ import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
 import type { AiChatMessageRequest, ChatBubble, ExerciseItem, UserInfo } from '../types'
 import { createUserMessage, generateUniqueId, type ChatImageData } from './utils/chatStoreUtils'
 import { useQuestionStore } from './questionStore'
-import { getCurrentUserIdOrDefault } from '../utils/user/userId'
+import { authStorageService } from '../services/auth-storage-service'
+import { getUserId } from '../services/auth-storage-service'
 
 /**
  * 构建AI题目聊天消息请求
@@ -28,16 +29,17 @@ const buildAiExerciseMessage = (
   subject: 'MATH' | 'BIOLOGY',
   enableWebSearch: boolean,
   selectedModel: string = 'mate',
-  imageData?: ChatImageData
+  imageData?: ChatImageData,
+  sessionId?: string | null
 ): AiChatMessageRequest => {
-  // 获取用户ID，优先级：userInfo.userId > userInfo.id > getCurrentUserId() > 'User'
-  const userId = userInfo?.userId || userInfo?.id || getCurrentUserIdOrDefault() || 'User'
+  // 获取用户ID，从 localStorage 获取
+  const userId = getUserId() || 'User'
   
   // 获取题目ID
   const questionId = currentQuestion.id || currentQuestion.bmNo || ''
   
-  // 生成会话ID（使用题目ID和时间戳）
-  const sessionId = `exercise-${questionId}-${Date.now()}`
+  // 优先使用传入的 sessionId，如果没有则新建（使用题目ID和时间戳）
+  const finalSessionId = sessionId || `exercise-${questionId}-${Date.now()}`
   
   // 如果有图片数据，使用图片接口
   if (imageData?.base64DataUrl) {
@@ -47,7 +49,7 @@ const buildAiExerciseMessage = (
       : imageData.base64DataUrl
     
     return {
-      sessionId,
+      sessionId: finalSessionId,
       newValue: '1',
       coversation: content,
       question: questionDataUrl,
@@ -64,7 +66,7 @@ const buildAiExerciseMessage = (
   
   // 普通文本消息
   return {
-    sessionId,
+    sessionId: finalSessionId,
     newValue: '1',
     coversation: content,
     question: currentQuestion.question || '',
@@ -86,6 +88,9 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   
   /** 消息列表 */
   const messages = ref<ChatBubble[]>([])
+  
+  /** 当前会话ID */
+  const currentSessionId = ref<string | null>(null)
   
   /** AI回复次数 */
   const chatResponseTimes = ref(0)
@@ -150,7 +155,13 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     }
     messages.value.push(tempReply)
     
-    // 第4步：构建AI请求（使用标准构建函数）
+    // 第4步：如果没有 sessionId，则新建（基于题目ID）
+    if (!currentSessionId.value) {
+      const questionId = currentQuestion.id || currentQuestion.bmNo || ''
+      currentSessionId.value = `exercise-${questionId}-${Date.now()}`
+    }
+    
+    // 第5步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
     const aiRequest = buildAiExerciseMessage(
       content,
       currentQuestion,
@@ -158,7 +169,8 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       subject,
       enableWebSearch.value,
       selectedModel,
-      imageData
+      imageData,
+      currentSessionId.value
     )
     
     try {
@@ -262,7 +274,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       retryCount: retryCount + 1
     }
     
-    // 第5步：构建AI请求（使用标准构建函数）
+    // 第5步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
     const aiRequest = buildAiExerciseMessage(
       message.originalMessage,
       currentQuestion,
@@ -270,7 +282,8 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       subject,
       enableWebSearch.value,
       selectedModel,
-      imageData
+      imageData,
+      currentSessionId.value
     )
     
     try {
@@ -378,6 +391,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       await asyncStorage.removeChatHistory(storageKey)
       messages.value = []
       chatResponseTimes.value = 0
+      currentSessionId.value = null
       canViewAnswer.value = false
     } catch (error) {
       console.error('[AI_EXERCISE] ❌ 清空聊天历史失败:', error)
@@ -422,6 +436,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     chatResponseTimes.value = 0
     canViewAnswer.value = false
     isChatLoading.value = false
+    currentSessionId.value = null
   }
   
   // ==================== 返回接口 ====================

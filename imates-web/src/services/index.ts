@@ -10,6 +10,22 @@ export * from '../types'
 export { apiService, ApiService } from './api-service'
 export { androidBridge, AndroidBridge } from './android-bridge'
 export { httpClient, HttpClient } from './http-client'
+export { authStorageService, AuthStorageService } from './auth-storage-service'
+export {
+  getUserInfo,
+  setUserInfo,
+  getUserId,
+  getPassword,
+  getYanbanToken,
+  getXuebanToken,
+  setYanbanToken,
+  setXuebanToken,
+  getSubject,
+  loadFromStorage,
+  initializeStore,
+  cleanupOnAccountSwitch,
+  setUserInfoWithCleanup
+} from './auth-storage-service'
 
 // API 配置
 export * from './api-endpoints'

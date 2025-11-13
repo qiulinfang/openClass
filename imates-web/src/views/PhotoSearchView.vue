@@ -415,7 +415,6 @@ import type { ExerciseItem } from '@/types'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { toggleExerciseFavorite, getFavoriteExercises } from '@/utils/storage/favorites'
 import { useQuestionStore } from '@/stores/questionStore'
-import { useUserStore } from '@/stores/userStore'
 
 const route = useRoute()
 const router = useRouter()
@@ -2144,8 +2143,8 @@ const handleAddToPracticeInChat = async () => {
       exercisesId,
     }
 
-    const userStore = useUserStore()
-    const subject = (userStore.subject?.toLowerCase() || 'math') as 'math' | 'biology'
+    const { getSubject } = await import('../services/auth-storage-service')
+    const subject = (getSubject()?.toLowerCase() || 'math') as 'math' | 'biology'
     const success = await apiService.addQuestionToList(questionData, subject)
 
     if (success) {

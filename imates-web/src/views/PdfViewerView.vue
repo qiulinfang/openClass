@@ -141,14 +141,14 @@
               />
             </div>
 
-            <!-- 问题记录 Tab -->
+            <!-- 会话记录 Tab -->
             <div v-if="activeTab === 'question-record'" class="tab-content">
               <SessionList
-                :records="questionRecords"
+                :records="sessions"
                 :selectedRecordId="selectedRecordId"
-                @record-click="handleQuestionRecordClick"
-                @record-delete="handleQuestionRecordDelete"
-                @record-pin="handleQuestionRecordPin"
+                @record-click="handleSessionClick"
+                @record-delete="handleSessionDelete"
+                @record-pin="handleSessionPin"
                 @batch-delete="handleBatchDelete"
                 :showHeader="false"
               />
@@ -175,7 +175,7 @@ import { resourceManager } from '@/services/resource-storage'
 import { asyncStorage } from '@/services/chat-storage'
 import { PdfCoreService } from '@/services/pdf/core/PdfCoreService'
 import { PdfStateAdapterVue } from '@/services/pdf/adapters/vue/PdfStateAdapterVue'
-import type { UserTextbookInfo, LocalFileInfo, QuestionRecord, ChatBubble } from '@/types'
+import type { UserTextbookInfo, LocalFileInfo, ChatBubble, AiTextbookSession } from '@/types'
 import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
 import ChatView from '@/components/ChatView.vue'
@@ -260,15 +260,20 @@ const activeTab = ref('ai-chat') // 当前激活的 tab
 
 // Tab 选项
 const tabOptions = [
-  { label: '问题记录', value: 'question-record', icon: 'quiz' },
+  { label: '会话记录', value: 'question-record', icon: 'quiz' },
   { label: 'AI问答', value: 'ai-chat', icon: 'chat' },
 ]
 
-// 问题记录数据（从localStorage加载）
-const questionRecords = ref<QuestionRecord[]>([])
+// 会话数据（从localStorage加载）
+const sessions = ref<AiTextbookSession[]>([])
 
 // 选中的会话ID
 const selectedRecordId = ref<string | undefined>(undefined)
+
+// 辅助函数：获取会话ID（兼容 id 和 sessionId）
+const getSessionId = (session: AiTextbookSession): string => {
+  return session.sessionId || session.id || ''
+}
 
 // 截图输入对话框状态
 const screenshotDialogVisible = ref(false)
@@ -286,12 +291,12 @@ const loadSessions = () => {
   
   // 如果没有 resourceId，显示所有会话（兼容旧数据）
   if (!currentResourceId) {
-    questionRecords.value = allSessions
+    sessions.value = allSessions
     return
   }
   
   // 过滤出匹配当前 resourceId 的会话
-  questionRecords.value = allSessions.filter((record) => {
+  sessions.value = allSessions.filter((record) => {
     // 优先使用 record.resourceId
     if (record.resourceId) {
       return record.resourceId === currentResourceId
@@ -310,14 +315,18 @@ const loadSessions = () => {
   })
 }
 
-// 处理问题记录点击
-const handleQuestionRecordClick = async (record: QuestionRecord) => {
+// 处理会话点击
+const handleSessionClick = async (record: AiTextbookSession) => {
   // 设置选中状态
-  selectedRecordId.value = record.id
+  selectedRecordId.value = getSessionId(record)
   
   // 打开对话面板（如果未打开）
   if (!chatPanelVisible.value) {
     chatPanelVisible.value = true
+  }
+  // 增加切换 chatview 的逻辑：如果当前不是 AI 问答 Tab，则切换到 AI 问答
+  if (activeTab.value !== 'ai-chat') {
+    activeTab.value = 'ai-chat'
   }
   
   // 加载会话详情
@@ -325,7 +334,7 @@ const handleQuestionRecordClick = async (record: QuestionRecord) => {
 }
 
 // 加载会话详情
-const loadSessionDetail = async (record: QuestionRecord) => {
+const loadSessionDetail = async (record: AiTextbookSession) => {
   try {
     // 步骤1：确定 resourceId（优先使用 record.resourceId，如果没有则从 storageKey 中提取）
     let targetResourceId = record.resourceId
@@ -353,9 +362,9 @@ const loadSessionDetail = async (record: QuestionRecord) => {
         if (record.storageKey && record.storageKey.startsWith('ai-textbook-')) {
           // 如果 storageKey 是完整格式（可能包含 sessionId），直接使用
           storageKey = record.storageKey
-        } else if (record.id) {
-          // 使用 record.id（sessionId）构建包含 sessionId 的存储键
-          storageKey = `ai-textbook-${targetResourceId}-${record.id}`
+        } else if (getSessionId(record)) {
+          // 使用 sessionId 构建包含 sessionId 的存储键
+          storageKey = `ai-textbook-${targetResourceId}-${getSessionId(record)}`
         } else {
           // 降级方案：使用旧的格式（向后兼容）
           storageKey = `ai-textbook-${targetResourceId}`
@@ -366,7 +375,7 @@ const loadSessionDetail = async (record: QuestionRecord) => {
         if (history && history.messages && history.messages.length > 0) {
           hasStorageHistory = true
           // 有存储历史，使用 loadChatHistory 加载（传入 storageKey 和 sessionId）
-          await aiTextbookStore.loadChatHistory(storageKey, record.id)
+          await aiTextbookStore.loadChatHistory(storageKey, getSessionId(record))
           loadedMessages = aiTextbookStore.messages
           // 如果会话包含图片消息，标记使用截图接口
           if (record.hasImage) {
@@ -374,7 +383,7 @@ const loadSessionDetail = async (record: QuestionRecord) => {
           }
           console.log('[会话详情] 从存储加载消息', {
             resourceId: targetResourceId,
-            sessionId: record.id,
+            sessionId: getSessionId(record),
             storageKey: storageKey,
             messageCount: loadedMessages.length,
             hasImage: record.hasImage
@@ -384,7 +393,7 @@ const loadSessionDetail = async (record: QuestionRecord) => {
           hasStorageHistory = false
           console.log('[会话详情] 存储中无消息', {
             resourceId: targetResourceId,
-            sessionId: record.id,
+            sessionId: getSessionId(record),
             storageKey: storageKey
           })
         }
@@ -394,7 +403,7 @@ const loadSessionDetail = async (record: QuestionRecord) => {
       }
     }
     
-    // 步骤4：如果存储中没有消息，则根据 QuestionRecord 重建消息历史（降级方案）
+    // 步骤4：如果存储中没有消息，则根据 AiTextbookSession 重建消息历史（降级方案）
     if (!hasStorageHistory) {
       console.log('[会话详情] 使用降级方案重建消息')
       // 清空当前消息（因为存储中没有消息）
@@ -406,12 +415,14 @@ const loadSessionDetail = async (record: QuestionRecord) => {
       }
     
       // 创建用户消息（问题）
+      const sessionId = getSessionId(record)
+      const timestamp = record.timestamp || record.createTime || Date.now()
       if (record.question) {
         const userMessage: ChatBubble = {
-          id: `${record.id}_user_${record.timestamp}`,
+          id: `${sessionId}_user_${timestamp}`,
           content: record.question,
           type: 'user',
-          timestamp: new Date(record.timestamp).toISOString(),
+          timestamp: new Date(timestamp).toISOString(),
           sender: 'user',
           messageType: record.hasImage ? 'image' : 'text' // 根据 hasImage 设置消息类型
         }
@@ -421,10 +432,10 @@ const loadSessionDetail = async (record: QuestionRecord) => {
       // 创建AI回复消息（答案）
       if (record.answer) {
         const aiMessage: ChatBubble = {
-          id: `${record.id}_ai_${record.timestamp + 1000}`, // 假设1秒后回复
+          id: `${sessionId}_ai_${timestamp + 1000}`, // 假设1秒后回复
           content: record.answer,
           type: 'ai',
-          timestamp: new Date(record.timestamp + 1000).toISOString(),
+          timestamp: new Date(timestamp + 1000).toISOString(),
           sender: 'ai',
           messageType: 'text'
         }
@@ -433,7 +444,7 @@ const loadSessionDetail = async (record: QuestionRecord) => {
     }
     
     console.log('[会话详情] 已加载会话详情', {
-      sessionId: record.id,
+      sessionId: getSessionId(record),
       question: record.question,
       hasAnswer: !!record.answer,
       messageCount: loadedMessages.length || aiTextbookStore.messages.length,
@@ -447,11 +458,12 @@ const loadSessionDetail = async (record: QuestionRecord) => {
   }
 }
 
-// 处理问题记录删除
-const handleQuestionRecordDelete = (record: QuestionRecord) => {
-  if (deleteScreenshotSession(record.id)) {
+// 处理会话删除
+const handleSessionDelete = (record: AiTextbookSession) => {
+  const sessionId = getSessionId(record)
+  if (deleteScreenshotSession(sessionId)) {
     // 如果删除的是当前选中的会话，清除选中状态
-    if (selectedRecordId.value === record.id) {
+    if (selectedRecordId.value === sessionId) {
       selectedRecordId.value = undefined
     }
     loadSessions()
@@ -470,7 +482,7 @@ const handleBatchDelete = (recordIds: string[]) => {
 }
 
 // 处理置顶
-const handleQuestionRecordPin = (record: QuestionRecord) => {
+const handleSessionPin = (record: AiTextbookSession) => {
   record.pinned = !record.pinned
   if (updateScreenshotSession(record)) {
     loadSessions()
@@ -950,15 +962,23 @@ const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
 
     // 步骤4：创建新会话并保存到localStorage（使用包含 sessionId 的 storageKey）
     const storageKey = currentResourceId ? `ai-textbook-${currentResourceId}-${sessionId}` : undefined
-    const newSession: QuestionRecord = {
+    const now = Date.now()
+    const newSession: AiTextbookSession = {
+      sessionId: sessionId,
+      sessionName: question, // 使用问题作为会话名称
+      createTime: now,
+      updateTime: now,
+      msgCount: 0, // 初始消息数为0，将在消息发送后更新
+      pinned: false,
+      resourceId: currentResourceId, // 保存 resourceId
+      thumbnailImage: dataUrl, // 保存截图图片（base64格式）
+      storageKey: storageKey, // 保存存储键（包含 sessionId）
+      hasImage: true, // 标记为包含图片的会话
+      // 向后兼容字段
       id: sessionId,
       question: question,
       answer: undefined, // 答案将在AI回复后更新
-      timestamp: Date.now(),
-      pinned: false,
-      resourceId: currentResourceId, // 保存 resourceId
-      storageKey: storageKey, // 保存存储键（包含 sessionId）
-      hasImage: true, // 标记为包含图片的会话
+      timestamp: now,
     }
     addScreenshotSession(newSession)
     loadSessions() // 刷新会话列表

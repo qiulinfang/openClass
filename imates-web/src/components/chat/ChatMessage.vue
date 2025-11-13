@@ -344,7 +344,7 @@ import { useAiTextbookChatStore } from '../../stores/aiTextbookChatStore'
 import { useTeacherGeneralChatStore } from '../../stores/teacherGeneralChatStore'
 import { useQuestionStore } from '../../stores/questionStore'
 import { useTeacherExerciseChatStore } from '../../stores/teacherExerciseChatStore'
-import { useUserStore } from '../../stores/userStore'
+import { getUserInfo, getSubject } from '../../services/auth-storage-service'
 import VoiceMessage from './VoiceMessage.vue'
 import ImageMessage from './ImageMessage.vue'
 import StreamingMessage from './StreamingMessage.vue'
@@ -417,7 +417,6 @@ const aiTextbookStore = useAiTextbookChatStore()
 const teacherGeneralStore = useTeacherGeneralChatStore()
 const teacherExerciseStore = useTeacherExerciseChatStore()
 const questionStore = useQuestionStore()
-const userStore = useUserStore()
 
 // 重发相关状态 
 const isRetrying = ref(false)
@@ -440,21 +439,22 @@ const handleRetry = async () => {
     isRetrying.value = true
 
     // 根据不同场景调用不同的retryMessage方法
-    const subject = userStore.subject as 'MATH' | 'BIOLOGY'
+    const subject = getSubject() as 'MATH' | 'BIOLOGY'
+    const userInfo = getUserInfo()
 
     switch (props.type) {
       case 'ai-exercise':
         await aiExerciseStore.retryMessage(
           props.message.id,
           questionStore.currentQuestion,
-          userStore.userInfo,
+          userInfo,
           subject,
           'mate',
           props.message.imageData,
         )
         break
       case 'ai-general':
-        await aiGeneralStore.retryMessage(props.message.id, userStore.userInfo, subject, 'mate')
+        await aiGeneralStore.retryMessage(props.message.id, userInfo, subject, 'mate')
         break
       case 'ai-textbook':
         await aiTextbookStore.retryAiMessage(props.message.id, 'mate', props.message.imageData)
@@ -1038,7 +1038,8 @@ const handleRefresh = async () => {
   // 使用用户消息的内容重新发送
   try {
     isRetrying.value = true
-    const subject = userStore.subject as 'MATH' | 'BIOLOGY'
+    const subject = getSubject() as 'MATH' | 'BIOLOGY'
+    const userInfo = getUserInfo()
 
     $q.notify({
       type: 'positive',
@@ -1057,7 +1058,7 @@ const handleRefresh = async () => {
         await aiExerciseStore.sendMessage(
           userMessage.content,
           questionStore.currentQuestion,
-          userStore.userInfo,
+          userInfo,
           subject,
           'mate',
           userMessage.imageData,
@@ -1073,7 +1074,7 @@ const handleRefresh = async () => {
         }
         await aiGeneralStore.sendMessage(
           userMessage.content,
-          userStore.userInfo,
+          userInfo,
           subject,
           'mate',
           true, // skipUserMessage: true，跳过创建用户消息

@@ -14,7 +14,7 @@ import { ref } from 'vue'
 import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
 import type { ChatBubble, ExerciseItem, UserInfo } from '../types'
 import { createUserMessage } from './utils/chatStoreUtils'
-import { getCurrentUserIdOrDefault } from '../utils/user/userId'
+import { authStorageService } from '../services/auth-storage-service'
 import type { ChatImageData } from './utils/chatStoreUtils'
 import {
   updateMessageError,
@@ -935,7 +935,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
    * 获取统一的会话存储键名
    */
   const getSessionsStorageKey = (): string => {
-    const userId = getCurrentUserIdOrDefault()
+    const userId = authStorageService.getCurrentUserIdOrDefault()
     return `${userId}_teacher-exercise-sessions`
   }
 

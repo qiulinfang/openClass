@@ -296,7 +296,6 @@ import UnifiedChatDialog from './UnifiedChatDialog.vue'
 import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
 import { useImagePicker } from '../composables/useImagePicker'
 import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
-import { useUserStore } from '../stores/userStore'
 
 // 导入拍照搜题图标
 import searchQuestionIcon from '/icons/search_question.svg'   
@@ -432,7 +431,6 @@ const miniClassQuestionTitle = computed(() => uiStore.miniClassQuestionTitle)
 // 拍作业相关依赖
 const { pickImage } = useImagePicker()
 const teacherStore = useTeacherGeneralChatStore()
-const userStore = useUserStore()
 const unifiedChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
 const showUnifiedChatDialog = ref(false)
 const selectedSubjectForTeacher = ref<'biology' | 'math'>('math')
@@ -749,7 +747,8 @@ const takePictureToTeacher = async (question: ExerciseItem) => {
 const selectSubjectForTeacher = async (subject: 'biology' | 'math') => {
   try {
     // 第1步：确保用户信息已加载
-    const userInfo = userStore.userInfo || {
+    const { getUserInfo } = await import('../services/auth-storage-service')
+    const userInfo = getUserInfo() || {
       id: '',
       name: '',
       avatar: '',
@@ -758,7 +757,8 @@ const selectSubjectForTeacher = async (subject: 'biology' | 'math') => {
 
     if (!userInfo?.id) {
       // 尝试从localStorage加载
-      const hasCache = userStore.loadFromStorage()
+      const { loadFromStorage } = await import('../services/auth-storage-service')
+      const hasCache = loadFromStorage()
       if (!hasCache) {
         showMessage('无法获取用户信息，请重新登录', 'error')
         return

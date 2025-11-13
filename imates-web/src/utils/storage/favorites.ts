@@ -3,23 +3,34 @@
  * 使用 localStorage 存储收藏的会话和题目
  */
 
-import type { QuestionRecord, AiGeneralSession } from '@/types/chat'
+import type { QuestionRecord, AiGeneralSession, AiTextbookSession } from '@/types/chat'
 import type { ExerciseItem } from '@/types/exercise'
-import { getCurrentUserIdOrDefault } from '../user/userId'
+import { authStorageService } from '../../services/auth-storage-service'
 
 // localStorage key 常量（带用户ID前缀）
 const getFavoritesStorageKey = (): string => {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = authStorageService.getCurrentUserIdOrDefault()
   return `${userId}_favorites`
 }
 const QA_FAVORITES_PREFIX = 'favorite_qa_'  
 const EXERCISE_FAVORITES_PREFIX = 'favorite_exercise_'
 
+// 辅助函数：获取会话ID（兼容 id 和 sessionId）
+const getSessionId = (record: QuestionRecord | AiTextbookSession): string => {
+  if ('sessionId' in record && record.sessionId) {
+    return record.sessionId
+  }
+  if ('id' in record && record.id) {
+    return record.id
+  }
+  return ''
+}
+
 // 收藏数据类型
 export interface FavoriteQa {
   id: string
   type: 'qa'
-  record: QuestionRecord
+  record: QuestionRecord | AiTextbookSession  // 支持 QuestionRecord 和 AiTextbookSession
   timestamp: number
 }
 
@@ -98,7 +109,7 @@ export function getAllFavorites(): Favorite[] {
  */
 export function isQaFavorite(recordId: string): boolean {
   const favorites = getFavoriteQas()
-  return favorites.some(f => f.record.id === recordId)
+  return favorites.some(f => getSessionId(f.record) === recordId)
 }
 
 /**
@@ -120,14 +131,15 @@ export function isSessionFavorite(sessionId: string): boolean {
 /**
  * 收藏会话
  */
-export function addQaFavorite(record: QuestionRecord): boolean {
+export function addQaFavorite(record: QuestionRecord | AiTextbookSession): boolean {
   try {
-    if (isQaFavorite(record.id)) {
+    const recordId = getSessionId(record)
+    if (isQaFavorite(recordId)) {
       return false // 已收藏
     }
 
     const favorite: FavoriteQa = {
-      id: `qa_${record.id}_${Date.now()}`,
+      id: `qa_${recordId}_${Date.now()}`,
       type: 'qa',
       record,
       timestamp: Date.now()
@@ -179,7 +191,7 @@ export function removeQaFavorite(recordId: string): boolean {
     const favorites = getAllFavorites()
     const filtered = favorites.filter(f => {
       if (f.type === 'qa') {
-        return f.record.id !== recordId
+        return getSessionId(f.record) !== recordId
       }
       return true
     })
@@ -217,9 +229,10 @@ export function removeExerciseFavorite(itemId: string): boolean {
 /**
  * 切换会话收藏状态
  */
-export function toggleQaFavorite(record: QuestionRecord): boolean {
-  if (isQaFavorite(record.id)) {
-    return removeQaFavorite(record.id)
+export function toggleQaFavorite(record: QuestionRecord | AiTextbookSession): boolean {
+  const recordId = getSessionId(record)
+  if (isQaFavorite(recordId)) {
+    return removeQaFavorite(recordId)
   } else {
     return addQaFavorite(record)
   }

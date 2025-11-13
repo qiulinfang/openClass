@@ -9,7 +9,7 @@ import type { SendMessageOptions, TeacherSessionInfo, InitializeOptions } from '
 import { useTeacherGeneralChatStore } from '../../../stores/teacherGeneralChatStore'
 import { useQuestionStore } from '../../../stores/questionStore'
 import { apiService } from '../../../services/api-service'
-import { getCurrentUserIdOrDefault } from '../../../utils/user/userId'
+import { authStorageService } from '../../../services/auth-storage-service'
 import { SessionType } from '../../../types'
 import type { ChatMessageSession } from '../../../types'
 
@@ -191,7 +191,7 @@ export class TeacherGeneralStrategy implements ChatStrategy {
         
         // 场景B：创建新会话（仅当是临时ID或未找到已有会话时）
         // 3.2 从localStorage读取当前教师科目
-        const userId = getCurrentUserIdOrDefault()
+        const userId = authStorageService.getCurrentUserIdOrDefault()
         const teacherSubject = localStorage.getItem(`${userId}_currentTeacherSubject`) || 'MATH'
         const subject = (teacherSubject === 'BIOLOGY' ? 'biology' : 'math') as 'biology' | 'math'
         
@@ -462,7 +462,7 @@ export class TeacherGeneralStrategy implements ChatStrategy {
   // 第23步：获取当前科目
   getCurrentSubject(): 'biology' | 'math' {
     // 从localStorage读取当前教师科目
-    const userId = getCurrentUserIdOrDefault()
+    const userId = authStorageService.getCurrentUserIdOrDefault()
     const teacherSubject = localStorage.getItem(`${userId}_currentTeacherSubject`) || 'MATH'
     return teacherSubject === 'BIOLOGY' ? 'biology' : 'math'
   }

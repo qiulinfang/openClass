@@ -138,7 +138,6 @@ import { useBetterScroll } from '../composables/useBetterScroll'
 
 // 状态管理和工具函数
 import { useQuestionStore } from '../stores/questionStore'
-import { useUserStore } from '../stores/userStore'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
 import { useAiGeneralChatStore } from '../stores/aiGeneralChatStore'
 import { useAiTextbookChatStore } from '../stores/aiTextbookChatStore'

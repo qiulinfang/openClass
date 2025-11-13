@@ -79,13 +79,13 @@
 import { ref, onMounted, onUnmounted, computed, nextTick, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { Dialog } from 'quasar'
-import { useUserStore } from '@/stores/userStore'
 import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
 import { useImagePicker } from '@/composables/useImagePicker'
 import { apiService } from '@/services/api-service'
 import { androidBridge } from '@/services/android-bridge'
 import { showMessage } from '@/utils'
-import { getCurrentUserIdOrDefault } from '@/utils/user/userId'
+import { authStorageService } from '@/services/auth-storage-service'
+import { getUserInfo } from '../services/auth-storage-service'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 import type { ChatBubble } from '@/types'
 import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
@@ -98,7 +98,6 @@ import myFavoritesIcon from '/icons/my_favorites.svg'
 import feedbackIcon from '/icons/feedback.svg'
 
 const router = useRouter()
-const userStore = useUserStore()
 const teacherStore = useTeacherGeneralChatStore()
 
 // 注入父组件提供的方法（从 MainView 提供）
@@ -113,12 +112,15 @@ const showJoinClassDialog = ref(false)
 // 全局图片选择器
 const { pickImage } = useImagePicker()
 
-// 使用 Store 管理用户信息
-const userInfo = computed(() => userStore.userInfo || {
-  id: '',
-  name: '',
-  avatar: '',
-  roles: [] as string[]
+// 使用 Store 管理用户信息 - 使用 computed 监听 localStorage 变化
+// 注意：这里直接导入 getUserInfo，因为 authStorage 不依赖 userStore，不会有循环依赖
+const userInfo = computed(() => {
+  return getUserInfo() || {
+    id: '',
+    name: '',
+    avatar: '',
+    roles: [] as string[]
+  }
 })
 
 
@@ -168,13 +170,13 @@ onUnmounted(async () => {
 const loadUserInfo = async () => {
   try {
     // 第1步：尝试从持久化存储加载
-    const hasCache = userStore.loadFromStorage()
+    const { loadFromStorage, getXuebanToken, setUserInfo } = await import('../services/auth-storage-service')
+    const hasCache = loadFromStorage()
     if (hasCache) {
       return
     }
 
     // 第2步：从统一存储获取XUEBAN_TOKEN
-    const { getXuebanToken } = await import('../utils/user/authStorage')
     const token = getXuebanToken()
     if (!token) {
       console.warn('未找到 XUEBAN_TOKEN')
@@ -186,7 +188,7 @@ const loadUserInfo = async () => {
     
     // 第4步：更新用户信息并持久化
     if (userData) {
-      userStore.setUserInfo({
+      setUserInfo({
         id: userData.id || '',
         name: userData.name || '用户',
         avatar: userData.avatar || '',
@@ -271,7 +273,7 @@ const selectSubject = async (subject: 'biology' | 'math') => {
     }
 
     // 第3步：设置 localStorage 中的 currentTeacherSubject
-    const userId = getCurrentUserIdOrDefault()
+    const userId = authStorageService.getCurrentUserIdOrDefault()
     const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
     localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
     
@@ -380,7 +382,7 @@ const takePictureToTeacher = async () => {
           const targetSession = allSessions.find(s => s.subject === selectedSubject)
           if (targetSession) {
             // 设置 localStorage
-            const userId = getCurrentUserIdOrDefault()
+            const userId = authStorageService.getCurrentUserIdOrDefault()
             const storeSubject = targetSession.subject === 'biology' ? 'BIOLOGY' : 'MATH'
             localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
             // 调用 store 的 setSession，UnifiedChatDialog 会通过 watch 自动同步 UI 状态
