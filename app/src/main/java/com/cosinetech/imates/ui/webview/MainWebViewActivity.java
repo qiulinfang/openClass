@@ -38,6 +38,7 @@ import com.cosinetech.imates.ui.webview.common.WebViewConfig;
 import com.cosinetech.imates.utils.AppUtils;
 import com.cosinetech.imates.utils.WindowUtils;
 import com.cosinetech.imates.coreapiservice.ApiUrl;
+import com.cosinetech.imates.appenv.AppEnvConfig;
 import com.xuexiang.xupdate.easy.EasyUpdate;
 import android.os.Build;
 
@@ -124,35 +125,22 @@ public class MainWebViewActivity extends AppCompatActivity
 
     // ========== 更新检查相关 ==========
 
-    /** 上次检查更新的时间戳（毫秒） */
-    private long mCheckUpdateTick = 0;
-
     /** 更新检查的 Handler，用于定时执行更新检查 */
     private final Handler mCheckUpdateHandler = new Handler(Looper.getMainLooper());
 
     /**
      * 更新检查的 Runnable，每 60 秒执行一次检查
-     * 如果距离上次检查已超过 1 小时（3600000 毫秒），则执行更新检查
+     * 每次检查都会发送HTTP请求，如果服务器返回的版本号比当前版本新，则执行更新
      */
     private final Runnable mCheckUpdateRunnable = new Runnable() {
         @Override
         public void run() {
-            long tick = System.currentTimeMillis();
-            // 如果距离上次检查已超过 1 小时，执行更新检查
-            if (tick - mCheckUpdateTick >= 3600000) {
-                String updateUrl = ApiUrl.URL_APP_UPDATE;
-                
-                // 更新检查时间戳
-                mCheckUpdateTick = tick;
-                
-                // 手动发送HTTP请求以获取响应
-                checkUpdateWithHttpRequest(updateUrl);
-                
-                EasyUpdate.create(MainWebViewActivity.this, updateUrl)
-                        .isAutoMode(false)
-                        .update();
-            }
-            // 每 60 秒执行一次检查（但不一定执行更新请求）
+            String updateUrl = ApiUrl.URL_APP_UPDATE;
+            
+            // 每次检查都发送HTTP请求，判断是否需要更新
+            checkUpdateWithHttpRequest(updateUrl);
+            
+            // 每 60 秒执行一次检查
             mCheckUpdateHandler.postDelayed(this, 60000);
         }
     };
@@ -250,20 +238,18 @@ public class MainWebViewActivity extends AppCompatActivity
     /**
      * 初始化应用更新检查机制
      * <p>
-     * 启动后10秒执行首次更新检查，然后每隔1小时（3600000毫秒）检查一次。
-     * 定时器每 60 秒执行一次检查逻辑，判断是否需要执行更新请求。
+     * 启动后10秒执行首次更新检查，然后每60秒检查一次。
+     * 每次检查都会发送HTTP请求，如果服务器返回的版本号比当前版本新，则执行更新。
      * </p>
      */
     private void initUpdateCheck() {
-        // 初始化为0，确保首次检查时能立即执行
-        mCheckUpdateTick = 0;
-
         // 启动后10秒执行首次更新检查
         mCheckUpdateHandler.postDelayed(mCheckUpdateRunnable, 10000);
     }
 
     /**
      * 手动发送HTTP请求检查更新并打印响应信息
+     * EasyUpdate内部会自动比较版本号，如果需要更新则执行更新
      * 
      * @param updateUrl 更新检查的URL
      */
@@ -301,9 +287,29 @@ public class MainWebViewActivity extends AppCompatActivity
                         responseBody = response.body().string();
                     }
                     
-                    // 响应处理完成，保留响应数据供后续使用
+                    // 解析响应JSON，提取版本号
+                    if (statusCode == 200 && responseBody != null && !responseBody.isEmpty()) {
+                        try {
+                            org.json.JSONObject jsonObj = new org.json.JSONObject(responseBody);
+                            String serverVersion = jsonObj.optString("VersionName", "");
+                            if (!serverVersion.isEmpty()) {
+                                // 发送版本号到Web端
+                                dispatchAppVersionEvent(serverVersion);
+                                Log.d(TAG, "服务器版本: " + serverVersion);
+                                
+                                // 直接调用EasyUpdate.update()，内部会自动比较版本号并决定是否更新
+                                runOnUiThread(() -> {
+                                    EasyUpdate.create(MainWebViewActivity.this, updateUrl)
+                                            .isAutoMode(false)
+                                            .update();
+                                });
+                            }
+                        } catch (org.json.JSONException e) {
+                            Log.e(TAG, "解析更新响应JSON失败", e);
+                        }
+                    }
                 } catch (Exception e) {
-                    // 静默处理异常
+                    Log.e(TAG, "处理更新响应失败", e);
                 } finally {
                     if (response.body() != null) {
                         response.body().close();
@@ -943,6 +949,47 @@ public class MainWebViewActivity extends AppCompatActivity
 
                 webView.evaluateJavascript(jsCode, null);
                 Log.d(TAG, "已触发 floating-fab-action 事件");
+            } catch (Exception e) {
+                Log.e(TAG, "触发WebView事件失败", e);
+                e.printStackTrace();
+            }
+        });
+    }
+
+    /**
+     * 触发应用版本号事件到 WebView
+     * <p>
+     * 通过 JavaScript 代码在 Web 端触发 'app-version' CustomEvent，
+     * 事件详情包含版本号信息。
+     * </p>
+     *
+     * @param versionName 版本号名称（如 "1.0.18"）
+     */
+    private void dispatchAppVersionEvent(String versionName) {
+        runOnUiThread(() -> {
+            try {
+                // 构造事件详情
+                org.json.JSONObject detailObj = new org.json.JSONObject();
+                detailObj.put("versionName", versionName);
+
+                String detailJson = detailObj.toString();
+                Log.d(TAG, "准备触发 app-version 事件，versionName: " + versionName);
+
+                // 构造JavaScript代码触发app-version事件
+                String jsCode = "javascript:(function() {" +
+                        "  try {" +
+                        "    var detailStr = '" + detailJson.replace("'", "\\'") + "';" +
+                        "    var detail = JSON.parse(detailStr);" +
+                        "    var event = new CustomEvent('app-version', { detail: detail });" +
+                        "    window.dispatchEvent(event);" +
+                        "    console.log('📡 [Android] 触发 app-version 事件', detail);" +
+                        "  } catch(e) {" +
+                        "    console.error('📡 [Android] 触发事件失败:', e);" +
+                        "  }" +
+                        "})()";
+
+                webView.evaluateJavascript(jsCode, null);
+                Log.d(TAG, "已触发 app-version 事件");
             } catch (Exception e) {
                 Log.e(TAG, "触发WebView事件失败", e);
                 e.printStackTrace();

@@ -65,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiService } from '../services/api-service'
 import { getUserId, getPassword } from '../services/auth-storage-service'
@@ -90,6 +90,30 @@ const errorMessage = ref('')
 const versionClickCount = ref(0)
 const appVersion = ref('')
 
+// 版本号存储的 key
+const APP_VERSION_STORAGE_KEY = 'app_version'
+
+// 从 localStorage 读取版本号
+const loadAppVersion = (): string => {
+  try {
+    const savedVersion = localStorage.getItem(APP_VERSION_STORAGE_KEY)
+    return savedVersion || '1.0.0'
+  } catch (error) {
+    console.error('[LoginView] 读取版本号失败:', error)
+    return '1.0.0'
+  }
+}
+
+// 保存版本号到 localStorage
+const saveAppVersion = (version: string): void => {
+  try {
+    localStorage.setItem(APP_VERSION_STORAGE_KEY, version)
+    console.log('[LoginView] 版本号已保存到 localStorage:', version)
+  } catch (error) {
+    console.error('[LoginView] 保存版本号失败:', error)
+  }
+}
+
 // 第1步：页面加载时从统一存储读取已保存的账号密码
 onMounted(() => {
   // 第2步：获取保存的账号（从统一存储）
@@ -105,8 +129,30 @@ onMounted(() => {
     loginForm.password = savedPassword
   }
 
-  // 设置版本号（可以从package.json或环境变量获取）
-  appVersion.value = '1.0.0'
+  // 第5步：从 localStorage 加载已保存的版本号
+  appVersion.value = loadAppVersion()
+  console.log('[LoginView] 从 localStorage 加载版本号:', appVersion.value)
+
+  // 第6步：监听Android端发送的版本号事件
+  const handleAppVersionEvent = (event: Event) => {
+    const customEvent = event as CustomEvent<{ versionName: string }>
+    const versionName = customEvent.detail?.versionName
+    if (versionName) {
+      // 更新版本号
+      appVersion.value = versionName
+      // 持久化保存到 localStorage
+      saveAppVersion(versionName)
+      console.log('[LoginView] 收到应用版本号并已保存:', versionName)
+    }
+  }
+  
+  // 注册事件监听器
+  window.addEventListener('app-version', handleAppVersionEvent)
+  
+  // 组件卸载时移除事件监听器
+  onBeforeUnmount(() => {
+    window.removeEventListener('app-version', handleAppVersionEvent)
+  })
 
   // 重置点击计数（每2秒重置一次）
   setInterval(() => {
