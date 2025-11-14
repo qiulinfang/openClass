@@ -1,6 +1,6 @@
 ﻿// 异步数据存储服务 - 使用 IndexedDB 替代 localStorage
 import localforage from 'localforage'
-import { getCurrentUserIdOrDefault } from '../utils/user/userId'
+import { authStorageService } from './auth-storage-service'
 import type { ChatBubble } from '../types/chat'
 
 /**
@@ -9,7 +9,7 @@ import type { ChatBubble } from '../types/chat'
  * 每个用户拥有独立的 IndexedDB 数据库
  */
 function getUserLocalForage() {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = authStorageService.getCurrentUserIdOrDefault()
   return localforage.createInstance({
     driver: localforage.INDEXEDDB, // 优先使用 IndexedDB
     name: `ExerciseSolveApp_${userId}`, // 使用用户ID作为数据库名前缀
@@ -133,7 +133,7 @@ export class AsyncStorageService {
     try {
       await this.initialize()
       
-      const userId = getCurrentUserIdOrDefault()
+      const userId = authStorageService.getCurrentUserIdOrDefault()
       const userLocalForage = getUserLocalForage()
       const key = `${userId}_chat_history_${questionId}`
       
@@ -146,7 +146,7 @@ export class AsyncStorageService {
       console.warn('⚠️ IndexedDB保存聊天记录失败，降级到 localStorage:', error)
       // 降级到 localStorage
       try {
-        const userId = getCurrentUserIdOrDefault()
+        const userId = authStorageService.getCurrentUserIdOrDefault()
         const key = `${userId}_chat_history_${questionId}`
         const serializedData = this.serializeChatData(data)
         localStorage.setItem(key, JSON.stringify(serializedData))
@@ -164,7 +164,7 @@ export class AsyncStorageService {
   async saveTeacherChatHistory(questionId: string, data: ChatHistoryData): Promise<void> {
     try {
       await this.initialize()
-      const userId = getCurrentUserIdOrDefault()
+      const userId = authStorageService.getCurrentUserIdOrDefault()
       const userLocalForage = getUserLocalForage()
       const key = `${userId}_teacher_chat_history_${questionId}`
       
@@ -175,7 +175,7 @@ export class AsyncStorageService {
       console.warn('[TEACHER_CHAT_DEBUG] ❌ IndexedDB保存老师聊天记录失败，降级到 localStorage:', error)
       // 降级到 localStorage
       try {
-        const userId = getCurrentUserIdOrDefault()
+        const userId = authStorageService.getCurrentUserIdOrDefault()
         const key = `${userId}_teacher_chat_history_${questionId}`
         const serializedData = this.serializeChatData(data)
         localStorage.setItem(key, JSON.stringify(serializedData))
@@ -194,7 +194,7 @@ export class AsyncStorageService {
   async loadChatHistory(questionId: string): Promise<ChatHistoryData | null> {
     try {
       await this.initialize()
-      const userId = getCurrentUserIdOrDefault()
+      const userId = authStorageService.getCurrentUserIdOrDefault()
       const userLocalForage = getUserLocalForage()
       const key = `${userId}_chat_history_${questionId}`
       const data = await userLocalForage.getItem<ChatHistoryData>(key)
@@ -204,7 +204,7 @@ export class AsyncStorageService {
       console.warn('[CHAT_DEBUG] ❌ IndexedDB加载聊天记录失败，降级到 localStorage:', error)
       // 降级到 localStorage
       try {
-        const userId = getCurrentUserIdOrDefault()
+        const userId = authStorageService.getCurrentUserIdOrDefault()
         const key = `${userId}_chat_history_${questionId}`
         const data = localStorage.getItem(key)
         const parsedData = data ? JSON.parse(data) : null
@@ -225,7 +225,7 @@ export class AsyncStorageService {
   async loadTeacherChatHistory(questionId: string): Promise<ChatHistoryData | null> {
     try {
       await this.initialize()
-      const userId = getCurrentUserIdOrDefault()
+      const userId = authStorageService.getCurrentUserIdOrDefault()
       const userLocalForage = getUserLocalForage()
       const key = `${userId}_teacher_chat_history_${questionId}`
       const data = await userLocalForage.getItem<ChatHistoryData>(key)
@@ -236,7 +236,7 @@ export class AsyncStorageService {
       console.warn('[TEACHER_CHAT_DEBUG] ❌ IndexedDB加载老师聊天记录失败，降级到 localStorage:', error)
       // 降级到 localStorage
       try {
-        const userId = getCurrentUserIdOrDefault()
+        const userId = authStorageService.getCurrentUserIdOrDefault()
         const key = `${userId}_teacher_chat_history_${questionId}`
         const data = localStorage.getItem(key)
         const parsedData = data ? JSON.parse(data) : null
@@ -257,7 +257,7 @@ export class AsyncStorageService {
   async removeChatHistory(questionId: string): Promise<void> {
     try {
       await this.initialize()
-      const userId = getCurrentUserIdOrDefault()
+      const userId = authStorageService.getCurrentUserIdOrDefault()
       const userLocalForage = getUserLocalForage()
       const key = `${userId}_chat_history_${questionId}`
       await userLocalForage.removeItem(key)
@@ -265,7 +265,7 @@ export class AsyncStorageService {
       console.warn('删除聊天记录失败，降级到 localStorage:', error)
       // 降级到 localStorage
       try {
-        const userId = getCurrentUserIdOrDefault()
+        const userId = authStorageService.getCurrentUserIdOrDefault()
         const key = `${userId}_chat_history_${questionId}`
         localStorage.removeItem(key)
       } catch (localError) {
@@ -282,7 +282,7 @@ export class AsyncStorageService {
   async removeTeacherChatHistory(questionId: string): Promise<void> {
     try {
       await this.initialize()
-      const userId = getCurrentUserIdOrDefault()
+      const userId = authStorageService.getCurrentUserIdOrDefault()
       const userLocalForage = getUserLocalForage()
       const key = `${userId}_teacher_chat_history_${questionId}`
       await userLocalForage.removeItem(key)
@@ -290,7 +290,7 @@ export class AsyncStorageService {
       console.warn('删除老师聊天记录失败，降级到 localStorage:', error)
       // 降级到 localStorage
       try {
-        const userId = getCurrentUserIdOrDefault()
+        const userId = authStorageService.getCurrentUserIdOrDefault()
         const key = `${userId}_teacher_chat_history_${questionId}`
         localStorage.removeItem(key)
       } catch (localError) {
@@ -307,7 +307,7 @@ export class AsyncStorageService {
   async getAllChatHistoryKeys(): Promise<string[]> {
     try {
       await this.initialize()
-      const userId = getCurrentUserIdOrDefault()
+      const userId = authStorageService.getCurrentUserIdOrDefault()
       const userLocalForage = getUserLocalForage()
       const prefix = `${userId}_chat_history_`
       const keys = await userLocalForage.keys()
@@ -315,7 +315,7 @@ export class AsyncStorageService {
     } catch (error) {
       console.warn('获取聊天记录键失败，降级到 localStorage:', error)
       // 降级到 localStorage
-      const userId = getCurrentUserIdOrDefault()
+      const userId = authStorageService.getCurrentUserIdOrDefault()
       const prefix = `${userId}_chat_history_`
       const keys: string[] = []
       for (let i = 0; i < localStorage.length; i++) {
@@ -366,7 +366,7 @@ export class AsyncStorageService {
   }> {
     try {
       await this.initialize()
-      const userId = getCurrentUserIdOrDefault()
+      const userId = authStorageService.getCurrentUserIdOrDefault()
       const userLocalForage = getUserLocalForage()
       const prefix = `${userId}_chat_history_`
       const allKeys = await userLocalForage.keys()

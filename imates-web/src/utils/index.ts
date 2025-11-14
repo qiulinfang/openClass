@@ -65,7 +65,7 @@ export {
 } from './business/chapter-utils'
 
 // 用户相关工具
-export { getCurrentUserId, getCurrentUserIdOrDefault } from './user/userId'
+export { authStorageService } from '../services/auth-storage-service'
 
 // 收藏功能工具
 export {

@@ -179,7 +179,7 @@ import { asyncStorage } from '@/services/chat-storage'
 import { useBetterScroll } from '@/composables/useBetterScroll'
 import { isSessionFavorite, toggleSessionFavorite } from '@/utils/storage/favorites'
 import { useQuasar } from 'quasar'
-import { getCurrentUserIdOrDefault } from '@/utils/user/userId'
+import { authStorageService } from '@/services/auth-storage-service'
 
 
 // 定义 emits
@@ -575,7 +575,7 @@ const handleSessionClick = async (node: TreeNode) => {
       }
       
       // 设置 localStorage 中的 currentTeacherSubject
-      const userId = getCurrentUserIdOrDefault()
+      const userId = authStorageService.getCurrentUserIdOrDefault()
       const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
       localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
       
@@ -1022,7 +1022,7 @@ const switchTeacherSession = async (sessionId: string, subject: 'biology' | 'mat
   const session = allSessions.find(s => s.sessionId === sessionId)
   if (!session) return
   
-  const userId = getCurrentUserIdOrDefault()
+  const userId = authStorageService.getCurrentUserIdOrDefault()
   const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
   localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
   

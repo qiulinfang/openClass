@@ -29,7 +29,6 @@
               @click.stop="handleCancelEdit"
               class="cancel-edit-btn"
               type="button"
-              v-ripple
             >
               <q-icon name="close" color="grey-6" size="16px" />
               <q-tooltip>取消编辑</q-tooltip>
@@ -45,7 +44,6 @@
               :class="{ active: true }"
               @click.stop="toggleModeSelector"
               ref="modeSelectorBtnRef"
-              v-ripple
             >
               <q-icon name="person" size="18px" />
               <span>{{ getModelDisplayName(props.selectedModel) }}</span>
@@ -57,7 +55,6 @@
               class="action-mode-btn"
               :class="{ active: props.enableWebSearch }"
               @click="handleToggleWebSearch"
-              v-ripple
             >
               <q-icon name="language" size="18px" />
               <span>互联网搜索</span>
@@ -67,7 +64,6 @@
             <button
               class="action-mode-btn"
               @click.stop="handleInsertMathFormula"
-              v-ripple
             >
               <q-icon name="functions" size="18px" />
               <span>公式</span>
@@ -89,7 +85,6 @@
             @touchmove="handleVoiceMove"
             class="control-icon-btn voice-btn"
             :class="{ 'voice-btn--recording': props.isRecording }"
-            v-ripple
           >
             <q-icon 
               :name="props.isRecording ? 'mic' : 'mic_none'" 
@@ -106,7 +101,6 @@
             @click="handleShowImagePicker"
             class="control-icon-btn"
             :class="{ active: props.activeMode?.label === '图片模式' }"
-            v-ripple
           >
             <q-icon name="add_photo_alternate" color="grey-6" size="20px" />
             <q-tooltip>添加图片</q-tooltip>
@@ -125,7 +119,6 @@
             @touchmove="handleVoiceMove"
             class="control-icon-btn mic-btn"
             :class="{ 'voice-btn--recording': props.isRecording }"
-            v-ripple
           >
             <q-icon 
               :name="props.isRecording ? 'mic' : 'mic_none'" 
@@ -145,7 +138,6 @@
               'send-button--enabled': props.canSend && !props.isLoading && !props.isEditing,
               'send-button--disabled': !props.canSend || props.isLoading
             }"
-            v-ripple
           >
             <!-- 加载状态图标 -->
             <img 
@@ -182,6 +174,7 @@
         anchor="bottom left"
         self="top left"
         class="mode-selector-menu"
+        :style="{ zIndex: 10004 }"
         no-parent-event
         :breakpoint="0"
       >
@@ -369,10 +362,10 @@ const toggleModeSelector = async (event?: Event) => {
       }
     }, 100)
   } else {
-    // 确保再次等待一个 tick，让 q-menu 组件完全渲染
-    await nextTick()
-    // 直接设置为 true，而不是切换
-    showModeSelectorMenu.value = true
+  // 确保再次等待一个 tick，让 q-menu 组件完全渲染
+  await nextTick()
+  // 直接设置为 true，而不是切换
+  showModeSelectorMenu.value = true
   }
 }
 
@@ -1735,14 +1728,14 @@ defineExpose({
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   overflow: hidden;
-  z-index: 9999;
+  z-index: 10004 !important; /* 确保在拍照搜题场景中不被遮挡 */
 }
 
 .mode-selector-menu {
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   overflow: hidden;
-  z-index: 9999;
+  z-index: 10004 !important; /* 确保在拍照搜题场景中不被遮挡 */
 }
 
 .model-select-list {

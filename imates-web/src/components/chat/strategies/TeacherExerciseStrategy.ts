@@ -8,12 +8,11 @@ import type { ChatStrategy } from './ChatStrategy'
 import type { SendMessageOptions, InitializeOptions } from './types'
 import { useTeacherExerciseChatStore } from '../../../stores/teacherExerciseChatStore'
 import { useQuestionStore } from '../../../stores/questionStore'
-import { useUserStore } from '../../../stores/userStore'
+import { getUserInfo, getSubject } from '../../../services/auth-storage-service'
 
 export class TeacherExerciseStrategy implements ChatStrategy {
   private teacherExerciseStore = useTeacherExerciseChatStore()
   private questionStore = useQuestionStore()
-  private userStore = useUserStore()
   
   // 第1步：获取消息列表
   getMessages(): ChatBubble[] {
@@ -38,8 +37,8 @@ export class TeacherExerciseStrategy implements ChatStrategy {
     await this.teacherExerciseStore.sendMessage(
       content,
       this.questionStore.currentQuestion,
-      this.userStore.userInfo,
-      this.userStore.subject as 'MATH' | 'BIOLOGY',
+      getUserInfo(),
+      getSubject(),
       (options.selectedModel || 'teacher') as string,
       options.imageData,
       hidePrefix
@@ -246,7 +245,7 @@ export class TeacherExerciseStrategy implements ChatStrategy {
   
   // 第23步：获取当前科目
   getCurrentSubject(): 'biology' | 'math' {
-    return this.userStore.subject === 'BIOLOGY' ? 'biology' : 'math'
+    return getSubject() === 'BIOLOGY' ? 'biology' : 'math'
   }
   
   // 第24步：重置会话

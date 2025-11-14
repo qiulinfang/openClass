@@ -81,7 +81,7 @@ export class HttpClient {
     let selectedToken: string | null = null
     
     // 动态导入统一存储工具
-    const { getXuebanToken, getYanbanToken } = await import('../utils/user/authStorage')
+    const { getXuebanToken, getYanbanToken } = await import('./auth-storage-service')
 
     if (url.startsWith('/permission') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
       // /permission、/admin/info和/biologyTopicKnowledge开头的请求使用XUEBAN_TOKEN
@@ -111,7 +111,7 @@ export class HttpClient {
    * 第2步：从统一存储清除对应的token
    */
   private async clearTokenByPath(url: string): Promise<void> {
-    const { setXuebanToken, setYanbanToken } = await import('../utils/user/authStorage')
+    const { setXuebanToken, setYanbanToken } = await import('./auth-storage-service')
     
     if (url.startsWith('/permission') || url.startsWith('/admin/info') || url.startsWith('/biologyTopicKnowledge')) {
       // 学班管理员相关接口：清除XUEBAN_TOKEN
@@ -132,7 +132,7 @@ export class HttpClient {
   private async tryAutoRelogin(url: string): Promise<boolean> {
     try {
       // 第1步：获取用户凭据（从统一存储）
-      const { getUserId, getPassword } = await import('../utils/user/authStorage')
+      const { getUserId, getPassword } = await import('./auth-storage-service')
       const userId = getUserId()
       const password = getPassword()
       console.log('userId', userId)

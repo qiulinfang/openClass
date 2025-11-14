@@ -68,7 +68,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiService } from '../services/api-service'
-import { getUserId, getPassword } from '../utils/user/authStorage'
+import { getUserId, getPassword } from '../services/auth-storage-service'
 
 import usernameIcon from '/icons/username_icon.svg'
 import passwordIcon from '/icons/password_icon.svg'

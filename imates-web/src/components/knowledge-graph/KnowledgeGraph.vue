@@ -56,7 +56,7 @@ import GraphNode from './GraphNode.vue'
 import { ResourceManager } from '../../services/resource-storage'
 import { showMessage } from '../../utils'
 import { apiService } from '../../services/api-service'
-import { getCurrentUserIdOrDefault, getScopedStorageValue } from '../../utils/user/userId'
+import { authStorageService } from '../../services/auth-storage-service'
 import type { KnowledgeGraphDebugParams } from '../debug/KnowledgeGraphDebugPanel.vue'
 import { queryShijingshanKnowledgeId } from '../../utils/business/shijingshan-knowledge-utils'
 
@@ -126,12 +126,12 @@ const activeNodeId = ref<string | null>(null)
 
 // 获取带用户ID前缀的存储key
 const getLastLearnedNodeKey = () => {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = authStorageService.getCurrentUserIdOrDefault()
   return `${userId}_LAST_LEARNED_NODE_ID`
 }
 
 const getLearnedNodesKey = () => {
-  const userId = getCurrentUserIdOrDefault()
+  const userId = authStorageService.getCurrentUserIdOrDefault()
   return `${userId}_LEARNED_NODES`
 }
 
@@ -533,7 +533,7 @@ const handlePractice = async (node: { id: string; name: string; level?: number |
       query: {
         knowledgeList: knowledgeList,
         subject: subjectParam,
-        token: getScopedStorageValue('token') || ''
+        token: authStorageService.getScopedStorageValue('token') || ''
       }
     })
   } catch (error) {

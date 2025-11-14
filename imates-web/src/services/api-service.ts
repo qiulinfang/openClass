@@ -6,7 +6,7 @@
 import { httpClient } from './http-client'
 import { resourceManager, ResourceManager } from './resource-storage'
 import CryptoJS from 'crypto-js'
-import { getCurrentUserIdOrDefault } from '../utils/user/userId'
+import { authStorageService } from './auth-storage-service'
 import {
   getApiUrl,
   getExerciseListUrl,
@@ -19,7 +19,6 @@ import { generateUniqueId } from '../stores/utils/chatStoreUtils'
 
 // 章节相关工具函数
 import { parseChapterOrderFromFileName as parseChapterOrderFromFileNameUtil } from '../utils/business/chapter-utils'
-import { useUserStore } from '../stores/userStore'
 
 // 使用统一类型定义
 import type {
@@ -1236,9 +1235,9 @@ export class ApiService {
       }
 
       try {
-        const userStore = useUserStore()
-        await userStore.setUserInfoWithCleanup(userInfo)
-        await userStore.initializeStore()
+        const { setUserInfoWithCleanup, initializeStore } = await import('./auth-storage-service')
+        await setUserInfoWithCleanup(userInfo)
+        await initializeStore()
       } catch (storeError) {
         console.warn('[API] ⚠️ 同步 userStore 失败:', storeError)
       }
@@ -1406,7 +1405,7 @@ export class ApiService {
         // 缓存到本地存储（加上用户ID前缀，实现账号隔离）
         if (useCache) {
           try {
-            const userId = getCurrentUserIdOrDefault()
+            const userId = authStorageService.getCurrentUserIdOrDefault()
             localStorage.setItem(`learning_packages_${userId}_${id}`, JSON.stringify({
               data: packages,
               timestamp: Date.now()
@@ -1424,7 +1423,7 @@ export class ApiService {
       // 尝试从本地缓存获取数据（加上用户ID前缀，实现账号隔离）
       if (useCache) {
         try {
-          const userId = getCurrentUserIdOrDefault()
+          const userId = authStorageService.getCurrentUserIdOrDefault()
           const cached = localStorage.getItem(`learning_packages_${userId}_${id}`)
           if (cached) {
             const cachedData = JSON.parse(cached)

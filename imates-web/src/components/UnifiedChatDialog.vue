@@ -136,9 +136,8 @@
 import { ref, computed, onUnmounted } from 'vue'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
-import { useUserStore } from '@/stores/userStore'
 import { showMessage } from '../utils'
-import { getCurrentUserIdOrDefault } from '@/utils/user/userId'
+import { authStorageService } from '@/services/auth-storage-service'
 import DraggableDialog from './DraggableDialog.vue'
 import SessionTree from './SessionTree.vue'
 import ChatView from './ChatView.vue'
@@ -283,8 +282,8 @@ const handleTeacherSessionDeleted = (sessionId: string, success: boolean, wasCur
 const createTeacherSession = async (subject: 'biology' | 'math') => {
   try {
     // 第1步：验证用户信息
-    const userStore = useUserStore()
-    const userInfo = userStore.userInfo || {
+    const { getUserInfo } = await import('../services/auth-storage-service')
+    const userInfo = getUserInfo() || {
       id: '',
       name: '',
       avatar: '',
@@ -298,7 +297,7 @@ const createTeacherSession = async (subject: 'biology' | 'math') => {
     }
 
     // 第2步：设置 localStorage 中的 currentTeacherSubject
-    const userId = getCurrentUserIdOrDefault()
+    const userId = authStorageService.getCurrentUserIdOrDefault()
     const storeSubject = subject === 'biology' ? 'BIOLOGY' : 'MATH'
     localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
     
@@ -335,7 +334,7 @@ const setTeacherSession = (sessionId: string) => {
   const session = allSessions.find(s => s.sessionId === sessionId)
   if (session) {
     teacherChatStore.setSession(session)
-    const userId = getCurrentUserIdOrDefault()
+    const userId = authStorageService.getCurrentUserIdOrDefault()
     const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
     localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
     // UI 状态会通过 watch teacherChatStore.currentSession 自动同步

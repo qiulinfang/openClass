@@ -14,8 +14,8 @@ import { ref, computed } from 'vue'
 import { apiService } from '../services/api-service'
 import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
 import { showMessage } from '../utils'
-import { useUserStore } from './userStore'
-import { getCurrentUserIdOrDefault } from '../utils/user/userId'
+import { getUserInfo, getUserId } from '../services/auth-storage-service'
+import { authStorageService } from '../services/auth-storage-service'
 import { useUnreadMessageStore } from './unreadMessageStore'
 import {
   checkAccountStatus,
@@ -38,18 +38,20 @@ const buildAiGeneralMessage = (
   userInfo: UserInfo | null,
   enableWebSearch: boolean,
   chatRole: string = 'mate',
+  sessionId?: string | null,
 ): AiChatMessageRequest => {
-  const sessionId = `general-session-${Date.now()}`
+  // 优先使用传入的 sessionId，如果没有则新建
+  const finalSessionId = sessionId || `general-session-${Date.now()}`
 
   return {
-    sessionId,
+    sessionId: finalSessionId,
     newValue: '1',
     coversation: content,
     question: '',
     answer: '',
-    name: userInfo?.userName || 'User',
+    name: getUserId() || 'User',
     reason: 'start',
-    bmNo: sessionId,
+    bmNo: finalSessionId,
     isWebSearch: enableWebSearch ? '1' : '0',
     chatRole,
     subject: '',
@@ -350,8 +352,8 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
     }
 
     // 检查账号状态（是否被禁言）
-    const userStore = useUserStore()
-    const accountStatus = await checkAccountStatus(userStore.userInfo)
+    const userInfo = getUserInfo()
+    const accountStatus = await checkAccountStatus(userInfo)
     if (!accountStatus.canSendMessage) {
       console.error('[TeacherStore] ❌ 发送失败：账号已被禁言')
       isChatLoading.value = false
@@ -439,10 +441,10 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
     // 检查是否需要自动生成标题（第3轮对话后，6条消息）
     if (currentSession.value && messages.value.length === 6) {
       // 异步生成标题，不阻塞主流程
-      const userStore = useUserStore()
+      const userInfo = getUserInfo()
       generateSessionTitle(
         sessionId,
-        userStore.userInfo,
+        userInfo,
         subject as 'MATH' | 'BIOLOGY',
       ).catch((error: Error) => {
         console.warn('[TeacherStore] ⚠️ 自动生成标题失败:', error)
@@ -821,7 +823,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
       }
 
       // 第4步：保存会话信息到localStorage
-      const userId = getCurrentUserIdOrDefault()
+      const userId = authStorageService.getCurrentUserIdOrDefault()
       const sessionKey = `${userId}_${storageKey}_session`
       localStorage.setItem(sessionKey, JSON.stringify(currentSession.value))
 
@@ -892,7 +894,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
           (msg.messageId || msg.id), // 确保有messageId或id（兼容两种字段名）
       )
       // 第3步：构建存储键（每个会话独立存储，已在第0步中定义，这里复用）
-      const userId = getCurrentUserIdOrDefault()
+      const userId = authStorageService.getCurrentUserIdOrDefault()
 
       // 第4步：保存消息到IndexedDB（每个会话独立存储）
       const historyData: ChatHistoryData = {
@@ -973,7 +975,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
   const loadChatHistory = async (sessionId: string): Promise<void> => {
     try {
       const storageKey = `teacher-general-${sessionId}`
-      const userId = getCurrentUserIdOrDefault()
+      const userId = authStorageService.getCurrentUserIdOrDefault()
       const history = await asyncStorage.loadChatHistory(storageKey)
       if (history) {
         const loadedMessages = history.messages || []
@@ -1113,7 +1115,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
    * 获取统一的会话存储键名
    */
   const getSessionsStorageKey = (): string => {
-    const userId = getCurrentUserIdOrDefault()
+    const userId = authStorageService.getCurrentUserIdOrDefault()
     return `${userId}_teacher-general-sessions`
   }
 
@@ -1451,12 +1453,13 @@ ${conversationSummary}
 
 标题：`
 
-      // 第4步：构建AI请求（使用通用AI接口生成标题）
+      // 第4步：构建AI请求（使用通用AI接口生成标题，传入传入的 sessionId）
       const titleRequest = buildAiGeneralMessage(
         titlePrompt,
         userInfo,
         false, // 不使用web搜索
         'mate',
+        sessionId
       )
 
       // 第5步：调用AI接口
@@ -1854,7 +1857,7 @@ ${conversationSummary}
       // 第1步：从 localStorage 获取当前科目
       let subject: 'biology' | 'math' = 'math' // 默认使用数学
       try {
-        const userId = getCurrentUserIdOrDefault()
+        const userId = authStorageService.getCurrentUserIdOrDefault()
         const storedSubject = localStorage.getItem(`${userId}_currentTeacherSubject`)
         if (storedSubject === 'BIOLOGY') {
           subject = 'biology'
