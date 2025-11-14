@@ -250,31 +250,11 @@
     />
 
     <!-- 图片预览对话框 -->
-    <q-dialog
+    <ImageViewer
       v-model="showImagePreview"
-      class="image-preview-dialog"
-      :maximized="true"
-      transition-show="fade"
-      transition-hide="fade"
-    >
-      <div class="preview-overlay" @click="showImagePreview = false">
-        <!-- 关闭按钮 -->
-        <q-btn
-          flat
-          round
-          dense
-          icon="close"
-          color="white"
-          class="close-btn"
-          @click.stop="showImagePreview = false"
-        />
-
-        <!-- 图片预览区域 -->
-        <div class="preview-content" @click.stop>
-          <img v-if="previewImageUrl" :src="previewImageUrl" alt="题目图片" class="preview-image" />
-        </div>
-      </div>
-    </q-dialog>
+      :image-url="previewImageUrl"
+      alt="题目图片"
+    />
   </div>
 </template>
 
@@ -293,6 +273,7 @@ import { useMessageRenderer } from '../composables/useMessageRenderer'
 
 import MiniClass from './MiniClass.vue'
 import UnifiedChatDialog from './UnifiedChatDialog.vue'
+import ImageViewer from './ImageViewer.vue'
 import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
 import { useImagePicker } from '../composables/useImagePicker'
 import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
@@ -2361,59 +2342,4 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
-// ===== 图片预览对话框样式 =====
-.image-preview-dialog {
-  z-index: 9999;
-}
-
-.preview-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.95);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(10px);
-  cursor: pointer;
-}
-
-.close-btn {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 10;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: rgba(0, 0, 0, 0.7);
-    transform: scale(1.1);
-  }
-}
-
-.preview-content {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px 20px;
-}
-
-.preview-image {
-  max-width: 90vw;
-  max-height: 90vh;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  user-select: none;
-  pointer-events: none;
-}
 </style>

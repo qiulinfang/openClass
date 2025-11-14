@@ -1620,10 +1620,10 @@ const selectedTextbookLabel = computed(() => {
     return '请选择教材'
   }
   
-  // 格式：景山远洋/年级/学期/教材名称（去除学科字段，用/拼接）
+  // 格式：出版社/年级/学期/教材名称（去除学科字段，用/拼接）
   // 原始格式：年级 学期 学科 教材名称（例如：高一 必修 生物 一/分子与细胞）
-  // 目标格式：景山远洋/高一/必修/一/分子与细胞
-  const parts: string[] = ['景山远洋']
+  // 目标格式：出版社/高一/必修/一/分子与细胞
+  const parts: string[] = [option.publisher || '']
   
   // 将原始 label 按空格分割
   const labelParts = option.label.split(' ')
@@ -3489,6 +3489,11 @@ onUnmounted(() => {
       flex-direction: column;
       align-items: flex-start;
       padding: 12px 15px;
+      height: auto; // 允许自适应高度，覆盖固定高度
+      min-height: 60px; // 设置最小高度，确保有足够空间
+      margin: 8px 20px; // 增加上下间距，避免重叠
+      white-space: normal; // 允许换行
+      overflow: visible; // 允许内容正常显示
       
       .search-result-content {
         width: 100%;
@@ -3498,13 +3503,15 @@ onUnmounted(() => {
           font-weight: 500;
           color: #393548;
           line-height: 1.5;
-          margin-bottom: 4px;
+          margin-bottom: 6px; // 增加节点名称和章节名称之间的间距
+          word-break: break-word; // 允许长文本换行
         }
         
         .search-result-chapter {
           font-size: 14px;
           color: #9ca3af;
           line-height: 1.4;
+          word-break: break-word; // 允许长文本换行
         }
       }
     }

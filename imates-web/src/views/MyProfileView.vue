@@ -116,10 +116,10 @@ const { pickImage } = useImagePicker()
 // 注意：这里直接导入 getUserInfo，因为 authStorage 不依赖 userStore，不会有循环依赖
 const userInfo = computed(() => {
   return getUserInfo() || {
-    id: '',
-    name: '',
-    avatar: '',
-    roles: [] as string[]
+  id: '',
+  name: '',
+  avatar: '',
+  roles: [] as string[]
   }
 })
 

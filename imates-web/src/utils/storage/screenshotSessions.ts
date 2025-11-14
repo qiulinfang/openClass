@@ -100,7 +100,7 @@ export function updateScreenshotSession(session: AiTextbookSession): boolean {
     const index = sessions.findIndex(s => getSessionId(s) === sessionId)
     if (index !== -1) {
       sessions[index] = session
-      localStorage.setItem(getStorageKey(), JSON.stringify(sessions))
+    localStorage.setItem(getStorageKey(), JSON.stringify(sessions))
       console.log('[会话] 更新', { id: sessionId, hasAnswer: !!session.answer })
       return true
     }

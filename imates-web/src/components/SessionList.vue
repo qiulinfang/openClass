@@ -81,115 +81,59 @@
     <!-- 会话列表 -->
     <div v-else ref="scrollWrapper" class="scroll-wrapper">
       <div class="scroll-content">
+        <!--  -->
         <div ref="sessionItemsRef" class="session-items">
-          <div
-            v-for="(group, date) in groupedRecords"
-            :key="date"
-            class="date-group-wrapper"
-          >
+          <!-- 置顶会话区域 -->
+          <div v-if="pinnedRecords.length > 0" class="date-group-wrapper">
+            <div class="date-group-header">置顶</div>
+            <!-- 会话列表 -->
+            <SessionItem
+              v-for="record in pinnedRecords"
+              :key="getRecordId(record)"
+              :record="record"
+              :selected-record-id="selectedRecordId"
+              :is-selection-mode="isSelectionMode"
+              :selected-record-ids="selectedRecords"
+              :show-favorite="showFavorite"
+              @click="handleItemClick(record)"
+              @contextmenu="handleLongPress(record)"
+              @checkbox-change="toggleRecordSelection(getRecordId(record))"
+              @pin="handlePin(record)"
+              @delete="handleDelete(record)"
+            />
+          </div>
+          <!--  按日期分组 -->
+          <div v-for="(group, date) in groupedRecords" :key="date" class="date-group-wrapper">
             <div class="date-group-header">{{ date }}</div>
             <!-- 会话列表 -->
-            <div
+            <SessionItem
               v-for="record in group"
               :key="getRecordId(record)"
-              class="session-item"
-              :class="{
-                'is-selected': selectedRecordId === getRecordId(record),
-                'is-checked': selectedRecords.has(getRecordId(record)),
-                'is-selectable': isSelectionMode,
-              }"
-            >
-                <!-- 批量选择复选框 -->
-                <div v-if="isSelectionMode" class="session-checkbox">
-                  <q-checkbox
-                    :model-value="selectedRecords.has(getRecordId(record))"
-                    @update:model-value="toggleRecordSelection(getRecordId(record))"
-                    color="primary"
-                    size="sm"
-                  />
-                </div>
-                <!-- 会话内容 -->
-                <div
-                  class="session-content"
+              :record="record"
+              :selected-record-id="selectedRecordId"
+              :is-selection-mode="isSelectionMode"
+              :selected-record-ids="selectedRecords"
+              :show-favorite="showFavorite"
                   @click="handleItemClick(record)"
-                  @contextmenu.prevent="handleLongPress(record)"
-                >
-                  <!-- 缩略图和标题的 flex 容器 -->
-                  <div class="session-header">
-                    <!-- 会话缩略图 -->
-                    <div v-if="record.thumbnailImage" class="session-thumbnail">
-                      <q-img
-                        :src="record.thumbnailImage"
-                        :ratio="1"
-                        fit="cover"
-                        class="thumbnail-image"
-                      />
-                    </div>
-                    <!-- 会话标题 -->
-                    <div class="session-title-row">
-                      <div class="session-title">{{ getRecordName(record) }}</div>
-                    </div>
-                  </div>
-                  <!-- 会话答案 -->
-                  <div v-if="record.answer" class="session-subtitle">
-                    {{ truncateText(record.answer, 100) }}
-                  </div>
-                </div>
-                <!-- 更多按钮（非选择模式下显示） -->
-                <div v-if="!isSelectionMode" class="session-actions">
-                  <q-btn flat round dense icon="more_horiz" size="sm" class="more-btn" @click.stop>
-                    <q-menu anchor="bottom right" self="top right" :offset="[8, 8]" class="action-menu">
-                      <q-list class="action-menu-list">
-                        <!-- 置顶 -->
-                        <q-item clickable v-close-popup @click="handlePin(record)">
-                          <q-item-section avatar>
-                            <q-icon name="push_pin" size="xs" />
-                          </q-item-section>
-                          <q-item-section>{{ record.pinned ? '取消置顶' : '置顶' }}</q-item-section>
-                        </q-item>
-                        <!-- 收藏 -->
-                        <q-item v-if="showFavorite" clickable v-close-popup @click="handleFavorite(record)">
-                          <q-item-section avatar>
-                            <q-icon
-                              :name="isFavorite(getRecordId(record)) ? 'star' : 'star_border'"
-                              size="xs"
-                              :color="isFavorite(getRecordId(record)) ? 'warning' : undefined"
-                            />
-                          </q-item-section>
-                          <q-item-section>{{ isFavorite(getRecordId(record)) ? '取消收藏' : '收藏' }}</q-item-section>
-                        </q-item>
-                        <!-- 分割线 -->
-                        <q-separator spaced />
-                        <!-- 删除 -->
-                        <q-item
-                          clickable
-                          v-close-popup
-                          @click="handleDelete(record)"
-                          class="text-negative"
-                        >
-                          <q-item-section avatar>
-                            <q-icon name="delete" size="xs" />
-                          </q-item-section>
-                          <q-item-section>删除</q-item-section>
-                        </q-item>
-                      </q-list>
-                    </q-menu>
-                  </q-btn>
-                </div>
-              </div>
-            </div>
+              @contextmenu="handleLongPress(record)"
+              @checkbox-change="toggleRecordSelection(getRecordId(record))"
+              @pin="handlePin(record)"
+              @delete="handleDelete(record)"
+            />
           </div>
         </div>
       </div>
     </div>
+
+    </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { AiTextbookSession } from '@/types'
 import { useBetterScroll } from '../composables/useBetterScroll'
-import { toggleQaFavorite, getFavoriteQas } from '../utils/storage/favorites'
-import { showMessage } from '../utils'
+import SessionItem from './SessionItem.vue'
+import { isQaFavorite, isSessionFavorite } from '@/utils/storage/favorites'
 
 // 辅助函数：获取会话ID（兼容 id 和 sessionId）
 const getRecordId = (record: AiTextbookSession): string => {
@@ -223,7 +167,6 @@ const props = withDefaults(defineProps<Props>(), {
   showFavorite: true,
 })
 
-
 // 定义 emits
 const emit = defineEmits<{
   'record-click': [record: AiTextbookSession]
@@ -236,19 +179,25 @@ const emit = defineEmits<{
 // 搜索关键词
 const searchKeyword = ref('')
 
-
-
 // 批量选择相关状态
 const isSelectionMode = ref(false)
 const selectedRecords = ref<Set<string>>(new Set())
 
 // ==================== 计算属性 ====================
 
-// 按日期对会话进行分组
+// 获取所有置顶的会话
+const pinnedRecords = computed(() => {
+  return filteredRecords.value.filter((record) => record.pinned)
+})
+
+// 按日期对会话进行分组，排除 pinned 的会话（pinned 会话已单独显示）
 const groupedRecords = computed(() => {
   const groups: Record<string, AiTextbookSession[]> = {}
 
-  filteredRecords.value.forEach((record) => {
+  // 只处理非 pinned 的会话
+  filteredRecords.value
+    .filter((record) => !record.pinned)
+    .forEach((record) => {
     const dateStr = formatDateForGrouping(getRecordTimestamp(record))
     if (!groups[dateStr]) {
       groups[dateStr] = []
@@ -259,21 +208,40 @@ const groupedRecords = computed(() => {
   return groups
 })
 
-// 第1步：根据搜索关键词过滤会话列表
+// 第1步：根据搜索关键词过滤会话列表，并排序（pinned 在前）
+// 第2步：收藏或置顶的会话无论是否匹配搜索关键词都要显示
 const filteredRecords = computed(() => {
   const sourceRecords = props.records || []
+  let filtered: AiTextbookSession[] = []
 
   if (!searchKeyword.value || !searchKeyword.value.trim()) {
-    return sourceRecords
+    filtered = sourceRecords
+  } else {
+    const keyword = searchKeyword.value.toLowerCase().trim()
+    filtered = sourceRecords.filter((record) => {
+      // 如果会话被收藏或置顶，无论是否匹配搜索关键词都要显示
+      const recordId = getRecordId(record)
+      const isQaFav = isQaFavorite(recordId)
+      const isSessionFav = isSessionFavorite(recordId)
+      const isFavorite = isQaFav || isSessionFav
+      const isPinned = record.pinned
+      
+      if (isFavorite || isPinned) {
+        return true
+      }
+      
+      // 其他会话需要匹配搜索关键词
+      const question = getRecordName(record).toLowerCase()
+      const answer = record.answer?.toLowerCase() || ''
+      return question.includes(keyword) || answer.includes(keyword)
+    })
   }
 
-  const keyword = searchKeyword.value.toLowerCase().trim()
-
-  return sourceRecords.filter((record) => {
-    const question = getRecordName(record).toLowerCase()
-    const answer = record.answer?.toLowerCase() || ''
-
-    return question.includes(keyword) || answer.includes(keyword)
+  // 排序：pinned 的记录排在前面
+  return filtered.sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1
+    if (!a.pinned && b.pinned) return 1
+    return 0
   })
 })
 
@@ -340,8 +308,6 @@ const handleLongPress = (record: AiTextbookSession) => {
   }
 }
 
-
-
 // 第4步：处理置顶/取消置顶
 const handlePin = (record: AiTextbookSession) => {
   emit('record-pin', record)
@@ -352,60 +318,6 @@ const handleDelete = (record: AiTextbookSession) => {
   emit('record-delete', record)
 }
 
-// 第6步：检查是否已收藏
-const favoriteStatus = ref<Map<string, boolean>>(new Map())
-
-const isFavorite = (recordId: string): boolean => {
-  return favoriteStatus.value.get(recordId) ?? false
-}
-
-// 初始化收藏状态
-const initFavoriteStatus = () => {
-  // 如果禁用收藏功能，不需要初始化
-  if (!props.showFavorite) return
-  
-  const favorites = getFavoriteQas()
-  favoriteStatus.value.clear()
-  favorites.forEach(f => {
-    const record = f.record
-    const recordId = ('sessionId' in record && record.sessionId) 
-      ? record.sessionId 
-      : ('id' in record && record.id) 
-        ? record.id 
-        : ''
-    if (recordId) {
-      favoriteStatus.value.set(recordId, true)
-    }
-  })
-}
-
-// 第7步：处理收藏/取消收藏
-const handleFavorite = (record: AiTextbookSession) => {
-  // 如果禁用收藏功能，直接返回
-  if (!props.showFavorite) return
-  
-  const recordId = getRecordId(record)
-  const wasFavorite = isFavorite(recordId)
-  const success = toggleQaFavorite(record)
-  
-  if (success) {
-    // 更新收藏状态
-    favoriteStatus.value.set(recordId, !wasFavorite)
-    showMessage(!wasFavorite ? '已收藏' : '已取消收藏', 'success')
-  } else {
-    showMessage('操作失败，请重试', 'error')
-  }
-}
-
-// 监听 records 变化，更新收藏状态
-watch(() => props.records, () => {
-  initFavoriteStatus()
-}, { deep: true })
-
-// 初始化收藏状态
-onMounted(() => {
-  initFavoriteStatus()
-})
 
 // 格式化日期以进行分组
 const formatDateForGrouping = (timestamp: number): string => {
@@ -432,14 +344,6 @@ const formatDateForGrouping = (timestamp: number): string => {
   // 如果是往年，则显示年/月/日
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
 }
-
-// 截断文本
-const truncateText = (text: string, maxLength: number): string => {
-  if (text.length <= maxLength) return text
-  return text.substring(0, maxLength) + '...'
-}
-
-
 
 // ==================== DOM 引用 ====================
 const sessionItemsRef = ref<HTMLElement | null>(null)
@@ -496,17 +400,15 @@ defineExpose({
 }
 
 .session-header {
-  padding: 16px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 16px 16px 16px 8px;
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  background: #fff;
 
   .header-left {
     display: flex;
     align-items: center;
-    gap: 12px;
   }
 
   .header-title {
@@ -587,7 +489,6 @@ defineExpose({
   min-height: calc(100% + 1px);
 }
 
-
 .date-group-header {
   padding: 12px 16px;
   font-size: 13px;
@@ -598,159 +499,5 @@ defineExpose({
 
 .session-items {
   padding: 0;
-}
-
-.session-item {
-  border-radius: 12px;
-  margin: 0 12px 10px;
-  border: none;
-  display: flex;
-  align-items: stretch;
-  position: relative;
-  transition: all 0.2s ease;
-  padding: 16px;
-
-  &:hover {
-    background: #f5f5f5;
-  }
-
-  &.is-selected {
-    background: #ffffff;
-
-    .session-actions {
-      opacity: 1;
-    }
-
-    .session-title {
-      color: #1976d2;
-      font-weight: 600;
-    }
-  }
-
-  &.is-checked {
-    background: #e3f2fd;
-    border-color: #1976d2;
-  }
-
-  &.is-selectable {
-    cursor: pointer;
-
-    .session-content {
-      padding-left: 8px;
-    }
-  }
-
-  .session-checkbox {
-    display: flex;
-    align-items: center;
-    padding: 0 8px 0 12px;
-  }
-
-  .session-content {
-    flex: 1;
-    padding: 12px;
-    cursor: pointer;
-    min-width: 0;
-  }
-
-  .session-header {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    margin-bottom: 8px;
-  }
-
-  .session-thumbnail {
-    flex-shrink: 0;
-    width: 80px;
-    height: 80px;
-    border-radius: 8px;
-    overflow: hidden;
-    background: #f5f5f5;
-
-    .thumbnail-image {
-      width: 100%;
-      height: 100%;
-      border-radius: 8px;
-    }
-  }
-
-  .session-actions {
-    position: absolute;
-    top: 8px;
-    right: 4px;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-
-    .more-btn {
-      color: #999;
-
-      &:hover {
-        color: #333;
-      }
-    }
-  }
-
-  .favorite-star {
-    position: absolute;
-    bottom: 12px;
-    right: 12px;
-  }
-
-  .session-title-row {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 8px;
-  }
-
-  .session-title {
-    font-size: 15px;
-    font-weight: 500;
-    color: #1a1a1a;
-    line-height: 1.5;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    flex: 1;
-    min-width: 0;
-    padding-right: 30px;
-  }
-
-  .session-subtitle {
-    font-size: 13px;
-    color: #666;
-    line-height: 1.4;
-  }
-}
-
-.action-menu {
-  border-radius: 12px !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-  border: 1px solid #f0f0f0 !important;
-}
-
-.action-menu-list {
-  padding: 6px;
-  min-width: 130px;
-
-  .q-item {
-    border-radius: 6px;
-    min-height: 40px;
-  }
-
-  .q-item__section--avatar {
-    min-width: 36px;
-    padding-right: 4px;
-  }
-
-  .q-separator {
-    background-color: #f0f0f0;
-  }
 }
 </style>

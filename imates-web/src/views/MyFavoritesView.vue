@@ -54,9 +54,26 @@
               :key="item.id || index"
               class="favorite-card qa-card"
             >
+              <!-- 缩略图区域 -->
+              <div
+                v-if="getQaFavoriteThumbnail(item)"
+                class="card-thumbnail"
+                @click.stop="handleThumbnailClick(item)"
+              >
+                <q-img
+                  :src="getQaFavoriteThumbnail(item)"
+                  :ratio="210 / 122"
+                  fit="cover"
+                  class="thumbnail-image"
+                />
+                <div class="thumbnail-overlay">
+                  <q-icon name="zoom_in" size="20px" />
+                </div>
+              </div>
+              
               <div class="card-content">
                 <!-- 问题内容和时间戳 -->
-                <div class="card-text" v-html="renderContent(item.session.sessionName || '未命名会话')"></div>
+                <div class="card-text" v-html="renderContent(getQaFavoriteName(item))"></div>
                 <div class="card-timestamp">{{ formatTimestamp(item.timestamp) }}</div>
               </div>
               
@@ -67,12 +84,12 @@
                   flat
                   round
                   dense
-                  icon="delete"
+                  icon="delete_outline"
                   color="negative"
                   class="delete-btn"
-                  @click.stop="handleDeleteSession(item.session)"
+                  @click.stop="handleDeleteQaFavorite(item)"
                 >
-                  <q-tooltip>删除会话</q-tooltip>
+                  <q-tooltip>取消收藏</q-tooltip>
                 </q-btn>
                 
                 <!-- 查看按钮 -->
@@ -83,7 +100,7 @@
                   icon="visibility"
                   color="primary"
                   class="view-btn"
-                  @click.stop="handleQaCardClick(item.session)"
+                  @click.stop="handleQaFavoriteClick(item)"
                 >
                   <q-tooltip>查看会话</q-tooltip>
                 </q-btn>
@@ -123,7 +140,7 @@
                   flat
                   round
                   dense
-                  icon="delete"
+                  icon="delete_outline"
                   color="negative"
                   class="delete-btn"
                   @click.stop="handleDeleteExercise(item.item)"
@@ -143,6 +160,13 @@
       v-model="showUnifiedChatDialog"
       :initial-teacher-subject="initialTeacherSubject"
     />
+    
+    <!-- 图片预览对话框 -->
+    <ImageViewer
+      v-model="imageViewerVisible"
+      :image-url="currentImageUrl"
+      alt="会话缩略图"
+    />
   </div>
 </template>
 
@@ -150,14 +174,17 @@
 import { ref, onMounted, watch, onActivated, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
-import { getFavoriteSessions, getFavoriteExercises, removeSessionFavorite, removeExerciseFavorite, type FavoriteSession, type FavoriteExercise } from '../utils/storage/favorites'
+import { getFavoriteSessions, getFavoriteQas, getFavoriteExercises, removeSessionFavorite, removeQaFavorite, removeExerciseFavorite, type FavoriteQa, type FavoriteExercise } from '../utils/storage/favorites'
 import { showMessage } from '../utils'
 import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
-import type { AiGeneralSession } from '../types/chat'
+import type { AiGeneralSession, AiTextbookSession } from '../types/chat'
 import type { ExerciseItem } from '../types/exercise'
 import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
 import { useBetterScroll } from '../composables/useBetterScroll'
 import { authStorageService } from '../services/auth-storage-service'
+import ImageViewer from '../components/ImageViewer.vue'
+import { resourceManager } from '../services/resource-storage'
+import type { UserTextbookInfo, LocalFileInfo } from '../types/textbook'
 
 // 定义组件名称
 defineOptions({
@@ -171,7 +198,7 @@ const { renderMessageContent } = useMessageRenderer()
 
 // 响应式数据
 const activeTab = ref<'qa' | 'exercise'>('qa')
-const qaFavorites = ref<FavoriteSession[]>([])
+const qaFavorites = ref<FavoriteQa[]>([])
 const exerciseFavorites = ref<FavoriteExercise[]>([])
 const isLoadingQa = ref(false)
 const isLoadingExercise = ref(false)
@@ -233,6 +260,10 @@ const showUnifiedChatDialog = ref(false)
 const unifiedChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
 const initialTeacherSubject = ref<'biology' | 'math'>('math')
 
+// 图片预览状态
+const imageViewerVisible = ref(false)
+const currentImageUrl = ref('')
+
 // 方法
 const goBack = () => {
   router.back()
@@ -258,35 +289,6 @@ const getChatType = (session: AiGeneralSession): { type: 'ai' | 'teacher-general
   // 默认是 AI 聊天
   return { type: 'ai' }
 }
-
-// 教师会话消息数量缓存（避免重复加载）
-const teacherMsgCountCache = ref<Record<string, number>>({})
-
-// 异步加载教师会话的消息数量
-const loadTeacherMsgCount = async (sessionId: string) => {
-  // 如果已有缓存，直接返回
-  if (teacherMsgCountCache.value[sessionId] !== undefined) {
-    return
-  }
-  
-  try {
-    // 第1步：导入异步存储服务
-    const { asyncStorage } = await import('../services/chat-storage')
-    
-    // 第2步：加载聊天历史
-    const storageKey = `teacher_chat_${sessionId}`
-    const history = await asyncStorage.loadChatHistory(storageKey)
-    
-    // 第3步：缓存消息数量
-    if (history && history.messages) {
-      teacherMsgCountCache.value[sessionId] = history.messages.length
-    }
-  } catch (error) {
-    // 加载失败不影响显示，只是不显示消息数量
-    console.warn('加载教师会话消息数量失败:', sessionId, error)
-  }
-}
-
 
 // 处理问答卡片点击 - 打开 UnifiedChatDialog
 const handleQaCardClick = async (session: AiGeneralSession) => {
@@ -330,39 +332,165 @@ const handleQaCardClick = async (session: AiGeneralSession) => {
   showUnifiedChatDialog.value = true
 }
 
-// 处理删除会话
-const handleDeleteSession = async (session: AiGeneralSession) => {
-  try {
-    // 判断对话类型
-    const chatType = getChatType(session)
+// 获取问答收藏的显示名称
+const getQaFavoriteName = (favorite: FavoriteQa): string => {
+  const record = favorite.record
+  // 如果是 AiTextbookSession，使用 sessionName
+  if ('sessionName' in record && record.sessionName) {
+    return record.sessionName
+  }
+  // 如果是 QuestionRecord，使用 question
+  if ('question' in record && record.question) {
+    return record.question
+  }
+  return '未命名会话'
+}
 
-    if (chatType.type === 'teacher-general') {
-      // 删除教师会话
-      const { useTeacherGeneralChatStore } = await import('@/stores/teacherGeneralChatStore')
-      const teacherStore = useTeacherGeneralChatStore()
+// 获取问答收藏的缩略图
+const getQaFavoriteThumbnail = (favorite: FavoriteQa): string | undefined => {
+  const record = favorite.record
+  // 如果是 AiTextbookSession，检查是否有缩略图
+  if ('thumbnailImage' in record && record.thumbnailImage) {
+    return record.thumbnailImage
+  }
+  return undefined
+}
+
+// 处理缩略图点击
+const handleThumbnailClick = (favorite: FavoriteQa) => {
+  const thumbnail = getQaFavoriteThumbnail(favorite)
+  if (thumbnail) {
+    currentImageUrl.value = thumbnail
+    imageViewerVisible.value = true
+  }
+}
+
+// 将问答收藏转换为 AiGeneralSession（如果可能）
+const convertQaFavoriteToSession = (favorite: FavoriteQa): AiGeneralSession | null => {
+  const record = favorite.record
+  // 如果是 AiTextbookSession，转换为 AiGeneralSession
+  if ('sessionId' in record && record.sessionId) {
+    const sessionName = ('sessionName' in record && record.sessionName) 
+      ? record.sessionName 
+      : ('question' in record && record.question) 
+        ? record.question 
+        : ''
+    const createTime = ('createTime' in record && record.createTime) 
+      ? record.createTime 
+      : ('timestamp' in record && record.timestamp) 
+        ? record.timestamp 
+        : Date.now()
+    const updateTime = ('updateTime' in record && record.updateTime) 
+      ? record.updateTime 
+      : ('timestamp' in record && record.timestamp) 
+        ? record.timestamp 
+        : Date.now()
+    const msgCount = ('msgCount' in record && record.msgCount !== undefined) 
+      ? record.msgCount 
+      : 0
+    const pinned = ('pinned' in record && record.pinned !== undefined) 
+      ? record.pinned 
+      : false
+    
+    return {
+      sessionId: record.sessionId,
+      sessionName,
+      createTime,
+      updateTime,
+      msgCount,
+      pinned
+    }
+  }
+  return null
+}
+
+// 处理问答收藏点击
+const handleQaFavoriteClick = async (favorite: FavoriteQa) => {
+  const record = favorite.record
+  
+  // 检查是否是PDF问答会话（AiTextbookSession 且有 resourceId）
+  if ('resourceId' in record && record.resourceId) {
+    // 这是PDF问答会话，需要跳转到PDF查看器
+    try {
+      // 查找包含该 resourceId 的教材
+      const allTextbooks = await resourceManager.indexedDB.getAll<UserTextbookInfo>('textbooks')
+      const targetTextbook = allTextbooks.find((textbook: UserTextbookInfo) => {
+        if (textbook.localFiles && Array.isArray(textbook.localFiles)) {
+          return textbook.localFiles.some((file: LocalFileInfo) => file.id === record.resourceId)
+        }
+        return false
+      })
       
-      // 删除会话（使用统一存储格式）
-      teacherStore.deleteSession(session.sessionId)
-      
-      // 删除IndexedDB中的聊天历史
-      await teacherStore.clearChatHistory(session.sessionId)
-    } else {
-      // 删除AI会话
-      const { useAiGeneralChatStore } = await import('@/stores/aiGeneralChatStore')
-      const aiGeneralStore = useAiGeneralChatStore()
-      await aiGeneralStore.deleteSession(session.sessionId)
+      if (targetTextbook) {
+        // 跳转到PDF查看器，传递 resourceId、教材ID 和会话ID
+        const query: Record<string, string> = {
+          resourceId: record.resourceId,
+          id: targetTextbook.id
+        }
+        // 如果有 sessionId，也传递过去
+        if ('sessionId' in record && record.sessionId) {
+          query.sessionId = record.sessionId
+        }
+        router.push({
+          name: 'pdfViewer',
+          query
+        })
+      } else {
+        showMessage('未找到对应的教材资源', 'warning')
+      }
+    } catch (error) {
+      console.error('跳转到PDF查看器失败:', error)
+      showMessage('跳转失败，请重试', 'error')
+    }
+    return
+  }
+  
+  // 非PDF问答会话，使用原有逻辑
+  const session = convertQaFavoriteToSession(favorite)
+  if (session) {
+    await handleQaCardClick(session)
+  } else {
+    // 如果是 QuestionRecord，可能需要特殊处理
+    showMessage('无法打开此会话', 'warning')
+  }
+}
+
+// 处理删除问答收藏
+const handleDeleteQaFavorite = async (favorite: FavoriteQa) => {
+  try {
+    const record = favorite.record
+    let recordId = ''
+    
+    // 获取记录ID
+    if ('sessionId' in record && record.sessionId) {
+      recordId = record.sessionId
+    } else if ('id' in record && record.id) {
+      recordId = record.id
     }
     
-    // 从收藏列表中移除
-    removeSessionFavorite(session.sessionId)
+    if (!recordId) {
+      showMessage('无法识别会话ID', 'error')
+      return
+    }
     
-    // 刷新列表
-    await loadQaFavorites()
+    // 先尝试删除问答收藏
+    let success = removeQaFavorite(recordId)
     
-    showMessage('删除成功', 'success')
+    // 如果删除问答收藏失败，尝试删除会话收藏
+    if (!success) {
+      success = removeSessionFavorite(recordId)
+    }
+    
+    if (success) {
+      // 刷新列表
+      await loadQaFavorites()
+      showMessage('已取消收藏', 'success')
+    } else {
+      showMessage('取消收藏失败', 'error')
+    }
   } catch (error) {
-    console.error('删除会话失败:', error)
-    showMessage('删除失败，请重试', 'error')
+    console.error('删除问答收藏失败:', error)
+    showMessage('操作失败，请重试', 'error')
   }
 }
 
@@ -428,25 +556,41 @@ const formatTimestamp = (timestamp: number) => {
 const loadQaFavorites = async () => {
   isLoadingQa.value = true
   try {
-    // 第1步：从工具函数获取收藏的会话
-    const favorites = getFavoriteSessions()
+    // 第1步：从工具函数获取收藏的问答
+    const qaFavs = getFavoriteQas()
     
-    // 第2步：按时间戳倒序排列
-    favorites.sort((a, b) => b.timestamp - a.timestamp)
-    qaFavorites.value = favorites
+    // 第2步：从工具函数获取收藏的会话，转换为 FavoriteQa 格式
+    const sessionFavs = getFavoriteSessions()
+    const sessionFavsAsQa: FavoriteQa[] = sessionFavs.map(fav => ({
+      id: fav.session.sessionId,
+      type: 'qa' as const,
+      record: {
+        sessionId: fav.session.sessionId,
+        sessionName: fav.session.sessionName,
+        createTime: fav.session.createTime,
+        updateTime: fav.session.updateTime,
+        msgCount: fav.session.msgCount,
+        pinned: fav.session.pinned,
+        // 保留缩略图字段
+        thumbnailImage: ('thumbnailImage' in fav.session && fav.session.thumbnailImage) 
+          ? fav.session.thumbnailImage 
+          : undefined,
+        // 兼容字段
+        id: fav.session.sessionId,
+        question: fav.session.sessionName,
+        timestamp: fav.session.updateTime
+      } as AiTextbookSession,
+      timestamp: fav.timestamp
+    }))
     
-    // 第3步：异步加载教师会话的消息数量（不阻塞渲染）
-    favorites.forEach(favorite => {
-      const chatType = getChatType(favorite.session)
-      if (chatType.type === 'teacher-general') {
-        // 异步加载，不等待结果
-        loadTeacherMsgCount(favorite.session.sessionId).catch(() => {
-          // 加载失败不影响显示
-        })
-      }
-    })
+    // 第3步：合并问答收藏和会话收藏
+    const allFavorites = [...qaFavs, ...sessionFavsAsQa]
     
-    // 第4步：刷新 BetterScroll（如果当前是问答标签页）
+    // 第4步：按时间戳倒序排列
+    allFavorites.sort((a, b) => b.timestamp - a.timestamp)
+    qaFavorites.value = allFavorites
+    
+    // 第5步：刷新 BetterScroll（如果当前是问答标签页）
     await nextTick()
     if (activeTab.value === 'qa' && qaScrollWrapper.value) {
       refreshQaBScroll()
@@ -457,6 +601,7 @@ const loadQaFavorites = async () => {
     isLoadingQa.value = false
   }
 }
+
 
 // 加载练习收藏
 const loadExerciseFavorites = async () => {
@@ -666,6 +811,13 @@ $text-tertiary: #9aa0a6;
   gap: 12px;
 }
 
+// 会话收藏列表（使用 SessionItem 组件）
+.session-favorites-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 // 收藏卡片
 .favorite-card {
   background: $card-bg;
@@ -695,11 +847,55 @@ $text-tertiary: #9aa0a6;
     cursor: pointer; // 练习卡片保持整体可点击
   }
   
+  .card-thumbnail {
+    flex-shrink: 0;
+    width: 104px;
+    height: 56px;
+    aspect-ratio: 210 / 122;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f5f5f5;
+    position: relative;
+    cursor: pointer;
+    margin-right: 12px;
+    
+    .thumbnail-image {
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+    
+    .thumbnail-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      border-radius: 8px;
+      transition: opacity 0.2s;
+      
+      .q-icon {
+        color: white;
+      }
+    }
+    
+    &:hover .thumbnail-overlay {
+      opacity: 1;
+    }
+  }
+  
   .card-content {
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0; // 允许内容收缩
   }
   
   .card-actions {

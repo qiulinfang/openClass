@@ -167,7 +167,7 @@ export default {
 </script>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, computed, ref, watch, provide } from 'vue'
+import { onMounted, onBeforeUnmount, computed, ref, watch, provide, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
@@ -323,10 +323,6 @@ const handleSessionClick = async (record: AiTextbookSession) => {
   // 打开对话面板（如果未打开）
   if (!chatPanelVisible.value) {
     chatPanelVisible.value = true
-  }
-  // 增加切换 chatview 的逻辑：如果当前不是 AI 问答 Tab，则切换到 AI 问答
-  if (activeTab.value !== 'ai-chat') {
-    activeTab.value = 'ai-chat'
   }
   
   // 加载会话详情
@@ -1025,6 +1021,42 @@ const handleKeyDown = (event: KeyboardEvent) => {
   }
 }
 
+// 自动打开并选中指定会话（从路由参数）
+const autoSelectSession = async () => {
+  const sessionIdFromRoute = route.query.sessionId as string | undefined
+  if (!sessionIdFromRoute) {
+    return
+  }
+
+  // 等待会话列表加载完成和DOM更新
+  await nextTick()
+  
+  // 如果会话列表为空，等待一下再重试
+  if (sessions.value.length === 0) {
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  
+  // 查找对应的会话
+  const targetSession = sessions.value.find((session) => {
+    const id = getSessionId(session)
+    return id === sessionIdFromRoute
+  })
+
+  if (targetSession) {
+    // 打开会话面板
+    chatPanelVisible.value = true
+    
+    // 切换到会话记录tab
+    activeTab.value = 'question-record'
+    
+    // 等待一下确保面板已打开
+    await nextTick()
+    
+    // 选中会话并加载详情
+    await handleSessionClick(targetSession)
+  }
+}
+
 // 生命周期
 onMounted(async () => {
   try {
@@ -1041,6 +1073,9 @@ onMounted(async () => {
 
     const file = await loadFileFromRoute()
     await loadPdfWithService(file)
+    
+    // 如果路由参数中有 sessionId，自动打开并选中对应会话
+    await autoSelectSession()
   } catch (err) {
     console.error('PDF 加载失败:', err)
   }
