@@ -151,14 +151,17 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       type: 'ai',
       timestamp: new Date().toISOString(),
       sender: 'ai',
-      isStreaming: true
+      isStreaming: true,
+      selectedModel: selectedModel || 'mate' // 保存当前模式
     }
     messages.value.push(tempReply)
     
     // 第4步：如果没有 sessionId，则新建（基于题目ID）
     if (!currentSessionId.value) {
       const questionId = currentQuestion.id || currentQuestion.bmNo || ''
-      currentSessionId.value = `exercise-${questionId}-${Date.now()}`
+      const newSessionId = `exercise-${questionId}-${Date.now()}`
+      console.log('[AI_EXERCISE] 创建新会话（基于题目ID）', { sessionId: newSessionId, questionId })
+      currentSessionId.value = newSessionId
     }
     
     // 第5步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
@@ -271,7 +274,8 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       isStreaming: true,
       isError: false,
       canRetry: false,
-      retryCount: retryCount + 1
+      retryCount: retryCount + 1,
+      selectedModel: selectedModel || message.selectedModel || 'mate' // 保留模式信息
     }
     
     // 第5步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
@@ -303,7 +307,8 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         isError: !isActuallySuccess,
         canRetry: !isActuallySuccess && (retryCount + 1 < maxRetries),
         retryCount: !isActuallySuccess ? retryCount + 1 : undefined,
-        originalMessage: !isActuallySuccess ? message.originalMessage : undefined
+        originalMessage: !isActuallySuccess ? message.originalMessage : undefined,
+        selectedModel: selectedModel || message.selectedModel || 'mate' // 保留模式信息
       }
       
       // 第9步：保存聊天历史
@@ -391,6 +396,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       await asyncStorage.removeChatHistory(storageKey)
       messages.value = []
       chatResponseTimes.value = 0
+      console.log('[AI_EXERCISE] 清空聊天历史，重置 currentSessionId')
       currentSessionId.value = null
       canViewAnswer.value = false
     } catch (error) {
@@ -436,6 +442,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     chatResponseTimes.value = 0
     canViewAnswer.value = false
     isChatLoading.value = false
+    console.log('[AI_EXERCISE] 重置状态，重置 currentSessionId')
     currentSessionId.value = null
   }
   

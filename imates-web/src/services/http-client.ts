@@ -24,8 +24,9 @@ export class HttpClient {
     '/api/v1': 'http://app.imates.com.cn:8080',
     // 资源服务器
     '/resource': 'https://www.imates.com.cn:9099',
+    '/img': 'https://www.imates.com.cn:9099',
     // 知识点查询服务
-    '/knowledge': 'http://www.imates.com.cn:8090'
+    '/knowledge': 'http://www.imates.com.cn:8090',
   }
 
   constructor(baseURL: string = '', timeout: number = 5000) {
@@ -55,12 +56,15 @@ export class HttpClient {
       // 流程：根据首段路径路由到后端网关
       const matchedBase = Object.keys(this.routeBaseMap).find(prefix => url.startsWith(prefix))
       if (matchedBase) {
+        console.log('111')
         return `${this.routeBaseMap[matchedBase]}${url}`
       }
+      console.log('222')
       // 流程：无法匹配时回退baseURL（避免file:///）
       return `${this.baseURL}${url}`
     }
-    
+    console.log('333')
+    console.log(`${this.baseURL}${url}`)
     // 流程：http(s)环境下使用baseURL拼接
     return `${this.baseURL}${url}`
   }

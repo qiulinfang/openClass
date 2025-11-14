@@ -93,6 +93,301 @@ function checkFileExists(filePath, description) {
 }
 
 /**
+ * 递增版本号
+ * @param {string} versionName 当前版本号，如 "1.0.18"
+ * @returns {string} 递增后的版本号，如 "1.0.19"
+ */
+function incrementVersionName(versionName) {
+  // 去除首尾空格
+  const trimmed = versionName.trim()
+  const parts = trimmed.split('.')
+  if (parts.length >= 3) {
+    // 最后一位 +1
+    const lastPart = parseInt(parts[parts.length - 1], 10)
+    parts[parts.length - 1] = (lastPart + 1).toString()
+    return parts.join('.')
+  }
+  // 如果格式不对，默认返回 1.0.1
+  return '1.0.1'
+}
+
+/**
+ * 读取 build.gradle 文件中的版本号
+ * @param {string} androidProjectPath Android 项目路径
+ * @returns {Object|null} 返回版本号 {versionCode, versionName}，失败返回 null
+ */
+function readBuildGradleVersion(androidProjectPath) {
+  try {
+    const buildGradlePath = path.join(androidProjectPath, 'app/build.gradle')
+    
+    if (!fs.existsSync(buildGradlePath)) {
+      return null
+    }
+    
+    // 读取 build.gradle 文件
+    const buildGradleContent = fs.readFileSync(buildGradlePath, 'utf-8')
+    
+    // 提取当前的 versionCode 和 versionName
+    // 匹配 versionCode 19 或 versionCode = 19
+    const versionCodeMatch = buildGradleContent.match(/versionCode\s+(\d+)/)
+    // 匹配 versionName "1.0.19 " 或 versionName = "1.0.19"
+    const versionNameMatch = buildGradleContent.match(/versionName\s+"([^"]+)"/)
+    
+    if (!versionCodeMatch || !versionNameMatch) {
+      return null
+    }
+    
+    const versionCode = parseInt(versionCodeMatch[1], 10)
+    const versionName = versionNameMatch[1].trim() // 去除空格
+    
+    return {
+      versionCode,
+      versionName
+    }
+  } catch (error) {
+    return null
+  }
+}
+
+/**
+ * 更新 build.gradle 文件中的版本号
+ * @param {string} androidProjectPath Android 项目路径
+ * @returns {Object|null} 返回更新后的版本号 {versionCode, versionName}，失败返回 null
+ */
+function updateBuildGradleVersion(androidProjectPath) {
+  try {
+    const buildGradlePath = path.join(androidProjectPath, 'app/build.gradle')
+    
+    if (!fs.existsSync(buildGradlePath)) {
+      logError(`build.gradle 文件不存在: ${buildGradlePath}`)
+      return null
+    }
+    
+    // 读取 build.gradle 文件
+    let buildGradleContent = fs.readFileSync(buildGradlePath, 'utf-8')
+    
+    // 提取当前的 versionCode 和 versionName
+    const versionCodeMatch = buildGradleContent.match(/versionCode\s+(\d+)/)
+    const versionNameMatch = buildGradleContent.match(/versionName\s+"([^"]+)"/)
+    
+    if (!versionCodeMatch || !versionNameMatch) {
+      logError('无法从 build.gradle 中提取版本号')
+      return null
+    }
+    
+    const currentVersionCode = parseInt(versionCodeMatch[1], 10)
+    const currentVersionName = versionNameMatch[1].trim()
+    
+    logInfo(`当前 build.gradle 版本: ${currentVersionName} (${currentVersionCode})`)
+    
+    // 递增版本号
+    const newVersionCode = currentVersionCode + 1
+    const newVersionName = incrementVersionName(currentVersionName)
+    
+    // 替换版本号（保留原有格式，包括引号和可能的空格）
+    buildGradleContent = buildGradleContent.replace(
+      /versionCode\s+\d+/,
+      `versionCode ${newVersionCode}`
+    )
+    // 替换 versionName，保留引号内的格式（包括可能的尾随空格）
+    buildGradleContent = buildGradleContent.replace(
+      /versionName\s+"[^"]+"/,
+      (match) => {
+        // 保留引号前的空格和引号，只替换引号内的内容
+        const beforeQuote = match.substring(0, match.indexOf('"') + 1)
+        const afterQuote = match.substring(match.lastIndexOf('"'))
+        // 检查原版本号是否有尾随空格，如果有则保留
+        const originalContent = versionNameMatch[1]
+        const hasTrailingSpace = originalContent.endsWith(' ')
+        const newContent = hasTrailingSpace ? `${newVersionName} ` : newVersionName
+        return `${beforeQuote}${newContent}${afterQuote}`
+      }
+    )
+    
+    // 写回文件
+    fs.writeFileSync(buildGradlePath, buildGradleContent, 'utf-8')
+    
+    logSuccess(`build.gradle 版本号已更新: ${currentVersionName} (${currentVersionCode}) -> ${newVersionName} (${newVersionCode})`)
+    
+    return {
+      versionCode: newVersionCode,
+      versionName: newVersionName
+    }
+  } catch (error) {
+    logError(`更新 build.gradle 版本号失败: ${error.message}`)
+    return null
+  }
+}
+
+/**
+ * 查找最新的 info.json 文件
+ * @param {string} androidProjectPath Android 项目路径
+ * @returns {string|null} info.json 文件路径
+ */
+function findLatestInfoJson(androidProjectPath) {
+  const apkOutputPath = path.join(androidProjectPath, 'app/build/outputs/apk/production/release')
+  
+  if (!fs.existsSync(apkOutputPath)) {
+    return null
+  }
+  
+  // 查找所有 -info.json 文件
+  const files = fs.readdirSync(apkOutputPath)
+  const infoJsonFiles = files.filter(file => file.endsWith('-info.json'))
+  
+  if (infoJsonFiles.length === 0) {
+    return null
+  }
+  
+  // 返回最新的文件（按修改时间排序）
+  const infoJsonFilesWithStats = infoJsonFiles.map(file => ({
+    name: file,
+    path: path.join(apkOutputPath, file),
+    mtime: fs.statSync(path.join(apkOutputPath, file)).mtime
+  }))
+  
+  infoJsonFilesWithStats.sort((a, b) => b.mtime - a.mtime)
+  return infoJsonFilesWithStats[0].path
+}
+
+/**
+ * 生成版本更新 JSON 文件
+ * @param {string} androidProjectPath Android 项目路径
+ */
+function generateUpdateJson(androidProjectPath) {
+  try {
+    // 第1步：查找 info.json 文件
+    const infoJsonPath = findLatestInfoJson(androidProjectPath)
+    if (!infoJsonPath) {
+      logError('未找到 info.json 文件，请确保构建成功')
+      return
+    }
+    
+    logInfo(`找到 info.json: ${infoJsonPath}`)
+    
+    // 第2步：读取 info.json
+    const infoJsonContent = fs.readFileSync(infoJsonPath, 'utf-8')
+    const infoJson = JSON.parse(infoJsonContent)
+    
+    const apkMd5 = infoJson.md5Checksum || infoJson.ApkMd5
+    const apkSize = infoJson.fileSize || infoJson.ApkSize
+    const fileName = infoJson.fileName || infoJson.FileName
+    
+    if (!apkMd5 || !apkSize || !fileName) {
+      logError('info.json 文件格式不正确，缺少必要字段')
+      return
+    }
+    
+    logSuccess(`读取 APK 信息: ${fileName}, 大小: ${apkSize} 字节, MD5: ${apkMd5}`)
+    
+    // 第3步：确定 appupdate.json 的路径（和 info.json 在同一目录）
+    const apkOutputDir = path.dirname(infoJsonPath)
+    const appupdateJsonPath = path.join(apkOutputDir, 'appupdate.json')
+    
+    // 优先从 build.gradle 读取版本号
+    const buildGradleVersion = readBuildGradleVersion(androidProjectPath)
+    let currentVersionCode = buildGradleVersion ? buildGradleVersion.versionCode : 11
+    let currentVersionName = buildGradleVersion ? buildGradleVersion.versionName : '1.0.11'
+    let modifyContent = '问题修复 截图问答聊天记录增加略缩图'
+    
+    // 如果存在旧的 appupdate.json（在同一目录或项目根目录），读取 ModifyContent
+    const oldAppupdateJsonPath = path.join(androidProjectPath, 'appupdate.json')
+    if (fs.existsSync(appupdateJsonPath)) {
+      try {
+        const appupdateContent = fs.readFileSync(appupdateJsonPath, 'utf-8')
+        const appupdateJson = JSON.parse(appupdateContent)
+        modifyContent = appupdateJson.ModifyContent || modifyContent
+        logInfo(`从同目录读取现有更新内容: ${modifyContent}`)
+      } catch (error) {
+        logWarning(`读取 appupdate.json 失败: ${error.message}`)
+      }
+    } else if (fs.existsSync(oldAppupdateJsonPath)) {
+      try {
+        const appupdateContent = fs.readFileSync(oldAppupdateJsonPath, 'utf-8')
+        const appupdateJson = JSON.parse(appupdateContent)
+        modifyContent = appupdateJson.ModifyContent || modifyContent
+        logInfo(`从项目根目录读取现有更新内容: ${modifyContent}`)
+      } catch (error) {
+        logWarning(`读取旧 appupdate.json 失败: ${error.message}`)
+      }
+    }
+    
+    // 如果从 build.gradle 读取到版本号，使用它；否则尝试从旧文件读取
+    if (!buildGradleVersion) {
+      if (fs.existsSync(appupdateJsonPath)) {
+        try {
+          const appupdateContent = fs.readFileSync(appupdateJsonPath, 'utf-8')
+          const appupdateJson = JSON.parse(appupdateContent)
+          currentVersionCode = appupdateJson.VersionCode || currentVersionCode
+          currentVersionName = appupdateJson.VersionName || currentVersionName
+          logInfo(`从同目录文件读取版本: ${currentVersionName} (${currentVersionCode})`)
+        } catch (error) {
+          // 忽略错误，继续使用默认值
+        }
+      } else if (fs.existsSync(oldAppupdateJsonPath)) {
+        try {
+          const appupdateContent = fs.readFileSync(oldAppupdateJsonPath, 'utf-8')
+          const appupdateJson = JSON.parse(appupdateContent)
+          currentVersionCode = appupdateJson.VersionCode || currentVersionCode
+          currentVersionName = appupdateJson.VersionName || currentVersionName
+          logInfo(`从项目根目录文件读取版本: ${currentVersionName} (${currentVersionCode})`)
+        } catch (error) {
+          logWarning(`读取旧版本号失败，使用默认版本: ${error.message}`)
+        }
+      }
+    } else {
+      logInfo(`从 build.gradle 读取版本: ${currentVersionName} (${currentVersionCode})`)
+    }
+    
+    // 第4步：使用 build.gradle 中已更新的版本号（不再递增，因为步骤 4 已经递增过了）
+    // 如果从 build.gradle 读取到版本号，直接使用；否则递增旧版本号
+    let newVersionCode, newVersionName
+    if (buildGradleVersion) {
+      // 使用 build.gradle 中已更新的版本号
+      newVersionCode = currentVersionCode
+      newVersionName = currentVersionName
+      logInfo(`使用 build.gradle 中的版本号: ${newVersionName} (${newVersionCode})`)
+    } else {
+      // 如果没有从 build.gradle 读取到，则递增旧版本号
+      newVersionCode = currentVersionCode + 1
+      newVersionName = incrementVersionName(currentVersionName)
+      logInfo(`版本号递增: ${currentVersionName} (${currentVersionCode}) -> ${newVersionName} (${newVersionCode})`)
+    }
+    
+    // 第5步：构建下载 URL
+    const downloadUrl = `https://www.imates.com.cn/bj101/apps/${fileName}`
+    
+    // 第6步：生成新的 appupdate.json
+    const newAppupdateJson = {
+      Code: 0,
+      Msg: '',
+      UpdateStatus: 1,
+      VersionCode: newVersionCode,
+      VersionName: newVersionName,
+      ModifyContent: modifyContent,
+      DownloadUrl: downloadUrl,
+      ApkSize: '',
+      ApkMd5: apkMd5
+    }
+    
+    // 第7步：写入文件（和 info.json 在同一目录）
+    fs.writeFileSync(
+      appupdateJsonPath,
+      JSON.stringify(newAppupdateJson, null, 2),
+      'utf-8'
+    )
+    
+    logSuccess(`版本更新信息已生成: ${appupdateJsonPath}`)
+    logInfo(`新版本: ${newVersionName} (${newVersionCode})`)
+    logInfo(`下载地址: ${downloadUrl}`)
+    
+  } catch (error) {
+    logError(`生成版本更新信息失败: ${error.message}`)
+    logWarning('构建已完成，但版本信息生成失败')
+  }
+}
+
+/**
  * 构建单个页面
  */
 async function buildSinglePage(pageKey, buildType = 'debug') {
@@ -146,8 +441,33 @@ async function buildSinglePage(pageKey, buildType = 'debug') {
     runCommand(`node scripts/deploy-android.cjs deploy ${pageKey}`, 'Android 项目部署')
     logSuccess('Android 项目部署完成')
 
-    // 步骤 4: 显示结果
-    logStep(4, '显示构建结果')
+    // 步骤 4: 更新 build.gradle 版本号
+    logStep(4, '更新 build.gradle 版本号')
+    const updatedVersion = updateBuildGradleVersion(androidProjectPath)
+    if (!updatedVersion) {
+      logError('build.gradle 版本号更新失败，终止构建')
+      process.exit(1)
+    }
+
+    // 步骤 5: 同步 Gradle 配置
+    logStep(5, '同步 Gradle 配置')
+    logInfo('运行 gradlew help 触发配置重新加载，确保新版本号被 Gradle 识别')
+    const syncCommand = `${gradlewCommand} help`
+    runCommand(syncCommand, 'Gradle 配置同步', { cwd: androidProjectPath })
+    logSuccess('Gradle 配置同步完成')
+
+    // 步骤 6: 构建 Android 生产版本
+    logStep(6, '构建 Android 生产版本')
+    const gradleCommand = `${gradlewCommand} assembleProductionRelease`
+    runCommand(gradleCommand, 'Android 生产版本构建', { cwd: androidProjectPath })
+    logSuccess('Android 生产版本构建完成')
+
+    // 步骤 7: 生成版本更新信息
+    logStep(7, '生成版本更新信息')
+    generateUpdateJson(androidProjectPath)
+
+    // 步骤 8: 显示结果
+    logStep(8, '显示构建结果')
     
     const endTime = Date.now()
     const duration = ((endTime - startTime) / 1000).toFixed(2)
@@ -155,8 +475,8 @@ async function buildSinglePage(pageKey, buildType = 'debug') {
     log(`\n🎉 ${page.name} 页面构建和部署完成！`, 'green')
     log(`⏱️  总耗时: ${duration} 秒`, 'blue')
 
-    // 步骤 5: 清理源目录
-    logStep(5, '清理源目录')
+    // 步骤 9: 清理源目录
+    logStep(9, '清理源目录')
     const distPath = pageKey === 'full' ? 'dist-full' : 'dist-webview'
     const distPathFull = path.join(__dirname, '..', distPath)
     try {
@@ -173,8 +493,9 @@ async function buildSinglePage(pageKey, buildType = 'debug') {
     // 显示使用说明
     log('\n📖 使用说明:', 'bright')
     log('1. Vue.js应用已部署到Android assets目录', 'reset')
-    log('2. 如需重新构建，再次运行此脚本', 'reset')
-    log(`3. 支持参数: node one-click-deploy.cjs ${pageKey} [debug|release]`, 'reset')
+    log('2. Android 生产版本已构建完成', 'reset')
+    log('3. 如需重新构建，再次运行此脚本', 'reset')
+    log(`4. 支持参数: node one-click-deploy.cjs ${pageKey} [debug|release]`, 'reset')
 
   } catch (error) {
     logError(`${page.name} 页面构建和部署失败: ${error.message}`)
@@ -229,8 +550,33 @@ async function oneClickDeploy() {
     runCommand('node scripts/deploy-android.cjs deploy all', 'Android 项目部署')
     logSuccess('Android 项目部署完成')
 
-    // 步骤 6: 清理源目录
-    logStep(6, '清理源目录')
+    // 步骤 4: 更新 build.gradle 版本号
+    logStep(4, '更新 build.gradle 版本号')
+    const updatedVersion = updateBuildGradleVersion(androidProjectPath)
+    if (!updatedVersion) {
+      logError('build.gradle 版本号更新失败，终止构建')
+      process.exit(1)
+    }
+
+    // 步骤 5: 同步 Gradle 配置
+    logStep(5, '同步 Gradle 配置')
+    logInfo('运行 gradlew help 触发配置重新加载，确保新版本号被 Gradle 识别')
+    const syncCommand = `${gradlewCommand} help`
+    runCommand(syncCommand, 'Gradle 配置同步', { cwd: androidProjectPath })
+    logSuccess('Gradle 配置同步完成')
+
+    // 步骤 6: 构建 Android 生产版本
+    logStep(6, '构建 Android 生产版本')
+    const gradleCommand = `${gradlewCommand} assembleProductionRelease`
+    runCommand(gradleCommand, 'Android 生产版本构建', { cwd: androidProjectPath })
+    logSuccess('Android 生产版本构建完成')
+
+    // 步骤 7: 生成版本更新信息
+    logStep(7, '生成版本更新信息')
+    generateUpdateJson(androidProjectPath)
+
+    // 步骤 8: 清理源目录
+    logStep(8, '清理源目录')
     const distWebviewPath = path.join(__dirname, '../dist-webview')
     try {
       if (fs.existsSync(distWebviewPath)) {
@@ -246,8 +592,9 @@ async function oneClickDeploy() {
     // 显示使用说明
     log('\n📖 使用说明:', 'bright')
     log('1. Vue.js应用已部署到Android assets目录', 'reset')
-    log('2. 如需重新构建，再次运行此脚本', 'reset')
-    log('3. 支持参数: node one-click-deploy.cjs [debug|release]', 'reset')
+    log('2. Android 生产版本已构建完成', 'reset')
+    log('3. 如需重新构建，再次运行此脚本', 'reset')
+    log('4. 支持参数: node one-click-deploy.cjs [debug|release]', 'reset')
 
   } catch (error) {
     logError(`一键构建和部署失败: ${error.message}`)

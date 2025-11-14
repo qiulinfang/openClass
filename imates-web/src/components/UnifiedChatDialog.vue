@@ -208,7 +208,6 @@ const canCreateNewChat = computed(() => {
 
 // 处理会话切换（接收 SessionTree 的最终结果）
 const handleSessionSwitched = (type: 'ai' | 'teacher', sessionId: string) => {
-  console.log('handleSessionSwitched', type, sessionId)
   // 只更新分类，所有切换逻辑已在 SessionTree 内部完成
   activeCategory.value = type === 'ai' ? 'ai-general' : 'teacher'
 }

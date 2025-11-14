@@ -1074,7 +1074,6 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
         const oldCount = messages.value.length
         messages.value = []
         chatResponseTimes.value = 0
-        console.log(`[messages] =0 无历史记录 ${oldCount}→0 sessionId=${sessionId}`)
       }
 
       // 从localStorage加载会话信息（加上用户ID前缀）
@@ -1088,7 +1087,6 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
       const oldCount = messages.value.length
       messages.value = []
       chatResponseTimes.value = 0
-      console.log(`[messages] =0 加载失败清空 ${oldCount}→0 sessionId=${sessionId}`)
     }
   }
 

@@ -227,10 +227,6 @@ const chatStrategy = ref<ChatStrategy>()
  * 根据当前 props 和状态创建对应的策略
  */
 const createStrategy = () => {
-  if (props.type === 'ai-textbook') {
-    aiTextbookStore.setResourceId(props.resourceId!)
-  }
-
   // 创建策略实例
   // 如果是teacher-general类型但store中没有session，延迟创建策略（等待session初始化完成）
   if (props.type === 'teacher-general' && !teacherStore.currentSession) {

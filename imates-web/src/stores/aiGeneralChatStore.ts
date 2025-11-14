@@ -94,7 +94,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
   /**
    * 创建临时AI回复消息
    */
-  const createTempReplyMessage = (): { message: ChatBubble; id: string } => {
+  const createTempReplyMessage = (selectedModel?: string): { message: ChatBubble; id: string } => {
     const tempReplyId = generateUniqueId('temp_ai')
     const tempReplyMessage: ChatBubble = {
       id: tempReplyId,
@@ -102,7 +102,8 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       type: 'ai',
       timestamp: new Date().toISOString(),
       sender: 'ai',
-      isStreaming: true
+      isStreaming: true,
+      selectedModel: selectedModel || 'mate' // 保存当前模式
     }
     
     return { message: tempReplyMessage, id: tempReplyId }
@@ -140,7 +141,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     }
     
     // 第3步：创建临时AI回复
-    const { message: tempReply, id: tempReplyId } = createTempReplyMessage()
+    const { message: tempReply, id: tempReplyId } = createTempReplyMessage(selectedModel)
     messages.value.push(tempReply)
     
     // 第4步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
@@ -232,7 +233,8 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
       isStreaming: true,
       isError: false,
       canRetry: false,
-      retryCount: retryCount + 1
+      retryCount: retryCount + 1,
+      selectedModel: selectedModel || message.selectedModel || 'mate' // 保留模式信息
     }
     
     // 第4步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
@@ -261,7 +263,8 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
         isError: !isActuallySuccess,
         canRetry: !isActuallySuccess && (retryCount + 1 < maxRetries),
         retryCount: !isActuallySuccess ? retryCount + 1 : undefined,
-        originalMessage: !isActuallySuccess ? message.originalMessage : undefined
+        originalMessage: !isActuallySuccess ? message.originalMessage : undefined,
+        selectedModel: selectedModel || message.selectedModel || 'mate' // 保留模式信息
       }
       
       // 第8步：保存聊天历史

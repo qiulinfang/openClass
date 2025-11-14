@@ -114,7 +114,7 @@
               :is-selection-mode="isSelectionMode"
               :selected-record-ids="selectedRecords"
               :show-favorite="showFavorite"
-                  @click="handleItemClick(record)"
+              @click="handleItemClick(record)"
               @contextmenu="handleLongPress(record)"
               @checkbox-change="toggleRecordSelection(getRecordId(record))"
               @pin="handlePin(record)"

@@ -63,6 +63,7 @@ export interface ChatBubble {
     messages: ChatBubble[]
     additionalMessage?: string
   }
+  selectedModel?: string // AI模式（mate/mentor/researcher），用于显示对应头像
 }
 
 // ========== 转发相关类型 ==========

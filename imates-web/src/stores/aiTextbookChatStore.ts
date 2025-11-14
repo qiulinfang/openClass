@@ -118,7 +118,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
    */
   const addMessage = (message: ChatBubble): void => {
     messages.value.push(message)
-    console.log('[消息] 创建', { id: message.id, type: message.type, hasImage: !!(message.imageData || message.messageType === 'image') })
   }
   
   /**
@@ -138,6 +137,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     messages.value = []
     chatResponseTimes.value = 0
     useScreenshotApi.value = false  // 重置截图接口标记
+    console.log('[AI_TEXTBOOK] 清空消息，重置 currentSessionId')
     currentSessionId.value = null
     isNewSession.value = true
   }
@@ -194,7 +194,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     }
     
     // 第2步：创建临时AI回复消息
-    const { message: tempReply, id: tempReplyId } = createTempAiReplyMessage()
+    const { message: tempReply, id: tempReplyId } = createTempAiReplyMessage(selectedModel || 'mate')
     addMessage(tempReply)
     
     // 第3步：设置渲染状态（发送消息时不需要设置 isChatLoading，因为 isChatLoading 只用于加载聊天历史）
@@ -212,15 +212,16 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       // 如果有图片数据且没有设置 sessionId，强制创建新会话（每次截图都创建新会话）
       // 注意：如果 currentSessionId 已经存在（比如从外部设置），则不覆盖它
       if (builderImageData && !currentSessionId.value) {
-        console.log('有图片数据且没有设置 sessionId')
-        currentSessionId.value = `textbook-session-${Date.now()}`
+        const newSessionId = `textbook-session-${Date.now()}`
+        console.log('[AI_TEXTBOOK] 创建新会话（有图片数据）', { sessionId: newSessionId })
+        currentSessionId.value = newSessionId
         isNewSession.value = true
       } else if (!currentSessionId.value) {
-        console.log('没有设置 sessionId')
-        currentSessionId.value = `textbook-session-${Date.now()}`
+        const newSessionId = `textbook-session-${Date.now()}`
+        console.log('[AI_TEXTBOOK] 创建新会话（无图片数据）', { sessionId: newSessionId })
+        currentSessionId.value = newSessionId
         isNewSession.value = true
       }
-      console.log('已经有 sessionId', currentSessionId.value)
       const shouldUseScreenshotApi = !!builderImageData
 
       const aiMessage = buildAiTextbookMessage({
@@ -358,7 +359,10 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     
     // 第3步：更新为重试中状态
     const retryCount = (message.retryCount || 0) + 1
-    const retryingMessage = updateMessageRetrying(message, retryCount)
+    const retryingMessage = {
+      ...updateMessageRetrying(message, retryCount),
+      selectedModel: chatRole || message.selectedModel || 'mate' // 保留模式信息
+    }
     updateMessage(messageId, retryingMessage)
     
     // 第4步：重新发送
@@ -369,7 +373,9 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         ? { base64DataUrl: imageData.base64DataUrl }
         : undefined
       if (!currentSessionId.value) {
-        currentSessionId.value = `textbook-session-${Date.now()}`
+        const newSessionId = `textbook-session-${Date.now()}`
+        console.log('[AI_TEXTBOOK] 创建新会话（sendMessageWithImage）', { sessionId: newSessionId })
+        currentSessionId.value = newSessionId
       }
       const shouldUseScreenshotApi = !!builderImageData
       
@@ -459,11 +465,19 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   
   /**
    * 设置资源ID
+   * 注意：只有在 resourceId 真正变化时才重置 currentSessionId
+   * 如果 resourceId 没有变化，保留当前的 currentSessionId（比如从 loadChatHistory 设置的）
    */
   const setResourceId = (id: string): void => {
+    const resourceIdChanged = resourceId.value !== id
+    const oldResourceId = resourceId.value
     resourceId.value = id
-    currentSessionId.value = null
-    isNewSession.value = true
+    // 只有在 resourceId 真正变化时才重置 currentSessionId
+    if (resourceIdChanged) {
+      console.log('[AI_TEXTBOOK] resourceId 变化，重置 currentSessionId', { oldResourceId, newResourceId: id })
+      currentSessionId.value = null
+      isNewSession.value = true
+    }
   }
   
   /**
@@ -488,7 +502,6 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
           lastUpdated: Date.now(),
           chatResponseTimes: chatResponseTimes.value
         })
-        console.log('[消息] 存储', { resourceId: resourceId.value, sessionId: currentSessionId.value, storageKey, count: messages.value.length })
       } catch (error) {
         console.error('保存聊天历史失败:', error)
     }
@@ -533,20 +546,20 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         chatResponseTimes.value = history.chatResponseTimes || 0
         // 检查加载的消息中是否有图片消息，如果有则标记使用截图接口
         useScreenshotApi.value = messages.value.some(msg => msg.messageType === 'image' || msg.imageData)
-        console.log('[消息] 加载', { storageKey, count: messages.value.length })
       } else {
         // 无历史记录，清空状态
         messages.value = []
         chatResponseTimes.value = 0
         useScreenshotApi.value = false
-        console.log('[消息] 加载', { storageKey, count: 0 })
       }
       
       // 如果加载成功且有 sessionId，更新 currentSessionId
       if (sessionId) {
+        console.log('[AI_TEXTBOOK] 从历史记录加载 sessionId', { sessionId })
         currentSessionId.value = sessionId
         isNewSession.value = false
       } else {
+        console.log('[AI_TEXTBOOK] 加载历史无 sessionId，重置 currentSessionId')
         currentSessionId.value = null
         isNewSession.value = true
       }

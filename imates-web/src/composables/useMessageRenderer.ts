@@ -1,5 +1,4 @@
 import MarkdownIt from 'markdown-it'
-// @ts-ignore - markdown-it-mathjax3 可能没有类型声明
 import mathjax3 from 'markdown-it-mathjax3'
 
 // 初始化 markdown-it 实例
@@ -16,8 +15,7 @@ export function useMessageRenderer() {
 
   /**
    * 预处理LaTeX公式格式
-   * 将各种LaTeX格式统一转换为markdown-it可识别的格式
-   * 支持MathLive输出格式和传统LaTeX格式
+   * 只处理行内公式格式，将 \(...\) 转换为 $...$ 格式
    */
   const preprocessLatexFormats = (contentStr: string): string => {
     let processedContent = contentStr
@@ -41,8 +39,9 @@ export function useMessageRenderer() {
       return `$$${content}$$`
     })
 
-    // 4. 处理普通行内公式 \(...\) 格式
-    const inlineRegex = /\\\((.*?)\\\)/gs
+    // 处理行内公式 \(...\) 格式，转换为 $...$ 格式
+    // 支持 \(...\) 和 \( ... \` 两种格式（允许空格）
+    const inlineRegex = /\\\(\s*(.*?)\s*\\\)/gs
     processedContent = processedContent.replace(inlineRegex, '$$$1$')
 
     // 5. 处理块级公式 \[...\] 格式

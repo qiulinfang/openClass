@@ -172,7 +172,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import { resourceManager } from '@/services/resource-storage'
-import { asyncStorage } from '@/services/chat-storage'
 import { PdfCoreService } from '@/services/pdf/core/PdfCoreService'
 import { PdfStateAdapterVue } from '@/services/pdf/adapters/vue/PdfStateAdapterVue'
 import type { UserTextbookInfo, LocalFileInfo, ChatBubble, AiTextbookSession } from '@/types'
@@ -332,7 +331,6 @@ const handleSessionClick = async (record: AiTextbookSession) => {
 // 加载会话详情
 const loadSessionDetail = async (record: AiTextbookSession) => {
   try {
-    // 步骤1：确定 resourceId（优先使用 record.resourceId，如果没有则从 storageKey 中提取）
     let targetResourceId = record.resourceId
     if (!targetResourceId && record.storageKey) {
       // 从 storageKey 中提取 resourceId（格式：ai-textbook-${resourceId} 或 ai-textbook-${resourceId}-${sessionId}）
@@ -347,8 +345,7 @@ const loadSessionDetail = async (record: AiTextbookSession) => {
       aiTextbookStore.setResourceId(targetResourceId)
     }
     
-    // 步骤3：先尝试直接从存储中检查是否有消息历史（避免不必要的清空）
-    let loadedMessages: ChatBubble[] = []
+    // 步骤3：尝试从存储中加载消息历史
     let hasStorageHistory = false
     
     if (targetResourceId) {
@@ -366,13 +363,13 @@ const loadSessionDetail = async (record: AiTextbookSession) => {
           storageKey = `ai-textbook-${targetResourceId}`
         }
         
-        const history = await asyncStorage.loadChatHistory(storageKey)
+        // 直接调用 loadChatHistory，它会内部处理存储加载
+        await aiTextbookStore.loadChatHistory(storageKey, getSessionId(record))
         
-        if (history && history.messages && history.messages.length > 0) {
-          hasStorageHistory = true
-          // 有存储历史，使用 loadChatHistory 加载（传入 storageKey 和 sessionId）
-          await aiTextbookStore.loadChatHistory(storageKey, getSessionId(record))
-          loadedMessages = aiTextbookStore.messages
+        // 检查是否成功加载了消息历史
+        hasStorageHistory = aiTextbookStore.messages.length > 0
+        
+        if (hasStorageHistory) {
           // 如果会话包含图片消息，标记使用截图接口
           if (record.hasImage) {
             aiTextbookStore.useScreenshotApi = true
@@ -381,12 +378,10 @@ const loadSessionDetail = async (record: AiTextbookSession) => {
             resourceId: targetResourceId,
             sessionId: getSessionId(record),
             storageKey: storageKey,
-            messageCount: loadedMessages.length,
+            messageCount: aiTextbookStore.messages.length,
             hasImage: record.hasImage
           })
         } else {
-          // 存储中没有消息，标记为无历史记录
-          hasStorageHistory = false
           console.log('[会话详情] 存储中无消息', {
             resourceId: targetResourceId,
             sessionId: getSessionId(record),
@@ -394,14 +389,13 @@ const loadSessionDetail = async (record: AiTextbookSession) => {
           })
         }
       } catch (error) {
-        console.error('[会话详情] 检查存储失败:', error)
+        console.error('[会话详情] 加载存储失败:', error)
         hasStorageHistory = false
       }
     }
     
     // 步骤4：如果存储中没有消息，则根据 AiTextbookSession 重建消息历史（降级方案）
     if (!hasStorageHistory) {
-      console.log('[会话详情] 使用降级方案重建消息')
       // 清空当前消息（因为存储中没有消息）
       aiTextbookStore.clearMessages()
       
@@ -438,15 +432,6 @@ const loadSessionDetail = async (record: AiTextbookSession) => {
         aiTextbookStore.addMessage(aiMessage)
       }
     }
-    
-    console.log('[会话详情] 已加载会话详情', {
-      sessionId: getSessionId(record),
-      question: record.question,
-      hasAnswer: !!record.answer,
-      messageCount: loadedMessages.length || aiTextbookStore.messages.length,
-      fromStorage: loadedMessages.length > 0,
-      hasImage: record.hasImage
-    })
   } catch (error) {
     console.error('[会话详情] 加载会话详情失败:', error)
     // 如果 showMessage 已导入，可以使用它

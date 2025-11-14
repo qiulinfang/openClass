@@ -625,10 +625,6 @@ const showErrorAlert = (sectionName: string) => {
   showMessage(`检查《${sectionName}》学习资源时发生错误，请重试`, 'error', 3000)
 }
 
-
-
-
-
 // 监听展开状态变化
 watch(isExpanded, (newValue) => {
   if (newValue) {

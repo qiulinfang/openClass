@@ -427,22 +427,29 @@ export const usePdfViewerStore = defineStore('pdfViewer', {
     
     // 从localFiles加载笔记数据
     async loadAnnotationsFromLocalFile() {
+      // 第1步：先清空所有笔记，避免资源切换时笔记残留
+      this.allAnnotations = {}
+      this.notes.clear()
+      
       if (!this.currentFileId || !this.currentResourceId) {
         return
       }
       
       try {
-        // 获取教材信息
+        // 第2步：获取教材信息
         const textbook = await resourceManager.indexedDB.get('textbooks', this.currentFileId) as UserTextbookInfo
         if (!textbook || !textbook.localFiles) {
           return
         }
         
-        // 查找对应的本地文件
+        // 第3步：查找对应的本地文件
         const localFile = textbook.localFiles.find((file: LocalFileInfo) => file.id === this.currentResourceId)
+        
+        // 第4步：如果找到笔记数据，加载到 allAnnotations
         if (localFile && localFile.annotations) {
           this.allAnnotations = localFile.annotations
         }
+        // 如果没有找到笔记，allAnnotations 保持为空对象 {}
       } catch (error) {
         console.warn('从localFiles加载笔记失败:', error)
       }

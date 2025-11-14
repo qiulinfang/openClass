@@ -67,7 +67,7 @@ export function createUserMessage(
 /**
  * 创建临时AI回复消息
  */
-export function createTempAiReplyMessage(): { message: ChatBubble; id: string } {
+export function createTempAiReplyMessage(selectedModel?: string): { message: ChatBubble; id: string } {
   const tempReplyId = generateUniqueId('temp_ai')
   const tempReplyMessage: ChatBubble = {
     id: tempReplyId,
@@ -75,7 +75,8 @@ export function createTempAiReplyMessage(): { message: ChatBubble; id: string } 
     type: 'ai',
     timestamp: new Date().toISOString(),
     sender: 'ai',
-    isStreaming: true
+    isStreaming: true,
+    selectedModel: selectedModel || 'mate' // 保存当前模式
   }
   
   return { message: tempReplyMessage, id: tempReplyId }
@@ -111,7 +112,8 @@ export function updateMessageSuccess(
     content,
     isStreaming: false,
     messageId,
-    isError: false
+    isError: false,
+    selectedModel: message.selectedModel // 保留模式信息
   }
 }
 
@@ -159,7 +161,8 @@ export function updateMessageRetrying(
     isStreaming: true,
     isError: false,
     canRetry: false,
-    retryCount
+    retryCount,
+    selectedModel: message.selectedModel // 保留模式信息
   }
 }
 

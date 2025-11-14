@@ -116,7 +116,8 @@ export class AsyncStorageService {
         canRetry: msg.canRetry,
         retryCount: msg.retryCount,
         originalMessage: msg.originalMessage,
-        chatRecordData: msg.chatRecordData
+        chatRecordData: msg.chatRecordData,
+        selectedModel: msg.selectedModel // 保存模式信息（mate/mentor/researcher）
       })),
       chatResponseTimes: data.chatResponseTimes,
       lastUpdated: data.lastUpdated

@@ -33,7 +33,7 @@
     <!-- AI/老师消息 -->
     <div v-if="message.sender !== 'user'" class="ai-message">
       <div class="ai-avatar">
-        <img :src="avantarIcon" alt="头像" class="avatar-img" />
+        <img :src="aiAvatarIcon" alt="头像" class="avatar-img" />
       </div>
       <div class="ai-content">
         <!-- AI内容容器 -->
@@ -331,6 +331,9 @@ import editIcon from '/icons/edit.svg'
 import shareIcon from '/icons/share.svg'
 import refreshIcon from '/icons/refresh.svg'
 import avantarIcon from '/icons/avantar.svg'
+import DeskmateIcon from '/icons/Deskmate.svg'
+import RepresentativeIcon from '/icons/Representative.svg'
+import GuruIcon from '/icons/Guru.svg'
 
 // 定义Props - 直接在组件中定义，确保 Vue 正确识别所有 props
 interface Props {
@@ -403,6 +406,30 @@ const { elementRef: messageElementRef } = useLazyMessageRender({
   threshold: 0.1,
 })
 
+// 根据模式值获取对应的图标
+const getModelIcon = (model?: string) => {
+  const iconMap: Record<string, string> = {
+    'mate': DeskmateIcon,
+    'mentor': RepresentativeIcon,
+    'researcher': GuruIcon
+  }
+  return iconMap[model || 'mate'] || DeskmateIcon
+}
+
+// 计算AI/老师消息的头像图标
+const aiAvatarIcon = computed(() => {
+  // 如果是AI消息且有selectedModel，使用对应模式的头像
+  if (props.message.sender === 'ai' && props.message.selectedModel) {
+    return getModelIcon(props.message.selectedModel)
+  }
+  // 如果是老师消息，使用默认老师头像
+  if (props.message.sender === 'teacher') {
+    return avantarIcon
+  }
+  // 默认使用AI头像
+  return avantarIcon
+})
+
 // 移除调试日志以提高性能
 
 // 重发方法
@@ -425,15 +452,15 @@ const handleRetry = async () => {
           questionStore.currentQuestion,
           userInfo,
           subject,
-          'mate',
+          props.message.selectedModel || 'mate',
           props.message.imageData,
         )
         break
       case 'ai-general':
-        await aiGeneralStore.retryMessage(props.message.id, userInfo, subject, 'mate')
+        await aiGeneralStore.retryMessage(props.message.id, userInfo, subject, props.message.selectedModel || 'mate')
         break
       case 'ai-textbook':
-        await aiTextbookStore.retryAiMessage(props.message.id, 'mate', props.message.imageData)
+        await aiTextbookStore.retryAiMessage(props.message.id, props.message.selectedModel || 'mate', props.message.imageData)
         break
       case 'teacher-general':
         await teacherGeneralStore.retryTeacherMessage(props.message.id, props.message.imageData)

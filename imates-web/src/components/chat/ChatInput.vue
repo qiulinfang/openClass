@@ -45,7 +45,7 @@
               @click.stop="toggleModeSelector"
               ref="modeSelectorBtnRef"
             >
-              <q-icon name="person" size="18px" />
+              <img :src="getModelIcon(props.selectedModel)" :alt="getModelDisplayName(props.selectedModel)" style="width: 18px; height: 18px;" />
               <span>{{ getModelDisplayName(props.selectedModel) }}</span>
             </button>
 
