@@ -36,7 +36,7 @@ const buildAiExerciseMessage = (
   const userId = getUserId() || 'User'
   
   // 获取题目ID
-  const questionId = currentQuestion.id || currentQuestion.bmNo || ''
+  const questionId = currentQuestion.bmNo || currentQuestion.id || ''
   
   // 优先使用传入的 sessionId，如果没有则新建（使用题目ID和时间戳）
   const finalSessionId = sessionId || `exercise-${questionId}-${Date.now()}`
@@ -61,6 +61,7 @@ const buildAiExerciseMessage = (
       chatRole: selectedModel,
       subject: subject,
       dstUrl: '/permission/previewPictureQA',
+      explanation: currentQuestion.explanation || '',
     }
   }
   
@@ -71,6 +72,7 @@ const buildAiExerciseMessage = (
     coversation: content,
     question: currentQuestion.question || '',
     answer: currentQuestion.answer || '',
+    explanation: currentQuestion.explanation || '',
     name: userId,
     reason: 'start',
     bmNo: questionId,
