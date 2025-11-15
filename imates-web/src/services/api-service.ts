@@ -673,6 +673,7 @@ export class ApiService {
       bmNo: message.bmNo,
       isWebSearch: message.isWebSearch,
       role: message.chatRole,
+      explanation: message.explanation,
     }
   }
 
