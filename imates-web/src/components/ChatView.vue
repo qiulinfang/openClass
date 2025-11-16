@@ -90,35 +90,54 @@
     </div>
 
     <!-- 聊天输入组件插槽 - 支持自定义输入组件，默认使用 ChatInput -->
-    <!-- 在多选模式下隐藏 ChatInput -->
-    <slot v-if="!isSelectionMode" name="input">
-      <ChatInput
-        ref="chatInputRef"
-        v-model="inputMessage"
-        :placeholder-text="enhancedPlaceholderText"
-        :is-loading="isLoading"
-        :is-recording="isRecording"
-        :enable-web-search="enableWebSearch"
-        :selected-model="selectedModel"
-        :type="type"
-        :uploaded-files="uploadedFiles"
-        :active-mode="activeMode"
-        :can-send="canSend"
-        :is-editing="isEditingMessage"
-        :editing-message-id="editingMessageId"
-        @send-message="sendMessage"
-        @blur="onInputBlur"
-        @start-voice-input="startVoiceInput"
-        @stop-voice-input="stopVoiceInput"
-        @voice-move="handleVoiceMove"
-        @show-image-picker="showImagePickerDialog"
-        @toggle-web-search="toggleWebSearch"
-        @update:selected-model="selectedModel = $event"
-        @remove-file="removeFile"
-        @cancel-edit="cancelEditMessage"
-        @scroll-to-bottom="scrollToBottom"
-      />
-    </slot>
+    <!-- 在多选模式下隐藏输入组件 -->
+    <div v-if="!isSelectionMode" class="chat-input-area">
+      <!-- 简单输入模式前置插槽 - 用于放置操作按钮等 -->
+      <slot v-if="inputMode === 'simple'" name="input-prefix"></slot>
+      
+      <slot name="input">
+        <!-- 完整输入模式 (ChatInput) -->
+        <ChatInput
+          v-if="inputMode === 'full'"
+          ref="chatInputRef"
+          v-model="inputMessage"
+          :placeholder-text="enhancedPlaceholderText"
+          :is-loading="isLoading"
+          :is-recording="isRecording"
+          :enable-web-search="enableWebSearch"
+          :selected-model="selectedModel"
+          :type="type"
+          :uploaded-files="uploadedFiles"
+          :active-mode="activeMode"
+          :can-send="canSend"
+          :is-editing="isEditingMessage"
+          :editing-message-id="editingMessageId"
+          @send-message="sendMessage"
+          @blur="onInputBlur"
+          @start-voice-input="startVoiceInput"
+          @stop-voice-input="stopVoiceInput"
+          @voice-move="handleVoiceMove"
+          @show-image-picker="showImagePickerDialog"
+          @toggle-web-search="toggleWebSearch"
+          @update:selected-model="selectedModel = $event"
+          @remove-file="removeFile"
+          @cancel-edit="cancelEditMessage"
+          @scroll-to-bottom="scrollToBottom"
+        />
+        
+        <!-- 简单输入模式 (SimpleChatInput) -->
+        <SimpleChatInput
+          v-else-if="inputMode === 'simple'"
+          ref="simpleChatInputRef"
+          v-model="inputMessage"
+          :placeholder="enhancedPlaceholderText"
+          :is-loading="isLoading"
+          @send="sendSimpleMessage"
+          @focus="emit('focus')"
+          @blur="onInputBlur"
+        />
+      </slot>
+    </div>
 
     <!-- 语音录制组件 - 显示录音状态和取消提示 -->
     <VoiceRecorder :is-recording="isRecording" :show-cancel-hint="showCancelHint" />
@@ -150,6 +169,7 @@ import { showMessage } from '../utils'
 // 子组件导入
 import ChatMessageComponent from './chat/ChatMessage.vue'
 import ChatInput from './chat/ChatInput.vue'
+import SimpleChatInput from './chat/SimpleChatInput.vue'
 import VoiceRecorder from './chat/VoiceRecorder.vue'
 
 // 类型定义导入
@@ -168,8 +188,11 @@ const props = withDefaults(
     currentQuestionId?: string
     resourceId?: string
     compressedHeight?: number // 键盘显示时 ChatView 的压缩高度（像素）
+    inputMode?: 'full' | 'simple' // 输入模式：full=完整输入(ChatInput)，simple=简单输入(SimpleChatInput)
   }>(),
-  {},
+  {
+    inputMode: 'full',
+  },
 )
 
 // 定义组件事件 - 支持响应、切换、焦点、滚动等事件
@@ -241,7 +264,8 @@ const createStrategy = () => {
 // 组件引用
 const scrollWrapper = ref<HTMLElement | null>(null) // 滚动区域引用
 const chatViewRef = ref<HTMLElement>() // 聊天视图容器引用
-const chatInputRef = ref<InstanceType<typeof ChatInput>>() // 输入组件引用
+const chatInputRef = ref<InstanceType<typeof ChatInput>>() // 完整输入组件引用
+const simpleChatInputRef = ref<InstanceType<typeof SimpleChatInput>>() // 简单输入组件引用
 
 // 使用 Better Scroll 组合式函数
 const {
@@ -722,6 +746,17 @@ const initializeMessages = async () => {
   }
 }
 
+
+// 作用：简单输入模式发送消息
+const sendSimpleMessage = async (message: string) => {
+  if (!message.trim() || isLoading.value) {
+    return
+  }
+  
+  // 设置 inputMessage 并调用标准发送流程
+  inputMessage.value = message
+  await sendMessage()
+}
 
 // 作用：发送用户消息（策略模式）
 const sendMessage = async (attachedFile?: File) => {
@@ -2070,6 +2105,12 @@ defineExpose({
   font-size: 14px;
   color: #666;
   font-weight: 500;
+}
+
+/* ==================== 输入区域容器样式 ==================== */
+.chat-input-area {
+  display: flex;
+  gap: 0;
 }
 
 /* ==================== 底部提示文案样式 ==================== */

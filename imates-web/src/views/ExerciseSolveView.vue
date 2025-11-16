@@ -91,8 +91,6 @@
           <div class="splitter-handle">
             <div class="splitter-dots">
               <span class="dot"></span>
-              <span class="dot"></span>
-              <span class="dot"></span>
             </div>
           </div>
         </template>
@@ -121,12 +119,9 @@
                   @scroll-to-bottom="scrollToBottom"
                   :compressed-height="327"
                 />
-
                 <!-- 答案显示 -->
                 <AnswerView
                   v-if="currentFunction === 'viewAnswer'"
-                  :answer="currentQuestion?.answer || ''"
-                  :analysis="currentQuestion?.analysisData || ''"
                 />
 
                 <!-- 相似题目 -->
@@ -235,7 +230,9 @@ const hasSelectedQuestion = computed(() => {
 // 按钮可用性computed属性
 const canUseChatAi = computed(() => hasSelectedQuestion.value)
 const canUseAskTeacher = computed(() => hasSelectedQuestion.value)
-const canUseViewAnswer = computed(() => hasSelectedQuestion.value && aiExerciseStore.canViewAnswer)
+const canUseViewAnswer = computed(() => {
+  return hasSelectedQuestion.value && aiExerciseStore.canViewAnswer
+})
 const canUseSimilarQuestion = computed(() => hasSelectedQuestion.value && aiExerciseStore.canViewAnswer)
 
 const handleChatResponse = () => {
@@ -837,9 +834,9 @@ $desktop-breakpoint: 1025px;
 
 .splitter-dots .dot {
   width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background-color: #999;
+  height: 30px;
+  border-radius: 20%;
+  background-color: #bfbfc2;
   display: block;
   transition: background-color 0.2s;
 }

@@ -2,6 +2,7 @@
   <div class="find-exercise-view">
     <!-- 内部工具栏 -->
     <div class="internal-toolbar">
+      <!-- 返回按钮 -->
       <q-btn 
         flat 
         round 
@@ -63,7 +64,7 @@
       <div v-else class="question-list-container">
         <q-card flat class="full-height">
           <q-card-section class="q-pa-none full-height">
-            <QuestionList 
+            <FindExerciseQuestionList 
               ref="questionListRef"
               @refresh="handleRefresh"
             />
@@ -75,16 +76,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useFindExerciseStore } from '../stores/findExerciseStore'
 import { useQuestionStore } from '../stores/questionStore'
 import { storeToRefs } from 'pinia'
-import QuestionList from '../components/FindExerciseQuestionList.vue'
+import FindExerciseQuestionList from '../components/FindExerciseQuestionList.vue'
 import QuestionListSkeleton from '../components/QuestionListSkeleton.vue'
 import type { FindExerciseConfig } from '../types'
 import { Subject } from '../types'
 import { authStorageService } from '../services/auth-storage-service'
+import { on } from 'events'
 
 // 定义组件名称，便于 Vue DevTools 识别
 defineOptions({
@@ -95,7 +97,7 @@ const router = useRouter()
 const route = useRoute()
 
 // 组件引用
-const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
+const questionListRef = ref<InstanceType<typeof FindExerciseQuestionList> | null>(null)
 
 // 使用store
 const findExerciseStore = useFindExerciseStore()
@@ -241,9 +243,7 @@ const goBack = async () => {
   isExiting.value = true
   
   try {
-    // 部分清理状态（保留选中状态，以便从练习页面返回时保持选择）
-    findExerciseStore.partialResetState()
-    
+   
     // 使用路由返回到知识图谱页面
     router.push({ name: 'knowledgeGraph' })
   } finally {
@@ -270,6 +270,11 @@ onMounted(async () => {
     // 无论成功还是失败，都结束初始化状态
     isInitializing.value = false
   }
+})
+
+onUnmounted(() => {
+  // 清理状态
+  findExerciseStore.resetState()
 })
 
 // 暴露方法给Web调用

@@ -83,8 +83,11 @@
           @touchmove="handleTouchMove"
           @touchend="handleTouchEnd"
         ></canvas>
-        <!-- 灰色蒙版层（四个遮罩层覆盖框选区域外的部分） -->
-        <template v-if="cropRect">
+        <!-- 灰色蒙版层：
+             - 未开始框选时：整张图片一层灰色蒙版
+             - 已有 cropRect 时：使用四个遮罩层覆盖框选区域外的部分 -->
+        <div v-if="!cropRect" class="crop-mask crop-mask-full"></div>
+        <template v-else>
           <!-- 顶部遮罩 -->
           <div class="crop-mask crop-mask-top" :style="cropMaskTopStyle"></div>
           <!-- 底部遮罩 -->
@@ -94,7 +97,7 @@
           <!-- 右侧遮罩 -->
           <div class="crop-mask crop-mask-right" :style="cropMaskRightStyle"></div>
         </template>
-        <!-- 框选遮罩 -->
+        <!-- 框选遮罩（中间透明显示清晰图片） -->
         <div v-if="cropRect" class="crop-overlay" :style="cropOverlayStyle">
           <!-- 四个角的 L 形标记 -->
           <div class="crop-corner crop-corner-nw"></div>
@@ -288,26 +291,7 @@
           <div
             v-if="activeTab === 'photo'"
             class="photo-result-wrapper"
-            :style="{ height: photoResultHeight + 'px' }"
           >
-            <!-- 右上角操作按钮 -->
-            <div v-if="photoQuestionData" class="result-actions">
-              <!-- 收藏 -->
-              <div class="action-item" @click="handleFavoriteInChat">
-                <q-icon
-                  :name="isFavoriteInChat ? 'star' : 'star_border'"
-                  :class="{ favorited: isFavoriteInChat }"
-                  size="20px"
-                />
-                <span class="action-text">收藏</span>
-              </div>
-
-              <!-- 加入练习 -->
-              <div class="action-item" @click="handleAddToPracticeInChat">
-                <q-icon name="description" size="20px" />
-                <span class="action-text">加入练习</span>
-              </div>
-            </div>
             <div
               ref="photoResultRef"
               class="recognized-problem"
@@ -318,15 +302,10 @@
                 v-html="renderQuestionContent(photoQuestionData)"
               ></div>
             </div>
-            <div
-              class="resize-handle resize-handle-photo"
-              @mousedown="startResizePhoto"
-              @touchstart="startResizePhoto"
-            ></div>
           </div>
 
           <!-- 关键词搜题内容 -->
-          <div v-if="activeTab === 'keyword'" class="keyword-search-container" :style="{ height: keywordInputHeight + 'px' }">
+          <div v-if="activeTab === 'keyword'" class="keyword-search-container">
             <textarea
               ref="keywordInputRef"
               v-model="keywordText"
@@ -336,11 +315,6 @@
               @keydown.ctrl.enter="handleKeywordSearch"
               @keydown.meta.enter="handleKeywordSearch"
             ></textarea>
-            <div
-              class="resize-handle resize-handle-input"
-              @mousedown="startResizeInput"
-              @touchstart="startResizeInput"
-            ></div>
             <q-btn
               round
               class="keyword-search-btn"
@@ -356,43 +330,51 @@
             v-if="keywordQuestionData && activeTab === 'keyword'"
             ref="keywordResultRef"
             class="keyword-result-wrapper"
-            :style="{ height: keywordResultHeight + 'px' }"
           >
-            <!-- 右上角操作按钮 -->
-            <div class="result-actions">
-              <!-- 收藏 -->
-              <div class="action-item" @click="handleFavoriteInChat">
-                <q-icon
-                  :name="isFavoriteInChat ? 'star' : 'star_border'"
-                  :class="{ favorited: isFavoriteInChat }"
-                  size="20px"
-                />
-                <span class="action-text">收藏</span>
-              </div>
-
-              <!-- 加入练习 -->
-              <div class="action-item" @click="handleAddToPracticeInChat">
-                <q-icon name="description" size="20px" />
-                <span class="action-text">加入练习</span>
-              </div>
-            </div>
             <div class="keyword-search-result">
               <div class="problem-text" v-html="renderQuestionContent(keywordQuestionData)"></div>
             </div>
-            <div
-              class="resize-handle resize-handle-result"
-              @mousedown="startResizeResult"
-              @touchstart="startResizeResult"
-            ></div>
           </div>
-          <!-- ChatView 区域（与拍照/关键词内容处于同一层级） -->
-          <div class="drawer-chat-section">
+          <!-- Chat 输入区域（使用 ChatView + simple 模式） -->
+          <div
+            class="drawer-chat-section"
+            v-if="currentQuestionData"
+          >
+            <!-- 使用 ChatView 组件，简单输入模式 -->
             <ChatView
-              v-if="currentQuestionData"
               ref="chatViewRef"
               type="ai-exercise"
-              :compressed-height="160"
-            />
+              input-mode="simple"
+              :compressed-height="97"
+              :current-question-id="currentQuestionData.bmNo || currentQuestionData.id"
+              @response="handleChatResponse"
+            >
+              <!-- 前置插槽：操作按钮组 -->
+              <template #input-prefix>
+                <div class="chat-action-group">
+                  <div class="chat-action-item" @click="handleRetake">
+                    <q-icon name="photo_camera" size="20px" />
+                    <span class="chat-action-text">再拍一题</span>
+                  </div>
+                  <div class="chat-action-item" @click="handleFavoriteInChat">
+                    <q-icon
+                      :name="isFavoriteInChat ? 'star' : 'star_border'"
+                      :class="{ favorited: isFavoriteInChat }"
+                      size="20px"
+                    />
+                    <span class="chat-action-text">收藏</span>
+                  </div>
+                  <div class="chat-action-item" @click="handleAddToPracticeInChat">
+                    <q-icon 
+                      name="description" 
+                      size="20px"
+                      :class="{ 'in-practice': isInPracticeList }"
+                    />
+                    <span class="chat-action-text">加入练习</span>
+                  </div>
+                </div>
+              </template>
+            </ChatView>
           </div>
         </div>
       </div>
@@ -405,7 +387,6 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import QuestionList from '@/components/QuestionList.vue'
 import ImagePicker from '@/components/chat/ImagePicker.vue'
-import ChatView from '@/components/ChatView.vue'
 import PhotoSearchDebugPanel from '@/components/debug/PhotoSearchDebugPanel.vue'
 import { apiService } from '@/services/api-service'
 import { ImagePickerAdapterFactory } from '@/adapters/ImagePickerAdapterFactory'
@@ -415,6 +396,7 @@ import type { ExerciseItem } from '@/types'
 import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { toggleExerciseFavorite, getFavoriteExercises } from '@/utils/storage/favorites'
 import { useQuestionStore } from '@/stores/questionStore'
+import ChatView from '@/components/ChatView.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -470,25 +452,22 @@ const activeTab = ref<'photo' | 'keyword'>('photo') // 标签页状态
 const keywordText = ref<string>('') // 关键词输入
 const isKeywordSearching = ref(false) // 关键词搜索状态
 
-// 关键词输入框和结果区域的高度调整
+// 关键词输入框和结果区域引用
 const keywordInputRef = ref<HTMLTextAreaElement | null>(null)
 const keywordResultRef = ref<HTMLDivElement | null>(null)
-const keywordInputHeight = ref(100) // 初始高度
-const keywordResultHeight = ref(100) // 初始高度
-const isResizingInput = ref(false)
-const isResizingResult = ref(false)
-const resizeStartY = ref(0)
-const resizeStartHeight = ref(0)
 
-// 拍照搜题内容的高度调整
+// 拍照搜题内容引用
 const photoResultRef = ref<HTMLDivElement | null>(null)
-const photoResultHeight = ref(100) // 初始高度（与样式中的固定高度一致）
-const isResizingPhoto = ref(false)
 
-// ChatView 相关状态
+// Chat 输入相关状态
 const chatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
-// ChatView 的加载状态（从 ChatView 内部获取）
-const isChatLoading = computed(() => chatViewRef.value?.isLoading ?? false)
+const isChatLoading = ref(false) // 用于调试面板显示
+
+// ChatView 消息发送完成处理
+const handleChatResponse = () => {
+  logFlow('ChatView 消息发送完成')
+  isChatLoading.value = false
+}
 
 // 收藏状态管理（响应式）
 const favoriteStatusMap = ref<Map<string, boolean>>(new Map())
@@ -513,9 +492,17 @@ const isFavoriteInChat = computed(() => {
 // QuestionStore
 const questionStore = useQuestionStore()
 
+// 检查当前题目是否已在练习列表中
+const isInPracticeList = computed(() => {
+  if (!currentQuestionData.value) return false
+  const currentId = currentQuestionData.value.bmNo || currentQuestionData.value.id
+  return questionStore.questions.some(q => (q.bmNo || q.id) === currentId)
+})
+
 // 根据当前tab返回对应的题目数据
 const currentQuestionData = computed(() => {
   const data = activeTab.value === 'photo' ? photoQuestionData.value : keywordQuestionData.value
+  console.log('currentQuestionData', data)
   return data
 })
 
@@ -1943,7 +1930,6 @@ watch(
   { deep: true },
 )
 
-
 // 处理关键词搜索
 const handleKeywordSearch = async () => {
   logFlow('关键词搜索开始', {
@@ -2000,63 +1986,6 @@ const handleKeywordSearch = async () => {
   } finally {
     isKeywordSearching.value = false
   }
-}
-
-// 全局拖动事件处理函数
-const handleResizeMove = (e: MouseEvent | TouchEvent) => {
-  if (isResizingInput.value) {
-    const currentY = 'touches' in e ? e.touches[0].clientY : e.clientY
-    const deltaY = currentY - resizeStartY.value
-    const newHeight = Math.max(80, Math.min(400, resizeStartHeight.value + deltaY))
-    keywordInputHeight.value = newHeight
-  } else if (isResizingResult.value) {
-    const currentY = 'touches' in e ? e.touches[0].clientY : e.clientY
-    const deltaY = currentY - resizeStartY.value
-    const newHeight = Math.max(80, Math.min(500, resizeStartHeight.value + deltaY))
-    keywordResultHeight.value = newHeight
-  } else if (isResizingPhoto.value) {
-    const currentY = 'touches' in e ? e.touches[0].clientY : e.clientY
-    const deltaY = currentY - resizeStartY.value
-    const newHeight = Math.max(80, Math.min(500, resizeStartHeight.value + deltaY))
-    photoResultHeight.value = newHeight
-  }
-}
-
-// 全局拖动结束事件处理函数
-const handleResizeEnd = () => {
-  isResizingInput.value = false
-  isResizingResult.value = false
-  isResizingPhoto.value = false
-}
-
-// 开始调整关键词输入框高度
-const startResizeInput = (e: MouseEvent | TouchEvent) => {
-  e.preventDefault()
-  e.stopPropagation()
-  isResizingInput.value = true
-  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-  resizeStartY.value = clientY
-  resizeStartHeight.value = keywordInputHeight.value
-}
-
-// 开始调整关键词搜索结果高度
-const startResizeResult = (e: MouseEvent | TouchEvent) => {
-  e.preventDefault()
-  e.stopPropagation()
-  isResizingResult.value = true
-  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-  resizeStartY.value = clientY
-  resizeStartHeight.value = keywordResultHeight.value
-}
-
-// 开始调整拍照搜题内容高度
-const startResizePhoto = (e: MouseEvent | TouchEvent) => {
-  e.preventDefault()
-  e.stopPropagation()
-  isResizingPhoto.value = true
-  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-  resizeStartY.value = clientY
-  resizeStartHeight.value = photoResultHeight.value
 }
 
 // 渲染题目内容（支持Markdown和公式）
@@ -2128,35 +2057,45 @@ const handleFavoriteInChat = () => {
 
 const handleAddToPracticeInChat = async () => {
   if (!currentQuestionData.value) {
-    showMessage('没有可添加的题目', 'warning')
+    showMessage('没有可操作的题目', 'warning')
     return
   }
 
   try {
-    // 获取当前题目列表ID
-    const questions = questionStore.questions
-    const exercisesId = questions.map((q) => q.bmNo || q.id).join(',')
-
-    // 构建添加请求
-    const questionData = {
-      ...currentQuestionData.value,
-      exercisesId,
-    }
-
-    const { getSubject } = await import('../services/auth-storage-service')
-    const subject = (getSubject()?.toLowerCase() || 'math') as 'math' | 'biology'
-    const success = await apiService.addQuestionToList(questionData, subject)
-
-    if (success) {
-      showMessage('题目已添加到列表', 'success')
-      // 刷新题目列表
-      await questionStore.fetchQuestions(subject, false)
+    const currentId = currentQuestionData.value.bmNo || currentQuestionData.value.id
+    
+    // 检查题目是否已在练习列表中
+    if (isInPracticeList.value) {
+      // 已在列表中，执行删除操作
+      const index = questionStore.questions.findIndex(q => (q.bmNo || q.id) === currentId)
+      if (index !== -1) {
+        await questionStore.deleteQuestion(index, selectedSubject.value)
+        showMessage('已从练习列表中移除', 'success')
+      }
     } else {
-      showMessage('添加题目失败', 'error')
+      // 不在列表中，执行添加操作
+      const questions = questionStore.questions
+      const exercisesId = questions.map((q) => q.bmNo || q.id).join(',')
+
+      // 构建添加请求
+      const questionData = {
+        ...currentQuestionData.value,
+        exercisesId,
+      }
+
+      // const success = await apiService.addQuestionToList(questionData, selectedSubject.value)
+
+      if (true) {
+        showMessage('题目已添加到练习列表', 'success')
+        // 刷新题目列表，使用与请求一致的学科
+        await questionStore.fetchQuestions(selectedSubject.value, false)
+      } else {
+        showMessage('添加题目失败', 'error')
+      }
     }
   } catch (error) {
-    console.error('添加题目失败:', error)
-    showMessage('添加题目失败', 'error')
+    console.error('操作题目失败:', error)
+    showMessage('操作失败', 'error')
   }
 }
 
@@ -2177,6 +2116,8 @@ const initialize = () => {
     selectedSubject: selectedSubject.value,
     showCameraPreview: showCameraPreview.value,
   })
+
+  // SimpleChatInput 组件内部已处理键盘事件，无需在此监听
 }
 
 // 组件卸载前清理
@@ -2210,6 +2151,7 @@ const cleanup = () => {
   photoQuestionData.value = null
   keywordQuestionData.value = null
   logFlow('组件清理完成')
+  // SimpleChatInput 组件内部已处理键盘事件，无需在此移除监听器
 }
 
 // 监听路由 query 中的 subject 变化
@@ -2227,27 +2169,11 @@ watch(
 onMounted(() => {
   logFlow('页面挂载')
   initialize()
-  
-  // 添加全局拖动事件监听器
-  window.addEventListener('mousemove', handleResizeMove)
-  window.addEventListener('mouseup', handleResizeEnd)
-  window.addEventListener('touchmove', handleResizeMove)
-  window.addEventListener('touchend', handleResizeEnd)
 })
 
-// 组件卸载时清理
 onUnmounted(() => {
-  logFlow('页面卸载')
-  cleanup()
-  
-  // 清理 questionStore 中的当前题目
+  stopCamera()
   questionStore.clearCurrentQuestion()
-  
-  // 移除全局拖动事件监听器
-  window.removeEventListener('mousemove', handleResizeMove)
-  window.removeEventListener('mouseup', handleResizeEnd)
-  window.removeEventListener('touchmove', handleResizeMove)
-  window.removeEventListener('touchend', handleResizeEnd)
 })
 </script>
 
@@ -2337,6 +2263,14 @@ onUnmounted(() => {
   background: rgba(0, 0, 0, 0.5); /* 灰色半透明蒙版 */
   pointer-events: none;
   z-index: 1;
+}
+
+// 整图蒙版：在尚未产生 cropRect 时覆盖整个裁剪容器
+.crop-mask-full {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
 .crop-overlay {
@@ -2752,6 +2686,8 @@ onUnmounted(() => {
   position: relative;
   box-sizing: border-box;
   margin-top: 10px;
+  height: 180px;
+  overflow-y: auto;
 }
 
 .result-actions {
@@ -2775,7 +2711,6 @@ onUnmounted(() => {
   height: 100%;
   overflow-y: auto;
   box-sizing: border-box;
-  padding-bottom: 8px; // 为 resize-handle 留出空间
 }
 
 .problem-text {
@@ -2870,11 +2805,14 @@ onUnmounted(() => {
   padding: 0;
   background: white;
   margin: 10px 0;
+  height: 120px;
 }
 
 .keyword-result-wrapper {
   position: relative;
   box-sizing: border-box;
+  height: 180px;
+  overflow-y: auto;
 }
 
 .keyword-search-result {
@@ -2887,7 +2825,6 @@ onUnmounted(() => {
   height: 100%;
   overflow-y: auto;
   box-sizing: border-box;
-  padding-bottom: 8px; // 为 resize-handle 留出空间
 }
 
 .keyword-input {
@@ -2952,70 +2889,78 @@ onUnmounted(() => {
   }
 }
 
-// 拖动调整手柄
-.resize-handle {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: 8px;
-  cursor: ns-resize;
-  z-index: 20;
-  background: transparent;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: none;
-
-  &::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: 40px;
-    height: 4px;
-    background: #ccc;
-    border-radius: 2px;
-    transition: background 0.2s ease;
-  }
-
-  &:hover::after,
-  &:active::after {
-    background: #7A7CFF;
-  }
-}
-
-.resize-handle-input {
-  border-radius: 0 0 16px 16px;
-}
-
-.resize-handle-result {
-  border-radius: 0 0 8px 8px;
-}
-
-.resize-handle-photo {
-  border-radius: 0 0 8px 8px;
-}
-
-// ChatView 区域
+// ChatView 区域（使用 ChatView + simple 模式）
 .drawer-chat-section {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex-shrink: 0;
+  background: transparent;
+  margin-top: auto;
+  position: relative;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  height: 0; // 配合 flex: 1 使用，确保占据剩余空间
+  height: 100%;
+  max-height: 60vh; // 限制最大高度，避免占满整个屏幕
 }
 
-// PhotoSearch ChatInput 布局
-.photo-search-chat-input-wrapper {
+.chat-action-group {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  justify-content: space-around;
+  gap: 16px;
+  padding: 8px 16px;
   background: white;
-  width: 100%;
-  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.chat-action-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+  color: #666;
+  font-size: 12px;
+}
+
+.chat-action-item .q-icon {
+  color: #666;
+}
+
+.chat-action-item .q-icon.favorited {
+  color: #ffc107;
+}
+
+.chat-action-item .q-icon.in-practice {
+  color: #ffc107;
+}
+
+.chat-action-text {
+  font-size: 12px;
+}
+
+// SimpleChatInput 组件内部已有样式，以下样式已废弃
+.photo-search-chat-input-container {
+  display: none;
+}
+
+.photo-search-chat-input {
+  display: none;
+}
+
+.photo-search-chat-input::placeholder {
+  display: none;
+}
+
+.photo-search-chat-send-btn {
+  display: none;
+  border: none;
+  background-color: #9778ff;
+  color: #fff;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
 .result-actions .action-item {

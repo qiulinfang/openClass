@@ -13,19 +13,8 @@
           </q-card-section>
         </q-card>
 
-        <!-- 解析内容 -->
-        <q-card flat bordered class="analysis-card" v-if="analysis">
-          <q-card-section>
-            <div class="text-subtitle2 text-secondary q-mb-sm">
-              <q-icon name="psychology" class="q-mr-xs" />
-              解题分析
-            </div>
-            <div class="analysis-content" v-html="formattedAnalysis"></div>
-          </q-card-section>
-        </q-card>
-
-        <!-- 空状态 -->
-        <div v-if="!answer && !analysis" class="native-empty-state text-center q-pa-xl">
+        <!-- 空状态：只根据答案是否存在判断 -->
+        <div v-if="!answer" class="native-empty-state text-center q-pa-xl">
           <q-icon name="help_outline" size="80px" color="grey-5" />
           <div class="text-h6 q-mt-md text-grey-7 native-text-3xl">暂无答案内容</div>
           <div class="text-body2 text-grey-6 q-mt-sm native-text-md">请先选择一道题目</div>
@@ -36,19 +25,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
-
-// 导入类型定义
-import type { AnswerViewProps } from '../types'
-
-// 定义Props
-interface Props extends /* @vue-ignore */ AnswerViewProps {}
-
-const props = withDefaults(defineProps<Props>(), {
-  answer: '',
-  analysis: ''
-})
+import { useQuestionStore } from '../stores/questionStore'
 
 const thumbStyle = {
   right: '4px',
@@ -58,20 +38,21 @@ const thumbStyle = {
   opacity: '0.75'
 }
 
+// 从题目 store 中读取当前题目
+const questionStore = useQuestionStore()
+const { currentQuestion } = storeToRefs(questionStore)
+
+const answer = computed(() => currentQuestion.value?.answer || '')
+
 // 使用公共的 markdown 渲染器
 const { renderMessageContent } = useMessageRenderer()
 
 // 格式化答案内容（使用统一的 markdown 渲染）
 const formattedAnswer = computed(() => {
-  if (!props.answer) return ''
-  return renderMessageContent(props.answer)
+  if (!answer.value) return ''
+  return renderMessageContent(answer.value)
 })
 
-// 格式化解析内容（使用统一的 markdown 渲染）
-const formattedAnalysis = computed(() => {
-  if (!props.analysis) return ''
-  return renderMessageContent(props.analysis)
-})
 </script>
 
 <style scoped>
@@ -87,13 +68,7 @@ const formattedAnalysis = computed(() => {
   margin: var(--native-margin-md);
 }
 
-.analysis-card {
-  border-left: 4px solid #2196f3;
-  margin: var(--native-margin-md);
-}
-
-.answer-content,
-.analysis-content {
+.answer-content {
   line-height: 1.6;
   font-size: var(--native-font-size-xl);
   padding: var(--native-padding-lg);
@@ -106,26 +81,22 @@ const formattedAnalysis = computed(() => {
   /* 内容滚动条样式 */
 }
 
-.answer-content::-webkit-scrollbar,
-.analysis-content::-webkit-scrollbar {
+.answer-content::-webkit-scrollbar {
   height: 4px;
 }
 
-.answer-content::-webkit-scrollbar-track,
-.analysis-content::-webkit-scrollbar-track {
+.answer-content::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.05);
   border-radius: 3px;
 }
 
-.answer-content::-webkit-scrollbar-thumb,
-.analysis-content::-webkit-scrollbar-thumb {
+.answer-content::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 3px;
   transition: background 0.2s ease;
 }
 
-.answer-content::-webkit-scrollbar-thumb:hover,
-.analysis-content::-webkit-scrollbar-thumb:hover {
+.answer-content::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.4);
 }
 
@@ -133,9 +104,7 @@ const formattedAnalysis = computed(() => {
 
 /* MathJax 公式样式处理 */
 .answer-content :deep(.mjx-chtml),
-.answer-content :deep(.mjx-math),
-.analysis-content :deep(.mjx-chtml),
-.analysis-content :deep(.mjx-math) {
+.answer-content :deep(.mjx-math) {
   overflow-x: auto;
   overflow-y: hidden;
   max-width: 100%;
@@ -143,40 +112,34 @@ const formattedAnalysis = computed(() => {
   vertical-align: middle;
 }
 
-.answer-content :deep(.mjx-chtml[display="inline"]),
-.analysis-content :deep(.mjx-chtml[display="inline"]) {
+.answer-content :deep(.mjx-chtml[display="inline"]) {
   max-width: 100%;
   overflow-x: auto;
   white-space: nowrap;
 }
 
-.answer-content :deep(.mjx-chtml[display="block"]),
-.analysis-content :deep(.mjx-chtml[display="block"]) {
+.answer-content :deep(.mjx-chtml[display="block"]) {
   max-width: 100%;
   overflow-x: auto;
   margin: 8px 0;
   text-align: center;
 }
 
-.answer-content :deep(.mjx-chtml)::-webkit-scrollbar,
-.analysis-content :deep(.mjx-chtml)::-webkit-scrollbar {
+.answer-content :deep(.mjx-chtml)::-webkit-scrollbar {
   height: 3px;
 }
 
-.answer-content :deep(.mjx-chtml)::-webkit-scrollbar-track,
-.analysis-content :deep(.mjx-chtml)::-webkit-scrollbar-track {
+.answer-content :deep(.mjx-chtml)::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.1);
   border-radius: 2px;
 }
 
-.answer-content :deep(.mjx-chtml)::-webkit-scrollbar-thumb,
-.analysis-content :deep(.mjx-chtml)::-webkit-scrollbar-thumb {
+.answer-content :deep(.mjx-chtml)::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.3);
   border-radius: 2px;
 }
 
-.answer-content :deep(.mjx-chtml)::-webkit-scrollbar-thumb:hover,
-.analysis-content :deep(.mjx-chtml)::-webkit-scrollbar-thumb:hover {
+.answer-content :deep(.mjx-chtml)::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.5);
 }
 
@@ -185,45 +148,33 @@ const formattedAnalysis = computed(() => {
 .answer-content :deep(h3),
 .answer-content :deep(h4),
 .answer-content :deep(h5),
-.answer-content :deep(h6),
-.analysis-content :deep(h1),
-.analysis-content :deep(h2),
-.analysis-content :deep(h3),
-.analysis-content :deep(h4),
-.analysis-content :deep(h5),
-.analysis-content :deep(h6) {
+.answer-content :deep(h6) {
   margin: 0 0 8px 0;
   font-weight: 600;
 }
 
-.answer-content :deep(p),
-.analysis-content :deep(p) {
+.answer-content :deep(p) {
   margin: 0 0 8px 0;
 }
 
 .answer-content :deep(ul),
-.answer-content :deep(ol),
-.analysis-content :deep(ul),
-.analysis-content :deep(ol) {
+.answer-content :deep(ol) {
   margin: 0 0 8px 0;
   padding-left: 20px;
 }
 
-.answer-content :deep(li),
-.analysis-content :deep(li) {
+.answer-content :deep(li) {
   margin-bottom: 4px;
 }
 
-.answer-content :deep(code),
-.analysis-content :deep(code) {
+.answer-content :deep(code) {
   background: #f5f5f5;
   padding: 2px 4px;
   border-radius: 3px;
   font-family: 'Courier New', monospace;
 }
 
-.answer-content :deep(pre),
-.analysis-content :deep(pre) {
+.answer-content :deep(pre) {
   background: #f5f5f5;
   padding: 12px;
   border-radius: 6px;
@@ -231,8 +182,7 @@ const formattedAnalysis = computed(() => {
   margin: 8px 0;
 }
 
-.answer-content :deep(blockquote),
-.analysis-content :deep(blockquote) {
+.answer-content :deep(blockquote) {
   border-left: 4px solid #ddd;
   padding-left: 12px;
   margin: 8px 0;

@@ -107,7 +107,7 @@
           </button>
 
           <!-- 麦克风图标 - 显示在AI模式下 -->
-          <button
+          <!-- <button
             v-if="props.type !== 'teacher-general'"
             type="button"
             @click="handleMicButtonClick"
@@ -126,7 +126,7 @@
               size="24px" 
             />
             <q-tooltip>{{ props.isRecording ? '松开结束录音' : '按住说话' }}</q-tooltip>
-          </button>
+          </button> -->
 
           <!-- 发送按钮 -->
           <button

@@ -283,11 +283,16 @@ export class ApiService {
       const url = getApiUrl(API_ENDPOINTS.EXERCISES.ADD)
 
       // 构造与Android AddQuestionRequest一致的请求体
+      // 只发送规范字段，避免把前端标记字段（如 isViewed）透传给后端
       const requestBody = {
         bmNo: questionData.bmNo || questionData.id,
         type: subject.toLowerCase(),
         exercisesId: questionData.exercisesId || '',
-        ...questionData,
+        // 下面字段与后端/Android 模型对齐，按需从 questionData 中提取
+        title: questionData.title || questionData.question || '',
+        answer: questionData.answer || '',
+        explanation: questionData.explanation || questionData.aiExplanation || '',
+        analysisData: questionData.analysisData || questionData.answerAnalysis || '',
       }
 
       // 记录API调用

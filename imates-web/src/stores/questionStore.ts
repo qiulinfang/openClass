@@ -44,21 +44,7 @@ export const useQuestionStore = defineStore('question', () => {
   
   /** 是否有题目数据 */
   const hasQuestions = computed(() => questions.value.length > 0)
-  
-  // ==================== 持久化方法 ====================
-  
-  /**
-   * 保存题目列表到 IndexedDB
-   * @param subject 科目类型（math 或 biology）
-   */
-  const saveQuestionsToLocal = async (subject: string): Promise<void> => {
-    try {
-      await saveQuestionsToIndexedDB(subject, questions.value)
-    } catch (error) {
-      console.error('[QUESTION] ❌ 保存题目列表到 IndexedDB 失败:', error)
-    }
-  }
-  
+
   /**
    * 从 IndexedDB 加载题目列表
    * @param subject 科目类型（math 或 biology）
@@ -238,7 +224,11 @@ export const useQuestionStore = defineStore('question', () => {
       // 第3步：去重并更新状态
       questions.value = deduplicateQuestions(convertedQuestions)
       // 第4步：保存到 IndexedDB
-      await saveQuestionsToLocal(subject)
+      try {
+        await saveQuestionsToIndexedDB(subject, questions.value)
+      } catch (error) {
+        console.error('[QUESTION] ❌ 保存题目列表到 IndexedDB 失败:', error)
+      }
       
     } catch (error) {
       console.error(`[QUESTION] ❌ 获取题目失败:`, error)
@@ -296,7 +286,11 @@ export const useQuestionStore = defineStore('question', () => {
     
     // 如果提供了科目，保存到 IndexedDB
     if (subject) {
-      await saveQuestionsToLocal(subject)
+      try {
+        await saveQuestionsToIndexedDB(subject, questions.value)
+      } catch (error) {
+        console.error('[QUESTION] ❌ 保存题目列表到 IndexedDB 失败:', error)
+      }
     }
   }
   
@@ -377,13 +371,21 @@ export const useQuestionStore = defineStore('question', () => {
    */
   const addSimilarQuestionToList = async (question: ExerciseItem, subject?: string): Promise<void> => {
     // 检查是否已存在
-    const exists = questions.value.some(q => q.id === question.id)
+    const exists = questions.value.some(q => q.bmNo === question.bmNo)
     if (!exists) {
-      questions.value.push(question)
+      question.subject = subject
+      question.id = Date.now().toString()
+      questions.value.unshift(question)
       // 如果提供了科目，保存到 IndexedDB
       if (subject) {
-        await saveQuestionsToLocal(subject)
+        try {
+          await saveQuestionsToIndexedDB(subject, questions.value)
+        } catch (error) {
+          console.error('[QUESTION] ❌ 保存题目列表到 IndexedDB 失败:', error)
+        }
       }
+    } else{
+      throw new Error('该题目已存在于题目列表中，无法重复添加')
     }
   }
   
@@ -396,7 +398,11 @@ export const useQuestionStore = defineStore('question', () => {
     questions.value = deduplicateQuestions(newQuestions)
     // 如果提供了科目，保存到 IndexedDB
     if (subject) {
-      await saveQuestionsToLocal(subject)
+      try {
+        await saveQuestionsToIndexedDB(subject, questions.value)
+      } catch (error) {
+        console.error('[QUESTION] ❌ 保存题目列表到 IndexedDB 失败:', error)
+      }
     }
   }
   

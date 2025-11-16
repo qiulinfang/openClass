@@ -32,9 +32,9 @@
         <div v-else class="similar-questions-container">
           <div
             v-for="(question, index) in similarQuestions"
-            :key="question.id"
+            :key="question.id || question.bmNo || index"
             class="similar-question-item"
-            :class="{ 'question-adding': addingIds.has(question.id) }"
+            :class="{ 'question-in-user-list': questions.some(q => q.bmNo === question.bmNo) }"
           >
             <!-- 题目组块 - 统一背景包裹 -->
             <div class="question-block">
@@ -42,10 +42,16 @@
               <div class="question-number">{{ index + 1 }}</div>
 
               <!-- 题目内容 - Markdown渲染 -->
-              <div class="question-content">
+              <div
+                class="question-content"
+                @touchstart="handleContentTouchStart"
+                @touchmove="handleContentTouchMove"
+                @wheel="handleContentWheel"
+              >
                 <div
                   v-html="renderMarkdown(getQuestionContent(question))"
                   class="markdown-content"
+                  :ref="el => bindImagesInMarkdown(el)"
                 ></div>
               </div>
 
@@ -56,11 +62,13 @@
                 flat
                 round
                 size="sm"
-                :loading="addingIds.has(question.id)"
-                @click="addToMyList(question)"
                 class="add-btn"
+                @click="!question.atUserList && addToMyList(question)"
+                :disable="question.atUserList"
               >
-                <q-tooltip>添加到第一题位置</q-tooltip>
+                <q-tooltip>
+                  {{ question.atUserList ? '已在题库中' : '添加到第一题位置' }}
+                </q-tooltip>
               </q-btn>
             </div>
           </div>
@@ -72,14 +80,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useQuestionStore } from '../stores/questionStore'
 import { storeToRefs } from 'pinia'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { showMessage } from '../utils'
 import { useBetterScroll } from '../composables/useBetterScroll'
 const questionStore = useQuestionStore()
-const { currentQuestion, similarQuestions } = storeToRefs(questionStore)
+const { currentQuestion, similarQuestions, questions } = storeToRefs(questionStore)
 
 // 定义事件
 const emit = defineEmits<{
@@ -88,13 +96,12 @@ const emit = defineEmits<{
 
 // 响应式数据
 const loading = ref(false)
-const addingIds = ref(new Set<string>())
 
 // better-scroll 相关
 const scrollWrapper = ref<HTMLElement | null>(null)
 
 // 使用 Better Scroll 组合式函数
-const { init: initBScroll } = useBetterScroll(
+const { init: initBScroll, refresh } = useBetterScroll(
   scrollWrapper,
   {
     scrollY: true,
@@ -109,6 +116,11 @@ const { init: initBScroll } = useBetterScroll(
     deceleration: 0.003,
     useTransition: true,
     HWCompositing: true,
+    // 允许内部滚动容器正常滚动
+    preventDefaultException: {
+      tagName: /^(INPUT|TEXTAREA|BUTTON|SELECT|A)$/,
+      className: /(^|\s)(question-content|markdown-content)(\s|$)/,
+    },
   },
   true, // 自动监听数据变化
   [
@@ -121,7 +133,7 @@ const hasSelectedQuestion = computed(() => {
   return currentQuestion.value !== null
 })
 
-// 方法
+// 查找相似题目
 const findSimilarQuestions = async () => {
   if (!hasSelectedQuestion.value) {
     showMessage('请先选择一道题目', 'warning')
@@ -135,6 +147,10 @@ const findSimilarQuestions = async () => {
     if (similarQuestions.value.length === 0) {
       showMessage('未找到相似题目', 'info')
     }
+    
+  // 等待 DOM 根据 latest similarQuestions 渲染完
+  await nextTick()
+  bindImageLoadListeners()
   } catch (error) {
     showMessage('查找相似题目失败', 'error')
   } finally {
@@ -142,26 +158,22 @@ const findSimilarQuestions = async () => {
   }
 }
 
+// 添加题目到题目列表
 const addToMyList = async (question: any) => {
   if (!question) return
-
   try {
-    addingIds.value.add(question.id)
-
-    // 添加到题目列表（调用API接口）
-    questionStore.addSimilarQuestionToList(question)
+    const subject = currentQuestion.value?.subject || ''
+    await questionStore.addSimilarQuestionToList(question, subject)
 
     // 通知父组件刷新题目列表
     emit('questionAdded')
+    showMessage('添加成功', 'success')
   } catch (error) {
     // 根据错误类型显示不同的提示信息
     const errorMessage = error instanceof Error && error.message.includes('已存在') 
       ? '该题目已存在于题目列表中，无法重复添加'
       : '添加题目失败，请重试'
-    
     showMessage(errorMessage, 'warning')
-  } finally {
-    addingIds.value.delete(question.id)
   }
 }
 
@@ -178,13 +190,75 @@ const renderMarkdown = (content: string) => {
   return renderMessageContent(content)
 }
 
-// BScroll 初始化由组合式函数处理
+// 同步为图片绑定 onload，加载完成后刷新 BetterScroll
+const bindImageLoadListeners = () => {
+  if (!scrollWrapper.value) return
+  const imgs = scrollWrapper.value.querySelectorAll('img')
+  imgs.forEach((img) => {
+    img.removeEventListener('load', refresh)
+    img.addEventListener('load', refresh)
+  })
+}
+
+// 同步为图片绑定 onload，加载完成后刷新 BetterScroll
+const bindImagesInMarkdown = (el: unknown) => {
+  const element = (el as { $el?: HTMLElement })?.$el || (el as HTMLElement | null)
+  if (!element) return
+  const imgs = element.querySelectorAll('img')
+  imgs.forEach((img) => {
+    img.removeEventListener('load', refresh)
+    img.addEventListener('load', refresh)
+  })
+}
+
+// 检查元素是否有滚动条
+const hasScrollbar = (element: HTMLElement): boolean => {
+  if (!element) return false
+  const hasVerticalScrollbar = element.scrollHeight > element.clientHeight
+  const hasHorizontalScrollbar = element.scrollWidth > element.clientWidth
+  return hasVerticalScrollbar || hasHorizontalScrollbar
+}
+
+// 查找最近的 question-content 容器
+const findQuestionContentContainer = (target: EventTarget | null): HTMLElement | null => {
+  if (!target || !(target instanceof HTMLElement)) return null
+
+  let element: HTMLElement | null = target
+  while (element && element !== document.body) {
+    if (element.classList.contains('question-content')) {
+      return element
+    }
+    element = element.parentElement
+  }
+  return null
+}
+
+// 处理内部滚动容器事件，有滚动条时阻止事件冒泡，避免 BetterScroll 劫持
+const handleContentTouchStart = (event: TouchEvent) => {
+  const container = findQuestionContentContainer(event.target)
+  if (container && hasScrollbar(container)) {
+    event.stopPropagation()
+  }
+}
+
+const handleContentTouchMove = (event: TouchEvent) => {
+  const container = findQuestionContentContainer(event.target)
+  if (container && hasScrollbar(container)) {
+    event.stopPropagation()
+  }
+}
+
+const handleContentWheel = (event: WheelEvent) => {
+  const container = findQuestionContentContainer(event.target)
+  if (container && hasScrollbar(container)) {
+    event.stopPropagation()
+  }
+}
 
 // 生命周期
 onMounted(async () => {
   // 初始化 better-scroll
   await initBScroll()
-  
   // 如果已经选择了题目，自动查找相似题目
   if (hasSelectedQuestion.value) {
     findSimilarQuestions()
@@ -272,7 +346,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   display: flex;
   flex-direction: column;
   gap: 8px;
-  @include responsive-padding(8px 12px, 12px 16px);
 }
 
 .similar-question-item {
@@ -287,7 +360,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   cursor: pointer;
   transform: translateZ(0);
   backface-visibility: hidden;
-
+  max-width: 630px;
   // 题目组块 - 与 QuestionList 保持一致
   .question-block {
     display: flex;
@@ -308,6 +381,14 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
   &:hover {
     .question-block {
       @include card-shadow(hover);
+    }
+  }
+
+  // 已在题库状态 - 橙色风格（与 FindExerciseQuestionList 对齐）
+  &.question-in-user-list {
+    .question-block {
+      background-color: #fff9f6; // 浅橙色背景
+      border-color: #ff9767; // 橙色边框
     }
   }
 
@@ -333,6 +414,8 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
 .question-content {
   flex: 1;
   min-width: 0;
+  // 固定题目内容区域的最大宽度，超出部分使用横向滚动条（与 QuestionList 类似）
+  max-width: 540px;
   overflow-x: auto;
   overflow-y: hidden;
   

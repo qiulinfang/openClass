@@ -26,7 +26,7 @@
         </q-select>
       </div>
       <!-- 教材选择器 -->
-      <div class="textbook-info">
+      <div class="textbook-info" v-if="textbookOptions.length > 0">
         <q-select
           v-model="selectedTextbook"
           :options="textbookOptions"
@@ -98,7 +98,9 @@
         <template v-else-if="!searchQuery">
           <div v-if="filteredChapters.length === 0" class="empty-chapters">
             <q-icon name="menu_book" size="32px" color="grey-4" />
-            <div class="empty-text">暂无章节数据</div>
+            <div class="empty-text">
+              未下载任何教材
+            </div>
           </div>
           <div 
             v-else
@@ -316,6 +318,7 @@ const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true'
 const {
   setCurrentChapter,
   setCurrentTextbook,
+  getCurrentTextbook,
   getChapterRotation,
   setChapterRotation,
   getCurrentChapterExpandedGraph,
@@ -324,7 +327,8 @@ const {
   initializeChapterStates,
   getCurrentChapter,
   savePageState,
-  restorePageState
+  restorePageState,
+  getCurrentSubject
 } = useKnowledgeGraphStore()
 
 // 获取路由实例
@@ -1617,7 +1621,8 @@ const textbookOptions = ref<TextbookOption[]>([])
 const selectedTextbookLabel = computed(() => {
   const option = textbookOptions.value.find(opt => opt.value === selectedTextbook.value)
   if (!option) {
-    return '请选择教材'
+    // 尚未下载教材
+    return ''
   }
   
   // 格式：出版社/年级/学期/教材名称（去除学科字段，用/拼接）
@@ -1927,15 +1932,23 @@ const getCacheStatus = () => {
   }
 }
 
-// 从IndexedDB获取教材数据并转换为textbookOptions
+// 从IndexedDB获取教材数据并转换为textbookOptions（仅包含已下载完成的教材）
 const loadTextbookDataFromIndexedDB = async (): Promise<TextbookOption[]> => {
   try {
     // 从IndexedDB获取所有教材
     const textbooks = await resourceManager.getUserLocalTextbooks()
     
     if (textbooks && textbooks.length > 0) {
-      // 将UserTextbookInfo转换为TextbookOption格式
-      const options: TextbookOption[] = textbooks.map(textbook => ({
+      // 仅保留本地“已下载完成”的教材，避免在知识图谱中展示未下载教材
+      const downloadedTextbooks = textbooks.filter(textbook => textbook.isDownloaded && textbook.downloadStatus === 2)
+
+      // 如果没有已下载的教材，则不展示任何教材选项
+      if (downloadedTextbooks.length === 0) {
+        return []
+      }
+
+      // 将已下载的 UserTextbookInfo 转换为 TextbookOption 格式
+      const options: TextbookOption[] = downloadedTextbooks.map(textbook => ({
         value: `${textbook.textbookSubjectLabel}-${textbook.textbookGradeLabel}-${textbook.textbookSemesterLabel}-${textbook.id}`,
         label: `${textbook.textbookGradeLabel} ${textbook.textbookSemesterLabel} ${textbook.textbookSubjectLabel} ${textbook.textbookName}`,
         textbookId: textbook.textbookId,
@@ -1995,96 +2008,56 @@ const saveTextbookDataToIndexedDB = async (versions: import('../types').Textbook
   }
 }
 
-// 根据学科筛选教材数据 - 使用IndexedDB
+// 根据学科筛选教材数据 - 仅使用本地已下载教材
 const loadTextbookDataBySubject = async (subjectValue: string) => {
   try {
-    // 先尝试从IndexedDB加载
+    // 只从 IndexedDB 加载本地教材（内部已过滤为已下载完成）
     const localOptions = await loadTextbookDataFromIndexedDB()
-    
-    if (localOptions.length > 0) {
-      // 根据学科筛选教材选项
-      const subjectMap: { [key: string]: string } = {
-        'math': '数学',
-        'chinese': '语文', 
-        'english': '英语',
-        'physics': '物理',
-        'chemistry': '化学',
-        'biology': '生物',
-        'geography': '地理',
-        'history': '历史',
-        'politics': '政治'
-      }
-      
-      const subjectLabel = subjectMap[subjectValue] || '数学'
-      
-      textbookOptions.value = localOptions.filter(option => option.subject === subjectLabel)
-      
-      // 设置默认选中的教材
-      if (textbookOptions.value.length > 0) {
-        selectedTextbook.value = textbookOptions.value[0].value
-        
-        // 加载默认教材的章节结构
-        const defaultOption = textbookOptions.value[0]
-        if (defaultOption.textbookId) {
-          await loadChapterStructure(defaultOption.textbookId)
-        }
-      } else {
-        textbookOptions.value = []
-        selectedTextbook.value = ''
-        // 清空章节数据
-        chapterStructure.value = []
-        chapters.value = []
-        selectedChapterDetails.value = null
-      }
+
+    // 本地没有任何已下载教材：不展示教材，不加载章节
+    if (localOptions.length === 0) {
+      textbookOptions.value = []
+      selectedTextbook.value = ''
+      chapterStructure.value = []
+      chapters.value = []
+      selectedChapterDetails.value = null
       return
     }
 
-    // IndexedDB中没有数据，从API获取
-    const versions = await apiService.getTextbookVersions()
-    
-    if (versions && versions.length > 0) {
-      const allOptions = apiService.convertToTextbookOptions(versions)
-      
-      // 将API数据保存到IndexedDB
-      await saveTextbookDataToIndexedDB(versions)
-      
-      // 根据学科筛选教材选项
-      const subjectMap: { [key: string]: string } = {
-        'math': '数学',
-        'chinese': '语文', 
-        'english': '英语',
-        'physics': '物理',
-        'chemistry': '化学',
-        'biology': '生物',
-        'geography': '地理',
-        'history': '历史',
-        'politics': '政治'
-      }
-      
-      const subjectLabel = subjectMap[subjectValue] || '数学'
-      
-      textbookOptions.value = allOptions.filter(option => option.subject === subjectLabel)
-      
-      // 设置默认选中的教材
-      if (textbookOptions.value.length > 0) {
-        selectedTextbook.value = textbookOptions.value[0].value
-        
-        // 加载默认教材的章节结构
-        const defaultOption = textbookOptions.value[0]
-        if (defaultOption.textbookId) {
-          await loadChapterStructure(defaultOption.textbookId)
-        }
-      } else {
-        textbookOptions.value = []
-        selectedTextbook.value = ''
-        // 清空章节数据
-        chapterStructure.value = []
-        chapters.value = []
-        selectedChapterDetails.value = null
-      }
+    // 根据学科筛选教材选项
+    const subjectMap: { [key: string]: string } = {
+      'math': '数学',
+      'chinese': '语文', 
+      'english': '英语',
+      'physics': '物理',
+      'chemistry': '化学',
+      'biology': '生物',
+      'geography': '地理',
+      'history': '历史',
+      'politics': '政治'
+    }
+
+    const subjectLabel = subjectMap[subjectValue] || '数学'
+
+    textbookOptions.value = localOptions.filter(option => option.subject === subjectLabel)
+
+    // 如果当前学科下没有任何已下载教材，则清空章节
+    if (textbookOptions.value.length === 0) {
+      selectedTextbook.value = ''
+      chapterStructure.value = []
+      chapters.value = []
+      selectedChapterDetails.value = null
+      return
+    }
+
+    // 设置默认选中的教材为该学科下的第一个已下载教材
+    selectedTextbook.value = textbookOptions.value[0].value
+
+    // 加载默认教材的章节结构
+    const defaultOption = textbookOptions.value[0]
+    if (defaultOption.textbookId) {
+      await loadChapterStructure(defaultOption.textbookId)
     } else {
-      textbookOptions.value = []
-      // 清空章节数据
       chapterStructure.value = []
       chapters.value = []
       selectedChapterDetails.value = null
@@ -2092,7 +2065,6 @@ const loadTextbookDataBySubject = async (subjectValue: string) => {
   } catch (error) {
     console.error('[流程2] 加载教材列表出错:', error)
     textbookOptions.value = []
-    // 清空章节数据
     chapterStructure.value = []
     chapters.value = []
     selectedChapterDetails.value = null
@@ -2278,7 +2250,58 @@ const initGraph = async () => {
       return
     }
     
-    // 第33步：优先尝试恢复保存的页面状态
+    // 第33步：如果路由中携带了用于初始化的参数（initSubject/initTextbookId），则优先使用并跳过状态恢复逻辑
+    const initSubject = route.query.initSubject as string | undefined
+    const initTextbookId = route.query.initTextbookId as string | undefined
+    const hasRouteInitParams = !!(initSubject || initTextbookId)
+
+    if (hasRouteInitParams) {
+      // 学科：路由 initSubject 或默认数学
+      let initialSubject = initSubject || 'math'
+      if (!subjectOptions.value.some(opt => opt.value === initialSubject)) {
+        initialSubject = 'math'
+      }
+      selectedSubject.value = initialSubject
+
+      // 根据学科加载教材数据
+      await loadTextbookDataBySubject(selectedSubject.value)
+
+      // 如果有教材数据，优先根据路由 initTextbookId 选择教材
+      if (textbookOptions.value.length > 0) {
+        let targetTextbook: TextbookOption | undefined
+
+        if (initTextbookId) {
+          targetTextbook = textbookOptions.value.find(
+            opt => opt.textbookId === initTextbookId || opt.value.includes(initTextbookId)
+          )
+        }
+
+        if (!targetTextbook) {
+          targetTextbook = textbookOptions.value[0]
+        }
+
+        selectedTextbook.value = targetTextbook.value
+
+        if (targetTextbook.textbookId && targetTextbook.textbookId !== 'default') {
+          await loadChapterStructure(targetTextbook.textbookId)
+
+          if (chapterStructure.value.length > 0) {
+            setCurrentChapter(0)
+            selectedChapterDetails.value = chapterStructure.value[0]
+
+            await nextTick()
+            autoPositionToNearestGraph()
+          }
+        }
+      }
+
+      initGraphDataWithoutReset()
+      await nextTick()
+      renderGraph()
+      return
+    }
+
+    // 第33.1步：没有路由参数时，优先尝试恢复保存的页面状态
     const stateRestored = await restorePageStateFromStore()
     
     if (stateRestored) {
@@ -2288,24 +2311,28 @@ const initGraph = async () => {
       
       return
     }
+
+    // 第33.2步：从 Store 中确定学科和教材
+    const storeSubject = getCurrentSubject()
+    const storeTextbookId = getCurrentTextbook()
     
-    // 检查路由查询参数中是否有 textbookId
-    const queryTextbookId = route.query.textbookId as string | undefined
-    
-    // 设置默认学科
-    selectedSubject.value = 'math'
+    // 学科优先顺序：Store -> 默认数学
+    let initialSubject = storeSubject || 'math'
+    if (!subjectOptions.value.some(opt => opt.value === initialSubject)) {
+      initialSubject = 'math'
+    }
+    selectedSubject.value = initialSubject
     
     // 根据科目加载教材数据
     await loadTextbookDataBySubject(selectedSubject.value)
     
-    // 如果有教材数据，优先根据查询参数选择教材，否则选择第一个教材
+    // 如果有教材数据，选择目标教材：优先 Store，否则使用第一个教材
     if (textbookOptions.value.length > 0) {
       let targetTextbook: TextbookOption | undefined
       
-      // 如果路由查询参数中有 textbookId，尝试查找对应的教材
-      if (queryTextbookId) {
+      if (storeTextbookId) {
         targetTextbook = textbookOptions.value.find(
-          opt => opt.textbookId === queryTextbookId || opt.value.includes(queryTextbookId)
+          opt => opt.textbookId === storeTextbookId || opt.value.includes(storeTextbookId)
         )
       }
       
@@ -2335,8 +2362,6 @@ const initGraph = async () => {
     // 初始化图谱数据（但不重置已选择的章节）
     initGraphDataWithoutReset()
     
-    // 这里可以集成真实的图谱库，如 vis.js, d3.js, cytoscape.js 等
-    // 目前使用简单的DOM渲染
     await nextTick()
     renderGraph()
     

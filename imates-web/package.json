@@ -23,6 +23,8 @@
     "deploy:find": "node scripts/one-click-deploy.cjs find",
     "deploy:full": "node scripts/one-click-deploy.cjs full",
     "deploy:full:debug": "node scripts/one-click-deploy.cjs full debug",
+    "deploy:web-only": "npm run build:webview && node scripts/deploy-android.cjs deploy all",
+    "deploy:build": "npm run build-full-only && node scripts/deploy-android.cjs deploy full",
     "test:unit": "vitest",
     "test:e2e": "playwright test",
     "test:sourcemap": "node scripts/test-sourcemap.js",

@@ -39,6 +39,9 @@ export class KnowledgeGraphStore {
   
   // 页面状态存储
   private pageState = ref<PageState | null>(null)
+  
+  // 当前入口设置的科目（用于从外部页面跳转时传递学科信息）
+  private currentSubject = ref<string>('')
 
   /**
    * 设置当前教材ID
@@ -69,14 +72,29 @@ export class KnowledgeGraphStore {
   }
 
   /**
-   * 获取当前科目（从页面状态中获取）
-   * @returns 科目字符串，如 'math' 或 'biology'
+   * 获取当前科目
+   * 优先从页面状态中获取，否则使用入口设置的科目，最后默认返回数学
    */
   getCurrentSubject(): string {
     if (this.pageState.value?.selectedSubject) {
       return this.pageState.value.selectedSubject
     }
-    return 'math' // 默认返回数学
+    if (this.currentSubject.value) {
+      return this.currentSubject.value
+    }
+    return 'math'
+  }
+
+  /**
+   * 设置当前科目
+   * 外部页面（如我的资源）在跳转到知识图谱前可以调用此方法
+   * 注意：不修改 pageState，只影响入口初始化使用的 currentSubject
+   */
+  setCurrentSubject(subject: string): void {
+    if (!subject) {
+      return
+    }
+    this.currentSubject.value = subject
   }
 
   /**
@@ -315,6 +333,7 @@ export const useKnowledgeGraphStore = () => {
     // 科目状态方法
     getCurrentSubject: knowledgeGraphStore.getCurrentSubject.bind(knowledgeGraphStore),
     getCurrentSubjectLowercase: knowledgeGraphStore.getCurrentSubjectLowercase.bind(knowledgeGraphStore),
+    setCurrentSubject: knowledgeGraphStore.setCurrentSubject.bind(knowledgeGraphStore),
     
     // 章节状态方法
     getChapterState: knowledgeGraphStore.getChapterState.bind(knowledgeGraphStore),

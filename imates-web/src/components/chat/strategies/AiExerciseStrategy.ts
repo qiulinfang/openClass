@@ -374,7 +374,7 @@ export class AiExerciseStrategy implements ChatStrategy {
     if (!hasSelectedQuestion) {
       return '可以先聊聊，或选择题目后开始讨论'
     }
-    return '向AI题目助手提问...'
+    return '输入你的问题'
   }
   
   // 第18步：获取会话信息（AI策略不需要）

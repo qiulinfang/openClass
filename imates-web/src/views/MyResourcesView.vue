@@ -263,7 +263,7 @@
                             </button>
                           </template>
 
-                          <!-- 已下载但没有更新：不显示任何按钮 -->
+                          <!-- 已下载但没有更新：显示“学习”按钮 -->
                           <template
                             v-else-if="
                               textbook.isDownloaded &&
@@ -271,7 +271,12 @@
                               !textbook.hasUpdatesAvailable
                             "
                           >
-                            <!-- 已下载完成且无更新，不显示按钮 -->
+                            <button
+                              @click="handleLearnTextbook(textbook)"
+                              class="action-btn action-btn-download"
+                            >
+                              学习
+                            </button>
                           </template>
 
                           <!-- 已下载状态：显示更新 -->
@@ -372,6 +377,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { resourceManager } from '../services/resource-storage'
 import { apiService } from '../services/api-service'
 import { httpClient } from '../services/http-client'
@@ -379,6 +385,7 @@ import { showMessage } from '../utils'
 import type { UserTextbookInfo, TextbookVersion } from '../types'
 import ResourceDebugPanel from '../components/debug/ResourceDebugPanel.vue'
 import { useResourceStore } from '../stores/resourceStore'
+import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
 import BScroll from '@better-scroll/core'
 import PullDown from '@better-scroll/pull-down'
 
@@ -396,6 +403,10 @@ import bookIcon from '/images/book.png'
 
 // Store
 const resourceStore = useResourceStore()
+const { setCurrentSubject, setCurrentTextbook } = useKnowledgeGraphStore()
+
+// 路由
+const router = useRouter()
 
 // 响应式数据
 const loading = ref(false)
@@ -639,6 +650,37 @@ const initBScroll = async () => {
       await handlePullDownRefresh()
     })
   }
+}
+
+// 跳转到知识图谱学习当前教材
+const handleLearnTextbook = (textbook: UserTextbookInfo) => {
+  if (!textbook.textbookId) {
+    showMessage('当前教材缺少 textbookId，无法打开知识图谱', 'warning')
+    return
+  }
+
+  const subjectMap: Record<string, string> = {
+    '数学': 'math',
+    '语文': 'chinese',
+    '英语': 'english',
+    '物理': 'physics',
+    '化学': 'chemistry',
+    '生物': 'biology',
+    '地理': 'geography',
+    '历史': 'history',
+    '政治': 'politics'
+  }
+
+  const subjectLabel = textbook.textbookSubjectLabel || '数学'
+  const subject = subjectMap[subjectLabel] || 'math'
+  // 通过路由跳转到知识图谱页面，同时携带用于初始化的 query 参数（使用 initSubject/initTextbookId 区分入口）
+  router.push({
+    name: 'knowledgeGraph',
+    query: {
+      initSubject: subject,
+      initTextbookId: textbook.textbookId
+    }
+  })
 }
 
 // 第4步：处理下拉刷新

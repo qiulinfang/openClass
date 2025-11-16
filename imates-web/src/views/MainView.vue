@@ -15,7 +15,7 @@
       </div>
       
       <div class="nav-items-container">
-        <div class="nav-item" :class="{ active: activeNavItem === 'toolbox' }" @click="handleToolBoxClick">
+        <div class="nav-item" :class="{ active: showToolbox }" @click="handleToolBoxClick">
           <img :src="currentToolBoxIcon" alt="工具箱" class="nav-icon" />
           <span class="nav-text">工具箱</span>
         </div>
@@ -222,8 +222,9 @@ const mainViewStyle = computed(() => {
 })
 
 // 第3步：根据选中状态计算当前应该显示的图标
+// 工具箱图标仅由工具箱展开状态决定，与当前路由高亮无关
 const currentToolBoxIcon = computed(() => {
-  return activeNavItem.value === 'toolbox' ? toolBoxSelectIcon : toolBoxIcon
+  return showToolbox.value ? toolBoxSelectIcon : toolBoxIcon
 })
 
 const currentKnowledgeGraphIcon = computed(() => {
@@ -533,10 +534,10 @@ const handleContentAreaClick = () => {
 
 // 导航处理函数
 const handleToolBoxClick = () => {
-  activeNavItem.value = 'toolbox'
-  emit('nav-item-change', 'toolbox')
-  // 点击功能箱菜单时切换工具箱显示状态
+  // 点击功能箱菜单时仅切换工具箱显示状态
   toggleToolbox()
+  // 仍然向父组件通知当前交互的是工具箱（如有需要）
+  emit('nav-item-change', 'toolbox')
 }
 
 const handleMyResourcesClick = () => {
@@ -761,7 +762,7 @@ const handleLogoutClick = async () => {
   position: fixed;
   left: 7.5%; // 左侧导航菜单的宽度
   top: 0;
-  width: 28%;
+  width: 33%;
   height: 100vh;
   background: #3D3070;
   border-bottom: 1px solid rgba(229, 231, 235, 0.3);

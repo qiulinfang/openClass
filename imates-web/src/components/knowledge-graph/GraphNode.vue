@@ -595,7 +595,7 @@ const learningTagStyle = computed(() => {
 
 /* 圆周节点的 node-wrapper 使用较低的 z-index */
 .node-wrapper--circular {
-  z-index: 2;
+  z-index: 22;
 }
 
 /* 当节点的气泡框打开时，无论中心节点还是圆周节点，都提升到最上层 */
@@ -918,7 +918,8 @@ const learningTagStyle = computed(() => {
   width: 70px;
   height: 20px;
   line-height: 16px;
-  z-index: 10;
+  /* 提升层级，确保不会被中心节点圆形遮挡 */
+  z-index: 20;
   /* 第1步：初始状态为透明，通过动画变为不透明 */
   opacity: 0;
   /* 第2步：添加透明度过渡效果，实现从透明到不透明的淡入动画 */

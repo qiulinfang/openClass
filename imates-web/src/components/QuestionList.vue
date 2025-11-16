@@ -511,7 +511,6 @@ const checkBatchRenderComplete = async (maxRetries = 100) => {
   if (allRendered || maxRetries <= 0) {
     // 所有题目都已渲染完成，或者达到最大重试次数，显示列表
     renderingQuestions.value = false
-    console.log('renderingQuestions.value = false', renderingQuestions.value)
   } else {
     // 等待一段时间后再次检查
     await new Promise((resolve) => setTimeout(resolve, 100))
@@ -545,7 +544,6 @@ const setContentRef = async (el: HTMLElement | null, questionId: string) => {
 
       // 标记为已渲染完成
       renderedQuestionIds.value.add(questionId)
-      console.log('renderingQuestions222')
       // 检查当前批次是否全部渲染完成
       await checkBatchRenderComplete()
     }
@@ -870,14 +868,11 @@ const loadMoreQuestions = async () => {
 
     // 开始批量渲染新加载的题目
     renderingQuestions.value = true
-    console.log('renderingQuestions.value = true', renderingQuestions.value)
-    console.log('renderingQuestions333')
     // 等待新加载的题目全部渲染完成
     await checkBatchRenderComplete()
   } catch (error) {
     console.error('[QuestionList] ❌ 加载更多题目失败:', error)
     renderingQuestions.value = false
-    console.log('renderingQuestions.value = false', renderingQuestions.value)
   }
 }
 
@@ -888,7 +883,6 @@ const loadQuestions = async () => {
   renderedQuestionIds.value.clear()
   renderedQuestions.clear()
   renderingQuestions.value = false
-  console.log('renderingQuestions.value = false', renderingQuestions.value)
   try {
     const questionStore = useQuestionStore()
 
@@ -937,15 +931,12 @@ const loadQuestions = async () => {
 
       // 开始批量渲染
       renderingQuestions.value = true
-      console.log('renderingQuestions.value = true', renderingQuestions.value)
-      console.log('renderingQuestions444')
       // 等待所有题目渲染完成
       await checkBatchRenderComplete()
     }
   } catch (error) {
     showMessage('加载题目失败: ' + ((error as Error)?.message || '未知错误'), 'error')
     renderingQuestions.value = false
-    console.log('renderingQuestions.value = false', renderingQuestions.value)
   } finally {
     loading.value = false
     await nextTick()
@@ -1186,7 +1177,7 @@ const sendToAi = async (question: ExerciseItem) => {
       await aiExerciseStore.clearChatHistory(questionStore.currentQuestion.id)
 
       // 第4步：发送题目内容给AI进行分析（每次都是新的开始）
-      const questionContent = questionStore.currentQuestion.question || '题目内容为空'
+      const questionContent = questionStore.currentQuestion.question || questionStore.currentQuestion.title || '题目内容为空'
       const initialMessage = `我们开始吧，${questionContent}`
 
       await aiExerciseStore.sendMessage(
@@ -1299,7 +1290,6 @@ const cleanupQuestionHeight = (questionId: string) => {
 watch(
   renderingQuestions,
   (newVal) => {
-    console.log('renderingQuestions', newVal)
   },
   { deep: true, immediate: true },
 )
@@ -1312,7 +1302,6 @@ watch(
     renderedQuestionIds.value.clear()
     renderedQuestions.clear()
     renderingQuestions.value = false
-    console.log('renderingQuestions.value = false', renderingQuestions.value)
     // 重置显示数量
     displayedCount.value = INITIAL_DISPLAY_COUNT
 
@@ -1322,8 +1311,6 @@ watch(
     // 开始批量渲染
     if (displayedQuestions.value.length > 0) {
       renderingQuestions.value = true
-      console.log('renderingQuestions.value = true', renderingQuestions.value)
-      console.log('renderingQuestions555')
       await checkBatchRenderComplete()
     }
   },
@@ -1338,7 +1325,6 @@ watch(
     renderedQuestionIds.value.clear()
     renderedQuestions.clear()
     renderingQuestions.value = false
-    console.log('renderingQuestions.value = false', renderingQuestions.value)
     // 重置显示数量
     displayedCount.value = INITIAL_DISPLAY_COUNT
 
@@ -1389,8 +1375,6 @@ watch(
     // 开始批量渲染
     if (displayedQuestions.value.length > 0) {
       renderingQuestions.value = true
-      console.log('renderingQuestions.value = true', renderingQuestions.value)
-      console.log('renderingQuestions111')
       await checkBatchRenderComplete()
     }
   },
