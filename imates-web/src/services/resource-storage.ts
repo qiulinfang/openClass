@@ -103,6 +103,7 @@ export class ResourceManager {
     this.loadUserData()
   }
 
+  // 获取单例实例
   public static getInstance(): ResourceManager {
     // 检查用户是否切换，如果切换则重新创建实例
     const userId = authStorageService.getCurrentUserIdOrDefault()
@@ -179,9 +180,6 @@ export class ResourceManager {
       return false
     }
   }
-
-
-
 
   /**
    * 更新教材信息到IndexedDB
@@ -351,20 +349,6 @@ export class ResourceManager {
         throw new Error('更新教材信息失败')
       }
       
-      // 第8步：如果是PDF文件，添加到异步缩略图生成队列
-      // 注释掉缩略图生成逻辑以提升性能
-      /*
-      if (isPdfFile(fileInfo.fileName)) {
-        
-        thumbnailQueue.addTask({
-          fileId: fileInfo.id,
-          textbookId: fileInfo.textbookId,
-          fileName: fileInfo.fileName,
-          fileData: fileData
-        })
-      }
-      */
-      
     } catch (error) {
       throw error
     }
@@ -389,6 +373,35 @@ export class ResourceManager {
       return null
     } catch {
       return null
+    }
+  }
+
+  /**
+   * 更新已存在文件的二进制数据 - 分离存储版本
+   * 仅更新 textbook_files 表中的 fileData，不改动教材元数据和缩略图
+   * @param fileId 文件ID（即资源ID）
+   * @param fileData 新的文件二进制数据
+   */
+  public async updateFileData(fileId: string, fileData: Uint8Array): Promise<void> {
+    try {
+      const fileRecord = (await this.indexedDBInstance.get(
+        'textbook_files',
+        fileId,
+      )) as { fileId: string; textbookId: string; fileData: Uint8Array } | null
+
+      if (fileRecord) {
+        fileRecord.fileData = fileData
+        await this.indexedDBInstance.update('textbook_files', fileRecord)
+      } else {
+        // 如果记录不存在，降级为插入一条新的记录，仅包含 fileData
+        await this.indexedDBInstance.update('textbook_files', {
+          fileId,
+          textbookId: '',
+          fileData,
+        })
+      }
+    } catch {
+      // 更新文件失败时静默处理，由调用方决定是否额外提示
     }
   }
 
@@ -466,7 +479,6 @@ export class ResourceManager {
       // 清理过期数据失败
     }
   }
-  
 
 
   /**
@@ -800,6 +812,10 @@ class ResourceManagerProxy {
   
   async hasFileData(id: string, fileId: string): Promise<boolean> {
     return this.instance.hasFileData(id, fileId)
+  }
+
+  async updateFileData(fileId: string, fileData: Uint8Array): Promise<void> {
+    return this.instance.updateFileData(fileId, fileData)
   }
   
   async updateThumbnail(textbookId: string, fileId: string, thumbnail: string): Promise<void> {

@@ -88,7 +88,7 @@ class ThumbnailQueue {
       let thumbnail: string
       
       if (isPdfFile(fileName)) {
-        // PDF文件：使用PDF.js生成缩略图
+        // PDF文件：使用 MuPDF 生成缩略图
         thumbnail = await generatePdfThumbnail(fileData)
       } else if (isImageFile(fileName)) {
         // 图片文件：使用canvas生成缩略图

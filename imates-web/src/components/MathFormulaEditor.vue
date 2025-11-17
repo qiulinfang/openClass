@@ -220,12 +220,22 @@ const initializeEditor = async () => {
     setTimeout(() => {
       cleanInitialHTMLStructure()
     }, 50)
+    
+    // 初始化时更新段落类名
+    setTimeout(() => {
+      updateParagraphClasses()
+    }, 100)
 
     // 监听内容变化
     quill?.on("text-change", (delta: any, oldDelta: any, source: any) => {
       // 只在用户操作时清理HTML结构，避免API操作时的过度清理
       if (source === 'user') {
         cleanInitialHTMLStructure()
+      } else {
+        // 非用户操作时也更新类名
+        setTimeout(() => {
+          updateParagraphClasses()
+        }, 10)
       }
       
       const content = getMarkdownContent()
@@ -328,8 +338,8 @@ const insertMathField = (latex = "") => {
     if (editorElement) {
       const quillEditor = editorElement.querySelector('.ql-editor')
       if (quillEditor) {
-        // 移除空的p标签和只包含br的p标签
-        const emptyParagraphs = quillEditor.querySelectorAll('p:empty, p:has(br:only-child)')
+        // 移除空的p标签和只包含br的p标签（兼容 Chrome 99）
+        const emptyParagraphs = Array.from(quillEditor.querySelectorAll('p:empty')).concat(findParagraphsWithBr(quillEditor))
         emptyParagraphs.forEach(p => p.remove())
         
         // 移除所有br标签
@@ -342,6 +352,9 @@ const insertMathField = (latex = "") => {
             br.remove()
           }
         })
+        
+        // 更新段落类名
+        updateParagraphClasses()
       }
     }
   }, 50)
@@ -446,7 +459,13 @@ const setContent = (content: any) => {
   // 清空现有内容
   quill.setContents([])
   
-  if (!content) return
+  if (!content) {
+    // 内容为空时也更新类名
+    setTimeout(() => {
+      updateParagraphClasses()
+    }, 10)
+    return
+  }
   
   // 简单的 Markdown 解析
   const lines = content.split('\n')
@@ -485,12 +504,85 @@ const setContent = (content: any) => {
   })
   
   quill.setContents(ops as any)
+  
+  // 设置内容后更新段落类名
+  setTimeout(() => {
+    updateParagraphClasses()
+  }, 50)
 }
 
 // 清空内容
 const clearContent = () => {
   if (quill) {
     quill.setContents([])
+  }
+}
+
+// 兼容 Chrome 99 的辅助函数：查找包含特定元素的段落
+const findParagraphsWithBr = (container: Element) => {
+  const paragraphs = container.querySelectorAll('p')
+  const result: Element[] = []
+  paragraphs.forEach(p => {
+    const children = Array.from(p.childNodes)
+    // 检查是否只包含 br
+    if (children.length === 1 && children[0].nodeType === Node.ELEMENT_NODE && (children[0] as Element).tagName === 'BR') {
+      result.push(p)
+    }
+    // 或者检查是否包含 br 元素
+    if (p.querySelector('br')) {
+      result.push(p)
+    }
+  })
+  return result
+}
+
+// 动态更新段落类名（替代 CSS :has() 选择器）
+const updateParagraphClasses = () => {
+  if (!quill) return
+  
+  const editorElement = document.getElementById(editorId.value)
+  if (!editorElement) return
+  
+  const quillEditor = editorElement.querySelector('.ql-editor')
+  if (!quillEditor) return
+  
+  const paragraphs = quillEditor.querySelectorAll('p')
+  
+  paragraphs.forEach(p => {
+    // 移除所有动态添加的类名
+    p.classList.remove('has-math-embed', 'has-only-br', 'has-br', 'is-empty')
+    
+    // 检查是否包含公式
+    if (p.querySelector('.ql-math-embed')) {
+      p.classList.add('has-math-embed')
+    }
+    
+    // 检查是否为空
+    if (p.textContent?.trim() === '' && p.children.length === 0) {
+      p.classList.add('is-empty')
+    }
+    
+    // 检查是否只包含 br
+    const children = Array.from(p.childNodes)
+    if (children.length === 1 && children[0].nodeType === Node.ELEMENT_NODE && (children[0] as Element).tagName === 'BR') {
+      p.classList.add('has-only-br')
+    }
+    
+    // 检查是否包含 br
+    if (p.querySelector('br')) {
+      p.classList.add('has-br')
+    }
+  })
+  
+  // 检查编辑器是否包含空段落
+  const hasEmptyParagraphs = Array.from(paragraphs).some(p => {
+    return p.textContent?.trim() === '' && p.children.length === 0
+  })
+  
+  if (hasEmptyParagraphs) {
+    quillEditor.classList.add('has-empty-paragraphs')
+  } else {
+    quillEditor.classList.remove('has-empty-paragraphs')
   }
 }
 
@@ -526,9 +618,12 @@ const cleanInitialHTMLStructure = () => {
     return
   }
   
-  // 移除空的p标签和只包含br的p标签
-  const emptyParagraphs = quillEditor.querySelectorAll('p:empty, p:has(br:only-child)')
+  // 移除空的p标签和只包含br的p标签（兼容 Chrome 99）
+  const emptyParagraphs = Array.from(quillEditor.querySelectorAll('p:empty')).concat(findParagraphsWithBr(quillEditor))
   emptyParagraphs.forEach(p => p.remove())
+  
+  // 更新段落类名
+  updateParagraphClasses()
   
   // 移除所有br标签
   const brTags = quillEditor.querySelectorAll('br')
@@ -557,6 +652,9 @@ const cleanInitialHTMLStructure = () => {
     quillEditor.innerHTML = ''
     quill.setContents([])
   }
+  
+  // 更新段落类名
+  updateParagraphClasses()
 }
 
 // 清理编辑器内容，移除多余的空段落和文本
@@ -862,8 +960,8 @@ defineExpose({
   padding: 0;
 }
 
-/* 确保包含公式的段落也是行内显示 */
-.ql-editor p:has(.ql-math-embed) {
+/* 确保包含公式的段落也是行内显示（兼容 Chrome 99） */
+.ql-editor p.has-math-embed {
   display: inline;
   margin: 0;
   padding: 0;
@@ -874,16 +972,18 @@ defineExpose({
   display: none !important;
 }
 
-.ql-editor p:empty {
+.ql-editor p:empty,
+.ql-editor p.is-empty {
   display: none !important;
 }
 
-.ql-editor p:has(br:only-child) {
+/* 兼容 Chrome 99：使用类选择器替代 :has() */
+.ql-editor p.has-only-br {
   display: none !important;
 }
 
-/* 隐藏只包含空格的段落 */
-.ql-editor p:has(br) {
+/* 隐藏只包含空格的段落（兼容 Chrome 99） */
+.ql-editor p.has-br {
   display: none !important;
 }
 
@@ -892,7 +992,8 @@ defineExpose({
   display: none;
 }
 
-.ql-editor:has(p:empty) {
+/* 兼容 Chrome 99：使用类选择器替代 :has() */
+.ql-editor.has-empty-paragraphs {
   display: none;
 }
 

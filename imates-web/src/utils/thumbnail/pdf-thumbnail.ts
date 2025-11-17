@@ -1,13 +1,9 @@
 /**
  * PDF缩略图生成工具
- * 使用PDF.js提取PDF第一页并转换为缩略图
+ * 使用 MuPDF.js 提取PDF第一页并转换为缩略图
  */
 
-import * as pdfjsLib from 'pdfjs-dist'
-
-// 动态导入PDF.js worker
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
+import * as mupdf from 'mupdf'
 
 /**
  * 从PDF文件数据生成第一页缩略图
@@ -25,16 +21,20 @@ export async function generatePdfThumbnail(
     // 第1步：将Uint8Array转换为ArrayBuffer
     const arrayBuffer = fileData.buffer.slice(fileData.byteOffset, fileData.byteOffset + fileData.byteLength)
     
-    // 第2步：加载PDF文档
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer as ArrayBuffer }).promise
+    // 第2步：使用 MuPDF 加载PDF文档
+    const uint8Array = new Uint8Array(arrayBuffer as ArrayBuffer)
+    const doc = mupdf.Document.openDocument(uint8Array, 'application/pdf')
     
-    // 第3步：获取第一页
-    const page = await pdf.getPage(1)
+    // 第3步：获取第一页（MuPDF 使用 0-based index）
+    const page = doc.loadPage(0)
+    const bounds = page.getBounds()
+    const pageWidth = bounds[2] - bounds[0]
+    const pageHeight = bounds[3] - bounds[1]
     
     // 第4步：计算缩略图尺寸
-    const viewport = page.getViewport({ scale: 1.0 })
-    const scale = Math.min(maxWidth / viewport.width, maxHeight / viewport.height)
-    const scaledViewport = page.getViewport({ scale })
+    const scale = Math.min(maxWidth / pageWidth, maxHeight / pageHeight)
+    const scaledWidth = pageWidth * scale
+    const scaledHeight = pageHeight * scale
     
     // 第5步：创建canvas元素
     const canvas = document.createElement('canvas')
@@ -45,23 +45,55 @@ export async function generatePdfThumbnail(
     }
     
     // 第6步：设置canvas尺寸
-    canvas.width = scaledViewport.width
-    canvas.height = scaledViewport.height
+    canvas.width = scaledWidth
+    canvas.height = scaledHeight
     
-    // 第7步：渲染PDF页面到canvas
-    const renderContext = {
-      canvasContext: context,
-      viewport: scaledViewport,
-      canvas: canvas
+    // 第7步：创建变换矩阵并渲染PDF页面到canvas
+    const matrix: mupdf.Matrix = [
+      scale, // sx
+      0, // shx
+      0, // shy
+      scale, // sy
+      0, // tx
+      0, // ty
+    ]
+    
+    // 使用 RGB 颜色空间渲染页面
+    const pixmap = page.toPixmap(
+      matrix,
+      mupdf.ColorSpace.DeviceRGB,
+      false, // 不需要 alpha 通道
+    )
+    
+    // 将 Pixmap 绘制到 Canvas
+    const pixels = pixmap.getPixels()
+    const width = pixmap.getWidth()
+    const height = pixmap.getHeight()
+    
+    // 将 RGB 数据转换为 RGBA 数据（ImageData 需要 RGBA 格式）
+    const rgbData = new Uint8Array(pixels)
+    const rgbaData = new Uint8ClampedArray(width * height * 4)
+    
+    for (let i = 0; i < width * height; i++) {
+      const rgbIndex = i * 3
+      const rgbaIndex = i * 4
+      rgbaData[rgbaIndex] = rgbData[rgbIndex] // R
+      rgbaData[rgbaIndex + 1] = rgbData[rgbIndex + 1] // G
+      rgbaData[rgbaIndex + 2] = rgbData[rgbIndex + 2] // B
+      rgbaData[rgbaIndex + 3] = 255 // A (完全不透明)
     }
     
-    await page.render(renderContext).promise
+    // 创建 ImageData 并绘制到 Canvas
+    const imageData = new ImageData(rgbaData, width, height)
+    context.putImageData(imageData, 0, 0)
     
     // 第8步：转换为base64数据URL
     const thumbnailDataUrl = canvas.toDataURL('image/jpeg', 0.8)
     
     // 第9步：清理资源
-    page.cleanup()
+    pixmap.destroy()
+    page.destroy()
+    doc.destroy()
     
     return thumbnailDataUrl
     
