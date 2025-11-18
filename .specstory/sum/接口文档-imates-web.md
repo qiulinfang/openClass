@@ -170,7 +170,7 @@
   - `Token: <XUEBAN_TOKEN>`
 - **请求体**（`FindSimilarQuestionByKnowledgeRequest`）：
   - `knowledgeNo: string`  
-    知识点 ID 列表，逗号分隔
+  知识点 ID 列表，逗号分隔
   - `exercisesId: string`  
     用户已收藏的题目 bmNo 列表，逗号分隔
   - `type: string`  

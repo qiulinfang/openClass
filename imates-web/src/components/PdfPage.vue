@@ -40,46 +40,33 @@
             @pointerup.passive="handleHighlightPointerUp($event, index, layout)"
             @pointercancel.passive="handleHighlightPointerUp($event, index, layout)"
           >
-            <!-- 笔记标记 -->
-            <div v-for="note in pageNotesByIndex[index] || []" :key="note.id">
-              <div
-                class="note-marker"
-                :style="getNoteStyle(note, layout)"
-                @click.stop="onNoteMarkerClick(note)"
-              >
-                N
-              </div>
-              <div
-                v-if="activeNoteId === note.id"
-                class="note-tooltip"
-                :style="getNoteTooltipStyle(note, layout)"
-                @click.stop
-              >
-                <q-card flat bordered class="note-tooltip-card">
-                  <q-card-section class="note-tooltip-text">
-                    {{ note.text }}
-                  </q-card-section>
-                  <q-card-actions align="right" class="note-tooltip-actions">
-                    <q-btn
-                      flat
-                      dense
-                      size="sm"
-                      color="primary"
-                      @click.stop="openEditNoteDialog(note)"
-                      label="编辑"
-                    />
-                    <q-btn
-                      flat
-                      dense
-                      size="sm"
-                      color="negative"
-                      @click.stop="deleteNote(note)"
-                      label="删除"
-                    />
-                  </q-card-actions>
-                </q-card>
-              </div>
-            </div>
+            <!-- 内联新增输入（仅针对正在编辑的新笔记，尚未保存） -->
+            <PdfNoteAnchor
+              v-if="editingInlineNote && editingInlineNote.pageIndex === index"
+              mode="create"
+              :x="editingInlineNote.x"
+              :y="editingInlineNote.y"
+              :page-layout="layout"
+              :inline-active="true"
+              :model-value="inlineNoteText"
+              @update:model-value="(val) => (inlineNoteText = val)"
+              @confirm="handleInlineCreateConfirm"
+              @cancel="handleInlineCreateCancel"
+            />
+
+            <!-- 已保存笔记的标记 + 提示卡片：完全交给 PdfNoteAnchor 的 display 模式渲染 -->
+            <PdfNoteAnchor
+              v-for="note in pageNotesByIndex[index] || []"
+              :key="note.id"
+              mode="display"
+              :x="note.x"
+              :y="note.y"
+              :page-layout="layout"
+              :text="note.text"
+              :active="activeNoteId === note.id"
+              @marker-click="onNoteMarkerClick(note)"
+              @delete="deleteNote(note)"
+            />
             <!-- PDF 渲染层：外层负责布局与滚动区域，内层负责缩放 -->
             <canvas :ref="(el) => setPageCanvasRef(el, index)" class="page-canvas"></canvas>
             <!-- 绘制层：用于实时预览手写轨迹（使用页面逻辑尺寸，缩放统一由外层 transform 处理） -->
@@ -119,37 +106,15 @@
         <q-btn size="sm" color="primary" @click="props.file && loadPdf(props.file)"> 重试 </q-btn>
       </div>
 
-      <!-- 笔记编辑 / 新建对话框 -->
-      <q-dialog v-model="isNoteDialogOpen">
-        <q-card class="note-dialog-card">
-          <q-card-section>
-            <div class="text-h6">{{ noteDialogMode === 'add' ? '新增笔记' : '编辑笔记' }}</div>
-          </q-card-section>
-          <q-card-section>
-            <q-input
-              v-model="noteDialogText"
-              type="textarea"
-              autogrow
-              autofocus
-              :counter="500"
-              label="笔记内容"
-            />
-          </q-card-section>
-          <q-card-actions align="right">
-            <q-btn flat label="取消" color="primary" v-close-popup @click="closeNoteDialog" />
-            <q-btn flat label="保存" color="primary" @click="confirmNoteDialog" />
-          </q-card-actions>
-        </q-card>
-      </q-dialog>
     </div>
 
-    <!-- 右侧笔记列表面板 -->
-    <div class="note-panel-wrapper">
+    <!-- 右侧笔记列表面板：显示/隐藏由父组件通过 v-if 控制 -->
+    <div class="note-panel-wrapper" v-if="isNotePanelOpen">
       <PdfNoteListPanel
-        :visible="isNotePanelOpen"
         :notes="notes"
-        @update:visible="(v) => (isNotePanelOpen = v)"
+        :selectedNoteId="activeNoteId"
         @select="scrollToNote"
+        @delete="deleteNote"
       />
     </div>
   </div>
@@ -174,6 +139,7 @@ import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import * as mupdf from 'mupdf'
 import PdfGestureDebugPanel from './PdfGestureDebugPanel.vue'
 import PdfNoteListPanel from './PdfNoteListPanel.vue'
+import PdfNoteAnchor from './PdfNoteAnchor.vue'
 import { IndexedDBService, type IndexedDBConfig } from '@/services/indexeddb-service'
 
 // ==================== 对外接口（emits / props / store） ====================
@@ -281,9 +247,11 @@ const currentMode = ref<PdfInteractionMode>('hand')  // 当前交互模式
 const notes = ref<PageNote[]>([]) // PDF 中的所有笔记
 const activeNoteId = ref<string | null>(null) // 当前激活的笔记 ID
 const isNotePanelOpen = ref(false) // 右侧笔记面板显示状态
-const noteDialogText = ref('') // 笔记内容输入
-const noteDialogMode = ref<'add' | 'edit'>('add') // 笔记弹窗模式
-const isNoteDialogOpen = ref(false) // 笔记弹窗显示状态
+const selectedNoteId = ref<string | null>(null) // 右侧列表中当前选中的笔记 ID
+
+// 内联新增笔记状态
+const editingInlineNote = ref<PageNote | null>(null)
+const inlineNoteText = ref('')
 
 interface HighlightStrokePoint {
   x: number // PDF 页面坐标系中的 x
@@ -296,6 +264,7 @@ interface HighlightStroke {
   mode: StrokeMode
 }
 const currentStroke = ref<HighlightStroke | null>(null) // 当前绘制中的笔迹（高亮或画笔）
+const MIN_PEN_POINT_DIST2 = 0.8 * 0.8 // 可根据实际调，单位是 PDF 坐标系距离
 // 缓存每一页的 PDF bounds，避免在坐标转换时重复 loadPage
 const pageBoundsCache = ref<Map<number, [number, number, number, number]>>(new Map())
 const showDebugPanel = ref(false) // 是否展示调试面板
@@ -385,8 +354,6 @@ const getScreenshotRectStyle = (
 
   const width = x2 - x1
   const height = y2 - y1
-  console.log('[截图] overlay style', { x1, y1, width, height })
-
   return {
     position: 'absolute',
     left: `${x1}px`,
@@ -428,7 +395,6 @@ const saveCurrentPdfToStorage = async () => {
 
     // 仅更新 textbook_files 表中的二进制数据
     await resourceManager.updateFileData(resourceId, data)
-    console.log('PDF 已保存到 IndexedDB', { resourceId, size: data.byteLength })
   } catch (e) {
     console.error('保存 PDF 到 IndexedDB 失败', e)
   }
@@ -559,9 +525,10 @@ const pdfPointToScreenOnPage = (
   }
 }
 
-// 点击笔记标记
+// 点击笔记锚点：设置当前激活/选中笔记，并打开右侧列表（不滚动 PDF 主视图）
 const onNoteMarkerClick = (note: PageNote) => {
   activeNoteId.value = note.id
+  selectedNoteId.value = note.id
   isNotePanelOpen.value = true
 }
 
@@ -575,14 +542,86 @@ const handlePageClick = (
   if (['highlighter', 'pen', 'eraser-draw'].includes(currentMode.value)) return
   if (currentMode.value !== 'note') return
 
+  // 优先处理已展开的 display 模式气泡：有激活的笔记但当前没有内联新增时，先关闭 display
+  if (!editingInlineNote.value && activeNoteId.value) {
+    activeNoteId.value = null
+    return
+  }
+
+  // 如果当前已有一个内联新增气泡
+  if (editingInlineNote.value) {
+    const text = inlineNoteText.value.trim()
+    if (text) {
+      // 有内容：先保存并关闭
+      handleInlineCreateConfirm(text)
+      return
+    } else {
+      // 无内容：直接取消
+      handleInlineCreateCancel()
+      return
+    }
+  }
+
   // 复用通用坐标转换：Screen -> Normalized
   const norm = screenPointToNormalized(event.clientX, event.clientY, pageIndex, layout)
   if (!norm) return
 
-  pendingNotePosition.value = { pageIndex, x: norm.x, y: norm.y }
-  noteDialogMode.value = 'add'
-  noteDialogText.value = ''
-  isNoteDialogOpen.value = true
+  // 生成一个临时笔记用于内联输入，不立即加入 notes
+  const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const tempNote: PageNote = {
+    id: tempId,
+    pageIndex,
+    x: norm.x,
+    y: norm.y,
+    text: '',
+  }
+
+  editingInlineNote.value = tempNote
+  inlineNoteText.value = ''
+  activeNoteId.value = tempId
+}
+
+// 内联新增笔记确认：将临时位置转为正式笔记（仅负责写入数据与关闭输入）
+const handleInlineCreateConfirm = (textFromChild: string) => {
+  if (!editingInlineNote.value) return
+
+  const text = textFromChild.trim()
+  if (!text) {
+    // 空内容：仅关闭输入
+    editingInlineNote.value = null
+    inlineNoteText.value = ''
+    activeNoteId.value = null
+    return
+  }
+
+  const { pageIndex, x, y } = editingInlineNote.value
+  const now = Date.now()
+  const id = `${now}-${Math.random().toString(36).slice(2)}`
+
+  // 只写入内存/持久化数据，display 展示仍由模板区基于 notes/pageNotesByIndex 统一渲染
+  notes.value.push({
+    id,
+    pageIndex,
+    x,
+    y,
+    text,
+    createdAt: now,
+    // 预留作者信息字段，后续需要时可以写入
+    // authorId: userInfo.id,
+    // authorName: userInfo.name,
+  } as any)
+
+  editingInlineNote.value = null
+  inlineNoteText.value = ''
+  activeNoteId.value = null
+  void saveNotesToDb()
+}
+
+// 内联新增笔记取消：仅关闭输入，不产生笔记
+const handleInlineCreateCancel = () => {
+  editingInlineNote.value = null
+  inlineNoteText.value = ''
+  activeNoteId.value = null
 }
 
 // 开始一条新的笔画（高亮或画笔）
@@ -597,20 +636,28 @@ const handleHighlightPointerDown = async (
   }
   // 截图模式：优先处理为框选起点
   if (isScreenshotMode.value) {
+    // 捏合/双指等多指操作时不进入截图
+    // PointerEvent 的 isPrimary 可以帮忙过滤非主指针
+    if ((event as any).isPrimary === false) {
+      return
+    }
+
+    // 非鼠标左键不进入截图
     if (event.pointerType === 'mouse' && event.button !== 0) return
 
+    // 获取页面元素
     if (!viewerContainer.value) return
     const pageElements = viewerContainer.value.querySelectorAll<HTMLElement>('.page')
     const pageEl = pageElements[pageIndex]
     if (!pageEl) return
+
+    // 获取页面逻辑坐标
     const rect = pageEl.getBoundingClientRect()
     const scale = store.scale || 1
     const xVisual = event.clientX - rect.left
     const yVisual = event.clientY - rect.top
-
     const x = xVisual / scale
     const y = yVisual / scale
-
     screenshotRect.value = {
       pageIndex,
       x1: x,
@@ -628,12 +675,6 @@ const handleHighlightPointerDown = async (
     return
   }
   if (!pdfDoc.value) return
-
-  console.log('[手写高亮] PointerDown 事件', {
-    pageIndex,
-    pointerType: event.pointerType,
-    button: event.button,
-  })
 
   // 仅处理主按键或触摸/笔
   if (event.pointerType === 'mouse' && event.button !== 0) return
@@ -655,12 +696,6 @@ const handleHighlightPointerDown = async (
     points: [point],
     mode,
   }
-
-  console.log('[手写高亮] PointerDown 开始绘制', {
-    pageIndex,
-    pointerType: event.pointerType,
-    startPoint: point,
-  })
 }
 
 let lastHighlightPreviewTime = 0
@@ -704,34 +739,40 @@ const handleHighlightPointerMove = (
   if (!['highlighter', 'pen', 'eraser-draw'].includes(currentMode.value)) return
   if (!currentStroke.value) return
   if (currentStroke.value.pageIndex !== pageIndex) {
-    console.log('[手写高亮] PointerMove 页索引不一致，忽略', {
-      pointerType: event.pointerType,
-      handlerPageIndex: pageIndex,
-      strokePageIndex: currentStroke.value.pageIndex,
-    })
     return
   }
 
   const point = screenPointToPdfPoint(event.clientX, event.clientY, pageIndex, layout)
   if (!point) return
 
-  currentStroke.value.points.push(point)
+  const stroke = currentStroke.value
+  const lastPoint = stroke.points[stroke.points.length - 1]
 
-  console.log('[手写高亮] PointerMove 追加点', {
-    pageIndex,
-    pointerType: event.pointerType,
-    pointsCount: currentStroke.value.points.length,
-  })
-
-  const now = performance.now()
-  if (now - lastHighlightPreviewTime < HIGHLIGHT_PREVIEW_INTERVAL) {
-    return
+  // pen 模式使用“距离阈值”控制采样密度，避免快速书写时点过稀导致折线/缺口
+  if (stroke.mode === 'pen') {
+    const dx = point.x - lastPoint.x
+    const dy = point.y - lastPoint.y
+    const dist2 = dx * dx + dy * dy
+    if (dist2 >= MIN_PEN_POINT_DIST2) {
+      stroke.points.push(point)
+    }
+  } else {
+    // 高亮 / 橡皮擦仍然每次都追加点
+    stroke.points.push(point)
   }
-  lastHighlightPreviewTime = now
 
-  if (currentStroke.value.mode === 'eraser') {
+  // 预览节流：仅对高亮/橡皮擦模式应用，pen 模式不过滤 pointermove，保证轨迹顺滑
+  if (stroke.mode !== 'pen') {
+    const now = performance.now()
+    if (now - lastHighlightPreviewTime < HIGHLIGHT_PREVIEW_INTERVAL) {
+      return
+    }
+    lastHighlightPreviewTime = now
+  }
+
+  if (stroke.mode === 'eraser') {
     // 橡皮擦模式：实时绘制橡皮轨迹 + 命中提示
-    void drawEraserHitPreview(pageIndex, layout, currentStroke.value.points)
+    void drawEraserHitPreview(pageIndex, layout, stroke.points)
   } else {
     // 高亮 / 画笔模式：原有实时预览
     drawStrokePreview(pageIndex, layout)
@@ -772,14 +813,6 @@ const handleHighlightPointerUp = async (
     if (widthCss <= 5 || heightCss <= 5) {
       return
     }
-    console.log('[截图] rect css', {
-      x1Css,
-      y1Css,
-      x2Css,
-      y2Css,
-      widthCss,
-      heightCss,
-    })
     const pageCanvas = pageCanvasRefs.value[pageIndex]
     if (!pageCanvas) return
 
@@ -788,21 +821,6 @@ const handleHighlightPointerUp = async (
     const clientHeight = pageCanvas.clientHeight || heightCss
     const dprX = pageCanvas.width / clientWidth
     const dprY = pageCanvas.height / clientHeight
-    console.log('[截图] canvas size & dpr', {
-      canvasWidth: pageCanvas.width,
-      canvasHeight: pageCanvas.height,
-      clientWidth: pageCanvas.clientWidth,
-      clientHeight: pageCanvas.clientHeight,
-      styleWidth: pageCanvas.style.width,
-      styleHeight: pageCanvas.style.height,
-      dprX,
-      dprY,
-    })
-  console.log('[截图] layout & rect', {
-    layoutHeight: layout.height,
-    layoutWidth: layout.width,
-    rectHeightCss: heightCss,
-  })
     // 2. 引入当前缩放倍数
     const scale = store.scale || 1
 
@@ -811,12 +829,6 @@ const handleHighlightPointerUp = async (
     const sy = y1Css * dprY
     const sWidth = widthCss * dprX
     const sHeight = heightCss * dprY
-    console.log('[截图] crop pixels', {
-      sx,
-      sy,
-      sWidth,
-      sHeight,
-    })
     const offscreen = document.createElement('canvas')
     offscreen.width = sWidth
     offscreen.height = sHeight
@@ -838,10 +850,6 @@ const handleHighlightPointerUp = async (
     )
     return
   }
-  console.log('[手写高亮] PointerUp 事件', {
-    pageIndex,
-    pointerType: event.pointerType,
-  })
   // 非高亮/画笔/橡皮模式下，直接清空
   if (!['highlighter', 'pen', 'eraser-draw'].includes(currentMode.value)) {
     currentStroke.value = null
@@ -870,11 +878,6 @@ const handleHighlightPointerUp = async (
   clearDrawingCanvas(pageIndex)
 
   if (!stroke || stroke.points.length < 2) {
-    console.log('[手写高亮] PointerUp 笔画点数不足，忽略', {
-      pageIndex,
-      pointerType: event.pointerType,
-      pointsCount: stroke?.points.length ?? 0,
-    })
     return
   }
 
@@ -896,7 +899,6 @@ const handleHighlightPointerUp = async (
     // 使用 MuPDF 操作历史，将“一笔”作为一个可撤销操作
     pdf.beginOperation?.('stroke')
     pdf.beginImplicitOperation?.()
-    let strokeWidth = 1 // 提前声明一个变量，用于后面 StrokeNote
     try {
       // 加载当前页
       const page = pdf.loadPage(pageIndex) as mupdf.PDFPage
@@ -906,15 +908,33 @@ const handleHighlightPointerUp = async (
       const inkList = [stroke.points.map((p: HighlightStrokePoint) => [p.x, p.y] as mupdf.Point)]
       ;(annot as any).setInkList?.(inkList)
 
-      // 颜色根据模式区分，但粗细逻辑保持一致
-      const color: [number, number, number] = stroke.mode === 'highlight' ? [1, 1, 0] : [1, 0, 0]
-      ;(annot as any).setColor?.(color)
-      ;(annot as any).setOpacity?.(0.6)
+      // 颜色和线宽从 pdfViewerStore.drawingConfig 读取，来源于 UnifiedToolbar
+      let color: [number, number, number]
+      let width: number
 
-      // 根据页面高度设置相对线宽（高亮与画笔共用这一套）
-      const bounds = page.getBounds()
-      const pageHeight = bounds[3] - bounds[1]
-      const width = Math.max(pageHeight * 0.003, 1)
+      if (stroke.mode === 'highlight') {
+        // 荧光笔：使用 highlighterColor / highlighterWidth
+        const hex = store.drawingConfig.highlighterColor || '#FFFF00'
+        const size = store.drawingConfig.highlighterWidth || 5
+        const r = parseInt(hex.slice(1, 3), 16) / 255
+        const g = parseInt(hex.slice(3, 5), 16) / 255
+        const b = parseInt(hex.slice(5, 7), 16) / 255
+        color = [r, g, b]
+        width = size
+        ;(annot as any).setOpacity?.(0.5)
+      } else {
+        // 画笔：使用 penColor / penWidth
+        const hex = store.drawingConfig.penColor || '#ff0000'
+        const size = store.drawingConfig.penWidth || 1
+        const r = parseInt(hex.slice(1, 3), 16) / 255
+        const g = parseInt(hex.slice(3, 5), 16) / 255
+        const b = parseInt(hex.slice(5, 7), 16) / 255
+        color = [r, g, b]
+        width = size
+        ;(annot as any).setOpacity?.(1.0)
+      }
+
+      ;(annot as any).setColor?.(color)
       ;(annot as any).setBorderWidth?.(width)
 
       // 更新页面
@@ -923,14 +943,6 @@ const handleHighlightPointerUp = async (
       // 结束操作
       pdf.endOperation?.()
     }
-
-    console.log('[手写高亮] PointerUp 已创建 Ink 注释，开始重渲当前页', {
-      pageIndex,
-      pointerType: event.pointerType,
-      pointsCount: stroke.points.length,
-      mode: stroke.mode,
-    })
-
     // 仅重渲当前页，避免整份 PDF 频繁重渲导致卡顿
     await renderPage(pageIndex)
     // 笔迹创建完成后自动持久化到 IndexedDB
@@ -1040,15 +1052,8 @@ const eraseInkByEraserPath = async (pageIndex: number, eraserPoints: HighlightSt
 const drawStrokePreview = (pageIndex: number, layout: { width: number; height: number }) => {
   const stroke = currentStroke.value
   if (!stroke) {
-    console.log('[手写高亮] drawStrokePreview 无当前笔画，跳过预览')
     return
   }
-
-  console.log('[手写高亮] drawStrokePreview 绘制预览', {
-    renderPageIndex: pageIndex,
-    strokePageIndex: stroke.pageIndex,
-    pointsCount: stroke.points.length,
-  })
 
   const canvas = drawingCanvasRefs.value[pageIndex]
   if (!canvas) return
@@ -1068,21 +1073,28 @@ const drawStrokePreview = (pageIndex: number, layout: { width: number; height: n
 
   if (screenPoints.length < 2) return
 
-  const scale = store.scale || 1
-  // 预览线宽更贴近 PDF 实际线宽：
-  // - 以一个接近实际效果的基础值为主
-  // - 对缩放倍数只做非常弱的调整，避免高倍缩放下明显“比 PDF 粗很多”
-  const baseWidth = 3
-  const scaledWidth = baseWidth * Math.pow(scale, 0.2)
-  const previewLineWidth = Math.min(scaledWidth, 4)
+  // 预览颜色和线宽从 pdfViewerStore.drawingConfig 读取，和最终写入 PDF 的配置保持一致
+  let previewColor: string
+  let previewWidth: number
 
-  // 预览颜色根据模式区分：高亮使用半透明黄色，画笔使用更醒目的实心红色
-  const previewColor =
-    stroke.mode === 'highlight' ? 'rgba(255, 255, 0, 0.6)' : 'rgba(255, 0, 0, 1.0)'
+  if (stroke.mode === 'highlight') {
+    const hex = store.drawingConfig.highlighterColor || '#FFFF00'
+    const size = store.drawingConfig.highlighterWidth || 5
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    previewColor = `rgba(${r}, ${g}, ${b}, 0.6)` // 半透明高亮
+    previewWidth = size
+  } else {
+    const hex = store.drawingConfig.penColor || '#ff0000'
+    const size = store.drawingConfig.penWidth || 1
+    previewColor = hex
+    previewWidth = size
+  }
 
-  // 设置画笔样式（预览层优先保持可见性和与 PDF 视觉接近）
+  // 设置画笔样式（预览层尽量与 PDF 笔迹粗细接近）
   ctx.strokeStyle = previewColor
-  ctx.lineWidth = Math.max(previewLineWidth, 2.5)
+  ctx.lineWidth = Math.max(previewWidth, 2)
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
   ctx.globalCompositeOperation = 'source-over'
@@ -1140,7 +1152,7 @@ const drawEraserHitPreview = async (
 
     if (eraserScreenPoints.length >= 2) {
       ctx.save()
-      ctx.strokeStyle = 'rgba(0, 128, 255, 0.9)' // 蓝色橡皮轨迹
+      ctx.strokeStyle = 'rgba(999, 999, 999, 0.1)' // 蓝色橡皮轨迹
       ctx.lineWidth = 3
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
@@ -1238,23 +1250,12 @@ const clearDrawingCanvas = (pageIndex: number) => {
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 }
 
-const handleNoteClick = (note: PageNote) => {
-  openEditNoteDialog(note)
-}
-
 const deleteNote = (note: PageNote) => {
   notes.value = notes.value.filter((n) => n.id !== note.id)
   if (activeNoteId.value === note.id) {
     activeNoteId.value = null
   }
   void saveNotesToDb()
-}
-
-const openEditNoteDialog = (note: PageNote) => {
-  noteDialogMode.value = 'edit'
-  noteDialogText.value = note.text
-  editingNoteRef.value = note
-  isNoteDialogOpen.value = true
 }
 
 const closeNoteDialog = () => {
@@ -1334,9 +1335,25 @@ const scrollToNote = (note: PageNote) => {
   offsetY += note.y * layout.height
 
   const scale = store.scale || 1
-  const targetScrollTop = offsetY * scale
+  const rawScrollTop = offsetY * scale
 
-  containerRef.value.scrollTop = targetScrollTop
+  const container = containerRef.value
+  const containerHeight = container.clientHeight || (window.innerHeight - toolbarHeight.value)
+
+  // 期望让笔记大致在屏幕中间
+  let targetScrollTop = rawScrollTop - containerHeight / 2
+
+  // 边界处理，防止滚动超出
+  const maxScrollTop = container.scrollHeight - containerHeight
+  if (targetScrollTop < 0) targetScrollTop = 0
+  if (targetScrollTop > maxScrollTop) targetScrollTop = maxScrollTop
+
+  // 带过渡效果的滚动（300ms 可根据需要调整长短）
+  container.scrollTo({
+    top: targetScrollTop,
+    behavior: 'smooth',
+  })
+  activeNoteId.value = note.id
 }
 
 // IndexedDB 持久化（使用通用 IndexedDBService）
@@ -1507,13 +1524,6 @@ const loadPdf = async (file: File) => {
     // 保存PDF文档对象和总页数
     pdfDoc.value = doc
     totalPages.value = pageCount
-
-    console.log('PDF加载成功:', {
-      fileName: file.name,
-      totalPages: pageCount,
-      fileSize: file.size,
-    })
-
     // 加载成功后，自动渲染
     await render()
 
@@ -1545,7 +1555,6 @@ const render = async () => {
 
     const doc = pdfDoc.value
     const numPages = doc.countPages()
-    console.log('numPages', numPages)
     // 使用固定缩放比例 1.0 进行渲染，实际缩放通过 CSS transform 实现
     const renderScale = 1.0
     const pageGap = store.pageGap
@@ -1561,7 +1570,6 @@ const render = async () => {
 
       const page = doc.loadPage(i)
       const bounds = page.getBounds()
-      console.log('bounds', bounds)
       const width = (bounds[2] - bounds[0]) * renderScale
       const height = (bounds[3] - bounds[1]) * renderScale
 
@@ -1770,14 +1778,12 @@ const getTouchDistance = (touch1: Touch, touch2: Touch) => {
 
 // 触摸开始（双指）
 const handleTouchStart = (event: TouchEvent) => {
-  console.log('currentMode.value', currentMode.value)
   if (isScreenshotMode.value && event.touches.length === 1) {
     event.preventDefault()
     return
   }
   // 高亮、画笔或橡皮擦模式下，优先将触摸事件用于绘制，避免触发浏览器滚动/缩放手势
   if (['highlighter', 'pen', 'eraser-draw'].includes(currentMode.value)) {
-    console.log('高亮、画笔或橡皮擦模式下，优先将触摸事件用于绘制，避免触发浏览器滚动/缩放手势')
     event.preventDefault()
   }
   if (!containerRef.value || !viewerContainer.value) return
@@ -1827,7 +1833,6 @@ const handleTouchMove = (event: TouchEvent) => {
   }
   // 高亮、画笔或橡皮擦模式下阻止默认滚动行为，保证 PointerMove 持续触发用于手写预览
   if (['highlighter', 'pen', 'eraser-draw'].includes(currentMode.value)) {
-    console.log('高亮、画笔或橡皮擦模式下阻止默认滚动行为，保证 PointerMove 持续触发用于手写预览')
     event.preventDefault()
   }
   if (!containerRef.value || !viewerContainer.value) return
@@ -2024,7 +2029,6 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  console.log('PdfPage 组件即将卸载，开始清理资源')
   isUnmounting = true
 
   // 移除 ResizeObserver
@@ -2060,24 +2064,36 @@ onBeforeUnmount(() => {
   isLoading.value = false
   error.value = null
   totalPages.value = 0
-
-  console.log('PdfPage 组件资源清理完成')
 })
 
+// 进入截图模式
 const enterScreenshotMode = () => {
   isScreenshotMode.value = true
   isDraggingScreenshot.value = false
   screenshotRect.value = null
 }
 
+// 退出截图模式
 const exitScreenshotMode = () => {
   isScreenshotMode.value = false
   isDraggingScreenshot.value = false
   screenshotRect.value = null
 }
 
+// 打开笔记面板
+const openNotePanel = () => {
+  isNotePanelOpen.value = true
+}
+
+// 关闭笔记面板
+const closeNotePanel = () => {
+  isNotePanelOpen.value = false
+}
+
+
 // 暴露给父组件的方法，用于从工具栏控制调试面板和交互模式
 defineExpose({
+  // 调试面板：切换显示/隐藏
   toggleDebugPanel: () => {
     exitScreenshotMode()
     showDebugPanel.value = !showDebugPanel.value
@@ -2085,30 +2101,37 @@ defineExpose({
   // 笔记模式：再次点击切回手势
   toggleNoteMode: () => {
     exitScreenshotMode()
+    openNotePanel()
     currentMode.value = 'note'
   },
   // 高亮模式：再次点击切回手势
   toggleHighlightMode: () => {
     exitScreenshotMode()
+    closeNotePanel()
     currentMode.value = 'highlighter'
   },
   // 画笔模式：再次点击切回手势
   togglePenMode: () => {
     exitScreenshotMode()
+    closeNotePanel()
     currentMode.value = 'pen'
   },
   // 橡皮擦模式：再次点击切回手势
   toggleEraserMode: () => {
     exitScreenshotMode()
+    closeNotePanel()
     currentMode.value = 'eraser-draw'
   },
   // 手势模式：强制切回手势
   toggleGestureMode: () => {
     exitScreenshotMode()
+    closeNotePanel()
     currentMode.value = 'hand'
   },
+  // 截图模式：切换到手势模式
   toggleScreenshotMode: () => {
     enterScreenshotMode()
+    closeNotePanel()
     currentMode.value = 'hand' // 防止高亮/画笔拦截 pointer 事件
   },
   undoLastStroke,
@@ -2185,6 +2208,64 @@ defineExpose({
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+.note-marker-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
+.note-marker-initial {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff; /* 根据气泡颜色调整 */
+  pointer-events: none;
+}
+
+.note-tooltip {
+  z-index: 200;
+}
+
+/* 展示用笔记卡片 */
+.note-input-card {
+  border-radius: 0px 12px 12px 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  background-color: #ffffff;
+  padding: 0 5px;
+  min-width: 160px;
+}
+
+.note-input-card .q-field {
+  flex: 1;
+}
+
+/* 展示状态的容器 */
+.note-display-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+}
+
+.note-display-text {
+  flex: 1;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #111827;
+  padding: 6px 4px;
+  white-space: pre-wrap;
+}
+
+.note-display-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .page {

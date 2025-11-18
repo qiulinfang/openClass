@@ -689,7 +689,7 @@ export class ApiService {
    */
   private async sendChatRequest(url: string, requestBody: any) {
     // continue 请求需要更长的超时时间，因为服务器可能需要更多时间生成响应
-    const timeout = requestBody.reason === 'continue' ? 30000 : 10000
+    const timeout = requestBody.reason === 'continue' ? 60000 : 60000
     
     try {
       const response = await httpClient.post<{

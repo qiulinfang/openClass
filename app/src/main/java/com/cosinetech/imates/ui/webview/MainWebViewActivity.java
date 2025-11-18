@@ -140,8 +140,8 @@ public class MainWebViewActivity extends AppCompatActivity
             // 每次检查都发送HTTP请求，判断是否需要更新
             checkUpdateWithHttpRequest(updateUrl);
             
-            // 每 60 秒执行一次检查
-            mCheckUpdateHandler.postDelayed(this, 60000);
+            // 每一小时执行一次检查
+            mCheckUpdateHandler.postDelayed(this, 60 * 60 * 1000);
         }
     };
 
@@ -244,7 +244,7 @@ public class MainWebViewActivity extends AppCompatActivity
      */
     private void initUpdateCheck() {
         // 启动后10秒执行首次更新检查
-        mCheckUpdateHandler.postDelayed(mCheckUpdateRunnable, 10000);
+        mCheckUpdateHandler.postDelayed(mCheckUpdateRunnable, 0);
     }
 
     /**
@@ -973,7 +973,8 @@ public class MainWebViewActivity extends AppCompatActivity
                 detailObj.put("versionName", versionName);
 
                 String detailJson = detailObj.toString();
-                Log.d(TAG, "准备触发 app-version 事件，versionName: " + versionName);
+                Log.d(TAG, "准备触发 app-version 事件，versionName: " + versionName
+                        + ", detailJson: " + detailJson);
 
                 // 构造JavaScript代码触发app-version事件
                 String jsCode = "javascript:(function() {" +

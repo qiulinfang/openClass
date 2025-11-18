@@ -18,6 +18,18 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
   
   // 选中的工具
   const selectedTool = ref<string>('')
+
+  // 绘图配置（与 UnifiedToolbar 工具配置联动）
+  const drawingConfig = ref({
+    // 签字笔
+    penColor: '#ff0000',
+    penWidth: 1.0,
+    // 荧光笔
+    highlighterColor: '#FFFF00',
+    highlighterWidth: 5,
+    // 橡皮擦
+    eraserSize: 10,
+  })
   
   // 当前文件ID
   const currentFileId = ref<string | null>(null)
@@ -57,12 +69,18 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
   const setSelectedTool = (tool: string) => {
     selectedTool.value = tool
   }
+
+  // 更新绘图配置（部分字段更新）
+  const updateDrawingConfig = (config: Partial<typeof drawingConfig.value>) => {
+    drawingConfig.value = { ...drawingConfig.value, ...config }
+  }
   
   return {
     scale,
     pageGap,
     hideNotes,
     selectedTool,
+    drawingConfig,
     currentFileId,
     currentResourceId,
     setScale,
@@ -71,6 +89,7 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
     setHideNotes,
     setCurrentFileInfo,
     setSelectedTool,
+    updateDrawingConfig,
   }
 })
 

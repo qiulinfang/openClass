@@ -457,6 +457,30 @@ const ALL_TOOLS: Record<string, ToolOption> = {
       sizeLabel: '字体大小',
     },
   },
+  // PDF 页面锚点文字笔记工具（复用文本图标和配置）
+  note: {
+    value: 'note',
+    label: '文字笔记',
+    icon: insertTextIcon,
+    config: {
+      showColorPicker: true,
+      colors: [
+        { value: '#FFCC00', label: '黄色' },
+        { value: '#FF9900', label: '橙色' },
+        { value: '#FF6666', label: '红色' },
+        { value: '#66CCFF', label: '蓝色' },
+        { value: '#66CC66', label: '绿色' },
+        { value: '#000000', label: '黑色' },
+      ],
+      showSizePicker: true,
+      sizes: [
+        { value: 12, label: '小', displayHeight: '2px' },
+        { value: 16, label: '中', displayHeight: '3px' },
+        { value: 20, label: '大', displayHeight: '4px' },
+      ],
+      sizeLabel: '字体大小',
+    },
+  },
   rectangle: {
     value: 'rectangle',
     label: '矩形',

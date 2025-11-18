@@ -16,8 +16,10 @@
             variant="browser"
             :selected-tool="store.selectedTool"
             :tool-states="toolStates"
+            :tool-config="toolbarToolConfig"
             :backgroundColor="toolbarBackgroundColor"
             @tool-change="handleToolChange"
+            @config-change="handleConfigChange"
             @back="handleGoBack"
             @search="handleSearch"
             @help="handleHelp"
@@ -158,10 +160,10 @@ const router = useRouter()
 // 绘制功能已移除，不再需要页面组件引用管理
 
 // 统一工具栏工具集合（本地变量）
-// middle 区域：绘图相关工具（荧光笔、高亮、撤销等）
+// middle 区域：绘图相关工具（荧光笔、文字笔记等）
 const pdfToolbarTools = {
   left: ['back'],
-  middle: ['hand','highlighter', 'pen', 'eraser-draw','screenshot'],
+  middle: ['hand', 'highlighter', 'pen', 'eraser-draw', 'note', 'screenshot'],
 }
 
 
@@ -359,6 +361,35 @@ const loadSessionDetail = async (record: AiTextbookSession) => {
   }
 }
 
+// 处理工具配置变化（颜色、粗细等），写入 pdfViewerStore.drawingConfig
+const handleConfigChange = (config: {
+  [key: string]: string | number | boolean | undefined
+}) => {
+  switch (store.selectedTool) {
+    case 'pen':
+      if (config.color) {
+        store.updateDrawingConfig({ penColor: config.color as string })
+      }
+      if (config.size !== undefined) {
+        store.updateDrawingConfig({ penWidth: config.size as number })
+      }
+      break
+    case 'highlighter':
+      if (config.color) {
+        store.updateDrawingConfig({ highlighterColor: config.color as string })
+      }
+      if (config.size !== undefined) {
+        store.updateDrawingConfig({ highlighterWidth: config.size as number })
+      }
+      break
+    case 'eraser-draw':
+      if (config.size !== undefined) {
+        store.updateDrawingConfig({ eraserSize: config.size as number })
+      }
+      break
+  }
+}
+
 // 处理会话删除
 const handleSessionDelete = (record: AiTextbookSession) => {
   const sessionId = getSessionId(record)
@@ -397,7 +428,7 @@ const pdfPageRef = ref<PdfPagePublicInstance | null>(null)
 const currentFile = ref<File | null>(null)
 
 // 当前工具（与 UnifiedToolbar 工具枚举和 PdfPage 交互模式统一）
-type PdfToolId = 'hand' | 'highlighter' | 'pen' | 'eraser-draw' | 'screenshot'
+type PdfToolId = 'hand' | 'highlighter' | 'pen' | 'eraser-draw' | 'note' | 'screenshot'
 const currentTool = ref<PdfToolId>('hand')
 
 // 绘制功能已移除，不再需要保存成功提示
@@ -412,29 +443,38 @@ const handleToolChange = (tool: string) => {
   if (!pdfPageRef.value) return
   console.log(111)
   // 仅处理我们支持的绘图相关工具
-  if (!['hand', 'highlighter', 'pen', 'eraser-draw', 'screenshot'].includes(tool)) {
+  if (!['hand', 'highlighter', 'pen', 'eraser-draw', 'note', 'screenshot'].includes(tool)) {
     return
   }
   console.log(222)
-  const t = tool as PdfToolId
+
+  const clickedTool = tool as PdfToolId
+
+  // 如果点击的工具已经是当前选中工具，则视为“取消选中”，切回 hand 模式
+  if (store.selectedTool === clickedTool && clickedTool !== 'hand') {
+    const t: PdfToolId = 'hand'
+    currentTool.value = t
+    store.selectedTool = t
+    console.log('[工具切换] 再次点击相同工具，切回 hand 模式')
+    pdfPageRef.value.toggleGestureMode?.()
+    return
+  }
+
+  const t = clickedTool
   // 更新当前工具和 store 中的选中工具，保证所有组件使用同一套枚举
   currentTool.value = t
   store.selectedTool = t
-  console.log(333)
   if (t === 'hand') {
-    console.log(444)
     pdfPageRef.value.toggleGestureMode?.()
   } else if (t === 'highlighter') {
-    console.log(555)
     pdfPageRef.value.toggleHighlightMode?.()
   } else if (t === 'pen') {
-    console.log(666)
     pdfPageRef.value.togglePenMode?.()
   } else if (t === 'eraser-draw') {
-    console.log(777)
     pdfPageRef.value.toggleEraserMode?.()
+  } else if (t === 'note') {
+    pdfPageRef.value.toggleNoteMode?.()
   } else if (t === 'screenshot') {
-    console.log(888)
     pdfPageRef.value.toggleScreenshotMode?.()
   }
 }
@@ -446,8 +486,29 @@ const toolStates = computed(() => {
     highlighter: true,
     pen: true,
     'eraser-draw': true,
+    note: true,
     undo: true,
     redo: false,
+  }
+})
+
+// 绑定到 UnifiedToolbar 的工具配置（颜色、粗细等），来源于 pdfViewerStore.drawingConfig
+const toolbarToolConfig = computed(() => {
+  return {
+    color:
+      store.selectedTool === 'pen'
+        ? store.drawingConfig.penColor
+        : store.selectedTool === 'highlighter'
+        ? store.drawingConfig.highlighterColor
+        : undefined,
+    size:
+      store.selectedTool === 'pen'
+        ? store.drawingConfig.penWidth
+        : store.selectedTool === 'highlighter'
+        ? store.drawingConfig.highlighterWidth
+        : store.selectedTool === 'eraser-draw'
+        ? store.drawingConfig.eraserSize
+        : undefined,
   }
 })
 
@@ -726,10 +787,6 @@ const handleScreenshotCancel = () => {
   screenshotDialogVisible.value = false
   screenshotDataUrl.value = ''
 }
-
-
-
-
 
 // 自动打开并选中指定会话（从路由参数）
 const autoSelectSession = async () => {

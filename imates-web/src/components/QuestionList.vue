@@ -71,9 +71,9 @@
                 <!-- 左侧：题目序号 -->
                 <div class="question-number">题目{{ index + 1 }}</div>
 
-                <!-- 右侧：功能区 -->
-                <div class="question-actions">
-                  <!-- 更多按钮 -->
+                <!-- 右侧：功能区（仅当前题目选中时显示更多按钮） -->
+                <div class="question-actions" v-if="isQuestionSelected(question.id)">
+                  <!-- 更多按钮：只在题目被选中时出现 -->
                   <div>
                     <q-btn
                       icon="more_vert"

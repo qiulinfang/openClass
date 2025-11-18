@@ -13,6 +13,7 @@ import type {
   FindExerciseConfig 
 } from '../types'
 import { Subject } from '../types'
+import { showMessage } from '@/utils'
 
 export const useFindExerciseStore = defineStore('findExercise', () => {
   // ==================== 响应式状态定义 ====================
@@ -119,11 +120,6 @@ export const useFindExerciseStore = defineStore('findExercise', () => {
       // 参数验证
       if (!config.value.knowledgeList || config.value.knowledgeList.trim() === '') {
         console.error('知识点列表不能为空')
-        return
-      }
-      
-      if (!uniqueExerciseIds || uniqueExerciseIds.trim() === '') {
-        console.error('习题ID列表不能为空')
         return
       }
       

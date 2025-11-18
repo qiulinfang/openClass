@@ -1,42 +1,61 @@
 <template>
-  <q-slide-transition>
-    <div v-if="visible" class="note-panel-container">
-      <q-card class="note-panel-card">
-        <q-card-section class="row items-center justify-between q-pa-sm">
-          <div class="text-subtitle2">笔记列表</div>
-          <q-btn dense flat round icon="close" @click="close" />
-        </q-card-section>
-        <q-separator />
+  <div class="note-panel-container">
+    <!-- BetterScroll 容器 -->
+    <div ref="scrollWrapper" class="note-panel-scroll-wrapper">
+      <div class="note-panel-scroll-content">
         <q-card-section v-if="notes.length === 0" class="text-grey-5 q-pa-md">
           暂无笔记
         </q-card-section>
-        <q-list v-else dense class="note-panel-list">
-          <q-item v-for="note in notes" :key="note.id" clickable @click="handleSelect(note)">
+        <q-list v-else dense>
+          <q-item
+            v-for="note in notes"
+            :key="note.id"
+            clickable
+            @click="handleSelect(note)"
+            :class="['note-item', { 'note-item--active': note.id === selectedNoteId }]"
+          >
+            <!-- 左侧头像：姓名首字（使用 div 实现） -->
             <q-item-section avatar>
-              <q-avatar color="primary" text-color="white" size="32px">
+              <div class="note-avatar">
                 {{ getAvatarLetter(note) }}
-              </q-avatar>
+              </div>
             </q-item-section>
+            <!-- 右侧内容：第一行姓名-时间，第二行笔记内容 -->
             <q-item-section>
-              <q-item-label class="note-item-title">
-                笔记 · 第 {{ note.pageIndex + 1 }} 页
+              <q-item-label class="note-item-meta">
+                <span class="note-item-author">{{ getAuthorName(note) }}</span>
+                <span class="note-item-separator"> - </span>
+                <span class="note-item-time">{{ formatNoteTime(note) }}</span>
               </q-item-label>
-              <q-item-label class="note-item-subtitle" caption>
+              <q-item-label class="note-item-content">
                 {{ note.text }}
               </q-item-label>
             </q-item-section>
+            <!-- 右侧操作 -->
             <q-item-section side>
-              <q-icon name="more_vert" size="18px" />
+              <q-btn flat round dense icon="more_vert">
+                <q-menu>
+                  <q-list dense>
+                    <q-item
+                      clickable
+                      @click.stop="() => { handleSelect(note); handleDelete(note) }"
+                    >
+                      <q-item-section>删除</q-item-section>
+                    </q-item>
+                  </q-list>
+                </q-menu>
+              </q-btn>
             </q-item-section>
           </q-item>
         </q-list>
-      </q-card>
+      </div>
     </div>
-  </q-slide-transition>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useBetterScroll } from '../composables/useBetterScroll'
 
 interface PageNote {
   id: string
@@ -44,51 +63,107 @@ interface PageNote {
   x: number
   y: number
   text: string
+  createdAt?: string | number
 }
 
 const props = defineProps<{
-  visible: boolean
+  // 笔记数据列表，由父组件提供
   notes: PageNote[]
+  // 当前选中的笔记 ID（可选）
+  selectedNoteId?: string | null
 }>()
 
 const emit = defineEmits<{
-  (e: 'update:visible', value: boolean): void
   (e: 'select', note: PageNote): void
+  (e: 'delete', note: PageNote): void
 }>()
 
-const close = () => {
-  emit('update:visible', false)
+const handleDelete = (note: PageNote) => {
+  emit('delete', note)
 }
 
+// ============== BetterScroll ==============
+const scrollWrapper = ref<HTMLDivElement | null>(null)
+
+const { init: initScroll } = useBetterScroll(
+  scrollWrapper,
+  {
+    scrollY: true,
+    click: true,
+    bounce: {
+      top: true,
+      bottom: true,
+      left: false,
+      right: false,
+    },
+  },
+  true,
+  [
+    () => props.notes.length,
+    () => props.selectedNoteId,
+  ]
+)
+
+// 首次挂载时初始化 BetterScroll
+initScroll()
 const handleSelect = (note: PageNote) => {
   emit('select', note)
 }
 
+const getAuthorName = (note: PageNote) => {
+  try {
+    const raw = localStorage.getItem('userInfo')
+    if (!raw) return ''
+    const parsed = JSON.parse(raw)
+    return parsed?.name || ''
+  } catch {
+    return ''
+  }
+}
+
 const getAvatarLetter = (note: PageNote) => {
-  if (!note.text) return '记'
-  return note.text.trim().charAt(0) || '记'
+  const name = getAuthorName(note)
+  if (name && name.trim()) {
+    return name.trim().charAt(0)
+  }
+  return '记'
+}
+
+const formatNoteTime = (note: PageNote) => {
+  const ts = typeof note.createdAt === 'string' ? Number(note.createdAt) : note.createdAt
+  if (!ts) return ''
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return ''
+  const month = d.getMonth() + 1
+  const day = d.getDate()
+  const hh = d.getHours().toString().padStart(2, '0')
+  const mm = d.getMinutes().toString().padStart(2, '0')
+  return `${month}月${day}日 ${hh}:${mm}`
 }
 </script>
 
 <style scoped>
 .note-panel-container {
-  height: 100%;
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   align-items: stretch;
   margin-left: auto;
+  background-color: #fff;
 }
 
-.note-panel-card {
-  width: 320px;
-  max-width: 90vw;
-  height: 100%;
-  max-height: 100vh;
-  border-radius: 0;
+.note-panel-scroll-wrapper {
+  flex: 1;
+  overflow: hidden;
 }
 
-.note-panel-list {
-  max-height: 60vh;
-  overflow-y: auto;
+.note-panel-scroll-content {
+  min-height: 101%;
+}
+
+.note-panel-list .q-item {
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 
 .note-item-title {
@@ -96,10 +171,51 @@ const getAvatarLetter = (note: PageNote) => {
   font-size: 13px;
 }
 
-.note-item-subtitle {
+.note-item-meta {
   font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 16px;
+  color: #202124;
+}
+
+.note-item-author {
+  font-weight: 500;
+}
+
+.note-item-separator {
+  margin: 0 2px;
+  color: #9aa0a6;
+}
+
+.note-item-time {
+  color: #9aa0a6;
+  font-size: 12px;
+}
+
+.note-item-content {
+  font-size: 13px;
+  line-height: 18px;
+  color: #202124;
+  margin-top: 2px;
+  white-space: pre-wrap;
+}
+
+.note-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #6366f1;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.note-item {
+  padding: 18px;
+}
+
+.note-item--active {
+  background-color: #f3e8ff;
 }
 </style>
