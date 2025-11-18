@@ -15,85 +15,38 @@
             :tools="pdfToolbarTools"
             variant="browser"
             :selected-tool="store.selectedTool"
-            :tool-config="currentToolConfig"
             :tool-states="toolStates"
             :backgroundColor="toolbarBackgroundColor"
             @tool-change="handleToolChange"
-            @config-change="handleConfigChange"
             @back="handleGoBack"
             @search="handleSearch"
-            @hide-notes="handleHideNotes"
-            @undo="handleUndo"
-            @redo="handleRedo"
             @help="handleHelp"
           >
             <template #right-actions>
-              <q-btn flat round dense icon="chat" @click="chatPanelVisible = !chatPanelVisible" />
+              <q-btn
+                flat
+                round
+                dense
+                icon="chat"
+                color="white"
+                @click="chatPanelVisible = !chatPanelVisible"
+              />
             </template>
           </UnifiedToolbar>
+          <!-- PDF 不分页渲染 -->
+          <PdfPage
+            v-if="currentFile"
+            ref="pdfPageRef"
+            :file="currentFile"
+            @screenshot-captured="handleScreenshotCaptured"
+          />
 
-
-          <!-- PDF页面列表 -->
-          <q-virtual-scroll
-            v-if="!isLoading && !error"
-            :items="pageLayouts"
-            virtual-scroll-item-size="800"
-            virtual-scroll-slice-size="5"
-            virtual-scroll-slice-ratio-before="2"
-            virtual-scroll-slice-ratio-after="2"
-            class="virtual-scroll"
-            v-slot="{ item }"
-          >
-            <PdfPage
-              :layout="item"
-              :key="item.pageNum"
-              class="pdf-page-item"
-              @screenshot-captured="handleScreenshotCaptured"
-            />
-          </q-virtual-scroll>
-
-          <!-- 加载状态 -->
-          <div v-if="isLoading" class="loading-overlay">
-            <q-spinner-dots size="50px" color="primary" />
-          </div>
-
-          <!-- 错误状态 -->
-          <div v-if="error" class="error-overlay">
-            <div class="error-state text-center q-pa-xl">
-              <q-icon name="error" size="50px" color="negative" />
-              <div class="q-mt-md">{{ error }}</div>
-              <div class="q-mt-sm text-caption">请检查文件是否损坏或网络连接是否正常</div>
-              <q-btn color="primary" @click="retry" class="q-mt-md">重试</q-btn>
-            </div>
-          </div>
-
-          <!-- 空状态 -->
-          <div v-if="!isLoading && !error && pageLayouts.length === 0" class="empty-state">
-            <div class="empty-content text-center q-pa-xl">
-              <q-icon name="picture_as_pdf" size="80px" color="grey-5" />
-              <div class="q-mt-md text-h6 text-grey-6">暂无PDF文档</div>
-              <div class="q-mt-sm text-caption text-grey-5">请选择或加载PDF文件开始查看</div>
-            </div>
-          </div>
           <!-- 截图输入对话框 -->
           <ScreenshotInputDialog
             v-model="screenshotDialogVisible"
             :screenshot-data-url="screenshotDataUrl"
             @confirm="handleScreenshotConfirm"
             @cancel="handleScreenshotCancel"
-          />
-          <!-- PDF调试面板（仅开发环境） -->
-          <PdfDebugPanel v-if="isDev" v-model="debugPanelVisible" />
-          <!-- 调试面板显示按钮（当面板关闭时显示） -->
-          <q-btn
-            v-if="isDev && !debugPanelVisible"
-            round
-            color="primary"
-            icon="bug_report"
-            size="md"
-            class="debug-panel-toggle-btn"
-            @click="debugPanelVisible = true"
-            title="打开调试面板 (Ctrl+Shift+D)"
           />
         </div>
       </template>
@@ -167,20 +120,12 @@ export default {
 </script>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, computed, ref, watch, provide, nextTick } from 'vue'
+import { onMounted, onBeforeUnmount, computed, ref, nextTick, type ComponentPublicInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import { resourceManager } from '@/services/resource-storage'
-import { PdfCoreService } from '@/services/pdf/core/PdfCoreService'
-import { PdfStateAdapterVue } from '@/services/pdf/adapters/vue/PdfStateAdapterVue'
 import type { UserTextbookInfo, LocalFileInfo, ChatBubble, AiTextbookSession } from '@/types'
-import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
-import PdfPage from '@/components/PdfPage.vue'
-import ChatView from '@/components/ChatView.vue'
-import SessionList from '@/components/SessionList.vue'
-import ScreenshotInputDialog from '@/components/ScreenshotInputDialog.vue'
-import PdfDebugPanel from '@/components/PdfDebugPanel.vue'
 import {
   getScreenshotSessions,
   addScreenshotSession,
@@ -188,62 +133,40 @@ import {
   batchDeleteScreenshotSessions,
   updateScreenshotSession,
 } from '@/utils/storage/screenshotSessions'
+import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
+import PdfPage from '@/components/PdfPage.vue'
+import ChatView from '@/components/ChatView.vue'
+import SessionList from '@/components/SessionList.vue'
+import ScreenshotInputDialog from '@/components/ScreenshotInputDialog.vue'
+
+type PdfPagePublicInstance = ComponentPublicInstance<{
+  toggleDebugPanel: () => void
+  toggleNoteMode: () => void
+  toggleHighlightMode: () => void
+  togglePenMode: () => void
+  toggleEraserMode: () => void
+  undoLastStroke: () => void
+  toggleGestureMode: () => void
+  toggleScreenshotMode: () => void
+}>
 
 // 使用 Store 和路由
 const store = usePdfViewerStore()
 const route = useRoute()
 const router = useRouter()
 
-// PDF页面组件引用管理（用于undo/redo）
-const pageComponents = ref<
-  Map<number, { undo: () => boolean; redo: () => boolean; canUndo: () => boolean; canRedo: () => boolean }>
->(new Map())
-
-// 注册页面组件
-const registerPageComponent = (
-  pageNum: number,
-  component: { undo: () => boolean; redo: () => boolean; canUndo: () => boolean; canRedo: () => boolean },
-) => {
-  pageComponents.value.set(pageNum, component)
-}
-
-// 注销页面组件
-const unregisterPageComponent = (pageNum: number) => {
-  pageComponents.value.delete(pageNum)
-}
-
-// 工具状态更新触发器（用于强制更新 toolStates computed）
-const toolStatesUpdateTrigger = ref(0)
-
-// 触发工具状态更新（供子组件调用）
-const triggerToolStatesUpdate = () => {
-  toolStatesUpdateTrigger.value++
-}
-
-// 提供注册函数和更新触发器给子组件
-provide('registerPageComponent', registerPageComponent)
-provide('unregisterPageComponent', unregisterPageComponent)
-provide('triggerToolStatesUpdate', triggerToolStatesUpdate)
+// 绘制功能已移除，不再需要页面组件引用管理
 
 // 统一工具栏工具集合（本地变量）
+// middle 区域：绘图相关工具（荧光笔、高亮、撤销等）
 const pdfToolbarTools = {
   left: ['back'],
-  middle: [  'pen', 'highlighter', 'eraser', 'screenshot'],
+  middle: ['hand','highlighter', 'pen', 'eraser-draw','screenshot'],
 }
 
-// 开发环境检查（仅开发环境显示调试面板）
-// 优先使用环境变量，如果没有设置则使用 Vite 的默认开发环境变量
-const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true' || import.meta.env.DEV
-
-// 调试面板状态（开发环境下默认显示）
-const debugPanelVisible = ref(isDev)
 
 // 使用 exerciseStore 来发送AI消息
 const aiTextbookStore = useAiTextbookChatStore()
-
-// 初始化服务类和适配器
-const pdfCoreService = new PdfCoreService()
-const stateAdapter = new PdfStateAdapterVue()
 
 // 组件状态（renderProgress 已移除，不再使用）
 
@@ -274,33 +197,30 @@ const getSessionId = (session: AiTextbookSession): string => {
   return session.sessionId || session.id || ''
 }
 
-// 截图输入对话框状态
-const screenshotDialogVisible = ref(false)
-const screenshotDataUrl = ref('')
 
 // 获取当前 resourceId（仅从路由参数获取）
 const getCurrentResourceId = (): string | undefined => {
   return (route.query.resourceId as string) || undefined
 }
 
-// 加载会话列表（按 resourceId 过滤）
+// 加载会话列表（按 resourceId 过滤），对齐 PdfViewerView111 的截图会话逻辑
 const loadSessions = () => {
   const currentResourceId = getCurrentResourceId()
   const allSessions = getScreenshotSessions()
-  
+
   // 如果没有 resourceId，显示所有会话（兼容旧数据）
   if (!currentResourceId) {
     sessions.value = allSessions
     return
   }
-  
+
   // 过滤出匹配当前 resourceId 的会话
   sessions.value = allSessions.filter((record) => {
     // 优先使用 record.resourceId
     if (record.resourceId) {
       return record.resourceId === currentResourceId
     }
-    
+
     // 如果没有 resourceId，尝试从 storageKey 中提取
     if (record.storageKey) {
       const match = record.storageKey.match(/^ai-textbook-(.+?)(?:-|$)/)
@@ -308,7 +228,7 @@ const loadSessions = () => {
         return match[1] === currentResourceId
       }
     }
-    
+
     // 如果都没有，不显示（避免显示其他资源的会话）
     return false
   })
@@ -470,148 +390,67 @@ const handleSessionPin = (record: AiTextbookSession) => {
   }
 }
 
-// 计算属性
-const pageLayouts = computed(() => store.pageLayouts)
-const isLoading = computed(() => store.isLoading)
-const error = computed(() => store.error)
+// PdfPage 实例引用
+const pdfPageRef = ref<PdfPagePublicInstance | null>(null)
 
-// 保存成功提示显示状态（自动隐藏）
-const showSaveSuccess = computed(() => {
-  if (!store.lastSaveTime) return false
-  const timeSinceSave = Date.now() - store.lastSaveTime
-  return timeSinceSave < 2000 // 2秒后自动隐藏
-})
+// 当前文件
+const currentFile = ref<File | null>(null)
 
+// 当前工具（与 UnifiedToolbar 工具枚举和 PdfPage 交互模式统一）
+type PdfToolId = 'hand' | 'highlighter' | 'pen' | 'eraser-draw' | 'screenshot'
+const currentTool = ref<PdfToolId>('hand')
 
+// 绘制功能已移除，不再需要保存成功提示
 
-// 当前工具配置
-const currentToolConfig = computed(() => {
-  const config = store.drawingConfig
+const handleToggleHighlight = () => {
+  pdfPageRef.value?.toggleHighlightMode()
+}
 
-  // 1. 根据当前工具返回对应的配置
-  switch (store.selectedTool) {
-    case 'pen':
-      return {
-        color: config.penColor,
-        size: config.penWidth,
-      }
-    case 'highlighter':
-      return {
-        color: config.highlighterColor,
-        size: config.highlighterWidth,
-      }
-    case 'eraser':
-      return {
-        size: config.eraserSize,
-      }
-    case 'screenshot':
-      return {
-        shape: config.screenshotShape,
-      }
-    case 'select':
-      return {
-        selectMode: config.selectMode || 'rectangle',
-      }
-    default:
-      return {}
+// 处理工具切换：直接使用 UnifiedToolbar 的工具 ID 作为全局枚举
+const handleToolChange = (tool: string) => {
+  console.log('[工具切换] tool', tool)
+  if (!pdfPageRef.value) return
+  console.log(111)
+  // 仅处理我们支持的绘图相关工具
+  if (!['hand', 'highlighter', 'pen', 'eraser-draw', 'screenshot'].includes(tool)) {
+    return
   }
-})
+  console.log(222)
+  const t = tool as PdfToolId
+  // 更新当前工具和 store 中的选中工具，保证所有组件使用同一套枚举
+  currentTool.value = t
+  store.selectedTool = t
+  console.log(333)
+  if (t === 'hand') {
+    console.log(444)
+    pdfPageRef.value.toggleGestureMode?.()
+  } else if (t === 'highlighter') {
+    console.log(555)
+    pdfPageRef.value.toggleHighlightMode?.()
+  } else if (t === 'pen') {
+    console.log(666)
+    pdfPageRef.value.togglePenMode?.()
+  } else if (t === 'eraser-draw') {
+    console.log(777)
+    pdfPageRef.value.toggleEraserMode?.()
+  } else if (t === 'screenshot') {
+    console.log(888)
+    pdfPageRef.value.toggleScreenshotMode?.()
+  }
+}
 
-// 工具状态
+// 工具状态：使用 UnifiedToolbar 的工具 ID
 const toolStates = computed(() => {
-  // 访问 trigger 以确保响应式更新
-  const _ = toolStatesUpdateTrigger.value
-  
-  const lastModifiedPage = store.lastModifiedPage
-  
-  // 如果没有最后修改的页面，尝试使用第一个有历史记录的页面
-    let targetPage = lastModifiedPage
-    if (targetPage === null) {
-      // 获取第一个有历史记录的页面
-      for (const [pageNum, component] of pageComponents.value.entries()) {
-        if (component.canUndo() || component.canRedo()) {
-          targetPage = pageNum
-          break
-        }
-      }
-    
-    // 如果还是没有，使用第一个页面
-    if (targetPage === null && pageComponents.value.size > 0) {
-      targetPage = Array.from(pageComponents.value.keys())[0]
-    }
-  }
-  
-  if (targetPage === null) {
-    return {
-      undo: false,
-      redo: false,
-    }
-  }
-
-  const pageComponent = pageComponents.value.get(targetPage)
-  if (pageComponent) {
-    // 调用函数获取最新的状态值（响应式更新）
-    return {
-      undo: pageComponent.canUndo(),
-      redo: pageComponent.canRedo(),
-    }
-  }
-
   return {
-    undo: false,
+    hand: true,
+    highlighter: true,
+    pen: true,
+    'eraser-draw': true,
+    undo: true,
     redo: false,
   }
 })
 
-// 处理工具切换
-const handleToolChange = (tool: string) => {
-  console.log('[工具切换] 视图层处理工具变化', {
-    tool,
-    previousTool: store.selectedTool,
-    timestamp: new Date().toISOString(),
-  })
-
-  // 1. 更新 store 中的选中工具
-  store.setSelectedTool(tool)
-}
-
-// 处理配置变化
-const handleConfigChange = (config: { [key: string]: string | number | boolean | undefined }) => {
-  // 1. 根据当前工具更新对应的配置
-  switch (store.selectedTool) {
-    case 'pen':
-      if (config.color) {
-        store.updateDrawingConfig({ penColor: config.color as string })
-      }
-      if (config.size !== undefined) {
-        store.updateDrawingConfig({ penWidth: config.size as number })
-      }
-      break
-    case 'highlighter':
-      if (config.color) {
-        store.updateDrawingConfig({ highlighterColor: config.color as string })
-      }
-      if (config.size !== undefined) {
-        store.updateDrawingConfig({ highlighterWidth: config.size as number })
-      }
-      break
-    case 'eraser':
-      if (config.size !== undefined) {
-        store.updateDrawingConfig({ eraserSize: config.size as number })
-      }
-      break
-    case 'screenshot':
-      if (config.shape) {
-        store.updateDrawingConfig({ screenshotShape: config.shape as string })
-      }
-      break
-    case 'select':
-      if (config.selectMode) {
-        store.updateDrawingConfig({ selectMode: config.selectMode as string })
-      }
-      break
-  }
-}
 
 // 处理返回
 const handleGoBack = () => {
@@ -645,12 +484,6 @@ const handleSearch = () => {
   console.log('搜索操作')
 }
 
-// 处理隐藏笔记
-const handleHideNotes = () => {
-  // 切换隐藏笔记状态
-  store.hideNotes = !store.hideNotes
-}
-
 // 处理帮助
 const handleHelp = () => {
   // TODO: 实现帮助功能
@@ -658,62 +491,24 @@ const handleHelp = () => {
   // 可以显示帮助对话框或跳转到帮助页面
 }
 
-// 处理撤销
-const handleUndo = () => {
-  const lastModifiedPage = store.lastModifiedPage
-  if (lastModifiedPage === null) {
-    // 如果没有最后修改的页面，尝试使用第一个有历史记录的页面
-    for (const [pageNum, component] of pageComponents.value.entries()) {
-      if (component.canUndo()) {
-        const success = component.undo()
-        if (success) {
-          console.log(`撤销第 ${pageNum} 页的操作`)
-        }
-        return
-      }
-    }
-    console.log('没有可撤销的操作')
-    return
-  }
+// 顶部工具栏：切换调试面板
+const handleToggleDebug = () => {
+  pdfPageRef.value?.toggleDebugPanel()
+}
 
-  const pageComponent = pageComponents.value.get(lastModifiedPage)
-  if (pageComponent && pageComponent.canUndo()) {
-    const success = pageComponent.undo()
-    if (success) {
-      console.log(`撤销第 ${lastModifiedPage} 页的操作`)
-    }
-  } else {
-    console.log(`第 ${lastModifiedPage} 页无法撤销`)
-  }
+// 顶部工具栏：切换笔记模式
+const handleToggleNoteMode = () => {
+  pdfPageRef.value?.toggleNoteMode()
+}
+
+// 处理撤销：调用 PdfPage 暴露的撤销方法
+const handleUndo = () => {
+  pdfPageRef.value?.undoLastStroke()
 }
 
 // 处理重做
 const handleRedo = () => {
-  const lastModifiedPage = store.lastModifiedPage
-  if (lastModifiedPage === null) {
-    // 如果没有最后修改的页面，尝试使用第一个有历史记录的页面
-    for (const [pageNum, component] of pageComponents.value.entries()) {
-      if (component.canRedo()) {
-        const success = component.redo()
-        if (success) {
-          console.log(`重做第 ${pageNum} 页的操作`)
-        }
-        return
-      }
-    }
-    console.log('没有可重做的操作')
-    return
-  }
-
-  const pageComponent = pageComponents.value.get(lastModifiedPage)
-  if (pageComponent && pageComponent.canRedo()) {
-    const success = pageComponent.redo()
-    if (success) {
-      console.log(`重做第 ${lastModifiedPage} 页的操作`)
-    }
-  } else {
-    console.log(`第 ${lastModifiedPage} 页无法重做`)
-  }
+  // 绘制功能已移除，重做功能也移除
 }
 
 // 从路由参数加载文件
@@ -770,9 +565,6 @@ const loadFileFromRoute = async () => {
     // 4. 将 Uint8Array 转换为 File 对象
     const file = new File([fileData.buffer as ArrayBuffer], fileName, { type: 'application/pdf' })
 
-    // 5. 设置当前文件信息到Store
-    store.setCurrentFileInfo(id, resourceId)
-
     console.log('文件加载成功:', { fileName, size: file.size })
     return file
   } catch (err) {
@@ -781,22 +573,9 @@ const loadFileFromRoute = async () => {
   }
 }
 
-// 重试加载
-const retry = async () => {
-  try {
-    const file = await loadFileFromRoute()
-    await loadPdfWithService(file)
-  } catch (err) {
-    console.error('重试加载失败:', err)
-  }
-}
-
-// 使用服务类加载PDF
+// 加载PDF文件（设置文件，由 PdfPage 组件内部处理加载）
 const loadPdfWithService = async (file: File) => {
   try {
-    stateAdapter.setLoading(true)
-    stateAdapter.setError(null)
-
     // 1. 设置当前文件信息到Store
     const resourceId = route.query.resourceId as string
     const id = route.query.id as string
@@ -806,40 +585,15 @@ const loadPdfWithService = async (file: File) => {
       aiTextbookStore.setResourceId(resourceId)
     }
 
-    // 2. 从localFiles加载笔记数据
-    await store.loadAnnotationsFromLocalFile()
+    // 2. 设置当前文件，PdfPage 组件会自动加载
+    currentFile.value = file
 
-    // 3. 使用PdfCoreService加载PDF
-    const result = await pdfCoreService.loadPdf(file)
-
-    // 4. 计算页面布局
-    const scale = stateAdapter.getState().scale
-    const layouts = await pdfCoreService.calculatePageLayouts(scale, store.pageGap)
-
-    // 5. 更新状态适配器
-    stateAdapter.setPdfLoaded({
-      ...result,
-      pageLayouts: layouts,
-    })
-
-    // 6. 同时更新store（保持兼容性）
-    store.pdfDoc = result.pdfDoc
-    store.originalPdfBytes = result.originalPdfBytes
-    store.pageLayouts = layouts
-    store.totalPages = result.totalPages
-    store.isDocLoaded = true
-
-    console.log('PDF 加载完成:', {
-      totalPages: result.totalPages,
-      layouts: layouts.length,
+    console.log('PDF 文件设置完成:', {
+      fileName: file.name,
+      fileSize: file.size,
     })
   } catch (error) {
-    console.error('PDF 加载失败:', error)
-    stateAdapter.setError(error instanceof Error ? error.message : 'PDF 加载失败')
-    store.error = error instanceof Error ? error.message : 'PDF 加载失败'
-  } finally {
-    stateAdapter.setLoading(false)
-    store.isLoading = false
+    console.error('PDF 文件设置失败:', error)
   }
 }
 
@@ -863,12 +617,13 @@ const handleScrollToBottom = () => {
   // 滚动到底部
 }
 
-// 处理截图捕获事件
-// 流程：接收截图blob → 转换为base64 → 弹出输入对话框 → 用户输入问题后发送给AI
+// 截图输入对话框状态
+const screenshotDialogVisible = ref(false)
+const screenshotDataUrl = ref('')
+
+// 处理截图捕获事件：接收 PdfPage 截图 blob，转换为 base64，并弹出输入对话框
 const handleScreenshotCaptured = async (blob: Blob) => {
   try {
-    // 步骤1：接收截图数据
-    // 步骤2：将blob转换为base64DataUrl
     const base64DataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result as string)
@@ -876,22 +631,21 @@ const handleScreenshotCaptured = async (blob: Blob) => {
       reader.readAsDataURL(blob)
     })
 
-    // 步骤3：弹出输入对话框，等待用户输入问题
     screenshotDataUrl.value = base64DataUrl
     screenshotDialogVisible.value = true
   } catch (error) {
-    // 处理错误
+    console.error('[PdfViewerView] 处理截图数据失败', error)
   }
 }
 
-// 处理截图输入对话框确认
+// 处理截图输入对话框确认：打开对话面板并将图片+问题发送给 AI
 const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
   try {
-    // 步骤1：打开对话面板并切换到AI问答Tab
+    // 打开对话面板并切换到 AI 问答 Tab
     chatPanelVisible.value = true
     activeTab.value = 'ai-chat'
 
-    // 步骤2：创建临时图片以获取宽高
+    // 创建临时图片以获取宽高
     const img = new Image()
     img.src = dataUrl
 
@@ -899,112 +653,83 @@ const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
       img.onload = () => resolve()
     })
 
-    // 步骤3：发送消息给AI（使用用户输入的问题作为coversation）
-    // 流程：文件名使用.jpg后缀（与安卓原生保持一致）
     const fileName = `screenshot-${Date.now()}.jpg`
 
-    // 构建完整的图片数据，包含宽高信息，确保消息列表能正确显示图片
     const imageData = {
       filePath: fileName,
       base64DataUrl: dataUrl,
       width: img.width,
       height: img.height,
-      fileSize: Math.round(dataUrl.length * 0.75), // base64编码后大小约为原始大小的1.33倍，这里估算原始大小
+      fileSize: Math.round(dataUrl.length * 0.75),
     }
 
-    // 步骤3.5：获取并设置 resourceId（必须在发送消息前设置，以便消息能立即保存）
-    const currentResourceId = route.query.resourceId as string || aiTextbookStore.resourceId || ''
-    
-    // 步骤3.6：创建新会话ID（在发送消息前创建，确保会话ID一致）
+    const currentResourceId = (route.query.resourceId as string) || aiTextbookStore.resourceId || ''
     const sessionId = `screenshot_${Date.now()}`
-    
+
     if (currentResourceId) {
-      // 每次截图都强制创建新会话：先清空消息，再设置 resourceId（会重置会话状态）
       aiTextbookStore.clearMessages()
       aiTextbookStore.setResourceId(currentResourceId)
-      // 设置 sessionId，确保 sendMessage 使用这个 sessionId
       aiTextbookStore.currentSessionId = sessionId
       aiTextbookStore.isNewSession = true
     }
 
-    // 调试日志：验证文字和图片是否一起传递
-    console.log('[PDF_VIEWER] 📤 发送截图消息:', {
-      question: question,
-      hasImage: !!imageData?.base64DataUrl,
-      imageSize: imageData ? `${imageData.width}x${imageData.height}` : 'none',
+    console.log('[PdfViewerView] 发送截图消息到 AI', {
+      question,
+      hasImage: !!imageData.base64DataUrl,
+      imageSize: `${imageData.width}x${imageData.height}`,
     })
 
     await aiTextbookStore.sendMessage(
-      question, // ⭐ 使用用户输入的问题作为coversation
-      'mate', // 使用默认AI模型
-      imageData, // ⭐ 传递完整的图片数据（包含宽高），确保消息列表正确显示
-      false, // 不隐藏前缀
+      question,
+      'mate',
+      imageData,
+      false,
     )
 
-    // 步骤4：创建新会话并保存到localStorage（使用包含 sessionId 的 storageKey）
-    const storageKey = currentResourceId ? `ai-textbook-${currentResourceId}-${sessionId}` : undefined
+    // 发送成功后，创建并持久化一条截图会话记录，结构与截图会话模块保持一致
     const now = Date.now()
+    const storageKey = currentResourceId
+      ? `ai-textbook-${currentResourceId}-${sessionId}`
+      : undefined
+
     const newSession: AiTextbookSession = {
-      sessionId: sessionId,
-      sessionName: question, // 使用问题作为会话名称
+      sessionId,
+      sessionName: question,
       createTime: now,
       updateTime: now,
-      msgCount: 0, // 初始消息数为0，将在消息发送后更新
+      msgCount: 0,
       pinned: false,
-      resourceId: currentResourceId, // 保存 resourceId
-      thumbnailImage: dataUrl, // 保存截图图片（base64格式）
-      storageKey: storageKey, // 保存存储键（包含 sessionId）
-      hasImage: true, // 标记为包含图片的会话
-      // 向后兼容字段
+      // 缩略图：直接使用当前截图的 base64 作为预览
+      thumbnailImage: dataUrl,
+      hasImage: true,
+      resourceId: currentResourceId || undefined,
+      storageKey,
+      // 兼容字段
       id: sessionId,
-      question: question,
-      answer: undefined, // 答案将在AI回复后更新
-      timestamp: now,
+      question,
+      answer: '',
     }
+
     addScreenshotSession(newSession)
-    loadSessions() // 刷新会话列表
+    // 新增会话写入完成后，刷新当前会话列表，使 UI 立即显示
+    loadSessions()
   } catch (error) {
-    // 处理错误
+    console.error('[PdfViewerView] 发送截图消息失败', error)
+  } finally {
+    screenshotDialogVisible.value = false
+    screenshotDataUrl.value = ''
   }
 }
 
 // 处理截图输入对话框取消
 const handleScreenshotCancel = () => {
+  screenshotDialogVisible.value = false
   screenshotDataUrl.value = ''
 }
 
-// 监听scale变化，重新计算布局
-watch(
-  () => store.scale,
-  async (newScale, oldScale) => {
-    // 如果PDF未加载或scale未变化，跳过
-    if (!store.isDocLoaded || newScale === oldScale) {
-      return
-    }
-
-    try {
-      console.log('缩放变化，重新计算布局:', { oldScale, newScale })
-      // 重新计算页面布局
-      const layouts = await pdfCoreService.calculatePageLayouts(newScale, store.pageGap)
-      // 更新store中的布局
-      store.pageLayouts = layouts
-      // 更新状态适配器
-      stateAdapter.setPageLayouts(layouts)
-    } catch (error) {
-      console.error('重新计算布局失败:', error)
-    }
-  },
-)
 
 
-// 快捷键处理（仅开发环境）
-const handleKeyDown = (event: KeyboardEvent) => {
-  // Ctrl+Shift+D (Windows/Linux) 或 Cmd+Shift+D (Mac)
-  if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'D') {
-    event.preventDefault()
-    debugPanelVisible.value = !debugPanelVisible.value
-  }
-}
+
 
 // 自动打开并选中指定会话（从路由参数）
 const autoSelectSession = async () => {
@@ -1045,14 +770,6 @@ const autoSelectSession = async () => {
 // 生命周期
 onMounted(async () => {
   try {
-    // 初始化页面可见性监听
-    store.initVisibilityListener()
-
-    // 添加快捷键监听（仅开发环境）
-    if (isDev) {
-      window.addEventListener('keydown', handleKeyDown)
-    }
-
     // 加载会话列表
     loadSessions()
 
@@ -1066,18 +783,8 @@ onMounted(async () => {
   }
 })
 
-// 页面卸载前立即保存笔记
+// 页面卸载前清理
 onBeforeUnmount(async () => {
-  // 移除页面可见性监听
-  store.removeVisibilityListener()
-
-  // 移除快捷键监听（仅开发环境）
-  if (isDev) {
-    window.removeEventListener('keydown', handleKeyDown)
-  }
-
-  // 立即保存笔记
-  await store.flushSave()
 })
 </script>
 
@@ -1085,8 +792,6 @@ onBeforeUnmount(async () => {
 .content-layout {
   flex: 1;
   display: flex;
-  overflow: hidden;
-  height: 100vh;
   width: 100%;
 }
 
@@ -1098,7 +803,7 @@ onBeforeUnmount(async () => {
 .chat-panel-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100vh;
   background-color: #e8e9ff;
 }
 
@@ -1178,16 +883,14 @@ onBeforeUnmount(async () => {
 
 .pdf-viewer-container {
   width: 100%;
-  height: 100%;
   position: relative;
-  overflow: hidden;
   background-color: #0A0020;
   display: flex;
   flex-direction: column;
 }
 
-/* 虚拟滚动容器 - 支持横向和纵向滚动 */
-.virtual-scroll {
+/* PDF页面容器 - 支持横向和纵向滚动 */
+.pdf-pages-container {
   height: 100%;
   width: 100%;
   /* 支持横向滚动 */
@@ -1196,39 +899,29 @@ onBeforeUnmount(async () => {
   /* 确保滚动条样式美观 */
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.3) rgba(0, 0, 0, 0.1);
-}
-
-/* Webkit浏览器的滚动条样式 */
-.virtual-scroll::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.virtual-scroll::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-.virtual-scroll::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-}
-
-.virtual-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.5);
-}
-
-/* 确保虚拟滚动的内容容器也支持横向滚动 */
-.virtual-scroll :deep(.q-virtual-scroll__content) {
   /* 当内容宽度超过容器时，允许横向滚动 */
   min-width: 100%;
   /* 确保内容不会被压缩 */
   width: max-content;
 }
 
-/* 虚拟滚动的内容包装器 */
-.virtual-scroll :deep(.q-virtual-scroll__content-wrapper) {
-  /* 允许内容自然宽度，不被压缩 */
-  min-width: 100%;
+/* Webkit浏览器的滚动条样式 */
+.pdf-pages-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.pdf-pages-container::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.pdf-pages-container::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.pdf-pages-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.5);
 }
 
 .pdf-page-item {
@@ -1278,21 +971,6 @@ onBeforeUnmount(async () => {
   max-width: 300px;
 }
 
-
-/* 调试面板显示按钮 */
-.debug-panel-toggle-btn {
-  position: fixed;
-  top: 80px;
-  right: 20px;
-  z-index: 10000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.debug-panel-toggle-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-}
 
 /* 当聊天面板隐藏时，让before插槽占据整个宽度 */
 .full-width-before :deep(.q-splitter__before) {

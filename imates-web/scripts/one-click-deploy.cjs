@@ -389,8 +389,11 @@ function generateUpdateJson(androidProjectPath) {
 
 /**
  * 构建单个页面
+ * @param {string} pageKey 页面键
+ * @param {string} buildType 构建类型
+ * @param {boolean} shouldBuildApk 是否构建 APK
  */
-async function buildSinglePage(pageKey, buildType = 'debug') {
+async function buildSinglePage(pageKey, buildType = 'debug', shouldBuildApk = false) {
   const startTime = Date.now()
   const page = PAGES[pageKey]
   
@@ -441,33 +444,40 @@ async function buildSinglePage(pageKey, buildType = 'debug') {
     runCommand(`node scripts/deploy-android.cjs deploy ${pageKey}`, 'Android 项目部署')
     logSuccess('Android 项目部署完成')
 
-    // 步骤 4: 更新 build.gradle 版本号
-    logStep(4, '更新 build.gradle 版本号')
-    const updatedVersion = updateBuildGradleVersion(androidProjectPath)
-    if (!updatedVersion) {
-      logError('build.gradle 版本号更新失败，终止构建')
-      process.exit(1)
+    let stepNumber = 4
+
+    // 步骤 4-7: 仅在 shouldBuildApk 为 true 时执行 APK 构建相关步骤
+    if (shouldBuildApk) {
+      // 步骤 4: 更新 build.gradle 版本号
+      logStep(stepNumber++, '更新 build.gradle 版本号')
+      const updatedVersion = updateBuildGradleVersion(androidProjectPath)
+      if (!updatedVersion) {
+        logError('build.gradle 版本号更新失败，终止构建')
+        process.exit(1)
+      }
+
+      // 步骤 5: 同步 Gradle 配置
+      logStep(stepNumber++, '同步 Gradle 配置')
+      logInfo('运行 gradlew help 触发配置重新加载，确保新版本号被 Gradle 识别')
+      const syncCommand = `${gradlewCommand} help`
+      runCommand(syncCommand, 'Gradle 配置同步', { cwd: androidProjectPath })
+      logSuccess('Gradle 配置同步完成')
+
+      // 步骤 6: 构建 Android 生产版本
+      logStep(stepNumber++, '构建 Android 生产版本')
+      const gradleCommand = `${gradlewCommand} assembleProductionRelease`
+      runCommand(gradleCommand, 'Android 生产版本构建', { cwd: androidProjectPath })
+      logSuccess('Android 生产版本构建完成')
+
+      // 步骤 7: 生成版本更新信息
+      logStep(stepNumber++, '生成版本更新信息')
+      generateUpdateJson(androidProjectPath)
+    } else {
+      logInfo('跳过 APK 构建步骤（使用 deploy:build 参数可启用）')
     }
 
-    // 步骤 5: 同步 Gradle 配置
-    logStep(5, '同步 Gradle 配置')
-    logInfo('运行 gradlew help 触发配置重新加载，确保新版本号被 Gradle 识别')
-    const syncCommand = `${gradlewCommand} help`
-    runCommand(syncCommand, 'Gradle 配置同步', { cwd: androidProjectPath })
-    logSuccess('Gradle 配置同步完成')
-
-    // 步骤 6: 构建 Android 生产版本
-    logStep(6, '构建 Android 生产版本')
-    const gradleCommand = `${gradlewCommand} assembleProductionRelease`
-    runCommand(gradleCommand, 'Android 生产版本构建', { cwd: androidProjectPath })
-    logSuccess('Android 生产版本构建完成')
-
-    // 步骤 7: 生成版本更新信息
-    logStep(7, '生成版本更新信息')
-    generateUpdateJson(androidProjectPath)
-
-    // 步骤 8: 显示结果
-    logStep(8, '显示构建结果')
+    // 显示结果
+    logStep(stepNumber++, '显示构建结果')
     
     const endTime = Date.now()
     const duration = ((endTime - startTime) / 1000).toFixed(2)
@@ -493,9 +503,13 @@ async function buildSinglePage(pageKey, buildType = 'debug') {
     // 显示使用说明
     log('\n📖 使用说明:', 'bright')
     log('1. Vue.js应用已部署到Android assets目录', 'reset')
-    log('2. Android 生产版本已构建完成', 'reset')
+    if (shouldBuildApk) {
+      log('2. Android 生产版本已构建完成', 'reset')
+    } else {
+      log('2. 未执行 APK 构建（使用 deploy:build 参数可启用）', 'reset')
+    }
     log('3. 如需重新构建，再次运行此脚本', 'reset')
-    log(`4. 支持参数: node one-click-deploy.cjs ${pageKey} [debug|release]`, 'reset')
+    log(`4. 支持参数: node one-click-deploy.cjs ${pageKey} [debug|release] [deploy:build]`, 'reset')
 
   } catch (error) {
     logError(`${page.name} 页面构建和部署失败: ${error.message}`)
@@ -505,8 +519,9 @@ async function buildSinglePage(pageKey, buildType = 'debug') {
 
 /**
  * 构建所有页面
+ * @param {boolean} shouldBuildApk 是否构建 APK
  */
-async function oneClickDeploy() {
+async function oneClickDeploy(shouldBuildApk = false) {
   const startTime = Date.now()
   
   log('🚀 开始一键构建和部署...', 'bright')
@@ -550,33 +565,40 @@ async function oneClickDeploy() {
     runCommand('node scripts/deploy-android.cjs deploy all', 'Android 项目部署')
     logSuccess('Android 项目部署完成')
 
-    // 步骤 4: 更新 build.gradle 版本号
-    logStep(4, '更新 build.gradle 版本号')
-    const updatedVersion = updateBuildGradleVersion(androidProjectPath)
-    if (!updatedVersion) {
-      logError('build.gradle 版本号更新失败，终止构建')
-      process.exit(1)
+    let stepNumber = 4
+
+    // 步骤 4-7: 仅在 shouldBuildApk 为 true 时执行 APK 构建相关步骤
+    if (shouldBuildApk) {
+      // 步骤 4: 更新 build.gradle 版本号
+      logStep(stepNumber++, '更新 build.gradle 版本号')
+      const updatedVersion = updateBuildGradleVersion(androidProjectPath)
+      if (!updatedVersion) {
+        logError('build.gradle 版本号更新失败，终止构建')
+        process.exit(1)
+      }
+
+      // 步骤 5: 同步 Gradle 配置
+      logStep(stepNumber++, '同步 Gradle 配置')
+      logInfo('运行 gradlew help 触发配置重新加载，确保新版本号被 Gradle 识别')
+      const syncCommand = `${gradlewCommand} help`
+      runCommand(syncCommand, 'Gradle 配置同步', { cwd: androidProjectPath })
+      logSuccess('Gradle 配置同步完成')
+
+      // 步骤 6: 构建 Android 生产版本
+      logStep(stepNumber++, '构建 Android 生产版本')
+      const gradleCommand = `${gradlewCommand} assembleProductionRelease`
+      runCommand(gradleCommand, 'Android 生产版本构建', { cwd: androidProjectPath })
+      logSuccess('Android 生产版本构建完成')
+
+      // 步骤 7: 生成版本更新信息
+      logStep(stepNumber++, '生成版本更新信息')
+      generateUpdateJson(androidProjectPath)
+    } else {
+      logInfo('跳过 APK 构建步骤（使用 deploy:build 参数可启用）')
     }
 
-    // 步骤 5: 同步 Gradle 配置
-    logStep(5, '同步 Gradle 配置')
-    logInfo('运行 gradlew help 触发配置重新加载，确保新版本号被 Gradle 识别')
-    const syncCommand = `${gradlewCommand} help`
-    runCommand(syncCommand, 'Gradle 配置同步', { cwd: androidProjectPath })
-    logSuccess('Gradle 配置同步完成')
-
-    // 步骤 6: 构建 Android 生产版本
-    logStep(6, '构建 Android 生产版本')
-    const gradleCommand = `${gradlewCommand} assembleProductionRelease`
-    runCommand(gradleCommand, 'Android 生产版本构建', { cwd: androidProjectPath })
-    logSuccess('Android 生产版本构建完成')
-
-    // 步骤 7: 生成版本更新信息
-    logStep(7, '生成版本更新信息')
-    generateUpdateJson(androidProjectPath)
-
-    // 步骤 8: 清理源目录
-    logStep(8, '清理源目录')
+    // 清理源目录
+    logStep(stepNumber++, '清理源目录')
     const distWebviewPath = path.join(__dirname, '../dist-webview')
     try {
       if (fs.existsSync(distWebviewPath)) {
@@ -592,9 +614,13 @@ async function oneClickDeploy() {
     // 显示使用说明
     log('\n📖 使用说明:', 'bright')
     log('1. Vue.js应用已部署到Android assets目录', 'reset')
-    log('2. Android 生产版本已构建完成', 'reset')
+    if (shouldBuildApk) {
+      log('2. Android 生产版本已构建完成', 'reset')
+    } else {
+      log('2. 未执行 APK 构建（使用 deploy:build 参数可启用）', 'reset')
+    }
     log('3. 如需重新构建，再次运行此脚本', 'reset')
-    log('4. 支持参数: node one-click-deploy.cjs [debug|release]', 'reset')
+    log('4. 支持参数: node one-click-deploy.cjs [debug|release] [deploy:build]', 'reset')
 
   } catch (error) {
     logError(`一键构建和部署失败: ${error.message}`)
@@ -609,20 +635,32 @@ function showHelp() {
   log('📖 一键构建和部署脚本使用说明:', 'bright')
   
   log('\n构建所有页面:', 'yellow')
-  log('  node one-click-deploy.cjs              - 构建所有页面 (Debug)', 'reset')
-  log('  node one-click-deploy.cjs debug        - 构建所有页面 (Debug)', 'reset')
-  log('  node one-click-deploy.cjs release      - 构建所有页面 (Release)', 'reset')
+  log('  node one-click-deploy.cjs                    - 构建所有页面 (Debug，不构建APK)', 'reset')
+  log('  node one-click-deploy.cjs debug              - 构建所有页面 (Debug，不构建APK)', 'reset')
+  log('  node one-click-deploy.cjs release            - 构建所有页面 (Release，不构建APK)', 'reset')
+  log('  node one-click-deploy.cjs deploy:build       - 构建所有页面并构建APK (Debug)', 'reset')
+  log('  node one-click-deploy.cjs debug deploy:build - 构建所有页面并构建APK (Debug)', 'reset')
+  log('  node one-click-deploy.cjs release deploy:build - 构建所有页面并构建APK (Release)', 'reset')
   
   log('\n构建单个页面:', 'yellow')
-  log('  node one-click-deploy.cjs exercise     - 构建习题解答页面 (Debug)', 'reset')
-  log('  node one-click-deploy.cjs exercise debug   - 构建习题解答页面 (Debug)', 'reset')
-  log('  node one-click-deploy.cjs exercise release - 构建习题解答页面 (Release)', 'reset')
-  log('  node one-click-deploy.cjs find         - 构建习题查找页面 (Debug)', 'reset')
-  log('  node one-click-deploy.cjs find debug   - 构建习题查找页面 (Debug)', 'reset')
-  log('  node one-click-deploy.cjs find release - 构建习题查找页面 (Release)', 'reset')
-  log('  node one-click-deploy.cjs full         - 构建Vue.js整体应用 (Debug)', 'reset')
-  log('  node one-click-deploy.cjs full debug  - 构建Vue.js整体应用 (Debug)', 'reset')
-  log('  node one-click-deploy.cjs full release - 构建Vue.js整体应用 (Release)', 'reset')
+  log('  node one-click-deploy.cjs exercise                    - 构建习题解答页面 (Debug，不构建APK)', 'reset')
+  log('  node one-click-deploy.cjs exercise debug              - 构建习题解答页面 (Debug，不构建APK)', 'reset')
+  log('  node one-click-deploy.cjs exercise release            - 构建习题解答页面 (Release，不构建APK)', 'reset')
+  log('  node one-click-deploy.cjs exercise deploy:build       - 构建习题解答页面并构建APK (Debug)', 'reset')
+  log('  node one-click-deploy.cjs exercise debug deploy:build - 构建习题解答页面并构建APK (Debug)', 'reset')
+  log('  node one-click-deploy.cjs exercise release deploy:build - 构建习题解答页面并构建APK (Release)', 'reset')
+  log('  node one-click-deploy.cjs find                        - 构建习题查找页面 (Debug，不构建APK)', 'reset')
+  log('  node one-click-deploy.cjs find debug                 - 构建习题查找页面 (Debug，不构建APK)', 'reset')
+  log('  node one-click-deploy.cjs find release                - 构建习题查找页面 (Release，不构建APK)', 'reset')
+  log('  node one-click-deploy.cjs find deploy:build           - 构建习题查找页面并构建APK (Debug)', 'reset')
+  log('  node one-click-deploy.cjs find debug deploy:build     - 构建习题查找页面并构建APK (Debug)', 'reset')
+  log('  node one-click-deploy.cjs find release deploy:build   - 构建习题查找页面并构建APK (Release)', 'reset')
+  log('  node one-click-deploy.cjs full                        - 构建Vue.js整体应用 (Debug，不构建APK)', 'reset')
+  log('  node one-click-deploy.cjs full debug                  - 构建Vue.js整体应用 (Debug，不构建APK)', 'reset')
+  log('  node one-click-deploy.cjs full release                - 构建Vue.js整体应用 (Release，不构建APK)', 'reset')
+  log('  node one-click-deploy.cjs full deploy:build           - 构建Vue.js整体应用并构建APK (Debug)', 'reset')
+  log('  node one-click-deploy.cjs full debug deploy:build     - 构建Vue.js整体应用并构建APK (Debug)', 'reset')
+  log('  node one-click-deploy.cjs full release deploy:build   - 构建Vue.js整体应用并构建APK (Release)', 'reset')
   
   log('\n帮助信息:', 'yellow')
   log('  node one-click-deploy.cjs help         - 显示帮助信息', 'reset')
@@ -636,6 +674,7 @@ function showHelp() {
   log('  ✅ 支持构建所有页面或单个页面', 'reset')
   log('  ✅ 支持构建Vue.js整体应用', 'reset')
   log('  ✅ 自动部署到 Android 项目', 'reset')
+  log('  ✅ 使用 deploy:build 参数可构建 Android APK', 'reset')
   log('  ✅ 显示详细的构建日志', 'reset')
   log('  ✅ 自动清理临时文件', 'reset')
   
@@ -648,8 +687,14 @@ function showHelp() {
 
 // 命令行参数处理
 const args = process.argv.slice(2)
-const command = args[0]
-const buildType = args[1] || 'debug'
+
+// 检查是否包含 deploy:build 参数
+const shouldBuildApk = args.includes('deploy:build')
+
+// 过滤掉 deploy:build 参数，获取实际命令
+const filteredArgs = args.filter(arg => arg !== 'deploy:build')
+const command = filteredArgs[0]
+const buildType = filteredArgs[1] || 'debug'
 
 switch (command) {
   case 'help':
@@ -661,12 +706,12 @@ switch (command) {
   case 'release':
   case undefined:
     // 构建所有页面
-    oneClickDeploy()
+    oneClickDeploy(shouldBuildApk)
     break
   default:
     // 检查是否是单个页面构建
     if (PAGES[command]) {
-      buildSinglePage(command, buildType)
+      buildSinglePage(command, buildType, shouldBuildApk)
     } else {
       logError(`未知参数: ${command}`)
       showHelp()

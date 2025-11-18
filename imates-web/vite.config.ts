@@ -23,7 +23,27 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  optimizeDeps: {
+    // 排除 mupdf 的预构建，因为它包含 WASM 文件
+    exclude: ['mupdf'],
+  },
   server: {
+    // 配置中间件以正确处理 WASM 文件的 MIME 类型
+    middlewareMode: false,
+    fs: {
+      // 允许访问 node_modules 中的文件
+      allow: ['..']
+    },
+    // 添加中间件来设置 WASM 文件的正确 MIME 类型
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        // 如果是 WASM 文件请求，设置正确的 MIME 类型
+        if (req.url?.endsWith('.wasm')) {
+          res.setHeader('Content-Type', 'application/wasm')
+        }
+        next()
+      })
+    },
     proxy: {
       // 匹配以 "/blw-edu-yb/api" 开头的请求，转发到后端
       '/blw-edu-yb/api': {
@@ -154,6 +174,26 @@ export default defineConfig({
           })
         }
       },
+      // 🔥 新增：匹配以 "/resource" 开头的请求，转发到资源服务器（解决CORS问题）
+      '/img': {
+        target: 'https://www.imates.com.cn:9099', // 资源服务器地址
+        changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
+        secure: false, // 若后端 HTTPS 证书不合法（如自签证书），需设为 false
+        // 添加CORS头信息
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes, req) => {
+            // 添加CORS头信息
+            proxyRes.headers['Access-Control-Allow-Origin'] = '*'
+            proxyRes.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+            proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, sa-token, token'
+            proxyRes.headers['Access-Control-Allow-Credentials'] = 'true'
+            console.log('代理资源请求:', req.url)
+          })
+          proxy.on('proxyReq', (proxyReq, req) => {
+            console.log('代理资源请求到服务器:', req.url)
+          })
+        }
+      },
       // 🔥 新增：匹配以 "/knowledge" 开头的请求，转发到知识点查询服务（解决CORS问题）
       '/knowledge': {
         target: 'http://www.imates.com.cn:8090', // 知识点查询服务地址
@@ -185,8 +225,9 @@ export default defineConfig({
     assetsDir: 'assets',
     // 确保资源内联或使用相对路径
     assetsInlineLimit: 4096,
-    // 为了兼容性，不使用ES模块
-    target: 'es2015',
+    // 使用 es2022 以支持 top-level await（mupdf 需要）
+    // Chrome 99+ 支持 top-level await，符合项目最低版本要求
+    target: 'es2022',
     // 生成独立 source map 文件，便于在 Android 里查看 .map
     sourcemap: true,
     // 优化chunk分割
