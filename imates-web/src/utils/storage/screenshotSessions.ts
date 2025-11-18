@@ -57,6 +57,7 @@ export function addScreenshotSession(session: AiTextbookSession): boolean {
     }
     sessions.unshift(session) // 添加到开头
     localStorage.setItem(getStorageKey(), JSON.stringify(sessions))
+    console.log('[会话] 添加', getStorageKey(), JSON.stringify(sessions))
     const sessionId = getSessionId(session)
     console.log('[会话] 创建', { id: sessionId, resourceId: session.resourceId, hasImage: session.hasImage })
     return true

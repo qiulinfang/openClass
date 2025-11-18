@@ -226,7 +226,7 @@ const currentPageIndex = ref(0) // 当前滚动到的页码
 // ==================== 手势与缩放参数 ====================
 const minScale = ref(0.25) // 最小缩放倍数
 const maxScale = ref(3.0) // 最大缩放倍数
-const zoomThreshold = ref(0.15) // 捏合缩放判定阈值（建议 0.04 ~ 0.1）
+const zoomThreshold = ref(0.09) // 捏合缩放判定阈值（建议 0.04 ~ 0.1）
 const panThreshold = ref(14) // 平移手势判定阈值（越小越容易触发滚动）
 const friction = ref(0.001) // 惯性摩擦系数
 const inertiaThreshold = ref(0.05) // 惯性停止速度阈值
@@ -248,6 +248,9 @@ let lastPanTime = 0 // 上次平移时间戳
 let panVelocityX = 0 // X 方向惯性速度
 let panVelocity = 0 // Y 方向惯性速度
 let inertiaFrameId: number | null = null // 惯性动画帧 ID
+
+// 缩放进行中标记：用于阻止高亮/画笔/橡皮在缩放手势期间误触发
+const isZooming = ref(false)
 
 // 手势模式
 let gestureMode: 'none' | 'zoom' | 'pan' = 'none' // 当前手势模式
@@ -588,6 +591,10 @@ const handleHighlightPointerDown = async (
   pageIndex: number,
   layout: { width: number; height: number }
 ) => {
+  // 缩放进行中，不允许开始新的笔迹
+  if (isZooming.value) {
+    return
+  }
   // 截图模式：优先处理为框选起点
   if (isScreenshotMode.value) {
     if (event.pointerType === 'mouse' && event.button !== 0) return
@@ -665,6 +672,10 @@ const handleHighlightPointerMove = (
   pageIndex: number,
   layout: { width: number; height: number }
 ) => {
+  // 缩放进行中，不处理笔迹移动
+  if (isZooming.value) {
+    return
+  }
   // 截图模式：拖动更新矩形
   if (
     isScreenshotMode.value &&
@@ -733,6 +744,12 @@ const handleHighlightPointerUp = async (
   pageIndex: number,
   layout: { width: number; height: number }
 ) => {
+  // 缩放进行中，直接丢弃当前笔迹
+  if (isZooming.value) {
+    currentStroke.value = null
+    clearDrawingCanvas(pageIndex)
+    return
+  }
   // 截图模式：结束拖拽，裁剪截图
   if (
     isScreenshotMode.value &&
@@ -1754,6 +1771,10 @@ const getTouchDistance = (touch1: Touch, touch2: Touch) => {
 // 触摸开始（双指）
 const handleTouchStart = (event: TouchEvent) => {
   console.log('currentMode.value', currentMode.value)
+  if (isScreenshotMode.value && event.touches.length === 1) {
+    event.preventDefault()
+    return
+  }
   // 高亮、画笔或橡皮擦模式下，优先将触摸事件用于绘制，避免触发浏览器滚动/缩放手势
   if (['highlighter', 'pen', 'eraser-draw'].includes(currentMode.value)) {
     console.log('高亮、画笔或橡皮擦模式下，优先将触摸事件用于绘制，避免触发浏览器滚动/缩放手势')
@@ -1762,6 +1783,7 @@ const handleTouchStart = (event: TouchEvent) => {
   if (!containerRef.value || !viewerContainer.value) return
 
   if (event.touches.length === 2) {
+    isZooming.value = true
     event.preventDefault()
 
     const [touch1, touch2] = [event.touches[0], event.touches[1]]
@@ -1799,6 +1821,10 @@ const handleTouchStart = (event: TouchEvent) => {
 
 // 触摸移动（双指捏合缩放）
 const handleTouchMove = (event: TouchEvent) => {
+  if (isScreenshotMode.value && event.touches.length === 1) {
+    event.preventDefault()
+    return
+  }
   // 高亮、画笔或橡皮擦模式下阻止默认滚动行为，保证 PointerMove 持续触发用于手写预览
   if (['highlighter', 'pen', 'eraser-draw'].includes(currentMode.value)) {
     console.log('高亮、画笔或橡皮擦模式下阻止默认滚动行为，保证 PointerMove 持续触发用于手写预览')
@@ -1887,6 +1913,8 @@ const handleTouchMove = (event: TouchEvent) => {
 // 触摸结束
 const handleTouchEnd = (event: TouchEvent) => {
   if (event.touches.length < 2) {
+    // 所有缩放手势结束时重置 isZooming
+    isZooming.value = false
     lastTouchDistance = 0
     isPinching = false
 
@@ -2036,37 +2064,52 @@ onBeforeUnmount(() => {
   console.log('PdfPage 组件资源清理完成')
 })
 
+const enterScreenshotMode = () => {
+  isScreenshotMode.value = true
+  isDraggingScreenshot.value = false
+  screenshotRect.value = null
+}
+
+const exitScreenshotMode = () => {
+  isScreenshotMode.value = false
+  isDraggingScreenshot.value = false
+  screenshotRect.value = null
+}
+
 // 暴露给父组件的方法，用于从工具栏控制调试面板和交互模式
 defineExpose({
   toggleDebugPanel: () => {
+    exitScreenshotMode()
     showDebugPanel.value = !showDebugPanel.value
   },
   // 笔记模式：再次点击切回手势
   toggleNoteMode: () => {
+    exitScreenshotMode()
     currentMode.value = 'note'
   },
   // 高亮模式：再次点击切回手势
   toggleHighlightMode: () => {
+    exitScreenshotMode()
     currentMode.value = 'highlighter'
   },
   // 画笔模式：再次点击切回手势
   togglePenMode: () => {
+    exitScreenshotMode()
     currentMode.value = 'pen'
   },
   // 橡皮擦模式：再次点击切回手势
   toggleEraserMode: () => {
+    exitScreenshotMode()
     currentMode.value = 'eraser-draw'
   },
   // 手势模式：强制切回手势
   toggleGestureMode: () => {
+    exitScreenshotMode()
     currentMode.value = 'hand'
   },
   toggleScreenshotMode: () => {
-    // 进入截图模式时，关闭手写/笔记模式，只保留拖拽截图
-    isScreenshotMode.value = !isScreenshotMode.value
-    if (isScreenshotMode.value) {
-      currentMode.value = 'hand' // 防止高亮/画笔拦截 pointer 事件
-    }
+    enterScreenshotMode()
+    currentMode.value = 'hand' // 防止高亮/画笔拦截 pointer 事件
   },
   undoLastStroke,
   saveCurrentPdfToStorage,

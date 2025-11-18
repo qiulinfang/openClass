@@ -22,6 +22,16 @@
             @search="handleSearch"
             @help="handleHelp"
           >
+            <template #right-actions>
+              <q-btn
+                flat
+                round
+                dense
+                icon="chat"
+                color="white"
+                @click="chatPanelVisible = !chatPanelVisible"
+              />
+            </template>
           </UnifiedToolbar>
           <!-- PDF 不分页渲染 -->
           <PdfPage
@@ -116,6 +126,13 @@ import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
 import { resourceManager } from '@/services/resource-storage'
 import type { UserTextbookInfo, LocalFileInfo, ChatBubble, AiTextbookSession } from '@/types'
+import {
+  getScreenshotSessions,
+  addScreenshotSession,
+  deleteScreenshotSession,
+  batchDeleteScreenshotSessions,
+  updateScreenshotSession,
+} from '@/utils/storage/screenshotSessions'
 import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
 import ChatView from '@/components/ChatView.vue'
@@ -143,7 +160,7 @@ const router = useRouter()
 // 统一工具栏工具集合（本地变量）
 // middle 区域：绘图相关工具（荧光笔、高亮、撤销等）
 const pdfToolbarTools = {
-  left: ['back', 'undo','redo'],
+  left: ['back'],
   middle: ['hand','highlighter', 'pen', 'eraser-draw','screenshot'],
 }
 
@@ -181,12 +198,40 @@ const getSessionId = (session: AiTextbookSession): string => {
 }
 
 
-// 绘制功能已移除，不再需要 getCurrentResourceId
+// 获取当前 resourceId（仅从路由参数获取）
+const getCurrentResourceId = (): string | undefined => {
+  return (route.query.resourceId as string) || undefined
+}
 
-// 加载会话列表（按 resourceId 过滤）
+// 加载会话列表（按 resourceId 过滤），对齐 PdfViewerView111 的截图会话逻辑
 const loadSessions = () => {
-  // 绘制功能已移除，会话列表功能也移除
-  sessions.value = []
+  const currentResourceId = getCurrentResourceId()
+  const allSessions = getScreenshotSessions()
+
+  // 如果没有 resourceId，显示所有会话（兼容旧数据）
+  if (!currentResourceId) {
+    sessions.value = allSessions
+    return
+  }
+
+  // 过滤出匹配当前 resourceId 的会话
+  sessions.value = allSessions.filter((record) => {
+    // 优先使用 record.resourceId
+    if (record.resourceId) {
+      return record.resourceId === currentResourceId
+    }
+
+    // 如果没有 resourceId，尝试从 storageKey 中提取
+    if (record.storageKey) {
+      const match = record.storageKey.match(/^ai-textbook-(.+?)(?:-|$)/)
+      if (match && match[1]) {
+        return match[1] === currentResourceId
+      }
+    }
+
+    // 如果都没有，不显示（避免显示其他资源的会话）
+    return false
+  })
 }
 
 // 处理会话点击
@@ -315,18 +360,34 @@ const loadSessionDetail = async (record: AiTextbookSession) => {
 }
 
 // 处理会话删除
-const handleSessionDelete = (_record: AiTextbookSession) => {
-  // 绘制功能已移除
+const handleSessionDelete = (record: AiTextbookSession) => {
+  const sessionId = getSessionId(record)
+  if (deleteScreenshotSession(sessionId)) {
+    // 如果删除的是当前选中的会话，清除选中状态
+    if (selectedRecordId.value === sessionId) {
+      selectedRecordId.value = undefined
+    }
+    loadSessions()
+  }
 }
 
 // 处理批量删除
-const handleBatchDelete = (_recordIds: string[]) => {
-  // 绘制功能已移除
+const handleBatchDelete = (recordIds: string[]) => {
+  if (batchDeleteScreenshotSessions(recordIds)) {
+    // 如果删除的会话中包含当前选中的会话，清除选中状态
+    if (selectedRecordId.value && recordIds.includes(selectedRecordId.value)) {
+      selectedRecordId.value = undefined
+    }
+    loadSessions()
+  }
 }
 
 // 处理置顶
-const handleSessionPin = (_record: AiTextbookSession) => {
-  // 绘制功能已移除
+const handleSessionPin = (record: AiTextbookSession) => {
+  record.pinned = !record.pinned
+  if (updateScreenshotSession(record)) {
+    loadSessions()
+  }
 }
 
 // PdfPage 实例引用
@@ -624,6 +685,34 @@ const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
       imageData,
       false,
     )
+
+    // 发送成功后，创建并持久化一条截图会话记录，结构与截图会话模块保持一致
+    const now = Date.now()
+    const storageKey = currentResourceId
+      ? `ai-textbook-${currentResourceId}-${sessionId}`
+      : undefined
+
+    const newSession: AiTextbookSession = {
+      sessionId,
+      sessionName: question,
+      createTime: now,
+      updateTime: now,
+      msgCount: 0,
+      pinned: false,
+      // 缩略图：直接使用当前截图的 base64 作为预览
+      thumbnailImage: dataUrl,
+      hasImage: true,
+      resourceId: currentResourceId || undefined,
+      storageKey,
+      // 兼容字段
+      id: sessionId,
+      question,
+      answer: '',
+    }
+
+    addScreenshotSession(newSession)
+    // 新增会话写入完成后，刷新当前会话列表，使 UI 立即显示
+    loadSessions()
   } catch (error) {
     console.error('[PdfViewerView] 发送截图消息失败', error)
   } finally {
