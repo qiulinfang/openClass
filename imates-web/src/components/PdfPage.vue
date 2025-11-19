@@ -27,7 +27,11 @@
       />
       <!-- PDF 渲染层：外层负责布局与滚动区域，内层负责缩放 -->
       <div ref="viewerContainer" :style="viewerOuterStyle">
-        <div class="viewer-inner" :style="viewerInnerStyle">
+        <div
+          class="viewer-inner"
+          :class="{ 'block-touch': isDrawingOrScreenshotMode }"
+          :style="viewerInnerStyle"
+        >
           <!-- PDF 页面 -->
           <div
             v-for="(layout, index) in pageLayouts"
@@ -109,7 +113,7 @@
     </div>
 
     <!-- 右侧笔记列表面板：显示/隐藏由父组件通过 v-if 控制 -->
-    <div class="note-panel-wrapper" v-if="isNotePanelOpen">
+    <div class="note-panel-wrapper" v-if="isNotePanelOpen && notes.length > 0">
       <PdfNoteListPanel
         :notes="notes"
         :selectedNoteId="activeNoteId"
@@ -288,6 +292,13 @@ const pageNotesByIndex = computed(() => {
   }
   return groups
 })
+
+// 绘制/截图模式：在 viewer-inner 上阻止原生滚动，让外部区域仍然可以滚动
+const isDrawingOrScreenshotMode = computed(
+  () =>
+    isScreenshotMode.value ||
+    ['highlighter', 'pen', 'eraser-draw'].includes(currentMode.value)
+)
 
 // ==================== 样式计算 ====================
 // 外层：负责滚动区域与整体水平居中（按缩放后宽度计算）
@@ -1818,14 +1829,6 @@ const getTouchDistance = (touch1: Touch, touch2: Touch) => {
 
 // 触摸开始（双指）
 const handleTouchStart = (event: TouchEvent) => {
-  if (isScreenshotMode.value && event.touches.length === 1) {
-    event.preventDefault()
-    return
-  }
-  // 高亮、画笔或橡皮擦模式下，优先将触摸事件用于绘制，避免触发浏览器滚动/缩放手势
-  if (['highlighter', 'pen', 'eraser-draw'].includes(currentMode.value)) {
-    event.preventDefault()
-  }
   if (!containerRef.value || !viewerContainer.value) return
 
   // 截图拖拽过程中一旦检测到多指，立即取消当前截图框
@@ -1883,14 +1886,6 @@ const handleTouchStart = (event: TouchEvent) => {
 
 // 触摸移动（双指捏合缩放）
 const handleTouchMove = (event: TouchEvent) => {
-  if (isScreenshotMode.value && event.touches.length === 1) {
-    event.preventDefault()
-    return
-  }
-  // 高亮、画笔或橡皮擦模式下阻止默认滚动行为，保证 PointerMove 持续触发用于手写预览
-  if (['highlighter', 'pen', 'eraser-draw'].includes(currentMode.value)) {
-    event.preventDefault()
-  }
   if (!containerRef.value || !viewerContainer.value) return
 
   // 双指捏合缩放：只有在已经记录了初始距离且处于捏合状态时才进入
@@ -2225,7 +2220,15 @@ defineExpose({
   width: 100%;
   height: 100%;
   overflow: auto;
-  background-color: #525252;
+  background-color: #0a0020;
+  touch-action: auto;
+}
+.viewer-inner {
+  touch-action: auto; /* 默认内容区域也能单指滚动 */
+}
+
+.viewer-inner.block-touch {
+  touch-action: none; /* 笔/橡皮/截图时，在内容上禁用原生滚动 */
 }
 
 .note-panel-wrapper {

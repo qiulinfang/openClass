@@ -112,7 +112,10 @@
           :can-send="canSend"
           :is-editing="isEditingMessage"
           :editing-message-id="editingMessageId"
+          :attached-screenshot="attachedScreenshot"
           @send-message="sendMessage"
+          @send-with-screenshot="() => emit('send-with-screenshot', inputMessage)"
+          @remove-screenshot="emit('remove-screenshot')"
           @blur="onInputBlur"
           @start-voice-input="startVoiceInput"
           @stop-voice-input="stopVoiceInput"
@@ -189,6 +192,11 @@ const props = withDefaults(
     resourceId?: string
     compressedHeight?: number // 键盘显示时 ChatView 的压缩高度（像素）
     inputMode?: 'full' | 'simple' // 输入模式：full=完整输入(ChatInput)，simple=简单输入(SimpleChatInput)
+    attachedScreenshot?: {
+      dataUrl: string
+      width: number
+      height: number
+    }
   }>(),
   {
     inputMode: 'full',
@@ -211,6 +219,8 @@ const emit = defineEmits<{
   focus: [] // 输入框获得焦点事件
   'scroll-to-bottom': [] // 滚动到底部事件
   'open-teacher-dialog': [{ sessionId: string; message: ChatBubble }] // 打开老师对话框事件
+  'remove-screenshot': []
+  'send-with-screenshot': [string]
 }>()
 
 // ==================== 状态管理 ====================
