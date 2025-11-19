@@ -2897,7 +2897,6 @@ onUnmounted(() => {
   position: relative;
   display: flex;
   flex-direction: column;
-  height: 100%;
   max-height: 60vh; // 限制最大高度，避免占满整个屏幕
 }
 

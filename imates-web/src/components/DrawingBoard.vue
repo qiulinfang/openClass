@@ -264,6 +264,64 @@ const gestureStartCenterX = ref(0)
 const gestureStartCenterY = ref(0)
 let singleTouchTimer: number | null = null
 
+// ==================== 普通画笔采样与平滑参数 ====================
+
+// 普通 draw 模式下，相邻采样点的最小距离平方（画布坐标系）
+const MIN_DRAW_POINT_DIST2 = 0.8 * 0.8
+
+// 在现有路径上追加一个点：仅当与上一个点距离足够远时才追加
+const addDrawPointIfFarEnough = (
+  path: { x: number; y: number }[],
+  point: { x: number; y: number },
+) => {
+  if (path.length === 0) {
+    path.push(point)
+    return
+  }
+  const last = path[path.length - 1]
+  const dx = point.x - last.x
+  const dy = point.y - last.y
+  const dist2 = dx * dx + dy * dy
+  if (dist2 >= MIN_DRAW_POINT_DIST2) {
+    path.push(point)
+  }
+}
+
+// 对路径点做简单的细分 + 三点移动平均平滑，仅用于普通画笔落笔后的最终形状
+const smoothDrawPoints = (points: { x: number; y: number }[]): { x: number; y: number }[] => {
+  if (points.length <= 2) return points
+
+  const subdivided: { x: number; y: number }[] = []
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i]
+    const p1 = points[i + 1]
+    subdivided.push(p0)
+    // 在相邻点之间插入中点，增加采样密度
+    subdivided.push({
+      x: (p0.x + p1.x) / 2,
+      y: (p0.y + p1.y) / 2,
+    })
+  }
+  subdivided.push(points[points.length - 1])
+
+  if (subdivided.length <= 2) return subdivided
+
+  const smoothed: { x: number; y: number }[] = []
+  smoothed.push(subdivided[0])
+  for (let i = 1; i < subdivided.length - 1; i++) {
+    const pPrev = subdivided[i - 1]
+    const p = subdivided[i]
+    const pNext = subdivided[i + 1]
+    smoothed.push({
+      x: (pPrev.x + p.x + pNext.x) / 3,
+      y: (pPrev.y + p.y + pNext.y) / 3,
+    })
+  }
+  smoothed.push(subdivided[subdivided.length - 1])
+
+  return smoothed
+}
+
 // 画布样式（居中 + translate + scale）
 const canvasStyle = computed(() => {
   return {
@@ -781,7 +839,8 @@ const handleMouseMove = (e: MouseEvent) => {
       // 如果是 Signature Pad 风格，Signature Pad会自动处理绘制
       // 普通风格继续使用原有逻辑
       if (toolConfig.value.handwritingStyle !== 'signature') {
-        currentPath.value.push(coords)
+        // 使用距离阈值控制采样密度，减少锯齿与过密点
+        addDrawPointIfFarEnough(currentPath.value, coords)
         tempObject.value = {
           type: 'path',
           color: toolConfig.value.color || '#000000',
@@ -947,7 +1006,12 @@ const handleMouseUp = () => {
     } else {
       // draw工具普通模式：添加路径对象
       if (tempObject.value && tempObject.value.points && tempObject.value.points.length > 0) {
-        objects.value.push(tempObject.value)
+        // 对普通画笔路径做一次平滑后再入栈，提升最终线条圆滑度
+        const smoothedPoints = smoothDrawPoints(tempObject.value.points)
+        objects.value.push({
+          ...tempObject.value,
+          points: smoothedPoints,
+        })
         saveState()
         emit('content-change')
       }

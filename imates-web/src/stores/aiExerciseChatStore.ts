@@ -165,7 +165,9 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       console.log('[AI_EXERCISE] 创建新会话（基于题目ID）', { sessionId: newSessionId, questionId })
       currentSessionId.value = newSessionId
     }
-    
+    if(shouldHidePrefix){
+      content = '我们开始吧'
+    }
     // 第5步：构建AI请求（使用标准构建函数，传入当前会话的 sessionId）
     const aiRequest = buildAiExerciseMessage(
       content,

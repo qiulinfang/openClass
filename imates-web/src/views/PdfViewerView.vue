@@ -25,6 +25,17 @@
             @help="handleHelp"
           >
             <template #right-actions>
+              <!-- 调试面板按钮 -->
+              <q-btn
+                v-if="isDev"
+                flat
+                round
+                dense
+                icon="bug_report"
+                color="white"
+                @click="handleToggleDebug"
+                class="q-mr-sm"
+              />
               <q-btn
                 flat
                 round
@@ -151,6 +162,9 @@ type PdfPagePublicInstance = ComponentPublicInstance<{
   toggleGestureMode: () => void
   toggleScreenshotMode: () => void
 }>
+
+// 调试面板状态
+const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true' || import.meta.env.DEV
 
 // 使用 Store 和路由
 const store = usePdfViewerStore()

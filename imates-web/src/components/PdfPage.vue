@@ -105,7 +105,6 @@
         <div class="error-text">PDF 加载失败</div>
         <q-btn size="sm" color="primary" @click="props.file && loadPdf(props.file)"> 重试 </q-btn>
       </div>
-
     </div>
 
     <!-- 右侧笔记列表面板：显示/隐藏由父组件通过 v-if 控制 -->
@@ -192,7 +191,7 @@ const currentPageIndex = ref(0) // 当前滚动到的页码
 // ==================== 手势与缩放参数 ====================
 const minScale = ref(0.25) // 最小缩放倍数
 const maxScale = ref(3.0) // 最大缩放倍数
-const zoomThreshold = ref(0.09) // 捏合缩放判定阈值（建议 0.04 ~ 0.1）
+const zoomThreshold = ref(0.25) // 捏合缩放判定阈值（建议 0.04 ~ 0.1）
 const panThreshold = ref(14) // 平移手势判定阈值（越小越容易触发滚动）
 const friction = ref(0.001) // 惯性摩擦系数
 const inertiaThreshold = ref(0.05) // 惯性停止速度阈值
@@ -231,7 +230,7 @@ interface ScreenshotRect {
 }
 const screenshotRect = ref<ScreenshotRect | null>(null) // 截图框选区域
 const isDraggingScreenshot = ref(false) // 是否正在拖动截图框
-const isScreenshotMode = ref(false)// 截图模式：独立于 currentMode，用于 PDF 区域截图
+const isScreenshotMode = ref(false) // 截图模式：独立于 currentMode，用于 PDF 区域截图
 
 // ==================== 笔记功能（UI + IndexedDB 持久化） ====================
 // 页眉笔记
@@ -243,7 +242,7 @@ interface PageNote {
   text: string
 }
 type PdfInteractionMode = 'hand' | 'note' | 'highlighter' | 'pen' | 'eraser-draw' // 统一交互模式状态：与 UnifiedToolbar 工具枚举对齐
-const currentMode = ref<PdfInteractionMode>('hand')  // 当前交互模式
+const currentMode = ref<PdfInteractionMode>('hand') // 当前交互模式
 const notes = ref<PageNote[]>([]) // PDF 中的所有笔记
 const activeNoteId = ref<string | null>(null) // 当前激活的笔记 ID
 const isNotePanelOpen = ref(false) // 右侧笔记面板显示状态
@@ -273,6 +272,10 @@ const pendingNotePosition = ref<{
   x: number
   y: number
 } | null>(null) // 待创建笔记的位置
+
+// 多指手势期间临时切换工具状态
+let lastToolMode: PdfInteractionMode | null = null // 记录进入多指手势前的工具
+const isPointerToolSuspended = ref(false) // 多指/缩放期间暂停绘图工具
 
 const pageNotesByIndex = computed(() => {
   const groups: Record<number, PageNote[]> = {}
@@ -345,7 +348,7 @@ const getNoteTooltipStyle = (
 // 截图裁剪框样式
 const getScreenshotRectStyle = (
   rect: ScreenshotRect,
-  layout: { width: number; height: number },
+  layout: { width: number; height: number }
 ): CSSProperties => {
   const x1 = Math.min(rect.x1, rect.x2)
   const y1 = Math.min(rect.y1, rect.y2)
@@ -630,14 +633,22 @@ const handleHighlightPointerDown = async (
   pageIndex: number,
   layout: { width: number; height: number }
 ) => {
+  // 多指/缩放期间暂停所有绘图工具
+  if (isPointerToolSuspended.value) {
+    return
+  }
   // 缩放进行中，不允许开始新的笔迹
   if (isZooming.value) {
     return
   }
   // 截图模式：优先处理为框选起点
   if (isScreenshotMode.value) {
+    // 如果当前正在缩放（双指捏合或 isZooming），不允许进入截图
+    if (isZooming.value || isPinching) {
+      return
+    }
+
     // 捏合/双指等多指操作时不进入截图
-    // PointerEvent 的 isPrimary 可以帮忙过滤非主指针
     if ((event as any).isPrimary === false) {
       return
     }
@@ -707,6 +718,10 @@ const handleHighlightPointerMove = (
   pageIndex: number,
   layout: { width: number; height: number }
 ) => {
+  // 多指/缩放期间暂停所有绘图工具
+  if (isPointerToolSuspended.value) {
+    return
+  }
   // 缩放进行中，不处理笔迹移动
   if (isZooming.value) {
     return
@@ -785,6 +800,12 @@ const handleHighlightPointerUp = async (
   pageIndex: number,
   layout: { width: number; height: number }
 ) => {
+  // 多指/缩放期间暂停所有绘图工具
+  if (isPointerToolSuspended.value) {
+    currentStroke.value = null
+    clearDrawingCanvas(pageIndex)
+    return
+  }
   // 缩放进行中，直接丢弃当前笔迹
   if (isZooming.value) {
     currentStroke.value = null
@@ -904,8 +925,12 @@ const handleHighlightPointerUp = async (
       const page = pdf.loadPage(pageIndex) as mupdf.PDFPage
       const annot = page.createAnnotation('Ink')
 
+      // 对 pen 模式的轨迹做一次简单平滑，高亮模式保持原始点列
+      const sourcePoints =
+        stroke.mode === 'pen' ? smoothStrokePoints(stroke.points) : stroke.points
+
       // 将高亮/画笔路径转换为 MuPDF 的 InkList 格式
-      const inkList = [stroke.points.map((p: HighlightStrokePoint) => [p.x, p.y] as mupdf.Point)]
+      const inkList = [sourcePoints.map((p: HighlightStrokePoint) => [p.x, p.y] as mupdf.Point)]
       ;(annot as any).setInkList?.(inkList)
 
       // 颜色和线宽从 pdfViewerStore.drawingConfig 读取，来源于 UnifiedToolbar
@@ -976,6 +1001,56 @@ const strokeHitsEraser = (
     }
   }
   return false
+}
+
+// ========== 笔迹平滑工具（仅对 pen 模式做简单平滑） ==========
+
+// 使用简单的细分 + 移动平均来让轨迹更圆滑
+const smoothStrokePoints = (points: HighlightStrokePoint[]): HighlightStrokePoint[] => {
+  if (points.length <= 2) {
+    return points
+  }
+
+  const subdivided: HighlightStrokePoint[] = []
+
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i]
+    const p1 = points[i + 1]
+    subdivided.push(p0)
+
+    // 在每对相邻点之间插入一个中点，增加采样密度
+    const mid: HighlightStrokePoint = {
+      x: (p0.x + p1.x) / 2,
+      y: (p0.y + p1.y) / 2,
+    }
+    subdivided.push(mid)
+  }
+  // 末尾最后一个点补上
+  subdivided.push(points[points.length - 1])
+
+  if (subdivided.length <= 2) {
+    return subdivided
+  }
+
+  // 三点移动平均平滑：保留首尾点，中间点用 [prev, current, next] 的平均
+  const smoothed: HighlightStrokePoint[] = []
+  smoothed.push(subdivided[0])
+
+  for (let i = 1; i < subdivided.length - 1; i++) {
+    const pPrev = subdivided[i - 1]
+    const p = subdivided[i]
+    const pNext = subdivided[i + 1]
+
+    const avg: HighlightStrokePoint = {
+      x: (pPrev.x + p.x + pNext.x) / 3,
+      y: (pPrev.y + p.y + pNext.y) / 3,
+    }
+    smoothed.push(avg)
+  }
+
+  smoothed.push(subdivided[subdivided.length - 1])
+
+  return smoothed
 }
 
 // 获取橡皮擦命中参数
@@ -1083,7 +1158,7 @@ const drawStrokePreview = (pageIndex: number, layout: { width: number; height: n
     const r = parseInt(hex.slice(1, 3), 16)
     const g = parseInt(hex.slice(3, 5), 16)
     const b = parseInt(hex.slice(5, 7), 16)
-    previewColor = `rgba(${r}, ${g}, ${b}, 0.6)` // 半透明高亮
+    previewColor = `rgba(${r}, ${g}, ${b}, 0.5)` // 半透明高亮
     previewWidth = size
   } else {
     const hex = store.drawingConfig.penColor || '#ff0000'
@@ -1338,7 +1413,7 @@ const scrollToNote = (note: PageNote) => {
   const rawScrollTop = offsetY * scale
 
   const container = containerRef.value
-  const containerHeight = container.clientHeight || (window.innerHeight - toolbarHeight.value)
+  const containerHeight = container.clientHeight || window.innerHeight - toolbarHeight.value
 
   // 期望让笔记大致在屏幕中间
   let targetScrollTop = rawScrollTop - containerHeight / 2
@@ -1788,7 +1863,23 @@ const handleTouchStart = (event: TouchEvent) => {
   }
   if (!containerRef.value || !viewerContainer.value) return
 
+  // 截图拖拽过程中一旦检测到多指，立即取消当前截图框
+  if (isScreenshotMode.value && event.touches.length >= 2) {
+    if (isDraggingScreenshot.value && screenshotRect.value) {
+      isDraggingScreenshot.value = false
+      screenshotRect.value = null
+    }
+  }
+
   if (event.touches.length === 2) {
+    // 多指开始：临时切换为 hand 模式并暂停绘图工具
+    if (!isPointerToolSuspended.value) {
+      lastToolMode = currentMode.value
+      isPointerToolSuspended.value = true
+      if (currentMode.value !== 'hand') {
+        currentMode.value = 'hand'
+      }
+    }
     isZooming.value = true
     event.preventDefault()
 
@@ -1853,26 +1944,9 @@ const handleTouchMove = (event: TouchEvent) => {
     const scaleFactor = currentDistance / lastTouchDistance
     const distanceChange = Math.abs(scaleFactor - 1)
 
-    // 先根据距离变化和位移确定当前手势模式
-    if (gestureMode === 'none') {
-      const isPanCandidate = Math.abs(dx) > panThreshold.value || Math.abs(dy) > panThreshold.value
-      const isZoomCandidate = distanceChange > zoomThreshold.value
-
-      // 优先滚动：
-      // 1. 如果只有明显平移，则进入 pan
-      // 2. 如果只有明显捏合，则进入 zoom
-      // 3. 如果两者都明显（既在缩放又在平移），默认优先 pan，避免轻微捏合导致无法滚动
-      if (isPanCandidate && !isZoomCandidate) {
-        gestureMode = 'pan'
-      } else if (isZoomCandidate && !isPanCandidate) {
-        gestureMode = 'zoom'
-      } else if (isPanCandidate && isZoomCandidate) {
-        gestureMode = 'pan'
-      }
-    }
-
-    // 双指滚动：始终生效（无论是滚动模式还是缩放模式，双指移动都可以拖动内容）
-    if (dx !== 0 || dy !== 0) {
+    // 双指滚动：始终根据位移拖动内容（只用 very small 阈值过滤掉抖动）
+    const verySmallMove = 0.5
+    if (Math.abs(dx) > verySmallMove || Math.abs(dy) > verySmallMove) {
       const container = containerRef.value
       const maxScrollY = container.scrollHeight - container.clientHeight
       const maxScrollX = container.scrollWidth - container.clientWidth
@@ -1892,8 +1966,9 @@ const handleTouchMove = (event: TouchEvent) => {
       lastPanY = centerYAbs
       lastPanTime = now
     }
-    // 只有在缩放模式下才更新缩放比例
-    if (gestureMode === 'zoom') {
+    // 缩放：不再依赖固定模式，只要距离变化超过阈值就进行缩放
+    const isZoomCandidate = distanceChange > zoomThreshold.value
+    if (isZoomCandidate) {
       const newScale = Math.max(
         minScale.value,
         Math.min(maxScale.value, pinchStartScale * scaleFactor)
@@ -1918,6 +1993,14 @@ const handleTouchMove = (event: TouchEvent) => {
 // 触摸结束
 const handleTouchEnd = (event: TouchEvent) => {
   if (event.touches.length < 2) {
+    // 多指结束：恢复之前的工具模式并恢复绘图工具
+    if (isPointerToolSuspended.value) {
+      isPointerToolSuspended.value = false
+      if (lastToolMode && lastToolMode !== 'hand') {
+        currentMode.value = lastToolMode
+      }
+      lastToolMode = null
+    }
     // 所有缩放手势结束时重置 isZooming
     isZooming.value = false
     lastTouchDistance = 0
@@ -2089,7 +2172,6 @@ const openNotePanel = () => {
 const closeNotePanel = () => {
   isNotePanelOpen.value = false
 }
-
 
 // 暴露给父组件的方法，用于从工具栏控制调试面板和交互模式
 defineExpose({
@@ -2288,9 +2370,9 @@ defineExpose({
 }
 
 .screenshot-rect {
-  border: 2px dashed #42a5f5;      /* 蓝色虚线边框 */
+  border: 2px dashed #42a5f5; /* 蓝色虚线边框 */
   background-color: rgba(66, 165, 245, 0.15); /* 半透明蓝色填充 */
-  pointer-events: none;            /* 不阻挡鼠标事件 */
+  pointer-events: none; /* 不阻挡鼠标事件 */
   z-index: 20;
 }
 

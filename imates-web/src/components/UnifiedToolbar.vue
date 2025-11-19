@@ -139,12 +139,16 @@
                       </div>
                     </div>
 
-
                     <!-- 选择模式配置（选择工具用） -->
-                    <div v-if="currentToolConfig.config?.showSelectionModePicker" class="config-section">
+                    <div
+                      v-if="currentToolConfig.config?.showSelectionModePicker"
+                      class="config-section"
+                    >
                       <div class="section-title">
                         <q-icon name="crop_free" size="16px" />
-                        <span>{{ currentToolConfig.config?.selectionModeLabel || '选择模式' }}</span>
+                        <span>{{
+                          currentToolConfig.config?.selectionModeLabel || '选择模式'
+                        }}</span>
                       </div>
                       <div class="section-content">
                         <div class="handwriting-style-options">
@@ -152,7 +156,9 @@
                             v-for="mode in currentToolConfig.config?.selectionModes"
                             :key="mode.value"
                             class="handwriting-style-option"
-                            :class="{ 'handwriting-style-selected': toolConfig.selectMode === mode.value }"
+                            :class="{
+                              'handwriting-style-selected': toolConfig.selectMode === mode.value,
+                            }"
                             @click="updateConfig({ selectMode: mode.value })"
                           >
                             <div class="handwriting-style-icon">
@@ -160,7 +166,9 @@
                             </div>
                             <div class="handwriting-style-info">
                               <div class="handwriting-style-label">{{ mode.label }}</div>
-                              <div v-if="mode.description" class="handwriting-style-desc">{{ mode.description }}</div>
+                              <div v-if="mode.description" class="handwriting-style-desc">
+                                {{ mode.description }}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -170,7 +178,11 @@
                 </div>
               </div>
               <!-- 配置弹出框 -->
-              <div v-if="hasConfigurableTools && currentToolConfig.config" class="popup-icon-wrapper" @click.stop>
+              <div
+                v-if="hasConfigurableTools && currentToolConfig.config"
+                class="popup-icon-wrapper"
+                @click.stop
+              >
                 <!-- 配置按钮 -->
                 <img
                   :src="eraserSettingsIcon"
@@ -292,7 +304,7 @@ const props = withDefaults(
     toolStates: () => ({}),
     variant: 'floating',
     backgroundColor: undefined,
-  },
+  }
 )
 
 // 内置的所有工具配置定义
@@ -314,9 +326,9 @@ const ALL_TOOLS: Record<string, ToolOption> = {
       ],
       showSizePicker: true,
       sizes: [
-        { value: 0.5, label: '细', displayHeight: '1px' },
-        { value: 1.0, label: '中', displayHeight: '2px' },
-        { value: 2.0, label: '粗', displayHeight: '3px' },
+        { value: 1.5, label: '细', displayHeight: '1px' },
+        { value: 2.5, label: '中', displayHeight: '2px' },
+        { value: 3.5, label: '粗', displayHeight: '3px' },
       ],
       sizeLabel: '粗细',
     },
@@ -384,7 +396,12 @@ const ALL_TOOLS: Record<string, ToolOption> = {
     config: {
       showSelectionModePicker: true,
       selectionModes: [
-        { value: 'rectangle', label: '矩形选择', icon: 'crop_square', description: '拖拽形成矩形选区' },
+        {
+          value: 'rectangle',
+          label: '矩形选择',
+          icon: 'crop_square',
+          description: '拖拽形成矩形选区',
+        },
         { value: 'freeform', label: '自由框选', icon: 'polyline', description: '自由绘制选区' },
       ],
       selectionModeLabel: '选择模式',
@@ -674,16 +691,16 @@ const leftTools = computed(() => {
 // 中间操作工具（如搜索、撤销、重做、清空、隐藏笔记）
 const middleActionTools = computed(() => {
   const tools = getToolOptions(toolsDistribution.value.middle).filter((tool) =>
-    ['search', 'undo', 'redo', 'clear', 'hideNotes'].includes(tool.value),
+    ['search', 'undo', 'redo', 'clear', 'hideNotes'].includes(tool.value)
   )
-  
+
   // 根据 hideNotes 状态动态修改 hideNotes 工具的图标和标签
   return tools.map((tool) => {
     if (tool.value === 'hideNotes') {
       return {
         ...tool,
         icon: store.hideNotes ? 'visibility_off' : 'visibility',
-        label: store.hideNotes ? '隐藏笔记': '显示笔记',
+        label: store.hideNotes ? '隐藏笔记' : '显示笔记',
       }
     }
     return tool
@@ -693,7 +710,7 @@ const middleActionTools = computed(() => {
 // 绘图工具（渲染到中间）
 const drawingTools = computed(() => {
   return getToolOptions(toolsDistribution.value.middle).filter(
-    (tool) => !['search', 'undo', 'redo', 'clear', 'hideNotes'].includes(tool.value),
+    (tool) => !['search', 'undo', 'redo', 'clear', 'hideNotes'].includes(tool.value)
   )
 })
 
@@ -731,7 +748,7 @@ watch(
     if (!tool?.config && showPopup.value) {
       showPopup.value = false
     }
-  },
+  }
 )
 
 // 判断是否为图片图标（SVG 或图片路径）
@@ -804,8 +821,6 @@ const updateConfig = (config: ToolConfigState) => {
   emit('config-change', newConfig)
 }
 
-
-
 // 暴露关闭弹出框方法供外部调用
 defineExpose({
   closePopup: () => {
@@ -828,18 +843,14 @@ defineExpose({
   background: #ffffff;
   border: 1px solid #e8e8e8;
   border-radius: 14px;
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.04),
-    0 8px 24px rgba(0, 0, 0, 0.08),
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.08),
     0 2px 6px rgba(0, 0, 0, 0.04);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   max-width: fit-content;
 }
 
 .unified-toolbar-floating:hover {
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.06),
-    0 12px 32px rgba(0, 0, 0, 0.1),
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 12px 32px rgba(0, 0, 0, 0.1),
     0 4px 8px rgba(0, 0, 0, 0.06);
 }
 
@@ -1088,9 +1099,7 @@ defineExpose({
   background: #ffffff;
   border: 1px solid #e8e8e8;
   border-radius: 12px;
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.04),
-    0 12px 32px rgba(0, 0, 0, 0.1),
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 12px 32px rgba(0, 0, 0, 0.1),
     0 4px 8px rgba(0, 0, 0, 0.06);
   overflow: hidden;
 }
@@ -1157,9 +1166,7 @@ defineExpose({
 
 .color-selected .color-display {
   border-color: #6965db;
-  box-shadow:
-    inset 0 0 0 4px white,
-    0 2px 6px rgba(105, 101, 219, 0.3);
+  box-shadow: inset 0 0 0 4px white, 0 2px 6px rgba(105, 101, 219, 0.3);
 }
 
 /* 大小选项 */

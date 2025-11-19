@@ -1,7 +1,7 @@
 <template>
   <DraggableDialog 
     v-model="localVisible" 
-    title="截图提问"
+    title="聊聊这里？"
     :initial-width="560"
     :initial-height="520"
     :min-width="400"
