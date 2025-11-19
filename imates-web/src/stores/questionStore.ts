@@ -11,6 +11,7 @@ import {
   saveQuestionsToIndexedDB,
   loadQuestionsFromIndexedDB
 } from '../services/question-storage'
+import { showMessage } from '@/utils'
 
 export const useQuestionStore = defineStore('question', () => {
   // ==================== 状态定义 ====================
@@ -246,22 +247,19 @@ export const useQuestionStore = defineStore('question', () => {
   /**
    * 选择题目
    * 第1步：更新当前题目索引
-   * 第2步：标记题目为已查看
+   * 第2步：标记题目为已查看（已废弃 isViewed 标记，仅保留索引更新）
    */
   const selectQuestion = async (index: number): Promise<void> => {
+    // 检查索引是否有效
     if (index < 0 || index >= questions.value.length) {
       console.error('[QUESTION] ❌ 无效的题目索引:', index)
+      showMessage('无效的题目索引', 'error')
       return
     }
     
+    // 更新当前题目索引
     currentQuestionIndex.value = index
-    console.log('选择题目到 questionStore 成功', questions.value, currentQuestionIndex.value)
-    
-    // 标记为已查看（如果类型支持）
-    if (questions.value[index]) {
-      // 动态添加 isViewed 属性（如果类型允许）
-      ;(questions.value[index] as ExerciseItem & { isViewed?: boolean }).isViewed = true
-    }
+    // 这里不再维护 isViewed 等前端标记属性，只更新当前题目索引
   }
   
   /**

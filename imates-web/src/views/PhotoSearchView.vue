@@ -180,6 +180,7 @@
 
     <!-- 右侧操作按钮 -->
     <div class="action-buttons-panel" v-if="!showCropView && !showResultView">
+      <!-- 从相册选择 -->
       <div
         class="action-btn gallery-btn"
         :class="{ disabled: !selectedSubject }"
@@ -187,6 +188,7 @@
       >
         <q-icon name="photo_library" size="24px" />
       </div>
+      <!-- 拍照 -->
       <div
         class="action-btn camera-btn"
         :class="{ active: showCameraPreview, disabled: !selectedSubject }"
@@ -198,9 +200,11 @@
 
     <!-- 框选模式下的操作按钮 -->
     <div class="crop-actions-panel" v-if="showCropView && !showResultView">
+      <!-- 重新框选 -->
       <div class="crop-action-btn" @click="handleRetake">
         <q-icon name="refresh" size="24px" />
       </div>
+      <!-- 搜索 -->
       <div
         class="crop-action-btn search-btn"
         :class="{ active: isSearching, disabled: !cropRect }"
@@ -217,6 +221,7 @@
         v-if="isDev && showCropView && cropRect && cropPreviewImage && showCropPreviewPanel"
         class="crop-preview-panel"
       >
+        <!-- 框选预览 -->
         <div class="crop-preview-header">
           <span class="crop-preview-title">框选预览</span>
           <q-btn
@@ -229,6 +234,7 @@
             @click="closeCropPreviewPanel"
           />
         </div>
+        <!-- 框选预览内容 -->
         <div class="crop-preview-content">
           <div class="crop-preview-image-wrapper">
             <img :src="cropPreviewImage" alt="框选预览" class="crop-preview-image" />
@@ -288,14 +294,8 @@
           </div>
 
           <!-- 拍照搜题内容 -->
-          <div
-            v-if="activeTab === 'photo'"
-            class="photo-result-wrapper"
-          >
-            <div
-              ref="photoResultRef"
-              class="recognized-problem"
-            >
+          <div v-if="activeTab === 'photo'" class="photo-result-wrapper">
+            <div ref="photoResultRef" class="recognized-problem">
               <div
                 class="problem-text"
                 v-if="photoQuestionData"
@@ -336,10 +336,7 @@
             </div>
           </div>
           <!-- Chat 输入区域（使用 ChatView + simple 模式） -->
-          <div
-            class="drawer-chat-section"
-            v-if="currentQuestionData"
-          >
+          <div class="drawer-chat-section" v-if="currentQuestionData">
             <!-- 使用 ChatView 组件，简单输入模式 -->
             <ChatView
               ref="chatViewRef"
@@ -365,8 +362,8 @@
                     <span class="chat-action-text">收藏</span>
                   </div>
                   <div class="chat-action-item" @click="handleAddToPracticeInChat">
-                    <q-icon 
-                      name="description" 
+                    <q-icon
+                      name="description"
                       size="20px"
                       :class="{ 'in-practice': isInPracticeList }"
                     />
@@ -416,17 +413,6 @@ const { renderMessageContent } = useMessageRenderer()
 // 开发环境检查（仅开发环境显示调试面板）
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true' || import.meta.env.DEV
 
-// 日志工具函数
-const logFlow = (action: string, data?: Record<string, unknown>) => {
-  const timestamp = new Date().toISOString()
-  const logData = {
-    timestamp,
-    action,
-    ...data,
-  }
-  console.log(`[PhotoSearchView] ${action}`, logData)
-}
-
 // 检测当前环境（使用适配器工厂统一判断）
 const isAndroid = computed(() => ImagePickerAdapterFactory.getEnvironment() === 'android')
 
@@ -465,7 +451,6 @@ const isChatLoading = ref(false) // 用于调试面板显示
 
 // ChatView 消息发送完成处理
 const handleChatResponse = () => {
-  logFlow('ChatView 消息发送完成')
   isChatLoading.value = false
 }
 
@@ -496,7 +481,7 @@ const questionStore = useQuestionStore()
 const isInPracticeList = computed(() => {
   if (!currentQuestionData.value) return false
   const currentId = currentQuestionData.value.bmNo || currentQuestionData.value.id
-  return questionStore.questions.some(q => (q.bmNo || q.id) === currentId)
+  return questionStore.questions.some((q) => (q.bmNo || q.id) === currentId)
 })
 
 // 根据当前tab返回对应的题目数据
@@ -506,46 +491,10 @@ const currentQuestionData = computed(() => {
   return data
 })
 
-// 同步题目数据到 questionStore
-const syncQuestionToStore = async (question: ExerciseItem) => {
-  if (!question) {
-    return
-  }
-
-  try {
-    const questions = questionStore.questions
-    // 检查题目是否已经在 questions 数组中
-    const questionIndex = questions.findIndex(
-      (q) => q.bmNo === question.bmNo
-    )
-
-    if (questionIndex >= 0) {
-      // 如果题目已存在，直接选择它
-      await questionStore.selectQuestion(questionIndex)
-  } else {
-      // 如果题目不存在，添加到数组开头，然后选择它
-      questionStore.questions.unshift(question)
-      await questionStore.selectQuestion(0)
-  }
-  } catch (error) {
-    console.error('同步题目到 questionStore 失败:', error)
-  }
-}
-
 // 处理 tab 切换，同步当前 tab 的题目到 questionStore
 const handleTabSwitch = async (tab: 'photo' | 'keyword') => {
   // 切换 tab
   activeTab.value = tab
-  
-  // 同步当前 tab 的题目到 questionStore
-  const currentQuestion = tab === 'photo' ? photoQuestionData.value : keywordQuestionData.value
-  if (currentQuestion) {
-    logFlow('Tab 切换，同步题目到 questionStore', {
-      tab,
-      questionId: currentQuestion.id,
-    })
-    await syncQuestionToStore(currentQuestion)
-  }
 }
 
 // 相机相关
@@ -678,10 +627,6 @@ const cropMaskRightStyle = computed(() => {
 // Android环境：使用原生相机预览层（PreviewView）
 // Web环境：使用Web相机预览（video元素）
 const startCamera = async () => {
-  logFlow('启动相机预览', {
-    isAndroid: isAndroid.value,
-    hasAndroidBridge: hasAndroidBridge.value,
-  })
   if (isAndroid.value) {
     // Android环境：使用原生相机预览层
     try {
@@ -690,10 +635,8 @@ const startCamera = async () => {
       }
       window.AndroidBridge.startNativeCameraPreview()
       showCameraPreview.value = true
-      logFlow('Android原生相机预览启动成功')
     } catch (error) {
       console.error('启动Android原生相机预览失败:', error)
-      logFlow('Android原生相机预览启动失败', { error })
       showMessage('无法启动相机预览，请检查权限设置', 'warning')
       showCameraPreview.value = false
     }
@@ -710,13 +653,8 @@ const startCamera = async () => {
       if (videoElement.value) {
         videoElement.value.srcObject = stream
       }
-      logFlow('Web相机预览启动成功', {
-        hasStream: !!stream,
-        hasVideoElement: !!videoElement.value,
-      })
     } catch (error) {
       console.error('启动相机失败:', error)
-      logFlow('Web相机预览启动失败', { error })
       showMessage('无法访问相机，请检查权限设置', 'warning')
       showCameraPreview.value = false
     }
@@ -725,21 +663,14 @@ const startCamera = async () => {
 
 // 停止相机预览
 const stopCamera = async () => {
-  logFlow('停止相机预览', {
-    isAndroid: isAndroid.value,
-    hasStream: !!cameraStream.value,
-    hasVideoElement: !!videoElement.value,
-  })
   if (isAndroid.value) {
     // Android环境：停止原生相机预览
     try {
       if (window.AndroidBridge) {
         window.AndroidBridge.stopNativeCameraPreview()
-        logFlow('Android原生相机预览停止成功')
       }
     } catch (error) {
       console.error('停止Android原生相机预览失败:', error)
-      logFlow('Android原生相机预览停止失败', { error })
     }
   } else {
     // Web环境：停止Web相机预览
@@ -747,11 +678,9 @@ const stopCamera = async () => {
       const trackCount = cameraStream.value.getTracks().length
       cameraStream.value.getTracks().forEach((track) => track.stop())
       cameraStream.value = null
-      logFlow('Web相机流停止成功', { trackCount })
     }
     if (videoElement.value) {
       videoElement.value.srcObject = null
-      logFlow('Video元素已清空')
     }
   }
 }
@@ -871,13 +800,7 @@ const captureFromCamera = async (): Promise<string | null> => {
 // Android环境：使用原生拍照接口
 // Web环境：从video元素截图（相机已在对话框打开时启动）
 const handleCapturePhoto = async () => {
-  logFlow('拍照开始', {
-    selectedSubject: selectedSubject.value,
-    isAndroid: isAndroid.value,
-    hasStream: !!cameraStream.value,
-  })
   if (!selectedSubject.value) {
-    logFlow('拍照失败：未选择学科')
     showMessage('请先选择学科', 'warning')
     return
   }
@@ -886,15 +809,9 @@ const handleCapturePhoto = async () => {
     // 直接从实时相机流中截图（相机已在对话框打开时启动）
     const base64DataUrl = await captureFromCamera()
     if (!base64DataUrl) {
-      logFlow('拍照失败：未获取到图片数据')
       showMessage('拍照失败', 'error')
       return
     }
-
-    logFlow('拍照成功，开始处理图片', {
-      base64Length: base64DataUrl.length,
-      isFromGallery: false,
-    })
 
     // 转换为 File 对象
     const file = await base64ToFile(base64DataUrl, 'photo.jpg')
@@ -914,16 +831,8 @@ const handleCapturePhoto = async () => {
     showCropView.value = true
     await nextTick()
     initCropCanvas()
-
-    logFlow('拍照处理完成，进入框选模式', {
-      hasImage: !!currentImage.value,
-      imageSize: file.size,
-      showCameraPreview: showCameraPreview.value,
-      showCropView: showCropView.value,
-    })
   } catch (error) {
     console.error('拍照处理失败:', error)
-    logFlow('拍照处理失败', { error })
     const errorMessage = error instanceof Error ? error.message : '拍照处理失败'
     showMessage(errorMessage, 'error')
   }
@@ -931,12 +840,7 @@ const handleCapturePhoto = async () => {
 
 // 处理从相册选择
 const handleSelectFromGallery = async () => {
-  logFlow('从相册选择开始', {
-    selectedSubject: selectedSubject.value,
-    adapterType: adapter.constructor.name,
-  })
   if (!selectedSubject.value) {
-    logFlow('从相册选择失败：未选择学科')
     showMessage('请先选择学科', 'warning')
     return
   }
@@ -945,11 +849,6 @@ const handleSelectFromGallery = async () => {
     const imageInfo = await adapter.selectFromGallery()
 
     if (imageInfo && imageInfo.base64DataUrl) {
-      logFlow('从相册选择成功，开始处理图片', {
-        base64Length: imageInfo.base64DataUrl.length,
-        isFromGallery: true,
-      })
-
       // 停止相机预览
       stopCamera()
       showCameraPreview.value = false
@@ -971,19 +870,10 @@ const handleSelectFromGallery = async () => {
       showCropView.value = true
       await nextTick()
       initCropCanvas()
-
-      logFlow('从相册选择处理完成，进入框选模式', {
-        hasImage: !!currentImage.value,
-        imageSize: file.size,
-        showCameraPreview: showCameraPreview.value,
-        showCropView: showCropView.value,
-      })
     } else {
-      logFlow('从相册选择失败：未获取到图片数据')
     }
   } catch (error) {
     console.error('选择图片失败:', error)
-    logFlow('从相册选择失败', { error })
     const errorMessage = error instanceof Error ? error.message : '选择图片失败'
     showMessage(errorMessage, 'error')
   }
@@ -1042,8 +932,10 @@ const base64ToFile = (base64: string, filename: string): Promise<File> => {
         } catch (decodeError) {
           reject(
             new Error(
-              `Base64 解码失败: ${decodeError instanceof Error ? decodeError.message : String(decodeError)}`,
-            ),
+              `Base64 解码失败: ${
+                decodeError instanceof Error ? decodeError.message : String(decodeError)
+              }`
+            )
           )
         }
         return
@@ -1072,7 +964,7 @@ const base64ToFile = (base64: string, filename: string): Promise<File> => {
       resolve(new File([u8arr], filename, { type: mime }))
     } catch (error) {
       reject(
-        new Error(`Base64 转 File 失败: ${error instanceof Error ? error.message : String(error)}`),
+        new Error(`Base64 转 File 失败: ${error instanceof Error ? error.message : String(error)}`)
       )
     }
   })
@@ -1116,9 +1008,7 @@ const drawImage = () => {
       }
     }
   }
-  img.onerror = (error) => {
-    logFlow('绘制图片失败：图片加载失败', { error })
-  }
+  img.onerror = (error) => {}
   // 确保 preview 是完整的 data URL 格式
   img.src = ensureDataUrl(currentImage.value.preview)
 }
@@ -1126,22 +1016,12 @@ const drawImage = () => {
 // 初始化裁剪画布
 const initCropCanvas = () => {
   if (!cropCanvas.value || !currentImage.value) {
-    logFlow('初始化裁剪画布失败：缺少必要元素', {
-      hasCropCanvas: !!cropCanvas.value,
-      hasCurrentImage: !!currentImage.value,
-    })
     return
   }
-
-  logFlow('初始化裁剪画布开始', {
-    hasImage: !!currentImage.value,
-    imageSize: currentImage.value.file?.size,
-  })
 
   const canvas = cropCanvas.value
   const ctx = canvas.getContext('2d')
   if (!ctx) {
-    logFlow('初始化裁剪画布失败：无法获取2D上下文')
     return
   }
 
@@ -1224,29 +1104,10 @@ const initCropCanvas = () => {
 
     // 初始化时不创建裁剪框，等待用户绘制
     cropRect.value = null
-
-    logFlow('初始化裁剪画布完成', {
-      canvasWidth: canvas.width,
-      canvasHeight: canvas.height,
-      imageWidth: img.width,
-      imageHeight: img.height,
-      drawX,
-      drawY,
-      drawWidth,
-      drawHeight,
-      isFromGallery: isFromGallery.value,
-    })
   }
   img.onerror = (error) => {
     if (currentImage.value) {
-      logFlow('初始化裁剪画布失败：图片加载失败', {
-        previewType: typeof currentImage.value.preview,
-        previewLength: currentImage.value.preview?.length,
-        previewStart: currentImage.value.preview?.substring(0, 50),
-        error: error instanceof Error ? error.message : String(error),
-      })
     } else {
-      logFlow('初始化裁剪画布失败：图片加载失败', { error })
     }
   }
   // 确保 preview 是完整的 data URL 格式
@@ -1269,7 +1130,7 @@ const isPointInCropRect = (x: number, y: number): boolean => {
 // 检测鼠标位置在哪个调整区域
 const getResizeHandle = (
   x: number,
-  y: number,
+  y: number
 ): 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se' | null => {
   if (!cropRect.value) return null
 
@@ -1306,7 +1167,7 @@ const getResizeHandle = (
 
 // 获取调整手柄对应的光标样式
 const getCursorForHandle = (
-  handle: 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se' | null,
+  handle: 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se' | null
 ): string => {
   if (!handle) return 'default'
 
@@ -1624,12 +1485,6 @@ const handleTouchEnd = (e: TouchEvent) => {
 
 // 处理重拍
 const handleRetake = async () => {
-  logFlow('重拍开始', {
-    hasImage: !!currentImage.value,
-    hasCropRect: !!cropRect.value,
-    showCropView: showCropView.value,
-    showDrawer: showDrawer.value,
-  })
   currentImage.value = null
   imagePreview.value = ''
   showCropView.value = false
@@ -1649,26 +1504,15 @@ const handleRetake = async () => {
   imageOffsetY.value = 0
   showCropPreviewPanel.value = true // 重置预览面板显示状态
 
-  // 重新初始化并显示相机预览
+  // 重新启动相机预览
+  showCropView.value = false
   showCameraPreview.value = true
   await startCamera()
-
-  logFlow('重拍完成，恢复相机预览', {
-    showCameraPreview: showCameraPreview.value,
-    showCropView: showCropView.value,
-  })
 }
 
 // 处理搜索
 const handleSearch = async () => {
-  logFlow('搜索开始', {
-    hasImage: !!currentImage.value,
-    hasCropRect: !!cropRect.value,
-    hasCropCanvas: !!cropCanvas.value,
-    selectedSubject: selectedSubject.value,
-  })
   if (!currentImage.value || !cropRect.value || !cropCanvas.value) {
-    logFlow('搜索失败：未选择图片区域')
     showMessage('请先选择图片区域', 'warning')
     return
   }
@@ -1677,18 +1521,11 @@ const handleSearch = async () => {
     isSearching.value = true
 
     // 获取裁剪后的图片
-    logFlow('开始裁剪图片')
     const croppedFile = await getCroppedImage()
     if (!croppedFile) {
-      logFlow('搜索失败：图片裁剪失败')
       showMessage('图片裁剪失败', 'error')
       return
     }
-
-    logFlow('图片裁剪成功', {
-      croppedFileSize: croppedFile.size,
-      croppedFileName: croppedFile.name,
-    })
 
     // 获取裁剪后图片的 base64，用于抽屉显示
     const reader = new FileReader()
@@ -1698,42 +1535,22 @@ const handleSearch = async () => {
       reader.readAsDataURL(croppedFile)
     })
 
-    logFlow('开始调用图片识别API', {
-      subject: selectedSubject.value,
-      imageSize: croppedFile.size,
-    })
-
-    // 调用图片识别API
+    // 调用后端接口进行图片识别，传入学科信息
     const question = await apiService.recognizeImage(croppedFile, selectedSubject.value)
 
     if (question) {
-      logFlow('图片识别成功', {
-        questionId: question.id,
-        hasQuestion: !!question.question,
-        hasTitle: !!question.title,
-      })
+      // 将识别到的题目数据保存到 photoQuestionData
       photoQuestionData.value = question
-
-      // 同步题目到 questionStore
-      await syncQuestionToStore(question)
 
       // 隐藏框选视图，显示抽屉
       showCropView.value = false
       showDrawer.value = true
       activeTab.value = 'photo' // 默认显示拍照搜题标签
-
-      logFlow('搜索完成，显示结果', {
-        showCropView: showCropView.value,
-        showDrawer: showDrawer.value,
-        activeTab: activeTab.value,
-      })
     } else {
-      logFlow('搜索失败：未识别到题目')
       showMessage('未识别到题目', 'warning')
     }
   } catch (error) {
     console.error('图片识别失败:', error)
-    logFlow('搜索失败：图片识别异常', { error })
     showMessage('图片识别失败', 'error')
   } finally {
     isSearching.value = false
@@ -1790,7 +1607,7 @@ const getCroppedImage = (): Promise<File | null> => {
         0,
         0,
         canvas.width,
-        canvas.height,
+        canvas.height
       )
 
       // 转换为 Blob 再转为 File
@@ -1804,7 +1621,7 @@ const getCroppedImage = (): Promise<File | null> => {
           }
         },
         'image/jpeg',
-        0.9,
+        0.9
       )
     }
     img.onerror = () => {
@@ -1818,7 +1635,6 @@ const getCroppedImage = (): Promise<File | null> => {
 // 处理题目选中
 const handleQuestionSelected = (question: ExerciseItem) => {
   // 题目选中后可以在这里处理，比如跳转到题目详情页
-  logFlow('题目已选中', { questionId: question.id })
 }
 
 // 更新框选预览图
@@ -1881,7 +1697,7 @@ const updateCropPreview = () => {
         Math.max(0, Math.floor(cropRectValue.x)),
         Math.max(0, Math.floor(cropRectValue.y)),
         Math.min(mainCanvas.width - Math.floor(cropRectValue.x), Math.floor(cropRectValue.width)),
-        Math.min(mainCanvas.height - Math.floor(cropRectValue.y), Math.floor(cropRectValue.height)),
+        Math.min(mainCanvas.height - Math.floor(cropRectValue.y), Math.floor(cropRectValue.height))
       )
 
       // 创建临时 canvas 用于缩放
@@ -1927,17 +1743,12 @@ watch(
       cropPreviewImage.value = ''
     }
   },
-  { deep: true },
+  { deep: true }
 )
 
 // 处理关键词搜索
 const handleKeywordSearch = async () => {
-  logFlow('关键词搜索开始', {
-    keyword: keywordText.value.trim(),
-    selectedSubject: selectedSubject.value,
-  })
   if (!keywordText.value.trim()) {
-    logFlow('关键词搜索失败：关键词为空')
     showMessage('请输入题目关键字再搜索', 'warning')
     return
   }
@@ -1945,23 +1756,15 @@ const handleKeywordSearch = async () => {
   try {
     isKeywordSearching.value = true
 
-    logFlow('开始调用关键词搜索API', {
-      keyword: keywordText.value.trim(),
-      subject: selectedSubject.value,
-    })
-
     // 调用关键词搜索API
     const question = await apiService.searchQuestionByText(
       keywordText.value.trim(),
-      selectedSubject.value,
+      selectedSubject.value
     )
 
     if (question) {
-      logFlow('关键词搜索成功', question)
+      // 将识别到的题目数据保存到 keywordQuestionData
       keywordQuestionData.value = question
-
-      // 同步题目到 questionStore
-      await syncQuestionToStore(question)
 
       // 如果抽屉未打开，则打开抽屉
       if (!showDrawer.value) {
@@ -1970,18 +1773,11 @@ const handleKeywordSearch = async () => {
 
       // 保持在关键词标签页显示结果
       // activeTab 保持在 'keyword'，不切换
-
-      logFlow('关键词搜索完成，显示结果', {
-        showDrawer: showDrawer.value,
-        activeTab: activeTab.value,
-      })
     } else {
-      logFlow('关键词搜索失败：未搜索到相关题目')
       showMessage('未搜索到相关题目', 'warning')
     }
   } catch (error) {
     console.error('关键词搜索失败:', error)
-    logFlow('关键词搜索失败：搜索异常', { error })
     showMessage('关键词搜索失败', 'error')
   } finally {
     isKeywordSearching.value = false
@@ -2017,25 +1813,15 @@ const handleCloseDrawer = async () => {
 
   // 如果是从相册打开的，需要重新启动相机
   if (wasFromGallery) {
-    logFlow('从相册打开，关闭抽屉时重新启动相机')
     await startCamera()
     isFromGallery.value = false // 重置标记
   }
-
-  logFlow('关闭抽屉完成，恢复相机预览', {
-    showDrawer: showDrawer.value,
-    showCameraPreview: showCameraPreview.value,
-    wasFromGallery,
-    isFromGallery: isFromGallery.value,
-  })
 }
 
 // 处理关闭
 const handleClose = () => {
-  logFlow('关闭页面')
   cleanup()
   router.back()
-  logFlow('页面已关闭')
 }
 
 const handleFavoriteInChat = () => {
@@ -2055,19 +1841,22 @@ const handleFavoriteInChat = () => {
   }
 }
 
+// 添加题目到练习列表
 const handleAddToPracticeInChat = async () => {
+  // 检查当前题目是否为空
   if (!currentQuestionData.value) {
     showMessage('没有可操作的题目', 'warning')
     return
   }
 
   try {
+    // 获取当前题目ID
     const currentId = currentQuestionData.value.bmNo || currentQuestionData.value.id
-    
+
     // 检查题目是否已在练习列表中
     if (isInPracticeList.value) {
       // 已在列表中，执行删除操作
-      const index = questionStore.questions.findIndex(q => (q.bmNo || q.id) === currentId)
+      const index = questionStore.questions.findIndex((q) => (q.bmNo || q.id) === currentId)
       if (index !== -1) {
         await questionStore.deleteQuestion(index, selectedSubject.value)
         showMessage('已从练习列表中移除', 'success')
@@ -2082,10 +1871,9 @@ const handleAddToPracticeInChat = async () => {
         ...currentQuestionData.value,
         exercisesId,
       }
-
-      // const success = await apiService.addQuestionToList(questionData, selectedSubject.value)
-
-      if (true) {
+      // 添加题目到练习列表
+      const success = await apiService.addQuestionToList(questionData, selectedSubject.value)
+      if (success) {
         showMessage('题目已添加到练习列表', 'success')
         // 刷新题目列表，使用与请求一致的学科
         await questionStore.fetchQuestions(selectedSubject.value, false)
@@ -2102,34 +1890,15 @@ const handleAddToPracticeInChat = async () => {
 // 组件挂载时初始化
 const initialize = () => {
   const subject = getSubjectFromRoute()
-  logFlow('页面初始化开始', {
-    subject,
-    isAndroid: isAndroid.value,
-    hasAndroidBridge: hasAndroidBridge.value,
-  })
   selectedSubject.value = subject
   // 初始化收藏状态
   initFavoriteStatus()
   // 所有环境都启动相机预览
   startCamera()
-  logFlow('页面初始化完成', {
-    selectedSubject: selectedSubject.value,
-    showCameraPreview: showCameraPreview.value,
-  })
-
-  // SimpleChatInput 组件内部已处理键盘事件，无需在此监听
 }
 
 // 组件卸载前清理
 const cleanup = () => {
-  logFlow('组件清理开始', {
-    hasImage: !!currentImage.value,
-    hasCropRect: !!cropRect.value,
-    showCameraPreview: showCameraPreview.value,
-    showCropView: showCropView.value,
-    showResultView: showResultView.value,
-    showDrawer: showDrawer.value,
-  })
   stopCamera()
   showCameraPreview.value = false
   showCropView.value = false
@@ -2150,7 +1919,6 @@ const cleanup = () => {
   croppedImageBase64.value = ''
   photoQuestionData.value = null
   keywordQuestionData.value = null
-  logFlow('组件清理完成')
   // SimpleChatInput 组件内部已处理键盘事件，无需在此移除监听器
 }
 
@@ -2162,12 +1930,11 @@ watch(
       selectedSubject.value = newSubject
     }
   },
-  { immediate: true },
+  { immediate: true }
 )
 
 // 组件挂载时初始化
 onMounted(() => {
-  logFlow('页面挂载')
   initialize()
 })
 
@@ -2260,7 +2027,8 @@ onUnmounted(() => {
 // 灰色蒙版样式
 .crop-mask {
   position: absolute;
-  background: rgba(0, 0, 0, 0.5); /* 灰色半透明蒙版 */
+  background: rgba(0, 0, 0, 0.5);
+  /* 灰色半透明蒙版 */
   pointer-events: none;
   z-index: 1;
 }
@@ -2275,9 +2043,11 @@ onUnmounted(() => {
 
 .crop-overlay {
   position: absolute;
-  background: transparent; /* 框选区域透明，显示清晰的图片 */
+  background: transparent;
+  /* 框选区域透明，显示清晰的图片 */
   pointer-events: none;
-  z-index: 2; /* 确保框选区域在蒙版之上 */
+  z-index: 2;
+  /* 确保框选区域在蒙版之上 */
 }
 
 /* 裁剪框四个角的 L 形标记 */
@@ -2699,7 +2469,7 @@ onUnmounted(() => {
   z-index: 10;
   padding: 4px 8px;
   border-radius: 8px;
-  }
+}
 
 .recognized-problem {
   position: relative;
@@ -2724,6 +2494,7 @@ onUnmounted(() => {
   // Markdown 内容样式
   :deep(p) {
     margin: 0 0 8px 0;
+
     &:last-child {
       margin-bottom: 0;
     }
@@ -2829,7 +2600,7 @@ onUnmounted(() => {
 
 .keyword-input {
   width: 100%;
-  border: 1px solid #7A7CFF;
+  border: 1px solid #7a7cff;
   border-radius: 16px;
   background: white;
   height: 100%;
@@ -2850,17 +2621,13 @@ onUnmounted(() => {
   }
 
   &:hover {
-    border-color: #6A6CE8;
-    box-shadow: 
-      0 4px 16px rgba(122, 124, 255, 0.2),
-      0 2px 4px rgba(122, 124, 255, 0.15);
+    border-color: #6a6ce8;
+    box-shadow: 0 4px 16px rgba(122, 124, 255, 0.2), 0 2px 4px rgba(122, 124, 255, 0.15);
   }
 
   &:focus {
-    border-color: #5A5CD8;
-    box-shadow: 
-      0 4px 16px rgba(122, 124, 255, 0.25),
-      0 2px 4px rgba(122, 124, 255, 0.15);
+    border-color: #5a5cd8;
+    box-shadow: 0 4px 16px rgba(122, 124, 255, 0.25), 0 2px 4px rgba(122, 124, 255, 0.15);
   }
 }
 

@@ -326,8 +326,8 @@ const ALL_TOOLS: Record<string, ToolOption> = {
       ],
       showSizePicker: true,
       sizes: [
-        { value: 1.5, label: '细', displayHeight: '1px' },
-        { value: 2.5, label: '中', displayHeight: '2px' },
+        { value: 2.5, label: '细', displayHeight: '1px' },
+        { value: 3.0,label: '中', displayHeight: '2px' },
         { value: 3.5, label: '粗', displayHeight: '3px' },
       ],
       sizeLabel: '粗细',
@@ -349,9 +349,9 @@ const ALL_TOOLS: Record<string, ToolOption> = {
       ],
       showSizePicker: true,
       sizes: [
-        { value: 5, label: '细', displayHeight: '4px' },
-        { value: 10, label: '中', displayHeight: '7px' },
-        { value: 15, label: '粗', displayHeight: '10px' },
+        { value: 8, label: '细', displayHeight: '4px' },
+        { value: 12, label: '中', displayHeight: '7px' },
+        { value: 16, label: '粗', displayHeight: '10px' },
       ],
       sizeLabel: '粗细',
     },

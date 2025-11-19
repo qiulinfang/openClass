@@ -144,11 +144,11 @@ import { isVideoFile } from '../utils/thumbnail/video-thumbnail'
 
 // Props 定义
 interface Props {
-  modelValue: boolean
-  nodeId?: string
-  sectionName?: string
-  level?: number
-  textbookId?: string
+  modelValue: boolean // 对话框显示/隐藏
+  nodeId?: string // 当前节点ID
+  sectionName?: string // 当前章节名称
+  level?: number // 当前学习级别
+  textbookId?: string // 当前教材ID
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -193,7 +193,6 @@ const localFiles = ref<LocalFileInfo[]>([])
 // 当前教材的textbookId（用于更新缩略图）
 const currentTextbookId = ref<string>('')
 
-// 计算属性
 // 根据章节ID筛选学习方案（与安卓原生保持一致）
 const filteredLearningPackages = computed(() => {
   if (!sectionId.value) {
@@ -206,6 +205,7 @@ const filteredLearningPackages = computed(() => {
   })
 })
 
+// 当前选中的学习方案
 const currentScheme = computed(() => {
   if (
     selectedSchemeIndex.value >= 0 &&
@@ -506,38 +506,44 @@ const loadLearningPackages = async () => {
 
   try {
     // 直接从IndexedDB获取教材信息，包含学习包数据
+    console.time('教材信息加载')  
     const textbook = await resourceManager.getTextbookInfoById(id.value)
-
+    console.timeEnd('教材信息加载')
     if (textbook && textbook.learningPackages) {
+      console.time('学习包数据加载')
       // 保存教材的textbookId（用于更新缩略图）
       currentTextbookId.value = textbook.textbookId
-      
-      // 使用本地存储的学习包数据，优先从 IndexedDB 读取难度，如果没有则从 localStorage 读取
-      learningPackages.value = textbook.learningPackages.map((pkg) => {
-        // 优先使用 IndexedDB 中的难度
-        const pkgWithDifficulty = pkg as LearningPackage & { difficulty?: number }
-        if (pkgWithDifficulty.difficulty !== undefined && pkgWithDifficulty.difficulty !== null) {
-          // IndexedDB 中已有难度，使用它并同步到 localStorage
-          const DIFFICULTY_KEY = `learning_package_difficulty_${pkg.id}`
-          localStorage.setItem(DIFFICULTY_KEY, pkgWithDifficulty.difficulty.toString())
-          return pkgWithDifficulty
+      // 将学习包数据赋值给 learningPackages
+      learningPackages.value = textbook.learningPackages
+      console.timeEnd('学习包数据加载')
+      console.time('教材信息:')
+      // 只处理当前章节的包
+      if (sectionId.value) {
+        const lowerSectionId = sectionId.value.toLowerCase()
+        for (const pkg of learningPackages.value) {
+          const hasSectionId = pkg.sectionId && pkg.sectionId.trim() !== ''
+          if (!hasSectionId || pkg.sectionId!.toLowerCase() !== lowerSectionId) continue
+          // 优先使用 IndexedDB 中的难度
+          const pkgWithDifficulty = pkg as LearningPackage & { difficulty?: number }
+          // 如果学习包中已存在难度，直接使用
+          if (pkgWithDifficulty.difficulty !== undefined && pkgWithDifficulty.difficulty !== null) {
+            const DIFFICULTY_KEY = `learning_package_difficulty_${pkg.id}`
+            localStorage.setItem(DIFFICULTY_KEY, pkgWithDifficulty.difficulty.toString())
+            continue
+          }
+          // 如果学习包中不存在难度，从 localStorage 读取
+          const savedDifficulty = getSavedDifficulty(pkg.id)
+          if (savedDifficulty !== null) {
+            pkgWithDifficulty.difficulty = savedDifficulty
+          }
         }
-
-        // IndexedDB 中没有难度，从 localStorage 读取
-        const savedDifficulty = getSavedDifficulty(pkg.id)
-        if (savedDifficulty !== null) {
-          // 如果有保存的难度，添加到学习包对象中
-          return {
-            ...pkg,
-            difficulty: savedDifficulty,
-          } as LearningPackage & { difficulty: number }
-        }
-        return pkg
-      })
-
+      }
+      console.timeEnd('学习包数据加载')
       // 同时加载本地文件信息（用于获取缩略图）
       if (textbook.localFiles) {
+        console.time('本地文件信息加载')
         localFiles.value = textbook.localFiles
+        console.timeEnd('本地文件信息加载')
       }
 
       // 自动选择第一个方案
@@ -546,9 +552,9 @@ const loadLearningPackages = async () => {
       }
       
       // 数据加载完成后，延迟检查缩略图（等待UI渲染完成）
-      setTimeout(async () => {
-        await checkAndGenerateThumbnails()
-      }, 200)
+      console.time('缩略图检查')
+      await checkAndGenerateThumbnails()
+      console.timeEnd('缩略图检查')
     } else {
       // 如果没有本地数据，显示空状态
       learningPackages.value = []
@@ -692,12 +698,15 @@ onMounted(async () => {
   if (!props.modelValue && router.currentRoute.value.name === 'learning') {
     localVisible.value = true
   }
-
+  console.time('学习包加载')
   // 加载学习包数据
   await loadLearningPackages()
+  console.timeEnd('学习包加载')
   // 初始化 BScroll（由组合式函数处理）
+  console.time('BScroll初始化')
   await initSchemeListBScroll()
   await initResourcesListBScroll()
+  console.timeEnd('BScroll初始化')
 })
 
 onUnmounted(() => {

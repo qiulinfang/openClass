@@ -23,10 +23,10 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
   const drawingConfig = ref({
     // 签字笔
     penColor: '#ff0000',
-    penWidth: 1.5,
+    penWidth: 2.5,
     // 荧光笔
     highlighterColor: '#FFFF00',
-    highlighterWidth: 5,
+    highlighterWidth: 8,
     // 橡皮擦
     eraserSize: 10,
   })

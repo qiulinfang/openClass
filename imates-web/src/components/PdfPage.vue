@@ -11,6 +11,7 @@
       @touchcancel="handleTouchEnd"
       @scroll="handleScroll"
     >
+    <!-- 调试用的手势参数调整面板 -->
       <PdfGestureDebugPanel
         v-if="showDebugPanel"
         :min-scale="minScale"
@@ -375,6 +376,7 @@ const saveCurrentPdfToStorage = async () => {
   if (!pdf) return
 
   try {
+    console.log('[PdfPage] saveCurrentPdfToStorage')
     // 使用 MuPDF 提供的增量保存，将当前文档导出为缓冲区
     let buffer: any
     try {
@@ -398,11 +400,11 @@ const saveCurrentPdfToStorage = async () => {
 
     // 仅更新 textbook_files 表中的二进制数据
     await resourceManager.updateFileData(resourceId, data)
+    console.log('[PdfPage] saveCurrentPdfToStorage')
   } catch (e) {
     console.error('保存 PDF 到 IndexedDB 失败', e)
   }
 }
-
 // ==================== 坐标转换工具函数 ====================
 
 interface NormalizedPoint {
@@ -461,10 +463,11 @@ const normalizedToPdfPoint = (norm: NormalizedPoint, pageIndex: number): PdfPoin
   } else {
     const pdf = pdfDoc.value.asPDF()
     if (!pdf) return null
-
+    console.log(`[PdfPage] getBounds page ${pageIndex}`)
     const page = pdf.loadPage(pageIndex) as mupdf.PDFPage
     bounds = page.getBounds() as [number, number, number, number]
     page.destroy()
+    console.log(`[PdfPage] getBounds page ${pageIndex}`)
     pageBoundsCache.value.set(pageIndex, bounds)
   }
   const pageWidth = bounds[2] - bounds[0]
@@ -508,10 +511,11 @@ const pdfPointToScreenOnPage = (
   } else {
     const pdf = pdfDoc.value.asPDF()
     if (!pdf) return null
-
+    console.log(`[PdfPage] getBounds page ${pageIndex}`)
     const page = pdf.loadPage(pageIndex) as mupdf.PDFPage
     bounds = page.getBounds() as [number, number, number, number]
     page.destroy()
+    console.log(`[PdfPage] getBounds page ${pageIndex}`)
     pageBoundsCache.value.set(pageIndex, bounds)
   }
   const pageWidth = bounds[2] - bounds[0]
@@ -1153,6 +1157,7 @@ const drawStrokePreview = (pageIndex: number, layout: { width: number; height: n
   let previewWidth: number
 
   if (stroke.mode === 'highlight') {
+    // 高亮
     const hex = store.drawingConfig.highlighterColor || '#FFFF00'
     const size = store.drawingConfig.highlighterWidth || 5
     const r = parseInt(hex.slice(1, 3), 16)
@@ -1161,6 +1166,7 @@ const drawStrokePreview = (pageIndex: number, layout: { width: number; height: n
     previewColor = `rgba(${r}, ${g}, ${b}, 0.5)` // 半透明高亮
     previewWidth = size
   } else {
+    // 普通笔迹
     const hex = store.drawingConfig.penColor || '#ff0000'
     const size = store.drawingConfig.penWidth || 1
     previewColor = hex
@@ -1177,13 +1183,17 @@ const drawStrokePreview = (pageIndex: number, layout: { width: number; height: n
   // 绘制平滑路径
   ctx.beginPath()
 
+  // 移动到起点
   const first = screenPoints[0]
   ctx.moveTo(first.x, first.y)
 
+  // 记录上一个点
   let prevX = first.x
   let prevY = first.y
 
+  // 二次贝塞尔曲线平滑连接
   for (let i = 1; i < screenPoints.length; i++) {
+    // 取当前点
     const point = screenPoints[i]
     const x = point.x
     const y = point.y
@@ -1193,6 +1203,7 @@ const drawStrokePreview = (pageIndex: number, layout: { width: number; height: n
     const midY = (prevY + y) / 2
     ctx.quadraticCurveTo(prevX, prevY, midX, midY)
 
+    // 更新上一个点
     prevX = x
     prevY = y
   }
@@ -1333,39 +1344,6 @@ const deleteNote = (note: PageNote) => {
   void saveNotesToDb()
 }
 
-const closeNoteDialog = () => {
-  isNoteDialogOpen.value = false
-  noteDialogText.value = ''
-  pendingNotePosition.value = null
-  editingNoteRef.value = null
-}
-
-const confirmNoteDialog = () => {
-  const text = noteDialogText.value.trim()
-
-  if (!text) {
-    // 空内容视为不保存，直接关闭
-    closeNoteDialog()
-    return
-  }
-
-  if (noteDialogMode.value === 'add' && pendingNotePosition.value) {
-    const { pageIndex, x, y } = pendingNotePosition.value
-    notes.value.push({
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      pageIndex,
-      x,
-      y,
-      text,
-    })
-    void saveNotesToDb()
-  } else if (noteDialogMode.value === 'edit' && editingNoteRef.value) {
-    editingNoteRef.value.text = text
-    void saveNotesToDb()
-  }
-
-  closeNoteDialog()
-}
 
 // 滚动事件处理
 const handleScroll = () => {
@@ -1577,7 +1555,6 @@ const renderPage = async (pageIndex: number) => {
 // 加载 PDF 文件
 const loadPdf = async (file: File) => {
   try {
-    isLoading.value = true
     error.value = null
 
     // 如果之前有PDF文档，先销毁它
@@ -1587,28 +1564,29 @@ const loadPdf = async (file: File) => {
     }
 
     // 读取文件为ArrayBuffer
+    console.time('3.1')
     const arrayBuffer = await file.arrayBuffer()
     const uint8Array = new Uint8Array(arrayBuffer)
+    console.timeEnd('3.1')
 
     // 使用MuPDF打开PDF文档
+    console.time('3.2')
     const doc = mupdf.Document.openDocument(uint8Array, 'application/pdf')
+    console.timeEnd('3.2')
 
     // 获取总页数
     const pageCount = doc.countPages()
-
     // 保存PDF文档对象和总页数
     pdfDoc.value = doc
     totalPages.value = pageCount
+    console.time('3.3')
     // 加载成功后，自动渲染
     await render()
-
+    console.timeEnd('3.3')
     // 渲染完成后，从本地 IndexedDB 加载对应文件的笔记
-    await loadNotesFromDb()
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'PDF 加载失败'
     console.error('PDF加载失败:', err)
-  } finally {
-    isLoading.value = false
   }
 }
 
@@ -1620,26 +1598,28 @@ const render = async () => {
   if (renderAbortController) {
     renderAbortController.abort()
   }
-
+  console.time('3.3.1')
   renderAbortController = new AbortController()
   const signal = renderAbortController.signal
+  console.timeEnd('3.3.1')
 
   try {
-    isLoading.value = true
     error.value = null
-
+    console.time('3.3.2')
     const doc = pdfDoc.value
     const numPages = doc.countPages()
+    console.timeEnd('3.3.2')
     // 使用固定缩放比例 1.0 进行渲染，实际缩放通过 CSS transform 实现
     const renderScale = 1.0
     const pageGap = store.pageGap
 
     if (signal.aborted) return
-
+    console.time('3.3.3')
     // 第一阶段：计算所有页面的布局尺寸
     const layouts: Array<{ width: number; height: number }> = []
     let top = 0
-
+    console.timeEnd('3.3.3')
+    console.time('3.3.4')
     for (let i = 0; i < numPages; i++) {
       if (signal.aborted) return
 
@@ -1658,76 +1638,90 @@ const render = async () => {
     pageLayouts.value = layouts
     totalHeight.value = top - pageGap
     maxWidth.value = layouts.length > 0 ? Math.max(...layouts.map((l) => l.width)) : 0
-
     await nextTick() // 等待 DOM 更新，确保 Canvas 元素已创建
-
+    console.timeEnd('3.3.4')
     if (signal.aborted) return
 
-    // 第二阶段：渲染所有页面到 Canvas
-    const baseDpr = window.devicePixelRatio || 1 // 设备像素比，支持高 DPI 屏幕
-    // 初始渲染时使用比设备像素比更高的像素密度，提供更清晰的显示效果
-    // 使用 1.5 倍设备像素比，可以在清晰度和性能之间取得平衡
-    const renderDpr = baseDpr * 2
+    // 使用设备像素比，可以在清晰度和性能之间取得平衡
+    const baseDpr = window.devicePixelRatio || 1
+    // 使用 2 倍设备像素比，可以在清晰度和性能之间取得平衡
+    const renderDpr = baseDpr * 1.2
     // 在 matrix 中应用渲染 DPR，使 pixmap 尺寸与 Canvas 实际像素匹配
     const matrix: mupdf.Matrix = [renderScale * renderDpr, 0, 0, renderScale * renderDpr, 0, 0] // 变换矩阵（包含渲染 DPR 缩放）
 
-    await Promise.all(
-      layouts.map(async (layout, index) => {
-        if (signal.aborted) return
+    // 第二阶段：按批次渲染页面到 Canvas，避免一次性阻塞主线程
+    console.time('3.3.5')
+    const batchSize = 2
+    for (let start = 0; start < layouts.length; start += batchSize) {
+      if (signal.aborted) return
 
-        const canvas = pageCanvasRefs.value[index]
-        if (!canvas) return
+      const end = Math.min(start + batchSize, layouts.length)
 
-        const page = doc.loadPage(index)
-        try {
+      await Promise.all(
+        layouts.slice(start, end).map(async (layout, offset) => {
+          const index = start + offset
+          console.time('3.3.5.1')
+          // 为每个页面创建独立的渲染任务
           if (signal.aborted) return
-
-          const bounds = page.getBounds()
-          const renderWidth = (bounds[2] - bounds[0]) * renderScale
-          const renderHeight = (bounds[3] - bounds[1]) * renderScale
-
-          const ctx = canvas.getContext('2d')
-          if (!ctx) return
-
-          // 设置 Canvas 尺寸（考虑渲染像素比，初始渲染使用更高的像素密度）
-          canvas.width = renderWidth * renderDpr
-          canvas.height = renderHeight * renderDpr
-          canvas.style.width = `${renderWidth}px`
-          canvas.style.height = `${renderHeight}px`
-
-          // 渲染 PDF 页面为像素图（RGB 格式，抗锯齿）
-          // pixmap 尺寸 = renderWidth * renderDpr × renderHeight * renderDpr（与 Canvas 实际像素匹配）
-          const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, false, true)
-
+          // Canvas 元素
+          const canvas = pageCanvasRefs.value[index]
+          if (!canvas) return
+          // MuPDF 页面对象
+          const page = doc.loadPage(index)
           try {
+            // 中断渲染
             if (signal.aborted) return
-
-            // RGB 转 RGBA（MuPDF 返回 RGB，Canvas 需要 RGBA）
-            const pixels = pixmap.getPixels()
-            const width = pixmap.getWidth() // 应该是 renderWidth * renderDpr
-            const height = pixmap.getHeight() // 应该是 renderHeight * renderDpr
-            const rgbData = new Uint8Array(pixels)
-            const rgbaData = new Uint8ClampedArray(width * height * 4)
-
-            for (let i = 0; i < width * height; i++) {
-              rgbaData[i * 4] = rgbData[i * 3]
-              rgbaData[i * 4 + 1] = rgbData[i * 3 + 1]
-              rgbaData[i * 4 + 2] = rgbData[i * 3 + 2]
-              rgbaData[i * 4 + 3] = 255
-            }
-
-            if (!signal.aborted) {
-              // pixmap 尺寸已匹配 Canvas 实际像素，直接绘制
-              ctx.putImageData(new ImageData(rgbaData, width, height), 0, 0)
+            // 获取页面尺寸
+            const bounds = page.getBounds()
+            const renderWidth = (bounds[2] - bounds[0]) * renderScale
+            const renderHeight = (bounds[3] - bounds[1]) * renderScale
+            // Canvas 上下文
+            const ctx = canvas.getContext('2d')
+            if (!ctx) return
+            // 设置 Canvas 尺寸（考虑渲染像素比，初始渲染使用更高的像素密度）
+            canvas.width = renderWidth * renderDpr
+            canvas.height = renderHeight * renderDpr
+            canvas.style.width = `${renderWidth}px`
+            canvas.style.height = `${renderHeight}px`
+            // 渲染 PDF 页面为像素图（RGB 格式，抗锯齿）
+            const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, false, true)
+            try {
+              // 中断渲染
+              if (signal.aborted) return
+              // RGB 转 RGBA（MuPDF 返回 RGB，Canvas 需要 RGBA）
+              const pixels = pixmap.getPixels()
+              const width = pixmap.getWidth() // 应该是 renderWidth * renderDpr
+              const height = pixmap.getHeight() // 应该是 renderHeight * renderDpr
+              const rgbData = new Uint8Array(pixels)
+              const rgbaData = new Uint8ClampedArray(width * height * 4)
+              // RGB 转 RGBA
+              for (let i = 0; i < width * height; i++) {
+                rgbaData[i * 4] = rgbData[i * 3]
+                rgbaData[i * 4 + 1] = rgbData[i * 3 + 1]
+                rgbaData[i * 4 + 2] = rgbData[i * 3 + 2]
+                rgbaData[i * 4 + 3] = 255
+              }
+              // 绘制到 Canvas
+              if (!signal.aborted) {
+                // pixmap 尺寸已匹配 Canvas 实际像素，直接绘制
+                ctx.putImageData(new ImageData(rgbaData, width, height), 0, 0)
+              }
+            } finally {
+              // 释放 pixmap 资源
+              pixmap.destroy()
             }
           } finally {
-            pixmap.destroy()
+            // 释放 MuPDF 页面资源
+            page.destroy()
           }
-        } finally {
-          page.destroy()
-        }
-      })
-    )
+          console.timeEnd('3.3.5.1')
+        })
+      )
+
+      // 每批渲染完后让出一次主线程，避免长时间卡死
+      await nextTick()
+    }
+    console.timeEnd('3.3.5')
   } catch (err) {
     // 取消操作不显示错误
     if (signal.aborted || isUnmounting) {
@@ -1735,38 +1729,9 @@ const render = async () => {
     }
     console.error('PDF 渲染失败:', err)
     error.value = err instanceof Error ? err.message : 'PDF 渲染失败'
-  } finally {
-    if (!signal.aborted) {
-      isLoading.value = false
-    }
   }
 }
 
-// 监听文件变化
-watch(
-  () => props.file,
-  async (newFile) => {
-    if (newFile) {
-      await loadPdf(newFile)
-    }
-  },
-  { immediate: true }
-)
-
-// 监听页面间距变化
-watch(
-  () => store.pageGap,
-  () => pdfDoc.value && render()
-)
-
-// 监听缩放比例变化，不需要重新渲染，CSS transform 会自动应用
-watch(
-  () => store.scale,
-  () => {
-    // CSS transform 会自动应用缩放，无需重新渲染 PDF
-    // 这里可以添加其他逻辑，比如滚动位置调整等
-  }
-)
 
 // 计算工具栏高度
 const calculateToolbarHeight = () => {
@@ -2078,17 +2043,24 @@ const handleTouchEnd = (event: TouchEvent) => {
 
 // 生命周期钩子函数
 onMounted(async () => {
+  console.time('[PdfPage] onMounted')
+  // 设置加载状态
+  isLoading.value = true
+  console.time('111')
+  // 设置卸载状态
   isUnmounting = false
-
+  console.timeEnd('111')
+  // 等待 DOM 更新
   await nextTick()
+  console.time('222')
   // 计算工具栏高度
   calculateToolbarHeight()
-
+  console.timeEnd('222')
   // 获取容器宽度
   if (containerRef.value) {
     containerWidth.value = containerRef.value.clientWidth
   }
-
+  console.time('333')
   // 使用 ResizeObserver 监听工具栏高度变化
   const toolbar = document.querySelector('.unified-toolbar-container.variant-browser')
   if (toolbar) {
@@ -2098,17 +2070,22 @@ onMounted(async () => {
     })
     toolbarResizeObserver.observe(toolbar)
   }
-
   // 监听窗口大小变化
   window.addEventListener('resize', handleResize)
-
+  console.timeEnd('333')
   // 组件挂载后，如果已有文件，立即加载
   if (props.file) {
+    console.time('444')
     // 加载 PDF 文档
     await loadPdf(props.file)
+    console.timeEnd('444')
     // 加载 notes
+    console.time('555')
     await loadNotesFromDb()
+    console.timeEnd('555')
   }
+  isLoading.value = false
+  console.timeEnd('[PdfPage] onMounted')
 })
 
 onBeforeUnmount(() => {
@@ -2144,7 +2121,6 @@ onBeforeUnmount(() => {
   }
 
   // 重置状态
-  isLoading.value = false
   error.value = null
   totalPages.value = 0
 })
