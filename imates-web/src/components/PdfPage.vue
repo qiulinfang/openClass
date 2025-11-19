@@ -192,7 +192,7 @@ const currentPageIndex = ref(0) // 当前滚动到的页码
 // ==================== 手势与缩放参数 ====================
 const minScale = ref(0.25) // 最小缩放倍数
 const maxScale = ref(3.0) // 最大缩放倍数
-const zoomThreshold = ref(0.25) // 捏合缩放判定阈值（建议 0.04 ~ 0.1）
+const zoomThreshold = ref(0.06) // 捏合缩放判定阈值（建议 0.04 ~ 0.1）
 const panThreshold = ref(14) // 平移手势判定阈值（越小越容易触发滚动）
 const friction = ref(0.001) // 惯性摩擦系数
 const inertiaThreshold = ref(0.05) // 惯性停止速度阈值
@@ -1893,6 +1893,7 @@ const handleTouchMove = (event: TouchEvent) => {
   }
   if (!containerRef.value || !viewerContainer.value) return
 
+  // 双指捏合缩放：只有在已经记录了初始距离且处于捏合状态时才进入
   if (event.touches.length === 2 && lastTouchDistance > 0 && isPinching) {
     event.preventDefault()
 
@@ -1909,19 +1910,9 @@ const handleTouchMove = (event: TouchEvent) => {
     const scaleFactor = currentDistance / lastTouchDistance
     const distanceChange = Math.abs(scaleFactor - 1)
 
-    // 双指滚动：始终根据位移拖动内容（只用 very small 阈值过滤掉抖动）
+    // 仅记录速度，不在捏合分支中直接拖动 scroll；真正的平移由缩放补偿决定
     const verySmallMove = 0.5
     if (Math.abs(dx) > verySmallMove || Math.abs(dy) > verySmallMove) {
-      const container = containerRef.value
-      const maxScrollY = container.scrollHeight - container.clientHeight
-      const maxScrollX = container.scrollWidth - container.clientWidth
-
-      const nextScrollTop = Math.min(Math.max(0, container.scrollTop - dy), maxScrollY)
-      const nextScrollLeft = Math.min(Math.max(0, container.scrollLeft - dx), maxScrollX)
-
-      container.scrollTop = nextScrollTop
-      container.scrollLeft = nextScrollLeft
-
       const dt = now - lastPanTime
       if (dt > 0) {
         panVelocityX = -dx / dt
@@ -1931,26 +1922,41 @@ const handleTouchMove = (event: TouchEvent) => {
       lastPanY = centerYAbs
       lastPanTime = now
     }
-    // 缩放：不再依赖固定模式，只要距离变化超过阈值就进行缩放
+
+    // 缩放：当两指间距变化超过阈值时，根据比例计算新的缩放值
     const isZoomCandidate = distanceChange > zoomThreshold.value
     if (isZoomCandidate) {
-      const newScale = Math.max(
-        minScale.value,
-        Math.min(maxScale.value, pinchStartScale * scaleFactor)
-      )
+      const oldScale = store.scale
+      let newScale = oldScale * scaleFactor
+      newScale = Math.max(minScale.value, Math.min(maxScale.value, newScale))
 
-      if (newScale === store.scale) return
+      if (newScale === oldScale) return
+
+      if (!containerRef.value) return
+      const containerRect = containerRef.value.getBoundingClientRect()
+      const centerXViewport = centerXAbs - containerRect.left
+      const centerYViewport = centerYAbs - containerRect.top
+
+      const scrollTop = containerRef.value.scrollTop
+      const scrollLeft = containerRef.value.scrollLeft
+
+      const contentOffsetY = (scrollTop + centerYViewport) / oldScale
+      const contentOffsetX = (scrollLeft + centerXViewport) / oldScale
 
       store.setScale(newScale)
+      gestureMode = 'zoom'
 
       nextTick(() => {
         if (!containerRef.value) return
 
-        const newScrollTop = pinchStartContentOffsetY * newScale - pinchStartMouseY
-        const newScrollLeft = pinchStartContentOffsetX * newScale - pinchStartMouseX
+        const newScrollTop = contentOffsetY * newScale - centerYViewport
+        const newScrollLeft = contentOffsetX * newScale - centerXViewport
+
         containerRef.value.scrollTop = Math.max(0, newScrollTop)
         containerRef.value.scrollLeft = Math.max(0, newScrollLeft)
       })
+
+      lastTouchDistance = currentDistance
     }
   }
 }
@@ -1970,6 +1976,13 @@ const handleTouchEnd = (event: TouchEvent) => {
     isZooming.value = false
     lastTouchDistance = 0
     isPinching = false
+    // 如果本次手势发生过捏合缩放，则弱化惯性：清空速度，避免缩放结束后仍然长时间滑动
+    if (gestureMode === 'zoom') {
+      panVelocity = 0
+      panVelocityX = 0
+      gestureMode = 'none'
+      return
+    }
 
     if (!containerRef.value) return
 
