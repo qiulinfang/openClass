@@ -193,6 +193,11 @@ const props = withDefaults(
     inputMode?: 'full' | 'simple' // 输入模式：full=完整输入(ChatInput)，simple=简单输入(SimpleChatInput)
     // 当前题目对象，由外层页面维护，ChatView 不直接依赖全局 questionStore
     question?: unknown
+    attachedScreenshot?: {
+      dataUrl: string
+      width: number
+      height: number
+    }
   }>(),
   {
     inputMode: 'full',
