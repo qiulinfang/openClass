@@ -2,6 +2,23 @@
   <div class="modern-chat-container">
     <!-- 主容器 -->
     <div class="chat-input-wrapper" ref="inputAreaRef" :class="{ 'is-narrow': isNarrow }">
+      <!-- 截图缩略图（挂在输入框内左上角） -->
+      <div v-if="props.attachedScreenshot" class="screenshot-thumb-bar">
+        <div class="screenshot-thumb-inner">
+          <img
+            :src="props.attachedScreenshot.dataUrl"
+            alt="截图预览"
+            class="screenshot-thumb-img"
+          />
+          <button
+            type="button"
+            class="screenshot-thumb-close"
+            @click.stop="emit('remove-screenshot')"
+          >
+            <q-icon name="close" size="14px" color="white" />
+          </button>
+        </div>
+      </div>
       <!-- 新的MathFormulaEditor输入区域 -->
       <div class="unified-input-area">
         <MathFormulaEditor
@@ -223,11 +240,19 @@ import type {
 } from '../../types'
 
 
-const props = defineProps<ChatInputProps>()
+const props = defineProps<ChatInputProps & {
+  attachedScreenshot?: {
+    dataUrl: string
+    width: number
+    height: number
+  }
+}>()
 
 const emit = defineEmits<ChatInputEmits & {
   'focus': []
   'blur': []
+  'remove-screenshot': []
+  'send-with-screenshot': []
 }>()
 
 // 新的编辑器相关状态
@@ -609,8 +634,12 @@ const handleSendMessage = () => {
 
   // 5. 先发送消息，然后再关闭键盘
   nextTick(() => {
-    // 发送消息
-    emit('send-message');
+    // 有挂起截图时，优先走截图发送通道
+    if (props.attachedScreenshot) {
+      emit('send-with-screenshot')
+    } else {
+      emit('send-message')
+    }
     clearInputContent();
     
     // 延迟一小段时间后关闭键盘，确保消息已发送
@@ -825,6 +854,39 @@ defineExpose({
   z-index: 1000; /* 确保输入区域在消息区域上方 */
   max-width: 100%;
   box-sizing: border-box;
+}
+
+.screenshot-thumb-bar {
+  padding: 0px 6px;
+}
+
+.screenshot-thumb-inner {
+  position: relative;
+  width: 72px;
+  height: 48px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.screenshot-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.screenshot-thumb-close {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 .chat-input-wrapper:hover {

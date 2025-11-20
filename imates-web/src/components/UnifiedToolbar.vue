@@ -864,7 +864,6 @@ defineExpose({
 
 .unified-toolbar-browser {
   background: #0a0020;
-  border-top: 1px solid #d0d0d0;
   border-bottom: none;
   border-radius: 0;
   box-shadow: none;
