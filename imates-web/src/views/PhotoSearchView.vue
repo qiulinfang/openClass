@@ -279,6 +279,15 @@
     <Transition name="drawer-slide">
       <div v-if="showDrawer" class="photo-qa-drawer" @click.self="handleCloseDrawer">
         <div class="drawer-content" @click.stop>
+          <!-- 抽屉内部关闭按钮 -->
+          <q-btn
+            flat
+            round
+            dense
+            icon="close"
+            class="drawer-close-btn"
+            @click="handleCloseDrawer"
+          />
           <!-- 识别图片区域 -->
           <!-- 图片标签页 -->
           <div class="image-tabs">
@@ -2473,7 +2482,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: #000;
   z-index: 10002;
   display: flex;
   align-items: flex-end;
