@@ -84,9 +84,14 @@
           @touchend="handleTouchEnd"
         ></canvas>
         <!-- 灰色蒙版层：
-             - 未开始框选时：整张图片一层灰色蒙版
+             - 未开始框选时：整张图片一层灰色蒙版，并在中间给出框选提示
              - 已有 cropRect 时：使用四个遮罩层覆盖框选区域外的部分 -->
-        <div v-if="!cropRect" class="crop-mask crop-mask-full"></div>
+        <div v-if="!cropRect" class="crop-mask crop-mask-full">
+          <div class="crop-hint-box">
+            <div class="crop-hint-rect"></div>
+            <div class="crop-hint-text">在中间区域拖动框选题目</div>
+          </div>
+        </div>
         <template v-else>
           <!-- 顶部遮罩 -->
           <div class="crop-mask crop-mask-top" :style="cropMaskTopStyle"></div>
@@ -274,6 +279,15 @@
     <Transition name="drawer-slide">
       <div v-if="showDrawer" class="photo-qa-drawer" @click.self="handleCloseDrawer">
         <div class="drawer-content" @click.stop>
+          <!-- 抽屉内部关闭按钮 -->
+          <q-btn
+            flat
+            round
+            dense
+            icon="close"
+            class="drawer-close-btn"
+            @click="handleCloseDrawer"
+          />
           <!-- 识别图片区域 -->
           <!-- 图片标签页 -->
           <div class="image-tabs">
@@ -372,6 +386,36 @@
                 </div>
               </template>
             </ChatView>
+          </div>
+          <!-- 加入练习成功后提示是否跳转“我的习题” -->
+          <div v-if="showAddToPracticeDialog" class="practice-dialog-overlay">
+            <div class="practice-dialog">
+              <div class="practice-dialog-card">
+                <!-- 头部：标题 + 关闭按钮 -->
+                <div class="practice-dialog-header">
+                  <div class="practice-dialog-title">题目已加入练习</div>
+                  <button class="practice-dialog-close" type="button" @click="handleStayInPhotoSearch">
+                    <q-icon name="close" size="20px" />
+                  </button>
+                </div>
+                <div class="practice-dialog-divider"></div>
+
+                <!-- 内容文案 -->
+                <div class="practice-dialog-body">
+                  题目已添加到“我的习题”，现在前往查看吗？
+                </div>
+
+                <!-- 底部按钮区 -->
+                <div class="practice-dialog-actions">
+                  <div class="practice-dialog-btn" @click="handleStayInPhotoSearch">
+                    先留在本页
+                  </div>
+                  <div class="practice-dialog-btn primary" @click="handleGoToMyExercises">
+                    前往我的习题
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -549,6 +593,9 @@ const currentImage = ref<{
 
 // 分屏组件模型值
 const splitterModel = ref(50)
+
+// 是否展示“加入练习成功”跳转提示
+const showAddToPracticeDialog = ref(false)
 
 // 框选预览相关
 const cropPreviewImage = ref<string>('') // 框选区域的预览图
@@ -1855,11 +1902,24 @@ const handleAddToPracticeInChat = async () => {
 
     // 检查题目是否已在练习列表中
     if (isInPracticeList.value) {
-      // 已在列表中，执行删除操作
-      const index = questionStore.questions.findIndex((q) => (q.bmNo || q.id) === currentId)
-      if (index !== -1) {
-        await questionStore.deleteQuestion(index, selectedSubject.value)
-        showMessage('已从练习列表中移除', 'success')
+      // 已在列表中，执行删除操作（先调用后端，再刷新本地列表）
+      try {
+        // 调用后端删除练习题目
+        const success = await apiService.deleteExercise(currentId, selectedSubject.value)
+        if (success) {
+          showMessage('已从练习列表中移除', 'success')
+          // 刷新本地题目列表
+          if (selectedSubject.value) {
+            await questionStore.fetchQuestions(selectedSubject.value, false)
+          } else {
+            await questionStore.fetchAllSubjectsQuestions(false)
+          }
+        } else {
+          showMessage('移除题目失败', 'error')
+        }
+      } catch (error) {
+        console.error('移除练习题目失败:', error)
+        showMessage('移除题目失败', 'error')
       }
     } else {
       // 不在列表中，执行添加操作
@@ -1877,6 +1937,8 @@ const handleAddToPracticeInChat = async () => {
         showMessage('题目已添加到练习列表', 'success')
         // 刷新题目列表，使用与请求一致的学科
         await questionStore.fetchQuestions(selectedSubject.value, false)
+        // 弹出是否跳转“我的习题”提示
+        showAddToPracticeDialog.value = true
       } else {
         showMessage('添加题目失败', 'error')
       }
@@ -1885,6 +1947,17 @@ const handleAddToPracticeInChat = async () => {
     console.error('操作题目失败:', error)
     showMessage('操作失败', 'error')
   }
+}
+
+// 点击“先留在本页”
+const handleStayInPhotoSearch = () => {
+  showAddToPracticeDialog.value = false
+}
+
+// 点击“前往我的习题”
+const handleGoToMyExercises = () => {
+  showAddToPracticeDialog.value = false
+  router.push({ name: 'exerciseSolve' })
 }
 
 // 组件挂载时初始化
@@ -2357,6 +2430,44 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+.crop-mask-full {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+.crop-hint-box {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.crop-hint-rect {
+  width: 56%;
+  max-width: 420px;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+  border: 2px dashed rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.crop-hint-text {
+  margin-top: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 13px;
+}
+
 // 抽屉样式
 .photo-qa-drawer {
   position: fixed;
@@ -2364,10 +2475,11 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: #000;
   z-index: 10002;
   display: flex;
   align-items: flex-end;
+  justify-content: center;
 }
 
 .drawer-content {
@@ -2702,6 +2814,88 @@ onUnmounted(() => {
 
 .chat-action-text {
   font-size: 12px;
+}
+
+/* 覆盖抽屉内部内容的遮罩层 */
+.practice-dialog-overlay {
+  position: absolute;
+  inset: 0;                 /* 顶/右/底/左全覆盖 drawer-content */
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;              /* 高于 drawer-content 内其他元素即可 */
+}
+
+/* 中间的对话框容器 */
+.practice-dialog {
+  max-width: 320px;
+  width: 80%;
+}
+
+.practice-dialog-card {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.16),
+    0 2px 4px rgba(0, 0, 0, 0.08);
+  padding: 16px 16px 12px;
+  box-sizing: border-box;
+}
+
+.practice-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.practice-dialog-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.practice-dialog-close {
+  border: none;
+  background: transparent;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #666;
+}
+
+
+.practice-dialog-body {
+  padding: 16px 4px 8px;
+  font-size: 14px;
+  color: #555;
+  line-height: 1.5;
+}
+
+.practice-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 4px 4px 0;
+}
+
+.practice-dialog-btn {
+  border-radius: 999px;
+  padding: 0 18px;
+  height: 40px;
+  line-height: 40px;
+}
+
+.practice-dialog-btn.primary {
+  border-radius: 999px;
+  padding: 0 18px;
+  background-color: #9778ff;
+  color: #fff;
+  height: 40px;
+  line-height: 40px;
 }
 
 // SimpleChatInput 组件内部已有样式，以下样式已废弃
