@@ -286,6 +286,7 @@ export const useQuestionStore = defineStore('question', () => {
     if (subject) {
       try {
         await saveQuestionsToIndexedDB(subject, questions.value)
+      console.log(3333333)
       } catch (error) {
         console.error('[QUESTION] ❌ 保存题目列表到 IndexedDB 失败:', error)
       }

@@ -7,7 +7,6 @@ import type { ChatBubble } from '../../../types'
 import type { ChatStrategy, ForwardResult, ForwardOptions } from './ChatStrategy'
 import type { SendMessageOptions, InitializeOptions } from './types'
 import { useAiExerciseChatStore } from '../../../stores/aiExerciseChatStore'
-import { useQuestionStore } from '../../../stores/questionStore'
 import { getUserInfo, getSubject } from '../../../services/auth-storage-service'
 import { useTeacherExerciseChatStore } from '../../../stores/teacherExerciseChatStore'
 import { apiService } from '../../../services/api-service'
@@ -16,7 +15,6 @@ import { generateUniqueId } from '../../../stores/utils/chatStoreUtils'
 
 export class AiExerciseStrategy implements ChatStrategy {
   private aiExerciseStore = useAiExerciseChatStore()
-  private questionStore = useQuestionStore()
   
   // 第1步：获取消息列表
   getMessages(): ChatBubble[] {
@@ -30,8 +28,11 @@ export class AiExerciseStrategy implements ChatStrategy {
   
   // 第3步：发送消息
   async sendMessage(content: string, options: SendMessageOptions = {}): Promise<void> {
-    // 验证是否选择了题目
-    if (!this.questionStore.currentQuestion) {
+    // 优先使用 options.currentQuestion（由 ChatView 通过 props.overrideQuestion 传入）
+    const currentQuestion = options.currentQuestion as unknown | undefined
+
+    // 如果没有传入题目，则提示用户先选择题目
+    if (!currentQuestion) {
       throw new Error('请先选择题目')
     }
     
@@ -40,7 +41,7 @@ export class AiExerciseStrategy implements ChatStrategy {
     // 调用Store的sendMessage方法，传递所有必需参数
     await this.aiExerciseStore.sendMessage(
       content,
-      this.questionStore.currentQuestion,
+      currentQuestion as any,
       getUserInfo(),
       getSubject(),
       options.selectedModel || 'mate',
@@ -70,8 +71,7 @@ export class AiExerciseStrategy implements ChatStrategy {
   }
   
   // 第8步：保存聊天历史
-  async saveChatHistory(): Promise<void> {
-    const questionId = this.questionStore.currentQuestion?.id || this.questionStore.currentQuestion?.bmNo
+  async saveChatHistory(questionId?: string): Promise<void> {
     if (questionId) {
       await this.aiExerciseStore.saveChatHistory(questionId)
     }
@@ -83,13 +83,12 @@ export class AiExerciseStrategy implements ChatStrategy {
   }
   
   // 第10步：获取当前科目（用于转发）
-  getCurrentSubjectForForward(): 'biology' | 'math' | null {
+  getCurrentSubjectForForward(question: unknown): 'biology' | 'math' | null {
     // AI题目场景：通过题目的科目字段进行判断
     try {
-      const question = this.questionStore.currentQuestion
-      if (question?.subject) {
-        // 将科目转换为小写格式
-        const subjectLower = question.subject.toLowerCase()
+      const q = question as { subject?: string } | null | undefined
+      if (q?.subject) {
+        const subjectLower = q.subject.toLowerCase()
         if (subjectLower === 'biology' || subjectLower === '生物') {
           return 'biology'
         } else if (subjectLower === 'math' || subjectLower === '数学') {
@@ -106,16 +105,17 @@ export class AiExerciseStrategy implements ChatStrategy {
   // 第11步：转发单条消息
   async forwardMessage(message: ChatBubble, options: ForwardOptions = {}): Promise<ForwardResult> {
     try {
+      const question = (options.currentQuestion ?? null) as { id?: string; bmNo?: string; title?: string; subject?: string } | null
+
       // 验证是否选择了题目
-      if (!this.questionStore.currentQuestion) {
+      if (!question) {
         return {
           success: false,
           error: '请先选择题目',
         }
       }
       
-      const question = this.questionStore.currentQuestion
-      const subject = this.getCurrentSubjectForForward()
+      const subject = this.getCurrentSubjectForForward(question)
       
       if (!subject) {
         return {
@@ -181,16 +181,17 @@ export class AiExerciseStrategy implements ChatStrategy {
   // 第12步：转发多条消息
   async forwardMessages(messages: ChatBubble[], options: ForwardOptions = {}): Promise<ForwardResult> {
     try {
+      const question = (options.currentQuestion ?? null) as { id?: string; bmNo?: string; title?: string; subject?: string } | null
+
       // 验证是否选择了题目
-      if (!this.questionStore.currentQuestion) {
+      if (!question) {
         return {
           success: false,
           error: '请先选择题目',
         }
       }
       
-      const question = this.questionStore.currentQuestion
-      const subject = this.getCurrentSubjectForForward()
+      const subject = this.getCurrentSubjectForForward(question)
       
       if (!subject) {
         return {
@@ -260,8 +261,8 @@ export class AiExerciseStrategy implements ChatStrategy {
     console.log('初始化消息', options)
     
     // 如果有题目，加载该题目的聊天历史
-    if (options.hasSelectedQuestion || options.currentQuestionId) {
-      const questionId = options.currentQuestionId || this.questionStore.currentQuestion?.id  || this.questionStore.currentQuestion?.bmNo
+    if (options.hasSelectedQuestion && options.currentQuestionId) {
+      const questionId = options.currentQuestionId
       if (questionId) {
         console.log('[AiExerciseStrategy] 加载题目聊天历史:', questionId)
         await this.aiExerciseStore.loadChatHistory(questionId)
@@ -345,7 +346,7 @@ export class AiExerciseStrategy implements ChatStrategy {
   async updateEditedMessage(
     messageId: string,
     newContent: string,
-    options?: { selectedModel?: string }
+    options?: { selectedModel?: string; currentQuestionId?: string; currentQuestion?: unknown }
   ): Promise<void> {
     const messages = this.aiExerciseStore.messages
     const messageIndex = messages.findIndex((msg) => msg.id === messageId)
@@ -363,10 +364,13 @@ export class AiExerciseStrategy implements ChatStrategy {
     this.aiExerciseStore.messages.push(...messagesToKeep)
     
     // 保存聊天记录
-    await this.saveChatHistory()
+    await this.saveChatHistory(options?.currentQuestionId)
     
     // 发送编辑后的消息给AI
-    await this.sendMessage(newContent, { selectedModel: options?.selectedModel })
+    await this.sendMessage(newContent, { 
+      selectedModel: options?.selectedModel,
+      currentQuestion: options?.currentQuestion,
+    })
   }
   
   // 第17步：获取占位符文本

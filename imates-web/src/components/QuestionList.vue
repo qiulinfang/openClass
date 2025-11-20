@@ -1630,7 +1630,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     background-color: transparent;
     transition: $transition-smooth;
     box-shadow: none;
-    padding: 4px;
     min-width: 0; // 允许卡片收缩以处理长内容
 
     &.question-deleting {
@@ -1673,11 +1672,21 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
     // 选中状态 - 背景白色，边框紫色
     &.question-selected {
+      position: relative; // 确保可以相对定位伪元素
       .question-block {
         background-color: $background-white;
-        border: 1px solid #8b5cf6;
         border-radius: 12px;
         box-shadow: none;
+      }
+
+      // 用 ::before 画出紫色描边，不影响布局
+      &::before {
+        content: '';
+        position: absolute;
+        inset: 0;               // 覆盖整个 li 区域
+        border-radius: 12px;
+        pointer-events: none;
+        box-shadow: 0 0 0 1px #8b5cf6; // 相当于 1px 边框，但不占空间
       }
     }
   }
@@ -1688,6 +1697,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     justify-content: space-between;
     background-color: transparent;
     border-bottom: none;
+    height: 40px;
     @include responsive-padding(8px 20px 0 20px, 8px 20px 0 20px);
 
     .question-number {

@@ -106,6 +106,7 @@
                   v-if="currentFunction === 'chatAi'"
                   type="ai-exercise"
                   :compressed-height="327"
+                  :question="currentQuestion"
                   @response="handleChatResponse"
                   @switch-to-teacher="handleSwitchToTeacher"
                   @open-teacher-dialog="handleOpenTeacherDialog"
@@ -116,8 +117,9 @@
                 <ChatView 
                   v-if="currentFunction === 'askTeacher'" 
                   type="teacher-exercise"
-                  @scroll-to-bottom="scrollToBottom"
                   :compressed-height="327"
+                  :question="currentQuestion"
+                  @scroll-to-bottom="scrollToBottom"
                 />
                 <!-- 答案显示 -->
                 <AnswerView

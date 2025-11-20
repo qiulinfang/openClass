@@ -185,10 +185,11 @@ import { ChatStrategyFactory, type ChatStrategy } from './chat/strategies'
 const props = withDefaults(
   defineProps<{
     type: 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise'
-    currentQuestionId?: string
     resourceId?: string
     compressedHeight?: number // 键盘显示时 ChatView 的压缩高度（像素）
     inputMode?: 'full' | 'simple' // 输入模式：full=完整输入(ChatInput)，simple=简单输入(SimpleChatInput)
+    // 当前题目对象，由外层页面维护，ChatView 不直接依赖全局 questionStore
+    question?: unknown
   }>(),
   {
     inputMode: 'full',
@@ -486,11 +487,10 @@ const CANCEL_THRESHOLD = 100 // 上滑取消的阈值（像素）
 
 /**
  * 获取当前题目
- * 作用：统一获取当前题目的入口，从全局 store 中读取
+ * 作用：统一获取当前题目的入口，仅使用外部通过 props 传入的题目
  */
 const currentQuestion = computed(() => {
-  console.log('当前选中的题目', questionStore.currentQuestion)
-  return questionStore.currentQuestion
+  return (props.question || null) as any
 })
 
 /**
@@ -733,7 +733,8 @@ const initializeMessages = async () => {
     // 准备初始化参数
     const initializeOptions = {
       currentSubject: currentSubject.value as 'biology' | 'math',
-      currentQuestionId: currentQuestion.value?.id || currentQuestion.value?.bmNo,
+      // 统一使用 bmNo 作为聊天记录 key
+      currentQuestionId: currentQuestion.value?.bmNo,
       currentQuestionTitle: currentQuestion.value?.question || currentQuestion.value?.title,
       resourceId: props.resourceId,
       hasSelectedQuestion: hasSelectedQuestion.value,
@@ -823,6 +824,8 @@ const sendMessage = async (attachedFile?: File) => {
     // AI通用、AI题目、AI教材和教师通用对话模式：统一使用策略模式发送消息
     await chatStrategy.value?.sendMessage(messageContent, {
       selectedModel: selectedModel.value,
+      // 将当前题目一并传给策略（如 AiExerciseStrategy），避免策略内部访问全局 questionStore
+      currentQuestion: currentQuestion.value ?? undefined,
     })
     await scrollToBottom()
     emit('response')

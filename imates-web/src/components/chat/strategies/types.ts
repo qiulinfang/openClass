@@ -11,6 +11,8 @@ export interface SendMessageOptions {
   selectedModel?: string
   imageData?: ChatImageData
   skipUserMessage?: boolean  // 是否跳过创建用户消息（乐观发送场景）
+  // 当前题目对象，由上层 ChatView 通过 props.question 传入
+  question?: unknown
 }
 
 /**
@@ -32,5 +34,7 @@ export interface InitializeOptions {
   sessionId?: string
   resourceId?: string
   hasSelectedQuestion?: boolean
+  // 可选：当前题目对象（用于避免策略内部访问全局 questionStore）
+  question?: unknown
 }
 

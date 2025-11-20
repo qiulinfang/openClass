@@ -348,7 +348,7 @@
               type="ai-exercise"
               input-mode="simple"
               :compressed-height="97"
-              :current-question-id="currentQuestionData.bmNo || currentQuestionData.id"
+              :question="currentQuestionData"
               @response="handleChatResponse"
             >
               <!-- 前置插槽：操作按钮组 -->
