@@ -327,7 +327,6 @@ watch(isOpen, (newValue) => {
     justify-content: center;
     align-items: center;
     padding: 16px 20px;
-    border-bottom: 1px solid #e8e8e8;
     position: relative;
     
     &.draggable-header {

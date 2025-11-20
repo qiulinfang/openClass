@@ -1,7 +1,9 @@
 ﻿<template>
   <div class="photo-search-fullscreen">
     <!-- 左上角返回按钮 -->
-    <q-btn flat round dense icon="arrow_back" class="back-btn" @click="handleClose" />
+    <q-btn flat round dense class="back-btn" @click="handleClose">
+      <img :src="goBackIcon" alt="返回" class="back-icon" />
+    </q-btn>
 
     <!-- 调试面板切换按钮（仅开发环境显示） -->
     <q-btn
@@ -171,6 +173,7 @@
           :class="{ active: selectedSubject === 'math' }"
           @click="selectedSubject = 'math'"
         >
+          <img :src="searchMathIcon" alt="搜数学" class="subject-icon" />
           <span>搜数学</span>
         </div>
         <div
@@ -178,6 +181,7 @@
           :class="{ active: selectedSubject === 'biology' }"
           @click="selectedSubject = 'biology'"
         >
+          <img :src="searchBioIcon" alt="搜生物" class="subject-icon" />
           <span>搜生物</span>
         </div>
       </div>
@@ -191,7 +195,7 @@
         :class="{ disabled: !selectedSubject }"
         @click="handleSelectFromGallery"
       >
-        <q-icon name="photo_library" size="24px" />
+        <img :src="albumIcon" alt="从相册选择" class="action-icon" />
       </div>
       <!-- 拍照 -->
       <div
@@ -199,7 +203,7 @@
         :class="{ active: showCameraPreview, disabled: !selectedSubject }"
         @click="handleCapturePhoto"
       >
-        <q-icon name="camera_alt" size="24px" />
+        <img :src="cameraIcon" alt="拍照" class="action-icon" />
       </div>
     </div>
 
@@ -207,7 +211,7 @@
     <div class="crop-actions-panel" v-if="showCropView && !showResultView">
       <!-- 重新框选 -->
       <div class="crop-action-btn" @click="handleRetake">
-        <q-icon name="refresh" size="24px" />
+        <img :src="retakeIcon" alt="重新框选" class="crop-action-icon" />
       </div>
       <!-- 搜索 -->
       <div
@@ -216,7 +220,7 @@
         @click="handleSearch"
       >
         <q-spinner v-if="isSearching" color="white" size="20px" />
-        <q-icon v-else name="search" size="24px" />
+        <img v-else :src="searchIcon" alt="搜索" class="crop-action-icon" />
       </div>
     </div>
 
@@ -279,15 +283,6 @@
     <Transition name="drawer-slide">
       <div v-if="showDrawer" class="photo-qa-drawer" @click.self="handleCloseDrawer">
         <div class="drawer-content" @click.stop>
-          <!-- 抽屉内部关闭按钮 -->
-          <q-btn
-            flat
-            round
-            dense
-            icon="close"
-            class="drawer-close-btn"
-            @click="handleCloseDrawer"
-          />
           <!-- 识别图片区域 -->
           <!-- 图片标签页 -->
           <div class="image-tabs">
@@ -438,6 +433,14 @@ import { useMessageRenderer } from '@/composables/useMessageRenderer'
 import { toggleExerciseFavorite, getFavoriteExercises } from '@/utils/storage/favorites'
 import { useQuestionStore } from '@/stores/questionStore'
 import ChatView from '@/components/ChatView.vue'
+
+import goBackIcon from '/icons/goback.svg'
+import searchMathIcon from '/icons/searchMath.svg'
+import searchBioIcon from '/icons/searchBio.svg'
+import albumIcon from '/icons/Album.svg'
+import cameraIcon from '/icons/camera.svg'
+import retakeIcon from '/icons/researh.svg'
+import searchIcon from '/icons/search.svg'
 
 const route = useRoute()
 const router = useRouter()
@@ -2035,8 +2038,18 @@ onUnmounted(() => {
   position: absolute;
   top: 16px;
   left: 16px;
+  width: 42px;
+  height: 42px;
   z-index: 10001;
-  background: rgba(0, 0, 0, 0.5);
+  background: #6c6b65;
+}
+
+// 返回图标尺寸
+.back-icon {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  object-fit: contain;
 }
 
 .debug-toggle-btn {
@@ -2066,6 +2079,30 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+// 学科选择图标尺寸
+.subject-icon {
+  max-width: 100%;
+  max-height: 100%;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+// 右侧操作按钮图标尺寸（相册 / 相机）
+.action-icon {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+// 框选操作按钮图标尺寸（重新框选 / 搜索）
+.crop-action-icon {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  object-fit: contain;
 }
 
 // 框选容器
@@ -2284,7 +2321,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   border-radius: 12px;
-  background: #848483;
 }
 
 .subject-option {
@@ -2313,13 +2349,13 @@ onUnmounted(() => {
 // 右侧操作按钮面板
 .action-buttons-panel {
   position: absolute;
-  right: 20px;
+  right: 24px;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 10001;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  z-index: 10001;
 }
 
 .action-btn {
@@ -2329,16 +2365,12 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.9);
+  background: #6c6b65;
   backdrop-filter: blur(10px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   transition: all 0.3s ease;
 
-  &:hover {
-    background: rgba(255, 255, 255, 1);
-    transform: scale(1.05);
-  }
 
   &.active {
     background: #7a55ff;
@@ -2363,12 +2395,13 @@ onUnmounted(() => {
 // 框选模式下的操作按钮
 .crop-actions-panel {
   position: absolute;
-  right: 20px;
-  bottom: 40px;
-  z-index: 10001;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
+  flex-direction: column;
   gap: 16px;
-  align-items: center;
+  z-index: 10001;
 }
 
 .crop-action-btn {

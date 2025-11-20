@@ -2991,7 +2991,7 @@ const getSubChapters = (chapterDetails: ChapterNode | null) => {
   }
   
   // 将章节练习节点添加到子章节列表的末尾
-  return [...subChapters, exerciseNode]
+  return [...subChapters, exerciseNode].reverse()
 }
 
 /**
@@ -3556,7 +3556,7 @@ onUnmounted(() => {
 .top-right-toolbar {
   position: absolute;
   top: 13px;
-  right: 8px;
+  right: 22px;
   z-index: 1000;
   display: flex;
   flex-direction: column;

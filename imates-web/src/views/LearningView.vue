@@ -1097,7 +1097,7 @@ $spacing-xl: 32px;
   font-size: 16px;
   padding: 6px 16px;
   width: 100px;
-  min-height:45px;
+  min-height:40px;
   font-weight: 500;
   border-radius: 12px;
   background-color: #6e55ff;

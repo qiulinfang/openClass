@@ -74,11 +74,11 @@ interface ChapterDetails extends ChapterNode {
 }
 
 interface Props {
-  chapterDetails: ChapterDetails
-  graphIndex?: number
-  rotation?: number
-  isExpanded?: boolean
-  hasExpandedGraph?: boolean
+  chapterDetails: ChapterDetails // 章节信息
+  graphIndex?: number // 图谱索引
+  rotation?: number // 旋转角度
+  isExpanded?: boolean // 是否展开
+  hasExpandedGraph?: boolean // 是否有展开的图谱
   rotationDirection?: 'clockwise' | 'counterclockwise' | null
   textbookRecordId?: string // 教材在IndexedDB中的id字段
   textbookId?: string // 教材ID（textbookId，用于API查询）

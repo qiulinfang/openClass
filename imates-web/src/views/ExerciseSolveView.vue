@@ -759,7 +759,7 @@ $desktop-breakpoint: 1025px;
   max-height: $header-height;
   border-bottom: none;
   box-shadow: none;
-  background-color: #3d3070; /* 深紫色背景 */
+  background-color: #0f002e; /* 深紫色背景 */
   flex-shrink: 0;
 }
 

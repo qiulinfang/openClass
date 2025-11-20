@@ -94,15 +94,15 @@
                         :breakpoint="0"
                         no-parent-event
                       >
-                        <q-card class="more-menu-card">
-                          <q-list dense>
+                        <q-card class="more-menu-card native-more-menu-card">
+                          <q-list dense class="native-more-menu-list">
                             <!-- 发送给AI -->
                             <q-item
                               clickable
                               @click="
                                 closeMenuAndExecute(question.id, () => throttledSendToAi(question))
                               "
-                              class="menu-item"
+                              class="menu-item native-more-menu-item"
                             >
                               <q-item-section avatar>
                                 <q-icon name="smart_toy" color="primary" size="20px" />
@@ -118,7 +118,7 @@
                                   throttledOpenMiniClass(question),
                                 )
                               "
-                              class="menu-item"
+                              class="menu-item native-more-menu-item"
                             >
                               <q-item-section avatar>
                                 <q-icon name="ondemand_video" color="purple" size="20px" />
@@ -135,7 +135,7 @@
                                   throttledMoveToTop(question.id),
                                 )
                               "
-                              class="menu-item"
+                              class="menu-item native-more-menu-item"
                             >
                               <q-item-section avatar>
                                 <q-icon name="vertical_align_top" color="orange" size="20px" />
@@ -151,7 +151,7 @@
                                   throttledToggleFavorite(question),
                                 )
                               "
-                              class="menu-item"
+                              class="menu-item native-more-menu-item native-more-menu-favorite"
                             >
                               <q-item-section avatar>
                                 <q-icon
@@ -173,7 +173,7 @@
                                   throttledTakePictureToTeacher(question),
                                 )
                               "
-                              class="menu-item"
+                              class="menu-item native-more-menu-item"
                             >
                               <q-item-section avatar>
                                 <q-icon name="camera_alt" color="pink" size="20px" />
@@ -181,32 +181,31 @@
                               <q-item-section>拍作业</q-item-section>
                             </q-item>
 
-                            <!-- 分隔线 -->
-                            <q-separator />
-
-                            <!-- 删除 -->
-                            <q-item
-                              clickable
-                              @click="
-                                closeMenuAndExecute(question.id, () =>
-                                  throttledDeleteQuestion(question.id),
-                                )
-                              "
-                              :disable="deletingIds.has(question.id)"
-                              class="menu-item delete-item"
-                            >
-                              <q-item-section avatar>
-                                <q-icon
-                                  name="delete"
-                                  color="negative"
-                                  size="20px"
-                                  :class="{ 'icon-loading': deletingIds.has(question.id) }"
-                                />
-                              </q-item-section>
-                              <q-item-section>
-                                {{ deletingIds.has(question.id) ? '删除中...' : '删除题目' }}
-                              </q-item-section>
-                            </q-item>
+                            <!-- 删除区域 -->
+                            <div class="native-more-menu-delete-wrapper">
+                              <q-item
+                                clickable
+                                @click="
+                                  closeMenuAndExecute(question.id, () =>
+                                    throttledDeleteQuestion(question.id),
+                                  )
+                                "
+                                :disable="deletingIds.has(question.id)"
+                                class="menu-item delete-item native-more-menu-delete-item"
+                              >
+                                <q-item-section avatar>
+                                  <q-icon
+                                    name="delete"
+                                    color="negative"
+                                    size="20px"
+                                    :class="{ 'icon-loading': deletingIds.has(question.id) }"
+                                  />
+                                </q-item-section>
+                                <q-item-section>
+                                  {{ deletingIds.has(question.id) ? '删除中...' : '删除题目' }}
+                                </q-item-section>
+                              </q-item>
+                            </div>
                           </q-list>
                         </q-card>
                       </q-popup-proxy>
@@ -1702,7 +1701,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
     .question-number {
       color: $text-primary;
-      font-weight: 500;
+      font-weight: 600;
       font-size: 13px;
       flex-shrink: 0;
       white-space: nowrap;
@@ -1811,6 +1810,57 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       :deep(.q-separator) {
         margin: 4px 0;
         border-color: $border-color;
+      }
+    }
+
+    // 原生风格更多菜单气泡框
+    .native-more-menu-card {
+      border-radius: 18px;
+      padding: 8px 10px 10px;
+      min-width: 170px;
+      background: #ffffff;
+      box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.12),
+        0 4px 12px rgba(0, 0, 0, 0.08);
+      border: none;
+    }
+
+    .native-more-menu-list {
+      :deep(.q-item) {
+        &.native-more-menu-item {
+          padding: 8px 10px;
+          min-height: 40px;
+        }
+
+        .q-item__section {
+          font-size: 14px;
+        }
+      }
+    }
+
+    // 收藏行上方稍微留出空间
+    .native-more-menu-favorite {
+      margin-top: 4px;
+    }
+
+    // 底部整块粉色删除区域
+    .native-more-menu-delete-wrapper {
+      margin-top: 8px;
+      padding-top: 4px;
+      border-radius: 14px;
+      background: #ffeef0;
+    }
+
+    .native-more-menu-delete-item {
+      padding: 10px 14px;
+
+      :deep(.q-item__section) {
+        color: #ff4b5c;
+        font-weight: 500;
+      }
+
+      :deep(.q-icon) {
+        color: #ff4b5c !important;
       }
     }
   }
