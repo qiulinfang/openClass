@@ -407,20 +407,12 @@
 
                 <!-- 底部按钮区 -->
                 <div class="practice-dialog-actions">
-                  <q-btn
-                    flat
-                    label="先留在本页"
-                    color="grey-7"
-                    class="practice-dialog-btn"
-                    @click="handleStayInPhotoSearch"
-                  />
-                  <q-btn
-                    unelevated
-                    label="前往我的习题"
-                    color="primary"
-                    class="practice-dialog-btn primary"
-                    @click="handleGoToMyExercises"
-                  />
+                  <div class="practice-dialog-btn" @click="handleStayInPhotoSearch">
+                    先留在本页
+                  </div>
+                  <div class="practice-dialog-btn primary" @click="handleGoToMyExercises">
+                    前往我的习题
+                  </div>
                 </div>
               </div>
             </div>
@@ -2889,10 +2881,20 @@ onUnmounted(() => {
   padding: 4px 4px 0;
 }
 
+.practice-dialog-btn {
+  border-radius: 999px;
+  padding: 0 18px;
+  height: 40px;
+  line-height: 40px;
+}
+
 .practice-dialog-btn.primary {
   border-radius: 999px;
   padding: 0 18px;
-  background-color: #7d7cff;
+  background-color: #9778ff;
+  color: #fff;
+  height: 40px;
+  line-height: 40px;
 }
 
 // SimpleChatInput 组件内部已有样式，以下样式已废弃

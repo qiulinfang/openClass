@@ -53,14 +53,6 @@
             :file="currentFile"
             @screenshot-captured="handleScreenshotCaptured"
           />
-
-          <!-- 截图输入对话框 -->
-          <ScreenshotInputDialog
-            v-model="screenshotDialogVisible"
-            :screenshot-data-url="screenshotDataUrl"
-            @confirm="handleScreenshotConfirm"
-            @cancel="handleScreenshotCancel"
-          />
         </div>
       </template>
 
@@ -100,6 +92,9 @@
             <div v-if="activeTab === 'ai-chat'" class="tab-content">
               <ChatView
                 type="ai-textbook"
+                :attached-screenshot="pendingScreenshot"
+                @remove-screenshot="handleRemoveScreenshot"
+                @send-with-screenshot="handleSendWithScreenshot"
                 @response="handleChatResponse"
                 @focus="handleChatFocus"
                 @scroll-to-bottom="handleScrollToBottom"
@@ -150,7 +145,6 @@ import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
 import ChatView from '@/components/ChatView.vue'
 import SessionList from '@/components/SessionList.vue'
-import ScreenshotInputDialog from '@/components/ScreenshotInputDialog.vue'
 
 type PdfPagePublicInstance = ComponentPublicInstance<{
   toggleDebugPanel: () => void
@@ -204,6 +198,18 @@ const tabOptions = [
 
 // 会话数据（从localStorage加载）
 const sessions = ref<AiTextbookSession[]>([])
+
+// 挂起的截图信息：供 ChatView 输入区域展示与发送
+const pendingScreenshot = ref<
+  | {
+      dataUrl: string
+      width: number
+      height: number
+      fileName: string
+      fileSize: number
+    }
+  | undefined
+>(undefined)
 
 // 选中的会话ID
 const selectedRecordId = ref<string | undefined>(undefined)
@@ -692,11 +698,12 @@ const handleScrollToBottom = () => {
   // 滚动到底部
 }
 
-// 截图输入对话框状态
-const screenshotDialogVisible = ref(false)
-const screenshotDataUrl = ref('')
+// 从 ChatView 移除挂起截图
+const handleRemoveScreenshot = () => {
+  pendingScreenshot.value = undefined
+}
 
-// 处理截图捕获事件：接收 PdfPage 截图 blob，转换为 base64，并弹出输入对话框
+// 处理截图捕获事件：接收 PdfPage 截图 blob，转换为 base64，并挂到 ChatView
 const handleScreenshotCaptured = async (blob: Blob) => {
   try {
     const base64DataUrl = await new Promise<string>((resolve, reject) => {
@@ -706,67 +713,59 @@ const handleScreenshotCaptured = async (blob: Blob) => {
       reader.readAsDataURL(blob)
     })
 
-    screenshotDataUrl.value = base64DataUrl
-    screenshotDialogVisible.value = true
-  } catch (error) {
-    console.error('[PdfViewerView] 处理截图数据失败', error)
-  }
-}
-
-// 处理截图输入对话框确认：打开对话面板并将图片+问题发送给 AI
-const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
-  try {
-    // 打开对话面板并切换到 AI 问答 Tab
-    chatPanelVisible.value = true
-    activeTab.value = 'ai-chat'
-
-    // 创建临时图片以获取宽高
+    // 创建临时图片以获取宽高等信息
     const img = new Image()
-    img.src = dataUrl
+    img.src = base64DataUrl
 
     await new Promise<void>((resolve) => {
       img.onload = () => resolve()
     })
 
-    const fileName = `screenshot-${Date.now()}.jpg`
+    pendingScreenshot.value = {
+      dataUrl: base64DataUrl,
+      width: img.width,
+      height: img.height,
+      fileName: `screenshot-${Date.now()}.jpg`,
+      fileSize: Math.round(base64DataUrl.length * 0.75),
+    }
 
+    // 截图后自动打开对话面板并切到 AI 问答 Tab
+    chatPanelVisible.value = true
+    activeTab.value = 'ai-chat'
+  } catch (error) {
+    console.error('[PdfViewerView] 处理截图数据失败', error)
+  }
+}
+
+// ChatView 触发：携带截图发送问题给 AI
+const handleSendWithScreenshot = async (question: string) => {
+  if (!pendingScreenshot.value) return
+  const { dataUrl, width, height, fileName, fileSize } = pendingScreenshot.value
+  // 一次发送后清空挂起的截图
+  pendingScreenshot.value = undefined
+
+  try {
     const imageData = {
       filePath: fileName,
       base64DataUrl: dataUrl,
-      width: img.width,
-      height: img.height,
-      fileSize: Math.round(dataUrl.length * 0.75),
+      width,
+      height,
+      fileSize,
     }
-
     const currentResourceId = (route.query.resourceId as string) || aiTextbookStore.resourceId || ''
     const sessionId = `screenshot_${Date.now()}`
-
     if (currentResourceId) {
       aiTextbookStore.clearMessages()
       aiTextbookStore.setResourceId(currentResourceId)
       aiTextbookStore.currentSessionId = sessionId
       aiTextbookStore.isNewSession = true
     }
+    await aiTextbookStore.sendMessage(question, 'mate', imageData, false)
 
-    console.log('[PdfViewerView] 发送截图消息到 AI', {
-      question,
-      hasImage: !!imageData.base64DataUrl,
-      imageSize: `${imageData.width}x${imageData.height}`,
-    })
-
-    await aiTextbookStore.sendMessage(
-      question,
-      'mate',
-      imageData,
-      false,
-    )
-
-    // 发送成功后，创建并持久化一条截图会话记录，结构与截图会话模块保持一致
     const now = Date.now()
     const storageKey = currentResourceId
       ? `ai-textbook-${currentResourceId}-${sessionId}`
       : undefined
-
     const newSession: AiTextbookSession = {
       sessionId,
       sessionName: question,
@@ -774,32 +773,19 @@ const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
       updateTime: now,
       msgCount: 0,
       pinned: false,
-      // 缩略图：直接使用当前截图的 base64 作为预览
       thumbnailImage: dataUrl,
       hasImage: true,
       resourceId: currentResourceId || undefined,
       storageKey,
-      // 兼容字段
       id: sessionId,
       question,
       answer: '',
     }
-
     addScreenshotSession(newSession)
-    // 新增会话写入完成后，刷新当前会话列表，使 UI 立即显示
     loadSessions()
   } catch (error) {
     console.error('[PdfViewerView] 发送截图消息失败', error)
-  } finally {
-    screenshotDialogVisible.value = false
-    screenshotDataUrl.value = ''
   }
-}
-
-// 处理截图输入对话框取消
-const handleScreenshotCancel = () => {
-  screenshotDialogVisible.value = false
-  screenshotDataUrl.value = ''
 }
 
 // 自动打开并选中指定会话（从路由参数）
@@ -856,6 +842,7 @@ onMounted(async () => {
 
 // 页面卸载前清理
 onBeforeUnmount(async () => {
+  store.selectedTool = ''
 })
 </script>
 
@@ -937,7 +924,7 @@ onBeforeUnmount(async () => {
   position: absolute;
   top: 12px;
   right: 12px;
-  color: #fff; /* 白色图标 */
+  color: #0000004d; /* 白色图标 */
   z-index: 1; /* 确保在前景 */
 }
 
