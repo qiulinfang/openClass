@@ -99,40 +99,17 @@
               <i class="material-icons">bug_report</i>
               <span>调试面板</span>
             </button>
-            <button
-              @click="printScrollDimensions"
-              class="debug-btn"
-            >
-              <i class="material-icons">print</i>
-              <span>打印尺寸</span>
-            </button>
           </div>
         </div>
 
-        <!-- better-scroll 滚动容器 (仅包含教材列表) -->
-        <div v-if="textbooks.length > 0" ref="scrollWrapper" class="scroll-wrapper">
-          <div ref="scrollContent" class="scroll-content">
-            <!-- 下拉刷新提示 -->
-            <div
-              v-if="showPullDownRefresh"
-              class="pull-down-refresh"
-              :class="{
-                refreshing: refreshStatus === 'refreshing',
-                success: refreshStatus === 'success',
-                error: refreshStatus === 'error',
-              }"
-            >
-              <span class="pull-down-text">
-                <template v-if="refreshStatus === 'pulling'">
-                  {{ pullDistance >= PULL_THRESHOLD ? '释放刷新' : '下拉刷新' }}
-                </template>
-                <template v-else-if="refreshStatus === 'refreshing'">
-                  <span class="refresh-spinner"></span>
-                </template>
-                <template v-else-if="refreshStatus === 'success'"> 刷新成功 </template>
-                <template v-else-if="refreshStatus === 'error'"> 刷新失败 </template>
-              </span>
-            </div>
+        <!-- 橡皮筋滚动容器（使用 RubberBandList，仅包含教材列表） -->
+        <RubberBandList
+          ref="rubberBandListRef"
+          v-if="textbooks.length > 0"
+          :enable-refresh="true"
+          @refresh="handlePullDownRefresh"
+        >
+          <div class="scroll-content">
             <!-- 教材列表 -->
             <div class="textbooks-container q-pa-md">
               <div class="textbooks-scroll-container">
@@ -312,7 +289,7 @@
               </div>
             </div>
           </div>
-        </div>
+        </RubberBandList>
 
         <!-- 空状态 (固定) -->
         <div
@@ -386,11 +363,7 @@ import type { UserTextbookInfo, TextbookVersion } from '../types'
 import ResourceDebugPanel from '../components/debug/ResourceDebugPanel.vue'
 import { useResourceStore } from '../stores/resourceStore'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
-import BScroll from '@better-scroll/core'
-import PullDown from '@better-scroll/pull-down'
-
-// 第1步：注册下拉刷新插件
-BScroll.use(PullDown)
+import RubberBandList from '../components/RubberBandList.vue'
 
 // 第2步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -409,6 +382,7 @@ const { setCurrentSubject, setCurrentTextbook } = useKnowledgeGraphStore()
 const router = useRouter()
 
 // 响应式数据
+const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null)
 const loading = ref(false)
 const checkingUpdates = ref(false)
 const textbooks = ref<UserTextbookInfo[]>([])
@@ -494,16 +468,6 @@ const deleteTextbookName = ref('')
 const hasLocalData = ref(false)
 const initialLoadCompleted = ref(false)
 
-// better-scroll 相关
-const scrollWrapper = ref<HTMLElement | null>(null)
-const scrollContent = ref<HTMLElement | null>(null)
-const bscrollInstance = ref<BScroll | null>(null)
-const isPullingDown = ref(false)
-const pullDistance = ref(0) // 下拉距离（像素）
-const PULL_THRESHOLD = 60 // 触发刷新的阈值（与 Better Scroll 配置保持一致）
-const isPulling = ref(false) // 是否正在下拉（未达到阈值）
-const refreshStatus = ref<'idle' | 'pulling' | 'refreshing' | 'success' | 'error'>('idle') // 刷新状态
-
 // 分类选项 - 基于学科动态生成
 const categories = ref([{ label: '全部', value: 'all' }])
 
@@ -585,72 +549,7 @@ const filteredTextbooks = computed(() => {
   })
 })
 
-// 计算属性 - 是否显示下拉刷新提示
-const showPullDownRefresh = computed(() => {
-  // 正在刷新中或完成状态，或下拉距离大于0时显示
-  return (
-    refreshStatus.value === 'refreshing' ||
-    refreshStatus.value === 'success' ||
-    refreshStatus.value === 'error' ||
-    pullDistance.value > 0
-  )
-})
-
-// 第1步：初始化 Better Scroll 并配置下拉刷新
-const initBScroll = async () => {
-  await nextTick()
-
-  if (scrollWrapper.value && !bscrollInstance.value) {
-    // 第2步：创建带下拉刷新的 BScroll 实例
-    bscrollInstance.value = new BScroll(scrollWrapper.value, {
-      scrollY: true,
-      scrollX: false,
-      click: true,
-      probeType: 2,
-      bounce: {
-        top: true,
-        bottom: true,
-      },
-      bounceTime: 800,
-      deceleration: 0.003,
-      useTransition: true,
-      HWCompositing: true,
-      pullDownRefresh: {
-        threshold: PULL_THRESHOLD, // 触发刷新的阈值
-        stop: 40, // 刷新完成后停止的位置
-      },
-    })
-
-    // 第3步：监听滚动事件，追踪下拉距离
-    bscrollInstance.value.on('scroll', (pos: { x: number; y: number }) => {
-      // 当向下滚动超过顶部时（y > 0），表示正在下拉
-      if (
-        pos.y > 0 &&
-        refreshStatus.value !== 'refreshing' &&
-        refreshStatus.value !== 'success' &&
-        refreshStatus.value !== 'error'
-      ) {
-        pullDistance.value = pos.y
-        isPulling.value = true
-        refreshStatus.value = 'pulling'
-      } else if (pos.y <= 0 && refreshStatus.value === 'pulling') {
-        // 回到顶部或向上滚动，重置下拉状态
-        pullDistance.value = 0
-        isPulling.value = false
-        refreshStatus.value = 'idle'
-      }
-    })
-
-    // 第4步：监听下拉刷新事件
-    bscrollInstance.value.on('pullingDown', async () => {
-      isPullingDown.value = true
-      isPulling.value = false
-      refreshStatus.value = 'refreshing'
-
-      await handlePullDownRefresh()
-    })
-  }
-}
+// 使用 RubberBandList 后，不再需要 BetterScroll 相关状态
 
 // 跳转到知识图谱学习当前教材
 const handleLearnTextbook = (textbook: UserTextbookInfo) => {
@@ -683,89 +582,20 @@ const handleLearnTextbook = (textbook: UserTextbookInfo) => {
   })
 }
 
-// 第4步：处理下拉刷新
+// 第4步：处理下拉刷新（由 RubberBandList 触发）
 const handlePullDownRefresh = async () => {
   try {
-    // 确保 isPullingDown 状态已设置（由 pullingDown 事件处理函数设置）
-    if (!isPullingDown.value) {
-      isPullingDown.value = true
-      refreshStatus.value = 'refreshing'
-    }
-
     // 流程：下拉刷新时暂停所有正在下载的任务
     await pauseAllDownloadingTasks()
-
-    // [maxScrollY调试] 刷新开始时的 maxScrollY
-    if (bscrollInstance.value) {
-    }
-
-    // 直接调用数据加载，不重新加载页面
-    await loadResources()
-
-    // [maxScrollY调试] 数据加载完成后的 maxScrollY
-    if (bscrollInstance.value) {
-    }
-
-    // 数据加载成功，更新刷新状态
-    refreshStatus.value = 'success'
-    await nextTick()
-
-    // 等待一段时间后重置状态（显示成功提示）
-    refreshStatus.value = 'idle'
-    isPulling.value = false
-    pullDistance.value = 0
+    // 下拉刷新时强制从服务器获取最新数据
+    await loadResources(true)
   } catch {
     showMessage('刷新失败，请稍后重试', 'error')
-
-    // 更新刷新状态为错误
-    refreshStatus.value = 'error'
-    await nextTick()
-
-    // 等待一段时间后重置状态
-    refreshStatus.value = 'idle'
-    isPulling.value = false
-    pullDistance.value = 0
   } finally {
-    // 重置下拉刷新标志
-    isPullingDown.value = false
-    // 完成下拉刷新动画（必须在 finally 中调用，确保总是执行）
-    if (bscrollInstance.value) {
-      try {
-        // 步骤1：等待 DOM 更新
-        await nextTick()
-        // 步骤2：先刷新尺寸（在 finishPullDown 之前，确保尺寸正确）
-        bscrollInstance.value.refresh()
-        // 步骤3：完成下拉刷新动画（标准实现必需，确保动画正确结束）
-        bscrollInstance.value.finishPullDown()
-        // 步骤4：等待动画完成，再次刷新尺寸（确保 finishPullDown 后状态正确）
-        await nextTick()
-        await new Promise(resolve => requestAnimationFrame(resolve))
-        bscrollInstance.value.refresh()
-      } catch (error) {
-        console.error('[refresh日志] 下拉刷新完成前 - 调用失败:', error)
-        // 即使出错，也要尝试完成动画，确保状态正确
-        try {
-          bscrollInstance.value?.finishPullDown()
-        } catch (finishError) {
-          console.error('[refresh日志] finishPullDown 调用失败:', finishError)
-        }
-      }
-    }
+    // 通知 RubberBandList 刷新已完成，复位回弹效果
+    rubberBandListRef.value?.finishRefresh()
   }
 }
-
-// 第6步：监听数据变化，自动刷新 BScroll
-watch(
-  [() => filteredTextbooks.value.length, () => textbooks.value.length],
-  () => {
-    nextTick(() => {
-      if (bscrollInstance.value) {
-        bscrollInstance.value.refresh()
-      }
-    })
-  },
-  { deep: true },
-)
 
 // 切换学科选择
 const getCoverImageUrl = (coverUrl: string | undefined): string => {
@@ -796,147 +626,6 @@ const handleFilterChange = () => {
   }
   // 筛选逻辑已在 computed 中实现，这里可以添加其他处理
   // 如果需要，可以在这里触发数据重新计算或其他操作
-}
-
-// 打印滚动尺寸信息
-const printScrollDimensions = async () => {
-  if (!bscrollInstance.value) {
-    console.warn('BetterScroll 实例不存在')
-    showMessage('BetterScroll 实例不存在', 'warning')
-    return
-  }
-
-  // 等待 DOM 更新
-  await nextTick()
-
-  // 从 BetterScroll 实例获取
-  const maxScrollYBefore = bscrollInstance.value.maxScrollY
-  
-  // BetterScroll 实例可能包含这些属性，但类型定义中可能没有
-  // 尝试多种方式获取内部属性
-  const bsInstance = bscrollInstance.value as BScroll & {
-    wrapperHeight?: number
-    scrollerHeight?: number
-    hasVerticalScroll?: boolean
-    scroller?: {
-      height?: number
-      width?: number
-    }
-    wrapper?: {
-      height?: number
-      width?: number
-    }
-    y?: number
-    // BetterScroll 内部可能使用的其他属性名
-    scrollBehaviorY?: {
-      maxScrollY?: number
-      wrapperHeight?: number
-      contentHeight?: number
-    }
-    scrollBehavior?: {
-      maxScrollY?: number
-      wrapperHeight?: number
-      contentHeight?: number
-    }
-  }
-  
-  // 尝试多种方式获取 wrapperHeight
-  const wrapperHeight = 
-    bsInstance.wrapperHeight || 
-    bsInstance.wrapper?.height ||
-    bsInstance.scrollBehaviorY?.wrapperHeight ||
-    bsInstance.scrollBehavior?.wrapperHeight ||
-    undefined
-  
-  // 尝试多种方式获取 scrollerHeight
-  const scrollerHeight = 
-    bsInstance.scrollerHeight || 
-    bsInstance.scroller?.height ||
-    bsInstance.scrollBehaviorY?.contentHeight ||
-    bsInstance.scrollBehavior?.contentHeight ||
-    undefined
-  
-  
-  // 从 DOM 元素获取（备用方案）
-  const wrapperDomHeight = scrollWrapper.value?.clientHeight || 0
-  const contentDomHeight = scrollContent.value?.scrollHeight || 0
-
-  // 计算期望的 maxScrollY
-  const calculatedMaxScrollY = wrapperHeight && scrollerHeight 
-    ? wrapperHeight - scrollerHeight 
-    : wrapperDomHeight && contentDomHeight 
-    ? wrapperDomHeight - contentDomHeight 
-    : null
-  
-  // 尝试刷新并再次检查
-  bscrollInstance.value.refresh()
-  await nextTick()
-
-  // 刷新后再次获取
-  const maxScrollYAfter = bscrollInstance.value.maxScrollY
-  const bsInstanceAfter = bscrollInstance.value as BScroll & {
-    wrapperHeight?: number
-    scrollerHeight?: number
-    hasVerticalScroll?: boolean
-    scroller?: { height?: number }
-    wrapper?: { height?: number }
-    y?: number
-    scrollBehaviorY?: {
-      maxScrollY?: number
-      wrapperHeight?: number
-      contentHeight?: number
-    }
-    scrollBehavior?: {
-      maxScrollY?: number
-      wrapperHeight?: number
-      contentHeight?: number
-    }
-  }
-  const wrapperHeightAfter = 
-    bsInstanceAfter.wrapperHeight || 
-    bsInstanceAfter.wrapper?.height ||
-    bsInstanceAfter.scrollBehaviorY?.wrapperHeight ||
-    bsInstanceAfter.scrollBehavior?.wrapperHeight ||
-    undefined
-  const scrollerHeightAfter = 
-    bsInstanceAfter.scrollerHeight || 
-    bsInstanceAfter.scroller?.height ||
-    bsInstanceAfter.scrollBehaviorY?.contentHeight ||
-    bsInstanceAfter.scrollBehavior?.contentHeight ||
-    undefined
-
-  // 刷新后的 DOM 尺寸（可能变化）
-  const wrapperDomHeightAfter = scrollWrapper.value?.clientHeight || 0
-  const contentDomHeightAfter = scrollContent.value?.scrollHeight || 0
-
-  // 计算刷新后的期望 maxScrollY
-  const calculatedMaxScrollYAfter = wrapperHeightAfter && scrollerHeightAfter 
-    ? wrapperHeightAfter - scrollerHeightAfter 
-    : wrapperDomHeightAfter && contentDomHeightAfter 
-    ? wrapperDomHeightAfter - contentDomHeightAfter 
-    : calculatedMaxScrollY
-
-  // 根据刷新后的信息进行后续处理
-  // 诊断问题
-  if (maxScrollYAfter === 0 && calculatedMaxScrollYAfter !== null && calculatedMaxScrollYAfter < 0) {
-    console.warn('⚠️ 检测到问题：maxScrollY 为 0，但应该可以滚动！')
-    console.warn('  期望 maxScrollY:', calculatedMaxScrollYAfter)
-    console.warn('  实际 maxScrollY:', maxScrollYAfter)
-    console.warn('  可能原因：')
-    console.warn('    1. BetterScroll 未正确计算尺寸')
-    console.warn('    2. DOM 元素尺寸获取时机不对')
-    console.warn('    3. 需要重新初始化 BetterScroll 实例')
-  }
-
-  // 同时显示消息提示
-  const scrollable = maxScrollYAfter < 0
-  const statusMessage = scrollable 
-    ? `✅ 可以滚动\n滚动距离: ${Math.abs(maxScrollYAfter)}px`
-    : `❌ 无法滚动\nmaxScrollY: ${maxScrollYAfter}`
-  showMessage(
-    `尺寸信息已打印到控制台\n刷新前: maxScrollY=${maxScrollYBefore}\n刷新后: maxScrollY=${maxScrollYAfter}\n${statusMessage}`,
-    scrollable ? 'info' : 'warning',
-  )
 }
 
 // 设置活动标签页
@@ -1141,8 +830,7 @@ const fixInconsistentDownloadStatus = async (textbooks: UserTextbookInfo[]) => {
 }
 
 // 加载资源数据（优化版本：本地数据优先显示）
-const loadResources = async () => {
-  const isPullDownRefresh = isPullingDown.value
+const loadResources = async (isPullDownRefresh = false) => {
 
   // 重置初始加载状态
   initialLoadCompleted.value = false
@@ -1150,25 +838,16 @@ const loadResources = async () => {
   // 流程：立即加载本地数据
   const localTextbooks = await loadLocalData()
 
-  // 🔥 下拉刷新时强制从服务器获取最新数据，不使用本地缓存
+  // 下拉刷新时强制从服务器获取最新数据，不使用本地缓存
   if (localTextbooks.length > 0 && !isPullDownRefresh) {
     // 流程：有本地数据且不是下拉刷新，立即显示
     textbooks.value = localTextbooks
     updateSubjectChips()
-    // [maxScrollY调试] 本地数据更新后
-    if (bscrollInstance.value) {
-    }
     initialLoadCompleted.value = true
 
     // 流程：在DOM更新后修复下载状态（下拉刷新时会自动执行三级对比检测更新）
     await nextTick()
     fixInconsistentDownloadStatus(localTextbooks)
-    // [maxScrollY调试] DOM更新后
-    if (bscrollInstance.value) {
-      // 🔥 刷新 BetterScroll 以更新尺寸计算
-      bscrollInstance.value.refresh()
-      await nextTick()
-    }
   } else {
     // 无本地数据或下拉刷新，显示加载状态并获取服务器数据
     loading.value = true
@@ -1206,7 +885,7 @@ const loadResources = async () => {
       textbooks.value = mergedTextbooks
       await nextTick()
 
-      // 🔥 下拉刷新时执行三级对比标记更新（异步执行，不阻塞UI）
+      // 下拉刷新时执行三级对比标记更新（异步执行，不阻塞UI）
       // 在下拉刷新完成后，异步执行三级对比，标记有更新的教材
       apiService
         .checkForUpdates()
@@ -1220,34 +899,15 @@ const loadResources = async () => {
           // 三级对比失败不影响下拉刷新的成功，只记录错误
           console.warn('下拉刷新时执行三级对比失败:', error)
         })
-      // [maxScrollY调试] 服务器数据更新后
-      if (bscrollInstance.value) {
-        // 🔥 刷新 BetterScroll 以更新尺寸计算
-        bscrollInstance.value.refresh()
-        await nextTick()
-      }
       updateSubjectChips()
       await nextTick()
-      // [maxScrollY调试] updateSubjectChips后
-      if (bscrollInstance.value) {
-        // 🔥 再次刷新，因为 updateSubjectChips 可能更新了 DOM
-        bscrollInstance.value.refresh()
-        await nextTick()
-      }
     } catch {
       showMessage('加载资源失败，请稍后重试', 'error')
       textbooks.value = []
     } finally {
       loading.value = false
       initialLoadCompleted.value = true
-      // 确保最终状态正确刷新
       await nextTick()
-      // [maxScrollY调试] loadResources完成
-      if (bscrollInstance.value) {
-        // 🔥 最终刷新，确保尺寸计算正确
-        bscrollInstance.value.refresh()
-        await nextTick()
-      }
     }
   }
 }
@@ -1627,13 +1287,7 @@ const confirmDeleteTextbook = async () => {
         textbooks.value.splice(index, 1)
       }
 
-      // 第4步：刷新 BScroll 实例（如果存在）
-      await nextTick()
-      if (bscrollInstance.value) {
-        bscrollInstance.value.refresh()
-      }
-
-      // 第5步：如果删除后列表为空，重新加载数据
+      // 第4步：如果删除后列表为空，重新加载数据
       if (textbooks.value.length === 0) {
         await loadResources()
       }
@@ -1660,10 +1314,7 @@ onMounted(async () => {
   // 第1步：加载资源数据
   await loadResources()
 
-  // 第2步：初始化 better-scroll（带下拉刷新）
-  await initBScroll()
-
-  // 第3步：清理过期数据 - 延迟到后台执行
+  // 第2步：清理过期数据 - 延迟到后台执行
   resourceManager.cleanupExpiredData()
 
   // 定期检查更新（每60分钟）- 延迟启动
@@ -1723,12 +1374,6 @@ onUnmounted(async () => {
   // 流程：页面离开时立即暂停所有正在下载的任务
   await pauseAllDownloadingTasks()
 
-  // 第1步：销毁 BScroll 实例
-  if (bscrollInstance.value) {
-    bscrollInstance.value.destroy()
-    bscrollInstance.value = null
-  }
-
   // 第2步：清理资源更新检查定时器
   if (resourceUpdateCheckTimer) {
     clearInterval(resourceUpdateCheckTimer)
@@ -1759,13 +1404,6 @@ onUnmounted(async () => {
     flex: 1;
   }
 
-  // better-scroll 滚动容器 (仅教材列表)
-  .scroll-wrapper {
-    flex: 1;
-    overflow: hidden;
-    position: relative;
-    background-color: #eef0ff;
-  }
 
   .scroll-content {
     min-height: calc(100% + 1px);

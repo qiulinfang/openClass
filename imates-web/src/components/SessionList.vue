@@ -79,9 +79,8 @@
     </div>
 
     <!-- 会话列表 -->
-    <div v-else ref="scrollWrapper" class="scroll-wrapper">
+    <RubberBandList v-else class="scroll-wrapper">
       <div class="scroll-content">
-        <!--  -->
         <div ref="sessionItemsRef" class="session-items">
           <!-- 置顶会话区域 -->
           <div v-if="pinnedRecords.length > 0" class="date-group-wrapper">
@@ -123,15 +122,14 @@
           </div>
         </div>
       </div>
-    </div>
-
-    </div>
+    </RubberBandList>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import type { AiTextbookSession } from '@/types'
-import { useBetterScroll } from '../composables/useBetterScroll'
+import RubberBandList from './RubberBandList.vue'
 import SessionItem from './SessionItem.vue'
 import { isQaFavorite, isSessionFavorite } from '@/utils/storage/favorites'
 
@@ -347,41 +345,18 @@ const formatDateForGrouping = (timestamp: number): string => {
 
 // ==================== DOM 引用 ====================
 const sessionItemsRef = ref<HTMLElement | null>(null)
-const scrollWrapper = ref<HTMLElement | null>(null)
 
-// 使用 Better Scroll 组合式函数
-const { init: initBScroll, scrollTo } = useBetterScroll(
-  scrollWrapper,
-  {
-    scrollY: true,
-    scrollX: false,
-    click: true,
-    probeType: 2,
-    bounce: {
-      top: true,
-      bottom: true,
-    },
-    bounceTime: 800,
-    deceleration: 0.003,
-    useTransition: true,
-    HWCompositing: true,
-  },
-  true, // 自动监听数据变化
-  [() => filteredRecords.value.length, () => props.records.length],
-)
-
-// 流程：滚动到列表顶部
+// 流程：滚动到列表顶部（使用原生 DOM scroll）
 const scrollToTop = () => {
-  scrollTo(0, 0, 300)
+  const el = sessionItemsRef.value?.closest('.scroll-wrapper') as HTMLElement | null
+  if (el) {
+    el.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 }
 
 // 生命周期
-onMounted(async () => {
-  await initBScroll()
-})
-
-onUnmounted(() => {
-  // BScroll 销毁由组合式函数自动处理
+onMounted(() => {
+  // RubberBandList 使用原生滚动，无需额外初始化
 })
 
 // 暴露方法给父组件

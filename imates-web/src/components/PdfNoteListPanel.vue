@@ -1,61 +1,61 @@
 <template>
   <div class="note-panel-container">
-    <!-- BetterScroll 容器 -->
-    <div ref="scrollWrapper" class="note-panel-scroll-wrapper">
-      <div class="note-panel-scroll-content">
-        <q-card-section v-if="notes.length === 0" class="text-grey-5 q-pa-md">
-          暂无笔记
-        </q-card-section>
-        <q-list v-else dense>
-          <q-item
-            v-for="note in notes"
-            :key="note.id"
-            clickable
-            @click="handleSelect(note)"
-            :class="['note-item', { 'note-item--active': note.id === selectedNoteId }]"
-          >
-            <!-- 左侧头像：姓名首字（使用 div 实现） -->
-            <q-item-section avatar>
-              <div class="note-avatar">
-                {{ getAvatarLetter(note) }}
-              </div>
-            </q-item-section>
-            <!-- 右侧内容：第一行姓名-时间，第二行笔记内容 -->
-            <q-item-section>
-              <q-item-label class="note-item-meta">
-                <span class="note-item-author">{{ getAuthorName(note) }}</span>
-                <span class="note-item-separator"> - </span>
-                <span class="note-item-time">{{ formatNoteTime(note) }}</span>
-              </q-item-label>
-              <q-item-label class="note-item-content">
-                {{ note.text }}
-              </q-item-label>
-            </q-item-section>
-            <!-- 右侧操作 -->
-            <q-item-section side>
-              <q-btn flat round dense icon="more_vert">
-                <q-menu>
-                  <q-list dense>
-                    <q-item
-                      clickable
-                      @click.stop="() => { handleSelect(note); handleDelete(note) }"
-                    >
-                      <q-item-section>删除</q-item-section>
-                    </q-item>
-                  </q-list>
-                </q-menu>
-              </q-btn>
-            </q-item-section>
-          </q-item>
-        </q-list>
-      </div>
+    <div class="note-panel-scroll-wrapper">
+      <!-- 列表滚动区域：使用 RubberBandList 实现橡皮筋滚动 -->
+      <RubberBandList>
+        <div class="note-panel-scroll-content">
+          <q-card-section v-if="notes.length === 0" class="text-grey-5 q-pa-md">
+            暂无笔记
+          </q-card-section>
+          <q-list v-else dense>
+            <q-item
+              v-for="note in notes"
+              :key="note.id"
+              clickable
+              @click="handleSelect(note)"
+              :class="['note-item', { 'note-item--active': note.id === selectedNoteId }]"
+            >
+              <!-- 左侧头像：姓名首字（使用 div 实现） -->
+              <q-item-section avatar>
+                <div class="note-avatar">
+                  {{ getAvatarLetter(note) }}
+                </div>
+              </q-item-section>
+              <q-item-section>
+                <q-item-label class="note-item-meta">
+                  <span class="note-item-author">{{ getAuthorName(note) }}</span>
+                  <span class="note-item-separator"> - </span>
+                  <span class="note-item-time">{{ formatNoteTime(note) }}</span>
+                </q-item-label>
+                <q-item-label class="note-item-content">
+                  {{ note.text }}
+                </q-item-label>
+              </q-item-section>
+              <q-item-section side>
+                <q-btn flat round dense icon="more_vert">
+                  <q-menu>
+                    <q-list dense>
+                      <q-item
+                        clickable
+                        @click.stop="() => { handleSelect(note); handleDelete(note) }"
+                      >
+                        <q-item-section>删除</q-item-section>
+                      </q-item>
+                    </q-list>
+                  </q-menu>
+                </q-btn>
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </div>
+      </RubberBandList>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useBetterScroll } from '../composables/useBetterScroll'
+import { computed } from 'vue'
+import RubberBandList from './RubberBandList.vue'
 
 interface PageNote {
   id: string
@@ -82,30 +82,7 @@ const handleDelete = (note: PageNote) => {
   emit('delete', note)
 }
 
-// ============== BetterScroll ==============
-const scrollWrapper = ref<HTMLDivElement | null>(null)
-
-const { init: initScroll } = useBetterScroll(
-  scrollWrapper,
-  {
-    scrollY: true,
-    click: true,
-    bounce: {
-      top: true,
-      bottom: true,
-      left: false,
-      right: false,
-    },
-  },
-  true,
-  [
-    () => props.notes.length,
-    () => props.selectedNoteId,
-  ]
-)
-
-// 首次挂载时初始化 BetterScroll
-initScroll()
+// 列表滚动已改为使用 RubberBandList 橡皮筋滚动效果，不再依赖 BetterScroll
 const handleSelect = (note: PageNote) => {
   emit('select', note)
 }

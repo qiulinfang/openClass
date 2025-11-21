@@ -1,7 +1,7 @@
 <template>
   <div class="similar-question-list">
     <!-- 相似题目列表 -->
-    <div ref="scrollWrapper" class="scroll-wrapper">
+    <RubberBandList class="scroll-wrapper">
       <div class="scroll-content">
         <div class="q-pa-md">
         <!-- 加载状态 -->
@@ -75,7 +75,7 @@
         </div>
         </div>
       </div>
-    </div>
+    </RubberBandList>
   </div>
 </template>
 
@@ -85,7 +85,7 @@ import { useQuestionStore } from '../stores/questionStore'
 import { storeToRefs } from 'pinia'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { showMessage } from '../utils'
-import { useBetterScroll } from '../composables/useBetterScroll'
+import RubberBandList from './RubberBandList.vue'
 const questionStore = useQuestionStore()
 const { currentQuestion, similarQuestions, questions } = storeToRefs(questionStore)
 
@@ -97,36 +97,7 @@ const emit = defineEmits<{
 // 响应式数据
 const loading = ref(false)
 
-// better-scroll 相关
-const scrollWrapper = ref<HTMLElement | null>(null)
-
-// 使用 Better Scroll 组合式函数
-const { init: initBScroll, refresh } = useBetterScroll(
-  scrollWrapper,
-  {
-    scrollY: true,
-    scrollX: false,
-    click: true,
-    probeType: 2,
-    bounce: {
-      top: true,
-      bottom: true,
-    },
-    bounceTime: 800,
-    deceleration: 0.003,
-    useTransition: true,
-    HWCompositing: true,
-    // 允许内部滚动容器正常滚动
-    preventDefaultException: {
-      tagName: /^(INPUT|TEXTAREA|BUTTON|SELECT|A)$/,
-      className: /(^|\s)(question-content|markdown-content)(\s|$)/,
-    },
-  },
-  true, // 自动监听数据变化
-  [
-    () => similarQuestions.value.length
-  ]
-)
+// 外层列表滚动改为使用 RubberBandList 橡皮筋滚动效果，不再依赖 BetterScroll
 
 // 计算属性
 const hasSelectedQuestion = computed(() => {
@@ -148,9 +119,8 @@ const findSimilarQuestions = async () => {
       showMessage('未找到相似题目', 'info')
     }
     
-  // 等待 DOM 根据 latest similarQuestions 渲染完
-  await nextTick()
-  bindImageLoadListeners()
+    // 等待 DOM 根据 latest similarQuestions 渲染完
+    await nextTick()
   } catch (error) {
     showMessage('查找相似题目失败', 'error')
   } finally {
@@ -190,24 +160,13 @@ const renderMarkdown = (content: string) => {
   return renderMessageContent(content)
 }
 
-// 同步为图片绑定 onload，加载完成后刷新 BetterScroll
-const bindImageLoadListeners = () => {
-  if (!scrollWrapper.value) return
-  const imgs = scrollWrapper.value.querySelectorAll('img')
-  imgs.forEach((img) => {
-    img.removeEventListener('load', refresh)
-    img.addEventListener('load', refresh)
-  })
-}
-
-// 同步为图片绑定 onload，加载完成后刷新 BetterScroll
+// 同步为图片绑定 onload（保留钩子，当前不再依赖 BetterScroll 刷新）
 const bindImagesInMarkdown = (el: unknown) => {
   const element = (el as { $el?: HTMLElement })?.$el || (el as HTMLElement | null)
   if (!element) return
   const imgs = element.querySelectorAll('img')
   imgs.forEach((img) => {
-    img.removeEventListener('load', refresh)
-    img.addEventListener('load', refresh)
+    img.removeEventListener('load', () => {})
   })
 }
 
@@ -257,15 +216,11 @@ const handleContentWheel = (event: WheelEvent) => {
 
 // 生命周期
 onMounted(async () => {
-  // 初始化 better-scroll
-  await initBScroll()
   // 如果已经选择了题目，自动查找相似题目
   if (hasSelectedQuestion.value) {
     findSimilarQuestions()
   }
 })
-
-// 组件卸载时 BScroll 销毁由组合式函数自动处理
 
 // 暴露方法给父组件
 defineExpose({

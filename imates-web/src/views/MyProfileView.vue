@@ -1,7 +1,8 @@
 <template>
   <div class="profile-container">
     <!-- 功能卡片区域 -->
-    <div class="features-section">
+    <RubberBandList>
+      <div class="features-section">
       <!-- 加入课堂卡片 -->
       <div 
         class="feature-card join-class-card"
@@ -45,7 +46,8 @@
         </div>
         <div class="card-text">意见反馈</div>
       </div>
-    </div>
+      </div>
+    </RubberBandList>
 
     <!-- 加入课堂确认对话框 -->
     <q-dialog v-model="showJoinClassDialog" class="join-class-dialog">
@@ -89,6 +91,7 @@ import { getUserInfo } from '../services/auth-storage-service'
 import type { BridgeClassroomStatus, BridgeUserInfo } from '@/types/bridge'
 import type { ChatBubble } from '@/types'
 import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
+import RubberBandList from '@/components/RubberBandList.vue'
 
 // 导入 SVG 图标
 import joinClassIcon from '/icons/join_class.svg'
@@ -480,8 +483,10 @@ $bg-gray: #f9fafb;
 // 主要样式
 .profile-container {
   padding: 20px 16px;
-  min-height: 100%;
-  background: transparent;
+  height: 100%;      // 或 min-height: 100%; 看外层情况
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 // 功能卡片区域
@@ -489,6 +494,7 @@ $bg-gray: #f9fafb;
   display: flex;
   flex-wrap: wrap;
   gap: 20px;
+  height: 100%;
   margin-bottom: 24px;
   max-width: 600px;
   margin-left: auto;

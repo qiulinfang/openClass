@@ -21,8 +21,14 @@
       </q-input>
     </div>
 
-    <!-- 题目列表 - 卡片布局 -->
-    <div ref="scrollContainer" class="question-cards-container" @scroll="handleScroll">
+    <!-- 题目列表 - 卡片布局，使用 RubberBandList 实现橡皮筋滚动和自动加载更多 -->
+    <RubberBandList
+      ref="scrollContainer"
+      class="question-cards-container"
+      :enable-load-more="hasMoreQuestions"
+      :loading="renderingQuestions"
+      @loadMore="loadMoreQuestions"
+    >
       <!-- 空状态 -->
       <div v-if="displayedQuestions.length === 0 && !loading" class="native-empty-state">
         <q-icon name="quiz" size="80px" color="grey-5" />
@@ -40,14 +46,8 @@
         </q-btn>
       </div>
 
-      <!-- 加载状态 -->
-      <div v-if="renderingQuestions && displayedQuestions.length > 0" class="rendering-container">
-        <q-spinner color="primary" size="32px" />
-        <span class="rendering-text">正在渲染题目...</span>
-      </div>
-
       <!-- 题目列表 -->
-      <div v-if="displayedQuestions.length > 0 && !renderingQuestions" class="question-cards-list">
+      <div v-if="displayedQuestions.length > 0" class="question-cards-list">
         <div
           v-for="(question, index) in displayedQuestions"
           :key="question.id"
@@ -115,7 +115,7 @@
                               clickable
                               @click="
                                 closeMenuAndExecute(question.id, () =>
-                                  throttledOpenMiniClass(question),
+                                  throttledOpenMiniClass(question)
                                 )
                               "
                               class="menu-item native-more-menu-item"
@@ -132,7 +132,7 @@
                               clickable
                               @click="
                                 closeMenuAndExecute(question.id, () =>
-                                  throttledMoveToTop(question.id),
+                                  throttledMoveToTop(question.id)
                                 )
                               "
                               class="menu-item native-more-menu-item"
@@ -148,7 +148,7 @@
                               clickable
                               @click="
                                 closeMenuAndExecute(question.id, () =>
-                                  throttledToggleFavorite(question),
+                                  throttledToggleFavorite(question)
                                 )
                               "
                               class="menu-item native-more-menu-item native-more-menu-favorite"
@@ -170,7 +170,7 @@
                               clickable
                               @click="
                                 closeMenuAndExecute(question.id, () =>
-                                  throttledTakePictureToTeacher(question),
+                                  throttledTakePictureToTeacher(question)
                                 )
                               "
                               class="menu-item native-more-menu-item"
@@ -187,7 +187,7 @@
                                 clickable
                                 @click="
                                   closeMenuAndExecute(question.id, () =>
-                                    throttledDeleteQuestion(question.id),
+                                    throttledDeleteQuestion(question.id)
                                   )
                                 "
                                 :disable="deletingIds.has(question.id)"
@@ -225,13 +225,8 @@
             </div>
           </div>
         </div>
-        <!-- 加载更多提示 -->
-        <div v-if="hasMoreQuestions && renderingQuestions" class="load-more-container">
-          <q-spinner color="primary" size="24px" />
-          <span class="load-more-text">加载中...</span>
-        </div>
       </div>
-    </div>
+    </RubberBandList>
 
     <!-- 微课对话框 -->
     <MiniClass
@@ -249,11 +244,7 @@
     />
 
     <!-- 图片预览对话框 -->
-    <ImageViewer
-      v-model="showImagePreview"
-      :image-url="previewImageUrl"
-      alt="题目图片"
-    />
+    <ImageViewer v-model="showImagePreview" :image-url="previewImageUrl" alt="题目图片" />
   </div>
 </template>
 
@@ -273,12 +264,13 @@ import { useMessageRenderer } from '../composables/useMessageRenderer'
 import MiniClass from './MiniClass.vue'
 import UnifiedChatDialog from './UnifiedChatDialog.vue'
 import ImageViewer from './ImageViewer.vue'
+import RubberBandList from './RubberBandList.vue'
 import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
 import { useImagePicker } from '../composables/useImagePicker'
 import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
 
 // 导入拍照搜题图标
-import searchQuestionIcon from '/icons/search_question.svg'   
+import searchQuestionIcon from '/icons/search_question.svg'
 
 const props = defineProps<{
   searchQuery?: string
@@ -368,11 +360,13 @@ const isQuestionSelected = (questionId: string): boolean => {
   return currentQuestion.value.id === questionId
 }
 
-// 题目删除和渲染相关
+// 题目删除相关
 const deletingIds = ref(new Set<string>())
 const contentRefs = ref<Map<string, HTMLElement>>(new Map())
-const renderedQuestions = new Set<string>()
 const intersectionObservers = new Map<string, IntersectionObserver>()
+
+// 题目渲染完成状态（用于更精确控制加载中的时长）
+const questionRenderedMap = ref<Map<string, boolean>>(new Map())
 
 // 更多菜单显示状态
 const showMoreMenu = ref<Record<string, boolean>>({})
@@ -381,9 +375,8 @@ const showMoreMenu = ref<Record<string, boolean>>({})
 const showImagePreview = ref(false)
 const previewImageUrl = ref<string>('')
 
-// 批量渲染相关
-const renderingQuestions = ref(false) // 是否正在渲染题目
-const renderedQuestionIds = ref(new Set<string>()) // 已渲染完成的题目ID集合
+// 加载状态（用于驱动 RubberBandList 底部“正在加载...” 提示）
+const renderingQuestions = ref(false)
 
 // 动态高度测量相关（方案A）
 const questionHeights = ref<Map<string, number>>(new Map()) // 题目ID -> 高度映射
@@ -470,7 +463,7 @@ const filteredQuestions = computed(() => {
     result = result.filter(
       (question) =>
         (question.title && question.title.toLowerCase().includes(query)) ||
-        (question.question && question.question.toLowerCase().includes(query)),
+        (question.question && question.question.toLowerCase().includes(query))
     )
   }
 
@@ -492,30 +485,15 @@ const hasMoreQuestions = computed(() => {
   return displayedCount.value < displayList.value.length
 })
 
-// 滚动容器引用（用于滚动定位）
-const scrollContainer = ref<HTMLElement | null>(null)
+// 滚动容器引用（用于滚动定位与 RubberBandList 实例）
+const scrollContainer = ref<InstanceType<typeof RubberBandList> | HTMLElement | null>(null)
 
 // 先声明 setQuestionCardRef，稍后实现
 let setQuestionCardRefImpl: (
   el: HTMLElement | null,
   questionId: string,
-  index: number,
+  index: number
 ) => void = () => {}
-
-// 检查当前批次的所有题目是否都已渲染完成
-const checkBatchRenderComplete = async (maxRetries = 100) => {
-  const currentBatch = displayedQuestions.value.slice(0, displayedCount.value)
-  const allRendered = currentBatch.every((question) => renderedQuestionIds.value.has(question.id))
-
-  if (allRendered || maxRetries <= 0) {
-    // 所有题目都已渲染完成，或者达到最大重试次数，显示列表
-    renderingQuestions.value = false
-  } else {
-    // 等待一段时间后再次检查
-    await new Promise((resolve) => setTimeout(resolve, 100))
-    await checkBatchRenderComplete(maxRetries - 1)
-  }
-}
 
 // 处理内容引用（用于模板中的 ref）
 const handleContentRef = (el: unknown, questionId: string) => {
@@ -530,24 +508,18 @@ const setContentRef = async (el: HTMLElement | null, questionId: string) => {
   if (el) {
     contentRefs.value.set(questionId, el)
 
-    // 只在首次渲染时处理MathJax
-    if (!renderedQuestions.has(questionId)) {
-      renderedQuestions.add(questionId)
+    // 渲染MathJax
+    await MathJaxUtils.renderMath(el, false)
 
-      // 渲染MathJax
-      await MathJaxUtils.renderMath(el, false)
+    // 给图片添加点击事件监听器
+    await nextTick()
+    attachImageClickListeners(el)
 
-      // 给图片添加点击事件监听器
-      await nextTick()
-      attachImageClickListeners(el)
-
-      // 标记为已渲染完成
-      renderedQuestionIds.value.add(questionId)
-      // 检查当前批次是否全部渲染完成
-      await checkBatchRenderComplete()
-    }
+    // 标记该题目已完成渲染（包括公式和图片处理）
+    questionRenderedMap.value.set(questionId, true)
   }
 }
+
 
 // 给元素内的所有图片添加点击事件监听器
 const attachImageClickListeners = (container: HTMLElement) => {
@@ -622,7 +594,7 @@ const setQuestionCardRef = setQuestionCardRefImpl
 const throttledHandleCardClick = ThrottleUtils.fast(
   async (question: ExerciseItem, index: number) => {
     await selectQuestion(question, index)
-  },
+  }
 )
 
 const throttledSendToAi = throttle((question: ExerciseItem) => {
@@ -837,51 +809,30 @@ const throttledLoadQuestions = ThrottleUtils.verySlow(() => {
   loadQuestions()
 }) // 1秒节流，防止重复加载
 
-// 滚动处理函数
-const handleScroll = throttle((event: Event) => {
-  const target = event.target as HTMLElement
-  if (!target) return
-
-  const { scrollTop, scrollHeight, clientHeight } = target
-  const scrollBottom = scrollHeight - scrollTop - clientHeight
-
-  // 当距离底部小于100px时，触发加载更多
-  if (scrollBottom < 100 && hasMoreQuestions.value && !renderingQuestions.value) {
-    loadMoreQuestions()
-  }
-}, 200) // 200ms节流
+// 滚动处理逻辑改由 RubberBandList 的 loadMore 事件触发
 
 // 加载更多题目
 const loadMoreQuestions = async () => {
   if (renderingQuestions.value || !hasMoreQuestions.value) return
 
   try {
-    // 增加显示的题目数量
+    renderingQuestions.value = true
     displayedCount.value = Math.min(
       displayedCount.value + LOAD_MORE_COUNT,
-      displayList.value.length,
+      displayList.value.length
     )
-
-    // 等待DOM更新
-    await nextTick()
-
-    // 开始批量渲染新加载的题目
-    renderingQuestions.value = true
-    // 等待新加载的题目全部渲染完成
-    await checkBatchRenderComplete()
+    setTimeout(() => {
+      renderingQuestions.value = false
+    }, 2000)
+    
   } catch (error) {
     console.error('[QuestionList] ❌ 加载更多题目失败:', error)
-    renderingQuestions.value = false
   }
 }
 
 const loadQuestions = async () => {
   loading.value = true
 
-  // 重置渲染状态
-  renderedQuestionIds.value.clear()
-  renderedQuestions.clear()
-  renderingQuestions.value = false
   try {
     const questionStore = useQuestionStore()
 
@@ -924,21 +875,11 @@ const loadQuestions = async () => {
     if (questions.value.length > 0) {
       // 重置显示数量为初始值
       displayedCount.value = INITIAL_DISPLAY_COUNT
-
-      // 等待 DOM 更新
-      await nextTick()
-
-      // 开始批量渲染
-      renderingQuestions.value = true
-      // 等待所有题目渲染完成
-      await checkBatchRenderComplete()
     }
   } catch (error) {
     showMessage('加载题目失败: ' + ((error as Error)?.message || '未知错误'), 'error')
-    renderingQuestions.value = false
   } finally {
     loading.value = false
-    await nextTick()
   }
 }
 
@@ -1030,7 +971,7 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
     // 关键修复：根据题目ID在store的questions数组中查找索引，而不是使用筛选后的索引
     const targetQuestion = list[targetIndex]
     const storeIndex = questionStore.questions.findIndex(
-      (q: ExerciseItem) => q.id === targetQuestion.id,
+      (q: ExerciseItem) => q.id === targetQuestion.id
     )
     if (storeIndex >= 0) {
       await questionStore.selectQuestion(storeIndex)
@@ -1176,7 +1117,10 @@ const sendToAi = async (question: ExerciseItem) => {
       await aiExerciseStore.clearChatHistory(questionStore.currentQuestion.id)
 
       // 第4步：发送题目内容给AI进行分析（每次都是新的开始）
-      const questionContent = questionStore.currentQuestion.question || questionStore.currentQuestion.title || '题目内容为空'
+      const questionContent =
+        questionStore.currentQuestion.question ||
+        questionStore.currentQuestion.title ||
+        '题目内容为空'
       const initialMessage = `我们开始吧，${questionContent}`
 
       await aiExerciseStore.sendMessage(
@@ -1186,7 +1130,7 @@ const sendToAi = async (question: ExerciseItem) => {
         'MATH',
         'mate',
         undefined,
-        true, // hidePrefix: true，存储到本地时去除"我们开始吧"前缀
+        true // hidePrefix: true，存储到本地时去除"我们开始吧"前缀
       )
     } else {
       // 如果store中没有找到题目，说明数据不同步，需要重新同步
@@ -1286,45 +1230,20 @@ const cleanupQuestionHeight = (questionId: string) => {
   questionCardRefs.value.delete(questionId)
 }
 
-watch(
-  renderingQuestions,
-  (newVal) => {
-  },
-  { deep: true, immediate: true },
-)
-
-// 监听搜索变化，重置渲染状态
+// 监听搜索变化，重置分页
 watch(
   searchQuery,
-  async () => {
-    // 搜索时重置所有渲染状态
-    renderedQuestionIds.value.clear()
-    renderedQuestions.clear()
-    renderingQuestions.value = false
-    // 重置显示数量
+  () => {
     displayedCount.value = INITIAL_DISPLAY_COUNT
-
-    // 等待DOM更新
-    await nextTick()
-
-    // 开始批量渲染
-    if (displayedQuestions.value.length > 0) {
-      renderingQuestions.value = true
-      await checkBatchRenderComplete()
-    }
   },
-  { immediate: false },
+  { immediate: false }
 )
 
-// 监听学科过滤变化，重置渲染状态并可能需要重新加载题目
+// 监听学科过滤变化，重置分页并可能需要重新加载题目
 watch(
   selectedSubjectFilter,
   async (newFilter) => {
-    // 学科过滤时重置所有渲染状态
-    renderedQuestionIds.value.clear()
-    renderedQuestions.clear()
-    renderingQuestions.value = false
-    // 重置显示数量
+    // 学科过滤时重置显示数量
     displayedCount.value = INITIAL_DISPLAY_COUNT
 
     const questionStore = useQuestionStore()
@@ -1367,17 +1286,8 @@ watch(
         questions.value = [...questionStore.questions]
       }
     }
-
-    // 等待DOM更新
-    await nextTick()
-
-    // 开始批量渲染
-    if (displayedQuestions.value.length > 0) {
-      renderingQuestions.value = true
-      await checkBatchRenderComplete()
-    }
   },
-  { immediate: false },
+  { immediate: false }
 )
 
 // 组件卸载时清理资源
@@ -1420,7 +1330,7 @@ watch(
   () => {
     initFavoriteStatus()
   },
-  { deep: true },
+  { deep: true }
 )
 
 onMounted(() => {
@@ -1499,9 +1409,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   } @else if $level == hover {
     box-shadow: $shadow-hover;
   } @else if $level == selected {
-    box-shadow:
-      0 0 0 1px rgba(26, 115, 232, 0.2),
-      $shadow-subtle;
+    box-shadow: 0 0 0 1px rgba(26, 115, 232, 0.2), $shadow-subtle;
   }
 }
 
@@ -1594,13 +1502,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     background-color: #f7f6ff;
     position: relative;
     padding: 0 8px 8px 8px;
-
-    .question-cards-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      min-height: min-content;
-    }
   }
 
   // 题目卡片列表容器
@@ -1642,9 +1543,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
       .question-block {
         border-color: $primary-color;
-        box-shadow:
-          0 0 0 2px rgba(26, 115, 232, 0.2),
-          $shadow-hover;
+        box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2), $shadow-hover;
         background-color: rgba(26, 115, 232, 0.02);
       }
     }
@@ -1682,7 +1581,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       &::before {
         content: '';
         position: absolute;
-        inset: 0;               // 覆盖整个 li 区域
+        inset: 0; // 覆盖整个 li 区域
         border-radius: 12px;
         pointer-events: none;
         box-shadow: 0 0 0 1px #8b5cf6; // 相当于 1px 边框，但不占空间
@@ -1819,9 +1718,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       padding: 8px 10px 10px;
       min-width: 170px;
       background: #ffffff;
-      box-shadow:
-        0 8px 24px rgba(0, 0, 0, 0.12),
-        0 4px 12px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08);
       border: none;
     }
 
@@ -1869,9 +1766,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   :deep(.q-popup-proxy) {
     border-radius: 16px;
     overflow: hidden;
-    box-shadow:
-      0 4px 16px rgba(0, 0, 0, 0.12),
-      0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
     background-color: $background-white;
     border: 1px solid $border-color;
 
@@ -2041,9 +1936,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     margin: 8px 0;
     display: block;
     cursor: pointer;
-    transition:
-      transform 0.2s ease,
-      box-shadow 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     @include card-shadow(subtle);
 
     &:hover {
@@ -2141,68 +2034,29 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
-// ===== 加载更多提示样式 =====
-.load-more-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
-  width: 100%;
-}
-
-.load-more-text {
-  text-align: center;
-  color: $text-secondary;
-  font-size: 14px;
-}
-
-// ===== 渲染中状态样式 =====
-.rendering-container {
-  @include flex-center;
-  flex-direction: column;
-  min-height: 300px;
-  padding: 40px 20px;
-  width: 100%;
-
-  .rendering-text {
-    margin-top: 16px;
-    color: $text-secondary;
-    font-size: 14px;
+.question-header {
+  .question-number {
+    font-size: 12px;
   }
-}
 
-// ===== 响应式设计 =====
-@media (max-width: 768px) {
-  .question-list {
-    .question-cards-container {
-      .question-card {
-        .question-header {
-          .question-number {
-            font-size: 12px;
-          }
+  .question-actions {
+    height: 28px; // 移动端固定高度
 
-          .question-actions {
-            height: 28px; // 移动端固定高度
+    .action-btn {
+      width: 20px; // 移动端更小的图标
+      height: 20px; // 移动端更小的图标
+      border-radius: 10px;
 
-            .action-btn {
-              width: 20px; // 移动端更小的图标
-              height: 20px; // 移动端更小的图标
-              border-radius: 10px;
-
-              :deep(.q-btn__content) {
-                font-size: 12px; // 移动端更小的字体
-              }
-            }
-          }
-        }
+      :deep(.q-btn__content) {
+        font-size: 12px; // 移动端更小的字体
       }
     }
   }
+}
 
-  .markdown-content {
-    font-size: 13px !important;
-    overflow: visible;
-  }
+.markdown-content {
+  font-size: 13px !important;
+  overflow: visible;
 }
 
 @media (max-width: 480px) {
@@ -2239,9 +2093,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   .q-dialog__inner {
     padding: 24px;
     border-radius: 20px;
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.12),
-      0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
     background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
     border: 1px solid rgba(0, 0, 0, 0.06);
     max-width: 400px;
@@ -2250,13 +2102,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .q-dialog__title {
-    font-family:
-      'Google Sans',
-      -apple-system,
-      BlinkMacSystemFont,
-      'Segoe UI',
-      Roboto,
-      sans-serif;
+    font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 20px;
     font-weight: 500;
     color: #202124;
@@ -2265,13 +2111,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .q-dialog__message {
-    font-family:
-      'Google Sans',
-      -apple-system,
-      BlinkMacSystemFont,
-      'Segoe UI',
-      Roboto,
-      sans-serif;
+    font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 14px;
     color: #5f6368;
     line-height: 1.5;
@@ -2289,13 +2129,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
 // Gemini 风格按钮样式
 :deep(.gemini-delete-btn) {
-  font-family:
-    'Google Sans',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
+  font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-weight: 500;
   font-size: 14px;
   text-transform: none;
@@ -2322,13 +2156,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 :deep(.gemini-cancel-btn) {
-  font-family:
-    'Google Sans',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
+  font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-weight: 500;
   font-size: 14px;
   text-transform: none;
@@ -2363,19 +2191,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
-// 高亮动画
-@keyframes highlight-pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.02);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
 // 旋转动画
 @keyframes spin {
   0% {
@@ -2385,5 +2200,4 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     transform: rotate(360deg);
   }
 }
-
 </style>
