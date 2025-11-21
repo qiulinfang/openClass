@@ -38,7 +38,7 @@
     <!-- 内容区域 -->
     <div class="content-area">
       <!-- 问答收藏列表 -->
-      <div v-if="activeTab === 'qa'" ref="qaScrollWrapper" class="list-container scroll-wrapper">
+      <RubberBandList v-if="activeTab === 'qa'" class="list-container scroll-wrapper">
         <div class="scroll-content">
           <div v-if="qaFavorites.length === 0 && !isLoadingQa" class="empty-state">
             <q-icon name="chat_bubble_outline" size="80px" color="grey-5" />
@@ -108,10 +108,10 @@
             </div>
           </div>
         </div>
-      </div>
+      </RubberBandList>
       
       <!-- 练习收藏列表 -->
-      <div v-if="activeTab === 'exercise'" ref="exerciseScrollWrapper" class="list-container scroll-wrapper">
+      <RubberBandList v-if="activeTab === 'exercise'" class="list-container scroll-wrapper">
         <div class="scroll-content">
           <div v-if="exerciseFavorites.length === 0 && !isLoadingExercise" class="empty-state">
             <q-icon name="quiz" size="80px" color="grey-5" />
@@ -151,6 +151,7 @@
             </div>
           </div>
         </div>
+        </RubberBandList>
       </div>
     </div>
     
@@ -167,7 +168,6 @@
       :image-url="currentImageUrl"
       alt="会话缩略图"
     />
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -180,7 +180,7 @@ import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
 import type { AiGeneralSession, AiTextbookSession } from '../types/chat'
 import type { ExerciseItem } from '../types/exercise'
 import UnifiedChatDialog from '../components/UnifiedChatDialog.vue'
-import { useBetterScroll } from '../composables/useBetterScroll'
+import RubberBandList from '../components/RubberBandList.vue'
 import { authStorageService } from '../services/auth-storage-service'
 import ImageViewer from '../components/ImageViewer.vue'
 import { resourceManager } from '../services/resource-storage'
@@ -203,57 +203,7 @@ const exerciseFavorites = ref<FavoriteExercise[]>([])
 const isLoadingQa = ref(false)
 const isLoadingExercise = ref(false)
 
-// BetterScroll 相关
-const qaScrollWrapper = ref<HTMLElement | null>(null)
-const exerciseScrollWrapper = ref<HTMLElement | null>(null)
-
-// 问答收藏列表 BetterScroll
-const {
-  init: initQaBScroll,
-  refresh: refreshQaBScroll,
-  destroy: destroyQaBScroll
-} = useBetterScroll(
-  qaScrollWrapper,
-  {
-    scrollY: true,
-    scrollX: false,
-    click: true,
-    bounce: {
-      top: true,
-      bottom: true,
-      left: false,
-      right: false
-    },
-    bounceTime: 800,
-    deceleration: 0.003,
-    useTransition: true,
-    HWCompositing: true
-  }
-)
-
-// 练习收藏列表 BetterScroll
-const {
-  init: initExerciseBScroll,
-  refresh: refreshExerciseBScroll,
-  destroy: destroyExerciseBScroll
-} = useBetterScroll(
-  exerciseScrollWrapper,
-  {
-    scrollY: true,
-    scrollX: false,
-    click: true,
-    bounce: {
-      top: true,
-      bottom: true,
-      left: false,
-      right: false
-    },
-    bounceTime: 800,
-    deceleration: 0.003,
-    useTransition: true,
-    HWCompositing: true
-  }
-)
+// 列表滚动已改为使用 RubberBandList 橡皮筋滚动效果，不再依赖 BetterScroll
 
 // 统一聊天对话框状态
 const showUnifiedChatDialog = ref(false)
@@ -590,11 +540,7 @@ const loadQaFavorites = async () => {
     allFavorites.sort((a, b) => b.timestamp - a.timestamp)
     qaFavorites.value = allFavorites
     
-    // 第5步：刷新 BetterScroll（如果当前是问答标签页）
-    await nextTick()
-    if (activeTab.value === 'qa' && qaScrollWrapper.value) {
-      refreshQaBScroll()
-    }
+    // 橡皮筋列表不需手动刷新滚动实例
   } catch (error) {
     console.error('加载问答收藏失败:', error)
   } finally {
@@ -614,11 +560,7 @@ const loadExerciseFavorites = async () => {
     favorites.sort((a, b) => b.timestamp - a.timestamp)
     exerciseFavorites.value = favorites
     
-    // 刷新 BetterScroll（如果当前是练习标签页）
-    await nextTick()
-    if (activeTab.value === 'exercise' && exerciseScrollWrapper.value) {
-      refreshExerciseBScroll()
-    }
+    // 橡皮筋列表不需手动刷新滚动实例
   } catch (error) {
     console.error('加载练习收藏失败:', error)
   } finally {
@@ -630,16 +572,8 @@ const loadExerciseFavorites = async () => {
 watch(activeTab, async (newTab) => {
   if (newTab === 'qa') {
     await loadQaFavorites()
-    await nextTick()
-    // 延迟初始化，确保 DOM 完全渲染
-    initQaBScroll()
-    destroyExerciseBScroll()
   } else {
     await loadExerciseFavorites()
-    await nextTick()
-    // 延迟初始化，确保 DOM 完全渲染
-    initExerciseBScroll()
-    destroyQaBScroll()
   }
 })
 
@@ -648,14 +582,8 @@ onMounted(async () => {
   // 加载当前标签页的收藏数据
   if (activeTab.value === 'qa') {
     await loadQaFavorites()
-    await nextTick()
-    // 延迟初始化，确保 DOM 完全渲染
-    initQaBScroll()
   } else {
     await loadExerciseFavorites()
-    await nextTick()
-    // 延迟初始化，确保 DOM 完全渲染
-    initExerciseBScroll()
   }
 })
 
@@ -664,18 +592,8 @@ onActivated(async () => {
   // 刷新当前标签页的收藏数据
   if (activeTab.value === 'qa') {
     await loadQaFavorites()
-    await nextTick()
-    // 延迟初始化，确保 DOM 完全渲染
-    if (qaScrollWrapper.value) {
-        initQaBScroll()
-    }
   } else {
     await loadExerciseFavorites()
-    await nextTick()
-    // 延迟初始化，确保 DOM 完全渲染
-    if (exerciseScrollWrapper.value) {
-        initExerciseBScroll()
-    }
   }
 })
 

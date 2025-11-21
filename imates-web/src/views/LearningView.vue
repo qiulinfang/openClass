@@ -22,9 +22,8 @@
             </div>
 
             <!-- 学习方案列表 -->
-            <div
+            <RubberBandList
               v-else-if="filteredLearningPackages.length > 0"
-              ref="schemeListWrapper"
               class="scroll-wrapper scheme-list"
             >
               <div class="scroll-content-schemeList">
@@ -50,7 +49,7 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </RubberBandList>
 
             <!-- 无数据状态 -->
             <div v-else class="empty-state">
@@ -69,9 +68,8 @@
           </div>
 
           <!-- 资源文件列表 -->
-          <div
+          <RubberBandList
             v-else-if="currentResources.length > 0"
-            ref="resourcesListWrapper"
             class="scroll-wrapper resources-list"
           >
             <div class="scroll-content">
@@ -115,7 +113,7 @@
                 />
               </div>
             </div>
-          </div>
+          </RubberBandList>
 
           <!-- 无资源状态 -->
           <div v-else class="empty-resources">
@@ -133,7 +131,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { resourceManager } from '../services/resource-storage'
 import type { LearningPackage, ResourceFile, LocalFileInfo } from '../types'
-import { useBetterScroll } from '../composables/useBetterScroll'
+import RubberBandList from '../components/RubberBandList.vue'
 import { authStorageService } from '../services/auth-storage-service'
 import DraggableDialog from '../components/DraggableDialog.vue'
 import { thumbnailQueue } from '../utils/thumbnail/thumbnail-queue'
@@ -182,10 +180,6 @@ const selectedResourceIndex = ref(-1)
 const isLoading = ref(false)
 const loadingPackages = ref(false)
 
-// Better Scroll 实例
-const schemeListWrapper = ref<HTMLElement | null>(null)
-const resourcesListWrapper = ref<HTMLElement | null>(null)
-
 // 学习方案数据 - 从API获取
 const learningPackages = ref<LearningPackage[]>([])
 // 本地文件信息 - 用于获取缩略图
@@ -232,47 +226,7 @@ const currentResources = computed(() => {
   })
 })
 
-// 使用 Better Scroll 组合式函数 - 学习方案列表
-const { init: initSchemeListBScroll } = useBetterScroll(
-  schemeListWrapper,
-  {
-    scrollY: true,
-    scrollX: false,
-    click: true,
-    bounce: {
-      top: true,
-      bottom: true,
-      left: false,
-      right: false,
-    },
-    deceleration: 0.003,
-    useTransition: true,
-    HWCompositing: true,
-  },
-  true, // 自动监听数据变化
-  [() => filteredLearningPackages.value.length],
-)
-
-// 使用 Better Scroll 组合式函数 - 资源列表
-const { init: initResourcesListBScroll } = useBetterScroll(
-  resourcesListWrapper,
-  {
-    scrollY: true,
-    scrollX: false,
-    click: true,
-    bounce: {
-      top: true,
-      bottom: true,
-      left: false,
-      right: false,
-    },
-    deceleration: 0.003,
-    useTransition: true,
-    HWCompositing: true,
-  },
-  true, // 自动监听数据变化
-  [() => currentResources.value.length],
-)
+// 列表滚动改为使用 RubberBandList 橡皮筋滚动效果，不再依赖 BetterScroll
 
 // 方法
 const selectScheme = (index: number) => {
@@ -702,11 +656,6 @@ onMounted(async () => {
   // 加载学习包数据
   await loadLearningPackages()
   console.timeEnd('学习包加载')
-  // 初始化 BScroll（由组合式函数处理）
-  console.time('BScroll初始化')
-  await initSchemeListBScroll()
-  await initResourcesListBScroll()
-  console.timeEnd('BScroll初始化')
 })
 
 onUnmounted(() => {

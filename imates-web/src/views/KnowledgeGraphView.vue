@@ -73,8 +73,7 @@
       </div>
 
       <!-- 章节目录列表 / 搜索结果列表 -->
-      <div ref="chapterListWrapper" class="scroll-wrapper chapter-list">
-        <div class="scroll-content">
+      <RubberBandList class="chapter-list">
         <!-- 显示搜索结果 -->
         <template v-if="searchQuery && searchResults.length > 0">
           <div 
@@ -113,8 +112,7 @@
             <span class="chapter-text" v-html="highlightText(convertBrackets(item.chapter))"></span>
           </div>
         </template>
-        </div>
-      </div>
+      </RubberBandList>
     </div>
 
     <!-- 第三列：核心内容/知识图谱（最右侧） -->
@@ -143,86 +141,13 @@
         </q-btn>
       </div>
 
-      <!-- 圆形知识图谱容器 -->
-      <div class="circular-graphs-container" v-if="selectedChapterDetails" ref="circularContainerRef">
-        <!-- 视口裁剪区域 -->
-        <div class="viewport-clipper"
-          :class="{ 'has-expanded': getCurrentChapterExpandedGraph() !== null }"
-          @touchstart="handleTouchStart"
-          @touchmove="handleTouchMove"
-          @touchend="handleTouchEnd"
-          @touchcancel="handleTouchCancel"
-          @mousedown="handleMouseDown"
-          @mousemove="handleMouseMove"
-          @mouseup="handleMouseUp"
-          @mouseleave="handleMouseUp"
-          @click="handleBackgroundClick"
-        >
-          <!-- 椭圆轨迹指示器 -->
-          <div class="circular-track"></div>
-          <!-- 椭圆布局容器 -->
-          <div 
-            class="circular-layout" 
-            ref="circularLayoutRef"
-          >
-            <!-- 右边框中心位置指示器 -->
-            <div 
-              class="right-border-indicator"
-              ref="indicatorContainerRef"
-              @click.stop
-              @touchstart="handleIndicatorTouchStart"
-              @touchmove="handleIndicatorTouchMove"
-              @touchend="handleIndicatorTouchEnd"
-            >
-              <div 
-                v-for="(subChapter, index) in getSubChapters(selectedChapterDetails)" 
-                :key="subChapter.id"
-                class="indicator-dot"
-                :class="{ 'active': getCurrentChapterExpandedGraph() === subChapter.id }"
-                :style="{
-                  opacity: getIndicatorOpacity(subChapter.id, index),
-                  width: `${getIndicatorSize(subChapter.id, index)}px`,
-                  height: `${getIndicatorSize(subChapter.id, index)}px`
-                }"
-                @click="handleIndicatorClick(subChapter.id)"
-              >
-                <img 
-                  v-if="getCurrentChapterExpandedGraph() === subChapter.id" 
-                  :src="indicatorIcon" 
-                  alt="Indicator" 
-                  class="indicator-icon"
-                />
-              </div>
-            </div>
-            <div 
-              v-for="(subChapter, index) in getSubChapters(selectedChapterDetails)" 
-              :key="subChapter.id"
-              class="graph-position"
-              :style="{
-                ...getGraphPosition(index, getSubChapters(selectedChapterDetails).length),
-                width: `${debugParams.graphSize}px`,
-                height: `${debugParams.graphSize}px`
-              }"
-            >
-              <!-- 知识图谱 -->
-              <KnowledgeGraph
-                :chapter-details="subChapter"
-                :graph-index="index"
-                :rotation="getGraphRotation(index)"
-                :is-expanded="getCurrentChapterExpandedGraph() === subChapter.id"
-                :has-expanded-graph="getCurrentChapterExpandedGraph() !== null"
-                :rotation-direction="rotationDirection"
-                :textbook-record-id="getCurrentTextbookId()"
-                :textbook-id="getTextbookIdForKnowledgeGraph()"
-                :subject="currentSubjectLabel"
-                @expand="handleGraphExpand(subChapter.id)"
-                @learn="handleLearnDialog"
-                @save-state="saveCurrentPageState"
-                class="knowledge-graph-wrapper"
-              />
-            </div>
-          </div>
-        </div>
+      <!-- 银河知识图谱容器（使用 newGrap 替换原环形多图） -->
+      <div class="circular-graphs-container" v-if="newGrapData">
+        <NewGrap 
+          ref="newGrapRef"
+          :data="newGrapData"
+          @action="handleNewGrapAction"
+        />
       </div>
 
       <!-- 底部状态标识 - 只在选择了章节时显示 -->
@@ -254,17 +179,6 @@
       @update:model-value="handleLearningDialogClose"
     />
 
-    <!-- 调试面板 - 只在开发场景下显示 -->
-    <KnowledgeGraphDebugPanel
-      v-if="isDev"
-      v-model="debugPanelVisible"
-      :params="debugParams"
-      :default-params="defaultDebugParams"
-      :current-chapter="selectedChapterDetails"
-      @update:params="handleDebugParamsUpdate"
-      @update:nodes="handleNodeUpdate"
-    />
-
     <!-- 学习状态控制面板 - 只在开发场景下显示 -->
     <LearningStatusControlPanel
       v-if="isDev"
@@ -276,40 +190,100 @@
   </div>
 </template>
 
-<script lang="ts">
-export default {
-  name: 'knowledgeGraph'
-}
-</script>
-
 <script setup lang="ts">
+// Component name
+defineOptions({
+  name: 'knowledgeGraph'
+})
 import { ref, onMounted, nextTick, computed, onUnmounted, provide, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiService } from '../services/api-service'
-import { resourceManager } from '../services/resource-storage'
+import { resourceManager, ResourceManager } from '../services/resource-storage'
 import type { TextbookOption, ChapterNode, UserTextbookInfo } from '../types'
-import KnowledgeGraph from '../components/knowledge-graph/KnowledgeGraph.vue'
+import NewGrap from '../components/knowledge-graph/newGrap.vue'
+import RubberBandList from '../components/RubberBandList.vue'
 import LearningView from './LearningView.vue'
-import KnowledgeGraphDebugPanel from '../components/debug/KnowledgeGraphDebugPanel.vue'
-import type { KnowledgeGraphDebugParams } from '../components/debug/KnowledgeGraphDebugPanel.vue'
 import LearningStatusControlPanel from '../components/debug/LearningStatusControlPanel.vue'
 import { useKnowledgeGraphStore } from '../stores/KnowledgeGraphStore'
-import { useBetterScroll } from '../composables/useBetterScroll'
 import { authStorageService } from '../services/auth-storage-service'
-import { useQuestionStore } from '../stores/questionStore'
 import { showMessage } from '../utils'
+import { queryShijingshanKnowledgeId } from '../utils/business/shijingshan-knowledge-utils'
 import {
   convertToChineseNumber
 } from '../utils/business/chapter-utils'
 // 流程：导入图标资源
 import bookIcon from '/images/book.png'
-import indicatorIcon from '/icons/Indicator.svg'
 import notLearnedStarIcon from '/icons/notLearnedStar.svg'
 import learnedStarIcon from '/icons/learnedStar.svg'
 import lastLearnedStarIcon from '/icons/lastLearnedStar.svg'
 import backgroundImage from '/icons/background.svg'
 import chapterSearchIcon from '/icons/chapter_search.svg'
 import photoSearchIcon from '/icons/photo_search.svg'
+
+// ========== 学习状态：沿用旧 KnowledgeGraph 逻辑（lastLearned / learned / notLearned） ==========
+
+const lastLearnedNodeId = ref<string | null>(null)
+const learnedNodeIds = ref<Set<string>>(new Set())
+
+const getLastLearnedNodeKey = () => {
+  const userId = authStorageService.getCurrentUserIdOrDefault()
+  return `${userId}_LAST_LEARNED_NODE_ID`
+}
+
+const getLearnedNodesKey = () => {
+  const userId = authStorageService.getCurrentUserIdOrDefault()
+  return `${userId}_LEARNED_NODES`
+}
+
+const loadLastLearnedNodeId = () => {
+  try {
+    const key = getLastLearnedNodeKey()
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      lastLearnedNodeId.value = saved
+    }
+  } catch (error) {
+    console.error('加载最后学习的节点ID失败:', error)
+  }
+}
+
+const loadLearnedNodeIds = () => {
+  try {
+    const key = getLearnedNodesKey()
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      const ids = JSON.parse(saved) as string[]
+      learnedNodeIds.value = new Set(ids)
+    }
+  } catch (error) {
+    console.error('加载已学习的节点ID列表失败:', error)
+    learnedNodeIds.value = new Set()
+  }
+}
+
+// 供外部调用的刷新方法（保持与旧逻辑一致）
+const refreshLearningStatusFromStorage = () => {
+  loadLastLearnedNodeId()
+  loadLearnedNodeIds()
+}
+
+// 计算节点学习状态
+const getLearningStatus = (child: { id: string }): 'notLearned' | 'learned' | 'lastLearned' => {
+  if (lastLearnedNodeId.value === child.id) return 'lastLearned'
+  if (learnedNodeIds.value.has(child.id)) return 'learned'
+  return 'notLearned'
+}
+
+// 保存最后学习的节点ID到 localStorage
+const saveLastLearnedNodeId = (nodeId: string) => {
+  try {
+    lastLearnedNodeId.value = nodeId
+    const key = getLastLearnedNodeKey()
+    localStorage.setItem(key, nodeId)
+  } catch (error) {
+    console.error('保存最后学习的节点ID失败:', error)
+  }
+}
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -320,10 +294,8 @@ const {
   setCurrentTextbook,
   getCurrentTextbook,
   getChapterRotation,
-  setChapterRotation,
   getCurrentChapterExpandedGraph,
   setCurrentChapterExpandedGraph,
-  clearTextbookStates,
   initializeChapterStates,
   getCurrentChapter,
   savePageState,
@@ -335,42 +307,92 @@ const {
 const route = useRoute()
 const router = useRouter()
 
-// Store
-const questionStore = useQuestionStore()
-
 // 第4步：添加搜索相关的响应式数据
 const searchQuery = ref('')
 const showNodeSearch = ref(false) // 控制搜索框显示/隐藏
 
-// 当前科目（用于拍照搜题）
-const currentSubjectForPhotoSearch = computed(() => {
-  const currentQuestion = questionStore.currentQuestion
-  if (currentQuestion?.subject) {
-    const subjectMap: Record<string, string> = {
-      'SUBJECT_MATH': 'math',
-      'SUBJECT_BIOLOGY': 'biology',
-      'SUBJECT_CHEMISTRY': 'chemistry',
-      'SUBJECT_PHYSICS': 'physics',
-      'SUBJECT_CHINESE': 'chinese',
-      'SUBJECT_ENGLISH': 'english'
-    }
-    return subjectMap[currentQuestion.subject] || currentQuestion.subject.toLowerCase() || 'math'
-  }
-  // 如果没有当前题目，根据用户选择的科目判断
-  const subjectMap: Record<string, string> = {
-    '数学': 'math',
-    '生物': 'biology',
-    '化学': 'chemistry',
-    '物理': 'physics',
-    '语文': 'chinese',
-    '英语': 'english'
-  }
-  return subjectMap[currentSubjectLabel.value] || 'math'
-})
-
 // 章节数据
 const chapters = ref<string[]>([])
 const chapterStructure = ref<ChapterNode[]>([])
+
+// ========== newGrap 数据映射：ChapterNode -> Chapter/Section/KnowledgePoint ==========
+
+interface NewGrapKnowledgePoint {
+  id: string
+  name: string
+  label?: string
+  level?: number
+  learningStatus?: 'notLearned' | 'learned' | 'lastLearned'
+}
+
+interface NewGrapSection {
+  id: string
+  name: string
+  label?: string
+  level?: number
+  children?: NewGrapKnowledgePoint[]
+  learningStatus?: 'notLearned' | 'learned' | 'lastLearned'
+}
+
+interface NewGrapChapter {
+  id: string
+  name: string
+  label?: string
+  level?: number
+  children?: NewGrapSection[]
+}
+
+const mapToNewGrapChapter = (root: ChapterNode | null): NewGrapChapter | null => {
+  if (!root) return null
+
+  const chapter: NewGrapChapter = {
+    id: root.id,
+    name: root.name || root.label || '',
+    label: root.label,
+    level: root.level ?? 0,
+    children: []
+  }
+
+  const sections: NewGrapSection[] = (root.children || []).map((sec, secIndex) => {
+    const section: NewGrapSection = {
+      id: sec.id,
+      name: sec.name || sec.label || `小节 ${secIndex + 1}`,
+      label: sec.label,
+      level: sec.level ?? 1,
+      children: []
+    }
+
+    // 子知识点映射并附加学习状态
+    const kpList: NewGrapKnowledgePoint[] = (sec.children || []).map((kp, kpIndex) => ({
+      id: kp.id,
+      name: kp.name || kp.label || `知识点 ${kpIndex + 1}`,
+      label: kp.label,
+      level: kp.level ?? 2,
+      learningStatus: getLearningStatus(kp)
+    }))
+
+    section.children = kpList
+
+    // 根据子节点聚合 section 的学习状态：lastLearned > learned > notLearned
+    if (kpList.some(kp => kp.learningStatus === 'lastLearned')) {
+      section.learningStatus = 'lastLearned'
+    } else if (kpList.some(kp => kp.learningStatus === 'learned')) {
+      section.learningStatus = 'learned'
+    } else {
+      section.learningStatus = 'notLearned'
+    }
+
+    return section
+  })
+
+  chapter.children = sections
+  return chapter
+}
+
+const newGrapData = computed(() => {
+  if (!selectedChapterDetails.value) return null
+  return mapToNewGrapChapter(selectedChapterDetails.value)
+})
 
 // 递归收集所有节点（包括所有层级的子节点）
 const collectAllNodes = (chapter: ChapterNode, chapterIndex: number): Array<{
@@ -467,137 +489,207 @@ const learningDialogData = ref<{
   textbookId: string
 } | null>(null)
 
-// 椭圆布局相关
-const circularContainerRef = ref<HTMLElement>()
-const circularLayoutRef = ref<HTMLElement>()
-const indicatorContainerRef = ref<HTMLElement>()
+// newGrap 组件引用，用于从外部调用其暴露的方法（如 focusOnNodeId）
+const newGrapRef = ref<InstanceType<typeof NewGrap> | null>(null)
 
-// Better Scroll 实例
-const chapterListWrapper = ref<HTMLElement | null>(null)
+// newGrap 气泡动作统一入口
+const handleNewGrapAction = (payload: { type: 'learn' | 'practice'; data: any }) => {
+  const { type, data } = payload
+  if (!data) return
 
-// 使用 Better Scroll 组合式函数
-// autoWatch 会自动监听 filteredChapters 和 searchResults 的变化并刷新
-const { init: initChapterListBScroll } = useBetterScroll(
-  chapterListWrapper,
-  {
-    scrollY: true,
-    scrollX: false,
-    click: true,
-    bounce: {
-      top: true,
-      bottom: true,
-      left: false,
-      right: false
-    },
-    deceleration: 0.003,
-    useTransition: true,
-    HWCompositing: true,
-  },
-  true, // 自动监听数据变化
-  [
-    () => filteredChapters.value.length,
-    () => searchResults.value.length
-  ]
-)
+  if (type === 'learn') {
+    handleLearnFromKnowledgeGraph(data)
+  } else if (type === 'practice') {
+    handlePracticeFromKnowledgeGraph(data)
+  }
+}
 
-// 章节状态接口定义
-// 旋转控制相关
-const isDragging = ref(false) // 是否正在拖拽
-const isActualDragging = ref(false) // 是否实际拖拽（超过阈值）
-const isMouseDown = ref(false) // 鼠标是否按下（用于控制是否处理移动事件）
-const isAnimating = ref(false) // 是否正在执行自动旋转动画
-const startY = ref(0) // 开始触摸的Y坐标
-const lastY = ref(0) // 上次触摸的Y坐标
-const screenHeight = ref(window.innerHeight) // 屏幕高度
-// 归一化参考高度：参考移动端短视频切换，使用视口高度的比例作为参考
-// 这样滑动大部分屏幕高度就能切换到下一个知识图谱，交互更自然
-const normalizedReferenceHeight = computed(() => screenHeight.value * debugParams.value.normalizedReferenceHeightRatio)
-const lastRotationTime = ref(0) // 上次旋转时间戳，用于检测快速滑动
+// 检查本地学习方案数据（从 KnowledgeGraph.vue 复制过来，略作适配）
+const checkLocalLearningPackages = async (textbookRecordId: string): Promise<{hasPackages: boolean, reason: 'no_packages' | 'not_downloaded' | 'error'}> => {
+  try {
+    if (!textbookRecordId) {
+      console.warn('教材记录ID为空，无法检查学习方案')
+      return { hasPackages: false, reason: 'error' }
+    }
 
-// 调试面板状态
-const debugPanelVisible = ref(false)
+    const rm = ResourceManager.getInstance()
+    const textbooks = await rm.getUserLocalTextbooks()
+    console.log('textbooks', textbooks)
+    const textbook = textbooks.find(t => t.id === textbookRecordId)
 
+    if (!textbook) {
+      return { hasPackages: false, reason: 'not_downloaded' }
+    }
+
+    const hasLocalFiles = Boolean(textbook.localFiles && textbook.localFiles.length > 0)
+    if (!hasLocalFiles) {
+      return { hasPackages: false, reason: 'not_downloaded' }
+    }
+
+    const sampleFiles = textbook.localFiles.slice(0, Math.min(3, textbook.localFiles.length))
+    let hasActualFileData = false
+    for (const file of sampleFiles) {
+      const fileExists = await rm.hasFileData(textbook.id, file.id)
+      if (fileExists) {
+        hasActualFileData = true
+        break
+      }
+    }
+
+    if (!hasActualFileData && textbook.localFiles.length > 0) {
+      return { hasPackages: false, reason: 'not_downloaded' }
+    }
+
+    const hasLearningPackages = Boolean(textbook.learningPackages && textbook.learningPackages.length > 0)
+    if (!hasLearningPackages) {
+      return { hasPackages: false, reason: 'no_packages' }
+    }
+
+    return { hasPackages: true, reason: 'no_packages' }
+  } catch (error) {
+    console.error('检查本地学习方案失败:', error)
+    return { hasPackages: false, reason: 'error' }
+  }
+}
+
+// 学习资源提示封装
+const showNoLearningPackagesAlert = (sectionName: string) => {
+  showMessage(`《${sectionName}》暂无学习方案，请选择其他知识点进行学习`, 'warning', 3000)
+}
+
+const showNotDownloadedAlert = (sectionName: string) => {
+  showMessage(`《${sectionName}》学习资源未下载，请先下载教材资源`, 'warning', 3000)
+}
+
+const showErrorAlert = (sectionName: string) => {
+  showMessage(`检查《${sectionName}》学习资源时发生错误，请重试`, 'error', 3000)
+}
+
+// 处理 newGrap 的“去学习”逻辑（复用 KnowledgeGraph 的业务）
+const handleLearnFromKnowledgeGraph = async (node: { id: string; name: string; level?: number | null }) => {
+  try {
+    // 获取当前教材ID
+    const textbookRecordId = getCurrentTextbookId() || ''
+    if (!textbookRecordId) {
+      console.warn('教材ID为空，无法检查学习方案')
+      showNoLearningPackagesAlert(node.name)
+      return
+    }
+
+    // 检查本地学习方案
+    const checkResult = await checkLocalLearningPackages(textbookRecordId)
+
+    // 如果没有学习方案，提示错误
+    if (!checkResult.hasPackages) {
+      if (checkResult.reason === 'not_downloaded') {
+        showNotDownloadedAlert(node.name)
+      } else if (checkResult.reason === 'no_packages') {
+        showNoLearningPackagesAlert(node.name)
+      } else {
+        showErrorAlert(node.name)
+      }
+      return
+    }
+
+    // 保存最后学习的节点ID
+    saveLastLearnedNodeId(node.id)
+
+    // 打开学习对话框
+    if (selectedTextbook.value) {
+      console.log('textbookIdForDialog', textbookRecordId)
+      learningDialogData.value = {
+        nodeId: node.id,
+        sectionName: node.name,
+        level: node.level ?? 0,
+        textbookId: textbookRecordId
+      }
+      learningDialogVisible.value = true
+    }
+  } catch (error) {
+    console.error('检查学习方案失败:', error)
+    // 检查失败时仍然允许打开空数据学习对话框
+    if (selectedTextbook.value) {
+      learningDialogData.value = {
+        nodeId: node.id,
+        sectionName: node.name,
+        level: node.level ?? 0,
+        textbookId: textbookRecordId
+      }
+      learningDialogVisible.value = true
+    }
+  }
+}
+
+// 处理 newGrap 的“去练习”逻辑（复用 KnowledgeGraph 的业务）
+const handlePracticeFromKnowledgeGraph = async (node: { id: string; name: string; level?: number | null }) => {
+  const subjectLabel = currentSubjectLabel.value
+
+  // 1. 拿到当前教材 option
+  const option = textbookOptions.value.find(opt => opt.value === selectedTextbook.value)
+  const textbookId = option?.textbookId  // 这里是真正的 textbookId（版本ID）
+
+  if (!textbookId || !subjectLabel) {
+    showMessage('缺少教材信息，无法查询习题', 'warning')
+    return
+  }
+
+  try {
+    const subjectForApi = subjectLabel === '数学'
+      ? 'math'
+      : subjectLabel === '生物'
+        ? 'biology'
+        : subjectLabel.toLowerCase()
+
+    // 2. 石景山特殊逻辑
+    const shijingshanKnowledgeId = await queryShijingshanKnowledgeId(
+      textbookId,
+      node.id,
+      node.name,
+      subjectForApi
+    )
+
+    let knowledgeList: string
+
+    if (shijingshanKnowledgeId) {
+      knowledgeList = shijingshanKnowledgeId
+    } else {
+      // 3. 通用接口同旧版：textbook_id 传版本ID
+      const request = {
+        subject: subjectForApi,
+        param: [{
+          textbook_id: textbookId,
+          section_id: node.id
+        }]
+      }
+
+      knowledgeList = await apiService.queryKnowledgeIdsByNodeId(request)
+    }
+
+    // 4. 路由跳转逻辑与旧版保持一致
+    const isBiology = subjectLabel === '生物' || subjectLabel === 'biology'
+    const isMath = subjectLabel === '数学' || subjectLabel === 'math'
+    const subjectParam = isBiology ? 'SUBJECT_BIOLOGY' : isMath ? 'SUBJECT_MATH' : 'SUBJECT_MATH'
+
+    router.push({
+      path: '/find-exercise',
+      query: {
+        knowledgeList,
+        subject: subjectParam,
+        token: authStorageService.getScopedStorageValue('token') || ''
+      }
+    })
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && (error as Error & { code?: string }).code === 'NO_QUESTIONS') {
+      showMessage(error.message, 'warning')
+      return
+    }
+
+    console.error('查询知识点ID失败:', error)
+    showMessage('查询知识点失败，请重试', 'error')
+  }
+}
 // 学习状态控制面板状态
 const learningStatusPanelVisible = ref(false)
-
-// 默认参数值（固定不变，作为基准）
-const defaultDebugParams: KnowledgeGraphDebugParams = {
-  radiusX: 500, // 椭圆轨道的X轴半径（水平方向）
-  radiusY: 320, // 椭圆轨道的Y轴半径（垂直方向）
-  dragThreshold: 3, // 拖拽阈值（像素，超过此值才开始真正的拖拽操作）
-  minBackgroundRadius: 100, // 背景圆形最小半径（像素）
-  radiusScaleNone: 0.55, // 无圆周节点时的半径缩放系数
-  radiusScaleSmall: 0.63, // 小规模节点（1-2个）的半径缩放系数
-  radiusScaleMedium: 0.67, // 中等规模节点（3-4个）的半径缩放系数
-  radiusScaleLarge: 0.7, // 大规模节点（5个以上）的半径缩放系数
-  // 动画参数
-  transformDuration: 0.3, // 位置变换动画持续时间（秒）
-  opacityDuration: 0.3, // 透明度动画持续时间（秒）
-  easingX1: 0.25, // 缓动函数 cubic-bezier 的第一个控制点 X 坐标
-  easingY1: 0.46, // 缓动函数 cubic-bezier 的第一个控制点 Y 坐标
-  easingX2: 0.45, // 缓动函数 cubic-bezier 的第二个控制点 X 坐标
-  easingY2: 0.94, // 缓动函数 cubic-bezier 的第二个控制点 Y 坐标
-  animationDelayFactor: 0.03, // 动画延迟系数（用于基于距离的延迟计算，距离越近延迟越短）
-  backgroundTransitionDurationClockwise: 0.3, // 背景圆形顺时针旋转时的过渡时间（秒）
-  backgroundTransitionDurationCounterclockwise: 0.3, // 背景圆形逆时针旋转时的过渡时间（秒）
-  // 角度参数
-  targetAngle: 161, // 目标角度（度），用于自动定位
-  influenceRange: (2 * Math.PI) / 3, // 影响范围（弧度），展开图谱周围的影响范围
-  maxPushAngle: (46 * Math.PI) / 180, // 最大推开角度（弧度），其他节点被推开的最大角度
-  // 动画时长参数
-  expandingRotationDuration: 0.4, // 展开旋转动画持续时间（秒）
-  debounceDelay: 0.1, // 防抖延迟（秒）
-  // 透明度参数
-  opacityExpanded: 1, // 展开的知识图谱透明度
-  opacityNearMin: 0.59, // 距离相关透明度最小值
-  opacityNearFactor: 0.22, // 距离相关透明度因子
-  opacityFar: 0.4, // 距离较远节点透明度
-  opacityDefault: 0.58, // 默认状态下透明度
-  // 缩放参数
-  scaleFactor: 0, // 缩放因子，控制距离相关的缩放幅度
-  // 尺寸参数
-  graphSize: 475, // 图形尺寸（像素）
-  graphMargin: 237, // 图形位置偏移（像素）
-  // 中心节点尺寸参数
-  centerNodeSizeDefault: 145, // 中心节点初始大小（像素）
-  centerNodeSizeExpanded: 165, // 中心节点放大后大小（像素）
-  centerNodeSizeShrunk: 125, // 中心节点缩小大小（像素）
-  centerNodeScaleSpeed: 0.3, // 中心节点缩放速度（秒），控制缩放动画的持续时间
-  // 归一化参考高度比例
-  normalizedReferenceHeightRatio: 0.85, // 归一化参考高度比例，参考移动端短视频切换，使用视口高度的比例作为参考
-  // 节点动画参数
-  nodeEnterExitDuration: 0.3, // 节点进入/退出动画持续时间（秒）
-  nodeExpandDelayInterval: 0.01, // 圆周节点展开动画延迟间隔（秒/节点索引）
-  nodeCollapseDelayInterval: 0.01, // 圆周节点收起动画延迟间隔（秒/节点索引）
-  nodeContentTransitionDuration: 0.3, // 节点内容transition持续时间（秒）
-  nodeBaseTransitionDuration: 0.3, // 节点基础transition持续时间（秒）
-  learningTagTransitionDuration: 0.3, // 学习标签transition持续时间（秒）
-  learningTagTop: -5, // 学习标签top位置（像素）
-  learningTagLeft: 65, // 学习标签left位置（像素）
-  learningTagTranslateX: 0, // 学习标签translateX偏移（百分比）
-  bubbleButtonTransitionDuration: 0.2, // 气泡框按钮transition持续时间（秒）
-  nodeActiveTransitionDuration: 0.1, // 节点active状态transition持续时间（秒）
-  // 圆周节点位置参数
-  circularNodeRadiusFactor: 1.0, // 圆周节点半径因子，用于调整圆周节点相对背景圆的位置（1.0表示与背景圆一致）
-  circularNodeOffsetX: 42, // 圆周节点X方向偏移量（像素），用于调整节点相对中心的X偏移
-  circularNodeOffsetY: 44, // 圆周节点Y方向偏移量（像素），用于调整节点相对中心的Y偏移
-  circularNodeFontSize: 1, // 圆周节点字体大小（rem），用于调整圆周节点标题的字体大小
-  circularNodeContentFontSize: 1, // 圆周节点内容字体大小（rem），用于调整圆周节点内容的字体大小
-  circularNodeRadius: 75, // 圆周节点半径大小（像素），用于调整圆周节点本身的半径大小
-}
-
-// 当前参数值（可修改）
-const debugParams = ref<KnowledgeGraphDebugParams>({ ...defaultDebugParams })
-
-// 通过 provide 传递调试参数给子组件
-provide('knowledgeGraphDebugParams', debugParams)
-
-// 处理调试参数更新
-const handleDebugParamsUpdate = (params: KnowledgeGraphDebugParams) => {
-  // 更新参数，保持响应式引用（通过逐个属性赋值而不是替换整个对象）
-  // 这样可以确保 provide 的引用仍然有效
-  Object.assign(debugParams.value, params)
-}
 
 // 处理学习状态刷新
 const handleLearningStatusRefresh = () => {
@@ -622,982 +714,16 @@ const handleNodeUpdate = (
   node: ChapterNode,
   oldNode?: ChapterNode
 ) => {
-  if (!selectedChapterDetails.value) {
-    return
-  }
-
-  // 深拷贝章节数据，避免直接修改原始数据
-  const updatedChapter = JSON.parse(JSON.stringify(selectedChapterDetails.value))
-
-  if (nodeType === 'center') {
-    // 更新中心节点
-    if (action === 'update') {
-      updatedChapter.id = node.id
-      updatedChapter.name = node.name
-      updatedChapter.level = node.level
-      updatedChapter.label = node.label || node.name
-    } else if (action === 'delete') {
-      // 删除中心节点后，重置为第一个章节（如果有）
-      if (chapterStructure.value.length > 0) {
-        selectChapter(0)
-        return
-      } else {
-        selectedChapterDetails.value = null
-        return
-      }
-    }
-  } else if (nodeType === 'circular') {
-    // 更新圆周节点
-    if (!updatedChapter.children) {
-      updatedChapter.children = []
-    }
-
-    if (action === 'add') {
-      // 添加新节点
-      // 第1步：检查传入节点的 parentId，判断是添加到中心节点下还是添加到一级节点下
-      const parentId = node.parentId || updatedChapter.id || null
-      const isAddingToCenter = parentId === updatedChapter.id || !parentId
-      
-      // 第2步：根据父节点确定新节点的层级
-      let newNodeLevel: number
-      let targetParentNode: ChapterNode | null = null
-      
-      if (isAddingToCenter) {
-        // 添加到中心节点下，作为一级节点
-        const centerLevel = updatedChapter.level ?? 0
-        newNodeLevel = centerLevel === 0 ? 1 : centerLevel === 1 ? 2 : (node.level ?? 1)
-      } else {
-        // 添加到一级节点下，作为二级节点
-        // 找到对应的一级节点
-        targetParentNode = updatedChapter.children?.find((child: ChapterNode) => child.id === parentId) || null
-        if (targetParentNode) {
-          newNodeLevel = (targetParentNode.level ?? 1) + 1
-        } else {
-          // 如果找不到父节点，默认添加到中心节点下
-          const centerLevel = updatedChapter.level ?? 0
-          newNodeLevel = centerLevel === 0 ? 1 : centerLevel === 1 ? 2 : (node.level ?? 1)
-        }
-      }
-      
-      // 第3步：创建新节点
-      const newNode: ChapterNode = {
-        ...node,
-        level: newNodeLevel,
-        isRoot: false,
-        updateTime: new Date().toISOString(),
-        parentId: parentId,
-        label: node.label || node.name,
-        children: []
-      }
-      
-      // 第4步：根据父节点类型决定添加到哪个位置
-      if (isAddingToCenter || !targetParentNode) {
-        // 添加到中心节点的 children（作为一级节点）
-        updatedChapter.children = updatedChapter.children || []
-        updatedChapter.children.push(newNode)
-      } else {
-        // 添加到一级节点的 children（作为二级节点）
-        if (!targetParentNode.children) {
-          targetParentNode.children = []
-        }
-        targetParentNode.children.push(newNode)
-      }
-    } else if (action === 'update' && oldNode) {
-      // 更新现有节点
-      const index = updatedChapter.children.findIndex((n: ChapterNode) => n.id === oldNode.id)
-      if (index !== -1) {
-        updatedChapter.children[index] = {
-          ...node,
-          children: updatedChapter.children[index].children || [],
-          label: node.label || node.name,
-          updateTime: new Date().toISOString()
-        }
-      }
-    } else if (action === 'delete') {
-      // 删除节点
-      const index = updatedChapter.children.findIndex((n: ChapterNode) => n.id === node.id)
-      if (index !== -1) {
-        updatedChapter.children.splice(index, 1)
-      }
-    }
-  }
-
-  // 更新 selectedChapterDetails
-  selectedChapterDetails.value = updatedChapter
-
-  // 同时更新 chapterStructure 中对应的章节
-  const currentIndex = getCurrentChapter()
-  if (currentIndex >= 0 && chapterStructure.value[currentIndex]) {
-    chapterStructure.value[currentIndex] = updatedChapter
-  }
-
-  // 触发重新渲染
-  nextTick(() => {
-    renderGraph()
+  console.warn('handleNodeUpdate is deprecated in new KnowledgeGraphView and kept only for debug panel compatibility.', {
+    action,
+    nodeType,
+    node,
+    oldNode
   })
 }
-
-// 计算缓动函数字符串
-const easingFunction = computed(() => {
-  const params = debugParams.value
-  return `cubic-bezier(${params.easingX1}, ${params.easingY1}, ${params.easingX2}, ${params.easingY2})`
-})
-
-// 计算位置变换动画字符串
-const transformTransition = computed(() => {
-  const params = debugParams.value
-  return `transform ${params.transformDuration}s ${easingFunction.value}`
-})
-
-// 计算透明度动画字符串
-const opacityTransition = computed(() => {
-  const params = debugParams.value
-  return `opacity ${params.opacityDuration}s ${easingFunction.value}`
-})
-
-// 计算组合动画字符串（transform + opacity）
-const combinedTransition = computed(() => {
-  return `${transformTransition.value}, ${opacityTransition.value}`
-})
-
-// 第21步：优化拖拽阈值常量 - 使用可调参数
-const DRAG_THRESHOLD = computed(() => debugParams.value.dragThreshold)
 
 // 防抖定时器
 const debounceTimer = ref<NodeJS.Timeout | null>(null)
-
-
-// 展开时的旋转状态管理
-const isExpandingRotation = ref(false) // 是否正在执行展开旋转动画
-const expandingRotationStartAngle = ref(0) // 展开旋转起始角度
-const expandingRotationTargetAngle = ref(0) // 展开旋转目标角度
-const expandingRotationStartTime = ref(0) // 展开旋转开始时间
-
-// 收缩动画状态管理
-const isCollapsing = ref(false) // 是否正在执行收缩动画
-
-// 旋转方向状态管理
-const rotationDirection = ref<'clockwise' | 'counterclockwise' | null>(null) // 当前旋转方向
-
-// 指示器滑动相关状态
-const isIndicatorDragging = ref(false) // 是否正在指示器区域滑动
-const indicatorCurrentIndex = ref<number | null>(null) // 当前触摸的指示器索引
-
-// 圆周节点触摸状态
-const touchStartedOnCircularNode = ref(false) // 触摸是否从圆周节点开始
-const circularNodeTouchTarget = ref<HTMLElement | null>(null) // 触摸开始的圆周节点元素
-
-// ========== 触摸序列验证逻辑 ==========
-interface TouchEventRecord {
-  type: 'touchstart' | 'touchmove' | 'touchend' | 'touchcancel'
-  timestamp: number
-  target: string | null
-  targetElement: HTMLElement | null
-  touches: number
-  clientX: number | null
-  clientY: number | null
-  isOnCircularNode: boolean
-  isOnCenterNode: boolean
-  animationState: string | null
-  hasExpandedGraph: boolean
-  isCollapsing: boolean
-  nodeScale?: number | null // 节点当前的 scale 值
-  nodeOpacity?: number | null // 节点当前的 opacity 值
-}
-
-interface TouchSequence {
-  id: string
-  startTime: number
-  endTime: number | null
-  events: TouchEventRecord[]
-  initialTarget: HTMLElement | null
-  initialTargetClass: string | null
-  wasCancelled: boolean
-  wasInterrupted: boolean
-  collapseTriggered: boolean
-  collapseTriggerTime: number | null
-}
-
-const touchSequenceTracker = ref<TouchSequence | null>(null)
-const touchSequencesHistory = ref<TouchSequence[]>([])
-const enableTouchValidation = ref(true) // 是否启用验证（可通过调试面板控制）
-
-// 获取节点的当前 scale 和 opacity 值
-const getNodeComputedStyle = (element: HTMLElement | null): { scale: number | null, opacity: number | null } => {
-  if (!element) return { scale: null, opacity: null }
-  
-  const circularNode = element.closest('.graph-node--circular')
-  if (!circularNode) return { scale: null, opacity: null }
-  
-  const computed = window.getComputedStyle(circularNode as HTMLElement)
-  const transform = computed.transform
-  const opacity = computed.opacity
-  
-  // 解析 transform: matrix(a, b, c, d, tx, ty) 中的 scale
-  let scale: number | null = null
-  if (transform && transform !== 'none') {
-    const matrix = transform.match(/matrix\(([^)]+)\)/)
-    if (matrix) {
-      const values = matrix[1].split(',').map(v => parseFloat(v.trim()))
-      if (values.length >= 4) {
-        // scaleX = sqrt(a^2 + b^2), scaleY = sqrt(c^2 + d^2)
-        // 对于纯 scale，通常 a = scaleX, d = scaleY
-        scale = Math.abs(values[0]) // 简化为 scaleX
-      }
-    }
-  } else {
-    scale = 1 // 默认 scale
-  }
-  
-  return {
-    scale: scale !== null ? scale : 1,
-    opacity: opacity !== null ? parseFloat(opacity) : null
-  }
-}
-
-// 记录触摸事件
-const recordTouchEvent = (type: TouchEventRecord['type'], event: TouchEvent) => {
-  if (!enableTouchValidation.value) return
-  
-  const target = event.target as HTMLElement
-  const isOnCircularNode = target?.closest('.graph-node--circular') !== null
-  const isOnCenterNode = target?.closest('.graph-node--center') !== null
-  const hasExpandedGraph = getCurrentChapterExpandedGraph() !== null
-  const nodeStyle = getNodeComputedStyle(target)
-  
-  const record: TouchEventRecord = {
-    type,
-    timestamp: Date.now(),
-    target: target?.className || target?.tagName || null,
-    targetElement: target,
-    touches: event.touches.length,
-    clientX: event.touches[0]?.clientX ?? null,
-    clientY: event.touches[0]?.clientY ?? null,
-    isOnCircularNode,
-    isOnCenterNode,
-    animationState: null, // 可以从 KnowledgeGraph 组件获取
-    hasExpandedGraph,
-    isCollapsing: isCollapsing.value,
-    nodeScale: nodeStyle.scale,
-    nodeOpacity: nodeStyle.opacity
-  }
-  
-  // 如果是新的触摸序列开始
-  if (type === 'touchstart') {
-    const sequenceId = `touch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    touchSequenceTracker.value = {
-      id: sequenceId,
-      startTime: record.timestamp,
-      endTime: null,
-      events: [record],
-      initialTarget: target,
-      initialTargetClass: target?.className || null,
-      wasCancelled: false,
-      wasInterrupted: false,
-      collapseTriggered: false,
-      collapseTriggerTime: null
-    }
-  } else if (touchSequenceTracker.value) {
-    // 继续当前序列
-    touchSequenceTracker.value.events.push(record)
-    
-    // 检测触摸中断
-    if (type === 'touchcancel') {
-      touchSequenceTracker.value.wasCancelled = true
-      touchSequenceTracker.value.wasInterrupted = true
-      touchSequenceTracker.value.endTime = record.timestamp
-    } else if (type === 'touchend') {
-      touchSequenceTracker.value.endTime = record.timestamp
-    }
-    
-    // 检测目标变化
-    if (touchSequenceTracker.value.initialTarget && 
-        touchSequenceTracker.value.initialTarget !== target &&
-        !target?.contains(touchSequenceTracker.value.initialTarget) &&
-        !touchSequenceTracker.value.initialTarget.contains(target)) {
-      touchSequenceTracker.value.wasInterrupted = true
-    }
-    
-    // 检测节点尺寸变化（如果初始目标在节点上）
-    if (touchSequenceTracker.value.initialTarget && 
-        touchSequenceTracker.value.initialTarget.closest('.graph-node--circular')) {
-      const initialStyle = getNodeComputedStyle(touchSequenceTracker.value.initialTarget)
-      const currentStyle = nodeStyle
-      
-      // 如果 scale 从 1 变为接近 0，可能触发中断
-      if (initialStyle.scale !== null && currentStyle.scale !== null) {
-        if (initialStyle.scale > 0.5 && currentStyle.scale < 0.5) {
-          touchSequenceTracker.value.wasInterrupted = true
-        }
-      }
-    }
-  }
-}
-
-// 标记收缩触发
-const recordCollapseTrigger = () => {
-  if (touchSequenceTracker.value && !touchSequenceTracker.value.collapseTriggered) {
-    touchSequenceTracker.value.collapseTriggered = true
-    touchSequenceTracker.value.collapseTriggerTime = Date.now()
-  }
-}
-
-// 完成触摸序列并生成报告
-const finalizeTouchSequence = () => {
-  if (!touchSequenceTracker.value) return
-  
-  const sequence = touchSequenceTracker.value
-  
-  // 保存到历史记录
-  touchSequencesHistory.value.push({ ...sequence })
-  
-  // 生成验证报告
-  if (enableTouchValidation.value) {
-    generateValidationReport(sequence)
-  }
-  
-  // 重置追踪器
-  touchSequenceTracker.value = null
-}
-
-// 生成验证报告
-const generateValidationReport = (sequence: TouchSequence) => {
-  const duration = sequence.endTime ? sequence.endTime - sequence.startTime : Date.now() - sequence.startTime
-  const eventCount = sequence.events.length
-  const touchMoveCount = sequence.events.filter(e => e.type === 'touchmove').length
-  const hasCancelled = sequence.wasCancelled
-  const hasInterrupted = sequence.wasInterrupted
-  const collapseTriggered = sequence.collapseTriggered
-  const collapseDelay = collapseTriggered && sequence.collapseTriggerTime 
-    ? sequence.collapseTriggerTime - sequence.startTime 
-    : null
-  
-  // 检测目标变化
-  const targetChanges = sequence.events.filter((e, i) => {
-    if (i === 0) return false
-    return e.target !== sequence.events[i - 1].target
-  }).length
-  
-  // 检测节点尺寸变化
-  const nodeScaleChanges = sequence.events
-    .map(e => e.nodeScale)
-    .filter((scale, i, arr) => {
-      if (i === 0 || scale === null || arr[i - 1] === null) return false
-      return Math.abs((scale || 1) - (arr[i - 1] || 1)) > 0.1
-    }).length
-  
-  // 检测在节点上的触摸
-  const touchedOnCircularNode = sequence.events.some(e => e.isOnCircularNode)
-  const startedOnCircularNode = sequence.events[0]?.isOnCircularNode || false
-  
-  const report = {
-    sequenceId: sequence.id,
-    summary: {
-      duration: `${duration}ms`,
-      eventCount,
-      touchMoveCount,
-      wasCancelled: hasCancelled ? '❌ 是' : '✅ 否',
-      wasInterrupted: hasInterrupted ? '⚠️ 是' : '✅ 否',
-      collapseTriggered: collapseTriggered ? '✅ 是' : '❌ 否',
-      collapseDelay: collapseDelay ? `${collapseDelay}ms` : 'N/A',
-      targetChanges,
-      nodeScaleChanges,
-      touchedOnCircularNode,
-      startedOnCircularNode
-    },
-    initialTarget: {
-      class: sequence.initialTargetClass,
-      element: sequence.initialTarget
-    },
-    events: sequence.events.map(e => ({
-      type: e.type,
-      time: `${e.timestamp - sequence.startTime}ms`,
-      target: e.target,
-      isOnCircularNode: e.isOnCircularNode,
-      nodeScale: e.nodeScale?.toFixed(2) || 'N/A',
-      nodeOpacity: e.nodeOpacity?.toFixed(2) || 'N/A',
-      isCollapsing: e.isCollapsing
-    }))
-  }
-  
-  if (hasCancelled || hasInterrupted) {
-    console.warn('⚠️ 触摸序列中断！')
-    if (collapseTriggered && collapseDelay !== null) {
-      console.warn(`⚠️ 收缩在触摸开始后 ${collapseDelay}ms 触发`)
-    }
-    if (nodeScaleChanges > 0) {
-      console.warn(`⚠️ 检测到 ${nodeScaleChanges} 次节点尺寸变化`)
-    }
-    if (targetChanges > 0) {
-      console.warn(`⚠️ 检测到 ${targetChanges} 次目标元素变化`)
-    }
-  }
-  
-  return report
-}
-
-// 获取最近的验证报告
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const getLatestValidationReport = () => {
-  if (touchSequencesHistory.value.length === 0) return null
-  return touchSequencesHistory.value[touchSequencesHistory.value.length - 1]
-}
-
-// 获取所有验证报告统计
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const getValidationStatistics = () => {
-  const total = touchSequencesHistory.value.length
-  if (total === 0) return null
-  
-  const cancelled = touchSequencesHistory.value.filter(s => s.wasCancelled).length
-  const interrupted = touchSequencesHistory.value.filter(s => s.wasInterrupted).length
-  const collapseTriggered = touchSequencesHistory.value.filter(s => s.collapseTriggered).length
-  const startedOnNode = touchSequencesHistory.value.filter(s => 
-    s.events[0]?.isOnCircularNode || false
-  ).length
-  
-  return {
-    total,
-    cancelled,
-    interrupted,
-    collapseTriggered,
-    startedOnNode,
-    cancellationRate: `${((cancelled / total) * 100).toFixed(1)}%`,
-    interruptionRate: `${((interrupted / total) * 100).toFixed(1)}%`
-  }
-}
-// ========== 触摸序列验证逻辑结束 ==========
-
-// 第1步：检查触摸目标是否是圆周节点（或其子元素）
-// 注意：现在圆周节点和中心节点都不再被特殊处理，触摸会被当作背景区域处理，会触发旋转操作
-// 圆周节点和中心节点现在都像背景一样，触摸会被当作背景区域处理，因此不再检测节点类型，始终返回 false
-const isCircularNodeTarget = (): boolean => {
-  return false
-}
-
-// 触摸事件处理函数
-const handleTouchStart = (event: TouchEvent) => {
-  // 记录触摸事件用于验证
-  recordTouchEvent('touchstart', event)
-  
-  // 检查触摸目标是否是中心节点或圆周节点（用于调试）
-  const target = event.target as HTMLElement
-  const isOnCenterNode = target?.closest('.graph-node--center') !== null
-  const isOnCircularNode = target?.closest('.graph-node--circular') !== null
-  
-  if (!circularLayoutRef.value) return
-  
-  // 检查触摸点是否在圆周节点上（现在圆周节点和中心节点都不再被特殊处理，始终返回 false）
-  const isOnCircularNodeTarget = isCircularNodeTarget()
-  touchStartedOnCircularNode.value = isOnCircularNodeTarget
-  
-  // 如果触摸点在圆周节点上，记录目标元素（用于后续阻止点击事件）
-  // 注意：现在无论是中心节点还是圆周节点，都不会阻止触摸事件冒泡，都会触发旋转
-  if (isOnCircularNodeTarget && event.target instanceof HTMLElement) {
-    circularNodeTouchTarget.value = event.target.closest('.graph-node--circular') as HTMLElement || 
-                                    event.target.closest('.node-wrapper--circular') as HTMLElement ||
-                                    event.target
-  } else {
-    circularNodeTouchTarget.value = null
-  }
-  
-  // 不在 touchstart 时设置 isDragging，只在 move 中设置
-  isActualDragging.value = false // 初始为false，需要超过阈值才设为true
-  startY.value = event.touches[0].clientY
-  lastY.value = event.touches[0].clientY
-  
-  // 检查触摸点是否在容器内（包括节点），允许拖动时阻止默认滚动行为
-  // 但不在 touchstart 时阻止，避免影响点击事件，只在 touchmove 时根据拖动状态阻止
-  // 注意：中心节点和圆周节点的触摸事件都会冒泡到这里，从而触发旋转操作
-}
-
-const handleTouchMove = (event: TouchEvent) => {
-  // 记录触摸事件用于验证
-  recordTouchEvent('touchmove', event)
-  
-  // 检查触摸目标是否是中心节点或圆周节点（用于调试）
-  const target = event.target as HTMLElement
-  const isOnCenterNode = target?.closest('.graph-node--center') !== null
-  const isOnCircularNode = target?.closest('.graph-node--circular') !== null
-  const isOnCircularLayout = target?.closest('.circular-layout') !== null
-  const isOnViewportClipper = target?.closest('.viewport-clipper') !== null
-  
-  if (!circularLayoutRef.value) {
-    console.warn('⚠️ handleTouchMove: circularLayoutRef.value is null, returning early')
-    return
-  }
-  
-  const currentY = event.touches[0].clientY
-  const currentTime = Date.now()
-  
-  // 计算移动距离，判断是否超过拖拽阈值
-  const totalDeltaY = Math.abs(currentY - startY.value)
-  const isJustStartingDrag = totalDeltaY > DRAG_THRESHOLD.value && !isActualDragging.value
-  
-  if (isJustStartingDrag) {
-    isActualDragging.value = true
-    isDragging.value = true // ✅ 只有在实际移动超过阈值时才设置 isDragging
-    
-    // 圆周节点和中心节点现在都像背景一样，触摸会被当作背景区域处理，不再需要特殊处理
-    
-    // 首次超过阈值时，将 lastY 重置为 startY，这样 deltaY 会包含从开始到现在的所有移动
-    // 这样可以确保首次触发旋转时也有明显的旋转效果
-    lastY.value = startY.value
-    
-    // 首次超过阈值时，立即阻止默认行为，防止页面滚动
-    event.preventDefault()
-  }
-  
-  // 只有实际拖拽时才执行旋转逻辑
-  if (!isActualDragging.value) {
-    lastY.value = currentY
-    return
-  }
-  
-  // ✅ 关键修复：在每次 touchmove 时都阻止默认行为，确保后续事件能正常触发
-  // 这是必需的，因为如果不在每次事件中都调用 preventDefault()，浏览器可能会恢复默认滚动行为
-  event.preventDefault()
-  
-  // 圆周节点和中心节点现在都像背景一样，触摸会被当作背景区域处理，不再需要阻止事件传播
-  
-  // 重新计算 deltaY（在首次超过阈值时，这会是从 startY 到 currentY 的总距离）
-  const effectiveDeltaY = currentY - lastY.value
-  
-  // 计算旋转角度：滑动距离与屏幕高度的比例 * 相邻知识图谱之间的角度差
-  // 获取子章节总数，计算相邻知识图谱之间的角度差
-  const subChapters = getSubChapters(selectedChapterDetails.value)
-  const total = subChapters.length
-  const angleBetweenGraphs = total > 0 ? 360 / total : 360 // 相邻知识图谱之间的角度差
-  
-  // 使用归一化参考高度计算旋转角度
-  const rotationDelta = (effectiveDeltaY / normalizedReferenceHeight.value) * angleBetweenGraphs
-  
-  // 如果有知识图谱处于展开状态，立即收缩它
-  // ⚠️ 关键优化：使用 requestAnimationFrame 异步执行收缩，确保当前触摸事件处理完成后再收缩
-  // 这样可以避免在当前事件处理期间 DOM 结构变化导致的问题
-  // 由于触摸事件是在 viewport-clipper 容器上监听的，即使节点被移除，后续的触摸事件仍会被容器捕获
-  // 使用标志位确保只触发一次收缩操作，避免重复收缩
-    const expandedGraphId = getCurrentChapterExpandedGraph()
-  if (expandedGraphId !== null && !isCollapsing.value) {
-    // 记录收缩触发
-    recordCollapseTrigger()
-    
-    // ⚠️ 关键优化：使用 requestAnimationFrame 在下一帧执行收缩
-    // 这样可以确保当前的触摸事件处理完成，同时触摸事件仍然会被容器捕获
-    // 由于事件是在容器上监听的，即使节点被移除，后续的触摸事件仍会被容器捕获
-    requestAnimationFrame(() => {
-      // 再次检查，确保在执行收缩时仍然有展开的图谱（避免重复收缩）
-      if (getCurrentChapterExpandedGraph() === expandedGraphId) {
-    setCurrentChapterExpandedGraph(null)
-      }
-    })
-  }
-  
-  // 更新当前章节的旋转角度（向上滑动为正，向下滑动为负）
-  const currentRotation = getChapterRotation(getCurrentChapter())
-  const newRotation = currentRotation - rotationDelta
-  
-  setChapterRotation(getCurrentChapter(), newRotation)
-  
-  // 更新上次位置和时间戳
-  lastY.value = currentY
-  lastRotationTime.value = currentTime
-}
-
-const handleTouchEnd = (event: TouchEvent) => {
-  // 记录触摸事件用于验证
-  recordTouchEvent('touchend', event)
-  
-  // 完成触摸序列并生成报告
-  finalizeTouchSequence()
-  
-  // 保存实际拖拽状态，因为后面会重置
-  const wasActuallyDragging = isActualDragging.value
-  
-  // 计算总滑动方向
-  const totalDeltaY = lastY.value - startY.value
-  
-  // 重置状态
-  isDragging.value = false
-  isActualDragging.value = false
-  touchStartedOnCircularNode.value = false
-  
-  // 圆周节点和中心节点现在都像背景一样，触摸会被当作背景区域处理，不再需要恢复 pointer-events
-    circularNodeTouchTarget.value = null
-  
-  // 只有在实际拖拽时才执行自动定位逻辑
-  if (wasActuallyDragging) {
-    // 防抖处理，避免与点击事件冲突
-    if (debounceTimer.value) {
-      clearTimeout(debounceTimer.value)
-    }
-    
-    debounceTimer.value = setTimeout(() => {
-      // 根据滑动方向切换到下一个或上一个知识图谱
-      // 向上滑动（totalDeltaY > 0）→ 下一个（index + 1）
-      // 向下滑动（totalDeltaY < 0）→ 上一个（index - 1）
-      const direction = totalDeltaY > 0 ? 'next' : totalDeltaY < 0 ? 'previous' : null
-      autoPositionToNearestGraph(direction)
-    }, debugParams.value.debounceDelay * 1000) // 防抖延迟（转换为毫秒）
-  }
-}
-
-// 处理触摸取消事件
-const handleTouchCancel = (event: TouchEvent) => {
-  // 记录触摸事件用于验证
-  recordTouchEvent('touchcancel', event)
-  
-  // 完成触摸序列并生成报告
-  finalizeTouchSequence()
-  
-  console.warn('⚠️ handleTouchCancel: 触摸序列被中断', {
-    target: (event.target as HTMLElement)?.className,
-    timestamp: new Date().toISOString(),
-    hasExpandedGraph: getCurrentChapterExpandedGraph() !== null,
-    isCollapsing: isCollapsing.value
-  })
-  
-  // 重置拖拽状态
-  isActualDragging.value = false
-  isDragging.value = false
-  touchStartedOnCircularNode.value = false
-  circularNodeTouchTarget.value = null
-}
-
-// 重置拖拽状态（当有图谱展开时调用）
-const resetDraggingState = () => {
-  isDragging.value = false
-}
-
-// 自动定位到目标角度最近的知识图谱，或根据滑动方向切换到下一个/上一个
-const autoPositionToNearestGraph = (direction?: 'next' | 'previous' | null) => {
-  if (!selectedChapterDetails.value) return
-  
-  const subChapters = getSubChapters(selectedChapterDetails.value)
-  if (subChapters.length === 0) return
-  
-  // 如果只有一个子章节，不执行切换
-  if (subChapters.length === 1) {
-    setCurrentChapterExpandedGraph(subChapters[0].id)
-    startExpandingRotation(subChapters[0].id)
-    return
-  }
-  
-  let targetIndex = 0
-  
-  // 如果指定了方向（next 或 previous），根据滑动方向切换
-  if (direction === 'next' || direction === 'previous') {
-    // 获取当前展开的知识图谱索引
-    const currentExpandedGraphId = getCurrentChapterExpandedGraph()
-    let currentIndex = -1
-    
-    if (currentExpandedGraphId) {
-      currentIndex = subChapters.findIndex(chapter => chapter.id === currentExpandedGraphId)
-    }
-    
-    // 如果找不到当前展开的图谱，先找到距离目标角度最近的知识图谱作为基准
-    if (currentIndex === -1) {
-      const targetAngle = debugParams.value.targetAngle
-      let nearestIndex = 0
-      let minDistance = Infinity
-      
-      for (let i = 0; i < subChapters.length; i++) {
-        const { currentAngle } = calculateCircularTrackAngle(i, subChapters.length)
-        let angleInDegrees = (currentAngle * 180 / Math.PI) % 360
-        if (angleInDegrees < 0) angleInDegrees += 360
-        
-        const distance = Math.min(
-          Math.abs(angleInDegrees - targetAngle),
-          Math.abs(angleInDegrees - targetAngle + 360),
-          Math.abs(angleInDegrees - targetAngle - 360)
-        )
-        
-        if (distance < minDistance) {
-          minDistance = distance
-          nearestIndex = i
-        }
-      }
-      
-      currentIndex = nearestIndex
-    }
-    
-    // 根据方向计算目标索引（循环处理）
-    if (direction === 'next') {
-      // 向上滑动 → 下一个（顺时针方向，index + 1）
-      targetIndex = (currentIndex + 1) % subChapters.length
-    } else {
-      // 向下滑动 → 上一个（逆时针方向，index - 1）
-      targetIndex = (currentIndex - 1 + subChapters.length) % subChapters.length
-    }
-  } else {
-    // 没有指定方向，使用原来的逻辑：找到距离目标角度最近的知识图谱
-    const targetAngle = debugParams.value.targetAngle
-    let minDistance = Infinity
-    
-    for (let i = 0; i < subChapters.length; i++) {
-      const { currentAngle } = calculateCircularTrackAngle(i, subChapters.length)
-      let angleInDegrees = (currentAngle * 180 / Math.PI) % 360
-      if (angleInDegrees < 0) angleInDegrees += 360
-      
-      const distance = Math.min(
-        Math.abs(angleInDegrees - targetAngle),
-        Math.abs(angleInDegrees - targetAngle + 360),
-        Math.abs(angleInDegrees - targetAngle - 360)
-      )
-      
-      if (distance < minDistance) {
-        minDistance = distance
-        targetIndex = i
-      }
-    }
-  }
-  
-  // 立即设置展开状态，让展开动画开始
-  setCurrentChapterExpandedGraph(subChapters[targetIndex].id)
-  
-  // 只执行展开旋转动画，让它处理所有旋转逻辑（包括定位到目标位置）
-  startExpandingRotation(subChapters[targetIndex].id)
-}
-
-
-// 鼠标事件处理函数（可选功能）
-const handleMouseDown = (event: MouseEvent) => {
-  if (!circularLayoutRef.value) return
-  
-  // 检查鼠标点击是否在圆周节点上（现在圆周节点不再被特殊处理，始终返回 false）
-  const isOnCircularNode = isCircularNodeTarget()
-  touchStartedOnCircularNode.value = isOnCircularNode
-  
-  // 如果鼠标点击在圆周节点上，记录目标元素（用于后续阻止点击事件）
-  if (isOnCircularNode && event.target instanceof HTMLElement) {
-    circularNodeTouchTarget.value = event.target.closest('.graph-node--circular') as HTMLElement || 
-                                    event.target.closest('.node-wrapper--circular') as HTMLElement ||
-                                    event.target
-  } else {
-    circularNodeTouchTarget.value = null
-  }
-  
-  // 设置鼠标按下状态
-  isMouseDown.value = true
-  
-  // 不在 mousedown 时设置 isDragging，只在 move 中设置
-  isActualDragging.value = false // 初始为false，需要超过阈值才设为true
-  startY.value = event.clientY
-  lastY.value = event.clientY
-  
-  // 阻止默认行为
-}
-
-const handleMouseMove = (event: MouseEvent) => {
-  // 只有在鼠标按下时才处理移动事件
-  if (!isMouseDown.value || !circularLayoutRef.value) return
-  
-  const currentY = event.clientY
-  const currentTime = Date.now()
-  
-  // 计算移动距离，判断是否超过拖拽阈值
-  const totalDeltaY = Math.abs(currentY - startY.value)
-  const isJustStartingDrag = totalDeltaY > DRAG_THRESHOLD.value && !isActualDragging.value
-  
-  // 判断是否首次超过阈值，触发拖拽状态
-  if (isJustStartingDrag) {
-    isActualDragging.value = true
-    isDragging.value = true // ✅ 只有在实际移动超过阈值时才设置 isDragging
-    
-    // 圆周节点和中心节点现在都像背景一样，触摸会被当作背景区域处理，不再需要特殊处理
-    
-    // 首次超过阈值时，将 lastY 重置为 startY，这样 deltaY 会包含从开始到现在的所有移动
-    // 这样可以确保首次触发旋转时也有明显的旋转效果
-    lastY.value = startY.value
-  }
-  
-  // 只有实际拖拽时才执行旋转逻辑
-  if (!isActualDragging.value) {
-    // 未超过阈值，只更新位置，不执行旋转
-    lastY.value = currentY
-    return
-  }
-  
-  // 圆周节点和中心节点现在都像背景一样，触摸会被当作背景区域处理，不再需要阻止事件传播
-  
-  // 重新计算 deltaY（在首次超过阈值时，这会是从 startY 到 currentY 的总距离）
-  const effectiveDeltaY = currentY - lastY.value
-  
-  // 计算旋转角度：滑动距离与屏幕高度的比例 * 相邻知识图谱之间的角度差
-  // 获取子章节总数，计算相邻知识图谱之间的角度差
-  const subChapters = getSubChapters(selectedChapterDetails.value)
-  const total = subChapters.length
-  const angleBetweenGraphs = total > 0 ? 360 / total : 360 // 相邻知识图谱之间的角度差
-  
-  // 使用归一化参考高度计算旋转角度
-  const rotationDelta = (effectiveDeltaY / normalizedReferenceHeight.value) * angleBetweenGraphs
-  
-  // 如果有知识图谱处于展开状态，先收缩它
-  // 注意：鼠标事件不需要延迟收缩，因为鼠标移动不会因为 DOM 结构变化而中断
-  if (getCurrentChapterExpandedGraph() !== null) {
-    const expandedGraphId = getCurrentChapterExpandedGraph()
-    setCurrentChapterExpandedGraph(null)
-  }
-  
-  // 更新当前章节的旋转角度（向上滑动为正，向下滑动为负）
-  const currentRotation = getChapterRotation(getCurrentChapter())
-  const newRotation = currentRotation - rotationDelta
-  
-  setChapterRotation(getCurrentChapter(), newRotation)
-  
-  // 更新上次位置和时间戳
-  lastY.value = currentY
-  lastRotationTime.value = currentTime
-}
-
-const handleMouseUp = () => {
-  // 只有在鼠标按下时才处理释放事件
-  if (!isMouseDown.value) return
-  
-  // 重置鼠标按下状态
-  isMouseDown.value = false
-  
-  // 保存实际拖拽状态，因为后面会重置
-  const wasActuallyDragging = isActualDragging.value
-  
-  // 计算总滑动方向
-  const totalDeltaY = lastY.value - startY.value
-  
-  // 重置状态
-  isDragging.value = false
-  isActualDragging.value = false
-  touchStartedOnCircularNode.value = false
-  
-  // 圆周节点和中心节点现在都像背景一样，触摸会被当作背景区域处理，不再需要恢复 pointer-events
-    circularNodeTouchTarget.value = null
-  
-  // 只有在实际拖拽时才执行自动定位逻辑
-  if (wasActuallyDragging) {
-    // 防抖处理，避免与点击事件冲突
-    if (debounceTimer.value) {
-      clearTimeout(debounceTimer.value)
-    }
-    
-    const direction = totalDeltaY < 0 ? 'next' : totalDeltaY > 0 ? 'previous' : null
-    
-    debounceTimer.value = setTimeout(() => {
-      // 根据滑动方向切换到下一个或上一个知识图谱
-      // 向上滑动（totalDeltaY < 0）→ 下一个（index + 1）
-      // 向下滑动（totalDeltaY > 0）→ 上一个（index - 1）
-      autoPositionToNearestGraph(direction)
-    }, debugParams.value.debounceDelay * 1000) // 防抖延迟（转换为毫秒）
-  }
-}
-
-// 椭圆轨迹指示器坐标系 - 统一的角度计算函数
-const calculateCircularTrackAngle = (index: number, total: number) => {
-  // 第1步：从调试参数中获取起始角度（目标角度），并转换为弧度
-  const startAngle = (debugParams.value.targetAngle * Math.PI) / 180
-  // 第2步：计算每个节点之间的角度间隔
-  const angleStep = (2 * Math.PI) / total
-  // 第3步：基础角度：从起始角度开始，按索引逆时针排列
-  let baseAngle = startAngle + (angleStep * index)
-  // 第4步：当前角度：基础角度 + 当前章节的旋转角度
-  let currentAngle = baseAngle + (getChapterRotation(getCurrentChapter()) * Math.PI / 180)
-  
-  // 第5步：将角度标准化到 [0, 2π] 范围
-  while (baseAngle >= 2 * Math.PI) baseAngle -= 2 * Math.PI
-  while (baseAngle < 0) baseAngle += 2 * Math.PI
-  while (currentAngle >= 2 * Math.PI) currentAngle -= 2 * Math.PI
-  while (currentAngle < 0) currentAngle += 2 * Math.PI
-  
-  return { baseAngle, currentAngle }
-}
-
-// 椭圆轨迹指示器坐标系 - 统一的位置计算函数
-const calculateCircularTrackPosition = (angle: number, radiusX?: number, radiusY?: number) => {
-  // 使用椭圆轨迹指示器的坐标系：0度为正右方，逆时针为正
-  const xRadius = radiusX ?? debugParams.value.radiusX
-  const yRadius = radiusY ?? debugParams.value.radiusY
-  const x = Math.cos(angle) * xRadius
-  const y = Math.sin(angle) * yRadius
-  return { x, y }
-}
-
-// 立即开始展开旋转动画（让其他节点立即开始旋转）
-const startExpandingRotation = (graphId: string) => {
-  // 1. 检查章节详情是否存在
-  if (!selectedChapterDetails.value) return
-  
-  // 2. 获取子章节列表并查找目标图谱索引
-  const subChapters = getSubChapters(selectedChapterDetails.value)
-  const targetIndex = subChapters.findIndex(chapter => chapter.id === graphId)
-  
-  // 3. 验证目标图谱是否存在
-  if (targetIndex === -1) {
-    return
-  }
-  
-  // 4. 使用椭圆轨迹指示器坐标系计算目标图谱的当前角度
-  const total = subChapters.length
-  const { currentAngle } = calculateCircularTrackAngle(targetIndex, total)
-  
-  // 第5步：从调试参数中获取目标角度，并转换为弧度
-  const targetAngleRadians = (debugParams.value.targetAngle * Math.PI) / 180
-  
-  // 第6步：计算角度差的绝对值 alpha（当前角度与目标角度的差）
-  const alpha = Math.abs(currentAngle - targetAngleRadians)
-  
-  // 7. 判断目标知识图谱当前所在的半圆区域
-  const currentAngleDegrees = (currentAngle * 180) / Math.PI
-  let targetRotationDegrees = 0
-  
-  if (currentAngleDegrees > 180 && currentAngleDegrees <= 360) {
-    // 上半圆：所有角度减少 alpha（逆时针转动）
-    targetRotationDegrees = -(alpha * 180) / Math.PI
-    rotationDirection.value = 'counterclockwise'
-  } else {
-    // 下半圆：所有角度增加 alpha（顺时针转动）
-    targetRotationDegrees = (alpha * 180) / Math.PI
-    rotationDirection.value = 'clockwise'
-  }
-  
-  // 8. 设置展开旋转状态
-  isExpandingRotation.value = true
-  const currentChapterRotation = getChapterRotation(getCurrentChapter())
-  expandingRotationStartAngle.value = currentChapterRotation
-  expandingRotationTargetAngle.value = currentChapterRotation + targetRotationDegrees
-  expandingRotationStartTime.value = performance.now()
-  
-  
-  // 9. 开始展开旋转动画
-  const animateExpandingRotation = (currentTime: number) => {
-    const elapsed = currentTime - expandingRotationStartTime.value
-    const duration = debugParams.value.expandingRotationDuration * 1000 // 动画持续时间（转换为毫秒）
-    const progress = Math.min(elapsed / duration, 1)
-    
-    // 使用更平滑的缓动函数实现流畅的动画效果
-    const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4)
-    const easedProgress = easeOutQuart(progress)
-    
-    // 计算当前角度（线性插值）
-    const currentAngle = expandingRotationStartAngle.value + 
-      (expandingRotationTargetAngle.value - expandingRotationStartAngle.value) * easedProgress
-    
-    // 更新当前章节的旋转角度
-    setChapterRotation(getCurrentChapter(), currentAngle)
-    
-    // 第28步：检查动画是否完成
-    if (progress < 1) {
-      requestAnimationFrame(animateExpandingRotation)
-    } else {
-      // 动画完成，确保角度完全一致
-      setChapterRotation(getCurrentChapter(), expandingRotationTargetAngle.value)
-      
-      // 动画完成，立即结束展开旋转状态，让远离动画同步进行
-      isExpandingRotation.value = false
-    }
-  }
-  
-  // 开始动画
-  requestAnimationFrame(animateExpandingRotation)
-}
-
 
 // 学科选择器
 const selectedSubject = ref('')
@@ -1683,40 +809,6 @@ const getCurrentTextbookId = () => {
     return parts[parts.length - 1] // 教材版本ID
   }
   return ''
-}
-
-// 获取教材ID用于知识点查询（textbookId字段，不是版本ID）
-const getTextbookIdForKnowledgeGraph = () => {
-  const option = textbookOptions.value.find(opt => opt.value === selectedTextbook.value)
-  if (option && option.textbookId) {
-    return option.textbookId
-  }
-  return ''
-}
-
-// 初始化图谱数据（完全重置）- 保留以备将来使用
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const initGraphData = () => {
-  // 清空当前教材的章节级别状态
-  const textbookId = selectedTextbook.value
-  
-  // 清空当前教材的章节状态
-  clearTextbookStates(textbookId)
-  
-  // 重置当前选中的章节状态
-  setCurrentChapter(0)
-  selectedChapterDetails.value = null
-}
-
-// 初始化图谱数据（不重置已选择的章节）
-const initGraphDataWithoutReset = () => {
-  // 清空当前教材的章节级别状态
-  const textbookId = selectedTextbook.value
-  
-  // 清空当前教材的章节状态
-  clearTextbookStates(textbookId)
-  
-  // 不重置当前选中的章节状态，保持已选择的章节
 }
 
 // 第29步：保存页面状态
@@ -1828,7 +920,6 @@ const restorePageStateFromStore = async (): Promise<boolean> => {
           } else {
             // 如果没有之前保存的展开状态，自动展开位于targetAngle的图谱
             await nextTick()
-            autoPositionToNearestGraph()
           }
         }
       }
@@ -1965,46 +1056,6 @@ const loadTextbookDataFromIndexedDB = async (): Promise<TextbookOption[]> => {
     return []
   } catch {
     return []
-  }
-}
-
-
-// 将API数据保存到IndexedDB
-const saveTextbookDataToIndexedDB = async (versions: import('../types').TextbookVersion[]) => {
-  try {
-    // 将TextbookVersion转换为UserTextbookInfo格式并保存到IndexedDB
-    for (const version of versions) {
-      const textbookInfo: UserTextbookInfo = {
-        id: version.id,
-        textbookId: version.textbookId,
-        textbookName: version.textbookName,
-        textbookSubjectLabel: version.textbookSubjectLabel,
-        textbookGradeLabel: version.textbookGradeLabel,
-        textbookSemesterLabel: version.textbookSemesterLabel,
-        textbookPublisher: version.textbookPublisher,
-        textbookCover: version.textbookCover,
-        textbookUpdateTime: version.textbookUpdateTime,
-        textbookEditionYear: version.textbookEditionYear || '',
-        textbookIsbn: version.textbookIsbn || '',
-        isDownloaded: false,
-        downloadStatus: 0,
-        downloadedFiles: 0,
-        totalFiles: 0,
-        downloadPath: '',
-        lastDownloadTime: '',
-        learningPackages: [],
-        structure: [],
-        hasUpdatesAvailable: false,
-        localFiles: [],
-        updateStructure: () => {},
-        updatePackages: () => {},
-        getLocalResourceFileName: () => ''
-      }
-      
-      await resourceManager.updateTextbookInfo(textbookInfo)
-    }
-  } catch {
-    // 保存教材数据失败，静默处理
   }
 }
 
@@ -2290,14 +1341,10 @@ const initGraph = async () => {
             selectedChapterDetails.value = chapterStructure.value[0]
 
             await nextTick()
-            autoPositionToNearestGraph()
           }
         }
       }
-
-      initGraphDataWithoutReset()
       await nextTick()
-      renderGraph()
       return
     }
 
@@ -2307,8 +1354,6 @@ const initGraph = async () => {
     if (stateRestored) {
       // 状态恢复成功，直接渲染图谱
       await nextTick()
-      renderGraph()
-      
       return
     }
 
@@ -2354,16 +1399,11 @@ const initGraph = async () => {
           
           // 初始状态下自动展开位于targetAngle的图谱
           await nextTick()
-          autoPositionToNearestGraph()
         }
       }
     }
     
-    // 初始化图谱数据（但不重置已选择的章节）
-    initGraphDataWithoutReset()
-    
     await nextTick()
-    renderGraph()
     
   } catch (error) {
     // 图谱初始化失败，静默处理
@@ -2379,19 +1419,6 @@ const initCSSAnimations = () => {
   // 这里可以设置CSS动画的默认配置
 }
 
-const cleanupAnimations = () => {
-  // 清理动画状态
-  isAnimating.value = false
-}
-
-// 渲染图谱
-const renderGraph = () => {
-  const container = document.getElementById('knowledge-graph')
-  if (!container) return
-
-  // 清空容器内容
-  container.innerHTML = ''
-}
 
 
 // 学科切换
@@ -2412,15 +1439,7 @@ const onSubjectChange = async (subjectValue: string) => {
       // 自动选择第一个章节
       setCurrentChapter(0)
       selectedChapterDetails.value = chapterStructure.value[0]
-      
-      // 自动展开位于targetAngle的图谱
-      await nextTick()
-      autoPositionToNearestGraph()
     }
-    
-    // 初始化图谱数据（但不重置已选择的章节）
-    initGraphDataWithoutReset()
-    
   } catch {
     // 出错时也要清空数据
     textbookOptions.value = []
@@ -2442,6 +1461,7 @@ const onTextbookChange = async (value: string) => {
     
     // 设置当前教材到状态管理器
     if (selectedOption.textbookId) {
+      console.log('selectedOption.textbookId', selectedOption.textbookId)
       setCurrentTextbook(selectedOption.textbookId)
     }
     
@@ -2453,18 +1473,8 @@ const onTextbookChange = async (value: string) => {
       if (chapterStructure.value.length > 0) {
         setCurrentChapter(0)
         selectedChapterDetails.value = chapterStructure.value[0]
-        
-        // 自动展开位于targetAngle的图谱
-        await nextTick()
-        autoPositionToNearestGraph()
       }
     }
-    
-    // 初始化图谱数据（但不重置已选择的章节）
-    initGraphDataWithoutReset()
-    
-    renderGraph()
-    
   } catch {
     // 切换教材失败
   }
@@ -2491,38 +1501,12 @@ const toggleNodeSearch = () => {
 
 // 拍照搜题处理
 const handlePhotoSearch = () => {
-  // 统一使用路由跳转到 PhotoSearchView（包括 Android 环境）
-  const subject = currentSubjectForPhotoSearch.value || 'math'
   router.push({
     path: '/photo-search',
-    query: { subject }
+    query: { subject: 'math' }
   })
 }
 
-// 处理打开空白页面
-const handleOpenBlankPage = () => {
-  // 第1步：检查 AndroidBridge 是否可用
-  if (typeof window !== 'undefined' && window.AndroidBridge) {
-    try {
-      // 第2步：调用 Android 原生方法打开空白页面
-      // 使用类型断言避免 TypeScript 类型检查错误
-      const bridge = window.AndroidBridge as typeof window.AndroidBridge & { openBlankPage?: () => void }
-      if (bridge.openBlankPage) {
-        bridge.openBlankPage()
-      } else {
-        console.warn('openBlankPage 方法不可用')
-        showMessage('当前环境不支持此功能', 'warning')
-      }
-    } catch (error) {
-      console.error('打开空白页面失败:', error)
-      showMessage('打开空白页面失败', 'error')
-    }
-  } else {
-    // 非 Android 环境或 AndroidBridge 不可用
-    console.warn('AndroidBridge 不可用，无法打开空白页面')
-    showMessage('当前环境不支持此功能', 'warning')
-  }
-}
 
 // 第7步：处理搜索结果点击
 const handleSearchResultClick = async (result: {
@@ -2619,8 +1603,13 @@ const handleSearchResultClick = async (result: {
       // 设置展开状态并旋转到targetAngle
       setCurrentChapterExpandedGraph(targetNodeId)
       await nextTick()
-      startExpandingRotation(targetNodeId)
-      
+
+      // 通过 newGrap 暴露的方法，让图谱聚焦到对应节点
+      if (newGrapRef.value && typeof newGrapRef.value.focusOnNodeId === 'function') {
+        // true 表示瞬时跳转到目标节点位置
+        newGrapRef.value.focusOnNodeId(targetNodeId, true)
+      }
+
       // 清空搜索
       searchQuery.value = ''
     }
@@ -2660,27 +1649,7 @@ const selectChapter = async (index: number) => {
     
     // 自动展开位于targetAngle的图谱
     await nextTick()
-    autoPositionToNearestGraph()
-    
-    // 输出新章节的角度分布
-    nextTick(() => {
-      logAngleDistribution()
-    })
   }
-}
-
-// 处理学习对话框
-const handleLearnDialog = (node: { id: string; name: string; level?: number | null }) => {
-  // 设置对话框数据
-  learningDialogData.value = {
-    nodeId: node.id,
-    sectionName: node.name,
-    level: node.level || 1,
-    textbookId: getCurrentTextbookId()
-  }
-  
-  // 显示对话框
-  learningDialogVisible.value = true
 }
 
 // 检查并打开学习对话框（从路由参数）
@@ -2723,249 +1692,6 @@ const handleLearningDialogClose = (value: boolean) => {
   }
 }
 
-// 处理知识图谱展开状态
-const handleGraphExpand = (graphId: string) => {
-  // 如果正在执行展开旋转动画、收缩动画或拖拽操作，禁用点击切换功能
-  if (isExpandingRotation.value || isCollapsing.value || isDragging.value) {
-    return
-  }
-  
-  // 如果点击的是当前展开的图谱，保持展开状态
-  if (getCurrentChapterExpandedGraph() === graphId) {
-    // 不执行收缩逻辑，保持展开状态
-    return
-  } else {
-    // 重置拖拽状态，确保展开时不会有滚动干扰
-    resetDraggingState()
-    
-    // 立即设置展开状态，让膨胀动画立即开始
-    setCurrentChapterExpandedGraph(graphId)
-    
-    // 立即开始展开旋转动画，让其他节点立即开始旋转
-    startExpandingRotation(graphId)
-  }
-}
-
-// 处理指示器点击事件
-const handleIndicatorClick = (graphId: string) => {
-  // 如果正在执行展开旋转动画、收缩动画或拖拽操作，禁用点击功能
-  if (isExpandingRotation.value || isCollapsing.value || isDragging.value) {
-    return
-  }
-  // 如果点击的是当前展开的图谱，保持展开状态
-  if (getCurrentChapterExpandedGraph() === graphId) {
-    // 不执行收缩逻辑，保持展开状态
-    return
-  } else {
-    // 重置拖拽状态，确保展开时不会有滚动干扰
-    resetDraggingState()
-    
-    // 立即设置展开状态，让膨胀动画立即开始
-    setCurrentChapterExpandedGraph(graphId)
-    
-    // 立即开始展开旋转动画，让其他节点立即开始旋转
-    startExpandingRotation(graphId)
-  }
-}
-
-// 计算指示器的透明度，基于距离激活指示器的距离
-const getIndicatorOpacity = (subChapterId: string, index: number) => {
-  const subChapters = getSubChapters(selectedChapterDetails.value)
-  const currentExpandedGraph = getCurrentChapterExpandedGraph()
-  
-  // 如果没有激活的图谱，所有指示器使用较低透明度
-  if (!currentExpandedGraph) {
-    return 0.3
-  }
-  
-  // 找到激活指示器的索引
-  const activeIndex = subChapters.findIndex(chapter => chapter.id === currentExpandedGraph)
-  if (activeIndex === -1) {
-    return 0.3
-  }
-  
-  // 计算距离激活指示器的距离
-  const distance = Math.abs(index - activeIndex)
-  const totalChapters = subChapters.length
-  
-  // 激活的指示器完全不透明
-  if (distance === 0) {
-    return 1
-  }
-  
-  // 根据距离计算透明度：距离越远，透明度越低
-  // 使用更明显的线性衰减，让距离效果更清晰
-  // 最远的指示器透明度最低（约0.2），最近的指示器透明度较高
-  const maxDistance = Math.max(activeIndex, totalChapters - 1 - activeIndex)
-  if (maxDistance === 0) {
-    return 1
-  }
-  
-  // 线性衰减：从1（激活）到0.2（最远）
-  const opacity = Math.max(0.2, 1 - (distance / maxDistance) * 0.8)
-  return opacity
-}
-
-// 计算指示器的大小，基于距离激活指示器的距离
-const getIndicatorSize = (subChapterId: string, index: number) => {
-  const subChapters = getSubChapters(selectedChapterDetails.value)
-  const currentExpandedGraph = getCurrentChapterExpandedGraph()
-  
-  // 如果没有激活的图谱，所有指示器使用默认大小
-  if (!currentExpandedGraph) {
-    return 14
-  }
-  
-  // 找到激活指示器的索引
-  const activeIndex = subChapters.findIndex(chapter => chapter.id === currentExpandedGraph)
-  if (activeIndex === -1) {
-    return 14
-  }
-  
-  // 激活的指示器最大
-  if (index === activeIndex) {
-    return 18
-  }
-  
-  // 计算距离激活指示器的距离
-  const distance = Math.abs(index - activeIndex)
-  const maxDistance = Math.max(activeIndex, subChapters.length - 1 - activeIndex)
-  
-  // 根据距离计算大小：距离越远，大小越小
-  const size = 7 + (10 * (1 - distance / maxDistance))
-  return Math.max(14, Math.min(24, size))
-}
-
-// 第1步：根据触摸点位置计算当前在哪个指示器上
-const getIndicatorIndexFromTouch = (touchY: number): number | null => {
-  if (!indicatorContainerRef.value || !selectedChapterDetails.value) return null
-  
-  // 获取所有指示器圆点的 DOM 元素
-  const indicatorDots = indicatorContainerRef.value.querySelectorAll('.indicator-dot')
-  if (indicatorDots.length === 0) return null
-  
-  // 找到距离触摸点最近的指示器
-  let minDistance = Infinity
-  let nearestIndex = 0
-  
-  indicatorDots.forEach((dot, index) => {
-    const dotRect = dot.getBoundingClientRect()
-    const dotCenterY = dotRect.top + dotRect.height / 2
-    const distance = Math.abs(touchY - dotCenterY)
-    
-    if (distance < minDistance) {
-      minDistance = distance
-      nearestIndex = index
-    }
-  })
-  
-  return nearestIndex
-}
-
-// 第2步：处理指示器触摸开始事件
-const handleIndicatorTouchStart = (event: TouchEvent) => {
-  if (!indicatorContainerRef.value || !selectedChapterDetails.value) return
-  
-  // 阻止事件冒泡，避免触发其他滚动事件
-  event.stopPropagation()
-  
-  // 设置指示器滑动状态
-  isIndicatorDragging.value = true
-  
-  // 获取触摸点位置，计算当前在哪个指示器上
-  const touchY = event.touches[0].clientY
-  const index = getIndicatorIndexFromTouch(touchY)
-  
-  if (index === null) return
-  
-  indicatorCurrentIndex.value = index
-  
-  // 立即切换到对应的知识图谱
-  const subChapters = getSubChapters(selectedChapterDetails.value)
-  if (index >= 0 && index < subChapters.length) {
-    const targetGraphId = subChapters[index].id
-    if (getCurrentChapterExpandedGraph() !== targetGraphId) {
-      // 重置拖拽状态
-      resetDraggingState()
-      
-      // 设置展开状态
-      setCurrentChapterExpandedGraph(targetGraphId)
-      
-      // 开始展开旋转动画
-      startExpandingRotation(targetGraphId)
-    }
-  }
-}
-
-// 第3步：处理指示器触摸移动事件
-const handleIndicatorTouchMove = (event: TouchEvent) => {
-  if (!indicatorContainerRef.value || !selectedChapterDetails.value || !isIndicatorDragging.value) return
-  
-  // 阻止事件冒泡
-  event.stopPropagation()
-  event.preventDefault()
-  
-  // 获取触摸点位置，计算当前在哪个指示器上
-  const touchY = event.touches[0].clientY
-  const index = getIndicatorIndexFromTouch(touchY)
-  
-  if (index === null) return
-  
-  // 如果滑动到了新的指示器，切换到对应的知识图谱
-  if (indicatorCurrentIndex.value !== index) {
-    indicatorCurrentIndex.value = index
-    
-    const subChapters = getSubChapters(selectedChapterDetails.value)
-    if (index >= 0 && index < subChapters.length) {
-      const targetGraphId = subChapters[index].id
-      if (getCurrentChapterExpandedGraph() !== targetGraphId) {
-        // 重置拖拽状态
-        resetDraggingState()
-        
-        // 设置展开状态
-        setCurrentChapterExpandedGraph(targetGraphId)
-        
-        // 开始展开旋转动画
-        startExpandingRotation(targetGraphId)
-      }
-    }
-  }
-}
-
-// 第4步：处理指示器触摸结束事件
-const handleIndicatorTouchEnd = (event: TouchEvent) => {
-  if (!isIndicatorDragging.value) return
-  
-  // 阻止事件冒泡
-  event.stopPropagation()
-  
-  // 清理状态
-  isIndicatorDragging.value = false
-  indicatorCurrentIndex.value = null
-}
-
-// 处理背景点击事件
-const handleBackgroundClick = (event: MouseEvent) => {
-  // 如果当前没有展开的图谱，不需要处理
-  if (getCurrentChapterExpandedGraph() === null) {
-    return
-  }
-  
-  // 如果正在执行展开旋转动画或收缩动画，禁用背景点击收缩功能
-  if (isExpandingRotation.value || isCollapsing.value) {
-    return
-  }
-  
-  // 检查点击的目标元素
-  const target = event.target as HTMLElement
-  // 如果点击的是视口裁剪区域或其子元素（背景），保持展开状态
-  if (target.closest('.viewport-clipper')) {
-    // 点击视口裁剪区域时，保持当前展开状态不变
-    return
-  }
-}
-
-
 // 获取子章节（x.x格式的小节）
 const getSubChapters = (chapterDetails: ChapterNode | null) => {
   // 如果没有章节详情，返回空数组
@@ -2994,179 +1720,11 @@ const getSubChapters = (chapterDetails: ChapterNode | null) => {
   return [...subChapters, exerciseNode].reverse()
 }
 
-/**
- * 计算知识图谱在椭圆轨迹中的位置和样式
- * 
- * @param index 当前知识图谱的索引
- * @param total 知识图谱的总数量
- * @returns CSS样式对象，包含位置、缩放、透明度和动画属性
- */
-const getGraphPosition = (index: number, total: number) => {
-  
-  // 获取基础数据
-  const subChapters = getSubChapters(selectedChapterDetails.value)
-  const currentExpandedGraph = getCurrentChapterExpandedGraph()
-  const expandedIndex = currentExpandedGraph ? 
-    subChapters.findIndex(chapter => chapter.id === currentExpandedGraph) : -1
-  
-  // 计算基础角度 - 使用当前章节的旋转角度
-  const { currentAngle } = calculateCircularTrackAngle(index, total)
-  const angle = currentAngle
-  
-  // 展开状态的位置调整逻辑
-  const isRapidScrolling = isDragging.value && (Date.now() - lastRotationTime.value) < 100
-  
-  if (currentExpandedGraph !== null && expandedIndex !== -1 && !isDragging.value && !isRapidScrolling) {
-    if (index === expandedIndex) {
-      // 展开的知识图谱保持在椭圆轨迹上，移动到160度位置
-      const { x, y } = calculateCircularTrackPosition(angle)
-      return {
-        transform: `translate(${x}px, ${y}px)`,
-        position: 'absolute' as const,
-        left: '50%',
-        top: '50%',
-        marginLeft: `-${debugParams.value.graphMargin}px`,
-        marginTop: `-${debugParams.value.graphMargin}px`,
-        opacity: debugParams.value.opacityExpanded, // 展开的知识图谱透明度
-        zIndex: 2000, // 展开的知识图谱获得最高层级，确保其圆周节点不被其他知识图谱覆盖
-        transition: isDragging.value ? 'none' : 
-                    isExpandingRotation.value ? 'none' :
-                    isCollapsing.value ? 'none' :
-                    combinedTransition.value
-      }
-    } else {
-      // 其他知识图谱在轨道上平滑移动且不展开
-      const { currentAngle: expandedAngle } = calculateCircularTrackAngle(expandedIndex, total)
-      let angleDiff = Math.abs(angle - expandedAngle)
-      
-      // 处理椭圆轨迹首尾相接的边界情况（角度跨越0度/360度）
-      if (angleDiff > Math.PI) {
-        angleDiff = 2 * Math.PI - angleDiff
-      }
-      
-      // 第1步：从调试参数中获取影响范围
-      const influenceRange = debugParams.value.influenceRange
-      
-      // 第2步：检查是否在影响范围内
-      if (angleDiff < influenceRange) {
-        // 第3步：计算距离因子：距离越近，推开角度越大
-        const distanceFactor = 1 - (angleDiff / influenceRange)
-        // 第4步：从调试参数中获取最大推开角度，使用二次缓动函数实现距离越近推得越远的效果
-        const maxPushAngle = debugParams.value.maxPushAngle
-        const pushAngle = maxPushAngle * Math.pow(distanceFactor, 2)
-        
-        
-        // 判断旋转方向：上半圆顺时针，下半圆逆时针
-        let rotationDirection = 1
-        if (angle > Math.PI && angle <= 2 * Math.PI) {
-          rotationDirection = 1  // 上半圆：顺时针
-        } else {
-          rotationDirection = -1 // 下半圆：逆时针
-        }
-        
-        // 应用推开旋转，让其他节点沿轨道移动
-        const adjustedAngle = angle + (rotationDirection * pushAngle)
-        
-        const { x, y } = calculateCircularTrackPosition(adjustedAngle)
-        
-        // 计算缩放和透明度 - 距离展开图谱越近，透明度越低
-        const scale = 1 - (distanceFactor * debugParams.value.scaleFactor) // 缩放幅度
-        const opacity = debugParams.value.opacityNearMin + (distanceFactor * debugParams.value.opacityNearFactor) // 距离相关透明度
-        
-        // 计算动画延迟 - 距离越近延迟越短，移动更同步
-        const animationDelay = distanceFactor * debugParams.value.animationDelayFactor
-        
-        // 计算与展开图谱的索引距离，距离越小，z-index越大
-        const indexDistance = Math.abs(index - expandedIndex)
-        
-        return {
-          transform: `translate(${x}px, ${y}px) scale(${scale})`,
-          position: 'absolute' as const,
-          left: '50%',
-          top: '50%',
-          marginLeft: `-${debugParams.value.graphMargin}px`,
-          marginTop: `-${debugParams.value.graphMargin}px`,
-          opacity: opacity,
-          zIndex: 1000 - indexDistance, // 根据与展开图谱的索引距离计算：越接近展开图谱，z-index越大
-          // 与定位动画同步：减少延迟时间，让远离动画与定位动画同时进行
-          transition: isDragging.value ? 'none' : 
-            isExpandingRotation.value ? 'none' :
-            isCollapsing.value ? 'none' :
-            `${transformTransition.value} ${animationDelay}s, 
-             ${opacityTransition.value} ${animationDelay}s`
-        }
-      } else {
-        // 距离展开图谱较远的节点，保持当前位置但变为半透明
-        const { x, y } = calculateCircularTrackPosition(angle)
-        
-        // 计算与展开图谱的索引距离，距离越小，z-index越大
-        const indexDistance = Math.abs(index - expandedIndex)
-        
-        return {
-          transform: `translate(${x}px, ${y}px)`,
-          position: 'absolute' as const,
-          left: '50%',
-          top: '50%',
-          marginLeft: `-${debugParams.value.graphMargin}px`,
-          marginTop: `-${debugParams.value.graphMargin}px`,
-          opacity: debugParams.value.opacityFar, // 距离较远的节点透明度
-          zIndex: 1000 - indexDistance, // 根据与展开图谱的索引距离计算：越接近展开图谱，z-index越大
-          transition: isDragging.value ? 'none' : 
-            isExpandingRotation.value ? 'none' :
-            isCollapsing.value ? 'none' :
-            `${transformTransition.value}, ${opacityTransition.value} 0.1s`
-        }
-      }
-    }
-  }
-  
-  // 默认椭圆轨迹位置计算
-  const { x, y } = calculateCircularTrackPosition(angle)
-  
-  return {
-    transform: `translate(${x}px, ${y}px)`,
-    position: 'absolute' as const,
-    left: '50%',
-    top: '50%',
-    marginLeft: `-${debugParams.value.graphMargin}px`,
-    marginTop: `-${debugParams.value.graphMargin}px`,
-    opacity: debugParams.value.opacityDefault, // 默认状态下透明度
-    zIndex: 1000 - index, // 反向层级：前面的节点层级更高，确保可点击
-    transition: isDragging.value ? 'none' : 
-                isAnimating.value ? 'none' : 
-                isExpandingRotation.value ? 'none' :
-                isCollapsing.value ? combinedTransition.value :
-                transformTransition.value
-  }
-}
-
-// 计算知识图谱的旋转角度（椭圆轨迹指示器坐标系 - 保持水平，不旋转内容）
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const getGraphRotation = (_index: number) => {
-  // 在椭圆轨迹指示器坐标系中，知识图谱内容保持水平，不进行旋转
-  // 只有位置会随容器旋转而改变，内容本身保持水平状态
-  return 0
-}
-
-// 椭圆轨迹指示器坐标系角度分布总览函数
-const logAngleDistribution = () => {
-  const subChapters = getSubChapters(selectedChapterDetails.value)
-  const total = subChapters.length
-  
-  for (let i = 0; i < total; i++) {
-    // 使用统一的椭圆轨迹指示器坐标系计算角度
-    calculateCircularTrackAngle(i, total)
-    
-    // 使用统一的椭圆轨迹指示器坐标系计算位置
-    calculateCircularTrackPosition(calculateCircularTrackAngle(i, total).currentAngle)
-  }
-}
 
 // 通过 provide 传递知识图谱角度数据给调试面板（在所有函数定义之后）
 provide('knowledgeGraphAngleData', {
   selectedChapterDetails,
   getSubChapters,
-  calculateCircularTrackAngle,
   getChapterRotation,
   getCurrentChapter
 })
@@ -3180,18 +1738,12 @@ onMounted(async () => {
   // 获取缓存状态信息
   getCacheStatus()
   
+  // 加载学习状态
+  refreshLearningStatusFromStorage()
   
   initGraph()
   initCSSAnimations()
-  
-  // 输出角度分布总览
-  nextTick(() => {
-    logAngleDistribution()
-  })
-  
-  // 初始化章节列表 BScroll
-  await initChapterListBScroll()
-  
+
   // 检查路由参数，如果需要自动打开学习对话框
   checkAndOpenLearningDialog()
   
@@ -3217,9 +1769,6 @@ onMounted(async () => {
 onUnmounted(() => {
   // 保存页面状态
   saveCurrentPageState()
-  
-  // 清理动画状态
-  cleanupAnimations()
 })
 </script>
 
