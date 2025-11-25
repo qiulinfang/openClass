@@ -4,8 +4,8 @@
     <q-splitter 
       v-model="splitterModel"
       :limits="[30, 70]"
-      :disable="!chatPanelVisible"
-      :class="['full-height', { 'full-width-before': !chatPanelVisible, 'chat-panel-visible': chatPanelVisible }]"
+      :disable="!pdfViewerStore.chatPanelVisible"
+      :class="['full-height', { 'full-width-before': !pdfViewerStore.chatPanelVisible, 'chat-panel-visible': pdfViewerStore.chatPanelVisible }]"
     >
       <!-- PDF内容区域 -->
       <template v-slot:before>
@@ -14,7 +14,7 @@
           <UnifiedToolbar
             :tools="pdfToolbarTools"
             variant="browser"
-            :selected-tool="store.selectedTool"
+            :selected-tool="pdfViewerStore.selectedTool"
             :tool-states="toolStates"
             :tool-config="toolbarToolConfig"
             :backgroundColor="toolbarBackgroundColor"
@@ -35,14 +35,6 @@
                 color="white"
                 @click="handleToggleDebug"
                 class="q-mr-sm"
-              />
-              <q-btn
-                flat
-                round
-                dense
-                icon="chat"
-                color="white"
-                @click="chatPanelVisible = !chatPanelVisible"
               />
             </template>
           </UnifiedToolbar>
@@ -65,7 +57,7 @@
       </template>
 
       <!-- 对话面板 -->
-      <template v-slot:after v-if="chatPanelVisible">
+      <template v-slot:after v-if="pdfViewerStore.chatPanelVisible">
         <div class="chat-panel-container">
           <!-- 对话面板头部 -->
           <div class="chat-panel-header">
@@ -88,7 +80,7 @@
               round
               dense
               icon="close"
-              size="sm"
+              size="md"
               @click="handleCloseChatPanel"
               class="close-button"
             />
@@ -98,13 +90,10 @@
           <div class="chat-content-container">
             <!-- AI 问答 Tab -->
             <div v-if="activeTab === 'ai-chat'" class="tab-content">
-              <ChatView
-                type="ai-textbook"
-                @response="handleChatResponse"
-                @focus="handleChatFocus"
-                @scroll-to-bottom="handleScrollToBottom"
-                :compressed-height="360"
-              />
+            <ChatView
+              type="ai-textbook"
+              :compressed-height="360"
+            />
             </div>
 
             <!-- 会话记录 Tab -->
@@ -137,6 +126,7 @@ import { onMounted, onBeforeUnmount, computed, ref, nextTick, type ComponentPubl
 import { useRoute, useRouter } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
+import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { resourceManager } from '@/services/resource-storage'
 import type { UserTextbookInfo, LocalFileInfo, ChatBubble, AiTextbookSession } from '@/types'
 import {
@@ -149,7 +139,6 @@ import {
 import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
 import ChatView from '@/components/ChatView.vue'
-import SessionList from '@/components/SessionList.vue'
 import ScreenshotInputDialog from '@/components/ScreenshotInputDialog.vue'
 
 type PdfPagePublicInstance = ComponentPublicInstance<{
@@ -166,8 +155,8 @@ type PdfPagePublicInstance = ComponentPublicInstance<{
 // 调试面板状态
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true' || import.meta.env.DEV
 
-// 使用 Store 和路由
-const store = usePdfViewerStore()
+// 使用 pdfViewerStore 和路由
+const pdfViewerStore = usePdfViewerStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -183,6 +172,8 @@ const pdfToolbarTools = {
 
 // 使用 exerciseStore 来发送AI消息
 const aiTextbookStore = useAiTextbookChatStore()
+// 使用通用 AI 会话（用于截图输入走通用会话）
+const aiGeneralStore = useAiGeneralChatStore()
 
 // 组件状态（renderProgress 已移除，不再使用）
 
@@ -217,6 +208,20 @@ const getSessionId = (session: AiTextbookSession): string => {
 // 获取当前 resourceId（仅从路由参数获取）
 const getCurrentResourceId = (): string | undefined => {
   return (route.query.resourceId as string) || undefined
+}
+
+
+// 确保存在一个可用的会话ID：优先使用 aiGeneral 顶部会话ID，否则生成一个 aitextbook 会话ID
+const ensureTopGeneralSession = async () => {
+  // 1. 取顶部会话
+  if (aiGeneralStore.sessions.length > 0) {
+    const topSession = aiGeneralStore.sessions[0]
+    return topSession.sessionId
+  }
+
+  // 2. 一个会话都没有，创建一个新的 aiTextbook 会话ID
+  const newSessionId = `textbook-session-${Date.now()}`
+  return newSessionId
 }
 
 // 加载会话列表（按 resourceId 过滤），对齐 PdfViewerView111 的截图会话逻辑
@@ -379,26 +384,26 @@ const loadSessionDetail = async (record: AiTextbookSession) => {
 const handleConfigChange = (config: {
   [key: string]: string | number | boolean | undefined
 }) => {
-  switch (store.selectedTool) {
+  switch (pdfViewerStore.selectedTool) {
     case 'pen':
       if (config.color) {
-        store.updateDrawingConfig({ penColor: config.color as string })
+        pdfViewerStore.updateDrawingConfig({ penColor: config.color as string })
       }
       if (config.size !== undefined) {
-        store.updateDrawingConfig({ penWidth: config.size as number })
+        pdfViewerStore.updateDrawingConfig({ penWidth: config.size as number })
       }
       break
     case 'highlighter':
       if (config.color) {
-        store.updateDrawingConfig({ highlighterColor: config.color as string })
+        pdfViewerStore.updateDrawingConfig({ highlighterColor: config.color as string })
       }
       if (config.size !== undefined) {
-        store.updateDrawingConfig({ highlighterWidth: config.size as number })
+        pdfViewerStore.updateDrawingConfig({ highlighterWidth: config.size as number })
       }
       break
     case 'eraser-draw':
       if (config.size !== undefined) {
-        store.updateDrawingConfig({ eraserSize: config.size as number })
+        pdfViewerStore.updateDrawingConfig({ eraserSize: config.size as number })
       }
       break
   }
@@ -465,19 +470,19 @@ const handleToolChange = (tool: string) => {
   const clickedTool = tool as PdfToolId
 
   // 如果点击的工具已经是当前选中工具，则视为“取消选中”，切回 hand 模式
-  if (store.selectedTool === clickedTool && clickedTool !== 'hand') {
+  if (pdfViewerStore.selectedTool === clickedTool && clickedTool !== 'hand') {
     const t: PdfToolId = 'hand'
     currentTool.value = t
-    store.selectedTool = t
+    pdfViewerStore.selectedTool = t
     console.log('[工具切换] 再次点击相同工具，切回 hand 模式')
     pdfPageRef.value.toggleGestureMode?.()
     return
   }
 
   const t = clickedTool
-  // 更新当前工具和 store 中的选中工具，保证所有组件使用同一套枚举
+  // 更新当前工具和 pdfViewerStore 中的选中工具，保证所有组件使用同一套枚举
   currentTool.value = t
-  store.selectedTool = t
+  pdfViewerStore.selectedTool = t
   if (t === 'hand') {
     pdfPageRef.value.toggleGestureMode?.()
   } else if (t === 'highlighter') {
@@ -510,18 +515,18 @@ const toolStates = computed(() => {
 const toolbarToolConfig = computed(() => {
   return {
     color:
-      store.selectedTool === 'pen'
-        ? store.drawingConfig.penColor
-        : store.selectedTool === 'highlighter'
-        ? store.drawingConfig.highlighterColor
+      pdfViewerStore.selectedTool === 'pen'
+        ? pdfViewerStore.drawingConfig.penColor
+        : pdfViewerStore.selectedTool === 'highlighter'
+        ? pdfViewerStore.drawingConfig.highlighterColor
         : undefined,
     size:
-      store.selectedTool === 'pen'
-        ? store.drawingConfig.penWidth
-        : store.selectedTool === 'highlighter'
-        ? store.drawingConfig.highlighterWidth
-        : store.selectedTool === 'eraser-draw'
-        ? store.drawingConfig.eraserSize
+      pdfViewerStore.selectedTool === 'pen'
+        ? pdfViewerStore.drawingConfig.penWidth
+        : pdfViewerStore.selectedTool === 'highlighter'
+        ? pdfViewerStore.drawingConfig.highlighterWidth
+        : pdfViewerStore.selectedTool === 'eraser-draw'
+        ? pdfViewerStore.drawingConfig.eraserSize
         : undefined,
   }
 })
@@ -655,7 +660,7 @@ const loadPdfWithService = async (file: File) => {
     const resourceId = route.query.resourceId as string
     const id = route.query.id as string
     if (resourceId && id) {
-      store.setCurrentFileInfo(id, resourceId)
+      pdfViewerStore.setCurrentFileInfo(id, resourceId)
       // 同时设置到 aiTextbookStore，确保会话列表能正确过滤
       aiTextbookStore.setResourceId(resourceId)
     }
@@ -674,22 +679,7 @@ const loadPdfWithService = async (file: File) => {
 
 // 处理对话面板关闭
 const handleCloseChatPanel = () => {
-  chatPanelVisible.value = false
-}
-
-// 处理聊天响应事件
-const handleChatResponse = () => {
-  // 聊天响应完成，可以在这里添加额外逻辑
-}
-
-// 处理聊天焦点事件
-const handleChatFocus = () => {
-  // 聊天输入框获得焦点
-}
-
-// 处理滚动到底部事件
-const handleScrollToBottom = () => {
-  // 滚动到底部
+  pdfViewerStore.closeChatPanel() 
 }
 
 // 截图输入对话框状态
@@ -716,9 +706,18 @@ const handleScreenshotCaptured = async (blob: Blob) => {
 // 处理截图输入对话框确认：打开对话面板并将图片+问题发送给 AI
 const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
   try {
-    // 打开对话面板并切换到 AI 问答 Tab
     chatPanelVisible.value = true
     activeTab.value = 'ai-chat'
+    // 打开对话面板并切换到 AI 问答 Tab
+    pdfViewerStore.openChatPanel()
+    // 设置当前教材ID
+    const currentResourceId = (route.query.resourceId as string) || aiTextbookStore.resourceId || ''
+    if (currentResourceId) {
+      aiTextbookStore.setResourceId(currentResourceId)
+    }
+    // 设置当前会话ID
+    const sessionId = await ensureTopGeneralSession()
+    aiTextbookStore.currentSessionId = sessionId
 
     // 创建临时图片以获取宽高
     const img = new Image()
@@ -737,23 +736,7 @@ const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
       height: img.height,
       fileSize: Math.round(dataUrl.length * 0.75),
     }
-
-    const currentResourceId = (route.query.resourceId as string) || aiTextbookStore.resourceId || ''
-    const sessionId = `screenshot_${Date.now()}`
-
-    if (currentResourceId) {
-      aiTextbookStore.clearMessages()
-      aiTextbookStore.setResourceId(currentResourceId)
-      aiTextbookStore.currentSessionId = sessionId
-      aiTextbookStore.isNewSession = true
-    }
-
-    console.log('[PdfViewerView] 发送截图消息到 AI', {
-      question,
-      hasImage: !!imageData.base64DataUrl,
-      imageSize: `${imageData.width}x${imageData.height}`,
-    })
-
+    // 仅通过 aiTextbookStore 发送一次请求，使用复用的 sessionId
     await aiTextbookStore.sendMessage(
       question,
       'mate',
@@ -846,16 +829,23 @@ onMounted(async () => {
 
     const file = await loadFileFromRoute()
     await loadPdfWithService(file)
-    
-    // 如果路由参数中有 sessionId，自动打开并选中对应会话
-    await autoSelectSession()
+
+    // 加载当前教材的聊天历史
+    const currentResourceId = (route.query.resourceId as string) || aiTextbookStore.resourceId || ''
+    if (currentResourceId) {
+      aiTextbookStore.setResourceId(currentResourceId)
+      await aiTextbookStore.loadChatHistory(currentResourceId)
+    }
   } catch (err) {
     console.error('PDF 加载失败:', err)
   }
 })
 
 // 页面卸载前清理
-onBeforeUnmount(async () => {
+onBeforeUnmount(() => {
+  // 退出 PDF 页面时清空当前工具，避免影响其它页面
+  pdfViewerStore.selectedTool = '' as any
+  pdfViewerStore.closeChatPanel()
 })
 </script>
 
