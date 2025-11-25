@@ -26,17 +26,17 @@ export interface ChatHistoryData {
   lastUpdated: number
 }
 
-export class AsyncStorageService {
-  private static instance: AsyncStorageService
+export class ChatStorageService {
+  private static instance: ChatStorageService
   private isInitialized = false
 
   private constructor() {}
 
-  static getInstance(): AsyncStorageService {
-    if (!AsyncStorageService.instance) {
-      AsyncStorageService.instance = new AsyncStorageService()
+  static getInstance(): ChatStorageService {
+    if (!ChatStorageService.instance) {
+      ChatStorageService.instance = new ChatStorageService()
     }
-    return AsyncStorageService.instance
+    return ChatStorageService.instance
   }
 
   /**
@@ -434,4 +434,4 @@ export class AsyncStorageService {
 }
 
 // 导出单例实例
-export const asyncStorage = AsyncStorageService.getInstance()
+export const chatStorage = ChatStorageService.getInstance()

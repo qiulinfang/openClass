@@ -1568,6 +1568,30 @@ onUnmounted(() => {
   -ms-user-select: none; /* IE/Edge */
 }
 
+.message-text {
+  line-height: 1.5;
+  font-size: 15px;
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: pre-wrap; /* 保持换行符和空格 */
+  user-select: none; /* 禁用文本选择 */
+  -webkit-user-select: none; /* Safari */
+  -moz-user-select: none; /* Firefox */
+  -ms-user-select: none; /* IE/Edge */
+}
+
+:deep(.message-text h1),
+:deep(.message-text h2),
+:deep(.message-text h3),
+:deep(.message-text h4),
+:deep(.message-text h5),
+:deep(.message-text h6) {
+  font-size: 16px;  /* 所有标题统一大小 */
+  line-height: 1.5;
+  font-weight: 600;
+  margin: 8px 0;
+}
+
 .user-bubble .message-text {
   color: white;
 }

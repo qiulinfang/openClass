@@ -362,24 +362,31 @@ const mapToNewGrapChapter = (root: ChapterNode | null): NewGrapChapter | null =>
       children: []
     }
 
-    // 子知识点映射并附加学习状态
-    const kpList: NewGrapKnowledgePoint[] = (sec.children || []).map((kp, kpIndex) => ({
-      id: kp.id,
-      name: kp.name || kp.label || `知识点 ${kpIndex + 1}`,
-      label: kp.label,
-      level: kp.level ?? 2,
-      learningStatus: getLearningStatus(kp)
-    }))
+    const hasChildren = (sec.children && sec.children.length > 0)
 
-    section.children = kpList
+    if (hasChildren) {
+      // 有知识点：按知识点学习状态聚合
+      const kpList: NewGrapKnowledgePoint[] = (sec.children || []).map((kp, kpIndex) => ({
+        id: kp.id,
+        name: kp.name || kp.label || `知识点 ${kpIndex + 1}`,
+        label: kp.label,
+        level: kp.level ?? 2,
+        learningStatus: getLearningStatus(kp),
+      }))
 
-    // 根据子节点聚合 section 的学习状态：lastLearned > learned > notLearned
-    if (kpList.some(kp => kp.learningStatus === 'lastLearned')) {
-      section.learningStatus = 'lastLearned'
-    } else if (kpList.some(kp => kp.learningStatus === 'learned')) {
-      section.learningStatus = 'learned'
+      section.children = kpList
+
+      if (kpList.some(kp => kp.learningStatus === 'lastLearned')) {
+        section.learningStatus = 'lastLearned'
+      } else if (kpList.some(kp => kp.learningStatus === 'learned')) {
+        section.learningStatus = 'learned'
+      } else {
+        section.learningStatus = 'notLearned'
+      }
     } else {
-      section.learningStatus = 'notLearned'
+      // 没有任何知识点：直接用章节本身的 id 和 lastLearnedNodeId 比较
+      const status = getLearningStatus(sec)  // 注意这里传的是 sec（章节节点）
+      section.learningStatus = status
     }
 
     return section
@@ -1006,18 +1013,18 @@ const cleanupExpiredCache = () => {
 }
 
 
-// 获取缓存状态信息
+// 获取缓存状态信息 
 const getCacheStatus = () => {
   try {
     const keys = Object.keys(localStorage)
     const knowledgeGraphKeys = keys.filter(key => key.startsWith('knowledge_graph_'))
     
-    const status = {
-      totalKeys: knowledgeGraphKeys.length,
-      chapterStructures: knowledgeGraphKeys.filter(key => key.startsWith(CACHE_KEYS.CHAPTER_STRUCTURE)).length
+    const status = {  
+      totalKeys: knowledgeGraphKeys.length, // 总缓存键数量
+      chapterStructures: knowledgeGraphKeys.filter(key => key.startsWith(CACHE_KEYS.CHAPTER_STRUCTURE)).length // 章节结构缓存数量
     }
     
-    return status
+    return status 
   } catch {
     return { totalKeys: 0, chapterStructures: 0 }
   }
@@ -1734,7 +1741,7 @@ provide('knowledgeGraphAngleData', {
 onMounted(async () => {
   // 清理过期的缓存数据
   cleanupExpiredCache()
-  
+
   // 获取缓存状态信息
   getCacheStatus()
   

@@ -70,10 +70,10 @@ export class AiExerciseStrategy implements ChatStrategy {
     return 'ai'
   }
   
-  // 第8步：保存聊天历史
-  async saveChatHistory(questionId?: string): Promise<void> {
-    if (questionId) {
-      await this.aiExerciseStore.saveChatHistory(questionId)
+  // 第8步：保存聊天历史（AI题目场景统一使用 bmNo 作为存储键）
+  async saveChatHistory(questionBmNo?: string): Promise<void> {
+    if (questionBmNo) {
+      await this.aiExerciseStore.saveChatHistory(questionBmNo)
     }
   }
   
@@ -126,7 +126,7 @@ export class AiExerciseStrategy implements ChatStrategy {
       
       // 选择或创建老师题目会话
       const session = await this.selectOrCreateTeacherExerciseSession(
-        question.id || question.bmNo,
+        question.bmNo,
         question.title || '题目',
         subject
       )
@@ -202,7 +202,7 @@ export class AiExerciseStrategy implements ChatStrategy {
       
       // 选择或创建老师题目会话
       const session = await this.selectOrCreateTeacherExerciseSession(
-        question.id || question.bmNo,
+        question.bmNo,
         question.title || '题目',
         subject
       )
@@ -260,12 +260,12 @@ export class AiExerciseStrategy implements ChatStrategy {
   async initialize(options: InitializeOptions): Promise<void> {
     console.log('初始化消息', options)
     
-    // 如果有题目，加载该题目的聊天历史
+    // 如果有题目，加载该题目的聊天历史（此处 currentQuestionId 约定为 bmNo）
     if (options.hasSelectedQuestion && options.currentQuestionId) {
-      const questionId = options.currentQuestionId
-      if (questionId) {
-        console.log('[AiExerciseStrategy] 加载题目聊天历史:', questionId)
-        await this.aiExerciseStore.loadChatHistory(questionId)
+      const questionBmNo = options.currentQuestionId
+      if (questionBmNo) {
+        console.log('[AiExerciseStrategy] 加载题目聊天历史 (bmNo):', questionBmNo)
+        await this.aiExerciseStore.loadChatHistory(questionBmNo)
         console.log('[AiExerciseStrategy] 聊天历史加载完成，消息数量:', this.aiExerciseStore.messages.length)
       }
     } else {
@@ -358,12 +358,12 @@ export class AiExerciseStrategy implements ChatStrategy {
     // 更新消息内容
     messages[messageIndex].content = newContent
     
-    // 删除该消息之后的所有消息
-    const messagesToKeep = messages.slice(0, messageIndex + 1)
+    // 不保留原来的旧消息，只保留之前的上下文
+    const messagesToKeep = messages.slice(0, messageIndex)
     this.aiExerciseStore.messages.length = 0
     this.aiExerciseStore.messages.push(...messagesToKeep)
     
-    // 保存聊天记录
+    // 保存聊天记录（此处 currentQuestionId 约定为 bmNo）
     await this.saveChatHistory(options?.currentQuestionId)
     
     // 发送编辑后的消息给AI

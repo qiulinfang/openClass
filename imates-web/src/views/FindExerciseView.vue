@@ -57,7 +57,7 @@
     <div class="main-content">
       <!-- 初始化加载状态 - 使用骨架屏 -->
       <div v-if="isInitializing" class="initialization-loading">
-        <QuestionListSkeleton animation-speed="slow" :skeleton-count="5" :columns="2" />
+        <QuestionListSkeleton animation-speed="slow" :skeleton-count="10" :columns="2" />
       </div>
       
       <!-- 题目列表 -->
@@ -359,7 +359,7 @@ $primary-color: #1976d2;
   font-size: 18px;
   font-weight: 600;
   color: white; // 白色文字，匹配图片样式
-  margin-left: 8px;
+  margin-left: 400px;
 }
 
 .selection-info {
@@ -413,14 +413,14 @@ $primary-color: #1976d2;
   min-width: auto;
   
   &.bg-orange {
-    background-color: #ff9800 !important;
+    background-color: #ff7d40 !important;
     color: white !important;
   }
   
   // 确保橙色按钮在深色背景上正确显示
   &.bg-orange-5,
   &[color="orange"] {
-    background-color: #ff9800 !important;
+    background-color: #ff7d40 !important;
     color: white !important;
   }
   
@@ -434,7 +434,7 @@ $primary-color: #1976d2;
 .main-content {
   flex: 1;
   min-height: 0;
-  padding: 16px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
   overflow: hidden;

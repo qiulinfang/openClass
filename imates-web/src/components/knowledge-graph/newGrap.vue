@@ -39,7 +39,7 @@
         v-for="(moon, index) in state.moons" 
         :key="index"
         class="indicator-dot"
-        :class="{ 'active': state.focusedIndex === index }"
+        :class="{ 'active': isIndicatorActive(index) }"
         :style="{
           opacity: getIndicatorOpacity(index),
           width: `${getIndicatorSize(index)}px`,
@@ -48,7 +48,7 @@
         @click="handleIndicatorClick(index)"
       >
         <img 
-          v-if="state.focusedIndex === index" 
+          v-if="isIndicatorActive(index)" 
           :src="indicatorIcon" 
           alt="Indicator" 
           class="indicator-icon"
@@ -634,18 +634,36 @@ function draw() {
 
 // --- 指示器逻辑 (复用 OldKnowledgeGraphView) ---
 
-// 计算指示器透明度
-function getIndicatorOpacity(index) {
-  const activeIndex = state.focusedIndex;
+// 指示器与月球索引映射：显示索引 -> 实际月球索引（反转）
+function getMoonIndexFromIndicator(displayIndex) {
   const total = state.moons.length;
+  if (total === 0) return -1;
+  return total - 1 - displayIndex;
+}
+
+// 当前指示器是否激活
+function isIndicatorActive(displayIndex) {
+  const moonIndex = getMoonIndexFromIndicator(displayIndex);
+  return moonIndex === state.focusedIndex;
+}
+
+// 计算指示器透明度
+function getIndicatorOpacity(displayIndex) {
+  const total = state.moons.length;
+  if (total === 0) return 1;
+
+  const activeIndex = state.focusedIndex;
+
+  // 将激活月球索引映射回指示器显示索引
+  const activeDisplayIndex = getMoonIndexFromIndicator(activeIndex);
 
   // 激活的指示器完全不透明
-  if (index === activeIndex) return 1;
+  if (displayIndex === activeDisplayIndex) return 1;
 
-  // 计算距离
-  const distance = Math.abs(index - activeIndex);
-  const maxDistance = Math.max(activeIndex, total - 1 - activeIndex);
-  
+  // 计算距离（在指示器显示顺序中的距离）
+  const distance = Math.abs(displayIndex - activeDisplayIndex);
+  const maxDistance = Math.max(activeDisplayIndex, total - 1 - activeDisplayIndex);
+
   if (maxDistance === 0) return 1;
 
   // 线性衰减：从1（激活）到0.2（最远）
@@ -653,32 +671,34 @@ function getIndicatorOpacity(index) {
 }
 
 // 计算指示器大小
-function getIndicatorSize(index) {
-  const activeIndex = state.focusedIndex;
+function getIndicatorSize(displayIndex) {
   const total = state.moons.length;
+  if (total === 0) return 18;
 
-  if (index === activeIndex) return 18; // 激活大小
+  const activeIndex = state.focusedIndex;
+  const activeDisplayIndex = getMoonIndexFromIndicator(activeIndex);
 
-  const distance = Math.abs(index - activeIndex);
-  const maxDistance = Math.max(activeIndex, total - 1 - activeIndex);
+  if (displayIndex === activeDisplayIndex) return 18; // 激活大小
+
+  const distance = Math.abs(displayIndex - activeDisplayIndex);
+  const maxDistance = Math.max(activeDisplayIndex, total - 1 - activeDisplayIndex);
+
+  if (maxDistance === 0) return 18;
 
   // 根据距离计算大小：距离越远，大小越小
-  // 7 + (10 * (1 - distance / maxDistance)) -> [7, 17]
-  // 限制在 [14, 24] ??? 老代码逻辑是 Math.max(14, Math.min(24, size))
-  // 但 size 计算结果可能小于 14。如果 size < 14，取 14。
-  // 让我们严格按照老代码逻辑
   const size = 7 + (10 * (1 - distance / maxDistance));
   return Math.max(14, Math.min(24, size));
 }
 
 // 处理指示器点击
-function handleIndicatorClick(index) {
-  if (index !== state.focusedIndex) {
-    focusOnIndex(index);
+function handleIndicatorClick(displayIndex) {
+  const moonIndex = getMoonIndexFromIndicator(displayIndex);
+  if (moonIndex !== -1 && moonIndex !== state.focusedIndex) {
+    focusOnIndex(moonIndex);
   }
 }
 
-// 根据触摸点位置计算指示器索引
+// 根据触摸点位置计算指示器显示索引
 function getIndicatorIndexFromTouch(touchY) {
   if (!indicatorContainerRef.value) return null;
   
@@ -707,11 +727,14 @@ function handleIndicatorTouchStart(e) {
   e.stopPropagation(); // 阻止冒泡，避免触发 Canvas 交互
   isIndicatorDragging.value = true;
   const touchY = e.touches[0].clientY;
-  const index = getIndicatorIndexFromTouch(touchY);
+  const displayIndex = getIndicatorIndexFromTouch(touchY);
   
-  if (index !== null) {
-    indicatorCurrentIndex.value = index;
-    if (index !== state.focusedIndex) focusOnIndex(index);
+  if (displayIndex !== null) {
+    indicatorCurrentIndex.value = displayIndex;
+    const moonIndex = state.moons.length - 1 - displayIndex;
+    if (moonIndex !== -1 && moonIndex !== state.focusedIndex) {
+      focusOnIndex(moonIndex);
+    }
   }
 }
 
@@ -722,11 +745,14 @@ function handleIndicatorTouchMove(e) {
   e.preventDefault(); // 防止滚动
 
   const touchY = e.touches[0].clientY;
-  const index = getIndicatorIndexFromTouch(touchY);
+  const displayIndex = getIndicatorIndexFromTouch(touchY);
 
-  if (index !== null && indicatorCurrentIndex.value !== index) {
-    indicatorCurrentIndex.value = index;
-    if (index !== state.focusedIndex) focusOnIndex(index);
+  if (displayIndex !== null && indicatorCurrentIndex.value !== displayIndex) {
+    indicatorCurrentIndex.value = displayIndex;
+    const moonIndex = getMoonIndexFromIndicator(displayIndex);
+    if (moonIndex !== -1 && moonIndex !== state.focusedIndex) {
+      focusOnIndex(moonIndex);
+    }
   }
 }
 
@@ -879,7 +905,8 @@ function switchFocus(direction) {
     state.isAutoRotating = true;
     // 旋转一整圈
     const rotationAmount = Math.PI * 2;
-    state.targetGlobalAngle = state.globalAngle + (direction === 'next' ? rotationAmount : -rotationAmount);
+    const baseAngle = state.isAutoRotating ? state.targetGlobalAngle : state.globalAngle;
+    state.targetGlobalAngle = baseAngle + (direction === 'next' ? rotationAmount : -rotationAmount);
     return;
   }
 
@@ -1108,45 +1135,45 @@ defineExpose({
 }
 
 .bubble-menu-container {
-  background: rgba(30, 25, 50, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  padding: 5px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 10px 10px 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  border: none;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  min-width: 80px;
+  min-width: 120px;
 }
 
 
 .bubble-menu-button {
   width: 100%;
   border: none;
-  border-radius: 8px;
-  padding: 6px 0;
-  font-size: 12px;
+  border-radius: 999px;
+  padding: 10px 0;
+  font-size: 14px;
   cursor: pointer;
   color: #fff;
-  margin-top: 6px;
-  transition: transform 0.1s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+  margin-top: 8px;
+  font-weight: 500;
+  transition: transform 0.1s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
 
 .bubble-menu-button--learn {
-  background: linear-gradient(135deg, #6c5ce7, #a29bfe);
-  box-shadow: 0 2px 8px rgba(108, 92, 231, 0.4);
+  background: #6a5cff;
+  box-shadow: 0 2px 8px rgba(106, 92, 255, 0.5);
 }
 
 .bubble-menu-button--practice {
-  background: linear-gradient(135deg, #00b894, #55efc4);
-  box-shadow: 0 2px 8px rgba(0, 184, 148, 0.4);
+  background: #ff9b59;
+  box-shadow: 0 2px 8px rgba(255, 155, 89, 0.5);
 }
 
 /* 右侧指示器样式 (从老版移植) */
 .right-border-indicator {
   position: absolute;
-  right: 20px;
+  right: 36px;
   top: 50%;
   transform: translateY(-50%);
   z-index: 1000;
@@ -1215,6 +1242,7 @@ defineExpose({
 
 .bubble-menu-button:active {
   transform: scale(0.96);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 .debug-toggle-btn {
   position: fixed;

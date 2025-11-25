@@ -431,13 +431,51 @@ const deleteQuestion = async (index: number) => {
       q.id === question.id || (q.bmNo && q.bmNo === question.bmNo)
     )
     
-    if (originalIndex >= 0) {
-      const confirmed = window.confirm('确定要删除这道题目吗？')
-      if (!confirmed) return
-      
-      await questionStore.deleteQuestion(originalIndex, question.subject)
-      await refreshData()
+    if (originalIndex < 0) {
+      return
     }
+
+    const questionId = question.id || question.bmNo
+
+    // 使用 Quasar 对话框，提供是否删除聊天记录的选项
+    const { default: { dialog } } = await import('quasar')
+
+    dialog({
+      title: '删除确认',
+      message: '确定要删除这道题目吗？',
+      cancel: true,
+      ok: {
+        label: '删除',
+        color: 'negative',
+      },
+      options: {
+        type: 'toggle',
+        model: [],
+        items: [
+          {
+            label: '同时删除该题目的对话记录',
+            value: 'deleteChat',
+          },
+        ],
+      },
+    }).onOk(async (data: { options?: string[] }) => {
+      try {
+        const deleteChat = data?.options?.includes('deleteChat')
+
+        // 先删除题目
+        await questionStore.deleteQuestion(originalIndex, question.subject)
+
+        // 如果勾选了同时删除对话记录，则清理对应题目的 AI 练习聊天记录
+        if (deleteChat && questionId) {
+          const aiExerciseStore = useAiExerciseChatStore()
+          await aiExerciseStore.clearChatHistory(questionId)
+        }
+
+        await refreshData()
+      } catch (error) {
+        console.error('删除失败:', error)
+      }
+    })
   } catch (error) {
     console.error('删除失败:', error)
   }

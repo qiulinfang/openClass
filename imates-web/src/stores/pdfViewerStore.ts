@@ -19,6 +19,9 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
   // 选中的工具
   const selectedTool = ref<string>('')
 
+  // PDF 右侧聊天面板是否可见
+  const chatPanelVisible = ref(false)
+
   // 绘图配置（与 UnifiedToolbar 工具配置联动）
   const drawingConfig = ref({
     // 签字笔
@@ -70,6 +73,16 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
     selectedTool.value = tool
   }
 
+  // 打开聊天面板
+  const openChatPanel = () => {
+    chatPanelVisible.value = true
+  }
+
+  // 关闭聊天面板
+  const closeChatPanel = () => {
+    chatPanelVisible.value = false
+  }
+
   // 更新绘图配置（部分字段更新）
   const updateDrawingConfig = (config: Partial<typeof drawingConfig.value>) => {
     drawingConfig.value = { ...drawingConfig.value, ...config }
@@ -80,6 +93,7 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
     pageGap,
     hideNotes,
     selectedTool,
+    chatPanelVisible,
     drawingConfig,
     currentFileId,
     currentResourceId,
@@ -90,6 +104,8 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
     setCurrentFileInfo,
     setSelectedTool,
     updateDrawingConfig,
+    openChatPanel,
+    closeChatPanel,
   }
 })
 

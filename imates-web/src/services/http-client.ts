@@ -6,6 +6,7 @@
 import type { ApiResponse, RequestConfig } from '../types'
 import { createTimeoutController } from '../utils/common/polyfills'
 import { showMessage } from '../utils'
+import { getApiBaseUrl, getResourceBaseUrl } from '../config/env-config'
 
 export class HttpClient {
   private baseURL: string
@@ -13,20 +14,28 @@ export class HttpClient {
   private timeout: number
 
   // 流程：file://环境下的路由映射表（统一管理，避免重复）
-  private readonly routeBaseMap: Record<string, string> = {
-    // 学班服务
-    '/admin': 'http://www.imates.com.cn:8222/blw-edu-service-alc',
-    '/permission': 'http://www.imates.com.cn:8222/blw-edu-service-alc',
-    '/biologyTopicKnowledge': 'http://www.imates.com.cn:8222/blw-edu-service-alc',
-    // 研伴/教材等走 www.imates.com.cn:9099
-    '/blw-edu-yb': 'https://www.imates.com.cn:9099',
-    // Zammad 示例
-    '/api/v1': 'http://app.imates.com.cn:8080',
-    // 资源服务器
-    '/resource': 'https://www.imates.com.cn:9099',
-    '/img': 'https://www.imates.com.cn:9099',
-    // 知识点查询服务
-    '/knowledge': 'http://www.imates.com.cn:8090',
+  // 动态获取，根据当前环境返回不同的 Base URL
+  private getRouteBaseMap(): Record<string, string> {
+    const apiBaseUrl = getApiBaseUrl()
+    const resourceBaseUrl = getResourceBaseUrl()
+    
+    return {
+      // 学班服务（根据环境动态切换）
+      '/admin': apiBaseUrl,
+      '/permission': apiBaseUrl,
+      '/biologyTopicKnowledge': apiBaseUrl,
+      // 研伴/教材等走资源服务器
+      '/blw-edu-yb': 'https://www.imates.com.cn:9099',
+      // Zammad 示例
+      '/api/v1': 'http://app.imates.com.cn:8080',
+      // 资源服务器（根据环境动态切换）
+      '/resource': resourceBaseUrl + ':9099',
+      '/img': resourceBaseUrl + ':9099',
+      // 知识点查询服务
+      '/knowledge': 'http://www.imates.com.cn:8090',
+      '/bj101': resourceBaseUrl,
+      '/appupdate_test.json': 'https://www.imates.com.cn',
+    }
   }
 
   constructor(baseURL: string = '', timeout: number = 5000) {
@@ -54,10 +63,11 @@ export class HttpClient {
     
     if (isFileEnv) {
       // 流程：根据首段路径路由到后端网关
-      const matchedBase = Object.keys(this.routeBaseMap).find(prefix => url.startsWith(prefix))
+      const routeBaseMap = this.getRouteBaseMap()
+      const matchedBase = Object.keys(routeBaseMap).find(prefix => url.startsWith(prefix))
       if (matchedBase) {
         console.log('111')
-        return `${this.routeBaseMap[matchedBase]}${url}`
+        return `${routeBaseMap[matchedBase]}${url}`
       }
       console.log('222')
       // 流程：无法匹配时回退baseURL（避免file:///）

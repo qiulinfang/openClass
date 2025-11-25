@@ -217,7 +217,38 @@ export class ApiService {
     return this.downloadControllers.has(textbookId)
   }
 
+  /**
+   * Web 端检查应用更新
+   * 对齐 Android MainWebViewActivity.checkUpdateWithHttpRequest
+   * 调用同一更新接口，返回服务器版本信息，供 Web 自行处理
+   */
+  public async checkAppUpdate(): Promise<{ versionName: string; raw: any } | null> {
+    try {
+      // 根据当前环境动态获取更新接口 URL
+      const { getAppUpdateUrl } = await import('../config/env-config')
+      const url = getAppUpdateUrl()
 
+      const response = await httpClient.get<any>(url)
+
+      const data = response?.data ?? response
+      if (!data) {
+        return null
+      }
+
+      const versionName: string = data.VersionName || data.versionName || ''
+      if (!versionName) {
+        return null
+      }
+
+      return {
+        versionName,
+        raw: data,
+      }
+    } catch (error) {
+      console.warn('[ApiService] Web 检查应用更新失败:', error)
+      return null
+    }
+  }
 
   /**
    * 验证资源文件完整性
@@ -743,14 +774,28 @@ export class ApiService {
     // 根据响应内容类型进行处理
     if (trimmedChunk === 'end') {
       // 轮询结束 - 返回最终结果
-      return this.handlePollingEnd(messageId, accumulatedContent, response.data.sessionId, message.sessionId, onComplete, onStream)
-    } else if (trimmedChunk !== '') {
-      // 有新内容 - 累积内容并继续轮询
-      return this.handleNewContent(chunk, message, url, onComplete, onStream, accumulatedContent, messageId)
-    } else {
-      // 空内容但未结束 - 继续轮询
+      return this.handlePollingEnd(
+        messageId,
+        accumulatedContent,
+        response.data.sessionId,
+        message.sessionId,
+        onComplete,
+        onStream,
+      )
+    }
+
+    // 如果本次返回仅为换行符（例如 "\n"、"\r\n"），不累积内容，只继续轮询
+    if (/^[\r\n]+$/.test(chunk)) {
       return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId)
     }
+
+    if (trimmedChunk !== '') {
+      // 有新内容 - 累积内容并继续轮询
+      return this.handleNewContent(chunk, message, url, onComplete, onStream, accumulatedContent, messageId)
+    }
+
+    // 空内容但未结束 - 继续轮询
+    return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId)
   }
 
   /**

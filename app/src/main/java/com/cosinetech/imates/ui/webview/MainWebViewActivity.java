@@ -293,11 +293,9 @@ public class MainWebViewActivity extends AppCompatActivity
                             org.json.JSONObject jsonObj = new org.json.JSONObject(responseBody);
                             String serverVersion = jsonObj.optString("VersionName", "");
                             if (!serverVersion.isEmpty()) {
-                                // 发送版本号到Web端
-                                dispatchAppVersionEvent(serverVersion);
                                 Log.d(TAG, "服务器版本: " + serverVersion);
-                                
-                                // 直接调用EasyUpdate.update()，内部会自动比较版本号并决定是否更新
+
+                                // 直接调用 EasyUpdate.update()，内部会自动比较版本号并决定是否更新
                                 runOnUiThread(() -> {
                                     EasyUpdate.create(MainWebViewActivity.this, updateUrl)
                                             .isAutoMode(false)

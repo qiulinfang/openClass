@@ -13,6 +13,10 @@ export interface SendMessageOptions {
   skipUserMessage?: boolean  // 是否跳过创建用户消息（乐观发送场景）
   // 当前题目对象，由上层 ChatView 通过 props.question 传入
   question?: unknown
+  // 当前题目对象，由上层 ChatView 通过 props.question 传入
+  currentQuestion?: unknown
+  // 当前题目ID，由上层 ChatView 通过 props.questionId 传入
+  currentQuestionId?: string
 }
 
 /**

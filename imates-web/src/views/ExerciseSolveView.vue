@@ -265,7 +265,8 @@ const handleQuestionSelected = async () => {
   
   // 第2步：如果已选择题目，加载对应题目的聊天记录
   if (currentQuestion.value) {
-    const questionId = currentQuestion.value.id
+    // 统一使用 bmNo 作为 AI 题目聊天历史的存储键（无 bmNo 时回退到 id）
+    const questionId = currentQuestion.value.bmNo || currentQuestion.value.id
     
     // 第3步：根据当前功能类型加载对应题目的聊天记录
     if (currentFunction.value === 'chatAi') {
@@ -288,7 +289,7 @@ const handleQuestionAdded = () => {
 const handleOpenMiniClass = (question: ExerciseItem) => {
   try {
     // 按学科 + bmNo 动态拼接微课 URL
-    const bmNo = (question.bmNo || question.id || '').trim()
+    const bmNo = (question.bmNo || '').trim()
     if (!bmNo) {
       showMessage('题目编号缺失，无法打开微课', 'warning')
       return
@@ -311,7 +312,7 @@ const handleOpenMiniClass = (question: ExerciseItem) => {
       subjectPrefix,
       bmNo,
       subjectRaw,
-      questionId: question.id,
+      questionBmNo: question.bmNo,
       fullUrl: classUrl
     })
     
@@ -357,9 +358,9 @@ const handleSendQuestionToTeacher = async (question: ExerciseItem) => {
       // 确定科目（默认使用数学科目，可以根据实际情况调整）
       const subject = question.subject === 'BIOLOGY' ? 'biology' : 'math'
       
-      // 创建或获取会话（使用题目ID和题目标题）
+      // 创建或获取会话（使用题目bmNo和题目标题）
       const createdSession = teacherStore.getOrCreateSession(
-        question.id,
+        question.bmNo,
         cleanTitle || '题目',
         subject
       )

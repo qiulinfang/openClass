@@ -11,7 +11,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiService } from '../services/api-service'
-import { asyncStorage } from '../services/chat-storage'
+import { chatStorage } from '../services/chat-storage'
 import { showMessage } from '../utils'
 import { getUserInfo, getSubject, getUserId } from '../services/auth-storage-service'
 import {
@@ -488,87 +488,51 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     if (!resourceId.value) {
       return
     }
-    
-      try {
-      // 构建存储键：如果有 sessionId，使用 ai-textbook-${resourceId}-${sessionId}，否则使用 ai-textbook-${resourceId}
-        const storageKey = currentSessionId.value 
-          ? `ai-textbook-${resourceId.value}-${currentSessionId.value}`
-          : `ai-textbook-${resourceId.value}`
-        
-      // 保存到IndexedDB
-        await asyncStorage.saveChatHistory(storageKey, {
-          questionId: storageKey,
-          messages: messages.value,
-          lastUpdated: Date.now(),
-          chatResponseTimes: chatResponseTimes.value
-        })
-      } catch (error) {
-        console.error('保存聊天历史失败:', error)
+
+    try {
+      // 新的存储键：只按 resourceId 维度
+      const storageKey = `ai-textbook-${resourceId.value}`
+
+      await chatStorage.saveChatHistory(storageKey, {
+        questionId: storageKey,
+        messages: messages.value,
+        lastUpdated: Date.now(),
+        chatResponseTimes: chatResponseTimes.value,
+      })
+    } catch (error) {
+      console.error('保存聊天历史失败:', error)
     }
   }
   
   /**
    * 加载聊天历史
-   * @param resourceIdOrStorageKey - resourceId 或完整的 storageKey（格式：ai-textbook-${resourceId}-${sessionId}）
-   * @param sessionId - 可选的 sessionId，如果提供，会构建包含 sessionId 的存储键
+   * @param resourceIdOrStorageKey - 可选的 resourceId（不再支持旧的 storageKey 形式）
    */
-  const loadChatHistory = async (resourceIdOrStorageKey?: string, sessionId?: string): Promise<void> => {
+  const loadChatHistory = async (resourceIdOrStorageKey?: string): Promise<void> => {
     try {
-      // 设置加载状态
       isChatLoading.value = true
-      
-      let storageKey: string
-      
-      // 如果传入的是完整的 storageKey（包含 ai-textbook- 前缀），直接使用
-      if (resourceIdOrStorageKey?.startsWith('ai-textbook-')) {
-        storageKey = resourceIdOrStorageKey
-      } else {
-        // 否则作为 resourceId 处理
-        const targetResourceId = resourceIdOrStorageKey || resourceId.value
-        if (!targetResourceId) {
-          // 如果没有 resourceId，清空状态
-          messages.value = []
-          chatResponseTimes.value = 0
-          isChatLoading.value = false
-          return
-        }
-        
-        // 如果有 sessionId，构建包含 sessionId 的存储键，否则使用旧的格式
-        storageKey = sessionId 
-          ? `ai-textbook-${targetResourceId}-${sessionId}`
-          : `ai-textbook-${targetResourceId}`
+
+      // 统一按 resourceId 维度存取
+      const targetResourceId = resourceIdOrStorageKey || resourceId.value
+      if (!targetResourceId) {
+        return
       }
-      
-      const history = await asyncStorage.loadChatHistory(storageKey)
-      
-      if (history && history.messages) {
-        messages.value = history.messages
-        chatResponseTimes.value = history.chatResponseTimes || 0
-        // 检查加载的消息中是否有图片消息，如果有则标记使用截图接口
-        useScreenshotApi.value = messages.value.some(msg => msg.messageType === 'image' || msg.imageData)
+
+      const storageKey = `ai-textbook-${targetResourceId}`
+
+      const data = await chatStorage.loadChatHistory(storageKey)
+      if (data && Array.isArray(data.messages)) {
+        messages.value = data.messages
+        chatResponseTimes.value = data.chatResponseTimes || 0
       } else {
-        // 无历史记录，清空状态
         messages.value = []
         chatResponseTimes.value = 0
-        useScreenshotApi.value = false
-      }
-      
-      // 如果加载成功且有 sessionId，更新 currentSessionId
-      if (sessionId) {
-        console.log('[AI_TEXTBOOK] 从历史记录加载 sessionId', { sessionId })
-        currentSessionId.value = sessionId
-        isNewSession.value = false
-      } else {
-        console.log('[AI_TEXTBOOK] 加载历史无 sessionId，重置 currentSessionId')
-        currentSessionId.value = null
-        isNewSession.value = true
       }
     } catch (error) {
       console.error('加载聊天历史失败:', error)
       messages.value = []
       chatResponseTimes.value = 0
     } finally {
-      // 重置加载状态
       isChatLoading.value = false
     }
   }
@@ -584,7 +548,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       }
       
       const storageKey = `ai-textbook-${resourceId.value}`
-      await asyncStorage.removeChatHistory(storageKey)
+      await chatStorage.removeChatHistory(storageKey)
       clearMessages()
     } catch (error) {
       console.error('清除聊天历史失败:', error)

@@ -85,6 +85,18 @@ export default defineConfig({
           })
         }
       },
+      // 匹配以 "/bj101" 开头的请求，转发到正式环境更新接口
+      '/bj101': {
+        target: 'https://www.imates.com.cn',
+        changeOrigin: true,
+        secure: false,
+      },
+      // 测试环境更新接口
+      '/appupdate_test.json': {
+        target: 'https://www.imates.com.cn',
+        changeOrigin: true,
+        secure: false,
+      },
       // 匹配以 "/permission" 开头的请求，转发到学班服务（用于权限相关接口）
       '/permission': {
         target: 'http://www.imates.com.cn:8222/blw-edu-service-alc', // 学班服务地址

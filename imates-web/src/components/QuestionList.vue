@@ -50,20 +50,19 @@
       <div v-if="displayedQuestions.length > 0" class="question-cards-list">
         <div
           v-for="(question, index) in displayedQuestions"
-          :key="question.id"
+          :key="question.bmNo"
           class="question-item-wrapper"
           :data-index="index"
         >
           <!-- 实际题目 -->
           <div
-            ref="(el) => setQuestionCardRef(el as HTMLElement | null, question.id, index)"
-            :data-question-id="question.id"
+            ref="(el) => setQuestionCardRef(el as HTMLElement | null, question.bmNo, index)"
             class="question-card"
             :class="{
-              'question-selected': isQuestionSelected(question.id),
-              'question-deleting': deletingIds.has(question.id),
+              'question-selected': isQuestionSelected(question.bmNo),
+              'question-deleting': deletingIds.has(question.bmNo),
             }"
-            @click.stop="throttledHandleCardClick(question, index)"
+            @click.stop="selectQuestion(question, index)"
           >
             <div class="question-block">
               <!-- 题目头部 -->
@@ -72,7 +71,7 @@
                 <div class="question-number">题目{{ index + 1 }}</div>
 
                 <!-- 右侧：功能区（仅当前题目选中时显示更多按钮） -->
-                <div class="question-actions" v-if="isQuestionSelected(question.id)">
+                <div class="question-actions" v-if="isQuestionSelected(question.bmNo)">
                   <!-- 更多按钮：只在题目被选中时出现 -->
                   <div>
                     <q-btn
@@ -81,14 +80,14 @@
                       flat
                       round
                       size="sm"
-                      @click.stop="toggleMoreMenu(question.id)"
+                      @click.stop="toggleMoreMenu(question.bmNo)"
                       class="action-btn more-btn"
                     >
                       <q-tooltip>更多</q-tooltip>
 
                       <!-- 功能菜单气泡框 -->
                       <q-popup-proxy
-                        v-model="showMoreMenu[question.id]"
+                        v-model="showMoreMenu[question.bmNo]"
                         anchor="top right"
                         self="bottom right"
                         :breakpoint="0"
@@ -100,7 +99,7 @@
                             <q-item
                               clickable
                               @click="
-                                closeMenuAndExecute(question.id, () => throttledSendToAi(question))
+                                closeMenuAndExecute(question.bmNo, () => sendToAi(question))
                               "
                               class="menu-item native-more-menu-item"
                             >
@@ -114,8 +113,8 @@
                             <q-item
                               clickable
                               @click="
-                                closeMenuAndExecute(question.id, () =>
-                                  throttledOpenMiniClass(question)
+                                closeMenuAndExecute(question.bmNo, () =>
+                                  openMiniClass(question)
                                 )
                               "
                               class="menu-item native-more-menu-item"
@@ -131,8 +130,8 @@
                               v-if="index > 0"
                               clickable
                               @click="
-                                closeMenuAndExecute(question.id, () =>
-                                  throttledMoveToTop(question.id)
+                                closeMenuAndExecute(question.bmNo, () =>
+                                  moveQuestionToTop(question.bmNo)
                                 )
                               "
                               class="menu-item native-more-menu-item"
@@ -147,21 +146,21 @@
                             <q-item
                               clickable
                               @click="
-                                closeMenuAndExecute(question.id, () =>
-                                  throttledToggleFavorite(question)
+                                closeMenuAndExecute(question.bmNo, () =>
+                                  toggleFavorite(question)
                                 )
                               "
                               class="menu-item native-more-menu-item native-more-menu-favorite"
                             >
                               <q-item-section avatar>
                                 <q-icon
-                                  :name="isExerciseFavorite(question.id) ? 'star' : 'star_border'"
-                                  :color="isExerciseFavorite(question.id) ? 'warning' : 'grey-7'"
+                                  :name="isExerciseFavorite(question.bmNo) ? 'star' : 'star_border'"
+                                  :color="isExerciseFavorite(question.bmNo) ? 'warning' : 'grey-7'"
                                   size="20px"
                                 />
                               </q-item-section>
                               <q-item-section>
-                                {{ isExerciseFavorite(question.id) ? '取消收藏' : '收藏题目' }}
+                                {{ isExerciseFavorite(question.bmNo) ? '取消收藏' : '收藏题目' }}
                               </q-item-section>
                             </q-item>
 
@@ -169,8 +168,8 @@
                             <q-item
                               clickable
                               @click="
-                                closeMenuAndExecute(question.id, () =>
-                                  throttledTakePictureToTeacher(question)
+                                closeMenuAndExecute(question.bmNo, () =>
+                                  takePictureToTeacher(question)
                                 )
                               "
                               class="menu-item native-more-menu-item"
@@ -181,16 +180,16 @@
                               <q-item-section>拍作业</q-item-section>
                             </q-item>
 
-                            <!-- 删除区域 -->
+                            <!-- 删除题目 -->
                             <div class="native-more-menu-delete-wrapper">
                               <q-item
                                 clickable
                                 @click="
-                                  closeMenuAndExecute(question.id, () =>
-                                    throttledDeleteQuestion(question.id)
+                                  closeMenuAndExecute(question.bmNo, () =>
+                                    openDeleteDialog(question)
                                   )
                                 "
-                                :disable="deletingIds.has(question.id)"
+                                :disable="deletingIds.has(question.bmNo)"
                                 class="menu-item delete-item native-more-menu-delete-item"
                               >
                                 <q-item-section avatar>
@@ -198,11 +197,11 @@
                                     name="delete"
                                     color="negative"
                                     size="20px"
-                                    :class="{ 'icon-loading': deletingIds.has(question.id) }"
+                                    :class="{ 'icon-loading': deletingIds.has(question.bmNo) }"
                                   />
                                 </q-item-section>
                                 <q-item-section>
-                                  {{ deletingIds.has(question.id) ? '删除中...' : '删除题目' }}
+                                  {{ deletingIds.has(question.bmNo) ? '删除中...' : '删除题目' }}
                                 </q-item-section>
                               </q-item>
                             </div>
@@ -219,7 +218,7 @@
                 <div
                   class="markdown-content question-content"
                   v-html="renderMessageContent(question?.question || question?.title || '暂无内容')"
-                  :ref="(el) => handleContentRef(el, question.id)"
+                  :ref="(el) => handleContentRef(el, question.bmNo)"
                 ></div>
               </div>
             </div>
@@ -245,9 +244,27 @@
 
     <!-- 图片预览对话框 -->
     <ImageViewer v-model="showImagePreview" :image-url="previewImageUrl" alt="题目图片" />
+
+    <!-- 删除题目确认对话框（使用 Dialog 组件，插槽中维护删除聊天记录开关） -->
+    <Dialog
+      v-if="showDeleteDialog"
+      ref="deleteDialogRef"
+      :title="'确定要删除这道题目吗？'"
+      :confirmButtonText="'删除'"
+      :cancelButtonText="'取消'"
+      @confirm="deleteQuestion"
+    >
+      <q-toggle
+        class="delete-dialog-toggle"
+        v-model="deleteWithChat"
+        label="同时删除该题目的对话记录"
+        dense
+        color="#6e55ff"
+        keep-color
+      />
+    </Dialog>
   </div>
 </template>
-
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -255,6 +272,7 @@ import { showMessage, ThrottleUtils, throttle } from '../utils'
 import { useQuestionStore } from '../stores/questionStore'
 import { storeToRefs } from 'pinia'
 import { useAiExerciseChatStore } from '../stores/aiExerciseChatStore'
+import { useTeacherExerciseChatStore } from '../stores/teacherExerciseChatStore'
 import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem, ChatBubble } from '../types'
 import { apiService } from '../services/api-service'
@@ -265,6 +283,7 @@ import MiniClass from './MiniClass.vue'
 import UnifiedChatDialog from './UnifiedChatDialog.vue'
 import ImageViewer from './ImageViewer.vue'
 import RubberBandList from './RubberBandList.vue'
+import Dialog from './Dialog.vue'
 import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
 import { useImagePicker } from '../composables/useImagePicker'
 import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
@@ -357,16 +376,16 @@ const isQuestionSelected = (questionId: string): boolean => {
   if (!currentQuestion.value) {
     return false
   }
-  return currentQuestion.value.id === questionId
+  return currentQuestion.value.bmNo === questionId
 }
 
 // 题目删除相关
-const deletingIds = ref(new Set<string>())
-const contentRefs = ref<Map<string, HTMLElement>>(new Map())
-const intersectionObservers = new Map<string, IntersectionObserver>()
+const deletingIds = ref(new Set<string>()) //题目ID集合
+const contentRefs = ref<Map<string, HTMLElement>>(new Map()) //题目卡片引用
+const intersectionObservers = new Map<string, IntersectionObserver>() //题目卡片观察者
 
 // 题目渲染完成状态（用于更精确控制加载中的时长）
-const questionRenderedMap = ref<Map<string, boolean>>(new Map())
+const questionRenderedMap = ref<Map<string, boolean>>(new Map()) //题目ID -> 渲染完成状态映射
 
 // 更多菜单显示状态
 const showMoreMenu = ref<Record<string, boolean>>({})
@@ -384,6 +403,8 @@ const indexToHeight = ref<Map<number, number>>(new Map()) // 索引 -> 高度映
 const questionCardRefs = ref<Map<string, HTMLElement>>(new Map()) // 实际题目卡片引用
 const resizeObservers = new Map<string, ResizeObserver>() // ResizeObserver映射
 const heightMeasurementTimers = new Map<string, ReturnType<typeof setTimeout>>() // 延迟测量定时器
+
+const deleteDialogRef = ref<InstanceType<typeof Dialog> | null>(null)
 
 // 使用与 ChatBubble 相同的渲染器
 const { renderMessageContent } = useMessageRenderer()
@@ -605,9 +626,9 @@ const throttledOpenMiniClass = ThrottleUtils.fast((question: ExerciseItem) => {
   openMiniClass(question)
 })
 
-const throttledDeleteQuestion = ThrottleUtils.slow((questionId: string) => {
-  deleteQuestion(questionId)
-})
+const showDeleteDialog = ref(false)
+const deleteTargetQuestion = ref<ExerciseItem | null>(null)
+const deleteWithChat = ref(false)
 
 const throttledMoveToTop = ThrottleUtils.standard((questionId: string) => {
   moveQuestionToTop(questionId)
@@ -626,18 +647,18 @@ const initFavoriteStatus = () => {
   const favorites = getFavoriteExercises()
   favoriteStatus.value.clear()
   favorites.forEach((f) => {
-    favoriteStatus.value.set(f.item.id, true)
+    favoriteStatus.value.set(f.item.bmNo, true)
   })
 }
 
 // 切换收藏状态
 const toggleFavorite = (item: ExerciseItem) => {
-  const wasFavorite = isExerciseFavorite(item.id)
+  const wasFavorite = isExerciseFavorite(item.bmNo)
   const success = toggleExerciseFavorite(item)
 
   if (success) {
     // 更新收藏状态
-    favoriteStatus.value.set(item.id, !wasFavorite)
+    favoriteStatus.value.set(item.bmNo, !wasFavorite)
     showMessage(!wasFavorite ? '已收藏' : '已取消收藏', 'success')
   } else {
     showMessage('操作失败，请重试', 'error')
@@ -793,6 +814,112 @@ const throttledTakePictureToTeacher = ThrottleUtils.fast((question: ExerciseItem
   takePictureToTeacher(question)
 })
 
+const openDeleteDialog = (question: ExerciseItem) => {
+  deleteTargetQuestion.value = question
+  deleteWithChat.value = false
+  showDeleteDialog.value = true
+
+  nextTick(() => {
+    if (deleteDialogRef.value && typeof (deleteDialogRef.value as any).openDialog === 'function') {
+      ;(deleteDialogRef.value as any).openDialog()
+    }
+  })
+}
+
+const deleteQuestion = async () => {
+  if (!deleteTargetQuestion.value) return
+
+  const question = deleteTargetQuestion.value
+  const questionId = question.bmNo
+
+  if (!question.bmNo) {
+    showMessage('无法确定要删除的题目', 'error')
+    return
+  }
+
+  try {
+    deletingIds.value.add(question.bmNo)
+
+    // 清理高度缓存和观察器
+    cleanupQuestionHeight(question.bmNo)
+
+    try {
+      // 确定要删除的题目的科目
+      const questionSubject = question.subject || selectedSubject.value
+
+      // 将 Subject 枚举值转换为科目名称
+      const subjectMap: Record<string, string> = {
+        SUBJECT_MATH: 'math',
+        SUBJECT_BIOLOGY: 'biology',
+        SUBJECT_CHEMISTRY: 'chemistry',
+        SUBJECT_PHYSICS: 'physics',
+        SUBJECT_CHINESE: 'chinese',
+        SUBJECT_ENGLISH: 'english',
+      }
+
+      // 确定科目名称
+      let subjectToDelete = selectedSubject.value
+      if (questionSubject) {
+        const subjectUpper = String(questionSubject).toUpperCase()
+        if (subjectMap[subjectUpper]) {
+          subjectToDelete = subjectMap[subjectUpper]
+        } else if (subjectUpper.includes('BIOLOGY')) {
+          subjectToDelete = 'biology'
+        } else if (subjectUpper.includes('MATH')) {
+          subjectToDelete = 'math'
+        } else {
+          subjectToDelete = subjectUpper.toLowerCase()
+        }
+      }
+
+      // 使用API服务删除题目（旧版逻辑，使用 bmNo）
+      const success = await apiService.deleteExercise(question.id, subjectToDelete)
+
+      if (success) {
+        // 删除成功后，如果勾选了同时删除对话记录，则清理对应题目的 AI 练习聊天记录
+        if (deleteWithChat.value && question.bmNo) {
+          const aiExerciseStore = useAiExerciseChatStore()
+          await aiExerciseStore.clearChatHistory(question.bmNo)
+        }
+
+        // 根据是否删除对话记录给出不同提示
+        if (deleteWithChat.value) {
+          showMessage('题目及相关对话记录已删除', 'success')
+        } else {
+          showMessage('题目删除成功', 'positive')
+        }
+
+        const questionStore = useQuestionStore()
+
+        // 根据当前筛选条件决定刷新方式
+        if (selectedSubjectFilter.value === null) {
+          // 全部学科：刷新所有学科的题目
+          await questionStore.fetchAllSubjectsQuestions(false)
+        } else {
+          // 具体学科：刷新指定学科的题目
+          await questionStore.fetchQuestions(subjectToDelete, false)
+        }
+
+        // 重新加载题目列表（会自动重置渲染状态）
+        await loadQuestions()
+      } else {
+        showMessage('题目删除失败', 'error')
+      }
+    } catch (error) {
+      showMessage('删除题目时出错: ' + (error as Error).message, 'error')
+    } finally {
+      deletingIds.value.delete(question.bmNo)
+    }
+  } catch (error) {
+    showMessage('删除题目时出错: ' + (error as Error).message, 'error')
+    deletingIds.value.delete(question.bmNo)
+  } finally {
+    showDeleteDialog.value = false
+    deleteTargetQuestion.value = null
+    deleteWithChat.value = false
+  }
+}
+
 // 切换更多菜单显示状态
 const toggleMoreMenu = (questionId: string) => {
   const currentValue = showMoreMenu.value[questionId] || false
@@ -904,7 +1031,7 @@ const selectQuestion = async (question: ExerciseItem, index: number) => {
     selectedQuestionIndex.value = index
 
     const questionStore = useQuestionStore()
-    const storeIndex = questionStore.questions.findIndex((q: ExerciseItem) => q.id === question.id)
+    const storeIndex = questionStore.questions.findIndex((q: ExerciseItem) => q.bmNo === question.bmNo)
 
     if (storeIndex >= 0) {
       // 使用store中的索引来选择题目
@@ -971,7 +1098,7 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
     // 关键修复：根据题目ID在store的questions数组中查找索引，而不是使用筛选后的索引
     const targetQuestion = list[targetIndex]
     const storeIndex = questionStore.questions.findIndex(
-      (q: ExerciseItem) => q.id === targetQuestion.id
+      (q: ExerciseItem) => q.bmNo === targetQuestion.bmNo
     )
     if (storeIndex >= 0) {
       await questionStore.selectQuestion(storeIndex)
@@ -985,98 +1112,23 @@ const scrollToQuestionAndSelect = async (targetIndex: number) => {
   }
 }
 
-// 删除题目
-const deleteQuestion = async (questionId: string) => {
-  try {
-    deletingIds.value.add(questionId)
-
-    // 清理高度缓存和观察器
-    cleanupQuestionHeight(questionId)
-
-    try {
-      // 确定要删除的题目的科目
-      const question = questions.value.find((q) => q.id === questionId || q.bmNo === questionId)
-      const questionSubject = question?.subject || selectedSubject.value
-
-      // 将 Subject 枚举值转换为科目名称
-      const subjectMap: Record<string, string> = {
-        SUBJECT_MATH: 'math',
-        SUBJECT_BIOLOGY: 'biology',
-        SUBJECT_CHEMISTRY: 'chemistry',
-        SUBJECT_PHYSICS: 'physics',
-        SUBJECT_CHINESE: 'chinese',
-        SUBJECT_ENGLISH: 'english',
-      }
-
-      // 确定科目名称
-      let subjectToDelete = selectedSubject.value
-      if (questionSubject) {
-        const subjectUpper = String(questionSubject).toUpperCase()
-        if (subjectMap[subjectUpper]) {
-          subjectToDelete = subjectMap[subjectUpper]
-        } else if (subjectUpper.includes('BIOLOGY')) {
-          subjectToDelete = 'biology'
-        } else if (subjectUpper.includes('MATH')) {
-          subjectToDelete = 'math'
-        } else {
-          subjectToDelete = subjectUpper.toLowerCase()
-        }
-      }
-
-      // 使用API服务删除题目
-      const success = await apiService.deleteExercise(questionId, subjectToDelete)
-
-      if (success) {
-        showMessage('题目删除成功', 'positive')
-
-        // 删除成功后，强制从服务器重新获取题目列表
-        const questionStore = useQuestionStore()
-
-        // 根据当前筛选条件决定刷新方式
-        if (selectedSubjectFilter.value === null) {
-          // 全部学科：刷新所有学科的题目
-          await questionStore.fetchAllSubjectsQuestions(false) // false 表示强制从服务器获取
-        } else {
-          // 具体学科：刷新指定学科的题目
-          await questionStore.fetchQuestions(subjectToDelete, false) // false 表示强制从服务器获取
-        }
-
-        // 重新加载题目列表（会自动重置渲染状态）
-        await loadQuestions()
-      } else {
-        showMessage('题目删除失败', 'error')
-      }
-    } catch (error) {
-      showMessage('删除题目时出错: ' + (error as Error).message, 'error')
-    } finally {
-      deletingIds.value.delete(questionId)
-    }
-  } catch (error) {
-    showMessage('删除题目时出错: ' + (error as Error).message, 'error')
-    deletingIds.value.delete(questionId)
-  }
-}
-
 // 题目置顶处理
 const moveQuestionToTop = async (questionId: string) => {
   try {
-    const currentIndex = questions.value.findIndex((q) => q.id === questionId)
+    const currentIndex = questions.value.findIndex((q) => q.bmNo === questionId)
     if (currentIndex <= 0) return // 已经在顶部或找不到题目
 
     // 直接在前端进行置顶操作
     const question = questions.value.splice(currentIndex, 1)[0]
     questions.value.unshift(question)
 
-    // 更新选中状态
-    if (selectedQuestionIndex.value === currentIndex) {
-      selectedQuestionIndex.value = 0
-    } else if (selectedQuestionIndex.value < currentIndex) {
-      selectedQuestionIndex.value++
-    }
+    // 置顶后，直接将置顶的题目标记为选中（索引 0）
+    selectedQuestionIndex.value = 0
 
-    // 同步到store
+    // 同步到store，并将当前题目设置为置顶题
     const questionStore = useQuestionStore()
     await questionStore.setQuestions(questions.value, selectedSubject.value)
+    await questionStore.selectQuestion(0)
 
     // 题目置顶后滚动到最顶部
     await nextTick()
@@ -1098,7 +1150,7 @@ const sendToAi = async (question: ExerciseItem) => {
     const aiExerciseStore = useAiExerciseChatStore()
 
     // 关键修复：在store的questions数组中查找题目索引，而不是在本地questions数组中查找
-    const storeIndex = questionStore.questions.findIndex((q: ExerciseItem) => q.id === question.id)
+    const storeIndex = questionStore.questions.findIndex((q: ExerciseItem) => q.bmNo === question.bmNo)
     if (storeIndex >= 0) {
       // 使用store中的索引来选择题目
       await questionStore.selectQuestion(storeIndex)
@@ -1114,8 +1166,8 @@ const sendToAi = async (question: ExerciseItem) => {
       questionStore.currentQuestion.beginGuideToSolve = true
 
       // 第3步：清除聊天记录
-      await aiExerciseStore.clearChatHistory(questionStore.currentQuestion.id)
-
+      const questionBmNo = questionStore.currentQuestion.bmNo || questionStore.currentquestion.bmNo
+      await aiExerciseStore.clearChatHistory(questionBmNo)
       // 第4步：发送题目内容给AI进行分析（每次都是新的开始）
       const questionContent =
         questionStore.currentQuestion.question ||
@@ -1153,7 +1205,7 @@ const sendToAi = async (question: ExerciseItem) => {
     console.error('[QuestionList] 启动AI指导失败:', {
       error,
       errorMessage,
-      questionId: question.id,
+      questionId: question.bmNo,
       questionTitle: question.question?.substring(0, 50) || '未知题目',
       timestamp: new Date().toISOString(),
     })
@@ -1344,7 +1396,7 @@ onMounted(() => {
     resizeTimeout = setTimeout(() => {
       // 重新测量所有已渲染的题目
       questionCardRefs.value.forEach((el, questionId) => {
-        const index = displayList.value.findIndex((q) => q.id === questionId)
+        const index = displayList.value.findIndex((q) => q.bmNo === questionId)
         if (index >= 0 && el) {
           const height = el.getBoundingClientRect().height
           if (height > 0) {
@@ -1434,7 +1486,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     padding: 12px 16px;
     background-color: #f7f6ff;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     flex-shrink: 0;
 
     .photo-search-btn {
@@ -1510,6 +1561,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     flex-direction: column;
     gap: 8px;
     width: 100%;
+    padding: 4px 0;
   }
 
   .question-item-wrapper {
@@ -1833,6 +1885,20 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         background: rgba(0, 0, 0, 0.4);
       }
     }
+  }
+}
+
+.delete-dialog-toggle {
+  :deep(.q-toggle__track) {
+    background-color: #6e55ff;
+  }
+
+  :deep(.q-toggle__inner--truthy .q-toggle__thumb:after) {
+    background-color: #6e55ff;
+  }
+
+  :deep(body.desktop .q-toggle:not(.disabled) .q-toggle__thumb:before) {
+    background-color: #6e55ff;
   }
 }
 

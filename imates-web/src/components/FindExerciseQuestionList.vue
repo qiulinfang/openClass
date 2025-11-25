@@ -64,9 +64,9 @@
               <!-- 题目内容 - Markdown渲染 -->
               <div 
                 class="question-content"
-                @touchstart="handleContentTouchStart"
-                @touchmove="handleContentTouchMove"
-                @wheel="handleContentWheel"
+                @touchstart="handleContentTouchStart($event, question)"
+                @touchmove="handleContentTouchMove($event, question)"
+                @wheel="handleContentWheel($event, question)"
               >
                 <div v-html="renderQuestionContent(question)" class="markdown-content"></div>
               </div>
@@ -109,6 +109,7 @@ import { storeToRefs } from 'pinia'
 import { useMessageRenderer } from '../composables/useMessageRenderer'
 import { useBetterScroll } from '../composables/useBetterScroll'
 import QuestionListSkeleton from './QuestionListSkeleton.vue'
+import { event } from 'quasar'
 
 // 定义事件
 const emit = defineEmits<{
@@ -280,11 +281,12 @@ const findQuestionContentContainer = (target: EventTarget | null): HTMLElement |
 }
 
 // 处理内部滚动容器的事件，只有有滚动条时才阻止冒泡
-const handleContentTouchStart = (event: TouchEvent) => {
+const handleContentTouchStart = (event: TouchEvent, question: { bmNo: string }) => {
   const container = findQuestionContentContainer(event.target)
   if (container && hasScrollbar(container)) {
     // 只有有滚动条时才阻止事件冒泡
     event.stopPropagation()
+    handleQuestionClick(question)
   }
 }
 
@@ -429,9 +431,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
 .questions-container {
   display: grid;
-  grid-template-columns:470px 470px;
-  gap: 12px;
-  @include responsive-padding(8px 12px, 12px 16px);
+  grid-template-columns: 50% 50%;
 
   // 加载更多按钮跨两列居中
   .load-more-indicator,
@@ -459,7 +459,7 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
     width: 100%;
-    height: 200px; // 增加卡片高度，从200px增加到320px
+    height: 149px;
     padding: 8px 16px;
     background-color: $background-white;
     border-radius: 12px;
@@ -514,21 +514,10 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   justify-content: center;
   min-width: 48px;
   height: 28px;
-  color: $text-secondary !important;
-  font-weight: 500;
+  font-weight: 600;
   font-size: 13px;
   flex-shrink: 0;
   white-space: nowrap;
-}
-
-// 选中状态下的题目序号样式
-.question-item.question-selected .question-number {
-  color: #2196f3 !important; // 蓝色
-}
-
-// 已收藏状态下的题目序号样式
-.question-item.question-in-user-list .question-number {
-  color: #ff9800 !important; // 橙色
 }
 
 .question-content {
@@ -580,63 +569,21 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     height: 20px;
   }
 
-  :deep(.q-checkbox__check) {
-    color: white;
-    font-weight: bold;
-    font-size: 14px;
-  }
-
-  // 选中状态样式 - 蓝色（默认选中状态）
-  &.q-checkbox--truthy {
-    :deep(.q-checkbox__bg) {
-      background-color: #2196f3; // 默认蓝色
-      border-color: #2196f3;
-      box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
-    }
-  }
-
-  // 未选中状态样式
-  &.q-checkbox--falsy {
-    :deep(.q-checkbox__bg) {
-      background-color: transparent;
-      border-color: #e0e0e0;
-
-      &:hover {
-        border-color: $primary-color;
-        background-color: rgba(25, 118, 210, 0.05);
-      }
-    }
-  }
-
-  // 禁用状态样式
-  &.q-checkbox--disabled {
-    :deep(.q-checkbox__bg) {
-      background-color: #f5f5f5;
-      border-color: #e0e0e0;
-      opacity: 0.6;
-    }
-  }
 }
 
 // 选中状态的复选框样式 - 蓝色
 .question-item.question-selected .checkbox-btn {
-  &.q-checkbox--truthy {
-    :deep(.q-checkbox__bg) {
-      background-color: #5e80fe !important; // 蓝色
-      border-color: #5e80fe !important;
-      box-shadow: 0 2px 8px rgba(94, 128, 254, 0.3);
-    }
+  :deep(.q-checkbox__inner--truthy .q-checkbox__bg){
+      background-color: #5e80fe; // 蓝色
+      border-color: #5e80fe;
   }
 }
 
 // 已在题库状态的复选框样式 - 橙色
-.question-item.question-in-user-list .checkbox-btn {
-  &.q-checkbox--truthy {
-    :deep(.q-checkbox__bg) {
-      background-color: #ff9767 !important; // 橙色
-      border-color: #ff9767 !important;
-      box-shadow: 0 2px 8px rgba(255, 151, 103, 0.3);
-    }
+.question-item.question-selected.question-in-user-list .checkbox-btn {
+  :deep(.q-checkbox__inner--truthy .q-checkbox__bg) {
+    background-color: #ff9767;
+    border-color: #ff9767;
   }
 }
 

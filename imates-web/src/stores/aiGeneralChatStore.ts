@@ -12,7 +12,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiService } from '../services/api-service'
-import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
+import { chatStorage, type ChatHistoryData } from '../services/chat-storage'
 import type { AiChatMessageRequest, AiGeneralSession, ChatBubble, UserInfo } from '../types'
 import { authStorageService } from '../services/auth-storage-service'
 import { getUserId } from '../services/auth-storage-service'
@@ -388,7 +388,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     }
     
     try {
-      await asyncStorage.saveChatHistory(`ai-general-${currentSession.value.sessionId}`, historyData)
+      await chatStorage.saveChatHistory(`ai-general-${currentSession.value.sessionId}`, historyData)
       
       // 第3步：保存会话列表
       await saveSessions()
@@ -404,7 +404,7 @@ export const useAiGeneralChatStore = defineStore('aiGeneralChat', () => {
     try {
       isChatLoading.value = true
       
-      const historyData = await asyncStorage.loadChatHistory(`ai-general-${sessionId}`)
+      const historyData = await chatStorage.loadChatHistory(`ai-general-${sessionId}`)
       
       if (historyData) {
         messages.value = historyData.messages || []

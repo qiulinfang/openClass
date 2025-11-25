@@ -152,8 +152,9 @@
             @click="handleSendMessage"
             class="send-button"
             :class="{ 
-              'send-button--enabled': props.canSend && !props.isLoading && !props.isEditing,
-              'send-button--disabled': !props.canSend || props.isLoading
+              // 只要可以发送（非 loading），无论是否编辑模式，都使用同一个高亮样式
+              'send-button--enabled': !props.isLoading && (props.canSend || props.isEditing),
+              'send-button--disabled': props.isLoading || (!props.canSend && !props.isEditing)
             }"
           >
             <!-- 加载状态图标 -->
@@ -164,11 +165,11 @@
               class="send-loading-icon"
             />
             <!-- 编辑状态图标 -->
-            <q-icon 
+            <img
               v-else-if="props.isEditing" 
-              name="check" 
-              color="grey-4" 
-              size="20px"
+              :src="sendIcon" 
+              alt="发送" 
+              class="send-icon"
             />
             <!-- 自定义发送图标 -->
             <img 

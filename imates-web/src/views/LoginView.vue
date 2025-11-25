@@ -59,8 +59,29 @@
 
     <!-- 版本号显示 -->
     <div class="version-text" @click="handleVersionClick">
-      {{ appVersion }}
+      {{ displayVersion }}
     </div>
+
+    <!-- 环境切换对话框 -->
+    <Dialog
+      ref="envSwitchDialog"
+      :title="dialogConfig.title"
+      :confirmButtonText="dialogConfig.confirmText"
+      :cancelButtonText="dialogConfig.cancelText"
+      @confirm="handleEnvSwitchConfirm"
+    >
+      <div class="env-switch-content">
+        <p>{{ dialogConfig.message }}</p>
+        <input
+          v-if="dialogConfig.needPassword"
+          v-model="envSwitchPassword"
+          type="password"
+          placeholder="请输入密码"
+          class="env-password-input"
+          @keyup.enter="handleEnvSwitchConfirm"
+        />
+      </div>
+    </Dialog>
   </div>
 </template>
 
@@ -69,6 +90,8 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiService } from '../services/api-service'
 import { getUserId, getPassword } from '../services/auth-storage-service'
+import { AppEnvType, getCurrentEnvType, getEnvDisplayName, trySwitchEnv } from '../config/env-config'
+import Dialog from '../components/Dialog.vue'
 
 import usernameIcon from '/icons/username_icon.svg'
 import passwordIcon from '/icons/password_icon.svg'
@@ -88,7 +111,27 @@ const errors = reactive({
 const isLoading = ref(false)
 const errorMessage = ref('')
 const versionClickCount = ref(0)
+const versionClickTimer = ref<number | null>(null)
 const appVersion = ref('')
+const currentEnv = ref<AppEnvType>(getCurrentEnvType())
+
+// 环境切换对话框相关
+const envSwitchDialog = ref<InstanceType<typeof Dialog> | null>(null)
+const envSwitchPassword = ref('')
+const targetEnvType = ref<AppEnvType>(AppEnvType.RELEASE)
+const dialogConfig = reactive({
+  title: '环境切换',
+  message: '',
+  confirmText: '确认',
+  cancelText: '取消',
+  needPassword: false,
+})
+
+// 显示版本号（包含环境标识）
+const displayVersion = computed(() => {
+  const envName = getEnvDisplayName()
+  return envName ? `${appVersion.value}\n${envName}` : appVersion.value
+})
 
 // 版本号存储的 key
 const APP_VERSION_STORAGE_KEY = 'app_version'
@@ -114,8 +157,27 @@ const saveAppVersion = (version: string): void => {
   }
 }
 
+// Web 端主动检查应用更新并同步服务器版本号
+const checkAppUpdate = async () => {
+  try {
+    const result = await apiService.checkAppUpdate?.()
+    if (!result) {
+      return
+    }
+
+    const serverVersion = (result as any).versionName || (result as any).VersionName || ''
+    if (serverVersion && typeof serverVersion === 'string') {
+      appVersion.value = serverVersion
+      saveAppVersion(serverVersion)
+      console.log('[LoginView] Web 端检查更新成功，服务器版本号:', serverVersion)
+    }
+  } catch (error) {
+    console.warn('[LoginView] Web 端检查更新失败:', error)
+  }
+}
+
 // 第1步：页面加载时从统一存储读取已保存的账号密码
-onMounted(() => {
+onMounted(async () => {
   // 第2步：获取保存的账号（从统一存储）
   const savedUserId = getUserId()
   // 第3步：获取保存的密码（从统一存储）
@@ -133,7 +195,10 @@ onMounted(() => {
   appVersion.value = loadAppVersion()
   console.log('[LoginView] 从 localStorage 加载版本号:', appVersion.value)
 
-  // 第6步：监听Android端发送的版本号事件
+  // 第6步：Web 端主动调用更新接口检查服务器版本号
+  await checkAppUpdate()
+
+  // 第7步：监听Android端发送的版本号事件（兼容旧版本，Android 可能仍然推送版本号）
   const handleAppVersionEvent = (event: Event) => {
     const customEvent = event as CustomEvent<{ versionName: string }>
     const versionName = customEvent.detail?.versionName
@@ -154,10 +219,7 @@ onMounted(() => {
     window.removeEventListener('app-version', handleAppVersionEvent)
   })
 
-  // 重置点击计数（每2秒重置一次）
-  setInterval(() => {
-    versionClickCount.value = 0
-  }, 2000)
+  // 不再使用 setInterval，改用单次定时器
   
   // 第5步：监听Android原生日志
   // 保存原有的回调（如果存在，可能是App.vue中设置的）
@@ -188,10 +250,6 @@ onMounted(() => {
   }
 })
 
-const isFormValid = computed(() => {
-  return loginForm.account.trim() && loginForm.password.trim()
-})
-
 const validateAccount = () => {
   if (!loginForm.account.trim()) {
     errors.account = '请输入账号'
@@ -210,11 +268,87 @@ const validatePassword = () => {
   return true
 }
 
+const isFormValid = computed(() => {
+  return loginForm.account.trim() !== '' && 
+         loginForm.password.trim() !== '' && 
+         !errors.account && 
+         !errors.password
+})
+
+// 处理版本号点击事件
 const handleVersionClick = () => {
   versionClickCount.value++
+  
+  // 清除之前的定时器
+  if (versionClickTimer.value) {
+    clearTimeout(versionClickTimer.value)
+  }
+  
+  // 2秒后重置点击计数
+  versionClickTimer.value = window.setTimeout(() => {
+    versionClickCount.value = 0
+  }, 2000)
+  
+  // 点击5次触发环境切换
   if (versionClickCount.value >= 5) {
     versionClickCount.value = 0
-    // TODO: 实现环境切换功能（如果需要）
+    showEnvSwitchDialog()
+  }
+}
+
+// 显示环境切换对话框
+const showEnvSwitchDialog = () => {
+  const currentEnvType = getCurrentEnvType()
+  const targetEnv = currentEnvType === AppEnvType.RELEASE 
+    ? AppEnvType.INTERNAL_TEST 
+    : AppEnvType.RELEASE
+  
+  targetEnvType.value = targetEnv
+  const targetEnvName = targetEnv === AppEnvType.RELEASE ? '正式环境' : '测试环境'
+  
+  // 配置对话框
+  if (targetEnv === AppEnvType.INTERNAL_TEST) {
+    // 切换到测试环境需要密码
+    dialogConfig.title = '切换到测试环境'
+    dialogConfig.message = `确认切换到${targetEnvName}？`
+    dialogConfig.needPassword = true
+    dialogConfig.confirmText = '确认切换'
+    envSwitchPassword.value = ''
+  } else {
+    // 切换回正式环境不需要密码
+    dialogConfig.title = '切换到正式环境'
+    dialogConfig.message = `确认切换到${targetEnvName}？`
+    dialogConfig.needPassword = false
+    dialogConfig.confirmText = '确认切换'
+  }
+  
+  // 打开对话框
+  envSwitchDialog.value?.openDialog()
+}
+
+// 处理环境切换确认
+const handleEnvSwitchConfirm = () => {
+  const targetEnv = targetEnvType.value
+  const targetEnvName = targetEnv === AppEnvType.RELEASE ? '正式环境' : '测试环境'
+  
+  // 如果需要密码验证
+  if (dialogConfig.needPassword) {
+    const password = envSwitchPassword.value
+    const success = trySwitchEnv(targetEnv, password)
+    if (success) {
+      currentEnv.value = targetEnv
+      window.location.reload()
+    } else {
+      errorMessage.value = '密码错误，切换失败'
+      setTimeout(() => {
+        errorMessage.value = ''
+      }, 3000)
+    }
+  } else {
+    // 不需要密码，直接切换
+    trySwitchEnv(targetEnv)
+    currentEnv.value = targetEnv
+    window.location.reload()
   }
 }
 
@@ -448,6 +582,38 @@ const handleLogin = async () => {
 
 .version-text:hover {
   opacity: 0.8;
+}
+
+/* 环境切换对话框样式 */
+.env-switch-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.env-switch-content p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 15px;
+}
+
+.env-password-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.env-password-input:focus {
+  border-color: #6e55ff;
+  box-shadow: 0 0 0 3px rgba(110, 85, 255, 0.1);
+}
+
+.env-password-input::placeholder {
+  color: #9ca3af;
 }
 
 /* 响应式适配 */

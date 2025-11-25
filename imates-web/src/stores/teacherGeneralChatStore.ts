@@ -12,7 +12,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiService } from '../services/api-service'
-import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
+import { chatStorage, type ChatHistoryData } from '../services/chat-storage'
 import { showMessage } from '../utils'
 import { getUserInfo, getUserId } from '../services/auth-storage-service'
 import { authStorageService } from '../services/auth-storage-service'
@@ -813,7 +813,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
         lastUpdated: Date.now(),
       }
 
-      await asyncStorage.saveChatHistory(storageKey, historyData)
+      await chatStorage.saveChatHistory(storageKey, historyData)
       
       // 保存消息快照，用于后续对比
       lastSavedMessagesSnapshot.value = {
@@ -856,7 +856,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
       // 在加载历史消息之前，先备份当前应该保存的新消息（避免被其他会话的消息污染）
       const currentMessagesSnapshot = [...messages.value]
       
-      const history = await asyncStorage.loadChatHistory(storageKey)
+      const history = await chatStorage.loadChatHistory(storageKey)
       if (history && history.messages) {
         const loadedMessages = history.messages || []
         console.log('loadedMessages', loadedMessages)
@@ -904,7 +904,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
         lastUpdated: Date.now(),
       }
 
-      await asyncStorage.saveChatHistory(storageKey, historyData)
+      await chatStorage.saveChatHistory(storageKey, historyData)
       
       // 保存消息快照，用于后续对比
       lastSavedMessagesSnapshot.value = {
@@ -954,7 +954,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
             lastUpdated: Date.now(),
           }
 
-          await asyncStorage.saveChatHistory(storageKey, historyData)
+          await chatStorage.saveChatHistory(storageKey, historyData)
           showMessage('已清理旧数据，保留最近10条消息', 'info', 3000)
         } catch (cleanupError) {
           console.error('清理旧数据也失败:', cleanupError)
@@ -976,7 +976,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
     try {
       const storageKey = `teacher-general-${sessionId}`
       const userId = authStorageService.getCurrentUserIdOrDefault()
-      const history = await asyncStorage.loadChatHistory(storageKey)
+      const history = await chatStorage.loadChatHistory(storageKey)
       if (history) {
         const loadedMessages = history.messages || []
         messages.value = loadedMessages
@@ -1097,7 +1097,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
     try {
       const storageKey = `teacher-general-${sessionId}`
       // 删除单个会话的消息
-      await asyncStorage.removeChatHistory(storageKey)
+      await chatStorage.removeChatHistory(storageKey)
 
       // 删除会话信息
       deleteSession(sessionId)
@@ -1397,7 +1397,7 @@ export const useTeacherGeneralChatStore = defineStore('teacherGeneralChat', () =
   const getSessionMessageCount = async (sessionId: string): Promise<number> => {
     try {
       const storageKey = `teacher-general-${sessionId}`
-      const history = await asyncStorage.loadChatHistory(storageKey)
+      const history = await chatStorage.loadChatHistory(storageKey)
 
       if (history && history.messages) {
         return history.messages.length || 0

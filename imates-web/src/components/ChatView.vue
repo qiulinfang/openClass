@@ -109,7 +109,7 @@
           :type="type"
           :uploaded-files="uploadedFiles"
           :active-mode="activeMode"
-          :can-send="canSend"
+          :can-send="isEditingMessage ? canSendInEditMode : canSend"
           :is-editing="isEditingMessage"
           :editing-message-id="editingMessageId"
           :attached-screenshot="attachedScreenshot"
@@ -552,6 +552,14 @@ const enhancedPlaceholderText = computed(() => {
  */
 const canSend = computed(() => {
   return !!(inputMessage.value.trim() || uploadedFiles.value.length > 0)
+})
+
+// 编辑模式下是否可以发送：只有当输入内容非空且和原始内容不同时才允许
+const canSendInEditMode = computed(() => {
+  if (!isEditingMessage.value) return false
+  const current = inputMessage.value
+  const original = (originalMessageContent.value || '')
+  return current !== '' && current.length !== original.length
 })
 
 // 动态键盘高度（固定值）
@@ -1320,7 +1328,7 @@ const handleEditMessage = (message: ChatBubble) => {
   isEditingMessage.value = true
   editingMessageId.value = message.id
   originalMessageContent.value = message.content || ''
-  editingQuestionId.value = currentQuestion.value?.id || null
+  editingQuestionId.value = currentQuestion.value?.bmNo || null
 
   // 将消息内容复制到输入框
   // 如果消息包含公式，需要将渲染后的HTML转换为TiptapEditor可识别的格式
@@ -1432,6 +1440,9 @@ const updateEditedMessage = async (newContent: string) => {
     try {
       await chatStrategy.value.updateEditedMessage(editingMessageId.value, newContent, {
         selectedModel: selectedModel.value,
+        // 对于 AI 题目策略：这里的 currentQuestionId 约定为 bmNo
+        currentQuestionId: currentQuestion.value?.bmNo,
+        currentQuestion: currentQuestion.value,
       })
 
       // 清除编辑状态
@@ -1829,11 +1840,11 @@ watch(
   () => currentQuestion.value,
   (newQuestion, oldQuestion) => {
     console.log('题目切换处理函数', newQuestion, oldQuestion)
-    if (newQuestion?.id !== oldQuestion?.id || newQuestion?.bmNo !== oldQuestion?.bmNo) {
+    if (newQuestion?.bmNo !== oldQuestion?.bmNo) {
       // 检查是否正在编辑消息
       if (isEditingMessage.value) {
         // 检查是否切换回正在编辑的题目
-        if (editingQuestionId.value && newQuestion && newQuestion.id === editingQuestionId.value) {
+        if (editingQuestionId.value && newQuestion && newQuestion.bmNo === editingQuestionId.value) {
           // 直接执行切换，不显示确认对话框
           executeQuestionSwitch()
           return

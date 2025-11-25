@@ -57,12 +57,12 @@
               />
             </div>
 
-            <!-- 进度 -->
+            <!-- 下载状态（替换进度） -->
             <div class="filter-dropdown-item">
-              <label class="filter-label">进度:</label>
+              <label class="filter-label">下载状态:</label>
               <q-select
-                v-model="selectedProgress"
-                :options="progressOptions"
+                v-model="selectedStatus"
+                :options="statusOptions"
                 behavior="menu"
                 emit-value
                 map-options
@@ -71,22 +71,6 @@
                 class="filter-select"
                 @update:model-value="handleFilterChange"
               />
-            </div>
-          </div>
-
-          <!-- 标签页区域 -->
-          <div class="filter-tabs">
-            <div
-              v-for="tab in filterTabs"
-              :key="tab.value"
-              class="filter-tab"
-              :class="{ active: activeTab === tab.value }"
-              @click="setActiveTab(tab.value)"
-            >
-              <span class="tab-label">{{ tab.label }}</span>
-              <q-badge v-if="tab.count > 0" color="negative" rounded class="tab-badge">
-                {{ tab.count }}
-              </q-badge>
             </div>
           </div>
 
@@ -125,13 +109,13 @@
                     }"
                   >
                     <!-- 删除按钮（右上角） -->
-                    <button
+                    <!-- <button
                       @click.stop="handleDeleteTextbook(textbook)"
                       class="textbook-delete-btn"
                       title="删除教材"
                     >
                       <i class="material-icons">close</i>
-                    </button>
+                    </button> -->
 
                     <!-- 左侧：封面图片 -->
                     <div class="textbook-cover">
@@ -151,6 +135,9 @@
                           <div class="textbook-title">{{ textbook.textbookName }}</div>
                           <div class="textbook-version">
                             {{ textbook.textbookPublisher || '人教版' }}
+                            <span v-if="textbook.textbookSemesterLabel" class="textbook-semester">
+                               {{ textbook.textbookSemesterLabel }}
+                            </span>
                           </div>
                         </div>
 
@@ -161,9 +148,14 @@
                             'status-indicator-red': textbook.downloadStatus === 0,
                             'status-indicator-blue': textbook.downloadStatus === 1,
                             'status-indicator-green':
-                              textbook.downloadStatus === 2 && textbook.isDownloaded,
+                              textbook.downloadStatus === 2 &&
+                              textbook.isDownloaded &&
+                              !textbook.hasUpdatesAvailable,
                             'status-indicator-gray': textbook.downloadStatus === 3,
-                            'status-indicator-orange': textbook.hasUpdatesAvailable,
+                            'status-indicator-orange':
+                              textbook.hasUpdatesAvailable &&
+                              textbook.downloadStatus === 2 &&
+                              textbook.isDownloaded,
                           }"
                         >
                           <!-- 未下载 -->
@@ -250,7 +242,7 @@
                           >
                             <button
                               @click="handleLearnTextbook(textbook)"
-                              class="action-btn action-btn-download"
+                              class="action-btn action-btn-learn"
                             >
                               学习
                             </button>
@@ -396,8 +388,8 @@ const showDebugPanel = ref(false)
 const selectedGrade = ref<string>('')
 const selectedVersion = ref<string>('')
 const selectedSubject = ref<string>('')
-const selectedProgress = ref<string>('')
-const activeTab = ref<string>('all')
+// 下载状态筛选：''=全部, notDownloaded=未下载, downloaded=已下载, pendingUpdate=待更新
+const selectedStatus = ref<string>('')
 
 // 筛选器选项
 const gradeOptions = ref([
@@ -431,32 +423,13 @@ const subjectOptions = ref([
   { label: '政治', value: '政治' },
 ])
 
-// 进度选项 - 根据年级动态生成
-const progressOptions = computed(() => {
-  const baseOptions = [{ label: '全部', value: '' }]
-
-  // 判断是否为初中
-  const isMiddleSchool =
-    selectedGrade.value === '初一' ||
-    selectedGrade.value === '初二' ||
-    selectedGrade.value === '初三'
-
-  // 判断是否为高中
-  const isHighSchool =
-    selectedGrade.value === '高一' ||
-    selectedGrade.value === '高二' ||
-    selectedGrade.value === '高三'
-
-  if (isMiddleSchool) {
-    // 初中：上册和下册
-    baseOptions.push({ label: '上册', value: '上册' }, { label: '下册', value: '下册' })
-  } else if (isHighSchool) {
-    // 高中：必修和选修
-    baseOptions.push({ label: '必修', value: '必修' }, { label: '选修', value: '选修' })
-  }
-
-  return baseOptions
-})
+// 下载状态选项
+const statusOptions = ref([
+  { label: '全部', value: '' },
+  { label: '未下载', value: 'notDownloaded' },
+  { label: '已下载', value: 'downloaded' },
+  { label: '待更新', value: 'pendingUpdate' },
+])
 
 // 删除教材相关状态
 const showDeleteDialog = ref(false)
@@ -471,24 +444,27 @@ const initialLoadCompleted = ref(false)
 // 分类选项 - 基于学科动态生成
 const categories = ref([{ label: '全部', value: 'all' }])
 
-// 标签页数据（带计数）
-const filterTabs = computed(() => {
-  const notDownloaded = textbooks.value.filter(
-    (t) => !t.isDownloaded || t.downloadStatus === 0,
-  ).length
-  const pendingUpdate = textbooks.value.filter(
-    (t) => t.isDownloaded && t.hasUpdatesAvailable,
-  ).length
+// 原有标签页(filterTabs)已由顶部“下载状态”下拉替代，这里不再需要单独的Tabs配置
 
-  return [
-    { label: '全部', value: 'all', count: 0 },
-    { label: '未下载', value: 'notDownloaded', count: notDownloaded },
-    { label: '已下载', value: 'downloaded', count: 0 },
-    { label: '待更新', value: 'pendingUpdate', count: pendingUpdate },
-  ]
-})
+// 根据下载状态计算排序权重：
+// 0 = 已下载且有更新(pendingUpdate)
+// 1 = 未下载(notDownloaded)
+// 2 = 已下载且无更新(downloaded)
+// 3 = 其他状态（下载中、暂停等）
+const getStatusRank = (textbook: UserTextbookInfo): number => {
+  if (textbook.isDownloaded && textbook.hasUpdatesAvailable) {
+    return 0
+  }
+  if (!textbook.isDownloaded || textbook.downloadStatus === 0) {
+    return 1
+  }
+  if (textbook.isDownloaded && textbook.downloadStatus === 2 && !textbook.hasUpdatesAvailable) {
+    return 2
+  }
+  return 3
+}
 
-// 计算属性 - 支持新的筛选逻辑（年级、版本、学科、进度、标签页）
+// 计算属性 - 支持新的筛选逻辑（年级、版本、学科、下载状态）
 const filteredTextbooks = computed(() => {
   let result: UserTextbookInfo[] = [...textbooks.value]
 
@@ -507,35 +483,35 @@ const filteredTextbooks = computed(() => {
     result = result.filter((textbook) => textbook.textbookSubjectLabel === selectedSubject.value)
   }
 
-  // 进度筛选（根据学期标签）
-  if (selectedProgress.value) {
-    result = result.filter((textbook) => {
-      // 这里可以根据实际需求匹配学期标签或教材名称
-      return (
-        textbook.textbookSemesterLabel?.includes(selectedProgress.value) ||
-        textbook.textbookName?.includes(selectedProgress.value)
-      )
-    })
-  }
-
-  // 标签页筛选
-  if (activeTab.value === 'notDownloaded') {
+  // 下载状态筛选（替代原来的进度 + 标签页逻辑）
+  if (selectedStatus.value === 'notDownloaded') {
+    // 未下载：本地未下载或状态为0
     result = result.filter((textbook) => !textbook.isDownloaded || textbook.downloadStatus === 0)
-  } else if (activeTab.value === 'downloaded') {
+  } else if (selectedStatus.value === 'downloaded') {
+    // 已下载：已下载且状态为2，且没有待更新
     result = result.filter(
       (textbook) =>
         textbook.isDownloaded && textbook.downloadStatus === 2 && !textbook.hasUpdatesAvailable,
     )
-  } else if (activeTab.value === 'pendingUpdate') {
+  } else if (selectedStatus.value === 'pendingUpdate') {
+    // 待更新：已下载且有更新可用
     result = result.filter(
       (textbook) =>
         textbook.isDownloaded && textbook.hasUpdatesAvailable,
     )
   }
-  // 'all' 标签页不需要额外筛选
+  // 其余情况（selectedStatus为''）表示全部，不做状态筛选
 
-  // 排序确保每次加载顺序一致
+  // 排序确保每次加载顺序一致：
+  // 1. 先按下载状态优先级排序（已下载有更新 -> 未下载 -> 已下载无更新 -> 其他）
+  // 2. 再按学科、年级、教材名称排序
   return result.sort((a, b) => {
+    const rankA = getStatusRank(a)
+    const rankB = getStatusRank(b)
+    if (rankA !== rankB) {
+      return rankA - rankB
+    }
+
     // 先按学科排序
     if (a.textbookSubjectLabel !== b.textbookSubjectLabel) {
       return a.textbookSubjectLabel.localeCompare(b.textbookSubjectLabel)
@@ -612,25 +588,9 @@ const getDownloadProgress = (downloadedFiles: number, totalFiles: number): numbe
   return Math.round((downloadedFiles / totalFiles) * 100)
 }
 
-// 处理筛选变化
+// 处理筛选变化：目前所有筛选逻辑都在 filteredTextbooks 的 computed 中，这里留作扩展占位
 const handleFilterChange = () => {
-  // 当年级改变时，检查当前进度是否在新的选项中
-  // 如果不在，清空进度选择
-  if (selectedProgress.value) {
-    const currentProgressValid = progressOptions.value.some(
-      (option) => option.value === selectedProgress.value,
-    )
-    if (!currentProgressValid) {
-      selectedProgress.value = ''
-    }
-  }
-  // 筛选逻辑已在 computed 中实现，这里可以添加其他处理
-  // 如果需要，可以在这里触发数据重新计算或其他操作
-}
-
-// 设置活动标签页
-const setActiveTab = (tab: string) => {
-  activeTab.value = tab
+  // 预留：如果需要在筛选变化时触发额外行为，可以在此处添加
 }
 
 // 合并服务器数据和本地数据 - 优化版本：先解构本地数据，再解构服务器数据
@@ -1384,7 +1344,7 @@ onUnmounted(async () => {
 
 <style lang="scss" scoped>
 .q-layout {
-  background: #f5f5f5;
+  background: #edeeff;
 }
 
 .my-resources-view {
@@ -1496,6 +1456,7 @@ onUnmounted(async () => {
         .filter-label {
           font-size: 14px;
           color: rgba(0, 0, 0, 0.87);
+          font-weight: 500;
           white-space: nowrap;
         }
 
@@ -1670,9 +1631,6 @@ onUnmounted(async () => {
       gap: 16px;
       padding: 16px;
       border-radius: 8px;
-      box-shadow:
-        0 2px 4px rgba(0, 0, 0, 0.1),
-        0 0 0 1px rgba(0, 0, 0, 0.05);
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       background: #ffffff;
       contain: layout style paint;
@@ -1774,6 +1732,13 @@ onUnmounted(async () => {
               color: #6b7280;
               font-weight: 400;
             }
+
+            .textbook-semester {
+              font-size: 14px;
+              color: #6b7280;
+              font-weight: 400;
+              margin-left: 8px;
+            }
           }
 
           // 状态指示器
@@ -1794,49 +1759,70 @@ onUnmounted(async () => {
             }
 
             .status-dot-red {
-              background: #ffffff;
+              background: #ff4d4f;    // 未下载：红
             }
 
             .status-dot-blue {
-              background: #ffffff;
+              background: #6e55ff;    // 下载中：主色紫蓝
             }
 
             .status-dot-green {
-              background: #ffffff;
+              background: #34c759;    // 下载完成：绿
             }
 
             .status-dot-orange {
-              background: #ffffff;
+              background: #fa8c16;    // 有更新：橙
             }
 
             .status-dot-gray {
-              background: #ffffff;
+              background: #8c8c8c;    // 暂停：灰
             }
 
             .status-text {
               font-size: 12px;
               font-weight: 500;
-              color: #ffffff;
+              color: #4a4a4a; // 默认深灰
+            }
+
+            // 让文字颜色跟随前面的状态点颜色
+            .status-dot-red + .status-text {
+              color: #ff4d4f;
+            }
+
+            .status-dot-blue + .status-text {
+              color: #6e55ff; // 与主色保持一致
+            }
+
+            .status-dot-green + .status-text {
+              color: #34c759;
+            }
+
+            .status-dot-orange + .status-text {
+              color: #fa8c16;
+            }
+
+            .status-dot-gray + .status-text {
+              color: #8c8c8c;
             }
 
             &.status-indicator-blue {
-              background: rgba(110, 85, 255, 0.64);
+              background: rgba(110, 85, 255, 0.12); // 更淡的紫色背景
             }
 
             &.status-indicator-green {
-              background: rgba(16, 185, 129, 0.64);
+              background: rgba(16, 185, 129, 0.16);
             }
 
             &.status-indicator-gray {
-              background: rgba(107, 114, 128, 0.64);
+              background: rgba(107, 114, 128, 0.12);
             }
 
             &.status-indicator-orange {
-              background: rgba(245, 158, 11, 0.64);
+              background: rgba(249, 115, 22, 0.16);
             }
 
             &.status-indicator-red {
-              background: rgba(239, 68, 68, 0.64);
+              background: rgba(239, 68, 68, 0.16);
             }
           }
         }
@@ -1868,6 +1854,12 @@ onUnmounted(async () => {
           .action-btn-download {
             background-color: #6e55ff !important;
             color: #ffffff !important;
+          }
+
+          .action-btn-learn {
+            background-color: #ffffff !important;
+            color: #6e55ff !important;
+            border: 1px solid #6e55ff !important;
           }
 
           .action-btn-update {
