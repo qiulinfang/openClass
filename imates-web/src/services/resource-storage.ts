@@ -43,7 +43,7 @@ export class ResourceManager {
     const dbName = `TextbookStorage_${userId}`
     this.indexedDBInstance = IndexedDBService.getInstance({
       dbName: dbName,
-      version: 8, // 升级版本号，确保索引被创建（修复索引不存在问题）
+      version: 9, // 升级版本号，确保索引被创建（修复索引不存在问题）
       stores: [
         {
           name: 'textbooks',

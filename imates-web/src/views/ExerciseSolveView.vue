@@ -172,7 +172,7 @@ import QuestionDebugPanel from '../components/debug/QuestionDebugPanel.vue'
 import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem, ChatBubble } from '../types'
 import { Subject } from '../types'
-import switchSubjectIcon from '/icons/switch_subject.svg'   
+import switchSubjectIcon from '/icons/switch_subject.svg' 
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -768,7 +768,7 @@ $desktop-breakpoint: 1025px;
   height: $header-height;
   min-height: $header-height;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
 }
 
@@ -908,56 +908,41 @@ $desktop-breakpoint: 1025px;
 
 .nav-item {
   font-size: 14px;
-  color: #B0BEC5; /* 浅灰色文字 */
+  color: #9792AC; /* 浅灰色文字 */
   cursor: pointer;
-  transition: all 0.2s ease;
-  padding: 8px 16px;
-  border-radius: 8px;
+  // 用高度+左右 padding 控制宽度，不再让它随文字无限变窄
+  padding: 6px 24px;
   position: relative;
-  display: flex;
+  display: inline-flex;     /* 以内联块的形式，让背景宽度只包裹内容 */
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  
+  min-width: 120px;         /* 适配你的 sessionbackground.svg 宽度，可按实际调整 */
+  height: 36px;             /* 对应底图高度，可按实际调整 */
+  box-sizing: border-box;
+  font-weight: 500;
 
-  // 激活状态 - 白色背景，深色文字，紫色下划线
+  // 激活状态 - 使用 sessionbackground.svg 作为背景
   &.active {
-    background-color: #ffffff;
-    color: #673AB7; /* 深紫色文字，与背景色匹配 */
-    font-weight: 500;
-    
-    // 紫色下划线
+    background-image: url('/icons/sessionbackfround.png');
+    background-repeat: no-repeat;
+    background-size: 100% 100%;   // 背景完整铺满 nav-item
+    background-position: center;
+    color: #504B64;
+    font-weight: 600;
     &::after {
       content: '';
       position: absolute;
-      bottom: -4px;
+      bottom: 1px;
       left: 50%;
       transform: translateX(-50%);
-      width: 60%;
+      width: 30%;
       height: 3px;
-      background: #9C27B0; /* 亮紫色下划线 */
+      background: #6E55FF; /* 亮紫色下划线 */
       border-radius: 2px;
     }
-    
-    // 图标在激活状态下也应该是深紫色
     .nav-icon {
-      filter: brightness(0.7) saturate(1.5);
-    }
-  }
-  
-  // 禁用状态
-  &.disabled {
-    color: #757575;
-    cursor: not-allowed;
-    opacity: 0.5;
-  }
-  
-  // 导航图标
-  .nav-icon {
-    font-size: 16px;
-    filter: brightness(0.9);
-    
-    .active & {
-      filter: brightness(1.2);
+      filter: none;
     }
   }
 }
