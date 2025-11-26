@@ -1175,67 +1175,10 @@ const loadChapterStructure = async (textbookId: string) => {
   }
 }
 
-// 性能监控工具
-// 获取带用户ID前缀的性能数据存储key
-const getPerfDataKey = () => {
-  const userId = authStorageService.getCurrentUserIdOrDefault()
-  return `${userId}_perfData`
-}
-
-const performanceMonitor = {
-  // 记录性能数据
-  recordPerformance(operation: string, duration: number): void {
-    const perfData = {
-      operation,
-      duration,
-      timestamp: Date.now(),
-      userAgent: navigator.userAgent
-    }
-    
-    // 存储到localStorage用于分析
-    const key = getPerfDataKey()
-    const existingData = JSON.parse(localStorage.getItem(key) || '[]')
-    existingData.push(perfData)
-    
-    // 只保留最近50条记录
-    if (existingData.length > 50) {
-      existingData.splice(0, existingData.length - 50)
-    }
-    
-    localStorage.setItem(key, JSON.stringify(existingData))
-  },
-  
-  // 获取性能统计
-  getPerformanceStats(): {
-    count: number
-    average: number
-    min: number
-    max: number
-    lastOperation: { operation: string; duration: number; timestamp: number }
-  } | null {
-    const key = getPerfDataKey()
-    const perfData = JSON.parse(localStorage.getItem(key) || '[]')
-    const authOperations = perfData.filter((d: { operation: string }) => d.operation.includes('认证'))
-    
-    if (authOperations.length === 0) return null
-    
-    const durations = authOperations.map((d: { duration: number }) => d.duration)
-    return {
-      count: authOperations.length,
-      average: durations.reduce((a: number, b: number) => a + b, 0) / durations.length,
-      min: Math.min(...durations),
-      max: Math.max(...durations),
-      lastOperation: authOperations[authOperations.length - 1]
-    }
-  }
-}
-
 // 智能会话管理器
 const sessionManager = {
   // 检查会话是否有效
   async isSessionValid(): Promise<boolean> {
-    const startTime = performance.now()
-    
     try {
       // 检查统一存储的token和userId
       const { getYanbanToken, getUserId } = await import('../services/auth-storage-service')
@@ -1263,8 +1206,6 @@ const sessionManager = {
         }
       }
       
-      const endTime = performance.now()
-      performanceMonitor.recordPerformance('会话验证', endTime - startTime)
       return true
     } catch {
       return false
@@ -1273,18 +1214,12 @@ const sessionManager = {
   
   // 智能重新认证
   async ensureAuthentication(): Promise<boolean> {
-    const startTime = performance.now()
-    
     const isValid = await this.isSessionValid()
     if (isValid) {
-      const endTime = performance.now()
-      performanceMonitor.recordPerformance('智能认证-使用现有会话', endTime - startTime)
       return true
     }
     
     const result = await apiService.autoLogin(false)
-    const endTime = performance.now()
-    performanceMonitor.recordPerformance('智能认证-重新登录', endTime - startTime)
     return result
   },
   
@@ -1418,12 +1353,6 @@ const initGraph = async () => {
   } finally {
     loading.value = false
   }
-}
-
-// CSS动画方法
-const initCSSAnimations = () => {
-  // CSS动画初始化（如果需要的话）
-  // 这里可以设置CSS动画的默认配置
 }
 
 
@@ -1749,7 +1678,6 @@ onMounted(async () => {
   refreshLearningStatusFromStorage()
   
   initGraph()
-  initCSSAnimations()
 
   // 检查路由参数，如果需要自动打开学习对话框
   checkAndOpenLearningDialog()

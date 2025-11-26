@@ -14,6 +14,7 @@ import { apiService } from '../services/api-service'
 import { chatStorage } from '../services/chat-storage'
 import { showMessage } from '../utils'
 import { getUserInfo, getSubject, getUserId } from '../services/auth-storage-service'
+import { useAiGeneralChatStore } from './aiGeneralChatStore'
 import {
   createUserMessage,
   createTempAiReplyMessage,
@@ -42,6 +43,7 @@ interface BuildTextbookMessageParams {
   imageData?: TextbookChatImageData
   useScreenshotApi?: boolean
   isNewSession?: boolean
+  focus?: string // 引用的消息内容
 }
 
 const buildAiTextbookMessage = ({
@@ -53,6 +55,7 @@ const buildAiTextbookMessage = ({
   imageData,
   useScreenshotApi = false,
   isNewSession = true,
+  focus,
 }: BuildTextbookMessageParams): AiChatMessageRequest => {
   // 从 localStorage 获取 userId
   const userId = getUserId() || 'User'
@@ -75,6 +78,7 @@ const buildAiTextbookMessage = ({
       chatRole,
       subject: '',
       dstUrl: '/permission/previewPictureQA',
+      focus, // 引用的消息内容
     }
   }
 
@@ -93,6 +97,7 @@ const buildAiTextbookMessage = ({
     chatRole,
     subject: '',
     dstUrl,
+    focus, // 引用的消息内容
   }
 }
 
@@ -107,6 +112,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   const useScreenshotApi = ref(false)  // 是否使用截图接口（用于截图会话的后续消息）
   const currentSessionId = ref<string | null>(null) // 当前会话ID，用于加载消息历史
   const isNewSession = ref(true) // 是否是新会话
+  const aiGeneralStore = useAiGeneralChatStore() // 引用 ai-general 场景，用于获取根会话ID
   
   const VIEW_ANSWER_CHAT_TIMES = 3
   const canViewAnswer = computed(() => chatResponseTimes.value >= VIEW_ANSWER_CHAT_TIMES)
@@ -170,7 +176,20 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   }
   
   // ==================== 发送消息 ====================
-  
+  // 确保存在一个可用的会话ID：优先使用 aiGeneral 顶部会话ID，否则生成一个 aitextbook 会话ID
+const ensureTopGeneralSession = async () => {
+  // 1. 取顶部会话
+  if (aiGeneralStore.sessions.length > 0) {
+    const topSession = aiGeneralStore.sessions[0]
+    console.log('[AI_TEXTBOOK] 使用 ai-general 顶部会话ID:', topSession.sessionId)
+    return topSession.sessionId
+  }
+
+  // 2. 一个会话都没有，创建一个新的 aiTextbook 会话ID
+  const newSessionId = `textbook-session-${Date.now()}`
+  console.log('[AI_TEXTBOOK] 创建新会话ID:', newSessionId)
+  return newSessionId
+}
   /**
    * 发送聊天消息
    * 第1步：创建用户消息
@@ -183,18 +202,30 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     selectedModel?: string,
     imageData?: ChatImageData,
     hidePrefix: boolean = false,
-    skipUserMessage?: boolean
+    skipUserMessage?: boolean,
+    focus?: string, // 引用的消息内容（发送给后端）
+    quotedMessage?: { id: string; content: string; sender: 'user' | 'ai' | 'teacher' } // 引用消息信息（用于消息气泡展示）
   ): Promise<void> => {
+    console.log('水电费水电费水电费收', currentSessionId.value)
     // 第1步：创建并添加用户消息（可选）
     if (!skipUserMessage) {
-      const userMessage = createUserMessage(content, imageData, hidePrefix)
+      const userMessage = createUserMessage(
+        content,
+        imageData,
+        hidePrefix,
+        currentSessionId.value || undefined,
+        quotedMessage, // 传递引用消息信息（前端展示用）
+      )
       addMessage(userMessage)
       // 用户消息创建后立即保存（确保即使AI回复未完成，用户消息也能被保存）
       await saveChatHistory()
     }
     
     // 第2步：创建临时AI回复消息
-    const { message: tempReply, id: tempReplyId } = createTempAiReplyMessage(selectedModel || 'mate')
+    const { message: tempReply, id: tempReplyId } = createTempAiReplyMessage(
+      selectedModel || 'mate',
+      currentSessionId.value || undefined,
+    )
     addMessage(tempReply)
     
     // 第3步：设置渲染状态（发送消息时不需要设置 isChatLoading，因为 isChatLoading 只用于加载聊天历史）
@@ -202,6 +233,11 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     try {
       // 第4步：获取用户信息和科目
       const userInfo = getUserInfo()
+      
+      // ========= 获取后端使用的根会话ID（来自 ai-general 的第一个会话） =========
+      let backendSessionId: string | null = null
+      backendSessionId = await ensureTopGeneralSession()
+      console.log('[AI_TEXTBOOK] 使用会话ID:', backendSessionId)
       
       // 第5步：构建AI消息请求（传入科目以确定dstUrl）
       // 将 chatStoreUtils.ChatImageData 转换为构建请求所需的精简图片数据
@@ -225,7 +261,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
       const shouldUseScreenshotApi = !!builderImageData
 
       const aiMessage = buildAiTextbookMessage({
-        sessionId: currentSessionId.value,
+        sessionId: backendSessionId,
         content,
         userInfo: userInfo,
         enableWebSearch: enableWebSearch.value,
@@ -233,6 +269,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
         imageData: builderImageData,
         useScreenshotApi: shouldUseScreenshotApi,
         isNewSession: isNewSession.value,
+        focus, // 传递引用内容
       })
 
       // 调试日志：验证文字和图片是否一起发送
@@ -522,6 +559,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
 
       const data = await chatStorage.loadChatHistory(storageKey)
       if (data && Array.isArray(data.messages)) {
+        // 统一按资源维度加载全部消息，具体按会话过滤由上层逻辑决定
         messages.value = data.messages
         chatResponseTimes.value = data.chatResponseTimes || 0
       } else {
@@ -590,7 +628,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     loadChatHistory,
     clearChatHistory,
     toggleWebSearch,
-    setResourceId
+    setResourceId,
   }
 })
 

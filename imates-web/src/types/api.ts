@@ -19,7 +19,8 @@ export interface AiChatMessageRequest {
   isWebSearch: string
   chatRole: string,
   subject: string,
-  explanation: string
+  explanation?: string
+  focus?: string  // 引用的消息内容
 }
 
 /** 聊天响应接口 */

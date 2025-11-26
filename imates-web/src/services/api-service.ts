@@ -664,8 +664,13 @@ export class ApiService {
     messageId: string = generateUniqueId('ai'),
   ): Promise<any> {
     try {
-      // 1. 构建请求体
-      const requestBody = this.buildChatRequestBody(message)
+      // 1. 直接使用 message 作为请求体
+      const requestBody = {
+        ...message,
+        // 如果后端使用的是 role 字段，可以兼容一下
+        role: (message as any).chatRole ?? (message as any).role,
+      }
+
       
       // 2. 发送HTTP请求
       const response = await this.sendChatRequest(url, requestBody)
@@ -690,26 +695,6 @@ export class ApiService {
       })
       // 4. 处理异常
       return this.handleChatError(error, messageId, accumulatedContent, onComplete, onStream)
-    }
-  }
-
-  /**
-   * 构建聊天请求体
-   * 将消息对象转换为与Android端一致的请求格式
-   */
-  private buildChatRequestBody(message: AiChatMessageRequest) {
-    return {
-      sessionId: message.sessionId,
-      newValue: message.newValue,
-      coversation: message.coversation,
-      question: message.question,
-      answer: message.answer,
-      name: message.name,
-      reason: message.reason, // "start" 或 "continue"
-      bmNo: message.bmNo,
-      isWebSearch: message.isWebSearch,
-      role: message.chatRole,
-      explanation: message.explanation,
     }
   }
 

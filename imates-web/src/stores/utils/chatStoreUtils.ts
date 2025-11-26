@@ -24,12 +24,23 @@ export interface ChatImageData {
 }
 
 /**
+ * 引用消息信息
+ */
+export interface QuotedMessageInfo {
+  id: string
+  content: string
+  sender: 'user' | 'ai' | 'teacher'
+}
+
+/**
  * 创建用户消息
  */
 export function createUserMessage(
   content: string,
   imageData?: ChatImageData,
-  hidePrefix: boolean = false
+  hidePrefix: boolean = false,
+  sessionId?: string,
+  quotedMessage?: QuotedMessageInfo,
 ): ChatBubble {
   // 第1步：处理内容显示
   let displayContent = content
@@ -60,14 +71,19 @@ export function createUserMessage(
     timestamp: new Date().toISOString(),
     sender: 'user',
     messageType: isImageMessage ? 'image' : 'text',  // 设置消息类型，以便ChatMessage组件正确识别
-    imageData: standardImageData
+    imageData: standardImageData,
+    sessionId,
+    quotedMessage, // 引用消息信息
   }
 }
 
 /**
  * 创建临时AI回复消息
  */
-export function createTempAiReplyMessage(selectedModel?: string): { message: ChatBubble; id: string } {
+export function createTempAiReplyMessage(
+  selectedModel?: string,
+  sessionId?: string,
+): { message: ChatBubble; id: string } {
   const tempReplyId = generateUniqueId('temp_ai')
   const tempReplyMessage: ChatBubble = {
     id: tempReplyId,
@@ -76,7 +92,8 @@ export function createTempAiReplyMessage(selectedModel?: string): { message: Cha
     timestamp: new Date().toISOString(),
     sender: 'ai',
     isStreaming: true,
-    selectedModel: selectedModel || 'mate' // 保存当前模式
+    selectedModel: selectedModel || 'mate', // 保存当前模式
+    sessionId,
   }
   
   return { message: tempReplyMessage, id: tempReplyId }

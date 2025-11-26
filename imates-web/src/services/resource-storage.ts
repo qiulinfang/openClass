@@ -43,7 +43,7 @@ export class ResourceManager {
     const dbName = `TextbookStorage_${userId}`
     this.indexedDBInstance = IndexedDBService.getInstance({
       dbName: dbName,
-      version: 9, // 升级版本号，确保索引被创建（修复索引不存在问题）
+      version: 9, // 升级版本号，确保索引被创建（修复索引不存在问题），并新增 ai_textbook_sessions 表
       stores: [
         {
           name: 'textbooks',
@@ -62,6 +62,15 @@ export class ResourceManager {
           keyPath: 'fileId',
           indexes: [
             { name: 'textbookId', keyPath: 'textbookId' }
+          ]
+        },
+        {
+          name: 'ai_textbook_sessions',
+          keyPath: 'sessionId',
+          indexes: [
+            { name: 'resourceId', keyPath: 'resourceId' },
+            { name: 'pinned', keyPath: 'pinned' },
+            { name: 'updateTime', keyPath: 'updateTime' }
           ]
         }
       ]

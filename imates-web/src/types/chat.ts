@@ -46,6 +46,7 @@ export interface ChatBubble {
   originalMessage?: string // 原始消息内容（用于重发）
   isRecalled?: boolean // 场景38：标记消息是否已撤回
   isSystemMessage?: boolean // 场景39：标记是否为系统消息（不保存到历史）
+  sessionId?: string
   voiceData?: {
     filePath: string
     duration: number
@@ -64,6 +65,12 @@ export interface ChatBubble {
     additionalMessage?: string
   }
   selectedModel?: string // AI模式（mate/mentor/researcher），用于显示对应头像
+  // 引用消息信息
+  quotedMessage?: {
+    id: string
+    content: string
+    sender: 'user' | 'ai' | 'teacher'
+  }
 }
 
 // ========== 转发相关类型 ==========
@@ -94,6 +101,7 @@ export interface ChatInputProps {
   canSend: boolean
   isEditing?: boolean
   editingMessageId?: string | null
+  quotedMessage?: ChatBubble | null // 引用的消息
 }
 
 /** ChatInput 组件 Emits 接口 */
@@ -113,6 +121,7 @@ export interface ChatInputEmits {
   'remove-file': [fileId: string]
   'upload-file': []
   'cancel-edit': []
+  'remove-quote': [] // 移除引用
 }
 
 /** ChatMessage Props接口 */

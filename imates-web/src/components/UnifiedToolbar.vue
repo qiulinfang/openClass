@@ -1020,22 +1020,10 @@ defineExpose({
   width: 40px;
   height: 40px;
   cursor: pointer;
-  filter: brightness(0); /* 黑色图标 */
-  opacity: 0.7;
-}
-
-.popup-icon:hover {
-  background-color: #f5f5f5;
-  opacity: 1;
-}
-
-.popup-icon:active {
-  transform: scale(0.96);
 }
 
 .popup-icon-active {
-  background-color: #e3e2fe;
-  opacity: 1;
+  border: 2px solid #02002e;
 }
 
 /* 浏览器式风格弹出图标 */

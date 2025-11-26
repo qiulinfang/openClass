@@ -77,7 +77,6 @@
     <div class="session-actions">
       <!-- 更多按钮 -->
       <q-btn
-        v-if="!isSelectionMode && shouldShowMoreBtn"
         flat
         round
         dense
@@ -223,11 +222,6 @@ const isChecked = computed(() => {
   return false
 })
 
-// 计算是否显示更多按钮（总是显示，由 CSS 控制可见性）
-const shouldShowMoreBtn = computed(() => {
-  return true
-})
-
 // 收藏状态
 const isFavorite = ref(false)
 const favoriteType = ref<'qa' | 'session' | null>(null) // 记录收藏类型
@@ -338,9 +332,6 @@ const handleFavorite = () => {
   position: relative;
   background: #f7f6ff;
   padding: 5px;
-  &:hover {
-    background: #f5f5f5;
-  }
 
   &.is-selected {
     background: #ffffff;
