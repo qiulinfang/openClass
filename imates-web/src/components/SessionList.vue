@@ -185,25 +185,46 @@ const selectedRecords = ref<Set<string>>(new Set())
 
 // 获取所有置顶的会话
 const pinnedRecords = computed(() => {
+  console.log('111filteredRecords', filteredRecords.value)
   return filteredRecords.value.filter((record) => record.pinned)
 })
 
-// 按日期对会话进行分组，排除 pinned 的会话（pinned 会话已单独显示）
+// 按日期对会话进行分组，排除 pinned 的会话（pinned 会话已单独显示），并按日期从近到远排序
 const groupedRecords = computed(() => {
-  const groups: Record<string, AiTextbookSession[]> = {}
+	console.log('111filteredRecords', filteredRecords.value)
 
-  // 只处理非 pinned 的会话
-  filteredRecords.value
-    .filter((record) => !record.pinned)
-    .forEach((record) => {
-    const dateStr = formatDateForGrouping(getRecordTimestamp(record))
-    if (!groups[dateStr]) {
-      groups[dateStr] = []
-    }
-    groups[dateStr].push(record)
-  })
+	// 先按日期分组，同时记录每个分组中最新一条会话的时间戳
+	const groups: Record<string, { records: AiTextbookSession[]; latestTimestamp: number }> = {}
 
-  return groups
+	// 只处理非 pinned 的会话
+	filteredRecords.value
+		.filter((record) => !record.pinned)
+		.forEach((record) => {
+		  const ts = getRecordTimestamp(record)
+		  const dateStr = formatDateForGrouping(ts)
+		  if (!groups[dateStr]) {
+		    groups[dateStr] = {
+		      records: [],
+		      latestTimestamp: ts,
+		    }
+		  }
+		  groups[dateStr].records.push(record)
+		  // 更新该日期分组的最新时间
+		  if (ts > groups[dateStr].latestTimestamp) {
+		    groups[dateStr].latestTimestamp = ts
+		  }
+		})
+
+	// 根据每个日期分组中的最新时间倒序排序（越近的日期越靠上）
+	const sortedEntries = Object.entries(groups).sort(([, a], [, b]) => b.latestTimestamp - a.latestTimestamp)
+
+	// 重新组装为 Record<string, AiTextbookSession[]>，保持原有返回结构
+	const sortedGroups: Record<string, AiTextbookSession[]> = {}
+	sortedEntries.forEach(([dateStr, info]) => {
+		sortedGroups[dateStr] = info.records
+	})
+
+	return sortedGroups
 })
 
 // 第1步：根据搜索关键词过滤会话列表，并排序（pinned 在前）
@@ -211,11 +232,13 @@ const groupedRecords = computed(() => {
 const filteredRecords = computed(() => {
   const sourceRecords = props.records || []
   let filtered: AiTextbookSession[] = []
-
+  console.log('111sourceRecords', sourceRecords)
   if (!searchKeyword.value || !searchKeyword.value.trim()) {
+    console.log('111no search keyword')
     filtered = sourceRecords
   } else {
     const keyword = searchKeyword.value.toLowerCase().trim()
+    console.log('111search keyword', keyword)
     filtered = sourceRecords.filter((record) => {
       // 如果会话被收藏或置顶，无论是否匹配搜索关键词都要显示
       const recordId = getRecordId(record)
@@ -233,6 +256,8 @@ const filteredRecords = computed(() => {
       const answer = record.answer?.toLowerCase() || ''
       return question.includes(keyword) || answer.includes(keyword)
     })
+
+    console.log('filtered', filtered)
   }
 
   // 排序：pinned 的记录排在前面
@@ -357,6 +382,7 @@ const scrollToTop = () => {
 // 生命周期
 onMounted(() => {
   // RubberBandList 使用原生滚动，无需额外初始化
+  console.log('111mounted')
 })
 
 // 暴露方法给父组件
@@ -455,7 +481,6 @@ defineExpose({
 
 .scroll-wrapper {
   flex: 1;
-  overflow: hidden;
   position: relative;
   background-color: #f7f6ff;
 }

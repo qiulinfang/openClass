@@ -11,7 +11,7 @@
 
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
+import { chatStorage, type ChatHistoryData } from '../services/chat-storage'
 import type { ChatBubble, ExerciseItem, UserInfo } from '../types'
 import { createUserMessage } from './utils/chatStoreUtils'
 import { authStorageService } from '../services/auth-storage-service'
@@ -404,7 +404,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
       } else {
         // 文本消息：将题目信息包含在消息内容中
         // 格式：题目信息 + 用户消息
-        const questionInfo = `题目ID: ${currentQuestion.id}\n题目: ${currentQuestion.title || currentQuestion.question || ''}\n`
+        const questionInfo = `题目bmNo: ${currentQuestion.bmNo}\n题目: ${currentQuestion.title || currentQuestion.question || ''}\n`
         const fullContent = questionInfo + content
 
         result = await window.AndroidBridge.sendTextMessageToTeacher(
@@ -466,7 +466,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
         const sessionInfo = {
           sessionId: currentSession.value.sessionId,
           subject: currentSession.value.subject || 'math',
-          questionId: currentQuestion.id,
+          questionBmNo: currentQuestion.bmNo,
         }
 
         // 最多重试3次，每次延迟递增
@@ -500,7 +500,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
                 )
               }
             } else {
-              const questionInfo = `题目ID: ${currentQuestion.id}\n题目: ${currentQuestion.title || currentQuestion.question || ''}\n`
+              const questionInfo = `题目bmNo: ${currentQuestion.bmNo}\n题目: ${currentQuestion.title || currentQuestion.question || ''}\n`
               const fullContent = questionInfo + content
               result = await window.AndroidBridge.sendTextMessageToTeacher(
                 fullContent,
@@ -633,7 +633,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
       } else {
         // 文本消息：包含题目信息
         if (currentQuestion) {
-          const questionInfo = `题目ID: ${currentQuestion.id}\n题目: ${currentQuestion.title || currentQuestion.question || ''}\n`
+          const questionInfo = `题目bmNo: ${currentQuestion.bmNo}\n题目: ${currentQuestion.title || currentQuestion.question || ''}\n`
           const fullContent = questionInfo + content
           result = await window.AndroidBridge.sendTextMessageToTeacher(
             fullContent,
@@ -730,7 +730,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
         lastUpdated: Date.now(),
       }
 
-      await asyncStorage.saveTeacherChatHistory(storageKey, historyData)
+      await chatStorage.saveTeacherChatHistory(storageKey, historyData)
 
       // 保存会话信息到localStorage（使用统一存储格式）
       if (currentSession.value) {
@@ -759,7 +759,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
 
       // 先加载本地消息，避免覆盖已有消息
       console.log('[TEACHER_EXERCISE] 🔍 [存储流程] 保存聊天历史 storageKey', storageKey)
-      const loadedHistoryData = await asyncStorage.loadTeacherChatHistory(storageKey)
+      const loadedHistoryData = await chatStorage.loadTeacherChatHistory(storageKey)
       console.log('[TEACHER_EXERCISE] 🔍 [存储流程] 加载聊天历史', loadedHistoryData)
       if (loadedHistoryData && loadedHistoryData.messages) {
         const loadedMessages = loadedHistoryData.messages || []
@@ -794,7 +794,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
         lastUpdated: Date.now(),
       }
 
-      await asyncStorage.saveTeacherChatHistory(storageKey, historyData)
+      await chatStorage.saveTeacherChatHistory(storageKey, historyData)
 
       // 保存会话信息到localStorage（使用统一存储格式）
       if (currentSession.value) {
@@ -826,7 +826,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
         return
       }
       console.log('[TEACHER_EXERCISE] 🔍 [存储流程] 加载聊天历史 storageKey', storageKey)
-      const historyData = await asyncStorage.loadTeacherChatHistory(storageKey)
+      const historyData = await chatStorage.loadTeacherChatHistory(storageKey)
 
       if (historyData) {
         messages.value = historyData.messages || []
@@ -917,7 +917,7 @@ export const useTeacherExerciseChatStore = defineStore('teacherExerciseChat', ()
         deleteSession(sessionId)
       }
 
-      await asyncStorage.removeTeacherChatHistory(storageKey)
+      await chatStorage.removeTeacherChatHistory(storageKey)
 
       messages.value = []
       console.log('[TEACHER_EXERCISE] 🔍 [存储流程] 清空聊天历史清空', messages.value)

@@ -4,8 +4,8 @@
     <q-splitter 
       v-model="splitterModel"
       :limits="[30, 70]"
-      :disable="!chatPanelVisible"
-      :class="['full-height', { 'full-width-before': !chatPanelVisible, 'chat-panel-visible': chatPanelVisible }]"
+      :disable="!pdfViewerStore.chatPanelVisible"
+      :class="['full-height', { 'full-width-before': !pdfViewerStore.chatPanelVisible, 'chat-panel-visible': pdfViewerStore.chatPanelVisible }]"
     >
       <!-- PDF内容区域 -->
       <template v-slot:before>
@@ -14,7 +14,7 @@
           <UnifiedToolbar
             :tools="pdfToolbarTools"
             variant="browser"
-            :selected-tool="store.selectedTool"
+            :selected-tool="pdfViewerStore.selectedTool"
             :tool-states="toolStates"
             :tool-config="toolbarToolConfig"
             :backgroundColor="toolbarBackgroundColor"
@@ -35,14 +35,6 @@
                 color="white"
                 @click="handleToggleDebug"
                 class="q-mr-sm"
-              />
-              <q-btn
-                flat
-                round
-                dense
-                icon="chat"
-                color="white"
-                @click="chatPanelVisible = !chatPanelVisible"
               />
             </template>
           </UnifiedToolbar>
@@ -65,7 +57,7 @@
       </template>
 
       <!-- 对话面板 -->
-      <template v-slot:after v-if="chatPanelVisible">
+      <template v-slot:after v-if="pdfViewerStore.chatPanelVisible">
         <div class="chat-panel-container">
           <!-- 对话面板头部 -->
           <div class="chat-panel-header">
@@ -88,7 +80,7 @@
               round
               dense
               icon="close"
-              size="sm"
+              size="md"
               @click="handleCloseChatPanel"
               class="close-button"
             />
@@ -97,27 +89,26 @@
           <!-- Tab 内容区域 -->
           <div class="chat-content-container">
             <!-- AI 问答 Tab -->
-            <div v-if="activeTab === 'ai-chat'" class="tab-content">
+            <div v-show="activeTab === 'ai-chat'" class="tab-content">
               <ChatView
+                ref="chatViewRef"
                 type="ai-textbook"
-                @response="handleChatResponse"
-                @focus="handleChatFocus"
-                @scroll-to-bottom="handleScrollToBottom"
                 :compressed-height="360"
               />
             </div>
-
             <!-- 会话记录 Tab -->
-            <div v-if="activeTab === 'question-record'" class="tab-content">
-              <SessionList
-                :records="sessions"
-                :selectedRecordId="selectedRecordId"
-                @record-click="handleSessionClick"
-                @record-delete="handleSessionDelete"
-                @record-pin="handleSessionPin"
-                @batch-delete="handleBatchDelete"
-                :showHeader="false"
-              />
+            <div v-show="activeTab === 'question-record'" class="tab-content">
+              <div class="session-list-wrapper">
+                <SessionList
+                  :records="sessions"
+                  :selectedRecordId="selectedRecordId"
+                  @record-click="handleSessionClick"
+                  @record-delete="handleSessionDelete"
+                  @record-pin="handleSessionPin"
+                  @batch-delete="handleBatchDelete"
+                  :showHeader="false"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -137,10 +128,12 @@ import { onMounted, onBeforeUnmount, computed, ref, nextTick, type ComponentPubl
 import { useRoute, useRouter } from 'vue-router'
 import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useAiTextbookChatStore } from '@/stores/aiTextbookChatStore'
+import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { resourceManager } from '@/services/resource-storage'
 import type { UserTextbookInfo, LocalFileInfo, ChatBubble, AiTextbookSession } from '@/types'
 import {
   getScreenshotSessions,
+  getScreenshotSessionsByResourceId,
   addScreenshotSession,
   deleteScreenshotSession,
   batchDeleteScreenshotSessions,
@@ -149,8 +142,8 @@ import {
 import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
 import ChatView from '@/components/ChatView.vue'
-import SessionList from '@/components/SessionList.vue'
 import ScreenshotInputDialog from '@/components/ScreenshotInputDialog.vue'
+import SessionList from '@/components/SessionList.vue'
 
 type PdfPagePublicInstance = ComponentPublicInstance<{
   toggleDebugPanel: () => void
@@ -166,12 +159,10 @@ type PdfPagePublicInstance = ComponentPublicInstance<{
 // 调试面板状态
 const isDev = import.meta.env.VITE_ENABLE_DEBUG === 'true' || import.meta.env.DEV
 
-// 使用 Store 和路由
-const store = usePdfViewerStore()
+// 使用 pdfViewerStore 和路由
+const pdfViewerStore = usePdfViewerStore()
 const route = useRoute()
 const router = useRouter()
-
-// 绘制功能已移除，不再需要页面组件引用管理
 
 // 统一工具栏工具集合（本地变量）
 // middle 区域：绘图相关工具（荧光笔、文字笔记等）
@@ -180,9 +171,10 @@ const pdfToolbarTools = {
   middle: ['hand', 'highlighter', 'pen', 'eraser-draw', 'note', 'screenshot'],
 }
 
-
 // 使用 exerciseStore 来发送AI消息
 const aiTextbookStore = useAiTextbookChatStore()
+// 使用通用 AI 会话（用于截图输入走通用会话）
+const aiGeneralStore = useAiGeneralChatStore()
 
 // 组件状态（renderProgress 已移除，不再使用）
 
@@ -208,6 +200,9 @@ const sessions = ref<AiTextbookSession[]>([])
 // 选中的会话ID
 const selectedRecordId = ref<string | undefined>(undefined)
 
+// ChatView 实例引用，用于调用暴露的方法（如滚动到指定会话）
+const chatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
+
 // 辅助函数：获取会话ID（兼容 id 和 sessionId）
 const getSessionId = (session: AiTextbookSession): string => {
   return session.sessionId || session.id || ''
@@ -219,219 +214,97 @@ const getCurrentResourceId = (): string | undefined => {
   return (route.query.resourceId as string) || undefined
 }
 
-// 加载会话列表（按 resourceId 过滤），对齐 PdfViewerView111 的截图会话逻辑
-const loadSessions = () => {
-  const currentResourceId = getCurrentResourceId()
-  const allSessions = getScreenshotSessions()
-
-  // 如果没有 resourceId，显示所有会话（兼容旧数据）
-  if (!currentResourceId) {
-    sessions.value = allSessions
-    return
-  }
-
-  // 过滤出匹配当前 resourceId 的会话
-  sessions.value = allSessions.filter((record) => {
-    // 优先使用 record.resourceId
-    if (record.resourceId) {
-      return record.resourceId === currentResourceId
-    }
-
-    // 如果没有 resourceId，尝试从 storageKey 中提取
-    if (record.storageKey) {
-      const match = record.storageKey.match(/^ai-textbook-(.+?)(?:-|$)/)
-      if (match && match[1]) {
-        return match[1] === currentResourceId
-      }
-    }
-
-    // 如果都没有，不显示（避免显示其他资源的会话）
-    return false
-  })
+// 加载会话列表（物理上按 resourceId 查询），对齐消息存储维度
+const loadSessions = async () => {
+  const currentResourceId = getCurrentResourceId() || ''
+  // 没有 resourceId 时，仍然加载全部（兼容旧入口）
+  // 有 resourceId 时，直接在 IndexedDB 中按 resourceId 查询
+  const byResource = await getScreenshotSessionsByResourceId(currentResourceId)
+  sessions.value = byResource
+  console.log('[会话] 加载(按 resourceId)', { currentResourceId, sessions: sessions.value })
 }
 
 // 处理会话点击
 const handleSessionClick = async (record: AiTextbookSession) => {
   // 设置选中状态
   selectedRecordId.value = getSessionId(record)
-  
-  // 打开对话面板（如果未打开）
+  const sessionId = getSessionId(record)
+
+  // 打开对话面板
   if (!chatPanelVisible.value) {
     chatPanelVisible.value = true
   }
-  
-  // 加载会话详情
-  await loadSessionDetail(record)
-}
+  pdfViewerStore.openChatPanel()
 
-// 加载会话详情
-const loadSessionDetail = async (record: AiTextbookSession) => {
-  try {
-    let targetResourceId = record.resourceId
-    if (!targetResourceId && record.storageKey) {
-      // 从 storageKey 中提取 resourceId（格式：ai-textbook-${resourceId} 或 ai-textbook-${resourceId}-${sessionId}）
-      const match = record.storageKey.match(/^ai-textbook-(.+?)(?:-|$)/)
-      if (match && match[1]) {
-        targetResourceId = match[1]
-      }
-    }
-    
-    // 步骤2：设置 resourceId（如果存在）
-    if (targetResourceId) {
-      aiTextbookStore.setResourceId(targetResourceId)
-    }
-    
-    // 步骤3：尝试从存储中加载消息历史
-    let hasStorageHistory = false
-    
-    if (targetResourceId) {
-      try {
-        // 优先使用 record.storageKey（如果存在且是完整格式），否则构建包含 sessionId 的存储键
-        let storageKey: string
-        if (record.storageKey && record.storageKey.startsWith('ai-textbook-')) {
-          // 如果 storageKey 是完整格式（可能包含 sessionId），直接使用
-          storageKey = record.storageKey
-        } else if (getSessionId(record)) {
-          // 使用 sessionId 构建包含 sessionId 的存储键
-          storageKey = `ai-textbook-${targetResourceId}-${getSessionId(record)}`
-        } else {
-          // 降级方案：使用旧的格式（向后兼容）
-          storageKey = `ai-textbook-${targetResourceId}`
-        }
-        
-        // 直接调用 loadChatHistory，它会内部处理存储加载
-        await aiTextbookStore.loadChatHistory(storageKey, getSessionId(record))
-        
-        // 检查是否成功加载了消息历史
-        hasStorageHistory = aiTextbookStore.messages.length > 0
-        
-        if (hasStorageHistory) {
-          // 如果会话包含图片消息，标记使用截图接口
-          if (record.hasImage) {
-            aiTextbookStore.useScreenshotApi = true
-          }
-          console.log('[会话详情] 从存储加载消息', {
-            resourceId: targetResourceId,
-            sessionId: getSessionId(record),
-            storageKey: storageKey,
-            messageCount: aiTextbookStore.messages.length,
-            hasImage: record.hasImage
-          })
-        } else {
-          console.log('[会话详情] 存储中无消息', {
-            resourceId: targetResourceId,
-            sessionId: getSessionId(record),
-            storageKey: storageKey
-          })
-        }
-      } catch (error) {
-        console.error('[会话详情] 加载存储失败:', error)
-        hasStorageHistory = false
-      }
-    }
-    
-    // 步骤4：如果存储中没有消息，则根据 AiTextbookSession 重建消息历史（降级方案）
-    if (!hasStorageHistory) {
-      // 清空当前消息（因为存储中没有消息）
-      aiTextbookStore.clearMessages()
-      
-      // 如果会话包含图片，标记使用截图接口
-      if (record.hasImage) {
-        aiTextbookStore.useScreenshotApi = true
-      }
-    
-      // 创建用户消息（问题）
-      const sessionId = getSessionId(record)
-      const timestamp = record.timestamp || record.createTime || Date.now()
-      if (record.question) {
-        const userMessage: ChatBubble = {
-          id: `${sessionId}_user_${timestamp}`,
-          content: record.question,
-          type: 'user',
-          timestamp: new Date(timestamp).toISOString(),
-          sender: 'user',
-          messageType: record.hasImage ? 'image' : 'text' // 根据 hasImage 设置消息类型
-        }
-        aiTextbookStore.addMessage(userMessage)
-      }
-    
-      // 创建AI回复消息（答案）
-      if (record.answer) {
-        const aiMessage: ChatBubble = {
-          id: `${sessionId}_ai_${timestamp + 1000}`, // 假设1秒后回复
-          content: record.answer,
-          type: 'ai',
-          timestamp: new Date(timestamp + 1000).toISOString(),
-          sender: 'ai',
-          messageType: 'text'
-        }
-        aiTextbookStore.addMessage(aiMessage)
-      }
-    }
-  } catch (error) {
-    console.error('[会话详情] 加载会话详情失败:', error)
-    // 如果 showMessage 已导入，可以使用它
-    // showMessage('加载会话详情失败', 'error')
-  }
+  // 切换到 AI 问答 Tab，让容器显示出来
+  activeTab.value = 'ai-chat'
+
+  // 等待 DOM 更新，让容器高度生效后再滚动
+  await nextTick()
+  // 给一点额外时间让 BetterScroll 感知到容器高度变化
+  chatViewRef.value?.scrollToSession(sessionId)
 }
 
 // 处理工具配置变化（颜色、粗细等），写入 pdfViewerStore.drawingConfig
 const handleConfigChange = (config: {
   [key: string]: string | number | boolean | undefined
 }) => {
-  switch (store.selectedTool) {
+  switch (pdfViewerStore.selectedTool) {
     case 'pen':
       if (config.color) {
-        store.updateDrawingConfig({ penColor: config.color as string })
+        pdfViewerStore.updateDrawingConfig({ penColor: config.color as string })
       }
       if (config.size !== undefined) {
-        store.updateDrawingConfig({ penWidth: config.size as number })
+        pdfViewerStore.updateDrawingConfig({ penWidth: config.size as number })
       }
       break
     case 'highlighter':
       if (config.color) {
-        store.updateDrawingConfig({ highlighterColor: config.color as string })
+        pdfViewerStore.updateDrawingConfig({ highlighterColor: config.color as string })
       }
       if (config.size !== undefined) {
-        store.updateDrawingConfig({ highlighterWidth: config.size as number })
+        pdfViewerStore.updateDrawingConfig({ highlighterWidth: config.size as number })
       }
       break
     case 'eraser-draw':
       if (config.size !== undefined) {
-        store.updateDrawingConfig({ eraserSize: config.size as number })
+        pdfViewerStore.updateDrawingConfig({ eraserSize: config.size as number })
       }
       break
   }
 }
 
 // 处理会话删除
-const handleSessionDelete = (record: AiTextbookSession) => {
+const handleSessionDelete = async (record: AiTextbookSession) => {
   const sessionId = getSessionId(record)
-  if (deleteScreenshotSession(sessionId)) {
+  const ok = await deleteScreenshotSession(sessionId)
+  if (ok) {
     // 如果删除的是当前选中的会话，清除选中状态
     if (selectedRecordId.value === sessionId) {
       selectedRecordId.value = undefined
     }
-    loadSessions()
+    await loadSessions()
   }
 }
 
 // 处理批量删除
-const handleBatchDelete = (recordIds: string[]) => {
-  if (batchDeleteScreenshotSessions(recordIds)) {
+const handleBatchDelete = async (recordIds: string[]) => {
+  const ok = await batchDeleteScreenshotSessions(recordIds)
+  if (ok) {
     // 如果删除的会话中包含当前选中的会话，清除选中状态
     if (selectedRecordId.value && recordIds.includes(selectedRecordId.value)) {
       selectedRecordId.value = undefined
     }
-    loadSessions()
+    await loadSessions()
   }
 }
 
 // 处理置顶
-const handleSessionPin = (record: AiTextbookSession) => {
+const handleSessionPin = async (record: AiTextbookSession) => {
   record.pinned = !record.pinned
-  if (updateScreenshotSession(record)) {
-    loadSessions()
+  const ok = await updateScreenshotSession(record)
+  if (ok) {
+    await loadSessions()
   }
 }
 
@@ -444,12 +317,6 @@ const currentFile = ref<File | null>(null)
 // 当前工具（与 UnifiedToolbar 工具枚举和 PdfPage 交互模式统一）
 type PdfToolId = 'hand' | 'highlighter' | 'pen' | 'eraser-draw' | 'note' | 'screenshot'
 const currentTool = ref<PdfToolId>('hand')
-
-// 绘制功能已移除，不再需要保存成功提示
-
-const handleToggleHighlight = () => {
-  pdfPageRef.value?.toggleHighlightMode()
-}
 
 // 处理工具切换：直接使用 UnifiedToolbar 的工具 ID 作为全局枚举
 const handleToolChange = (tool: string) => {
@@ -465,19 +332,19 @@ const handleToolChange = (tool: string) => {
   const clickedTool = tool as PdfToolId
 
   // 如果点击的工具已经是当前选中工具，则视为“取消选中”，切回 hand 模式
-  if (store.selectedTool === clickedTool && clickedTool !== 'hand') {
+  if (pdfViewerStore.selectedTool === clickedTool && clickedTool !== 'hand') {
     const t: PdfToolId = 'hand'
     currentTool.value = t
-    store.selectedTool = t
+    pdfViewerStore.selectedTool = t
     console.log('[工具切换] 再次点击相同工具，切回 hand 模式')
     pdfPageRef.value.toggleGestureMode?.()
     return
   }
 
   const t = clickedTool
-  // 更新当前工具和 store 中的选中工具，保证所有组件使用同一套枚举
+  // 更新当前工具和 pdfViewerStore 中的选中工具，保证所有组件使用同一套枚举
   currentTool.value = t
-  store.selectedTool = t
+  pdfViewerStore.selectedTool = t
   if (t === 'hand') {
     pdfPageRef.value.toggleGestureMode?.()
   } else if (t === 'highlighter') {
@@ -510,18 +377,18 @@ const toolStates = computed(() => {
 const toolbarToolConfig = computed(() => {
   return {
     color:
-      store.selectedTool === 'pen'
-        ? store.drawingConfig.penColor
-        : store.selectedTool === 'highlighter'
-        ? store.drawingConfig.highlighterColor
+      pdfViewerStore.selectedTool === 'pen'
+        ? pdfViewerStore.drawingConfig.penColor
+        : pdfViewerStore.selectedTool === 'highlighter'
+        ? pdfViewerStore.drawingConfig.highlighterColor
         : undefined,
     size:
-      store.selectedTool === 'pen'
-        ? store.drawingConfig.penWidth
-        : store.selectedTool === 'highlighter'
-        ? store.drawingConfig.highlighterWidth
-        : store.selectedTool === 'eraser-draw'
-        ? store.drawingConfig.eraserSize
+      pdfViewerStore.selectedTool === 'pen'
+        ? pdfViewerStore.drawingConfig.penWidth
+        : pdfViewerStore.selectedTool === 'highlighter'
+        ? pdfViewerStore.drawingConfig.highlighterWidth
+        : pdfViewerStore.selectedTool === 'eraser-draw'
+        ? pdfViewerStore.drawingConfig.eraserSize
         : undefined,
   }
 })
@@ -655,7 +522,7 @@ const loadPdfWithService = async (file: File) => {
     const resourceId = route.query.resourceId as string
     const id = route.query.id as string
     if (resourceId && id) {
-      store.setCurrentFileInfo(id, resourceId)
+      pdfViewerStore.setCurrentFileInfo(id, resourceId)
       // 同时设置到 aiTextbookStore，确保会话列表能正确过滤
       aiTextbookStore.setResourceId(resourceId)
     }
@@ -674,22 +541,7 @@ const loadPdfWithService = async (file: File) => {
 
 // 处理对话面板关闭
 const handleCloseChatPanel = () => {
-  chatPanelVisible.value = false
-}
-
-// 处理聊天响应事件
-const handleChatResponse = () => {
-  // 聊天响应完成，可以在这里添加额外逻辑
-}
-
-// 处理聊天焦点事件
-const handleChatFocus = () => {
-  // 聊天输入框获得焦点
-}
-
-// 处理滚动到底部事件
-const handleScrollToBottom = () => {
-  // 滚动到底部
+  pdfViewerStore.closeChatPanel() 
 }
 
 // 截图输入对话框状态
@@ -716,9 +568,22 @@ const handleScreenshotCaptured = async (blob: Blob) => {
 // 处理截图输入对话框确认：打开对话面板并将图片+问题发送给 AI
 const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
   try {
-    // 打开对话面板并切换到 AI 问答 Tab
+    console.log('[PdfViewerView] 截图输入对话框确认', { question, dataUrl })
     chatPanelVisible.value = true
     activeTab.value = 'ai-chat'
+    // 打开对话面板并切换到 AI 问答 Tab
+    pdfViewerStore.openChatPanel()
+    // 设置当前教材ID
+    const currentResourceId = (route.query.resourceId as string) || aiTextbookStore.resourceId || ''
+    if (currentResourceId) {
+      aiTextbookStore.setResourceId(currentResourceId)
+    }
+    // 为本次截图会话生成会话ID（同时作为存储键使用）
+    const now = Date.now()
+    const sessionId = currentResourceId
+      ? `ai-textbook-${currentResourceId}-${now}`
+      : `ai-textbook-${now}`
+    aiTextbookStore.currentSessionId = sessionId
 
     // 创建临时图片以获取宽高
     const img = new Image()
@@ -737,23 +602,7 @@ const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
       height: img.height,
       fileSize: Math.round(dataUrl.length * 0.75),
     }
-
-    const currentResourceId = (route.query.resourceId as string) || aiTextbookStore.resourceId || ''
-    const sessionId = `screenshot_${Date.now()}`
-
-    if (currentResourceId) {
-      aiTextbookStore.clearMessages()
-      aiTextbookStore.setResourceId(currentResourceId)
-      aiTextbookStore.currentSessionId = sessionId
-      aiTextbookStore.isNewSession = true
-    }
-
-    console.log('[PdfViewerView] 发送截图消息到 AI', {
-      question,
-      hasImage: !!imageData.base64DataUrl,
-      imageSize: `${imageData.width}x${imageData.height}`,
-    })
-
+    // 仅通过 aiTextbookStore 发送一次请求，使用复用的 sessionId
     await aiTextbookStore.sendMessage(
       question,
       'mate',
@@ -762,11 +611,7 @@ const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
     )
 
     // 发送成功后，创建并持久化一条截图会话记录，结构与截图会话模块保持一致
-    const now = Date.now()
-    const storageKey = currentResourceId
-      ? `ai-textbook-${currentResourceId}-${sessionId}`
-      : undefined
-
+    console.log('[PdfViewerView] 创建会话', { sessionId })
     const newSession: AiTextbookSession = {
       sessionId,
       sessionName: question,
@@ -778,13 +623,11 @@ const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
       thumbnailImage: dataUrl,
       hasImage: true,
       resourceId: currentResourceId || undefined,
-      storageKey,
       // 兼容字段
       id: sessionId,
       question,
       answer: '',
     }
-
     addScreenshotSession(newSession)
     // 新增会话写入完成后，刷新当前会话列表，使 UI 立即显示
     loadSessions()
@@ -802,60 +645,32 @@ const handleScreenshotCancel = () => {
   screenshotDataUrl.value = ''
 }
 
-// 自动打开并选中指定会话（从路由参数）
-const autoSelectSession = async () => {
-  const sessionIdFromRoute = route.query.sessionId as string | undefined
-  if (!sessionIdFromRoute) {
-    return
-  }
-
-  // 等待会话列表加载完成和DOM更新
-  await nextTick()
-  
-  // 如果会话列表为空，等待一下再重试
-  if (sessions.value.length === 0) {
-    await new Promise(resolve => setTimeout(resolve, 100))
-  }
-  
-  // 查找对应的会话
-  const targetSession = sessions.value.find((session) => {
-    const id = getSessionId(session)
-    return id === sessionIdFromRoute
-  })
-
-  if (targetSession) {
-    // 打开会话面板
-    chatPanelVisible.value = true
-    
-    // 切换到会话记录tab
-    activeTab.value = 'question-record'
-    
-    // 等待一下确保面板已打开
-    await nextTick()
-    
-    // 选中会话并加载详情
-    await handleSessionClick(targetSession)
-  }
-}
 
 // 生命周期
 onMounted(async () => {
   try {
-    // 加载会话列表
+    // 加载 aiGeneral 会话列表
+    await aiGeneralStore.loadSessions()
+    // 加载 aiTextbook 会话列表
     loadSessions()
-
     const file = await loadFileFromRoute()
     await loadPdfWithService(file)
-    
-    // 如果路由参数中有 sessionId，自动打开并选中对应会话
-    await autoSelectSession()
+    // 加载当前教材的聊天历史
+    const currentResourceId = (route.query.resourceId as string) || aiTextbookStore.resourceId || ''
+    if (currentResourceId) {
+      aiTextbookStore.setResourceId(currentResourceId)
+      await aiTextbookStore.loadChatHistory(currentResourceId)
+    }
   } catch (err) {
     console.error('PDF 加载失败:', err)
   }
 })
 
 // 页面卸载前清理
-onBeforeUnmount(async () => {
+onBeforeUnmount(() => {
+  // 退出 PDF 页面时清空当前工具，避免影响其它页面
+  pdfViewerStore.selectedTool = '' as any
+  pdfViewerStore.closeChatPanel()
 })
 </script>
 
@@ -948,8 +763,13 @@ onBeforeUnmount(async () => {
 
 .tab-content {
   height: 100%;
-  overflow: hidden;
   border-radius: 20px;
+}
+
+.session-list-wrapper {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .pdf-viewer-container {

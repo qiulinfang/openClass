@@ -175,7 +175,7 @@ import type { TeacherSession } from '@/stores/teacherGeneralChatStore'
 import { useUnreadMessageStore } from '@/stores/unreadMessageStore'
 import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
-import { asyncStorage } from '@/services/chat-storage'
+import { chatStorage } from '../services/chat-storage'
 import { useBetterScroll } from '@/composables/useBetterScroll'
 import { isSessionFavorite, toggleSessionFavorite } from '@/utils/storage/favorites'
 import { useQuasar } from 'quasar'
@@ -756,7 +756,7 @@ const handleDelete = async (node: TreeNode) => {
       console.log('wasCurrentSession', wasCurrentSession)
       // 第1步：删除聊天历史（直接使用存储服务，避免清空当前消息）
       const storageKey = `teacher-general-${node.sessionId}`
-      await asyncStorage.removeChatHistory(storageKey)
+      await chatStorage.removeChatHistory(storageKey)
       console.log('storageKey', storageKey)
       // 第2步：删除 localStorage 中的会话信息（使用 store 的方法，从统一存储中删除）
       // 新格式：所有会话统一存储在 {userId}_teacher-general-sessions 中

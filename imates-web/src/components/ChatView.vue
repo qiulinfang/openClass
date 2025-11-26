@@ -16,38 +16,46 @@
             </Transition>
 
             <!-- 聊天消息组件列表 - 支持选择、转发、编辑等功能 -->
-            <ChatMessageComponent
+            <div
               v-for="(message, index) in displayedMessages"
               :key="message.id"
-              :message="message"
-              :type="type"
-              :is-selected="selectedMessages.has(message.id)"
-              :is-selection-mode="isSelectionMode"
-              :message-index="index"
-              :is-last-message="isLastMessage(index)"
-              @toggle-selection="toggleMessageSelection"
-              @message-click="handleMessageClick"
-              @forward-message="handleForwardMessage"
-              @enter-multi-select="handleEnterMultiSelect"
-              @edit-message="handleEditMessage"
-              @image-loaded="handleImageLoaded"
-            />
+              class="message-item"
+              :data-session-id="message.sessionId"
+              :data-message-id="message.id"
+            >
+              <ChatMessageComponent
+                :message="message"
+                :type="type"
+                :is-selected="selectedMessages.has(message.id)"
+                :is-selection-mode="isSelectionMode"
+                :message-index="index"
+                :is-last-message="isLastMessage(index)"
+                @toggle-selection="toggleMessageSelection"
+                @message-click="handleMessageClick"
+                @forward-message="handleForwardMessage"
+                @enter-multi-select="handleEnterMultiSelect"
+                @edit-message="handleEditMessage"
+                @image-loaded="handleImageLoaded"
+                @quote-message="handleQuoteMessage"
+                @scroll-to-message="handleScrollToMessage"
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- 新消息提示按钮 - 当用户不在底部时显示 -->
+      <!-- 新消息提示按钮 - 当用户不在底部时显示（原生实现） -->
       <Transition name="fade">
-        <q-btn
+        <button
           v-if="showNewMessageIndicator"
-          round
-          color="primary"
-          icon="arrow_downward"
           class="new-message-indicator"
           @click="scrollToBottom"
+          title="有新消息，点击查看"
         >
-          <q-tooltip>有新消息，点击查看</q-tooltip>
-        </q-btn>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14M5 12l7 7 7-7"/>
+          </svg>
+        </button>
       </Transition>
     </div>
 
@@ -109,13 +117,15 @@
           :type="type"
           :uploaded-files="uploadedFiles"
           :active-mode="activeMode"
-          :can-send="canSend"
+          :can-send="isEditingMessage ? canSendInEditMode : canSend"
           :is-editing="isEditingMessage"
           :editing-message-id="editingMessageId"
           :attached-screenshot="attachedScreenshot"
+          :quoted-message="quotedMessage"
           @send-message="sendMessage"
           @send-with-screenshot="() => emit('send-with-screenshot', inputMessage)"
           @remove-screenshot="emit('remove-screenshot')"
+          @remove-quote="handleRemoveQuote"
           @blur="onInputBlur"
           @start-voice-input="startVoiceInput"
           @stop-voice-input="stopVoiceInput"
@@ -303,6 +313,7 @@ const {
 const inputMessage = ref('') // 输入框内容
 const isLoading = ref(false) // 消息发送加载状态
 const isRecording = ref(false) // 语音录制状态
+const quotedMessage = ref<ChatBubble | null>(null) // 引用的消息
 
 // 对话相关状态（需要在策略初始化之前声明）
 const aiSessionId = ref<string>('') // AI会话ID
@@ -552,6 +563,14 @@ const enhancedPlaceholderText = computed(() => {
  */
 const canSend = computed(() => {
   return !!(inputMessage.value.trim() || uploadedFiles.value.length > 0)
+})
+
+// 编辑模式下是否可以发送：只有当输入内容非空且和原始内容不同时才允许
+const canSendInEditMode = computed(() => {
+  if (!isEditingMessage.value) return false
+  const current = inputMessage.value
+  const original = (originalMessageContent.value || '')
+  return current !== '' && current.length !== original.length
 })
 
 // 动态键盘高度（固定值）
@@ -832,10 +851,20 @@ const sendMessage = async (attachedFile?: File) => {
     }
 
     // AI通用、AI题目、AI教材和教师通用对话模式：统一使用策略模式发送消息
+    // 如果有引用消息，将引用内容作为 focus 参数传递，同时传递引用消息信息用于展示
+    const focusContent = quotedMessage.value?.content || undefined
+    const quotedMessageInfo = quotedMessage.value ? {
+      id: quotedMessage.value.id,
+      content: quotedMessage.value.content,
+      sender: quotedMessage.value.sender,
+    } : undefined
+    quotedMessage.value = null
     await chatStrategy.value?.sendMessage(messageContent, {
       selectedModel: selectedModel.value,
       // 将当前题目一并传给策略（如 AiExerciseStrategy），避免策略内部访问全局 questionStore
       currentQuestion: currentQuestion.value ?? undefined,
+      focus: focusContent, // 引用的内容（发送给后端）
+      quotedMessage: quotedMessageInfo, // 引用的消息信息（用于消息气泡展示）
     })
     await scrollToBottom()
     emit('response')
@@ -860,20 +889,60 @@ const sendMessage = async (attachedFile?: File) => {
 // 作用：滚动聊天区域到底部，确保最新消息可见
 const scrollToBottom = async () => {
   await nextTick()
+  // 关键：刷新 BScroll，让它重新计算内容高度
+  refreshBScroll()
+  await nextTick()
+
   const bscrollInstance = getInstance()
   if (bscrollInstance) {
-    // 使用 BScroll 滚动到底部
     const maxScrollY = bscrollInstance.maxScrollY
     scrollTo(0, maxScrollY, 300)
   }
 
-  // 隐藏新消息提示按钮
   showNewMessageIndicator.value = false
   isUserAtBottom.value = true
-
-  // 同时触发父组件的滚动到底部事件
   emit('scroll-to-bottom')
 }
+
+// 作用：根据 sessionId 滚动到该会话的第一条消息（主要用于 ai-textbook 场景）
+const scrollToSession = async (sessionId: string) => {
+  console.log('[scrollToSession] start', sessionId)
+
+  if (!sessionId) return
+  if (props.type !== 'ai-textbook') return
+
+  const allMessages = aiTextbookStore.messages
+  const targetIndex = allMessages.findIndex(m => m.sessionId === sessionId)
+  console.log('[scrollToSession] targetIndex', targetIndex)
+  if (targetIndex < 0) {
+    return
+  }
+
+  await nextTick()
+
+  // 刷新 BScroll，确保容器高度正确（v-show 切换后需要重新计算）
+  refreshBScroll()
+  await nextTick()
+
+  const bscrollInstance = getInstance()
+  console.log('[scrollToSession] bscroll exists?', !!bscrollInstance)
+  if (!bscrollInstance) return
+
+  const wrapper = scrollWrapper.value
+  console.log('[scrollToSession] wrapper exists?', !!wrapper)
+  if (!wrapper) return
+
+  const selector = `.message-item[data-session-id="${sessionId}"]`
+  const targetEl = wrapper.querySelector(selector) as HTMLElement | null
+  console.log('[scrollToSession] selector', selector, 'found?', !!targetEl)
+
+  if (!targetEl) return
+
+  bscrollInstance.scrollToElement(targetEl, 300, 0, 0)
+  console.log('[scrollToSession] after scroll, y =', bscrollInstance.y)
+  console.log('[scrollToSession] maxScrollY =', bscrollInstance.maxScrollY)
+  console.log('[scrollToSession] wrapperHeight =', scrollWrapper.value?.clientHeight)
+  console.log('[scrollToSession] contentHeight =', scrollWrapper.value?.querySelector('.scroll-content')?.scrollHeight)}
 
 /**
  * 检查用户是否在底部
@@ -1320,7 +1389,7 @@ const handleEditMessage = (message: ChatBubble) => {
   isEditingMessage.value = true
   editingMessageId.value = message.id
   originalMessageContent.value = message.content || ''
-  editingQuestionId.value = currentQuestion.value?.id || null
+  editingQuestionId.value = currentQuestion.value?.bmNo || null
 
   // 将消息内容复制到输入框
   // 如果消息包含公式，需要将渲染后的HTML转换为TiptapEditor可识别的格式
@@ -1333,6 +1402,55 @@ const handleEditMessage = (message: ChatBubble) => {
     // 触发输入框的focus事件
     emit('focus')
   })
+}
+
+// 处理引用消息
+const handleQuoteMessage = (message: ChatBubble) => {
+  console.log('[ChatView] handleQuoteMessage 被调用', message)
+  console.log('[ChatView] message.content =', message.content)
+  quotedMessage.value = message
+  console.log('[ChatView] quotedMessage.value =', quotedMessage.value)
+  console.log('[ChatView] quotedMessage.value?.content =', quotedMessage.value?.content)
+  // 聚焦到输入框
+  nextTick(() => {
+    console.log('[ChatView] nextTick quotedMessage.value =', quotedMessage.value)
+    emit('focus')
+  })
+}
+
+// 移除引用
+const handleRemoveQuote = () => {
+  quotedMessage.value = null
+}
+
+// 滚动到指定消息（点击引用区域时触发）
+const handleScrollToMessage = async (messageId: string) => {
+  if (!messageId) return
+  
+  await nextTick()
+  refreshBScroll()
+  await nextTick()
+  
+  const bscrollInstance = getInstance()
+  if (!bscrollInstance) return
+  
+  const wrapper = scrollWrapper.value
+  if (!wrapper) return
+  
+  // 通过 data-message-id 查找目标消息元素
+  const selector = `.message-item[data-message-id="${messageId}"]`
+  const targetEl = wrapper.querySelector(selector) as HTMLElement | null
+  
+  if (targetEl) {
+    // 滚动到目标元素，并高亮提示
+    bscrollInstance.scrollToElement(targetEl, 300, 0, -50) // 留出50px的顶部间距
+    
+    // 添加高亮效果
+    targetEl.classList.add('highlight-message')
+    setTimeout(() => {
+      targetEl?.classList.remove('highlight-message')
+    }, 1500)
+  }
 }
 
 // 将消息内容转换为编辑器可识别的格式
@@ -1432,6 +1550,9 @@ const updateEditedMessage = async (newContent: string) => {
     try {
       await chatStrategy.value.updateEditedMessage(editingMessageId.value, newContent, {
         selectedModel: selectedModel.value,
+        // 对于 AI 题目策略：这里的 currentQuestionId 约定为 bmNo
+        currentQuestionId: currentQuestion.value?.bmNo,
+        currentQuestion: currentQuestion.value,
       })
 
       // 清除编辑状态
@@ -1829,11 +1950,11 @@ watch(
   () => currentQuestion.value,
   (newQuestion, oldQuestion) => {
     console.log('题目切换处理函数', newQuestion, oldQuestion)
-    if (newQuestion?.id !== oldQuestion?.id || newQuestion?.bmNo !== oldQuestion?.bmNo) {
+    if (newQuestion?.bmNo !== oldQuestion?.bmNo) {
       // 检查是否正在编辑消息
       if (isEditingMessage.value) {
         // 检查是否切换回正在编辑的题目
-        if (editingQuestionId.value && newQuestion && newQuestion.id === editingQuestionId.value) {
+        if (editingQuestionId.value && newQuestion && newQuestion.bmNo === editingQuestionId.value) {
           // 直接执行切换，不显示确认对话框
           executeQuestionSwitch()
           return
@@ -1889,6 +2010,7 @@ defineExpose({
   sendMessage,
   isLoading,
   scrollToBottom,
+  scrollToSession,
 })
 </script>
 
@@ -1946,15 +2068,31 @@ defineExpose({
   width: 100%;
 }
 
-/* 新消息提示按钮 */
+/* 新消息提示按钮：居中且悬浮在消息区域底部上方 */
 .new-message-indicator {
   position: absolute;
-  bottom: 80px;
-  right: 20px;
-  z-index: 100;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  animation: bounce 2s infinite;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 10;
+  
+  /* 圆形按钮样式 */
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  
+  /* 颜色 */
+  color: #ffffff;
+  background-color: #7a7cff;
+  
+  /* 居中图标 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+
 
 @keyframes bounce {
   0%,
@@ -2137,4 +2275,22 @@ defineExpose({
 
 /* ==================== 其他样式 ==================== */
 /* 移除hover效果 - 已禁用背景色变化 */
+
+/* ==================== 消息高亮效果 ==================== */
+/* 点击引用区域时，滚动到被引用消息并高亮 */
+:deep(.message-item.highlight-message) {
+  animation: highlight-pulse 1.5s ease-out;
+}
+
+@keyframes highlight-pulse {
+  0% {
+    background-color: rgba(122, 124, 255, 0.3);
+  }
+  50% {
+    background-color: rgba(122, 124, 255, 0.15);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
 </style>

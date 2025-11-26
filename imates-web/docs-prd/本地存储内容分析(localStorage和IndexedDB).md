@@ -635,6 +635,367 @@ interface ChatBubble {
 
 ---
 
+### 4. PDF相关数据存储
+
+#### 4.1 PDF文件数据存储
+
+**存储位置**：`TextbookStorage_{userId}` 数据库的 `textbook_files` 表
+
+**数据结构**：
+```typescript
+{
+  fileId: string,          // 文件唯一标识（即resourceId）
+  textbookId: string,      // 所属教材ID
+  fileData: Uint8Array     // PDF文件二进制数据
+}
+```
+
+**存储流程**：
+```
+1. 用户下载教材资源
+   │
+   ├─> 下载PDF文件
+   │   └─> 存储到 textbook_files 表（fileId 为主键）
+   │
+   ├─> 保存文件元数据到 textbooks 表的 localFiles 字段
+   │   └─> 包含：fileName, fileSize, checksum, isDownloaded
+   │
+   └─> 异步生成PDF缩略图（可选）
+```
+
+**读取流程**：
+```
+1. 用户打开PDF（PdfViewerView.vue）
+   │
+   ├─> 从路由参数获取 resourceId 和 textbookId
+   │
+   ├─> 从 textbooks 表获取教材元数据（通过 id 主键查询）
+   │
+   ├─> 在 localFiles 中查找文件元数据（通过 resourceId）
+   │
+   ├─> 从 textbook_files 表按需读取文件数据
+   │   └─> getFileData(textbookId, resourceId)
+   │
+   └─> 转换为 File 对象并加载到 PdfPage 组件
+```
+
+**关键文件**：
+- `resource-storage.ts:266-386` - 文件数据存储、读取、更新
+- `PdfViewerView.vue:456-516` - PDF文件加载流程
+
+#### 4.2 PDF绘图与批注数据存储
+
+**存储方式**：嵌入式存储（保存在PDF文件本身）
+
+**存储机制**：
+- 使用 **MuPDF** 库的增量保存功能
+- 绘图、高亮、笔迹等批注数据直接写入PDF文件
+- 每次绘制操作后自动持久化到 IndexedDB
+
+**持久化流程**：
+```
+1. 用户在PDF上绘制/高亮/添加笔迹
+   │
+   ├─> PdfPage.vue 调用 MuPDF API 创建批注对象
+   │   ├─> 高亮：page.addHighlightAnnot()
+   │   ├─> 画笔：page.addInkAnnot()
+   │   └─> 其他批注类型...
+   │
+   ├─> 调用 render(pageIndex) 重新渲染当前页
+   │
+   └─> 自动调用 saveCurrentPdfToStorage()
+       │
+       ├─> 使用 MuPDF 导出整个文档
+       │   ├─> 优先：pdf.saveToBuffer('incremental') - 增量保存
+       │   └─> 降级：pdf.saveToBuffer() - 完整保存
+       │
+       ├─> 转换为 Uint8Array
+       │
+       └─> 更新到 textbook_files 表
+           └─> resourceManager.updateFileData(resourceId, data)
+```
+
+**触发时机**：
+- ✅ 创建高亮批注后
+- ✅ 创建画笔笔迹后
+- ✅ 撤销最后一笔后
+- ✅ 删除批注后
+
+**数据特点**：
+- 批注数据与PDF内容融合，下次打开自动加载
+- 支持增量保存，减少写入数据量
+- 跨设备同步只需同步PDF文件本身
+
+**关键代码**：
+- `PdfPage.vue:383-418` - saveCurrentPdfToStorage 实现
+- `PdfPage.vue:943-990` - 创建批注并自动保存
+- `PdfPage.vue:1483-1503` - 撤销操作并自动保存
+
+#### 4.3 PDF页眉笔记存储
+
+**存储位置**：独立的 IndexedDB 数据库 `pdf-notes-db`
+
+**数据库配置**：
+```typescript
+{
+  dbName: 'pdf-notes-db',
+  version: 1,
+  stores: [
+    {
+      name: 'notes',
+      keyPath: 'docKey',    // 文档唯一标识
+    }
+  ]
+}
+```
+
+**数据结构**：
+```typescript
+interface NotesDocRecord {
+  docKey: string,           // 文档键：'${fileName}|${fileSize}'
+  notes: PageNote[]         // 页眉笔记列表
+}
+
+interface PageNote {
+  id: string,               // 笔记ID
+  pageIndex: number,        // 页码（0-based）
+  content: string,          // 笔记内容
+  timestamp: number,        // 创建时间戳
+  color?: string            // 笔记标记颜色（可选）
+}
+```
+
+**存储流程**：
+```
+1. 用户在PDF页面添加/编辑页眉笔记
+   │
+   ├─> 更新 notes 响应式数组
+   │
+   └─> 调用 saveNotesToDb()
+       │
+       ├─> 获取文档键：'${fileName}|${fileSize}'
+       │
+       └─> 保存到 pdf-notes-db
+           └─> IndexedDB.update('notes', { docKey, notes })
+```
+
+**加载流程**：
+```
+1. PDF文件加载完成后
+   │
+   └─> 调用 loadNotesFromDb()
+       │
+       ├─> 获取文档键：'${fileName}|${fileSize}'
+       │
+       ├─> 从 pdf-notes-db 读取笔记数据
+       │
+       └─> 恢复到 notes 响应式数组
+```
+
+**关键代码**：
+- `PdfPage.vue:1423-1493` - 笔记 IndexedDB 配置与操作
+- `PdfPage.vue:242-257` - PageNote 数据结构定义
+
+#### 4.4 PDF截图会话存储
+
+**存储位置**：`ai-textbook-sessions` IndexedDB 表
+
+**会话数据库配置**：
+```typescript
+{
+  dbName: 'ai-textbook-sessions-db',
+  version: 1,
+  stores: [
+    {
+      name: 'ai-textbook-sessions',
+      keyPath: 'sessionId',
+      indexes: [
+        { name: 'resourceId', keyPath: 'resourceId' },  // 按resourceId索引
+        { name: 'createTime', keyPath: 'createTime' }
+      ]
+    }
+  ]
+}
+```
+
+**会话数据结构**：
+```typescript
+interface AiTextbookSession {
+  sessionId: string,          // 会话ID：'ai-textbook-${resourceId}-${timestamp}'
+  sessionName: string,        // 会话名称（通常为用户问题）
+  createTime: number,         // 创建时间戳
+  updateTime: number,         // 更新时间戳
+  msgCount: number,           // 消息数量
+  pinned: boolean,            // 是否置顶
+  thumbnailImage: string,     // 截图缩略图（base64）
+  hasImage: boolean,          // 是否包含图片
+  resourceId: string,         // 关联的PDF资源ID
+  
+  // 兼容字段
+  id: string,                 // 同 sessionId
+  question: string,           // 用户问题
+  answer: string              // AI回答
+}
+```
+
+**截图会话创建流程**：
+```
+1. 用户在PDF页面进行区域截图
+   │
+   ├─> PdfPage.vue 捕获截图 Blob
+   │
+   ├─> 转换为 base64 DataURL
+   │
+   └─> 传递给 ScreenshotInputDialog
+       │
+       ├─> 用户编辑并输入问题
+       │
+       └─> 确认后触发 handleScreenshotConfirm
+           │
+           ├─> 生成会话ID：'ai-textbook-${resourceId}-${timestamp}'
+           │
+           ├─> 发送消息到 aiTextbookChatStore
+           │
+           └─> 创建会话记录并保存
+               └─> addScreenshotSession(newSession)
+                   └─> 保存到 ai-textbook-sessions 表
+```
+
+**会话查询流程**：
+```
+1. 打开PDF页面（PdfViewerView.vue）
+   │
+   └─> 加载会话列表
+       │
+       ├─> 从路由获取 resourceId
+       │
+       └─> 按 resourceId 索引查询
+           └─> getScreenshotSessionsByResourceId(resourceId)
+               └─> 从 IndexedDB 按索引快速查询
+```
+
+**关键文件**：
+- `PdfViewerView.vue:569-640` - 截图会话创建流程
+- `PdfViewerView.vue:218-225` - 会话列表加载
+- `screenshotSessions.ts:48-77` - 按 resourceId 查询会话
+- `ai-textbook-session-storage.ts` - 会话 IndexedDB 操作
+
+#### 4.5 PDF聊天消息存储
+
+**存储位置**：`ExerciseSolveApp_{userId}` 数据库的 `chat_history` 表
+
+**消息存储键名**：`{userId}_chat_history_ai-textbook-${resourceId}`
+
+**消息数据结构**：
+```typescript
+{
+  questionId: 'ai-textbook-${resourceId}',
+  messages: [
+    {
+      id: string,
+      content: string,          // 用户问题或AI回答
+      sender: 'user' | 'assistant',
+      type: 'text' | 'image',
+      timestamp: number,
+      imageData?: {             // 截图数据
+        filePath: string,
+        base64DataUrl: string,  // 完整的 base64 图片（用于UI显示）
+        width: number,
+        height: number,
+        fileSize: number
+      }
+    }
+  ],
+  chatResponseTimes: number,
+  lastUpdated: number
+}
+```
+
+**消息存储流程**：
+```
+1. 用户发送截图+问题
+   │
+   ├─> aiTextbookChatStore.sendMessage()
+   │   └─> 构造消息对象（包含 imageData 和 base64DataUrl）
+   │
+   └─> 自动保存到 IndexedDB
+       │
+       ├─> 存储键：'${userId}_chat_history_ai-textbook-${resourceId}'
+       │
+       └─> 包含完整图片数据（base64DataUrl）
+           └─> 用于离线查看聊天记录
+```
+
+**消息加载流程**：
+```
+1. 打开PDF页面
+   │
+   ├─> 从路由获取 resourceId
+   │
+   └─> aiTextbookChatStore.loadChatHistory(resourceId)
+       │
+       ├─> 构造存储键
+       │
+       └─> 从 IndexedDB 加载消息
+           └─> 包含 base64 图片，可直接显示
+```
+
+**关键特性**：
+- ✅ 图片消息包含完整 base64 数据，支持离线查看
+- ✅ 按 resourceId 隔离消息，不同PDF的聊天记录互不干扰
+- ✅ 使用 localforage 自动降级到 localStorage
+- ✅ 支持消息过滤（不保存错误消息、流式消息等）
+
+**关键文件**：
+- `aiTextbookChatStore.ts` - AI教材聊天状态管理
+- `chat-storage.ts:111-139` - 消息保存逻辑
+- `PdfViewerView.vue:656-666` - 消息加载
+
+#### 4.6 PDF数据流总结
+
+**完整的PDF数据持久化流程**：
+
+```mermaid
+graph TD
+    A[用户下载教材] --> B[PDF文件数据]
+    B --> C[textbook_files表]
+    
+    D[用户打开PDF] --> E[加载PDF文件]
+    E --> C
+    
+    F[用户绘制批注] --> G[MuPDF增量保存]
+    G --> C
+    
+    H[用户添加页眉笔记] --> I[pdf-notes-db]
+    
+    J[用户截图提问] --> K[创建会话记录]
+    K --> L[ai-textbook-sessions表]
+    
+    J --> M[发送消息]
+    M --> N[chat_history表]
+    N --> O[包含base64图片]
+    
+    P[用户再次打开] --> Q[按resourceId加载]
+    Q --> L
+    Q --> N
+    Q --> I
+    Q --> C
+```
+
+**数据隔离层级**：
+1. **账号隔离**：IndexedDB 数据库名包含 `userId`
+2. **教材隔离**：textbook_files 按 `fileId` 存储
+3. **资源隔离**：聊天消息按 `resourceId` 存储
+4. **文档隔离**：页眉笔记按 `docKey` 存储
+
+**性能优化**：
+- ✅ 文件数据按需读取，避免一次性加载所有PDF
+- ✅ 批注数据嵌入PDF，随文件一起加载
+- ✅ 会话列表按 resourceId 索引，快速查询
+- ✅ 消息包含 base64 图片，避免二次查询
+
+---
+
 ## IndexedDB存储特点
 
 ### 账号隔离
@@ -642,6 +1003,8 @@ interface ChatBubble {
 - 聊天历史: `ExerciseSolveApp_{userId}`
 - 教材资源: `TextbookStorage_{userId}`
 - 题目列表: `ExerciseQuestionsDB_{userId}`
+- PDF截图会话: `ai-textbook-sessions-db`（无userId前缀，但会话记录包含resourceId隔离）
+- PDF页眉笔记: `pdf-notes-db`（按docKey隔离，格式：`${fileName}|${fileSize}`）
 
 ### 降级方案
 - **聊天历史**: IndexedDB不可用时自动降级到localStorage
@@ -652,12 +1015,19 @@ interface ChatBubble {
 - **聊天历史**: 30天未更新的记录自动清理
 - **教材资源**: 30天未下载的教材数据自动清理
 - **题目列表**: 切换账号时自动清理
+- **PDF批注数据**: 嵌入PDF文件，随教材文件一起清理
+- **PDF页眉笔记**: 随PDF文档删除时需手动清理（按docKey）
+- **PDF截图会话**: 可按resourceId批量删除，支持单个删除和批量删除
 
 ### 性能优化
 - **防抖批量更新**: 教材信息更新使用1秒防抖，批量更新到IndexedDB
 - **分离存储**: 教材文件二进制数据分离存储，按需读取
 - **异步操作**: 所有IndexedDB操作都是异步的，不阻塞主线程
-- **索引优化**: 使用索引加速查询，支持按教材ID、下载状态等快速查询
+- **索引优化**: 使用索引加速查询，支持按教材ID、下载状态、resourceId等快速查询
+- **PDF增量保存**: 使用MuPDF增量保存，只写入变更部分，减少写入量
+- **PDF按需加载**: 文件数据按需读取，不一次性加载所有PDF到内存
+- **截图会话索引**: 按resourceId索引截图会话，快速查询特定PDF的会话列表
+- **消息嵌入图片**: 聊天消息包含base64图片，避免二次查询文件存储
 
 ---
 

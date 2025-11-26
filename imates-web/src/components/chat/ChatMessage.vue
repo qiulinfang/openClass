@@ -113,6 +113,12 @@
                   </q-item-section>
                   <q-item-section>复制</q-item-section>
                 </q-item>
+                <q-item clickable @click="handleQuote">
+                  <q-item-section avatar>
+                    <q-icon name="format_quote" size="20px" color="grey-7" />
+                  </q-item-section>
+                  <q-item-section>引用</q-item-section>
+                </q-item>
                 <q-item clickable @click="handleForward" v-if="canForward">
                   <q-item-section avatar>
                     <img :src="shareIcon" alt="转发" style="width: 20px; height: 20px" />
@@ -175,6 +181,16 @@
     <div v-else class="user-message">
       <div class="user-content">
         <div class="user-bubble" :ref="(el) => setBubbleRef(el, 'user')">
+          <!-- 引用消息区域 -->
+          <div 
+            v-if="message.quotedMessage" 
+            class="quoted-message-area clickable"
+            @click.stop="handleQuotedMessageClick"
+          >
+            <div class="quoted-content">
+              <span class="quoted-text">{{ truncateQuotedContent(message.quotedMessage.content) }}</span>
+            </div>
+          </div>
           <!-- 语音消息 -->
           <VoiceMessage
             v-if="message.messageType === 'voice' && message.voiceData"
@@ -234,6 +250,12 @@
                   <img :src="copyIcon" alt="复制" style="width: 20px; height: 20px" />
                 </q-item-section>
                 <q-item-section>复制</q-item-section>
+              </q-item>
+              <q-item clickable @click="handleQuote">
+                <q-item-section avatar>
+                  <q-icon name="format_quote" size="20px" color="grey-7" />
+                </q-item-section>
+                <q-item-section>引用</q-item-section>
               </q-item>
               <q-item clickable @click="handleEdit" v-if="canEdit">
                 <q-item-section avatar>
@@ -359,12 +381,16 @@ const emit = defineEmits<{
   'enter-multi-select': []
   'edit-message': [message: ChatBubble]
   'image-loaded': [] // 图片加载完成事件，用于刷新滚动容器
+  'quote-message': [message: ChatBubble] // 引用消息
+  'scroll-to-message': [messageId: string] // 滚动到指定消息
 }>()
 
 // 长按相关状态
 const showActionMenu = ref(false)
 const longPressTimer = ref<number | null>(null)
 const isLongPressing = ref(false)
+// 标记：本次交互是否已判定为长按，用于阻止这次松手后的 click 触发图片预览
+const ignoreClickAfterLongPress = ref(false)
 const touchStartTime = ref(0)
 const mouseDownTime = ref(0)
 const touchStartX = ref(0)
@@ -663,6 +689,8 @@ const handleTouchStart = (event: TouchEvent) => {
   longPressTimer.value = window.setTimeout(() => {
     if (!props.isSelectionMode && bubbleTarget.value) {
       isLongPressing.value = true
+      // 标记本次交互为长按，后续产生的 click 不再触发图片预览
+      ignoreClickAfterLongPress.value = true
       // 第5步：计算气泡框位置并显示
       calculateBubblePosition(target)
       // 第6步：显示气泡菜单
@@ -883,6 +911,29 @@ const handleForward = () => {
       position: 'top',
       timeout: 3000,
     })
+  }
+}
+
+// 截断引用内容用于展示，最多显示30个字符
+const truncateQuotedContent = (content: string): string => {
+  if (!content) return ''
+  // 移除HTML标签和多余空白
+  const plainText = content.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+  if (plainText.length <= 30) return plainText
+  return plainText.substring(0, 30) + '...'
+}
+
+// 处理引用消息
+const handleQuote = () => {
+  console.log('[ChatMessage] handleQuote 被调用', props.message)
+  showActionMenu.value = false
+  emit('quote-message', props.message)
+}
+
+// 点击引用区域，滚动到被引用的消息
+const handleQuotedMessageClick = () => {
+  if (props.message.quotedMessage?.id) {
+    emit('scroll-to-message', props.message.quotedMessage.id)
   }
 }
 
@@ -1397,6 +1448,12 @@ const showImagePreview = ref(false)
 
 // 处理图片点击事件（使用事件委托）
 const handleImageClick = (event: MouseEvent) => {
+  // 如果本次交互已被判定为长按，则忽略这次 click，避免同时弹出图片预览
+  if (ignoreClickAfterLongPress.value) {
+    ignoreClickAfterLongPress.value = false
+    return
+  }
+
   const target = event.target as HTMLElement
   if (target && target.tagName === 'IMG' && target.classList.contains('markdown-image')) {
     event.stopPropagation()
@@ -1555,6 +1612,51 @@ onUnmounted(() => {
   word-wrap: break-word;
 }
 
+/* 消息中的引用区域样式 */
+.quoted-message-area {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  max-width: 100%;
+}
+
+.quoted-message-area.clickable {
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.quoted-message-area.clickable:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.quoted-message-area.clickable:active {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+
+.quoted-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+
+
+.quoted-text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 消息文本样式 */
 .message-text {
   line-height: 1.5;
@@ -1566,6 +1668,30 @@ onUnmounted(() => {
   -webkit-user-select: none; /* Safari */
   -moz-user-select: none; /* Firefox */
   -ms-user-select: none; /* IE/Edge */
+}
+
+.message-text {
+  line-height: 1.5;
+  font-size: 15px;
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: pre-wrap; /* 保持换行符和空格 */
+  user-select: none; /* 禁用文本选择 */
+  -webkit-user-select: none; /* Safari */
+  -moz-user-select: none; /* Firefox */
+  -ms-user-select: none; /* IE/Edge */
+}
+
+:deep(.message-text h1),
+:deep(.message-text h2),
+:deep(.message-text h3),
+:deep(.message-text h4),
+:deep(.message-text h5),
+:deep(.message-text h6) {
+  font-size: 16px;  /* 所有标题统一大小 */
+  line-height: 1.5;
+  font-weight: 600;
+  margin: 8px 0;
 }
 
 .user-bubble .message-text {

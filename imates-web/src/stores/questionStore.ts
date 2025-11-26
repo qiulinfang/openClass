@@ -123,8 +123,8 @@ export const useQuestionStore = defineStore('question', () => {
           const convertedQuestions: ExerciseItem[] = questionList.map((q: unknown) => {
             const question = q as Record<string, unknown>
             return {
-              id: (question.id as string) || (question.bmNo as string) || '',
               bmNo: (question.bmNo as string) || (question.id as string) || '',
+              id: (question.bmNo as string) || (question.id as string) || '',
               title: (question.title as string) || '',
               question: (question.content as string) || (question.question as string) || (question.title as string) || '',
               answer: (question.answer as string) || '',
@@ -211,8 +211,8 @@ export const useQuestionStore = defineStore('question', () => {
       const convertedQuestions: ExerciseItem[] = questionList.map((q: unknown) => {
         const question = q as Record<string, unknown>
         return {
-          id: (question.id as string) || (question.bmNo as string) || '',
-          bmNo: (question.bmNo as string) || (question.id as string) || '',
+          bmNo: (question.bmNo as string) || '',
+          id: (question.bmNo as string) || '',
           title: (question.title as string) || '',
           question: (question.content as string) || (question.question as string) || (question.title as string) || '',
           answer: (question.answer as string) || '',
@@ -373,7 +373,8 @@ export const useQuestionStore = defineStore('question', () => {
     const exists = questions.value.some(q => q.bmNo === question.bmNo)
     if (!exists) {
       question.subject = subject
-      question.id = Date.now().toString()
+      // id 等于 bmNo，保持一致
+      question.id = question.bmNo
       questions.value.unshift(question)
       // 如果提供了科目，保存到 IndexedDB
       if (subject) {

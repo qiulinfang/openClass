@@ -3,7 +3,7 @@
     <!-- 统一工具栏（浮动在顶部） -->
     <div class="toolbar-wrapper">
       <UnifiedToolbar
-        :tools="drawingBoardTools"
+        :tools="props.drawingBoardTools"
         :selected-tool="currentTool"
         :tool-config="toolConfig"
         :tool-states="{ undo: canUndo, redo: canRedo }"
@@ -40,6 +40,7 @@
 
       <!-- 浮动缩放控制面板 -->
       <div
+        v-if="props.showZoomControl"
         class="zoom-control-panel"
         @mousedown.stop
         @mouseup.stop
@@ -85,27 +86,49 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import UnifiedToolbar from './UnifiedToolbar.vue'
 import SignaturePad from 'signature_pad'
 
+// Props 定义
+interface Props {
+  backgroundImage?: string // 背景图片（base64 或 URL）
+  fitBackground?: boolean  // 是否让画布适应背景图片尺寸
+  fillContainer?: boolean  // 是否让画布填满父容器（图片按 contain 方式绘制）
+  showZoomControl?: boolean // 是否显示缩放控制面板
+  drawingBoardTools?: string[] // 工具栏工具列表
+  forcePenColor?: string // 强制画笔颜色（例如截图编辑场景只用红色）
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  backgroundImage: '',
+  fitBackground: true,
+  fillContainer: false,
+  showZoomControl: true,
+  drawingBoardTools: () => [
+    'hand',
+    'select',
+    'draw',
+    'eraser-draw',
+    'text',
+    'rectangle',
+    'circle',
+    'line',
+    'triangle',
+    'undo',
+    'redo',
+    'clear',
+  ],
+})
+
 // 新增：定义对外事件
 const emit = defineEmits<{
   // 内容变化事件（用于父组件更新缩略图）
   'content-change': []
 }>()
 
-// 统一工具栏工具集合（本地变量）
-const drawingBoardTools = [
-  'hand',
-  'select',
-  'draw',
-  'eraser-draw',
-  'text',
-  'rectangle',
-  'circle',
-  'line',
-  'triangle',
-  'undo',
-  'redo',
-  'clear',
-]
+// 背景图片对象
+const backgroundImg = ref<HTMLImageElement | null>(null)
+const backgroundLoaded = ref(false)
+
+// fillContainer 模式下的背景绘制参数
+const bgDrawParams = ref<{ scale: number; offsetX: number; offsetY: number } | null>(null)
 
 // 绘图对象类型定义
 interface DrawObject {
@@ -160,6 +183,11 @@ const toolConfig = ref<{ color?: string; size?: number; handwritingStyle?: 'sign
   size: 3,
   handwritingStyle: 'normal',
 })
+
+// 初始化时如果有强制颜色，覆盖一次
+if (props.forcePenColor) {
+  toolConfig.value.color = props.forcePenColor
+}
 
 // Signature Pad 实例
 const signaturePadRef = ref<HTMLCanvasElement>()
@@ -365,9 +393,91 @@ const initCanvas = async () => {
   // 保存初始状态
   saveState()
 
-  // 渲染画布
-  render()
+  // 加载背景图片（如果有）
+  if (props.backgroundImage) {
+    loadBackgroundImage(props.backgroundImage)
+  } else {
+    // 渲染画布
+    render()
+  }
 }
+
+// 加载背景图片
+const loadBackgroundImage = (imageUrl: string) => {
+  if (!imageUrl) {
+    backgroundImg.value = null
+    backgroundLoaded.value = false
+    bgDrawParams.value = null
+    render()
+    return
+  }
+
+  const img = new Image()
+  img.onload = () => {
+    backgroundImg.value = img
+    backgroundLoaded.value = true
+
+    // fillContainer 模式：Canvas 填满父容器，图片按 contain 方式绘制
+    if (props.fillContainer) {
+      // 读取父容器尺寸
+      const wrapper = canvasRef.value?.parentElement
+      if (wrapper) {
+        const containerW = wrapper.clientWidth
+        const containerH = wrapper.clientHeight
+        
+        // 设置 Canvas 尺寸为容器尺寸
+        canvasWidth.value = containerW
+        canvasHeight.value = containerH
+        if (canvasRef.value) {
+          canvasRef.value.width = containerW
+          canvasRef.value.height = containerH
+        }
+        if (signaturePadRef.value) {
+          signaturePadRef.value.width = containerW
+          signaturePadRef.value.height = containerH
+        }
+        
+        // 计算图片的 contain 绘制参数
+        const scale = Math.min(containerW / img.width, containerH / img.height)
+        const drawW = img.width * scale
+        const drawH = img.height * scale
+        const offsetX = (containerW - drawW) / 2
+        const offsetY = (containerH - drawH) / 2
+        bgDrawParams.value = { scale, offsetX, offsetY }
+      }
+    } else if (props.fitBackground) {
+      // fitBackground 模式：Canvas 尺寸 = 图片尺寸
+      canvasWidth.value = img.width
+      canvasHeight.value = img.height
+      if (canvasRef.value) {
+        canvasRef.value.width = img.width
+        canvasRef.value.height = img.height
+      }
+      if (signaturePadRef.value) {
+        signaturePadRef.value.width = img.width
+        signaturePadRef.value.height = img.height
+      }
+      bgDrawParams.value = null
+    } else {
+      bgDrawParams.value = null
+    }
+
+    render()
+  }
+  img.onerror = () => {
+    console.error('[DrawingBoard] 背景图片加载失败:', imageUrl.substring(0, 50))
+    backgroundImg.value = null
+    backgroundLoaded.value = false
+    bgDrawParams.value = null
+    render()
+  }
+  img.src = imageUrl
+}
+
+// 监听背景图片变化
+watch(() => props.backgroundImage, (newUrl) => {
+  loadBackgroundImage(newUrl || '')
+})
 
 // 渲染画布
 const render = () => {
@@ -375,6 +485,41 @@ const render = () => {
 
   // 清空画布
   ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height)
+
+  // 绘制背景图片（如果有）
+  if (backgroundImg.value && backgroundLoaded.value) {
+    const img = backgroundImg.value
+    const canvas = canvasRef.value
+    
+    if (props.fillContainer && bgDrawParams.value) {
+      // fillContainer 模式：使用预计算的 contain 参数绘制
+      const { scale, offsetX, offsetY } = bgDrawParams.value
+      const drawW = img.width * scale
+      const drawH = img.height * scale
+      ctx.drawImage(
+        img,
+        0, 0, img.width, img.height,
+        offsetX, offsetY, drawW, drawH
+      )
+    } else if (props.fitBackground) {
+      // fitBackground 模式：canvas 尺寸等于图片尺寸，直接 1:1 绘制
+      ctx.drawImage(img, 0, 0)
+    } else {
+      // 默认模式：contain 方式绘制
+      const canvasW = canvas.width
+      const canvasH = canvas.height
+      const scale = Math.min(canvasW / img.width, canvasH / img.height)
+      const drawW = img.width * scale
+      const drawH = img.height * scale
+      const offsetX = (canvasW - drawW) / 2
+      const offsetY = (canvasH - drawH) / 2
+      ctx.drawImage(
+        img,
+        0, 0, img.width, img.height,
+        offsetX, offsetY, drawW, drawH
+      )
+    }
+  }
 
   // 绘制所有对象
   objects.value.forEach((obj, index) => {
@@ -691,9 +836,14 @@ const getCanvasCoords = (e: MouseEvent | TouchEvent): { x: number; y: number } |
     return null
   }
 
+  // 计算 CSS 缩放比例（解决 Canvas 被 CSS 缩放时坐标不准的问题）
+  // 注意：rect 已包含 CSS transform scale 的影响，所以 scaleX/Y 已隐式考虑了 zoomLevel
+  const scaleX = canvasRef.value.width / rect.width
+  const scaleY = canvasRef.value.height / rect.height
+
   return {
-    x: (clientX - rect.left) / zoomLevel.value,
-    y: (clientY - rect.top) / zoomLevel.value,
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY,
   }
 }
 
@@ -1468,12 +1618,18 @@ const handleToolChange = (tool: string) => {
 
 // 配置变化
 const handleConfigChange = (config: { [key: string]: string | number | boolean | undefined }) => {
-  toolConfig.value = { 
-    ...toolConfig.value, 
+  const next = {
+    ...toolConfig.value,
     ...config,
-    handwritingStyle: config.handwritingStyle as 'signature' | 'normal' | undefined
   }
-  
+
+  // 如果有强制画笔颜色，忽略外部传入的 color，始终使用 forcePenColor
+  if (props.forcePenColor) {
+    next.color = props.forcePenColor
+  }
+
+  toolConfig.value = next
+
   // 更新 Signature Pad 配置
   if (signaturePad) {
     if (config.color) {
@@ -1631,6 +1787,42 @@ defineExpose({
     
     // 第5步：返回base64数据
     return tempCanvas.toDataURL('image/png', 0.8)
+  },
+
+  // 流程：导出画布为 JPG 图片
+  exportToJpg: (quality = 0.9): string => {
+    // 第1步：检查canvas是否存在
+    if (!canvasRef.value) return ''
+    
+    // 第2步：创建临时canvas（确保有白色背景）
+    const sourceCanvas = canvasRef.value
+    const tempCanvas = document.createElement('canvas')
+    const tempCtx = tempCanvas.getContext('2d')
+    if (!tempCtx) return ''
+    
+    // 第3步：设置临时canvas尺寸
+    tempCanvas.width = sourceCanvas.width
+    tempCanvas.height = sourceCanvas.height
+    
+    // 第4步：填充白色背景（JPG 不支持透明）
+    tempCtx.fillStyle = '#ffffff'
+    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height)
+    
+    // 第5步：绘制原canvas内容
+    tempCtx.drawImage(sourceCanvas, 0, 0)
+    
+    // 第6步：返回 JPG base64 数据
+    return tempCanvas.toDataURL('image/jpeg', quality)
+  },
+
+  // 流程：设置背景图片（动态）
+  setBackgroundImage: (imageUrl: string) => {
+    loadBackgroundImage(imageUrl)
+  },
+
+  // 流程：获取画布是否有内容（背景图片或绘制对象）
+  hasContent: (): boolean => {
+    return backgroundLoaded.value || objects.value.length > 0
   }
 })
 </script>

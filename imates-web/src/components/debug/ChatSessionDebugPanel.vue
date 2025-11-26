@@ -647,7 +647,7 @@ import type { AiGeneralSession, ChatBubble } from '@/types'
 import type { TeacherSession } from '@/stores/teacherGeneralChatStore'
 import localforage from 'localforage'
 import { authStorageService } from '@/services/auth-storage-service'
-import { asyncStorage } from '@/services/chat-storage'
+import { chatStorage } from '@/services/chat-storage'
 import { showMessage } from '@/utils'
 
 // Props
@@ -772,7 +772,7 @@ const loadTeacherSessions = async () => {
           let msgCount = 0
     const storageKey = `teacher-general-${session.sessionId}`
           try {
-            const history = await asyncStorage.loadChatHistory(storageKey)
+            const history = await chatStorage.loadChatHistory(storageKey)
             if (history && history.messages) {
               msgCount = history.messages.length
             }
@@ -813,7 +813,7 @@ const loadTeacherExerciseSessions = async () => {
     const storageKey = `teacher-exercise-${session.questionId}`
           let msgCount = 0
           try {
-            const history = await asyncStorage.loadTeacherChatHistory(storageKey)
+            const history = await chatStorage.loadTeacherChatHistory(storageKey)
             if (history && history.messages) {
               msgCount = history.messages.length
             }
@@ -859,7 +859,7 @@ const calculateStorageSize = async () => {
     for (const session of teacherSessions.value) {
       const storageKey = `teacher-general-${session.sessionId}`
       try {
-        const history = await asyncStorage.loadChatHistory(storageKey)
+        const history = await chatStorage.loadChatHistory(storageKey)
         if (history) {
           totalSize += new Blob([JSON.stringify(history)]).size
         }
@@ -876,7 +876,7 @@ const calculateStorageSize = async () => {
     for (const session of teacherExerciseSessions.value) {
       const storageKey = `teacher-exercise-${session.questionId}`
       try {
-        const history = await asyncStorage.loadTeacherChatHistory(storageKey)
+        const history = await chatStorage.loadTeacherChatHistory(storageKey)
         if (history) {
           totalSize += new Blob([JSON.stringify(history)]).size
         }
@@ -919,14 +919,14 @@ const clearAllSessions = async () => {
     // 删除所有教师通用会话（使用独立存储格式）
     for (const session of teacherSessions.value) {
       const storageKey = `teacher-general-${session.sessionId}`
-      await asyncStorage.removeChatHistory(storageKey)
+      await chatStorage.removeChatHistory(storageKey)
       teacherStore.deleteSession(session.sessionId)
     }
     
     // 删除所有教师题目会话（使用统一存储格式）
     for (const session of teacherExerciseSessions.value) {
       const storageKey = `teacher-exercise-${session.questionId}`
-      await asyncStorage.removeTeacherChatHistory(storageKey)
+      await chatStorage.removeTeacherChatHistory(storageKey)
       teacherExerciseStore.deleteSession(session.sessionId)
     }
     
@@ -953,7 +953,7 @@ const deleteTeacherSession = async (session: (TeacherSession & { msgCount: numbe
     if (session.sessionType === 'exercise') {
       // 删除教师题目会话（使用统一存储格式）
       const storageKey = `teacher-exercise-${session.questionId}`
-      await asyncStorage.removeTeacherChatHistory(storageKey)
+      await chatStorage.removeTeacherChatHistory(storageKey)
       teacherExerciseStore.deleteSession(session.sessionId)
     } else {
       // 删除教师通用会话（从统一存储中删除）
@@ -997,7 +997,7 @@ const viewTeacherSessionDetail = async (session: (TeacherSession & { msgCount: n
     if (session.sessionType === 'exercise') {
       // 加载教师题目会话消息
       const storageKey = `teacher-exercise-${session.questionId}`
-      const history = await asyncStorage.loadTeacherChatHistory(storageKey)
+      const history = await chatStorage.loadTeacherChatHistory(storageKey)
       
       if (history && history.messages) {
         sessionMessages.value = history.messages
@@ -1007,7 +1007,7 @@ const viewTeacherSessionDetail = async (session: (TeacherSession & { msgCount: n
     } else {
       // 加载教师通用会话消息（从独立存储中加载）
       const storageKey = `teacher-general-${session.sessionId}`
-      const history = await asyncStorage.loadChatHistory(storageKey)
+      const history = await chatStorage.loadChatHistory(storageKey)
       
       if (history && history.messages) {
         sessionMessages.value = history.messages
@@ -1076,7 +1076,7 @@ const exportData = async () => {
     for (const session of teacherSessions.value) {
       const storageKey = `teacher-general-${session.sessionId}`
       try {
-        const history = await asyncStorage.loadChatHistory(storageKey)
+        const history = await chatStorage.loadChatHistory(storageKey)
         if (history) {
           exportData.teacherMessages[session.sessionId] = {
             questionId: `teacher-general-${session.sessionId}`,
@@ -1096,7 +1096,7 @@ const exportData = async () => {
     for (const session of teacherExerciseSessions.value) {
       const storageKey = `teacher-exercise-${session.questionId}`
       try {
-        const history = await asyncStorage.loadTeacherChatHistory(storageKey)
+        const history = await chatStorage.loadTeacherChatHistory(storageKey)
         if (history) {
           exportData.teacherExerciseMessages[session.questionId] = history
         }
@@ -1162,7 +1162,7 @@ const handleFileImport = async (event: Event) => {
         for (const sessionId in importData.teacherMessages) {
           const history = importData.teacherMessages[sessionId]
           const storageKey = `teacher-general-${sessionId}`
-          await asyncStorage.saveChatHistory(storageKey, {
+          await chatStorage.saveChatHistory(storageKey, {
             questionId: `teacher-general-${sessionId}`,
             messages: history.messages || [],
             chatResponseTimes: history.chatResponseTimes || 0,
@@ -1179,7 +1179,7 @@ const handleFileImport = async (event: Event) => {
         
         for (const questionId in importData.teacherExerciseMessages) {
           const storageKey = `teacher-exercise-${questionId}`
-          await asyncStorage.saveTeacherChatHistory(storageKey, importData.teacherExerciseMessages[questionId])
+          await chatStorage.saveTeacherChatHistory(storageKey, importData.teacherExerciseMessages[questionId])
         }
       }
       
@@ -1239,7 +1239,7 @@ const refreshStorageData = async () => {
     // 刷新IndexedDB消息（从独立存储中加载）
     if (currentTeacherSession.value) {
       const storageKey = `teacher-general-${currentTeacherSession.value.sessionId}`
-      const history = await asyncStorage.loadChatHistory(storageKey)
+      const history = await chatStorage.loadChatHistory(storageKey)
       if (history && history.messages) {
         indexedDBMessages.value = history.messages
       } else {

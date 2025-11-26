@@ -32,7 +32,7 @@
         <div v-else class="similar-questions-container">
           <div
             v-for="(question, index) in similarQuestions"
-            :key="question.id || question.bmNo || index"
+            :key="question.bmNo || index"
             class="similar-question-item"
             :class="{ 'question-in-user-list': questions.some(q => q.bmNo === question.bmNo) }"
           >

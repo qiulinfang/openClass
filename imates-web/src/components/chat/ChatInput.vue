@@ -2,6 +2,17 @@
   <div class="modern-chat-container">
     <!-- 主容器 -->
     <div class="chat-input-wrapper" ref="inputAreaRef" :class="{ 'is-narrow': isNarrow }">
+      <!-- 引用消息区域 -->
+      <div v-if="props.quotedMessage" class="quote-bar">
+        <div class="quote-content">
+          <div class="quote-text">
+            <span class="quote-message">{{ truncateQuoteContent(props.quotedMessage.content) }}</span>
+          </div>
+        </div>
+        <button type="button" class="quote-close" @click.stop="emit('remove-quote')">
+          <q-icon name="close" size="16px" color="grey-6" />
+        </button>
+      </div>
       <!-- 截图缩略图（挂在输入框内左上角） -->
       <div v-if="props.attachedScreenshot" class="screenshot-thumb-bar">
         <div class="screenshot-thumb-inner">
@@ -152,8 +163,9 @@
             @click="handleSendMessage"
             class="send-button"
             :class="{ 
-              'send-button--enabled': props.canSend && !props.isLoading && !props.isEditing,
-              'send-button--disabled': !props.canSend || props.isLoading
+              // 只要可以发送（非 loading），无论是否编辑模式，都使用同一个高亮样式
+              'send-button--enabled': !props.isLoading && (props.canSend || props.isEditing),
+              'send-button--disabled': props.isLoading || (!props.canSend && !props.isEditing)
             }"
           >
             <!-- 加载状态图标 -->
@@ -164,11 +176,11 @@
               class="send-loading-icon"
             />
             <!-- 编辑状态图标 -->
-            <q-icon 
+            <img
               v-else-if="props.isEditing" 
-              name="check" 
-              color="grey-4" 
-              size="20px"
+              :src="sendIcon" 
+              alt="发送" 
+              class="send-icon"
             />
             <!-- 自定义发送图标 -->
             <img 
@@ -240,20 +252,102 @@ import type {
 } from '../../types'
 
 
-const props = defineProps<ChatInputProps & {
-  attachedScreenshot?: {
-    dataUrl: string
-    width: number
-    height: number
-  }
-}>()
+const props = defineProps({
+  modelValue: {
+    type: String,
+    required: true,
+  },
+  placeholderText: {
+    type: String,
+    required: true,
+  },
+  isLoading: {
+    type: Boolean,
+    required: true,
+  },
+  isRecording: {
+    type: Boolean,
+    required: true,
+  },
+  enableWebSearch: {
+    type: Boolean,
+    required: true,
+  },
+  selectedModel: {
+    type: String,
+    required: true,
+  },
+  type: {
+    type: String as () => 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise',
+    required: true,
+  },
+  uploadedFiles: {
+    type: Array,
+    required: true,
+  },
+  activeMode: {
+    type: Object,
+    required: true,
+  },
+  canSend: {
+    type: Boolean,
+    required: true,
+  },
+  isEditing: {
+    type: Boolean,
+    default: false,
+  },
+  editingMessageId: {
+    type: String,
+    default: null,
+  },
+  // 你原来额外加的两个
+  attachedScreenshot: {
+    type: Object as () => {
+      dataUrl: string
+      width: number
+      height: number
+    } | undefined,
+    default: undefined,
+  },
+  quotedMessage: {
+    // 关键：这里显式声明 quotedMessage
+    type: Object as () => import('../../types').ChatBubble | null | undefined,
+    default: null,
+  },
+})
 
-const emit = defineEmits<ChatInputEmits & {
-  'focus': []
-  'blur': []
-  'remove-screenshot': []
-  'send-with-screenshot': []
-}>()
+const emit = defineEmits({
+  'update:modelValue': (value: string) => true,
+  'send-message': () => true,
+  'add-new-line': () => true,
+  'input-focus': () => true,
+  'input-blur': () => true,
+  'start-voice-input': (_evt?: TouchEvent | MouseEvent) => true,
+  'stop-voice-input': (_evt?: TouchEvent | MouseEvent) => true,
+  'voice-move': (_evt: TouchEvent | MouseEvent) => true,
+  'show-image-picker': () => true,
+  'toggle-web-search': () => true,
+  'scroll-to-bottom': () => true,
+  'update:selected-model': (_value: string) => true,
+  'remove-file': (_id: string) => true,
+  'upload-file': () => true,
+  'cancel-edit': () => true,
+  'focus': () => true,
+  'blur': () => true,
+  'remove-screenshot': () => true,
+  'send-with-screenshot': () => true,
+  'remove-quote': () => true,
+})
+
+// 截断引用内容，最多显示50个字符
+const truncateQuoteContent = (content: string): string => {
+  if (!content) return ''
+  // 移除HTML标签和多余空白
+  const plainText = content.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+  if (plainText.length <= 50) return plainText
+  return plainText.substring(0, 50) + '...'
+}
 
 // 新的编辑器相关状态
 const inputAreaRef = ref<HTMLElement>()
@@ -263,6 +357,11 @@ const mathEditorRef = ref<InstanceType<typeof MathFormulaEditor>>()
 
 // 响应式宽度
 const isNarrow = ref(false)
+
+// 调试：监控 quotedMessage 变化
+watch(() => props.quotedMessage, (newVal) => {
+  console.log('[ChatInput] quotedMessage 变化:', newVal)
+}, { immediate: true })
 
 onMounted(() => {
   const observer = new ResizeObserver(entries => {
@@ -887,6 +986,60 @@ defineExpose({
   align-items: center;
   justify-content: center;
   padding: 0;
+}
+
+/* 引用消息区域样式 */
+.quote-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #f5f5f7;
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+
+.quote-content {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 8px;
+}
+
+.quote-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.quote-message {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quote-close {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.quote-close:hover {
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .chat-input-wrapper:hover {

@@ -217,7 +217,38 @@ export class ApiService {
     return this.downloadControllers.has(textbookId)
   }
 
+  /**
+   * Web 端检查应用更新
+   * 对齐 Android MainWebViewActivity.checkUpdateWithHttpRequest
+   * 调用同一更新接口，返回服务器版本信息，供 Web 自行处理
+   */
+  public async checkAppUpdate(): Promise<{ versionName: string; raw: any } | null> {
+    try {
+      // 根据当前环境动态获取更新接口 URL
+      const { getAppUpdateUrl } = await import('../config/env-config')
+      const url = getAppUpdateUrl()
 
+      const response = await httpClient.get<any>(url)
+
+      const data = response?.data ?? response
+      if (!data) {
+        return null
+      }
+
+      const versionName: string = data.VersionName || data.versionName || ''
+      if (!versionName) {
+        return null
+      }
+
+      return {
+        versionName,
+        raw: data,
+      }
+    } catch (error) {
+      console.warn('[ApiService] Web 检查应用更新失败:', error)
+      return null
+    }
+  }
 
   /**
    * 验证资源文件完整性
@@ -633,8 +664,13 @@ export class ApiService {
     messageId: string = generateUniqueId('ai'),
   ): Promise<any> {
     try {
-      // 1. 构建请求体
-      const requestBody = this.buildChatRequestBody(message)
+      // 1. 直接使用 message 作为请求体
+      const requestBody = {
+        ...message,
+        // 如果后端使用的是 role 字段，可以兼容一下
+        role: (message as any).chatRole ?? (message as any).role,
+      }
+
       
       // 2. 发送HTTP请求
       const response = await this.sendChatRequest(url, requestBody)
@@ -659,26 +695,6 @@ export class ApiService {
       })
       // 4. 处理异常
       return this.handleChatError(error, messageId, accumulatedContent, onComplete, onStream)
-    }
-  }
-
-  /**
-   * 构建聊天请求体
-   * 将消息对象转换为与Android端一致的请求格式
-   */
-  private buildChatRequestBody(message: AiChatMessageRequest) {
-    return {
-      sessionId: message.sessionId,
-      newValue: message.newValue,
-      coversation: message.coversation,
-      question: message.question,
-      answer: message.answer,
-      name: message.name,
-      reason: message.reason, // "start" 或 "continue"
-      bmNo: message.bmNo,
-      isWebSearch: message.isWebSearch,
-      role: message.chatRole,
-      explanation: message.explanation,
     }
   }
 
@@ -743,14 +759,28 @@ export class ApiService {
     // 根据响应内容类型进行处理
     if (trimmedChunk === 'end') {
       // 轮询结束 - 返回最终结果
-      return this.handlePollingEnd(messageId, accumulatedContent, response.data.sessionId, message.sessionId, onComplete, onStream)
-    } else if (trimmedChunk !== '') {
-      // 有新内容 - 累积内容并继续轮询
-      return this.handleNewContent(chunk, message, url, onComplete, onStream, accumulatedContent, messageId)
-    } else {
-      // 空内容但未结束 - 继续轮询
+      return this.handlePollingEnd(
+        messageId,
+        accumulatedContent,
+        response.data.sessionId,
+        message.sessionId,
+        onComplete,
+        onStream,
+      )
+    }
+
+    // 如果本次返回仅为换行符（例如 "\n"、"\r\n"），不累积内容，只继续轮询
+    if (/^[\r\n]+$/.test(chunk)) {
       return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId)
     }
+
+    if (trimmedChunk !== '') {
+      // 有新内容 - 累积内容并继续轮询
+      return this.handleNewContent(chunk, message, url, onComplete, onStream, accumulatedContent, messageId)
+    }
+
+    // 空内容但未结束 - 继续轮询
+    return this.handleEmptyContent(message, url, onComplete, onStream, accumulatedContent, messageId)
   }
 
   /**

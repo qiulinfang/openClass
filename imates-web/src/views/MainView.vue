@@ -74,6 +74,7 @@
         direction="up"
         color="purple"
         padding="md"
+        @click="toggleGoResourcesBubble"
       >
         <q-fab-action
           color="purple-7"
@@ -90,6 +91,19 @@
           label-position="left"
         />
       </q-fab>
+
+      <!-- 知识图谱未下载资源引导：气泡提示（贴近悬浮功能按钮） -->
+      <div
+        v-if="shouldShowGoResourcesHint && showGoResourcesBubble"
+        class="go-resources-bubble"
+      >
+        <div class="go-resources-text">
+          请去资源下载寻找你想学习的教材哦
+        </div>
+        <button class="go-resources-btn" @click="goToResources">
+          去资源下载
+        </button>
+      </div>
     </div>
     <!-- 草稿本对话框 -->
     <DraftDialog v-model="showDraftDialog" />
@@ -116,6 +130,7 @@
 import { ref, watch, computed, onMounted, nextTick, provide } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUIStore } from '@/stores/uiStore'
+import { usePdfViewerStore } from '@/stores/pdfViewerStore'
 import { useResourceStore } from '@/stores/resourceStore'
 import DraftDialog from '@/components/DraftDialog.vue'
 import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
@@ -161,6 +176,7 @@ const route = useRoute()
 
 // Store
 const uiStore = useUIStore()
+const pdfViewerStore = usePdfViewerStore()
 const resourceStore = useResourceStore()
 const teacherStore = useTeacherGeneralChatStore()
 
@@ -180,6 +196,12 @@ const showToolbox = ref(false)
 // 资源通知状态
 const hasResourceNotification = ref(false)
 
+// 知识图谱未下载资源引导：气泡显示状态
+const showGoResourcesBubble = ref(true)
+
+// 是否已有任意已下载教材（本地）
+const hasAnyDownloadedTextbook = ref<boolean | null>(null)
+
 // 悬浮按钮拖动相关状态
 const fabPosition = ref({ x: 0, y: 0 })
 const isDragging = ref(false)
@@ -192,6 +214,12 @@ const fabStyle = computed(() => ({
   right: `${fabPosition.value.x}px`,
   bottom: `${fabPosition.value.y}px`
 }))
+
+// 计算是否需要显示“去资源下载”悬浮引导：
+// 仅在知识图谱路由且尚未下载任何教材时显示
+const shouldShowGoResourcesHint = computed(() => {
+  return route.name === 'knowledgeGraph' && hasAnyDownloadedTextbook.value === false
+})
 
 // 计算主视图背景样式
 const mainViewStyle = computed(() => {
@@ -373,9 +401,15 @@ const checkResourceUpdates = async () => {
     
     // 第5步：更新通知状态（有更新或未下载都显示小红点）
     hasResourceNotification.value = hasUpdates || hasUndownloaded
+
+    // 第6步：更新“是否已下载任意教材”状态：仅当存在 downloadStatus === 2 且 isDownloaded 为 true 的教材时为 true
+    hasAnyDownloadedTextbook.value = textbooks.some((textbook: UserTextbookInfo) => {
+      return textbook.isDownloaded === true && textbook.downloadStatus === 2
+    })
   } catch {
-    // 检查失败时，不显示通知
+    // 检查失败时，不显示通知且不显示引导
     hasResourceNotification.value = false
+    hasAnyDownloadedTextbook.value = null
   }
 }
 
@@ -436,6 +470,23 @@ onMounted(async () => {
   })
 })
 
+// 切换“去资源下载”气泡显示状态
+const toggleGoResourcesBubble = () => {
+  showGoResourcesBubble.value = !showGoResourcesBubble.value
+}
+
+// 跳转到资源下载页
+const goToResources = () => {
+  // 关闭气泡，避免返回时重复干扰
+  showGoResourcesBubble.value = false
+  activeNavItem.value = 'resources'
+  emit('nav-item-change', 'resources')
+  if (showToolbox.value) {
+    showToolbox.value = false
+  }
+  router.push({ name: 'myResources' })
+}
+
 // 处理草稿本点击
 const handleDraftClick = () => {
   showDraftDialog.value = true
@@ -443,6 +494,15 @@ const handleDraftClick = () => {
 
 // 处理AI聊天点击
 const handleAIChatClick = async () => {
+  const routeName = route.name
+
+  // 如果当前在 PDF 查看页面，则仅打开右侧 PDF 聊天面板
+  if (routeName === 'pdfViewer') {
+    pdfViewerStore.openChatPanel()
+    return
+  }
+
+  // 其他页面仍然打开统一 AI 聊天对话框
   uiStore.openAIChatDialog()
 }
 
@@ -850,6 +910,56 @@ const handleLogoutClick = async () => {
   &:active {
     cursor: grabbing;
   }
+
+  // 让引导气泡相对于悬浮按钮定位
+  .go-resources-bubble {
+    position: absolute;
+    right: 72px; // 在按钮左侧偏移一段距离
+    bottom: 8px; // 与按钮垂直居中略偏上
+  }
+}
+
+// 引导气泡
+.go-resources-bubble {
+  position: relative;
+  width: 240px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  font-size: 13px;
+  color: #333333;
+}
+
+.go-resources-bubble::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  bottom: -8px;
+  border-width: 8px;
+  border-style: solid;
+  border-color: #ffffff transparent transparent transparent;
+}
+
+.go-resources-text {
+  line-height: 1.5;
+}
+
+.go-resources-btn {
+  margin-top: 8px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  border: 1px solid #6e55ff;
+  background: #ffffff;
+  color: #6e55ff;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.go-resources-btn:hover {
+  background: rgba(110, 85, 255, 0.06);
 }
 
 // 响应式设计

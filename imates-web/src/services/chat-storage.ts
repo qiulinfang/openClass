@@ -26,17 +26,17 @@ export interface ChatHistoryData {
   lastUpdated: number
 }
 
-export class AsyncStorageService {
-  private static instance: AsyncStorageService
+export class ChatStorageService {
+  private static instance: ChatStorageService
   private isInitialized = false
 
   private constructor() {}
 
-  static getInstance(): AsyncStorageService {
-    if (!AsyncStorageService.instance) {
-      AsyncStorageService.instance = new AsyncStorageService()
+  static getInstance(): ChatStorageService {
+    if (!ChatStorageService.instance) {
+      ChatStorageService.instance = new ChatStorageService()
     }
-    return AsyncStorageService.instance
+    return ChatStorageService.instance
   }
 
   /**
@@ -117,7 +117,8 @@ export class AsyncStorageService {
         retryCount: msg.retryCount,
         originalMessage: msg.originalMessage,
         chatRecordData: msg.chatRecordData,
-        selectedModel: msg.selectedModel // 保存模式信息（mate/mentor/researcher）
+        selectedModel: msg.selectedModel, // 保存模式信息（mate/mentor/researcher）
+        sessionId: msg.sessionId,
       })),
       chatResponseTimes: data.chatResponseTimes,
       lastUpdated: data.lastUpdated
@@ -140,7 +141,7 @@ export class AsyncStorageService {
       
       // 序列化数据，确保可以被存储
       const serializedData = this.serializeChatData(data)
-      
+      console.log('保存聊天记录', serializedData)
       await userLocalForage.setItem(key, serializedData)
       
     } catch (error) {
@@ -434,4 +435,4 @@ export class AsyncStorageService {
 }
 
 // 导出单例实例
-export const asyncStorage = AsyncStorageService.getInstance()
+export const chatStorage = ChatStorageService.getInstance()

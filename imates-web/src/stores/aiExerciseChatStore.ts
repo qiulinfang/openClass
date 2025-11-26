@@ -12,7 +12,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { apiService } from '../services/api-service'
-import { asyncStorage, type ChatHistoryData } from '../services/chat-storage'
+import { chatStorage, type ChatHistoryData } from '../services/chat-storage'
 import type { AiChatMessageRequest, ChatBubble, ExerciseItem, UserInfo } from '../types'
 import { createUserMessage, generateUniqueId, type ChatImageData } from './utils/chatStoreUtils'
 import { useQuestionStore } from './questionStore'
@@ -36,7 +36,7 @@ const buildAiExerciseMessage = (
   const userId = getUserId() || 'User'
   
   // 获取题目ID
-  const questionId = currentQuestion.bmNo || currentQuestion.id || ''
+  const questionId = currentQuestion.bmNo || ''
   
   // 优先使用传入的 sessionId，如果没有则新建（使用题目ID和时间戳）
   const finalSessionId = sessionId || `exercise-${questionId}-${Date.now()}`
@@ -158,11 +158,11 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     }
     messages.value.push(tempReply)
     
-    // 第4步：如果没有 sessionId，则新建（基于题目ID）
+    // 第4步：如果没有 sessionId，则新建（基于题目bmNo）
     if (!currentSessionId.value) {
-      const questionId = currentQuestion.id || currentQuestion.bmNo || ''
-      const newSessionId = `exercise-${questionId}-${Date.now()}`
-      console.log('[AI_EXERCISE] 创建新会话（基于题目ID）', { sessionId: newSessionId, questionId })
+      const questionBmNo = currentQuestion.bmNo || ''
+      const newSessionId = `exercise-${questionBmNo}-${Date.now()}`
+      console.log('[AI_EXERCISE] 创建新会话（基于题目bmNo）', { sessionId: newSessionId, questionBmNo })
       currentSessionId.value = newSessionId
     }
     if(shouldHidePrefix){
@@ -203,8 +203,11 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         canViewAnswer.value = true
       }
       
-      // 第8步：保存聊天历史
-      await saveChatHistory(currentQuestion.id || currentQuestion.bmNo)
+      // 第8步：保存聊天历史（统一使用 bmNo 作为存储键）
+      const questionBmNo = currentQuestion.bmNo
+      if (questionBmNo) {
+        await saveChatHistory(questionBmNo)
+      }
       
     } catch (error) {
       console.error('[AI_EXERCISE] 发送失败:', error)
@@ -315,8 +318,11 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         selectedModel: selectedModel || message.selectedModel || 'mate' // 保留模式信息
       }
       
-      // 第9步：保存聊天历史
-      await saveChatHistory(currentQuestion.id || currentQuestion.bmNo)
+      // 第9步：保存聊天历史（统一使用 bmNo 作为存储键）
+      const questionBmNo = currentQuestion.bmNo
+      if (questionBmNo) {
+        await saveChatHistory(questionBmNo)
+      }
       
     } catch (error) {
       console.error('[AI_EXERCISE] 重试失败:', error)
@@ -331,7 +337,11 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
         retryCount: retryCount + 1
       }
       
-      await saveChatHistory(currentQuestion.id || currentQuestion.bmNo)
+      // 保存聊天历史（统一使用 bmNo 作为存储键）
+      const questionBmNo = currentQuestion.bmNo
+      if (questionBmNo) {
+        await saveChatHistory(questionBmNo)
+      }
       throw error
     }
   }
@@ -339,10 +349,11 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   /**
    * 保存聊天历史（AI题目场景）
    */
-  const saveChatHistory = async (questionId: string): Promise<void> => {
+  // 约定：此处 questionBmNo 始终使用题目的 bmNo 作为存储键的一部分
+  const saveChatHistory = async (questionBmNo: string): Promise<void> => {
     if (messages.value.length === 0) return
     
-    const storageKey = `ai-exercise-${questionId}`
+    const storageKey = `ai-exercise-${questionBmNo}`
     const historyData: ChatHistoryData = {
       questionId: storageKey,
       messages: messages.value,
@@ -351,7 +362,7 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
     }
     
     try {
-      await asyncStorage.saveChatHistory(storageKey, historyData)
+      await chatStorage.saveChatHistory(storageKey, historyData)
       console.log('[AI_EXERCISE] 🔵 保存聊天历史成功:', historyData)
     } catch (error) {
       console.error('[AI_EXERCISE] ❌ 保存聊天历史失败:', error)
@@ -361,12 +372,13 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   /**
    * 加载聊天历史（AI题目场景）
    */
-  const loadChatHistory = async (questionId: string): Promise<void> => {
+  // 约定：此处 questionBmNo 始终为题目的 bmNo
+  const loadChatHistory = async (questionBmNo: string): Promise<void> => {
     try {
       isChatLoading.value = true
-      console.log('[AI_EXERCISE] 🔵 loadChatHistory:', questionId)
-      const storageKey = `ai-exercise-${questionId}`
-      const historyData = await asyncStorage.loadChatHistory(storageKey)
+      console.log('[AI_EXERCISE] 🔵 loadChatHistory (bmNo):', questionBmNo)
+      const storageKey = `ai-exercise-${questionBmNo}`
+      const historyData = await chatStorage.loadChatHistory(storageKey)
       console.log('[AI_EXERCISE] 🔵 historyData:', historyData)
       if (historyData) {
         messages.value = historyData.messages || []
@@ -394,10 +406,11 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
   /**
    * 清空聊天历史（AI题目场景）
    */
-  const clearChatHistory = async (questionId: string): Promise<void> => {
+  // 约定：此处 questionBmNo 始终为题目的 bmNo
+  const clearChatHistory = async (questionBmNo: string): Promise<void> => {
     try {
-      const storageKey = `ai-exercise-${questionId}`
-      await asyncStorage.removeChatHistory(storageKey)
+      const storageKey = `ai-exercise-${questionBmNo}`
+      await chatStorage.removeChatHistory(storageKey)
       messages.value = []
       chatResponseTimes.value = 0
       console.log('[AI_EXERCISE] 清空聊天历史，重置 currentSessionId')
@@ -426,11 +439,13 @@ export const useAiExerciseChatStore = defineStore('aiExerciseChat', () => {
       // 第2步：从列表中删除消息
       messages.value.splice(index, 1)
       
-      // 第3步：保存更新后的聊天历史（需要题目ID，从当前题目获取）
+      // 第3步：保存更新后的聊天历史（需要题目bmNo，从当前题目获取）
       const currentQuestion = questionStore.currentQuestion
       if (currentQuestion) {
-        const questionId = currentQuestion.id || currentQuestion.bmNo
-        await saveChatHistory(questionId)
+        const questionBmNo = currentQuestion.bmNo
+        if (questionBmNo) {
+          await saveChatHistory(questionBmNo)
+        }
       }
     } catch (error) {
       console.error('[AI_EXERCISE] ❌ 删除消息失败:', error)

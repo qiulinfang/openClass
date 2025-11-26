@@ -2,19 +2,29 @@
   <DraggableDialog 
     v-model="localVisible" 
     title="聊聊这里？"
-    :initial-width="560"
-    :initial-height="520"
-    :min-width="400"
-    :min-height="350"
+    :initial-width="900"
+    :initial-height="900"
+    :min-width="500"
+    :min-height="450"
     title-align="left"
     header-background-color="#ffffff"
     class="screenshot-input-dialog"
   >
     <div class="screenshot-input-content">
-      <!-- 截图预览区域（仅展示整张截图，不再支持框选） -->
-      <div class="screenshot-preview">
-        <div v-if="screenshotDataUrl" class="image-container">
-          <img :src="screenshotDataUrl" alt="截图预览" class="preview-image" />
+      <!-- 截图编辑区域（集成 DrawingBoard） -->
+      <div class="screenshot-editor">
+        <DrawingBoard
+          v-if="screenshotDataUrl"
+          ref="drawingBoardRef"
+          :background-image="screenshotDataUrl"
+          :drawing-board-tools="['draw', 'eraser-draw','undo', 'redo']"
+          :fill-container="true"
+          :show-zoom-control="false"
+          :force-pen-color="'red'"
+        />
+        <div v-else class="empty-placeholder">
+          <q-icon name="image" size="48px" color="grey-5" />
+          <span>暂无截图</span>
         </div>
       </div>
       
@@ -24,7 +34,7 @@
           v-model="questionText"
           type="textarea"
           placeholder="请输入要问的问题"
-          rows="3"
+          rows="2"
           outlined
           dense
           class="question-input"
@@ -55,14 +65,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, type ComponentPublicInstance } from 'vue'
 import DraggableDialog from '@/components/DraggableDialog.vue'
+import DrawingBoard from '@/components/DrawingBoard.vue'
 import { showMessage } from '@/utils'
+
+// DrawingBoard 暴露的方法类型
+interface DrawingBoardExposed {
+  exportToJpg: (quality?: number) => string
+  hasContent: () => boolean
+  clearAll: () => void
+}
 
 interface Props {
   modelValue: boolean
   screenshotDataUrl?: string
-  enableCrop?: boolean  // 是否启用框选模式，默认为 true
 }
 
 interface Emits {
@@ -73,10 +90,12 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   screenshotDataUrl: '',
-  enableCrop: true
 })
 
 const emit = defineEmits<Emits>()
+
+// DrawingBoard 组件引用
+const drawingBoardRef = ref<ComponentPublicInstance & DrawingBoardExposed | null>(null)
 
 // 使用 v-model 的本地状态
 const localVisible = computed({
@@ -91,6 +110,11 @@ const questionText = ref('')
 watch(() => props.modelValue, async (newValue) => {
   if (newValue) {
     questionText.value = ''
+    // 等待 DOM 更新后清空画板（如果有旧内容）
+    await nextTick()
+    if (drawingBoardRef.value?.clearAll) {
+      drawingBoardRef.value.clearAll()
+    }
   }
 })
 
@@ -106,8 +130,16 @@ const handleConfirm = async () => {
     return
   }
   
-  // 直接使用原始截图数据（不再进行二次框选裁剪）
-  emit('confirm', questionText.value.trim(), props.screenshotDataUrl)
+  // 从 DrawingBoard 导出 JPG 图片（包含背景截图 + 用户标注）
+  let finalImageData = props.screenshotDataUrl
+  if (drawingBoardRef.value?.exportToJpg) {
+    const exportedImage = drawingBoardRef.value.exportToJpg(0.9)
+    if (exportedImage) {
+      finalImageData = exportedImage
+    }
+  }
+  
+  emit('confirm', questionText.value.trim(), finalImageData)
   localVisible.value = false
 }
 
@@ -124,13 +156,13 @@ const handleCancel = () => {
     display: flex;
     flex-direction: column;
     height: 100%;
-    padding: 20px;
-    gap: 16px;
+    padding: 16px;
+    gap: 12px;
   }
   
-  .screenshot-preview {
+  .screenshot-editor {
     flex: 1;
-    height: 270px;
+    min-height: 300px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -138,88 +170,33 @@ const handleCancel = () => {
     border-radius: 8px;
     border: 1px solid #e0e0e0;
     position: relative;
+    overflow: hidden;
 
-    .image-container {
-      width: 100%;
-      height: 100%;
+    // DrawingBoard 组件样式覆盖
+    :deep(.canvas-demo-container) {
+      background: transparent;
+    }
+    
+    // fillContainer 模式下，Canvas 填满容器
+    :deep(canvas) {
+      width: 100% !important;
+      height: 100% !important;
+      display: block; 
+    }
+
+    // 工具栏样式调整（更紧凑）
+    :deep(.toolbar-wrapper) {
+      top: 8px;
+    }
+
+    .empty-placeholder {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-    }
-    
-    .crop-container {
-      width: 100%;
-      height: 100%;
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .crop-canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-      object-fit: contain;
-      touch-action: none;
-      user-select: none;
-      height: auto;
-    }
-    
-    // 灰色蒙版样式
-    .crop-mask {
-      position: absolute;
-      background: rgba(0, 0, 0, 0.5); /* 灰色半透明蒙版 */
-      pointer-events: none;
-      z-index: 1;
-    }
-    
-    .crop-overlay {
-      position: absolute;
-      background: transparent; /* 框选区域透明，显示清晰的图片 */
-      pointer-events: none;
-      z-index: 2; /* 确保框选区域在蒙版之上 */
-    }
-    
-    .crop-corner {
-      position: absolute;
-      width: 24px;
-      height: 24px;
-      pointer-events: none;
-    }
-    
-    .crop-corner-nw {
-      top: 0;
-      left: 0;
-      border-top: 4px solid white;
-      border-left: 4px solid white;
-    }
-    
-    .crop-corner-ne {
-      top: 0;
-      right: 0;
-      border-top: 4px solid white;
-      border-right: 4px solid white;
-    }
-    
-    .crop-corner-sw {
-      bottom: 0;
-      left: 0;
-      border-bottom: 4px solid white;
-      border-left: 4px solid white;
-    }
-    
-    .crop-corner-se {
-      bottom: 0;
-      right: 0;
-      border-bottom: 4px solid white;
-      border-right: 4px solid white;
-    }
-    
-    .preview-image {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
+      gap: 8px;
+      color: #9e9e9e;
+      font-size: 14px;
     }
   }
   
@@ -228,7 +205,7 @@ const handleCancel = () => {
     
     .question-input {
       :deep(.q-field__control) {
-        min-height: 80px;
+        min-height: 60px;
       }
     }
   }
@@ -238,7 +215,7 @@ const handleCancel = () => {
     justify-content: flex-end;
     gap: 12px;
     flex-shrink: 0;
-    padding-top: 8px;
+    padding-top: 4px;
     
     .cancel-btn,
     .confirm-btn {
