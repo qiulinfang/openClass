@@ -789,35 +789,40 @@ const fixInconsistentDownloadStatus = async (textbooks: UserTextbookInfo[]) => {
   }
 }
 
-// 加载资源数据（优化版本：本地数据优先显示）
+// 加载资源数据（本地优先显示 + 下拉刷新强制走服务器）
+// 参数说明：
+// - isPullDownRefresh = false：普通进入页面/重新加载入口，优先用本地数据秒开；
+// - isPullDownRefresh = true：下拉刷新入口，一定从服务器拉最新数据并写回本地。
 const loadResources = async (isPullDownRefresh = false) => {
-
-  // 重置初始加载状态
+  // 第0步：重置“初始加载完成”标记，避免空状态闪烁
   initialLoadCompleted.value = false
 
-  // 流程：立即加载本地数据
+  // 第1步：先从 IndexedDB 读取本地教材数据
   const localTextbooks = await loadLocalData()
 
-  // 下拉刷新时强制从服务器获取最新数据，不使用本地缓存
+  // 分支A：有本地数据且当前不是下拉刷新 → 直接使用本地数据渲染列表，提升首屏速度
+  // 分支B：无本地数据 或 下拉刷新 → 强制走服务器全量拉取
   if (localTextbooks.length > 0 && !isPullDownRefresh) {
-    // 流程：有本地数据且不是下拉刷新，立即显示
+    // A-1：立即用本地数据渲染页面
     textbooks.value = localTextbooks
     updateSubjectChips()
     initialLoadCompleted.value = true
 
-    // 流程：在DOM更新后修复下载状态（下拉刷新时会自动执行三级对比检测更新）
+    // A-2：DOM 更新后，针对“下载中但实际已断开”的情况做一次本地修复
+    // 下拉刷新场景的状态修复由后面的三级对比逻辑负责，这里只处理普通进入场景
     await nextTick()
     fixInconsistentDownloadStatus(localTextbooks)
   } else {
-    // 无本地数据或下拉刷新，显示加载状态并获取服务器数据
+    // B-1：无本地数据或下拉刷新场景，进入“服务器拉取 + 本地合并”流程
+    //      这里会显示加载状态，直到服务器数据合并完成
     loading.value = true
 
     try {
-      // 检查登录状态
+      // B-2：保证登录状态可用（必要时触发一次自动登录）
       const isLoggedIn = resourceManager.isLoggedIn()
 
       if (!isLoggedIn) {
-        // 尝试自动登录
+        // 自动登录失败则直接清空列表并结束本次加载
         const autoLoginSuccess = await apiService.autoLogin(true)
 
         if (!autoLoginSuccess) {
@@ -827,26 +832,27 @@ const loadResources = async (isPullDownRefresh = false) => {
         }
       }
 
-      // 获取服务器教材数据
+      // B-3：从服务器获取当前账号下的所有在线教材列表
       const serverTextbooks = await apiService.fetchUserAllOnlineTextbooks()
 
-      // 合并服务器数据和本地数据
+      // B-4：将服务器数据与本地数据按 textbookId 维度进行合并
+      //      既保留本地下载状态等信息，又更新服务器最新元数据
       const mergedTextbooks = mergeServerAndLocalData(serverTextbooks, localTextbooks)
 
-      // 为每个教材检查学习资源包（并行处理）
+      // B-5：为每本教材并行检查“学习资源包”，补齐 learningPackages 信息
       await checkLearningPackagesForAllTextbooks(mergedTextbooks)
 
-      // 更新本地教材数据
+      // B-6：将合并后的教材信息写回 IndexedDB，作为后续本地优先显示的数据源
       for (const textbook of mergedTextbooks) {
         await resourceManager.updateTextbookInfo(textbook)
       }
 
-      // 更新教材列表
+      // B-7：用合并后的数据刷新页面列表
       textbooks.value = mergedTextbooks
       await nextTick()
 
-      // 下拉刷新时执行三级对比标记更新（异步执行，不阻塞UI）
-      // 在下拉刷新完成后，异步执行三级对比，标记有更新的教材
+      // B-8：下拉刷新场景下，额外触发一次“三级对比”检查，异步标记有更新教材
+      //      （不阻塞 UI，不弹提示，仅更新 hasUpdatesAvailable 等状态）
       apiService
         .checkForUpdates()
         .then((updatedTextbooks) => {
@@ -1927,28 +1933,6 @@ onUnmounted(async () => {
           }
         }
       }
-    }
-
-    &:hover {
-      box-shadow:
-        0 4px 8px rgba(0, 0, 0, 0.12),
-        0 0 0 1px rgba(0, 0, 0, 0.08);
-      transform: translateY(-1px);
-    }
-
-    &:active {
-      box-shadow:
-        0 1px 2px rgba(0, 0, 0, 0.1),
-        0 0 0 1px rgba(0, 0, 0, 0.05);
-      transform: translateY(0);
-    }
-
-    &.downloading {
-      border-left: 4px solid #3b82f6;
-    }
-
-    &.paused {
-      border-left: 4px solid #f59e0b;
     }
   }
 }

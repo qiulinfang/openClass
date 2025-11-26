@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
+    "dev:test": "vite --mode test --host 0.0.0.0",
     "dev:webview": "vite --config vite.config.webview.ts --host 0.0.0.0",
     "build": "run-p type-check \"build-only {@}\" --",
     "build:webview": "node scripts/build-webview-pages.js",

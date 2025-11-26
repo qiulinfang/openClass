@@ -52,8 +52,18 @@
           @click="scrollToBottom"
           title="有新消息，点击查看"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 5v14M5 12l7 7 7-7"/>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 5v14M5 12l7 7 7-7" />
           </svg>
         </button>
       </Transition>
@@ -64,25 +74,26 @@
     <div v-if="isSelectionMode" class="selection-toolbar">
       <!-- 左侧：全选区域 -->
       <div class="selection-left" @click="selectAllMessages">
-        <q-icon 
-          :name="isAllSelected ? 'check_box' : selectedMessages.size > 0 ? 'indeterminate_check_box' : 'check_box_outline_blank'" 
+        <q-icon
+          :name="
+            isAllSelected
+              ? 'check_box'
+              : selectedMessages.size > 0
+              ? 'indeterminate_check_box'
+              : 'check_box_outline_blank'
+          "
           :class="['select-all-icon', { 'icon-selected': isAllSelected }]"
         />
         <span class="select-all-text">全选</span>
-        <span class="selection-count">已选{{ selectedMessages.size }}/{{ displayedMessages.length }}</span>
+        <span class="selection-count"
+          >已选{{ selectedMessages.size }}/{{ displayedMessages.length }}</span
+        >
       </div>
 
       <!-- 右侧：操作按钮组 -->
       <div class="selection-actions">
         <!-- 取消按钮 -->
-        <q-btn
-          flat
-          @click="exitSelectionMode"
-          class="cancel-btn"
-          size="md"
-        >
-          取消
-        </q-btn>
+        <q-btn flat @click="exitSelectionMode" class="cancel-btn" size="md"> 取消 </q-btn>
         <!-- 发送按钮 - 使用策略模式判断是否显示 -->
         <q-btn
           v-if="chatStrategy?.shouldShowForwardButton()"
@@ -102,7 +113,7 @@
     <div v-if="!isSelectionMode" class="chat-input-area">
       <!-- 简单输入模式前置插槽 - 用于放置操作按钮等 -->
       <slot v-if="inputMode === 'simple'" name="input-prefix"></slot>
-      
+
       <slot name="input">
         <!-- 完整输入模式 (ChatInput) -->
         <ChatInput
@@ -137,7 +148,7 @@
           @cancel-edit="cancelEditMessage"
           @scroll-to-bottom="scrollToBottom"
         />
-        
+
         <!-- 简单输入模式 (SimpleChatInput) -->
         <SimpleChatInput
           v-else-if="inputMode === 'simple'"
@@ -211,7 +222,7 @@ const props = withDefaults(
   }>(),
   {
     inputMode: 'full',
-  },
+  }
 )
 
 // 定义组件事件 - 支持响应、切换、焦点、滚动等事件
@@ -225,7 +236,7 @@ const emit = defineEmits<{
       forwardMode?: string
       successCount?: number
       sessionId?: string
-    },
+    }
   ] // 切换到老师对话事件
   focus: [] // 输入框获得焦点事件
   'scroll-to-bottom': [] // 滚动到底部事件
@@ -314,7 +325,8 @@ const inputMessage = ref('') // 输入框内容
 const isLoading = ref(false) // 消息发送加载状态
 const isRecording = ref(false) // 语音录制状态
 const quotedMessage = ref<ChatBubble | null>(null) // 引用的消息
-
+// 当前高亮的 sessionId（用于整段会话高亮）
+const highlightedSessionId = ref<string | null>(null)
 // 对话相关状态（需要在策略初始化之前声明）
 const aiSessionId = ref<string>('') // AI会话ID
 const currentSubject = ref<string>('math') // 当前科目，默认为数学
@@ -385,7 +397,6 @@ const loadingTimeout = ref<ReturnType<typeof setTimeout> | null>(null) // 加载
 const MIN_LOADING_DISPLAY_TIME = 300 // 最小显示时间300ms，确保用户能看到加载状态
 const MIN_LOADING_DELAY = 100 // 最小延迟时间100ms，避免极短时间的闪烁
 
-
 // ==================== 消息管理相关状态 ====================
 // 选择模式相关状态
 const isSelectionMode = ref(false) // 是否处于消息选择模式
@@ -398,10 +409,10 @@ const displayedMessages = computed<ChatBubble[]>(() => {
   if (!chatStrategy.value) {
     return []
   }
-  
+
   const messages = chatStrategy.value.getMessages()
   const result: ChatBubble[] = []
-  
+
   for (const message of messages) {
     // 如果消息是图片类型，且同时包含图片和文字内容
     if (
@@ -418,7 +429,7 @@ const displayedMessages = computed<ChatBubble[]>(() => {
         id: message.id + '_image', // 添加后缀以区分
       }
       result.push(imageMessage)
-      
+
       // 第二条：只显示文字（清空图片数据）
       const textMessage: ChatBubble = {
         ...message,
@@ -432,14 +443,16 @@ const displayedMessages = computed<ChatBubble[]>(() => {
       result.push(message)
     }
   }
-  
+
   return result
 })
 
 // 判断是否全选
 const isAllSelected = computed(() => {
-  return displayedMessages.value.length > 0 && 
-         selectedMessages.value.size === displayedMessages.value.length
+  return (
+    displayedMessages.value.length > 0 &&
+    selectedMessages.value.size === displayedMessages.value.length
+  )
 })
 
 /**
@@ -569,7 +582,7 @@ const canSend = computed(() => {
 const canSendInEditMode = computed(() => {
   if (!isEditingMessage.value) return false
   const current = inputMessage.value
-  const original = (originalMessageContent.value || '')
+  const original = originalMessageContent.value || ''
   return current !== '' && current.length !== original.length
 })
 
@@ -776,13 +789,12 @@ const initializeMessages = async () => {
   }
 }
 
-
 // 作用：简单输入模式发送消息
 const sendSimpleMessage = async (message: string) => {
   if (!message.trim() || isLoading.value) {
     return
   }
-  
+
   // 设置 inputMessage 并调用标准发送流程
   inputMessage.value = message
   await sendMessage()
@@ -801,7 +813,6 @@ const sendMessage = async (attachedFile?: File) => {
 
   // 检查是否在编辑模式
   if (isEditingMessage.value && editingMessageId.value) {
-    
     await updateEditedMessage(inputMessage.value)
     return
   }
@@ -853,11 +864,13 @@ const sendMessage = async (attachedFile?: File) => {
     // AI通用、AI题目、AI教材和教师通用对话模式：统一使用策略模式发送消息
     // 如果有引用消息，将引用内容作为 focus 参数传递，同时传递引用消息信息用于展示
     const focusContent = quotedMessage.value?.content || undefined
-    const quotedMessageInfo = quotedMessage.value ? {
-      id: quotedMessage.value.id,
-      content: quotedMessage.value.content,
-      sender: quotedMessage.value.sender,
-    } : undefined
+    const quotedMessageInfo = quotedMessage.value
+      ? {
+          id: quotedMessage.value.id,
+          content: quotedMessage.value.content,
+          sender: quotedMessage.value.sender,
+        }
+      : undefined
     quotedMessage.value = null
     await chatStrategy.value?.sendMessage(messageContent, {
       selectedModel: selectedModel.value,
@@ -905,44 +918,66 @@ const scrollToBottom = async () => {
 }
 
 // 作用：根据 sessionId 滚动到该会话的第一条消息（主要用于 ai-textbook 场景）
+// 实现方式：在 DOM 中找到该 session 的所有消息元素，滚动到第一条，并为所有消息元素添加高亮 class
 const scrollToSession = async (sessionId: string) => {
   console.log('[scrollToSession] start', sessionId)
 
   if (!sessionId) return
   if (props.type !== 'ai-textbook') return
 
-  const allMessages = aiTextbookStore.messages
-  const targetIndex = allMessages.findIndex(m => m.sessionId === sessionId)
-  console.log('[scrollToSession] targetIndex', targetIndex)
-  if (targetIndex < 0) {
-    return
-  }
-
   await nextTick()
-
-  // 刷新 BScroll，确保容器高度正确（v-show 切换后需要重新计算）
   refreshBScroll()
   await nextTick()
 
   const bscrollInstance = getInstance()
-  console.log('[scrollToSession] bscroll exists?', !!bscrollInstance)
+  const wrapper = scrollWrapper.value
+  if (!bscrollInstance || !wrapper) return
+
+  // 1. 先清除之前的 session 高亮
+  const prevHighlighted = wrapper.querySelectorAll('.message-item.highlight-message')
+  prevHighlighted.forEach((el) => el.classList.remove('highlight-message'))
+
+  // 2. 找到当前 sessionId 下的所有消息元素
+  const selector = `.message-item[data-session-id="${sessionId}"]`
+  const sessionEls = Array.from(wrapper.querySelectorAll(selector)) as HTMLElement[]
+  if (!sessionEls.length) return
+
+  // 3. 滚动到第一条消息元素
+  const firstEl = sessionEls[0]
+  bscrollInstance.scrollToElement(firstEl, 300, 0, -50)
+
+  // 4. 为该 session 的所有消息元素添加高亮 class
+  sessionEls.forEach((el) => el.classList.add('highlight-message'))
+}
+
+// 滚动到指定消息（点击引用区域时触发）
+const handleScrollToMessage = async (messageId: string) => {
+  if (!messageId) return
+
+  await nextTick()
+  refreshBScroll()
+  await nextTick()
+
+  const bscrollInstance = getInstance()
   if (!bscrollInstance) return
 
   const wrapper = scrollWrapper.value
-  console.log('[scrollToSession] wrapper exists?', !!wrapper)
   if (!wrapper) return
 
-  const selector = `.message-item[data-session-id="${sessionId}"]`
+  // 通过 data-message-id 查找目标消息元素
+  const selector = `.message-item[data-message-id="${messageId}"]`
   const targetEl = wrapper.querySelector(selector) as HTMLElement | null
-  console.log('[scrollToSession] selector', selector, 'found?', !!targetEl)
+  if (targetEl) {
+    // 滚动到目标元素，并高亮提示
+    bscrollInstance.scrollToElement(targetEl, 300, 0, -50) // 留出50px的顶部间距
 
-  if (!targetEl) return
-
-  bscrollInstance.scrollToElement(targetEl, 300, 0, 0)
-  console.log('[scrollToSession] after scroll, y =', bscrollInstance.y)
-  console.log('[scrollToSession] maxScrollY =', bscrollInstance.maxScrollY)
-  console.log('[scrollToSession] wrapperHeight =', scrollWrapper.value?.clientHeight)
-  console.log('[scrollToSession] contentHeight =', scrollWrapper.value?.querySelector('.scroll-content')?.scrollHeight)}
+    // 添加高亮效果
+    targetEl.classList.add('highlight-message')
+    setTimeout(() => {
+      targetEl?.classList.remove('highlight-message')
+    }, 1500)
+  }
+}
 
 /**
  * 检查用户是否在底部
@@ -1277,8 +1312,8 @@ const onImageSelected = async (imageInfo: {
     isLoading.value = true
     try {
       // 使用策略模式判断是否需要文本内容
-      const messageText = chatStrategy.value?.shouldClearInputAfterImage() 
-        ? inputMessage.value || '' 
+      const messageText = chatStrategy.value?.shouldClearInputAfterImage()
+        ? inputMessage.value || ''
         : ''
 
       // 使用策略模式发送图片消息
@@ -1421,36 +1456,6 @@ const handleQuoteMessage = (message: ChatBubble) => {
 // 移除引用
 const handleRemoveQuote = () => {
   quotedMessage.value = null
-}
-
-// 滚动到指定消息（点击引用区域时触发）
-const handleScrollToMessage = async (messageId: string) => {
-  if (!messageId) return
-  
-  await nextTick()
-  refreshBScroll()
-  await nextTick()
-  
-  const bscrollInstance = getInstance()
-  if (!bscrollInstance) return
-  
-  const wrapper = scrollWrapper.value
-  if (!wrapper) return
-  
-  // 通过 data-message-id 查找目标消息元素
-  const selector = `.message-item[data-message-id="${messageId}"]`
-  const targetEl = wrapper.querySelector(selector) as HTMLElement | null
-  
-  if (targetEl) {
-    // 滚动到目标元素，并高亮提示
-    bscrollInstance.scrollToElement(targetEl, 300, 0, -50) // 留出50px的顶部间距
-    
-    // 添加高亮效果
-    targetEl.classList.add('highlight-message')
-    setTimeout(() => {
-      targetEl?.classList.remove('highlight-message')
-    }, 1500)
-  }
 }
 
 // 将消息内容转换为编辑器可识别的格式
@@ -1892,7 +1897,6 @@ watchEffect(() => {
   }
 })
 
-
 // 图片加载刷新定时器
 const imageLoadRefreshTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
@@ -1928,7 +1932,7 @@ watch(
       }
     }
   },
-  { deep: true, immediate: false },
+  { deep: true, immediate: false }
 )
 
 // 教师会话创建监听器
@@ -1941,9 +1945,8 @@ watch(
       // 策略会直接从 store 读取 session 信息，不需要传递参数
       chatStrategy.value = ChatStrategyFactory.create(props.type)
     }
-  },
+  }
 )
-
 
 // 题目切换处理函数
 watch(
@@ -1954,7 +1957,11 @@ watch(
       // 检查是否正在编辑消息
       if (isEditingMessage.value) {
         // 检查是否切换回正在编辑的题目
-        if (editingQuestionId.value && newQuestion && newQuestion.bmNo === editingQuestionId.value) {
+        if (
+          editingQuestionId.value &&
+          newQuestion &&
+          newQuestion.bmNo === editingQuestionId.value
+        ) {
           // 直接执行切换，不显示确认对话框
           executeQuestionSwitch()
           return
@@ -1977,7 +1984,7 @@ watch(
       // 如果没有编辑状态，直接执行切换
       executeQuestionSwitch()
     }
-  },
+  }
 )
 
 // 题目切换处理函数
@@ -1992,7 +1999,7 @@ const executeQuestionSwitch = () => {
     // 教师通用策略 - session 由 store 管理，不需要在这里重置
     aiSessionId.value = ''
   }
-  
+
   // 使用策略模式重置会话（如果策略支持）
   if (chatStrategy.value?.resetSession) {
     chatStrategy.value.resetSession()
@@ -2011,6 +2018,7 @@ defineExpose({
   isLoading,
   scrollToBottom,
   scrollToSession,
+  handleScrollToMessage,
 })
 </script>
 
@@ -2075,24 +2083,23 @@ defineExpose({
   bottom: 16px;
   transform: translateX(-50%);
   z-index: 10;
-  
+
   /* 圆形按钮样式 */
   width: 30px;
   height: 30px;
   border-radius: 50%;
   border: none;
   cursor: pointer;
-  
+
   /* 颜色 */
   color: #ffffff;
   background-color: #7a7cff;
-  
+
   /* 居中图标 */
   display: flex;
   align-items: center;
   justify-content: center;
 }
-
 
 @keyframes bounce {
   0%,
@@ -2211,8 +2218,6 @@ defineExpose({
   cursor: not-allowed;
 }
 
-
-
 .message-checkbox {
   position: absolute;
   left: 20px;
@@ -2225,9 +2230,7 @@ defineExpose({
 /* 加载指示器过渡动画 - 淡入淡出效果 */
 .loading-fade-enter-active,
 .loading-fade-leave-active {
-  transition:
-    opacity 0.2s ease-in-out,
-    transform 0.2s ease-in-out;
+  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
 }
 
 .loading-fade-enter-from {

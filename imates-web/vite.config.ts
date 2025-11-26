@@ -7,27 +7,75 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 import { quasar, transformAssetUrls } from '@quasar/vite-plugin'
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [
-    vue({
-      template: { transformAssetUrls }
-    }),
-    vueJsx(),
-    vueDevTools(),
-    quasar({
-      sassVariables: fileURLToPath(new URL('./src/quasar-variables.sass', import.meta.url))
-    })
-  ],
-  resolve: {
+// 使用工厂函数形式，根据 mode 区分正式/测试环境
+export default defineConfig(({ mode }) => {
+  // 简单的环境开关：当使用 `vite --mode test` 启动时视为测试环境
+  const isTest = mode === 'test'
+
+  // 学伴服务（业务后端）
+  const EDU_SERVICE_BASE = isTest
+    ? 'https://api.showcode.xyz/blw-edu-service-alc'
+    : 'http://www.imates.com.cn:8222/blw-edu-service-alc'
+
+  // 资源服务器（文件/图片等）
+  const RESOURCE_FILE_BASE = isTest
+    ? 'https://www.showcode.xyz:9099'
+    : 'https://www.imates.com.cn:9099'
+
+  // APP 更新接口所用域名
+  const APP_UPDATE_BASE = isTest
+    ? 'https://www.showcode.xyz'
+    : 'https://www.imates.com.cn'
+
+  // 启动时输出当前环境及各后端基础地址，便于确认 Vite 实际走的是哪套接口
+  // 这些日志只在 Node 侧输出，不会影响前端运行时
+  console.log('🔧 [Vite Env] mode =', mode, 'isTest =', isTest)
+  console.log('🔧 [Vite Env] EDU_SERVICE_BASE     =', EDU_SERVICE_BASE)
+  console.log('🔧 [Vite Env] RESOURCE_FILE_BASE  =', RESOURCE_FILE_BASE)
+  console.log('🔧 [Vite Env] APP_UPDATE_BASE     =', APP_UPDATE_BASE)
+
+   // 为所有代理统一附加一组精简日志，方便查看请求流向
+   const attachBasicProxyLog = (proxy: any, label: string) => {
+     proxy.on('proxyReq', (proxyReq: any, req: any) => {
+       console.log(`➡ [Proxy:${label}]`, req.method, req.url)
+         console.log('🔧 [Vite Env] mode =', mode, 'isTest =', isTest)
+        console.log('🔧 [Vite Env] EDU_SERVICE_BASE     =', EDU_SERVICE_BASE)
+        console.log('🔧 [Vite Env] RESOURCE_FILE_BASE  =', RESOURCE_FILE_BASE)
+        console.log('🔧 [Vite Env] APP_UPDATE_BASE     =', APP_UPDATE_BASE)
+     })
+     proxy.on('proxyRes', (proxyRes: any, req: any) => {
+       console.log(`⬅ [Proxy:${label}]`, proxyRes.statusCode, req.url)
+       console.log('🔧 [Vite Env] mode =', mode, 'isTest =', isTest)
+        console.log('🔧 [Vite Env] EDU_SERVICE_BASE     =', EDU_SERVICE_BASE)
+        console.log('🔧 [Vite Env] RESOURCE_FILE_BASE  =', RESOURCE_FILE_BASE)
+        console.log('🔧 [Vite Env] APP_UPDATE_BASE     =', APP_UPDATE_BASE)
+     })
+     proxy.on('error', (err: any, req: any) => {
+       console.error(`⛔ [Proxy:${label}]`, req.url, err.message)
+     })
+   }
+
+  return {
+    plugins: [
+      vue({
+        template: { transformAssetUrls },
+      }),
+      vueJsx(),
+      vueDevTools(),
+      quasar({
+        sassVariables: fileURLToPath(new URL('./src/quasar-variables.sass', import.meta.url)),
+      }),
+    ],
+    resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  optimizeDeps: {
+    optimizeDeps: {
     // 排除 mupdf 的预构建，因为它包含 WASM 文件
     exclude: ['mupdf'],
   },
-  server: {
+    server: {
     // 配置中间件以正确处理 WASM 文件的 MIME 类型
     middlewareMode: false,
     fs: {
@@ -47,17 +95,23 @@ export default defineConfig({
     proxy: {
       // 匹配以 "/blw-edu-yb/api" 开头的请求，转发到后端
       '/blw-edu-yb/api': {
-        target: 'https://www.imates.com.cn:9099', // 后端基础地址
+        target: RESOURCE_FILE_BASE, // 后端基础地址
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 若后端 HTTPS 证书不合法（如自签证书），需设为 false
         // 可选：若后端接口路径无需额外前缀，可省略 rewrite
         // rewrite: (path) => path.replace(/^\/blw-edu-yb\/api/, '/blw-edu-yb/api')
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/blw-edu-yb/api')
+        },
       },
       // 匹配以 "/blw-edu-yb/auth" 开头的请求，转发到后端（用于登录等认证接口）
       '/blw-edu-yb/auth': {
-        target: 'https://www.imates.com.cn:9099', // 后端基础地址
+        target: RESOURCE_FILE_BASE, // 后端基础地址
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 若后端 HTTPS 证书不合法（如自签证书），需设为 false
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/blw-edu-yb/auth')
+        },
       },
       // 匹配以 "/api/v1/tickets" 开头的请求，转发到Zammad工单系统
       '/api/v1/tickets': {
@@ -66,6 +120,7 @@ export default defineConfig({
         secure: false, // 使用HTTP协议
         // 可选：添加请求头
         configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/api/v1/tickets')
           proxy.on('proxyReq', (proxyReq, req) => {
             // 可以在这里添加额外的请求头
             console.log('代理请求到Zammad:', req.url)
@@ -74,11 +129,12 @@ export default defineConfig({
       },
       // 匹配以 "/admin" 开头的请求，转发到学班服务（用于登录等管理接口）
       '/admin': {
-        target: 'http://www.imates.com.cn:8222/blw-edu-service-alc', // 学班服务地址
+        target: EDU_SERVICE_BASE, // 学班服务地址（按环境切换）
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 使用HTTP协议
         // 可选：添加请求头
         configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/admin')
           proxy.on('proxyReq', (proxyReq, req) => {
             // 可以在这里添加额外的请求头
             console.log('代理请求到学班服务(admin):', req.url)
@@ -87,23 +143,30 @@ export default defineConfig({
       },
       // 匹配以 "/bj101" 开头的请求，转发到正式环境更新接口
       '/bj101': {
-        target: 'https://www.imates.com.cn',
+        target: APP_UPDATE_BASE,
         changeOrigin: true,
         secure: false,
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/bj101')
+        },
       },
       // 测试环境更新接口
       '/appupdate_test.json': {
-        target: 'https://www.imates.com.cn',
+        target: APP_UPDATE_BASE,
         changeOrigin: true,
         secure: false,
+        configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/appupdate_test.json')
+        },
       },
       // 匹配以 "/permission" 开头的请求，转发到学班服务（用于权限相关接口）
       '/permission': {
-        target: 'http://www.imates.com.cn:8222/blw-edu-service-alc', // 学班服务地址
+        target: EDU_SERVICE_BASE, // 学班服务地址（按环境切换）
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 使用HTTP协议
         // 增加请求体大小限制（支持大图片Base64）
         configure: (proxy, options) => {
+          attachBasicProxyLog(proxy, '/permission')
           // 监听代理请求
           proxy.on('proxyReq', (proxyReq, req, res) => {
             console.log('🔵 [代理请求] permission:', req.url)
@@ -155,11 +218,12 @@ export default defineConfig({
       },
       // 匹配以 "/biologyTopicKnowledge" 开头的请求，转发到学班服务（用于生物知识点相关接口）
       '/biologyTopicKnowledge': {
-        target: 'http://www.imates.com.cn:8222/blw-edu-service-alc', // 学班服务地址
+        target: EDU_SERVICE_BASE, // 学班服务地址（按环境切换）
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 使用HTTP协议
         // 可选：添加请求头
         configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/biologyTopicKnowledge')
           proxy.on('proxyReq', (proxyReq, req) => {
             // 可以在这里添加额外的请求头
             console.log('代理请求到学班服务(biologyTopicKnowledge):', req.url)
@@ -168,11 +232,12 @@ export default defineConfig({
       },
       // 🔥 新增：匹配以 "/resource" 开头的请求，转发到资源服务器（解决CORS问题）
       '/resource': {
-        target: 'https://www.imates.com.cn:9099', // 资源服务器地址
+        target: RESOURCE_FILE_BASE, // 资源服务器地址（按环境切换）
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 若后端 HTTPS 证书不合法（如自签证书），需设为 false
         // 添加CORS头信息
         configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/resource')
           proxy.on('proxyRes', (proxyRes, req) => {
             // 添加CORS头信息
             proxyRes.headers['Access-Control-Allow-Origin'] = '*'
@@ -188,11 +253,12 @@ export default defineConfig({
       },
       // 🔥 新增：匹配以 "/resource" 开头的请求，转发到资源服务器（解决CORS问题）
       '/img': {
-        target: 'https://www.imates.com.cn:9099', // 资源服务器地址
+        target: RESOURCE_FILE_BASE, // 资源服务器地址（按环境切换）
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 若后端 HTTPS 证书不合法（如自签证书），需设为 false
         // 添加CORS头信息
         configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/img')
           proxy.on('proxyRes', (proxyRes, req) => {
             // 添加CORS头信息
             proxyRes.headers['Access-Control-Allow-Origin'] = '*'
@@ -208,11 +274,12 @@ export default defineConfig({
       },
       // 🔥 新增：匹配以 "/knowledge" 开头的请求，转发到知识点查询服务（解决CORS问题）
       '/knowledge': {
-        target: 'http://www.imates.com.cn:8090', // 知识点查询服务地址
+        target: isTest ? 'http://www.imates.com.cn:8090' : 'http://www.imates.com.cn:8090', // 如后续有测试服，可按需拆分
         changeOrigin: true, // 关键：将请求的 origin 改为 target 域名
         secure: false, // 使用HTTP协议
         // 可选：添加请求头
         configure: (proxy) => {
+          attachBasicProxyLog(proxy, '/knowledge')
           proxy.on('proxyReq', (proxyReq, req) => {
             // 可以在这里添加额外的请求头
             console.log('代理请求到知识点查询服务(knowledge):', req.url)
@@ -228,7 +295,7 @@ export default defineConfig({
           })
         }
       }
-    }
+    },
   },
   // 为Android WebView优化构建配置
   base: './',
@@ -257,6 +324,7 @@ export default defineConfig({
           'tiptap': ['@tiptap/core', '@tiptap/vue-3', '@tiptap/starter-kit']
         }
       }
-    }
-  }
+    },
+  },
+}
 })

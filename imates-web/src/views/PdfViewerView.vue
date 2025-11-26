@@ -686,6 +686,15 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
+/* 右侧对话面板容器（after 面板）：左侧圆角 + 柔和紫色阴影 */
+:deep(.q-splitter__after) {
+  border-top-left-radius: 16px;
+  border-bottom-left-radius: 16px;
+  /* 模拟截图中的竖向紫色阴影：略向左扩散，柔和过渡 */
+  box-shadow: 0px 4px 10px 0px rgba(30, 0, 120, 0.32);
+  z-index: 2;
+}
+
 .chat-panel-container {
   display: flex;
   flex-direction: column;
@@ -719,26 +728,40 @@ onBeforeUnmount(() => {
   text-decoration: none;
   font-size: 15px;
   font-weight: bold;
+  text-align: center;
   cursor: pointer;
-  transition: all 0.3s;
   background: transparent; /* 默认透明背景 */
   border-radius: 0; /* 移除圆角 */
   box-shadow: none; /* 移除阴影 */
+  width: 100px;
 }
 
 /* 激活的 Tab 项 */
 .tab-active {
-  background: #f6f8ff; /* 白色背景 */
-  color: #504b64; /* 红色文字 */
+  /* 使用 sessionbackgroung.png 作为激活状态背景 */
+  background-image: url('/icons/sessionbackfround.png');
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-position: center center;
+  color: #504b64;
   border-top-left-radius: 6px;
   border-top-right-radius: 6px;
-  height: 40px; /* 调整高度以匹配设计 */
-  line-height: 24px; /* 垂直居中 */
+  height: 40px; /* 保持原有高度 */
+  line-height: 24px; /* 让文字在背景中垂直居中 */
+  width: 100px;
 }
 
-/* 移除激活状态的下划线 */
+/* 激活 Tab 底部下划线 */
 .tab-active::after {
-  display: none;
+  content: '';
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30%;
+  height: 3px;
+  background: #6E55FF; /* 亮紫色下划线 */
+  border-radius: 2px;
 }
 
 /* Tab 项的 hover 效果 */
@@ -868,16 +891,29 @@ onBeforeUnmount(() => {
   width: 100% !important;
 }
 
-/* q-splitter 分隔条样式 - 只在对话面板显示时应用 */
-.chat-panel-visible :deep(.q-splitter__separator) {
+:deep(.q-splitter__separator) {
   background-color: #e0e0e0;
   cursor: col-resize;
   position: relative;
-  width: 4px;
+  width: 0px;
+  z-index: 5;
 }
 
-.chat-panel-visible :deep(.q-splitter__separator:hover) {
-  background-color: #1976d2;
+/* 在右侧面板上绘制 seekbar 效果 */
+:deep(.q-splitter__after)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 100%;
+  pointer-events: none;
+  transform: translateX(-5px);
+  background-image: url('/icons/seekbar.svg');
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: contain;
+  z-index: 2;
 }
 
 :deep(.q-splitter__panel) {

@@ -1520,7 +1520,7 @@ onUnmounted(() => {
 <style scoped lang="scss">
 /* 现代化聊天消息布局 - 参照主流大模型体验 */
 .message-item {
-  margin-bottom: 20px;
+  padding-bottom: 20px;
   width: 100%;
   position: relative;
   /* 移除transition效果 */
