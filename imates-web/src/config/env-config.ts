@@ -26,8 +26,8 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
     displayName: '',
   },
   [AppEnvType.INTERNAL_TEST]: {
-    baseUrl: 'https://api.showcode.xyz/blw-edu-service-alc',
-    resourceBaseUrl: 'https://www.showcode.xyz',
+    baseUrl: 'http://www.imates.com.cn:9222/blw-edu-service-alc',
+    resourceBaseUrl: 'https://www.imates.com.cn',
     appUpdateUrl: '/appupdate_test.json',
     displayName: 'Joined Testflight',
   },
@@ -36,8 +36,8 @@ const ENV_CONFIGS: Record<AppEnvType, EnvConfig> = {
 // localStorage 键名
 const STORAGE_KEY = 'app_env_type'
 
-// 测试环境切换密码
-const TEST_ENV_PASSWORD = '148259'
+// 测试环境切换密码（与 Android 保持一致）
+const TEST_ENV_PASSWORD = '985211'
 
 /**
  * 获取当前环境类型（默认正式环境）

@@ -168,7 +168,7 @@ const router = useRouter()
 // middle 区域：绘图相关工具（荧光笔、文字笔记等）
 const pdfToolbarTools = {
   left: ['back'],
-  middle: ['hand', 'highlighter', 'pen', 'eraser-draw', 'note', 'screenshot'],
+  middle: ['hand', 'highlighter', 'pen', 'eraser-draw', 'screenshot'],
 }
 
 // 使用 exerciseStore 来发送AI消息
@@ -269,6 +269,11 @@ const handleConfigChange = (config: {
     case 'eraser-draw':
       if (config.size !== undefined) {
         pdfViewerStore.updateDrawingConfig({ eraserSize: config.size as number })
+      }
+      break
+    case 'screenshot':
+      if (config.shape) {
+        pdfViewerStore.updateDrawingConfig({ screenshotShape: config.shape as string })
       }
       break
   }
@@ -775,7 +780,7 @@ onBeforeUnmount(() => {
   position: absolute;
   top: 12px;
   right: 12px;
-  color: #fff; /* 白色图标 */
+  color: #393548; /* 白色图标 */
   z-index: 1; /* 确保在前景 */
 }
 
@@ -898,6 +903,9 @@ onBeforeUnmount(() => {
   width: 0px;
   z-index: 5;
 }
+:deep(.q-splitter__after) {
+  overflow: visible !important;
+}
 
 /* 在右侧面板上绘制 seekbar 效果 */
 :deep(.q-splitter__after)::before {
@@ -913,16 +921,6 @@ onBeforeUnmount(() => {
   background-repeat: no-repeat;
   background-position: center center;
   background-size: contain;
-  z-index: 2;
-}
-
-:deep(.q-splitter__panel) {
-  overflow: hidden;
-}
-
-:deep(.q-splitter__before),
-:deep(.q-splitter__after) {
-  overflow: hidden;
 }
 
 /* 响应式设计 */

@@ -1530,6 +1530,10 @@ onUnmounted(() => {
   -ms-user-select: none; /* IE/Edge */
 }
 
+:deep(p){
+  margin: 0;
+}
+
 /* AI/老师消息样式 */
 .ai-message {
   display: flex;

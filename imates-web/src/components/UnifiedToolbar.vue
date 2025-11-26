@@ -21,154 +21,157 @@
             class="action-btn"
           >
             <!-- SVG 图标 -->
-            <img v-if="isImageIcon(tool.icon)" :src="tool.icon" class="action-icon" />
+            <div
+              v-if="isImageIcon(tool.icon)"
+              :style="getMaskIconStyle(tool.icon, 'action')"
+              class="action-icon mask-icon"
+            />
             <q-tooltip>{{ tool.label }}</q-tooltip>
           </q-btn>
         </div>
 
         <!-- 中间区域 -->
         <div class="center-section">
-          <!-- 1. 工具按钮组 -->
-          <div class="tool-section">
-            <div class="tool-buttons">
-              <!-- 搜索工具（作为操作按钮） -->
-              <q-btn
-                v-for="tool in middleActionTools"
-                :key="tool.value"
-                flat
-                round
-                dense
-                :icon="isImageIcon(tool.icon) ? undefined : tool.icon"
-                :disable="toolStates[tool.value] === false"
-                @click="handleActionClick(tool.value)"
-                class="action-btn"
-              >
-                <!-- SVG 图标 -->
-                <img v-if="isImageIcon(tool.icon)" :src="tool.icon" class="action-icon" />
-                <q-tooltip>{{ tool.label }}</q-tooltip>
-              </q-btn>
+          <div class="tool-row">
+            <!-- 操作按钮 -->
+            <q-btn
+              v-for="tool in middleActionTools"
+              :key="tool.value"
+              flat
+              round
+              dense
+              :icon="isImageIcon(tool.icon) ? undefined : tool.icon"
+              :disable="toolStates[tool.value] === false"
+              @click="handleActionClick(tool.value)"
+              class="action-btn"
+            >
+              <!-- SVG 图标 -->
+              <div
+                v-if="isImageIcon(tool.icon)"
+                :style="getMaskIconStyle(tool.icon, 'action')"
+                class="action-icon mask-icon"
+              />
+              <q-tooltip>{{ tool.label }}</q-tooltip>
+            </q-btn>
 
-              <!-- 遍历绘图工具列表 -->
-              <div v-for="tool in drawingTools" :key="tool.value" class="tool-icon-wrapper">
-                <img
-                  :src="tool.icon"
-                  :class="{ 'tool-icon-selected': selectedTool === tool.value }"
-                  class="tool-icon"
-                  @click="handleToolClick(tool.value)"
-                />
-              </div>
-              <!-- 气泡框 -->
-              <div v-if="showPopup" class="config-popup">
-                <div class="popup-content">
-                  <!-- 配置内容区域 -->
-                  <div class="config-sections">
-                    <!-- 颜色配置 -->
-                    <div v-if="currentToolConfig.config?.showColorPicker" class="config-section">
-                      <div class="section-title">
-                        <q-icon name="palette" size="16px" />
-                        <span>颜色</span>
-                      </div>
-                      <div class="section-content">
-                        <div class="color-options">
+            <!-- 绘图工具 -->
+            <div v-for="tool in drawingTools" :key="tool.value" class="tool-icon-wrapper">
+              <div
+                :style="getMaskIconStyle(tool.icon, 'tool', tool.value)"
+                class="tool-icon mask-icon"
+                @click="handleToolClick(tool.value)"
+              />
+            </div>
+
+            <!-- 配置弹窗 -->
+            <div v-if="showPopup" class="config-popup">
+              <div class="popup-content">
+                <!-- 配置内容区域 -->
+                <div class="config-sections">
+                  <!-- 颜色配置 -->
+                  <div v-if="currentToolConfig.config?.showColorPicker" class="config-section">
+                    <div class="section-title">
+                      <q-icon name="palette" size="16px" />
+                      <span>颜色</span>
+                    </div>
+                    <div class="section-content">
+                      <div class="color-options">
+                        <div
+                          v-for="color in currentToolConfig.config?.colors"
+                          :key="color.value"
+                          class="color-option"
+                          :class="{ 'color-selected': toolConfig.color === color.value }"
+                          @click="updateConfig({ color: color.value })"
+                        >
                           <div
-                            v-for="color in currentToolConfig.config?.colors"
-                            :key="color.value"
-                            class="color-option"
-                            :class="{ 'color-selected': toolConfig.color === color.value }"
-                            @click="updateConfig({ color: color.value })"
-                          >
+                            class="color-display"
+                            :style="{ backgroundColor: color.value }"
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 粗细/大小配置 -->
+                  <div v-if="currentToolConfig.config?.showSizePicker" class="config-section">
+                    <div class="section-title">
+                      <q-icon name="line_weight" size="16px" />
+                      <span>{{ currentToolConfig.config?.sizeLabel || '粗细' }}</span>
+                    </div>
+                    <div class="section-content">
+                      <!-- 固定选项 -->
+                      <div class="size-options">
+                        <div
+                          v-for="size in currentToolConfig.config?.sizes"
+                          :key="size.value"
+                          class="size-option"
+                          :class="{ 'size-selected': toolConfig.size === size.value }"
+                          @click="updateConfig({ size: size.value })"
+                        >
+                          <!-- 图标方式显示 -->
+                          <img v-if="size.icon" :src="size.icon" class="size-icon" />
+                          <!-- 线条方式显示 -->
+                          <div v-else class="size-display">
                             <div
-                              class="color-display"
-                              :style="{ backgroundColor: color.value }"
+                              class="size-line"
+                              :style="{ height: size.displayHeight || '2px' }"
                             ></div>
+                            <span class="size-label">{{ size.label }}</span>
                           </div>
                         </div>
                       </div>
                     </div>
+                  </div>
 
-                    <!-- 粗细/大小配置 -->
-                    <div v-if="currentToolConfig.config?.showSizePicker" class="config-section">
-                      <div class="section-title">
-                        <q-icon name="line_weight" size="16px" />
-                        <span>{{ currentToolConfig.config?.sizeLabel || '粗细' }}</span>
-                      </div>
-                      <div class="section-content">
-                        <!-- 固定选项 -->
-                        <div class="size-options">
-                          <div
-                            v-for="size in currentToolConfig.config?.sizes"
-                            :key="size.value"
-                            class="size-option"
-                            :class="{ 'size-selected': toolConfig.size === size.value }"
-                            @click="updateConfig({ size: size.value })"
-                          >
-                            <!-- 图标方式显示 -->
-                            <img v-if="size.icon" :src="size.icon" class="size-icon" />
-                            <!-- 线条方式显示 -->
-                            <div v-else class="size-display">
-                              <div
-                                class="size-line"
-                                :style="{ height: size.displayHeight || '2px' }"
-                              ></div>
-                              <span class="size-label">{{ size.label }}</span>
-                            </div>
-                          </div>
+                  <!-- 形状配置（截图用） -->
+                  <div v-if="currentToolConfig.config?.showShapePicker" class="config-section">
+                    <div class="section-title">
+                      <q-icon name="crop" size="16px" />
+                      <span>形状</span>
+                    </div>
+                    <div class="section-content">
+                      <div class="shape-options">
+                        <div
+                          v-for="shape in currentToolConfig.config?.shapes"
+                          :key="shape.value"
+                          class="shape-option"
+                          :class="{ 'shape-selected': toolConfig.shape === shape.value }"
+                          @click="updateConfig({ shape: shape.value })"
+                        >
+                          <q-icon :name="shape.icon" size="24px" />
+                          <span class="shape-label">{{ shape.label }}</span>
                         </div>
                       </div>
                     </div>
+                  </div>
 
-                    <!-- 形状配置（截图用） -->
-                    <div v-if="currentToolConfig.config?.showShapePicker" class="config-section">
-                      <div class="section-title">
-                        <q-icon name="crop" size="16px" />
-                        <span>形状</span>
-                      </div>
-                      <div class="section-content">
-                        <div class="shape-options">
-                          <div
-                            v-for="shape in currentToolConfig.config?.shapes"
-                            :key="shape.value"
-                            class="shape-option"
-                            :class="{ 'shape-selected': toolConfig.shape === shape.value }"
-                            @click="updateConfig({ shape: shape.value })"
-                          >
-                            <q-icon :name="shape.icon" size="24px" />
-                            <span class="shape-label">{{ shape.label }}</span>
-                          </div>
-                        </div>
-                      </div>
+                  <!-- 选择模式配置（选择工具用） -->
+                  <div
+                    v-if="currentToolConfig.config?.showSelectionModePicker"
+                    class="config-section"
+                  >
+                    <div class="section-title">
+                      <q-icon name="crop_free" size="16px" />
+                      <span>{{ currentToolConfig.config?.selectionModeLabel || '选择模式' }}</span>
                     </div>
-
-                    <!-- 选择模式配置（选择工具用） -->
-                    <div
-                      v-if="currentToolConfig.config?.showSelectionModePicker"
-                      class="config-section"
-                    >
-                      <div class="section-title">
-                        <q-icon name="crop_free" size="16px" />
-                        <span>{{
-                          currentToolConfig.config?.selectionModeLabel || '选择模式'
-                        }}</span>
-                      </div>
-                      <div class="section-content">
-                        <div class="handwriting-style-options">
-                          <div
-                            v-for="mode in currentToolConfig.config?.selectionModes"
-                            :key="mode.value"
-                            class="handwriting-style-option"
-                            :class="{
-                              'handwriting-style-selected': toolConfig.selectMode === mode.value,
-                            }"
-                            @click="updateConfig({ selectMode: mode.value })"
-                          >
-                            <div class="handwriting-style-icon">
-                              <q-icon :name="mode.icon" size="20px" />
-                            </div>
-                            <div class="handwriting-style-info">
-                              <div class="handwriting-style-label">{{ mode.label }}</div>
-                              <div v-if="mode.description" class="handwriting-style-desc">
-                                {{ mode.description }}
-                              </div>
+                    <div class="section-content">
+                      <div class="handwriting-style-options">
+                        <div
+                          v-for="mode in currentToolConfig.config?.selectionModes"
+                          :key="mode.value"
+                          class="handwriting-style-option"
+                          :class="{
+                            'handwriting-style-selected': toolConfig.selectMode === mode.value,
+                          }"
+                          @click="updateConfig({ selectMode: mode.value })"
+                        >
+                          <div class="handwriting-style-icon">
+                            <q-icon :name="mode.icon" size="20px" />
+                          </div>
+                          <div class="handwriting-style-info">
+                            <div class="handwriting-style-label">{{ mode.label }}</div>
+                            <div v-if="mode.description" class="handwriting-style-desc">
+                              {{ mode.description }}
                             </div>
                           </div>
                         </div>
@@ -177,24 +180,22 @@
                   </div>
                 </div>
               </div>
-              <!-- 配置弹出框 -->
-              <div
-                v-if="hasConfigurableTools && currentToolConfig.config"
-                class="popup-icon-wrapper"
-                @click.stop
-              >
-                <!-- 配置按钮 -->
-                <img
-                  :src="eraserSettingsIcon"
-                  :class="{ 'popup-icon-active': showPopup }"
-                  class="popup-icon"
-                  @click.stop="togglePopup"
-                />
-              </div>
             </div>
           </div>
-        </div>
 
+          <!-- 配置弹出框按钮 -->
+          <div
+            v-if="hasConfigurableTools && currentToolConfig.config"
+            class="popup-icon-wrapper"
+            @click.stop
+          >
+            <div
+              :style="getMaskIconStyle(getPopupIcon(), 'config')"
+              class="popup-icon mask-icon"
+              @click.stop="togglePopup"
+            />
+          </div>
+        </div>
         <!-- 右侧区域（包含分隔线） -->
         <div class="right-section">
           <!-- 分隔线 -->
@@ -212,7 +213,7 @@
             class="action-btn"
           >
             <!-- SVG 图标 -->
-            <img v-if="isImageIcon(tool.icon)" :src="tool.icon" class="action-icon" />
+            <div v-if="isImageIcon(tool.icon)" :style="getMaskIconStyle(tool.icon, 'action')" />
             <q-tooltip>{{ tool.label }}</q-tooltip>
           </q-btn>
           <!-- 右侧插槽 -->
@@ -236,10 +237,21 @@ import eraserSmallIcon from '/icons/eraserSmall.svg'
 import eraserMediumIcon from '/icons/eraserMedium.svg'
 import eraserLargeIcon from '/icons/eraserLarge.svg'
 import screenshotIcon from '/icons/screenshot.svg'
+import screenshotSelectIcon from '/icons/screenshot_select.svg'
 import resetIcon from '/icons/reset.svg'
 import selectIcon from '/icons/select.svg'
 import handIcon from '/icons/hand.svg'
+import handSelectIcon from '/icons/hand_select.svg'
 import insertTextIcon from '/icons/InsertText.svg'
+import signaturePenConfigIcon from '/icons/signaturePen_config.svg'
+import signaturePen_selectIcon from '/icons/signaturePen_select.svg'
+import highlighterConfigIcon from '/icons/highlighter_config.svg'
+import highlighter_selectIcon from '/icons/highlighter_select.svg'
+import eraser_selectIcon from '/icons/eraser_select.svg'
+import rectangleIcon from '/icons/rectangle.svg'
+import circleIcon from '/icons/circle.svg'
+import lineIcon from '/icons/line.svg'
+import triangleIcon from '/icons/triangle.svg'
 
 // 工具配置接口
 interface ToolConfig {
@@ -327,7 +339,7 @@ const ALL_TOOLS: Record<string, ToolOption> = {
       showSizePicker: true,
       sizes: [
         { value: 2.5, label: '细', displayHeight: '1px' },
-        { value: 3.0,label: '中', displayHeight: '2px' },
+        { value: 3.0, label: '中', displayHeight: '2px' },
         { value: 3.5, label: '粗', displayHeight: '3px' },
       ],
       sizeLabel: '粗细',
@@ -501,7 +513,7 @@ const ALL_TOOLS: Record<string, ToolOption> = {
   rectangle: {
     value: 'rectangle',
     label: '矩形',
-    icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCI+PHJlY3QgeD0iMyIgeT0iNSIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9zdmc+',
+    icon: rectangleIcon,
     config: {
       showColorPicker: true,
       colors: [
@@ -525,7 +537,7 @@ const ALL_TOOLS: Record<string, ToolOption> = {
   circle: {
     value: 'circle',
     label: '圆形',
-    icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS13aWR0aD0iMiIvPjwvc3ZnPg==',
+    icon: circleIcon,
     config: {
       showColorPicker: true,
       colors: [
@@ -549,7 +561,7 @@ const ALL_TOOLS: Record<string, ToolOption> = {
   line: {
     value: 'line',
     label: '直线',
-    icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCI+PGxpbmUgeDE9IjQiIHkxPSIxMiIgeDI9IjIwIiB5Mj0iMTIiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=',
+    icon: lineIcon,
     config: {
       showColorPicker: true,
       colors: [
@@ -573,7 +585,7 @@ const ALL_TOOLS: Record<string, ToolOption> = {
   triangle: {
     value: 'triangle',
     label: '三角形',
-    icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCI+PHBhdGggZD0iTTEyIDQgMiAyMGgyMHoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=',
+    icon: triangleIcon,
     config: {
       showColorPicker: true,
       colors: [
@@ -821,6 +833,72 @@ const updateConfig = (config: ToolConfigState) => {
   emit('config-change', newConfig)
 }
 
+// 配置按钮图标：根据当前选中工具使用对应 *_config 图标
+const getPopupIcon = () => {
+  const currentTool = currentToolConfig.value?.value
+
+  switch (currentTool) {
+    case 'pen':
+      return signaturePenConfigIcon || eraserSettingsIcon
+    case 'highlighter':
+      return highlighterConfigIcon || eraserSettingsIcon
+    case 'eraser':
+    case 'eraser-draw':
+      // 橡皮暂时没有单独的 config 图标，使用通用设置图标
+      return eraserSettingsIcon
+    default:
+      return eraserSettingsIcon
+  }
+}
+
+// 生成 mask-image 样式：用于 SVG 图标的精准染色
+// iconPath: SVG 文件路径
+// type: 图标类型 - 'action'(操作按钮), 'tool'(绘图工具), 'config'(配置按钮)
+// toolValue: 可选，当前工具值（用于判断是否选中）
+const getMaskIconStyle = (
+  iconPath: string,
+  type: 'action' | 'tool' | 'config' = 'action',
+  toolValue?: string
+) => {
+  // 基础 mask 样式
+  const maskStyle: Record<string, string> = {
+    '-webkit-mask-image': `url('${iconPath}')`,
+    '-webkit-mask-repeat': 'no-repeat',
+    '-webkit-mask-position': 'center',
+    '-webkit-mask-size': 'contain',
+    'mask-image': `url('${iconPath}')`,
+    'mask-repeat': 'no-repeat',
+    'mask-position': 'center',
+    'mask-size': 'contain',
+  }
+
+  // 根据类型和当前配置确定背景色
+  let backgroundColor = '#ffffff' // 默认白色（适合浏览器风格）
+
+  if (type === 'action') {
+    // 操作按钮：浏览器风格用白色，悬浮风格用黑色
+    backgroundColor = props.variant === 'browser' ? '#ffffff' : '#000000'
+  } else if (type === 'tool') {
+    // 绘图工具：选中状态统一使用高亮色，其余保持原来的黑/白色
+    if (toolValue && props.selectedTool === toolValue) {
+      backgroundColor = '#909BFF'
+    } else {
+      backgroundColor = props.variant === 'browser' ? '#ffffff' : '#000000'
+    }
+  } else if (type === 'config') {
+    // 配置按钮：使用当前工具的颜色（保留原逻辑）
+    if (props.toolConfig?.color) {
+      backgroundColor = props.toolConfig.color.toString()
+    } else {
+      backgroundColor = props.variant === 'browser' ? '#ffffff' : '#000000'
+    }
+  }
+
+  maskStyle['background-color'] = backgroundColor
+
+  return maskStyle
+}
+
 // 暴露关闭弹出框方法供外部调用
 defineExpose({
   closePopup: () => {
@@ -829,37 +907,44 @@ defineExpose({
 })
 </script>
 
-<style scoped>
-/* ========== 悬浮风格（Excalidraw 风格） ========== */
-.variant-floating .unified-toolbar-container {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 16px 0;
+<style scoped lang="scss">
+// SCSS 变量
+$transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-normal: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+$color-primary: #6965db;
+$color-border: #e8e8e8;
+$color-text: #1e1e1e;
+$color-text-secondary: #6b6b6b;
+$color-bg-hover: #f5f5f5;
+$color-bg-selected: #e3e2fe;
+
+// ========== 悬浮风格（Excalidraw 风格） ==========
+.variant-floating {
+  .unified-toolbar-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+  }
 }
 
 .unified-toolbar-floating {
   background: #ffffff;
-  border: 1px solid #e8e8e8;
+  border: 1px solid $color-border;
   border-radius: 14px;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.08),
-    0 2px 6px rgba(0, 0, 0, 0.04);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all $transition-normal;
   max-width: fit-content;
 }
 
-.unified-toolbar-floating:hover {
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 12px 32px rgba(0, 0, 0, 0.1),
-    0 4px 8px rgba(0, 0, 0, 0.06);
-}
-
-/* ========== 浏览器式风格（顶部固定工具栏） ========== */
-.variant-browser .unified-toolbar-container {
-  width: 100%;
-  padding: 0;
-  align-items: stretch;
-  margin-top: -1px;
+// ========== 浏览器式风格（顶部固定工具栏） ==========
+.variant-browser {
+  .unified-toolbar-container {
+    width: 100%;
+    padding: 0;
+    align-items: stretch;
+    margin-top: -1px;
+  }
 }
 
 .unified-toolbar-browser {
@@ -870,10 +955,10 @@ defineExpose({
   width: 100%;
   position: relative;
   z-index: 10;
-}
 
-.unified-toolbar-browser:hover {
-  box-shadow: none;
+  &:hover {
+    box-shadow: none;
+  }
 }
 
 .toolbar-content {
@@ -884,60 +969,49 @@ defineExpose({
   gap: 2px;
 }
 
-/* 浏览器式风格工具栏内容 */
-.unified-toolbar-browser .toolbar-content {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  padding: 8px 12px;
-  gap: 8px;
-  max-width: 100%;
-  overflow-x: auto;
+.unified-toolbar-browser {
+  .toolbar-content {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 8px 12px;
+    gap: 8px;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .left-section {
+    justify-content: flex-start;
+  }
+
+  .center-section {
+    grid-column: 2;
+  }
+
+  .right-section {
+    justify-content: flex-end;
+    grid-column: 3;
+  }
+
+  .toolbar-divider {
+    flex-shrink: 0;
+  }
 }
 
-.unified-toolbar-browser .left-section {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  justify-content: flex-start;
-}
-
-.unified-toolbar-browser .center-section {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  grid-column: 2;
-}
-
-.unified-toolbar-browser .right-section {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  justify-content: flex-end;
-  grid-column: 3;
-}
-
-.unified-toolbar-browser .toolbar-divider {
-  flex-shrink: 0;
-}
-
-.left-section {
+.left-section,
+.center-section,
+.right-section {
   display: flex;
   align-items: center;
   gap: 2px;
 }
 
 .center-section {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.right-section {
-  display: flex;
-  align-items: center;
-  gap: 2px;
+  .tool-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
 }
 
 .tool-section {
@@ -958,47 +1032,34 @@ defineExpose({
   justify-content: center;
 }
 
-/* 悬浮风格工具图标 */
+// 悬浮风格工具图标
 .tool-icon {
   padding: 10px;
-  border-radius: 8px;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 25px;
+  height: 25px;
   cursor: pointer;
-  filter: brightness(0); /* 黑色图标 */
+  transition: all $transition-fast;
+
+  &:hover {
+    background-color: $color-bg-hover;
+  }
+
+  &:active {
+    transform: scale(0.96);
+  }
 }
 
-.tool-icon-selected {
-  outline: 2px solid #6965db;
-  outline-offset: -2px;
-}
-
-/* 浏览器式风格工具图标 */
-.unified-toolbar-browser .tool-icon {
-  padding: 8px;
-  border-radius: 4px;
-  width: 36px;
-  height: 36px;
-  background-color: transparent;
-  filter: brightness(0) invert(1); /* 白色图标 */
-}
-
-.unified-toolbar-browser .tool-icon:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.unified-toolbar-browser .tool-icon:active {
-  transform: none;
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.unified-toolbar-browser .tool-icon-selected {
-  background-color: rgba(59, 130, 246, 0.3);
-  box-shadow: 0 0 8px rgba(59, 130, 246, 0.6); /* 蓝色光晕效果 */
+.unified-toolbar-browser {
+  .tool-icon {
+    padding: 8px;
+    border-radius: 4px;
+    width: 26px;
+    height: 26px;
+    background-color: transparent;
+  }
 }
 
 .popup-icon-wrapper {
@@ -1007,13 +1068,14 @@ defineExpose({
   align-items: center;
   justify-content: center;
   overflow: visible;
+  margin-left: 10px;
 }
 
-/* 悬浮风格弹出图标 */
+// 悬浮风格弹出图标
 .popup-icon {
   padding: 10px;
   border-radius: 8px;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all $transition-fast;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1022,33 +1084,29 @@ defineExpose({
   cursor: pointer;
 }
 
-.popup-icon-active {
-  border: 2px solid #02002e;
-}
+.unified-toolbar-browser {
+  .popup-icon {
+    padding: 8px;
+    border-radius: 4px;
+    width: 26px;
+    height: 26px;
+    background-color: transparent;
 
-/* 浏览器式风格弹出图标 */
-.unified-toolbar-browser .popup-icon {
-  padding: 8px;
-  border-radius: 4px;
-  width: 36px;
-  height: 36px;
-  background-color: transparent;
-  filter: brightness(0) invert(1); /* 白色图标 */
-}
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+      opacity: 1;
+    }
 
-.unified-toolbar-browser .popup-icon:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  opacity: 1;
-}
+    &:active {
+      transform: none;
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+  }
 
-.unified-toolbar-browser .popup-icon:active {
-  transform: none;
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.unified-toolbar-browser .popup-icon-active {
-  background-color: rgba(59, 130, 246, 0.3);
-  opacity: 1;
+  .popup-icon-active {
+    background-color: rgba(59, 130, 246, 0.3);
+    opacity: 1;
+  }
 }
 
 /* 分隔线 */
@@ -1059,12 +1117,13 @@ defineExpose({
   margin: 0 8px;
 }
 
+// 配置弹窗
 .config-popup {
   position: absolute;
   top: 100%;
   left: 65%;
   transform: translateX(-50%);
-  z-index: 3000; /* 确保在所有 PDF 页面元素之上 */
+  z-index: 3000;
   min-width: 300px;
   max-width: 400px;
   animation: popup-fade-in 0.2s ease-out;
@@ -1081,10 +1140,9 @@ defineExpose({
   }
 }
 
-/* Excalidraw 风格弹窗内容 */
 .popup-content {
   background: #ffffff;
-  border: 1px solid #e8e8e8;
+  border: 1px solid $color-border;
   border-radius: 12px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 12px 32px rgba(0, 0, 0, 0.1),
     0 4px 8px rgba(0, 0, 0, 0.06);
@@ -1097,18 +1155,17 @@ defineExpose({
 
 .config-section {
   margin-bottom: 16px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
 }
 
-.config-section:last-child {
-  margin-bottom: 0;
-}
-
-/* Excalidraw 风格章节标题 */
 .section-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #1e1e1e;
+  color: $color-text;
   font-weight: 600;
   margin-bottom: 12px;
   font-size: 13px;
@@ -1117,78 +1174,76 @@ defineExpose({
 }
 
 .section-content {
-  color: #1e1e1e;
+  color: $color-text;
 }
 
-/* 颜色选项 */
+// 颜色选项
 .color-options {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-/* Excalidraw 风格颜色选项 */
 .color-option {
   position: relative;
   cursor: pointer;
-  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-}
+  transition: transform $transition-fast;
 
-.color-option:hover {
-  transform: scale(1.08);
-}
+  &:hover {
+    transform: scale(1.08);
+  }
 
-.color-option:active {
-  transform: scale(0.98);
+  &:active {
+    transform: scale(0.98);
+  }
 }
 
 .color-display {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 2px solid #e8e8e8;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid $color-border;
+  transition: all $transition-fast;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .color-selected .color-display {
-  border-color: #6965db;
+  border-color: $color-primary;
   box-shadow: inset 0 0 0 4px white, 0 2px 6px rgba(105, 101, 219, 0.3);
 }
 
-/* 大小选项 */
+// 大小选项
 .size-options {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-/* Excalidraw 风格尺寸选项 */
 .size-option {
   cursor: pointer;
   padding: 8px 12px;
   border-radius: 8px;
-  border: 1.5px solid #e8e8e8;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1.5px solid $color-border;
+  transition: all $transition-fast;
   min-width: 60px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #ffffff;
-}
 
-.size-option:hover {
-  border-color: #6965db;
-  background-color: #fafafb;
-}
+  &:hover {
+    border-color: $color-primary;
+    background-color: #fafafb;
+  }
 
-.size-option:active {
-  transform: scale(0.98);
+  &:active {
+    transform: scale(0.98);
+  }
 }
 
 .size-selected {
-  border-color: #6965db;
-  background-color: #e3e2fe;
+  border-color: $color-primary;
+  background-color: $color-bg-selected;
   font-weight: 600;
 }
 
@@ -1206,17 +1261,17 @@ defineExpose({
 
 .size-line {
   width: 40px;
-  background-color: #1e1e1e;
+  background-color: $color-text;
   border-radius: 2px;
 }
 
 .size-label {
   font-size: 12px;
-  color: #6b6b6b;
+  color: $color-text-secondary;
   font-weight: 500;
 }
 
-/* Excalidraw 风格形状选项 */
+// 形状选项
 .shape-options {
   display: flex;
   gap: 12px;
@@ -1227,38 +1282,38 @@ defineExpose({
   cursor: pointer;
   padding: 12px;
   border-radius: 8px;
-  border: 1.5px solid #e8e8e8;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1.5px solid $color-border;
+  transition: all $transition-fast;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
   min-width: 80px;
   background: #ffffff;
-}
 
-.shape-option:hover {
-  border-color: #6965db;
-  background-color: #fafafb;
-}
+  &:hover {
+    border-color: $color-primary;
+    background-color: #fafafb;
+  }
 
-.shape-option:active {
-  transform: scale(0.98);
+  &:active {
+    transform: scale(0.98);
+  }
 }
 
 .shape-selected {
-  border-color: #6965db;
-  background-color: #e3e2fe;
+  border-color: $color-primary;
+  background-color: $color-bg-selected;
   font-weight: 600;
 }
 
 .shape-label {
   font-size: 12px;
-  color: #6b6b6b;
+  color: $color-text-secondary;
   font-weight: 500;
 }
 
-/* 笔迹样式选择器 */
+// 笔迹样式选择器
 .handwriting-style-options {
   display: flex;
   gap: 12px;
@@ -1269,29 +1324,34 @@ defineExpose({
   cursor: pointer;
   padding: 12px;
   border-radius: 8px;
-  border: 1.5px solid #e8e8e8;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1.5px solid $color-border;
+  transition: all $transition-fast;
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 8px;
   min-width: 120px;
   background: #ffffff;
-}
 
-.handwriting-style-option:hover {
-  border-color: #6965db;
-  background-color: #fafafb;
-}
+  &:hover {
+    border-color: $color-primary;
+    background-color: #fafafb;
+  }
 
-.handwriting-style-option:active {
-  transform: scale(0.98);
+  &:active {
+    transform: scale(0.98);
+  }
 }
 
 .handwriting-style-selected {
-  border-color: #6965db;
-  background-color: #e3e2fe;
+  border-color: $color-primary;
+  background-color: $color-bg-selected;
   font-weight: 600;
+
+  .handwriting-style-label {
+    color: $color-primary;
+    font-weight: 600;
+  }
 }
 
 .handwriting-style-icon {
@@ -1311,72 +1371,68 @@ defineExpose({
   font-weight: 500;
 }
 
-.handwriting-style-selected .handwriting-style-label {
-  color: #6965db;
-  font-weight: 600;
-}
-
 .handwriting-style-desc {
   font-size: 11px;
-  color: #6b6b6b;
+  color: $color-text-secondary;
 }
 
-/* 悬浮风格操作按钮 */
+// 悬浮风格操作按钮
 .action-btn {
   color: #000000;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all $transition-fast;
   border-radius: 8px;
-  width: 40px;
-  height: 40px;
+  width: 26px;
+  height: 26px;
+
+  &:hover:not(:disabled) {
+    background-color: $color-bg-hover;
+    color: #000000;
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+
+  &:disabled {
+    color: #d1d1d1;
+    cursor: not-allowed;
+  }
 }
 
-.action-btn:hover:not(:disabled) {
-  background-color: #f5f5f5;
-  color: #000000;
+.unified-toolbar-browser {
+  .action-btn {
+    border-radius: 4px;
+    width: 26px;
+    height: 26px;
+    color: #ffffff;
+
+    &:hover:not(:disabled) {
+      background-color: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+    }
+
+    &:active:not(:disabled) {
+      transform: none;
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+
+    &:disabled {
+      color: rgba(255, 255, 255, 0.4);
+    }
+  }
 }
 
-.action-btn:active:not(:disabled) {
-  transform: scale(0.96);
-}
-
-.action-btn:disabled {
-  color: #d1d1d1;
-  cursor: not-allowed;
-}
-
-/* 浏览器式风格操作按钮 */
-.unified-toolbar-browser .action-btn {
-  border-radius: 4px;
-  width: 36px;
-  height: 36px;
-  color: #ffffff;
-}
-
-.unified-toolbar-browser .action-btn:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-}
-
-.unified-toolbar-browser .action-btn:active:not(:disabled) {
-  transform: none;
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.unified-toolbar-browser .action-btn:disabled {
-  color: rgba(255, 255, 255, 0.4);
+// mask-icon 基础样式
+.mask-icon {
+  display: block;
 }
 
 .action-icon {
   width: 20px;
   height: 20px;
-  filter: brightness(0); /* 黑色图标 */
 }
 
-.unified-toolbar-browser .action-icon {
-  filter: brightness(0) invert(1); /* 白色图标 */
-}
-
-/* 禁用用户选择，避免拖动时选中文本 */
+// 禁用用户选择，避免拖动时选中文本
 .tool-icon,
 .popup-icon,
 .color-option,
@@ -1389,49 +1445,55 @@ defineExpose({
   -ms-user-select: none;
 }
 
-/* 浏览器式风格响应式设计 */
-.unified-toolbar-browser .toolbar-content {
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+// 浏览器式风格响应式设计
+.unified-toolbar-browser {
+  .toolbar-content {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+
+    &::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background-color: #c0c0c0;
+      border-radius: 2px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background-color: transparent;
+    }
+  }
 }
 
-.unified-toolbar-browser .toolbar-content::-webkit-scrollbar {
-  height: 4px;
-}
-
-.unified-toolbar-browser .toolbar-content::-webkit-scrollbar-thumb {
-  background-color: #c0c0c0;
-  border-radius: 2px;
-}
-
-.unified-toolbar-browser .toolbar-content::-webkit-scrollbar-track {
-  background-color: transparent;
-}
-
-/* 悬浮风格响应式设计 */
+// 悬浮风格响应式设计
 @media (max-width: 768px) {
-  .variant-floating .unified-toolbar-container {
-    padding: 12px 0;
+  .variant-floating {
+    .unified-toolbar-container {
+      padding: 12px 0;
+    }
+
+    .toolbar-content {
+      padding: 4px 8px;
+    }
+
+    .tool-icon,
+    .popup-icon,
+    .action-btn {
+      width: 36px;
+      height: 36px;
+      padding: 8px;
+    }
   }
 
-  .variant-floating .toolbar-content {
-    padding: 4px 8px;
-  }
-
-  .variant-floating .tool-icon,
-  .variant-floating .popup-icon,
-  .variant-floating .action-btn {
-    width: 36px;
-    height: 36px;
-    padding: 8px;
-  }
-
-  .unified-toolbar-browser .tool-icon,
-  .unified-toolbar-browser .popup-icon,
-  .unified-toolbar-browser .action-btn {
-    width: 32px;
-    height: 32px;
-    padding: 6px;
+  .unified-toolbar-browser {
+    .tool-icon,
+    .popup-icon,
+    .action-btn {
+      width: 32px;
+      height: 32px;
+      padding: 6px;
+    }
   }
 
   .left-section,
@@ -1465,7 +1527,7 @@ defineExpose({
   }
 }
 
-/* 平板设备适配 */
+// 平板设备适配
 @media (min-width: 769px) and (max-width: 1024px) {
   .config-popup {
     min-width: 320px;

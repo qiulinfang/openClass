@@ -32,6 +32,8 @@ export const usePdfViewerStore = defineStore('pdfViewer', () => {
     highlighterWidth: 8,
     // 橡皮擦
     eraserSize: 10,
+    // 截图形状（矩形 / 多边形）
+    screenshotShape: 'rectangle',
   })
   
   // 当前文件ID

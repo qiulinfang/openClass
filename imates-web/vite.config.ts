@@ -13,18 +13,21 @@ export default defineConfig(({ mode }) => {
   const isTest = mode === 'test'
 
   // 学伴服务（业务后端）
+  // mode=test 时，对齐 Android 测试环境：使用 9222 端口的 imates 测试服
   const EDU_SERVICE_BASE = isTest
-    ? 'https://api.showcode.xyz/blw-edu-service-alc'
+    ? 'http://www.imates.com.cn:9222/blw-edu-service-alc'
     : 'http://www.imates.com.cn:8222/blw-edu-service-alc'
 
   // 资源服务器（文件/图片等）
+  // 测试环境同样使用 imates 资源服务器
   const RESOURCE_FILE_BASE = isTest
-    ? 'https://www.showcode.xyz:9099'
+    ? 'https://www.imates.com.cn:9099'
     : 'https://www.imates.com.cn:9099'
 
   // APP 更新接口所用域名
+  // 测试环境与正式环境同域名，通过不同路径区分 appupdate.json / appupdate_test.json
   const APP_UPDATE_BASE = isTest
-    ? 'https://www.showcode.xyz'
+    ? 'https://www.imates.com.cn'
     : 'https://www.imates.com.cn'
 
   // 启动时输出当前环境及各后端基础地址，便于确认 Vite 实际走的是哪套接口
@@ -303,7 +306,7 @@ export default defineConfig(({ mode }) => {
     outDir: 'dist',
     assetsDir: 'assets',
     // 确保资源内联或使用相对路径
-    assetsInlineLimit: 4096,
+    assetsInlineLimit: 0,
     // 使用 es2022 以支持 top-level await（mupdf 需要）
     // Chrome 99+ 支持 top-level await，符合项目最低版本要求
     target: 'es2022',

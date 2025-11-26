@@ -112,6 +112,7 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   const useScreenshotApi = ref(false)  // 是否使用截图接口（用于截图会话的后续消息）
   const currentSessionId = ref<string | null>(null) // 当前会话ID，用于加载消息历史
   const isNewSession = ref(true) // 是否是新会话
+  const backendSessionId = ref<string | null>(null) // 后端会话ID，用于发送消息时的sessionId字段
   const aiGeneralStore = useAiGeneralChatStore() // 引用 ai-general 场景，用于获取根会话ID
   
   const VIEW_ANSWER_CHAT_TIMES = 3
@@ -143,8 +144,9 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
     messages.value = []
     chatResponseTimes.value = 0
     useScreenshotApi.value = false  // 重置截图接口标记
-    console.log('[AI_TEXTBOOK] 清空消息，重置 currentSessionId')
+    console.log('[AI_TEXTBOOK] 清空消息，重置 currentSessionId 和 backendSessionId')
     currentSessionId.value = null
+    backendSessionId.value = null  // 同时重置后端会话ID
     isNewSession.value = true
   }
   
@@ -176,20 +178,35 @@ export const useAiTextbookChatStore = defineStore('aiTextbookChat', () => {
   }
   
   // ==================== 发送消息 ====================
-  // 确保存在一个可用的会话ID：优先使用 aiGeneral 顶部会话ID，否则生成一个 aitextbook 会话ID
-const ensureTopGeneralSession = async () => {
-  // 1. 取顶部会话
-  if (aiGeneralStore.sessions.length > 0) {
-    const topSession = aiGeneralStore.sessions[0]
-    console.log('[AI_TEXTBOOK] 使用 ai-general 顶部会话ID:', topSession.sessionId)
-    return topSession.sessionId
-  }
+  /**
+   * 确保存在一个可用的后端会话ID
+   * 优先级：
+   * 1. 使用 aiGeneral 顶部会话ID
+   * 2. 使用已维护的 backendSessionId
+   * 3. 创建新的会话ID并保存到 backendSessionId
+   */
+  const ensureTopGeneralSession = async () => {
+    // 1. 优先使用 ai-general 顶部会话ID
+    if (aiGeneralStore.sessions.length > 0) {
+      const topSession = aiGeneralStore.sessions[0]
+      console.log('[AI_TEXTBOOK] 使用 ai-general 顶部会话ID:', topSession.sessionId)
+      // 同步更新 backendSessionId
+      backendSessionId.value = topSession.sessionId
+      return topSession.sessionId
+    }
 
-  // 2. 一个会话都没有，创建一个新的 aiTextbook 会话ID
-  const newSessionId = `textbook-session-${Date.now()}`
-  console.log('[AI_TEXTBOOK] 创建新会话ID:', newSessionId)
-  return newSessionId
-}
+    // 2. 如果没有 sessions，但有 backendSessionId，使用它
+    if (backendSessionId.value) {
+      console.log('[AI_TEXTBOOK] 使用已维护的 backendSessionId:', backendSessionId.value)
+      return backendSessionId.value
+    }
+
+    // 3. 都没有，创建新的会话ID并保存
+    const newSessionId = `textbook-session-${Date.now()}`
+    console.log('[AI_TEXTBOOK] 创建新 backendSessionId:', newSessionId)
+    backendSessionId.value = newSessionId
+    return newSessionId
+  }
   /**
    * 发送聊天消息
    * 第1步：创建用户消息
@@ -206,7 +223,6 @@ const ensureTopGeneralSession = async () => {
     focus?: string, // 引用的消息内容（发送给后端）
     quotedMessage?: { id: string; content: string; sender: 'user' | 'ai' | 'teacher' } // 引用消息信息（用于消息气泡展示）
   ): Promise<void> => {
-    console.log('水电费水电费水电费收', currentSessionId.value)
     // 第1步：创建并添加用户消息（可选）
     if (!skipUserMessage) {
       const userMessage = createUserMessage(
@@ -234,10 +250,9 @@ const ensureTopGeneralSession = async () => {
       // 第4步：获取用户信息和科目
       const userInfo = getUserInfo()
       
-      // ========= 获取后端使用的根会话ID（来自 ai-general 的第一个会话） =========
-      let backendSessionId: string | null = null
-      backendSessionId = await ensureTopGeneralSession()
-      console.log('[AI_TEXTBOOK] 使用会话ID:', backendSessionId)
+      // ========= 获取后端使用的根会话ID（来自 ai-general 的第一个会话或已维护的 backendSessionId） =========
+      const sessionIdForBackend = await ensureTopGeneralSession()
+      console.log('[AI_TEXTBOOK] 使用后端会话ID:', sessionIdForBackend)
       
       // 第5步：构建AI消息请求（传入科目以确定dstUrl）
       // 将 chatStoreUtils.ChatImageData 转换为构建请求所需的精简图片数据
@@ -261,7 +276,7 @@ const ensureTopGeneralSession = async () => {
       const shouldUseScreenshotApi = !!builderImageData
 
       const aiMessage = buildAiTextbookMessage({
-        sessionId: backendSessionId,
+        sessionId: sessionIdForBackend,
         content,
         userInfo: userInfo,
         enableWebSearch: enableWebSearch.value,
@@ -502,17 +517,18 @@ const ensureTopGeneralSession = async () => {
   
   /**
    * 设置资源ID
-   * 注意：只有在 resourceId 真正变化时才重置 currentSessionId
+   * 注意：只有在 resourceId 真正变化时才重置 currentSessionId 和 backendSessionId
    * 如果 resourceId 没有变化，保留当前的 currentSessionId（比如从 loadChatHistory 设置的）
    */
   const setResourceId = (id: string): void => {
     const resourceIdChanged = resourceId.value !== id
     const oldResourceId = resourceId.value
     resourceId.value = id
-    // 只有在 resourceId 真正变化时才重置 currentSessionId
+    // 只有在 resourceId 真正变化时才重置 currentSessionId 和 backendSessionId
     if (resourceIdChanged) {
-      console.log('[AI_TEXTBOOK] resourceId 变化，重置 currentSessionId', { oldResourceId, newResourceId: id })
+      console.log('[AI_TEXTBOOK] resourceId 变化，重置 currentSessionId 和 backendSessionId', { oldResourceId, newResourceId: id })
       currentSessionId.value = null
+      backendSessionId.value = null  // 同时重置后端会话ID
       isNewSession.value = true
     }
   }
@@ -616,6 +632,7 @@ const ensureTopGeneralSession = async () => {
     useScreenshotApi,
     currentSessionId,
     isNewSession,
+    backendSessionId,
     
     // 方法
     addMessage,

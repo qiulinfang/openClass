@@ -89,12 +89,46 @@
                 height: `${layout.height}px`,
               }"
             ></canvas>
-            <!-- 截图裁剪框可视化 -->
+            <!-- 截图裁剪框可视化：矩形模式 -->
             <div
-              v-if="isScreenshotMode && screenshotRect && screenshotRect.pageIndex === index"
+              v-if="
+                isScreenshotMode &&
+                screenshotRect &&
+                screenshotRect.pageIndex === index &&
+                screenshotShape === 'rectangle'
+              "
               class="screenshot-rect"
               :style="getScreenshotRectStyle(screenshotRect, layout)"
             ></div>
+
+            <!-- 截图裁剪框可视化：自由形状模式，使用 SVG 折线实时预览轨迹 -->
+            <svg
+              v-if="
+                isScreenshotMode &&
+                screenshotRect &&
+                screenshotRect.pageIndex === index &&
+                screenshotShape === 'polygon' &&
+                screenshotRect.points &&
+                screenshotRect.points.length > 1
+              "
+              class="screenshot-polygon"
+              :style="{
+                position: 'absolute',
+                left: '0px',
+                top: '0px',
+                width: layout.width + 'px',
+                height: layout.height + 'px',
+              }"
+            >
+              <polyline
+                :points="screenshotRect.points
+                  .map((p) => `${p.x},${p.y}`)
+                  .join(' ')"
+                fill="rgba(0, 0, 0, 0.08)"
+                stroke="#00aaff"
+                stroke-width="1"
+              />
+            </svg>
           </div>
         </div>
       </div>
@@ -226,16 +260,25 @@ const isZooming = ref(false)
 let gestureMode: 'none' | 'zoom' | 'pan' = 'none' // 当前手势模式
 
 // ==================== 截图模式（框选 + 裁剪） ====================
+type ScreenshotShape = 'rectangle' | 'polygon'
+
 interface ScreenshotRect {
   pageIndex: number
   x1: number
   y1: number
   x2: number
   y2: number
+  // 自由形状时记录整条路径点（页面逻辑坐标，未乘 scale）
+  points?: { x: number; y: number }[]
 }
 const screenshotRect = ref<ScreenshotRect | null>(null) // 截图框选区域
 const isDraggingScreenshot = ref(false) // 是否正在拖动截图框
 const isScreenshotMode = ref(false) // 截图模式：独立于 currentMode，用于 PDF 区域截图
+
+const screenshotShape = computed<ScreenshotShape>(() => {
+  const shape = (store.drawingConfig as any).screenshotShape
+  return shape === 'polygon' ? 'polygon' : 'rectangle'
+})
 
 // ==================== 笔记功能（UI + IndexedDB 持久化） ====================
 // 页眉笔记
@@ -362,10 +405,19 @@ const getScreenshotRectStyle = (
   rect: ScreenshotRect,
   layout: { width: number; height: number }
 ): CSSProperties => {
-  const x1 = Math.min(rect.x1, rect.x2)
-  const y1 = Math.min(rect.y1, rect.y2)
-  const x2 = Math.max(rect.x1, rect.x2)
-  const y2 = Math.max(rect.y1, rect.y2)
+  let x1 = Math.min(rect.x1, rect.x2)
+  let y1 = Math.min(rect.y1, rect.y2)
+  let x2 = Math.max(rect.x1, rect.x2)
+  let y2 = Math.max(rect.y1, rect.y2)
+
+  if (rect.points && rect.points.length > 0) {
+    for (const p of rect.points) {
+      if (p.x < x1) x1 = p.x
+      if (p.y < y1) y1 = p.y
+      if (p.x > x2) x2 = p.x
+      if (p.y > y2) y2 = p.y
+    }
+  }
 
   const width = x2 - x1
   const height = y2 - y1
@@ -684,12 +736,24 @@ const handleHighlightPointerDown = async (
     const yVisual = event.clientY - rect.top
     const x = xVisual / scale
     const y = yVisual / scale
-    screenshotRect.value = {
-      pageIndex,
-      x1: x,
-      y1: y,
-      x2: x,
-      y2: y,
+
+    if (screenshotShape.value === 'polygon') {
+      screenshotRect.value = {
+        pageIndex,
+        x1: x,
+        y1: y,
+        x2: x,
+        y2: y,
+        points: [{ x, y }],
+      }
+    } else {
+      screenshotRect.value = {
+        pageIndex,
+        x1: x,
+        y1: y,
+        x2: x,
+        y2: y,
+      }
     }
     isDraggingScreenshot.value = true
 
@@ -758,8 +822,24 @@ const handleHighlightPointerMove = (
     const xVisual = event.clientX - rect.left
     const yVisual = event.clientY - rect.top
 
-    screenshotRect.value.x2 = xVisual / scale
-    screenshotRect.value.y2 = yVisual / scale
+    const x = xVisual / scale
+    const y = yVisual / scale
+
+    screenshotRect.value.x2 = x
+    screenshotRect.value.y2 = y
+
+    if (screenshotShape.value === 'polygon') {
+      if (!screenshotRect.value.points) {
+        screenshotRect.value.points = []
+      }
+      const pts = screenshotRect.value.points
+      const last = pts[pts.length - 1]
+      const dx = x - last.x
+      const dy = y - last.y
+      if (dx * dx + dy * dy > 1) {
+        pts.push({ x, y })
+      }
+    }
 
     // TODO：如果你希望在页面上画一个半透明矩形，可以在这里用 overlay canvas 或绝对定位 div 来渲染
     return
@@ -839,10 +919,19 @@ const handleHighlightPointerUp = async (
     const rectInfo = screenshotRect.value
     screenshotRect.value = null
 
-    const x1Css = Math.min(rectInfo.x1, rectInfo.x2)
-    const y1Css = Math.min(rectInfo.y1, rectInfo.y2)
-    const x2Css = Math.max(rectInfo.x1, rectInfo.x2)
-    const y2Css = Math.max(rectInfo.y1, rectInfo.y2)
+    let x1Css = Math.min(rectInfo.x1, rectInfo.x2)
+    let y1Css = Math.min(rectInfo.y1, rectInfo.y2)
+    let x2Css = Math.max(rectInfo.x1, rectInfo.x2)
+    let y2Css = Math.max(rectInfo.y1, rectInfo.y2)
+
+    if (rectInfo.points && rectInfo.points.length > 0) {
+      for (const p of rectInfo.points) {
+        if (p.x < x1Css) x1Css = p.x
+        if (p.y < y1Css) y1Css = p.y
+        if (p.x > x2Css) x2Css = p.x
+        if (p.y > y2Css) y2Css = p.y
+      }
+    }
 
     const widthCss = x2Css - x1Css
     const heightCss = y2Css - y1Css
@@ -873,7 +962,33 @@ const handleHighlightPointerUp = async (
     const pageCtx = pageCanvas.getContext('2d')
     if (!ctx || !pageCtx) return
 
-    ctx.drawImage(pageCanvas, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight)
+    // 先填充白色背景，避免选区外区域呈现为黑色/透明
+    ctx.save()
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, sWidth, sHeight)
+    ctx.restore()
+
+    if (screenshotShape.value === 'polygon' && rectInfo.points && rectInfo.points.length > 2) {
+      ctx.save()
+      ctx.beginPath()
+      for (let i = 0; i < rectInfo.points.length; i++) {
+        const p = rectInfo.points[i]
+        const px = (p.x - x1Css) * dprX
+        const py = (p.y - y1Css) * dprY
+        if (i === 0) {
+          ctx.moveTo(px, py)
+        } else {
+          ctx.lineTo(px, py)
+        }
+      }
+      ctx.closePath()
+      ctx.clip()
+      ctx.drawImage(pageCanvas, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight)
+      ctx.restore()
+    } else {
+      // 矩形模式下，直接在白底上绘制截图区域
+      ctx.drawImage(pageCanvas, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight)
+    }
 
     offscreen.toBlob(
       (blob) => {
