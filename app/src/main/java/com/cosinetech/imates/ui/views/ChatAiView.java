@@ -323,12 +323,12 @@ public class ChatAiView extends RelativeLayout {
         }
 
         mAskTeacherLayout.setVisibility(GONE);
-        if(mCurrentCatalog.type.getValue() >= ChatMessageCatalogue.CatalogueType.USER_SUBJECT_BEGIN.getValue()
-            && mCurrentCatalog.type.getValue() <= ChatMessageCatalogue.CatalogueType.USER_SUBJECT_END.getValue()) {
-            mSelectChatItemButton.setVisibility(VISIBLE);
-        } else {
-            mSelectChatItemButton.setVisibility(GONE);
-        }
+//        if(mCurrentCatalog.type.getValue() >= ChatMessageCatalogue.CatalogueType.USER_SUBJECT_BEGIN.getValue()
+//            && mCurrentCatalog.type.getValue() <= ChatMessageCatalogue.CatalogueType.USER_SUBJECT_END.getValue()) {
+//            mSelectChatItemButton.setVisibility(VISIBLE);
+//        } else {
+//            mSelectChatItemButton.setVisibility(GONE);
+//        }
 
         mAdapterAiChatMessageList.setItemCanSelect(false);
         mSelectChatItemButton.setChecked(false);

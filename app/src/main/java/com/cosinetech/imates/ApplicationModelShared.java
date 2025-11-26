@@ -38,6 +38,7 @@ public class ApplicationModelShared extends Application implements ViewModelStor
     public boolean fakeClassMode = false;
     WifiManager.MulticastLock multicastLock = null;
     private static ApplicationModelShared appInstance = null;
+    final Activity[] currentActivity = new Activity[1];
 
     @Override
     public void onCreate() {
@@ -71,7 +72,9 @@ public class ApplicationModelShared extends Application implements ViewModelStor
 
             // 其他生命周期方法需要空实现
             @Override public void onActivityStarted(Activity activity) {}
-            @Override public void onActivityResumed(Activity activity) {}
+            @Override public void onActivityResumed(Activity activity) {
+                currentActivity[0] = activity;
+            }
             @Override public void onActivityPaused(Activity activity) {}
             @Override public void onActivityStopped(Activity activity) {}
             @Override public void onActivitySaveInstanceState(Activity activity, Bundle outState) {}
@@ -93,24 +96,35 @@ public class ApplicationModelShared extends Application implements ViewModelStor
 
     private void onAppExit() {
         // 这里处理应用退出逻辑
-        Log.e("MyApp", "Application is exiting");
-        UserInfoViewModel userInfoViewModel = new ViewModelProvider(
-                this,
-                new ViewModelProvider.AndroidViewModelFactory(this)
-        ).get(UserInfoViewModel.class);
-        userInfoViewModel.token.postValue("");
-        userInfoViewModel.userId.postValue("");
-        userInfoViewModel.userInfo.postValue(new UserInfo());
-        ScreenCastingManager.setClassMode(false);
-        ScreenCastingManager.stopLoop();
-        UdpForwarderManager.getInstance().stop();
-        H264MpegTSStreamerManager.getInstance().stop();
-        multicastLock.release();
-        fakeClassMode = false;
+        try {
+            Log.e("MyApp", "Application is exiting");
+            UserInfoViewModel userInfoViewModel = new ViewModelProvider(
+                    this,
+                    new ViewModelProvider.AndroidViewModelFactory(this)
+            ).get(UserInfoViewModel.class);
+            userInfoViewModel.token.postValue("");
+            userInfoViewModel.userId.postValue("");
+            userInfoViewModel.userInfo.postValue(new UserInfo());
+            ScreenCastingManager.setClassMode(false);
+            ScreenCastingManager.stopLoop();
+            UdpForwarderManager.getInstance().stop();
+            H264MpegTSStreamerManager.getInstance().stop();
+            if (multicastLock != null) {
+                multicastLock.release();
+                multicastLock = null;
+            }
+            fakeClassMode = false;
+        }catch (Exception e) {
+            Log.e("AppExit", e.getMessage());
+        }
     }
 
     public static ApplicationModelShared getInstance() {
             return appInstance;
+    }
+
+    public Activity getForegroundActivity() {
+        return currentActivity[0];
     }
 
     public void setFloatingWindowService(FloatingRobotService service) {
