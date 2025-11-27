@@ -1682,18 +1682,8 @@ onMounted(async () => {
   // 检查路由参数，如果需要自动打开学习对话框
   checkAndOpenLearningDialog()
   
-  // 更新屏幕高度
-  const updateScreenHeight = () => {
-    screenHeight.value = window.innerHeight
-  }
-  
-  window.addEventListener('resize', updateScreenHeight)
-  
-  // 清理函数
+  // 清理函数：仅清理防抖定时器
   onUnmounted(() => {
-    window.removeEventListener('resize', updateScreenHeight)
-    
-    // 清理防抖定时器
     if (debounceTimer.value) {
       clearTimeout(debounceTimer.value)
     }

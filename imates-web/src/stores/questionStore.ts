@@ -9,7 +9,8 @@ import { ApiService } from '../services/api-service'
 import type { ExerciseItem } from '../types'
 import {
   saveQuestionsToIndexedDB,
-  loadQuestionsFromIndexedDB
+  loadQuestionsFromIndexedDB,
+  deleteQuestionsFromIndexedDB,
 } from '../services/question-storage'
 import { showMessage } from '@/utils'
 
@@ -187,32 +188,20 @@ export const useQuestionStore = defineStore('question', () => {
     if (loadingSubjects.has(subject)) {
       return
     }
-    
-    
     loadingSubjects.add(subject)
     
     try {
       isLoading.value = true
-      
-      // 第1步：优先从 IndexedDB 加载
-      if (useLocalFirst) {
-        const loaded = await loadQuestionsFromLocal(subject)
-        
-        if (loaded) {
-          return
-        }
-      }
-      
-      // 第2步：从API获取题目
+      // 第1步：从API获取题目
       const apiService = ApiService.getInstance()
       const questionList = await apiService.getExerciseList(subject)
       
-      // 转换 API 响应的 ExerciseItem 类型
+      // 第2步：转换 API 响应的 ExerciseItem 类型
       const convertedQuestions: ExerciseItem[] = questionList.map((q: unknown) => {
         const question = q as Record<string, unknown>
         return {
           bmNo: (question.bmNo as string) || '',
-          id: (question.bmNo as string) || '',
+          id: (question.id as string) || '',
           title: (question.title as string) || '',
           question: (question.content as string) || (question.question as string) || (question.title as string) || '',
           answer: (question.answer as string) || '',
@@ -222,10 +211,11 @@ export const useQuestionStore = defineStore('question', () => {
         }
       })
       
-      // 第3步：去重并更新状态
+      // 第3步：去重并更新状态  
       questions.value = deduplicateQuestions(convertedQuestions)
       // 第4步：保存到 IndexedDB
       try {
+        await deleteQuestionsFromIndexedDB(subject)
         await saveQuestionsToIndexedDB(subject, questions.value)
       } catch (error) {
         console.error('[QUESTION] ❌ 保存题目列表到 IndexedDB 失败:', error)
@@ -372,18 +362,18 @@ export const useQuestionStore = defineStore('question', () => {
     // 检查是否已存在
     const exists = questions.value.some(q => q.bmNo === question.bmNo)
     if (!exists) {
-      question.subject = subject
-      // id 等于 bmNo，保持一致
-      question.id = question.bmNo
-      questions.value.unshift(question)
-      // 如果提供了科目，保存到 IndexedDB
-      if (subject) {
-        try {
-          await saveQuestionsToIndexedDB(subject, questions.value)
-        } catch (error) {
-          console.error('[QUESTION] ❌ 保存题目列表到 IndexedDB 失败:', error)
-        }
+          question.subject = subject
+    // id 等于 bmNo，保持一致
+    question.id = question.bmNo
+    questions.value.unshift(question)
+    // 如果提供了科目，保存到 IndexedDB
+    if (subject) {
+      try {
+        await saveQuestionsToIndexedDB(subject, questions.value)
+      } catch (error) {
+        console.error('[QUESTION] ❌ 保存题目列表到 IndexedDB 失败:', error)
       }
+}
     } else{
       throw new Error('该题目已存在于题目列表中，无法重复添加')
     }

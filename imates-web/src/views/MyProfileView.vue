@@ -106,6 +106,7 @@ const teacherStore = useTeacherGeneralChatStore()
 // 注入父组件提供的方法（从 MainView 提供）
 const closeToolbox = inject<() => void>('closeToolbox')
 const openTeacherChatDialog = inject<(subject?: 'biology' | 'math') => void>('openTeacherChatDialog')
+const openMainChatPanel = inject<() => void>('openMainChatPanel')
 const openFeedbackDialog = inject<() => void>('openFeedbackDialog')
 const getTeacherChatDialogRef = inject<() => InstanceType<typeof UnifiedChatDialog> | null>('getTeacherChatDialogRef')
 
@@ -249,14 +250,17 @@ const confirmJoinClass = () => {
 }
 
 // 与老师对话（从卡片进入）
+// 期望行为：优先打开主页右侧统一聊天面板（MainChatPanel），而不是直接弹出全屏对话框
 const chatWithTeacher = async () => {
   // 第1步：关闭工具箱
   if (closeToolbox) {
     closeToolbox()
   }
-  // 第2步：打开教师聊天对话框（默认数学）
-  if (openTeacherChatDialog) {
-    openTeacherChatDialog('math')
+
+  // 第2步：打开主页右侧统一聊天面板
+  if (openMainChatPanel) {
+    openMainChatPanel()
+    return
   }
 }
 

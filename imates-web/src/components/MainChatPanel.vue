@@ -1,0 +1,372 @@
+<template>
+  <!-- 全屏遮罩：点击遮罩空白区域时关闭面板 -->
+  <div class="main-chat-overlay" @click.self="emit('close')">
+    <div class="main-chat-panel" @click.stop>
+    <!-- 头部：Tab + 关闭按钮 -->
+    <div class="chat-panel-header">
+      <div class="chat-tabs">
+        <div class="tab-list">
+          <div
+            v-for="tab in tabOptions"
+            :key="tab.value"
+            :class="['tab-item', { 'tab-active': activeTab === tab.value }]"
+            @click="activeTab = tab.value"
+          >
+            <span>{{ tab.label }}</span>
+          </div>
+        </div>
+      </div>
+      <!-- 形态切换按钮：panel <-> dialog -->
+      <button
+        type="button"
+        class="toggle-mode-button"
+        @click="emit('toggle-mode')"
+      >
+        <img :src="switcherIcon" alt="switch mode" class="toggle-mode-icon" />
+      </button>
+      <q-btn
+        flat
+        round
+        dense
+        icon="close"
+        size="md"
+        @click="emit('close')"
+        class="close-button"
+      />
+    </div>
+
+    <!-- Tab 内容区域 -->
+    <div class="chat-content-container">
+      <!-- AI 问答 Tab：仅展示聊天内容区域 -->
+      <div v-show="activeTab === 'ai-chat'" class="tab-content">
+        <div class="main-chat-body">
+          <div class="right-panel">
+            <ChatView
+              v-if="activeCategory === 'ai-general'"
+              type="ai-general"
+              :compressed-height="260"
+              @open-teacher-dialog="handleOpenTeacherDialog"
+              @switch-to-teacher="handleSwitchToTeacher"
+            />
+            <ChatView
+              v-else-if="activeCategory === 'teacher' && teacherChatStore.currentSession?.sessionId"
+              type="teacher-general"
+              :compressed-height="260"
+              :session-id="teacherChatStore.currentSession.sessionId"
+              :key="teacherChatStore.currentSession.sessionId"
+            />
+            <div v-else class="empty-chat">
+              <q-icon name="chat" size="48px" color="grey-4" />
+              <div class="empty-text">请选择或创建一个会话</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 会话记录 Tab：仅展示会话列表 -->
+      <div v-show="activeTab === 'question-record'" class="tab-content">
+        <div class="session-list-wrapper">
+          <SessionTree
+            ref="sessionTreeRef"
+            @session-switched="handleSessionSwitched"
+            @ai-session-deleted="handleAiSessionDeleted"
+            @teacher-session-deleted="handleTeacherSessionDeleted"
+            @category-should-change="handleCategoryShouldChange"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
+import { useTeacherGeneralChatStore } from '@/stores/teacherGeneralChatStore'
+import { showMessage } from '../utils'
+import { authStorageService } from '@/services/auth-storage-service'
+import SessionTree from './SessionTree.vue'
+import ChatView from './ChatView.vue'
+import type { ChatBubble } from '@/types'
+const switcherIcon = import('/icons/Switcher.svg')
+const aiGeneralStore = useAiGeneralChatStore()
+const teacherChatStore = useTeacherGeneralChatStore()
+
+const emit = defineEmits<{
+  close: []
+  'toggle-mode': []
+}>()
+
+// 引用
+const sessionTreeRef = ref<InstanceType<typeof SessionTree> | null>(null)
+
+// Tab 状态
+const activeTab = ref<'ai-chat' | 'question-record'>('ai-chat')
+
+// Tab 选项
+const tabOptions = [
+  { label: '会话记录', value: 'question-record', icon: 'quiz' },
+  { label: 'AI问答', value: 'ai-chat', icon: 'chat' },
+]
+
+// 当前激活的分类（AI 或 老师）
+const activeCategory = ref<'ai-general' | 'teacher'>('ai-general')
+
+// 处理会话切换（由 SessionTree 通知）
+const handleSessionSwitched = (type: 'ai' | 'teacher', sessionId: string) => {
+  activeCategory.value = type === 'ai' ? 'ai-general' : 'teacher'
+}
+
+// AI 会话删除
+const handleAiSessionDeleted = (
+  sessionId: string,
+  success: boolean,
+  wasCurrentSession: boolean
+) => {
+  if (!success) return
+  if (wasCurrentSession) {
+    activeCategory.value = 'ai-general'
+  }
+}
+
+// 老师会话删除
+const handleTeacherSessionDeleted = (
+  sessionId: string,
+  success: boolean,
+  wasCurrentSession: boolean
+) => {
+  if (!success) return
+  if (wasCurrentSession) {
+    activeCategory.value = 'ai-general'
+  }
+}
+
+// 切换分类事件
+const handleCategoryShouldChange = (category: 'ai-general' | 'teacher') => {
+  if (category === 'teacher') {
+    activeCategory.value = 'teacher'
+  } else if (activeCategory.value === 'teacher') {
+    activeCategory.value = 'ai-general'
+  }
+}
+
+// 设置当前教师会话
+const setTeacherSession = (sessionId: string) => {
+  const allSessions = teacherChatStore.getAllSessions()
+  const session = allSessions.find((s) => s.sessionId === sessionId)
+  if (session) {
+    teacherChatStore.setSession(session)
+    const userId = authStorageService.getCurrentUserIdOrDefault()
+    const storeSubject = session.subject === 'biology' ? 'BIOLOGY' : 'MATH'
+    localStorage.setItem(`${userId}_currentTeacherSubject`, storeSubject)
+  }
+}
+
+// 从 AI 聊天转老师：打开指定老师会话
+const handleOpenTeacherDialog = async ({ sessionId }: { sessionId: string; message?: ChatBubble }) => {
+  try {
+    setTeacherSession(sessionId)
+    activeCategory.value = 'teacher'
+  } catch (error) {
+    console.error('设置老师会话失败:', error)
+    showMessage('设置老师会话失败', 'error')
+  }
+}
+
+// 批量转发后切换到老师
+const handleSwitchToTeacher = async (forwardData?: {
+  messages?: ChatBubble[]
+  currentQuestion?: unknown
+  additionalMessage?: string
+  forwardMode?: string
+  successCount?: number
+  sessionId?: string
+}) => {
+  if (!forwardData?.sessionId) return
+  try {
+    setTeacherSession(forwardData.sessionId)
+    activeCategory.value = 'teacher'
+  } catch (error) {
+    console.error('设置老师会话失败:', error)
+    showMessage('设置老师会话失败', 'error')
+  }
+}
+</script>
+
+<style scoped>
+.main-chat-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  /* 如需半透明遮罩可打开下一行 */
+  /* background: rgba(0, 0, 0, 0.1); */
+}
+
+.main-chat-panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100vh;
+  width: 460px;
+  background-color: #ffffff;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  /* 为绝对定位的形态切换按钮提供定位上下文 */
+  overflow: visible;
+}
+
+.chat-panel-header {
+  background: #e8e9ff;
+  padding-top: 10px;
+  height: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+/* Tab 列表 */
+.tab-list {
+  display: flex;
+  gap: 2px;
+}
+
+/* 每个 Tab 项 */
+.tab-item {
+  position: relative;
+  padding: 8px 18px;
+  color: #a19cb6;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: bold;
+  text-align: center;
+  cursor: pointer;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  width: 100px;
+}
+
+/* 激活的 Tab 项 */
+.tab-active {
+  background-image: url('/icons/sessionbackfround.png');
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-position: center center;
+  color: #504b64;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  height: 40px;
+  line-height: 24px;
+  width: 100px;
+}
+
+/* 激活 Tab 底部下划线 */
+.tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30%;
+  height: 3px;
+  background: #6e55ff;
+  border-radius: 2px;
+}
+
+/* Tab hover */
+.tab-item:hover:not(.tab-active) {
+  opacity: 0.85;
+  background: transparent;
+}
+
+/* 关闭按钮 */
+.close-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: #393548;
+  z-index: 1;
+}
+
+.toggle-mode-button {
+  position: absolute;
+  /* 紧贴 main-chat-panel 左上角外部边框 */
+  top: 4px;
+  left: -38px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  z-index: 12000;
+}
+
+.toggle-mode-icon {
+  width: 32px;
+  height: 32px;
+  display: block;
+}
+
+.chat-content-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tab-content {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  border-radius: 20px;
+}
+
+.session-list-wrapper {
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.main-chat-body {
+  flex: 1;
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.left-panel {
+  width: 260px;
+  border-right: 1px solid #e0e0e0;
+  background: #f5f5f5;
+  display: flex;
+  flex-direction: column;
+}
+
+.right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #ffffff;
+}
+
+.empty-chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 16px;
+}
+
+.empty-text {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #999999;
+}
+</style>

@@ -1,130 +1,170 @@
 <template>
-  <q-dialog v-model="isOpen" backdrop="true" position="standard"  persistent @hide="handleClose" >
-    <div 
-      class="dialog-container" 
-      :style="dialogStyle"
-      @mousemove="handleDrag"
-      @mouseup="stopDrag"
-      @touchmove="handleDrag"
-      @touchend="stopDrag"
-    >
-      <q-splitter
-        v-if="$slots['left-panel']"
-        v-model="splitterModel"
-        :limits="[12, 20]"
-        separator-class="custom-splitter-separator"
-        @update:model-value="handleSplitterChange"
-        class="splitter-container"
+  <Teleport to="body">
+    <Transition name="dialog-fade">
+      <div
+        v-if="isOpen"
+        class="dialog-overlay"
+        @click.self="handleOverlayClick"
+        @mousemove="handleDrag"
+        @mouseup="stopDrag"
+        @touchmove="handleDrag"
+        @touchend="stopDrag"
       >
-        <!-- 左侧面板 -->
-        <template #before>
-          <div class="left-panel">
-            <slot name="left-panel"></slot>
-          </div>
-        </template>
+        <div class="dialog-container" :class="{ fullscreen: fullscreen }" :style="dialogStyle">
+          <q-splitter
+            v-if="$slots['left-panel']"
+            v-model="splitterModel"
+            :limits="[12, 20]"
+            separator-class="custom-splitter-separator"
+            @update:model-value="handleSplitterChange"
+            class="splitter-container"
+          >
+            <!-- 左侧面板 -->
+            <template #before>
+              <div class="left-panel">
+                <slot name="left-panel"></slot>
+              </div>
+            </template>
 
-        <!-- 主内容卡片 -->
-        <template #after>
-          <q-card class="draggable-dialog-card">
-            <q-card-section 
+            <!-- 主内容卡片 -->
+            <template #after>
+              <div class="draggable-dialog-card">
+                <!-- 对话框标题 -->
+                <div
+                  class="dialog-header-section draggable-header"
+                  :style="{ background: headerBackgroundColor }"
+                  @mousedown.prevent="startDrag"
+                  @touchstart.prevent="startDrag"
+                >
+                  <!-- 左侧插槽 -->
+                  <div
+                    v-if="$slots['header-left']"
+                    class="header-left"
+                    @mousedown.stop
+                    @touchstart.stop
+                  >
+                    <slot name="header-left"></slot>
+                  </div>
+
+                  <!-- 标题 -->
+                  <div class="text-h6" :class="titleAlignClass">{{ title }}</div>
+
+                  <!-- 关闭按钮 -->
+                  <button class="close-btn" @click="handleClose" @mousedown.stop @touchstart.stop>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- 主内容 -->
+                <div
+                  class="dialog-content-section"
+                  :class="{ 'dialog-content-rounded': fullscreen }"
+                >
+                  <slot></slot>
+                </div>
+
+                <!-- 调整大小把手 -->
+                <div
+                  class="resize-handle"
+                  @mousedown.prevent.stop="startResize"
+                  @touchstart.prevent.stop="startResize"
+                ></div>
+              </div>
+            </template>
+          </q-splitter>
+
+          <!-- 无左侧面板时的主内容 -->
+          <div v-else class="draggable-dialog-card">
+            <!-- 非全屏：显示标题栏 -->
+            <div
+              v-if="!fullscreen"
               class="dialog-header-section draggable-header"
               :style="{ background: headerBackgroundColor }"
               @mousedown.prevent="startDrag"
               @touchstart.prevent="startDrag"
             >
               <!-- 左侧插槽 -->
-              <div 
-                v-if="$slots['header-left']" 
+              <div
+                v-if="$slots['header-left']"
                 class="header-left"
                 @mousedown.stop
                 @touchstart.stop
               >
                 <slot name="header-left"></slot>
               </div>
-              
-              <div 
-                class="text-h6" 
-                :class="titleAlignClass"
-              >{{ title }}</div>
-              
-              <button 
-                class="close-btn"
-                @click="handleClose"
-                @mousedown.stop
-                @touchstart.stop
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+
+              <div class="text-h6" :class="titleAlignClass">{{ title }}</div>
+
+              <button class="close-btn" @click="handleClose" @mousedown.stop @touchstart.stop>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
               </button>
-            </q-card-section>
+            </div>
 
-            <q-card-section class="dialog-content-section">
+            <!-- 全屏：只显示右上角悬浮关闭按钮（左：大小切换，右：关闭） -->
+            <div v-else class="fullscreen-top-buttons">
+              <!-- 左侧：大小切换按钮 -->
+              <img
+                :src="switcherIcon"
+                alt="toggle size"
+                class="switcher-btn"
+                @click.stop="handleToggleFullscreen"
+              />
+
+              <!-- 右侧：关闭按钮 -->
+              <img
+                :src="closeIcon"
+                alt="close"
+                class="close-btn"
+                @click.stop="handleClose"
+              />
+            </div>
+
+            <div class="dialog-content-section" :class="{ 'dialog-content-rounded': fullscreen }">
               <slot></slot>
-            </q-card-section>
+            </div>
 
-            <div 
+            <div
               class="resize-handle"
               @mousedown.prevent.stop="startResize"
               @touchstart.prevent.stop="startResize"
             ></div>
-          </q-card>
-        </template>
-      </q-splitter>
-
-      <!-- 无左侧面板时的主内容 -->
-      <q-card 
-        v-else
-        class="draggable-dialog-card"
-      >
-        <q-card-section 
-          class="dialog-header-section draggable-header"
-          :style="{ background: headerBackgroundColor }"
-          @mousedown.prevent="startDrag"
-          @touchstart.prevent="startDrag"
-        >
-          <!-- 左侧插槽 -->
-          <div 
-            v-if="$slots['header-left']" 
-            class="header-left"
-            @mousedown.stop
-            @touchstart.stop
-          >
-            <slot name="header-left"></slot>
           </div>
-          
-          <div class="text-h6" :class="titleAlignClass">{{ title }}</div>
-          
-          <button 
-            class="close-btn"
-            @click="handleClose"
-            @mousedown.stop
-            @touchstart.stop
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </q-card-section>
-
-        <q-card-section class="dialog-content-section">
-          <slot></slot>
-        </q-card-section>
-
-        <div 
-          class="resize-handle"
-          @mousedown.prevent.stop="startResize"
-          @touchstart.prevent.stop="startResize"
-        ></div>
-      </q-card>
-    </div>
-  </q-dialog>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+const switcherIcon = import('/icons/Switcher.svg')
+const closeIcon = import('/icons/close.svg')
 
 interface Props {
   modelValue: boolean
@@ -136,6 +176,7 @@ interface Props {
   titleAlign?: 'left' | 'center'
   headerBackgroundColor?: string
   titleFontSize?: string | number
+  fullscreen?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -145,17 +186,19 @@ const props = withDefaults(defineProps<Props>(), {
   minHeight: 300,
   titleAlign: 'center',
   headerBackgroundColor: '#fafafb',
-  titleFontSize: 16
+  titleFontSize: 16,
+  fullscreen: false,
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'splitter-change': [value: number]
+  'toggle-fullscreen': []
 }>()
 
 const isOpen = computed({
   get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value)
+  set: (value) => emit('update:modelValue', value),
 })
 
 const dialogPosition = ref({ x: 0, y: 0 })
@@ -179,23 +222,34 @@ const handleSplitterChange = (value: number) => {
   emit('splitter-change', value)
 }
 
-// 计算对话框样式，拖动或缩放时禁用过渡动画
-const dialogStyle = computed(() => ({
-  transform: `translate(${dialogPosition.value.x}px, ${dialogPosition.value.y}px)`,
-  width: `${dialogSize.value.width}px`,
-  height: `${dialogSize.value.height}px`,
-  transition: (isDragging.value || isResizing.value) ? 'none' : 'transform 0.1s ease-out'
-}))
+// 计算对话框样式，拖动或缩放时禁用过渡动画；全屏模式下固定为视口大小
+const dialogStyle = computed(() => {
+  if (props.fullscreen) {
+    return {
+      transform: 'translate(0px, 0px)',
+      width: '100vw',
+      height: '100vh',
+      transition: 'none',
+    }
+  }
+  return {
+    transform: `translate(${dialogPosition.value.x}px, ${dialogPosition.value.y}px)`,
+    width: `${dialogSize.value.width}px`,
+    height: `${dialogSize.value.height}px`,
+    transition: isDragging.value || isResizing.value ? 'none' : 'transform 0.1s ease-out',
+  }
+})
 
 const startDrag = (event: MouseEvent | TouchEvent) => {
+  if (props.fullscreen) return
   isDragging.value = true
-  
+
   const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX
   const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY
-  
+
   dragOffset.value = {
     x: clientX - dialogPosition.value.x,
-    y: clientY - dialogPosition.value.y
+    y: clientY - dialogPosition.value.y,
   }
 }
 
@@ -203,24 +257,24 @@ const handleDrag = (event: MouseEvent | TouchEvent) => {
   if (isDragging.value) {
     const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX
     const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY
-    
+
     dialogPosition.value = {
       x: clientX - dragOffset.value.x,
-      y: clientY - dragOffset.value.y
+      y: clientY - dragOffset.value.y,
     }
   } else if (isResizing.value) {
     const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX
     const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY
-    
+
     const deltaX = clientX - resizeStart.value.x
     const deltaY = clientY - resizeStart.value.y
-    
+
     const newWidth = Math.max(props.minWidth, resizeStart.value.width + deltaX)
     const newHeight = Math.max(props.minHeight, resizeStart.value.height + deltaY)
-    
+
     dialogSize.value = {
       width: Math.min(newWidth, window.innerWidth * 0.9),
-      height: Math.min(newHeight, window.innerHeight * 0.9)
+      height: Math.min(newHeight, window.innerHeight * 0.9),
     }
   }
 }
@@ -231,16 +285,17 @@ const stopDrag = () => {
 }
 
 const startResize = (event: MouseEvent | TouchEvent) => {
+  if (props.fullscreen) return
   isResizing.value = true
-  
+
   const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX
   const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY
-  
+
   resizeStart.value = {
     x: clientX,
     y: clientY,
     width: dialogSize.value.width,
-    height: dialogSize.value.height
+    height: dialogSize.value.height,
   }
 }
 
@@ -248,26 +303,84 @@ const handleClose = () => {
   isOpen.value = false
 }
 
+const handleToggleFullscreen = () => {
+  // 通知父组件执行全屏 / 非全屏大小切换
+  emit('toggle-fullscreen')
+}
+
+const handleOverlayClick = () => {
+  // 点击遮罩层关闭对话框
+  handleClose()
+}
+
 watch(isOpen, (newValue) => {
   if (newValue) {
     dialogSize.value = { width: props.initialWidth, height: props.initialHeight }
     dialogPosition.value = { x: 0, y: 0 }
+    // 锁定 body 滚动
+    document.body.style.overflow = 'hidden'
+  } else {
+    // 恢复 body 滚动
+    document.body.style.overflow = ''
   }
 })
 </script>
 
 <style lang="scss" scoped>
+/* 遮罩层 */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+}
+
+/* 对话框进出动画 */
+.dialog-fade-enter-active,
+.dialog-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.dialog-fade-enter-active .dialog-container,
+.dialog-fade-leave-active .dialog-container {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.dialog-fade-enter-from,
+.dialog-fade-leave-to {
+  opacity: 0;
+}
+
+.dialog-fade-enter-from .dialog-container,
+.dialog-fade-leave-to .dialog-container {
+  transform: scale(0.9) translateY(-20px);
+  opacity: 0;
+}
+
 /* 对话框容器 */
 .dialog-container {
   max-width: 90vw;
   max-height: 90vh;
   position: relative;
   border-radius: 16px;
-  box-shadow: 
-    0 0 0 1px rgba(0, 0, 0, 0.05),
-    0 10px 40px rgba(0, 0, 0, 0.08),
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 40px rgba(0, 0, 0, 0.08),
     0 4px 12px rgba(0, 0, 0, 0.04);
   overflow: hidden;
+}
+
+.dialog-container.fullscreen {
+  max-width: 100vw;
+  max-height: 100vh;
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* 分屏容器 */
@@ -275,15 +388,15 @@ watch(isOpen, (newValue) => {
   width: 100%;
   height: 100%;
   background: transparent;
-  
+
   :deep(.q-splitter__panel) {
     overflow: visible;
   }
-  
+
   :deep(.q-splitter__before) {
     overflow: visible;
   }
-  
+
   :deep(.q-splitter__after) {
     overflow: visible;
   }
@@ -293,11 +406,11 @@ watch(isOpen, (newValue) => {
 :deep(.custom-splitter-separator) {
   background: #e8e8e8;
   width: 1px !important;
-  
+
   &:hover {
     background: #9059ff;
   }
-  
+
   .q-splitter__separator-area {
     background: transparent;
   }
@@ -320,20 +433,20 @@ watch(isOpen, (newValue) => {
   border-radius: 0;
   box-shadow: none;
   overflow: hidden;
-  background: #ffffff;
-  
+  background: rgba(0, 0, 0, 0.7);
+
   .dialog-header-section {
     display: flex;
     justify-content: center;
     align-items: center;
     padding: 16px 20px;
     position: relative;
-    
+
     &.draggable-header {
       cursor: move;
       user-select: none;
     }
-    
+
     .header-left {
       position: absolute;
       left: 20px;
@@ -343,7 +456,7 @@ watch(isOpen, (newValue) => {
       align-items: center;
       gap: 8px;
     }
-    
+
     .text-h6 {
       font-size: 16px;
       font-weight: 600;
@@ -351,18 +464,18 @@ watch(isOpen, (newValue) => {
       letter-spacing: -0.01em;
       flex: 1;
       padding: 0 32px;
-      
+
       &.title-align-center {
         text-align: center;
       }
-      
+
       &.title-align-left {
         text-align: left;
         padding-left: 0;
         font-size: 18px;
       }
     }
-    
+
     .close-btn {
       position: absolute;
       right: 20px;
@@ -380,24 +493,62 @@ watch(isOpen, (newValue) => {
       cursor: pointer;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       outline: none;
-      
+
       svg {
         width: 42px;
         height: 42px;
       }
-      
+
       &:hover {
         background-color: rgba(0, 0, 0, 0.05);
         color: #1e1e1e;
       }
-      
+
       &:active {
         background-color: rgba(0, 0, 0, 0.1);
         transform: scale(0.95);
       }
     }
   }
-  
+
+  .fullscreen-top-buttons {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+
+    .switcher-btn {
+      width: 30px;
+      height: 30px;
+      border: none;
+      background: transparent;
+      color: #6b6b6b;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      outline: none;
+
+      img {
+        width: 30px;
+        height: 30px;
+      }
+    }
+
+    .close-btn {
+      width: 30px;
+      height: 30px;
+      border: none;
+      background: transparent;
+      color: #6b6b6b;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      outline: none;
+
+      img {
+        width: 30px;
+        height: 30px;
+      }
+    }
+  }
+
   .dialog-content-section {
     flex: 1;
     padding: 0;
@@ -406,7 +557,15 @@ watch(isOpen, (newValue) => {
     flex-direction: column;
     background: #ffffff;
   }
-  
+
+  // 全屏状态下，内容区域顶部圆角（左上 / 右上）
+  .dialog-content-rounded {
+    border-top-left-radius: 32px;
+    border-top-right-radius: 32px;
+    overflow: hidden;
+    border: 1px solid #452626;
+  }
+
   .resize-handle {
     position: absolute;
     bottom: 0;
@@ -415,7 +574,7 @@ watch(isOpen, (newValue) => {
     height: 24px;
     cursor: nwse-resize;
     z-index: 10;
-    
+
     &::after {
       content: '';
       position: absolute;
@@ -428,7 +587,7 @@ watch(isOpen, (newValue) => {
       border-radius: 0 0 2px 0;
       transition: border-color 0.2s ease;
     }
-    
+
     &:hover::after {
       border-color: #6b6b6b;
     }
@@ -448,7 +607,7 @@ watch(isOpen, (newValue) => {
 .dialog-content-section::-webkit-scrollbar-thumb {
   background: #d1d1d1;
   border-radius: 4px;
-  
+
   &:hover {
     background: #b1b1b1;
   }

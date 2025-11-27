@@ -14,6 +14,7 @@
         <img :src="avatarIcon" alt="avatar" style="width: 40px; height: 40px;" />
       </div>
       
+      <!-- 导航菜单 -->
       <div class="nav-items-container">
         <div class="nav-item" :class="{ active: showToolbox }" @click="handleToolBoxClick">
           <img :src="currentToolBoxIcon" alt="工具箱" class="nav-icon" />
@@ -27,6 +28,10 @@
           <img :src="currentExerciseIcon" alt="我的习题" class="nav-icon" />
           <span class="nav-text">我的习题</span>
         </div>
+        <!-- <div class="nav-item" :class="{ active: activeNavItem === 'drawingBoard' }" @click="handleDrawingBoardClick">
+          <img :src="currentDrawingBoardIcon" alt="画板" class="nav-icon" />
+          <span class="nav-text">画板</span>
+        </div> -->
       </div>
       
       <!-- 底部菜单项 -->
@@ -56,41 +61,30 @@
       
       <!-- 内容区域 -->
       <div class="content-area" @click="handleContentAreaClick">
-        <keep-alive :include="['knowledgeGraph', 'pdfViewer']">
-          <router-view />
-        </keep-alive>
+        <!-- 使用带插槽的 router-view 写法，让 keep-alive 真正缓存子路由组件实例 -->
+        <router-view v-slot="{ Component }">
+          <keep-alive :include="cachedComponents">
+            <component :is="Component" />
+          </keep-alive>
+        </router-view>
       </div>
     </div>
 
-    <!-- 悬浮功能按钮 -->
+    <!-- 悬浮功能按钮（手动实现） -->
     <div 
+      v-if="showFab"
       class="floating-fab"
       :style="fabStyle"
       @mousedown="startDrag"
       @touchstart="startDrag"
     >
-      <q-fab
-        icon="add"
-        direction="up"
-        color="purple"
-        padding="md"
-        @click="toggleGoResourcesBubble"
+      <!-- 悬浮功能按钮 -->
+      <button
+        type="button"
+        class="floating-fab-btn"
+        @click.stop="handleFloatingFabClick"
       >
-        <q-fab-action
-          color="purple-7"
-          @click="handleDraftClick"
-          icon="edit_note"
-          label="草稿本"
-          label-position="left"
-        />
-        <q-fab-action
-          color="orange-7"
-          @click="handleAIChatClick"
-          icon="chat"
-          label="与AI聊天"
-          label-position="left"
-        />
-      </q-fab>
+      </button>
 
       <!-- 知识图谱未下载资源引导：气泡提示（贴近悬浮功能按钮） -->
       <div
@@ -111,6 +105,7 @@
     <!-- AI统一聊天对话框 -->
     <UnifiedChatDialog 
       v-model="uiStore.showAIChatDialog" 
+      @toggle-mode="handleToggleUnifiedChatMode"
     />
 
     <!-- 教师统一聊天对话框 -->
@@ -123,6 +118,13 @@
 
     <!-- 反馈与建议对话框 -->
     <FeedbackDialog v-model="showFeedbackDialog" />
+
+    <!-- 主页右侧统一聊天面板 -->
+    <MainChatPanel
+      v-if="showMainChatPanel"
+      @close="showMainChatPanel = false"
+      @toggle-mode="handleToggleMainChatMode"
+    />
   </div>
 </template>
 
@@ -135,6 +137,7 @@ import { useResourceStore } from '@/stores/resourceStore'
 import DraftDialog from '@/components/DraftDialog.vue'
 import UnifiedChatDialog from '@/components/UnifiedChatDialog.vue'
 import FeedbackDialog from '@/components/FeedbackDialog.vue'
+import MainChatPanel from '@/components/MainChatPanel.vue'
 import MyProfileView from '@/views/MyProfileView.vue'
 import { resourceManager } from '@/services/resource-storage'
 import { apiService } from '@/services/api-service'
@@ -148,6 +151,7 @@ import toolBoxIcon from '/icons/toolBox.svg'
 import downloadResourcesIcon from '/icons/downloadResources.svg'
 import knowledgeGraphIcon from '/icons/knowledge_graph.svg'
 import exerciseIcon from '/icons/my_exercises.svg'
+import drawingBoardIcon from '/icons/logout.svg'
 import logoutIcon from '/icons/logout.svg'
 
 // 第2步：导入选中状态图标
@@ -155,6 +159,7 @@ import toolBoxSelectIcon from '/icons/toolBox_select.svg'
 import downloadResourcesSelectIcon from '/icons/downloadResources_select.svg'
 import knowledgeGraphSelectIcon from '/icons/knowledge_graph_select.svg'
 import exerciseSelectIcon from '/icons/my_exercises_select.svg'
+import drawingBoardSelectIcon from '/icons/logout.svg'
 
 // 定义 props
 interface Props {
@@ -183,12 +188,31 @@ const teacherStore = useTeacherGeneralChatStore()
 // 响应式数据
 const activeNavItem = ref(props.activeNavItem)
 
+// keep-alive 缓存的组件列表
+// 注意：这里的名称必须与组件的 name 选项匹配（defineOptions 或组件 export default 中的 name）
+const cachedComponents = ref<string[]>([
+  // 'knowledgeGraph',     // 知识图谱页面
+  // 'pdfViewer',          // PDF 查看器
+  // 'htmlViewer',         // HTML 查看器
+  // 'videoViewer',        // 视频查看器
+  // 'ExerciseSolveView',  // 我的习题页面
+  // 'MyResourcesView',    // 资源下载页面
+  // 'DrawingBoardView',   // 画板页面
+  // 'FindExerciseView',   // 查找习题页面
+  // 'MyFavoritesView',    // 我的收藏页面
+  // 'learning',           // 去练习弹窗页（/app/learning）
+  // 'learningContent'     // 去练习内容查看页（/app/learning-content）
+])
+
 // 对话框显示状态
 const showDraftDialog = ref(false)
 const showTeacherChatDialog = ref(false)
 const showFeedbackDialog = ref(false)
 const teacherChatSubject = ref<'biology' | 'math'>('math')
 const teacherChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
+
+// 主页右侧聊天面板显示状态
+const showMainChatPanel = ref(false)
 
 // 工具箱显示状态
 const showToolbox = ref(false)
@@ -214,6 +238,16 @@ const fabStyle = computed(() => ({
   right: `${fabPosition.value.x}px`,
   bottom: `${fabPosition.value.y}px`
 }))
+
+// 计算是否显示悬浮按钮：
+// 1）在习题解题页（exerciseSolve）和画板页（drawingBoard）隐藏
+// 2）在主页右侧聊天面板打开时隐藏（避免视觉和交互冲突）
+// 3）在 PDF 查看页（pdfViewer）右侧聊天面板打开时隐藏悬浮按钮
+const showFab = computed(() => {
+  const isRouteAllowed = route.name !== 'exerciseSolve' && route.name !== 'drawingBoard'
+  const isPdfChatOpen = route.name === 'pdfViewer' && pdfViewerStore.chatPanelVisible
+  return isRouteAllowed && !showMainChatPanel.value && !isPdfChatOpen
+})
 
 // 计算是否需要显示“去资源下载”悬浮引导：
 // 仅在知识图谱路由且尚未下载任何教材时显示
@@ -241,6 +275,11 @@ const mainViewStyle = computed(() => {
       return {
         background: 'linear-gradient(to bottom, #ffffff 50%, #edeffe 50%)'
       }
+    case 'drawingBoard':
+      // 画板页：纯白背景
+      return {
+        background: '#ffffff'
+      }
     default:
       // 默认背景色
       return {
@@ -248,6 +287,17 @@ const mainViewStyle = computed(() => {
       }
   }
 })
+
+// 悬浮功能按钮点击逻辑：
+// - 如果当前在 PDF 查看页（pdfViewer），则打开/关闭 PDF 页右侧对话面板
+// - 否则，切换主页右侧统一聊天面板
+const handleFloatingFabClick = () => {
+  if (route.name === 'pdfViewer') {
+    pdfViewerStore.chatPanelVisible = !pdfViewerStore.chatPanelVisible
+  } else {
+    showMainChatPanel.value = !showMainChatPanel.value
+  }
+}
 
 // 第3步：根据选中状态计算当前应该显示的图标
 // 工具箱图标仅由工具箱展开状态决定，与当前路由高亮无关
@@ -261,6 +311,10 @@ const currentKnowledgeGraphIcon = computed(() => {
 
 const currentExerciseIcon = computed(() => {
   return activeNavItem.value === 'exercises' ? exerciseSelectIcon : exerciseIcon
+})
+
+const currentDrawingBoardIcon = computed(() => {
+  return activeNavItem.value === 'drawingBoard' ? drawingBoardSelectIcon : drawingBoardIcon
 })
 
 const currentDownloadResourcesIcon = computed(() => {
@@ -487,6 +541,14 @@ const goToResources = () => {
   router.push({ name: 'myResources' })
 }
 
+// 从全屏统一聊天对话框切换回右侧聊天面板
+const handleToggleUnifiedChatMode = () => {
+  // 关闭 AI 统一聊天对话框
+  uiStore.showAIChatDialog = false
+  // 打开主页右侧聊天面板
+  showMainChatPanel.value = true
+}
+
 // 处理草稿本点击
 const handleDraftClick = () => {
   showDraftDialog.value = true
@@ -566,9 +628,25 @@ const getTeacherChatDialogRef = () => {
   return teacherChatDialogRef.value
 }
 
+// 在右侧 panel 和统一 AI 聊天对话框之间切换
+const handleToggleMainChatMode = () => {
+  showMainChatPanel.value = false
+  uiStore.openAIChatDialog()
+}
+
 // 通过 provide 向子组件提供关闭工具箱的方法和控制对话框的方法
+// - closeToolbox: 关闭左侧工具箱
+// - openTeacherChatDialog: 打开教师聊天对话框（全屏形式）
+// - openMainChatPanel: 打开主页右侧统一聊天面板
+// - openFeedbackDialog: 打开意见反馈对话框
+// - getTeacherChatDialogRef: 获取教师聊天对话框引用
+const openMainChatPanel = () => {
+  showMainChatPanel.value = true
+}
+
 provide('closeToolbox', closeToolbox)
 provide('openTeacherChatDialog', openTeacherChatDialog)
+provide('openMainChatPanel', openMainChatPanel)
 provide('openFeedbackDialog', openFeedbackDialog)
 provide('getTeacherChatDialogRef', getTeacherChatDialogRef)
 
@@ -618,6 +696,16 @@ const handleMyExercisesClick = () => {
     showToolbox.value = false
   }
   router.push({ name: 'exerciseSolve' })
+}
+
+const handleDrawingBoardClick = () => {
+  activeNavItem.value = 'drawingBoard'
+  emit('nav-item-change', 'drawingBoard')
+  // 如果工具箱区域是打开的，则关闭它
+  if (showToolbox.value) {
+    showToolbox.value = false
+  }
+  router.push({ name: 'drawingBoard' })
 }
 
 const handleKnowledgeGraphClick = () => {
@@ -906,6 +994,20 @@ const handleLogoutClick = async () => {
   cursor: move;
   user-select: none;
   
+  .floating-fab-btn {
+    width: 70px;
+    height: 70px;
+    border: none;
+    outline: none;
+    /* 使用 beaver.svg 作为按钮背景图 */
+    background: url('/icons/beaver.svg') center center / cover no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: box-shadow 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+  }
+
   // 拖动时禁用 QFab 的点击动画
   &:active {
     cursor: grabbing;

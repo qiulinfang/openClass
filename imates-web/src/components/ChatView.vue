@@ -147,7 +147,15 @@
           @remove-file="removeFile"
           @cancel-edit="cancelEditMessage"
           @scroll-to-bottom="scrollToBottom"
-        />
+        >
+          <!-- 透传 ChatView 的 input-header 插槽到 ChatInput 的 header-prefix 前置插槽 -->
+          <template #header-prefix>
+            <slot name="header-prefix"></slot>
+          </template>
+          <template #header-suffix>
+            <slot name="header-suffix"></slot>
+          </template> 
+        </ChatInput>
 
         <!-- 简单输入模式 (SimpleChatInput) -->
         <SimpleChatInput
@@ -2052,7 +2060,7 @@ defineExpose({
   flex: 1;
   min-height: 0;
   width: 100%;
-  background: #ffffff;
+  background: #F7F6FF;
   position: relative;
   z-index: 1; /* 确保消息区域在输入区域下方 */
 }
@@ -2063,10 +2071,12 @@ defineExpose({
   width: 100%;
   overflow: hidden;
   position: relative;
+  background: #F7F6FF;
 }
 
 .scroll-content {
   min-height: calc(100% + 1px);
+  background: #F7F6FF;
 }
 
 /* 消息包装器 - 设置内边距和最大宽度 */
@@ -2274,6 +2284,7 @@ defineExpose({
   color: #b0b0b0;
   font-size: 12px;
   line-height: 1.5;
+  background: #F7F6FF;
 }
 
 /* ==================== 其他样式 ==================== */

@@ -2,134 +2,149 @@
   <div class="session-tree">
     <!-- 顶部标题栏 -->
     <div class="tree-header">
-      <div class="header-center">
-        <q-input
-          v-model="searchKeyword"
-          dense
-          outlined
-          placeholder="搜索会话..."
-          clearable
-          class="search-input"
-        >
-          <template v-slot:prepend>
-            <q-icon name="search" size="xs" />
-          </template>
-        </q-input>
-      </div>
+      <SearchInput
+        v-model="searchKeyword"
+        placeholder="搜索会话"
+        class="search-input-custom"
+      >
+        <template #append>
+          <img :src="search1Icon" class="search-icon" alt="search" /> 
+        </template>
+      </SearchInput>
       <div class="header-actions">
         <!-- 自定义按钮插槽 -->
         <slot name="header-actions"></slot>
       </div>
     </div>
 
-    <!-- 树形结构 -->
+    <!-- 手风琴列表（使用 RubberBandList 实现橡皮筋效果） -->
     <div v-if="treeNodes.length > 0" ref="scrollWrapper" class="scroll-wrapper">
-      <div class="scroll-content">
-        <q-tree
-          :nodes="treeNodes"
-          node-key="id"
-          :selected="selectedNodeId"
-          @update:selected="handleNodeSelect"
-          default-expand-all
-          no-connectors
-        >
-          <template v-slot:default-header="prop">
-            <div class="tree-node-header" :class="{ 'is-selected': isSelectedNode(prop.node) }">
-              <!-- 一级节点（分类） -->
-              <div v-if="prop.node.level === 1" class="category-node">
-                <q-icon
-                  :name="getCategoryIcon(prop.node.category)"
-                  size="sm"
-                  class="category-icon"
-                />
-                <span class="category-label">{{ prop.node.label }}</span>
-                <span class="category-count">({{ prop.node.children?.length || 0 }})</span>
+      <RubberBandList class="scroll-content rubber-scroll" :enable-refresh="false" :enable-load-more="false">
+        <div class="accordion-list">
+          <!-- 分类项 -->
+          <div
+            v-for="category in treeNodes"
+            :key="category.id"
+            class="accordion-item"
+          >
+            <!-- 分类头部 -->
+            <div 
+              class="accordion-header"
+              @click="toggleCategory(category.id)"
+            >
+              <div class="header-content">
+                <span class="category-title">{{ category.label }}</span>
               </div>
+              <q-icon 
+                name="expand_more" 
+                class="expand-icon"
+                :class="{ 'expanded': expandedCategories.has(category.id) }"
+              />
+            </div>
 
-              <!-- 二级节点（会话） -->
-              <div v-else-if="prop.node.level === 2" class="session-node">
-                <div class="session-content" @click.stop="handleSessionClick(prop.node)">
-                  <div class="session-title-row">
-                    <div class="session-title-wrapper">
-                      <div class="session-title">{{ prop.node.label }}</div>
-                      <div v-if="hasUnreadMessage(prop.node)" class="unread-badge"></div>
+            <!-- 会话列表 -->
+            <transition name="accordion">
+              <div 
+                v-show="expandedCategories.has(category.id)"
+                class="accordion-body"
+              >
+                <div
+                  v-for="session in category.children"
+                  :key="session.id"
+                  class="session-item"
+                  :class="{ 'active': isSelectedNode(session) }"
+                  @click="handleSessionClick(session)"
+                >
+                  <div class="session-content">
+                    <div class="session-main">
+                      <span class="session-title">{{ session.label }}</span>
+                      <div v-if="hasUnreadMessage(session)" class="unread-badge"></div>
                     </div>
-                    <div class="session-time">{{ formatTime(prop.node.timestamp) }}</div>
+                    <div v-if="session.subtitle" class="session-subtitle">
+                      {{ session.subtitle }}
+                    </div>
                   </div>
-                  <div v-if="prop.node.subtitle" class="session-subtitle">
-                    {{ prop.node.subtitle }}
-                  </div>
-                </div>
-                <div class="session-actions">
-                  <q-btn flat round dense icon="more_vert" size="sm" class="more-btn" @click.stop>
+
+                  <q-btn 
+                    flat 
+                    round 
+                    dense 
+                    icon="more_vert" 
+                    size="sm" 
+                    class="more-btn"
+                    @click.stop
+                  >
                     <q-menu anchor="bottom right" self="top right" :offset="[0, 8]">
-                      <q-list style="min-width: 150px">
+                      <q-list style="min-width: 140px; border-radius: 8px;">
                         <q-item
-                          v-if="prop.node.category === 'ai'"
+                          v-if="session.category === 'ai'"
                           clickable
                           v-close-popup
-                          @click="handleRename(prop.node)"
+                          @click="handleRename(session)"
+                          class="menu-item"
                         >
-                          <q-item-section avatar>
-                            <q-icon name="edit" size="xs" />
+                          <q-item-section avatar style="min-width: 32px;">
+                            <q-icon name="edit" size="18px" color="grey-7" />
                           </q-item-section>
                           <q-item-section>重命名</q-item-section>
                         </q-item>
 
                         <q-item
-                          v-if="prop.node.category === 'ai'"
+                          v-if="session.category === 'ai'"
                           clickable
                           v-close-popup
-                          @click="handlePin(prop.node)"
+                          @click="handlePin(session)"
+                          class="menu-item"
                         >
-                          <q-item-section avatar>
-                            <q-icon name="push_pin" size="xs" />
+                          <q-item-section avatar style="min-width: 32px;">
+                            <q-icon name="push_pin" size="18px" color="grey-7" />
                           </q-item-section>
                           <q-item-section>
-                            {{ prop.node.pinned ? '取消置顶' : '置顶' }}
+                            {{ session.pinned ? '取消置顶' : '置顶' }}
                           </q-item-section>
                         </q-item>
 
                         <q-item
-                          v-if="prop.node.category === 'ai'"
+                          v-if="session.category === 'ai'"
                           clickable
                           v-close-popup
-                          @click="handleFavorite(prop.node)"
+                          @click="handleFavorite(session)"
+                          class="menu-item"
                         >
-                          <q-item-section avatar>
+                          <q-item-section avatar style="min-width: 32px;">
                             <q-icon 
-                              :name="prop.node.favorited ? 'star' : 'star_border'" 
-                              size="xs"
-                              :color="prop.node.favorited ? 'warning' : undefined"
+                              :name="session.favorited ? 'star' : 'star_border'" 
+                              size="18px"
+                              color="warning"
                             />
                           </q-item-section>
                           <q-item-section>
-                            {{ prop.node.favorited ? '取消收藏' : '收藏' }}
+                            {{ session.favorited ? '取消收藏' : '收藏' }}
                           </q-item-section>
                         </q-item>
 
-                        <q-separator />
+                        <q-separator v-if="session.category === 'ai'" spaced />
 
                         <q-item
                           clickable
                           v-close-popup
-                          @click="handleDelete(prop.node)"
-                          class="text-negative"
+                          @click="handleDelete(session)"
+                          class="menu-item delete-item"
                         >
-                          <q-item-section avatar>
-                            <q-icon name="delete" size="xs" color="negative" />
+                          <q-item-section avatar style="min-width: 32px;">
+                            <q-icon name="delete" size="18px" color="negative" />
                           </q-item-section>
-                          <q-item-section>删除</q-item-section>
+                          <q-item-section class="text-negative">删除</q-item-section>
                         </q-item>
                       </q-list>
                     </q-menu>
                   </q-btn>
                 </div>
               </div>
-            </div>
-          </template>
-        </q-tree>
-      </div>
+            </transition>
+          </div>
+        </div>
+      </RubberBandList>
     </div>
 
     <!-- 空状态 -->
@@ -180,7 +195,9 @@ import { useBetterScroll } from '@/composables/useBetterScroll'
 import { isSessionFavorite, toggleSessionFavorite } from '@/utils/storage/favorites'
 import { useQuasar } from 'quasar'
 import { authStorageService } from '@/services/auth-storage-service'
-
+import SearchInput from './SearchInput.vue'
+import RubberBandList from './RubberBandList.vue'
+import search1Icon from '../../public/icons/search1.svg'
 
 // 定义 emits
 const emit = defineEmits<{
@@ -193,6 +210,12 @@ const emit = defineEmits<{
 
 // 搜索关键词
 const searchKeyword = ref('')
+
+// 选中的会话ID（内部状态）
+const _selectedSessionId = ref<string | undefined>()
+
+// 展开的分类ID集合
+const expandedCategories = ref<Set<string>>(new Set())
 
 // 辅助函数：根据 sessionId 查找节点（需要在 getSessionCategory 之前定义）
 const findNodeBySessionId = (nodes: TreeNode[], targetSessionId: string): TreeNode | null => {
@@ -224,14 +247,11 @@ const getSessionCategory = (sessionId: string | undefined, nodes: TreeNode[]): '
   return null
 }
 
-// 当前选中的会话ID（内部维护）
-// 使用 computed 的 getter/setter 替代 watch，在 setter 中直接处理副作用
-const _selectedSessionId = ref<string | undefined>(undefined)
+// 选中的会话ID（computed 属性，用于双向绑定）
 const selectedSessionId = computed({
   get: () => _selectedSessionId.value,
   set: (newSessionId: string | undefined) => {
     const oldSessionId = _selectedSessionId.value
-    // 如果值没有变化，跳过（避免重复更新）
     if (newSessionId === oldSessionId) {
       return
     }
@@ -358,7 +378,7 @@ const treeNodes = computed<TreeNode[]>(() => {
   
   const nodes: TreeNode[] = []
 
-  // 1. AI聊天（学伴对话）分类
+  // 1. AI聊天（学伴默认）分类
   // aiGeneralStore.sessions 已经是响应式的 ref，computed 会自动追踪
   const aiSessionsList = searchKeyword.value
     ? aiGeneralStore.sessions.filter((session) => {
@@ -391,7 +411,7 @@ const treeNodes = computed<TreeNode[]>(() => {
   if (aiSessions.length > 0 || !searchKeyword.value) {
     nodes.push({
       id: 'category_ai',
-      label: '学伴对话',
+      label: '学伴默认',
       category: 'ai' as const,
       level: 1,
       children: aiSessions,
@@ -996,6 +1016,11 @@ onMounted(async () => {
   // 初始化 treeNodes 长度追踪
   previousTreeNodesLength = treeNodes.value.length
   
+  // 默认展开所有分类
+  treeNodes.value.forEach(node => {
+    expandedCategories.value.add(node.id)
+  })
+  
   // 初始化会话列表和选择
   await initializeSessions()
   
@@ -1030,6 +1055,15 @@ const switchTeacherSession = async (sessionId: string, subject: 'biology' | 'mat
   await teacherChatStore.loadChatHistory(session.sessionId)
   emit('category-should-change', 'teacher')
   emit('should-switch-session', 'teacher', sessionId)
+}
+
+// 切换分类展开/折叠
+const toggleCategory = (categoryId: string) => {
+  if (expandedCategories.value.has(categoryId)) {
+    expandedCategories.value.delete(categoryId)
+  } else {
+    expandedCategories.value.add(categoryId)
+  }
 }
 
 // 初始化会话（组件挂载时执行）
@@ -1090,23 +1124,19 @@ const initializeSessions = async () => {
 
 // 顶部标题栏
 .tree-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid #e0e0e0;
+  padding: 16px 6px 0 6px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: #fff;
+  background: #f7f6ff;
 
-  .header-center {
+  .search-input-custom {
     flex: 1;
     min-width: 0;
-    display: flex;
-    align-items: center;
+  }
 
-    .search-input {
-      width: 100%;
-      font-size: 14px;
-    }
+  .search-icon {
+    width: 20px;
+    height: 20px;
   }
 
   .header-actions {
@@ -1121,130 +1151,138 @@ const initializeSessions = async () => {
   flex: 1;
   overflow: hidden;
   position: relative;
+  background: #f7f6ff;
 }
 
 .scroll-content {
   min-height: calc(100% + 1px);
-  padding: 8px 0;
+  background: #f7f6ff;
 }
 
-// 树节点头部
-.tree-node-header {
+// 手风琴列表
+.accordion-list {
+  display: flex;
+  flex-direction: column; 
+}
+
+// 手风琴项
+.accordion-item {
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+// 分类头部
+.accordion-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
-  min-height: 40px;
-  transition: all 0.2s ease;
+  padding: 14px 16px;
+  cursor: pointer;
+  background-color: #f7f6ff;
+  transition: background-color 0.2s ease;
 
-  &.is-selected {
-    background-color: #f0f7ff;
-    border-radius: 6px;
+  .header-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
-  // 二级节点选中时更显眼
-  &.is-selected .session-node {
-    background: linear-gradient(90deg, rgba(25, 118, 210, 0.12) 0%, rgba(25, 118, 210, 0.08) 100%);
-    border-left: 3px solid #1976d2;
-    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.15);
-    transform: translateX(2px);
+  .category-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+  }
+
+  .expand-icon {
+    color: #999;
+    font-size: 24px;
+    transition: transform 0.3s ease;
+
+    &.expanded {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+// 会话列表区域
+.accordion-body {
+  background-color: #f7f6ff;
+}
+
+// 手风琴展开/收起动画
+.accordion-enter-active,
+.accordion-leave-active {
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.accordion-enter-from,
+.accordion-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
+
+.accordion-enter-to,
+.accordion-leave-from {
+  opacity: 1;
+  max-height: 1000px;
+}
+
+// 会话项
+.session-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  margin: 4px 8px;
+  border-radius: 8px;
+  background-color: #f5f3ff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  gap: 8px;
+
+  &:hover {
+    background-color: #ede9fe;
+  }
+
+  &.active {
+    background-color: #e8e9ff;
 
     .session-title {
-      color: #1976d2;
-      font-weight: 600;
-    }
-
-    .session-time {
-      color: #42a5f5;
-      font-weight: 500;
-    }
-
-    .session-subtitle {
-      color: #1976d2;
-    }
-
-    // 选中状态下显示更多功能按钮
-    .session-actions {
-      opacity: 1;
+      font-weight: 400;
     }
   }
-}
-
-// 分类节点（一级）
-.category-node {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  font-weight: 500;
-  font-size: 14px;
-  color: #333;
-
-  .category-icon {
-    color: #9059ff;
-  }
-
-  .category-label {
-    flex: 1;
-  }
-
-  .category-count {
-    font-size: 12px;
-    color: #999;
-    font-weight: normal;
-  }
-}
-
-// 会话节点（二级）
-.session-node {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  gap: 8px;
-  min-height: 56px;
-  padding: 8px 12px;
-  margin: 0 -8px;
-  border-left: 3px solid transparent;
-  transition: all 0.2s ease;
 
   .session-content {
     flex: 1;
     min-width: 0;
-    cursor: pointer;
-    padding: 4px 0;
   }
 
-  .session-title-row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 4px;
-  }
-
-  .session-title-wrapper {
+  .session-main {
     display: flex;
     align-items: center;
     gap: 6px;
-    flex: 1;
-    min-width: 0;
-    position: relative;
+    margin-bottom: 4px;
   }
 
   .session-title {
-    font-size: 13px;
-    font-weight: 500;
+    font-size: 14px;
     color: #333;
     line-height: 1.4;
     overflow: hidden;
     text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    flex: 1;
-    min-width: 0;
+    white-space: nowrap;
+  }
+
+  .session-subtitle {
+    font-size: 12px;
+    color: #666;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .unread-badge {
@@ -1269,38 +1307,27 @@ const initializeSessions = async () => {
     }
   }
 
-  .session-time {
-    font-size: 11px;
-    color: #999;
-    white-space: nowrap;
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
-
-  .session-subtitle {
-    font-size: 12px;
-    color: #666;
-    line-height: 1.4;
-  }
-
-  .session-actions {
-    display: flex;
-    align-items: center;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-
-    .more-btn {
-      color: #666;
-
-      &:hover {
-        color: #333;
-      }
-    }
-  }
-
-  // 鼠标悬停时显示按钮
-  &:hover .session-actions {
+  .more-btn {
+    color: #9e9e9e;
     opacity: 1;
+    transition: opacity 0.2s ease;
+    flex-shrink: 0;
+  }
+}
+
+// 菜单样式
+:deep(.menu-item) {
+  padding: 8px 12px;
+  min-height: 40px;
+  border-radius: 4px;
+  margin: 2px 4px;
+
+  &:hover {
+    background-color: #f5f5f5;
+  }
+
+  &.delete-item:hover {
+    background-color: #ffebee;
   }
 }
 

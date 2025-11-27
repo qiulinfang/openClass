@@ -6,6 +6,8 @@
     :initial-height="600"
     :min-width="600"
     :min-height="400"
+    :fullscreen="true"
+    @toggle-fullscreen="emit('toggle-mode')"
   >
     <div class="unified-chat-content">
       <!-- 左侧聊天记录（树形结构） -->
@@ -78,7 +80,8 @@
           :compressed-height="225"
           @open-teacher-dialog="handleOpenTeacherDialog"
           @switch-to-teacher="handleSwitchToTeacher"
-        />
+        >
+        </ChatView>
         <!-- 教师聊天界面 -->
         <ChatView
           v-else-if="activeCategory === 'teacher' && teacherChatStore.currentSession?.sessionId"
@@ -86,7 +89,8 @@
           :compressed-height="225"
           :session-id="teacherChatStore.currentSession.sessionId"
           :key="teacherChatStore.currentSession.sessionId"
-        />
+        >
+        </ChatView>
         <!-- 空状态 -->
         <div v-else class="empty-chat">
           <q-icon name="chat" size="64px" color="grey-4" />
@@ -161,6 +165,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'session-created': [sessionId: string, type: 'ai-general' | 'teacher-general'] // 新会话创建事件
+  'toggle-mode': []
 }>()
 
 // ==================== Store ====================

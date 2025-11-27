@@ -382,18 +382,18 @@ const ALL_TOOLS: Record<string, ToolOption> = {
       sizeLabel: '大小',
     },
   },
-  screenshot: {
-    value: 'screenshot',
-    label: '圈选截图',
-    icon: screenshotIcon,
-    config: {
-      showShapePicker: true,
-      shapes: [
-        { value: 'rectangle', label: '矩形', icon: 'crop_square' },
-        { value: 'polygon', label: '自由形状', icon: 'polyline' },
-      ],
-    },
-  },
+  // screenshot: {
+  //   value: 'screenshot',
+  //   label: '圈选截图',
+  //   icon: screenshotIcon,
+  //   config: {
+  //     showShapePicker: true,
+  //     shapes: [
+  //       { value: 'rectangle', label: '矩形', icon: 'crop_square' },
+  //       { value: 'polygon', label: '自由形状', icon: 'polyline' },
+  //     ],
+  //   },
+  // },
   reset: {
     value: 'reset',
     label: '重置',

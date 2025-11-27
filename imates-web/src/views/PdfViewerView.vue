@@ -58,60 +58,10 @@
 
       <!-- 对话面板 -->
       <template v-slot:after v-if="pdfViewerStore.chatPanelVisible">
-        <div class="chat-panel-container">
-          <!-- 对话面板头部 -->
-          <div class="chat-panel-header">
-            <!-- Tab 切换 -->
-            <div class="chat-tabs">
-              <div class="tab-list">
-                <div
-                  v-for="tab in tabOptions"
-                  :key="tab.value"
-                  :class="['tab-item', { 'tab-active': activeTab === tab.value }]"
-                  @click="activeTab = tab.value"
-                >
-                  <span>{{ tab.label }}</span>
-                </div>
-              </div>
-            </div>
-            <!-- 关闭按钮 -->
-            <q-btn
-              flat
-              round
-              dense
-              icon="close"
-              size="md"
-              @click="handleCloseChatPanel"
-              class="close-button"
-            />
-          </div>
-
-          <!-- Tab 内容区域 -->
-          <div class="chat-content-container">
-            <!-- AI 问答 Tab -->
-            <div v-show="activeTab === 'ai-chat'" class="tab-content">
-              <ChatView
-                ref="chatViewRef"
-                type="ai-textbook"
-                :compressed-height="360"
-              />
-            </div>
-            <!-- 会话记录 Tab -->
-            <div v-show="activeTab === 'question-record'" class="tab-content">
-              <div class="session-list-wrapper">
-                <SessionList
-                  :records="sessions"
-                  :selectedRecordId="selectedRecordId"
-                  @record-click="handleSessionClick"
-                  @record-delete="handleSessionDelete"
-                  @record-pin="handleSessionPin"
-                  @batch-delete="handleBatchDelete"
-                  :showHeader="false"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+        <PdfChatPanel 
+          ref="chatPanelRef" 
+          @select-and-ask-click="handleSelectAndAskFromChat" 
+        />
       </template>
     </q-splitter>
   </div>
@@ -132,18 +82,12 @@ import { useAiGeneralChatStore } from '@/stores/aiGeneralChatStore'
 import { resourceManager } from '@/services/resource-storage'
 import type { UserTextbookInfo, LocalFileInfo, ChatBubble, AiTextbookSession } from '@/types'
 import {
-  getScreenshotSessions,
-  getScreenshotSessionsByResourceId,
   addScreenshotSession,
-  deleteScreenshotSession,
-  batchDeleteScreenshotSessions,
-  updateScreenshotSession,
 } from '@/utils/storage/screenshotSessions'
 import UnifiedToolbar from '@/components/UnifiedToolbar.vue'
 import PdfPage from '@/components/PdfPage.vue'
-import ChatView from '@/components/ChatView.vue'
 import ScreenshotInputDialog from '@/components/ScreenshotInputDialog.vue'
-import SessionList from '@/components/SessionList.vue'
+import PdfChatPanel from '@/components/PdfChatPanel.vue'
 
 type PdfPagePublicInstance = ComponentPublicInstance<{
   toggleDebugPanel: () => void
@@ -182,68 +126,10 @@ const aiGeneralStore = useAiGeneralChatStore()
 const toolbarBackgroundColor = ref('#0A0020')
 
 // 对话面板状态
-const chatPanelVisible = ref(false)
 const splitterModel = ref(60) // 分隔比例（左侧占60%）
 
-// Tab 状态
-const activeTab = ref('ai-chat') // 当前激活的 tab
-
-// Tab 选项
-const tabOptions = [
-  { label: '会话记录', value: 'question-record', icon: 'quiz' },
-  { label: 'AI问答', value: 'ai-chat', icon: 'chat' },
-]
-
-// 会话数据（从localStorage加载）
-const sessions = ref<AiTextbookSession[]>([])
-
-// 选中的会话ID
-const selectedRecordId = ref<string | undefined>(undefined)
-
-// ChatView 实例引用，用于调用暴露的方法（如滚动到指定会话）
-const chatViewRef = ref<InstanceType<typeof ChatView> | null>(null)
-
-// 辅助函数：获取会话ID（兼容 id 和 sessionId）
-const getSessionId = (session: AiTextbookSession): string => {
-  return session.sessionId || session.id || ''
-}
-
-
-// 获取当前 resourceId（仅从路由参数获取）
-const getCurrentResourceId = (): string | undefined => {
-  return (route.query.resourceId as string) || undefined
-}
-
-// 加载会话列表（物理上按 resourceId 查询），对齐消息存储维度
-const loadSessions = async () => {
-  const currentResourceId = getCurrentResourceId() || ''
-  // 没有 resourceId 时，仍然加载全部（兼容旧入口）
-  // 有 resourceId 时，直接在 IndexedDB 中按 resourceId 查询
-  const byResource = await getScreenshotSessionsByResourceId(currentResourceId)
-  sessions.value = byResource
-  console.log('[会话] 加载(按 resourceId)', { currentResourceId, sessions: sessions.value })
-}
-
-// 处理会话点击
-const handleSessionClick = async (record: AiTextbookSession) => {
-  // 设置选中状态
-  selectedRecordId.value = getSessionId(record)
-  const sessionId = getSessionId(record)
-
-  // 打开对话面板
-  if (!chatPanelVisible.value) {
-    chatPanelVisible.value = true
-  }
-  pdfViewerStore.openChatPanel()
-
-  // 切换到 AI 问答 Tab，让容器显示出来
-  activeTab.value = 'ai-chat'
-
-  // 等待 DOM 更新，让容器高度生效后再滚动
-  await nextTick()
-  // 给一点额外时间让 BetterScroll 感知到容器高度变化
-  chatViewRef.value?.scrollToSession(sessionId)
-}
+// ChatPanel 实例引用，用于在新增截图会话后刷新列表
+const chatPanelRef = ref<InstanceType<typeof PdfChatPanel> | null>(null)
 
 // 处理工具配置变化（颜色、粗细等），写入 pdfViewerStore.drawingConfig
 const handleConfigChange = (config: {
@@ -276,40 +162,6 @@ const handleConfigChange = (config: {
         pdfViewerStore.updateDrawingConfig({ screenshotShape: config.shape as string })
       }
       break
-  }
-}
-
-// 处理会话删除
-const handleSessionDelete = async (record: AiTextbookSession) => {
-  const sessionId = getSessionId(record)
-  const ok = await deleteScreenshotSession(sessionId)
-  if (ok) {
-    // 如果删除的是当前选中的会话，清除选中状态
-    if (selectedRecordId.value === sessionId) {
-      selectedRecordId.value = undefined
-    }
-    await loadSessions()
-  }
-}
-
-// 处理批量删除
-const handleBatchDelete = async (recordIds: string[]) => {
-  const ok = await batchDeleteScreenshotSessions(recordIds)
-  if (ok) {
-    // 如果删除的会话中包含当前选中的会话，清除选中状态
-    if (selectedRecordId.value && recordIds.includes(selectedRecordId.value)) {
-      selectedRecordId.value = undefined
-    }
-    await loadSessions()
-  }
-}
-
-// 处理置顶
-const handleSessionPin = async (record: AiTextbookSession) => {
-  record.pinned = !record.pinned
-  const ok = await updateScreenshotSession(record)
-  if (ok) {
-    await loadSessions()
   }
 }
 
@@ -363,6 +215,12 @@ const handleToolChange = (tool: string) => {
   } else if (t === 'screenshot') {
     pdfPageRef.value.toggleScreenshotMode?.()
   }
+}
+
+// 从右侧对话面板触发的“选中并问”：统一走截图工具流程
+const handleSelectAndAskFromChat = () => {
+  if (!pdfPageRef.value) return
+  handleToolChange('screenshot')
 }
 
 // 工具状态：使用 UnifiedToolbar 的工具 ID
@@ -574,8 +432,6 @@ const handleScreenshotCaptured = async (blob: Blob) => {
 const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
   try {
     console.log('[PdfViewerView] 截图输入对话框确认', { question, dataUrl })
-    chatPanelVisible.value = true
-    activeTab.value = 'ai-chat'
     // 打开对话面板并切换到 AI 问答 Tab
     pdfViewerStore.openChatPanel()
     // 设置当前教材ID
@@ -634,8 +490,8 @@ const handleScreenshotConfirm = async (question: string, dataUrl: string) => {
       answer: '',
     }
     addScreenshotSession(newSession)
-    // 新增会话写入完成后，刷新当前会话列表，使 UI 立即显示
-    loadSessions()
+    // 新增会话写入完成后，通知右侧对话面板刷新会话列表
+    chatPanelRef.value?.reloadSessions?.()
   } catch (error) {
     console.error('[PdfViewerView] 发送截图消息失败', error)
   } finally {
@@ -656,8 +512,6 @@ onMounted(async () => {
   try {
     // 加载 aiGeneral 会话列表
     await aiGeneralStore.loadSessions()
-    // 加载 aiTextbook 会话列表
-    loadSessions()
     const file = await loadFileFromRoute()
     await loadPdfWithService(file)
     // 加载当前教材的聊天历史

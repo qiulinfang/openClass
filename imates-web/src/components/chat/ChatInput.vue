@@ -1,12 +1,40 @@
 <template>
   <div class="modern-chat-container">
+    <!-- 主容器上方扩展区域：顶部工具条 + 额外插槽内容 -->
+    <div class="chat-input-header">
+      <div class="chat-top-toolbar">
+        <!-- 前置插槽：允许外部在顶部工具条最前面插入内容（如“选中并问”按钮） -->
+        <slot name="header-prefix"></slot>
+
+        <!-- 草稿本 -->
+        <!-- <button type="button" class="toolbar-btn" @click="handleDraftClick">
+          <img :src="draftIconToUse" alt="草稿本" class="toolbar-icon" />
+        </button> -->
+
+        <!-- 公式 -->
+        <button type="button" class="toolbar-btn" @click="handleFormulaTopClick">
+          <img :src="formulaIconToUse" alt="公式" class="toolbar-icon" />
+        </button>
+
+        <!-- 问老师 -->
+        <button type="button" class="toolbar-btn" @click="handleAskTeacherClick">
+          <img :src="askTeacherIconToUse" alt="问老师" class="toolbar-icon" />
+        </button>
+      </div>
+
+      <!-- 后置插槽：保持原有 header 插槽，方便在工具条下方追加内容 -->
+      <slot name="header-suffix"></slot>
+    </div>
+
     <!-- 主容器 -->
-    <div class="chat-input-wrapper" ref="inputAreaRef" :class="{ 'is-narrow': isNarrow }">
+    <div class="chat-input-wrapper" ref="inputAreaRef" >
       <!-- 引用消息区域 -->
       <div v-if="props.quotedMessage" class="quote-bar">
         <div class="quote-content">
           <div class="quote-text">
-            <span class="quote-message">{{ truncateQuoteContent(props.quotedMessage.content) }}</span>
+            <span class="quote-message">{{
+              truncateQuoteContent(props.quotedMessage.content)
+            }}</span>
           </div>
         </div>
         <button type="button" class="quote-close" @click.stop="emit('remove-quote')">
@@ -53,11 +81,7 @@
           <div v-if="props.isEditing" class="edit-indicator">
             <q-icon name="edit" color="primary" size="16px" />
             <span class="edit-text">编辑消息</span>
-            <button
-              @click.stop="handleCancelEdit"
-              class="cancel-edit-btn"
-              type="button"
-            >
+            <button @click.stop="handleCancelEdit" class="cancel-edit-btn" type="button">
               <q-icon name="close" color="grey-6" size="16px" />
               <q-tooltip>取消编辑</q-tooltip>
             </button>
@@ -67,34 +91,35 @@
           <template v-if="!props.isEditing">
             <!-- 模式选择器（同桌按钮）- 仅在AI通用、AI题目和AI教材模式下显示 -->
             <button
-              v-if="props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook'"
+              v-if="
+                props.type === 'ai-general' ||
+                props.type === 'ai-exercise' ||
+                props.type === 'ai-textbook'
+              "
               class="action-mode-btn"
               :class="{ active: true }"
               @click.stop="toggleModeSelector"
               ref="modeSelectorBtnRef"
             >
-              <img :src="getModelIcon(props.selectedModel)" :alt="getModelDisplayName(props.selectedModel)" style="width: 18px; height: 18px;" />
+              <img
+                :src="getModelIcon(props.selectedModel)"
+                :alt="getModelDisplayName(props.selectedModel)"
+                style="width: 18px; height: 18px"
+              />
               <span>{{ getModelDisplayName(props.selectedModel) }}</span>
             </button>
 
-            <!-- 联网搜索按钮 - 仅在AI通用、AI题目和AI教材对话时显示 -->
+            <!-- 联网搜索按钮 - 使用顶部同款搜索图标 -->
             <button
-              v-if="props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook'"
-              class="action-mode-btn"
-              :class="{ active: props.enableWebSearch }"
+              class="toolbar-btn"
               @click="handleToggleWebSearch"
+              v-if="
+                props.type === 'ai-general' ||
+                props.type === 'ai-exercise' ||
+                props.type === 'ai-textbook'
+              "
             >
-              <q-icon name="language" size="18px" />
-              <span>互联网搜索</span>
-            </button>
-
-            <!-- 公式按钮 -->
-            <button
-              class="action-mode-btn"
-              @click.stop="handleInsertMathFormula"
-            >
-              <q-icon name="functions" size="18px" />
-              <span>公式</span>
+              <img :src="onlineSearchIconToUse" alt="互联网搜索" class="toolbar-icon" />
             </button>
           </template>
         </div>
@@ -114,17 +139,21 @@
             class="control-icon-btn voice-btn"
             :class="{ 'voice-btn--recording': props.isRecording }"
           >
-            <q-icon 
-              :name="props.isRecording ? 'mic' : 'mic_none'" 
-              :color="props.isRecording ? 'red-6' : 'grey-6'" 
-              size="20px" 
+            <q-icon
+              :name="props.isRecording ? 'mic' : 'mic_none'"
+              :color="props.isRecording ? 'red-6' : 'grey-6'"
+              size="20px"
             />
             <q-tooltip>{{ props.isRecording ? '松开结束录音' : '按住说话' }}</q-tooltip>
           </button>
 
           <!-- 图片上传 - AI通用、AI题目和AI教材模式下隐藏 -->
           <button
-            v-if="props.type !== 'ai-general' && props.type !== 'ai-exercise' && props.type !== 'ai-textbook'"
+            v-if="
+              props.type !== 'ai-general' &&
+              props.type !== 'ai-exercise' &&
+              props.type !== 'ai-textbook'
+            "
             type="button"
             @click="handleShowImagePicker"
             class="control-icon-btn"
@@ -162,33 +191,18 @@
             :disabled="!props.canSend || props.isLoading"
             @click="handleSendMessage"
             class="send-button"
-            :class="{ 
+            :class="{
               // 只要可以发送（非 loading），无论是否编辑模式，都使用同一个高亮样式
               'send-button--enabled': !props.isLoading && (props.canSend || props.isEditing),
-              'send-button--disabled': props.isLoading || (!props.canSend && !props.isEditing)
+              'send-button--disabled': props.isLoading || (!props.canSend && !props.isEditing),
             }"
           >
             <!-- 加载状态图标 -->
-            <img 
-              v-if="props.isLoading" 
-              :src="waitingIcon" 
-              alt="等待中" 
-              class="send-loading-icon"
-            />
+            <img v-if="props.isLoading" :src="waitingIcon" alt="等待中" class="send-loading-icon" />
             <!-- 编辑状态图标 -->
-            <img
-              v-else-if="props.isEditing" 
-              :src="sendIcon" 
-              alt="发送" 
-              class="send-icon"
-            />
+            <img v-else-if="props.isEditing" :src="sendIcon" alt="发送" class="send-icon" />
             <!-- 自定义发送图标 -->
-            <img 
-              v-else 
-              :src="sendIcon" 
-              alt="发送" 
-              class="send-icon"
-            />
+            <img v-else :src="sendIcon" alt="发送" class="send-icon" />
             <q-tooltip v-if="props.isEditing">更新消息</q-tooltip>
             <q-tooltip v-else>发送消息</q-tooltip>
           </button>
@@ -197,7 +211,12 @@
 
       <!-- 模式选择弹出框 - 仅在AI模式下显示，且target已绑定 -->
       <q-menu
-        v-if="(props.type === 'ai-general' || props.type === 'ai-exercise' || props.type === 'ai-textbook') && modeSelectorBtnRef"
+        v-if="
+          (props.type === 'ai-general' ||
+            props.type === 'ai-exercise' ||
+            props.type === 'ai-textbook') &&
+          modeSelectorBtnRef
+        "
         v-model="showModeSelectorMenu"
         :target="modeSelectorBtnRef"
         anchor="bottom left"
@@ -231,7 +250,6 @@
           </q-item>
         </q-list>
       </q-menu>
-
     </div>
   </div>
 </template>
@@ -245,12 +263,18 @@ import sendIcon from '/icons/send.svg'
 import DeskmateIcon from '/icons/Deskmate.svg'
 import RepresentativeIcon from '/icons/Representative.svg'
 import GuruIcon from '/icons/Guru.svg'
-import type { 
-  ContentBlock, 
-  ChatInputProps, 
-  ChatInputEmits 
-} from '../../types'
-
+// 顶部工具条图标
+import onlineSearchIcon from '/icons/onlineSearch.svg' // 搜索
+import selectAndAskIcon from '/icons/selectAndAsk.svg' // 选中并问
+import draftIcon from '/icons/draftNotebook.svg' // 笔记
+import formulaIcon from '/icons/formula.svg' // 公式
+import askTeacherIcon from '/icons/askTeacher.svg' // 问老师
+import draftIconSelected from '/icons/draftNotebook_select.svg' // 笔记选中
+import onlineSearchIconSelected from '/icons/onlineSearch_select.svg' // 搜索选中
+import selectAndAskIconSelected from '/icons/selectAndAsk_select.svg' // 选中并问选中
+import formulaIconSelected from '/icons/formula_select.svg' // 公式选中
+import askTeacherIconSelected from '/icons/askTeacher_select.svg' // 问老师选中
+import type { ContentBlock, ChatInputProps, ChatInputEmits } from '../../types'
 
 const props = defineProps({
   modelValue: {
@@ -278,7 +302,12 @@ const props = defineProps({
     required: true,
   },
   type: {
-    type: String as () => 'ai-general' | 'ai-exercise' | 'ai-textbook' | 'teacher-general' | 'teacher-exercise',
+    type: String as () =>
+      | 'ai-general'
+      | 'ai-exercise'
+      | 'ai-textbook'
+      | 'teacher-general'
+      | 'teacher-exercise',
     required: true,
   },
   uploadedFiles: {
@@ -303,11 +332,13 @@ const props = defineProps({
   },
   // 你原来额外加的两个
   attachedScreenshot: {
-    type: Object as () => {
-      dataUrl: string
-      width: number
-      height: number
-    } | undefined,
+    type: Object as () =>
+      | {
+          dataUrl: string
+          width: number
+          height: number
+        }
+      | undefined,
     default: undefined,
   },
   quotedMessage: {
@@ -333,18 +364,26 @@ const emit = defineEmits({
   'remove-file': (_id: string) => true,
   'upload-file': () => true,
   'cancel-edit': () => true,
-  'focus': () => true,
-  'blur': () => true,
+  focus: () => true,
+  blur: () => true,
   'remove-screenshot': () => true,
   'send-with-screenshot': () => true,
   'remove-quote': () => true,
+  // 顶部工具条相关事件，供上层接入真实行为
+  'explore-click': () => true,
+  'draft-click': () => true,
+  'formula-click': () => true,
+  'ask-teacher-click': () => true,
 })
 
 // 截断引用内容，最多显示50个字符
 const truncateQuoteContent = (content: string): string => {
   if (!content) return ''
   // 移除HTML标签和多余空白
-  const plainText = content.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+  const plainText = content
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
   if (plainText.length <= 50) return plainText
   return plainText.substring(0, 50) + '...'
 }
@@ -358,13 +397,38 @@ const mathEditorRef = ref<InstanceType<typeof MathFormulaEditor>>()
 // 响应式宽度
 const isNarrow = ref(false)
 
+// 顶部工具条本地选中状态
+const isOnlineSearchSelected = ref(false)
+const isDraftSelected = ref(false)
+const isFormulaSelected = ref(false)
+const isAskTeacherSelected = ref(false)
+
+// 联网搜索图标：当前只使用普通态图标
+const onlineSearchIconToUse = computed(() =>
+  isOnlineSearchSelected.value ? onlineSearchIconSelected : onlineSearchIcon
+)
+// 笔记图标：当前只使用普通态图标
+const draftIconToUse = computed(() => (isDraftSelected.value ? draftIconSelected : draftIcon))
+// 公式图标：当前只使用普通态图标
+const formulaIconToUse = computed(() =>
+  isFormulaSelected.value ? formulaIconSelected : formulaIcon
+)
+// 问老师图标：当前只使用普通态图标
+const askTeacherIconToUse = computed(() =>
+  isAskTeacherSelected.value ? askTeacherIconSelected : askTeacherIcon
+)
+
 // 调试：监控 quotedMessage 变化
-watch(() => props.quotedMessage, (newVal) => {
-  console.log('[ChatInput] quotedMessage 变化:', newVal)
-}, { immediate: true })
+watch(
+  () => props.quotedMessage,
+  (newVal) => {
+    console.log('[ChatInput] quotedMessage 变化:', newVal)
+  },
+  { immediate: true }
+)
 
 onMounted(() => {
-  const observer = new ResizeObserver(entries => {
+  const observer = new ResizeObserver((entries) => {
     for (const entry of entries) {
       isNarrow.value = entry.contentRect.width < 500
     }
@@ -444,16 +508,16 @@ const aiRoleOptions = [
 
 // 根据选择的模式获取显示名称
 const getModelDisplayName = (model: string) => {
-  const option = aiRoleOptions.find(opt => opt.value === model)
+  const option = aiRoleOptions.find((opt) => opt.value === model)
   return option ? option.label : '同桌'
 }
 
 // 根据模式值获取对应的图标
 const getModelIcon = (model: string) => {
   const iconMap: Record<string, string> = {
-    'mate': DeskmateIcon,
-    'mentor': RepresentativeIcon,
-    'researcher': GuruIcon
+    mate: DeskmateIcon,
+    mentor: RepresentativeIcon,
+    researcher: GuruIcon,
   }
   return iconMap[model] || DeskmateIcon
 }
@@ -469,11 +533,11 @@ const toggleModeSelector = async (event?: Event) => {
     showModeSelectorMenu.value = false
     return
   }
-  
+
   // 确保 ref 已经绑定，等待多个 tick 以确保 DOM 完全渲染
   await nextTick()
   await nextTick()
-  
+
   // 如果 ref 仍未绑定，尝试再次等待
   if (!modeSelectorBtnRef.value) {
     console.warn('[ChatInput] modeSelectorBtnRef 未绑定，延迟打开菜单')
@@ -486,10 +550,10 @@ const toggleModeSelector = async (event?: Event) => {
       }
     }, 100)
   } else {
-  // 确保再次等待一个 tick，让 q-menu 组件完全渲染
-  await nextTick()
-  // 直接设置为 true，而不是切换
-  showModeSelectorMenu.value = true
+    // 确保再次等待一个 tick，让 q-menu 组件完全渲染
+    await nextTick()
+    // 直接设置为 true，而不是切换
+    showModeSelectorMenu.value = true
   }
 }
 
@@ -506,7 +570,25 @@ const handleCancelEdit = () => {
 
 // 切换联网搜索处理
 const handleToggleWebSearch = () => {
+  isOnlineSearchSelected.value = !isOnlineSearchSelected.value
   emit('toggle-web-search')
+}
+
+const handleDraftClick = () => {
+  isDraftSelected.value = !isDraftSelected.value
+  emit('draft-click')
+}
+
+// 顶部“公式”按钮：沿用原有插入公式逻辑，并发事件
+const handleFormulaTopClick = () => {
+  isFormulaSelected.value = !isFormulaSelected.value
+  handleInsertMathFormula()
+  emit('formula-click')
+}
+
+const handleAskTeacherClick = () => {
+  isAskTeacherSelected.value = !isAskTeacherSelected.value
+  emit('ask-teacher-click')
 }
 
 // 显示图片选择器处理
@@ -527,24 +609,23 @@ const handleMicButtonClick = () => {
 const handleVoiceStart = (event: TouchEvent | MouseEvent) => {
   // 标记为长按录音模式
   isLongPressRecording.value = true
-  
+
   // 1. 阻止默认行为
   event.preventDefault()
   event.stopPropagation()
-  
+
   // 2. 触发开始录音事件
   emit('start-voice-input', event)
 }
 
 const handleVoiceEnd = (event: TouchEvent | MouseEvent) => {
-  
   // 1. 阻止默认行为
   event.preventDefault()
   event.stopPropagation()
-  
+
   // 2. 触发停止录音事件
   emit('stop-voice-input', event)
-  
+
   // 3. 清除长按录音标志（延迟清除，避免与 click 事件冲突）
   setTimeout(() => {
     isLongPressRecording.value = false
@@ -554,91 +635,82 @@ const handleVoiceEnd = (event: TouchEvent | MouseEvent) => {
 const handleVoiceMove = (event: TouchEvent | MouseEvent) => {
   // 1. 阻止默认行为
   event.preventDefault()
-  
+
   // 2. 触发语音移动事件
   emit('voice-move', event)
 }
 
-
-
-
-
-
 // 完成公式编辑
 const finishFormulaEditing = async (blockId: string) => {
-  
   // 1. 获取MathLive实例
   const mathfield = mathfields.value.get(blockId) as HTMLElement
   if (!mathfield) {
     return
   }
-  
+
   // 2. 获取公式内容
   const content = (mathfield as { value?: string }).value || ''
-  
+
   // 3. 开始退出动画
   isKeyboardTransitioning.value = true
   mathfield.style.transition = 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
   mathfield.style.opacity = '0'
   mathfield.style.transform = 'translateY(-5px)'
-  
+
   // 4. 等待动画完成
   setTimeout(() => {
-    
     // 5. 检查组件挂载状态
     if (!contentCanvasRef.value) {
       return
     }
-    
+
     // 6. 处理公式块保存
     if (currentEditingFormula.value && currentEditingFormula.value.id === blockId) {
-      
       // 6.1 检查内容是否为空
       if (!content.trim()) {
         currentEditingFormula.value = null
         return
       }
-      
+
       // 6.2 创建新的公式块
       const formulaBlock: ContentBlock = {
         id: blockId,
         type: 'formula',
         content: content,
         renderedContent: content ? renderMessageContent(content) : '',
-        isEditing: false
+        isEditing: false,
       }
-      
+
       // 6.3 添加到内容块列表
       contentBlocks.value.push(formulaBlock)
       currentEditingFormula.value = null
     } else {
-      
       // 6.3 更新现有公式块
-      const blockIndex = contentBlocks.value.findIndex(block => block.id === blockId)
+      const blockIndex = contentBlocks.value.findIndex((block) => block.id === blockId)
       if (blockIndex !== -1) {
         contentBlocks.value[blockIndex].content = content
-        contentBlocks.value[blockIndex].renderedContent = content ? renderMessageContent(content) : ''
+        contentBlocks.value[blockIndex].renderedContent = content
+          ? renderMessageContent(content)
+          : ''
         contentBlocks.value[blockIndex].isEditing = false
       } else {
       }
     }
-    
+
     // 7. 清理MathLive实例
     cleanupMathLiveInstance(mathfield, blockId)
-    
+
     // 8. 更新modelValue
     const newModelValue = currentInputValue.value
     emit('update:modelValue', newModelValue)
-    
+
     // 9. 重置键盘切换状态
     isKeyboardTransitioning.value = false
-    
   }, 200)
 }
 
 // 清理MathLive实例
 const cleanupMathLiveInstance = (mathfield: HTMLElement, blockId: string) => {
-  
   // 1. 从DOM中移除元素
   try {
     if (mathfield && typeof mathfield.remove === 'function') {
@@ -647,7 +719,7 @@ const cleanupMathLiveInstance = (mathfield: HTMLElement, blockId: string) => {
   } catch {
     // 忽略错误
   }
-  
+
   // 2. 从引用映射中删除
   mathfields.value.delete(blockId)
 }
@@ -657,18 +729,21 @@ const cleanupAllMathLiveInstances = () => {
   // 1. 遍历所有MathLive实例
   mathfields.value.forEach((mathfield: unknown) => {
     try {
-      if (mathfield && typeof mathfield === 'object' && 'remove' in mathfield && typeof (mathfield as { remove?: () => void }).remove === 'function') {
-        (mathfield as { remove: () => void }).remove()
+      if (
+        mathfield &&
+        typeof mathfield === 'object' &&
+        'remove' in mathfield &&
+        typeof (mathfield as { remove?: () => void }).remove === 'function'
+      ) {
+        ;(mathfield as { remove: () => void }).remove()
       }
-    } catch {
-    }
+    } catch {}
   })
-  
+
   // 2. 清空引用映射
   mathfields.value.clear()
   formulaRefs.value.clear()
 }
-
 
 // 防抖定时器
 let insertFormulaDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -679,12 +754,12 @@ const handleInsertMathFormula = async () => {
   if (showModeSelectorMenu.value) {
     showModeSelectorMenu.value = false
   }
-  
+
   // 防抖保护：清除之前的定时器
   if (insertFormulaDebounceTimer) {
     clearTimeout(insertFormulaDebounceTimer)
   }
-  
+
   // 设置新的防抖定时器
   insertFormulaDebounceTimer = setTimeout(async () => {
     // 检查 MathFormulaEditor 组件是否已经正确初始化
@@ -692,13 +767,13 @@ const handleInsertMathFormula = async () => {
       console.warn('[ChatInput] MathFormulaEditor 组件未初始化')
       return
     }
-    
+
     // 检查 insertMathField 方法是否存在
     if (typeof mathEditorRef.value.insertMathField !== 'function') {
       console.warn('[ChatInput] insertMathField 方法不存在')
       return
     }
-    
+
     try {
       mathEditorRef.value.insertMathField()
       // 插入公式后触发滚动到底部事件
@@ -706,7 +781,7 @@ const handleInsertMathFormula = async () => {
     } catch (error) {
       console.error('[ChatInput] 插入数学公式失败:', error)
     }
-    
+
     // 清除定时器引用
     insertFormulaDebounceTimer = null
   }, 300) // 300ms防抖延迟
@@ -719,9 +794,9 @@ const isSendingMessage = ref(false)
 const handleSendMessage = () => {
   // 1. 设置发送标志，防止键盘关闭事件干扰
   isSendingMessage.value = true
-  
+
   // 2. 调用 MathFormulaEditor 的 getMarkdownContent 方法获取完整内容
-  const markdownContent = mathEditorRef.value?.getMarkdownContent();
+  const markdownContent = mathEditorRef.value?.getMarkdownContent()
 
   // 3. 检查内容是否为空
   if (!markdownContent || !markdownContent.trim()) {
@@ -729,7 +804,7 @@ const handleSendMessage = () => {
     return
   }
   // 4. 更新 v-model 的值，将完整的 markdown 内容传递给父组件
-  emit('update:modelValue', markdownContent);
+  emit('update:modelValue', markdownContent)
 
   // 5. 先发送消息，然后再关闭键盘
   nextTick(() => {
@@ -739,31 +814,31 @@ const handleSendMessage = () => {
     } else {
       emit('send-message')
     }
-    clearInputContent();
-    
+    clearInputContent()
+
     // 延迟一小段时间后关闭键盘，确保消息已发送
     setTimeout(() => {
       // 让编辑器失焦，触发键盘关闭
       if (mathEditorRef.value) {
-        const editorElement = mathEditorRef.value.$el?.querySelector?.('.ql-editor') || 
-                             mathEditorRef.value.$el?.querySelector?.('[contenteditable]')
+        const editorElement =
+          mathEditorRef.value.$el?.querySelector?.('.ql-editor') ||
+          mathEditorRef.value.$el?.querySelector?.('[contenteditable]')
         if (editorElement) {
           editorElement.blur()
         }
       }
-      
+
       // 确保当前焦点元素失焦
       const activeElement = document.activeElement as HTMLElement
       if (activeElement && activeElement !== document.body && activeElement.blur) {
         activeElement.blur()
       }
-      
+
       // 清除发送标志
       isSendingMessage.value = false
     }, 50)
-  });
+  })
 }
-
 
 // 清空输入内容
 const clearInputContent = () => {
@@ -771,56 +846,59 @@ const clearInputContent = () => {
   if (mathEditorRef.value) {
     mathEditorRef.value.clearContent()
   }
-  
+
   // 2. 确保父组件的 v-model 也被清空
-  emit('update:modelValue', '');
+  emit('update:modelValue', '')
 
   // 3. 清理所有MathLive实例（向后兼容）
   cleanupAllMathLiveInstances()
-  
+
   // 4. 清空内容块（向后兼容）
   contentBlocks.value = []
-  
+
   // 5. 清空当前编辑公式（向后兼容）
   currentEditingFormula.value = null
-  
+
   // 6. 重置选中状态（向后兼容）
   selectedBlockIndex.value = -1
-  
+
   // 7. 重置键盘切换状态（向后兼容）
   isKeyboardTransitioning.value = false
-  
+
   // 8. 重置文本输入准备状态（向后兼容）
   isReadyForTextInput.value = false
-  
+
   // 9. 重置占位符状态（向后兼容）
   isPlaceholderClicked.value = false
 }
 
 // 监听modelValue变化，同步到编辑器
-watch(() => props.modelValue, (newValue) => {
-  // 1. 检查值是否有效且与当前编辑器内容不同
-  if (newValue !== editorContent.value) {
-    editorContent.value = newValue || ''
-  }
-}, { immediate: true })
-
+watch(
+  () => props.modelValue,
+  (newValue) => {
+    // 1. 检查值是否有效且与当前编辑器内容不同
+    if (newValue !== editorContent.value) {
+      editorContent.value = newValue || ''
+    }
+  },
+  { immediate: true }
+)
 
 const handleNativeKeyboardClose = () => {
   // 如果正在发送消息，跳过处理，避免干扰发送流程
   if (isSendingMessage.value) {
     return
   }
-  
+
   // 检查是否有正在编辑的公式
   if (currentEditingFormula.value) {
     // 如果有，则完成编辑
-    finishFormulaEditing(currentEditingFormula.value.id);
+    finishFormulaEditing(currentEditingFormula.value.id)
   }
-  
+
   // 让主输入区域失焦
   if (contentCanvasRef.value) {
-    contentCanvasRef.value.blur();
+    contentCanvasRef.value.blur()
   }
 }
 
@@ -834,7 +912,7 @@ const handleFormulaEnterPressed = () => {
 const handleFormulaContentUpdated = (event: Event) => {
   const customEvent = event as CustomEvent
   const { nodeId, content } = customEvent.detail
-  
+
   // 更新当前编辑公式的内容
   if (currentEditingFormula.value && currentEditingFormula.value.id === nodeId) {
     currentEditingFormula.value.content = content
@@ -844,14 +922,13 @@ const handleFormulaContentUpdated = (event: Event) => {
 const handleFormulaCancelEdit = (event: Event) => {
   const customEvent = event as CustomEvent
   const { nodeId } = customEvent.detail
-  
+
   // 取消当前编辑状态
   if (currentEditingFormula.value && currentEditingFormula.value.id === nodeId) {
     currentEditingFormula.value = null
     isKeyboardTransitioning.value = false
   }
 }
-
 
 // 生命周期
 onMounted(() => {
@@ -860,53 +937,50 @@ onMounted(() => {
     editorContent.value = props.modelValue
   } else {
   }
-  
-  // 2. 添加键盘关闭监听器
-  window.addEventListener('nativeKeyboardClose', handleNativeKeyboardClose);
-  
-  // 3. 添加公式回车键监听器（由 TiptapEditor 触发）
-  window.addEventListener('formula-enter-pressed', handleFormulaEnterPressed);
-  
-  // 4. 添加公式内容更新监听器（由 TiptapEditor 触发）
-  window.addEventListener('formula-content-updated', handleFormulaContentUpdated);
-  
-  // 5. 添加公式取消编辑监听器（由 TiptapEditor 触发）
-  window.addEventListener('formula-cancel-edit', handleFormulaCancelEdit);
 
+  // 2. 添加键盘关闭监听器
+  window.addEventListener('nativeKeyboardClose', handleNativeKeyboardClose)
+
+  // 3. 添加公式回车键监听器（由 TiptapEditor 触发）
+  window.addEventListener('formula-enter-pressed', handleFormulaEnterPressed)
+
+  // 4. 添加公式内容更新监听器（由 TiptapEditor 触发）
+  window.addEventListener('formula-content-updated', handleFormulaContentUpdated)
+
+  // 5. 添加公式取消编辑监听器（由 TiptapEditor 触发）
+  window.addEventListener('formula-cancel-edit', handleFormulaCancelEdit)
 })
 
 onUnmounted(() => {
-  
   // 1. 清理编辑器内容
   editorContent.value = ''
-  
+
   // 2. 清理编辑状态（向后兼容）
   currentEditingFormula.value = null
-  
+
   // 3. 清理所有MathLive实例（向后兼容）
   cleanupAllMathLiveInstances()
-  
+
   // 4. 清理内容块（向后兼容）
   contentBlocks.value = []
   selectedBlockIndex.value = -1
-  
+
   // 5. 重置其他状态（向后兼容）
   isReadyForTextInput.value = false
   isKeyboardTransitioning.value = false
   isPlaceholderClicked.value = false
-  
-  // 6. 移除键盘关闭监听器
-  window.removeEventListener('nativeKeyboardClose', handleNativeKeyboardClose);
-  
-  // 7. 移除公式回车键监听器
-  window.removeEventListener('formula-enter-pressed', handleFormulaEnterPressed);
-  
-  // 8. 移除公式内容更新监听器
-  window.removeEventListener('formula-content-updated', handleFormulaContentUpdated);
-  
-  // 9. 移除公式取消编辑监听器
-  window.removeEventListener('formula-cancel-edit', handleFormulaCancelEdit);
 
+  // 6. 移除键盘关闭监听器
+  window.removeEventListener('nativeKeyboardClose', handleNativeKeyboardClose)
+
+  // 7. 移除公式回车键监听器
+  window.removeEventListener('formula-enter-pressed', handleFormulaEnterPressed)
+
+  // 8. 移除公式内容更新监听器
+  window.removeEventListener('formula-content-updated', handleFormulaContentUpdated)
+
+  // 9. 移除公式取消编辑监听器
+  window.removeEventListener('formula-cancel-edit', handleFormulaCancelEdit)
 })
 
 // 暴露方法给父组件
@@ -916,12 +990,35 @@ defineExpose({
     if (mathEditorRef.value) {
       mathEditorRef.value.focus()
     }
-  }
+  },
 })
-
 </script>
 
 <style scoped>
+/* 顶部工具条样式 */
+.chat-top-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 8px;
+}
+
+.toolbar-btn {
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff;
+  border: none;
+  cursor: pointer;
+}
+
+.toolbar-icon {
+  display: block;
+  height: 32px;
+  object-fit: contain;
+}
+
 /* 现代聊天输入容器 */
 .modern-chat-container {
   width: 100%;
@@ -931,17 +1028,20 @@ defineExpose({
   box-sizing: border-box;
   overflow: hidden;
   position: relative;
+  background: #F7F6FF;
   z-index: 1000; /* 确保整个输入容器在消息区域上方 */
 }
 
 /* 主容器 - 白色背景，紫色边框的圆角矩形 */
 .chat-input-wrapper {
-  background: #ffffff;
   border-radius: 16px;
-  border: 1px solid #7A7CFF;
-  box-shadow: 
-    0 2px 8px rgba(122, 124, 255, 0.15),
-    0 1px 2px rgba(122, 124, 255, 0.1);
+  /* 使用透明边框 + 多重背景实现渐变描边 */
+  border: 2px solid transparent;
+  background:
+    /* 内层：白色填充区域 */
+    linear-gradient(#ffffff, #ffffff) padding-box,
+    /* 外层：紫色渐变描边 */
+    linear-gradient(90deg, #7a7cff, #b57cff) border-box;
   padding: 8px 12px;
   display: flex;
   flex-direction: column;
@@ -1042,19 +1142,6 @@ defineExpose({
   background: rgba(0, 0, 0, 0.08);
 }
 
-.chat-input-wrapper:hover {
-  box-shadow: 
-    0 4px 16px rgba(122, 124, 255, 0.2),
-    0 2px 4px rgba(122, 124, 255, 0.15);
-  border-color: #6A6CE8;
-}
-
-.chat-input-wrapper:focus-within {
-  box-shadow: 
-    0 4px 16px rgba(122, 124, 255, 0.25),
-    0 2px 4px rgba(122, 124, 255, 0.15);
-  border-color: #5A5CD8;
-}
 
 /* 附件栏 */
 .attachments-bar {
@@ -1455,7 +1542,7 @@ defineExpose({
   gap: 6px;
   padding: 6px 12px;
   background: #f5f5f5;
-  border-radius: 16px;
+  border-radius: 10px;
   border: none;
   color: #666666;
   font-size: 14px;
@@ -1463,15 +1550,7 @@ defineExpose({
   white-space: nowrap;
   flex-shrink: 0;
   cursor: pointer;
-  font-weight: 400;
-}
-
-.is-narrow .action-mode-btn span {
-  display: none;
-}
-
-.is-narrow .action-mode-btn {
-  padding: 6px;
+  font-weight: 600;
 }
 
 .action-mode-btn:hover {
@@ -1480,8 +1559,8 @@ defineExpose({
 }
 
 .action-mode-btn.active {
-  background: #e3f2fd;
-  color: #1976d2;
+  background: #e5e6ff;
+  color: #5e80fe;
 }
 
 .action-mode-btn:active {
@@ -1558,12 +1637,14 @@ defineExpose({
 /* 语音按钮特殊样式 - 录音状态 */
 .voice-btn--recording {
   color: #ea4335 !important;
-  background: linear-gradient(135deg, rgba(234, 67, 53, 0.15) 0%, rgba(234, 67, 53, 0.25) 100%) !important;
+  background: linear-gradient(
+    135deg,
+    rgba(234, 67, 53, 0.15) 0%,
+    rgba(234, 67, 53, 0.25) 100%
+  ) !important;
   position: relative;
   animation: voice-recording-pulse 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  box-shadow: 
-    0 0 0 0 rgba(234, 67, 53, 0.4),
-    0 2px 8px rgba(234, 67, 53, 0.3),
+  box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.4), 0 2px 8px rgba(234, 67, 53, 0.3),
     0 4px 16px rgba(234, 67, 53, 0.2) !important;
   transform: scale(1);
 }
@@ -1583,10 +1664,12 @@ defineExpose({
 }
 
 .voice-btn--recording:hover {
-  background: linear-gradient(135deg, rgba(234, 67, 53, 0.2) 0%, rgba(234, 67, 53, 0.3) 100%) !important;
-  box-shadow: 
-    0 0 0 0 rgba(234, 67, 53, 0.5),
-    0 4px 12px rgba(234, 67, 53, 0.4),
+  background: linear-gradient(
+    135deg,
+    rgba(234, 67, 53, 0.2) 0%,
+    rgba(234, 67, 53, 0.3) 100%
+  ) !important;
+  box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.5), 0 4px 12px rgba(234, 67, 53, 0.4),
     0 6px 20px rgba(234, 67, 53, 0.3) !important;
 }
 
@@ -1598,18 +1681,15 @@ defineExpose({
 
 /* 语音按钮脉冲动画 */
 @keyframes voice-recording-pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
-    box-shadow: 
-      0 0 0 0 rgba(234, 67, 53, 0.4),
-      0 2px 8px rgba(234, 67, 53, 0.3),
+    box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.4), 0 2px 8px rgba(234, 67, 53, 0.3),
       0 4px 16px rgba(234, 67, 53, 0.2);
   }
   50% {
     transform: scale(1.05);
-    box-shadow: 
-      0 0 0 4px rgba(234, 67, 53, 0.2),
-      0 4px 12px rgba(234, 67, 53, 0.4),
+    box-shadow: 0 0 0 4px rgba(234, 67, 53, 0.2), 0 4px 12px rgba(234, 67, 53, 0.4),
       0 6px 20px rgba(234, 67, 53, 0.3);
   }
 }
@@ -1631,7 +1711,8 @@ defineExpose({
 
 /* 语音按钮图标动画 */
 @keyframes voice-recording-icon {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
   }
   50% {
@@ -1675,9 +1756,7 @@ defineExpose({
   height: 36px;
   transition: all 0.2s ease;
   border-radius: 50%;
-  box-shadow: 
-    0 2px 8px rgba(122, 124, 255, 0.3),
-    0 1px 2px rgba(122, 124, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(122, 124, 255, 0.3), 0 1px 2px rgba(122, 124, 255, 0.2);
   border: none;
   margin-right: 5px; /* 右侧 margin */
   display: flex;
@@ -1688,16 +1767,12 @@ defineExpose({
 /* 可发送时的按钮样式 */
 .send-button--enabled {
   background: #ffffff;
-  box-shadow: 
-    0 2px 8px rgba(122, 124, 255, 0.3),
-    0 1px 2px rgba(122, 124, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(122, 124, 255, 0.3), 0 1px 2px rgba(122, 124, 255, 0.2);
 }
 
 .send-button--enabled:hover {
   background: #f5f5f5;
-  box-shadow: 
-    0 4px 12px rgba(122, 124, 255, 0.4),
-    0 2px 4px rgba(122, 124, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(122, 124, 255, 0.4), 0 2px 4px rgba(122, 124, 255, 0.3);
   transform: translateY(-1px) scale(1.05);
 }
 
@@ -1723,12 +1798,14 @@ defineExpose({
 
 /* 当按钮可发送时，图标为紫色 */
 .send-button--enabled .send-icon {
-  filter: brightness(0) saturate(100%) invert(48%) sepia(96%) saturate(2742%) hue-rotate(236deg) brightness(105%) contrast(101%);
+  filter: brightness(0) saturate(100%) invert(48%) sepia(96%) saturate(2742%) hue-rotate(236deg)
+    brightness(105%) contrast(101%);
 }
 
 /* 当按钮禁用时，图标为灰色 */
 .send-button:disabled .send-icon {
-  filter: brightness(0) saturate(100%) invert(65%) sepia(8%) saturate(200%) hue-rotate(169deg) brightness(95%) contrast(90%);
+  filter: brightness(0) saturate(100%) invert(65%) sepia(8%) saturate(200%) hue-rotate(169deg)
+    brightness(95%) contrast(90%);
 }
 
 /* 加载状态图标样式 */
@@ -1737,7 +1814,8 @@ defineExpose({
   height: 20px;
   display: block;
   object-fit: contain;
-  filter: brightness(0) saturate(100%) invert(48%) sepia(96%) saturate(2742%) hue-rotate(236deg) brightness(105%) contrast(101%);
+  filter: brightness(0) saturate(100%) invert(48%) sepia(96%) saturate(2742%) hue-rotate(236deg)
+    brightness(105%) contrast(101%);
 }
 
 /* 加载图标旋转动画 */
@@ -1770,7 +1848,6 @@ defineExpose({
   color: #1a73e8;
 }
 
-
 /* 状态指示器 */
 .status-indicators {
   display: flex;
@@ -1800,10 +1877,10 @@ defineExpose({
   color: #c5221f;
 }
 
-
 /* 脉冲动画 */
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
   }
   50% {
@@ -1817,51 +1894,51 @@ defineExpose({
     padding: 6px;
     border-radius: 20px;
   }
-  
+
   .input-area {
     padding: 3px 5px;
     border-radius: 14px;
   }
-  
+
   .control-icon-btn {
     width: 40px;
     height: 40px;
   }
-  
+
   .math-formula-btn {
     width: 48px;
     height: 48px;
   }
-  
+
   .send-button {
     width: 44px;
     height: 44px;
     margin-right: 5px; /* 右侧 margin */
   }
-  
+
   .mic-btn {
     width: 48px;
     height: 48px;
   }
-  
+
   .mic-btn :deep(.q-icon) {
     font-size: 28px; /* 图标更大 */
   }
-  
+
   .main-textarea :deep(.q-field__native) {
     font-size: 17px;
     padding: 3px 0;
   }
-  
+
   .control-bar {
     padding: 2px 0;
     gap: 18px;
   }
-  
+
   .left-controls {
     gap: 14px;
   }
-  
+
   .right-controls {
     gap: 8px;
   }
@@ -1874,69 +1951,68 @@ defineExpose({
     border-radius: 16px;
     gap: 6px;
   }
-  
+
   .input-area {
     padding: 2px 4px;
     border-radius: 12px;
   }
-  
+
   .control-icon-btn {
     width: 32px;
     height: 32px;
   }
-  
+
   .math-formula-btn {
     width: 40px;
     height: 40px;
   }
-  
+
   .send-button {
     width: 36px;
     height: 36px;
     margin-right: 5px; /* 右侧 margin */
   }
-  
+
   .mic-btn {
     width: 40px;
     height: 40px;
   }
-  
+
   .mic-btn :deep(.q-icon) {
     font-size: 24px; /* 图标更大 */
   }
-  
+
   .control-bar {
     padding: 1px 0;
     gap: 12px;
   }
-  
+
   .left-controls {
     gap: 8px;
   }
-  
+
   .right-controls {
     gap: 4px;
   }
-  
+
   .mode-selector,
   .web-search-btn {
     padding: 4px 8px;
     font-size: 13px;
     max-width: 100px;
   }
-  
+
   .content-canvas {
     font-size: 15px;
     padding: 6px 8px;
     min-height: 36px;
   }
-  
+
   .formula-editor {
     min-width: 50px;
     min-height: 20px;
   }
 }
-
 
 /* 学习伙伴选择弹出框样式 */
 .model-select-popup {
@@ -1977,7 +2053,6 @@ defineExpose({
   font-size: 14px;
   font-weight: 500;
 }
-
 
 /* 减少动画效果 */
 * {
@@ -2031,54 +2106,51 @@ defineExpose({
   display: none !important;
 }
 
-
 /* 桌面端优化 */
 @media (min-width: 1025px) {
-
-  
   .chat-input-wrapper {
     padding: 8px;
     border-radius: 20px;
   }
-  
+
   .input-area {
     padding: 6px 8px;
   }
-  
+
   .control-bar {
     padding: 4px 0;
     gap: 20px;
   }
-  
+
   .left-controls {
     gap: 16px;
   }
-  
+
   .right-controls {
     gap: 12px;
   }
-  
+
   .control-icon-btn {
     width: 40px;
     height: 40px;
   }
-  
+
   .math-formula-btn {
     width: 44px;
     height: 44px;
   }
-  
+
   .send-button {
     width: 40px;
     height: 40px;
     margin-right: 5px; /* 右侧 margin */
   }
-  
+
   .mic-btn {
     width: 44px;
     height: 44px;
   }
-  
+
   .mic-btn :deep(.q-icon) {
     font-size: 26px; /* 图标更大 */
   }

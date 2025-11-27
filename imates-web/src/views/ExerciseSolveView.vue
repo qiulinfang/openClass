@@ -155,6 +155,11 @@
 </template>
 
 <script setup lang="ts">
+// 定义组件名称，便于 keep-alive 缓存和 Vue DevTools 识别
+defineOptions({
+  name: 'ExerciseSolveView'
+})
+
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useQuestionStore } from '../stores/questionStore'
@@ -467,6 +472,7 @@ const scrollToBottom = () => {
 }
 
 onMounted(async () => {
+    console.log('[ExerciseSolveView] onMounted')
     // 静默初始化，不显示加载状态
     try {
       // 初始化用户store

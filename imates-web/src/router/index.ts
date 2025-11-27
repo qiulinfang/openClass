@@ -10,7 +10,7 @@ import VideoViewerView from '@/views/VideoViewerView.vue'
 import FindExerciseView from '@/views/FindExerciseView.vue'
 import LearningView from '@/views/LearningView.vue'
 import LearningContentView from '@/views/LearningContentView.vue'
-import DrawingBoard from '@/components/DrawingBoard.vue'
+import DrawingBoardView from '@/views/DrawingBoardView.vue'
 import MyFavoritesView from '@/views/MyFavoritesView.vue'
 import PhotoSearchView from '@/views/PhotoSearchView.vue'
 
@@ -79,7 +79,7 @@ const router = createRouter({
         {
           path: 'drawing-board',
           name: 'drawingBoard',
-          component: DrawingBoard
+          component: DrawingBoardView
         },
         {
           path: 'my-favorites',

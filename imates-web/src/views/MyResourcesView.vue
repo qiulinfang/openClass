@@ -345,6 +345,11 @@
 </template>
 
 <script setup lang="ts">
+// 定义组件名称，便于 keep-alive 缓存和 Vue DevTools 识别
+defineOptions({
+  name: 'MyResourcesView'
+})
+
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { resourceManager } from '../services/resource-storage'

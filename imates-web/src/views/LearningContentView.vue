@@ -29,6 +29,11 @@
 </template>
 
 <script setup lang="ts">
+// 定义组件名称，便于 keep-alive 缓存和 Vue DevTools 识别
+defineOptions({
+  name: 'learningContent'
+})
+
 import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PdfViewerView from './PdfViewerView.vue'
