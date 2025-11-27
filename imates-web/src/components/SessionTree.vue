@@ -64,81 +64,71 @@
                       {{ session.subtitle }}
                     </div>
                   </div>
-
-                  <q-btn 
-                    flat 
-                    round 
-                    dense 
-                    icon="more_vert" 
-                    size="sm" 
-                    class="more-btn"
-                    @click.stop
+                  <BubblePopup
+                    v-if="session.sessionId"
+                    v-model="showMoreMenu[session.sessionId]"
+                    placement="bottom"
+                    :offset="8"
+                    :show-arrow="false"
                   >
-                    <q-menu anchor="bottom right" self="top right" :offset="[0, 8]">
-                      <q-list style="min-width: 140px; border-radius: 8px;">
-                        <q-item
-                          v-if="session.category === 'ai'"
-                          clickable
-                          v-close-popup
-                          @click="handleRename(session)"
-                          class="menu-item"
-                        >
-                          <q-item-section avatar style="min-width: 32px;">
-                            <q-icon name="edit" size="18px" color="grey-7" />
-                          </q-item-section>
-                          <q-item-section>重命名</q-item-section>
-                        </q-item>
+                    <template #trigger>
+                      <q-btn 
+                        flat 
+                        round 
+                        dense 
+                        icon="more_vert" 
+                        size="sm" 
+                        class="more-btn"
+                      >
+                      </q-btn>
+                    </template>
 
-                        <q-item
-                          v-if="session.category === 'ai'"
-                          clickable
-                          v-close-popup
-                          @click="handlePin(session)"
-                          class="menu-item"
-                        >
-                          <q-item-section avatar style="min-width: 32px;">
-                            <q-icon name="push_pin" size="18px" color="grey-7" />
-                          </q-item-section>
-                          <q-item-section>
-                            {{ session.pinned ? '取消置顶' : '置顶' }}
-                          </q-item-section>
-                        </q-item>
+                    <div class="session-more-menu-card">
+                      <!-- 重命名 -->
+                      <div
+                        v-if="session.category === 'ai'"
+                        class="more-menu-item-row"
+                        @click="closeMenuAndExecute(session.sessionId, () => handleRename(session))"
+                      >
+                        <img src="icons/edit.svg" alt="重命名" width="18" height="18" />
+                        <div>重命名</div>
+                      </div>
 
-                        <q-item
-                          v-if="session.category === 'ai'"
-                          clickable
-                          v-close-popup
-                          @click="handleFavorite(session)"
-                          class="menu-item"
-                        >
-                          <q-item-section avatar style="min-width: 32px;">
-                            <q-icon 
-                              :name="session.favorited ? 'star' : 'star_border'" 
-                              size="18px"
-                              color="warning"
-                            />
-                          </q-item-section>
-                          <q-item-section>
-                            {{ session.favorited ? '取消收藏' : '收藏' }}
-                          </q-item-section>
-                        </q-item>
+                      <!-- 置顶 -->
+                      <div
+                        v-if="session.category === 'ai'"
+                        class="more-menu-item-row"
+                        @click="closeMenuAndExecute(session.sessionId, () => handlePin(session))"
+                      >
+                        <img src="icons/pin.svg" alt="置顶" width="18" height="18" />
+                        <div>{{ session.pinned ? '取消置顶' : '置顶' }}</div>
+                      </div>
 
-                        <q-separator v-if="session.category === 'ai'" spaced />
+                      <!-- 收藏 -->
+                      <div
+                        v-if="session.category === 'ai'"
+                        class="more-menu-item-row"
+                        @click="closeMenuAndExecute(session.sessionId, () => handleFavorite(session))"
+                      >
+                        <img src="icons/my_favorites.svg" alt="收藏" width="18" height="18" />
+                        <div>{{ session.favorited ? '取消收藏' : '收藏' }}</div>
+                      </div>
 
-                        <q-item
-                          clickable
-                          v-close-popup
-                          @click="handleDelete(session)"
-                          class="menu-item delete-item"
+                      <!-- 分隔线 -->
+                      <div v-if="session.category === 'ai'" class="session-more-menu-divider"></div>
+
+                      <!-- 删除 -->
+                      <div class="session-more-menu-delete-wrapper">
+                        <div
+                          class="more-menu-item-row"
+                          @click="closeMenuAndExecute(session.sessionId, () => handleDelete(session))"
                         >
-                          <q-item-section avatar style="min-width: 32px;">
-                            <q-icon name="delete" size="18px" color="negative" />
-                          </q-item-section>
-                          <q-item-section class="text-negative">删除</q-item-section>
-                        </q-item>
-                      </q-list>
-                    </q-menu>
-                  </q-btn>
+                          <img src="icons/delete.svg" alt="删除会话" width="18" height="18" />
+                          <div class="text-delete">删除</div>
+                        </div>
+                      </div>
+                    </div>
+                  </BubblePopup>
                 </div>
               </div>
             </transition>
@@ -197,6 +187,7 @@ import { useQuasar } from 'quasar'
 import { authStorageService } from '@/services/auth-storage-service'
 import SearchInput from './SearchInput.vue'
 import RubberBandList from './RubberBandList.vue'
+import BubblePopup from './BubblePopup.vue'
 import search1Icon from '../../public/icons/search1.svg'
 
 // 定义 emits
@@ -300,6 +291,9 @@ const $q = useQuasar()
 // 收藏状态更新触发器（用于触发 treeNodes 重新计算收藏状态）
 // 注意：收藏状态存储在 localStorage 中，不是响应式的，所以需要手动触发
 const favoriteUpdateTrigger = ref(0)
+
+// 会话更多菜单显示状态（key 为 sessionId）
+const showMoreMenu = ref<Record<string, boolean>>({})
 
 // ==================== 计算属性 ====================
 
@@ -701,6 +695,13 @@ const handlePin = async (node: TreeNode) => {
       timeout: 2000,
     })
   }
+}
+
+// 关闭更多菜单并执行操作
+const closeMenuAndExecute = (sessionId: string | undefined, action: () => void) => {
+  if (!sessionId) return
+  showMoreMenu.value[sessionId] = false
+  action()
 }
 
 // 处理收藏
@@ -1250,7 +1251,7 @@ const initializeSessions = async () => {
   &.active {
     background-color: #e8e9ff;
 
-    .session-title {
+    .session-actions {
       font-weight: 400;
     }
   }
@@ -1311,6 +1312,27 @@ const initializeSessions = async () => {
     color: #9e9e9e;
     opacity: 1;
     transition: opacity 0.2s ease;
+    flex-shrink: 0;
+  }
+}
+
+// 复用 QuestionList 的更多菜单行样式
+.more-menu-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 8px;
+
+  &:hover {
+    background-color: rgba(15, 23, 42, 0.03);
+  }
+
+  img {
     flex-shrink: 0;
   }
 }

@@ -561,8 +561,8 @@ watch(isOpen, (newValue) => {
 
   // 全屏状态下，内容区域顶部圆角（左上 / 右上）
   .dialog-content-rounded {
-    border-top-left-radius: 32px;
-    border-top-right-radius: 32px;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
     overflow: hidden;
     border: 1px solid #452626;
   }

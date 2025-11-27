@@ -1,5 +1,13 @@
 <template>
   <div class="question-list" @click.stop>
+    <!-- 全局加载遮罩 -->
+    <div
+      v-if="loading || renderingQuestions"
+      class="question-list-loading-overlay"
+    >
+      <div class="question-list-loading-spinner"></div>
+      <div class="question-list-loading-text">题目加载中...</div>
+    </div>
     <!-- 搜索输入框 -->
     <div class="search-container">
       <q-btn flat round dense class="photo-search-btn" @click="handlePhotoSearch">
@@ -21,16 +29,15 @@
       </q-input>
     </div>
 
-    <!-- 题目列表 - 卡片布局，使用 RubberBandList 实现橡皮筋滚动、下拉刷新和自动加载更多 -->
+    <!-- 题目列表 - 卡片布局，使用 RubberBandList 实现橡皮筋滚动、下拉刷新（分页模式） -->
     <RubberBandList
       ref="scrollContainer"
       class="question-cards-container"
       :enable-refresh="true"
       :refresh-threshold="100"
-      :enable-load-more="hasMoreQuestions"
+      :enable-load-more="false"
       :loading="renderingQuestions"
       @refresh="handlePullDownRefresh"
-      @loadMore="loadMoreQuestions"
     >
       <!-- 空状态 -->
       <div v-if="displayedQuestions.length === 0 && !loading" class="native-empty-state">
@@ -70,149 +77,104 @@
             <div class="question-block">
               <!-- 题目头部 -->
               <div class="question-header">
-                <!-- 左侧：题目序号 -->
-                <div class="question-number">题目{{ index + 1 }}</div>
+                <!-- 左侧：题目序号（根据原始列表位置计算，全局连续） -->
+                <div class="question-number">题目{{ getQuestionDisplayIndex(question.bmNo) }}</div>
 
                 <!-- 右侧：功能区（仅当前题目选中时显示更多按钮） -->
                 <div class="question-actions" v-if="isQuestionSelected(question.bmNo)">
-                  <!-- 更多按钮：只在题目被选中时出现 -->
-                  <div>
-                    <q-btn
-                      icon="more_vert"
-                      color="grey-7"
-                      flat
-                      round
-                      size="sm"
-                      @click.stop="toggleMoreMenu(question.bmNo)"
-                      class="action-btn more-btn"
-                    >
-                      <q-tooltip>更多</q-tooltip>
-
-                      <!-- 功能菜单气泡框 -->
-                      <q-popup-proxy
-                        v-model="showMoreMenu[question.bmNo]"
-                        anchor="top right"
-                        self="bottom right"
-                        :breakpoint="0"
-                        no-parent-event
+                  <!-- 更多按钮 + 自定义气泡框 BubblePopup -->
+                  <BubblePopup
+                    v-model="showMoreMenu[question.bmNo]"
+                    placement="bottom"
+                    :offset="8"
+                    :show-arrow="false"
+                  >
+                    <template #trigger>
+                      <q-btn
+                        icon="more_vert"
+                        color="grey-7"
+                        flat
+                        round
+                        size="sm"
+                        class="action-btn more-btn"
                       >
-                        <q-card class="more-menu-card native-more-menu-card">
-                          <q-list dense class="native-more-menu-list">
-                            <!-- 发送给AI -->
-                            <q-item
-                              clickable
-                              @click="
-                                closeMenuAndExecute(question.bmNo, () => sendToAi(question))
-                              "
-                              class="menu-item native-more-menu-item"
-                            >
-                              <q-item-section avatar>
-                                <q-icon name="smart_toy" color="primary" size="20px" />
-                              </q-item-section>
-                              <q-item-section>发送给AI</q-item-section>
-                            </q-item>
+                      </q-btn>
+                    </template>
 
-                            <!-- 微课 -->
-                            <q-item
-                              clickable
-                              @click="
-                                closeMenuAndExecute(question.bmNo, () =>
-                                  openMiniClass(question)
-                                )
-                              "
-                              class="menu-item native-more-menu-item"
-                            >
-                              <q-item-section avatar>
-                                <q-icon name="ondemand_video" color="purple" size="20px" />
-                              </q-item-section>
-                              <q-item-section>微课</q-item-section>
-                            </q-item>
+                    <div>
+                      <!-- 发送给AI -->
+                      <div
+                        class="more-menu-item-row"
+                        @click="closeMenuAndExecute(question.bmNo, () => sendToAi(question))"
+                      >
+                        <img src="icons/Deskmate.svg" alt="发送给AI" width="20" height="20" />
+                        <div>发送给AI</div>
+                      </div>
 
-                            <!-- 置顶 -->
-                            <q-item
-                              v-if="index > 0"
-                              clickable
-                              @click="
-                                closeMenuAndExecute(question.bmNo, () =>
-                                  moveQuestionToTop(question.bmNo)
-                                )
-                              "
-                              class="menu-item native-more-menu-item"
-                            >
-                              <q-item-section avatar>
-                                <q-icon name="vertical_align_top" color="orange" size="20px" />
-                              </q-item-section>
-                              <q-item-section>置顶</q-item-section>
-                            </q-item>
+                      <!-- 微课 -->
+                      <div
+                        class="more-menu-item-row"
+                        @click="closeMenuAndExecute(question.bmNo, () => openMiniClass(question))"
+                      >
+                        <img src="icons/my_exercises.svg" alt="微课" width="20" height="20" />
+                        <div>微课</div>
+                      </div>
 
-                            <!-- 收藏 -->
-                            <q-item
-                              clickable
-                              @click="
-                                closeMenuAndExecute(question.bmNo, () =>
-                                  toggleFavorite(question)
-                                )
-                              "
-                              class="menu-item native-more-menu-item native-more-menu-favorite"
-                            >
-                              <q-item-section avatar>
-                                <q-icon
-                                  :name="isExerciseFavorite(question.bmNo) ? 'star' : 'star_border'"
-                                  :color="isExerciseFavorite(question.bmNo) ? 'warning' : 'grey-7'"
-                                  size="20px"
-                                />
-                              </q-item-section>
-                              <q-item-section>
-                                {{ isExerciseFavorite(question.bmNo) ? '取消收藏' : '收藏题目' }}
-                              </q-item-section>
-                            </q-item>
+                      <!-- 置顶 -->
+                      <div
+                        class="more-menu-item-row"
+                        v-if="index > 0"
+                        @click="
+                          closeMenuAndExecute(question.bmNo, () => moveQuestionToTop(question.bmNo))
+                        "
+                      >
+                        <img src="icons/pin.svg" alt="置顶" width="20" height="20" />
+                        <div>置顶</div>
+                      </div>
 
-                            <!-- 拍作业 -->
-                            <q-item
-                              clickable
-                              @click="
-                                closeMenuAndExecute(question.bmNo, () =>
-                                  takePictureToTeacher(question)
-                                )
-                              "
-                              class="menu-item native-more-menu-item"
-                            >
-                              <q-item-section avatar>
-                                <q-icon name="camera_alt" color="pink" size="20px" />
-                              </q-item-section>
-                              <q-item-section>拍作业</q-item-section>
-                            </q-item>
+                      <!-- 收藏 -->
+                      <div
+                        class="more-menu-item-row"
+                        @click="closeMenuAndExecute(question.bmNo, () => toggleFavorite(question))"
+                      >
+                        <img src="icons/my_favorites.svg" alt="收藏" width="20" height="20" />
+                        <div>
+                          {{ isExerciseFavorite(question.bmNo) ? '取消收藏' : '收藏题目' }}
+                        </div>
+                      </div>
 
-                            <!-- 删除题目 -->
-                            <div class="native-more-menu-delete-wrapper">
-                              <q-item
-                                clickable
-                                @click="
-                                  closeMenuAndExecute(question.bmNo, () =>
-                                    openDeleteDialog(question)
-                                  )
-                                "
-                                :disable="deletingIds.has(question.bmNo)"
-                                class="menu-item delete-item native-more-menu-delete-item"
-                              >
-                                <q-item-section avatar>
-                                  <q-icon
-                                    name="delete"
-                                    color="negative"
-                                    size="20px"
-                                    :class="{ 'icon-loading': deletingIds.has(question.bmNo) }"
-                                  />
-                                </q-item-section>
-                                <q-item-section>
-                                  {{ deletingIds.has(question.bmNo) ? '删除中...' : '删除题目' }}
-                                </q-item-section>
-                              </q-item>
-                            </div>
-                          </q-list>
-                        </q-card>
-                      </q-popup-proxy>
-                    </q-btn>
-                  </div>
+                      <!-- 拍作业 -->
+                      <div
+                        class="more-menu-item-row"
+                        @click="
+                          closeMenuAndExecute(question.bmNo, () => takePictureToTeacher(question))
+                        "
+                      >
+                        <img src="icons/scan_homework.svg" alt="拍作业" width="20" height="20" />
+                        <div>拍作业</div>
+                      </div>
+
+                      <!-- 删除题目：底部整块粉色区域 -->
+                      <div
+                        class="more-menu-item-row"
+                        :class="{ 'is-loading': deletingIds.has(question.bmNo) }"
+                        @click="
+                          closeMenuAndExecute(question.bmNo, () => openDeleteDialog(question))
+                        "
+                      >
+                        <img
+                          src="icons/delete.svg"
+                          alt="删除题目"
+                          width="20"
+                          height="20"
+                          :class="{ 'icon-loading': deletingIds.has(question.bmNo) }"
+                        />
+                        <div>
+                          {{ deletingIds.has(question.bmNo) ? '删除中...' : '删除题目' }}
+                        </div>
+                      </div>
+                    </div>
+                  </BubblePopup>
                 </div>
               </div>
 
@@ -226,6 +188,21 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- 底部分页器 -->
+      <div v-if="displayList.length > 0 && totalPages > 1" class="question-pagination">
+        <q-pagination
+          v-model="currentPage"
+          :max="totalPages"
+          :max-pages="7"
+          direction-links
+          size="md"
+          @update:model-value="handlePageChange"
+        />
+        <div class="pagination-info">
+          第 {{ currentPage }} / {{ totalPages }} 页，共 {{ displayList.length }} 题
         </div>
       </div>
     </RubberBandList>
@@ -287,6 +264,7 @@ import UnifiedChatDialog from './UnifiedChatDialog.vue'
 import ImageViewer from './ImageViewer.vue'
 import RubberBandList from './RubberBandList.vue'
 import Dialog from './Dialog.vue'
+import BubblePopup from './BubblePopup.vue'
 import { toggleExerciseFavorite, getFavoriteExercises } from '../utils/storage/favorites'
 import { useImagePicker } from '../composables/useImagePicker'
 import { useTeacherGeneralChatStore } from '../stores/teacherGeneralChatStore'
@@ -313,9 +291,11 @@ const selectedQuestionIndex = ref(-1)
 const loading = ref(true)
 
 // 分页相关
-const INITIAL_DISPLAY_COUNT = 20 // 初始显示的题目数量
-const LOAD_MORE_COUNT = 20 // 每次加载更多的题目数量
+const PAGE_SIZE = 50 // 每页显示50题
+const INITIAL_DISPLAY_COUNT = PAGE_SIZE // 初始显示的题目数量
+const LOAD_MORE_COUNT = PAGE_SIZE // 每次加载更多的题目数量
 const displayedCount = ref(INITIAL_DISPLAY_COUNT) // 已显示的题目数量
+const currentPage = ref(1) // 当前页码
 
 // 从 props 获取搜索和过滤状态
 const searchQuery = computed(() => props.searchQuery || '') //搜索关键词
@@ -380,6 +360,22 @@ const isQuestionSelected = (questionId: string): boolean => {
     return false
   }
   return currentQuestion.value.bmNo === questionId
+}
+
+// 题目全局序号映射：根据原始 questions 列表的位置计算（从 1 开始）
+const questionIndexMap = computed(() => {
+  const map = new Map<string, number>()
+  questions.value.forEach((q, idx) => {
+    if (q.bmNo) {
+      map.set(q.bmNo, idx)
+    }
+  })
+  return map
+})
+
+const getQuestionDisplayIndex = (questionId: string): number => {
+  const idx = questionIndexMap.value.get(questionId)
+  return typeof idx === 'number' ? idx + 1 : 0
 }
 
 // 题目删除相关
@@ -499,14 +495,23 @@ const displayList = computed(() => {
   return filteredQuestions.value
 })
 
-// 已显示的题目列表（分页显示）
-const displayedQuestions = computed(() => {
-  return displayList.value.slice(0, displayedCount.value)
+// 总页数
+const totalPages = computed(() => {
+  const total = displayList.value.length
+  return total === 0 ? 1 : Math.ceil(total / PAGE_SIZE)
 })
 
-// 是否还有更多题目
+// 已显示的题目列表（按页分页，每页50条）
+const displayedQuestions = computed(() => {
+  const page = Math.min(currentPage.value, totalPages.value)
+  const start = (page - 1) * PAGE_SIZE
+  const end = start + PAGE_SIZE
+  return displayList.value.slice(start, end)
+})
+
+// 是否还有更多题目（分页模式下不再使用loadMore）
 const hasMoreQuestions = computed(() => {
-  return displayedCount.value < displayList.value.length
+  return false
 })
 
 // 滚动容器引用（用于滚动定位与 RubberBandList 实例）
@@ -543,7 +548,6 @@ const setContentRef = async (el: HTMLElement | null, questionId: string) => {
     questionRenderedMap.value.set(questionId, true)
   }
 }
-
 
 // 给元素内的所有图片添加点击事件监听器
 const attachImageClickListeners = (container: HTMLElement) => {
@@ -953,7 +957,6 @@ const loadMoreQuestions = async () => {
     setTimeout(() => {
       renderingQuestions.value = false
     }, 2000)
-    
   } catch (error) {
     console.error('[QuestionList] ❌ 加载更多题目失败:', error)
   }
@@ -1004,6 +1007,7 @@ const loadQuestions = async () => {
     if (questions.value.length > 0) {
       // 重置显示数量为初始值
       displayedCount.value = INITIAL_DISPLAY_COUNT
+      currentPage.value = 1
     }
   } catch (error) {
     showMessage('加载题目失败: ' + ((error as Error)?.message || '未知错误'), 'error')
@@ -1025,6 +1029,34 @@ const refreshQuestions = () => {
   }
 }
 
+// 下拉刷新处理（由 RubberBandList 触发）
+// 要求：强制重新请求接口，而不是只同步本地 store
+const handlePullDownRefresh = async () => {
+  try {
+    const questionStore = useQuestionStore()
+
+    // 根据当前筛选条件决定刷新范围
+    if (selectedSubjectFilter.value === null) {
+      // 全部学科：强制从服务器拉取所有学科题目
+      await questionStore.fetchAllSubjectsQuestions(false)
+    } else {
+      // 单一学科：使用当前 selectedSubject 作为学科 key，并强制从服务器拉取
+      const subjectToRefresh = selectedSubject.value || 'math'
+      await questionStore.fetchQuestions(subjectToRefresh, false)
+    }
+
+    // 接口成功后，同步本地 questions 列表和当前选中索引
+    refreshQuestions()
+  } catch (error) {
+    showMessage('刷新失败，请稍后重试', 'error')
+  } finally {
+    const container = scrollContainer.value as any
+    if (container && typeof container.finishRefresh === 'function') {
+      container.finishRefresh()
+    }
+  }
+}
+
 // 搜索和过滤逻辑已通过计算属性实现，通过 watch 监听 props 变化来重置渲染状态
 
 // 题目选择方法
@@ -1033,7 +1065,9 @@ const selectQuestion = async (question: ExerciseItem, index: number) => {
     selectedQuestionIndex.value = index
 
     const questionStore = useQuestionStore()
-    const storeIndex = questionStore.questions.findIndex((q: ExerciseItem) => q.bmNo === question.bmNo)
+    const storeIndex = questionStore.questions.findIndex(
+      (q: ExerciseItem) => q.bmNo === question.bmNo
+    )
 
     if (storeIndex >= 0) {
       // 使用store中的索引来选择题目
@@ -1082,6 +1116,20 @@ const scrollToCurrentQuestion = (targetIndex?: number) => {
   } catch {
     // 滚动失败
   }
+}
+
+// 分页切换处理
+const handlePageChange = (page: number) => {
+  currentPage.value = page
+
+  // 切页后回到列表顶部
+  nextTick(() => {
+    const container = document.querySelector('.question-cards-container') as HTMLElement | null
+    if (container) {
+      // 直接跳到顶部，不使用平滑滚动
+      container.scrollTop = 0
+    }
+  })
 }
 
 // 滚动到指定题目并设置为选中状态
@@ -1152,7 +1200,9 @@ const sendToAi = async (question: ExerciseItem) => {
     const aiExerciseStore = useAiExerciseChatStore()
 
     // 关键修复：在store的questions数组中查找题目索引，而不是在本地questions数组中查找
-    const storeIndex = questionStore.questions.findIndex((q: ExerciseItem) => q.bmNo === question.bmNo)
+    const storeIndex = questionStore.questions.findIndex(
+      (q: ExerciseItem) => q.bmNo === question.bmNo
+    )
     if (storeIndex >= 0) {
       // 使用store中的索引来选择题目
       await questionStore.selectQuestion(storeIndex)
@@ -1168,7 +1218,7 @@ const sendToAi = async (question: ExerciseItem) => {
       questionStore.currentQuestion.beginGuideToSolve = true
 
       // 第3步：清除聊天记录
-      const questionBmNo = questionStore.currentQuestion.bmNo || questionStore.currentquestion.bmNo
+      const questionBmNo = questionStore.currentQuestion.bmNo
       await aiExerciseStore.clearChatHistory(questionBmNo)
       // 第4步：发送题目内容给AI进行分析（每次都是新的开始）
       const questionContent =
@@ -1289,6 +1339,7 @@ watch(
   searchQuery,
   () => {
     displayedCount.value = INITIAL_DISPLAY_COUNT
+    currentPage.value = 1
   },
   { immediate: false }
 )
@@ -1297,8 +1348,9 @@ watch(
 watch(
   selectedSubjectFilter,
   async (newFilter) => {
-    // 学科过滤时重置显示数量
+    // 学科过滤时重置显示数量和页码
     displayedCount.value = INITIAL_DISPLAY_COUNT
+    currentPage.value = 1
 
     const questionStore = useQuestionStore()
 
@@ -1483,6 +1535,10 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   background-color: #f7f6ff;
   position: relative;
 
+  // 仅在题目列表页内覆盖 Quasar 主色为紫色
+  // 所有使用 color="primary" / text-primary 的组件都会呈现为紫色
+  --q-primary: #5f6368;
+
   // 搜索容器
   .search-container {
     display: flex;
@@ -1555,6 +1611,55 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     background-color: #f7f6ff;
     position: relative;
     padding: 0 8px 8px 8px;
+  }
+
+  // 分页器容器（Gemini 风格）
+  .question-pagination {
+    padding: 12px 12px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    background-color: #f7f6ff;
+
+    :deep(.q-pagination) {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+
+      .q-btn {
+        min-width: 32px;
+        min-height: 32px;
+        padding: 0 10px;
+        border-radius: 16px;
+        font-size: 12px;
+        text-transform: none;
+        box-shadow: none;
+        background-color: transparent;
+        color: $text-secondary;
+
+        &.q-btn--active,
+        &.q-btn--standard.q-btn--active {
+          background-color: $primary-color-light;
+          color: $primary-color;
+          @include card-shadow(subtle);
+        }
+
+        &:hover:not(.q-btn--active) {
+          background-color: $background-hover;
+        }
+
+        .q-icon {
+          font-size: 16px;
+        }
+      }
+    }
+
+    .pagination-info {
+      font-size: 12px;
+      color: $text-secondary;
+      text-align: center;
+    }
   }
 
   // 题目卡片列表容器
@@ -1705,132 +1810,6 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       }
     }
 
-    // 更多菜单气泡框样式
-    .more-menu-card {
-      border-radius: 12px;
-      box-shadow: $shadow-hover;
-      border: 1px solid $border-color;
-      min-width: 160px;
-      overflow: hidden;
-      background-color: $background-white;
-
-      :deep(.q-list) {
-        padding: 4px 0;
-
-        .menu-item {
-          min-height: 40px;
-          padding: 8px 16px;
-          transition: $transition-smooth;
-
-          &:hover {
-            background-color: $background-hover;
-          }
-
-          &.q-item--clickable {
-            cursor: pointer;
-          }
-
-          &.q-item--disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-          }
-
-          // 删除项特殊样式
-          &.delete-item {
-            &:hover {
-              background-color: rgba(234, 67, 53, 0.08);
-            }
-
-            .q-item__section {
-              color: #ea4335;
-            }
-          }
-
-          .q-item__section {
-            &--avatar {
-              min-width: 32px;
-
-              .q-icon {
-                &.icon-loading {
-                  animation: spin 1s linear infinite;
-                }
-              }
-            }
-          }
-        }
-      }
-
-      :deep(.q-separator) {
-        margin: 4px 0;
-        border-color: $border-color;
-      }
-    }
-
-    // 原生风格更多菜单气泡框
-    .native-more-menu-card {
-      border-radius: 18px;
-      padding: 8px 10px 10px;
-      min-width: 170px;
-      background: #ffffff;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08);
-      border: none;
-    }
-
-    .native-more-menu-list {
-      :deep(.q-item) {
-        &.native-more-menu-item {
-          padding: 8px 10px;
-          min-height: 40px;
-        }
-
-        .q-item__section {
-          font-size: 14px;
-        }
-      }
-    }
-
-    // 收藏行上方稍微留出空间
-    .native-more-menu-favorite {
-      margin-top: 4px;
-    }
-
-    // 底部整块粉色删除区域
-    .native-more-menu-delete-wrapper {
-      margin-top: 8px;
-      padding-top: 4px;
-      border-radius: 14px;
-      background: #ffeef0;
-    }
-
-    .native-more-menu-delete-item {
-      padding: 10px 14px;
-
-      :deep(.q-item__section) {
-        color: #ff4b5c;
-        font-weight: 500;
-      }
-
-      :deep(.q-icon) {
-        color: #ff4b5c !important;
-      }
-    }
-  }
-
-  // q-popup-proxy 圆角卡片样式
-  :deep(.q-popup-proxy) {
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
-    background-color: $background-white;
-    border: 1px solid $border-color;
-
-    .q-menu {
-      border-radius: 16px;
-      overflow: hidden;
-      box-shadow: none;
-      background-color: transparent;
-      border: none;
-    }
   }
 
   // 题目内容区域
@@ -1888,6 +1867,29 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       }
     }
   }
+}
+
+.question-list-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  align-items: center;
+  z-index: 1;
+}
+
+.question-list-loading-spinner {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 3px solid #6e55ff;
+  border-top-color: transparent;
+  animation: spin 1s linear infinite;
 }
 
 .delete-dialog-toggle {
@@ -2267,5 +2269,29 @@ $transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   100% {
     transform: rotate(360deg);
   }
+}
+
+// 更多菜单项通用行样式
+.more-menu-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  font-size: 14px;
+  line-height: 1.4;
+  padding: 6px 6px;
+  cursor: pointer;
+
+  &:hover {
+    background-color: rgba(15, 23, 42, 0.03);
+  }
+
+  > .q-icon {
+    flex-shrink: 0;
+  }
+}
+
+.more-menu-item-row:hover {
+  background-color: rgba(15, 23, 42, 0.03);
 }
 </style>

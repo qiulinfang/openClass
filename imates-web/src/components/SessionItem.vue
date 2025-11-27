@@ -125,7 +125,7 @@
               class="text-negative"
             >
               <q-item-section avatar>
-                <q-icon name="delete" size="xs" />
+                <img src="icons/delete.svg" alt="删除" width="16" height="16" />
               </q-item-section>
               <q-item-section>删除</q-item-section>
             </q-item>

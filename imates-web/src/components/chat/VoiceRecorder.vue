@@ -18,7 +18,7 @@
     
     <!-- 取消录音提示 -->
     <div v-if="props.showCancelHint" class="cancel-hint">
-      <q-icon name="delete" size="32px" color="#ff4444" />
+      <img src="/icons/delete.svg" alt="取消录音" width="32" height="32" />
       <div class="cancel-text">松开取消发送</div>
     </div>
   </div>
