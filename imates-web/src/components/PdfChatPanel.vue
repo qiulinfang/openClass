@@ -85,6 +85,7 @@ const route = useRoute()
 
 const emit = defineEmits<{
   'select-and-ask-click': []
+  'close': []
 }>()
 
 // ChatView 实例引用
@@ -179,7 +180,7 @@ const handleSessionPin = async (record: AiTextbookSession) => {
 
 // 关闭对话面板
 const handleClose = () => {
-  pdfViewerStore.closeChatPanel()
+  emit('close')
 }
 
 // 处理“选中并问”点击：交给父组件触发截图工具与后续流程

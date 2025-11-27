@@ -147,6 +147,8 @@
           @remove-file="removeFile"
           @cancel-edit="cancelEditMessage"
           @scroll-to-bottom="scrollToBottom"
+          @ask-teacher-click="handleEnterMultiSelect"
+          @focus="() => { isActiveInstance = true; emit('focus') }"
         >
           <!-- 透传 ChatView 的 input-header 插槽到 ChatInput 的 header-prefix 前置插槽 -->
           <template #header-prefix>
@@ -165,7 +167,7 @@
           :placeholder="enhancedPlaceholderText"
           :is-loading="isLoading"
           @send="sendSimpleMessage"
-          @focus="emit('focus')"
+          @focus="() => { isActiveInstance = true; emit('focus') }"
           @blur="onInputBlur"
         />
       </slot>
@@ -344,6 +346,8 @@ const currentSubject = ref<string>('math') // 当前科目，默认为数学
 const isKeyboardVisible = ref(false) // 键盘是否可见
 const isKeyboardAnimating = ref(false) // 键盘是否正在执行动画
 const isAnimating = ref(false) // 是否正在执行动画（防重复触发）
+// 当前 ChatView 是否为“激活实例”（有输入焦点），用于避免多个 ChatView 同时压缩高度
+const isActiveInstance = ref(false)
 
 // 公式键盘状态标记 - 用于解决平板设备双重键盘事件冲突
 const isFormulaKeyboardVisible = ref(false) // 公式虚拟键盘是否可见
@@ -375,13 +379,13 @@ const getCSSAnimationParams = () => {
     const delay = computedStyle.getPropertyValue('--keyboard-animation-delay')
 
     return {
-      duration: duration || '300ms',
+      duration: duration || '150ms',
       curve: curve || 'cubic-bezier(0.4, 0.0, 0.2, 1)',
       delay: delay || '50ms',
     }
   }
   return {
-    duration: '300ms',
+    duration: '100ms',
     curve: 'cubic-bezier(0.4, 0.0, 0.2, 1)',
     delay: '50ms',
   }
@@ -600,14 +604,43 @@ const dynamicKeyboardHeight = ref(334) // 固定高度
 // ==================== 键盘动画函数 ====================
 
 /**
+ * 硬重置键盘相关状态（不做动画，直接清理）
+ * 作用：当当前 ChatView 不是激活实例时，也要清掉旧的键盘状态，避免下次 keyboard-show 被旧状态卡住
+ */
+const hardResetKeyboardState = () => {
+  isKeyboardVisible.value = false
+  isAnimating.value = false
+  isKeyboardAnimating.value = false
+  keyboardAnimationHeight.value = 0
+  keyboardHeight.value = 0
+  originalChatViewHeight.value = 0
+
+  if (chatViewRef.value) {
+    chatViewRef.value.style.height = ''
+    chatViewRef.value.style.transition = ''
+  }
+}
+
+/**
  * 处理原生键盘隐藏事件
  * 作用：响应原生键盘隐藏状态，恢复页面高度和清理状态
  * 触发场景：原生键盘隐藏后需要恢复聊天界面布局
  */
 const handleKeyboardHidden = () => {
+  // 如果当前不是激活实例，不做动画，但需要硬重置键盘状态，防止旧状态影响下次显示
+  if (!isActiveInstance.value) {
+    console.log('[ChatView][Keyboard] handleKeyboardHidden called for inactive instance, hard reset state only')
+    hardResetKeyboardState()
+    return
+  }
+  console.log('[ChatView][Keyboard] handleKeyboardHidden called', {
+    isAnimating: isAnimating.value,
+    isKeyboardVisible: isKeyboardVisible.value,
+  })
   // 步骤1：防重复执行检查
   // 如果正在执行动画，跳过本次调用，避免重复触发
   if (isAnimating.value) {
+    console.log('[ChatView][Keyboard] handleKeyboardHidden skipped because isAnimating=true')
     return
   }
 
@@ -619,6 +652,7 @@ const handleKeyboardHidden = () => {
   // 步骤3：延迟执行动画
   // 使用nextTick确保Vue状态更新完成后再执行动画
   nextTick(() => {
+    console.log('[ChatView][Keyboard] handleKeyboardHidden nextTick -> restoreChatViewHeight')
     animationStartTime.value = Date.now()
     restoreChatViewHeight()
   })
@@ -630,8 +664,17 @@ const handleKeyboardHidden = () => {
  * 注意：原生键盘不需要滚动，因为压缩后输入框会自动保持在可见区域
  */
 const compressChatViewHeight = () => {
+  // 仅对当前激活的 ChatView 实例执行压缩动画，避免多实例同时变化
+  if (!isActiveInstance.value) {
+    return
+  }
+  console.log('[ChatView][Keyboard] compressChatViewHeight start', {
+    isAnimating: isAnimating.value,
+    isKeyboardVisible: isKeyboardVisible.value,
+  })
   // 步骤1：状态验证
   if (!isAnimating.value || !isKeyboardVisible.value) {
+    console.log('[ChatView][Keyboard] compressChatViewHeight aborted by state check')
     return
   }
 
@@ -656,6 +699,9 @@ const compressChatViewHeight = () => {
   // 只有在原始高度未设置或当前高度明显不同时才更新（避免设置为0）
   if (originalChatViewHeight.value === 0 && currentOffsetHeight > 0) {
     originalChatViewHeight.value = currentOffsetHeight
+    console.log('[ChatView][Keyboard] compressChatViewHeight record original height', {
+      originalChatViewHeight: originalChatViewHeight.value,
+    })
   } else if (originalChatViewHeight.value === 0 && currentOffsetHeight === 0) {
     console.warn('[ChatView] [compressChatViewHeight] 当前高度为0，无法记录，等待DOM渲染')
     // 如果当前高度还是0，说明DOM还没完全渲染，等待下一个DOM更新周期
@@ -696,6 +742,10 @@ const compressChatViewHeight = () => {
     }
     chatViewRef.value.style.height = `${newHeight}px`
     chatViewRef.value.style.transition = `height ${cssParams.duration} ${cssParams.curve}`
+    console.log('[ChatView][Keyboard] compressChatViewHeight apply height', {
+      newHeight,
+      duration: cssParams.duration,
+    })
   } else {
     console.warn('[ChatView] [compressChatViewHeight] chatViewRef.value 不存在，无法设置高度')
   }
@@ -704,6 +754,9 @@ const compressChatViewHeight = () => {
   const animationDuration = parseInt(cssParams.duration)
 
   setTimeout(() => {
+    console.log('[ChatView][Keyboard] compressChatViewHeight animation end', {
+      isKeyboardVisible: isKeyboardVisible.value,
+    })
     isAnimating.value = false
     if (chatViewRef.value) {
       chatViewRef.value.style.transition = ''
@@ -720,9 +773,14 @@ const compressChatViewHeight = () => {
  * 注意：仅用于原生键盘隐藏后的页面恢复
  */
 const restoreChatViewHeight = () => {
+  console.log('[ChatView][Keyboard] restoreChatViewHeight start', {
+    isAnimating: isAnimating.value,
+    isKeyboardVisible: isKeyboardVisible.value,
+  })
   // 步骤1：状态验证
   // 确保只有在正确的动画状态下才执行，防止重复执行或状态冲突
   if (!isAnimating.value || isKeyboardVisible.value) {
+    console.log('[ChatView][Keyboard] restoreChatViewHeight aborted by state check')
     return
   }
 
@@ -737,6 +795,9 @@ const restoreChatViewHeight = () => {
 
     // 3.2 应用CSS过渡效果（使用Android系统标准缓动曲线实现平滑高度变化）
     chatViewRef.value.style.transition = `height ${cssParams.duration} ${cssParams.curve}`
+    console.log('[ChatView][Keyboard] restoreChatViewHeight apply transition', {
+      duration: cssParams.duration,
+    })
   } else {
     console.warn('[ChatView] [restoreChatViewHeight] chatViewRef.value 不存在，无法恢复高度')
     return
@@ -747,6 +808,7 @@ const restoreChatViewHeight = () => {
   const animationDuration = parseInt(cssParams.duration)
 
   setTimeout(() => {
+    console.log('[ChatView][Keyboard] restoreChatViewHeight animation end, reset state')
     // 4.1 重置动画状态
     isAnimating.value = false
     isKeyboardAnimating.value = false // 清理全局键盘动画状态
@@ -759,6 +821,10 @@ const restoreChatViewHeight = () => {
     if (chatViewRef.value) {
       chatViewRef.value.style.transition = ''
     }
+
+    // 4.4 键盘隐藏并恢复高度后，确保聊天区域滚动到底部
+    // 避免出现“高度恢复了但视图仍然停留在中间，需要等回复后才滚到底”的体验问题
+    scrollToBottom()
   }, animationDuration)
 }
 
@@ -1010,6 +1076,8 @@ const checkIfUserAtBottom = () => {
 // 作用：处理输入框失去焦点事件，响应键盘已隐藏状态
 // 键盘隐藏支持失焦和全局事件两种方式
 const onInputBlur = () => {
+  // 当前实例失去焦点时，标记为非激活实例
+  isActiveInstance.value = false
   handleKeyboardHidden()
 }
 
@@ -1062,13 +1130,22 @@ const handleForceResetAnimationState = () => {
 // 处理原生键盘显示的函数
 // 流程：压缩页面高度 → 焦点处理（不滚动，因为压缩后输入框自动可见）
 const handleKeyboardShown = async (data: { height: number; duration: number }) => {
+  console.log('[ChatView][Keyboard] handleKeyboardShown called', {
+    height: data?.height,
+    duration: data?.duration,
+    isAnimating: isAnimating.value,
+    isKeyboardVisible: isKeyboardVisible.value,
+    isFormulaKeyboardVisible: isFormulaKeyboardVisible.value,
+  })
   // 步骤1：检查公式键盘状态 - 如果公式键盘正在显示，跳过原生键盘处理
   if (isFormulaKeyboardVisible.value) {
+    console.log('[ChatView][Keyboard] handleKeyboardShown skipped because formula keyboard visible')
     return
   }
 
   // 步骤2：防重复执行检查
   if (isAnimating.value) {
+    console.log('[ChatView][Keyboard] handleKeyboardShown skipped because isAnimating=true')
     return
   }
 
@@ -1108,6 +1185,7 @@ const handleKeyboardShown = async (data: { height: number; duration: number }) =
 
   // 步骤6：延迟执行动画
   nextTick(() => {
+    console.log('[ChatView][Keyboard] handleKeyboardShown nextTick -> compressChatViewHeight')
     animationStartTime.value = Date.now()
     compressChatViewHeight()
   })
@@ -1371,9 +1449,13 @@ const handleForwardMessage = async (message: ChatBubble) => {
 
   try {
     // 使用策略的转发方法（策略内部会处理是否显示对话框）
-    const result = await chatStrategy.value.forwardMessage(message, {
-      showDialog: true, // 默认显示对话框，策略内部可以根据需要覆盖
-      onSuccess: async (result) => {
+    const result = await chatStrategy.value.forwardMessage(
+      message,
+      {
+        showDialog: true, // 默认显示对话框，策略内部可以根据需要覆盖
+        // 将当前题目一并传递给策略（如 AiExerciseStrategy），用于题目校验和会话创建
+        currentQuestion: currentQuestion.value || undefined,
+        onSuccess: async (result) => {
         // 转发成功后的回调
         if (result.sessionId) {
           // 触发跳转到老师对话的事件
@@ -1382,12 +1464,13 @@ const handleForwardMessage = async (message: ChatBubble) => {
             message: message,
           })
         }
-      },
-      onError: (error) => {
-        console.error('[ChatView] ❌ 转发失败:', error)
-        showMessage('转发失败: ' + error, 'error')
-      },
-    })
+        },
+        onError: (error) => {
+          console.error('[ChatView] ❌ 转发失败:', error)
+          showMessage('转发失败: ' + error, 'error')
+        },
+      } as any,
+    )
 
     if (!result.success) {
       console.error('[ChatView] ❌ 转发失败:', result.error)
@@ -1663,9 +1746,13 @@ const forwardToTeacher = async (messageList?: ChatBubble[]) => {
       await handleForwardMessage(selectedMessageList[0])
     } else {
       // 多条消息转发（策略内部会处理是否显示对话框）
-      const result = await chatStrategy.value.forwardMessages(selectedMessageList, {
-        showDialog: true, // 默认显示对话框，策略内部可以根据需要覆盖
-        onSuccess: async (result) => {
+      const result = await chatStrategy.value.forwardMessages(
+        selectedMessageList,
+        {
+          showDialog: true, // 默认显示对话框，策略内部可以根据需要覆盖
+          // 将当前题目一并传递给策略（如 AiExerciseStrategy），用于题目校验和会话创建
+          currentQuestion: currentQuestion.value || undefined,
+          onSuccess: async (result) => {
           // 转发成功后的回调
           if (result.sessionId) {
             // 触发跳转到老师对话的事件
@@ -1683,7 +1770,8 @@ const forwardToTeacher = async (messageList?: ChatBubble[]) => {
           console.error('[ChatView] ❌ 批量转发失败:', error)
           showMessage('转发失败: ' + error, 'error')
         },
-      })
+      } as any,
+      )
 
       if (!result.success) {
         console.error('[ChatView] ❌ 批量转发失败:', result.error)
@@ -1744,6 +1832,7 @@ const setupGlobalEventListeners = () => {
       if (!nativeKeyboardListenersEnabled) {
         return
       }
+      console.log('[ChatView][Keyboard] native keyboard hide event')
       // 原生键盘隐藏时恢复页面
       handleKeyboardHidden()
     }

@@ -196,7 +196,7 @@ const cachedComponents = ref<string[]>([
   // 'htmlViewer',         // HTML 查看器
   // 'videoViewer',        // 视频查看器
   // 'ExerciseSolveView',  // 我的习题页面
-  // 'MyResourcesView',    // 资源下载页面
+  'MyResourcesView',    // 资源下载页面
   // 'DrawingBoardView',   // 画板页面
   // 'FindExerciseView',   // 查找习题页面
   // 'MyFavoritesView',    // 我的收藏页面

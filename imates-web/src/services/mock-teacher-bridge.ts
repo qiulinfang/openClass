@@ -115,7 +115,13 @@ function saveMessageHistory(sessionId: string, messages: MessageHistoryItem[]): 
 function addMessageToHistory(sessionId: string, message: MessageHistoryItem): void {
   const history = getMessageHistory(sessionId)
   history.push(message)
-  saveMessageHistory(sessionId, history)
+
+  // 为避免 mock 环境下 localStorage 占用过大，这里限制每个会话最多保留最近的 N 条消息
+  const MAX_HISTORY = 200
+  const trimmedHistory =
+    history.length > MAX_HISTORY ? history.slice(history.length - MAX_HISTORY) : history
+
+  saveMessageHistory(sessionId, trimmedHistory)
 }
 
 /**

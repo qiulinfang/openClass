@@ -6,6 +6,7 @@
     :initial-height="900"
     :min-width="500"
     :min-height="450"
+    :close-on-overlay-click="false"
     title-align="left"
     header-background-color="#ffffff"
   >
@@ -28,37 +29,39 @@
       </div>
 
       <!-- 输入框区域 -->
-      <div class="input-section">
-        <q-input
+      <div class="input-section" :style="keyboardTransformStyle">
+        <textarea
           v-model="questionText"
-          type="textarea"
+          class="question-input"
           placeholder="请输入要问的问题"
           rows="2"
-          outlined
-          dense
-          class="question-input"
           @keydown.enter.ctrl="handleConfirm"
           @keydown.enter.meta="handleConfirm"
-        />
+          @focus="handleInputFocus"
+          @blur="handleInputBlur"
+        ></textarea>
       </div>
 
       <!-- 按钮区域 -->
       <div class="dialog-footer">
-        <q-btn flat label="取消" color="grey-7" @click="handleCancel" class="cancel-btn" />
-        <q-btn
-          label="确定"
-          color="primary"
-          @click.stop.prevent="handleConfirm"
-          :disable="!questionText.trim()"
+        <button type="button" class="cancel-btn" @click="handleCancel">
+          取消
+        </button>
+        <button
+          type="button"
           class="confirm-btn"
-        />
+          :disabled="!questionText.trim()"
+          @click.stop.prevent="handleConfirm"
+        >
+          确定
+        </button>
       </div>
     </div>
   </DraggableDialog>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, type ComponentPublicInstance } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, type ComponentPublicInstance } from 'vue'
 import DraggableDialog from '@/components/DraggableDialog.vue'
 import DrawingBoard from '@/components/DrawingBoard.vue'
 import { showMessage } from '@/utils'
@@ -98,6 +101,48 @@ const localVisible = computed({
 
 // 问题文本
 const questionText = ref('')
+
+// 键盘适配相关状态：根据原生键盘事件调整输入区域 transform
+const keyboardOffset = ref(0)
+
+const keyboardTransformStyle = computed(() => {
+  if (!keyboardOffset.value) return {}
+  return {
+    transform: `translateY(-${keyboardOffset.value}px)`,
+  }
+})
+
+
+// 输入框失焦时恢复位置
+const handleInputBlur = () => {
+  keyboardOffset.value = 0
+}
+
+// 处理原生键盘显示事件
+const handleKeyboardShow = (event: Event) => {
+  keyboardOffset.value = 264
+}
+
+// 处理原生键盘隐藏/关闭事件
+const handleKeyboardHide = () => {
+  keyboardOffset.value = 0
+}
+
+onMounted(() => {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('keyboard-show', handleKeyboardShow)
+    window.addEventListener('keyboard-hide', handleKeyboardHide)
+    window.addEventListener('nativeKeyboardClose', handleKeyboardHide)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('keyboard-show', handleKeyboardShow)
+    window.removeEventListener('keyboard-hide', handleKeyboardHide)
+    window.removeEventListener('nativeKeyboardClose', handleKeyboardHide)
+  }
+})
 
 // 监听对话框打开，重置表单
 watch(
@@ -151,7 +196,7 @@ const handleCancel = () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 16px;
+  padding: 0 16px 16px 16px;
   gap: 12px;
 }
 
@@ -184,6 +229,11 @@ const handleCancel = () => {
     top: 8px;
   }
 
+  // 隐藏 DrawingBoard 统一工具栏中的配置按钮
+  :deep(.popup-icon-wrapper) {
+    display: none !important;
+  }
+
   .empty-placeholder {
     display: flex;
     flex-direction: column;
@@ -199,8 +249,20 @@ const handleCancel = () => {
   flex-shrink: 0;
 
   .question-input {
-    :deep(.q-field__control) {
-      min-height: 60px;
+    width: 100%;
+    min-height: 60px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    resize: vertical;
+    font-size: 14px;
+    line-height: 1.5;
+    outline: none;
+    box-sizing: border-box;
+
+    &:focus {
+      border-color: #6e55ff;
+      box-shadow: 0 0 0 1px rgba(110, 85, 255, 0.2);
     }
   }
 }
@@ -214,8 +276,33 @@ const handleCancel = () => {
 
   .cancel-btn,
   .confirm-btn {
-    min-width: 80px;
+    min-width: 90px;
+    width: 90px;
+    height: 43px;
+    border-radius: 12px;
+    font-weight: 500;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    font-size: 14px;
   }
+
+   .confirm-btn {
+     background-color: #6e55ff;
+     color: #ffffff;
+
+     &:disabled {
+       background-color: #a6aaf4;
+       color: #ffffff;
+       cursor: not-allowed;
+     }
+   }
+
+   .cancel-btn {
+     background-color: #ffffff;
+     color: #6e55ff;
+     border: 1px solid #6e55ff;
+   }
 }
 </style>
 

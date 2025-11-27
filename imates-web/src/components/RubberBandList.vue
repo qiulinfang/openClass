@@ -58,7 +58,7 @@ const props = defineProps({
 
   // 下拉刷新
   enableRefresh: { type: Boolean, default: false },
-  refreshThreshold: { type: Number, default: 60 },
+  refreshThreshold: { type: Number, default: 130 },
 
   // 自动加载更多
   enableLoadMore: { type: Boolean, default: false },

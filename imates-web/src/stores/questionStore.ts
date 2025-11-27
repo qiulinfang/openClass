@@ -104,28 +104,19 @@ export const useQuestionStore = defineStore('question', () => {
     try {
       isLoading.value = true
       
-      // 并行加载所有学科的题目
+      // 并行加载所有学科的题目（始终从服务器获取，失败时才回退到本地）
       const loadPromises = allSubjects.map(async (subject) => {
         try {
-          
-          // 第1步：优先从 IndexedDB 加载
-          if (useLocalFirst) {
-            const loaded = await loadSingleSubjectFromLocal(subject)
-            if (loaded && loaded.length > 0) {
-              return loaded
-            }
-          }
-          
-          // 第2步：从API获取题目
+          // 第1步：从 API 获取题目
           const apiService = ApiService.getInstance()
           const questionList = await apiService.getExerciseList(subject)
-          
-          // 转换 API 响应的 ExerciseItem 类型
+
+          // 第2步：转换 API 响应的 ExerciseItem 类型
           const convertedQuestions: ExerciseItem[] = questionList.map((q: unknown) => {
             const question = q as Record<string, unknown>
             return {
               bmNo: (question.bmNo as string) || (question.id as string) || '',
-              id: (question.bmNo as string) || (question.id as string) || '',
+              id: (question.id as string) || (question.bmNo as string) || '',
               title: (question.title as string) || '',
               question: (question.content as string) || (question.question as string) || (question.title as string) || '',
               answer: (question.answer as string) || '',
@@ -134,21 +125,26 @@ export const useQuestionStore = defineStore('question', () => {
               subject: (question.subject as string) || subject.toLowerCase(),
             }
           })
-          
-          // 保存到 IndexedDB（直接调用底层方法，避免修改全局状态）
-          // 只有当有题目时才保存，避免保存空数组
+
+          // 第3步：覆盖写入 IndexedDB（每次加载都用最新服务器数据替换本地缓存）
           if (convertedQuestions.length > 0) {
+            try {
+              await deleteQuestionsFromIndexedDB(subject)
+            } catch (error) {
+              console.error(`[QUESTION] ❌ 删除本地 ${subject} 科目题目失败:`, error)
+            }
+
             try {
               await saveQuestionsToIndexedDB(subject, convertedQuestions)
             } catch (error) {
               console.error(`[QUESTION] 保存 ${subject} 科目题目到 IndexedDB 失败:`, error)
             }
-          } else {
           }
+
           return convertedQuestions
         } catch (error) {
           console.error(`[QUESTION] ❌ 获取 ${subject} 科目题目失败:`, error)
-          // 如果API失败，尝试使用 IndexedDB 的数据
+          // 如果 API 失败，尝试使用 IndexedDB 的数据作为回退
           const loaded = await loadSingleSubjectFromLocal(subject)
           if (loaded && loaded.length > 0) {
             return loaded
@@ -216,7 +212,9 @@ export const useQuestionStore = defineStore('question', () => {
       // 第4步：保存到 IndexedDB
       try {
         await deleteQuestionsFromIndexedDB(subject)
+        console.log(`[QUESTION] ✅ 删除本地 ${subject} 科目题目成功`)
         await saveQuestionsToIndexedDB(subject, questions.value)
+        console.log(`[QUESTION] ✅ 保存题目列表到 IndexedDB 成功`)
       } catch (error) {
         console.error('[QUESTION] ❌ 保存题目列表到 IndexedDB 失败:', error)
       }
@@ -355,28 +353,31 @@ export const useQuestionStore = defineStore('question', () => {
   
   /**
    * 添加相似题目到列表
+   * 先调用后端接口成功后，再更新本地题目列表和 IndexedDB
    * @param question 题目
    * @param subject 科目类型（可选，用于保存到 IndexedDB）
    */
   const addSimilarQuestionToList = async (question: ExerciseItem, subject?: string): Promise<void> => {
-    // 检查是否已存在
+    // 1. 本地去重：按 bmNo 判断是否已存在
     const exists = questions.value.some(q => q.bmNo === question.bmNo)
-    if (!exists) {
-          question.subject = subject
-    // id 等于 bmNo，保持一致
-    question.id = question.bmNo
-    questions.value.unshift(question)
-    // 如果提供了科目，保存到 IndexedDB
-    if (subject) {
-      try {
-        await saveQuestionsToIndexedDB(subject, questions.value)
-      } catch (error) {
-        console.error('[QUESTION] ❌ 保存题目列表到 IndexedDB 失败:', error)
-      }
-}
-    } else{
+    if (exists) {
       throw new Error('该题目已存在于题目列表中，无法重复添加')
     }
+
+    const apiService = ApiService.getInstance()
+
+    // 2. 先准备好科目，保证传给接口的一定是字符串
+    const normalizedSubject = subject || question.subject || 'math'
+
+    // 先调用后端接口添加题目
+    const success = await apiService.addQuestionToList(question, normalizedSubject)
+
+    if (!success) {
+      throw new Error('添加题目到服务器失败')
+    }
+
+    // 3. 重新拉取该科目题目列表（内部会更新 questions 并同步 IndexedDB）
+    await fetchQuestions(normalizedSubject, false)
   }
   
   /**

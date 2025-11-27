@@ -5,6 +5,13 @@
       <div class="main-content">
         <!-- 编辑器区域 -->
         <div class="editor-section">
+          <!-- 自定义占位符：当 modelValue 为空且未获得焦点时显示 -->
+          <div
+            v-if="(!props.modelValue || !props.modelValue.trim()) && !isFocused"
+            class="editor-placeholder"
+          >
+            {{ '输入你的问题' }}
+          </div>
           <!-- Quill编辑器 -->
           <div ref="editorRef" :id="editorId"></div>
         </div>
@@ -41,7 +48,8 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'focus', 'blur', 'keydown'])
 
 // 响应式数据
-const editorRef = ref(null)
+const editorRef = ref<HTMLElement | null>(null)
+const isFocused = ref(false)
 
 // 生成唯一的编辑器ID
 const editorId = computed(() => `math-editor-${Math.random().toString(36).substr(2, 9)}`)
@@ -245,8 +253,10 @@ const initializeEditor = async () => {
     // 监听焦点事件
     quill?.on("selection-change", (range: any) => {
       if (range) {
+        isFocused.value = true
         emit('focus')
       } else {
+        isFocused.value = false
         emit('blur')
       }
     })
@@ -752,6 +762,7 @@ defineExpose({
 .editor-section {
   padding: 0;
   flex: 1;
+  position: relative;
 }
 
 .section-title {
@@ -831,6 +842,21 @@ defineExpose({
   opacity: 1 !important;
 }
 
+/* 自定义占位符层：覆盖在编辑器内容之上，但不影响输入 */
+.editor-placeholder {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  color: #9aa0a6;
+  font-size: 16px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
 
 /* 响应式设计 */
 @media (max-width: 1024px) {
@@ -988,16 +1014,6 @@ defineExpose({
 }
 
 /* 确保空的编辑器不显示任何内容 */
-.ql-editor:empty {
-  display: none;
-}
-
-/* 兼容 Chrome 99：使用类选择器替代 :has() */
-.ql-editor.has-empty-paragraphs {
-  display: none;
-}
-
-/* 强制移除不必要的换行和空格 */
 .ql-editor br {
   display: none !important;
 }

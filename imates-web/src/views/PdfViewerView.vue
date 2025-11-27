@@ -61,6 +61,7 @@
         <PdfChatPanel 
           ref="chatPanelRef" 
           @select-and-ask-click="handleSelectAndAskFromChat" 
+          @close="handleCloseChatPanel"
         />
       </template>
     </q-splitter>
@@ -404,7 +405,10 @@ const loadPdfWithService = async (file: File) => {
 
 // 处理对话面板关闭
 const handleCloseChatPanel = () => {
-  pdfViewerStore.closeChatPanel() 
+  if (pdfViewerStore.selectedTool === 'screenshot') {
+    handleToolChange('hand')
+  }
+  pdfViewerStore.closeChatPanel()
 }
 
 // 截图输入对话框状态

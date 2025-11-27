@@ -44,7 +44,7 @@ export class AiTextbookStrategy implements ChatStrategy {
   
   // 第4步：获取欢迎消息
   getWelcomeMessage(): string {
-    return '你好！我可以帮你解答教材中的问题。请告诉我你的疑问，或者直接发送教材截图。'
+    return '你好！我可以帮你解答教材中的问题。请告诉我你的疑问，或者使用探索区域工具发送教材截图。'
   }
   
   // 第5步：检查是否需要选择题目

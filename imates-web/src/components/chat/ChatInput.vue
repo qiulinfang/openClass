@@ -16,8 +16,13 @@
           <img :src="formulaIconToUse" alt="公式" class="toolbar-icon" />
         </button>
 
-        <!-- 问老师 -->
-        <button type="button" class="toolbar-btn" @click="handleAskTeacherClick">
+        <!-- 问老师：仅在 AI 场景显示，老师答疑场景隐藏 -->
+        <button
+          v-if="props.type !== 'teacher-general' && props.type !== 'teacher-exercise'"
+          type="button"
+          class="toolbar-btn"
+          @click="handleAskTeacherClick"
+        >
           <img :src="askTeacherIconToUse" alt="问老师" class="toolbar-icon" />
         </button>
       </div>
@@ -63,7 +68,7 @@
         <MathFormulaEditor
           ref="mathEditorRef"
           v-model="editorContent"
-          :placeholder="props.placeholderText"
+          :placeholder="props.placeholderText || '请输入要问的问题'"
           :disabled="props.isLoading"
           :max-height="'200px'"
           @focus="handleEditorFocus"
@@ -185,27 +190,28 @@
             <q-tooltip>{{ props.isRecording ? '松开结束录音' : '按住说话' }}</q-tooltip>
           </button> -->
 
-          <!-- 发送按钮 -->
-          <button
-            type="button"
-            :disabled="!props.canSend || props.isLoading"
-            @click="handleSendMessage"
-            class="send-button"
-            :class="{
-              // 只要可以发送（非 loading），无论是否编辑模式，都使用同一个高亮样式
-              'send-button--enabled': !props.isLoading && (props.canSend || props.isEditing),
-              'send-button--disabled': props.isLoading || (!props.canSend && !props.isEditing),
-            }"
-          >
-            <!-- 加载状态图标 -->
-            <img v-if="props.isLoading" :src="waitingIcon" alt="等待中" class="send-loading-icon" />
-            <!-- 编辑状态图标 -->
-            <img v-else-if="props.isEditing" :src="sendIcon" alt="发送" class="send-icon" />
-            <!-- 自定义发送图标 -->
-            <img v-else :src="sendIcon" alt="发送" class="send-icon" />
-            <q-tooltip v-if="props.isEditing">更新消息</q-tooltip>
-            <q-tooltip v-else>发送消息</q-tooltip>
-          </button>
+          <!-- 发送按钮（外层透明点击区域更大，内部视觉尺寸不变） -->
+          <div class="send-button-hit-area" @click="handleSendButtonHitAreaClick">
+            <button
+              type="button"
+              :disabled="!props.canSend || props.isLoading"
+              class="send-button"
+              :class="{
+                // 只要可以发送（非 loading），无论是否编辑模式，都使用同一个高亮样式
+                'send-button--enabled': !props.isLoading && (props.canSend || props.isEditing),
+                'send-button--disabled': props.isLoading || (!props.canSend && !props.isEditing),
+              }"
+            >
+              <!-- 加载状态图标 -->
+              <img v-if="props.isLoading" :src="waitingIcon" alt="等待中" class="send-loading-icon" />
+              <!-- 编辑状态图标 -->
+              <img v-else-if="props.isEditing" :src="sendIcon" alt="发送" class="send-icon" />
+              <!-- 自定义发送图标 -->
+              <img v-else :src="sendIcon" alt="发送" class="send-icon" />
+              <q-tooltip v-if="props.isEditing">更新消息</q-tooltip>
+              <q-tooltip v-else>发送消息</q-tooltip>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -478,11 +484,13 @@ const currentInputValue = computed(() => {
 
 // 编辑器事件处理
 const handleEditorFocus = () => {
+  console.log('[ChatInput][Keyboard] editor focus')
   isEditorFocused.value = true
   emit('focus')
 }
 
 const handleEditorBlur = () => {
+  console.log('[ChatInput][Keyboard] editor blur')
   isEditorFocused.value = false
   emit('blur')
 }
@@ -490,6 +498,7 @@ const handleEditorBlur = () => {
 const handleEditorKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
+    console.log('[ChatInput][Keyboard] Enter pressed without Shift -> sendMessage')
     handleSendMessage()
   }
 }
@@ -594,6 +603,14 @@ const handleAskTeacherClick = () => {
 // 显示图片选择器处理
 const handleShowImagePicker = () => {
   emit('show-image-picker')
+}
+
+// 发送按钮外层点击区域处理：仅在可发送且未 loading 时触发发送
+const handleSendButtonHitAreaClick = () => {
+  if (!props.canSend || props.isLoading) {
+    return
+  }
+  handleSendMessage()
 }
 
 // 麦克风按钮点击处理
@@ -792,6 +809,7 @@ const isSendingMessage = ref(false)
 
 // 发送消息处理
 const handleSendMessage = () => {
+  console.log('[ChatInput][Keyboard] handleSendMessage start')
   // 1. 设置发送标志，防止键盘关闭事件干扰
   isSendingMessage.value = true
 
@@ -800,6 +818,7 @@ const handleSendMessage = () => {
 
   // 3. 检查内容是否为空
   if (!markdownContent || !markdownContent.trim()) {
+    console.log('[ChatInput][Keyboard] handleSendMessage aborted: empty content')
     isSendingMessage.value = false
     return
   }
@@ -818,6 +837,7 @@ const handleSendMessage = () => {
 
     // 延迟一小段时间后关闭键盘，确保消息已发送
     setTimeout(() => {
+      console.log('[ChatInput][Keyboard] handleSendMessage -> blur editor to close keyboard')
       // 让编辑器失焦，触发键盘关闭
       if (mathEditorRef.value) {
         const editorElement =
@@ -885,8 +905,12 @@ watch(
 )
 
 const handleNativeKeyboardClose = () => {
+  console.log('[ChatInput][Keyboard] nativeKeyboardClose event received', {
+    isSendingMessage: isSendingMessage.value,
+  })
   // 如果正在发送消息，跳过处理，避免干扰发送流程
   if (isSendingMessage.value) {
+    console.log('[ChatInput][Keyboard] nativeKeyboardClose skipped because isSendingMessage=true')
     return
   }
 
@@ -898,6 +922,7 @@ const handleNativeKeyboardClose = () => {
 
   // 让主输入区域失焦
   if (contentCanvasRef.value) {
+    console.log('[ChatInput][Keyboard] nativeKeyboardClose -> blur contentCanvas')
     contentCanvasRef.value.blur()
   }
 }
@@ -1207,6 +1232,7 @@ defineExpose({
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  min-height: 21px;
 }
 
 .unified-input-area:hover {
@@ -1723,6 +1749,16 @@ defineExpose({
 .control-icon-btn.active {
   background: #e8f0fe;
   color: #1a73e8;
+}
+
+/* 发送按钮外层点击区域：扩大可点击范围但不改变内部按钮视觉尺寸 */
+.send-button-hit-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 16px; /* 四周增加少量透明点击区域 */
+  /* 使用负 margin 抵消 padding 对布局高度的影响，避免撑高整个输入区域 */
+  margin: -16px -16px;
 }
 
 /* 麦克风按钮 */

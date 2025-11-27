@@ -21,12 +21,15 @@
       </q-input>
     </div>
 
-    <!-- 题目列表 - 卡片布局，使用 RubberBandList 实现橡皮筋滚动和自动加载更多 -->
+    <!-- 题目列表 - 卡片布局，使用 RubberBandList 实现橡皮筋滚动、下拉刷新和自动加载更多 -->
     <RubberBandList
       ref="scrollContainer"
       class="question-cards-container"
+      :enable-refresh="true"
+      :refresh-threshold="100"
       :enable-load-more="hasMoreQuestions"
       :loading="renderingQuestions"
+      @refresh="handlePullDownRefresh"
       @loadMore="loadMoreQuestions"
     >
       <!-- 空状态 -->
@@ -830,7 +833,6 @@ const deleteQuestion = async () => {
   if (!deleteTargetQuestion.value) return
 
   const question = deleteTargetQuestion.value
-  const questionId = question.bmNo
 
   if (!question.bmNo) {
     showMessage('无法确定要删除的题目', 'error')
@@ -871,8 +873,8 @@ const deleteQuestion = async () => {
           subjectToDelete = subjectUpper.toLowerCase()
         }
       }
-
-      // 使用API服务删除题目（旧版逻辑，使用 bmNo）
+      console.log(`[QuestionList] ✅ 删除题目 ${question} 的科目是 ${subjectToDelete}`)
+      // 使用API服务删除题目（使用 bmNo）
       const success = await apiService.deleteExercise(question.id, subjectToDelete)
 
       if (success) {

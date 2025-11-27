@@ -103,7 +103,7 @@
               <q-card-section class="function-content q-pa-none">
                 <!-- AI聊天界面 -->
                 <ChatView
-                  v-if="currentFunction === 'chatAi'"
+                  v-show="currentFunction === 'chatAi'"
                   type="ai-exercise"
                   :compressed-height="327"
                   :question="currentQuestion"
@@ -115,7 +115,7 @@
 
                 <!-- 问老师界面 -->
                 <ChatView 
-                  v-if="currentFunction === 'askTeacher'" 
+                  v-show="currentFunction === 'askTeacher'" 
                   type="teacher-exercise"
                   :compressed-height="327"
                   :question="currentQuestion"
@@ -178,6 +178,7 @@ import { useUIStore } from '../stores/uiStore'
 import type { ExerciseItem, ChatBubble } from '../types'
 import { Subject } from '../types'
 import switchSubjectIcon from '/icons/switch_subject.svg' 
+import RubberBandList from '../components/RubberBandList.vue'
 
 // 第1步：判断是否显示调试功能（仅通过环境变量控制）
 // 必须设置 VITE_ENABLE_DEBUG 环境变量来控制调试功能的显示
@@ -197,6 +198,8 @@ const splitterModel = ref(30)
 
 // QuestionList 组件引用
 const questionListRef = ref<InstanceType<typeof QuestionList> | null>(null)
+// 橡皮筋下拉刷新容器引用
+const rubberBandListRef = ref<InstanceType<typeof RubberBandList> | null>(null)
 
 // UnifiedChatDialog 组件引用
 const unifiedChatDialogRef = ref<InstanceType<typeof UnifiedChatDialog> | null>(null)
@@ -287,6 +290,19 @@ const handleQuestionAdded = () => {
   // 只刷新题目列表数据，不重新加载整个列表
   if (questionListRef.value) {
     questionListRef.value.refreshQuestions()
+  }
+}
+
+// 处理下拉刷新（由 RubberBandList 触发）
+const handlePullDownRefresh = async () => {
+  try {
+    if (questionListRef.value && typeof questionListRef.value.refreshQuestions === 'function') {
+      await questionListRef.value.refreshQuestions()
+    }
+  } catch (error) {
+    showMessage('刷新失败，请稍后重试', 'error')
+  } finally {
+    rubberBandListRef.value?.finishRefresh()
   }
 }
 

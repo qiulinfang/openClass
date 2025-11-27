@@ -130,7 +130,7 @@
             <div v-else class="fullscreen-top-buttons">
               <!-- 左侧：大小切换按钮 -->
               <img
-                :src="switcherIcon"
+                src="icons/Switcher.svg"
                 alt="toggle size"
                 class="switcher-btn"
                 @click.stop="handleToggleFullscreen"
@@ -138,7 +138,7 @@
 
               <!-- 右侧：关闭按钮 -->
               <img
-                :src="closeIcon"
+                src="icons/close.svg"
                 alt="close"
                 class="close-btn"
                 @click.stop="handleClose"
@@ -163,8 +163,6 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-const switcherIcon = import('/icons/Switcher.svg')
-const closeIcon = import('/icons/close.svg')
 
 interface Props {
   modelValue: boolean
@@ -177,6 +175,7 @@ interface Props {
   headerBackgroundColor?: string
   titleFontSize?: string | number
   fullscreen?: boolean
+  closeOnOverlayClick?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -188,6 +187,7 @@ const props = withDefaults(defineProps<Props>(), {
   headerBackgroundColor: '#fafafb',
   titleFontSize: 16,
   fullscreen: false,
+  closeOnOverlayClick: true,
 })
 
 const emit = defineEmits<{
@@ -309,7 +309,8 @@ const handleToggleFullscreen = () => {
 }
 
 const handleOverlayClick = () => {
-  // 点击遮罩层关闭对话框
+  // 点击遮罩层关闭对话框，受 closeOnOverlayClick 控制
+  if (!props.closeOnOverlayClick) return
   handleClose()
 }
 

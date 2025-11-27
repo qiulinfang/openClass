@@ -22,7 +22,7 @@
         class="toggle-mode-button"
         @click="emit('toggle-mode')"
       >
-        <img :src="switcherIcon" alt="switch mode" class="toggle-mode-icon" />
+        <img src="icons/Switcher.svg" alt="switch mode" class="toggle-mode-icon" />
       </button>
       <q-btn
         flat
@@ -44,14 +44,14 @@
             <ChatView
               v-if="activeCategory === 'ai-general'"
               type="ai-general"
-              :compressed-height="260"
+              :compressed-height="339"
               @open-teacher-dialog="handleOpenTeacherDialog"
               @switch-to-teacher="handleSwitchToTeacher"
             />
             <ChatView
               v-else-if="activeCategory === 'teacher' && teacherChatStore.currentSession?.sessionId"
               type="teacher-general"
-              :compressed-height="260"
+              :compressed-height="339"
               :session-id="teacherChatStore.currentSession.sessionId"
               :key="teacherChatStore.currentSession.sessionId"
             />
@@ -89,7 +89,6 @@ import { authStorageService } from '@/services/auth-storage-service'
 import SessionTree from './SessionTree.vue'
 import ChatView from './ChatView.vue'
 import type { ChatBubble } from '@/types'
-const switcherIcon = import('/icons/Switcher.svg')
 const aiGeneralStore = useAiGeneralChatStore()
 const teacherChatStore = useTeacherGeneralChatStore()
 
@@ -302,6 +301,7 @@ const handleSwitchToTeacher = async (forwardData?: {
   background: transparent;
   cursor: pointer;
   z-index: 12000;
+  border-radius: 8px;
 }
 
 .toggle-mode-icon {
@@ -340,7 +340,7 @@ const handleSwitchToTeacher = async (forwardData?: {
 
 .left-panel {
   width: 260px;
-  border-right: 1px solid #e0e0e0;
+  border-right: 1px solid #e0e0e0; 
   background: #f5f5f5;
   display: flex;
   flex-direction: column;
