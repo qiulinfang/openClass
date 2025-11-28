@@ -162,9 +162,10 @@ const checkAppUpdate = async () => {
   try {
     const result = await apiService.checkAppUpdate?.()
     if (!result) {
+      console.log("端主动检查应用更新无结果");
       return
     }
-
+    console.log("端主动检查应用更新并同步服务器版本号",result)
     const serverVersion = (result as any).versionName || (result as any).VersionName || ''
     if (serverVersion && typeof serverVersion === 'string') {
       appVersion.value = serverVersion
@@ -197,29 +198,6 @@ onMounted(async () => {
 
   // 第6步：Web 端主动调用更新接口检查服务器版本号
   await checkAppUpdate()
-
-  // 第7步：监听Android端发送的版本号事件（兼容旧版本，Android 可能仍然推送版本号）
-  const handleAppVersionEvent = (event: Event) => {
-    const customEvent = event as CustomEvent<{ versionName: string }>
-    const versionName = customEvent.detail?.versionName
-    if (versionName) {
-      // 更新版本号
-      appVersion.value = versionName
-      // 持久化保存到 localStorage
-      saveAppVersion(versionName)
-      console.log('[LoginView] 收到应用版本号并已保存:', versionName)
-    }
-  }
-  
-  // 注册事件监听器
-  window.addEventListener('app-version', handleAppVersionEvent)
-  
-  // 组件卸载时移除事件监听器
-  onBeforeUnmount(() => {
-    window.removeEventListener('app-version', handleAppVersionEvent)
-  })
-
-  // 不再使用 setInterval，改用单次定时器
   
   // 第5步：监听Android原生日志
   // 保存原有的回调（如果存在，可能是App.vue中设置的）

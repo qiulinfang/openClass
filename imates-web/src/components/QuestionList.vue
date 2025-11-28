@@ -535,6 +535,8 @@ const handleContentRef = (el: unknown, questionId: string) => {
 // 设置内容引用，渲染MathJax并标记为已渲染完成
 const setContentRef = async (el: HTMLElement | null, questionId: string) => {
   if (el) {
+    const label = `[QuestionList][perf] 单题渲染 ${questionId}`
+    console.time(label)
     contentRefs.value.set(questionId, el)
 
     // 渲染MathJax
@@ -546,6 +548,7 @@ const setContentRef = async (el: HTMLElement | null, questionId: string) => {
 
     // 标记该题目已完成渲染（包括公式和图片处理）
     questionRenderedMap.value.set(questionId, true)
+    console.timeEnd(label)
   }
 }
 
@@ -887,15 +890,27 @@ const deleteQuestion = async () => {
           const aiExerciseStore = useAiExerciseChatStore()
           await aiExerciseStore.clearChatHistory(question.bmNo)
         }
+        const questionStore = useQuestionStore()
+        // 从 store 和本地列表中移除已删除的题目，避免额外请求
+        const storeIndex = questionStore.questions.findIndex(
+          (q: ExerciseItem) => q.id === question.id || q.bmNo === question.bmNo
+        )
+        if (storeIndex !== -1) {
+          questionStore.questions.splice(storeIndex, 1)
+        }
 
+        const localIndex = questions.value.findIndex(
+          (q) => q.id === question.id || q.bmNo === question.bmNo
+        )
+        if (localIndex !== -1) {
+          questions.value.splice(localIndex, 1)
+        }
         // 根据是否删除对话记录给出不同提示
         if (deleteWithChat.value) {
           showMessage('题目及相关对话记录已删除', 'success')
         } else {
           showMessage('题目删除成功', 'positive')
         }
-
-        const questionStore = useQuestionStore()
 
         // 根据当前筛选条件决定刷新方式
         if (selectedSubjectFilter.value === null) {
@@ -906,8 +921,6 @@ const deleteQuestion = async () => {
           await questionStore.fetchQuestions(subjectToDelete, false)
         }
 
-        // 重新加载题目列表（会自动重置渲染状态）
-        await loadQuestions()
       } else {
         showMessage('题目删除失败', 'error')
       }
@@ -949,11 +962,21 @@ const loadMoreQuestions = async () => {
   if (renderingQuestions.value || !hasMoreQuestions.value) return
 
   try {
+    console.time('[QuestionList][perf] loadMoreQuestions')
+    console.log('[QuestionList] 加载更多题目: before', {
+      displayedCount: displayedCount.value,
+      total: displayList.value.length,
+    })
     renderingQuestions.value = true
     displayedCount.value = Math.min(
       displayedCount.value + LOAD_MORE_COUNT,
       displayList.value.length
     )
+    console.log('[QuestionList] 加载更多题目: after', {
+      displayedCount: displayedCount.value,
+      total: displayList.value.length,
+    })
+    console.timeEnd('[QuestionList][perf] loadMoreQuestions')
     setTimeout(() => {
       renderingQuestions.value = false
     }, 2000)
@@ -963,6 +986,10 @@ const loadMoreQuestions = async () => {
 }
 
 const loadQuestions = async () => {
+  console.time('[QuestionList][perf] loadQuestions')
+  console.log('[QuestionList] 开始加载题目', {
+    selectedSubjectFilter: selectedSubjectFilter.value,
+  })
   loading.value = true
 
   try {
@@ -970,12 +997,16 @@ const loadQuestions = async () => {
 
     // 第1步：如果 store 中已有题目，直接使用（避免覆盖父组件已加载的正确科目）
     if (questionStore.questions.length > 0) {
+      console.log('[QuestionList] 使用 store 缓存题目', {
+        count: questionStore.questions.length,
+      })
       questions.value = [...questionStore.questions]
     } else {
       // 第2步：如果 store 中没有题目，需要确定科目并加载
       // 优先使用 selectedSubjectFilter 来确定科目
       if (selectedSubjectFilter.value === null) {
         // 全部学科：加载所有学科的题目
+        console.log('[QuestionList] 从服务器加载全部学科题目')
         await questionStore.fetchAllSubjectsQuestions(true)
       } else {
         // 具体学科：加载指定学科的题目
@@ -997,6 +1028,7 @@ const loadQuestions = async () => {
 
         // 使用 store 的 fetchQuestions 方法，它会优先从本地存储加载
         // fetchQuestions 方法会先尝试从本地存储加载，如果没有数据再请求API
+        console.log('[QuestionList] 从服务器加载单一学科题目', { subjectToLoad })
         await questionStore.fetchQuestions(subjectToLoad, true)
       }
 
@@ -1008,10 +1040,16 @@ const loadQuestions = async () => {
       // 重置显示数量为初始值
       displayedCount.value = INITIAL_DISPLAY_COUNT
       currentPage.value = 1
+      console.log('[QuestionList] 加载题目完成', {
+        total: questions.value.length,
+        initialDisplay: displayedCount.value,
+      })
     }
   } catch (error) {
     showMessage('加载题目失败: ' + ((error as Error)?.message || '未知错误'), 'error')
   } finally {
+    console.timeEnd('[QuestionList][perf] loadQuestions')
+    console.log('[QuestionList] 结束加载题目')
     loading.value = false
   }
 }
@@ -1033,6 +1071,11 @@ const refreshQuestions = () => {
 // 要求：强制重新请求接口，而不是只同步本地 store
 const handlePullDownRefresh = async () => {
   try {
+    console.time('[QuestionList][perf] pullDownRefresh')
+    console.log('[QuestionList] 下拉刷新开始', {
+      selectedSubject: selectedSubject.value,
+      filter: selectedSubjectFilter.value,
+    })
     const questionStore = useQuestionStore()
 
     // 根据当前筛选条件决定刷新范围
@@ -1047,6 +1090,10 @@ const handlePullDownRefresh = async () => {
 
     // 接口成功后，同步本地 questions 列表和当前选中索引
     refreshQuestions()
+    console.log('[QuestionList] 下拉刷新完成', {
+      total: questions.value.length,
+    })
+    console.timeEnd('[QuestionList][perf] pullDownRefresh')
   } catch (error) {
     showMessage('刷新失败，请稍后重试', 'error')
   } finally {

@@ -227,16 +227,19 @@ export class ApiService {
       // 根据当前环境动态获取更新接口 URL
       const { getAppUpdateUrl } = await import('../config/env-config')
       const url = getAppUpdateUrl()
-
+      console.log("url",url)
       const response = await httpClient.get<any>(url)
 
+      console.log("response", response);
       const data = response?.data ?? response
       if (!data) {
+        console.log("服务器更新数据为空");
         return null
       }
 
       const versionName: string = data.VersionName || data.versionName || ''
       if (!versionName) {
+        console.log("服务器版本号为空");
         return null
       }
 

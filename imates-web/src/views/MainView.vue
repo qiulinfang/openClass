@@ -28,10 +28,10 @@
           <img :src="currentExerciseIcon" alt="我的习题" class="nav-icon" />
           <span class="nav-text">我的习题</span>
         </div>
-        <!-- <div class="nav-item" :class="{ active: activeNavItem === 'drawingBoard' }" @click="handleDrawingBoardClick">
-          <img :src="currentDrawingBoardIcon" alt="画板" class="nav-icon" />
-          <span class="nav-text">画板</span>
-        </div> -->
+        <div class="nav-item" :class="{ active: activeNavItem === 'drawingBoard' }" @click="handleDrawingBoardClick">
+          <img :src="currentDrawingBoardIcon" alt="草稿本" class="nav-icon" />
+          <span class="nav-text">草稿本</span>
+        </div>
       </div>
       
       <!-- 底部菜单项 -->
@@ -151,7 +151,7 @@ import toolBoxIcon from '/icons/toolBox.svg'
 import downloadResourcesIcon from '/icons/downloadResources.svg'
 import knowledgeGraphIcon from '/icons/knowledge_graph.svg'
 import exerciseIcon from '/icons/my_exercises.svg'
-import drawingBoardIcon from '/icons/logout.svg'
+import drawingBoardIcon from '/icons/draw.svg'
 import logoutIcon from '/icons/logout.svg'
 
 // 第2步：导入选中状态图标
@@ -159,7 +159,7 @@ import toolBoxSelectIcon from '/icons/toolBox_select.svg'
 import downloadResourcesSelectIcon from '/icons/downloadResources_select.svg'
 import knowledgeGraphSelectIcon from '/icons/knowledge_graph_select.svg'
 import exerciseSelectIcon from '/icons/my_exercises_select.svg'
-import drawingBoardSelectIcon from '/icons/logout.svg'
+import drawingBoardSelectIcon from '/icons/draw_select.png'
 
 // 定义 props
 interface Props {
@@ -244,7 +244,7 @@ const fabStyle = computed(() => ({
 // 2）在主页右侧聊天面板打开时隐藏（避免视觉和交互冲突）
 // 3）在 PDF 查看页（pdfViewer）右侧聊天面板打开时隐藏悬浮按钮
 const showFab = computed(() => {
-  const isRouteAllowed = route.name !== 'exerciseSolve' && route.name !== 'drawingBoard'
+  const isRouteAllowed = route.name !== 'exerciseSolve'
   const isPdfChatOpen = route.name === 'pdfViewer' && pdfViewerStore.chatPanelVisible
   return isRouteAllowed && !showMainChatPanel.value && !isPdfChatOpen
 })
