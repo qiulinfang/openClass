@@ -15,7 +15,7 @@ import java.util.List;
 
 public class StudentClient extends BaseClient {
     private StudentListener listener;
-    private PollingManager polling;
+    private final PollingManager polling;
 
     public StudentClient(Context context, String serverUrl) {
         super(context, serverUrl);
@@ -90,7 +90,9 @@ public class StudentClient extends BaseClient {
         polling.start(myCity, mySchool, myClassroom, intervalSeconds);
     }
 
-    public void stopPolling() { polling.stop(); }
+    public void stopPolling() {
+        polling.stop();
+    }
 
     public ClassroomInfo getCurrentClassroomInfo() {
         return storage.getMyClassroomInfo();

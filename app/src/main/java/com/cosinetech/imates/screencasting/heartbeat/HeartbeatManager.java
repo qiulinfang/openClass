@@ -44,28 +44,23 @@ public class HeartbeatManager {
         stop();
         this.deviceInfo = info;
         this.intervalSeconds = intervalSeconds;
-        future = scheduler.scheduleAtFixedRate(new Runnable() {
+        future = scheduler.scheduleWithFixedDelay(() -> api.postHeartbeat(deviceInfo, new DeviceApi.ApiCallback<JsonObject>() {
             @Override
-            public void run() {
-                api.postHeartbeat(deviceInfo, new DeviceApi.ApiCallback<JsonObject>() {
-                    @Override
-                    public void onSuccess(JsonObject result) {
-                        // update storage: parse classroom if present
-                        try {
-                            // Base parsing is left to caller; here we just notify
-                            if (listener != null) listener.onHeartbeatSuccess(result);
-                        } catch (Exception e) { }
-                    }
-
-                    @Override
-                    public void onFailure(int httpCode, String errorBody, Throwable t) {
-                        storage.setLastHttpError(httpCode);
-                        storage.setLastServerError(errorBody);
-                        if (listener != null) listener.onHeartbeatFailure(httpCode, errorBody, t);
-                    }
-                });
+            public void onSuccess(JsonObject result) {
+                // update storage: parse classroom if present
+                try {
+                    // Base parsing is left to caller; here we just notify
+                    if (listener != null) listener.onHeartbeatSuccess(result);
+                } catch (Exception e) { }
             }
-        }, 0, intervalSeconds, TimeUnit.SECONDS);
+
+            @Override
+            public void onFailure(int httpCode, String errorBody, Throwable t) {
+                storage.setLastHttpError(httpCode);
+                storage.setLastServerError(errorBody);
+                if (listener != null) listener.onHeartbeatFailure(httpCode, errorBody, t);
+            }
+        }), 0, intervalSeconds, TimeUnit.SECONDS);
     }
 
     public void stop() {

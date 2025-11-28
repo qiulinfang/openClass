@@ -3,6 +3,8 @@ package com.cosinetech.imates.screencasting.base;
 import android.os.Handler;
 import android.os.Looper;
 
+import androidx.annotation.NonNull;
+
 import com.cosinetech.imates.screencasting.model.DeviceInfo;
 
 import com.google.gson.Gson;
@@ -18,9 +20,6 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-/**
- * Minimal DeviceApi using OkHttp and Gson. All callbacks are posted on main thread.
- */
 public class DeviceApi {
     private final OkHttpClient client;
     private final String baseUrl;
@@ -53,12 +52,12 @@ public class DeviceApi {
         Request req = new Request.Builder().url(url("register")).post(body).build();
         client.newCall(req).enqueue(new Callback() {
             @Override
-            public void onFailure(Call call, IOException e) {
+            public void onFailure(@NonNull Call call, IOException e) {
                 postFailure(cb, -1, null, e);
             }
 
             @Override
-            public void onResponse(Call call, Response response) throws IOException {
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
                 String s = response.body() != null ? response.body().string() : null;
                 if (!response.isSuccessful()) {
                     postFailure(cb, response.code(), s, null);
@@ -77,12 +76,12 @@ public class DeviceApi {
         Request req = new Request.Builder().url(url("heartbeat")).post(body).build();
         client.newCall(req).enqueue(new Callback() {
             @Override
-            public void onFailure(Call call, IOException e) {
+            public void onFailure(@NonNull Call call, IOException e) {
                 postFailure(cb, -1, null, e);
             }
 
             @Override
-            public void onResponse(Call call, Response response) throws IOException {
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
                 String s = response.body() != null ? response.body().string() : null;
                 if (!response.isSuccessful()) {
                     postFailure(cb, response.code(), s, null);
@@ -105,7 +104,7 @@ public class DeviceApi {
             }
 
             @Override
-            public void onResponse(Call call, Response response) throws IOException {
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
                 String s = response.body() != null ? response.body().string() : null;
                 if (!response.isSuccessful()) {
                     postFailure(cb, response.code(), s, null);
@@ -123,12 +122,12 @@ public class DeviceApi {
         Request req = new Request.Builder().url(url(path)).get().build();
         client.newCall(req).enqueue(new Callback() {
             @Override
-            public void onFailure(Call call, IOException e) {
+            public void onFailure(@NonNull Call call, IOException e) {
                 postFailure(cb, -1, null, e);
             }
 
             @Override
-            public void onResponse(Call call, Response response) throws IOException {
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
                 String s = response.body() != null ? response.body().string() : null;
                 if (!response.isSuccessful()) {
                     postFailure(cb, response.code(), s, null);
@@ -150,7 +149,7 @@ public class DeviceApi {
             }
 
             @Override
-            public void onResponse(Call call, Response response) throws IOException {
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
                 String s = response.body() != null ? response.body().string() : null;
                 if (!response.isSuccessful()) {
                     postFailure(cb, response.code(), s, null);
@@ -163,21 +162,11 @@ public class DeviceApi {
     }
 
     private void postSuccess(final ApiCallback cb, final Object result) {
-        mainHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                cb.onSuccess(result);
-            }
-        });
+        mainHandler.post(() -> cb.onSuccess(result));
     }
 
     private void postFailure(final ApiCallback cb, final int httpCode, final String body, final Throwable t) {
-        mainHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                cb.onFailure(httpCode, body, t);
-            }
-        });
+        mainHandler.post(() -> cb.onFailure(httpCode, body, t));
     }
 
     private String encode(String s) {

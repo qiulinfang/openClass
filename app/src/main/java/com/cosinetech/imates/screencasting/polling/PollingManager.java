@@ -33,25 +33,24 @@ public class PollingManager {
 
     public void start(String city, String school, String classroom, long intervalSeconds) {
         stop();
-        this.city = city; this.school = school; this.classroom = classroom; this.intervalSeconds = intervalSeconds;
-        future = scheduler.scheduleAtFixedRate(new Runnable() {
+        this.city = city;
+        this.school = school;
+        this.classroom = classroom;
+        this.intervalSeconds = intervalSeconds;
+        future = scheduler.scheduleWithFixedDelay(() -> api.getClassroom(city, school, classroom,
+                new DeviceApi.ApiCallback<JsonObject>() {
             @Override
-            public void run() {
-                api.getClassroom(city, school, classroom, new DeviceApi.ApiCallback<JsonObject>() {
-                    @Override
-                    public void onSuccess(JsonObject result) {
-                        if (listener != null) listener.onPolled(result);
-                    }
-
-                    @Override
-                    public void onFailure(int httpCode, String errorBody, Throwable t) {
-                        storage.setLastHttpError(httpCode);
-                        storage.setLastServerError(errorBody);
-                        if (listener != null) listener.onPollError(httpCode, errorBody, t);
-                    }
-                });
+            public void onSuccess(JsonObject result) {
+                if (listener != null) listener.onPolled(result);
             }
-        }, 0, intervalSeconds, TimeUnit.SECONDS);
+
+            @Override
+            public void onFailure(int httpCode, String errorBody, Throwable t) {
+                storage.setLastHttpError(httpCode);
+                storage.setLastServerError(errorBody);
+                if (listener != null) listener.onPollError(httpCode, errorBody, t);
+            }
+        }), 0, intervalSeconds, TimeUnit.SECONDS);
     }
 
     public void stop() {

@@ -12,7 +12,7 @@ import com.google.gson.JsonObject;
 
 public class ScreenClient extends BaseClient {
     private ScreenListener listener;
-    private HeartbeatManager heartbeat;
+    private final HeartbeatManager heartbeat;
     private DeviceInfo localInfo;
 
     public enum State { IDLE, REGISTERED }
@@ -91,5 +91,7 @@ public class ScreenClient extends BaseClient {
         return s;
     }
 
-    public DeviceInfo getLocalDeviceInfo() { return localInfo; }
+    public DeviceInfo getLocalDeviceInfo() {
+        return localInfo;
+    }
 }
