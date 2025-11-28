@@ -7,6 +7,7 @@ import com.cosinetech.imates.screencasting.base.DeviceApi;
 import com.cosinetech.imates.screencasting.heartbeat.HeartbeatManager;
 import com.cosinetech.imates.screencasting.listener.TeacherListener;
 import com.cosinetech.imates.screencasting.model.ClassroomDeviceStatus;
+import com.cosinetech.imates.screencasting.model.ClassroomInfo;
 import com.cosinetech.imates.screencasting.model.DeviceInfo;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;

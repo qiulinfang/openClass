@@ -3,6 +3,7 @@ package com.cosinetech.imates.screencasting.screen;
 import android.content.Context;
 
 import com.cosinetech.imates.screencasting.base.BaseClient;
+import com.cosinetech.imates.screencasting.base.DeviceApi;
 import com.cosinetech.imates.screencasting.heartbeat.HeartbeatManager;
 import com.cosinetech.imates.screencasting.listener.ScreenListener;
 import com.cosinetech.imates.screencasting.model.ClassroomDeviceStatus;

@@ -1,12 +1,17 @@
 package com.cosinetech.imates.screencasting.student;
-
 import android.content.Context;
 
 import com.cosinetech.imates.screencasting.base.BaseClient;
 import com.cosinetech.imates.screencasting.polling.PollingManager;
 import com.cosinetech.imates.screencasting.listener.StudentListener;
 import com.cosinetech.imates.screencasting.model.ClassroomInfo;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.cosinetech.imates.screencasting.base.DeviceApi;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class StudentClient extends BaseClient {
     private StudentListener listener;
@@ -19,19 +24,8 @@ public class StudentClient extends BaseClient {
             @Override
             public void onPolled(JsonObject resp) {
                 ClassroomInfo info = parseClassroomInfo(resp);
-                ClassroomInfo old = storage.getMyClassroomInfo();
-                boolean changed = false;
-                if (old == null) changed = true;
-                else {
-                    String oldTeacher = old.getFirstTeacherIp();
-                    String newTeacher = info.getFirstTeacherIp();
-                    String oldScreen = old.getFirstScreenIp();
-                    String newScreen = info.getFirstScreenIp();
-                    if ((oldTeacher == null && newTeacher != null) || (oldTeacher != null && !oldTeacher.equals(newTeacher))) changed = true;
-                    if ((oldScreen == null && newScreen != null) || (oldScreen != null && !oldScreen.equals(newScreen))) changed = true;
-                }
                 storage.setMyClassroomInfo(info);
-                if (changed && listener != null) listener.onClassroomInfoUpdated(info);
+                if (listener != null) listener.onClassroomInfoUpdated(info);
             }
 
             @Override
@@ -43,18 +37,60 @@ public class StudentClient extends BaseClient {
 
     public void setListener(StudentListener l) { this.listener = l; }
 
-    public void init(String city, String school, String classroom) {
-        this.myCity = city; this.mySchool = school; this.myClassroom = classroom;
+    public void init(String city, String school) {
+        this.myCity = city;
+        this.mySchool = school;
+    }
+
+    public void getClassroomList() {
+        api.getClassrooms(myCity, mySchool, new DeviceApi.ApiCallback<JsonObject>() {
+            @Override
+            public void onSuccess(JsonObject result) {
+                List<String> list = new ArrayList<>();
+                if (result.has("classrooms")) {
+                    JsonArray arr = result.getAsJsonArray("classrooms");
+                    for (JsonElement e : arr) list.add(e.getAsString());
+                }
+                if (listener != null) listener.onClassroomList(list);
+            }
+
+            @Override
+            public void onFailure(int httpCode, String errorBody, Throwable t) {
+                storage.setLastHttpError(httpCode);
+                storage.setLastServerError(errorBody);
+                if (listener != null) listener.onError(errorBody, t);
+            }
+        });
+    }
+
+    public void selectClassroom(String classroom) {
+        this.myClassroom = classroom;
+        queryClassroomInfoOnce();
+    }
+
+    public void queryClassroomInfoOnce() {
+        api.getClassroom(myCity, mySchool, myClassroom, new DeviceApi.ApiCallback<JsonObject>() {
+            @Override
+            public void onSuccess(JsonObject result) {
+                ClassroomInfo info = parseClassroomInfo(result);
+                storage.setMyClassroomInfo(info);
+                if (listener != null) listener.onClassroomInfoUpdated(info);
+            }
+
+            @Override
+            public void onFailure(int httpCode, String errorBody, Throwable t) {
+                storage.setLastHttpError(httpCode);
+                storage.setLastServerError(errorBody);
+                if (listener != null) listener.onError(errorBody, t);
+            }
+        });
     }
 
     public void startPolling(long intervalSeconds) {
-        if (myCity == null || mySchool == null || myClassroom == null) return;
         polling.start(myCity, mySchool, myClassroom, intervalSeconds);
     }
 
-    public void stopPolling() {
-        polling.stop();
-    }
+    public void stopPolling() { polling.stop(); }
 
     public ClassroomInfo getCurrentClassroomInfo() {
         return storage.getMyClassroomInfo();
