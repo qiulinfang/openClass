@@ -10,6 +10,7 @@ import com.cosinetech.imates.screencasting.model.DeviceInfo;
 import com.cosinetech.imates.screencasting.model.DeviceType;
 import com.cosinetech.imates.screencasting.model.ClassroomInfo;
 import com.cosinetech.imates.screencasting.ui.ClassroomSelectionDialog;
+import com.cosinetech.imates.screencasting.listener.DeviceChangeListener;
 
 import org.json.JSONObject;
 
@@ -33,6 +34,11 @@ import org.json.JSONObject;
  * client.setLocation("北京", "第一中学", "classroom_001");
  * client.register();
  * client.startHeartbeat();
+ * 
+ * // 3. 监听设备信息变化
+ * client.addDeviceChangeListener(change -> {
+ *     Log.d("Change", "Device changed: " + change.getChangeType());
+ * });
  */
 public class DeviceClientWrapper {
     private static final String TAG = "DeviceClientWrapper";
@@ -356,6 +362,38 @@ public class DeviceClientWrapper {
                 }
             });
         }
+    }
+
+
+    /**
+     * 添加设备变化监听器
+     * 当心跳检测到设备信息变化时会触发回调
+     * @param listener 变化监听器
+     */
+    public void addDeviceChangeListener(DeviceChangeListener listener) {
+        if (listener != null) {
+            deviceManager.addDeviceChangeListener(listener);
+            Log.d(TAG, "Device change listener added");
+        }
+    }
+
+    /**
+     * 移除设备变化监听器
+     * @param listener 要移除的监听器
+     */
+    public void removeDeviceChangeListener(DeviceChangeListener listener) {
+        if (listener != null) {
+            deviceManager.removeDeviceChangeListener(listener);
+            Log.d(TAG, "Device change listener removed");
+        }
+    }
+
+    /**
+     * 清空所有设备变化监听器
+     */
+    public void clearDeviceChangeListeners() {
+        deviceManager.clearDeviceChangeListeners();
+        Log.d(TAG, "All device change listeners cleared");
     }
 
     // ========== 辅助方法 ==========
