@@ -1,24 +1,69 @@
 package com.cosinetech.imates.screencasting.model;
 
-import androidx.annotation.Nullable;
-
+/**
+ * 设备信息
+ */
 public class DeviceInfo {
-    public String city;
-    public String school;
-    @Nullable
-    public String classroom; // may be null initially for teacher
-    public String ip;
-    public String type;   // teacher / screen / student
-    public String name;
+    private String deviceId;
+    private DeviceType type;
+    private String classroom;
+    private String school;
+    private String city;
+    private String name;
 
-    public DeviceInfo() {}
-
-    public DeviceInfo(String city, String school, String classroom, String ip, String type, String name) {
-        this.city = city;
-        this.school = school;
-        this.classroom = classroom;
-        this.ip = ip;
+    public DeviceInfo(String deviceId, DeviceType type) {
+        this.deviceId = deviceId;
         this.type = type;
+    }
+
+    public String getDeviceId() {
+        return deviceId;
+    }
+
+    public DeviceType getType() {
+        return type;
+    }
+
+    public String getClassroom() {
+        return classroom;
+    }
+
+    public void setClassroom(String classroom) {
+        this.classroom = classroom;
+    }
+
+    public String getSchool() {
+        return school;
+    }
+
+    public void setSchool(String school) {
+        this.school = school;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
         this.name = name;
+    }
+
+    @Override
+    public String toString() {
+        return "DeviceInfo{" +
+                "deviceId='" + deviceId + '\'' +
+                ", type=" + type +
+                ", classroom='" + classroom + '\'' +
+                ", school='" + school + '\'' +
+                ", city='" + city + '\'' +
+                '}';
     }
 }
