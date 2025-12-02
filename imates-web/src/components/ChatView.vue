@@ -69,6 +69,12 @@
       </Transition>
     </div>
 
+          <!-- 会话列表覆盖层：使用 ChatSessionList 展示多会话管理界面 -->
+      <Transition name="fade">
+        <div  class="chat-session-list-overlay" @click.self="showSessionListPanel = false">
+          <ChatSessionList />
+        </div>
+      </Transition>
     <!-- 选择模式工具栏 - 新设计 -->
     <!-- 功能：当用户进入多选模式时显示，提供批量操作功能，替换 ChatInput 的位置 -->
     <div v-if="isSelectionMode" class="selection-toolbar">
@@ -205,6 +211,7 @@ import ChatMessageComponent from './chat/ChatMessage.vue'
 import ChatInput from './chat/ChatInput.vue'
 import SimpleChatInput from './chat/SimpleChatInput.vue'
 import VoiceRecorder from './chat/VoiceRecorder.vue'
+import ChatSessionList from './ChatSessionList.vue'
 
 // 类型定义导入
 import type { ChatBubble } from '../types'
@@ -335,6 +342,8 @@ const inputMessage = ref('') // 输入框内容
 const isLoading = ref(false) // 消息发送加载状态
 const isRecording = ref(false) // 语音录制状态
 const quotedMessage = ref<ChatBubble | null>(null) // 引用的消息
+// 会话列表面板显示状态（用于在 ChatView 内部管理多个会话的列表展示）
+const showSessionListPanel = ref(false)
 // 当前高亮的 sessionId（用于整段会话高亮）
 const highlightedSessionId = ref<string | null>(null)
 // 对话相关状态（需要在策略初始化之前声明）

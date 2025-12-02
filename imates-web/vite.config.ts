@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
   // 资源服务器（文件/图片等）
   // 测试环境同样使用 imates 资源服务器
   const RESOURCE_FILE_BASE = isTest
-    ? 'https://43.138.16.5:50013/'
+    ? 'https://43.138.16.5:50013'
     : 'https://www.imates.com.cn:9099'
 
   // APP 更新接口所用域名
